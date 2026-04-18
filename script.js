@@ -548,6 +548,18 @@ function renderDashboard() {
   $("#stat-debt-total").textContent = fmtMYR.format(total);
   $("#stat-debt-apr").textContent = fmtPct(weighted);
 
+  const banner = $("#stat-debt-banner");
+  const bannerSub = $("#stat-debt-banner-sub");
+  if (banner) banner.textContent = fmtMYR.format(total);
+  if (bannerSub) {
+    if (state.debts.length === 0) {
+      bannerSub.textContent = "No debts yet";
+    } else {
+      const n = state.debts.length;
+      bannerSub.textContent = `${n} debt${n === 1 ? "" : "s"} · weighted APR ${fmtPct(weighted)}`;
+    }
+  }
+
   const extraInput = $("#extra-monthly");
   if (document.activeElement !== extraInput) {
     extraInput.value = state.extraMonthly ? state.extraMonthly : "";

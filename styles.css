@@ -109,6 +109,31 @@ main {
   margin: 0.4rem 0 0;
 }
 
+/* Top debt banner */
+.debt-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  text-align: center;
+  background: linear-gradient(135deg, #1b2540 0%, #2b1220 100%);
+}
+.debt-banner .label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.debt-banner strong {
+  font-size: 1.9rem;
+  font-variant-numeric: tabular-nums;
+  color: #fca5a5;
+  letter-spacing: -0.02em;
+}
+.debt-banner .sub {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
 /* Summary grid */
 .summary {
   display: grid;
