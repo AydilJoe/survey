@@ -284,6 +284,9 @@ function updateDailyTargetSelect() {
   for (const d of state.debts) {
     opts.push(`<option value="debt:${d.id}">Pay debt — ${escapeHtml(d.name)}</option>`);
   }
+  for (const g of state.savings) {
+    opts.push(`<option value="saving:${g.id}">Save to goal — ${escapeHtml(g.name)}</option>`);
+  }
   sel.innerHTML = opts.join("");
   if (prev && Array.from(sel.options).some((o) => o.value === prev)) {
     sel.value = prev;
@@ -352,6 +355,10 @@ function renderDaily() {
       if (e.kind === "debt") {
         const name = debtNameById(e.debtId) || e.debtName || "debt";
         pill = `<span class="cat-pill" style="color:#fca5a5;border-color:#7f1d1d;">↓ ${escapeHtml(name)}</span>`;
+      } else if (e.kind === "saving") {
+        const goal = state.savings.find((g) => g.id === e.savingId);
+        const name = goal ? goal.name : (e.savingName || "savings");
+        pill = `<span class="cat-pill" style="color:#86efac;border-color:#166534;">↑ ${escapeHtml(name)}</span>`;
       } else {
         pill = `<span class="cat-pill">${escapeHtml(e.category || "Others")}</span>`;
       }
@@ -454,7 +461,8 @@ function renderDashboard() {
   $("#stat-expenses").textContent = fmtMYR.format(expenseTotal);
   $("#stat-min").textContent = fmtMYR.format(minSum);
 
-  const net = incomeTotal - expenseTotal - minSum - (Number(state.extraMonthly) || 0);
+  const dailyMonth = dailyStats().month;
+  const net = incomeTotal - expenseTotal - minSum - (Number(state.extraMonthly) || 0) - dailyMonth;
   const netEl = $("#stat-net");
   netEl.textContent = fmtMYR.format(net);
   netEl.classList.toggle("pos", net >= 0);
@@ -577,6 +585,15 @@ $("#form-daily").addEventListener("submit", (e) => {
       id, createdAt, kind: "debt", date, amount,
       debtId: debt.id, debtName: debt.name, note,
     });
+  } else if (target.startsWith("saving:")) {
+    const savingId = target.slice("saving:".length);
+    const goal = state.savings.find((g) => g.id === savingId);
+    if (!goal) return;
+    goal.current = Math.max(0, (Number(goal.current) || 0) + amount);
+    state.dailyExpenses.push({
+      id, createdAt, kind: "saving", date, amount,
+      savingId: goal.id, savingName: goal.name, note,
+    });
   } else {
     const category = (f.get("category") || "").toString().trim() || "Others";
     state.dailyExpenses.push({
@@ -648,6 +665,10 @@ document.addEventListener("click", (e) => {
       const debt = state.debts.find((d) => d.id === entry.debtId);
       if (debt) debt.balance = (Number(debt.balance) || 0) + (Number(entry.amount) || 0);
     }
+    if (entry && entry.kind === "saving" && entry.savingId) {
+      const goal = state.savings.find((g) => g.id === entry.savingId);
+      if (goal) goal.current = Math.max(0, (Number(goal.current) || 0) - (Number(entry.amount) || 0));
+    }
     state.dailyExpenses = state.dailyExpenses.filter((x) => x.id !== id);
   } else if (action === "save-delete") {
     state.savings = state.savings.filter((x) => x.id !== id);
@@ -694,6 +715,8 @@ function toCSV() {
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
       rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || ""]));
+    } else if (e.kind === "saving") {
+      rows.push(blank(["daily-saving", e.savingName || "", e.amount, "", "", "", e.date || "", "", e.note || ""]));
     } else {
       rows.push(blank(["daily", "", e.amount, "", "", "", e.date || "", e.category || "", e.note || ""]));
     }
@@ -791,6 +814,20 @@ function fromCSV(text) {
         amount,
         debtId: debt ? debt.id : null,
         debtName,
+        note: iNote >= 0 ? (row[iNote] || "").trim() : "",
+      });
+    } else if (type === "daily-saving") {
+      if (!Number.isFinite(amount)) continue;
+      const savingName = name;
+      const goal = next.savings.find((g) => g.name.toLowerCase() === savingName.toLowerCase());
+      next.dailyExpenses.push({
+        id: uid(),
+        createdAt: Date.now(),
+        kind: "saving",
+        date: iDate >= 0 ? (row[iDate] || "").trim() || todayISO() : todayISO(),
+        amount,
+        savingId: goal ? goal.id : null,
+        savingName,
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
       });
     } else if (type === "saving") {
