@@ -1718,3 +1718,29 @@ document.getElementById("btn-change-passcode")?.addEventListener("click", async 
   else setLockMode("setup");
   showLock();
 }
+
+/* Auto-lock when the app is backgrounded for longer than the grace period.
+   Covers: iOS PWA → switched away → returned; Safari tab hidden; browser
+   minimized. Full tab closes already drop aesKey from memory. */
+const AUTO_LOCK_MS = 10_000;
+let hiddenAt = 0;
+function relock() {
+  aesKey = null;
+  state = emptyState();
+  setLockMode("unlock");
+  showLock();
+  renderAll();
+}
+document.addEventListener("visibilitychange", () => {
+  if (!aesKey) return; // already locked
+  if (document.hidden) {
+    hiddenAt = Date.now();
+  } else {
+    if (hiddenAt && Date.now() - hiddenAt > AUTO_LOCK_MS) relock();
+    hiddenAt = 0;
+  }
+});
+window.addEventListener("pagehide", () => {
+  // Page is unloading or entering the back/forward cache — drop the key.
+  aesKey = null;
+});
