@@ -1490,3 +1490,114 @@ renderAll();
   const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
   Promise.all([minDelay, fonts]).then(() => document.body.classList.add("loaded"));
 }
+
+/* ---------- passcode lock ---------- */
+
+const PASS_KEY = "duit-tracker.pass";
+
+async function sha256Hex(str) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function randomSalt() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(8)))
+    .map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function hasPasscode() { return !!localStorage.getItem(PASS_KEY); }
+async function storePasscode(plain) {
+  const salt = randomSalt();
+  const hash = await sha256Hex(salt + ":" + plain);
+  localStorage.setItem(PASS_KEY, `${salt}:${hash}`);
+}
+async function verifyPasscode(plain) {
+  const stored = localStorage.getItem(PASS_KEY);
+  if (!stored) return true;
+  const [salt, hash] = stored.split(":");
+  return (await sha256Hex(salt + ":" + plain)) === hash;
+}
+function clearPasscode() { localStorage.removeItem(PASS_KEY); }
+
+function showLock() {
+  const lock = document.getElementById("lock");
+  const input = document.getElementById("lock-input");
+  if (!lock) return;
+  lock.hidden = false;
+  lock.setAttribute("aria-hidden", "false");
+  setTimeout(() => input && input.focus(), 50);
+}
+function hideLock() {
+  const lock = document.getElementById("lock");
+  const input = document.getElementById("lock-input");
+  if (!lock) return;
+  lock.hidden = true;
+  lock.setAttribute("aria-hidden", "true");
+  if (input) input.value = "";
+}
+
+const lockForm = document.getElementById("lock-form");
+if (lockForm) {
+  lockForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const input = document.getElementById("lock-input");
+    const errEl = document.getElementById("lock-error");
+    const attempt = (input && input.value) || "";
+    if (!attempt) return;
+    if (await verifyPasscode(attempt)) {
+      if (errEl) errEl.hidden = true;
+      hideLock();
+    } else {
+      if (errEl) errEl.hidden = false;
+      lockForm.classList.remove("shake");
+      void lockForm.offsetWidth; // restart animation
+      lockForm.classList.add("shake");
+      if (input) { input.value = ""; input.focus(); }
+    }
+  });
+}
+
+function renderPasscodeControls() {
+  const on = hasPasscode();
+  const statusEl = document.getElementById("passcode-status");
+  const setBtn = document.getElementById("btn-set-passcode");
+  const changeBtn = document.getElementById("btn-change-passcode");
+  const removeBtn = document.getElementById("btn-remove-passcode");
+  if (statusEl) statusEl.textContent = on ? "Passcode is on — required every time you open the app." : "Passcode is off.";
+  if (setBtn) setBtn.hidden = on;
+  if (changeBtn) changeBtn.hidden = !on;
+  if (removeBtn) removeBtn.hidden = !on;
+}
+
+async function promptSetPasscode() {
+  const p1 = prompt("Set a passcode (min 4 characters):");
+  if (p1 == null) return;
+  if (p1.length < 4) { alert("Passcode must be at least 4 characters."); return; }
+  const p2 = prompt("Confirm passcode:");
+  if (p2 == null) return;
+  if (p1 !== p2) { alert("Passcodes don't match."); return; }
+  await storePasscode(p1);
+  renderPasscodeControls();
+  alert("Passcode set. You'll be asked for it next time you open the app.");
+}
+
+async function promptChangePasscode() {
+  const cur = prompt("Current passcode:");
+  if (cur == null) return;
+  if (!(await verifyPasscode(cur))) { alert("Incorrect passcode."); return; }
+  await promptSetPasscode();
+}
+
+async function promptRemovePasscode() {
+  const cur = prompt("Enter current passcode to remove it:");
+  if (cur == null) return;
+  if (!(await verifyPasscode(cur))) { alert("Incorrect passcode."); return; }
+  clearPasscode();
+  renderPasscodeControls();
+  alert("Passcode removed.");
+}
+
+document.getElementById("btn-set-passcode")?.addEventListener("click", promptSetPasscode);
+document.getElementById("btn-change-passcode")?.addEventListener("click", promptChangePasscode);
+document.getElementById("btn-remove-passcode")?.addEventListener("click", promptRemovePasscode);
+
+renderPasscodeControls();
+if (hasPasscode()) showLock();

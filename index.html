@@ -8,9 +8,27 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=10" />
+    <link rel="stylesheet" href="styles.css?v=11" />
   </head>
   <body>
+    <div id="lock" aria-hidden="true" hidden>
+      <div class="splash-inner">
+        <div class="splash-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/>
+            <circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div class="splash-title">Duit Tracker</div>
+        <div class="lock-sub">Enter your passcode</div>
+        <form id="lock-form" class="lock-form" autocomplete="off">
+          <input type="password" id="lock-input" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Passcode" />
+          <button type="submit" class="primary">Unlock</button>
+        </form>
+        <p id="lock-error" class="hint warn" hidden>Incorrect passcode</p>
+      </div>
+    </div>
+
     <div id="splash" aria-hidden="true">
       <div class="splash-inner">
         <div class="splash-mark">
@@ -358,6 +376,17 @@
           <div id="import-status" class="hint"></div>
         </div>
         <div class="card">
+          <h2>Security</h2>
+          <p class="hint" id="passcode-status">Passcode is off.</p>
+          <div class="button-row">
+            <button id="btn-set-passcode" class="primary" type="button">Set passcode</button>
+            <button id="btn-change-passcode" class="ghost" type="button" hidden>Change passcode</button>
+            <button id="btn-remove-passcode" class="danger" type="button" hidden>Remove passcode</button>
+          </div>
+          <p class="hint">Passcode is hashed and stored on this device only. It guards the app from casual access; it does <strong>not</strong> encrypt your data. Someone with full access to your browser (devtools, clearing site data) can bypass it.</p>
+        </div>
+
+        <div class="card">
           <h2>Danger zone</h2>
           <button id="btn-clear" class="danger">Clear all data</button>
         </div>
@@ -379,6 +408,6 @@
       </form>
     </dialog>
 
-    <script src="script.js?v=10"></script>
+    <script src="script.js?v=11"></script>
   </body>
 </html>
