@@ -10,6 +10,8 @@ const emptyState = () => ({
   income: [],
   expenses: [],
   debts: [],
+  dailyExpenses: [],
+  savings: [],
   extraMonthly: 0,
 });
 
@@ -24,6 +26,8 @@ function load() {
       income: Array.isArray(parsed.income) ? parsed.income : [],
       expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
       debts: Array.isArray(parsed.debts) ? parsed.debts : [],
+      dailyExpenses: Array.isArray(parsed.dailyExpenses) ? parsed.dailyExpenses : [],
+      savings: Array.isArray(parsed.savings) ? parsed.savings : [],
       extraMonthly: Number(parsed.extraMonthly) || 0,
     };
   } catch {
@@ -57,6 +61,40 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function todayISO() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function isSameMonth(iso, ref = new Date()) {
+  if (!iso || iso.length < 7) return false;
+  const y = ref.getFullYear();
+  const m = String(ref.getMonth() + 1).padStart(2, "0");
+  return iso.slice(0, 7) === `${y}-${m}`;
+}
+
+function daysAgo(iso, ref = new Date()) {
+  if (!iso) return Infinity;
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return Infinity;
+  const entry = new Date(y, m - 1, d);
+  const today = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+  return Math.round((today - entry) / (1000 * 60 * 60 * 24));
+}
+
+function formatDayLabel(iso) {
+  if (!iso) return "";
+  const diff = daysAgo(iso);
+  if (diff === 0) return "Today";
+  if (diff === 1) return "Yesterday";
+  const [y, m, d] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short" });
 }
 
 function formatMonths(months) {
@@ -224,6 +262,165 @@ function renderFlow() {
   $("#total-expense").textContent = fmtMYR.format(totalOf(state.expenses));
 }
 
+function dailySpendSum(entries) {
+  return entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+}
+
+function dailyStats() {
+  const today = dailySpendSum(state.dailyExpenses.filter((e) => daysAgo(e.date) === 0));
+  const week = dailySpendSum(state.dailyExpenses.filter((e) => {
+    const d = daysAgo(e.date);
+    return d >= 0 && d < 7;
+  }));
+  const month = dailySpendSum(state.dailyExpenses.filter((e) => isSameMonth(e.date)));
+  return { today, week, month };
+}
+
+function updateDailyTargetSelect() {
+  const sel = $("#daily-target");
+  if (!sel) return;
+  const prev = sel.value;
+  const opts = [`<option value="expense">Others / general expense</option>`];
+  for (const d of state.debts) {
+    opts.push(`<option value="debt:${d.id}">Pay debt — ${escapeHtml(d.name)}</option>`);
+  }
+  sel.innerHTML = opts.join("");
+  if (prev && Array.from(sel.options).some((o) => o.value === prev)) {
+    sel.value = prev;
+  }
+  toggleCategoryField();
+}
+
+function toggleCategoryField() {
+  const sel = $("#daily-target");
+  const catField = $("#daily-category-field");
+  if (!sel || !catField) return;
+  catField.style.display = sel.value === "expense" ? "" : "none";
+}
+
+function updateCategoryDatalist() {
+  const list = $("#category-options");
+  if (!list) return;
+  const cats = Array.from(
+    new Set(
+      state.dailyExpenses
+        .filter((e) => e.kind === "expense" && e.category)
+        .map((e) => e.category),
+    ),
+  ).sort();
+  list.innerHTML = cats.map((c) => `<option value="${escapeHtml(c)}"></option>`).join("");
+}
+
+function debtNameById(id) {
+  const d = state.debts.find((x) => x.id === id);
+  return d ? d.name : null;
+}
+
+function renderDaily() {
+  const { today, week, month } = dailyStats();
+  $("#stat-daily-today").textContent = fmtMYR.format(today);
+  $("#stat-daily-week").textContent = fmtMYR.format(week);
+  $("#stat-daily-month").textContent = fmtMYR.format(month);
+
+  const monthly = state.dailyExpenses.filter((e) => isSameMonth(e.date));
+  $("#daily-month-total").textContent = fmtMYR.format(dailySpendSum(monthly));
+  $("#daily-month-count").textContent = String(monthly.length);
+
+  const listEl = $("#daily-list");
+  if (state.dailyExpenses.length === 0) {
+    listEl.innerHTML = `<div class="empty">No daily entries yet. Add one from the Home tab.</div>`;
+    return;
+  }
+
+  const sorted = state.dailyExpenses
+    .slice()
+    .sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0));
+
+  const groups = new Map();
+  for (const e of sorted) {
+    if (!groups.has(e.date)) groups.set(e.date, []);
+    groups.get(e.date).push(e);
+  }
+
+  const html = [];
+  for (const [date, entries] of groups.entries()) {
+    const dayTotal = dailySpendSum(entries);
+    html.push(`<div class="daily-group-header"><span>${escapeHtml(formatDayLabel(date))}</span><span class="day-total">${fmtMYR.format(dayTotal)}</span></div>`);
+    for (const e of entries) {
+      let pill = "";
+      let note = "";
+      if (e.kind === "debt") {
+        const name = debtNameById(e.debtId) || e.debtName || "debt";
+        pill = `<span class="cat-pill" style="color:#fca5a5;border-color:#7f1d1d;">↓ ${escapeHtml(name)}</span>`;
+      } else {
+        pill = `<span class="cat-pill">${escapeHtml(e.category || "Others")}</span>`;
+      }
+      note = e.note
+        ? `<span class="daily-note">${escapeHtml(e.note)}</span>`
+        : `<span class="daily-note muted">—</span>`;
+      html.push(`
+        <div class="daily-entry" data-id="${e.id}">
+          <div class="primary-line">${pill}${note}</div>
+          <span class="amount">${fmtMYR.format(e.amount)}</span>
+          <button class="ghost" data-action="delete-daily" data-id="${e.id}" aria-label="Delete">✕</button>
+        </div>
+      `);
+    }
+  }
+  listEl.innerHTML = html.join("");
+}
+
+function savingsTotals() {
+  const current = state.savings.reduce((s, g) => s + (Number(g.current) || 0), 0);
+  const target = state.savings.reduce((s, g) => s + (Number(g.target) || 0), 0);
+  return { current, target };
+}
+
+function renderSavingCard(goal, { mini } = { mini: false }) {
+  const target = Number(goal.target) || 0;
+  const current = Math.max(0, Number(goal.current) || 0);
+  const pct = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+  const remaining = Math.max(0, target - current);
+  return `
+    <div class="saving-card" data-id="${goal.id}">
+      <div class="top-row">
+        <span class="saving-name">${escapeHtml(goal.name)}</span>
+        <span class="saving-pct">${pct.toFixed(0)}%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(1)}%"></div></div>
+      <div class="saving-meta">
+        <span>${fmtMYR.format(current)} of ${fmtMYR.format(target)}</span>
+        <span>${remaining > 0 ? fmtMYR.format(remaining) + " to go" : "reached"}</span>
+      </div>
+      ${mini ? "" : `
+      <div class="saving-actions">
+        <input type="number" step="0.01" min="0" inputmode="decimal" placeholder="Add amount (RM)" data-save-input="${goal.id}" />
+        <button class="primary" data-action="save-deposit" data-id="${goal.id}">Add</button>
+        <button class="ghost" data-action="save-delete" data-id="${goal.id}">Delete</button>
+      </div>
+      `}
+    </div>`;
+}
+
+function renderSavings() {
+  const listEl = $("#savings-list");
+  if (state.savings.length === 0) {
+    listEl.innerHTML = `<div class="empty">No savings goals yet.</div>`;
+  } else {
+    listEl.innerHTML = state.savings.map((g) => renderSavingCard(g, { mini: false })).join("");
+  }
+
+  const { current, target } = savingsTotals();
+  $("#stat-save-current").textContent = fmtMYR.format(current);
+  $("#stat-save-target").textContent = fmtMYR.format(target);
+
+  const mini = $("#savings-mini");
+  mini.innerHTML = state.savings
+    .slice(0, 3)
+    .map((g) => renderSavingCard(g, { mini: true }))
+    .join("");
+}
+
 function renderDebts() {
   const ul = $("#list-debt");
   if (!state.debts.length) {
@@ -312,6 +509,10 @@ function renderAll() {
   renderDashboard();
   renderFlow();
   renderDebts();
+  updateDailyTargetSelect();
+  updateCategoryDatalist();
+  renderDaily();
+  renderSavings();
 }
 
 /* ---------- tabs ---------- */
@@ -352,6 +553,46 @@ $("#form-expense").addEventListener("submit", (e) => {
   renderAll();
 });
 
+$("#daily-target").addEventListener("change", toggleCategoryField);
+
+$("#form-daily").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const amount = Number(f.get("amount"));
+  const date = (f.get("date") || "").toString() || todayISO();
+  const target = (f.get("target") || "expense").toString();
+  const note = (f.get("note") || "").toString().trim();
+  if (!Number.isFinite(amount) || amount <= 0) return;
+
+  const id = uid();
+  const createdAt = Date.now();
+
+  if (target.startsWith("debt:")) {
+    const debtId = target.slice("debt:".length);
+    const debt = state.debts.find((d) => d.id === debtId);
+    if (!debt) return;
+    const applied = Math.min(amount, debt.balance);
+    debt.balance = Math.max(0, debt.balance - applied);
+    state.dailyExpenses.push({
+      id, createdAt, kind: "debt", date, amount,
+      debtId: debt.id, debtName: debt.name, note,
+    });
+  } else {
+    const category = (f.get("category") || "").toString().trim() || "Others";
+    state.dailyExpenses.push({
+      id, createdAt, kind: "expense", date, amount, category, note,
+    });
+  }
+
+  save();
+  // Reset but keep the target and date for quick repeat entries.
+  const keepTarget = $("#daily-target").value;
+  e.target.reset();
+  $("#form-daily").querySelector("input[name='date']").value = date;
+  $("#daily-target").value = keepTarget;
+  renderAll();
+});
+
 $("#form-debt").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
@@ -369,6 +610,26 @@ $("#form-debt").addEventListener("submit", (e) => {
   renderAll();
 });
 
+$("#form-saving").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const f = new FormData(e.target);
+  const name = (f.get("name") || "").toString().trim();
+  const target = Number(f.get("target"));
+  const current = Number(f.get("current")) || 0;
+  if (!name) return;
+  if (!Number.isFinite(target) || target <= 0) return;
+  state.savings.push({
+    id: uid(),
+    createdAt: Date.now(),
+    name,
+    target,
+    current: Math.max(0, current),
+  });
+  save();
+  e.target.reset();
+  renderAll();
+});
+
 /* delete handlers (event delegation) */
 document.addEventListener("click", (e) => {
   const target = e.target instanceof HTMLElement ? e.target.closest("button[data-action]") : null;
@@ -381,6 +642,24 @@ document.addEventListener("click", (e) => {
     state.expenses = state.expenses.filter((x) => x.id !== id);
   } else if (action === "delete-debt") {
     state.debts = state.debts.filter((x) => x.id !== id);
+  } else if (action === "delete-daily") {
+    const entry = state.dailyExpenses.find((x) => x.id === id);
+    if (entry && entry.kind === "debt" && entry.debtId) {
+      const debt = state.debts.find((d) => d.id === entry.debtId);
+      if (debt) debt.balance = (Number(debt.balance) || 0) + (Number(entry.amount) || 0);
+    }
+    state.dailyExpenses = state.dailyExpenses.filter((x) => x.id !== id);
+  } else if (action === "save-delete") {
+    state.savings = state.savings.filter((x) => x.id !== id);
+  } else if (action === "save-deposit") {
+    const input = document.querySelector(`input[data-save-input="${id}"]`);
+    const amount = Number(input && input.value);
+    const goal = state.savings.find((g) => g.id === id);
+    if (goal && Number.isFinite(amount) && amount > 0) {
+      goal.current = Math.max(0, (Number(goal.current) || 0) + amount);
+    } else {
+      return;
+    }
   } else {
     return;
   }
@@ -406,12 +685,23 @@ function csvEscape(v) {
 
 function toCSV() {
   const rows = [
-    ["type", "name", "amount", "balance", "apr", "minPayment"],
+    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current"],
   ];
-  for (const i of state.income) rows.push(["income", i.name, i.amount, "", "", ""]);
-  for (const ex of state.expenses) rows.push(["expense", ex.name, ex.amount, "", "", ""]);
-  for (const d of state.debts) rows.push(["debt", d.name, "", d.balance, d.apr, d.minPayment]);
-  rows.push(["setting", "extraMonthly", state.extraMonthly || 0, "", "", ""]);
+  const blank = (arr) => arr.concat(Array(12 - arr.length).fill(""));
+  for (const i of state.income) rows.push(blank(["income", i.name, i.amount]));
+  for (const ex of state.expenses) rows.push(blank(["expense", ex.name, ex.amount]));
+  for (const d of state.debts) rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment]));
+  for (const e of state.dailyExpenses) {
+    if (e.kind === "debt") {
+      rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || ""]));
+    } else {
+      rows.push(blank(["daily", "", e.amount, "", "", "", e.date || "", e.category || "", e.note || ""]));
+    }
+  }
+  for (const g of state.savings) {
+    rows.push(blank(["saving", g.name, "", "", "", "", "", "", "", "", g.target, g.current]));
+  }
+  rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
   return rows.map((r) => r.map(csvEscape).join(",")).join("\n") + "\n";
 }
 
@@ -449,7 +739,9 @@ function fromCSV(text) {
   const idx = (name) => header.indexOf(name);
   const iType = idx("type"), iName = idx("name"), iAmount = idx("amount");
   const iBal = idx("balance"), iApr = idx("apr"), iMin = idx("minpayment");
-  if (iType === -1 || iName === -1) throw new Error("CSV missing 'type' or 'name' column");
+  const iDate = idx("date"), iCat = idx("category"), iNote = idx("note"), iDebtName = idx("debtname");
+  const iTarget = idx("target"), iCurrent = idx("current");
+  if (iType === -1) throw new Error("CSV missing 'type' column");
 
   const next = emptyState();
 
@@ -475,6 +767,43 @@ function fromCSV(text) {
         balance: Number.isFinite(balance) ? balance : 0,
         apr: Number.isFinite(apr) ? apr : 0,
         minPayment: Number.isFinite(minPayment) ? minPayment : 0,
+      });
+    } else if (type === "daily") {
+      if (!Number.isFinite(amount)) continue;
+      next.dailyExpenses.push({
+        id: uid(),
+        createdAt: Date.now(),
+        kind: "expense",
+        date: iDate >= 0 ? (row[iDate] || "").trim() || todayISO() : todayISO(),
+        amount,
+        category: iCat >= 0 ? (row[iCat] || "").trim() || "Others" : "Others",
+        note: iNote >= 0 ? (row[iNote] || "").trim() : "",
+      });
+    } else if (type === "daily-debt") {
+      if (!Number.isFinite(amount)) continue;
+      const debtName = iDebtName >= 0 ? (row[iDebtName] || "").trim() : "";
+      const debt = next.debts.find((d) => d.name.toLowerCase() === debtName.toLowerCase());
+      next.dailyExpenses.push({
+        id: uid(),
+        createdAt: Date.now(),
+        kind: "debt",
+        date: iDate >= 0 ? (row[iDate] || "").trim() || todayISO() : todayISO(),
+        amount,
+        debtId: debt ? debt.id : null,
+        debtName,
+        note: iNote >= 0 ? (row[iNote] || "").trim() : "",
+      });
+    } else if (type === "saving") {
+      const target = iTarget >= 0 ? Number(row[iTarget]) : NaN;
+      const current = iCurrent >= 0 ? Number(row[iCurrent]) : NaN;
+      if (!name) continue;
+      if (!Number.isFinite(target) || target <= 0) continue;
+      next.savings.push({
+        id: uid(),
+        createdAt: Date.now(),
+        name,
+        target,
+        current: Number.isFinite(current) ? Math.max(0, current) : 0,
       });
     } else if (type === "setting" && name.toLowerCase() === "extramonthly") {
       if (Number.isFinite(amount)) next.extraMonthly = amount;
@@ -512,7 +841,7 @@ $("#file-import").addEventListener("change", async (e) => {
     state = next;
     save();
     renderAll();
-    status.textContent = `Imported ${state.income.length} income, ${state.expenses.length} expense, ${state.debts.length} debt rows.`;
+    status.textContent = `Imported ${state.income.length} income, ${state.expenses.length} expense, ${state.debts.length} debt, ${state.dailyExpenses.length} daily, ${state.savings.length} savings rows.`;
   } catch (err) {
     status.textContent = `Import failed: ${err.message || err}`;
   } finally {
@@ -528,5 +857,8 @@ $("#btn-clear").addEventListener("click", () => {
 });
 
 /* ---------- boot ---------- */
+
+const dailyDateInput = document.querySelector("#form-daily input[name='date']");
+if (dailyDateInput) dailyDateInput.value = todayISO();
 
 renderAll();

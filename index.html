@@ -14,9 +14,11 @@
     </header>
 
     <nav class="tabs" role="tablist">
-      <button class="tab active" data-tab="dashboard" role="tab">Dashboard</button>
-      <button class="tab" data-tab="flow" role="tab">In / Out</button>
+      <button class="tab active" data-tab="dashboard" role="tab">Home</button>
+      <button class="tab" data-tab="flow" role="tab">Monthly</button>
+      <button class="tab" data-tab="daily" role="tab">Daily</button>
       <button class="tab" data-tab="debts" role="tab">Debts</button>
+      <button class="tab" data-tab="savings" role="tab">Savings</button>
       <button class="tab" data-tab="data" role="tab">Data</button>
     </nav>
 
@@ -43,6 +45,42 @@
         </div>
 
         <div class="card">
+          <h2>Daily spend</h2>
+          <div class="stat-row three">
+            <div class="stat"><span class="label">Today</span><strong id="stat-daily-today">RM 0.00</strong></div>
+            <div class="stat"><span class="label">Last 7 days</span><strong id="stat-daily-week">RM 0.00</strong></div>
+            <div class="stat"><span class="label">This month</span><strong id="stat-daily-month">RM 0.00</strong></div>
+          </div>
+          <form id="form-daily" class="daily-form">
+            <div class="grid-2">
+              <label class="field">
+                <span>Amount (RM)</span>
+                <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+              </label>
+              <label class="field">
+                <span>Date</span>
+                <input type="date" name="date" required />
+              </label>
+            </div>
+            <label class="field">
+              <span>Spend on</span>
+              <select id="daily-target" name="target" required></select>
+            </label>
+            <label class="field" id="daily-category-field">
+              <span>Category</span>
+              <input type="text" name="category" list="category-options" placeholder="Food, Transport, Others…" />
+              <datalist id="category-options"></datalist>
+            </label>
+            <label class="field">
+              <span>Note (optional)</span>
+              <input type="text" name="note" placeholder="Lunch at mamak" />
+            </label>
+            <button type="submit" class="primary">Add</button>
+          </form>
+          <p class="hint">Paying a debt here will reduce that debt's balance.</p>
+        </div>
+
+        <div class="card">
           <h2>Debt overview</h2>
           <div class="stat-row">
             <div class="stat"><span class="label">Total balance</span><strong id="stat-debt-total">RM 0.00</strong></div>
@@ -59,6 +97,16 @@
             <div class="stat"><span class="label">Debt-free in</span><strong id="stat-months">—</strong></div>
             <div class="stat"><span class="label">Total interest</span><strong id="stat-interest">RM 0.00</strong></div>
           </div>
+        </div>
+
+        <div class="card">
+          <h2>Savings</h2>
+          <div class="stat-row">
+            <div class="stat"><span class="label">Total saved</span><strong id="stat-save-current">RM 0.00</strong></div>
+            <div class="stat"><span class="label">Total targets</span><strong id="stat-save-target">RM 0.00</strong></div>
+          </div>
+          <div id="savings-mini" class="savings-mini"></div>
+          <p class="hint">Manage goals in the Savings tab.</p>
         </div>
 
         <div class="card">
@@ -94,6 +142,19 @@
         </div>
       </section>
 
+      <!-- DAILY -->
+      <section id="tab-daily" class="tab-panel">
+        <div class="card">
+          <h2>Log</h2>
+          <div class="stat-row">
+            <div class="stat"><span class="label">This month</span><strong id="daily-month-total">RM 0.00</strong></div>
+            <div class="stat"><span class="label">Entries</span><strong id="daily-month-count">0</strong></div>
+          </div>
+          <p class="hint">Add a new entry from the Home tab. Tap ✕ to delete.</p>
+          <div id="daily-list" class="daily-list"></div>
+        </div>
+      </section>
+
       <!-- DEBTS -->
       <section id="tab-debts" class="tab-panel">
         <div class="card">
@@ -120,6 +181,35 @@
             <button type="submit" class="primary">Add debt</button>
           </form>
           <ul id="list-debt" class="debt-list"></ul>
+        </div>
+      </section>
+
+      <!-- SAVINGS -->
+      <section id="tab-savings" class="tab-panel">
+        <div class="card">
+          <h2>New savings goal</h2>
+          <form id="form-saving" class="saving-form">
+            <label class="field">
+              <span>What are you saving for?</span>
+              <input type="text" name="name" placeholder="Emergency fund, Umrah, new phone…" required />
+            </label>
+            <div class="grid-2">
+              <label class="field">
+                <span>Target (RM)</span>
+                <input type="number" name="target" step="0.01" min="0" inputmode="decimal" required />
+              </label>
+              <label class="field">
+                <span>Current (RM)</span>
+                <input type="number" name="current" step="0.01" min="0" inputmode="decimal" placeholder="0" />
+              </label>
+            </div>
+            <button type="submit" class="primary">Add goal</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Goals</h2>
+          <div id="savings-list" class="savings-list"></div>
         </div>
       </section>
 
