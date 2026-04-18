@@ -1,91 +1,153 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Quick Survey</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <main class="container">
-    <header>
-      <h1>Quick Survey</h1>
-      <p class="subtitle">Share your feedback — takes under a minute.</p>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <title>Duit Tracker — Money & Debt (MYR)</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Duit Tracker</h1>
+      <p class="subtitle">Monthly in/out, debts &amp; avalanche payoff · MYR</p>
     </header>
 
-    <section id="survey-view">
-      <form id="survey-form" novalidate>
-        <div class="field">
-          <label for="name">Name</label>
-          <input type="text" id="name" name="name" required />
-        </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="dashboard" role="tab">Dashboard</button>
+      <button class="tab" data-tab="flow" role="tab">In / Out</button>
+      <button class="tab" data-tab="debts" role="tab">Debts</button>
+      <button class="tab" data-tab="data" role="tab">Data</button>
+    </nav>
 
-        <div class="field">
-          <label for="role">What best describes you?</label>
-          <select id="role" name="role" required>
-            <option value="">Select one…</option>
-            <option>Developer</option>
-            <option>Designer</option>
-            <option>Product Manager</option>
-            <option>Student</option>
-            <option>Other</option>
-          </select>
-        </div>
-
-        <fieldset class="field">
-          <legend>How satisfied are you overall?</legend>
-          <div class="radio-group">
-            <label><input type="radio" name="satisfaction" value="1" required /> 1</label>
-            <label><input type="radio" name="satisfaction" value="2" /> 2</label>
-            <label><input type="radio" name="satisfaction" value="3" /> 3</label>
-            <label><input type="radio" name="satisfaction" value="4" /> 4</label>
-            <label><input type="radio" name="satisfaction" value="5" /> 5</label>
+    <main>
+      <!-- DASHBOARD -->
+      <section id="tab-dashboard" class="tab-panel active">
+        <div class="card summary">
+          <div class="stat">
+            <span class="label">Monthly income</span>
+            <strong id="stat-income" class="pos">RM 0.00</strong>
           </div>
-        </fieldset>
-
-        <fieldset class="field">
-          <legend>Which features do you use? (Select all that apply)</legend>
-          <div class="checkbox-group">
-            <label><input type="checkbox" name="features" value="dashboard" /> Dashboard</label>
-            <label><input type="checkbox" name="features" value="reports" /> Reports</label>
-            <label><input type="checkbox" name="features" value="api" /> API</label>
-            <label><input type="checkbox" name="features" value="mobile" /> Mobile app</label>
+          <div class="stat">
+            <span class="label">Monthly expenses</span>
+            <strong id="stat-expenses" class="neg">RM 0.00</strong>
           </div>
-        </fieldset>
-
-        <div class="field">
-          <label for="comments">Additional comments</label>
-          <textarea id="comments" name="comments" rows="4"></textarea>
+          <div class="stat">
+            <span class="label">Min debt payments</span>
+            <strong id="stat-min" class="neg">RM 0.00</strong>
+          </div>
+          <div class="stat wide">
+            <span class="label">Net cash flow</span>
+            <strong id="stat-net">RM 0.00</strong>
+          </div>
         </div>
 
-        <div class="actions">
-          <button type="submit" class="btn btn-primary">Submit</button>
-          <button type="button" id="view-results" class="btn btn-secondary">View Results</button>
+        <div class="card">
+          <h2>Debt overview</h2>
+          <div class="stat-row">
+            <div class="stat"><span class="label">Total balance</span><strong id="stat-debt-total">RM 0.00</strong></div>
+            <div class="stat"><span class="label">Weighted APR</span><strong id="stat-debt-apr">0.00%</strong></div>
+          </div>
+
+          <label class="field">
+            <span>Extra monthly payment (RM)</span>
+            <input type="number" id="extra-monthly" min="0" step="0.01" inputmode="decimal" placeholder="0.00" />
+          </label>
+          <p class="hint">Paid on top of minimums, directed to the highest-APR debt (avalanche). When a debt is cleared, its minimum rolls into the next.</p>
+
+          <div class="stat-row">
+            <div class="stat"><span class="label">Debt-free in</span><strong id="stat-months">—</strong></div>
+            <div class="stat"><span class="label">Total interest</span><strong id="stat-interest">RM 0.00</strong></div>
+          </div>
         </div>
-      </form>
-      <p id="form-error" class="error" hidden></p>
-    </section>
 
-    <section id="thanks-view" hidden>
-      <h2>Thanks for your response!</h2>
-      <p>Your answer has been saved locally.</p>
-      <div class="actions">
-        <button type="button" id="submit-another" class="btn btn-primary">Submit another</button>
-        <button type="button" id="go-results" class="btn btn-secondary">View results</button>
-      </div>
-    </section>
+        <div class="card">
+          <h2>Avalanche payoff order</h2>
+          <ol id="payoff-order" class="payoff-list">
+            <li class="empty">No debts yet. Add some in the Debts tab.</li>
+          </ol>
+        </div>
+      </section>
 
-    <section id="results-view" hidden>
-      <h2>Results</h2>
-      <p id="results-summary"></p>
-      <div id="results-list"></div>
-      <div class="actions">
-        <button type="button" id="back-to-form" class="btn btn-primary">Back to survey</button>
-        <button type="button" id="clear-results" class="btn btn-danger">Clear all responses</button>
-      </div>
-    </section>
-  </main>
+      <!-- FLOW (Income + Expenses) -->
+      <section id="tab-flow" class="tab-panel">
+        <div class="card">
+          <h2>Monthly income</h2>
+          <form id="form-income" class="row-form">
+            <input type="text" name="name" placeholder="Source (e.g. Salary)" required />
+            <input type="number" name="amount" placeholder="Amount" step="0.01" min="0" inputmode="decimal" required />
+            <button type="submit" class="primary">Add</button>
+          </form>
+          <ul id="list-income" class="item-list"></ul>
+          <div class="total-line">Total: <strong id="total-income">RM 0.00</strong></div>
+        </div>
 
-  <script src="script.js"></script>
-</body>
+        <div class="card">
+          <h2>Monthly expenses</h2>
+          <form id="form-expense" class="row-form">
+            <input type="text" name="name" placeholder="Item (e.g. Rent)" required />
+            <input type="number" name="amount" placeholder="Amount" step="0.01" min="0" inputmode="decimal" required />
+            <button type="submit" class="primary">Add</button>
+          </form>
+          <ul id="list-expense" class="item-list"></ul>
+          <div class="total-line">Total: <strong id="total-expense">RM 0.00</strong></div>
+        </div>
+      </section>
+
+      <!-- DEBTS -->
+      <section id="tab-debts" class="tab-panel">
+        <div class="card">
+          <h2>Outstanding debts</h2>
+          <form id="form-debt" class="debt-form">
+            <label class="field">
+              <span>Name</span>
+              <input type="text" name="name" placeholder="Credit card" required />
+            </label>
+            <div class="grid-3">
+              <label class="field">
+                <span>Balance (RM)</span>
+                <input type="number" name="balance" step="0.01" min="0" inputmode="decimal" required />
+              </label>
+              <label class="field">
+                <span>APR (%)</span>
+                <input type="number" name="apr" step="0.01" min="0" inputmode="decimal" required />
+              </label>
+              <label class="field">
+                <span>Min payment (RM)</span>
+                <input type="number" name="minPayment" step="0.01" min="0" inputmode="decimal" required />
+              </label>
+            </div>
+            <button type="submit" class="primary">Add debt</button>
+          </form>
+          <ul id="list-debt" class="debt-list"></ul>
+        </div>
+      </section>
+
+      <!-- DATA -->
+      <section id="tab-data" class="tab-panel">
+        <div class="card">
+          <h2>CSV backup</h2>
+          <p class="hint">Your data lives in this browser (localStorage). Export to CSV to back it up or move to another device; import to restore.</p>
+          <div class="button-row">
+            <button id="btn-export" class="primary">Export CSV</button>
+            <label class="primary as-button">
+              Import CSV
+              <input id="file-import" type="file" accept=".csv,text/csv" hidden />
+            </label>
+          </div>
+          <div id="import-status" class="hint"></div>
+        </div>
+        <div class="card">
+          <h2>Danger zone</h2>
+          <button id="btn-clear" class="danger">Clear all data</button>
+        </div>
+        <div class="card">
+          <h2>About</h2>
+          <p class="hint">Single-page web app. All data stays on your device. Works offline once loaded. Share the URL with friends — they each get their own data.</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
 </html>
