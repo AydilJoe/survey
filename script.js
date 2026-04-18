@@ -1460,4 +1460,20 @@ if (dailyDateInput) dailyDateInput.value = todayISO();
 
 renderGreeting();
 setDailyType("expense");
+
+/* privacy toggle */
+const PRIVACY_KEY = "duit-tracker.privacy";
+function applyPrivacy(on) {
+  document.body.classList.toggle("private", !!on);
+  const btn = document.getElementById("btn-privacy");
+  const icon = document.getElementById("privacy-icon");
+  if (btn) btn.setAttribute("aria-pressed", on ? "true" : "false");
+  if (icon) icon.textContent = on ? "🙈" : "👁";
+  localStorage.setItem(PRIVACY_KEY, on ? "1" : "0");
+}
+applyPrivacy(localStorage.getItem(PRIVACY_KEY) === "1");
+document.getElementById("btn-privacy").addEventListener("click", () => {
+  applyPrivacy(!document.body.classList.contains("private"));
+});
+
 renderAll();

@@ -48,6 +48,54 @@ html, body {
   padding: 0.4rem 0.55rem;
   box-shadow: var(--shadow);
 }
+.brand > div:not(.brand-mark) { flex: 1; min-width: 0; }
+.privacy-toggle {
+  appearance: none;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  box-shadow: var(--shadow);
+  color: var(--text);
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+.privacy-toggle:active { transform: scale(0.94); }
+body.private .privacy-toggle { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.5); }
+
+/* Privacy blur on amounts */
+body.private .hero-amount,
+body.private .hero-stat strong,
+body.private .hero-formula,
+body.private .hero-meta,
+body.private .mini-stats,
+body.private .debt-total-inline,
+body.private .saving-total-inline,
+body.private .item-list li .amount,
+body.private .debt-list li .meta,
+body.private .debt-list li .meta-row,
+body.private .daily-entry .amount,
+body.private .daily-group-header .day-total,
+body.private .total-line,
+body.private .saving-card .saving-meta,
+body.private .saving-card .saving-pct,
+body.private .stat strong,
+body.private #stat-debt-banner-sub,
+body.private .payoff-list .debt-detail,
+body.private .payoff-list .payoff-eta,
+body.private #stall-warning {
+  filter: blur(7px);
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.2s ease;
+}
 .app-header h1 {
   margin: 0;
   font-size: 1.25rem;
