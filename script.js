@@ -599,7 +599,11 @@ function renderDashboard() {
   const totalOut = expenseTotal + minSum + extra + dailyMonth;
   const net = incomeTotal - totalOut;
   const netEl = $("#stat-net");
-  netEl.textContent = fmtMYR.format(net);
+  const absNet = Math.abs(net);
+  const whole = Math.floor(absNet).toLocaleString("en-MY");
+  const cents = Math.round((absNet - Math.floor(absNet)) * 100).toString().padStart(2, "0");
+  const sign = net < 0 ? "−" : "";
+  netEl.innerHTML = `<span class="hero-currency">${sign}RM</span><span class="hero-whole">${whole}</span><span class="hero-cents">.${cents}</span>`;
   netEl.classList.toggle("pos", net >= 0);
   netEl.classList.toggle("neg", net < 0);
 
