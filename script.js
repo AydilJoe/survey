@@ -255,12 +255,27 @@ function debtTotals(debts) {
   return { total, weighted, minSum };
 }
 
+function dayClass(day, month) {
+  if (!Number.isFinite(day)) return "";
+  if (month !== currentMonthISO()) return "";
+  const today = new Date().getDate();
+  if (day === today) return "today";
+  if (day < today) return "past";
+  if (day - today <= 3) return "soon";
+  return "";
+}
+
 function renderFlow() {
   const incomeList = $("#list-income");
   const expenseList = $("#list-expense");
 
-  const monthIncome = state.income.filter((x) => x.month === selectedMonth);
-  const monthExpenses = state.expenses.filter((x) => x.month === selectedMonth);
+  const sortByDay = (a, b) => {
+    const da = Number.isFinite(a.day) ? a.day : 999;
+    const db = Number.isFinite(b.day) ? b.day : 999;
+    return da - db;
+  };
+  const monthIncome = state.income.filter((x) => x.month === selectedMonth).slice().sort(sortByDay);
+  const monthExpenses = state.expenses.filter((x) => x.month === selectedMonth).slice().sort(sortByDay);
 
   const renderList = (ul, items, kind) => {
     if (!items.length) {
@@ -268,14 +283,20 @@ function renderFlow() {
       return;
     }
     ul.innerHTML = items
-      .map(
-        (it) => `
-        <li data-id="${it.id}">
-          <span class="name">${escapeHtml(it.name)}</span>
-          <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMYR.format(it.amount)}</span>
-          <button class="ghost" data-action="delete-${kind}" data-id="${it.id}" aria-label="Delete">✕</button>
-        </li>`,
-      )
+      .map((it) => {
+        const day = Number.isFinite(it.day) ? it.day : null;
+        const cls = day ? dayClass(day, it.month) : "";
+        const chip = day
+          ? `<span class="day-chip ${cls}" title="${kind === "income" ? "Pay day" : "Due day"}">${day}</span>`
+          : `<span class="day-chip" title="No day set">–</span>`;
+        return `
+          <li data-id="${it.id}">
+            ${chip}
+            <span class="name">${escapeHtml(it.name)}</span>
+            <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMYR.format(it.amount)}</span>
+            <button class="ghost" data-action="delete-${kind}" data-id="${it.id}" aria-label="Delete">✕</button>
+          </li>`;
+      })
       .join("");
   };
 
@@ -588,14 +609,23 @@ document.querySelectorAll(".tab").forEach((btn) => {
 
 /* ---------- form handlers ---------- */
 
+function parseDay(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+  const d = Math.round(n);
+  if (d < 1 || d > 31) return null;
+  return d;
+}
+
 $("#form-income").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
   const name = (f.get("name") || "").toString().trim();
   const amount = Number(f.get("amount"));
   const month = (f.get("month") || selectedMonth).toString() || selectedMonth;
+  const day = parseDay(f.get("day"));
   if (!name || !Number.isFinite(amount) || amount < 0) return;
-  state.income.push({ id: uid(), name, amount, month });
+  state.income.push({ id: uid(), name, amount, month, day });
   save();
   e.target.reset();
   renderAll();
@@ -607,8 +637,9 @@ $("#form-expense").addEventListener("submit", (e) => {
   const name = (f.get("name") || "").toString().trim();
   const amount = Number(f.get("amount"));
   const month = (f.get("month") || selectedMonth).toString() || selectedMonth;
+  const day = parseDay(f.get("day"));
   if (!name || !Number.isFinite(amount) || amount < 0) return;
-  state.expenses.push({ id: uid(), name, amount, month });
+  state.expenses.push({ id: uid(), name, amount, month, day });
   save();
   e.target.reset();
   renderAll();
@@ -637,14 +668,14 @@ $("#btn-copy-prev").addEventListener("click", () => {
   for (const it of prevIncome) {
     const key = `${it.name}|${it.amount}`;
     if (existsInc.has(key)) continue;
-    state.income.push({ id: uid(), name: it.name, amount: it.amount, month: selectedMonth });
+    state.income.push({ id: uid(), name: it.name, amount: it.amount, month: selectedMonth, day: it.day ?? null });
     existsInc.add(key);
     added++;
   }
   for (const it of prevExpenses) {
     const key = `${it.name}|${it.amount}`;
     if (existsExp.has(key)) continue;
-    state.expenses.push({ id: uid(), name: it.name, amount: it.amount, month: selectedMonth });
+    state.expenses.push({ id: uid(), name: it.name, amount: it.amount, month: selectedMonth, day: it.day ?? null });
     existsExp.add(key);
     added++;
   }
@@ -799,11 +830,11 @@ function csvEscape(v) {
 
 function toCSV() {
   const rows = [
-    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month"],
+    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month", "day"],
   ];
-  const blank = (arr) => arr.concat(Array(13 - arr.length).fill(""));
-  for (const i of state.income) rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || ""]));
-  for (const ex of state.expenses) rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || ""]));
+  const blank = (arr) => arr.concat(Array(14 - arr.length).fill(""));
+  for (const i of state.income) rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? ""]));
+  for (const ex of state.expenses) rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? ""]));
   for (const d of state.debts) rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment]));
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
@@ -856,7 +887,7 @@ function fromCSV(text) {
   const iType = idx("type"), iName = idx("name"), iAmount = idx("amount");
   const iBal = idx("balance"), iApr = idx("apr"), iMin = idx("minpayment");
   const iDate = idx("date"), iCat = idx("category"), iNote = idx("note"), iDebtName = idx("debtname");
-  const iTarget = idx("target"), iCurrent = idx("current"), iMonth = idx("month");
+  const iTarget = idx("target"), iCurrent = idx("current"), iMonth = idx("month"), iDay = idx("day");
   if (iType === -1) throw new Error("CSV missing 'type' column");
 
   const next = emptyState();
@@ -874,11 +905,12 @@ function fromCSV(text) {
 
     const rowMonth = iMonth >= 0 ? (row[iMonth] || "").trim() : "";
     const monthOrNow = /^\d{4}-\d{2}$/.test(rowMonth) ? rowMonth : currentMonthISO();
+    const rowDay = iDay >= 0 ? parseDay(row[iDay]) : null;
 
     if (type === "income" && name && Number.isFinite(amount)) {
-      next.income.push({ id: uid(), name, amount, month: monthOrNow });
+      next.income.push({ id: uid(), name, amount, month: monthOrNow, day: rowDay });
     } else if (type === "expense" && name && Number.isFinite(amount)) {
-      next.expenses.push({ id: uid(), name, amount, month: monthOrNow });
+      next.expenses.push({ id: uid(), name, amount, month: monthOrNow, day: rowDay });
     } else if (type === "debt" && name) {
       next.debts.push({
         id: uid(),

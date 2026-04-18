@@ -143,10 +143,16 @@
                 <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
               </label>
             </div>
-            <label class="field">
-              <span>Month</span>
-              <input type="month" name="month" required />
-            </label>
+            <div class="grid-2">
+              <label class="field">
+                <span>Month</span>
+                <input type="month" name="month" required />
+              </label>
+              <label class="field">
+                <span>Pay day (1–31)</span>
+                <input type="number" name="day" min="1" max="31" step="1" inputmode="numeric" placeholder="25" />
+              </label>
+            </div>
             <button type="submit" class="primary">Add income</button>
           </form>
           <ul id="list-income" class="item-list"></ul>
@@ -166,10 +172,16 @@
                 <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
               </label>
             </div>
-            <label class="field">
-              <span>Month</span>
-              <input type="month" name="month" required />
-            </label>
+            <div class="grid-2">
+              <label class="field">
+                <span>Month</span>
+                <input type="month" name="month" required />
+              </label>
+              <label class="field">
+                <span>Due day (1–31)</span>
+                <input type="number" name="day" min="1" max="31" step="1" inputmode="numeric" placeholder="1" />
+              </label>
+            </div>
             <button type="submit" class="primary">Add expense</button>
           </form>
           <ul id="list-expense" class="item-list"></ul>
