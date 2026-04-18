@@ -1673,6 +1673,151 @@ if (lockForm) {
   });
 }
 
+/* ---------- receipt scanning (client-side OCR via Tesseract.js) ---------- */
+
+let tesseractWorker = null;
+
+function loadTesseract() {
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js";
+    s.crossOrigin = "anonymous";
+    s.onload = () => resolve(window.Tesseract);
+    s.onerror = () => reject(new Error("Failed to load Tesseract.js"));
+    document.head.appendChild(s);
+  });
+}
+
+async function getTesseractWorker(logger) {
+  const Tess = await loadTesseract();
+  if (!tesseractWorker) {
+    tesseractWorker = await Tess.createWorker("eng", 1, { logger });
+  }
+  return tesseractWorker;
+}
+
+function parseReceiptText(text) {
+  // Clean common OCR glitches
+  const norm = text.replace(/[oO](?=\.\d{2})/g, "0");
+  const lines = norm.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+  const rxAmount = /(?:rm|myr)?\s*(\d{1,3}(?:[, ]\d{3})*|\d+)[.,]\s?(\d{2})\b/i;
+  const allAmounts = [];
+  for (const line of lines) {
+    const matches = [...line.matchAll(/(?:rm|myr)?\s*(\d{1,3}(?:[,\s]\d{3})*|\d+)[.,]\s?(\d{2})\b/gi)];
+    for (const m of matches) {
+      const whole = m[1].replace(/[^\d]/g, "");
+      const cents = m[2];
+      const value = Number(whole + "." + cents);
+      if (Number.isFinite(value) && value > 0) allAmounts.push({ value, line });
+    }
+  }
+
+  // Prefer a line mentioning TOTAL / AMOUNT DUE / GRAND TOTAL
+  const totalLine = lines.find((l) => /\b(grand\s*total|total(?:\s*due)?|amount\s*due|payable|nett?\b)/i.test(l));
+  let amount = null;
+  if (totalLine) {
+    const m = totalLine.match(rxAmount);
+    if (m) {
+      amount = Number(m[1].replace(/[^\d]/g, "") + "." + m[2]);
+    }
+  }
+  // Fallback: pick the largest plausible amount under RM 10,000
+  if (!amount && allAmounts.length) {
+    const candidates = allAmounts.filter((a) => a.value <= 10000);
+    amount = candidates.length ? Math.max(...candidates.map((a) => a.value)) : null;
+  }
+
+  // Vendor guess: first ALL-CAPS or title-case line with mostly letters
+  const vendor = lines.find((l) => l.length >= 3 && l.length <= 40 && /[A-Za-z]/.test(l) && !/\d{2}/.test(l));
+
+  return { amount, vendor: vendor || "", raw: text };
+}
+
+const scanDialog = document.getElementById("scan-dialog");
+const scanInput = document.getElementById("scan-input");
+const scanPreview = document.getElementById("scan-preview");
+const scanStatus = document.getElementById("scan-status");
+const scanProgress = document.getElementById("scan-progress");
+const scanResult = document.getElementById("scan-result");
+const scanAmount = document.getElementById("scan-amount");
+const scanVendor = document.getElementById("scan-vendor");
+const scanRaw = document.getElementById("scan-raw");
+const scanApply = document.getElementById("scan-apply");
+
+function openScanDialog() {
+  if (!scanDialog) return;
+  scanStatus.textContent = "Loading…";
+  scanProgress.style.width = "0%";
+  scanResult.hidden = true;
+  scanApply.hidden = true;
+  scanPreview.removeAttribute("src");
+  if (typeof scanDialog.showModal === "function") scanDialog.showModal();
+  else scanDialog.setAttribute("open", "");
+}
+function closeScanDialog() {
+  if (!scanDialog) return;
+  if (typeof scanDialog.close === "function") scanDialog.close();
+  else scanDialog.removeAttribute("open");
+}
+
+document.getElementById("btn-scan")?.addEventListener("click", () => scanInput?.click());
+document.getElementById("scan-cancel")?.addEventListener("click", closeScanDialog);
+
+scanInput?.addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+
+  openScanDialog();
+  const objectUrl = URL.createObjectURL(file);
+  scanPreview.src = objectUrl;
+
+  try {
+    scanStatus.textContent = "Loading OCR engine (first use ~10 MB)…";
+    const worker = await getTesseractWorker((m) => {
+      if (m.status === "recognizing text") {
+        const pct = Math.round((m.progress || 0) * 100);
+        scanProgress.style.width = pct + "%";
+        scanStatus.textContent = `Reading receipt… ${pct}%`;
+      } else if (m.status) {
+        scanStatus.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1);
+      }
+    });
+    const { data: { text } } = await worker.recognize(file);
+    const parsed = parseReceiptText(text);
+    scanAmount.value = parsed.amount != null ? parsed.amount.toFixed(2) : "";
+    scanVendor.value = parsed.vendor || "";
+    scanRaw.textContent = parsed.raw || "(no text detected)";
+    scanResult.hidden = false;
+    scanApply.hidden = false;
+    scanStatus.textContent = parsed.amount != null
+      ? "Review and apply, or edit first."
+      : "No amount detected — fill in manually or cancel.";
+    scanProgress.style.width = "100%";
+  } catch (err) {
+    scanStatus.textContent = "Scan failed: " + (err && err.message ? err.message : String(err));
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+  }
+});
+
+scanApply?.addEventListener("click", () => {
+  const amt = Number(scanAmount.value);
+  const vendor = (scanVendor.value || "").trim();
+  const amountInput = document.querySelector("#form-daily input[name='amount']");
+  const noteInput = document.querySelector("#form-daily input[name='note']");
+  const catInput = document.querySelector("#form-daily input[name='category']");
+  if (Number.isFinite(amt) && amt > 0 && amountInput) amountInput.value = amt.toFixed(2);
+  if (vendor) {
+    if (noteInput) noteInput.value = vendor;
+    if (catInput && !catInput.value) catInput.value = "Receipt";
+  }
+  closeScanDialog();
+  amountInput?.focus();
+});
+
 document.getElementById("btn-forgot")?.addEventListener("click", () => {
   if (!confirm("Reset will permanently delete all encrypted data. Continue?")) return;
   if (!confirm("Really sure? This cannot be undone.")) return;

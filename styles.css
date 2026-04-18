@@ -1088,6 +1088,87 @@ button.ghost.icon-btn {
   margin-top: 0.5rem;
 }
 
+/* Scan receipt */
+.scan-row {
+  margin-bottom: 0.65rem;
+}
+.scan-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--card-soft);
+  border: 0.5px dashed var(--line);
+  color: var(--ink2);
+  padding: 0.55rem 0.85rem;
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 500;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.scan-btn:hover {
+  background: var(--card);
+  color: var(--primary);
+  border-color: rgba(200, 112, 75, 0.4);
+  border-style: solid;
+}
+.scan-btn .pill-icon svg { width: 18px; height: 18px; }
+
+.scan-dialog form { gap: 0.65rem; }
+.scan-preview-wrap {
+  background: var(--card-soft);
+  border-radius: 14px;
+  padding: 0.5rem;
+  text-align: center;
+  max-height: 240px;
+  overflow: hidden;
+}
+.scan-preview-wrap img {
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 8px;
+  object-fit: contain;
+  display: none;
+}
+.scan-preview-wrap img[src] { display: inline-block; }
+.scan-pb {
+  height: 6px;
+  background: var(--card-soft);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.scan-pb .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--primary));
+  border-radius: 999px;
+  width: 0%;
+  transition: width 0.25s ease;
+}
+.scan-result details { margin-top: 0.25rem; }
+.scan-result summary {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+.scan-result pre {
+  max-height: 140px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  background: var(--card-soft);
+  border-radius: 10px;
+  padding: 0.5rem 0.65rem;
+  color: var(--ink2);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0.4rem 0 0;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
