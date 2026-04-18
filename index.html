@@ -120,23 +120,57 @@
 
       <!-- FLOW (Income + Expenses) -->
       <section id="tab-flow" class="tab-panel">
+        <div class="card month-card">
+          <div class="month-nav">
+            <button type="button" class="ghost" data-action="month-prev" aria-label="Previous month">‹</button>
+            <strong id="month-label">—</strong>
+            <button type="button" class="ghost" data-action="month-next" aria-label="Next month">›</button>
+          </div>
+          <button type="button" class="primary" id="btn-copy-prev">Copy from previous month</button>
+          <p class="hint" id="copy-prev-hint"></p>
+        </div>
+
         <div class="card">
-          <h2>Monthly income</h2>
-          <form id="form-income" class="row-form">
-            <input type="text" name="name" placeholder="Source (e.g. Salary)" required />
-            <input type="number" name="amount" placeholder="Amount" step="0.01" min="0" inputmode="decimal" required />
-            <button type="submit" class="primary">Add</button>
+          <h2>Income</h2>
+          <form id="form-income" class="flow-form">
+            <div class="grid-2">
+              <label class="field">
+                <span>Source</span>
+                <input type="text" name="name" placeholder="Salary" required />
+              </label>
+              <label class="field">
+                <span>Amount (RM)</span>
+                <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+              </label>
+            </div>
+            <label class="field">
+              <span>Month</span>
+              <input type="month" name="month" required />
+            </label>
+            <button type="submit" class="primary">Add income</button>
           </form>
           <ul id="list-income" class="item-list"></ul>
           <div class="total-line">Total: <strong id="total-income">RM 0.00</strong></div>
         </div>
 
         <div class="card">
-          <h2>Monthly expenses</h2>
-          <form id="form-expense" class="row-form">
-            <input type="text" name="name" placeholder="Item (e.g. Rent)" required />
-            <input type="number" name="amount" placeholder="Amount" step="0.01" min="0" inputmode="decimal" required />
-            <button type="submit" class="primary">Add</button>
+          <h2>Recurring expenses</h2>
+          <form id="form-expense" class="flow-form">
+            <div class="grid-2">
+              <label class="field">
+                <span>Item</span>
+                <input type="text" name="name" placeholder="Rent" required />
+              </label>
+              <label class="field">
+                <span>Amount (RM)</span>
+                <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+              </label>
+            </div>
+            <label class="field">
+              <span>Month</span>
+              <input type="month" name="month" required />
+            </label>
+            <button type="submit" class="primary">Add expense</button>
           </form>
           <ul id="list-expense" class="item-list"></ul>
           <div class="total-line">Total: <strong id="total-expense">RM 0.00</strong></div>

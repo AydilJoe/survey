@@ -173,6 +173,7 @@ main {
 input[type="text"],
 input[type="number"],
 input[type="date"],
+input[type="month"],
 select {
   width: 100%;
   padding: 0.7rem 0.8rem;
@@ -223,6 +224,28 @@ select:focus {
   grid-template-columns: 1fr 1fr;
   gap: 0.4rem;
 }
+
+/* Month navigator */
+.month-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.month-nav strong {
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+.month-nav button {
+  padding: 0.45rem 0.9rem;
+  font-size: 1rem;
+}
+.copy-prev-hint { margin: 0; }
 
 /* Daily log */
 .daily-list {

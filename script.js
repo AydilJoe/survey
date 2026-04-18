@@ -22,9 +22,11 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw);
+    const nowMonth = currentMonthISO();
+    const fillMonth = (x) => ({ ...x, month: x.month || nowMonth });
     return {
-      income: Array.isArray(parsed.income) ? parsed.income : [],
-      expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+      income: Array.isArray(parsed.income) ? parsed.income.map(fillMonth) : [],
+      expenses: Array.isArray(parsed.expenses) ? parsed.expenses.map(fillMonth) : [],
       debts: Array.isArray(parsed.debts) ? parsed.debts : [],
       dailyExpenses: Array.isArray(parsed.dailyExpenses) ? parsed.dailyExpenses : [],
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
@@ -70,6 +72,25 @@ function todayISO() {
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
 }
+
+function currentMonthISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function shiftMonth(iso, delta) {
+  const [y, m] = iso.split("-").map(Number);
+  const date = new Date(y, (m - 1) + delta, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonthLabel(iso) {
+  const [y, m] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, 1);
+  return date.toLocaleDateString("en-MY", { month: "long", year: "numeric" });
+}
+
+let selectedMonth = currentMonthISO();
 
 function isSameMonth(iso, ref = new Date()) {
   if (!iso || iso.length < 7) return false;
@@ -238,9 +259,12 @@ function renderFlow() {
   const incomeList = $("#list-income");
   const expenseList = $("#list-expense");
 
+  const monthIncome = state.income.filter((x) => x.month === selectedMonth);
+  const monthExpenses = state.expenses.filter((x) => x.month === selectedMonth);
+
   const renderList = (ul, items, kind) => {
     if (!items.length) {
-      ul.innerHTML = `<li class="empty">No ${kind} entries yet.</li>`;
+      ul.innerHTML = `<li class="empty">No ${kind} entries for this month.</li>`;
       return;
     }
     ul.innerHTML = items
@@ -255,11 +279,33 @@ function renderFlow() {
       .join("");
   };
 
-  renderList(incomeList, state.income, "income");
-  renderList(expenseList, state.expenses, "expense");
+  renderList(incomeList, monthIncome, "income");
+  renderList(expenseList, monthExpenses, "expense");
 
-  $("#total-income").textContent = fmtMYR.format(totalOf(state.income));
-  $("#total-expense").textContent = fmtMYR.format(totalOf(state.expenses));
+  $("#total-income").textContent = fmtMYR.format(totalOf(monthIncome));
+  $("#total-expense").textContent = fmtMYR.format(totalOf(monthExpenses));
+
+  // Month nav label and form defaults
+  const label = $("#month-label");
+  if (label) label.textContent = formatMonthLabel(selectedMonth);
+  const incMonth = document.querySelector("#form-income input[name='month']");
+  const expMonth = document.querySelector("#form-expense input[name='month']");
+  if (incMonth) incMonth.value = selectedMonth;
+  if (expMonth) expMonth.value = selectedMonth;
+
+  // Copy-prev button visibility + hint
+  const prev = shiftMonth(selectedMonth, -1);
+  const prevHas = state.income.some((x) => x.month === prev) || state.expenses.some((x) => x.month === prev);
+  const btnCopy = $("#btn-copy-prev");
+  const hint = $("#copy-prev-hint");
+  if (btnCopy) btnCopy.style.display = prevHas ? "" : "none";
+  if (hint) {
+    if (prevHas) {
+      hint.textContent = `Copies entries from ${formatMonthLabel(prev)} that aren't already in ${formatMonthLabel(selectedMonth)}.`;
+    } else {
+      hint.textContent = `No entries in ${formatMonthLabel(prev)} to copy from.`;
+    }
+  }
 }
 
 function dailySpendSum(entries) {
@@ -453,8 +499,9 @@ function renderDebts() {
 }
 
 function renderDashboard() {
-  const incomeTotal = totalOf(state.income);
-  const expenseTotal = totalOf(state.expenses);
+  const thisMonth = currentMonthISO();
+  const incomeTotal = totalOf(state.income.filter((x) => x.month === thisMonth));
+  const expenseTotal = totalOf(state.expenses.filter((x) => x.month === thisMonth));
   const { total, weighted, minSum } = debtTotals(state.debts);
 
   $("#stat-income").textContent = fmtMYR.format(incomeTotal);
@@ -546,8 +593,9 @@ $("#form-income").addEventListener("submit", (e) => {
   const f = new FormData(e.target);
   const name = (f.get("name") || "").toString().trim();
   const amount = Number(f.get("amount"));
+  const month = (f.get("month") || selectedMonth).toString() || selectedMonth;
   if (!name || !Number.isFinite(amount) || amount < 0) return;
-  state.income.push({ id: uid(), name, amount });
+  state.income.push({ id: uid(), name, amount, month });
   save();
   e.target.reset();
   renderAll();
@@ -558,11 +606,52 @@ $("#form-expense").addEventListener("submit", (e) => {
   const f = new FormData(e.target);
   const name = (f.get("name") || "").toString().trim();
   const amount = Number(f.get("amount"));
+  const month = (f.get("month") || selectedMonth).toString() || selectedMonth;
   if (!name || !Number.isFinite(amount) || amount < 0) return;
-  state.expenses.push({ id: uid(), name, amount });
+  state.expenses.push({ id: uid(), name, amount, month });
   save();
   e.target.reset();
   renderAll();
+});
+
+document.addEventListener("click", (e) => {
+  const btn = e.target instanceof HTMLElement ? e.target.closest("button[data-action]") : null;
+  if (!btn) return;
+  const action = btn.dataset.action;
+  if (action === "month-prev") {
+    selectedMonth = shiftMonth(selectedMonth, -1);
+    renderAll();
+  } else if (action === "month-next") {
+    selectedMonth = shiftMonth(selectedMonth, 1);
+    renderAll();
+  }
+});
+
+$("#btn-copy-prev").addEventListener("click", () => {
+  const prev = shiftMonth(selectedMonth, -1);
+  const prevIncome = state.income.filter((x) => x.month === prev);
+  const prevExpenses = state.expenses.filter((x) => x.month === prev);
+  const existsInc = new Set(state.income.filter((x) => x.month === selectedMonth).map((x) => `${x.name}|${x.amount}`));
+  const existsExp = new Set(state.expenses.filter((x) => x.month === selectedMonth).map((x) => `${x.name}|${x.amount}`));
+  let added = 0;
+  for (const it of prevIncome) {
+    const key = `${it.name}|${it.amount}`;
+    if (existsInc.has(key)) continue;
+    state.income.push({ id: uid(), name: it.name, amount: it.amount, month: selectedMonth });
+    existsInc.add(key);
+    added++;
+  }
+  for (const it of prevExpenses) {
+    const key = `${it.name}|${it.amount}`;
+    if (existsExp.has(key)) continue;
+    state.expenses.push({ id: uid(), name: it.name, amount: it.amount, month: selectedMonth });
+    existsExp.add(key);
+    added++;
+  }
+  save();
+  renderAll();
+  const hint = $("#copy-prev-hint");
+  if (hint && added === 0) hint.textContent = `Nothing to copy — ${formatMonthLabel(selectedMonth)} already has those entries.`;
 });
 
 $("#daily-target").addEventListener("change", toggleCategoryField);
@@ -710,11 +799,11 @@ function csvEscape(v) {
 
 function toCSV() {
   const rows = [
-    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current"],
+    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month"],
   ];
-  const blank = (arr) => arr.concat(Array(12 - arr.length).fill(""));
-  for (const i of state.income) rows.push(blank(["income", i.name, i.amount]));
-  for (const ex of state.expenses) rows.push(blank(["expense", ex.name, ex.amount]));
+  const blank = (arr) => arr.concat(Array(13 - arr.length).fill(""));
+  for (const i of state.income) rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || ""]));
+  for (const ex of state.expenses) rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || ""]));
   for (const d of state.debts) rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment]));
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
@@ -767,7 +856,7 @@ function fromCSV(text) {
   const iType = idx("type"), iName = idx("name"), iAmount = idx("amount");
   const iBal = idx("balance"), iApr = idx("apr"), iMin = idx("minpayment");
   const iDate = idx("date"), iCat = idx("category"), iNote = idx("note"), iDebtName = idx("debtname");
-  const iTarget = idx("target"), iCurrent = idx("current");
+  const iTarget = idx("target"), iCurrent = idx("current"), iMonth = idx("month");
   if (iType === -1) throw new Error("CSV missing 'type' column");
 
   const next = emptyState();
@@ -783,10 +872,13 @@ function fromCSV(text) {
     const apr = iApr >= 0 ? Number(row[iApr]) : NaN;
     const minPayment = iMin >= 0 ? Number(row[iMin]) : NaN;
 
+    const rowMonth = iMonth >= 0 ? (row[iMonth] || "").trim() : "";
+    const monthOrNow = /^\d{4}-\d{2}$/.test(rowMonth) ? rowMonth : currentMonthISO();
+
     if (type === "income" && name && Number.isFinite(amount)) {
-      next.income.push({ id: uid(), name, amount });
+      next.income.push({ id: uid(), name, amount, month: monthOrNow });
     } else if (type === "expense" && name && Number.isFinite(amount)) {
-      next.expenses.push({ id: uid(), name, amount });
+      next.expenses.push({ id: uid(), name, amount, month: monthOrNow });
     } else if (type === "debt" && name) {
       next.debts.push({
         id: uid(),
