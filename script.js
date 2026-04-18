@@ -1498,12 +1498,25 @@ $("#file-import").addEventListener("change", async (e) => {
   }
 });
 
-$("#btn-clear").addEventListener("click", () => {
+$("#btn-clear").addEventListener("click", async () => {
   if (!confirm("Erase ALL data — income, recurring expenses, debts, daily entries, savings goals and settings? This cannot be undone.")) return;
   if (!confirm("Really sure? Export CSV first if you want a backup.")) return;
+  const pass = prompt("Enter your passcode to confirm:");
+  if (pass == null) return;
+  const raw = localStorage.getItem(ENC_KEY);
+  if (!raw) return;
+  try {
+    const rec = JSON.parse(raw);
+    const checkKey = await deriveKey(pass, b64decode(rec.salt));
+    await decryptRecord(checkKey, rec);
+  } catch {
+    alert("Incorrect passcode. Data was not cleared.");
+    return;
+  }
   state = emptyState();
   save();
   renderAll();
+  alert("All data cleared.");
 });
 
 /* ---------- boot ---------- */
