@@ -108,6 +108,13 @@ main {
   font-size: 0.85rem;
   margin: 0.4rem 0 0;
 }
+.hint.warn {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+}
 
 /* Top debt banner */
 .debt-banner {
@@ -443,6 +450,43 @@ button.ghost {
   font-size: 0.85rem;
 }
 button.ghost:hover { background: var(--card-soft); color: var(--text); }
+button.ghost.icon-btn {
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  padding: 0.4rem 0.55rem;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* Edit dialog */
+.edit-dialog {
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 0;
+  max-width: 420px;
+  width: calc(100% - 2rem);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
+}
+.edit-dialog::backdrop {
+  background: rgba(2, 6, 23, 0.7);
+  backdrop-filter: blur(2px);
+}
+.edit-dialog form {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.edit-dialog h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.1rem;
+}
+.edit-dialog .button-row {
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
 
 .button-row {
   display: flex;

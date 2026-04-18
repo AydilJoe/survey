@@ -14,17 +14,17 @@
     </header>
 
     <nav class="tabs" role="tablist">
-      <button class="tab active" data-tab="dashboard" role="tab">Home</button>
-      <button class="tab" data-tab="flow" role="tab">Monthly</button>
-      <button class="tab" data-tab="daily" role="tab">Daily</button>
-      <button class="tab" data-tab="debts" role="tab">Debts</button>
-      <button class="tab" data-tab="savings" role="tab">Savings</button>
-      <button class="tab" data-tab="data" role="tab">Data</button>
+      <button class="tab active" data-tab="dashboard" role="tab" id="tabbtn-dashboard" aria-selected="true" aria-controls="tab-dashboard">Home</button>
+      <button class="tab" data-tab="flow" role="tab" id="tabbtn-flow" aria-selected="false" aria-controls="tab-flow" tabindex="-1">Monthly</button>
+      <button class="tab" data-tab="daily" role="tab" id="tabbtn-daily" aria-selected="false" aria-controls="tab-daily" tabindex="-1">Daily</button>
+      <button class="tab" data-tab="debts" role="tab" id="tabbtn-debts" aria-selected="false" aria-controls="tab-debts" tabindex="-1">Debts</button>
+      <button class="tab" data-tab="savings" role="tab" id="tabbtn-savings" aria-selected="false" aria-controls="tab-savings" tabindex="-1">Savings</button>
+      <button class="tab" data-tab="data" role="tab" id="tabbtn-data" aria-selected="false" aria-controls="tab-data" tabindex="-1">Data</button>
     </nav>
 
     <main>
       <!-- DASHBOARD -->
-      <section id="tab-dashboard" class="tab-panel active">
+      <section id="tab-dashboard" class="tab-panel active" role="tabpanel" aria-labelledby="tabbtn-dashboard">
         <div class="card debt-banner">
           <span class="label">Total debt</span>
           <strong id="stat-debt-banner">RM 0.00</strong>
@@ -103,6 +103,7 @@
             <div class="stat"><span class="label">Debt-free in</span><strong id="stat-months">—</strong></div>
             <div class="stat"><span class="label">Total interest</span><strong id="stat-interest">RM 0.00</strong></div>
           </div>
+          <p id="stall-warning" class="hint warn" hidden></p>
         </div>
 
         <div class="card">
@@ -124,7 +125,7 @@
       </section>
 
       <!-- FLOW (Income + Expenses) -->
-      <section id="tab-flow" class="tab-panel">
+      <section id="tab-flow" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-flow">
         <div class="card month-card">
           <div class="month-nav">
             <button type="button" class="ghost" data-action="month-prev" aria-label="Previous month">‹</button>
@@ -195,7 +196,7 @@
       </section>
 
       <!-- DAILY -->
-      <section id="tab-daily" class="tab-panel">
+      <section id="tab-daily" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-daily">
         <div class="card">
           <h2>Log</h2>
           <div class="stat-row">
@@ -208,7 +209,7 @@
       </section>
 
       <!-- DEBTS -->
-      <section id="tab-debts" class="tab-panel">
+      <section id="tab-debts" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-debts">
         <div class="card">
           <h2>Outstanding debts</h2>
           <form id="form-debt" class="debt-form">
@@ -241,7 +242,7 @@
       </section>
 
       <!-- SAVINGS -->
-      <section id="tab-savings" class="tab-panel">
+      <section id="tab-savings" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-savings">
         <div class="card">
           <h2>New savings goal</h2>
           <form id="form-saving" class="saving-form">
@@ -270,7 +271,7 @@
       </section>
 
       <!-- DATA -->
-      <section id="tab-data" class="tab-panel">
+      <section id="tab-data" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-data">
         <div class="card">
           <h2>CSV backup</h2>
           <p class="hint">Your data lives in this browser (localStorage). Export to CSV to back it up or move to another device; import to restore.</p>
@@ -293,6 +294,17 @@
         </div>
       </section>
     </main>
+
+    <dialog id="edit-dialog" class="edit-dialog">
+      <form id="edit-form" method="dialog">
+        <h2 id="edit-title">Edit</h2>
+        <div id="edit-fields"></div>
+        <div class="button-row">
+          <button type="button" class="ghost" data-edit-cancel>Cancel</button>
+          <button type="submit" class="primary">Save</button>
+        </div>
+      </form>
+    </dialog>
 
     <script src="script.js"></script>
   </body>

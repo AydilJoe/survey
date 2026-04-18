@@ -294,7 +294,8 @@ function renderFlow() {
             ${chip}
             <span class="name">${escapeHtml(it.name)}</span>
             <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMYR.format(it.amount)}</span>
-            <button class="ghost" data-action="delete-${kind}" data-id="${it.id}" aria-label="Delete">✕</button>
+            <button class="ghost icon-btn" data-action="edit-${kind}" data-id="${it.id}" aria-label="Edit ${escapeHtml(it.name)}">✎</button>
+            <button class="ghost icon-btn" data-action="delete-${kind}" data-id="${it.id}" aria-label="Delete ${escapeHtml(it.name)}">✕</button>
           </li>`;
       })
       .join("");
@@ -311,8 +312,8 @@ function renderFlow() {
   if (label) label.textContent = formatMonthLabel(selectedMonth);
   const incMonth = document.querySelector("#form-income input[name='month']");
   const expMonth = document.querySelector("#form-expense input[name='month']");
-  if (incMonth) incMonth.value = selectedMonth;
-  if (expMonth) expMonth.value = selectedMonth;
+  if (incMonth && document.activeElement !== incMonth && incMonth.value !== selectedMonth) incMonth.value = selectedMonth;
+  if (expMonth && document.activeElement !== expMonth && expMonth.value !== selectedMonth) expMonth.value = selectedMonth;
 
   // Copy-prev button visibility + hint
   const prev = shiftMonth(selectedMonth, -1);
@@ -468,9 +469,10 @@ function renderSavingCard(goal, { mini } = { mini: false }) {
       </div>
       ${mini ? "" : `
       <div class="saving-actions">
-        <input type="number" step="0.01" min="0" inputmode="decimal" placeholder="Add amount (RM)" data-save-input="${goal.id}" />
+        <input type="number" step="0.01" min="0" inputmode="decimal" placeholder="Add amount (RM)" data-save-input="${goal.id}" aria-label="Deposit amount for ${escapeHtml(goal.name)}" />
         <button class="primary" data-action="save-deposit" data-id="${goal.id}">Add</button>
-        <button class="ghost" data-action="save-delete" data-id="${goal.id}">Delete</button>
+        <button class="ghost" data-action="edit-saving" data-id="${goal.id}" aria-label="Edit ${escapeHtml(goal.name)}">Edit</button>
+        <button class="ghost" data-action="save-delete" data-id="${goal.id}" aria-label="Delete ${escapeHtml(goal.name)}">Delete</button>
       </div>
       `}
     </div>`;
@@ -514,7 +516,8 @@ function renderDebts() {
         ${chip}
         <span class="name">${escapeHtml(d.name)}</span>
         <span class="meta">${fmtMYR.format(d.balance)}</span>
-        <button class="ghost" data-action="delete-debt" data-id="${d.id}" aria-label="Delete">✕</button>
+        <button class="ghost icon-btn" data-action="edit-debt" data-id="${d.id}" aria-label="Edit ${escapeHtml(d.name)}">✎</button>
+        <button class="ghost icon-btn" data-action="delete-debt" data-id="${d.id}" aria-label="Delete ${escapeHtml(d.name)}">✕</button>
         <div class="meta-row">
           <span>APR ${fmtPct(d.apr)}</span>
           <span>Min ${fmtMYR.format(d.minPayment)}</span>
@@ -562,7 +565,8 @@ function renderDashboard() {
 
   const extraInput = $("#extra-monthly");
   if (document.activeElement !== extraInput) {
-    extraInput.value = state.extraMonthly ? state.extraMonthly : "";
+    const desired = state.extraMonthly ? String(state.extraMonthly) : "";
+    if (extraInput.value !== desired) extraInput.value = desired;
   }
 
   const sim = simulateAvalanche(state.debts, state.extraMonthly);
@@ -580,6 +584,22 @@ function renderDashboard() {
     monthsEl.textContent = formatMonths(sim.months);
     monthsEl.title = "";
     interestEl.textContent = fmtMYR.format(sim.totalInterest);
+  }
+
+  const stallEl = $("#stall-warning");
+  if (stallEl) {
+    const firstMonthInterest = state.debts.reduce(
+      (s, d) => s + (Number(d.balance) || 0) * ((Number(d.apr) || 0) / 100 / 12),
+      0,
+    );
+    const pool = minSum + (Number(state.extraMonthly) || 0);
+    if (state.debts.length > 0 && pool < firstMonthInterest) {
+      stallEl.hidden = false;
+      stallEl.textContent = `⚠︎ Your minimums + extra (${fmtMYR.format(pool)}/mo) don't cover the current monthly interest (${fmtMYR.format(firstMonthInterest)}/mo). Debt will grow — add more to the extra payment.`;
+    } else {
+      stallEl.hidden = true;
+      stallEl.textContent = "";
+    }
   }
 
   const orderEl = $("#payoff-order");
@@ -617,7 +637,13 @@ function renderAll() {
 document.querySelectorAll(".tab").forEach((btn) => {
   btn.addEventListener("click", () => {
     const name = btn.dataset.tab;
-    document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".tab").forEach((b) => {
+      const isActive = b === btn;
+      b.classList.toggle("active", isActive);
+      b.setAttribute("aria-selected", isActive ? "true" : "false");
+      if (isActive) b.removeAttribute("tabindex");
+      else b.setAttribute("tabindex", "-1");
+    });
     document.querySelectorAll(".tab-panel").forEach((p) => {
       p.classList.toggle("active", p.id === `tab-${name}`);
     });
@@ -796,38 +822,184 @@ document.addEventListener("click", (e) => {
   const id = target.dataset.id;
   const action = target.dataset.action;
   if (action === "delete-income") {
+    const it = state.income.find((x) => x.id === id);
+    if (!it) return;
+    if (!confirm(`Delete income "${it.name}" (${fmtMYR.format(it.amount)})?`)) return;
     state.income = state.income.filter((x) => x.id !== id);
   } else if (action === "delete-expense") {
+    const it = state.expenses.find((x) => x.id === id);
+    if (!it) return;
+    if (!confirm(`Delete expense "${it.name}" (${fmtMYR.format(it.amount)})?`)) return;
     state.expenses = state.expenses.filter((x) => x.id !== id);
   } else if (action === "delete-debt") {
+    const it = state.debts.find((x) => x.id === id);
+    if (!it) return;
+    if (!confirm(`Delete debt "${it.name}" (balance ${fmtMYR.format(it.balance)})? Linked daily payment entries will keep their record.`)) return;
     state.debts = state.debts.filter((x) => x.id !== id);
   } else if (action === "delete-daily") {
     const entry = state.dailyExpenses.find((x) => x.id === id);
-    if (entry && entry.kind === "debt" && entry.debtId) {
+    if (!entry) return;
+    const label = entry.kind === "debt"
+      ? `debt payment of ${fmtMYR.format(entry.amount)} to ${entry.debtName || "debt"}`
+      : entry.kind === "saving"
+      ? `deposit of ${fmtMYR.format(entry.amount)} to ${entry.savingName || "savings"}`
+      : `expense of ${fmtMYR.format(entry.amount)}${entry.category ? " (" + entry.category + ")" : ""}`;
+    if (!confirm(`Delete ${label}?\n\nDebt/savings balances will be reversed.`)) return;
+    if (entry.kind === "debt" && entry.debtId) {
       const debt = state.debts.find((d) => d.id === entry.debtId);
       if (debt) debt.balance = (Number(debt.balance) || 0) + (Number(entry.amount) || 0);
     }
-    if (entry && entry.kind === "saving" && entry.savingId) {
+    if (entry.kind === "saving" && entry.savingId) {
       const goal = state.savings.find((g) => g.id === entry.savingId);
       if (goal) goal.current = Math.max(0, (Number(goal.current) || 0) - (Number(entry.amount) || 0));
     }
     state.dailyExpenses = state.dailyExpenses.filter((x) => x.id !== id);
   } else if (action === "save-delete") {
+    const g = state.savings.find((x) => x.id === id);
+    if (!g) return;
+    if (!confirm(`Delete savings goal "${g.name}" (${fmtMYR.format(g.current)} of ${fmtMYR.format(g.target)} saved)?`)) return;
     state.savings = state.savings.filter((x) => x.id !== id);
   } else if (action === "save-deposit") {
     const input = document.querySelector(`input[data-save-input="${id}"]`);
     const amount = Number(input && input.value);
     const goal = state.savings.find((g) => g.id === id);
-    if (goal && Number.isFinite(amount) && amount > 0) {
-      goal.current = Math.max(0, (Number(goal.current) || 0) + amount);
-    } else {
+    if (!goal) return;
+    if (!input || !input.value) {
+      if (input) { input.focus(); input.placeholder = "Enter an amount first"; }
       return;
     }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      input.value = "";
+      input.placeholder = "Must be a positive number";
+      input.focus();
+      return;
+    }
+    goal.current = Math.max(0, (Number(goal.current) || 0) + amount);
+  } else if (action === "edit-income" || action === "edit-expense" || action === "edit-debt" || action === "edit-saving") {
+    openEditDialog(action.slice("edit-".length), id);
+    return;
   } else {
     return;
   }
   save();
   renderAll();
+});
+
+/* ---------- edit dialog ---------- */
+
+const editDialog = document.getElementById("edit-dialog");
+const editForm = document.getElementById("edit-form");
+const editFields = document.getElementById("edit-fields");
+const editTitle = document.getElementById("edit-title");
+let editContext = null; // { kind, id }
+
+function numberField(label, name, value, { step = "0.01", min = "0", max } = {}) {
+  const maxAttr = max != null ? ` max="${max}"` : "";
+  return `<label class="field"><span>${label}</span><input type="number" name="${name}" step="${step}" min="${min}"${maxAttr} inputmode="decimal" value="${value ?? ""}" /></label>`;
+}
+function textField(label, name, value) {
+  return `<label class="field"><span>${label}</span><input type="text" name="${name}" value="${escapeHtml(value ?? "")}" required /></label>`;
+}
+
+function openEditDialog(kind, id) {
+  let entity = null;
+  if (kind === "income") entity = state.income.find((x) => x.id === id);
+  else if (kind === "expense") entity = state.expenses.find((x) => x.id === id);
+  else if (kind === "debt") entity = state.debts.find((x) => x.id === id);
+  else if (kind === "saving") entity = state.savings.find((x) => x.id === id);
+  if (!entity) return;
+
+  editContext = { kind, id };
+  const titleMap = { income: "Edit income", expense: "Edit expense", debt: "Edit debt", saving: "Edit savings goal" };
+  editTitle.textContent = titleMap[kind] || "Edit";
+
+  if (kind === "income" || kind === "expense") {
+    editFields.innerHTML = `
+      ${textField("Name", "name", entity.name)}
+      <div class="grid-2">
+        ${numberField("Amount (RM)", "amount", entity.amount)}
+        <label class="field"><span>Month</span><input type="month" name="month" value="${entity.month || currentMonthISO()}" required /></label>
+      </div>
+      ${numberField(kind === "income" ? "Pay day (1–31)" : "Due day (1–31)", "day", entity.day ?? "", { step: "1", min: "1", max: "31" })}
+    `;
+  } else if (kind === "debt") {
+    editFields.innerHTML = `
+      ${textField("Name", "name", entity.name)}
+      <div class="grid-3">
+        ${numberField("Balance (RM)", "balance", entity.balance)}
+        ${numberField("APR (%)", "apr", entity.apr)}
+        ${numberField("Min (RM)", "minPayment", entity.minPayment)}
+      </div>
+      ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
+    `;
+  } else if (kind === "saving") {
+    editFields.innerHTML = `
+      ${textField("Name", "name", entity.name)}
+      <div class="grid-2">
+        ${numberField("Target (RM)", "target", entity.target, { step: "0.01", min: "0.01" })}
+        ${numberField("Current (RM)", "current", entity.current)}
+      </div>
+    `;
+  }
+
+  if (typeof editDialog.showModal === "function") editDialog.showModal();
+  else editDialog.setAttribute("open", "");
+}
+
+function closeEditDialog() {
+  if (typeof editDialog.close === "function") editDialog.close();
+  else editDialog.removeAttribute("open");
+  editContext = null;
+}
+
+editForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!editContext) { closeEditDialog(); return; }
+  const f = new FormData(editForm);
+  const { kind, id } = editContext;
+
+  if (kind === "income" || kind === "expense") {
+    const list = kind === "income" ? state.income : state.expenses;
+    const it = list.find((x) => x.id === id);
+    if (!it) { closeEditDialog(); return; }
+    const name = (f.get("name") || "").toString().trim();
+    const amount = Number(f.get("amount"));
+    const month = (f.get("month") || it.month || currentMonthISO()).toString();
+    const day = parseDay(f.get("day"));
+    if (!name || !Number.isFinite(amount) || amount < 0) return;
+    it.name = name; it.amount = amount; it.month = month; it.day = day;
+  } else if (kind === "debt") {
+    const it = state.debts.find((x) => x.id === id);
+    if (!it) { closeEditDialog(); return; }
+    const name = (f.get("name") || "").toString().trim();
+    const balance = Number(f.get("balance"));
+    const apr = Number(f.get("apr"));
+    const minPayment = Number(f.get("minPayment"));
+    const dueDay = parseDay(f.get("dueDay"));
+    if (!name) return;
+    if (![balance, apr, minPayment].every((n) => Number.isFinite(n) && n >= 0)) return;
+    it.name = name; it.balance = balance; it.apr = apr; it.minPayment = minPayment; it.dueDay = dueDay;
+  } else if (kind === "saving") {
+    const it = state.savings.find((x) => x.id === id);
+    if (!it) { closeEditDialog(); return; }
+    const name = (f.get("name") || "").toString().trim();
+    const target = Number(f.get("target"));
+    const current = Number(f.get("current"));
+    if (!name) return;
+    if (!Number.isFinite(target) || target <= 0) return;
+    it.name = name; it.target = target; it.current = Number.isFinite(current) ? Math.max(0, current) : it.current;
+  }
+
+  save();
+  closeEditDialog();
+  renderAll();
+});
+
+document.querySelector("[data-edit-cancel]").addEventListener("click", () => closeEditDialog());
+editDialog.addEventListener("click", (e) => {
+  const rect = editDialog.getBoundingClientRect();
+  const inDialog = rect.top <= e.clientY && e.clientY <= rect.bottom && rect.left <= e.clientX && e.clientX <= rect.right;
+  if (!inDialog) closeEditDialog();
 });
 
 /* extra monthly payment */
@@ -848,12 +1020,12 @@ function csvEscape(v) {
 
 function toCSV() {
   const rows = [
-    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month", "day"],
+    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month", "day", "dueDay"],
   ];
-  const blank = (arr) => arr.concat(Array(14 - arr.length).fill(""));
+  const blank = (arr) => arr.concat(Array(15 - arr.length).fill(""));
   for (const i of state.income) rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? ""]));
   for (const ex of state.expenses) rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? ""]));
-  for (const d of state.debts) rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment, "", "", "", "", "", "", "", d.dueDay ?? ""]));
+  for (const d of state.debts) rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment, "", "", "", "", "", "", "", "", d.dueDay ?? ""]));
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
       rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || ""]));
@@ -906,7 +1078,9 @@ function fromCSV(text) {
   const iBal = idx("balance"), iApr = idx("apr"), iMin = idx("minpayment");
   const iDate = idx("date"), iCat = idx("category"), iNote = idx("note"), iDebtName = idx("debtname");
   const iTarget = idx("target"), iCurrent = idx("current"), iMonth = idx("month"), iDay = idx("day");
+  const iDueDay = idx("dueday");
   if (iType === -1) throw new Error("CSV missing 'type' column");
+  const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
   const next = emptyState();
 
@@ -930,13 +1104,14 @@ function fromCSV(text) {
     } else if (type === "expense" && name && Number.isFinite(amount)) {
       next.expenses.push({ id: uid(), name, amount, month: monthOrNow, day: rowDay });
     } else if (type === "debt" && name) {
+      const rowDueDay = iDueDay >= 0 ? parseDay(row[iDueDay]) : null;
       next.debts.push({
         id: uid(),
         name,
         balance: Number.isFinite(balance) ? balance : 0,
         apr: Number.isFinite(apr) ? apr : 0,
         minPayment: Number.isFinite(minPayment) ? minPayment : 0,
-        dueDay: rowDay,
+        dueDay: rowDueDay != null ? rowDueDay : rowDay, // back-compat: old exports put debt due day in 'day'
       });
     } else if (type === "daily") {
       if (!Number.isFinite(amount)) continue;
@@ -944,7 +1119,10 @@ function fromCSV(text) {
         id: uid(),
         createdAt: Date.now(),
         kind: "expense",
-        date: iDate >= 0 ? (row[iDate] || "").trim() || todayISO() : todayISO(),
+        date: (() => {
+          const raw = iDate >= 0 ? (row[iDate] || "").trim() : "";
+          return isValidDate(raw) ? raw : todayISO();
+        })(),
         amount,
         category: iCat >= 0 ? (row[iCat] || "").trim() || "Others" : "Others",
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
@@ -957,7 +1135,10 @@ function fromCSV(text) {
         id: uid(),
         createdAt: Date.now(),
         kind: "debt",
-        date: iDate >= 0 ? (row[iDate] || "").trim() || todayISO() : todayISO(),
+        date: (() => {
+          const raw = iDate >= 0 ? (row[iDate] || "").trim() : "";
+          return isValidDate(raw) ? raw : todayISO();
+        })(),
         amount,
         debtId: debt ? debt.id : null,
         debtName,
@@ -971,7 +1152,10 @@ function fromCSV(text) {
         id: uid(),
         createdAt: Date.now(),
         kind: "saving",
-        date: iDate >= 0 ? (row[iDate] || "").trim() || todayISO() : todayISO(),
+        date: (() => {
+          const raw = iDate >= 0 ? (row[iDate] || "").trim() : "";
+          return isValidDate(raw) ? raw : todayISO();
+        })(),
         amount,
         savingId: goal ? goal.id : null,
         savingName,
@@ -1034,7 +1218,8 @@ $("#file-import").addEventListener("change", async (e) => {
 });
 
 $("#btn-clear").addEventListener("click", () => {
-  if (!confirm("Erase all income, expenses, debts and settings?")) return;
+  if (!confirm("Erase ALL data — income, recurring expenses, debts, daily entries, savings goals and settings? This cannot be undone.")) return;
+  if (!confirm("Really sure? Export CSV first if you want a backup.")) return;
   state = emptyState();
   save();
   renderAll();
