@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=11" />
+    <link rel="stylesheet" href="styles.css?v=12" />
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -20,12 +20,16 @@
           </svg>
         </div>
         <div class="splash-title">Duit Tracker</div>
-        <div class="lock-sub">Enter your passcode</div>
+        <div class="lock-sub" id="lock-sub">Enter your passcode</div>
         <form id="lock-form" class="lock-form" autocomplete="off">
-          <input type="password" id="lock-input" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Passcode" />
-          <button type="submit" class="primary">Unlock</button>
+          <input type="password" id="lock-input" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Passcode" placeholder="Passcode" />
+          <input type="password" id="lock-confirm" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Confirm passcode" placeholder="Confirm" hidden />
+          <button type="submit" class="primary" id="lock-submit">Unlock</button>
         </form>
-        <p id="lock-error" class="hint warn" hidden>Incorrect passcode</p>
+        <p id="lock-error" class="hint warn" hidden></p>
+        <p id="lock-help" class="lock-help" hidden>
+          <button type="button" id="btn-forgot">Forgot passcode? Reset and wipe data</button>
+        </p>
       </div>
     </div>
 
@@ -377,13 +381,10 @@
         </div>
         <div class="card">
           <h2>Security</h2>
-          <p class="hint" id="passcode-status">Passcode is off.</p>
+          <p class="hint">Your data is encrypted with your passcode using AES-GCM (key derived from the passcode via PBKDF2). If you lose the passcode, the data is unrecoverable — export CSV regularly as a backup.</p>
           <div class="button-row">
-            <button id="btn-set-passcode" class="primary" type="button">Set passcode</button>
-            <button id="btn-change-passcode" class="ghost" type="button" hidden>Change passcode</button>
-            <button id="btn-remove-passcode" class="danger" type="button" hidden>Remove passcode</button>
+            <button id="btn-change-passcode" class="primary" type="button">Change passcode</button>
           </div>
-          <p class="hint">Passcode is hashed and stored on this device only. It guards the app from casual access; it does <strong>not</strong> encrypt your data. Someone with full access to your browser (devtools, clearing site data) can bypass it.</p>
         </div>
 
         <div class="card">
@@ -408,6 +409,6 @@
       </form>
     </dialog>
 
-    <script src="script.js?v=11"></script>
+    <script src="script.js?v=12"></script>
   </body>
 </html>

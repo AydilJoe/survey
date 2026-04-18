@@ -1,8 +1,10 @@
 /* Duit Tracker — money & debt tracker with avalanche payoff (MYR).
-   All data stored in localStorage. CSV import/export supported. */
+   State is AES-GCM encrypted with a PBKDF2 key derived from the user's
+   passcode. CSV import/export supported. */
 
-const STORAGE_KEY = "duit-tracker.v1";
-const MAX_MONTHS = 600; // 50 years cap for simulation
+const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
+const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
+const MAX_MONTHS = 600;                  // 50 years cap for simulation
 
 /* ---------- state ---------- */
 
@@ -15,13 +17,8 @@ const emptyState = () => ({
   extraMonthly: 0,
 });
 
-let state = load();
-
-function load() {
+function coerceState(parsed) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return emptyState();
-    const parsed = JSON.parse(raw);
     const nowMonth = currentMonthISO();
     const fillMonth = (x) => ({ ...x, month: x.month || nowMonth });
     return {
@@ -32,13 +29,65 @@ function load() {
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
       extraMonthly: Number(parsed.extraMonthly) || 0,
     };
-  } catch {
-    return emptyState();
-  }
+  } catch { return emptyState(); }
 }
 
+/* initial blank state; real state lands after unlock */
+let state = emptyState();
+let aesKey = null;
+
+/* ---------- crypto helpers ---------- */
+
+function b64encode(bytes) {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s);
+}
+function b64decode(str) {
+  const bin = atob(str);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function deriveKey(passcode, saltBytes) {
+  const baseKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(passcode),
+    "PBKDF2",
+    false,
+    ["deriveKey"],
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: saltBytes, iterations: 250000, hash: "SHA-256" },
+    baseKey,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
+}
+async function encryptWith(key, plainObj, saltB64) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const plaintext = new TextEncoder().encode(JSON.stringify(plainObj));
+  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext);
+  return { v: 1, salt: saltB64, iv: b64encode(iv), cipher: b64encode(new Uint8Array(cipher)) };
+}
+async function decryptRecord(key, rec) {
+  const iv = b64decode(rec.iv);
+  const cipher = b64decode(rec.cipher);
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipher);
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+
+/* sync save wrapper — fire-and-forget encrypted write */
+let saveChain = Promise.resolve();
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (!aesKey) return; // pre-unlock writes are ignored
+  const snapshot = JSON.parse(JSON.stringify(state));
+  saveChain = saveChain.then(async () => {
+    const prev = JSON.parse(localStorage.getItem(ENC_KEY) || "{}");
+    const rec = await encryptWith(aesKey, snapshot, prev.salt);
+    localStorage.setItem(ENC_KEY, JSON.stringify(rec));
+  }).catch((err) => console.error("save failed", err));
 }
 
 function uid() {
@@ -1482,6 +1531,7 @@ document.getElementById("btn-privacy").addEventListener("click", () => {
   applyPrivacy(!document.body.classList.contains("private"));
 });
 
+/* Initial render uses empty state until unlocked; real render happens post-unlock. */
 renderAll();
 
 /* splash → hide when fonts load, after a minimum delay so it doesn't flash */
@@ -1491,47 +1541,102 @@ renderAll();
   Promise.all([minDelay, fonts]).then(() => document.body.classList.add("loaded"));
 }
 
-/* ---------- passcode lock ---------- */
+/* ---------- passcode / encryption flow ---------- */
 
-const PASS_KEY = "duit-tracker.pass";
+let lockMode = "unlock"; // "unlock" | "setup" | "migrate"
 
-async function sha256Hex(str) {
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+function setLockMode(mode) {
+  lockMode = mode;
+  const sub = document.getElementById("lock-sub");
+  const submit = document.getElementById("lock-submit");
+  const confirmEl = document.getElementById("lock-confirm");
+  const help = document.getElementById("lock-help");
+  const err = document.getElementById("lock-error");
+  const input = document.getElementById("lock-input");
+  if (err) { err.hidden = true; err.textContent = ""; }
+  if (input) input.placeholder = "Passcode";
+  if (mode === "unlock") {
+    if (sub) sub.textContent = "Enter your passcode";
+    if (submit) submit.textContent = "Unlock";
+    if (confirmEl) confirmEl.hidden = true;
+    if (help) help.hidden = false;
+  } else if (mode === "setup") {
+    if (sub) sub.textContent = "Create a passcode — your data will be encrypted on this device.";
+    if (submit) submit.textContent = "Create passcode";
+    if (confirmEl) { confirmEl.hidden = false; confirmEl.value = ""; }
+    if (help) help.hidden = true;
+    if (input) input.placeholder = "New passcode (min 4)";
+  } else if (mode === "migrate") {
+    if (sub) sub.textContent = "Set a passcode to encrypt your existing data.";
+    if (submit) submit.textContent = "Encrypt data";
+    if (confirmEl) { confirmEl.hidden = false; confirmEl.value = ""; }
+    if (help) help.hidden = true;
+    if (input) input.placeholder = "New passcode (min 4)";
+  }
 }
-function randomSalt() {
-  return Array.from(crypto.getRandomValues(new Uint8Array(8)))
-    .map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-function hasPasscode() { return !!localStorage.getItem(PASS_KEY); }
-async function storePasscode(plain) {
-  const salt = randomSalt();
-  const hash = await sha256Hex(salt + ":" + plain);
-  localStorage.setItem(PASS_KEY, `${salt}:${hash}`);
-}
-async function verifyPasscode(plain) {
-  const stored = localStorage.getItem(PASS_KEY);
-  if (!stored) return true;
-  const [salt, hash] = stored.split(":");
-  return (await sha256Hex(salt + ":" + plain)) === hash;
-}
-function clearPasscode() { localStorage.removeItem(PASS_KEY); }
 
 function showLock() {
   const lock = document.getElementById("lock");
-  const input = document.getElementById("lock-input");
   if (!lock) return;
   lock.hidden = false;
   lock.setAttribute("aria-hidden", "false");
-  setTimeout(() => input && input.focus(), 50);
+  setTimeout(() => document.getElementById("lock-input")?.focus(), 50);
 }
 function hideLock() {
   const lock = document.getElementById("lock");
-  const input = document.getElementById("lock-input");
   if (!lock) return;
   lock.hidden = true;
   lock.setAttribute("aria-hidden", "true");
+  const input = document.getElementById("lock-input");
+  const confirmEl = document.getElementById("lock-confirm");
   if (input) input.value = "";
+  if (confirmEl) confirmEl.value = "";
+}
+function lockError(msg) {
+  const err = document.getElementById("lock-error");
+  const form = document.getElementById("lock-form");
+  if (err) { err.textContent = msg; err.hidden = false; }
+  if (form) {
+    form.classList.remove("shake");
+    void form.offsetWidth;
+    form.classList.add("shake");
+  }
+  const input = document.getElementById("lock-input");
+  if (input) { input.value = ""; input.focus(); }
+  const confirmEl = document.getElementById("lock-confirm");
+  if (confirmEl) confirmEl.value = "";
+}
+
+async function handleUnlock(passcode) {
+  const raw = localStorage.getItem(ENC_KEY);
+  if (!raw) { lockError("No encrypted data."); return; }
+  const rec = JSON.parse(raw);
+  try {
+    const key = await deriveKey(passcode, b64decode(rec.salt));
+    const plain = await decryptRecord(key, rec);
+    aesKey = key;
+    state = coerceState(plain);
+  } catch {
+    lockError("Incorrect passcode");
+    return;
+  }
+  hideLock();
+  renderAll();
+}
+
+async function handleSetup(passcode, confirm, initialState) {
+  if (passcode.length < 4) { lockError("Min 4 characters"); return; }
+  if (passcode !== confirm) { lockError("Passcodes don't match"); return; }
+  const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+  const saltB64 = b64encode(saltBytes);
+  const key = await deriveKey(passcode, saltBytes);
+  aesKey = key;
+  state = initialState;
+  const rec = await encryptWith(key, state, saltB64);
+  localStorage.setItem(ENC_KEY, JSON.stringify(rec));
+  localStorage.removeItem(STORAGE_KEY); // clear legacy plain after migration
+  hideLock();
+  renderAll();
 }
 
 const lockForm = document.getElementById("lock-form");
@@ -1539,65 +1644,64 @@ if (lockForm) {
   lockForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const input = document.getElementById("lock-input");
-    const errEl = document.getElementById("lock-error");
-    const attempt = (input && input.value) || "";
-    if (!attempt) return;
-    if (await verifyPasscode(attempt)) {
-      if (errEl) errEl.hidden = true;
-      hideLock();
-    } else {
-      if (errEl) errEl.hidden = false;
-      lockForm.classList.remove("shake");
-      void lockForm.offsetWidth; // restart animation
-      lockForm.classList.add("shake");
-      if (input) { input.value = ""; input.focus(); }
+    const confirmEl = document.getElementById("lock-confirm");
+    const pass = (input && input.value) || "";
+    if (!pass) return;
+    if (lockMode === "unlock") {
+      await handleUnlock(pass);
+    } else if (lockMode === "setup") {
+      await handleSetup(pass, (confirmEl && confirmEl.value) || "", emptyState());
+    } else if (lockMode === "migrate") {
+      const legacy = localStorage.getItem(STORAGE_KEY);
+      let legacyState = emptyState();
+      try { legacyState = coerceState(JSON.parse(legacy || "{}")); } catch {}
+      await handleSetup(pass, (confirmEl && confirmEl.value) || "", legacyState);
     }
   });
 }
 
-function renderPasscodeControls() {
-  const on = hasPasscode();
-  const statusEl = document.getElementById("passcode-status");
-  const setBtn = document.getElementById("btn-set-passcode");
-  const changeBtn = document.getElementById("btn-change-passcode");
-  const removeBtn = document.getElementById("btn-remove-passcode");
-  if (statusEl) statusEl.textContent = on ? "Passcode is on — required every time you open the app." : "Passcode is off.";
-  if (setBtn) setBtn.hidden = on;
-  if (changeBtn) changeBtn.hidden = !on;
-  if (removeBtn) removeBtn.hidden = !on;
-}
+document.getElementById("btn-forgot")?.addEventListener("click", () => {
+  if (!confirm("Reset will permanently delete all encrypted data. Continue?")) return;
+  if (!confirm("Really sure? This cannot be undone.")) return;
+  localStorage.removeItem(ENC_KEY);
+  localStorage.removeItem(STORAGE_KEY);
+  aesKey = null;
+  state = emptyState();
+  setLockMode("setup");
+});
 
-async function promptSetPasscode() {
-  const p1 = prompt("Set a passcode (min 4 characters):");
-  if (p1 == null) return;
-  if (p1.length < 4) { alert("Passcode must be at least 4 characters."); return; }
-  const p2 = prompt("Confirm passcode:");
-  if (p2 == null) return;
-  if (p1 !== p2) { alert("Passcodes don't match."); return; }
-  await storePasscode(p1);
-  renderPasscodeControls();
-  alert("Passcode set. You'll be asked for it next time you open the app.");
-}
-
-async function promptChangePasscode() {
+document.getElementById("btn-change-passcode")?.addEventListener("click", async () => {
+  if (!aesKey) return;
   const cur = prompt("Current passcode:");
   if (cur == null) return;
-  if (!(await verifyPasscode(cur))) { alert("Incorrect passcode."); return; }
-  await promptSetPasscode();
+  // verify by attempting to decrypt
+  const raw = localStorage.getItem(ENC_KEY);
+  if (!raw) return;
+  const rec = JSON.parse(raw);
+  try {
+    const checkKey = await deriveKey(cur, b64decode(rec.salt));
+    await decryptRecord(checkKey, rec);
+  } catch { alert("Incorrect passcode."); return; }
+  const p1 = prompt("New passcode (min 4 characters):");
+  if (p1 == null) return;
+  if (p1.length < 4) { alert("Must be at least 4 characters."); return; }
+  const p2 = prompt("Confirm new passcode:");
+  if (p1 !== p2) { alert("Passcodes don't match."); return; }
+  const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+  const saltB64 = b64encode(saltBytes);
+  const newKey = await deriveKey(p1, saltBytes);
+  aesKey = newKey;
+  const newRec = await encryptWith(newKey, state, saltB64);
+  localStorage.setItem(ENC_KEY, JSON.stringify(newRec));
+  alert("Passcode changed. Data re-encrypted with new key.");
+});
+
+/* decide the initial lock mode and show it */
+{
+  const hasEnc = !!localStorage.getItem(ENC_KEY);
+  const hasPlain = !!localStorage.getItem(STORAGE_KEY);
+  if (hasEnc) setLockMode("unlock");
+  else if (hasPlain) setLockMode("migrate");
+  else setLockMode("setup");
+  showLock();
 }
-
-async function promptRemovePasscode() {
-  const cur = prompt("Enter current passcode to remove it:");
-  if (cur == null) return;
-  if (!(await verifyPasscode(cur))) { alert("Incorrect passcode."); return; }
-  clearPasscode();
-  renderPasscodeControls();
-  alert("Passcode removed.");
-}
-
-document.getElementById("btn-set-passcode")?.addEventListener("click", promptSetPasscode);
-document.getElementById("btn-change-passcode")?.addEventListener("click", promptChangePasscode);
-document.getElementById("btn-remove-passcode")?.addEventListener("click", promptRemovePasscode);
-
-renderPasscodeControls();
-if (hasPasscode()) showLock();

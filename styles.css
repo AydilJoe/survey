@@ -119,20 +119,41 @@ body.loaded #splash {
 }
 .lock-form {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.55rem;
   width: 100%;
-  max-width: 320px;
-  margin-top: 0.4rem;
+  max-width: 340px;
+  margin: 0.4rem auto 0;
 }
 .lock-form input {
-  flex: 1;
+  width: 100%;
   text-align: center;
   font-family: var(--font-serif);
-  font-size: 1.4rem;
-  letter-spacing: 0.3em;
+  font-size: 1.35rem;
+  letter-spacing: 0.2em;
   padding: 0.85rem 0.9rem;
   background: var(--card);
   border-radius: 14px;
+}
+.lock-form button.primary {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font-size: 1rem;
+}
+.lock-help {
+  margin-top: 0.6rem;
+  text-align: center;
+}
+.lock-help a, .lock-help button {
+  color: var(--primary);
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .lock-form.shake { animation: lock-shake 0.35s cubic-bezier(.36,.07,.19,.97); }
 @keyframes lock-shake {
