@@ -344,29 +344,59 @@ function dailyStats() {
   return { today, week, month };
 }
 
-function updateDailyTargetSelect() {
-  const sel = $("#daily-target");
-  if (!sel) return;
-  const prev = sel.value;
-  const opts = [`<option value="expense">Others / general expense</option>`];
-  for (const d of state.debts) {
-    opts.push(`<option value="debt:${d.id}">Pay debt — ${escapeHtml(d.name)}</option>`);
-  }
-  for (const g of state.savings) {
-    opts.push(`<option value="saving:${g.id}">Save to goal — ${escapeHtml(g.name)}</option>`);
-  }
-  sel.innerHTML = opts.join("");
-  if (prev && Array.from(sel.options).some((o) => o.value === prev)) {
-    sel.value = prev;
-  }
-  toggleCategoryField();
+function dailyType() {
+  const hidden = document.getElementById("daily-type");
+  return hidden ? hidden.value : "expense";
 }
 
-function toggleCategoryField() {
+function setDailyType(type) {
+  const hidden = document.getElementById("daily-type");
+  if (!hidden) return;
+  hidden.value = type;
+  document.querySelectorAll(".type-pills .pill").forEach((btn) => {
+    const on = btn.dataset.type === type;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-checked", on ? "true" : "false");
+  });
+  updateDailyTargetSelect();
+}
+
+function updateDailyTargetSelect() {
   const sel = $("#daily-target");
+  const field = $("#target-select-field");
   const catField = $("#daily-category-field");
-  if (!sel || !catField) return;
-  catField.style.display = sel.value === "expense" ? "" : "none";
+  const label = $("#target-select-label");
+  if (!sel || !field || !catField) return;
+  const type = dailyType();
+  if (type === "expense") {
+    field.hidden = true;
+    catField.hidden = false;
+    sel.innerHTML = `<option value="expense">Others / general</option>`;
+  } else if (type === "debt") {
+    catField.hidden = true;
+    if (label) label.textContent = "Pay which debt";
+    if (state.debts.length === 0) {
+      field.hidden = false;
+      sel.innerHTML = `<option value="">Add a debt first →</option>`;
+    } else {
+      field.hidden = false;
+      sel.innerHTML = state.debts
+        .map((d) => `<option value="debt:${d.id}">${escapeHtml(d.name)} · ${fmtMYR.format(d.balance)}</option>`)
+        .join("");
+    }
+  } else if (type === "saving") {
+    catField.hidden = true;
+    if (label) label.textContent = "Save to which goal";
+    if (state.savings.length === 0) {
+      field.hidden = false;
+      sel.innerHTML = `<option value="">Add a goal first →</option>`;
+    } else {
+      field.hidden = false;
+      sel.innerHTML = state.savings
+        .map((g) => `<option value="saving:${g.id}">${escapeHtml(g.name)}</option>`)
+        .join("");
+    }
+  }
 }
 
 function updateCategoryDatalist() {
@@ -527,6 +557,24 @@ function renderDebts() {
     .join("");
 }
 
+function monthProgress() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const day = now.getDate();
+  return { day, daysInMonth, pct: (day / daysInMonth) * 100 };
+}
+
+function renderGreeting() {
+  const el = $("#greeting");
+  if (!el) return;
+  const now = new Date();
+  const h = now.getHours();
+  const part = h < 5 ? "Late night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  el.textContent = `${part} · ${now.toLocaleDateString("en-MY", { weekday: "long", day: "numeric", month: "short" })}`;
+}
+
 function renderDashboard() {
   const thisMonth = currentMonthISO();
   const incomeTotal = totalOf(state.income.filter((x) => x.month === thisMonth));
@@ -538,14 +586,36 @@ function renderDashboard() {
   $("#stat-min").textContent = fmtMYR.format(minSum);
 
   const dailyMonth = dailyStats().month;
-  const net = incomeTotal - expenseTotal - minSum - (Number(state.extraMonthly) || 0) - dailyMonth;
+  const extra = Number(state.extraMonthly) || 0;
+  const totalOut = expenseTotal + minSum + extra + dailyMonth;
+  const net = incomeTotal - totalOut;
   const netEl = $("#stat-net");
   netEl.textContent = fmtMYR.format(net);
   netEl.classList.toggle("pos", net >= 0);
   netEl.classList.toggle("neg", net < 0);
+
+  // Hero month label + progress bar
+  const hm = $("#hero-month");
+  if (hm) hm.textContent = formatMonthLabel(thisMonth);
+  const prog = monthProgress();
+  const fill = $("#hero-progress-fill");
+  const progText = $("#hero-progress-text");
+  if (fill && progText) {
+    if (incomeTotal > 0) {
+      const spentPct = Math.min(100, (totalOut / incomeTotal) * 100);
+      fill.style.width = spentPct + "%";
+      fill.classList.toggle("over", totalOut > incomeTotal);
+      progText.innerHTML = `<span>Spent ${fmtMYR.format(totalOut)} of ${fmtMYR.format(incomeTotal)} · ${spentPct.toFixed(0)}%</span><span>Day ${prog.day}/${prog.daysInMonth}</span>`;
+    } else {
+      fill.style.width = prog.pct.toFixed(1) + "%";
+      fill.classList.remove("over");
+      progText.innerHTML = `<span>Add income this month to see your spend-vs-budget</span><span>Day ${prog.day}/${prog.daysInMonth}</span>`;
+    }
+  }
+
   const formulaEl = $("#stat-net-formula");
   if (formulaEl) {
-    formulaEl.textContent = `income − recurring − min debt − extra − daily (${fmtMYR.format(dailyMonth)})`;
+    formulaEl.textContent = `= income − recurring − min debt − extra − daily (${fmtMYR.format(dailyMonth)})`;
   }
 
   $("#stat-debt-total").textContent = fmtMYR.format(total);
@@ -562,6 +632,25 @@ function renderDashboard() {
       bannerSub.textContent = `${n} debt${n === 1 ? "" : "s"} · weighted APR ${fmtPct(weighted)}`;
     }
   }
+
+  // Empty-state toggles for Debts/Savings dashboard cards
+  const debtEmpty = $("#debt-empty");
+  const debtDetails = $("#debt-details");
+  if (debtEmpty && debtDetails) {
+    const empty = state.debts.length === 0;
+    debtEmpty.hidden = !empty;
+    debtDetails.hidden = empty;
+    if (bannerSub) bannerSub.hidden = empty;
+  }
+  const savingsEmpty = $("#savings-empty");
+  const savingsMini = $("#savings-mini");
+  if (savingsEmpty && savingsMini) {
+    const empty = state.savings.length === 0;
+    savingsEmpty.hidden = !empty;
+    savingsMini.hidden = empty;
+  }
+  const payoffCard = $("#payoff-card");
+  if (payoffCard) payoffCard.hidden = state.debts.length === 0;
 
   const extraInput = $("#extra-monthly");
   if (document.activeElement !== extraInput) {
@@ -728,21 +817,25 @@ $("#btn-copy-prev").addEventListener("click", () => {
   if (hint && added === 0) hint.textContent = `Nothing to copy — ${formatMonthLabel(selectedMonth)} already has those entries.`;
 });
 
-$("#daily-target").addEventListener("change", toggleCategoryField);
 
 $("#form-daily").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
   const amount = Number(f.get("amount"));
   const date = (f.get("date") || "").toString() || todayISO();
-  const target = (f.get("target") || "expense").toString();
+  const type = dailyType();
+  const target = (f.get("target") || "").toString();
   const note = (f.get("note") || "").toString().trim();
   if (!Number.isFinite(amount) || amount <= 0) return;
 
   const id = uid();
   const createdAt = Date.now();
 
-  if (target.startsWith("debt:")) {
+  if (type === "debt") {
+    if (!target.startsWith("debt:")) {
+      alert("Add a debt in the Debts tab first.");
+      return;
+    }
     const debtId = target.slice("debt:".length);
     const debt = state.debts.find((d) => d.id === debtId);
     if (!debt) return;
@@ -752,7 +845,11 @@ $("#form-daily").addEventListener("submit", (e) => {
       id, createdAt, kind: "debt", date, amount,
       debtId: debt.id, debtName: debt.name, note,
     });
-  } else if (target.startsWith("saving:")) {
+  } else if (type === "saving") {
+    if (!target.startsWith("saving:")) {
+      alert("Create a savings goal in the Savings tab first.");
+      return;
+    }
     const savingId = target.slice("saving:".length);
     const goal = state.savings.find((g) => g.id === savingId);
     if (!goal) return;
@@ -769,12 +866,37 @@ $("#form-daily").addEventListener("submit", (e) => {
   }
 
   save();
-  // Reset but keep the target and date for quick repeat entries.
-  const keepTarget = $("#daily-target").value;
+  // Reset amount + note but keep date + type for quick repeat entries.
+  const keepDate = date;
+  const keepType = type;
   e.target.reset();
-  $("#form-daily").querySelector("input[name='date']").value = date;
-  $("#daily-target").value = keepTarget;
+  $("#form-daily").querySelector("input[name='date']").value = keepDate;
+  setDailyType(keepType);
   renderAll();
+});
+
+/* pill buttons + quick amount chips */
+document.querySelectorAll(".type-pills .pill").forEach((btn) => {
+  btn.addEventListener("click", () => setDailyType(btn.dataset.type));
+});
+document.querySelectorAll(".quick-amounts button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const input = document.querySelector("#form-daily input[name='amount']");
+    if (!input) return;
+    const add = Number(btn.dataset.quick) || 0;
+    const current = Number(input.value) || 0;
+    input.value = (current + add).toFixed(2).replace(/\.00$/, "");
+    input.focus();
+  });
+});
+
+/* go-to-tab buttons in empty states */
+document.addEventListener("click", (e) => {
+  const btn = e.target instanceof HTMLElement ? e.target.closest("[data-go-tab]") : null;
+  if (!btn) return;
+  const tabName = btn.getAttribute("data-go-tab");
+  const tabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (tabBtn) tabBtn.click();
 });
 
 $("#form-debt").addEventListener("submit", (e) => {
@@ -1230,4 +1352,6 @@ $("#btn-clear").addEventListener("click", () => {
 const dailyDateInput = document.querySelector("#form-daily input[name='date']");
 if (dailyDateInput) dailyDateInput.value = todayISO();
 
+renderGreeting();
+setDailyType("expense");
 renderAll();

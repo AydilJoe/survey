@@ -28,18 +28,33 @@ html, body {
 }
 
 .app-header {
-  padding: 1.25rem 1rem 0.5rem;
-  text-align: center;
+  padding: 1rem 1rem 0.25rem;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.brand-mark {
+  font-size: 1.8rem;
+  line-height: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.4rem 0.55rem;
+  box-shadow: var(--shadow);
 }
 .app-header h1 {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   letter-spacing: -0.01em;
 }
 .subtitle {
   color: var(--muted);
-  margin: 0.1rem 0 0;
-  font-size: 0.85rem;
+  margin: 0.05rem 0 0;
+  font-size: 0.82rem;
 }
 
 /* Tabs */
@@ -62,17 +77,22 @@ html, body {
   background: transparent;
   color: var(--muted);
   border: 1px solid transparent;
-  padding: 0.55rem 0.85rem;
-  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 10px;
   font: inherit;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.05s ease;
   flex: 1 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   white-space: nowrap;
   text-align: center;
 }
+.tab-icon { font-size: 1rem; line-height: 1; }
+.tab:active { transform: scale(0.97); }
 .tab:hover { background: var(--card-soft); }
 .tab.active {
   background: var(--card);
@@ -116,39 +136,240 @@ main {
   padding: 0.45rem 0.6rem;
 }
 
-/* Top debt banner */
-.debt-banner {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  text-align: center;
-  background: linear-gradient(135deg, #1b2540 0%, #2b1220 100%);
+/* Hero */
+.hero-card {
+  background: linear-gradient(135deg, #1e3a5c 0%, #1b2540 45%, #2a1a3d 100%);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 1.1rem 1.1rem 1rem;
+  margin-bottom: 0.85rem;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
 }
-.debt-banner .label {
+.hero-card::before {
+  content: "";
+  position: absolute;
+  inset: -40% -40% auto auto;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 65%);
+  pointer-events: none;
+}
+.hero-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.hero-label {
   color: var(--muted);
   font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
+  font-weight: 600;
 }
-.debt-banner strong {
-  font-size: 1.9rem;
-  font-variant-numeric: tabular-nums;
-  color: #fca5a5;
-  letter-spacing: -0.02em;
-}
-.debt-banner .sub {
+.hero-month {
   color: var(--muted);
   font-size: 0.82rem;
+  font-weight: 600;
+}
+.hero-amount {
+  display: block;
+  font-size: 2.2rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  margin: 0.35rem 0 0.75rem;
+  font-weight: 700;
+}
+.hero-amount.pos { color: #4ade80; }
+.hero-amount.neg { color: #fca5a5; }
+
+.hero-progress { margin-bottom: 0.85rem; }
+.hero-progress .progress-bar {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.hero-progress .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #22c55e);
+  border-radius: 999px;
+  width: 0%;
+  transition: width 0.35s ease;
+}
+.hero-progress .progress-fill.over {
+  background: linear-gradient(90deg, #f97316, #ef4444);
+}
+.hero-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 0.3rem;
+  display: flex;
+  justify-content: space-between;
 }
 
-/* Summary grid */
-.summary {
+.hero-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.6rem;
-  padding: 1rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin-top: 0.2rem;
 }
-.summary .stat.wide { grid-column: 1 / -1; }
+.hero-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0.5rem 0.55rem;
+  min-width: 0;
+}
+.hero-stat .label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hero-stat strong {
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (max-width: 380px) {
+  .hero-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.hero-formula {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin-top: 0.55rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Card heads (title + inline accent) */
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+.card-head h2 { margin: 0; }
+.mini-stats {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.mini-stats span { color: var(--text); font-weight: 600; }
+.debt-total-inline {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fca5a5;
+}
+.saving-total-inline {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+.saving-total-inline strong { color: #4ade80; }
+.saving-total-inline .muted { color: var(--muted); }
+
+/* Quick-add */
+.quick-add .type-pills {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.quick-add .pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.7rem 0.5rem;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.quick-add .pill .pill-icon { font-size: 1.05rem; }
+.quick-add .pill.active {
+  background: rgba(56, 189, 248, 0.14);
+  color: var(--text);
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+.quick-add .pill[data-type="debt"].active {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.55);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+.quick-add .pill[data-type="saving"].active {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.55);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+.field.big input {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  padding: 0.85rem 0.9rem;
+}
+button.primary.big {
+  padding: 0.9rem 1rem;
+  font-size: 1rem;
+}
+.quick-amounts {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin: -0.15rem 0 0.3rem;
+}
+.quick-amounts button {
+  appearance: none;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: all 0.12s ease;
+}
+.quick-amounts button:hover {
+  background: var(--bg-elev);
+  color: var(--text);
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 0.5rem 0.25rem 0.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+.empty-state p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+.empty-state button { min-width: 200px; }
 
 .stat {
   background: var(--card-soft);
@@ -196,6 +417,7 @@ main {
   gap: 0.3rem;
   margin-bottom: 0.6rem;
 }
+.field[hidden] { display: none; }
 .field > span {
   color: var(--muted);
   font-size: 0.8rem;

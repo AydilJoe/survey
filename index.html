@@ -9,117 +9,148 @@
   </head>
   <body>
     <header class="app-header">
-      <h1>Duit Tracker</h1>
-      <p class="subtitle">Monthly in/out, debts &amp; avalanche payoff · MYR</p>
+      <div class="brand">
+        <span class="brand-mark">💸</span>
+        <div>
+          <h1>Duit Tracker</h1>
+          <p class="subtitle" id="greeting">Loading…</p>
+        </div>
+      </div>
     </header>
 
     <nav class="tabs" role="tablist">
-      <button class="tab active" data-tab="dashboard" role="tab" id="tabbtn-dashboard" aria-selected="true" aria-controls="tab-dashboard">Home</button>
-      <button class="tab" data-tab="flow" role="tab" id="tabbtn-flow" aria-selected="false" aria-controls="tab-flow" tabindex="-1">Monthly</button>
-      <button class="tab" data-tab="daily" role="tab" id="tabbtn-daily" aria-selected="false" aria-controls="tab-daily" tabindex="-1">Daily</button>
-      <button class="tab" data-tab="debts" role="tab" id="tabbtn-debts" aria-selected="false" aria-controls="tab-debts" tabindex="-1">Debts</button>
-      <button class="tab" data-tab="savings" role="tab" id="tabbtn-savings" aria-selected="false" aria-controls="tab-savings" tabindex="-1">Savings</button>
-      <button class="tab" data-tab="data" role="tab" id="tabbtn-data" aria-selected="false" aria-controls="tab-data" tabindex="-1">Data</button>
+      <button class="tab active" data-tab="dashboard" role="tab" id="tabbtn-dashboard" aria-selected="true" aria-controls="tab-dashboard"><span class="tab-icon" aria-hidden="true">🏠</span><span>Home</span></button>
+      <button class="tab" data-tab="flow" role="tab" id="tabbtn-flow" aria-selected="false" aria-controls="tab-flow" tabindex="-1"><span class="tab-icon" aria-hidden="true">📅</span><span>Monthly</span></button>
+      <button class="tab" data-tab="daily" role="tab" id="tabbtn-daily" aria-selected="false" aria-controls="tab-daily" tabindex="-1"><span class="tab-icon" aria-hidden="true">📝</span><span>Daily</span></button>
+      <button class="tab" data-tab="debts" role="tab" id="tabbtn-debts" aria-selected="false" aria-controls="tab-debts" tabindex="-1"><span class="tab-icon" aria-hidden="true">💳</span><span>Debts</span></button>
+      <button class="tab" data-tab="savings" role="tab" id="tabbtn-savings" aria-selected="false" aria-controls="tab-savings" tabindex="-1"><span class="tab-icon" aria-hidden="true">🐷</span><span>Savings</span></button>
+      <button class="tab" data-tab="data" role="tab" id="tabbtn-data" aria-selected="false" aria-controls="tab-data" tabindex="-1"><span class="tab-icon" aria-hidden="true">💾</span><span>Data</span></button>
     </nav>
 
     <main>
       <!-- DASHBOARD -->
       <section id="tab-dashboard" class="tab-panel active" role="tabpanel" aria-labelledby="tabbtn-dashboard">
-        <div class="card debt-banner">
-          <span class="label">Total debt</span>
-          <strong id="stat-debt-banner">RM 0.00</strong>
-          <span class="sub" id="stat-debt-banner-sub">No debts yet</span>
-        </div>
-        <div class="card summary">
-          <div class="stat">
-            <span class="label">Monthly income</span>
-            <strong id="stat-income" class="pos">RM 0.00</strong>
+        <div class="hero-card">
+          <div class="hero-title">
+            <span class="hero-label">Balance left this month</span>
+            <span class="hero-month" id="hero-month">—</span>
           </div>
-          <div class="stat">
-            <span class="label">Monthly expenses</span>
-            <strong id="stat-expenses" class="neg">RM 0.00</strong>
+          <strong id="stat-net" class="hero-amount">RM 0.00</strong>
+          <div class="hero-progress">
+            <div class="progress-bar"><div class="progress-fill" id="hero-progress-fill"></div></div>
+            <div class="hero-meta"><span id="hero-progress-text">Track your first entry to see this in motion.</span></div>
           </div>
-          <div class="stat">
-            <span class="label">Min debt payments</span>
-            <strong id="stat-min" class="neg">RM 0.00</strong>
+          <div class="hero-grid">
+            <div class="hero-stat">
+              <span class="label">Income</span>
+              <strong id="stat-income" class="pos">RM 0.00</strong>
+            </div>
+            <div class="hero-stat">
+              <span class="label">Recurring</span>
+              <strong id="stat-expenses" class="neg">RM 0.00</strong>
+            </div>
+            <div class="hero-stat">
+              <span class="label">Min debt</span>
+              <strong id="stat-min" class="neg">RM 0.00</strong>
+            </div>
+            <div class="hero-stat">
+              <span class="label">Daily spent</span>
+              <strong id="stat-daily-month" class="neg">RM 0.00</strong>
+            </div>
           </div>
-          <div class="stat wide">
-            <span class="label">Balance left this month</span>
-            <strong id="stat-net">RM 0.00</strong>
-            <span class="sub" id="stat-net-formula"></span>
-          </div>
+          <span class="hero-formula" id="stat-net-formula"></span>
         </div>
 
-        <div class="card">
-          <h2>Daily spend</h2>
-          <div class="stat-row three">
-            <div class="stat"><span class="label">Today</span><strong id="stat-daily-today">RM 0.00</strong></div>
-            <div class="stat"><span class="label">Last 7 days</span><strong id="stat-daily-week">RM 0.00</strong></div>
-            <div class="stat"><span class="label">This month</span><strong id="stat-daily-month">RM 0.00</strong></div>
+        <div class="card quick-add">
+          <div class="card-head">
+            <h2>Log money out</h2>
+            <span class="mini-stats"><span id="stat-daily-today">RM 0.00</span> today · <span id="stat-daily-week">RM 0.00</span> past 7d</span>
+          </div>
+          <div class="type-pills" role="radiogroup" aria-label="Spend type">
+            <button type="button" class="pill active" data-type="expense" role="radio" aria-checked="true"><span class="pill-icon">🛒</span>Spend</button>
+            <button type="button" class="pill" data-type="debt" role="radio" aria-checked="false"><span class="pill-icon">💳</span>Pay debt</button>
+            <button type="button" class="pill" data-type="saving" role="radio" aria-checked="false"><span class="pill-icon">🐷</span>Save</button>
           </div>
           <form id="form-daily" class="daily-form">
+            <input type="hidden" id="daily-type" name="type" value="expense" />
+            <label class="field big">
+              <span>Amount (RM)</span>
+              <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+            </label>
+            <div class="quick-amounts" id="quick-amounts">
+              <button type="button" data-quick="5">+5</button>
+              <button type="button" data-quick="10">+10</button>
+              <button type="button" data-quick="20">+20</button>
+              <button type="button" data-quick="50">+50</button>
+              <button type="button" data-quick="100">+100</button>
+            </div>
             <div class="grid-2">
-              <label class="field">
-                <span>Amount (RM)</span>
-                <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
-              </label>
               <label class="field">
                 <span>Date</span>
                 <input type="date" name="date" required />
               </label>
+              <label class="field" id="target-select-field" hidden>
+                <span id="target-select-label">Target</span>
+                <select id="daily-target" name="target"></select>
+              </label>
+              <label class="field" id="daily-category-field">
+                <span>Category</span>
+                <input type="text" name="category" list="category-options" placeholder="Food, Transport…" />
+                <datalist id="category-options"></datalist>
+              </label>
             </div>
-            <label class="field">
-              <span>Spend on</span>
-              <select id="daily-target" name="target" required></select>
-            </label>
-            <label class="field" id="daily-category-field">
-              <span>Category</span>
-              <input type="text" name="category" list="category-options" placeholder="Food, Transport, Others…" />
-              <datalist id="category-options"></datalist>
-            </label>
             <label class="field">
               <span>Note (optional)</span>
               <input type="text" name="note" placeholder="Lunch at mamak" />
             </label>
-            <button type="submit" class="primary">Add</button>
+            <button type="submit" class="primary big">Add entry</button>
           </form>
-          <p class="hint">Pay debt → reduces the debt balance. Save to goal → adds to your savings. Net cash flow below already subtracts this month's daily spend.</p>
+        </div>
+
+        <div class="card debt-card">
+          <div class="card-head">
+            <h2>Debts</h2>
+            <span class="debt-total-inline" id="stat-debt-banner">RM 0.00</span>
+          </div>
+          <p class="sub" id="stat-debt-banner-sub">No debts yet</p>
+          <div id="debt-empty" class="empty-state" hidden>
+            <p>Track balances and see a payoff timeline.</p>
+            <button type="button" class="primary" data-go-tab="debts">Add your first debt</button>
+          </div>
+          <div id="debt-details">
+            <div class="stat-row">
+              <div class="stat"><span class="label">Total balance</span><strong id="stat-debt-total">RM 0.00</strong></div>
+              <div class="stat"><span class="label">Weighted APR</span><strong id="stat-debt-apr">0.00%</strong></div>
+            </div>
+            <label class="field">
+              <span>Extra monthly payment (RM)</span>
+              <input type="number" id="extra-monthly" min="0" step="0.01" inputmode="decimal" placeholder="0.00" />
+            </label>
+            <p class="hint">Paid on top of minimums, directed to the highest-APR debt (avalanche).</p>
+            <div class="stat-row">
+              <div class="stat"><span class="label">Debt-free in</span><strong id="stat-months">—</strong></div>
+              <div class="stat"><span class="label">Total interest</span><strong id="stat-interest">RM 0.00</strong></div>
+            </div>
+            <p id="stall-warning" class="hint warn" hidden></p>
+          </div>
         </div>
 
         <div class="card">
-          <h2>Debt overview</h2>
-          <div class="stat-row">
-            <div class="stat"><span class="label">Total balance</span><strong id="stat-debt-total">RM 0.00</strong></div>
-            <div class="stat"><span class="label">Weighted APR</span><strong id="stat-debt-apr">0.00%</strong></div>
+          <div class="card-head">
+            <h2>Savings</h2>
+            <span class="saving-total-inline"><strong id="stat-save-current">RM 0.00</strong> <span class="muted">/ <span id="stat-save-target">RM 0.00</span></span></span>
           </div>
-
-          <label class="field">
-            <span>Extra monthly payment (RM)</span>
-            <input type="number" id="extra-monthly" min="0" step="0.01" inputmode="decimal" placeholder="0.00" />
-          </label>
-          <p class="hint">Paid on top of minimums, directed to the highest-APR debt (avalanche). When a debt is cleared, its minimum rolls into the next.</p>
-
-          <div class="stat-row">
-            <div class="stat"><span class="label">Debt-free in</span><strong id="stat-months">—</strong></div>
-            <div class="stat"><span class="label">Total interest</span><strong id="stat-interest">RM 0.00</strong></div>
-          </div>
-          <p id="stall-warning" class="hint warn" hidden></p>
-        </div>
-
-        <div class="card">
-          <h2>Savings</h2>
-          <div class="stat-row">
-            <div class="stat"><span class="label">Total saved</span><strong id="stat-save-current">RM 0.00</strong></div>
-            <div class="stat"><span class="label">Total targets</span><strong id="stat-save-target">RM 0.00</strong></div>
+          <div id="savings-empty" class="empty-state" hidden>
+            <p>Set a goal — emergency fund, Umrah, a phone.</p>
+            <button type="button" class="primary" data-go-tab="savings">Start a savings goal</button>
           </div>
           <div id="savings-mini" class="savings-mini"></div>
-          <p class="hint">Manage goals in the Savings tab.</p>
         </div>
 
-        <div class="card">
+        <div class="card" id="payoff-card">
           <h2>Avalanche payoff order</h2>
           <ol id="payoff-order" class="payoff-list">
-            <li class="empty">No debts yet. Add some in the Debts tab.</li>
+            <li class="empty">No debts yet.</li>
           </ol>
         </div>
       </section>
