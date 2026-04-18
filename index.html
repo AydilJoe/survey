@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quick Survey</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>Quick Survey</h1>
+      <p class="subtitle">Share your feedback — takes under a minute.</p>
+    </header>
+
+    <section id="survey-view">
+      <form id="survey-form" novalidate>
+        <div class="field">
+          <label for="name">Name</label>
+          <input type="text" id="name" name="name" required />
+        </div>
+
+        <div class="field">
+          <label for="role">What best describes you?</label>
+          <select id="role" name="role" required>
+            <option value="">Select one…</option>
+            <option>Developer</option>
+            <option>Designer</option>
+            <option>Product Manager</option>
+            <option>Student</option>
+            <option>Other</option>
+          </select>
+        </div>
+
+        <fieldset class="field">
+          <legend>How satisfied are you overall?</legend>
+          <div class="radio-group">
+            <label><input type="radio" name="satisfaction" value="1" required /> 1</label>
+            <label><input type="radio" name="satisfaction" value="2" /> 2</label>
+            <label><input type="radio" name="satisfaction" value="3" /> 3</label>
+            <label><input type="radio" name="satisfaction" value="4" /> 4</label>
+            <label><input type="radio" name="satisfaction" value="5" /> 5</label>
+          </div>
+        </fieldset>
+
+        <fieldset class="field">
+          <legend>Which features do you use? (Select all that apply)</legend>
+          <div class="checkbox-group">
+            <label><input type="checkbox" name="features" value="dashboard" /> Dashboard</label>
+            <label><input type="checkbox" name="features" value="reports" /> Reports</label>
+            <label><input type="checkbox" name="features" value="api" /> API</label>
+            <label><input type="checkbox" name="features" value="mobile" /> Mobile app</label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label for="comments">Additional comments</label>
+          <textarea id="comments" name="comments" rows="4"></textarea>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">Submit</button>
+          <button type="button" id="view-results" class="btn btn-secondary">View Results</button>
+        </div>
+      </form>
+      <p id="form-error" class="error" hidden></p>
+    </section>
+
+    <section id="thanks-view" hidden>
+      <h2>Thanks for your response!</h2>
+      <p>Your answer has been saved locally.</p>
+      <div class="actions">
+        <button type="button" id="submit-another" class="btn btn-primary">Submit another</button>
+        <button type="button" id="go-results" class="btn btn-secondary">View results</button>
+      </div>
+    </section>
+
+    <section id="results-view" hidden>
+      <h2>Results</h2>
+      <p id="results-summary"></p>
+      <div id="results-list"></div>
+      <div class="actions">
+        <button type="button" id="back-to-form" class="btn btn-primary">Back to survey</button>
+        <button type="button" id="clear-results" class="btn btn-danger">Clear all responses</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
