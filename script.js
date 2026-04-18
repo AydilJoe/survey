@@ -1483,3 +1483,10 @@ document.getElementById("btn-privacy").addEventListener("click", () => {
 });
 
 renderAll();
+
+/* splash → hide when fonts load, after a minimum delay so it doesn't flash */
+{
+  const minDelay = new Promise((r) => setTimeout(r, 450));
+  const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+  Promise.all([minDelay, fonts]).then(() => document.body.classList.add("loaded"));
+}
