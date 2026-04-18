@@ -504,9 +504,14 @@ function renderDebts() {
   ul.innerHTML = state.debts
     .slice()
     .sort((a, b) => (Number(b.apr) || 0) - (Number(a.apr) || 0))
-    .map(
-      (d) => `
+    .map((d) => {
+      const cls = d.dueDay ? dayClass(d.dueDay, currentMonthISO()) : "";
+      const chip = d.dueDay
+        ? `<span class="day-chip ${cls}" title="Due day">${d.dueDay}</span>`
+        : `<span class="day-chip" title="No due day">–</span>`;
+      return `
       <li data-id="${d.id}">
+        ${chip}
         <span class="name">${escapeHtml(d.name)}</span>
         <span class="meta">${fmtMYR.format(d.balance)}</span>
         <button class="ghost" data-action="delete-debt" data-id="${d.id}" aria-label="Delete">✕</button>
@@ -514,8 +519,8 @@ function renderDebts() {
           <span>APR ${fmtPct(d.apr)}</span>
           <span>Min ${fmtMYR.format(d.minPayment)}</span>
         </div>
-      </li>`,
-    )
+      </li>`;
+    })
     .join("");
 }
 
@@ -741,11 +746,12 @@ $("#form-debt").addEventListener("submit", (e) => {
   const balance = Number(f.get("balance"));
   const apr = Number(f.get("apr"));
   const minPayment = Number(f.get("minPayment"));
+  const dueDay = parseDay(f.get("dueDay"));
   if (!name) return;
   if (!Number.isFinite(balance) || balance < 0) return;
   if (!Number.isFinite(apr) || apr < 0) return;
   if (!Number.isFinite(minPayment) || minPayment < 0) return;
-  state.debts.push({ id: uid(), name, balance, apr, minPayment });
+  state.debts.push({ id: uid(), name, balance, apr, minPayment, dueDay });
   save();
   e.target.reset();
   renderAll();
@@ -835,7 +841,7 @@ function toCSV() {
   const blank = (arr) => arr.concat(Array(14 - arr.length).fill(""));
   for (const i of state.income) rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? ""]));
   for (const ex of state.expenses) rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? ""]));
-  for (const d of state.debts) rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment]));
+  for (const d of state.debts) rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment, "", "", "", "", "", "", "", d.dueDay ?? ""]));
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
       rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || ""]));
@@ -918,6 +924,7 @@ function fromCSV(text) {
         balance: Number.isFinite(balance) ? balance : 0,
         apr: Number.isFinite(apr) ? apr : 0,
         minPayment: Number.isFinite(minPayment) ? minPayment : 0,
+        dueDay: rowDay,
       });
     } else if (type === "daily") {
       if (!Number.isFinite(amount)) continue;

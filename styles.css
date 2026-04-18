@@ -449,7 +449,7 @@ button.ghost:hover { background: var(--card-soft); color: var(--text); }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.item-list li .day-chip {
+.item-list li .day-chip, .debt-list li .day-chip {
   min-width: 2.2rem;
   padding: 0.15rem 0.4rem;
   border-radius: 8px;
@@ -461,9 +461,9 @@ button.ghost:hover { background: var(--card-soft); color: var(--text); }
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
-.item-list li .day-chip.soon { color: #fcd34d; border-color: #78350f; }
-.item-list li .day-chip.today { color: #4ade80; border-color: #166534; }
-.item-list li .day-chip.past { color: var(--muted); opacity: 0.6; }
+.item-list li .day-chip, .debt-list li .day-chip.soon { color: #fcd34d; border-color: #78350f; }
+.item-list li .day-chip, .debt-list li .day-chip.today { color: #4ade80; border-color: #166534; }
+.item-list li .day-chip, .debt-list li .day-chip.past { color: var(--muted); opacity: 0.6; }
 .item-list li .amount, .debt-list li .meta {
   font-variant-numeric: tabular-nums;
   color: var(--text);

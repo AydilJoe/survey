@@ -225,6 +225,10 @@
                 <input type="number" name="minPayment" step="0.01" min="0" inputmode="decimal" required />
               </label>
             </div>
+            <label class="field">
+              <span>Due day (1–31, optional)</span>
+              <input type="number" name="dueDay" min="1" max="31" step="1" inputmode="numeric" placeholder="15" />
+            </label>
             <button type="submit" class="primary">Add debt</button>
           </form>
           <ul id="list-debt" class="debt-list"></ul>
