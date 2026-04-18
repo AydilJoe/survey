@@ -27,7 +27,7 @@ function load() {
     return {
       income: Array.isArray(parsed.income) ? parsed.income.map(fillMonth) : [],
       expenses: Array.isArray(parsed.expenses) ? parsed.expenses.map(fillMonth) : [],
-      debts: Array.isArray(parsed.debts) ? parsed.debts : [],
+      debts: Array.isArray(parsed.debts) ? parsed.debts.map((d) => ({ kind: "standard", ...d })) : [],
       dailyExpenses: Array.isArray(parsed.dailyExpenses) ? parsed.dailyExpenses : [],
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
       extraMonthly: Number(parsed.extraMonthly) || 0,
@@ -541,17 +541,26 @@ function renderDebts() {
       const chip = d.dueDay
         ? `<span class="day-chip ${cls}" title="Due day">${d.dueDay}</span>`
         : `<span class="day-chip" title="No due day">–</span>`;
+      const isInstallment = d.kind === "installment";
+      // Compute remaining months for installment debts: balance / installment
+      const installment = Number(d.installment) || Number(d.minPayment) || 0;
+      const remMonths = isInstallment && installment > 0
+        ? Math.max(0, Math.ceil((Number(d.balance) || 0) / installment))
+        : null;
+      const nameHtml = isInstallment
+        ? `<span class="name">${escapeHtml(d.name)} <span class="installment-badge">Installment</span></span>`
+        : `<span class="name">${escapeHtml(d.name)}</span>`;
+      const metaRow = isInstallment
+        ? `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMYR.format(installment)}/mo</span></div>`
+        : `<div class="meta-row"><span>APR ${fmtPct(d.apr)}</span><span>Min ${fmtMYR.format(d.minPayment)}</span></div>`;
       return `
       <li data-id="${d.id}">
         ${chip}
-        <span class="name">${escapeHtml(d.name)}</span>
+        ${nameHtml}
         <span class="meta">${fmtMYR.format(d.balance)}</span>
         <button class="ghost icon-btn" data-action="edit-debt" data-id="${d.id}" aria-label="Edit ${escapeHtml(d.name)}">✎</button>
         <button class="ghost icon-btn" data-action="delete-debt" data-id="${d.id}" aria-label="Delete ${escapeHtml(d.name)}">✕</button>
-        <div class="meta-row">
-          <span>APR ${fmtPct(d.apr)}</span>
-          <span>Min ${fmtMYR.format(d.minPayment)}</span>
-        </div>
+        ${metaRow}
       </li>`;
     })
     .join("");
@@ -899,21 +908,63 @@ document.addEventListener("click", (e) => {
   if (tabBtn) tabBtn.click();
 });
 
+function setDebtKind(kind) {
+  const hidden = document.getElementById("debt-kind");
+  if (!hidden) return;
+  hidden.value = kind;
+  document.querySelectorAll(".debt-type-pills .pill").forEach((btn) => {
+    const on = btn.dataset.debtKind === kind;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-checked", on ? "true" : "false");
+  });
+  const stdFields = document.getElementById("debt-fields-standard");
+  const instFields = document.getElementById("debt-fields-installment");
+  if (stdFields) stdFields.hidden = kind !== "standard";
+  if (instFields) instFields.hidden = kind !== "installment";
+}
+
+document.querySelectorAll(".debt-type-pills .pill").forEach((btn) => {
+  btn.addEventListener("click", () => setDebtKind(btn.dataset.debtKind));
+});
+
 $("#form-debt").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
   const name = (f.get("name") || "").toString().trim();
-  const balance = Number(f.get("balance"));
-  const apr = Number(f.get("apr"));
-  const minPayment = Number(f.get("minPayment"));
+  const kind = (f.get("kind") || "standard").toString();
   const dueDay = parseDay(f.get("dueDay"));
   if (!name) return;
-  if (!Number.isFinite(balance) || balance < 0) return;
-  if (!Number.isFinite(apr) || apr < 0) return;
-  if (!Number.isFinite(minPayment) || minPayment < 0) return;
-  state.debts.push({ id: uid(), name, balance, apr, minPayment, dueDay });
+
+  if (kind === "installment") {
+    const installment = Number(f.get("installment"));
+    const monthsLeft = Math.round(Number(f.get("monthsLeft")));
+    if (!Number.isFinite(installment) || installment <= 0) return;
+    if (!Number.isFinite(monthsLeft) || monthsLeft < 1) return;
+    const balance = +(installment * monthsLeft).toFixed(2);
+    state.debts.push({
+      id: uid(),
+      name,
+      balance,
+      apr: 0,
+      minPayment: installment,
+      dueDay,
+      kind: "installment",
+      installment,
+      monthsLeft,
+    });
+  } else {
+    const balance = Number(f.get("balance"));
+    const apr = Number(f.get("apr"));
+    const minPayment = Number(f.get("minPayment"));
+    if (!Number.isFinite(balance) || balance < 0) return;
+    if (!Number.isFinite(apr) || apr < 0) return;
+    if (!Number.isFinite(minPayment) || minPayment < 0) return;
+    state.debts.push({ id: uid(), name, balance, apr, minPayment, dueDay, kind: "standard" });
+  }
+
   save();
   e.target.reset();
+  setDebtKind("standard");
   renderAll();
 });
 
@@ -1045,15 +1096,30 @@ function openEditDialog(kind, id) {
       ${numberField(kind === "income" ? "Pay day (1–31)" : "Due day (1–31)", "day", entity.day ?? "", { step: "1", min: "1", max: "31" })}
     `;
   } else if (kind === "debt") {
-    editFields.innerHTML = `
-      ${textField("Name", "name", entity.name)}
-      <div class="grid-3">
-        ${numberField("Balance (RM)", "balance", entity.balance)}
-        ${numberField("APR (%)", "apr", entity.apr)}
-        ${numberField("Min (RM)", "minPayment", entity.minPayment)}
-      </div>
-      ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
-    `;
+    const isInstallment = entity.kind === "installment";
+    if (isInstallment) {
+      const installment = Number(entity.installment) || Number(entity.minPayment) || 0;
+      const remMonths = installment > 0 ? Math.max(0, Math.ceil((Number(entity.balance) || 0) / installment)) : 0;
+      editFields.innerHTML = `
+        ${textField("Name", "name", entity.name)}
+        <div class="grid-2">
+          ${numberField("Monthly (RM)", "installment", installment)}
+          ${numberField("Months left", "monthsLeft", remMonths, { step: "1", min: "0", max: "120" })}
+        </div>
+        ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
+        <p class="hint">Interest-free installment (Atome / SPayLater style). Balance = monthly × months left.</p>
+      `;
+    } else {
+      editFields.innerHTML = `
+        ${textField("Name", "name", entity.name)}
+        <div class="grid-3">
+          ${numberField("Balance (RM)", "balance", entity.balance)}
+          ${numberField("APR (%)", "apr", entity.apr)}
+          ${numberField("Min (RM)", "minPayment", entity.minPayment)}
+        </div>
+        ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
+      `;
+    }
   } else if (kind === "saving") {
     editFields.innerHTML = `
       ${textField("Name", "name", entity.name)}
@@ -1094,13 +1160,27 @@ editForm.addEventListener("submit", (e) => {
     const it = state.debts.find((x) => x.id === id);
     if (!it) { closeEditDialog(); return; }
     const name = (f.get("name") || "").toString().trim();
-    const balance = Number(f.get("balance"));
-    const apr = Number(f.get("apr"));
-    const minPayment = Number(f.get("minPayment"));
     const dueDay = parseDay(f.get("dueDay"));
     if (!name) return;
-    if (![balance, apr, minPayment].every((n) => Number.isFinite(n) && n >= 0)) return;
-    it.name = name; it.balance = balance; it.apr = apr; it.minPayment = minPayment; it.dueDay = dueDay;
+    if (it.kind === "installment") {
+      const installment = Number(f.get("installment"));
+      const monthsLeft = Math.round(Number(f.get("monthsLeft")));
+      if (!Number.isFinite(installment) || installment <= 0) return;
+      if (!Number.isFinite(monthsLeft) || monthsLeft < 0) return;
+      it.name = name;
+      it.installment = installment;
+      it.monthsLeft = monthsLeft;
+      it.balance = +(installment * monthsLeft).toFixed(2);
+      it.minPayment = installment;
+      it.apr = 0;
+      it.dueDay = dueDay;
+    } else {
+      const balance = Number(f.get("balance"));
+      const apr = Number(f.get("apr"));
+      const minPayment = Number(f.get("minPayment"));
+      if (![balance, apr, minPayment].every((n) => Number.isFinite(n) && n >= 0)) return;
+      it.name = name; it.balance = balance; it.apr = apr; it.minPayment = minPayment; it.dueDay = dueDay;
+    }
   } else if (kind === "saving") {
     const it = state.savings.find((x) => x.id === id);
     if (!it) { closeEditDialog(); return; }
@@ -1142,12 +1222,16 @@ function csvEscape(v) {
 
 function toCSV() {
   const rows = [
-    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month", "day", "dueDay"],
+    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month", "day", "dueDay", "kind", "monthsLeft"],
   ];
-  const blank = (arr) => arr.concat(Array(15 - arr.length).fill(""));
+  const blank = (arr) => arr.concat(Array(17 - arr.length).fill(""));
   for (const i of state.income) rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? ""]));
   for (const ex of state.expenses) rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? ""]));
-  for (const d of state.debts) rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment, "", "", "", "", "", "", "", "", d.dueDay ?? ""]));
+  for (const d of state.debts) {
+    const isInst = d.kind === "installment";
+    const remMonths = isInst && d.installment ? Math.max(0, Math.ceil((Number(d.balance) || 0) / d.installment)) : "";
+    rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment, "", "", "", "", "", "", "", "", d.dueDay ?? "", d.kind || "standard", remMonths]));
+  }
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
       rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || ""]));
@@ -1201,6 +1285,7 @@ function fromCSV(text) {
   const iDate = idx("date"), iCat = idx("category"), iNote = idx("note"), iDebtName = idx("debtname");
   const iTarget = idx("target"), iCurrent = idx("current"), iMonth = idx("month"), iDay = idx("day");
   const iDueDay = idx("dueday");
+  const iKind = idx("kind"), iMonthsLeft = idx("monthsleft");
   if (iType === -1) throw new Error("CSV missing 'type' column");
   const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
@@ -1227,14 +1312,35 @@ function fromCSV(text) {
       next.expenses.push({ id: uid(), name, amount, month: monthOrNow, day: rowDay });
     } else if (type === "debt" && name) {
       const rowDueDay = iDueDay >= 0 ? parseDay(row[iDueDay]) : null;
-      next.debts.push({
-        id: uid(),
-        name,
-        balance: Number.isFinite(balance) ? balance : 0,
-        apr: Number.isFinite(apr) ? apr : 0,
-        minPayment: Number.isFinite(minPayment) ? minPayment : 0,
-        dueDay: rowDueDay != null ? rowDueDay : rowDay, // back-compat: old exports put debt due day in 'day'
-      });
+      const rowKind = iKind >= 0 ? (row[iKind] || "").trim().toLowerCase() : "";
+      const rowMonthsLeft = iMonthsLeft >= 0 ? Number(row[iMonthsLeft]) : NaN;
+      if (rowKind === "installment") {
+        const inst = Number.isFinite(minPayment) ? minPayment : 0;
+        const months = Number.isFinite(rowMonthsLeft) && rowMonthsLeft > 0
+          ? Math.round(rowMonthsLeft)
+          : (inst > 0 && Number.isFinite(balance) ? Math.max(1, Math.ceil(balance / inst)) : 1);
+        next.debts.push({
+          id: uid(),
+          name,
+          balance: Number.isFinite(balance) ? balance : +(inst * months).toFixed(2),
+          apr: 0,
+          minPayment: inst,
+          dueDay: rowDueDay != null ? rowDueDay : rowDay,
+          kind: "installment",
+          installment: inst,
+          monthsLeft: months,
+        });
+      } else {
+        next.debts.push({
+          id: uid(),
+          name,
+          balance: Number.isFinite(balance) ? balance : 0,
+          apr: Number.isFinite(apr) ? apr : 0,
+          minPayment: Number.isFinite(minPayment) ? minPayment : 0,
+          dueDay: rowDueDay != null ? rowDueDay : rowDay,
+          kind: "standard",
+        });
+      }
     } else if (type === "daily") {
       if (!Number.isFinite(amount)) continue;
       next.dailyExpenses.push({

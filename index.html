@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0f172a" />
     <title>Duit Tracker — Money & Debt (MYR)</title>
-    <link rel="stylesheet" href="styles.css?v=5" />
+    <link rel="stylesheet" href="styles.css?v=6" />
   </head>
   <body>
     <header class="app-header">
@@ -244,24 +244,47 @@
         <div class="card">
           <h2>Outstanding debts</h2>
           <form id="form-debt" class="debt-form">
+            <div class="type-pills debt-type-pills" role="radiogroup" aria-label="Debt type">
+              <button type="button" class="pill active" data-debt-kind="standard" role="radio" aria-checked="true"><span class="pill-icon">💳</span>Standard</button>
+              <button type="button" class="pill" data-debt-kind="installment" role="radio" aria-checked="false"><span class="pill-icon">📆</span>Installment</button>
+            </div>
+            <input type="hidden" id="debt-kind" name="kind" value="standard" />
             <label class="field">
               <span>Name</span>
-              <input type="text" name="name" placeholder="Credit card" required />
+              <input type="text" name="name" placeholder="Credit card / Atome — phone" required />
             </label>
-            <div class="grid-3">
-              <label class="field">
-                <span>Balance (RM)</span>
-                <input type="number" name="balance" step="0.01" min="0" inputmode="decimal" required />
-              </label>
-              <label class="field">
-                <span>APR (%)</span>
-                <input type="number" name="apr" step="0.01" min="0" inputmode="decimal" required />
-              </label>
-              <label class="field">
-                <span>Min payment (RM)</span>
-                <input type="number" name="minPayment" step="0.01" min="0" inputmode="decimal" required />
-              </label>
+
+            <div id="debt-fields-standard" class="debt-fields">
+              <div class="grid-3">
+                <label class="field">
+                  <span>Balance (RM)</span>
+                  <input type="number" name="balance" step="0.01" min="0" inputmode="decimal" />
+                </label>
+                <label class="field">
+                  <span>APR (%)</span>
+                  <input type="number" name="apr" step="0.01" min="0" inputmode="decimal" />
+                </label>
+                <label class="field">
+                  <span>Min payment (RM)</span>
+                  <input type="number" name="minPayment" step="0.01" min="0" inputmode="decimal" />
+                </label>
+              </div>
             </div>
+
+            <div id="debt-fields-installment" class="debt-fields" hidden>
+              <div class="grid-2">
+                <label class="field">
+                  <span>Monthly (RM)</span>
+                  <input type="number" name="installment" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 100" />
+                </label>
+                <label class="field">
+                  <span>Months left</span>
+                  <input type="number" name="monthsLeft" step="1" min="1" max="120" inputmode="numeric" placeholder="3" />
+                </label>
+              </div>
+              <p class="hint">Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left.</p>
+            </div>
+
             <label class="field">
               <span>Due day (1–31, optional)</span>
               <input type="number" name="dueDay" min="1" max="31" step="1" inputmode="numeric" placeholder="15" />
@@ -337,6 +360,6 @@
       </form>
     </dialog>
 
-    <script src="script.js?v=5"></script>
+    <script src="script.js?v=6"></script>
   </body>
 </html>

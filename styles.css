@@ -322,6 +322,54 @@ main {
   border-color: rgba(34, 197, 94, 0.55);
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
 }
+
+/* Debt type pills (shared look with quick-add pills) */
+.debt-type-pills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.debt-type-pills .pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.65rem 0.5rem;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.debt-type-pills .pill .pill-icon { font-size: 1.05rem; }
+.debt-type-pills .pill.active {
+  background: rgba(56, 189, 248, 0.14);
+  color: var(--text);
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+.debt-type-pills .pill[data-debt-kind="installment"].active {
+  background: rgba(250, 204, 21, 0.14);
+  border-color: rgba(250, 204, 21, 0.55);
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.2);
+}
+
+.debt-list li .installment-badge {
+  background: rgba(250, 204, 21, 0.14);
+  color: #fde68a;
+  border: 1px solid rgba(250, 204, 21, 0.4);
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .field.big input {
   font-size: 1.25rem;
   font-weight: 700;
