@@ -180,7 +180,7 @@ main { background: var(--bg); }
 h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3px; }
 
 .app-header {
-  padding: 1rem 1rem 0.25rem;
+  padding: calc(1rem + env(safe-area-inset-top)) 1rem 0.25rem;
   background: var(--stage);
 }
 .brand {
@@ -287,7 +287,7 @@ body.private #stall-warning {
   z-index: 10;
   display: flex;
   gap: 0.25rem;
-  padding: 0.5rem;
+  padding: 0.5rem max(0.5rem, env(safe-area-inset-right)) 0.5rem max(0.5rem, env(safe-area-inset-left));
   background: var(--stage);
   border-bottom: 1px solid var(--line);
   overflow-x: auto;
@@ -335,7 +335,7 @@ body.private #stall-warning {
 main {
   max-width: 640px;
   margin: 0 auto;
-  padding: 0.75rem 0.75rem 6rem;
+  padding: 0.75rem max(0.75rem, env(safe-area-inset-right)) calc(6rem + env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
 }
 
 .tab-panel { display: none; }

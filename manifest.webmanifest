@@ -1,0 +1,14 @@
+{
+  "name": "Duit Tracker",
+  "short_name": "Duit",
+  "description": "Monthly in/out, debts and avalanche payoff (MYR).",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#e8dfd0",
+  "theme_color": "#e8dfd0",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
