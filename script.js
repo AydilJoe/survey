@@ -1467,12 +1467,14 @@ setDailyType("expense");
 
 /* privacy toggle */
 const PRIVACY_KEY = "duit-tracker.privacy";
+const ICON_EYE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const ICON_EYE_OFF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.5 10.5a3 3 0 004 4M9.5 5.5A10 10 0 0122 12c-1 2-2.5 3.8-4.5 5M6.5 6.5C4 8 2 10 2 12c2 3.5 6 7 10 7 1.5 0 3-.3 4.5-1"/></svg>`;
 function applyPrivacy(on) {
   document.body.classList.toggle("private", !!on);
   const btn = document.getElementById("btn-privacy");
   const icon = document.getElementById("privacy-icon");
   if (btn) btn.setAttribute("aria-pressed", on ? "true" : "false");
-  if (icon) icon.textContent = on ? "🙈" : "👁";
+  if (icon) icon.innerHTML = on ? ICON_EYE_OFF : ICON_EYE;
   localStorage.setItem(PRIVACY_KEY, on ? "1" : "0");
 }
 applyPrivacy(localStorage.getItem(PRIVACY_KEY) === "1");
