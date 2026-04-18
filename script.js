@@ -1722,7 +1722,7 @@ document.getElementById("btn-change-passcode")?.addEventListener("click", async 
 /* Auto-lock when the app is backgrounded for longer than the grace period.
    Covers: iOS PWA → switched away → returned; Safari tab hidden; browser
    minimized. Full tab closes already drop aesKey from memory. */
-const AUTO_LOCK_MS = 3_000;
+const AUTO_LOCK_MS = 10_000;
 let hiddenAt = 0;
 function relock() {
   aesKey = null;
