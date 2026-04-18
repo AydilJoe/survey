@@ -467,6 +467,10 @@ function renderDashboard() {
   netEl.textContent = fmtMYR.format(net);
   netEl.classList.toggle("pos", net >= 0);
   netEl.classList.toggle("neg", net < 0);
+  const formulaEl = $("#stat-net-formula");
+  if (formulaEl) {
+    formulaEl.textContent = `income − recurring − min debt − extra − daily (${fmtMYR.format(dailyMonth)})`;
+  }
 
   $("#stat-debt-total").textContent = fmtMYR.format(total);
   $("#stat-debt-apr").textContent = fmtPct(weighted);

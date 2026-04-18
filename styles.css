@@ -134,6 +134,12 @@ main {
   font-size: 1.1rem;
   font-variant-numeric: tabular-nums;
 }
+.stat .sub {
+  color: var(--muted);
+  font-size: 0.72rem;
+  margin-top: 0.15rem;
+  font-variant-numeric: tabular-nums;
+}
 .pos { color: #4ade80; }
 .neg { color: #fca5a5; }
 
