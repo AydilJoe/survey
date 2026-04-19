@@ -32,8 +32,8 @@
         <div class="splash-title">Duit Tracker</div>
         <div class="lock-sub" id="lock-sub">Enter your passcode</div>
         <form id="lock-form" class="lock-form" autocomplete="off">
-          <input type="password" id="lock-input" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Passcode" placeholder="Passcode" />
-          <input type="password" id="lock-confirm" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Confirm passcode" placeholder="Confirm" hidden />
+          <input type="password" id="lock-input" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Passcode" placeholder="Passcode" />
+          <input type="password" id="lock-confirm" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Confirm passcode" placeholder="Confirm" hidden />
           <button type="submit" class="primary" id="lock-submit">Unlock</button>
         </form>
         <p id="lock-error" class="hint warn" hidden></p>
@@ -464,6 +464,6 @@
       </form>
     </dialog>
 
-    <script src="script.js?v=22"></script>
+    <script src="script.js?v=23"></script>
   </body>
 </html>

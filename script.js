@@ -1593,13 +1593,13 @@ function setLockMode(mode) {
     if (submit) submit.textContent = "Create passcode";
     if (confirmEl) { confirmEl.hidden = false; confirmEl.value = ""; }
     if (help) help.hidden = true;
-    if (input) input.placeholder = "New passcode (min 4)";
+    if (input) input.placeholder = "New passcode (min 4 digits)";
   } else if (mode === "migrate") {
     if (sub) sub.textContent = "Set a passcode to encrypt your existing data.";
     if (submit) submit.textContent = "Encrypt data";
     if (confirmEl) { confirmEl.hidden = false; confirmEl.value = ""; }
     if (help) help.hidden = true;
-    if (input) input.placeholder = "New passcode (min 4)";
+    if (input) input.placeholder = "New passcode (min 4 digits)";
   }
 }
 
@@ -1653,7 +1653,8 @@ async function handleUnlock(passcode) {
 }
 
 async function handleSetup(passcode, confirm, initialState) {
-  if (passcode.length < 4) { lockError("Min 4 characters"); return; }
+  if (!/^\d+$/.test(passcode)) { lockError("Numbers only"); return; }
+  if (passcode.length < 4) { lockError("Min 4 digits"); return; }
   if (passcode !== confirm) { lockError("Passcodes don't match"); return; }
   const saltBytes = crypto.getRandomValues(new Uint8Array(16));
   const saltB64 = b64encode(saltBytes);
@@ -1665,6 +1666,14 @@ async function handleSetup(passcode, confirm, initialState) {
   localStorage.removeItem(STORAGE_KEY); // clear legacy plain after migration
   hideLock();
   renderAll();
+}
+
+for (const id of ["lock-input", "lock-confirm"]) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener("input", () => {
+    const cleaned = (el.value || "").replace(/\D+/g, "");
+    if (el.value !== cleaned) el.value = cleaned;
+  });
 }
 
 const lockForm = document.getElementById("lock-form");
@@ -1898,9 +1907,9 @@ document.getElementById("btn-change-passcode")?.addEventListener("click", async 
     const checkKey = await deriveKey(cur, b64decode(rec.salt));
     await decryptRecord(checkKey, rec);
   } catch { alert("Incorrect passcode."); return; }
-  const p1 = prompt("New passcode (min 4 characters):");
+  const p1 = prompt("New passcode (numbers only, min 4 digits):");
   if (p1 == null) return;
-  if (p1.length < 4) { alert("Must be at least 4 characters."); return; }
+  if (!/^\d{4,}$/.test(p1)) { alert("Must be at least 4 digits, numbers only."); return; }
   const p2 = prompt("Confirm new passcode:");
   if (p1 !== p2) { alert("Passcodes don't match."); return; }
   const saltBytes = crypto.getRandomValues(new Uint8Array(16));
