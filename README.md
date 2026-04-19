@@ -80,13 +80,20 @@ In Xcode: hit Run to test on a simulator or connected device. In Android Studio:
 
 ### Icon / splash
 
-Capacitor takes a single square PNG at `resources/icon.png` (1024×1024) and generates every size:
+The repo ships four source SVGs under `resources/`:
+
+- `resources/icon.svg` — 1024×1024, full icon (cream gradient bg + terracotta wallet mark). Used as a fallback by `@capacitor/assets`.
+- `resources/icon-foreground.svg` — 1024×1024, transparent bg, wallet sized to fit the 66% safe zone for Android adaptive icons.
+- `resources/icon-background.svg` — 1024×1024, the clay gradient / glow layer only.
+- `resources/splash.svg` — 2732×2732, minimal clay background with a centred wallet.
+
+Generate every size and density both stores + Android adaptive icons need:
 
 ```sh
-npx @capacitor/assets generate
+npm run assets
 ```
 
-The supplied `icon.svg` in this repo is a reasonable starting point — export it to a 1024-square PNG.
+That runs `@capacitor/assets generate`, which reads from `resources/`, writes PNGs into the iOS and Android projects, and sets the splash background colours defined in `package.json` (`#e8dfd0` light / `#2a2420` dark). Re-run whenever the SVGs change.
 
 ### What changes for native users
 

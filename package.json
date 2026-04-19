@@ -6,6 +6,7 @@
   "scripts": {
     "fetch:tesseract": "node scripts/fetch-tesseract.mjs",
     "build:web": "rm -rf www && mkdir www && cp index.html script.js styles.css icon.svg manifest.webmanifest www/ && npm run fetch:tesseract && cp -R vendor www/vendor",
+    "assets": "npx @capacitor/assets generate --iconBackgroundColor '#e8dfd0' --iconBackgroundColorDark '#2a2420' --splashBackgroundColor '#e8dfd0' --splashBackgroundColorDark '#2a2420'",
     "cap:sync": "npm run build:web && npx cap sync",
     "cap:ios": "npm run cap:sync && npx cap open ios",
     "cap:android": "npm run cap:sync && npx cap open android",
@@ -13,6 +14,7 @@
     "cap:add:android": "npm run build:web && npx cap add android"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^6.1.2"
   },
   "dependencies": {

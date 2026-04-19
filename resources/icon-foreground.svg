@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Adaptive-icon foreground: transparent bg, wallet sized so the 66% safe zone isn't clipped. -->
+  <g transform="translate(512 512) scale(19) translate(-12 -12)" fill="none" stroke="#c8704b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/>
+    <circle cx="17" cy="13" r="1.5" fill="#c8704b" stroke="none"/>
+  </g>
+</svg>
