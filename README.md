@@ -127,6 +127,6 @@ Store-specific to-do before first submission:
 
 Android-only feature that reads notifications on-device and queues a "pending transaction" for user review. iOS sandbox doesn't allow this.
 
-Native plugin files + install instructions live under `native/android/NotificationListenerPlugin/`. Copy the two Java files into the generated Android project after `npm run cap:add:android`, register the plugin, add the service to `AndroidManifest.xml`, and the "Pending transactions" card on Home will start populating.
+Native plugin files + install instructions live under `native/notification-listener/`. Copy the two Java files into the generated Android project after `npm run cap:add:android`, register the plugin, add the service to `AndroidManifest.xml`, and the "Pending transactions" card on Home will start populating.
 
 Supported out of the box: Maybank, CIMB, Hong Leong, RHB, Public Bank, Touch 'n Go, GrabPay, Boost, BigPay, SPayLater, Atome. Add more patterns by editing `TXN_PROVIDERS` in `script.js` and the `ALLOWED` set in `DuitfulNotificationListenerService.java`.
