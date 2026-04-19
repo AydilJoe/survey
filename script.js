@@ -2433,8 +2433,25 @@ function providerForPackage(pkg) {
   return TXN_PROVIDERS.find((p) => p.packages.some((q) => pkg === q || pkg.startsWith(q))) || null;
 }
 
+/* Deny-list of promotional / non-transactional phrases. If any of these show up
+   in the notification text, skip parsing — it's almost certainly not a debit. */
+const PROMO_DENY = [
+  /\b(promo(?:tion)?|offer|deal|voucher|coupon|sale|discount|rebate|cashback\s+(?:earned|reward))\b/i,
+  /\b(reward(?:s)?|points?\b(?!\s*$)|bonus(?:\s+points)?|loyalty)\b/i,
+  /\b(you\s+(?:earned|got|have\s+(?:got|won)|received|are\s+eligible))\b/i,
+  /\b(congrat(?:ulation)?s?|you\s+won|win(?:ner)?|free(?:\s+gift)?|gift)\b/i,
+  /\b(statement|bill\s+is\s+ready|due\s+(?:in|on|tomorrow|today)|reminder|upcoming\s+payment|upcoming\s+bill)\b/i,
+  /\b(referral|invite|limited\s+time|exclusive|new\s+feature|app\s+update)\b/i,
+  /\b(earn\s+\d|get\s+\d+%|\d+%\s+off|save\s+up\s+to)\b/i,
+];
+function isLikelyPromo(text) {
+  if (!text) return false;
+  return PROMO_DENY.some((re) => re.test(text));
+}
+
 function parseBankText(text, pkg) {
   if (!text) return null;
+  if (isLikelyPromo(text)) return null;
   const provider = providerForPackage(pkg)
     || TXN_PROVIDERS.find((p) => p.patterns.some((re) => re.test(text)));
   if (!provider) return null;
