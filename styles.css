@@ -30,6 +30,8 @@
 
 [hidden] { display: none !important; }
 
+.cur-code { font-family: var(--font-mono); font-size: 0.9em; letter-spacing: 0.04em; }
+
 /* Splash */
 #splash {
   position: fixed;

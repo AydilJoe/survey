@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#e8dfd0" />
-    <title>Duit Tracker — Money & Debt (MYR)</title>
+    <title>Duit Tracker — Money & Debt</title>
 
     <!-- iOS home-screen web app -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=22" />
+    <link rel="stylesheet" href="styles.css?v=24" />
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -133,7 +133,7 @@
           <form id="form-daily" class="daily-form">
             <input type="hidden" id="daily-type" name="type" value="expense" />
             <label class="field big">
-              <span>Amount (RM)</span>
+              <span>Amount (<span class="cur-code">MYR</span>)</span>
               <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
             </label>
             <div class="quick-amounts" id="quick-amounts">
@@ -182,7 +182,7 @@
               <div class="stat"><span class="label">Weighted APR</span><strong id="stat-debt-apr">0.00%</strong></div>
             </div>
             <label class="field">
-              <span>Extra monthly payment (RM)</span>
+              <span>Extra monthly payment (<span class="cur-code">MYR</span>)</span>
               <input type="number" id="extra-monthly" min="0" step="0.01" inputmode="decimal" placeholder="0.00" />
             </label>
             <p class="hint">Paid on top of minimums, directed to the highest-APR debt (avalanche).</p>
@@ -235,7 +235,7 @@
                 <input type="text" name="name" placeholder="Salary" required />
               </label>
               <label class="field">
-                <span>Amount (RM)</span>
+                <span>Amount (<span class="cur-code">MYR</span>)</span>
                 <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
               </label>
             </div>
@@ -264,7 +264,7 @@
                 <input type="text" name="name" placeholder="Rent" required />
               </label>
               <label class="field">
-                <span>Amount (RM)</span>
+                <span>Amount (<span class="cur-code">MYR</span>)</span>
                 <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
               </label>
             </div>
@@ -316,7 +316,7 @@
             <div id="debt-fields-standard" class="debt-fields">
               <div class="grid-3">
                 <label class="field">
-                  <span>Balance (RM)</span>
+                  <span>Balance (<span class="cur-code">MYR</span>)</span>
                   <input type="number" name="balance" step="0.01" min="0" inputmode="decimal" />
                 </label>
                 <label class="field">
@@ -324,7 +324,7 @@
                   <input type="number" name="apr" step="0.01" min="0" inputmode="decimal" />
                 </label>
                 <label class="field">
-                  <span>Min payment (RM)</span>
+                  <span>Min payment (<span class="cur-code">MYR</span>)</span>
                   <input type="number" name="minPayment" step="0.01" min="0" inputmode="decimal" />
                 </label>
               </div>
@@ -333,7 +333,7 @@
             <div id="debt-fields-installment" class="debt-fields" hidden>
               <div class="grid-2">
                 <label class="field">
-                  <span>Monthly (RM)</span>
+                  <span>Monthly (<span class="cur-code">MYR</span>)</span>
                   <input type="number" name="installment" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 100" />
                 </label>
                 <label class="field">
@@ -365,11 +365,11 @@
             </label>
             <div class="grid-2">
               <label class="field">
-                <span>Target (RM)</span>
+                <span>Target (<span class="cur-code">MYR</span>)</span>
                 <input type="number" name="target" step="0.01" min="0" inputmode="decimal" required />
               </label>
               <label class="field">
-                <span>Current (RM)</span>
+                <span>Current (<span class="cur-code">MYR</span>)</span>
                 <input type="number" name="current" step="0.01" min="0" inputmode="decimal" placeholder="0" />
               </label>
             </div>
@@ -397,6 +397,37 @@
           </div>
           <div id="import-status" class="hint"></div>
         </div>
+        <div class="card">
+          <h2>Preferences</h2>
+          <label class="field">
+            <span>Currency (ISO 4217)</span>
+            <input type="text" id="pref-currency" list="currency-list" maxlength="3" inputmode="latin" autocorrect="off" autocapitalize="characters" placeholder="MYR" />
+            <datalist id="currency-list">
+              <option value="MYR">Malaysian Ringgit</option>
+              <option value="SGD">Singapore Dollar</option>
+              <option value="USD">US Dollar</option>
+              <option value="EUR">Euro</option>
+              <option value="GBP">British Pound</option>
+              <option value="AUD">Australian Dollar</option>
+              <option value="JPY">Japanese Yen</option>
+              <option value="CNY">Chinese Yuan</option>
+              <option value="HKD">Hong Kong Dollar</option>
+              <option value="IDR">Indonesian Rupiah</option>
+              <option value="THB">Thai Baht</option>
+              <option value="PHP">Philippine Peso</option>
+              <option value="INR">Indian Rupee</option>
+              <option value="AED">UAE Dirham</option>
+              <option value="SAR">Saudi Riyal</option>
+              <option value="KRW">South Korean Won</option>
+              <option value="VND">Vietnamese Dong</option>
+              <option value="CAD">Canadian Dollar</option>
+              <option value="NZD">NZ Dollar</option>
+              <option value="CHF">Swiss Franc</option>
+            </datalist>
+          </label>
+          <p class="hint">Enter any ISO 4217 3-letter code. Your saved values stay the same — only the display currency changes.</p>
+        </div>
+
         <div class="card">
           <h2>Security</h2>
           <p class="hint">Your data is encrypted with your passcode using AES-GCM (key derived from the passcode via PBKDF2). If you lose the passcode, the data is unrecoverable — export CSV regularly as a backup.</p>
@@ -426,7 +457,7 @@
         <div class="progress-bar scan-pb"><div id="scan-progress" class="progress-fill"></div></div>
         <div id="scan-result" class="scan-result" hidden>
           <label class="field">
-            <span>Detected total (RM)</span>
+            <span>Detected total (<span class="cur-code">MYR</span>)</span>
             <input type="number" id="scan-amount" step="0.01" min="0" inputmode="decimal" />
           </label>
           <label class="field">
@@ -464,6 +495,6 @@
       </form>
     </dialog>
 
-    <script src="script.js?v=23"></script>
+    <script src="script.js?v=24"></script>
   </body>
 </html>

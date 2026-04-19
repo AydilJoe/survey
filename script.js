@@ -15,6 +15,7 @@ const emptyState = () => ({
   dailyExpenses: [],
   savings: [],
   extraMonthly: 0,
+  currency: "MYR",
 });
 
 function coerceState(parsed) {
@@ -28,6 +29,7 @@ function coerceState(parsed) {
       dailyExpenses: Array.isArray(parsed.dailyExpenses) ? parsed.dailyExpenses : [],
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
       extraMonthly: Number(parsed.extraMonthly) || 0,
+      currency: typeof parsed.currency === "string" && /^[A-Z]{3}$/i.test(parsed.currency) ? parsed.currency.toUpperCase() : "MYR",
     };
   } catch { return emptyState(); }
 }
@@ -97,11 +99,57 @@ function uid() {
 
 /* ---------- formatting ---------- */
 
-const fmtMYR = new Intl.NumberFormat("en-MY", {
-  style: "currency",
-  currency: "MYR",
-  maximumFractionDigits: 2,
-});
+function currentCurrency() {
+  const c = state && state.currency;
+  return (typeof c === "string" && /^[A-Z]{3}$/i.test(c)) ? c.toUpperCase() : "MYR";
+}
+function currencyFormatter() {
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: currentCurrency() });
+  } catch {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: "MYR" });
+  }
+}
+function fmtMoney(n) {
+  const v = Number(n) || 0;
+  try { return currencyFormatter().format(v); }
+  catch { return v.toFixed(2) + " " + currentCurrency(); }
+}
+function currencySymbol() {
+  try {
+    const parts = currencyFormatter().formatToParts(0);
+    const sym = parts.find((p) => p.type === "currency");
+    return sym ? sym.value : currentCurrency();
+  } catch { return currentCurrency(); }
+}
+function moneyParts(n) {
+  const v = Number(n) || 0;
+  let prefix = "", whole = "", frac = "", suffix = "";
+  try {
+    const parts = currencyFormatter().formatToParts(v);
+    let phase = 0; // 0 before integer, 1 in integer, 2 in fraction, 3 after
+    for (const p of parts) {
+      const t = p.type;
+      if (phase === 0) {
+        if (t === "integer" || t === "group") { whole += p.value; phase = 1; }
+        else prefix += p.value;
+      } else if (phase === 1) {
+        if (t === "integer" || t === "group") whole += p.value;
+        else if (t === "decimal" || t === "fraction") { frac += p.value; phase = 2; }
+        else { suffix += p.value; phase = 3; }
+      } else if (phase === 2) {
+        if (t === "decimal" || t === "fraction") frac += p.value;
+        else { suffix += p.value; phase = 3; }
+      } else {
+        suffix += p.value;
+      }
+    }
+  } catch {
+    whole = v.toFixed(0);
+    prefix = currentCurrency() + " ";
+  }
+  return { prefix, whole, frac, suffix };
+}
 
 const fmtPct = (n) => `${(Number(n) || 0).toFixed(2)}%`;
 
@@ -342,7 +390,7 @@ function renderFlow() {
           <li data-id="${it.id}">
             ${chip}
             <span class="name">${escapeHtml(it.name)}</span>
-            <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMYR.format(it.amount)}</span>
+            <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMoney(it.amount)}</span>
             <button class="ghost icon-btn" data-action="edit-${kind}" data-id="${it.id}" aria-label="Edit ${escapeHtml(it.name)}">✎</button>
             <button class="ghost icon-btn" data-action="delete-${kind}" data-id="${it.id}" aria-label="Delete ${escapeHtml(it.name)}">✕</button>
           </li>`;
@@ -353,8 +401,8 @@ function renderFlow() {
   renderList(incomeList, monthIncome, "income");
   renderList(expenseList, monthExpenses, "expense");
 
-  $("#total-income").textContent = fmtMYR.format(totalOf(monthIncome));
-  $("#total-expense").textContent = fmtMYR.format(totalOf(monthExpenses));
+  $("#total-income").textContent = fmtMoney(totalOf(monthIncome));
+  $("#total-expense").textContent = fmtMoney(totalOf(monthExpenses));
 
   // Month nav label and form defaults
   const label = $("#month-label");
@@ -430,7 +478,7 @@ function updateDailyTargetSelect() {
     } else {
       field.hidden = false;
       sel.innerHTML = state.debts
-        .map((d) => `<option value="debt:${d.id}">${escapeHtml(d.name)} · ${fmtMYR.format(d.balance)}</option>`)
+        .map((d) => `<option value="debt:${d.id}">${escapeHtml(d.name)} · ${fmtMoney(d.balance)}</option>`)
         .join("");
     }
   } else if (type === "saving") {
@@ -468,12 +516,12 @@ function debtNameById(id) {
 
 function renderDaily() {
   const { today, week, month } = dailyStats();
-  $("#stat-daily-today").textContent = fmtMYR.format(today);
-  $("#stat-daily-week").textContent = fmtMYR.format(week);
-  $("#stat-daily-month").textContent = fmtMYR.format(month);
+  $("#stat-daily-today").textContent = fmtMoney(today);
+  $("#stat-daily-week").textContent = fmtMoney(week);
+  $("#stat-daily-month").textContent = fmtMoney(month);
 
   const monthly = state.dailyExpenses.filter((e) => isSameMonth(e.date));
-  $("#daily-month-total").textContent = fmtMYR.format(dailySpendSum(monthly));
+  $("#daily-month-total").textContent = fmtMoney(dailySpendSum(monthly));
   $("#daily-month-count").textContent = String(monthly.length);
 
   const listEl = $("#daily-list");
@@ -495,7 +543,7 @@ function renderDaily() {
   const html = [];
   for (const [date, entries] of groups.entries()) {
     const dayTotal = dailySpendSum(entries);
-    html.push(`<div class="daily-group-header"><span>${escapeHtml(formatDayLabel(date))}</span><span class="day-total">${fmtMYR.format(dayTotal)}</span></div>`);
+    html.push(`<div class="daily-group-header"><span>${escapeHtml(formatDayLabel(date))}</span><span class="day-total">${fmtMoney(dayTotal)}</span></div>`);
     for (const e of entries) {
       let pill = "";
       let note = "";
@@ -515,7 +563,7 @@ function renderDaily() {
       html.push(`
         <div class="daily-entry" data-id="${e.id}">
           <div class="primary-line">${pill}${note}</div>
-          <span class="amount">${fmtMYR.format(e.amount)}</span>
+          <span class="amount">${fmtMoney(e.amount)}</span>
           <button class="ghost" data-action="delete-daily" data-id="${e.id}" aria-label="Delete">✕</button>
         </div>
       `);
@@ -543,8 +591,8 @@ function renderSavingCard(goal, { mini } = { mini: false }) {
       </div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(1)}%"></div></div>
       <div class="saving-meta">
-        <span>${fmtMYR.format(current)} of ${fmtMYR.format(target)}</span>
-        <span>${remaining > 0 ? fmtMYR.format(remaining) + " to go" : "reached"}</span>
+        <span>${fmtMoney(current)} of ${fmtMoney(target)}</span>
+        <span>${remaining > 0 ? fmtMoney(remaining) + " to go" : "reached"}</span>
       </div>
       ${mini ? "" : `
       <div class="saving-actions">
@@ -566,8 +614,8 @@ function renderSavings() {
   }
 
   const { current, target } = savingsTotals();
-  $("#stat-save-current").textContent = fmtMYR.format(current);
-  $("#stat-save-target").textContent = fmtMYR.format(target);
+  $("#stat-save-current").textContent = fmtMoney(current);
+  $("#stat-save-target").textContent = fmtMoney(target);
 
   const mini = $("#savings-mini");
   mini.innerHTML = state.savings
@@ -600,13 +648,13 @@ function renderDebts() {
         ? `<span class="name">${escapeHtml(d.name)} <span class="installment-badge">Installment</span></span>`
         : `<span class="name">${escapeHtml(d.name)}</span>`;
       const metaRow = isInstallment
-        ? `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMYR.format(installment)}/mo</span></div>`
-        : `<div class="meta-row"><span>APR ${fmtPct(d.apr)}</span><span>Min ${fmtMYR.format(d.minPayment)}</span></div>`;
+        ? `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMoney(installment)}/mo</span></div>`
+        : `<div class="meta-row"><span>APR ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
       return `
       <li data-id="${d.id}">
         ${chip}
         ${nameHtml}
-        <span class="meta">${fmtMYR.format(d.balance)}</span>
+        <span class="meta">${fmtMoney(d.balance)}</span>
         <button class="ghost icon-btn" data-action="edit-debt" data-id="${d.id}" aria-label="Edit ${escapeHtml(d.name)}">✎</button>
         <button class="ghost icon-btn" data-action="delete-debt" data-id="${d.id}" aria-label="Delete ${escapeHtml(d.name)}">✕</button>
         ${metaRow}
@@ -639,20 +687,20 @@ function renderDashboard() {
   const expenseTotal = totalOf(state.expenses.filter((x) => x.month === thisMonth));
   const { total, weighted, minSum } = debtTotals(state.debts);
 
-  $("#stat-income").textContent = fmtMYR.format(incomeTotal);
-  $("#stat-expenses").textContent = fmtMYR.format(expenseTotal);
-  $("#stat-min").textContent = fmtMYR.format(minSum);
+  $("#stat-income").textContent = fmtMoney(incomeTotal);
+  $("#stat-expenses").textContent = fmtMoney(expenseTotal);
+  $("#stat-min").textContent = fmtMoney(minSum);
 
   const dailyMonth = dailyStats().month;
   const extra = Number(state.extraMonthly) || 0;
   const totalOut = expenseTotal + minSum + extra + dailyMonth;
   const net = incomeTotal - totalOut;
   const netEl = $("#stat-net");
-  const absNet = Math.abs(net);
-  const whole = Math.floor(absNet).toLocaleString("en-MY");
-  const cents = Math.round((absNet - Math.floor(absNet)) * 100).toString().padStart(2, "0");
-  const sign = net < 0 ? "−" : "";
-  netEl.innerHTML = `<span class="hero-currency">${sign}RM</span><span class="hero-whole">${whole}</span><span class="hero-cents">.${cents}</span>`;
+  const mp = moneyParts(net);
+  netEl.innerHTML =
+    `<span class="hero-currency">${escapeHtml(mp.prefix)}</span>` +
+    `<span class="hero-whole">${escapeHtml(mp.whole)}</span>` +
+    `<span class="hero-cents">${escapeHtml(mp.frac + mp.suffix)}</span>`;
   netEl.classList.toggle("pos", net >= 0);
   netEl.classList.toggle("neg", net < 0);
 
@@ -667,7 +715,7 @@ function renderDashboard() {
       const spentPct = Math.min(100, (totalOut / incomeTotal) * 100);
       fill.style.width = spentPct + "%";
       fill.classList.toggle("over", totalOut > incomeTotal);
-      progText.innerHTML = `<span>Spent ${fmtMYR.format(totalOut)} of ${fmtMYR.format(incomeTotal)} · ${spentPct.toFixed(0)}%</span><span>Day ${prog.day}/${prog.daysInMonth}</span>`;
+      progText.innerHTML = `<span>Spent ${fmtMoney(totalOut)} of ${fmtMoney(incomeTotal)} · ${spentPct.toFixed(0)}%</span><span>Day ${prog.day}/${prog.daysInMonth}</span>`;
     } else {
       fill.style.width = prog.pct.toFixed(1) + "%";
       fill.classList.remove("over");
@@ -677,15 +725,15 @@ function renderDashboard() {
 
   const formulaEl = $("#stat-net-formula");
   if (formulaEl) {
-    formulaEl.textContent = `= income − recurring − min debt − extra − daily (${fmtMYR.format(dailyMonth)})`;
+    formulaEl.textContent = `= income − recurring − min debt − extra − daily (${fmtMoney(dailyMonth)})`;
   }
 
-  $("#stat-debt-total").textContent = fmtMYR.format(total);
+  $("#stat-debt-total").textContent = fmtMoney(total);
   $("#stat-debt-apr").textContent = fmtPct(weighted);
 
   const banner = $("#stat-debt-banner");
   const bannerSub = $("#stat-debt-banner-sub");
-  if (banner) banner.textContent = fmtMYR.format(total);
+  if (banner) banner.textContent = fmtMoney(total);
   if (bannerSub) {
     if (state.debts.length === 0) {
       bannerSub.textContent = "No debts yet";
@@ -726,7 +774,7 @@ function renderDashboard() {
 
   if (state.debts.length === 0) {
     monthsEl.textContent = "—";
-    interestEl.textContent = fmtMYR.format(0);
+    interestEl.textContent = fmtMoney(0);
   } else if (sim.infeasible) {
     monthsEl.textContent = "∞";
     monthsEl.title = "Payments too low to cover interest — debt-free date unreachable.";
@@ -734,7 +782,7 @@ function renderDashboard() {
   } else {
     monthsEl.textContent = formatMonths(sim.months);
     monthsEl.title = "";
-    interestEl.textContent = fmtMYR.format(sim.totalInterest);
+    interestEl.textContent = fmtMoney(sim.totalInterest);
   }
 
   const stallEl = $("#stall-warning");
@@ -746,7 +794,7 @@ function renderDashboard() {
     const pool = minSum + (Number(state.extraMonthly) || 0);
     if (state.debts.length > 0 && pool < firstMonthInterest) {
       stallEl.hidden = false;
-      stallEl.textContent = `⚠︎ Your minimums + extra (${fmtMYR.format(pool)}/mo) don't cover the current monthly interest (${fmtMYR.format(firstMonthInterest)}/mo). Debt will grow — add more to the extra payment.`;
+      stallEl.textContent = `⚠︎ Your minimums + extra (${fmtMoney(pool)}/mo) don't cover the current monthly interest (${fmtMoney(firstMonthInterest)}/mo). Debt will grow — add more to the extra payment.`;
     } else {
       stallEl.hidden = true;
       stallEl.textContent = "";
@@ -774,6 +822,7 @@ function renderDashboard() {
 }
 
 function renderAll() {
+  updateCurrencyLabels();
   renderDashboard();
   renderFlow();
   renderDebts();
@@ -781,6 +830,13 @@ function renderAll() {
   updateCategoryDatalist();
   renderDaily();
   renderSavings();
+}
+
+function updateCurrencyLabels() {
+  const code = currentCurrency();
+  document.querySelectorAll(".cur-code").forEach((el) => { el.textContent = code; });
+  const prefEl = document.getElementById("pref-currency");
+  if (prefEl && document.activeElement !== prefEl) prefEl.value = code;
 }
 
 /* ---------- tabs ---------- */
@@ -1050,26 +1106,26 @@ document.addEventListener("click", (e) => {
   if (action === "delete-income") {
     const it = state.income.find((x) => x.id === id);
     if (!it) return;
-    if (!confirm(`Delete income "${it.name}" (${fmtMYR.format(it.amount)})?`)) return;
+    if (!confirm(`Delete income "${it.name}" (${fmtMoney(it.amount)})?`)) return;
     state.income = state.income.filter((x) => x.id !== id);
   } else if (action === "delete-expense") {
     const it = state.expenses.find((x) => x.id === id);
     if (!it) return;
-    if (!confirm(`Delete expense "${it.name}" (${fmtMYR.format(it.amount)})?`)) return;
+    if (!confirm(`Delete expense "${it.name}" (${fmtMoney(it.amount)})?`)) return;
     state.expenses = state.expenses.filter((x) => x.id !== id);
   } else if (action === "delete-debt") {
     const it = state.debts.find((x) => x.id === id);
     if (!it) return;
-    if (!confirm(`Delete debt "${it.name}" (balance ${fmtMYR.format(it.balance)})? Linked daily payment entries will keep their record.`)) return;
+    if (!confirm(`Delete debt "${it.name}" (balance ${fmtMoney(it.balance)})? Linked daily payment entries will keep their record.`)) return;
     state.debts = state.debts.filter((x) => x.id !== id);
   } else if (action === "delete-daily") {
     const entry = state.dailyExpenses.find((x) => x.id === id);
     if (!entry) return;
     const label = entry.kind === "debt"
-      ? `debt payment of ${fmtMYR.format(entry.amount)} to ${entry.debtName || "debt"}`
+      ? `debt payment of ${fmtMoney(entry.amount)} to ${entry.debtName || "debt"}`
       : entry.kind === "saving"
-      ? `deposit of ${fmtMYR.format(entry.amount)} to ${entry.savingName || "savings"}`
-      : `expense of ${fmtMYR.format(entry.amount)}${entry.category ? " (" + entry.category + ")" : ""}`;
+      ? `deposit of ${fmtMoney(entry.amount)} to ${entry.savingName || "savings"}`
+      : `expense of ${fmtMoney(entry.amount)}${entry.category ? " (" + entry.category + ")" : ""}`;
     if (!confirm(`Delete ${label}?\n\nDebt/savings balances will be reversed.`)) return;
     if (entry.kind === "debt" && entry.debtId) {
       const debt = state.debts.find((d) => d.id === entry.debtId);
@@ -1083,7 +1139,7 @@ document.addEventListener("click", (e) => {
   } else if (action === "save-delete") {
     const g = state.savings.find((x) => x.id === id);
     if (!g) return;
-    if (!confirm(`Delete savings goal "${g.name}" (${fmtMYR.format(g.current)} of ${fmtMYR.format(g.target)} saved)?`)) return;
+    if (!confirm(`Delete savings goal "${g.name}" (${fmtMoney(g.current)} of ${fmtMoney(g.target)} saved)?`)) return;
     state.savings = state.savings.filter((x) => x.id !== id);
   } else if (action === "save-deposit") {
     const input = document.querySelector(`input[data-save-input="${id}"]`);
@@ -1256,6 +1312,24 @@ editDialog.addEventListener("click", (e) => {
   const inDialog = rect.top <= e.clientY && e.clientY <= rect.bottom && rect.left <= e.clientX && e.clientX <= rect.right;
   if (!inDialog) closeEditDialog();
 });
+
+/* currency preference */
+const prefCurrency = document.getElementById("pref-currency");
+if (prefCurrency) {
+  prefCurrency.addEventListener("change", () => {
+    const code = (prefCurrency.value || "").trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(code)) {
+      alert("Enter a 3-letter ISO code (e.g. USD, EUR, SGD).");
+      prefCurrency.value = currentCurrency();
+      return;
+    }
+    try { new Intl.NumberFormat(undefined, { style: "currency", currency: code }).format(0); }
+    catch { alert("Unknown currency code."); prefCurrency.value = currentCurrency(); return; }
+    state.currency = code;
+    save();
+    renderAll();
+  });
+}
 
 /* tap-to-expand hero stat cards */
 document.querySelectorAll(".hero-stat").forEach((el) => {
@@ -1800,7 +1874,7 @@ function populateScanDebtSelect() {
     sel.innerHTML = `<option value="">No debts — add one in the Debts tab</option>`;
   } else {
     sel.innerHTML = state.debts
-      .map((d) => `<option value="debt:${d.id}">${escapeHtml(d.name)} · ${fmtMYR.format(d.balance)}</option>`)
+      .map((d) => `<option value="debt:${d.id}">${escapeHtml(d.name)} · ${fmtMoney(d.balance)}</option>`)
       .join("");
   }
 }
