@@ -1753,9 +1753,37 @@ function openScanDialog() {
   scanResult.hidden = true;
   scanApply.hidden = true;
   scanPreview.removeAttribute("src");
+  setScanType("expense");
+  populateScanDebtSelect();
   if (typeof scanDialog.showModal === "function") scanDialog.showModal();
   else scanDialog.setAttribute("open", "");
 }
+
+function setScanType(type) {
+  document.querySelectorAll(".scan-type-pills .pill").forEach((btn) => {
+    const on = btn.dataset.scanType === type;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-checked", on ? "true" : "false");
+  });
+  const field = document.getElementById("scan-debt-field");
+  if (field) field.hidden = type !== "debt";
+}
+
+function populateScanDebtSelect() {
+  const sel = document.getElementById("scan-debt-select");
+  if (!sel) return;
+  if (state.debts.length === 0) {
+    sel.innerHTML = `<option value="">No debts — add one in the Debts tab</option>`;
+  } else {
+    sel.innerHTML = state.debts
+      .map((d) => `<option value="debt:${d.id}">${escapeHtml(d.name)} · ${fmtMYR.format(d.balance)}</option>`)
+      .join("");
+  }
+}
+
+document.querySelectorAll(".scan-type-pills .pill").forEach((btn) => {
+  btn.addEventListener("click", () => setScanType(btn.dataset.scanType));
+});
 function closeScanDialog() {
   if (!scanDialog) return;
   if (typeof scanDialog.close === "function") scanDialog.close();
@@ -1809,11 +1837,26 @@ scanApply?.addEventListener("click", () => {
   const amountInput = document.querySelector("#form-daily input[name='amount']");
   const noteInput = document.querySelector("#form-daily input[name='note']");
   const catInput = document.querySelector("#form-daily input[name='category']");
-  if (Number.isFinite(amt) && amt > 0 && amountInput) amountInput.value = amt.toFixed(2);
-  if (vendor) {
-    if (noteInput) noteInput.value = vendor;
+  const typeBtn = document.querySelector(".scan-type-pills .pill.active");
+  const chosenType = (typeBtn && typeBtn.dataset.scanType) || "expense";
+
+  if (chosenType === "debt") {
+    if (state.debts.length === 0) {
+      alert("Add a debt in the Debts tab first.");
+      return;
+    }
+    const sel = document.getElementById("scan-debt-select");
+    setDailyType("debt");
+    const targetSel = document.getElementById("daily-target");
+    if (targetSel && sel && sel.value) targetSel.value = sel.value;
+  } else {
+    setDailyType("expense");
     if (catInput && !catInput.value) catInput.value = "Receipt";
   }
+
+  if (Number.isFinite(amt) && amt > 0 && amountInput) amountInput.value = amt.toFixed(2);
+  if (vendor && noteInput) noteInput.value = vendor;
+
   closeScanDialog();
   amountInput?.focus();
 });
