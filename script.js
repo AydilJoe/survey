@@ -99,13 +99,23 @@ function uid() {
 
 /* ---------- formatting ---------- */
 
+const CURRENCY_LOCALE = {
+  MYR: "en-MY", SGD: "en-SG", USD: "en-US", EUR: "de-DE", GBP: "en-GB",
+  AUD: "en-AU", NZD: "en-NZ", CAD: "en-CA", JPY: "ja-JP", CNY: "zh-CN",
+  HKD: "en-HK", IDR: "id-ID", THB: "th-TH", PHP: "en-PH", INR: "en-IN",
+  KRW: "ko-KR", VND: "vi-VN", AED: "en-AE", SAR: "ar-SA", CHF: "de-CH",
+};
+
 function currentCurrency() {
   const c = state && state.currency;
   return (typeof c === "string" && /^[A-Z]{3}$/i.test(c)) ? c.toUpperCase() : "MYR";
 }
+function currencyLocale() {
+  return CURRENCY_LOCALE[currentCurrency()] || undefined;
+}
 function currencyFormatter() {
   try {
-    return new Intl.NumberFormat(undefined, { style: "currency", currency: currentCurrency() });
+    return new Intl.NumberFormat(currencyLocale(), { style: "currency", currency: currentCurrency() });
   } catch {
     return new Intl.NumberFormat(undefined, { style: "currency", currency: "MYR" });
   }
@@ -114,6 +124,12 @@ function fmtMoney(n) {
   const v = Number(n) || 0;
   try { return currencyFormatter().format(v); }
   catch { return v.toFixed(2) + " " + currentCurrency(); }
+}
+function fmtMoneyIn(n, code) {
+  const v = Number(n) || 0;
+  const loc = CURRENCY_LOCALE[code] || undefined;
+  try { return new Intl.NumberFormat(loc, { style: "currency", currency: code }).format(v); }
+  catch { return v.toFixed(2) + " " + code; }
 }
 function currencySymbol() {
   try {
@@ -1795,6 +1811,36 @@ async function getTesseractWorker(logger) {
   return tesseractWorker;
 }
 
+/* Map common receipt markers to ISO codes. Longer/more-specific patterns
+   are listed first so we detect "US$", "A$", "HK$" before plain "$". */
+const RECEIPT_CURRENCIES = [
+  { re: /\bUS\$|\bUSD\b/i, code: "USD" },
+  { re: /\bA\$|\bAUD\b/i, code: "AUD" },
+  { re: /\bC\$|\bCAD\b/i, code: "CAD" },
+  { re: /\bNZ\$|\bNZD\b/i, code: "NZD" },
+  { re: /\bHK\$|\bHKD\b/i, code: "HKD" },
+  { re: /\bS\$|\bSGD\b/i, code: "SGD" },
+  { re: /\bRM\b|\bMYR\b/i, code: "MYR" },
+  { re: /\bRp\b|\bIDR\b/i, code: "IDR" },
+  { re: /\bCHF\b/i, code: "CHF" },
+  { re: /\bAED\b|\bDH\b|\bDHS\b/i, code: "AED" },
+  { re: /\bSAR\b|\bSR\b/i, code: "SAR" },
+  { re: /£|\bGBP\b/,   code: "GBP" },
+  { re: /€|\bEUR\b/,   code: "EUR" },
+  { re: /¥|\bJPY\b/,   code: "JPY" }, // also CNY; JPY is the stronger default
+  { re: /₩|\bKRW\b/,   code: "KRW" },
+  { re: /₹|\bINR\b/,   code: "INR" },
+  { re: /₱|\bPHP\b/,   code: "PHP" },
+  { re: /฿|\bTHB\b/,   code: "THB" },
+  { re: /₫|\bVND\b/,   code: "VND" },
+  { re: /\bCNY\b|\bRMB\b|元/i, code: "CNY" },
+  { re: /\$/, code: "USD" }, // plain $ falls back to USD
+];
+function detectCurrencyFromText(text) {
+  for (const { re, code } of RECEIPT_CURRENCIES) if (re.test(text)) return code;
+  return null;
+}
+
 function parseReceiptText(text) {
   // Clean common OCR glitches
   const norm = text.replace(/[oO](?=\.\d{2})/g, "0");
@@ -1830,7 +1876,37 @@ function parseReceiptText(text) {
   // Vendor guess: first ALL-CAPS or title-case line with mostly letters
   const vendor = lines.find((l) => l.length >= 3 && l.length <= 40 && /[A-Za-z]/.test(l) && !/\d{2}/.test(l));
 
-  return { amount, vendor: vendor || "", raw: text };
+  // Currency guess: check the total line first, then the whole text
+  let currency = null;
+  if (totalLine) currency = detectCurrencyFromText(totalLine);
+  if (!currency) currency = detectCurrencyFromText(text);
+
+  return { amount, vendor: vendor || "", currency, raw: text };
+}
+
+/* ---------- FX rate lookup (free, no API key) ---------- */
+const FX_CACHE_KEY = "duit-tracker.fx";
+const FX_TTL_MS = 24 * 60 * 60 * 1000;
+async function getFxRate(from, to) {
+  if (!from || !to || from === to) return 1;
+  from = from.toUpperCase(); to = to.toUpperCase();
+  let cache = {};
+  try { cache = JSON.parse(localStorage.getItem(FX_CACHE_KEY) || "{}"); } catch {}
+  const fresh = cache[from];
+  if (fresh && fresh.ts + FX_TTL_MS > Date.now() && fresh.rates && fresh.rates[to]) {
+    return fresh.rates[to];
+  }
+  try {
+    const resp = await fetch(`https://open.er-api.com/v6/latest/${from}`);
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const data = await resp.json();
+    if (!data || !data.rates) throw new Error("no rates");
+    cache[from] = { ts: Date.now(), rates: data.rates };
+    try { localStorage.setItem(FX_CACHE_KEY, JSON.stringify(cache)); } catch {}
+    return data.rates[to] || null;
+  } catch {
+    return null;
+  }
 }
 
 const scanDialog = document.getElementById("scan-dialog");
@@ -1913,14 +1989,28 @@ scanInput?.addEventListener("change", async (e) => {
     });
     const { data: { text } } = await worker.recognize(file);
     const parsed = parseReceiptText(text);
-    scanAmount.value = parsed.amount != null ? parsed.amount.toFixed(2) : "";
+    let appliedAmount = parsed.amount;
+    let statusNote = parsed.amount != null ? "Review and apply, or edit first." : "No amount detected — fill in manually or cancel.";
+
+    // Auto-convert if the detected currency differs from the user's currency
+    const userCur = currentCurrency();
+    if (parsed.amount != null && parsed.currency && parsed.currency !== userCur) {
+      scanStatus.textContent = `Converting ${parsed.currency} → ${userCur}…`;
+      const rate = await getFxRate(parsed.currency, userCur);
+      if (rate) {
+        appliedAmount = parsed.amount * rate;
+        statusNote = `Converted ${fmtMoneyIn(parsed.amount, parsed.currency)} at 1 ${parsed.currency} = ${rate.toFixed(4)} ${userCur}.`;
+      } else {
+        statusNote = `Detected ${parsed.currency} but couldn't fetch the FX rate. Using raw number.`;
+      }
+    }
+
+    scanAmount.value = appliedAmount != null ? appliedAmount.toFixed(2) : "";
     scanVendor.value = parsed.vendor || "";
     scanRaw.textContent = parsed.raw || "(no text detected)";
     scanResult.hidden = false;
     scanApply.hidden = false;
-    scanStatus.textContent = parsed.amount != null
-      ? "Review and apply, or edit first."
-      : "No amount detected — fill in manually or cancel.";
+    scanStatus.textContent = statusNote;
     scanProgress.style.width = "100%";
   } catch (err) {
     scanStatus.textContent = "Scan failed: " + (err && err.message ? err.message : String(err));
