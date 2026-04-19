@@ -1964,6 +1964,41 @@ function closeScanDialog() {
   else scanDialog.removeAttribute("open");
 }
 
+let scanOriginalAmount = null;
+let scanOriginalCurrency = null;
+
+async function applyScanConversion() {
+  if (scanOriginalAmount == null) return;
+  const curInput = document.getElementById("scan-currency");
+  const noteEl = document.getElementById("scan-convert-note");
+  const raw = (curInput && curInput.value || "").trim().toUpperCase();
+  const source = /^[A-Z]{3}$/.test(raw) ? raw : scanOriginalCurrency;
+  const target = currentCurrency();
+  let applied = scanOriginalAmount;
+  let note = "";
+  if (source && source !== target) {
+    scanStatus.textContent = `Converting ${source} → ${target}…`;
+    const rate = await getFxRate(source, target);
+    if (rate) {
+      applied = scanOriginalAmount * rate;
+      note = `Converted ${fmtMoneyIn(scanOriginalAmount, source)} at 1 ${source} = ${rate.toFixed(4)} ${target}.`;
+    } else {
+      note = `Couldn't fetch ${source} → ${target} rate. Amount not converted.`;
+    }
+  } else {
+    note = "";
+  }
+  if (noteEl) {
+    noteEl.hidden = !note;
+    noteEl.textContent = note;
+  }
+  scanAmount.value = applied != null ? applied.toFixed(2) : "";
+  scanStatus.textContent = applied != null
+    ? "Review and apply, or edit first."
+    : "No amount detected — fill in manually or cancel.";
+}
+
+document.getElementById("scan-currency")?.addEventListener("change", applyScanConversion);
 document.getElementById("btn-scan")?.addEventListener("click", () => scanInput?.click());
 document.getElementById("scan-cancel")?.addEventListener("click", closeScanDialog);
 
@@ -1989,28 +2024,15 @@ scanInput?.addEventListener("change", async (e) => {
     });
     const { data: { text } } = await worker.recognize(file);
     const parsed = parseReceiptText(text);
-    let appliedAmount = parsed.amount;
-    let statusNote = parsed.amount != null ? "Review and apply, or edit first." : "No amount detected — fill in manually or cancel.";
-
-    // Auto-convert if the detected currency differs from the user's currency
-    const userCur = currentCurrency();
-    if (parsed.amount != null && parsed.currency && parsed.currency !== userCur) {
-      scanStatus.textContent = `Converting ${parsed.currency} → ${userCur}…`;
-      const rate = await getFxRate(parsed.currency, userCur);
-      if (rate) {
-        appliedAmount = parsed.amount * rate;
-        statusNote = `Converted ${fmtMoneyIn(parsed.amount, parsed.currency)} at 1 ${parsed.currency} = ${rate.toFixed(4)} ${userCur}.`;
-      } else {
-        statusNote = `Detected ${parsed.currency} but couldn't fetch the FX rate. Using raw number.`;
-      }
-    }
-
-    scanAmount.value = appliedAmount != null ? appliedAmount.toFixed(2) : "";
+    scanOriginalAmount = parsed.amount;
+    scanOriginalCurrency = parsed.currency || currentCurrency();
+    const scanCurrencyInput = document.getElementById("scan-currency");
+    if (scanCurrencyInput) scanCurrencyInput.value = scanOriginalCurrency;
     scanVendor.value = parsed.vendor || "";
     scanRaw.textContent = parsed.raw || "(no text detected)";
     scanResult.hidden = false;
     scanApply.hidden = false;
-    scanStatus.textContent = statusNote;
+    await applyScanConversion();
     scanProgress.style.width = "100%";
   } catch (err) {
     scanStatus.textContent = "Scan failed: " + (err && err.message ? err.message : String(err));

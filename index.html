@@ -456,10 +456,17 @@
         <div id="scan-status" class="hint">Loading…</div>
         <div class="progress-bar scan-pb"><div id="scan-progress" class="progress-fill"></div></div>
         <div id="scan-result" class="scan-result" hidden>
-          <label class="field">
-            <span>Detected total (<span class="cur-code">MYR</span>)</span>
-            <input type="number" id="scan-amount" step="0.01" min="0" inputmode="decimal" />
-          </label>
+          <div class="grid-2">
+            <label class="field">
+              <span>Detected total</span>
+              <input type="number" id="scan-amount" step="0.01" min="0" inputmode="decimal" />
+            </label>
+            <label class="field">
+              <span>Currency</span>
+              <input type="text" id="scan-currency" list="currency-list" maxlength="3" inputmode="latin" autocorrect="off" autocapitalize="characters" placeholder="MYR" />
+            </label>
+          </div>
+          <p id="scan-convert-note" class="hint" hidden></p>
           <label class="field">
             <span>Vendor / note</span>
             <input type="text" id="scan-vendor" />
@@ -495,6 +502,6 @@
       </form>
     </dialog>
 
-    <script src="script.js?v=25"></script>
+    <script src="script.js?v=26"></script>
   </body>
 </html>
