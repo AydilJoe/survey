@@ -1094,26 +1094,25 @@ button.ghost.icon-btn {
 }
 .scan-btn {
   appearance: none;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
-  background: var(--card-soft);
-  border: 0.5px dashed var(--line);
-  color: var(--ink2);
-  padding: 0.55rem 0.85rem;
-  border-radius: 12px;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  background: var(--primary);
+  border: 0.5px solid var(--primary);
+  color: var(--card);
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
   font: inherit;
-  font-weight: 500;
-  font-size: 0.88rem;
+  font-weight: 600;
+  font-size: 0.95rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, transform 0.05s ease;
+  letter-spacing: -0.1px;
 }
-.scan-btn:hover {
-  background: var(--card);
-  color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
-  border-style: solid;
-}
+.scan-btn:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.scan-btn:active { transform: scale(0.99); }
 .scan-btn .pill-icon svg { width: 18px; height: 18px; }
 
 .scan-dialog form { gap: 0.65rem; }
