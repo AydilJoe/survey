@@ -4,7 +4,8 @@
   "private": true,
   "description": "Duit Tracker — Capacitor shell for the PWA.",
   "scripts": {
-    "build:web": "rm -rf www && mkdir www && cp index.html script.js styles.css icon.svg manifest.webmanifest www/",
+    "fetch:tesseract": "node scripts/fetch-tesseract.mjs",
+    "build:web": "rm -rf www && mkdir www && cp index.html script.js styles.css icon.svg manifest.webmanifest www/ && npm run fetch:tesseract && cp -R vendor www/vendor",
     "cap:sync": "npm run build:web && npx cap sync",
     "cap:ios": "npm run cap:sync && npx cap open ios",
     "cap:android": "npm run cap:sync && npx cap open android",

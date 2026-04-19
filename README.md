@@ -92,4 +92,5 @@ The supplied `icon.svg` in this repo is a reasonable starting point — export i
 
 - Local notifications are scheduled from `state.debts`/`state.expenses`/`state.income` any time those change (debounced).
 - Notifications fire monthly on the configured day at 09:00 local time.
-- All other features (encryption, OCR, CSV, PWA styling) are identical.
+- OCR (Tesseract) is bundled into the app, so receipt scanning works with **zero network** from first use. `npm run build:web` calls `npm run fetch:tesseract`, which downloads the runtime + English traineddata into `vendor/tesseract/` (~12 MB, gitignored) and copies it into `www/vendor/`. Subsequent builds reuse the cached files.
+- All other features (encryption, CSV, PWA styling) are identical.

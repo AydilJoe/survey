@@ -2016,22 +2016,50 @@ if (lockForm) {
 
 let tesseractWorker = null;
 
-function loadTesseract() {
-  if (window.Tesseract) return Promise.resolve(window.Tesseract);
-  return new Promise((resolve, reject) => {
+/* Resolve whether a vendored Tesseract exists alongside the app.
+   In the Capacitor native bundle, build:web copies vendor/ into www/
+   so these paths are always present; on the plain web deploy only
+   the CDN path works. */
+let tesseractLocal = null;
+async function detectLocalTesseract() {
+  if (tesseractLocal !== null) return tesseractLocal;
+  try {
+    const resp = await fetch("vendor/tesseract/tesseract.min.js", { method: "HEAD" });
+    tesseractLocal = resp.ok;
+  } catch { tesseractLocal = false; }
+  return tesseractLocal;
+}
+
+async function loadTesseract() {
+  if (window.Tesseract) return window.Tesseract;
+  const useLocal = await detectLocalTesseract();
+  const src = useLocal
+    ? "vendor/tesseract/tesseract.min.js"
+    : "https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js";
+  await new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = "https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js";
-    s.crossOrigin = "anonymous";
-    s.onload = () => resolve(window.Tesseract);
+    s.src = src;
+    if (!useLocal) s.crossOrigin = "anonymous";
+    s.onload = resolve;
     s.onerror = () => reject(new Error("Failed to load Tesseract.js"));
     document.head.appendChild(s);
   });
+  return window.Tesseract;
 }
 
 async function getTesseractWorker(logger) {
   const Tess = await loadTesseract();
   if (!tesseractWorker) {
-    tesseractWorker = await Tess.createWorker("eng", 1, { logger });
+    const useLocal = await detectLocalTesseract();
+    const opts = useLocal
+      ? {
+          logger,
+          workerPath: "vendor/tesseract/worker.min.js",
+          corePath: "vendor/tesseract/",
+          langPath: "vendor/tesseract/",
+        }
+      : { logger };
+    tesseractWorker = await Tess.createWorker("eng", 1, opts);
   }
   return tesseractWorker;
 }
