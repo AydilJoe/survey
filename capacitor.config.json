@@ -1,6 +1,6 @@
 {
-  "appId": "com.aydiljoe.duit",
-  "appName": "Duit Tracker",
+  "appId": "com.aydiljoe.duitful",
+  "appName": "Duitful",
   "webDir": "www",
   "server": {
     "androidScheme": "https"

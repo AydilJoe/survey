@@ -1,4 +1,4 @@
-/* Duit Tracker — money & debt tracker with avalanche payoff (MYR).
+/* Duitful — privacy-first money & debt tracker with avalanche payoff.
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
@@ -983,7 +983,7 @@ function isNative() {
 /* ---------- Pro tier ----------
    The web version (GitHub Pages / plain browser) is fully unlocked so people
    can try everything. In the native Capacitor build, features are gated and
-   unlocked with a one-time IAP (duit_pro). */
+   unlocked with a one-time IAP (duitful_pro). */
 
 const FREE_DEBT_LIMIT = 3;
 const FREE_SAVING_LIMIT = 2;
@@ -1042,7 +1042,7 @@ function closePaywall() {
 document.getElementById("paywall-close")?.addEventListener("click", closePaywall);
 
 /* in-app purchase (Capacitor native) — cordova-plugin-purchase v13 */
-const PRODUCT_ID = "duit_pro";
+const PRODUCT_ID = "duitful_pro";
 function initIAP() {
   if (!isNative()) return;
   const sdk = window.CdvPurchase;
@@ -1068,7 +1068,7 @@ function initIAP() {
 }
 async function purchasePro() {
   if (!isNative()) {
-    alert("Duit Pro is already unlocked on the web.\nInstall the iOS / Android app to purchase the lifetime Pro tier there.");
+    alert("Duitful Pro is already unlocked on the web.\nInstall the iOS / Android app to purchase the lifetime Pro tier there.");
     return;
   }
   const sdk = window.CdvPurchase;
@@ -1105,7 +1105,7 @@ function renderProControls() {
   if (status) {
     if (proNow) status.textContent = native
       ? "Pro unlocked. Thanks for supporting the app!"
-      : "Duit Pro is free on the web. Install the app to unlock it permanently.";
+      : "Duitful Pro is free on the web. Install the app to unlock it permanently.";
     else status.textContent = "Unlock unlimited tracking, receipt scans, reminders and installments. One-time purchase — no subscription.";
   }
   if (actions) {
@@ -1951,7 +1951,7 @@ function downloadCSV() {
   const a = document.createElement("a");
   const ts = new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = `duit-tracker-${ts}.csv`;
+  a.download = `duitful-${ts}.csv`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);

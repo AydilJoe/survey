@@ -1,7 +1,7 @@
 {
-  "name": "Duit Tracker",
-  "short_name": "Duit",
-  "description": "Monthly in/out, debts and avalanche payoff (MYR).",
+  "name": "Duitful",
+  "short_name": "Duitful",
+  "description": "Be duitful with your duit. Privacy-first money & debt tracker.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
