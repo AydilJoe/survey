@@ -1257,6 +1257,21 @@ editDialog.addEventListener("click", (e) => {
   if (!inDialog) closeEditDialog();
 });
 
+/* tap-to-expand hero stat cards */
+document.querySelectorAll(".hero-stat").forEach((el) => {
+  el.setAttribute("role", "button");
+  el.setAttribute("tabindex", "0");
+  el.setAttribute("aria-expanded", "false");
+  const toggle = () => {
+    const expanded = el.classList.toggle("expanded");
+    el.setAttribute("aria-expanded", expanded ? "true" : "false");
+  };
+  el.addEventListener("click", toggle);
+  el.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+  });
+});
+
 /* extra monthly payment */
 $("#extra-monthly").addEventListener("input", (e) => {
   const v = Number(e.target.value);
