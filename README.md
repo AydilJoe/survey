@@ -122,3 +122,11 @@ Store-specific to-do before first submission:
 - Notifications fire monthly on the configured day at 09:00 local time.
 - OCR (Tesseract) is bundled into the app, so receipt scanning works with **zero network** from first use. `npm run build:web` calls `npm run fetch:tesseract`, which downloads the runtime + English traineddata into `vendor/tesseract/` (~12 MB, gitignored) and copies it into `www/vendor/`. Subsequent builds reuse the cached files.
 - All other features (encryption, CSV, PWA styling) are identical.
+
+### Android auto-capture (from bank / e-wallet notifications)
+
+Android-only feature that reads notifications on-device and queues a "pending transaction" for user review. iOS sandbox doesn't allow this.
+
+Native plugin files + install instructions live under `native/android/NotificationListenerPlugin/`. Copy the two Java files into the generated Android project after `npm run cap:add:android`, register the plugin, add the service to `AndroidManifest.xml`, and the "Pending transactions" card on Home will start populating.
+
+Supported out of the box: Maybank, CIMB, Hong Leong, RHB, Public Bank, Touch 'n Go, GrabPay, Boost, BigPay, SPayLater, Atome. Add more patterns by editing `TXN_PROVIDERS` in `script.js` and the `ALLOWED` set in `DuitfulNotificationListenerService.java`.

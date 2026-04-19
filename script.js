@@ -19,6 +19,7 @@ const emptyState = () => ({
   reminders: { enabled: true, daysAhead: 3, notifications: false, lastNotified: {} },
   pro: false,
   ocrUsage: { month: "", scans: 0 },
+  pendingTxns: [],
 });
 
 function coerceState(parsed) {
@@ -43,6 +44,7 @@ function coerceState(parsed) {
       ocrUsage: parsed.ocrUsage && typeof parsed.ocrUsage === "object"
         ? { month: String(parsed.ocrUsage.month || ""), scans: Number(parsed.ocrUsage.scans) || 0 }
         : { month: "", scans: 0 },
+      pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
     };
   } catch { return emptyState(); }
 }
@@ -861,8 +863,79 @@ function renderAll() {
   renderDaily();
   renderSavings();
   renderUpcoming();
+  renderPending();
   renderReminderPrefs();
   renderProControls();
+}
+
+function renderPending() {
+  const card = document.getElementById("pending-card");
+  const list = document.getElementById("pending-list");
+  const sub = document.getElementById("pending-sub");
+  if (!card || !list) return;
+  const items = state.pendingTxns || [];
+  if (items.length === 0) { card.hidden = true; return; }
+  card.hidden = false;
+  if (sub) sub.textContent = `${items.length} to review`;
+  list.innerHTML = items
+    .slice()
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map((p) => {
+      const label = p.merchant ? escapeHtml(p.merchant) : "Unknown";
+      return `
+        <li data-id="${p.id}">
+          <div class="pending-main">
+            <div class="pending-top">
+              <span class="pending-name">${label}</span>
+              <span class="pending-amount">${fmtMoney(p.amount)}</span>
+            </div>
+            <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")}</div>
+          </div>
+          <div class="pending-actions">
+            <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="Dismiss">✕</button>
+            <button class="ghost" data-action="pending-edit" data-id="${p.id}">Edit</button>
+            <button class="primary" data-action="pending-accept" data-id="${p.id}">Add</button>
+          </div>
+        </li>`;
+    }).join("");
+}
+
+function acceptPending(id) {
+  const p = (state.pendingTxns || []).find((x) => x.id === id);
+  if (!p) return;
+  state.dailyExpenses.push({
+    id: uid(),
+    createdAt: Date.now(),
+    kind: "expense",
+    date: todayISO(),
+    amount: p.amount,
+    category: p.providerName || "Card",
+    note: p.merchant || "",
+  });
+  state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
+  save();
+  renderAll();
+}
+function editPending(id) {
+  const p = (state.pendingTxns || []).find((x) => x.id === id);
+  if (!p) return;
+  const amountInput = document.querySelector("#form-daily input[name='amount']");
+  const noteInput = document.querySelector("#form-daily input[name='note']");
+  const catInput = document.querySelector("#form-daily input[name='category']");
+  setDailyType("expense");
+  if (amountInput) amountInput.value = p.amount.toFixed(2);
+  if (noteInput) noteInput.value = p.merchant || "";
+  if (catInput) catInput.value = p.providerName || "Card";
+  state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
+  save();
+  renderAll();
+  document.querySelector(".tab[data-tab='dashboard']")?.click();
+  amountInput?.focus();
+}
+function dismissPending(id) {
+  state.pendingTxns = (state.pendingTxns || []).filter((x) => x.id !== id);
+  save();
+  renderAll();
 }
 
 /* ---------- upcoming reminders ---------- */
@@ -1083,6 +1156,15 @@ async function purchasePro() {
     alert("Purchase failed: " + (e && e.message ? e.message : String(e)));
   }
 }
+function initNotificationListener() {
+  if (!isNative()) return;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  if (!NL || typeof NL.addListener !== "function") return;
+  NL.addListener("notification", (data) => {
+    try { window.duitfulIncoming(data); } catch (e) { console.warn(e); }
+  });
+}
+
 async function restorePurchases() {
   if (!isNative()) { alert("The web version is fully unlocked — nothing to restore."); return; }
   const sdk = window.CdvPurchase;
@@ -1515,6 +1597,15 @@ document.addEventListener("click", (e) => {
     goal.current = Math.max(0, (Number(goal.current) || 0) + amount);
   } else if (action === "edit-income" || action === "edit-expense" || action === "edit-debt" || action === "edit-saving") {
     openEditDialog(action.slice("edit-".length), id);
+    return;
+  } else if (action === "pending-accept") {
+    acceptPending(id);
+    return;
+  } else if (action === "pending-edit") {
+    editPending(id);
+    return;
+  } else if (action === "pending-dismiss") {
+    dismissPending(id);
     return;
   } else {
     return;
@@ -2120,6 +2211,7 @@ async function handleUnlock(passcode) {
   hideLock();
   renderAll();
   initIAP();
+  initNotificationListener();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
 }
@@ -2139,6 +2231,7 @@ async function handleSetup(passcode, confirm, initialState) {
   hideLock();
   renderAll();
   initIAP();
+  initNotificationListener();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
 }
@@ -2298,6 +2391,102 @@ function parseReceiptText(text) {
 
   return { amount, vendor: vendor || "", currency, raw: text };
 }
+
+/* ---------- Auto-capture from bank / e-wallet notifications (Android) ----------
+   The native NotificationListenerService pushes raw notification text to
+   window.duitfulIncoming({ package, title, text }). We pattern-match against a
+   whitelist of MY/SG banks and wallets, and queue a pending transaction for
+   user review. Nothing is auto-saved — the user always confirms. */
+
+const TXN_PROVIDERS = [
+  { id: "maybank",   name: "Maybank",       packages: ["com.mbb.malaysia.android"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:charged|debited|deducted|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "cimb",      name: "CIMB",          packages: ["com.cimb.mob.my", "com.cimb.cimbocto"],
+    patterns: [/(?:Purchase|Charge)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "hlb",       name: "Hong Leong",    packages: ["com.hongleong.connectfirst"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:spent|paid|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "rhb",       name: "RHB",           packages: ["my.com.rhbgroup.rhbmobilebanking"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:has been|was)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "publicbank",name: "Public Bank",   packages: ["my.com.publicbank.pbengine"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "tng",       name: "Touch 'n Go",   packages: ["my.com.tngdigital.ewallet"],
+    patterns: [/(?:spent|paid|deducted)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "grabpay",   name: "GrabPay",       packages: ["com.grabtaxi.passenger"],
+    patterns: [/(?:paid|spent|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "boost",     name: "Boost",         packages: ["my.com.myboost"],
+    patterns: [/(?:paid|spent)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "bigpay",    name: "BigPay",        packages: ["com.bigpay.wallet"],
+    patterns: [/(?:paid|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "spaylater", name: "SPayLater",     packages: ["com.shopee.my"],
+    patterns: [
+      /SPayLater[^.]*?(?:charged|installment)[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i,
+      /installment\s+of\s+RM\s*([\d,]+\.?\d*)\s+(?:is )?due/i,
+    ] },
+  { id: "atome",     name: "Atome",         packages: ["com.atomeapp.mobile", "sg.com.apaylater"],
+    patterns: [/Atome[^.]*?(?:charged|paid)[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:for|at)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "graypaylater",name: "GrabPay Later",packages: ["com.grabtaxi.passenger"],
+    patterns: [/PayLater[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
+];
+
+function providerForPackage(pkg) {
+  if (!pkg) return null;
+  return TXN_PROVIDERS.find((p) => p.packages.some((q) => pkg === q || pkg.startsWith(q))) || null;
+}
+
+function parseBankText(text, pkg) {
+  if (!text) return null;
+  const provider = providerForPackage(pkg)
+    || TXN_PROVIDERS.find((p) => p.patterns.some((re) => re.test(text)));
+  if (!provider) return null;
+  for (const re of provider.patterns) {
+    const m = text.match(re);
+    if (!m) continue;
+    const amount = Number(String(m[1]).replace(/,/g, ""));
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    return {
+      amount,
+      merchant: m[2] ? m[2].trim().replace(/\s{2,}/g, " ") : "",
+      providerId: provider.id,
+      providerName: provider.name,
+    };
+  }
+  return null;
+}
+
+function queuePendingTxn(data) {
+  const parsed = parseBankText(data.text || "", data.package || "");
+  if (!parsed) return false;
+  // de-dupe: ignore exact (provider, amount, merchant) within the last 2 minutes
+  const now = Date.now();
+  state.pendingTxns = state.pendingTxns || [];
+  const dupe = state.pendingTxns.find((p) => p.providerId === parsed.providerId
+    && p.amount === parsed.amount
+    && p.merchant === parsed.merchant
+    && (now - p.createdAt) < 120000);
+  if (dupe) return false;
+  state.pendingTxns.push({
+    id: uid(),
+    createdAt: now,
+    raw: String(data.text || ""),
+    pkg: String(data.package || ""),
+    amount: parsed.amount,
+    merchant: parsed.merchant,
+    providerId: parsed.providerId,
+    providerName: parsed.providerName,
+  });
+  save();
+  if (typeof renderAll === "function") renderAll();
+  return true;
+}
+
+/* Bridge: the Android NotificationListenerPlugin calls this.
+   Also exposed so you can test in the devtools console:
+     duitfulIncoming({ package: "com.mbb.malaysia.android", text: "RM50.00 charged to card ending 1234 at STARBUCKS on 19-Apr-26" })
+*/
+window.duitfulIncoming = (data) => {
+  try { return queuePendingTxn(data || {}); }
+  catch (e) { console.warn("duitfulIncoming failed", e); return false; }
+};
 
 /* ---------- FX rate lookup (free, no API key) ---------- */
 const FX_CACHE_KEY = "duit-tracker.fx";
