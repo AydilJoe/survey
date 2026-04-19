@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#e8dfd0">
+  <meta name="color-scheme" content="light only">
+  <meta name="supported-color-schemes" content="light">
+
+  <title>Duitful — Be duitful with your duit. Private money &amp; debt tracker.</title>
+  <meta name="description" content="Duitful is a privacy-first money and debt tracker built for Malaysia. Avalanche payoff, BNPL tracking, receipt OCR, and on-device encryption. One-time RM 19.90. No subscription.">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://duitful.app/">
+  <meta property="og:title" content="Duitful — Be duitful with your duit.">
+  <meta property="og:description" content="Private, on-device money &amp; debt tracker built for Malaysia. Kill debt the smart way. No subscription.">
+  <meta property="og:image" content="https://duitful.app/og-image.svg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Duitful — Be duitful with your duit.">
+  <meta name="twitter:description" content="Private, on-device money &amp; debt tracker built for Malaysia. One-time RM 19.90. No subscription.">
+  <meta name="twitter:image" content="https://duitful.app/og-image.svg">
+
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="favicon.svg">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================================
+       Duitful — landing page
+       Palette: clay, sage, tan. Serif for money, mono for labels.
+       ========================================================== */
+
+    :root {
+      color-scheme: light only;
+      --stage: #e8dfd0;
+      --bg: #f5f1ea;
+      --card: #fffaf2;
+      --card-soft: #f0e8d8;
+      --ink: #2a2420;
+      --ink2: #5c524a;
+      --muted: #8a8178;
+      --primary: #c8704b;
+      --primary-ink: #a45434;
+      --accent: #8fa078;
+      --accent-3: #d4a574;
+      --gain: #6a8a5e;
+      --loss: #b86a4e;
+      --border: rgba(42, 36, 32, 0.14);
+      --line: rgba(42, 36, 32, 0.08);
+      --shadow-sm: 0 1px 2px rgba(42, 36, 32, 0.04);
+      --shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 8px 24px rgba(42, 36, 32, 0.05);
+      --shadow-lg: 0 1px 2px rgba(42, 36, 32, 0.05), 0 20px 60px rgba(42, 36, 32, 0.10);
+
+      --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
+      --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      color-scheme: light only;
+      background: var(--stage);
+    }
+
+    body {
+      margin: 0;
+      background: var(--stage);
+      color: var(--ink);
+      font-family: var(--font-sans);
+      font-size: 16px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      overflow-x: hidden;
+    }
+
+    /* subtle paper grain on stage */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.35;
+      mix-blend-mode: multiply;
+      background-image: radial-gradient(rgba(42, 36, 32, 0.04) 1px, transparent 1px);
+      background-size: 3px 3px;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+    img, svg { display: block; max-width: 100%; }
+
+    ::selection { background: var(--primary); color: #fffaf2; }
+
+    /* --------------- Layout primitives --------------- */
+    .container {
+      width: 100%;
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.22em;
+      color: var(--muted);
+    }
+
+    h1, h2, h3 {
+      font-family: var(--font-serif);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      line-height: 1.05;
+      margin: 0;
+    }
+
+    p { margin: 0; color: var(--ink2); }
+
+    /* --------------- Buttons --------------- */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      height: 48px;
+      padding: 0 22px;
+      border-radius: 999px;
+      font-family: var(--font-sans);
+      font-weight: 500;
+      font-size: 15px;
+      letter-spacing: -0.005em;
+      transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn:active { transform: translateY(1px); }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fffaf2;
+      box-shadow: 0 1px 2px rgba(42, 36, 32, 0.1), 0 8px 20px rgba(200, 112, 75, 0.28);
+    }
+    .btn-primary:hover { background: var(--primary-ink); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 0.5px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--card); }
+
+    .btn-store {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 18px;
+      border-radius: 14px;
+      background: var(--ink);
+      color: #fffaf2;
+      border: 0.5px solid var(--ink);
+      font-size: 13px;
+      line-height: 1.1;
+      transition: opacity 0.2s;
+    }
+    .btn-store:hover { opacity: 0.88; }
+    .btn-store .small { font-size: 10px; opacity: 0.75; font-family: var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; display: block; }
+    .btn-store .big { font-family: var(--font-serif); font-size: 18px; font-weight: 500; letter-spacing: -0.01em; }
+    .btn-store svg { flex-shrink: 0; }
+
+    /* --------------- Nav --------------- */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      background: rgba(232, 223, 208, 0.72);
+      border-bottom: 0.5px solid transparent;
+      transition: border-color 0.3s ease;
+    }
+    .nav.scrolled { border-bottom-color: var(--line); }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      height: 64px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-serif);
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .brand-mark { width: 28px; height: 28px; display: grid; place-items: center; }
+
+    .nav-links {
+      display: flex;
+      gap: 28px;
+      align-items: center;
+      font-size: 14px;
+      color: var(--ink2);
+    }
+    .nav-links a { transition: color 0.2s; }
+    .nav-links a:hover { color: var(--ink); }
+    .nav-cta { height: 40px; padding: 0 18px; font-size: 14px; }
+
+    @media (max-width: 720px) {
+      .nav-links { display: none; }
+    }
+
+    /* --------------- Hero --------------- */
+    .hero {
+      position: relative;
+      padding: 72px 0 88px;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: -200px;
+      right: -200px;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(200, 112, 75, 0.18), transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      bottom: -240px;
+      left: -180px;
+      width: 560px;
+      height: 560px;
+      background: radial-gradient(circle, rgba(143, 160, 120, 0.15), transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 72px;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .hero h1 {
+      font-size: clamp(44px, 7.2vw, 88px);
+      line-height: 0.98;
+      margin-top: 24px;
+      font-weight: 400;
+    }
+    .hero h1 .serif-italic { font-style: italic; color: var(--primary); font-weight: 400; }
+
+    .hero-sub {
+      margin-top: 28px;
+      max-width: 520px;
+      font-size: clamp(17px, 1.6vw, 19px);
+      color: var(--ink2);
+      line-height: 1.55;
+    }
+
+    .hero-ctas {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 36px;
+      align-items: center;
+    }
+
+    .store-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .hero-meta {
+      margin-top: 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .hero-meta .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; }
+
+    /* --------------- Phone mockup --------------- */
+    .phone-wrap {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .phone {
+      width: 300px;
+      height: 608px;
+      background: var(--bg);
+      border-radius: 46px;
+      border: 0.5px solid var(--border);
+      box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(255, 250, 242, 0.5);
+      padding: 14px;
+      position: relative;
+      z-index: 2;
+    }
+    .phone::before {
+      content: "";
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 96px;
+      height: 22px;
+      background: var(--ink);
+      border-radius: 999px;
+      z-index: 3;
+    }
+    .phone-screen {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(180deg, var(--bg), var(--stage));
+      border-radius: 34px;
+      overflow: hidden;
+      position: relative;
+      padding: 44px 16px 16px;
+    }
+
+    .phone-label {
+      position: absolute;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 6px 12px;
+      border: 0.5px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255, 250, 242, 0.7);
+      backdrop-filter: blur(6px);
+      z-index: 3;
+    }
+    .phone-label.top { top: 8%; left: -8%; }
+    .phone-label.bottom { bottom: 12%; right: -6%; }
+
+    .mini-card {
+      background: var(--card);
+      border: 0.5px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 12px;
+    }
+
+    .mc-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* Big amount style — superscript currency, small cents */
+    .amount {
+      font-family: var(--font-serif);
+      font-weight: 500;
+      color: var(--ink);
+      letter-spacing: -0.03em;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 2px;
+    }
+    .amount .sym {
+      font-size: 0.5em;
+      color: var(--muted);
+      align-self: flex-start;
+      padding-top: 0.18em;
+    }
+    .amount .cents { font-size: 0.38em; color: rgba(42, 36, 32, 0.45); }
+    .mc-amount .amount { font-size: 40px; }
+
+    .progress {
+      height: 4px;
+      background: var(--line);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 14px;
+    }
+    .progress > span {
+      display: block;
+      height: 100%;
+      width: 68%;
+      background: linear-gradient(90deg, var(--accent), var(--primary));
+      border-radius: 999px;
+    }
+
+    .mc-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      font-size: 11px;
+      color: var(--ink2);
+    }
+
+    .bills .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 0.5px solid var(--line);
+      font-size: 12px;
+    }
+    .bills .row:last-child { border-bottom: none; }
+    .bills .left { display: flex; align-items: center; gap: 10px; }
+    .bills .chip {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      padding: 3px 7px;
+      border-radius: 6px;
+      background: var(--card-soft);
+      color: var(--ink2);
+      letter-spacing: 0.1em;
+    }
+    .bills .chip.due { background: rgba(200, 112, 75, 0.12); color: var(--primary-ink); }
+    .bills .amt { font-family: var(--font-serif); font-weight: 500; font-size: 13px; letter-spacing: -0.01em; }
+
+    @media (max-width: 900px) {
+      .hero { padding: 48px 0 64px; }
+      .hero-grid { grid-template-columns: 1fr; gap: 56px; }
+      .phone-wrap { order: 2; }
+      .phone { width: 272px; height: 552px; }
+      .phone-label { display: none; }
+    }
+
+    /* --------------- Trust strip --------------- */
+    .trust {
+      border-top: 0.5px solid var(--line);
+      border-bottom: 0.5px solid var(--line);
+      background: rgba(255, 250, 242, 0.35);
+      padding: 24px 0;
+    }
+    .trust-inner {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+    }
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--ink2);
+    }
+    .trust-item svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--primary); }
+    @media (max-width: 720px) {
+      .trust-inner { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    }
+
+    /* --------------- Section scaffolding --------------- */
+    section.block { padding: 96px 0; position: relative; }
+    @media (max-width: 720px) { section.block { padding: 64px 0; } }
+
+    .section-head { max-width: 680px; margin-bottom: 56px; }
+    .section-head h2 {
+      font-size: clamp(32px, 4.2vw, 52px);
+      margin-top: 16px;
+      font-weight: 400;
+    }
+    .section-head p { margin-top: 18px; font-size: 17px; max-width: 560px; }
+
+    /* --------------- Features --------------- */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .feature {
+      background: var(--card);
+      border: 0.5px solid var(--border);
+      border-radius: 22px;
+      padding: 28px 26px 30px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+    .feature:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow);
+      border-color: rgba(200, 112, 75, 0.35);
+    }
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--card-soft);
+      display: grid;
+      place-items: center;
+      color: var(--primary);
+      margin-bottom: 18px;
+    }
+    .feature h3 { font-size: 22px; letter-spacing: -0.02em; margin-bottom: 8px; }
+    .feature p { font-size: 15px; line-height: 1.55; color: var(--ink2); }
+    .feature .chip-mono {
+      display: inline-block;
+      margin-top: 14px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      padding: 4px 10px;
+      border: 0.5px solid rgba(143, 160, 120, 0.4);
+      border-radius: 999px;
+    }
+    @media (max-width: 960px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .features-grid { grid-template-columns: 1fr; } }
+
+    /* --------------- Privacy --------------- */
+    .privacy {
+      background: var(--ink);
+      color: #fffaf2;
+      padding: 96px 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .privacy::before {
+      content: "";
+      position: absolute;
+      top: -200px;
+      right: -200px;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(200, 112, 75, 0.22), transparent 65%);
+      pointer-events: none;
+    }
+    .privacy::after {
+      content: "";
+      position: absolute;
+      bottom: -300px;
+      left: -100px;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(143, 160, 120, 0.15), transparent 65%);
+      pointer-events: none;
+    }
+    .privacy-inner { position: relative; z-index: 2; max-width: 820px; }
+    .privacy .eyebrow { color: rgba(255, 250, 242, 0.55); }
+    .privacy h2 {
+      font-size: clamp(34px, 4.8vw, 60px);
+      color: #fffaf2;
+      margin-top: 20px;
+      font-weight: 400;
+      line-height: 1.05;
+    }
+    .privacy h2 em { font-style: italic; color: var(--accent-3); font-weight: 400; }
+    .privacy p.big {
+      margin-top: 28px;
+      font-size: 19px;
+      line-height: 1.6;
+      color: rgba(255, 250, 242, 0.82);
+      max-width: 680px;
+    }
+    .privacy-bullets {
+      margin-top: 40px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      list-style: none;
+      padding: 0;
+    }
+    .privacy-bullets li { padding-top: 16px; border-top: 0.5px solid rgba(255, 250, 242, 0.12); }
+    .privacy-bullets .k {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent-3);
+      margin-bottom: 8px;
+    }
+    .privacy-bullets .v {
+      font-family: var(--font-serif);
+      font-size: 20px;
+      color: #fffaf2;
+      letter-spacing: -0.01em;
+    }
+    @media (max-width: 720px) { .privacy-bullets { grid-template-columns: 1fr; gap: 20px; } }
+
+    /* --------------- Avalanche explainer --------------- */
+    .avalanche { background: var(--bg); }
+    .ava-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 72px;
+      align-items: center;
+    }
+    .ava-viz {
+      background: var(--card);
+      border: 0.5px solid var(--border);
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: var(--shadow);
+    }
+    .ava-viz h4 {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 0 24px;
+      font-weight: 500;
+    }
+    .debt-row { margin-bottom: 22px; }
+    .debt-row:last-child { margin-bottom: 0; }
+    .debt-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .debt-meta .name { font-family: var(--font-serif); font-weight: 500; font-size: 18px; letter-spacing: -0.01em; }
+    .debt-meta .apr {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .debt-meta .apr.high { background: rgba(200, 112, 75, 0.14); color: var(--primary-ink); }
+    .debt-meta .apr.low { background: rgba(143, 160, 120, 0.15); color: var(--accent); }
+    .debt-bar {
+      height: 14px;
+      background: var(--card-soft);
+      border-radius: 999px;
+      overflow: hidden;
+      position: relative;
+    }
+    .debt-bar .paid { position: absolute; inset: 0; border-radius: 999px; }
+    .debt-bar .paid.cc { background: linear-gradient(90deg, var(--primary), var(--accent-3)); width: 82%; }
+    .debt-bar .paid.loan { background: linear-gradient(90deg, var(--accent), #b3bf9a); width: 28%; }
+
+    .debt-footnote {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .ava-summary {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 0.5px solid var(--line);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .ava-summary .label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .ava-summary .val {
+      font-family: var(--font-serif);
+      font-size: 24px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .ava-summary .val.hi { color: var(--primary-ink); }
+
+    .ava-copy h3 {
+      font-size: clamp(28px, 3.6vw, 44px);
+      font-weight: 400;
+      margin: 16px 0 20px;
+    }
+    .ava-copy h3 em { font-style: italic; color: var(--primary); }
+    .ava-copy p { margin-top: 16px; font-size: 16px; line-height: 1.65; }
+
+    @media (max-width: 900px) { .ava-grid { grid-template-columns: 1fr; gap: 40px; } }
+
+    /* --------------- Pricing --------------- */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      max-width: 880px;
+      margin: 0 auto;
+    }
+    .plan {
+      background: var(--card);
+      border: 0.5px solid var(--border);
+      border-radius: 24px;
+      padding: 36px 32px 32px;
+      position: relative;
+      box-shadow: var(--shadow-sm);
+    }
+    .plan.pro {
+      border: 1px solid var(--primary);
+      box-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 20px 48px rgba(200, 112, 75, 0.12);
+    }
+    .plan .plan-tag {
+      position: absolute;
+      top: -12px;
+      right: 24px;
+      background: var(--primary);
+      color: #fffaf2;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      padding: 6px 12px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+    .plan-name { font-family: var(--font-serif); font-size: 24px; font-weight: 500; letter-spacing: -0.02em; }
+    .plan-price { margin-top: 14px; display: flex; align-items: baseline; gap: 8px; }
+    .plan-price .amount { font-size: 52px; }
+    .plan-price .per {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .plan-note { margin-top: 6px; font-size: 13px; color: var(--muted); }
+    .plan ul {
+      list-style: none;
+      padding: 0;
+      margin: 24px 0 28px;
+      display: grid;
+      gap: 12px;
+    }
+    .plan li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 14.5px;
+      color: var(--ink2);
+      line-height: 1.5;
+    }
+    .plan li svg { flex-shrink: 0; margin-top: 3px; color: var(--accent); }
+    .plan.pro li svg { color: var(--primary); }
+    .plan .btn { width: 100%; }
+
+    @media (max-width: 720px) { .pricing-grid { grid-template-columns: 1fr; } }
+
+    /* --------------- FAQ --------------- */
+    .faq-list { max-width: 820px; margin: 0 auto; }
+    details.faq-item {
+      border-bottom: 0.5px solid var(--line);
+      padding: 22px 0;
+    }
+    details.faq-item[open] { padding-bottom: 26px; }
+    details.faq-item summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      font-family: var(--font-serif);
+      font-size: clamp(19px, 2.2vw, 22px);
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      transition: color 0.2s;
+    }
+    details.faq-item summary:hover { color: var(--primary-ink); }
+    details.faq-item summary::-webkit-details-marker { display: none; }
+    details.faq-item .plus {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 0.5px solid var(--border);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      color: var(--ink2);
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+    details.faq-item[open] .plus {
+      transform: rotate(45deg);
+      background: var(--primary);
+      color: #fffaf2;
+      border-color: var(--primary);
+    }
+    details.faq-item .answer {
+      margin-top: 14px;
+      color: var(--ink2);
+      font-size: 15.5px;
+      line-height: 1.65;
+      max-width: 720px;
+    }
+
+    /* --------------- Final CTA --------------- */
+    .cta-final {
+      text-align: center;
+      padding: 112px 0 96px;
+    }
+    .cta-final h2 {
+      font-size: clamp(42px, 6vw, 84px);
+      margin-bottom: 16px;
+      font-weight: 400;
+    }
+    .cta-final h2 em { font-style: italic; color: var(--primary); }
+    .cta-final p { font-size: 17px; max-width: 520px; margin: 0 auto 32px; }
+    .cta-final .store-row { justify-content: center; }
+
+    /* --------------- Footer --------------- */
+    footer {
+      border-top: 0.5px solid var(--line);
+      padding: 32px 0 48px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .foot-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .foot-inner .links { display: flex; gap: 24px; }
+    .foot-inner .links a { transition: color 0.2s; }
+    .foot-inner .links a:hover { color: var(--ink); }
+
+    /* --------------- Scroll reveal --------------- */
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity 0.7s cubic-bezier(.2,.6,.2,1), transform 0.7s cubic-bezier(.2,.6,.2,1);
+    }
+    .reveal.in { opacity: 1; transform: translateY(0); }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ======================= NAV ======================= -->
+<nav class="nav" id="nav">
+  <div class="container nav-inner">
+    <a href="#" class="brand" aria-label="Duitful — home">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary)">
+          <path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/>
+          <circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/>
+        </svg>
+      </span>
+      Duitful
+    </a>
+    <div class="nav-links" role="navigation">
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <a href="https://aydiljoe.github.io/survey/" target="_blank" rel="noopener" class="btn btn-primary nav-cta">Get the app</a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- ======================= HERO ======================= -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="hero-copy reveal">
+          <span class="eyebrow">Private money &amp; debt tracker · Malaysia</span>
+          <h1>Be <span class="serif-italic">duitful</span><br>with your duit.</h1>
+          <p class="hero-sub">Track every ringgit, kill debt with the avalanche method, and keep every cent on your phone. Encrypted on-device. No account, no cloud, no subscription.</p>
+          <div class="hero-ctas">
+            <a href="https://aydiljoe.github.io/survey/" target="_blank" rel="noopener" class="btn btn-primary">
+              Try the web app
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
+            </a>
+            <a href="#features" class="btn btn-ghost">See features</a>
+          </div>
+          <div class="store-row" aria-label="Download on App Store or Google Play">
+            <a href="#" class="btn-store" aria-label="Download on the App Store (coming soon)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.04c0-2.9 2.37-4.28 2.47-4.34-1.34-1.96-3.43-2.23-4.17-2.26-1.77-.18-3.45 1.04-4.35 1.04-.9 0-2.28-1.02-3.74-.99-1.93.03-3.7 1.12-4.7 2.84-2 3.46-.51 8.59 1.44 11.4.95 1.37 2.09 2.92 3.58 2.86 1.44-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.4 3.5-2.78 1.1-1.6 1.56-3.14 1.58-3.22-.03-.01-3.02-1.16-3.05-4.62zM14.23 3.7c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.37 1.73-.74.85-1.38 2.22-1.21 3.53 1.29.1 2.6-.65 3.4-1.6z"/></svg>
+              <div>
+                <span class="small">Download on the</span>
+                <span class="big">App Store</span>
+              </div>
+            </a>
+            <a href="#" class="btn-store" aria-label="Get it on Google Play (coming soon)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.3c-.38.4-.6 1.03-.6 1.84v15.72c0 .81.22 1.44.6 1.84l.08.07 8.81-8.81v-.2L3.68 2.23l-.08.07zm11.72 8.74L13.47 9.2l2.66-1.51 3.65 2.08c1.04.59 1.04 1.56 0 2.16l-3.65 2.08-2.66-1.51 1.85-1.46zm-2.4.97l-8.82 8.81c.34.36.9.4 1.54.05l10.41-5.92-3.13-2.94zm0-1.92l3.13-2.94L5.64 1.22C5 .87 4.44.92 4.1 1.27l8.82 8.82z"/></svg>
+              <div>
+                <span class="small">Get it on</span>
+                <span class="big">Google Play</span>
+              </div>
+            </a>
+          </div>
+          <div class="hero-meta">
+            <span class="dot" aria-hidden="true"></span>
+            <span>Coming Q2 2026 · Web app available now</span>
+          </div>
+        </div>
+
+        <!-- Phone mockup -->
+        <div class="phone-wrap reveal" aria-hidden="true">
+          <span class="phone-label top">On-device · encrypted</span>
+          <div class="phone">
+            <div class="phone-screen">
+              <div class="mini-card mc-amount">
+                <div class="mc-label">Balance left this month</div>
+                <div class="amount"><span class="sym">RM</span>2,847<span class="cents">.50</span></div>
+                <div class="progress" aria-hidden="true"><span></span></div>
+                <div class="mc-meta">
+                  <span>Spent RM 2,152</span>
+                  <span>12 days left</span>
+                </div>
+              </div>
+              <div class="mini-card bills">
+                <div class="mc-label">Upcoming · next 7 days</div>
+                <div class="row">
+                  <div class="left">
+                    <span class="chip due">23</span>
+                    <span>Atome · iPhone 15</span>
+                  </div>
+                  <span class="amt">RM 416</span>
+                </div>
+                <div class="row">
+                  <div class="left">
+                    <span class="chip">25</span>
+                    <span>Maybank CC</span>
+                  </div>
+                  <span class="amt">RM 850</span>
+                </div>
+                <div class="row">
+                  <div class="left">
+                    <span class="chip">28</span>
+                    <span>TNB electricity</span>
+                  </div>
+                  <span class="amt">RM 142</span>
+                </div>
+              </div>
+              <div class="mini-card">
+                <div class="mc-label">Debt-free by</div>
+                <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                  <span class="amount" style="font-size:24px;">Mar&nbsp;2027</span>
+                  <span style="font-family:var(--font-mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent);">ON TRACK</span>
+                </div>
+                <div style="margin-top:10px; font-size:11px; color:var(--muted);">Avalanche · 3 debts · RM 18,420 left</div>
+              </div>
+            </div>
+          </div>
+          <span class="phone-label bottom">Auto-FX · MYR · SGD</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= TRUST STRIP ======================= -->
+  <div class="trust">
+    <div class="container trust-inner">
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+        <span>Built in Malaysia</span>
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Private by design</span>
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h7"/><path d="M16 3l5 5-10 10H6v-5z"/></svg>
+        <span>No subscription</span>
+      </div>
+      <div class="trust-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg>
+        <span>Works offline</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= FEATURES ======================= -->
+  <section class="block" id="features">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">What's inside</span>
+        <h2>Every tool you need<br>to get <em style="font-style:italic; color:var(--primary)">honest</em> with your money.</h2>
+        <p>Built around the realities of Malaysian finance — buy-now-pay-later, multi-currency travel, and the high-APR debts most apps quietly ignore.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature reveal">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18L12 4z"/><path d="M12 10v6M12 18h.01"/></svg>
+          </div>
+          <h3>Debt avalanche</h3>
+          <p>Prioritises your highest-APR debts first so you pay less interest overall. Watch your exact debt-free date shift with every payment.</p>
+          <span class="chip-mono">Payoff timeline</span>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+          </div>
+          <h3>BNPL &amp; installments</h3>
+          <p>Track Atome, SPayLater, Grab PayLater and card installments in one place. No more surprises from that phone you bought six months ago.</p>
+          <span class="chip-mono">SEA-native</span>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10l3 4v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/><path d="M8 10h8M8 14h6M8 18h4"/></svg>
+          </div>
+          <h3>Receipt OCR + auto-FX</h3>
+          <p>Snap a receipt, get an expense — amount, merchant, category. Foreign currency converts to MYR automatically at the day's rate.</p>
+          <span class="chip-mono">3 scans/mo free</span>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+          </div>
+          <h3>Auto-capture (Android)</h3>
+          <p>Reads bank and e-wallet notifications on-device, queues them for your review, and nothing ever touches a server. You stay in control.</p>
+          <span class="chip-mono">Zero data leaves phone</span>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+          </div>
+          <h3>On-device encryption</h3>
+          <p>Your data is AES-GCM encrypted with a key derived from your passcode via PBKDF2. No account, no cloud sync, no "forgot password" email.</p>
+          <span class="chip-mono">AES-GCM · PBKDF2</span>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 5 5.6.8-4 3.9 1 5.5L12 14.5 7 17.2l1-5.5L4 7.8 9.6 7z"/></svg>
+          </div>
+          <h3>One-time Pro</h3>
+          <p>Pay RM 19.90 once. Unlock everything, forever. The free tier is permanent — no trial, no drip, no "your Pro expires tomorrow" emails.</p>
+          <span class="chip-mono">Lifetime · no subs</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= PRIVACY ======================= -->
+  <section class="privacy" id="privacy">
+    <div class="container privacy-inner reveal">
+      <span class="eyebrow">Privacy, actually</span>
+      <h2>Your money data<br>never leaves your <em>phone</em>.</h2>
+      <p class="big">Most trackers ship your transactions to a server, run "anonymous" analytics on them, and then sell you a subscription for the privilege. Duitful doesn't. Every amount, every merchant, every debt — encrypted on your device with a passcode only you know. There is no server to breach, because there is no server.</p>
+      <ul class="privacy-bullets">
+        <li>
+          <div class="k">Encryption</div>
+          <div class="v">AES-GCM at rest, PBKDF2 key derivation</div>
+        </li>
+        <li>
+          <div class="k">Accounts</div>
+          <div class="v">None. No email. No sign-up.</div>
+        </li>
+        <li>
+          <div class="k">Analytics</div>
+          <div class="v">None on your data. None ever.</div>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ======================= AVALANCHE EXPLAINER ======================= -->
+  <section class="block avalanche">
+    <div class="container">
+      <div class="ava-grid">
+        <div class="ava-viz reveal" aria-label="Avalanche payoff illustration">
+          <h4>With avalanche · +RM 500/mo extra</h4>
+
+          <div class="debt-row">
+            <div class="debt-meta">
+              <span class="name">Credit card</span>
+              <span class="apr high">18% APR</span>
+            </div>
+            <div class="debt-bar" aria-hidden="true">
+              <div class="paid cc"></div>
+            </div>
+            <div class="debt-footnote">
+              <span>Paid 82%</span>
+              <span>Clear · Aug 2026</span>
+            </div>
+          </div>
+
+          <div class="debt-row">
+            <div class="debt-meta">
+              <span class="name">Personal loan</span>
+              <span class="apr low">7% APR</span>
+            </div>
+            <div class="debt-bar" aria-hidden="true">
+              <div class="paid loan"></div>
+            </div>
+            <div class="debt-footnote">
+              <span>Paid 28%</span>
+              <span>Clear · Mar 2027</span>
+            </div>
+          </div>
+
+          <div class="ava-summary">
+            <div>
+              <div class="label">Total interest saved</div>
+              <div class="val hi">RM 2,140</div>
+            </div>
+            <div>
+              <div class="label">Debt-free</div>
+              <div class="val">14 months sooner</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ava-copy reveal">
+          <span class="eyebrow">Why avalanche</span>
+          <h3>Pay the <em>expensive</em> debt first. The math is ruthless — and right.</h3>
+          <p>Snowball feels good because you clear small balances fast. But interest is interest: a credit card at 18% is burning more money every month than a personal loan at 7%.</p>
+          <p>Avalanche aims every extra ringgit at the highest-APR debt. You'll pay less interest overall, and you'll be free sooner. Duitful sorts it automatically, shows you the gap, and re-plans instantly when life changes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= PRICING ======================= -->
+  <section class="block" id="pricing" style="background: var(--card-soft);">
+    <div class="container">
+      <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
+        <span class="eyebrow">Pricing</span>
+        <h2>Pay once. <em style="font-style:italic; color:var(--primary)">Keep</em> the app.</h2>
+        <p style="margin-left:auto; margin-right:auto;">The free tier is permanent. Pro is a one-time purchase — because a tracker for your money shouldn't cost more than the money it helps you save.</p>
+      </div>
+
+      <div class="pricing-grid">
+        <div class="plan reveal">
+          <div class="plan-name">Free</div>
+          <div class="plan-price">
+            <span class="amount"><span class="sym">RM</span>0</span>
+            <span class="per">forever</span>
+          </div>
+          <div class="plan-note">Everything you need to start.</div>
+          <ul>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Up to 3 debts</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Up to 2 savings goals</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>3 receipt scans per month</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Manual expense &amp; income tracking</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Full on-device encryption</li>
+          </ul>
+          <a href="https://aydiljoe.github.io/survey/" target="_blank" rel="noopener" class="btn btn-ghost">Start free</a>
+        </div>
+
+        <div class="plan pro reveal">
+          <span class="plan-tag">Lifetime</span>
+          <div class="plan-name">Duitful Pro</div>
+          <div class="plan-price">
+            <span class="amount"><span class="sym">RM</span>19<span class="cents">.90</span></span>
+            <span class="per">one&#8209;time</span>
+          </div>
+          <div class="plan-note">Pay once. No subscription. Ever.</div>
+          <ul>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><strong style="color:var(--ink); font-weight:500;">Unlimited</strong> debts, goals &amp; accounts</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Unlimited receipt scans + auto-FX</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Android auto-capture from notifications</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Avalanche planner &amp; what-if scenarios</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>CSV export &amp; import (Monarch, YNAB)</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>All future Pro features included</li>
+          </ul>
+          <a href="https://aydiljoe.github.io/survey/" target="_blank" rel="noopener" class="btn btn-primary">Unlock Pro</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= FAQ ======================= -->
+  <section class="block" id="faq">
+    <div class="container">
+      <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
+        <span class="eyebrow">Questions</span>
+        <h2>The short answers.</h2>
+      </div>
+
+      <div class="faq-list">
+        <details class="faq-item reveal">
+          <summary>
+            Why one-time pricing and not a subscription?
+            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          </summary>
+          <p class="answer">A tracker shouldn't cost more than the problem it solves. Pro is a one-time RM 19.90 — you keep the app forever, get every future Pro feature, and never see a renewal email. Server costs are near-zero because your data stays on your phone, so subscriptions would just be charging you to subsidise someone else's growth metrics.</p>
+        </details>
+
+        <details class="faq-item reveal">
+          <summary>
+            Does my data really never leave the phone?
+            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          </summary>
+          <p class="answer">Correct. All your transactions, debts, and goals live in an AES-GCM-encrypted database on your device, locked with a PBKDF2-derived key from your passcode. There is no sign-up, no sync server, no analytics SDK on your financial data. Receipt OCR happens via a privacy-focused API only when you explicitly scan — no receipts are stored remotely.</p>
+        </details>
+
+        <details class="faq-item reveal">
+          <summary>
+            Which banks are supported for auto-capture?
+            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          </summary>
+          <p class="answer">On Android, Duitful parses notifications from major Malaysian banks and e-wallets — Maybank, CIMB, Public Bank, RHB, Hong Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay and more. You review each transaction before it's saved. iOS doesn't allow notification reading, so on iPhone you'll use receipt scans and manual entry (which we've made very fast).</p>
+        </details>
+
+        <details class="faq-item reveal">
+          <summary>
+            Can I use Duitful outside Malaysia?
+            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          </summary>
+          <p class="answer">Yes. The app supports MYR, SGD, USD, EUR, GBP, JPY, THB, IDR and more, with automatic FX conversion for travel expenses. Singapore users in particular get full BNPL coverage (Atome, SPayLater, ShopBack PayLater). Auto-capture notification parsing is currently tuned for Malaysian banks, with Singapore banks next on the roadmap.</p>
+        </details>
+
+        <details class="faq-item reveal">
+          <summary>
+            What happens if I lose my passcode?
+            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          </summary>
+          <p class="answer">Your data cannot be recovered. This is the honest trade-off for real end-to-end privacy — because Duitful never has a copy of your passcode or your data, we can't reset it for you. We strongly recommend writing your passcode down somewhere safe, or using Pro's encrypted-backup export so you can restore to a new device.</p>
+        </details>
+
+        <details class="faq-item reveal">
+          <summary>
+            Can I import from Monarch, YNAB or a CSV?
+            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          </summary>
+          <p class="answer">Yes. Duitful Pro imports CSV files in the standard formats exported by Monarch, YNAB, Money Lover, and most Malaysian bank statements. You can map columns manually if your export is non-standard. Export works the same way — your data is yours to take anywhere, any time.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= FINAL CTA ======================= -->
+  <section class="cta-final">
+    <div class="container">
+      <div class="reveal">
+        <h2>Ready to be <em>duitful</em>?</h2>
+        <p>Start with the web app today. Take the iOS and Android apps with you when they ship in Q2 2026.</p>
+        <div class="store-row">
+          <a href="https://aydiljoe.github.io/survey/" target="_blank" rel="noopener" class="btn btn-primary">
+            Open the web app
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
+          </a>
+          <a href="#" class="btn-store" aria-label="Download on the App Store (coming soon)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.04c0-2.9 2.37-4.28 2.47-4.34-1.34-1.96-3.43-2.23-4.17-2.26-1.77-.18-3.45 1.04-4.35 1.04-.9 0-2.28-1.02-3.74-.99-1.93.03-3.7 1.12-4.7 2.84-2 3.46-.51 8.59 1.44 11.4.95 1.37 2.09 2.92 3.58 2.86 1.44-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.4 3.5-2.78 1.1-1.6 1.56-3.14 1.58-3.22-.03-.01-3.02-1.16-3.05-4.62zM14.23 3.7c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.37 1.73-.74.85-1.38 2.22-1.21 3.53 1.29.1 2.6-.65 3.4-1.6z"/></svg>
+            <div><span class="small">Download on the</span><span class="big">App Store</span></div>
+          </a>
+          <a href="#" class="btn-store" aria-label="Get it on Google Play (coming soon)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.3c-.38.4-.6 1.03-.6 1.84v15.72c0 .81.22 1.44.6 1.84l.08.07 8.81-8.81v-.2L3.68 2.23l-.08.07zm11.72 8.74L13.47 9.2l2.66-1.51 3.65 2.08c1.04.59 1.04 1.56 0 2.16l-3.65 2.08-2.66-1.51 1.85-1.46zm-2.4.97l-8.82 8.81c.34.36.9.4 1.54.05l10.41-5.92-3.13-2.94zm0-1.92l3.13-2.94L5.64 1.22C5 .87 4.44.92 4.1 1.27l8.82 8.82z"/></svg>
+            <div><span class="small">Get it on</span><span class="big">Google Play</span></div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ======================= FOOTER ======================= -->
+<footer>
+  <div class="container foot-inner">
+    <div>© 2026 Duitful · Made with care in Malaysia</div>
+    <div class="links">
+      <a href="#privacy">Privacy</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+      <a href="mailto:hello@duitful.app">hello@duitful.app</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Nav shadow on scroll
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  // Scroll-triggered fade-in reveal
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+  document.querySelectorAll('.reveal').forEach((el, i) => {
+    el.style.transitionDelay = (i % 4) * 60 + 'ms';
+    io.observe(el);
+  });
+</script>
+
+</body>
+</html>
