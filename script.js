@@ -1491,13 +1491,7 @@ const prefCurrency = document.getElementById("pref-currency");
 if (prefCurrency) {
   prefCurrency.addEventListener("change", () => {
     const code = (prefCurrency.value || "").trim().toUpperCase();
-    if (!/^[A-Z]{3}$/.test(code)) {
-      alert("Enter a 3-letter ISO code (e.g. USD, EUR, SGD).");
-      prefCurrency.value = currentCurrency();
-      return;
-    }
-    try { new Intl.NumberFormat(undefined, { style: "currency", currency: code }).format(0); }
-    catch { alert("Unknown currency code."); prefCurrency.value = currentCurrency(); return; }
+    if (!/^[A-Z]{3}$/.test(code)) return;
     state.currency = code;
     save();
     renderAll();
