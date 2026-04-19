@@ -1157,6 +1157,94 @@ button.ghost.icon-btn {
   margin-top: 0.5rem;
 }
 
+/* Paywall */
+.paywall-dialog form { padding: 1.1rem; }
+.paywall-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+.paywall-mark {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(200,112,75,0.2), rgba(212,165,116,0.2));
+  border: 0.5px solid rgba(200,112,75,0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.paywall-mark svg { width: 24px; height: 24px; }
+.paywall-head h2 { margin: 0; font-size: 1.25rem; }
+.paywall-sub { margin: 0.1rem 0 0; color: var(--muted); font-size: 0.85rem; }
+.paywall-features {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.paywall-features li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+.paywall-features li::before {
+  content: "";
+  display: inline-block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c8704b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M5 13l4 4L19 7'/></svg>") center/contain no-repeat;
+}
+.paywall-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  background: var(--card-soft);
+  border: 0.5px solid var(--line);
+  border-radius: 14px;
+  margin-bottom: 0.75rem;
+}
+.paywall-price strong {
+  font-family: var(--font-serif);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+.paywall-price span {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+.paywall-hint { margin-top: 0.5rem; }
+
+/* Pro card in Data tab */
+.pro-card {
+  background: linear-gradient(180deg, rgba(200,112,75,0.08), var(--card) 70%);
+}
+.pro-badge {
+  background: rgba(106,138,94,0.15);
+  color: var(--gain);
+  border: 0.5px solid rgba(106,138,94,0.4);
+  border-radius: 999px;
+  padding: 0.18rem 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
 /* Scan receipt */
 .scan-row {
   margin-bottom: 0.65rem;

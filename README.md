@@ -95,6 +95,27 @@ npm run assets
 
 That runs `@capacitor/assets generate`, which reads from `resources/`, writes PNGs into the iOS and Android projects, and sets the splash background colours defined in `package.json` (`#e8dfd0` light / `#2a2420` dark). Re-run whenever the SVGs change.
 
+### Duit Pro (one-time IAP)
+
+The native app ships with a **free / Pro** split. The **web deploy on GitHub Pages is fully unlocked** — Pro only gates features inside the Capacitor native shell.
+
+Free (native) caps:
+- Up to 3 debts, 2 savings goals
+- 3 receipt scans per calendar month
+- In-app "Upcoming" banner only (no browser / OS notifications)
+- Manual monthly entry (no Copy-from-previous-month)
+- Standard debts only (no installment / BNPL tracking)
+
+Pro (native) unlocks everything above + future charts/reports.
+
+Product ID: **`duit_pro`** (non-consumable). Configure this SKU in both App Store Connect and Play Console before submission. Suggested price **RM 19.90 lifetime**.
+
+IAP is handled via `cordova-plugin-purchase` (CdvPurchase v13). The plugin is installed as a dependency; after `npm run cap:sync` the native projects pick it up. On a successful purchase the `approved → verified` hook sets `state.pro = true`, encrypts it, and re-renders.
+
+Store-specific to-do before first submission:
+- **Apple**: create a non-consumable IAP with product ID `duit_pro`, attach to the app in App Store Connect, add a privacy nutrition label.
+- **Google Play**: create a managed product `duit_pro`, non-consumable, active, at the same price.
+
 ### What changes for native users
 
 - Local notifications are scheduled from `state.debts`/`state.expenses`/`state.income` any time those change (debounced).

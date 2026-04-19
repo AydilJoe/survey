@@ -17,6 +17,8 @@ const emptyState = () => ({
   extraMonthly: 0,
   currency: "MYR",
   reminders: { enabled: true, daysAhead: 3, notifications: false, lastNotified: {} },
+  pro: false,
+  ocrUsage: { month: "", scans: 0 },
 });
 
 function coerceState(parsed) {
@@ -37,6 +39,10 @@ function coerceState(parsed) {
         notifications: !!(parsed.reminders && parsed.reminders.notifications),
         lastNotified: (parsed.reminders && parsed.reminders.lastNotified) || {},
       },
+      pro: !!parsed.pro,
+      ocrUsage: parsed.ocrUsage && typeof parsed.ocrUsage === "object"
+        ? { month: String(parsed.ocrUsage.month || ""), scans: Number(parsed.ocrUsage.scans) || 0 }
+        : { month: "", scans: 0 },
     };
   } catch { return emptyState(); }
 }
@@ -856,6 +862,7 @@ function renderAll() {
   renderSavings();
   renderUpcoming();
   renderReminderPrefs();
+  renderProControls();
 }
 
 /* ---------- upcoming reminders ---------- */
@@ -972,6 +979,148 @@ async function fireDueNotifications() {
 function isNative() {
   return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
 }
+
+/* ---------- Pro tier ----------
+   The web version (GitHub Pages / plain browser) is fully unlocked so people
+   can try everything. In the native Capacitor build, features are gated and
+   unlocked with a one-time IAP (duit_pro). */
+
+const FREE_DEBT_LIMIT = 3;
+const FREE_SAVING_LIMIT = 2;
+const FREE_OCR_MONTHLY = 3;
+
+function isPro() {
+  if (!isNative()) return true;
+  return !!(state && state.pro);
+}
+function canOcr() {
+  if (isPro()) return true;
+  const m = currentMonthISO();
+  if (!state.ocrUsage || state.ocrUsage.month !== m) return true;
+  return (state.ocrUsage.scans || 0) < FREE_OCR_MONTHLY;
+}
+function trackOcrUsage() {
+  if (isPro()) return;
+  const m = currentMonthISO();
+  if (!state.ocrUsage || state.ocrUsage.month !== m) {
+    state.ocrUsage = { month: m, scans: 0 };
+  }
+  state.ocrUsage.scans = (state.ocrUsage.scans || 0) + 1;
+  save();
+}
+function gate(feature) {
+  if (isPro()) return true;
+  openPaywall(feature);
+  return false;
+}
+
+/* paywall modal */
+const PAYWALL_COPY = {
+  debts: `You've hit the free limit of ${FREE_DEBT_LIMIT} debts. Pro tracks unlimited.`,
+  savings: `You've hit the free limit of ${FREE_SAVING_LIMIT} goals. Pro tracks unlimited.`,
+  installment: "Installment plans (Atome, SPayLater) are a Pro feature.",
+  ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
+  notifications: "Reminders and notifications are a Pro feature.",
+  copyPrev: "Copy from previous month is a Pro feature.",
+};
+function openPaywall(feature) {
+  const dlg = document.getElementById("paywall-dialog");
+  const reason = document.getElementById("paywall-reason");
+  const hint = document.getElementById("paywall-hint");
+  if (reason) reason.textContent = PAYWALL_COPY[feature] || "Unlock everything. Pay once.";
+  if (hint) hint.textContent = isNative()
+    ? ""
+    : "Tip: the web version is fully unlocked. Install the app for a permanent one-time purchase.";
+  if (dlg && typeof dlg.showModal === "function") dlg.showModal();
+  else if (dlg) dlg.setAttribute("open", "");
+}
+function closePaywall() {
+  const dlg = document.getElementById("paywall-dialog");
+  if (dlg && typeof dlg.close === "function") dlg.close();
+  else if (dlg) dlg.removeAttribute("open");
+}
+document.getElementById("paywall-close")?.addEventListener("click", closePaywall);
+
+/* in-app purchase (Capacitor native) — cordova-plugin-purchase v13 */
+const PRODUCT_ID = "duit_pro";
+function initIAP() {
+  if (!isNative()) return;
+  const sdk = window.CdvPurchase;
+  if (!sdk || !sdk.store) return;
+  try {
+    sdk.store.register([
+      { id: PRODUCT_ID, type: sdk.ProductType.NON_CONSUMABLE, platform: sdk.Platform.APPLE_APPSTORE },
+      { id: PRODUCT_ID, type: sdk.ProductType.NON_CONSUMABLE, platform: sdk.Platform.GOOGLE_PLAY },
+    ]);
+    sdk.store.when()
+      .approved((tx) => tx.verify())
+      .verified((receipt) => {
+        state.pro = true;
+        save();
+        renderAll();
+        receipt.finish();
+      });
+    sdk.store.initialize([
+      { platform: sdk.Platform.APPLE_APPSTORE },
+      { platform: sdk.Platform.GOOGLE_PLAY },
+    ]);
+  } catch (e) { console.warn("IAP init failed", e); }
+}
+async function purchasePro() {
+  if (!isNative()) {
+    alert("Duit Pro is already unlocked on the web.\nInstall the iOS / Android app to purchase the lifetime Pro tier there.");
+    return;
+  }
+  const sdk = window.CdvPurchase;
+  if (!sdk || !sdk.store) { alert("Store not available. Make sure the app is installed from the App Store / Play Store."); return; }
+  try {
+    const product = sdk.store.get(PRODUCT_ID);
+    if (!product) { alert("Product not configured. Contact support."); return; }
+    const offer = product.getOffer();
+    if (!offer) { alert("No offer available."); return; }
+    await offer.order();
+  } catch (e) {
+    alert("Purchase failed: " + (e && e.message ? e.message : String(e)));
+  }
+}
+async function restorePurchases() {
+  if (!isNative()) { alert("The web version is fully unlocked — nothing to restore."); return; }
+  const sdk = window.CdvPurchase;
+  if (!sdk || !sdk.store) { alert("Store not available."); return; }
+  try {
+    await sdk.store.restorePurchases();
+    alert("Restore complete. If you previously bought Pro, it's now unlocked.");
+  } catch (e) {
+    alert("Restore failed: " + (e && e.message ? e.message : String(e)));
+  }
+}
+
+function renderProControls() {
+  const badge = document.getElementById("pro-badge");
+  const status = document.getElementById("pro-status");
+  const actions = document.getElementById("pro-actions");
+  const proNow = isPro();
+  const native = isNative();
+  if (badge) badge.hidden = !proNow;
+  if (status) {
+    if (proNow) status.textContent = native
+      ? "Pro unlocked. Thanks for supporting the app!"
+      : "Duit Pro is free on the web. Install the app to unlock it permanently.";
+    else status.textContent = "Unlock unlimited tracking, receipt scans, reminders and installments. One-time purchase — no subscription.";
+  }
+  if (actions) {
+    actions.hidden = false;
+    const unlock = document.getElementById("btn-pro-unlock");
+    const restore = document.getElementById("btn-pro-restore");
+    if (unlock) unlock.hidden = proNow;
+    if (restore) restore.hidden = proNow || !native;
+  }
+}
+
+document.getElementById("btn-pro-unlock")?.addEventListener("click", () => { openPaywall(); });
+document.getElementById("btn-pro-restore")?.addEventListener("click", restorePurchases);
+document.getElementById("paywall-buy")?.addEventListener("click", async () => { await purchasePro(); closePaywall(); });
+document.getElementById("paywall-restore")?.addEventListener("click", async () => { await restorePurchases(); closePaywall(); });
 
 async function scheduleNativeReminders() {
   if (!isNative()) return;
@@ -1106,6 +1255,7 @@ document.addEventListener("click", (e) => {
 });
 
 $("#btn-copy-prev").addEventListener("click", () => {
+  if (!gate("copyPrev")) return;
   const prev = shiftMonth(selectedMonth, -1);
   const prevIncome = state.income.filter((x) => x.month === prev);
   const prevExpenses = state.expenses.filter((x) => x.month === prev);
@@ -1230,7 +1380,11 @@ function setDebtKind(kind) {
 }
 
 document.querySelectorAll(".debt-type-pills .pill").forEach((btn) => {
-  btn.addEventListener("click", () => setDebtKind(btn.dataset.debtKind));
+  btn.addEventListener("click", () => {
+    const k = btn.dataset.debtKind;
+    if (k === "installment" && !gate("installment")) return;
+    setDebtKind(k);
+  });
 });
 
 $("#form-debt").addEventListener("submit", (e) => {
@@ -1240,6 +1394,10 @@ $("#form-debt").addEventListener("submit", (e) => {
   const kind = (f.get("kind") || "standard").toString();
   const dueDay = parseDay(f.get("dueDay"));
   if (!name) return;
+
+  // Pro gates
+  if (state.debts.length >= FREE_DEBT_LIMIT && !gate("debts")) return;
+  if (kind === "installment" && !gate("installment")) return;
 
   if (kind === "installment") {
     const installment = Number(f.get("installment"));
@@ -1282,6 +1440,7 @@ $("#form-saving").addEventListener("submit", (e) => {
   const current = Number(f.get("current")) || 0;
   if (!name) return;
   if (!Number.isFinite(target) || target <= 0) return;
+  if (state.savings.length >= FREE_SAVING_LIMIT && !gate("savings")) return;
   state.savings.push({
     id: uid(),
     createdAt: Date.now(),
@@ -1547,6 +1706,7 @@ if (btnNotif) btnNotif.addEventListener("click", async () => {
     renderReminderPrefs();
     return;
   }
+  if (!gate("notifications")) return;
   const res = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
   state.reminders.notifications = (res === "granted");
   save();
@@ -1959,6 +2119,7 @@ async function handleUnlock(passcode) {
   }
   hideLock();
   renderAll();
+  initIAP();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
 }
@@ -1977,6 +2138,7 @@ async function handleSetup(passcode, confirm, initialState) {
   localStorage.removeItem(STORAGE_KEY); // clear legacy plain after migration
   hideLock();
   renderAll();
+  initIAP();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
 }
@@ -2252,7 +2414,10 @@ async function applyScanConversion() {
 }
 
 document.getElementById("scan-currency")?.addEventListener("change", applyScanConversion);
-document.getElementById("btn-scan")?.addEventListener("click", () => scanInput?.click());
+document.getElementById("btn-scan")?.addEventListener("click", () => {
+  if (!canOcr() && !gate("ocr")) return;
+  scanInput?.click();
+});
 document.getElementById("scan-cancel")?.addEventListener("click", closeScanDialog);
 
 scanInput?.addEventListener("change", async (e) => {
@@ -2276,6 +2441,7 @@ scanInput?.addEventListener("change", async (e) => {
       }
     });
     const { data: { text } } = await worker.recognize(file);
+    trackOcrUsage();
     const parsed = parseReceiptText(text);
     scanOriginalAmount = parsed.amount;
     scanOriginalCurrency = parsed.currency || currentCurrency();

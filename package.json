@@ -21,6 +21,7 @@
     "@capacitor/android": "^6.1.2",
     "@capacitor/core": "^6.1.2",
     "@capacitor/ios": "^6.1.2",
-    "@capacitor/local-notifications": "^6.1.2"
+    "@capacitor/local-notifications": "^6.1.2",
+    "cordova-plugin-purchase": "^13.12.1"
   }
 }

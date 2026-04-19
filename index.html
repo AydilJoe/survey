@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=26" />
+    <link rel="stylesheet" href="styles.css?v=27" />
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -405,6 +405,18 @@
           </div>
           <div id="import-status" class="hint"></div>
         </div>
+        <div class="card pro-card" id="pro-card">
+          <div class="card-head">
+            <h2>Duit Pro</h2>
+            <span class="pro-badge" id="pro-badge" hidden>UNLOCKED</span>
+          </div>
+          <p class="hint" id="pro-status">Unlock unlimited tracking, receipt scans, reminders and installments. One-time purchase — no subscription.</p>
+          <div class="button-row" id="pro-actions">
+            <button id="btn-pro-unlock" class="primary" type="button">Unlock Duit Pro</button>
+            <button id="btn-pro-restore" class="ghost" type="button">Restore</button>
+          </div>
+        </div>
+
         <div class="card">
           <h2>Preferences</h2>
           <label class="field">
@@ -466,6 +478,38 @@
         </div>
       </section>
     </main>
+
+    <dialog id="paywall-dialog" class="edit-dialog paywall-dialog">
+      <form method="dialog">
+        <div class="paywall-head">
+          <span class="paywall-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5L19 9.5l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5z"/></svg></span>
+          <div>
+            <h2>Duit Pro</h2>
+            <p class="paywall-sub" id="paywall-reason">Unlock everything. Pay once.</p>
+          </div>
+        </div>
+        <ul class="paywall-features">
+          <li>Unlimited debts &amp; savings goals</li>
+          <li>Unlimited receipt scans with auto FX</li>
+          <li>Installment plans (Atome, SPayLater)</li>
+          <li>Smart reminders &amp; notifications</li>
+          <li>Copy last month in one tap</li>
+          <li>Future: charts, reports, PDF export</li>
+        </ul>
+        <div class="paywall-price">
+          <strong id="paywall-price-amount">RM 19.90</strong>
+          <span>one-time · no subscription</span>
+        </div>
+        <div class="button-row">
+          <button type="button" class="ghost" id="paywall-close">Maybe later</button>
+          <button type="button" class="primary" id="paywall-buy">Unlock Pro</button>
+        </div>
+        <div class="button-row" style="justify-content:center;">
+          <button type="button" class="ghost" id="paywall-restore">Restore purchase</button>
+        </div>
+        <p class="hint paywall-hint" id="paywall-hint"></p>
+      </form>
+    </dialog>
 
     <dialog id="scan-dialog" class="edit-dialog scan-dialog">
       <form method="dialog">
@@ -543,6 +587,6 @@
       </form>
     </dialog>
 
-    <script src="script.js?v=30"></script>
+    <script src="script.js?v=31"></script>
   </body>
 </html>
