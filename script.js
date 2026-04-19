@@ -16,6 +16,7 @@ const emptyState = () => ({
   savings: [],
   extraMonthly: 0,
   currency: "MYR",
+  reminders: { enabled: true, daysAhead: 3, notifications: false, lastNotified: {} },
 });
 
 function coerceState(parsed) {
@@ -30,6 +31,12 @@ function coerceState(parsed) {
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
       extraMonthly: Number(parsed.extraMonthly) || 0,
       currency: typeof parsed.currency === "string" && /^[A-Z]{3}$/i.test(parsed.currency) ? parsed.currency.toUpperCase() : "MYR",
+      reminders: {
+        enabled: parsed.reminders && parsed.reminders.enabled !== false,
+        daysAhead: Number(parsed.reminders && parsed.reminders.daysAhead) || 3,
+        notifications: !!(parsed.reminders && parsed.reminders.notifications),
+        lastNotified: (parsed.reminders && parsed.reminders.lastNotified) || {},
+      },
     };
   } catch { return emptyState(); }
 }
@@ -846,6 +853,112 @@ function renderAll() {
   updateCategoryDatalist();
   renderDaily();
   renderSavings();
+  renderUpcoming();
+  renderReminderPrefs();
+}
+
+/* ---------- upcoming reminders ---------- */
+
+function upcomingReminders(daysAhead) {
+  const items = [];
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1; // 1-12
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const today = now.getDate();
+  const cap = Math.max(0, Math.min(31, Number(daysAhead) || 0));
+  const thisMonthISO = `${year}-${String(month).padStart(2, "0")}`;
+
+  const pushIf = (day, item) => {
+    if (!Number.isFinite(day)) return;
+    if (day < today) return;              // past this month
+    if (day > daysInMonth) return;        // invalid for current month
+    const delta = day - today;
+    if (delta > cap) return;
+    items.push({ ...item, day, delta });
+  };
+
+  for (const d of state.debts) {
+    if (!d.dueDay) continue;
+    pushIf(d.dueDay, {
+      kind: "debt", id: d.id, name: d.name,
+      amount: Number(d.minPayment) || 0, direction: "out",
+    });
+  }
+  for (const ex of state.expenses) {
+    if (ex.month !== thisMonthISO) continue;
+    if (!ex.day) continue;
+    pushIf(ex.day, {
+      kind: "expense", id: ex.id, name: ex.name,
+      amount: Number(ex.amount) || 0, direction: "out",
+    });
+  }
+  for (const inc of state.income) {
+    if (inc.month !== thisMonthISO) continue;
+    if (!inc.day) continue;
+    pushIf(inc.day, {
+      kind: "income", id: inc.id, name: inc.name,
+      amount: Number(inc.amount) || 0, direction: "in",
+    });
+  }
+  items.sort((a, b) => a.delta - b.delta || a.name.localeCompare(b.name));
+  return items;
+}
+
+function renderUpcoming() {
+  const card = document.getElementById("upcoming-card");
+  const listEl = document.getElementById("upcoming-list");
+  const sub = document.getElementById("upcoming-sub");
+  if (!card || !listEl) return;
+  const prefs = state.reminders || { enabled: true, daysAhead: 3 };
+  if (!prefs.enabled) { card.hidden = true; return; }
+  const items = upcomingReminders(prefs.daysAhead || 3);
+  if (items.length === 0) { card.hidden = true; return; }
+  card.hidden = false;
+  if (sub) sub.textContent = `Next ${prefs.daysAhead || 3} days`;
+
+  const labelFor = (delta) => delta === 0 ? "Today" : delta === 1 ? "Tmrw" : `${delta}d`;
+  const dayClassFor = (it) => it.direction === "in" ? "income" : (it.delta === 0 ? "today" : "soon");
+  const tabFor = (kind) => kind === "debt" ? "debts" : kind === "income" ? "flow" : "flow";
+
+  listEl.innerHTML = items.map((it) => `
+    <li data-go-tab="${tabFor(it.kind)}">
+      <span class="up-day ${dayClassFor(it)}">${labelFor(it.delta)}</span>
+      <span>
+        <div class="up-name">${escapeHtml(it.name)}</div>
+        <div class="up-sub">${it.kind === "debt" ? "Min payment" : it.kind === "income" ? "Expected pay" : "Bill due"}</div>
+      </span>
+      <span class="up-amount ${it.direction === "in" ? "pos" : "neg"}">${fmtMoney(it.amount)}</span>
+    </li>
+  `).join("");
+}
+
+/* Browser notifications — only for items due today, once per day */
+async function fireDueNotifications() {
+  const prefs = state.reminders || {};
+  if (!prefs.notifications) return;
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  const items = upcomingReminders(0);
+  if (items.length === 0) return;
+  const today = todayISO();
+  const last = prefs.lastNotified || {};
+  let notified = false;
+  for (const it of items) {
+    const key = `${it.kind}:${it.id}`;
+    if (last[key] === today) continue;
+    const body = it.direction === "in"
+      ? `Pay day today — ${fmtMoney(it.amount)} expected`
+      : `Due today — ${fmtMoney(it.amount)}`;
+    try {
+      new Notification(`${it.name}`, { body, tag: key });
+    } catch {}
+    last[key] = today;
+    notified = true;
+  }
+  if (notified) {
+    state.reminders.lastNotified = last;
+    save();
+  }
 }
 
 function updateCurrencyLabels() {
@@ -1329,6 +1442,50 @@ editDialog.addEventListener("click", (e) => {
   if (!inDialog) closeEditDialog();
 });
 
+/* reminder preferences */
+const prefDays = document.getElementById("pref-reminders-days");
+const btnNotif = document.getElementById("btn-enable-notifications");
+const notifStatus = document.getElementById("notifications-status");
+function renderReminderPrefs() {
+  const prefs = state.reminders || {};
+  if (prefDays && document.activeElement !== prefDays) prefDays.value = prefs.daysAhead ?? 3;
+  if (!("Notification" in window)) {
+    if (notifStatus) notifStatus.textContent = "This browser doesn't support notifications.";
+    if (btnNotif) btnNotif.disabled = true;
+    return;
+  }
+  if (notifStatus) {
+    if (Notification.permission === "granted" && prefs.notifications) notifStatus.textContent = "Browser notifications: on.";
+    else if (Notification.permission === "denied") notifStatus.textContent = "Browser notifications blocked in system settings.";
+    else notifStatus.textContent = "Browser notifications: off.";
+  }
+  if (btnNotif) {
+    btnNotif.textContent = (Notification.permission === "granted" && prefs.notifications) ? "Disable notifications" : "Enable browser notifications";
+  }
+}
+if (prefDays) prefDays.addEventListener("change", () => {
+  const v = Math.max(0, Math.min(31, Math.round(Number(prefDays.value) || 0)));
+  state.reminders = state.reminders || {};
+  state.reminders.daysAhead = v;
+  save();
+  renderUpcoming();
+});
+if (btnNotif) btnNotif.addEventListener("click", async () => {
+  if (!("Notification" in window)) return;
+  state.reminders = state.reminders || {};
+  if (state.reminders.notifications && Notification.permission === "granted") {
+    state.reminders.notifications = false;
+    save();
+    renderReminderPrefs();
+    return;
+  }
+  const res = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+  state.reminders.notifications = (res === "granted");
+  save();
+  renderReminderPrefs();
+  if (res === "granted") fireDueNotifications();
+});
+
 /* currency preference */
 const prefCurrency = document.getElementById("pref-currency");
 if (prefCurrency) {
@@ -1740,6 +1897,7 @@ async function handleUnlock(passcode) {
   }
   hideLock();
   renderAll();
+  fireDueNotifications().catch(() => {});
 }
 
 async function handleSetup(passcode, confirm, initialState) {
@@ -1756,7 +1914,10 @@ async function handleSetup(passcode, confirm, initialState) {
   localStorage.removeItem(STORAGE_KEY); // clear legacy plain after migration
   hideLock();
   renderAll();
+  fireDueNotifications().catch(() => {});
 }
+
+setInterval(() => { fireDueNotifications().catch(() => {}); }, 3600000);
 
 for (const id of ["lock-input", "lock-confirm"]) {
   const el = document.getElementById(id);

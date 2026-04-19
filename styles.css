@@ -32,6 +32,57 @@
 
 .cur-code { font-family: var(--font-mono); font-size: 0.9em; letter-spacing: 0.04em; }
 
+/* Upcoming reminders */
+.upcoming-card { background: linear-gradient(180deg, rgba(200,112,75,0.07), var(--card) 60%); }
+.upcoming-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.upcoming-list li {
+  background: var(--card-soft);
+  border: 0.5px solid var(--line);
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.65rem;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.upcoming-list li:active { transform: scale(0.99); }
+.upcoming-list .up-day {
+  min-width: 2.4rem;
+  text-align: center;
+  padding: 0.25rem 0.4rem;
+  border-radius: 10px;
+  background: var(--card);
+  border: 0.5px solid var(--line);
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.upcoming-list .up-day.today  { color: var(--loss);   background: rgba(184,106,78,0.12); border-color: rgba(184,106,78,0.35); }
+.upcoming-list .up-day.soon   { color: var(--primary); background: rgba(200,112,75,0.1); border-color: rgba(200,112,75,0.3); }
+.upcoming-list .up-day.income { color: var(--gain);   background: rgba(106,138,94,0.12); border-color: rgba(106,138,94,0.35); }
+.upcoming-list .up-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.upcoming-list .up-sub  { color: var(--muted); font-size: 0.75rem; font-family: var(--font-mono); }
+.upcoming-list .up-amount {
+  font-family: var(--font-serif);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.upcoming-list .up-amount.neg { color: var(--loss); }
+.upcoming-list .up-amount.pos { color: var(--gain); }
+
 /* Splash */
 #splash {
   position: fixed;
