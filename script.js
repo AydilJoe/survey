@@ -97,6 +97,7 @@ function save() {
     const rec = await encryptWith(aesKey, snapshot, prev.salt);
     localStorage.setItem(ENC_KEY, JSON.stringify(rec));
   }).catch((err) => console.error("save failed", err));
+  requestReschedule();
 }
 
 function uid() {
@@ -959,6 +960,73 @@ async function fireDueNotifications() {
     state.reminders.lastNotified = last;
     save();
   }
+}
+
+/* ---------- native local notifications (Capacitor) ----------
+   When running inside the Capacitor native shell, schedule real
+   OS-level notifications that fire even when the app is closed.
+   On a plain web/PWA context window.Capacitor is undefined, so this
+   block is effectively a no-op and the in-app / browser-notification
+   path above is used instead. */
+
+function isNative() {
+  return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
+}
+
+async function scheduleNativeReminders() {
+  if (!isNative()) return;
+  const LN = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+  if (!LN) return;
+  try {
+    const perm = await LN.checkPermissions();
+    if (perm.display !== "granted") {
+      const req = await LN.requestPermissions();
+      if (req.display !== "granted") return;
+    }
+    const pending = await LN.getPending();
+    if (pending && pending.notifications && pending.notifications.length) {
+      await LN.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
+    }
+
+    const notifs = [];
+    let nextId = 1;
+    const hour = 9, minute = 0;
+    const prefs = state.reminders || {};
+    if (prefs.enabled === false) return;
+
+    const push = (title, body, day) => {
+      if (!Number.isFinite(day) || day < 1 || day > 31) return;
+      if (notifs.length >= 60) return; // iOS pending cap ~64
+      notifs.push({
+        id: nextId++,
+        title,
+        body,
+        schedule: { on: { day, hour, minute }, allowWhileIdle: true },
+        smallIcon: "ic_stat_icon",
+      });
+    };
+
+    for (const d of state.debts) {
+      if (d.dueDay) push(`${d.name} — due today`, `Min payment ${fmtMoney(d.minPayment)}`, d.dueDay);
+    }
+    for (const ex of state.expenses) {
+      if (ex.day) push(`${ex.name} — bill due`, `${fmtMoney(ex.amount)}`, ex.day);
+    }
+    for (const inc of state.income) {
+      if (inc.day) push(`Pay day — ${inc.name}`, `${fmtMoney(inc.amount)} expected`, inc.day);
+    }
+
+    if (notifs.length) await LN.schedule({ notifications: notifs });
+  } catch (err) {
+    console.warn("Native LN schedule failed", err);
+  }
+}
+
+let _reminderDebounce = null;
+function requestReschedule() {
+  if (!isNative()) return;
+  if (_reminderDebounce) clearTimeout(_reminderDebounce);
+  _reminderDebounce = setTimeout(() => { scheduleNativeReminders().catch(() => {}); }, 1500);
 }
 
 function updateCurrencyLabels() {
@@ -1892,6 +1960,7 @@ async function handleUnlock(passcode) {
   hideLock();
   renderAll();
   fireDueNotifications().catch(() => {});
+  scheduleNativeReminders().catch(() => {});
 }
 
 async function handleSetup(passcode, confirm, initialState) {
@@ -1909,6 +1978,7 @@ async function handleSetup(passcode, confirm, initialState) {
   hideLock();
   renderAll();
   fireDueNotifications().catch(() => {});
+  scheduleNativeReminders().catch(() => {});
 }
 
 setInterval(() => { fireDueNotifications().catch(() => {}); }, 3600000);

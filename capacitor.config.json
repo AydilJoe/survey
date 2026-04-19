@@ -1,0 +1,13 @@
+{
+  "appId": "com.aydiljoe.duit",
+  "appName": "Duit Tracker",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "iconColor": "#c8704b"
+    }
+  }
+}
