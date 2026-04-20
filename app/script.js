@@ -2098,6 +2098,71 @@ $("#btn-clear").addEventListener("click", async () => {
 
 /* ---------- first-time welcome tour ---------- */
 
+function isStandalonePWA() {
+  return (
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+    window.navigator.standalone === true
+  );
+}
+
+function detectInstallPlatform() {
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isAndroid = /Android/.test(ua);
+  const isChrome = /Chrome|CriOS/.test(ua) && !/Edg|OPR|Firefox/.test(ua);
+  const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox/.test(ua);
+  if (isIOS && isSafari) return "ios-safari";
+  if (isIOS && isChrome) return "ios-chrome";
+  if (isIOS) return "ios-other";
+  if (isAndroid) return "android";
+  return "desktop";
+}
+
+function installInstructionsBody() {
+  if (isStandalonePWA()) {
+    return `<p>You're already using Duitful as an installed app — nice.</p>
+      <p class="hint">Everything works offline from here on. Tap Next to continue the tour.</p>`;
+  }
+  const platform = detectInstallPlatform();
+  const shareIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-ico"><path d="M12 16V4M8 8l4-4 4 4"/><rect x="4" y="10" width="16" height="11" rx="2"/></svg>`;
+  const menuIcon = `<svg viewBox="0 0 24 24" fill="currentColor" class="inline-ico"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>`;
+  const plusIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="inline-ico"><path d="M12 5v14M5 12h14"/></svg>`;
+
+  if (platform === "ios-safari") {
+    return `<p>Install Duitful on your home screen — it opens fullscreen, runs offline, and feels like a native app.</p>
+      <ol class="guide-steps">
+        <li>Tap the <strong>Share</strong> button ${shareIcon} at the bottom of Safari.</li>
+        <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+        <li>Tap <strong>Add</strong> in the top-right.</li>
+      </ol>
+      <p class="hint">The Duitful wallet icon will appear on your home screen. Tap it to open.</p>`;
+  }
+  if (platform === "ios-chrome" || platform === "ios-other") {
+    return `<p>iPhone installs need Safari. Open Duitful in Safari first, then follow the steps below.</p>
+      <ol class="guide-steps">
+        <li>Copy this URL: <strong>duitful.app</strong></li>
+        <li>Open <strong>Safari</strong> and paste the URL.</li>
+        <li>Tap the <strong>Share</strong> button ${shareIcon} → <strong>Add to Home Screen</strong> → <strong>Add</strong>.</li>
+      </ol>
+      <p class="hint">iOS only lets Safari install web apps — other browsers can't.</p>`;
+  }
+  if (platform === "android") {
+    return `<p>Install Duitful on your home screen — it opens fullscreen, runs offline, and feels like a native app.</p>
+      <ol class="guide-steps">
+        <li>Tap the <strong>menu</strong> ${menuIcon} in the top-right of Chrome.</li>
+        <li>Tap <strong>Install app</strong> (or <strong>Add to Home screen</strong>).</li>
+        <li>Tap <strong>Install</strong> to confirm.</li>
+      </ol>
+      <p class="hint">If you see an <strong>Install</strong> button in the address bar, you can tap that directly.</p>`;
+  }
+  return `<p>Install Duitful as a desktop app — runs in its own window, works offline.</p>
+    <ol class="guide-steps">
+      <li>Look for the <strong>install</strong> icon ${plusIcon} in the address bar.</li>
+      <li>Click <strong>Install</strong>.</li>
+    </ol>
+    <p class="hint">Not seeing it? Use the browser menu → <strong>Install Duitful</strong> / <strong>Apps → Install this site</strong>.</p>`;
+}
+
 const GUIDE_STEPS = [
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/><circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg>`,
@@ -2177,7 +2242,7 @@ function renderGuideStep() {
   if (mark) mark.innerHTML = step.icon;
   if (title) title.innerHTML = step.title;
   if (sub) sub.textContent = step.sub || "";
-  if (body) body.innerHTML = step.body;
+  if (body) body.innerHTML = step.install ? installInstructionsBody() : step.body;
   if (dots) {
     dots.innerHTML = GUIDE_STEPS.map((_, i) => `<span class="${i === guideStep ? "active" : ""}" role="tab" aria-selected="${i === guideStep ? "true" : "false"}"></span>`).join("");
   }
@@ -2219,6 +2284,88 @@ function maybeOpenGuideAfterUnlock() {
     setTimeout(() => openGuide(), 250);
   }
 }
+
+/* ---------- PWA install banner (one-tap on Android, iOS modal fallback) ---------- */
+
+const INSTALL_DISMISS_KEY = "duit-tracker.install-dismissed-at";
+const INSTALL_DISMISS_DAYS = 14;
+let deferredInstallPrompt = null;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // If the user is already unlocked, surface the banner now.
+  if (!document.getElementById("lock")?.hidden === false && aesKey) {
+    maybeShowInstallBanner();
+  }
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  hideInstallBanner();
+  localStorage.removeItem(INSTALL_DISMISS_KEY);
+});
+
+function installDismissedRecently() {
+  const ts = Number(localStorage.getItem(INSTALL_DISMISS_KEY) || 0);
+  if (!ts) return false;
+  return Date.now() - ts < INSTALL_DISMISS_DAYS * 24 * 60 * 60 * 1000;
+}
+
+function canOfferInstall() {
+  if (isStandalonePWA()) return false;
+  if (installDismissedRecently()) return false;
+  const platform = detectInstallPlatform();
+  return !!deferredInstallPrompt || platform === "ios-safari";
+}
+
+function showInstallBanner() {
+  const el = document.getElementById("pwa-install-banner");
+  if (el) el.hidden = false;
+}
+
+function hideInstallBanner() {
+  const el = document.getElementById("pwa-install-banner");
+  if (el) el.hidden = true;
+}
+
+function maybeShowInstallBanner() {
+  if (canOfferInstall()) {
+    // Wait a beat so it doesn't land on top of the welcome tour.
+    setTimeout(() => {
+      if (document.getElementById("guide-dialog")?.open) return;
+      showInstallBanner();
+    }, 600);
+  }
+}
+
+async function triggerInstall() {
+  if (deferredInstallPrompt) {
+    try {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+    } catch { /* user cancelled */ }
+    deferredInstallPrompt = null;
+    hideInstallBanner();
+    return;
+  }
+  if (detectInstallPlatform() === "ios-safari") {
+    const dlg = document.getElementById("pwa-install-ios");
+    if (dlg) { try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); } }
+  }
+}
+
+document.getElementById("pwa-install-accept")?.addEventListener("click", () => { triggerInstall(); });
+document.getElementById("pwa-install-dismiss")?.addEventListener("click", () => {
+  localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now()));
+  hideInstallBanner();
+});
+document.getElementById("pwa-ios-close")?.addEventListener("click", () => {
+  const dlg = document.getElementById("pwa-install-ios");
+  if (dlg) { try { dlg.close(); } catch { dlg.removeAttribute("open"); } }
+  localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now()));
+  hideInstallBanner();
+});
 
 document.getElementById("guide-next")?.addEventListener("click", () => {
   if (guideStep >= GUIDE_STEPS.length - 1) { finishGuide(); return; }
@@ -2357,6 +2504,7 @@ async function handleUnlock(passcode) {
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
   maybeOpenGuideAfterUnlock();
+  maybeShowInstallBanner();
 }
 
 async function handleSetup(passcode, confirm, initialState) {
@@ -2378,6 +2526,7 @@ async function handleSetup(passcode, confirm, initialState) {
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
   maybeOpenGuideAfterUnlock();
+  maybeShowInstallBanner();
 }
 
 setInterval(() => { fireDueNotifications().catch(() => {}); }, 3600000);
