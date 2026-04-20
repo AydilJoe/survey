@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=33" />
+    <link rel="stylesheet" href="/app/styles.css?v=34" />
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -434,6 +434,7 @@
           <p class="hint" id="pro-status">Unlock unlimited tracking, receipt scans, reminders and installments. One-time purchase — no subscription.</p>
           <div class="button-row" id="pro-actions">
             <button id="btn-pro-unlock" class="primary" type="button">Unlock Duitful Pro</button>
+            <button id="btn-pro-activate" class="ghost" type="button">Activate license</button>
             <button id="btn-pro-restore" class="ghost" type="button">Restore</button>
           </div>
         </div>
@@ -528,10 +529,47 @@
           <button type="button" class="ghost" id="paywall-close">Maybe later</button>
           <button type="button" class="primary" id="paywall-buy">Unlock Pro</button>
         </div>
+        <div class="button-row" id="paywall-web-actions" hidden>
+          <button type="button" class="primary" id="paywall-fpx">Pay with FPX / TNG / GrabPay</button>
+        </div>
         <div class="button-row" style="justify-content:center;">
           <button type="button" class="ghost" id="paywall-restore">Restore purchase</button>
+          <button type="button" class="ghost" id="paywall-activate">I have a license key</button>
         </div>
         <p class="hint paywall-hint" id="paywall-hint"></p>
+      </form>
+    </dialog>
+
+    <dialog id="license-dialog" class="edit-dialog">
+      <form id="license-form" method="dialog">
+        <h2>Activate Duitful Pro</h2>
+        <p class="hint">Paste the license key you received after payment. It's verified on this device — nothing is sent to a server.</p>
+        <label class="field">
+          <span>License key</span>
+          <textarea id="license-input" rows="4" placeholder="eyJzdWIi...Qc8NjA.bGlj..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+        </label>
+        <p id="license-error" class="hint warn" hidden></p>
+        <p id="license-ok" class="hint" style="color:#5c986e;" hidden>License verified. Pro unlocked.</p>
+        <div class="button-row">
+          <button type="button" class="ghost" id="license-cancel">Cancel</button>
+          <button type="button" class="primary" id="license-verify">Verify &amp; unlock</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="fpx-email-dialog" class="edit-dialog">
+      <form id="fpx-email-form" method="dialog">
+        <h2>Pay with FPX / e-wallet</h2>
+        <p class="hint">We'll send your license key to this email after payment. We also show it on the confirmation page, so you'll get it either way.</p>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" id="fpx-email" required autocomplete="email" inputmode="email" placeholder="you@example.com">
+        </label>
+        <p id="fpx-error" class="hint warn" hidden></p>
+        <div class="button-row">
+          <button type="button" class="ghost" id="fpx-cancel">Cancel</button>
+          <button type="button" class="primary" id="fpx-continue">Continue to payment</button>
+        </div>
       </form>
     </dialog>
 
@@ -661,6 +699,6 @@
       </div>
     </dialog>
 
-    <script src="/app/script.js?v=38"></script>
+    <script src="/app/script.js?v=39"></script>
   </body>
 </html>
