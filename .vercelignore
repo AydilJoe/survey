@@ -1,10 +1,6 @@
-landing/
-prompts/
 native/
 resources/
 scripts/
-.github/
+prompts/
 pnpm-lock.yaml
-package.json
 capacitor.config.json
-README.md
