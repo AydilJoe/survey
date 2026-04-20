@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Keep the dynamic app surface out of the index — content is
+# user-specific and rendered client-side, so it has no SEO value.
+Disallow: /app
+
+Sitemap: https://duitful.app/sitemap.xml

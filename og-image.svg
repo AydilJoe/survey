@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Eyebrow -->
+  <text x="96" y="130" font-family="'JetBrains Mono', 'Courier New', monospace" font-size="22" letter-spacing="4" fill="#6b5e52" font-weight="500">
+    PRIVATE MONEY &amp; DEBT TRACKER · MALAYSIA
+  </text>
+
+  <!-- Wallet mark -->
+  <g transform="translate(96, 170)">
+    <rect x="0" y="0" width="110" height="110" rx="22" fill="#fffaf2" stroke="#e3d6bf" stroke-width="1"/>
+    <g transform="translate(22, 28)" stroke="url(#mark)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M2 10a8 8 0 018-8h46v14H10a8 8 0 00-8 8v22a8 8 0 008 8h50V20"/>
+      <circle cx="50" cy="34" r="4" fill="url(#mark)" stroke="none"/>
+    </g>
+  </g>
+
+  <!-- Title -->
+  <text x="96" y="400" font-family="'Fraunces', 'Georgia', serif" font-size="128" font-weight="500" fill="#2a2420">
+    Be <tspan font-style="italic" fill="#b35a39">duitful</tspan>
+  </text>
+  <text x="96" y="510" font-family="'Fraunces', 'Georgia', serif" font-size="128" font-weight="500" fill="#2a2420">
+    with your duit.
+  </text>
+
+  <!-- Footer line -->
+  <text x="96" y="580" font-family="'Inter', system-ui, sans-serif" font-size="26" fill="#6b5e52">
+    On-device · Encrypted · No subscription · duitful.app
+  </text>
+</svg>
