@@ -1524,3 +1524,84 @@ button.ghost.icon-btn {
   font-size: 0.85rem;
   color: var(--text);
 }
+
+/* First-time welcome tour */
+.guide-dialog form { padding: 1.1rem; }
+.guide-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+.guide-mark {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(200,112,75,0.18), rgba(212,165,116,0.22));
+  border: 0.5px solid rgba(200,112,75,0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.guide-mark svg { width: 26px; height: 26px; }
+.guide-head h2 { margin: 0; font-size: 1.2rem; }
+.guide-sub {
+  margin: 0.1rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.guide-body {
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin: 0.2rem 0 0.8rem;
+}
+.guide-body ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.guide-body ul li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  color: var(--text);
+  font-size: 0.92rem;
+}
+.guide-body ul li::before {
+  content: "";
+  display: inline-block;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c8704b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M5 13l4 4L19 7'/></svg>") center/contain no-repeat;
+}
+.guide-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0.1rem;
+}
+.guide-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: background 0.15s ease, width 0.15s ease;
+}
+.guide-dots span.active {
+  background: var(--primary);
+  width: 18px;
+  border-radius: 3px;
+}
+.guide-nav {
+  justify-content: flex-end;
+  margin-top: 0.6rem;
+}
+.guide-nav #guide-skip { margin-right: auto; }
