@@ -487,6 +487,60 @@ main {
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
+/* ---------- Wide-screen (PC / iPad landscape) layout ----------
+   Phone-first design stays as-is; on desktop we frame the whole
+   app as a single centered column so the sticky header, tab bar
+   and content all share one boundary instead of the header
+   stretching edge-to-edge while content is 640px wide. */
+@media (min-width: 900px) {
+  html, body {
+    background:
+      radial-gradient(1200px 600px at 50% -100px, rgba(200,112,75,0.06), transparent 60%),
+      var(--stage);
+  }
+  body {
+    min-height: 100dvh;
+  }
+  /* The "frame": a single centered column for the app shell. */
+  body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(720px, 100%);
+    height: 100%;
+    background: var(--bg);
+    border-left: 0.5px solid var(--line);
+    border-right: 0.5px solid var(--line);
+    box-shadow: 0 0 40px rgba(42, 36, 32, 0.06);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .app-header, .tabs, main {
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    position: relative;
+    z-index: 1;
+  }
+  .app-header {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  .tabs {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  main {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  /* Tabs don't need horizontal scroll on desktop — there's plenty of room. */
+  .tabs { justify-content: center; overflow-x: visible; }
+  .tab { flex: 0 0 auto; }
+}
+
 /* Cards */
 .card {
   background: var(--card);
