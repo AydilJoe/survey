@@ -1208,6 +1208,20 @@ function renderProControls() {
   // Badge reflects real purchase state, not the free-on-web feature gate.
   if (badge) badge.hidden = !purchased;
 
+  // Watermark: show the buyer email on every Pro activation so shared keys
+  // carry an obvious trail back to the original buyer.
+  const watermark = document.getElementById("pro-watermark");
+  if (watermark) {
+    const email = state && state.license && state.license.email;
+    if (purchased && email) {
+      watermark.textContent = `Licensed to ${email}`;
+      watermark.hidden = false;
+    } else {
+      watermark.textContent = "";
+      watermark.hidden = true;
+    }
+  }
+
   if (status) {
     if (purchased) {
       status.textContent = native

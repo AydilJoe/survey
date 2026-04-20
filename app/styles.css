@@ -1337,6 +1337,19 @@ button.ghost.icon-btn {
   font-weight: 600;
   letter-spacing: 0.1em;
 }
+.pro-watermark {
+  margin: 0.3rem 0 0.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  opacity: 0.9;
+}
+.pro-watermark::before {
+  content: "◈ ";
+  color: var(--primary);
+  margin-right: 0.15rem;
+}
 
 /* Scan receipt */
 .scan-row {
