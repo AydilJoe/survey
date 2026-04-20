@@ -56,6 +56,19 @@
 
   <div class="warn">Anyone with the admin key can issue unlimited keys. Rotate <code>ADMIN_KEY</code> in Vercel if it leaks.</div>
 
+  <details class="card" style="padding: 0.75rem 1rem;">
+    <summary style="cursor:pointer; font-weight:500;">Need an <code>ADMIN_KEY</code>? Generate one</summary>
+    <p class="hint" style="margin-top:0.6rem;">Creates a 32-byte (64-hex-char) random string using the browser's crypto RNG. Copy it, paste into Vercel → Project → Settings → Environment Variables as <code>ADMIN_KEY</code>, redeploy, then paste the same value into the field below.</p>
+    <label>
+      <span>Fresh admin key</span>
+      <input id="gen-out" type="text" readonly placeholder="Tap the button to generate" autocomplete="off">
+    </label>
+    <div class="actions">
+      <button id="gen-btn" class="primary">Generate random key</button>
+      <button class="ghost" data-copy="gen-out">Copy</button>
+    </div>
+  </details>
+
   <div class="card">
     <label>
       <span>Admin key</span>
@@ -152,6 +165,12 @@ document.getElementById("issue").addEventListener("click", async () => {
     btn.disabled = false;
     btn.textContent = "Issue license";
   }
+});
+
+document.getElementById("gen-btn").addEventListener("click", () => {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
+  document.getElementById("gen-out").value = hex;
 });
 
 document.addEventListener("click", async (e) => {
