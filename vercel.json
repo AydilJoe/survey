@@ -5,7 +5,9 @@
   "buildCommand": null,
   "installCommand": null,
   "rewrites": [
-    { "source": "/", "destination": "/landing" }
+    { "source": "/", "destination": "/landing/index.html" },
+    { "source": "/app", "destination": "/app/index.html" },
+    { "source": "/landing", "destination": "/landing/index.html" }
   ],
   "headers": [
     {
