@@ -14,11 +14,22 @@ module.exports = async function handler(req, res) {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
     const email = String(body.email || "").trim();
     const name = String(body.name || "").trim();
+    const bankCode = String(body.bank_code || "").trim();
 
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       res.status(400).json({ error: "Valid email required" });
       return;
     }
+
+    // Minimal allowlist so a hostile client can't smuggle arbitrary query
+    // string values via bank_code. Keep in sync with the <select> in the app.
+    const ALLOWED_BANKS = new Set([
+      "MB2U0227", "BCBB0235", "PBB0233", "HLB0224", "RHB0218",
+      "BIMB0340", "AMBB0209", "UOB0226", "OCBC0229", "HSBC0223",
+      "BSN0601", "BKRM0602", "ABB0233", "ABMB0212", "BMMB0341",
+      "CIT0219", "SCB0216", "KFH0346",
+    ]);
+    const safeBank = ALLOWED_BANKS.has(bankCode) ? bankCode : "";
 
     const appBase = process.env.APP_BASE_URL || "https://duitful.app";
 
@@ -32,7 +43,19 @@ module.exports = async function handler(req, res) {
       reference: "duitful_pro",
     });
 
-    res.status(200).json({ url: bill.url, id: bill.id });
+    // Direct Payment Gateway bypass
+    // https://www.billplz-sandbox.com/api#direct-payment-gateway-bypass-billplz-bill-page
+    // Appends auto_submit=true + bank_code so Billplz forwards the buyer
+    // straight to their bank's FPX login, skipping Billplz's picker page.
+    // Exact param names are documented there — if sandbox testing shows
+    // Billplz expects a different key, change the line below.
+    let url = bill.url;
+    if (safeBank) {
+      const sep = url.includes("?") ? "&" : "?";
+      url = `${url}${sep}auto_submit=true&bank_code=${encodeURIComponent(safeBank)}`;
+    }
+
+    res.status(200).json({ url, id: bill.id });
   } catch (err) {
     console.error("create-bill failed:", err);
     res.status(500).json({ error: "Could not create bill", detail: String(err.message || err) });

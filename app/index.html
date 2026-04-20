@@ -560,7 +560,33 @@
     <dialog id="fpx-email-dialog" class="edit-dialog">
       <form id="fpx-email-form" method="dialog">
         <h2>Pay with FPX / e-wallet</h2>
-        <p class="hint">We'll send your license key to this email after payment. We also show it on the confirmation page, so you'll get it either way.</p>
+        <p class="hint">Pick your bank to skip the Billplz selection page and go straight to your bank's login. We'll email the license key after payment.</p>
+        <label class="field">
+          <span>Bank / e-wallet</span>
+          <select id="fpx-bank" autocomplete="off">
+            <option value="">Let me choose on the next page</option>
+            <optgroup label="FPX — Online banking">
+              <option value="MB2U0227">Maybank2U</option>
+              <option value="BCBB0235">CIMB Clicks</option>
+              <option value="PBB0233">Public Bank</option>
+              <option value="HLB0224">Hong Leong Connect</option>
+              <option value="RHB0218">RHB Now</option>
+              <option value="BIMB0340">Bank Islam</option>
+              <option value="AMBB0209">AmOnline</option>
+              <option value="UOB0226">UOB</option>
+              <option value="OCBC0229">OCBC</option>
+              <option value="HSBC0223">HSBC</option>
+              <option value="BSN0601">BSN</option>
+              <option value="BKRM0602">Bank Rakyat</option>
+              <option value="ABB0233">Affin Bank</option>
+              <option value="ABMB0212">Alliance Bank</option>
+              <option value="BMMB0341">Bank Muamalat</option>
+              <option value="CIT0219">CitiBank</option>
+              <option value="SCB0216">Standard Chartered</option>
+              <option value="KFH0346">KFH</option>
+            </optgroup>
+          </select>
+        </label>
         <label class="field">
           <span>Email</span>
           <input type="email" id="fpx-email" required autocomplete="email" inputmode="email" placeholder="you@example.com">
@@ -699,6 +725,6 @@
       </div>
     </dialog>
 
-    <script src="/app/script.js?v=39"></script>
+    <script src="/app/script.js?v=40"></script>
   </body>
 </html>

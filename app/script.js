@@ -1347,8 +1347,10 @@ document.getElementById("paywall-fpx")?.addEventListener("click", () => { closeP
 document.getElementById("fpx-cancel")?.addEventListener("click", closeFpxDialog);
 document.getElementById("fpx-continue")?.addEventListener("click", async () => {
   const input = document.getElementById("fpx-email");
+  const bankSel = document.getElementById("fpx-bank");
   const err = document.getElementById("fpx-error");
   const email = (input?.value || "").trim();
+  const bankCode = (bankSel?.value || "").trim();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     if (err) { err.textContent = "Enter a valid email address."; err.hidden = false; }
     return;
@@ -1360,7 +1362,7 @@ document.getElementById("fpx-continue")?.addEventListener("click", async () => {
     const r = await fetch("/api/billplz/create-bill", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, bank_code: bankCode || undefined }),
     });
     const data = await r.json();
     if (!r.ok || !data.url) throw new Error(data.error || "Could not start checkout");
