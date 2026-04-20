@@ -355,6 +355,16 @@
       position: relative;
       padding: 44px 16px 16px;
     }
+    .phone-screen img.screenshot {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      border-radius: 34px;
+      padding: 0;
+    }
 
     .phone-label {
       position: absolute;
@@ -938,54 +948,14 @@
         </div>
 
         <!-- Phone mockup -->
-        <div class="phone-wrap reveal" aria-hidden="true">
-          <span class="phone-label top">On-device · encrypted</span>
+        <div class="phone-wrap reveal">
+          <span class="phone-label top" aria-hidden="true">On-device · encrypted</span>
           <div class="phone">
             <div class="phone-screen">
-              <div class="mini-card mc-amount">
-                <div class="mc-label">Balance left this month</div>
-                <div class="amount"><span class="sym">RM</span>2,847<span class="cents">.50</span></div>
-                <div class="progress" aria-hidden="true"><span></span></div>
-                <div class="mc-meta">
-                  <span>Spent RM 2,152</span>
-                  <span>12 days left</span>
-                </div>
-              </div>
-              <div class="mini-card bills">
-                <div class="mc-label">Upcoming · next 7 days</div>
-                <div class="row">
-                  <div class="left">
-                    <span class="chip due">23</span>
-                    <span>Atome · iPhone 15</span>
-                  </div>
-                  <span class="amt">RM 416</span>
-                </div>
-                <div class="row">
-                  <div class="left">
-                    <span class="chip">25</span>
-                    <span>Maybank CC</span>
-                  </div>
-                  <span class="amt">RM 850</span>
-                </div>
-                <div class="row">
-                  <div class="left">
-                    <span class="chip">28</span>
-                    <span>TNB electricity</span>
-                  </div>
-                  <span class="amt">RM 142</span>
-                </div>
-              </div>
-              <div class="mini-card">
-                <div class="mc-label">Debt-free by</div>
-                <div style="display:flex; justify-content:space-between; align-items:baseline;">
-                  <span class="amount" style="font-size:24px;">Mar&nbsp;2027</span>
-                  <span style="font-family:var(--font-mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent);">ON TRACK</span>
-                </div>
-                <div style="margin-top:10px; font-size:11px; color:var(--muted);">Avalanche · 3 debts · RM 18,420 left</div>
-              </div>
+              <img class="screenshot" src="screenshots/hero-home.png" alt="Duitful home screen showing RM 428.30 balance left for the month, upcoming freelance income and debt payments" loading="eager" width="300" height="608">
             </div>
           </div>
-          <span class="phone-label bottom">Auto-FX · MYR · SGD</span>
+          <span class="phone-label bottom" aria-hidden="true">Auto-FX · MYR · SGD</span>
         </div>
       </div>
     </div>
@@ -1112,29 +1082,29 @@
 
           <div class="debt-row">
             <div class="debt-meta">
-              <span class="name">Credit card</span>
-              <span class="apr high">18% APR</span>
+              <span class="name">Maybank Visa</span>
+              <span class="apr high">24% APR</span>
             </div>
             <div class="debt-bar" aria-hidden="true">
               <div class="paid cc"></div>
             </div>
             <div class="debt-footnote">
               <span>Paid 82%</span>
-              <span>Clear · Aug 2026</span>
+              <span>Clear · Oct 2026</span>
             </div>
           </div>
 
           <div class="debt-row">
             <div class="debt-meta">
-              <span class="name">Personal loan</span>
-              <span class="apr low">7% APR</span>
+              <span class="name">HSBC Credit Card</span>
+              <span class="apr high">18% APR</span>
             </div>
             <div class="debt-bar" aria-hidden="true">
               <div class="paid loan"></div>
             </div>
             <div class="debt-footnote">
               <span>Paid 28%</span>
-              <span>Clear · Mar 2027</span>
+              <span>Clear · May 2027</span>
             </div>
           </div>
 
