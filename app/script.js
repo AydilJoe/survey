@@ -18,6 +18,7 @@ const emptyState = () => ({
   currency: "MYR",
   reminders: { enabled: true, daysAhead: 3, notifications: false, lastNotified: {} },
   pro: false,
+  license: null,
   ocrUsage: { month: "", scans: 0 },
   pendingTxns: [],
   guideSeen: false,
@@ -42,6 +43,7 @@ function coerceState(parsed) {
         lastNotified: (parsed.reminders && parsed.reminders.lastNotified) || {},
       },
       pro: !!parsed.pro,
+      license: parsed.license && typeof parsed.license === "object" ? parsed.license : null,
       ocrUsage: parsed.ocrUsage && typeof parsed.ocrUsage === "object"
         ? { month: String(parsed.ocrUsage.month || ""), scans: Number(parsed.ocrUsage.scans) || 0 }
         : { month: "", scans: 0 },
@@ -1102,10 +1104,22 @@ function openPaywall(feature) {
   const dlg = document.getElementById("paywall-dialog");
   const reason = document.getElementById("paywall-reason");
   const hint = document.getElementById("paywall-hint");
+  const native = isNative();
   if (reason) reason.textContent = PAYWALL_COPY[feature] || "Unlock everything. Pay once.";
-  if (hint) hint.textContent = isNative()
+  if (hint) hint.textContent = native
     ? ""
-    : "Tip: the web version is fully unlocked. Install the app for a permanent one-time purchase.";
+    : "Pay with FPX, Touch 'n Go, GrabPay, Boost or any card. You get a license key you can paste on any device.";
+
+  // Native = App Store / Play IAP path. Web = Billplz FPX path.
+  const buyBtn = document.getElementById("paywall-buy");
+  const restoreBtn = document.getElementById("paywall-restore");
+  const webActions = document.getElementById("paywall-web-actions");
+  const activateBtn = document.getElementById("paywall-activate");
+  if (buyBtn) buyBtn.hidden = !native;
+  if (restoreBtn) restoreBtn.hidden = !native;
+  if (webActions) webActions.hidden = native;
+  if (activateBtn) activateBtn.hidden = native;
+
   if (dlg && typeof dlg.showModal === "function") dlg.showModal();
   else if (dlg) dlg.setAttribute("open", "");
 }
@@ -1196,8 +1210,11 @@ function renderProControls() {
     actions.hidden = false;
     const unlock = document.getElementById("btn-pro-unlock");
     const restore = document.getElementById("btn-pro-restore");
-    if (unlock) unlock.hidden = proNow;
+    const activate = document.getElementById("btn-pro-activate");
+    const hasLicense = !!(state && state.license && state.license.token);
+    if (unlock) unlock.hidden = proNow && hasLicense;
     if (restore) restore.hidden = proNow || !native;
+    if (activate) activate.hidden = native || hasLicense;
   }
 }
 
@@ -1205,6 +1222,154 @@ document.getElementById("btn-pro-unlock")?.addEventListener("click", () => { ope
 document.getElementById("btn-pro-restore")?.addEventListener("click", restorePurchases);
 document.getElementById("paywall-buy")?.addEventListener("click", async () => { await purchasePro(); closePaywall(); });
 document.getElementById("paywall-restore")?.addEventListener("click", async () => { await restorePurchases(); closePaywall(); });
+
+/* ---------- Web Pro: license activation + Billplz FPX checkout ---------- */
+
+const LICENSE_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEAA9RWb3uCMtVZWIVCQXAmEKpBwH0
+stz6FAJVVkgALENTdj+Ge2JXuORpNgl2SttWZkqJx/nNe1X/BRa9ee6cdg==
+-----END PUBLIC KEY-----`;
+
+let _licensePublicKey = null;
+async function getLicensePublicKey() {
+  if (_licensePublicKey) return _licensePublicKey;
+  const pem = LICENSE_PUBLIC_KEY_PEM
+    .replace(/-----BEGIN PUBLIC KEY-----/, "")
+    .replace(/-----END PUBLIC KEY-----/, "")
+    .replace(/\s+/g, "");
+  const der = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
+  _licensePublicKey = await crypto.subtle.importKey(
+    "spki",
+    der,
+    { name: "ECDSA", namedCurve: "P-256" },
+    false,
+    ["verify"]
+  );
+  return _licensePublicKey;
+}
+
+function b64urlToBytes(s) {
+  const pad = "=".repeat((4 - (s.length % 4)) % 4);
+  const b64 = (s + pad).replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+}
+function b64urlToString(s) {
+  return new TextDecoder().decode(b64urlToBytes(s));
+}
+
+async function verifyLicense(raw) {
+  const token = String(raw || "").trim();
+  const dot = token.indexOf(".");
+  if (dot < 1) throw new Error("Malformed key");
+  const payloadB64 = token.slice(0, dot);
+  const sigB64 = token.slice(dot + 1);
+
+  const key = await getLicensePublicKey();
+  const sig = b64urlToBytes(sigB64);
+  const signed = new TextEncoder().encode(payloadB64);
+  const valid = await crypto.subtle.verify(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    sig,
+    signed
+  );
+  if (!valid) throw new Error("Signature doesn't match");
+
+  let payload;
+  try { payload = JSON.parse(b64urlToString(payloadB64)); }
+  catch { throw new Error("Payload not readable"); }
+  if (payload.product && payload.product !== "duitful_pro") {
+    throw new Error("License is for a different product");
+  }
+  return payload;
+}
+
+async function activateLicenseToken(token) {
+  const payload = await verifyLicense(token);
+  if (state) {
+    state.pro = true;
+    state.license = { token, sub: payload.sub, email: payload.email, iat: payload.iat, activatedAt: Date.now() };
+    save();
+    renderAll();
+  }
+  return payload;
+}
+
+function openLicenseDialog() {
+  const dlg = document.getElementById("license-dialog");
+  const input = document.getElementById("license-input");
+  const err = document.getElementById("license-error");
+  const ok = document.getElementById("license-ok");
+  if (input) input.value = "";
+  if (err) { err.hidden = true; err.textContent = ""; }
+  if (ok) ok.hidden = true;
+  if (dlg) { try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); } }
+  setTimeout(() => input?.focus(), 50);
+}
+function closeLicenseDialog() {
+  const dlg = document.getElementById("license-dialog");
+  if (dlg) { try { dlg.close(); } catch { dlg.removeAttribute("open"); } }
+}
+
+document.getElementById("btn-pro-activate")?.addEventListener("click", openLicenseDialog);
+document.getElementById("paywall-activate")?.addEventListener("click", () => { closePaywall(); openLicenseDialog(); });
+document.getElementById("license-cancel")?.addEventListener("click", closeLicenseDialog);
+document.getElementById("license-verify")?.addEventListener("click", async () => {
+  const input = document.getElementById("license-input");
+  const err = document.getElementById("license-error");
+  const ok = document.getElementById("license-ok");
+  const raw = input?.value || "";
+  try {
+    await activateLicenseToken(raw);
+    if (err) err.hidden = true;
+    if (ok) ok.hidden = false;
+    setTimeout(closeLicenseDialog, 900);
+  } catch (e) {
+    if (ok) ok.hidden = true;
+    if (err) { err.textContent = e.message || "Invalid license"; err.hidden = false; }
+  }
+});
+
+/* FPX email prompt → POST to /api/billplz/create-bill → redirect to checkout */
+function openFpxDialog() {
+  const dlg = document.getElementById("fpx-email-dialog");
+  const err = document.getElementById("fpx-error");
+  if (err) { err.hidden = true; err.textContent = ""; }
+  if (dlg) { try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); } }
+  setTimeout(() => document.getElementById("fpx-email")?.focus(), 50);
+}
+function closeFpxDialog() {
+  const dlg = document.getElementById("fpx-email-dialog");
+  if (dlg) { try { dlg.close(); } catch { dlg.removeAttribute("open"); } }
+}
+
+document.getElementById("paywall-fpx")?.addEventListener("click", () => { closePaywall(); openFpxDialog(); });
+document.getElementById("fpx-cancel")?.addEventListener("click", closeFpxDialog);
+document.getElementById("fpx-continue")?.addEventListener("click", async () => {
+  const input = document.getElementById("fpx-email");
+  const err = document.getElementById("fpx-error");
+  const email = (input?.value || "").trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    if (err) { err.textContent = "Enter a valid email address."; err.hidden = false; }
+    return;
+  }
+  if (err) err.hidden = true;
+  const btn = document.getElementById("fpx-continue");
+  if (btn) { btn.disabled = true; btn.textContent = "Redirecting…"; }
+  try {
+    const r = await fetch("/api/billplz/create-bill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.url) throw new Error(data.error || "Could not start checkout");
+    window.location.href = data.url;
+  } catch (e) {
+    if (err) { err.textContent = e.message || "Something went wrong"; err.hidden = false; }
+    if (btn) { btn.disabled = false; btn.textContent = "Continue to payment"; }
+  }
+});
 
 async function scheduleNativeReminders() {
   if (!isNative()) return;
