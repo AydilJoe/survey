@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=30" />
+    <link rel="stylesheet" href="/app/styles.css?v=31" />
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -30,6 +30,15 @@
           </svg>
         </div>
         <div class="splash-title">Duitful</div>
+        <div id="lock-welcome" class="lock-welcome" hidden>
+          <p class="lock-welcome-lead">Welcome.</p>
+          <p class="lock-welcome-body">A private tracker for your money and debts — entirely on this device.</p>
+          <ul class="lock-welcome-points">
+            <li><span aria-hidden="true">•</span> No account, no cloud, no tracking</li>
+            <li><span aria-hidden="true">•</span> Encrypted with a passcode you choose</li>
+            <li><span aria-hidden="true">•</span> Works offline, forever</li>
+          </ul>
+        </div>
         <div class="lock-sub" id="lock-sub">Enter your passcode</div>
         <form id="lock-form" class="lock-form" autocomplete="off">
           <input type="password" id="lock-input" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Passcode" placeholder="Passcode" />
@@ -618,6 +627,6 @@
       </form>
     </dialog>
 
-    <script src="/app/script.js?v=35"></script>
+    <script src="/app/script.js?v=36"></script>
   </body>
 </html>
