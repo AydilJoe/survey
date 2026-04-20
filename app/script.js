@@ -2176,13 +2176,6 @@ const GUIDE_STEPS = [
       </ul>`,
   },
   {
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 19h4"/><path d="M12 6v6l3 2"/></svg>`,
-    title: "Add Duitful to your home screen",
-    sub: "Fullscreen, offline, one-tap access.",
-    body: "",
-    install: true,
-  },
-  {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z"/></svg>`,
     title: "Home — your balance at a glance",
     sub: "See where the month stands in one look.",
@@ -2291,6 +2284,88 @@ function maybeOpenGuideAfterUnlock() {
     setTimeout(() => openGuide(), 250);
   }
 }
+
+/* ---------- PWA install banner (one-tap on Android, iOS modal fallback) ---------- */
+
+const INSTALL_DISMISS_KEY = "duit-tracker.install-dismissed-at";
+const INSTALL_DISMISS_DAYS = 14;
+let deferredInstallPrompt = null;
+
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // If the user is already unlocked, surface the banner now.
+  if (!document.getElementById("lock")?.hidden === false && aesKey) {
+    maybeShowInstallBanner();
+  }
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  hideInstallBanner();
+  localStorage.removeItem(INSTALL_DISMISS_KEY);
+});
+
+function installDismissedRecently() {
+  const ts = Number(localStorage.getItem(INSTALL_DISMISS_KEY) || 0);
+  if (!ts) return false;
+  return Date.now() - ts < INSTALL_DISMISS_DAYS * 24 * 60 * 60 * 1000;
+}
+
+function canOfferInstall() {
+  if (isStandalonePWA()) return false;
+  if (installDismissedRecently()) return false;
+  const platform = detectInstallPlatform();
+  return !!deferredInstallPrompt || platform === "ios-safari";
+}
+
+function showInstallBanner() {
+  const el = document.getElementById("pwa-install-banner");
+  if (el) el.hidden = false;
+}
+
+function hideInstallBanner() {
+  const el = document.getElementById("pwa-install-banner");
+  if (el) el.hidden = true;
+}
+
+function maybeShowInstallBanner() {
+  if (canOfferInstall()) {
+    // Wait a beat so it doesn't land on top of the welcome tour.
+    setTimeout(() => {
+      if (document.getElementById("guide-dialog")?.open) return;
+      showInstallBanner();
+    }, 600);
+  }
+}
+
+async function triggerInstall() {
+  if (deferredInstallPrompt) {
+    try {
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+    } catch { /* user cancelled */ }
+    deferredInstallPrompt = null;
+    hideInstallBanner();
+    return;
+  }
+  if (detectInstallPlatform() === "ios-safari") {
+    const dlg = document.getElementById("pwa-install-ios");
+    if (dlg) { try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); } }
+  }
+}
+
+document.getElementById("pwa-install-accept")?.addEventListener("click", () => { triggerInstall(); });
+document.getElementById("pwa-install-dismiss")?.addEventListener("click", () => {
+  localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now()));
+  hideInstallBanner();
+});
+document.getElementById("pwa-ios-close")?.addEventListener("click", () => {
+  const dlg = document.getElementById("pwa-install-ios");
+  if (dlg) { try { dlg.close(); } catch { dlg.removeAttribute("open"); } }
+  localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now()));
+  hideInstallBanner();
+});
 
 document.getElementById("guide-next")?.addEventListener("click", () => {
   if (guideStep >= GUIDE_STEPS.length - 1) { finishGuide(); return; }
@@ -2429,6 +2504,7 @@ async function handleUnlock(passcode) {
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
   maybeOpenGuideAfterUnlock();
+  maybeShowInstallBanner();
 }
 
 async function handleSetup(passcode, confirm, initialState) {
@@ -2450,6 +2526,7 @@ async function handleSetup(passcode, confirm, initialState) {
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
   maybeOpenGuideAfterUnlock();
+  maybeShowInstallBanner();
 }
 
 setInterval(() => { fireDueNotifications().catch(() => {}); }, 3600000);

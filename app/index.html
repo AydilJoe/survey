@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/app/styles.css?v=32" />
+    <link rel="stylesheet" href="/app/styles.css?v=33" />
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -630,6 +630,37 @@
       </form>
     </dialog>
 
-    <script src="/app/script.js?v=37"></script>
+    <div id="pwa-install-banner" class="pwa-install-banner" hidden role="region" aria-label="Install Duitful">
+      <div class="pwa-install-body">
+        <span class="pwa-install-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/><circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg>
+        </span>
+        <div class="pwa-install-text">
+          <strong>Install Duitful</strong>
+          <span>Fullscreen, works offline, one-tap from home.</span>
+        </div>
+      </div>
+      <div class="pwa-install-actions">
+        <button type="button" id="pwa-install-dismiss" class="ghost">Later</button>
+        <button type="button" id="pwa-install-accept" class="primary">Install</button>
+      </div>
+    </div>
+
+    <dialog id="pwa-install-ios" class="pwa-install-ios">
+      <div class="pwa-install-ios-inner">
+        <h2>Add Duitful to your home screen</h2>
+        <p class="hint">Three taps — then it opens fullscreen, like an app.</p>
+        <ol class="guide-steps">
+          <li>Tap the <strong>Share</strong> button <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-ico"><path d="M12 16V4M8 8l4-4 4 4"/><rect x="4" y="10" width="16" height="11" rx="2"/></svg> at the bottom of Safari.</li>
+          <li>Scroll and tap <strong>Add to Home Screen</strong>.</li>
+          <li>Tap <strong>Add</strong>.</li>
+        </ol>
+        <div class="button-row">
+          <button type="button" id="pwa-ios-close" class="primary">Got it</button>
+        </div>
+      </div>
+    </dialog>
+
+    <script src="/app/script.js?v=38"></script>
   </body>
 </html>
