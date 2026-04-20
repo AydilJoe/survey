@@ -1193,28 +1193,40 @@ async function restorePurchases() {
   }
 }
 
+function hasPurchasedPro() {
+  return !!(state && state.pro);
+}
+
 function renderProControls() {
   const badge = document.getElementById("pro-badge");
   const status = document.getElementById("pro-status");
   const actions = document.getElementById("pro-actions");
-  const proNow = isPro();
   const native = isNative();
-  if (badge) badge.hidden = !proNow;
+  const purchased = hasPurchasedPro();
+
+  // Badge reflects real purchase state, not the free-on-web feature gate.
+  if (badge) badge.hidden = !purchased;
+
   if (status) {
-    if (proNow) status.textContent = native
-      ? "Pro unlocked. Thanks for supporting the app!"
-      : "Duitful Pro is free on the web. Install the app to unlock it permanently.";
-    else status.textContent = "Unlock unlimited tracking, receipt scans, reminders and installments. One-time purchase — no subscription.";
+    if (purchased) {
+      status.textContent = native
+        ? "Pro unlocked. Thanks for supporting the app!"
+        : "Pro unlocked — thanks for supporting Duitful!";
+    } else if (native) {
+      status.textContent = "Unlock unlimited tracking, receipt scans, reminders and installments. One-time purchase — no subscription.";
+    } else {
+      status.textContent = "Web features are free — no limits. Buy a license to support development and carry Pro forward to the native app when it ships.";
+    }
   }
+
   if (actions) {
     actions.hidden = false;
     const unlock = document.getElementById("btn-pro-unlock");
     const restore = document.getElementById("btn-pro-restore");
     const activate = document.getElementById("btn-pro-activate");
-    const hasLicense = !!(state && state.license && state.license.token);
-    if (unlock) unlock.hidden = proNow && hasLicense;
-    if (restore) restore.hidden = proNow || !native;
-    if (activate) activate.hidden = native || hasLicense;
+    if (unlock) unlock.hidden = purchased;
+    if (restore) restore.hidden = purchased || !native;
+    if (activate) activate.hidden = native || purchased;
   }
 }
 
