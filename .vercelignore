@@ -1,0 +1,10 @@
+landing/
+prompts/
+native/
+resources/
+scripts/
+.github/
+pnpm-lock.yaml
+package.json
+capacitor.config.json
+README.md
