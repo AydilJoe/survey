@@ -149,7 +149,10 @@ document.getElementById("issue").addEventListener("click", async () => {
       body: JSON.stringify({ email, sub: sub || undefined, note: note || undefined }),
     });
     const data = await r.json();
-    if (!r.ok || !data.license) throw new Error(data.error || "Failed");
+    if (!r.ok || !data.license) {
+      const base = data.error || "Failed";
+      throw new Error(data.detail ? `${base} — ${data.detail}` : base);
+    }
     out.value = data.license;
     payload.value = JSON.stringify(data.payload, null, 2);
     outCard.hidden = false;
