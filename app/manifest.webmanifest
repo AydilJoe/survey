@@ -1,14 +1,53 @@
 {
-  "name": "Duitful",
+  "name": "Duitful — Money & Debt Tracker",
   "short_name": "Duitful",
-  "description": "Be duitful with your duit. Privacy-first money & debt tracker.",
+  "description": "Privacy-first money and debt tracker built for Malaysia. Avalanche payoff, BNPL tracking, receipt OCR, on-device encryption.",
+  "id": "/app",
   "start_url": "/app",
   "scope": "/app",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#e8dfd0",
   "theme_color": "#e8dfd0",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["finance", "productivity", "lifestyle"],
   "icons": [
-    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
-  ]
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Log a spend",
+      "short_name": "Spend",
+      "description": "Quickly log a daily expense",
+      "url": "/app?action=spend",
+      "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Pay a debt",
+      "short_name": "Pay debt",
+      "description": "Log an extra debt payment",
+      "url": "/app?action=debt",
+      "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Scan a receipt",
+      "short_name": "Scan",
+      "description": "OCR a receipt into an expense",
+      "url": "/app?action=scan",
+      "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/hero-home.png",
+      "sizes": "1206x2622",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Home — balance left this month plus upcoming income and debts"
+    }
+  ],
+  "prefer_related_applications": false
 }
