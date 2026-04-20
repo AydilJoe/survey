@@ -13,6 +13,10 @@ const TESS_CORE = "5.1.0";
 const files = [
   { url: `https://unpkg.com/tesseract.js@${TESS_JS}/dist/tesseract.min.js`,       path: `${OUT}/tesseract.min.js` },
   { url: `https://unpkg.com/tesseract.js@${TESS_JS}/dist/worker.min.js`,          path: `${OUT}/worker.min.js` },
+  // SIMD+LSTM variant (default in v5 — used when browser supports SIMD)
+  { url: `https://unpkg.com/tesseract.js-core@${TESS_CORE}/tesseract-core-simd-lstm.wasm.js`, path: `${OUT}/tesseract-core-simd-lstm.wasm.js` },
+  { url: `https://unpkg.com/tesseract.js-core@${TESS_CORE}/tesseract-core-simd-lstm.wasm`,    path: `${OUT}/tesseract-core-simd-lstm.wasm` },
+  // Non-SIMD fallback
   { url: `https://unpkg.com/tesseract.js-core@${TESS_CORE}/tesseract-core.wasm.js`, path: `${OUT}/tesseract-core.wasm.js` },
   { url: `https://unpkg.com/tesseract.js-core@${TESS_CORE}/tesseract-core.wasm`,    path: `${OUT}/tesseract-core.wasm` },
   { url: `https://tessdata.projectnaptha.com/4.0.0_fast/eng.traineddata.gz`,      path: `${OUT}/eng.traineddata.gz` },

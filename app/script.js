@@ -2826,12 +2826,15 @@ async function getTesseractWorker(logger) {
   const Tess = await loadTesseract();
   if (!tesseractWorker) {
     const useLocal = await detectLocalTesseract();
+    // Workers need absolute URLs — relative paths fail in importScripts()
+    // inside Capacitor's WebView (base URL differs in worker context).
+    const base = useLocal ? new URL("vendor/tesseract/", location.href).href : undefined;
     const opts = useLocal
       ? {
           logger,
-          workerPath: "vendor/tesseract/worker.min.js",
-          corePath: "vendor/tesseract/",
-          langPath: "vendor/tesseract/",
+          workerPath: base + "worker.min.js",
+          corePath: base,
+          langPath: base,
         }
       : { logger };
     tesseractWorker = await Tess.createWorker("eng", 1, opts);
