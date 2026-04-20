@@ -4,7 +4,6 @@
   "trailingSlash": false,
   "buildCommand": null,
   "installCommand": null,
-  "outputDirectory": ".",
   "headers": [
     {
       "source": "/(.*)",
