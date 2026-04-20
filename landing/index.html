@@ -181,6 +181,8 @@
       transition: opacity 0.2s;
     }
     .btn-store:hover { opacity: 0.88; }
+    .btn-store.is-soon { cursor: default; opacity: 0.72; }
+    .btn-store.is-soon:hover { opacity: 0.72; }
     .btn-store .small { font-size: 10px; opacity: 0.75; font-family: var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; display: block; }
     .btn-store .big { font-family: var(--font-serif); font-size: 18px; font-weight: 500; letter-spacing: -0.01em; }
     .btn-store svg { flex-shrink: 0; }
@@ -925,25 +927,25 @@
             </a>
             <a href="#features" class="btn btn-ghost">See features</a>
           </div>
-          <div class="store-row" aria-label="Download on App Store or Google Play">
-            <a href="#" class="btn-store" aria-label="Download on the App Store (coming soon)">
+          <div class="store-row" aria-label="iOS and Android apps coming soon">
+            <span class="btn-store is-soon" role="img" aria-label="App Store — coming soon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.04c0-2.9 2.37-4.28 2.47-4.34-1.34-1.96-3.43-2.23-4.17-2.26-1.77-.18-3.45 1.04-4.35 1.04-.9 0-2.28-1.02-3.74-.99-1.93.03-3.7 1.12-4.7 2.84-2 3.46-.51 8.59 1.44 11.4.95 1.37 2.09 2.92 3.58 2.86 1.44-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.4 3.5-2.78 1.1-1.6 1.56-3.14 1.58-3.22-.03-.01-3.02-1.16-3.05-4.62zM14.23 3.7c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.37 1.73-.74.85-1.38 2.22-1.21 3.53 1.29.1 2.6-.65 3.4-1.6z"/></svg>
               <div>
-                <span class="small">Download on the</span>
+                <span class="small">Coming soon</span>
                 <span class="big">App Store</span>
               </div>
-            </a>
-            <a href="#" class="btn-store" aria-label="Get it on Google Play (coming soon)">
+            </span>
+            <span class="btn-store is-soon" role="img" aria-label="Google Play — coming soon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.3c-.38.4-.6 1.03-.6 1.84v15.72c0 .81.22 1.44.6 1.84l.08.07 8.81-8.81v-.2L3.68 2.23l-.08.07zm11.72 8.74L13.47 9.2l2.66-1.51 3.65 2.08c1.04.59 1.04 1.56 0 2.16l-3.65 2.08-2.66-1.51 1.85-1.46zm-2.4.97l-8.82 8.81c.34.36.9.4 1.54.05l10.41-5.92-3.13-2.94zm0-1.92l3.13-2.94L5.64 1.22C5 .87 4.44.92 4.1 1.27l8.82 8.82z"/></svg>
               <div>
-                <span class="small">Get it on</span>
+                <span class="small">Coming soon</span>
                 <span class="big">Google Play</span>
               </div>
-            </a>
+            </span>
           </div>
           <div class="hero-meta">
             <span class="dot" aria-hidden="true"></span>
-            <span>Coming Q2 2026 · Web app available now</span>
+            <span>iOS &amp; Android coming soon · Web app available now</span>
           </div>
         </div>
 
@@ -952,7 +954,7 @@
           <span class="phone-label top" aria-hidden="true">On-device · encrypted</span>
           <div class="phone">
             <div class="phone-screen">
-              <img class="screenshot" src="screenshots/hero-home.png" alt="Duitful home screen showing RM 428.30 balance left for the month, upcoming freelance income and debt payments" loading="eager" width="300" height="608">
+              <img class="screenshot" src="screenshots/hero-home.PNG" alt="Duitful home screen showing RM 428.30 balance left for the month, upcoming freelance income and debt payments" loading="eager" width="300" height="608">
             </div>
           </div>
           <span class="phone-label bottom" aria-hidden="true">Auto-FX · MYR · SGD</span>
@@ -1244,20 +1246,20 @@
     <div class="container">
       <div class="reveal">
         <h2>Ready to be <em>duitful</em>?</h2>
-        <p>Start with the web app today. Take the iOS and Android apps with you when they ship in Q2 2026.</p>
+        <p>Start with the web app today. The iOS and Android apps are coming soon.</p>
         <div class="store-row">
           <a href="https://aydiljoe.github.io/survey/" target="_blank" rel="noopener" class="btn btn-primary">
             Open the web app
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
           </a>
-          <a href="#" class="btn-store" aria-label="Download on the App Store (coming soon)">
+          <span class="btn-store is-soon" role="img" aria-label="App Store — coming soon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.04c0-2.9 2.37-4.28 2.47-4.34-1.34-1.96-3.43-2.23-4.17-2.26-1.77-.18-3.45 1.04-4.35 1.04-.9 0-2.28-1.02-3.74-.99-1.93.03-3.7 1.12-4.7 2.84-2 3.46-.51 8.59 1.44 11.4.95 1.37 2.09 2.92 3.58 2.86 1.44-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.4 3.5-2.78 1.1-1.6 1.56-3.14 1.58-3.22-.03-.01-3.02-1.16-3.05-4.62zM14.23 3.7c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.37 1.73-.74.85-1.38 2.22-1.21 3.53 1.29.1 2.6-.65 3.4-1.6z"/></svg>
-            <div><span class="small">Download on the</span><span class="big">App Store</span></div>
-          </a>
-          <a href="#" class="btn-store" aria-label="Get it on Google Play (coming soon)">
+            <div><span class="small">Coming soon</span><span class="big">App Store</span></div>
+          </span>
+          <span class="btn-store is-soon" role="img" aria-label="Google Play — coming soon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.3c-.38.4-.6 1.03-.6 1.84v15.72c0 .81.22 1.44.6 1.84l.08.07 8.81-8.81v-.2L3.68 2.23l-.08.07zm11.72 8.74L13.47 9.2l2.66-1.51 3.65 2.08c1.04.59 1.04 1.56 0 2.16l-3.65 2.08-2.66-1.51 1.85-1.46zm-2.4.97l-8.82 8.81c.34.36.9.4 1.54.05l10.41-5.92-3.13-2.94zm0-1.92l3.13-2.94L5.64 1.22C5 .87 4.44.92 4.1 1.27l8.82 8.82z"/></svg>
-            <div><span class="small">Get it on</span><span class="big">Google Play</span></div>
-          </a>
+            <div><span class="small">Coming soon</span><span class="big">Google Play</span></div>
+          </span>
         </div>
       </div>
     </div>
