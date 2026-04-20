@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Duitful — License signing keypair generator</title>
+<style>
+  :root {
+    --bg: #efe6d6;
+    --ink: #2a2420;
+    --muted: #6b5e52;
+    --primary: #c8704b;
+    --card: #fffaf2;
+    --line: rgba(42,36,32,0.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    padding: 1.2rem;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 {
+    font: 500 1.6rem/1.2 "Fraunces", "Georgia", serif;
+    margin: 0.4rem 0 0.2rem;
+  }
+  .hint { color: var(--muted); font-size: 0.92rem; margin: 0 0 1.2rem; }
+  .card {
+    background: var(--card);
+    border: 0.5px solid var(--line);
+    border-radius: 16px;
+    padding: 1rem;
+    margin: 0.8rem 0;
+    box-shadow: 0 4px 18px rgba(42,36,32,0.05);
+  }
+  .card h2 {
+    margin: 0 0 0.6rem;
+    font: 500 1rem/1.2 "Fraunces", serif;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .card h2 .tag {
+    font: 500 0.65rem/1 ui-monospace, SFMono-Regular, monospace;
+    letter-spacing: 0.12em;
+    padding: 0.25rem 0.45rem;
+    border-radius: 5px;
+    text-transform: uppercase;
+  }
+  .tag.public { background: rgba(92,152,110,0.15); color: #3a6b50; }
+  .tag.secret { background: rgba(200,112,75,0.18); color: #8a3f1c; }
+  textarea {
+    width: 100%;
+    min-height: 180px;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, monospace;
+    border: 0.5px solid var(--line);
+    border-radius: 10px;
+    padding: 0.6rem 0.7rem;
+    background: #fbf5ea;
+    color: var(--ink);
+    resize: vertical;
+  }
+  button {
+    font: 500 0.95rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 0.75rem 1.1rem;
+    border-radius: 12px;
+    border: 0.5px solid transparent;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--primary); color: #fffaf2; border-color: var(--primary); }
+  .btn-primary:active { opacity: 0.85; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--line);
+  }
+  .actions { display: flex; gap: 0.5rem; margin: 0.5rem 0 0; flex-wrap: wrap; }
+  .actions button { flex: 1 1 auto; min-width: 0; }
+  .copy-row {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    margin-top: 0.55rem;
+  }
+  .warn {
+    background: rgba(200,112,75,0.08);
+    border: 0.5px solid rgba(200,112,75,0.35);
+    color: #8a3f1c;
+    padding: 0.7rem 0.8rem;
+    border-radius: 12px;
+    font-size: 0.88rem;
+  }
+  .ok {
+    background: rgba(92,152,110,0.1);
+    border: 0.5px solid rgba(92,152,110,0.35);
+    color: #3a6b50;
+    padding: 0.7rem 0.8rem;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    display: none;
+  }
+  code { font: 12px/1 ui-monospace, SFMono-Regular, monospace; background: rgba(0,0,0,0.05); padding: 1px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>License signing keypair</h1>
+  <p class="hint">Generates a fresh ECDSA P-256 keypair in your browser. The private key never leaves this page — copy it once, paste it into Vercel env vars, then close the tab.</p>
+
+  <div class="warn">
+    <strong>Run this exactly once.</strong> If you lose the private key you can't issue new licenses without regenerating — which would invalidate every license you've issued. Back it up safely (password manager).
+  </div>
+
+  <div class="actions" style="margin-top: 1rem;">
+    <button id="gen" class="btn-primary">Generate new keypair</button>
+  </div>
+
+  <div class="ok" id="ok"></div>
+
+  <div class="card" id="pub-card" hidden>
+    <h2>Public key <span class="tag public">safe to commit</span></h2>
+    <p class="hint">Goes into <code>app/script.js</code> as a constant, and also into the <code>LICENSE_SIGNING_PUBLIC_KEY</code> env var on Vercel. Paste the whole block, including <code>-----BEGIN / END-----</code>.</p>
+    <textarea id="pub" readonly></textarea>
+    <div class="copy-row">
+      <button class="btn-ghost" data-copy="pub">Copy public key</button>
+    </div>
+  </div>
+
+  <div class="card" id="priv-card" hidden>
+    <h2>Private key <span class="tag secret">keep secret</span></h2>
+    <p class="hint">Goes into the <code>LICENSE_SIGNING_PRIVATE_KEY</code> env var on Vercel only. <strong>Never commit this, never paste it in chat, never share it.</strong> Vercel env vars are encrypted at rest.</p>
+    <textarea id="priv" readonly></textarea>
+    <div class="copy-row">
+      <button class="btn-ghost" data-copy="priv">Copy private key</button>
+    </div>
+  </div>
+
+  <div class="card" id="jwk-card" hidden>
+    <h2>JWK (alternative format)</h2>
+    <p class="hint">Same keys in JWK format if a tool you're using prefers it. Otherwise ignore.</p>
+    <textarea id="jwk" readonly></textarea>
+    <div class="copy-row">
+      <button class="btn-ghost" data-copy="jwk">Copy JWK pair</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function ab2b64(buf) {
+  const bytes = new Uint8Array(buf);
+  let s = "";
+  for (let i = 0; i < bytes.byteLength; i++) s += String.fromCharCode(bytes[i]);
+  return btoa(s);
+}
+function pem(label, b64) {
+  const lines = b64.match(/.{1,64}/g).join("\n");
+  return `-----BEGIN ${label}-----\n${lines}\n-----END ${label}-----\n`;
+}
+
+async function generate() {
+  const pair = await crypto.subtle.generateKey(
+    { name: "ECDSA", namedCurve: "P-256" },
+    true,
+    ["sign", "verify"]
+  );
+  const pubRaw = await crypto.subtle.exportKey("spki", pair.publicKey);
+  const privRaw = await crypto.subtle.exportKey("pkcs8", pair.privateKey);
+  const pubJwk = await crypto.subtle.exportKey("jwk", pair.publicKey);
+  const privJwk = await crypto.subtle.exportKey("jwk", pair.privateKey);
+
+  document.getElementById("pub").value = pem("PUBLIC KEY", ab2b64(pubRaw));
+  document.getElementById("priv").value = pem("PRIVATE KEY", ab2b64(privRaw));
+  document.getElementById("jwk").value = JSON.stringify({ public: pubJwk, private: privJwk }, null, 2);
+
+  ["pub-card", "priv-card", "jwk-card"].forEach(id => { document.getElementById(id).hidden = false; });
+
+  const ok = document.getElementById("ok");
+  ok.textContent = "Keypair generated in-memory. Nothing has been sent anywhere.";
+  ok.style.display = "block";
+}
+
+document.getElementById("gen").addEventListener("click", () => {
+  generate().catch(err => { alert("Failed to generate: " + err.message); });
+});
+
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-copy]");
+  if (!btn) return;
+  const ta = document.getElementById(btn.dataset.copy);
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    const orig = btn.textContent;
+    btn.textContent = "Copied ✓";
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  } catch {
+    ta.select();
+    document.execCommand("copy");
+  }
+});
+</script>
+</body>
+</html>

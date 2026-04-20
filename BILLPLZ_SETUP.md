@@ -75,16 +75,19 @@ APP_BASE_URL                = https://duitful.app
 
 ### Generating the license signing keypair
 
-Run once, locally (any laptop / Replit / web tool):
+**Browser-based keygen** — no terminal needed. Once this branch is merged:
 
+1. Open `https://duitful.app/tools/keygen/` on any device
+2. Tap **Generate new keypair**
+3. Copy the **private key** (the scary one) → Vercel → Project → Settings → Environment Variables → add `LICENSE_SIGNING_PRIVATE_KEY`
+4. Copy the **public key** → paste into chat, I'll commit it to `app/script.js` so the app can verify licenses offline
+5. Close the tab (nothing is saved server-side; regenerating would invalidate every license already issued)
+
+Alternative if you're on a laptop and prefer CLI:
 ```bash
 openssl ecparam -name prime256v1 -genkey -noout -out license-private.pem
 openssl ec -in license-private.pem -pubout -out license-public.pem
 ```
-
-- Paste `license-private.pem` contents into `LICENSE_SIGNING_PRIVATE_KEY` env var (Vercel)
-- Embed `license-public.pem` contents into `app/script.js` as a constant
-  (it's safe to be public — it can only verify, not sign)
 
 ## Cost per sale
 
@@ -97,21 +100,40 @@ openssl ec -in license-private.pem -pubout -out license-public.pem
 You'll typically also get monthly settlement fee waived if you meet
 the volume threshold — confirm in your dashboard.
 
-## What I'll build once you have credentials
+## What's scaffolded already
 
-- `api/billplz/create-bill.js` — Vercel serverless function
-- `api/billplz/redirect.js` — Vercel serverless function (post-payment landing)
-- `api/billplz/webhook.js` — optional, for X-Signature verification
-- `app/script.js` — Pro activation UI: license key paste field, ECDSA verify, store in encrypted state
-- `app/index.html` — "Activate license" button in Data tab, MY payment button on the paywall
-- `package.json` — pinned deps for the Vercel functions (just `node:crypto` natives, no extras needed)
+| File | Purpose |
+|---|---|
+| `tools/keygen/index.html` | In-browser ECDSA keypair generator. Visit once, paste keys into Vercel + chat, close tab. |
+| `api/_lib/billplz.js` | Thin v3 wrapper: createBill, getBill, X-Signature verification, param flattener. |
+| `api/_lib/license.js` | `signLicense(payload)` — ECDSA-signs a compact `payload.sig` token using Node's builtin `crypto`. |
+| `api/billplz/create-bill.js` | POST with `{ email }` → returns `{ url, id }` to redirect the buyer to. |
+| `api/billplz/redirect.js` | GET — post-payment landing: verifies signature, re-checks bill status, issues + displays license key. |
+| `api/billplz/webhook.js` | POST — Billplz s2s callback, verifies signature, logs the payment. |
 
-## What you do this week
+All functions use **only Node builtins** (`fetch`, `crypto`, `Buffer`) so Vercel
+doesn't need `npm install` (installCommand stays `null`).
 
-1. Sign up for Billplz Personal account on iPhone Safari (~10 min + ID docs)
-2. Create the "Duitful Pro" collection
-3. Generate the ECDSA keypair (or ask me to do it via a one-shot script)
-4. Tell me when you have the API key + collection ID and I'll scaffold the code in one PR
+## Still to build
 
-Once it's wired and tested in sandbox, flipping to production is a single
-env-var change.
+- `app/script.js` — license verify helper (Web Crypto ECDSA), activation dialog, `isPro()` flip based on a verified license
+- `app/index.html` — "Activate license" button in the Data tab, "Pay with FPX" button next to the existing paywall-buy button
+
+Both of those need the real **public key** before they're useful, so I'll commit
+them once you've run the keygen.
+
+## What you do once SSM is verified
+
+1. Confirm Billplz Business account is live
+2. Create the "Duitful Pro" collection, copy the **Collection ID**
+3. Settings → Account Settings → copy **API Secret Key** and **X-Signature**
+4. On iPhone, open `https://duitful.app/tools/keygen/` → generate → copy both keys
+5. Vercel → Project → Settings → Environment Variables → add:
+   - `BILLPLZ_API_KEY`
+   - `BILLPLZ_COLLECTION_ID`
+   - `BILLPLZ_X_SIGNATURE`
+   - `BILLPLZ_BASE_URL` = `https://www.billplz-sandbox.com/api/v3` (start with sandbox)
+   - `LICENSE_SIGNING_PRIVATE_KEY` = (the PEM private key from keygen)
+   - `APP_BASE_URL` = `https://duitful.app`
+6. Paste the **public key** back to me → I commit it to `app/script.js` and finish the activation UI
+7. Test in sandbox with a fake FPX payment → once working, flip `BILLPLZ_BASE_URL` to `https://www.billplz.com/api/v3` and you're live
