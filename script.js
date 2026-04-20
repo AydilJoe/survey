@@ -20,6 +20,7 @@ const emptyState = () => ({
   pro: false,
   ocrUsage: { month: "", scans: 0 },
   pendingTxns: [],
+  guideSeen: false,
 });
 
 function coerceState(parsed) {
@@ -45,6 +46,7 @@ function coerceState(parsed) {
         ? { month: String(parsed.ocrUsage.month || ""), scans: Number(parsed.ocrUsage.scans) || 0 }
         : { month: "", scans: 0 },
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
+      guideSeen: !!parsed.guideSeen,
     };
   } catch { return emptyState(); }
 }
@@ -2094,6 +2096,144 @@ $("#btn-clear").addEventListener("click", async () => {
   alert("All data cleared.");
 });
 
+/* ---------- first-time welcome tour ---------- */
+
+const GUIDE_STEPS = [
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/><circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg>`,
+    title: "Welcome to Duitful",
+    sub: "A 60-second tour — you can replay it anytime from Data → About.",
+    body: `<p>Duitful is a private money &amp; debt tracker. Everything lives on this device, encrypted with your passcode.</p>
+      <ul>
+        <li>Track monthly income &amp; bills</li>
+        <li>Pay off debt fastest with the avalanche method</li>
+        <li>Log daily spending, set savings goals</li>
+      </ul>`,
+  },
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z"/></svg>`,
+    title: "Home — your balance at a glance",
+    sub: "See where the month stands in one look.",
+    body: `<p>The hero card shows <strong>balance left this month</strong>: income minus recurring expenses, minimum debt payments, and daily spend.</p>
+      <ul>
+        <li>Hit <strong>Spend</strong>, <strong>Pay debt</strong>, or <strong>Save</strong> to log an entry</li>
+        <li>Tap <strong>Scan receipt</strong> to auto-fill from a photo</li>
+      </ul>`,
+    tab: "dashboard",
+  },
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`,
+    title: "Monthly — income &amp; recurring bills",
+    sub: "Set it once, reuse each month.",
+    body: `<p>Add your salary and fixed bills (rent, internet, subscriptions) with pay/due days. Use <strong>Copy from previous month</strong> to reuse last month's setup.</p>`,
+    tab: "flow",
+  },
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>`,
+    title: "Debts — avalanche payoff",
+    sub: "Highest APR first, minimums roll forward.",
+    body: `<p>Add balances, APR, and minimum payments. Add extra monthly cash on the Home card — Duitful shows your debt-free date and total interest saved.</p>
+      <ul>
+        <li>Standard (credit cards, loans) or installment (Atome, SPayLater)</li>
+        <li>Payoff order updates automatically</li>
+      </ul>`,
+    tab: "debts",
+  },
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>`,
+    title: "Savings — set a goal",
+    sub: "Emergency fund, Umrah, a new phone.",
+    body: `<p>Create a goal with a target amount. Log contributions from Home using <strong>Save</strong>, and watch the progress bar fill up.</p>`,
+    tab: "savings",
+  },
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14M5 10l7 7 7-7M4 21h16"/></svg>`,
+    title: "Back up &amp; preferences",
+    sub: "You own the data.",
+    body: `<p>Under <strong>Data</strong> you can export a CSV, change currency, set reminders, and change your passcode. Import on another device to move everything across.</p>
+      <ul>
+        <li>All data is encrypted locally — there's no server</li>
+        <li>Losing the passcode means losing the data — export CSVs</li>
+      </ul>`,
+    tab: "data",
+  },
+];
+
+let guideStep = 0;
+
+function guideDialog() { return document.getElementById("guide-dialog"); }
+
+function renderGuideStep() {
+  const step = GUIDE_STEPS[guideStep];
+  if (!step) return;
+  const mark = document.getElementById("guide-mark");
+  const title = document.getElementById("guide-title");
+  const sub = document.getElementById("guide-sub");
+  const body = document.getElementById("guide-body");
+  const dots = document.getElementById("guide-dots");
+  const prev = document.getElementById("guide-prev");
+  const next = document.getElementById("guide-next");
+  const skip = document.getElementById("guide-skip");
+  if (mark) mark.innerHTML = step.icon;
+  if (title) title.innerHTML = step.title;
+  if (sub) sub.textContent = step.sub || "";
+  if (body) body.innerHTML = step.body;
+  if (dots) {
+    dots.innerHTML = GUIDE_STEPS.map((_, i) => `<span class="${i === guideStep ? "active" : ""}" role="tab" aria-selected="${i === guideStep ? "true" : "false"}"></span>`).join("");
+  }
+  const isLast = guideStep === GUIDE_STEPS.length - 1;
+  if (prev) prev.hidden = guideStep === 0;
+  if (next) next.textContent = isLast ? "Got it" : "Next";
+  if (skip) skip.hidden = isLast;
+  if (step.tab) {
+    const tabBtn = document.querySelector(`.tab[data-tab="${step.tab}"]`);
+    if (tabBtn) tabBtn.click();
+  }
+}
+
+function openGuide(opts) {
+  const dlg = guideDialog();
+  if (!dlg) return;
+  guideStep = 0;
+  renderGuideStep();
+  try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); }
+}
+
+function closeGuide() {
+  const dlg = guideDialog();
+  if (!dlg) return;
+  try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+}
+
+function finishGuide() {
+  if (aesKey && !state.guideSeen) {
+    state.guideSeen = true;
+    save();
+  }
+  closeGuide();
+}
+
+function maybeOpenGuideAfterUnlock() {
+  if (!state.guideSeen) {
+    // Small delay so the unlock transition finishes first.
+    setTimeout(() => openGuide(), 250);
+  }
+}
+
+document.getElementById("guide-next")?.addEventListener("click", () => {
+  if (guideStep >= GUIDE_STEPS.length - 1) { finishGuide(); return; }
+  guideStep += 1;
+  renderGuideStep();
+});
+document.getElementById("guide-prev")?.addEventListener("click", () => {
+  if (guideStep === 0) return;
+  guideStep -= 1;
+  renderGuideStep();
+});
+document.getElementById("guide-skip")?.addEventListener("click", () => { finishGuide(); });
+document.getElementById("btn-show-guide")?.addEventListener("click", () => { openGuide(); });
+guideDialog()?.addEventListener("close", () => { finishGuide(); });
+
 /* ---------- boot ---------- */
 
 const dailyDateInput = document.querySelector("#form-daily input[name='date']");
@@ -2214,6 +2354,7 @@ async function handleUnlock(passcode) {
   initNotificationListener();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
+  maybeOpenGuideAfterUnlock();
 }
 
 async function handleSetup(passcode, confirm, initialState) {
@@ -2234,6 +2375,7 @@ async function handleSetup(passcode, confirm, initialState) {
   initNotificationListener();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
+  maybeOpenGuideAfterUnlock();
 }
 
 setInterval(() => { fireDueNotifications().catch(() => {}); }, 3600000);

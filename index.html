@@ -18,7 +18,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=29" />
+    <link rel="stylesheet" href="styles.css?v=30" />
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -484,6 +484,9 @@
         <div class="card">
           <h2>About</h2>
           <p class="hint">Single-page web app. All data stays on your device. Works offline once loaded. Share the URL with friends — they each get their own data.</p>
+          <div class="button-row">
+            <button id="btn-show-guide" class="ghost" type="button">Replay welcome tour</button>
+          </div>
         </div>
       </section>
     </main>
@@ -585,6 +588,25 @@
       </form>
     </dialog>
 
+    <dialog id="guide-dialog" class="edit-dialog guide-dialog" aria-labelledby="guide-title">
+      <form method="dialog">
+        <div class="guide-head">
+          <span class="guide-mark" id="guide-mark" aria-hidden="true"></span>
+          <div>
+            <h2 id="guide-title">Welcome</h2>
+            <p class="guide-sub" id="guide-sub"></p>
+          </div>
+        </div>
+        <div class="guide-body" id="guide-body"></div>
+        <div class="guide-dots" id="guide-dots" role="tablist" aria-label="Tour progress"></div>
+        <div class="button-row guide-nav">
+          <button type="button" class="ghost" id="guide-skip">Skip</button>
+          <button type="button" class="ghost" id="guide-prev" hidden>Back</button>
+          <button type="button" class="primary" id="guide-next">Next</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="edit-dialog" class="edit-dialog">
       <form id="edit-form" method="dialog">
         <h2 id="edit-title">Edit</h2>
@@ -596,6 +618,6 @@
       </form>
     </dialog>
 
-    <script src="script.js?v=34"></script>
+    <script src="script.js?v=35"></script>
   </body>
 </html>
