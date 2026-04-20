@@ -2098,6 +2098,71 @@ $("#btn-clear").addEventListener("click", async () => {
 
 /* ---------- first-time welcome tour ---------- */
 
+function isStandalonePWA() {
+  return (
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+    window.navigator.standalone === true
+  );
+}
+
+function detectInstallPlatform() {
+  const ua = navigator.userAgent || "";
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isAndroid = /Android/.test(ua);
+  const isChrome = /Chrome|CriOS/.test(ua) && !/Edg|OPR|Firefox/.test(ua);
+  const isSafari = /Safari/.test(ua) && !/Chrome|CriOS|Edg|OPR|Firefox/.test(ua);
+  if (isIOS && isSafari) return "ios-safari";
+  if (isIOS && isChrome) return "ios-chrome";
+  if (isIOS) return "ios-other";
+  if (isAndroid) return "android";
+  return "desktop";
+}
+
+function installInstructionsBody() {
+  if (isStandalonePWA()) {
+    return `<p>You're already using Duitful as an installed app — nice.</p>
+      <p class="hint">Everything works offline from here on. Tap Next to continue the tour.</p>`;
+  }
+  const platform = detectInstallPlatform();
+  const shareIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-ico"><path d="M12 16V4M8 8l4-4 4 4"/><rect x="4" y="10" width="16" height="11" rx="2"/></svg>`;
+  const menuIcon = `<svg viewBox="0 0 24 24" fill="currentColor" class="inline-ico"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>`;
+  const plusIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="inline-ico"><path d="M12 5v14M5 12h14"/></svg>`;
+
+  if (platform === "ios-safari") {
+    return `<p>Install Duitful on your home screen — it opens fullscreen, runs offline, and feels like a native app.</p>
+      <ol class="guide-steps">
+        <li>Tap the <strong>Share</strong> button ${shareIcon} at the bottom of Safari.</li>
+        <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+        <li>Tap <strong>Add</strong> in the top-right.</li>
+      </ol>
+      <p class="hint">The Duitful wallet icon will appear on your home screen. Tap it to open.</p>`;
+  }
+  if (platform === "ios-chrome" || platform === "ios-other") {
+    return `<p>iPhone installs need Safari. Open Duitful in Safari first, then follow the steps below.</p>
+      <ol class="guide-steps">
+        <li>Copy this URL: <strong>duitful.app</strong></li>
+        <li>Open <strong>Safari</strong> and paste the URL.</li>
+        <li>Tap the <strong>Share</strong> button ${shareIcon} → <strong>Add to Home Screen</strong> → <strong>Add</strong>.</li>
+      </ol>
+      <p class="hint">iOS only lets Safari install web apps — other browsers can't.</p>`;
+  }
+  if (platform === "android") {
+    return `<p>Install Duitful on your home screen — it opens fullscreen, runs offline, and feels like a native app.</p>
+      <ol class="guide-steps">
+        <li>Tap the <strong>menu</strong> ${menuIcon} in the top-right of Chrome.</li>
+        <li>Tap <strong>Install app</strong> (or <strong>Add to Home screen</strong>).</li>
+        <li>Tap <strong>Install</strong> to confirm.</li>
+      </ol>
+      <p class="hint">If you see an <strong>Install</strong> button in the address bar, you can tap that directly.</p>`;
+  }
+  return `<p>Install Duitful as a desktop app — runs in its own window, works offline.</p>
+    <ol class="guide-steps">
+      <li>Look for the <strong>install</strong> icon ${plusIcon} in the address bar.</li>
+      <li>Click <strong>Install</strong>.</li>
+    </ol>
+    <p class="hint">Not seeing it? Use the browser menu → <strong>Install Duitful</strong> / <strong>Apps → Install this site</strong>.</p>`;
+}
+
 const GUIDE_STEPS = [
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/><circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg>`,
@@ -2109,6 +2174,13 @@ const GUIDE_STEPS = [
         <li>Pay off debt fastest with the avalanche method</li>
         <li>Log daily spending, set savings goals</li>
       </ul>`,
+  },
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M10 19h4"/><path d="M12 6v6l3 2"/></svg>`,
+    title: "Add Duitful to your home screen",
+    sub: "Fullscreen, offline, one-tap access.",
+    body: "",
+    install: true,
   },
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z"/></svg>`,
@@ -2177,7 +2249,7 @@ function renderGuideStep() {
   if (mark) mark.innerHTML = step.icon;
   if (title) title.innerHTML = step.title;
   if (sub) sub.textContent = step.sub || "";
-  if (body) body.innerHTML = step.body;
+  if (body) body.innerHTML = step.install ? installInstructionsBody() : step.body;
   if (dots) {
     dots.innerHTML = GUIDE_STEPS.map((_, i) => `<span class="${i === guideStep ? "active" : ""}" role="tab" aria-selected="${i === guideStep ? "true" : "false"}"></span>`).join("");
   }
