@@ -1067,7 +1067,8 @@ const FREE_SAVING_LIMIT = 2;
 const FREE_OCR_MONTHLY = 3;
 
 function isPro() {
-  if (!isNative()) return true;
+  // Same gate on both surfaces: user has actually paid (state.pro set by
+  // native IAP verify, or by activating a license on web).
   return !!(state && state.pro);
 }
 function canOcr() {
@@ -1212,10 +1213,8 @@ function renderProControls() {
       status.textContent = native
         ? "Pro unlocked. Thanks for supporting the app!"
         : "Pro unlocked — thanks for supporting Duitful!";
-    } else if (native) {
-      status.textContent = "Unlock unlimited tracking, receipt scans, reminders and installments. One-time purchase — no subscription.";
     } else {
-      status.textContent = "Web features are free — no limits. Buy a license to support development and carry Pro forward to the native app when it ships.";
+      status.textContent = `Free tier covers up to ${FREE_DEBT_LIMIT} debts, ${FREE_SAVING_LIMIT} savings goals and ${FREE_OCR_MONTHLY} receipt scans a month. Unlock Pro for unlimited everything — one-time payment, no subscription.`;
     }
   }
 
