@@ -4,6 +4,11 @@
   "trailingSlash": false,
   "buildCommand": null,
   "installCommand": null,
+  "rewrites": [
+    { "source": "/", "destination": "/landing" },
+    { "source": "/app", "destination": "/index.html" },
+    { "source": "/app/", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",
