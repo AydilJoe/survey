@@ -409,7 +409,8 @@
       position: relative;
       padding: 44px 16px 16px;
     }
-    .phone-screen img.screenshot {
+    .phone-screen img.screenshot,
+    .phone-screen video.screenshot {
       position: absolute;
       inset: 0;
       width: 100%;
@@ -418,6 +419,7 @@
       object-position: top center;
       border-radius: 34px;
       padding: 0;
+      background: var(--bg);
     }
 
     .phone-label {
@@ -1006,7 +1008,11 @@
           <span class="phone-label top" aria-hidden="true">On-device · encrypted</span>
           <div class="phone">
             <div class="phone-screen">
-              <img class="screenshot" src="screenshots/hero-home.PNG" alt="Duitful home screen showing RM 428.30 balance left for the month, upcoming freelance income and debt payments" loading="eager" width="300" height="608">
+              <video class="screenshot" autoplay muted loop playsinline preload="metadata" poster="screenshots/hero-home.PNG" width="300" height="608" aria-label="Duitful home screen walkthrough — balance, debts, savings, and logging a daily expense">
+                <source src="screenshots/hero-home.mp4" type="video/mp4">
+                <source src="screenshots/hero-home.webm" type="video/webm">
+                <img class="screenshot" src="screenshots/hero-home.PNG" alt="Duitful home screen showing RM 428.30 balance left for the month, upcoming freelance income and debt payments" loading="eager" width="300" height="608">
+              </video>
             </div>
           </div>
           <span class="phone-label bottom" aria-hidden="true">Auto-FX · MYR · SGD</span>
