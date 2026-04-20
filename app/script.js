@@ -1248,6 +1248,41 @@ document.getElementById("btn-pro-restore")?.addEventListener("click", restorePur
 document.getElementById("paywall-buy")?.addEventListener("click", async () => { await purchasePro(); closePaywall(); });
 document.getElementById("paywall-restore")?.addEventListener("click", async () => { await restorePurchases(); closePaywall(); });
 
+/* ---------- Service worker + PWA shortcut routing ---------- */
+
+// Register the service worker so Chrome lets us install, and so we
+// load in two frames on repeat visits.
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/app/sw.js", { scope: "/app/" }).catch((err) => {
+      console.warn("SW register failed:", err);
+    });
+  });
+}
+
+// Handle ?action=spend / ?action=debt / ?action=scan from PWA shortcuts
+// (long-press the home-screen icon on Android to see these).
+function handlePwaShortcut() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const action = params.get("action");
+    if (!action) return;
+    // Let the initial render finish first.
+    setTimeout(() => {
+      if (action === "spend" || action === "debt" || action === "saving") {
+        const kind = action === "debt" ? "debt" : action === "saving" ? "saving" : "expense";
+        try { setDailyType(kind); } catch {}
+        document.getElementById("amount")?.focus();
+      } else if (action === "scan") {
+        document.getElementById("btn-scan-receipt")?.click();
+      }
+      // Clean the URL so refresh doesn't re-trigger.
+      history.replaceState({}, "", location.pathname);
+    }, 400);
+  } catch {}
+}
+handlePwaShortcut();
+
 /* ---------- Web Pro: license activation + Billplz FPX checkout ---------- */
 
 const LICENSE_PUBLIC_KEY_PEM = `-----BEGIN PUBLIC KEY-----
