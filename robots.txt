@@ -1,8 +1,34 @@
+# General crawlers — index the landing, skip the client-side app
 User-agent: *
 Allow: /
-
-# Keep the dynamic app surface out of the index — content is
-# user-specific and rendered client-side, so it has no SEO value.
 Disallow: /app
+
+# Explicitly allow social-preview scrapers (OG image, link cards)
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Facebot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: Slackbot
+Allow: /
+
+User-agent: Slackbot-LinkExpanding
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+User-agent: TelegramBot
+Allow: /
+
+User-agent: Discordbot
+Allow: /
 
 Sitemap: https://duitful.app/sitemap.xml
