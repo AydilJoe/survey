@@ -2281,15 +2281,17 @@ function setLockMode(mode) {
   const help = document.getElementById("lock-help");
   const err = document.getElementById("lock-error");
   const input = document.getElementById("lock-input");
+  const welcome = document.getElementById("lock-welcome");
   if (err) { err.hidden = true; err.textContent = ""; }
   if (input) input.placeholder = "Passcode";
+  if (welcome) welcome.hidden = mode !== "setup";
   if (mode === "unlock") {
     if (sub) sub.textContent = "Enter your passcode";
     if (submit) submit.textContent = "Unlock";
     if (confirmEl) confirmEl.hidden = true;
     if (help) help.hidden = false;
   } else if (mode === "setup") {
-    if (sub) sub.textContent = "Create a passcode — your data will be encrypted on this device.";
+    if (sub) sub.textContent = "Pick a passcode to get started.";
     if (submit) submit.textContent = "Create passcode";
     if (confirmEl) { confirmEl.hidden = false; confirmEl.value = ""; }
     if (help) help.hidden = true;
