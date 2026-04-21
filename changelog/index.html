@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Duitful changelog — what's new</title>
+<meta name="description" content="Ongoing updates to Duitful — the privacy-first money and debt tracker for Malaysia.">
+<link rel="canonical" href="https://duitful.app/changelog/">
+<meta name="robots" content="index, follow">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:url" content="https://duitful.app/changelog/">
+<meta property="og:title" content="Duitful changelog — what's new">
+<meta property="og:description" content="Ongoing updates to Duitful — the privacy-first money and debt tracker for Malaysia.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --line: rgba(42,36,32,0.08);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.65 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+  .nav-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: 500 13px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+  h1 {
+    font: 500 clamp(40px, 6vw, 56px)/1.1 var(--font-serif);
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+  }
+  h1 em { font-style: italic; color: var(--primary); }
+  .lede { color: var(--ink2); font-size: 18px; line-height: 1.6; margin: 0 0 48px; max-width: 56ch; }
+
+  .release {
+    margin: 40px 0;
+    padding: 24px 0 0;
+    border-top: 0.5px solid var(--line);
+  }
+  .release:first-of-type { border-top: none; padding-top: 0; }
+  .release-date {
+    display: inline-block;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 4px 10px;
+    border: 0.5px solid var(--line);
+    border-radius: 999px;
+    background: var(--card);
+  }
+  .release-title {
+    font: 500 24px/1.25 var(--font-serif);
+    letter-spacing: -0.01em;
+    margin: 10px 0 8px;
+  }
+  .release-summary { color: var(--ink2); font-size: 15px; line-height: 1.6; margin-bottom: 16px; }
+  .release ul { padding-left: 20px; margin: 0; }
+  .release li {
+    margin: 6px 0;
+    color: var(--ink2);
+    font-size: 15px;
+  }
+  .release li strong { color: var(--ink); font-weight: 500; }
+  .tag {
+    display: inline-block;
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 6px;
+    vertical-align: 2px;
+  }
+  .tag.feat { background: rgba(106,138,94,0.15); color: #3a6b50; }
+  .tag.fix { background: rgba(200,112,75,0.15); color: #8a3f1c; }
+  .tag.perf { background: rgba(94,122,152,0.15); color: #2e5483; }
+
+  .footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .footer a { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/" class="nav-back">← back to Duitful</a>
+
+  <h1>What's new in <em>Duitful</em></h1>
+  <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
+
+  <article class="release">
+    <span class="release-date">April 2026</span>
+    <h2 class="release-title">Payments, referrals, and creator mode</h2>
+    <p class="release-summary">Duitful Pro is live. Full end-to-end payment flow via Billplz (FPX, Touch 'n Go, GrabPay, Boost, cards), plus a referral program that pays RM 5 per friend who upgrades.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Pay with FPX or e-wallet</strong> — one-time RM 19.90 unlocks Pro forever. No subscription, no renewal.</li>
+      <li><span class="tag feat">new</span><strong>Direct-to-bank checkout</strong> — pick your bank upfront and skip the Billplz picker page.</li>
+      <li><span class="tag feat">new</span><strong>Refer a friend</strong> — every Pro user gets a shareable link that credits them RM 5 for each paid referral.</li>
+      <li><span class="tag feat">new</span><strong>Discount codes at checkout</strong> — <code>FAMILY</code> for free Pro, promo codes for seasonal sales, per-creator campaigns.</li>
+      <li><span class="tag feat">new</span><strong>Creator program</strong> — influencer packages with personalized referral links + branded discount codes + per-sale commission.</li>
+      <li><span class="tag feat">new</span><strong>License activation on any device</strong> — paste the license key into Data → Activate, works offline forever.</li>
+      <li><span class="tag feat">new</span><strong>Charge a spend to a card</strong> — tag a daily expense as "on Maybank Visa" and the card balance updates automatically.</li>
+    </ul>
+  </article>
+
+  <article class="release">
+    <span class="release-date">April 2026</span>
+    <h2 class="release-title">Full PWA on iPhone + Android</h2>
+    <p class="release-summary">Duitful now installs as a proper home-screen app with offline support and platform shortcuts. Plus a friendlier first-run experience.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>One-tap install</strong> — banner on Android Chrome triggers the native install flow; iOS Safari gets a focused "Add to Home Screen" modal.</li>
+      <li><span class="tag feat">new</span><strong>Home-screen shortcuts</strong> — long-press the installed icon on Android for Spend, Pay debt, and Scan receipt quick actions.</li>
+      <li><span class="tag feat">new</span><strong>Desktop &amp; iPad layout</strong> — app frames itself as a centered column on wide screens instead of stretching.</li>
+      <li><span class="tag feat">new</span><strong>Service worker</strong> — full offline support after first load. Auto-reload when a new version ships.</li>
+      <li><span class="tag feat">new</span><strong>Warmer first-run screen</strong> — welcome copy explains the privacy model before asking for a passcode.</li>
+    </ul>
+  </article>
+
+  <article class="release">
+    <span class="release-date">April 2026</span>
+    <h2 class="release-title">Landing page + SEO</h2>
+    <p class="release-summary">Public website, social previews, and discoverability through search engines.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Landing page</strong> — <code>duitful.app</code> with feature tour, privacy pledge, avalanche explainer, pricing.</li>
+      <li><span class="tag feat">new</span><strong>Social previews</strong> — Open Graph / Twitter card images for Facebook, WhatsApp, X, Slack, Discord.</li>
+      <li><span class="tag feat">new</span><strong>SEO</strong> — JSON-LD structured data, canonical URLs, sitemap, robots.txt. Submitted to Google and Bing.</li>
+    </ul>
+  </article>
+
+  <article class="release">
+    <span class="release-date">March 2026</span>
+    <h2 class="release-title">Initial release</h2>
+    <p class="release-summary">Private money and debt tracker for Malaysia, running entirely in your browser.</p>
+    <ul>
+      <li><span class="tag feat">new</span>Monthly income, recurring expenses, daily spending, debts with APR + minimum payments.</li>
+      <li><span class="tag feat">new</span><strong>Avalanche payoff planner</strong> — highest-APR debt first, rolls minimums forward, shows exact debt-free date.</li>
+      <li><span class="tag feat">new</span><strong>BNPL tracking</strong> for Atome, SPayLater, Grab PayLater, card installments.</li>
+      <li><span class="tag feat">new</span><strong>Receipt OCR</strong> — photograph a receipt, extract the amount, file as an expense.</li>
+      <li><span class="tag feat">new</span><strong>End-to-end encryption</strong> — AES-GCM with PBKDF2 key derived from your passcode, data never leaves the device.</li>
+      <li><span class="tag feat">new</span><strong>CSV export / import</strong> — move between devices or back up to your own storage.</li>
+      <li><span class="tag feat">new</span><strong>Malaysian defaults</strong> — MYR, PTPTN-aware debt planner, Maybank / CIMB / Public Bank / RHB / TNG / GrabPay / Boost category presets.</li>
+    </ul>
+  </article>
+
+  <div class="footer">
+    Have an idea or found a bug? <a href="mailto:hello@duitful.app">hello@duitful.app</a> — every reply goes to the person who built the app.
+  </div>
+</div>
+</body>
+</html>

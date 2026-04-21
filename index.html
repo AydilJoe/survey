@@ -782,6 +782,35 @@
 
     @media (max-width: 900px) { .ava-grid { grid-template-columns: 1fr; gap: 40px; } }
 
+    /* --------------- Founder --------------- */
+    .founder { background: var(--stage); }
+    .founder-grid { max-width: 720px; margin: 0 auto; }
+    .founder-copy h2 {
+      font-family: var(--font-serif);
+      font-weight: 500;
+      font-size: clamp(28px, 3.5vw, 40px);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+      margin: 10px 0 20px;
+    }
+    .founder-copy p {
+      font-size: 17px;
+      line-height: 1.65;
+      color: var(--ink2);
+      margin: 14px 0;
+    }
+    .founder-copy p strong { color: var(--ink); font-weight: 500; }
+    .founder-copy p em { font-style: italic; color: var(--primary-ink); }
+    .founder-copy a { color: var(--primary); text-decoration: none; border-bottom: 1px solid rgba(200,112,75,0.3); }
+    .founder-copy a:hover { border-bottom-color: var(--primary); }
+    .founder-sign {
+      font-family: var(--font-serif);
+      font-style: italic;
+      color: var(--ink);
+      margin-top: 22px !important;
+      font-size: 18px !important;
+    }
+
     /* --------------- Pricing --------------- */
     .pricing-grid {
       display: grid;
@@ -958,6 +987,7 @@
       <a href="#features">Features</a>
       <a href="#privacy">Privacy</a>
       <a href="#pricing">Pricing</a>
+      <a href="#founder">About</a>
       <a href="#faq">FAQ</a>
     </div>
     <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary nav-cta">Get the app</a>
@@ -1190,6 +1220,22 @@
     </div>
   </section>
 
+  <!-- ======================= FOUNDER ======================= -->
+  <section class="block founder" id="founder">
+    <div class="container">
+      <div class="founder-grid">
+        <div class="founder-copy reveal">
+          <span class="eyebrow">Why Duitful</span>
+          <h2>Built by one person, in Malaysia, for Malaysians.</h2>
+          <p>I'm <strong>Aydil</strong>. I got tired of paying USD 12/month to Money Lover just to type in my own transactions — and watching app after app quietly sell my data to their "partners" while the subscription prices kept climbing.</p>
+          <p>Duitful is the tracker I wanted: <em>pay once, own it forever</em>, built for ringgit and Malaysian banks from the ground up, and <strong>your data never leaves your device</strong>. No account, no sync server, no analytics company buying your spending habits on the side.</p>
+          <p>If the app helps you kill a debt or save for a goal, send me a note at <a href="mailto:hello@duitful.app">hello@duitful.app</a>. If it's missing something — especially something Malaysia-specific — that goes to the top of the roadmap.</p>
+          <p class="founder-sign">— Aydil, Kuala Lumpur</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ======================= PRICING ======================= -->
   <section class="block" id="pricing" style="background: var(--card-soft);">
     <div class="container">
@@ -1332,6 +1378,7 @@
       <a href="#privacy">Privacy</a>
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
+      <a href="/changelog/">Changelog</a>
       <a href="mailto:hello@duitful.app">hello@duitful.app</a>
     </div>
   </div>
