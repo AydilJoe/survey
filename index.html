@@ -637,6 +637,16 @@
       border: 0.5px solid var(--border);
       box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(255, 250, 242, 0.5);
       position: relative;
+      overflow: hidden;
+    }
+    .device-mock .dm-screen img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
     }
     .device-mock .dm-label {
       font-family: var(--font-mono);
@@ -646,25 +656,24 @@
       color: var(--muted);
     }
     .dm-phone .dm-screen {
-      width: 92px;
-      height: 190px;
+      width: 110px;
+      height: 230px;
       border-radius: 18px;
-      padding: 12px 6px 6px;
     }
     .dm-phone .dm-screen::before {
       content: "";
       position: absolute;
       top: 6px; left: 50%;
       transform: translateX(-50%);
-      width: 32px; height: 6px;
+      width: 38px; height: 6px;
       background: var(--ink);
       border-radius: 999px;
+      z-index: 2;
     }
     .dm-tablet .dm-screen {
-      width: 160px;
-      height: 220px;
-      border-radius: 18px;
-      padding: 12px 8px;
+      width: 260px;
+      height: 195px;
+      border-radius: 14px;
     }
     .dm-tablet .dm-screen::before {
       content: "";
@@ -675,18 +684,18 @@
       background: var(--ink);
       border-radius: 50%;
       opacity: 0.5;
+      z-index: 2;
     }
     .dm-laptop {
       gap: 0;
     }
     .dm-laptop .dm-screen {
-      width: 260px;
-      height: 170px;
+      width: 300px;
+      height: 190px;
       border-radius: 10px 10px 0 0;
-      padding: 10px;
     }
     .dm-laptop .dm-base {
-      width: 300px;
+      width: 340px;
       height: 8px;
       background: linear-gradient(180deg, var(--card), var(--card-soft));
       border: 0.5px solid var(--border);
@@ -694,20 +703,6 @@
       border-radius: 0 0 8px 8px;
       margin-bottom: 16px;
       box-shadow: 0 8px 24px rgba(42, 36, 32, 0.08);
-    }
-    /* Little fake content lines so the screens don't look empty */
-    .device-mock .dm-screen::after {
-      content: "";
-      position: absolute;
-      inset: 22% 12% auto 12%;
-      height: 6px;
-      background: var(--primary);
-      opacity: 0.35;
-      border-radius: 4px;
-      box-shadow:
-        0 12px 0 -2px rgba(42, 36, 32, 0.12),
-        0 22px 0 -2px rgba(42, 36, 32, 0.08),
-        0 32px 0 -2px rgba(42, 36, 32, 0.06);
     }
     .device-notes {
       list-style: none;
@@ -728,9 +723,11 @@
     }
     .device-notes strong { color: var(--ink); font-weight: 500; }
     @media (max-width: 720px) {
-      .device-row { gap: 28px; }
-      .dm-laptop .dm-screen { width: 220px; height: 140px; }
-      .dm-laptop .dm-base { width: 260px; }
+      .device-row { gap: 24px; }
+      .dm-phone .dm-screen { width: 92px; height: 190px; }
+      .dm-tablet .dm-screen { width: 220px; height: 165px; }
+      .dm-laptop .dm-screen { width: 240px; height: 152px; }
+      .dm-laptop .dm-base { width: 280px; }
     }
 
     /* --------------- Privacy --------------- */
@@ -1270,15 +1267,21 @@
 
       <div class="device-row reveal">
         <div class="device-mock dm-phone">
-          <div class="dm-screen"></div>
+          <div class="dm-screen">
+            <img src="/screenshots/hero-home.PNG" alt="Duitful on iPhone" loading="lazy">
+          </div>
           <span class="dm-label">iPhone / Android</span>
         </div>
         <div class="device-mock dm-tablet">
-          <div class="dm-screen"></div>
+          <div class="dm-screen">
+            <img src="/screenshots/hero-tablet.png" alt="Duitful on iPad" loading="lazy">
+          </div>
           <span class="dm-label">iPad</span>
         </div>
         <div class="device-mock dm-laptop">
-          <div class="dm-screen"></div>
+          <div class="dm-screen">
+            <img src="/screenshots/hero-tablet.png" alt="Duitful on desktop" loading="lazy">
+          </div>
           <div class="dm-base"></div>
           <span class="dm-label">Desktop</span>
         </div>
