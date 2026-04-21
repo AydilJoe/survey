@@ -1301,6 +1301,15 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
       console.warn("SW register failed:", err);
     });
   });
+  // Auto-reload once when a new SW takes control of the page. This
+  // stops installed PWAs (iOS 'Add to Home Screen', Android install)
+  // from getting stuck on an old cached UI after we deploy updates.
+  let swReloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (swReloading) return;
+    swReloading = true;
+    location.reload();
+  });
 }
 
 // Referral code capture: ?ref=xxxxxxxx sent to the app from a shared link
