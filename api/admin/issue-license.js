@@ -10,6 +10,7 @@
 const crypto = require("crypto");
 const { signLicense } = require("../_lib/license");
 const { getBill } = require("../_lib/billplz");
+const { refCodeFor } = require("../_lib/referral");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -75,6 +76,7 @@ module.exports = async function handler(req, res) {
       sub,
       email,
       product: "duitful_pro",
+      ref: refCodeFor(email),
       iat: Math.floor(Date.now() / 1000),
       ...(note ? { note } : {}),
       ...(billId ? { source: "billplz_recovery" } : {}),

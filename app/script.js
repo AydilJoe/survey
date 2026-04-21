@@ -1255,6 +1255,16 @@ function renderProControls() {
     }
   }
 
+  // Referral link: every Pro user gets a shareable link tied to their ref
+  // code (sha256(email) truncated). They earn RM 5 per friend who buys.
+  const referCard = document.getElementById("pro-refer");
+  const referUrlEl = document.getElementById("pro-refer-url");
+  const ref = purchased && state && state.license && state.license.ref;
+  if (referCard) referCard.hidden = !ref;
+  if (referUrlEl && ref) {
+    referUrlEl.textContent = `${location.origin}/app?ref=${ref}`;
+  }
+
   if (status) {
     if (purchased) {
       status.textContent = native
@@ -1291,6 +1301,40 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
       console.warn("SW register failed:", err);
     });
   });
+}
+
+// Referral code capture: ?ref=xxxxxxxx sent to the app from a shared link
+// gets stored in localStorage for 30 days so the checkout flow can
+// forward it to Billplz as reference_2.
+const REF_STORAGE_KEY = "duit-tracker.referrer";
+const REF_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function stashIncomingReferral() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const ref = (params.get("ref") || "").trim().toLowerCase();
+    if (!/^[a-f0-9]{8}$/.test(ref)) return;
+    localStorage.setItem(REF_STORAGE_KEY, JSON.stringify({ ref, at: Date.now() }));
+    // Remove the query param so a refresh doesn't re-stash / pollute the URL.
+    params.delete("ref");
+    const qs = params.toString();
+    history.replaceState({}, "", location.pathname + (qs ? "?" + qs : ""));
+  } catch {}
+}
+stashIncomingReferral();
+
+function storedReferralCode() {
+  try {
+    const raw = localStorage.getItem(REF_STORAGE_KEY);
+    if (!raw) return "";
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.ref !== "string") return "";
+    if (Date.now() - (parsed.at || 0) > REF_TTL_MS) {
+      localStorage.removeItem(REF_STORAGE_KEY);
+      return "";
+    }
+    return parsed.ref;
+  } catch { return ""; }
 }
 
 // Handle ?action=spend / ?action=debt / ?action=scan from PWA shortcuts
@@ -1381,7 +1425,7 @@ async function activateLicenseToken(token) {
   const payload = await verifyLicense(token);
   if (state) {
     state.pro = true;
-    state.license = { token, sub: payload.sub, email: payload.email, iat: payload.iat, activatedAt: Date.now() };
+    state.license = { token, sub: payload.sub, email: payload.email, ref: payload.ref, iat: payload.iat, activatedAt: Date.now() };
     save();
     renderAll();
   }
@@ -1403,6 +1447,20 @@ function closeLicenseDialog() {
   const dlg = document.getElementById("license-dialog");
   if (dlg) { try { dlg.close(); } catch { dlg.removeAttribute("open"); } }
 }
+
+document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async () => {
+  const url = document.getElementById("pro-refer-url")?.textContent || "";
+  if (!url) return;
+  const btn = document.getElementById("btn-pro-refer-copy");
+  try {
+    await navigator.clipboard.writeText(url);
+    const orig = btn.textContent;
+    btn.textContent = "Copied ✓";
+    setTimeout(() => { btn.textContent = orig; }, 1500);
+  } catch {
+    prompt("Copy your referral link:", url);
+  }
+});
 
 document.getElementById("btn-pro-activate")?.addEventListener("click", openLicenseDialog);
 document.getElementById("paywall-activate")?.addEventListener("click", () => { closePaywall(); openLicenseDialog(); });
@@ -1452,10 +1510,15 @@ document.getElementById("fpx-continue")?.addEventListener("click", async () => {
   const btn = document.getElementById("fpx-continue");
   if (btn) { btn.disabled = true; btn.textContent = "Redirecting…"; }
   try {
+    const referrerCode = storedReferralCode();
     const r = await fetch("/api/billplz/create-bill", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, bank_code: bankCode || undefined }),
+      body: JSON.stringify({
+        email,
+        bank_code: bankCode || undefined,
+        ref_code: referrerCode || undefined,
+      }),
     });
     const data = await r.json();
     if (!r.ok || !data.url) throw new Error(data.error || "Could not start checkout");

@@ -1409,6 +1409,40 @@ button.ghost.icon-btn {
   border-color: rgba(200,112,75,0.4);
   background: rgba(200,112,75,0.08);
 }
+.pro-refer {
+  margin-top: 0.9rem;
+  padding-top: 0.9rem;
+  border-top: 0.5px dashed var(--line);
+}
+.pro-refer h3 {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  font-weight: 500;
+}
+.pro-refer .hint { margin-bottom: 0.55rem; }
+.pro-refer-url-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.pro-refer-url {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  background: var(--card-soft, #f3ece0);
+  border: 0.5px solid var(--line);
+  border-radius: 10px;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, monospace;
+  color: var(--ink);
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
+.pro-refer-url-row button {
+  padding: 0.45rem 0.8rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
 
 /* Scan receipt */
 .scan-row {

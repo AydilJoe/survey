@@ -9,6 +9,7 @@
 
 const { getBill, verifyXSignature, flattenBillplzParams } = require("../_lib/billplz");
 const { signLicense } = require("../_lib/license");
+const { refCodeFor } = require("../_lib/referral");
 
 // Optional email delivery via Resend. If RESEND_API_KEY is set, we'll
 // email the license to the buyer; otherwise we just render it on the
@@ -156,6 +157,7 @@ module.exports = async function handler(req, res) {
       sub: bill.id,
       email: bill.email,
       product: "duitful_pro",
+      ref: refCodeFor(bill.email),
       iat: Math.floor(Date.now() / 1000),
     });
 
