@@ -1499,9 +1499,11 @@ document.getElementById("fpx-cancel")?.addEventListener("click", closeFpxDialog)
 document.getElementById("fpx-continue")?.addEventListener("click", async () => {
   const input = document.getElementById("fpx-email");
   const bankSel = document.getElementById("fpx-bank");
+  const discountInput = document.getElementById("fpx-discount");
   const err = document.getElementById("fpx-error");
   const email = (input?.value || "").trim();
   const bankCode = (bankSel?.value || "").trim();
+  const discountCode = (discountInput?.value || "").trim().toUpperCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     if (err) { err.textContent = "Enter a valid email address."; err.hidden = false; }
     return;
@@ -1518,10 +1520,19 @@ document.getElementById("fpx-continue")?.addEventListener("click", async () => {
         email,
         bank_code: bankCode || undefined,
         ref_code: referrerCode || undefined,
+        discount_code: discountCode || undefined,
       }),
     });
     const data = await r.json();
-    if (!r.ok || !data.url) throw new Error(data.error || "Could not start checkout");
+    if (!r.ok) throw new Error(data.error || "Could not start checkout");
+    // 100%-off discount: server returned a signed license directly.
+    if (data.comp && data.license) {
+      await activateLicenseToken(data.license);
+      closeFpxDialog();
+      alert(`Pro unlocked — welcome! (${data.discount?.description || "Discount applied"})`);
+      return;
+    }
+    if (!data.url) throw new Error("Could not start checkout");
     window.location.href = data.url;
   } catch (e) {
     if (err) { err.textContent = e.message || "Something went wrong"; err.hidden = false; }

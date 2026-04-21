@@ -1,5 +1,8 @@
+const crypto = require("crypto");
 const { createBill } = require("../_lib/billplz");
 const { refCodeFor } = require("../_lib/referral");
+const { lookup: lookupDiscount, applyTo: applyDiscount } = require("../_lib/discounts");
+const { signLicense } = require("../_lib/license");
 
 module.exports = async function handler(req, res) {
   // CORS: allow the Duitful app (same origin in production, but helpful in dev).
@@ -17,9 +20,35 @@ module.exports = async function handler(req, res) {
     const name = String(body.name || "").trim();
     const bankCode = String(body.bank_code || "").trim();
     const rawRef = String(body.ref_code || "").trim().toLowerCase();
+    const rawDiscount = String(body.discount_code || "").trim();
 
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       res.status(400).json({ error: "Valid email required" });
+      return;
+    }
+
+    // Apply discount if valid. If the final amount is 0, skip Billplz
+    // entirely and hand back a signed license — treating discount=100%
+    // as a comp.
+    const BASE_SEN = 1990;
+    const discount = rawDiscount ? lookupDiscount(rawDiscount) : null;
+    if (rawDiscount && !discount) {
+      res.status(400).json({ error: "Invalid or expired discount code" });
+      return;
+    }
+    const finalSen = discount ? applyDiscount(BASE_SEN, discount) : BASE_SEN;
+
+    if (discount && finalSen === 0) {
+      // Full-comp path: sign a license directly, skip Billplz.
+      const license = signLicense({
+        sub: `comp-${discount.code}-${crypto.randomUUID()}`,
+        email,
+        product: "duitful_pro",
+        ref: refCodeFor(email),
+        iat: Math.floor(Date.now() / 1000),
+        source: `discount:${discount.code}`,
+      });
+      res.status(200).json({ license, comp: true, discount: { code: discount.code, description: discount.description } });
       return;
     }
 
@@ -47,8 +76,10 @@ module.exports = async function handler(req, res) {
     const bill = await createBill({
       name,
       email,
-      amount: 1990, // RM 19.90 in sen
-      description: "Duitful Pro — lifetime unlock",
+      amount: finalSen,
+      description: discount
+        ? `Duitful Pro — lifetime unlock (${discount.code})`
+        : "Duitful Pro — lifetime unlock",
       redirectUrl: `${appBase}/api/billplz/redirect`,
       callbackUrl: `${appBase}/api/billplz/webhook`,
       reference: "duitful_pro",
