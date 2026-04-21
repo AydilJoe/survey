@@ -82,8 +82,11 @@ module.exports = async function handler(req, res) {
   try {
     // Vercel provides parsed query at req.query.
     const raw = flattenBillplzParams(req.query);
+    // Log the params we received so we can compare against what Billplz
+    // sent (visible in Vercel -> Functions -> redirect -> Logs).
+    console.log("billplz redirect params:", raw);
 
-    if (!verifyXSignature(raw)) {
+    if (!verifyXSignature(raw, { keyPrefix: "billplz" })) {
       res.status(400).setHeader("Content-Type", "text/html; charset=utf-8").end(
         renderPage({
           status: "err",
