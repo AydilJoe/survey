@@ -61,19 +61,21 @@ async function getBill(id) {
   return JSON.parse(text);
 }
 
-// Paginate through all bills in our collection. Billplz v3's list
-// endpoint is /collections/:id/bills — it doesn't filter by state
-// server-side, so we fetch everything and filter client-side to paid.
+// Paginate through paid bills.
+// Billplz v3 does NOT have a 'list bills' endpoint — only v4 does. So
+// for listing we swap /api/v3 -> /api/v4 on the base URL. create/get
+// keep using v3 (where they work).
 async function listPaidBills({ maxPages = 40, perPage = 25 } = {}) {
   const collectionId = process.env.BILLPLZ_COLLECTION_ID;
   if (!collectionId) throw new Error("BILLPLZ_COLLECTION_ID not set");
+  const v4Base = baseUrl().replace(/\/api\/v3\/?$/, "/api/v4");
   const paid = [];
   for (let page = 1; page <= maxPages; page++) {
     const qs = new URLSearchParams({
       page: String(page),
       per_page: String(perPage),
     });
-    const url = `${baseUrl()}/collections/${encodeURIComponent(collectionId)}/bills?${qs.toString()}`;
+    const url = `${v4Base}/bills?${qs.toString()}`;
     const r = await fetch(url, { headers: { Authorization: authHeader() } });
     const text = await r.text();
     if (!r.ok) throw new Error(`Billplz listPaidBills ${r.status} at ${url}: ${text.slice(0, 400)}`);
@@ -83,7 +85,9 @@ async function listPaidBills({ maxPages = 40, perPage = 25 } = {}) {
       : Array.isArray(data.data) ? data.data
       : [];
     for (const b of bills) {
-      // Billplz marks paid bills with state === 'paid' and paid === true.
+      // v4 may return bills across all collections on the account — keep
+      // only our Duitful Pro collection.
+      if (b && b.collection_id && b.collection_id !== collectionId) continue;
       if (b && (b.state === "paid" || b.paid === true)) paid.push(b);
     }
     if (bills.length < perPage) break;
