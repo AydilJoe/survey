@@ -498,9 +498,27 @@ function updateDailyTargetSelect() {
   const sel = $("#daily-target");
   const field = $("#target-select-field");
   const catField = $("#daily-category-field");
+  const cardField = $("#daily-card-field");
+  const cardSel = $("#daily-card");
   const label = $("#target-select-label");
   if (!sel || !field || !catField) return;
   const type = dailyType();
+
+  // Populate the 'paid with' card list whenever we rerender (it follows
+  // the user's current debt list; rebuild each time so new debts show up).
+  if (cardSel) {
+    const current = cardSel.value;
+    const chargeable = state.debts.filter((d) => d.kind !== "installment");
+    cardSel.innerHTML =
+      `<option value="">Cash / debit</option>` +
+      chargeable
+        .map((d) => `<option value="${d.id}">${escapeHtml(d.name)} · ${fmtMoney(d.balance)}</option>`)
+        .join("");
+    // Preserve the selection if the same debt still exists.
+    if (current && chargeable.some((d) => d.id === current)) cardSel.value = current;
+  }
+  if (cardField) cardField.hidden = type !== "expense" || state.debts.length === 0;
+
   if (type === "expense") {
     field.hidden = true;
     catField.hidden = false;
@@ -592,6 +610,10 @@ function renderDaily() {
         pill = `<span class="cat-pill" style="color:#86efac;border-color:#166534;">↑ ${escapeHtml(name)}</span>`;
       } else {
         pill = `<span class="cat-pill">${escapeHtml(e.category || "Others")}</span>`;
+        if (e.cardDebtId) {
+          const cardName = debtNameById(e.cardDebtId) || e.cardDebtName || "card";
+          pill += ` <span class="cat-pill cat-pill-card" title="Charged to this card">◈ ${escapeHtml(cardName)}</span>`;
+        }
       }
       note = e.note
         ? `<span class="daily-note">${escapeHtml(e.note)}</span>`
@@ -728,8 +750,16 @@ function renderDashboard() {
   $("#stat-min").textContent = fmtMoney(minSum);
 
   const dailyMonth = dailyStats().month;
+  // Card charges don't leave cash this month — they'll be picked up by
+  // next month's min debt payment. Exclude them from the balance math so
+  // 'balance left' represents actual remaining cash, not spending-minus-
+  // future-debt-liability.
+  const cardChargedThisMonth = state.dailyExpenses
+    .filter((e) => e.kind === "expense" && e.cardDebtId && isSameMonth(e.date))
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const cashDailyMonth = Math.max(0, dailyMonth - cardChargedThisMonth);
   const extra = Number(state.extraMonthly) || 0;
-  const totalOut = expenseTotal + minSum + extra + dailyMonth;
+  const totalOut = expenseTotal + minSum + extra + cashDailyMonth;
   const net = incomeTotal - totalOut;
   const netEl = $("#stat-net");
   const mp = moneyParts(net);
@@ -761,7 +791,10 @@ function renderDashboard() {
 
   const formulaEl = $("#stat-net-formula");
   if (formulaEl) {
-    formulaEl.textContent = `= income − recurring − min debt − extra − daily (${fmtMoney(dailyMonth)})`;
+    const base = `= income − recurring − min debt − extra − daily cash (${fmtMoney(cashDailyMonth)})`;
+    formulaEl.textContent = cardChargedThisMonth > 0
+      ? `${base} · ${fmtMoney(cardChargedThisMonth)} charged to cards (added to debt)`
+      : base;
   }
 
   $("#stat-debt-total").textContent = fmtMoney(total);
@@ -1636,9 +1669,17 @@ $("#form-daily").addEventListener("submit", (e) => {
     });
   } else {
     const category = (f.get("category") || "").toString().trim() || "Others";
-    state.dailyExpenses.push({
-      id, createdAt, kind: "expense", date, amount, category, note,
-    });
+    const cardId = (f.get("card") || "").toString().trim();
+    const entry = { id, createdAt, kind: "expense", date, amount, category, note };
+    if (cardId) {
+      const card = state.debts.find((d) => d.id === cardId);
+      if (card) {
+        card.balance = (Number(card.balance) || 0) + amount;
+        entry.cardDebtId = card.id;
+        entry.cardDebtName = card.name;
+      }
+    }
+    state.dailyExpenses.push(entry);
   }
 
   save();
@@ -1801,6 +1842,11 @@ document.addEventListener("click", (e) => {
     if (entry.kind === "saving" && entry.savingId) {
       const goal = state.savings.find((g) => g.id === entry.savingId);
       if (goal) goal.current = Math.max(0, (Number(goal.current) || 0) - (Number(entry.amount) || 0));
+    }
+    // Charge-to-card expense: roll the card balance back down on delete.
+    if (entry.kind === "expense" && entry.cardDebtId) {
+      const card = state.debts.find((d) => d.id === entry.cardDebtId);
+      if (card) card.balance = Math.max(0, (Number(card.balance) || 0) - (Number(entry.amount) || 0));
     }
     state.dailyExpenses = state.dailyExpenses.filter((x) => x.id !== id);
   } else if (action === "save-delete") {
