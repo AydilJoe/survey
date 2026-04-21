@@ -95,6 +95,7 @@
 
     <div class="actions">
       <button id="issue" class="primary">Issue license</button>
+      <button id="test-redirect" class="ghost" type="button" title="Build a signed redirect URL for the bill ID above and open it in a new tab — exercises the full /api/billplz/redirect handler.">Test redirect handler</button>
     </div>
 
     <p id="err" class="err"></p>
@@ -184,6 +185,38 @@ document.getElementById("gen-btn").addEventListener("click", () => {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   document.getElementById("gen-out").value = hex;
+});
+
+document.getElementById("test-redirect").addEventListener("click", async () => {
+  err.style.display = "none";
+  ok.style.display = "none";
+  const adminKey = adminInput.value.trim();
+  const billId = document.getElementById("bill_id").value.trim();
+  if (!adminKey) { err.textContent = "Admin key required"; err.style.display = "block"; return; }
+  if (!billId) { err.textContent = "Fill the Billplz bill ID first to simulate its redirect"; err.style.display = "block"; return; }
+  const btn = document.getElementById("test-redirect");
+  btn.disabled = true;
+  btn.textContent = "Building…";
+  try {
+    const r = await fetch("/api/admin/test-redirect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
+      body: JSON.stringify({ bill_id: billId }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.url) {
+      throw new Error(data.detail ? `${data.error} — ${data.detail}` : (data.error || "Failed"));
+    }
+    ok.textContent = "Opening redirect handler in a new tab…";
+    ok.style.display = "block";
+    window.open(data.url, "_blank", "noopener");
+  } catch (e) {
+    err.textContent = e.message || "Something went wrong";
+    err.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Test redirect handler";
+  }
 });
 
 document.addEventListener("click", async (e) => {
