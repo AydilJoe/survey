@@ -61,31 +61,34 @@ async function getBill(id) {
   return JSON.parse(text);
 }
 
-// Paginate through all paid bills in our collection. Stops when a page
-// returns fewer bills than requested, or after the safety cap.
+// Paginate through all bills in our collection. Billplz v3's list
+// endpoint is /collections/:id/bills — it doesn't filter by state
+// server-side, so we fetch everything and filter client-side to paid.
 async function listPaidBills({ maxPages = 40, perPage = 25 } = {}) {
   const collectionId = process.env.BILLPLZ_COLLECTION_ID;
   if (!collectionId) throw new Error("BILLPLZ_COLLECTION_ID not set");
-  const all = [];
+  const paid = [];
   for (let page = 1; page <= maxPages; page++) {
     const qs = new URLSearchParams({
-      collection_id: collectionId,
-      state: "paid",
       page: String(page),
       per_page: String(perPage),
     });
-    const r = await fetch(`${baseUrl()}/bills?${qs.toString()}`, {
-      headers: { Authorization: authHeader() },
-    });
+    const url = `${baseUrl()}/collections/${encodeURIComponent(collectionId)}/bills?${qs.toString()}`;
+    const r = await fetch(url, { headers: { Authorization: authHeader() } });
     const text = await r.text();
-    if (!r.ok) throw new Error(`Billplz listPaidBills ${r.status}: ${text}`);
+    if (!r.ok) throw new Error(`Billplz listPaidBills ${r.status} at ${url}: ${text.slice(0, 400)}`);
     let data;
     try { data = JSON.parse(text); } catch { break; }
-    const bills = Array.isArray(data.bills) ? data.bills : (Array.isArray(data.data) ? data.data : []);
-    all.push(...bills);
+    const bills = Array.isArray(data.bills) ? data.bills
+      : Array.isArray(data.data) ? data.data
+      : [];
+    for (const b of bills) {
+      // Billplz marks paid bills with state === 'paid' and paid === true.
+      if (b && (b.state === "paid" || b.paid === true)) paid.push(b);
+    }
     if (bills.length < perPage) break;
   }
-  return all;
+  return paid;
 }
 
 // Billplz uses two slightly different X-Signature schemes:
