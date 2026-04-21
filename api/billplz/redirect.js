@@ -32,7 +32,7 @@ async function sendLicenseEmail({ to, license, billId }) {
         subject: "Your Duitful Pro license",
         html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#2a2420;background:#fffaf2;">
   <h2 style="font-family:Georgia,serif;font-weight:500;margin:0 0 12px;">Thanks for buying Duitful Pro</h2>
-  <p style="line-height:1.55;">Here's your license key. Copy it and paste it into Duitful under <strong>Data &rarr; Activate license</strong>.</p>
+  <p style="line-height:1.55;">Here's your license key. Copy it and paste it into Duitful under <strong>Settings &rarr; Activate license</strong>.</p>
   <pre style="background:#fbf5ea;border:0.5px solid rgba(42,36,32,0.08);border-radius:10px;padding:12px;font:12px/1.5 ui-monospace,SFMono-Regular,monospace;white-space:pre-wrap;word-break:break-all;">${license}</pre>
   <p style="line-height:1.55;">Open the app: <a href="${appBase}/app" style="color:#c8704b;">${appBase}/app</a></p>
   <p style="line-height:1.55;color:#6b5e52;font-size:13px;">Bill reference: <code>${billId}</code><br>Treat this key like a password — it activates Pro on any device.</p>
@@ -65,7 +65,7 @@ function renderPage({ status, title, body, license, email, emailSent }) {
   const licenseBlock = license
     ? `<div class="card">
          <h2>Your Duitful Pro license</h2>
-         <p class="hint">Copy this key and paste it into Duitful under <strong>Data → Activate license</strong>. Keep it safe — treat it like a password.</p>
+         <p class="hint">Copy this key and paste it into Duitful under <strong>Settings → Activate license</strong>. Keep it safe — treat it like a password.</p>
          <textarea readonly id="lic">${escapeHtml(license)}</textarea>
          <div class="actions">
            <button onclick="copyLic()" class="primary">Copy license</button>
