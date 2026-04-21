@@ -10,14 +10,57 @@
 const { getBill, verifyXSignature, flattenBillplzParams } = require("../_lib/billplz");
 const { signLicense } = require("../_lib/license");
 
+// Optional email delivery via Resend. If RESEND_API_KEY is set, we'll
+// email the license to the buyer; otherwise we just render it on the
+// page and don't claim to have sent anything we didn't.
+async function sendLicenseEmail({ to, license, billId }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { sent: false, reason: "RESEND_API_KEY not configured" };
+  const from = process.env.RESEND_FROM_EMAIL || "Duitful <onboarding@resend.dev>";
+  const appBase = process.env.APP_BASE_URL || "https://duitful.app";
+  try {
+    const r = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject: "Your Duitful Pro license",
+        html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#2a2420;background:#fffaf2;">
+  <h2 style="font-family:Georgia,serif;font-weight:500;margin:0 0 12px;">Thanks for buying Duitful Pro</h2>
+  <p style="line-height:1.55;">Here's your license key. Copy it and paste it into Duitful under <strong>Data &rarr; Activate license</strong>.</p>
+  <pre style="background:#fbf5ea;border:0.5px solid rgba(42,36,32,0.08);border-radius:10px;padding:12px;font:12px/1.5 ui-monospace,SFMono-Regular,monospace;white-space:pre-wrap;word-break:break-all;">${license}</pre>
+  <p style="line-height:1.55;">Open the app: <a href="${appBase}/app" style="color:#c8704b;">${appBase}/app</a></p>
+  <p style="line-height:1.55;color:#6b5e52;font-size:13px;">Bill reference: <code>${billId}</code><br>Treat this key like a password — it activates Pro on any device.</p>
+</div>`,
+      }),
+    });
+    if (!r.ok) {
+      const text = await r.text();
+      console.warn("Resend email failed:", r.status, text);
+      return { sent: false, reason: `Resend ${r.status}` };
+    }
+    return { sent: true };
+  } catch (e) {
+    console.warn("Resend email threw:", e);
+    return { sent: false, reason: String(e.message || e) };
+  }
+}
+
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
   }[c]));
 }
 
-function renderPage({ status, title, body, license, email }) {
+function renderPage({ status, title, body, license, email, emailSent }) {
   const appBase = process.env.APP_BASE_URL || "https://duitful.app";
+  const emailLine = emailSent
+    ? `<p class="hint">We also emailed a copy to <strong>${escapeHtml(email || "your email")}</strong>.</p>`
+    : `<p class="hint">Save this key somewhere safe — close this tab and you'll need to recover it from your Billplz bill receipt.</p>`;
   const licenseBlock = license
     ? `<div class="card">
          <h2>Your Duitful Pro license</h2>
@@ -27,7 +70,7 @@ function renderPage({ status, title, body, license, email }) {
            <button onclick="copyLic()" class="primary">Copy license</button>
            <a href="${escapeHtml(appBase)}/app" class="btn-ghost">Open Duitful</a>
          </div>
-         <p class="hint">We also sent a copy to <strong>${escapeHtml(email || "your email")}</strong>.</p>
+         ${emailLine}
        </div>`
     : "";
 
@@ -116,6 +159,8 @@ module.exports = async function handler(req, res) {
       iat: Math.floor(Date.now() / 1000),
     });
 
+    const mail = bill.email ? await sendLicenseEmail({ to: bill.email, license, billId: bill.id }) : { sent: false };
+
     res.status(200).setHeader("Content-Type", "text/html; charset=utf-8").end(
       renderPage({
         status: "ok",
@@ -123,6 +168,7 @@ module.exports = async function handler(req, res) {
         body: "Duitful Pro is yours forever. Copy your license key below and paste it into the app to unlock.",
         license,
         email: bill.email,
+        emailSent: mail.sent,
       })
     );
   } catch (err) {
