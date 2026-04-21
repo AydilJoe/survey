@@ -61,40 +61,6 @@ async function getBill(id) {
   return JSON.parse(text);
 }
 
-// Paginate through paid bills.
-// Billplz v3 does NOT have a 'list bills' endpoint — only v4 does. So
-// for listing we swap /api/v3 -> /api/v4 on the base URL. create/get
-// keep using v3 (where they work).
-async function listPaidBills({ maxPages = 40, perPage = 25 } = {}) {
-  const collectionId = process.env.BILLPLZ_COLLECTION_ID;
-  if (!collectionId) throw new Error("BILLPLZ_COLLECTION_ID not set");
-  const v4Base = baseUrl().replace(/\/api\/v3\/?$/, "/api/v4");
-  const paid = [];
-  for (let page = 1; page <= maxPages; page++) {
-    const qs = new URLSearchParams({
-      page: String(page),
-      per_page: String(perPage),
-    });
-    const url = `${v4Base}/bills?${qs.toString()}`;
-    const r = await fetch(url, { headers: { Authorization: authHeader() } });
-    const text = await r.text();
-    if (!r.ok) throw new Error(`Billplz listPaidBills ${r.status} at ${url}: ${text.slice(0, 400)}`);
-    let data;
-    try { data = JSON.parse(text); } catch { break; }
-    const bills = Array.isArray(data.bills) ? data.bills
-      : Array.isArray(data.data) ? data.data
-      : [];
-    for (const b of bills) {
-      // v4 may return bills across all collections on the account — keep
-      // only our Duitful Pro collection.
-      if (b && b.collection_id && b.collection_id !== collectionId) continue;
-      if (b && (b.state === "paid" || b.paid === true)) paid.push(b);
-    }
-    if (bills.length < perPage) break;
-  }
-  return paid;
-}
-
 // Billplz uses two slightly different X-Signature schemes:
 //   - Redirect URL: keys are prefixed with 'billplz' in the source
 //     string. So billplz[id]=abc -> 'billplzidabc' before sorting/joining.
@@ -137,7 +103,6 @@ function flattenBillplzParams(query) {
 module.exports = {
   createBill,
   getBill,
-  listPaidBills,
   verifyXSignature,
   flattenBillplzParams,
 };

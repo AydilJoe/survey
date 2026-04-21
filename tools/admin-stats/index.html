@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Duitful — Admin stats</title>
+<title>Duitful — Admin stats (CSV)</title>
 <style>
   :root {
     --bg: #efe6d6; --ink: #2a2420; --muted: #6b5e52; --primary: #c8704b;
@@ -12,17 +12,25 @@
   }
   * { box-sizing: border-box; }
   body { margin:0; font:16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); min-height:100dvh; padding:1.2rem; }
-  .wrap { max-width: 900px; margin: 0 auto; }
+  .wrap { max-width: 960px; margin: 0 auto; }
   h1 { font:500 1.6rem/1.2 "Fraunces","Georgia",serif; margin:0.4rem 0 0.2rem; }
   .hint { color:var(--muted); font-size:0.92rem; margin:0 0 0.8rem; }
   .card { background:var(--card); border:0.5px solid var(--line); border-radius:16px; padding:1rem 1.1rem; margin:1rem 0; }
+  .card h2 { margin:0 0 0.6rem; font:500 1rem/1.25 "Fraunces", serif; }
   label span { display:block; font-size:0.8rem; color:var(--muted); margin-bottom:0.2rem; }
-  input { width:100%; font:14px/1.45 inherit; border:0.5px solid var(--line); border-radius:10px; padding:0.55rem 0.7rem; background:#fbf5ea; color:var(--ink); }
+  input, textarea { width:100%; font:14px/1.45 inherit; border:0.5px solid var(--line); border-radius:10px; padding:0.55rem 0.7rem; background:#fbf5ea; color:var(--ink); }
+  textarea { font:12px/1.5 ui-monospace, SFMono-Regular, monospace; resize:vertical; min-height:80px; }
   button { font:500 0.95rem/1 inherit; padding:0.7rem 1.1rem; border-radius:12px; border:0.5px solid transparent; cursor:pointer; }
   .primary { background:var(--primary); color:#fffaf2; border-color:var(--primary); }
   .ghost { background:transparent; color:var(--ink); border-color:var(--line); }
-  .err { color:#8a3f1c; font-size:0.85rem; margin-top:0.4rem; display:none; }
-  .totals { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0.6rem; margin:0.5rem 0; }
+  .drop {
+    border: 2px dashed rgba(42,36,32,0.18); border-radius:14px; padding:1.6rem 1rem; text-align:center;
+    background:#fbf5ea; cursor:pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .drop:hover, .drop.over { border-color:var(--primary); background:#fff6eb; }
+  .drop strong { display:block; font:500 1rem/1.3 "Fraunces", serif; color:var(--ink); margin-bottom:0.15rem; }
+  .err { color:#8a3f1c; font-size:0.88rem; margin-top:0.5rem; display:none; }
+  .totals { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0.6rem; margin:0.4rem 0 0.6rem; }
   .total-tile { background:var(--card); border:0.5px solid var(--line); border-radius:12px; padding:0.6rem 0.8rem; }
   .total-tile .lbl { font:500 0.7rem/1 ui-monospace, monospace; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); }
   .total-tile .val { font:500 1.3rem/1.2 "Fraunces", serif; margin-top:0.2rem; }
@@ -32,25 +40,39 @@
   .code { font:12px/1 ui-monospace, SFMono-Regular, monospace; background:rgba(0,0,0,0.04); padding:2px 6px; border-radius:4px; }
   .amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
   .amt-owed { color: var(--primary); font-weight:500; }
-  .url-cell { font:11px/1.3 ui-monospace, monospace; word-break: break-all; color:var(--muted); }
-  .url-cell button { padding:0.3rem 0.55rem; font-size:0.75rem; margin-top:0.25rem; }
+  .commission-input { width: 72px; font-size: 13px; padding: 0.3rem 0.4rem; }
   .scroll-x { overflow-x: auto; }
+  .row-actions button { padding:0.35rem 0.6rem; font-size:0.78rem; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Admin stats</h1>
-  <p class="hint">Paid bills from Billplz, grouped by referrer code. Commission owed is paid count × commission (from discounts.js or RM 5 default). Pay out manually via bank transfer; nothing is auto-settled.</p>
+  <h1>Admin stats (CSV mode)</h1>
+  <p class="hint">Export paid bills from Billplz dashboard → <strong>Bills</strong> → filter <em>Paid</em> → <strong>Export to CSV</strong>. Drop the file here (or paste its contents). All parsing happens in your browser; nothing is uploaded anywhere.</p>
 
   <div class="card">
-    <label>
-      <span>Admin key</span>
-      <input id="admin" type="password" autocomplete="off" placeholder="Paste ADMIN_KEY from Vercel env">
-    </label>
-    <div style="display:flex; gap:0.5rem; margin-top:0.4rem;">
-      <button id="load" class="primary">Load stats</button>
+    <div id="drop" class="drop">
+      <strong>Drop CSV here, or tap to pick a file</strong>
+      <span>Accepts the standard Billplz bills export</span>
+      <input type="file" id="file" accept=".csv,text/csv" hidden>
     </div>
+
+    <details style="margin-top:0.8rem;">
+      <summary style="cursor:pointer; font-size:0.9rem; color:var(--muted);">Or paste CSV contents</summary>
+      <textarea id="paste" rows="6" placeholder="ID,Email,State,Amount,Paid At,Reference 2,..."></textarea>
+      <div style="margin-top:0.5rem;"><button class="primary" id="parse-paste">Parse pasted CSV</button></div>
+    </details>
+
     <p id="err" class="err"></p>
+  </div>
+
+  <div class="card">
+    <h2>Defaults</h2>
+    <p class="hint">Used when a referrer has no entry in <code>discounts.js</code>. Override per row in the table once stats load.</p>
+    <label style="max-width:200px;">
+      <span>Default commission per sale (RM)</span>
+      <input id="default-commission" type="number" step="0.50" min="0" value="5">
+    </label>
   </div>
 
   <div class="card" id="summary" hidden>
@@ -59,6 +81,7 @@
       <div class="total-tile"><div class="lbl">Gross sales</div><div class="val" id="t-sales">RM 0.00</div></div>
       <div class="total-tile"><div class="lbl">Owed (commission)</div><div class="val" id="t-owed">RM 0.00</div></div>
       <div class="total-tile"><div class="lbl">Referrers</div><div class="val" id="t-refs">0</div></div>
+      <div class="total-tile"><div class="lbl">No-ref bills</div><div class="val" id="t-noref">0</div></div>
     </div>
   </div>
 
@@ -69,9 +92,10 @@
           <th>Referrer</th>
           <th>Paid</th>
           <th>Sales</th>
+          <th>Commission / sale</th>
           <th>Owed</th>
           <th>Last sale</th>
-          <th>Creator stats URL</th>
+          <th>Quick DM</th>
         </tr>
       </thead>
       <tbody id="rows"></tbody>
@@ -80,79 +104,230 @@
 </div>
 
 <script>
-const K = "duitful.admin-key";
-const adminInput = document.getElementById("admin");
-const err = document.getElementById("err");
-if (sessionStorage.getItem(K)) adminInput.value = sessionStorage.getItem(K);
-adminInput.addEventListener("input", () => sessionStorage.setItem(K, adminInput.value));
-
-function fmtRm(sen) {
-  return "RM " + (Number(sen || 0) / 100).toFixed(2);
-}
-function fmtDate(s) {
-  if (!s) return "—";
-  try { return new Date(s).toISOString().slice(0, 10); } catch { return s.slice(0, 10); }
-}
-
-document.getElementById("load").addEventListener("click", async () => {
-  err.style.display = "none";
-  const adminKey = adminInput.value.trim();
-  if (!adminKey) { err.textContent = "Admin key required"; err.style.display = "block"; return; }
-  const btn = document.getElementById("load");
-  btn.disabled = true;
-  btn.textContent = "Loading…";
-  try {
-    const r = await fetch("/api/admin/stats", { headers: { "x-admin-key": adminKey } });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.detail ? `${data.error} — ${data.detail}` : (data.error || "Failed"));
-
-    document.getElementById("t-bills").textContent = String(data.totalPaidBills);
-    document.getElementById("t-sales").textContent = fmtRm(data.totalSalesSen);
-    document.getElementById("t-owed").textContent = fmtRm(data.totalCommissionOwedSen);
-    document.getElementById("t-refs").textContent = String(data.referrers.length);
-    document.getElementById("summary").hidden = false;
-
-    const rows = document.getElementById("rows");
-    rows.innerHTML = data.referrers.map((r) => `
-      <tr>
-        <td>
-          <div><strong>${r.creatorName ? escapeHtml(r.creatorName) : "(direct referral)"}</strong></div>
-          <div><span class="code">${escapeHtml(r.ref)}</span>${r.code ? ` · ${escapeHtml(r.code)}` : ""}</div>
-          <div style="font-size:0.78rem;color:var(--muted);">Commission: RM ${r.commissionRm.toFixed(2)}/sale</div>
-        </td>
-        <td class="amt">${r.paidCount}</td>
-        <td class="amt">${escapeHtml(fmtRm(r.totalSalesSen))}</td>
-        <td class="amt amt-owed">${escapeHtml(fmtRm(r.commissionOwedSen))}</td>
-        <td class="amt">${escapeHtml(fmtDate(r.lastPaidAt))}</td>
-        <td>
-          <div class="url-cell" data-url="${escapeHtml(r.statsUrl)}">${escapeHtml(r.statsUrl)}</div>
-          <button class="ghost" onclick="copyUrl(this)">Copy</button>
-        </td>
-      </tr>
-    `).join("");
-    document.getElementById("table-wrap").hidden = false;
-  } catch (e) {
-    err.textContent = e.message || "Failed to load stats";
-    err.style.display = "block";
-  } finally {
-    btn.disabled = false;
-    btn.textContent = "Load stats";
+/* ---------- minimal RFC4180 CSV parser ---------- */
+function parseCsv(text) {
+  const rows = [];
+  let field = "", row = [], inQuotes = false, i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i+1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === ",") { row.push(field); field = ""; i++; continue; }
+    if (c === "\r") { i++; continue; }
+    if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+    field += c; i++;
   }
+  if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+  return rows.filter((r) => r.length && r.some((x) => String(x).length));
+}
+
+function findCol(headers, candidates) {
+  const lower = headers.map((h) => h.toLowerCase().replace(/\s+/g, " ").trim());
+  for (const name of candidates) {
+    const n = name.toLowerCase();
+    const i = lower.indexOf(n);
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+function parseBillplzCsv(text) {
+  const rows = parseCsv(text);
+  if (rows.length < 2) throw new Error("CSV looks empty or missing a header row.");
+  const headers = rows[0];
+  const iId      = findCol(headers, ["id", "bill id"]);
+  const iState   = findCol(headers, ["state", "status"]);
+  const iEmail   = findCol(headers, ["email"]);
+  const iAmount  = findCol(headers, ["amount", "bill amount"]);
+  const iPaid    = findCol(headers, ["paid amount", "amount paid", "paid_amount"]);
+  const iPaidAt  = findCol(headers, ["paid at", "paid date", "paid_at"]);
+  const iRef2    = findCol(headers, ["reference 2", "reference_2", "ref 2"]);
+  const iDesc    = findCol(headers, ["description"]);
+  if (iId < 0 || iState < 0) throw new Error("Can't find required 'ID' and 'State' columns. Is this a Billplz bills export?");
+
+  const bills = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const state = String(row[iState] || "").toLowerCase().trim();
+    if (state !== "paid") continue;
+    // Billplz CSV amounts are usually decimals (RM). If the value is
+    // huge like '1990', assume it's already in sen.
+    const rawAmount = Number(String(row[iAmount] || "").replace(/,/g, "").trim());
+    const rawPaid   = Number(String(row[iPaid]   || "").replace(/,/g, "").trim());
+    const toSen = (n) => {
+      if (!Number.isFinite(n) || n === 0) return 0;
+      // If it looks like a decimal (< 1000), treat as RM. Otherwise sen.
+      return (String(n).includes(".") || n < 1000) ? Math.round(n * 100) : Math.round(n);
+    };
+    bills.push({
+      id: String(row[iId] || "").trim(),
+      email: String(row[iEmail] || "").trim(),
+      amountSen: toSen(rawAmount),
+      paidSen: iPaid >= 0 ? toSen(rawPaid) : toSen(rawAmount),
+      paidAt: String(iPaidAt >= 0 ? row[iPaidAt] : "").trim(),
+      ref: String(iRef2 >= 0 ? row[iRef2] : "").trim().toLowerCase(),
+      description: String(iDesc >= 0 ? row[iDesc] : "").trim(),
+    });
+  }
+  return bills;
+}
+
+/* ---------- grouping + stats ---------- */
+function statsFromBills(bills, defaultCommRm) {
+  const groups = new Map();
+  let norefCount = 0;
+  for (const b of bills) {
+    if (!b.ref) { norefCount++; continue; }
+    if (!groups.has(b.ref)) groups.set(b.ref, []);
+    groups.get(b.ref).push(b);
+  }
+  const rows = [];
+  for (const [ref, gb] of groups.entries()) {
+    const sales = gb.reduce((s, b) => s + (b.paidSen || b.amountSen || 0), 0);
+    const last = gb.map((b) => b.paidAt).filter(Boolean).sort().pop() || "";
+    // Try to detect creator name from description (our create-bill
+    // appends the code there: 'Duitful Pro — lifetime unlock (AYAQ50)')
+    let code = "";
+    for (const b of gb) {
+      const m = /\(([A-Z0-9_-]{2,32})\)\s*$/.exec(b.description);
+      if (m) { code = m[1]; break; }
+    }
+    rows.push({
+      ref, code,
+      paidCount: gb.length,
+      salesSen: sales,
+      lastPaidAt: last,
+      commissionRm: defaultCommRm,
+      owedSen: gb.length * Math.round(defaultCommRm * 100),
+    });
+  }
+  rows.sort((a, b) => b.owedSen - a.owedSen);
+  return { rows, norefCount };
+}
+
+/* ---------- rendering ---------- */
+let lastBills = [];
+let lastRows = [];
+
+function fmtRm(sen) { return "RM " + (Number(sen || 0) / 100).toFixed(2); }
+function fmtDate(s) { if (!s) return "—"; try { return new Date(s).toISOString().slice(0, 10); } catch { return String(s).slice(0, 10); } }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+function render() {
+  if (!lastBills.length) return;
+  const defaultCommRm = Number(document.getElementById("default-commission").value) || 5;
+  const { rows, norefCount } = statsFromBills(lastBills, defaultCommRm);
+  lastRows = rows;
+
+  const totalSales = rows.reduce((s, r) => s + r.salesSen, 0);
+  const totalOwed  = rows.reduce((s, r) => s + r.owedSen, 0);
+  const totalCount = rows.reduce((s, r) => s + r.paidCount, 0);
+
+  document.getElementById("t-bills").textContent = String(totalCount + norefCount);
+  document.getElementById("t-sales").textContent = fmtRm(totalSales + lastBills.filter((b) => !b.ref).reduce((s, b) => s + (b.paidSen || b.amountSen || 0), 0));
+  document.getElementById("t-owed").textContent  = fmtRm(totalOwed);
+  document.getElementById("t-refs").textContent  = String(rows.length);
+  document.getElementById("t-noref").textContent = String(norefCount);
+  document.getElementById("summary").hidden = false;
+
+  const tbody = document.getElementById("rows");
+  tbody.innerHTML = rows.map((r, idx) => `
+    <tr data-idx="${idx}">
+      <td>
+        <div><strong>${r.code ? escapeHtml(r.code) : "(direct referral)"}</strong></div>
+        <div><span class="code">${escapeHtml(r.ref)}</span></div>
+      </td>
+      <td class="amt">${r.paidCount}</td>
+      <td class="amt">${escapeHtml(fmtRm(r.salesSen))}</td>
+      <td><input type="number" step="0.50" min="0" class="commission-input" value="${r.commissionRm.toFixed(2)}" data-ref="${escapeHtml(r.ref)}"></td>
+      <td class="amt amt-owed" data-owed="${escapeHtml(r.ref)}">${escapeHtml(fmtRm(r.owedSen))}</td>
+      <td class="amt">${escapeHtml(fmtDate(r.lastPaidAt))}</td>
+      <td class="row-actions"><button class="ghost" onclick="copyDm(${idx})">Copy DM</button></td>
+    </tr>
+  `).join("");
+  document.getElementById("table-wrap").hidden = false;
+}
+
+// Per-row commission override — updates just that row's owed amount
+document.getElementById("rows").addEventListener("input", (e) => {
+  const input = e.target.closest("input.commission-input");
+  if (!input) return;
+  const ref = input.dataset.ref;
+  const row = lastRows.find((r) => r.ref === ref);
+  if (!row) return;
+  const rate = Number(input.value) || 0;
+  row.commissionRm = rate;
+  row.owedSen = row.paidCount * Math.round(rate * 100);
+  const cell = document.querySelector(`[data-owed="${CSS.escape(ref)}"]`);
+  if (cell) cell.textContent = fmtRm(row.owedSen);
+  // Refresh totals
+  const totalOwed = lastRows.reduce((s, r) => s + r.owedSen, 0);
+  document.getElementById("t-owed").textContent = fmtRm(totalOwed);
 });
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+function copyDm(idx) {
+  const r = lastRows[idx];
+  const lines = [
+    `Your Duitful creator stats`,
+    ``,
+    `Paid referrals: ${r.paidCount}`,
+    `Commission rate: RM ${r.commissionRm.toFixed(2)} per sale`,
+    `Owed to you: ${fmtRm(r.owedSen)}`,
+    ...(r.lastPaidAt ? [`Last sale: ${fmtDate(r.lastPaidAt)}`] : []),
+    ``,
+    `Payout will land by month end via bank transfer.`,
+  ];
+  const text = lines.join("\n");
+  navigator.clipboard.writeText(text).then(() => {
+    alert("Stats message copied — paste into WhatsApp / DM.");
+  }).catch(() => prompt("Copy this DM:", text));
 }
 
-function copyUrl(btn) {
-  const row = btn.closest("tr");
-  const url = row.querySelector(".url-cell")?.dataset.url || "";
-  navigator.clipboard.writeText(url).then(() => {
-    const t = btn.textContent;
-    btn.textContent = "Copied ✓";
-    setTimeout(() => { btn.textContent = t; }, 1200);
-  }).catch(() => { prompt("Copy this URL:", url); });
+/* ---------- file input + drop zone + paste fallback ---------- */
+function loadText(text) {
+  try {
+    const err = document.getElementById("err");
+    err.style.display = "none";
+    lastBills = parseBillplzCsv(text);
+    if (!lastBills.length) throw new Error("No paid bills found in the CSV.");
+    render();
+  } catch (e) {
+    const err = document.getElementById("err");
+    err.textContent = e.message || "Could not parse CSV";
+    err.style.display = "block";
+  }
 }
+
+const fileInput = document.getElementById("file");
+const drop = document.getElementById("drop");
+drop.addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => {
+  const f = fileInput.files && fileInput.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => loadText(reader.result);
+  reader.readAsText(f);
+});
+["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (e) => {
+  const f = e.dataTransfer?.files?.[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => loadText(reader.result);
+  reader.readAsText(f);
+});
+document.getElementById("parse-paste").addEventListener("click", () => {
+  const t = document.getElementById("paste").value;
+  if (t.trim()) loadText(t);
+});
+document.getElementById("default-commission").addEventListener("input", render);
 </script>
 </body>
 </html>
