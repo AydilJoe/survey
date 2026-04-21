@@ -2556,7 +2556,7 @@ const GUIDE_STEPS = [
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/><circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg>`,
     title: "Welcome to Duitful",
-    sub: "A 60-second tour — you can replay it anytime from Data → About.",
+    sub: "A 60-second tour — you can replay it anytime from Settings → About.",
     body: `<p>Duitful is a private money &amp; debt tracker. Everything lives on this device, encrypted with your passcode.</p>
       <ul>
         <li>Track monthly income &amp; bills</li>
@@ -2602,9 +2602,9 @@ const GUIDE_STEPS = [
   },
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14M5 10l7 7 7-7M4 21h16"/></svg>`,
-    title: "Back up &amp; preferences",
+    title: "Settings &amp; backup",
     sub: "You own the data.",
-    body: `<p>Under <strong>Data</strong> you can export a CSV, change currency, set reminders, and change your passcode. Import on another device to move everything across.</p>
+    body: `<p>Under <strong>Settings</strong> you can export a CSV, change currency, set reminders, change your passcode, and manage your Pro license. Import on another device to move everything across.</p>
       <ul>
         <li>All data is encrypted locally — there's no server</li>
         <li>Losing the passcode means losing the data — export CSVs</li>
