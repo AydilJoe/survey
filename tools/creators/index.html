@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Duitful — Creator package generator</title>
+<style>
+  :root {
+    --bg: #efe6d6; --ink: #2a2420; --muted: #6b5e52; --primary: #c8704b;
+    --card: #fffaf2; --line: rgba(42,36,32,0.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); min-height:100dvh; padding:1.2rem; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font:500 1.6rem/1.2 "Fraunces","Georgia",serif; margin:0.4rem 0 0.2rem; }
+  .hint { color:var(--muted); font-size:0.92rem; margin:0 0 0.8rem; }
+  .card { background:var(--card); border:0.5px solid var(--line); border-radius:16px; padding:1rem 1.1rem; margin:1rem 0; box-shadow:0 4px 18px rgba(42,36,32,0.05); }
+  .card h2 { margin:0 0 0.6rem; font:500 1rem/1.2 "Fraunces", serif; }
+  label { display:block; margin-bottom:0.65rem; }
+  label span { display:block; font-size:0.8rem; color:var(--muted); margin-bottom:0.2rem; }
+  input, select, textarea { width:100%; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; border:0.5px solid var(--line); border-radius:10px; padding:0.55rem 0.7rem; background:#fbf5ea; color:var(--ink); }
+  textarea { font:12px/1.5 ui-monospace, SFMono-Regular, monospace; resize:vertical; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; }
+  .radio-row { display:flex; gap:0.8rem; margin-bottom:0.65rem; }
+  .radio-row label { display:inline-flex; align-items:center; gap:0.35rem; margin:0; }
+  .radio-row input[type=radio] { width:auto; accent-color:var(--primary); }
+  button { font:500 0.95rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding:0.75rem 1.1rem; border-radius:12px; border:0.5px solid transparent; cursor:pointer; }
+  .primary { background:var(--primary); color:#fffaf2; border-color:var(--primary); }
+  .ghost { background:transparent; color:var(--ink); border-color:var(--line); }
+  .actions { display:flex; gap:0.5rem; margin-top:0.6rem; flex-wrap:wrap; }
+  .kv { display:grid; grid-template-columns:max-content 1fr; gap:0.4rem 0.8rem; font:13px/1.4 ui-monospace, SFMono-Regular, monospace; margin:0.4rem 0; }
+  .kv dt { color:var(--muted); white-space:nowrap; }
+  .kv dd { margin:0; word-break:break-all; }
+  code { font:12px/1 ui-monospace, SFMono-Regular, monospace; background:rgba(0,0,0,0.05); padding:1px 5px; border-radius:4px; }
+  .hidden { display:none; }
+  .ok { color:#3a6b50; font-size:0.85rem; margin-top:0.4rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Creator package generator</h1>
+  <p class="hint">Builds an influencer package: referral code + discount code + one shareable link that bakes both in. Fill the form, copy the outputs, paste the snippet into <code>api/_lib/discounts.js</code> and commit. No server state — this tool is pure client-side.</p>
+
+  <div class="card">
+    <h2>Creator</h2>
+    <label>
+      <span>Creator name / handle</span>
+      <input id="name" type="text" autocomplete="off" placeholder="e.g. Ayaq Syafiq">
+    </label>
+    <label>
+      <span>Creator email</span>
+      <input id="email" type="email" autocomplete="off" inputmode="email" placeholder="ayaq@example.com">
+    </label>
+    <p class="hint">Used to derive their referral code (sha256 of email, first 8 hex) and as the payout contact.</p>
+  </div>
+
+  <div class="card">
+    <h2>Discount</h2>
+    <label>
+      <span>Discount code (what they'll say out loud)</span>
+      <input id="code" type="text" autocomplete="off" autocapitalize="characters" placeholder="AYAQ50">
+    </label>
+    <div class="radio-row">
+      <label><input type="radio" name="type" value="percent" checked> Percent off</label>
+      <label><input type="radio" name="type" value="fixed"> Fixed RM off</label>
+    </div>
+    <div class="grid-2">
+      <label>
+        <span>Amount</span>
+        <input id="off" type="number" min="0" step="1" value="50">
+      </label>
+      <label>
+        <span>Expires (YYYY-MM-DD)</span>
+        <input id="expires" type="date">
+      </label>
+    </div>
+    <label>
+      <span>Commission per sale (RM)</span>
+      <input id="commission" type="number" min="0" step="0.50" value="2">
+    </label>
+  </div>
+
+  <div class="actions">
+    <button id="generate" class="primary">Generate package</button>
+  </div>
+
+  <div id="out" class="card hidden">
+    <h2>Package for <span id="out-name"></span></h2>
+    <dl class="kv">
+      <dt>Referral code</dt><dd id="out-ref"></dd>
+      <dt>Discount code</dt><dd id="out-code"></dd>
+      <dt>Commission</dt><dd id="out-commission"></dd>
+    </dl>
+    <label>
+      <span>Shareable link (put this in their bio, DM them this)</span>
+      <textarea id="out-url" readonly rows="2"></textarea>
+    </label>
+    <div class="actions">
+      <button class="ghost" data-copy="out-url">Copy link</button>
+    </div>
+    <label style="margin-top:0.8rem;">
+      <span>Caption draft (copy-paste friendly)</span>
+      <textarea id="out-caption" readonly rows="4"></textarea>
+    </label>
+    <div class="actions">
+      <button class="ghost" data-copy="out-caption">Copy caption</button>
+    </div>
+    <label style="margin-top:0.8rem;">
+      <span>Code definition — paste into <code>api/_lib/discounts.js</code>, commit, Vercel redeploys</span>
+      <textarea id="out-snippet" readonly rows="10"></textarea>
+    </label>
+    <div class="actions">
+      <button class="ghost" data-copy="out-snippet">Copy snippet</button>
+    </div>
+    <p class="ok" id="out-ok"></p>
+  </div>
+</div>
+
+<script>
+async function refCodeFor(email) {
+  const norm = String(email || "").toLowerCase().trim();
+  const bytes = new TextEncoder().encode(norm);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 8);
+}
+
+function normalizeCode(v) { return String(v || "").trim().toUpperCase().replace(/\s+/g, ""); }
+
+document.getElementById("generate").addEventListener("click", async () => {
+  const name = document.getElementById("name").value.trim();
+  const email = document.getElementById("email").value.trim();
+  const code = normalizeCode(document.getElementById("code").value);
+  const type = document.querySelector("input[name=type]:checked").value;
+  const off = Number(document.getElementById("off").value);
+  const expires = document.getElementById("expires").value;
+  const commission = Number(document.getElementById("commission").value);
+
+  if (!name || !email || !code) { alert("Name, email and discount code are all required."); return; }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { alert("Invalid email."); return; }
+  if (!(off >= 0)) { alert("Discount amount must be >= 0."); return; }
+
+  const ref = await refCodeFor(email);
+
+  // Percent stores as-is (0..100). Fixed stores in sen.
+  const storedOff = type === "fixed" ? Math.round(off * 100) : off;
+  const offLabel = type === "fixed" ? `RM ${off.toFixed(2)} off` : `${off}% off`;
+
+  const url = `https://duitful.app/app?ref=${ref}&promo=${encodeURIComponent(code)}`;
+
+  const caption = `Track your money + kill debt with Duitful 🎯\n\nUse code ${code} at checkout for ${offLabel}. One-time lifetime Pro, no subscription.\n\n${url}`;
+
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const snippet =
+`  ${code}: {
+    type: "${type}",
+    off: ${storedOff},
+    description: "${name} — ${offLabel}",${expires ? `\n    expires: "${expires}",` : ""}
+    creator: "${slug}",
+    referrerCode: "${ref}",
+    commission: ${commission},
+  },`;
+
+  document.getElementById("out-name").textContent = name;
+  document.getElementById("out-ref").textContent = ref;
+  document.getElementById("out-code").textContent = code;
+  document.getElementById("out-commission").textContent = `RM ${commission.toFixed(2)} per sale`;
+  document.getElementById("out-url").value = url;
+  document.getElementById("out-caption").value = caption;
+  document.getElementById("out-snippet").value = snippet;
+  document.getElementById("out").classList.remove("hidden");
+  document.getElementById("out-ok").textContent = "Package ready. Paste the snippet into discounts.js and commit to activate the code.";
+});
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-copy]");
+  if (!b) return;
+  const ta = document.getElementById(b.dataset.copy);
+  try {
+    await navigator.clipboard.writeText(ta.value);
+    const t = b.textContent;
+    b.textContent = "Copied ✓";
+    setTimeout(() => { b.textContent = t; }, 1200);
+  } catch { ta.select(); document.execCommand("copy"); }
+});
+</script>
+</body>
+</html>
