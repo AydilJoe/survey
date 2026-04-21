@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Your Duitful creator stats</title>
+<style>
+  :root {
+    --bg: #efe6d6; --ink: #2a2420; --muted: #6b5e52; --primary: #c8704b;
+    --card: #fffaf2; --line: rgba(42,36,32,0.08); --gain: #5c986e;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); min-height:100dvh; padding:1.2rem; }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  h1 { font:500 1.7rem/1.2 "Fraunces","Georgia",serif; margin:0.2rem 0 0.2rem; }
+  .hint { color:var(--muted); font-size:0.92rem; margin:0 0 0.8rem; }
+  .card { background:var(--card); border:0.5px solid var(--line); border-radius:16px; padding:1rem 1.2rem; margin:1rem 0; }
+  .hero-num { font:500 2.5rem/1.1 "Fraunces", serif; color:var(--primary); letter-spacing:-0.02em; }
+  .hero-sub { font:500 0.75rem/1 ui-monospace, monospace; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); margin-bottom:0.35rem; }
+  .totals { display:grid; grid-template-columns:1fr 1fr; gap:0.6rem; margin-top:0.6rem; }
+  .total-tile { background:var(--card); border:0.5px solid var(--line); border-radius:12px; padding:0.6rem 0.8rem; }
+  .total-tile .lbl { font:500 0.7rem/1 ui-monospace, monospace; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); }
+  .total-tile .val { font:500 1.15rem/1.2 "Fraunces", serif; margin-top:0.2rem; }
+  .recent { list-style:none; padding:0; margin:0; }
+  .recent li { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0; border-bottom:0.5px solid var(--line); font-size:0.9rem; }
+  .recent li:last-child { border-bottom:none; }
+  .err { color:#8a3f1c; font-size:0.95rem; }
+  .empty { color:var(--muted); font-size:0.92rem; text-align:center; padding:1.2rem 0; }
+  code { font:12px/1 ui-monospace, SFMono-Regular, monospace; background:rgba(0,0,0,0.05); padding:1px 5px; border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Your Duitful stats</h1>
+  <p class="hint">Paid referrals attributed to your code. Commission is paid out monthly via bank transfer.</p>
+
+  <div id="loading" class="card hint">Loading…</div>
+
+  <div id="error" class="card err" hidden>
+    <strong>Can't load stats.</strong> Your link may be missing or invalid. Ask your Duitful contact for a fresh <code>?ref=…&token=…</code> URL.
+  </div>
+
+  <div id="out" hidden>
+    <div class="card">
+      <div class="hero-sub">Commission owed</div>
+      <div class="hero-num" id="s-owed">RM 0.00</div>
+      <div class="totals">
+        <div class="total-tile"><div class="lbl">Paid referrals</div><div class="val" id="s-count">0</div></div>
+        <div class="total-tile"><div class="lbl">Rate / sale</div><div class="val" id="s-rate">RM 0.00</div></div>
+      </div>
+      <p class="hint" style="margin-top:0.7rem;">Gross sales through your code: <strong id="s-sales">RM 0.00</strong></p>
+      <p class="hint" style="margin-top:-0.3rem;">Your referrer code: <code id="s-ref"></code></p>
+    </div>
+
+    <div class="card">
+      <div class="hero-sub">Recent referrals</div>
+      <ul class="recent" id="s-recent"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+function fmtRm(sen) { return "RM " + (Number(sen || 0) / 100).toFixed(2); }
+function fmtDate(s) {
+  if (!s) return "—";
+  try { return new Date(s).toISOString().slice(0, 10); } catch { return String(s).slice(0, 10); }
+}
+
+async function load() {
+  const params = new URLSearchParams(location.search);
+  const ref = (params.get("ref") || "").trim().toLowerCase();
+  const token = (params.get("token") || "").trim();
+  if (!ref || !token) { showErr(); return; }
+  try {
+    const r = await fetch(`/api/creator/stats?ref=${encodeURIComponent(ref)}&token=${encodeURIComponent(token)}`);
+    const data = await r.json();
+    if (!r.ok) { showErr(); return; }
+
+    document.getElementById("s-owed").textContent = fmtRm(data.commissionOwedSen);
+    document.getElementById("s-count").textContent = String(data.paidCount);
+    document.getElementById("s-rate").textContent = "RM " + Number(data.commissionRm || 0).toFixed(2);
+    document.getElementById("s-sales").textContent = fmtRm(data.totalSalesSen);
+    document.getElementById("s-ref").textContent = data.ref;
+
+    const ul = document.getElementById("s-recent");
+    if (!Array.isArray(data.recent) || data.recent.length === 0) {
+      ul.innerHTML = `<li class="empty">No paid referrals yet. Share your link and watch this fill up.</li>`;
+    } else {
+      ul.innerHTML = data.recent.map((b) => `
+        <li>
+          <span>${fmtDate(b.paidAt)}</span>
+          <span>${fmtRm(b.amountSen)}</span>
+        </li>
+      `).join("");
+    }
+
+    document.getElementById("loading").hidden = true;
+    document.getElementById("out").hidden = false;
+  } catch (e) {
+    showErr();
+  }
+}
+
+function showErr() {
+  document.getElementById("loading").hidden = true;
+  document.getElementById("error").hidden = false;
+}
+
+load();
+</script>
+</body>
+</html>
