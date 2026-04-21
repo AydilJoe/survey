@@ -75,12 +75,18 @@
       <input id="admin" type="password" autocomplete="off" placeholder="Paste ADMIN_KEY value from Vercel env">
     </label>
     <label>
+      <span>Billplz bill ID <em style="color:var(--muted);font-style:normal;">(optional — recovers a paid bill)</em></span>
+      <input id="bill_id" type="text" autocomplete="off" placeholder="e.g. a4acd91fa06a57b6">
+    </label>
+    <p class="hint" style="margin: -0.4rem 0 0.6rem;">If filled, the server fetches the bill from Billplz, confirms it's paid, and uses its email + ID. Leave blank to issue a comp/test license manually.</p>
+
+    <label>
       <span>Buyer email</span>
       <input id="email" type="email" autocomplete="off" inputmode="email" placeholder="buyer@example.com">
     </label>
     <label>
-      <span>Subject / ID <em style="color:var(--muted);font-style:normal;">(optional — defaults to a random UUID)</em></span>
-      <input id="sub" type="text" autocomplete="off" placeholder="e.g. billplz-xxxx or a bill id">
+      <span>Subject / ID <em style="color:var(--muted);font-style:normal;">(optional — defaults to bill ID, then random UUID)</em></span>
+      <input id="sub" type="text" autocomplete="off" placeholder="auto from bill_id or random">
     </label>
     <label>
       <span>Note <em style="color:var(--muted);font-style:normal;">(optional — embedded in the license for your records)</em></span>
@@ -130,12 +136,15 @@ document.getElementById("issue").addEventListener("click", async () => {
   err.style.display = "none";
   ok.style.display = "none";
   const adminKey = adminInput.value.trim();
+  const billId = document.getElementById("bill_id").value.trim();
   const email = emailInput.value.trim();
   const sub = subInput.value.trim();
   const note = noteInput.value.trim();
   if (!adminKey) { err.textContent = "Admin key required"; err.style.display = "block"; return; }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    err.textContent = "Valid buyer email required";
+  // Email is only required when not recovering a Billplz bill — recovery
+  // pulls the email from Billplz's record automatically.
+  if (!billId && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    err.textContent = "Either fill a Billplz bill ID, or enter a valid buyer email";
     err.style.display = "block";
     return;
   }
@@ -146,7 +155,7 @@ document.getElementById("issue").addEventListener("click", async () => {
     const r = await fetch("/api/admin/issue-license", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
-      body: JSON.stringify({ email, sub: sub || undefined, note: note || undefined }),
+      body: JSON.stringify({ bill_id: billId || undefined, email: email || undefined, sub: sub || undefined, note: note || undefined }),
     });
     const data = await r.json();
     if (!r.ok || !data.license) {
@@ -158,6 +167,7 @@ document.getElementById("issue").addEventListener("click", async () => {
     outCard.hidden = false;
     ok.textContent = "License issued. Copy it below.";
     ok.style.display = "block";
+    document.getElementById("bill_id").value = "";
     emailInput.value = "";
     subInput.value = "";
     noteInput.value = "";
