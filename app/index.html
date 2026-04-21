@@ -21,7 +21,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=38" />
+    <link rel="stylesheet" href="styles.css?v=39" />
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -444,6 +444,14 @@
             <button id="btn-pro-activate" class="ghost" type="button">Activate license</button>
             <button id="btn-pro-restore" class="ghost" type="button">Restore</button>
           </div>
+          <div id="pro-refer" class="pro-refer" hidden>
+            <h3>Refer a friend — earn RM 5</h3>
+            <p class="hint">Share this link. When someone buys Duitful Pro through it, RM 5 lands in your bank (we pay out monthly via bank transfer).</p>
+            <div class="pro-refer-url-row">
+              <code id="pro-refer-url" class="pro-refer-url">https://duitful.app/app?ref=...</code>
+              <button type="button" class="ghost" id="btn-pro-refer-copy">Copy</button>
+            </div>
+          </div>
         </div>
 
         <div class="card">
@@ -732,6 +740,6 @@
       </div>
     </dialog>
 
-    <script src="script.js?v=46"></script>
+    <script src="script.js?v=47"></script>
   </body>
 </html>

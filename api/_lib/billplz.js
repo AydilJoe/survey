@@ -19,7 +19,7 @@ function baseUrl() {
   return u.replace(/\/$/, "");
 }
 
-async function createBill({ name, email, amount, description, redirectUrl, callbackUrl, reference }) {
+async function createBill({ name, email, amount, description, redirectUrl, callbackUrl, reference, referrerCode }) {
   const collectionId = process.env.BILLPLZ_COLLECTION_ID;
   if (!collectionId) throw new Error("BILLPLZ_COLLECTION_ID not set");
 
@@ -33,6 +33,10 @@ async function createBill({ name, email, amount, description, redirectUrl, callb
     callback_url: callbackUrl,
     reference_1_label: "Product",
     reference_1: reference || "duitful_pro",
+    ...(referrerCode ? {
+      reference_2_label: "Referrer",
+      reference_2: referrerCode,
+    } : {}),
   };
 
   const r = await fetch(`${baseUrl()}/bills`, {

@@ -1,4 +1,5 @@
 const { createBill } = require("../_lib/billplz");
+const { refCodeFor } = require("../_lib/referral");
 
 module.exports = async function handler(req, res) {
   // CORS: allow the Duitful app (same origin in production, but helpful in dev).
@@ -15,10 +16,20 @@ module.exports = async function handler(req, res) {
     const email = String(body.email || "").trim();
     const name = String(body.name || "").trim();
     const bankCode = String(body.bank_code || "").trim();
+    const rawRef = String(body.ref_code || "").trim().toLowerCase();
 
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       res.status(400).json({ error: "Valid email required" });
       return;
+    }
+
+    // Validate the referral code: 8 lowercase hex chars, and MUST NOT be
+    // the buyer's own referral code (self-referrals are rejected).
+    let safeRef = "";
+    if (rawRef) {
+      if (/^[a-f0-9]{8}$/.test(rawRef) && rawRef !== refCodeFor(email)) {
+        safeRef = rawRef;
+      }
     }
 
     // Minimal allowlist so a hostile client can't smuggle arbitrary query
@@ -41,6 +52,7 @@ module.exports = async function handler(req, res) {
       redirectUrl: `${appBase}/api/billplz/redirect`,
       callbackUrl: `${appBase}/api/billplz/webhook`,
       reference: "duitful_pro",
+      referrerCode: safeRef || undefined,
     });
 
     // Direct Payment Gateway bypass
