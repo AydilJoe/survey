@@ -750,8 +750,16 @@ function renderDashboard() {
   $("#stat-min").textContent = fmtMoney(minSum);
 
   const dailyMonth = dailyStats().month;
+  // Card charges don't leave cash this month — they'll be picked up by
+  // next month's min debt payment. Exclude them from the balance math so
+  // 'balance left' represents actual remaining cash, not spending-minus-
+  // future-debt-liability.
+  const cardChargedThisMonth = state.dailyExpenses
+    .filter((e) => e.kind === "expense" && e.cardDebtId && isSameMonth(e.date))
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const cashDailyMonth = Math.max(0, dailyMonth - cardChargedThisMonth);
   const extra = Number(state.extraMonthly) || 0;
-  const totalOut = expenseTotal + minSum + extra + dailyMonth;
+  const totalOut = expenseTotal + minSum + extra + cashDailyMonth;
   const net = incomeTotal - totalOut;
   const netEl = $("#stat-net");
   const mp = moneyParts(net);
@@ -783,7 +791,10 @@ function renderDashboard() {
 
   const formulaEl = $("#stat-net-formula");
   if (formulaEl) {
-    formulaEl.textContent = `= income − recurring − min debt − extra − daily (${fmtMoney(dailyMonth)})`;
+    const base = `= income − recurring − min debt − extra − daily cash (${fmtMoney(cashDailyMonth)})`;
+    formulaEl.textContent = cardChargedThisMonth > 0
+      ? `${base} · ${fmtMoney(cardChargedThisMonth)} charged to cards (added to debt)`
+      : base;
   }
 
   $("#stat-debt-total").textContent = fmtMoney(total);
