@@ -57,10 +57,12 @@ async function getBill(id) {
   return JSON.parse(text);
 }
 
-// Billplz redirect/callback signature: HMAC-SHA256 over the keys/values
-// sorted alphabetically, joined with | as "key=value|key=value|...".
-// The x_signature value itself is excluded from the input.
-function verifyXSignature(params) {
+// Billplz uses two slightly different X-Signature schemes:
+//   - Redirect URL: keys are prefixed with 'billplz' in the source
+//     string. So billplz[id]=abc -> 'billplzidabc' before sorting/joining.
+//   - Callback URL (POST webhook): keys appear plain. id=abc -> 'idabc'.
+// The pipe-joined, alphabetically-sorted, HMAC-SHA256 logic is the same.
+function verifyXSignature(params, { keyPrefix = "" } = {}) {
   const secret = process.env.BILLPLZ_X_SIGNATURE;
   if (!secret) throw new Error("BILLPLZ_X_SIGNATURE not set");
   const given = params.x_signature;
@@ -68,7 +70,7 @@ function verifyXSignature(params) {
 
   const entries = Object.entries(params)
     .filter(([k]) => k !== "x_signature")
-    .map(([k, v]) => [k, String(v)])
+    .map(([k, v]) => [keyPrefix + k, String(v)])
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
 
   const source = entries.map(([k, v]) => `${k}${v}`).join("|");
