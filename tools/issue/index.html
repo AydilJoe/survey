@@ -75,12 +75,18 @@
       <input id="admin" type="password" autocomplete="off" placeholder="Paste ADMIN_KEY value from Vercel env">
     </label>
     <label>
+      <span>Billplz bill ID <em style="color:var(--muted);font-style:normal;">(optional — recovers a paid bill)</em></span>
+      <input id="bill_id" type="text" autocomplete="off" placeholder="e.g. a4acd91fa06a57b6">
+    </label>
+    <p class="hint" style="margin: -0.4rem 0 0.6rem;">If filled, the server fetches the bill from Billplz, confirms it's paid, and uses its email + ID. Leave blank to issue a comp/test license manually.</p>
+
+    <label>
       <span>Buyer email</span>
       <input id="email" type="email" autocomplete="off" inputmode="email" placeholder="buyer@example.com">
     </label>
     <label>
-      <span>Subject / ID <em style="color:var(--muted);font-style:normal;">(optional — defaults to a random UUID)</em></span>
-      <input id="sub" type="text" autocomplete="off" placeholder="e.g. billplz-xxxx or a bill id">
+      <span>Subject / ID <em style="color:var(--muted);font-style:normal;">(optional — defaults to bill ID, then random UUID)</em></span>
+      <input id="sub" type="text" autocomplete="off" placeholder="auto from bill_id or random">
     </label>
     <label>
       <span>Note <em style="color:var(--muted);font-style:normal;">(optional — embedded in the license for your records)</em></span>
@@ -89,6 +95,7 @@
 
     <div class="actions">
       <button id="issue" class="primary">Issue license</button>
+      <button id="test-redirect" class="ghost" type="button" title="Build a signed redirect URL for the bill ID above and open it in a new tab — exercises the full /api/billplz/redirect handler.">Test redirect handler</button>
     </div>
 
     <p id="err" class="err"></p>
@@ -130,12 +137,15 @@ document.getElementById("issue").addEventListener("click", async () => {
   err.style.display = "none";
   ok.style.display = "none";
   const adminKey = adminInput.value.trim();
+  const billId = document.getElementById("bill_id").value.trim();
   const email = emailInput.value.trim();
   const sub = subInput.value.trim();
   const note = noteInput.value.trim();
   if (!adminKey) { err.textContent = "Admin key required"; err.style.display = "block"; return; }
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    err.textContent = "Valid buyer email required";
+  // Email is only required when not recovering a Billplz bill — recovery
+  // pulls the email from Billplz's record automatically.
+  if (!billId && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    err.textContent = "Either fill a Billplz bill ID, or enter a valid buyer email";
     err.style.display = "block";
     return;
   }
@@ -146,7 +156,7 @@ document.getElementById("issue").addEventListener("click", async () => {
     const r = await fetch("/api/admin/issue-license", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
-      body: JSON.stringify({ email, sub: sub || undefined, note: note || undefined }),
+      body: JSON.stringify({ bill_id: billId || undefined, email: email || undefined, sub: sub || undefined, note: note || undefined }),
     });
     const data = await r.json();
     if (!r.ok || !data.license) {
@@ -158,6 +168,7 @@ document.getElementById("issue").addEventListener("click", async () => {
     outCard.hidden = false;
     ok.textContent = "License issued. Copy it below.";
     ok.style.display = "block";
+    document.getElementById("bill_id").value = "";
     emailInput.value = "";
     subInput.value = "";
     noteInput.value = "";
@@ -174,6 +185,38 @@ document.getElementById("gen-btn").addEventListener("click", () => {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   const hex = Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join("");
   document.getElementById("gen-out").value = hex;
+});
+
+document.getElementById("test-redirect").addEventListener("click", async () => {
+  err.style.display = "none";
+  ok.style.display = "none";
+  const adminKey = adminInput.value.trim();
+  const billId = document.getElementById("bill_id").value.trim();
+  if (!adminKey) { err.textContent = "Admin key required"; err.style.display = "block"; return; }
+  if (!billId) { err.textContent = "Fill the Billplz bill ID first to simulate its redirect"; err.style.display = "block"; return; }
+  const btn = document.getElementById("test-redirect");
+  btn.disabled = true;
+  btn.textContent = "Building…";
+  try {
+    const r = await fetch("/api/admin/test-redirect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
+      body: JSON.stringify({ bill_id: billId }),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.url) {
+      throw new Error(data.detail ? `${data.error} — ${data.detail}` : (data.error || "Failed"));
+    }
+    ok.textContent = "Opening redirect handler in a new tab…";
+    ok.style.display = "block";
+    window.open(data.url, "_blank", "noopener");
+  } catch (e) {
+    err.textContent = e.message || "Something went wrong";
+    err.style.display = "block";
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Test redirect handler";
+  }
 });
 
 document.addEventListener("click", async (e) => {

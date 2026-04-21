@@ -9,6 +9,7 @@
 
 const crypto = require("crypto");
 const { signLicense } = require("../_lib/license");
+const { getBill } = require("../_lib/billplz");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -38,9 +39,32 @@ module.exports = async function handler(req, res) {
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
-    const email = String(body.email || "").trim();
-    const sub = String(body.sub || "").trim() || `manual-${crypto.randomUUID()}`;
+    const billId = String(body.bill_id || "").trim();
+    let email = String(body.email || "").trim();
+    let sub = String(body.sub || "").trim();
     const note = String(body.note || "").trim();
+
+    // Recovery mode: if bill_id is provided, look it up server-side. Pulls
+    // email and uses the bill id as the license subject. Lets us reissue
+    // a license for any paid Billplz bill (e.g. when the redirect
+    // signature check failed and the user never got their key).
+    if (billId) {
+      let bill;
+      try {
+        bill = await getBill(billId);
+      } catch (e) {
+        res.status(404).json({ error: "Could not fetch bill from Billplz", detail: String(e.message || e) });
+        return;
+      }
+      if (!bill || bill.state !== "paid") {
+        res.status(400).json({ error: `Bill ${billId} is not paid yet (state: ${bill && bill.state})` });
+        return;
+      }
+      email = email || bill.email || "";
+      sub = sub || bill.id;
+    }
+
+    if (!sub) sub = `manual-${crypto.randomUUID()}`;
 
     if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
       res.status(400).json({ error: "Valid email required" });
@@ -53,6 +77,7 @@ module.exports = async function handler(req, res) {
       product: "duitful_pro",
       iat: Math.floor(Date.now() / 1000),
       ...(note ? { note } : {}),
+      ...(billId ? { source: "billplz_recovery" } : {}),
     };
 
     const license = signLicense(payload);
