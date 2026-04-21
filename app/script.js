@@ -1309,16 +1309,28 @@ if ("serviceWorker" in navigator && location.protocol === "https:") {
 const REF_STORAGE_KEY = "duit-tracker.referrer";
 const REF_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+const PROMO_STORAGE_KEY = "duit-tracker.promo";
+
 function stashIncomingReferral() {
   try {
     const params = new URLSearchParams(location.search);
+    let changed = false;
     const ref = (params.get("ref") || "").trim().toLowerCase();
-    if (!/^[a-f0-9]{8}$/.test(ref)) return;
-    localStorage.setItem(REF_STORAGE_KEY, JSON.stringify({ ref, at: Date.now() }));
-    // Remove the query param so a refresh doesn't re-stash / pollute the URL.
-    params.delete("ref");
-    const qs = params.toString();
-    history.replaceState({}, "", location.pathname + (qs ? "?" + qs : ""));
+    if (/^[a-f0-9]{8}$/.test(ref)) {
+      localStorage.setItem(REF_STORAGE_KEY, JSON.stringify({ ref, at: Date.now() }));
+      params.delete("ref");
+      changed = true;
+    }
+    const promo = (params.get("promo") || "").trim().toUpperCase().replace(/\s+/g, "");
+    if (/^[A-Z0-9_-]{1,32}$/.test(promo)) {
+      localStorage.setItem(PROMO_STORAGE_KEY, JSON.stringify({ promo, at: Date.now() }));
+      params.delete("promo");
+      changed = true;
+    }
+    if (changed) {
+      const qs = params.toString();
+      history.replaceState({}, "", location.pathname + (qs ? "?" + qs : ""));
+    }
   } catch {}
 }
 stashIncomingReferral();
@@ -1334,6 +1346,20 @@ function storedReferralCode() {
       return "";
     }
     return parsed.ref;
+  } catch { return ""; }
+}
+
+function storedPromoCode() {
+  try {
+    const raw = localStorage.getItem(PROMO_STORAGE_KEY);
+    if (!raw) return "";
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.promo !== "string") return "";
+    if (Date.now() - (parsed.at || 0) > REF_TTL_MS) {
+      localStorage.removeItem(PROMO_STORAGE_KEY);
+      return "";
+    }
+    return parsed.promo;
   } catch { return ""; }
 }
 
@@ -1485,7 +1511,14 @@ document.getElementById("license-verify")?.addEventListener("click", async () =>
 function openFpxDialog() {
   const dlg = document.getElementById("fpx-email-dialog");
   const err = document.getElementById("fpx-error");
+  const promoInput = document.getElementById("fpx-discount");
   if (err) { err.hidden = true; err.textContent = ""; }
+  // Pre-fill discount code when the buyer arrived via a creator link
+  // like /app?promo=AYAQ50. Blank if they came in cold.
+  if (promoInput && !promoInput.value) {
+    const stashed = storedPromoCode();
+    if (stashed) promoInput.value = stashed;
+  }
   if (dlg) { try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); } }
   setTimeout(() => document.getElementById("fpx-email")?.focus(), 50);
 }
@@ -1499,9 +1532,11 @@ document.getElementById("fpx-cancel")?.addEventListener("click", closeFpxDialog)
 document.getElementById("fpx-continue")?.addEventListener("click", async () => {
   const input = document.getElementById("fpx-email");
   const bankSel = document.getElementById("fpx-bank");
+  const discountInput = document.getElementById("fpx-discount");
   const err = document.getElementById("fpx-error");
   const email = (input?.value || "").trim();
   const bankCode = (bankSel?.value || "").trim();
+  const discountCode = (discountInput?.value || "").trim().toUpperCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     if (err) { err.textContent = "Enter a valid email address."; err.hidden = false; }
     return;
@@ -1518,10 +1553,19 @@ document.getElementById("fpx-continue")?.addEventListener("click", async () => {
         email,
         bank_code: bankCode || undefined,
         ref_code: referrerCode || undefined,
+        discount_code: discountCode || undefined,
       }),
     });
     const data = await r.json();
-    if (!r.ok || !data.url) throw new Error(data.error || "Could not start checkout");
+    if (!r.ok) throw new Error(data.error || "Could not start checkout");
+    // 100%-off discount: server returned a signed license directly.
+    if (data.comp && data.license) {
+      await activateLicenseToken(data.license);
+      closeFpxDialog();
+      alert(`Pro unlocked — welcome! (${data.discount?.description || "Discount applied"})`);
+      return;
+    }
+    if (!data.url) throw new Error("Could not start checkout");
     window.location.href = data.url;
   } catch (e) {
     if (err) { err.textContent = e.message || "Something went wrong"; err.hidden = false; }

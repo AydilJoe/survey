@@ -61,6 +61,33 @@ async function getBill(id) {
   return JSON.parse(text);
 }
 
+// Paginate through all paid bills in our collection. Stops when a page
+// returns fewer bills than requested, or after the safety cap.
+async function listPaidBills({ maxPages = 40, perPage = 25 } = {}) {
+  const collectionId = process.env.BILLPLZ_COLLECTION_ID;
+  if (!collectionId) throw new Error("BILLPLZ_COLLECTION_ID not set");
+  const all = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const qs = new URLSearchParams({
+      collection_id: collectionId,
+      state: "paid",
+      page: String(page),
+      per_page: String(perPage),
+    });
+    const r = await fetch(`${baseUrl()}/bills?${qs.toString()}`, {
+      headers: { Authorization: authHeader() },
+    });
+    const text = await r.text();
+    if (!r.ok) throw new Error(`Billplz listPaidBills ${r.status}: ${text}`);
+    let data;
+    try { data = JSON.parse(text); } catch { break; }
+    const bills = Array.isArray(data.bills) ? data.bills : (Array.isArray(data.data) ? data.data : []);
+    all.push(...bills);
+    if (bills.length < perPage) break;
+  }
+  return all;
+}
+
 // Billplz uses two slightly different X-Signature schemes:
 //   - Redirect URL: keys are prefixed with 'billplz' in the source
 //     string. So billplz[id]=abc -> 'billplzidabc' before sorting/joining.
@@ -103,6 +130,7 @@ function flattenBillplzParams(query) {
 module.exports = {
   createBill,
   getBill,
+  listPaidBills,
   verifyXSignature,
   flattenBillplzParams,
 };
