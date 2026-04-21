@@ -31,14 +31,18 @@ module.exports = async function handler(req, res) {
     // entirely and hand back a signed license — treating discount=100%
     // as a comp.
     const BASE_SEN = 1990;
-    const discount = rawDiscount ? lookupDiscount(rawDiscount, email) : null;
+    const discount = rawDiscount ? lookupDiscount(rawDiscount) : null;
     if (rawDiscount) {
-      // Log every attempt — success or fail — so abuse shows up in Vercel
-      // Functions -> Logs. Includes the email to spot repeat offenders.
+      // Log every attempt — success or fail — so abuse shows up in
+      // Vercel Functions -> Logs. Also records the final sen so we can
+      // reconstruct 'who got what discount' later without a DB.
       console.log("discount attempt:", {
         code: rawDiscount.toUpperCase().replace(/\s+/g, ""),
         email,
         accepted: !!discount,
+        type: discount?.type || null,
+        off: discount?.off || null,
+        ts: new Date().toISOString(),
       });
       if (!discount) {
         res.status(400).json({ error: "Invalid or expired discount code" });
