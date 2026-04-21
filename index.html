@@ -615,6 +615,124 @@
     @media (max-width: 960px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 600px) { .features-grid { grid-template-columns: 1fr; } }
 
+    /* --------------- Cross-device --------------- */
+    .devices { background: var(--card-soft); }
+    .device-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 48px;
+      padding: 24px 0 12px;
+      flex-wrap: wrap;
+    }
+    .device-mock {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .device-mock .dm-screen {
+      background: linear-gradient(180deg, var(--bg), var(--stage));
+      border: 0.5px solid var(--border);
+      box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(255, 250, 242, 0.5);
+      position: relative;
+    }
+    .device-mock .dm-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .dm-phone .dm-screen {
+      width: 92px;
+      height: 190px;
+      border-radius: 18px;
+      padding: 12px 6px 6px;
+    }
+    .dm-phone .dm-screen::before {
+      content: "";
+      position: absolute;
+      top: 6px; left: 50%;
+      transform: translateX(-50%);
+      width: 32px; height: 6px;
+      background: var(--ink);
+      border-radius: 999px;
+    }
+    .dm-tablet .dm-screen {
+      width: 160px;
+      height: 220px;
+      border-radius: 18px;
+      padding: 12px 8px;
+    }
+    .dm-tablet .dm-screen::before {
+      content: "";
+      position: absolute;
+      top: 50%; left: 6px;
+      transform: translateY(-50%);
+      width: 4px; height: 4px;
+      background: var(--ink);
+      border-radius: 50%;
+      opacity: 0.5;
+    }
+    .dm-laptop {
+      gap: 0;
+    }
+    .dm-laptop .dm-screen {
+      width: 260px;
+      height: 170px;
+      border-radius: 10px 10px 0 0;
+      padding: 10px;
+    }
+    .dm-laptop .dm-base {
+      width: 300px;
+      height: 8px;
+      background: linear-gradient(180deg, var(--card), var(--card-soft));
+      border: 0.5px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 24px rgba(42, 36, 32, 0.08);
+    }
+    /* Little fake content lines so the screens don't look empty */
+    .device-mock .dm-screen::after {
+      content: "";
+      position: absolute;
+      inset: 22% 12% auto 12%;
+      height: 6px;
+      background: var(--primary);
+      opacity: 0.35;
+      border-radius: 4px;
+      box-shadow:
+        0 12px 0 -2px rgba(42, 36, 32, 0.12),
+        0 22px 0 -2px rgba(42, 36, 32, 0.08),
+        0 32px 0 -2px rgba(42, 36, 32, 0.06);
+    }
+    .device-notes {
+      list-style: none;
+      padding: 0;
+      margin: 32px auto 0;
+      max-width: 640px;
+      display: grid;
+      gap: 12px;
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--ink2);
+    }
+    .device-notes li {
+      padding: 12px 16px;
+      background: var(--card);
+      border: 0.5px solid var(--line);
+      border-radius: 10px;
+    }
+    .device-notes strong { color: var(--ink); font-weight: 500; }
+    @media (max-width: 720px) {
+      .device-row { gap: 28px; }
+      .dm-laptop .dm-screen { width: 220px; height: 140px; }
+      .dm-laptop .dm-base { width: 260px; }
+    }
+
     /* --------------- Privacy --------------- */
     .privacy {
       background: var(--ink);
@@ -985,6 +1103,7 @@
     </a>
     <div class="nav-links" role="navigation">
       <a href="#features">Features</a>
+      <a href="#devices">Devices</a>
       <a href="#privacy">Privacy</a>
       <a href="#pricing">Pricing</a>
       <a href="#founder">About</a>
@@ -1137,6 +1256,39 @@
           <span class="chip-mono">Lifetime · no subs</span>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ======================= CROSS-DEVICE ======================= -->
+  <section class="block devices" id="devices">
+    <div class="container">
+      <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
+        <span class="eyebrow">One app, every screen</span>
+        <h2>iPhone, Android, iPad, <em style="font-style:italic; color:var(--primary)">desktop</em>.</h2>
+        <p style="margin-left:auto; margin-right:auto;">Same app, same data, same free tier. Open Duitful in Safari on your iPhone during lunch, finish the month on your iPad at home, or review your avalanche plan on a laptop — the install banner handles the rest.</p>
+      </div>
+
+      <div class="device-row reveal">
+        <div class="device-mock dm-phone">
+          <div class="dm-screen"></div>
+          <span class="dm-label">iPhone / Android</span>
+        </div>
+        <div class="device-mock dm-tablet">
+          <div class="dm-screen"></div>
+          <span class="dm-label">iPad</span>
+        </div>
+        <div class="device-mock dm-laptop">
+          <div class="dm-screen"></div>
+          <div class="dm-base"></div>
+          <span class="dm-label">Desktop</span>
+        </div>
+      </div>
+
+      <ul class="device-notes reveal">
+        <li><strong>Install to home screen</strong> on any OS via the built-in prompt — no App Store or Play Store needed.</li>
+        <li><strong>Works offline</strong> once opened, and a service worker auto-updates the UI when we ship changes.</li>
+        <li><strong>Move between devices</strong> via CSV export → import. Your data never round-trips through a server.</li>
+      </ul>
     </div>
   </section>
 
