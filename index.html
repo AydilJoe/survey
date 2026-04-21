@@ -375,18 +375,66 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      padding: 20px;
+      padding: 20px 20px 20px 120px;
+      min-height: 640px;
     }
     .phone {
-      width: 300px;
-      height: 608px;
+      width: 260px;
+      height: 530px;
       background: var(--bg);
-      border-radius: 46px;
+      border-radius: 40px;
       border: 0.5px solid var(--border);
       box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(255, 250, 242, 0.5);
-      padding: 14px;
+      padding: 12px;
       position: relative;
-      z-index: 2;
+      z-index: 3;
+      transform: translateX(60px);
+    }
+
+    /* Laptop mockup behind the phone — communicates cross-device above the fold */
+    .hero-laptop {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%) translateX(-40px);
+      width: 460px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1;
+      pointer-events: none;
+    }
+    .hero-laptop-screen {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: 14px 14px 0 0;
+      box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(255, 250, 242, 0.5);
+      overflow: hidden;
+      position: relative;
+    }
+    .hero-laptop-screen img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+    }
+    .hero-laptop-base {
+      width: 108%;
+      height: 10px;
+      background: linear-gradient(180deg, var(--card), var(--card-soft));
+      border: 0.5px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      box-shadow: 0 12px 30px rgba(42, 36, 32, 0.1);
+    }
+    @media (max-width: 1100px) {
+      .phone-wrap { padding-left: 20px; }
+      .phone { transform: none; }
+      .hero-laptop { display: none; }
     }
     .phone::before {
       content: "";
@@ -524,8 +572,8 @@
     @media (max-width: 900px) {
       .hero { padding: 48px 0 64px; }
       .hero-grid { grid-template-columns: 1fr; gap: 56px; }
-      .phone-wrap { order: 2; }
-      .phone { width: 272px; height: 552px; }
+      .phone-wrap { order: 2; padding: 20px; min-height: 0; }
+      .phone { width: 260px; height: 530px; }
       .phone-label { display: none; }
     }
 
@@ -1152,6 +1200,16 @@
         <!-- Phone mockup -->
         <div class="phone-wrap reveal">
           <span class="phone-label top" aria-hidden="true">On-device · encrypted</span>
+
+          <!-- Laptop in the back so visitors see this works on desktop/iPad too -->
+          <div class="hero-laptop" aria-hidden="true">
+            <div class="hero-laptop-screen">
+              <img src="screenshots/hero-tablet.png" alt="">
+            </div>
+            <div class="hero-laptop-base"></div>
+          </div>
+
+          <!-- Phone layered in front -->
           <div class="phone">
             <div class="phone-screen">
               <video class="screenshot" autoplay muted loop playsinline preload="metadata" poster="screenshots/hero-home.PNG" width="300" height="608" aria-label="Duitful home screen walkthrough — balance, debts, savings, and logging a daily expense">
