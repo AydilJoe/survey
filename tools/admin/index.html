@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Duitful admin</title>
+<style>
+  :root {
+    --bg: #efe6d6; --ink: #2a2420; --muted: #6b5e52; --primary: #c8704b;
+    --card: #fffaf2; --line: rgba(42,36,32,0.08); --gain: #5c986e;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); min-height:100dvh; padding:1.2rem; }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  h1 { font:500 1.6rem/1.2 "Fraunces","Georgia",serif; margin:0.6rem 0 0.2rem; }
+  .hint { color:var(--muted); font-size:0.92rem; margin:0 0 1rem; }
+  .card { background:var(--card); border:0.5px solid var(--line); border-radius:16px; padding:1.1rem 1.2rem; margin:0.9rem 0; }
+  label span { display:block; font-size:0.8rem; color:var(--muted); margin-bottom:0.25rem; }
+  input { width:100%; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; border:0.5px solid var(--line); border-radius:10px; padding:0.6rem 0.75rem; background:#fbf5ea; color:var(--ink); }
+  button { font:500 0.95rem/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding:0.75rem 1.1rem; border-radius:12px; border:0.5px solid transparent; cursor:pointer; }
+  .primary { background:var(--primary); color:#fffaf2; border-color:var(--primary); width:100%; margin-top:0.6rem; }
+  .ghost { background:transparent; color:var(--ink); border-color:var(--line); }
+  .err { color:#8a3f1c; font-size:0.88rem; margin-top:0.5rem; display:none; }
+  .ok { color:#3a6b50; font-size:0.85rem; margin-top:0.4rem; display:none; }
+
+  .tool-grid { display: grid; gap: 0.65rem; }
+  .tool {
+    display: flex; gap: 0.85rem; align-items: flex-start;
+    padding: 0.85rem 0.95rem;
+    background: var(--card); border: 0.5px solid var(--line); border-radius: 14px;
+    text-decoration: none; color: inherit;
+    transition: border-color 0.15s, transform 0.05s;
+  }
+  .tool:hover { border-color: var(--primary); }
+  .tool:active { transform: scale(0.99); }
+  .tool-icon {
+    width: 36px; height: 36px; flex-shrink: 0;
+    border-radius: 10px;
+    background: rgba(200,112,75,0.12);
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--primary);
+  }
+  .tool-icon svg { width: 20px; height: 20px; }
+  .tool-body strong { display: block; font: 500 0.98rem/1.3 "Fraunces", serif; margin-bottom: 0.15rem; }
+  .tool-body span { color: var(--muted); font-size: 0.85rem; line-height: 1.4; }
+
+  .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.3rem; }
+  .top-row button { padding: 0.4rem 0.75rem; font-size: 0.82rem; }
+
+  code { font: 12px/1 ui-monospace, SFMono-Regular, monospace; background: rgba(0,0,0,0.04); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- LOGIN VIEW -->
+  <div id="login-view">
+    <h1>Duitful admin</h1>
+    <p class="hint">Enter your <code>ADMIN_KEY</code> (the value from your Vercel env vars) to access admin tools.</p>
+    <div class="card">
+      <label>
+        <span>Admin key</span>
+        <input id="login-key" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Paste from Vercel → Settings → Env Vars">
+      </label>
+      <button id="login-btn" class="primary">Unlock</button>
+      <p id="login-err" class="err"></p>
+    </div>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div id="dashboard-view" hidden>
+    <div class="top-row">
+      <h1 style="margin:0;">Admin tools</h1>
+      <button class="ghost" id="logout">Log out</button>
+    </div>
+    <p class="hint">Tap any tile. Your admin key is already loaded into each tool for this session.</p>
+
+    <div class="tool-grid">
+      <a href="/tools/issue/" class="tool">
+        <span class="tool-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="16" height="13" rx="2"/><path d="M8 10h8M8 14h5"/></svg>
+        </span>
+        <div class="tool-body">
+          <strong>Issue / recover license</strong>
+          <span>Manually mint a comp license, recover a paid Billplz bill into a key, or test the redirect handler.</span>
+        </div>
+      </a>
+
+      <a href="/tools/creators/" class="tool">
+        <span class="tool-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </span>
+        <div class="tool-body">
+          <strong>Creator package generator</strong>
+          <span>Build an influencer package: referral code + discount code + shareable bio link + JS snippet for discounts.js.</span>
+        </div>
+      </a>
+
+      <a href="/tools/admin-stats/" class="tool">
+        <span class="tool-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 3 5-8"/></svg>
+        </span>
+        <div class="tool-body">
+          <strong>Stats (CSV import)</strong>
+          <span>Drop your Billplz paid-bills CSV export. See per-referrer totals, commission owed, quick DM copy for creators.</span>
+        </div>
+      </a>
+
+      <a href="/tools/keygen/" class="tool">
+        <span class="tool-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6M15.5 7.5L18 10"/></svg>
+        </span>
+        <div class="tool-body">
+          <strong>License keypair generator</strong>
+          <span>One-shot ECDSA P-256 keypair generator. Only use this if you're rotating the license signing key — every existing license will become invalid.</span>
+        </div>
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const K = "duitful.admin-key";
+const loginView = document.getElementById("login-view");
+const dashView = document.getElementById("dashboard-view");
+const keyInput = document.getElementById("login-key");
+const loginBtn = document.getElementById("login-btn");
+const loginErr = document.getElementById("login-err");
+
+function showDashboard() {
+  loginView.hidden = true;
+  dashView.hidden = false;
+}
+function showLogin() {
+  loginView.hidden = false;
+  dashView.hidden = true;
+  keyInput.value = "";
+  keyInput.focus();
+}
+
+async function verifyAndUnlock(key) {
+  loginErr.style.display = "none";
+  loginBtn.disabled = true;
+  loginBtn.textContent = "Verifying…";
+  try {
+    const r = await fetch("/api/admin/verify", {
+      method: "POST",
+      headers: { "x-admin-key": key },
+    });
+    if (r.status === 204) {
+      sessionStorage.setItem(K, key);
+      showDashboard();
+      return;
+    }
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.error || `HTTP ${r.status}`);
+  } catch (e) {
+    loginErr.textContent = e.message || "Could not verify key";
+    loginErr.style.display = "block";
+  } finally {
+    loginBtn.disabled = false;
+    loginBtn.textContent = "Unlock";
+  }
+}
+
+loginBtn.addEventListener("click", () => {
+  const k = keyInput.value.trim();
+  if (!k) { loginErr.textContent = "Admin key required"; loginErr.style.display = "block"; return; }
+  verifyAndUnlock(k);
+});
+keyInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); loginBtn.click(); }
+});
+
+document.getElementById("logout").addEventListener("click", () => {
+  sessionStorage.removeItem(K);
+  showLogin();
+});
+
+// Auto-unlock if a valid key is already in sessionStorage (e.g. set by
+// another tool in this tab).
+(async () => {
+  const cached = sessionStorage.getItem(K);
+  if (!cached) return;
+  try {
+    const r = await fetch("/api/admin/verify", {
+      method: "POST",
+      headers: { "x-admin-key": cached },
+    });
+    if (r.status === 204) showDashboard();
+    else sessionStorage.removeItem(K);
+  } catch {}
+})();
+</script>
+</body>
+</html>
