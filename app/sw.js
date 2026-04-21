@@ -11,13 +11,13 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-04-21-4";
+const VERSION = "2026-04-21-5";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=39",
+  "/app/styles.css?v=40",
   "/app/script.js?v=50",
   "/app/manifest.webmanifest",
   "/app/icon.svg",
