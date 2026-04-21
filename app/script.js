@@ -498,9 +498,27 @@ function updateDailyTargetSelect() {
   const sel = $("#daily-target");
   const field = $("#target-select-field");
   const catField = $("#daily-category-field");
+  const cardField = $("#daily-card-field");
+  const cardSel = $("#daily-card");
   const label = $("#target-select-label");
   if (!sel || !field || !catField) return;
   const type = dailyType();
+
+  // Populate the 'paid with' card list whenever we rerender (it follows
+  // the user's current debt list; rebuild each time so new debts show up).
+  if (cardSel) {
+    const current = cardSel.value;
+    const chargeable = state.debts.filter((d) => d.kind !== "installment");
+    cardSel.innerHTML =
+      `<option value="">Cash / debit</option>` +
+      chargeable
+        .map((d) => `<option value="${d.id}">${escapeHtml(d.name)} · ${fmtMoney(d.balance)}</option>`)
+        .join("");
+    // Preserve the selection if the same debt still exists.
+    if (current && chargeable.some((d) => d.id === current)) cardSel.value = current;
+  }
+  if (cardField) cardField.hidden = type !== "expense" || state.debts.length === 0;
+
   if (type === "expense") {
     field.hidden = true;
     catField.hidden = false;
@@ -592,6 +610,10 @@ function renderDaily() {
         pill = `<span class="cat-pill" style="color:#86efac;border-color:#166534;">↑ ${escapeHtml(name)}</span>`;
       } else {
         pill = `<span class="cat-pill">${escapeHtml(e.category || "Others")}</span>`;
+        if (e.cardDebtId) {
+          const cardName = debtNameById(e.cardDebtId) || e.cardDebtName || "card";
+          pill += ` <span class="cat-pill cat-pill-card" title="Charged to this card">◈ ${escapeHtml(cardName)}</span>`;
+        }
       }
       note = e.note
         ? `<span class="daily-note">${escapeHtml(e.note)}</span>`
@@ -1636,9 +1658,17 @@ $("#form-daily").addEventListener("submit", (e) => {
     });
   } else {
     const category = (f.get("category") || "").toString().trim() || "Others";
-    state.dailyExpenses.push({
-      id, createdAt, kind: "expense", date, amount, category, note,
-    });
+    const cardId = (f.get("card") || "").toString().trim();
+    const entry = { id, createdAt, kind: "expense", date, amount, category, note };
+    if (cardId) {
+      const card = state.debts.find((d) => d.id === cardId);
+      if (card) {
+        card.balance = (Number(card.balance) || 0) + amount;
+        entry.cardDebtId = card.id;
+        entry.cardDebtName = card.name;
+      }
+    }
+    state.dailyExpenses.push(entry);
   }
 
   save();
@@ -1801,6 +1831,11 @@ document.addEventListener("click", (e) => {
     if (entry.kind === "saving" && entry.savingId) {
       const goal = state.savings.find((g) => g.id === entry.savingId);
       if (goal) goal.current = Math.max(0, (Number(goal.current) || 0) - (Number(entry.amount) || 0));
+    }
+    // Charge-to-card expense: roll the card balance back down on delete.
+    if (entry.kind === "expense" && entry.cardDebtId) {
+      const card = state.debts.find((d) => d.id === entry.cardDebtId);
+      if (card) card.balance = Math.max(0, (Number(card.balance) || 0) - (Number(entry.amount) || 0));
     }
     state.dailyExpenses = state.dailyExpenses.filter((x) => x.id !== id);
   } else if (action === "save-delete") {
