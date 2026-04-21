@@ -29,9 +29,41 @@
   .primary { background:var(--primary); color:#fffaf2; border-color:var(--primary); }
   .ghost { background:transparent; color:var(--ink); border-color:var(--line); }
   .actions { display:flex; gap:0.5rem; margin-top:0.6rem; flex-wrap:wrap; }
-  .kv { display:grid; grid-template-columns:max-content 1fr; gap:0.4rem 0.8rem; font:13px/1.4 ui-monospace, SFMono-Regular, monospace; margin:0.4rem 0; }
+  .kv { display:grid; grid-template-columns:max-content 1fr; gap:0.5rem 0.9rem; font:13px/1.4 ui-monospace, SFMono-Regular, monospace; margin:0.4rem 0; align-items: center; }
   .kv dt { color:var(--muted); white-space:nowrap; }
-  .kv dd { margin:0; word-break:break-all; }
+  .kv dd { margin:0; word-break:break-all; display: flex; align-items: center; gap: 0.4rem; }
+  .kv dd.copyable { background: #fbf5ea; border: 0.5px solid var(--line); border-radius: 8px; padding: 0.35rem 0.55rem; justify-content: space-between; }
+  .kv dd.copyable span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .eyebrow {
+    font: 500 0.68rem/1 ui-monospace, SFMono-Regular, monospace;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary);
+  }
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.5rem;
+  }
+  .section-head .primary { white-space: nowrap; }
+  .checklist {
+    padding-left: 1.2rem;
+    margin: 0.4rem 0 0.8rem;
+    font-size: 0.92rem;
+  }
+  .checklist li {
+    margin: 0.35rem 0;
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  button.mini {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
   code { font:12px/1 ui-monospace, SFMono-Regular, monospace; background:rgba(0,0,0,0.05); padding:1px 5px; border-radius:4px; }
   .hidden { display:none; }
   .ok { color:#3a6b50; font-size:0.85rem; margin-top:0.4rem; }
@@ -85,35 +117,59 @@
     <button id="generate" class="primary">Generate package</button>
   </div>
 
-  <div id="out" class="card hidden">
-    <h2>Package for <span id="out-name"></span></h2>
-    <dl class="kv">
-      <dt>Referral code</dt><dd id="out-ref"></dd>
-      <dt>Discount code</dt><dd id="out-code"></dd>
-      <dt>Commission</dt><dd id="out-commission"></dd>
-    </dl>
-    <label>
-      <span>Shareable link (put this in their bio, DM them this)</span>
-      <textarea id="out-url" readonly rows="2"></textarea>
-    </label>
-    <div class="actions">
-      <button class="ghost" data-copy="out-url">Copy link</button>
+  <div id="out" class="hidden">
+    <!-- === SEND TO CREATOR === -->
+    <div class="card">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Step 1 · Send to creator</div>
+          <h2 style="margin-top:0.2rem;">Package for <span id="out-name"></span></h2>
+        </div>
+        <button class="primary" data-copy="out-whatsapp" id="out-big-copy">Copy full WhatsApp message</button>
+      </div>
+      <p class="hint">Tap the big button above to copy a ready-to-send WhatsApp message with everything they need. Or copy individual pieces below.</p>
+
+      <dl class="kv">
+        <dt>Bio link</dt>
+        <dd class="copyable" data-text-id="out-url"><span id="out-url"></span><button class="ghost mini" data-copy-text="out-url">Copy</button></dd>
+        <dt>Discount code</dt>
+        <dd class="copyable" data-text-id="out-code"><span id="out-code"></span><button class="ghost mini" data-copy-text="out-code">Copy</button></dd>
+        <dt>Referral code</dt>
+        <dd><span id="out-ref"></span></dd>
+        <dt>Commission</dt>
+        <dd><span id="out-commission"></span></dd>
+      </dl>
+
+      <details style="margin-top:0.8rem;">
+        <summary style="cursor:pointer; font-size:0.9rem; color:var(--muted);">▸ Show the full message preview</summary>
+        <textarea id="out-whatsapp" readonly rows="14" style="margin-top:0.5rem;"></textarea>
+      </details>
+
+      <details style="margin-top:0.5rem;">
+        <summary style="cursor:pointer; font-size:0.9rem; color:var(--muted);">▸ Instagram / TikTok caption only</summary>
+        <textarea id="out-caption" readonly rows="5" style="margin-top:0.5rem;"></textarea>
+        <div class="actions" style="margin-top:0.4rem;">
+          <button class="ghost" data-copy="out-caption">Copy caption</button>
+        </div>
+      </details>
     </div>
-    <label style="margin-top:0.8rem;">
-      <span>Caption draft (copy-paste friendly)</span>
-      <textarea id="out-caption" readonly rows="4"></textarea>
-    </label>
-    <div class="actions">
-      <button class="ghost" data-copy="out-caption">Copy caption</button>
-    </div>
-    <label style="margin-top:0.8rem;">
-      <span>Code definition — paste into <code>api/_lib/discounts.js</code>, commit, Vercel redeploys</span>
+
+    <!-- === YOUR ACTION ITEMS === -->
+    <div class="card">
+      <div class="eyebrow">Step 2 · Your action items</div>
+      <h2 style="margin-top:0.2rem;">Activate the code in the codebase</h2>
+      <ol class="checklist">
+        <li>Copy the snippet below</li>
+        <li>Paste into <code>api/_lib/discounts.js</code> (inside the <code>CODES</code> object, after the existing entries)</li>
+        <li>Commit + push → Vercel redeploys in ~30s</li>
+        <li>Send the WhatsApp message from Step 1 to the creator</li>
+      </ol>
       <textarea id="out-snippet" readonly rows="10"></textarea>
-    </label>
-    <div class="actions">
-      <button class="ghost" data-copy="out-snippet">Copy snippet</button>
+      <div class="actions" style="margin-top:0.4rem;">
+        <button class="primary" data-copy="out-snippet">Copy snippet</button>
+      </div>
+      <p class="ok" id="out-ok"></p>
     </div>
-    <p class="ok" id="out-ok"></p>
   </div>
 </div>
 
@@ -147,8 +203,40 @@ document.getElementById("generate").addEventListener("click", async () => {
   const offLabel = type === "fixed" ? `RM ${off.toFixed(2)} off` : `${off}% off`;
 
   const url = `https://duitful.app/app?ref=${ref}&promo=${encodeURIComponent(code)}`;
+  const firstName = name.split(/\s+/)[0] || name;
+  const expiresNice = expires
+    ? new Date(expires + "T00:00:00").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    : "";
 
-  const caption = `Track your money + kill debt with Duitful 🎯\n\nUse code ${code} at checkout for ${offLabel}. One-time lifetime Pro, no subscription.\n\n${url}`;
+  const caption = `Track your money + kill debt with Duitful 🎯
+
+Use code ${code} at checkout for ${offLabel}. One-time lifetime Pro, no subscription.
+
+${url}`;
+
+  const whatsapp =
+`Hi ${firstName}! 👋
+
+Your Duitful creator package is ready.
+
+🔗 Your bio / share link
+${url}
+
+🎟️ Your discount code: ${code}
+   (${offLabel}${expiresNice ? `, valid until ${expiresNice}` : ""})
+
+💰 You earn RM ${commission.toFixed(2)} per paid signup through your link.
+   Paid out monthly via bank transfer once you hit RM 20 owed.
+
+📱 Ready-made caption for your bio / story / TikTok:
+───
+${caption}
+───
+
+Anything you want changed (different code, higher commission, a promo image) — just reply here.
+
+Thanks for repping Duitful 🙌
+— Aydil`;
 
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const snippet =
@@ -165,23 +253,41 @@ document.getElementById("generate").addEventListener("click", async () => {
   document.getElementById("out-ref").textContent = ref;
   document.getElementById("out-code").textContent = code;
   document.getElementById("out-commission").textContent = `RM ${commission.toFixed(2)} per sale`;
-  document.getElementById("out-url").value = url;
+  document.getElementById("out-url").textContent = url;
   document.getElementById("out-caption").value = caption;
+  document.getElementById("out-whatsapp").value = whatsapp;
   document.getElementById("out-snippet").value = snippet;
   document.getElementById("out").classList.remove("hidden");
-  document.getElementById("out-ok").textContent = "Package ready. Paste the snippet into discounts.js and commit to activate the code.";
+  document.getElementById("out-ok").textContent = "Snippet ready. Paste it into discounts.js and commit to activate the code.";
 });
 
 document.addEventListener("click", async (e) => {
+  // Copy a textarea's .value
   const b = e.target.closest("[data-copy]");
-  if (!b) return;
-  const ta = document.getElementById(b.dataset.copy);
-  try {
-    await navigator.clipboard.writeText(ta.value);
-    const t = b.textContent;
-    b.textContent = "Copied ✓";
-    setTimeout(() => { b.textContent = t; }, 1200);
-  } catch { ta.select(); document.execCommand("copy"); }
+  if (b) {
+    const ta = document.getElementById(b.dataset.copy);
+    const val = ta && ("value" in ta ? ta.value : ta.textContent);
+    try {
+      await navigator.clipboard.writeText(val);
+      const t = b.textContent;
+      b.textContent = "Copied ✓";
+      setTimeout(() => { b.textContent = t; }, 1200);
+    } catch { if (ta && ta.select) ta.select(); document.execCommand("copy"); }
+    return;
+  }
+  // Copy a span's .textContent (for inline fields like the bio link)
+  const bt = e.target.closest("[data-copy-text]");
+  if (bt) {
+    const el = document.getElementById(bt.dataset.copyText);
+    const val = el ? el.textContent : "";
+    try {
+      await navigator.clipboard.writeText(val);
+      const t = bt.textContent;
+      bt.textContent = "Copied ✓";
+      setTimeout(() => { bt.textContent = t; }, 1200);
+    } catch {}
+    return;
+  }
 });
 </script>
 </body>
