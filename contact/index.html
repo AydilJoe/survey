@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Contact Duitful — get in touch</title>
+<meta name="description" content="Questions, feedback, bug reports, or feature requests for Duitful — email hello@duitful.app and reach the person who builds the app.">
+<link rel="canonical" href="https://duitful.app/contact/">
+<meta name="robots" content="index, follow">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:url" content="https://duitful.app/contact/">
+<meta property="og:title" content="Contact Duitful — get in touch">
+<meta property="og:description" content="Every email goes straight to the person who builds Duitful. No ticket queue, no bot replies.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --line: rgba(42,36,32,0.08);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.65 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+  .nav-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: 500 13px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+  h1 {
+    font: 500 clamp(40px, 6vw, 56px)/1.1 var(--font-serif);
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+  }
+  h1 em { font-style: italic; color: var(--primary); }
+  .lede { color: var(--ink2); font-size: 18px; line-height: 1.6; margin: 0 0 40px; max-width: 56ch; }
+
+  .email-card {
+    background: var(--card);
+    border: 0.5px solid var(--line);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 40px;
+    text-align: center;
+  }
+  .email-card .label {
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .email-card a.addr {
+    font: 500 clamp(22px, 4vw, 30px)/1.2 var(--font-serif);
+    color: var(--primary);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+    word-break: break-all;
+  }
+  .email-card a.addr:hover { color: var(--primary-ink); }
+  .email-card .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: 10px;
+    padding: 6px 12px;
+    border: 0.5px solid var(--line);
+    background: transparent;
+    border-radius: 999px;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    vertical-align: middle;
+    transition: all 0.15s ease;
+  }
+  .email-card .copy-btn:hover { color: var(--ink); border-color: var(--ink2); }
+  .email-card .copy-btn.copied { color: #3a6b50; border-color: #3a6b50; }
+
+  h2.section-title {
+    font: 500 22px/1.25 var(--font-serif);
+    letter-spacing: -0.01em;
+    margin: 40px 0 8px;
+  }
+  .section-sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+
+  .reasons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 560px) { .reasons { grid-template-columns: 1fr; } }
+  .reason {
+    display: block;
+    background: var(--card);
+    border: 0.5px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+    text-decoration: none;
+    color: var(--ink);
+    transition: all 0.15s ease;
+  }
+  .reason:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(42,36,32,0.05);
+  }
+  .reason .tag {
+    display: inline-block;
+    font: 500 10px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+  }
+  .reason .tag.bug { background: rgba(200,112,75,0.15); color: #8a3f1c; }
+  .reason .tag.feat { background: rgba(106,138,94,0.15); color: #3a6b50; }
+  .reason .tag.q { background: rgba(94,122,152,0.15); color: #2e5483; }
+  .reason .tag.hi { background: rgba(42,36,32,0.08); color: var(--ink2); }
+  .reason h3 {
+    font: 500 16px/1.3 var(--font-sans);
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .reason p {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .expect {
+    margin-top: 48px;
+    padding: 24px;
+    background: var(--stage);
+    border-radius: 12px;
+    border: 0.5px solid var(--line);
+  }
+  .expect h3 {
+    font: 500 15px/1.3 var(--font-sans);
+    margin: 0 0 10px;
+    color: var(--ink);
+  }
+  .expect p {
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--ink2);
+    margin: 0 0 8px;
+  }
+  .expect p:last-child { margin-bottom: 0; }
+
+  .footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .footer a { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/" class="nav-back">← back to Duitful</a>
+
+  <h1>Get in <em>touch</em></h1>
+  <p class="lede">Every email goes straight to the person who builds Duitful. No ticket queue, no bot replies, no "your case number is 48192". Just one human in Kuala Lumpur, reading your note.</p>
+
+  <div class="email-card">
+    <div class="label">Email</div>
+    <a class="addr" href="mailto:hello@duitful.app" id="emailLink">hello@duitful.app</a>
+    <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy email address">Copy</button>
+  </div>
+
+  <h2 class="section-title">Pick a reason &mdash; we'll prefill the subject</h2>
+  <p class="section-sub">Tap any option to open your email app with the subject already filled in.</p>
+
+  <div class="reasons">
+    <a class="reason" href="mailto:hello@duitful.app?subject=Bug%20report&body=What%20happened%3A%0A%0AWhat%20you%20expected%3A%0A%0ADevice%20%26%20browser%20(or%20app%20version)%3A%0A%0A">
+      <span class="tag bug">Bug</span>
+      <h3>Something is broken</h3>
+      <p>A button doesn't work, numbers look wrong, something crashed. Include what you were doing when it happened.</p>
+    </a>
+
+    <a class="reason" href="mailto:hello@duitful.app?subject=Feature%20request&body=What%20I'd%20love%20Duitful%20to%20do%3A%0A%0AWhy%20it%20matters%20to%20me%3A%0A%0A">
+      <span class="tag feat">Idea</span>
+      <h3>Feature request</h3>
+      <p>Missing a category? A bank? A Malaysia-specific workflow? These go straight to the top of the roadmap.</p>
+    </a>
+
+    <a class="reason" href="mailto:hello@duitful.app?subject=Question%20about%20Duitful&body=Hi%20Aydil%2C%0A%0A">
+      <span class="tag q">Question</span>
+      <h3>Support or billing</h3>
+      <p>Trouble activating Pro, a question about how avalanche works, or anything about your license and receipts.</p>
+    </a>
+
+    <a class="reason" href="mailto:hello@duitful.app?subject=Hello!&body=Hi%20Aydil%2C%0A%0A">
+      <span class="tag hi">Hello</span>
+      <h3>Just saying hi</h3>
+      <p>A kind word, a story about paying off a debt, or a photo of your dog. All welcome.</p>
+    </a>
+  </div>
+
+  <div class="expect">
+    <h3>What to expect</h3>
+    <p>Replies usually arrive within a day or two. If it's been longer than a week, assume your email got lost in a folder and please send a nudge.</p>
+    <p>Duitful keeps no server-side record of your data, so please don't paste your full finances &mdash; describe the problem instead, and I'll help you debug locally.</p>
+  </div>
+
+  <div class="footer">
+    Prefer the web? The app lives at <a href="/app/">duitful.app/app</a>, the release notes at <a href="/changelog/">duitful.app/changelog</a>.
+  </div>
+</div>
+
+<script>
+  const copyBtn = document.getElementById('copyBtn');
+  copyBtn.addEventListener('click', async () => {
+    const email = 'hello@duitful.app';
+    try {
+      await navigator.clipboard.writeText(email);
+    } catch (_) {
+      const ta = document.createElement('textarea');
+      ta.value = email;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      document.body.removeChild(ta);
+    }
+    copyBtn.textContent = 'Copied';
+    copyBtn.classList.add('copied');
+    setTimeout(() => {
+      copyBtn.textContent = 'Copy';
+      copyBtn.classList.remove('copied');
+    }, 1600);
+  });
+</script>
+</body>
+</html>
