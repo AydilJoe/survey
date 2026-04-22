@@ -21,6 +21,17 @@
   --border: rgba(42, 36, 32, 0.14);
   --line: rgba(42, 36, 32, 0.08);
   --shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 8px 24px rgba(42, 36, 32, 0.05);
+  /* Liquid glass tokens (Apple-style frosted surfaces) */
+  --glass-bg: rgba(255, 250, 242, 0.55);
+  --glass-bg-strong: rgba(255, 250, 242, 0.7);
+  --glass-bg-soft: rgba(240, 232, 216, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-border-soft: rgba(255, 255, 255, 0.4);
+  --glass-blur: saturate(180%) blur(22px);
+  --glass-blur-soft: saturate(160%) blur(14px);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65), inset 0 0 0 0.5px rgba(255, 255, 255, 0.2);
+  --glass-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 14px 32px rgba(42, 36, 32, 0.09), 0 4px 10px rgba(42, 36, 32, 0.05);
+  --glass-shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 1px 2px rgba(42, 36, 32, 0.03), 0 4px 12px rgba(42, 36, 32, 0.04);
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: 'Fraunces', Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
@@ -33,7 +44,9 @@
 .cur-code { font-family: var(--font-mono); font-size: 0.9em; letter-spacing: 0.04em; }
 
 /* Pending transactions (auto-captured from notifications) */
-.pending-card { background: linear-gradient(180deg, rgba(143,160,120,0.08), var(--card) 70%); }
+.pending-card {
+  background: linear-gradient(180deg, rgba(143,160,120,0.12), var(--glass-bg) 70%);
+}
 .pending-list {
   list-style: none;
   margin: 0.3rem 0 0.35rem;
@@ -43,10 +56,13 @@
   gap: 0.45rem;
 }
 .pending-list li {
-  background: var(--card-soft);
-  border: 0.5px solid var(--line);
+  background: var(--glass-bg-soft);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
   border-radius: 14px;
   padding: 0.7rem 0.8rem;
+  box-shadow: var(--glass-shadow-soft);
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
@@ -90,7 +106,9 @@
 .pending-actions button { padding: 0.45rem 0.9rem; font-size: 0.85rem; }
 
 /* Upcoming reminders */
-.upcoming-card { background: linear-gradient(180deg, rgba(200,112,75,0.07), var(--card) 60%); }
+.upcoming-card {
+  background: linear-gradient(180deg, rgba(200,112,75,0.10), var(--glass-bg) 60%);
+}
 .upcoming-list {
   list-style: none;
   margin: 0;
@@ -100,8 +118,10 @@
   gap: 0.45rem;
 }
 .upcoming-list li {
-  background: var(--card-soft);
-  border: 0.5px solid var(--line);
+  background: var(--glass-bg-soft);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
   border-radius: 12px;
   padding: 0.55rem 0.75rem;
   display: grid;
@@ -110,6 +130,7 @@
   gap: 0.65rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  box-shadow: var(--glass-shadow-soft);
 }
 .upcoming-list li:active { transform: scale(0.99); }
 .upcoming-list .up-day {
@@ -322,7 +343,13 @@ html, body {
   letter-spacing: -0.1px;
 }
 
-main { background: var(--bg); }
+main {
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(200, 112, 75, 0.14), transparent 60%),
+    radial-gradient(900px 500px at -10% 20%, rgba(143, 160, 120, 0.12), transparent 60%),
+    radial-gradient(700px 400px at 50% 110%, rgba(212, 165, 116, 0.12), transparent 60%),
+    var(--bg);
+}
 h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3px; }
 
 .app-header {
@@ -543,12 +570,17 @@ main {
 
 /* Cards */
 .card {
-  background: var(--card);
-  border: 0.5px solid var(--line);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border);
   border-radius: 20px;
   padding: 1rem;
   margin-bottom: 0.85rem;
-  box-shadow: var(--shadow);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .card { background: var(--card); }
 }
 .card h2 {
   margin: 0 0 0.75rem;
@@ -574,14 +606,19 @@ main {
 
 /* Hero */
 .hero-card {
-  background: var(--card);
-  border: 0.5px solid var(--line);
+  background: var(--glass-bg-strong);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 0.5px solid var(--glass-border);
   border-radius: 24px;
   padding: 1.25rem 1.1rem 1rem;
   margin-bottom: 0.85rem;
-  box-shadow: var(--shadow);
+  box-shadow: var(--glass-highlight), var(--glass-shadow);
   position: relative;
   overflow: hidden;
+}
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .hero-card { background: var(--card); }
 }
 .hero-card::before {
   content: "";
@@ -688,19 +725,22 @@ main {
   display: flex;
   flex-direction: column;
   gap: 0.12rem;
-  background: var(--card-soft);
-  border: 0.5px solid var(--line);
+  background: var(--glass-bg-soft);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
   border-radius: 12px;
   padding: 0.55rem 0.6rem;
   min-width: 0;
   cursor: pointer;
   transition: background 0.15s ease, transform 0.05s ease;
   -webkit-tap-highlight-color: transparent;
+  box-shadow: var(--glass-shadow-soft);
 }
 .hero-stat:active { transform: scale(0.98); }
 .hero-stat.expanded {
   grid-column: 1 / -1;
-  background: var(--card);
+  background: var(--glass-bg-strong);
   border-color: rgba(200, 112, 75, 0.3);
   padding: 0.75rem 0.9rem;
 }
@@ -799,8 +839,10 @@ main {
   justify-content: center;
   gap: 0.35rem;
   padding: 0.75rem 0.5rem;
-  background: var(--card-soft);
-  border: 0.5px solid var(--line);
+  background: var(--glass-bg-soft);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
   border-radius: 14px;
   color: var(--ink2);
   font: inherit;
@@ -809,6 +851,7 @@ main {
   cursor: pointer;
   transition: all 0.15s ease;
   letter-spacing: -0.1px;
+  box-shadow: var(--glass-shadow-soft);
 }
 .pill-icon { display: inline-flex; align-items: center; line-height: 1; }
 .pill-icon svg { width: 18px; height: 18px; display: block; }
@@ -901,8 +944,10 @@ button.primary.big {
 }
 .quick-amounts button {
   appearance: none;
-  background: var(--card-soft);
-  border: 0.5px solid var(--line);
+  background: var(--glass-bg-soft);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
   color: var(--ink2);
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
@@ -936,13 +981,16 @@ button.primary.big {
 .empty-state button { min-width: 200px; }
 
 .stat {
-  background: var(--card-soft);
-  border: 0.5px solid var(--line);
+  background: var(--glass-bg-soft);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
   border-radius: 14px;
   padding: 0.7rem 0.8rem;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+  box-shadow: var(--glass-shadow-soft);
 }
 .stat .label {
   color: var(--muted);
@@ -1120,14 +1168,17 @@ select:focus {
   text-transform: none;
 }
 .daily-entry {
-  background: var(--card-soft);
-  border: 0.5px solid var(--line);
+  background: var(--glass-bg-soft);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
   border-radius: 14px;
   padding: 0.7rem 0.85rem;
   display: grid;
   grid-template-columns: 1fr auto auto;
   gap: 0.5rem;
   align-items: center;
+  box-shadow: var(--glass-shadow-soft);
 }
 .daily-entry .primary-line {
   display: flex;
@@ -1177,12 +1228,16 @@ select:focus {
 }
 .savings-mini:empty { display: none; }
 .saving-card {
-  background: var(--card-soft);
+  background: var(--glass-bg-soft);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
   border-radius: 10px;
   padding: 0.7rem 0.8rem;
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+  box-shadow: var(--glass-shadow-soft);
 }
 .saving-card .top-row {
   display: flex;
