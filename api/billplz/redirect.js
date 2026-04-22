@@ -10,45 +10,61 @@
 const { getBill, verifyXSignature, flattenBillplzParams } = require("../_lib/billplz");
 const { signLicense } = require("../_lib/license");
 const { refCodeFor } = require("../_lib/referral");
+const { sendEmail, ownerNotifyAddress } = require("../_lib/email");
 
-// Optional email delivery via Resend. If RESEND_API_KEY is set, we'll
-// email the license to the buyer; otherwise we just render it on the
-// page and don't claim to have sent anything we didn't.
+// Email the buyer their license. Resend sends From: receipts@duitful.app
+// with Reply-To: hello@duitful.app so replies land in the main inbox.
+// Falls back to { sent: false } when RESEND_API_KEY is unset so the
+// post-payment page can stay honest about what actually went out.
 async function sendLicenseEmail({ to, license, billId }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return { sent: false, reason: "RESEND_API_KEY not configured" };
-  const from = process.env.RESEND_FROM_EMAIL || "Duitful <onboarding@resend.dev>";
   const appBase = process.env.APP_BASE_URL || "https://duitful.app";
-  try {
-    const r = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject: "Your Duitful Pro license",
-        html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#2a2420;background:#fffaf2;">
+  return sendEmail({
+    to,
+    subject: "Your Duitful Pro license",
+    html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#2a2420;background:#fffaf2;">
   <h2 style="font-family:Georgia,serif;font-weight:500;margin:0 0 12px;">Thanks for buying Duitful Pro</h2>
   <p style="line-height:1.55;">Here's your license key. Copy it and paste it into Duitful under <strong>Settings &rarr; Activate license</strong>.</p>
   <pre style="background:#fbf5ea;border:0.5px solid rgba(42,36,32,0.08);border-radius:10px;padding:12px;font:12px/1.5 ui-monospace,SFMono-Regular,monospace;white-space:pre-wrap;word-break:break-all;">${license}</pre>
   <p style="line-height:1.55;">Open the app: <a href="${appBase}/app" style="color:#c8704b;">${appBase}/app</a></p>
   <p style="line-height:1.55;color:#6b5e52;font-size:13px;">Bill reference: <code>${billId}</code><br>Treat this key like a password — it activates Pro on any device.</p>
 </div>`,
-      }),
-    });
-    if (!r.ok) {
-      const text = await r.text();
-      console.warn("Resend email failed:", r.status, text);
-      return { sent: false, reason: `Resend ${r.status}` };
-    }
-    return { sent: true };
-  } catch (e) {
-    console.warn("Resend email threw:", e);
-    return { sent: false, reason: String(e.message || e) };
-  }
+  });
+}
+
+// Notify the Duitful owner of a new paid sale. Best-effort — a failure
+// here must never break the buyer-facing flow, so the caller awaits it
+// but ignores a { sent: false } result.
+async function sendOwnerSaleNotification({ bill }) {
+  const to = ownerNotifyAddress();
+  const amountRm = bill.amount != null ? (Number(bill.amount) / 100).toFixed(2) : "?";
+  const ref = bill.reference_1 || bill.reference_2 || "—";
+  const whenIso = new Date().toISOString();
+  const subject = `Duitful Pro sale — RM ${amountRm} (${bill.email || "no email"})`;
+  return sendEmail({
+    to,
+    subject,
+    text: [
+      "New Duitful Pro sale confirmed.",
+      "",
+      `Buyer:     ${bill.email || "(no email)"}`,
+      `Name:      ${bill.name || "(no name)"}`,
+      `Bill id:   ${bill.id}`,
+      `Amount:    RM ${amountRm}`,
+      `Reference: ${ref}`,
+      `When:      ${whenIso}`,
+    ].join("\n"),
+    html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;color:#2a2420;">
+  <h2 style="font:500 18px/1.2 Georgia,serif;margin:0 0 12px;">New Duitful Pro sale</h2>
+  <table style="font-size:14px;line-height:1.5;border-collapse:collapse;">
+    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">Buyer</td><td>${escapeHtml(bill.email || "(no email)")}</td></tr>
+    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">Name</td><td>${escapeHtml(bill.name || "(no name)")}</td></tr>
+    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">Bill id</td><td><code>${escapeHtml(bill.id)}</code></td></tr>
+    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">Amount</td><td>RM ${escapeHtml(amountRm)}</td></tr>
+    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">Reference</td><td>${escapeHtml(String(ref))}</td></tr>
+    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">When</td><td>${escapeHtml(whenIso)}</td></tr>
+  </table>
+</div>`,
+  });
 }
 
 function escapeHtml(s) {
@@ -161,7 +177,13 @@ module.exports = async function handler(req, res) {
       iat: Math.floor(Date.now() / 1000),
     });
 
-    const mail = bill.email ? await sendLicenseEmail({ to: bill.email, license, billId: bill.id }) : { sent: false };
+    const [mail] = await Promise.all([
+      bill.email ? sendLicenseEmail({ to: bill.email, license, billId: bill.id }) : Promise.resolve({ sent: false }),
+      sendOwnerSaleNotification({ bill }).catch((e) => {
+        console.warn("owner notification threw:", e);
+        return { sent: false };
+      }),
+    ]);
 
     res.status(200).setHeader("Content-Type", "text/html; charset=utf-8").end(
       renderPage({

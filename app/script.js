@@ -2667,9 +2667,11 @@ function finishGuide() {
   closeGuide();
 }
 
-function maybeOpenGuideAfterUnlock() {
+// Fires only from the passcode-setup flow (first-run or legacy migration).
+// Returning users who already have a passcode never see the tour auto-open;
+// they can replay it from Settings → About → "Replay welcome tour".
+function maybeOpenGuideAfterSetup() {
   if (!state.guideSeen) {
-    // Small delay so the unlock transition finishes first.
     setTimeout(() => openGuide(), 250);
   }
 }
@@ -2892,7 +2894,6 @@ async function handleUnlock(passcode) {
   initNotificationListener();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
-  maybeOpenGuideAfterUnlock();
   maybeShowInstallBanner();
 }
 
@@ -2914,7 +2915,7 @@ async function handleSetup(passcode, confirm, initialState) {
   initNotificationListener();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
-  maybeOpenGuideAfterUnlock();
+  maybeOpenGuideAfterSetup();
   maybeShowInstallBanner();
 }
 
