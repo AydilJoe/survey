@@ -73,25 +73,21 @@ LICENSE_SIGNING_PUBLIC_KEY  = <matching public key, also embedded in app/script.
 APP_BASE_URL                = https://duitful.app
 ADMIN_KEY                   = <random hex from /tools/issue/ keygen>
 
-# Optional — if set, the redirect handler emails the license to the buyer.
-# Without these the page just shows the key for the user to copy.
+# Optional — if set, the redirect handler emails the license to the buyer
+# and pings you of every sale. See EMAIL_SETUP.md for the DNS + Cloudflare
+# Email Routing walkthrough. Without these the page just shows the key for
+# the user to copy.
 RESEND_API_KEY              = <from resend.com (free tier: 3000/mo)>
-RESEND_FROM_EMAIL           = "Duitful <licenses@duitful.app>"
+RESEND_FROM_EMAIL           = "Duitful <receipts@duitful.app>"
+RESEND_REPLY_TO_EMAIL       = hello@duitful.app
+OWNER_NOTIFY_EMAIL          = hello@duitful.app
 ```
 
-### Email delivery (optional, recommended)
+### Email delivery
 
-The post-payment page always shows the license key on screen, but if you
-want to also email it to the buyer (so they can recover if they close
-the tab), wire up [Resend](https://resend.com):
-
-1. Sign up at resend.com (free, 3000 emails/month)
-2. Add your domain: Resend → **Domains** → add `duitful.app` → copy DNS records
-3. Add the DNS records at Namecheap (TXT for SPF + DKIM)
-4. Verify in Resend dashboard
-5. API Keys → create one → copy
-6. Vercel env vars: add `RESEND_API_KEY` and `RESEND_FROM_EMAIL = "Duitful <licenses@duitful.app>"`
-7. Redeploy. Next paid bill triggers a license email.
+See [`EMAIL_SETUP.md`](./EMAIL_SETUP.md) for the full Resend + Cloudflare
+Email Routing setup. Short version: sign up at resend.com, paste the DKIM
+records into Cloudflare DNS, set the env vars above, redeploy.
 
 Without `RESEND_API_KEY`, the redirect page is honest about it — shows
 "Save this key somewhere safe — close this tab and you'll need to recover
