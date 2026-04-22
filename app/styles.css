@@ -26,12 +26,16 @@
   --glass-bg-strong: rgba(255, 250, 242, 0.7);
   --glass-bg-soft: rgba(240, 232, 216, 0.5);
   --glass-border: rgba(255, 255, 255, 0.6);
-  --glass-border-soft: rgba(255, 255, 255, 0.4);
+  --glass-border-soft: rgba(255, 255, 255, 0.55);
   --glass-blur: saturate(180%) blur(22px);
   --glass-blur-soft: saturate(160%) blur(14px);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65), inset 0 0 0 0.5px rgba(255, 255, 255, 0.2);
   --glass-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 14px 32px rgba(42, 36, 32, 0.09), 0 4px 10px rgba(42, 36, 32, 0.05);
   --glass-shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 1px 2px rgba(42, 36, 32, 0.03), 0 4px 12px rgba(42, 36, 32, 0.04);
+  /* Inner glass pane (for sub-cards nested inside a glass parent) */
+  --glass-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.28) 45%, rgba(255, 255, 255, 0.18) 100%);
+  --glass-pane-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.42) 50%, rgba(255, 255, 255, 0.28) 100%);
+  --glass-pane-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(255, 255, 255, 0.25), 0 1px 2px rgba(42, 36, 32, 0.05), 0 6px 16px rgba(42, 36, 32, 0.06);
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: 'Fraunces', Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
@@ -56,13 +60,13 @@
   gap: 0.45rem;
 }
 .pending-list li {
-  background: var(--glass-bg-soft);
+  background: var(--glass-pane);
   -webkit-backdrop-filter: var(--glass-blur-soft);
   backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 14px;
   padding: 0.7rem 0.8rem;
-  box-shadow: var(--glass-shadow-soft);
+  box-shadow: var(--glass-pane-shadow);
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
@@ -118,7 +122,7 @@
   gap: 0.45rem;
 }
 .upcoming-list li {
-  background: var(--glass-bg-soft);
+  background: var(--glass-pane);
   -webkit-backdrop-filter: var(--glass-blur-soft);
   backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
@@ -130,7 +134,7 @@
   gap: 0.65rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: var(--glass-shadow-soft);
+  box-shadow: var(--glass-pane-shadow);
 }
 .upcoming-list li:active { transform: scale(0.99); }
 .upcoming-list .up-day {
@@ -725,7 +729,7 @@ main {
   display: flex;
   flex-direction: column;
   gap: 0.12rem;
-  background: var(--glass-bg-soft);
+  background: var(--glass-pane);
   -webkit-backdrop-filter: var(--glass-blur-soft);
   backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
@@ -735,7 +739,7 @@ main {
   cursor: pointer;
   transition: background 0.15s ease, transform 0.05s ease;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: var(--glass-shadow-soft);
+  box-shadow: var(--glass-pane-shadow);
 }
 .hero-stat:active { transform: scale(0.98); }
 .hero-stat.expanded {
@@ -839,7 +843,7 @@ main {
   justify-content: center;
   gap: 0.35rem;
   padding: 0.75rem 0.5rem;
-  background: var(--glass-bg-soft);
+  background: var(--glass-pane);
   -webkit-backdrop-filter: var(--glass-blur-soft);
   backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
@@ -851,7 +855,7 @@ main {
   cursor: pointer;
   transition: all 0.15s ease;
   letter-spacing: -0.1px;
-  box-shadow: var(--glass-shadow-soft);
+  box-shadow: var(--glass-pane-shadow);
 }
 .pill-icon { display: inline-flex; align-items: center; line-height: 1; }
 .pill-icon svg { width: 18px; height: 18px; display: block; }
@@ -944,10 +948,11 @@ button.primary.big {
 }
 .quick-amounts button {
   appearance: none;
-  background: var(--glass-bg-soft);
+  background: var(--glass-pane);
   -webkit-backdrop-filter: var(--glass-blur-soft);
   backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
+  box-shadow: var(--glass-pane-shadow);
   color: var(--ink2);
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
@@ -981,7 +986,7 @@ button.primary.big {
 .empty-state button { min-width: 200px; }
 
 .stat {
-  background: var(--glass-bg-soft);
+  background: var(--glass-pane);
   -webkit-backdrop-filter: var(--glass-blur-soft);
   backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
@@ -990,7 +995,7 @@ button.primary.big {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  box-shadow: var(--glass-shadow-soft);
+  box-shadow: var(--glass-pane-shadow);
 }
 .stat .label {
   color: var(--muted);
@@ -1168,7 +1173,7 @@ select:focus {
   text-transform: none;
 }
 .daily-entry {
-  background: var(--glass-bg-soft);
+  background: var(--glass-pane);
   -webkit-backdrop-filter: var(--glass-blur-soft);
   backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
@@ -1178,7 +1183,7 @@ select:focus {
   grid-template-columns: 1fr auto auto;
   gap: 0.5rem;
   align-items: center;
-  box-shadow: var(--glass-shadow-soft);
+  box-shadow: var(--glass-pane-shadow);
 }
 .daily-entry .primary-line {
   display: flex;
@@ -1228,7 +1233,7 @@ select:focus {
 }
 .savings-mini:empty { display: none; }
 .saving-card {
-  background: var(--glass-bg-soft);
+  background: var(--glass-pane);
   -webkit-backdrop-filter: var(--glass-blur-soft);
   backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
@@ -1237,7 +1242,7 @@ select:focus {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  box-shadow: var(--glass-shadow-soft);
+  box-shadow: var(--glass-pane-shadow);
 }
 .saving-card .top-row {
   display: flex;
