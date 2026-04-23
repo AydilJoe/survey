@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Privacy policy — Duitful</title>
+<meta name="description" content="How Duitful handles your data — on-device encryption, no analytics, no sync server, and a short honest list of the third parties involved in running the app.">
+<link rel="canonical" href="https://duitful.app/privacy/">
+<meta name="robots" content="index, follow">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:url" content="https://duitful.app/privacy/">
+<meta property="og:title" content="Privacy policy — Duitful">
+<meta property="og:description" content="On-device encryption. No analytics. No sync server. A short, honest privacy policy written in plain language.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Duitful", "item": "https://duitful.app/" },
+    { "@type": "ListItem", "position": 2, "name": "Privacy", "item": "https://duitful.app/privacy/" }
+  ]
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "Duitful Privacy Policy",
+  "url": "https://duitful.app/privacy/",
+  "description": "Privacy policy for Duitful — a privacy-first personal finance tracker built in Malaysia.",
+  "inLanguage": "en",
+  "dateModified": "2026-04-23",
+  "publisher": {
+    "@type": "Organization",
+    "name": "Duitful",
+    "url": "https://duitful.app/"
+  }
+}
+</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --line: rgba(42,36,32,0.08);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.65 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+  .nav-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: 500 13px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+  h1 {
+    font: 500 clamp(40px, 6vw, 56px)/1.1 var(--font-serif);
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+  }
+  h1 em { font-style: italic; color: var(--primary); }
+  .lede { color: var(--ink2); font-size: 18px; line-height: 1.6; margin: 0 0 24px; max-width: 58ch; }
+  .meta {
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 40px;
+  }
+
+  .tldr {
+    background: var(--stage);
+    border: 0.5px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 0 0 48px;
+  }
+  .tldr h2 {
+    font: 500 14px/1 var(--font-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0 0 14px;
+  }
+  .tldr ul { margin: 0; padding-left: 18px; }
+  .tldr li { margin: 0 0 8px; color: var(--ink2); font-size: 15.5px; line-height: 1.55; }
+  .tldr li:last-child { margin-bottom: 0; }
+  .tldr strong { color: var(--ink); font-weight: 600; }
+
+  h2.section {
+    font: 500 24px/1.25 var(--font-serif);
+    letter-spacing: -0.01em;
+    margin: 48px 0 6px;
+  }
+  h2.section:first-of-type { margin-top: 0; }
+  h3 {
+    font: 600 15.5px/1.35 var(--font-sans);
+    margin: 24px 0 6px;
+    color: var(--ink);
+  }
+  p, li { color: var(--ink2); }
+  p { margin: 0 0 14px; }
+  ul, ol { padding-left: 20px; margin: 0 0 14px; }
+  li { margin-bottom: 6px; line-height: 1.6; }
+  a { color: var(--primary); }
+  a:hover { color: var(--primary-ink); }
+  code {
+    font: 500 13.5px/1.3 var(--font-mono);
+    background: var(--stage);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--ink);
+  }
+
+  table.vendors {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 20px;
+    font-size: 14.5px;
+  }
+  table.vendors th, table.vendors td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 0.5px solid var(--line);
+    vertical-align: top;
+  }
+  table.vendors th {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  table.vendors td:first-child { white-space: nowrap; font-weight: 500; color: var(--ink); }
+  @media (max-width: 560px) {
+    table.vendors, table.vendors tbody, table.vendors tr, table.vendors td, table.vendors th { display: block; }
+    table.vendors thead { display: none; }
+    table.vendors tr { border-bottom: 0.5px solid var(--line); padding: 12px 0; }
+    table.vendors td { padding: 3px 0; border: 0; }
+    table.vendors td:first-child { font-weight: 600; margin-bottom: 4px; }
+  }
+
+  .footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .footer a { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/" class="nav-back">← back to Duitful</a>
+
+  <h1>Privacy <em>policy</em></h1>
+  <p class="lede">Written in plain English, not legalese. The short version lives right below — the rest is the full detail you'll want if you care, or if a regulator asks.</p>
+  <p class="meta">Effective 23 April 2026 · Last updated 23 April 2026</p>
+
+  <div class="tldr">
+    <h2>The short version</h2>
+    <ul>
+      <li>Your transactions, debts, savings, receipts and notes <strong>stay on your device</strong>, encrypted with AES-GCM using a key derived from your passcode. There is no sync server and no cloud copy.</li>
+      <li>Receipt scanning runs <strong>entirely on your device</strong> using Tesseract.js. Receipt images and extracted text are never uploaded to us or to any third party.</li>
+      <li>On Android, bank and e-wallet notifications are parsed <strong>on the device itself</strong>. Nothing from a notification is transmitted anywhere.</li>
+      <li>We don't use analytics, advertising trackers, or error-reporting SDKs. There are no tracking cookies.</li>
+      <li>When you buy Pro, your name and email go through Billplz (our payment processor) so we can send you a licence. That is the only time we knowingly receive personal data.</li>
+      <li>The Pro licence itself is a cryptographically signed token. It does not contain device identifiers and cannot be used to track you.</li>
+    </ul>
+  </div>
+
+  <h2 class="section">1. Who we are</h2>
+  <p>Duitful is a personal finance application operated by an independent developer based in Malaysia ("Duitful", "we", "us", or "our"). Duitful is distributed as a progressive web app at <a href="https://duitful.app/app/">duitful.app/app</a> and as native apps on the Apple App Store and Google Play Store.</p>
+  <p>For any privacy question, including requests under the Personal Data Protection Act 2010 (Malaysia) or any other applicable law, email <a href="mailto:hello@duitful.app">hello@duitful.app</a>. A human reads every message.</p>
+
+  <h2 class="section">2. What we do <em style="font-style:italic;color:var(--primary)">not</em> do</h2>
+  <p>Because the things we don't do are central to how Duitful is built, it's easier to list them first.</p>
+  <ul>
+    <li>We do not have a user account system. There is no sign-up, no login, no password stored anywhere.</li>
+    <li>We do not sync your financial data to a server. We don't run a database of user transactions.</li>
+    <li>We do not use analytics, product telemetry, crash reporting SDKs, or advertising identifiers. Not Google Analytics, Firebase, Sentry, Mixpanel, PostHog, Amplitude, Crashlytics, or anything similar.</li>
+    <li>We do not set tracking cookies on this website.</li>
+    <li>We do not sell, rent, share, or monetise personal data. There is no ad network involved anywhere in the product.</li>
+    <li>We do not read, scan, or upload your receipt images. OCR runs on the device and the image never leaves it.</li>
+    <li>We do not transmit the contents of your phone's notifications. The Android notification listener pattern-matches text locally and feeds the result into the app's own on-device database.</li>
+  </ul>
+
+  <h2 class="section">3. What stays on your device</h2>
+  <p>All the data that makes Duitful useful to you lives in local storage on the device where you use it:</p>
+  <ul>
+    <li>Income entries, expense entries, debts, savings goals, recurring items, categories, notes and settings.</li>
+    <li>Receipt images while they are being scanned, and the text Tesseract extracts from them.</li>
+    <li>Parsed bank and e-wallet notification content (Android only).</li>
+    <li>Foreign-exchange rate snapshots cached for up to 24 hours, and the last few UI preferences.</li>
+  </ul>
+  <p>This data is written to the browser's <code>localStorage</code> (or the equivalent storage inside the native app shell). It is encrypted at rest using AES-GCM with a 256-bit key derived from your passcode via PBKDF2 (250,000 iterations, SHA-256). We do not know your passcode; we do not have a copy of the derived key; we cannot decrypt your data.</p>
+  <p>If you forget your passcode, your data is not recoverable. This is a deliberate trade-off for genuine end-to-end privacy. We recommend writing your passcode down somewhere safe, or using Pro's encrypted backup export if you want a portable recovery copy.</p>
+
+  <h3>Local storage keys, for transparency</h3>
+  <p>Duitful writes the following keys to your browser's local storage:</p>
+  <ul>
+    <li><code>duit-tracker.enc</code> — the encrypted blob containing your records.</li>
+    <li><code>duit-tracker.v1</code> — a legacy plain-text store used only once during migration to the encrypted store, then cleared.</li>
+    <li><code>duit-tracker.referrer</code> and <code>duit-tracker.promo</code> — optional referral / promo codes if you followed a link, kept for 30 days.</li>
+    <li><code>duit-tracker.fx</code> — cached foreign-exchange rates, up to 24 hours.</li>
+    <li><code>duit-tracker.privacy</code> — whether you have "blur balances" mode turned on.</li>
+    <li><code>duit-tracker.install-dismissed-at</code> — the timestamp when you dismissed the "install as an app" prompt, so we don't show it again for a while.</li>
+  </ul>
+
+  <h2 class="section">4. What actually reaches us</h2>
+  <p>The only situations in which personal data leaves your device and reaches us or our vendors are these:</p>
+
+  <h3>4.1 When you buy Duitful Pro through the web checkout</h3>
+  <p>Pro can be purchased through Billplz, a Malaysian payment gateway. To start a checkout, we send Billplz your email address, the name you enter at checkout, the amount (RM 19.90 or the discounted amount if a code applies), a product reference (<code>duitful_pro</code>), and — if you arrived via a referral link — an 8-character referral code derived from the referrer's email.</p>
+  <p>Billplz then collects your bank or card details directly on their hosted checkout page. We never see those details. When Billplz notifies us that a payment has completed, our server receives the bill identifier, the paid state, the amount, and the email you provided.</p>
+  <p>We then issue you a Pro licence (see 4.3 below) and send it to the email address you provided. Our Vercel serverless function writes a short audit record of each purchase event (bill identifier, paid state, amount, email, any discount code used) to its execution log, so we can diagnose payment issues. These logs are kept by Vercel for a limited period (generally up to 30 days) and are not used for marketing, profiling, or any other purpose.</p>
+
+  <h3>4.2 When you buy Duitful Pro inside the native iOS or Android app</h3>
+  <p>In-app purchases are processed entirely by Apple (App Store) or Google (Play Store). Duitful does not receive your payment details or see your Apple ID / Google account. Those stores operate under their own privacy policies, which you accepted when you set up your device. Purchase receipts are validated locally using each store's standard SDK.</p>
+
+  <h3>4.3 The Pro licence token</h3>
+  <p>Once payment is confirmed, we generate a Pro licence. It is a short signed token, using ECDSA on the P-256 curve. The payload contains: a subject identifier (your Billplz bill ID, or a complimentary code for free licences), the email address you provided at checkout, the product code (<code>duitful_pro</code>), the referral code if any, the issue timestamp, and — when applicable — the discount source. The token is verified on your device with a public key built into the app. It contains no device identifier, no IP address, no location.</p>
+
+  <h3>4.4 When you email us</h3>
+  <p>If you email <a href="mailto:hello@duitful.app">hello@duitful.app</a> for support, feedback, or a bug report, the contents of your email, your email address, and any information you choose to include reach the operator directly. Inbound mail is forwarded through Cloudflare Email Routing to a personal inbox. We keep support correspondence for as long as needed to resolve the conversation and a reasonable period afterwards for reference; you can ask us to delete it at any time.</p>
+
+  <h3>4.5 Website logs</h3>
+  <p>The public website at <code>duitful.app</code> is served by GitHub Pages. When you visit, GitHub's servers receive standard HTTP request metadata — IP address, user-agent, referrer, requested path — which GitHub retains as part of its own operations under its own privacy policy. We don't operate our own web-access logging on top of that, and we don't receive or analyse those logs.</p>
+  <p>Our Pro-checkout endpoints are hosted on Vercel. When you hit those endpoints, Vercel retains similar request metadata for operational and security purposes, as described in Vercel's own privacy policy.</p>
+
+  <h2 class="section">5. Third parties we use</h2>
+  <p>Running a finance app on the modern internet involves a small number of service providers. Here is the complete list, what they see, and why we use them.</p>
+
+  <table class="vendors">
+    <thead>
+      <tr><th>Vendor</th><th>Role</th><th>What they see</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Billplz</td>
+        <td>Payment processor for web Pro checkout.</td>
+        <td>Your name, email, payment amount, bank/card details entered on their own checkout page.</td>
+      </tr>
+      <tr>
+        <td>Apple App Store</td>
+        <td>In-app purchase billing on iOS/iPadOS.</td>
+        <td>Whatever Apple handles as part of any App Store transaction. Governed by Apple's privacy policy.</td>
+      </tr>
+      <tr>
+        <td>Google Play</td>
+        <td>In-app purchase billing on Android.</td>
+        <td>Whatever Google handles as part of any Play Store transaction. Governed by Google's privacy policy.</td>
+      </tr>
+      <tr>
+        <td>Resend</td>
+        <td>Sends transactional email — your Pro licence receipt and internal sale notifications.</td>
+        <td>The email address we send to, and the contents of those transactional emails.</td>
+      </tr>
+      <tr>
+        <td>Cloudflare Email Routing</td>
+        <td>Forwards mail sent to <code>hello@duitful.app</code> to the operator's inbox.</td>
+        <td>Standard email metadata and message bodies, in transit.</td>
+      </tr>
+      <tr>
+        <td>Vercel</td>
+        <td>Hosts the Pro-checkout serverless functions.</td>
+        <td>Request metadata (IP, user-agent, referrer) for endpoints under <code>/api/</code>.</td>
+      </tr>
+      <tr>
+        <td>GitHub Pages</td>
+        <td>Hosts the public website and the web version of the app.</td>
+        <td>Standard web-server request metadata (IP, user-agent, referrer).</td>
+      </tr>
+      <tr>
+        <td>Google Fonts</td>
+        <td>Serves the Fraunces, Inter, and JetBrains Mono typefaces.</td>
+        <td>Your IP address, as part of the normal request for a CSS file and font files, during the first page load.</td>
+      </tr>
+      <tr>
+        <td>unpkg (optional fallback only)</td>
+        <td>Delivers the Tesseract.js OCR library if the bundled local copy is unavailable.</td>
+        <td>Your IP address, as part of a standard script request. Content of receipts is never sent anywhere — OCR runs on your device.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p>We do not add or remove vendors casually. Any change here will be reflected in this policy and in the <a href="/changelog/">changelog</a>.</p>
+
+  <h2 class="section">6. Android notification access</h2>
+  <p>On Android only, Duitful can optionally use the Notification Listener permission to auto-capture bank and e-wallet transaction alerts. We take this permission seriously because it's one of the most sensitive a user can grant.</p>
+  <ul>
+    <li>The listener is strictly opt-in. You choose to turn it on, and you can turn it off at any time in Android's system settings.</li>
+    <li>It only reads notifications from a hard-coded allow-list of Malaysian bank and e-wallet apps (Maybank, CIMB, Public Bank, RHB, Hong Leong, Touch 'n Go, Grab, Boost, BigPay, Shopee, Atome). Everything else is ignored.</li>
+    <li>Notification contents are parsed locally on the device. The parser extracts a candidate amount, merchant, and reference, and inserts a pending transaction into the app's on-device database for you to review.</li>
+    <li><strong>No notification content is transmitted off the device.</strong> Duitful does not upload, forward, share, or back up notification text to any server, including our own.</li>
+  </ul>
+
+  <h2 class="section">7. Children</h2>
+  <p>Duitful is not directed to children under 13, and we do not knowingly collect personal data from children under 13. If you believe a child has provided us with personal data, please contact us and we will delete it.</p>
+
+  <h2 class="section">8. How long we keep things</h2>
+  <ul>
+    <li><strong>On-device data:</strong> as long as you keep the app installed. Uninstalling the app, clearing your browser's storage, or using the in-app "reset all data" option will delete it.</li>
+    <li><strong>Billplz payment records:</strong> retained by Billplz under its own policy.</li>
+    <li><strong>Resend email logs:</strong> retained by Resend under its own policy (typically a rolling window measured in days to weeks for transactional mail).</li>
+    <li><strong>Our Vercel function logs:</strong> retained by Vercel for up to roughly 30 days, then discarded.</li>
+    <li><strong>Support email:</strong> kept for as long as is useful to help you, unless you ask us to delete it.</li>
+  </ul>
+
+  <h2 class="section">9. Your rights</h2>
+  <p>Under the Personal Data Protection Act 2010 (Malaysia) and equivalent laws in other jurisdictions (for example the GDPR in the EU/UK, or the PDPA in Singapore), you have the right to:</p>
+  <ul>
+    <li>ask what personal data we hold about you;</li>
+    <li>ask us to correct inaccurate personal data;</li>
+    <li>ask us to delete personal data we hold, where we are not legally required to keep it;</li>
+    <li>withdraw any consent you previously gave us, without affecting anything that happened before you withdrew;</li>
+    <li>lodge a complaint with your national data protection authority.</li>
+  </ul>
+  <p>To exercise any of these rights, email <a href="mailto:hello@duitful.app">hello@duitful.app</a>. Because most of your data is on your own device and not accessible to us, requests about that data are usually answered by pointing you at the in-app export or reset tools.</p>
+
+  <h2 class="section">10. International users</h2>
+  <p>Duitful is built in Malaysia for Malaysian users, but the app works anywhere and some of our vendors operate worldwide. If you use the app from outside Malaysia, the data that does leave your device (your email for a Pro purchase, and any mail you send us) will be processed in the regions where our vendors operate — including the United States for Vercel, Resend, and Cloudflare, and Malaysia for Billplz. By using the service, you consent to this transfer where required by law.</p>
+
+  <h2 class="section">11. Security</h2>
+  <p>No system is perfectly secure, but the design of Duitful is intentionally pessimistic. Your financial data is encrypted on-device with AES-GCM before it is ever written to storage, using a key derived from your passcode through 250,000 PBKDF2 iterations. Because the key never leaves your device, a theoretical breach of any Duitful-operated system would not expose your records.</p>
+  <p>If we ever discover a security issue that affects users, we will post details on this website and notify affected users by email where possible.</p>
+
+  <h2 class="section">12. Changes to this policy</h2>
+  <p>When this policy changes, we update the "last updated" date at the top and add an entry to the <a href="/changelog/">changelog</a>. Material changes — anything that meaningfully affects what happens to your data — will be summarised in the changelog entry. Continuing to use Duitful after a change means you accept the updated policy.</p>
+
+  <h2 class="section">13. Contact</h2>
+  <p>Questions, complaints, data requests, or just a hello — all go to the same address:</p>
+  <p><a href="mailto:hello@duitful.app">hello@duitful.app</a></p>
+
+  <div class="footer">
+    You may also want the <a href="/">main page</a>, the <a href="/changelog/">changelog</a>, or the <a href="/contact/">contact page</a>.
+  </div>
+</div>
+</body>
+</html>
