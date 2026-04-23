@@ -80,6 +80,86 @@
   }
   </script>
 
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Duitful",
+    "url": "https://duitful.app/",
+    "logo": "https://duitful.app/favicon.svg",
+    "image": "https://duitful.app/og-image.svg",
+    "description": "Privacy-first personal finance tracker built in Malaysia. Monthly income and expense tracking, debt avalanche payoff, BNPL tracking, receipt OCR, and on-device encryption.",
+    "foundingLocation": {
+      "@type": "Place",
+      "address": { "@type": "PostalAddress", "addressCountry": "MY" }
+    },
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "customer support",
+      "email": "hello@duitful.app",
+      "url": "https://duitful.app/contact/",
+      "availableLanguage": ["en", "ms"]
+    }
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Why one-time pricing and not a subscription?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "A tracker shouldn't cost more than the problem it solves. Duitful Pro is a one-time RM 19.90 — you keep the app forever, get every future Pro feature, and never see a renewal email. Server costs are near-zero because your data stays on your phone, so subscriptions would just be charging you to subsidise someone else's growth metrics."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Does my data really never leave the phone?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Correct. All your transactions, debts, and goals live in an AES-GCM-encrypted database on your device, locked with a PBKDF2-derived key from your passcode. There is no sign-up, no sync server, no analytics SDK on your financial data. Receipt OCR happens via a privacy-focused API only when you explicitly scan — no receipts are stored remotely."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Which banks are supported for auto-capture?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "On Android, Duitful parses notifications from major Malaysian banks and e-wallets — Maybank, CIMB, Public Bank, RHB, Hong Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay and more. You review each transaction before it's saved. iOS doesn't allow notification reading, so on iPhone you'll use receipt scans and manual entry."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I use Duitful outside Malaysia?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. The app supports MYR, SGD, USD, EUR, GBP, JPY, THB, IDR and more, with automatic FX conversion for travel expenses. Singapore users in particular get full BNPL coverage (Atome, SPayLater, ShopBack PayLater). Auto-capture notification parsing is currently tuned for Malaysian banks, with Singapore banks next on the roadmap."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What happens if I lose my passcode?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Your data cannot be recovered. This is the honest trade-off for real end-to-end privacy — because Duitful never has a copy of your passcode or your data, we can't reset it for you. We strongly recommend writing your passcode down somewhere safe, or using Pro's encrypted-backup export so you can restore to a new device."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Can I import from Monarch, YNAB or a CSV?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. Duitful Pro imports CSV files in the standard formats exported by Monarch, YNAB, Money Lover, and most Malaysian bank statements. You can map columns manually if your export is non-standard. Export works the same way — your data is yours to take anywhere, any time."
+        }
+      }
+    ]
+  }
+  </script>
+
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1588,11 +1668,11 @@
   <div class="container foot-inner">
     <div>© 2026 Duitful · Made with care in Malaysia</div>
     <div class="links">
-      <a href="#privacy">Privacy</a>
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
       <a href="/changelog/">Changelog</a>
       <a href="/contact/">Contact</a>
+      <a href="/privacy/">Privacy policy</a>
       <a href="mailto:hello@duitful.app">hello@duitful.app</a>
     </div>
   </div>
