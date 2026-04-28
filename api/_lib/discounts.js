@@ -13,7 +13,7 @@
 // Vercel Functions -> Logs. Harden later if/when abuse actually shows.
 
 const CODES = {
-  FAMILY: {
+  FAMILY26: {
     type: "percent",
     off: 100,
     description: "Family & friends — free Pro",
@@ -25,6 +25,14 @@ const CODES = {
     description: "mrawhb — RM 5.00 off",
     creator: "mrawhb",
     referrerCode: "418c33b4",
+    commission: 5,
+  },
+    AMEERA26: {
+    type: "fixed",
+    off: 500,
+    description: "Mayra — RM 5.00 off",
+    creator: "mayra",
+    referrerCode: "b3368d90",
     commission: 5,
   },
   // Example additional codes — uncomment + customize to roll out:
