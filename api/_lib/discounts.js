@@ -19,6 +19,14 @@ const CODES = {
     description: "Family & friends — free Pro",
     expires: "2027-12-31",
   },
+    MRAWHB: {
+    type: "fixed",
+    off: 500,
+    description: "mrawhb — RM 5.00 off",
+    creator: "mrawhb",
+    referrerCode: "418c33b4",
+    commission: 5,
+  },
   // Example additional codes — uncomment + customize to roll out:
   // RAYA2026: { type: "percent", off: 50,  description: "Raya 50% off",            expires: "2026-05-15" },
   // LAUNCH10: { type: "fixed",   off: 500, description: "Launch promo — RM 5 off", expires: "2026-06-30" },
