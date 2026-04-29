@@ -1159,13 +1159,21 @@ function renderReports() {
       }
       if (trendHint) trendHint.textContent = `Monthly · ${buckets.length} months`;
     }
+    trendEl.classList.toggle("dense", buckets.length > 14);
     if (!buckets.length) {
       trendEl.innerHTML = `<div class="empty">No data to chart.</div>`;
     } else {
       const max = Math.max(...buckets.map((b) => b.total), 1);
+      // Per-bar value labels collide when there are many bars; only show on
+      // peaks (top 3) when dense. Always show in monthly mode (≤ ~12 bars).
+      const dense = buckets.length > 12;
+      const peakSet = new Set(
+        buckets.slice().sort((a, b) => b.total - a.total).slice(0, 3).map((b) => b.key),
+      );
       trendEl.innerHTML = buckets.map((b) => {
         const h = (b.total / max) * 100;
-        const valLine = b.total > 0 ? fmtMoney(b.total) : "";
+        const showValue = !dense || peakSet.has(b.key);
+        const valLine = showValue && b.total > 0 ? fmtMoney(b.total) : "";
         return `
           <div class="reports-trend-bar" title="${escapeHtml(b.key + ' — ' + fmtMoney(b.total))}">
             <span class="value">${escapeHtml(valLine)}</span>

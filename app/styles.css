@@ -2044,12 +2044,11 @@ button.ghost.icon-btn {
 .reports-trend {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(22px, 1fr);
+  grid-auto-columns: minmax(0, 1fr);
   align-items: end;
-  gap: 0.3rem;
-  height: 160px;
-  padding: 0.4rem 0 0.2rem;
-  overflow-x: auto;
+  gap: 0.25rem;
+  height: 170px;
+  padding: 1.1rem 0 0.2rem; /* room for the peak value labels */
 }
 .reports-trend-bar {
   display: flex; flex-direction: column;
@@ -2057,11 +2056,12 @@ button.ghost.icon-btn {
   height: 100%;
   gap: 0.25rem;
   min-width: 0;
+  position: relative;
 }
 .reports-trend-bar > .bar {
   width: 100%; max-width: 28px;
   background: var(--primary);
-  border-radius: 6px 6px 0 0;
+  border-radius: 4px 4px 0 0;
   min-height: 2px;
 }
 .reports-trend-bar > .label {
@@ -2069,12 +2069,19 @@ button.ghost.icon-btn {
   font-family: var(--font-mono, ui-monospace, monospace);
 }
 .reports-trend-bar > .value {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translate(-50%, -100%);
   font-size: 10px;
   color: var(--ink);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  opacity: 0.85;
+  opacity: 0.9;
+  pointer-events: none;
 }
+/* On dense daily charts, hide alternating x-axis labels to reduce clutter */
+.reports-trend.dense .reports-trend-bar:nth-child(odd) > .label { visibility: hidden; }
 
 .reports-top-row {
   display: grid;
