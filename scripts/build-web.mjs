@@ -21,6 +21,8 @@ const APP_FILES = [
   "styles.css",
   "icon.svg",
   "manifest.webmanifest",
+  "drive-config.js",
+  "drive-sync.js",
 ];
 
 function reset(dir) {

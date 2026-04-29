@@ -21,7 +21,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=42" />
+    <link rel="stylesheet" href="styles.css?v=43" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -500,6 +501,39 @@
           </div>
           <div id="import-status" class="hint"></div>
         </div>
+
+        <div class="card" id="drive-card" hidden>
+          <div class="card-head">
+            <h2>Cloud backup</h2>
+            <span class="drive-status-pill" id="drive-status-pill" hidden></span>
+          </div>
+          <p class="hint" id="drive-blurb">
+            Sync your encrypted backup to your own Google Drive (hidden app folder).
+            Your passcode encrypts the data before upload — Duitful and Google never see it unencrypted.
+          </p>
+          <div id="drive-signed-out">
+            <div class="button-row">
+              <button id="btn-drive-signin" class="primary" type="button">Connect Google Drive</button>
+            </div>
+            <p class="hint" id="drive-unconfigured" hidden>
+              Cloud backup isn't configured for this build. Set <code>DRIVE_CONFIG.webClientId</code> in <code>app/drive-config.js</code>.
+            </p>
+          </div>
+          <div id="drive-signed-in" hidden>
+            <p class="hint" id="drive-account-line"></p>
+            <p class="hint" id="drive-last-synced"></p>
+            <label class="field" style="flex-direction:row; align-items:center; gap:.5rem;">
+              <input type="checkbox" id="drive-auto-sync" />
+              <span>Auto-sync on every change</span>
+            </label>
+            <div class="button-row">
+              <button id="btn-drive-sync-now" class="primary" type="button">Sync now</button>
+              <button id="btn-drive-restore" class="ghost" type="button">Restore from cloud</button>
+              <button id="btn-drive-signout" class="ghost" type="button">Disconnect</button>
+            </div>
+          </div>
+        </div>
+
         <div class="card pro-card" id="pro-card">
           <div class="card-head">
             <h2>Duitful Pro</h2>
@@ -821,6 +855,8 @@
       </div>
     </dialog>
 
-    <script src="script.js?v=53"></script>
+    <script src="drive-config.js?v=1"></script>
+    <script src="drive-sync.js?v=1"></script>
+    <script src="script.js?v=54"></script>
   </body>
 </html>
