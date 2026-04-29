@@ -25,7 +25,7 @@ const CODES = {
     type: "percent",
     off: 100,
     description: "Family & friends — free Pro",
-    expires: "2027-12-31",
+    expires: "2026-04-30",
   },
     MRAWHB: {
     type: "fixed",
