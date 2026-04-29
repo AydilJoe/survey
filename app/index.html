@@ -522,6 +522,10 @@
           <div id="drive-signed-in" hidden>
             <p class="hint" id="drive-account-line"></p>
             <p class="hint" id="drive-last-synced"></p>
+            <p class="hint warn" id="drive-pro-hint" hidden>
+              You're not Pro on this device. If you have a Pro backup in Google Drive,
+              click <strong>Restore from cloud</strong> to bring it back — Pro will turn on automatically.
+            </p>
             <label class="field" style="flex-direction:row; align-items:center; gap:.5rem;">
               <input type="checkbox" id="drive-auto-sync" />
               <span>Auto-sync on every change</span>
@@ -857,6 +861,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=54"></script>
+    <script src="script.js?v=55"></script>
   </body>
 </html>

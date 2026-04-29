@@ -3848,6 +3848,7 @@ function scheduleDriveUpload() {
 
 async function runDriveUpload() {
   if (!driveAvailable()) return;
+  if (!isPro()) return; // pushes are Pro-only; restore is open to all
   if (!navigator.onLine) return; // queued naturally — next save() reschedules
   const raw = localStorage.getItem(ENC_KEY);
   if (!raw) return;
@@ -3871,7 +3872,9 @@ window.addEventListener("online", () => {
    schedule a push. v1 policy: last-write-wins with confirmation. */
 async function checkDriveOnBoot() {
   if (!driveAvailable()) return;
-  if (!isPro()) return;
+  // Restore prompt is allowed for anyone signed in — that's how Pro itself
+  // flows from device A's backup to device B. Auto-upload is still Pro-only
+  // (gated inside scheduleDriveUpload).
   let meta;
   try { meta = await DriveSync.getRemoteMeta(); }
   catch (err) { console.warn("drive meta failed", err); return; }
@@ -3964,6 +3967,7 @@ function renderDriveCard() {
   if (outEl) outEl.hidden = signedIn;
 
   if (signedIn) {
+    const pro = isPro();
     const email = DriveSync.getAccountEmail();
     const accountLine = document.getElementById("drive-account-line");
     if (accountLine) accountLine.textContent = email ? `Connected as ${email}.` : "Connected to Google Drive.";
@@ -3973,7 +3977,23 @@ function renderDriveCard() {
     if (lastLine) lastLine.textContent = last ? `Last synced ${formatRelative(last)}.` : "Not synced yet.";
 
     const auto = document.getElementById("drive-auto-sync");
-    if (auto) auto.checked = state.driveAutoSync !== false;
+    if (auto) {
+      auto.checked = pro && state.driveAutoSync !== false;
+      auto.disabled = !pro;
+    }
+    const syncNow = document.getElementById("btn-drive-sync-now");
+    if (syncNow) {
+      syncNow.disabled = !pro;
+      syncNow.title = pro ? "" : "Pro feature — sign-in lets you restore a Pro backup from another device.";
+    }
+    const restoreBtn = document.getElementById("btn-drive-restore");
+    if (restoreBtn) {
+      // Promote Restore to primary on non-Pro devices since it's their main use case.
+      restoreBtn.classList.toggle("primary", !pro);
+      restoreBtn.classList.toggle("ghost", pro);
+    }
+    const proHint = document.getElementById("drive-pro-hint");
+    if (proHint) proHint.hidden = pro;
   }
 
   const pill = document.getElementById("drive-status-pill");
@@ -4001,7 +4021,8 @@ function renderDriveCard() {
     if (el) el.addEventListener("click", fn);
   };
   onClick("btn-drive-signin", async () => {
-    if (!isPro()) { gate("cloudBackup"); return; }
+    // Sign-in is open to all so non-Pro devices can restore a backup that
+    // contains Pro. Auto-upload and "Sync now" are still Pro-only.
     try {
       await DriveSync.signIn();
       await checkDriveOnBoot();
@@ -4016,6 +4037,7 @@ function renderDriveCard() {
     renderDriveCard();
   });
   onClick("btn-drive-sync-now", async () => {
+    if (!isPro()) { gate("cloudBackup"); return; }
     try {
       await runDriveUpload();
       renderDriveCard();
@@ -4030,6 +4052,11 @@ function renderDriveCard() {
   });
   const auto = document.getElementById("drive-auto-sync");
   if (auto) auto.addEventListener("change", () => {
+    if (!isPro()) {
+      auto.checked = false;
+      gate("cloudBackup");
+      return;
+    }
     state.driveAutoSync = !!auto.checked;
     save();
   });
