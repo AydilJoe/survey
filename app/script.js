@@ -890,6 +890,315 @@ function renderDashboard() {
   }
 }
 
+/* ---------- Reports ---------- */
+
+const reportsState = {
+  preset: "thisMonth",
+  customStart: null,
+  customEnd: null,
+  kinds: new Set(["expense", "debt", "saving"]),
+  category: "__all__",
+};
+
+function fmtISODate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function startOfWeekISO(d = new Date()) {
+  const r = new Date(d);
+  const dow = r.getDay(); // 0 = Sunday
+  const diff = (dow + 6) % 7; // back to Monday
+  r.setDate(r.getDate() - diff);
+  return fmtISODate(r);
+}
+
+function startOfMonthISO(d = new Date()) {
+  return fmtISODate(new Date(d.getFullYear(), d.getMonth(), 1));
+}
+
+function endOfMonthISO(year, month0) {
+  return fmtISODate(new Date(year, month0 + 1, 0));
+}
+
+function reportsRange() {
+  const today = new Date();
+  const todayStr = fmtISODate(today);
+  switch (reportsState.preset) {
+    case "today":
+      return { start: todayStr, end: todayStr };
+    case "thisWeek":
+      return { start: startOfWeekISO(today), end: todayStr };
+    case "thisMonth":
+      return { start: startOfMonthISO(today), end: todayStr };
+    case "lastMonth": {
+      const y = today.getFullYear();
+      const m = today.getMonth() - 1;
+      const ref = new Date(y, m, 1);
+      return { start: startOfMonthISO(ref), end: endOfMonthISO(ref.getFullYear(), ref.getMonth()) };
+    }
+    case "last3Months": {
+      const ref = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+      return { start: startOfMonthISO(ref), end: todayStr };
+    }
+    case "custom":
+      return {
+        start: reportsState.customStart || todayStr,
+        end: reportsState.customEnd || todayStr,
+      };
+    default:
+      return { start: startOfMonthISO(today), end: todayStr };
+  }
+}
+
+function reportsRangeLabel() {
+  const { start, end } = reportsRange();
+  if (!start || !end) return "—";
+  if (start === end) return formatDayLabel(start);
+  return `${formatDayLabel(start)} – ${formatDayLabel(end)}`;
+}
+
+function reportsFilteredEntries() {
+  const { start, end } = reportsRange();
+  if (!start || !end) return [];
+  return state.dailyExpenses.filter((e) => {
+    const kind = e.kind || "expense";
+    if (!reportsState.kinds.has(kind)) return false;
+    if (reportsState.category !== "__all__") {
+      const cat = e.category || "Others";
+      if (kind !== "expense" || cat !== reportsState.category) return false;
+    }
+    if (!e.date) return false;
+    return e.date >= start && e.date <= end;
+  });
+}
+
+function daysBetween(startISO, endISO) {
+  const a = new Date(startISO + "T00:00:00");
+  const b = new Date(endISO + "T00:00:00");
+  return Math.round((b - a) / 86400000) + 1;
+}
+
+function shiftDaysISO(iso, delta) {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + delta);
+  return fmtISODate(d);
+}
+
+function reportsCategoryLabel(entry) {
+  const kind = entry.kind || "expense";
+  if (kind === "debt") return debtNameById(entry.debtId) || entry.debtName || "Debt payment";
+  if (kind === "saving") {
+    const goal = state.savings.find((g) => g.id === entry.savingId);
+    return (goal ? goal.name : entry.savingName) || "Saving";
+  }
+  return entry.category || "Others";
+}
+
+function refreshReportsCategoryOptions() {
+  const sel = document.getElementById("reports-category");
+  if (!sel) return;
+  const cats = Array.from(
+    new Set(
+      state.dailyExpenses
+        .filter((e) => (e.kind || "expense") === "expense" && e.category)
+        .map((e) => e.category),
+    ),
+  ).sort();
+  const current = reportsState.category;
+  sel.innerHTML =
+    `<option value="__all__">All categories</option>` +
+    cats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  if (cats.includes(current)) sel.value = current;
+  else { sel.value = "__all__"; reportsState.category = "__all__"; }
+}
+
+function renderReports() {
+  const panel = document.getElementById("tab-reports");
+  if (!panel) return;
+  refreshReportsCategoryOptions();
+
+  // Sync preset chip + custom range visibility
+  panel.querySelectorAll(".reports-presets .chip").forEach((b) => {
+    b.classList.toggle("active", b.dataset.preset === reportsState.preset);
+  });
+  const customWrap = document.getElementById("reports-custom-range");
+  if (customWrap) customWrap.hidden = reportsState.preset !== "custom";
+
+  // Sync kind checkboxes
+  panel.querySelectorAll('.reports-kinds input[type="checkbox"]').forEach((cb) => {
+    cb.checked = reportsState.kinds.has(cb.dataset.kind);
+  });
+
+  const { start, end } = reportsRange();
+  const labelEl = document.getElementById("reports-range-label");
+  if (labelEl) labelEl.textContent = reportsRangeLabel();
+
+  const entries = reportsFilteredEntries();
+  const total = entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const days = Math.max(1, daysBetween(start, end));
+  const avgPerDay = total / days;
+
+  // Per-day totals (for biggest day + trend chart)
+  const dayTotals = new Map();
+  for (const e of entries) {
+    dayTotals.set(e.date, (dayTotals.get(e.date) || 0) + (Number(e.amount) || 0));
+  }
+  let biggestDay = null;
+  for (const [date, sum] of dayTotals) {
+    if (!biggestDay || sum > biggestDay.sum) biggestDay = { date, sum };
+  }
+
+  $("#reports-total").textContent = fmtMoney(total);
+  $("#reports-avg").textContent = fmtMoney(avgPerDay);
+  $("#reports-count").textContent = String(entries.length);
+  $("#reports-biggest-day").textContent = biggestDay
+    ? `${fmtMoney(biggestDay.sum)} · ${formatDayLabel(biggestDay.date)}`
+    : "—";
+
+  // MoM: same-length prior period
+  const momEl = document.getElementById("reports-mom");
+  if (momEl) {
+    const priorEnd = shiftDaysISO(start, -1);
+    const priorStart = shiftDaysISO(priorEnd, -(days - 1));
+    const priorTotal = state.dailyExpenses
+      .filter((e) => {
+        const kind = e.kind || "expense";
+        if (!reportsState.kinds.has(kind)) return false;
+        if (reportsState.category !== "__all__") {
+          const cat = e.category || "Others";
+          if (kind !== "expense" || cat !== reportsState.category) return false;
+        }
+        return e.date && e.date >= priorStart && e.date <= priorEnd;
+      })
+      .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    if (priorTotal > 0 || total > 0) {
+      const delta = total - priorTotal;
+      const pctText = priorTotal > 0
+        ? `${Math.abs((delta / priorTotal) * 100).toFixed(0)}%`
+        : "—";
+      const arrow = delta > 0 ? "▲" : delta < 0 ? "▼" : "▬";
+      const cls = delta > 0 ? "delta-up" : delta < 0 ? "delta-down" : "";
+      momEl.innerHTML =
+        `vs prior period (${formatDayLabel(priorStart)} – ${formatDayLabel(priorEnd)}): ` +
+        `${fmtMoney(priorTotal)} · ` +
+        `<span class="${cls}">${arrow} ${pctText}</span>`;
+      momEl.hidden = false;
+    } else {
+      momEl.hidden = true;
+    }
+  }
+
+  // By category
+  const catTotals = new Map();
+  for (const e of entries) {
+    const label = reportsCategoryLabel(e);
+    const o = catTotals.get(label) || { total: 0, count: 0 };
+    o.total += Number(e.amount) || 0;
+    o.count += 1;
+    catTotals.set(label, o);
+  }
+  const catList = Array.from(catTotals.entries())
+    .sort((a, b) => b[1].total - a[1].total);
+  const catEl = document.getElementById("reports-categories");
+  if (catEl) {
+    if (!catList.length) {
+      catEl.innerHTML = `<div class="empty">No entries match these filters.</div>`;
+    } else {
+      catEl.innerHTML = catList.map(([cat, v]) => {
+        const pct = total > 0 ? (v.total / total) * 100 : 0;
+        return `
+          <div class="reports-cat-row">
+            <div class="reports-cat-head">
+              <span class="reports-cat-name">${escapeHtml(cat)}</span>
+              <span class="reports-cat-amount">${fmtMoney(v.total)}</span>
+            </div>
+            <div class="reports-bar"><span style="width:${pct.toFixed(2)}%"></span></div>
+            <div class="reports-cat-meta">
+              <span>${pct.toFixed(1)}%</span>
+              <span>${v.count} ${v.count === 1 ? "entry" : "entries"}</span>
+            </div>
+          </div>`;
+      }).join("");
+    }
+  }
+
+  // Trend: daily bars if range ≤ 62 days, else monthly
+  const trendEl = document.getElementById("reports-trend");
+  const trendHint = document.getElementById("reports-trend-hint");
+  if (trendEl) {
+    let buckets = [];
+    if (days <= 62) {
+      // Daily
+      for (let i = 0; i < days; i++) {
+        const iso = shiftDaysISO(start, i);
+        buckets.push({ key: iso, label: String(parseInt(iso.slice(8), 10)), sub: iso.slice(5, 7), total: dayTotals.get(iso) || 0 });
+      }
+      if (trendHint) trendHint.textContent = `Daily · ${days} day${days === 1 ? "" : "s"}`;
+    } else {
+      // Monthly
+      const monthTotals = new Map();
+      for (const e of entries) {
+        const ym = (e.date || "").slice(0, 7);
+        if (!ym) continue;
+        monthTotals.set(ym, (monthTotals.get(ym) || 0) + (Number(e.amount) || 0));
+      }
+      const startYM = start.slice(0, 7);
+      const endYM = end.slice(0, 7);
+      let cur = startYM;
+      while (cur <= endYM) {
+        buckets.push({
+          key: cur,
+          label: formatMonthLabel(cur).split(" ")[0].slice(0, 3),
+          sub: cur.slice(0, 4),
+          total: monthTotals.get(cur) || 0,
+        });
+        cur = shiftMonth(cur, 1);
+      }
+      if (trendHint) trendHint.textContent = `Monthly · ${buckets.length} months`;
+    }
+    if (!buckets.length) {
+      trendEl.innerHTML = `<div class="empty">No data to chart.</div>`;
+    } else {
+      const max = Math.max(...buckets.map((b) => b.total), 1);
+      trendEl.innerHTML = buckets.map((b) => {
+        const h = (b.total / max) * 100;
+        const valLine = b.total > 0 ? fmtMoney(b.total) : "";
+        return `
+          <div class="reports-trend-bar" title="${escapeHtml(b.key + ' — ' + fmtMoney(b.total))}">
+            <span class="value">${escapeHtml(valLine)}</span>
+            <span class="bar" style="height:${h.toFixed(2)}%"></span>
+            <span class="label">${escapeHtml(b.label)}</span>
+          </div>`;
+      }).join("");
+    }
+  }
+
+  // Top 5
+  const topEl = document.getElementById("reports-top");
+  if (topEl) {
+    const top = entries.slice().sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0)).slice(0, 5);
+    if (!top.length) {
+      topEl.innerHTML = `<div class="empty">No entries.</div>`;
+    } else {
+      topEl.innerHTML = top.map((e) => {
+        const cat = reportsCategoryLabel(e);
+        const note = e.note ? `<span class="top-note">${escapeHtml(e.note)}</span>` : "";
+        return `
+          <div class="reports-top-row">
+            <div>
+              <div class="top-name">${escapeHtml(cat)}</div>
+              <div class="top-meta">${escapeHtml(formatDayLabel(e.date))}${note ? " · " : ""}${note}</div>
+            </div>
+            <span class="top-amount">${fmtMoney(e.amount)}</span>
+          </div>`;
+      }).join("");
+    }
+  }
+}
+
 function renderAll() {
   updateCurrencyLabels();
   renderDashboard();
@@ -903,6 +1212,7 @@ function renderAll() {
   renderPending();
   renderReminderPrefs();
   renderProControls();
+  renderReports();
 }
 
 function renderPending() {
@@ -1660,7 +1970,47 @@ document.querySelectorAll(".tab").forEach((btn) => {
     document.querySelectorAll(".tab-panel").forEach((p) => {
       p.classList.toggle("active", p.id === `tab-${name}`);
     });
+    if (name === "reports") renderReports();
   });
+});
+
+/* ---------- Reports filter handlers ---------- */
+document.querySelectorAll(".reports-presets .chip").forEach((b) => {
+  b.addEventListener("click", () => {
+    reportsState.preset = b.dataset.preset;
+    if (reportsState.preset === "custom" && (!reportsState.customStart || !reportsState.customEnd)) {
+      const today = fmtISODate(new Date());
+      reportsState.customEnd = today;
+      reportsState.customStart = startOfMonthISO(new Date());
+      const sIn = document.getElementById("reports-start");
+      const eIn = document.getElementById("reports-end");
+      if (sIn) sIn.value = reportsState.customStart;
+      if (eIn) eIn.value = reportsState.customEnd;
+    }
+    renderReports();
+  });
+});
+
+document.querySelectorAll('.reports-kinds input[type="checkbox"]').forEach((cb) => {
+  cb.addEventListener("change", () => {
+    if (cb.checked) reportsState.kinds.add(cb.dataset.kind);
+    else reportsState.kinds.delete(cb.dataset.kind);
+    renderReports();
+  });
+});
+
+document.getElementById("reports-category")?.addEventListener("change", (e) => {
+  reportsState.category = e.target.value;
+  renderReports();
+});
+
+document.getElementById("reports-start")?.addEventListener("change", (e) => {
+  reportsState.customStart = e.target.value;
+  if (reportsState.preset === "custom") renderReports();
+});
+document.getElementById("reports-end")?.addEventListener("change", (e) => {
+  reportsState.customEnd = e.target.value;
+  if (reportsState.preset === "custom") renderReports();
 });
 
 /* ---------- form handlers ---------- */
