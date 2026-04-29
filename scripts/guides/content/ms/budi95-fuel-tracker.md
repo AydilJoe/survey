@@ -11,7 +11,7 @@ lede: Tiga ketik setiap isian. Satu tag. Jumlah bulanan yang anda boleh buat ses
 date_published: 2026-04-29
 date_modified: 2026-04-29
 breadcrumb_name: Penjejak minyak Budi95
-card_title: Penjejak petrol &amp; diesel Budi95
+card_title: Penjejak petrol & diesel Budi95
 card_blurb: Tag isian minyak dalam 10 saat. Lihat perbelanjaan RON95 dan diesel bulanan anda sekali pandang.
 cta_title: Mula jejak minyak anda hari ini
 cta_body: Buka Duitful, ketik "Tambah perbelanjaan", pilih tag "Petrol", masukkan jumlah pam. Itu sahaja. Jumlah minyak bulanan anda hanya satu ketikan jauh dari sekarang.
@@ -36,7 +36,7 @@ text: Pada papan pemuka, tapis ikut tag. Jumlah di atas adalah apa yang anda tel
 :::stat
 value: RM 200
 label: Had subsidi diesel bulanan (Budi Madani, kenderaan layak)
-note: Rujuk KPDN untuk kelayakan &amp; kuota terkini
+note: Rujuk KPDN untuk kelayakan & kuota terkini
 :::
 
 Budi95 ialah program subsidi minyak sasaran Malaysia. Pemandu yang layak mendapat RON95 atau diesel bersubsidi sehingga had bulanan; segala yang melebihi adalah pada harga pasaran tanpa subsidi. Tanpa jejak, anda hanya tahu di skrin pam sahaja.
