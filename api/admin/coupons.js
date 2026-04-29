@@ -4,7 +4,7 @@
 // table. Rotating a code still requires editing the file + deploying.
 
 const crypto = require("crypto");
-const { CODES } = require("../_lib/discounts");
+const { CODES, effectiveExpiry } = require("../_lib/discounts");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -32,17 +32,22 @@ module.exports = async function handler(req, res) {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const rows = Object.entries(CODES).map(([code, rule]) => ({
-    code,
-    type: rule.type,
-    off: rule.off,
-    description: rule.description || "",
-    expires: rule.expires || "",
-    expired: !!(rule.expires && today > rule.expires),
-    creator: rule.creator || "",
-    referrerCode: rule.referrerCode || "",
-    commission: Number.isFinite(rule.commission) ? rule.commission : null,
-  }));
+  const rows = Object.entries(CODES).map(([code, rule]) => {
+    const expires = effectiveExpiry(rule) || "";
+    return {
+      code,
+      type: rule.type,
+      off: rule.off,
+      description: rule.description || "",
+      expires,
+      expired: !!(expires && today > expires),
+      created: rule.created || "",
+      validDays: Number.isFinite(rule.validDays) ? rule.validDays : null,
+      creator: rule.creator || "",
+      referrerCode: rule.referrerCode || "",
+      commission: Number.isFinite(rule.commission) ? rule.commission : null,
+    };
+  });
   rows.sort((a, b) => a.code.localeCompare(b.code));
 
   res.status(200).json({ generatedAt: new Date().toISOString(), codes: rows });
