@@ -3,7 +3,7 @@
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://duitful.app/</loc>
-    <lastmod>2026-04-23</lastmod>
+    <lastmod>2026-04-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/"/>
@@ -12,7 +12,7 @@
   </url>
   <url>
     <loc>https://duitful.app/ms/</loc>
-    <lastmod>2026-04-23</lastmod>
+    <lastmod>2026-04-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/"/>
@@ -21,25 +21,25 @@
   </url>
   <url>
     <loc>https://duitful.app/changelog/</loc>
-    <lastmod>2026-04-23</lastmod>
+    <lastmod>2026-04-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://duitful.app/contact/</loc>
-    <lastmod>2026-04-23</lastmod>
+    <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
     <loc>https://duitful.app/privacy/</loc>
-    <lastmod>2026-04-23</lastmod>
+    <lastmod>2026-04-29</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://duitful.app/terms/</loc>
-    <lastmod>2026-04-23</lastmod>
+    <lastmod>2026-04-29</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
