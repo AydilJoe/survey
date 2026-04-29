@@ -5,10 +5,18 @@
 // Code shape:
 //   type: "percent"  → off is 0..100, applied as a % discount
 //   type: "fixed"    → off is in SEN (not ringgit), e.g. 500 = RM 5 off
-//   expires: "YYYY-MM-DD"  — code stops working after this date. Omit = never expires.
 //
-// We intentionally do NOT block anything right now (no email allowlist,
-// no disposable-email filter, no usage cap). We just log every
+// Validity (use either or both — server enforces both):
+//   expires:    "YYYY-MM-DD"  Hard cutoff. Code stops working the day after.
+//   created:    "YYYY-MM-DD"  + validDays: <int>  Rolling window. Code works
+//                             from `created` for `validDays` days, then
+//                             stops. Useful for beta-test codes where you
+//                             want a fixed window without computing the
+//                             cutoff date by hand.
+//   Omitting all three = never expires.
+//
+// We intentionally do NOT block anything beyond expiry right now (no email
+// allowlist, no disposable-email filter, no usage cap). We just log every
 // redemption in api/billplz/create-bill.js so abuse is visible in
 // Vercel Functions -> Logs. Harden later if/when abuse actually shows.
 
@@ -35,7 +43,15 @@ const CODES = {
     referrerCode: "b3368d90",
     commission: 5,
   },
-  // Example additional codes — uncomment + customize to roll out:
+  // Beta-test pattern (copy + edit + uncomment to roll out):
+  // BETA01: {
+  //   type: "percent",
+  //   off: 100,
+  //   description: "Beta tester — free Pro for 5 days",
+  //   created: "2026-04-29",
+  //   validDays: 5,
+  // },
+  // Other examples:
   // RAYA2026: { type: "percent", off: 50,  description: "Raya 50% off",            expires: "2026-05-15" },
   // LAUNCH10: { type: "fixed",   off: 500, description: "Launch promo — RM 5 off", expires: "2026-06-30" },
 };
@@ -44,15 +60,29 @@ function normalizeCode(input) {
   return String(input || "").trim().toUpperCase().replace(/\s+/g, "");
 }
 
+// Returns the effective expiry date as YYYY-MM-DD, or null if the code
+// never expires. `expires` wins if both `expires` and `validDays` are set.
+function effectiveExpiry(rule) {
+  if (!rule) return null;
+  if (rule.expires) return rule.expires;
+  if (rule.created && Number(rule.validDays) > 0) {
+    const d = new Date(rule.created + "T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + Number(rule.validDays));
+    return d.toISOString().slice(0, 10);
+  }
+  return null;
+}
+
 function lookup(code) {
   const key = normalizeCode(code);
   if (!key) return null;
   const rule = CODES[key];
   if (!rule) return null;
-  if (rule.expires) {
+  const expiry = effectiveExpiry(rule);
+  if (expiry) {
     // Compare YYYY-MM-DD against today in UTC — good enough for MY timezone.
     const today = new Date().toISOString().slice(0, 10);
-    if (today > rule.expires) return null;
+    if (today > expiry) return null;
   }
   return { code: key, ...rule };
 }
@@ -70,4 +100,4 @@ function applyTo(amountSen, rule) {
   return amountSen;
 }
 
-module.exports = { CODES, lookup, applyTo, normalizeCode };
+module.exports = { CODES, lookup, applyTo, normalizeCode, effectiveExpiry };
