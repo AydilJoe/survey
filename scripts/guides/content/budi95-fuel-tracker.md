@@ -8,8 +8,8 @@ og_locale: en_MY
 eyebrow: Guide · Malaysia · Fuel
 h1: Track your <em>Budi95</em> petrol &amp; diesel.
 lede: Three taps per fill-up. One tag. A monthly total you can actually do something about. Built for Malaysia's targeted RON95 and diesel subsidy.
-date_published: 2026-04-29
-date_modified: 2026-04-29
+date_published: 2026-04-28
+date_modified: 2026-04-28
 breadcrumb_name: Budi95 fuel tracker
 card_title: Budi95 petrol & diesel tracker
 card_blurb: Tag fuel-ups in 10 seconds. See your monthly RON95 and diesel spend at a glance.

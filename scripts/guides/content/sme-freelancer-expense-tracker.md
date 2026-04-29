@@ -8,8 +8,8 @@ og_locale: en_MY
 eyebrow: Guide · Malaysia · Freelancers & SMEs
 h1: One person, one phone, <em>one ledger</em>.
 lede: A privacy-first setup for Malaysian freelancers, sole props, and micro-SMEs. Tag by client, snap receipts as you go, hand a clean CSV to your accountant in March. No subscription.
-date_published: 2026-04-29
-date_modified: 2026-04-29
+date_published: 2026-04-28
+date_modified: 2026-04-28
 breadcrumb_name: SME & freelancer tracker
 card_title: Freelancer & SME expense tracker
 card_blurb: Tag by client. Snap receipts. Multi-currency. CSV out for your accountant. No subscription.

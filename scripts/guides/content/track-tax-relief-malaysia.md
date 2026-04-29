@@ -8,8 +8,8 @@ og_locale: en_MY
 eyebrow: Guide · Malaysia · LHDN tax
 h1: Stop scrambling at <em>e-Filing</em> time.
 lede: Tag tax-relief spending the moment it happens. By March next year, your filing is a five-minute filter — not a shoebox archaeology project.
-date_published: 2026-04-29
-date_modified: 2026-04-29
+date_published: 2026-04-28
+date_modified: 2026-04-28
 breadcrumb_name: LHDN tax-relief tracker
 card_title: LHDN tax-relief tracker
 card_blurb: Tag medical, books, lifestyle, SSPN, and PRS as they happen. Filter at e-Filing time.
