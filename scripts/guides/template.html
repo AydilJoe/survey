@@ -77,6 +77,14 @@
   }
   h1 em, h2 em { font-style: italic; color: var(--primary); }
 
+  .dateline {
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 22px; max-width: none;
+  }
+  .dateline time { color: inherit; }
+  .dateline-sep { margin: 0 4px; opacity: 0.6; }
+
   .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
 
   h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
@@ -207,6 +215,7 @@
 
   <span class="eyebrow">{{EYEBROW}}</span>
   <h1>{{H1}}</h1>
+  {{DATELINE}}
   <p class="lede">{{LEDE}}</p>
 
   {{BODY}}

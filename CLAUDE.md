@@ -60,7 +60,7 @@ There are no tests, linter, or TypeScript in this project. Test manually in brow
 - `scripts/guides/index-template.html` — hub shell
 - `scripts/guides/content/<slug>.md` — one file per guide
 
-**Markdown frontmatter (required)**: `title`, `description`, `keywords`, `slug`, `lang`, `og_locale`, `eyebrow`, `h1`, `lede`, `date_published`, `breadcrumb_name`, `card_title`, `card_blurb`, `cta_title`, `cta_body`, `cta_label`. `h1` and `lede` may contain inline HTML (e.g. `<em>`); other fields are plain text — use `&` literally, the renderer escapes per context.
+**Markdown frontmatter (required)**: `title`, `description`, `keywords`, `slug`, `lang`, `og_locale`, `eyebrow`, `h1`, `lede`, `date_published`, `breadcrumb_name`, `card_title`, `card_blurb`, `cta_title`, `cta_body`, `cta_label`. Optional: `date_modified` — set this to today's date *only* when the content meaningfully changes (not for renderer/style fixes). The page shows "Published X · Updated Y" only when `date_modified` is newer than `date_published`. `h1` and `lede` may contain inline HTML (e.g. `<em>`); other fields are plain text — use `&` literally, the renderer escapes per context.
 
 **Visual blocks** (skim-friendly, no long prose): `:::steps`, `:::stat`, `:::compare`, `:::faq` — separate items inside with `---` on its own line. See existing files for syntax.
 

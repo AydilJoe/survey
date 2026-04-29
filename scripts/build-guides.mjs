@@ -29,6 +29,25 @@ function splitFrontmatter(raw) {
   return { meta, body: m[2] };
 }
 
+// ---------- Dates ----------
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function fmtDate(iso) {
+  // iso like "2026-04-29"
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  const [, y, mo, d] = m;
+  return `${parseInt(d, 10)} ${MONTHS[parseInt(mo, 10) - 1]} ${y}`;
+}
+function buildDateline(published, modified) {
+  const pub = `<time datetime="${published}">${fmtDate(published)}</time>`;
+  const showUpdated = modified && modified !== published && modified > published;
+  if (!showUpdated) {
+    return `<p class="dateline">Published ${pub}</p>`;
+  }
+  const upd = `<time datetime="${modified}">${fmtDate(modified)}</time>`;
+  return `<p class="dateline">Published ${pub} <span class="dateline-sep">·</span> Updated ${upd}</p>`;
+}
+
 // ---------- Inline markdown ----------
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -293,6 +312,7 @@ function buildGuide(filename) {
     OG_LOCALE: meta.og_locale || "en_MY",
     EYEBROW: htmlAttr(meta.eyebrow),
     H1: meta.h1,
+    DATELINE: buildDateline(meta.date_published, dateMod),
     LEDE: meta.lede,
     BODY: bodyHtml,
     CTA_TITLE: htmlAttr(meta.cta_title || "Try Duitful"),
@@ -322,13 +342,22 @@ function buildGuide(filename) {
 function buildHub(guides) {
   // Newest first
   const ordered = guides.slice().sort((a, b) => (b.date_published || "").localeCompare(a.date_published || ""));
-  const cards = ordered.map((g) => `
+  const cards = ordered.map((g) => {
+    const dateIso = g.date_modified || g.date_published;
+    const dateLabel = (g.date_modified && g.date_modified !== g.date_published && g.date_modified > g.date_published)
+      ? `Updated ${fmtDate(g.date_modified)}`
+      : `Published ${fmtDate(g.date_published)}`;
+    return `
     <a class="guide-card" href="/guides/${g.slug}/">
       <span class="guide-eyebrow">${htmlAttr(g.eyebrow)}</span>
       <h2 class="guide-title">${htmlAttr(g.card_title)}</h2>
       <p class="guide-blurb">${htmlAttr(g.card_blurb)}</p>
-      <span class="guide-cta">Read guide →</span>
-    </a>`).join("");
+      <div class="guide-foot">
+        <time class="guide-date" datetime="${dateIso}">${dateLabel}</time>
+        <span class="guide-cta">Read →</span>
+      </div>
+    </a>`;
+  }).join("");
 
   const collectionLd = {
     "@context": "https://schema.org",
