@@ -66,7 +66,8 @@
       "Imbas resit OCR dalam peranti menggunakan Tesseract",
       "Berbilang mata wang dengan auto-FX",
       "Eksport dan import CSV",
-      "Penyulitan dalam peranti dari hujung ke hujung"
+      "Penyulitan dalam peranti dari hujung ke hujung",
+      "Penyegerakan tersulit antara peranti melalui Google Drive sendiri (Pro)"
     ],
     "offers": [
       {
@@ -172,10 +173,10 @@
       },
       {
         "@type": "Question",
-        "name": "Bagaimana Pro akan menyegerakkan antara peranti?",
+        "name": "Bagaimana Pro menyegerakkan antara peranti?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Penyegerakan adalah dalam senarai pembangunan Pro dan direka berdasarkan Google Drive anda sendiri, bukan pelayan Duitful. Pangkalan data anda yang tersulit ditulis ke satu fail dalam Drive anda; peranti lain log masuk dengan akaun Google yang sama, tarik fail itu, dan menyahsulitkannya secara tempatan dengan kod laluan anda. Kod laluan anda tidak pernah keluar dari peranti, jadi data yang berada dalam Drive tidak boleh dibaca oleh sesiapa pun, termasuk saya. Status: akan datang."
+          "text": "Pro menyegerak melalui Google Drive anda sendiri, bukan pelayan Duitful. Pangkalan data anda yang tersulit ditulis ke satu fail dalam Drive anda. Peranti lain log masuk dengan akaun Google yang sama, tarik fail itu, dan menyahsulitkannya secara tempatan dengan kod laluan anda. Duitful tidak menjalankan pelayan penyegerakan. Kod laluan tidak pernah keluar dari peranti, jadi data yang berada dalam Drive tidak boleh dibaca oleh sesiapa pun, termasuk Google dan termasuk saya."
         }
       }
     ]
@@ -1154,20 +1155,30 @@
       line-height: 1.5;
     }
     .plan li svg { flex-shrink: 0; margin-top: 3px; color: var(--accent); }
-    .plan .plan-soon {
+    .plan .plan-soon,
+    .plan .plan-version {
       display: inline-block;
       margin-left: 6px;
       padding: 2px 8px;
       border-radius: 999px;
-      background: rgba(143, 160, 120, 0.18);
-      color: var(--gain);
       font-family: var(--font-mono);
       font-size: 10px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       font-weight: 500;
       vertical-align: middle;
+      text-decoration: none;
     }
+    .plan .plan-soon {
+      background: rgba(143, 160, 120, 0.18);
+      color: var(--gain);
+    }
+    .plan .plan-version {
+      background: rgba(200, 112, 75, 0.12);
+      color: var(--primary-ink, var(--primary));
+      transition: background 0.15s ease;
+    }
+    .plan .plan-version:hover { background: rgba(200, 112, 75, 0.22); }
     .plan.pro li svg { color: var(--primary); }
     .plan .btn { width: 100%; }
 
@@ -1512,7 +1523,7 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
           </div>
           <h3>Penyulitan dalam peranti</h3>
-          <p>Data anda disulitkan dengan AES-GCM menggunakan kunci yang diterbitkan daripada kod laluan anda melalui PBKDF2. Tiada akaun, tiada sinkronisasi awan, tiada e-mel "lupa kata laluan".</p>
+          <p>Data anda disulitkan dengan AES-GCM menggunakan kunci yang diterbitkan daripada kod laluan anda melalui PBKDF2. Penyegerakan pilihan melalui Google Drive anda sendiri (Pro) — fail tersebut disulitkan sebelum keluar dari peranti.</p>
           <span class="chip-mono">AES-GCM · PBKDF2</span>
         </div>
 
@@ -1706,7 +1717,7 @@
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Auto-tangkap notifikasi Android</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Perancang avalanche &amp; senario andaian</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Eksport &amp; import CSV (Monarch, YNAB)</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Penyegerakan tersulit antara peranti melalui Google Drive anda <span class="plan-soon">Akan datang</span></li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Penyegerakan tersulit antara peranti melalui Google Drive anda sendiri <a class="plan-version" href="/changelog/#v1-4">v1.4</a></li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Semua ciri Pro akan datang disertakan</li>
           </ul>
           <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary">Buka Pro</a>
@@ -1782,10 +1793,10 @@
 
         <details class="faq-item reveal">
           <summary>
-            Bagaimana Pro akan menyegerakkan antara peranti?
+            Bagaimana Pro menyegerakkan antara peranti?
             <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Penyegerakan dalam senarai pembangunan Pro, direka berdasarkan Google Drive anda sendiri, bukan pelayan Duitful. Pangkalan data anda yang tersulit ditulis ke satu fail dalam Drive anda. Peranti lain log masuk dengan akaun Google yang sama, tarik fail itu, dan menyahsulitkannya secara tempatan dengan kod laluan anda. Kod laluan tidak pernah keluar dari peranti, jadi data yang berada dalam Drive tidak boleh dibaca oleh sesiapa, termasuk saya. Status: <strong>akan datang</strong>.</p>
+          <p class="answer">Pro menyegerak melalui Google Drive anda sendiri, bukan pelayan Duitful. Pangkalan data anda yang tersulit ditulis ke satu fail dalam Drive anda. Peranti lain log masuk dengan akaun Google yang sama, tarik fail itu, dan menyahsulitkannya secara tempatan dengan kod laluan anda. Duitful tidak menjalankan pelayan penyegerakan. Kod laluan tidak pernah keluar dari peranti, jadi data yang berada dalam Drive tidak boleh dibaca oleh sesiapa, termasuk Google dan termasuk saya.</p>
         </details>
       </div>
     </div>
