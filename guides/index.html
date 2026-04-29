@@ -93,6 +93,15 @@
     letter-spacing: -0.01em; margin: 0 0 8px; color: var(--ink);
   }
   .guide-blurb { color: var(--ink2); font-size: 15px; line-height: 1.55; margin: 0 0 16px; }
+  .guide-foot {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; padding-top: 14px; border-top: 0.5px solid var(--line);
+  }
+  .guide-date {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted);
+  }
   .guide-cta {
     font: 500 13px/1 var(--font-mono);
     letter-spacing: 0.1em; text-transform: uppercase;
@@ -122,19 +131,28 @@
       <span class="guide-eyebrow">Guide · Malaysia · Fuel</span>
       <h2 class="guide-title">Budi95 petrol &amp; diesel tracker</h2>
       <p class="guide-blurb">Tag fuel-ups in 10 seconds. See your monthly RON95 and diesel spend at a glance.</p>
-      <span class="guide-cta">Read guide →</span>
+      <div class="guide-foot">
+        <time class="guide-date" datetime="2026-04-29">Published 29 Apr 2026</time>
+        <span class="guide-cta">Read →</span>
+      </div>
     </a>
     <a class="guide-card" href="/guides/sme-freelancer-expense-tracker/">
       <span class="guide-eyebrow">Guide · Malaysia · Freelancers &amp; SMEs</span>
       <h2 class="guide-title">Freelancer &amp; SME expense tracker</h2>
       <p class="guide-blurb">Tag by client. Snap receipts. Multi-currency. CSV out for your accountant. No subscription.</p>
-      <span class="guide-cta">Read guide →</span>
+      <div class="guide-foot">
+        <time class="guide-date" datetime="2026-04-29">Published 29 Apr 2026</time>
+        <span class="guide-cta">Read →</span>
+      </div>
     </a>
     <a class="guide-card" href="/guides/track-tax-relief-malaysia/">
       <span class="guide-eyebrow">Guide · Malaysia · LHDN tax</span>
       <h2 class="guide-title">LHDN tax-relief tracker</h2>
       <p class="guide-blurb">Tag medical, books, lifestyle, SSPN, and PRS as they happen. Filter at e-Filing time.</p>
-      <span class="guide-cta">Read guide →</span>
+      <div class="guide-foot">
+        <time class="guide-date" datetime="2026-04-29">Published 29 Apr 2026</time>
+        <span class="guide-cta">Read →</span>
+      </div>
     </a>
   </div>
 

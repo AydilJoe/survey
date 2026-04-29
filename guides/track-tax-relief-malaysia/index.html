@@ -79,6 +79,14 @@
   }
   h1 em, h2 em { font-style: italic; color: var(--primary); }
 
+  .dateline {
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 22px; max-width: none;
+  }
+  .dateline time { color: inherit; }
+  .dateline-sep { margin: 0 4px; opacity: 0.6; }
+
   .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
 
   h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
@@ -209,6 +217,7 @@
 
   <span class="eyebrow">Guide · Malaysia · LHDN tax</span>
   <h1>Stop scrambling at <em>e-Filing</em> time.</h1>
+  <p class="dateline">Published <time datetime="2026-04-29">29 Apr 2026</time></p>
   <p class="lede">Tag tax-relief spending the moment it happens. By March next year, your filing is a five-minute filter — not a shoebox archaeology project.</p>
 
   <h2>The setup, in three steps</h2>
