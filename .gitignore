@@ -5,3 +5,13 @@ android/
 vendor/
 .DS_Store
 *.log
+
+# Editor / IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*~
+
+# Don't ship a second lockfile — npm is canonical for this repo
+pnpm-lock.yaml
