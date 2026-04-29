@@ -169,6 +169,14 @@
           "@type": "Answer",
           "text": "Yes — most of the code, the landing page, and the guides were written with the help of Claude Code (an AI coding assistant). The product idea, the spreadsheet this started from, and every shipping decision are mine, and I review every change before it ships. The full source is public on GitHub at github.com/AydilJoe/survey so anyone can verify."
         }
+      },
+      {
+        "@type": "Question",
+        "name": "How will Pro sync across devices?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Sync is on the Pro roadmap, designed around your own Google Drive. Your encrypted database is written to a single file in your Drive; other devices sign in with the same Google account, pull the file, and decrypt it locally with your passcode. Duitful runs no sync server. Even with Google sign-in, the data stored in Drive is encrypted with your passcode, and the passcode never leaves your device."
+        }
       }
     ]
   }
@@ -1147,6 +1155,20 @@
     }
     .plan li svg { flex-shrink: 0; margin-top: 3px; color: var(--accent); }
     .plan.pro li svg { color: var(--primary); }
+    .plan .plan-soon {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(143, 160, 120, 0.18);
+      color: var(--gain);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 500;
+      vertical-align: middle;
+    }
     .plan .btn { width: 100%; }
 
     @media (max-width: 720px) { .pricing-grid { grid-template-columns: 1fr; } }
@@ -1684,6 +1706,7 @@
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Android auto-capture from notifications</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Avalanche planner &amp; what-if scenarios</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>CSV export &amp; import (Monarch, YNAB)</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Encrypted sync across devices via your Google Drive <span class="plan-soon">Coming soon</span></li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>All future Pro features included</li>
           </ul>
           <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary">Unlock Pro</a>
@@ -1755,6 +1778,14 @@
             <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
           <p class="answer">Yes. Most of the code, this landing page, and the guides were written with help from <strong>Claude Code</strong> (an AI coding assistant). The product idea, the original Excel sheet, and what gets shipped are mine. I review every change before it goes out. The full source is on <a href="https://github.com/AydilJoe/survey" target="_blank" rel="noopener">GitHub</a> if you want to check anything.</p>
+        </details>
+
+        <details class="faq-item reveal">
+          <summary>
+            How will Pro sync across devices?
+            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          </summary>
+          <p class="answer">Sync is on the Pro roadmap and is designed around your own Google Drive, not a Duitful server. Your encrypted database is written to a single file in your Drive; other devices sign in with the same Google account, pull the file, and decrypt it locally with your passcode. The passcode never leaves your device, so the data sitting in Drive is unreadable to anyone else, including me. Status: <strong>coming soon</strong>.</p>
         </details>
       </div>
     </div>

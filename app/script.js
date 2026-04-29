@@ -22,6 +22,9 @@ const emptyState = () => ({
   ocrUsage: { month: "", scans: 0 },
   pendingTxns: [],
   guideSeen: false,
+  deviceId: "",
+  lastEditedAt: "",
+  driveAutoSync: true,
 });
 
 function coerceState(parsed) {
@@ -49,6 +52,9 @@ function coerceState(parsed) {
         : { month: "", scans: 0 },
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
       guideSeen: !!parsed.guideSeen,
+      deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : "",
+      lastEditedAt: typeof parsed.lastEditedAt === "string" ? parsed.lastEditedAt : "",
+      driveAutoSync: parsed.driveAutoSync !== false,
     };
   } catch { return emptyState(); }
 }
@@ -103,11 +109,14 @@ async function decryptRecord(key, rec) {
 let saveChain = Promise.resolve();
 function save() {
   if (!aesKey) return; // pre-unlock writes are ignored
+  if (!state.deviceId) state.deviceId = uid();
+  state.lastEditedAt = new Date().toISOString();
   const snapshot = JSON.parse(JSON.stringify(state));
   saveChain = saveChain.then(async () => {
     const prev = JSON.parse(localStorage.getItem(ENC_KEY) || "{}");
     const rec = await encryptWith(aesKey, snapshot, prev.salt);
     localStorage.setItem(ENC_KEY, JSON.stringify(rec));
+    if (typeof scheduleDriveUpload === "function") scheduleDriveUpload();
   }).catch((err) => console.error("save failed", err));
   requestReschedule();
 }
@@ -1221,6 +1230,7 @@ function renderAll() {
   renderReminderPrefs();
   renderProControls();
   renderReports();
+  if (typeof renderDriveCard === "function") renderDriveCard();
 }
 
 function renderPending() {
@@ -3175,12 +3185,16 @@ function setLockMode(mode) {
   const submit = document.getElementById("lock-submit");
   const confirmEl = document.getElementById("lock-confirm");
   const help = document.getElementById("lock-help");
+  const restoreLink = document.getElementById("lock-restore");
   const err = document.getElementById("lock-error");
   const input = document.getElementById("lock-input");
   const welcome = document.getElementById("lock-welcome");
   if (err) { err.hidden = true; err.textContent = ""; }
-  if (input) input.placeholder = "Passcode";
-  if (welcome) welcome.hidden = mode !== "setup";
+  if (input) { input.placeholder = "Passcode"; input.value = ""; }
+  if (confirmEl) confirmEl.value = "";
+  if (welcome) welcome.hidden = !(mode === "setup" || mode === "migrate");
+  // Restore-from-Drive link only makes sense on a fresh / migrating device.
+  if (restoreLink) restoreLink.hidden = !(mode === "setup" || mode === "migrate");
   if (mode === "unlock") {
     if (sub) sub.textContent = "Enter your passcode";
     if (submit) submit.textContent = "Unlock";
@@ -3198,6 +3212,12 @@ function setLockMode(mode) {
     if (confirmEl) { confirmEl.hidden = false; confirmEl.value = ""; }
     if (help) help.hidden = true;
     if (input) input.placeholder = "New passcode (min 4 digits)";
+  } else if (mode === "restore") {
+    if (sub) sub.textContent = "Enter the passcode you used on the other device.";
+    if (submit) submit.textContent = "Restore from Google Drive";
+    if (confirmEl) confirmEl.hidden = true;
+    if (help) help.hidden = true;
+    if (input) input.placeholder = "Passcode used on other device";
   }
 }
 
@@ -3253,6 +3273,7 @@ async function handleUnlock(passcode) {
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
   maybeShowInstallBanner();
+  if (typeof checkDriveOnBoot === "function") checkDriveOnBoot().catch(() => {});
 }
 
 async function handleSetup(passcode, confirm, initialState) {
@@ -3275,6 +3296,7 @@ async function handleSetup(passcode, confirm, initialState) {
   scheduleNativeReminders().catch(() => {});
   maybeOpenGuideAfterSetup();
   maybeShowInstallBanner();
+  if (typeof checkDriveOnBoot === "function") checkDriveOnBoot().catch(() => {});
 }
 
 setInterval(() => { fireDueNotifications().catch(() => {}); }, 3600000);
@@ -3304,9 +3326,73 @@ if (lockForm) {
       let legacyState = emptyState();
       try { legacyState = coerceState(JSON.parse(legacy || "{}")); } catch {}
       await handleSetup(pass, (confirmEl && confirmEl.value) || "", legacyState);
+    } else if (lockMode === "restore") {
+      await handleRestoreFromDrive(pass);
     }
   });
 }
+
+/* "Restore from Google Drive" path on the lock screen — for fresh devices
+   that already have a backup elsewhere. Two-step: sign into Drive first
+   (returns to lock screen in `restore` mode), then enter the passcode used
+   on the original device to decrypt the backup. */
+let driveRestorePending = false;
+
+async function startDriveRestoreFromLock() {
+  if (driveRestorePending) return;
+  if (!window.DriveSync || !DriveSync.isConfigured()) {
+    lockError("Cloud backup isn't configured for this build.");
+    return;
+  }
+  driveRestorePending = true;
+  try {
+    if (!DriveSync.isSignedIn()) {
+      await DriveSync.signIn();
+    }
+    // Probe so we surface "no backup found" before asking for a passcode.
+    const meta = await DriveSync.getRemoteMeta();
+    if (!meta) {
+      lockError("No backup found in this Google account.");
+      return;
+    }
+    setLockMode("restore");
+    setTimeout(() => document.getElementById("lock-input")?.focus(), 50);
+  } catch (err) {
+    lockError("Google sign-in failed: " + (err.message || err));
+  } finally {
+    driveRestorePending = false;
+  }
+}
+
+async function handleRestoreFromDrive(passcode) {
+  if (!window.DriveSync || !DriveSync.isSignedIn()) {
+    lockError("Sign in to Google first.");
+    return;
+  }
+  if (!/^\d+$/.test(passcode) || passcode.length < 4) {
+    lockError("Passcode must be at least 4 digits.");
+    return;
+  }
+  let rec;
+  try { rec = await DriveSync.downloadEncryptedRecord(); }
+  catch (err) { lockError("Couldn't download: " + (err.message || err)); return; }
+  if (!rec) { lockError("No backup found in this Google account."); return; }
+  let plain;
+  try {
+    const altKey = await deriveKey(passcode, b64decode(rec.salt));
+    plain = await decryptRecord(altKey, rec);
+  } catch {
+    lockError("Wrong passcode for that backup.");
+    return;
+  }
+  // Re-encrypt locally with a fresh salt under the same passcode and the
+  // recovered state. handleSetup also runs renderAll, IAP init etc.
+  await handleSetup(passcode, passcode, coerceState(plain));
+}
+
+document.getElementById("btn-setup-restore")?.addEventListener("click", () => {
+  startDriveRestoreFromLock().catch(() => {});
+});
 
 /* ---------- receipt scanning (client-side OCR via Tesseract.js) ---------- */
 
@@ -3811,3 +3897,248 @@ window.addEventListener("pagehide", () => {
   // Page is unloading or entering the back/forward cache — drop the key.
   aesKey = null;
 });
+
+/* ---------- Google Drive backup integration ---------- */
+
+/* Debounced upload of the current encrypted localStorage record. Runs
+   5s after the most recent save() so rapid edits coalesce into one PUT. */
+const DRIVE_UPLOAD_DEBOUNCE_MS = 5000;
+let driveUploadTimer = null;
+
+function driveAvailable() {
+  return !!(window.DriveSync && DriveSync.isConfigured() && DriveSync.isSignedIn());
+}
+
+function scheduleDriveUpload() {
+  if (!driveAvailable()) return;
+  if (!state.driveAutoSync) return;
+  if (!isPro()) return;
+  if (driveUploadTimer) clearTimeout(driveUploadTimer);
+  driveUploadTimer = setTimeout(() => {
+    driveUploadTimer = null;
+    runDriveUpload().catch((err) => console.warn("drive upload failed", err));
+  }, DRIVE_UPLOAD_DEBOUNCE_MS);
+}
+
+async function runDriveUpload() {
+  if (!driveAvailable()) return;
+  if (!isPro()) return; // pushes are Pro-only; restore is open to all
+  if (!navigator.onLine) return; // queued naturally — next save() reschedules
+  const raw = localStorage.getItem(ENC_KEY);
+  if (!raw) return;
+  const rec = JSON.parse(raw);
+  await DriveSync.uploadEncryptedRecord(rec, {
+    lastEditedAt: state.lastEditedAt || "",
+    deviceId: state.deviceId || "",
+    schema: "1",
+  });
+  renderDriveCard();
+}
+
+window.addEventListener("online", () => {
+  if (driveUploadTimer == null && driveAvailable() && state.driveAutoSync && isPro()) {
+    scheduleDriveUpload();
+  }
+});
+
+/* On unlock: if signed in & Pro, compare remote vs local timestamps. If
+   remote is strictly newer, prompt the user to restore. If local is newer,
+   schedule a push. v1 policy: last-write-wins with confirmation. */
+async function checkDriveOnBoot() {
+  if (!driveAvailable()) return;
+  // Restore prompt is allowed for anyone signed in — that's how Pro itself
+  // flows from device A's backup to device B. Auto-upload is still Pro-only
+  // (gated inside scheduleDriveUpload).
+  let meta;
+  try { meta = await DriveSync.getRemoteMeta(); }
+  catch (err) { console.warn("drive meta failed", err); return; }
+  if (!meta) {
+    // First device with cloud backup — push current state up.
+    scheduleDriveUpload();
+    return;
+  }
+  const remote = (meta.appProperties && meta.appProperties.lastEditedAt) || "";
+  const local = state.lastEditedAt || "";
+  if (remote && remote > local) {
+    const remoteWhen = formatRelative(remote);
+    const ok = confirm(
+      `A newer backup exists in Google Drive (last edited ${remoteWhen}).\n\n` +
+      `Restore it now? Your current data on this device will be replaced.`,
+    );
+    if (ok) await restoreFromDrive();
+  } else if (local && (!remote || local > remote)) {
+    scheduleDriveUpload();
+  }
+}
+
+async function restoreFromDrive() {
+  if (!driveAvailable()) return;
+  let rec;
+  try { rec = await DriveSync.downloadEncryptedRecord(); }
+  catch (err) { alert("Couldn't download backup: " + (err.message || err)); return; }
+  if (!rec) { alert("No backup found in your Google Drive."); return; }
+
+  // The backup carries its own salt, so even with the same passcode the
+  // local AES key won't match. Try the local key first (works only if the
+  // backup was made on this same device), then fall back to a passcode
+  // prompt and derive a key from the backup's salt. After decryption we
+  // re-encrypt with the local key so subsequent saves stay consistent.
+  let plain = null;
+  try {
+    plain = await decryptRecord(aesKey, rec);
+  } catch {
+    const altPass = prompt(
+      "Enter your passcode to decrypt the backup from Google Drive:",
+    );
+    if (!altPass) return;
+    try {
+      const altKey = await deriveKey(altPass, b64decode(rec.salt));
+      plain = await decryptRecord(altKey, rec);
+    } catch {
+      alert("Wrong passcode — restore cancelled. Your local data is unchanged.");
+      return;
+    }
+  }
+  state = coerceState(plain);
+  // Force a re-encrypt under the local key on the next save tick.
+  const prev = JSON.parse(localStorage.getItem(ENC_KEY) || "{}");
+  const reRec = await encryptWith(aesKey, state, prev.salt);
+  localStorage.setItem(ENC_KEY, JSON.stringify(reRec));
+  renderAll();
+  alert("Restore complete.");
+}
+
+function formatRelative(iso) {
+  if (!iso) return "unknown";
+  const t = Date.parse(iso);
+  if (!t) return "unknown";
+  const diff = Date.now() - t;
+  if (diff < 60000) return "moments ago";
+  if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
+  if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
+  return Math.floor(diff / 86400000) + "d ago";
+}
+
+/* ----- Cloud backup UI ----- */
+
+function renderDriveCard() {
+  const card = document.getElementById("drive-card");
+  if (!card) return;
+  // Hide entirely on native — native uses a different (Capacitor) plugin path.
+  if (isNative()) { card.hidden = true; return; }
+  card.hidden = false;
+
+  const configured = !!(window.DriveSync && DriveSync.isConfigured());
+  const unconfigured = document.getElementById("drive-unconfigured");
+  const signinBtn = document.getElementById("btn-drive-signin");
+  if (unconfigured) unconfigured.hidden = configured;
+  if (signinBtn) signinBtn.disabled = !configured;
+
+  const signedIn = configured && DriveSync.isSignedIn();
+  const inEl = document.getElementById("drive-signed-in");
+  const outEl = document.getElementById("drive-signed-out");
+  if (inEl) inEl.hidden = !signedIn;
+  if (outEl) outEl.hidden = signedIn;
+
+  if (signedIn) {
+    const pro = isPro();
+    const email = DriveSync.getAccountEmail();
+    const accountLine = document.getElementById("drive-account-line");
+    if (accountLine) accountLine.textContent = email ? `Connected as ${email}.` : "Connected to Google Drive.";
+
+    const last = (DriveSync.getStatus().lastSyncedAt) || null;
+    const lastLine = document.getElementById("drive-last-synced");
+    if (lastLine) lastLine.textContent = last ? `Last synced ${formatRelative(last)}.` : "Not synced yet.";
+
+    const auto = document.getElementById("drive-auto-sync");
+    if (auto) {
+      auto.checked = pro && state.driveAutoSync !== false;
+      auto.disabled = !pro;
+    }
+    const syncNow = document.getElementById("btn-drive-sync-now");
+    if (syncNow) {
+      syncNow.disabled = !pro;
+      syncNow.title = pro ? "" : "Pro feature — sign-in lets you restore a Pro backup from another device.";
+    }
+    const restoreBtn = document.getElementById("btn-drive-restore");
+    if (restoreBtn) {
+      // Promote Restore to primary on non-Pro devices since it's their main use case.
+      restoreBtn.classList.toggle("primary", !pro);
+      restoreBtn.classList.toggle("ghost", pro);
+    }
+    const proHint = document.getElementById("drive-pro-hint");
+    if (proHint) proHint.hidden = pro;
+  }
+
+  const pill = document.getElementById("drive-status-pill");
+  if (pill) {
+    const s = DriveSync ? DriveSync.getStatus() : null;
+    if (!s || s.state === "idle") {
+      pill.hidden = !signedIn;
+      pill.textContent = signedIn ? "Synced" : "";
+      pill.className = "drive-status-pill ok";
+    } else if (s.state === "working") {
+      pill.hidden = false;
+      pill.textContent = s.message || "Syncing…";
+      pill.className = "drive-status-pill working";
+    } else if (s.state === "error") {
+      pill.hidden = false;
+      pill.textContent = s.message || "Error";
+      pill.className = "drive-status-pill error";
+    }
+  }
+}
+
+(function wireDriveButtons() {
+  const onClick = (id, fn) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", fn);
+  };
+  onClick("btn-drive-signin", async () => {
+    // Sign-in is open to all so non-Pro devices can restore a backup that
+    // contains Pro. Auto-upload and "Sync now" are still Pro-only.
+    try {
+      await DriveSync.signIn();
+      await checkDriveOnBoot();
+      renderDriveCard();
+    } catch (err) {
+      alert("Sign-in failed: " + (err.message || err));
+    }
+  });
+  onClick("btn-drive-signout", async () => {
+    if (!confirm("Disconnect Google Drive? Your local data is unchanged; the encrypted backup stays in your Drive.")) return;
+    await DriveSync.signOut();
+    renderDriveCard();
+  });
+  onClick("btn-drive-sync-now", async () => {
+    if (!isPro()) { gate("cloudBackup"); return; }
+    try {
+      await runDriveUpload();
+      renderDriveCard();
+    } catch (err) {
+      alert("Sync failed: " + (err.message || err));
+    }
+  });
+  onClick("btn-drive-restore", async () => {
+    if (!confirm("Restore from cloud will replace the data on this device. Continue?")) return;
+    await restoreFromDrive();
+    renderDriveCard();
+  });
+  const auto = document.getElementById("drive-auto-sync");
+  if (auto) auto.addEventListener("change", () => {
+    if (!isPro()) {
+      auto.checked = false;
+      gate("cloudBackup");
+      return;
+    }
+    state.driveAutoSync = !!auto.checked;
+    save();
+  });
+})();
+
+// Add cloudBackup paywall copy without modifying the const literal above.
+if (typeof PAYWALL_COPY !== "undefined") {
+  PAYWALL_COPY.cloudBackup = "Encrypted Google Drive backup is a Pro feature.";
+}
+
+if (window.DriveSync) DriveSync.subscribe(() => renderDriveCard());

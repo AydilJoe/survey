@@ -25,7 +25,7 @@ const CODES = {
     type: "percent",
     off: 100,
     description: "Family & friends — free Pro",
-    expires: "2027-12-31",
+    expires: "2026-03-30",
   },
     MRAWHB: {
     type: "fixed",
@@ -43,6 +43,18 @@ const CODES = {
     referrerCode: "b3368d90",
     commission: 5,
   },
+<<<<<<< HEAD
+=======
+  BETA01: {
+    type: "percent",
+    off: 100,
+    description: "Aydil Johari — 100% off",
+    expires: "2026-04-28",
+    creator: "aydil-johari",
+    referrerCode: "58eafcb9",
+    commission: 2,
+  },
+>>>>>>> origin/main
   // Beta-test pattern (copy + edit + uncomment to roll out):
   // BETA01: {
   //   type: "percent",
