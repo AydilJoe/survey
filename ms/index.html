@@ -169,6 +169,14 @@
           "@type": "Answer",
           "text": "Ya — sebahagian besar kod, halaman pendaratan ini, dan panduan-panduan ditulis dengan bantuan Claude Code (pembantu pengaturcaraan AI). Idea produk, lembaran Excel asal, dan setiap keputusan penghantaran adalah dari saya, dan saya semak setiap perubahan sebelum ia dihantar. Kod sumber penuh terbuka di GitHub di github.com/AydilJoe/survey jika sesiapa ingin mengesahkan."
         }
+      },
+      {
+        "@type": "Question",
+        "name": "Bagaimana Pro akan menyegerakkan antara peranti?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Penyegerakan adalah dalam senarai pembangunan Pro dan direka berdasarkan Google Drive anda sendiri, bukan pelayan Duitful. Pangkalan data anda yang tersulit ditulis ke satu fail dalam Drive anda; peranti lain log masuk dengan akaun Google yang sama, tarik fail itu, dan menyahsulitkannya secara tempatan dengan kod laluan anda. Kod laluan anda tidak pernah keluar dari peranti, jadi data yang berada dalam Drive tidak boleh dibaca oleh sesiapa pun, termasuk saya. Status: akan datang."
+        }
       }
     ]
   }
@@ -1146,6 +1154,20 @@
       line-height: 1.5;
     }
     .plan li svg { flex-shrink: 0; margin-top: 3px; color: var(--accent); }
+    .plan .plan-soon {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(143, 160, 120, 0.18);
+      color: var(--gain);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-weight: 500;
+      vertical-align: middle;
+    }
     .plan.pro li svg { color: var(--primary); }
     .plan .btn { width: 100%; }
 
@@ -1684,6 +1706,7 @@
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Auto-tangkap notifikasi Android</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Perancang avalanche &amp; senario andaian</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Eksport &amp; import CSV (Monarch, YNAB)</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Penyegerakan tersulit antara peranti melalui Google Drive anda <span class="plan-soon">Akan datang</span></li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Semua ciri Pro akan datang disertakan</li>
           </ul>
           <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary">Buka Pro</a>
@@ -1755,6 +1778,14 @@
             <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
           <p class="answer">Ya. Sebahagian besar kod, halaman pendaratan ini, dan panduan-panduan ditulis dengan bantuan <strong>Claude Code</strong> (pembantu pengaturcaraan AI). Idea produk, lembaran Excel asal, dan apa yang dihantar adalah dari saya. Saya semak setiap perubahan sebelum ia keluar. Kod sumber penuh ada di <a href="https://github.com/AydilJoe/survey" target="_blank" rel="noopener">GitHub</a> jika anda nak periksa apa-apa.</p>
+        </details>
+
+        <details class="faq-item reveal">
+          <summary>
+            Bagaimana Pro akan menyegerakkan antara peranti?
+            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          </summary>
+          <p class="answer">Penyegerakan dalam senarai pembangunan Pro, direka berdasarkan Google Drive anda sendiri, bukan pelayan Duitful. Pangkalan data anda yang tersulit ditulis ke satu fail dalam Drive anda. Peranti lain log masuk dengan akaun Google yang sama, tarik fail itu, dan menyahsulitkannya secara tempatan dengan kod laluan anda. Kod laluan tidak pernah keluar dari peranti, jadi data yang berada dalam Drive tidak boleh dibaca oleh sesiapa, termasuk saya. Status: <strong>akan datang</strong>.</p>
         </details>
       </div>
     </div>
