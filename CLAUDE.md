@@ -50,3 +50,21 @@ There are no tests, linter, or TypeScript in this project. Test manually in brow
 
 - **Web**: Push to `main` auto-deploys to GitHub Pages via `.github/workflows/pages.yml`. Also deployable on Vercel (handles `/api/` routes).
 - **Native**: Build signed bundles in Xcode / Android Studio, upload to App Store Connect / Play Console. See `ANDROID_BUILD.md` for Android signing checklist.
+
+## Daily SEO guides workflow
+
+`/guides/` is generated from markdown by `scripts/build-guides.mjs`. The owner pings each day with Google Trends keywords; produce 3 new visual guides per ping.
+
+**Source layout** (do not hand-edit `/guides/*.html`):
+- `scripts/guides/template.html` — page shell (shared)
+- `scripts/guides/index-template.html` — hub shell
+- `scripts/guides/content/<slug>.md` — one file per guide
+
+**Markdown frontmatter (required)**: `title`, `description`, `keywords`, `slug`, `lang`, `og_locale`, `eyebrow`, `h1`, `lede`, `date_published`, `breadcrumb_name`, `card_title`, `card_blurb`, `cta_title`, `cta_body`, `cta_label`. `h1` and `lede` may contain inline HTML (e.g. `<em>`); other fields are plain text — use `&` literally, the renderer escapes per context.
+
+**Visual blocks** (skim-friendly, no long prose): `:::steps`, `:::stat`, `:::compare`, `:::faq` — separate items inside with `---` on its own line. See existing files for syntax.
+
+**Per-ping flow**:
+1. Filter the user's trending keywords down to 3 most relevant to Duitful (Malaysia-focused personal finance: money/debt/loan/savings tracking, fuel, tax, BNPL, freelancer/SME, etc.). Skip sports, celebrities, politics.
+2. Propose 3 slugs + H1s in a short list, wait for confirmation.
+3. Write 3 markdown files, run `npm run build:guides`, append the 3 URLs to `sitemap.xml`, commit & push to the active branch.
