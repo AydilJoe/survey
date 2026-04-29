@@ -66,7 +66,8 @@
       "Receipt OCR via on-device Tesseract",
       "Multi-currency with auto-FX",
       "CSV export and import",
-      "End-to-end on-device encryption"
+      "End-to-end on-device encryption",
+      "Encrypted multi-device sync via your own Google Drive (Pro)"
     ],
     "offers": [
       {
@@ -172,10 +173,10 @@
       },
       {
         "@type": "Question",
-        "name": "How will Pro sync across devices?",
+        "name": "How does Pro sync across devices?",
         "acceptedAnswer": {
           "@type": "Answer",
-          "text": "Sync is on the Pro roadmap, designed around your own Google Drive. Your encrypted database is written to a single file in your Drive; other devices sign in with the same Google account, pull the file, and decrypt it locally with your passcode. Duitful runs no sync server. Even with Google sign-in, the data stored in Drive is encrypted with your passcode, and the passcode never leaves your device."
+          "text": "Pro syncs through your own Google Drive, not a Duitful server. Your encrypted database is written to a single file in your Drive. Other devices sign in with the same Google account, pull the file, and decrypt it locally with your passcode. Duitful runs no sync server. The passcode never leaves your device, so the data sitting in Drive is unreadable to anyone else — including Google and including me."
         }
       }
     ]
@@ -1155,20 +1156,30 @@
     }
     .plan li svg { flex-shrink: 0; margin-top: 3px; color: var(--accent); }
     .plan.pro li svg { color: var(--primary); }
-    .plan .plan-soon {
+    .plan .plan-soon,
+    .plan .plan-version {
       display: inline-block;
       margin-left: 6px;
       padding: 2px 8px;
       border-radius: 999px;
-      background: rgba(143, 160, 120, 0.18);
-      color: var(--gain);
       font-family: var(--font-mono);
       font-size: 10px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       font-weight: 500;
       vertical-align: middle;
+      text-decoration: none;
     }
+    .plan .plan-soon {
+      background: rgba(143, 160, 120, 0.18);
+      color: var(--gain);
+    }
+    .plan .plan-version {
+      background: rgba(200, 112, 75, 0.12);
+      color: var(--primary-ink, var(--primary));
+      transition: background 0.15s ease;
+    }
+    .plan .plan-version:hover { background: rgba(200, 112, 75, 0.22); }
     .plan .btn { width: 100%; }
 
     @media (max-width: 720px) { .pricing-grid { grid-template-columns: 1fr; } }
@@ -1512,7 +1523,7 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
           </div>
           <h3>On-device encryption</h3>
-          <p>Your data is AES-GCM encrypted with a key derived from your passcode via PBKDF2. No account, no cloud sync, no "forgot password" email.</p>
+          <p>Your data is AES-GCM encrypted with a key derived from your passcode via PBKDF2. Optional sync via your own Google Drive (Pro) — the file is encrypted before it leaves the device.</p>
           <span class="chip-mono">AES-GCM · PBKDF2</span>
         </div>
 
@@ -1706,7 +1717,7 @@
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Android auto-capture from notifications</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Avalanche planner &amp; what-if scenarios</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>CSV export &amp; import (Monarch, YNAB)</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Encrypted sync across devices via your Google Drive <span class="plan-soon">Coming soon</span></li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Encrypted sync across devices via your own Google Drive <a class="plan-version" href="/changelog/#v1-4">v1.4</a></li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>All future Pro features included</li>
           </ul>
           <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary">Unlock Pro</a>
@@ -1782,10 +1793,10 @@
 
         <details class="faq-item reveal">
           <summary>
-            How will Pro sync across devices?
+            How does Pro sync across devices?
             <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Sync is on the Pro roadmap and is designed around your own Google Drive, not a Duitful server. Your encrypted database is written to a single file in your Drive; other devices sign in with the same Google account, pull the file, and decrypt it locally with your passcode. The passcode never leaves your device, so the data sitting in Drive is unreadable to anyone else, including me. Status: <strong>coming soon</strong>.</p>
+          <p class="answer">Pro syncs through your own Google Drive, not a Duitful server. Your encrypted database is written to a single file in your Drive. Other devices sign in with the same Google account, pull the file, and decrypt it locally with your passcode. Duitful runs no sync server. The passcode never leaves your device, so the data sitting in Drive is unreadable to anyone else, including Google and including me.</p>
         </details>
       </div>
     </div>
