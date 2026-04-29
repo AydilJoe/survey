@@ -383,6 +383,44 @@ function buildHub(guides) {
   writeFileSync(join(OUT_DIR, "index.html"), html, "utf8");
 }
 
+// ---------- Inject latest 3 cards into landing pages ----------
+function renderLandingCards(guides) {
+  return guides.slice(0, 3).map((g) => {
+    const dateIso = g.date_modified || g.date_published;
+    const dateLabel = (g.date_modified && g.date_modified !== g.date_published && g.date_modified > g.date_published)
+      ? `Updated ${fmtDate(g.date_modified)}`
+      : `Published ${fmtDate(g.date_published)}`;
+    return `        <a class="g-card" href="/guides/${g.slug}/">
+          <span class="g-card-eyebrow">${htmlAttr(g.eyebrow)}</span>
+          <h3 class="g-card-title">${htmlAttr(g.card_title)}</h3>
+          <p class="g-card-blurb">${htmlAttr(g.card_blurb)}</p>
+          <div class="g-card-foot">
+            <time class="g-card-date" datetime="${dateIso}">${dateLabel}</time>
+            <span class="g-card-cta">Read →</span>
+          </div>
+        </a>`;
+  }).join("\n");
+}
+
+function injectIntoLanding(guides) {
+  const ordered = guides.slice().sort((a, b) =>
+    (b.date_published || "").localeCompare(a.date_published || "")
+  );
+  const cardsHtml = renderLandingCards(ordered);
+  const marker = /(<!-- guides:start -->)[\s\S]*?(<!-- guides:end -->)/;
+  const replacement = `$1\n${cardsHtml}\n        $2`;
+
+  for (const path of [join(ROOT, "index.html"), join(ROOT, "ms", "index.html")]) {
+    if (!existsSync(path)) continue;
+    const html = readFileSync(path, "utf8");
+    if (!marker.test(html)) {
+      console.warn(`  (skip) markers not found in ${path}`);
+      continue;
+    }
+    writeFileSync(path, html.replace(marker, replacement), "utf8");
+  }
+}
+
 // ---------- Main ----------
 function main() {
   if (!existsSync(CONTENT_DIR)) {
@@ -397,10 +435,12 @@ function main() {
 
   const built = files.map(buildGuide);
   buildHub(built);
+  injectIntoLanding(built);
 
   console.log(`Built ${built.length} guide(s):`);
   for (const g of built) console.log(`  /guides/${g.slug}/  (${g.title})`);
   console.log(`Hub:  /guides/`);
+  console.log(`Landing pages: latest 3 injected into / and /ms/`);
 }
 
 main();

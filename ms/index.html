@@ -1191,6 +1191,85 @@
       max-width: 720px;
     }
 
+    /* --------------- Guides spotlight --------------- */
+    .guides-spotlight { background: var(--card-soft); }
+    .guides-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 880px) { .guides-grid { grid-template-columns: 1fr; } }
+    .g-card {
+      display: flex;
+      flex-direction: column;
+      background: var(--card);
+      border: 0.5px solid var(--line);
+      border-radius: 18px;
+      padding: 26px 26px 22px;
+      text-decoration: none;
+      color: var(--ink);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .g-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 1px 2px rgba(42, 36, 32, 0.05), 0 12px 32px rgba(42, 36, 32, 0.06);
+    }
+    .g-card-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .g-card-title {
+      font-family: var(--font-serif);
+      font-size: 22px;
+      font-weight: 500;
+      line-height: 1.25;
+      letter-spacing: -0.01em;
+      color: var(--ink);
+      margin: 0 0 8px;
+    }
+    .g-card-blurb {
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--ink2);
+      margin: 0 0 16px;
+      flex: 1;
+    }
+    .g-card-foot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding-top: 14px;
+      border-top: 0.5px solid var(--line);
+    }
+    .g-card-date {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .g-card-cta {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+    .guides-all {
+      display: flex;
+      justify-content: center;
+    }
+
     /* --------------- Final CTA --------------- */
     .cta-final {
       text-align: center;
@@ -1659,6 +1738,53 @@
           </summary>
           <p class="answer">Boleh. Duitful Pro menerima fail CSV dalam format standard yang dieksport oleh Monarch, YNAB, Money Lover, dan kebanyakan penyata bank Malaysia. Anda boleh petakan lajur secara manual jika format eksport anda bukan standard. Eksport berfungsi dengan cara yang sama — data anda ialah milik anda untuk dibawa ke mana-mana, bila-bila masa.</p>
         </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= GUIDES SPOTLIGHT ======================= -->
+  <section class="block guides-spotlight" id="guides">
+    <div class="container">
+      <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
+        <span class="eyebrow">Panduan</span>
+        <h2>Imbas, kemudian <em>buat</em>.</h2>
+        <p>Panduan visual dan ringkas untuk hal-hal duit Malaysia yang menyusahkan — subsidi minyak, pelepasan cukai, perbelanjaan freelancer. (Kandungan dalam Bahasa Inggeris.)</p>
+      </div>
+
+      <div class="guides-grid reveal">
+        <!-- guides:start -->
+        <a class="g-card" href="/guides/budi95-fuel-tracker/">
+          <span class="g-card-eyebrow">Guide · Malaysia · Fuel</span>
+          <h3 class="g-card-title">Budi95 petrol &amp; diesel tracker</h3>
+          <p class="g-card-blurb">Tag fuel-ups in 10 seconds. See your monthly RON95 and diesel spend at a glance.</p>
+          <div class="g-card-foot">
+            <time class="g-card-date" datetime="2026-04-29">Published 29 Apr 2026</time>
+            <span class="g-card-cta">Read →</span>
+          </div>
+        </a>
+        <a class="g-card" href="/guides/sme-freelancer-expense-tracker/">
+          <span class="g-card-eyebrow">Guide · Malaysia · Freelancers &amp; SMEs</span>
+          <h3 class="g-card-title">Freelancer &amp; SME expense tracker</h3>
+          <p class="g-card-blurb">Tag by client. Snap receipts. Multi-currency. CSV out for your accountant. No subscription.</p>
+          <div class="g-card-foot">
+            <time class="g-card-date" datetime="2026-04-29">Published 29 Apr 2026</time>
+            <span class="g-card-cta">Read →</span>
+          </div>
+        </a>
+        <a class="g-card" href="/guides/track-tax-relief-malaysia/">
+          <span class="g-card-eyebrow">Guide · Malaysia · LHDN tax</span>
+          <h3 class="g-card-title">LHDN tax-relief tracker</h3>
+          <p class="g-card-blurb">Tag medical, books, lifestyle, SSPN, and PRS as they happen. Filter at e-Filing time.</p>
+          <div class="g-card-foot">
+            <time class="g-card-date" datetime="2026-04-29">Published 29 Apr 2026</time>
+            <span class="g-card-cta">Read →</span>
+          </div>
+        </a>
+        <!-- guides:end -->
+      </div>
+
+      <div class="guides-all reveal">
+        <a href="/guides/" class="btn btn-ghost">Lihat semua panduan →</a>
       </div>
     </div>
   </section>
