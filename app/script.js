@@ -3185,12 +3185,16 @@ function setLockMode(mode) {
   const submit = document.getElementById("lock-submit");
   const confirmEl = document.getElementById("lock-confirm");
   const help = document.getElementById("lock-help");
+  const restoreLink = document.getElementById("lock-restore");
   const err = document.getElementById("lock-error");
   const input = document.getElementById("lock-input");
   const welcome = document.getElementById("lock-welcome");
   if (err) { err.hidden = true; err.textContent = ""; }
-  if (input) input.placeholder = "Passcode";
-  if (welcome) welcome.hidden = mode !== "setup";
+  if (input) { input.placeholder = "Passcode"; input.value = ""; }
+  if (confirmEl) confirmEl.value = "";
+  if (welcome) welcome.hidden = !(mode === "setup" || mode === "migrate");
+  // Restore-from-Drive link only makes sense on a fresh / migrating device.
+  if (restoreLink) restoreLink.hidden = !(mode === "setup" || mode === "migrate");
   if (mode === "unlock") {
     if (sub) sub.textContent = "Enter your passcode";
     if (submit) submit.textContent = "Unlock";
@@ -3208,6 +3212,12 @@ function setLockMode(mode) {
     if (confirmEl) { confirmEl.hidden = false; confirmEl.value = ""; }
     if (help) help.hidden = true;
     if (input) input.placeholder = "New passcode (min 4 digits)";
+  } else if (mode === "restore") {
+    if (sub) sub.textContent = "Enter the passcode you used on the other device.";
+    if (submit) submit.textContent = "Restore from Google Drive";
+    if (confirmEl) confirmEl.hidden = true;
+    if (help) help.hidden = true;
+    if (input) input.placeholder = "Passcode used on other device";
   }
 }
 
@@ -3316,9 +3326,73 @@ if (lockForm) {
       let legacyState = emptyState();
       try { legacyState = coerceState(JSON.parse(legacy || "{}")); } catch {}
       await handleSetup(pass, (confirmEl && confirmEl.value) || "", legacyState);
+    } else if (lockMode === "restore") {
+      await handleRestoreFromDrive(pass);
     }
   });
 }
+
+/* "Restore from Google Drive" path on the lock screen — for fresh devices
+   that already have a backup elsewhere. Two-step: sign into Drive first
+   (returns to lock screen in `restore` mode), then enter the passcode used
+   on the original device to decrypt the backup. */
+let driveRestorePending = false;
+
+async function startDriveRestoreFromLock() {
+  if (driveRestorePending) return;
+  if (!window.DriveSync || !DriveSync.isConfigured()) {
+    lockError("Cloud backup isn't configured for this build.");
+    return;
+  }
+  driveRestorePending = true;
+  try {
+    if (!DriveSync.isSignedIn()) {
+      await DriveSync.signIn();
+    }
+    // Probe so we surface "no backup found" before asking for a passcode.
+    const meta = await DriveSync.getRemoteMeta();
+    if (!meta) {
+      lockError("No backup found in this Google account.");
+      return;
+    }
+    setLockMode("restore");
+    setTimeout(() => document.getElementById("lock-input")?.focus(), 50);
+  } catch (err) {
+    lockError("Google sign-in failed: " + (err.message || err));
+  } finally {
+    driveRestorePending = false;
+  }
+}
+
+async function handleRestoreFromDrive(passcode) {
+  if (!window.DriveSync || !DriveSync.isSignedIn()) {
+    lockError("Sign in to Google first.");
+    return;
+  }
+  if (!/^\d+$/.test(passcode) || passcode.length < 4) {
+    lockError("Passcode must be at least 4 digits.");
+    return;
+  }
+  let rec;
+  try { rec = await DriveSync.downloadEncryptedRecord(); }
+  catch (err) { lockError("Couldn't download: " + (err.message || err)); return; }
+  if (!rec) { lockError("No backup found in this Google account."); return; }
+  let plain;
+  try {
+    const altKey = await deriveKey(passcode, b64decode(rec.salt));
+    plain = await decryptRecord(altKey, rec);
+  } catch {
+    lockError("Wrong passcode for that backup.");
+    return;
+  }
+  // Re-encrypt locally with a fresh salt under the same passcode and the
+  // recovered state. handleSetup also runs renderAll, IAP init etc.
+  await handleSetup(passcode, passcode, coerceState(plain));
+}
+
+document.getElementById("btn-setup-restore")?.addEventListener("click", () => {
+  startDriveRestoreFromLock().catch(() => {});
+});
 
 /* ---------- receipt scanning (client-side OCR via Tesseract.js) ---------- */
 
