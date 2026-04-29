@@ -36,7 +36,7 @@ text: Tol, minyak, mamak, yuran tukar AirAsia, bak kut teh Klang — semua dapat
 :::stat
 value: RM 600 – 1,200
 label: Perbelanjaan biasa hujung minggu Hari Pekerja seorang
-note: Petrol &amp; tol, hotel/Airbnb, makanan, satu aktiviti (pantai, taman tema, atau membeli-belah)
+note: Petrol & tol, hotel/Airbnb, makanan, satu aktiviti (pantai, taman tema, atau membeli-belah)
 :::
 
 Nombornya tidak menakutkan — yang menakutkan ialah RM 800 yang **tidak nampak**. Kebanyakan orang tidak jumlahkan sehingga SMS sewa sampai dua minggu kemudian. Tag membuat jumlah berjalan menjenguk balik dalam masa nyata.
