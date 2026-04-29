@@ -1,6 +1,6 @@
 // Build /guides/ pages from markdown sources in scripts/guides/content/.
-// Each markdown file produces /guides/<slug>/index.html.
-// Hub page /guides/index.html lists all guides.
+// English guides live in content/, Malay in content/ms/. Each markdown
+// file produces its localized output under /guides/ or /guides/ms/.
 //
 // Run:  node scripts/build-guides.mjs   (or npm run build:guides)
 
@@ -11,11 +11,74 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
 const SRC_DIR = join(__dirname, "guides");
-const CONTENT_DIR = join(SRC_DIR, "content");
+const CONTENT_DIRS = {
+  en: join(SRC_DIR, "content"),
+  ms: join(SRC_DIR, "content", "ms"),
+};
 const OUT_DIR = join(ROOT, "guides");
 
 const TEMPLATE = readFileSync(join(SRC_DIR, "template.html"), "utf8");
 const HUB_TEMPLATE = readFileSync(join(SRC_DIR, "index-template.html"), "utf8");
+
+// ---------- Chrome strings per language ----------
+const CHROME = {
+  en: {
+    hubHref: "/guides/",
+    rootHref: "/",
+    backLabel: "← all guides",
+    rootBackLabel: "← back to Duitful",
+    publishedLabel: "Published",
+    updatedLabel: "Updated",
+    cardCta: "Read →",
+    breadcrumbGuides: "Guides",
+    inLanguage: "en-MY",
+    ogLocale: "en_MY",
+    hubLang: "en",
+    hubTitle: "Guides — Track money, debt, loans &amp; savings · Duitful",
+    hubDescription: "Visual, scannable guides for tracking money, debts, loans, and savings — built for Malaysia. Budi95 fuel quota, LHDN tax-relief, freelancer expenses, and more.",
+    hubKeywords: "duitful guides, track money malaysia, track petrol budi95, track tax relief lhdn, freelancer expense tracker malaysia, sme expense tracker",
+    hubCanonical: "https://duitful.app/guides/",
+    hubOgTitle: "Duitful Guides — Track money, debt, loans &amp; savings",
+    hubOgDescription: "Visual guides for tracking money, debts, loans, and savings in Malaysia.",
+    hubEyebrow: "Guides · Malaysia",
+    hubH1: "Track your money <em>visually</em>.",
+    hubLede: "Short, scannable how-tos for the messy parts of Malaysian money — petrol subsidies, tax relief, freelancer expenses, and more. No long blog posts. Just steps that work.",
+    hubFooterHtml: 'Built by one person, in Malaysia. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy</a>, or <a href="/contact/">say hi</a>.',
+    pageFooterHtml: 'More guides at <a href="/guides/">duitful.app/guides</a>. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy policy</a>, or <a href="/contact/">say hi</a>.',
+    defaultCtaTitle: "Try Duitful",
+    defaultCtaBody: "Free to use. No account, no cloud, no subscription. RM 19.90 one-time unlocks Pro.",
+    defaultCtaLabel: "Open Duitful",
+    months: ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],
+  },
+  ms: {
+    hubHref: "/guides/ms/",
+    rootHref: "/ms/",
+    backLabel: "← semua panduan",
+    rootBackLabel: "← kembali ke Duitful",
+    publishedLabel: "Diterbit",
+    updatedLabel: "Dikemaskini",
+    cardCta: "Baca →",
+    breadcrumbGuides: "Panduan",
+    inLanguage: "ms-MY",
+    ogLocale: "ms_MY",
+    hubLang: "ms",
+    hubTitle: "Panduan — Jejak duit, hutang, pinjaman &amp; simpanan · Duitful",
+    hubDescription: "Panduan visual yang ringkas untuk jejak duit, hutang, pinjaman, dan simpanan — dibina untuk Malaysia. Kuota minyak Budi95, pelepasan cukai LHDN, perbelanjaan freelancer, dan banyak lagi.",
+    hubKeywords: "panduan duitful, jejak duit malaysia, jejak minyak budi95, jejak pelepasan cukai lhdn, penjejak perbelanjaan freelancer, penjejak perbelanjaan sme",
+    hubCanonical: "https://duitful.app/guides/ms/",
+    hubOgTitle: "Panduan Duitful — Jejak duit, hutang, pinjaman &amp; simpanan",
+    hubOgDescription: "Panduan visual untuk jejak duit, hutang, pinjaman, dan simpanan di Malaysia.",
+    hubEyebrow: "Panduan · Malaysia",
+    hubH1: "Jejak duit anda <em>secara visual</em>.",
+    hubLede: "Panduan ringkas dan boleh diimbas untuk hal-hal duit Malaysia yang menyusahkan — subsidi minyak, pelepasan cukai, perbelanjaan freelancer. Tiada blog panjang. Hanya langkah-langkah yang berkesan.",
+    hubFooterHtml: 'Dibina oleh seorang, di Malaysia. Baca <a href="/changelog/">log perubahan</a>, <a href="/privacy/">privasi</a>, atau <a href="/contact/">hubungi</a>.',
+    pageFooterHtml: 'Panduan lain di <a href="/guides/ms/">duitful.app/guides/ms</a>. Baca <a href="/changelog/">log perubahan</a>, <a href="/privacy/">dasar privasi</a>, atau <a href="/contact/">hubungi</a>.',
+    defaultCtaTitle: "Cuba Duitful",
+    defaultCtaBody: "Percuma. Tiada akaun, tiada awan, tiada langganan. RM 19.90 sekali bayar buka kunci Pro.",
+    defaultCtaLabel: "Buka Duitful",
+    months: ["Jan","Feb","Mac","Apr","Mei","Jun","Jul","Ogo","Sep","Okt","Nov","Dis"],
+  },
+};
 
 // ---------- Frontmatter + body split ----------
 function splitFrontmatter(raw) {
@@ -30,34 +93,30 @@ function splitFrontmatter(raw) {
 }
 
 // ---------- Dates ----------
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-function fmtDate(iso) {
-  // iso like "2026-04-29"
+function fmtDate(iso, chrome) {
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return iso;
   const [, y, mo, d] = m;
-  return `${parseInt(d, 10)} ${MONTHS[parseInt(mo, 10) - 1]} ${y}`;
+  return `${parseInt(d, 10)} ${chrome.months[parseInt(mo, 10) - 1]} ${y}`;
 }
-function buildDateline(published, modified) {
-  const pub = `<time datetime="${published}">${fmtDate(published)}</time>`;
+function buildDateline(published, modified, chrome) {
+  const pub = `<time datetime="${published}">${fmtDate(published, chrome)}</time>`;
   const showUpdated = modified && modified !== published && modified > published;
   if (!showUpdated) {
-    return `<p class="dateline">Published ${pub}</p>`;
+    return `<p class="dateline">${chrome.publishedLabel} ${pub}</p>`;
   }
-  const upd = `<time datetime="${modified}">${fmtDate(modified)}</time>`;
-  return `<p class="dateline">Published ${pub} <span class="dateline-sep">·</span> Updated ${upd}</p>`;
+  const upd = `<time datetime="${modified}">${fmtDate(modified, chrome)}</time>`;
+  return `<p class="dateline">${chrome.publishedLabel} ${pub} <span class="dateline-sep">·</span> ${chrome.updatedLabel} ${upd}</p>`;
 }
 
 // ---------- Inline markdown ----------
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-// For values going into HTML attributes / text where the source is plain text.
 function htmlAttr(s) {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 function inline(s) {
-  // Order matters: links → bold → italic → code
   let out = escapeHtml(s);
   out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
   out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -68,7 +127,6 @@ function inline(s) {
 
 // ---------- Block parsers for :::custom::: ----------
 function parseRecords(text) {
-  // Split by lines that are exactly "---"
   return text.split(/^---\s*$/m).map((chunk) => {
     const obj = {};
     let lastKey = null;
@@ -111,7 +169,6 @@ function renderStat(text) {
 }
 
 function renderCompare(text) {
-  // Two halves split by "---"
   const [leftRaw = "", rightRaw = ""] = text.split(/^---\s*$/m);
   const parse = (raw) => {
     const lines = raw.split("\n").map((l) => l.replace(/\s+$/, "")).filter((l) => l.trim());
@@ -151,7 +208,6 @@ function renderFaq(text) {
   return `<div class="faq">${html}\n</div>`;
 }
 
-// Strip our subset of markdown so JSON-LD gets plain text
 function stripMd(s) {
   return s
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
@@ -160,7 +216,6 @@ function stripMd(s) {
     .replace(/`([^`]+)`/g, "$1");
 }
 
-// JSON-LD FAQPage data — exposed so per-page schema can include it
 function faqJsonLd(text) {
   const items = parseRecords(text);
   if (!items.length) return null;
@@ -198,7 +253,6 @@ function renderBody(md) {
   while (i < lines.length) {
     const line = lines[i];
 
-    // Custom block
     const open = line.match(/^:::([a-z]+)\s*$/);
     if (open) {
       flushPara(para); para = [];
@@ -208,7 +262,7 @@ function renderBody(md) {
       while (i < lines.length && !/^:::\s*$/.test(lines[i])) {
         buf.push(lines[i]); i++;
       }
-      i++; // skip closing :::
+      i++;
       const body = buf.join("\n");
       const fn = CUSTOM_RENDERERS[name];
       if (fn) out.push(fn(body));
@@ -216,13 +270,11 @@ function renderBody(md) {
       continue;
     }
 
-    // Headings
     const h2 = line.match(/^##\s+(.*)$/);
     if (h2) { flushPara(para); para = []; out.push(`<h2>${inline(h2[1])}</h2>`); i++; continue; }
     const h3 = line.match(/^###\s+(.*)$/);
     if (h3) { flushPara(para); para = []; out.push(`<h3>${inline(h3[1])}</h3>`); i++; continue; }
 
-    // Bullet list
     if (/^[-*]\s+/.test(line)) {
       flushPara(para); para = [];
       const items = [];
@@ -234,13 +286,8 @@ function renderBody(md) {
       continue;
     }
 
-    // Blank line → flush paragraph
-    if (!line.trim()) {
-      flushPara(para); para = [];
-      i++; continue;
-    }
+    if (!line.trim()) { flushPara(para); para = []; i++; continue; }
 
-    // Regular paragraph line
     para.push(line);
     i++;
   }
@@ -255,27 +302,28 @@ function fill(tpl, vars) {
 }
 
 // ---------- Build a single guide ----------
-function buildGuide(filename) {
+function buildGuide(filename, lang) {
   const slug = filename.replace(/\.md$/, "");
-  const raw = readFileSync(join(CONTENT_DIR, filename), "utf8");
+  const chrome = CHROME[lang];
+  const raw = readFileSync(join(CONTENT_DIRS[lang], filename), "utf8");
   const { meta, body } = splitFrontmatter(raw);
 
-  // Required fields
   const required = ["title", "description", "h1", "lede", "eyebrow", "date_published", "breadcrumb_name"];
   for (const k of required) {
-    if (!meta[k]) throw new Error(`${filename}: missing frontmatter field "${k}"`);
+    if (!meta[k]) throw new Error(`${lang}/${filename}: missing frontmatter field "${k}"`);
   }
   const dateMod = meta.date_modified || meta.date_published;
 
   const { html: bodyHtml, faqLd } = renderBody(body);
 
+  const guideUrl = `https://duitful.app${chrome.hubHref}${slug}/`;
   const breadcrumbLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Duitful", item: "https://duitful.app/" },
-      { "@type": "ListItem", position: 2, name: "Guides", item: "https://duitful.app/guides/" },
-      { "@type": "ListItem", position: 3, name: meta.breadcrumb_name, item: `https://duitful.app/guides/${slug}/` },
+      { "@type": "ListItem", position: 1, name: "Duitful", item: `https://duitful.app${chrome.rootHref}` },
+      { "@type": "ListItem", position: 2, name: chrome.breadcrumbGuides, item: `https://duitful.app${chrome.hubHref}` },
+      { "@type": "ListItem", position: 3, name: meta.breadcrumb_name, item: guideUrl },
     ],
   };
 
@@ -284,7 +332,7 @@ function buildGuide(filename) {
     "@type": "Article",
     headline: meta.title,
     description: meta.description,
-    inLanguage: meta.lang || "en-MY",
+    inLanguage: meta.lang || chrome.inLanguage,
     datePublished: meta.date_published,
     dateModified: dateMod,
     author: { "@type": "Organization", name: "Duitful", url: "https://duitful.app/" },
@@ -293,7 +341,7 @@ function buildGuide(filename) {
       name: "Duitful",
       logo: { "@type": "ImageObject", url: "https://duitful.app/favicon.svg" },
     },
-    mainEntityOfPage: { "@type": "WebPage", "@id": `https://duitful.app/guides/${slug}/` },
+    mainEntityOfPage: { "@type": "WebPage", "@id": guideUrl },
     image: "https://duitful.app/og-image.svg",
   };
 
@@ -301,32 +349,36 @@ function buildGuide(filename) {
   if (faqLd) schemas.push(faqLd);
   const jsonLd = schemas.map((s) => `<script type="application/ld+json">${JSON.stringify(s)}</script>`).join("\n");
 
-  // Plain-text fields are HTML-escaped before insertion.
-  // H1 and LEDE may contain authored inline HTML (e.g., <em>) — passed raw.
   const html = fill(TEMPLATE, {
     TITLE: htmlAttr(meta.title),
     DESCRIPTION: htmlAttr(meta.description),
     KEYWORDS: htmlAttr(meta.keywords || ""),
     SLUG: slug,
-    LANG: meta.lang || "en",
-    OG_LOCALE: meta.og_locale || "en_MY",
+    CANONICAL_URL: guideUrl,
+    LANG: meta.lang || chrome.hubLang,
+    OG_LOCALE: meta.og_locale || chrome.ogLocale,
     EYEBROW: htmlAttr(meta.eyebrow),
     H1: meta.h1,
-    DATELINE: buildDateline(meta.date_published, dateMod),
+    DATELINE: buildDateline(meta.date_published, dateMod, chrome),
     LEDE: meta.lede,
     BODY: bodyHtml,
-    CTA_TITLE: htmlAttr(meta.cta_title || "Try Duitful"),
-    CTA_BODY: htmlAttr(meta.cta_body || "Free to use. No account, no cloud, no subscription. RM 19.90 one-time unlocks Pro."),
-    CTA_LABEL: htmlAttr(meta.cta_label || "Open Duitful"),
+    HUB_HREF: chrome.hubHref,
+    BACK_LABEL: chrome.backLabel,
+    FOOTER_HTML: chrome.pageFooterHtml,
+    CTA_TITLE: htmlAttr(meta.cta_title || chrome.defaultCtaTitle),
+    CTA_BODY: htmlAttr(meta.cta_body || chrome.defaultCtaBody),
+    CTA_LABEL: htmlAttr(meta.cta_label || chrome.defaultCtaLabel),
     JSON_LD: jsonLd,
   });
 
-  const outDir = join(OUT_DIR, slug);
+  const outBase = lang === "ms" ? join(OUT_DIR, "ms") : OUT_DIR;
+  const outDir = join(outBase, slug);
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, "index.html"), html, "utf8");
 
   return {
     slug,
+    lang,
     title: meta.title,
     h1: meta.h1,
     lede: meta.lede,
@@ -335,26 +387,27 @@ function buildGuide(filename) {
     card_blurb: meta.card_blurb || meta.lede,
     date_published: meta.date_published,
     date_modified: dateMod,
+    href: `${chrome.hubHref}${slug}/`,
   };
 }
 
 // ---------- Build the hub ----------
-function buildHub(guides) {
-  // Newest first
+function buildHub(guides, lang) {
+  const chrome = CHROME[lang];
   const ordered = guides.slice().sort((a, b) => (b.date_published || "").localeCompare(a.date_published || ""));
   const cards = ordered.map((g) => {
     const dateIso = g.date_modified || g.date_published;
     const dateLabel = (g.date_modified && g.date_modified !== g.date_published && g.date_modified > g.date_published)
-      ? `Updated ${fmtDate(g.date_modified)}`
-      : `Published ${fmtDate(g.date_published)}`;
+      ? `${chrome.updatedLabel} ${fmtDate(g.date_modified, chrome)}`
+      : `${chrome.publishedLabel} ${fmtDate(g.date_published, chrome)}`;
     return `
-    <a class="guide-card" href="/guides/${g.slug}/">
+    <a class="guide-card" href="${g.href}">
       <span class="guide-eyebrow">${htmlAttr(g.eyebrow)}</span>
       <h2 class="guide-title">${htmlAttr(g.card_title)}</h2>
       <p class="guide-blurb">${htmlAttr(g.card_blurb)}</p>
       <div class="guide-foot">
         <time class="guide-date" datetime="${dateIso}">${dateLabel}</time>
-        <span class="guide-cta">Read →</span>
+        <span class="guide-cta">${chrome.cardCta}</span>
       </div>
     </a>`;
   }).join("");
@@ -362,84 +415,113 @@ function buildHub(guides) {
   const collectionLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: "Duitful Guides",
-    url: "https://duitful.app/guides/",
-    description: "Visual, scannable guides for tracking money, debts, loans, and savings — built for Malaysia.",
+    name: lang === "ms" ? "Panduan Duitful" : "Duitful Guides",
+    url: chrome.hubCanonical,
+    inLanguage: chrome.inLanguage,
+    description: stripMd(chrome.hubDescription).replace(/&amp;/g, "&"),
     hasPart: ordered.map((g) => ({
       "@type": "Article",
       headline: g.title,
-      url: `https://duitful.app/guides/${g.slug}/`,
+      url: `https://duitful.app${g.href}`,
       datePublished: g.date_published,
       dateModified: g.date_modified,
     })),
   };
 
   const html = fill(HUB_TEMPLATE, {
+    HUB_LANG: chrome.hubLang,
+    HUB_TITLE: chrome.hubTitle,
+    HUB_DESCRIPTION: chrome.hubDescription,
+    HUB_KEYWORDS: chrome.hubKeywords,
+    HUB_CANONICAL: chrome.hubCanonical,
+    HUB_OG_LOCALE: chrome.ogLocale,
+    HUB_OG_TITLE: chrome.hubOgTitle,
+    HUB_OG_DESCRIPTION: chrome.hubOgDescription,
+    ROOT_HREF: chrome.rootHref,
+    ROOT_BACK_LABEL: chrome.rootBackLabel,
+    HUB_EYEBROW: chrome.hubEyebrow,
+    HUB_H1: chrome.hubH1,
+    HUB_LEDE: chrome.hubLede,
+    FOOTER_HTML: chrome.hubFooterHtml,
     CARDS: cards,
     JSON_LD: `<script type="application/ld+json">${JSON.stringify(collectionLd)}</script>`,
   });
 
-  mkdirSync(OUT_DIR, { recursive: true });
-  writeFileSync(join(OUT_DIR, "index.html"), html, "utf8");
+  const outBase = lang === "ms" ? join(OUT_DIR, "ms") : OUT_DIR;
+  mkdirSync(outBase, { recursive: true });
+  writeFileSync(join(outBase, "index.html"), html, "utf8");
 }
 
 // ---------- Inject latest 3 cards into landing pages ----------
-function renderLandingCards(guides) {
+function renderLandingCards(guides, lang) {
+  const chrome = CHROME[lang];
   return guides.slice(0, 3).map((g) => {
     const dateIso = g.date_modified || g.date_published;
     const dateLabel = (g.date_modified && g.date_modified !== g.date_published && g.date_modified > g.date_published)
-      ? `Updated ${fmtDate(g.date_modified)}`
-      : `Published ${fmtDate(g.date_published)}`;
-    return `        <a class="g-card" href="/guides/${g.slug}/">
+      ? `${chrome.updatedLabel} ${fmtDate(g.date_modified, chrome)}`
+      : `${chrome.publishedLabel} ${fmtDate(g.date_published, chrome)}`;
+    return `        <a class="g-card" href="${g.href}">
           <span class="g-card-eyebrow">${htmlAttr(g.eyebrow)}</span>
           <h3 class="g-card-title">${htmlAttr(g.card_title)}</h3>
           <p class="g-card-blurb">${htmlAttr(g.card_blurb)}</p>
           <div class="g-card-foot">
             <time class="g-card-date" datetime="${dateIso}">${dateLabel}</time>
-            <span class="g-card-cta">Read →</span>
+            <span class="g-card-cta">${chrome.cardCta}</span>
           </div>
         </a>`;
   }).join("\n");
 }
 
-function injectIntoLanding(guides) {
+function injectIntoLanding(landingPath, guides, lang) {
+  if (!existsSync(landingPath)) return;
   const ordered = guides.slice().sort((a, b) =>
     (b.date_published || "").localeCompare(a.date_published || "")
   );
-  const cardsHtml = renderLandingCards(ordered);
+  if (!ordered.length) return;
+  const cardsHtml = renderLandingCards(ordered, lang);
   const marker = /(<!-- guides:start -->)[\s\S]*?(<!-- guides:end -->)/;
-  const replacement = `$1\n${cardsHtml}\n        $2`;
-
-  for (const path of [join(ROOT, "index.html"), join(ROOT, "ms", "index.html")]) {
-    if (!existsSync(path)) continue;
-    const html = readFileSync(path, "utf8");
-    if (!marker.test(html)) {
-      console.warn(`  (skip) markers not found in ${path}`);
-      continue;
-    }
-    writeFileSync(path, html.replace(marker, replacement), "utf8");
+  const html = readFileSync(landingPath, "utf8");
+  if (!marker.test(html)) {
+    console.warn(`  (skip) markers not found in ${landingPath}`);
+    return;
   }
+  const replacement = `$1\n${cardsHtml}\n        $2`;
+  writeFileSync(landingPath, html.replace(marker, replacement), "utf8");
 }
 
 // ---------- Main ----------
 function main() {
-  if (!existsSync(CONTENT_DIR)) {
-    console.error(`No content dir at ${CONTENT_DIR}`);
-    process.exit(1);
+  const built = { en: [], ms: [] };
+
+  for (const lang of ["en", "ms"]) {
+    const dir = CONTENT_DIRS[lang];
+    if (!existsSync(dir)) continue;
+    const files = readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isFile() && d.name.endsWith(".md"))
+      .map((d) => d.name);
+    built[lang] = files.map((f) => buildGuide(f, lang));
+    if (built[lang].length) buildHub(built[lang], lang);
   }
-  const files = readdirSync(CONTENT_DIR).filter((f) => f.endsWith(".md"));
-  if (!files.length) {
-    console.error("No .md files in content dir");
+
+  if (!built.en.length && !built.ms.length) {
+    console.error("No .md files found in content dirs");
     process.exit(1);
   }
 
-  const built = files.map(buildGuide);
-  buildHub(built);
-  injectIntoLanding(built);
+  // Landing pages: EN homepage shows EN guides; MS homepage prefers MS guides,
+  // falls back to EN if no MS exists yet.
+  injectIntoLanding(join(ROOT, "index.html"), built.en, "en");
+  const msPool = built.ms.length ? built.ms : built.en;
+  const msLang = built.ms.length ? "ms" : "en";
+  injectIntoLanding(join(ROOT, "ms", "index.html"), msPool, msLang);
 
-  console.log(`Built ${built.length} guide(s):`);
-  for (const g of built) console.log(`  /guides/${g.slug}/  (${g.title})`);
-  console.log(`Hub:  /guides/`);
+  const total = built.en.length + built.ms.length;
+  console.log(`Built ${total} guide(s):`);
+  for (const lang of ["en", "ms"]) {
+    for (const g of built[lang]) console.log(`  ${g.href}  (${g.title})`);
+  }
+  if (built.en.length) console.log(`Hub: /guides/`);
+  if (built.ms.length) console.log(`Hub: /guides/ms/`);
   console.log(`Landing pages: latest 3 injected into / and /ms/`);
 }
 

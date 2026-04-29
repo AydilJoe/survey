@@ -54,6 +54,8 @@
     <lastmod>2026-04-29</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/budi95-fuel-tracker/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/budi95-fuel-tracker/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/track-tax-relief-malaysia/</loc>
@@ -72,5 +74,31 @@
     <lastmod>2026-04-29</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/labour-day-long-weekend-budget/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/labour-day-long-weekend-budget/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/budi95-fuel-tracker/</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/budi95-fuel-tracker/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/budi95-fuel-tracker/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/labour-day-long-weekend-budget/</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/labour-day-long-weekend-budget/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/labour-day-long-weekend-budget/"/>
   </url>
 </urlset>
