@@ -1,34 +1,34 @@
 ---
 title: Free expense tracker for Malaysian freelancers & SMEs — Duitful guide
-description: Visual guide for Malaysian freelancers, sole proprietors, and micro-SMEs. Tag by client, snap receipts, multi-currency, CSV export for your accountant. Privacy-first, no subscription.
+description: Visual guide for Malaysian freelancers, sole proprietors, and micro-SMEs. Categorise by client, snap receipts, multi-currency, CSV export for your accountant. Privacy-first, no subscription.
 keywords: freelancer expense tracker malaysia, sme expense tracker, sole proprietor accounting, e-invoice malaysia tracker, multi-currency freelancer, csv export accountant, duitful sme
 slug: sme-freelancer-expense-tracker
 lang: en
 og_locale: en_MY
 eyebrow: Guide · Malaysia · Freelancers & SMEs
 h1: One person, one phone, <em>one ledger</em>.
-lede: A privacy-first setup for Malaysian freelancers, sole props, and micro-SMEs. Tag by client, snap receipts as you go, hand a clean CSV to your accountant in March. No subscription.
+lede: A privacy-first setup for Malaysian freelancers, sole props, and micro-SMEs. Categorise by client, snap receipts as you go, hand a clean CSV to your accountant in March. No subscription.
 date_published: 2026-04-28
-date_modified: 2026-04-28
+date_modified: 2026-04-29
 breadcrumb_name: SME & freelancer tracker
 card_title: Freelancer & SME expense tracker
-card_blurb: Tag by client. Snap receipts. Multi-currency. CSV out for your accountant. No subscription.
+card_blurb: Categorise by client. Snap receipts. Multi-currency. CSV out for your accountant. No subscription.
 cta_title: Built for the solo operator
-cta_body: One-time RM 19.90 unlocks unlimited tags, receipt OCR, multi-currency, and CSV export. Your data never leaves your phone — even your accountant only sees what you choose to export.
+cta_body: One-time RM 19.90 unlocks unlimited categories, receipt OCR, multi-currency, and CSV export. Your data never leaves your phone — even your accountant only sees what you choose to export.
 cta_label: Open Duitful
 ---
 
 ## The freelancer setup, in three steps
 
 :::steps
-title: Tag by client & project
-text: Make one tag per active client (`Acme`, `Studio-X`, `Personal`). Add project tags if you bill by project. Every income and expense gets at least one client tag.
+title: Categorise by client
+text: When you log an expense or income, type the client name in the **Category** field — `Acme`, `Studio-X`, `Personal`. After the first time, the dropdown auto-suggests them.
 ---
 title: Capture every receipt
-text: Pro receipt OCR reads pump receipts, hotel bills, taxi e-receipts, even Grab screenshots. Snap, save, tag the client it belongs to. Done in 15 seconds.
+text: Pro receipt OCR reads pump receipts, hotel bills, taxi e-receipts, even Grab screenshots. Snap, save, set the Category to the client it belongs to. Done in 15 seconds.
 ---
 title: Export when needed
-text: At month or year-end, **Settings → Export → CSV**. Filter by date range or client. Email the file to your accountant. They handle the rest.
+text: At month or year-end, **Settings → Export CSV**. The file has every entry with date, amount, category, MYR amount, original currency, and notes. Email it to your accountant. They handle the rest.
 :::
 
 ## What you stop doing
@@ -36,7 +36,7 @@ text: At month or year-end, **Settings → Export → CSV**. Filter by date rang
 :::stat
 value: 0 hours
 label: Time spent re-typing receipts at quarter-end
-note: Tag once on the day. The CSV is already done.
+note: Categorise once on the day. The CSV is already done.
 :::
 
 Spreadsheets break the moment you have a foreign-currency invoice, a forgotten Grab ride, and a Touch & Go reload that you can't quite categorise. Duitful's whole job is to be faster than the moment of forgetfulness.
@@ -64,14 +64,14 @@ title: Duitful
 Malaysia's e-invoice mandate keeps expanding to smaller businesses. Even if your turnover is below the current threshold today, your accountant will thank you for these habits:
 
 :::steps
-title: Tag every income receipt
-text: Each invoice you issue gets logged as `Income` + the client tag. Year-end totals match what your accountant sees on the LHDN portal.
+title: Categorise every income receipt
+text: Each invoice you issue gets logged with the client name as Category. Year-end totals match what your accountant sees on the LHDN portal.
 ---
 title: Keep receipts attached
 text: Receipt photos stay tied to expense entries on-device. If LHDN asks for proof three years later, it's two taps away — not a rummage through email.
 ---
 title: Handover by CSV, not screenshots
-text: Your accountant gets a structured CSV export with date, amount, client tag, MYR amount, original currency, and notes. No back-and-forth.
+text: Your accountant gets a structured CSV export with date, amount, category, MYR amount, original currency, and notes. No back-and-forth.
 :::
 
 ## Multi-currency in one tap
@@ -88,14 +88,14 @@ Bill a Singapore client in SGD, get reimbursed in USD, pay a US software vendor 
 
 :::faq
 q: Can two devices share the same ledger?
-a: Yes — use **Settings → Export** on one device, **Import CSV** on the other. There's no live sync, by design — your data never touches a server.
+a: Yes — use **Settings → Export CSV** on one device, **Import CSV** on the other. There's no live sync, by design — your data never touches a server.
 ---
 q: Will my accountant get all my personal expenses too?
-a: Only if you export everything. Filter by client tag (`Acme`, `Studio-X`) before exporting. Personal stays personal.
+a: Only if you export everything. In Reports, set the Category filter to a specific client (Acme, Studio-X) before sharing. Personal stays personal.
 ---
 q: What if I'm Sdn Bhd, not a sole prop?
-a: Same workflow. Treat the company as one big client tag. For payroll and full double-entry you'll still want proper accounting software — Duitful is the front-line capture, not the books.
+a: Same workflow. Treat the company as one big client category. For payroll and full double-entry you'll still want proper accounting software — Duitful is the front-line capture, not the books.
 ---
 q: Is the LHDN tax-relief stuff handled too?
-a: Yes — see the [tax-relief guide](/guides/track-tax-relief-malaysia/) for tags like Medical, Lifestyle, SSPN, PRS that make e-Filing painless.
+a: Yes — see the [tax-relief guide](/guides/track-tax-relief-malaysia/) for categories like Medical, Lifestyle, SSPN, PRS that make e-Filing painless.
 :::

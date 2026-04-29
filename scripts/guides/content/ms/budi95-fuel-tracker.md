@@ -1,34 +1,34 @@
 ---
 title: Jejak kuota minyak Budi95 anda dalam Duitful — Panduan Malaysia
-description: Panduan visual untuk jejak subsidi RON95 dan diesel Budi95 di Malaysia menggunakan Duitful. Tag setiap isian minyak dalam 10 saat, lihat perbelanjaan bulanan, kekal dalam kuota.
+description: Panduan visual untuk jejak subsidi RON95 dan diesel Budi95 di Malaysia menggunakan Duitful. Letak setiap isian minyak dalam kategori dalam 10 saat, lihat perbelanjaan bulanan, kekal dalam kuota.
 keywords: penjejak budi95, penjejak minyak malaysia, penjejak subsidi diesel, kuota ron95, jejak perbelanjaan minyak malaysia, penjejak perbelanjaan minyak, kpdn budi95, duitful budi95
 slug: budi95-fuel-tracker
 lang: ms
 og_locale: ms_MY
 eyebrow: Panduan · Malaysia · Minyak
 h1: Jejak <em>Budi95</em> petrol &amp; diesel anda.
-lede: Tiga ketik setiap isian. Satu tag. Jumlah bulanan yang anda boleh buat sesuatu mengenainya. Dibina untuk subsidi RON95 dan diesel sasaran Malaysia.
+lede: Tiga ketik setiap isian. Satu kategori. Jumlah bulanan yang anda boleh buat sesuatu mengenainya. Dibina untuk subsidi RON95 dan diesel sasaran Malaysia.
 date_published: 2026-04-29
 date_modified: 2026-04-29
 breadcrumb_name: Penjejak minyak Budi95
 card_title: Penjejak petrol & diesel Budi95
-card_blurb: Tag isian minyak dalam 10 saat. Lihat perbelanjaan RON95 dan diesel bulanan anda sekali pandang.
+card_blurb: Letak isian minyak dalam kategori dalam 10 saat. Lihat perbelanjaan RON95 dan diesel bulanan anda sekali pandang.
 cta_title: Mula jejak minyak anda hari ini
-cta_body: Buka Duitful, ketik "Tambah perbelanjaan", pilih tag "Petrol", masukkan jumlah pam. Itu sahaja. Jumlah minyak bulanan anda hanya satu ketikan jauh dari sekarang.
+cta_body: Buka Duitful, tambah perbelanjaan harian, taip "Petrol" dalam medan Category, masukkan jumlah pam. Itu sahaja. Jumlah minyak bulanan anda hanya satu ketikan jauh dari sekarang.
 cta_label: Buka Duitful
 ---
 
 ## Persediaan, dalam tiga langkah
 
 :::steps
-title: Buat tag "Petrol"
-text: Sekali sahaja. Dalam Duitful, buka **Tetapan → Tag → Baru** dan tambah `Petrol` (dan `Diesel` jika anda pandu kedua-dua). Pilih warna yang anda akan cam.
+title: Guna "Petrol" sebagai kategori
+text: Apabila anda log perbelanjaan harian, taip **Petrol** dalam medan **Category** (dan **Diesel** jika anda pandu kedua-dua). Selepas kali pertama, dropdown akan auto-cadang — satu ketik.
 ---
 title: Log setiap isian
-text: Selepas setiap pam, ketik **+ Perbelanjaan** → masukkan jumlah ringgit → pilih tag **Petrol** → simpan. Sepuluh saat, termasuk gambar resit jika anda mahu OCR.
+text: Selepas setiap pam, tambah perbelanjaan harian → masukkan jumlah ringgit → pilih **Petrol** sebagai kategori → simpan. Sepuluh saat, termasuk gambar resit jika anda mahu OCR.
 ---
 title: Baca jumlah bulanan
-text: Pada papan pemuka, tapis ikut tag. Jumlah di atas adalah apa yang anda telah belanja untuk minyak bulan ini. Tiada matematik spreadsheet.
+text: Buka tab **Reports** → tetapkan Category kepada **Petrol** → pilih **This month**. "Total" besar di atas ialah jumlah anda belanja untuk minyak. Tiada matematik spreadsheet.
 :::
 
 ## Mengapa ini penting sekarang
@@ -50,11 +50,11 @@ title: Pen, kertas, atau Excel
 - Taip semula semua di hujung bulan
 - Tiada cara cepat "saya belanja berapa Mac lalu?"
 ---
-title: Duitful dengan tag Petrol
+title: Duitful dengan kategori Petrol
 - Satu ketik dari skrin utama
 - Snap resit, OCR ambil jumlah
-- Tag diwarisi selamanya — tiada taip semula
-- Jumlah bulan = satu tapisan
+- Kategori diingati selamanya — tiada taip semula
+- Jumlah bulan = satu tapisan dalam Reports
 :::
 
 ## Langkah bonus
@@ -63,11 +63,11 @@ title: Duitful dengan tag Petrol
 title: Snap, jangan taip
 text: **Pro** OCR resit ambil jumlah, tarikh, dan nama stesen dari gambar. Berguna apabila ada barisan di belakang anda.
 ---
-title: Tag kereta syarikat berasingan
-text: Tambah tag kedua seperti `Petrol · kerja` jika anda akan tuntut perbatuan. Tapis ikut mana-mana tag pada hujung tahun.
+title: Asingkan kereta syarikat
+text: Guna kategori berasingan seperti `Petrol · kerja` untuk isian yang anda akan tuntut. Reports membenarkan anda tapis ikut mana-mana satu pada hujung tahun.
 ---
 title: Pantau garis trend
-text: Buka **Laporan → Petrol** untuk lihat bulan ke bulan. Kenaikan 25% biasanya bermakna komuter lebih panjang, bukan kenaikan harga.
+text: Buka **Reports**, pilih **Last 3 months**, tetapkan Category kepada **Petrol** — carta trend tunjuk lengkungannya. Kenaikan 25% biasanya bermakna komuter lebih panjang, bukan kenaikan harga.
 :::
 
 ## Soalan biasa
@@ -77,10 +77,10 @@ q: Adakah Duitful tahu baki kuota Budi95 saya?
 a: Tidak — hanya aplikasi KPDN tahu. Duitful jejak apa yang *anda* belanja. Bandingkan dengan baki kuota anda di saluran rasmi; Duitful beritahu anda separuh ringgit dari persamaan.
 ---
 q: Boleh saya jejak diesel dan RON95 berasingan?
-a: Boleh. Buat dua tag: `RON95` dan `Diesel`. Setiap isian dapat satu tag. Laporan tapis dengan jelas ikut tag.
+a: Boleh. Guna dua kategori: `RON95` dan `Diesel`. Setiap isian dapat satu. Reports tapis dengan jelas ikut kategori.
 ---
 q: Bagaimana jika saya bayar dengan TNG e-Wallet atau kad armada?
-a: Tidak kisah — log jumlah ringgit, tag sebagai Petrol. Kaedah bayaran adalah tag kedua jika anda mahu pecahkan kemudian.
+a: Tidak kisah — log jumlah ringgit, tetapkan Category kepada Petrol. Tambah kaedah bayaran dalam medan **note** jika anda mahu ingat dompet mana yang digunakan.
 ---
 q: Adakah data minyak keluar dari telefon saya?
 a: Tidak. Setiap entri disulitkan dalam peranti dengan AES-GCM. Tiada pelayan ada. Walaupun OCR resit Pro berjalan secara tempatan.
