@@ -232,7 +232,7 @@ function renderBody(md) {
 
 // ---------- Template fill ----------
 function fill(tpl, vars) {
-  return tpl.replace(/\{\{([A-Z_]+)\}\}/g, (_, k) => (k in vars ? vars[k] : ""));
+  return tpl.replace(/\{\{([A-Z][A-Z0-9_]*)\}\}/g, (_, k) => (k in vars ? vars[k] : ""));
 }
 
 // ---------- Build a single guide ----------
