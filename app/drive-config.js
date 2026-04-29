@@ -15,7 +15,7 @@
  * (we use the implicit-flow / token-client pattern from Google Identity Services).
  */
 window.DRIVE_CONFIG = {
-  webClientId: "",
+  webClientId: "184121637925-il087n9kdirov78ko4jqiuo8t51vphe4.apps.googleusercontent.com",
   scopes: [
     "https://www.googleapis.com/auth/drive.appdata",
     "https://www.googleapis.com/auth/userinfo.email",
