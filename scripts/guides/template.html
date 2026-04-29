@@ -10,12 +10,12 @@
 <meta name="description" content="{{DESCRIPTION}}">
 <meta name="keywords" content="{{KEYWORDS}}">
 <meta name="robots" content="index, follow, max-image-preview:large">
-<link rel="canonical" href="https://duitful.app/guides/{{SLUG}}/">
+<link rel="canonical" href="{{CANONICAL_URL}}">
 
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="Duitful">
 <meta property="og:locale" content="{{OG_LOCALE}}">
-<meta property="og:url" content="https://duitful.app/guides/{{SLUG}}/">
+<meta property="og:url" content="{{CANONICAL_URL}}">
 <meta property="og:title" content="{{TITLE}}">
 <meta property="og:description" content="{{DESCRIPTION}}">
 <meta property="og:image" content="https://duitful.app/og-image.svg">
@@ -211,7 +211,7 @@
 </head>
 <body>
 <div class="container">
-  <a href="/guides/" class="nav-back">← all guides</a>
+  <a href="{{HUB_HREF}}" class="nav-back">{{BACK_LABEL}}</a>
 
   <span class="eyebrow">{{EYEBROW}}</span>
   <h1>{{H1}}</h1>
@@ -227,7 +227,7 @@
   </div>
 
   <div class="footer">
-    More guides at <a href="/guides/">duitful.app/guides</a>. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy policy</a>, or <a href="/contact/">say hi</a>.
+    {{FOOTER_HTML}}
   </div>
 </div>
 </body>
