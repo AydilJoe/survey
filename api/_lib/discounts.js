@@ -47,7 +47,7 @@ const CODES = {
     type: "percent",
     off: 100,
     description: "Aydil Johari — 100% off",
-    expires: "2026-04-29",
+    expires: "2026-04-28",
     creator: "aydil-johari",
     referrerCode: "58eafcb9",
     commission: 2,
