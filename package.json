@@ -5,6 +5,7 @@
   "description": "Duitful — Capacitor shell for the PWA.",
   "scripts": {
     "fetch:tesseract": "node scripts/fetch-tesseract.mjs",
+    "build:guides": "node scripts/build-guides.mjs",
     "build:web": "node scripts/build-web.mjs",
     "assets": "npx @capacitor/assets generate --iconBackgroundColor \"#e8dfd0\" --iconBackgroundColorDark \"#2a2420\" --splashBackgroundColor \"#e8dfd0\" --splashBackgroundColorDark \"#2a2420\"",
     "cap:sync": "npm run build:web && npx cap sync",

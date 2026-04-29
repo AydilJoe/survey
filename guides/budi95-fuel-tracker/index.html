@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Track your Budi95 petrol &amp; diesel subsidy in Duitful — Malaysia guide</title>
+<meta name="description" content="Visual guide to tracking Malaysia's Budi95 RON95 and diesel subsidy in Duitful. Tag fuel-ups in 10 seconds, see your monthly spend, stay under quota.">
+<meta name="keywords" content="budi95 tracker, petrol tracker malaysia, diesel subsidy tracker, ron95 quota, track petrol spending malaysia, fuel expense tracker, kpdn budi95, duitful budi95">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://duitful.app/guides/budi95-fuel-tracker/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:locale" content="en_MY">
+<meta property="og:url" content="https://duitful.app/guides/budi95-fuel-tracker/">
+<meta property="og:title" content="Track your Budi95 petrol &amp; diesel subsidy in Duitful — Malaysia guide">
+<meta property="og:description" content="Visual guide to tracking Malaysia's Budi95 RON95 and diesel subsidy in Duitful. Tag fuel-ups in 10 seconds, see your monthly spend, stay under quota.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Track your Budi95 petrol &amp; diesel subsidy in Duitful — Malaysia guide">
+<meta name="twitter:description" content="Visual guide to tracking Malaysia's Budi95 RON95 and diesel subsidy in Duitful. Tag fuel-ups in 10 seconds, see your monthly spend, stay under quota.">
+<meta name="twitter:image" content="https://duitful.app/og-image.svg">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Budi95 fuel tracker","item":"https://duitful.app/guides/budi95-fuel-tracker/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Track your Budi95 petrol & diesel subsidy in Duitful — Malaysia guide","description":"Visual guide to tracking Malaysia's Budi95 RON95 and diesel subsidy in Duitful. Tag fuel-ups in 10 seconds, see your monthly spend, stay under quota.","inLanguage":"en","datePublished":"2026-04-29","dateModified":"2026-04-29","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/budi95-fuel-tracker/"},"image":"https://duitful.app/og-image.svg"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does Duitful know my Budi95 quota balance?","acceptedAnswer":{"@type":"Answer","text":"No — only KPDN's app does. Duitful tracks what you spent. Compare it against your remaining quota in the official channel; Duitful tells you the ringgit half of the equation."}},{"@type":"Question","name":"Can I track diesel and RON95 separately?","acceptedAnswer":{"@type":"Answer","text":"Yes. Make two tags: RON95 and Diesel. Each fill-up gets one tag. Reports filter cleanly by tag."}},{"@type":"Question","name":"What if I pay with TNG e-Wallet or a fleet card?","acceptedAnswer":{"@type":"Answer","text":"Doesn't matter — log the ringgit amount, tag it Petrol. The payment method is a second tag if you want to break it down later."}},{"@type":"Question","name":"Does fuel data leave my phone?","acceptedAnswer":{"@type":"Answer","text":"No. Every entry is encrypted on-device with AES-GCM. No server has it. Even Pro receipt OCR runs locally."}}]}</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --accent: #8fa078; --accent-ink: #3a6b50;
+    --warn: #b86a4e; --warn-ink: #8a3f1c;
+    --line: rgba(42,36,32,0.08); --border: rgba(42,36,32,0.14);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 17px/1.6 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 96px; }
+  .nav-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+
+  .eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: inline-block; margin-bottom: 14px;
+  }
+
+  h1 {
+    font: 500 clamp(36px, 6vw, 52px)/1.05 var(--font-serif);
+    letter-spacing: -0.02em; margin: 0 0 14px; color: var(--ink);
+  }
+  h1 em, h2 em { font-style: italic; color: var(--primary); }
+
+  .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
+
+  h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font: 500 18px/1.35 var(--font-sans); margin: 24px 0 6px; color: var(--ink); }
+  p { margin: 0 0 16px; color: var(--ink2); max-width: 64ch; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; color: var(--ink2); }
+  li { margin: 0 0 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: var(--primary-ink); }
+  code { font: 500 14px/1.2 var(--font-mono); background: var(--card); padding: 2px 6px; border-radius: 4px; border: 0.5px solid var(--line); }
+
+  /* ---------- Steps ---------- */
+  .steps { list-style: none; padding: 0; display: grid; gap: 12px; margin: 28px 0; }
+  .step {
+    display: grid; grid-template-columns: 48px 1fr; gap: 16px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 14px; padding: 18px 22px; align-items: start;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fffaf2;
+    display: grid; place-items: center;
+    font: 500 17px/1 var(--font-serif);
+  }
+  .step h3 { margin: 2px 0 4px; font-size: 17px; }
+  .step p { margin: 0; font-size: 15.5px; line-height: 1.5; }
+
+  /* ---------- Stat block ---------- */
+  .stat-block {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 16px; padding: 36px 28px;
+    margin: 32px 0; text-align: center;
+  }
+  .stat-value {
+    font: 500 clamp(44px, 9vw, 72px)/1 var(--font-serif);
+    color: var(--primary); letter-spacing: -0.02em;
+    margin: 0 0 10px; max-width: none;
+  }
+  .stat-label { font: 500 16px/1.4 var(--font-sans); color: var(--ink); margin: 0 0 4px; max-width: none; }
+  .stat-note { font: 400 13.5px/1.4 var(--font-mono); color: var(--muted); margin: 0; max-width: none; }
+
+  /* ---------- Compare ---------- */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin: 32px 0; border: 0.5px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col { padding: 22px 24px; }
+  .compare-col + .compare-col { border-left: 0.5px solid var(--line); }
+  @media (max-width: 600px) {
+    .compare-col + .compare-col { border-left: none; border-top: 0.5px solid var(--line); }
+  }
+  .compare-col.left  { background: rgba(184,106,78,0.05); }
+  .compare-col.right { background: rgba(106,138,94,0.06); }
+  .compare-title {
+    font: 500 11px/1 var(--font-mono); letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0 0 14px;
+  }
+  .compare-col.left  .compare-title { color: var(--warn-ink); }
+  .compare-col.right .compare-title { color: var(--accent-ink); }
+  .compare-col ul { padding: 0; list-style: none; margin: 0; }
+  .compare-col li {
+    padding: 7px 0; font-size: 15px; line-height: 1.45; color: var(--ink2);
+    display: flex; gap: 10px; align-items: start;
+  }
+  .compare-col li::before {
+    flex: 0 0 auto; font-weight: 700; line-height: 1.45;
+  }
+  .compare-col.left  li::before { content: "✕"; color: var(--warn); }
+  .compare-col.right li::before { content: "✓"; color: var(--accent-ink); }
+
+  /* ---------- FAQ ---------- */
+  .faq { margin: 28px 0; display: grid; gap: 8px; }
+  .faq-item {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; padding: 4px 22px;
+    transition: border-color 0.15s ease;
+  }
+  .faq-item[open] { border-color: var(--border); }
+  .faq-q {
+    font: 500 16px/1.4 var(--font-sans); color: var(--ink);
+    padding: 14px 0; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q::after {
+    content: "+"; font: 400 22px/1 var(--font-serif);
+    color: var(--muted); transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-q::after { content: "−"; }
+  .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- CTA ---------- */
+  .cta-card {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 18px; padding: 32px 28px;
+    margin: 56px 0 0; text-align: center;
+  }
+  .cta-card h2 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 30px); }
+  .cta-card p { margin: 0 auto 18px; max-width: 48ch; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 26px;
+    background: var(--primary); color: #fffaf2;
+    border-radius: 999px;
+    font: 500 15px/1 var(--font-sans);
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(42,36,32,0.1), 0 8px 20px rgba(200,112,75,0.28);
+    transition: background 0.15s ease;
+  }
+  .cta-btn:hover { background: var(--primary-ink); color: #fffaf2; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px; color: var(--muted);
+  }
+  .footer a { color: var(--primary); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/guides/" class="nav-back">← all guides</a>
+
+  <span class="eyebrow">Guide · Malaysia · Fuel</span>
+  <h1>{{H1}}</h1>
+  <p class="lede">Three taps per fill-up. One tag. A monthly total you can actually do something about. Built for Malaysia's targeted RON95 and diesel subsidy.</p>
+
+  <h2>The setup, in three steps</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Make a "Petrol" tag</h3>
+        <p>Once. In Duitful, open <strong>Settings → Tags → New</strong> and add <code>Petrol</code> (and <code>Diesel</code> if you drive both). Pick a colour you'll recognise.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Log every fill-up</h3>
+        <p>After each pump, hit <strong>+ Expense</strong> → enter the ringgit amount → pick the <strong>Petrol</strong> tag → save. Ten seconds, including the receipt photo if you want OCR.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Read the monthly total</h3>
+        <p>On the dashboard, filter by tag. The total at the top is what you've actually spent on petrol this month. No spreadsheet maths.</p>
+      </div>
+    </li>
+</ol>
+<h2>Why this matters now</h2>
+
+    <div class="stat-block">
+      <p class="stat-value">RM 200</p>
+      <p class="stat-label">Monthly diesel subsidy cap (Budi Madani, eligible vehicles)</p>
+      <p class="stat-note">Refer to KPDN for current eligibility &amp; quota</p>
+    </div>
+<p>Budi95 is Malaysia's targeted fuel subsidy programme. Eligible drivers get subsidised RON95 or diesel up to a monthly cap; everything beyond it is at unsubsidised market rates. Without tracking, you only find out on the pump screen.</p>
+<h2>Spreadsheet vs Duitful</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Pen, paper, or Excel</p>
+        <ul><li>Forget to log a fill-up</li><li>Lose receipts in the glovebox</li><li>Re-key everything at month-end</li><li>No quick "what did I spend in March?"</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Duitful with a Petrol tag</p>
+        <ul><li>One tap from the home screen</li><li>Snap the receipt, OCR pulls amount</li><li>Tag inherits forever — no re-typing</li><li>Month total = one filter</li></ul>
+      </div>
+    </div>
+<h2>Bonus moves</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Snap, don't type</h3>
+        <p><strong>Pro</strong> receipt OCR pulls the amount, date, and station name from a photo. Useful when a queue forms behind you.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Tag the company car separately</h3>
+        <p>Add a second tag like <code>Petrol · work</code> if you'll claim mileage. Filter by either tag at year-end.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Watch the trendline</h3>
+        <p>Open <strong>Reports → Petrol</strong> to see month-over-month. A 25% jump usually means a longer commute, not a price hike.</p>
+      </div>
+    </li>
+</ol>
+<h2>Common questions</h2>
+<div class="faq">
+    <details class="faq-item">
+      <summary class="faq-q">Does Duitful know my Budi95 quota balance?</summary>
+      <p class="faq-a">No — only KPDN's app does. Duitful tracks what <em>you</em> spent. Compare it against your remaining quota in the official channel; Duitful tells you the ringgit half of the equation.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Can I track diesel and RON95 separately?</summary>
+      <p class="faq-a">Yes. Make two tags: <code>RON95</code> and <code>Diesel</code>. Each fill-up gets one tag. Reports filter cleanly by tag.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">What if I pay with TNG e-Wallet or a fleet card?</summary>
+      <p class="faq-a">Doesn't matter — log the ringgit amount, tag it Petrol. The payment method is a second tag if you want to break it down later.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Does fuel data leave my phone?</summary>
+      <p class="faq-a">No. Every entry is encrypted on-device with AES-GCM. No server has it. Even Pro receipt OCR runs locally.</p>
+    </details>
+</div>
+
+  <div class="cta-card">
+    <h2>Start tracking your fuel today</h2>
+    <p>Open Duitful, tap &quot;Add expense&quot;, pick the &quot;Petrol&quot; tag, key in the pump amount. That's it. Your monthly fuel total is one tap away from now on.</p>
+    <a class="cta-btn" href="/app/">Open Duitful →</a>
+  </div>
+
+  <div class="footer">
+    More guides at <a href="/guides/">duitful.app/guides</a>. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy policy</a>, or <a href="/contact/">say hi</a>.
+  </div>
+</div>
+</body>
+</html>
