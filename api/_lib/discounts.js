@@ -43,8 +43,6 @@ const CODES = {
     referrerCode: "b3368d90",
     commission: 5,
   },
-<<<<<<< HEAD
-=======
   BETA01: {
     type: "percent",
     off: 100,
@@ -54,9 +52,9 @@ const CODES = {
     referrerCode: "58eafcb9",
     commission: 2,
   },
->>>>>>> origin/main
-  // Beta-test pattern (copy + edit + uncomment to roll out):
-  // BETA01: {
+  // Beta-test pattern using the rolling validity window
+  // (copy + edit + uncomment to roll out):
+  // BETA02: {
   //   type: "percent",
   //   off: 100,
   //   description: "Beta tester — free Pro for 5 days",
