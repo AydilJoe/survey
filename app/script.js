@@ -1795,6 +1795,23 @@ async function activateLicenseToken(token) {
   return payload;
 }
 
+// Picks up a license stashed in sessionStorage by /api/billplz/redirect
+// (post-payment auto-activation). Runs once per unlock — the key is
+// cleared whether activation succeeds or fails so a bad token can't
+// loop. Safe to call without a pending license.
+async function tryAutoActivatePendingLicense() {
+  let pending = null;
+  try { pending = sessionStorage.getItem("__pendingLicense__"); } catch {}
+  if (!pending) return;
+  try { sessionStorage.removeItem("__pendingLicense__"); } catch {}
+  try {
+    await activateLicenseToken(pending);
+    alert("Pro unlocked — welcome!");
+  } catch (e) {
+    console.warn("auto-activate failed:", e);
+  }
+}
+
 function openLicenseDialog() {
   const dlg = document.getElementById("license-dialog");
   const input = document.getElementById("license-input");
@@ -3274,6 +3291,7 @@ async function handleUnlock(passcode) {
   scheduleNativeReminders().catch(() => {});
   maybeShowInstallBanner();
   if (typeof checkDriveOnBoot === "function") checkDriveOnBoot().catch(() => {});
+  tryAutoActivatePendingLicense().catch(() => {});
 }
 
 async function handleSetup(passcode, confirm, initialState) {
@@ -3297,6 +3315,7 @@ async function handleSetup(passcode, confirm, initialState) {
   maybeOpenGuideAfterSetup();
   maybeShowInstallBanner();
   if (typeof checkDriveOnBoot === "function") checkDriveOnBoot().catch(() => {});
+  tryAutoActivatePendingLicense().catch(() => {});
 }
 
 setInterval(() => { fireDueNotifications().catch(() => {}); }, 3600000);
