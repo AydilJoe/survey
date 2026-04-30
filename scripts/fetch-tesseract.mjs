@@ -3,10 +3,24 @@
    vendor/tesseract/ so native (Capacitor) builds work fully offline.
    Skips files that already exist. */
 
-import { mkdir, writeFile, stat } from "node:fs/promises";
+import { mkdir, writeFile, stat, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 const OUT = "vendor/tesseract";
+
+// Defensive: an uncompressed eng.traineddata sometimes ends up in vendor/
+// alongside the .gz (e.g. if Tesseract.js was used in dev and cached the
+// decompressed file). Android's asset merger refuses to bundle both because
+// it auto-strips .gz, treating the two files as duplicates of the same
+// logical asset. We only ship the .gz — Tesseract.js decompresses at runtime.
+async function removeStaleUncompressed() {
+  const stale = `${OUT}/eng.traineddata`;
+  try {
+    await stat(stale);
+    await unlink(stale);
+    console.log(`✗ removed stale ${stale}`);
+  } catch {}
+}
 const TESS_JS = "5.1.0";
 const TESS_CORE = "5.1.0";
 
@@ -42,4 +56,5 @@ for (const f of files) {
     process.exit(1);
   }
 }
+await removeStaleUncompressed();
 console.log("\nAll Tesseract assets ready in vendor/tesseract/.");
