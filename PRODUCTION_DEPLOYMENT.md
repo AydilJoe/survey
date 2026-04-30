@@ -85,21 +85,27 @@ Numbers match.
 
 ### 1.6 Manifest hardening merged correctly
 
-Requires Android SDK + JAVA_HOME set:
+Requires Android SDK + JAVA_HOME set. The path differs across AGP versions —
+on AGP 8.13+ (current), the packaged manifest lands at `packaged_manifests`.
 
 ```bash
-cd android && ./gradlew :app:processReleaseManifest && cd ..
+cd android && ./gradlew :app:bundleRelease && cd ..
 grep -E '(allowBackup|dataExtractionRules|POST_NOTIFICATIONS)' \
-  android/app/build/intermediates/merged_manifests/release/AndroidManifest.xml
+  android/app/build/intermediates/packaged_manifests/release/processReleaseManifestForPackage/AndroidManifest.xml
 ```
 
 Expected three lines:
 
 ```
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 android:allowBackup="false"
 android:dataExtractionRules="@xml/data_extraction_rules"
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 ```
+
+If the path doesn't exist, AGP version may differ — check
+`android/app/build/intermediates/` for `merged_manifests/`,
+`packaged_manifests/`, or `bundle_manifest/` and pick the release variant
+whose contents match the production AAB.
 
 ### 1.7 Minified release builds clean
 
