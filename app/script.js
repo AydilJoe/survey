@@ -3665,6 +3665,25 @@ const TXN_PROVIDERS = [
   { id: "rabbit-line-pay", name: "Rabbit LINE Pay", country: "TH", currency: "THB",
     packages: ["jp.naver.line.android"],
     patterns: [/Rabbit\s+LINE\s+Pay[^.]*?(?:฿|THB)\s*([\d,]+\.?\d*)[^.]*?(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  // ----- Philippines -----
+  { id: "bdo", name: "BDO Mobile", country: "PH", currency: "PHP",
+    packages: ["com.bdo.unibank.mobilebanking"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:debited|charged|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "bpi", name: "BPI Mobile", country: "PH", currency: "PHP",
+    packages: ["com.bpi.cmpr"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:debited|charged|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "metrobank-ph", name: "Metrobank Mobile", country: "PH", currency: "PHP",
+    packages: ["com.metrobank.metroclick"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:debited|charged|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "gcash", name: "GCash", country: "PH", currency: "PHP",
+    packages: ["com.globe.gcash.android"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:paid|sent|spent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "maya-ph", name: "Maya", country: "PH", currency: "PHP",
+    packages: ["com.paymaya"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:paid|sent|spent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "shopeepay-ph", name: "ShopeePay PH", country: "PH", currency: "PHP",
+    packages: ["com.shopee.ph"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:paid|spent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
 ];
 
 /* Locale-aware amount parsing.

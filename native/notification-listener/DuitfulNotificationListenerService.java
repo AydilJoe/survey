@@ -63,6 +63,13 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         ALLOWED.add("com.ttb.touch");                        // ttb touch
         ALLOWED.add("th.co.truemoney.wallet");               // TrueMoney Wallet
         ALLOWED.add("jp.naver.line.android");                // Rabbit LINE Pay (piggyback — see OPEN_ISSUES)
+        // Philippines
+        ALLOWED.add("com.bdo.unibank.mobilebanking");        // BDO Mobile
+        ALLOWED.add("com.bpi.cmpr");                         // BPI Mobile
+        ALLOWED.add("com.metrobank.metroclick");             // Metrobank Mobile
+        ALLOWED.add("com.globe.gcash.android");              // GCash
+        ALLOWED.add("com.paymaya");                          // Maya / PayMaya
+        ALLOWED.add("com.shopee.ph");                        // ShopeePay PH
     }
 
     @Override
