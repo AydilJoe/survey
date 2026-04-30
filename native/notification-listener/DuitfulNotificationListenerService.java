@@ -70,6 +70,15 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         ALLOWED.add("com.globe.gcash.android");              // GCash
         ALLOWED.add("com.paymaya");                          // Maya / PayMaya
         ALLOWED.add("com.shopee.ph");                        // ShopeePay PH
+        // Vietnam
+        ALLOWED.add("com.VCB");                              // Vietcombank
+        ALLOWED.add("com.vietinbank.ipay");                  // VietinBank iPay
+        ALLOWED.add("vn.com.techcombank.bb.app");            // Techcombank Mobile
+        ALLOWED.add("com.vnpay.bidv");                       // BIDV SmartBanking
+        ALLOWED.add("com.mbmobile");                         // MB Bank
+        ALLOWED.add("com.mservice.momotransfer");            // MoMo
+        ALLOWED.add("vn.com.vng.zalopay");                   // ZaloPay
+        ALLOWED.add("com.shopee.vn");                        // ShopeePay VN
     }
 
     @Override
