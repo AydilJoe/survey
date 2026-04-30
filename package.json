@@ -24,6 +24,7 @@
     "@capacitor/core": "^6.1.2",
     "@capacitor/ios": "^6.1.2",
     "@capacitor/local-notifications": "^6.1.2",
+    "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "cordova-plugin-purchase": "^13.12.1"
   }
 }

@@ -5,31 +5,34 @@
  * server-side; the file is encrypted with the user's passcode before upload
  * and decrypted on the device after download.
  *
- * Auth: Google Identity Services token client (implicit flow, no refresh
- * tokens). Access tokens are stored in localStorage and silently refreshed
- * via prompt:'' when expired.
+ * Auth:
+ *  - Web: Google Identity Services (GIS) implicit flow via initTokenClient.
+ *  - Native (Capacitor Android): @codetrix-studio/capacitor-google-auth
+ *    using the device's Google account.
  *
- * Public API:
- *   DriveSync.isConfigured()              -> bool (config has client ID)
- *   DriveSync.isSignedIn()                -> bool
- *   DriveSync.getAccountEmail()           -> string|null
- *   DriveSync.getStatus()                 -> {state, message, lastSyncedAt}
- *   DriveSync.subscribe(fn)               -> unsubscribe()
- *   DriveSync.signIn()                    -> Promise<void>
- *   DriveSync.signOut()                   -> Promise<void>
- *   DriveSync.getRemoteMeta()             -> Promise<{modifiedTime, appProperties}|null>
- *   DriveSync.uploadEncryptedRecord(rec, appProperties) -> Promise<void>
- *   DriveSync.downloadEncryptedRecord()   -> Promise<rec|null>
+ * Both implementations expose the same window.DriveSync surface.
+ *
+ * Public API (unchanged from web-only version):
+ *   DriveSync.isConfigured(), .isSignedIn(), .getAccountEmail(),
+ *   DriveSync.getStatus(), .subscribe(fn),
+ *   DriveSync.signIn(), .signOut(),
+ *   DriveSync.getRemoteMeta(),
+ *   DriveSync.uploadEncryptedRecord(rec, appProperties),
+ *   DriveSync.downloadEncryptedRecord()
  */
 (function () {
   "use strict";
 
   const TOKEN_KEY = "duit-tracker.drive";
+  const IS_NATIVE = !!(
+    window.Capacitor &&
+    typeof window.Capacitor.isNativePlatform === "function" &&
+    window.Capacitor.isNativePlatform()
+  );
 
-  // ---------- internal state ----------
+  // ---------- shared module state ----------
 
-  let tokenClient = null;
-  let cached = null; // { token, fileId, email, lastSyncedAt }
+  let cached = null;        // { token, fileId, email, lastSyncedAt }
   let listeners = new Set();
   let status = { state: "idle", message: "", lastSyncedAt: null };
 
@@ -61,291 +64,419 @@
     }
   }
 
-  // ---------- GIS bootstrap ----------
+  // ---------- shared Drive REST helpers ----------
+  // Each platform implementation injects its own getValidAccessToken into
+  // these by passing it through driveFetch. We define them inside an
+  // installer that closes over the platform's token-getter, then both
+  // platform installers reuse them via the helpers object.
 
-  function gisReady() {
-    return !!(window.google && window.google.accounts && window.google.accounts.oauth2);
-  }
-
-  function waitForGis(timeoutMs) {
-    if (gisReady()) return Promise.resolve();
-    const deadline = Date.now() + (timeoutMs || 8000);
-    return new Promise((resolve, reject) => {
-      const tick = () => {
-        if (gisReady()) return resolve();
-        if (Date.now() > deadline) return reject(new Error("Google Identity script failed to load"));
-        setTimeout(tick, 100);
-      };
-      tick();
-    });
-  }
-
-  function ensureTokenClient() {
-    if (tokenClient) return tokenClient;
-    const cfg = window.DRIVE_CONFIG || {};
-    if (!cfg.webClientId) throw new Error("DRIVE_CONFIG.webClientId is not set");
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: cfg.webClientId,
-      scope: cfg.scopes,
-      callback: () => {}, // overridden per-request
-    });
-    return tokenClient;
-  }
-
-  // Request a fresh access token. opts.interactive=true forces a popup;
-  // false attempts silent refresh (only works if user has consented before).
-  function requestToken(interactive) {
-    return new Promise((resolve, reject) => {
-      let client;
-      try { client = ensureTokenClient(); }
-      catch (e) { return reject(e); }
-      client.callback = (resp) => {
-        if (resp && resp.access_token) {
-          const expiresAt = Date.now() + ((resp.expires_in || 3600) * 1000) - 60000; // 1min skew
-          const c = loadCache();
-          c.token = { access_token: resp.access_token, expires_at: expiresAt };
-          saveCache();
-          resolve(resp.access_token);
-        } else {
-          const msg = (resp && (resp.error_description || resp.error)) || "No access token returned";
-          reject(new Error(msg));
-        }
-      };
-      try {
-        client.requestAccessToken({ prompt: interactive ? "consent" : "" });
-      } catch (e) { reject(e); }
-    });
-  }
-
-  async function getValidAccessToken(allowInteractive) {
-    const c = loadCache();
-    const t = c.token;
-    if (t && t.access_token && t.expires_at && t.expires_at > Date.now()) {
-      return t.access_token;
-    }
-    // Try silent refresh first; fall back to interactive only if caller allows.
-    try { return await requestToken(false); }
-    catch (e) {
-      if (allowInteractive) return await requestToken(true);
-      throw e;
-    }
-  }
-
-  // ---------- Drive REST helpers ----------
-
-  async function driveFetch(url, opts) {
-    const token = await getValidAccessToken(false);
-    const headers = Object.assign({}, (opts && opts.headers) || {}, {
-      Authorization: "Bearer " + token,
-    });
-    const resp = await fetch(url, Object.assign({}, opts, { headers }));
-    if (resp.status === 401) {
-      // Token rejected (revoked or stale). Force refresh once.
-      const fresh = await requestToken(false);
-      const retryHeaders = Object.assign({}, (opts && opts.headers) || {}, {
-        Authorization: "Bearer " + fresh,
+  function buildSharedHelpers(getValidAccessToken, requestForcedRefresh) {
+    async function driveFetch(url, opts) {
+      const token = await getValidAccessToken(false);
+      const headers = Object.assign({}, (opts && opts.headers) || {}, {
+        Authorization: "Bearer " + token,
       });
-      return fetch(url, Object.assign({}, opts, { headers: retryHeaders }));
+      const resp = await fetch(url, Object.assign({}, opts, { headers }));
+      if (resp.status === 401) {
+        // Token rejected (revoked or stale). Force a refresh once and retry.
+        const fresh = await requestForcedRefresh();
+        const retryHeaders = Object.assign({}, (opts && opts.headers) || {}, {
+          Authorization: "Bearer " + fresh,
+        });
+        return fetch(url, Object.assign({}, opts, { headers: retryHeaders }));
+      }
+      return resp;
     }
-    return resp;
-  }
 
-  async function findBackupFileId() {
-    const cfg = window.DRIVE_CONFIG || {};
-    const c = loadCache();
-    if (c.fileId) return c.fileId;
-    const q = encodeURIComponent(`name='${cfg.fileName}' and trashed=false`);
-    const url = `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name,modifiedTime,appProperties)`;
-    const resp = await driveFetch(url, { method: "GET" });
-    if (!resp.ok) throw new Error("Drive list failed: " + resp.status);
-    const data = await resp.json();
-    const file = (data.files || [])[0];
-    if (file) {
-      c.fileId = file.id;
-      saveCache();
-      return file.id;
-    }
-    return null;
-  }
-
-  async function fetchUserEmail() {
-    try {
-      const resp = await driveFetch("https://www.googleapis.com/oauth2/v3/userinfo", { method: "GET" });
-      if (!resp.ok) return null;
-      const data = await resp.json();
+    async function findBackupFileId() {
+      const cfg = window.DRIVE_CONFIG || {};
       const c = loadCache();
-      c.email = data.email || null;
-      saveCache();
-      return c.email;
-    } catch { return null; }
+      if (c.fileId) return c.fileId;
+      const q = encodeURIComponent(`name='${cfg.fileName}' and trashed=false`);
+      const url = `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name,modifiedTime,appProperties)`;
+      const resp = await driveFetch(url, { method: "GET" });
+      if (!resp.ok) throw new Error("Drive list failed: " + resp.status);
+      const data = await resp.json();
+      const file = (data.files || [])[0];
+      if (file) {
+        c.fileId = file.id;
+        saveCache();
+        return file.id;
+      }
+      return null;
+    }
+
+    async function fetchUserEmail() {
+      try {
+        const resp = await driveFetch("https://www.googleapis.com/oauth2/v3/userinfo", { method: "GET" });
+        if (!resp.ok) return null;
+        const data = await resp.json();
+        const c = loadCache();
+        c.email = data.email || null;
+        saveCache();
+        return c.email;
+      } catch { return null; }
+    }
+
+    function buildMultipartBody(metadata, bytes) {
+      const boundary = "duitful_" + Math.random().toString(36).slice(2);
+      const enc = new TextEncoder();
+      const head = enc.encode(
+        `--${boundary}\r\n` +
+        `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+        JSON.stringify(metadata) + `\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Type: application/octet-stream\r\n\r\n`,
+      );
+      const tail = enc.encode(`\r\n--${boundary}--`);
+      const body = new Uint8Array(head.length + bytes.length + tail.length);
+      body.set(head, 0);
+      body.set(bytes, head.length);
+      body.set(tail, head.length + bytes.length);
+      return { body, contentType: `multipart/related; boundary=${boundary}` };
+    }
+
+    async function getRemoteMeta() {
+      if (!isSignedInShared()) return null;
+      const fileId = await findBackupFileId();
+      if (!fileId) return null;
+      const url = `https://www.googleapis.com/drive/v3/files/${fileId}?spaces=appDataFolder&fields=id,modifiedTime,size,appProperties`;
+      const resp = await driveFetch(url, { method: "GET" });
+      if (resp.status === 404) {
+        const c = loadCache();
+        c.fileId = null;
+        saveCache();
+        return null;
+      }
+      if (!resp.ok) throw new Error("Drive metadata failed: " + resp.status);
+      return resp.json();
+    }
+
+    async function uploadEncryptedRecord(rec, appProperties) {
+      if (!isSignedInShared()) throw new Error("Not signed in to Google Drive");
+      setStatus("working", "Backing up…");
+      try {
+        const cfg = window.DRIVE_CONFIG || {};
+        const bytes = new TextEncoder().encode(JSON.stringify(rec));
+        let fileId = await findBackupFileId();
+        const metadata = { appProperties: appProperties || {} };
+        if (!fileId) {
+          metadata.name = cfg.fileName;
+          metadata.parents = ["appDataFolder"];
+        }
+        const { body, contentType } = buildMultipartBody(metadata, bytes);
+        const url = fileId
+          ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&fields=id,modifiedTime`
+          : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime`;
+        const resp = await driveFetch(url, {
+          method: fileId ? "PATCH" : "POST",
+          headers: { "Content-Type": contentType },
+          body,
+        });
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(`Drive upload failed: ${resp.status} ${text}`);
+        }
+        const data = await resp.json();
+        const c = loadCache();
+        c.fileId = data.id;
+        c.lastSyncedAt = new Date().toISOString();
+        saveCache();
+        setStatus("idle", "Backed up");
+      } catch (e) {
+        setStatus("error", e.message || "Backup failed");
+        throw e;
+      }
+    }
+
+    async function downloadEncryptedRecord() {
+      if (!isSignedInShared()) throw new Error("Not signed in to Google Drive");
+      setStatus("working", "Downloading backup…");
+      try {
+        const fileId = await findBackupFileId();
+        if (!fileId) {
+          setStatus("idle", "No remote backup");
+          return null;
+        }
+        const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+        const resp = await driveFetch(url, { method: "GET" });
+        if (resp.status === 404) {
+          const c = loadCache();
+          c.fileId = null;
+          saveCache();
+          setStatus("idle", "No remote backup");
+          return null;
+        }
+        if (!resp.ok) throw new Error("Drive download failed: " + resp.status);
+        const text = await resp.text();
+        const rec = JSON.parse(text);
+        setStatus("idle", "Downloaded");
+        return rec;
+      } catch (e) {
+        setStatus("error", e.message || "Download failed");
+        throw e;
+      }
+    }
+
+    return {
+      driveFetch, findBackupFileId, fetchUserEmail,
+      getRemoteMeta, uploadEncryptedRecord, downloadEncryptedRecord,
+    };
   }
 
-  // ---------- multipart upload helpers ----------
-
-  function buildMultipartBody(metadata, bytes) {
-    const boundary = "duitful_" + Math.random().toString(36).slice(2);
-    const enc = new TextEncoder();
-    const head = enc.encode(
-      `--${boundary}\r\n` +
-      `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
-      JSON.stringify(metadata) + `\r\n` +
-      `--${boundary}\r\n` +
-      `Content-Type: application/octet-stream\r\n\r\n`,
-    );
-    const tail = enc.encode(`\r\n--${boundary}--`);
-    const body = new Uint8Array(head.length + bytes.length + tail.length);
-    body.set(head, 0);
-    body.set(bytes, head.length);
-    body.set(tail, head.length + bytes.length);
-    return { body, contentType: `multipart/related; boundary=${boundary}` };
+  function isSignedInShared() {
+    const c = loadCache();
+    return !!(c.token && c.token.access_token && c.token.expires_at > Date.now() - 24 * 3600 * 1000);
   }
-
-  // ---------- public API ----------
 
   function isConfigured() {
     return !!(window.DRIVE_CONFIG && window.DRIVE_CONFIG.webClientId);
   }
-
-  function isSignedIn() {
-    const c = loadCache();
-    return !!(c.token && c.token.access_token && c.token.expires_at > Date.now() - 24 * 3600 * 1000);
-    // We treat "signed in" as: we have a token (possibly expired up to 24h),
-    // since silent refresh works as long as the user hasn't revoked access.
-  }
-
   function getAccountEmail() {
     return loadCache().email || null;
   }
-
   function getStatus() { return status; }
-
   function subscribe(fn) {
     listeners.add(fn);
     try { fn(status); } catch {}
     return () => listeners.delete(fn);
   }
 
-  async function signIn() {
-    if (!isConfigured()) throw new Error("Drive backup is not configured for this build.");
-    setStatus("working", "Signing in…");
-    await waitForGis();
-    try {
-      await requestToken(true);
-      await fetchUserEmail();
-      setStatus("idle", "Signed in");
-    } catch (e) {
-      setStatus("error", e.message || "Sign-in failed");
-      throw e;
-    }
-  }
+  // ---------- web implementation (existing GIS flow) ----------
 
-  async function signOut() {
-    const c = loadCache();
-    const token = c.token && c.token.access_token;
-    clearCache();
-    setStatus("idle", "Signed out");
-    if (token && gisReady()) {
-      try { google.accounts.oauth2.revoke(token, () => {}); } catch {}
-    }
-  }
+  function installWebDriveSync() {
+    let tokenClient = null;
 
-  async function getRemoteMeta() {
-    if (!isSignedIn()) return null;
-    await waitForGis();
-    const fileId = await findBackupFileId();
-    if (!fileId) return null;
-    const url = `https://www.googleapis.com/drive/v3/files/${fileId}?spaces=appDataFolder&fields=id,modifiedTime,size,appProperties`;
-    const resp = await driveFetch(url, { method: "GET" });
-    if (resp.status === 404) {
-      const c = loadCache();
-      c.fileId = null;
-      saveCache();
-      return null;
+    function gisReady() {
+      return !!(window.google && window.google.accounts && window.google.accounts.oauth2);
     }
-    if (!resp.ok) throw new Error("Drive metadata failed: " + resp.status);
-    return resp.json();
-  }
 
-  async function uploadEncryptedRecord(rec, appProperties) {
-    if (!isSignedIn()) throw new Error("Not signed in to Google Drive");
-    await waitForGis();
-    setStatus("working", "Backing up…");
-    try {
-      const cfg = window.DRIVE_CONFIG || {};
-      const bytes = new TextEncoder().encode(JSON.stringify(rec));
-      let fileId = await findBackupFileId();
-      const metadata = {
-        appProperties: appProperties || {},
-      };
-      if (!fileId) {
-        metadata.name = cfg.fileName;
-        metadata.parents = ["appDataFolder"];
-      }
-      const { body, contentType } = buildMultipartBody(metadata, bytes);
-      const url = fileId
-        ? `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart&fields=id,modifiedTime`
-        : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,modifiedTime`;
-      const resp = await driveFetch(url, {
-        method: fileId ? "PATCH" : "POST",
-        headers: { "Content-Type": contentType },
-        body,
+    function waitForGis(timeoutMs) {
+      if (gisReady()) return Promise.resolve();
+      const deadline = Date.now() + (timeoutMs || 8000);
+      return new Promise((resolve, reject) => {
+        const tick = () => {
+          if (gisReady()) return resolve();
+          if (Date.now() > deadline) return reject(new Error("Google Identity script failed to load"));
+          setTimeout(tick, 100);
+        };
+        tick();
       });
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        throw new Error(`Drive upload failed: ${resp.status} ${text}`);
-      }
-      const data = await resp.json();
-      const c = loadCache();
-      c.fileId = data.id;
-      c.lastSyncedAt = new Date().toISOString();
-      saveCache();
-      setStatus("idle", "Backed up");
-    } catch (e) {
-      setStatus("error", e.message || "Backup failed");
-      throw e;
     }
+
+    function ensureTokenClient() {
+      if (tokenClient) return tokenClient;
+      const cfg = window.DRIVE_CONFIG || {};
+      if (!cfg.webClientId) throw new Error("DRIVE_CONFIG.webClientId is not set");
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: cfg.webClientId,
+        scope: cfg.scopes,
+        callback: () => {},
+      });
+      return tokenClient;
+    }
+
+    async function requestToken(interactive) {
+      // Gate every web token request on GIS being loaded. The original code
+      // called waitForGis() at three different entry points; centralising it
+      // here means the shared driveFetch path also waits when needed.
+      await waitForGis();
+      return new Promise((resolve, reject) => {
+        let client;
+        try { client = ensureTokenClient(); }
+        catch (e) { return reject(e); }
+        client.callback = (resp) => {
+          if (resp && resp.access_token) {
+            const expiresAt = Date.now() + ((resp.expires_in || 3600) * 1000) - 60000;
+            const c = loadCache();
+            c.token = { access_token: resp.access_token, expires_at: expiresAt };
+            saveCache();
+            resolve(resp.access_token);
+          } else {
+            const msg = (resp && (resp.error_description || resp.error)) || "No access token returned";
+            reject(new Error(msg));
+          }
+        };
+        try {
+          client.requestAccessToken({ prompt: interactive ? "consent" : "" });
+        } catch (e) { reject(e); }
+      });
+    }
+
+    async function getValidAccessToken(allowInteractive) {
+      const c = loadCache();
+      const t = c.token;
+      if (t && t.access_token && t.expires_at && t.expires_at > Date.now()) {
+        return t.access_token;
+      }
+      try { return await requestToken(false); }
+      catch (e) {
+        if (allowInteractive) return await requestToken(true);
+        throw e;
+      }
+    }
+
+    const helpers = buildSharedHelpers(
+      getValidAccessToken,
+      () => requestToken(false),
+    );
+
+    async function signIn() {
+      if (!isConfigured()) throw new Error("Drive backup is not configured for this build.");
+      setStatus("working", "Signing in…");
+      try {
+        await requestToken(true);  // requestToken awaits waitForGis() internally
+        await helpers.fetchUserEmail();
+        setStatus("idle", "Signed in");
+      } catch (e) {
+        setStatus("error", e.message || "Sign-in failed");
+        throw e;
+      }
+    }
+
+    async function signOut() {
+      const c = loadCache();
+      const token = c.token && c.token.access_token;
+      clearCache();
+      setStatus("idle", "Signed out");
+      if (token && gisReady()) {
+        try { google.accounts.oauth2.revoke(token, () => {}); } catch {}
+      }
+    }
+
+    return Object.assign({ signIn, signOut }, helpers);
   }
 
-  async function downloadEncryptedRecord() {
-    if (!isSignedIn()) throw new Error("Not signed in to Google Drive");
-    await waitForGis();
-    setStatus("working", "Downloading backup…");
-    try {
-      const fileId = await findBackupFileId();
-      if (!fileId) {
-        setStatus("idle", "No remote backup");
-        return null;
-      }
-      const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
-      const resp = await driveFetch(url, { method: "GET" });
-      if (resp.status === 404) {
-        const c = loadCache();
-        c.fileId = null;
-        saveCache();
-        setStatus("idle", "No remote backup");
-        return null;
-      }
-      if (!resp.ok) throw new Error("Drive download failed: " + resp.status);
-      const text = await resp.text();
-      const rec = JSON.parse(text);
-      setStatus("idle", "Downloaded");
-      return rec;
-    } catch (e) {
-      setStatus("error", e.message || "Download failed");
-      throw e;
+  // ---------- native implementation (Capacitor Android) ----------
+
+  function installNativeDriveSync() {
+    // Plugin handle. Resolved lazily — the plugin object is registered when
+    // Capacitor finishes bootstrap, which can be after this module loads.
+    let plugin = null;
+    let initialized = false;
+
+    function getPlugin() {
+      if (plugin) return plugin;
+      const p = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth;
+      if (!p) throw new Error("GoogleAuth plugin not available — is the native build up to date?");
+      plugin = p;
+      return p;
     }
+
+    async function ensureInitialized() {
+      if (initialized) return;
+      const cfg = window.DRIVE_CONFIG || {};
+      if (!cfg.webClientId) throw new Error("DRIVE_CONFIG.webClientId is not set");
+      await getPlugin().initialize({
+        clientId: cfg.webClientId,
+        scopes: (cfg.scopes || "").split(/\s+/).filter(Boolean),
+        grantOfflineAccess: false,
+      });
+      initialized = true;
+    }
+
+    // Plugin response shape varies between versions. v3.x wraps tokens under
+    // `authentication`; older versions return them at the top level. Read both.
+    function extractToken(result) {
+      const auth = result && (result.authentication || result);
+      return {
+        accessToken: auth && (auth.accessToken || auth.access_token),
+        idToken: auth && (auth.idToken || auth.id_token),
+        expiresIn: auth && (auth.expiresIn || auth.expires_in),
+        email: result && result.email,
+      };
+    }
+
+    function persistToken({ accessToken, expiresIn, email }) {
+      if (!accessToken) throw new Error("No access token returned by GoogleAuth");
+      const ttlSec = Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600;
+      const expiresAt = Date.now() + (ttlSec - 60) * 1000;
+      const c = loadCache();
+      c.token = { access_token: accessToken, expires_at: expiresAt };
+      if (email) c.email = email;
+      saveCache();
+      return accessToken;
+    }
+
+    async function refreshToken() {
+      await ensureInitialized();
+      const result = await getPlugin().refresh();
+      return persistToken(extractToken(result));
+    }
+
+    async function getValidAccessToken(allowInteractive) {
+      const c = loadCache();
+      const t = c.token;
+      if (t && t.access_token && t.expires_at && t.expires_at > Date.now()) {
+        return t.access_token;
+      }
+      try { return await refreshToken(); }
+      catch (e) {
+        if (allowInteractive) {
+          // Fall back to interactive sign-in when silent refresh fails (e.g.
+          // user revoked access on the device).
+          await signIn();
+          return loadCache().token.access_token;
+        }
+        throw e;
+      }
+    }
+
+    const helpers = buildSharedHelpers(getValidAccessToken, refreshToken);
+
+    // Map plugin error codes (Android) to user-friendly messages.
+    function humanizeError(err) {
+      if (!err) return "Sign-in failed";
+      const code = String(err.code || err.error || "");
+      if (code === "12501" || /cancel/i.test(err.message || "")) return "Sign-in cancelled";
+      if (code === "12500") return "Sign-in failed (SHA-1 mismatch — see PRODUCTION_DEPLOYMENT.md §3.2.1)";
+      if (code === "7") return "Sign-in failed — no internet connection";
+      return err.message || "Sign-in failed";
+    }
+
+    async function signIn() {
+      if (!isConfigured()) throw new Error("Drive backup is not configured for this build.");
+      setStatus("working", "Signing in…");
+      try {
+        await ensureInitialized();
+        const result = await getPlugin().signIn();
+        persistToken(extractToken(result));
+        // fetchUserEmail also confirms the access token is usable.
+        await helpers.fetchUserEmail();
+        setStatus("idle", "Signed in");
+      } catch (e) {
+        const msg = humanizeError(e);
+        setStatus(msg === "Sign-in cancelled" ? "idle" : "error", msg);
+        if (msg !== "Sign-in cancelled") throw new Error(msg);
+      }
+    }
+
+    async function signOut() {
+      try {
+        await ensureInitialized();
+        await getPlugin().signOut();
+      } catch {} // best-effort revoke; we still clear local cache below
+      clearCache();
+      setStatus("idle", "Signed out");
+    }
+
+    return Object.assign({ signIn, signOut }, helpers);
   }
+
+  // ---------- module entrypoint ----------
+
+  const impl = IS_NATIVE ? installNativeDriveSync() : installWebDriveSync();
 
   window.DriveSync = {
     isConfigured,
-    isSignedIn,
+    isSignedIn: isSignedInShared,
     getAccountEmail,
     getStatus,
     subscribe,
-    signIn,
-    signOut,
-    getRemoteMeta,
-    uploadEncryptedRecord,
-    downloadEncryptedRecord,
+    signIn: impl.signIn,
+    signOut: impl.signOut,
+    getRemoteMeta: impl.getRemoteMeta,
+    uploadEncryptedRecord: impl.uploadEncryptedRecord,
+    downloadEncryptedRecord: impl.downloadEncryptedRecord,
   };
 })();
