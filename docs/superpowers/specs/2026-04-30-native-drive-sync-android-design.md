@@ -66,7 +66,7 @@ The platform-specific code is only:
 
 1. **Module init** (in `installNativeDriveSync`): call `GoogleAuth.initialize({ clientId: webClientId, scopes: [drive.appdata, userinfo.email], grantOfflineAccess: false })`. Idempotent — safe to call once at script load.
 2. **`signIn()`**: calls `GoogleAuth.signIn()`. Plugin returns a user object with `{ authentication: { accessToken, idToken }, email, name, ... }`. Earlier plugin versions returned `{ accessToken, idToken }` at the top level — code must handle both shapes defensively.
-3. **Cache**: write `{token: {access_token, expires_at}, email}` to localStorage under the same `duit-tracker.drive` key the web flow already uses. Computed `expires_at = Date.now() + (3600 - 60) * 1000` (1 hour minus 1 min skew) since the plugin returns no explicit `expires_in` field for access tokens on Android.
+3. **Cache**: write `{token: {access_token, expires_at}, email}` to localStorage under the same `duit-tracker.drive` key the web flow already uses. Computed `expires_at = Date.now() + (3600 - 60) * 1000` (1 hour minus 1 min skew) — assumes the plugin does not return an explicit `expires_in` field for access tokens on Android. **Implementer should verify this against the installed plugin version's response shape**: if `result.authentication?.expiresIn` (or similar) is populated, prefer it over the hard-coded fallback. The 1-hour fallback is safe because expired-token 401s are caught by `driveFetch`'s retry path (§4.1 risk 6).
 4. **`getValidAccessToken()`**: read from cache. If `expires_at > Date.now()`, return cached token. Otherwise call `GoogleAuth.refresh()` → `{ accessToken }` → update cache → return.
 5. **`signOut()`**: call `GoogleAuth.signOut()` (revokes locally, clears device account binding). Then `clearCache()`.
 6. **`signIn()` failure**: if user cancels the account picker, plugin throws `{code: '12501', message: '...'}` (Android cancel code). Code must convert to a user-friendly status and not surface raw error codes.
@@ -120,7 +120,7 @@ In the same Google Cloud project, APIs & Services → Credentials → Create Cre
   ```
   Run from `android/`, paste the keystore password, copy the `SHA1:` value (40-char hex with colons).
 
-The created Android OAuth client ID itself is **not referenced in code** — Google identifies the calling app by package name + SHA-1. The plugin uses the Web Client ID for token exchange.
+The created Android OAuth client ID itself is **not required in code** for native sign-in — Google identifies the calling app by package name + SHA-1. The plugin uses the Web Client ID for token exchange. (Some plugin versions accept an optional `androidClientId` field in `capacitor.config.json` for explicit binding clarity; check the plugin README at install time and use it if available, but functionally the package + SHA-1 verification is what authenticates.)
 
 ### 3.4 Register Play App Signing SHA-1 (before Play upload)
 
