@@ -3548,34 +3548,59 @@ function parseReceiptText(text) {
    user review. Nothing is auto-saved — the user always confirms. */
 
 const TXN_PROVIDERS = [
-  { id: "maybank",   name: "Maybank",       packages: ["com.mbb.malaysia.android"],
+  { id: "maybank",   name: "Maybank",       country: "MY", currency: "MYR",
+    packages: ["com.mbb.malaysia.android"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:charged|debited|deducted|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "cimb",      name: "CIMB",          packages: ["com.cimb.mob.my", "com.cimb.cimbocto"],
+  { id: "cimb",      name: "CIMB",          country: "MY", currency: "MYR",
+    packages: ["com.cimb.mob.my", "com.cimb.cimbocto"],
     patterns: [/(?:Purchase|Charge)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "hlb",       name: "Hong Leong",    packages: ["com.hongleong.connectfirst"],
+  { id: "hlb",       name: "Hong Leong",    country: "MY", currency: "MYR",
+    packages: ["com.hongleong.connectfirst"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:spent|paid|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "rhb",       name: "RHB",           packages: ["my.com.rhbgroup.rhbmobilebanking"],
+  { id: "rhb",       name: "RHB",           country: "MY", currency: "MYR",
+    packages: ["my.com.rhbgroup.rhbmobilebanking"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:has been|was)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "publicbank",name: "Public Bank",   packages: ["my.com.publicbank.pbengine"],
+  { id: "publicbank",name: "Public Bank",   country: "MY", currency: "MYR",
+    packages: ["my.com.publicbank.pbengine"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "tng",       name: "Touch 'n Go",   packages: ["my.com.tngdigital.ewallet"],
+  { id: "tng",       name: "Touch 'n Go",   country: "MY", currency: "MYR",
+    packages: ["my.com.tngdigital.ewallet"],
     patterns: [/(?:spent|paid|deducted)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "grabpay",   name: "GrabPay",       packages: ["com.grabtaxi.passenger"],
+  { id: "grabpay",   name: "GrabPay",       country: "MY", currency: "MYR",
+    packages: ["com.grabtaxi.passenger"],
     patterns: [/(?:paid|spent|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "boost",     name: "Boost",         packages: ["my.com.myboost"],
+  { id: "boost",     name: "Boost",         country: "MY", currency: "MYR",
+    packages: ["my.com.myboost"],
     patterns: [/(?:paid|spent)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "bigpay",    name: "BigPay",        packages: ["com.bigpay.wallet"],
+  { id: "bigpay",    name: "BigPay",        country: "MY", currency: "MYR",
+    packages: ["com.bigpay.wallet"],
     patterns: [/(?:paid|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "spaylater", name: "SPayLater",     packages: ["com.shopee.my"],
+  { id: "spaylater", name: "SPayLater",     country: "MY", currency: "MYR",
+    packages: ["com.shopee.my"],
     patterns: [
       /SPayLater[^.]*?(?:charged|installment)[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i,
       /installment\s+of\s+RM\s*([\d,]+\.?\d*)\s+(?:is )?due/i,
     ] },
-  { id: "atome",     name: "Atome",         packages: ["com.atomeapp.mobile", "sg.com.apaylater"],
+  { id: "atome",     name: "Atome",         country: "MY", currency: "MYR",
+    packages: ["com.atomeapp.mobile", "sg.com.apaylater"],
     patterns: [/Atome[^.]*?(?:charged|paid)[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:for|at)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "graypaylater",name: "GrabPay Later",packages: ["com.grabtaxi.passenger"],
+  { id: "graypaylater",name: "GrabPay Later",country: "MY", currency: "MYR",
+    packages: ["com.grabtaxi.passenger"],
     patterns: [/PayLater[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
 ];
+
+/* Locale-aware amount parsing.
+   - Default (MY/SG/TH/PH): "1,234.56" — comma thousands, dot decimal.
+   - ID/VN: "1.234,56" — dot thousands, comma decimal.
+   Returns a Number, or NaN if unparseable. */
+function parseAmount(raw, currency) {
+  if (raw == null) return NaN;
+  const s = String(raw).trim();
+  if (currency === "IDR" || currency === "VND") {
+    return Number(s.replace(/\./g, "").replace(",", "."));
+  }
+  return Number(s.replace(/,/g, ""));
+}
 
 function providerForPackage(pkg) {
   if (!pkg) return null;
@@ -3607,13 +3632,15 @@ function parseBankText(text, pkg) {
   for (const re of provider.patterns) {
     const m = text.match(re);
     if (!m) continue;
-    const amount = Number(String(m[1]).replace(/,/g, ""));
+    const amount = parseAmount(m[1], provider.currency);
     if (!Number.isFinite(amount) || amount <= 0) continue;
     return {
       amount,
       merchant: m[2] ? m[2].trim().replace(/\s{2,}/g, " ") : "",
       providerId: provider.id,
       providerName: provider.name,
+      country: provider.country,
+      currency: provider.currency,
     };
   }
   return null;
@@ -3639,6 +3666,8 @@ function queuePendingTxn(data) {
     merchant: parsed.merchant,
     providerId: parsed.providerId,
     providerName: parsed.providerName,
+    country: parsed.country,
+    currency: parsed.currency,
   });
   save();
   if (typeof renderAll === "function") renderAll();
