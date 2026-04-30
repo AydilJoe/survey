@@ -117,6 +117,7 @@
   .tag.feat { background: rgba(106,138,94,0.15); color: #3a6b50; }
   .tag.fix { background: rgba(200,112,75,0.15); color: #8a3f1c; }
   .tag.perf { background: rgba(94,122,152,0.15); color: #2e5483; }
+  .tag.note { background: rgba(170,140,60,0.18); color: #7a5a18; }
 
   .footer {
     margin-top: 80px;
@@ -134,6 +135,20 @@
 
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
+
+  <article class="release" id="v1-5">
+    <span class="release-date">April 2026 · v1.5</span>
+    <h2 class="release-title">Android beta is open — testers wanted</h2>
+    <p class="release-summary">Duitful is now on Google Play as an open beta. Same web app you've been using, wrapped in a native Android shell with the on-device features only Android can offer. Help us shake out bugs before public launch — <a href="https://play.google.com/apps/test/com.aydiljoe.duitful/8" target="_blank" rel="noopener">join the beta test on Google Play</a>.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Native Google Drive sync</strong> — encrypted Drive backup works on Android via native Google Sign-In (no popups). Same backup file as the web app, so signing in on Android with the same Google account pulls down your existing data and Pro license.</li>
+      <li><span class="tag feat">new</span><strong>Auto-capture from notifications</strong> — opt in once and Duitful parses transaction notifications from Malaysian banks (Maybank, CIMB, Hong Leong, RHB, Public Bank, AmBank, Bank Islam, BSN), e-wallets (TNG, Boost, BigPay, Setel, GrabPay, ShopeePay, Atome, MAE), and BNPL providers. Plus expanded coverage for Singapore, Indonesia, Thailand, Philippines, and Vietnam banks/e-wallets in beta.</li>
+      <li><span class="tag feat">new</span><strong>Local reminders</strong> — bills, paydays, and credit card due dates fire as real Android notifications, not just browser-tab alerts.</li>
+      <li><span class="tag feat">new</span><strong>One-time Pro purchase via Google Play</strong> — RM 19.90 lifetime, processed via Play Billing. If you already have Pro on the web, sign in to Drive on Android and your Pro carries over.</li>
+      <li><span class="tag fix">fix</span><strong>Privacy hardening</strong> — backups disabled at the Android system level (your local data never goes to Google's auto-backup), R8 obfuscation enabled, no analytics SDKs.</li>
+      <li><span class="tag note">note</span><strong>Known issue</strong> — receipt OCR is hanging on Android in this beta. Use the web app at duitful.app for OCR until v1.6.</li>
+    </ul>
+  </article>
 
   <article class="release" id="v1-4">
     <span class="release-date">April 2026 · v1.4</span>
