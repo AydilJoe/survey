@@ -296,6 +296,8 @@ If any path crashes due to over-aggressive minification, identify the missing ke
 Run: `npm install --save-dev sharp`
 Expected: `package.json` `devDependencies` now lists `sharp`.
 
+> **Windows note:** `sharp` ships prebuilt native binaries via `@img/sharp-*` packages; npm autodetects platform/arch on install. If the install fails with "Could not load the sharp module" on first run, `npm rebuild sharp` usually resolves it. Skip this if the install completes cleanly.
+
 - [ ] **Step 2: Create `scripts/generate-stat-icon.mjs`**
 
 ```javascript
@@ -571,7 +573,7 @@ static {
     ALLOWED.add("com.shopee.my");                        // Shopee / SPayLater
     ALLOWED.add("com.atomeapp.mobile");                  // Atome
     ALLOWED.add("com.grabtaxi.passenger");               // Grab / GrabPay (also SG)
-    // Singapore (Atome SG kept here from the original list — it'll move in Task 8)
+    // Singapore (Atome SG also serves MY users; kept in this region-shared block)
     ALLOWED.add("sg.com.apaylater");                     // Atome SG
 }
 ```
@@ -1299,13 +1301,16 @@ git commit -m "Add NOTIFICATION_ACCESS_DECLARATION.md (Play Permissions Declarat
 Each command must succeed:
 
 ```bash
-# No tracked secrets
-git grep -iE "(password|secret|api_key|private_key)" -- ':!docs' ':!*.md' ':!sample*.csv'
-# Expected: no output (exit 1 from git grep is OK and means "no match")
+# No tracked secrets — value-pattern scan (matches assignments to plausible secret values, not bare identifiers).
+# Looks for `=` followed by a 16+ char base64-ish/hex-ish blob, which is what real keys/passwords actually look like.
+git grep -nE "=\s*['\"]?[A-Za-z0-9_/+\\-]{20,}" -- ':!docs' ':!*.md' ':!sample*.csv' ':!package-lock.json' ':!*.svg'
+# Expected: at most a handful of false positives (npm package SHAs, embedded public keys). Triage each:
+#   - Public keys / public license verification keys: OK to ship.
+#   - Anything that looks like a private key, password, or token literal: STOP and rotate.
 
 # No env files leaking
-find . -name ".env*" -not -path "./node_modules/*"
-# Expected: no real-secret env files
+find . -name ".env*" -not -path "./node_modules/*" -not -name ".env.example"
+# Expected: no real-secret env files. .env.example is permitted (documentation only, no real values).
 
 # Provider parity holds
 node scripts/verify-providers.mjs
@@ -1337,7 +1342,9 @@ Install the signed release APK. Exercise:
 4. Settings → Pending transactions → "Enable auto-capture" → opens system Notification access → toggle Duitful ON.
 5. Trigger a Maybank notification (real card swipe or test) → verify it appears in pending list.
 6. OCR receipt scan with one real receipt.
-7. Encrypted localStorage survives app uninstall/reinstall (NO — should NOT survive — that's the point of `allowBackup="false"`). Verify: install, set passcode, log a transaction, uninstall, reinstall — data should be gone.
+7. Two separate scenarios — both expected outcomes must hold:
+   - **In-place app update** (Play Store update or `adb install -r`): encrypted localStorage MUST survive. This is normal Android behavior; if data is lost on update, that's a regression bug.
+   - **Uninstall + reinstall**: encrypted localStorage MUST NOT come back from cloud backup. This is the point of `allowBackup="false"`. Test: install, set passcode, log a transaction, fully uninstall (`adb uninstall com.aydiljoe.duitful`), reinstall fresh — data should be gone, app should boot to first-run state.
 
 - [ ] **Step 3: If everything passes, merge feature branch to `main`**
 
