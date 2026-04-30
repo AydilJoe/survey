@@ -226,10 +226,11 @@ buildTypes {
 #### `android/app/build.gradle` — `versionCode` / `versionName`
 
 Bump `versionCode` for every Play upload. Never reuse a versionCode.
-Current baseline is `versionCode 7, versionName "1.1.2"` (v1.1.2 fixes
-referral URL on native showing localhost instead of duitful.app).
-v1.1.1 fixed Tesseract OCR asset compression; v1.1.0 added native Drive
-sync; v1.0.0 was `versionCode 4`.
+Current baseline is `versionCode 8, versionName "1.1.3"` (v1.1.3 adds
+clipboard fallback for CSV export on native — Capacitor WebView blocks
+`<a download>`). v1.1.2 fixed referral URL on native; v1.1.1 fixed
+Tesseract OCR asset compression; v1.1.0 added native Drive sync;
+v1.0.0 was `versionCode 4`.
 
 #### `android/app/proguard-rules.pro` — keep rules
 
