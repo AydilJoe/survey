@@ -212,12 +212,61 @@ buildTypes {
 #### `android/app/build.gradle` — `versionCode` / `versionName`
 
 Bump `versionCode` for every Play upload. Never reuse a versionCode.
-Current baseline is `versionCode 4, versionName "1.0.0"`.
+Current baseline is `versionCode 5, versionName "1.1.0"` (v1.1.0 adds
+native Drive sync). v1.0.0 was `versionCode 4`.
 
 #### `android/app/proguard-rules.pro` — keep rules
 
-See the file in this repo at `android/app/proguard-rules.pro` (committed
-through this PR). Re-paste verbatim if the working copy is missing.
+Replace the file contents (or append the missing keep rules) with the verbatim block below:
+
+```
+# Capacitor — heavy reflection, keep all classes
+-keep class com.getcapacitor.** { *; }
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keepclassmembers @com.getcapacitor.annotation.CapacitorPlugin class * {
+    @com.getcapacitor.PluginMethod *;
+}
+
+# Duitful native plugins (notification listener)
+-keep class com.aydiljoe.duitful.plugins.** { *; }
+
+# @codetrix-studio/capacitor-google-auth — needed when minifyEnabled true
+-keep class com.codetrixstudio.capacitor.** { *; }
+
+# Cordova + cordova-plugin-purchase
+-keep class org.apache.cordova.** { *; }
+-keep class com.cordova.** { *; }
+-dontwarn com.cordova.**
+
+# Standard Android — JS interface methods on WebView
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Stack trace readability
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+```
+
+#### `android/app/src/main/java/com/aydiljoe/duitful/MainActivity.java` — register both plugins
+
+```java
+package com.aydiljoe.duitful;
+
+import android.os.Bundle;
+import com.getcapacitor.BridgeActivity;
+import com.aydiljoe.duitful.plugins.NotificationListenerPlugin;
+import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(NotificationListenerPlugin.class);
+        registerPlugin(GoogleAuth.class);
+        super.onCreate(savedInstanceState);
+    }
+}
+```
 
 #### Java listener service two-copy rule
 
@@ -335,6 +384,29 @@ Notification access is **not auto-approved**. Use the wording in
 when filling out the Permissions Declaration form.
 
 If Play rejects: see §6.4 incident response runbook.
+
+### 3.2.1 Google Sign-In SHA-1 (for native Drive sync, v1.1.0+)
+
+The native Drive sync feature uses Google Sign-In; this requires the
+calling APK's signing-key SHA-1 to be registered on the Android OAuth
+client in Google Cloud Console (project `184121637925`).
+
+Before every Play release that includes Drive sync, confirm:
+
+1. The **upload-key SHA-1** is registered on the Android OAuth client
+   (one-time; from `keytool -list -v -keystore duitful-release.keystore -alias duitful`
+   run from `android/`).
+2. The **Play App Signing SHA-1** is registered as a SECOND fingerprint
+   on the same Android OAuth client. Get it from Play Console → Setup
+   → App Integrity → "App signing key certificate".
+
+Without #2, sign-in fails with `12500: SIGN_IN_FAILED` for any AAB
+delivered through Play (including Internal Testing — Play re-signs
+all distributed builds with its own App Signing key).
+
+If you ever rotate the upload keystore, you must add the new key's
+SHA-1 to the Android OAuth client BEFORE the next Play upload, or
+sign-in breaks for sideloaded installs.
 
 ### 3.3 Privacy policy
 
