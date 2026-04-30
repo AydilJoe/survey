@@ -139,7 +139,7 @@ Two coordinated changes that must stay in sync. **Important:** the canonical Jav
 - `com.cimb.cimbocto` → corrected to `com.cimb.octo` (CIMB OCTO's actual Play package).
 - `com.hongleong.connectfirst` → corrected to `com.hongleong.cfs.connect` (Hong Leong's actual Play package).
 
-Both wrong values are removed from the new whitelist; the corrected values replace them. This fixes a silent-failure bug where notifications from those two banks never reached the parser. The other Malaysian entries from the existing whitelist (`com.mbb.malaysia.android`, `my.com.rhbgroup.rhbmobilebanking`, `my.com.publicbank.pbengine`, `my.com.tngdigital.ewallet`, `com.grabtaxi.passenger`, `my.com.myboost`, `com.bigpay.wallet`, `com.shopee.my`, `com.atomeapp.mobile`, `sg.com.apaylater`, `com.cimb.mob.my`, `com.hongleong.connectfirst`) carry forward except where corrected above.
+Both wrong values are removed from the new whitelist; the corrected values replace them. This fixes a silent-failure bug where notifications from those two banks never reached the parser. The other Malaysian entries from the existing whitelist (`com.mbb.malaysia.android`, `my.com.rhbgroup.rhbmobilebanking`, `my.com.publicbank.pbengine`, `my.com.tngdigital.ewallet`, `com.grabtaxi.passenger`, `my.com.myboost`, `com.bigpay.wallet`, `com.shopee.my`, `com.atomeapp.mobile`, `sg.com.apaylater`, `com.cimb.mob.my`) carry forward unchanged. The full bulleted list below is authoritative — refer to it as the source of truth, not this paragraph.
 
 **Full whitelist after this PR** (best-effort SEA expansion; package names verified against Play Store at design time but real-device confirmation queued in `OPEN_ISSUES.md`):
 
@@ -260,6 +260,7 @@ for the current release but should be addressed in subsequent PRs.
 - [ ] Multi-language notification parsing for SEA markets (currently English-pattern only).
 - [ ] Currency rendering in pending-txn UI when captured currency differs from user's display currency.
 - [ ] Real-device verification of SEA bank packages (best-effort list, may need correction post-launch).
+- [ ] Tighten Rabbit LINE Pay capture: currently piggybacks on the LINE package (`jp.naver.line.android`), so all LINE notifications reach the listener and are filtered only at the JS pattern stage. Future work: scope to wallet-specific notification titles or move LINE Pay to a separate package once it's split out.
 
 ## Licensing
 - [ ] Licence token revocation mechanism (currently no way to invalidate a leaked licence).
