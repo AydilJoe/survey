@@ -2814,11 +2814,30 @@ function fromCSV(text) {
   return next;
 }
 
-function downloadCSV() {
-  const blob = new Blob([toCSV()], { type: "text/csv;charset=utf-8" });
+async function downloadCSV() {
+  const csv = toCSV();
+  const ts = new Date().toISOString().slice(0, 10);
+
+  // Capacitor's Android WebView silently blocks <a download> clicks. Fall back
+  // to copying the CSV to the system clipboard so the user can paste it into
+  // Notes, an email draft, or Google Drive.
+  if (isNative()) {
+    try {
+      await navigator.clipboard.writeText(csv);
+      alert(
+        `CSV copied to clipboard.\n\nPaste it into Notes, an email, or a file in Google Drive to save the backup. ` +
+        `(Filename: duitful-${ts}.csv)`,
+      );
+    } catch (err) {
+      alert("Couldn't copy to clipboard. Use Cloud backup (Google Drive) for safe storage on Android.");
+    }
+    return;
+  }
+
+  // Web: standard download via blob URL.
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const ts = new Date().toISOString().slice(0, 10);
   a.href = url;
   a.download = `duitful-${ts}.csv`;
   document.body.appendChild(a);
