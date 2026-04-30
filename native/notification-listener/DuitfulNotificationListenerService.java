@@ -20,21 +20,26 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
 
     private static final Set<String> ALLOWED = new HashSet<>();
     static {
-        // Malaysian banks
+        // Malaysia — banks
         ALLOWED.add("com.mbb.malaysia.android");             // Maybank
+        ALLOWED.add("com.maybank2u.life");                   // Maybank MAE
         ALLOWED.add("com.cimb.mob.my");                      // CIMB
-        ALLOWED.add("com.cimb.cimbocto");                    // CIMB (octo)
-        ALLOWED.add("com.hongleong.connectfirst");           // Hong Leong
+        ALLOWED.add("com.cimb.octo");                        // CIMB OCTO
+        ALLOWED.add("com.hongleong.cfs.connect");            // Hong Leong
         ALLOWED.add("my.com.rhbgroup.rhbmobilebanking");     // RHB
         ALLOWED.add("my.com.publicbank.pbengine");           // Public Bank
-        // E-wallets
+        ALLOWED.add("com.ambank.ambankgroup");               // AmBank
+        ALLOWED.add("com.bankislam.android");                // Bank Islam
+        ALLOWED.add("com.bsn.mybsn");                        // BSN
+        // Malaysia — e-wallets / fuel / BNPL
         ALLOWED.add("my.com.tngdigital.ewallet");            // Touch 'n Go
-        ALLOWED.add("com.grabtaxi.passenger");               // Grab / GrabPay
         ALLOWED.add("my.com.myboost");                       // Boost
         ALLOWED.add("com.bigpay.wallet");                    // BigPay
-        // BNPL
+        ALLOWED.add("com.setel.app");                        // Setel
         ALLOWED.add("com.shopee.my");                        // Shopee / SPayLater
         ALLOWED.add("com.atomeapp.mobile");                  // Atome
+        ALLOWED.add("com.grabtaxi.passenger");               // Grab / GrabPay (also SG)
+        // Singapore (Atome SG also serves MY users; kept in this region-shared block)
         ALLOWED.add("sg.com.apaylater");                     // Atome SG
     }
 
