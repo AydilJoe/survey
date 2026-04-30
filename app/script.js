@@ -1590,7 +1590,9 @@ function renderProControls() {
   const ref = purchased && state && state.license && state.license.ref;
   if (referCard) referCard.hidden = !ref;
   if (referUrlEl && ref) {
-    referUrlEl.textContent = `${location.origin}/app?ref=${ref}`;
+    // Always emit the canonical production URL — location.origin on the
+    // Capacitor WebView resolves to https://localhost, not duitful.app.
+    referUrlEl.textContent = `https://duitful.app/app?ref=${ref}`;
   }
 
   if (status) {
