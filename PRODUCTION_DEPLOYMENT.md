@@ -226,8 +226,9 @@ buildTypes {
 #### `android/app/build.gradle` — `versionCode` / `versionName`
 
 Bump `versionCode` for every Play upload. Never reuse a versionCode.
-Current baseline is `versionCode 5, versionName "1.1.0"` (v1.1.0 adds
-native Drive sync). v1.0.0 was `versionCode 4`.
+Current baseline is `versionCode 6, versionName "1.1.1"` (v1.1.1 fixes
+Tesseract OCR asset compression). v1.1.0 added native Drive sync;
+v1.0.0 was `versionCode 4`.
 
 #### `android/app/proguard-rules.pro` — keep rules
 
