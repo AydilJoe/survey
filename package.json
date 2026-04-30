@@ -7,7 +7,7 @@
     "fetch:tesseract": "node scripts/fetch-tesseract.mjs",
     "build:guides": "node scripts/build-guides.mjs",
     "build:web": "node scripts/build-web.mjs",
-    "assets": "npx @capacitor/assets generate --iconBackgroundColor \"#e8dfd0\" --iconBackgroundColorDark \"#2a2420\" --splashBackgroundColor \"#e8dfd0\" --splashBackgroundColorDark \"#2a2420\"",
+    "assets": "npx @capacitor/assets generate --iconBackgroundColor \"#e8dfd0\" --iconBackgroundColorDark \"#2a2420\" --splashBackgroundColor \"#e8dfd0\" --splashBackgroundColorDark \"#2a2420\" && node scripts/generate-stat-icon.mjs",
     "cap:sync": "npm run build:web && npx cap sync",
     "cap:ios": "npm run cap:sync && npx cap open ios",
     "cap:android": "npm run cap:sync && npx cap open android",
@@ -16,7 +16,8 @@
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^6.1.2"
+    "@capacitor/cli": "^6.1.2",
+    "sharp": "^0.34.5"
   },
   "dependencies": {
     "@capacitor/android": "^6.1.2",
