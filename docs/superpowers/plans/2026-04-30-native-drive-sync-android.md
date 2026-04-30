@@ -433,7 +433,11 @@ Replace the contents of `app/drive-sync.js` with the structure below. Preserve a
       return tokenClient;
     }
 
-    function requestToken(interactive) {
+    async function requestToken(interactive) {
+      // Gate every web token request on GIS being loaded. The original code
+      // called waitForGis() at three different entry points; centralising it
+      // here means the shared driveFetch path also waits when needed.
+      await waitForGis();
       return new Promise((resolve, reject) => {
         let client;
         try { client = ensureTokenClient(); }
@@ -477,9 +481,8 @@ Replace the contents of `app/drive-sync.js` with the structure below. Preserve a
     async function signIn() {
       if (!isConfigured()) throw new Error("Drive backup is not configured for this build.");
       setStatus("working", "Signing in…");
-      await waitForGis();
       try {
-        await requestToken(true);
+        await requestToken(true);  // requestToken awaits waitForGis() internally
         await helpers.fetchUserEmail();
         setStatus("idle", "Signed in");
       } catch (e) {
@@ -852,42 +855,24 @@ git commit -m "Unhide Drive sync card on native (Android implementation now read
 **Files:**
 - Modify: `OPEN_ISSUES.md`
 
-- [ ] **Step 1: Remove the resolved item, add the iOS follow-up**
+- [ ] **Step 1: Confirm current state of `OPEN_ISSUES.md`**
 
-In `OPEN_ISSUES.md`, find:
-
-```markdown
-- [ ] Tighten Rabbit LINE Pay capture: currently piggybacks on the LINE package (`jp.naver.line.android`), so all LINE notifications reach the listener and are filtered only at the JS pattern stage. Future work: scope to wallet-specific notification titles or move LINE Pay to a separate package once it's split out.
-
-## Licensing
+```bash
+grep -i "drive sync" OPEN_ISSUES.md
 ```
 
-(The Drive sync item from the original `OPEN_ISSUES.md` if present should be removed; the file currently does NOT contain a "Drive sync on Android" item — that's been the spec's framing all along, the original commit's `OPEN_ISSUES.md` only had the multi-language parsing / currency / SEA verification / LINE Pay items. So the only change here is to ADD an iOS follow-up.)
+If anything matches, the line(s) need to be removed (Drive sync on Android is now done). Otherwise, just add the iOS follow-up below.
 
-Add the following lines after the "Tighten Rabbit LINE Pay capture" item, still within the "Notification auto-capture" section:
+- [ ] **Step 2: Add the iOS Drive sync follow-up**
+
+In `OPEN_ISSUES.md`, after the existing "## Notification auto-capture" section and before "## Licensing", insert a new section:
 
 ```markdown
 ## Drive sync
 - [ ] iOS Drive sync — when iOS launches, add the same `@codetrix-studio/capacitor-google-auth` integration. The plugin already supports iOS; the work is iOS OAuth client setup, Capacitor iOS plugin install, and TestFlight verification. Same encrypted backup file as web/Android.
 ```
 
-The result should look like:
-
-```markdown
-## Notification auto-capture
-- [ ] Multi-language notification parsing for SEA markets (currently English-pattern only).
-- [ ] Currency rendering in pending-txn UI when captured currency differs from user's display currency.
-- [ ] Real-device verification of SEA bank packages (best-effort list, may need correction post-launch).
-- [ ] Tighten Rabbit LINE Pay capture: currently piggybacks on the LINE package (`jp.naver.line.android`), so all LINE notifications reach the listener and are filtered only at the JS pattern stage. Future work: scope to wallet-specific notification titles or move LINE Pay to a separate package once it's split out.
-
-## Drive sync
-- [ ] iOS Drive sync — when iOS launches, add the same `@codetrix-studio/capacitor-google-auth` integration. The plugin already supports iOS; the work is iOS OAuth client setup, Capacitor iOS plugin install, and TestFlight verification. Same encrypted backup file as web/Android.
-
-## Licensing
-- [ ] Licence token revocation mechanism (currently no way to invalidate a leaked licence).
-```
-
-- [ ] **Step 2: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
 git add OPEN_ISSUES.md
@@ -904,14 +889,14 @@ This task is the gate that decides whether the implementation is shippable. All 
 
 - [ ] **Step 1: Bump Android version**
 
-Edit `android/app/build.gradle` (working-copy only):
+Edit `android/app/build.gradle` (working-copy only — `android/` is gitignored, recipe lives in `PRODUCTION_DEPLOYMENT.md`):
 
 ```gradle
 versionCode 5
 versionName "1.1.0"
 ```
 
-(Up from `versionCode 4, versionName "1.0.0"` shipped with the previous Android deployment hardening PR.)
+(Up from `versionCode 4, versionName "1.0.0"` shipped with the previous Android deployment hardening PR. Every Play upload requires a strictly increasing `versionCode`.)
 
 - [ ] **Step 2: Sync web assets, build a release-signed APK**
 
@@ -924,16 +909,16 @@ cd android
 
 Expected: `BUILD SUCCESSFUL`. APK at `android/app/build/outputs/apk/release/app-release.apk`.
 
-If the build fails on a missing GoogleAuth class: re-run `npm run cap:sync` from the repo root, then retry. If it fails on R8 minification keep-rules: check `android/app/proguard-rules.pro` — Capacitor plugins are kept by `-keep class com.getcapacitor.**`, but the `@codetrix-studio` package may need an additional rule:
+If the build fails on a missing GoogleAuth class: re-run `npm run cap:sync` from the repo root, then retry.
+
+**Preemptively** add the GoogleAuth keep rule to `android/app/proguard-rules.pro` (working-copy only) before building, regardless of whether the build seems to need it. Append to the existing keep-rules block:
 
 ```
+# @codetrix-studio/capacitor-google-auth — needed when minifyEnabled true
 -keep class com.codetrixstudio.capacitor.** { *; }
 ```
 
-If you need to add this, commit the change with:
-```bash
-git add android/app/proguard-rules.pro    # (this file is gitignored — actually skip this commit, just add to PRODUCTION_DEPLOYMENT.md recovery recipe)
-```
+This recipe is reproduced into `PRODUCTION_DEPLOYMENT.md` in Task 9 Step 2 so a fresh `cap add android` reproduces the working build.
 
 - [ ] **Step 3: Reconnect adb wireless and reinstall**
 
@@ -987,11 +972,11 @@ This is the most-likely-to-be-forgotten step. Skip it and sign-in fails for ever
 
 Now the Android OAuth client has two SHA-1s registered: your upload key (for sideloaded `adb install`) and Play's signing key (for any AAB delivered through Play). Both are valid simultaneously.
 
-- [ ] **Step 2: Update `PRODUCTION_DEPLOYMENT.md` §2.1 with the GoogleAuth registration recipe**
+- [ ] **Step 2: Update `PRODUCTION_DEPLOYMENT.md` §2.1 with the GoogleAuth registration recipe + ProGuard rule**
 
-Find the `### 2.1 Working-copy recipe (for fresh clones)` section. After the existing notification-listener two-copy rule subsection, add:
+Find the `### 2.1 Working-copy recipe (for fresh clones)` section. After the existing notification-listener two-copy rule subsection, add a new subsection for `MainActivity.java`:
 
-```markdown
+````markdown
 #### `android/app/src/main/java/com/aydiljoe/duitful/MainActivity.java` — register both plugins
 
 ```java
@@ -1011,9 +996,20 @@ public class MainActivity extends BridgeActivity {
     }
 }
 ```
-```
+````
 
-(Use the proper triple-backtick-java fence; the outer fence in this plan is for the markdown block being inserted.)
+Then find the existing `android/app/proguard-rules.pro` recipe in the same §2.1 section. Append the GoogleAuth keep rule:
+
+````markdown
+Append to `android/app/proguard-rules.pro`:
+
+```
+# @codetrix-studio/capacitor-google-auth — needed when minifyEnabled true
+-keep class com.codetrixstudio.capacitor.** { *; }
+```
+````
+
+(Note: outer triple-backtick-quad fences in this plan are because the inserted block itself contains triple-backticks.)
 
 - [ ] **Step 3: Add the Play App Signing SHA-1 reminder to PRODUCTION_DEPLOYMENT.md §3.2**
 
@@ -1069,7 +1065,7 @@ builds with 12500: SIGN_IN_FAILED)."
 git log --oneline main..HEAD
 ```
 
-Expected: 7-8 commits on `native-drive-sync-android` (one per code-change task).
+Expected: 6 commits on `native-drive-sync-android` (one per code-change task — Tasks 2, 3, 4, 6, 7, 9 commit; Tasks 1, 5, 8 are verification or working-copy-only).
 
 If everything looks good:
 
