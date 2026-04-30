@@ -56,6 +56,8 @@ Android 12+ explicit backup rules:
 
 ### 2.3 Signing — `android/gradle.properties` + `android/app/build.gradle`
 
+**Important context — `android/` is gitignored.** Both files in this section are unchecked-in working-copy artefacts. The canonical, replayable source of these edits lives in this spec and in `PRODUCTION_DEPLOYMENT.md`. After a fresh `npm run cap:add:android` on a new machine, the dev must re-apply the `signingConfigs.release` block manually (or via a copy-paste recipe) — `cap sync` does NOT regenerate `app/build.gradle` after the first add, so once the edits are in place locally they persist across syncs, but they will be lost on a fresh `cap add android`. `PRODUCTION_DEPLOYMENT.md` §2 (build & sign procedure) must include this recipe verbatim so any future re-clone reproduces the signed-build setup.
+
 **`gradle.properties` change:** strip the four `RELEASE_*` lines entirely. The file should contain only the gradle JVM/AndroidX settings.
 
 **`build.gradle` change:** rewrite `signingConfigs.release` to read from environment variables first, falling back to `~/.gradle/gradle.properties` user-scoped properties for local dev:
@@ -119,19 +121,33 @@ One-shot Node script that:
    - xxhdpi: 72×72 px
    - xxxhdpi: 96×96 px
 
-Uses `sharp` (already a transitive dependency of `@capacitor/assets`). Hooked into `npm run assets` so it regenerates whenever brand assets change.
+Uses `sharp` for SVG → PNG rendering. `@capacitor/assets@3.0.5` does pull `sharp` transitively, but to remove ambiguity for devs running this script standalone (and to lock the version), this PR adds `sharp` as an explicit `devDependencies` entry in `package.json`. Hooked into `npm run assets` so it regenerates whenever brand assets change.
 
 The `smallIcon: "ic_stat_icon"` reference at `app/script.js:1942` keeps working — the missing drawable is the only fix.
 
 ### 2.6 Bank package whitelist + parsers
 
-Two coordinated changes that must stay in sync:
+Two coordinated changes that must stay in sync. **Important:** the canonical Java sources at `native/notification-listener/*.java` are NOT what the build compiles. The compiled copies live at `android/app/src/main/java/com/aydiljoe/duitful/plugins/` (gitignored, copied in manually per `native/notification-listener/README.md`). Every change to the Java listener in this PR must be applied to BOTH locations:
 
-**Java service** — `native/notification-listener/DuitfulNotificationListenerService.java`:
+1. Edit `native/notification-listener/DuitfulNotificationListenerService.java` (canonical, version-controlled, gets diff review).
+2. Copy the same edit to `android/app/src/main/java/com/aydiljoe/duitful/plugins/DuitfulNotificationListenerService.java` (deployed, what gets built).
 
-The `ALLOWED` set lists package names by market. Listed providers (best-effort, package names verified against Play Store at design time but flagged in `OPEN_ISSUES.md` for real-device confirmation):
+`PRODUCTION_DEPLOYMENT.md` §2 must document this two-copy rule so future contributors don't ship stale listener code by editing only the canonical file.
 
-- **Malaysia (existing, audited):** Maybank `com.mbb.malaysia.android`, Maybank MAE `com.maybank2u.life`, CIMB `com.cimb.mob.my`, CIMB OCTO `com.cimb.octo`, Hong Leong `com.hongleong.cfs.connect`, RHB `my.com.rhbgroup.rhbmobilebanking`, Public Bank `my.com.publicbank.pbengine`, AmBank `com.ambank.ambankgroup`, Bank Islam `com.bankislam.android`, BSN `com.bsn.mybsn`, TNG `my.com.tngdigital.ewallet`, Boost `my.com.myboost`, BigPay `com.bigpay.wallet`, Setel `com.setel.app`, ShopeePay/SPayLater `com.shopee.my`, Atome `com.atomeapp.mobile`, GrabPay/Grab `com.grabtaxi.passenger`.
+**Malaysian package corrections — explicit fixes, not "audited."** The original whitelist contains two incorrect package names that are confirmed wrong:
+
+- `com.cimb.cimbocto` → corrected to `com.cimb.octo` (CIMB OCTO's actual Play package).
+- `com.hongleong.connectfirst` → corrected to `com.hongleong.cfs.connect` (Hong Leong's actual Play package).
+
+Both wrong values are removed from the new whitelist; the corrected values replace them. This fixes a silent-failure bug where notifications from those two banks never reached the parser. The other Malaysian entries from the existing whitelist (`com.mbb.malaysia.android`, `my.com.rhbgroup.rhbmobilebanking`, `my.com.publicbank.pbengine`, `my.com.tngdigital.ewallet`, `com.grabtaxi.passenger`, `my.com.myboost`, `com.bigpay.wallet`, `com.shopee.my`, `com.atomeapp.mobile`, `sg.com.apaylater`, `com.cimb.mob.my`, `com.hongleong.connectfirst`) carry forward except where corrected above.
+
+**Full whitelist after this PR** (best-effort SEA expansion; package names verified against Play Store at design time but real-device confirmation queued in `OPEN_ISSUES.md`):
+
+**Java service** — `native/notification-listener/DuitfulNotificationListenerService.java` (and the deployed copy):
+
+The `ALLOWED` set lists package names by market:
+
+- **Malaysia:** Maybank `com.mbb.malaysia.android`, Maybank MAE `com.maybank2u.life`, CIMB `com.cimb.mob.my`, CIMB OCTO `com.cimb.octo`, Hong Leong `com.hongleong.cfs.connect`, RHB `my.com.rhbgroup.rhbmobilebanking`, Public Bank `my.com.publicbank.pbengine`, AmBank `com.ambank.ambankgroup`, Bank Islam `com.bankislam.android`, BSN `com.bsn.mybsn`, TNG `my.com.tngdigital.ewallet`, Boost `my.com.myboost`, BigPay `com.bigpay.wallet`, Setel `com.setel.app`, ShopeePay/SPayLater `com.shopee.my`, Atome `com.atomeapp.mobile`, GrabPay/Grab `com.grabtaxi.passenger`.
 - **Singapore:** DBS digibank SG `com.dbs.sg.dbsmbanking`, OCBC `com.ocbc.mobile`, UOB Mighty `sg.com.uob.mighty.app`, GrabPay SG (uses Grab package), DBS PayLah! `com.dbs.sg.paylah`, Atome SG `sg.com.apaylater`.
 - **Indonesia:** BCA `com.bca`, Livin' by Mandiri `com.bankmandiri.mandiriapp`, BNI Mobile `src.com.bni`, BRImo `id.co.bri.brimo`, GoPay/Gojek `com.gojek.app`, OVO `com.ovo`, DANA `id.dana`, ShopeePay ID `com.shopee.id`.
 - **Thailand:** K PLUS Kasikornbank `com.kasikorn.retail.mbanking.wap`, SCB Easy `com.scb.phone`, Krungthai NEXT `com.ktb.netbank`, Bangkok Bank Mobile `com.bbl.mobilebanking`, KMA Krungsri `com.krungsri.kma`, ttb touch `com.ttb.touch`, TrueMoney `th.co.truemoney.wallet`, Rabbit LINE Pay (uses LINE package) `jp.naver.line.android`.
@@ -140,7 +156,9 @@ The `ALLOWED` set lists package names by market. Listed providers (best-effort, 
 
 **JS parser** — `app/script.js` `TXN_PROVIDERS`:
 
-Each provider gets `id`, `name`, `country`, `currency`, `packages`, `patterns`. Patterns use currency-symbol-aware regexes:
+The current provider record shape is `{id, name, packages, patterns}`. This PR extends the shape to `{id, name, country, currency, packages, patterns}` — `country` is an ISO-2 string (`"MY"`, `"SG"`, `"ID"`, `"TH"`, `"PH"`, `"VN"`), `currency` is the ISO-4217 code (`"MYR"`, `"SGD"`, `"IDR"`, `"THB"`, `"PHP"`, `"VND"`). Existing providers are migrated to the new shape (every existing entry gets `country: "MY"`, `currency: "MYR"`).
+
+Patterns use currency-symbol-aware regexes:
 
 - `RM\s*([\d,]+\.?\d*)` (MY)
 - `S\$\s*([\d,]+\.?\d*)` (SG)
@@ -159,6 +177,10 @@ Each provider gets `id`, `name`, `country`, `currency`, `packages`, `patterns`. 
 ### 2.7 Versioning — `android/app/build.gradle`
 
 Bump to `versionCode 4, versionName "1.0.0"`. Subsequent Play uploads must increment `versionCode` monotonically.
+
+### 2.7a Provider-list parity check — new `scripts/verify-providers.mjs`
+
+Small Node script that diffs the package list in `app/script.js` `TXN_PROVIDERS` against the `ALLOWED` set in `native/notification-listener/DuitfulNotificationListenerService.java`. Every package present in one must be present in the other. The script exits non-zero on drift. Wired into the pre-flight checklist in `PRODUCTION_DEPLOYMENT.md` and runnable as `node scripts/verify-providers.mjs`. Prevents the same kind of drift that introduced the original CIMB OCTO and Hong Leong package mismatches.
 
 ### 2.8 New documentation files
 
@@ -224,14 +246,26 @@ Bump to `versionCode 4, versionName "1.0.0"`. Subsequent Play uploads must incre
 - Alternative provided: manual entry works without notification access.
 - Data minimization: only whitelisted bank/e-wallet packages are read; everything else is ignored.
 
-### 2.9 `OPEN_ISSUES.md` updates
+### 2.9 `OPEN_ISSUES.md` — new file
 
-Append items:
+This file does NOT currently exist at the repo root. This PR creates it. It is a flat markdown checklist for known limitations / follow-up work that doesn't warrant a full GitHub Issue. Initial contents:
 
-- Multi-language notification parsing for SEA markets (currently English-pattern only).
-- Currency rendering in pending-txn UI when captured currency ≠ user's display currency.
-- Real-device verification of SEA bank packages (best-effort list, may need correction post-launch).
-- Licence token revocation mechanism (currently no way to invalidate a leaked licence).
+```markdown
+# Open issues
+
+Tracking known limitations and follow-up work. Items here are not blockers
+for the current release but should be addressed in subsequent PRs.
+
+## Notification auto-capture
+- [ ] Multi-language notification parsing for SEA markets (currently English-pattern only).
+- [ ] Currency rendering in pending-txn UI when captured currency differs from user's display currency.
+- [ ] Real-device verification of SEA bank packages (best-effort list, may need correction post-launch).
+
+## Licensing
+- [ ] Licence token revocation mechanism (currently no way to invalidate a leaked licence).
+```
+
+Future PRs append items here. The file is referenced by §2.6 (best-effort verification flag) and acceptance criterion 8.
 
 ## 3. Critical compliance risk
 
@@ -247,7 +281,7 @@ Finance apps requesting notification access have a mixed approval track record. 
 - The notification listener service registration in the manifest must be guarded behind a build flag, OR
 - Two AAB variants are buildable: one with notification listener, one without.
 
-**Decision for this spec:** ship a single AAB with the listener included. If Play rejects, follow-up work removes the service declaration and the JS calls become no-ops on Android (already the case via `isNative()` and feature detection in `script.js:1539`). No code changes needed in JS — the JS already handles missing plugin gracefully.
+**Decision for this spec:** ship a single AAB with the listener included. If Play rejects, follow-up work removes the service declaration and the JS calls become no-ops on Android (already the case via `isNative()` and the `NL`-truthy guards in `app/script.js:1538-1540`). No code changes needed in JS — the JS already handles a missing plugin gracefully.
 
 ## 4. Testing plan
 
@@ -261,7 +295,8 @@ No unit test framework exists in this repo. Manual verification only.
 - Run merged-manifest inspection: `cat android/app/build/intermediates/merged_manifests/release/AndroidManifest.xml` confirms `allowBackup="false"`, `dataExtractionRules`, `POST_NOTIFICATIONS`.
 - Run R8 mapping check: `android/app/build/outputs/mapping/release/mapping.txt` exists and is non-empty.
 - Run resource shrink check: AAB size before vs after this PR — expect noticeable reduction.
-- Repository secret scan: `git grep -iE "(password|secret|api_key|private_key)" -- ':!docs' ':!*.md'` returns no real secrets.
+- Repository secret scan: `git grep -iE "(password|secret|api_key|private_key)" -- ':!docs' ':!*.md' ':!sample*.csv'` returns no real secrets.
+- Provider parity check: `node scripts/verify-providers.mjs` exits zero (Java `ALLOWED` matches JS `TXN_PROVIDERS` package list).
 
 ### 4.3 SEA provider verification
 
@@ -300,8 +335,10 @@ This PR is complete when all the following are true:
 2. Release AAB builds successfully with `minifyEnabled true` and `shrinkResources true`. R8 mapping file is generated.
 3. Merged manifest contains `allowBackup="false"`, `dataExtractionRules`, `POST_NOTIFICATIONS` permission.
 4. `npm run assets` (or `node scripts/generate-stat-icon.mjs`) produces `ic_stat_icon.png` at all five densities under `android/app/src/main/res/drawable-*/`.
-5. `TXN_PROVIDERS` in `app/script.js` and `ALLOWED` in `DuitfulNotificationListenerService.java` are in lockstep — every provider in JS has its packages listed in Java, and vice versa.
+5. `TXN_PROVIDERS` in `app/script.js` and `ALLOWED` in BOTH copies of `DuitfulNotificationListenerService.java` (canonical at `native/notification-listener/`, deployed at `android/app/src/main/java/com/aydiljoe/duitful/plugins/`) are in lockstep — every provider in JS has its packages listed in both Java copies, and vice versa. Verified by `node scripts/verify-providers.mjs` exiting zero.
 6. `versionCode` is `4`, `versionName` is `"1.0.0"` in `android/app/build.gradle`.
 7. `PRODUCTION_DEPLOYMENT.md`, `SECURITY_AUDIT.md`, `NOTIFICATION_ACCESS_DECLARATION.md` exist at repo root and cover the sections listed in §2.8.
-8. `OPEN_ISSUES.md` has the four flagged items appended.
+8. `OPEN_ISSUES.md` exists at repo root with the initial contents specified in §2.9.
 9. Pre-flight security checklist in `PRODUCTION_DEPLOYMENT.md` runs clean against the current branch.
+10. `scripts/verify-providers.mjs` exists, exits zero on the current branch, and is referenced from the pre-flight checklist.
+11. `package.json` lists `sharp` in `devDependencies`.
