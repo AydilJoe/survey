@@ -45,6 +45,15 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         ALLOWED.add("com.ocbc.mobile");                      // OCBC SG
         ALLOWED.add("sg.com.uob.mighty.app");                // UOB Mighty
         ALLOWED.add("com.dbs.sg.paylah");                    // DBS PayLah!
+        // Indonesia
+        ALLOWED.add("com.bca");                              // BCA mobile
+        ALLOWED.add("com.bankmandiri.mandiriapp");           // Livin' by Mandiri
+        ALLOWED.add("src.com.bni");                          // BNI Mobile
+        ALLOWED.add("id.co.bri.brimo");                      // BRImo
+        ALLOWED.add("com.gojek.app");                        // GoPay (Gojek)
+        ALLOWED.add("com.ovo");                              // OVO
+        ALLOWED.add("id.dana");                              // DANA
+        ALLOWED.add("com.shopee.id");                        // ShopeePay ID
     }
 
     @Override
