@@ -347,10 +347,120 @@
     return Object.assign({ signIn, signOut }, helpers);
   }
 
-  // ---------- native implementation (added in Task 4) ----------
+  // ---------- native implementation (Capacitor Android) ----------
 
   function installNativeDriveSync() {
-    throw new Error("Native Drive sync not yet implemented (see Task 4 of plan)");
+    // Plugin handle. Resolved lazily — the plugin object is registered when
+    // Capacitor finishes bootstrap, which can be after this module loads.
+    let plugin = null;
+    let initialized = false;
+
+    function getPlugin() {
+      if (plugin) return plugin;
+      const p = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.GoogleAuth;
+      if (!p) throw new Error("GoogleAuth plugin not available — is the native build up to date?");
+      plugin = p;
+      return p;
+    }
+
+    async function ensureInitialized() {
+      if (initialized) return;
+      const cfg = window.DRIVE_CONFIG || {};
+      if (!cfg.webClientId) throw new Error("DRIVE_CONFIG.webClientId is not set");
+      await getPlugin().initialize({
+        clientId: cfg.webClientId,
+        scopes: (cfg.scopes || "").split(/\s+/).filter(Boolean),
+        grantOfflineAccess: false,
+      });
+      initialized = true;
+    }
+
+    // Plugin response shape varies between versions. v3.x wraps tokens under
+    // `authentication`; older versions return them at the top level. Read both.
+    function extractToken(result) {
+      const auth = result && (result.authentication || result);
+      return {
+        accessToken: auth && (auth.accessToken || auth.access_token),
+        idToken: auth && (auth.idToken || auth.id_token),
+        expiresIn: auth && (auth.expiresIn || auth.expires_in),
+        email: result && result.email,
+      };
+    }
+
+    function persistToken({ accessToken, expiresIn, email }) {
+      if (!accessToken) throw new Error("No access token returned by GoogleAuth");
+      const ttlSec = Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600;
+      const expiresAt = Date.now() + (ttlSec - 60) * 1000;
+      const c = loadCache();
+      c.token = { access_token: accessToken, expires_at: expiresAt };
+      if (email) c.email = email;
+      saveCache();
+      return accessToken;
+    }
+
+    async function refreshToken() {
+      await ensureInitialized();
+      const result = await getPlugin().refresh();
+      return persistToken(extractToken(result));
+    }
+
+    async function getValidAccessToken(allowInteractive) {
+      const c = loadCache();
+      const t = c.token;
+      if (t && t.access_token && t.expires_at && t.expires_at > Date.now()) {
+        return t.access_token;
+      }
+      try { return await refreshToken(); }
+      catch (e) {
+        if (allowInteractive) {
+          // Fall back to interactive sign-in when silent refresh fails (e.g.
+          // user revoked access on the device).
+          await signIn();
+          return loadCache().token.access_token;
+        }
+        throw e;
+      }
+    }
+
+    const helpers = buildSharedHelpers(getValidAccessToken, refreshToken);
+
+    // Map plugin error codes (Android) to user-friendly messages.
+    function humanizeError(err) {
+      if (!err) return "Sign-in failed";
+      const code = String(err.code || err.error || "");
+      if (code === "12501" || /cancel/i.test(err.message || "")) return "Sign-in cancelled";
+      if (code === "12500") return "Sign-in failed (SHA-1 mismatch — see PRODUCTION_DEPLOYMENT.md §3.2.1)";
+      if (code === "7") return "Sign-in failed — no internet connection";
+      return err.message || "Sign-in failed";
+    }
+
+    async function signIn() {
+      if (!isConfigured()) throw new Error("Drive backup is not configured for this build.");
+      setStatus("working", "Signing in…");
+      try {
+        await ensureInitialized();
+        const result = await getPlugin().signIn();
+        persistToken(extractToken(result));
+        // fetchUserEmail also confirms the access token is usable.
+        await helpers.fetchUserEmail();
+        setStatus("idle", "Signed in");
+      } catch (e) {
+        const msg = humanizeError(e);
+        setStatus(msg === "Sign-in cancelled" ? "idle" : "error", msg);
+        if (msg !== "Sign-in cancelled") throw new Error(msg);
+      }
+    }
+
+    async function signOut() {
+      try {
+        await ensureInitialized();
+        await getPlugin().signOut();
+      } catch {} // best-effort revoke; we still clear local cache below
+      clearCache();
+      setStatus("idle", "Signed out");
+    }
+
+    return Object.assign({ signIn, signOut }, helpers);
   }
 
   // ---------- module entrypoint ----------
