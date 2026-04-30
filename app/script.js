@@ -4194,8 +4194,6 @@ function formatRelative(iso) {
 function renderDriveCard() {
   const card = document.getElementById("drive-card");
   if (!card) return;
-  // Hide entirely on native — native uses a different (Capacitor) plugin path.
-  if (isNative()) { card.hidden = true; return; }
   card.hidden = false;
 
   const configured = !!(window.DriveSync && DriveSync.isConfigured());
