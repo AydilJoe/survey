@@ -41,6 +41,10 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         ALLOWED.add("com.grabtaxi.passenger");               // Grab / GrabPay (also SG)
         // Singapore (Atome SG also serves MY users; kept in this region-shared block)
         ALLOWED.add("sg.com.apaylater");                     // Atome SG
+        ALLOWED.add("com.dbs.sg.dbsmbanking");               // DBS digibank SG
+        ALLOWED.add("com.ocbc.mobile");                      // OCBC SG
+        ALLOWED.add("sg.com.uob.mighty.app");                // UOB Mighty
+        ALLOWED.add("com.dbs.sg.paylah");                    // DBS PayLah!
     }
 
     @Override

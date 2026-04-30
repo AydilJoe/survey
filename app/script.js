@@ -3602,6 +3602,19 @@ const TXN_PROVIDERS = [
   { id: "setel", name: "Setel", country: "MY", currency: "MYR",
     packages: ["com.setel.app"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|spent|fueled)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
+  // ----- Singapore -----
+  { id: "dbs-sg", name: "DBS digibank SG", country: "SG", currency: "SGD",
+    packages: ["com.dbs.sg.dbsmbanking"],
+    patterns: [/S\$\s*([\d,]+\.?\d*)\s+(?:charged|paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "ocbc-sg", name: "OCBC SG", country: "SG", currency: "SGD",
+    packages: ["com.ocbc.mobile"],
+    patterns: [/S\$\s*([\d,]+\.?\d*)\s+(?:charged|paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "uob-sg", name: "UOB Mighty", country: "SG", currency: "SGD",
+    packages: ["sg.com.uob.mighty.app"],
+    patterns: [/S\$\s*([\d,]+\.?\d*)\s+(?:charged|paid|spent)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "paylah", name: "DBS PayLah!", country: "SG", currency: "SGD",
+    packages: ["com.dbs.sg.paylah"],
+    patterns: [/S\$\s*([\d,]+\.?\d*)\s+(?:paid|sent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
 ];
 
 /* Locale-aware amount parsing.
