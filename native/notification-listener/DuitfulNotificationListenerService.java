@@ -54,6 +54,15 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         ALLOWED.add("com.ovo");                              // OVO
         ALLOWED.add("id.dana");                              // DANA
         ALLOWED.add("com.shopee.id");                        // ShopeePay ID
+        // Thailand
+        ALLOWED.add("com.kasikorn.retail.mbanking.wap");     // K PLUS
+        ALLOWED.add("com.scb.phone");                        // SCB Easy
+        ALLOWED.add("com.ktb.netbank");                      // Krungthai NEXT
+        ALLOWED.add("com.bbl.mobilebanking");                // Bangkok Bank Mobile
+        ALLOWED.add("com.krungsri.kma");                     // KMA Krungsri
+        ALLOWED.add("com.ttb.touch");                        // ttb touch
+        ALLOWED.add("th.co.truemoney.wallet");               // TrueMoney Wallet
+        ALLOWED.add("jp.naver.line.android");                // Rabbit LINE Pay (piggyback — see OPEN_ISSUES)
     }
 
     @Override
