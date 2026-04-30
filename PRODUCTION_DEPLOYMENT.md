@@ -166,6 +166,20 @@ After the existing `INTERNET` permission, add:
 </data-extraction-rules>
 ```
 
+#### `android/app/build.gradle` — `aaptOptions` (asset compression)
+
+The default `aaptOptions` block needs `noCompress` for `.gz`, `.wasm`, and
+`.traineddata` files. Without this, Android's asset packager re-compresses
+the pre-compressed Tesseract.js artefacts at build time, corrupting them.
+Receipt OCR will hang on "loading trained data" forever.
+
+```gradle
+aaptOptions {
+    ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+    noCompress 'gz', 'wasm', 'traineddata'
+}
+```
+
 #### `android/gradle.properties` — strip secrets
 
 The file should contain only:
