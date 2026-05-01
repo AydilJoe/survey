@@ -68,9 +68,11 @@
     <a href="/tools/admin/">← admin tools</a>
   </div>
   <p class="hint">
-    Billplz v3 has no list-bills endpoint, so the table loads from your CSV export
-    (Dashboard → Bills → filter <em>Paid</em> → Export CSV). Once a bill ID is loaded
-    you can re-verify it live against the API.
+    Billplz v3 has no list-bills API endpoint (confirmed: their server returns
+    404 for <code>GET /api/v3/bills?collection_id=…</code>). Load the table from
+    your dashboard CSV export (Dashboard → Bills → filter <em>Paid</em> → Export CSV).
+    Single bills can still be verified live against the documented
+    <code>GET /api/v3/bills/{id}</code> endpoint.
   </p>
 
   <div class="card" id="auth-card">
@@ -81,31 +83,6 @@
     </p>
     <input id="admin-key" type="password" autocomplete="off" placeholder="Paste ADMIN_KEY">
     <p id="auth-err" class="err"></p>
-  </div>
-
-  <div class="card">
-    <h2>Load live from Billplz API <span class="pill pill-other" style="font-size:0.6rem;">experimental</span></h2>
-    <p class="hint" style="margin-bottom:0.5rem;">
-      Tries <code>GET /api/v3/bills?collection_id=…&amp;state=paid</code> against the configured account.
-      This endpoint isn't in Billplz's public docs, so it may 404 — in which case fall back to CSV import below.
-    </p>
-    <div style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
-      <label>
-        <span>State</span>
-        <select id="live-state">
-          <option value="paid" selected>paid</option>
-          <option value="due">due</option>
-          <option value="">all</option>
-        </select>
-      </label>
-      <label>
-        <span>Per page</span>
-        <input id="live-per-page" type="number" value="50" min="1" max="100" style="width:90px;">
-      </label>
-      <button class="primary" id="live-load">Load page 1</button>
-      <button class="ghost mini" id="live-load-more" hidden>Load next page</button>
-    </div>
-    <p id="live-status" class="verify-result"></p>
   </div>
 
   <div class="card">
@@ -497,7 +474,9 @@ document.querySelectorAll("th[data-sort]").forEach((th) => {
 document.getElementById("filter-q").addEventListener("input", applyFilters);
 document.getElementById("filter-state").addEventListener("change", applyFilters);
 
-// Live API list loader
+// Live list loader (vestigial: Billplz has no documented list endpoint
+// and confirmed-404s the URL pattern below). Kept defined but unbound
+// from the UI in case Billplz ever adds the endpoint.
 let livePage = 1;
 let livePerPage = 50;
 let liveAccumulated = [];
@@ -595,9 +574,6 @@ async function loadLive(reset) {
     loadBtn.disabled = false; moreBtn.disabled = false;
   }
 }
-
-document.getElementById("live-load").addEventListener("click", () => loadLive(true));
-document.getElementById("live-load-more").addEventListener("click", () => loadLive(false));
 
 // Single-bill live lookup button
 document.getElementById("lookup-btn").addEventListener("click", () => {
