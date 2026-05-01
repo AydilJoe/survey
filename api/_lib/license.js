@@ -4,6 +4,12 @@
 
 const crypto = require("crypto");
 
+// 25 years. "Lifetime" Pro in practice, but bounded so a leaked token
+// can't unlock Pro on arbitrary devices forever. The verifier in
+// app/script.js treats `exp` as optional for backward compatibility
+// with licenses minted before this field existed.
+const DEFAULT_LICENSE_TTL_SECONDS = 25 * 365 * 24 * 60 * 60;
+
 function b64url(buf) {
   return Buffer.from(buf).toString("base64")
     .replace(/\+/g, "-")
@@ -15,7 +21,14 @@ function signLicense(payload) {
   const pem = process.env.LICENSE_SIGNING_PRIVATE_KEY;
   if (!pem) throw new Error("LICENSE_SIGNING_PRIVATE_KEY not set");
 
-  const payloadJson = JSON.stringify(payload);
+  const now = Math.floor(Date.now() / 1000);
+  const enriched = {
+    ...payload,
+    iat: payload.iat || now,
+    exp: payload.exp || now + DEFAULT_LICENSE_TTL_SECONDS,
+  };
+
+  const payloadJson = JSON.stringify(enriched);
   const payloadB64 = b64url(payloadJson);
 
   const sig = crypto.sign(

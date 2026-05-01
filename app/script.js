@@ -1783,6 +1783,9 @@ async function verifyLicense(raw) {
   if (payload.product && payload.product !== "duitful_pro") {
     throw new Error("License is for a different product");
   }
+  if (typeof payload.exp === "number" && payload.exp < Math.floor(Date.now() / 1000)) {
+    throw new Error("License has expired — contact hello@duitful.app to reissue");
+  }
   return payload;
 }
 
@@ -3455,13 +3458,12 @@ async function detectLocalTesseract() {
 async function loadTesseract() {
   if (window.Tesseract) return window.Tesseract;
   const useLocal = await detectLocalTesseract();
-  const src = useLocal
-    ? "vendor/tesseract/tesseract.min.js"
-    : "https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js";
+  if (!useLocal) {
+    throw new Error("Receipt OCR isn't available on this build (Tesseract assets not bundled).");
+  }
   await new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = src;
-    if (!useLocal) s.crossOrigin = "anonymous";
+    s.src = "vendor/tesseract/tesseract.min.js";
     s.onload = resolve;
     s.onerror = () => reject(new Error("Failed to load Tesseract.js"));
     document.head.appendChild(s);
@@ -3472,19 +3474,15 @@ async function loadTesseract() {
 async function getTesseractWorker(logger) {
   const Tess = await loadTesseract();
   if (!tesseractWorker) {
-    const useLocal = await detectLocalTesseract();
     // Workers need absolute URLs — relative paths fail in importScripts()
     // inside Capacitor's WebView (base URL differs in worker context).
-    const base = useLocal ? new URL("vendor/tesseract/", location.href).href : undefined;
-    const opts = useLocal
-      ? {
-          logger,
-          workerPath: base + "worker.min.js",
-          corePath: base,
-          langPath: base,
-        }
-      : { logger };
-    tesseractWorker = await Tess.createWorker("eng", 1, opts);
+    const base = new URL("vendor/tesseract/", location.href).href;
+    tesseractWorker = await Tess.createWorker("eng", 1, {
+      logger,
+      workerPath: base + "worker.min.js",
+      corePath: base,
+      langPath: base,
+    });
   }
   return tesseractWorker;
 }
