@@ -1523,8 +1523,17 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
           </div>
           <h3>On-device encryption</h3>
-          <p>Your data is AES-GCM encrypted with a key derived from your passcode via PBKDF2. Optional sync via your own Google Drive (Pro) — the file is encrypted before it leaves the device.</p>
+          <p>Every entry is AES-GCM encrypted with a key derived from your passcode via PBKDF2 (250k iterations). The passcode never leaves the device — not even Duitful can read your data.</p>
           <span class="chip-mono">AES-GCM · PBKDF2</span>
+        </div>
+
+        <div class="feature reveal">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a5 5 0 01-1-9.9 6 6 0 0111.6 1.6A4.5 4.5 0 0117 18H7z"/><path d="M12 11v7m0 0l-2.5-2.5M12 18l2.5-2.5"/></svg>
+          </div>
+          <h3>Sync across your devices</h3>
+          <p>Pro syncs your encrypted database through <em>your own</em> Google Drive — into a hidden app folder only Duitful uses. Phone, tablet, laptop all stay in step. No Duitful account, no Duitful server, and the file is encrypted with your passcode before it leaves the device.</p>
+          <span class="chip-mono">Pro · your Drive</span>
         </div>
 
         <div class="feature reveal">
@@ -1545,7 +1554,7 @@
       <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
         <span class="eyebrow">One app, every screen</span>
         <h2>iPhone, Android, iPad, <em style="font-style:italic; color:var(--primary)">desktop</em>.</h2>
-        <p style="margin-left:auto; margin-right:auto;">Same app, same data, same free tier. Open Duitful in Safari on your iPhone during lunch, finish the month on your iPad at home, or review your avalanche plan on a laptop. The install banner handles the rest.</p>
+        <p style="margin-left:auto; margin-right:auto;">Same app, same data, same free tier. Open Duitful in Safari on your iPhone during lunch, finish the month on your iPad at home, or review your avalanche plan on a laptop. Pro keeps every device in step through encrypted sync to <em>your own</em> Google Drive — no Duitful account, no Duitful server.</p>
       </div>
 
       <div class="device-row reveal">
@@ -1573,7 +1582,9 @@
       <ul class="device-notes reveal">
         <li><strong>Install to home screen</strong> on any OS via the built-in prompt. No App Store or Play Store needed.</li>
         <li><strong>Works offline</strong> once opened, and a service worker auto-updates the UI when we ship changes.</li>
-        <li><strong>Move between devices</strong> via CSV export → import. Your data never round-trips through a server.</li>
+        <li><strong>Encrypted sync via your own Google Drive</strong> (Pro) keeps phone, tablet, and laptop in step. The backup lives in a hidden app folder, encrypted with your passcode before upload — Google can't read it, and Duitful runs no sync server of its own.</li>
+        <li><strong>Set up a new device in two taps:</strong> install Duitful, hit <em>Restore from Google Drive</em>, enter your passcode. Your full ledger lands locally, decrypted on-device.</li>
+        <li><strong>Offline-only? Still works.</strong> CSV export → import moves data between devices without ever touching the network.</li>
       </ul>
     </div>
   </section>
@@ -1714,7 +1725,7 @@
           <ul>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><strong style="color:var(--ink); font-weight:500;">Unlimited</strong> debts, goals &amp; accounts</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Unlimited receipt scans + auto-FX</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Android auto-capture from notifications</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Android auto-capture from notifications <a class="plan-version" href="/changelog/#v1-5">v1.5</a></li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Avalanche planner &amp; what-if scenarios</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>CSV export &amp; import (Monarch, YNAB)</li>
             <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Encrypted sync across devices via your own Google Drive <a class="plan-version" href="/changelog/#v1-4">v1.4</a></li>
