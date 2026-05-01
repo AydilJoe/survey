@@ -1,6 +1,7 @@
 native/
 resources/
-scripts/
+scripts/*
+!scripts/fetch-tesseract.mjs
 prompts/
 landing/
 pnpm-lock.yaml
