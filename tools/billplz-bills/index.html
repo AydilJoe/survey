@@ -136,6 +136,15 @@
     <div id="lookup-result" class="verify-result"></div>
   </div>
 
+  <div class="card" id="debug-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.4rem;">
+      <h2 style="margin:0;">Debug log</h2>
+      <button id="debug-clear" class="ghost mini">Clear</button>
+    </div>
+    <p class="hint" style="margin:0 0 0.5rem;">Every API call from this page is logged here with status, timing, and raw response body. Useful when "Load" appears to do nothing.</p>
+    <pre id="debug-log" style="font:11.5px/1.45 ui-monospace, monospace; background:#fbf5ea; padding:0.6rem 0.7rem; border-radius:8px; border:0.5px solid var(--line); max-height:340px; overflow:auto; margin:0; white-space:pre-wrap; word-break:break-word;">— No requests yet. Click a Load / Verify button above to begin. —</pre>
+  </div>
+
   <div class="card" id="summary" hidden>
     <div class="totals">
       <div class="total-tile"><div class="lbl">Rows</div><div class="val" id="t-rows">0</div></div>
@@ -189,6 +198,46 @@ keyInput.addEventListener("input", () => {
 
 function escapeHtml(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+// ---------- Debug log (visible on the page so silent failures aren't silent) ----------
+const debugEl = document.getElementById("debug-log");
+let debugCleared = false;
+function dlog(line) {
+  if (!debugCleared) { debugEl.textContent = ""; debugCleared = true; }
+  const ts = new Date().toISOString().slice(11, 23);
+  debugEl.textContent += `[${ts}] ${line}\n`;
+  debugEl.scrollTop = debugEl.scrollHeight;
+}
+function dgroup(title, body) {
+  if (!debugCleared) { debugEl.textContent = ""; debugCleared = true; }
+  const ts = new Date().toISOString().slice(11, 23);
+  const indented = String(body).split("\n").map((l) => "  " + l).join("\n");
+  debugEl.textContent += `[${ts}] ${title}\n${indented}\n`;
+  debugEl.scrollTop = debugEl.scrollHeight;
+}
+document.getElementById("debug-clear").addEventListener("click", () => {
+  debugEl.textContent = "— Cleared. Click a Load / Verify button above to begin. —";
+  debugCleared = false;
+});
+
+async function debugFetch(label, url, opts) {
+  dlog(`→ ${label}: GET ${url}`);
+  const t0 = performance.now();
+  let r, text, parsed = null;
+  try {
+    r = await fetch(url, opts);
+  } catch (netErr) {
+    dlog(`✗ ${label}: NETWORK ERROR after ${(performance.now() - t0).toFixed(0)}ms — ${netErr.message || netErr}`);
+    throw netErr;
+  }
+  const dt = (performance.now() - t0).toFixed(0);
+  dlog(`← ${label}: HTTP ${r.status} (${dt}ms, content-type: ${r.headers.get("content-type") || "?"})`);
+  try { text = await r.text(); } catch (e) { text = `<failed to read body: ${e.message || e}>`; }
+  try { parsed = JSON.parse(text); } catch { /* leave parsed null */ }
+  const preview = text.length > 1500 ? text.slice(0, 1500) + `\n… (${text.length - 1500} more chars truncated)` : text;
+  dgroup(`  body (${text.length} bytes)`, preview || "<empty>");
+  return { r, text, parsed };
 }
 
 // ---------- CSV parsing (RFC 4180-ish, handles quotes & commas-in-quotes) ----------
@@ -357,19 +406,24 @@ async function verifyBillById(id, sourceBtn) {
   target.textContent = "Looking up…";
 
   try {
-    const r = await fetch(`/api/admin/billplz-bill?id=${encodeURIComponent(id)}`, {
+    const url = `/api/admin/billplz-bill?id=${encodeURIComponent(id)}`;
+    const { r, parsed } = await debugFetch(`single-bill ${id}`, url, {
       headers: { "x-admin-key": key },
     });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
-    const b = data.bill || {};
+    if (!r.ok) {
+      const errMsg = (parsed && parsed.error) || `HTTP ${r.status}`;
+      throw new Error(errMsg);
+    }
+    const b = (parsed && parsed.bill) || {};
     const stateLine = `<strong>${escapeHtml(b.state || "?")}</strong> · RM ${(Number(b.amount || 0) / 100).toFixed(2)} · ${escapeHtml(b.email || "")}`;
     target.classList.add(b.state === "paid" ? "ok" : "err");
     target.innerHTML = `${stateLine}
       <details class="detail" open><summary>Raw bill</summary><pre>${escapeHtml(JSON.stringify(b, null, 2))}</pre></details>`;
+    dlog(`✓ Bill ${id}: state=${b.state}, amount=RM ${(Number(b.amount || 0) / 100).toFixed(2)}, email=${b.email || "(none)"}`);
   } catch (err) {
     target.classList.add("err");
     target.textContent = "Lookup failed: " + (err.message || String(err));
+    dlog(`✗ Single-bill lookup error: ${err.message || err}`);
   } finally {
     if (sourceBtn) { sourceBtn.disabled = false; sourceBtn.textContent = original; }
   }
@@ -464,7 +518,12 @@ function billplzApiBillToRow(b) {
 
 async function loadLive(reset) {
   const key = (keyInput.value || "").trim();
-  if (!key) { authErr.textContent = "Admin key required for live API."; authErr.style.display = "block"; return; }
+  if (!key) {
+    authErr.textContent = "Admin key required for live API.";
+    authErr.style.display = "block";
+    dlog("✗ Admin key field is empty — paste your ADMIN_KEY at the top first.");
+    return;
+  }
   authErr.style.display = "none";
 
   if (reset) {
@@ -485,33 +544,53 @@ async function loadLive(reset) {
 
   try {
     const params = new URLSearchParams({ state, page: String(livePage), per_page: String(livePerPage) });
-    const r = await fetch(`/api/admin/billplz-list?${params.toString()}`, {
+    const url = `/api/admin/billplz-list?${params.toString()}`;
+    const { r, parsed, text } = await debugFetch(`live-list page ${livePage}`, url, {
       headers: { "x-admin-key": key },
     });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
 
-    if (!data.ok) {
+    if (!r.ok) {
+      // Backend returned non-2xx (auth fail, server misconfig, etc.) — distinct from Billplz returning non-200.
+      const errMsg = (parsed && parsed.error) || `HTTP ${r.status}`;
       status.classList.add("err");
-      const hint = data.hint ? ` — ${data.hint}` : "";
-      status.innerHTML = `Billplz returned <strong>HTTP ${data.status}</strong>${escapeHtml(hint)}.
-        <details class="detail" open><summary>Response body</summary><pre>${escapeHtml(typeof data.body === "string" ? data.body : JSON.stringify(data.body, null, 2))}</pre></details>`;
+      status.textContent = `Backend rejected the request: ${errMsg}`;
+      dlog(`✗ Backend HTTP ${r.status}: ${errMsg}. See body above. Common causes: admin key wrong (403), endpoint not deployed yet (404 from Vercel static), env var missing (500).`);
       moreBtn.hidden = true;
       return;
     }
 
-    const newRows = (data.bills || []).map(billplzApiBillToRow);
+    if (!parsed) {
+      status.classList.add("err");
+      status.textContent = "Backend returned non-JSON response — check the debug log.";
+      dlog(`✗ Could not parse response as JSON. Raw body shown above.`);
+      moreBtn.hidden = true;
+      return;
+    }
+
+    if (!parsed.ok) {
+      // Backend reached Billplz but Billplz returned non-200 — the expected "no list endpoint" case.
+      const hint = parsed.hint ? ` — ${parsed.hint}` : "";
+      status.classList.add("err");
+      status.innerHTML = `Billplz returned <strong>HTTP ${parsed.status}</strong>${escapeHtml(hint)}.
+        <details class="detail" open><summary>Response body</summary><pre>${escapeHtml(typeof parsed.body === "string" ? parsed.body : JSON.stringify(parsed.body, null, 2))}</pre></details>`;
+      dlog(`✗ Billplz HTTP ${parsed.status}${hint}. Tried URL: ${parsed.triedUrl || "(not reported)"}. Body shown in panel above.`);
+      moreBtn.hidden = true;
+      return;
+    }
+
+    const newRows = (parsed.bills || []).map(billplzApiBillToRow);
     liveAccumulated = liveAccumulated.concat(newRows);
     allRows = liveAccumulated;
     renderSummaryAndTable();
 
     status.classList.add("ok");
     status.textContent = `Loaded ${newRows.length} bill(s) on page ${livePage} (total: ${liveAccumulated.length}).`;
-    // If we got a full page, more might exist
+    dlog(`✓ Got ${newRows.length} bills on page ${livePage} (running total: ${liveAccumulated.length}). Table updated.`);
     moreBtn.hidden = newRows.length < livePerPage;
   } catch (err) {
     status.classList.add("err");
     status.textContent = "Live load failed: " + (err.message || String(err));
+    dlog(`✗ Unexpected error: ${err.message || err}`);
   } finally {
     loadBtn.disabled = false; moreBtn.disabled = false;
   }
