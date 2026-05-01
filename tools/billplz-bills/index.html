@@ -84,6 +84,31 @@
   </div>
 
   <div class="card">
+    <h2>Load live from Billplz API <span class="pill pill-other" style="font-size:0.6rem;">experimental</span></h2>
+    <p class="hint" style="margin-bottom:0.5rem;">
+      Tries <code>GET /api/v3/bills?collection_id=…&amp;state=paid</code> against the configured account.
+      This endpoint isn't in Billplz's public docs, so it may 404 — in which case fall back to CSV import below.
+    </p>
+    <div style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
+      <label>
+        <span>State</span>
+        <select id="live-state">
+          <option value="paid" selected>paid</option>
+          <option value="due">due</option>
+          <option value="">all</option>
+        </select>
+      </label>
+      <label>
+        <span>Per page</span>
+        <input id="live-per-page" type="number" value="50" min="1" max="100" style="width:90px;">
+      </label>
+      <button class="primary" id="live-load">Load page 1</button>
+      <button class="ghost mini" id="live-load-more" hidden>Load next page</button>
+    </div>
+    <p id="live-status" class="verify-result"></p>
+  </div>
+
+  <div class="card">
     <h2>Load bills from CSV</h2>
     <div id="drop" class="drop">
       <strong>Drop CSV here, or tap to pick a file</strong>
@@ -417,6 +442,83 @@ document.querySelectorAll("th[data-sort]").forEach((th) => {
 
 document.getElementById("filter-q").addEventListener("input", applyFilters);
 document.getElementById("filter-state").addEventListener("change", applyFilters);
+
+// Live API list loader
+let livePage = 1;
+let livePerPage = 50;
+let liveAccumulated = [];
+
+function billplzApiBillToRow(b) {
+  // Billplz bill shape: amount in sen, paid_at ISO string, state lowercase.
+  return {
+    id: String(b.id || ""),
+    email: String(b.email || ""),
+    name: String(b.name || ""),
+    state: String(b.state || "").toLowerCase(),
+    amount: Number(b.amount || 0) / 100, // sen → MYR
+    paidAt: String(b.paid_at || ""),
+    ref1: String(b.reference_1 || ""),
+    ref2: String(b.reference_2 || ""),
+  };
+}
+
+async function loadLive(reset) {
+  const key = (keyInput.value || "").trim();
+  if (!key) { authErr.textContent = "Admin key required for live API."; authErr.style.display = "block"; return; }
+  authErr.style.display = "none";
+
+  if (reset) {
+    livePage = 1;
+    liveAccumulated = [];
+  } else {
+    livePage += 1;
+  }
+  livePerPage = Math.max(1, Math.min(100, Number(document.getElementById("live-per-page").value) || 50));
+  const state = document.getElementById("live-state").value;
+  const status = document.getElementById("live-status");
+  status.className = "verify-result";
+  status.textContent = `Fetching page ${livePage}…`;
+
+  const loadBtn = document.getElementById("live-load");
+  const moreBtn = document.getElementById("live-load-more");
+  loadBtn.disabled = true; moreBtn.disabled = true;
+
+  try {
+    const params = new URLSearchParams({ state, page: String(livePage), per_page: String(livePerPage) });
+    const r = await fetch(`/api/admin/billplz-list?${params.toString()}`, {
+      headers: { "x-admin-key": key },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+
+    if (!data.ok) {
+      status.classList.add("err");
+      const hint = data.hint ? ` — ${data.hint}` : "";
+      status.innerHTML = `Billplz returned <strong>HTTP ${data.status}</strong>${escapeHtml(hint)}.
+        <details class="detail" open><summary>Response body</summary><pre>${escapeHtml(typeof data.body === "string" ? data.body : JSON.stringify(data.body, null, 2))}</pre></details>`;
+      moreBtn.hidden = true;
+      return;
+    }
+
+    const newRows = (data.bills || []).map(billplzApiBillToRow);
+    liveAccumulated = liveAccumulated.concat(newRows);
+    allRows = liveAccumulated;
+    renderSummaryAndTable();
+
+    status.classList.add("ok");
+    status.textContent = `Loaded ${newRows.length} bill(s) on page ${livePage} (total: ${liveAccumulated.length}).`;
+    // If we got a full page, more might exist
+    moreBtn.hidden = newRows.length < livePerPage;
+  } catch (err) {
+    status.classList.add("err");
+    status.textContent = "Live load failed: " + (err.message || String(err));
+  } finally {
+    loadBtn.disabled = false; moreBtn.disabled = false;
+  }
+}
+
+document.getElementById("live-load").addEventListener("click", () => loadLive(true));
+document.getElementById("live-load-more").addEventListener("click", () => loadLive(false));
 
 // Single-bill live lookup button
 document.getElementById("lookup-btn").addEventListener("click", () => {
