@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Duitful — Billplz bills</title>
+<style>
+  :root {
+    --bg: #efe6d6; --ink: #2a2420; --muted: #6b5e52; --primary: #c8704b;
+    --card: #fffaf2; --line: rgba(42,36,32,0.08); --gain: #5c986e; --warn: #b35a39;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:16px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--ink); min-height:100dvh; padding:1.2rem; }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font:500 1.6rem/1.2 "Fraunces","Georgia",serif; margin:0.4rem 0 0.2rem; }
+  .hint { color:var(--muted); font-size:0.92rem; margin:0 0 0.8rem; }
+  .top { display:flex; align-items:center; justify-content:space-between; gap:0.6rem; }
+  .top a { color:var(--primary); text-decoration:none; font-size:0.88rem; }
+  .card { background:var(--card); border:0.5px solid var(--line); border-radius:16px; padding:1rem 1.1rem; margin:1rem 0; }
+  .card h2 { margin:0 0 0.6rem; font:500 1rem/1.25 "Fraunces", serif; }
+  label span { display:block; font-size:0.8rem; color:var(--muted); margin-bottom:0.2rem; }
+  input, textarea, select { width:100%; font:14px/1.45 inherit; border:0.5px solid var(--line); border-radius:10px; padding:0.55rem 0.7rem; background:#fbf5ea; color:var(--ink); }
+  textarea { font:12px/1.5 ui-monospace, SFMono-Regular, monospace; resize:vertical; min-height:80px; }
+  button { font:500 0.95rem/1 inherit; padding:0.7rem 1.1rem; border-radius:12px; border:0.5px solid transparent; cursor:pointer; }
+  .primary { background:var(--primary); color:#fffaf2; border-color:var(--primary); }
+  .ghost { background:transparent; color:var(--ink); border-color:var(--line); }
+  .mini { padding:0.35rem 0.7rem; font-size:0.82rem; }
+  .drop {
+    border: 2px dashed rgba(42,36,32,0.18); border-radius:14px; padding:1.4rem 1rem; text-align:center;
+    background:#fbf5ea; cursor:pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .drop:hover, .drop.over { border-color:var(--primary); background:#fff6eb; }
+  .drop strong { display:block; font:500 1rem/1.3 "Fraunces", serif; color:var(--ink); margin-bottom:0.15rem; }
+  .err { color:#8a3f1c; font-size:0.88rem; margin-top:0.5rem; display:none; }
+  .totals { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:0.6rem; margin:0.4rem 0 0.6rem; }
+  .total-tile { background:var(--card); border:0.5px solid var(--line); border-radius:12px; padding:0.6rem 0.8rem; }
+  .total-tile .lbl { font:500 0.7rem/1 ui-monospace, monospace; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); }
+  .total-tile .val { font:500 1.3rem/1.2 "Fraunces", serif; margin-top:0.2rem; }
+  .filter-row { display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center; margin:0.6rem 0; }
+  .filter-row input, .filter-row select { max-width:240px; }
+  .scroll-x { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:0.88rem; }
+  th, td { padding:0.55rem 0.5rem; text-align:left; border-bottom:0.5px solid var(--line); vertical-align:top; }
+  th { font:500 0.7rem/1 ui-monospace, monospace; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); cursor:pointer; user-select:none; white-space:nowrap; }
+  th[data-sort]::after { content:" ↕"; opacity:0.4; }
+  th[data-sort].asc::after { content:" ↑"; opacity:0.9; }
+  th[data-sort].desc::after { content:" ↓"; opacity:0.9; }
+  .code { font:12px/1 ui-monospace, SFMono-Regular, monospace; background:rgba(0,0,0,0.04); padding:2px 6px; border-radius:4px; word-break:break-all; }
+  .amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pill { display:inline-block; padding:2px 7px; font:500 0.7rem/1 ui-monospace, monospace; letter-spacing:0.04em; border-radius:6px; text-transform:uppercase; }
+  .pill-paid { background:rgba(92,152,110,0.18); color:#3a6b50; }
+  .pill-due  { background:rgba(200,112,75,0.18); color:#8a3f1c; }
+  .pill-other { background:rgba(0,0,0,0.06); color:var(--muted); }
+  .row-actions button { padding:0.3rem 0.55rem; font-size:0.78rem; }
+  details.detail { margin-top:0.4rem; }
+  details.detail summary { cursor:pointer; color:var(--muted); font-size:0.85rem; }
+  details.detail pre { font:11.5px/1.45 ui-monospace, monospace; background:#fbf5ea; padding:0.6rem 0.7rem; border-radius:8px; border:0.5px solid var(--line); max-height:240px; overflow:auto; }
+  .verify-result { margin-top:0.5rem; font-size:0.85rem; color:var(--muted); }
+  .verify-result.ok { color:#3a6b50; }
+  .verify-result.err { color:#8a3f1c; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Billplz bills</h1>
+    <a href="/tools/admin/">← admin tools</a>
+  </div>
+  <p class="hint">
+    Billplz v3 has no list-bills endpoint, so the table loads from your CSV export
+    (Dashboard → Bills → filter <em>Paid</em> → Export CSV). Once a bill ID is loaded
+    you can re-verify it live against the API.
+  </p>
+
+  <div class="card" id="auth-card">
+    <h2>Admin key</h2>
+    <p class="hint" style="margin-bottom:0.4rem;">
+      Required for live API verification. Auto-loaded if you arrived from
+      <a href="/tools/admin/">/tools/admin/</a> in the same tab.
+    </p>
+    <input id="admin-key" type="password" autocomplete="off" placeholder="Paste ADMIN_KEY">
+    <p id="auth-err" class="err"></p>
+  </div>
+
+  <div class="card">
+    <h2>Load live from Billplz API <span class="pill pill-other" style="font-size:0.6rem;">experimental</span></h2>
+    <p class="hint" style="margin-bottom:0.5rem;">
+      Tries <code>GET /api/v3/bills?collection_id=…&amp;state=paid</code> against the configured account.
+      This endpoint isn't in Billplz's public docs, so it may 404 — in which case fall back to CSV import below.
+    </p>
+    <div style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
+      <label>
+        <span>State</span>
+        <select id="live-state">
+          <option value="paid" selected>paid</option>
+          <option value="due">due</option>
+          <option value="">all</option>
+        </select>
+      </label>
+      <label>
+        <span>Per page</span>
+        <input id="live-per-page" type="number" value="50" min="1" max="100" style="width:90px;">
+      </label>
+      <button class="primary" id="live-load">Load page 1</button>
+      <button class="ghost mini" id="live-load-more" hidden>Load next page</button>
+    </div>
+    <p id="live-status" class="verify-result"></p>
+  </div>
+
+  <div class="card">
+    <h2>Load bills from CSV</h2>
+    <div id="drop" class="drop">
+      <strong>Drop CSV here, or tap to pick a file</strong>
+      <span>Standard Billplz bills export — first row = headers</span>
+      <input type="file" id="file" accept=".csv,text/csv" hidden>
+    </div>
+    <details style="margin-top:0.8rem;">
+      <summary style="cursor:pointer; font-size:0.9rem; color:var(--muted);">Or paste CSV contents</summary>
+      <textarea id="paste" rows="6" placeholder="ID,Email,Name,State,Amount,Paid At,Reference 1,Reference 2,..."></textarea>
+      <div style="margin-top:0.5rem;"><button class="primary" id="parse-paste">Parse pasted CSV</button></div>
+    </details>
+    <p id="csv-err" class="err"></p>
+  </div>
+
+  <div class="card" id="lookup-card">
+    <h2>Look up a single bill (live)</h2>
+    <p class="hint">Paste a Billplz bill ID — fetches from the live API to confirm current state, amount, and email.</p>
+    <div style="display:flex; gap:0.5rem; align-items:flex-end;">
+      <label style="flex:1;">
+        <span>Bill ID</span>
+        <input id="lookup-id" type="text" placeholder="e.g. inbmmepb">
+      </label>
+      <button class="primary" id="lookup-btn" style="white-space:nowrap;">Verify live</button>
+    </div>
+    <div id="lookup-result" class="verify-result"></div>
+  </div>
+
+  <div class="card" id="summary" hidden>
+    <div class="totals">
+      <div class="total-tile"><div class="lbl">Rows</div><div class="val" id="t-rows">0</div></div>
+      <div class="total-tile"><div class="lbl">Paid</div><div class="val" id="t-paid">0</div></div>
+      <div class="total-tile"><div class="lbl">Other states</div><div class="val" id="t-other">0</div></div>
+      <div class="total-tile"><div class="lbl">Gross paid</div><div class="val amt" id="t-gross">RM 0.00</div></div>
+    </div>
+    <div class="filter-row">
+      <input id="filter-q" type="search" placeholder="Search email, name, ID, or reference…">
+      <select id="filter-state">
+        <option value="">All states</option>
+        <option value="paid" selected>Paid only</option>
+        <option value="due">Due only</option>
+      </select>
+      <button class="ghost mini" id="export-filtered">Export filtered as CSV</button>
+    </div>
+  </div>
+
+  <div class="card scroll-x" id="table-card" hidden>
+    <table id="bills-table">
+      <thead>
+        <tr>
+          <th data-sort="paidAt" class="desc">Paid at</th>
+          <th data-sort="email">Email</th>
+          <th data-sort="name">Name</th>
+          <th data-sort="amount">Amount</th>
+          <th data-sort="state">State</th>
+          <th>ID</th>
+          <th>Refs</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="bills-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const ADMIN_KEY_STORAGE = "duitful.admin-key";
+const keyInput = document.getElementById("admin-key");
+const authErr = document.getElementById("auth-err");
+
+(function loadKey() {
+  const cached = sessionStorage.getItem(ADMIN_KEY_STORAGE);
+  if (cached) keyInput.value = cached;
+})();
+keyInput.addEventListener("input", () => {
+  const v = keyInput.value.trim();
+  if (v) sessionStorage.setItem(ADMIN_KEY_STORAGE, v);
+});
+
+function escapeHtml(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+
+// ---------- CSV parsing (RFC 4180-ish, handles quotes & commas-in-quotes) ----------
+function parseCSV(text) {
+  const rows = [];
+  let i = 0, field = "", row = [], inQuotes = false;
+  const src = text.replace(/\r\n?/g, "\n");
+  while (i < src.length) {
+    const c = src[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (src[i + 1] === '"') { field += '"'; i += 2; continue; }
+        inQuotes = false; i++; continue;
+      }
+      field += c; i++; continue;
+    }
+    if (c === '"') { inQuotes = true; i++; continue; }
+    if (c === ",") { row.push(field); field = ""; i++; continue; }
+    if (c === "\n") { row.push(field); rows.push(row); field = ""; row = []; i++; continue; }
+    field += c; i++;
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter((r) => r.length && r.some((cell) => String(cell).trim() !== ""));
+}
+
+function findColumn(headers, ...candidates) {
+  const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const normalised = headers.map(norm);
+  for (const cand of candidates) {
+    const wanted = norm(cand);
+    const idx = normalised.indexOf(wanted);
+    if (idx !== -1) return idx;
+  }
+  return -1;
+}
+
+let allRows = []; // canonicalised bill objects
+let sortKey = "paidAt";
+let sortDir = "desc";
+
+function ingestCSV(text) {
+  const rows = parseCSV(text);
+  if (rows.length < 2) {
+    return { error: "CSV looks empty or has no data rows." };
+  }
+  const headers = rows[0];
+  const idIdx     = findColumn(headers, "id", "bill id", "billid");
+  const emailIdx  = findColumn(headers, "email");
+  const nameIdx   = findColumn(headers, "name");
+  const stateIdx  = findColumn(headers, "state", "status");
+  const amountIdx = findColumn(headers, "amount", "amount (rm)", "amountrm", "amountcent");
+  const paidAtIdx = findColumn(headers, "paid at", "paidat", "paid_at");
+  const ref1Idx   = findColumn(headers, "reference 1", "reference1", "reference_1");
+  const ref2Idx   = findColumn(headers, "reference 2", "reference2", "reference_2");
+  if (idIdx === -1 || amountIdx === -1) {
+    return { error: "Couldn't find required columns (need at least 'ID' and 'Amount')." };
+  }
+  const out = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const rawAmt = String(r[amountIdx] || "").replace(/[^0-9.]/g, "");
+    const amt = Number(rawAmt) || 0;
+    // Heuristic: Billplz CSV exports amount in MYR (e.g. 19.90), not sen.
+    // If the value is integer-only and >100, assume sen.
+    const amountMyr = (amt > 100 && /^\d+$/.test(rawAmt)) ? amt / 100 : amt;
+    out.push({
+      id: String(r[idIdx] || "").trim(),
+      email: emailIdx !== -1 ? String(r[emailIdx] || "").trim() : "",
+      name: nameIdx !== -1 ? String(r[nameIdx] || "").trim() : "",
+      state: stateIdx !== -1 ? String(r[stateIdx] || "").trim().toLowerCase() : "",
+      amount: amountMyr,
+      paidAt: paidAtIdx !== -1 ? String(r[paidAtIdx] || "").trim() : "",
+      ref1: ref1Idx !== -1 ? String(r[ref1Idx] || "").trim() : "",
+      ref2: ref2Idx !== -1 ? String(r[ref2Idx] || "").trim() : "",
+    });
+  }
+  return { rows: out };
+}
+
+function renderSummaryAndTable() {
+  const tBills = document.getElementById("t-rows");
+  const tPaid = document.getElementById("t-paid");
+  const tOther = document.getElementById("t-other");
+  const tGross = document.getElementById("t-gross");
+  document.getElementById("summary").hidden = false;
+  document.getElementById("table-card").hidden = false;
+
+  const paidCount = allRows.filter((r) => r.state === "paid").length;
+  const gross = allRows.filter((r) => r.state === "paid").reduce((sum, r) => sum + r.amount, 0);
+  tBills.textContent = allRows.length;
+  tPaid.textContent = paidCount;
+  tOther.textContent = allRows.length - paidCount;
+  tGross.textContent = "RM " + gross.toFixed(2);
+
+  applyFilters();
+}
+
+function applyFilters() {
+  const q = document.getElementById("filter-q").value.trim().toLowerCase();
+  const state = document.getElementById("filter-state").value;
+  let view = allRows.slice();
+  if (state) view = view.filter((r) => r.state === state);
+  if (q) {
+    view = view.filter((r) =>
+      [r.id, r.email, r.name, r.ref1, r.ref2].some((v) => String(v).toLowerCase().includes(q))
+    );
+  }
+  view.sort((a, b) => {
+    const av = a[sortKey], bv = b[sortKey];
+    let cmp;
+    if (sortKey === "amount") cmp = (av || 0) - (bv || 0);
+    else cmp = String(av || "").localeCompare(String(bv || ""));
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+  renderTable(view);
+}
+
+function renderTable(view) {
+  const tbody = document.getElementById("bills-tbody");
+  if (!view.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="hint" style="padding:1rem;">No bills match the current filters.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = view.map((r, idx) => {
+    const pillClass = r.state === "paid" ? "pill-paid" : (r.state === "due" ? "pill-due" : "pill-other");
+    const refs = [r.ref1, r.ref2].filter(Boolean).map(escapeHtml).join("<br>");
+    return `<tr data-id="${escapeHtml(r.id)}">
+      <td>${escapeHtml(r.paidAt)}</td>
+      <td>${escapeHtml(r.email)}</td>
+      <td>${escapeHtml(r.name)}</td>
+      <td class="amt">RM ${r.amount.toFixed(2)}</td>
+      <td><span class="pill ${pillClass}">${escapeHtml(r.state || "—")}</span></td>
+      <td><span class="code">${escapeHtml(r.id)}</span></td>
+      <td>${refs || "<span class=\"hint\">—</span>"}</td>
+      <td class="row-actions"><button class="ghost" data-verify="${escapeHtml(r.id)}">Verify</button></td>
+    </tr>
+    <tr class="detail-row" data-detail="${escapeHtml(r.id)}" hidden><td colspan="8"><div class="verify-result"></div></td></tr>`;
+  }).join("");
+}
+
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-verify]");
+  if (!btn) return;
+  const id = btn.getAttribute("data-verify");
+  await verifyBillById(id, btn);
+});
+
+async function verifyBillById(id, sourceBtn) {
+  const key = (keyInput.value || "").trim();
+  if (!key) { authErr.textContent = "Admin key required for live verification."; authErr.style.display = "block"; return; }
+  authErr.style.display = "none";
+
+  let target;
+  if (sourceBtn) {
+    const detail = document.querySelector(`tr[data-detail="${CSS.escape(id)}"]`);
+    if (detail) {
+      detail.hidden = false;
+      target = detail.querySelector(".verify-result");
+    }
+  }
+  if (!target) target = document.getElementById("lookup-result");
+
+  const original = sourceBtn ? sourceBtn.textContent : null;
+  if (sourceBtn) { sourceBtn.disabled = true; sourceBtn.textContent = "…"; }
+  target.className = "verify-result";
+  target.textContent = "Looking up…";
+
+  try {
+    const r = await fetch(`/api/admin/billplz-bill?id=${encodeURIComponent(id)}`, {
+      headers: { "x-admin-key": key },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+    const b = data.bill || {};
+    const stateLine = `<strong>${escapeHtml(b.state || "?")}</strong> · RM ${(Number(b.amount || 0) / 100).toFixed(2)} · ${escapeHtml(b.email || "")}`;
+    target.classList.add(b.state === "paid" ? "ok" : "err");
+    target.innerHTML = `${stateLine}
+      <details class="detail" open><summary>Raw bill</summary><pre>${escapeHtml(JSON.stringify(b, null, 2))}</pre></details>`;
+  } catch (err) {
+    target.classList.add("err");
+    target.textContent = "Lookup failed: " + (err.message || String(err));
+  } finally {
+    if (sourceBtn) { sourceBtn.disabled = false; sourceBtn.textContent = original; }
+  }
+}
+
+// ---------- CSV input wiring ----------
+const drop = document.getElementById("drop");
+const fileInput = document.getElementById("file");
+const csvErr = document.getElementById("csv-err");
+
+drop.addEventListener("click", () => fileInput.click());
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => {
+  e.preventDefault(); drop.classList.remove("over");
+  const f = e.dataTransfer?.files?.[0];
+  if (f) loadFile(f);
+});
+fileInput.addEventListener("change", () => {
+  const f = fileInput.files?.[0];
+  if (f) loadFile(f);
+});
+
+async function loadFile(file) {
+  csvErr.style.display = "none";
+  try {
+    const text = await file.text();
+    handleCsvText(text);
+  } catch (e) {
+    csvErr.textContent = "Couldn't read file: " + (e.message || e);
+    csvErr.style.display = "block";
+  }
+}
+
+document.getElementById("parse-paste").addEventListener("click", () => {
+  const text = document.getElementById("paste").value;
+  if (!text.trim()) { csvErr.textContent = "Paste some CSV first."; csvErr.style.display = "block"; return; }
+  handleCsvText(text);
+});
+
+function handleCsvText(text) {
+  csvErr.style.display = "none";
+  const result = ingestCSV(text);
+  if (result.error) {
+    csvErr.textContent = result.error;
+    csvErr.style.display = "block";
+    return;
+  }
+  allRows = result.rows;
+  renderSummaryAndTable();
+}
+
+// Sort headers
+document.querySelectorAll("th[data-sort]").forEach((th) => {
+  th.addEventListener("click", () => {
+    const key = th.getAttribute("data-sort");
+    if (sortKey === key) {
+      sortDir = sortDir === "asc" ? "desc" : "asc";
+    } else {
+      sortKey = key;
+      sortDir = "desc";
+    }
+    document.querySelectorAll("th[data-sort]").forEach((other) => {
+      other.classList.remove("asc", "desc");
+    });
+    th.classList.add(sortDir);
+    applyFilters();
+  });
+});
+
+document.getElementById("filter-q").addEventListener("input", applyFilters);
+document.getElementById("filter-state").addEventListener("change", applyFilters);
+
+// Live API list loader
+let livePage = 1;
+let livePerPage = 50;
+let liveAccumulated = [];
+
+function billplzApiBillToRow(b) {
+  // Billplz bill shape: amount in sen, paid_at ISO string, state lowercase.
+  return {
+    id: String(b.id || ""),
+    email: String(b.email || ""),
+    name: String(b.name || ""),
+    state: String(b.state || "").toLowerCase(),
+    amount: Number(b.amount || 0) / 100, // sen → MYR
+    paidAt: String(b.paid_at || ""),
+    ref1: String(b.reference_1 || ""),
+    ref2: String(b.reference_2 || ""),
+  };
+}
+
+async function loadLive(reset) {
+  const key = (keyInput.value || "").trim();
+  if (!key) { authErr.textContent = "Admin key required for live API."; authErr.style.display = "block"; return; }
+  authErr.style.display = "none";
+
+  if (reset) {
+    livePage = 1;
+    liveAccumulated = [];
+  } else {
+    livePage += 1;
+  }
+  livePerPage = Math.max(1, Math.min(100, Number(document.getElementById("live-per-page").value) || 50));
+  const state = document.getElementById("live-state").value;
+  const status = document.getElementById("live-status");
+  status.className = "verify-result";
+  status.textContent = `Fetching page ${livePage}…`;
+
+  const loadBtn = document.getElementById("live-load");
+  const moreBtn = document.getElementById("live-load-more");
+  loadBtn.disabled = true; moreBtn.disabled = true;
+
+  try {
+    const params = new URLSearchParams({ state, page: String(livePage), per_page: String(livePerPage) });
+    const r = await fetch(`/api/admin/billplz-list?${params.toString()}`, {
+      headers: { "x-admin-key": key },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+
+    if (!data.ok) {
+      status.classList.add("err");
+      const hint = data.hint ? ` — ${data.hint}` : "";
+      status.innerHTML = `Billplz returned <strong>HTTP ${data.status}</strong>${escapeHtml(hint)}.
+        <details class="detail" open><summary>Response body</summary><pre>${escapeHtml(typeof data.body === "string" ? data.body : JSON.stringify(data.body, null, 2))}</pre></details>`;
+      moreBtn.hidden = true;
+      return;
+    }
+
+    const newRows = (data.bills || []).map(billplzApiBillToRow);
+    liveAccumulated = liveAccumulated.concat(newRows);
+    allRows = liveAccumulated;
+    renderSummaryAndTable();
+
+    status.classList.add("ok");
+    status.textContent = `Loaded ${newRows.length} bill(s) on page ${livePage} (total: ${liveAccumulated.length}).`;
+    // If we got a full page, more might exist
+    moreBtn.hidden = newRows.length < livePerPage;
+  } catch (err) {
+    status.classList.add("err");
+    status.textContent = "Live load failed: " + (err.message || String(err));
+  } finally {
+    loadBtn.disabled = false; moreBtn.disabled = false;
+  }
+}
+
+document.getElementById("live-load").addEventListener("click", () => loadLive(true));
+document.getElementById("live-load-more").addEventListener("click", () => loadLive(false));
+
+// Single-bill live lookup button
+document.getElementById("lookup-btn").addEventListener("click", () => {
+  const id = document.getElementById("lookup-id").value.trim();
+  if (!id) { document.getElementById("lookup-result").textContent = "Enter a bill ID first."; return; }
+  verifyBillById(id, null);
+});
+document.getElementById("lookup-id").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); document.getElementById("lookup-btn").click(); }
+});
+
+// Export currently-filtered rows back to CSV
+document.getElementById("export-filtered").addEventListener("click", () => {
+  const q = document.getElementById("filter-q").value.trim().toLowerCase();
+  const state = document.getElementById("filter-state").value;
+  let view = allRows.slice();
+  if (state) view = view.filter((r) => r.state === state);
+  if (q) view = view.filter((r) =>
+    [r.id, r.email, r.name, r.ref1, r.ref2].some((v) => String(v).toLowerCase().includes(q))
+  );
+  const headers = ["id","email","name","state","amount","paid_at","ref1","ref2"];
+  const escape = (s) => {
+    const v = String(s == null ? "" : s);
+    return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  };
+  const lines = [headers.join(",")];
+  for (const r of view) {
+    lines.push([r.id, r.email, r.name, r.state, r.amount.toFixed(2), r.paidAt, r.ref1, r.ref2].map(escape).join(","));
+  }
+  const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  a.href = URL.createObjectURL(blob);
+  a.download = `duitful-billplz-bills-${ts}.csv`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+</script>
+</body>
+</html>
