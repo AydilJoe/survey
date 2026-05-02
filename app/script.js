@@ -2873,6 +2873,43 @@ $("#file-import").addEventListener("change", async (e) => {
   }
 });
 
+/* ---------- bulk income import ---------- */
+
+/* Parse a CSV (already tokenized by parseCSV) and pull out only the
+   `income` rows, in the wide 17-column export shape. Returns
+   { valid: [{name, amount, month, day}], skipped: [{rowNum, reason}] }.
+   Other type rows (expense, debt, daily*, saving, setting) are ignored
+   silently — not counted as skipped. The user may drop a full export in
+   and only the income lines land. */
+function parseIncomeRows(rows) {
+  if (rows.length === 0) throw new Error("That file looks empty.");
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const idx = (n) => header.indexOf(n);
+  const iType = idx("type"), iName = idx("name"), iAmount = idx("amount");
+  const iNote = idx("note"), iMonth = idx("month"), iDay = idx("day");
+  if (iType === -1) throw new Error("This doesn't look like a Duitful CSV (no 'type' column).");
+
+  const valid = [];
+  const skipped = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const type = (row[iType] || "").trim().toLowerCase();
+    if (type !== "income") continue;
+    const rawName = iName >= 0 ? (row[iName] || "").trim() : "";
+    const rawAmount = iAmount >= 0 ? row[iAmount] : "";
+    const note = iNote >= 0 ? (row[iNote] || "").trim() : "";
+    const amount = Number(rawAmount);
+    if (!rawName) { skipped.push({ rowNum: r + 1, reason: "missing name" }); continue; }
+    if (!Number.isFinite(amount) || amount <= 0) { skipped.push({ rowNum: r + 1, reason: "missing or invalid amount" }); continue; }
+    const rowMonth = iMonth >= 0 ? (row[iMonth] || "").trim() : "";
+    const month = /^\d{4}-\d{2}$/.test(rowMonth) ? rowMonth : currentMonthISO();
+    const day = iDay >= 0 ? parseDay(row[iDay]) : null;
+    const name = note ? `${rawName} — ${note}` : rawName;
+    valid.push({ name, amount, month, day });
+  }
+  return { valid, skipped };
+}
+
 $("#btn-clear").addEventListener("click", async () => {
   if (!confirm("Erase ALL data — income, recurring expenses, debts, daily entries, savings goals and settings? This cannot be undone.")) return;
   if (!confirm("Really sure? Export CSV first if you want a backup.")) return;
