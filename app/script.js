@@ -2995,6 +2995,18 @@ bulkIncomeFile?.addEventListener("change", async (e) => {
   }
 });
 
+bulkIncomeApply?.addEventListener("click", () => {
+  if (bulkIncomeQueued.length === 0) return;
+  for (const r of bulkIncomeQueued) {
+    state.income.push({ id: uid(), name: r.name, amount: r.amount, month: r.month, day: r.day });
+  }
+  const added = bulkIncomeQueued.length;
+  save();
+  renderAll();
+  closeBulkIncomeDialog();
+  alert(`Added ${added} income ${added === 1 ? "entry" : "entries"}.`);
+});
+
 $("#btn-clear").addEventListener("click", async () => {
   if (!confirm("Erase ALL data — income, recurring expenses, debts, daily entries, savings goals and settings? This cannot be undone.")) return;
   if (!confirm("Really sure? Export CSV first if you want a backup.")) return;
