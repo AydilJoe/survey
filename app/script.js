@@ -3611,12 +3611,24 @@ async function getTesseractWorker(logger) {
     // Workers need absolute URLs — relative paths fail in importScripts()
     // inside Capacitor's WebView (base URL differs in worker context).
     const base = new URL("vendor/tesseract/", location.href).href;
-    tesseractWorker = await Tess.createWorker("eng", 1, {
+    const opts = {
       logger,
       workerPath: base + "worker.min.js",
       corePath: base,
       langPath: base,
-    });
+    };
+    if (isNative()) {
+      // Blob-URL workers hang inside Capacitor's Android WebView when
+      // importScripts pulls the multi-MB worker.min.js / wasm.js from
+      // https://localhost. Spawning the worker directly from the same-
+      // origin URL lets the bridge serve the bytes normally. The
+      // traineddata is already bundled in the APK, so IndexedDB caching
+      // it again is wasted work — disable it so a stuck IDB request
+      // can't stall the load.
+      opts.workerBlobURL = false;
+      opts.cacheMethod = "none";
+    }
+    tesseractWorker = await Tess.createWorker("eng", 1, opts);
   }
   return tesseractWorker;
 }
