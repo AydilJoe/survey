@@ -2910,6 +2910,40 @@ function parseIncomeRows(rows) {
   return { valid, skipped };
 }
 
+const bulkIncomeDialog = document.getElementById("bulk-income-dialog");
+const bulkIncomeFile = document.getElementById("bulk-income-file");
+const bulkIncomeStatus = document.getElementById("bulk-income-status");
+const bulkIncomePreview = document.getElementById("bulk-income-preview");
+const bulkIncomeCount = document.getElementById("bulk-income-count");
+const bulkIncomeTotals = document.getElementById("bulk-income-totals");
+const bulkIncomeSkippedWrap = document.getElementById("bulk-income-skipped-wrap");
+const bulkIncomeSkippedCount = document.getElementById("bulk-income-skipped-count");
+const bulkIncomeSkippedList = document.getElementById("bulk-income-skipped");
+const bulkIncomeApply = document.getElementById("bulk-income-apply");
+let bulkIncomeQueued = [];
+
+function resetBulkIncomeDialog() {
+  bulkIncomeFile.value = "";
+  bulkIncomeStatus.hidden = true;
+  bulkIncomeStatus.textContent = "";
+  bulkIncomePreview.hidden = true;
+  bulkIncomeApply.disabled = true;
+  bulkIncomeQueued = [];
+}
+
+function openBulkIncomeDialog() {
+  resetBulkIncomeDialog();
+  bulkIncomeDialog?.showModal();
+}
+
+function closeBulkIncomeDialog() {
+  bulkIncomeDialog?.close();
+  resetBulkIncomeDialog();
+}
+
+document.getElementById("btn-bulk-import-income")?.addEventListener("click", openBulkIncomeDialog);
+document.getElementById("bulk-income-cancel")?.addEventListener("click", closeBulkIncomeDialog);
+
 $("#btn-clear").addEventListener("click", async () => {
   if (!confirm("Erase ALL data — income, recurring expenses, debts, daily entries, savings goals and settings? This cannot be undone.")) return;
   if (!confirm("Really sure? Export CSV first if you want a backup.")) return;
