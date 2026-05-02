@@ -1,14 +1,15 @@
 ---
-title: BNM RM5B SME Stabilisation Relief Facility — Duitful Malaysia guide
-description: Bank Negara Malaysia's RM5 billion SME Stabilisation Relief Facility, announced in the April 2026 monetary report. Eligibility, what to prepare, and why a clean expense ledger gets you through underwriting faster.
-keywords: bnm rm5 billion sme relief fund, sme stabilisation relief facility 2026, bank negara malaysia sme financing, sme loan malaysia 2026, selangor sme financing, sme cash flow tracker, e-invoice sme malaysia, duitful sme relief
+title: BNM RM5B SME Stabilisation Relief Facility — applications open · Duitful Malaysia guide
+description: Bank Negara Malaysia opened applications May 2 for the RM5 billion SME Stabilisation Relief Facility, with Selangor logistics and trade SMEs the heaviest concentration of expected applicants. Eligibility, what to prepare this week, and why a clean expense ledger gets you through underwriting faster.
+keywords: bnm rm5 billion sme relief fund, sme stabilisation relief facility 2026, bnm relief fund applications open, selangor sme financing, sme loan malaysia 2026, selangor logistics sme funding, sme cash flow tracker, e-invoice sme malaysia, duitful sme relief
 slug: bnm-rm5b-sme-relief-fund-2026
 lang: en
 og_locale: en_MY
 eyebrow: Guide · Malaysia · SME financing
 h1: RM5 billion on the table. <em>Bring receipts.</em>
-lede: Bank Negara's April 2026 monetary report rolled out the RM5B SME Stabilisation Relief Facility, aimed at SMEs squeezed by global trade and supply-chain pressure. Here's who qualifies, what to prepare, and why your underwriting hinges on a clean ledger more than a polished pitch deck.
+lede: Bank Negara opened applications on May 2 for the RM5B SME Stabilisation Relief Facility, with Selangor's logistics and trade hubs the heaviest concentration of expected applicants. Here's who qualifies, what to prepare this week, and why your underwriting hinges on a clean ledger more than a polished pitch deck.
 date_published: 2026-05-01
+date_modified: 2026-05-02
 breadcrumb_name: BNM RM5B SME relief fund
 card_title: BNM RM5B SME relief fund, decoded
 card_blurb: Eligibility, paperwork, and the cash-flow story that gets you funded. With Duitful as the front-line ledger your accountant turns into the documents the bank wants.
@@ -20,12 +21,30 @@ cta_label: Open Duitful
 ## What this fund is
 
 :::stat
-value: RM 5 billion
-label: BNM SME Stabilisation Relief Facility, rolled out April 2026
-note: Concessionary financing for Malaysian SMEs facing global trade & supply-chain disruption. Channelled through participating banks (CIMB, Maybank, RHB, Public, AmBank, Alliance and others).
+value: Applications open May 2, 2026
+label: BNM SME Stabilisation Relief Facility — RM 5 billion total allocation
+note: Concessionary financing for Malaysian SMEs facing global trade & supply-chain disruption. Channelled through participating banks (CIMB, Maybank, RHB, Public, AmBank, Alliance and others). Selangor logistics & trade SMEs are the heaviest expected concentration; the application process is the same nationwide.
 :::
 
 Unlike grants, this is **financing** — you borrow at a concessionary rate via your existing bank or DFI. BNM caps the rate; the participating bank does the underwriting. The fund is designed to keep otherwise-healthy SMEs liquid through trade and supply-chain shocks, not to rescue businesses that were already failing.
+
+## Applications now open — what to do this week
+
+:::steps
+title: Day 1 — Pick your relationship banker, not a new one
+text: Approach the relationship manager at the bank where your operating account already lives. They have your full account history, can pre-vet the file in 24 hours, and will champion it through internal credit. Walking in cold to a bank you don't transact with adds 1–2 weeks before you even get a meeting.
+---
+title: Day 2 — Pre-flight your documents
+text: Pull together everything in the standard pack (next section). Your accountant should already have the audited accounts and tax filings; everything else is data you control. If anything is missing, list it explicitly so the bank knows what's coming and when.
+---
+title: Day 3 — Write the disruption story in one page
+text: Two paragraphs: what the disruption is (lost X% of revenue from Y customer segment because Z), and what the financing closes (working capital gap of RM X over N months). Include 24-month revenue chart, 12-month projection, and your top 5 customers + suppliers. The panel reads this first.
+---
+title: Day 4–5 — Submit, then stay reachable
+text: Submit through your relationship manager. Expect a clarification request within 5 business days — answer same day. Most rejections at this stage aren't on creditworthiness, they're on slow-to-respond applicants the panel deprioritises while faster files clear.
+:::
+
+If you're a Selangor-based logistics or trade SME, the heavy concentration of applications from your sector means underwriters have less time per file. The applications that win are the ones that don't require chasing. Have everything ready before you submit.
 
 ## Who typically qualifies
 

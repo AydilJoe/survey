@@ -137,13 +137,35 @@
   </url>
   <url>
     <loc>https://duitful.app/guides/bnm-rm5b-sme-relief-fund-2026/</loc>
-    <lastmod>2026-05-01</lastmod>
+    <lastmod>2026-05-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
     <loc>https://duitful.app/guides/ringgit-stablecoins-merchant-fees-2026/</loc>
     <lastmod>2026-05-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ai-agents-bank-fraud-malaysia-2026/</loc>
+    <lastmod>2026-05-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ai-agents-bank-fraud-malaysia-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ai-agents-bank-fraud-malaysia-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/ai-agents-bank-fraud-malaysia-2026/</loc>
+    <lastmod>2026-05-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ai-agents-bank-fraud-malaysia-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ai-agents-bank-fraud-malaysia-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/prudent-spending-sukma-malaysia-2026/</loc>
+    <lastmod>2026-05-02</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
