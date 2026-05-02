@@ -802,6 +802,30 @@
       </form>
     </dialog>
 
+    <dialog id="bulk-income-dialog" class="edit-dialog">
+      <form method="dialog">
+        <h2>Bulk import income</h2>
+        <p class="hint">Upload a Duitful CSV. Only the <code>income</code> rows are added — every other row type is ignored. Existing income, expenses, debts, savings, and daily entries are untouched.</p>
+        <label class="field">
+          <span>CSV file</span>
+          <input type="file" id="bulk-income-file" accept=".csv,text/csv" />
+        </label>
+        <div id="bulk-income-status" class="hint" hidden></div>
+        <div id="bulk-income-preview" class="bulk-income-preview" hidden>
+          <p class="bulk-income-summary"><strong id="bulk-income-count">0</strong> income rows ready to add</p>
+          <p class="hint" id="bulk-income-totals"></p>
+          <details id="bulk-income-skipped-wrap" hidden>
+            <summary><span id="bulk-income-skipped-count">0</span> rows skipped</summary>
+            <ul id="bulk-income-skipped" class="bulk-income-skipped"></ul>
+          </details>
+        </div>
+        <div class="button-row">
+          <button type="button" class="ghost" id="bulk-income-cancel">Close</button>
+          <button type="button" class="primary" id="bulk-income-apply" disabled>Add to income</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="guide-dialog" class="edit-dialog guide-dialog" aria-labelledby="guide-title">
       <form method="dialog">
         <div class="guide-head">
