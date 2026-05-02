@@ -2944,6 +2944,57 @@ function closeBulkIncomeDialog() {
 document.getElementById("btn-bulk-import-income")?.addEventListener("click", openBulkIncomeDialog);
 document.getElementById("bulk-income-cancel")?.addEventListener("click", closeBulkIncomeDialog);
 
+bulkIncomeFile?.addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  bulkIncomePreview.hidden = true;
+  bulkIncomeApply.disabled = true;
+  bulkIncomeQueued = [];
+  bulkIncomeStatus.hidden = false;
+  bulkIncomeStatus.textContent = "Reading file…";
+
+  if (!file) {
+    bulkIncomeStatus.textContent = "";
+    bulkIncomeStatus.hidden = true;
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const rows = parseCSV(text);
+    const { valid, skipped } = parseIncomeRows(rows);
+    bulkIncomeStatus.hidden = true;
+    bulkIncomeStatus.textContent = "";
+
+    bulkIncomeCount.textContent = String(valid.length);
+    bulkIncomePreview.hidden = false;
+    bulkIncomeQueued = valid;
+
+    if (valid.length > 0) {
+      const total = valid.reduce((s, r) => s + r.amount, 0);
+      const months = Array.from(new Set(valid.map((r) => r.month))).sort();
+      bulkIncomeTotals.textContent =
+        `${fmtMoney(total)} total across ${months.length} month${months.length === 1 ? "" : "s"}: ${months.join(", ")}`;
+    } else {
+      bulkIncomeTotals.textContent = "Nothing to add.";
+    }
+
+    if (skipped.length > 0) {
+      bulkIncomeSkippedCount.textContent = String(skipped.length);
+      bulkIncomeSkippedList.innerHTML = skipped
+        .map((s) => `<li>Row ${s.rowNum}: ${escapeHtml(s.reason)}</li>`)
+        .join("");
+      bulkIncomeSkippedWrap.hidden = false;
+    } else {
+      bulkIncomeSkippedWrap.hidden = true;
+    }
+
+    bulkIncomeApply.disabled = valid.length === 0;
+  } catch (err) {
+    bulkIncomeStatus.hidden = false;
+    bulkIncomeStatus.textContent = err && err.message ? err.message : String(err);
+  }
+});
+
 $("#btn-clear").addEventListener("click", async () => {
   if (!confirm("Erase ALL data — income, recurring expenses, debts, daily entries, savings goals and settings? This cannot be undone.")) return;
   if (!confirm("Really sure? Export CSV first if you want a backup.")) return;
