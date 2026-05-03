@@ -93,7 +93,16 @@
       gap: 32px;
     }
     @media (max-width: 720px) {
-      .post { grid-template-columns: 1fr; padding: 22px; }
+      .post {
+        grid-template-columns: 1fr;
+        padding: 20px;
+        gap: 22px;
+      }
+      .post-image {
+        max-width: 320px;
+        margin: 0 auto;
+        width: 100%;
+      }
     }
 
     .post-image {
