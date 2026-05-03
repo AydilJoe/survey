@@ -1,10 +1,10 @@
 # Duitful — Threads & Instagram captions
 
-Four post angles, each in English and Bahasa Melayu. Pair each post with the
-matching image in `images/` (same filename prefix).
+Single posts (sections 01–04) and multi-slide Instagram **carousels**
+(sections C1–C3). Each post links to a long-form guide on `duitful.app`
+so the social blurb and the SEO content reinforce each other.
 
-Each post links to a long-form guide on `duitful.app` so the social blurb and
-the SEO content reinforce each other:
+## Single posts
 
 | # | Post | Linked deep-dive |
 |---|------|------------------|
@@ -13,10 +13,20 @@ the SEO content reinforce each other:
 | 03 | Privacy | `duitful.app/privacy/` |
 | 04 | No subscription | `duitful.app/#pricing` |
 
+## Carousels
+
+| # | Carousel · 5 slides | Linked deep-dive | Lang |
+|---|------|------------------|------|
+| C1 | Selangor WFH playbook | `duitful.app/guides/selangor-wfh-energy-shock-2026/` | EN + BM |
+| C2 | Tokenised deposits 101 | `duitful.app/guides/tokenised-deposits-malaysia-2026/` | EN |
+| C3 | Industrial 5G + SME supply chain | `duitful.app/guides/industrial-5g-selangor-sme-supply-chain-2026/` | EN |
+
 - **Threads**: pick the short version (under 500 chars). Drop the link as the
   first reply, not in the post.
 - **Instagram (feed)**: pick the long version. Hashtags can go in the caption
   or in the first comment — the algorithm treats both the same.
+- **Carousels**: upload all 5 PNGs in slide order. Caption goes on the post,
+  not the slides. The slide images already carry the URL on slide 5.
 
 ---
 
@@ -318,3 +328,189 @@ Week 2 — Post 02 (avalanche) on a Monday morning, Post 04 (price) end of week.
 
 For Threads, post one variant. For Instagram, post the same image with
 the long caption. Cross-link Threads → IG and vice versa in replies.
+
+---
+
+## C1 — Selangor WFH playbook (carousel · 5 slides)
+
+**Slides:** `images/carousels/selangor-wfh-energy-shock-2026/01..05.png`
+**Guide:** [duitful.app/guides/selangor-wfh-energy-shock-2026](https://duitful.app/guides/selangor-wfh-energy-shock-2026/)
+
+### Instagram (EN)
+```
+Selangor just put its civil servants on Tue–Thu only — a hedge against the 2026 energy shock.
+
+Two WFH days a week is 40% fewer commutes. For a typical Klang Valley
+commuter spending RM 350–600/mo on petrol + tolls, that's RM 140–240
+back in your pocket. Before electricity, food, or wear-and-tear.
+
+For SMEs the maths is bigger: RM 800–RM 2,500 net savings per employee
+per month once the office is downsized or sublet at lease renewal.
+
+Don't guess it — measure it. Tag Petrol, Toll, Electricity, and
+Food · Out as Categories in Duitful. Run the new pattern for 30 days.
+The Reports tab tells you the exact dividend.
+
+Full 30-day measurement plan + what to ignore →
+duitful.app/guides/selangor-wfh-energy-shock-2026
+
+#wfhmalaysia #selangor #kewanganmalaysia #energycrisis2026
+#fuelmalaysia #budi95 #personalfinancemalaysia #duitful
+#smemalaysia #klangvalleyliving
+```
+
+### Instagram (BM)
+```
+Selangor letak penjawat awam pada Selasa–Khamis sahaja — hedge untuk hadap kejutan tenaga 2026.
+
+Dua hari WFH seminggu = 40% kurang ulang-alik. Untuk pengulang-alik
+Lembah Klang yang habis RM 350–600/bulan untuk minyak + tol, itu
+RM 140–240 masuk balik dalam poket. Belum kira elektrik, makanan,
+atau haus alat ganti.
+
+Untuk SME kira-kira lebih besar: RM 800–RM 2,500 penjimatan bersih
+per pekerja per bulan selepas pejabat di-downsize atau sublet masa
+lease renewal.
+
+Jangan teka — ukur. Tag Petrol, Tol, Elektrik, dan Makanan · Luar
+sebagai Kategori dalam Duitful. Run pattern baru 30 hari. Reports
+tab beritahu dividen sebenar anda.
+
+Pelan ukur 30 hari penuh + apa nak abaikan →
+duitful.app/guides/ms/selangor-wfh-energy-shock-2026
+
+#wfhmalaysia #selangor #kewanganmalaysia #krisistenaga
+#minyakmalaysia #budi95 #pengurusankewangan #duitful
+#smemalaysia #lembahKlang
+```
+
+### Threads (EN)
+```
+Selangor put state civil servants on Tue–Thu WFH this week.
+
+Two WFH days = 40% fewer commutes = RM 140–240/mo back in your pocket.
+
+For SMEs: RM 800–2,500 saved per employee per month after office downsize.
+
+Don't guess. Measure for 30 days.
+
+duitful.app/guides/selangor-wfh-energy-shock-2026
+```
+
+### Threads (BM)
+```
+Selangor letak penjawat awam pada WFH Selasa–Khamis minggu ni.
+
+Dua hari WFH = 40% kurang ulang-alik = RM 140–240/bulan masuk balik dalam poket.
+
+Untuk SME: RM 800–2,500 jimat per pekerja per bulan selepas downsize pejabat.
+
+Jangan teka. Ukur 30 hari.
+
+duitful.app/guides/ms/selangor-wfh-energy-shock-2026
+```
+
+---
+
+## C2 — Tokenised deposits 101 (carousel · 5 slides)
+
+**Slides:** `images/carousels/tokenised-deposits-malaysia-2026/01..05.png`
+**Guide:** [duitful.app/guides/tokenised-deposits-malaysia-2026](https://duitful.app/guides/tokenised-deposits-malaysia-2026/)
+
+### Instagram (EN)
+```
+BNM just turned blockchain into boring. (That's a good thing.)
+
+The Digital Asset Innovation Hub (DAIH) onboarded its first wave of
+tokenised-deposit trials this week — wholesale and cross-border
+settlement, bank money on shared rails. Not crypto. Not a CBDC.
+Not for sale to the public.
+
+What changes for retail: very little, immediately. Your CIMB or
+Maybank app stays the same. The plumbing underneath gets faster.
+
+What changes for SMEs: cross-border payments win first. Today's
+2–4% all-in (FX spread + correspondent fees) compresses toward
+&lt;1% on participating corridors over the next 12–36 months.
+
+What you do today: track every settlement by channel in Duitful.
+Tag cross-border payments in the source currency. When the new
+rails ship, you have a clean baseline to measure savings against.
+
+Full breakdown + what to ignore (anyone selling you a "BNM token"
+is running a scam) →
+duitful.app/guides/tokenised-deposits-malaysia-2026
+
+#bnm #daih #tokeniseddeposits #fintechmalaysia #malaysianbanking
+#crossborderpayments #smemalaysia #duitful #personalfinance
+#blockchainmalaysia
+```
+
+### Threads (EN)
+```
+BNM's DAIH just onboarded the first wave of tokenised-deposit trials.
+
+What it is: bank money on shared rails. Not crypto. Not a CBDC. Not for sale.
+
+What changes for you: cross-border SME payments compress from 2–4% toward <1% over 12–36 months.
+
+What to do now: log every channel in Duitful so you have a clean baseline.
+
+duitful.app/guides/tokenised-deposits-malaysia-2026
+```
+
+---
+
+## C3 — Industrial 5G &amp; SME supply chain (carousel · 5 slides)
+
+**Slides:** `images/carousels/industrial-5g-selangor-sme-supply-chain-2026/01..05.png`
+**Guide:** [duitful.app/guides/industrial-5g-selangor-sme-supply-chain-2026](https://duitful.app/guides/industrial-5g-selangor-sme-supply-chain-2026/)
+
+### Instagram (EN)
+```
+NAIO is finalising AI Nation 2030. Private 5G networks are rolling
+out across Selangor's industrial estates this month.
+
+If your SME sells INTO those factories — components, logistics,
+fit-out, IT services, contract labour — three things change fast:
+
+1. Onboarding goes digital-first. SSM, e-invoice readiness,
+   certifications, bank details all upfront on portals (SAP Ariba,
+   Coupa). Manual tendering exits.
+
+2. Payment terms standardise. Net 30 default, Net 14 for early
+   cohorts. Fewer 90-day surprises — but cash-flow planning matters.
+
+3. Capex hits before revenue. Connectivity (RM 1.5–8k), e-invoice
+   middleware (RM 0–6k/yr), certifications (RM 2–25k), skills
+   training (RM 1.5–4k per person). Lands 30–90 days before the
+   first invoice clears.
+
+Track per-project P&amp;L and per-buyer DSO in Duitful. After three
+months you know which contracts actually made money — and which
+buyers chronically pay late.
+
+Two months of work now, or a forced scramble in 18 months when
+contracts don't renew. That's the choice.
+
+Full playbook + what to ignore →
+duitful.app/guides/industrial-5g-selangor-sme-supply-chain-2026
+
+#ainnation2030 #naio #smemalaysia #selangor #industrial5g
+#smartfactory #malaysianbusiness #einvoice #lhdn #duitful
+#supplychainmalaysia
+```
+
+### Threads (EN)
+```
+Selangor's smart factories are about to upgrade. So must their suppliers.
+
+Three things change for your SME:
+1. Onboarding goes digital-first (e-invoice, certs, portals)
+2. Payment terms standardise (Net 30 / Net 14)
+3. Capex hits before revenue (RM 5–40k typical)
+
+Two months of work now, or scramble in 18 months at re-tender.
+
+duitful.app/guides/industrial-5g-selangor-sme-supply-chain-2026
+```
