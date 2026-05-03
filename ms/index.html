@@ -1311,6 +1311,80 @@
       justify-content: center;
     }
 
+    /* --------------- Social posts --------------- */
+    .social { background: var(--bg); }
+    .social-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 18px;
+      margin-bottom: 32px;
+    }
+    @media (max-width: 1024px) { .social-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .social-grid { grid-template-columns: 1fr; } }
+    .s-card {
+      display: flex;
+      flex-direction: column;
+      background: var(--card);
+      border: 0.5px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      text-decoration: none;
+      color: var(--ink);
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .s-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 1px 2px rgba(42, 36, 32, 0.05), 0 12px 32px rgba(42, 36, 32, 0.06);
+    }
+    .s-card-img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 4 / 5;
+      object-fit: cover;
+      background: var(--card-soft);
+    }
+    .s-card-body {
+      padding: 18px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1;
+    }
+    .s-card-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .s-card-title {
+      font-family: var(--font-serif);
+      font-size: 18px;
+      font-weight: 500;
+      line-height: 1.3;
+      letter-spacing: -0.005em;
+      margin: 0;
+    }
+    .s-card-link {
+      margin-top: auto;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--primary);
+      padding-top: 10px;
+      border-top: 0.5px solid var(--line);
+    }
+    .social-foot {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
     /* --------------- Final CTA --------------- */
     .cta-final {
       text-align: center;
@@ -1377,6 +1451,7 @@
       <a href="#pricing">Harga</a>
       <a href="#founder">Tentang</a>
       <a href="#faq">Soalan</a>
+      <a href="#social">Sosial</a>
     </div>
     <a href="/" class="lang-toggle" aria-label="Switch to English" title="English">EN</a>
     <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary nav-cta">Dapatkan aplikasi</a>
@@ -1845,6 +1920,59 @@
 
       <div class="guides-all reveal">
         <a href="/guides/ms/" class="btn btn-ghost">Lihat semua panduan →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= SOCIAL ======================= -->
+  <section class="block social" id="social">
+    <div class="container">
+      <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
+        <span class="eyebrow">Threads &amp; Instagram</span>
+        <h2>Kandungan sama, format <em>lebih ringkas</em>.</h2>
+        <p>Post pendek dalam Bahasa Melayu dan English — setiap satu menghala ke panduan penuh di sini supaya post sosial dan bacaan panjang sentiasa selari.</p>
+      </div>
+
+      <div class="social-grid reveal">
+        <a class="s-card" href="/guides/ms/" aria-label="Hub panduan">
+          <img class="s-card-img" src="/marketing/images/01-be-duitful.png" alt="Be duitful with your duit — poster jenama Duitful" width="1080" height="1350" loading="lazy">
+          <div class="s-card-body">
+            <span class="s-card-eyebrow">Jenama · Pengenalan</span>
+            <h3 class="s-card-title">Be duitful dengan duit kau.</h3>
+            <span class="s-card-link">Lihat semua panduan →</span>
+          </div>
+        </a>
+
+        <a class="s-card" href="/guides/crush-credit-card-debt-avalanche-2026/" aria-label="Panduan kaedah avalanche">
+          <img class="s-card-img" src="/marketing/images/02-avalanche.png" alt="Habiskan hutang APR tertinggi dulu — visual kaedah avalanche" width="1080" height="1350" loading="lazy">
+          <div class="s-card-body">
+            <span class="s-card-eyebrow">Hutang · Avalanche</span>
+            <h3 class="s-card-title">Habiskan hutang APR paling tinggi dulu.</h3>
+            <span class="s-card-link">Baca panduan penuh →</span>
+          </div>
+        </a>
+
+        <a class="s-card" href="/privacy/" aria-label="Polisi privasi">
+          <img class="s-card-img" src="/marketing/images/03-privacy.png" alt="Data tak keluar dari phone kau — privasi Duitful" width="1080" height="1350" loading="lazy">
+          <div class="s-card-body">
+            <span class="s-card-eyebrow">Privasi · Dalam phone</span>
+            <h3 class="s-card-title">Data kau tak keluar dari phone kau.</h3>
+            <span class="s-card-link">Cara kami bina →</span>
+          </div>
+        </a>
+
+        <a class="s-card" href="#pricing" aria-label="Harga">
+          <img class="s-card-img" src="/marketing/images/04-no-subscription.png" alt="Duitful Pro — RM 19.90 sekali, tanpa subscription" width="1080" height="1350" loading="lazy">
+          <div class="s-card-body">
+            <span class="s-card-eyebrow">Harga · Seumur hidup</span>
+            <h3 class="s-card-title">Tiada subscription. Selama-lamanya.</h3>
+            <span class="s-card-link">Lihat harga →</span>
+          </div>
+        </a>
+      </div>
+
+      <div class="social-foot reveal">
+        <a href="/marketing/" class="btn btn-ghost">Dapatkan caption (BM + EN) →</a>
       </div>
     </div>
   </section>
