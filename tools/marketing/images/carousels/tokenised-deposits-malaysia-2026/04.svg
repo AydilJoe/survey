@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">WHO WINS FIRST</text>
+  <g transform="translate(900, 140)">
+    <rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">4/5</text>
+  </g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Cross-border SMEs</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">win <tspan font-style="italic" fill="#b35a39">first</tspan>.</text>
+
+  <!-- Today vs Tomorrow visual -->
+  <g transform="translate(80, 480)" font-family="'Inter', sans-serif">
+    <!-- Today -->
+    <g>
+      <text font-family="'JetBrains Mono', monospace" font-size="20" fill="#8a8178" letter-spacing="3">TODAY</text>
+      <rect y="30" width="920" height="100" rx="14" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect y="30" width="828" height="100" rx="14" fill="#b86a4e" opacity="0.85"/>
+      <text x="40" y="92" font-family="'Fraunces', serif" font-size="44" fill="#fffaf2" font-weight="500">2 – 4%</text>
+      <text x="900" y="92" text-anchor="end" font-family="'Inter', sans-serif" font-size="20" fill="#fffaf2" font-weight="500">FX spread + correspondent fees</text>
+    </g>
+    <!-- Arrow -->
+    <text x="460" y="200" text-anchor="middle" font-family="'Fraunces', serif" font-size="40" fill="#5c524a">↓</text>
+    <text x="460" y="240" text-anchor="middle" font-family="'Inter', sans-serif" font-size="20" fill="#8a8178" font-style="italic">12–36 months on tokenised-deposit corridors</text>
+    <!-- Tomorrow -->
+    <g transform="translate(0, 280)">
+      <text font-family="'JetBrains Mono', monospace" font-size="20" fill="#8a8178" letter-spacing="3">SOON</text>
+      <rect y="30" width="920" height="100" rx="14" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect y="30" width="230" height="100" rx="14" fill="url(#primary)"/>
+      <text x="40" y="92" font-family="'Fraunces', serif" font-size="44" fill="#fffaf2" font-weight="500">&lt; 1%</text>
+      <text x="900" y="92" text-anchor="end" font-family="'Inter', sans-serif" font-size="20" fill="#5c524a" font-weight="500">All-in. Near-instant settlement.</text>
+    </g>
+  </g>
+
+  <!-- Practical takeaway -->
+  <g transform="translate(80, 990)">
+    <rect width="920" height="220" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="40" y="60" font-family="'JetBrains Mono', monospace" font-size="20" fill="#8a8178" letter-spacing="3">DO THIS NOW</text>
+    <text x="40" y="115" font-family="'Fraunces', serif" font-size="34" fill="#2a2420" font-weight="500">Track your current effective rate.</text>
+    <text x="40" y="170" font-family="'Inter', sans-serif" font-size="22" fill="#5c524a">Tag each cross-border payment by channel in Duitful.</text>
+    <text x="40" y="200" font-family="'Inter', sans-serif" font-size="22" fill="#5c524a">When the new rails ship, you have a clean baseline.</text>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

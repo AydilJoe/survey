@@ -169,4 +169,32 @@
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>https://duitful.app/guides/selangor-wfh-energy-shock-2026/</loc>
+    <lastmod>2026-05-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/selangor-wfh-energy-shock-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/selangor-wfh-energy-shock-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/selangor-wfh-energy-shock-2026/</loc>
+    <lastmod>2026-05-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/selangor-wfh-energy-shock-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/selangor-wfh-energy-shock-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/tokenised-deposits-malaysia-2026/</loc>
+    <lastmod>2026-05-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/industrial-5g-selangor-sme-supply-chain-2026/</loc>
+    <lastmod>2026-05-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
 </urlset>

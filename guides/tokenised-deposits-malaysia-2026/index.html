@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Tokenised deposits Malaysia 2026 — How DAIH is moving money on the blockchain</title>
+<meta name="description" content="BNM's Digital Asset Innovation Hub (DAIH) just onboarded its first wave of tokenised deposit trials for 2026. What tokenised deposits actually are, how they differ from CBDC and stablecoins, what changes for retail and SME users, and what to track in Duitful right now.">
+<meta name="keywords" content="tokenised deposits malaysia, daih bnm, digital asset innovation hub, ringgit blockchain settlement, wholesale cbdc malaysia, project nexus malaysia, dlt clearing malaysia, sme cross border settlement, duitful merchant, blockchain banking malaysia">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://duitful.app/guides/tokenised-deposits-malaysia-2026/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:locale" content="en_MY">
+<meta property="og:url" content="https://duitful.app/guides/tokenised-deposits-malaysia-2026/">
+<meta property="og:title" content="Tokenised deposits Malaysia 2026 — How DAIH is moving money on the blockchain">
+<meta property="og:description" content="BNM's Digital Asset Innovation Hub (DAIH) just onboarded its first wave of tokenised deposit trials for 2026. What tokenised deposits actually are, how they differ from CBDC and stablecoins, what changes for retail and SME users, and what to track in Duitful right now.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tokenised deposits Malaysia 2026 — How DAIH is moving money on the blockchain">
+<meta name="twitter:description" content="BNM's Digital Asset Innovation Hub (DAIH) just onboarded its first wave of tokenised deposit trials for 2026. What tokenised deposits actually are, how they differ from CBDC and stablecoins, what changes for retail and SME users, and what to track in Duitful right now.">
+<meta name="twitter:image" content="https://duitful.app/og-image.svg">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Tokenised deposits Malaysia 2026","item":"https://duitful.app/guides/tokenised-deposits-malaysia-2026/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Tokenised deposits Malaysia 2026 — How DAIH is moving money on the blockchain","description":"BNM's Digital Asset Innovation Hub (DAIH) just onboarded its first wave of tokenised deposit trials for 2026. What tokenised deposits actually are, how they differ from CBDC and stablecoins, what changes for retail and SME users, and what to track in Duitful right now.","inLanguage":"en","datePublished":"2026-05-03","dateModified":"2026-05-03","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/tokenised-deposits-malaysia-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is my bank deposit safer or riskier on tokenised rails?","acceptedAnswer":{"@type":"Answer","text":"Same risk as today — the deposit is still a claim against your bank, and PIDM coverage applies the same way. The token is just a representation of that claim on a shared ledger. No new counterparty added."}},{"@type":"Question","name":"Will my CIMB or Maybank app look different?","acceptedAnswer":{"@type":"Answer","text":"No, not in 2026. The rail change is invisible to the consumer. Banks may eventually surface \"instant cross-border\" as a feature, but that's a UX label on top of the new plumbing — not a new app."}},{"@type":"Question","name":"How does this affect my e-invoice obligations?","acceptedAnswer":{"@type":"Answer","text":"Not at all. E-invoice requirements are independent of the settlement rail. Whether the customer paid via DuitNow QR, card, or a future tokenised-deposit transfer, you still issue the e-invoice with the MYR amount. Duitful's CSV export keeps channel and amount cleanly separated for your accountant."}},{"@type":"Question","name":"I run an SME paying suppliers in Singapore and Indonesia. When can I expect lower fees?","acceptedAnswer":{"@type":"Answer","text":"Expect partial production rollout via your existing bank within 12–18 months for ASEAN-5 corridors, and broader availability over 24–36 months. The price compression you'll feel: today's 2–4% all-in cross-border drops toward 0.5–1.5%. Track your current effective rate now so you have a baseline."}},{"@type":"Question","name":"What do I do today besides waiting?","acceptedAnswer":{"@type":"Answer","text":"Three things. (1) Log every settlement by channel in Duitful so you have a real fee baseline. (2) When your bank's relationship manager mentions \"tokenised settlement\" or \"DLT-based corridors,\" ask to be in the early cohort. (3) Don't switch processors based on vendor pitches — wait for your existing bank to ship it as a standard offering."}}]}</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --accent: #8fa078; --accent-ink: #3a6b50;
+    --warn: #b86a4e; --warn-ink: #8a3f1c;
+    --line: rgba(42,36,32,0.08); --border: rgba(42,36,32,0.14);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 17px/1.6 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 96px; }
+  .nav-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+
+  .eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: inline-block; margin-bottom: 14px;
+  }
+
+  h1 {
+    font: 500 clamp(36px, 6vw, 52px)/1.05 var(--font-serif);
+    letter-spacing: -0.02em; margin: 0 0 14px; color: var(--ink);
+  }
+  h1 em, h2 em { font-style: italic; color: var(--primary); }
+
+  .dateline {
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 22px; max-width: none;
+  }
+  .dateline time { color: inherit; }
+  .dateline-sep { margin: 0 4px; opacity: 0.6; }
+
+  .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
+
+  h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font: 500 18px/1.35 var(--font-sans); margin: 24px 0 6px; color: var(--ink); }
+  p { margin: 0 0 16px; color: var(--ink2); max-width: 64ch; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; color: var(--ink2); }
+  li { margin: 0 0 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: var(--primary-ink); }
+  code { font: 500 14px/1.2 var(--font-mono); background: var(--card); padding: 2px 6px; border-radius: 4px; border: 0.5px solid var(--line); }
+
+  /* ---------- Steps ---------- */
+  .steps { list-style: none; padding: 0; display: grid; gap: 12px; margin: 28px 0; }
+  .step {
+    display: grid; grid-template-columns: 48px 1fr; gap: 16px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 14px; padding: 18px 22px; align-items: start;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fffaf2;
+    display: grid; place-items: center;
+    font: 500 17px/1 var(--font-serif);
+  }
+  .step h3 { margin: 2px 0 4px; font-size: 17px; }
+  .step p { margin: 0; font-size: 15.5px; line-height: 1.5; }
+
+  /* ---------- Stat block ---------- */
+  .stat-block {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 16px; padding: 36px 28px;
+    margin: 32px 0; text-align: center;
+  }
+  .stat-value {
+    font: 500 clamp(44px, 9vw, 72px)/1 var(--font-serif);
+    color: var(--primary); letter-spacing: -0.02em;
+    margin: 0 0 10px; max-width: none;
+  }
+  .stat-label { font: 500 16px/1.4 var(--font-sans); color: var(--ink); margin: 0 0 4px; max-width: none; }
+  .stat-note { font: 400 13.5px/1.4 var(--font-mono); color: var(--muted); margin: 0; max-width: none; }
+
+  /* ---------- Compare ---------- */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin: 32px 0; border: 0.5px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col { padding: 22px 24px; }
+  .compare-col + .compare-col { border-left: 0.5px solid var(--line); }
+  @media (max-width: 600px) {
+    .compare-col + .compare-col { border-left: none; border-top: 0.5px solid var(--line); }
+  }
+  .compare-col.left  { background: rgba(184,106,78,0.05); }
+  .compare-col.right { background: rgba(106,138,94,0.06); }
+  .compare-title {
+    font: 500 11px/1 var(--font-mono); letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0 0 14px;
+  }
+  .compare-col.left  .compare-title { color: var(--warn-ink); }
+  .compare-col.right .compare-title { color: var(--accent-ink); }
+  .compare-col ul { padding: 0; list-style: none; margin: 0; }
+  .compare-col li {
+    padding: 7px 0; font-size: 15px; line-height: 1.45; color: var(--ink2);
+    display: flex; gap: 10px; align-items: start;
+  }
+  .compare-col li::before {
+    flex: 0 0 auto; font-weight: 700; line-height: 1.45;
+  }
+  .compare-col.left  li::before { content: "✕"; color: var(--warn); }
+  .compare-col.right li::before { content: "✓"; color: var(--accent-ink); }
+
+  /* ---------- FAQ ---------- */
+  .faq { margin: 28px 0; display: grid; gap: 8px; }
+  .faq-item {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; padding: 4px 22px;
+    transition: border-color 0.15s ease;
+  }
+  .faq-item[open] { border-color: var(--border); }
+  .faq-q {
+    font: 500 16px/1.4 var(--font-sans); color: var(--ink);
+    padding: 14px 0; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q::after {
+    content: "+"; font: 400 22px/1 var(--font-serif);
+    color: var(--muted); transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-q::after { content: "−"; }
+  .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- CTA ---------- */
+  .cta-card {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 18px; padding: 32px 28px;
+    margin: 56px 0 0; text-align: center;
+  }
+  .cta-card h2 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 30px); }
+  .cta-card p { margin: 0 auto 18px; max-width: 48ch; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 26px;
+    background: var(--primary); color: #fffaf2;
+    border-radius: 999px;
+    font: 500 15px/1 var(--font-sans);
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(42,36,32,0.1), 0 8px 20px rgba(200,112,75,0.28);
+    transition: background 0.15s ease;
+  }
+  .cta-btn:hover { background: var(--primary-ink); color: #fffaf2; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px; color: var(--muted);
+  }
+  .footer a { color: var(--primary); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/guides/" class="nav-back">← all guides</a>
+
+  <span class="eyebrow">Guide · Malaysia · Banking &amp;amp; settlement</span>
+  <h1>Tokenised deposits 101: <em>how Malaysia is moving money</em> on the blockchain in 2026.</h1>
+  <p class="dateline">Published <time datetime="2026-05-03">3 May 2026</time></p>
+  <p class="lede">Bank Negara's Digital Asset Innovation Hub (DAIH) just onboarded its first wave of real-world tokenised-deposit trials for wholesale and cross-border settlement. This is the boring, important version of "blockchain in banking" — institutional liquidity, not retail crypto. Here's what it is, what changes for you, and what to track now.</p>
+
+  <h2>What just happened</h2>
+
+    <div class="stat-block">
+      <p class="stat-value">First wave · Live trials</p>
+      <p class="stat-label">BNM's Digital Asset Innovation Hub (DAIH) onboarded its first cohort for tokenised-deposit trials, focused on wholesale domestic and cross-border settlement.</p>
+      <p class="stat-note">This is the official transition of blockchain rails in Malaysia from "crypto speculation" to "institutional liquidity." Retail use cases come later, and through licensed banks — not public chains.</p>
+    </div>
+<p>Tokenised deposits are commercial-bank money — your RM in a bank account — represented as tokens on a permissioned distributed ledger. The token is a 1:1 claim against the issuing bank, settled in central-bank money behind the scenes. From the customer side, it still feels like Maybank or CIMB. From the bank's side, the rails have changed.</p>
+<h2>How it differs from stablecoins and CBDC</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Stablecoins (private)</p>
+        <ul><li>Issued by non-banks (often offshore)</li><li>Backed by reserves the issuer holds</li><li>Operate on public chains (Ethereum, Solana, etc.)</li><li>Counterparty risk = the issuer</li><li>Regulatory status in Malaysia: grey, retail-restricted</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Tokenised deposits (banks)</p>
+        <ul><li>Issued by licensed banks</li><li>Backed 1:1 by your actual deposit</li><li>Operate on permissioned chains run by banks / central bank</li><li>Counterparty risk = your bank (same as today)</li><li>Regulatory status: under BNM oversight via DAIH</li></ul>
+      </div>
+    </div>
+<p>CBDC (a wholesale "digital ringgit" issued directly by BNM) is a separate workstream. Today's DAIH cohort is about commercial-bank tokens settling on shared rails, not BNM minting digital cash for the public.</p>
+<h2>What changes for retail (right now: very little)</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>You won't see "tokenised" in your banking app</h3>
+        <p>The customer experience stays as it is — DuitNow QR, debit card, online banking. The change is back-end: how the money moves between banks, how settlement clears, how cross-border flows route. You experience it as faster availability and (eventually) lower fees, not as a new app.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Cross-border SME payouts get cheaper first</h3>
+        <p>The real near-term win is cross-border. Sending SGD to a Singapore designer, receiving USD from a Jakarta client — those flows today carry 2–4% all-in (FX spread + correspondent fees). Tokenised deposits on shared rails (think Project Nexus, ASEAN-5 corridors) target sub-1% all-in over the next 18–36 months.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Domestic clearing speeds up, modestly</h3>
+        <p>DuitNow QR is already near-instant for retail. Tokenised-deposit rails primarily upgrade interbank GIRO, batch payroll runs, and large-value transfers — moving them from T+1/T+3 to near real-time. Useful for SMEs running payroll on the 25th. Invisible to most consumers.</p>
+      </div>
+    </li>
+</ol>
+<h2>What to track in Duitful right now</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Channel as a Category on every settlement</h3>
+        <p>When the daily payout from your processor hits — Stripe, iPay88, Razer Merchant, Senangpay, etc. — log it in Duitful with Category set to the channel. The fee is the difference between gross sales and the payout. After 90 days, Reports tells you which channel costs the most.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Cross-border separately, in source currency</h3>
+        <p>Any payment in a non-MYR currency, log the original amount and let Duitful auto-convert. Note the FX spread the processor charged in the description. That's the line item tokenised-deposit rails will compress — you want a clean baseline before they ship.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Payroll &amp;amp; supplier batches as their own line</h3>
+        <p>Monthly GIRO payroll, supplier ACH, contractor payouts — tag them so you can see the timing improvement when banks switch your large-batch transfers to DLT settlement. Most SMEs will start seeing T+0 batch settlement within 12–24 months for participating banks.</p>
+      </div>
+    </li>
+</ol>
+<h2>What to ignore</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>"Buy the BNM tokenised-deposit token" pitches</h3>
+        <p>There is no public token to buy. Tokenised deposits are commercial-bank liabilities on a permissioned ledger — they are not investment instruments. Anyone selling you a token claiming to be DAIH-related is running a scam. Report to BNM's eLINK and the Securities Commission.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>"Public-chain MYR stablecoin" rebrands</h3>
+        <p>Some projects are quietly rebranding existing public-chain stablecoins as "Malaysia-friendly." Without explicit BNM oversight under the existing payment systems framework, they sit in regulatory grey. Don't accept them as a merchant. Track only legitimate channels through licensed PSPs.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>"Crypto-as-payment will replace cards" narratives</h3>
+        <p>Tokenised deposits are not crypto-as-payment. They are bank money on better rails. The customer-facing payment instruments (cards, QR, wallets) stay the same in 2026. Anyone conflating the two is selling a course or a token.</p>
+      </div>
+    </li>
+</ol>
+<p>For broader merchant payment hygiene, the <a href="/guides/ringgit-stablecoins-merchant-fees-2026/">Ringgit stablecoins for merchants guide</a> covers the same territory from the fee-compression angle. This guide and that one fit together.</p>
+<h2>Common questions</h2>
+<div class="faq">
+    <details class="faq-item">
+      <summary class="faq-q">Is my bank deposit safer or riskier on tokenised rails?</summary>
+      <p class="faq-a">Same risk as today — the deposit is still a claim against your bank, and PIDM coverage applies the same way. The token is just a representation of that claim on a shared ledger. No new counterparty added.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Will my CIMB or Maybank app look different?</summary>
+      <p class="faq-a">No, not in 2026. The rail change is invisible to the consumer. Banks may eventually surface "instant cross-border" as a feature, but that's a UX label on top of the new plumbing — not a new app.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">How does this affect my e-invoice obligations?</summary>
+      <p class="faq-a">Not at all. E-invoice requirements are independent of the settlement rail. Whether the customer paid via DuitNow QR, card, or a future tokenised-deposit transfer, you still issue the e-invoice with the MYR amount. Duitful's CSV export keeps channel and amount cleanly separated for your accountant.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">I run an SME paying suppliers in Singapore and Indonesia. When can I expect lower fees?</summary>
+      <p class="faq-a">Expect partial production rollout via your existing bank within 12–18 months for ASEAN-5 corridors, and broader availability over 24–36 months. The price compression you'll feel: today's 2–4% all-in cross-border drops toward 0.5–1.5%. Track your current effective rate now so you have a baseline.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">What do I do today besides waiting?</summary>
+      <p class="faq-a">Three things. (1) Log every settlement by channel in Duitful so you have a real fee baseline. (2) When your bank's relationship manager mentions "tokenised settlement" or "DLT-based corridors," ask to be in the early cohort. (3) Don't switch processors based on vendor pitches — wait for your existing bank to ship it as a standard offering.</p>
+    </details>
+</div>
+
+  <div class="cta-card">
+    <h2>Track every settlement channel separately</h2>
+    <p>Card, DuitNow QR, e-wallet, GIRO, and now tokenised-deposit rails — fees and timing differ on each. Tag channel as a Category in Duitful and Reports tells you which channel is bleeding margin. Free to start, RM 19.90 one-time for Pro.</p>
+    <a class="cta-btn" href="/app/">Open Duitful →</a>
+  </div>
+
+  <div class="footer">
+    More guides at <a href="/guides/">duitful.app/guides</a>. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy policy</a>, or <a href="/contact/">say hi</a>.
+  </div>
+</div>
+</body>
+</html>
