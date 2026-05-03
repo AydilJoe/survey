@@ -1326,82 +1326,76 @@
       justify-content: center;
     }
 
-    /* --------------- Social posts --------------- */
-    .social { background: var(--bg); }
-    .social-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 18px;
-      margin-bottom: 32px;
+    /* --------------- Follow us --------------- */
+    .follow {
+      padding: 80px 0 24px;
     }
-    @media (max-width: 1024px) { .social-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; } }
-    @media (max-width: 560px) {
-      .social-grid { gap: 12px; }
-      .s-card-body { padding: 14px 14px 16px; }
-      .s-card-title { font-size: 16px; }
-    }
-    .s-card {
-      display: flex;
-      flex-direction: column;
+    .follow-card {
+      max-width: 640px;
+      margin: 0 auto;
       background: var(--card);
       border: 0.5px solid var(--line);
-      border-radius: 18px;
-      overflow: hidden;
-      text-decoration: none;
-      color: var(--ink);
-      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      border-radius: 22px;
+      padding: 36px 32px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     }
-    .s-card:hover {
+    .follow-card:hover {
       border-color: var(--primary);
       transform: translateY(-2px);
       box-shadow: 0 1px 2px rgba(42, 36, 32, 0.05), 0 12px 32px rgba(42, 36, 32, 0.06);
     }
-    .s-card-img {
-      display: block;
-      width: 100%;
-      aspect-ratio: 4 / 5;
-      object-fit: cover;
-      background: var(--card-soft);
+    .follow-icon {
+      flex-shrink: 0;
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #d98866, #b35a39);
+      color: var(--card);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
-    .s-card-body {
-      padding: 18px 20px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      flex: 1;
-    }
-    .s-card-eyebrow {
+    .follow-icon svg { width: 30px; height: 30px; }
+    .follow-body { flex: 1; min-width: 0; }
+    .follow-eyebrow {
       font-family: var(--font-mono);
       font-size: 10.5px;
       font-weight: 500;
       letter-spacing: 0.18em;
       text-transform: uppercase;
       color: var(--muted);
+      display: block;
+      margin-bottom: 4px;
     }
-    .s-card-title {
+    .follow-title {
       font-family: var(--font-serif);
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 500;
-      line-height: 1.3;
       letter-spacing: -0.005em;
-      margin: 0;
+      color: var(--ink);
+      margin: 0 0 4px;
     }
-    .s-card-link {
-      margin-top: auto;
+    .follow-handle {
       font-family: var(--font-mono);
-      font-size: 11.5px;
+      font-size: 13.5px;
+      color: var(--ink2);
+    }
+    .follow-cta {
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
       font-weight: 500;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--primary);
-      padding-top: 10px;
-      border-top: 0.5px solid var(--line);
     }
-    .social-foot {
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-      flex-wrap: wrap;
+    @media (max-width: 560px) {
+      .follow-card { padding: 24px; gap: 16px; }
+      .follow-title { font-size: 18px; }
+      .follow-cta { display: none; }
     }
 
     /* --------------- Final CTA --------------- */
@@ -1470,7 +1464,6 @@
       <a href="#pricing">Pricing</a>
       <a href="#founder">About</a>
       <a href="#faq">FAQ</a>
-      <a href="#social">Social</a>
     </div>
     <a href="/ms/" class="lang-toggle" aria-label="Tukar ke Bahasa Melayu" title="Bahasa Melayu">BM</a>
     <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary nav-cta">Get the app</a>
@@ -1955,56 +1948,24 @@
     </div>
   </section>
 
-  <!-- ======================= SOCIAL ======================= -->
-  <section class="block social" id="social">
+  <!-- ======================= FOLLOW ======================= -->
+  <section class="follow">
     <div class="container">
-      <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
-        <span class="eyebrow">Threads &amp; Instagram</span>
-        <h2>Same content, <em>shorter</em> form.</h2>
-        <p>Bite-size posts in English and Bahasa Melayu — each one points to the long-form guide here so the social blurb and the deep-dive never drift apart.</p>
-      </div>
-
-      <div class="social-grid reveal">
-        <a class="s-card" href="/guides/" aria-label="Guides hub">
-          <img class="s-card-img" src="/marketing/images/01-be-duitful.png" alt="Be duitful with your duit — Duitful brand poster" width="1080" height="1350" loading="lazy">
-          <div class="s-card-body">
-            <span class="s-card-eyebrow">Brand · Intro</span>
-            <h3 class="s-card-title">Be duitful with your duit.</h3>
-            <span class="s-card-link">Browse all guides →</span>
-          </div>
-        </a>
-
-        <a class="s-card" href="/guides/crush-credit-card-debt-avalanche-2026/" aria-label="Avalanche method guide">
-          <img class="s-card-img" src="/marketing/images/02-avalanche.png" alt="Kill your highest-APR debt first — avalanche method visual" width="1080" height="1350" loading="lazy">
-          <div class="s-card-body">
-            <span class="s-card-eyebrow">Debt · Avalanche</span>
-            <h3 class="s-card-title">Kill your highest-APR debt first.</h3>
-            <span class="s-card-link">Read the deep-dive →</span>
-          </div>
-        </a>
-
-        <a class="s-card" href="/privacy/" aria-label="Privacy policy">
-          <img class="s-card-img" src="/marketing/images/03-privacy.png" alt="Your data never leaves your phone — Duitful privacy" width="1080" height="1350" loading="lazy">
-          <div class="s-card-body">
-            <span class="s-card-eyebrow">Privacy · On-device</span>
-            <h3 class="s-card-title">Your data never leaves your phone.</h3>
-            <span class="s-card-link">How we built it →</span>
-          </div>
-        </a>
-
-        <a class="s-card" href="#pricing" aria-label="Pricing">
-          <img class="s-card-img" src="/marketing/images/04-no-subscription.png" alt="Duitful Pro — RM 19.90 once, no subscription" width="1080" height="1350" loading="lazy">
-          <div class="s-card-body">
-            <span class="s-card-eyebrow">Pricing · Lifetime</span>
-            <h3 class="s-card-title">No subscription. Ever.</h3>
-            <span class="s-card-link">See pricing →</span>
-          </div>
-        </a>
-      </div>
-
-      <div class="social-foot reveal">
-        <a href="/marketing/" class="btn btn-ghost">Get the captions (EN + BM) →</a>
-      </div>
+      <a class="follow-card reveal" href="https://www.instagram.com/duitful.app/" target="_blank" rel="noopener" aria-label="Follow Duitful on Instagram">
+        <span class="follow-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="5"/>
+            <circle cx="12" cy="12" r="4"/>
+            <circle cx="17.5" cy="6.5" r="1" fill="currentColor"/>
+          </svg>
+        </span>
+        <div class="follow-body">
+          <span class="follow-eyebrow">Follow us</span>
+          <h2 class="follow-title">More on Instagram.</h2>
+          <span class="follow-handle">@duitful.app</span>
+        </div>
+        <span class="follow-cta">Follow →</span>
+      </a>
     </div>
   </section>
 

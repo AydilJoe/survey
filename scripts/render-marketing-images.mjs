@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const dir = join(__dirname, "..", "marketing", "images");
+const dir = join(__dirname, "..", "tools", "marketing", "images");
 
 const files = (await readdir(dir)).filter((f) => extname(f) === ".svg");
 
