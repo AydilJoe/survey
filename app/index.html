@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com https://open.er-api.com; worker-src 'self' blob:; frame-src https://accounts.google.com; base-uri 'self'; object-src 'none'; form-action 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#e8dfd0" />
     <title>Duitful — Money & Debt Tracker</title>
@@ -291,6 +292,7 @@
             </div>
             <button type="submit" class="primary">Add income</button>
           </form>
+          <button type="button" class="ghost bulk-import-trigger" id="btn-bulk-import-income">Bulk import from CSV</button>
           <ul id="list-income" class="item-list"></ul>
           <div class="total-line">Total: <strong id="total-income">RM 0.00</strong></div>
         </div>
@@ -797,6 +799,30 @@
         <div class="button-row">
           <button type="button" class="ghost" id="scan-cancel">Close</button>
           <button type="button" class="primary" id="scan-apply" hidden>Use these values</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="bulk-income-dialog" class="edit-dialog">
+      <form method="dialog">
+        <h2>Bulk import income</h2>
+        <p class="hint">Upload a Duitful CSV. Only the <code>income</code> rows are added — every other row type is ignored. Existing income, expenses, debts, savings, and daily entries are untouched.</p>
+        <label class="field">
+          <span>CSV file</span>
+          <input type="file" id="bulk-income-file" accept=".csv,text/csv" />
+        </label>
+        <div id="bulk-income-status" class="hint" hidden></div>
+        <div id="bulk-income-preview" class="bulk-income-preview" hidden>
+          <p class="bulk-income-summary"><strong id="bulk-income-count">0</strong> income rows ready to add</p>
+          <p class="hint" id="bulk-income-totals"></p>
+          <details id="bulk-income-skipped-wrap" hidden>
+            <summary><span id="bulk-income-skipped-count">0</span> rows skipped</summary>
+            <ul id="bulk-income-skipped" class="bulk-income-skipped"></ul>
+          </details>
+        </div>
+        <div class="button-row">
+          <button type="button" class="ghost" id="bulk-income-cancel">Close</button>
+          <button type="button" class="primary" id="bulk-income-apply" disabled>Add to income</button>
         </div>
       </form>
     </dialog>

@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <!-- Eyebrow -->
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">SELANGOR · MAY 2026</text>
+  <!-- Slide indicator -->
+  <g transform="translate(900, 140)">
+    <rect x="0" y="0" width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">1/5</text>
+  </g>
+
+  <!-- Headline -->
+  <text x="100" y="320" font-family="'Fraunces', 'Georgia', serif" font-size="80" font-weight="500" fill="#2a2420">The state put its</text>
+  <text x="100" y="410" font-family="'Fraunces', 'Georgia', serif" font-size="80" font-weight="500" fill="#2a2420">civil servants on</text>
+  <text x="100" y="500" font-family="'Fraunces', 'Georgia', serif" font-size="80" font-weight="500" fill="#b35a39" font-style="italic">Tue–Thu only.</text>
+
+  <!-- Day blocks -->
+  <g transform="translate(100, 620)">
+    <!-- Mon WFH -->
+    <g>
+      <rect x="0" y="0" width="160" height="180" rx="20" fill="#fffaf2" stroke="#e3d6bf"/>
+      <text x="80" y="60" font-family="'JetBrains Mono', monospace" font-size="20" fill="#8a8178" text-anchor="middle" letter-spacing="3">MON</text>
+      <text x="80" y="110" font-family="'Fraunces', serif" font-size="38" fill="#8fa078" text-anchor="middle" font-weight="600">WFH</text>
+      <text x="80" y="150" font-family="'Inter', sans-serif" font-size="16" fill="#5c524a" text-anchor="middle">at home</text>
+    </g>
+    <!-- Tue office -->
+    <g transform="translate(180, 0)">
+      <rect x="0" y="0" width="160" height="180" rx="20" fill="url(#primary)"/>
+      <text x="80" y="60" font-family="'JetBrains Mono', monospace" font-size="20" fill="#fffaf2" text-anchor="middle" letter-spacing="3" opacity="0.85">TUE</text>
+      <text x="80" y="125" font-family="'Fraunces', serif" font-size="44" fill="#fffaf2" text-anchor="middle" font-weight="500">In</text>
+    </g>
+    <!-- Wed office -->
+    <g transform="translate(360, 0)">
+      <rect x="0" y="0" width="160" height="180" rx="20" fill="url(#primary)"/>
+      <text x="80" y="60" font-family="'JetBrains Mono', monospace" font-size="20" fill="#fffaf2" text-anchor="middle" letter-spacing="3" opacity="0.85">WED</text>
+      <text x="80" y="125" font-family="'Fraunces', serif" font-size="44" fill="#fffaf2" text-anchor="middle" font-weight="500">In</text>
+    </g>
+    <!-- Thu office -->
+    <g transform="translate(540, 0)">
+      <rect x="0" y="0" width="160" height="180" rx="20" fill="url(#primary)"/>
+      <text x="80" y="60" font-family="'JetBrains Mono', monospace" font-size="20" fill="#fffaf2" text-anchor="middle" letter-spacing="3" opacity="0.85">THU</text>
+      <text x="80" y="125" font-family="'Fraunces', serif" font-size="44" fill="#fffaf2" text-anchor="middle" font-weight="500">In</text>
+    </g>
+    <!-- Fri WFH -->
+    <g transform="translate(720, 0)">
+      <rect x="0" y="0" width="160" height="180" rx="20" fill="#fffaf2" stroke="#e3d6bf"/>
+      <text x="80" y="60" font-family="'JetBrains Mono', monospace" font-size="20" fill="#8a8178" text-anchor="middle" letter-spacing="3">FRI</text>
+      <text x="80" y="110" font-family="'Fraunces', serif" font-size="38" fill="#8fa078" text-anchor="middle" font-weight="600">WFH</text>
+      <text x="80" y="150" font-family="'Inter', sans-serif" font-size="16" fill="#5c524a" text-anchor="middle">at home</text>
+    </g>
+  </g>
+
+  <!-- Subtext -->
+  <text x="100" y="920" font-family="'Inter', sans-serif" font-size="32" fill="#5c524a" font-weight="500">Crisis-mode response to the 2026 energy shock.</text>
+  <text x="100" y="965" font-family="'Inter', sans-serif" font-size="32" fill="#5c524a" font-weight="500">Private sector being urged to mirror it.</text>
+
+  <!-- Big tease -->
+  <text x="100" y="1100" font-family="'Fraunces', 'Georgia', serif" font-size="60" font-weight="500" fill="#2a2420">Here's the playbook for</text>
+  <text x="100" y="1170" font-family="'Fraunces', 'Georgia', serif" font-size="60" font-weight="500" fill="#2a2420">everyone else. <tspan fill="#b35a39" font-style="italic">Swipe →</tspan></text>
+
+  <!-- Footer -->
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

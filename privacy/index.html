@@ -37,7 +37,7 @@
   "url": "https://duitful.app/privacy/",
   "description": "Privacy policy for Duitful — a privacy-first personal finance tracker built in Malaysia.",
   "inLanguage": "en",
-  "dateModified": "2026-04-23",
+  "dateModified": "2026-05-01",
   "publisher": {
     "@type": "Organization",
     "name": "Duitful",
@@ -186,12 +186,13 @@
 
   <h1>Privacy <em>policy</em></h1>
   <p class="lede">Written in plain English, not legalese. The short version lives right below — the rest is the full detail you'll want if you care, or if a regulator asks.</p>
-  <p class="meta">Effective 23 April 2026 · Last updated 23 April 2026</p>
+  <p class="meta">Effective 23 April 2026 · Last updated 1 May 2026</p>
 
   <div class="tldr">
     <h2>The short version</h2>
     <ul>
-      <li>Your transactions, debts, savings, receipts and notes <strong>stay on your device</strong>, encrypted with AES-GCM using a key derived from your passcode. There is no sync server and no cloud copy.</li>
+      <li>Your transactions, debts, savings, receipts and notes <strong>stay on your device</strong>, encrypted with AES-GCM using a key derived from your passcode. Duitful runs no sync server.</li>
+      <li>If you turn on Pro's optional <strong>Google Drive sync</strong>, an already-encrypted copy of your database is uploaded directly from your device to a hidden folder in <em>your own</em> Google Drive. Duitful never sees the bytes; Google cannot read them without your passcode.</li>
       <li>Receipt scanning runs <strong>entirely on your device</strong> using Tesseract.js. Receipt images and extracted text are never uploaded to us or to any third party.</li>
       <li>On Android, bank and e-wallet notifications are parsed <strong>on the device itself</strong>. Nothing from a notification is transmitted anywhere.</li>
       <li>We don't use analytics, advertising trackers, or error-reporting SDKs. There are no tracking cookies.</li>
@@ -208,7 +209,7 @@
   <p>Because the things we don't do are central to how Duitful is built, it's easier to list them first.</p>
   <ul>
     <li>We do not have a user account system. There is no sign-up, no login, no password stored anywhere.</li>
-    <li>We do not sync your financial data to a server. We don't run a database of user transactions.</li>
+    <li>We do not run a sync server, and we do not store your transactions in any database we operate. Pro's optional Google Drive sync writes an already-encrypted file directly from your device to your own Google Drive — the bytes never pass through any Duitful infrastructure.</li>
     <li>We do not use analytics, product telemetry, crash reporting SDKs, or advertising identifiers. Not Google Analytics, Firebase, Sentry, Mixpanel, PostHog, Amplitude, Crashlytics, or anything similar.</li>
     <li>We do not set tracking cookies on this website.</li>
     <li>We do not sell, rent, share, or monetise personal data. There is no ad network involved anywhere in the product.</li>
@@ -225,7 +226,7 @@
     <li>Foreign-exchange rate snapshots cached for up to 24 hours, and the last few UI preferences.</li>
   </ul>
   <p>This data is written to the browser's <code>localStorage</code> (or the equivalent storage inside the native app shell). It is encrypted at rest using AES-GCM with a 256-bit key derived from your passcode via PBKDF2 (250,000 iterations, SHA-256). We do not know your passcode; we do not have a copy of the derived key; we cannot decrypt your data.</p>
-  <p>If you forget your passcode, your data is not recoverable. This is a deliberate trade-off for genuine end-to-end privacy. We recommend writing your passcode down somewhere safe, or using Pro's encrypted backup export if you want a portable recovery copy.</p>
+  <p>If you forget your passcode, your data is not recoverable — not even if you have a Google Drive backup, because the backup is encrypted with the same passcode. This is a deliberate trade-off for genuine end-to-end privacy. We recommend writing your passcode down somewhere safe, and using Pro's Google Drive sync or CSV export so you have a portable copy of the encrypted data itself.</p>
 
   <h3>Local storage keys, for transparency</h3>
   <p>Duitful writes the following keys to your browser's local storage:</p>
@@ -236,6 +237,7 @@
     <li><code>duit-tracker.fx</code> — cached foreign-exchange rates, up to 24 hours.</li>
     <li><code>duit-tracker.privacy</code> — whether you have "blur balances" mode turned on.</li>
     <li><code>duit-tracker.install-dismissed-at</code> — the timestamp when you dismissed the "install as an app" prompt, so we don't show it again for a while.</li>
+    <li><code>duit-tracker.drive</code> — only present if you have connected Google Drive sync (Pro). Holds the OAuth access token Google issued to your browser, the Drive file identifier of your backup, your Google account email (so the in-app status line can show which account is connected), and the timestamp of the last successful sync. Removed when you disconnect Drive sync.</li>
   </ul>
 
   <h2 class="section">4. What actually reaches us</h2>
@@ -255,7 +257,23 @@
   <h3>4.4 When you email us</h3>
   <p>If you email <a href="mailto:hello@duitful.app">hello@duitful.app</a> for support, feedback, or a bug report, the contents of your email, your email address, and any information you choose to include reach the operator directly. Inbound mail is forwarded through Cloudflare Email Routing to a personal inbox. We keep support correspondence for as long as needed to resolve the conversation and a reasonable period afterwards for reference; you can ask us to delete it at any time.</p>
 
-  <h3>4.5 Website logs</h3>
+  <h3>4.5 When you enable Pro's Google Drive sync</h3>
+  <p>Pro includes an optional encrypted-backup feature that uses <strong>your own</strong> Google Drive as the storage destination. The feature is off by default; turning it on requires you to sign in with a Google account and grant Duitful permission to access only its hidden application data folder on Drive (the <code>drive.appdata</code> OAuth scope). Duitful cannot see, list, read, or modify any other file in your Drive — only the single backup file it writes for itself.</p>
+  <p>When sync runs, your device:</p>
+  <ul>
+    <li>encrypts your records on-device with AES-GCM using your passcode-derived key (the same encryption used at rest), <em>then</em></li>
+    <li>uploads that encrypted blob directly from your device to Google's Drive API, into the hidden app folder, as a single file.</li>
+  </ul>
+  <p>Two consequences follow from this design:</p>
+  <ul>
+    <li><strong>Duitful runs no relay.</strong> The OAuth access token Google issues stays on your device, and your device talks to Google's servers directly. No request, no token, and no backup byte ever passes through any Duitful-operated server.</li>
+    <li><strong>Google cannot read the backup.</strong> Google receives the file as an opaque encrypted blob. The passcode that decrypts it is never sent to Google or to us. To Google, the file is unreadable bytes.</li>
+  </ul>
+  <p>What we record on your device when sync is enabled is listed in the local-storage keys table above (<code>duit-tracker.drive</code>). It does not include your passcode, your derived key, or any of your transaction data — only the OAuth token issued to your browser, the Drive file identifier, the Google account email, and the timestamp of the last sync.</p>
+  <p>You can disconnect Google Drive sync at any time from the in-app <strong>Cloud backup</strong> card. Disconnecting clears the OAuth token from your device and stops further uploads. The encrypted file already in your Drive is left where it is — you can delete it directly from Google's <a href="https://drive.google.com/drive/u/0/settings">Drive &gt; Settings &gt; Manage apps</a> screen, which also revokes Duitful's Drive permission.</p>
+  <p>Your interactions with Google through this feature are governed by <a href="https://policies.google.com/privacy">Google's Privacy Policy</a> and <a href="https://policies.google.com/terms">Terms</a>. Storage of the backup file counts against the Google Drive quota of the account you connect.</p>
+
+  <h3>4.6 Website logs</h3>
   <p>The public website at <code>duitful.app</code> is served by GitHub Pages. When you visit, GitHub's servers receive standard HTTP request metadata — IP address, user-agent, referrer, requested path — which GitHub retains as part of its own operations under its own privacy policy. We don't operate our own web-access logging on top of that, and we don't receive or analyse those logs.</p>
   <p>Our Pro-checkout endpoints are hosted on Vercel. When you hit those endpoints, Vercel retains similar request metadata for operational and security purposes, as described in Vercel's own privacy policy.</p>
 
@@ -303,6 +321,11 @@
         <td>Standard web-server request metadata (IP, user-agent, referrer).</td>
       </tr>
       <tr>
+        <td>Google Drive &amp; Google Identity</td>
+        <td>Hosts Pro's optional encrypted backup in <em>your own</em> Drive (hidden app folder). Used only if you connect Drive sync.</td>
+        <td>Your Google account email, the OAuth grant for the <code>drive.appdata</code> scope, and an encrypted blob Google cannot read without your passcode.</td>
+      </tr>
+      <tr>
         <td>Google Fonts</td>
         <td>Serves the Fraunces, Inter, and JetBrains Mono typefaces.</td>
         <td>Your IP address, as part of the normal request for a CSS file and font files, during the first page load.</td>
@@ -332,6 +355,7 @@
   <h2 class="section">8. How long we keep things</h2>
   <ul>
     <li><strong>On-device data:</strong> as long as you keep the app installed. Uninstalling the app, clearing your browser's storage, or using the in-app "reset all data" option will delete it.</li>
+    <li><strong>Encrypted Google Drive backup (Pro, optional):</strong> retained inside your own Google Drive until you delete it. Disconnecting Drive sync inside Duitful stops further uploads but leaves the existing file in place — remove it via Google's <em>Drive &gt; Settings &gt; Manage apps</em> screen.</li>
     <li><strong>Billplz payment records:</strong> retained by Billplz under its own policy.</li>
     <li><strong>Resend email logs:</strong> retained by Resend under its own policy (typically a rolling window measured in days to weeks for transactional mail).</li>
     <li><strong>Our Vercel function logs:</strong> retained by Vercel for up to roughly 30 days, then discarded.</li>

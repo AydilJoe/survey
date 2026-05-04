@@ -10,67 +10,20 @@
 const { getBill, verifyXSignature, flattenBillplzParams } = require("../_lib/billplz");
 const { signLicense } = require("../_lib/license");
 const { refCodeFor } = require("../_lib/referral");
-const { sendEmail, ownerNotifyAddress } = require("../_lib/email");
+const { sendLicenseEmail, sendOwnerSaleNotification, escapeHtml } = require("../_lib/email");
 
-// Email the buyer their license. Resend sends From: receipts@duitful.app
-// with Reply-To: hello@duitful.app so replies land in the main inbox.
-// Falls back to { sent: false } when RESEND_API_KEY is unset so the
-// post-payment page can stay honest about what actually went out.
-async function sendLicenseEmail({ to, license, billId }) {
-  const appBase = process.env.APP_BASE_URL || "https://duitful.app";
-  return sendEmail({
-    to,
-    subject: "Your Duitful Pro license",
-    html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#2a2420;background:#fffaf2;">
-  <h2 style="font-family:Georgia,serif;font-weight:500;margin:0 0 12px;">Thanks for buying Duitful Pro</h2>
-  <p style="line-height:1.55;">Here's your license key. Copy it and paste it into Duitful under <strong>Settings &rarr; Activate license</strong>.</p>
-  <pre style="background:#fbf5ea;border:0.5px solid rgba(42,36,32,0.08);border-radius:10px;padding:12px;font:12px/1.5 ui-monospace,SFMono-Regular,monospace;white-space:pre-wrap;word-break:break-all;">${license}</pre>
-  <p style="line-height:1.55;">Open the app: <a href="${appBase}/app" style="color:#c8704b;">${appBase}/app</a></p>
-  <p style="line-height:1.55;color:#6b5e52;font-size:13px;">Bill reference: <code>${billId}</code><br>Treat this key like a password — it activates Pro on any device.</p>
-</div>`,
+// Safe JSON for embedding inside a <script> tag. JSON.stringify alone
+// doesn't escape '<' (so a value containing "</script>" could break
+// out of script context) or U+2028 / U+2029 (which are valid in JSON
+// strings but illegal in JS string literals). Belt-and-suspenders for
+// our license token (which is base64url-only, but defence in depth
+// doesn't hurt). Built via RegExp(string) to avoid putting raw U+2028
+// in the source (which would terminate the regex literal).
+const UNSAFE_SCRIPT_CHARS = new RegExp("[<>&\\u2028\\u2029]", "g");
+function jsonForScript(value) {
+  return JSON.stringify(value).replace(UNSAFE_SCRIPT_CHARS, function (c) {
+    return "\\u" + ("0000" + c.charCodeAt(0).toString(16)).slice(-4);
   });
-}
-
-// Notify the Duitful owner of a new paid sale. Best-effort — a failure
-// here must never break the buyer-facing flow, so the caller awaits it
-// but ignores a { sent: false } result.
-async function sendOwnerSaleNotification({ bill }) {
-  const to = ownerNotifyAddress();
-  const amountRm = bill.amount != null ? (Number(bill.amount) / 100).toFixed(2) : "?";
-  const ref = bill.reference_1 || bill.reference_2 || "—";
-  const whenIso = new Date().toISOString();
-  const subject = `Duitful Pro sale — RM ${amountRm} (${bill.email || "no email"})`;
-  return sendEmail({
-    to,
-    subject,
-    text: [
-      "New Duitful Pro sale confirmed.",
-      "",
-      `Buyer:     ${bill.email || "(no email)"}`,
-      `Name:      ${bill.name || "(no name)"}`,
-      `Bill id:   ${bill.id}`,
-      `Amount:    RM ${amountRm}`,
-      `Reference: ${ref}`,
-      `When:      ${whenIso}`,
-    ].join("\n"),
-    html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:520px;color:#2a2420;">
-  <h2 style="font:500 18px/1.2 Georgia,serif;margin:0 0 12px;">New Duitful Pro sale</h2>
-  <table style="font-size:14px;line-height:1.5;border-collapse:collapse;">
-    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">Buyer</td><td>${escapeHtml(bill.email || "(no email)")}</td></tr>
-    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">Name</td><td>${escapeHtml(bill.name || "(no name)")}</td></tr>
-    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">Bill id</td><td><code>${escapeHtml(bill.id)}</code></td></tr>
-    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">Amount</td><td>RM ${escapeHtml(amountRm)}</td></tr>
-    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">Reference</td><td>${escapeHtml(String(ref))}</td></tr>
-    <tr><td style="color:#6b5e52;padding:2px 14px 2px 0;">When</td><td>${escapeHtml(whenIso)}</td></tr>
-  </table>
-</div>`,
-  });
-}
-
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-  }[c]));
 }
 
 function renderPage({ status, title, body, license, email, emailSent }) {
@@ -78,14 +31,23 @@ function renderPage({ status, title, body, license, email, emailSent }) {
   const emailLine = emailSent
     ? `<p class="hint">We also emailed a copy to <strong>${escapeHtml(email || "your email")}</strong>.</p>`
     : `<p class="hint">Save this key somewhere safe — close this tab and you'll need to recover it from your Billplz bill receipt.</p>`;
+  // When we have a license, we hand it to /app via sessionStorage and
+  // auto-redirect — the app activates Pro on load. The license is still
+  // shown as a backup for activating Pro on other devices.
+  const autoOpenBlock = license
+    ? `<div class="card">
+         <h2>Pro unlocked — opening Duitful…</h2>
+         <p class="hint">Opening in <span id="cd">3</span>s and Pro will activate automatically. <button id="stay" class="link">Stay on this page</button></p>
+       </div>`
+    : "";
   const licenseBlock = license
     ? `<div class="card">
-         <h2>Your Duitful Pro license</h2>
-         <p class="hint">Copy this key and paste it into Duitful under <strong>Settings → Activate license</strong>. Keep it safe — treat it like a password.</p>
+         <h2>Your Duitful Pro license <span class="badge">backup</span></h2>
+         <p class="hint">Save this key to activate Pro on other devices. Treat it like a password.</p>
          <textarea readonly id="lic">${escapeHtml(license)}</textarea>
          <div class="actions">
            <button onclick="copyLic()" class="primary">Copy license</button>
-           <a href="${escapeHtml(appBase)}/app" class="btn-ghost">Open Duitful</a>
+           <a href="${escapeHtml(appBase)}/app" class="btn-ghost">Open Duitful now</a>
          </div>
          ${emailLine}
        </div>`
@@ -112,6 +74,8 @@ function renderPage({ status, title, body, license, email, emailSent }) {
   .actions .primary, .actions a.btn-ghost { padding:0.7rem 1.1rem; border-radius:12px; font:500 0.95rem/1 inherit; border:0.5px solid transparent; cursor:pointer; text-decoration:none; text-align:center; display:inline-flex; align-items:center; justify-content:center; }
   .primary { background:var(--primary); color:#fffaf2; border-color:var(--primary); }
   .btn-ghost { background:transparent; color:var(--ink); border-color:var(--line); }
+  .link { background:none; border:0; padding:0; color:var(--primary); text-decoration:underline; cursor:pointer; font:inherit; }
+  .badge { display:inline-block; background:#fbf5ea; color:var(--muted); font:500 0.7rem/1 inherit; border:0.5px solid var(--line); border-radius:999px; padding:3px 8px; vertical-align:middle; margin-left:0.4rem; text-transform:uppercase; letter-spacing:0.04em; }
   .${status} { border-left:3px solid ${status === "ok" ? "#5c986e" : "#b35a39"}; padding-left:0.8rem; }
 </style>
 </head>
@@ -121,6 +85,7 @@ function renderPage({ status, title, body, license, email, emailSent }) {
     <h1>${escapeHtml(title)}</h1>
     <p class="hint">${body}</p>
   </div>
+  ${autoOpenBlock}
   ${licenseBlock}
 </div>
 <script>
@@ -133,6 +98,37 @@ function copyLic() {
   b.textContent = "Copied ✓";
   setTimeout(function(){ b.textContent = t; }, 1500);
 }
+${license ? `(function(){
+  // Hand the license to /app via sessionStorage (same origin) so the
+  // app self-activates Pro on load. Backup paste flow stays available
+  // for activating Pro on other devices.
+  try {
+    sessionStorage.setItem("__pendingLicense__", ${jsonForScript(license)});
+  } catch (e) { /* private mode etc — backup paste still works */ }
+  var APP_URL = ${jsonForScript(appBase + "/app")};
+  var seconds = 3;
+  var cdEl = document.getElementById("cd");
+  var stayBtn = document.getElementById("stay");
+  var cancelled = false;
+  var timer = setInterval(function () {
+    if (cancelled) return;
+    seconds -= 1;
+    if (seconds <= 0) {
+      clearInterval(timer);
+      window.location.href = APP_URL;
+      return;
+    }
+    if (cdEl) cdEl.textContent = String(seconds);
+  }, 1000);
+  if (stayBtn) {
+    stayBtn.addEventListener("click", function () {
+      cancelled = true;
+      clearInterval(timer);
+      var card = stayBtn.closest(".card");
+      if (card) card.querySelector(".hint").textContent = "Auto-open cancelled. Use the buttons below when you're ready.";
+    });
+  }
+})();` : ""}
 </script>
 </body>
 </html>`;

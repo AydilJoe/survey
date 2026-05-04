@@ -1775,19 +1775,19 @@ button.ghost.icon-btn {
   gap: 0.4rem;
 }
 .guide-body ul li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
+  position: relative;
+  padding-left: 1.6rem;
   color: var(--text);
   font-size: 0.92rem;
+  line-height: 1.45;
 }
 .guide-body ul li::before {
   content: "";
-  display: inline-block;
-  flex-shrink: 0;
+  position: absolute;
+  left: 0;
+  top: 0.18rem;
   width: 18px;
   height: 18px;
-  margin-top: 2px;
   background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23c8704b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><path d='M5 13l4 4L19 7'/></svg>") center/contain no-repeat;
 }
 .guide-body ol.guide-steps {
@@ -2126,3 +2126,10 @@ button.ghost.icon-btn {
   color: var(--loss);
   border-color: rgba(184,106,78,0.4);
 }
+
+/* Bulk import income dialog */
+.bulk-income-preview { margin-top: 0.75rem; }
+.bulk-income-summary { margin: 0.5rem 0 0.25rem; }
+.bulk-income-skipped { margin: 0.5rem 0 0; padding-left: 1.25rem; font-size: 0.85em; color: var(--muted); }
+.bulk-income-skipped li { margin: 0.15rem 0; }
+.bulk-import-trigger { margin-top: 0.5rem; }

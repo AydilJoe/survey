@@ -2,8 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "trailingSlash": true,
-  "buildCommand": null,
+  "buildCommand": "node scripts/fetch-tesseract.mjs && mkdir -p app && cp -R vendor app/",
   "installCommand": null,
+  "outputDirectory": ".",
   "headers": [
     {
       "source": "/(.*)",

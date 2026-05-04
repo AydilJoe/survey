@@ -19,9 +19,14 @@ function baseUrl() {
   return u.replace(/\/$/, "");
 }
 
-async function createBill({ name, email, amount, description, redirectUrl, callbackUrl, reference, referrerCode }) {
+async function createBill({ name, email, amount, description, redirectUrl, callbackUrl, reference, referrerCode, discountCode }) {
   const collectionId = process.env.BILLPLZ_COLLECTION_ID;
   if (!collectionId) throw new Error("BILLPLZ_COLLECTION_ID not set");
+
+  // reference_1 carries either the discount code (when present) or the
+  // product id. The owner-notify reads reference_1_label to tell which.
+  const ref1Label = discountCode ? "Discount" : "Product";
+  const ref1 = discountCode || reference || "duitful_pro";
 
   const body = {
     collection_id: collectionId,
@@ -31,8 +36,8 @@ async function createBill({ name, email, amount, description, redirectUrl, callb
     description,
     redirect_url: redirectUrl,
     callback_url: callbackUrl,
-    reference_1_label: "Product",
-    reference_1: reference || "duitful_pro",
+    reference_1_label: ref1Label,
+    reference_1: ref1,
     ...(referrerCode ? {
       reference_2_label: "Referrer",
       reference_2: referrerCode,

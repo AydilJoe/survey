@@ -15,3 +15,5 @@ vendor/
 
 # Don't ship a second lockfile — npm is canonical for this repo
 pnpm-lock.yaml
+.vercel
+.env*.local

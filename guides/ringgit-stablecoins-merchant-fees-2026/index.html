@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Ringgit stablecoins for Malaysian merchants — Duitful guide</title>
+<meta name="description" content="Industry reports point to a surge in blockchain-based settlement for the Ringgit, with retail e-payments at RM831 billion. What native MYR stablecoins and DLT clearing actually mean for merchant fees, what to track, and what's still hype.">
+<meta name="keywords" content="ringgit stablecoin malaysia, myr stablecoin, blockchain settlement malaysia, dlt retail payments, merchant transaction fees malaysia, e-payment fees malaysia, sme payment processing, duitful merchant">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://duitful.app/guides/ringgit-stablecoins-merchant-fees-2026/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:locale" content="en_MY">
+<meta property="og:url" content="https://duitful.app/guides/ringgit-stablecoins-merchant-fees-2026/">
+<meta property="og:title" content="Ringgit stablecoins for Malaysian merchants — Duitful guide">
+<meta property="og:description" content="Industry reports point to a surge in blockchain-based settlement for the Ringgit, with retail e-payments at RM831 billion. What native MYR stablecoins and DLT clearing actually mean for merchant fees, what to track, and what's still hype.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Ringgit stablecoins for Malaysian merchants — Duitful guide">
+<meta name="twitter:description" content="Industry reports point to a surge in blockchain-based settlement for the Ringgit, with retail e-payments at RM831 billion. What native MYR stablecoins and DLT clearing actually mean for merchant fees, what to track, and what's still hype.">
+<meta name="twitter:image" content="https://duitful.app/og-image.svg">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Ringgit stablecoins for merchants","item":"https://duitful.app/guides/ringgit-stablecoins-merchant-fees-2026/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Ringgit stablecoins for Malaysian merchants — Duitful guide","description":"Industry reports point to a surge in blockchain-based settlement for the Ringgit, with retail e-payments at RM831 billion. What native MYR stablecoins and DLT clearing actually mean for merchant fees, what to track, and what's still hype.","inLanguage":"en","datePublished":"2026-05-01","dateModified":"2026-05-01","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/ringgit-stablecoins-merchant-fees-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Should I switch processors for the new rails?","acceptedAnswer":{"@type":"Answer","text":"Not yet for most merchants. Wait until your existing bank or processor offers DLT settlement as part of the standard merchant agreement — that's the first signal it's production-grade. Track your current effective fee rate so the comparison is real, not vibes."}},{"@type":"Question","name":"Is BNM banning crypto?","acceptedAnswer":{"@type":"Answer","text":"No. BNM regulates payment instruments and licensed e-money. Public-chain crypto for investment sits with the Securities Commission. Stablecoin issuance for retail payments will likely require BNM licensing under the existing payment system framework."}},{"@type":"Question","name":"How does this affect my e-invoice obligations?","acceptedAnswer":{"@type":"Answer","text":"Not at all. E-invoice requirements are independent of the settlement rail. Whether the customer paid in card, DuitNow, or a future MYR stablecoin, you still issue the e-invoice with the MYR amount. Duitful's CSV export keeps the channel and amount cleanly separated for your accountant."}},{"@type":"Question","name":"What about cross-border payouts to my Singapore designer today?","acceptedAnswer":{"@type":"Answer","text":"Today, the cheapest licensed options are Wise Business, fintech FX accounts (Aspire, Airwallex), and DuitNow Cross-Border (where supported). Log the SGD amount in Duitful, let it auto-convert to MYR, and track the spread. When DLT rails ship at scale, you'll have a clean baseline to compare."}}]}</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --accent: #8fa078; --accent-ink: #3a6b50;
+    --warn: #b86a4e; --warn-ink: #8a3f1c;
+    --line: rgba(42,36,32,0.08); --border: rgba(42,36,32,0.14);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 17px/1.6 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 96px; }
+  .nav-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+
+  .eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: inline-block; margin-bottom: 14px;
+  }
+
+  h1 {
+    font: 500 clamp(36px, 6vw, 52px)/1.05 var(--font-serif);
+    letter-spacing: -0.02em; margin: 0 0 14px; color: var(--ink);
+  }
+  h1 em, h2 em { font-style: italic; color: var(--primary); }
+
+  .dateline {
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 22px; max-width: none;
+  }
+  .dateline time { color: inherit; }
+  .dateline-sep { margin: 0 4px; opacity: 0.6; }
+
+  .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
+
+  h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font: 500 18px/1.35 var(--font-sans); margin: 24px 0 6px; color: var(--ink); }
+  p { margin: 0 0 16px; color: var(--ink2); max-width: 64ch; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; color: var(--ink2); }
+  li { margin: 0 0 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: var(--primary-ink); }
+  code { font: 500 14px/1.2 var(--font-mono); background: var(--card); padding: 2px 6px; border-radius: 4px; border: 0.5px solid var(--line); }
+
+  /* ---------- Steps ---------- */
+  .steps { list-style: none; padding: 0; display: grid; gap: 12px; margin: 28px 0; }
+  .step {
+    display: grid; grid-template-columns: 48px 1fr; gap: 16px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 14px; padding: 18px 22px; align-items: start;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fffaf2;
+    display: grid; place-items: center;
+    font: 500 17px/1 var(--font-serif);
+  }
+  .step h3 { margin: 2px 0 4px; font-size: 17px; }
+  .step p { margin: 0; font-size: 15.5px; line-height: 1.5; }
+
+  /* ---------- Stat block ---------- */
+  .stat-block {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 16px; padding: 36px 28px;
+    margin: 32px 0; text-align: center;
+  }
+  .stat-value {
+    font: 500 clamp(44px, 9vw, 72px)/1 var(--font-serif);
+    color: var(--primary); letter-spacing: -0.02em;
+    margin: 0 0 10px; max-width: none;
+  }
+  .stat-label { font: 500 16px/1.4 var(--font-sans); color: var(--ink); margin: 0 0 4px; max-width: none; }
+  .stat-note { font: 400 13.5px/1.4 var(--font-mono); color: var(--muted); margin: 0; max-width: none; }
+
+  /* ---------- Compare ---------- */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin: 32px 0; border: 0.5px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col { padding: 22px 24px; }
+  .compare-col + .compare-col { border-left: 0.5px solid var(--line); }
+  @media (max-width: 600px) {
+    .compare-col + .compare-col { border-left: none; border-top: 0.5px solid var(--line); }
+  }
+  .compare-col.left  { background: rgba(184,106,78,0.05); }
+  .compare-col.right { background: rgba(106,138,94,0.06); }
+  .compare-title {
+    font: 500 11px/1 var(--font-mono); letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0 0 14px;
+  }
+  .compare-col.left  .compare-title { color: var(--warn-ink); }
+  .compare-col.right .compare-title { color: var(--accent-ink); }
+  .compare-col ul { padding: 0; list-style: none; margin: 0; }
+  .compare-col li {
+    padding: 7px 0; font-size: 15px; line-height: 1.45; color: var(--ink2);
+    display: flex; gap: 10px; align-items: start;
+  }
+  .compare-col li::before {
+    flex: 0 0 auto; font-weight: 700; line-height: 1.45;
+  }
+  .compare-col.left  li::before { content: "✕"; color: var(--warn); }
+  .compare-col.right li::before { content: "✓"; color: var(--accent-ink); }
+
+  /* ---------- FAQ ---------- */
+  .faq { margin: 28px 0; display: grid; gap: 8px; }
+  .faq-item {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; padding: 4px 22px;
+    transition: border-color 0.15s ease;
+  }
+  .faq-item[open] { border-color: var(--border); }
+  .faq-q {
+    font: 500 16px/1.4 var(--font-sans); color: var(--ink);
+    padding: 14px 0; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q::after {
+    content: "+"; font: 400 22px/1 var(--font-serif);
+    color: var(--muted); transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-q::after { content: "−"; }
+  .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- CTA ---------- */
+  .cta-card {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 18px; padding: 32px 28px;
+    margin: 56px 0 0; text-align: center;
+  }
+  .cta-card h2 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 30px); }
+  .cta-card p { margin: 0 auto 18px; max-width: 48ch; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 26px;
+    background: var(--primary); color: #fffaf2;
+    border-radius: 999px;
+    font: 500 15px/1 var(--font-sans);
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(42,36,32,0.1), 0 8px 20px rgba(200,112,75,0.28);
+    transition: background 0.15s ease;
+  }
+  .cta-btn:hover { background: var(--primary-ink); color: #fffaf2; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px; color: var(--muted);
+  }
+  .footer a { color: var(--primary); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/guides/" class="nav-back">← all guides</a>
+
+  <span class="eyebrow">Guide · Malaysia · Merchant payments</span>
+  <h1>Lower fees, <em>same Ringgit</em>.</h1>
+  <p class="dateline">Published <time datetime="2026-05-01">1 May 2026</time></p>
+  <p class="lede">With Malaysian retail e-payments at RM831 billion, infrastructure is moving toward native MYR stablecoins and DLT-based clearing — pitched at lower merchant fees and faster settlement. Here's what's real, what's still pilot, and what a small merchant should track in Duitful right now.</p>
+
+  <h2>The headline number</h2>
+
+    <div class="stat-block">
+      <p class="stat-value">RM 831 billion</p>
+      <p class="stat-label">Malaysian retail e-payments volume, latest BNM figures</p>
+      <p class="stat-note">Roughly the same scale as the entire national budget. Even a 10–20 bps fee reduction on a fraction of this flow is meaningful for SME merchants.</p>
+    </div>
+<p>The pitch for blockchain-based settlement and native MYR stablecoins is simple: merchants today pay 0.5–2.5% per transaction on cards and certain e-wallets, with T+1 to T+3 settlement. DLT rails promise sub-1% fees and near-instant settlement, with the underlying unit of account still being one Ringgit.</p>
+<h2>What's actually happening</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Bank-issued tokenised deposits</h3>
+        <p>Major Malaysian banks are piloting tokenised deposits — your RM in a bank account, represented on a permissioned ledger. For merchants, this changes the back-end (how the money moves between banks), not the front-end (you still accept DuitNow QR or card on the customer side).</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Native MYR stablecoins</h3>
+        <p>Industry consortia and BNM-overseen projects are exploring 1:1 MYR-backed stablecoins on permissioned and public chains. Use cases: cross-border SME payouts (replacing SWIFT correspondent fees) and B2B supplier payments (replacing 3-day GIRO).</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Wholesale DLT clearing</h3>
+        <p>BNM's wholesale DLT initiatives (think Project Dunbar successor work) target interbank settlement, not retail. Merchants benefit indirectly via lower interchange and faster funds availability.</p>
+      </div>
+    </li>
+</ol>
+<h2>What it means for merchant fees</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Today</p>
+        <ul><li>Card: 0.8–2.5% (debit cheaper, credit/AmEx pricier)</li><li>DuitNow QR: free up to RM 1,000 / capped above</li><li>E-wallet: variable, 0–1.5% with surcharges</li><li>Cross-border: 2–4% incl. FX spread</li><li>Settlement: T+1 to T+3 typical</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">With DLT / stablecoin rails (12–36 mo)</p>
+        <ul><li>Card: largely unchanged in the near term</li><li>DuitNow QR: stays the cheapest domestic rail</li><li>E-wallet: pressure to compress fees</li><li>Cross-border: target 0.3–0.8% incl. FX</li><li>Settlement: near-instant for participating rails</li></ul>
+      </div>
+    </div>
+<p>The biggest near-term win for SMEs is <strong>cross-border</strong>. Domestic DuitNow QR is already best-in-class on fee — DLT doesn't change that meaningfully. Cross-border SME payouts (paying a Singapore designer, receiving from a Jakarta client) is where 2–4% becomes sub-1%, and that compounds fast on a small business with even modest international flow.</p>
+<h2>What to track right now</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Channel as a Category on every settlement</h3>
+        <p>When the daily payout hits, log it in Duitful with Category set to the channel — <code>Card</code>, <code>DuitNow QR</code>, <code>Touch n Go</code>, <code>Boost</code>, <code>GrabPay</code>, etc. The fee is the difference between gross sales and the payout. After 90 days, Reports tells you which channel is bleeding margin.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Cross-border separately</h3>
+        <p>Any payment that crosses a currency — log the original currency and let Duitful auto-convert. Note the FX spread the processor charged. That's the line item DLT rails will eventually compress; you want to know your starting point.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Effective fee rate per channel</h3>
+        <p>Monthly: total fees ÷ total gross volume per channel. Most merchants don't know their effective rate per channel. Once you know it, switching the mix toward cheaper channels is a 30-second decision.</p>
+      </div>
+    </li>
+</ol>
+<h2>What to ignore (for now)</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Public-chain MYR stablecoin marketing</h3>
+        <p>Any project promising "MYR stablecoin on Ethereum/Solana" without explicit BNM oversight is regulatory grey at best. Don't accept it as a merchant. The legitimate retail rails will come through licensed banks and PSPs.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Crypto-as-payment for retail</h3>
+        <p>Accepting BTC/ETH at the till is not the same conversation. Volatility, tax treatment, and customer base in Malaysia don't justify it for most retail SMEs in 2026.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>"Save 90% on fees" pitches</h3>
+        <p>Real fee compression in the near term is in the 30–60% range on cross-border, and minimal on domestic QR (which is already nearly free). Anyone promising 90% on domestic flow is either misrepresenting or rolling out unsustainable subsidies.</p>
+      </div>
+    </li>
+</ol>
+<p>For broader SME expense and payment hygiene, the <a href="/guides/sme-freelancer-expense-tracker/">SME / freelancer tracker guide</a> is the operational baseline — channel-level tracking layers on top of that.</p>
+<h2>Common questions</h2>
+<div class="faq">
+    <details class="faq-item">
+      <summary class="faq-q">Should I switch processors for the new rails?</summary>
+      <p class="faq-a">Not yet for most merchants. Wait until your existing bank or processor offers DLT settlement as part of the standard merchant agreement — that's the first signal it's production-grade. Track your current effective fee rate so the comparison is real, not vibes.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Is BNM banning crypto?</summary>
+      <p class="faq-a">No. BNM regulates payment instruments and licensed e-money. Public-chain crypto for investment sits with the Securities Commission. Stablecoin issuance for retail payments will likely require BNM licensing under the existing payment system framework.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">How does this affect my e-invoice obligations?</summary>
+      <p class="faq-a">Not at all. E-invoice requirements are independent of the settlement rail. Whether the customer paid in card, DuitNow, or a future MYR stablecoin, you still issue the e-invoice with the MYR amount. Duitful's CSV export keeps the channel and amount cleanly separated for your accountant.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">What about cross-border payouts to my Singapore designer today?</summary>
+      <p class="faq-a">Today, the cheapest licensed options are Wise Business, fintech FX accounts (Aspire, Airwallex), and DuitNow Cross-Border (where supported). Log the SGD amount in Duitful, let it auto-convert to MYR, and track the spread. When DLT rails ship at scale, you'll have a clean baseline to compare.</p>
+    </details>
+</div>
+
+  <div class="cta-card">
+    <h2>Track every payment channel separately</h2>
+    <p>Card, DuitNow QR, e-wallet, and now stablecoin rails — fees differ on each. Log channel as a Category in Duitful and Reports tells you which channel is bleeding margin. Free to start, RM 19.90 one-time for Pro.</p>
+    <a class="cta-btn" href="/app/">Open Duitful →</a>
+  </div>
+
+  <div class="footer">
+    More guides at <a href="/guides/">duitful.app/guides</a>. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy policy</a>, or <a href="/contact/">say hi</a>.
+  </div>
+</div>
+</body>
+</html>

@@ -167,6 +167,57 @@ In Android Studio:
    - Feature graphic (1024x500 PNG): design later
    - Phone screenshots (min 2, max 8, min 320px on one side): use iPhone screenshots (Play accepts them) or grab fresh ones from an Android emulator
 
+## Closed testing & sharing the opt-in link
+
+Use this once you outgrow Internal testing (max 100 internal testers) or want
+external testers without going to Production. Google now requires **20 testers
+opted in for 14 continuous days** on a closed track before a personal account
+can promote to Production — start this early.
+
+1. Play Console -> **Test and release -> Testing -> Closed testing**
+2. **Create track** (or pick the default "Alpha"). Upload your `.aab` and roll
+   out the release the same way as Internal testing.
+3. **Testers** tab on that track -> add testers via either:
+   - **Email list** — paste up to 200 Gmail addresses. Save.
+   - **Google Group** — create `duitful-testers@googlegroups.com`, then paste
+     the group address. Anyone you add to the group automatically gets access;
+     easier to manage at scale.
+4. Scroll to **How testers join your test** and copy:
+   - **Web opt-in URL** — `https://play.google.com/apps/testing/com.aydiljoe.duitful`
+   - **Android Play Store link** — `https://play.google.com/store/apps/details?id=com.aydiljoe.duitful`
+5. Send testers the **web opt-in URL first**. They sign in with the same Google
+   account that's on their Android device, click **Become a tester**, then use
+   the Play Store link to install.
+
+### Testers say "can't see it" — checklist
+
+Almost always one of these:
+
+- **Didn't open the opt-in URL first.** The Play Store link alone shows "item
+  not found" until they've accepted via the web URL.
+- **Wrong Google account on the device.** The email you added must match the
+  primary account in Play Store -> profile icon -> account switcher. Add their
+  device account (not their personal email) to the list.
+- **Release not rolled out yet.** Closed testing track must show **Available
+  on Google Play** (not "In review" or "Draft"). New tracks can stay in review
+  for a few hours up to ~7 days the first time.
+- **Country not in the track's distribution.** Closed testing -> **Countries /
+  regions** tab must include the tester's country. Default is empty — add
+  Malaysia (and anywhere else your testers are) explicitly.
+- **Device below `minSdkVersion`.** Check `android/app/build.gradle`. Older
+  Android phones get a silent "not compatible" with no error.
+- **Play Store cache is stale.** Tell them: Settings -> Apps -> Google Play
+  Store -> Storage -> **Clear cache**, then reopen the opt-in link.
+- **Group invite not accepted.** If you used a Google Group, the tester must
+  first accept the group invite email — they aren't a member until they do.
+- **They opted in <30 min ago.** Propagation isn't instant; ask them to wait
+  and retry.
+
+If all of the above check out, in Play Console open **Releases overview ->
+Closed testing** and confirm the latest release is **Live** with the right
+country list and the tester email is on the list for *that specific track*
+(easy to add it to the wrong track).
+
 ## Configure Play Billing (IAP) for duitful_pro
 
 1. Play Console -> **Monetize -> Products -> In-app products**

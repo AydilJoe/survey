@@ -37,7 +37,7 @@
   "url": "https://duitful.app/terms/",
   "description": "Terms of service for Duitful — a privacy-first personal finance tracker built in Malaysia.",
   "inLanguage": "en",
-  "dateModified": "2026-04-23",
+  "dateModified": "2026-05-01",
   "publisher": {
     "@type": "Organization",
     "name": "Duitful",
@@ -180,7 +180,7 @@
 
   <h1>Terms of <em>service</em></h1>
   <p class="lede">The rules of the road for using Duitful. Written plainly, because hiding terms behind legalese is not how we want to run this.</p>
-  <p class="meta">Effective 23 April 2026 · Last updated 23 April 2026</p>
+  <p class="meta">Effective 23 April 2026 · Last updated 1 May 2026</p>
 
   <div class="tldr">
     <h2>The short version</h2>
@@ -189,7 +189,8 @@
       <li>Your Pro licence is yours to keep. If you lose it, <strong>email us your Billplz transaction ID and we'll reissue it</strong>.</li>
       <li>We offer a fair goodwill refund within 3 days of a web purchase, as long as the licence hasn't been widely activated.</li>
       <li>Refunds for iOS in-app purchases go through Apple. Refunds for Android in-app purchases go through Google. Those are the rules the stores impose on us.</li>
-      <li>Your data lives on your device. We cannot recover it, restore a forgotten passcode, or help you break your own encryption.</li>
+      <li>Your data lives on your device. We cannot recover it, restore a forgotten passcode, or help you break your own encryption — even if you've backed up to Google Drive, the backup is encrypted with the same passcode.</li>
+      <li>Pro's optional <strong>Google Drive sync</strong> uses your own Google account and your own Drive storage; Google's terms apply to that use.</li>
       <li>Malaysian law governs these terms.</li>
     </ul>
   </div>
@@ -253,12 +254,24 @@
   <p>This means:</p>
   <ul>
     <li>If you forget your passcode, <strong>we cannot reset it or recover your data</strong>. We will not even try — doing so would mean breaking the security promises we make to every user.</li>
-    <li>If you uninstall the app or clear your browser's storage without exporting, the data is gone.</li>
-    <li>Pro includes an encrypted backup export. We strongly recommend using it.</li>
+    <li>If you uninstall the app or clear your browser's storage without exporting or syncing, the data is gone.</li>
+    <li>Pro includes an encrypted Google Drive sync and a CSV export. We strongly recommend using one or both. Both keep your records unreadable without your passcode.</li>
   </ul>
-  <p>Your Pro <em>licence</em> can always be recovered (see section 5). Your <em>data</em> cannot.</p>
+  <p>Your Pro <em>licence</em> can always be recovered (see section 5). Your <em>data</em> cannot, unless <em>you</em> still have a copy of it (in your Drive, or as a CSV) and you remember your passcode.</p>
 
-  <h2 class="section">8. Acceptable use</h2>
+  <h2 class="section">8. Pro Google Drive sync</h2>
+  <p>Pro includes an optional feature that backs up your encrypted database to <strong>your own</strong> Google Drive account, into a hidden application data folder. The feature is off by default; you turn it on by signing into Google from inside the app and granting Duitful permission to access only its own application data folder on your Drive (the <code>drive.appdata</code> OAuth scope).</p>
+  <p>By enabling Drive sync, you confirm that:</p>
+  <ul>
+    <li>you own or are authorised to use the Google account you connect, and you accept that your use of Google's services is governed by Google's own terms and privacy policy;</li>
+    <li>storage of the backup file counts against the quota of that Google account;</li>
+    <li>the backup is encrypted on your device with your passcode-derived key before upload, so neither Google nor Duitful can read its contents;</li>
+    <li>Duitful's role is limited to writing, reading, and replacing that single backup file — we do not access any other file or folder in your Drive, and we do not store, relay, or analyse the backup ourselves;</li>
+    <li>you can disconnect Drive sync at any time from inside the app, which stops further uploads. The encrypted file already in your Drive remains until you delete it from Google's <em>Drive &gt; Settings &gt; Manage apps</em> screen, which also fully revokes Duitful's Drive permission.</li>
+  </ul>
+  <p>Drive sync is provided on the same "as is" basis as the rest of the service. If Google changes its API, removes app-data scope access, or suspends your account, the sync feature may stop working through no fault of either you or us; in that case your local data is unaffected and the CSV export remains available.</p>
+
+  <h2 class="section">9. Acceptable use</h2>
   <p>Please use Duitful for its intended purpose — tracking your own finances. Specifically, do not:</p>
   <ul>
     <li>use the app for money laundering, fraud, or to track funds obtained illegally;</li>
@@ -269,30 +282,30 @@
   </ul>
   <p>We may suspend or revoke your Pro licence if we have reasonable grounds to believe you've violated this section, and we will refuse service to anyone who does so.</p>
 
-  <h2 class="section">9. Intellectual property</h2>
+  <h2 class="section">10. Intellectual property</h2>
   <p>The Duitful name, logo, website, app interface, source code, marketing copy, and other materials are protected by copyright and other intellectual-property laws. Buying Pro grants you a licence to use the app, not ownership of it. You retain full ownership of every piece of financial data you enter — that's yours, not ours.</p>
 
-  <h2 class="section">10. Third-party services</h2>
-  <p>Duitful uses a small number of third-party services to operate (Billplz for payments, Apple and Google for in-app purchases and app distribution, Resend for transactional email, Cloudflare for inbound email forwarding, Vercel and GitHub Pages for hosting, Google Fonts for typography). Those services have their own terms and privacy policies, which apply when you interact with them. The <a href="/privacy/">Privacy policy</a> lists each one in detail.</p>
+  <h2 class="section">11. Third-party services</h2>
+  <p>Duitful uses a small number of third-party services to operate (Billplz for payments, Apple and Google for in-app purchases and app distribution, Google Drive and Google Identity for Pro's optional encrypted backup sync, Resend for transactional email, Cloudflare for inbound email forwarding, Vercel and GitHub Pages for hosting, Google Fonts for typography). Those services have their own terms and privacy policies, which apply when you interact with them. The <a href="/privacy/">Privacy policy</a> lists each one in detail.</p>
 
-  <h2 class="section">11. Warranty disclaimer</h2>
+  <h2 class="section">12. Warranty disclaimer</h2>
   <p>Duitful is provided "<strong>as is</strong>" and "<strong>as available</strong>". To the maximum extent permitted by law, we disclaim all warranties, express or implied, including warranties of merchantability, fitness for a particular purpose, non-infringement, and accuracy. We do not warrant that the service will be uninterrupted or error-free, that defects will be corrected, or that any data computed by the app (such as avalanche payoff schedules or currency conversions) will be free of rounding errors or suitable as a substitute for professional financial advice.</p>
 
-  <h2 class="section">12. Limitation of liability</h2>
+  <h2 class="section">13. Limitation of liability</h2>
   <p>To the maximum extent permitted by law, our total liability to you for any claim arising out of or relating to these Terms or the service — whether in contract, tort, or otherwise — is limited to the amount you paid us for the service in the twelve (12) months before the claim arose. In no event will we be liable for indirect, incidental, consequential, special, or punitive damages, including loss of profits, loss of data, or loss of business opportunity, even if we have been advised of the possibility of such damages.</p>
   <p>Nothing in these Terms excludes or limits any liability that cannot legally be excluded or limited, including liability for fraud or for death or personal injury caused by negligence.</p>
 
-  <h2 class="section">13. Termination</h2>
+  <h2 class="section">14. Termination</h2>
   <p>You may stop using Duitful at any time by uninstalling the app. Your on-device data is yours to delete or keep.</p>
   <p>We may suspend or terminate your access to the service, including revoking a Pro licence, if you materially breach these Terms or use the service in a way that exposes us or other users to legal or security risk. If we do that, we will tell you why, and — where the breach was inadvertent and reversible — we will give you a reasonable chance to fix it first.</p>
 
-  <h2 class="section">14. Changes to these Terms</h2>
+  <h2 class="section">15. Changes to these Terms</h2>
   <p>We may update these Terms from time to time. When we do, we'll update the "last updated" date at the top and add an entry to the <a href="/changelog/">changelog</a>. Material changes will be summarised there. Continuing to use Duitful after a change means you accept the updated Terms. If you don't agree with a change, your remedy is to stop using the service and, where applicable, request a refund under section 6.</p>
 
-  <h2 class="section">15. Governing law</h2>
+  <h2 class="section">16. Governing law</h2>
   <p>These Terms are governed by the laws of Malaysia. Any dispute arising out of or in connection with these Terms or the service will be resolved in the courts of Malaysia, subject to any mandatory consumer-protection rights you have in your country of residence.</p>
 
-  <h2 class="section">16. Contact</h2>
+  <h2 class="section">17. Contact</h2>
   <p>Questions about these Terms, refund requests, licence reissues, or anything else — one address:</p>
   <p><a href="mailto:hello@duitful.app">hello@duitful.app</a></p>
 

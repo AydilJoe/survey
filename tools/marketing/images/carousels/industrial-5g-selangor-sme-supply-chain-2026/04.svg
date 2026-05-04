@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">TRACK THIS IN DUITFUL</text>
+  <g transform="translate(900, 140)">
+    <rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">4/5</text>
+  </g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Per-project P&amp;L.</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Per-buyer <tspan font-style="italic" fill="#b35a39">DSO</tspan>.</text>
+
+  <!-- Mock category list -->
+  <g transform="translate(80, 470)" font-family="'JetBrains Mono', monospace" fill="#2a2420">
+    <rect width="920" height="320" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="40" y="60" font-size="18" fill="#8a8178" letter-spacing="3">CATEGORY · SAMPLE</text>
+    <g transform="translate(40, 100)" font-size="22">
+      <text font-weight="600" fill="#b35a39">Project · Solectron-Q3</text>
+      <text x="700" font-weight="600" font-family="'Inter', sans-serif">RM 12,400</text>
+      <text y="42" fill="#5c524a">Project · TopGlove-fitout</text>
+      <text x="700" y="42" font-family="'Inter', sans-serif" fill="#5c524a">RM  8,950</text>
+      <text y="84" fill="#5c524a">IT · Connectivity</text>
+      <text x="700" y="84" font-family="'Inter', sans-serif" fill="#5c524a">RM  3,200</text>
+      <text y="126" fill="#5c524a">Software · Compliance</text>
+      <text x="700" y="126" font-family="'Inter', sans-serif" fill="#5c524a">RM  2,400</text>
+      <text y="168" fill="#5c524a">Compliance · One-off</text>
+      <text x="700" y="168" font-family="'Inter', sans-serif" fill="#5c524a">RM  6,000</text>
+    </g>
+  </g>
+
+  <!-- Two takeaway boxes -->
+  <g transform="translate(80, 850)" font-family="'Inter', sans-serif">
+    <g>
+      <rect width="445" height="160" rx="20" fill="url(#primary)"/>
+      <text x="222" y="60" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="16" fill="#fffaf2" letter-spacing="3" opacity="0.85">PER PROJECT</text>
+      <text x="222" y="110" text-anchor="middle" font-family="'Fraunces', serif" font-size="28" fill="#fffaf2" font-weight="500">Did it actually</text>
+      <text x="222" y="142" text-anchor="middle" font-family="'Fraunces', serif" font-size="28" fill="#fffaf2" font-weight="500">make money?</text>
+    </g>
+    <g transform="translate(475, 0)">
+      <rect width="445" height="160" rx="20" fill="#fffaf2" stroke="#b35a39" stroke-width="2"/>
+      <text x="222" y="60" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="16" fill="#8a8178" letter-spacing="3">PER BUYER</text>
+      <text x="222" y="110" text-anchor="middle" font-family="'Fraunces', serif" font-size="28" fill="#2a2420" font-weight="500">Real pay date</text>
+      <text x="222" y="142" text-anchor="middle" font-family="'Fraunces', serif" font-size="28" fill="#2a2420" font-weight="500">vs promised.</text>
+    </g>
+  </g>
+
+  <text x="540" y="1100" text-anchor="middle" font-family="'Inter', sans-serif" font-size="22" fill="#5c524a">After 6 invoices to the same buyer, you have a real DSO.</text>
+  <text x="540" y="1130" text-anchor="middle" font-family="'Inter', sans-serif" font-size="22" fill="#5c524a">Lean on slow payers. Offer 1.5% early-pay to chronic late ones.</text>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

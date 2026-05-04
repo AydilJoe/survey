@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">VS STABLECOINS</text>
+  <g transform="translate(900, 140)">
+    <rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">3/5</text>
+  </g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Different beast.</text>
+
+  <!-- Two cards side by side -->
+  <g transform="translate(60, 380)" font-family="'Inter', sans-serif">
+    <!-- Stablecoin -->
+    <g>
+      <rect width="465" height="800" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="100" rx="22" fill="#b86a4e" opacity="0.85"/>
+      <rect y="80" width="465" height="20" fill="#b86a4e" opacity="0.85"/>
+      <text x="232" y="62" text-anchor="middle" font-family="'Fraunces', serif" font-size="36" fill="#fffaf2" font-weight="500">Stablecoins</text>
+      <g transform="translate(28, 150)" fill="#2a2420">
+        <text font-family="'JetBrains Mono', monospace" font-size="14" fill="#8a8178" letter-spacing="2">ISSUER</text>
+        <text y="36" font-size="22" font-weight="500">Non-banks, often offshore</text>
+        <text y="100" font-family="'JetBrains Mono', monospace" font-size="14" fill="#8a8178" letter-spacing="2">RAILS</text>
+        <text y="136" font-size="22" font-weight="500">Public chains</text>
+        <text y="200" font-family="'JetBrains Mono', monospace" font-size="14" fill="#8a8178" letter-spacing="2">RISK</text>
+        <text y="236" font-size="22" font-weight="500">Issuer counterparty</text>
+        <text y="300" font-family="'JetBrains Mono', monospace" font-size="14" fill="#8a8178" letter-spacing="2">MY STATUS</text>
+        <text y="336" font-size="22" font-weight="500">Grey, retail-restricted</text>
+        <text y="430" font-size="22" font-weight="600" fill="#b86a4e">Don't accept as merchant.</text>
+      </g>
+    </g>
+    <!-- Tokenised deposits -->
+    <g transform="translate(495, 0)">
+      <rect width="465" height="800" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="100" rx="22" fill="#8fa078"/>
+      <rect y="80" width="465" height="20" fill="#8fa078"/>
+      <text x="232" y="62" text-anchor="middle" font-family="'Fraunces', serif" font-size="36" fill="#fffaf2" font-weight="500">Tokenised deposits</text>
+      <g transform="translate(28, 150)" fill="#2a2420">
+        <text font-family="'JetBrains Mono', monospace" font-size="14" fill="#8a8178" letter-spacing="2">ISSUER</text>
+        <text y="36" font-size="22" font-weight="500">Licensed banks</text>
+        <text y="100" font-family="'JetBrains Mono', monospace" font-size="14" fill="#8a8178" letter-spacing="2">RAILS</text>
+        <text y="136" font-size="22" font-weight="500">Permissioned chains</text>
+        <text y="200" font-family="'JetBrains Mono', monospace" font-size="14" fill="#8a8178" letter-spacing="2">RISK</text>
+        <text y="236" font-size="22" font-weight="500">Same as your bank today</text>
+        <text y="300" font-family="'JetBrains Mono', monospace" font-size="14" fill="#8a8178" letter-spacing="2">MY STATUS</text>
+        <text y="336" font-size="22" font-weight="500">BNM-overseen via DAIH</text>
+        <text y="430" font-size="22" font-weight="600" fill="#5a7c4f">Use as-normal banking.</text>
+      </g>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

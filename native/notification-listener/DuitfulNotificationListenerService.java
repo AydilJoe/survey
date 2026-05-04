@@ -20,22 +20,65 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
 
     private static final Set<String> ALLOWED = new HashSet<>();
     static {
-        // Malaysian banks
+        // Malaysia — banks
         ALLOWED.add("com.mbb.malaysia.android");             // Maybank
+        ALLOWED.add("com.maybank2u.life");                   // Maybank MAE
         ALLOWED.add("com.cimb.mob.my");                      // CIMB
-        ALLOWED.add("com.cimb.cimbocto");                    // CIMB (octo)
-        ALLOWED.add("com.hongleong.connectfirst");           // Hong Leong
+        ALLOWED.add("com.cimb.octo");                        // CIMB OCTO
+        ALLOWED.add("com.hongleong.cfs.connect");            // Hong Leong
         ALLOWED.add("my.com.rhbgroup.rhbmobilebanking");     // RHB
         ALLOWED.add("my.com.publicbank.pbengine");           // Public Bank
-        // E-wallets
+        ALLOWED.add("com.ambank.ambankgroup");               // AmBank
+        ALLOWED.add("com.bankislam.android");                // Bank Islam
+        ALLOWED.add("com.bsn.mybsn");                        // BSN
+        // Malaysia — e-wallets / fuel / BNPL
         ALLOWED.add("my.com.tngdigital.ewallet");            // Touch 'n Go
-        ALLOWED.add("com.grabtaxi.passenger");               // Grab / GrabPay
         ALLOWED.add("my.com.myboost");                       // Boost
         ALLOWED.add("com.bigpay.wallet");                    // BigPay
-        // BNPL
+        ALLOWED.add("com.setel.app");                        // Setel
         ALLOWED.add("com.shopee.my");                        // Shopee / SPayLater
         ALLOWED.add("com.atomeapp.mobile");                  // Atome
+        ALLOWED.add("com.grabtaxi.passenger");               // Grab / GrabPay (also SG)
+        // Singapore (Atome SG also serves MY users; kept in this region-shared block)
         ALLOWED.add("sg.com.apaylater");                     // Atome SG
+        ALLOWED.add("com.dbs.sg.dbsmbanking");               // DBS digibank SG
+        ALLOWED.add("com.ocbc.mobile");                      // OCBC SG
+        ALLOWED.add("sg.com.uob.mighty.app");                // UOB Mighty
+        ALLOWED.add("com.dbs.sg.paylah");                    // DBS PayLah!
+        // Indonesia
+        ALLOWED.add("com.bca");                              // BCA mobile
+        ALLOWED.add("com.bankmandiri.mandiriapp");           // Livin' by Mandiri
+        ALLOWED.add("src.com.bni");                          // BNI Mobile
+        ALLOWED.add("id.co.bri.brimo");                      // BRImo
+        ALLOWED.add("com.gojek.app");                        // GoPay (Gojek)
+        ALLOWED.add("com.ovo");                              // OVO
+        ALLOWED.add("id.dana");                              // DANA
+        ALLOWED.add("com.shopee.id");                        // ShopeePay ID
+        // Thailand
+        ALLOWED.add("com.kasikorn.retail.mbanking.wap");     // K PLUS
+        ALLOWED.add("com.scb.phone");                        // SCB Easy
+        ALLOWED.add("com.ktb.netbank");                      // Krungthai NEXT
+        ALLOWED.add("com.bbl.mobilebanking");                // Bangkok Bank Mobile
+        ALLOWED.add("com.krungsri.kma");                     // KMA Krungsri
+        ALLOWED.add("com.ttb.touch");                        // ttb touch
+        ALLOWED.add("th.co.truemoney.wallet");               // TrueMoney Wallet
+        ALLOWED.add("jp.naver.line.android");                // Rabbit LINE Pay (piggyback — see OPEN_ISSUES)
+        // Philippines
+        ALLOWED.add("com.bdo.unibank.mobilebanking");        // BDO Mobile
+        ALLOWED.add("com.bpi.cmpr");                         // BPI Mobile
+        ALLOWED.add("com.metrobank.metroclick");             // Metrobank Mobile
+        ALLOWED.add("com.globe.gcash.android");              // GCash
+        ALLOWED.add("com.paymaya");                          // Maya / PayMaya
+        ALLOWED.add("com.shopee.ph");                        // ShopeePay PH
+        // Vietnam
+        ALLOWED.add("com.VCB");                              // Vietcombank
+        ALLOWED.add("com.vietinbank.ipay");                  // VietinBank iPay
+        ALLOWED.add("vn.com.techcombank.bb.app");            // Techcombank Mobile
+        ALLOWED.add("com.vnpay.bidv");                       // BIDV SmartBanking
+        ALLOWED.add("com.mbmobile");                         // MB Bank
+        ALLOWED.add("com.mservice.momotransfer");            // MoMo
+        ALLOWED.add("vn.com.vng.zalopay");                   // ZaloPay
+        ALLOWED.add("com.shopee.vn");                        // ShopeePay VN
     }
 
     @Override

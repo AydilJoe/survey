@@ -1590,7 +1590,9 @@ function renderProControls() {
   const ref = purchased && state && state.license && state.license.ref;
   if (referCard) referCard.hidden = !ref;
   if (referUrlEl && ref) {
-    referUrlEl.textContent = `${location.origin}/app?ref=${ref}`;
+    // Always emit the canonical production URL — location.origin on the
+    // Capacitor WebView resolves to https://localhost, not duitful.app.
+    referUrlEl.textContent = `https://duitful.app/app?ref=${ref}`;
   }
 
   if (status) {
@@ -1781,6 +1783,9 @@ async function verifyLicense(raw) {
   if (payload.product && payload.product !== "duitful_pro") {
     throw new Error("License is for a different product");
   }
+  if (typeof payload.exp === "number" && payload.exp < Math.floor(Date.now() / 1000)) {
+    throw new Error("License has expired — contact hello@duitful.app to reissue");
+  }
   return payload;
 }
 
@@ -1793,6 +1798,23 @@ async function activateLicenseToken(token) {
     renderAll();
   }
   return payload;
+}
+
+// Picks up a license stashed in sessionStorage by /api/billplz/redirect
+// (post-payment auto-activation). Runs once per unlock — the key is
+// cleared whether activation succeeds or fails so a bad token can't
+// loop. Safe to call without a pending license.
+async function tryAutoActivatePendingLicense() {
+  let pending = null;
+  try { pending = sessionStorage.getItem("__pendingLicense__"); } catch {}
+  if (!pending) return;
+  try { sessionStorage.removeItem("__pendingLicense__"); } catch {}
+  try {
+    await activateLicenseToken(pending);
+    alert("Pro unlocked — welcome!");
+  } catch (e) {
+    console.warn("auto-activate failed:", e);
+  }
 }
 
 function openLicenseDialog() {
@@ -2795,11 +2817,30 @@ function fromCSV(text) {
   return next;
 }
 
-function downloadCSV() {
-  const blob = new Blob([toCSV()], { type: "text/csv;charset=utf-8" });
+async function downloadCSV() {
+  const csv = toCSV();
+  const ts = new Date().toISOString().slice(0, 10);
+
+  // Capacitor's Android WebView silently blocks <a download> clicks. Fall back
+  // to copying the CSV to the system clipboard so the user can paste it into
+  // Notes, an email draft, or Google Drive.
+  if (isNative()) {
+    try {
+      await navigator.clipboard.writeText(csv);
+      alert(
+        `CSV copied to clipboard.\n\nPaste it into Notes, an email, or a file in Google Drive to save the backup. ` +
+        `(Filename: duitful-${ts}.csv)`,
+      );
+    } catch (err) {
+      alert("Couldn't copy to clipboard. Use Cloud backup (Google Drive) for safe storage on Android.");
+    }
+    return;
+  }
+
+  // Web: standard download via blob URL.
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const ts = new Date().toISOString().slice(0, 10);
   a.href = url;
   a.download = `duitful-${ts}.csv`;
   document.body.appendChild(a);
@@ -2830,6 +2871,140 @@ $("#file-import").addEventListener("change", async (e) => {
   } finally {
     e.target.value = "";
   }
+});
+
+/* ---------- bulk income import ---------- */
+
+/* Parse a CSV (already tokenized by parseCSV) and pull out only the
+   `income` rows, in the wide 17-column export shape. Returns
+   { valid: [{name, amount, month, day}], skipped: [{rowNum, reason}] }.
+   Other type rows (expense, debt, daily*, saving, setting) are ignored
+   silently — not counted as skipped. The user may drop a full export in
+   and only the income lines land. */
+function parseIncomeRows(rows) {
+  if (rows.length === 0) throw new Error("That file looks empty.");
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const idx = (n) => header.indexOf(n);
+  const iType = idx("type"), iName = idx("name"), iAmount = idx("amount");
+  const iNote = idx("note"), iMonth = idx("month"), iDay = idx("day");
+  if (iType === -1) throw new Error("This doesn't look like a Duitful CSV (no 'type' column).");
+
+  const valid = [];
+  const skipped = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const type = (row[iType] || "").trim().toLowerCase();
+    if (type !== "income") continue;
+    const rawName = iName >= 0 ? (row[iName] || "").trim() : "";
+    const rawAmount = iAmount >= 0 ? row[iAmount] : "";
+    const note = iNote >= 0 ? (row[iNote] || "").trim() : "";
+    const amount = Number(rawAmount);
+    if (!rawName) { skipped.push({ rowNum: r + 1, reason: "missing name" }); continue; }
+    if (!Number.isFinite(amount) || amount <= 0) { skipped.push({ rowNum: r + 1, reason: "missing or invalid amount" }); continue; }
+    const rowMonth = iMonth >= 0 ? (row[iMonth] || "").trim() : "";
+    const month = /^\d{4}-\d{2}$/.test(rowMonth) ? rowMonth : currentMonthISO();
+    const day = iDay >= 0 ? parseDay(row[iDay]) : null;
+    const name = note ? `${rawName} — ${note}` : rawName;
+    valid.push({ name, amount, month, day });
+  }
+  return { valid, skipped };
+}
+
+const bulkIncomeDialog = document.getElementById("bulk-income-dialog");
+const bulkIncomeFile = document.getElementById("bulk-income-file");
+const bulkIncomeStatus = document.getElementById("bulk-income-status");
+const bulkIncomePreview = document.getElementById("bulk-income-preview");
+const bulkIncomeCount = document.getElementById("bulk-income-count");
+const bulkIncomeTotals = document.getElementById("bulk-income-totals");
+const bulkIncomeSkippedWrap = document.getElementById("bulk-income-skipped-wrap");
+const bulkIncomeSkippedCount = document.getElementById("bulk-income-skipped-count");
+const bulkIncomeSkippedList = document.getElementById("bulk-income-skipped");
+const bulkIncomeApply = document.getElementById("bulk-income-apply");
+let bulkIncomeQueued = [];
+
+function resetBulkIncomeDialog() {
+  bulkIncomeFile.value = "";
+  bulkIncomeStatus.hidden = true;
+  bulkIncomeStatus.textContent = "";
+  bulkIncomePreview.hidden = true;
+  bulkIncomeApply.disabled = true;
+  bulkIncomeQueued = [];
+}
+
+function openBulkIncomeDialog() {
+  resetBulkIncomeDialog();
+  bulkIncomeDialog?.showModal();
+}
+
+function closeBulkIncomeDialog() {
+  bulkIncomeDialog?.close();
+  resetBulkIncomeDialog();
+}
+
+document.getElementById("btn-bulk-import-income")?.addEventListener("click", openBulkIncomeDialog);
+document.getElementById("bulk-income-cancel")?.addEventListener("click", closeBulkIncomeDialog);
+
+bulkIncomeFile?.addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  bulkIncomePreview.hidden = true;
+  bulkIncomeApply.disabled = true;
+  bulkIncomeQueued = [];
+  bulkIncomeStatus.hidden = false;
+  bulkIncomeStatus.textContent = "Reading file…";
+
+  if (!file) {
+    bulkIncomeStatus.textContent = "";
+    bulkIncomeStatus.hidden = true;
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const rows = parseCSV(text);
+    const { valid, skipped } = parseIncomeRows(rows);
+    bulkIncomeStatus.hidden = true;
+    bulkIncomeStatus.textContent = "";
+
+    bulkIncomeCount.textContent = String(valid.length);
+    bulkIncomePreview.hidden = false;
+    bulkIncomeQueued = valid;
+
+    if (valid.length > 0) {
+      const total = valid.reduce((s, r) => s + r.amount, 0);
+      const months = Array.from(new Set(valid.map((r) => r.month))).sort();
+      bulkIncomeTotals.textContent =
+        `${fmtMoney(total)} total across ${months.length} month${months.length === 1 ? "" : "s"}: ${months.join(", ")}`;
+    } else {
+      bulkIncomeTotals.textContent = "Nothing to add.";
+    }
+
+    if (skipped.length > 0) {
+      bulkIncomeSkippedCount.textContent = String(skipped.length);
+      bulkIncomeSkippedList.innerHTML = skipped
+        .map((s) => `<li>Row ${s.rowNum}: ${escapeHtml(s.reason)}</li>`)
+        .join("");
+      bulkIncomeSkippedWrap.hidden = false;
+    } else {
+      bulkIncomeSkippedWrap.hidden = true;
+    }
+
+    bulkIncomeApply.disabled = valid.length === 0;
+  } catch (err) {
+    bulkIncomeStatus.hidden = false;
+    bulkIncomeStatus.textContent = err && err.message ? err.message : String(err);
+  }
+});
+
+bulkIncomeApply?.addEventListener("click", () => {
+  if (bulkIncomeQueued.length === 0) return;
+  for (const r of bulkIncomeQueued) {
+    state.income.push({ id: uid(), name: r.name, amount: r.amount, month: r.month, day: r.day });
+  }
+  const added = bulkIncomeQueued.length;
+  save();
+  renderAll();
+  closeBulkIncomeDialog();
+  alert(`Added ${added} income ${added === 1 ? "entry" : "entries"}.`);
 });
 
 $("#btn-clear").addEventListener("click", async () => {
@@ -3274,6 +3449,7 @@ async function handleUnlock(passcode) {
   scheduleNativeReminders().catch(() => {});
   maybeShowInstallBanner();
   if (typeof checkDriveOnBoot === "function") checkDriveOnBoot().catch(() => {});
+  tryAutoActivatePendingLicense().catch(() => {});
 }
 
 async function handleSetup(passcode, confirm, initialState) {
@@ -3297,6 +3473,7 @@ async function handleSetup(passcode, confirm, initialState) {
   maybeOpenGuideAfterSetup();
   maybeShowInstallBanner();
   if (typeof checkDriveOnBoot === "function") checkDriveOnBoot().catch(() => {});
+  tryAutoActivatePendingLicense().catch(() => {});
 }
 
 setInterval(() => { fireDueNotifications().catch(() => {}); }, 3600000);
@@ -3415,13 +3592,12 @@ async function detectLocalTesseract() {
 async function loadTesseract() {
   if (window.Tesseract) return window.Tesseract;
   const useLocal = await detectLocalTesseract();
-  const src = useLocal
-    ? "vendor/tesseract/tesseract.min.js"
-    : "https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js";
+  if (!useLocal) {
+    throw new Error("Receipt OCR isn't available on this build (Tesseract assets not bundled).");
+  }
   await new Promise((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = src;
-    if (!useLocal) s.crossOrigin = "anonymous";
+    s.src = "vendor/tesseract/tesseract.min.js";
     s.onload = resolve;
     s.onerror = () => reject(new Error("Failed to load Tesseract.js"));
     document.head.appendChild(s);
@@ -3432,18 +3608,26 @@ async function loadTesseract() {
 async function getTesseractWorker(logger) {
   const Tess = await loadTesseract();
   if (!tesseractWorker) {
-    const useLocal = await detectLocalTesseract();
     // Workers need absolute URLs — relative paths fail in importScripts()
     // inside Capacitor's WebView (base URL differs in worker context).
-    const base = useLocal ? new URL("vendor/tesseract/", location.href).href : undefined;
-    const opts = useLocal
-      ? {
-          logger,
-          workerPath: base + "worker.min.js",
-          corePath: base,
-          langPath: base,
-        }
-      : { logger };
+    const base = new URL("vendor/tesseract/", location.href).href;
+    const opts = {
+      logger,
+      workerPath: base + "worker.min.js",
+      corePath: base,
+      langPath: base,
+    };
+    if (isNative()) {
+      // Blob-URL workers hang inside Capacitor's Android WebView when
+      // importScripts pulls the multi-MB worker.min.js / wasm.js from
+      // https://localhost. Spawning the worker directly from the same-
+      // origin URL lets the bridge serve the bytes normally. The
+      // traineddata is already bundled in the APK, so IndexedDB caching
+      // it again is wasted work — disable it so a stuck IDB request
+      // can't stall the load.
+      opts.workerBlobURL = false;
+      opts.cacheMethod = "none";
+    }
     tesseractWorker = await Tess.createWorker("eng", 1, opts);
   }
   return tesseractWorker;
@@ -3529,34 +3713,181 @@ function parseReceiptText(text) {
    user review. Nothing is auto-saved — the user always confirms. */
 
 const TXN_PROVIDERS = [
-  { id: "maybank",   name: "Maybank",       packages: ["com.mbb.malaysia.android"],
+  { id: "maybank",   name: "Maybank",       country: "MY", currency: "MYR",
+    packages: ["com.mbb.malaysia.android"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:charged|debited|deducted|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "cimb",      name: "CIMB",          packages: ["com.cimb.mob.my", "com.cimb.cimbocto"],
+  { id: "cimb",      name: "CIMB",          country: "MY", currency: "MYR",
+    packages: ["com.cimb.mob.my", "com.cimb.octo"],
     patterns: [/(?:Purchase|Charge)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "hlb",       name: "Hong Leong",    packages: ["com.hongleong.connectfirst"],
+  { id: "hlb",       name: "Hong Leong",    country: "MY", currency: "MYR",
+    packages: ["com.hongleong.cfs.connect"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:spent|paid|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "rhb",       name: "RHB",           packages: ["my.com.rhbgroup.rhbmobilebanking"],
+  { id: "rhb",       name: "RHB",           country: "MY", currency: "MYR",
+    packages: ["my.com.rhbgroup.rhbmobilebanking"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:has been|was)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "publicbank",name: "Public Bank",   packages: ["my.com.publicbank.pbengine"],
+  { id: "publicbank",name: "Public Bank",   country: "MY", currency: "MYR",
+    packages: ["my.com.publicbank.pbengine"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "tng",       name: "Touch 'n Go",   packages: ["my.com.tngdigital.ewallet"],
+  { id: "tng",       name: "Touch 'n Go",   country: "MY", currency: "MYR",
+    packages: ["my.com.tngdigital.ewallet"],
     patterns: [/(?:spent|paid|deducted)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "grabpay",   name: "GrabPay",       packages: ["com.grabtaxi.passenger"],
+  { id: "grabpay",   name: "GrabPay",       country: "MY", currency: "MYR",
+    packages: ["com.grabtaxi.passenger"],
     patterns: [/(?:paid|spent|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "boost",     name: "Boost",         packages: ["my.com.myboost"],
+  { id: "boost",     name: "Boost",         country: "MY", currency: "MYR",
+    packages: ["my.com.myboost"],
     patterns: [/(?:paid|spent)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "bigpay",    name: "BigPay",        packages: ["com.bigpay.wallet"],
+  { id: "bigpay",    name: "BigPay",        country: "MY", currency: "MYR",
+    packages: ["com.bigpay.wallet"],
     patterns: [/(?:paid|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "spaylater", name: "SPayLater",     packages: ["com.shopee.my"],
+  { id: "spaylater", name: "SPayLater",     country: "MY", currency: "MYR",
+    packages: ["com.shopee.my"],
     patterns: [
       /SPayLater[^.]*?(?:charged|installment)[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i,
       /installment\s+of\s+RM\s*([\d,]+\.?\d*)\s+(?:is )?due/i,
     ] },
-  { id: "atome",     name: "Atome",         packages: ["com.atomeapp.mobile", "sg.com.apaylater"],
+  { id: "atome",     name: "Atome",         country: "MY", currency: "MYR",
+    packages: ["com.atomeapp.mobile", "sg.com.apaylater"],
     patterns: [/Atome[^.]*?(?:charged|paid)[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:for|at)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "graypaylater",name: "GrabPay Later",packages: ["com.grabtaxi.passenger"],
+  { id: "graypaylater",name: "GrabPay Later",country: "MY", currency: "MYR",
+    packages: ["com.grabtaxi.passenger"],
     patterns: [/PayLater[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "maybank-mae", name: "Maybank MAE", country: "MY", currency: "MYR",
+    packages: ["com.maybank2u.life"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|sent|debited|charged)[^.]*?(?:to|at)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "ambank", name: "AmBank", country: "MY", currency: "MYR",
+    packages: ["com.ambank.ambankgroup"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "bankislam", name: "Bank Islam", country: "MY", currency: "MYR",
+    packages: ["com.bankislam.android"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "bsn", name: "BSN", country: "MY", currency: "MYR",
+    packages: ["com.bsn.mybsn"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|paid|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "setel", name: "Setel", country: "MY", currency: "MYR",
+    packages: ["com.setel.app"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|spent|fueled)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
+  // ----- Singapore -----
+  { id: "dbs-sg", name: "DBS digibank SG", country: "SG", currency: "SGD",
+    packages: ["com.dbs.sg.dbsmbanking"],
+    patterns: [/S\$\s*([\d,]+\.?\d*)\s+(?:charged|paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "ocbc-sg", name: "OCBC SG", country: "SG", currency: "SGD",
+    packages: ["com.ocbc.mobile"],
+    patterns: [/S\$\s*([\d,]+\.?\d*)\s+(?:charged|paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "uob-sg", name: "UOB Mighty", country: "SG", currency: "SGD",
+    packages: ["sg.com.uob.mighty.app"],
+    patterns: [/S\$\s*([\d,]+\.?\d*)\s+(?:charged|paid|spent)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "paylah", name: "DBS PayLah!", country: "SG", currency: "SGD",
+    packages: ["com.dbs.sg.paylah"],
+    patterns: [/S\$\s*([\d,]+\.?\d*)\s+(?:paid|sent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
+  // ----- Indonesia -----
+  { id: "bca", name: "BCA mobile", country: "ID", currency: "IDR",
+    packages: ["com.bca"],
+    patterns: [/Rp\s*([\d.,]+)\s+(?:dibayar|debit|charged)[^.]*?(?:di|at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "mandiri", name: "Livin' by Mandiri", country: "ID", currency: "IDR",
+    packages: ["com.bankmandiri.mandiriapp"],
+    patterns: [/Rp\s*([\d.,]+)\s+(?:dibayar|debit|charged)[^.]*?(?:di|at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "bni", name: "BNI Mobile", country: "ID", currency: "IDR",
+    packages: ["src.com.bni"],
+    patterns: [/Rp\s*([\d.,]+)\s+(?:dibayar|debit|charged)[^.]*?(?:di|at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "brimo", name: "BRImo", country: "ID", currency: "IDR",
+    packages: ["id.co.bri.brimo"],
+    patterns: [/Rp\s*([\d.,]+)\s+(?:dibayar|debit|charged)[^.]*?(?:di|at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "gopay", name: "GoPay", country: "ID", currency: "IDR",
+    packages: ["com.gojek.app"],
+    patterns: [/Rp\s*([\d.,]+)\s+(?:paid|dibayar)[^.]*?(?:to|di)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "ovo", name: "OVO", country: "ID", currency: "IDR",
+    packages: ["com.ovo"],
+    patterns: [/Rp\s*([\d.,]+)\s+(?:paid|dibayar)[^.]*?(?:to|di)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "dana", name: "DANA", country: "ID", currency: "IDR",
+    packages: ["id.dana"],
+    patterns: [/Rp\s*([\d.,]+)\s+(?:paid|dibayar)[^.]*?(?:to|di)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "shopeepay-id", name: "ShopeePay ID", country: "ID", currency: "IDR",
+    packages: ["com.shopee.id"],
+    patterns: [/Rp\s*([\d.,]+)\s+(?:paid|dibayar)[^.]*?(?:to|di)\s+(.+?)(?:\s*[.]|$)/i] },
+  // ----- Thailand -----
+  { id: "kplus", name: "K PLUS", country: "TH", currency: "THB",
+    packages: ["com.kasikorn.retail.mbanking.wap"],
+    patterns: [/(?:฿|THB)\s*([\d,]+\.?\d*)\s+(?:paid|debited|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "scb-easy", name: "SCB Easy", country: "TH", currency: "THB",
+    packages: ["com.scb.phone"],
+    patterns: [/(?:฿|THB)\s*([\d,]+\.?\d*)\s+(?:paid|debited|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "krungthai-next", name: "Krungthai NEXT", country: "TH", currency: "THB",
+    packages: ["com.ktb.netbank"],
+    patterns: [/(?:฿|THB)\s*([\d,]+\.?\d*)\s+(?:paid|debited|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "bbl-th", name: "Bangkok Bank Mobile", country: "TH", currency: "THB",
+    packages: ["com.bbl.mobilebanking"],
+    patterns: [/(?:฿|THB)\s*([\d,]+\.?\d*)\s+(?:paid|debited|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "kma-th", name: "KMA Krungsri", country: "TH", currency: "THB",
+    packages: ["com.krungsri.kma"],
+    patterns: [/(?:฿|THB)\s*([\d,]+\.?\d*)\s+(?:paid|debited|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "ttb-th", name: "ttb touch", country: "TH", currency: "THB",
+    packages: ["com.ttb.touch"],
+    patterns: [/(?:฿|THB)\s*([\d,]+\.?\d*)\s+(?:paid|debited|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "truemoney", name: "TrueMoney Wallet", country: "TH", currency: "THB",
+    packages: ["th.co.truemoney.wallet"],
+    patterns: [/(?:฿|THB)\s*([\d,]+\.?\d*)\s+(?:paid|spent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "rabbit-line-pay", name: "Rabbit LINE Pay", country: "TH", currency: "THB",
+    packages: ["jp.naver.line.android"],
+    patterns: [/Rabbit\s+LINE\s+Pay[^.]*?(?:฿|THB)\s*([\d,]+\.?\d*)[^.]*?(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  // ----- Philippines -----
+  { id: "bdo", name: "BDO Mobile", country: "PH", currency: "PHP",
+    packages: ["com.bdo.unibank.mobilebanking"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:debited|charged|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "bpi", name: "BPI Mobile", country: "PH", currency: "PHP",
+    packages: ["com.bpi.cmpr"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:debited|charged|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "metrobank-ph", name: "Metrobank Mobile", country: "PH", currency: "PHP",
+    packages: ["com.metrobank.metroclick"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:debited|charged|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+  { id: "gcash", name: "GCash", country: "PH", currency: "PHP",
+    packages: ["com.globe.gcash.android"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:paid|sent|spent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "maya-ph", name: "Maya", country: "PH", currency: "PHP",
+    packages: ["com.paymaya"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:paid|sent|spent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "shopeepay-ph", name: "ShopeePay PH", country: "PH", currency: "PHP",
+    packages: ["com.shopee.ph"],
+    patterns: [/(?:₱|PHP|Php)\s*([\d,]+\.?\d*)\s+(?:paid|spent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
+  // ----- Vietnam -----
+  { id: "vcb", name: "Vietcombank", country: "VN", currency: "VND",
+    packages: ["com.VCB"],
+    patterns: [/(?:₫|VND)\s*([\d.,]+)\s+(?:paid|debited|charged|tr[ảa]\s+ph[íi])[^.]*?(?:at|to|t[ạa]i)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "vietinbank", name: "VietinBank iPay", country: "VN", currency: "VND",
+    packages: ["com.vietinbank.ipay"],
+    patterns: [/(?:₫|VND)\s*([\d.,]+)\s+(?:paid|debited|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "techcombank", name: "Techcombank Mobile", country: "VN", currency: "VND",
+    packages: ["vn.com.techcombank.bb.app"],
+    patterns: [/(?:₫|VND)\s*([\d.,]+)\s+(?:paid|debited|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "bidv", name: "BIDV SmartBanking", country: "VN", currency: "VND",
+    packages: ["com.vnpay.bidv"],
+    patterns: [/(?:₫|VND)\s*([\d.,]+)\s+(?:paid|debited|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "mbbank-vn", name: "MB Bank", country: "VN", currency: "VND",
+    packages: ["com.mbmobile"],
+    patterns: [/(?:₫|VND)\s*([\d.,]+)\s+(?:paid|debited|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "momo", name: "MoMo", country: "VN", currency: "VND",
+    packages: ["com.mservice.momotransfer"],
+    patterns: [/(?:₫|VND)\s*([\d.,]+)\s+(?:paid|spent|sent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "zalopay", name: "ZaloPay", country: "VN", currency: "VND",
+    packages: ["vn.com.vng.zalopay"],
+    patterns: [/(?:₫|VND)\s*([\d.,]+)\s+(?:paid|spent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
+  { id: "shopeepay-vn", name: "ShopeePay VN", country: "VN", currency: "VND",
+    packages: ["com.shopee.vn"],
+    patterns: [/(?:₫|VND)\s*([\d.,]+)\s+(?:paid|spent)[^.]*?(?:to|at)\s+(.+?)(?:\s*[.]|$)/i] },
 ];
+
+/* Locale-aware amount parsing.
+   - Default (MY/SG/TH/PH): "1,234.56" — comma thousands, dot decimal.
+   - ID/VN: "1.234,56" — dot thousands, comma decimal.
+   Returns a Number, or NaN if unparseable. */
+function parseAmount(raw, currency) {
+  if (raw == null) return NaN;
+  const s = String(raw).trim();
+  if (currency === "IDR" || currency === "VND") {
+    return Number(s.replace(/\./g, "").replace(",", "."));
+  }
+  return Number(s.replace(/,/g, ""));
+}
 
 function providerForPackage(pkg) {
   if (!pkg) return null;
@@ -3588,13 +3919,15 @@ function parseBankText(text, pkg) {
   for (const re of provider.patterns) {
     const m = text.match(re);
     if (!m) continue;
-    const amount = Number(String(m[1]).replace(/,/g, ""));
+    const amount = parseAmount(m[1], provider.currency);
     if (!Number.isFinite(amount) || amount <= 0) continue;
     return {
       amount,
       merchant: m[2] ? m[2].trim().replace(/\s{2,}/g, " ") : "",
       providerId: provider.id,
       providerName: provider.name,
+      country: provider.country,
+      currency: provider.currency,
     };
   }
   return null;
@@ -3620,6 +3953,8 @@ function queuePendingTxn(data) {
     merchant: parsed.merchant,
     providerId: parsed.providerId,
     providerName: parsed.providerName,
+    country: parsed.country,
+    currency: parsed.currency,
   });
   save();
   if (typeof renderAll === "function") renderAll();
@@ -4024,8 +4359,6 @@ function formatRelative(iso) {
 function renderDriveCard() {
   const card = document.getElementById("drive-card");
   if (!card) return;
-  // Hide entirely on native — native uses a different (Capacitor) plugin path.
-  if (isNative()) { card.hidden = true; return; }
   card.hidden = false;
 
   const configured = !!(window.DriveSync && DriveSync.isConfigured());

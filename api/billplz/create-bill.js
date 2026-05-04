@@ -3,6 +3,7 @@ const { createBill } = require("../_lib/billplz");
 const { refCodeFor } = require("../_lib/referral");
 const { lookup: lookupDiscount, applyTo: applyDiscount } = require("../_lib/discounts");
 const { signLicense } = require("../_lib/license");
+const { sendLicenseEmail, sendOwnerCompNotification } = require("../_lib/email");
 const { recordBill } = require("../_lib/bills-store");
 
 module.exports = async function handler(req, res) {
@@ -54,9 +55,9 @@ module.exports = async function handler(req, res) {
 
     if (discount && finalSen === 0) {
       // Full-comp path: sign a license directly, skip Billplz.
-      const compId = `comp-${discount.code}-${crypto.randomUUID()}`;
+      const sub = `comp-${discount.code}-${crypto.randomUUID()}`;
       const license = signLicense({
-        sub: compId,
+        sub,
         email,
         product: "duitful_pro",
         ref: refCodeFor(email),
@@ -66,13 +67,32 @@ module.exports = async function handler(req, res) {
       // Track the comp in the bills store so the admin endpoint sees
       // it alongside Billplz-issued bills.
       await recordBill({
-        billId: compId,
+        billId: sub,
         amount: 0,
         email,
         status: "comp",
         discountCode: discount.code,
         source: "comp-license",
       }).catch(() => {});
+      // Best-effort emails: buyer receipt + owner comp notify. Never
+      // block the response on a Resend failure — the client already
+      // auto-activates from the JSON, and the failures are logged.
+      await Promise.allSettled([
+        sendLicenseEmail({ to: email, license, billId: sub }).catch((e) => {
+          console.warn("comp buyer email threw:", e);
+          return { sent: false };
+        }),
+        sendOwnerCompNotification({
+          email,
+          name,
+          code: discount.code,
+          description: discount.description,
+          sub,
+        }).catch((e) => {
+          console.warn("comp owner notify threw:", e);
+          return { sent: false };
+        }),
+      ]);
       res.status(200).json({ license, comp: true, discount: { code: discount.code, description: discount.description } });
       return;
     }
@@ -109,6 +129,7 @@ module.exports = async function handler(req, res) {
       callbackUrl: `${appBase}/api/billplz/webhook`,
       reference: "duitful_pro",
       referrerCode: safeRef || undefined,
+      discountCode: discount?.code || undefined,
     });
 
     // Direct Payment Gateway bypass
