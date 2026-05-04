@@ -3,6 +3,7 @@ const { createBill } = require("../_lib/billplz");
 const { refCodeFor } = require("../_lib/referral");
 const { lookup: lookupDiscount, applyTo: applyDiscount } = require("../_lib/discounts");
 const { signLicense } = require("../_lib/license");
+const { recordBill } = require("../_lib/bills-store");
 
 module.exports = async function handler(req, res) {
   // CORS: allow the Duitful app (same origin in production, but helpful in dev).
@@ -53,14 +54,25 @@ module.exports = async function handler(req, res) {
 
     if (discount && finalSen === 0) {
       // Full-comp path: sign a license directly, skip Billplz.
+      const compId = `comp-${discount.code}-${crypto.randomUUID()}`;
       const license = signLicense({
-        sub: `comp-${discount.code}-${crypto.randomUUID()}`,
+        sub: compId,
         email,
         product: "duitful_pro",
         ref: refCodeFor(email),
         iat: Math.floor(Date.now() / 1000),
         source: `discount:${discount.code}`,
       });
+      // Track the comp in the bills store so the admin endpoint sees
+      // it alongside Billplz-issued bills.
+      await recordBill({
+        billId: compId,
+        amount: 0,
+        email,
+        status: "comp",
+        discountCode: discount.code,
+        source: "comp-license",
+      }).catch(() => {});
       res.status(200).json({ license, comp: true, discount: { code: discount.code, description: discount.description } });
       return;
     }
@@ -110,6 +122,19 @@ module.exports = async function handler(req, res) {
       const sep = url.includes("?") ? "&" : "?";
       url = `${url}${sep}auto_submit=true&bank_code=${encodeURIComponent(safeBank)}`;
     }
+
+    // Track the new bill in the bills store. Best-effort: if KV is
+    // unconfigured or unreachable we still want the bill creation to
+    // succeed for the buyer.
+    await recordBill({
+      billId: bill.id,
+      amount: finalSen,
+      email,
+      status: "open",
+      discountCode: discount?.code || "",
+      ref: safeRef || "",
+      source: safeBank ? `fpx:${safeBank}` : "billplz",
+    }).catch(() => {});
 
     res.status(200).json({ url, id: bill.id });
   } catch (err) {

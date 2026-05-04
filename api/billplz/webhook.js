@@ -7,6 +7,7 @@
 // the X-Signature so Billplz's retry logic stops.
 
 const { verifyXSignature, flattenBillplzParams } = require("../_lib/billplz");
+const { updateBill } = require("../_lib/bills-store");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") { res.status(405).json({ error: "Method not allowed" }); return; }
@@ -26,6 +27,17 @@ module.exports = async function handler(req, res) {
       amount: raw.amount,
       email: raw.email,
     });
+    // Update the bills store so the admin endpoint shows live status
+    // even if the buyer never returns to the redirect URL.
+    if (raw.id) {
+      const paid = String(raw.paid).toLowerCase() === "true";
+      await updateBill(raw.id, {
+        status: paid ? "paid" : (raw.state || "open"),
+        billplzState: raw.state || "",
+        paid,
+        paidAt: paid ? new Date().toISOString() : null,
+      }).catch(() => {});
+    }
     res.status(200).json({ ok: true });
   } catch (err) {
     console.error("webhook failed:", err);

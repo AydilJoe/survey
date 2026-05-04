@@ -23,6 +23,7 @@
     "@capacitor/core": "^6.1.2",
     "@capacitor/ios": "^6.1.2",
     "@capacitor/local-notifications": "^6.1.2",
+    "@vercel/kv": "^3.0.0",
     "cordova-plugin-purchase": "^13.12.1"
   }
 }
