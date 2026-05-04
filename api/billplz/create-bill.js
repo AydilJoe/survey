@@ -4,6 +4,7 @@ const { refCodeFor } = require("../_lib/referral");
 const { lookup: lookupDiscount, applyTo: applyDiscount } = require("../_lib/discounts");
 const { signLicense } = require("../_lib/license");
 const { sendLicenseEmail, sendOwnerCompNotification } = require("../_lib/email");
+const { recordBill } = require("../_lib/bills-store");
 
 module.exports = async function handler(req, res) {
   // CORS: allow the Duitful app (same origin in production, but helpful in dev).
@@ -63,6 +64,16 @@ module.exports = async function handler(req, res) {
         iat: Math.floor(Date.now() / 1000),
         source: `discount:${discount.code}`,
       });
+      // Track the comp in the bills store so the admin endpoint sees
+      // it alongside Billplz-issued bills.
+      await recordBill({
+        billId: sub,
+        amount: 0,
+        email,
+        status: "comp",
+        discountCode: discount.code,
+        source: "comp-license",
+      }).catch(() => {});
       // Best-effort emails: buyer receipt + owner comp notify. Never
       // block the response on a Resend failure — the client already
       // auto-activates from the JSON, and the failures are logged.
@@ -132,6 +143,19 @@ module.exports = async function handler(req, res) {
       const sep = url.includes("?") ? "&" : "?";
       url = `${url}${sep}auto_submit=true&bank_code=${encodeURIComponent(safeBank)}`;
     }
+
+    // Track the new bill in the bills store. Best-effort: if KV is
+    // unconfigured or unreachable we still want the bill creation to
+    // succeed for the buyer.
+    await recordBill({
+      billId: bill.id,
+      amount: finalSen,
+      email,
+      status: "open",
+      discountCode: discount?.code || "",
+      ref: safeRef || "",
+      source: safeBank ? `fpx:${safeBank}` : "billplz",
+    }).catch(() => {});
 
     res.status(200).json({ url, id: bill.id });
   } catch (err) {
