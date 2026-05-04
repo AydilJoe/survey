@@ -28,9 +28,9 @@
     </g>
     <g transform="translate(0, 200)">
       <rect width="920" height="180" rx="22" fill="url(#primary)"/>
-      <text x="40" y="60" font-family="'JetBrains Mono', monospace" font-size="18" fill="#fffaf2" letter-spacing="3" opacity="0.85">MEDIAN EPF BALANCE AT 55</text>
+      <text x="40" y="60" font-family="'JetBrains Mono', monospace" font-size="18" fill="#fffaf2" letter-spacing="3" opacity="0.9">MEDIAN EPF BALANCE AT 55</text>
       <text x="40" y="120" font-family="'Fraunces', serif" font-size="44" font-weight="500" fill="#fffaf2">Below the threshold.</text>
-      <text x="40" y="160" font-size="20" fill="#fffaf2" opacity="0.85">Most members have less than 5 years' worth at this rate.</text>
+      <text x="40" y="160" font-size="20" fill="#fffaf2">Most members have less than 5 years' worth at this rate.</text>
     </g>
   </g>
 
