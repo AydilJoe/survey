@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">WHAT JUST CHANGED</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">2/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Real upgrade.</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Not the <tspan font-style="italic" fill="#b35a39">whole story</tspan>.</text>
+
+  <!-- Two columns -->
+  <g transform="translate(60, 460)" font-family="'Inter', sans-serif">
+    <g>
+      <rect width="465" height="700" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="80" rx="22" fill="#8fa078"/>
+      <rect y="60" width="465" height="20" fill="#8fa078"/>
+      <text x="232" y="50" text-anchor="middle" font-family="'Fraunces', serif" font-size="30" fill="#fffaf2" font-weight="500">Now baseline</text>
+      <g transform="translate(28, 130)" font-size="20" fill="#2a2420">
+        <text>✓ Banks &amp; insurers on-shore</text>
+        <text y="50">✓ Audit trails for regulators</text>
+        <text y="100">✓ Cross-border export gated</text>
+        <text y="150">✓ Stricter breach notification</text>
+        <text y="200">✓ AI services in sovereign zones</text>
+      </g>
+      <g transform="translate(28, 480)" fill="#5a7c4f">
+        <text font-size="18" font-style="italic">Meaningful regulatory</text>
+        <text y="26" font-size="18" font-style="italic">progress.</text>
+      </g>
+    </g>
+    <g transform="translate(495, 0)">
+      <rect width="465" height="700" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="80" rx="22" fill="#b86a4e"/>
+      <rect y="60" width="465" height="20" fill="#b86a4e"/>
+      <text x="232" y="50" text-anchor="middle" font-family="'Fraunces', serif" font-size="30" fill="#fffaf2" font-weight="500">Still not solved</text>
+      <g transform="translate(28, 130)" font-size="20" fill="#2a2420">
+        <text>✗ Data on someone's cloud</text>
+        <text y="50">✗ Account-based services leak</text>
+        <text y="100">✗ Anonymisation re-identifiable</text>
+        <text y="150">✗ Marketing trackers on apps</text>
+        <text y="200">✗ Foreign apps when travelling</text>
+      </g>
+      <g transform="translate(28, 480)" fill="#b86a4e">
+        <text font-size="18" font-style="italic">A server in Cyberjaya</text>
+        <text y="26" font-size="18" font-style="italic">is still a server.</text>
+      </g>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

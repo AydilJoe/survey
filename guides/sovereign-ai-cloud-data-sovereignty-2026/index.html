@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Sovereign AI Cloud Malaysia 2026 — Data sovereignty becomes the default</title>
+<meta name="description" content="Malaysia's Sovereign AI Cloud went live this week, requiring sensitive financial and citizen data to stay on-shore. This is the boring infrastructure layer that makes &quot;private by default&quot; the new baseline for fintech, banking, and personal apps. What it changes, what it doesn't, and why it validates apps that go further with on-device storage.">
+<meta name="keywords" content="sovereign ai cloud malaysia, data sovereignty malaysia 2026, on shore data residency, mca cybersecurity malaysia, pdpa amendment 2026, malaysian financial data privacy, on device finance app, duitful privacy, naio policy">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:locale" content="en_MY">
+<meta property="og:url" content="https://duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026/">
+<meta property="og:title" content="Sovereign AI Cloud Malaysia 2026 — Data sovereignty becomes the default">
+<meta property="og:description" content="Malaysia's Sovereign AI Cloud went live this week, requiring sensitive financial and citizen data to stay on-shore. This is the boring infrastructure layer that makes &quot;private by default&quot; the new baseline for fintech, banking, and personal apps. What it changes, what it doesn't, and why it validates apps that go further with on-device storage.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sovereign AI Cloud Malaysia 2026 — Data sovereignty becomes the default">
+<meta name="twitter:description" content="Malaysia's Sovereign AI Cloud went live this week, requiring sensitive financial and citizen data to stay on-shore. This is the boring infrastructure layer that makes &quot;private by default&quot; the new baseline for fintech, banking, and personal apps. What it changes, what it doesn't, and why it validates apps that go further with on-device storage.">
+<meta name="twitter:image" content="https://duitful.app/og-image.svg">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Sovereign AI Cloud &amp; data sovereignty","item":"https://duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Sovereign AI Cloud Malaysia 2026 — Data sovereignty becomes the default","description":"Malaysia's Sovereign AI Cloud went live this week, requiring sensitive financial and citizen data to stay on-shore. This is the boring infrastructure layer that makes \"private by default\" the new baseline for fintech, banking, and personal apps. What it changes, what it doesn't, and why it validates apps that go further with on-device storage.","inLanguage":"en","datePublished":"2026-05-04","dateModified":"2026-05-04","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does the Sovereign AI Cloud rollout affect Duitful?","acceptedAnswer":{"@type":"Answer","text":"Not directly — Duitful stores data on your phone, not in any cloud (sovereign or otherwise). The launch validates the broader direction Duitful was already built for: data sovereignty all the way down to the device. Our position doesn't change with the regulation; the regulation just moves the floor closer to where we already stand."}},{"@type":"Question","name":"Should I switch banks based on Sovereign AI Cloud compliance?","acceptedAnswer":{"@type":"Answer","text":"No. All licensed Malaysian banks will be in scope by the rollout deadlines. Switching for that reason is unnecessary. Switch banks for fees, service, branch availability, or DuitNow features — not for data residency, which is now baseline."}},{"@type":"Question","name":"What about my Google / Apple / iCloud backups of finance apps?","acceptedAnswer":{"@type":"Answer","text":"That's a separate question. iCloud backup includes data from on-device apps unless explicitly excluded by the app. Duitful's encrypted-at-rest format means even the iCloud backup is encrypted with your passphrase — useless without it. For other apps, check whether the app excludes itself from cloud backup or whether it relies on iCloud encryption (which Apple can be compelled to decrypt under certain conditions)."}},{"@type":"Question","name":"Is the on-device approach less convenient?","acceptedAnswer":{"@type":"Answer","text":"It has one inconvenience: passphrase recovery. If you forget your passphrase, your data is unrecoverable — by design. We trade this against not having a centralised system that can leak. Write down your passphrase somewhere offline (a piece of paper in a safe) and the trade-off is purely upside."}},{"@type":"Question","name":"Will more apps move to on-device after this?","acceptedAnswer":{"@type":"Answer","text":"Hopefully. The Sovereign AI Cloud is the floor; on-device is the ceiling. Apps handling personal money, health, and identity data should be moving toward on-device storage where the data type allows it. Watch for the apps that ship the architecture, not just the marketing."}}]}</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --accent: #8fa078; --accent-ink: #3a6b50;
+    --warn: #b86a4e; --warn-ink: #8a3f1c;
+    --line: rgba(42,36,32,0.08); --border: rgba(42,36,32,0.14);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 17px/1.6 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 96px; }
+  .nav-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+
+  .eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: inline-block; margin-bottom: 14px;
+  }
+
+  h1 {
+    font: 500 clamp(36px, 6vw, 52px)/1.05 var(--font-serif);
+    letter-spacing: -0.02em; margin: 0 0 14px; color: var(--ink);
+  }
+  h1 em, h2 em { font-style: italic; color: var(--primary); }
+
+  .dateline {
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 22px; max-width: none;
+  }
+  .dateline time { color: inherit; }
+  .dateline-sep { margin: 0 4px; opacity: 0.6; }
+
+  .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
+
+  h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font: 500 18px/1.35 var(--font-sans); margin: 24px 0 6px; color: var(--ink); }
+  p { margin: 0 0 16px; color: var(--ink2); max-width: 64ch; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; color: var(--ink2); }
+  li { margin: 0 0 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: var(--primary-ink); }
+  code { font: 500 14px/1.2 var(--font-mono); background: var(--card); padding: 2px 6px; border-radius: 4px; border: 0.5px solid var(--line); }
+
+  /* ---------- Steps ---------- */
+  .steps { list-style: none; padding: 0; display: grid; gap: 12px; margin: 28px 0; }
+  .step {
+    display: grid; grid-template-columns: 48px 1fr; gap: 16px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 14px; padding: 18px 22px; align-items: start;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fffaf2;
+    display: grid; place-items: center;
+    font: 500 17px/1 var(--font-serif);
+  }
+  .step h3 { margin: 2px 0 4px; font-size: 17px; }
+  .step p { margin: 0; font-size: 15.5px; line-height: 1.5; }
+
+  /* ---------- Stat block ---------- */
+  .stat-block {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 16px; padding: 36px 28px;
+    margin: 32px 0; text-align: center;
+  }
+  .stat-value {
+    font: 500 clamp(44px, 9vw, 72px)/1 var(--font-serif);
+    color: var(--primary); letter-spacing: -0.02em;
+    margin: 0 0 10px; max-width: none;
+  }
+  .stat-label { font: 500 16px/1.4 var(--font-sans); color: var(--ink); margin: 0 0 4px; max-width: none; }
+  .stat-note { font: 400 13.5px/1.4 var(--font-mono); color: var(--muted); margin: 0; max-width: none; }
+
+  /* ---------- Compare ---------- */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin: 32px 0; border: 0.5px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col { padding: 22px 24px; }
+  .compare-col + .compare-col { border-left: 0.5px solid var(--line); }
+  @media (max-width: 600px) {
+    .compare-col + .compare-col { border-left: none; border-top: 0.5px solid var(--line); }
+  }
+  .compare-col.left  { background: rgba(184,106,78,0.05); }
+  .compare-col.right { background: rgba(106,138,94,0.06); }
+  .compare-title {
+    font: 500 11px/1 var(--font-mono); letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0 0 14px;
+  }
+  .compare-col.left  .compare-title { color: var(--warn-ink); }
+  .compare-col.right .compare-title { color: var(--accent-ink); }
+  .compare-col ul { padding: 0; list-style: none; margin: 0; }
+  .compare-col li {
+    padding: 7px 0; font-size: 15px; line-height: 1.45; color: var(--ink2);
+    display: flex; gap: 10px; align-items: start;
+  }
+  .compare-col li::before {
+    flex: 0 0 auto; font-weight: 700; line-height: 1.45;
+  }
+  .compare-col.left  li::before { content: "✕"; color: var(--warn); }
+  .compare-col.right li::before { content: "✓"; color: var(--accent-ink); }
+
+  /* ---------- FAQ ---------- */
+  .faq { margin: 28px 0; display: grid; gap: 8px; }
+  .faq-item {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; padding: 4px 22px;
+    transition: border-color 0.15s ease;
+  }
+  .faq-item[open] { border-color: var(--border); }
+  .faq-q {
+    font: 500 16px/1.4 var(--font-sans); color: var(--ink);
+    padding: 14px 0; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q::after {
+    content: "+"; font: 400 22px/1 var(--font-serif);
+    color: var(--muted); transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-q::after { content: "−"; }
+  .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- CTA ---------- */
+  .cta-card {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 18px; padding: 32px 28px;
+    margin: 56px 0 0; text-align: center;
+  }
+  .cta-card h2 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 30px); }
+  .cta-card p { margin: 0 auto 18px; max-width: 48ch; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 26px;
+    background: var(--primary); color: #fffaf2;
+    border-radius: 999px;
+    font: 500 15px/1 var(--font-sans);
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(42,36,32,0.1), 0 8px 20px rgba(200,112,75,0.28);
+    transition: background 0.15s ease;
+  }
+  .cta-btn:hover { background: var(--primary-ink); color: #fffaf2; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px; color: var(--muted);
+  }
+  .footer a { color: var(--primary); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/guides/" class="nav-back">← all guides</a>
+
+  <span class="eyebrow">Guide · Malaysia · Privacy &amp;amp; data</span>
+  <h1>Sovereign AI Cloud: <em>data sovereignty</em> just became the Malaysian default — and why it matters for your money.</h1>
+  <p class="dateline">Published <time datetime="2026-05-04">4 May 2026</time></p>
+  <p class="lede">Malaysia's Sovereign AI Cloud launched this week. The substance is unglamorous — sensitive financial and citizen data must stay on Malaysian infrastructure — but the implication for ordinary users is real: "private by default" is now baseline, not premium. Here's what changed, what didn't, and why apps that go further (on-device, end-to-end encrypted) become the safe default.</p>
+
+  <h2>What just launched</h2>
+
+    <div class="stat-block">
+      <p class="stat-value">On-shore by default</p>
+      <p class="stat-label">Sensitive Malaysian financial and citizen data must reside on Sovereign AI Cloud infrastructure inside Malaysia</p>
+      <p class="stat-note">This was an industry expectation since Budget 2026; this week the infrastructure went operational. Banks, insurers, and government-adjacent fintech are the first cohorts. Personal-finance apps and SaaS handling Malaysian PII follow over the next 12–24 months.</p>
+    </div>
+<p>The plain version: cloud providers operating Sovereign AI Cloud zones inside Malaysia (under BNM and NAIO oversight) become the default home for sensitive Malaysian data. Cross-border transfers of regulated data require explicit conditions — not the default. PDPA enforcement gains real teeth because the data lives where the regulator can audit it.</p>
+<h2>What changes for ordinary users</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Now the baseline</p>
+        <ul><li>Bank &amp;amp; insurer systems on Malaysia-resident cloud</li><li>Audit trails available to BNM / regulators</li><li>Cross-border data export requires explicit consent / authority</li><li>Stricter notification on breaches</li><li>AI-assisted services using Malaysian data must run within sovereign zones</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Still not solved</p>
+        <ul><li>Apps that store sensitive data in their own cloud (sovereign or not)</li><li>Account-based services that require email / phone verification</li><li>"We anonymise it" claims from third-party analytics SDKs</li><li>Marketing trackers on bank-adjacent sites</li><li>Your data leaving the country with you when you travel and use foreign apps</li></ul>
+      </div>
+    </div>
+<p>The mandate is a meaningful upgrade. It is not the end of the story. <strong>On-shore is not the same as on-device.</strong> A bank server in Cyberjaya is still a server — accessible to insiders, vulnerable to breach, and (under court order) accessible to authorities. The only data that's truly outside that envelope is data that never leaves your phone in the first place.</p>
+<h2>Why on-device beats on-shore for personal money data</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Smaller blast radius</h3>
+        <p>A breach of an on-shore database exposes everyone in it. A breach of an on-device app exposes one person — and only if their device is also breached, AND the encryption key was extracted. Population-level versus individual-level risk are not the same conversation.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>No account = no leak vector</h3>
+        <p>Most "your data was leaked" incidents start with an authentication system. No accounts, no emails, no phone numbers means there's nothing for an attacker to lift in bulk. On-device apps with passphrase-only encryption have no breach-able centralised auth.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Compliance by default, not by assertion</h3>
+        <p>An on-device app cannot send your data to anyone — not even the developer. That property doesn't depend on a privacy policy or a sovereign-cloud zone. It depends on the architecture. "Trust us" is replaced with "you can verify."</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Survives jurisdictional changes</h3>
+        <p>Data sovereignty rules can change with the political cycle. A future government could relax cross-border transfer rules, expand surveillance authority, or change what's classified as sensitive. On-device data is unaffected by those changes by definition.</p>
+      </div>
+    </li>
+</ol>
+<h2>How to evaluate any "private" finance app now</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Where is your data right now?</h3>
+        <p>If the answer is "in our secure cloud," that's the on-shore conversation. Useful, regulated, but not the same as on-device. If the answer is "on your phone, encrypted with your passphrase," that's the on-device conversation. The second category is smaller — and worth knowing.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Can the developer read your data?</h3>
+        <p>A clear answer here separates real privacy from privacy-marketing. End-to-end encryption with a key the developer never sees is the only architecture where the answer is "no." Anything less is "we choose not to" — which works until it doesn't.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Does it require an account?</h3>
+        <p>Account-based apps add an authentication system that can be breached, leaked, or compelled. Account-less apps simply don't have that surface. The trade-off is recovery — losing your passphrase means losing your data — but for sensitive money data, that trade-off is usually worth it.</p>
+      </div>
+    </li>
+</ol>
+<p>For broader privacy-first context on Duitful itself, see the <a href="/privacy/">privacy policy</a> — and for how this thinking fits with the broader Malaysian fintech rail upgrade (tokenised deposits, DLT clearing), the <a href="/guides/tokenised-deposits-malaysia-2026/">tokenised deposits guide</a> covers the institutional side.</p>
+<h2>What to ignore</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>"We're now Sovereign AI Cloud certified" badges as a privacy claim</h3>
+        <p>Hosting on a sovereign cloud zone is a regulatory baseline, not a privacy upgrade for the user. It tells you the data lives in Malaysia. It does not tell you who at the company can read it, what analytics SDKs are bolted on, or whether the export is one click away under the right conditions. Read the privacy policy, not the badge.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>"We anonymise everything" assurances</h3>
+        <p>Aggregated transaction data is famously easy to re-identify. Anonymisation is a spectrum, not a binary. The only architecture where re-identification is impossible is one where the original data never left the device.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>"Bank-grade encryption" marketing</h3>
+        <p>"Bank-grade" describes encryption at rest on a server you don't control. End-to-end encryption with the key on your device is a different category. They sound similar; they protect against different threat models.</p>
+      </div>
+    </li>
+</ol>
+<h2>Common questions</h2>
+<div class="faq">
+    <details class="faq-item">
+      <summary class="faq-q">Does the Sovereign AI Cloud rollout affect Duitful?</summary>
+      <p class="faq-a">Not directly — Duitful stores data on your phone, not in any cloud (sovereign or otherwise). The launch validates the broader direction Duitful was already built for: data sovereignty all the way down to the device. Our position doesn't change with the regulation; the regulation just moves the floor closer to where we already stand.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Should I switch banks based on Sovereign AI Cloud compliance?</summary>
+      <p class="faq-a">No. All licensed Malaysian banks will be in scope by the rollout deadlines. Switching for that reason is unnecessary. Switch banks for fees, service, branch availability, or DuitNow features — not for data residency, which is now baseline.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">What about my Google / Apple / iCloud backups of finance apps?</summary>
+      <p class="faq-a">That's a separate question. iCloud backup includes data from on-device apps unless explicitly excluded by the app. Duitful's encrypted-at-rest format means even the iCloud backup is encrypted with your passphrase — useless without it. For other apps, check whether the app excludes itself from cloud backup or whether it relies on iCloud encryption (which Apple can be compelled to decrypt under certain conditions).</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Is the on-device approach less convenient?</summary>
+      <p class="faq-a">It has one inconvenience: passphrase recovery. If you forget your passphrase, your data is unrecoverable — by design. We trade this against not having a centralised system that can leak. Write down your passphrase somewhere offline (a piece of paper in a safe) and the trade-off is purely upside.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Will more apps move to on-device after this?</summary>
+      <p class="faq-a">Hopefully. The Sovereign AI Cloud is the floor; on-device is the ceiling. Apps handling personal money, health, and identity data should be moving toward on-device storage where the data type allows it. Watch for the apps that ship the architecture, not just the marketing.</p>
+    </details>
+</div>
+
+  <div class="cta-card">
+    <h2>Skip the cloud entirely</h2>
+    <p>Sovereign AI Cloud keeps your data in Malaysia. Duitful keeps your data in your phone. AES-GCM encrypted with a passphrase only you know — no account, no email, no analytics. Free to use, RM 19.90 one-time for Pro.</p>
+    <a class="cta-btn" href="/app/">Open Duitful →</a>
+  </div>
+
+  <div class="footer">
+    More guides at <a href="/guides/">duitful.app/guides</a>. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy policy</a>, or <a href="/contact/">say hi</a>.
+  </div>
+</div>
+</body>
+</html>

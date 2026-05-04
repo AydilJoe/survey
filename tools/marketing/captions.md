@@ -20,6 +20,10 @@ so the social blurb and the SEO content reinforce each other.
 | C1 | Selangor WFH playbook | `duitful.app/guides/selangor-wfh-energy-shock-2026/` | EN + BM |
 | C2 | Tokenised deposits 101 | `duitful.app/guides/tokenised-deposits-malaysia-2026/` | EN |
 | C3 | Industrial 5G + SME supply chain | `duitful.app/guides/industrial-5g-selangor-sme-supply-chain-2026/` | EN |
+| C4 | Ringgit RM 3.95 rebalance | `duitful.app/guides/ringgit-rally-multicurrency-savings-2026/` | EN + BM |
+| C5 | SME AI tax deduction (150%) | `duitful.app/guides/selangor-sme-ai-tax-deduction-2026/` | EN |
+| C6 | Sovereign AI Cloud + on-device | `duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026/` | EN |
+| C7 | Why Malaysians need to track debt | brand pillar (no single guide) | EN + BM |
 
 - **Threads**: pick the short version (under 500 chars). Drop the link as the
   first reply, not in the post.
@@ -513,4 +517,291 @@ Three things change for your SME:
 Two months of work now, or scramble in 18 months at re-tender.
 
 duitful.app/guides/industrial-5g-selangor-sme-supply-chain-2026
+```
+
+---
+
+## C4 — Ringgit RM 3.95 rebalance (carousel · 5 slides)
+
+**Slides:** `images/carousels/ringgit-rally-multicurrency-savings-2026/01..05.png`
+**Guide:** [duitful.app/guides/ringgit-rally-multicurrency-savings-2026](https://duitful.app/guides/ringgit-rally-multicurrency-savings-2026/)
+
+### Instagram (EN)
+```
+The Ringgit just opened at RM 3.95/USD — a multi-month high — as Malaysia gets repriced as a rare net-energy-exporter safe haven.
+
+BNM's MPC sits Thursday, May 7. This is the cleanest window in months
+to rebalance multi-currency savings. Not to time the bottom. Not to
+forecast the MPC. To set a target mix and act on the drift.
+
+The four boring rules:
+1. Rebalance to a target mix, not to a forecast (5pp drift triggers).
+2. Move money in tranches — three transfers across two weeks.
+3. Use licensed channels only (DuitNow, Wise, your bank's MCA).
+4. Log the rate, not just the amount — the all-in including spread.
+
+The asymmetry that makes "wait and see" the wrong instinct: cheaper
+imports take 4–12 weeks to flow through retail, but your USD savings
+revalue today. The loss is realised the moment the rate moves.
+
+Track every conversion in Duitful with the rate in the description.
+Twelve months from now, next year's rebalance is a 5-minute decision.
+
+Full playbook + what to ignore →
+duitful.app/guides/ringgit-rally-multicurrency-savings-2026
+
+#ringgit #myrusd #malaysianforex #bnm #mpcmeeting #multicurrency
+#kewanganmalaysia #personalfinance #duitful #fxmalaysia
+```
+
+### Instagram (BM)
+```
+Ringgit baru je dibuka pada RM 3.95/USD — paras tertinggi berbulan — sementara Malaysia di-reprice sebagai net-energy-exporter safe haven yang jarang.
+
+MPC BNM duduk Khamis, 7 Mei. Ini tetingkap paling jelas dalam berbulan
+untuk imbang semula simpanan multi-currency. Bukan untuk time bottom.
+Bukan untuk ramal MPC. Untuk tetapkan target mix dan act on drift.
+
+Empat peraturan membosankan:
+1. Imbang ke target mix, bukan ramalan (trigger drift 5%).
+2. Pindah duit dalam tranche — tiga transfer dalam dua minggu.
+3. Saluran berlesen sahaja (DuitNow, Wise, MCA bank kau).
+4. Log kadar, bukan jumlah — all-in termasuk spread.
+
+Asimetri yang buat "tunggu dan tengok" jadi instinct salah: import
+murah ambil 4–12 minggu mengalir ke retail, tapi simpanan USD kau
+di-revalue hari ni. Kerugian tersedia bila kadar bergerak.
+
+Jejak setiap pertukaran dalam Duitful dengan kadar dalam description.
+Dua belas bulan dari sekarang, rebalance tahun depan jadi keputusan 5 minit.
+
+Playbook penuh + apa nak abaikan →
+duitful.app/guides/ms/ringgit-rally-multicurrency-savings-2026
+
+#ringgit #myrusd #fxmalaysia #bnm #mpcmesyuarat #multicurrency
+#kewanganmalaysia #pengurusankewangan #duitful
+```
+
+### Threads (EN)
+```
+Ringgit just opened at RM 3.95/USD. Multi-month high.
+
+MPC sits Thursday. Cleanest rebalance window in months.
+
+The rule: rebalance to a target mix (e.g. 70/20/10 MYR/USD/other), not to a forecast. Trigger at 5pp drift. Move in tranches across two weeks.
+
+Don't try to call the MPC outcome.
+
+duitful.app/guides/ringgit-rally-multicurrency-savings-2026
+```
+
+### Threads (BM)
+```
+Ringgit baru dibuka pada RM 3.95/USD. Paras tertinggi berbulan.
+
+MPC duduk Khamis. Tetingkap rebalance paling jelas dalam berbulan.
+
+Peraturan: imbang ke target mix (cth 70/20/10 MYR/USD/lain), bukan ke ramalan. Trigger pada drift 5%. Pindah dalam tranche 2 minggu.
+
+Jangan cuba ramal keputusan MPC.
+
+duitful.app/guides/ms/ringgit-rally-multicurrency-savings-2026
+```
+
+---
+
+## C5 — SME AI tax deduction (carousel · 5 slides)
+
+**Slides:** `images/carousels/selangor-sme-ai-tax-deduction-2026/01..05.png`
+**Guide:** [duitful.app/guides/selangor-sme-ai-tax-deduction-2026](https://duitful.app/guides/selangor-sme-ai-tax-deduction-2026/)
+
+### Instagram (EN)
+```
+Budget 2026 just turned on a 50% additional tax deduction for accredited AI &amp; cybersecurity training at Malaysian MSMEs.
+
+That's 150% effective deductibility. For every RM 1,000 you spend
+on qualifying training, your assessable income drops by RM 1,500 —
+real RM 255 in tax saved at the 17% SME rate, RM 85 of which is
+purely the additional 50%.
+
+Most Selangor tech founders qualify. The boring stuff that matters:
+✓ Provider must be accredited (HRD Corp / MDEC / vendor schedule)
+✓ Training is for your own employees (founder on payroll counts)
+✓ Spend hits May 2026 onwards
+✗ Project consulting dressed as "training" — auditor will reclassify
+✗ Random Udemy sales — no accreditation, no claim
+
+Track it in Duitful with one consistent category like
+`Training · AI 2026`. Vendor + accreditation reference in the
+description. Per-employee tag if &gt;5 staff. One report at filing time.
+
+Full playbook (eligibility + paperwork + what to ignore) →
+duitful.app/guides/selangor-sme-ai-tax-deduction-2026
+
+#smetax #budget2026 #lhdn #aitraining #cybersecurity #selangor
+#cyberjaya #malaysianbusiness #founderlife #duitful
+```
+
+### Threads (EN)
+```
+Budget 2026: Malaysian MSMEs now claim 150% deductibility on accredited AI &amp; cybersecurity training.
+
+Spend RM 1,000 → assessable income drops RM 1,500 → real RM 255 saved at 17% SME rate.
+
+Selangor tech founders mostly qualify. Provider must be accredited. Founder must be on payroll. Track in Duitful, one category, vendor + accreditation in description.
+
+duitful.app/guides/selangor-sme-ai-tax-deduction-2026
+```
+
+---
+
+## C6 — Sovereign AI Cloud + on-device (carousel · 5 slides)
+
+**Slides:** `images/carousels/sovereign-ai-cloud-data-sovereignty-2026/01..05.png`
+**Guide:** [duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026](https://duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026/)
+
+### Instagram (EN)
+```
+Malaysia's Sovereign AI Cloud went live this week. "Private by default" just became the floor.
+
+The substance is unglamorous — sensitive financial and citizen data
+must reside on Malaysian infrastructure. The implication for ordinary
+users is real: on-shore data residency is now baseline, not premium.
+
+But on-shore is not the same as on-device.
+A bank server in Cyberjaya is still a server.
+
+Why on-device beats on-shore for personal money data:
+• Smaller blast radius — a breach hits one person, not a whole
+  population.
+• No account = no leak vector. Most "your data was leaked" stories
+  start with an authentication system.
+• Compliance by architecture, not by assertion. The app cannot
+  send your data anywhere — including to the developer.
+• Survives jurisdictional changes. On-device data is unaffected
+  when policy shifts.
+
+Three questions to ask any "private" finance app:
+1. Where is your data right now?
+2. Can the developer read it?
+3. Does it require an account?
+
+Sovereign AI Cloud is the floor. On-device is the ceiling. Duitful
+was built for the ceiling — AES-GCM encrypted with a passphrase
+only you know. No account. No analytics. No exception.
+
+Full breakdown →
+duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026
+
+#privacymatters #datasovereignty #sovereignaicloud #naio #pdpa
+#kewanganmalaysia #fintechmalaysia #duitful #ondevice #encryption
+```
+
+### Threads (EN)
+```
+Sovereign AI Cloud went live. Sensitive Malaysian data must stay on-shore.
+
+Real upgrade. Not the whole story.
+
+On-shore ≠ on-device. A bank server in Cyberjaya is still a server. Insiders, breaches, court orders — all still apply.
+
+Sovereign Cloud is the floor. On-device is the ceiling. Duitful was built for the ceiling.
+
+duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026
+```
+
+---
+
+## C7 — Why Malaysians need to track debt (carousel · 5 slides)
+
+**Slides:** `images/carousels/why-malaysians-track-debt/01..05.png`
+**Guide:** Brand pillar — links to `duitful.app` directly (not a single guide)
+
+### Instagram (EN)
+```
+Two numbers Malaysians don't talk about enough:
+
+The largest age group in Malaysian bankruptcy filings — for over a
+decade — is under 45. Per the Malaysian Department of Insolvency,
+the top causes are personal loans, hire-purchase (cars), credit card
+debt, and business loans. Per AKPK's Debt Management Programme,
+the under-40 cohort has been a leading enrolled group for years.
+
+At 55, EPF data tells the second story. The "Belanjawanku" basic-needs
+benchmark for a single retiree in KL is RM 2,600/month. The median
+EPF balance at retirement age sits below that threshold — most members
+have less than 5 years of basic-needs cover at retirement. The
+consequence: a growing share of Malaysians work past 60. Not by choice.
+To cover basic costs.
+
+The young bankrupt and the working retiree share one thing.
+Neither was tracking, until it was already too late.
+
+The lever:
+• Add one debt today — balance, APR, minimum payment
+• See your real debt-free timeline
+• Add RM 100 extra. Watch the timeline shrink.
+
+Free on the web. On-device. No subscription.
+duitful.app
+
+#hutangmalaysia #debtfreemalaysia #kewanganmalaysia #personalfinance
+#kwsp #epf #akpk #financialliteracy #duitful #moneytipsmalaysia
+```
+
+### Instagram (BM)
+```
+Dua nombor yang Malaysian tak cakap pasal selalu enough:
+
+Kumpulan umur terbesar dalam fail kebankrapan Malaysia — sudah lebih
+sedekad — adalah bawah 45. Mengikut Jabatan Insolvensi Malaysia (MDI),
+sebab utama: pinjaman peribadi, sewa-beli (kereta), hutang kad kredit,
+dan pinjaman perniagaan. AKPK pun: kohort bawah 40 antara terbesar
+dalam Program Pengurusan Kredit selama bertahun-tahun.
+
+Pada umur 55, data KWSP cerita kedua. Penanda aras "Belanjawanku"
+untuk pesara bujang di KL adalah RM 2,600/bulan. Baki median KWSP
+ketika persaraan duduk bawah paras tu — kebanyakan ahli ada kurang
+5 tahun cover keperluan asas. Akibatnya: lebih ramai Malaysian kerja
+selepas umur 60. Bukan pilihan. Untuk cover kos asas.
+
+Yang muda bangkrap dan pesara yang kerja kongsi satu benda.
+Kedua-duanya tak track, sampai dah terlambat.
+
+Lever-nya:
+• Tambah satu hutang hari ni — baki, APR, bayaran minimum
+• Lihat timeline bebas hutang sebenar anda
+• Tambah RM 100 extra. Tengok timeline tu mengecil.
+
+Free di web. Dalam phone. Tanpa subscription.
+duitful.app
+
+#hutangmalaysia #bebashutang #kewanganmalaysia #pengurusankewangan
+#kwsp #akpk #celikkewangan #duitful
+```
+
+### Threads (EN)
+```
+Two numbers Malaysians don't talk about enough.
+
+Under-45: largest age group in Malaysian bankruptcy filings (MDI). Personal loans, cars, credit cards, business loans.
+
+55: median EPF balance below the RM 2,600/mo basic-needs threshold for a single KL retiree. Most members work past 60 to cover basics.
+
+Both shared one thing. Neither was tracking — until too late.
+
+duitful.app
+```
+
+### Threads (BM)
+```
+Dua nombor yang Malaysian tak cerita.
+
+Bawah 45: kumpulan umur terbesar dalam fail kebankrapan (MDI). Loan peribadi, kereta, kad kredit, loan perniagaan.
+
+55: baki median KWSP bawah paras keperluan asas RM 2,600/bulan untuk pesara bujang KL. Kebanyakan kerja selepas 60 untuk tutup kos asas.
+
+Kedua-dua kongsi satu benda. Kedua-dua tak track — sampai dah terlambat.
+
+duitful.app
 ```
