@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">SOVEREIGN AI CLOUD · MAY 4</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">1/5</text></g>
+
+  <text x="100" y="320" font-family="'Fraunces', 'Georgia', serif" font-size="74" font-weight="500" fill="#2a2420">"Private by default"</text>
+  <text x="100" y="410" font-family="'Fraunces', 'Georgia', serif" font-size="74" font-weight="500" fill="#2a2420">just became the</text>
+  <text x="100" y="500" font-family="'Fraunces', 'Georgia', serif" font-size="74" font-weight="500" fill="#b35a39" font-style="italic">Malaysian floor.</text>
+
+  <!-- Map of Malaysia outline as visual -->
+  <g transform="translate(540, 820)">
+    <circle r="220" fill="#fffaf2" stroke="#b35a39" stroke-opacity="0.3" stroke-width="2" stroke-dasharray="4 8"/>
+    <!-- simple stylised malaysia (peninsula + borneo blocks) -->
+    <g fill="url(#primary)">
+      <path d="M-110 -90 q-10 30 0 60 q15 35 20 70 q5 25 -10 35 q-25 0 -30 -25 q-15 -35 -10 -75 q5 -35 30 -65 z"/>
+      <path d="M30 -40 q40 -10 90 0 q30 8 50 30 q10 20 -10 35 q-50 8 -100 -5 q-30 -15 -30 -40 z"/>
+    </g>
+    <text y="170" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="18" fill="#5c524a" letter-spacing="3">DATA STAYS HERE</text>
+  </g>
+
+  <text x="540" y="1180" text-anchor="middle" font-family="'Inter', sans-serif" font-size="26" fill="#5c524a" font-weight="500">On-shore is now the baseline.</text>
+  <text x="540" y="1212" text-anchor="middle" font-family="'Inter', sans-serif" font-size="26" fill="#5c524a" font-weight="500">On-device is the ceiling.</text>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app  ·  Swipe →</text>
+</svg>

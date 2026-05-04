@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">ON-SHORE  ≠  ON-DEVICE</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">3/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Why on-device</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#b35a39" font-style="italic">beats on-shore.</text>
+
+  <g transform="translate(80, 470)" font-family="'Inter', sans-serif" fill="#2a2420">
+    <g>
+      <rect width="920" height="170" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <text x="40" y="60" font-size="28" font-weight="600">Smaller blast radius</text>
+      <text x="40" y="100" font-size="20" fill="#5c524a">A breach hits one person, not a whole population.</text>
+      <text x="40" y="135" font-size="20" fill="#5c524a">Population-level vs individual-level isn't the same risk.</text>
+    </g>
+    <g transform="translate(0, 190)">
+      <rect width="920" height="170" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <text x="40" y="60" font-size="28" font-weight="600">No account = no leak vector</text>
+      <text x="40" y="100" font-size="20" fill="#5c524a">Most "your data was leaked" starts with auth.</text>
+      <text x="40" y="135" font-size="20" fill="#5c524a">No account, no email — nothing to lift in bulk.</text>
+    </g>
+    <g transform="translate(0, 380)">
+      <rect width="920" height="170" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <text x="40" y="60" font-size="28" font-weight="600">Compliance by architecture</text>
+      <text x="40" y="100" font-size="20" fill="#5c524a">Can't send your data anywhere — including to us.</text>
+      <text x="40" y="135" font-size="20" fill="#5c524a">"Trust us" replaced with "verify it yourself".</text>
+    </g>
+    <g transform="translate(0, 570)">
+      <rect width="920" height="170" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <text x="40" y="60" font-size="28" font-weight="600">Survives policy change</text>
+      <text x="40" y="100" font-size="20" fill="#5c524a">Sovereignty rules can shift with the political cycle.</text>
+      <text x="40" y="135" font-size="20" fill="#5c524a">On-device data is unaffected by definition.</text>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">THE SHARED THREAD</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">4/5</text></g>
+
+  <text x="100" y="320" font-family="'Fraunces', 'Georgia', serif" font-size="80" font-weight="500" fill="#2a2420">The young</text>
+  <text x="100" y="400" font-family="'Fraunces', 'Georgia', serif" font-size="80" font-weight="500" fill="#2a2420">bankrupt and</text>
+  <text x="100" y="490" font-family="'Fraunces', 'Georgia', serif" font-size="80" font-weight="500" fill="#2a2420">the working</text>
+  <text x="100" y="580" font-family="'Fraunces', 'Georgia', serif" font-size="80" font-weight="500" fill="#2a2420">retiree share</text>
+  <text x="100" y="670" font-family="'Fraunces', 'Georgia', serif" font-size="80" font-weight="500" fill="#b35a39" font-style="italic">one thing.</text>
+
+  <!-- Hero card -->
+  <g transform="translate(80, 800)">
+    <rect width="920" height="240" rx="24" fill="url(#primary)"/>
+    <text x="460" y="80" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="22" fill="#fffaf2" letter-spacing="5" opacity="0.85">NEITHER WAS</text>
+    <text x="460" y="180" text-anchor="middle" font-family="'Fraunces', serif" font-size="100" font-weight="500" fill="#fffaf2" font-style="italic">tracking.</text>
+  </g>
+
+  <text x="540" y="1130" text-anchor="middle" font-family="'Inter', sans-serif" font-size="26" fill="#5c524a">Until it was already too late.</text>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

@@ -197,4 +197,32 @@
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>https://duitful.app/guides/ringgit-rally-multicurrency-savings-2026/</loc>
+    <lastmod>2026-05-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ringgit-rally-multicurrency-savings-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ringgit-rally-multicurrency-savings-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/ringgit-rally-multicurrency-savings-2026/</loc>
+    <lastmod>2026-05-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ringgit-rally-multicurrency-savings-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ringgit-rally-multicurrency-savings-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/selangor-sme-ai-tax-deduction-2026/</loc>
+    <lastmod>2026-05-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026/</loc>
+    <lastmod>2026-05-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
 </urlset>
