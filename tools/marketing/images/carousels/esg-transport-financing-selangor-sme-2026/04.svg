@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">CASH FLOW · WHAT, WHEN</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">4/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Capex first.</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#b35a39" font-style="italic">Savings later.</text>
+
+  <!-- Two stacked timeline cards -->
+  <g transform="translate(80, 470)" font-family="'Inter', sans-serif">
+    <g>
+      <rect width="920" height="280" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="920" height="60" rx="22" fill="#b86a4e"/>
+      <rect y="40" width="920" height="20" fill="#b86a4e"/>
+      <text x="32" y="40" font-family="'Fraunces', serif" font-size="28" fill="#fffaf2" font-weight="500">Months 0–6 · lands first</text>
+      <g transform="translate(32, 100)" font-size="20" fill="#2a2420">
+        <text>· Vehicle deposits + charging fit-out</text>
+        <text y="40">· Application paperwork + KPI design</text>
+        <text y="80">· Driver/technician training capex</text>
+        <text y="120">· Insurance premium reset for new fleet</text>
+        <text y="170" font-style="italic" fill="#8a8178" font-size="18">Plan working capital before applying.</text>
+      </g>
+    </g>
+    <g transform="translate(0, 300)">
+      <rect width="920" height="280" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="920" height="60" rx="22" fill="#8fa078"/>
+      <rect y="40" width="920" height="20" fill="#8fa078"/>
+      <text x="32" y="40" font-family="'Fraunces', serif" font-size="28" fill="#fffaf2" font-weight="500">Months 6–24 · lands later</text>
+      <g transform="translate(32, 100)" font-size="20" fill="#2a2420">
+        <text>· Fuel + per-km maintenance savings</text>
+        <text y="40">· ESG-aligned buyer preference</text>
+        <text y="80">· Annual KPI review unlocks rate cut</text>
+        <text y="120">· Refinancing optionality opens up</text>
+        <text y="170" font-style="italic" fill="#8a8178" font-size="18">Skip the annual review = rate quietly reverts.</text>
+      </g>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

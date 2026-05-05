@@ -24,6 +24,9 @@ so the social blurb and the SEO content reinforce each other.
 | C5 | SME AI tax deduction (150%) | `duitful.app/guides/selangor-sme-ai-tax-deduction-2026/` | EN |
 | C6 | Sovereign AI Cloud + on-device | `duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026/` | EN |
 | C7 | Why Malaysians need to track debt | brand pillar (no single guide) | EN + BM |
+| C8 | OPR 2.75% — yield playbook | `duitful.app/guides/opr-hold-275-yield-strategy-2026/` | EN + BM |
+| C9 | ESG transport financing for SMEs | `duitful.app/guides/esg-transport-financing-selangor-sme-2026/` | EN |
+| C10 | Data residency 2026 — 5-min checklist | `duitful.app/guides/data-residency-2026-personal-checklist/` | EN + BM |
 
 - **Threads**: pick the short version (under 500 chars). Drop the link as the
   first reply, not in the post.
@@ -804,4 +807,196 @@ Bawah 45: kumpulan umur terbesar dalam fail kebankrapan (MDI). Loan peribadi, ke
 Kedua-dua kongsi satu benda. Kedua-dua tak track — sampai dah terlambat.
 
 duitful.app
+```
+
+---
+
+## C8 — OPR 2.75% yield playbook (carousel · 5 slides)
+
+**Slides:** `images/carousels/opr-hold-275-yield-strategy-2026/01..05.png`
+**Guide:** [duitful.app/guides/opr-hold-275-yield-strategy-2026](https://duitful.app/guides/opr-hold-275-yield-strategy-2026/)
+
+### Instagram (EN)
+```
+BNM held the OPR at 2.75% this morning. Next MPC: Thursday, May 7. Market is now pricing higher-for-longer.
+
+Service-sector inflation is running 5.5%. Cash sitting in a typical current account at ~0.25% loses 5%+ purchasing power per year. The policy rate gives every licensed deposit-taker headroom to pay you 3–4.5% if you ask correctly. Most Malaysians don't ask.
+
+Three rules that beat 90% of "best yield" articles:
+1. Split, don't optimise — 3 buckets (emergency / opportunity / locked), one product each.
+2. Read the tier ceiling, not the headline. 3.8% promo drops to 1.5% above RM 30k–100k.
+3. Don't lock 12-month FD before Thursday. Wait Friday after the Statement.
+
+Where the actual yield is right now: digital-bank promos 3.0–4.0%, MMFs 3.2–3.7%, FD 6-month 3.0–3.4%. Tier-up campaigns 2.0–3.0% on incremental balance.
+
+Track every yield bucket separately in Duitful with the all-in rate in the description. After three months you have your real personal yield curve — not the one in the bank's brochure.
+
+Full playbook + what to ignore →
+duitful.app/guides/opr-hold-275-yield-strategy-2026
+
+#opr #bnm #mpcmeeting #fixeddeposit #moneymarketfund #digitalbankmalaysia
+#kewanganmalaysia #personalfinance #duitful #savingmalaysia
+```
+
+### Instagram (BM)
+```
+BNM kekal OPR 2.75% pagi tadi. MPC seterusnya: Khamis, 7 Mei. Pasaran dah priced higher-for-longer.
+
+Inflasi services running 5.5%. Cash duduk dalam current account ~0.25% kira hilang 5%+ purchasing power setahun. Kadar policy bagi setiap bank berlesen ruang untuk bayar korang 3–4.5% kalau tanya betul-betul. Most orang tak tanya.
+
+Tiga peraturan yang kalahkan 90% artikel "best yield":
+1. Split, bukan optimize — 3 bucket (emergency / opportunity / locked), satu produk satu.
+2. Baca ceiling tier, bukan kadar headline. Promo 3.8% drop ke 1.5% atas RM 30k–100k.
+3. Jangan lock FD 12-bulan sebelum Khamis. Tunggu Jumaat lepas Statement.
+
+Yield sebenar sekarang: digital bank promo 3.0–4.0%, MMF 3.2–3.7%, FD 6-bulan 3.0–3.4%. Tier-up campaign 2.0–3.0% atas baki incremental.
+
+Track setiap bucket yield berasingan dalam Duitful dengan kadar all-in dalam description. Lepas 3 bulan korang ada yield curve peribadi sendiri — bukan yang dalam brochure bank.
+
+Playbook penuh + apa nak abaikan →
+duitful.app/guides/ms/opr-hold-275-yield-strategy-2026
+
+#opr #bnm #mpcmesyuarat #fixeddeposit #moneymarketfund #digitalbankmalaysia
+#kewanganmalaysia #pengurusankewangan #duitful #simpananmalaysia
+```
+
+### Threads (EN)
+```
+BNM held OPR at 2.75%. MPC sits Thursday.
+
+Cash at 0.25% is bleeding 5%+/yr against service inflation. Yield is on the menu — you just have to ask.
+
+3 rules: split into emergency/opportunity/locked. Read the tier ceiling, not the headline. Don't lock 12-month FD before Thursday's Statement.
+
+duitful.app/guides/opr-hold-275-yield-strategy-2026
+```
+
+### Threads (BM)
+```
+BNM kekal OPR 2.75%. MPC duduk Khamis.
+
+Cash 0.25% tu bleeding 5%+ setahun lawan inflasi services. Yield ada — kena tanya je.
+
+3 peraturan: split jadi emergency/opportunity/locked. Baca ceiling tier, bukan headline. Jangan lock FD 12-bulan sebelum Statement Khamis.
+
+duitful.app/guides/ms/opr-hold-275-yield-strategy-2026
+```
+
+---
+
+## C9 — ESG transport financing for SMEs (carousel · 5 slides)
+
+**Slides:** `images/carousels/esg-transport-financing-selangor-sme-2026/01..05.png`
+**Guide:** [duitful.app/guides/esg-transport-financing-selangor-sme-2026](https://duitful.app/guides/esg-transport-financing-selangor-sme-2026/)
+
+### Instagram (EN)
+```
+Selangor fast-tracked the hydrogen smart-bus pilot in Shah Alam and Subang Jaya — part of a RM 450 million MCMC smart-city MoU. Behind the headline, ESG-linked financing just opened new lanes for transport SMEs.
+
+If you run a 5–50 vehicle fleet, four products are now on the menu:
+1. Sustainability-linked overdrafts — 25–75 bps cut tied to an emissions KPI. Conversion of an existing OD = paperwork only.
+2. Green term loans (5–10 yr) — 50–100 bps green discount, step-up structure once KPI hit.
+3. Grant-matching schemes — SME Corp / MGTC / state agencies, 1:1 to RM 100k–500k.
+4. Sustainability-linked invoice financing — preferential rates if your buyer reports Scope 3.
+
+The trap most SMEs fall into: treating it as a one-time event and not budgeting for the annual KPI verification. Skip it = your rate quietly reverts.
+
+Two weeks of work to be eligible: fleet inventory + 12 months fuel receipts + Scope 1 baseline + one KPI/target. MGTC has free templates. Don't pay an "ESG consultancy" RM 50k for the first baseline — it's an internal exercise.
+
+Track ESG capex separately from opex in Duitful from day one. Tag drawdowns with the bank facility reference. One report at compliance review time.
+
+Full breakdown + what to ignore →
+duitful.app/guides/esg-transport-financing-selangor-sme-2026
+
+#esgfinancing #smemalaysia #greenfinancing #cleanmobility #selangor
+#hydrogenmalaysia #fleetmanagement #malaysianbusiness #duitful
+#sustainabilitylinked
+```
+
+### Threads (EN)
+```
+Selangor's hydrogen-bus pilot just opened ESG financing lanes for transport SMEs.
+
+Four products on the menu: SLO (25–75 bps cut), green term loan (5–10 yr), grant-matching to RM 500k, SLB invoice financing.
+
+Two weeks of work to be eligible: Scope 1 baseline, one KPI, one target. MGTC has free templates.
+
+duitful.app/guides/esg-transport-financing-selangor-sme-2026
+```
+
+---
+
+## C10 — Data residency 2026 — 5-min checklist (carousel · 5 slides)
+
+**Slides:** `images/carousels/data-residency-2026-personal-checklist/01..05.png`
+**Guide:** [duitful.app/guides/data-residency-2026-personal-checklist](https://duitful.app/guides/data-residency-2026-personal-checklist/)
+
+### Instagram (EN)
+```
+DCCI Expo opens May 12. Malaysia's 2026 data-residency rules are already biting. The infrastructure side is being handled at policy level. The consumer side is not — most people have no idea where the apps they trust with their financial life actually store the data.
+
+Run this 5-question audit on your top 4 money apps this weekend:
+1. Where is the data physically stored? ("Globally distributed" = offshore.)
+2. Can the developer read it? ("End-to-end" = no. "At rest" = yes.)
+3. Does it require an account? (Account = attack surface + leak vector.)
+4. What happens if the company shuts down? (On-device keeps working. Cloud apps have a 30-day off-ramp clause.)
+5. Is the policy actually checkable? (Open source / published audit = evidence.)
+
+The hierarchy isn't Malaysia vs offshore — it's how many parties can read your data. On-device with a passphrase you control is the only architecture where the answer is "nobody but you."
+
+Where typical apps land: bank apps trustworthy by regulation; e-wallets mix on-shore ledger with offshore analytics SDKs; budgeting/aggregator apps are the largest exposure category and several closed in 2024–2025.
+
+On-shore is the floor. On-device is the ceiling. Move sensitive personal records (expense, debt, savings goals) to on-device — they don't structurally need the cloud.
+
+Full breakdown + what to ignore →
+duitful.app/guides/data-residency-2026-personal-checklist
+
+#dataresidency #privacymatters #ondevice #fintechmalaysia #pdpa
+#kewanganmalaysia #personalfinance #duitful #datasovereignty
+```
+
+### Instagram (BM)
+```
+DCCI Expo bukak 12 Mei. Rules data-residency 2026 Malaysia dah biting. Side infrastructure dah dihandle level policy. Side consumer pula tak — ramai orang tak tahu app yang diorang trust dengan duit harian tu sebenar simpan data kat mana.
+
+Run audit 5 soalan ni atas 4 app duit utama korang hujung minggu ni:
+1. Data tu fizikal duduk mana? ("Globally distributed" = offshore.)
+2. Developer boleh baca tak? ("End-to-end" = tak. "At rest" = boleh.)
+3. Perlu akaun ke? (Akaun = attack surface + leak vector.)
+4. Apa jadi kalau company tutup? (On-device terus jalan. App cloud ada clause off-ramp 30 hari.)
+5. Policy tu boleh check ke? (Open source / audit published = evidence.)
+
+Hierarki ni bukan pasal Malaysia vs offshore — pasal berapa pihak boleh baca data korang. On-device dengan passphrase yang korang sorang control tu satu-satunya architecture di mana jawapan "siapa boleh baca" adalah "takda sesiapa kecuali korang."
+
+Mana app typical duduk: app bank trustworthy by regulation; e-wallet mix ledger on-shore dengan SDK analytics offshore; app budgeting/aggregator tu kategori exposure paling besar, beberapa tutup 2024–2025.
+
+On-shore tu floor. On-device tu ceiling. Pindah record peribadi sensitive (expense, hutang, goal simpanan) ke on-device — diorang structurally tak perlu cloud.
+
+Breakdown penuh + apa nak abaikan →
+duitful.app/guides/ms/data-residency-2026-personal-checklist
+
+#dataresidency #privasidata #ondevice #fintechmalaysia #pdpa
+#kewanganmalaysia #pengurusankewangan #duitful
+```
+
+### Threads (EN)
+```
+DCCI Expo opens May 12. Most consumers have no idea where their money apps store the data.
+
+5 questions to ask each app: Where? Can the developer read it? Account required? What if it shuts down? Policy checkable?
+
+On-shore is the floor. On-device is the ceiling.
+
+duitful.app/guides/data-residency-2026-personal-checklist
+```
+
+### Threads (BM)
+```
+DCCI Expo bukak 12 Mei. Most consumer tak tahu app duit korang simpan data mana.
+
+5 soalan untuk setiap app: Mana? Developer boleh baca? Perlu akaun? Apa jadi kalau tutup? Policy boleh check?
+
+On-shore tu floor. On-device tu ceiling.
+
+duitful.app/guides/ms/data-residency-2026-personal-checklist
 ```

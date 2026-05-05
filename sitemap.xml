@@ -225,4 +225,42 @@
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>https://duitful.app/guides/opr-hold-275-yield-strategy-2026/</loc>
+    <lastmod>2026-05-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/opr-hold-275-yield-strategy-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/</loc>
+    <lastmod>2026-05-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/opr-hold-275-yield-strategy-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/esg-transport-financing-selangor-sme-2026/</loc>
+    <lastmod>2026-05-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/data-residency-2026-personal-checklist/</loc>
+    <lastmod>2026-05-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/data-residency-2026-personal-checklist/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/data-residency-2026-personal-checklist/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/data-residency-2026-personal-checklist/</loc>
+    <lastmod>2026-05-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/data-residency-2026-personal-checklist/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/data-residency-2026-personal-checklist/"/>
+  </url>
 </urlset>

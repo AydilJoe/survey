@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Data Residency 2026 — A 5-minute checklist for where your money apps actually store your data</title>
+<meta name="description" content="With the DCCI Expo on May 12 and Malaysia's 2026 data-residency rules already taking effect, &quot;private by default&quot; is now the legal floor. Most people have no idea where their finance app data actually lives. This is a 5-minute consumer checklist for auditing your stack — bank apps, e-wallets, budgeting apps, BNPL, accounting tools — before the next leak makes the decision for you.">
+<meta name="keywords" content="data residency malaysia 2026, dcci expo 2026, on shore data storage malaysia, finance app privacy malaysia, e wallet data privacy, pdpa amendment 2026, on device finance app, duitful privacy, where is my data stored, fintech malaysia privacy">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://duitful.app/guides/data-residency-2026-personal-checklist/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:locale" content="en_MY">
+<meta property="og:url" content="https://duitful.app/guides/data-residency-2026-personal-checklist/">
+<meta property="og:title" content="Data Residency 2026 — A 5-minute checklist for where your money apps actually store your data">
+<meta property="og:description" content="With the DCCI Expo on May 12 and Malaysia's 2026 data-residency rules already taking effect, &quot;private by default&quot; is now the legal floor. Most people have no idea where their finance app data actually lives. This is a 5-minute consumer checklist for auditing your stack — bank apps, e-wallets, budgeting apps, BNPL, accounting tools — before the next leak makes the decision for you.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Data Residency 2026 — A 5-minute checklist for where your money apps actually store your data">
+<meta name="twitter:description" content="With the DCCI Expo on May 12 and Malaysia's 2026 data-residency rules already taking effect, &quot;private by default&quot; is now the legal floor. Most people have no idea where their finance app data actually lives. This is a 5-minute consumer checklist for auditing your stack — bank apps, e-wallets, budgeting apps, BNPL, accounting tools — before the next leak makes the decision for you.">
+<meta name="twitter:image" content="https://duitful.app/og-image.svg">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Data residency 2026 personal checklist","item":"https://duitful.app/guides/data-residency-2026-personal-checklist/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Data Residency 2026 — A 5-minute checklist for where your money apps actually store your data","description":"With the DCCI Expo on May 12 and Malaysia's 2026 data-residency rules already taking effect, \"private by default\" is now the legal floor. Most people have no idea where their finance app data actually lives. This is a 5-minute consumer checklist for auditing your stack — bank apps, e-wallets, budgeting apps, BNPL, accounting tools — before the next leak makes the decision for you.","inLanguage":"en","datePublished":"2026-05-05","dateModified":"2026-05-05","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/data-residency-2026-personal-checklist/"},"image":"https://duitful.app/og-image.svg"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does using my bank's app violate good privacy hygiene?","acceptedAnswer":{"@type":"Answer","text":"No. Banks operate under PIDM and BNM regulation; their data-handling obligations are stronger than almost any consumer app. The point is not to avoid your bank — it's to avoid layering five additional cloud apps on top of your bank that all want to read what your bank already knows. One regulated source of truth (the bank), plus on-device personal tracking, is a sound architecture."}},{"@type":"Question","name":"Does Malaysia's 2026 data residency rule apply to my budgeting app?","acceptedAnswer":{"@type":"Answer","text":"For licensed financial institutions, yes — already. For unlicensed personal-finance apps and SaaS, the timeline is rolling out over 2026–2027. Many apps will comply quietly; some will exit the Malaysian market rather than re-architect. You'll know which is which in the next 12 months."}},{"@type":"Question","name":"What if I love my current cloud-hosted budgeting app?","acceptedAnswer":{"@type":"Answer","text":"Keep using it if it works for you. Just answer the 5 questions, know what you're trading, and don't put data into it that you wouldn't be comfortable seeing in a leak. The audit isn't about quitting apps — it's about being informed about what you're choosing."}},{"@type":"Question","name":"Is on-device data risky if I lose my phone?","acceptedAnswer":{"@type":"Answer","text":"It depends on the app. Properly built on-device apps encrypt with a passphrase, so a stolen phone yields encrypted-but-unreadable data. The trade-off: if you lose the passphrase, no provider can recover it. That's the same trade-off as a password manager — and most readers manage that risk fine with a written backup of the recovery passphrase stored offline."}},{"@type":"Question","name":"How does Duitful handle this?","acceptedAnswer":{"@type":"Answer","text":"Duitful is on-device by design. The entire app is one HTML file your browser or phone runs locally. Data is AES-GCM encrypted with a passphrase only you control (250,000 PBKDF2 iterations on the key derivation). No account, no email, no analytics SDK. We literally cannot read your data — not by policy, by architecture. The trade-off is no automatic sync across devices unless you handle the export/import yourself, which is documented in-app."}}]}</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --accent: #8fa078; --accent-ink: #3a6b50;
+    --warn: #b86a4e; --warn-ink: #8a3f1c;
+    --line: rgba(42,36,32,0.08); --border: rgba(42,36,32,0.14);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 17px/1.6 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 96px; }
+  .nav-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+
+  .eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: inline-block; margin-bottom: 14px;
+  }
+
+  h1 {
+    font: 500 clamp(36px, 6vw, 52px)/1.05 var(--font-serif);
+    letter-spacing: -0.02em; margin: 0 0 14px; color: var(--ink);
+  }
+  h1 em, h2 em { font-style: italic; color: var(--primary); }
+
+  .dateline {
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 22px; max-width: none;
+  }
+  .dateline time { color: inherit; }
+  .dateline-sep { margin: 0 4px; opacity: 0.6; }
+
+  .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
+
+  h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font: 500 18px/1.35 var(--font-sans); margin: 24px 0 6px; color: var(--ink); }
+  p { margin: 0 0 16px; color: var(--ink2); max-width: 64ch; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; color: var(--ink2); }
+  li { margin: 0 0 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: var(--primary-ink); }
+  code { font: 500 14px/1.2 var(--font-mono); background: var(--card); padding: 2px 6px; border-radius: 4px; border: 0.5px solid var(--line); }
+
+  /* ---------- Steps ---------- */
+  .steps { list-style: none; padding: 0; display: grid; gap: 12px; margin: 28px 0; }
+  .step {
+    display: grid; grid-template-columns: 48px 1fr; gap: 16px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 14px; padding: 18px 22px; align-items: start;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fffaf2;
+    display: grid; place-items: center;
+    font: 500 17px/1 var(--font-serif);
+  }
+  .step h3 { margin: 2px 0 4px; font-size: 17px; }
+  .step p { margin: 0; font-size: 15.5px; line-height: 1.5; }
+
+  /* ---------- Stat block ---------- */
+  .stat-block {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 16px; padding: 36px 28px;
+    margin: 32px 0; text-align: center;
+  }
+  .stat-value {
+    font: 500 clamp(44px, 9vw, 72px)/1 var(--font-serif);
+    color: var(--primary); letter-spacing: -0.02em;
+    margin: 0 0 10px; max-width: none;
+  }
+  .stat-label { font: 500 16px/1.4 var(--font-sans); color: var(--ink); margin: 0 0 4px; max-width: none; }
+  .stat-note { font: 400 13.5px/1.4 var(--font-mono); color: var(--muted); margin: 0; max-width: none; }
+
+  /* ---------- Compare ---------- */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin: 32px 0; border: 0.5px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col { padding: 22px 24px; }
+  .compare-col + .compare-col { border-left: 0.5px solid var(--line); }
+  @media (max-width: 600px) {
+    .compare-col + .compare-col { border-left: none; border-top: 0.5px solid var(--line); }
+  }
+  .compare-col.left  { background: rgba(184,106,78,0.05); }
+  .compare-col.right { background: rgba(106,138,94,0.06); }
+  .compare-title {
+    font: 500 11px/1 var(--font-mono); letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0 0 14px;
+  }
+  .compare-col.left  .compare-title { color: var(--warn-ink); }
+  .compare-col.right .compare-title { color: var(--accent-ink); }
+  .compare-col ul { padding: 0; list-style: none; margin: 0; }
+  .compare-col li {
+    padding: 7px 0; font-size: 15px; line-height: 1.45; color: var(--ink2);
+    display: flex; gap: 10px; align-items: start;
+  }
+  .compare-col li::before {
+    flex: 0 0 auto; font-weight: 700; line-height: 1.45;
+  }
+  .compare-col.left  li::before { content: "✕"; color: var(--warn); }
+  .compare-col.right li::before { content: "✓"; color: var(--accent-ink); }
+
+  /* ---------- FAQ ---------- */
+  .faq { margin: 28px 0; display: grid; gap: 8px; }
+  .faq-item {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; padding: 4px 22px;
+    transition: border-color 0.15s ease;
+  }
+  .faq-item[open] { border-color: var(--border); }
+  .faq-q {
+    font: 500 16px/1.4 var(--font-sans); color: var(--ink);
+    padding: 14px 0; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q::after {
+    content: "+"; font: 400 22px/1 var(--font-serif);
+    color: var(--muted); transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-q::after { content: "−"; }
+  .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- CTA ---------- */
+  .cta-card {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 18px; padding: 32px 28px;
+    margin: 56px 0 0; text-align: center;
+  }
+  .cta-card h2 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 30px); }
+  .cta-card p { margin: 0 auto 18px; max-width: 48ch; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 26px;
+    background: var(--primary); color: #fffaf2;
+    border-radius: 999px;
+    font: 500 15px/1 var(--font-sans);
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(42,36,32,0.1), 0 8px 20px rgba(200,112,75,0.28);
+    transition: background 0.15s ease;
+  }
+  .cta-btn:hover { background: var(--primary-ink); color: #fffaf2; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px; color: var(--muted);
+  }
+  .footer a { color: var(--primary); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="/guides/" class="nav-back">← all guides</a>
+
+  <span class="eyebrow">Guide · Malaysia · Privacy &amp;amp; data</span>
+  <h1>Data residency 2026: <em>a 5-minute checklist</em> for where your money apps actually store your data.</h1>
+  <p class="dateline">Published <time datetime="2026-05-05">5 May 2026</time></p>
+  <p class="lede">The DCCI Expo opens May 12 and Malaysia's 2026 data-residency rules are already biting. The infrastructure side is being handled at policy level. The consumer side is not — most people have no idea where the apps they trust with their financial life actually store the data, who can read it, and what happens if any one of them leaks. This guide is the 5-minute audit you can run on your own stack today, before the next leak makes the decision for you.</p>
+
+  <h2>Why this matters this week</h2>
+
+    <div class="stat-block">
+      <p class="stat-value">May 12, 2026</p>
+      <p class="stat-label">DCCI Expo opens — the public-facing moment when "where your data lives" stops being an infrastructure question and becomes a consumer expectation</p>
+      <p class="stat-note">The 2026 data-residency rules apply to financial institutions and licensed fintech providers. Personal-finance apps and SaaS handling Malaysian PII are following over the next 12–24 months. Most consumers won't know which apps comply until something goes wrong.</p>
+    </div>
+<p>The Sovereign AI Cloud launch <a href="/guides/sovereign-ai-cloud-data-sovereignty-2026/">last week</a> covered the policy side and what it means at infrastructure level. This guide is the practical complement — a checklist for the apps already on your phone, written for someone who does not work in tech.</p>
+<h2>The hierarchy you should know</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Better</p>
+        <ul><li>On-device, encrypted with a passphrase only you control</li><li>On-device, encrypted with system biometric/key</li><li>Cloud-hosted in Malaysia, end-to-end encrypted (provider can't decrypt)</li><li>Cloud-hosted in Malaysia, encrypted-at-rest (provider can decrypt with key access)</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Worse</p>
+        <ul><li>Cloud-hosted in Malaysia, plaintext</li><li>Cloud-hosted offshore, encrypted-at-rest (Malaysian provider can request, foreign provider holds keys)</li><li>Cloud-hosted offshore, plaintext</li><li>Cloud-hosted offshore, owned by an unrelated parent in a different jurisdiction</li></ul>
+      </div>
+    </div>
+<p>The hierarchy isn't about Malaysia vs offshore alone — that's the policy rail. It's about how many parties can read your data and what happens if any one of them is compromised. On-device with encryption is the only architecture where the answer to "who can read this data" is "nobody but you."</p>
+<h2>The 5-minute audit</h2>
+<p>Pick the four apps on your phone you use the most for money. Run the same five questions on each. Most readers find at least one app where the answer is "I have no idea" — that's the one to look at first.</p>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Question 1 — Where is the data physically stored?</h3>
+        <p>Look in the app's privacy policy or in the in-app settings under "Data &amp;amp; privacy." If it says "your data is processed and stored on servers in [country]," that's the answer. If it says "globally distributed servers," it's almost certainly offshore. If it doesn't say at all, assume offshore.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Question 2 — Can the developer read it?</h3>
+        <p>Encryption is the gate. "Encrypted in transit and at rest" usually means the developer holds the keys and can read it on demand or under court order. "End-to-end encrypted" or "zero-knowledge" means the developer cannot. The marketing language matters here — read carefully.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Question 3 — Does it require an account?</h3>
+        <p>Account = email, phone number, password reset flow, session tokens stored somewhere. Every account is an attack surface and a leak vector. Apps that work without an account (rare for financial tools) eliminate the entire authentication-system breach class.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Question 4 — What happens if the company shuts down?</h3>
+        <p>This is the test most people skip. If the company folds, what happens to your data and your access? On-device apps continue working as long as the binary on your phone runs. Cloud apps can disappear with 30 days' notice — and your historical data with them. Your three years of expense tracking are not safe if they live on someone else's server with a 30-day off-ramp clause.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">5</span>
+      <div>
+        <h3>Question 5 — Is the policy actually checkable?</h3>
+        <p>A privacy policy is a promise. An open-source codebase or a published security audit is evidence. Apps that publish their architecture (or are simple enough to verify) are checkable. Apps that say "we take your privacy seriously" without showing the work are not.</p>
+      </div>
+    </li>
+</ol>
+<h2>Where common Malaysian money apps land (general patterns)</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Typical bank apps (Maybank, CIMB, RHB, Public Bank, HLB)</p>
+        <ul><li>On-shore by regulation (BNM mandates Malaysian residency)</li><li>Bank can read your data; that's how account servicing works</li><li>Account-protected; biometric + password</li><li>Survival = bank's survival; PIDM-insured at the deposit level (not data level)</li><li>Verdict: trustworthy by regulation, but every bank has and will have leaks</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Typical e-wallets (Touch 'n Go, GrabPay, Boost, BigPay)</p>
+        <ul><li>On-shore for the wallet ledger; offshore SDKs for analytics common</li><li>Operator can read most of your transaction history</li><li>Account-protected; some have biometric, all have phone-number recovery</li><li>Survival = operator's survival; wallet-level safeguards exist but are weaker than bank deposit protection</li><li>Verdict: convenient, with material data exposure to advertising/analytics partners</li></ul>
+      </div>
+    </div>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Typical budgeting / aggregator apps</p>
+        <ul><li>Often offshore-hosted (US, Singapore data centres)</li><li>Aggregators that connect to your bank can typically read everything</li><li>Account required; some require your bank login (red flag)</li><li>Survival risk is real; the 2024–2025 sector saw multiple closures</li><li>Verdict: convenience comes with the largest data exposure of any category</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Typical accounting/SME tools</p>
+        <ul><li>Mixed — some on-shore (BukuKas-style), most offshore (Xero, QuickBooks)</li><li>Operator can read your books; that's the product</li><li>Account-protected</li><li>Survival typically strong but jurisdiction varies</li><li>Verdict: appropriate for business records the IRB already sees, less appropriate for personal money</li></ul>
+      </div>
+    </div>
+<p>The pattern: the more useful the app feels, the more your data tends to be exposed. That's not a coincidence — useful features (analytics, recommendations, social, sync) usually require the app to read your data.</p>
+<h2>What to do this weekend</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Run the 5 questions on your top 4 money apps</h3>
+        <p>Bank app, primary e-wallet, budgeting app, and one more (BNPL provider, brokerage, accounting). Write the answers in a note. Most people are surprised by at least one. That surprise is the point — you're now informed.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Decide what each app needs to know</h3>
+        <p>Your bank needs to know your bank balance — that's structural. Does your e-wallet need your full transaction history when you mostly use it for transit? Does your budgeting app need your bank login when you can log expenses manually? Strip back permissions on what you don't actually need.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Move sensitive personal records to on-device</h3>
+        <p>Personal expense tracking, debt payoff schedule, savings goals, salary breakdown — none of these structurally need the cloud. They benefit from convenience features that the cloud enables, but the data itself doesn't have to live there. On-device, encrypted, with a passphrase only you control is the safe baseline.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Track the move in Duitful itself</h3>
+        <p>Add a recurring reminder for an annual privacy audit (March 1, perhaps). Your stack changes; your audit should track changes. Tag any data-migration spend (paid app upgrades for better privacy options, password manager subscriptions) under <code>Privacy · 2026</code> so you can see what privacy is costing you per year — usually less than RM 100, often less than the price of one dinner.</p>
+      </div>
+    </li>
+</ol>
+<h2>What to ignore</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>"We don't sell your data" claims without specifics</h3>
+        <p>Not selling is not the same as not sharing. Many apps share data with "trusted partners" or "for analytics purposes" — that's the leak vector that matters. Read the data-sharing section, not the marketing copy.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>VPN and "private browsing" theatre for app data</h3>
+        <p>A VPN protects your traffic in transit. It does not change where the app stores your data once it arrives. If the app's server is in Singapore, your data is in Singapore — VPN or not. VPNs solve a different problem.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>"We're moving to on-shore servers in Q3" promises</h3>
+        <p>Promised migrations slip. The relevant question is where the data is today and where it's been for the last 12 months. A future migration doesn't retroactively protect data already collected.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Switching from one cloud app to another cloud app and feeling safer</h3>
+        <p>Two cloud apps with similar architectures are similar architectures. The architecture itself is the question — not which provider is currently friendlier. If the data lives on someone else's server, the threat model is mostly the same.</p>
+      </div>
+    </li>
+</ol>
+<h2>Common questions</h2>
+<div class="faq">
+    <details class="faq-item">
+      <summary class="faq-q">Does using my bank's app violate good privacy hygiene?</summary>
+      <p class="faq-a">No. Banks operate under PIDM and BNM regulation; their data-handling obligations are stronger than almost any consumer app. The point is not to avoid your bank — it's to avoid layering five additional cloud apps on top of your bank that all want to read what your bank already knows. One regulated source of truth (the bank), plus on-device personal tracking, is a sound architecture.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Does Malaysia's 2026 data residency rule apply to my budgeting app?</summary>
+      <p class="faq-a">For licensed financial institutions, yes — already. For unlicensed personal-finance apps and SaaS, the timeline is rolling out over 2026–2027. Many apps will comply quietly; some will exit the Malaysian market rather than re-architect. You'll know which is which in the next 12 months.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">What if I love my current cloud-hosted budgeting app?</summary>
+      <p class="faq-a">Keep using it if it works for you. Just answer the 5 questions, know what you're trading, and don't put data into it that you wouldn't be comfortable seeing in a leak. The audit isn't about quitting apps — it's about being informed about what you're choosing.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Is on-device data risky if I lose my phone?</summary>
+      <p class="faq-a">It depends on the app. Properly built on-device apps encrypt with a passphrase, so a stolen phone yields encrypted-but-unreadable data. The trade-off: if you lose the passphrase, no provider can recover it. That's the same trade-off as a password manager — and most readers manage that risk fine with a written backup of the recovery passphrase stored offline.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">How does Duitful handle this?</summary>
+      <p class="faq-a">Duitful is on-device by design. The entire app is one HTML file your browser or phone runs locally. Data is AES-GCM encrypted with a passphrase only you control (250,000 PBKDF2 iterations on the key derivation). No account, no email, no analytics SDK. We literally cannot read your data — not by policy, by architecture. The trade-off is no automatic sync across devices unless you handle the export/import yourself, which is documented in-app.</p>
+    </details>
+</div>
+
+  <div class="cta-card">
+    <h2>Skip the cloud entirely</h2>
+    <p>On-shore is the new floor. On-device is the only true ceiling. Duitful stores your money data inside your phone, AES-GCM encrypted with a passphrase only you know — no account, no email, no analytics. Even we cannot read it. Free to use, RM 19.90 one-time for Pro.</p>
+    <a class="cta-btn" href="/app/">Open Duitful →</a>
+  </div>
+
+  <div class="footer">
+    More guides at <a href="/guides/">duitful.app/guides</a>. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy policy</a>, or <a href="/contact/">say hi</a>.
+  </div>
+</div>
+</body>
+</html>

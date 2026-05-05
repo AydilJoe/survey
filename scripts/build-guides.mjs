@@ -305,7 +305,7 @@ function fill(tpl, vars) {
 function buildGuide(filename, lang) {
   const slug = filename.replace(/\.md$/, "");
   const chrome = CHROME[lang];
-  const raw = readFileSync(join(CONTENT_DIRS[lang], filename), "utf8");
+  const raw = readFileSync(join(CONTENT_DIRS[lang], filename), "utf8").replace(/\r\n/g, "\n");
   const { meta, body } = splitFrontmatter(raw);
 
   const required = ["title", "description", "h1", "lede", "eyebrow", "date_published", "breadcrumb_name"];

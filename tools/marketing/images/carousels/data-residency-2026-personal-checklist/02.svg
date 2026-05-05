@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">THE 5 QUESTIONS</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">2/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Ask each app.</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#b35a39" font-style="italic">Five answers.</text>
+
+  <g transform="translate(80, 460)" font-family="'Inter', sans-serif" fill="#2a2420">
+    <g>
+      <rect width="920" height="125" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <circle cx="60" cy="62" r="32" fill="#fffaf2" stroke="url(#primary)" stroke-width="3"/>
+      <text x="60" y="73" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#b35a39" font-weight="500">1</text>
+      <text x="130" y="55" font-size="24" font-weight="600">Where is the data physically stored?</text>
+      <text x="130" y="92" font-size="18" fill="#5c524a">Read the privacy policy. "Globally distributed" = offshore.</text>
+    </g>
+    <g transform="translate(0, 145)">
+      <rect width="920" height="125" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <circle cx="60" cy="62" r="32" fill="#fffaf2" stroke="url(#primary)" stroke-width="3"/>
+      <text x="60" y="73" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#b35a39" font-weight="500">2</text>
+      <text x="130" y="55" font-size="24" font-weight="600">Can the developer read it?</text>
+      <text x="130" y="92" font-size="18" fill="#5c524a">"End-to-end" / "zero-knowledge" = no. "At rest" = yes.</text>
+    </g>
+    <g transform="translate(0, 290)">
+      <rect width="920" height="125" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <circle cx="60" cy="62" r="32" fill="#fffaf2" stroke="url(#primary)" stroke-width="3"/>
+      <text x="60" y="73" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#b35a39" font-weight="500">3</text>
+      <text x="130" y="55" font-size="24" font-weight="600">Does it require an account?</text>
+      <text x="130" y="92" font-size="18" fill="#5c524a">Account = attack surface + leak vector. No account is rare.</text>
+    </g>
+    <g transform="translate(0, 435)">
+      <rect width="920" height="125" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <circle cx="60" cy="62" r="32" fill="#fffaf2" stroke="url(#primary)" stroke-width="3"/>
+      <text x="60" y="73" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#b35a39" font-weight="500">4</text>
+      <text x="130" y="55" font-size="24" font-weight="600">What if the company shuts down?</text>
+      <text x="130" y="92" font-size="18" fill="#5c524a">On-device = keeps working. Cloud = 30-day off-ramp clause.</text>
+    </g>
+    <g transform="translate(0, 580)">
+      <rect width="920" height="125" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <circle cx="60" cy="62" r="32" fill="#fffaf2" stroke="url(#primary)" stroke-width="3"/>
+      <text x="60" y="73" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#b35a39" font-weight="500">5</text>
+      <text x="130" y="55" font-size="24" font-weight="600">Is the policy actually checkable?</text>
+      <text x="130" y="92" font-size="18" fill="#5c524a">Open source / published audit = evidence. Marketing copy = promise.</text>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>
