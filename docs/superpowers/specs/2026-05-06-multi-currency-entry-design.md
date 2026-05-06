@@ -63,6 +63,8 @@ Three new pieces:
 
 **KV key:** `fx:rates:v1`. Versioned so we can change shape without invalidating manually.
 
+**KV access pattern:** `api/fx.js` imports `@vercel/kv` directly (the same client `api/_lib/bills-store.js` uses under the hood). No wrapper module — the rate cache is small and single-purpose, no need to abstract.
+
 **Currencies fetched:** all 17 of the app's currencies that Frankfurter supports — USD, EUR, GBP, AUD, NZD, CAD, CHF, JPY, CNY, HKD, KRW, IDR, THB, PHP, INR, MYR, SGD. AED, SAR, VND remain in the picker for display purposes but cannot be used as foreign-entry source (see "Limitations").
 
 ## App: `fx` module inside `script.js`
@@ -81,7 +83,7 @@ Persisted in encrypted localStorage with the rest of state.
 **Functions:**
 - `loadFxRates()` — called once on app boot. If cache is empty or > 24h old, fetch `/api/fx`.
 - `refreshFxRates()` — manual trigger. Calls `/api/fx?refresh=1`.
-- `convertFx(amount, fromCode, toCode)` — `amount * rates[toCode] / rates[fromCode]`. Anchor itself has implicit rate 1.0.
+- `convertFx(amount, fromCode, toCode)` — converts `amount` from `fromCode` to `toCode`. Rates are quoted against the EUR anchor (i.e. `rates[X] = X per 1 EUR`), so the derivation is: `amount_in_EUR = amount / rates[fromCode]`, then `result = amount_in_EUR * rates[toCode]`. Combined: `amount * rates[toCode] / rates[fromCode]`. The anchor itself (`EUR`) has an implicit rate of 1.0 — treat `rates["EUR"]` as `1` in either position.
 - `pairRate(fromCode, toCode)` — returns `rates[toCode] / rates[fromCode]`. Stored on each entry as the sticky `fx.rate`.
 - `fxCurrencySupported(code)` — returns true iff `state.fx.rates[code]` exists or `code === state.fx.anchor`.
 
@@ -98,7 +100,7 @@ Existing rows (income, expense, daily, debt-payment, saving-deposit) gain an opt
     amount: 100,                // original amount
     rate: 4.7250,               // sticky pair rate at entry time
     base: "MYR",                // base currency at entry time (in case user changes default later)
-    fetched_at: "2026-05-06T03:14Z"
+    fetched_at: "2026-05-06T03:14:22Z"
   }
 }
 ```
@@ -122,7 +124,7 @@ Compact currency picker (`▼ RM`) appears next to the amount field on:
 
 **Save:** for Pro users in non-base currency, store `amount` (converted), and the full `fx` object. For base currency, omit `fx`.
 
-**Edit:** sticky. Show `fx` data as read-only info — *"Originally USD 100 @ 4.7250 on May 6"*. Editing the converted amount is allowed (manual override) but the picker locks to the original code.
+**Edit:** sticky. Show `fx` data as read-only info — *"Originally USD 100 @ 4.7250 on May 6"*. The picker locks to the original code. Editing the converted amount is allowed (manual override) and **does not** re-derive `fx.rate` — the original rate stays sticky. The override means `amount` and `fx.amount * fx.rate` may diverge; treat `amount` as authoritative for sums and `fx.amount` as the historical original. To prevent silent drift, when the user edits the amount on a foreign-currency entry, the inline preview shows both the implied rate (`amount / fx.amount`) and the original sticky rate so the user knows they're overriding.
 
 ## Display
 
@@ -144,11 +146,12 @@ Pressing **Refresh now** calls `/api/fx?refresh=1`, updates state, shows toast o
 
 ## CSV import/export
 
-Three new optional columns: `fx_code`, `fx_amount`, `fx_rate`.
-- Empty for base-currency rows.
-- Populated for foreign-currency rows.
-- Old CSVs (without these columns) import unchanged — `fx` field stays absent.
-- On export, `amount` always reflects the base-currency value (converted), and `fx_*` capture the original.
+Five new optional columns: `fx_code`, `fx_amount`, `fx_rate`, `fx_base`, `fx_fetched_at`.
+- All five empty for base-currency rows.
+- All five populated for foreign-currency rows so a CSV round-trip preserves the full `fx` audit trail.
+- Old CSVs (without these columns) import unchanged — `fx` field stays absent on those rows.
+- On export, `amount` always reflects the base-currency value (converted); the `fx_*` columns capture the original currency, original amount, sticky pair rate, base currency at entry time, and timestamp the rates were fetched.
+- On import, missing or partially-empty `fx_*` columns produce a row with `fx` absent (treat as base currency). All five columns must be non-empty to reconstruct an `fx` block.
 
 ## Error handling
 
@@ -169,6 +172,8 @@ Three new optional columns: `fx_code`, `fx_amount`, `fx_rate`.
 ## Pro gating mechanics
 
 Reuses existing `isPro()` check. The currency picker is visible to all users (transparency); selecting non-base currency triggers the upsell for free users — same pattern as receipt OCR today. No new gating infrastructure.
+
+**Display is Pro-agnostic.** Free users may already have foreign-currency rows from a prior Pro period, a CSV import, or a downgrade. Those rows render with the badge and read-only `fx` data exactly like Pro users see them. Only the **entry / edit** path is gated — read paths are not.
 
 ## Testing checklist
 
@@ -199,6 +204,6 @@ Manual, no test framework in this project.
 - `app/script.js` — fx module, entry UI, list rendering, settings, CSV import/export
 - `app/index.html` — Settings section, picker markup on entry forms
 - `app/styles.css` — picker layout, badge styling
-- `BILLPLZ_SETUP.md` or new `FX_SETUP.md` — note KV key and required env
+- `FX_SETUP.md` — new doc covering KV key, Frankfurter dependency, refresh behaviour
 
 No new env vars required. KV is already configured via existing `bills-store.js`.
