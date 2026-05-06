@@ -545,11 +545,22 @@ function attachFxPreviewToForm(formEl) {
     }
     if (upsell) upsell.hidden = true;
     if (preview) {
+      const supported = fxCurrencySupported(fromCode);
       preview.hidden = false;
-      preview.outerHTML = renderFxPreview({
-        amount, fromCode, toCode,
-        supported: fxCurrencySupported(fromCode),
-      }).replace("<span ", `<span data-fx-preview `);
+      preview.classList.toggle("fx-preview--err", !supported || !Number.isFinite(convertFx(amount, fromCode, toCode)));
+      if (!supported) {
+        preview.textContent = `Live rate not available for ${fromCode}.`;
+      } else if (!Number.isFinite(amount) || amount <= 0) {
+        preview.textContent = `Will convert to ${toCode} at save time.`;
+      } else {
+        const converted = convertFx(amount, fromCode, toCode);
+        const rate = pairRate(fromCode, toCode);
+        if (!Number.isFinite(converted)) {
+          preview.textContent = `Cannot convert ${fromCode} → ${toCode}.`;
+        } else {
+          preview.textContent = `${fmtMoneyIn(converted, toCode)} · rate 1 ${fromCode} = ${rate.toFixed(4)} ${toCode}`;
+        }
+      }
     }
   };
 
@@ -640,6 +651,8 @@ git commit -m "Wire currency picker into income + expense entry forms"
 ---
 
 ## Task 6: Wire picker into daily quick-add (all three sub-types)
+
+> **Pre-task confirmation:** the daily quick-add form is the **only** entry surface for debt payments and savings deposits in this app — there are no separate `#form-debt-payment` or `#form-saving-deposit` forms. The `#form-debt` form on the Debts tab creates new debts, not payments; the `#form-saving` form creates new goals. Confirm by grepping `app/index.html` for `form id` before starting and abort the task if a separate payment form is found.
 
 **Files:**
 - Modify: `app/index.html` (form at line 168 — add picker)
@@ -815,6 +828,8 @@ git commit -m "Show fx badge in income/expense/daily/debt/savings lists"
 
 ## Task 8: Edit dialog — sticky fx, override behaviour
 
+> **Pre-task confirmation:** before starting, grep `app/script.js` for `kind === "daily"` inside or near `openEditDialog`. If daily entries do not have an edit branch (only a delete action), Step 3 below is a no-op — record that in the commit message. The current code at line 2414 only handles income/expense/debt/saving as edit kinds.
+
 **Files:**
 - Modify: `app/script.js` — `openEditDialog()` (line 2414) and the corresponding submit handler (line 2480)
 
@@ -886,6 +901,8 @@ git commit -m "Edit dialog: sticky fx, allow converted-amount override"
 - Modify: `app/script.js` — `toCSV()` (line 2632) and `fromCSV()` (line 2686)
 
 - [ ] **Step 1: Extend CSV header + per-row builder in `toCSV()`**
+
+> Before editing, read the current `toCSV()` body (lines 2632-2658) and confirm the column ORDER of each existing `rows.push(blank([...]))` line so the new fx columns land at the end (positions 17-21) without shifting any existing data. Spot-check by exporting a CSV before the change and after — the first 17 columns of every row should be byte-identical.
 
 Update the header array and `blank()` width:
 
@@ -1009,6 +1026,13 @@ In `loadFxRates()` after the successful fetch, call:
 ```js
 populateCurrencyPickers();
 renderFxStatus();
+```
+
+Also wire the existing `#pref-currency` change handler (search `app/script.js` for `pref-currency`) so that switching base currency repopulates the entry-form pickers — otherwise users see a stale base in the dropdown until next reload:
+
+```js
+// inside the existing pref-currency change handler, after state.currency = code:
+populateCurrencyPickers();
 ```
 
 - [ ] **Step 4: Manual verification**
