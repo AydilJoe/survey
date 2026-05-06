@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">WHERE THE SAVINGS LIVE</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">2/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Two levers.</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#5c8a6e" font-style="italic">Stack them both.</text>
+
+  <g transform="translate(60, 470)" font-family="'Inter', sans-serif">
+    <g>
+      <rect width="465" height="660" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="80" rx="22" fill="#5c8a6e"/>
+      <rect y="60" width="465" height="20" fill="#5c8a6e"/>
+      <text x="232" y="50" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#fffaf2" font-weight="500">Solar PV · NEM 3.0</text>
+      <g transform="translate(28, 130)" font-size="20" fill="#2a2420">
+        <text font-weight="600">Install (5 kWp)</text>
+        <text y="28" fill="#5c524a">RM 18k–28k after rebates</text>
+        <text y="78" font-weight="600">Monthly TNB cut</text>
+        <text y="106" fill="#5c524a">RM 180–320</text>
+        <text y="156" font-weight="600">Payback</text>
+        <text y="184" fill="#5c524a">5–8 years</text>
+        <text y="234" font-weight="600">Warranty window</text>
+        <text y="262" fill="#5c524a">12–25 years</text>
+        <text y="320" font-style="italic" fill="#8a8178" font-size="17">Right-size to your consumption.</text>
+      </g>
+    </g>
+    <g transform="translate(495, 0)">
+      <rect width="465" height="660" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="80" rx="22" fill="#b35a39"/>
+      <rect y="60" width="465" height="20" fill="#b35a39"/>
+      <text x="232" y="50" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#fffaf2" font-weight="500">EV charging · home</text>
+      <g transform="translate(28, 130)" font-size="20" fill="#2a2420">
+        <text font-weight="600">7 kW AC charger</text>
+        <text y="28" fill="#5c524a">RM 4k–7k after rebates</text>
+        <text y="78" font-weight="600">Cost / km · home off-peak</text>
+        <text y="106" fill="#5c524a">~RM 0.05–0.07</text>
+        <text y="156" font-weight="600">Petrol equivalent</text>
+        <text y="184" fill="#5c524a">~RM 0.20–0.25 / km</text>
+        <text y="234" font-weight="600">1,500 km/mo commuter</text>
+        <text y="262" fill="#5c524a">RM 220–300 saved monthly</text>
+        <text y="320" font-style="italic" fill="#8a8178" font-size="17">Solar by day · charge by night.</text>
+      </g>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#5c8a6e" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

@@ -27,6 +27,9 @@ so the social blurb and the SEO content reinforce each other.
 | C8 | OPR 2.75% — yield playbook | `duitful.app/guides/opr-hold-275-yield-strategy-2026/` | EN + BM |
 | C9 | ESG transport financing for SMEs | `duitful.app/guides/esg-transport-financing-selangor-sme-2026/` | EN |
 | C10 | Data residency 2026 — 5-min checklist | `duitful.app/guides/data-residency-2026-personal-checklist/` | EN + BM |
+| C11 | OPR + debt avalanche (MPC May 7) | `duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026/` | EN + BM |
+| C12 | On-shore AI is the new fintech standard | `duitful.app/guides/on-shore-ai-fintech-standard-malaysia-2026/` | EN |
+| C13 | Shah Alam EV &amp; Solar Centre · household savings | `duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026/` | EN + BM |
 
 - **Threads**: pick the short version (under 500 chars). Drop the link as the
   first reply, not in the post.
@@ -999,4 +1002,210 @@ DCCI Expo bukak 12 Mei. Most consumer tak tahu app duit korang simpan data mana.
 On-shore tu floor. On-device tu ceiling.
 
 duitful.app/guides/ms/data-residency-2026-personal-checklist
+```
+
+---
+
+## C11 — OPR + debt avalanche (carousel · 5 slides)
+
+**Slides:** `images/carousels/opr-decision-debt-avalanche-malaysia-2026/01..05.png`
+**Guide:** [duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026](https://duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026/)
+
+### Instagram (EN)
+```
+BNM held the OPR at 2.75% on Tuesday. MPC sits Thursday May 7. Q1 GDP printed 5.3%, projected inflation 2.5%, and the rumour mill has shifted from "expect a cut" to "what if there's a hike later this year?"
+
+Most coverage this week is on the deposit side. The more important question for anyone carrying debt: what does each scenario do to your avalanche, your floating-rate loans, and the credit-card balance you've been meaning to crush?
+
+Three scenarios, three avalanches:
+1. Hold (~70%) — floating loans don't move, cards still 18%, order unchanged. Action: throw windfall at the top.
+2. Cut 25 bps (~10%) — floating instalment drops 1–3%. Action: send the savings to the card, not lifestyle.
+3. Hold-now-hike-later (~20%) — accelerate top-of-stack, lock fixed-rate refi if available.
+
+Half your debt doesn't move at all. Credit cards (18% cap), personal loans (flat-rate), car loans (rule of 78), BNPL — all fixed. Mortgages are the one big floating exposure for most households. Tag floating vs fixed in your tracker so re-ranking takes seconds, not hours.
+
+Card stays #1 in every scenario. The order shuffles only at the bottom.
+
+Don't refi the mortgage just for the rate move. 25 bps on RM 500k = ~RM 75/month. Legal fees say wait. Don't lock anything irreversible before Friday — the Statement language matters more than the number itself.
+
+Full breakdown + what to ignore →
+duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026
+
+#opr #bnm #mpcmeeting #debtavalanche #creditcardmalaysia #personalloan
+#kewanganmalaysia #personalfinance #duitful #hutangmalaysia
+```
+
+### Instagram (BM)
+```
+BNM kekal OPR 2.75% pagi Selasa. MPC duduk Khamis 7 Mei. GDP Q1 print 5.3%, projected inflation 2.5%, dan rumour mill dah shift dari "expect cut" jadi "kalau ada hike lepas ni macam mana?"
+
+Most coverage minggu ni atas side deposit. Soalan lagi penting untuk siapa-siapa yang ada hutang: setiap scenario buat apa kat avalanche korang, kat loan floating-rate, dan kat baki credit card yang korang plan nak hapuskan?
+
+Tiga scenario, tiga avalanche:
+1. Hold (~70%) — loan floating tak bergerak, card still 18%, urutan sama. Action: throw windfall ke top of stack.
+2. Cut 25 bps (~10%) — instalment floating drop 1–3%. Action: hantar savings ke card, bukan lifestyle.
+3. Hold-now-hike-later (~20%) — accelerate top-of-stack, lock fixed-rate refi kalau ada.
+
+Half hutang korang tak bergerak langsung. Kad kredit (cap 18%), personal loan (flat-rate), loan kereta (rule of 78), BNPL — semua fixed. Mortgage je yang exposure floating besar untuk kebanyakan household. Tag floating vs fixed dalam tracker supaya re-rank ambil saat, bukan jam.
+
+Card tetap #1 setiap scenario. Urutan shuffle hanya kat bawah stack je.
+
+Jangan refi mortgage semata-mata untuk pergerakan kadar. 25 bps atas RM 500k = ~RM 75/bulan. Legal fees cakap tunggu. Jangan lock apa-apa irreversible sebelum Jumaat — language Statement lagi penting dari nombor.
+
+Breakdown penuh + apa nak abaikan →
+duitful.app/guides/ms/opr-decision-debt-avalanche-malaysia-2026
+
+#opr #bnm #mpcmesyuarat #debtavalanche #kadkreditmalaysia #personalloan
+#kewanganmalaysia #pengurusankewangan #duitful #hutangmalaysia
+```
+
+### Threads (EN)
+```
+BNM held OPR at 2.75%. MPC sits Thursday.
+
+Most articles this week cover the deposit side. The debt side matters more.
+
+Half your debt doesn't move with OPR — credit cards, personal loans, car loans, BNPL are all fixed. Card stays #1 of your avalanche in every scenario.
+
+Don't refi just for 25 bps. Don't lock anything irreversible before Friday.
+
+duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026
+```
+
+### Threads (BM)
+```
+BNM kekal OPR 2.75%. MPC duduk Khamis.
+
+Most artikel minggu ni cover side deposit. Side hutang lagi penting.
+
+Half hutang korang tak bergerak dengan OPR — kad kredit, personal loan, loan kereta, BNPL semua fixed. Card tetap #1 dalam avalanche korang setiap scenario.
+
+Jangan refi semata-mata untuk 25 bps. Jangan lock apa-apa irreversible sebelum Jumaat.
+
+duitful.app/guides/ms/opr-decision-debt-avalanche-malaysia-2026
+```
+
+---
+
+## C12 — On-shore AI is the new fintech standard (carousel · 5 slides)
+
+**Slides:** `images/carousels/on-shore-ai-fintech-standard-malaysia-2026/01..05.png`
+**Guide:** [duitful.app/guides/on-shore-ai-fintech-standard-malaysia-2026](https://duitful.app/guides/on-shore-ai-fintech-standard-malaysia-2026/)
+
+### Instagram (EN)
+```
+WEKA — the global high-performance AI data platform — announced a strategic partnership with Glocomp Systems today, May 6, to deploy production-ready AI infrastructure inside Malaysia. The deal directly answers the 2026 data-residency rules without an offshore inference hop.
+
+Until this morning, "sovereign AI" in Malaysian fintech was mostly a slide in a deck. As of today, it is buyable, locally deployable, and meaningfully cheaper to defend at a regulator review than the multi-cloud architecture most fintechs shipped last year.
+
+Audit-answer shift:
+Pre-2026 default — "data flows are encrypted, hyperscaler regional commitment." Defensible.
+Post-announcement — "production training and inference both inside Malaysian jurisdiction." Bulletproof.
+
+Five fintech categories, five answers:
+1. Credit / fraud / KYC model owners — primary buyers, 4–8 months to first cutover.
+2. Banks &amp; insurers with embedded GenAI — open-weights on-shore = parity + residency.
+3. Aggregator / budgeting apps — care most, move slowest.
+4. On-device apps — already compliant. Data never leaves the phone.
+5. SME / corporate-banking software — H2 RFPs will list "Malaysian-resident inference" as a hard line item.
+
+The hierarchy most teams skip: data minimisation → residency → inference architecture. Buying on-shore inference doesn't fix sloppy collection. Fix in order.
+
+Full breakdown + what to ignore →
+duitful.app/guides/on-shore-ai-fintech-standard-malaysia-2026
+
+#sovereignai #fintechmalaysia #dataresidency #aiinfrastructure
+#malaysianbusiness #onshore #duitful #aigovernance #weka
+```
+
+### Threads (EN)
+```
+WEKA × Glocomp Systems announced today: production-ready AI infrastructure inside Malaysia. The 2026 residency rules just stopped being a slide deck.
+
+Audit-answer shifts from "hyperscaler regional commitment" to "training and inference both in Malaysian jurisdiction."
+
+Hierarchy most teams skip: minimise → localise → deploy. On-shore inference doesn't fix sloppy collection.
+
+duitful.app/guides/on-shore-ai-fintech-standard-malaysia-2026
+```
+
+---
+
+## C13 — Shah Alam EV &amp; Solar Centre (carousel · 5 slides)
+
+**Slides:** `images/carousels/shah-alam-ev-solar-centre-household-savings-2026/01..05.png`
+**Guide:** [duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026](https://duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026/)
+
+### Instagram (EN)
+```
+Selangor opened its EV &amp; Solar Centre in Shah Alam yesterday, May 5 — the first state-level facility to consolidate ESG-linked household financing, solar-adoption subsidies, and EV-charging infrastructure under one roof.
+
+The political angle is clean-energy positioning. The household angle is more interesting: between NEM 3.0, the new charging tariffs, and consolidated subsidy paperwork, a typical Klang Valley household can shave RM 150–RM 450 off monthly utility-and-fuel costs by H2 2026.
+
+Where the actual savings live:
+• Solar PV (5 kWp): RM 18k–28k after rebates · RM 180–320 monthly TNB cut · 5–8 year payback
+• EV home charging: RM 4k–7k install · RM 0.05–0.07 per km vs RM 0.20–0.25 for petrol · RM 220–300/month saved on a 1,500 km commute
+
+Three rules that beat 90% of "should I solar?" articles:
+1. Match panel size to consumption — pull 12 months of TNB bills before quoting. Vendors love selling 8 kWp "because the roof fits."
+2. Insist on three quotes — identical specs vary 25–40% in price.
+3. Don't finance past the warranty — match the loan tenor to the shortest-warranty component (usually the inverter at 10–12 years).
+
+The honest EV math: don't buy one *because* of fuel savings. Price gap RM 25k–40k, monthly saving ~RM 250 = 8–14 year payback on fuel alone. Buy when due to replace, let the savings shorten the payback.
+
+Track green capex like a project. `Green · Capex 2026` for installs, `Green · Savings 2026` for monthly delta. Real payback curve in 6 months — not the vendor pitch deck.
+
+Full breakdown + what to ignore →
+duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026
+
+#solarmalaysia #evmalaysia #nem3 #shahalam #selangor
+#kewanganmalaysia #greenenergy #duitful #householdsavings
+```
+
+### Instagram (BM)
+```
+Selangor bukak EV &amp; Solar Centre kat Shah Alam semalam, 5 Mei — fasiliti peringkat negeri pertama yang gabungkan financing rumahtangga ESG-linked, subsidi solar, dan infra charging EV bawah satu bumbung.
+
+Angle politik tu positioning clean energy. Angle rumahtangga lagi menarik: antara NEM 3.0, tariff charging baru, dan paperwork subsidi yang dah consolidated, household typical Klang Valley boleh potong RM 150–RM 450 dari combined utility-and-fuel cost menjelang H2 2026.
+
+Mana savings sebenar duduk:
+• Solar PV (5 kWp): RM 18k–28k lepas rebate · RM 180–320 cut TNB bulanan · payback 5–8 tahun
+• Charging EV kat rumah: install RM 4k–7k · RM 0.05–0.07 per km vs RM 0.20–0.25 petrol · save RM 220–300/bulan untuk commute 1,500 km
+
+Tiga peraturan yang kalahkan 90% artikel "patut ke saya solar?":
+1. Match saiz panel dengan consumption — tarik 12 bulan bil TNB sebelum quote. Vendor suka jual 8 kWp "sebab roof muat."
+2. Insist tiga quote — specs sama vary 25–40% atas harga.
+3. Jangan finance lagi panjang dari warranty — match tenor loan dengan komponen warranty terpendek (biasa inverter, 10–12 tahun).
+
+Math EV jujur: jangan beli EV *sebab* fuel savings. Gap harga RM 25k–40k, save bulanan ~RM 250 = payback 8–14 tahun atas fuel je. Beli bila dah due replace kereta, biar savings tu pendekkan payback.
+
+Track green capex macam project. `Green · Capex 2026` untuk install, `Green · Savings 2026` untuk delta bulanan. Payback curve sebenar dalam 6 bulan — bukan pitch deck vendor.
+
+Breakdown penuh + apa nak abaikan →
+duitful.app/guides/ms/shah-alam-ev-solar-centre-household-savings-2026
+
+#solarmalaysia #evmalaysia #nem3 #shahalam #selangor
+#kewanganmalaysia #tenagahijau #duitful #savingrumahtangga
+```
+
+### Threads (EN)
+```
+Selangor's new EV &amp; Solar Centre opened in Shah Alam. Real household saving: RM 150–450/month off TNB + petrol if you stack solar PV and home EV charging.
+
+Right-size the panel to your consumption. Get three quotes. Don't finance past the inverter warranty.
+
+Don't buy an EV *because* of fuel savings — payback is 8–14 years on fuel alone.
+
+duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026
+```
+
+### Threads (BM)
+```
+Pusat EV &amp; Solar Selangor baru bukak kat Shah Alam. Saving rumahtangga sebenar: RM 150–450/bulan off TNB + petrol kalau korang stack solar PV dan home EV charging.
+
+Right-size panel ikut consumption. Dapat tiga quote. Jangan finance lagi panjang dari warranty inverter.
+
+Jangan beli EV *sebab* fuel savings — payback 8–14 tahun atas fuel je.
+
+duitful.app/guides/ms/shah-alam-ev-solar-centre-household-savings-2026
 ```

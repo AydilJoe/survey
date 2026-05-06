@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">SOVEREIGN AI · MAY 6, 2026</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">1/5</text></g>
+
+  <text x="100" y="320" font-family="'Fraunces', 'Georgia', serif" font-size="76" font-weight="500" fill="#2a2420">On-shore AI just</text>
+  <text x="100" y="410" font-family="'Fraunces', 'Georgia', serif" font-size="76" font-weight="500" fill="#b35a39" font-style="italic">became the floor.</text>
+
+  <g transform="translate(80, 540)" font-family="'Inter', sans-serif" fill="#2a2420">
+    <rect width="920" height="540" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+
+    <g transform="translate(40, 60)">
+      <text font-family="'JetBrains Mono', monospace" font-size="18" fill="#8a8178" letter-spacing="3">ANNOUNCED</text>
+      <text y="60" font-family="'Fraunces', serif" font-size="56" font-weight="500" fill="#2a2420">WEKA × <tspan fill="#b35a39" font-style="italic">Glocomp</tspan></text>
+      <text y="100" font-size="22" fill="#5c524a">Strategic partnership · May 6, 2026</text>
+    </g>
+
+    <line x1="40" y1="220" x2="880" y2="220" stroke="#e3d6bf" stroke-width="1"/>
+
+    <g transform="translate(40, 270)" font-size="22" fill="#2a2420">
+      <text font-weight="600">Production-ready AI infrastructure</text>
+      <text y="34" fill="#5c524a">Locally deployed inside Malaysia.</text>
+      <text y="92" font-weight="600">Designed for financial services</text>
+      <text y="126" fill="#5c524a">Same data-platform layer global banks use.</text>
+      <text y="184" font-weight="600">Answers the 2026 residency rules</text>
+      <text y="218" fill="#5c524a">No offshore inference hop required.</text>
+    </g>
+  </g>
+
+  <text x="540" y="1230" text-anchor="middle" font-family="'Inter', sans-serif" font-size="22" fill="#5c524a">"Sovereign AI" stopped being a slide deck.</text>
+  <text x="540" y="1262" text-anchor="middle" font-family="'Inter', sans-serif" font-size="22" fill="#5c524a">It's now buyable, deployable, defensible.</text>
+
+  <text x="100" y="1320" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app  ·  Swipe →</text>
+</svg>

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a3b58a"/>
+      <stop offset="1" stop-color="#5c8a6e"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">3 BORING RULES</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">3/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Beats 90% of</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#5c8a6e" font-style="italic">"should I solar?" articles.</text>
+
+  <g transform="translate(80, 470)" font-family="'Inter', sans-serif" fill="#2a2420">
+    <g>
+      <rect width="920" height="200" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <circle cx="60" cy="100" r="36" fill="#fffaf2" stroke="url(#green)" stroke-width="3"/>
+      <text x="60" y="114" text-anchor="middle" font-family="'Fraunces', serif" font-size="36" fill="#5c8a6e" font-weight="500">1</text>
+      <text x="130" y="80" font-size="28" font-weight="600">Match panel size to consumption</text>
+      <text x="130" y="120" font-size="22" fill="#5c524a">Pull 12 months of TNB bills before you quote.</text>
+      <text x="130" y="155" font-size="20" fill="#8a8178" font-style="italic">Vendors love selling 8 kWp "because the roof fits."</text>
+    </g>
+    <g transform="translate(0, 220)">
+      <rect width="920" height="200" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <circle cx="60" cy="100" r="36" fill="#fffaf2" stroke="url(#green)" stroke-width="3"/>
+      <text x="60" y="114" text-anchor="middle" font-family="'Fraunces', serif" font-size="36" fill="#5c8a6e" font-weight="500">2</text>
+      <text x="130" y="80" font-size="28" font-weight="600">Insist on three quotes</text>
+      <text x="130" y="120" font-size="22" fill="#5c524a">Identical specs vary 25–40% in price.</text>
+      <text x="130" y="155" font-size="20" fill="#8a8178" font-style="italic">Cheapest isn't always best — but the ceiling protects you.</text>
+    </g>
+    <g transform="translate(0, 440)">
+      <rect width="920" height="200" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <circle cx="60" cy="100" r="36" fill="#fffaf2" stroke="url(#green)" stroke-width="3"/>
+      <text x="60" y="114" text-anchor="middle" font-family="'Fraunces', serif" font-size="36" fill="#5c8a6e" font-weight="500">3</text>
+      <text x="130" y="80" font-size="28" font-weight="600">Don't finance past the warranty</text>
+      <text x="130" y="120" font-size="22" fill="#5c524a">Match the loan tenor to the shortest-warranty part.</text>
+      <text x="130" y="155" font-size="20" fill="#8a8178" font-style="italic">Inverter dies year 12 = your loan still has 5 years.</text>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#5c8a6e" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>
