@@ -4889,3 +4889,58 @@ document.addEventListener("click", (e) => {
   e.preventDefault();
   openPaywall("multiCurrency");
 });
+
+/* ---------- in-app feedback → /api/feedback → GitHub issue ---------- */
+
+document.getElementById("feedback-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const kind = document.getElementById("feedback-kind")?.value || "other";
+  const message = (document.getElementById("feedback-message")?.value || "").trim();
+  const email = (document.getElementById("feedback-email")?.value || "").trim();
+  const hp = (document.getElementById("feedback-hp")?.value || "").trim();
+  const status = document.getElementById("feedback-status");
+  const btn = document.getElementById("btn-feedback-send");
+  const showStatus = (text, warn = false) => {
+    if (!status) return;
+    status.textContent = text;
+    status.classList.toggle("warn", !!warn);
+    status.hidden = !text;
+  };
+
+  if (message.length < 5) {
+    showStatus("Please describe your feedback (at least 5 characters).", true);
+    return;
+  }
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    showStatus("That email doesn't look right.", true);
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = "Sending…"; }
+  showStatus("");
+  try {
+    const r = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kind,
+        message,
+        email: email || undefined,
+        url: location.href,
+        ua: navigator.userAgent,
+        hp: hp || undefined,
+      }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || "Could not send feedback");
+    document.getElementById("feedback-message").value = "";
+    document.getElementById("feedback-email").value = "";
+    showStatus(data.url
+      ? `Thanks! Tracked as issue #${data.number}.`
+      : "Thanks — your feedback has been received.");
+  } catch (err) {
+    showStatus(err.message || "Could not send feedback. Please try again.", true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Send feedback"; }
+  }
+});

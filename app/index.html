@@ -672,6 +672,38 @@
         </div>
 
         <div class="card">
+          <h2>Send feedback</h2>
+          <p class="hint">Found a bug, got an idea, or just want to say hi? Your message becomes a public GitHub issue so we can track it. Don't paste passwords or financial details.</p>
+          <form id="feedback-form" autocomplete="off" novalidate>
+            <label class="field">
+              <span>Type</span>
+              <select id="feedback-kind">
+                <option value="bug">Bug — something is broken</option>
+                <option value="idea">Idea — feature request</option>
+                <option value="question">Question — how do I…?</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Message</span>
+              <textarea id="feedback-message" rows="4" maxlength="4000" placeholder="What happened, what you expected, and how to reproduce it." required></textarea>
+            </label>
+            <label class="field">
+              <span>Email (optional, for replies)</span>
+              <input type="email" id="feedback-email" inputmode="email" autocomplete="email" placeholder="you@example.com">
+            </label>
+            <label class="field hp-field" aria-hidden="true">
+              <span>Website</span>
+              <input type="text" id="feedback-hp" tabindex="-1" autocomplete="off">
+            </label>
+            <p id="feedback-status" class="hint" hidden></p>
+            <div class="button-row">
+              <button type="submit" id="btn-feedback-send" class="primary">Send feedback</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
           <h2>Legal</h2>
           <p class="hint">How Duitful handles your data, and the rules for using it. Both pages also explain how to recover your Pro licence with a Billplz transaction ID.</p>
           <div class="button-row">
