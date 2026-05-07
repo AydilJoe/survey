@@ -16,6 +16,7 @@ const emptyState = () => ({
   savings: [],
   extraMonthly: 0,
   currency: "MYR",
+  fx: { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
   reminders: { enabled: true, daysAhead: 3, notifications: false, lastNotified: {} },
   pro: false,
   license: null,
@@ -39,6 +40,12 @@ function coerceState(parsed) {
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
       extraMonthly: Number(parsed.extraMonthly) || 0,
       currency: typeof parsed.currency === "string" && /^[A-Z]{3}$/i.test(parsed.currency) ? parsed.currency.toUpperCase() : "MYR",
+      fx: (parsed && typeof parsed.fx === "object" && parsed.fx) ? {
+        anchor: typeof parsed.fx.anchor === "string" ? parsed.fx.anchor : "EUR",
+        rates: (parsed.fx.rates && typeof parsed.fx.rates === "object") ? parsed.fx.rates : {},
+        fetched_at: typeof parsed.fx.fetched_at === "string" ? parsed.fx.fetched_at : null,
+        stale: !!parsed.fx.stale,
+      } : { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
       reminders: {
         enabled: parsed.reminders && parsed.reminders.enabled !== false,
         daysAhead: Number(parsed.reminders && parsed.reminders.daysAhead) || 3,
@@ -194,6 +201,67 @@ function moneyParts(n) {
     prefix = currentCurrency() + " ";
   }
   return { prefix, whole, frac, suffix };
+}
+
+const FX_BASE_RATE = 1; // anchor (EUR) is always 1.0
+
+function fxRate(code) {
+  if (!code) return NaN;
+  if (code === state.fx.anchor) return FX_BASE_RATE;
+  const r = Number(state.fx.rates[code]);
+  return Number.isFinite(r) && r > 0 ? r : NaN;
+}
+
+function fxCurrencySupported(code) {
+  return code === state.fx.anchor || Number.isFinite(fxRate(code));
+}
+
+function pairRate(fromCode, toCode) {
+  // 1 fromCode = ? toCode  →  rates[to] / rates[from]
+  const f = fxRate(fromCode), t = fxRate(toCode);
+  if (!Number.isFinite(f) || !Number.isFinite(t)) return NaN;
+  return t / f;
+}
+
+function convertFx(amount, fromCode, toCode) {
+  if (!Number.isFinite(amount)) return NaN;
+  if (fromCode === toCode) return amount;
+  const r = pairRate(fromCode, toCode);
+  return Number.isFinite(r) ? amount * r : NaN;
+}
+
+function fxRatesAreUsable() {
+  return state.fx && state.fx.rates && Object.keys(state.fx.rates).length > 0;
+}
+
+function fxRatesAreStale() {
+  if (!state.fx || !state.fx.fetched_at) return true;
+  return Date.now() - new Date(state.fx.fetched_at).getTime() > 24 * 60 * 60 * 1000;
+}
+
+async function loadFxRates({ force = false } = {}) {
+  if (!force && fxRatesAreUsable() && !fxRatesAreStale()) return state.fx;
+  try {
+    const url = force ? "/api/fx?refresh=1" : "/api/fx";
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`fx ${r.status}`);
+    const data = await r.json();
+    state.fx = {
+      anchor: data.anchor || "EUR",
+      rates: data.rates || {},
+      fetched_at: data.fetched_at || null,
+      stale: !!data.stale,
+    };
+    save();
+    return state.fx;
+  } catch (e) {
+    console.warn("loadFxRates failed:", e);
+    return state.fx; // keep whatever we already have
+  }
+}
+
+async function refreshFxRates() {
+  return loadFxRates({ force: true });
 }
 
 const fmtPct = (n) => `${(Number(n) || 0).toFixed(2)}%`;
@@ -3443,6 +3511,7 @@ async function handleUnlock(passcode) {
   }
   hideLock();
   renderAll();
+  loadFxRates().then(() => renderAll());
   initIAP();
   initNotificationListener();
   fireDueNotifications().catch(() => {});
@@ -3466,6 +3535,7 @@ async function handleSetup(passcode, confirm, initialState) {
   localStorage.removeItem(STORAGE_KEY); // clear legacy plain after migration
   hideLock();
   renderAll();
+  loadFxRates().then(() => renderAll());
   initIAP();
   initNotificationListener();
   fireDueNotifications().catch(() => {});
