@@ -243,7 +243,11 @@ function fxRatesAreStale() {
 }
 
 async function loadFxRates({ force = false } = {}) {
-  if (!force && fxRatesAreUsable() && !fxRatesAreStale()) return state.fx;
+  if (!force && fxRatesAreUsable() && !fxRatesAreStale()) {
+    populateCurrencyPickers();
+    renderFxStatus();
+    return state.fx;
+  }
   try {
     const url = force ? "/api/fx?refresh=1" : "/api/fx";
     const r = await fetch(url);
@@ -1303,6 +1307,7 @@ function renderAll() {
   renderPending();
   renderReminderPrefs();
   renderFxStatus();
+  populateCurrencyPickers();
   renderProControls();
   renderReports();
   if (typeof renderDriveCard === "function") renderDriveCard();
@@ -2899,6 +2904,11 @@ if (prefCurrency) {
     if (!/^[A-Z]{3}$/.test(code)) return;
     state.currency = code;
     save();
+    // Reset every entry-form picker to the new base so the form doesn't look
+    // like a foreign-currency entry by default after a base change.
+    document.querySelectorAll("select[data-currency-picker]").forEach((sel) => {
+      sel.value = code;
+    });
     populateCurrencyPickers();
     renderAll();
   });

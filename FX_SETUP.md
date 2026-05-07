@@ -32,6 +32,16 @@ Frankfurter supports 17 of the app's 20 display currencies. The picker greys out
 
 Users can still set these as their base / display currency, but cannot enter a foreign-currency transaction in those codes.
 
+## Where multi-currency entry is available
+
+Multi-currency entry is supported on the following entry surfaces:
+
+- Income form (Flow tab)
+- Recurring expenses form (Flow tab)
+- Daily quick-add form (Home tab) — covers daily expenses, debt payments, and savings deposits via the "Save to which goal" / "Pay which debt" target picker
+
+The inline "Add amount" input on each savings goal card is a base-currency-only quick deposit. Foreign-currency contributions to a savings goal must be made via the daily quick-add form. This is intentional — the per-goal input is optimized for fast same-currency deposits and adding a picker would clutter that UI.
+
 ## Anchor
 
 All rates are quoted against EUR (Frankfurter's native anchor). The client derives any pair as `rates[to] / rates[from]`, with EUR itself treated as rate 1.0.
