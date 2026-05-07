@@ -2420,6 +2420,10 @@ function renderProControls() {
     if (restore) restore.hidden = purchased || !native;
     if (activate) activate.hidden = native || purchased;
   }
+
+  // Show "(Pro: auto-copies...)" hint only for free users on the repeat-toggle.
+  const proHints = document.querySelectorAll("[data-pro-only-hint]");
+  proHints.forEach((el) => { el.hidden = isPro(); });
 }
 
 document.getElementById("btn-pro-unlock")?.addEventListener("click", () => { openPaywall(); });
@@ -2880,7 +2884,8 @@ $("#form-income").addEventListener("submit", (e) => {
   const toCode = currentCurrency();
   if (!name || !Number.isFinite(amount) || amount < 0) return;
 
-  const entry = { id: uid(), name, amount, month, day };
+  const repeatNext = f.get("repeatNext") === "on";
+  const entry = { id: uid(), name, amount, month, day, repeatNext };
   if (fromCode !== toCode) {
     if (!isPro()) { openPaywall("multiCurrency"); return; }
     if (!fxCurrencySupported(fromCode)) {
@@ -2918,7 +2923,8 @@ $("#form-expense").addEventListener("submit", (e) => {
   const toCode = currentCurrency();
   if (!name || !Number.isFinite(amount) || amount < 0) return;
 
-  const entry = { id: uid(), name, amount, month, day };
+  const repeatNext = f.get("repeatNext") === "on";
+  const entry = { id: uid(), name, amount, month, day, repeatNext };
   if (fromCode !== toCode) {
     if (!isPro()) { openPaywall("multiCurrency"); return; }
     if (!fxCurrencySupported(fromCode)) {
