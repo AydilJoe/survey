@@ -638,7 +638,18 @@ function attachPoolDropdownToForm(formEl) {
     const m = currentMonthISO();
     const usage = poolUsageInMonth(pool.id, m);
     const limit = effectiveLimit(pool, m);
-    const amt = Number(amountEl && amountEl.value);
+    const rawAmt = Number(amountEl && amountEl.value);
+    // If entry is in a foreign currency, the saved amount is the FX-converted base value
+    let amt = rawAmt;
+    const currencyEl = formEl.querySelector("select[data-currency-picker]");
+    if (currencyEl && Number.isFinite(rawAmt)) {
+      const fromCode = currencyEl.value || currentCurrency();
+      const toCode = currentCurrency();
+      if (fromCode !== toCode && typeof convertFx === "function") {
+        const converted = convertFx(rawAmt, fromCode, toCode);
+        if (Number.isFinite(converted)) amt = converted;
+      }
+    }
     const projected = usage + (Number.isFinite(amt) ? amt : 0);
     const remaining = limit - projected;
     preview.hidden = false;
@@ -670,7 +681,10 @@ function tagEntryWithPool(entry, kind, formEl) {
     }
     return; // debt entries always auto-tag to system pool, ignore form selector
   }
-  // For expense / saving, read the form's pool dropdown
+  if (kind === "saving") {
+    return; // savings deposits never tag to pools (per spec)
+  }
+  // For expense only, read the form's pool dropdown
   if (formEl) {
     const sel = formEl.querySelector("select[data-budget-pool]");
     if (sel && sel.value) {
@@ -1077,6 +1091,14 @@ function updateDailyTargetSelect() {
         .map((g) => `<option value="saving:${g.id}">${escapeHtml(g.name)}</option>`)
         .join("");
     }
+  }
+
+  // Hide budget-pool dropdown for non-expense types — pools only apply to expenses.
+  // (savings/debt entries don't tag to user pools; debt auto-tags to the system pool.)
+  const poolField = document.getElementById("daily-pool-field");
+  if (poolField) {
+    const hasUserPools = state.budgetPools.filter((p) => p.system !== "debt").length > 0;
+    poolField.hidden = type !== "expense" || !hasUserPools;
   }
 }
 
