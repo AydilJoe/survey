@@ -989,6 +989,23 @@
       </form>
     </dialog>
 
+    <dialog id="last-month-edit-dialog" class="edit-dialog">
+      <form method="dialog" id="last-month-edit-form">
+        <h2>Edit last month's debt minimum</h2>
+        <p class="hint">For <span id="last-month-edit-month">—</span>. This affects the calculation of last month's ending balance only.</p>
+        <label class="field">
+          <span>Minimum debt obligation (<span class="cur-code">MYR</span>)</span>
+          <input type="number" name="minSum" step="0.01" min="0" inputmode="decimal" required />
+        </label>
+        <p class="hint">Currently auto-snapshotted as <strong id="last-month-edit-current">RM 0.00</strong> from your active debts. Override only if you remember different.</p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="btn-last-month-edit-cancel">Cancel</button>
+          <button type="button" class="ghost" id="btn-last-month-edit-reset">Reset to auto</button>
+          <button type="button" class="primary" id="btn-last-month-edit-save">Save</button>
+        </div>
+      </form>
+    </dialog>
+
     <div id="pwa-install-banner" class="pwa-install-banner" hidden role="region" aria-label="Install Duitful">
       <div class="pwa-install-body">
         <span class="pwa-install-icon" aria-hidden="true">

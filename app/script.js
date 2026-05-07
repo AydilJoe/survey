@@ -5937,3 +5937,63 @@ document.getElementById("btn-bulk-debt-confirm")?.addEventListener("click", () =
   renderAll();
   if (created === 0) alert("No debts paid (nothing was checked).");
 });
+
+function openLastMonthEditDialog() {
+  const dlg = document.getElementById("last-month-edit-dialog");
+  if (!dlg) return;
+  const lastM = shiftMonth(currentMonthISO(), -1);
+  const monthLabelEl = document.getElementById("last-month-edit-month");
+  const inputEl = dlg.querySelector("input[name='minSum']");
+  const currentEl = document.getElementById("last-month-edit-current");
+  if (monthLabelEl) monthLabelEl.textContent = formatMonthLabel(lastM);
+  const stored = state.monthlyMinSums[lastM];
+  const computed = debtTotals(state.debts).minSum;
+  if (inputEl) inputEl.value = stored != null ? stored : computed;
+  if (currentEl) currentEl.textContent = fmtMoney(computed);
+  dlg.dataset.targetMonth = lastM;
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+function closeLastMonthEditDialog() {
+  const dlg = document.getElementById("last-month-edit-dialog");
+  if (!dlg) return;
+  if (typeof dlg.close === "function") dlg.close();
+  else dlg.removeAttribute("open");
+}
+
+document.getElementById("btn-edit-last-month-min")?.addEventListener("click", () => {
+  openLastMonthEditDialog();
+});
+
+document.getElementById("btn-last-month-edit-cancel")?.addEventListener("click", () => {
+  closeLastMonthEditDialog();
+});
+
+document.getElementById("btn-last-month-edit-save")?.addEventListener("click", () => {
+  const dlg = document.getElementById("last-month-edit-dialog");
+  if (!dlg) return;
+  const month = dlg.dataset.targetMonth;
+  const inputEl = dlg.querySelector("input[name='minSum']");
+  if (!month || !inputEl) return;
+  const v = Number(inputEl.value);
+  if (!Number.isFinite(v) || v < 0) {
+    alert("Enter a positive number.");
+    return;
+  }
+  state.monthlyMinSums[month] = v;
+  save();
+  closeLastMonthEditDialog();
+  renderAll();
+});
+
+document.getElementById("btn-last-month-edit-reset")?.addEventListener("click", () => {
+  const dlg = document.getElementById("last-month-edit-dialog");
+  if (!dlg) return;
+  const month = dlg.dataset.targetMonth;
+  if (!month) return;
+  delete state.monthlyMinSums[month];
+  save();
+  closeLastMonthEditDialog();
+  renderAll();
+});
