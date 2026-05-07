@@ -1279,9 +1279,11 @@ function renderFlow() {
       .map((it) => {
         const day = Number.isFinite(it.day) ? it.day : null;
         const cls = day ? dayClass(day, it.month) : "";
+        // No day → render an empty placeholder span so grid alignment is
+        // preserved without showing a "–" that reads as broken UI.
         const chip = day
           ? `<span class="day-chip ${cls}" title="${kind === "income" ? "Pay day" : "Due day"}">${day}</span>`
-          : `<span class="day-chip" title="No day set">–</span>`;
+          : `<span class="day-chip day-chip-empty" aria-hidden="true"></span>`;
         return `
           <li data-id="${it.id}">
             ${chip}
@@ -1502,9 +1504,9 @@ function renderDaily() {
           pill += ` <span class="cat-pill cat-pill-card" title="Charged to this card">◈ ${escapeHtml(cardName)}</span>`;
         }
       }
-      note = e.note
-        ? `<span class="daily-note">${escapeHtml(e.note)}</span>`
-        : `<span class="daily-note muted">—</span>`;
+      // Empty notes render as nothing rather than a "—" placeholder — placeholder
+      // dashes read as broken UI per the design review.
+      note = e.note ? `<span class="daily-note">${escapeHtml(e.note)}</span>` : "";
       html.push(`
         <div class="daily-entry" data-id="${e.id}">
           <div class="primary-line">${pill}${note}</div>
@@ -1596,9 +1598,11 @@ function renderDebts() {
     .sort((a, b) => (Number(b.apr) || 0) - (Number(a.apr) || 0))
     .map((d) => {
       const cls = d.dueDay ? dayClass(d.dueDay, currentMonthISO()) : "";
+      // Empty placeholder when no due day so we keep grid alignment without
+      // showing a "–" that reads as broken UI.
       const chip = d.dueDay
         ? `<span class="day-chip ${cls}" title="Due day">${d.dueDay}</span>`
-        : `<span class="day-chip" title="No due day">–</span>`;
+        : `<span class="day-chip day-chip-empty" aria-hidden="true"></span>`;
       const isInstallment = d.kind === "installment";
       // Compute remaining months for installment debts: balance / installment
       const installment = Number(d.installment) || Number(d.minPayment) || 0;

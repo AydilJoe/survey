@@ -45,6 +45,13 @@
 
 [hidden] { display: none !important; }
 
+/* Global checkbox tint — keeps Monthly "Repeat next month", Settings
+   auto-sync, Reports kind filters, and bulk-pay rows on-brand instead of
+   defaulting to the browser/OS accent (often bright red/blue). */
+input[type="checkbox"], input[type="radio"] {
+  accent-color: var(--primary);
+}
+
 .cur-code { font-family: var(--font-mono); font-size: 0.9em; letter-spacing: 0.04em; }
 
 /* Pending transactions (auto-captured from notifications) */
@@ -1683,6 +1690,12 @@ button.ghost.icon-btn {
   border-color: rgba(143, 160, 120, 0.35);
 }
 .item-list li .day-chip.past, .debt-list li .day-chip.past { color: var(--muted); opacity: 0.5; }
+/* Empty day chip — preserves grid alignment without rendering a "–" placeholder */
+.item-list li .day-chip-empty,
+.debt-list li .day-chip-empty {
+  background: transparent;
+  border-color: transparent;
+}
 .item-list li .amount, .debt-list li .meta {
   font-variant-numeric: tabular-nums;
   color: var(--text);
