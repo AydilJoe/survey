@@ -328,6 +328,15 @@ function ensureDebtPool() {
   // NOTE: This function only mutates derived fields on the in-memory pool object.
   // It never calls save() — callers must save() if they want persistence.
   // Safe to call on every render (called from renderAll) — no I/O, just object mutation.
+  // Also defensively dedupes: if multiple system="debt" pools exist (e.g., from
+  // a malformed CSV import), keep the first and drop the rest in-place.
+  const debtPools = state.budgetPools.filter((p) => p.system === "debt");
+  if (debtPools.length > 1) {
+    const keeper = debtPools[0];
+    state.budgetPools = state.budgetPools.filter(
+      (p) => p.system !== "debt" || p === keeper
+    );
+  }
   let pool = findSystemDebtPool();
   if (!pool) {
     pool = {
@@ -380,8 +389,8 @@ function effectiveLimit(pool, monthISO, depth = 0) {
   return base + prevUnspent;
 }
 
-function paidThisMonth(debtId) {
-  const m = currentMonthISO();
+function paidThisMonth(debtId, monthISO) {
+  const m = monthISO || currentMonthISO();
   return state.dailyExpenses
     .filter((e) => e.kind === "debt" && e.debtId === debtId && monthOf(e.date) === m)
     .reduce((s, e) => s + (Number(e.amount) || 0), 0);
@@ -391,7 +400,9 @@ function findPoolByName(name) {
   if (!name) return null;
   const target = String(name).trim().toLowerCase();
   if (!target) return null;
-  return state.budgetPools.find((p) => p.name.trim().toLowerCase() === target) || null;
+  return state.budgetPools.find(
+    (p) => typeof p.name === "string" && p.name.trim().toLowerCase() === target
+  ) || null;
 }
 
 function debtPoolEscalation() {
