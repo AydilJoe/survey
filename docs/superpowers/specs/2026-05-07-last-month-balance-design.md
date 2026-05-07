@@ -166,6 +166,8 @@ Called from `renderDashboard()` after the existing formula-line update.
 
 The line hides itself when last month had no income entries AND no daily entries — i.e., the user wasn't using the app. No meaningful number to show.
 
+Note: recurring expenses (`state.expenses`) for last month are intentionally NOT a trigger for showing the line. A user who only set up recurring expenses for last month — with no income and no daily activity — has nothing meaningful to balance against; the formula would just return a negative number from recurring outflows alone, which would mislead more than help.
+
 ## Manual edit (inline ✎)
 
 The ✎ button on the dashboard line opens a small dialog letting the user override `state.monthlyMinSums[lastMonth]`.
@@ -189,6 +191,8 @@ The ✎ button on the dashboard line opens a small dialog letting the user overr
   </form>
 </dialog>
 ```
+
+**Note on form structure:** the dialog uses `<form method="dialog">` for native dialog dismissal on Esc, but the action buttons are `<button type="button">` (not submit) so the click handlers below run before the dialog auto-closes. Do NOT change Save to `type="submit"` — it would close the dialog before the value is persisted.
 
 ### Open / save / reset
 
@@ -342,6 +346,8 @@ Append to `app/styles.css`:
 
 - **Pre-feature months use current `minSum`.** Users upgrading from a prior version who want accurate Apr 2025 numbers must manually edit via the inline ✎ for any month they care about. Or: accept the approximation.
 - **Mid-month debt edits don't preserve intra-month history.** Snapshot captures the latest minSum during a month; if user edits a debt mid-month, the prior portion of the month isn't preserved. Acceptable trade-off; per-event versioning is out of scope.
+- **Mid-month debt deletion zeros the snapshot.** If a user deletes all their debts mid-month, the next render writes `monthlyMinSums[currentMonth] = 0`, losing the obligation history for that month. The user can recover by manually editing via the inline ✎. Acceptable for v1.
+- **`extraMonthly` divergence.** The current-month "Balance Left" stat subtracts `state.extraMonthly` (the planned avalanche extra). The past-month formula does NOT — it's a forward-looking plan, not historical actual. Over-and-above debt payments that the user actually made show up as `daily-debt` entries and are captured in `actualDebtPaid`. Net effect: the past-month value can differ slightly from what last month's "Balance Left" would have displayed if `extraMonthly > 0`. Set tester expectations.
 - **No `state.extraMonthly` accounting.** The current dashboard subtracts `state.extraMonthly` (the user's planned avalanche extra). For past months we omit it because it's a forward-looking plan, not historical actual. If user manually paid extra against debts in past months, those payments show up as `daily-debt` entries and are captured in `actualDebtPaid`.
 - **Manual edits override the snapshot.** Even if user later edits debts in a way that "should" recompute the snapshot, an existing override stays sticky. The "Reset to auto" button in the edit dialog clears it.
 
