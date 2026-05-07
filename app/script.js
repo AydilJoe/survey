@@ -3769,9 +3769,10 @@ function toCSV() {
     "fx_code", "fx_amount", "fx_rate", "fx_base", "fx_fetched_at",
     "pool_color", "pool_active", "pool_rollover", "pool_monthly_limits", "pool_system",
     "budget_pool_id", "budget_pool_name",
+    "repeat_next",
   ];
   const rows = [HEADER];
-  const W = HEADER.length; // 29
+  const W = HEADER.length; // 30
   const blank = (arr) => arr.concat(Array(W - arr.length).fill(""));
   const fxCols = (fx) => fx
     ? [fx.code || "", fx.amount ?? "", fx.rate ?? "", fx.base || "", fx.fetched_at || ""]
@@ -3779,10 +3780,10 @@ function toCSV() {
   const poolTagCols = (entry) => [entry.budgetPoolId || "", entry.budgetPoolName || ""];
 
   for (const i of state.income) {
-    rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? "", "", "", "", ...fxCols(i.fx), "", "", "", "", "", "", ""]));
+    rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? "", "", "", "", ...fxCols(i.fx), "", "", "", "", "", "", "", i.repeatNext === false ? "N" : "Y"]));
   }
   for (const ex of state.expenses) {
-    rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx), "", "", "", "", "", ...poolTagCols(ex)]));
+    rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx), "", "", "", "", "", ...poolTagCols(ex), ex.repeatNext === false ? "N" : "Y"]));
   }
   for (const d of state.debts) {
     const isInst = d.kind === "installment";
@@ -3873,6 +3874,7 @@ function fromCSV(text) {
   const iPoolSystem = idx("pool_system");
   const iBudgetPoolId = idx("budget_pool_id");
   const iBudgetPoolName = idx("budget_pool_name");
+  const iRepeatNext = idx("repeat_next");
 
   function readPoolTag(row) {
     if (iBudgetPoolId < 0 || iBudgetPoolName < 0) return null;
@@ -3913,14 +3915,20 @@ function fromCSV(text) {
     const rowDay = iDay >= 0 ? parseDay(row[iDay]) : null;
 
     if (type === "income" && name && Number.isFinite(amount)) {
-      const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay };
+      const repeatNext = iRepeatNext >= 0
+        ? (row[iRepeatNext] || "").trim().toUpperCase() !== "N"
+        : true;
+      const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay, repeatNext };
       const fx = readFx(row);
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
       next.income.push(entry);
     } else if (type === "expense" && name && Number.isFinite(amount)) {
-      const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay };
+      const repeatNext = iRepeatNext >= 0
+        ? (row[iRepeatNext] || "").trim().toUpperCase() !== "N"
+        : true;
+      const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay, repeatNext };
       const fx = readFx(row);
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
