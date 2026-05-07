@@ -338,7 +338,9 @@ The pattern is the same for each: read the relevant `searchQueries[key]`, filter
 
 - [ ] **Step 1: `renderFlow()` — income + expense filter**
 
-`renderFlow()` is at line 1189. It currently builds `monthIncome` and `monthExpenses` arrays, then renders both lists.
+`renderFlow()` is at line 1189. **Important:** this single function renders BOTH the income list (`#list-income`) AND the recurring-expense list (`#list-expense`) in the same pass. Apply the filter pattern TWICE inside the function — once per list, using `searchQueries.income` and `searchQueries.expense` independently. The two filters are NOT shared.
+
+It currently builds `monthIncome` and `monthExpenses` arrays, then renders both lists.
 
 After the existing `monthIncome` and `monthExpenses` declarations, ADD:
 
