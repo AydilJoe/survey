@@ -679,8 +679,14 @@ function renderBudgetManager() {
     return (a.createdAt || 0) - (b.createdAt || 0);
   });
 
+  // Show quick-start templates only when the user has no user-created pools
+  // yet. Once they create one, hide the templates so the panel doesn't shout.
+  const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
+  const templates = document.getElementById("pool-templates");
+  if (templates) templates.hidden = userPoolCount > 0;
+
   if (pools.length === 0 || (pools.length === 1 && pools[0].system === "debt" && state.debts.length === 0)) {
-    listEl.innerHTML = `<p class="empty">No budget pools yet — tap "+ Add pool" to create one.</p>`;
+    listEl.innerHTML = `<p class="empty">No budget pools yet — pick a template below or tap "+ Add pool" to create one.</p>`;
     return;
   }
 
@@ -6173,6 +6179,27 @@ document.addEventListener("click", (e) => {
     const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
     if (userPoolCount >= 1 && !gate("budgetPools")) return;
     openPoolForm(null);
+  });
+
+  // Quick-start template chips — pre-fill the form name with a common pool
+  // type (Shopping / Subscriptions / Groceries / Vacation) so users can hit
+  // "set a limit and save" instead of typing the whole name.
+  document.getElementById("pool-templates")?.addEventListener("click", (e) => {
+    const btn = e.target instanceof HTMLElement ? e.target.closest(".pool-template") : null;
+    if (!btn) return;
+    const name = btn.getAttribute("data-template") || "";
+    if (!name) return;
+    // Pro gate (same rule as +Add pool)
+    const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
+    if (userPoolCount >= 1 && !gate("budgetPools")) return;
+    openPoolForm(null);
+    const form = document.getElementById("form-budget-pool");
+    const nameInput = form?.querySelector("input[name='name']");
+    if (nameInput) {
+      nameInput.value = name;
+      // Focus the limit field so the user just types the limit and saves.
+      form.querySelector("input[name='limit']")?.focus();
+    }
   });
 
   document.getElementById("btn-cancel-pool")?.addEventListener("click", () => closePoolForm());

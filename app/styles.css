@@ -1578,6 +1578,30 @@ button.ghost.icon-btn {
   font-weight: 400;
   font-size: 0.85em;
 }
+/* Quick-start template chips for Budget Pools — shown only when the user has
+   no user-created pools yet. Pre-fills the form so they don't have to type. */
+.pool-templates {
+  margin: 8px 0 12px;
+}
+.pool-template-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pool-template {
+  font-size: 0.85em;
+  padding: 0.35rem 0.7rem;
+  border: 0.5px dashed var(--line);
+  background: transparent;
+  color: var(--ink2);
+  border-radius: 999px;
+}
+.pool-template:hover {
+  background: var(--card-soft);
+  color: var(--text);
+  border-color: var(--primary);
+  border-style: solid;
+}
 .pro-refer {
   margin-top: 0.9rem;
   padding-top: 0.9rem;
