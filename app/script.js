@@ -1660,9 +1660,22 @@ function renderDashboard() {
   const cardChargedThisMonth = state.dailyExpenses
     .filter((e) => e.kind === "expense" && e.cardDebtId && isSameMonth(e.date))
     .reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const cashDailyMonth = Math.max(0, dailyMonth - cardChargedThisMonth);
+  // Decompose daily entries by kind. Debt payments are NOT included in cash daily
+  // because the formula handles them via the max(minSum+extra, actualDebtPaid) floor below
+  // (otherwise we'd double-count: minSum subtracts the obligation AND cashDaily would subtract the actual payment).
+  const actualDebtPaidThisMonth = state.dailyExpenses
+    .filter((e) => e.kind === "debt" && isSameMonth(e.date))
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const cashDailySavings = state.dailyExpenses
+    .filter((e) => e.kind === "saving" && isSameMonth(e.date))
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const cashDailyExpenses = Math.max(0, dailyMonth - cardChargedThisMonth - actualDebtPaidThisMonth - cashDailySavings);
+
   const extra = Number(state.extraMonthly) || 0;
-  const totalOut = expenseTotal + minSum + extra + cashDailyMonth;
+  // Debt charge: floors at planned obligation (minSum + extra), uses actual paid if higher.
+  // Same pattern as endingBalanceFor() so current-month and past-month math stay consistent.
+  const debtCharge = Math.max(minSum + extra, actualDebtPaidThisMonth);
+  const totalOut = expenseTotal + debtCharge + cashDailyExpenses + cashDailySavings;
   // Carryover from the prior month's running balance (recursive — chains all the way back).
   const carryOver = endingBalanceFor(shiftMonth(thisMonth, -1));
   const net = carryOver + incomeTotal - totalOut;
@@ -1697,7 +1710,8 @@ function renderDashboard() {
   const formulaEl = $("#stat-net-formula");
   if (formulaEl) {
     const carryPart = carryOver !== 0 ? `${fmtMoney(carryOver)} carryover + ` : "";
-    const base = `= ${carryPart}income − recurring − min debt − extra − daily cash (${fmtMoney(cashDailyMonth)})`;
+    const savingsPart = cashDailySavings > 0 ? ` − savings (${fmtMoney(cashDailySavings)})` : "";
+    const base = `= ${carryPart}income − recurring − debt (${fmtMoney(debtCharge)}) − daily (${fmtMoney(cashDailyExpenses)})${savingsPart}`;
     formulaEl.textContent = cardChargedThisMonth > 0
       ? `${base} · ${fmtMoney(cardChargedThisMonth)} charged to cards (added to debt)`
       : base;
