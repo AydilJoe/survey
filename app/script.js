@@ -1593,6 +1593,24 @@ function renderDebts() {
     ul.innerHTML = `<li class="empty">No matches for "<strong>${escapeHtml(debtsQuery.trim())}</strong>" — <a class="empty-clear" data-search-clear="debts">clear search</a>?</li>`;
     return;
   }
+  // Disambiguate duplicate debt names — if a user has two "Maybank" entries,
+  // append "(1)", "(2)" suffixes in display order so they can tell which row
+  // maps to which balance.
+  const nameCounts = new Map();
+  for (const d of state.debts) {
+    const key = (d.name || "").toLowerCase().trim();
+    if (!key) continue;
+    nameCounts.set(key, (nameCounts.get(key) || 0) + 1);
+  }
+  const seenSoFar = new Map();
+  const dupSuffix = (name) => {
+    const key = (name || "").toLowerCase().trim();
+    if (!key || (nameCounts.get(key) || 0) <= 1) return "";
+    const idx = (seenSoFar.get(key) || 0) + 1;
+    seenSoFar.set(key, idx);
+    return ` <span class="dup-suffix" title="Duplicate name — auto-numbered for clarity">(${idx})</span>`;
+  };
+
   ul.innerHTML = filteredDebts
     .slice()
     .sort((a, b) => (Number(b.apr) || 0) - (Number(a.apr) || 0))
@@ -1609,9 +1627,10 @@ function renderDebts() {
       const remMonths = isInstallment && installment > 0
         ? Math.max(0, Math.ceil((Number(d.balance) || 0) / installment))
         : null;
+      const suffix = dupSuffix(d.name);
       const nameHtml = isInstallment
-        ? `<span class="name">${escapeHtml(d.name)} <span class="installment-badge">Installment</span></span>`
-        : `<span class="name">${escapeHtml(d.name)}</span>`;
+        ? `<span class="name">${escapeHtml(d.name)}${suffix} <span class="installment-badge">Installment</span></span>`
+        : `<span class="name">${escapeHtml(d.name)}${suffix}</span>`;
       const metaRow = isInstallment
         ? `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMoney(installment)}/mo</span></div>`
         : `<div class="meta-row"><span>APR ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;

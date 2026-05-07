@@ -1541,6 +1541,43 @@ button.ghost.icon-btn {
   font-size: 0.6rem;
   padding: 0.12rem 0.4rem;
 }
+/* Debts list legend — explains the day-chip color coding */
+.debt-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.78em;
+  margin: 4px 0 8px;
+}
+.debt-legend .day-chip {
+  display: inline-block;
+  min-width: 1.6rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.72rem;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  border-radius: 8px;
+  text-align: center;
+  vertical-align: middle;
+}
+.debt-legend .day-chip.soon {
+  color: var(--primary);
+  background: rgba(200, 112, 75, 0.1);
+  border: 0.5px solid rgba(200, 112, 75, 0.3);
+}
+.debt-legend .day-chip.today {
+  color: var(--accent);
+  background: rgba(143, 160, 120, 0.14);
+  border: 0.5px solid rgba(143, 160, 120, 0.35);
+}
+/* Auto-numbering suffix for duplicate debt names (e.g. two "Maybank" entries
+   become "Maybank (1)" / "Maybank (2)") so users can tell them apart. */
+.dup-suffix {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.85em;
+}
 .pro-refer {
   margin-top: 0.9rem;
   padding-top: 0.9rem;
