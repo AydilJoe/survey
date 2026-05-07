@@ -101,6 +101,9 @@ function findSystemDebtPool() {
 function ensureDebtPool() {
   // Idempotent: creates exactly one Debt pool if none exists.
   // Always recomputes its limit from current debts.
+  // NOTE: This function only mutates derived fields on the in-memory pool object.
+  // It never calls save() — callers must save() if they want persistence.
+  // Safe to call on every render (called from renderAll) — no I/O, just object mutation.
   let pool = findSystemDebtPool();
   if (!pool) {
     pool = {
@@ -614,11 +617,62 @@ const PAYWALL_COPY = {
 9. Set this-month override → saves to `pool.monthlyLimits["YYYY-MM"]`. Shows "override" tag in list.
 10. Click "Copy overrides from last month" — alerts, copies relevant overrides.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 7: Active-pool toggle (single-active invariant)**
+
+The spec calls for a small "Active" switch on each user pool card. Only one pool may be active at a time; turning Pool B's switch on automatically turns Pool A's off. The system Debt pool does NOT get this toggle.
+
+In `renderBudgetManager` (Step 3), update the per-row template's actions area to include the toggle for non-system pools. Replace the `actions` constant assignment with:
+
+```js
+const activeToggle = isSystem ? "" : `
+  <label class="pool-toggle pool-toggle-active" title="When on, pool is pre-selected on the daily form">
+    <input type="checkbox" data-action="toggle-active" data-id="${escapeHtml(pool.id)}" ${pool.active ? "checked" : ""} />
+    <span>Active</span>
+  </label>
+`;
+const actions = isSystem
+  ? ``
+  : `
+    ${activeToggle}
+    <div class="pool-actions">
+      <button class="ghost" data-action="edit-pool" data-id="${pool.id}" aria-label="Edit ${escapeHtml(pool.name)}">✎</button>
+      <button class="ghost" data-action="delete-pool" data-id="${pool.id}" aria-label="Delete ${escapeHtml(pool.name)}">✕</button>
+    </div>
+  `;
+```
+
+Add a delegated change listener (next to the click delegate added in Step 4):
+
+```js
+document.addEventListener("change", (e) => {
+  if (!(e.target instanceof HTMLElement)) return;
+  if (!e.target.matches("input[data-action='toggle-active']")) return;
+  const id = e.target.dataset.id;
+  const target = state.budgetPools.find((p) => p.id === id);
+  if (!target || target.system === "debt") return;
+  // Single-active invariant: only the toggled pool may be active.
+  for (const p of state.budgetPools) {
+    p.active = (p.id === id) ? e.target.checked : false;
+  }
+  save();
+  renderAll();
+});
+```
+
+CSS — append to `app/styles.css`:
+
+```css
+.pool-toggle-active { font-size: 0.78em; gap: 4px; padding-right: 6px; }
+.pool-toggle-active input[type="checkbox"] { width: 14px; height: 14px; }
+```
+
+Verify: turn on Pool A → switch on. Turn on Pool B → switch on, Pool A's switch goes off. Turn off Pool B → no pool active. Add an entry on the daily form with no category → Pool B (or whichever is active) pre-selects.
+
+- [ ] **Step 8: Commit**
 
 ```bash
 git add app/script.js app/index.html app/styles.css
-git commit -m "Budget pools: manager card under Income with CRUD, palette, Pro gates"
+git commit -m "Budget pools: manager card under Income with CRUD, palette, Pro gates, active toggle"
 ```
 
 ---
@@ -1651,42 +1705,27 @@ for (const p of next.budgetPools) {
 // (no action needed — soft delete is the default)
 ```
 
-- [ ] **Step 5: Update `budgetPoolName` lookup on import for tagged entries**
+- [ ] **Step 5: Re-link tagged entries to imported pools by name**
 
-When the CSV has `budget_pool_id` but no matching pool row imported, the entry keeps the stored `budgetPoolName` for "(deleted)" display. Make sure the parse path doesn't drop it.
+CSVs export `budget_pool_id` on entry rows pointing at the pool's runtime UUID at export time. On re-import, user pools get fresh UUIDs (per Step 3: `id: uid()`), so direct ID matching breaks. Recovery is by name (case-insensitive) — every tagged entry also stores `budgetPoolName`, so the link survives.
 
-When `budget_pool_id` matches a user pool (UUID) but the import created a fresh UUID for that pool, we need to map old IDs → new IDs. This is tricky. Simplest workaround: if the imported pool has a non-system id but it didn't survive (unlikely since we always assign `uid()` to imports), we'd lose linkage.
-
-**Fix:** preserve the original ID from the CSV for user pools too:
-
-In Step 3 budget-pool parsing, replace `id: isSystem ? SYSTEM_DEBT_POOL_ID : uid()` with:
+Run this AFTER the dedupe block from Step 4, BEFORE `return next;`:
 
 ```js
-id: isSystem ? SYSTEM_DEBT_POOL_ID : (() => {
-  // If the CSV had the entry's tag pointing at a specific ID, preserve that ID by reading
-  // ahead — but we don't have that info here. Simplest: generate a new UUID.
-  return uid();
-})(),
-```
-
-Actually the right fix: since CSVs export `budget_pool_id` on entry rows that points at the pool's `id` at export time, and budget-pool rows don't currently carry their own ID column — we need to either (a) add a `pool_id` column to the budget-pool row OR (b) match by name on import.
-
-Pick (b) — match by name post-import. Add this AFTER the parse loop:
-
-```js
-// Re-link tagged entries to imported pools by name (case-insensitive)
+// Re-link tagged entries to imported pools by name (case-insensitive).
+// Runs AFTER system-Debt dedupe so the canonical "system-debt" id is already in place.
 const poolByName = new Map(next.budgetPools.map((p) => [p.name.toLowerCase(), p]));
 function relink(entry) {
   if (!entry.budgetPoolName) return;
   const pool = poolByName.get(entry.budgetPoolName.toLowerCase());
   if (pool) entry.budgetPoolId = pool.id;
-  // else: keep stored id (will render as "deleted" if no pool by that id either)
+  // else: keep stored id; rendering will show "(deleted)" via the soft-delete path
 }
 for (const e of next.dailyExpenses) relink(e);
 for (const x of next.expenses) relink(x);
 ```
 
-This way, even if pool IDs differ between export and import, the tagging follows by name.
+Edge case for the implementer to know: spec's case-insensitive uniqueness invariant is enforced at the manager, so name collisions shouldn't normally occur. If a user manually edits a CSV and creates duplicates, the relink picks the first encountered pool with that name. Acceptable for v1.
 
 - [ ] **Step 6: Manual verification**
 
@@ -1740,8 +1779,7 @@ Walk through the full testing checklist from the spec:
 - Tag a recurring expense → counts at full amount in current month.
 - Free user adds 2nd pool → paywall opens.
 - Auto-suggest works for category match.
-- Active pool toggle (single-active invariant): turn on Pool B → Pool A's switch goes off.
-  - **Note:** Active toggle UI itself wasn't built in any task above; it lives on the pool card in the manager. Skip if not yet implemented; otherwise verify single-active.
+- Active pool toggle (single-active invariant): turn on Pool B → Pool A's switch goes off (Task 2 Step 7).
 - Rollover: last month had RM 100 unspent → this month effective limit is base + 100.
 - Per-month override: set Dec override = 800 → Dec uses 800, Nov + Jan use base.
 - Copy overrides: pool with Dec override = 800 → click copy on Jan 1 → Jan override becomes 800.
@@ -1767,37 +1805,6 @@ Walk through the full testing checklist from the spec:
 git add app/script.js
 git commit -m "Budget pools: final polish + edge-case fixes"
 ```
-
----
-
-## Active-pool toggle (NOT covered above)
-
-The plan above lays out a clean MVP without the manual "Active" switch on each pool card — the auto-suggest + active-default code in Task 4 reads from `pool.active`, but no UI ever flips that flag. This is intentional: the active toggle is a small UX feature that can ship later. If we want it now, add this as **optional follow-up work** at the end of Task 2:
-
-```html
-<!-- In manager pool-row template, between meta line and pool-actions: -->
-<label class="pool-toggle pool-toggle-active">
-  <input type="checkbox" data-action="toggle-active" data-id="${escapeHtml(pool.id)}" ${pool.active ? "checked" : ""} />
-  <span>Active</span>
-</label>
-```
-
-```js
-// Click delegate
-document.addEventListener("change", (e) => {
-  if (!(e.target instanceof HTMLElement)) return;
-  if (!e.target.matches("input[data-action='toggle-active']")) return;
-  const id = e.target.dataset.id;
-  const target = state.budgetPools.find((p) => p.id === id);
-  if (!target || target.system === "debt") return;
-  // Single-active invariant
-  for (const p of state.budgetPools) p.active = (p.id === id) ? e.target.checked : false;
-  save();
-  renderAll();
-});
-```
-
-This can be folded into Task 2 if desired; left as a clear separate item here for clarity.
 
 ---
 
