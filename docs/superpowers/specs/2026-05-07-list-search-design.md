@@ -64,7 +64,7 @@ This is intentionally outside `state` because:
 |---|---|---|
 | Income (Monthly tab) | `income` | `name` |
 | Recurring expenses (Monthly tab) | `expense` | `name` |
-| Daily entries (Daily tab) | `daily` | `category`, `note`, `debtName`, `savingName` |
+| Daily entries (Daily tab) | `daily` | `category`, `note`, **resolved** `debtName` (via `debtNameById(e.debtId) \|\| e.debtName`), **resolved** `savingName` (via `state.savings.find(g => g.id === e.savingId)?.name \|\| e.savingName`), `cardDebtName` (via `debtNameById(e.cardDebtId)`) |
 | Debts (Debts tab) | `debts` | `name` |
 | Savings goals (Savings tab) | `savings` | `name` |
 | Budget pools (Monthly tab) | `pools` | `name` |
@@ -85,12 +85,22 @@ Inside each card, just below the `<h2>` heading and above the form/list, insert:
     data-search="<key>"
     placeholder="Search <list-name>..."
     aria-label="Search <list-name>"
+    autocomplete="off"
+    autocorrect="off"
+    autocapitalize="off"
+    spellcheck="false"
   />
   <button type="button" class="list-search-clear" data-search-clear="<key>" hidden aria-label="Clear search">✕</button>
 </div>
 ```
 
-Using `<input type="search">` gives native browser clear-button on some platforms (Chrome desktop, etc.) but we add our own `.list-search-clear` button for consistency across iOS/Android/Firefox where the native clear is missing.
+The `autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"` quartet prevents iOS/Safari from silently autocorrecting search terms (e.g. "kopi" → "copy") and from capitalizing the first letter — both would be frustrating bugs.
+
+**Native vs custom clear button:** `<input type="search">` triggers Chrome desktop's native ✕ pseudo-element. The CSS below applies `appearance: none` + `-webkit-appearance: none` to the input to suppress the native clear, so we standardize on the custom `.list-search-clear` button across all browsers.
+
+### Critical: search input lives in the card body, NOT inside the list element
+
+Each list has a container element (e.g. `#list-income`, `#daily-list`, `#list-debt`, `#savings-list`, `#budget-pool-list`) that gets `innerHTML`-rebuilt on every render. The search row MUST be a sibling of that container — placed inside the parent `.card`, NOT inside the list container — otherwise it gets blown away on the empty-state branch and on every re-render, losing focus + cursor position mid-type.
 
 ### Empty-state when filter has no matches
 
@@ -121,7 +131,11 @@ The `data-search-clear="<key>"` attribute makes the link clickable via the same 
   border-radius: 8px;
   background: var(--bg);
   color: var(--ink);
+  -webkit-appearance: none;
+  appearance: none;
 }
+/* Suppress Chrome / WebKit's native search clear button — we use our own */
+.list-search::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
 .list-search:focus {
   outline: 2px solid var(--accent, #b04a2c);
   outline-offset: -2px;
@@ -165,10 +179,19 @@ const filteredIncome = q
 
 // Same pattern for expense in renderFlow.
 
-// In renderDaily:
+// In renderDaily — scan RESOLVED names so rename-then-search works:
 const q = searchQueries.daily;
 const filteredDaily = q
-  ? sortedEntries.filter((e) => listSearchMatches(q, [e.category, e.note, e.debtName, e.savingName]))
+  ? sortedEntries.filter((e) => {
+      const debtNameResolved = e.debtId ? (debtNameById(e.debtId) || e.debtName) : e.debtName;
+      const savingNameResolved = e.savingId
+        ? (state.savings.find((g) => g.id === e.savingId)?.name || e.savingName)
+        : e.savingName;
+      const cardDebtNameResolved = e.cardDebtId ? debtNameById(e.cardDebtId) : null;
+      return listSearchMatches(q, [
+        e.category, e.note, debtNameResolved, savingNameResolved, cardDebtNameResolved,
+      ]);
+    })
   : sortedEntries;
 
 // Etc.
@@ -219,8 +242,8 @@ function renderForKey(key) {
       renderSavings();
       break;
     case "pools":
-      renderBudgetManager();
-      renderBudgetSummary();
+      renderBudgetManager();   // applies the search filter to the manager list
+      renderBudgetSummary();   // does NOT filter — the Home summary always shows ALL pools regardless of the manager search
       break;
   }
 }
@@ -246,7 +269,7 @@ document.addEventListener("click", (e) => {
 
 ## Tab-change reset
 
-Find the existing tab-click handler (search for `tab-button` / `data-tab` / similar). At the top of the handler, before switching tabs, clear all search queries:
+The existing tab-click handler is at `app/script.js:2813-2828` (per-button delegated click handler that switches `.tab.active` and `.tab-panel.active` classes). At the top of that handler's click callback (before any tab-switching logic), clear all search queries:
 
 ```js
 function resetAllSearchQueries() {
