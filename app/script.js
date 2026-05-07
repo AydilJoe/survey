@@ -43,7 +43,8 @@ function coerceState(parsed) {
       fx: (parsed && typeof parsed.fx === "object" && parsed.fx) ? {
         anchor: typeof parsed.fx.anchor === "string" ? parsed.fx.anchor : "EUR",
         rates: (parsed.fx.rates && typeof parsed.fx.rates === "object") ? parsed.fx.rates : {},
-        fetched_at: typeof parsed.fx.fetched_at === "string" ? parsed.fx.fetched_at : null,
+        fetched_at: (typeof parsed.fx.fetched_at === "string" && !Number.isNaN(new Date(parsed.fx.fetched_at).getTime()))
+          ? parsed.fx.fetched_at : null,
         stale: !!parsed.fx.stale,
       } : { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
       reminders: {
@@ -235,7 +236,9 @@ function fxRatesAreUsable() {
 }
 
 function fxRatesAreStale() {
-  if (!state.fx || !state.fx.fetched_at) return true;
+  if (!state.fx) return true;
+  if (state.fx.stale) return true;
+  if (!state.fx.fetched_at) return true;
   return Date.now() - new Date(state.fx.fetched_at).getTime() > 24 * 60 * 60 * 1000;
 }
 
@@ -249,7 +252,8 @@ async function loadFxRates({ force = false } = {}) {
     state.fx = {
       anchor: data.anchor || "EUR",
       rates: data.rates || {},
-      fetched_at: data.fetched_at || null,
+      fetched_at: (typeof data.fetched_at === "string" && !Number.isNaN(new Date(data.fetched_at).getTime()))
+        ? data.fetched_at : null,
       stale: !!data.stale,
     };
     save();
