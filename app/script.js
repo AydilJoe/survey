@@ -3214,8 +3214,13 @@ function openEditDialog(kind, id) {
       ${poolBlock}
     `;
 
-    // Populate the dropdown if shown
+    // Populate the dropdown options
     populatePoolDropdowns();
+    // Force the edit-dialog pool field hidden — populatePoolDropdowns() unhides
+    // it because user pools exist, but in the edit dialog we want sticky-by-default
+    // (only show the dropdown when user clicks "Change…" or "Add").
+    const editPoolField = editFields.querySelector("#edit-pool-field");
+    if (editPoolField) editPoolField.hidden = true;
     // Pre-select existing pool if any
     if (kind === "expense" && entity.budgetPoolId) {
       const sel = editFields.querySelector("select[data-budget-pool]");
