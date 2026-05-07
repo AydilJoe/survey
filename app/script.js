@@ -2678,12 +2678,19 @@ function openEditDialog(kind, id) {
   editTitle.textContent = titleMap[kind] || "Edit";
 
   if (kind === "income" || kind === "expense") {
+    const fx = entity.fx;
+    const baseCode = currentCurrency();
+    const amountLabel = `Amount (${baseCode})`;
+    const fxHint = fx
+      ? `<p class="hint">Originally <strong>${escapeHtml(fx.code)} ${Number(fx.amount).toFixed(2)}</strong> @ rate ${Number(fx.rate).toFixed(4)} on ${fx.fetched_at ? escapeHtml(fx.fetched_at.slice(0,10)) : "entry day"}. Editing the amount overrides the converted value but does not change the original.</p>`
+      : "";
     editFields.innerHTML = `
       ${textField("Name", "name", entity.name)}
       <div class="grid-2">
-        ${numberField("Amount (RM)", "amount", entity.amount)}
+        ${numberField(amountLabel, "amount", entity.amount)}
         <label class="field"><span>Month</span><input type="month" name="month" value="${entity.month || currentMonthISO()}" required /></label>
       </div>
+      ${fxHint}
       ${numberField(kind === "income" ? "Pay day (1–31)" : "Due day (1–31)", "day", entity.day ?? "", { step: "1", min: "1", max: "31" })}
     `;
   } else if (kind === "debt") {
