@@ -2137,17 +2137,27 @@ button.ghost.icon-btn {
 /* Multi-currency UI */
 .currency-picker {
   font: inherit;
+  /* Fixed width — the picker holds 3-letter codes; long option tails like
+     "(no live rate)" / "(offline)" still appear in the open dropdown but
+     don't grow the closed control. */
+  flex: 0 0 5.25rem;
+  width: 5.25rem;
   padding: 4px 8px;
   border: 1px solid var(--border, #ddd);
   border-radius: 8px;
   background: transparent;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 .fx-row {
   display: flex;
   gap: 8px;
   align-items: stretch;
 }
-.fx-row > input[type="number"] { flex: 1; }
+.fx-row > input[type="number"] {
+  flex: 1 1 0;
+  min-width: 0; /* allow shrink past content size so the picker can't squeeze us */
+}
 .fx-status {
   display: flex;
   gap: 8px;
