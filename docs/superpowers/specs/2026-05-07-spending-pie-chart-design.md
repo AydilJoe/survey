@@ -119,19 +119,24 @@ const CHART_COLORS = [
 
 Assigned by sorted index — largest slice gets `CHART_COLORS[0]` (terracotta). The "Other" bucket always gets the last color (warm grey) regardless of position; it's a visual convention.
 
+**Color overlap with `POOL_COLORS`:** the first 6 colors are byte-identical to the budget-pool palette (defined at `app/script.js:343-350`). This is intentional — the two surfaces never appear together (budget pools live on Monthly + Home tabs; the pie lives on the Reports tab), and "first thing in the list = terracotta" is a consistent mental model across the app. Implementer should NOT try to deduplicate; share by reference is fine but would couple two unrelated UI concerns.
+
 ## UI markup
 
-Replace the existing `#reports-categories` block on the Reports tab. The current markup is something like:
+The existing `#reports-categories` is wrapped in `<div class="card"><h2>By category</h2><div id="reports-categories">...</div></div>` (verified in `app/index.html` line 663-666). Keep the surrounding `<div class="card">`, just rewrite the inner content:
 
+CURRENT (lines 663-666):
 ```html
-<div id="reports-categories" class="reports-categories"></div>
+<div class="card">
+  <h2>By category</h2>
+  <div id="reports-categories" class="reports-categories"></div>
+</div>
 ```
 
-Replace with:
-
+REPLACE with:
 ```html
-<div class="card spending-card" id="reports-spending">
-  <h3>Spending by category</h3>
+<div class="card" id="reports-spending">
+  <h2>Spending by category</h2>
   <p class="hint">Where your spending went this period. Debt payments and savings deposits are tracked separately.</p>
   <div class="spending-content">
     <div class="spending-pie-wrap">
@@ -143,7 +148,7 @@ Replace with:
 </div>
 ```
 
-The `<svg>` and `<ul>` are populated by JS. The `<div id="reports-spending-empty">` is shown when there's no data.
+The single `<div class="card">` wraps everything — no nested card. The `<svg>` and `<ul>` are populated by JS. The `<div id="reports-spending-empty">` is shown when there's no data.
 
 ## Legend rendering
 
@@ -349,8 +354,8 @@ Called from `renderReports()` AFTER the existing total/avg/MoM stat updates and 
   font-size: 0.78em;
 }
 
-/* Stack pie above legend on narrow screens */
-@media (max-width: 540px) {
+/* Stack pie above legend on narrow screens — match existing breakpoint convention (480px elsewhere in styles.css) */
+@media (max-width: 480px) {
   .spending-content { flex-direction: column; }
   .spending-pie-wrap { align-self: center; }
   .spending-legend { width: 100%; }
