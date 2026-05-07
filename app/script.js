@@ -1942,9 +1942,9 @@ function polarToCartesian(cx, cy, r, angleDeg) {
 }
 
 function arcPath(startAngle, endAngle) {
-  // Path is drawn clockwise: M center → L start point → A arc CW to end point → Z.
-  // SVG's "sweep flag = 0" means counter-clockwise in screen coords, which is
-  // clockwise in our 12-o'clock-origin system after the -90° offset in polarToCartesian.
+  // Path: M center → L start point → A arc to end point → Z.
+  // sweep=1 draws the arc clockwise in SVG screen coordinates (y-axis down).
+  // The -90° offset in polarToCartesian makes 0° point to 12 o'clock instead of 3 o'clock.
   const startPt = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS, startAngle);
   const endPt = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS, endAngle);
   const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
@@ -1979,6 +1979,7 @@ function renderReportsSpending() {
   const { start, end } = reportsRange();
   if (!start || !end) {
     svg.innerHTML = "";
+    svg.setAttribute("aria-hidden", "true");
     legend.innerHTML = "";
     empty.hidden = false;
     return;
@@ -2001,6 +2002,7 @@ function renderReportsSpending() {
 
   if (filtered.length === 0) {
     svg.innerHTML = "";
+    svg.setAttribute("aria-hidden", "true");
     legend.innerHTML = "";
     empty.hidden = false;
     return;
@@ -2035,12 +2037,14 @@ function renderReportsSpending() {
 
   if (visible.length === 0 || total <= 0) {
     svg.innerHTML = "";
+    svg.setAttribute("aria-hidden", "true");
     legend.innerHTML = "";
     empty.hidden = false;
     return;
   }
 
   empty.hidden = true;
+  svg.removeAttribute("aria-hidden");
 
   // Build SVG slices
   let svgInner = "";
