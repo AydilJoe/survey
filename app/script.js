@@ -2915,24 +2915,36 @@ function csvEscape(v) {
 }
 
 function toCSV() {
-  const rows = [
-    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month", "day", "dueDay", "kind", "monthsLeft"],
+  const HEADER = [
+    "type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month", "day", "dueDay", "kind", "monthsLeft",
+    "fx_code", "fx_amount", "fx_rate", "fx_base", "fx_fetched_at",
   ];
-  const blank = (arr) => arr.concat(Array(17 - arr.length).fill(""));
-  for (const i of state.income) rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? ""]));
-  for (const ex of state.expenses) rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? ""]));
+  const rows = [HEADER];
+  const W = HEADER.length; // 22
+  const blank = (arr) => arr.concat(Array(W - arr.length).fill(""));
+  const fxCols = (fx) => fx
+    ? [fx.code || "", fx.amount ?? "", fx.rate ?? "", fx.base || "", fx.fetched_at || ""]
+    : ["", "", "", "", ""];
+
+  for (const i of state.income) {
+    rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? "", "", "", "", ...fxCols(i.fx)]));
+  }
+  for (const ex of state.expenses) {
+    rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx)]));
+  }
   for (const d of state.debts) {
     const isInst = d.kind === "installment";
     const remMonths = isInst && d.installment ? Math.max(0, Math.ceil((Number(d.balance) || 0) / d.installment)) : "";
+    // Debt definition rows do not carry per-payment fx data — leave empty.
     rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment, "", "", "", "", "", "", "", "", d.dueDay ?? "", d.kind || "standard", remMonths]));
   }
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
-      rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || ""]));
+      rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || "", "", "", "", "", "", "", "", ...fxCols(e.fx)]));
     } else if (e.kind === "saving") {
-      rows.push(blank(["daily-saving", e.savingName || "", e.amount, "", "", "", e.date || "", "", e.note || ""]));
+      rows.push(blank(["daily-saving", e.savingName || "", e.amount, "", "", "", e.date || "", "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx)]));
     } else {
-      rows.push(blank(["daily", "", e.amount, "", "", "", e.date || "", e.category || "", e.note || ""]));
+      rows.push(blank(["daily", "", e.amount, "", "", "", e.date || "", e.category || "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx)]));
     }
   }
   for (const g of state.savings) {
@@ -2980,6 +2992,22 @@ function fromCSV(text) {
   const iTarget = idx("target"), iCurrent = idx("current"), iMonth = idx("month"), iDay = idx("day");
   const iDueDay = idx("dueday");
   const iKind = idx("kind"), iMonthsLeft = idx("monthsleft");
+  const iFxCode = idx("fx_code");
+  const iFxAmount = idx("fx_amount");
+  const iFxRate = idx("fx_rate");
+  const iFxBase = idx("fx_base");
+  const iFxFetchedAt = idx("fx_fetched_at");
+
+  function readFx(row) {
+    if (iFxCode < 0 || iFxAmount < 0 || iFxRate < 0 || iFxBase < 0) return null;
+    const code = (row[iFxCode] || "").trim().toUpperCase();
+    const amount = Number(row[iFxAmount]);
+    const rate = Number(row[iFxRate]);
+    const base = (row[iFxBase] || "").trim().toUpperCase();
+    const fetched_at = iFxFetchedAt >= 0 ? (row[iFxFetchedAt] || "").trim() : "";
+    if (!code || !base || !Number.isFinite(amount) || !Number.isFinite(rate)) return null;
+    return { code, amount, rate, base, fetched_at: fetched_at || null };
+  }
   if (iType === -1) throw new Error("CSV missing 'type' column");
   const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
@@ -3001,9 +3029,15 @@ function fromCSV(text) {
     const rowDay = iDay >= 0 ? parseDay(row[iDay]) : null;
 
     if (type === "income" && name && Number.isFinite(amount)) {
-      next.income.push({ id: uid(), name, amount, month: monthOrNow, day: rowDay });
+      const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay };
+      const fx = readFx(row);
+      if (fx) entry.fx = fx;
+      next.income.push(entry);
     } else if (type === "expense" && name && Number.isFinite(amount)) {
-      next.expenses.push({ id: uid(), name, amount, month: monthOrNow, day: rowDay });
+      const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay };
+      const fx = readFx(row);
+      if (fx) entry.fx = fx;
+      next.expenses.push(entry);
     } else if (type === "debt" && name) {
       const rowDueDay = iDueDay >= 0 ? parseDay(row[iDueDay]) : null;
       const rowKind = iKind >= 0 ? (row[iKind] || "").trim().toLowerCase() : "";
@@ -3037,7 +3071,7 @@ function fromCSV(text) {
       }
     } else if (type === "daily") {
       if (!Number.isFinite(amount)) continue;
-      next.dailyExpenses.push({
+      const entry = {
         id: uid(),
         createdAt: Date.now(),
         kind: "expense",
@@ -3048,12 +3082,15 @@ function fromCSV(text) {
         amount,
         category: iCat >= 0 ? (row[iCat] || "").trim() || "Others" : "Others",
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
-      });
+      };
+      const fx = readFx(row);
+      if (fx) entry.fx = fx;
+      next.dailyExpenses.push(entry);
     } else if (type === "daily-debt") {
       if (!Number.isFinite(amount)) continue;
       const debtName = iDebtName >= 0 ? (row[iDebtName] || "").trim() : "";
       const debt = next.debts.find((d) => d.name.toLowerCase() === debtName.toLowerCase());
-      next.dailyExpenses.push({
+      const entry = {
         id: uid(),
         createdAt: Date.now(),
         kind: "debt",
@@ -3065,12 +3102,15 @@ function fromCSV(text) {
         debtId: debt ? debt.id : null,
         debtName,
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
-      });
+      };
+      const fx = readFx(row);
+      if (fx) entry.fx = fx;
+      next.dailyExpenses.push(entry);
     } else if (type === "daily-saving") {
       if (!Number.isFinite(amount)) continue;
       const savingName = name;
       const goal = next.savings.find((g) => g.name.toLowerCase() === savingName.toLowerCase());
-      next.dailyExpenses.push({
+      const entry = {
         id: uid(),
         createdAt: Date.now(),
         kind: "saving",
@@ -3082,7 +3122,10 @@ function fromCSV(text) {
         savingId: goal ? goal.id : null,
         savingName,
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
-      });
+      };
+      const fx = readFx(row);
+      if (fx) entry.fx = fx;
+      next.dailyExpenses.push(entry);
     } else if (type === "saving") {
       const target = iTarget >= 0 ? Number(row[iTarget]) : NaN;
       const current = iCurrent >= 0 ? Number(row[iCurrent]) : NaN;
