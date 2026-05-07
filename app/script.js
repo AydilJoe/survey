@@ -478,8 +478,8 @@ function renderBudgetManager() {
       : `
         ${activeToggle}
         <div class="pool-actions">
-          <button class="ghost" data-action="edit-pool" data-id="${pool.id}" aria-label="Edit ${escapeHtml(pool.name)}">✎</button>
-          <button class="ghost" data-action="delete-pool" data-id="${pool.id}" aria-label="Delete ${escapeHtml(pool.name)}">✕</button>
+          <button class="ghost" data-action="edit-pool" data-id="${escapeHtml(pool.id)}" aria-label="Edit ${escapeHtml(pool.name)}">✎</button>
+          <button class="ghost" data-action="delete-pool" data-id="${escapeHtml(pool.id)}" aria-label="Delete ${escapeHtml(pool.name)}">✕</button>
         </div>
       `;
 
@@ -5153,7 +5153,8 @@ document.addEventListener("click", (e) => {
     const id = (f.get("id") || "").toString();
     const name = (f.get("name") || "").toString().trim();
     const limit = Number(f.get("limit"));
-    const color = (f.get("color") || POOL_COLORS[0]).toString();
+    const colorRaw = (f.get("color") || POOL_COLORS[0]).toString();
+    const color = POOL_COLORS.includes(colorRaw) ? colorRaw : POOL_COLORS[0];
     const rollover = f.get("rollover") === "on";
     const overrideRaw = (f.get("thisMonthOverride") || "").toString().trim();
     const m = currentMonthISO();
