@@ -2133,3 +2133,48 @@ button.ghost.icon-btn {
 .bulk-income-skipped { margin: 0.5rem 0 0; padding-left: 1.25rem; font-size: 0.85em; color: var(--muted); }
 .bulk-income-skipped li { margin: 0.15rem 0; }
 .bulk-import-trigger { margin-top: 0.5rem; }
+
+/* Multi-currency UI */
+.currency-picker {
+  font: inherit;
+  padding: 4px 8px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  background: transparent;
+}
+.fx-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.fx-row > input[type="number"] { flex: 1; }
+.fx-status {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.fx-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 0.78em;
+  border-radius: 6px;
+  background: var(--badge-bg, #f3efe7);
+  color: var(--muted, #666);
+  white-space: nowrap;
+}
+.fx-preview {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: var(--muted, #666);
+}
+.fx-preview--err { color: #b04a2c; }
+.fx-upsell {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: #b04a2c;
+}
+.fx-upsell a { text-decoration: underline; cursor: pointer; }

@@ -2484,6 +2484,54 @@ function textField(label, name, value) {
   return `<label class="field"><span>${label}</span><input type="text" name="${name}" value="${escapeHtml(value ?? "")}" required /></label>`;
 }
 
+function currencyPickerOptions(selected) {
+  // Build an HTML <option> string. Disable codes without rates so the
+  // user can still see them but can't pick them as a foreign source.
+  const codes = Object.keys(CURRENCY_LOCALE);
+  return codes.map((code) => {
+    const supported = fxCurrencySupported(code) || code === currentCurrency();
+    const sel = code === selected ? " selected" : "";
+    const dis = supported ? "" : " disabled";
+    const tail = supported ? "" : " (no live rate)";
+    return `<option value="${code}"${sel}${dis}>${code}${tail}</option>`;
+  }).join("");
+}
+
+function renderCurrencyPicker(name, selected) {
+  // Used inline next to amount inputs. The picker shows the base currency
+  // by default; choosing a non-base value triggers the foreign-entry path.
+  const sel = selected || currentCurrency();
+  return `
+    <select class="currency-picker" name="${name}" data-currency-picker>
+      ${currencyPickerOptions(sel)}
+    </select>
+  `;
+}
+
+function renderFxBadge(fx) {
+  // Used inline next to a converted amount in lists.
+  if (!fx || !fx.code) return "";
+  const amt = Number(fx.amount).toFixed(2).replace(/\.00$/, "");
+  const rate = Number(fx.rate).toFixed(4);
+  return `<span class="fx-badge" title="Original currency · sticky rate at entry">${escapeHtml(fx.code)} ${amt} @ ${rate}</span>`;
+}
+
+function renderFxPreview({ amount, fromCode, toCode, supported }) {
+  // Live preview text shown under amount input when foreign currency selected.
+  if (!supported) {
+    return `<span class="fx-preview fx-preview--err">Live rate not available for ${escapeHtml(fromCode)}.</span>`;
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return `<span class="fx-preview">Will convert to ${escapeHtml(toCode)} at save time.</span>`;
+  }
+  const converted = convertFx(amount, fromCode, toCode);
+  const rate = pairRate(fromCode, toCode);
+  if (!Number.isFinite(converted)) {
+    return `<span class="fx-preview fx-preview--err">Cannot convert ${escapeHtml(fromCode)} → ${escapeHtml(toCode)}.</span>`;
+  }
+  return `<span class="fx-preview">${fmtMoneyIn(converted, toCode)} · rate 1 ${escapeHtml(fromCode)} = ${rate.toFixed(4)} ${escapeHtml(toCode)}</span>`;
+}
+
 function openEditDialog(kind, id) {
   let entity = null;
   if (kind === "income") entity = state.income.find((x) => x.id === id);
