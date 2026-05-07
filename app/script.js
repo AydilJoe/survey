@@ -1560,8 +1560,13 @@ function renderSavingCard(goal, { mini } = { mini: false }) {
 
 function renderSavings() {
   const listEl = $("#savings-list");
+  // Hide search bar when sparse — under 3 goals, search adds clutter without
+  // helping. Show it once the user has enough goals to make scanning hard.
+  const searchRow = document.getElementById("savings-search-row");
+  if (searchRow) searchRow.hidden = state.savings.length < 3;
+
   if (state.savings.length === 0) {
-    listEl.innerHTML = `<div class="empty">No savings goals yet.</div>`;
+    listEl.innerHTML = `<div class="empty">No savings goals yet — create one above. Even RM 50/month can grow into something meaningful.</div>`;
   } else {
     const savingsQuery = searchQueries.savings;
     const filteredSavings = savingsQuery
