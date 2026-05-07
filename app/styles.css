@@ -2328,13 +2328,20 @@ button.ghost.icon-btn {
 #bulk-debt-rows { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .bulk-debt-row {
   display: grid;
-  grid-template-columns: 24px 1fr auto auto;
-  gap: 10px;
+  grid-template-columns: 24px 1fr auto;
+  grid-template-areas:
+    "check name amount"
+    ".     date date";
+  gap: 6px 10px;
   align-items: center;
   padding: 8px 10px;
   border: 1px solid var(--line, #ddd);
   border-radius: 8px;
 }
+.bulk-debt-row > input[type="checkbox"] { grid-area: check; }
+.bulk-debt-row > div { grid-area: name; min-width: 0; }
+.bulk-debt-row > .row-amount { grid-area: amount; }
+.bulk-debt-row > input[type="date"] { grid-area: date; justify-self: end; }
 .bulk-debt-row.greyed { opacity: 0.55; background: rgba(0,0,0,0.03); }
 .bulk-debt-row .row-amount { font-variant-numeric: tabular-nums; font-weight: 500; }
 .bulk-debt-row .row-meta { font-size: 0.78em; color: var(--muted, #666); }
