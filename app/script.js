@@ -1492,11 +1492,11 @@ function renderDaily() {
       let note = "";
       if (e.kind === "debt") {
         const name = debtNameById(e.debtId) || e.debtName || "debt";
-        pill = `<span class="cat-pill" style="color:#fca5a5;border-color:#7f1d1d;">↓ ${escapeHtml(name)}</span>`;
+        pill = `<span class="cat-pill cat-pill-debt" title="Debt payment">↓ ${escapeHtml(name)}</span>`;
       } else if (e.kind === "saving") {
         const goal = state.savings.find((g) => g.id === e.savingId);
         const name = goal ? goal.name : (e.savingName || "savings");
-        pill = `<span class="cat-pill" style="color:#86efac;border-color:#166534;">↑ ${escapeHtml(name)}</span>`;
+        pill = `<span class="cat-pill cat-pill-saving" title="Savings deposit">↑ ${escapeHtml(name)}</span>`;
       } else {
         pill = `<span class="cat-pill">${escapeHtml(e.category || "Others")}</span>`;
         if (e.cardDebtId) {

@@ -1512,6 +1512,35 @@ button.ghost.icon-btn {
   border-color: rgba(200,112,75,0.4);
   background: rgba(200,112,75,0.08);
 }
+/* Debt-payment pill — uses --loss tokens (terracotta-red, on-brand) instead
+   of the previous bright red inline styles that were off-palette. */
+.daily-entry .cat-pill-debt,
+.cat-pill-debt {
+  color: var(--loss);
+  border-color: rgba(184,106,78,0.4);
+  background: rgba(184,106,78,0.08);
+}
+/* Savings-deposit pill — uses --gain tokens (sage-green, on-brand). */
+.daily-entry .cat-pill-saving,
+.cat-pill-saving {
+  color: var(--gain);
+  border-color: rgba(106,138,94,0.4);
+  background: rgba(106,138,94,0.08);
+}
+/* Daily-tab legend — small inline hint above the search bar explaining the
+   four pill variants so users don't have to guess. */
+.daily-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.78em;
+  margin: 4px 0 8px;
+}
+.daily-legend .cat-pill {
+  font-size: 0.6rem;
+  padding: 0.12rem 0.4rem;
+}
 .pro-refer {
   margin-top: 0.9rem;
   padding-top: 0.9rem;
