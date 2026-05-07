@@ -51,7 +51,7 @@ const emptyState = () => ({
 
 - [ ] **Step 2: Validate `monthlyMinSums` in `coerceState()`**
 
-In `coerceState(parsed)` near line 32, add (place near other map-typed slices like `monthlyBalances` if any, otherwise near the array slices):
+In `coerceState(parsed)` near line 32, add (place after `budgetPools` or near `fx` — both are object-typed slices):
 
 ```js
 monthlyMinSums: (parsed && parsed.monthlyMinSums && typeof parsed.monthlyMinSums === "object")
@@ -383,7 +383,18 @@ git commit -m "Last-month balance: inline ✎ edit dialog for manual minSum over
 
 - [ ] **Step 1: Emit `monthly-minsum` rows in `toCSV()`**
 
-Find `toCSV()` at line 3499. Locate the budget-pool emission loop (search for `"budget-pool"` inside `toCSV`). After the budget-pool loop, BEFORE the existing `setting` row push and the closing `return`, add:
+Find `toCSV()` at line 3499. The current emission order at the bottom is:
+
+```js
+  for (const g of state.savings) { ... }       // savings goals
+  rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));   // setting row
+  for (const p of state.budgetPools) { ... }   // budget-pool rows
+  return rows.map((r) => r.map(csvEscape).join(",")).join("\n") + "\n";
+```
+
+(Note: the setting row is BEFORE the budget-pool loop, not after. The new `monthly-minsum` rows go AFTER the budget-pool loop, immediately before the `return` statement.)
+
+Insert this AFTER the budget-pool loop's closing `}` and BEFORE `return rows.map(...)`:
 
 ```js
   // monthly-minsum rows — round-trip the per-month debt-min snapshots
@@ -398,7 +409,7 @@ Find `toCSV()` at line 3499. Locate the budget-pool emission loop (search for `"
 
 - [ ] **Step 2: Parse `monthly-minsum` rows in `fromCSV()`**
 
-Find `fromCSV()` at line 3579. Locate the existing `else if (type === "setting" ...)` branch. ADD a new branch immediately after the budget-pool branch (or after setting — order doesn't matter as long as it's before the closing `}` of the for loop):
+Find `fromCSV()` at line 3579. Inside the for-loop, the branches form a long `if / else if` ladder. Find the `} else if (type === "budget-pool" && name) {` branch (added in the budget-pools feature). Insert the new branch IMMEDIATELY after that branch's closing `}`, BEFORE the `}` that closes the for-loop body and BEFORE the post-loop dedupe block:
 
 ```js
 } else if (type === "monthly-minsum" && /^\d{4}-\d{2}$/.test(name) && Number.isFinite(amount) && amount >= 0) {
