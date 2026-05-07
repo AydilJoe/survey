@@ -582,6 +582,85 @@ function ordinalSuffix(n) {
   }
 }
 
+function populatePoolDropdowns() {
+  document.querySelectorAll("select[data-budget-pool]").forEach((sel) => {
+    const desired = sel.value;
+    sel.innerHTML = `<option value="">(none)</option>` + state.budgetPools
+      .filter((p) => p.system !== "debt") // user can't manually pick the system pool
+      .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("");
+    if (desired) sel.value = desired;
+    // Show/hide field based on whether any user pools exist
+    const field = sel.closest(".field");
+    if (field) field.hidden = state.budgetPools.filter((p) => p.system !== "debt").length === 0;
+  });
+}
+
+function attachPoolDropdownToForm(formEl) {
+  if (!formEl) return;
+  const pickerEl = formEl.querySelector("select[data-budget-pool]");
+  const amountEl = formEl.querySelector("input[name='amount']");
+  const categoryEl = formEl.querySelector("input[name='category']");
+  const preview = formEl.querySelector("[data-pool-preview]");
+  if (!pickerEl) return;
+
+  let userPickedPool = false;
+  pickerEl.addEventListener("change", () => { userPickedPool = true; updatePreview(); });
+  if (amountEl) amountEl.addEventListener("input", updatePreview);
+  formEl.addEventListener("reset", () => setTimeout(() => {
+    userPickedPool = false;
+    autoSuggest();
+    updatePreview();
+  }, 0));
+
+  if (categoryEl) {
+    categoryEl.addEventListener("input", () => { autoSuggest(); updatePreview(); });
+    categoryEl.addEventListener("change", () => { autoSuggest(); updatePreview(); });
+  }
+
+  function autoSuggest() {
+    if (userPickedPool) return;
+    if (categoryEl && categoryEl.value) {
+      const matched = findPoolByName(categoryEl.value);
+      if (matched && matched.system !== "debt") { pickerEl.value = matched.id; return; }
+    }
+    // Active-pool default
+    const active = state.budgetPools.find((p) => p.active && p.system !== "debt");
+    if (active) { pickerEl.value = active.id; return; }
+    pickerEl.value = "";
+  }
+
+  function updatePreview() {
+    if (!preview) return;
+    const id = pickerEl.value;
+    if (!id) { preview.hidden = true; return; }
+    const pool = state.budgetPools.find((p) => p.id === id);
+    if (!pool) { preview.hidden = true; return; }
+    const m = currentMonthISO();
+    const usage = poolUsageInMonth(pool.id, m);
+    const limit = effectiveLimit(pool, m);
+    const amt = Number(amountEl && amountEl.value);
+    const projected = usage + (Number.isFinite(amt) ? amt : 0);
+    const remaining = limit - projected;
+    preview.hidden = false;
+    preview.classList.remove("pool-warn-yellow", "pool-warn-red");
+    if (limit <= 0) {
+      preview.textContent = `${pool.name}: ${fmtMoney(projected)} (no limit set)`;
+    } else if (projected > limit) {
+      preview.classList.add("pool-warn-red");
+      preview.textContent = `This will put ${pool.name} at ${fmtMoney(projected)} / ${fmtMoney(limit)} — over by ${fmtMoney(projected - limit)}.`;
+    } else if (projected / limit >= 0.8) {
+      preview.classList.add("pool-warn-yellow");
+      preview.textContent = `${pool.name}: ${fmtMoney(projected)} of ${fmtMoney(limit)} (${((projected / limit) * 100).toFixed(0)}%).`;
+    } else {
+      preview.textContent = `${pool.name}: ${fmtMoney(projected)} of ${fmtMoney(limit)} — ${fmtMoney(remaining)} left.`;
+    }
+  }
+
+  // Initial setup
+  autoSuggest();
+  updatePreview();
+}
+
 function renderPoolColorOptions(selectedColor) {
   const container = document.getElementById("pool-color-options");
   if (!container) return;
@@ -1655,6 +1734,7 @@ function renderAll() {
   renderReports();
   renderBudgetManager();
   renderBudgetSummary();
+  populatePoolDropdowns();
   if (typeof renderDriveCard === "function") renderDriveCard();
 }
 
@@ -5353,5 +5433,13 @@ document.addEventListener("click", (e) => {
     alert(copied === 0
       ? "No overrides found in last month."
       : `Copied ${copied} override${copied === 1 ? "" : "s"} from last month.`);
+  });
+}
+
+{
+  populatePoolDropdowns();
+  ["form-daily", "form-expense"].forEach((id) => {
+    const f = document.getElementById(id);
+    if (f) attachPoolDropdownToForm(f);
   });
 }

@@ -2290,3 +2290,17 @@ button.ghost.icon-btn {
   border-radius: 4px;
   background: rgba(224, 122, 95, 0.22); color: #a13d22;
 }
+.pool-preview {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: var(--muted, #666);
+}
+.pool-preview.pool-warn-yellow,
+.pool-preview.pool-warn-red {
+  font-weight: 500;
+  background: transparent;
+  padding: 0;
+}
+.pool-preview.pool-warn-yellow { color: #946813; }
+.pool-preview.pool-warn-red { color: #a13d22; }
