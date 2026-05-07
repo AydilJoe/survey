@@ -5548,3 +5548,135 @@ document.addEventListener("click", (e) => {
   const field = document.getElementById("edit-pool-field");
   if (field) field.hidden = !field.hidden;
 });
+
+function openBulkDebtPayDialog() {
+  ensureDebtPool();
+  const dlg = document.getElementById("bulk-debt-pay-dialog");
+  const rowsEl = document.getElementById("bulk-debt-rows");
+  const dateEl = document.getElementById("bulk-debt-default-date");
+  if (!dlg || !rowsEl || !dateEl) return;
+
+  dateEl.value = todayISO();
+  if (state.debts.length === 0) {
+    rowsEl.innerHTML = `<p class="empty">No debts to pay.</p>`;
+    document.getElementById("bulk-debt-total").textContent = "";
+  } else {
+    rowsEl.innerHTML = state.debts.map((d) => {
+      const min = Number(d.minPayment) || 0;
+      const paid = paidThisMonth(d.id);
+      const remaining = Math.max(0, min - paid);
+      const balanceAfter = Math.max(0, (Number(d.balance) || 0) - remaining);
+      let rowClass = "bulk-debt-row";
+      let label = "";
+      let checked = "checked";
+      let amount = remaining;
+      if (paid >= min) {
+        rowClass += " greyed";
+        checked = "";
+        amount = 0;
+        label = "✓ already paid this month";
+      } else if (paid > 0) {
+        label = `RM ${remaining.toFixed(2)} still due (you've paid ${fmtMoney(paid)} this month)`;
+      } else {
+        label = `Balance after: ${fmtMoney(balanceAfter)}`;
+      }
+      return `
+        <label class="${rowClass}" data-debt-id="${escapeHtml(d.id)}">
+          <input type="checkbox" name="row-checked" ${checked}${paid >= min ? " disabled" : ""} />
+          <div>
+            <div>${escapeHtml(d.name)}</div>
+            <div class="row-meta">${escapeHtml(label)}</div>
+          </div>
+          <span class="row-amount">${amount > 0 ? fmtMoney(amount) : "—"}</span>
+          <input type="date" data-row-date value="${todayISO()}"${paid >= min ? " disabled" : ""} />
+        </label>
+      `;
+    }).join("");
+    updateBulkDebtTotal();
+  }
+
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+function updateBulkDebtTotal() {
+  const totalEl = document.getElementById("bulk-debt-total");
+  if (!totalEl) return;
+  const checkedRows = document.querySelectorAll("#bulk-debt-rows .bulk-debt-row input[name='row-checked']:checked");
+  let total = 0;
+  let count = 0;
+  checkedRows.forEach((cb) => {
+    const row = cb.closest(".bulk-debt-row");
+    if (!row) return;
+    const debtId = row.dataset.debtId;
+    const d = state.debts.find((x) => x.id === debtId);
+    if (!d) return;
+    const paid = paidThisMonth(d.id);
+    const remaining = Math.max(0, (Number(d.minPayment) || 0) - paid);
+    total += remaining;
+    count++;
+  });
+  totalEl.textContent = `Total: ${fmtMoney(total)} in ${count} ${count === 1 ? "entry" : "entries"}`;
+}
+
+document.addEventListener("change", (e) => {
+  if (!(e.target instanceof HTMLElement)) return;
+  if (e.target.matches("#bulk-debt-rows input[name='row-checked']")) updateBulkDebtTotal();
+  if (e.target.matches("#bulk-debt-default-date")) {
+    document.querySelectorAll("#bulk-debt-rows input[data-row-date]").forEach((dateInput) => {
+      if (!dateInput.disabled) dateInput.value = e.target.value;
+    });
+  }
+});
+
+function closeBulkDebtPayDialog() {
+  const dlg = document.getElementById("bulk-debt-pay-dialog");
+  if (!dlg) return;
+  if (typeof dlg.close === "function") dlg.close();
+  else dlg.removeAttribute("open");
+}
+
+document.addEventListener("click", (e) => {
+  if (!(e.target instanceof HTMLElement)) return;
+  const cancelBtn = e.target.closest("[data-action='bulk-debt-cancel']");
+  if (cancelBtn) { closeBulkDebtPayDialog(); return; }
+  const openBtn = e.target.closest("[data-action='open-bulk-debt-pay']");
+  if (openBtn) { e.preventDefault(); openBulkDebtPayDialog(); return; }
+});
+
+document.getElementById("btn-bulk-debt-confirm")?.addEventListener("click", () => {
+  const debtPool = ensureDebtPool();
+  const rows = document.querySelectorAll("#bulk-debt-pay-dialog .bulk-debt-row");
+  let created = 0;
+  rows.forEach((row) => {
+    const cb = row.querySelector("input[name='row-checked']");
+    if (!cb || !cb.checked || cb.disabled) return;
+    const debtId = row.dataset.debtId;
+    const d = state.debts.find((x) => x.id === debtId);
+    if (!d) return;
+    const paid = paidThisMonth(d.id);
+    const remaining = Math.max(0, (Number(d.minPayment) || 0) - paid);
+    if (remaining <= 0) return;
+    const dateInput = row.querySelector("input[data-row-date]");
+    const date = dateInput && dateInput.value ? dateInput.value : todayISO();
+    const applied = Math.min(remaining, Number(d.balance) || 0);
+    d.balance = Math.max(0, (Number(d.balance) || 0) - applied);
+    state.dailyExpenses.push({
+      id: uid(),
+      createdAt: Date.now(),
+      kind: "debt",
+      date,
+      amount: remaining,
+      debtId: d.id,
+      debtName: d.name,
+      budgetPoolId: debtPool.id,
+      budgetPoolName: debtPool.name,
+      note: "",
+    });
+    created++;
+  });
+  save();
+  closeBulkDebtPayDialog();
+  renderAll();
+  if (created === 0) alert("No debts paid (nothing was checked).");
+});

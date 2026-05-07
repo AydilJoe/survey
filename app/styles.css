@@ -2305,3 +2305,18 @@ button.ghost.icon-btn {
 .pool-preview.pool-warn-yellow { color: #946813; }
 .pool-preview.pool-warn-red { color: #a13d22; }
 .hint-link { margin-left: 6px; cursor: pointer; text-decoration: underline; color: var(--accent, #b04a2c); font-weight: 500; }
+#bulk-debt-rows { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.bulk-debt-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line, #ddd);
+  border-radius: 8px;
+}
+.bulk-debt-row.greyed { opacity: 0.55; background: rgba(0,0,0,0.03); }
+.bulk-debt-row .row-amount { font-variant-numeric: tabular-nums; font-weight: 500; }
+.bulk-debt-row .row-meta { font-size: 0.78em; color: var(--muted, #666); }
+.bulk-debt-row input[type="date"] { font: inherit; padding: 2px 6px; border: 1px solid var(--line, #ddd); border-radius: 6px; }
+.bulk-debt-total { font-weight: 600; padding: 8px 0; border-top: 1px solid var(--line, #eee); }

@@ -967,6 +967,22 @@
       </form>
     </dialog>
 
+    <dialog id="bulk-debt-pay-dialog" class="edit-dialog">
+      <form method="dialog" id="bulk-debt-pay-form">
+        <h2>Pay monthly minimums</h2>
+        <label class="field">
+          <span>Date for all entries</span>
+          <input type="date" id="bulk-debt-default-date" />
+        </label>
+        <div id="bulk-debt-rows"></div>
+        <div class="bulk-debt-total" id="bulk-debt-total"></div>
+        <div class="form-actions">
+          <button type="button" class="ghost" data-action="bulk-debt-cancel">Cancel</button>
+          <button type="button" class="primary" id="btn-bulk-debt-confirm">Confirm payments</button>
+        </div>
+      </form>
+    </dialog>
+
     <div id="pwa-install-banner" class="pwa-install-banner" hidden role="region" aria-label="Install Duitful">
       <div class="pwa-install-body">
         <span class="pwa-install-icon" aria-hidden="true">
