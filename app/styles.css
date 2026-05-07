@@ -2257,7 +2257,16 @@ button.ghost.icon-btn {
 .pool-banner.red { background: rgba(224, 122, 95, 0.18); color: #a13d22; }
 .pool-banner.done { background: rgba(129, 178, 154, 0.18); color: #2f6b54; }
 .pool-banner .pool-banner-cta {
-  margin-left: 8px; font-weight: 600; cursor: pointer; text-decoration: underline;
+  margin-left: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
 }
 .pool-toggle-active { font-size: 0.78em; gap: 4px; padding-right: 6px; }
 .pool-toggle-active input[type="checkbox"] { width: 14px; height: 14px; }
@@ -2304,7 +2313,18 @@ button.ghost.icon-btn {
 }
 .pool-preview.pool-warn-yellow { color: #946813; }
 .pool-preview.pool-warn-red { color: #a13d22; }
-.hint-link { margin-left: 6px; cursor: pointer; text-decoration: underline; color: var(--accent, #b04a2c); font-weight: 500; }
+.hint-link {
+  margin-left: 6px;
+  cursor: pointer;
+  text-decoration: underline;
+  color: var(--accent, #b04a2c);
+  font-weight: 500;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 500;
+}
 #bulk-debt-rows { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
 .bulk-debt-row {
   display: grid;
@@ -2320,3 +2340,9 @@ button.ghost.icon-btn {
 .bulk-debt-row .row-meta { font-size: 0.78em; color: var(--muted, #666); }
 .bulk-debt-row input[type="date"] { font: inherit; padding: 2px 6px; border: 1px solid var(--line, #ddd); border-radius: 6px; }
 .bulk-debt-total { font-weight: 600; padding: 8px 0; border-top: 1px solid var(--line, #eee); }
+
+.pool-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

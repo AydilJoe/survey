@@ -476,10 +476,12 @@ function renderBudgetManager() {
     const actions = isSystem
       ? ``
       : `
-        ${activeToggle}
-        <div class="pool-actions">
-          <button class="ghost" data-action="edit-pool" data-id="${escapeHtml(pool.id)}" aria-label="Edit ${escapeHtml(pool.name)}">✎</button>
-          <button class="ghost" data-action="delete-pool" data-id="${escapeHtml(pool.id)}" aria-label="Delete ${escapeHtml(pool.name)}">✕</button>
+        <div class="pool-row-actions">
+          ${activeToggle}
+          <div class="pool-actions">
+            <button class="ghost" data-action="edit-pool" data-id="${escapeHtml(pool.id)}" aria-label="Edit ${escapeHtml(pool.name)}">✎</button>
+            <button class="ghost" data-action="delete-pool" data-id="${escapeHtml(pool.id)}" aria-label="Delete ${escapeHtml(pool.name)}">✕</button>
+          </div>
         </div>
       `;
 
@@ -534,7 +536,7 @@ function renderBudgetSummary() {
       if (tier === "done") {
         banner = `<div class="pool-banner done">✓ All debts paid this month.</div>`;
       } else {
-        const ctaBtn = `<a class="pool-banner-cta" data-action="open-bulk-debt-pay">Pay monthly debts →</a>`;
+        const ctaBtn = `<button type="button" class="pool-banner-cta" data-action="open-bulk-debt-pay">Pay monthly debts →</button>`;
         if (tier === "calm") {
           banner = `<div class="pool-banner calm">${fmtMoney(stillDue)} due this month.${ctaBtn}</div>`;
         } else if (tier === "yellow") {
@@ -3200,7 +3202,7 @@ function openEditDialog(kind, id) {
         poolBlock = `
           <p class="hint" id="edit-pool-line">
             Budget pool: <strong>${escapeHtml(displayName)}</strong>
-            <a class="hint-link" data-action="edit-toggle-pool">Change…</a>
+            <button type="button" class="hint-link" data-action="edit-toggle-pool">Change…</button>
           </p>
           <label class="field" id="edit-pool-field" hidden>
             <span>Budget pool</span>
@@ -3213,7 +3215,7 @@ function openEditDialog(kind, id) {
         poolBlock = `
           <p class="hint" id="edit-pool-line">
             Budget pool: <em>(none)</em>
-            <a class="hint-link" data-action="edit-toggle-pool">Add</a>
+            <button type="button" class="hint-link" data-action="edit-toggle-pool">Add</button>
           </p>
           <label class="field" id="edit-pool-field" hidden>
             <span>Budget pool</span>
@@ -3812,6 +3814,37 @@ function fromCSV(text) {
     // the budget-pool parse branch assigns SYSTEM_DEBT_POOL_ID to ALL rows with
     // pool_system=debt at insertion time, so all duplicates share the canonical id.
     next.budgetPools = next.budgetPools.filter((p) => p === canonical || p.system !== "debt");
+  }
+
+  // Enforce free-tier limits for non-Pro users.
+  // Even if the CSV came from a Pro user with multiple pools / rollover / overrides,
+  // a free user importing it should NOT inherit Pro features.
+  if (typeof isPro === "function" && !isPro()) {
+    // Cap user pools to 1 (system Debt pool doesn't count).
+    let userPoolsKept = 0;
+    const droppedPoolIds = [];
+    next.budgetPools = next.budgetPools.filter((p) => {
+      if (p.system === "debt") return true;
+      if (userPoolsKept >= 1) {
+        droppedPoolIds.push(p.id);
+        return false;
+      }
+      userPoolsKept++;
+      return true;
+    });
+    // Soft-delete dropped pools' tagged entries (keep budgetPoolName for display, clear id)
+    for (const e of next.dailyExpenses) {
+      if (droppedPoolIds.includes(e.budgetPoolId)) e.budgetPoolId = "";
+    }
+    for (const x of next.expenses) {
+      if (droppedPoolIds.includes(x.budgetPoolId)) x.budgetPoolId = "";
+    }
+    // Clear Pro-only pool features on remaining pools
+    for (const p of next.budgetPools) {
+      if (p.system === "debt") continue;
+      p.rollover = false;
+      p.monthlyLimits = {};
+    }
   }
 
   // Single-active invariant — keep first active, force the rest to false
@@ -5574,10 +5607,21 @@ document.addEventListener("click", (e) => {
     if (id) {
       pool = state.budgetPools.find((p) => p.id === id);
       if (!pool || pool.system === "debt") return;
+      const oldName = pool.name;
       pool.name = name;
       pool.limit = limit;
       pool.color = color;
       pool.rollover = rollover;
+      // If the name changed, propagate to all entries' denormalized budgetPoolName
+      // so display + CSV roundtrip reflect the new name.
+      if (oldName !== name) {
+        for (const e of state.dailyExpenses) {
+          if (e.budgetPoolId === pool.id) e.budgetPoolName = name;
+        }
+        for (const x of state.expenses) {
+          if (x.budgetPoolId === pool.id) x.budgetPoolName = name;
+        }
+      }
     } else {
       pool = {
         id: uid(),
