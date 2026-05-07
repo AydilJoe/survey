@@ -661,6 +661,28 @@ function attachPoolDropdownToForm(formEl) {
   updatePreview();
 }
 
+function tagEntryWithPool(entry, kind, formEl) {
+  if (kind === "debt") {
+    const debtPool = findSystemDebtPool();
+    if (debtPool) {
+      entry.budgetPoolId = debtPool.id;
+      entry.budgetPoolName = debtPool.name;
+    }
+    return; // debt entries always auto-tag to system pool, ignore form selector
+  }
+  // For expense / saving, read the form's pool dropdown
+  if (formEl) {
+    const sel = formEl.querySelector("select[data-budget-pool]");
+    if (sel && sel.value) {
+      const pool = state.budgetPools.find((p) => p.id === sel.value);
+      if (pool && pool.system !== "debt") {
+        entry.budgetPoolId = pool.id;
+        entry.budgetPoolName = pool.name;
+      }
+    }
+  }
+}
+
 function renderPoolColorOptions(selectedColor) {
   const container = document.getElementById("pool-color-options");
   if (!container) return;
@@ -2740,6 +2762,7 @@ $("#form-daily").addEventListener("submit", (e) => {
     debt.balance = Math.max(0, debt.balance - applied);
     const entry = { id, createdAt, kind: "debt", date, amount, debtId: debt.id, debtName: debt.name, note };
     if (fxBlock) entry.fx = fxBlock;
+    tagEntryWithPool(entry, "debt", e.target);
     state.dailyExpenses.push(entry);
   } else if (type === "saving") {
     if (!target.startsWith("saving:")) {
@@ -2752,6 +2775,7 @@ $("#form-daily").addEventListener("submit", (e) => {
     goal.current = Math.max(0, (Number(goal.current) || 0) + amount);
     const entry = { id, createdAt, kind: "saving", date, amount, savingId: goal.id, savingName: goal.name, note };
     if (fxBlock) entry.fx = fxBlock;
+    tagEntryWithPool(entry, "saving", e.target);
     state.dailyExpenses.push(entry);
   } else {
     const category = (f.get("category") || "").toString().trim() || "Others";
@@ -2766,6 +2790,7 @@ $("#form-daily").addEventListener("submit", (e) => {
       }
     }
     if (fxBlock) entry.fx = fxBlock;
+    tagEntryWithPool(entry, "expense", e.target);
     state.dailyExpenses.push(entry);
   }
 
