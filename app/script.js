@@ -684,7 +684,16 @@ function renderBudgetManager() {
     return;
   }
 
-  listEl.innerHTML = pools.map((pool) => {
+  const poolsQuery = searchQueries.pools;
+  const filteredPools = poolsQuery
+    ? pools.filter((p) => listSearchMatches(poolsQuery, [p.name]))
+    : pools;
+  if (filteredPools.length === 0 && poolsQuery) {
+    listEl.innerHTML = `<div class="empty">No matches for "<strong>${escapeHtml(poolsQuery.trim())}</strong>" — <a class="empty-clear" data-search-clear="pools">clear search</a>?</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filteredPools.map((pool) => {
     const isSystem = pool.system === "debt";
     if (isSystem && state.debts.length === 0) return ""; // hide debt pool when no debts
     const usage = poolUsageInMonth(pool.id, m);
@@ -1248,9 +1257,22 @@ function renderFlow() {
   const monthIncome = state.income.filter((x) => x.month === selectedMonth).slice().sort(sortByDay);
   const monthExpenses = state.expenses.filter((x) => x.month === selectedMonth).slice().sort(sortByDay);
 
-  const renderList = (ul, items, kind) => {
+  const incomeQuery = searchQueries.income;
+  const expenseQuery = searchQueries.expense;
+  const filteredIncome = incomeQuery
+    ? monthIncome.filter((it) => listSearchMatches(incomeQuery, [it.name]))
+    : monthIncome;
+  const filteredExpense = expenseQuery
+    ? monthExpenses.filter((it) => listSearchMatches(expenseQuery, [it.name]))
+    : monthExpenses;
+
+  const renderList = (ul, items, kind, query, key) => {
     if (!items.length) {
-      ul.innerHTML = `<li class="empty">No ${kind} entries for this month.</li>`;
+      if (query) {
+        ul.innerHTML = `<li class="empty">No matches for "<strong>${escapeHtml(query.trim())}</strong>" — <a class="empty-clear" data-search-clear="${key}">clear search</a>?</li>`;
+      } else {
+        ul.innerHTML = `<li class="empty">No ${kind} entries for this month.</li>`;
+      }
       return;
     }
     ul.innerHTML = items
@@ -1272,8 +1294,8 @@ function renderFlow() {
       .join("");
   };
 
-  renderList(incomeList, monthIncome, "income");
-  renderList(expenseList, monthExpenses, "expense");
+  renderList(incomeList, filteredIncome, "income", incomeQuery, "income");
+  renderList(expenseList, filteredExpense, "expense", expenseQuery, "expense");
 
   $("#total-income").textContent = fmtMoney(totalOf(monthIncome));
   $("#total-expense").textContent = fmtMoney(totalOf(monthExpenses));
@@ -1434,8 +1456,27 @@ function renderDaily() {
     .slice()
     .sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0));
 
+  const dailyQuery = searchQueries.daily;
+  const filteredSorted = dailyQuery
+    ? sorted.filter((e) => {
+        const debtNameResolved = e.debtId ? (debtNameById(e.debtId) || e.debtName) : e.debtName;
+        const savingNameResolved = e.savingId
+          ? (state.savings.find((g) => g.id === e.savingId)?.name || e.savingName)
+          : e.savingName;
+        const cardDebtNameResolved = e.cardDebtId ? debtNameById(e.cardDebtId) : null;
+        return listSearchMatches(dailyQuery, [
+          e.category, e.note, debtNameResolved, savingNameResolved, cardDebtNameResolved,
+        ]);
+      })
+    : sorted;
+
+  if (filteredSorted.length === 0 && dailyQuery) {
+    listEl.innerHTML = `<div class="empty">No matches for "<strong>${escapeHtml(dailyQuery.trim())}</strong>" — <a class="empty-clear" data-search-clear="daily">clear search</a>?</div>`;
+    return;
+  }
+
   const groups = new Map();
-  for (const e of sorted) {
+  for (const e of filteredSorted) {
     if (!groups.has(e.date)) groups.set(e.date, []);
     groups.get(e.date).push(e);
   }
@@ -1514,7 +1555,15 @@ function renderSavings() {
   if (state.savings.length === 0) {
     listEl.innerHTML = `<div class="empty">No savings goals yet.</div>`;
   } else {
-    listEl.innerHTML = state.savings.map((g) => renderSavingCard(g, { mini: false })).join("");
+    const savingsQuery = searchQueries.savings;
+    const filteredSavings = savingsQuery
+      ? state.savings.filter((g) => listSearchMatches(savingsQuery, [g.name]))
+      : state.savings;
+    if (filteredSavings.length === 0 && savingsQuery) {
+      listEl.innerHTML = `<div class="empty">No matches for "<strong>${escapeHtml(savingsQuery.trim())}</strong>" — <a class="empty-clear" data-search-clear="savings">clear search</a>?</div>`;
+    } else {
+      listEl.innerHTML = filteredSavings.map((g) => renderSavingCard(g, { mini: false })).join("");
+    }
   }
 
   const { current, target } = savingsTotals();
@@ -1534,7 +1583,15 @@ function renderDebts() {
     ul.innerHTML = `<li class="empty">No debts yet.</li>`;
     return;
   }
-  ul.innerHTML = state.debts
+  const debtsQuery = searchQueries.debts;
+  const filteredDebts = debtsQuery
+    ? state.debts.filter((d) => listSearchMatches(debtsQuery, [d.name]))
+    : state.debts;
+  if (filteredDebts.length === 0) {
+    ul.innerHTML = `<li class="empty">No matches for "<strong>${escapeHtml(debtsQuery.trim())}</strong>" — <a class="empty-clear" data-search-clear="debts">clear search</a>?</li>`;
+    return;
+  }
+  ul.innerHTML = filteredDebts
     .slice()
     .sort((a, b) => (Number(b.apr) || 0) - (Number(a.apr) || 0))
     .map((d) => {
