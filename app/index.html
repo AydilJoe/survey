@@ -173,7 +173,15 @@
             <input type="hidden" id="daily-type" name="type" value="expense" />
             <label class="field big">
               <span>Amount (<span class="cur-code">MYR</span>)</span>
-              <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+              <div class="fx-row">
+                <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+                <select class="currency-picker" name="currency" data-currency-picker></select>
+              </div>
+              <span class="fx-preview" data-fx-preview hidden></span>
+              <span class="fx-upsell" data-fx-upsell hidden>
+                Multi-currency entry is a Pro feature.
+                <a data-action="open-paywall">Unlock for RM 19.90 →</a>
+              </span>
             </label>
             <div class="quick-amounts" id="quick-amounts">
               <button type="button" data-quick="5">+5</button>

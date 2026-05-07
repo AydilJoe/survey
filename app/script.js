@@ -2260,12 +2260,37 @@ $("#btn-copy-prev").addEventListener("click", () => {
 $("#form-daily").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
-  const amount = Number(f.get("amount"));
+  const rawAmount = Number(f.get("amount"));
   const date = (f.get("date") || "").toString() || todayISO();
   const type = dailyType();
   const target = (f.get("target") || "").toString();
   const note = (f.get("note") || "").toString().trim();
-  if (!Number.isFinite(amount) || amount <= 0) return;
+  const fromCode = (f.get("currency") || currentCurrency()).toString();
+  const toCode = currentCurrency();
+  if (!Number.isFinite(rawAmount) || rawAmount <= 0) return;
+
+  let amount = rawAmount;
+  let fxBlock = null;
+  if (fromCode !== toCode) {
+    if (!isPro()) { openPaywall("multiCurrency"); return; }
+    if (!fxCurrencySupported(fromCode)) {
+      alert(`Live rate not available for ${fromCode}.`);
+      return;
+    }
+    const converted = convertFx(rawAmount, fromCode, toCode);
+    if (!Number.isFinite(converted)) {
+      alert("Could not convert — try refreshing rates in Settings.");
+      return;
+    }
+    amount = +converted.toFixed(2);
+    fxBlock = {
+      code: fromCode,
+      amount: rawAmount,
+      rate: pairRate(fromCode, toCode),
+      base: toCode,
+      fetched_at: state.fx.fetched_at || null,
+    };
+  }
 
   const id = uid();
   const createdAt = Date.now();
@@ -2280,10 +2305,9 @@ $("#form-daily").addEventListener("submit", (e) => {
     if (!debt) return;
     const applied = Math.min(amount, debt.balance);
     debt.balance = Math.max(0, debt.balance - applied);
-    state.dailyExpenses.push({
-      id, createdAt, kind: "debt", date, amount,
-      debtId: debt.id, debtName: debt.name, note,
-    });
+    const entry = { id, createdAt, kind: "debt", date, amount, debtId: debt.id, debtName: debt.name, note };
+    if (fxBlock) entry.fx = fxBlock;
+    state.dailyExpenses.push(entry);
   } else if (type === "saving") {
     if (!target.startsWith("saving:")) {
       alert("Create a savings goal in the Savings tab first.");
@@ -2293,10 +2317,9 @@ $("#form-daily").addEventListener("submit", (e) => {
     const goal = state.savings.find((g) => g.id === savingId);
     if (!goal) return;
     goal.current = Math.max(0, (Number(goal.current) || 0) + amount);
-    state.dailyExpenses.push({
-      id, createdAt, kind: "saving", date, amount,
-      savingId: goal.id, savingName: goal.name, note,
-    });
+    const entry = { id, createdAt, kind: "saving", date, amount, savingId: goal.id, savingName: goal.name, note };
+    if (fxBlock) entry.fx = fxBlock;
+    state.dailyExpenses.push(entry);
   } else {
     const category = (f.get("category") || "").toString().trim() || "Others";
     const cardId = (f.get("card") || "").toString().trim();
@@ -2309,11 +2332,11 @@ $("#form-daily").addEventListener("submit", (e) => {
         entry.cardDebtName = card.name;
       }
     }
+    if (fxBlock) entry.fx = fxBlock;
     state.dailyExpenses.push(entry);
   }
 
   save();
-  // Reset amount + note but keep date + type for quick repeat entries.
   const keepDate = date;
   const keepType = type;
   e.target.reset();
