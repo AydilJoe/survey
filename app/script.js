@@ -14,6 +14,7 @@ const emptyState = () => ({
   debts: [],
   dailyExpenses: [],
   savings: [],
+  budgetPools: [],
   extraMonthly: 0,
   currency: "MYR",
   fx: { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
@@ -38,6 +39,20 @@ function coerceState(parsed) {
       debts: Array.isArray(parsed.debts) ? parsed.debts.map((d) => ({ kind: "standard", ...d })) : [],
       dailyExpenses: Array.isArray(parsed.dailyExpenses) ? parsed.dailyExpenses : [],
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
+      budgetPools: Array.isArray(parsed.budgetPools)
+        ? parsed.budgetPools.map((p) => ({
+            id: typeof p.id === "string" ? p.id : uid(),
+            name: typeof p.name === "string" ? p.name : "Untitled",
+            limit: Number.isFinite(Number(p.limit)) ? Number(p.limit) : 0,
+            color: typeof p.color === "string" ? p.color : "#E07A5F",
+            active: !!p.active,
+            rollover: !!p.rollover,
+            monthlyLimits: (p.monthlyLimits && typeof p.monthlyLimits === "object")
+              ? p.monthlyLimits : {},
+            system: typeof p.system === "string" ? p.system : undefined,
+            createdAt: Number.isFinite(Number(p.createdAt)) ? Number(p.createdAt) : Date.now(),
+          }))
+        : [],
       extraMonthly: Number(parsed.extraMonthly) || 0,
       currency: typeof parsed.currency === "string" && /^[A-Z]{3}$/i.test(parsed.currency) ? parsed.currency.toUpperCase() : "MYR",
       fx: (parsed && typeof parsed.fx === "object" && parsed.fx) ? {
@@ -288,6 +303,121 @@ async function loadFxRates({ force = false } = {}) {
 
 async function refreshFxRates() {
   return loadFxRates({ force: true });
+}
+
+/* ---------- budget pools ---------- */
+
+const POOL_COLORS = [
+  "#E07A5F",  // terracotta
+  "#81B29A",  // sage
+  "#5A7BA8",  // dust blue
+  "#9B7EBD",  // muted purple
+  "#E08585",  // rosy red
+  "#E6B85C",  // mustard
+];
+const SYSTEM_DEBT_POOL_ID = "system-debt";
+const SYSTEM_DEBT_POOL_COLOR = "#3F4747"; // graphite — outside POOL_COLORS
+
+function findSystemDebtPool() {
+  return state.budgetPools.find((p) => p.system === "debt");
+}
+
+function ensureDebtPool() {
+  // Idempotent: creates exactly one Debt pool if none exists.
+  // Always recomputes its limit from current debts.
+  // NOTE: This function only mutates derived fields on the in-memory pool object.
+  // It never calls save() — callers must save() if they want persistence.
+  // Safe to call on every render (called from renderAll) — no I/O, just object mutation.
+  let pool = findSystemDebtPool();
+  if (!pool) {
+    pool = {
+      id: SYSTEM_DEBT_POOL_ID,
+      name: "Debt",
+      limit: 0,
+      color: SYSTEM_DEBT_POOL_COLOR,
+      active: false,
+      rollover: false,
+      monthlyLimits: {},
+      system: "debt",
+      createdAt: Date.now(),
+    };
+    state.budgetPools.push(pool);
+  }
+  // Always update derived fields on every call
+  pool.limit = debtTotals(state.debts).minSum;
+  pool.color = SYSTEM_DEBT_POOL_COLOR;
+  pool.name = "Debt";
+  pool.id = SYSTEM_DEBT_POOL_ID;
+  return pool;
+}
+
+function monthOf(dateISO) {
+  // "2026-05-07" -> "2026-05"
+  return typeof dateISO === "string" && dateISO.length >= 7 ? dateISO.slice(0, 7) : "";
+}
+
+function poolUsageInMonth(poolId, monthISO) {
+  if (!poolId) return 0;
+  const dailySum = state.dailyExpenses
+    .filter((e) => e.budgetPoolId === poolId && monthOf(e.date) === monthISO)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const recurringSum = state.expenses
+    .filter((x) => x.budgetPoolId === poolId && x.month === monthISO)
+    .reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  return dailySum + recurringSum;
+}
+
+function effectiveLimit(pool, monthISO, depth = 0) {
+  if (!pool || depth > 12) return 0;
+  const base = (pool.monthlyLimits && pool.monthlyLimits[monthISO] != null)
+    ? Number(pool.monthlyLimits[monthISO])
+    : Number(pool.limit) || 0;
+  if (!pool.rollover || pool.system === "debt") return base;
+  const prev = shiftMonth(monthISO, -1);
+  const prevLimit = effectiveLimit(pool, prev, depth + 1);
+  const prevUsed = poolUsageInMonth(pool.id, prev);
+  const prevUnspent = Math.max(0, prevLimit - prevUsed);
+  return base + prevUnspent;
+}
+
+function paidThisMonth(debtId) {
+  const m = currentMonthISO();
+  return state.dailyExpenses
+    .filter((e) => e.kind === "debt" && e.debtId === debtId && monthOf(e.date) === m)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+}
+
+function findPoolByName(name) {
+  if (!name) return null;
+  const target = String(name).trim().toLowerCase();
+  if (!target) return null;
+  return state.budgetPools.find((p) => p.name.trim().toLowerCase() === target) || null;
+}
+
+function debtPoolEscalation() {
+  // Returns "calm" | "yellow" | "red" | "done"
+  const debtPool = findSystemDebtPool();
+  if (!debtPool || state.debts.length === 0) return "done";
+  const m = currentMonthISO();
+  const usage = poolUsageInMonth(debtPool.id, m);
+  const limit = effectiveLimit(debtPool, m);
+  if (usage >= limit) return "done";
+
+  const today = new Date();
+  const todayDay = today.getDate();
+  // Red: any debt's dueDay has passed AND it's still unpaid
+  for (const d of state.debts) {
+    if (Number.isFinite(d.dueDay) && d.dueDay < todayDay) {
+      if (paidThisMonth(d.id) < (Number(d.minPayment) || 0)) return "red";
+    }
+  }
+  // Yellow: today is within 7 days before earliest dueDay (inclusive)
+  const earliestDue = state.debts
+    .map((d) => Number(d.dueDay))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= 31)
+    .reduce((min, n) => Math.min(min, n), 32);
+  if (earliestDue <= 31 && todayDay >= earliestDue - 7 && todayDay <= earliestDue) return "yellow";
+  return "calm";
 }
 
 const fmtPct = (n) => `${(Number(n) || 0).toFixed(2)}%`;
@@ -1311,6 +1441,7 @@ function renderReports() {
 }
 
 function renderAll() {
+  ensureDebtPool();
   updateCurrencyLabels();
   renderDashboard();
   renderFlow();
