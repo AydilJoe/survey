@@ -593,8 +593,10 @@ function autoRecurFromLastMonth() {
   const last = state.lastOpenedMonth;
 
   // First-ever session: just record current month, don't auto-copy.
+  // save() persists the pointer so we don't replay this branch on next open.
   if (!last) {
     state.lastOpenedMonth = cur;
+    save();
     return { copied: 0 };
   }
 
@@ -605,6 +607,7 @@ function autoRecurFromLastMonth() {
   // a free user who upgrades later doesn't get a flood of auto-copies
   // for past transitions they were not Pro for. Intentional — do not move.
   state.lastOpenedMonth = cur;
+  save();   // persist the pointer regardless of Pro status
 
   if (!isPro()) return { copied: 0 };
 
