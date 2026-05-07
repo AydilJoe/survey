@@ -1999,7 +1999,24 @@ function renderReportsSpending() {
   const svg = document.getElementById("reports-spending-pie");
   const legend = document.getElementById("reports-spending-legend");
   const empty = document.getElementById("reports-spending-empty");
+  const totalEl = document.getElementById("reports-spending-total");
+  const kindNote = document.getElementById("reports-spending-kind-note");
   if (!card || !svg || !legend || !empty) return;
+
+  // Show a small note when the user has unchecked the "expense" kind filter,
+  // since the pie always shows expenses regardless. Bridges the surprise gap
+  // between this card and the rest of Reports (which honors the filter).
+  if (kindNote) {
+    const expenseChecked = !reportsState.kinds || reportsState.kinds.expense !== false;
+    kindNote.hidden = expenseChecked;
+  }
+
+  const clearTotal = () => {
+    if (totalEl) {
+      totalEl.textContent = "";
+      totalEl.hidden = true;
+    }
+  };
 
   const { start, end } = reportsRange();
   if (!start || !end) {
@@ -2007,6 +2024,7 @@ function renderReportsSpending() {
     svg.setAttribute("aria-hidden", "true");
     legend.innerHTML = "";
     empty.hidden = false;
+    clearTotal();
     return;
   }
 
@@ -2030,6 +2048,7 @@ function renderReportsSpending() {
     svg.setAttribute("aria-hidden", "true");
     legend.innerHTML = "";
     empty.hidden = false;
+    clearTotal();
     return;
   }
 
@@ -2065,11 +2084,17 @@ function renderReportsSpending() {
     svg.setAttribute("aria-hidden", "true");
     legend.innerHTML = "";
     empty.hidden = false;
+    clearTotal();
     return;
   }
 
   empty.hidden = true;
   svg.removeAttribute("aria-hidden");
+  if (totalEl) {
+    const catCount = visible.length;
+    totalEl.textContent = `${fmtMoney(total)} · ${catCount} ${catCount === 1 ? "category" : "categories"}`;
+    totalEl.hidden = false;
+  }
 
   // Build SVG slices
   let svgInner = "";

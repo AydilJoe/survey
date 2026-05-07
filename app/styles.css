@@ -2566,6 +2566,41 @@ button.ghost.icon-btn {
   font-size: 0.78em;
 }
 
+/* Header row: title on the left, total summary right-aligned. Bridges the
+   discrepancy between the Reports summary card (which counts ALL kinds) and
+   this card (expense-only). */
+.spending-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.spending-header h2 {
+  margin: 0 0 4px;
+}
+.spending-total {
+  font-size: 0.85em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.hint-info {
+  background: rgba(143, 160, 120, 0.12);
+  border-left: 3px solid var(--accent);
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin: 6px 0 12px;
+}
+
+/* Bump pie size on desktop — the chart is the section hero. */
+@media (min-width: 481px) {
+  .spending-pie {
+    width: 220px;
+    height: 220px;
+  }
+}
+
 /* Stack pie above legend on narrow screens — match existing 480px convention */
 @media (max-width: 480px) {
   .spending-content { flex-direction: column; }

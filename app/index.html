@@ -661,8 +661,12 @@
         </div>
 
         <div class="card" id="reports-spending">
-          <h2>Spending by category</h2>
+          <div class="spending-header">
+            <h2>Spending by category</h2>
+            <span id="reports-spending-total" class="spending-total" hidden></span>
+          </div>
           <p class="hint">Where your spending went this period. Debt payments and savings deposits are tracked separately.</p>
+          <p id="reports-spending-kind-note" class="hint hint-info" hidden>Pie always shows expenses — debt &amp; savings are separate kinds.</p>
           <div class="spending-content">
             <div class="spending-pie-wrap">
               <svg id="reports-spending-pie" class="spending-pie" viewBox="0 0 200 200" role="img" aria-label="Spending breakdown by category"></svg>
