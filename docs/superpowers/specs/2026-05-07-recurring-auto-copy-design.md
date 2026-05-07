@@ -94,6 +94,12 @@ lastOpenedMonth: typeof parsed.lastOpenedMonth === "string" && /^\d{4}-\d{2}$/.t
 ## Auto-copy logic
 
 ```js
+// IMPORTANT: this function uses currentMonthISO() (the calendar month).
+// The manual #btn-copy-prev button uses selectedMonth (the user-navigated month).
+// The two flows intentionally key off different anchors:
+//   - Auto-copy fires when the calendar rolls over (real time passing)
+//   - Manual copy fires when the user explicitly asks to copy into whatever month they're viewing
+// Don't "fix" this difference — it's by design.
 function autoRecurFromLastMonth() {
   const cur = currentMonthISO();
   const last = state.lastOpenedMonth;
@@ -107,9 +113,10 @@ function autoRecurFromLastMonth() {
   // Same month — no-op.
   if (last === cur) return { copied: 0 };
 
-  // Month boundary crossed. Bump pointer regardless of Pro status,
-  // so a free user upgrading later doesn't get a flood of auto-copies
-  // for past transitions.
+  // Month boundary crossed. Bump pointer BEFORE the isPro() gate, so that
+  // a free user who upgrades later doesn't get a flood of auto-copies
+  // for past transitions they were not Pro for. This is intentional —
+  // do not move the pointer write below the Pro check.
   state.lastOpenedMonth = cur;
 
   if (!isPro()) return { copied: 0 };
@@ -298,7 +305,8 @@ const repeatBlock = `
     <span>Repeat next month</span>
   </label>
 `;
-// Add to the editFields.innerHTML template, after the existing fields, before fxHint or poolBlock.
+// Add to the editFields.innerHTML template AFTER the day field and BEFORE poolBlock
+// (fxHint sits between the amount/month grid and the day field — repeatBlock goes after both).
 ```
 
 Edit submit handler (line 3229 area) reads the value:
@@ -315,7 +323,7 @@ This single-line update preserves the existing `it.name = name; it.amount = amou
 
 Add a new column `repeat_next` to the HEADER. Income and expense rows fill it with `Y`/`N`. Other row types leave it empty.
 
-Header changes from 30 columns (after monthly-minsum feature) to 31 columns by appending `repeat_next` at the end.
+Header changes from 29 columns (current state — monthly-minsum reuses existing `name`/`amount` columns and added no new ones) to 30 columns by appending `repeat_next` at the end.
 
 Income row example update:
 ```js
