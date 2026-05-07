@@ -3484,6 +3484,14 @@ function openEditDialog(kind, id) {
       }
     }
 
+    const repeatChecked = entity.repeatNext === false ? "" : " checked";
+    const repeatBlock = `
+      <label class="repeat-toggle">
+        <input type="checkbox" name="repeatNext"${repeatChecked} />
+        <span>Repeat next month</span>
+      </label>
+    `;
+
     editFields.innerHTML = `
       ${textField("Name", "name", entity.name)}
       <div class="grid-2">
@@ -3492,6 +3500,7 @@ function openEditDialog(kind, id) {
       </div>
       ${fxHint}
       ${numberField(kind === "income" ? "Pay day (1–31)" : "Due day (1–31)", "day", entity.day ?? "", { step: "1", min: "1", max: "31" })}
+      ${repeatBlock}
       ${poolBlock}
     `;
 
@@ -3568,6 +3577,7 @@ editForm.addEventListener("submit", (e) => {
     const day = parseDay(f.get("day"));
     if (!name || !Number.isFinite(amount) || amount < 0) return;
     it.name = name; it.amount = amount; it.month = month; it.day = day;
+    it.repeatNext = f.get("repeatNext") === "on";
     // it.fx preserved by virtue of NOT being reassigned
     // Pool — only for expense, only update if the dropdown is visible (user opened it via Change)
     if (kind === "expense") {
