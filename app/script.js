@@ -1942,17 +1942,20 @@ function polarToCartesian(cx, cy, r, angleDeg) {
 }
 
 function arcPath(startAngle, endAngle) {
-  const start = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS, endAngle);
-  const end = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS, startAngle);
+  // Path is drawn clockwise: M center → L start point → A arc CW to end point → Z.
+  // SVG's "sweep flag = 0" means counter-clockwise in screen coords, which is
+  // clockwise in our 12-o'clock-origin system after the -90° offset in polarToCartesian.
+  const startPt = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS, startAngle);
+  const endPt = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS, endAngle);
   const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
-  return `M ${PIE_CENTER} ${PIE_CENTER} L ${end.x} ${end.y} A ${PIE_RADIUS} ${PIE_RADIUS} 0 ${largeArc} 0 ${start.x} ${start.y} Z`;
+  return `M ${PIE_CENTER} ${PIE_CENTER} L ${startPt.x} ${startPt.y} A ${PIE_RADIUS} ${PIE_RADIUS} 0 ${largeArc} 1 ${endPt.x} ${endPt.y} Z`;
 }
 
 function renderSpendingLegend(slices, total) {
   const legendEl = document.getElementById("reports-spending-legend");
   if (!legendEl) return;
   legendEl.innerHTML = slices.map((s, i) => {
-    const color = s.name === "Other" ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[i];
+    const color = s.isOther ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[i];
     const pct = total > 0 ? ((s.amount / total) * 100) : 0;
     return `
       <li class="spending-legend-row">
@@ -2023,6 +2026,7 @@ function renderReportsSpending() {
         name: "Other",
         amount: rest.reduce((s, b) => s + b.amount, 0),
         count: rest.reduce((s, b) => s + b.count, 0),
+        isOther: true,
       }];
 
   // Drop zero-amount slices defensively (foreign-currency conversion or coercion edge cases)
@@ -2042,7 +2046,7 @@ function renderReportsSpending() {
   let svgInner = "";
   if (visible.length === 1) {
     // Single category — full circle (avoids 360° arc bug)
-    const color = visible[0].name === "Other" ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[0];
+    const color = visible[0].isOther ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[0];
     svgInner = `<circle cx="${PIE_CENTER}" cy="${PIE_CENTER}" r="${PIE_RADIUS}" fill="${escapeHtml(color)}"><title>${escapeHtml(visible[0].name)} · ${escapeHtml(fmtMoney(visible[0].amount))} · 100%</title></circle>`;
   } else {
     let cumulative = 0;
@@ -2050,7 +2054,7 @@ function renderReportsSpending() {
       const startAngle = (cumulative / total) * 360;
       cumulative += slice.amount;
       const endAngle = (cumulative / total) * 360;
-      const color = slice.name === "Other" ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[i];
+      const color = slice.isOther ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[i];
       const pct = ((slice.amount / total) * 100).toFixed(0);
       svgInner += `<path d="${arcPath(startAngle, endAngle)}" fill="${escapeHtml(color)}"><title>${escapeHtml(slice.name)} · ${escapeHtml(fmtMoney(slice.amount))} · ${pct}%</title></path>`;
     });
