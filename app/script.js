@@ -2641,8 +2641,7 @@ function renderFxStatus() {
   const hint = document.getElementById("fx-unsupported-hint");
   if (!line) return;
   const baseCode = currentCurrency();
-  const unsupportedBase = !fxCurrencySupported(baseCode);
-  if (hint) hint.hidden = !unsupportedBase && !["AED", "SAR", "VND"].includes(baseCode);
+  if (hint) hint.hidden = !["AED", "SAR", "VND"].includes(baseCode);
 
   if (!fxRatesAreUsable()) {
     line.textContent = "Rates not loaded — check your connection and tap Refresh.";
@@ -4580,14 +4579,15 @@ if (window.DriveSync) DriveSync.subscribe(() => renderDriveCard());
   if (btnFxRefresh) {
     btnFxRefresh.addEventListener("click", async () => {
       btnFxRefresh.disabled = true;
+      btnFxRefresh.setAttribute("aria-busy", "true");
       const old = btnFxRefresh.textContent;
       btnFxRefresh.textContent = "Refreshing…";
       try {
         await refreshFxRates();
-        renderFxStatus();
         renderAll();
       } finally {
         btnFxRefresh.disabled = false;
+        btnFxRefresh.removeAttribute("aria-busy");
         btnFxRefresh.textContent = old;
       }
     });
