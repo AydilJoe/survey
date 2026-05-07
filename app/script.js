@@ -18,6 +18,7 @@ const emptyState = () => ({
   extraMonthly: 0,
   currency: "MYR",
   fx: { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
+  monthlyMinSums: {},
   reminders: { enabled: true, daysAhead: 3, notifications: false, lastNotified: {} },
   pro: false,
   license: null,
@@ -62,6 +63,13 @@ function coerceState(parsed) {
           ? parsed.fx.fetched_at : null,
         stale: !!parsed.fx.stale,
       } : { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
+      monthlyMinSums: (parsed && parsed.monthlyMinSums && typeof parsed.monthlyMinSums === "object")
+        ? Object.fromEntries(
+            Object.entries(parsed.monthlyMinSums)
+              .filter(([k, v]) => /^\d{4}-\d{2}$/.test(k) && Number.isFinite(Number(v)) && Number(v) >= 0)
+              .map(([k, v]) => [k, Number(v)])
+          )
+        : {},
       reminders: {
         enabled: parsed.reminders && parsed.reminders.enabled !== false,
         daysAhead: Number(parsed.reminders && parsed.reminders.daysAhead) || 3,
@@ -429,6 +437,49 @@ function debtPoolEscalation() {
     .reduce((min, n) => Math.min(min, n), 32);
   if (earliestDue <= 31 && todayDay >= earliestDue - 7 && todayDay <= earliestDue) return "yellow";
   return "calm";
+}
+
+function snapshotCurrentMinSum() {
+  // Always overwrite — latest value during a month wins.
+  // No save() here; relies on the next user action to persist.
+  // Safe to call on every render (called from renderAll).
+  const m = currentMonthISO();
+  state.monthlyMinSums[m] = debtTotals(state.debts).minSum;
+}
+
+function endingBalanceFor(monthISO) {
+  // Income / recurring expenses for that month
+  const income = totalOf(state.income.filter((x) => x.month === monthISO));
+  const recurring = totalOf(state.expenses.filter((x) => x.month === monthISO));
+
+  // Debt charge for that month: max(snapshot or current minSum, actual paid)
+  const minSum = state.monthlyMinSums[monthISO] != null
+    ? Number(state.monthlyMinSums[monthISO])
+    : debtTotals(state.debts).minSum;
+  const actualDebtPaid = state.dailyExpenses
+    .filter((e) => e.kind === "debt" && monthOf(e.date) === monthISO)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const debtCharge = Math.max(minSum, actualDebtPaid);
+
+  // Cash daily expenses (non-card-charged, kind=expense)
+  const cashDailyExpenses = state.dailyExpenses
+    .filter((e) => e.kind === "expense" && !e.cardDebtId && monthOf(e.date) === monthISO)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+  // Cash savings deposits
+  const cashSavings = state.dailyExpenses
+    .filter((e) => e.kind === "saving" && monthOf(e.date) === monthISO)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+  return income - recurring - debtCharge - cashDailyExpenses - cashSavings;
+}
+
+function lastMonthHasActivity() {
+  const lastM = shiftMonth(currentMonthISO(), -1);
+  const lastIncome = totalOf(state.income.filter((x) => x.month === lastM));
+  const lastDailyCount = state.dailyExpenses.filter((e) => monthOf(e.date) === lastM).length;
+  // Recurring-only past month is intentionally NOT a trigger — see spec.
+  return lastIncome > 0 || lastDailyCount > 0;
 }
 
 function renderBudgetManager() {
@@ -1763,6 +1814,7 @@ function renderReports() {
 
 function renderAll() {
   ensureDebtPool();
+  snapshotCurrentMinSum();
   updateCurrencyLabels();
   renderDashboard();
   renderFlow();
