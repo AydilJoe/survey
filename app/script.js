@@ -497,6 +497,91 @@ function renderBudgetManager() {
   }).join("");
 }
 
+function renderBudgetSummary() {
+  const card = document.getElementById("budget-summary-card");
+  const listEl = document.getElementById("budget-summary-list");
+  if (!card || !listEl) return;
+
+  const pools = state.budgetPools.filter((p) => p.system !== "debt" || state.debts.length > 0);
+  if (pools.length === 0) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  const m = currentMonthISO();
+  // System Debt pool first; then user pools by createdAt asc
+  const sorted = pools.slice().sort((a, b) => {
+    if (a.system === "debt") return -1;
+    if (b.system === "debt") return 1;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+
+  listEl.innerHTML = sorted.map((pool) => {
+    const isSystem = pool.system === "debt";
+    const usage = poolUsageInMonth(pool.id, m);
+    const limit = effectiveLimit(pool, m);
+    const usedPct = limit > 0 ? Math.min(100, (usage / limit) * 100) : 0;
+    const isOver = limit > 0 && usage > limit;
+    const remaining = Math.max(0, limit - usage);
+    const stillDue = isSystem ? remaining : 0;
+
+    let banner = "";
+    let chip = "";
+
+    if (isSystem) {
+      const tier = debtPoolEscalation();
+      if (tier === "done") {
+        banner = `<div class="pool-banner done">✓ All debts paid this month.</div>`;
+      } else {
+        const ctaBtn = `<a class="pool-banner-cta" data-action="open-bulk-debt-pay">Pay monthly debts →</a>`;
+        if (tier === "calm") {
+          banner = `<div class="pool-banner calm">${fmtMoney(stillDue)} due this month.${ctaBtn}</div>`;
+        } else if (tier === "yellow") {
+          const earliest = state.debts
+            .map((d) => Number(d.dueDay)).filter((n) => Number.isFinite(n) && n >= 1 && n <= 31)
+            .reduce((min, n) => Math.min(min, n), 32);
+          banner = `<div class="pool-banner yellow">${fmtMoney(stillDue)} due — earliest due day is the ${earliest}${ordinalSuffix(earliest)}.${ctaBtn}</div>`;
+        } else { // red
+          const overdue = state.debts.find((d) => {
+            return Number.isFinite(d.dueDay) && d.dueDay < new Date().getDate() && paidThisMonth(d.id) < (Number(d.minPayment) || 0);
+          });
+          banner = `<div class="pool-banner red">${overdue ? escapeHtml(overdue.name) + " is overdue (was due day " + overdue.dueDay + ")" : "Past due"}.${ctaBtn}</div>`;
+        }
+      }
+    } else {
+      // User pool: yellow at 80-99, red at >=100 (skipped for system debt above)
+      if (isOver) chip = `<span class="pool-warn-red">over by ${fmtMoney(usage - limit)}</span>`;
+      else if (usedPct >= 80) chip = `<span class="pool-warn-yellow">${usedPct.toFixed(0)}%</span>`;
+    }
+
+    const fillColor = isSystem && isOver ? "#81B29A" : pool.color;
+    const meta = isSystem && isOver
+      ? `Ahead of schedule — paid ${fmtMoney(usage)}, ${fmtMoney(usage - limit)} over minimums`
+      : `${fmtMoney(usage)} of ${fmtMoney(limit)}`;
+
+    return `
+      <div class="summary-pool-row${isSystem ? " system" : ""}" data-id="${escapeHtml(pool.id)}">
+        <div class="summary-pool-head">
+          <span class="swatch" style="background:${escapeHtml(pool.color)}"></span>
+          <span class="pool-name">${escapeHtml(pool.name)}${isSystem ? ` <span class="system-tag">system</span>` : ""}${pool.active ? ` <span class="system-tag">active</span>` : ""}</span>
+          <span class="pool-meta-right">${escapeHtml(meta)} ${chip}</span>
+        </div>
+        <div class="pool-progress"><div class="fill" style="width:${usedPct.toFixed(1)}%;background:${escapeHtml(fillColor)}"></div></div>
+        ${banner}
+      </div>
+    `;
+  }).join("");
+}
+
+function ordinalSuffix(n) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return "th";
+  switch (n % 10) {
+    case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th";
+  }
+}
+
 function renderPoolColorOptions(selectedColor) {
   const container = document.getElementById("pool-color-options");
   if (!container) return;
@@ -1569,6 +1654,7 @@ function renderAll() {
   renderProControls();
   renderReports();
   renderBudgetManager();
+  renderBudgetSummary();
   if (typeof renderDriveCard === "function") renderDriveCard();
 }
 

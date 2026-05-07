@@ -2261,3 +2261,32 @@ button.ghost.icon-btn {
 }
 .pool-toggle-active { font-size: 0.78em; gap: 4px; padding-right: 6px; }
 .pool-toggle-active input[type="checkbox"] { width: 14px; height: 14px; }
+
+.budget-summary-card .summary-pool-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line, #eee);
+}
+.budget-summary-card .summary-pool-row:last-child { border-bottom: none; }
+.budget-summary-card .summary-pool-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.budget-summary-card .summary-pool-head .swatch {
+  width: 12px; height: 12px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.budget-summary-card .pool-name { font-weight: 600; }
+.budget-summary-card .pool-meta-right { margin-left: auto; font-size: 0.85em; color: var(--muted, #666); }
+.pool-warn-yellow {
+  display: inline-block; padding: 1px 6px;
+  font-size: 0.78em; font-weight: 600;
+  border-radius: 4px;
+  background: rgba(230, 184, 92, 0.22); color: #946813;
+}
+.pool-warn-red {
+  display: inline-block; padding: 1px 6px;
+  font-size: 0.78em; font-weight: 600;
+  border-radius: 4px;
+  background: rgba(224, 122, 95, 0.22); color: #a13d22;
+}
