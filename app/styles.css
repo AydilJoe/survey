@@ -2420,3 +2420,48 @@ button.ghost.icon-btn {
   font-size: 0.78em;
   color: var(--muted, #666);
 }
+
+/* List search */
+.list-search-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 0 12px;
+}
+.list-search {
+  flex: 1;
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.list-search:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  border-color: transparent;
+}
+/* Suppress Chrome / WebKit's native search clear button — we use our own */
+.list-search::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  display: none;
+}
+.list-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 8px;
+  font-size: 1.2em;
+  color: var(--muted);
+}
+.list-search-clear:hover {
+  color: var(--text);
+}
+.empty .empty-clear {
+  text-decoration: underline;
+  cursor: pointer;
+  color: var(--primary);
+}

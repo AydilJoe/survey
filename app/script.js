@@ -108,6 +108,17 @@ function coerceState(parsed) {
 let state = emptyState();
 let aesKey = null;
 
+// In-memory search queries per list. NOT persisted to encrypted state —
+// these reset on tab change and on app reload.
+const searchQueries = {
+  income: "",
+  expense: "",
+  daily: "",
+  debts: "",
+  savings: "",
+  pools: "",
+};
+
 /* ---------- crypto helpers ---------- */
 
 function b64encode(bytes) {
@@ -800,6 +811,45 @@ function renderBudgetSummary() {
       </div>
     `;
   }).join("");
+}
+
+function listSearchMatches(query, fields) {
+  if (!query) return true;
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return fields.some((f) => typeof f === "string" && f.toLowerCase().includes(q));
+}
+
+function renderForKey(key) {
+  switch (key) {
+    case "income":
+    case "expense":
+      renderFlow();
+      break;
+    case "daily":
+      renderDaily();
+      break;
+    case "debts":
+      renderDebts();
+      break;
+    case "savings":
+      renderSavings();
+      break;
+    case "pools":
+      renderBudgetManager();   // applies the search filter to the manager list
+      renderBudgetSummary();   // does NOT filter — Home summary always shows ALL pools
+      break;
+  }
+}
+
+function resetAllSearchQueries() {
+  for (const key of Object.keys(searchQueries)) searchQueries[key] = "";
+  document.querySelectorAll(".list-search[data-search]").forEach((el) => {
+    el.value = "";
+  });
+  document.querySelectorAll("[data-search-clear]").forEach((el) => {
+    el.hidden = true;
+  });
 }
 
 function ordinalSuffix(n) {
@@ -2812,6 +2862,7 @@ function updateCurrencyLabels() {
 
 document.querySelectorAll(".tab").forEach((btn) => {
   btn.addEventListener("click", () => {
+    resetAllSearchQueries();
     const name = btn.dataset.tab;
     document.querySelectorAll(".tab").forEach((b) => {
       const isActive = b === btn;
@@ -6208,3 +6259,42 @@ document.getElementById("btn-last-month-edit-reset")?.addEventListener("click", 
   closeLastMonthEditDialog();
   renderAll();
 });
+
+{
+  // List search input wiring — delegated, debounced per-input (80ms)
+  const _searchDebounce = new Map();
+  document.addEventListener("input", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (!target.matches(".list-search[data-search]")) return;
+    const key = target.dataset.search;
+    if (!Object.prototype.hasOwnProperty.call(searchQueries, key)) return;
+    const prev = _searchDebounce.get(target);
+    if (prev) clearTimeout(prev);
+    _searchDebounce.set(target, setTimeout(() => {
+      searchQueries[key] = target.value || "";
+      const clearBtn = target.parentElement && target.parentElement.querySelector("[data-search-clear]");
+      if (clearBtn) clearBtn.hidden = !searchQueries[key];
+      renderForKey(key);
+    }, 80));
+  });
+}
+
+{
+  // List search clear: ✕ button OR "clear search" link in empty-state
+  document.addEventListener("click", (e) => {
+    const btn = e.target instanceof HTMLElement
+      ? e.target.closest("[data-search-clear]")
+      : null;
+    if (!btn) return;
+    const key = btn.dataset.searchClear;
+    if (!Object.prototype.hasOwnProperty.call(searchQueries, key)) return;
+    e.preventDefault();
+    searchQueries[key] = "";
+    const input = document.querySelector(`.list-search[data-search="${key}"]`);
+    if (input) input.value = "";
+    const inlineClear = document.querySelector(`.list-search-row [data-search-clear="${key}"]`);
+    if (inlineClear) inlineClear.hidden = true;
+    renderForKey(key);
+  });
+}
