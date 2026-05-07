@@ -1320,11 +1320,24 @@ button.primary, .as-button.primary {
 button.primary:hover, .as-button.primary:hover {
   background: #1f1a17;
 }
+/* Danger buttons are outlined by default (less visually "armed") and only
+   fill on hover/focus to signal commitment. The destructive flow itself
+   already has multi-step confirmation; this is the visual accompaniment. */
 button.danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+button.danger:hover,
+button.danger:focus-visible {
   background: var(--danger);
   color: #fff;
+  border-color: var(--danger);
 }
-button.danger:hover { background: var(--danger-hover); }
+button.danger:focus-visible {
+  outline: 2px solid var(--danger-hover);
+  outline-offset: 2px;
+}
 button.ghost {
   background: transparent;
   color: var(--ink2);
@@ -1333,6 +1346,23 @@ button.ghost {
   font-size: 0.85rem;
 }
 button.ghost:hover { background: var(--card-soft); color: var(--text); }
+/* Ghost button with danger affinity — used to visually separate destructive
+   actions (e.g. Savings Delete) from primary actions next to them. Stays
+   subtle until hover so it doesn't shout, but its color signals consequence. */
+button.ghost.ghost-danger {
+  color: var(--loss);
+  border-color: rgba(184, 106, 78, 0.4);
+}
+button.ghost.ghost-danger:hover {
+  background: rgba(184, 106, 78, 0.1);
+  color: var(--loss);
+  border-color: var(--loss);
+}
+/* Push Savings delete to the far right with a small gap so it can't be
+   misclicked from Add. */
+.saving-card .saving-actions .saving-delete {
+  margin-left: auto;
+}
 button.ghost.icon-btn {
   min-width: 2.2rem;
   min-height: 2.2rem;
