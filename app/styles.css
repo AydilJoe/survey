@@ -2137,11 +2137,11 @@ button.ghost.icon-btn {
 /* Multi-currency UI */
 .currency-picker {
   font: inherit;
-  /* Fixed width — the picker holds 3-letter codes; long option tails like
-     "(no live rate)" / "(offline)" still appear in the open dropdown but
-     don't grow the closed control. */
-  flex: 0 0 5.25rem;
-  width: 5.25rem;
+  /* Fixed width — fits "CODE (SYMBOL)" like "JPY (¥)" or "MYR (RM)";
+     long option tails like "(no live rate)" / "(offline)" still appear
+     in the open dropdown but don't grow the closed control. */
+  flex: 0 0 7rem;
+  width: 7rem;
   padding: 4px 8px;
   border: 1px solid var(--border, #ddd);
   border-radius: 8px;

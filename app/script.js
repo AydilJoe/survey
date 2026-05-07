@@ -175,6 +175,22 @@ function currencySymbol() {
     return sym ? sym.value : currentCurrency();
   } catch { return currentCurrency(); }
 }
+const _currencySymbolCache = {};
+function currencySymbolFor(code) {
+  if (!code) return "";
+  if (_currencySymbolCache[code] != null) return _currencySymbolCache[code];
+  try {
+    const loc = CURRENCY_LOCALE[code] || undefined;
+    const parts = new Intl.NumberFormat(loc, { style: "currency", currency: code }).formatToParts(0);
+    const sym = parts.find((p) => p.type === "currency");
+    const result = sym ? sym.value : code;
+    _currencySymbolCache[code] = result;
+    return result;
+  } catch {
+    _currencySymbolCache[code] = code;
+    return code;
+  }
+}
 function moneyParts(n) {
   const v = Number(n) || 0;
   let prefix = "", whole = "", frac = "", suffix = "";
@@ -2579,12 +2595,14 @@ function currencyPickerOptions(selected) {
     const supported = haveRates && (fxCurrencySupported(code) || isBase);
     const sel = code === selected ? " selected" : "";
     const dis = isBase ? "" : (supported ? "" : " disabled");
+    const symbol = currencySymbolFor(code);
+    const codeLabel = symbol && symbol !== code ? `${code} (${symbol})` : code;
     let tail = "";
     if (!isBase) {
       if (!haveRates) tail = " (offline)";
       else if (!fxCurrencySupported(code)) tail = " (no live rate)";
     }
-    return `<option value="${code}"${sel}${dis}>${code}${tail}</option>`;
+    return `<option value="${code}"${sel}${dis}>${codeLabel}${tail}</option>`;
   }).join("");
 }
 
