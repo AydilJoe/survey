@@ -1919,6 +1919,147 @@ function reportsCategoryLabel(entry) {
   return entry.category || "Others";
 }
 
+// Pie chart palette — first 6 colors are byte-identical to POOL_COLORS
+// (intentional; the two surfaces never appear together and "first thing in
+// the list = terracotta" is a consistent app-wide convention).
+const CHART_COLORS = [
+  "#E07A5F",  // terracotta
+  "#81B29A",  // sage
+  "#5A7BA8",  // dust blue
+  "#9B7EBD",  // muted purple
+  "#E08585",  // rosy red
+  "#E6B85C",  // mustard
+  "#9A8E80",  // warm grey for "Other"
+];
+
+const PIE_SIZE = 200;
+const PIE_RADIUS = 90;
+const PIE_CENTER = PIE_SIZE / 2;
+
+function polarToCartesian(cx, cy, r, angleDeg) {
+  const a = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+}
+
+function arcPath(startAngle, endAngle) {
+  const start = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS, endAngle);
+  const end = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS, startAngle);
+  const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
+  return `M ${PIE_CENTER} ${PIE_CENTER} L ${end.x} ${end.y} A ${PIE_RADIUS} ${PIE_RADIUS} 0 ${largeArc} 0 ${start.x} ${start.y} Z`;
+}
+
+function renderSpendingLegend(slices, total) {
+  const legendEl = document.getElementById("reports-spending-legend");
+  if (!legendEl) return;
+  legendEl.innerHTML = slices.map((s, i) => {
+    const color = s.name === "Other" ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[i];
+    const pct = total > 0 ? ((s.amount / total) * 100) : 0;
+    return `
+      <li class="spending-legend-row">
+        <span class="spending-legend-swatch" style="background:${escapeHtml(color)}"></span>
+        <span class="spending-legend-name">${escapeHtml(s.name)}</span>
+        <span class="spending-legend-amount">${fmtMoney(s.amount)}</span>
+        <span class="spending-legend-pct">${pct.toFixed(0)}%</span>
+        <span class="spending-legend-count">${s.count} ${s.count === 1 ? "entry" : "entries"}</span>
+      </li>
+    `;
+  }).join("");
+}
+
+function renderReportsSpending() {
+  const card = document.getElementById("reports-spending");
+  const svg = document.getElementById("reports-spending-pie");
+  const legend = document.getElementById("reports-spending-legend");
+  const empty = document.getElementById("reports-spending-empty");
+  if (!card || !svg || !legend || !empty) return;
+
+  const { start, end } = reportsRange();
+  if (!start || !end) {
+    svg.innerHTML = "";
+    legend.innerHTML = "";
+    empty.hidden = false;
+    return;
+  }
+
+  // Filter: expense-only, in range, optionally narrowed by category dropdown.
+  // INTENTIONALLY ignores reportsState.kinds checkboxes — the pie always shows expenses only.
+  // We re-filter from raw `state.dailyExpenses` rather than reusing `reportsFilteredEntries()`
+  // because that helper applies the kind-checkbox filter we want to bypass.
+  const filtered = state.dailyExpenses.filter((e) => {
+    const kind = e.kind || "expense";
+    if (kind !== "expense") return false;
+    if (!e.date || e.date < start || e.date > end) return false;
+    if (reportsState.category !== "__all__") {
+      const cat = e.category || "Others";
+      if (cat !== reportsState.category) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    svg.innerHTML = "";
+    legend.innerHTML = "";
+    empty.hidden = false;
+    return;
+  }
+
+  // Aggregate by category
+  const buckets = new Map();
+  for (const e of filtered) {
+    const cat = e.category || "Others";
+    const o = buckets.get(cat) || { name: cat, amount: 0, count: 0 };
+    o.amount += Number(e.amount) || 0;
+    o.count += 1;
+    buckets.set(cat, o);
+  }
+
+  // Sort descending, cap at top 6 + "Other"
+  const sorted = Array.from(buckets.values()).sort((a, b) => b.amount - a.amount);
+  const top6 = sorted.slice(0, 6);
+  const rest = sorted.slice(6);
+  const slices = rest.length === 0
+    ? top6
+    : [...top6, {
+        name: "Other",
+        amount: rest.reduce((s, b) => s + b.amount, 0),
+        count: rest.reduce((s, b) => s + b.count, 0),
+      }];
+
+  // Drop zero-amount slices defensively (foreign-currency conversion or coercion edge cases)
+  const visible = slices.filter((s) => s.amount > 0);
+  const total = visible.reduce((s, b) => s + b.amount, 0);
+
+  if (visible.length === 0 || total <= 0) {
+    svg.innerHTML = "";
+    legend.innerHTML = "";
+    empty.hidden = false;
+    return;
+  }
+
+  empty.hidden = true;
+
+  // Build SVG slices
+  let svgInner = "";
+  if (visible.length === 1) {
+    // Single category — full circle (avoids 360° arc bug)
+    const color = visible[0].name === "Other" ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[0];
+    svgInner = `<circle cx="${PIE_CENTER}" cy="${PIE_CENTER}" r="${PIE_RADIUS}" fill="${escapeHtml(color)}"><title>${escapeHtml(visible[0].name)} · ${escapeHtml(fmtMoney(visible[0].amount))} · 100%</title></circle>`;
+  } else {
+    let cumulative = 0;
+    visible.forEach((slice, i) => {
+      const startAngle = (cumulative / total) * 360;
+      cumulative += slice.amount;
+      const endAngle = (cumulative / total) * 360;
+      const color = slice.name === "Other" ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[i];
+      const pct = ((slice.amount / total) * 100).toFixed(0);
+      svgInner += `<path d="${arcPath(startAngle, endAngle)}" fill="${escapeHtml(color)}"><title>${escapeHtml(slice.name)} · ${escapeHtml(fmtMoney(slice.amount))} · ${pct}%</title></path>`;
+    });
+  }
+
+  svg.innerHTML = svgInner;
+  renderSpendingLegend(visible, total);
+}
+
 function refreshReportsCategoryOptions() {
   const sel = document.getElementById("reports-category");
   if (!sel) return;

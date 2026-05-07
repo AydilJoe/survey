@@ -2465,3 +2465,103 @@ button.ghost.icon-btn {
   cursor: pointer;
   color: var(--primary);
 }
+
+/* Spending by category — pie + legend.
+   Note: we deliberately do NOT add a `.spending-card { margin-top: 12px; }` rule.
+   The wrapper already gets card-level spacing from the existing `.card` styles in
+   the Reports tab layout, so adding a margin would double-space. */
+#reports-spending h2 {
+  margin: 0 0 4px;
+}
+#reports-spending .hint {
+  margin: 0 0 12px;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+.spending-content {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.spending-pie-wrap {
+  flex: 0 0 auto;
+}
+.spending-pie {
+  width: 180px;
+  height: 180px;
+  display: block;
+}
+.spending-pie path,
+.spending-pie circle {
+  stroke: var(--card);
+  stroke-width: 2;
+  transition: opacity 0.15s ease;
+}
+.spending-pie path:hover,
+.spending-pie circle:hover {
+  opacity: 0.85;
+}
+.spending-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.spending-legend-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto;
+  grid-template-areas:
+    "swatch name    amount   pct"
+    ".      count   count    count";
+  gap: 4px 8px;
+  align-items: center;
+  font-size: 0.9em;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.spending-legend-row:last-child {
+  border-bottom: none;
+}
+.spending-legend-swatch {
+  grid-area: swatch;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.spending-legend-name {
+  grid-area: name;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spending-legend-amount {
+  grid-area: amount;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.spending-legend-pct {
+  grid-area: pct;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 3ch;
+  text-align: right;
+}
+.spending-legend-count {
+  grid-area: count;
+  color: var(--muted);
+  font-size: 0.78em;
+}
+
+/* Stack pie above legend on narrow screens — match existing 480px convention */
+@media (max-width: 480px) {
+  .spending-content { flex-direction: column; }
+  .spending-pie-wrap { align-self: center; }
+  .spending-legend { width: 100%; }
+}
