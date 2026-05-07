@@ -2014,31 +2014,8 @@ button.ghost.icon-btn {
 .reports-mom .delta-up   { color: var(--loss); font-weight: 600; }
 .reports-mom .delta-down { color: var(--gain); font-weight: 600; }
 
-.reports-categories,
 .reports-top {
   display: flex; flex-direction: column; gap: 0.7rem;
-}
-.reports-cat-row { display: grid; gap: 0.25rem; }
-.reports-cat-head {
-  display: flex; justify-content: space-between; align-items: baseline;
-}
-.reports-cat-name { font-weight: 500; }
-.reports-cat-amount { font-variant-numeric: tabular-nums; font-weight: 600; }
-.reports-cat-meta {
-  display: flex; justify-content: space-between;
-  font-size: 0.76rem; color: var(--muted);
-}
-.reports-bar {
-  height: 6px;
-  background: rgba(42, 36, 32, 0.06);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.reports-bar > span {
-  display: block; height: 100%;
-  background: var(--primary);
-  border-radius: 999px;
-  transition: width 0.25s ease;
 }
 
 .reports-trend {

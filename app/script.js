@@ -2158,39 +2158,10 @@ function renderReports() {
     }
   }
 
-  // By category
-  const catTotals = new Map();
-  for (const e of entries) {
-    const label = reportsCategoryLabel(e);
-    const o = catTotals.get(label) || { total: 0, count: 0 };
-    o.total += Number(e.amount) || 0;
-    o.count += 1;
-    catTotals.set(label, o);
-  }
-  const catList = Array.from(catTotals.entries())
-    .sort((a, b) => b[1].total - a[1].total);
-  const catEl = document.getElementById("reports-categories");
-  if (catEl) {
-    if (!catList.length) {
-      catEl.innerHTML = `<div class="empty">No entries match these filters.</div>`;
-    } else {
-      catEl.innerHTML = catList.map(([cat, v]) => {
-        const pct = total > 0 ? (v.total / total) * 100 : 0;
-        return `
-          <div class="reports-cat-row">
-            <div class="reports-cat-head">
-              <span class="reports-cat-name">${escapeHtml(cat)}</span>
-              <span class="reports-cat-amount">${fmtMoney(v.total)}</span>
-            </div>
-            <div class="reports-bar"><span style="width:${pct.toFixed(2)}%"></span></div>
-            <div class="reports-cat-meta">
-              <span>${pct.toFixed(1)}%</span>
-              <span>${v.count} ${v.count === 1 ? "entry" : "entries"}</span>
-            </div>
-          </div>`;
-      }).join("");
-    }
-  }
+  // Spending by category (expense-only pie chart — replaces the old mixed-kind bars).
+  // Note: this function is independent of reportsState.kinds (always expense-only).
+  // It DOES honor reportsState.category for cross-tab filtering.
+  renderReportsSpending();
 
   // Trend: daily bars if range ≤ 62 days, else monthly
   const trendEl = document.getElementById("reports-trend");
