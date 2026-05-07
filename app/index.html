@@ -336,6 +336,20 @@
             <button type="submit" class="primary">Add income</button>
           </form>
           <button type="button" class="ghost bulk-import-trigger" id="btn-bulk-import-income">Bulk import from CSV</button>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="income"
+              placeholder="Search income..."
+              aria-label="Search income"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="income" hidden aria-label="Clear search">✕</button>
+          </div>
           <ul id="list-income" class="item-list"></ul>
           <div class="total-line">Total: <strong id="total-income">RM 0.00</strong></div>
         </div>
@@ -343,6 +357,20 @@
         <div class="card budget-pool-card">
           <h2>Budget Pools</h2>
           <p class="hint">Split your monthly money into named buckets — Shopping, Subscriptions, Vacation. Tag expenses to a pool to track usage.</p>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="pools"
+              placeholder="Search pools..."
+              aria-label="Search pools"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="pools" hidden aria-label="Clear search">✕</button>
+          </div>
           <div id="budget-pool-list"></div>
           <button type="button" class="primary" id="btn-add-pool">+ Add pool</button>
           <button type="button" class="ghost" id="btn-copy-pool-overrides">Copy overrides from last month</button>
@@ -425,6 +453,20 @@
             </label>
             <button type="submit" class="primary">Add expense</button>
           </form>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="expense"
+              placeholder="Search expenses..."
+              aria-label="Search expenses"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="expense" hidden aria-label="Clear search">✕</button>
+          </div>
           <ul id="list-expense" class="item-list"></ul>
           <div class="total-line">Total: <strong id="total-expense">RM 0.00</strong></div>
         </div>
@@ -439,6 +481,20 @@
             <div class="stat"><span class="label">Entries</span><strong id="daily-month-count">0</strong></div>
           </div>
           <p class="hint">Add a new entry from the Home tab. Tap ✕ to delete.</p>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="daily"
+              placeholder="Search daily entries..."
+              aria-label="Search daily entries"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="daily" hidden aria-label="Clear search">✕</button>
+          </div>
           <div id="daily-list" class="daily-list"></div>
         </div>
       </section>
@@ -495,6 +551,20 @@
             </label>
             <button type="submit" class="primary">Add debt</button>
           </form>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="debts"
+              placeholder="Search debts..."
+              aria-label="Search debts"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="debts" hidden aria-label="Clear search">✕</button>
+          </div>
           <ul id="list-debt" class="debt-list"></ul>
         </div>
       </section>
@@ -524,6 +594,20 @@
 
         <div class="card">
           <h2>Goals</h2>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="savings"
+              placeholder="Search savings goals..."
+              aria-label="Search savings goals"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="savings" hidden aria-label="Clear search">✕</button>
+          </div>
           <div id="savings-list" class="savings-list"></div>
         </div>
       </section>
