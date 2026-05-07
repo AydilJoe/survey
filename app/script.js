@@ -440,11 +440,18 @@ function debtPoolEscalation() {
 }
 
 function snapshotCurrentMinSum() {
-  // Always overwrite — latest value during a month wins.
+  // Snapshot the current month's minSum. Two guard conditions:
+  //   1. Only write if we have a real value (minSum > 0), so a momentarily
+  //      empty debts list doesn't clobber a real prior snapshot.
+  //   2. If no prior snapshot exists for this month yet, write whatever
+  //      we have (even zero) so the slot is initialized.
   // No save() here; relies on the next user action to persist.
   // Safe to call on every render (called from renderAll).
   const m = currentMonthISO();
-  state.monthlyMinSums[m] = debtTotals(state.debts).minSum;
+  const cur = debtTotals(state.debts).minSum;
+  if (cur > 0 || state.monthlyMinSums[m] == null) {
+    state.monthlyMinSums[m] = cur;
+  }
 }
 
 function endingBalanceFor(monthISO) {
@@ -5984,7 +5991,12 @@ document.getElementById("btn-last-month-edit-save")?.addEventListener("click", (
   const month = dlg.dataset.targetMonth;
   const inputEl = dlg.querySelector("input[name='minSum']");
   if (!month || !inputEl) return;
-  const v = Number(inputEl.value);
+  const raw = (inputEl.value || "").toString().trim();
+  if (raw === "") {
+    alert("Enter a value, or use Reset to auto.");
+    return;
+  }
+  const v = Number(raw);
   if (!Number.isFinite(v) || v < 0) {
     alert("Enter a positive number.");
     return;
