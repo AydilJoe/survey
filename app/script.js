@@ -19,6 +19,7 @@ const emptyState = () => ({
   currency: "MYR",
   fx: { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
   monthlyMinSums: {},
+  lastOpenedMonth: "",
   reminders: { enabled: true, daysAhead: 3, notifications: false, lastNotified: {} },
   pro: false,
   license: null,
@@ -35,8 +36,18 @@ function coerceState(parsed) {
     const nowMonth = currentMonthISO();
     const fillMonth = (x) => ({ ...x, month: x.month || nowMonth });
     return {
-      income: Array.isArray(parsed.income) ? parsed.income.map(fillMonth) : [],
-      expenses: Array.isArray(parsed.expenses) ? parsed.expenses.map(fillMonth) : [],
+      income: Array.isArray(parsed.income)
+        ? parsed.income.map(fillMonth).map((x) => ({
+            ...x,
+            repeatNext: x.repeatNext === false ? false : true,
+          }))
+        : [],
+      expenses: Array.isArray(parsed.expenses)
+        ? parsed.expenses.map(fillMonth).map((x) => ({
+            ...x,
+            repeatNext: x.repeatNext === false ? false : true,
+          }))
+        : [],
       debts: Array.isArray(parsed.debts) ? parsed.debts.map((d) => ({ kind: "standard", ...d })) : [],
       dailyExpenses: Array.isArray(parsed.dailyExpenses) ? parsed.dailyExpenses : [],
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
@@ -70,6 +81,9 @@ function coerceState(parsed) {
               .map(([k, v]) => [k, Number(v)])
           )
         : {},
+      lastOpenedMonth: typeof parsed.lastOpenedMonth === "string" && /^\d{4}-\d{2}$/.test(parsed.lastOpenedMonth)
+        ? parsed.lastOpenedMonth
+        : "",
       reminders: {
         enabled: parsed.reminders && parsed.reminders.enabled !== false,
         daysAhead: Number(parsed.reminders && parsed.reminders.daysAhead) || 3,
@@ -568,6 +582,78 @@ function renderLastMonthLine() {
   }
 }
 
+// IMPORTANT: this function uses currentMonthISO() (the calendar month).
+// The manual #btn-copy-prev button uses selectedMonth (the user-navigated month).
+// The two flows intentionally key off different anchors:
+//   - Auto-copy fires when the calendar rolls over (real time passing)
+//   - Manual copy fires when the user explicitly asks to copy into whatever month they're viewing
+// Don't "fix" this difference — it's by design.
+function autoRecurFromLastMonth() {
+  const cur = currentMonthISO();
+  const last = state.lastOpenedMonth;
+
+  // First-ever session: just record current month, don't auto-copy.
+  if (!last) {
+    state.lastOpenedMonth = cur;
+    return { copied: 0 };
+  }
+
+  // Same month — no-op.
+  if (last === cur) return { copied: 0 };
+
+  // Month boundary crossed. Bump pointer BEFORE the isPro() gate, so that
+  // a free user who upgrades later doesn't get a flood of auto-copies
+  // for past transitions they were not Pro for. Intentional — do not move.
+  state.lastOpenedMonth = cur;
+
+  if (!isPro()) return { copied: 0 };
+
+  const prev = shiftMonth(cur, -1);
+
+  const sourceIncome = state.income.filter((x) => x.month === prev && x.repeatNext !== false);
+  const sourceExpenses = state.expenses.filter((x) => x.month === prev && x.repeatNext !== false);
+
+  const existsInc = new Set(state.income.filter((x) => x.month === cur).map((x) => `${x.name}|${x.amount}`));
+  const existsExp = new Set(state.expenses.filter((x) => x.month === cur).map((x) => `${x.name}|${x.amount}`));
+
+  let copied = 0;
+  for (const it of sourceIncome) {
+    const key = `${it.name}|${it.amount}`;
+    if (existsInc.has(key)) continue;
+    state.income.push({
+      id: uid(),
+      name: it.name,
+      amount: it.amount,
+      month: cur,
+      day: it.day ?? null,
+      repeatNext: true,
+      ...(it.fx ? { fx: { ...it.fx } } : {}),
+      ...(it.budgetPoolId ? { budgetPoolId: it.budgetPoolId, budgetPoolName: it.budgetPoolName } : {}),
+    });
+    existsInc.add(key);
+    copied++;
+  }
+  for (const ex of sourceExpenses) {
+    const key = `${ex.name}|${ex.amount}`;
+    if (existsExp.has(key)) continue;
+    state.expenses.push({
+      id: uid(),
+      name: ex.name,
+      amount: ex.amount,
+      month: cur,
+      day: ex.day ?? null,
+      repeatNext: true,
+      ...(ex.fx ? { fx: { ...ex.fx } } : {}),
+      ...(ex.budgetPoolId ? { budgetPoolId: ex.budgetPoolId, budgetPoolName: ex.budgetPoolName } : {}),
+    });
+    existsExp.add(key);
+    copied++;
+  }
+
+  if (copied > 0) save();
+  return { copied, fromMonth: prev };
+}
+
 function renderBudgetManager() {
   const listEl = document.getElementById("budget-pool-list");
   if (!listEl) return;
@@ -879,6 +965,22 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function showToast(message, durationMs = 3500) {
+  let toast = document.getElementById("app-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "app-toast";
+    toast.className = "app-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add("visible");
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => {
+    toast.classList.remove("visible");
+  }, durationMs);
 }
 
 function todayISO() {
@@ -1906,6 +2008,10 @@ function renderReports() {
 function renderAll() {
   resetEndingBalanceCache();
   resetEffectiveLimitCache();
+  const recurResult = autoRecurFromLastMonth();
+  if (recurResult.copied > 0) {
+    showToast(`Copied ${recurResult.copied} entr${recurResult.copied === 1 ? "y" : "ies"} from ${formatMonthLabel(recurResult.fromMonth)}.`);
+  }
   ensureDebtPool();
   snapshotCurrentMinSum();
   updateCurrencyLabels();
