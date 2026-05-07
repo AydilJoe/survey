@@ -3476,19 +3476,22 @@ function toCSV() {
   const HEADER = [
     "type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month", "day", "dueDay", "kind", "monthsLeft",
     "fx_code", "fx_amount", "fx_rate", "fx_base", "fx_fetched_at",
+    "pool_color", "pool_active", "pool_rollover", "pool_monthly_limits", "pool_system",
+    "budget_pool_id", "budget_pool_name",
   ];
   const rows = [HEADER];
-  const W = HEADER.length; // 22
+  const W = HEADER.length; // 29
   const blank = (arr) => arr.concat(Array(W - arr.length).fill(""));
   const fxCols = (fx) => fx
     ? [fx.code || "", fx.amount ?? "", fx.rate ?? "", fx.base || "", fx.fetched_at || ""]
     : ["", "", "", "", ""];
+  const poolTagCols = (entry) => [entry.budgetPoolId || "", entry.budgetPoolName || ""];
 
   for (const i of state.income) {
-    rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? "", "", "", "", ...fxCols(i.fx)]));
+    rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? "", "", "", "", ...fxCols(i.fx), "", "", "", "", "", "", ""]));
   }
   for (const ex of state.expenses) {
-    rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx)]));
+    rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx), "", "", "", "", "", ...poolTagCols(ex)]));
   }
   for (const d of state.debts) {
     const isInst = d.kind === "installment";
@@ -3498,17 +3501,28 @@ function toCSV() {
   }
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
-      rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || "", "", "", "", "", "", "", "", ...fxCols(e.fx)]));
+      rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]));
     } else if (e.kind === "saving") {
-      rows.push(blank(["daily-saving", e.savingName || "", e.amount, "", "", "", e.date || "", "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx)]));
+      rows.push(blank(["daily-saving", e.savingName || "", e.amount, "", "", "", e.date || "", "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]));
     } else {
-      rows.push(blank(["daily", "", e.amount, "", "", "", e.date || "", e.category || "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx)]));
+      rows.push(blank(["daily", "", e.amount, "", "", "", e.date || "", e.category || "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]));
     }
   }
   for (const g of state.savings) {
     rows.push(blank(["saving", g.name, "", "", "", "", "", "", "", "", g.target, g.current]));
   }
   rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
+  // Budget pool rows — name in column 1 ("name"), limit in column 2 ("amount"),
+  // remaining pool-specific data in the new pool_* columns at index 22-26.
+  for (const p of state.budgetPools) {
+    rows.push(blank([
+      "budget-pool", p.name, p.limit, "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+      "", "", "", "", "",
+      p.color || "", p.active ? "Y" : "N", p.rollover ? "Y" : "N",
+      JSON.stringify(p.monthlyLimits || {}) === "{}" ? "" : JSON.stringify(p.monthlyLimits || {}),
+      p.system || "",
+    ]));
+  }
   return rows.map((r) => r.map(csvEscape).join(",")).join("\n") + "\n";
 }
 
@@ -3555,6 +3569,21 @@ function fromCSV(text) {
   const iFxRate = idx("fx_rate");
   const iFxBase = idx("fx_base");
   const iFxFetchedAt = idx("fx_fetched_at");
+  const iPoolColor = idx("pool_color");
+  const iPoolActive = idx("pool_active");
+  const iPoolRollover = idx("pool_rollover");
+  const iPoolMonthlyLimits = idx("pool_monthly_limits");
+  const iPoolSystem = idx("pool_system");
+  const iBudgetPoolId = idx("budget_pool_id");
+  const iBudgetPoolName = idx("budget_pool_name");
+
+  function readPoolTag(row) {
+    if (iBudgetPoolId < 0 || iBudgetPoolName < 0) return null;
+    const id = (row[iBudgetPoolId] || "").trim();
+    const name = (row[iBudgetPoolName] || "").trim();
+    if (!id || !name) return null;
+    return { id, name };
+  }
 
   function readFx(row) {
     if (iFxCode < 0 || iFxAmount < 0 || iFxRate < 0 || iFxBase < 0) return null;
@@ -3590,11 +3619,15 @@ function fromCSV(text) {
       const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay };
       const fx = readFx(row);
       if (fx) entry.fx = fx;
+      const tag = readPoolTag(row);
+      if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
       next.income.push(entry);
     } else if (type === "expense" && name && Number.isFinite(amount)) {
       const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay };
       const fx = readFx(row);
       if (fx) entry.fx = fx;
+      const tag = readPoolTag(row);
+      if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
       next.expenses.push(entry);
     } else if (type === "debt" && name) {
       const rowDueDay = iDueDay >= 0 ? parseDay(row[iDueDay]) : null;
@@ -3643,6 +3676,8 @@ function fromCSV(text) {
       };
       const fx = readFx(row);
       if (fx) entry.fx = fx;
+      const tag = readPoolTag(row);
+      if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
       next.dailyExpenses.push(entry);
     } else if (type === "daily-debt") {
       if (!Number.isFinite(amount)) continue;
@@ -3663,6 +3698,8 @@ function fromCSV(text) {
       };
       const fx = readFx(row);
       if (fx) entry.fx = fx;
+      const tag = readPoolTag(row);
+      if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
       next.dailyExpenses.push(entry);
     } else if (type === "daily-saving") {
       if (!Number.isFinite(amount)) continue;
@@ -3683,6 +3720,8 @@ function fromCSV(text) {
       };
       const fx = readFx(row);
       if (fx) entry.fx = fx;
+      const tag = readPoolTag(row);
+      if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
       next.dailyExpenses.push(entry);
     } else if (type === "saving") {
       const target = iTarget >= 0 ? Number(row[iTarget]) : NaN;
@@ -3698,8 +3737,75 @@ function fromCSV(text) {
       });
     } else if (type === "setting" && name.toLowerCase() === "extramonthly") {
       if (Number.isFinite(amount)) next.extraMonthly = amount;
+    } else if (type === "budget-pool" && name) {
+      const poolLimit = Number.isFinite(amount) ? amount : 0;
+      const color = iPoolColor >= 0 ? (row[iPoolColor] || "").trim() : POOL_COLORS[0];
+      const active = iPoolActive >= 0 ? (row[iPoolActive] || "").trim().toUpperCase() === "Y" : false;
+      const rollover = iPoolRollover >= 0 ? (row[iPoolRollover] || "").trim().toUpperCase() === "Y" : false;
+      let monthlyLimits = {};
+      if (iPoolMonthlyLimits >= 0) {
+        const raw = (row[iPoolMonthlyLimits] || "").trim();
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object") monthlyLimits = parsed;
+          } catch (e) { console.warn("CSV pool_monthly_limits malformed:", e); }
+        }
+      }
+      const system = iPoolSystem >= 0 ? (row[iPoolSystem] || "").trim().toLowerCase() : "";
+      const isSystem = system === "debt";
+
+      // Validate color is in palette (else fall back). System pool color is fixed.
+      const validColor = isSystem ? SYSTEM_DEBT_POOL_COLOR : (POOL_COLORS.includes(color) ? color : POOL_COLORS[0]);
+
+      next.budgetPools.push({
+        id: isSystem ? SYSTEM_DEBT_POOL_ID : uid(),
+        name: isSystem ? "Debt" : name,
+        limit: poolLimit,
+        color: validColor,
+        active,
+        rollover: isSystem ? false : rollover,
+        monthlyLimits: isSystem ? {} : monthlyLimits,
+        system: isSystem ? "debt" : undefined,
+        createdAt: Date.now(),
+      });
     }
   }
+
+  // Dedupe system Debt pools — keep first, drop the rest. Rewrite tagged entries.
+  const debtPools = next.budgetPools.filter((p) => p.system === "debt");
+  if (debtPools.length > 1) {
+    const canonical = debtPools[0];
+    canonical.id = SYSTEM_DEBT_POOL_ID;
+    const dropIds = debtPools.slice(1).map((p) => p.id);
+    for (const e of next.dailyExpenses) {
+      if (dropIds.includes(e.budgetPoolId)) {
+        e.budgetPoolId = SYSTEM_DEBT_POOL_ID;
+        e.budgetPoolName = "Debt";
+      }
+    }
+    next.budgetPools = next.budgetPools.filter((p) => p.system !== "debt" || p.id === SYSTEM_DEBT_POOL_ID);
+  }
+
+  // Single-active invariant — keep first active, force the rest to false
+  let firstActiveSeen = false;
+  for (const p of next.budgetPools) {
+    if (p.active && !firstActiveSeen) { firstActiveSeen = true; }
+    else if (p.active) { p.active = false; }
+  }
+
+  // Re-link tagged entries to imported pools by name (case-insensitive).
+  // Runs AFTER system-Debt dedupe so the canonical "system-debt" id is already in place.
+  const poolByName = new Map(next.budgetPools.map((p) => [typeof p.name === "string" ? p.name.toLowerCase() : "", p]));
+  function relink(entry) {
+    if (!entry.budgetPoolName) return;
+    const pool = poolByName.get(entry.budgetPoolName.toLowerCase());
+    if (pool) entry.budgetPoolId = pool.id;
+    // else: keep stored id; rendering will show "(deleted)" via the soft-delete path
+  }
+  for (const e of next.dailyExpenses) relink(e);
+  for (const x of next.expenses) relink(x);
+
   return next;
 }
 
