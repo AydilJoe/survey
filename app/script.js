@@ -384,17 +384,38 @@ function poolUsageInMonth(poolId, monthISO) {
   return dailySum + recurringSum;
 }
 
-function effectiveLimit(pool, monthISO, depth = 0) {
-  if (!pool || depth > 12) return 0;
+// Per-render cache for effectiveLimit — keyed by `${pool.id}:${monthISO}`.
+// Reset at top of renderAll alongside the ending-balance cache.
+let _effectiveLimitCache = new Map();
+
+function resetEffectiveLimitCache() {
+  _effectiveLimitCache = new Map();
+}
+
+function effectiveLimit(pool, monthISO) {
+  if (!pool) return 0;
+  // Pool didn't exist before its createdAt — terminator for unbounded recursion.
+  if (Number.isFinite(pool.createdAt)) {
+    const poolBirthMonth = new Date(pool.createdAt).toISOString().slice(0, 7);
+    if (monthISO < poolBirthMonth) return 0;
+  }
+  const cacheKey = `${pool.id}:${monthISO}`;
+  if (_effectiveLimitCache.has(cacheKey)) return _effectiveLimitCache.get(cacheKey);
+
   const base = (pool.monthlyLimits && pool.monthlyLimits[monthISO] != null)
     ? Number(pool.monthlyLimits[monthISO])
     : Number(pool.limit) || 0;
-  if (!pool.rollover || pool.system === "debt") return base;
+  if (!pool.rollover || pool.system === "debt") {
+    _effectiveLimitCache.set(cacheKey, base);
+    return base;
+  }
   const prev = shiftMonth(monthISO, -1);
-  const prevLimit = effectiveLimit(pool, prev, depth + 1);
+  const prevLimit = effectiveLimit(pool, prev);
   const prevUsed = poolUsageInMonth(pool.id, prev);
   const prevUnspent = Math.max(0, prevLimit - prevUsed);
-  return base + prevUnspent;
+  const result = base + prevUnspent;
+  _effectiveLimitCache.set(cacheKey, result);
+  return result;
 }
 
 function paidThisMonth(debtId, monthISO) {
@@ -454,12 +475,44 @@ function snapshotCurrentMinSum() {
   }
 }
 
+// Per-render cache for endingBalanceFor — reset at top of renderAll.
+let _endingBalanceCache = new Map();
+let _earliestDataMonth = null;
+
+function resetEndingBalanceCache() {
+  _endingBalanceCache = new Map();
+  _earliestDataMonth = null;
+}
+
+function getEarliestDataMonth() {
+  if (_earliestDataMonth !== null) return _earliestDataMonth;
+  let earliest = null;
+  for (const x of state.income) {
+    if (typeof x.month === "string" && (!earliest || x.month < earliest)) earliest = x.month;
+  }
+  for (const x of state.expenses) {
+    if (typeof x.month === "string" && (!earliest || x.month < earliest)) earliest = x.month;
+  }
+  for (const e of state.dailyExpenses) {
+    const m = monthOf(e.date);
+    if (m && (!earliest || m < earliest)) earliest = m;
+  }
+  _earliestDataMonth = earliest; // may be null if state has no data
+  return earliest;
+}
+
 function endingBalanceFor(monthISO) {
-  // Income / recurring expenses for that month
+  // Walk-back terminator: nothing before the user's first data month.
+  // Returns 0 cleanly for fresh installs and for months prior to first activity.
+  const earliest = getEarliestDataMonth();
+  if (!earliest || monthISO < earliest) return 0;
+
+  // Per-render memo — same render computes each month at most once.
+  if (_endingBalanceCache.has(monthISO)) return _endingBalanceCache.get(monthISO);
+
+  // Single-month components
   const income = totalOf(state.income.filter((x) => x.month === monthISO));
   const recurring = totalOf(state.expenses.filter((x) => x.month === monthISO));
-
-  // Debt charge for that month: max(snapshot or current minSum, actual paid)
   const minSum = state.monthlyMinSums[monthISO] != null
     ? Number(state.monthlyMinSums[monthISO])
     : debtTotals(state.debts).minSum;
@@ -467,18 +520,18 @@ function endingBalanceFor(monthISO) {
     .filter((e) => e.kind === "debt" && monthOf(e.date) === monthISO)
     .reduce((s, e) => s + (Number(e.amount) || 0), 0);
   const debtCharge = Math.max(minSum, actualDebtPaid);
-
-  // Cash daily expenses (non-card-charged, kind=expense)
   const cashDailyExpenses = state.dailyExpenses
     .filter((e) => e.kind === "expense" && !e.cardDebtId && monthOf(e.date) === monthISO)
     .reduce((s, e) => s + (Number(e.amount) || 0), 0);
-
-  // Cash savings deposits
   const cashSavings = state.dailyExpenses
     .filter((e) => e.kind === "saving" && monthOf(e.date) === monthISO)
     .reduce((s, e) => s + (Number(e.amount) || 0), 0);
 
-  return income - recurring - debtCharge - cashDailyExpenses - cashSavings;
+  const monthNet = income - recurring - debtCharge - cashDailyExpenses - cashSavings;
+  const carryFromPrev = endingBalanceFor(shiftMonth(monthISO, -1));
+  const total = monthNet + carryFromPrev;
+  _endingBalanceCache.set(monthISO, total);
+  return total;
 }
 
 function lastMonthHasActivity() {
@@ -1398,7 +1451,9 @@ function renderDashboard() {
   const cashDailyMonth = Math.max(0, dailyMonth - cardChargedThisMonth);
   const extra = Number(state.extraMonthly) || 0;
   const totalOut = expenseTotal + minSum + extra + cashDailyMonth;
-  const net = incomeTotal - totalOut;
+  // Carryover from the prior month's running balance (recursive — chains all the way back).
+  const carryOver = endingBalanceFor(shiftMonth(thisMonth, -1));
+  const net = carryOver + incomeTotal - totalOut;
   const netEl = $("#stat-net");
   const mp = moneyParts(net);
   netEl.innerHTML =
@@ -1429,7 +1484,8 @@ function renderDashboard() {
 
   const formulaEl = $("#stat-net-formula");
   if (formulaEl) {
-    const base = `= income − recurring − min debt − extra − daily cash (${fmtMoney(cashDailyMonth)})`;
+    const carryPart = carryOver !== 0 ? `${fmtMoney(carryOver)} carryover + ` : "";
+    const base = `= ${carryPart}income − recurring − min debt − extra − daily cash (${fmtMoney(cashDailyMonth)})`;
     formulaEl.textContent = cardChargedThisMonth > 0
       ? `${base} · ${fmtMoney(cardChargedThisMonth)} charged to cards (added to debt)`
       : base;
@@ -1848,6 +1904,8 @@ function renderReports() {
 }
 
 function renderAll() {
+  resetEndingBalanceCache();
+  resetEffectiveLimitCache();
   ensureDebtPool();
   snapshotCurrentMinSum();
   updateCurrencyLabels();
