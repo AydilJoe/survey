@@ -482,6 +482,32 @@ function lastMonthHasActivity() {
   return lastIncome > 0 || lastDailyCount > 0;
 }
 
+function renderLastMonthLine() {
+  const line = document.getElementById("last-month-line");
+  if (!line) return;
+  if (!lastMonthHasActivity()) {
+    line.hidden = true;
+    return;
+  }
+  line.hidden = false;
+  const lastM = shiftMonth(currentMonthISO(), -1);
+  const balance = endingBalanceFor(lastM);
+  const labelText = document.getElementById("last-month-label-text");
+  const valueEl = document.getElementById("last-month-value");
+  const toneEl = document.getElementById("last-month-tone");
+  if (labelText) labelText.textContent = formatMonthLabel(lastM);
+  if (valueEl) {
+    valueEl.textContent = fmtMoney(balance);
+    valueEl.classList.toggle("pos", balance >= 0);
+    valueEl.classList.toggle("neg", balance < 0);
+  }
+  if (toneEl) {
+    toneEl.textContent = balance >= 0 ? " ✓" : " ▼";
+    toneEl.classList.toggle("pos", balance >= 0);
+    toneEl.classList.toggle("neg", balance < 0);
+  }
+}
+
 function renderBudgetManager() {
   const listEl = document.getElementById("budget-pool-list");
   if (!listEl) return;
@@ -1493,6 +1519,8 @@ function renderDashboard() {
       )
       .join("");
   }
+
+  renderLastMonthLine();
 }
 
 /* ---------- Reports ---------- */

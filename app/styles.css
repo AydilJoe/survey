@@ -2346,3 +2346,31 @@ button.ghost.icon-btn {
   align-items: center;
   gap: 6px;
 }
+
+.last-month-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.85em;
+  color: var(--muted, #666);
+  flex-wrap: wrap;
+}
+.last-month-line .last-month-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.last-month-line .last-month-value.pos { color: var(--pos, #2f6b54); }
+.last-month-line .last-month-value.neg { color: var(--neg, #b04a2c); }
+.last-month-line .last-month-tone.pos { color: var(--pos, #2f6b54); }
+.last-month-line .last-month-tone.neg { color: var(--neg, #b04a2c); }
+.last-month-line .last-month-edit {
+  background: none;
+  border: none;
+  padding: 0 4px;
+  font: inherit;
+  cursor: pointer;
+  color: var(--muted, #666);
+  opacity: 0.6;
+}
+.last-month-line .last-month-edit:hover { opacity: 1; }
