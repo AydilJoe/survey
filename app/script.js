@@ -1696,10 +1696,17 @@ function renderDashboard() {
   const progText = $("#hero-progress-text");
   if (fill && progText) {
     if (incomeTotal > 0) {
-      const spentPct = Math.min(100, (totalOut / incomeTotal) * 100);
-      fill.style.width = spentPct + "%";
-      fill.classList.toggle("over", totalOut > incomeTotal);
-      progText.innerHTML = `<span>Spent ${fmtMoney(totalOut)} of ${fmtMoney(incomeTotal)} · ${spentPct.toFixed(0)}%</span><span>Day ${prog.day}/${prog.daysInMonth}</span>`;
+      // Show the REAL percentage in the text (don't cap at 100% — that hides
+      // overspend severity, which is the most important signal here). The bar
+      // itself is capped because a bar can't physically render past 100%, but
+      // the .over class darkens it as a visual cue that we're overflowing.
+      const realPct = (totalOut / incomeTotal) * 100;
+      const cappedPct = Math.min(100, realPct);
+      const isOver = totalOut > incomeTotal;
+      fill.style.width = cappedPct + "%";
+      fill.classList.toggle("over", isOver);
+      const overSuffix = isOver ? ` · over by ${fmtMoney(totalOut - incomeTotal)}` : "";
+      progText.innerHTML = `<span>Spent ${fmtMoney(totalOut)} of ${fmtMoney(incomeTotal)} · ${realPct.toFixed(0)}%${overSuffix}</span><span>Day ${prog.day}/${prog.daysInMonth}</span>`;
     } else {
       fill.style.width = prog.pct.toFixed(1) + "%";
       fill.classList.remove("over");
@@ -1709,12 +1716,22 @@ function renderDashboard() {
 
   const formulaEl = $("#stat-net-formula");
   if (formulaEl) {
-    const carryPart = carryOver !== 0 ? `${fmtMoney(carryOver)} carryover + ` : "";
-    const savingsPart = cashDailySavings > 0 ? ` − savings (${fmtMoney(cashDailySavings)})` : "";
-    const base = `= ${carryPart}income − recurring − debt (${fmtMoney(debtCharge)}) − daily (${fmtMoney(cashDailyExpenses)})${savingsPart}`;
-    formulaEl.textContent = cardChargedThisMonth > 0
-      ? `${base} · ${fmtMoney(cardChargedThisMonth)} charged to cards (added to debt)`
-      : base;
+    // Conversational sentence form rather than ASCII math — easier to read at
+    // a glance. Only mention components that are non-zero to keep it short.
+    const parts = [];
+    if (carryOver !== 0) {
+      const sign = carryOver < 0 ? "−" : "+";
+      parts.push(`${sign} ${fmtMoney(Math.abs(carryOver))} carried over from last month`);
+    }
+    parts.push(`+ ${fmtMoney(incomeTotal)} income`);
+    if (expenseTotal > 0) parts.push(`− ${fmtMoney(expenseTotal)} recurring`);
+    if (debtCharge > 0) parts.push(`− ${fmtMoney(debtCharge)} debt payments`);
+    if (cashDailyExpenses > 0) parts.push(`− ${fmtMoney(cashDailyExpenses)} daily spending`);
+    if (cashDailySavings > 0) parts.push(`− ${fmtMoney(cashDailySavings)} into savings`);
+    const cardNote = cardChargedThisMonth > 0
+      ? ` ${fmtMoney(cardChargedThisMonth)} was charged to a card and added to debt.`
+      : "";
+    formulaEl.textContent = `${parts.join(" ")} = ${fmtMoney(net)}.${cardNote}`;
   }
 
   $("#stat-debt-total").textContent = fmtMoney(total);
@@ -1794,18 +1811,26 @@ function renderDashboard() {
   if (state.debts.length === 0) {
     orderEl.innerHTML = `<li class="empty">No debts yet. Add some in the Debts tab.</li>`;
   } else {
+    // Convert "Month N" to "Cleared by <Month YYYY>" so the label reads as a
+    // calendar deadline rather than an ordinal rank.
+    const baseMonth = currentMonthISO();
     orderEl.innerHTML = sim.order
-      .map(
-        (d) => `
+      .map((d) => {
+        let etaLabel = "—";
+        if (d.paidAtMonth) {
+          const targetMonth = shiftMonth(baseMonth, d.paidAtMonth - 1);
+          etaLabel = `Cleared by ${formatMonthLabel(targetMonth)}`;
+        }
+        return `
         <li>
           <span></span>
           <span>
             <div class="debt-name">${escapeHtml(d.name)}</div>
             <div class="debt-detail">APR ${fmtPct(d.apr)}</div>
           </span>
-          <span class="payoff-eta">${d.paidAtMonth ? `Month ${d.paidAtMonth}` : "—"}</span>
-        </li>`,
-      )
+          <span class="payoff-eta">${etaLabel}</span>
+        </li>`;
+      })
       .join("");
   }
 
