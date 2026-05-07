@@ -509,7 +509,7 @@ function renderFlow() {
           <li data-id="${it.id}">
             ${chip}
             <span class="name">${escapeHtml(it.name)}</span>
-            <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMoney(it.amount)}</span>
+            <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMoney(it.amount)}${renderFxBadge(it.fx)}</span>
             <button class="ghost icon-btn" data-action="edit-${kind}" data-id="${it.id}" aria-label="Edit ${escapeHtml(it.name)}">✎</button>
             <button class="ghost icon-btn" data-action="delete-${kind}" data-id="${it.id}" aria-label="Delete ${escapeHtml(it.name)}">✕</button>
           </li>`;
@@ -704,7 +704,7 @@ function renderDaily() {
       html.push(`
         <div class="daily-entry" data-id="${e.id}">
           <div class="primary-line">${pill}${note}</div>
-          <span class="amount">${fmtMoney(e.amount)}</span>
+          <span class="amount">${fmtMoney(e.amount)}${renderFxBadge(e.fx)}</span>
           <button class="ghost" data-action="delete-daily" data-id="${e.id}" aria-label="Delete">✕</button>
         </div>
       `);
