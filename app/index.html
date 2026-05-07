@@ -317,6 +317,46 @@
           <div class="total-line">Total: <strong id="total-income">RM 0.00</strong></div>
         </div>
 
+        <div class="card budget-pool-card">
+          <h2>Budget Pools</h2>
+          <p class="hint">Split your monthly money into named buckets — Shopping, Subscriptions, Vacation. Tag expenses to a pool to track usage.</p>
+          <div id="budget-pool-list"></div>
+          <button type="button" class="primary" id="btn-add-pool">+ Add pool</button>
+          <button type="button" class="ghost" id="btn-copy-pool-overrides">Copy overrides from last month</button>
+
+          <form id="form-budget-pool" hidden>
+            <div class="grid-2">
+              <label class="field">
+                <span>Pool name</span>
+                <input type="text" name="name" placeholder="Shopping" required />
+              </label>
+              <label class="field">
+                <span>Monthly limit (<span class="cur-code">MYR</span>)</span>
+                <input type="number" name="limit" step="0.01" min="0.01" inputmode="decimal" required />
+              </label>
+            </div>
+            <fieldset class="palette-picker">
+              <legend>Color</legend>
+              <div id="pool-color-options"></div>
+            </fieldset>
+            <div class="grid-2">
+              <label class="pool-toggle">
+                <input type="checkbox" name="rollover" />
+                <span>Roll over unspent next month</span>
+              </label>
+              <label class="field">
+                <span>Override limit this month (optional)</span>
+                <input type="number" name="thisMonthOverride" step="0.01" min="0" inputmode="decimal" />
+              </label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="primary">Save pool</button>
+              <button type="button" class="ghost" id="btn-cancel-pool">Cancel</button>
+            </div>
+            <input type="hidden" name="id" value="" />
+          </form>
+        </div>
+
         <div class="card">
           <h2>Recurring expenses</h2>
           <form id="form-expense" class="flow-form">

@@ -431,6 +431,106 @@ function debtPoolEscalation() {
   return "calm";
 }
 
+function renderBudgetManager() {
+  const listEl = document.getElementById("budget-pool-list");
+  if (!listEl) return;
+  const m = currentMonthISO();
+  const pools = state.budgetPools.slice().sort((a, b) => {
+    // System Debt pool floats to top
+    if (a.system === "debt") return -1;
+    if (b.system === "debt") return 1;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+
+  if (pools.length === 0 || (pools.length === 1 && pools[0].system === "debt" && state.debts.length === 0)) {
+    listEl.innerHTML = `<p class="empty">No budget pools yet — tap "+ Add pool" to create one.</p>`;
+    return;
+  }
+
+  listEl.innerHTML = pools.map((pool) => {
+    const isSystem = pool.system === "debt";
+    if (isSystem && state.debts.length === 0) return ""; // hide debt pool when no debts
+    const usage = poolUsageInMonth(pool.id, m);
+    const limit = effectiveLimit(pool, m);
+    const usedPct = limit > 0 ? Math.min(100, (usage / limit) * 100) : 0;
+    const isOver = limit > 0 && usage > limit;
+    const overrideTag = (!isSystem && pool.monthlyLimits && pool.monthlyLimits[m] != null)
+      ? `<span class="system-tag">override</span>` : "";
+    const rolloverTag = (!isSystem && pool.rollover)
+      ? `<span class="system-tag">rollover</span>` : "";
+    const activeTag = (!isSystem && pool.active)
+      ? `<span class="system-tag">active</span>` : "";
+    const systemTag = isSystem ? `<span class="system-tag">system</span>` : "";
+
+    const meta = isSystem
+      ? `Auto-derived from your debts' monthly minimums`
+      : `Base ${fmtMoney(pool.limit)}${overrideTag ? ` · this month ${fmtMoney(limit)}` : ""}`;
+
+    const activeToggle = isSystem ? "" : `
+      <label class="pool-toggle pool-toggle-active" title="When on, pool is pre-selected on the daily form">
+        <input type="checkbox" data-action="toggle-active" data-id="${escapeHtml(pool.id)}" ${pool.active ? "checked" : ""} />
+        <span>Active</span>
+      </label>
+    `;
+
+    const actions = isSystem
+      ? ``
+      : `
+        ${activeToggle}
+        <div class="pool-actions">
+          <button class="ghost" data-action="edit-pool" data-id="${pool.id}" aria-label="Edit ${escapeHtml(pool.name)}">✎</button>
+          <button class="ghost" data-action="delete-pool" data-id="${pool.id}" aria-label="Delete ${escapeHtml(pool.name)}">✕</button>
+        </div>
+      `;
+
+    return `
+      <div class="pool-row${isSystem ? " system" : ""}" data-id="${escapeHtml(pool.id)}">
+        <span class="swatch" style="background:${escapeHtml(pool.color)}"></span>
+        <div>
+          <div class="pool-name">${escapeHtml(pool.name)}${systemTag}${activeTag}${overrideTag}${rolloverTag}</div>
+          <div class="pool-meta">${escapeHtml(meta)} · ${fmtMoney(usage)} of ${fmtMoney(limit)}${isOver ? ` <strong>(over by ${fmtMoney(usage - limit)})</strong>` : ""}</div>
+          <div class="pool-progress"><div class="fill" style="width:${usedPct.toFixed(1)}%;background:${escapeHtml(pool.color)}"></div></div>
+        </div>
+        ${actions}
+      </div>
+    `;
+  }).join("");
+}
+
+function renderPoolColorOptions(selectedColor) {
+  const container = document.getElementById("pool-color-options");
+  if (!container) return;
+  container.innerHTML = POOL_COLORS.map((color) => `
+    <label style="background:${color}" class="${color === selectedColor ? "selected" : ""}">
+      <input type="radio" name="color" value="${color}"${color === selectedColor ? " checked" : ""} />
+    </label>
+  `).join("");
+}
+
+function openPoolForm(poolId) {
+  const form = document.getElementById("form-budget-pool");
+  if (!form) return;
+  const editing = poolId ? state.budgetPools.find((p) => p.id === poolId) : null;
+  form.hidden = false;
+  form.querySelector("input[name='name']").value = editing ? editing.name : "";
+  form.querySelector("input[name='limit']").value = editing ? editing.limit : "";
+  form.querySelector("input[name='rollover']").checked = !!(editing && editing.rollover);
+  const m = currentMonthISO();
+  form.querySelector("input[name='thisMonthOverride']").value = (editing && editing.monthlyLimits && editing.monthlyLimits[m] != null)
+    ? editing.monthlyLimits[m] : "";
+  form.querySelector("input[name='id']").value = editing ? editing.id : "";
+  renderPoolColorOptions(editing ? editing.color : POOL_COLORS[0]);
+}
+
+function closePoolForm() {
+  const form = document.getElementById("form-budget-pool");
+  if (form) {
+    form.hidden = true;
+    form.reset();
+    form.querySelector("input[name='id']").value = "";
+  }
+}
+
 const fmtPct = (n) => `${(Number(n) || 0).toFixed(2)}%`;
 
 function escapeHtml(str) {
@@ -1468,6 +1568,7 @@ function renderAll() {
   populateCurrencyPickers();
   renderProControls();
   renderReports();
+  renderBudgetManager();
   if (typeof renderDriveCard === "function") renderDriveCard();
 }
 
@@ -1700,6 +1801,9 @@ const PAYWALL_COPY = {
   notifications: "Reminders and notifications are a Pro feature.",
   copyPrev: "Copy from previous month is a Pro feature.",
   multiCurrency: "Multi-currency entry is a Pro feature.",
+  budgetPools: "Multi-pool budgeting is a Pro feature.",
+  budgetPoolsRollover: "Rollover is a Pro feature — carry unspent budget into the next month.",
+  budgetPoolsOverrides: "Per-month limit overrides are a Pro feature.",
 };
 function openPaywall(feature) {
   const dlg = document.getElementById("paywall-dialog");
@@ -5031,3 +5135,136 @@ document.addEventListener("click", (e) => {
   e.preventDefault();
   openPaywall("multiCurrency");
 });
+
+{
+  // Budget pool form open/close
+  document.getElementById("btn-add-pool")?.addEventListener("click", () => {
+    // Pro gate: free tier limited to 1 user-created pool
+    const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
+    if (userPoolCount >= 1 && !gate("budgetPools")) return;
+    openPoolForm(null);
+  });
+
+  document.getElementById("btn-cancel-pool")?.addEventListener("click", () => closePoolForm());
+
+  document.getElementById("form-budget-pool")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const id = (f.get("id") || "").toString();
+    const name = (f.get("name") || "").toString().trim();
+    const limit = Number(f.get("limit"));
+    const color = (f.get("color") || POOL_COLORS[0]).toString();
+    const rollover = f.get("rollover") === "on";
+    const overrideRaw = (f.get("thisMonthOverride") || "").toString().trim();
+    const m = currentMonthISO();
+
+    if (!name || !Number.isFinite(limit) || limit <= 0) {
+      alert("Pool name and a positive limit are required.");
+      return;
+    }
+    // Name uniqueness (case-insensitive, excluding self)
+    const dup = state.budgetPools.find((p) => p.id !== id && typeof p.name === "string" && p.name.trim().toLowerCase() === name.toLowerCase());
+    if (dup) {
+      alert(`A pool named "${dup.name}" already exists.`);
+      return;
+    }
+
+    // Pro gate: rollover and per-month overrides
+    if (rollover && !isPro()) { openPaywall("budgetPoolsRollover"); return; }
+    if (overrideRaw && !isPro()) { openPaywall("budgetPoolsOverrides"); return; }
+
+    let pool;
+    if (id) {
+      pool = state.budgetPools.find((p) => p.id === id);
+      if (!pool || pool.system === "debt") return;
+      pool.name = name;
+      pool.limit = limit;
+      pool.color = color;
+      pool.rollover = rollover;
+    } else {
+      pool = {
+        id: uid(),
+        name, limit, color,
+        active: false,
+        rollover,
+        monthlyLimits: {},
+        createdAt: Date.now(),
+      };
+      state.budgetPools.push(pool);
+    }
+    // Apply override
+    if (overrideRaw) {
+      const ov = Number(overrideRaw);
+      if (Number.isFinite(ov) && ov > 0) pool.monthlyLimits[m] = ov;
+    } else if (pool.monthlyLimits) {
+      delete pool.monthlyLimits[m];
+    }
+    save();
+    closePoolForm();
+    renderAll();
+  });
+
+  // Edit / delete pool — delegated click
+  document.addEventListener("click", (e) => {
+    const btn = e.target instanceof HTMLElement ? e.target.closest("button[data-action]") : null;
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const id = btn.dataset.id;
+    if (action === "edit-pool" && id) {
+      openPoolForm(id);
+    } else if (action === "delete-pool" && id) {
+      const pool = state.budgetPools.find((p) => p.id === id);
+      if (!pool || pool.system === "debt") return;
+      if (!confirm(`Delete pool "${pool.name}"? Past expenses tagged to it stay tagged (shown as "deleted").`)) return;
+      state.budgetPools = state.budgetPools.filter((p) => p.id !== id);
+      save();
+      renderAll();
+    }
+  });
+
+  // Color swatch click → toggle selection
+  document.addEventListener("click", (e) => {
+    const label = e.target instanceof HTMLElement ? e.target.closest("#pool-color-options label") : null;
+    if (!label) return;
+    const all = label.parentElement.querySelectorAll("label");
+    all.forEach((l) => l.classList.remove("selected"));
+    label.classList.add("selected");
+    const radio = label.querySelector("input[type='radio']");
+    if (radio) radio.checked = true;
+  });
+
+  // Active-pool toggle (single-active invariant)
+  document.addEventListener("change", (e) => {
+    if (!(e.target instanceof HTMLElement)) return;
+    if (!e.target.matches("input[data-action='toggle-active']")) return;
+    const id = e.target.dataset.id;
+    const target = state.budgetPools.find((p) => p.id === id);
+    if (!target || target.system === "debt") return;
+    // Single-active invariant: only the toggled pool may be active.
+    for (const p of state.budgetPools) {
+      p.active = (p.id === id) ? e.target.checked : false;
+    }
+    save();
+    renderAll();
+  });
+
+  // Copy overrides from last month
+  document.getElementById("btn-copy-pool-overrides")?.addEventListener("click", () => {
+    if (!isPro()) { openPaywall("budgetPoolsOverrides"); return; }
+    const thisM = currentMonthISO();
+    const lastM = shiftMonth(thisM, -1);
+    let copied = 0;
+    for (const pool of state.budgetPools) {
+      if (pool.system === "debt") continue;
+      if (pool.monthlyLimits && pool.monthlyLimits[lastM] != null) {
+        pool.monthlyLimits[thisM] = pool.monthlyLimits[lastM];
+        copied++;
+      }
+    }
+    save();
+    renderAll();
+    alert(copied === 0
+      ? "No overrides found in last month."
+      : `Copied ${copied} override${copied === 1 ? "" : "s"} from last month.`);
+  });
+}

@@ -2188,3 +2188,76 @@ button.ghost.icon-btn {
   color: #b04a2c;
 }
 .fx-upsell a { text-decoration: underline; cursor: pointer; }
+
+/* Budget pools — manager + summary */
+.budget-pool-card .hint { margin-bottom: 8px; }
+#budget-pool-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.budget-pool-card .pool-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #ddd);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.budget-pool-card .pool-row.system { opacity: 0.95; }
+.budget-pool-card .pool-row .swatch {
+  width: 14px; height: 14px; border-radius: 50%;
+  display: inline-block;
+}
+.budget-pool-card .pool-row .pool-name { font-weight: 600; }
+.budget-pool-card .pool-row .pool-meta { font-size: 0.85em; color: var(--muted, #666); }
+.budget-pool-card .pool-progress {
+  height: 6px; border-radius: 3px; overflow: hidden;
+  background: rgba(0,0,0,0.06); margin: 6px 0;
+  grid-column: 1 / -1;
+}
+.budget-pool-card .pool-progress > .fill { height: 100%; transition: width 0.2s ease; }
+.budget-pool-card .pool-actions { display: flex; gap: 4px; }
+.budget-pool-card .pool-actions button { padding: 4px 8px; font-size: 0.85em; }
+.budget-pool-card .system-tag {
+  display: inline-block;
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  margin-left: 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.08);
+  color: var(--muted, #666);
+}
+.palette-picker { border: none; padding: 0; margin: 8px 0; }
+.palette-picker legend { font-size: 0.85em; color: var(--muted, #666); padding: 0; }
+#pool-color-options { display: flex; gap: 8px; padding-top: 4px; }
+#pool-color-options label {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer; display: inline-block; position: relative;
+}
+#pool-color-options label.selected { border-color: var(--ink, #333); transform: scale(1.1); }
+#pool-color-options input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.pool-toggle {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.pool-toggle input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+.pool-toggle input[type="checkbox"]:disabled { opacity: 0.4; cursor: not-allowed; }
+.form-actions { display: flex; gap: 8px; margin-top: 8px; }
+.pool-banner {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.9em;
+}
+.pool-banner.calm { background: rgba(0,0,0,0.04); color: var(--muted, #555); }
+.pool-banner.yellow { background: rgba(230, 184, 92, 0.18); color: #946813; }
+.pool-banner.red { background: rgba(224, 122, 95, 0.18); color: #a13d22; }
+.pool-banner.done { background: rgba(129, 178, 154, 0.18); color: #2f6b54; }
+.pool-banner .pool-banner-cta {
+  margin-left: 8px; font-weight: 600; cursor: pointer; text-decoration: underline;
+}
+.pool-toggle-active { font-size: 0.78em; gap: 4px; padding-right: 6px; }
+.pool-toggle-active input[type="checkbox"] { width: 14px; height: 14px; }
