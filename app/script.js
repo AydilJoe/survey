@@ -2664,6 +2664,7 @@ $("#form-expense").addEventListener("submit", (e) => {
       fetched_at: state.fx.fetched_at || null,
     };
   }
+  tagEntryWithPool(entry, "expense", e.target);
   state.expenses.push(entry);
   save();
   e.target.reset();

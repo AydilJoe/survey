@@ -400,6 +400,13 @@
                 <input type="number" name="day" min="1" max="31" step="1" inputmode="numeric" placeholder="1" />
               </label>
             </div>
+            <label class="field" id="expense-pool-field" hidden>
+              <span>Budget pool</span>
+              <select name="budgetPool" data-budget-pool>
+                <option value="">(none)</option>
+              </select>
+              <span class="pool-preview" data-pool-preview hidden></span>
+            </label>
             <button type="submit" class="primary">Add expense</button>
           </form>
           <ul id="list-expense" class="item-list"></ul>
