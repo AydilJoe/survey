@@ -1672,7 +1672,9 @@ function renderGreeting() {
   if (!el) return;
   const now = new Date();
   const h = now.getHours();
-  const part = h < 5 ? "Late night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  // Avoid "Late night" — reads slightly accusatory at 1am. Prefer "Evening"
+  // for late hours so the greeting stays neutral.
+  const part = h < 5 ? "Evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
   el.textContent = `${part} · ${now.toLocaleDateString("en-MY", { weekday: "long", day: "numeric", month: "short" })}`;
 }
 
@@ -2984,6 +2986,29 @@ document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async (
     prompt("Copy your referral link:", url);
   }
 });
+
+// Share button — uses Web Share API (native sheet on mobile, falls through
+// silently if unsupported). The button is hidden until we detect support, so
+// desktop browsers without share support just see the existing Copy button.
+{
+  const shareBtn = document.getElementById("btn-pro-refer-share");
+  if (shareBtn && typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    shareBtn.hidden = false;
+    shareBtn.addEventListener("click", async () => {
+      const url = document.getElementById("pro-refer-url")?.textContent || "";
+      if (!url) return;
+      try {
+        await navigator.share({
+          title: "Duitful — privacy-first money tracker",
+          text: "I've been using Duitful to track my spending and pay off debts. Try it:",
+          url,
+        });
+      } catch {
+        // User cancelled or share failed — silent. They can still tap Copy.
+      }
+    });
+  }
+}
 
 document.getElementById("btn-pro-activate")?.addEventListener("click", openLicenseDialog);
 document.getElementById("paywall-activate")?.addEventListener("click", () => { closePaywall(); openLicenseDialog(); });

@@ -777,6 +777,7 @@
             <p class="hint">Share this link. When someone buys Duitful Pro through it, RM 5 lands in your bank (we pay out monthly via bank transfer).</p>
             <div class="pro-refer-url-row">
               <code id="pro-refer-url" class="pro-refer-url">https://duitful.app/app?ref=...</code>
+              <button type="button" class="primary" id="btn-pro-refer-share" hidden>Share</button>
               <button type="button" class="ghost" id="btn-pro-refer-copy">Copy</button>
             </div>
           </div>
@@ -830,11 +831,11 @@
         <div class="card">
           <h2>Reminders</h2>
           <label class="field">
-            <span>Days ahead to look</span>
+            <span>Show upcoming items for the next __ days</span>
             <input type="number" id="pref-reminders-days" min="0" max="31" step="1" inputmode="numeric" />
           </label>
           <div class="button-row" style="justify-content:flex-start;">
-            <button id="btn-enable-notifications" class="primary" type="button">Enable browser notifications</button>
+            <button id="btn-enable-notifications" class="ghost" type="button">Enable browser notifications</button>
           </div>
           <p class="hint" id="notifications-status"></p>
           <p class="hint">Shows upcoming debt/bill due dates and pay days on Home. Browser notifications fire when the app is open and once per day for items due today. Background reminders (when the app is fully closed) need a native wrapper — not available on iOS Safari PWAs.</p>
