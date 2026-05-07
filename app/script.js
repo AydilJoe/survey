@@ -3166,6 +3166,43 @@ function openEditDialog(kind, id) {
     const fxHint = fx
       ? `<p class="hint">Originally <strong>${escapeHtml(fx.code)} ${Number(fx.amount).toFixed(2)}</strong> @ rate ${Number(fx.rate).toFixed(4)} on ${fx.fetched_at ? escapeHtml(fx.fetched_at.slice(0,10)) : "entry day"}. Editing the amount overrides the converted value but does not change the original.</p>`
       : "";
+
+    // Pool block — only meaningful for expense (income doesn't tag to pools)
+    let poolBlock = "";
+    if (kind === "expense") {
+      const pool = entity.budgetPoolId
+        ? state.budgetPools.find((p) => p.id === entity.budgetPoolId)
+        : null;
+      if (entity.budgetPoolId) {
+        const displayName = pool ? pool.name : `${entity.budgetPoolName || "(unknown)"} (deleted)`;
+        poolBlock = `
+          <p class="hint" id="edit-pool-line">
+            Budget pool: <strong>${escapeHtml(displayName)}</strong>
+            <a class="hint-link" data-action="edit-toggle-pool">Change…</a>
+          </p>
+          <label class="field" id="edit-pool-field" hidden>
+            <span>Budget pool</span>
+            <select name="budgetPool" data-budget-pool>
+              <option value="">(none)</option>
+            </select>
+          </label>
+        `;
+      } else {
+        poolBlock = `
+          <p class="hint" id="edit-pool-line">
+            Budget pool: <em>(none)</em>
+            <a class="hint-link" data-action="edit-toggle-pool">Add</a>
+          </p>
+          <label class="field" id="edit-pool-field" hidden>
+            <span>Budget pool</span>
+            <select name="budgetPool" data-budget-pool>
+              <option value="">(none)</option>
+            </select>
+          </label>
+        `;
+      }
+    }
+
     editFields.innerHTML = `
       ${textField("Name", "name", entity.name)}
       <div class="grid-2">
@@ -3174,7 +3211,16 @@ function openEditDialog(kind, id) {
       </div>
       ${fxHint}
       ${numberField(kind === "income" ? "Pay day (1–31)" : "Due day (1–31)", "day", entity.day ?? "", { step: "1", min: "1", max: "31" })}
+      ${poolBlock}
     `;
+
+    // Populate the dropdown if shown
+    populatePoolDropdowns();
+    // Pre-select existing pool if any
+    if (kind === "expense" && entity.budgetPoolId) {
+      const sel = editFields.querySelector("select[data-budget-pool]");
+      if (sel) sel.value = entity.budgetPoolId;
+    }
   } else if (kind === "debt") {
     const isInstallment = entity.kind === "installment";
     if (isInstallment) {
@@ -3236,6 +3282,26 @@ editForm.addEventListener("submit", (e) => {
     const day = parseDay(f.get("day"));
     if (!name || !Number.isFinite(amount) || amount < 0) return;
     it.name = name; it.amount = amount; it.month = month; it.day = day;
+    // it.fx preserved by virtue of NOT being reassigned
+    // Pool — only for expense, only update if the dropdown is visible (user opened it via Change)
+    if (kind === "expense") {
+      const sel = editForm.querySelector("select[data-budget-pool]");
+      const field = document.getElementById("edit-pool-field");
+      const visible = field && !field.hidden;
+      if (visible && sel) {
+        if (sel.value) {
+          const pool = state.budgetPools.find((p) => p.id === sel.value);
+          if (pool) {
+            it.budgetPoolId = pool.id;
+            it.budgetPoolName = pool.name;
+          }
+        } else {
+          delete it.budgetPoolId;
+          delete it.budgetPoolName;
+        }
+      }
+      // If field was never opened (visible === false), preserve existing tag (sticky)
+    }
   } else if (kind === "debt") {
     const it = state.debts.find((x) => x.id === id);
     if (!it) { closeEditDialog(); return; }
@@ -5469,3 +5535,11 @@ document.addEventListener("click", (e) => {
     if (f) attachPoolDropdownToForm(f);
   });
 }
+
+document.addEventListener("click", (e) => {
+  const link = e.target instanceof HTMLElement ? e.target.closest("[data-action='edit-toggle-pool']") : null;
+  if (!link) return;
+  e.preventDefault();
+  const field = document.getElementById("edit-pool-field");
+  if (field) field.hidden = !field.hidden;
+});

@@ -2304,3 +2304,4 @@ button.ghost.icon-btn {
 }
 .pool-preview.pool-warn-yellow { color: #946813; }
 .pool-preview.pool-warn-red { color: #a13d22; }
+.hint-link { margin-left: 6px; cursor: pointer; text-decoration: underline; color: var(--accent, #b04a2c); font-weight: 500; }
