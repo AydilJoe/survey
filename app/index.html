@@ -600,6 +600,21 @@
         </div>
 
         <div class="card">
+          <h2>Currency rates</h2>
+          <p class="hint">
+            Live mid-market rates for converting foreign-currency entries.
+            Refreshed daily via Frankfurter (European Central Bank).
+          </p>
+          <div class="fx-status" id="fx-status">
+            <span id="fx-status-line">Rates not loaded yet.</span>
+            <button type="button" class="ghost" id="btn-fx-refresh">Refresh now</button>
+          </div>
+          <p class="hint" id="fx-unsupported-hint" hidden>
+            AED, SAR and VND are display-only — live rates are not available for these currencies.
+          </p>
+        </div>
+
+        <div class="card">
           <h2>Reminders</h2>
           <label class="field">
             <span>Days ahead to look</span>

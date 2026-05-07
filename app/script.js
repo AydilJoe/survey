@@ -1300,6 +1300,7 @@ function renderAll() {
   renderUpcoming();
   renderPending();
   renderReminderPrefs();
+  renderFxStatus();
   renderProControls();
   renderReports();
   if (typeof renderDriveCard === "function") renderDriveCard();
@@ -2633,6 +2634,30 @@ function renderReminderPrefs() {
   if (btnNotif) {
     btnNotif.textContent = (Notification.permission === "granted" && prefs.notifications) ? "Disable notifications" : "Enable browser notifications";
   }
+}
+
+function renderFxStatus() {
+  const line = document.getElementById("fx-status-line");
+  const hint = document.getElementById("fx-unsupported-hint");
+  if (!line) return;
+  const baseCode = currentCurrency();
+  const unsupportedBase = !fxCurrencySupported(baseCode);
+  if (hint) hint.hidden = !unsupportedBase && !["AED", "SAR", "VND"].includes(baseCode);
+
+  if (!fxRatesAreUsable()) {
+    line.textContent = "Rates not loaded — check your connection and tap Refresh.";
+    return;
+  }
+  const at = new Date(state.fx.fetched_at);
+  const ageMs = Date.now() - at.getTime();
+  const ageMins = Math.floor(ageMs / 60000);
+  const human =
+    ageMins < 2 ? "just now" :
+    ageMins < 60 ? `${ageMins} minutes ago` :
+    ageMins < 24 * 60 ? `${Math.floor(ageMins / 60)} hours ago` :
+    `${Math.floor(ageMins / (60 * 24))} days ago`;
+  const staleNote = state.fx.stale ? " · using cached value (live source unavailable)" : "";
+  line.textContent = `Last refreshed ${human}${staleNote} · via Frankfurter (ECB)`;
 }
 if (prefDays) prefDays.addEventListener("change", () => {
   const v = Math.max(0, Math.min(31, Math.round(Number(prefDays.value) || 0)));
@@ -4549,3 +4574,22 @@ if (typeof PAYWALL_COPY !== "undefined") {
 }
 
 if (window.DriveSync) DriveSync.subscribe(() => renderDriveCard());
+
+{
+  const btnFxRefresh = document.getElementById("btn-fx-refresh");
+  if (btnFxRefresh) {
+    btnFxRefresh.addEventListener("click", async () => {
+      btnFxRefresh.disabled = true;
+      const old = btnFxRefresh.textContent;
+      btnFxRefresh.textContent = "Refreshing…";
+      try {
+        await refreshFxRates();
+        renderFxStatus();
+        renderAll();
+      } finally {
+        btnFxRefresh.disabled = false;
+        btnFxRefresh.textContent = old;
+      }
+    });
+  }
+}
