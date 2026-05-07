@@ -2561,12 +2561,24 @@ function textField(label, name, value) {
 function currencyPickerOptions(selected) {
   // Build an HTML <option> string. Disable codes without rates so the
   // user can still see them but can't pick them as a foreign source.
+  // Three-state per code:
+  //   - base currency: always enabled (the "to" currency)
+  //   - rates loaded + code supported: enabled
+  //   - rates loaded but code unsupported (AED/SAR/VND): " (no live rate)"
+  //   - rates not loaded at all: " (offline)" for non-base codes
   const codes = Object.keys(CURRENCY_LOCALE);
+  const baseCode = currentCurrency();
+  const haveRates = fxRatesAreUsable();
   return codes.map((code) => {
-    const supported = fxCurrencySupported(code) || code === currentCurrency();
+    const isBase = code === baseCode;
+    const supported = haveRates && (fxCurrencySupported(code) || isBase);
     const sel = code === selected ? " selected" : "";
-    const dis = supported ? "" : " disabled";
-    const tail = supported ? "" : " (no live rate)";
+    const dis = isBase ? "" : (supported ? "" : " disabled");
+    let tail = "";
+    if (!isBase) {
+      if (!haveRates) tail = " (offline)";
+      else if (!fxCurrencySupported(code)) tail = " (no live rate)";
+    }
     return `<option value="${code}"${sel}${dis}>${code}${tail}</option>`;
   }).join("");
 }
@@ -2629,6 +2641,15 @@ function attachFxPreviewToForm(formEl) {
     if (!isForeign) {
       if (preview) preview.hidden = true;
       if (upsell) upsell.hidden = true;
+      return;
+    }
+    if (!fxRatesAreUsable()) {
+      if (upsell) upsell.hidden = true;
+      if (preview) {
+        preview.hidden = false;
+        preview.classList.add("fx-preview--err");
+        preview.textContent = "Foreign currency unavailable — connect to refresh rates in Settings.";
+      }
       return;
     }
     if (!isPro()) {
