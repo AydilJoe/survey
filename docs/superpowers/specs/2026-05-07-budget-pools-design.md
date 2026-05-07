@@ -218,7 +218,7 @@ On first render after unlock (and any future render), the app ensures exactly on
   id: "system-debt",          // fixed ID — not a uuid; never collides with user pools
   name: "Debt",                // displayed name; locked
   limit: debtTotals(state.debts).minSum,  // recomputed each render
-  color: "#E07A5F",            // terracotta — fixed
+  color: "#3F4747",            // graphite — reserved for the system Debt pool, NOT in POOL_COLORS palette
   active: false,               // ignored — not user-toggleable
   rollover: false,             // ignored — not applicable
   monthlyLimits: {},           // ignored — limit is always derived
@@ -226,6 +226,8 @@ On first render after unlock (and any future render), the app ensures exactly on
   createdAt: Date.now(),
 }
 ```
+
+The fixed `id: "system-debt"` is reserved — `findPoolByName`, the auto-create path, and the CSV-import dedupe must all preserve this ID rather than generating a new UUID. Likewise, the color `#3F4747` is reserved for the system Debt card and is intentionally outside the user's `POOL_COLORS` palette so it's visually distinct from any user pool.
 
 The pool is **hidden** from the manager + summary card when `state.debts.length === 0` (nothing to pay).
 
@@ -268,8 +270,8 @@ The Debt pool card on Home shows visual urgency based on due-day proximity:
 | `state.debts.length === 0` | Card hidden entirely. |
 | `usage >= limit` | Card collapses to "✓ All debts paid this month." Banner gone. |
 | Day 1 → (earliest dueDay − 7) | Calm: regular pool card chrome. Subtitle "RM N due this month." |
-| (earliest dueDay − 7) → earliest dueDay | Yellow tint. Subtitle "RM N due — earliest due day is the Nth." |
-| Past any debt's dueDay (with that debt unpaid) | Red tint. Subtitle "Visa is overdue (was due Apr 25)." |
+| (earliest dueDay − 7) → earliest dueDay (inclusive) | Yellow tint. Subtitle "RM N due — earliest due day is the Nth." (today === dueDay still falls into yellow — red only fires the day AFTER) |
+| Day after any debt's dueDay (with that debt still unpaid) | Red tint. Subtitle "Visa is overdue (was due Apr 25)." |
 
 `unpaid` is computed per-debt as `paidThisMonth(debtId) < debt.minPayment`, where `paidThisMonth(debtId)` sums all `daily-debt` entries with that `debtId` in the current month.
 
@@ -354,11 +356,11 @@ Same data shape as the existing single-pay flow at line 2319, repeated per debt.
 - **All debts already paid in full this month** — bulk-pay dialog opens with zero checked rows; show empty state "All debts paid this month — nothing to do here." Confirm button disabled.
 - **Debt balance < minPayment** — `Math.min(amount, debt.balance)` caps the entry amount and balance reduction, same as current single-pay flow.
 - **CSV import re-creates the system pool** — if the imported CSV doesn't have a `pool_system: "debt"` row but `state.debts.length > 0`, the auto-create on next render handles it.
-- **Multiple Debt pools after import** (shouldn't happen but defensively) — keep the first encountered with `system: "debt"`, merge any tagged entries pointing at the others, drop the duplicates.
+- **Multiple Debt pools after import** (shouldn't happen but defensively) — keep the first encountered with `system: "debt"`. Rewrite any tagged entries' `budgetPoolId` from the duplicates' IDs to the canonical `"system-debt"` ID, so downstream rendering keys off the right pool. Drop the duplicate pool records.
 
+## Alerts (user pools)
 
-
-Computed at render time (no event-driven dispatch):
+Computed at render time (no event-driven dispatch). **These rules apply to user pools only — the system Debt pool uses the banner-escalation rules in the System pool: Debt section above.**
 
 | Condition | Treatment |
 |---|---|
@@ -366,6 +368,8 @@ Computed at render time (no event-driven dispatch):
 | Daily-form preview, projected usage ≥100% | Red hint inline, includes "over by RM X" |
 | Home summary card, current usage 80–99% | Yellow chip on that pool's row |
 | Home summary card, current usage ≥100% | Red chip with "over by RM X" |
+
+For the Debt pool specifically: skip the "≥100%" red chip path entirely (the Debt-pool over-limit case means the user paid more than minimums — surface as green "Ahead of schedule" treatment per the System pool: Debt section).
 
 No push notifications. No native LN. Banners auto-update each render — no dismiss state to track.
 
