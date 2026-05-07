@@ -19,7 +19,7 @@
 **Modified files only — no new files:**
 - `app/script.js` — `CHART_COLORS` constant, `polarToCartesian` + `arcPath` + `renderSpendingLegend` + `renderReportsSpending` helpers, REMOVE old "By category" block from `renderReports`, ADD call to `renderReportsSpending()` in its place
 - `app/index.html` — replace inner content of the existing "By category" card (line 663-666) with the new pie + legend markup
-- `app/styles.css` — APPEND `.spending-card`, `.spending-pie`, `.spending-legend` rules; REMOVE obsolete `.reports-cat-*` and `.reports-bar` rules (lines 2017-2042 — verify by grep first)
+- `app/styles.css` — APPEND `.spending-pie`, `.spending-legend` rules; REMOVE obsolete `.reports-cat-*` and `.reports-bar` rules (lines 2021-2042). **CRITICAL:** lines 2017-2020 are a combined selector `.reports-categories, .reports-top { display: flex; ... }` — `.reports-top` is still used by the "Top 5 entries" card (`app/index.html:678`). Drop ONLY the `.reports-categories,` line so the rule reads `.reports-top { display: flex; flex-direction: column; gap: 0.7rem; }` and continues to apply.
 
 **Insertion anchors (verified):**
 - `renderReports()`: line 1940
@@ -107,6 +107,8 @@ function renderReportsSpending() {
 
   // Filter: expense-only, in range, optionally narrowed by category dropdown.
   // INTENTIONALLY ignores reportsState.kinds checkboxes — the pie always shows expenses only.
+  // We re-filter from raw `state.dailyExpenses` rather than reusing `reportsFilteredEntries()`
+  // because that helper applies the kind-checkbox filter we want to bypass.
   const filtered = state.dailyExpenses.filter((e) => {
     const kind = e.kind || "expense";
     if (kind !== "expense") return false;
@@ -185,10 +187,21 @@ function renderReportsSpending() {
 
 - [ ] **Step 2: Append CSS**
 
+First confirm the 480px mobile breakpoint matches existing convention:
+
+```bash
+grep -nE '@media.*max-width: *4[68]0px' app/styles.css | head -3
+```
+
+Expect at least one existing `@media (max-width: 480px)` rule. If the dominant breakpoint is something else (e.g. 600px or 768px), use that instead in the rule below.
+
 Append to end of `app/styles.css`:
 
 ```css
-/* Spending by category — pie + legend */
+/* Spending by category — pie + legend.
+   Note: we deliberately do NOT add a `.spending-card { margin-top: 12px; }` rule.
+   The wrapper already gets card-level spacing from the existing `.card` styles in
+   the Reports tab layout, so adding a margin would double-space. */
 #reports-spending h2 {
   margin: 0 0 4px;
 }
@@ -362,7 +375,7 @@ grep -c 'id="reports-categories"' app/index.html     # → 0 (gone)
 
 - [ ] **Step 3: Open Reports tab in browser → expect a blank "Spending by category" card**
 
-After this commit, the Reports tab shows the new card title + hint, but the SVG and legend are empty (Task 3 wires the render call).
+After this commit, the Reports tab shows the new card title + hint, but the SVG and legend are empty — and **no empty-state message either**, because `renderReportsSpending()` is not yet called from `renderReports()` (Task 3 wires that). The static HTML defaults — `<svg>` empty, `<ul>` empty, `<div ... hidden>` — are what you see. This is expected.
 
 - [ ] **Step 4: Commit**
 
@@ -442,14 +455,16 @@ Expected: zero matches in `app/script.js` (everything was inside the removed blo
 
 The HTML still has `class="reports-cat-field"` (line 642 — different concept, the CATEGORY DROPDOWN wrapper, NOT the bars). Don't touch that.
 
-- [ ] **Step 3: Remove obsolete CSS rules**
+- [ ] **Step 3: Remove obsolete CSS rules — preserve `.reports-top` styling**
 
-In `app/styles.css`, find the rules at lines ~2017-2042:
+In `app/styles.css`, the rules at lines ~2017-2042 currently look like:
 
 ```css
 .reports-categories,
-... { ... }
-.reports-cat-row { ... }
+.reports-top {
+  display: flex; flex-direction: column; gap: 0.7rem;
+}
+.reports-cat-row { display: grid; gap: 0.25rem; }
 .reports-cat-head { ... }
 .reports-cat-name { ... }
 .reports-cat-amount { ... }
@@ -458,15 +473,26 @@ In `app/styles.css`, find the rules at lines ~2017-2042:
 .reports-bar > span { ... }
 ```
 
-REMOVE the entire block. Verify by grep that no other code references these classes:
+**CRITICAL:** The first rule is a *combined selector*. `.reports-top` is still in use (`app/index.html:678` — the "Top 5 entries" card). DO NOT delete the whole block.
+
+**Edit precisely:**
+1. In the combined selector at lines 2017-2020, drop only the `.reports-categories,` line. Result:
+   ```css
+   .reports-top {
+     display: flex; flex-direction: column; gap: 0.7rem;
+   }
+   ```
+2. Delete the rules for `.reports-cat-row`, `.reports-cat-head`, `.reports-cat-name`, `.reports-cat-amount`, `.reports-cat-meta`, `.reports-bar`, and `.reports-bar > span` (lines 2021-2042). These are the ones with no remaining users.
+
+Verify by grep that no other code still references the removed classes:
 
 ```bash
-grep -n 'reports-cat-row\|reports-cat-head\|reports-cat-name\|reports-cat-amount\|reports-cat-meta\|reports-bar' app/script.js app/index.html app/styles.css
+grep -n 'reports-cat-row\|reports-cat-head\|reports-cat-name\|reports-cat-amount\|reports-cat-meta\|reports-bar\|reports-categories' app/script.js app/index.html app/styles.css
 ```
 
-Expected: zero matches across all three files (after this edit).
+Expected: zero matches across all three files. If `.reports-top` shows up — that's correct, it's still used. (Run a separate `grep -n 'reports-top'` and confirm it still resolves to the rule block.)
 
-The `.reports-categories` selector at the START of the rule block is shared with whatever else; if grep shows it's standalone (only matched the removed `#reports-categories` div which no longer exists), remove it. If it's used elsewhere, preserve only the unrelated rules.
+Also sanity-check the "Top 5 entries" card still renders normally after this edit (Task 3 Step 4 covers this manually).
 
 - [ ] **Step 4: Manual verification**
 
@@ -480,6 +506,7 @@ The `.reports-categories` selector at the START of the rule block is shared with
 8. Pick a specific category from the existing category dropdown: pie shows a single 100% slice for that category.
 9. Add a debt-payment entry: pie unchanged (debt-kind excluded).
 10. Add a savings-deposit entry: pie unchanged (saving-kind excluded).
+11. **Top 5 entries card (regression check)**: still rendered as a vertical list with 0.7rem gaps. The `.reports-top` rule must still be in effect — if it visibly broke (entries on one line, no gap), Step 3 went too far.
 
 - [ ] **Step 5: Commit**
 
