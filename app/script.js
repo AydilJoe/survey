@@ -3777,14 +3777,19 @@ function fromCSV(text) {
   if (debtPools.length > 1) {
     const canonical = debtPools[0];
     canonical.id = SYSTEM_DEBT_POOL_ID;
-    const dropIds = debtPools.slice(1).map((p) => p.id);
+    const dropPools = debtPools.slice(1);
+    // Tagged entries that referenced any duplicate pool now retag to canonical
+    // (since duplicates all share id "system-debt" already, this is mostly cosmetic
+    // but ensures the budgetPoolName field is normalized to "Debt".)
     for (const e of next.dailyExpenses) {
-      if (dropIds.includes(e.budgetPoolId)) {
-        e.budgetPoolId = SYSTEM_DEBT_POOL_ID;
+      if (e.budgetPoolId === SYSTEM_DEBT_POOL_ID) {
         e.budgetPoolName = "Debt";
       }
     }
-    next.budgetPools = next.budgetPools.filter((p) => p.system !== "debt" || p.id === SYSTEM_DEBT_POOL_ID);
+    // Drop duplicates by object identity — id-based filter doesn't work because
+    // the budget-pool parse branch assigns SYSTEM_DEBT_POOL_ID to ALL rows with
+    // pool_system=debt at insertion time, so all duplicates share the canonical id.
+    next.budgetPools = next.budgetPools.filter((p) => p === canonical || p.system !== "debt");
   }
 
   // Single-active invariant — keep first active, force the rest to false
