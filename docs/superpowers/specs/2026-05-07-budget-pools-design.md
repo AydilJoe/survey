@@ -54,16 +54,19 @@ Let users split their monthly money into named "pools" (Shopping RM 500, Bali RM
   id: "uuid",
   name: "Shopping",          // freetext, case-insensitive unique within state.budgetPools
   limit: 500,                // base monthly limit, in user's base currency
-  color: "#orange",          // one of 6 palette colors
+  color: "#E07A5F",          // one of 6 palette colors
   active: false,             // single-active flag — only one pool may be true
   rollover: false,           // carry unspent into next month
   monthlyLimits: {           // per-month overrides
     "2026-12": 800,
     "2026-04": 600,
   },
+  system: undefined,         // undefined for user pools; "debt" for the auto-managed Debt pool
   createdAt: 1234567890,
 }
 ```
+
+The `system` field marks pools managed by the app rather than created by the user. The only system pool defined in v1 is `system: "debt"` — see the **System pool: Debt** section below. Future system pools could be added by extending this enum.
 
 ### Tagged entries
 Daily expenses (`state.dailyExpenses` with `kind: "expense"`) and recurring expenses (`state.expenses`) gain two optional fields:
@@ -202,7 +205,158 @@ When editing a pool, an optional **"Override limit this month"** number field ap
 
 The "Copy overrides from last month" button on the manager copies `pool.monthlyLimits[lastMonth]` to `pool.monthlyLimits[thisMonth]` for every pool that had a previous-month override. One-click migration of December's tightened-budget setup into January.
 
-## Alerts
+## System pool: Debt
+
+The app auto-manages a single "Debt" pool that surfaces monthly debt obligations as a glanceable, actionable card on Home — and adds a one-tap **Pay monthly debts** flow that creates payment entries for every unpaid debt at once.
+
+### Auto-creation
+
+On first render after unlock (and any future render), the app ensures exactly one pool with `system: "debt"` exists in `state.budgetPools`. If absent, it's auto-created with:
+
+```js
+{
+  id: "system-debt",          // fixed ID — not a uuid; never collides with user pools
+  name: "Debt",                // displayed name; locked
+  limit: debtTotals(state.debts).minSum,  // recomputed each render
+  color: "#E07A5F",            // terracotta — fixed
+  active: false,               // ignored — not user-toggleable
+  rollover: false,             // ignored — not applicable
+  monthlyLimits: {},           // ignored — limit is always derived
+  system: "debt",
+  createdAt: Date.now(),
+}
+```
+
+The pool is **hidden** from the manager + summary card when `state.debts.length === 0` (nothing to pay).
+
+### Locked properties
+
+The Debt pool is system-managed. The manager card shows it but with all controls disabled or hidden:
+
+| Property | UI |
+|---|---|
+| Name | locked, displayed as "Debt" with a small "system" tag |
+| Base limit | read-only, shows current `debtTotals().minSum` with subtitle "Auto-derived from your debts' monthly minimums" |
+| Color | locked, hidden from palette picker |
+| Active toggle | hidden — auto-tagging happens via the daily-debt path, not via "active" |
+| Rollover toggle | hidden — obligations don't roll over |
+| Per-month override input | hidden — limit is derived |
+| Delete button | hidden |
+| Edit button | hidden |
+
+### Auto-tagging — no extra clicks for the user
+
+The existing daily-debt submit path at [app/script.js:2319](app/script.js#L2319) (and the bulk-pay flow below) automatically stamps the Debt pool's tag onto every payment entry:
+
+```js
+const debtPool = state.budgetPools.find(p => p.system === "debt");
+const entry = { ...existing fields... };
+if (debtPool) {
+  entry.budgetPoolId = debtPool.id;
+  entry.budgetPoolName = debtPool.name;
+}
+```
+
+User clicks nothing extra. Existing daily quick-add flow is unchanged from their perspective.
+
+### Banner escalation on Home
+
+The Debt pool card on Home shows visual urgency based on due-day proximity:
+
+| Condition | Treatment |
+|---|---|
+| `state.debts.length === 0` | Card hidden entirely. |
+| `usage >= limit` | Card collapses to "✓ All debts paid this month." Banner gone. |
+| Day 1 → (earliest dueDay − 7) | Calm: regular pool card chrome. Subtitle "RM N due this month." |
+| (earliest dueDay − 7) → earliest dueDay | Yellow tint. Subtitle "RM N due — earliest due day is the Nth." |
+| Past any debt's dueDay (with that debt unpaid) | Red tint. Subtitle "Visa is overdue (was due Apr 25)." |
+
+`unpaid` is computed per-debt as `paidThisMonth(debtId) < debt.minPayment`, where `paidThisMonth(debtId)` sums all `daily-debt` entries with that `debtId` in the current month.
+
+The card always shows a **"Pay monthly debts →"** button when `usage < limit`, regardless of date. Clicking opens the bulk-pay dialog.
+
+### Bulk-pay dialog (`#bulk-debt-pay-dialog`)
+
+Markup: a `<dialog>` element with a header, a date picker, a list of debt rows, total + cancel/confirm buttons.
+
+```
+Pay monthly minimums
+
+Date for all entries: [2026-05-07] ▼
+
+[✓] Visa             RM 200       (balance after: RM 4,800)   [Today ▼]
+[ ] Maybank          RM 300       ✓ already paid this month   [—]
+[✓] Atome            RM 100       RM 100 still due (paid RM 200) [Today ▼]
+
+Total: RM 300 in 2 entries
+
+                              [ Cancel ]    [ Confirm payments ]
+```
+
+#### Smart-default checkbox state
+
+For each debt, compute `paidThisMonth(debtId)`. Then per-row default:
+
+| `paidThisMonth` | Checkbox | Row amount | Label |
+|---|---|---|---|
+| `>= debt.minPayment` | unchecked + greyed | shown but inactive | "✓ already paid this month" |
+| `> 0` and `< minPayment` | **checked** | `minPayment − paidThisMonth` (the remaining) | "RM X still due (you've paid RM Y this month)" |
+| `0` | **checked** | full `minPayment` | (no label) |
+
+This means the user opens the dialog and only sees relevant debts checked at the right amount — no risk of double-paying.
+
+#### Dates
+
+A single date picker at the top defaults to `todayISO()`. Each debt row has a small inline date override (text "Today" by default, click to pop a date input) for users who want to backdate one row to its actual due day.
+
+#### Confirm handler
+
+```js
+function confirmBulkDebtPayment() {
+  const dialog = document.getElementById("bulk-debt-pay-dialog");
+  const debtPool = state.budgetPools.find(p => p.system === "debt");
+  const rows = Array.from(dialog.querySelectorAll(".bulk-debt-row[data-checked='true']"));
+  for (const row of rows) {
+    const debtId = row.dataset.debtId;
+    const debt = state.debts.find(d => d.id === debtId);
+    if (!debt) continue;
+    const amount = Number(row.dataset.amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const date = row.dataset.date || todayISO();
+    const applied = Math.min(amount, debt.balance);
+    debt.balance = Math.max(0, debt.balance - applied);
+    state.dailyExpenses.push({
+      id: uid(),
+      createdAt: Date.now(),
+      kind: "debt",
+      date,
+      amount,
+      debtId: debt.id,
+      debtName: debt.name,
+      budgetPoolId: debtPool ? debtPool.id : undefined,
+      budgetPoolName: debtPool ? debtPool.name : undefined,
+      note: "",
+    });
+  }
+  save();
+  closeBulkDebtPayDialog();
+  renderAll();
+}
+```
+
+Same data shape as the existing single-pay flow at line 2319, repeated per debt. CSV export, badges, avalanche simulator — nothing else changes.
+
+### Edge cases
+
+- **Mid-month debt added** — limit jumps; card updates; no retroactive tagging needed.
+- **Debt deleted while tagged entries exist** — entries keep their `debtId`/`debtName` (already happens). Pool limit drops by that debt's `minPayment`. Past payments still count toward this month's pool usage.
+- **User pays more than minimum manually** — pool usage exceeds limit; the card shows green "Ahead of schedule (RM 50 over minimum)" instead of red overspend. Suppress the `over by` red banner specifically when `pool.system === "debt"` and over.
+- **All debts already paid in full this month** — bulk-pay dialog opens with zero checked rows; show empty state "All debts paid this month — nothing to do here." Confirm button disabled.
+- **Debt balance < minPayment** — `Math.min(amount, debt.balance)` caps the entry amount and balance reduction, same as current single-pay flow.
+- **CSV import re-creates the system pool** — if the imported CSV doesn't have a `pool_system: "debt"` row but `state.debts.length > 0`, the auto-create on next render handles it.
+- **Multiple Debt pools after import** (shouldn't happen but defensively) — keep the first encountered with `system: "debt"`, merge any tagged entries pointing at the others, drop the duplicates.
+
+
 
 Computed at render time (no event-driven dispatch):
 
@@ -217,30 +371,60 @@ No push notifications. No native LN. Banners auto-update each render — no dism
 
 ## Pro gating
 
-- Free tier: 1 pool max. Trying to add a 2nd opens the paywall.
+- Free tier: 1 user-created pool max. Trying to add a 2nd opens the paywall.
+- The system Debt pool **does not count** toward the free limit — it's always available, free for everyone.
 - Display read paths are Pro-agnostic — free users with one pool from a prior Pro period or CSV import still see progress bars + alerts on existing pools.
 - Free users can NOT toggle rollover or set per-month overrides (Pro features). Paywall prompt on toggle/override input click.
-- Reuses existing `isPro()` and `openPaywall(feature)` infrastructure. New `PAYWALL_COPY.budgetPools = "Multi-pool budgeting is a Pro feature."` entry.
+- Reuses existing `isPro()` and `openPaywall(feature)` infrastructure. Three new `PAYWALL_COPY` entries — each surface gets distinct copy:
+  - `budgetPools: "Multi-pool budgeting is a Pro feature."`
+  - `budgetPoolsRollover: "Rollover is a Pro feature — carry unspent budget into the next month."`
+  - `budgetPoolsOverrides: "Per-month limit overrides are a Pro feature."`
 
 ## CSV import/export
 
-### New row type
-`budget-pool` with columns: `name, limit, color, active (Y/N), rollover (Y/N), monthly_limits (JSON-encoded map)`.
+### Header shape after this feature
 
-```csv
-type,name,amount,balance,...,limit,color,active,rollover,monthly_limits
-budget-pool,Shopping,,,,,500,#E07A5F,N,Y,"{""2026-12"":800}"
+The current CSV header (post-multi-currency feature) ends with five `fx_*` columns. This feature appends seven additional columns at the end, in this order:
+
+```
+type, name, amount, balance, apr, minPayment, date, category, note,
+debtName, target, current, month, day, dueDay, kind, monthsLeft,
+fx_code, fx_amount, fx_rate, fx_base, fx_fetched_at,
+pool_color, pool_active, pool_rollover, pool_monthly_limits, pool_system,
+budget_pool_id, budget_pool_name
 ```
 
-`monthly_limits` is JSON-encoded inside a single CSV cell so it round-trips without needing N columns. Empty string when no overrides.
+(`pool_*` columns belong to the `budget-pool` row type; `budget_pool_id` and `budget_pool_name` apply to expense-type rows. `name`, `amount`/`limit`-via-`amount`, etc. reuse existing columns where shape matches.)
+
+### New row type
+`budget-pool` reuses these existing columns:
+- `name` → pool name
+- `amount` → base limit (since pools don't have "balance"; `amount` is closest semantic)
+
+Plus five new pool-specific columns:
+- `pool_color` → hex string
+- `pool_active` → "Y" or "N"
+- `pool_rollover` → "Y" or "N"
+- `pool_monthly_limits` → JSON-encoded map, e.g. `{"2026-12":800}`. Empty string when no overrides.
+- `pool_system` → empty for user pools; `"debt"` for the auto-managed Debt pool. On import, treat the system Debt pool as authoritative — recreate it from the CSV row's stored data, but always recompute its `limit` from `debtTotals().minSum` on next render.
+
+```csv
+type,name,amount,...,pool_color,pool_active,pool_rollover,pool_monthly_limits,budget_pool_id,budget_pool_name
+budget-pool,Shopping,500,,,...,#E07A5F,N,Y,"{""2026-12"":800}",,
+daily,,12,,,...,,,,, "uuid-abc","Shopping"
+```
 
 ### New columns on expense rows
-Two new columns added to the existing CSV header: `budget_pool_id`, `budget_pool_name`. Empty for untagged rows.
+Two new columns: `budget_pool_id`, `budget_pool_name`. Empty for untagged rows.
 
-Rows touched: `income` (always empty — income doesn't tag), `expense` (recurring — fillable), `daily` (fillable), `daily-debt` (always empty), `daily-saving` (always empty).
+Rows touched: `expense` (recurring — fillable), `daily` (fillable). `income`, `daily-debt`, `daily-saving`, `debt`, `saving`, `setting` rows always leave these empty.
 
-### Import compat
-Old CSVs without the new columns import unchanged. No pool data attached.
+### Import edge cases
+- Old CSVs without the new columns import unchanged; no pool data attached.
+- Multiple imported pools both with `pool_active: Y` → keep first encountered as active, force the rest to `N`. The single-active invariant is preserved at import time.
+- Malformed `pool_monthly_limits` JSON → fall back to empty map, log a `console.warn`, do not abort the whole import.
+- `pool_color` not in palette → fall back to `POOL_COLORS[0]`.
+- A daily/expense row with `budget_pool_id` referencing a UUID that has no matching `budget-pool` row → leave both fields stamped on the entry; rendered as "(deleted)" via the soft-delete path.
 
 ## Soft-delete semantics
 
@@ -298,15 +482,17 @@ Three separate keys so paywall copy can be specific.
 ### Modified
 - `app/script.js`
   - State: `emptyState()`, `coerceState()` — add `budgetPools`
-  - Helpers: `poolUsageInMonth`, `effectiveLimit`, `findPoolByName`, palette constant
-  - Render: `renderBudgetManager` (Monthly tab), `renderBudgetSummary` (Home tab), called from `renderAll`
+  - Helpers: `poolUsageInMonth`, `effectiveLimit`, `findPoolByName`, `paidThisMonth(debtId)`, `ensureDebtPool()`, palette constant
+  - Render: `renderBudgetManager` (Monthly tab), `renderBudgetSummary` (Home tab including the system Debt card with banner escalation), called from `renderAll`
   - Forms: `attachPoolDropdownToForm` for daily + recurring expense forms
-  - Submit handlers: `form-daily`, `form-expense`, edit dialog — stamp pool fields
+  - Submit handlers: `form-daily` (auto-tag daily-debt entries to system Debt pool), `form-expense`, edit dialog — stamp pool fields
+  - Bulk-pay: `openBulkDebtPayDialog`, `confirmBulkDebtPayment`, `closeBulkDebtPayDialog`, smart-default checkbox computation
   - Alerts: inline hint generators in form preview + summary
-  - CSV: `toCSV` / `fromCSV` — new row type + new columns
+  - CSV: `toCSV` / `fromCSV` — new row type + new columns (including `pool_system`)
 - `app/index.html`
   - Manager card markup under Income on Monthly tab
-  - Summary card markup on Home tab between stats row and Log-money-out
+  - Summary card markup on Home tab between stats row and Log-money-out (includes Debt-pool card with banner)
+  - Bulk-pay debts dialog markup (`<dialog id="bulk-debt-pay-dialog">`)
   - Pool dropdown on `#form-daily` (between Category and Note) and `#form-expense`
   - Edit dialog markup gains the read-only pool line + Change link
 - `app/styles.css`
@@ -333,6 +519,17 @@ Manual in browser (no test framework — per project convention).
 - CSV roundtrip: export with pools + tagged entries → wipe localStorage → import → all reconstructed
 - Edit existing tagged entry → pool sticky, read-only line shows current pool name
 - Foreign-currency expense tagged to pool → counts at converted base-currency amount
+- Add a debt → Debt system pool auto-appears on Home with limit = sum of minimums
+- Pay one debt manually via daily quick-add → Debt pool usage updates; banner adjusts (calm → "RM N still due")
+- Click "Pay monthly debts" → bulk-pay dialog opens with all debts checked at full minimums
+- Pay a debt manually first, then open bulk-pay → that debt's row is greyed and unchecked
+- Partial-pay a debt manually, then open bulk-pay → row is checked at the remaining amount
+- Confirm bulk-pay with 3 debts → 3 daily-debt entries created, 3 balances reduced, summary updates
+- Banner escalation: set due day to today and don't pay → red banner appears
+- All debts paid this month → Debt pool collapses to "✓ All debts paid this month."
+- Delete all debts → Debt pool card hidden; system pool stays in state but inactive
+- CSV export with debts present → `pool_system: "debt"` row present; tagged daily-debt rows have `budget_pool_id` filled
+- CSV reimport → Debt pool reconstructed; tagged entries reconnect
 
 ## Out of scope (deferred to future enhancements)
 
