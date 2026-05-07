@@ -257,6 +257,8 @@ async function loadFxRates({ force = false } = {}) {
       stale: !!data.stale,
     };
     save();
+    populateCurrencyPickers();
+    renderFxStatus();
     return state.fx;
   } catch (e) {
     console.warn("loadFxRates failed:", e);
@@ -1534,6 +1536,7 @@ const PAYWALL_COPY = {
   ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
   notifications: "Reminders and notifications are a Pro feature.",
   copyPrev: "Copy from previous month is a Pro feature.",
+  multiCurrency: "Multi-currency entry is a Pro feature.",
 };
 function openPaywall(feature) {
   const dlg = document.getElementById("paywall-dialog");
@@ -2143,8 +2146,32 @@ $("#form-income").addEventListener("submit", (e) => {
   const amount = Number(f.get("amount"));
   const month = (f.get("month") || selectedMonth).toString() || selectedMonth;
   const day = parseDay(f.get("day"));
+  const fromCode = (f.get("currency") || currentCurrency()).toString();
+  const toCode = currentCurrency();
   if (!name || !Number.isFinite(amount) || amount < 0) return;
-  state.income.push({ id: uid(), name, amount, month, day });
+
+  const entry = { id: uid(), name, amount, month, day };
+  if (fromCode !== toCode) {
+    if (!isPro()) { openPaywall("multiCurrency"); return; }
+    if (!fxCurrencySupported(fromCode)) {
+      alert(`Live rate not available for ${fromCode}. Pick a different currency.`);
+      return;
+    }
+    const converted = convertFx(amount, fromCode, toCode);
+    if (!Number.isFinite(converted)) {
+      alert("Could not convert — try refreshing rates in Settings.");
+      return;
+    }
+    entry.amount = +converted.toFixed(2);
+    entry.fx = {
+      code: fromCode,
+      amount: amount,
+      rate: pairRate(fromCode, toCode),
+      base: toCode,
+      fetched_at: state.fx.fetched_at || null,
+    };
+  }
+  state.income.push(entry);
   save();
   e.target.reset();
   renderAll();
@@ -2157,8 +2184,32 @@ $("#form-expense").addEventListener("submit", (e) => {
   const amount = Number(f.get("amount"));
   const month = (f.get("month") || selectedMonth).toString() || selectedMonth;
   const day = parseDay(f.get("day"));
+  const fromCode = (f.get("currency") || currentCurrency()).toString();
+  const toCode = currentCurrency();
   if (!name || !Number.isFinite(amount) || amount < 0) return;
-  state.expenses.push({ id: uid(), name, amount, month, day });
+
+  const entry = { id: uid(), name, amount, month, day };
+  if (fromCode !== toCode) {
+    if (!isPro()) { openPaywall("multiCurrency"); return; }
+    if (!fxCurrencySupported(fromCode)) {
+      alert(`Live rate not available for ${fromCode}. Pick a different currency.`);
+      return;
+    }
+    const converted = convertFx(amount, fromCode, toCode);
+    if (!Number.isFinite(converted)) {
+      alert("Could not convert — try refreshing rates in Settings.");
+      return;
+    }
+    entry.amount = +converted.toFixed(2);
+    entry.fx = {
+      code: fromCode,
+      amount: amount,
+      rate: pairRate(fromCode, toCode),
+      base: toCode,
+      fetched_at: state.fx.fetched_at || null,
+    };
+  }
+  state.expenses.push(entry);
   save();
   e.target.reset();
   renderAll();
@@ -2532,6 +2583,65 @@ function renderFxPreview({ amount, fromCode, toCode, supported }) {
   return `<span class="fx-preview">${fmtMoneyIn(converted, toCode)} · rate 1 ${escapeHtml(fromCode)} = ${rate.toFixed(4)} ${escapeHtml(toCode)}</span>`;
 }
 
+function populateCurrencyPickers() {
+  document.querySelectorAll("select[data-currency-picker]").forEach((sel) => {
+    const desired = sel.value || currentCurrency();
+    sel.innerHTML = currencyPickerOptions(desired);
+  });
+}
+
+function attachFxPreviewToForm(formEl) {
+  const amountEl = formEl.querySelector("input[name='amount']");
+  const pickerEl = formEl.querySelector("select[data-currency-picker]");
+  const preview = formEl.querySelector("[data-fx-preview]");
+  const upsell = formEl.querySelector("[data-fx-upsell]");
+  if (!amountEl || !pickerEl) return;
+
+  const update = () => {
+    const fromCode = pickerEl.value || currentCurrency();
+    const toCode = currentCurrency();
+    const amount = Number(amountEl.value);
+    const isForeign = fromCode !== toCode;
+
+    if (!isForeign) {
+      if (preview) preview.hidden = true;
+      if (upsell) upsell.hidden = true;
+      return;
+    }
+    if (!isPro()) {
+      if (preview) preview.hidden = true;
+      if (upsell) upsell.hidden = false;
+      return;
+    }
+    if (upsell) upsell.hidden = true;
+    if (preview) {
+      const supported = fxCurrencySupported(fromCode);
+      preview.hidden = false;
+      preview.classList.toggle("fx-preview--err", !supported || !Number.isFinite(convertFx(amount, fromCode, toCode)));
+      if (!supported) {
+        preview.textContent = `Live rate not available for ${fromCode}.`;
+      } else if (!Number.isFinite(amount) || amount <= 0) {
+        preview.textContent = `Will convert to ${toCode} at save time.`;
+      } else {
+        const converted = convertFx(amount, fromCode, toCode);
+        const rate = pairRate(fromCode, toCode);
+        if (!Number.isFinite(converted)) {
+          preview.textContent = `Cannot convert ${fromCode} → ${toCode}.`;
+        } else {
+          preview.textContent = `${fmtMoneyIn(converted, toCode)} · rate 1 ${fromCode} = ${rate.toFixed(4)} ${toCode}`;
+        }
+      }
+    }
+  };
+
+  amountEl.addEventListener("input", update);
+  pickerEl.addEventListener("change", update);
+  formEl.addEventListener("reset", () => setTimeout(() => {
+    if (pickerEl) pickerEl.value = currentCurrency();
+    update();
+  }, 0));
+}
+
 function openEditDialog(kind, id) {
   let entity = null;
   if (kind === "income") entity = state.income.find((x) => x.id === id);
@@ -2738,6 +2848,7 @@ if (prefCurrency) {
     if (!/^[A-Z]{3}$/.test(code)) return;
     state.currency = code;
     save();
+    populateCurrencyPickers();
     renderAll();
   });
 }
@@ -4641,3 +4752,18 @@ if (window.DriveSync) DriveSync.subscribe(() => renderDriveCard());
     });
   }
 }
+
+{
+  populateCurrencyPickers();
+  ["form-income", "form-expense", "form-daily"].forEach((id) => {
+    const f = document.getElementById(id);
+    if (f) attachFxPreviewToForm(f);
+  });
+}
+
+document.addEventListener("click", (e) => {
+  const link = e.target instanceof HTMLElement ? e.target.closest("[data-action='open-paywall']") : null;
+  if (!link) return;
+  e.preventDefault();
+  openPaywall("multiCurrency");
+});
