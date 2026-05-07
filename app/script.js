@@ -3627,6 +3627,12 @@ function toCSV() {
       p.system || "",
     ]));
   }
+  // monthly-minsum rows — round-trip the per-month debt-min snapshots
+  for (const [month, value] of Object.entries(state.monthlyMinSums || {})) {
+    if (!/^\d{4}-\d{2}$/.test(month)) continue;
+    if (!Number.isFinite(Number(value)) || Number(value) < 0) continue;
+    rows.push(blank(["monthly-minsum", month, Number(value)]));
+  }
   return rows.map((r) => r.map(csvEscape).join(",")).join("\n") + "\n";
 }
 
@@ -3873,6 +3879,8 @@ function fromCSV(text) {
         system: isSystem ? "debt" : undefined,
         createdAt: Date.now(),
       });
+    } else if (type === "monthly-minsum" && /^\d{4}-\d{2}$/.test(name) && Number.isFinite(amount) && amount >= 0) {
+      next.monthlyMinSums[name] = amount;
     }
   }
 
