@@ -477,18 +477,31 @@ body.private #stall-warning {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  /* Fade-out gradient on the right edge hints that more tabs exist when the
-     row overflows on mobile. The mask is anchored to the scroll container so
-     it tracks with the user's scroll position. */
-  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
-  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
 }
 .tabs::-webkit-scrollbar { display: none; }
-/* Remove the fade on wider screens where all tabs already fit */
-@media (min-width: 720px) {
+/* On mobile, the previous fade-edge wasn't enough — users didn't realize the
+   tabs scrolled. Compress to icon-only on narrow widths so all 7 tabs fit
+   without scrolling. The active tab keeps its label so the user always knows
+   where they are; inactive tabs show just the icon. */
+@media (max-width: 560px) {
   .tabs {
-    -webkit-mask-image: none;
-    mask-image: none;
+    gap: 0.1rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    overflow-x: visible;
+  }
+  .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.5rem 0.4rem;
+    justify-content: center;
+  }
+  .tab > span:not(.tab-icon) {
+    display: none;
+  }
+  .tab.active > span:not(.tab-icon) {
+    display: inline;
+    font-size: 0.74rem;
   }
 }
 .tab {
@@ -1288,6 +1301,17 @@ select:focus {
   color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  /* Sticky on long lists so the day label + total stays visible while
+     scrolling through entries. The card surface beneath provides the bg
+     so we set our own. Top offset = tabs height (approx). */
+  position: sticky;
+  top: 56px;
+  background: var(--card);
+  z-index: 1;
+  padding: 4px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
 }
 .daily-group-header .day-total {
   font-family: var(--font-serif);
@@ -2699,13 +2723,20 @@ button.ghost.icon-btn {
 .last-month-line .last-month-tone.pos { color: var(--pos, #2f6b54); }
 .last-month-line .last-month-tone.neg { color: var(--neg, #b04a2c); }
 .last-month-line .last-month-edit {
+  /* Promoted from a tiny ✎ icon to a labeled "Adjust" link — the previous
+     icon was unclear as an action affordance. */
   background: none;
   border: none;
-  padding: 0 4px;
+  padding: 0 6px;
   font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
   cursor: pointer;
-  color: var(--muted, #666);
-  opacity: 0.6;
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: rgba(200, 112, 75, 0.4);
+  text-underline-offset: 2px;
+  opacity: 0.85;
 }
 .last-month-line .last-month-edit:hover { opacity: 1; }
 

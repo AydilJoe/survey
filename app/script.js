@@ -1530,7 +1530,8 @@ function renderDaily() {
         <div class="daily-entry" data-id="${e.id}">
           <div class="primary-line">${pill}${note}</div>
           <span class="amount">${fmtMoney(e.amount)}${renderFxBadge(e.fx)}</span>
-          <button class="ghost" data-action="delete-daily" data-id="${e.id}" aria-label="Delete">✕</button>
+          <button class="ghost icon-btn" data-action="edit-daily" data-id="${e.id}" aria-label="Edit entry" title="Edit">✎</button>
+          <button class="ghost icon-btn" data-action="delete-daily" data-id="${e.id}" aria-label="Delete">✕</button>
         </div>
       `);
     }
@@ -2278,15 +2279,30 @@ function renderReports() {
       .reduce((s, e) => s + (Number(e.amount) || 0), 0);
     if (priorTotal > 0 || total > 0) {
       const delta = total - priorTotal;
-      const pctText = priorTotal > 0
-        ? `${Math.abs((delta / priorTotal) * 100).toFixed(0)}%`
-        : "—";
+      // Cap visually-alarming percentages at 999%. Beyond that, switch to a
+      // multiplier (e.g. 64×) which is more honest about scale than "6488%"
+      // and reads naturally. Tooltip preserves the raw % for power users.
+      let pctText = "—";
+      let pctTitle = "";
+      if (priorTotal > 0) {
+        const ratioPct = (delta / priorTotal) * 100;
+        const absPct = Math.abs(ratioPct);
+        if (absPct >= 1000) {
+          // Switch to "Nx" form. The multiplier is total/prior (not delta/prior).
+          const mult = total / priorTotal;
+          pctText = `${mult.toFixed(0)}×`;
+          pctTitle = `${ratioPct.toFixed(0)}% increase from prior period`;
+        } else {
+          pctText = `${absPct.toFixed(0)}%`;
+        }
+      }
       const arrow = delta > 0 ? "▲" : delta < 0 ? "▼" : "▬";
       const cls = delta > 0 ? "delta-up" : delta < 0 ? "delta-down" : "";
+      const titleAttr = pctTitle ? ` title="${escapeHtml(pctTitle)}"` : "";
       momEl.innerHTML =
         `vs prior period (${formatDayLabel(priorStart)} – ${formatDayLabel(priorEnd)}): ` +
         `${fmtMoney(priorTotal)} · ` +
-        `<span class="${cls}">${arrow} ${pctText}</span>`;
+        `<span class="${cls}"${titleAttr}>${arrow} ${pctText}</span>`;
       momEl.hidden = false;
     } else {
       momEl.hidden = true;
@@ -2354,6 +2370,24 @@ function renderReports() {
             <span class="label">${escapeHtml(b.label)}</span>
           </div>`;
       }).join("");
+
+      // When one bar is much larger than the rest, smaller bars look like
+      // missing data. Append a peak-day annotation to the hint so users know
+      // what's dwarfing the others. Threshold: peak > 5× the median of
+      // non-zero buckets.
+      if (trendHint) {
+        const nonZero = buckets.filter((b) => b.total > 0).map((b) => b.total).sort((a, b) => a - b);
+        if (nonZero.length >= 3) {
+          const median = nonZero[Math.floor(nonZero.length / 2)];
+          const peakBucket = buckets.reduce((p, b) => b.total > p.total ? b : p, buckets[0]);
+          if (median > 0 && peakBucket.total > median * 5) {
+            const baseHint = trendHint.textContent;
+            // Use the bucket key (ISO date or YYYY-MM) for a friendly label.
+            const peakLabel = days <= 62 ? formatDayLabel(peakBucket.key) : formatMonthLabel(peakBucket.key);
+            trendHint.textContent = `${baseHint} · peak on ${peakLabel} (${fmtMoney(peakBucket.total)})`;
+          }
+        }
+      }
     }
   }
 
