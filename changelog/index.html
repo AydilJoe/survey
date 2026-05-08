@@ -142,6 +142,26 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-7">
+    <span class="release-date">May 2026 · v1.7</span>
+    <h2 class="release-title">Visual reports, searchable lists, and global FX coverage</h2>
+    <p class="release-summary">A polish-heavy follow-up to v1.6. Reports tab gets a real spending pie. Every list gets a search bar. Multi-currency now covers 46 currencies (up from 17), including AED, SAR, and VND that were display-only before. Plus a wave of UX cleanup across the app.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Spending pie chart on Reports</strong> — the by-category list on Reports is now a real SVG pie with a legend, total line, and "Other" grouping for the long tail. Filters by kind (income / expense), respects your privacy toggle, and sizes up properly on desktop.</li>
+      <li><span class="tag feat">new</span><strong>Search across all lists</strong> — a search bar on Monthly (income + expense), Daily, Debts, Savings, and the Budget Pools manager. Filters by name as you type. Auto-hides on Savings when there are too few goals to justify it.</li>
+      <li><span class="tag feat">new</span><strong>FX coverage expands to 46 currencies</strong> — switched the live-rates source from Frankfurter to the open-source <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">Currency-API</a>. AED, SAR, and VND now have real rates instead of being display-only. Added 26 more including ASEAN neighbours (BND, LAK, KHR, MMK, TWD), South Asia (PKR, BDT, LKR, NPR), GCC (QAR, KWD, OMR, BHD), and assorted Europe / Americas (SEK, NOK, DKK, PLN, BRL, MXN, ZAR, etc.). Server-side 24h cache with a CDN fallback.</li>
+      <li><span class="tag fix">fix</span><strong>Dashboard double-count</strong> — debt payments and savings contributions were being subtracted twice from "Balance Left" in some configurations. The formula now uses <code>max(min + extra, paid)</code> as the floor.</li>
+      <li><span class="tag feat">new</span><strong>Budget Pools quick-start templates</strong> — first-time pool creation offers preset templates instead of a blank form so you don't have to invent categories from scratch.</li>
+      <li><span class="tag feat">new</span><strong>Honest over-budget % + dated payoff ETA</strong> — the over-budget badge shows a real percentage instead of capping at 100%. Debt payoff projection now shows the actual target month instead of "X months from now."</li>
+      <li><span class="tag fix">fix</span><strong>Settings clarity</strong> — clearer labels on every preference, Share via Web Share where supported (falls back to copy-link), neutral greeting that doesn't assume time of day.</li>
+      <li><span class="tag fix">fix</span><strong>Debts disambiguation</strong> — duplicate debt names now get a suffix so you can tell two "Maybank Card" entries apart. Due-soon legend added to the dashboard banner.</li>
+      <li><span class="tag fix">fix</span><strong>Daily pill colours</strong> — daily-entry pill backgrounds match the brand palette consistently, with an inline legend so Spend / Pay debt / Save buckets are obvious at a glance.</li>
+      <li><span class="tag fix">fix</span><strong>Savings empty state</strong> — friendlier copy when you haven't added any goals; the search bar hides itself when the list is sparse.</li>
+      <li><span class="tag fix">fix</span><strong>Cross-app polish</strong> — global <code>accent-color</code> on form controls; dash placeholders replaced with proper empty states.</li>
+      <li><span class="tag fix">fix</span><strong>Destructive actions stand out</strong> — Delete and other destructive buttons are visually distinct from primary actions so accidental clicks are less likely.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-6">
     <span class="release-date">May 2026 · v1.6</span>
     <h2 class="release-title">Multi-currency, budget pools, running balance, and auto-recurring</h2>
