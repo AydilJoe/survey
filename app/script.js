@@ -185,10 +185,23 @@ function uid() {
 /* ---------- formatting ---------- */
 
 const CURRENCY_LOCALE = {
+  // Core
   MYR: "en-MY", SGD: "en-SG", USD: "en-US", EUR: "de-DE", GBP: "en-GB",
   AUD: "en-AU", NZD: "en-NZ", CAD: "en-CA", JPY: "ja-JP", CNY: "zh-CN",
-  HKD: "en-HK", IDR: "id-ID", THB: "th-TH", PHP: "en-PH", INR: "en-IN",
-  KRW: "ko-KR", VND: "vi-VN", AED: "en-AE", SAR: "ar-SA", CHF: "de-CH",
+  HKD: "en-HK", TWD: "zh-TW", KRW: "ko-KR", CHF: "de-CH",
+  // SE Asia
+  IDR: "id-ID", THB: "th-TH", PHP: "en-PH", VND: "vi-VN",
+  BND: "ms-BN", LAK: "lo-LA", KHR: "km-KH", MMK: "my-MM",
+  // South Asia
+  INR: "en-IN", PKR: "ur-PK", BDT: "bn-BD", LKR: "si-LK", NPR: "ne-NP",
+  // Middle East
+  AED: "en-AE", SAR: "ar-SA", QAR: "ar-QA", KWD: "ar-KW", OMR: "ar-OM",
+  BHD: "ar-BH", EGP: "ar-EG", ILS: "he-IL", TRY: "tr-TR",
+  // Europe (non-EUR)
+  SEK: "sv-SE", NOK: "nb-NO", DKK: "da-DK", PLN: "pl-PL",
+  CZK: "cs-CZ", HUF: "hu-HU",
+  // Americas / Africa
+  BRL: "pt-BR", MXN: "es-MX", ARS: "es-AR", ZAR: "en-ZA",
 };
 
 function currentCurrency() {

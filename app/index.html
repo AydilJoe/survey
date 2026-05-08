@@ -800,14 +800,40 @@
               <option value="JPY">JPY — Japanese Yen</option>
               <option value="CNY">CNY — Chinese Yuan</option>
               <option value="HKD">HKD — Hong Kong Dollar</option>
+              <option value="TWD">TWD — Taiwan Dollar</option>
               <option value="KRW">KRW — South Korean Won</option>
               <option value="IDR">IDR — Indonesian Rupiah</option>
               <option value="THB">THB — Thai Baht</option>
               <option value="PHP">PHP — Philippine Peso</option>
               <option value="VND">VND — Vietnamese Dong</option>
+              <option value="BND">BND — Brunei Dollar</option>
+              <option value="LAK">LAK — Lao Kip</option>
+              <option value="KHR">KHR — Cambodian Riel</option>
+              <option value="MMK">MMK — Myanmar Kyat</option>
               <option value="INR">INR — Indian Rupee</option>
+              <option value="PKR">PKR — Pakistani Rupee</option>
+              <option value="BDT">BDT — Bangladeshi Taka</option>
+              <option value="LKR">LKR — Sri Lankan Rupee</option>
+              <option value="NPR">NPR — Nepalese Rupee</option>
               <option value="AED">AED — UAE Dirham</option>
               <option value="SAR">SAR — Saudi Riyal</option>
+              <option value="QAR">QAR — Qatari Riyal</option>
+              <option value="KWD">KWD — Kuwaiti Dinar</option>
+              <option value="OMR">OMR — Omani Rial</option>
+              <option value="BHD">BHD — Bahraini Dinar</option>
+              <option value="EGP">EGP — Egyptian Pound</option>
+              <option value="ILS">ILS — Israeli Shekel</option>
+              <option value="TRY">TRY — Turkish Lira</option>
+              <option value="SEK">SEK — Swedish Krona</option>
+              <option value="NOK">NOK — Norwegian Krone</option>
+              <option value="DKK">DKK — Danish Krone</option>
+              <option value="PLN">PLN — Polish Złoty</option>
+              <option value="CZK">CZK — Czech Koruna</option>
+              <option value="HUF">HUF — Hungarian Forint</option>
+              <option value="BRL">BRL — Brazilian Real</option>
+              <option value="MXN">MXN — Mexican Peso</option>
+              <option value="ARS">ARS — Argentine Peso</option>
+              <option value="ZAR">ZAR — South African Rand</option>
             </select>
           </label>
           <p class="hint">Saved values stay the same — only the display currency changes.</p>
@@ -817,14 +843,15 @@
           <h2>Currency rates</h2>
           <p class="hint">
             Live mid-market rates for converting foreign-currency entries.
-            Refreshed daily via Frankfurter (European Central Bank).
+            Refreshed daily via the open-source
+            <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">Currency-API</a>.
           </p>
           <div class="fx-status" id="fx-status">
             <span id="fx-status-line" aria-live="polite">Rates not loaded yet.</span>
             <button type="button" class="ghost" id="btn-fx-refresh" aria-describedby="fx-status-line">Refresh now</button>
           </div>
           <p class="hint" id="fx-unsupported-hint" hidden>
-            AED, SAR and VND are display-only — live rates are not available for these currencies.
+            Some currencies are display-only — live rates are not available for these.
           </p>
         </div>
 
@@ -1008,14 +1035,40 @@
                 <option value="JPY">JPY — Japanese Yen</option>
                 <option value="CNY">CNY — Chinese Yuan</option>
                 <option value="HKD">HKD — Hong Kong Dollar</option>
+                <option value="TWD">TWD — Taiwan Dollar</option>
                 <option value="KRW">KRW — South Korean Won</option>
                 <option value="IDR">IDR — Indonesian Rupiah</option>
                 <option value="THB">THB — Thai Baht</option>
                 <option value="PHP">PHP — Philippine Peso</option>
                 <option value="VND">VND — Vietnamese Dong</option>
+                <option value="BND">BND — Brunei Dollar</option>
+                <option value="LAK">LAK — Lao Kip</option>
+                <option value="KHR">KHR — Cambodian Riel</option>
+                <option value="MMK">MMK — Myanmar Kyat</option>
                 <option value="INR">INR — Indian Rupee</option>
+                <option value="PKR">PKR — Pakistani Rupee</option>
+                <option value="BDT">BDT — Bangladeshi Taka</option>
+                <option value="LKR">LKR — Sri Lankan Rupee</option>
+                <option value="NPR">NPR — Nepalese Rupee</option>
                 <option value="AED">AED — UAE Dirham</option>
                 <option value="SAR">SAR — Saudi Riyal</option>
+                <option value="QAR">QAR — Qatari Riyal</option>
+                <option value="KWD">KWD — Kuwaiti Dinar</option>
+                <option value="OMR">OMR — Omani Rial</option>
+                <option value="BHD">BHD — Bahraini Dinar</option>
+                <option value="EGP">EGP — Egyptian Pound</option>
+                <option value="ILS">ILS — Israeli Shekel</option>
+                <option value="TRY">TRY — Turkish Lira</option>
+                <option value="SEK">SEK — Swedish Krona</option>
+                <option value="NOK">NOK — Norwegian Krone</option>
+                <option value="DKK">DKK — Danish Krone</option>
+                <option value="PLN">PLN — Polish Złoty</option>
+                <option value="CZK">CZK — Czech Koruna</option>
+                <option value="HUF">HUF — Hungarian Forint</option>
+                <option value="BRL">BRL — Brazilian Real</option>
+                <option value="MXN">MXN — Mexican Peso</option>
+                <option value="ARS">ARS — Argentine Peso</option>
+                <option value="ZAR">ZAR — South African Rand</option>
               </select>
             </label>
           </div>

@@ -1,7 +1,8 @@
-// Server-cached Frankfurter (ECB) FX rates, EUR-anchored.
+// Server-cached FX rates, EUR-anchored.
 // GET /api/fx          → cached rates if < 24h old, else refresh
 // GET /api/fx?refresh=1 → force refresh (manual)
-// Falls back to last-known cache if Frankfurter is unreachable.
+// Source: fawazahmed0/currency-api (free, no key, daily updates).
+// Falls back to last-known cache if the upstream is unreachable.
 
 let kvModule = null;
 try { kvModule = require("@vercel/kv"); } catch (_) { /* not installed */ }
@@ -9,23 +10,54 @@ const HAS_KV = !!(kvModule && process.env.KV_REST_API_URL && process.env.KV_REST
 const KEY = "fx:rates:v1";
 const TTL_MS = 24 * 60 * 60 * 1000;
 
-// Frankfurter symbols we ship the picker for. Keep in sync with index.html.
+// Currencies we expose to the client. Keep in sync with index.html / script.js.
 const SYMBOLS = [
-  "USD","GBP","AUD","NZD","CAD","CHF","JPY","CNY","HKD","KRW",
-  "IDR","THB","PHP","INR","MYR","SGD",
-  // EUR is the anchor — not requested but always included as 1.0 client-side.
+  // ASEAN + East Asia
+  "MYR","SGD","THB","IDR","PHP","VND","BND","LAK","KHR","MMK",
+  "JPY","CNY","HKD","KRW","TWD",
+  // South Asia
+  "INR","PKR","BDT","LKR","NPR",
+  // Middle East
+  "AED","SAR","QAR","KWD","OMR","BHD","EGP","ILS","TRY",
+  // Europe (non-EUR)
+  "GBP","CHF","SEK","NOK","DKK","PLN","CZK","HUF",
+  // Americas + Oceania + Africa
+  "USD","CAD","AUD","NZD","BRL","MXN","ARS","ZAR",
+  // EUR is the anchor — always 1.0 client-side.
 ];
 
-async function fetchFromFrankfurter() {
-  const url = `https://api.frankfurter.app/latest?from=EUR&to=${SYMBOLS.join(",")}`;
+const ANCHOR = "EUR";
+const PRIMARY = `https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/${ANCHOR.toLowerCase()}.json`;
+const FALLBACK = `https://latest.currency-api.pages.dev/v1/currencies/${ANCHOR.toLowerCase()}.json`;
+
+async function fetchOnce(url) {
   const r = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!r.ok) throw new Error(`Frankfurter ${r.status}`);
-  const data = await r.json();
+  if (!r.ok) throw new Error(`upstream ${r.status}`);
+  return r.json();
+}
+
+async function fetchFromUpstream() {
+  let data;
+  try {
+    data = await fetchOnce(PRIMARY);
+  } catch (_) {
+    data = await fetchOnce(FALLBACK);
+  }
+  // Shape: { date: "YYYY-MM-DD", eur: { usd: 1.08, gbp: 0.85, ... } }
+  const lookup = data && data[ANCHOR.toLowerCase()];
+  if (!lookup || typeof lookup !== "object") {
+    throw new Error("malformed upstream payload");
+  }
+  const rates = {};
+  for (const sym of SYMBOLS) {
+    const v = lookup[sym.toLowerCase()];
+    if (typeof v === "number" && Number.isFinite(v)) rates[sym] = v;
+  }
   return {
-    anchor: "EUR",
-    rates: data.rates || {},
+    anchor: ANCHOR,
+    rates,
     fetched_at: new Date().toISOString(),
-    source: "frankfurter",
+    source: "currency-api",
     stale: false,
   };
 }
@@ -57,7 +89,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const payload = await fetchFromFrankfurter();
+    const payload = await fetchFromUpstream();
     await writeCache(payload);
     res.status(200).json(payload);
   } catch (err) {
