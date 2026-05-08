@@ -4142,7 +4142,7 @@ function renderFxStatus() {
     ageMins < 24 * 60 ? `${Math.floor(ageMins / 60)} hours ago` :
     `${Math.floor(ageMins / (60 * 24))} days ago`;
   const staleNote = state.fx.stale ? " · using cached value (live source unavailable)" : "";
-  line.textContent = `Last refreshed ${human}${staleNote} · via Frankfurter (ECB)`;
+  line.textContent = `Last refreshed ${human}${staleNote} · via Currency-API (open-source, by @fawazahmed0)`;
 }
 if (prefDays) prefDays.addEventListener("change", () => {
   const v = Math.max(0, Math.min(31, Math.round(Number(prefDays.value) || 0)));
