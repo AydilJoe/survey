@@ -821,6 +821,68 @@ main {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
+/* Hero debt-at-a-glance — tap to jump to the Debts tab. Surfaces the TOTAL
+   debt amount (a different signal from the MIN DEBT stat tile, which only
+   shows the monthly obligation). Hidden when state.debts is empty. */
+.debt-glance {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--glass-pane);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+  margin-top: 0.5rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: var(--glass-pane-shadow);
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+.debt-glance:hover {
+  background: var(--glass-bg-strong);
+}
+.debt-glance:active {
+  transform: scale(0.99);
+}
+.debt-glance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.debt-glance-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.debt-glance-amount {
+  font-family: var(--font-serif);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.debt-glance-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+/* On mobile, surface the value next to the label rather than across opposite
+   sides of the row — keeps it compact and scannable. */
+@media (max-width: 480px) {
+  .debt-glance-row {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+}
+
 /* Progressive disclosure for the formula on mobile — the calculation walk-
    through is useful but heavy. Tucked behind a <details>/<summary> the user
    can expand. The reset removes the default disclosure triangle so we can

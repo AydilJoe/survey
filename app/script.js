@@ -1787,6 +1787,37 @@ function renderDashboard() {
   $("#stat-debt-total").textContent = fmtMoney(total);
   $("#stat-debt-apr").textContent = fmtPct(weighted);
 
+  // Hero debt-at-a-glance line — surfaces the TOTAL debt mountain (different
+  // signal from MIN DEBT which is the monthly obligation). Hidden when no
+  // debts. Tap → jumps to Debts tab via existing data-go-tab handler.
+  const debtGlance = document.getElementById("hero-debt-glance");
+  if (debtGlance) {
+    if (state.debts.length === 0) {
+      debtGlance.hidden = true;
+    } else {
+      debtGlance.hidden = false;
+      const totalEl = document.getElementById("hero-debt-glance-total");
+      const metaEl = document.getElementById("hero-debt-glance-meta");
+      if (totalEl) totalEl.textContent = fmtMoney(total);
+      if (metaEl) {
+        const n = state.debts.length;
+        // Try to compute payoff ETA from the avalanche sim (already runs in
+        // renderDebtsCard but we don't have its result here). Compute it cheap.
+        const sim = simulateAvalanche(state.debts, state.extraMonthly);
+        let etaPart;
+        if (sim.infeasible) {
+          etaPart = "payments below interest — debt growing";
+        } else if (sim.months > 0) {
+          const targetMonth = shiftMonth(currentMonthISO(), sim.months - 1);
+          etaPart = `debt-free by ${formatMonthLabel(targetMonth)}`;
+        } else {
+          etaPart = "all paid off";
+        }
+        metaEl.textContent = `${n} debt${n === 1 ? "" : "s"} · ${etaPart}`;
+      }
+    }
+  }
+
   const banner = $("#stat-debt-banner");
   const bannerSub = $("#stat-debt-banner-sub");
   if (banner) banner.textContent = fmtMoney(total);
