@@ -3699,6 +3699,9 @@ document.addEventListener("click", (e) => {
   } else if (action === "edit-income" || action === "edit-expense" || action === "edit-debt" || action === "edit-saving") {
     openEditDialog(action.slice("edit-".length), id);
     return;
+  } else if (action === "edit-daily") {
+    openDailyEditDialog(id);
+    return;
   } else if (action === "quick-pay-debt") {
     // Switch to Home, activate Pay debt mode, pre-select this debt, focus
     // the amount input so the user just types the amount and submits.
@@ -6624,6 +6627,108 @@ document.getElementById("btn-bulk-debt-confirm")?.addEventListener("click", () =
   closeBulkDebtPayDialog();
   renderAll();
   if (created === 0) alert("No debts paid (nothing was checked or amounts were 0).");
+});
+
+// ----------- Daily entry edit dialog -----------
+// Opens a small dialog to edit a daily entry's amount, date, category (if
+// expense), and note. Other fields (kind, debtId, savingId, fx, cardDebtId)
+// are not editable from this dialog — the user should delete and re-add if
+// they need to change the entry's nature.
+function openDailyEditDialog(id) {
+  const dlg = document.getElementById("daily-edit-dialog");
+  if (!dlg) return;
+  const entry = state.dailyExpenses.find((x) => x.id === id);
+  if (!entry) return;
+
+  dlg.dataset.entryId = id;
+  const kindHint = document.getElementById("daily-edit-kind-hint");
+  const kind = entry.kind || "expense";
+  const kindLabels = { expense: "Spending entry", debt: "Debt payment", saving: "Savings deposit" };
+  if (kindHint) kindHint.textContent = kindLabels[kind] || "Entry";
+
+  const amountInput = dlg.querySelector("input[name='amount']");
+  const dateInput = dlg.querySelector("input[name='date']");
+  const categoryInput = dlg.querySelector("input[name='category']");
+  const noteInput = dlg.querySelector("input[name='note']");
+  const categoryField = document.getElementById("daily-edit-category-field");
+
+  if (amountInput) amountInput.value = entry.amount != null ? Number(entry.amount).toFixed(2) : "";
+  if (dateInput) dateInput.value = entry.date || todayISO();
+  if (categoryInput) categoryInput.value = entry.category || "";
+  if (noteInput) noteInput.value = entry.note || "";
+
+  // Category field is only relevant for plain expenses — debt/saving entries
+  // get their label from the linked debt/goal name.
+  if (categoryField) categoryField.hidden = kind !== "expense";
+
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+function closeDailyEditDialog() {
+  const dlg = document.getElementById("daily-edit-dialog");
+  if (!dlg) return;
+  if (typeof dlg.close === "function") dlg.close();
+  else dlg.removeAttribute("open");
+  dlg.dataset.entryId = "";
+}
+
+document.getElementById("btn-daily-edit-cancel")?.addEventListener("click", () => {
+  closeDailyEditDialog();
+});
+
+document.getElementById("btn-daily-edit-save")?.addEventListener("click", () => {
+  const dlg = document.getElementById("daily-edit-dialog");
+  if (!dlg) return;
+  const id = dlg.dataset.entryId;
+  if (!id) return;
+  const entry = state.dailyExpenses.find((x) => x.id === id);
+  if (!entry) return;
+
+  const amount = Number(dlg.querySelector("input[name='amount']")?.value);
+  const date = dlg.querySelector("input[name='date']")?.value;
+  const category = dlg.querySelector("input[name='category']")?.value?.trim() || "";
+  const note = dlg.querySelector("input[name='note']")?.value?.trim() || "";
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    alert("Amount must be a positive number.");
+    return;
+  }
+  if (!date) {
+    alert("Date is required.");
+    return;
+  }
+
+  // For debt-payment entries, balance changes if amount changes — adjust the
+  // linked debt's balance by the delta so the total stays consistent.
+  const kind = entry.kind || "expense";
+  if (kind === "debt" && entry.debtId) {
+    const debt = state.debts.find((d) => d.id === entry.debtId);
+    if (debt) {
+      const oldAmount = Number(entry.amount) || 0;
+      const delta = amount - oldAmount;
+      // Reverse the prior reduction, then apply the new one (clamped to 0).
+      debt.balance = Math.max(0, (Number(debt.balance) || 0) - delta);
+    }
+  }
+  // Same for savings deposits — adjust the linked goal's current.
+  if (kind === "saving" && entry.savingId) {
+    const goal = state.savings.find((g) => g.id === entry.savingId);
+    if (goal) {
+      const oldAmount = Number(entry.amount) || 0;
+      const delta = amount - oldAmount;
+      goal.current = Math.max(0, (Number(goal.current) || 0) + delta);
+    }
+  }
+
+  entry.amount = amount;
+  entry.date = date;
+  if (kind === "expense") entry.category = category;
+  entry.note = note;
+
+  save();
+  closeDailyEditDialog();
+  renderAll();
 });
 
 function openLastMonthEditDialog() {
