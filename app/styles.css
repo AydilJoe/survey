@@ -1330,24 +1330,25 @@ select:focus {
   border-radius: 14px;
   padding: 0.7rem 0.85rem;
   display: grid;
-  grid-template-columns: 1fr auto auto;
-  grid-template-areas: "primary amount delete";
+  grid-template-columns: 1fr auto auto auto;
+  grid-template-areas: "primary amount edit delete";
   gap: 0.5rem;
   align-items: center;
   box-shadow: var(--glass-pane-shadow);
 }
 .daily-entry .primary-line { grid-area: primary; }
 .daily-entry > .amount { grid-area: amount; }
+.daily-entry > [data-action="edit-daily"] { grid-area: edit; }
 .daily-entry > [data-action="delete-daily"] { grid-area: delete; }
 /* On mobile, FX badges + currency-converted amounts overflow the single-row
    grid and visually overlap the pill. Stack the amount onto its own row so
-   nothing collides. */
+   nothing collides. Edit + delete sit on the right of the primary row. */
 @media (max-width: 480px) {
   .daily-entry {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
     grid-template-areas:
-      "primary delete"
-      "amount  amount";
+      "primary edit  delete"
+      "amount  amount amount";
     row-gap: 0.3rem;
   }
   .daily-entry > .amount {
