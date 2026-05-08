@@ -1981,6 +1981,21 @@ button.ghost.icon-btn {
   color: var(--muted);
   font-size: 0.82rem;
 }
+/* On mobile the row has too many cells (chip, name, balance, ↗pay, ✎edit,
+   ✕delete) and the name truncates to "M.", "P...", etc. Give the name its
+   own line so it can show in full, then push balance + action buttons to
+   the second line. */
+@media (max-width: 480px) {
+  .debt-list li .name {
+    flex: 1 0 calc(100% - 3rem);
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .debt-list li .meta {
+    margin-left: auto;
+  }
+}
 
 .empty {
   color: var(--muted);
@@ -2632,9 +2647,32 @@ button.ghost.icon-btn {
 .bulk-debt-row > .row-amount { grid-area: amount; }
 .bulk-debt-row > input[type="date"] { grid-area: date; justify-self: end; }
 .bulk-debt-row.greyed { opacity: 0.55; background: rgba(0,0,0,0.03); }
-.bulk-debt-row .row-amount { font-variant-numeric: tabular-nums; font-weight: 500; }
 .bulk-debt-row .row-meta { font-size: 0.78em; color: var(--muted, #666); }
 .bulk-debt-row input[type="date"] { font: inherit; padding: 2px 6px; border: 1px solid var(--line, #ddd); border-radius: 6px; }
+/* Editable amount per debt row — defaults to remaining minimum, but the user
+   can pay extra (attack principal) or less (cash-strapped month). */
+.bulk-debt-row input.row-amount {
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+  width: 6.5rem;
+  padding: 4px 8px;
+  border: 1px solid var(--line, #ddd);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+}
+.bulk-debt-row input.row-amount:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  border-color: var(--primary);
+}
+.bulk-debt-row input.row-amount:disabled {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
 .bulk-debt-total { font-weight: 600; padding: 8px 0; border-top: 1px solid var(--line, #eee); }
 
 .pool-row-actions {

@@ -6478,6 +6478,9 @@ function openBulkDebtPayDialog() {
       } else {
         label = `Balance after: ${fmtMoney(balanceAfter)}`;
       }
+      // Editable amount — defaults to remaining minimum but the user can
+      // change it (pay more to attack principal, or less if cash-strapped).
+      const amountAttrs = paid >= min ? "disabled" : "";
       return `
         <label class="${rowClass}" data-debt-id="${escapeHtml(d.id)}">
           <input type="checkbox" name="row-checked" ${checked}${paid >= min ? " disabled" : ""} />
@@ -6485,7 +6488,7 @@ function openBulkDebtPayDialog() {
             <div>${escapeHtml(d.name)}</div>
             <div class="row-meta">${escapeHtml(label)}</div>
           </div>
-          <span class="row-amount">${amount > 0 ? fmtMoney(amount) : "—"}</span>
+          <input type="number" class="row-amount" data-row-amount step="0.01" min="0" inputmode="decimal" value="${amount.toFixed(2)}" ${amountAttrs} aria-label="Payment for ${escapeHtml(d.name)}" />
           <input type="date" data-row-date value="${todayISO()}"${paid >= min ? " disabled" : ""} />
         </label>
       `;
@@ -6506,12 +6509,12 @@ function updateBulkDebtTotal() {
   checkedRows.forEach((cb) => {
     const row = cb.closest(".bulk-debt-row");
     if (!row) return;
-    const debtId = row.dataset.debtId;
-    const d = state.debts.find((x) => x.id === debtId);
-    if (!d) return;
-    const paid = paidThisMonth(d.id);
-    const remaining = Math.max(0, (Number(d.minPayment) || 0) - paid);
-    total += remaining;
+    // Read the user-edited amount input rather than recomputing from min —
+    // the user is free to pay more or less per row.
+    const amountInput = row.querySelector("[data-row-amount]");
+    const amount = amountInput ? Number(amountInput.value) || 0 : 0;
+    if (amount <= 0) return;
+    total += amount;
     count++;
   });
   totalEl.textContent = `Total: ${fmtMoney(total)} in ${count} ${count === 1 ? "entry" : "entries"}`;
@@ -6525,6 +6528,12 @@ document.addEventListener("change", (e) => {
       if (!dateInput.disabled) dateInput.value = e.target.value;
     });
   }
+});
+// Live-update the total as the user edits amounts (input event fires per
+// keystroke for type="number")
+document.addEventListener("input", (e) => {
+  if (!(e.target instanceof HTMLElement)) return;
+  if (e.target.matches("#bulk-debt-rows [data-row-amount]")) updateBulkDebtTotal();
 });
 
 function closeBulkDebtPayDialog() {
@@ -6552,19 +6561,23 @@ document.getElementById("btn-bulk-debt-confirm")?.addEventListener("click", () =
     const debtId = row.dataset.debtId;
     const d = state.debts.find((x) => x.id === debtId);
     if (!d) return;
-    const paid = paidThisMonth(d.id);
-    const remaining = Math.max(0, (Number(d.minPayment) || 0) - paid);
-    if (remaining <= 0) return;
+    // Use the user-edited amount (defaults to remaining min, but user is
+    // free to override). Apply at most the current balance — don't let a
+    // typo overpay the debt and create a negative balance.
+    const amountInput = row.querySelector("[data-row-amount]");
+    const requested = amountInput ? Number(amountInput.value) || 0 : 0;
+    if (requested <= 0) return;
+    const applied = Math.min(requested, Number(d.balance) || 0);
+    if (applied <= 0) return;
     const dateInput = row.querySelector("input[data-row-date]");
     const date = dateInput && dateInput.value ? dateInput.value : todayISO();
-    const applied = Math.min(remaining, Number(d.balance) || 0);
     d.balance = Math.max(0, (Number(d.balance) || 0) - applied);
     state.dailyExpenses.push({
       id: uid(),
       createdAt: Date.now(),
       kind: "debt",
       date,
-      amount: remaining,
+      amount: applied,
       debtId: d.id,
       debtName: d.name,
       budgetPoolId: debtPool.id,
@@ -6576,7 +6589,7 @@ document.getElementById("btn-bulk-debt-confirm")?.addEventListener("click", () =
   save();
   closeBulkDebtPayDialog();
   renderAll();
-  if (created === 0) alert("No debts paid (nothing was checked).");
+  if (created === 0) alert("No debts paid (nothing was checked or amounts were 0).");
 });
 
 function openLastMonthEditDialog() {
