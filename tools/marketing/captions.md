@@ -12,6 +12,7 @@ so the social blurb and the SEO content reinforce each other.
 | 02 | Avalanche method | `duitful.app/guides/crush-credit-card-debt-avalanche-2026/` |
 | 03 | Privacy | `duitful.app/privacy/` |
 | 04 | No subscription | `duitful.app/#pricing` |
+| 05 | v1.7 release recap | `duitful.app/changelog/#v1-7` |
 
 ## Carousels
 
@@ -327,6 +328,112 @@ duitful.app
 
 #tanpasubscription #kewanganmalaysia #personalfinance #duitful
 #malaysianapp #moneytipsmalaysia #budgetmalaysia #pengurusankewangan
+```
+
+---
+
+## 05 — v1.7 release recap (May 2026)
+
+**Image:** `images/05-v1-7-release.png`
+
+### Threads (EN)
+```
+Duitful v1.7 just dropped.
+
+🥧 Spending pie chart on Reports
+↗ Quick-pay any debt in 2 taps
+✏️ Editable amounts in bulk-pay
+👀 Total debt now visible on home
+📱 Mobile layout from scratch
+🌏 40+ currencies (was 17)
+
+Free. On-device. No subscription.
+
+duitful.app
+```
+
+### Threads (BM)
+```
+Duitful v1.7 baru keluar.
+
+🥧 Pie chart belanjawan dalam Reports
+↗ Bayar mana-mana hutang dalam 2 tap
+✏️ Bulk-pay sekarang boleh edit jumlah
+👀 Jumlah hutang dah muncul kat home
+📱 Layout mobile dibina semula
+🌏 40+ mata wang (dulu 17)
+
+Free. Dalam phone kau. Tanpa subscription.
+
+duitful.app
+```
+
+### Instagram (EN)
+```
+v1.7 just dropped. 9 quality-of-life upgrades after a week of mobile testing.
+
+🥧 SPENDING PIE CHART
+Top 6 categories on Reports. Hover for amount + %. Pure SVG, no library.
+
+↗ QUICK-PAY ON DEBTS
+Every debt row now has a Pay button. Click → Home opens with the debt selected and minimum pre-filled. 5+ taps → 2.
+
+✏️ EDITABLE BULK-PAY
+Pay extra to attack principal, or trim a tight month. Total updates live as you edit.
+
+👀 DEBT-AT-A-GLANCE
+Total balance + count + "debt-free by Aug 2034" date now sit inside the home hero card.
+
+📱 MOBILE LAYOUT REWRITE
+2×2 stat tiles instead of cramped 4-in-a-row. 7 tabs compress to icons so all fit. Daily entry FX badges no longer overlap.
+
+🌏 CURRENCY UPGRADE
+Switched from Frankfurter (17 currencies) to fawazahmed0/currency-api (40+ currencies, public domain). AED, SAR, VND no longer display-only.
+
+🔒 PRIVACY-FIRST UNCHANGED
+Still AES-GCM encrypted on-device. Receipt OCR still runs locally.
+
+Free to start. Pay-once Pro: RM 19.90 lifetime. No subscription. Ever.
+
+duitful.app
+
+#duitful #malaysiapersonalfinance #fintechmalaysia #pwa
+#moneytracker #debtfree #avalanchemethod #budgeting
+#multicurrency #privacyfirst #malaysia
+```
+
+### Instagram (BM)
+```
+v1.7 baru je keluar. 9 quality-of-life upgrade lepas seminggu test atas mobile.
+
+🥧 PIE CHART BELANJA
+Top 6 kategori dalam Reports. Hover untuk jumlah + %. SVG sahaja, tiada library.
+
+↗ QUICK-PAY HUTANG
+Setiap row hutang dah ada butang Pay. Klik → Home buka dengan hutang dipilih dan minimum dah pre-fill. 5+ tap → 2.
+
+✏️ BULK-PAY BOLEH EDIT
+Bayar lebih untuk attack principal, atau kurangkan masa bulan ketat. Jumlah update live masa korang edit.
+
+👀 HUTANG SEKILAS
+Jumlah baki + bilangan + tarikh "bebas hutang Ogos 2034" sekarang muncul dalam kad hero home.
+
+📱 LAYOUT MOBILE BARU
+Stat tiles 2×2 ganti 4-in-a-row yang sempit. 7 tab kompres jadi ikon supaya semua muat. Badge FX entry harian tak overlap lagi.
+
+🌏 UPGRADE MATA WANG
+Tukar dari Frankfurter (17 mata wang) ke fawazahmed0/currency-api (40+ mata wang, public domain). AED, SAR, VND bukan display-only lagi.
+
+🔒 PRIVASI KEKAL SAMA
+AES-GCM encrypted dalam phone macam dulu. Receipt OCR masih run lokal.
+
+Free untuk start. Pro sekali bayar: RM 19.90 selama-lamanya. Tanpa subscription. Ever.
+
+duitful.app
+
+#duitful #kewanganmalaysia #fintechmalaysia #pwa
+#trackerduit #bebashutang #avalanchemethod #budgetmalaysia
+#multicurrency #privasidata #malaysia
 ```
 
 ---
