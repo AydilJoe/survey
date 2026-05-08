@@ -821,6 +821,39 @@ main {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
+/* Progressive disclosure for the formula on mobile — the calculation walk-
+   through is useful but heavy. Tucked behind a <details>/<summary> the user
+   can expand. The reset removes the default disclosure triangle so we can
+   style our own affordance. */
+.hero-formula-details {
+  margin-top: 0.6rem;
+}
+.hero-formula-details > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-decoration-color: rgba(138, 129, 120, 0.4);
+  text-underline-offset: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+.hero-formula-details > summary::-webkit-details-marker { display: none; }
+.hero-formula-details > summary::before {
+  content: "▸";
+  font-size: 0.7em;
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+.hero-formula-details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.hero-formula-details[open] > summary {
+  margin-bottom: 0.3rem;
+}
 .hero-meta {
   color: var(--muted);
   font-family: var(--font-mono);
@@ -1212,9 +1245,32 @@ select:focus {
   padding: 0.7rem 0.85rem;
   display: grid;
   grid-template-columns: 1fr auto auto;
+  grid-template-areas: "primary amount delete";
   gap: 0.5rem;
   align-items: center;
   box-shadow: var(--glass-pane-shadow);
+}
+.daily-entry .primary-line { grid-area: primary; }
+.daily-entry > .amount { grid-area: amount; }
+.daily-entry > [data-action="delete-daily"] { grid-area: delete; }
+/* On mobile, FX badges + currency-converted amounts overflow the single-row
+   grid and visually overlap the pill. Stack the amount onto its own row so
+   nothing collides. */
+@media (max-width: 480px) {
+  .daily-entry {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "primary delete"
+      "amount  amount";
+    row-gap: 0.3rem;
+  }
+  .daily-entry > .amount {
+    text-align: right;
+    justify-self: end;
+  }
+  .daily-entry .fx-badge {
+    margin-left: 4px;
+  }
 }
 .daily-entry .primary-line {
   display: flex;
@@ -1551,8 +1607,35 @@ button.ghost.icon-btn {
   border-color: rgba(106,138,94,0.4);
   background: rgba(106,138,94,0.08);
 }
-/* Daily-tab legend — small inline hint above the search bar explaining the
-   four pill variants so users don't have to guess. */
+/* Daily-tab legend — collapsible behind a "What do the pill colors mean?"
+   summary so it doesn't dominate the mobile view. Same disclosure pattern as
+   the hero formula. */
+.daily-legend-details {
+  margin: 4px 0 8px;
+}
+.daily-legend-details > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-decoration-color: rgba(138, 129, 120, 0.4);
+  text-underline-offset: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+.daily-legend-details > summary::-webkit-details-marker { display: none; }
+.daily-legend-details > summary::before {
+  content: "▸";
+  font-size: 0.7em;
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+.daily-legend-details[open] > summary::before {
+  transform: rotate(90deg);
+}
 .daily-legend {
   display: flex;
   align-items: center;
