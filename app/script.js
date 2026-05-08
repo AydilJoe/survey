@@ -1663,6 +1663,7 @@ function renderDebts() {
         ${chip}
         ${nameHtml}
         <span class="meta">${fmtMoney(d.balance)}</span>
+        <button class="ghost icon-btn quick-pay" data-action="quick-pay-debt" data-id="${d.id}" aria-label="Pay ${escapeHtml(d.name)}" title="Quick pay — opens Home with this debt selected">↗</button>
         <button class="ghost icon-btn" data-action="edit-debt" data-id="${d.id}" aria-label="Edit ${escapeHtml(d.name)}">✎</button>
         <button class="ghost icon-btn" data-action="delete-debt" data-id="${d.id}" aria-label="Delete ${escapeHtml(d.name)}">✕</button>
         ${metaRow}
@@ -3632,6 +3633,24 @@ document.addEventListener("click", (e) => {
     goal.current = Math.max(0, (Number(goal.current) || 0) + amount);
   } else if (action === "edit-income" || action === "edit-expense" || action === "edit-debt" || action === "edit-saving") {
     openEditDialog(action.slice("edit-".length), id);
+    return;
+  } else if (action === "quick-pay-debt") {
+    // Switch to Home, activate Pay debt mode, pre-select this debt, focus
+    // the amount input so the user just types the amount and submits.
+    const debt = state.debts.find((d) => d.id === id);
+    if (!debt) return;
+    document.querySelector('.tab[data-tab="dashboard"]')?.click();
+    setDailyType("debt");
+    const targetSel = document.getElementById("daily-target");
+    if (targetSel) targetSel.value = `debt:${id}`;
+    const amountInput = document.querySelector('#form-daily input[name="amount"]');
+    if (amountInput) {
+      // Pre-fill with the minimum payment as a sensible default; user can edit.
+      const min = Number(debt.minPayment) || 0;
+      if (min > 0) amountInput.value = min.toFixed(2);
+      // Defer focus until after tab switch animation
+      setTimeout(() => amountInput.focus(), 60);
+    }
     return;
   } else if (action === "pending-accept") {
     acceptPending(id);

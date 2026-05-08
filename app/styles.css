@@ -477,8 +477,20 @@ body.private #stall-warning {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  /* Fade-out gradient on the right edge hints that more tabs exist when the
+     row overflows on mobile. The mask is anchored to the scroll container so
+     it tracks with the user's scroll position. */
+  -webkit-mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0, #000 calc(100% - 24px), transparent 100%);
 }
 .tabs::-webkit-scrollbar { display: none; }
+/* Remove the fade on wider screens where all tabs already fit */
+@media (min-width: 720px) {
+  .tabs {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
 .tab {
   appearance: none;
   background: transparent;
@@ -724,6 +736,10 @@ main {
   margin-top: 0.3rem;
   display: flex;
   justify-content: space-between;
+  /* Wrap onto a second line on narrow widths but preserve a gap so the two
+     spans don't run together as "RM 2,437.00Day 8/31". */
+  flex-wrap: wrap;
+  gap: 2px 12px;
 }
 
 .hero-grid {
@@ -731,6 +747,14 @@ main {
   grid-template-columns: repeat(4, 1fr);
   gap: 0.4rem;
   margin-top: 0.2rem;
+}
+/* On mobile, 4 tiles in one row truncates labels ("RECURRI...", "DAILY S...")
+   and values ("RM 8,..."). Switch to a 2×2 grid below 480px so both label and
+   amount fit cleanly. */
+@media (max-width: 480px) {
+  .hero-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 .hero-stat {
   display: flex;
@@ -1577,6 +1601,16 @@ button.ghost.icon-btn {
   color: var(--muted);
   font-weight: 400;
   font-size: 0.85em;
+}
+/* Quick-pay button on debt rows — opens Home with the debt pre-selected.
+   Tinted terracotta to telegraph "primary action" without being a heavy CTA. */
+.debt-list .quick-pay {
+  color: var(--primary);
+}
+.debt-list .quick-pay:hover {
+  background: rgba(200, 112, 75, 0.1);
+  color: var(--primary);
+  border-color: rgba(200, 112, 75, 0.3);
 }
 /* Quick-start template chips for Budget Pools — shown only when the user has
    no user-created pools yet. Pre-fills the form so they don't have to type. */
