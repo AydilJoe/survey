@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Ringgit at 3.91 — cheaper subscriptions","item":"https://duitful.app/guides/ringgit-3-91-cheaper-subscriptions-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Ringgit at 3.91 vs USD — your subscriptions and imports just got cheaper","description":"The Ringgit hit RM3.91 per USD this week — a 3% gain in 2026. Here's what changes for your Spotify, Netflix, AWS bill, AliExpress orders, and Japan trip — and how to track it.","inLanguage":"en","datePublished":"2026-05-08","dateModified":"2026-05-08","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/ringgit-3-91-cheaper-subscriptions-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Will the Ringgit keep strengthening?","acceptedAnswer":{"@type":"Answer","text":"Nobody knows. BNM signaled they're holding rates; the strength reflects sentiment, not policy guarantee. Don't make life decisions on a forecast — track in the actual currency you pay in, and let the data show you what happens."}},{"@type":"Question","name":"I get paid in MYR but invoice in USD as a freelancer. Should I track in USD?","acceptedAnswer":{"@type":"Answer","text":"Yes. Log invoices in USD on the income side. When you receive the MYR transfer, it'll be cleaner to compare against the rate at invoice date vs. payout date."}},{"@type":"Question","name":"Does Duitful charge for multi-currency?","acceptedAnswer":{"@type":"Answer","text":"Multi-currency entry is a Pro feature (RM 19.90 lifetime). The Ringgit display is free for everyone. The Pro upsell shows up when you pick a non-Ringgit currency on the entry form."}},{"@type":"Question","name":"My company reimburses cloud bills. How do I track that?","acceptedAnswer":{"@type":"Answer","text":"Log the AWS bill as a USD expense, then log the reimbursement as USD income tagged to the same project / category. Reports nets them out."}},{"@type":"Question","name":"What about cryptocurrencies?","acceptedAnswer":{"@type":"Answer","text":"Not supported. Crypto rates are too volatile and the data sources are sketchier. The 40+ currencies in Duitful are all sovereign currencies with daily mid-market rates from the open-source feed."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Ringgit at 3.91 vs USD — your subscriptions and imports just got cheaper","description":"The Ringgit hit RM3.91 per USD this week — a 3% gain in 2026. Here's what changes for your Spotify, Netflix, AWS bill, AliExpress orders, and Japan trip — and how to track it.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Audit your foreign-currency subscriptions","text":"Open every \"renewal\" email from the last 3 months. List every line item that's in USD, EUR, SGD, JPY, or AUD. Most people are surprised by how many they have."},{"@type":"HowToStep","position":2,"name":"Lock in or pre-pay where it makes sense","text":"If a service offers an annual prepay discount AND you'll keep using it, this is a better-than-usual time to convert. The Ringgit's current strength locks the rate in for 12 months."},{"@type":"HowToStep","position":3,"name":"Reconsider postponed purchases","text":"Imported tech (Mac, gaming PC parts, lenses, drones) — anything you've been waiting on — is meaningfully cheaper than it was in January. Not \"buy stuff for the sake of it\", but for purchases you'd already decided on."},{"@type":"HowToStep","position":4,"name":"Track each entry in its real currency","text":"Logging a USD 19 subscription as \"RM 76\" hides the fact that the cost in dollars hasn't changed — what changed is your purchasing power. Log it in USD and let the converter handle Ringgit."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -349,6 +381,30 @@
 </div>
 <h2>The bigger lesson</h2>
 <p>A strong Ringgit isn't a budget windfall — it's a chance to <strong>see what you've been spending on</strong>. The dollar-priced subscriptions, the cloud bills, the recurring AliExpress habit. Most people log them in Ringgit and lose the signal. Log them in their real currency, watch the Ringgit total drift down 3% this year, and you'll start asking better questions about which of those bills are worth it.</p>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/ringgit-rally-multicurrency-savings-2026/">
+          <span class="related-title">Stronger Ringgit, RM 3.95 — what to do</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/opr-hold-275-yield-strategy-2026/">
+          <span class="related-title">OPR 2.75% — yield playbook</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/sme-freelancer-expense-tracker/">
+          <span class="related-title">Freelancer &amp; SME expense tracker</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Track every currency in one app</h2>

@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Shah Alam EV &amp; solar centre 2026","item":"https://duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Shah Alam's EV &amp; Solar Centre — How Selangor's new green hub can slash your monthly bills","description":"Selangor launched its EV and Solar Centre in Shah Alam on May 5, the first state-level facility to centralise ESG-linked financing, solar adoption subsidies, and EV charging infrastructure for residents. Behind the political ribbon-cutting is a real household-savings opportunity. Here's the math on TNB rebates, NEM 3.0 net-metering, EV charging cost vs petrol, and what to log in Duitful so the savings actually show in your books.","inLanguage":"en","datePublished":"2026-05-06","dateModified":"2026-05-06","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"I live in a strata/condo unit. Can I still do anything here?","acceptedAnswer":{"@type":"Answer","text":"Solar PV is mostly out unless the management corporation has a JMB-approved rooftop scheme (rare in 2026, growing in 2027). EV charging is more accessible — many newer condos installed shared AC chargers, and the centre's advisory covers personal-charger installation if your parking bay supports it. The biggest household saving for strata residents is usually behaviour-side (peak-shifting, appliance audit), not capex."}},{"@type":"Question","name":"Do I have to live in Shah Alam to use the centre?","acceptedAnswer":{"@type":"Answer","text":"No. The facility is open to all Selangor residents and the financing/subsidy schemes are state-level. Some incentives (e.g. specific TNB residential ToU tariffs) are national and apply outside Selangor too — but the consolidated walk-in advisory is in Shah Alam. Worth the trip for one focused session."}},{"@type":"Question","name":"NEM 3.0 vs the older NEM 2.0 — does it matter for new applications?","acceptedAnswer":{"@type":"Answer","text":"Yes. NEM 3.0 is the current scheme for new residential applications; the buyback rate, export ratio, and capacity rules are slightly less generous than NEM 2.0 was. The math still works for right-sized systems — just don't transcribe payback numbers from older articles built on NEM 2.0 assumptions. The centre confirms current rules in writing as part of the application."}},{"@type":"Question","name":"How does this affect my income tax?","acceptedAnswer":{"@type":"Answer","text":"Solar PV install costs are typically not deductible for personal-use households (different from SME / commercial). Some financing products do offer interest tax-relief categories — check with LHDN or the bank when you sign. EV-related personal incentives (road tax exemption, specific OMV-based reliefs) are time-limited; verify the current cut-off year before counting them in your buying math."}},{"@type":"Question","name":"Where does Duitful fit in?","acceptedAnswer":{"@type":"Answer","text":"Duitful tracks the cash-flow side: the monthly TNB delta after solar, the petrol vs charging-cost delta after EV, and the green-loan instalments if you financed. It does not connect to TNB or any vendor — you log the numbers manually each month. The reason: a TNB API integration would require sharing your account credentials, which is the exact thing Duitful was built not to do. Manual logging is 60 seconds a month and produces a defensible payback report you actually own."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Shah Alam's EV &amp; Solar Centre — How Selangor's new green hub can slash your monthly bills","description":"Selangor launched its EV and Solar Centre in Shah Alam on May 5, the first state-level facility to centralise ESG-linked financing, solar adoption subsidies, and EV charging infrastructure for residents. Behind the political ribbon-cutting is a real household-savings opportunity. Here's the math on TNB rebates, NEM 3.0 net-metering, EV charging cost vs petrol, and what to log in Duitful so the savings actually show in your books.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Pull 12 months of TNB and petrol receipts","text":"Without baseline consumption, every payback estimate is a guess. Pull TNB bills (or download from the myTNB app) and add up petrol receipts. Sum monthly. This is the number that determines whether solar PV pays back in 5 years or 9."},{"@type":"HowToStep","position":2,"name":"Visit the centre with a one-page brief","text":"Bring: TNB consumption summary, vehicle annual mileage, household budget for green capex, and three questions. Don't visit \"to see what they offer\" — that's how you end up with a vendor's appointment instead of useful information. The centre's value is comparing options across financing + subsidy + vendor in one session."},{"@type":"HowToStep","position":3,"name":"Decide capex vs financing before signing","text":"A RM 22k solar install paid in cash has a different payback profile than the same install on a 7-year green loan. Cash payback is a flat number; financed payback is the cash-flow delta after the monthly loan instalment. Both can be the right call. Pick consciously."},{"@type":"HowToStep","position":4,"name":"Tag everything as a project in Duitful","text":"Create two categories: Green · Capex 2026 (panel cost, charger install, inverter, certification) and Green · Savings 2026 (monthly TNB delta, monthly petrol delta). After 3 months you can see the actual payback curve — not the vendor pitch deck."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -366,6 +398,30 @@
       <p class="faq-a">Duitful tracks the cash-flow side: the monthly TNB delta after solar, the petrol vs charging-cost delta after EV, and the green-loan instalments if you financed. It does not connect to TNB or any vendor — you log the numbers manually each month. The reason: a TNB API integration would require sharing your account credentials, which is the exact thing Duitful was built not to do. Manual logging is 60 seconds a month and produces a defensible payback report you actually own.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/selangor-wfh-energy-shock-2026/">
+          <span class="related-title">Selangor WFH playbook for the 2026 energy shock</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/selangor-sme-ai-tax-deduction-2026/">
+          <span class="related-title">Selangor SME AI training tax deduction</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/selangor-ic-design-career-pivot-2026/">
+          <span class="related-title">Selangor IC Design career pivot</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Track green capex like a project</h2>

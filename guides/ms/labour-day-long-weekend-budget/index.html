@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/ms/"},{"@type":"ListItem","position":2,"name":"Panduan","item":"https://duitful.app/guides/ms/"},{"@type":"ListItem","position":3,"name":"Belanjawan Hari Pekerja","item":"https://duitful.app/guides/ms/labour-day-long-weekend-budget/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Rancang belanjawan hujung minggu Hari Pekerja — Panduan Duitful Malaysia","description":"Hari Pekerja Malaysia 2026 jatuh pada Jumaat — tiga hari balik kampung, makan-makan, dan \"satu lagi sahaja\". Kategorikan setiap ringgit hujung minggu dalam Duitful supaya Mei tidak musnah.","inLanguage":"ms","datePublished":"2026-04-29","dateModified":"2026-04-29","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/ms/labour-day-long-weekend-budget/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Mengapa kategori dan bukan belanjawan baru?","acceptedAnswer":{"@type":"Answer","text":"Kategori adalah sifar persediaan — ia dibina ke dalam setiap entri. Belanjawan-dalam-belanjawan ditinggalkan. Satu kategori \"Hari Pekerja 2026\" bertahan hujung minggu dan boleh dicari tahun depan."}},{"@type":"Question","name":"Adakah saya perlu Pro untuk ini?","acceptedAnswer":{"@type":"Answer","text":"Tidak. Peringkat percuma kendalikan kategori, jumlah, dan tapisan dalam Reports. Pro tambah OCR resit — berguna, bukan wajib."}},{"@type":"Question","name":"Bagaimana dengan hujung minggu panjang Wesak / Hari Raya / Merdeka kemudian?","acceptedAnswer":{"@type":"Answer","text":"Helah yang sama — pilih nama kategori baru untuk setiap satu (cth: Hari Raya 2026). Bandingkan jumlah tahun-ke-tahun dalam Reports apabila anda telah log dua atau tiga cuti."}},{"@type":"Question","name":"Hujung minggu panjang saya melibatkan Singapura. Tolong?","acceptedAnswer":{"@type":"Answer","text":"Log entri dalam SGD; Duitful tukar ke MYR dengan kadar harian dan simpan kedua-dua nombor. Dalam Reports, jumlahnya sudah dalam MYR."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Rancang belanjawan hujung minggu Hari Pekerja — Panduan Duitful Malaysia","description":"Hari Pekerja Malaysia 2026 jatuh pada Jumaat — tiga hari balik kampung, makan-makan, dan \"satu lagi sahaja\". Kategorikan setiap ringgit hujung minggu dalam Duitful supaya Mei tidak musnah.","inLanguage":"ms","step":[{"@type":"HowToStep","position":1,"name":"Tetapkan had-mini harian","text":"Jika had hujung minggu anda RM 900, itu lebih kurang RM 300/hari. Capai RM 280 menjelang makan tengahari Sabtu adalah amaran anda."},{"@type":"HowToStep","position":2,"name":"Pra-log yang pasti datang","text":"Tol. Minyak. Satu malam hotel. Log itu sekarang dengan anggaran kasar supaya kolam \"bebas\" adalah apa yang sebenarnya tinggal."},{"@type":"HowToStep","position":3,"name":"Snap bil restoran","text":"Pro OCR resit ambil jumlah dari gambar. Berguna apabila anda kongsi bil dan tidak mahu menaip sementara semua orang menunggu."},{"@type":"HowToStep","position":4,"name":"Auto-FX untuk perjalanan rentas sempadan","text":"JB ke Singapura, KL ke Krabi — log entri dalam SGD atau THB, Duitful tukar ke MYR secara automatik dan simpan kedua-duanya."},{"@type":"HowToStep","position":5,"name":"Semakan satu skrin pada Ahad","text":"Buka Reports, tetapkan Category kepada Hari Pekerja 2026, lihat jumlah. Jika anda telah melepasi had, Isnin jadi hari tiada-belanja secara sengaja."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -181,6 +182,37 @@
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
 
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
   /* ---------- CTA ---------- */
   .cta-card {
     background: var(--card); border: 0.5px solid var(--line);
@@ -327,6 +359,30 @@
       <p class="faq-a">Log entri dalam SGD; Duitful tukar ke MYR dengan kadar harian dan simpan kedua-dua nombor. Dalam Reports, jumlahnya sudah dalam MYR.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Panduan berkaitan">
+    <span class="related-eyebrow">Panduan berkaitan</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/ms/budi95-fuel-tracker/">
+          <span class="related-title">Penjejak petrol &amp; diesel Budi95</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/ringgit-rally-multicurrency-savings-2026/">
+          <span class="related-title">Ringgit kuat, RM 3.95 — apa nak buat</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/opr-hold-275-yield-strategy-2026/">
+          <span class="related-title">OPR 2.75% — playbook yield</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Tetapkan had sebelum Jumaat</h2>

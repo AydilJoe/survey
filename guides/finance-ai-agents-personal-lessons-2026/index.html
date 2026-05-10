@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Finance AI agents — personal lessons","item":"https://duitful.app/guides/finance-ai-agents-personal-lessons-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Finance AI agents in Selangor enterprises — what individuals can learn from PAIX Tech & Sidec","description":"Selangor's PAIX Tech is automating ERP payments with AI agents. The enterprise pattern — categorise, reconcile, alert — is the same one individuals can apply to personal finance, manually or with the right app.","inLanguage":"en","datePublished":"2026-05-08","dateModified":"2026-05-08","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/finance-ai-agents-personal-lessons-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Will Duitful add an LLM \"ask my finances\" feature?","acceptedAnswer":{"@type":"Answer","text":"Not soon, and not on-device data. Sending financial history to a cloud LLM breaks the privacy model the app is built on (encrypted localStorage, AES-GCM). If we ever add LLM features, they'll either be on-device (small models running locally) or use synthetic queries that don't leak amounts/parties."}},{"@type":"Question","name":"How does notification auto-capture work without exposing my data?","acceptedAnswer":{"@type":"Answer","text":"The Android notification listener service runs locally on your device. It reads notifications from a whitelist of bank apps, parses amounts/parties on-device, and adds them to a \"pending\" queue inside Duitful. Nothing is sent to a server. iOS doesn't allow this at the platform level — Apple blocks third-party apps from reading other apps' notifications."}},{"@type":"Question","name":"Should I trust receipt OCR with sensitive receipts?","acceptedAnswer":{"@type":"Answer","text":"It runs locally via Tesseract.js — the receipt photo never leaves your phone. The OCR happens in the same browser session that's already encrypting your data. Even Pro features keep this isolation."}},{"@type":"Question","name":"PAIX Tech sounds enterprise-only. Is there a consumer version coming?","acceptedAnswer":{"@type":"Answer","text":"Different market. Enterprise finance AI deals with thousands of vendors, multi-step approval chains, and ERP integration — none of which an individual has. The consumer \"version\" of PAIX Tech is what apps like Duitful (and Money Lover, Mint, YNAB internationally) already do, just at a different scale."}},{"@type":"Question","name":"What's the simplest \"AI\" thing I can do today?","acceptedAnswer":{"@type":"Answer","text":"Set up budget pools with limits. That's it. The \"AI\" part is the alerting rule firing when you cross 75% and 100%. Most overspend leaks die on this single intervention."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Finance AI agents in Selangor enterprises — what individuals can learn from PAIX Tech & Sidec","description":"Selangor's PAIX Tech is automating ERP payments with AI agents. The enterprise pattern — categorise, reconcile, alert — is the same one individuals can apply to personal finance, manually or with the right app.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Auto-categorisation via merchant memory","text":"Modern personal finance apps remember \"Spotify\" → Subscription, \"Petron\" → Petrol. After the first manual tag, the dropdown auto-suggests. This is 90% of the categorisation problem solved without an LLM."},{"@type":"HowToStep","position":2,"name":"Receipt OCR","text":"Snap a photo, the app extracts amount + date + vendor. The hard part (reading mangled receipt text) is solved. Tesseract.js runs locally on your device — no cloud upload needed. Duitful Pro has this built in."},{"@type":"HowToStep","position":3,"name":"Notification capture (Android)","text":"When Maybank, CIMB, TNG, ShopeePay sends a transaction notification, an opt-in service can read it (with your explicit permission) and propose a draft entry. The user reviews and accepts. Duitful does this on Android via the notification listener service."},{"@type":"HowToStep","position":4,"name":"Recurring detection","text":"Your salary, rent, and Spotify hit the same day every month. After two cycles, the pattern is obvious. Recurring auto-copy puts next month's entries in place before the month starts. You confirm or untick."},{"@type":"HowToStep","position":5,"name":"Threshold alerts","text":"Set a budget pool (\"Food RM 800\"), the app warns at 75%, alarms at 100%, escalates if you overshoot. This is the simplest possible \"agent\" — a static rule on a moving total — and it catches the most leaks."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -375,6 +407,30 @@
 </div>
 <h2>The bigger lesson</h2>
 <p>When enterprise tooling becomes a press release, the playbook usually leaks downward to consumers within 2–3 years. PAIX Tech automates ERP financial operations because it's profitable to do so. The same logic — let software do the categorisation, reconciliation, and alerting, while humans handle judgment calls — works at the personal level. The tools are already here. The hard part is using them consistently.</p>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/shah-alam-ev-solar-centre-household-savings-2026/">
+          <span class="related-title">Shah Alam EV &amp;amp; solar centre</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/selangor-ic-design-career-pivot-2026/">
+          <span class="related-title">Selangor IC Design career pivot</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/opr-decision-debt-avalanche-malaysia-2026/">
+          <span class="related-title">OPR &amp;amp; your debt avalanche</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Run your own finance &quot;agent&quot;</h2>

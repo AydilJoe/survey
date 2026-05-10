@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Sovereign AI Cloud &amp; data sovereignty","item":"https://duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Sovereign AI Cloud Malaysia 2026 — Data sovereignty becomes the default","description":"Malaysia's Sovereign AI Cloud went live this week, requiring sensitive financial and citizen data to stay on-shore. This is the boring infrastructure layer that makes \"private by default\" the new baseline for fintech, banking, and personal apps. What it changes, what it doesn't, and why it validates apps that go further with on-device storage.","inLanguage":"en","datePublished":"2026-05-04","dateModified":"2026-05-04","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/sovereign-ai-cloud-data-sovereignty-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does the Sovereign AI Cloud rollout affect Duitful?","acceptedAnswer":{"@type":"Answer","text":"Not directly — Duitful stores data on your phone, not in any cloud (sovereign or otherwise). The launch validates the broader direction Duitful was already built for: data sovereignty all the way down to the device. Our position doesn't change with the regulation; the regulation just moves the floor closer to where we already stand."}},{"@type":"Question","name":"Should I switch banks based on Sovereign AI Cloud compliance?","acceptedAnswer":{"@type":"Answer","text":"No. All licensed Malaysian banks will be in scope by the rollout deadlines. Switching for that reason is unnecessary. Switch banks for fees, service, branch availability, or DuitNow features — not for data residency, which is now baseline."}},{"@type":"Question","name":"What about my Google / Apple / iCloud backups of finance apps?","acceptedAnswer":{"@type":"Answer","text":"That's a separate question. iCloud backup includes data from on-device apps unless explicitly excluded by the app. Duitful's encrypted-at-rest format means even the iCloud backup is encrypted with your passphrase — useless without it. For other apps, check whether the app excludes itself from cloud backup or whether it relies on iCloud encryption (which Apple can be compelled to decrypt under certain conditions)."}},{"@type":"Question","name":"Is the on-device approach less convenient?","acceptedAnswer":{"@type":"Answer","text":"It has one inconvenience: passphrase recovery. If you forget your passphrase, your data is unrecoverable — by design. We trade this against not having a centralised system that can leak. Write down your passphrase somewhere offline (a piece of paper in a safe) and the trade-off is purely upside."}},{"@type":"Question","name":"Will more apps move to on-device after this?","acceptedAnswer":{"@type":"Answer","text":"Hopefully. The Sovereign AI Cloud is the floor; on-device is the ceiling. Apps handling personal money, health, and identity data should be moving toward on-device storage where the data type allows it. Watch for the apps that ship the architecture, not just the marketing."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Sovereign AI Cloud Malaysia 2026 — Data sovereignty becomes the default","description":"Malaysia's Sovereign AI Cloud went live this week, requiring sensitive financial and citizen data to stay on-shore. This is the boring infrastructure layer that makes \"private by default\" the new baseline for fintech, banking, and personal apps. What it changes, what it doesn't, and why it validates apps that go further with on-device storage.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Smaller blast radius","text":"A breach of an on-shore database exposes everyone in it. A breach of an on-device app exposes one person — and only if their device is also breached, AND the encryption key was extracted. Population-level versus individual-level risk are not the same conversation."},{"@type":"HowToStep","position":2,"name":"No account = no leak vector","text":"Most \"your data was leaked\" incidents start with an authentication system. No accounts, no emails, no phone numbers means there's nothing for an attacker to lift in bulk. On-device apps with passphrase-only encryption have no breach-able centralised auth."},{"@type":"HowToStep","position":3,"name":"Compliance by default, not by assertion","text":"An on-device app cannot send your data to anyone — not even the developer. That property doesn't depend on a privacy policy or a sovereign-cloud zone. It depends on the architecture. \"Trust us\" is replaced with \"you can verify.\""},{"@type":"HowToStep","position":4,"name":"Survives jurisdictional changes","text":"Data sovereignty rules can change with the political cycle. A future government could relax cross-border transfer rules, expand surveillance authority, or change what's classified as sensitive. On-device data is unaffected by those changes by definition."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -350,6 +382,30 @@
       <p class="faq-a">Hopefully. The Sovereign AI Cloud is the floor; on-device is the ceiling. Apps handling personal money, health, and identity data should be moving toward on-device storage where the data type allows it. Watch for the apps that ship the architecture, not just the marketing.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/data-residency-2026-personal-checklist/">
+          <span class="related-title">Where does your money data actually live?</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/on-shore-ai-fintech-standard-malaysia-2026/">
+          <span class="related-title">On-shore AI for fintech</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/finance-ai-agents-personal-lessons-2026/">
+          <span class="related-title">Finance AI agents — personal lessons</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Skip the cloud entirely</h2>

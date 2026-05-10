@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Selangor IC Design career pivot","item":"https://duitful.app/guides/selangor-ic-design-career-pivot-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Selangor IC Design career pivot — budget the transition into the RM150M boom","description":"Selangor's ChampionCHIP eXperience trains 300 IC design specialists this week, and Cyberjaya's RM150M IC Design Park is hiring. Here's how to budget a career pivot — income gap, retraining cost, signing bonuses — and track it.","inLanguage":"en","datePublished":"2026-05-08","dateModified":"2026-05-08","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/selangor-ic-design-career-pivot-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is the ChampionCHIP eXperience the right programme for me?","acceptedAnswer":{"@type":"Answer","text":"It's a 2-day flagship event — useful for networking and exposure, not a full pivot. The deeper retraining usually means longer programmes (Khazanah-funded EE bootcamps, KDU/USM/UM postgrad certs, or industry-direct apprenticeships). Use the event as a starting point to identify which deeper track fits."}},{"@type":"Question","name":"Do I need a degree in EE/CE to break in?","acceptedAnswer":{"@type":"Answer","text":"It helps but isn't always required for verification (DV) and frontend RTL roles, especially if you have strong systems-level SWE experience. Layout and analog usually need formal EE. Recruiters in Cyberjaya are flexible on backgrounds for the volume hiring waves."}},{"@type":"Question","name":"How do I know if my runway is enough?","acceptedAnswer":{"@type":"Answer","text":"A rough rule: have 1.5x the gap-months covered, plus the one-off costs, plus a 10% buffer. The example above (7 months × RM 5,500 = RM 38,500) becomes RM 57,750 with the 1.5x cushion. If that's outside reach, plan a shorter course or a smaller gap."}},{"@type":"Question","name":"Should I take an income loan to fund the pivot?","acceptedAnswer":{"@type":"Answer","text":"Generally no. The runway is what gives you bargaining power in interviews — if you're cash-strapped, you'll accept the first offer. PTPK (educational loan) for verified courses can work but adds a debt minimum to your post-pivot budget. Track it in Duitful's Debts tab."}},{"@type":"Question","name":"What if I start the pivot and the boom cools off?","acceptedAnswer":{"@type":"Answer","text":"Then you're an EE-trained engineer with broader career options than you started with. Semi cycles are real but Selangor's commitment is structural, not a quarter's headline. Even a \"failed\" pivot on the boom side often opens an FAE or apps engineer route at higher pay than where you started."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Selangor IC Design career pivot — budget the transition into the RM150M boom","description":"Selangor's ChampionCHIP eXperience trains 300 IC design specialists this week, and Cyberjaya's RM150M IC Design Park is hiring. Here's how to budget a career pivot — income gap, retraining cost, signing bonuses — and track it.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Create a \"Career pivot\" savings goal","text":"In Duitful → Savings tab → New goal. Name it \"Career pivot — IC design\". Target = your runway number (RM 49,500 in the example). Watch the progress bar."},{"@type":"HowToStep","position":2,"name":"Log the one-off costs as expenses","text":"When you pay the course fee, log it as a daily expense with category Education. Same for books, exam fees, hardware. Reports → Education → Last 12 months tells you what the pivot actually cost vs. what you planned."},{"@type":"HowToStep","position":3,"name":"Track income through the gap","text":"When salary stops, log freelance / consulting / unemployment income as it comes. The Home tab \"Balance Left This Month\" shows how the runway is holding. The 128% over-budget signal kicks in if you start eating into the savings goal faster than planned."},{"@type":"HowToStep","position":4,"name":"Mark the new salary as recurring","text":"Day 1 of new role → Monthly tab → Income → add new salary, untick \"Repeat next month\" only if it's truly one-off. The recurring-auto-copy feature carries it forward each month so you don't re-enter."},{"@type":"HowToStep","position":5,"name":"Tag the signing bonus","text":"When the bonus hits (month 4-ish), log it as a one-off income line. Apply it to the savings goal to refill the runway buffer for the next time you need it."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -367,6 +399,30 @@
 </div>
 <h2>The bigger lesson</h2>
 <p>A career pivot is a project with a budget, a milestone schedule, and a payback period. Treating it like a feeling — "I'll figure it out" — is how good engineers end up two months in with no runway and an interview queue that hasn't replied. Treating it like a project — runway number, monthly burn check-in, signing-bonus timing — is how the pivot actually closes.</p>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/selangor-sme-ai-tax-deduction-2026/">
+          <span class="related-title">Selangor SME AI training tax deduction</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/selangor-wfh-energy-shock-2026/">
+          <span class="related-title">Selangor WFH playbook for the 2026 energy shock</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/shah-alam-ev-solar-centre-household-savings-2026/">
+          <span class="related-title">Shah Alam EV &amp;amp; solar centre</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Track your pivot like a project</h2>

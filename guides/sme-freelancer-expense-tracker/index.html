@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"SME & freelancer tracker","item":"https://duitful.app/guides/sme-freelancer-expense-tracker/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Free expense tracker for Malaysian freelancers & SMEs — Duitful guide","description":"Visual guide for Malaysian freelancers, sole proprietors, and micro-SMEs. Categorise by client, snap receipts, multi-currency, CSV export for your accountant. Privacy-first, no subscription.","inLanguage":"en","datePublished":"2026-04-28","dateModified":"2026-04-29","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/sme-freelancer-expense-tracker/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can two devices share the same ledger?","acceptedAnswer":{"@type":"Answer","text":"Yes — use Settings → Export CSV on one device, Import CSV on the other. There's no live sync, by design — your data never touches a server."}},{"@type":"Question","name":"Will my accountant get all my personal expenses too?","acceptedAnswer":{"@type":"Answer","text":"Only if you export everything. In Reports, set the Category filter to a specific client (Acme, Studio-X) before sharing. Personal stays personal."}},{"@type":"Question","name":"What if I'm Sdn Bhd, not a sole prop?","acceptedAnswer":{"@type":"Answer","text":"Same workflow. Treat the company as one big client category. For payroll and full double-entry you'll still want proper accounting software — Duitful is the front-line capture, not the books."}},{"@type":"Question","name":"Is the LHDN tax-relief stuff handled too?","acceptedAnswer":{"@type":"Answer","text":"Yes — see the tax-relief guide for categories like Medical, Lifestyle, SSPN, PRS that make e-Filing painless."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Free expense tracker for Malaysian freelancers & SMEs — Duitful guide","description":"Visual guide for Malaysian freelancers, sole proprietors, and micro-SMEs. Categorise by client, snap receipts, multi-currency, CSV export for your accountant. Privacy-first, no subscription.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Categorise by client","text":"When you log an expense or income, type the client name in the Category field — Acme, Studio-X, Personal. After the first time, the dropdown auto-suggests them."},{"@type":"HowToStep","position":2,"name":"Capture every receipt","text":"Pro receipt OCR reads pump receipts, hotel bills, taxi e-receipts, even Grab screenshots. Snap, save, set the Category to the client it belongs to. Done in 15 seconds."},{"@type":"HowToStep","position":3,"name":"Export when needed","text":"At month or year-end, Settings → Export CSV. The file has every entry with date, amount, category, MYR amount, original currency, and notes. Email it to your accountant. They handle the rest."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -181,6 +182,37 @@
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
 
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
   /* ---------- CTA ---------- */
   .cta-card {
     background: var(--card); border: 0.5px solid var(--line);
@@ -322,6 +354,30 @@
       <p class="faq-a">Yes — see the <a href="/guides/track-tax-relief-malaysia/">tax-relief guide</a> for categories like Medical, Lifestyle, SSPN, PRS that make e-Filing painless.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/ringgit-rally-multicurrency-savings-2026/">
+          <span class="related-title">Stronger Ringgit, RM 3.95 — what to do</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/industrial-5g-selangor-sme-supply-chain-2026/">
+          <span class="related-title">Industrial 5G &amp;amp; the SMEs supplying smart factories</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/bnm-rm5b-sme-relief-fund-2026/">
+          <span class="related-title">BNM RM5B SME relief fund, decoded</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Built for the solo operator</h2>

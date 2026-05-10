@@ -3,7 +3,7 @@
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://duitful.app/</loc>
-    <lastmod>2026-04-29</lastmod>
+    <lastmod>2026-05-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/"/>
@@ -12,7 +12,7 @@
   </url>
   <url>
     <loc>https://duitful.app/ms/</loc>
-    <lastmod>2026-04-29</lastmod>
+    <lastmod>2026-05-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/"/>
@@ -21,7 +21,7 @@
   </url>
   <url>
     <loc>https://duitful.app/changelog/</loc>
-    <lastmod>2026-04-29</lastmod>
+    <lastmod>2026-05-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -45,9 +45,21 @@
   </url>
   <url>
     <loc>https://duitful.app/guides/</loc>
-    <lastmod>2026-04-29</lastmod>
+    <lastmod>2026-05-08</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/</loc>
+    <lastmod>2026-05-08</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/budi95-fuel-tracker/</loc>
@@ -56,12 +68,7 @@
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/budi95-fuel-tracker/"/>
     <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/budi95-fuel-tracker/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/track-tax-relief-malaysia/</loc>
-    <lastmod>2026-04-29</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/budi95-fuel-tracker/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/sme-freelancer-expense-tracker/</loc>
@@ -70,21 +77,22 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://duitful.app/guides/labour-day-long-weekend-budget/</loc>
+    <loc>https://duitful.app/guides/track-tax-relief-malaysia/</loc>
     <lastmod>2026-04-29</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/labour-day-long-weekend-budget/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/labour-day-long-weekend-budget/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/consumer-credit-act-bnpl-malaysia-2026/</loc>
-    <lastmod>2026-04-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://duitful.app/guides/lhdn-einvoice-rm10000-rule-2026/</loc>
+    <loc>https://duitful.app/guides/labour-day-long-weekend-budget/</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/labour-day-long-weekend-budget/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/labour-day-long-weekend-budget/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/labour-day-long-weekend-budget/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/consumer-credit-act-bnpl-malaysia-2026/</loc>
     <lastmod>2026-04-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -96,28 +104,16 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://duitful.app/guides/ms/</loc>
-    <lastmod>2026-04-29</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/ms/budi95-fuel-tracker/</loc>
-    <lastmod>2026-04-29</lastmod>
+    <loc>https://duitful.app/guides/lhdn-einvoice-rm10000-rule-2026/</loc>
+    <lastmod>2026-04-30</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/budi95-fuel-tracker/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/budi95-fuel-tracker/"/>
   </url>
   <url>
-    <loc>https://duitful.app/guides/ms/labour-day-long-weekend-budget/</loc>
-    <lastmod>2026-04-29</lastmod>
-    <changefreq>yearly</changefreq>
+    <loc>https://duitful.app/guides/bnm-rm5b-sme-relief-fund-2026/</loc>
+    <lastmod>2026-05-02</lastmod>
+    <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/labour-day-long-weekend-budget/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/labour-day-long-weekend-budget/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/gig-driver-income-resilience-2026/</loc>
@@ -126,20 +122,7 @@
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/gig-driver-income-resilience-2026/"/>
     <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/gig-driver-income-resilience-2026/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/ms/gig-driver-income-resilience-2026/</loc>
-    <lastmod>2026-05-01</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/gig-driver-income-resilience-2026/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/gig-driver-income-resilience-2026/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/bnm-rm5b-sme-relief-fund-2026/</loc>
-    <lastmod>2026-05-02</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/gig-driver-income-resilience-2026/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/ringgit-stablecoins-merchant-fees-2026/</loc>
@@ -154,18 +137,17 @@
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ai-agents-bank-fraud-malaysia-2026/"/>
     <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ai-agents-bank-fraud-malaysia-2026/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/ms/ai-agents-bank-fraud-malaysia-2026/</loc>
-    <lastmod>2026-05-02</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ai-agents-bank-fraud-malaysia-2026/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ai-agents-bank-fraud-malaysia-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/ai-agents-bank-fraud-malaysia-2026/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/prudent-spending-sukma-malaysia-2026/</loc>
     <lastmod>2026-05-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/industrial-5g-selangor-sme-supply-chain-2026/</loc>
+    <lastmod>2026-05-03</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -176,23 +158,10 @@
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/selangor-wfh-energy-shock-2026/"/>
     <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/selangor-wfh-energy-shock-2026/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/ms/selangor-wfh-energy-shock-2026/</loc>
-    <lastmod>2026-05-03</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/selangor-wfh-energy-shock-2026/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/selangor-wfh-energy-shock-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/selangor-wfh-energy-shock-2026/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/tokenised-deposits-malaysia-2026/</loc>
-    <lastmod>2026-05-03</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/industrial-5g-selangor-sme-supply-chain-2026/</loc>
     <lastmod>2026-05-03</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
@@ -204,14 +173,7 @@
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ringgit-rally-multicurrency-savings-2026/"/>
     <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ringgit-rally-multicurrency-savings-2026/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/ms/ringgit-rally-multicurrency-savings-2026/</loc>
-    <lastmod>2026-05-04</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ringgit-rally-multicurrency-savings-2026/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ringgit-rally-multicurrency-savings-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/ringgit-rally-multicurrency-savings-2026/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/selangor-sme-ai-tax-deduction-2026/</loc>
@@ -226,20 +188,13 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://duitful.app/guides/opr-hold-275-yield-strategy-2026/</loc>
+    <loc>https://duitful.app/guides/data-residency-2026-personal-checklist/</loc>
     <lastmod>2026-05-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/opr-hold-275-yield-strategy-2026/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/</loc>
-    <lastmod>2026-05-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/opr-hold-275-yield-strategy-2026/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/data-residency-2026-personal-checklist/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/data-residency-2026-personal-checklist/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/data-residency-2026-personal-checklist/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/esg-transport-financing-selangor-sme-2026/</loc>
@@ -248,36 +203,13 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://duitful.app/guides/data-residency-2026-personal-checklist/</loc>
+    <loc>https://duitful.app/guides/opr-hold-275-yield-strategy-2026/</loc>
     <lastmod>2026-05-05</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/data-residency-2026-personal-checklist/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/data-residency-2026-personal-checklist/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/ms/data-residency-2026-personal-checklist/</loc>
-    <lastmod>2026-05-05</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/data-residency-2026-personal-checklist/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/data-residency-2026-personal-checklist/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026/</loc>
-    <lastmod>2026-05-06</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/opr-decision-debt-avalanche-malaysia-2026/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/ms/opr-decision-debt-avalanche-malaysia-2026/</loc>
-    <lastmod>2026-05-06</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/opr-decision-debt-avalanche-malaysia-2026/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/opr-hold-275-yield-strategy-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/opr-hold-275-yield-strategy-2026/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/on-shore-ai-fintech-standard-malaysia-2026/</loc>
@@ -286,20 +218,28 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026/</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/opr-decision-debt-avalanche-malaysia-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026/"/>
+  </url>
+  <url>
     <loc>https://duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026/</loc>
     <lastmod>2026-05-06</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026/"/>
     <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/shah-alam-ev-solar-centre-household-savings-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026/"/>
   </url>
   <url>
-    <loc>https://duitful.app/guides/ms/shah-alam-ev-solar-centre-household-savings-2026/</loc>
-    <lastmod>2026-05-06</lastmod>
+    <loc>https://duitful.app/guides/finance-ai-agents-personal-lessons-2026/</loc>
+    <lastmod>2026-05-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/shah-alam-ev-solar-centre-household-savings-2026/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/ringgit-3-91-cheaper-subscriptions-2026/</loc>
@@ -308,14 +248,7 @@
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ringgit-3-91-cheaper-subscriptions-2026/"/>
     <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ringgit-3-91-cheaper-subscriptions-2026/"/>
-  </url>
-  <url>
-    <loc>https://duitful.app/guides/ms/ringgit-3-91-cheaper-subscriptions-2026/</loc>
-    <lastmod>2026-05-08</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ringgit-3-91-cheaper-subscriptions-2026/"/>
-    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ringgit-3-91-cheaper-subscriptions-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/ringgit-3-91-cheaper-subscriptions-2026/"/>
   </url>
   <url>
     <loc>https://duitful.app/guides/selangor-ic-design-career-pivot-2026/</loc>
@@ -324,9 +257,102 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://duitful.app/guides/finance-ai-agents-personal-lessons-2026/</loc>
+    <loc>https://duitful.app/guides/ms/budi95-fuel-tracker/</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/budi95-fuel-tracker/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/budi95-fuel-tracker/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/budi95-fuel-tracker/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/labour-day-long-weekend-budget/</loc>
+    <lastmod>2026-04-29</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/labour-day-long-weekend-budget/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/labour-day-long-weekend-budget/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/labour-day-long-weekend-budget/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/gig-driver-income-resilience-2026/</loc>
+    <lastmod>2026-05-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/gig-driver-income-resilience-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/gig-driver-income-resilience-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/gig-driver-income-resilience-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/ai-agents-bank-fraud-malaysia-2026/</loc>
+    <lastmod>2026-05-02</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ai-agents-bank-fraud-malaysia-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ai-agents-bank-fraud-malaysia-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/ai-agents-bank-fraud-malaysia-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/selangor-wfh-energy-shock-2026/</loc>
+    <lastmod>2026-05-03</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/selangor-wfh-energy-shock-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/selangor-wfh-energy-shock-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/selangor-wfh-energy-shock-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/ringgit-rally-multicurrency-savings-2026/</loc>
+    <lastmod>2026-05-04</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ringgit-rally-multicurrency-savings-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ringgit-rally-multicurrency-savings-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/ringgit-rally-multicurrency-savings-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/data-residency-2026-personal-checklist/</loc>
+    <lastmod>2026-05-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/data-residency-2026-personal-checklist/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/data-residency-2026-personal-checklist/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/data-residency-2026-personal-checklist/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/</loc>
+    <lastmod>2026-05-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/opr-hold-275-yield-strategy-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/opr-hold-275-yield-strategy-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/opr-decision-debt-avalanche-malaysia-2026/</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/opr-decision-debt-avalanche-malaysia-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/opr-decision-debt-avalanche-malaysia-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/shah-alam-ev-solar-centre-household-savings-2026/</loc>
+    <lastmod>2026-05-06</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/shah-alam-ev-solar-centre-household-savings-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/shah-alam-ev-solar-centre-household-savings-2026/"/>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ms/ringgit-3-91-cheaper-subscriptions-2026/</loc>
     <lastmod>2026-05-08</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/ringgit-3-91-cheaper-subscriptions-2026/"/>
+    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/ringgit-3-91-cheaper-subscriptions-2026/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/ringgit-3-91-cheaper-subscriptions-2026/"/>
   </url>
 </urlset>
