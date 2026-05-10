@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/ms/"},{"@type":"ListItem","position":2,"name":"Panduan","item":"https://duitful.app/guides/ms/"},{"@type":"ListItem","position":3,"name":"Strategi yield OPR 2.75%","item":"https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"OPR kekal 2.75% — Duit korang patut letak mana sebelum MPC Khamis ni","description":"BNM kekal OPR pada 2.75% pagi tadi. MPC seterusnya Khamis 7 Mei. Inflasi services pun 5.5%. Cash dalam akaun current 0.25% tu sebenarnya kena hantam diam-diam. Ni playbook untuk dapat yield lebih tanpa lock 12-bulan FD pada masa salah.","inLanguage":"ms","datePublished":"2026-05-05","dateModified":"2026-05-05","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/ms/opr-hold-275-yield-strategy-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Patut saya lock FD 12-bulan minggu ni sebelum keputusan MPC?","acceptedAnswer":{"@type":"Answer","text":"Tak. Walaupun pasaran priced hold, gain hampir takda kalau lock sebelum Khamis — dan loss meaningful kalau Statement signal cut tambahan lewat 2026. Tunggu Jumaat pagi. Optionality tu lagi worth dari 2 hari forgone interest."}},{"@type":"Question","name":"Selamat ke kadar promo digital bank?","acceptedAnswer":{"@type":"Answer","text":"Ya kalau bank tu PIDM-insured (GX, AEON Bank, Boost Bank semua licensed digital bank bawah BNM). Sampai RM 250k per depositor per institusi insured. Kadar promo itself boleh berubah dengan notis — baca terms."}},{"@type":"Question","name":"Money market fund vs fixed deposit — yang mana?","acceptedAnswer":{"@type":"Answer","text":"Untuk liquidity (kemungkinan perlu cash dalam 6 bulan), MMF menang sebab takda lock penalty dan yield net competitive sekarang. Untuk certainty mutlak (confirm tak sentuh cash tu), FD 6-bulan menang atas simplicity. Jangan letak emergency fund dalam FD; jangan park downpayment rumah dalam satu MMF."}},{"@type":"Question","name":"Duitful track yield automatic ke?","acceptedAnswer":{"@type":"Answer","text":"Duitful track principal dengan inflows yang korang log; tak connect ke API bank untuk pull live rates. Korang log kadar dalam description supaya nampak dalam report sendiri. Sebab: API bank perlu share login bank korang, dan tu exact yang Duitful dibina untuk tak buat."}},{"@type":"Question","name":"ASB / ASM vs FD — mana lagi baik?","acceptedAnswer":{"@type":"Answer","text":"Produk berbeza. ASB bayar dividen variable (selalu 4.0–5.0% historical, tak guaranteed) dan tak capital-protected macam FD. Untuk Bumiputera yang eligible, ASB biasanya pilihan lebih baik long-run. Untuk non-Bumi, ASM 2/3 produk comparable dengan dividen historical lebih rendah dan risiko similar. Jangan banding lawan FD atas yield je — banding atas risk-adjusted return."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"OPR kekal 2.75% — Duit korang patut letak mana sebelum MPC Khamis ni","description":"BNM kekal OPR pada 2.75% pagi tadi. MPC seterusnya Khamis 7 Mei. Inflasi services pun 5.5%. Cash dalam akaun current 0.25% tu sebenarnya kena hantam diam-diam. Ni playbook untuk dapat yield lebih tanpa lock 12-bulan FD pada masa salah.","inLanguage":"ms","step":[{"@type":"HowToStep","position":1,"name":"Split, bukan optimize","text":"Pilih tiga bucket — emergency liquid (1 bulan expense), opportunity liquid (3–6 bulan), dan locked (semua yang lebih). Setiap satu satu produk. Jangan pegang tujuh produk. Overhead mental tu makan habis perbezaan yield dalam suku tahun."},{"@type":"HowToStep","position":2,"name":"Baca ceiling tier, bukan kadar headline","text":"Kebanyakan promo digital bank bayar kadar headline atas RM 30k–RM 100k pertama je. Atas tu, drop ke 1.5–2.0%. Kalau korang park RM 200k, kadar blended yang penting, bukan nombor marketing. Kira dulu sebelum transfer."},{"@type":"HowToStep","position":3,"name":"Jangan lock sehari sebelum MPC","text":"MPC duduk Khamis. Walaupun pasaran dah priced hold, language Statement tu yang signal trajectory. Tunggu Jumaat pagi untuk lock apa-apa 6+ bulan. Delay 48 jam tu cost dalam RM 3 per RM 10k. Insurance murah kalau tersilap baca Statement."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -351,6 +383,30 @@
       <p class="faq-a">Produk berbeza. ASB bayar dividen variable (selalu 4.0–5.0% historical, tak guaranteed) dan tak capital-protected macam FD. Untuk Bumiputera yang eligible, ASB biasanya pilihan lebih baik long-run. Untuk non-Bumi, ASM 2/3 produk comparable dengan dividen historical lebih rendah dan risiko similar. Jangan banding lawan FD atas yield je — banding atas risk-adjusted return.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Panduan berkaitan">
+    <span class="related-eyebrow">Panduan berkaitan</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/ms/opr-decision-debt-avalanche-malaysia-2026/">
+          <span class="related-title">OPR &amp;amp; debt avalanche korang</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/ringgit-rally-multicurrency-savings-2026/">
+          <span class="related-title">Ringgit kuat, RM 3.95 — apa nak buat</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/shah-alam-ev-solar-centre-household-savings-2026/">
+          <span class="related-title">Pusat EV &amp;amp; Solar Shah Alam</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Track tiap-tiap bucket yield berasingan</h2>

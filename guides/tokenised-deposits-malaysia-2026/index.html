@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Tokenised deposits Malaysia 2026","item":"https://duitful.app/guides/tokenised-deposits-malaysia-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Tokenised deposits Malaysia 2026 — How DAIH is moving money on the blockchain","description":"BNM's Digital Asset Innovation Hub (DAIH) just onboarded its first wave of tokenised deposit trials for 2026. What tokenised deposits actually are, how they differ from CBDC and stablecoins, what changes for retail and SME users, and what to track in Duitful right now.","inLanguage":"en","datePublished":"2026-05-03","dateModified":"2026-05-03","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/tokenised-deposits-malaysia-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is my bank deposit safer or riskier on tokenised rails?","acceptedAnswer":{"@type":"Answer","text":"Same risk as today — the deposit is still a claim against your bank, and PIDM coverage applies the same way. The token is just a representation of that claim on a shared ledger. No new counterparty added."}},{"@type":"Question","name":"Will my CIMB or Maybank app look different?","acceptedAnswer":{"@type":"Answer","text":"No, not in 2026. The rail change is invisible to the consumer. Banks may eventually surface \"instant cross-border\" as a feature, but that's a UX label on top of the new plumbing — not a new app."}},{"@type":"Question","name":"How does this affect my e-invoice obligations?","acceptedAnswer":{"@type":"Answer","text":"Not at all. E-invoice requirements are independent of the settlement rail. Whether the customer paid via DuitNow QR, card, or a future tokenised-deposit transfer, you still issue the e-invoice with the MYR amount. Duitful's CSV export keeps channel and amount cleanly separated for your accountant."}},{"@type":"Question","name":"I run an SME paying suppliers in Singapore and Indonesia. When can I expect lower fees?","acceptedAnswer":{"@type":"Answer","text":"Expect partial production rollout via your existing bank within 12–18 months for ASEAN-5 corridors, and broader availability over 24–36 months. The price compression you'll feel: today's 2–4% all-in cross-border drops toward 0.5–1.5%. Track your current effective rate now so you have a baseline."}},{"@type":"Question","name":"What do I do today besides waiting?","acceptedAnswer":{"@type":"Answer","text":"Three things. (1) Log every settlement by channel in Duitful so you have a real fee baseline. (2) When your bank's relationship manager mentions \"tokenised settlement\" or \"DLT-based corridors,\" ask to be in the early cohort. (3) Don't switch processors based on vendor pitches — wait for your existing bank to ship it as a standard offering."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Tokenised deposits Malaysia 2026 — How DAIH is moving money on the blockchain","description":"BNM's Digital Asset Innovation Hub (DAIH) just onboarded its first wave of tokenised deposit trials for 2026. What tokenised deposits actually are, how they differ from CBDC and stablecoins, what changes for retail and SME users, and what to track in Duitful right now.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"You won't see \"tokenised\" in your banking app","text":"The customer experience stays as it is — DuitNow QR, debit card, online banking. The change is back-end: how the money moves between banks, how settlement clears, how cross-border flows route. You experience it as faster availability and (eventually) lower fees, not as a new app."},{"@type":"HowToStep","position":2,"name":"Cross-border SME payouts get cheaper first","text":"The real near-term win is cross-border. Sending SGD to a Singapore designer, receiving USD from a Jakarta client — those flows today carry 2–4% all-in (FX spread + correspondent fees). Tokenised deposits on shared rails (think Project Nexus, ASEAN-5 corridors) target sub-1% all-in over the next 18–36 months."},{"@type":"HowToStep","position":3,"name":"Domestic clearing speeds up, modestly","text":"DuitNow QR is already near-instant for retail. Tokenised-deposit rails primarily upgrade interbank GIRO, batch payroll runs, and large-value transfers — moving them from T+1/T+3 to near real-time. Useful for SMEs running payroll on the 25th. Invisible to most consumers."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -343,6 +375,30 @@
       <p class="faq-a">Three things. (1) Log every settlement by channel in Duitful so you have a real fee baseline. (2) When your bank's relationship manager mentions "tokenised settlement" or "DLT-based corridors," ask to be in the early cohort. (3) Don't switch processors based on vendor pitches — wait for your existing bank to ship it as a standard offering.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/ringgit-stablecoins-merchant-fees-2026/">
+          <span class="related-title">Ringgit stablecoins, demystified</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/opr-hold-275-yield-strategy-2026/">
+          <span class="related-title">OPR 2.75% — yield playbook</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/bnm-rm5b-sme-relief-fund-2026/">
+          <span class="related-title">BNM RM5B SME relief fund, decoded</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Track every settlement channel separately</h2>

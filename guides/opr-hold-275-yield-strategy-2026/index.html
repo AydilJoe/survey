@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"OPR 2.75% yield strategy","item":"https://duitful.app/guides/opr-hold-275-yield-strategy-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"OPR held at 2.75% — Where to park your cash before Thursday's MPC","description":"Bank Negara held the OPR at 2.75% this morning with the next MPC on Thursday May 7. Markets are pricing higher-for-longer. Service-sector inflation is up 5.5%. This is the playbook for squeezing more yield out of your liquid cash without locking in a 12-month FD at the wrong moment.","inLanguage":"en","datePublished":"2026-05-05","dateModified":"2026-05-05","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/opr-hold-275-yield-strategy-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Should I lock a 12-month FD this week before the MPC outcome?","acceptedAnswer":{"@type":"Answer","text":"No. Even if the market is pricing a hold, you gain almost nothing by locking before Thursday — and you lose meaningfully if the Statement signals additional cuts later in 2026. Wait Friday morning. The optionality is worth more than the two days of forgone interest."}},{"@type":"Question","name":"Are digital-bank promo rates safe?","acceptedAnswer":{"@type":"Answer","text":"Yes if the bank is PIDM-insured (GX, AEON Bank, Boost Bank are all licensed digital banks under BNM). Up to RM 250k per depositor per institution is insured. The promo rate itself is subject to change with notice — read the terms."}},{"@type":"Question","name":"Money market fund vs fixed deposit — which?","acceptedAnswer":{"@type":"Answer","text":"For liquidity (you might need the cash within 6 months), MMF wins because there's no lock penalty and current net yields are competitive. For absolute certainty (you definitely will not touch the cash), 6-month FD wins on simplicity. Don't put your emergency fund in an FD; don't park your house downpayment in a single MMF."}},{"@type":"Question","name":"Does Duitful track yield automatically?","acceptedAnswer":{"@type":"Answer","text":"Duitful tracks the principal and the inflows you log; it does not connect to a bank API to pull live rates. You log the rate in the description so it's visible in your own report. The reason: a bank API would require sharing your bank login, which is the exact thing Duitful was built not to do."}},{"@type":"Question","name":"ASB / ASM vs FD — which is better?","acceptedAnswer":{"@type":"Answer","text":"Different products. ASB pays a variable dividend (often 4.0–5.0% historically, not guaranteed) and is not capital-protected like a FD. For a Bumiputera saver with eligibility, ASB is normally the better long-run hold. For a non-Bumi saver, ASM 2/3 are the comparable products with lower historical dividends and similar risk. Don't compare against an FD on yield alone — compare on risk-adjusted return."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"OPR held at 2.75% — Where to park your cash before Thursday's MPC","description":"Bank Negara held the OPR at 2.75% this morning with the next MPC on Thursday May 7. Markets are pricing higher-for-longer. Service-sector inflation is up 5.5%. This is the playbook for squeezing more yield out of your liquid cash without locking in a 12-month FD at the wrong moment.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Split, don't optimise","text":"Pick three buckets — emergency liquid (1 month of expenses), opportunity liquid (3–6 months), and locked (anything beyond that). Each gets one product. Don't try to hold seven products. The cognitive overhead eats the yield difference within a quarter."},{"@type":"HowToStep","position":2,"name":"Read the tier ceiling, not the headline rate","text":"Most digital-bank promos pay the headline rate only on the first RM 30k–RM 100k. Above that, the rate drops to 1.5–2.0%. If you're parking RM 200k somewhere, the blended rate matters, not the marketing number. Compute it before you transfer."},{"@type":"HowToStep","position":3,"name":"Don't lock the day before MPC","text":"MPC sits Thursday. Even if the market is pricing a hold, the Statement language matters for the trajectory. Wait Friday morning to lock anything 6+ months. The 48-hour delay costs you about RM 3 per RM 10k held. Cheap insurance against a misread of the statement."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -351,6 +383,30 @@
       <p class="faq-a">Different products. ASB pays a variable dividend (often 4.0–5.0% historically, not guaranteed) and is not capital-protected like a FD. For a Bumiputera saver with eligibility, ASB is normally the better long-run hold. For a non-Bumi saver, ASM 2/3 are the comparable products with lower historical dividends and similar risk. Don't compare against an FD on yield alone — compare on risk-adjusted return.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/opr-decision-debt-avalanche-malaysia-2026/">
+          <span class="related-title">OPR &amp;amp; your debt avalanche</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ringgit-rally-multicurrency-savings-2026/">
+          <span class="related-title">Stronger Ringgit, RM 3.95 — what to do</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/bnm-rm5b-sme-relief-fund-2026/">
+          <span class="related-title">BNM RM5B SME relief fund, decoded</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Track every yield bucket separately</h2>

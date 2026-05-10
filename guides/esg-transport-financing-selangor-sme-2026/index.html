@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"ESG transport financing Selangor 2026","item":"https://duitful.app/guides/esg-transport-financing-selangor-sme-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Selangor's hydrogen-bus push — New ESG financing lanes for transport SMEs","description":"Selangor fast-tracked the hydrogen smart-bus pilot in Shah Alam and Subang Jaya as part of the RM450M MCMC smart city MoU. Behind the headline, ESG-linked financing is opening for transport and logistics SMEs. Eligibility, what changes for cash flow, and what to track in Duitful so the capex/opex split survives an audit.","inLanguage":"en","datePublished":"2026-05-05","dateModified":"2026-05-05","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/esg-transport-financing-selangor-sme-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"My SME has 12 vans on diesel. Realistic ESG-linked option this year?","acceptedAnswer":{"@type":"Answer","text":"Yes — a sustainability-linked overdraft tied to \"% fleet converted to EV by end-2027\" is the lightest entry. Pair with one EV van replacing your highest-mileage vehicle, and you've moved the KPI on day one. The rate step-down arrives at the next annual review."}},{"@type":"Question","name":"Do I need an external auditor for the KPI verification?","acceptedAnswer":{"@type":"Answer","text":"For most ESG-linked overdrafts and term loans up to RM 5m, the bank's ESG team verifies internally based on your submitted records. Above that, a limited-assurance review by a registered firm is usually required. Plan budget either way; ask the bank up front so it's not a surprise at first review."}},{"@type":"Question","name":"How does this interact with the Budget 2026 SME tax incentives?","acceptedAnswer":{"@type":"Answer","text":"They stack. ESG-linked financing is about cost of capital; tax incentives are about deductibility. The capex eligible for capital allowances (vehicles, infrastructure) deducts under the standard schedule; ESG-linked is independent. The SME AI tax deduction guide covers the training-spend track that often runs alongside an ESG capex push."}},{"@type":"Question","name":"Selangor only? What if I'm a transport SME outside KL/Selangor?","acceptedAnswer":{"@type":"Answer","text":"The hydrogen pilot is geographically scoped, but the JC3 ESG-linked product framework is national. Your local branches of CIMB, Maybank, RHB, Public Bank, and AmBank have the same product menu — Selangor just has the highest-volume use case to anchor a conversation. The eligibility criteria and KPI logic are identical nationwide."}},{"@type":"Question","name":"What if my fleet runs on CNG / LPG, not diesel?","acceptedAnswer":{"@type":"Answer","text":"CNG/LPG conversions usually still qualify as a transitional ESG step if you can document an emissions reduction relative to a diesel baseline. Some banks accept this; others want a hard zero-emission target. Ask before you assume — it varies by lender, not by sector."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Selangor's hydrogen-bus push — New ESG financing lanes for transport SMEs","description":"Selangor fast-tracked the hydrogen smart-bus pilot in Shah Alam and Subang Jaya as part of the RM450M MCMC smart city MoU. Behind the headline, ESG-linked financing is opening for transport and logistics SMEs. Eligibility, what changes for cash flow, and what to track in Duitful so the capex/opex split survives an audit.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Sustainability-linked overdrafts (SLOs)","text":"Standard overdraft pricing, with a 25–75 bps reduction tied to hitting an emissions or fleet-conversion KPI year-on-year. The bank verifies via your Scope 1 statement annually. Best for SMEs already with a working OD facility — the conversion is paperwork, not a new application."},{"@type":"HowToStep","position":2,"name":"Green term loans","text":"5–10 year term loan for capex (vehicles, charging infrastructure, workshop fit-out). Typical pricing is BLR-based with a 50–100 bps green discount; some banks offer a step-up structure where the discount widens once a KPI is hit. Documentation includes a use-of-proceeds schedule."},{"@type":"HowToStep","position":3,"name":"Grant-matching schemes","text":"SME Corp, MGTC, and selected state agencies match approved capex 1:1 up to a ceiling (typically RM 100k–RM 500k for first-time green capex). The match is paid against verified invoices, not as advance funding. Plan cash flow accordingly."},{"@type":"HowToStep","position":4,"name":"Sustainability-linked invoice financing","text":"Faster receivables financing with preferential rates if the underlying buyer has a Scope 3 reporting obligation. Selangor's state-linked operators do. Most large logistics buyers (the ports, the major retailers) do. Worth asking for explicitly."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -401,6 +433,30 @@
       <p class="faq-a">CNG/LPG conversions usually still qualify as a transitional ESG step if you can document an emissions reduction relative to a diesel baseline. Some banks accept this; others want a hard zero-emission target. Ask before you assume — it varies by lender, not by sector.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/bnm-rm5b-sme-relief-fund-2026/">
+          <span class="related-title">BNM RM5B SME relief fund, decoded</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/industrial-5g-selangor-sme-supply-chain-2026/">
+          <span class="related-title">Industrial 5G &amp;amp; the SMEs supplying smart factories</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/shah-alam-ev-solar-centre-household-savings-2026/">
+          <span class="related-title">Shah Alam EV &amp;amp; solar centre</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Track green capex separately</h2>

@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/ms/"},{"@type":"ListItem","position":2,"name":"Panduan","item":"https://duitful.app/guides/ms/"},{"@type":"ListItem","position":3,"name":"Ringgit 3.91 — langganan lebih murah","item":"https://duitful.app/guides/ms/ringgit-3-91-cheaper-subscriptions-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Ringgit RM3.91 lawan USD — langganan & barangan import jadi lebih murah","description":"Ringgit cecah RM3.91 setiap USD minggu ini — naik 3% sejak awal 2026. Apa berubah untuk Spotify, Netflix, AWS, AliExpress, percutian Jepun anda — dan cara nak track.","inLanguage":"ms","datePublished":"2026-05-08","dateModified":"2026-05-08","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/ms/ringgit-3-91-cheaper-subscriptions-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Adakah Ringgit akan terus naik?","acceptedAnswer":{"@type":"Answer","text":"Tiada siapa tahu. BNM kata mereka kekal kadar; kekuatan ini cermin sentiment, bukan jaminan polisi. Jangan buat keputusan hidup berasaskan ramalan — rekod dalam mata wang sebenar yang anda bayar, dan biar data tunjuk apa yang berlaku."}},{"@type":"Question","name":"Saya dapat gaji MYR tapi invoice USD sebagai freelancer. Patutkah rekod dalam USD?","acceptedAnswer":{"@type":"Answer","text":"Ya. Rekod invoice dalam USD pada bahagian income. Bila anda terima transfer MYR, lebih senang banding kadar masa invoice vs masa bayaran masuk."}},{"@type":"Question","name":"Multi-currency Duitful percuma ke?","acceptedAnswer":{"@type":"Answer","text":"Multi-currency entry adalah ciri Pro (RM 19.90 sekali bayar seumur hidup). Paparan Ringgit percuma untuk semua. Upsell Pro muncul bila anda pilih mata wang bukan Ringgit pada borang."}},{"@type":"Question","name":"Syarikat saya bayar balik bil cloud. Macam mana nak rekod?","acceptedAnswer":{"@type":"Answer","text":"Rekod bil AWS sebagai perbelanjaan USD, kemudian rekod bayaran balik sebagai pendapatan USD ditag pada projek / kategori yang sama. Reports akan tolak antara kedua-dua."}},{"@type":"Question","name":"Macam mana dengan crypto?","acceptedAnswer":{"@type":"Answer","text":"Tidak disokong. Kadar crypto terlalu volatile dan sumber data kurang dipercayai. 40+ mata wang dalam Duitful semua mata wang berdaulat dengan kadar mid-market harian dari sumber terbuka."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Ringgit RM3.91 lawan USD — langganan & barangan import jadi lebih murah","description":"Ringgit cecah RM3.91 setiap USD minggu ini — naik 3% sejak awal 2026. Apa berubah untuk Spotify, Netflix, AWS, AliExpress, percutian Jepun anda — dan cara nak track.","inLanguage":"ms","step":[{"@type":"HowToStep","position":1,"name":"Audit langganan dollar anda","text":"Buka semua e-mel \"renewal\" 3 bulan lalu. Senaraikan setiap item dalam USD, EUR, SGD, JPY, atau AUD. Ramai orang terkejut bila tengok berapa banyak."},{"@type":"HowToStep","position":2,"name":"Bayar prepay tahunan jika berbaloi","text":"Kalau service tu ada diskaun tahunan DAN anda akan terus guna, ini masa lebih baik dari biasa untuk lock in. Ringgit kuat sekarang = kunci kadar untuk 12 bulan."},{"@type":"HowToStep","position":3,"name":"Pertimbang barang yang ditangguh","text":"Tech import (Mac, parts gaming, lens, drone) — apa-apa yang anda dah lama tunggu — sekarang lebih murah dari Januari. Bukan \"beli sebab nak beli\" tapi untuk pembelian yang anda memang dah putuskan."},{"@type":"HowToStep","position":4,"name":"Rekod setiap entri dalam mata wang asal","text":"Rekod langganan USD 19 sebagai \"RM 76\" sembunyikan fakta yang harga dalam dollar tak berubah — yang berubah adalah kuasa beli anda. Rekod dalam USD dan biar penukar handle Ringgit."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -349,6 +381,30 @@
 </div>
 <h2>Pelajaran lebih besar</h2>
 <p>Ringgit kuat bukan rezeki bajet — ia peluang untuk <strong>lihat apa yang anda telah belanjakan</strong>. Langganan harga dollar, bil cloud, tabiat AliExpress berulang. Ramai orang rekod dalam Ringgit dan hilang signal. Rekod dalam mata wang sebenar, perhatikan jumlah Ringgit menurun 3% tahun ini, dan anda akan mula tanya soalan lebih baik tentang bil mana yang berbaloi.</p>
+
+  <aside class="related" aria-label="Panduan berkaitan">
+    <span class="related-eyebrow">Panduan berkaitan</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/ms/ringgit-rally-multicurrency-savings-2026/">
+          <span class="related-title">Ringgit kuat, RM 3.95 — apa nak buat</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/opr-decision-debt-avalanche-malaysia-2026/">
+          <span class="related-title">OPR &amp;amp; debt avalanche korang</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/opr-hold-275-yield-strategy-2026/">
+          <span class="related-title">OPR 2.75% — playbook yield</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Track semua mata wang dalam satu app</h2>

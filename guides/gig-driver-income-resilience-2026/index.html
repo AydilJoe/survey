@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Future-proof gig income","item":"https://duitful.app/guides/gig-driver-income-resilience-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Future-proof your gig income — Duitful Malaysia guide","description":"Malaysia's autonomous shuttle rollout puts pressure on 160,000 e-hailing drivers. Build a 6-month buffer, diversify income, and track the transition cleanly in Duitful while you still have driver earnings.","inLanguage":"en","datePublished":"2026-05-01","dateModified":"2026-05-01","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/gig-driver-income-resilience-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"I'm already paycheck-to-paycheck. Where does the buffer come from?","acceptedAnswer":{"@type":"Answer","text":"Start with one week, not six months. Save RM 50 per settlement day for a month — that's RM 200–400, enough to cover a single emergency without a payday loan. Build from there. Duitful's savings goal shows progress, which is the only thing that keeps you going early."}},{"@type":"Question","name":"Should I quit driving and re-skill full-time on EPF withdrawal?","acceptedAnswer":{"@type":"Answer","text":"No. EPF i-Sinar / i-Lestari withdrawals are a last resort — you lose decades of compounding. Drive while you re-skill, even part-time. The buffer plus a second income is what gets you out, not raiding retirement."}},{"@type":"Question","name":"What if I'm a Sdn Bhd / company driver, not a platform driver?","acceptedAnswer":{"@type":"Answer","text":"Same plan, different contract. Your \"settlement day\" is payday. Pay yourself the buffer % first, log it the same way. The threat from autonomous shuttles is the same on a 18–36 month horizon."}},{"@type":"Question","name":"Is there a Bahasa Melayu version of this guide?","acceptedAnswer":{"@type":"Answer","text":"Yes — read it in Bahasa Melayu here."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Future-proof your gig income — Duitful Malaysia guide","description":"Malaysia's autonomous shuttle rollout puts pressure on 160,000 e-hailing drivers. Build a 6-month buffer, diversify income, and track the transition cleanly in Duitful while you still have driver earnings.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Know your real number","text":"Open Duitful, log a normal week of expenses honestly. Multiply by 4.3 for monthly. That number, times six, is your buffer goal. Most full-time drivers land between RM 12,000 and RM 24,000."},{"@type":"HowToStep","position":2,"name":"Pay yourself first, every settlement day","text":"Each time the e-hailing platform settles to your account, transfer 15–20% to a separate savings account before you spend anything. Log it in Duitful as a Buffer saving entry. The rest is your real take-home."},{"@type":"HowToStep","position":3,"name":"Layer one second income while you still drive","text":"Pick one — delivery in off-peak hours, weekend small-business work (catering, repairs, tutoring), or a digital skill you can sell on Upwork or local Facebook groups. Log it as income with category Side."},{"@type":"HowToStep","position":4,"name":"Re-skill on the buffer, not on debt","text":"When the buffer hits 6 months, take the course. HRD Corp, MDEC, and community college short courses are mostly subsidised or free. Don't put a course on a credit card — that's the trap."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -345,6 +377,30 @@
       <p class="faq-a">Yes — read it in <a href="/guides/ms/gig-driver-income-resilience-2026/">Bahasa Melayu here</a>.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/finance-ai-agents-personal-lessons-2026/">
+          <span class="related-title">Finance AI agents — personal lessons</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ringgit-3-91-cheaper-subscriptions-2026/">
+          <span class="related-title">Ringgit at 3.91 — cheaper subscriptions</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/selangor-ic-design-career-pivot-2026/">
+          <span class="related-title">Selangor IC Design career pivot</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>One ledger through the transition</h2>

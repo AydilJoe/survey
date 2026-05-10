@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/ms/"},{"@type":"ListItem","position":2,"name":"Panduan","item":"https://duitful.app/guides/ms/"},{"@type":"ListItem","position":3,"name":"Lindungi pendapatan gig","item":"https://duitful.app/guides/ms/gig-driver-income-resilience-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Lindungi pendapatan gig anda — Panduan Duitful Malaysia","description":"Pelancaran van autonomi di Selangor menekan 160,000 pemandu e-hailing Malaysia. Bina simpanan 6 bulan, tambah pendapatan kedua, dan jejaki peralihan dalam Duitful sementara pendapatan memandu masih ada.","inLanguage":"ms","datePublished":"2026-05-01","dateModified":"2026-05-01","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/ms/gig-driver-income-resilience-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Saya dah hand-to-mouth. Mana nak datang simpanan?","acceptedAnswer":{"@type":"Answer","text":"Mula dengan satu minggu, bukan enam bulan. Simpan RM 50 setiap hari settlement selama sebulan — itu RM 200–400, cukup untuk satu kecemasan tanpa pinjaman ah-long. Bina dari situ. Matlamat simpanan Duitful tunjuk kemajuan, dan itu sahaja yang menggerakkan anda waktu mula."}},{"@type":"Question","name":"Patutkah saya berhenti memandu dan belajar sepenuh masa guna pengeluaran KWSP?","acceptedAnswer":{"@type":"Answer","text":"Tidak. Pengeluaran KWSP i-Sinar / i-Lestari adalah pilihan terakhir — anda hilang puluhan tahun compounding. Memandu sambil belajar, walaupun separuh masa. Simpanan plus pendapatan kedua yang keluarkan anda, bukan kacau duit pencen."}},{"@type":"Question","name":"Macam mana kalau saya pemandu Sdn Bhd / syarikat, bukan pemandu platform?","acceptedAnswer":{"@type":"Answer","text":"Pelan sama, kontrak berbeza. Hari \"settlement\" anda adalah hari gaji. Bayar diri % simpanan dahulu, log cara yang sama. Ancaman dari van autonomi sama pada jangkamasa 18–36 bulan."}},{"@type":"Question","name":"Adakah versi Bahasa Inggeris untuk panduan ini?","acceptedAnswer":{"@type":"Answer","text":"Ya — baca dalam Bahasa Inggeris di sini."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Lindungi pendapatan gig anda — Panduan Duitful Malaysia","description":"Pelancaran van autonomi di Selangor menekan 160,000 pemandu e-hailing Malaysia. Bina simpanan 6 bulan, tambah pendapatan kedua, dan jejaki peralihan dalam Duitful sementara pendapatan memandu masih ada.","inLanguage":"ms","step":[{"@type":"HowToStep","position":1,"name":"Tahu nombor sebenar anda","text":"Buka Duitful, log perbelanjaan satu minggu biasa dengan jujur. Darab 4.3 untuk bulanan. Nombor itu, darab enam, adalah sasaran simpanan anda. Kebanyakan pemandu sepenuh masa landed antara RM 12,000 dan RM 24,000."},{"@type":"HowToStep","position":2,"name":"Bayar diri dulu, setiap hari settlement","text":"Setiap kali platform e-hailing settle ke akaun anda, pindah 15–20% ke akaun simpanan berasingan sebelum anda belanja apa-apa. Log dalam Duitful sebagai entri simpanan Buffer. Selebihnya barulah duit harian anda."},{"@type":"HowToStep","position":3,"name":"Tambah satu pendapatan kedua sambil masih memandu","text":"Pilih satu — delivery waktu off-peak, kerja perniagaan kecil hujung minggu (katering, repair, mengaji), atau kemahiran digital yang boleh dijual di Upwork atau group Facebook tempatan. Log sebagai pendapatan dengan kategori Sampingan."},{"@type":"HowToStep","position":4,"name":"Belajar kemahiran baru guna simpanan, bukan hutang","text":"Apabila simpanan cecah 6 bulan, ambil kursus. HRD Corp, MDEC, dan kursus pendek kolej komuniti kebanyakannya disubsidi atau percuma. Jangan letak kursus atas kad kredit — itulah perangkapnya."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -180,6 +181,37 @@
   }
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
 
   /* ---------- CTA ---------- */
   .cta-card {
@@ -345,6 +377,30 @@
       <p class="faq-a">Ya — baca dalam <a href="/guides/gig-driver-income-resilience-2026/">Bahasa Inggeris di sini</a>.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Panduan berkaitan">
+    <span class="related-eyebrow">Panduan berkaitan</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/ms/shah-alam-ev-solar-centre-household-savings-2026/">
+          <span class="related-title">Pusat EV &amp;amp; Solar Shah Alam</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/opr-hold-275-yield-strategy-2026/">
+          <span class="related-title">OPR 2.75% — playbook yield</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/ringgit-rally-multicurrency-savings-2026/">
+          <span class="related-title">Ringgit kuat, RM 3.95 — apa nak buat</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Satu lejar sepanjang peralihan</h2>
