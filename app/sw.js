@@ -15,14 +15,14 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-05-14-1";
+const VERSION = "2026-05-14-2";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=43",
-  "/app/script.js?v=56",
+  "/app/styles.css?v=44",
+  "/app/script.js?v=57",
   "/app/drive-config.js?v=1",
   "/app/drive-sync.js?v=1",
   "/app/icon.svg",
@@ -34,7 +34,10 @@ self.addEventListener("install", (event) => {
     // Use {cache: "reload"} so a new SW doesn't pick up a stale browser
     // cache entry for the shell files.
     await Promise.all(SHELL.map((url) => cache.add(new Request(url, { cache: "reload" })).catch(() => {})));
-    self.skipWaiting();
+    // Don't skipWaiting here — the page decides when to swap in the new SW
+    // so it can show a "New version" banner first. iOS standalone webclips
+    // were the main motivator: without an explicit prompt, the old SW kept
+    // serving stale assets when users reopened from the home screen.
   })());
 });
 
