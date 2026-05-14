@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"BNM RM5B SME relief fund","item":"https://duitful.app/guides/bnm-rm5b-sme-relief-fund-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"BNM RM5B SME Stabilisation Relief Facility — applications open · Duitful Malaysia guide","description":"Bank Negara Malaysia opened applications May 2 for the RM5 billion SME Stabilisation Relief Facility, with Selangor logistics and trade SMEs the heaviest concentration of expected applicants. Eligibility, what to prepare this week, and why a clean expense ledger gets you through underwriting faster.","inLanguage":"en","datePublished":"2026-05-01","dateModified":"2026-05-02","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/bnm-rm5b-sme-relief-fund-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I apply directly to BNM?","acceptedAnswer":{"@type":"Answer","text":"No. BNM provides the funding line; participating banks underwrite and disburse. Approach your existing business banker first — they know your account history and can champion the file internally."}},{"@type":"Question","name":"What rate should I expect?","acceptedAnswer":{"@type":"Answer","text":"Concessionary, capped by BNM. Historically these facilities land 1.5–3.0% below market SME working-capital rates. Exact rate depends on tenor, security, and the underwriting bank's assessment."}},{"@type":"Question","name":"Is there a deadline to apply?","acceptedAnswer":{"@type":"Answer","text":"BNM relief facilities typically run until the allocation is fully drawn down or for a fixed window (often 12–18 months). Earlier applications get cleaner attention from underwriters; don't wait until the fund is 80% drawn."}},{"@type":"Question","name":"My business is healthy but I want cheap capital — is this for me?","acceptedAnswer":{"@type":"Answer","text":"No. The facility is for SMEs facing demonstrable trade or supply-chain disruption. Healthy SMEs should look at standard SME working-capital lines or BNM's other SME schemes (e.g., Disaster Relief, Agrofood, ATF for technology adoption)."}},{"@type":"Question","name":"What about e-invoice readiness?","acceptedAnswer":{"@type":"Answer","text":"Banks increasingly cross-check declared revenue against LHDN e-invoice data. Inconsistencies between your application and your e-invoice trail will get flagged. The cleaner your day-to-day capture (Duitful → CSV → accountant → e-invoice submission), the smoother the underwriting."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"BNM RM5B SME Stabilisation Relief Facility — applications open · Duitful Malaysia guide","description":"Bank Negara Malaysia opened applications May 2 for the RM5 billion SME Stabilisation Relief Facility, with Selangor logistics and trade SMEs the heaviest concentration of expected applicants. Eligibility, what to prepare this week, and why a clean expense ledger gets you through underwriting faster.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Day 1 — Pick your relationship banker, not a new one","text":"Approach the relationship manager at the bank where your operating account already lives. They have your full account history, can pre-vet the file in 24 hours, and will champion it through internal credit. Walking in cold to a bank you don't transact with adds 1–2 weeks before you even get a meeting."},{"@type":"HowToStep","position":2,"name":"Day 2 — Pre-flight your documents","text":"Pull together everything in the standard pack (next section). Your accountant should already have the audited accounts and tax filings; everything else is data you control. If anything is missing, list it explicitly so the bank knows what's coming and when."},{"@type":"HowToStep","position":3,"name":"Day 3 — Write the disruption story in one page","text":"Two paragraphs: what the disruption is (lost X% of revenue from Y customer segment because Z), and what the financing closes (working capital gap of RM X over N months). Include 24-month revenue chart, 12-month projection, and your top 5 customers + suppliers. The panel reads this first."},{"@type":"HowToStep","position":4,"name":"Day 4–5 — Submit, then stay reachable","text":"Submit through your relationship manager. Expect a clarification request within 5 business days — answer same day. Most rejections at this stage aren't on creditworthiness, they're on slow-to-respond applicants the panel deprioritises while faster files clear."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -181,6 +182,37 @@
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
 
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
   /* ---------- CTA ---------- */
   .cta-card {
     background: var(--card); border: 0.5px solid var(--line);
@@ -210,6 +242,12 @@
   .footer a { color: var(--primary); text-decoration: none; }
   .footer a:hover { text-decoration: underline; }
 </style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <div class="container">
@@ -376,6 +414,30 @@
       <p class="faq-a">Banks increasingly cross-check declared revenue against LHDN e-invoice data. Inconsistencies between your application and your e-invoice trail will get flagged. The cleaner your day-to-day capture (Duitful → CSV → accountant → e-invoice submission), the smoother the underwriting.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/esg-transport-financing-selangor-sme-2026/">
+          <span class="related-title">ESG financing for transport SMEs</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/industrial-5g-selangor-sme-supply-chain-2026/">
+          <span class="related-title">Industrial 5G &amp;amp; the SMEs supplying smart factories</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/sme-carbon-tracking-green-loans-malaysia-2026/">
+          <span class="related-title">Automate carbon tracking → tier-1 green loans</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Underwriting starts with your ledger</h2>

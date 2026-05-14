@@ -96,6 +96,10 @@
     "logo": "https://duitful.app/favicon.svg",
     "image": "https://duitful.app/og-image.svg",
     "description": "Privacy-first personal finance tracker built in Malaysia. Track monthly income, expenses, debts, loans, and savings goals with debt avalanche payoff, BNPL tracking, receipt OCR, and on-device encryption.",
+    "sameAs": [
+      "https://github.com/AydilJoe/survey",
+      "https://play.google.com/store/apps/details?id=com.aydiljoe.duitful"
+    ],
     "foundingLocation": {
       "@type": "Place",
       "address": { "@type": "PostalAddress", "addressCountry": "MY" }
@@ -107,6 +111,18 @@
       "url": "https://duitful.app/contact/",
       "availableLanguage": ["en", "ms"]
     }
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Duitful",
+    "alternateName": "Duitful — Money & Debt Tracker",
+    "url": "https://duitful.app/",
+    "inLanguage": ["en-MY", "ms-MY"],
+    "publisher": { "@type": "Organization", "name": "Duitful", "url": "https://duitful.app/" }
   }
   </script>
 
@@ -1326,6 +1342,78 @@
       justify-content: center;
     }
 
+    /* --------------- Follow us --------------- */
+    .follow {
+      padding: 80px 0 24px;
+    }
+    .follow-card {
+      max-width: 640px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 0.5px solid var(--line);
+      border-radius: 22px;
+      padding: 36px 32px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .follow-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 1px 2px rgba(42, 36, 32, 0.05), 0 12px 32px rgba(42, 36, 32, 0.06);
+    }
+    .follow-icon {
+      flex-shrink: 0;
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #d98866, #b35a39);
+      color: var(--card);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .follow-icon svg { width: 30px; height: 30px; }
+    .follow-body { flex: 1; min-width: 0; }
+    .follow-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 4px;
+    }
+    .follow-title {
+      font-family: var(--font-serif);
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: -0.005em;
+      color: var(--ink);
+      margin: 0 0 4px;
+    }
+    .follow-handle {
+      font-family: var(--font-mono);
+      font-size: 13.5px;
+      color: var(--ink2);
+    }
+    .follow-cta {
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+    @media (max-width: 560px) {
+      .follow-card { padding: 24px; gap: 16px; }
+      .follow-title { font-size: 18px; }
+      .follow-cta { display: none; }
+    }
+
     /* --------------- Final CTA --------------- */
     .cta-final {
       text-align: center;
@@ -1370,6 +1458,12 @@
       html { scroll-behavior: auto; }
     }
   </style>
+
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 
@@ -1493,8 +1587,8 @@
     <div class="container">
       <div class="section-head reveal">
         <span class="eyebrow">What's inside</span>
-        <h2>Every tool you need<br>to get <em style="font-style:italic; color:var(--primary)">honest</em> with your money.</h2>
-        <p>Track money, debts, loans, and savings in one place. Built around the realities of Malaysian finance: buy-now-pay-later, multi-currency travel, and the high-APR debts other apps tend to ignore.</p>
+        <h2>Track what's actually<br>leaving your <em style="font-style:italic; color:var(--primary)">account</em>.</h2>
+        <p>Most trackers ignore the bits that hurt most: high-APR cards, BNPL instalments, foreign-currency subscriptions. Duitful was built around all three.</p>
       </div>
 
       <div class="features-grid">
@@ -1527,37 +1621,19 @@
 
         <div class="feature reveal">
           <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
-          </div>
-          <h3>Auto-capture (Android)</h3>
-          <p>Reads bank and e-wallet notifications on-device, queues them for your review, and nothing ever touches a server. You stay in control.</p>
-          <span class="chip-mono">Zero data leaves phone</span>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
           </div>
           <h3>On-device encryption</h3>
-          <p>Every entry is AES-GCM encrypted with a key derived from your passcode via PBKDF2 (250k iterations). The passcode never leaves the device — not even Duitful can read your data.</p>
+          <p>Every entry is AES-GCM encrypted with a passcode-derived key. Nothing leaves your phone — not even Duitful can read your data.</p>
           <span class="chip-mono">AES-GCM · PBKDF2</span>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a5 5 0 01-1-9.9 6 6 0 0111.6 1.6A4.5 4.5 0 0117 18H7z"/><path d="M12 11v7m0 0l-2.5-2.5M12 18l2.5-2.5"/></svg>
-          </div>
-          <h3>Sync across your devices</h3>
-          <p>Pro syncs your encrypted database through <em>your own</em> Google Drive — into a hidden app folder only Duitful uses. Phone, tablet, laptop all stay in step. No Duitful account, no Duitful server, and the file is encrypted with your passcode before it leaves the device.</p>
-          <span class="chip-mono">Pro · your Drive</span>
         </div>
 
         <div class="feature reveal">
           <div class="feature-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 5 5.6.8-4 3.9 1 5.5L12 14.5 7 17.2l1-5.5L4 7.8 9.6 7z"/></svg>
           </div>
-          <h3>One-time Pro</h3>
-          <p>Pay RM 19.90 once and unlock everything for good. The free tier is permanent. No trial, no drip, no expiry emails.</p>
+          <h3>Pay once, keep it</h3>
+          <p>RM 19.90 lifetime Pro. The free tier is permanent. No trial, no subscription, no expiry emails.</p>
           <span class="chip-mono">Lifetime · no subs</span>
         </div>
       </div>
@@ -1570,7 +1646,7 @@
       <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
         <span class="eyebrow">One app, every screen</span>
         <h2>iPhone, Android, iPad, <em style="font-style:italic; color:var(--primary)">desktop</em>.</h2>
-        <p style="margin-left:auto; margin-right:auto;">Same app, same data, same free tier. Open Duitful in Safari on your iPhone during lunch, finish the month on your iPad at home, or review your avalanche plan on a laptop. Pro keeps every device in step through encrypted sync to <em>your own</em> Google Drive — no Duitful account, no Duitful server.</p>
+        <p style="margin-left:auto; margin-right:auto;">Same app, same data. Install to home screen on any OS — no app store needed. Pro syncs every device through <em>your own</em> Google Drive (encrypted with your passcode before it leaves the phone).</p>
       </div>
 
       <div class="device-row reveal">
@@ -1594,14 +1670,6 @@
           <span class="dm-label">Desktop</span>
         </div>
       </div>
-
-      <ul class="device-notes reveal">
-        <li><strong>Install to home screen</strong> on any OS via the built-in prompt. No App Store or Play Store needed.</li>
-        <li><strong>Works offline</strong> once opened, and a service worker auto-updates the UI when we ship changes.</li>
-        <li><strong>Encrypted sync via your own Google Drive</strong> (Pro) keeps phone, tablet, and laptop in step. The backup lives in a hidden app folder, encrypted with your passcode before upload — Google can't read it, and Duitful runs no sync server of its own.</li>
-        <li><strong>Set up a new device in two taps:</strong> install Duitful, hit <em>Restore from Google Drive</em>, enter your passcode. Your full ledger lands locally, decrypted on-device.</li>
-        <li><strong>Offline-only? Still works.</strong> CSV export → import moves data between devices without ever touching the network.</li>
-      </ul>
     </div>
   </section>
 
@@ -1610,7 +1678,7 @@
     <div class="container privacy-inner reveal">
       <span class="eyebrow">Privacy, actually</span>
       <h2>Your money data<br>never leaves your <em>phone</em>.</h2>
-      <p class="big">Most trackers ship your transactions to a server, run analytics on the data, and charge you a subscription on top of that. Duitful does the opposite. Your transactions, debts, and goals are encrypted on your device, locked behind a passcode only you know. There's no sync server, so there's nothing to breach in the cloud.</p>
+      <p class="big">Most trackers send your transactions to a server, then charge you a subscription on top. Duitful keeps your data on your phone, full stop. Encrypted, passcode-locked, no sync server to breach.</p>
       <ul class="privacy-bullets">
         <li>
           <div class="k">Encryption</div>
@@ -1625,81 +1693,6 @@
           <div class="v">None on your data. None ever.</div>
         </li>
       </ul>
-    </div>
-  </section>
-
-  <!-- ======================= AVALANCHE EXPLAINER ======================= -->
-  <section class="block avalanche">
-    <div class="container">
-      <div class="ava-grid">
-        <div class="ava-viz reveal" aria-label="Avalanche payoff illustration">
-          <h4>With avalanche · +RM 500/mo extra</h4>
-
-          <div class="debt-row">
-            <div class="debt-meta">
-              <span class="name">Maybank Visa</span>
-              <span class="apr high">24% APR</span>
-            </div>
-            <div class="debt-bar" aria-hidden="true">
-              <div class="paid cc"></div>
-            </div>
-            <div class="debt-footnote">
-              <span>Paid 82%</span>
-              <span>Clear · Oct 2026</span>
-            </div>
-          </div>
-
-          <div class="debt-row">
-            <div class="debt-meta">
-              <span class="name">HSBC Credit Card</span>
-              <span class="apr high">18% APR</span>
-            </div>
-            <div class="debt-bar" aria-hidden="true">
-              <div class="paid loan"></div>
-            </div>
-            <div class="debt-footnote">
-              <span>Paid 28%</span>
-              <span>Clear · May 2027</span>
-            </div>
-          </div>
-
-          <div class="ava-summary">
-            <div>
-              <div class="label">Total interest saved</div>
-              <div class="val hi">RM 2,140</div>
-            </div>
-            <div>
-              <div class="label">Debt-free</div>
-              <div class="val">14 months sooner</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="ava-copy reveal">
-          <span class="eyebrow">Why avalanche</span>
-          <h3>Pay the <em>expensive</em> debt first. The math is ruthless, but it's right.</h3>
-          <p>Snowball feels good because you clear small balances fast. But interest is interest: a credit card at 18% is burning more money every month than a personal loan at 7%.</p>
-          <p>Avalanche aims every extra ringgit at the highest-APR debt. You'll pay less interest overall, and you'll be free sooner. Duitful sorts it automatically, shows you the gap, and re-plans instantly when life changes.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================= FOUNDER ======================= -->
-  <section class="block founder" id="founder">
-    <div class="container">
-      <div class="founder-grid">
-        <div class="founder-copy reveal">
-          <span class="eyebrow">Why Duitful</span>
-          <h2>Built by one person, in Malaysia, for Malaysians.</h2>
-          <p>I'm <strong>Aydil</strong>. The first version of Duitful was a manual Excel sheet I built for a friend who was struggling with cash flow last year. He used it, found it helpful, so I figured I'd turn it into something anyone could use.</p>
-          <p>Before that I tracked everything in my own Excel sheet across bank accounts, credit cards, and loans. Updating rows by hand, fighting formulas on the phone, rebuilding the sheet every time a column got messy. The paid apps I tried either wanted a monthly subscription forever, kept asking to link my bank account, or sold my data to advertisers on the side.</p>
-          <p>Duitful is the tracker I wanted: <em>pay once, own it forever</em>, built for ringgit and Malaysian banks from the ground up, and <strong>your data never leaves your device</strong>. No account, no sync server, no analytics company buying your spending habits.</p>
-          <p>If the app helps you kill a debt or save for a goal, send me a note at <a href="mailto:hello@duitful.app">hello@duitful.app</a>. If it's missing something, especially something Malaysia-specific, that goes to the top of the roadmap.</p>
-          <p>One more thing I want to be upfront about. Most of the code on this site, and a lot of the words on this page, were written with help from <strong>Claude Code</strong> (an AI coding assistant). The idea, the original Excel sheet, and what gets shipped are mine. I review every change before it goes out. But I'm not going to pretend I typed most of the lines myself. The full source is on <a href="https://github.com/AydilJoe/survey" target="_blank" rel="noopener">GitHub</a> if you want to check anything.</p>
-          <p class="founder-sign">— Aydil, Kuala Lumpur</p>
-        </div>
-      </div>
     </div>
   </section>
 
@@ -1739,15 +1732,30 @@
           </div>
           <div class="plan-note">Pay once. No subscription. Ever.</div>
           <ul>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><strong style="color:var(--ink); font-weight:500;">Unlimited</strong> debts, goals &amp; accounts</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Unlimited receipt scans + auto-FX</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Android auto-capture from notifications <a class="plan-version" href="/changelog/#v1-5">v1.5</a></li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Avalanche planner &amp; what-if scenarios</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>CSV export &amp; import (Monarch, YNAB)</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Encrypted sync across devices via your own Google Drive <a class="plan-version" href="/changelog/#v1-4">v1.4</a></li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>All future Pro features included</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Unlimited debts, goals and receipt scans</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Multi-currency entry in 40+ currencies at daily rates</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Budget pools with rollover and per-month overrides</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Auto-recurring monthly income and bills</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Android auto-capture and encrypted Drive sync</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Every future Pro feature, included <a class="plan-version" href="/changelog/">see changelog</a></li>
           </ul>
           <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary">Unlock Pro</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= FOUNDER ======================= -->
+  <section class="block founder" id="founder">
+    <div class="container">
+      <div class="founder-grid">
+        <div class="founder-copy reveal">
+          <span class="eyebrow">Why Duitful</span>
+          <h2>Built by one person, in Malaysia, for Malaysians.</h2>
+          <p>I'm <strong>Aydil</strong>. Duitful started as an Excel sheet I built for a friend struggling with cash flow. The paid apps I'd tried either pushed a monthly subscription forever, kept asking to link my bank, or sold my data on the side.</p>
+          <p>Duitful is the tracker I wanted: <em>pay once, own it forever</em>, built for ringgit from the ground up, and <strong>your data never leaves your device</strong>. If it's missing something Malaysia-specific, that goes to the top of the roadmap — drop a note at <a href="mailto:hello@duitful.app">hello@duitful.app</a>.</p>
+          <p>Honest disclosure: most of the code and a lot of this page were written with <strong>Claude Code</strong>. The product idea and what ships are mine — full source on <a href="https://github.com/AydilJoe/survey" target="_blank" rel="noopener">GitHub</a>.</p>
+          <p class="founder-sign">— Aydil, Kuala Lumpur</p>
         </div>
       </div>
     </div>
@@ -1767,7 +1775,7 @@
             Why one-time pricing and not a subscription?
             <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">A tracker shouldn't cost more than the problem it solves. Pro is a one-time RM 19.90. You keep the app forever, get every future Pro feature, and never see a renewal email. Server costs are near-zero because your data stays on your phone, so a subscription would just be charging you to subsidise someone else's growth metrics.</p>
+          <p class="answer">A money tracker shouldn't cost more than the money it tracks. Pro is RM 19.90 once. You keep the app, get every future Pro feature, and never see a renewal email. Server costs are near-zero because your data stays on your phone — a subscription would just fund our growth chart.</p>
         </details>
 
         <details class="faq-item reveal">
@@ -1788,34 +1796,10 @@
 
         <details class="faq-item reveal">
           <summary>
-            Can I use Duitful outside Malaysia?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-          </summary>
-          <p class="answer">Yes. The app supports MYR, SGD, USD, EUR, GBP, JPY, THB, IDR and more, with automatic FX conversion for travel expenses. Singapore users in particular get full BNPL coverage (Atome, SPayLater, ShopBack PayLater). Auto-capture notification parsing is currently tuned for Malaysian banks, with Singapore banks next on the roadmap.</p>
-        </details>
-
-        <details class="faq-item reveal">
-          <summary>
             What happens if I lose my passcode?
             <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Your data cannot be recovered. This is the trade-off for real end-to-end privacy. Because Duitful never has a copy of your passcode or your data, I can't reset it for you. I strongly recommend writing your passcode down somewhere safe, or using Pro's encrypted-backup export so you can restore to a new device.</p>
-        </details>
-
-        <details class="faq-item reveal">
-          <summary>
-            Can I import from Monarch, YNAB or a CSV?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-          </summary>
-          <p class="answer">Yes. Duitful Pro imports CSV files in the standard formats exported by Monarch, YNAB, Money Lover, and most Malaysian bank statements. You can map columns manually if your export is non-standard. Export works the same way, and your data is yours to take anywhere, any time.</p>
-        </details>
-
-        <details class="faq-item reveal">
-          <summary>
-            Was Duitful built with AI?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-          </summary>
-          <p class="answer">Yes. Most of the code, this landing page, and the guides were written with help from <strong>Claude Code</strong> (an AI coding assistant). The product idea, the original Excel sheet, and what gets shipped are mine. I review every change before it goes out. The full source is on <a href="https://github.com/AydilJoe/survey" target="_blank" rel="noopener">GitHub</a> if you want to check anything.</p>
+          <p class="answer">Your data cannot be recovered — that's the trade-off for real end-to-end privacy. Duitful never has a copy of your passcode or data, so it can't reset for you. Write your passcode down somewhere safe, or use Pro's encrypted backup to restore to a new device.</p>
         </details>
 
         <details class="faq-item reveal">
@@ -1823,7 +1807,7 @@
             How does Pro sync across devices?
             <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Pro syncs through your own Google Drive, not a Duitful server. Your encrypted database is written to a single file in your Drive. Other devices sign in with the same Google account, pull the file, and decrypt it locally with your passcode. Duitful runs no sync server. The passcode never leaves your device, so the data sitting in Drive is unreadable to anyone else, including Google and including me.</p>
+          <p class="answer">Through your own Google Drive — not a Duitful server. Your encrypted database lands in a hidden app folder. Other devices sign in with the same Google account, pull the file, and decrypt it locally with your passcode. The passcode never leaves your device, so the data in Drive is unreadable to Google and to me.</p>
         </details>
       </div>
     </div>
@@ -1834,8 +1818,8 @@
     <div class="container">
       <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
         <span class="eyebrow">Guides</span>
-        <h2>Skim, then go <em>do</em>.</h2>
-        <p>Visual, scannable how-tos for the messy bits of Malaysian money: petrol subsidies, tax relief, freelancer expenses.</p>
+        <h2>How-tos for <em>Malaysian</em> money.</h2>
+        <p>Petrol subsidies, tax relief, freelancer cashflow. The bits no one explains in plain words.</p>
       </div>
 
       <div class="guides-grid reveal">
@@ -1916,6 +1900,7 @@
       <a href="/terms/">Terms of service</a>
       <a href="/ms/">Bahasa Melayu</a>
       <a href="mailto:hello@duitful.app">hello@duitful.app</a>
+      <a href="https://www.instagram.com/duitful.app/" target="_blank" rel="noopener" aria-label="Duitful on Instagram">Instagram</a>
     </div>
   </div>
 </footer>

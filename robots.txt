@@ -1,7 +1,100 @@
-# General crawlers — index the landing, skip the client-side app
+# General crawlers — index the landing & guides, skip the client-side app
 User-agent: *
 Allow: /
-Disallow: /app
+Disallow: /app/
+Disallow: /api/
+
+# ---------------------------------------------------------------
+# Generative-engine crawlers — explicitly allowed.
+# These often default-deny or are gated; opting in keeps Duitful
+# eligible for AI Overviews, ChatGPT browsing, Claude search,
+# Perplexity sources, Apple Intelligence summaries, etc.
+# ---------------------------------------------------------------
+
+User-agent: GPTBot
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: Claude-Web
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: Perplexity-User
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: Applebot
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: Bytespider
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: Amazonbot
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: Meta-ExternalAgent
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: cohere-ai
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: DuckAssistBot
+Allow: /
+Disallow: /app/
+Disallow: /api/
+
+User-agent: YouBot
+Allow: /
+Disallow: /app/
+Disallow: /api/
 
 # Explicitly allow social-preview scrapers (OG image, link cards)
 User-agent: facebookexternalhit

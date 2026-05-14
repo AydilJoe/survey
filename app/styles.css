@@ -45,6 +45,13 @@
 
 [hidden] { display: none !important; }
 
+/* Global checkbox tint — keeps Monthly "Repeat next month", Settings
+   auto-sync, Reports kind filters, and bulk-pay rows on-brand instead of
+   defaulting to the browser/OS accent (often bright red/blue). */
+input[type="checkbox"], input[type="radio"] {
+  accent-color: var(--primary);
+}
+
 .cur-code { font-family: var(--font-mono); font-size: 0.9em; letter-spacing: 0.04em; }
 
 /* Pending transactions (auto-captured from notifications) */
@@ -472,6 +479,31 @@ body.private #stall-warning {
   scrollbar-width: none;
 }
 .tabs::-webkit-scrollbar { display: none; }
+/* On mobile, the previous fade-edge wasn't enough — users didn't realize the
+   tabs scrolled. Compress to icon-only on narrow widths so all 7 tabs fit
+   without scrolling. The active tab keeps its label so the user always knows
+   where they are; inactive tabs show just the icon. */
+@media (max-width: 560px) {
+  .tabs {
+    gap: 0.1rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+    overflow-x: visible;
+  }
+  .tab {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0.5rem 0.4rem;
+    justify-content: center;
+  }
+  .tab > span:not(.tab-icon) {
+    display: none;
+  }
+  .tab.active > span:not(.tab-icon) {
+    display: inline;
+    font-size: 0.74rem;
+  }
+}
 .tab {
   appearance: none;
   background: transparent;
@@ -717,6 +749,10 @@ main {
   margin-top: 0.3rem;
   display: flex;
   justify-content: space-between;
+  /* Wrap onto a second line on narrow widths but preserve a gap so the two
+     spans don't run together as "RM 2,437.00Day 8/31". */
+  flex-wrap: wrap;
+  gap: 2px 12px;
 }
 
 .hero-grid {
@@ -724,6 +760,14 @@ main {
   grid-template-columns: repeat(4, 1fr);
   gap: 0.4rem;
   margin-top: 0.2rem;
+}
+/* On mobile, 4 tiles in one row truncates labels ("RECURRI...", "DAILY S...")
+   and values ("RM 8,..."). Switch to a 2×2 grid below 480px so both label and
+   amount fit cleanly. */
+@media (max-width: 480px) {
+  .hero-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 .hero-stat {
   display: flex;
@@ -789,6 +833,101 @@ main {
   margin-top: 0.6rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
+}
+/* Hero debt-at-a-glance — tap to jump to the Debts tab. Surfaces the TOTAL
+   debt amount (a different signal from the MIN DEBT stat tile, which only
+   shows the monthly obligation). Hidden when state.debts is empty. */
+.debt-glance {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--glass-pane);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+  margin-top: 0.5rem;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: var(--glass-pane-shadow);
+  transition: background 0.15s ease, transform 0.05s ease;
+}
+.debt-glance:hover {
+  background: var(--glass-bg-strong);
+}
+.debt-glance:active {
+  transform: scale(0.99);
+}
+.debt-glance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.debt-glance-label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.debt-glance-amount {
+  font-family: var(--font-serif);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.debt-glance-meta {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+/* On mobile, surface the value next to the label rather than across opposite
+   sides of the row — keeps it compact and scannable. */
+@media (max-width: 480px) {
+  .debt-glance-row {
+    flex-wrap: wrap;
+    gap: 4px 12px;
+  }
+}
+
+/* Progressive disclosure for the formula on mobile — the calculation walk-
+   through is useful but heavy. Tucked behind a <details>/<summary> the user
+   can expand. The reset removes the default disclosure triangle so we can
+   style our own affordance. */
+.hero-formula-details {
+  margin-top: 0.6rem;
+}
+.hero-formula-details > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-decoration-color: rgba(138, 129, 120, 0.4);
+  text-underline-offset: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+.hero-formula-details > summary::-webkit-details-marker { display: none; }
+.hero-formula-details > summary::before {
+  content: "▸";
+  font-size: 0.7em;
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+.hero-formula-details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.hero-formula-details[open] > summary {
+  margin-bottom: 0.3rem;
 }
 .hero-meta {
   color: var(--muted);
@@ -1162,6 +1301,17 @@ select:focus {
   color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  /* Sticky on long lists so the day label + total stays visible while
+     scrolling through entries. The card surface beneath provides the bg
+     so we set our own. Top offset = tabs height (approx). */
+  position: sticky;
+  top: 56px;
+  background: var(--card);
+  z-index: 1;
+  padding: 4px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
 }
 .daily-group-header .day-total {
   font-family: var(--font-serif);
@@ -1180,10 +1330,34 @@ select:focus {
   border-radius: 14px;
   padding: 0.7rem 0.85rem;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr auto auto auto;
+  grid-template-areas: "primary amount edit delete";
   gap: 0.5rem;
   align-items: center;
   box-shadow: var(--glass-pane-shadow);
+}
+.daily-entry .primary-line { grid-area: primary; }
+.daily-entry > .amount { grid-area: amount; }
+.daily-entry > [data-action="edit-daily"] { grid-area: edit; }
+.daily-entry > [data-action="delete-daily"] { grid-area: delete; }
+/* On mobile, FX badges + currency-converted amounts overflow the single-row
+   grid and visually overlap the pill. Stack the amount onto its own row so
+   nothing collides. Edit + delete sit on the right of the primary row. */
+@media (max-width: 480px) {
+  .daily-entry {
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      "primary edit  delete"
+      "amount  amount amount";
+    row-gap: 0.3rem;
+  }
+  .daily-entry > .amount {
+    text-align: right;
+    justify-self: end;
+  }
+  .daily-entry .fx-badge {
+    margin-left: 4px;
+  }
 }
 .daily-entry .primary-line {
   display: flex;
@@ -1320,11 +1494,24 @@ button.primary, .as-button.primary {
 button.primary:hover, .as-button.primary:hover {
   background: #1f1a17;
 }
+/* Danger buttons are outlined by default (less visually "armed") and only
+   fill on hover/focus to signal commitment. The destructive flow itself
+   already has multi-step confirmation; this is the visual accompaniment. */
 button.danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+button.danger:hover,
+button.danger:focus-visible {
   background: var(--danger);
   color: #fff;
+  border-color: var(--danger);
 }
-button.danger:hover { background: var(--danger-hover); }
+button.danger:focus-visible {
+  outline: 2px solid var(--danger-hover);
+  outline-offset: 2px;
+}
 button.ghost {
   background: transparent;
   color: var(--ink2);
@@ -1333,6 +1520,23 @@ button.ghost {
   font-size: 0.85rem;
 }
 button.ghost:hover { background: var(--card-soft); color: var(--text); }
+/* Ghost button with danger affinity — used to visually separate destructive
+   actions (e.g. Savings Delete) from primary actions next to them. Stays
+   subtle until hover so it doesn't shout, but its color signals consequence. */
+button.ghost.ghost-danger {
+  color: var(--loss);
+  border-color: rgba(184, 106, 78, 0.4);
+}
+button.ghost.ghost-danger:hover {
+  background: rgba(184, 106, 78, 0.1);
+  color: var(--loss);
+  border-color: var(--loss);
+}
+/* Push Savings delete to the far right with a small gap so it can't be
+   misclicked from Add. */
+.saving-card .saving-actions .saving-delete {
+  margin-left: auto;
+}
 button.ghost.icon-btn {
   min-width: 2.2rem;
   min-height: 2.2rem;
@@ -1474,6 +1678,133 @@ button.ghost.icon-btn {
   color: var(--primary);
   border-color: rgba(200,112,75,0.4);
   background: rgba(200,112,75,0.08);
+}
+/* Debt-payment pill — uses --loss tokens (terracotta-red, on-brand) instead
+   of the previous bright red inline styles that were off-palette. */
+.daily-entry .cat-pill-debt,
+.cat-pill-debt {
+  color: var(--loss);
+  border-color: rgba(184,106,78,0.4);
+  background: rgba(184,106,78,0.08);
+}
+/* Savings-deposit pill — uses --gain tokens (sage-green, on-brand). */
+.daily-entry .cat-pill-saving,
+.cat-pill-saving {
+  color: var(--gain);
+  border-color: rgba(106,138,94,0.4);
+  background: rgba(106,138,94,0.08);
+}
+/* Daily-tab legend — collapsible behind a "What do the pill colors mean?"
+   summary so it doesn't dominate the mobile view. Same disclosure pattern as
+   the hero formula. */
+.daily-legend-details {
+  margin: 4px 0 8px;
+}
+.daily-legend-details > summary {
+  list-style: none;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-decoration: underline;
+  text-decoration-color: rgba(138, 129, 120, 0.4);
+  text-underline-offset: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+.daily-legend-details > summary::-webkit-details-marker { display: none; }
+.daily-legend-details > summary::before {
+  content: "▸";
+  font-size: 0.7em;
+  transition: transform 0.15s ease;
+  display: inline-block;
+}
+.daily-legend-details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.daily-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.78em;
+  margin: 4px 0 8px;
+}
+.daily-legend .cat-pill {
+  font-size: 0.6rem;
+  padding: 0.12rem 0.4rem;
+}
+/* Debts list legend — explains the day-chip color coding */
+.debt-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.78em;
+  margin: 4px 0 8px;
+}
+.debt-legend .day-chip {
+  display: inline-block;
+  min-width: 1.6rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.72rem;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  border-radius: 8px;
+  text-align: center;
+  vertical-align: middle;
+}
+.debt-legend .day-chip.soon {
+  color: var(--primary);
+  background: rgba(200, 112, 75, 0.1);
+  border: 0.5px solid rgba(200, 112, 75, 0.3);
+}
+.debt-legend .day-chip.today {
+  color: var(--accent);
+  background: rgba(143, 160, 120, 0.14);
+  border: 0.5px solid rgba(143, 160, 120, 0.35);
+}
+/* Auto-numbering suffix for duplicate debt names (e.g. two "Maybank" entries
+   become "Maybank (1)" / "Maybank (2)") so users can tell them apart. */
+.dup-suffix {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 0.85em;
+}
+/* Quick-pay button on debt rows — opens Home with the debt pre-selected.
+   Tinted terracotta to telegraph "primary action" without being a heavy CTA. */
+.debt-list .quick-pay {
+  color: var(--primary);
+}
+.debt-list .quick-pay:hover {
+  background: rgba(200, 112, 75, 0.1);
+  color: var(--primary);
+  border-color: rgba(200, 112, 75, 0.3);
+}
+/* Quick-start template chips for Budget Pools — shown only when the user has
+   no user-created pools yet. Pre-fills the form so they don't have to type. */
+.pool-templates {
+  margin: 8px 0 12px;
+}
+.pool-template-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pool-template {
+  font-size: 0.85em;
+  padding: 0.35rem 0.7rem;
+  border: 0.5px dashed var(--line);
+  background: transparent;
+  color: var(--ink2);
+  border-radius: 999px;
+}
+.pool-template:hover {
+  background: var(--card-soft);
+  color: var(--text);
+  border-color: var(--primary);
+  border-style: solid;
 }
 .pro-refer {
   margin-top: 0.9rem;
@@ -1653,6 +1984,12 @@ button.ghost.icon-btn {
   border-color: rgba(143, 160, 120, 0.35);
 }
 .item-list li .day-chip.past, .debt-list li .day-chip.past { color: var(--muted); opacity: 0.5; }
+/* Empty day chip — preserves grid alignment without rendering a "–" placeholder */
+.item-list li .day-chip-empty,
+.debt-list li .day-chip-empty {
+  background: transparent;
+  border-color: transparent;
+}
 .item-list li .amount, .debt-list li .meta {
   font-variant-numeric: tabular-nums;
   color: var(--text);
@@ -1668,6 +2005,21 @@ button.ghost.icon-btn {
   gap: 0.5rem;
   color: var(--muted);
   font-size: 0.82rem;
+}
+/* On mobile the row has too many cells (chip, name, balance, ↗pay, ✎edit,
+   ✕delete) and the name truncates to "M.", "P...", etc. Give the name its
+   own line so it can show in full, then push balance + action buttons to
+   the second line. */
+@media (max-width: 480px) {
+  .debt-list li .name {
+    flex: 1 0 calc(100% - 3rem);
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .debt-list li .meta {
+    margin-left: auto;
+  }
 }
 
 .empty {
@@ -2014,31 +2366,8 @@ button.ghost.icon-btn {
 .reports-mom .delta-up   { color: var(--loss); font-weight: 600; }
 .reports-mom .delta-down { color: var(--gain); font-weight: 600; }
 
-.reports-categories,
 .reports-top {
   display: flex; flex-direction: column; gap: 0.7rem;
-}
-.reports-cat-row { display: grid; gap: 0.25rem; }
-.reports-cat-head {
-  display: flex; justify-content: space-between; align-items: baseline;
-}
-.reports-cat-name { font-weight: 500; }
-.reports-cat-amount { font-variant-numeric: tabular-nums; font-weight: 600; }
-.reports-cat-meta {
-  display: flex; justify-content: space-between;
-  font-size: 0.76rem; color: var(--muted);
-}
-.reports-bar {
-  height: 6px;
-  background: rgba(42, 36, 32, 0.06);
-  border-radius: 999px;
-  overflow: hidden;
-}
-.reports-bar > span {
-  display: block; height: 100%;
-  background: var(--primary);
-  border-radius: 999px;
-  transition: width 0.25s ease;
 }
 
 .reports-trend {
@@ -2125,4 +2454,547 @@ button.ghost.icon-btn {
   background: rgba(184,106,78,0.15);
   color: var(--loss);
   border-color: rgba(184,106,78,0.4);
+}
+
+/* Bulk import income dialog */
+.bulk-income-preview { margin-top: 0.75rem; }
+.bulk-income-summary { margin: 0.5rem 0 0.25rem; }
+.bulk-income-skipped { margin: 0.5rem 0 0; padding-left: 1.25rem; font-size: 0.85em; color: var(--muted); }
+.bulk-income-skipped li { margin: 0.15rem 0; }
+.bulk-import-trigger { margin-top: 0.5rem; }
+
+/* Multi-currency UI */
+.currency-picker {
+  font: inherit;
+  /* Fixed width — fits "CODE (SYMBOL)" like "JPY (¥)" or "MYR (RM)";
+     long option tails like "(no live rate)" / "(offline)" still appear
+     in the open dropdown but don't grow the closed control. */
+  flex: 0 0 7rem;
+  width: 7rem;
+  padding: 4px 8px;
+  border: 1px solid var(--border, #ddd);
+  border-radius: 8px;
+  background: transparent;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.fx-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.fx-row > input[type="number"] {
+  flex: 1 1 0;
+  min-width: 0; /* allow shrink past content size so the picker can't squeeze us */
+}
+.fx-status {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.fx-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 0.78em;
+  border-radius: 6px;
+  background: var(--badge-bg, #f3efe7);
+  color: var(--muted, #666);
+  white-space: nowrap;
+}
+.fx-preview {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: var(--muted, #666);
+}
+.fx-preview--err { color: #b04a2c; }
+.fx-upsell {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: #b04a2c;
+}
+.fx-upsell a { text-decoration: underline; cursor: pointer; }
+
+/* Budget pools — manager + summary */
+.budget-pool-card .hint { margin-bottom: 8px; }
+#budget-pool-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.budget-pool-card .pool-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #ddd);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.budget-pool-card .pool-row.system { opacity: 0.95; }
+.budget-pool-card .pool-row .swatch {
+  width: 14px; height: 14px; border-radius: 50%;
+  display: inline-block;
+}
+.budget-pool-card .pool-row .pool-name { font-weight: 600; }
+.budget-pool-card .pool-row .pool-meta { font-size: 0.85em; color: var(--muted, #666); }
+.budget-pool-card .pool-progress {
+  height: 6px; border-radius: 3px; overflow: hidden;
+  background: rgba(0,0,0,0.06); margin: 6px 0;
+  grid-column: 1 / -1;
+}
+.budget-pool-card .pool-progress > .fill { height: 100%; transition: width 0.2s ease; }
+.budget-pool-card .pool-actions { display: flex; gap: 4px; }
+.budget-pool-card .pool-actions button { padding: 4px 8px; font-size: 0.85em; }
+.budget-pool-card .system-tag {
+  display: inline-block;
+  font-size: 0.7em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 6px;
+  margin-left: 6px;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.08);
+  color: var(--muted, #666);
+}
+.palette-picker { border: none; padding: 0; margin: 8px 0; }
+.palette-picker legend { font-size: 0.85em; color: var(--muted, #666); padding: 0; }
+#pool-color-options { display: flex; gap: 8px; padding-top: 4px; }
+#pool-color-options label {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer; display: inline-block; position: relative;
+}
+#pool-color-options label.selected { border-color: var(--ink, #333); transform: scale(1.1); }
+#pool-color-options input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.pool-toggle {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.pool-toggle input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+.pool-toggle input[type="checkbox"]:disabled { opacity: 0.4; cursor: not-allowed; }
+.form-actions { display: flex; gap: 8px; margin-top: 8px; }
+.pool-banner {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 0.9em;
+}
+.pool-banner.calm { background: rgba(0,0,0,0.04); color: var(--muted, #555); }
+.pool-banner.yellow { background: rgba(230, 184, 92, 0.18); color: #946813; }
+.pool-banner.red { background: rgba(224, 122, 95, 0.18); color: #a13d22; }
+.pool-banner.done { background: rgba(129, 178, 154, 0.18); color: #2f6b54; }
+.pool-banner .pool-banner-cta {
+  margin-left: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+}
+.pool-toggle-active { font-size: 0.78em; gap: 4px; padding-right: 6px; }
+.pool-toggle-active input[type="checkbox"] { width: 14px; height: 14px; }
+
+.budget-summary-card .summary-pool-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line, #eee);
+}
+.budget-summary-card .summary-pool-row:last-child { border-bottom: none; }
+.budget-summary-card .summary-pool-head {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.budget-summary-card .summary-pool-head .swatch {
+  width: 12px; height: 12px; border-radius: 50%;
+  flex-shrink: 0;
+}
+.budget-summary-card .pool-name { font-weight: 600; }
+.budget-summary-card .pool-meta-right { margin-left: auto; font-size: 0.85em; color: var(--muted, #666); }
+.pool-warn-yellow {
+  display: inline-block; padding: 1px 6px;
+  font-size: 0.78em; font-weight: 600;
+  border-radius: 4px;
+  background: rgba(230, 184, 92, 0.22); color: #946813;
+}
+.pool-warn-red {
+  display: inline-block; padding: 1px 6px;
+  font-size: 0.78em; font-weight: 600;
+  border-radius: 4px;
+  background: rgba(224, 122, 95, 0.22); color: #a13d22;
+}
+.pool-preview {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.85em;
+  color: var(--muted, #666);
+}
+.pool-preview.pool-warn-yellow,
+.pool-preview.pool-warn-red {
+  font-weight: 500;
+  background: transparent;
+  padding: 0;
+}
+.pool-preview.pool-warn-yellow { color: #946813; }
+.pool-preview.pool-warn-red { color: #a13d22; }
+.hint-link {
+  margin-left: 6px;
+  cursor: pointer;
+  text-decoration: underline;
+  color: var(--accent, #b04a2c);
+  font-weight: 500;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 500;
+}
+#bulk-debt-rows { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.bulk-debt-row {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  grid-template-areas:
+    "check name amount"
+    ".     date date";
+  gap: 6px 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--line, #ddd);
+  border-radius: 8px;
+}
+.bulk-debt-row > input[type="checkbox"] { grid-area: check; }
+.bulk-debt-row > div { grid-area: name; min-width: 0; }
+.bulk-debt-row > .row-amount { grid-area: amount; }
+.bulk-debt-row > input[type="date"] { grid-area: date; justify-self: end; }
+.bulk-debt-row.greyed { opacity: 0.55; background: rgba(0,0,0,0.03); }
+.bulk-debt-row .row-meta { font-size: 0.78em; color: var(--muted, #666); }
+.bulk-debt-row input[type="date"] { font: inherit; padding: 2px 6px; border: 1px solid var(--line, #ddd); border-radius: 6px; }
+/* Editable amount per debt row — defaults to remaining minimum, but the user
+   can pay extra (attack principal) or less (cash-strapped month). */
+.bulk-debt-row input.row-amount {
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+  width: 6.5rem;
+  padding: 4px 8px;
+  border: 1px solid var(--line, #ddd);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+}
+.bulk-debt-row input.row-amount:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+  border-color: var(--primary);
+}
+.bulk-debt-row input.row-amount:disabled {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+}
+.bulk-debt-total { font-weight: 600; padding: 8px 0; border-top: 1px solid var(--line, #eee); }
+
+.pool-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.last-month-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.85em;
+  color: var(--muted, #666);
+  flex-wrap: wrap;
+}
+.last-month-line .last-month-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.last-month-line .last-month-value.pos { color: var(--pos, #2f6b54); }
+.last-month-line .last-month-value.neg { color: var(--neg, #b04a2c); }
+.last-month-line .last-month-tone.pos { color: var(--pos, #2f6b54); }
+.last-month-line .last-month-tone.neg { color: var(--neg, #b04a2c); }
+.last-month-line .last-month-edit {
+  /* Promoted from a tiny ✎ icon to a labeled "Adjust" link — the previous
+     icon was unclear as an action affordance. */
+  background: none;
+  border: none;
+  padding: 0 6px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: rgba(200, 112, 75, 0.4);
+  text-underline-offset: 2px;
+  opacity: 0.85;
+}
+.last-month-line .last-month-edit:hover { opacity: 1; }
+
+.app-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(20, 20, 20, 0.92);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 0.85em;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 9999;
+}
+.app-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.app-update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%) translateY(20px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(20, 20, 20, 0.94);
+  color: #fff;
+  padding: 10px 12px 10px 16px;
+  border-radius: 999px;
+  font-size: 0.9em;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 10000;
+  max-width: calc(100% - 32px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+}
+.app-update-banner.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.app-update-banner button {
+  appearance: none;
+  border: 0;
+  background: #e8dfd0;
+  color: #1a1a1a;
+  font: inherit;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.app-update-banner button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.repeat-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9em;
+  margin: 8px 0;
+  cursor: pointer;
+}
+.repeat-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+.repeat-toggle .hint {
+  margin-left: 4px;
+  font-size: 0.78em;
+  color: var(--muted, #666);
+}
+
+/* List search */
+.list-search-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 8px 0 12px;
+}
+.list-search {
+  flex: 1;
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.list-search:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  border-color: transparent;
+}
+/* Suppress Chrome / WebKit's native search clear button — we use our own */
+.list-search::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  display: none;
+}
+.list-search-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 8px;
+  font-size: 1.2em;
+  color: var(--muted);
+}
+.list-search-clear:hover {
+  color: var(--text);
+}
+.empty .empty-clear {
+  text-decoration: underline;
+  cursor: pointer;
+  color: var(--primary);
+}
+
+/* Spending by category — pie + legend.
+   Note: we deliberately do NOT add a `.spending-card { margin-top: 12px; }` rule.
+   The wrapper already gets card-level spacing from the existing `.card` styles in
+   the Reports tab layout, so adding a margin would double-space. */
+#reports-spending h2 {
+  margin: 0 0 4px;
+}
+#reports-spending .hint {
+  margin: 0 0 12px;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+.spending-content {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.spending-pie-wrap {
+  flex: 0 0 auto;
+}
+.spending-pie {
+  width: 180px;
+  height: 180px;
+  display: block;
+}
+.spending-pie path,
+.spending-pie circle {
+  stroke: var(--card);
+  stroke-width: 2;
+  transition: opacity 0.15s ease;
+}
+.spending-pie path:hover,
+.spending-pie circle:hover {
+  opacity: 0.85;
+}
+.spending-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.spending-legend-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto;
+  grid-template-areas:
+    "swatch name    amount   pct"
+    ".      count   count    count";
+  gap: 4px 8px;
+  align-items: center;
+  font-size: 0.9em;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.spending-legend-row:last-child {
+  border-bottom: none;
+}
+.spending-legend-swatch {
+  grid-area: swatch;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.spending-legend-name {
+  grid-area: name;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spending-legend-amount {
+  grid-area: amount;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.spending-legend-pct {
+  grid-area: pct;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  min-width: 3ch;
+  text-align: right;
+}
+.spending-legend-count {
+  grid-area: count;
+  color: var(--muted);
+  font-size: 0.78em;
+}
+
+/* Header row: title on the left, total summary right-aligned. Bridges the
+   discrepancy between the Reports summary card (which counts ALL kinds) and
+   this card (expense-only). */
+.spending-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.spending-header h2 {
+  margin: 0 0 4px;
+}
+.spending-total {
+  font-size: 0.85em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.hint-info {
+  background: rgba(143, 160, 120, 0.12);
+  border-left: 3px solid var(--accent);
+  padding: 6px 10px;
+  border-radius: 4px;
+  margin: 6px 0 12px;
+}
+
+/* Bump pie size on desktop — the chart is the section hero. */
+@media (min-width: 481px) {
+  .spending-pie {
+    width: 220px;
+    height: 220px;
+  }
+}
+
+/* Stack pie above legend on narrow screens — match existing 480px convention */
+@media (max-width: 480px) {
+  .spending-content { flex-direction: column; }
+  .spending-pie-wrap { align-self: center; }
+  .spending-legend { width: 100%; }
 }

@@ -14,8 +14,12 @@ const emptyState = () => ({
   debts: [],
   dailyExpenses: [],
   savings: [],
+  budgetPools: [],
   extraMonthly: 0,
   currency: "MYR",
+  fx: { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
+  monthlyMinSums: {},
+  lastOpenedMonth: "",
   reminders: { enabled: true, daysAhead: 3, notifications: false, lastNotified: {} },
   pro: false,
   license: null,
@@ -32,13 +36,54 @@ function coerceState(parsed) {
     const nowMonth = currentMonthISO();
     const fillMonth = (x) => ({ ...x, month: x.month || nowMonth });
     return {
-      income: Array.isArray(parsed.income) ? parsed.income.map(fillMonth) : [],
-      expenses: Array.isArray(parsed.expenses) ? parsed.expenses.map(fillMonth) : [],
+      income: Array.isArray(parsed.income)
+        ? parsed.income.map(fillMonth).map((x) => ({
+            ...x,
+            repeatNext: x.repeatNext === false ? false : true,
+          }))
+        : [],
+      expenses: Array.isArray(parsed.expenses)
+        ? parsed.expenses.map(fillMonth).map((x) => ({
+            ...x,
+            repeatNext: x.repeatNext === false ? false : true,
+          }))
+        : [],
       debts: Array.isArray(parsed.debts) ? parsed.debts.map((d) => ({ kind: "standard", ...d })) : [],
       dailyExpenses: Array.isArray(parsed.dailyExpenses) ? parsed.dailyExpenses : [],
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
+      budgetPools: Array.isArray(parsed.budgetPools)
+        ? parsed.budgetPools.map((p) => ({
+            id: typeof p.id === "string" ? p.id : uid(),
+            name: typeof p.name === "string" ? p.name : "Untitled",
+            limit: Number.isFinite(Number(p.limit)) ? Number(p.limit) : 0,
+            color: typeof p.color === "string" ? p.color : "#E07A5F",
+            active: !!p.active,
+            rollover: !!p.rollover,
+            monthlyLimits: (p.monthlyLimits && typeof p.monthlyLimits === "object")
+              ? p.monthlyLimits : {},
+            system: typeof p.system === "string" ? p.system : undefined,
+            createdAt: Number.isFinite(Number(p.createdAt)) ? Number(p.createdAt) : Date.now(),
+          }))
+        : [],
       extraMonthly: Number(parsed.extraMonthly) || 0,
       currency: typeof parsed.currency === "string" && /^[A-Z]{3}$/i.test(parsed.currency) ? parsed.currency.toUpperCase() : "MYR",
+      fx: (parsed && typeof parsed.fx === "object" && parsed.fx) ? {
+        anchor: typeof parsed.fx.anchor === "string" ? parsed.fx.anchor : "EUR",
+        rates: (parsed.fx.rates && typeof parsed.fx.rates === "object") ? parsed.fx.rates : {},
+        fetched_at: (typeof parsed.fx.fetched_at === "string" && !Number.isNaN(new Date(parsed.fx.fetched_at).getTime()))
+          ? parsed.fx.fetched_at : null,
+        stale: !!parsed.fx.stale,
+      } : { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
+      monthlyMinSums: (parsed && parsed.monthlyMinSums && typeof parsed.monthlyMinSums === "object")
+        ? Object.fromEntries(
+            Object.entries(parsed.monthlyMinSums)
+              .filter(([k, v]) => /^\d{4}-\d{2}$/.test(k) && Number.isFinite(Number(v)) && Number(v) >= 0)
+              .map(([k, v]) => [k, Number(v)])
+          )
+        : {},
+      lastOpenedMonth: typeof parsed.lastOpenedMonth === "string" && /^\d{4}-\d{2}$/.test(parsed.lastOpenedMonth)
+        ? parsed.lastOpenedMonth
+        : "",
       reminders: {
         enabled: parsed.reminders && parsed.reminders.enabled !== false,
         daysAhead: Number(parsed.reminders && parsed.reminders.daysAhead) || 3,
@@ -62,6 +107,17 @@ function coerceState(parsed) {
 /* initial blank state; real state lands after unlock */
 let state = emptyState();
 let aesKey = null;
+
+// In-memory search queries per list. NOT persisted to encrypted state —
+// these reset on tab change and on app reload.
+const searchQueries = {
+  income: "",
+  expense: "",
+  daily: "",
+  debts: "",
+  savings: "",
+  pools: "",
+};
 
 /* ---------- crypto helpers ---------- */
 
@@ -129,10 +185,23 @@ function uid() {
 /* ---------- formatting ---------- */
 
 const CURRENCY_LOCALE = {
+  // Core
   MYR: "en-MY", SGD: "en-SG", USD: "en-US", EUR: "de-DE", GBP: "en-GB",
   AUD: "en-AU", NZD: "en-NZ", CAD: "en-CA", JPY: "ja-JP", CNY: "zh-CN",
-  HKD: "en-HK", IDR: "id-ID", THB: "th-TH", PHP: "en-PH", INR: "en-IN",
-  KRW: "ko-KR", VND: "vi-VN", AED: "en-AE", SAR: "ar-SA", CHF: "de-CH",
+  HKD: "en-HK", TWD: "zh-TW", KRW: "ko-KR", CHF: "de-CH",
+  // SE Asia
+  IDR: "id-ID", THB: "th-TH", PHP: "en-PH", VND: "vi-VN",
+  BND: "ms-BN", LAK: "lo-LA", KHR: "km-KH", MMK: "my-MM",
+  // South Asia
+  INR: "en-IN", PKR: "ur-PK", BDT: "bn-BD", LKR: "si-LK", NPR: "ne-NP",
+  // Middle East
+  AED: "en-AE", SAR: "ar-SA", QAR: "ar-QA", KWD: "ar-KW", OMR: "ar-OM",
+  BHD: "ar-BH", EGP: "ar-EG", ILS: "he-IL", TRY: "tr-TR",
+  // Europe (non-EUR)
+  SEK: "sv-SE", NOK: "nb-NO", DKK: "da-DK", PLN: "pl-PL",
+  CZK: "cs-CZ", HUF: "hu-HU",
+  // Americas / Africa
+  BRL: "pt-BR", MXN: "es-MX", ARS: "es-AR", ZAR: "en-ZA",
 };
 
 function currentCurrency() {
@@ -167,6 +236,22 @@ function currencySymbol() {
     return sym ? sym.value : currentCurrency();
   } catch { return currentCurrency(); }
 }
+const _currencySymbolCache = {};
+function currencySymbolFor(code) {
+  if (!code) return "";
+  if (_currencySymbolCache[code] != null) return _currencySymbolCache[code];
+  try {
+    const loc = CURRENCY_LOCALE[code] || undefined;
+    const parts = new Intl.NumberFormat(loc, { style: "currency", currency: code }).formatToParts(0);
+    const sym = parts.find((p) => p.type === "currency");
+    const result = sym ? sym.value : code;
+    _currencySymbolCache[code] = result;
+    return result;
+  } catch {
+    _currencySymbolCache[code] = code;
+    return code;
+  }
+}
 function moneyParts(n) {
   const v = Number(n) || 0;
   let prefix = "", whole = "", frac = "", suffix = "";
@@ -196,6 +281,762 @@ function moneyParts(n) {
   return { prefix, whole, frac, suffix };
 }
 
+const FX_BASE_RATE = 1; // anchor (EUR) is always 1.0
+
+function fxRate(code) {
+  if (!code) return NaN;
+  if (code === state.fx.anchor) return FX_BASE_RATE;
+  const r = Number(state.fx.rates[code]);
+  return Number.isFinite(r) && r > 0 ? r : NaN;
+}
+
+function fxCurrencySupported(code) {
+  return code === state.fx.anchor || Number.isFinite(fxRate(code));
+}
+
+function pairRate(fromCode, toCode) {
+  // 1 fromCode = ? toCode  →  rates[to] / rates[from]
+  const f = fxRate(fromCode), t = fxRate(toCode);
+  if (!Number.isFinite(f) || !Number.isFinite(t)) return NaN;
+  return t / f;
+}
+
+function convertFx(amount, fromCode, toCode) {
+  if (!Number.isFinite(amount)) return NaN;
+  if (fromCode === toCode) return amount;
+  const r = pairRate(fromCode, toCode);
+  return Number.isFinite(r) ? amount * r : NaN;
+}
+
+function fxRatesAreUsable() {
+  return state.fx && state.fx.rates && Object.keys(state.fx.rates).length > 0;
+}
+
+function fxRatesAreStale() {
+  if (!state.fx) return true;
+  if (state.fx.stale) return true;
+  if (!state.fx.fetched_at) return true;
+  return Date.now() - new Date(state.fx.fetched_at).getTime() > 24 * 60 * 60 * 1000;
+}
+
+async function loadFxRates({ force = false } = {}) {
+  if (!force && fxRatesAreUsable() && !fxRatesAreStale()) {
+    populateCurrencyPickers();
+    renderFxStatus();
+    return state.fx;
+  }
+  try {
+    const url = force ? "/api/fx?refresh=1" : "/api/fx";
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`fx ${r.status}`);
+    const data = await r.json();
+    state.fx = {
+      anchor: data.anchor || "EUR",
+      rates: data.rates || {},
+      fetched_at: (typeof data.fetched_at === "string" && !Number.isNaN(new Date(data.fetched_at).getTime()))
+        ? data.fetched_at : null,
+      stale: !!data.stale,
+    };
+    save();
+    populateCurrencyPickers();
+    renderFxStatus();
+    return state.fx;
+  } catch (e) {
+    console.warn("loadFxRates failed:", e);
+    return state.fx; // keep whatever we already have
+  }
+}
+
+async function refreshFxRates() {
+  return loadFxRates({ force: true });
+}
+
+/* ---------- budget pools ---------- */
+
+const POOL_COLORS = [
+  "#E07A5F",  // terracotta
+  "#81B29A",  // sage
+  "#5A7BA8",  // dust blue
+  "#9B7EBD",  // muted purple
+  "#E08585",  // rosy red
+  "#E6B85C",  // mustard
+];
+const SYSTEM_DEBT_POOL_ID = "system-debt";
+const SYSTEM_DEBT_POOL_COLOR = "#3F4747"; // graphite — outside POOL_COLORS
+
+function findSystemDebtPool() {
+  return state.budgetPools.find((p) => p.system === "debt");
+}
+
+function ensureDebtPool() {
+  // Idempotent: creates exactly one Debt pool if none exists.
+  // Always recomputes its limit from current debts.
+  // NOTE: This function only mutates derived fields on the in-memory pool object.
+  // It never calls save() — callers must save() if they want persistence.
+  // Safe to call on every render (called from renderAll) — no I/O, just object mutation.
+  // Also defensively dedupes: if multiple system="debt" pools exist (e.g., from
+  // a malformed CSV import), keep the first and drop the rest in-place.
+  const debtPools = state.budgetPools.filter((p) => p.system === "debt");
+  if (debtPools.length > 1) {
+    const keeper = debtPools[0];
+    state.budgetPools = state.budgetPools.filter(
+      (p) => p.system !== "debt" || p === keeper
+    );
+  }
+  let pool = findSystemDebtPool();
+  if (!pool) {
+    pool = {
+      id: SYSTEM_DEBT_POOL_ID,
+      name: "Debt",
+      limit: 0,
+      color: SYSTEM_DEBT_POOL_COLOR,
+      active: false,
+      rollover: false,
+      monthlyLimits: {},
+      system: "debt",
+      createdAt: Date.now(),
+    };
+    state.budgetPools.push(pool);
+  }
+  // Always update derived fields on every call
+  pool.limit = debtTotals(state.debts).minSum;
+  pool.color = SYSTEM_DEBT_POOL_COLOR;
+  pool.name = "Debt";
+  pool.id = SYSTEM_DEBT_POOL_ID;
+  return pool;
+}
+
+function monthOf(dateISO) {
+  // "2026-05-07" -> "2026-05"
+  return typeof dateISO === "string" && dateISO.length >= 7 ? dateISO.slice(0, 7) : "";
+}
+
+function poolUsageInMonth(poolId, monthISO) {
+  if (!poolId) return 0;
+  const dailySum = state.dailyExpenses
+    .filter((e) => e.budgetPoolId === poolId && monthOf(e.date) === monthISO)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const recurringSum = state.expenses
+    .filter((x) => x.budgetPoolId === poolId && x.month === monthISO)
+    .reduce((s, x) => s + (Number(x.amount) || 0), 0);
+  return dailySum + recurringSum;
+}
+
+// Per-render cache for effectiveLimit — keyed by `${pool.id}:${monthISO}`.
+// Reset at top of renderAll alongside the ending-balance cache.
+let _effectiveLimitCache = new Map();
+
+function resetEffectiveLimitCache() {
+  _effectiveLimitCache = new Map();
+}
+
+function effectiveLimit(pool, monthISO) {
+  if (!pool) return 0;
+  // Pool didn't exist before its createdAt — terminator for unbounded recursion.
+  if (Number.isFinite(pool.createdAt)) {
+    const poolBirthMonth = new Date(pool.createdAt).toISOString().slice(0, 7);
+    if (monthISO < poolBirthMonth) return 0;
+  }
+  const cacheKey = `${pool.id}:${monthISO}`;
+  if (_effectiveLimitCache.has(cacheKey)) return _effectiveLimitCache.get(cacheKey);
+
+  const base = (pool.monthlyLimits && pool.monthlyLimits[monthISO] != null)
+    ? Number(pool.monthlyLimits[monthISO])
+    : Number(pool.limit) || 0;
+  if (!pool.rollover || pool.system === "debt") {
+    _effectiveLimitCache.set(cacheKey, base);
+    return base;
+  }
+  const prev = shiftMonth(monthISO, -1);
+  const prevLimit = effectiveLimit(pool, prev);
+  const prevUsed = poolUsageInMonth(pool.id, prev);
+  const prevUnspent = Math.max(0, prevLimit - prevUsed);
+  const result = base + prevUnspent;
+  _effectiveLimitCache.set(cacheKey, result);
+  return result;
+}
+
+function paidThisMonth(debtId, monthISO) {
+  const m = monthISO || currentMonthISO();
+  return state.dailyExpenses
+    .filter((e) => e.kind === "debt" && e.debtId === debtId && monthOf(e.date) === m)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+}
+
+function findPoolByName(name) {
+  if (!name) return null;
+  const target = String(name).trim().toLowerCase();
+  if (!target) return null;
+  return state.budgetPools.find(
+    (p) => typeof p.name === "string" && p.name.trim().toLowerCase() === target
+  ) || null;
+}
+
+function debtPoolEscalation() {
+  // Returns "calm" | "yellow" | "red" | "done"
+  const debtPool = findSystemDebtPool();
+  if (!debtPool || state.debts.length === 0) return "done";
+  const m = currentMonthISO();
+  const usage = poolUsageInMonth(debtPool.id, m);
+  const limit = effectiveLimit(debtPool, m);
+  if (usage >= limit) return "done";
+
+  const today = new Date();
+  const todayDay = today.getDate();
+  // Red: any debt's dueDay has passed AND it's still unpaid
+  for (const d of state.debts) {
+    if (Number.isFinite(d.dueDay) && d.dueDay < todayDay) {
+      if (paidThisMonth(d.id) < (Number(d.minPayment) || 0)) return "red";
+    }
+  }
+  // Yellow: today is within 7 days before earliest dueDay (inclusive)
+  const earliestDue = state.debts
+    .map((d) => Number(d.dueDay))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= 31)
+    .reduce((min, n) => Math.min(min, n), 32);
+  if (earliestDue <= 31 && todayDay >= earliestDue - 7 && todayDay <= earliestDue) return "yellow";
+  return "calm";
+}
+
+function snapshotCurrentMinSum() {
+  // Snapshot the current month's minSum. Two guard conditions:
+  //   1. Only write if we have a real value (minSum > 0), so a momentarily
+  //      empty debts list doesn't clobber a real prior snapshot.
+  //   2. If no prior snapshot exists for this month yet, write whatever
+  //      we have (even zero) so the slot is initialized.
+  // No save() here; relies on the next user action to persist.
+  // Safe to call on every render (called from renderAll).
+  const m = currentMonthISO();
+  const cur = debtTotals(state.debts).minSum;
+  if (cur > 0 || state.monthlyMinSums[m] == null) {
+    state.monthlyMinSums[m] = cur;
+  }
+}
+
+// Per-render cache for endingBalanceFor — reset at top of renderAll.
+let _endingBalanceCache = new Map();
+let _earliestDataMonth = null;
+
+function resetEndingBalanceCache() {
+  _endingBalanceCache = new Map();
+  _earliestDataMonth = null;
+}
+
+function getEarliestDataMonth() {
+  if (_earliestDataMonth !== null) return _earliestDataMonth;
+  let earliest = null;
+  for (const x of state.income) {
+    if (typeof x.month === "string" && (!earliest || x.month < earliest)) earliest = x.month;
+  }
+  for (const x of state.expenses) {
+    if (typeof x.month === "string" && (!earliest || x.month < earliest)) earliest = x.month;
+  }
+  for (const e of state.dailyExpenses) {
+    const m = monthOf(e.date);
+    if (m && (!earliest || m < earliest)) earliest = m;
+  }
+  _earliestDataMonth = earliest; // may be null if state has no data
+  return earliest;
+}
+
+function endingBalanceFor(monthISO) {
+  // Walk-back terminator: nothing before the user's first data month.
+  // Returns 0 cleanly for fresh installs and for months prior to first activity.
+  const earliest = getEarliestDataMonth();
+  if (!earliest || monthISO < earliest) return 0;
+
+  // Per-render memo — same render computes each month at most once.
+  if (_endingBalanceCache.has(monthISO)) return _endingBalanceCache.get(monthISO);
+
+  // Single-month components
+  const income = totalOf(state.income.filter((x) => x.month === monthISO));
+  const recurring = totalOf(state.expenses.filter((x) => x.month === monthISO));
+  const minSum = state.monthlyMinSums[monthISO] != null
+    ? Number(state.monthlyMinSums[monthISO])
+    : debtTotals(state.debts).minSum;
+  const actualDebtPaid = state.dailyExpenses
+    .filter((e) => e.kind === "debt" && monthOf(e.date) === monthISO)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const debtCharge = Math.max(minSum, actualDebtPaid);
+  const cashDailyExpenses = state.dailyExpenses
+    .filter((e) => e.kind === "expense" && !e.cardDebtId && monthOf(e.date) === monthISO)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const cashSavings = state.dailyExpenses
+    .filter((e) => e.kind === "saving" && monthOf(e.date) === monthISO)
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+
+  const monthNet = income - recurring - debtCharge - cashDailyExpenses - cashSavings;
+  const carryFromPrev = endingBalanceFor(shiftMonth(monthISO, -1));
+  const total = monthNet + carryFromPrev;
+  _endingBalanceCache.set(monthISO, total);
+  return total;
+}
+
+function lastMonthHasActivity() {
+  const lastM = shiftMonth(currentMonthISO(), -1);
+  const lastIncome = totalOf(state.income.filter((x) => x.month === lastM));
+  const lastDailyCount = state.dailyExpenses.filter((e) => monthOf(e.date) === lastM).length;
+  // Recurring-only past month is intentionally NOT a trigger — see spec.
+  return lastIncome > 0 || lastDailyCount > 0;
+}
+
+function renderLastMonthLine() {
+  const line = document.getElementById("last-month-line");
+  if (!line) return;
+  if (!lastMonthHasActivity()) {
+    line.hidden = true;
+    return;
+  }
+  line.hidden = false;
+  const lastM = shiftMonth(currentMonthISO(), -1);
+  const balance = endingBalanceFor(lastM);
+  const labelText = document.getElementById("last-month-label-text");
+  const valueEl = document.getElementById("last-month-value");
+  const toneEl = document.getElementById("last-month-tone");
+  if (labelText) labelText.textContent = formatMonthLabel(lastM);
+  if (valueEl) {
+    valueEl.textContent = fmtMoney(balance);
+    valueEl.classList.toggle("pos", balance >= 0);
+    valueEl.classList.toggle("neg", balance < 0);
+  }
+  if (toneEl) {
+    toneEl.textContent = balance >= 0 ? " ✓" : " ▼";
+    toneEl.classList.toggle("pos", balance >= 0);
+    toneEl.classList.toggle("neg", balance < 0);
+  }
+}
+
+// IMPORTANT: this function uses currentMonthISO() (the calendar month).
+// The manual #btn-copy-prev button uses selectedMonth (the user-navigated month).
+// The two flows intentionally key off different anchors:
+//   - Auto-copy fires when the calendar rolls over (real time passing)
+//   - Manual copy fires when the user explicitly asks to copy into whatever month they're viewing
+// Don't "fix" this difference — it's by design.
+function autoRecurFromLastMonth() {
+  const cur = currentMonthISO();
+  const last = state.lastOpenedMonth;
+
+  // First-ever session: just record current month, don't auto-copy.
+  // save() persists the pointer so we don't replay this branch on next open.
+  if (!last) {
+    state.lastOpenedMonth = cur;
+    save();
+    return { copied: 0 };
+  }
+
+  // Same month — no-op.
+  if (last === cur) return { copied: 0 };
+
+  // Month boundary crossed. Bump pointer BEFORE the isPro() gate, so that
+  // a free user who upgrades later doesn't get a flood of auto-copies
+  // for past transitions they were not Pro for. Intentional — do not move.
+  state.lastOpenedMonth = cur;
+  save();   // persist the pointer regardless of Pro status
+
+  if (!isPro()) return { copied: 0 };
+
+  const prev = shiftMonth(cur, -1);
+
+  const sourceIncome = state.income.filter((x) => x.month === prev && x.repeatNext !== false);
+  const sourceExpenses = state.expenses.filter((x) => x.month === prev && x.repeatNext !== false);
+
+  const existsInc = new Set(state.income.filter((x) => x.month === cur).map((x) => `${x.name}|${x.amount}`));
+  const existsExp = new Set(state.expenses.filter((x) => x.month === cur).map((x) => `${x.name}|${x.amount}`));
+
+  let copied = 0;
+  for (const it of sourceIncome) {
+    const key = `${it.name}|${it.amount}`;
+    if (existsInc.has(key)) continue;
+    state.income.push({
+      id: uid(),
+      name: it.name,
+      amount: it.amount,
+      month: cur,
+      day: it.day ?? null,
+      repeatNext: true,
+      ...(it.fx ? { fx: { ...it.fx } } : {}),
+      ...(it.budgetPoolId ? { budgetPoolId: it.budgetPoolId, budgetPoolName: it.budgetPoolName } : {}),
+    });
+    existsInc.add(key);
+    copied++;
+  }
+  for (const ex of sourceExpenses) {
+    const key = `${ex.name}|${ex.amount}`;
+    if (existsExp.has(key)) continue;
+    state.expenses.push({
+      id: uid(),
+      name: ex.name,
+      amount: ex.amount,
+      month: cur,
+      day: ex.day ?? null,
+      repeatNext: true,
+      ...(ex.fx ? { fx: { ...ex.fx } } : {}),
+      ...(ex.budgetPoolId ? { budgetPoolId: ex.budgetPoolId, budgetPoolName: ex.budgetPoolName } : {}),
+    });
+    existsExp.add(key);
+    copied++;
+  }
+
+  if (copied > 0) save();
+  return { copied, fromMonth: prev };
+}
+
+function renderBudgetManager() {
+  const listEl = document.getElementById("budget-pool-list");
+  if (!listEl) return;
+  const m = currentMonthISO();
+  const pools = state.budgetPools.slice().sort((a, b) => {
+    // System Debt pool floats to top
+    if (a.system === "debt") return -1;
+    if (b.system === "debt") return 1;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+
+  // Show quick-start templates only when the user has no user-created pools
+  // yet. Once they create one, hide the templates so the panel doesn't shout.
+  const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
+  const templates = document.getElementById("pool-templates");
+  if (templates) templates.hidden = userPoolCount > 0;
+
+  if (pools.length === 0 || (pools.length === 1 && pools[0].system === "debt" && state.debts.length === 0)) {
+    listEl.innerHTML = `<p class="empty">No budget pools yet — pick a template below or tap "+ Add pool" to create one.</p>`;
+    return;
+  }
+
+  const poolsQuery = searchQueries.pools;
+  const filteredPools = poolsQuery
+    ? pools.filter((p) => listSearchMatches(poolsQuery, [p.name]))
+    : pools;
+  if (filteredPools.length === 0 && poolsQuery) {
+    listEl.innerHTML = `<div class="empty">No matches for "<strong>${escapeHtml(poolsQuery.trim())}</strong>" — <a class="empty-clear" data-search-clear="pools">clear search</a>?</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filteredPools.map((pool) => {
+    const isSystem = pool.system === "debt";
+    if (isSystem && state.debts.length === 0) return ""; // hide debt pool when no debts
+    const usage = poolUsageInMonth(pool.id, m);
+    const limit = effectiveLimit(pool, m);
+    const usedPct = limit > 0 ? Math.min(100, (usage / limit) * 100) : 0;
+    const isOver = limit > 0 && usage > limit;
+    const overrideTag = (!isSystem && pool.monthlyLimits && pool.monthlyLimits[m] != null)
+      ? `<span class="system-tag">override</span>` : "";
+    const rolloverTag = (!isSystem && pool.rollover)
+      ? `<span class="system-tag">rollover</span>` : "";
+    const activeTag = (!isSystem && pool.active)
+      ? `<span class="system-tag">active</span>` : "";
+    const systemTag = isSystem ? `<span class="system-tag">system</span>` : "";
+
+    const meta = isSystem
+      ? `Auto-derived from your debts' monthly minimums`
+      : `Base ${fmtMoney(pool.limit)}${overrideTag ? ` · this month ${fmtMoney(limit)}` : ""}`;
+
+    const activeToggle = isSystem ? "" : `
+      <label class="pool-toggle pool-toggle-active" title="When on, pool is pre-selected on the daily form">
+        <input type="checkbox" data-action="toggle-active" data-id="${escapeHtml(pool.id)}" ${pool.active ? "checked" : ""} />
+        <span>Active</span>
+      </label>
+    `;
+
+    const actions = isSystem
+      ? ``
+      : `
+        <div class="pool-row-actions">
+          ${activeToggle}
+          <div class="pool-actions">
+            <button class="ghost" data-action="edit-pool" data-id="${escapeHtml(pool.id)}" aria-label="Edit ${escapeHtml(pool.name)}">✎</button>
+            <button class="ghost" data-action="delete-pool" data-id="${escapeHtml(pool.id)}" aria-label="Delete ${escapeHtml(pool.name)}">✕</button>
+          </div>
+        </div>
+      `;
+
+    return `
+      <div class="pool-row${isSystem ? " system" : ""}" data-id="${escapeHtml(pool.id)}">
+        <span class="swatch" style="background:${escapeHtml(pool.color)}"></span>
+        <div>
+          <div class="pool-name">${escapeHtml(pool.name)}${systemTag}${activeTag}${overrideTag}${rolloverTag}</div>
+          <div class="pool-meta">${escapeHtml(meta)} · ${fmtMoney(usage)} of ${fmtMoney(limit)}${isOver ? ` <strong>(over by ${fmtMoney(usage - limit)})</strong>` : ""}</div>
+          <div class="pool-progress"><div class="fill" style="width:${usedPct.toFixed(1)}%;background:${escapeHtml(pool.color)}"></div></div>
+        </div>
+        ${actions}
+      </div>
+    `;
+  }).join("");
+}
+
+function renderBudgetSummary() {
+  const card = document.getElementById("budget-summary-card");
+  const listEl = document.getElementById("budget-summary-list");
+  if (!card || !listEl) return;
+
+  const pools = state.budgetPools.filter((p) => p.system !== "debt" || state.debts.length > 0);
+  if (pools.length === 0) {
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+
+  const m = currentMonthISO();
+  // System Debt pool first; then user pools by createdAt asc
+  const sorted = pools.slice().sort((a, b) => {
+    if (a.system === "debt") return -1;
+    if (b.system === "debt") return 1;
+    return (a.createdAt || 0) - (b.createdAt || 0);
+  });
+
+  listEl.innerHTML = sorted.map((pool) => {
+    const isSystem = pool.system === "debt";
+    const usage = poolUsageInMonth(pool.id, m);
+    const limit = effectiveLimit(pool, m);
+    const usedPct = limit > 0 ? Math.min(100, (usage / limit) * 100) : 0;
+    const isOver = limit > 0 && usage > limit;
+    const remaining = Math.max(0, limit - usage);
+    const stillDue = isSystem ? remaining : 0;
+
+    let banner = "";
+    let chip = "";
+
+    if (isSystem) {
+      const tier = debtPoolEscalation();
+      if (tier === "done") {
+        banner = `<div class="pool-banner done">✓ All debts paid this month.</div>`;
+      } else {
+        const ctaBtn = `<button type="button" class="pool-banner-cta" data-action="open-bulk-debt-pay">Pay monthly debts →</button>`;
+        if (tier === "calm") {
+          banner = `<div class="pool-banner calm">${fmtMoney(stillDue)} due this month.${ctaBtn}</div>`;
+        } else if (tier === "yellow") {
+          const earliest = state.debts
+            .map((d) => Number(d.dueDay)).filter((n) => Number.isFinite(n) && n >= 1 && n <= 31)
+            .reduce((min, n) => Math.min(min, n), 32);
+          banner = `<div class="pool-banner yellow">${fmtMoney(stillDue)} due — earliest due day is the ${earliest}${ordinalSuffix(earliest)}.${ctaBtn}</div>`;
+        } else { // red
+          const overdue = state.debts.find((d) => {
+            return Number.isFinite(d.dueDay) && d.dueDay < new Date().getDate() && paidThisMonth(d.id) < (Number(d.minPayment) || 0);
+          });
+          banner = `<div class="pool-banner red">${overdue ? escapeHtml(overdue.name) + " is overdue (was due day " + overdue.dueDay + ")" : "Past due"}.${ctaBtn}</div>`;
+        }
+      }
+    } else {
+      // User pool: yellow at 80-99, red at >=100 (skipped for system debt above)
+      if (isOver) chip = `<span class="pool-warn-red">over by ${fmtMoney(usage - limit)}</span>`;
+      else if (usedPct >= 80) chip = `<span class="pool-warn-yellow">${usedPct.toFixed(0)}%</span>`;
+    }
+
+    const fillColor = isSystem && isOver ? "#81B29A" : pool.color;
+    const meta = isSystem && isOver
+      ? `Ahead of schedule — paid ${fmtMoney(usage)}, ${fmtMoney(usage - limit)} over minimums`
+      : `${fmtMoney(usage)} of ${fmtMoney(limit)}`;
+
+    return `
+      <div class="summary-pool-row${isSystem ? " system" : ""}" data-id="${escapeHtml(pool.id)}">
+        <div class="summary-pool-head">
+          <span class="swatch" style="background:${escapeHtml(pool.color)}"></span>
+          <span class="pool-name">${escapeHtml(pool.name)}${isSystem ? ` <span class="system-tag">system</span>` : ""}${pool.active ? ` <span class="system-tag">active</span>` : ""}</span>
+          <span class="pool-meta-right">${escapeHtml(meta)} ${chip}</span>
+        </div>
+        <div class="pool-progress"><div class="fill" style="width:${usedPct.toFixed(1)}%;background:${escapeHtml(fillColor)}"></div></div>
+        ${banner}
+      </div>
+    `;
+  }).join("");
+}
+
+function listSearchMatches(query, fields) {
+  if (!query) return true;
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return fields.some((f) => typeof f === "string" && f.toLowerCase().includes(q));
+}
+
+function renderForKey(key) {
+  switch (key) {
+    case "income":
+    case "expense":
+      renderFlow();
+      break;
+    case "daily":
+      renderDaily();
+      break;
+    case "debts":
+      renderDebts();
+      break;
+    case "savings":
+      renderSavings();
+      break;
+    case "pools":
+      renderBudgetManager();   // applies the search filter to the manager list
+      renderBudgetSummary();   // does NOT filter — Home summary always shows ALL pools
+      break;
+  }
+}
+
+function resetAllSearchQueries() {
+  for (const key of Object.keys(searchQueries)) searchQueries[key] = "";
+  document.querySelectorAll(".list-search[data-search]").forEach((el) => {
+    el.value = "";
+  });
+  document.querySelectorAll("[data-search-clear]").forEach((el) => {
+    el.hidden = true;
+  });
+}
+
+function ordinalSuffix(n) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return "th";
+  switch (n % 10) {
+    case 1: return "st"; case 2: return "nd"; case 3: return "rd"; default: return "th";
+  }
+}
+
+function populatePoolDropdowns() {
+  document.querySelectorAll("select[data-budget-pool]").forEach((sel) => {
+    const desired = sel.value;
+    sel.innerHTML = `<option value="">(none)</option>` + state.budgetPools
+      .filter((p) => p.system !== "debt") // user can't manually pick the system pool
+      .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("");
+    if (desired) sel.value = desired;
+    // Show/hide field based on whether any user pools exist
+    const field = sel.closest(".field");
+    if (field) field.hidden = state.budgetPools.filter((p) => p.system !== "debt").length === 0;
+  });
+}
+
+function attachPoolDropdownToForm(formEl) {
+  if (!formEl) return;
+  const pickerEl = formEl.querySelector("select[data-budget-pool]");
+  const amountEl = formEl.querySelector("input[name='amount']");
+  const categoryEl = formEl.querySelector("input[name='category']");
+  const preview = formEl.querySelector("[data-pool-preview]");
+  if (!pickerEl) return;
+
+  let userPickedPool = false;
+  pickerEl.addEventListener("change", () => { userPickedPool = true; updatePreview(); });
+  if (amountEl) amountEl.addEventListener("input", updatePreview);
+  formEl.addEventListener("reset", () => setTimeout(() => {
+    userPickedPool = false;
+    autoSuggest();
+    updatePreview();
+  }, 0));
+
+  if (categoryEl) {
+    categoryEl.addEventListener("input", () => { autoSuggest(); updatePreview(); });
+    categoryEl.addEventListener("change", () => { autoSuggest(); updatePreview(); });
+  }
+
+  function autoSuggest() {
+    if (userPickedPool) return;
+    if (categoryEl && categoryEl.value) {
+      const matched = findPoolByName(categoryEl.value);
+      if (matched && matched.system !== "debt") { pickerEl.value = matched.id; return; }
+    }
+    // Active-pool default
+    const active = state.budgetPools.find((p) => p.active && p.system !== "debt");
+    if (active) { pickerEl.value = active.id; return; }
+    pickerEl.value = "";
+  }
+
+  function updatePreview() {
+    if (!preview) return;
+    const id = pickerEl.value;
+    if (!id) { preview.hidden = true; return; }
+    const pool = state.budgetPools.find((p) => p.id === id);
+    if (!pool) { preview.hidden = true; return; }
+    const m = currentMonthISO();
+    const usage = poolUsageInMonth(pool.id, m);
+    const limit = effectiveLimit(pool, m);
+    const rawAmt = Number(amountEl && amountEl.value);
+    // If entry is in a foreign currency, the saved amount is the FX-converted base value
+    let amt = rawAmt;
+    const currencyEl = formEl.querySelector("select[data-currency-picker]");
+    if (currencyEl && Number.isFinite(rawAmt)) {
+      const fromCode = currencyEl.value || currentCurrency();
+      const toCode = currentCurrency();
+      if (fromCode !== toCode && typeof convertFx === "function") {
+        const converted = convertFx(rawAmt, fromCode, toCode);
+        if (Number.isFinite(converted)) amt = converted;
+      }
+    }
+    const projected = usage + (Number.isFinite(amt) ? amt : 0);
+    const remaining = limit - projected;
+    preview.hidden = false;
+    preview.classList.remove("pool-warn-yellow", "pool-warn-red");
+    if (limit <= 0) {
+      preview.textContent = `${pool.name}: ${fmtMoney(projected)} (no limit set)`;
+    } else if (projected > limit) {
+      preview.classList.add("pool-warn-red");
+      preview.textContent = `This will put ${pool.name} at ${fmtMoney(projected)} / ${fmtMoney(limit)} — over by ${fmtMoney(projected - limit)}.`;
+    } else if (projected / limit >= 0.8) {
+      preview.classList.add("pool-warn-yellow");
+      preview.textContent = `${pool.name}: ${fmtMoney(projected)} of ${fmtMoney(limit)} (${((projected / limit) * 100).toFixed(0)}%).`;
+    } else {
+      preview.textContent = `${pool.name}: ${fmtMoney(projected)} of ${fmtMoney(limit)} — ${fmtMoney(remaining)} left.`;
+    }
+  }
+
+  // Initial setup
+  autoSuggest();
+  updatePreview();
+}
+
+function tagEntryWithPool(entry, kind, formEl) {
+  if (kind === "debt") {
+    const debtPool = findSystemDebtPool();
+    if (debtPool) {
+      entry.budgetPoolId = debtPool.id;
+      entry.budgetPoolName = debtPool.name;
+    }
+    return; // debt entries always auto-tag to system pool, ignore form selector
+  }
+  if (kind === "saving") {
+    return; // savings deposits never tag to pools (per spec)
+  }
+  // For expense only, read the form's pool dropdown
+  if (formEl) {
+    const sel = formEl.querySelector("select[data-budget-pool]");
+    if (sel && sel.value) {
+      const pool = state.budgetPools.find((p) => p.id === sel.value);
+      if (pool && pool.system !== "debt") {
+        entry.budgetPoolId = pool.id;
+        entry.budgetPoolName = pool.name;
+      }
+    }
+  }
+}
+
+function renderPoolColorOptions(selectedColor) {
+  const container = document.getElementById("pool-color-options");
+  if (!container) return;
+  container.innerHTML = POOL_COLORS.map((color) => `
+    <label style="background:${color}" class="${color === selectedColor ? "selected" : ""}">
+      <input type="radio" name="color" value="${color}"${color === selectedColor ? " checked" : ""} />
+    </label>
+  `).join("");
+}
+
+function openPoolForm(poolId) {
+  const form = document.getElementById("form-budget-pool");
+  if (!form) return;
+  const editing = poolId ? state.budgetPools.find((p) => p.id === poolId) : null;
+  form.hidden = false;
+  form.querySelector("input[name='name']").value = editing ? editing.name : "";
+  form.querySelector("input[name='limit']").value = editing ? editing.limit : "";
+  form.querySelector("input[name='rollover']").checked = !!(editing && editing.rollover);
+  const m = currentMonthISO();
+  form.querySelector("input[name='thisMonthOverride']").value = (editing && editing.monthlyLimits && editing.monthlyLimits[m] != null)
+    ? editing.monthlyLimits[m] : "";
+  form.querySelector("input[name='id']").value = editing ? editing.id : "";
+  renderPoolColorOptions(editing ? editing.color : POOL_COLORS[0]);
+}
+
+function closePoolForm() {
+  const form = document.getElementById("form-budget-pool");
+  if (form) {
+    form.hidden = true;
+    form.reset();
+    form.querySelector("input[name='id']").value = "";
+  }
+}
+
 const fmtPct = (n) => `${(Number(n) || 0).toFixed(2)}%`;
 
 function escapeHtml(str) {
@@ -205,6 +1046,22 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function showToast(message, durationMs = 3500) {
+  let toast = document.getElementById("app-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "app-toast";
+    toast.className = "app-toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.add("visible");
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => {
+    toast.classList.remove("visible");
+  }, durationMs);
 }
 
 function todayISO() {
@@ -419,23 +1276,38 @@ function renderFlow() {
   const monthIncome = state.income.filter((x) => x.month === selectedMonth).slice().sort(sortByDay);
   const monthExpenses = state.expenses.filter((x) => x.month === selectedMonth).slice().sort(sortByDay);
 
-  const renderList = (ul, items, kind) => {
+  const incomeQuery = searchQueries.income;
+  const expenseQuery = searchQueries.expense;
+  const filteredIncome = incomeQuery
+    ? monthIncome.filter((it) => listSearchMatches(incomeQuery, [it.name]))
+    : monthIncome;
+  const filteredExpense = expenseQuery
+    ? monthExpenses.filter((it) => listSearchMatches(expenseQuery, [it.name]))
+    : monthExpenses;
+
+  const renderList = (ul, items, kind, query, key) => {
     if (!items.length) {
-      ul.innerHTML = `<li class="empty">No ${kind} entries for this month.</li>`;
+      if (query) {
+        ul.innerHTML = `<li class="empty">No matches for "<strong>${escapeHtml(query.trim())}</strong>" — <a class="empty-clear" data-search-clear="${key}">clear search</a>?</li>`;
+      } else {
+        ul.innerHTML = `<li class="empty">No ${kind} entries for this month.</li>`;
+      }
       return;
     }
     ul.innerHTML = items
       .map((it) => {
         const day = Number.isFinite(it.day) ? it.day : null;
         const cls = day ? dayClass(day, it.month) : "";
+        // No day → render an empty placeholder span so grid alignment is
+        // preserved without showing a "–" that reads as broken UI.
         const chip = day
           ? `<span class="day-chip ${cls}" title="${kind === "income" ? "Pay day" : "Due day"}">${day}</span>`
-          : `<span class="day-chip" title="No day set">–</span>`;
+          : `<span class="day-chip day-chip-empty" aria-hidden="true"></span>`;
         return `
           <li data-id="${it.id}">
             ${chip}
             <span class="name">${escapeHtml(it.name)}</span>
-            <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMoney(it.amount)}</span>
+            <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMoney(it.amount)}${renderFxBadge(it.fx)}</span>
             <button class="ghost icon-btn" data-action="edit-${kind}" data-id="${it.id}" aria-label="Edit ${escapeHtml(it.name)}">✎</button>
             <button class="ghost icon-btn" data-action="delete-${kind}" data-id="${it.id}" aria-label="Delete ${escapeHtml(it.name)}">✕</button>
           </li>`;
@@ -443,8 +1315,8 @@ function renderFlow() {
       .join("");
   };
 
-  renderList(incomeList, monthIncome, "income");
-  renderList(expenseList, monthExpenses, "expense");
+  renderList(incomeList, filteredIncome, "income", incomeQuery, "income");
+  renderList(expenseList, filteredExpense, "expense", expenseQuery, "expense");
 
   $("#total-income").textContent = fmtMoney(totalOf(monthIncome));
   $("#total-expense").textContent = fmtMoney(totalOf(monthExpenses));
@@ -557,6 +1429,14 @@ function updateDailyTargetSelect() {
         .join("");
     }
   }
+
+  // Hide budget-pool dropdown for non-expense types — pools only apply to expenses.
+  // (savings/debt entries don't tag to user pools; debt auto-tags to the system pool.)
+  const poolField = document.getElementById("daily-pool-field");
+  if (poolField) {
+    const hasUserPools = state.budgetPools.filter((p) => p.system !== "debt").length > 0;
+    poolField.hidden = type !== "expense" || !hasUserPools;
+  }
 }
 
 function updateCategoryDatalist() {
@@ -597,8 +1477,27 @@ function renderDaily() {
     .slice()
     .sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0));
 
+  const dailyQuery = searchQueries.daily;
+  const filteredSorted = dailyQuery
+    ? sorted.filter((e) => {
+        const debtNameResolved = e.debtId ? (debtNameById(e.debtId) || e.debtName) : e.debtName;
+        const savingNameResolved = e.savingId
+          ? (state.savings.find((g) => g.id === e.savingId)?.name || e.savingName)
+          : e.savingName;
+        const cardDebtNameResolved = e.cardDebtId ? debtNameById(e.cardDebtId) : null;
+        return listSearchMatches(dailyQuery, [
+          e.category, e.note, debtNameResolved, savingNameResolved, cardDebtNameResolved,
+        ]);
+      })
+    : sorted;
+
+  if (filteredSorted.length === 0 && dailyQuery) {
+    listEl.innerHTML = `<div class="empty">No matches for "<strong>${escapeHtml(dailyQuery.trim())}</strong>" — <a class="empty-clear" data-search-clear="daily">clear search</a>?</div>`;
+    return;
+  }
+
   const groups = new Map();
-  for (const e of sorted) {
+  for (const e of filteredSorted) {
     if (!groups.has(e.date)) groups.set(e.date, []);
     groups.get(e.date).push(e);
   }
@@ -612,11 +1511,11 @@ function renderDaily() {
       let note = "";
       if (e.kind === "debt") {
         const name = debtNameById(e.debtId) || e.debtName || "debt";
-        pill = `<span class="cat-pill" style="color:#fca5a5;border-color:#7f1d1d;">↓ ${escapeHtml(name)}</span>`;
+        pill = `<span class="cat-pill cat-pill-debt" title="Debt payment">↓ ${escapeHtml(name)}</span>`;
       } else if (e.kind === "saving") {
         const goal = state.savings.find((g) => g.id === e.savingId);
         const name = goal ? goal.name : (e.savingName || "savings");
-        pill = `<span class="cat-pill" style="color:#86efac;border-color:#166534;">↑ ${escapeHtml(name)}</span>`;
+        pill = `<span class="cat-pill cat-pill-saving" title="Savings deposit">↑ ${escapeHtml(name)}</span>`;
       } else {
         pill = `<span class="cat-pill">${escapeHtml(e.category || "Others")}</span>`;
         if (e.cardDebtId) {
@@ -624,14 +1523,15 @@ function renderDaily() {
           pill += ` <span class="cat-pill cat-pill-card" title="Charged to this card">◈ ${escapeHtml(cardName)}</span>`;
         }
       }
-      note = e.note
-        ? `<span class="daily-note">${escapeHtml(e.note)}</span>`
-        : `<span class="daily-note muted">—</span>`;
+      // Empty notes render as nothing rather than a "—" placeholder — placeholder
+      // dashes read as broken UI per the design review.
+      note = e.note ? `<span class="daily-note">${escapeHtml(e.note)}</span>` : "";
       html.push(`
         <div class="daily-entry" data-id="${e.id}">
           <div class="primary-line">${pill}${note}</div>
-          <span class="amount">${fmtMoney(e.amount)}</span>
-          <button class="ghost" data-action="delete-daily" data-id="${e.id}" aria-label="Delete">✕</button>
+          <span class="amount">${fmtMoney(e.amount)}${renderFxBadge(e.fx)}</span>
+          <button class="ghost icon-btn" data-action="edit-daily" data-id="${e.id}" aria-label="Edit entry" title="Edit">✎</button>
+          <button class="ghost icon-btn" data-action="delete-daily" data-id="${e.id}" aria-label="Delete">✕</button>
         </div>
       `);
     }
@@ -666,7 +1566,7 @@ function renderSavingCard(goal, { mini } = { mini: false }) {
         <input type="number" step="0.01" min="0" inputmode="decimal" placeholder="Add amount (RM)" data-save-input="${goal.id}" aria-label="Deposit amount for ${escapeHtml(goal.name)}" />
         <button class="primary" data-action="save-deposit" data-id="${goal.id}">Add</button>
         <button class="ghost" data-action="edit-saving" data-id="${goal.id}" aria-label="Edit ${escapeHtml(goal.name)}">Edit</button>
-        <button class="ghost" data-action="save-delete" data-id="${goal.id}" aria-label="Delete ${escapeHtml(goal.name)}">Delete</button>
+        <button class="ghost ghost-danger saving-delete" data-action="save-delete" data-id="${goal.id}" aria-label="Delete ${escapeHtml(goal.name)}">Delete</button>
       </div>
       `}
     </div>`;
@@ -674,10 +1574,23 @@ function renderSavingCard(goal, { mini } = { mini: false }) {
 
 function renderSavings() {
   const listEl = $("#savings-list");
+  // Hide search bar when sparse — under 3 goals, search adds clutter without
+  // helping. Show it once the user has enough goals to make scanning hard.
+  const searchRow = document.getElementById("savings-search-row");
+  if (searchRow) searchRow.hidden = state.savings.length < 3;
+
   if (state.savings.length === 0) {
-    listEl.innerHTML = `<div class="empty">No savings goals yet.</div>`;
+    listEl.innerHTML = `<div class="empty">No savings goals yet — create one above. Even RM 50/month can grow into something meaningful.</div>`;
   } else {
-    listEl.innerHTML = state.savings.map((g) => renderSavingCard(g, { mini: false })).join("");
+    const savingsQuery = searchQueries.savings;
+    const filteredSavings = savingsQuery
+      ? state.savings.filter((g) => listSearchMatches(savingsQuery, [g.name]))
+      : state.savings;
+    if (filteredSavings.length === 0 && savingsQuery) {
+      listEl.innerHTML = `<div class="empty">No matches for "<strong>${escapeHtml(savingsQuery.trim())}</strong>" — <a class="empty-clear" data-search-clear="savings">clear search</a>?</div>`;
+    } else {
+      listEl.innerHTML = filteredSavings.map((g) => renderSavingCard(g, { mini: false })).join("");
+    }
   }
 
   const { current, target } = savingsTotals();
@@ -697,23 +1610,52 @@ function renderDebts() {
     ul.innerHTML = `<li class="empty">No debts yet.</li>`;
     return;
   }
-  ul.innerHTML = state.debts
+  const debtsQuery = searchQueries.debts;
+  const filteredDebts = debtsQuery
+    ? state.debts.filter((d) => listSearchMatches(debtsQuery, [d.name]))
+    : state.debts;
+  if (filteredDebts.length === 0) {
+    ul.innerHTML = `<li class="empty">No matches for "<strong>${escapeHtml(debtsQuery.trim())}</strong>" — <a class="empty-clear" data-search-clear="debts">clear search</a>?</li>`;
+    return;
+  }
+  // Disambiguate duplicate debt names — if a user has two "Maybank" entries,
+  // append "(1)", "(2)" suffixes in display order so they can tell which row
+  // maps to which balance.
+  const nameCounts = new Map();
+  for (const d of state.debts) {
+    const key = (d.name || "").toLowerCase().trim();
+    if (!key) continue;
+    nameCounts.set(key, (nameCounts.get(key) || 0) + 1);
+  }
+  const seenSoFar = new Map();
+  const dupSuffix = (name) => {
+    const key = (name || "").toLowerCase().trim();
+    if (!key || (nameCounts.get(key) || 0) <= 1) return "";
+    const idx = (seenSoFar.get(key) || 0) + 1;
+    seenSoFar.set(key, idx);
+    return ` <span class="dup-suffix" title="Duplicate name — auto-numbered for clarity">(${idx})</span>`;
+  };
+
+  ul.innerHTML = filteredDebts
     .slice()
     .sort((a, b) => (Number(b.apr) || 0) - (Number(a.apr) || 0))
     .map((d) => {
       const cls = d.dueDay ? dayClass(d.dueDay, currentMonthISO()) : "";
+      // Empty placeholder when no due day so we keep grid alignment without
+      // showing a "–" that reads as broken UI.
       const chip = d.dueDay
         ? `<span class="day-chip ${cls}" title="Due day">${d.dueDay}</span>`
-        : `<span class="day-chip" title="No due day">–</span>`;
+        : `<span class="day-chip day-chip-empty" aria-hidden="true"></span>`;
       const isInstallment = d.kind === "installment";
       // Compute remaining months for installment debts: balance / installment
       const installment = Number(d.installment) || Number(d.minPayment) || 0;
       const remMonths = isInstallment && installment > 0
         ? Math.max(0, Math.ceil((Number(d.balance) || 0) / installment))
         : null;
+      const suffix = dupSuffix(d.name);
       const nameHtml = isInstallment
-        ? `<span class="name">${escapeHtml(d.name)} <span class="installment-badge">Installment</span></span>`
-        : `<span class="name">${escapeHtml(d.name)}</span>`;
+        ? `<span class="name">${escapeHtml(d.name)}${suffix} <span class="installment-badge">Installment</span></span>`
+        : `<span class="name">${escapeHtml(d.name)}${suffix}</span>`;
       const metaRow = isInstallment
         ? `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMoney(installment)}/mo</span></div>`
         : `<div class="meta-row"><span>APR ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
@@ -722,6 +1664,7 @@ function renderDebts() {
         ${chip}
         ${nameHtml}
         <span class="meta">${fmtMoney(d.balance)}</span>
+        <button class="ghost icon-btn quick-pay" data-action="quick-pay-debt" data-id="${d.id}" aria-label="Pay ${escapeHtml(d.name)}" title="Quick pay — opens Home with this debt selected">↗</button>
         <button class="ghost icon-btn" data-action="edit-debt" data-id="${d.id}" aria-label="Edit ${escapeHtml(d.name)}">✎</button>
         <button class="ghost icon-btn" data-action="delete-debt" data-id="${d.id}" aria-label="Delete ${escapeHtml(d.name)}">✕</button>
         ${metaRow}
@@ -744,7 +1687,9 @@ function renderGreeting() {
   if (!el) return;
   const now = new Date();
   const h = now.getHours();
-  const part = h < 5 ? "Late night" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  // Avoid "Late night" — reads slightly accusatory at 1am. Prefer "Evening"
+  // for late hours so the greeting stays neutral.
+  const part = h < 5 ? "Evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
   el.textContent = `${part} · ${now.toLocaleDateString("en-MY", { weekday: "long", day: "numeric", month: "short" })}`;
 }
 
@@ -766,10 +1711,25 @@ function renderDashboard() {
   const cardChargedThisMonth = state.dailyExpenses
     .filter((e) => e.kind === "expense" && e.cardDebtId && isSameMonth(e.date))
     .reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const cashDailyMonth = Math.max(0, dailyMonth - cardChargedThisMonth);
+  // Decompose daily entries by kind. Debt payments are NOT included in cash daily
+  // because the formula handles them via the max(minSum+extra, actualDebtPaid) floor below
+  // (otherwise we'd double-count: minSum subtracts the obligation AND cashDaily would subtract the actual payment).
+  const actualDebtPaidThisMonth = state.dailyExpenses
+    .filter((e) => e.kind === "debt" && isSameMonth(e.date))
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const cashDailySavings = state.dailyExpenses
+    .filter((e) => e.kind === "saving" && isSameMonth(e.date))
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const cashDailyExpenses = Math.max(0, dailyMonth - cardChargedThisMonth - actualDebtPaidThisMonth - cashDailySavings);
+
   const extra = Number(state.extraMonthly) || 0;
-  const totalOut = expenseTotal + minSum + extra + cashDailyMonth;
-  const net = incomeTotal - totalOut;
+  // Debt charge: floors at planned obligation (minSum + extra), uses actual paid if higher.
+  // Same pattern as endingBalanceFor() so current-month and past-month math stay consistent.
+  const debtCharge = Math.max(minSum + extra, actualDebtPaidThisMonth);
+  const totalOut = expenseTotal + debtCharge + cashDailyExpenses + cashDailySavings;
+  // Carryover from the prior month's running balance (recursive — chains all the way back).
+  const carryOver = endingBalanceFor(shiftMonth(thisMonth, -1));
+  const net = carryOver + incomeTotal - totalOut;
   const netEl = $("#stat-net");
   const mp = moneyParts(net);
   netEl.innerHTML =
@@ -787,10 +1747,17 @@ function renderDashboard() {
   const progText = $("#hero-progress-text");
   if (fill && progText) {
     if (incomeTotal > 0) {
-      const spentPct = Math.min(100, (totalOut / incomeTotal) * 100);
-      fill.style.width = spentPct + "%";
-      fill.classList.toggle("over", totalOut > incomeTotal);
-      progText.innerHTML = `<span>Spent ${fmtMoney(totalOut)} of ${fmtMoney(incomeTotal)} · ${spentPct.toFixed(0)}%</span><span>Day ${prog.day}/${prog.daysInMonth}</span>`;
+      // Show the REAL percentage in the text (don't cap at 100% — that hides
+      // overspend severity, which is the most important signal here). The bar
+      // itself is capped because a bar can't physically render past 100%, but
+      // the .over class darkens it as a visual cue that we're overflowing.
+      const realPct = (totalOut / incomeTotal) * 100;
+      const cappedPct = Math.min(100, realPct);
+      const isOver = totalOut > incomeTotal;
+      fill.style.width = cappedPct + "%";
+      fill.classList.toggle("over", isOver);
+      const overSuffix = isOver ? ` · over by ${fmtMoney(totalOut - incomeTotal)}` : "";
+      progText.innerHTML = `<span>Spent ${fmtMoney(totalOut)} of ${fmtMoney(incomeTotal)} · ${realPct.toFixed(0)}%${overSuffix}</span><span>Day ${prog.day}/${prog.daysInMonth}</span>`;
     } else {
       fill.style.width = prog.pct.toFixed(1) + "%";
       fill.classList.remove("over");
@@ -800,14 +1767,57 @@ function renderDashboard() {
 
   const formulaEl = $("#stat-net-formula");
   if (formulaEl) {
-    const base = `= income − recurring − min debt − extra − daily cash (${fmtMoney(cashDailyMonth)})`;
-    formulaEl.textContent = cardChargedThisMonth > 0
-      ? `${base} · ${fmtMoney(cardChargedThisMonth)} charged to cards (added to debt)`
-      : base;
+    // Conversational sentence form rather than ASCII math — easier to read at
+    // a glance. Only mention components that are non-zero to keep it short.
+    const parts = [];
+    if (carryOver !== 0) {
+      const sign = carryOver < 0 ? "−" : "+";
+      parts.push(`${sign} ${fmtMoney(Math.abs(carryOver))} carried over from last month`);
+    }
+    parts.push(`+ ${fmtMoney(incomeTotal)} income`);
+    if (expenseTotal > 0) parts.push(`− ${fmtMoney(expenseTotal)} recurring`);
+    if (debtCharge > 0) parts.push(`− ${fmtMoney(debtCharge)} debt payments`);
+    if (cashDailyExpenses > 0) parts.push(`− ${fmtMoney(cashDailyExpenses)} daily spending`);
+    if (cashDailySavings > 0) parts.push(`− ${fmtMoney(cashDailySavings)} into savings`);
+    const cardNote = cardChargedThisMonth > 0
+      ? ` ${fmtMoney(cardChargedThisMonth)} was charged to a card and added to debt.`
+      : "";
+    formulaEl.textContent = `${parts.join(" ")} = ${fmtMoney(net)}.${cardNote}`;
   }
 
   $("#stat-debt-total").textContent = fmtMoney(total);
   $("#stat-debt-apr").textContent = fmtPct(weighted);
+
+  // Hero debt-at-a-glance line — surfaces the TOTAL debt mountain (different
+  // signal from MIN DEBT which is the monthly obligation). Hidden when no
+  // debts. Tap → jumps to Debts tab via existing data-go-tab handler.
+  const debtGlance = document.getElementById("hero-debt-glance");
+  if (debtGlance) {
+    if (state.debts.length === 0) {
+      debtGlance.hidden = true;
+    } else {
+      debtGlance.hidden = false;
+      const totalEl = document.getElementById("hero-debt-glance-total");
+      const metaEl = document.getElementById("hero-debt-glance-meta");
+      if (totalEl) totalEl.textContent = fmtMoney(total);
+      if (metaEl) {
+        const n = state.debts.length;
+        // Try to compute payoff ETA from the avalanche sim (already runs in
+        // renderDebtsCard but we don't have its result here). Compute it cheap.
+        const sim = simulateAvalanche(state.debts, state.extraMonthly);
+        let etaPart;
+        if (sim.infeasible) {
+          etaPart = "payments below interest — debt growing";
+        } else if (sim.months > 0) {
+          const targetMonth = shiftMonth(currentMonthISO(), sim.months - 1);
+          etaPart = `debt-free by ${formatMonthLabel(targetMonth)}`;
+        } else {
+          etaPart = "all paid off";
+        }
+        metaEl.textContent = `${n} debt${n === 1 ? "" : "s"} · ${etaPart}`;
+      }
+    }
+  }
 
   const banner = $("#stat-debt-banner");
   const bannerSub = $("#stat-debt-banner-sub");
@@ -883,20 +1893,30 @@ function renderDashboard() {
   if (state.debts.length === 0) {
     orderEl.innerHTML = `<li class="empty">No debts yet. Add some in the Debts tab.</li>`;
   } else {
+    // Convert "Month N" to "Cleared by <Month YYYY>" so the label reads as a
+    // calendar deadline rather than an ordinal rank.
+    const baseMonth = currentMonthISO();
     orderEl.innerHTML = sim.order
-      .map(
-        (d) => `
+      .map((d) => {
+        let etaLabel = "—";
+        if (d.paidAtMonth) {
+          const targetMonth = shiftMonth(baseMonth, d.paidAtMonth - 1);
+          etaLabel = `Cleared by ${formatMonthLabel(targetMonth)}`;
+        }
+        return `
         <li>
           <span></span>
           <span>
             <div class="debt-name">${escapeHtml(d.name)}</div>
             <div class="debt-detail">APR ${fmtPct(d.apr)}</div>
           </span>
-          <span class="payoff-eta">${d.paidAtMonth ? `Month ${d.paidAtMonth}` : "—"}</span>
-        </li>`,
-      )
+          <span class="payoff-eta">${etaLabel}</span>
+        </li>`;
+      })
       .join("");
   }
+
+  renderLastMonthLine();
 }
 
 /* ---------- Reports ---------- */
@@ -1006,6 +2026,180 @@ function reportsCategoryLabel(entry) {
   return entry.category || "Others";
 }
 
+// Pie chart palette — first 6 colors are byte-identical to POOL_COLORS
+// (intentional; the two surfaces never appear together and "first thing in
+// the list = terracotta" is a consistent app-wide convention).
+const CHART_COLORS = [
+  "#E07A5F",  // terracotta
+  "#81B29A",  // sage
+  "#5A7BA8",  // dust blue
+  "#9B7EBD",  // muted purple
+  "#E08585",  // rosy red
+  "#E6B85C",  // mustard
+  "#9A8E80",  // warm grey for "Other"
+];
+
+const PIE_SIZE = 200;
+const PIE_RADIUS = 90;
+const PIE_CENTER = PIE_SIZE / 2;
+
+function polarToCartesian(cx, cy, r, angleDeg) {
+  const a = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+}
+
+function arcPath(startAngle, endAngle) {
+  // Path: M center → L start point → A arc to end point → Z.
+  // sweep=1 draws the arc clockwise in SVG screen coordinates (y-axis down).
+  // The -90° offset in polarToCartesian makes 0° point to 12 o'clock instead of 3 o'clock.
+  const startPt = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS, startAngle);
+  const endPt = polarToCartesian(PIE_CENTER, PIE_CENTER, PIE_RADIUS, endAngle);
+  const largeArc = endAngle - startAngle <= 180 ? "0" : "1";
+  return `M ${PIE_CENTER} ${PIE_CENTER} L ${startPt.x} ${startPt.y} A ${PIE_RADIUS} ${PIE_RADIUS} 0 ${largeArc} 1 ${endPt.x} ${endPt.y} Z`;
+}
+
+function renderSpendingLegend(slices, total) {
+  const legendEl = document.getElementById("reports-spending-legend");
+  if (!legendEl) return;
+  legendEl.innerHTML = slices.map((s, i) => {
+    const color = s.isOther ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[i];
+    const pct = total > 0 ? ((s.amount / total) * 100) : 0;
+    return `
+      <li class="spending-legend-row">
+        <span class="spending-legend-swatch" style="background:${escapeHtml(color)}"></span>
+        <span class="spending-legend-name">${escapeHtml(s.name)}</span>
+        <span class="spending-legend-amount">${fmtMoney(s.amount)}</span>
+        <span class="spending-legend-pct">${pct.toFixed(0)}%</span>
+        <span class="spending-legend-count">${s.count} ${s.count === 1 ? "entry" : "entries"}</span>
+      </li>
+    `;
+  }).join("");
+}
+
+function renderReportsSpending() {
+  const card = document.getElementById("reports-spending");
+  const svg = document.getElementById("reports-spending-pie");
+  const legend = document.getElementById("reports-spending-legend");
+  const empty = document.getElementById("reports-spending-empty");
+  const totalEl = document.getElementById("reports-spending-total");
+  const kindNote = document.getElementById("reports-spending-kind-note");
+  if (!card || !svg || !legend || !empty) return;
+
+  // Show a small note when the user has unchecked the "expense" kind filter,
+  // since the pie always shows expenses regardless. Bridges the surprise gap
+  // between this card and the rest of Reports (which honors the filter).
+  if (kindNote) {
+    const expenseChecked = !reportsState.kinds || reportsState.kinds.expense !== false;
+    kindNote.hidden = expenseChecked;
+  }
+
+  const clearTotal = () => {
+    if (totalEl) {
+      totalEl.textContent = "";
+      totalEl.hidden = true;
+    }
+  };
+
+  const { start, end } = reportsRange();
+  if (!start || !end) {
+    svg.innerHTML = "";
+    svg.setAttribute("aria-hidden", "true");
+    legend.innerHTML = "";
+    empty.hidden = false;
+    clearTotal();
+    return;
+  }
+
+  // Filter: expense-only, in range, optionally narrowed by category dropdown.
+  // INTENTIONALLY ignores reportsState.kinds checkboxes — the pie always shows expenses only.
+  // We re-filter from raw `state.dailyExpenses` rather than reusing `reportsFilteredEntries()`
+  // because that helper applies the kind-checkbox filter we want to bypass.
+  const filtered = state.dailyExpenses.filter((e) => {
+    const kind = e.kind || "expense";
+    if (kind !== "expense") return false;
+    if (!e.date || e.date < start || e.date > end) return false;
+    if (reportsState.category !== "__all__") {
+      const cat = e.category || "Others";
+      if (cat !== reportsState.category) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    svg.innerHTML = "";
+    svg.setAttribute("aria-hidden", "true");
+    legend.innerHTML = "";
+    empty.hidden = false;
+    clearTotal();
+    return;
+  }
+
+  // Aggregate by category
+  const buckets = new Map();
+  for (const e of filtered) {
+    const cat = e.category || "Others";
+    const o = buckets.get(cat) || { name: cat, amount: 0, count: 0 };
+    o.amount += Number(e.amount) || 0;
+    o.count += 1;
+    buckets.set(cat, o);
+  }
+
+  // Sort descending, cap at top 6 + "Other"
+  const sorted = Array.from(buckets.values()).sort((a, b) => b.amount - a.amount);
+  const top6 = sorted.slice(0, 6);
+  const rest = sorted.slice(6);
+  const slices = rest.length === 0
+    ? top6
+    : [...top6, {
+        name: "Other",
+        amount: rest.reduce((s, b) => s + b.amount, 0),
+        count: rest.reduce((s, b) => s + b.count, 0),
+        isOther: true,
+      }];
+
+  // Drop zero-amount slices defensively (foreign-currency conversion or coercion edge cases)
+  const visible = slices.filter((s) => s.amount > 0);
+  const total = visible.reduce((s, b) => s + b.amount, 0);
+
+  if (visible.length === 0 || total <= 0) {
+    svg.innerHTML = "";
+    svg.setAttribute("aria-hidden", "true");
+    legend.innerHTML = "";
+    empty.hidden = false;
+    clearTotal();
+    return;
+  }
+
+  empty.hidden = true;
+  svg.removeAttribute("aria-hidden");
+  if (totalEl) {
+    const catCount = visible.length;
+    totalEl.textContent = `${fmtMoney(total)} · ${catCount} ${catCount === 1 ? "category" : "categories"}`;
+    totalEl.hidden = false;
+  }
+
+  // Build SVG slices
+  let svgInner = "";
+  if (visible.length === 1) {
+    // Single category — full circle (avoids 360° arc bug)
+    const color = visible[0].isOther ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[0];
+    svgInner = `<circle cx="${PIE_CENTER}" cy="${PIE_CENTER}" r="${PIE_RADIUS}" fill="${escapeHtml(color)}"><title>${escapeHtml(visible[0].name)} · ${escapeHtml(fmtMoney(visible[0].amount))} · 100%</title></circle>`;
+  } else {
+    let cumulative = 0;
+    visible.forEach((slice, i) => {
+      const startAngle = (cumulative / total) * 360;
+      cumulative += slice.amount;
+      const endAngle = (cumulative / total) * 360;
+      const color = slice.isOther ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[i];
+      const pct = ((slice.amount / total) * 100).toFixed(0);
+      svgInner += `<path d="${arcPath(startAngle, endAngle)}" fill="${escapeHtml(color)}"><title>${escapeHtml(slice.name)} · ${escapeHtml(fmtMoney(slice.amount))} · ${pct}%</title></path>`;
+    });
+  }
+
+  svg.innerHTML = svgInner;
+  renderSpendingLegend(visible, total);
+}
+
 function refreshReportsCategoryOptions() {
   const sel = document.getElementById("reports-category");
   if (!sel) return;
@@ -1085,54 +2279,40 @@ function renderReports() {
       .reduce((s, e) => s + (Number(e.amount) || 0), 0);
     if (priorTotal > 0 || total > 0) {
       const delta = total - priorTotal;
-      const pctText = priorTotal > 0
-        ? `${Math.abs((delta / priorTotal) * 100).toFixed(0)}%`
-        : "—";
+      // Cap visually-alarming percentages at 999%. Beyond that, switch to a
+      // multiplier (e.g. 64×) which is more honest about scale than "6488%"
+      // and reads naturally. Tooltip preserves the raw % for power users.
+      let pctText = "—";
+      let pctTitle = "";
+      if (priorTotal > 0) {
+        const ratioPct = (delta / priorTotal) * 100;
+        const absPct = Math.abs(ratioPct);
+        if (absPct >= 1000) {
+          // Switch to "Nx" form. The multiplier is total/prior (not delta/prior).
+          const mult = total / priorTotal;
+          pctText = `${mult.toFixed(0)}×`;
+          pctTitle = `${ratioPct.toFixed(0)}% increase from prior period`;
+        } else {
+          pctText = `${absPct.toFixed(0)}%`;
+        }
+      }
       const arrow = delta > 0 ? "▲" : delta < 0 ? "▼" : "▬";
       const cls = delta > 0 ? "delta-up" : delta < 0 ? "delta-down" : "";
+      const titleAttr = pctTitle ? ` title="${escapeHtml(pctTitle)}"` : "";
       momEl.innerHTML =
         `vs prior period (${formatDayLabel(priorStart)} – ${formatDayLabel(priorEnd)}): ` +
         `${fmtMoney(priorTotal)} · ` +
-        `<span class="${cls}">${arrow} ${pctText}</span>`;
+        `<span class="${cls}"${titleAttr}>${arrow} ${pctText}</span>`;
       momEl.hidden = false;
     } else {
       momEl.hidden = true;
     }
   }
 
-  // By category
-  const catTotals = new Map();
-  for (const e of entries) {
-    const label = reportsCategoryLabel(e);
-    const o = catTotals.get(label) || { total: 0, count: 0 };
-    o.total += Number(e.amount) || 0;
-    o.count += 1;
-    catTotals.set(label, o);
-  }
-  const catList = Array.from(catTotals.entries())
-    .sort((a, b) => b[1].total - a[1].total);
-  const catEl = document.getElementById("reports-categories");
-  if (catEl) {
-    if (!catList.length) {
-      catEl.innerHTML = `<div class="empty">No entries match these filters.</div>`;
-    } else {
-      catEl.innerHTML = catList.map(([cat, v]) => {
-        const pct = total > 0 ? (v.total / total) * 100 : 0;
-        return `
-          <div class="reports-cat-row">
-            <div class="reports-cat-head">
-              <span class="reports-cat-name">${escapeHtml(cat)}</span>
-              <span class="reports-cat-amount">${fmtMoney(v.total)}</span>
-            </div>
-            <div class="reports-bar"><span style="width:${pct.toFixed(2)}%"></span></div>
-            <div class="reports-cat-meta">
-              <span>${pct.toFixed(1)}%</span>
-              <span>${v.count} ${v.count === 1 ? "entry" : "entries"}</span>
-            </div>
-          </div>`;
-      }).join("");
-    }
-  }
+  // Spending by category (expense-only pie chart — replaces the old mixed-kind bars).
+  // Note: this function is independent of reportsState.kinds (always expense-only).
+  // It DOES honor reportsState.category for cross-tab filtering.
+  renderReportsSpending();
 
   // Trend: daily bars if range ≤ 62 days, else monthly
   const trendEl = document.getElementById("reports-trend");
@@ -1190,6 +2370,24 @@ function renderReports() {
             <span class="label">${escapeHtml(b.label)}</span>
           </div>`;
       }).join("");
+
+      // When one bar is much larger than the rest, smaller bars look like
+      // missing data. Append a peak-day annotation to the hint so users know
+      // what's dwarfing the others. Threshold: peak > 5× the median of
+      // non-zero buckets.
+      if (trendHint) {
+        const nonZero = buckets.filter((b) => b.total > 0).map((b) => b.total).sort((a, b) => a - b);
+        if (nonZero.length >= 3) {
+          const median = nonZero[Math.floor(nonZero.length / 2)];
+          const peakBucket = buckets.reduce((p, b) => b.total > p.total ? b : p, buckets[0]);
+          if (median > 0 && peakBucket.total > median * 5) {
+            const baseHint = trendHint.textContent;
+            // Use the bucket key (ISO date or YYYY-MM) for a friendly label.
+            const peakLabel = days <= 62 ? formatDayLabel(peakBucket.key) : formatMonthLabel(peakBucket.key);
+            trendHint.textContent = `${baseHint} · peak on ${peakLabel} (${fmtMoney(peakBucket.total)})`;
+          }
+        }
+      }
     }
   }
 
@@ -1217,6 +2415,14 @@ function renderReports() {
 }
 
 function renderAll() {
+  resetEndingBalanceCache();
+  resetEffectiveLimitCache();
+  const recurResult = autoRecurFromLastMonth();
+  if (recurResult.copied > 0) {
+    showToast(`Copied ${recurResult.copied} entr${recurResult.copied === 1 ? "y" : "ies"} from ${formatMonthLabel(recurResult.fromMonth)}.`);
+  }
+  ensureDebtPool();
+  snapshotCurrentMinSum();
   updateCurrencyLabels();
   renderDashboard();
   renderFlow();
@@ -1228,8 +2434,13 @@ function renderAll() {
   renderUpcoming();
   renderPending();
   renderReminderPrefs();
+  renderFxStatus();
+  populateCurrencyPickers();
   renderProControls();
   renderReports();
+  renderBudgetManager();
+  renderBudgetSummary();
+  populatePoolDropdowns();
   if (typeof renderDriveCard === "function") renderDriveCard();
 }
 
@@ -1461,6 +2672,10 @@ const PAYWALL_COPY = {
   ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
   notifications: "Reminders and notifications are a Pro feature.",
   copyPrev: "Copy from previous month is a Pro feature.",
+  multiCurrency: "Multi-currency entry is a Pro feature.",
+  budgetPools: "Multi-pool budgeting is a Pro feature.",
+  budgetPoolsRollover: "Rollover is a Pro feature — carry unspent budget into the next month.",
+  budgetPoolsOverrides: "Per-month limit overrides are a Pro feature.",
 };
 function openPaywall(feature) {
   const dlg = document.getElementById("paywall-dialog");
@@ -1614,6 +2829,10 @@ function renderProControls() {
     if (restore) restore.hidden = purchased || !native;
     if (activate) activate.hidden = native || purchased;
   }
+
+  // Show "(Pro: auto-copies...)" hint only for free users on the repeat-toggle.
+  const proHints = document.querySelectorAll("[data-pro-only-hint]");
+  proHints.forEach((el) => { el.hidden = isPro(); });
 }
 
 document.getElementById("btn-pro-unlock")?.addEventListener("click", () => { openPaywall(); });
@@ -1625,20 +2844,79 @@ document.getElementById("paywall-restore")?.addEventListener("click", async () =
 
 // Register the service worker so Chrome lets us install, and so we
 // load in two frames on repeat visits.
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/app/sw.js", { scope: "/app/" }).catch((err) => {
-      console.warn("SW register failed:", err);
+//
+// Update flow (motivated by iOS standalone webclips that kept serving
+// stale assets until the icon was deleted and re-added):
+//   1. On load, register the SW and remember the registration.
+//   2. Whenever the page becomes visible or focused, call .update() so
+//      iOS's lazy SW-update check is forced to run. Without this iOS
+//      keeps the old SW indefinitely.
+//   3. If a new SW reaches the "installed" state while an old one is
+//      still controlling, show a banner so the user opts into reloading.
+//      The new SW does NOT skipWaiting itself.
+//   4. On click, post SKIP_WAITING; controllerchange then reloads.
+function showUpdateBanner(waitingWorker) {
+  if (!waitingWorker) return;
+  let banner = document.getElementById("app-update-banner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "app-update-banner";
+    banner.className = "app-update-banner";
+    banner.setAttribute("role", "status");
+    const msg = document.createElement("span");
+    msg.textContent = "A new version is ready.";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = "Refresh";
+    btn.addEventListener("click", () => {
+      btn.disabled = true;
+      try { waitingWorker.postMessage({ type: "SKIP_WAITING" }); } catch {}
     });
-  });
-  // Auto-reload once when a new SW takes control of the page. This
-  // stops installed PWAs (iOS 'Add to Home Screen', Android install)
-  // from getting stuck on an old cached UI after we deploy updates.
+    banner.appendChild(msg);
+    banner.appendChild(btn);
+    document.body.appendChild(banner);
+  }
+  requestAnimationFrame(() => banner.classList.add("visible"));
+}
+
+if ("serviceWorker" in navigator && location.protocol === "https:") {
   let swReloading = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (swReloading) return;
     swReloading = true;
     location.reload();
+  });
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/app/sw.js", { scope: "/app/" }).then((registration) => {
+      const watchWorker = (worker) => {
+        if (!worker) return;
+        worker.addEventListener("statechange", () => {
+          // Only nudge the user if there's already a controller — i.e. this
+          // is an update, not a fresh install. On first install the activate
+          // event's clients.claim() will fire controllerchange on its own.
+          if (worker.state === "installed" && navigator.serviceWorker.controller) {
+            showUpdateBanner(registration.waiting || worker);
+          }
+        });
+      };
+      // If an update was already waiting when we registered (e.g. the user
+      // reopened the iPad webclip after a deploy), surface it immediately.
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        showUpdateBanner(registration.waiting);
+      }
+      watchWorker(registration.installing);
+      registration.addEventListener("updatefound", () => watchWorker(registration.installing));
+
+      const checkForUpdate = () => {
+        if (document.visibilityState !== "visible") return;
+        registration.update().catch(() => {});
+      };
+      document.addEventListener("visibilitychange", checkForUpdate);
+      window.addEventListener("focus", checkForUpdate);
+    }).catch((err) => {
+      console.warn("SW register failed:", err);
+    });
   });
 }
 
@@ -1847,6 +3125,29 @@ document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async (
   }
 });
 
+// Share button — uses Web Share API (native sheet on mobile, falls through
+// silently if unsupported). The button is hidden until we detect support, so
+// desktop browsers without share support just see the existing Copy button.
+{
+  const shareBtn = document.getElementById("btn-pro-refer-share");
+  if (shareBtn && typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    shareBtn.hidden = false;
+    shareBtn.addEventListener("click", async () => {
+      const url = document.getElementById("pro-refer-url")?.textContent || "";
+      if (!url) return;
+      try {
+        await navigator.share({
+          title: "Duitful — privacy-first money tracker",
+          text: "I've been using Duitful to track my spending and pay off debts. Try it:",
+          url,
+        });
+      } catch {
+        // User cancelled or share failed — silent. They can still tap Copy.
+      }
+    });
+  }
+}
+
 document.getElementById("btn-pro-activate")?.addEventListener("click", openLicenseDialog);
 document.getElementById("paywall-activate")?.addEventListener("click", () => { closePaywall(); openLicenseDialog(); });
 document.getElementById("license-cancel")?.addEventListener("click", closeLicenseDialog);
@@ -1999,6 +3300,7 @@ function updateCurrencyLabels() {
 
 document.querySelectorAll(".tab").forEach((btn) => {
   btn.addEventListener("click", () => {
+    resetAllSearchQueries();
     const name = btn.dataset.tab;
     document.querySelectorAll(".tab").forEach((b) => {
       const isActive = b === btn;
@@ -2070,8 +3372,33 @@ $("#form-income").addEventListener("submit", (e) => {
   const amount = Number(f.get("amount"));
   const month = (f.get("month") || selectedMonth).toString() || selectedMonth;
   const day = parseDay(f.get("day"));
+  const fromCode = (f.get("currency") || currentCurrency()).toString();
+  const toCode = currentCurrency();
   if (!name || !Number.isFinite(amount) || amount < 0) return;
-  state.income.push({ id: uid(), name, amount, month, day });
+
+  const repeatNext = f.get("repeatNext") === "on";
+  const entry = { id: uid(), name, amount, month, day, repeatNext };
+  if (fromCode !== toCode) {
+    if (!isPro()) { openPaywall("multiCurrency"); return; }
+    if (!fxCurrencySupported(fromCode)) {
+      alert(`Live rate not available for ${fromCode}. Pick a different currency.`);
+      return;
+    }
+    const converted = convertFx(amount, fromCode, toCode);
+    if (!Number.isFinite(converted)) {
+      alert("Could not convert — try refreshing rates in Settings.");
+      return;
+    }
+    entry.amount = +converted.toFixed(2);
+    entry.fx = {
+      code: fromCode,
+      amount: amount,
+      rate: pairRate(fromCode, toCode),
+      base: toCode,
+      fetched_at: state.fx.fetched_at || null,
+    };
+  }
+  state.income.push(entry);
   save();
   e.target.reset();
   renderAll();
@@ -2084,8 +3411,34 @@ $("#form-expense").addEventListener("submit", (e) => {
   const amount = Number(f.get("amount"));
   const month = (f.get("month") || selectedMonth).toString() || selectedMonth;
   const day = parseDay(f.get("day"));
+  const fromCode = (f.get("currency") || currentCurrency()).toString();
+  const toCode = currentCurrency();
   if (!name || !Number.isFinite(amount) || amount < 0) return;
-  state.expenses.push({ id: uid(), name, amount, month, day });
+
+  const repeatNext = f.get("repeatNext") === "on";
+  const entry = { id: uid(), name, amount, month, day, repeatNext };
+  if (fromCode !== toCode) {
+    if (!isPro()) { openPaywall("multiCurrency"); return; }
+    if (!fxCurrencySupported(fromCode)) {
+      alert(`Live rate not available for ${fromCode}. Pick a different currency.`);
+      return;
+    }
+    const converted = convertFx(amount, fromCode, toCode);
+    if (!Number.isFinite(converted)) {
+      alert("Could not convert — try refreshing rates in Settings.");
+      return;
+    }
+    entry.amount = +converted.toFixed(2);
+    entry.fx = {
+      code: fromCode,
+      amount: amount,
+      rate: pairRate(fromCode, toCode),
+      base: toCode,
+      fetched_at: state.fx.fetched_at || null,
+    };
+  }
+  tagEntryWithPool(entry, "expense", e.target);
+  state.expenses.push(entry);
   save();
   e.target.reset();
   renderAll();
@@ -2136,12 +3489,37 @@ $("#btn-copy-prev").addEventListener("click", () => {
 $("#form-daily").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
-  const amount = Number(f.get("amount"));
+  const rawAmount = Number(f.get("amount"));
   const date = (f.get("date") || "").toString() || todayISO();
   const type = dailyType();
   const target = (f.get("target") || "").toString();
   const note = (f.get("note") || "").toString().trim();
-  if (!Number.isFinite(amount) || amount <= 0) return;
+  const fromCode = (f.get("currency") || currentCurrency()).toString();
+  const toCode = currentCurrency();
+  if (!Number.isFinite(rawAmount) || rawAmount <= 0) return;
+
+  let amount = rawAmount;
+  let fxBlock = null;
+  if (fromCode !== toCode) {
+    if (!isPro()) { openPaywall("multiCurrency"); return; }
+    if (!fxCurrencySupported(fromCode)) {
+      alert(`Live rate not available for ${fromCode}.`);
+      return;
+    }
+    const converted = convertFx(rawAmount, fromCode, toCode);
+    if (!Number.isFinite(converted)) {
+      alert("Could not convert — try refreshing rates in Settings.");
+      return;
+    }
+    amount = +converted.toFixed(2);
+    fxBlock = {
+      code: fromCode,
+      amount: rawAmount,
+      rate: pairRate(fromCode, toCode),
+      base: toCode,
+      fetched_at: state.fx.fetched_at || null,
+    };
+  }
 
   const id = uid();
   const createdAt = Date.now();
@@ -2156,10 +3534,10 @@ $("#form-daily").addEventListener("submit", (e) => {
     if (!debt) return;
     const applied = Math.min(amount, debt.balance);
     debt.balance = Math.max(0, debt.balance - applied);
-    state.dailyExpenses.push({
-      id, createdAt, kind: "debt", date, amount,
-      debtId: debt.id, debtName: debt.name, note,
-    });
+    const entry = { id, createdAt, kind: "debt", date, amount, debtId: debt.id, debtName: debt.name, note };
+    if (fxBlock) entry.fx = fxBlock;
+    tagEntryWithPool(entry, "debt", e.target);
+    state.dailyExpenses.push(entry);
   } else if (type === "saving") {
     if (!target.startsWith("saving:")) {
       alert("Create a savings goal in the Savings tab first.");
@@ -2169,10 +3547,10 @@ $("#form-daily").addEventListener("submit", (e) => {
     const goal = state.savings.find((g) => g.id === savingId);
     if (!goal) return;
     goal.current = Math.max(0, (Number(goal.current) || 0) + amount);
-    state.dailyExpenses.push({
-      id, createdAt, kind: "saving", date, amount,
-      savingId: goal.id, savingName: goal.name, note,
-    });
+    const entry = { id, createdAt, kind: "saving", date, amount, savingId: goal.id, savingName: goal.name, note };
+    if (fxBlock) entry.fx = fxBlock;
+    tagEntryWithPool(entry, "saving", e.target);
+    state.dailyExpenses.push(entry);
   } else {
     const category = (f.get("category") || "").toString().trim() || "Others";
     const cardId = (f.get("card") || "").toString().trim();
@@ -2185,11 +3563,12 @@ $("#form-daily").addEventListener("submit", (e) => {
         entry.cardDebtName = card.name;
       }
     }
+    if (fxBlock) entry.fx = fxBlock;
+    tagEntryWithPool(entry, "expense", e.target);
     state.dailyExpenses.push(entry);
   }
 
   save();
-  // Reset amount + note but keep date + type for quick repeat entries.
   const keepDate = date;
   const keepType = type;
   e.target.reset();
@@ -2379,6 +3758,27 @@ document.addEventListener("click", (e) => {
   } else if (action === "edit-income" || action === "edit-expense" || action === "edit-debt" || action === "edit-saving") {
     openEditDialog(action.slice("edit-".length), id);
     return;
+  } else if (action === "edit-daily") {
+    openDailyEditDialog(id);
+    return;
+  } else if (action === "quick-pay-debt") {
+    // Switch to Home, activate Pay debt mode, pre-select this debt, focus
+    // the amount input so the user just types the amount and submits.
+    const debt = state.debts.find((d) => d.id === id);
+    if (!debt) return;
+    document.querySelector('.tab[data-tab="dashboard"]')?.click();
+    setDailyType("debt");
+    const targetSel = document.getElementById("daily-target");
+    if (targetSel) targetSel.value = `debt:${id}`;
+    const amountInput = document.querySelector('#form-daily input[name="amount"]');
+    if (amountInput) {
+      // Pre-fill with the minimum payment as a sensible default; user can edit.
+      const min = Number(debt.minPayment) || 0;
+      if (min > 0) amountInput.value = min.toFixed(2);
+      // Defer focus until after tab switch animation
+      setTimeout(() => amountInput.focus(), 60);
+    }
+    return;
   } else if (action === "pending-accept") {
     acceptPending(id);
     return;
@@ -2411,6 +3811,136 @@ function textField(label, name, value) {
   return `<label class="field"><span>${label}</span><input type="text" name="${name}" value="${escapeHtml(value ?? "")}" required /></label>`;
 }
 
+function currencyPickerOptions(selected) {
+  // Build an HTML <option> string. Disable codes without rates so the
+  // user can still see them but can't pick them as a foreign source.
+  // Three-state per code:
+  //   - base currency: always enabled (the "to" currency)
+  //   - rates loaded + code supported: enabled
+  //   - rates loaded but code unsupported (AED/SAR/VND): " (no live rate)"
+  //   - rates not loaded at all: " (offline)" for non-base codes
+  const codes = Object.keys(CURRENCY_LOCALE);
+  const baseCode = currentCurrency();
+  const haveRates = fxRatesAreUsable();
+  return codes.map((code) => {
+    const isBase = code === baseCode;
+    const supported = haveRates && (fxCurrencySupported(code) || isBase);
+    const sel = code === selected ? " selected" : "";
+    const dis = isBase ? "" : (supported ? "" : " disabled");
+    const symbol = currencySymbolFor(code);
+    const codeLabel = symbol && symbol !== code ? `${code} (${symbol})` : code;
+    let tail = "";
+    if (!isBase) {
+      if (!haveRates) tail = " (offline)";
+      else if (!fxCurrencySupported(code)) tail = " (no live rate)";
+    }
+    return `<option value="${code}"${sel}${dis}>${codeLabel}${tail}</option>`;
+  }).join("");
+}
+
+function renderCurrencyPicker(name, selected) {
+  // Used inline next to amount inputs. The picker shows the base currency
+  // by default; choosing a non-base value triggers the foreign-entry path.
+  const sel = selected || currentCurrency();
+  return `
+    <select class="currency-picker" name="${name}" data-currency-picker>
+      ${currencyPickerOptions(sel)}
+    </select>
+  `;
+}
+
+function renderFxBadge(fx) {
+  // Used inline next to a converted amount in lists.
+  if (!fx || !fx.code) return "";
+  const amt = Number(fx.amount).toFixed(2).replace(/\.00$/, "");
+  const rate = Number(fx.rate).toFixed(4);
+  return `<span class="fx-badge" title="Original currency · sticky rate at entry">${escapeHtml(fx.code)} ${amt} @ ${rate}</span>`;
+}
+
+function renderFxPreview({ amount, fromCode, toCode, supported }) {
+  // Live preview text shown under amount input when foreign currency selected.
+  if (!supported) {
+    return `<span class="fx-preview fx-preview--err">Live rate not available for ${escapeHtml(fromCode)}.</span>`;
+  }
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return `<span class="fx-preview">Will convert to ${escapeHtml(toCode)} at save time.</span>`;
+  }
+  const converted = convertFx(amount, fromCode, toCode);
+  const rate = pairRate(fromCode, toCode);
+  if (!Number.isFinite(converted)) {
+    return `<span class="fx-preview fx-preview--err">Cannot convert ${escapeHtml(fromCode)} → ${escapeHtml(toCode)}.</span>`;
+  }
+  return `<span class="fx-preview">${fmtMoneyIn(converted, toCode)} · rate 1 ${escapeHtml(fromCode)} = ${rate.toFixed(4)} ${escapeHtml(toCode)}</span>`;
+}
+
+function populateCurrencyPickers() {
+  document.querySelectorAll("select[data-currency-picker]").forEach((sel) => {
+    const desired = sel.value || currentCurrency();
+    sel.innerHTML = currencyPickerOptions(desired);
+  });
+}
+
+function attachFxPreviewToForm(formEl) {
+  const amountEl = formEl.querySelector("input[name='amount']");
+  const pickerEl = formEl.querySelector("select[data-currency-picker]");
+  const preview = formEl.querySelector("[data-fx-preview]");
+  const upsell = formEl.querySelector("[data-fx-upsell]");
+  if (!amountEl || !pickerEl) return;
+
+  const update = () => {
+    const fromCode = pickerEl.value || currentCurrency();
+    const toCode = currentCurrency();
+    const amount = Number(amountEl.value);
+    const isForeign = fromCode !== toCode;
+
+    if (!isForeign) {
+      if (preview) preview.hidden = true;
+      if (upsell) upsell.hidden = true;
+      return;
+    }
+    if (!fxRatesAreUsable()) {
+      if (upsell) upsell.hidden = true;
+      if (preview) {
+        preview.hidden = false;
+        preview.classList.add("fx-preview--err");
+        preview.textContent = "Foreign currency unavailable — connect to refresh rates in Settings.";
+      }
+      return;
+    }
+    if (!isPro()) {
+      if (preview) preview.hidden = true;
+      if (upsell) upsell.hidden = false;
+      return;
+    }
+    if (upsell) upsell.hidden = true;
+    if (preview) {
+      const supported = fxCurrencySupported(fromCode);
+      preview.hidden = false;
+      preview.classList.toggle("fx-preview--err", !supported || !Number.isFinite(convertFx(amount, fromCode, toCode)));
+      if (!supported) {
+        preview.textContent = `Live rate not available for ${fromCode}.`;
+      } else if (!Number.isFinite(amount) || amount <= 0) {
+        preview.textContent = `Will convert to ${toCode} at save time.`;
+      } else {
+        const converted = convertFx(amount, fromCode, toCode);
+        const rate = pairRate(fromCode, toCode);
+        if (!Number.isFinite(converted)) {
+          preview.textContent = `Cannot convert ${fromCode} → ${toCode}.`;
+        } else {
+          preview.textContent = `${fmtMoneyIn(converted, toCode)} · rate 1 ${fromCode} = ${rate.toFixed(4)} ${toCode}`;
+        }
+      }
+    }
+  };
+
+  amountEl.addEventListener("input", update);
+  pickerEl.addEventListener("change", update);
+  formEl.addEventListener("reset", () => setTimeout(() => {
+    if (pickerEl) pickerEl.value = currentCurrency();
+    update();
+  }, 0));
+}
+
 function openEditDialog(kind, id) {
   let entity = null;
   if (kind === "income") entity = state.income.find((x) => x.id === id);
@@ -2424,14 +3954,81 @@ function openEditDialog(kind, id) {
   editTitle.textContent = titleMap[kind] || "Edit";
 
   if (kind === "income" || kind === "expense") {
+    const fx = entity.fx;
+    const baseCode = currentCurrency();
+    const amountLabel = `Amount (${baseCode})`;
+    const fxHint = fx
+      ? `<p class="hint">Originally <strong>${escapeHtml(fx.code)} ${Number(fx.amount).toFixed(2)}</strong> @ rate ${Number(fx.rate).toFixed(4)} on ${fx.fetched_at ? escapeHtml(fx.fetched_at.slice(0,10)) : "entry day"}. Editing the amount overrides the converted value but does not change the original.</p>`
+      : "";
+
+    // Pool block — only meaningful for expense (income doesn't tag to pools)
+    let poolBlock = "";
+    if (kind === "expense") {
+      const pool = entity.budgetPoolId
+        ? state.budgetPools.find((p) => p.id === entity.budgetPoolId)
+        : null;
+      if (entity.budgetPoolId) {
+        const displayName = pool ? pool.name : `${entity.budgetPoolName || "(unknown)"} (deleted)`;
+        poolBlock = `
+          <p class="hint" id="edit-pool-line">
+            Budget pool: <strong>${escapeHtml(displayName)}</strong>
+            <button type="button" class="hint-link" data-action="edit-toggle-pool">Change…</button>
+          </p>
+          <label class="field" id="edit-pool-field" hidden>
+            <span>Budget pool</span>
+            <select name="budgetPool" data-budget-pool>
+              <option value="">(none)</option>
+            </select>
+          </label>
+        `;
+      } else {
+        poolBlock = `
+          <p class="hint" id="edit-pool-line">
+            Budget pool: <em>(none)</em>
+            <button type="button" class="hint-link" data-action="edit-toggle-pool">Add</button>
+          </p>
+          <label class="field" id="edit-pool-field" hidden>
+            <span>Budget pool</span>
+            <select name="budgetPool" data-budget-pool>
+              <option value="">(none)</option>
+            </select>
+          </label>
+        `;
+      }
+    }
+
+    const repeatChecked = entity.repeatNext === false ? "" : " checked";
+    const repeatBlock = `
+      <label class="repeat-toggle">
+        <input type="checkbox" name="repeatNext"${repeatChecked} />
+        <span>Repeat next month</span>
+      </label>
+    `;
+
     editFields.innerHTML = `
       ${textField("Name", "name", entity.name)}
       <div class="grid-2">
-        ${numberField("Amount (RM)", "amount", entity.amount)}
+        ${numberField(amountLabel, "amount", entity.amount)}
         <label class="field"><span>Month</span><input type="month" name="month" value="${entity.month || currentMonthISO()}" required /></label>
       </div>
+      ${fxHint}
       ${numberField(kind === "income" ? "Pay day (1–31)" : "Due day (1–31)", "day", entity.day ?? "", { step: "1", min: "1", max: "31" })}
+      ${repeatBlock}
+      ${poolBlock}
     `;
+
+    // Populate the dropdown options
+    populatePoolDropdowns();
+    // Force the edit-dialog pool field hidden — populatePoolDropdowns() unhides
+    // it because user pools exist, but in the edit dialog we want sticky-by-default
+    // (only show the dropdown when user clicks "Change…" or "Add").
+    const editPoolField = editFields.querySelector("#edit-pool-field");
+    if (editPoolField) editPoolField.hidden = true;
+    // Pre-select existing pool if any
+    if (kind === "expense" && entity.budgetPoolId) {
+      const sel = editFields.querySelector("select[data-budget-pool]");
+      if (sel) sel.value = entity.budgetPoolId;
+    }
   } else if (kind === "debt") {
     const isInstallment = entity.kind === "installment";
     if (isInstallment) {
@@ -2493,6 +4090,27 @@ editForm.addEventListener("submit", (e) => {
     const day = parseDay(f.get("day"));
     if (!name || !Number.isFinite(amount) || amount < 0) return;
     it.name = name; it.amount = amount; it.month = month; it.day = day;
+    it.repeatNext = f.get("repeatNext") === "on";
+    // it.fx preserved by virtue of NOT being reassigned
+    // Pool — only for expense, only update if the dropdown is visible (user opened it via Change)
+    if (kind === "expense") {
+      const sel = editForm.querySelector("select[data-budget-pool]");
+      const field = document.getElementById("edit-pool-field");
+      const visible = field && !field.hidden;
+      if (visible && sel) {
+        if (sel.value) {
+          const pool = state.budgetPools.find((p) => p.id === sel.value);
+          if (pool) {
+            it.budgetPoolId = pool.id;
+            it.budgetPoolName = pool.name;
+          }
+        } else {
+          delete it.budgetPoolId;
+          delete it.budgetPoolName;
+        }
+      }
+      // If field was never opened (visible === false), preserve existing tag (sticky)
+    }
   } else if (kind === "debt") {
     const it = state.debts.find((x) => x.id === id);
     if (!it) { closeEditDialog(); return; }
@@ -2562,6 +4180,29 @@ function renderReminderPrefs() {
     btnNotif.textContent = (Notification.permission === "granted" && prefs.notifications) ? "Disable notifications" : "Enable browser notifications";
   }
 }
+
+function renderFxStatus() {
+  const line = document.getElementById("fx-status-line");
+  const hint = document.getElementById("fx-unsupported-hint");
+  if (!line) return;
+  const baseCode = currentCurrency();
+  if (hint) hint.hidden = !["AED", "SAR", "VND"].includes(baseCode);
+
+  if (!fxRatesAreUsable()) {
+    line.textContent = "Rates not loaded — check your connection and tap Refresh.";
+    return;
+  }
+  const at = new Date(state.fx.fetched_at);
+  const ageMs = Date.now() - at.getTime();
+  const ageMins = Math.floor(ageMs / 60000);
+  const human =
+    ageMins < 2 ? "just now" :
+    ageMins < 60 ? `${ageMins} minutes ago` :
+    ageMins < 24 * 60 ? `${Math.floor(ageMins / 60)} hours ago` :
+    `${Math.floor(ageMins / (60 * 24))} days ago`;
+  const staleNote = state.fx.stale ? " · using cached value (live source unavailable)" : "";
+  line.textContent = `Last refreshed ${human}${staleNote} · via Currency-API (open-source, by @fawazahmed0)`;
+}
 if (prefDays) prefDays.addEventListener("change", () => {
   const v = Math.max(0, Math.min(31, Math.round(Number(prefDays.value) || 0)));
   state.reminders = state.reminders || {};
@@ -2594,6 +4235,12 @@ if (prefCurrency) {
     if (!/^[A-Z]{3}$/.test(code)) return;
     state.currency = code;
     save();
+    // Reset every entry-form picker to the new base so the form doesn't look
+    // like a foreign-currency entry by default after a base change.
+    document.querySelectorAll("select[data-currency-picker]").forEach((sel) => {
+      sel.value = code;
+    });
+    populateCurrencyPickers();
     renderAll();
   });
 }
@@ -2630,30 +4277,63 @@ function csvEscape(v) {
 }
 
 function toCSV() {
-  const rows = [
-    ["type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month", "day", "dueDay", "kind", "monthsLeft"],
+  const HEADER = [
+    "type", "name", "amount", "balance", "apr", "minPayment", "date", "category", "note", "debtName", "target", "current", "month", "day", "dueDay", "kind", "monthsLeft",
+    "fx_code", "fx_amount", "fx_rate", "fx_base", "fx_fetched_at",
+    "pool_color", "pool_active", "pool_rollover", "pool_monthly_limits", "pool_system",
+    "budget_pool_id", "budget_pool_name",
+    "repeat_next",
   ];
-  const blank = (arr) => arr.concat(Array(17 - arr.length).fill(""));
-  for (const i of state.income) rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? ""]));
-  for (const ex of state.expenses) rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? ""]));
+  const rows = [HEADER];
+  const W = HEADER.length; // 30
+  const blank = (arr) => arr.concat(Array(W - arr.length).fill(""));
+  const fxCols = (fx) => fx
+    ? [fx.code || "", fx.amount ?? "", fx.rate ?? "", fx.base || "", fx.fetched_at || ""]
+    : ["", "", "", "", ""];
+  const poolTagCols = (entry) => [entry.budgetPoolId || "", entry.budgetPoolName || ""];
+
+  for (const i of state.income) {
+    rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? "", "", "", "", ...fxCols(i.fx), "", "", "", "", "", "", "", i.repeatNext === false ? "N" : "Y"]));
+  }
+  for (const ex of state.expenses) {
+    rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx), "", "", "", "", "", ...poolTagCols(ex), ex.repeatNext === false ? "N" : "Y"]));
+  }
   for (const d of state.debts) {
     const isInst = d.kind === "installment";
     const remMonths = isInst && d.installment ? Math.max(0, Math.ceil((Number(d.balance) || 0) / d.installment)) : "";
+    // Debt definition rows do not carry per-payment fx data — leave empty.
     rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment, "", "", "", "", "", "", "", "", d.dueDay ?? "", d.kind || "standard", remMonths]));
   }
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
-      rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || ""]));
+      rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]));
     } else if (e.kind === "saving") {
-      rows.push(blank(["daily-saving", e.savingName || "", e.amount, "", "", "", e.date || "", "", e.note || ""]));
+      rows.push(blank(["daily-saving", e.savingName || "", e.amount, "", "", "", e.date || "", "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]));
     } else {
-      rows.push(blank(["daily", "", e.amount, "", "", "", e.date || "", e.category || "", e.note || ""]));
+      rows.push(blank(["daily", "", e.amount, "", "", "", e.date || "", e.category || "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]));
     }
   }
   for (const g of state.savings) {
     rows.push(blank(["saving", g.name, "", "", "", "", "", "", "", "", g.target, g.current]));
   }
   rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
+  // Budget pool rows — name in column 1 ("name"), limit in column 2 ("amount"),
+  // remaining pool-specific data in the new pool_* columns at index 22-26.
+  for (const p of state.budgetPools) {
+    rows.push(blank([
+      "budget-pool", p.name, p.limit, "", "", "", "", "", "", "", "", "", "", "", "", "", "",
+      "", "", "", "", "",
+      p.color || "", p.active ? "Y" : "N", p.rollover ? "Y" : "N",
+      JSON.stringify(p.monthlyLimits || {}) === "{}" ? "" : JSON.stringify(p.monthlyLimits || {}),
+      p.system || "",
+    ]));
+  }
+  // monthly-minsum rows — round-trip the per-month debt-min snapshots
+  for (const [month, value] of Object.entries(state.monthlyMinSums || {})) {
+    if (!/^\d{4}-\d{2}$/.test(month)) continue;
+    if (!Number.isFinite(Number(value)) || Number(value) < 0) continue;
+    rows.push(blank(["monthly-minsum", month, Number(value)]));
+  }
   return rows.map((r) => r.map(csvEscape).join(",")).join("\n") + "\n";
 }
 
@@ -2695,6 +4375,38 @@ function fromCSV(text) {
   const iTarget = idx("target"), iCurrent = idx("current"), iMonth = idx("month"), iDay = idx("day");
   const iDueDay = idx("dueday");
   const iKind = idx("kind"), iMonthsLeft = idx("monthsleft");
+  const iFxCode = idx("fx_code");
+  const iFxAmount = idx("fx_amount");
+  const iFxRate = idx("fx_rate");
+  const iFxBase = idx("fx_base");
+  const iFxFetchedAt = idx("fx_fetched_at");
+  const iPoolColor = idx("pool_color");
+  const iPoolActive = idx("pool_active");
+  const iPoolRollover = idx("pool_rollover");
+  const iPoolMonthlyLimits = idx("pool_monthly_limits");
+  const iPoolSystem = idx("pool_system");
+  const iBudgetPoolId = idx("budget_pool_id");
+  const iBudgetPoolName = idx("budget_pool_name");
+  const iRepeatNext = idx("repeat_next");
+
+  function readPoolTag(row) {
+    if (iBudgetPoolId < 0 || iBudgetPoolName < 0) return null;
+    const id = (row[iBudgetPoolId] || "").trim();
+    const name = (row[iBudgetPoolName] || "").trim();
+    if (!id || !name) return null;
+    return { id, name };
+  }
+
+  function readFx(row) {
+    if (iFxCode < 0 || iFxAmount < 0 || iFxRate < 0 || iFxBase < 0) return null;
+    const code = (row[iFxCode] || "").trim().toUpperCase();
+    const amount = Number(row[iFxAmount]);
+    const rate = Number(row[iFxRate]);
+    const base = (row[iFxBase] || "").trim().toUpperCase();
+    const fetched_at = iFxFetchedAt >= 0 ? (row[iFxFetchedAt] || "").trim() : "";
+    if (!code || !base || !Number.isFinite(amount) || !Number.isFinite(rate)) return null;
+    return { code, amount, rate, base, fetched_at: fetched_at || null };
+  }
   if (iType === -1) throw new Error("CSV missing 'type' column");
   const isValidDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s);
 
@@ -2716,9 +4428,25 @@ function fromCSV(text) {
     const rowDay = iDay >= 0 ? parseDay(row[iDay]) : null;
 
     if (type === "income" && name && Number.isFinite(amount)) {
-      next.income.push({ id: uid(), name, amount, month: monthOrNow, day: rowDay });
+      const repeatNext = iRepeatNext >= 0
+        ? (row[iRepeatNext] || "").trim().toUpperCase() !== "N"
+        : true;
+      const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay, repeatNext };
+      const fx = readFx(row);
+      if (fx) entry.fx = fx;
+      const tag = readPoolTag(row);
+      if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
+      next.income.push(entry);
     } else if (type === "expense" && name && Number.isFinite(amount)) {
-      next.expenses.push({ id: uid(), name, amount, month: monthOrNow, day: rowDay });
+      const repeatNext = iRepeatNext >= 0
+        ? (row[iRepeatNext] || "").trim().toUpperCase() !== "N"
+        : true;
+      const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay, repeatNext };
+      const fx = readFx(row);
+      if (fx) entry.fx = fx;
+      const tag = readPoolTag(row);
+      if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
+      next.expenses.push(entry);
     } else if (type === "debt" && name) {
       const rowDueDay = iDueDay >= 0 ? parseDay(row[iDueDay]) : null;
       const rowKind = iKind >= 0 ? (row[iKind] || "").trim().toLowerCase() : "";
@@ -2752,7 +4480,7 @@ function fromCSV(text) {
       }
     } else if (type === "daily") {
       if (!Number.isFinite(amount)) continue;
-      next.dailyExpenses.push({
+      const entry = {
         id: uid(),
         createdAt: Date.now(),
         kind: "expense",
@@ -2763,12 +4491,17 @@ function fromCSV(text) {
         amount,
         category: iCat >= 0 ? (row[iCat] || "").trim() || "Others" : "Others",
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
-      });
+      };
+      const fx = readFx(row);
+      if (fx) entry.fx = fx;
+      const tag = readPoolTag(row);
+      if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
+      next.dailyExpenses.push(entry);
     } else if (type === "daily-debt") {
       if (!Number.isFinite(amount)) continue;
       const debtName = iDebtName >= 0 ? (row[iDebtName] || "").trim() : "";
       const debt = next.debts.find((d) => d.name.toLowerCase() === debtName.toLowerCase());
-      next.dailyExpenses.push({
+      const entry = {
         id: uid(),
         createdAt: Date.now(),
         kind: "debt",
@@ -2780,12 +4513,17 @@ function fromCSV(text) {
         debtId: debt ? debt.id : null,
         debtName,
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
-      });
+      };
+      const fx = readFx(row);
+      if (fx) entry.fx = fx;
+      const tag = readPoolTag(row);
+      if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
+      next.dailyExpenses.push(entry);
     } else if (type === "daily-saving") {
       if (!Number.isFinite(amount)) continue;
       const savingName = name;
       const goal = next.savings.find((g) => g.name.toLowerCase() === savingName.toLowerCase());
-      next.dailyExpenses.push({
+      const entry = {
         id: uid(),
         createdAt: Date.now(),
         kind: "saving",
@@ -2797,7 +4535,12 @@ function fromCSV(text) {
         savingId: goal ? goal.id : null,
         savingName,
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
-      });
+      };
+      const fx = readFx(row);
+      if (fx) entry.fx = fx;
+      const tag = readPoolTag(row);
+      if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
+      next.dailyExpenses.push(entry);
     } else if (type === "saving") {
       const target = iTarget >= 0 ? Number(row[iTarget]) : NaN;
       const current = iCurrent >= 0 ? Number(row[iCurrent]) : NaN;
@@ -2812,8 +4555,113 @@ function fromCSV(text) {
       });
     } else if (type === "setting" && name.toLowerCase() === "extramonthly") {
       if (Number.isFinite(amount)) next.extraMonthly = amount;
+    } else if (type === "budget-pool" && name) {
+      const poolLimit = Number.isFinite(amount) ? amount : 0;
+      const color = iPoolColor >= 0 ? (row[iPoolColor] || "").trim() : POOL_COLORS[0];
+      const active = iPoolActive >= 0 ? (row[iPoolActive] || "").trim().toUpperCase() === "Y" : false;
+      const rollover = iPoolRollover >= 0 ? (row[iPoolRollover] || "").trim().toUpperCase() === "Y" : false;
+      let monthlyLimits = {};
+      if (iPoolMonthlyLimits >= 0) {
+        const raw = (row[iPoolMonthlyLimits] || "").trim();
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object") monthlyLimits = parsed;
+          } catch (e) { console.warn("CSV pool_monthly_limits malformed:", e); }
+        }
+      }
+      const system = iPoolSystem >= 0 ? (row[iPoolSystem] || "").trim().toLowerCase() : "";
+      const isSystem = system === "debt";
+
+      // Validate color is in palette (else fall back). System pool color is fixed.
+      const validColor = isSystem ? SYSTEM_DEBT_POOL_COLOR : (POOL_COLORS.includes(color) ? color : POOL_COLORS[0]);
+
+      next.budgetPools.push({
+        id: isSystem ? SYSTEM_DEBT_POOL_ID : uid(),
+        name: isSystem ? "Debt" : name,
+        limit: poolLimit,
+        color: validColor,
+        active,
+        rollover: isSystem ? false : rollover,
+        monthlyLimits: isSystem ? {} : monthlyLimits,
+        system: isSystem ? "debt" : undefined,
+        createdAt: Date.now(),
+      });
+    } else if (type === "monthly-minsum" && /^\d{4}-\d{2}$/.test(name) && Number.isFinite(amount) && amount >= 0) {
+      next.monthlyMinSums[name] = amount;
     }
   }
+
+  // Dedupe system Debt pools — keep first, drop the rest. Rewrite tagged entries.
+  const debtPools = next.budgetPools.filter((p) => p.system === "debt");
+  if (debtPools.length > 1) {
+    const canonical = debtPools[0];
+    canonical.id = SYSTEM_DEBT_POOL_ID;
+    const dropPools = debtPools.slice(1);
+    // Tagged entries that referenced any duplicate pool now retag to canonical
+    // (since duplicates all share id "system-debt" already, this is mostly cosmetic
+    // but ensures the budgetPoolName field is normalized to "Debt".)
+    for (const e of next.dailyExpenses) {
+      if (e.budgetPoolId === SYSTEM_DEBT_POOL_ID) {
+        e.budgetPoolName = "Debt";
+      }
+    }
+    // Drop duplicates by object identity — id-based filter doesn't work because
+    // the budget-pool parse branch assigns SYSTEM_DEBT_POOL_ID to ALL rows with
+    // pool_system=debt at insertion time, so all duplicates share the canonical id.
+    next.budgetPools = next.budgetPools.filter((p) => p === canonical || p.system !== "debt");
+  }
+
+  // Enforce free-tier limits for non-Pro users.
+  // Even if the CSV came from a Pro user with multiple pools / rollover / overrides,
+  // a free user importing it should NOT inherit Pro features.
+  if (typeof isPro === "function" && !isPro()) {
+    // Cap user pools to 1 (system Debt pool doesn't count).
+    let userPoolsKept = 0;
+    const droppedPoolIds = [];
+    next.budgetPools = next.budgetPools.filter((p) => {
+      if (p.system === "debt") return true;
+      if (userPoolsKept >= 1) {
+        droppedPoolIds.push(p.id);
+        return false;
+      }
+      userPoolsKept++;
+      return true;
+    });
+    // Soft-delete dropped pools' tagged entries (keep budgetPoolName for display, clear id)
+    for (const e of next.dailyExpenses) {
+      if (droppedPoolIds.includes(e.budgetPoolId)) e.budgetPoolId = "";
+    }
+    for (const x of next.expenses) {
+      if (droppedPoolIds.includes(x.budgetPoolId)) x.budgetPoolId = "";
+    }
+    // Clear Pro-only pool features on remaining pools
+    for (const p of next.budgetPools) {
+      if (p.system === "debt") continue;
+      p.rollover = false;
+      p.monthlyLimits = {};
+    }
+  }
+
+  // Single-active invariant — keep first active, force the rest to false
+  let firstActiveSeen = false;
+  for (const p of next.budgetPools) {
+    if (p.active && !firstActiveSeen) { firstActiveSeen = true; }
+    else if (p.active) { p.active = false; }
+  }
+
+  // Re-link tagged entries to imported pools by name (case-insensitive).
+  // Runs AFTER system-Debt dedupe so the canonical "system-debt" id is already in place.
+  const poolByName = new Map(next.budgetPools.map((p) => [typeof p.name === "string" ? p.name.toLowerCase() : "", p]));
+  function relink(entry) {
+    if (!entry.budgetPoolName) return;
+    const pool = poolByName.get(entry.budgetPoolName.toLowerCase());
+    if (pool) entry.budgetPoolId = pool.id;
+    // else: keep stored id; rendering will show "(deleted)" via the soft-delete path
+  }
+  for (const e of next.dailyExpenses) relink(e);
+  for (const x of next.expenses) relink(x);
+
   return next;
 }
 
@@ -2871,6 +4719,140 @@ $("#file-import").addEventListener("change", async (e) => {
   } finally {
     e.target.value = "";
   }
+});
+
+/* ---------- bulk income import ---------- */
+
+/* Parse a CSV (already tokenized by parseCSV) and pull out only the
+   `income` rows, in the wide 17-column export shape. Returns
+   { valid: [{name, amount, month, day}], skipped: [{rowNum, reason}] }.
+   Other type rows (expense, debt, daily*, saving, setting) are ignored
+   silently — not counted as skipped. The user may drop a full export in
+   and only the income lines land. */
+function parseIncomeRows(rows) {
+  if (rows.length === 0) throw new Error("That file looks empty.");
+  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const idx = (n) => header.indexOf(n);
+  const iType = idx("type"), iName = idx("name"), iAmount = idx("amount");
+  const iNote = idx("note"), iMonth = idx("month"), iDay = idx("day");
+  if (iType === -1) throw new Error("This doesn't look like a Duitful CSV (no 'type' column).");
+
+  const valid = [];
+  const skipped = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const type = (row[iType] || "").trim().toLowerCase();
+    if (type !== "income") continue;
+    const rawName = iName >= 0 ? (row[iName] || "").trim() : "";
+    const rawAmount = iAmount >= 0 ? row[iAmount] : "";
+    const note = iNote >= 0 ? (row[iNote] || "").trim() : "";
+    const amount = Number(rawAmount);
+    if (!rawName) { skipped.push({ rowNum: r + 1, reason: "missing name" }); continue; }
+    if (!Number.isFinite(amount) || amount <= 0) { skipped.push({ rowNum: r + 1, reason: "missing or invalid amount" }); continue; }
+    const rowMonth = iMonth >= 0 ? (row[iMonth] || "").trim() : "";
+    const month = /^\d{4}-\d{2}$/.test(rowMonth) ? rowMonth : currentMonthISO();
+    const day = iDay >= 0 ? parseDay(row[iDay]) : null;
+    const name = note ? `${rawName} — ${note}` : rawName;
+    valid.push({ name, amount, month, day });
+  }
+  return { valid, skipped };
+}
+
+const bulkIncomeDialog = document.getElementById("bulk-income-dialog");
+const bulkIncomeFile = document.getElementById("bulk-income-file");
+const bulkIncomeStatus = document.getElementById("bulk-income-status");
+const bulkIncomePreview = document.getElementById("bulk-income-preview");
+const bulkIncomeCount = document.getElementById("bulk-income-count");
+const bulkIncomeTotals = document.getElementById("bulk-income-totals");
+const bulkIncomeSkippedWrap = document.getElementById("bulk-income-skipped-wrap");
+const bulkIncomeSkippedCount = document.getElementById("bulk-income-skipped-count");
+const bulkIncomeSkippedList = document.getElementById("bulk-income-skipped");
+const bulkIncomeApply = document.getElementById("bulk-income-apply");
+let bulkIncomeQueued = [];
+
+function resetBulkIncomeDialog() {
+  bulkIncomeFile.value = "";
+  bulkIncomeStatus.hidden = true;
+  bulkIncomeStatus.textContent = "";
+  bulkIncomePreview.hidden = true;
+  bulkIncomeApply.disabled = true;
+  bulkIncomeQueued = [];
+}
+
+function openBulkIncomeDialog() {
+  resetBulkIncomeDialog();
+  bulkIncomeDialog?.showModal();
+}
+
+function closeBulkIncomeDialog() {
+  bulkIncomeDialog?.close();
+  resetBulkIncomeDialog();
+}
+
+document.getElementById("btn-bulk-import-income")?.addEventListener("click", openBulkIncomeDialog);
+document.getElementById("bulk-income-cancel")?.addEventListener("click", closeBulkIncomeDialog);
+
+bulkIncomeFile?.addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  bulkIncomePreview.hidden = true;
+  bulkIncomeApply.disabled = true;
+  bulkIncomeQueued = [];
+  bulkIncomeStatus.hidden = false;
+  bulkIncomeStatus.textContent = "Reading file…";
+
+  if (!file) {
+    bulkIncomeStatus.textContent = "";
+    bulkIncomeStatus.hidden = true;
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const rows = parseCSV(text);
+    const { valid, skipped } = parseIncomeRows(rows);
+    bulkIncomeStatus.hidden = true;
+    bulkIncomeStatus.textContent = "";
+
+    bulkIncomeCount.textContent = String(valid.length);
+    bulkIncomePreview.hidden = false;
+    bulkIncomeQueued = valid;
+
+    if (valid.length > 0) {
+      const total = valid.reduce((s, r) => s + r.amount, 0);
+      const months = Array.from(new Set(valid.map((r) => r.month))).sort();
+      bulkIncomeTotals.textContent =
+        `${fmtMoney(total)} total across ${months.length} month${months.length === 1 ? "" : "s"}: ${months.join(", ")}`;
+    } else {
+      bulkIncomeTotals.textContent = "Nothing to add.";
+    }
+
+    if (skipped.length > 0) {
+      bulkIncomeSkippedCount.textContent = String(skipped.length);
+      bulkIncomeSkippedList.innerHTML = skipped
+        .map((s) => `<li>Row ${s.rowNum}: ${escapeHtml(s.reason)}</li>`)
+        .join("");
+      bulkIncomeSkippedWrap.hidden = false;
+    } else {
+      bulkIncomeSkippedWrap.hidden = true;
+    }
+
+    bulkIncomeApply.disabled = valid.length === 0;
+  } catch (err) {
+    bulkIncomeStatus.hidden = false;
+    bulkIncomeStatus.textContent = err && err.message ? err.message : String(err);
+  }
+});
+
+bulkIncomeApply?.addEventListener("click", () => {
+  if (bulkIncomeQueued.length === 0) return;
+  for (const r of bulkIncomeQueued) {
+    state.income.push({ id: uid(), name: r.name, amount: r.amount, month: r.month, day: r.day });
+  }
+  const added = bulkIncomeQueued.length;
+  save();
+  renderAll();
+  closeBulkIncomeDialog();
+  alert(`Added ${added} income ${added === 1 ? "entry" : "entries"}.`);
 });
 
 $("#btn-clear").addEventListener("click", async () => {
@@ -3309,6 +5291,7 @@ async function handleUnlock(passcode) {
   }
   hideLock();
   renderAll();
+  loadFxRates().then(() => renderAll());
   initIAP();
   initNotificationListener();
   fireDueNotifications().catch(() => {});
@@ -3332,6 +5315,7 @@ async function handleSetup(passcode, confirm, initialState) {
   localStorage.removeItem(STORAGE_KEY); // clear legacy plain after migration
   hideLock();
   renderAll();
+  loadFxRates().then(() => renderAll());
   initIAP();
   initNotificationListener();
   fireDueNotifications().catch(() => {});
@@ -3477,12 +5461,24 @@ async function getTesseractWorker(logger) {
     // Workers need absolute URLs — relative paths fail in importScripts()
     // inside Capacitor's WebView (base URL differs in worker context).
     const base = new URL("vendor/tesseract/", location.href).href;
-    tesseractWorker = await Tess.createWorker("eng", 1, {
+    const opts = {
       logger,
       workerPath: base + "worker.min.js",
       corePath: base,
       langPath: base,
-    });
+    };
+    if (isNative()) {
+      // Blob-URL workers hang inside Capacitor's Android WebView when
+      // importScripts pulls the multi-MB worker.min.js / wasm.js from
+      // https://localhost. Spawning the worker directly from the same-
+      // origin URL lets the bridge serve the bytes normally. The
+      // traineddata is already bundled in the APK, so IndexedDB caching
+      // it again is wasted work — disable it so a stuck IDB request
+      // can't stall the load.
+      opts.workerBlobURL = false;
+      opts.cacheMethod = "none";
+    }
+    tesseractWorker = await Tess.createWorker("eng", 1, opts);
   }
   return tesseractWorker;
 }
@@ -4329,3 +6325,571 @@ if (typeof PAYWALL_COPY !== "undefined") {
 }
 
 if (window.DriveSync) DriveSync.subscribe(() => renderDriveCard());
+
+{
+  const btnFxRefresh = document.getElementById("btn-fx-refresh");
+  if (btnFxRefresh) {
+    btnFxRefresh.addEventListener("click", async () => {
+      btnFxRefresh.disabled = true;
+      btnFxRefresh.setAttribute("aria-busy", "true");
+      const old = btnFxRefresh.textContent;
+      btnFxRefresh.textContent = "Refreshing…";
+      try {
+        await refreshFxRates();
+        renderAll();
+      } finally {
+        btnFxRefresh.disabled = false;
+        btnFxRefresh.removeAttribute("aria-busy");
+        btnFxRefresh.textContent = old;
+      }
+    });
+  }
+}
+
+{
+  populateCurrencyPickers();
+  ["form-income", "form-expense", "form-daily"].forEach((id) => {
+    const f = document.getElementById(id);
+    if (f) attachFxPreviewToForm(f);
+  });
+}
+
+document.addEventListener("click", (e) => {
+  const link = e.target instanceof HTMLElement ? e.target.closest("[data-action='open-paywall']") : null;
+  if (!link) return;
+  e.preventDefault();
+  openPaywall("multiCurrency");
+});
+
+{
+  // Budget pool form open/close
+  document.getElementById("btn-add-pool")?.addEventListener("click", () => {
+    // Pro gate: free tier limited to 1 user-created pool
+    const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
+    if (userPoolCount >= 1 && !gate("budgetPools")) return;
+    openPoolForm(null);
+  });
+
+  // Quick-start template chips — pre-fill the form name with a common pool
+  // type (Shopping / Subscriptions / Groceries / Vacation) so users can hit
+  // "set a limit and save" instead of typing the whole name.
+  document.getElementById("pool-templates")?.addEventListener("click", (e) => {
+    const btn = e.target instanceof HTMLElement ? e.target.closest(".pool-template") : null;
+    if (!btn) return;
+    const name = btn.getAttribute("data-template") || "";
+    if (!name) return;
+    // Pro gate (same rule as +Add pool)
+    const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
+    if (userPoolCount >= 1 && !gate("budgetPools")) return;
+    openPoolForm(null);
+    const form = document.getElementById("form-budget-pool");
+    const nameInput = form?.querySelector("input[name='name']");
+    if (nameInput) {
+      nameInput.value = name;
+      // Focus the limit field so the user just types the limit and saves.
+      form.querySelector("input[name='limit']")?.focus();
+    }
+  });
+
+  document.getElementById("btn-cancel-pool")?.addEventListener("click", () => closePoolForm());
+
+  document.getElementById("form-budget-pool")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const id = (f.get("id") || "").toString();
+    const name = (f.get("name") || "").toString().trim();
+    const limit = Number(f.get("limit"));
+    const colorRaw = (f.get("color") || POOL_COLORS[0]).toString();
+    const color = POOL_COLORS.includes(colorRaw) ? colorRaw : POOL_COLORS[0];
+    const rollover = f.get("rollover") === "on";
+    const overrideRaw = (f.get("thisMonthOverride") || "").toString().trim();
+    const m = currentMonthISO();
+
+    if (!name || !Number.isFinite(limit) || limit <= 0) {
+      alert("Pool name and a positive limit are required.");
+      return;
+    }
+    // Name uniqueness (case-insensitive, excluding self)
+    const dup = state.budgetPools.find((p) => p.id !== id && typeof p.name === "string" && p.name.trim().toLowerCase() === name.toLowerCase());
+    if (dup) {
+      alert(`A pool named "${dup.name}" already exists.`);
+      return;
+    }
+
+    // Pro gate: rollover and per-month overrides
+    if (rollover && !isPro()) { openPaywall("budgetPoolsRollover"); return; }
+    if (overrideRaw && !isPro()) { openPaywall("budgetPoolsOverrides"); return; }
+
+    let pool;
+    if (id) {
+      pool = state.budgetPools.find((p) => p.id === id);
+      if (!pool || pool.system === "debt") return;
+      const oldName = pool.name;
+      pool.name = name;
+      pool.limit = limit;
+      pool.color = color;
+      pool.rollover = rollover;
+      // If the name changed, propagate to all entries' denormalized budgetPoolName
+      // so display + CSV roundtrip reflect the new name.
+      if (oldName !== name) {
+        for (const e of state.dailyExpenses) {
+          if (e.budgetPoolId === pool.id) e.budgetPoolName = name;
+        }
+        for (const x of state.expenses) {
+          if (x.budgetPoolId === pool.id) x.budgetPoolName = name;
+        }
+      }
+    } else {
+      pool = {
+        id: uid(),
+        name, limit, color,
+        active: false,
+        rollover,
+        monthlyLimits: {},
+        createdAt: Date.now(),
+      };
+      state.budgetPools.push(pool);
+    }
+    // Apply override
+    if (overrideRaw) {
+      const ov = Number(overrideRaw);
+      if (Number.isFinite(ov) && ov > 0) pool.monthlyLimits[m] = ov;
+    } else if (pool.monthlyLimits) {
+      delete pool.monthlyLimits[m];
+    }
+    save();
+    closePoolForm();
+    renderAll();
+  });
+
+  // Edit / delete pool — delegated click
+  document.addEventListener("click", (e) => {
+    const btn = e.target instanceof HTMLElement ? e.target.closest("button[data-action]") : null;
+    if (!btn) return;
+    const action = btn.dataset.action;
+    const id = btn.dataset.id;
+    if (action === "edit-pool" && id) {
+      openPoolForm(id);
+    } else if (action === "delete-pool" && id) {
+      const pool = state.budgetPools.find((p) => p.id === id);
+      if (!pool || pool.system === "debt") return;
+      if (!confirm(`Delete pool "${pool.name}"? Past expenses tagged to it stay tagged (shown as "deleted").`)) return;
+      state.budgetPools = state.budgetPools.filter((p) => p.id !== id);
+      save();
+      renderAll();
+    }
+  });
+
+  // Color swatch click → toggle selection
+  document.addEventListener("click", (e) => {
+    const label = e.target instanceof HTMLElement ? e.target.closest("#pool-color-options label") : null;
+    if (!label) return;
+    const all = label.parentElement.querySelectorAll("label");
+    all.forEach((l) => l.classList.remove("selected"));
+    label.classList.add("selected");
+    const radio = label.querySelector("input[type='radio']");
+    if (radio) radio.checked = true;
+  });
+
+  // Active-pool toggle (single-active invariant)
+  document.addEventListener("change", (e) => {
+    if (!(e.target instanceof HTMLElement)) return;
+    if (!e.target.matches("input[data-action='toggle-active']")) return;
+    const id = e.target.dataset.id;
+    const target = state.budgetPools.find((p) => p.id === id);
+    if (!target || target.system === "debt") return;
+    // Single-active invariant: only the toggled pool may be active.
+    for (const p of state.budgetPools) {
+      p.active = (p.id === id) ? e.target.checked : false;
+    }
+    save();
+    renderAll();
+  });
+
+  // Copy overrides from last month
+  document.getElementById("btn-copy-pool-overrides")?.addEventListener("click", () => {
+    if (!isPro()) { openPaywall("budgetPoolsOverrides"); return; }
+    const thisM = currentMonthISO();
+    const lastM = shiftMonth(thisM, -1);
+    let copied = 0;
+    for (const pool of state.budgetPools) {
+      if (pool.system === "debt") continue;
+      if (pool.monthlyLimits && pool.monthlyLimits[lastM] != null) {
+        pool.monthlyLimits[thisM] = pool.monthlyLimits[lastM];
+        copied++;
+      }
+    }
+    save();
+    renderAll();
+    alert(copied === 0
+      ? "No overrides found in last month."
+      : `Copied ${copied} override${copied === 1 ? "" : "s"} from last month.`);
+  });
+}
+
+{
+  populatePoolDropdowns();
+  ["form-daily", "form-expense"].forEach((id) => {
+    const f = document.getElementById(id);
+    if (f) attachPoolDropdownToForm(f);
+  });
+}
+
+document.addEventListener("click", (e) => {
+  const link = e.target instanceof HTMLElement ? e.target.closest("[data-action='edit-toggle-pool']") : null;
+  if (!link) return;
+  e.preventDefault();
+  const field = document.getElementById("edit-pool-field");
+  if (field) field.hidden = !field.hidden;
+});
+
+function openBulkDebtPayDialog() {
+  ensureDebtPool();
+  const dlg = document.getElementById("bulk-debt-pay-dialog");
+  const rowsEl = document.getElementById("bulk-debt-rows");
+  const dateEl = document.getElementById("bulk-debt-default-date");
+  if (!dlg || !rowsEl || !dateEl) return;
+
+  dateEl.value = todayISO();
+  if (state.debts.length === 0) {
+    rowsEl.innerHTML = `<p class="empty">No debts to pay.</p>`;
+    document.getElementById("bulk-debt-total").textContent = "";
+  } else {
+    rowsEl.innerHTML = state.debts.map((d) => {
+      const min = Number(d.minPayment) || 0;
+      const paid = paidThisMonth(d.id);
+      const remaining = Math.max(0, min - paid);
+      const balanceAfter = Math.max(0, (Number(d.balance) || 0) - remaining);
+      let rowClass = "bulk-debt-row";
+      let label = "";
+      let checked = "checked";
+      let amount = remaining;
+      if (paid >= min) {
+        rowClass += " greyed";
+        checked = "";
+        amount = 0;
+        label = "✓ already paid this month";
+      } else if (paid > 0) {
+        label = `RM ${remaining.toFixed(2)} still due (you've paid ${fmtMoney(paid)} this month)`;
+      } else {
+        label = `Balance after: ${fmtMoney(balanceAfter)}`;
+      }
+      // Editable amount — defaults to remaining minimum but the user can
+      // change it (pay more to attack principal, or less if cash-strapped).
+      const amountAttrs = paid >= min ? "disabled" : "";
+      return `
+        <label class="${rowClass}" data-debt-id="${escapeHtml(d.id)}">
+          <input type="checkbox" name="row-checked" ${checked}${paid >= min ? " disabled" : ""} />
+          <div>
+            <div>${escapeHtml(d.name)}</div>
+            <div class="row-meta">${escapeHtml(label)}</div>
+          </div>
+          <input type="number" class="row-amount" data-row-amount step="0.01" min="0" inputmode="decimal" value="${amount.toFixed(2)}" ${amountAttrs} aria-label="Payment for ${escapeHtml(d.name)}" />
+          <input type="date" data-row-date value="${todayISO()}"${paid >= min ? " disabled" : ""} />
+        </label>
+      `;
+    }).join("");
+    updateBulkDebtTotal();
+  }
+
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+function updateBulkDebtTotal() {
+  const totalEl = document.getElementById("bulk-debt-total");
+  if (!totalEl) return;
+  const checkedRows = document.querySelectorAll("#bulk-debt-rows .bulk-debt-row input[name='row-checked']:checked");
+  let total = 0;
+  let count = 0;
+  checkedRows.forEach((cb) => {
+    const row = cb.closest(".bulk-debt-row");
+    if (!row) return;
+    // Read the user-edited amount input rather than recomputing from min —
+    // the user is free to pay more or less per row.
+    const amountInput = row.querySelector("[data-row-amount]");
+    const amount = amountInput ? Number(amountInput.value) || 0 : 0;
+    if (amount <= 0) return;
+    total += amount;
+    count++;
+  });
+  totalEl.textContent = `Total: ${fmtMoney(total)} in ${count} ${count === 1 ? "entry" : "entries"}`;
+}
+
+document.addEventListener("change", (e) => {
+  if (!(e.target instanceof HTMLElement)) return;
+  if (e.target.matches("#bulk-debt-rows input[name='row-checked']")) updateBulkDebtTotal();
+  if (e.target.matches("#bulk-debt-default-date")) {
+    document.querySelectorAll("#bulk-debt-rows input[data-row-date]").forEach((dateInput) => {
+      if (!dateInput.disabled) dateInput.value = e.target.value;
+    });
+  }
+});
+// Live-update the total as the user edits amounts (input event fires per
+// keystroke for type="number")
+document.addEventListener("input", (e) => {
+  if (!(e.target instanceof HTMLElement)) return;
+  if (e.target.matches("#bulk-debt-rows [data-row-amount]")) updateBulkDebtTotal();
+});
+
+function closeBulkDebtPayDialog() {
+  const dlg = document.getElementById("bulk-debt-pay-dialog");
+  if (!dlg) return;
+  if (typeof dlg.close === "function") dlg.close();
+  else dlg.removeAttribute("open");
+}
+
+document.addEventListener("click", (e) => {
+  if (!(e.target instanceof HTMLElement)) return;
+  const cancelBtn = e.target.closest("[data-action='bulk-debt-cancel']");
+  if (cancelBtn) { closeBulkDebtPayDialog(); return; }
+  const openBtn = e.target.closest("[data-action='open-bulk-debt-pay']");
+  if (openBtn) { e.preventDefault(); openBulkDebtPayDialog(); return; }
+});
+
+document.getElementById("btn-bulk-debt-confirm")?.addEventListener("click", () => {
+  const debtPool = ensureDebtPool();
+  const rows = document.querySelectorAll("#bulk-debt-pay-dialog .bulk-debt-row");
+  let created = 0;
+  rows.forEach((row) => {
+    const cb = row.querySelector("input[name='row-checked']");
+    if (!cb || !cb.checked || cb.disabled) return;
+    const debtId = row.dataset.debtId;
+    const d = state.debts.find((x) => x.id === debtId);
+    if (!d) return;
+    // Use the user-edited amount (defaults to remaining min, but user is
+    // free to override). Apply at most the current balance — don't let a
+    // typo overpay the debt and create a negative balance.
+    const amountInput = row.querySelector("[data-row-amount]");
+    const requested = amountInput ? Number(amountInput.value) || 0 : 0;
+    if (requested <= 0) return;
+    const applied = Math.min(requested, Number(d.balance) || 0);
+    if (applied <= 0) return;
+    const dateInput = row.querySelector("input[data-row-date]");
+    const date = dateInput && dateInput.value ? dateInput.value : todayISO();
+    d.balance = Math.max(0, (Number(d.balance) || 0) - applied);
+    state.dailyExpenses.push({
+      id: uid(),
+      createdAt: Date.now(),
+      kind: "debt",
+      date,
+      amount: applied,
+      debtId: d.id,
+      debtName: d.name,
+      budgetPoolId: debtPool.id,
+      budgetPoolName: debtPool.name,
+      note: "",
+    });
+    created++;
+  });
+  save();
+  closeBulkDebtPayDialog();
+  renderAll();
+  if (created === 0) alert("No debts paid (nothing was checked or amounts were 0).");
+});
+
+// ----------- Daily entry edit dialog -----------
+// Opens a small dialog to edit a daily entry's amount, date, category (if
+// expense), and note. Other fields (kind, debtId, savingId, fx, cardDebtId)
+// are not editable from this dialog — the user should delete and re-add if
+// they need to change the entry's nature.
+function openDailyEditDialog(id) {
+  const dlg = document.getElementById("daily-edit-dialog");
+  if (!dlg) return;
+  const entry = state.dailyExpenses.find((x) => x.id === id);
+  if (!entry) return;
+
+  dlg.dataset.entryId = id;
+  const kindHint = document.getElementById("daily-edit-kind-hint");
+  const kind = entry.kind || "expense";
+  const kindLabels = { expense: "Spending entry", debt: "Debt payment", saving: "Savings deposit" };
+  if (kindHint) kindHint.textContent = kindLabels[kind] || "Entry";
+
+  const amountInput = dlg.querySelector("input[name='amount']");
+  const dateInput = dlg.querySelector("input[name='date']");
+  const categoryInput = dlg.querySelector("input[name='category']");
+  const noteInput = dlg.querySelector("input[name='note']");
+  const categoryField = document.getElementById("daily-edit-category-field");
+
+  if (amountInput) amountInput.value = entry.amount != null ? Number(entry.amount).toFixed(2) : "";
+  if (dateInput) dateInput.value = entry.date || todayISO();
+  if (categoryInput) categoryInput.value = entry.category || "";
+  if (noteInput) noteInput.value = entry.note || "";
+
+  // Category field is only relevant for plain expenses — debt/saving entries
+  // get their label from the linked debt/goal name.
+  if (categoryField) categoryField.hidden = kind !== "expense";
+
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+function closeDailyEditDialog() {
+  const dlg = document.getElementById("daily-edit-dialog");
+  if (!dlg) return;
+  if (typeof dlg.close === "function") dlg.close();
+  else dlg.removeAttribute("open");
+  dlg.dataset.entryId = "";
+}
+
+document.getElementById("btn-daily-edit-cancel")?.addEventListener("click", () => {
+  closeDailyEditDialog();
+});
+
+document.getElementById("btn-daily-edit-save")?.addEventListener("click", () => {
+  const dlg = document.getElementById("daily-edit-dialog");
+  if (!dlg) return;
+  const id = dlg.dataset.entryId;
+  if (!id) return;
+  const entry = state.dailyExpenses.find((x) => x.id === id);
+  if (!entry) return;
+
+  const amount = Number(dlg.querySelector("input[name='amount']")?.value);
+  const date = dlg.querySelector("input[name='date']")?.value;
+  const category = dlg.querySelector("input[name='category']")?.value?.trim() || "";
+  const note = dlg.querySelector("input[name='note']")?.value?.trim() || "";
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    alert("Amount must be a positive number.");
+    return;
+  }
+  if (!date) {
+    alert("Date is required.");
+    return;
+  }
+
+  // For debt-payment entries, balance changes if amount changes — adjust the
+  // linked debt's balance by the delta so the total stays consistent.
+  const kind = entry.kind || "expense";
+  if (kind === "debt" && entry.debtId) {
+    const debt = state.debts.find((d) => d.id === entry.debtId);
+    if (debt) {
+      const oldAmount = Number(entry.amount) || 0;
+      const delta = amount - oldAmount;
+      // Reverse the prior reduction, then apply the new one (clamped to 0).
+      debt.balance = Math.max(0, (Number(debt.balance) || 0) - delta);
+    }
+  }
+  // Same for savings deposits — adjust the linked goal's current.
+  if (kind === "saving" && entry.savingId) {
+    const goal = state.savings.find((g) => g.id === entry.savingId);
+    if (goal) {
+      const oldAmount = Number(entry.amount) || 0;
+      const delta = amount - oldAmount;
+      goal.current = Math.max(0, (Number(goal.current) || 0) + delta);
+    }
+  }
+
+  entry.amount = amount;
+  entry.date = date;
+  if (kind === "expense") entry.category = category;
+  entry.note = note;
+
+  save();
+  closeDailyEditDialog();
+  renderAll();
+});
+
+function openLastMonthEditDialog() {
+  const dlg = document.getElementById("last-month-edit-dialog");
+  if (!dlg) return;
+  const lastM = shiftMonth(currentMonthISO(), -1);
+  const monthLabelEl = document.getElementById("last-month-edit-month");
+  const inputEl = dlg.querySelector("input[name='minSum']");
+  const currentEl = document.getElementById("last-month-edit-current");
+  if (monthLabelEl) monthLabelEl.textContent = formatMonthLabel(lastM);
+  const stored = state.monthlyMinSums[lastM];
+  const computed = debtTotals(state.debts).minSum;
+  if (inputEl) inputEl.value = stored != null ? stored : computed;
+  if (currentEl) currentEl.textContent = fmtMoney(computed);
+  dlg.dataset.targetMonth = lastM;
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+function closeLastMonthEditDialog() {
+  const dlg = document.getElementById("last-month-edit-dialog");
+  if (!dlg) return;
+  if (typeof dlg.close === "function") dlg.close();
+  else dlg.removeAttribute("open");
+}
+
+document.getElementById("btn-edit-last-month-min")?.addEventListener("click", () => {
+  openLastMonthEditDialog();
+});
+
+document.getElementById("btn-last-month-edit-cancel")?.addEventListener("click", () => {
+  closeLastMonthEditDialog();
+});
+
+document.getElementById("btn-last-month-edit-save")?.addEventListener("click", () => {
+  const dlg = document.getElementById("last-month-edit-dialog");
+  if (!dlg) return;
+  const month = dlg.dataset.targetMonth;
+  const inputEl = dlg.querySelector("input[name='minSum']");
+  if (!month || !inputEl) return;
+  const raw = (inputEl.value || "").toString().trim();
+  if (raw === "") {
+    alert("Enter a value, or use Reset to auto.");
+    return;
+  }
+  const v = Number(raw);
+  if (!Number.isFinite(v) || v < 0) {
+    alert("Enter a positive number.");
+    return;
+  }
+  state.monthlyMinSums[month] = v;
+  save();
+  closeLastMonthEditDialog();
+  renderAll();
+});
+
+document.getElementById("btn-last-month-edit-reset")?.addEventListener("click", () => {
+  const dlg = document.getElementById("last-month-edit-dialog");
+  if (!dlg) return;
+  const month = dlg.dataset.targetMonth;
+  if (!month) return;
+  delete state.monthlyMinSums[month];
+  save();
+  closeLastMonthEditDialog();
+  renderAll();
+});
+
+{
+  // List search input wiring — delegated, debounced per-input (80ms)
+  const _searchDebounce = new Map();
+  document.addEventListener("input", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    if (!target.matches(".list-search[data-search]")) return;
+    const key = target.dataset.search;
+    if (!Object.prototype.hasOwnProperty.call(searchQueries, key)) return;
+    const prev = _searchDebounce.get(target);
+    if (prev) clearTimeout(prev);
+    _searchDebounce.set(target, setTimeout(() => {
+      searchQueries[key] = target.value || "";
+      const clearBtn = target.parentElement && target.parentElement.querySelector("[data-search-clear]");
+      if (clearBtn) clearBtn.hidden = !searchQueries[key];
+      renderForKey(key);
+    }, 80));
+  });
+}
+
+{
+  // List search clear: ✕ button OR "clear search" link in empty-state
+  document.addEventListener("click", (e) => {
+    const btn = e.target instanceof HTMLElement
+      ? e.target.closest("[data-search-clear]")
+      : null;
+    if (!btn) return;
+    const key = btn.dataset.searchClear;
+    if (!Object.prototype.hasOwnProperty.call(searchQueries, key)) return;
+    e.preventDefault();
+    searchQueries[key] = "";
+    const input = document.querySelector(`.list-search[data-search="${key}"]`);
+    if (input) input.value = "";
+    const inlineClear = document.querySelector(`.list-search-row [data-search-clear="${key}"]`);
+    if (inlineClear) inlineClear.hidden = true;
+    renderForKey(key);
+  });
+}

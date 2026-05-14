@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">FOR SME OWNERS</text>
+  <g transform="translate(900, 140)">
+    <rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">4/5</text>
+  </g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">For SMEs the calculation</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">is <tspan font-style="italic" fill="#b35a39">different</tspan>.</text>
+
+  <!-- Hero ticket -->
+  <g transform="translate(80, 470)">
+    <rect width="920" height="320" rx="28" fill="url(#primary)"/>
+    <line x1="40" y1="296" x2="880" y2="296" stroke="#fffaf2" stroke-opacity="0.4" stroke-width="2" stroke-dasharray="6 8"/>
+    <text x="50" y="100" font-family="'JetBrains Mono', monospace" font-size="22" fill="#fffaf2" letter-spacing="4" opacity="0.85">NET SAVINGS · PER EMPLOYEE · MONTHLY</text>
+    <text x="50" y="240" font-family="'Fraunces', 'Georgia', serif" font-size="120" font-weight="500" fill="#fffaf2">RM 800–2,500</text>
+  </g>
+
+  <!-- Where it comes from -->
+  <g transform="translate(80, 850)" font-family="'Inter', sans-serif" fill="#2a2420">
+    <text x="0" y="0" font-size="22" fill="#8a8178" letter-spacing="3">WHERE IT LANDS</text>
+    <g transform="translate(0, 40)">
+      <text font-size="24" font-weight="600">↓ Office electricity</text>
+      <text x="460" font-size="24" font-weight="600">↓ Pantry &amp; cleaning</text>
+    </g>
+    <g transform="translate(0, 90)">
+      <text font-size="24" font-weight="600">↓ Parking &amp; fuel claims</text>
+      <text x="460" font-size="24" font-weight="600">↓ Wear on shared assets</text>
+    </g>
+    <g transform="translate(0, 160)" fill="#5c524a">
+      <text font-size="20" font-style="italic">After downsize/sublet at lease renewal —</text>
+      <text font-size="20" font-style="italic" y="28">don't break a lease mid-term to chase this.</text>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

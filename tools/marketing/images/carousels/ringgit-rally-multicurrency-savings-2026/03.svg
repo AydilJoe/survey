@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">THE ASYMMETRY</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">3/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">"Wait and see"</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#b35a39" font-style="italic">is the wrong instinct.</text>
+
+  <!-- Two columns -->
+  <g transform="translate(60, 460)" font-family="'Inter', sans-serif">
+    <!-- Cheaper later -->
+    <g>
+      <rect width="465" height="700" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="100" rx="22" fill="#8fa078"/>
+      <rect y="80" width="465" height="20" fill="#8fa078"/>
+      <text x="232" y="62" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#fffaf2" font-weight="500">Cheaper, later</text>
+      <text x="232" y="86" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="14" fill="#fffaf2" letter-spacing="3" opacity="0.85">4 – 12 WEEKS</text>
+      <g transform="translate(28, 150)" font-size="22" fill="#2a2420">
+        <text>Imported electronics</text>
+        <text y="50">USD subscriptions</text>
+        <text y="100">Travel to USD/AUD</text>
+        <text y="150">Cloud bills in USD</text>
+      </g>
+      <g transform="translate(28, 380)" fill="#5c524a">
+        <text font-size="18" font-style="italic">Retail flow takes</text>
+        <text font-size="18" font-style="italic" y="26">weeks to materialise.</text>
+      </g>
+    </g>
+    <!-- Worth less now -->
+    <g transform="translate(495, 0)">
+      <rect width="465" height="700" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="100" rx="22" fill="#b86a4e"/>
+      <rect y="80" width="465" height="20" fill="#b86a4e"/>
+      <text x="232" y="62" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#fffaf2" font-weight="500">Worth less, now</text>
+      <text x="232" y="86" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="14" fill="#fffaf2" letter-spacing="3" opacity="0.85">TODAY</text>
+      <g transform="translate(28, 150)" font-size="22" fill="#2a2420">
+        <text>USD savings overseas</text>
+        <text y="50">USD/SGD income</text>
+        <text y="100">USD investments (MYR)</text>
+        <text y="150">Pending remittances</text>
+      </g>
+      <g transform="translate(28, 380)" fill="#b86a4e">
+        <text font-size="18" font-style="italic">Loss is realised the</text>
+        <text font-size="18" font-style="italic" y="26">moment the rate moved.</text>
+      </g>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

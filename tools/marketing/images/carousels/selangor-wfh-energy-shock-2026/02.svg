@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">THE BACK-OF-NAPKIN MATHS</text>
+  <g transform="translate(900, 140)">
+    <rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">2/5</text>
+  </g>
+
+  <!-- Big stat -->
+  <g transform="translate(540, 540)">
+    <text x="0" y="0" text-anchor="middle" font-family="'Fraunces', 'Georgia', serif" font-size="240" font-weight="500" fill="#b35a39" font-style="italic">40%</text>
+    <text x="0" y="100" text-anchor="middle" font-family="'Fraunces', 'Georgia', serif" font-size="60" font-weight="500" fill="#2a2420">fewer commutes</text>
+  </g>
+
+  <!-- Equals -->
+  <text x="540" y="780" text-anchor="middle" font-family="'Fraunces', 'Georgia', serif" font-size="56" font-weight="500" fill="#5c524a">=</text>
+
+  <!-- Result block -->
+  <g transform="translate(80, 830)">
+    <rect width="920" height="280" rx="24" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="460" y="80" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="22" fill="#8a8178" letter-spacing="3">BACK IN YOUR POCKET, MONTHLY</text>
+    <text x="460" y="190" text-anchor="middle" font-family="'Fraunces', 'Georgia', serif" font-size="100" font-weight="500" fill="#2a2420">RM 140<tspan fill="#8a8178"> – </tspan>240</text>
+    <text x="460" y="240" text-anchor="middle" font-family="'Inter', sans-serif" font-size="20" fill="#8a8178">just from petrol &amp; tolls. Before electricity, food, wear.</text>
+  </g>
+
+  <text x="540" y="1190" text-anchor="middle" font-family="'Inter', sans-serif" font-size="22" fill="#8a8178" font-style="italic">Typical Klang Valley commuter, RM 350–600/mo on petrol + tolls.</text>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">THE WORKED EXAMPLE</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">2/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Real ringgit, not</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#b35a39" font-style="italic">marketing maths.</text>
+
+  <!-- Calc card -->
+  <g transform="translate(80, 480)" font-family="'JetBrains Mono', monospace" fill="#2a2420">
+    <rect width="920" height="640" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="40" y="60" font-size="18" fill="#8a8178" letter-spacing="3">YOU SPEND</text>
+    <text x="40" y="120" font-family="'Fraunces', serif" font-size="56" font-weight="500" fill="#2a2420">RM 1,000</text>
+    <text x="40" y="160" font-size="20" fill="#5c524a" font-family="'Inter', sans-serif">on accredited AI / cyber training</text>
+
+    <line x1="40" y1="200" x2="880" y2="200" stroke="#e3d6bf" stroke-width="1"/>
+
+    <text x="40" y="250" font-size="18" fill="#8a8178" letter-spacing="3">ASSESSABLE INCOME DROPS BY</text>
+    <text x="40" y="310" font-family="'Fraunces', serif" font-size="56" font-weight="500" fill="#b35a39">RM 1,500</text>
+    <text x="40" y="350" font-size="20" fill="#5c524a" font-family="'Inter', sans-serif">100% standard + 50% additional = 150%</text>
+
+    <line x1="40" y1="390" x2="880" y2="390" stroke="#e3d6bf" stroke-width="1"/>
+
+    <text x="40" y="440" font-size="18" fill="#8a8178" letter-spacing="3">REAL TAX SAVED · AT 17% SME RATE</text>
+    <text x="40" y="510" font-family="'Fraunces', serif" font-size="64" font-weight="500" fill="#5a7c4f" font-style="italic">RM 255</text>
+    <text x="40" y="555" font-size="20" fill="#5c524a" font-family="'Inter', sans-serif">RM 85 of which is purely the additional 50%.</text>
+    <text x="40" y="585" font-size="18" fill="#8a8178" font-family="'Inter', sans-serif" font-style="italic">First RM 600k chargeable income · Sdn Bhd MSME</text>
+  </g>
+
+  <text x="100" y="1280" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

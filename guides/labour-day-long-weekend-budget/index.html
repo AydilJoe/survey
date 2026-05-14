@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Labour Day budget","item":"https://duitful.app/guides/labour-day-long-weekend-budget/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Plan your Labour Day long-weekend budget — Duitful Malaysia guide","description":"Labour Day Malaysia 2026 lands on a Friday — three days of balik kampung, makan, and \"just one more\". Categorise every long-weekend ringgit in Duitful so May doesn't crater.","inLanguage":"en","datePublished":"2026-04-29","dateModified":"2026-04-29","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/labour-day-long-weekend-budget/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why a category instead of a whole new budget?","acceptedAnswer":{"@type":"Answer","text":"Categories are zero-setup — they're built into every entry. Budgets-within-budgets get abandoned. A \"Labour Day 2026\" category survives the weekend and stays searchable next year."}},{"@type":"Question","name":"Do I need Pro for this?","acceptedAnswer":{"@type":"Answer","text":"No. The free tier handles categories, totals, and filtering in Reports. Pro adds receipt OCR — useful, not required."}},{"@type":"Question","name":"What about the Wesak / Hari Raya / Merdeka long weekends later?","acceptedAnswer":{"@type":"Answer","text":"Same trick — pick a new category name for each one (e.g., Hari Raya 2026). Compare year-over-year totals in Reports once you've got two or three holidays logged."}},{"@type":"Question","name":"My long weekend involves Singapore. Help?","acceptedAnswer":{"@type":"Answer","text":"Log entries in SGD; Duitful converts to MYR with the day's rate and keeps both numbers. In Reports, the totals are already in MYR."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Plan your Labour Day long-weekend budget — Duitful Malaysia guide","description":"Labour Day Malaysia 2026 lands on a Friday — three days of balik kampung, makan, and \"just one more\". Categorise every long-weekend ringgit in Duitful so May doesn't crater.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Set a daily mini-cap","text":"If your weekend cap is RM 900, that's roughly RM 300/day. Hitting RM 280 by lunch on Saturday is your warning shot."},{"@type":"HowToStep","position":2,"name":"Pre-log the inevitable","text":"Toll. Fuel. One hotel night. Log those now with rough estimates so the \"discretionary\" pool is what's actually left."},{"@type":"HowToStep","position":3,"name":"Snap restaurant bills","text":"Pro receipt OCR pulls totals from photos. Useful when you're splitting bills and don't want to type while everyone's waiting."},{"@type":"HowToStep","position":4,"name":"Auto-FX for cross-border trips","text":"JB to Singapore, KL to Krabi — log entries in SGD or THB, Duitful converts to MYR automatically and stores both."},{"@type":"HowToStep","position":5,"name":"One-screen review on Sunday","text":"Open Reports, set Category to Labour Day 2026, look at the total. If you've blown past the cap, Monday becomes a no-spend day on purpose."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -181,6 +182,37 @@
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
 
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
   /* ---------- CTA ---------- */
   .cta-card {
     background: var(--card); border: 0.5px solid var(--line);
@@ -210,6 +242,12 @@
   .footer a { color: var(--primary); text-decoration: none; }
   .footer a:hover { text-decoration: underline; }
 </style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <div class="container">
@@ -321,6 +359,30 @@
       <p class="faq-a">Log entries in SGD; Duitful converts to MYR with the day's rate and keeps both numbers. In Reports, the totals are already in MYR.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/budi95-fuel-tracker/">
+          <span class="related-title">Budi95 petrol &amp; diesel tracker</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/selangor-ic-design-career-pivot-2026/">
+          <span class="related-title">Selangor IC Design career pivot</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/opr-hold-275-yield-strategy-2026/">
+          <span class="related-title">OPR 2.75% — yield playbook</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Set the cap before Friday</h2>

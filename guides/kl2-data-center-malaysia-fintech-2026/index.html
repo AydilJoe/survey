@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"KL2 & fintech infrastructure","item":"https://duitful.app/guides/kl2-data-center-malaysia-fintech-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"KL2 data center & Malaysian fintech — Duitful guide","description":"Equinix is building KL2 in Cyberjaya, a US$190M data center less than 1km from its existing site, designed for generative AI and sovereign cloud workloads. What that infrastructure actually changes for everyday Malaysian bank-app users and small fintech operators.","inLanguage":"en","datePublished":"2026-05-14","dateModified":"2026-05-14","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/kl2-data-center-malaysia-fintech-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does this affect my Duitful experience?","acceptedAnswer":{"@type":"Answer","text":"Indirectly. The bank apps Duitful pulls auto-capture notifications from (Maybank, CIMB, etc.) will likely feel slightly snappier over the next 12–24 months. Duitful itself doesn't change."}},{"@type":"Question","name":"Will my data be \"moved\" to KL2?","acceptedAnswer":{"@type":"Answer","text":"No data we hold. As for your bank's data, ask them — they'll typically be vague but the answer is \"increasingly yes, with some workloads still abroad.\" Doesn't change the encryption-at-rest guarantees they already make."}},{"@type":"Question","name":"Is this what makes Malaysia a \"sovereign tech stack\"?","acceptedAnswer":{"@type":"Answer","text":"It's one of the pieces. The broader policy push is for Malaysia to own its full digital sovereignty — see the sovereign tech stack guide for the personal-finance angle on that."}},{"@type":"Question","name":"I'm a fintech founder — should I host with Equinix KL2?","acceptedAnswer":{"@type":"Answer","text":"Outside Duitful's scope, but a few obvious filters: enterprise contracts that require local hosting (yes), workloads that need high-density GPUs (probably), a typical consumer mobile app with <1M users (overkill, use a cheaper regional cloud). Talk to a sales engineer; they'll qualify in 15 minutes."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"KL2 data center & Malaysian fintech — Duitful guide","description":"Equinix is building KL2 in Cyberjaya, a US$190M data center less than 1km from its existing site, designed for generative AI and sovereign cloud workloads. What that infrastructure actually changes for everyday Malaysian bank-app users and small fintech operators.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Faster bank-app responses, marginally","text":"A small share of latency you currently see when your bank app loads a balance or runs a fraud check is the round-trip from your phone to a regional data center. More local capacity = more services hosted inside Malaysia = fewer cross-border round-trips. Expect \"feels snappier\" rather than \"wow that's fast\" — single-digit-percent latency improvements at most."},{"@type":"HowToStep","position":2,"name":"Slightly better uptime during regional incidents","text":"Singapore power events, Hong Kong fibre cuts, Jakarta floods — any of those can degrade a Malaysian service that hosts in those regions. Local capacity reduces the blast radius. Doesn't eliminate it; major outages will still happen."},{"@type":"HowToStep","position":3,"name":"Data sovereignty as a default, not a request","text":"Banks already host customer data locally. The change is that AI inference (the \"what does this transaction mean\" or \"is this fraud\" decision) increasingly runs on local hardware too, instead of being shipped to a foreign region. Your bank can claim \"your data stays in Malaysia\" more honestly."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -181,6 +182,37 @@
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
 
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
   /* ---------- CTA ---------- */
   .cta-card {
     background: var(--card); border: 0.5px solid var(--line);
@@ -210,6 +242,12 @@
   .footer a { color: var(--primary); text-decoration: none; }
   .footer a:hover { text-decoration: underline; }
 </style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <div class="container">
@@ -317,6 +355,30 @@
       <p class="faq-a">Outside Duitful's scope, but a few obvious filters: enterprise contracts that require local hosting (yes), workloads that need high-density GPUs (probably), a typical consumer mobile app with &lt;1M users (overkill, use a cheaper regional cloud). Talk to a sales engineer; they'll qualify in 15 minutes.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/sovereign-tech-stack-personal-data-2026/">
+          <span class="related-title">Sovereign tech stack — for you, not just for the country</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/on-shore-ai-fintech-standard-malaysia-2026/">
+          <span class="related-title">On-shore AI for fintech</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/sovereign-ai-cloud-data-sovereignty-2026/">
+          <span class="related-title">Sovereign AI Cloud, decoded</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>When the infrastructure improves, your tracking stays the same</h2>

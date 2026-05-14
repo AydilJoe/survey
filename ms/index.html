@@ -96,6 +96,10 @@
     "logo": "https://duitful.app/favicon.svg",
     "image": "https://duitful.app/og-image.svg",
     "description": "Penjejak kewangan peribadi mengutamakan privasi, dibina di Malaysia. Jejak pendapatan, perbelanjaan, hutang, pinjaman, dan matlamat simpanan dengan kaedah avalanche, jejak BNPL, imbas resit, dan penyulitan dalam peranti.",
+    "sameAs": [
+      "https://github.com/AydilJoe/survey",
+      "https://play.google.com/store/apps/details?id=com.aydiljoe.duitful"
+    ],
     "foundingLocation": {
       "@type": "Place",
       "address": { "@type": "PostalAddress", "addressCountry": "MY" }
@@ -107,6 +111,18 @@
       "url": "https://duitful.app/contact/",
       "availableLanguage": ["ms", "en"]
     }
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Duitful",
+    "alternateName": "Duitful — Penjejak Duit & Hutang",
+    "url": "https://duitful.app/",
+    "inLanguage": ["ms-MY", "en-MY"],
+    "publisher": { "@type": "Organization", "name": "Duitful", "url": "https://duitful.app/" }
   }
   </script>
 
@@ -1311,6 +1327,78 @@
       justify-content: center;
     }
 
+    /* --------------- Follow us --------------- */
+    .follow {
+      padding: 80px 0 24px;
+    }
+    .follow-card {
+      max-width: 640px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 0.5px solid var(--line);
+      border-radius: 22px;
+      padding: 36px 32px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+    }
+    .follow-card:hover {
+      border-color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 1px 2px rgba(42, 36, 32, 0.05), 0 12px 32px rgba(42, 36, 32, 0.06);
+    }
+    .follow-icon {
+      flex-shrink: 0;
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #d98866, #b35a39);
+      color: var(--card);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .follow-icon svg { width: 30px; height: 30px; }
+    .follow-body { flex: 1; min-width: 0; }
+    .follow-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 4px;
+    }
+    .follow-title {
+      font-family: var(--font-serif);
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: -0.005em;
+      color: var(--ink);
+      margin: 0 0 4px;
+    }
+    .follow-handle {
+      font-family: var(--font-mono);
+      font-size: 13.5px;
+      color: var(--ink2);
+    }
+    .follow-cta {
+      flex-shrink: 0;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--primary);
+    }
+    @media (max-width: 560px) {
+      .follow-card { padding: 24px; gap: 16px; }
+      .follow-title { font-size: 18px; }
+      .follow-cta { display: none; }
+    }
+
     /* --------------- Final CTA --------------- */
     .cta-final {
       text-align: center;
@@ -1355,6 +1443,12 @@
       html { scroll-behavior: auto; }
     }
   </style>
+
+  <!-- Vercel Web Analytics -->
+  <script>
+    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  </script>
+  <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 
@@ -1813,30 +1907,30 @@
 
       <div class="guides-grid reveal">
         <!-- guides:start -->
-        <a class="g-card" href="/guides/ms/ai-agents-bank-fraud-malaysia-2026/">
-          <span class="g-card-eyebrow">Panduan · Malaysia · Perbankan &amp; penipuan</span>
-          <h3 class="g-card-title">Ejen AI kini halang scam deepfake</h3>
-          <p class="g-card-blurb">Visa + Maybank, CIMB, Alliance baru hidupkan pertahanan AI ejen. Apa yang ditangkap, apa yang tidak, dan cara jejak terlepas dalam Duitful.</p>
+        <a class="g-card" href="/guides/ms/micro-sukuk-rm10-shariah-portfolio-2026/">
+          <span class="g-card-eyebrow">Panduan · Syariah · Pelaburan</span>
+          <h3 class="g-card-title">Micro-sukuk RM 10 — bina portfolio Shariah</h3>
+          <p class="g-card-blurb">Sukuk pecahan dan saham ESG Shariah sekarang start RM 10. Math, jebakan, dan macam mana nak jejak betul-betul.</p>
           <div class="g-card-foot">
-            <time class="g-card-date" datetime="2026-05-02">Diterbit 2 Mei 2026</time>
+            <time class="g-card-date" datetime="2026-05-11">Diterbit 11 Mei 2026</time>
             <span class="g-card-cta">Baca →</span>
           </div>
         </a>
-        <a class="g-card" href="/guides/ms/gig-driver-income-resilience-2026/">
-          <span class="g-card-eyebrow">Panduan · Malaysia · Pendapatan gig</span>
-          <h3 class="g-card-title">Lindungi pendapatan gig anda</h3>
-          <p class="g-card-blurb">Van autonomi sedang datang. Bina simpanan 6 bulan, tambah pendapatan kedua, dan jejak peralihan dalam Duitful sebelum tempahan susut.</p>
+        <a class="g-card" href="/guides/ms/ringgit-3-91-cheaper-subscriptions-2026/">
+          <span class="g-card-eyebrow">Panduan · Malaysia · Mata Wang</span>
+          <h3 class="g-card-title">Ringgit 3.91 — langganan lebih murah</h3>
+          <p class="g-card-blurb">Ringgit naik 3% lawan dollar. Apa berubah untuk Spotify, AWS, AliExpress, percutian Jepun — dan cara nak track.</p>
           <div class="g-card-foot">
-            <time class="g-card-date" datetime="2026-05-01">Diterbit 1 Mei 2026</time>
+            <time class="g-card-date" datetime="2026-05-08">Diterbit 8 Mei 2026</time>
             <span class="g-card-cta">Baca →</span>
           </div>
         </a>
-        <a class="g-card" href="/guides/ms/budi95-fuel-tracker/">
-          <span class="g-card-eyebrow">Panduan · Malaysia · Minyak</span>
-          <h3 class="g-card-title">Penjejak petrol &amp; diesel Budi95</h3>
-          <p class="g-card-blurb">Letak isian minyak dalam kategori dalam 10 saat. Lihat perbelanjaan RON95 dan diesel bulanan anda sekali pandang.</p>
+        <a class="g-card" href="/guides/ms/opr-decision-debt-avalanche-malaysia-2026/">
+          <span class="g-card-eyebrow">Panduan · Malaysia · Kadar &amp;amp; hutang</span>
+          <h3 class="g-card-title">OPR &amp;amp; debt avalanche korang</h3>
+          <p class="g-card-blurb">BNM kekal; MPC duduk Khamis dan kemungkinan hike akhir 2026 dah on the table. Apa dia buat kat loan floating-rate, kad kredit, dan urutan avalanche korang.</p>
           <div class="g-card-foot">
-            <time class="g-card-date" datetime="2026-04-29">Diterbit 29 Apr 2026</time>
+            <time class="g-card-date" datetime="2026-05-06">Diterbit 6 Mei 2026</time>
             <span class="g-card-cta">Baca →</span>
           </div>
         </a>
@@ -1846,6 +1940,27 @@
       <div class="guides-all reveal">
         <a href="/guides/ms/" class="btn btn-ghost">Lihat semua panduan →</a>
       </div>
+    </div>
+  </section>
+
+  <!-- ======================= FOLLOW ======================= -->
+  <section class="follow">
+    <div class="container">
+      <a class="follow-card reveal" href="https://www.instagram.com/duitful.app/" target="_blank" rel="noopener" aria-label="Ikuti Duitful di Instagram">
+        <span class="follow-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="5"/>
+            <circle cx="12" cy="12" r="4"/>
+            <circle cx="17.5" cy="6.5" r="1" fill="currentColor"/>
+          </svg>
+        </span>
+        <div class="follow-body">
+          <span class="follow-eyebrow">Ikuti kami</span>
+          <h2 class="follow-title">Lagi banyak di Instagram.</h2>
+          <span class="follow-handle">@duitful.app</span>
+        </div>
+        <span class="follow-cta">Ikut →</span>
+      </a>
     </div>
   </section>
 

@@ -81,7 +81,33 @@ RESEND_API_KEY              = <from resend.com (free tier: 3000/mo)>
 RESEND_FROM_EMAIL           = "Duitful <receipts@duitful.app>"
 RESEND_REPLY_TO_EMAIL       = hello@duitful.app
 OWNER_NOTIFY_EMAIL          = hello@duitful.app
+
+# Optional — if set, every bill the app creates is also recorded in
+# Vercel KV so the admin /api/admin/bills endpoint can list them.
+# Without these, bill creation still works; the admin lister returns
+# 503 with a hint. To enable: Vercel dashboard → Storage → Create
+# Database → KV. The two values below are auto-injected once linked.
+KV_REST_API_URL             = <auto-injected by Vercel KV>
+KV_REST_API_TOKEN           = <auto-injected by Vercel KV>
 ```
+
+### Admin: list every bill the app has created
+
+```sh
+# All bills, newest first (default 100)
+curl -H "x-admin-key: $ADMIN_KEY" \
+  https://duitful.app/api/admin/bills | jq
+
+# Bills from April 2026 only
+curl -H "x-admin-key: $ADMIN_KEY" \
+  "https://duitful.app/api/admin/bills?since=2026-04-01" | jq
+
+# Same, but also fetch live status from Billplz for each
+curl -H "x-admin-key: $ADMIN_KEY" \
+  "https://duitful.app/api/admin/bills?since=2026-04-01&refresh=1" | jq
+```
+
+The endpoint requires Vercel KV to be enabled on the project (otherwise it returns 503). Bill IDs are recorded in `bills:index` (a sorted set) and full records under `bill:<id>`. Comp licenses (full-discount, no Billplz bill) are stored as `bill:comp-<code>-<uuid>` so they show up in the same list with `status: "comp"`.
 
 ### Email delivery
 

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">DON'T CONFUSE THESE</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">4/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">The hierarchy</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#b35a39" font-style="italic">most teams skip.</text>
+
+  <g transform="translate(80, 470)" font-family="'Inter', sans-serif" fill="#2a2420">
+    <rect width="920" height="640" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+
+    <g transform="translate(40, 60)">
+      <rect width="840" height="160" rx="14" fill="#e6efdb" stroke="#8fa078" stroke-width="1"/>
+      <text x="30" y="46" font-family="'JetBrains Mono', monospace" font-size="16" fill="#5c8a6e" letter-spacing="3">FIRST — UPSTREAM</text>
+      <text x="30" y="86" font-size="26" font-weight="600">Data minimisation</text>
+      <text x="30" y="118" font-size="20" fill="#5c524a">The cheapest data to protect is the data</text>
+      <text x="30" y="146" font-size="20" fill="#5c524a">you never collected. Audit your fields.</text>
+    </g>
+    <g transform="translate(40, 240)">
+      <rect width="840" height="160" rx="14" fill="#fbecd9" stroke="#d98866" stroke-width="1"/>
+      <text x="30" y="46" font-family="'JetBrains Mono', monospace" font-size="16" fill="#b35a39" letter-spacing="3">SECOND</text>
+      <text x="30" y="86" font-size="26" font-weight="600">Residency</text>
+      <text x="30" y="118" font-size="20" fill="#5c524a">Where the data lives, by jurisdiction.</text>
+      <text x="30" y="146" font-size="20" fill="#5c524a">2026 rules tightened the legal noose here.</text>
+    </g>
+    <g transform="translate(40, 420)">
+      <rect width="840" height="160" rx="14" fill="#fbecd9" stroke="#d98866" stroke-width="1"/>
+      <text x="30" y="46" font-family="'JetBrains Mono', monospace" font-size="16" fill="#b35a39" letter-spacing="3">THIRD — DOWNSTREAM</text>
+      <text x="30" y="86" font-size="26" font-weight="600">Inference architecture</text>
+      <text x="30" y="118" font-size="20" fill="#5c524a">On-shore stack vs offshore hop.</text>
+      <text x="30" y="146" font-size="20" fill="#5c524a">May 6 made on-shore production-grade.</text>
+    </g>
+  </g>
+
+  <text x="540" y="1240" text-anchor="middle" font-family="'Inter', sans-serif" font-size="22" fill="#5c524a" font-style="italic">Buying on-shore inference doesn't fix sloppy collection.</text>
+  <text x="540" y="1272" text-anchor="middle" font-family="'Inter', sans-serif" font-size="22" fill="#5c524a" font-style="italic">Fix in order: minimise · localise · deploy.</text>
+
+  <text x="100" y="1320" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

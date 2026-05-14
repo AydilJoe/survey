@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Finance AI agents in Selangor enterprises — what individuals can learn from PAIX Tech &amp; Sidec</title>
+<meta name="description" content="Selangor's PAIX Tech is automating ERP payments with AI agents. The enterprise pattern — categorise, reconcile, alert — is the same one individuals can apply to personal finance, manually or with the right app.">
+<meta name="keywords" content="finance ai agents, paix tech selangor, sidec worldstage, enterprise finance automation, personal finance automation, ai expense categorisation, duitful automation, malaysia finance ai">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://duitful.app/guides/finance-ai-agents-personal-lessons-2026/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:locale" content="en_MY">
+<meta property="og:url" content="https://duitful.app/guides/finance-ai-agents-personal-lessons-2026/">
+<meta property="og:title" content="Finance AI agents in Selangor enterprises — what individuals can learn from PAIX Tech &amp; Sidec">
+<meta property="og:description" content="Selangor's PAIX Tech is automating ERP payments with AI agents. The enterprise pattern — categorise, reconcile, alert — is the same one individuals can apply to personal finance, manually or with the right app.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Finance AI agents in Selangor enterprises — what individuals can learn from PAIX Tech &amp; Sidec">
+<meta name="twitter:description" content="Selangor's PAIX Tech is automating ERP payments with AI agents. The enterprise pattern — categorise, reconcile, alert — is the same one individuals can apply to personal finance, manually or with the right app.">
+<meta name="twitter:image" content="https://duitful.app/og-image.svg">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Finance AI agents — personal lessons","item":"https://duitful.app/guides/finance-ai-agents-personal-lessons-2026/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Finance AI agents in Selangor enterprises — what individuals can learn from PAIX Tech & Sidec","description":"Selangor's PAIX Tech is automating ERP payments with AI agents. The enterprise pattern — categorise, reconcile, alert — is the same one individuals can apply to personal finance, manually or with the right app.","inLanguage":"en","datePublished":"2026-05-08","dateModified":"2026-05-08","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/finance-ai-agents-personal-lessons-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Will Duitful add an LLM \"ask my finances\" feature?","acceptedAnswer":{"@type":"Answer","text":"Not soon, and not on-device data. Sending financial history to a cloud LLM breaks the privacy model the app is built on (encrypted localStorage, AES-GCM). If we ever add LLM features, they'll either be on-device (small models running locally) or use synthetic queries that don't leak amounts/parties."}},{"@type":"Question","name":"How does notification auto-capture work without exposing my data?","acceptedAnswer":{"@type":"Answer","text":"The Android notification listener service runs locally on your device. It reads notifications from a whitelist of bank apps, parses amounts/parties on-device, and adds them to a \"pending\" queue inside Duitful. Nothing is sent to a server. iOS doesn't allow this at the platform level — Apple blocks third-party apps from reading other apps' notifications."}},{"@type":"Question","name":"Should I trust receipt OCR with sensitive receipts?","acceptedAnswer":{"@type":"Answer","text":"It runs locally via Tesseract.js — the receipt photo never leaves your phone. The OCR happens in the same browser session that's already encrypting your data. Even Pro features keep this isolation."}},{"@type":"Question","name":"PAIX Tech sounds enterprise-only. Is there a consumer version coming?","acceptedAnswer":{"@type":"Answer","text":"Different market. Enterprise finance AI deals with thousands of vendors, multi-step approval chains, and ERP integration — none of which an individual has. The consumer \"version\" of PAIX Tech is what apps like Duitful (and Money Lover, Mint, YNAB internationally) already do, just at a different scale."}},{"@type":"Question","name":"What's the simplest \"AI\" thing I can do today?","acceptedAnswer":{"@type":"Answer","text":"Set up budget pools with limits. That's it. The \"AI\" part is the alerting rule firing when you cross 75% and 100%. Most overspend leaks die on this single intervention."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Finance AI agents in Selangor enterprises — what individuals can learn from PAIX Tech & Sidec","description":"Selangor's PAIX Tech is automating ERP payments with AI agents. The enterprise pattern — categorise, reconcile, alert — is the same one individuals can apply to personal finance, manually or with the right app.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Auto-categorisation via merchant memory","text":"Modern personal finance apps remember \"Spotify\" → Subscription, \"Petron\" → Petrol. After the first manual tag, the dropdown auto-suggests. This is 90% of the categorisation problem solved without an LLM."},{"@type":"HowToStep","position":2,"name":"Receipt OCR","text":"Snap a photo, the app extracts amount + date + vendor. The hard part (reading mangled receipt text) is solved. Tesseract.js runs locally on your device — no cloud upload needed. Duitful Pro has this built in."},{"@type":"HowToStep","position":3,"name":"Notification capture (Android)","text":"When Maybank, CIMB, TNG, ShopeePay sends a transaction notification, an opt-in service can read it (with your explicit permission) and propose a draft entry. The user reviews and accepts. Duitful does this on Android via the notification listener service."},{"@type":"HowToStep","position":4,"name":"Recurring detection","text":"Your salary, rent, and Spotify hit the same day every month. After two cycles, the pattern is obvious. Recurring auto-copy puts next month's entries in place before the month starts. You confirm or untick."},{"@type":"HowToStep","position":5,"name":"Threshold alerts","text":"Set a budget pool (\"Food RM 800\"), the app warns at 75%, alarms at 100%, escalates if you overshoot. This is the simplest possible \"agent\" — a static rule on a moving total — and it catches the most leaks."}]}</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --accent: #8fa078; --accent-ink: #3a6b50;
+    --warn: #b86a4e; --warn-ink: #8a3f1c;
+    --line: rgba(42,36,32,0.08); --border: rgba(42,36,32,0.14);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 17px/1.6 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 96px; }
+  .nav-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+
+  .eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: inline-block; margin-bottom: 14px;
+  }
+
+  h1 {
+    font: 500 clamp(36px, 6vw, 52px)/1.05 var(--font-serif);
+    letter-spacing: -0.02em; margin: 0 0 14px; color: var(--ink);
+  }
+  h1 em, h2 em { font-style: italic; color: var(--primary); }
+
+  .dateline {
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 22px; max-width: none;
+  }
+  .dateline time { color: inherit; }
+  .dateline-sep { margin: 0 4px; opacity: 0.6; }
+
+  .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
+
+  h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font: 500 18px/1.35 var(--font-sans); margin: 24px 0 6px; color: var(--ink); }
+  p { margin: 0 0 16px; color: var(--ink2); max-width: 64ch; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; color: var(--ink2); }
+  li { margin: 0 0 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: var(--primary-ink); }
+  code { font: 500 14px/1.2 var(--font-mono); background: var(--card); padding: 2px 6px; border-radius: 4px; border: 0.5px solid var(--line); }
+
+  /* ---------- Steps ---------- */
+  .steps { list-style: none; padding: 0; display: grid; gap: 12px; margin: 28px 0; }
+  .step {
+    display: grid; grid-template-columns: 48px 1fr; gap: 16px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 14px; padding: 18px 22px; align-items: start;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fffaf2;
+    display: grid; place-items: center;
+    font: 500 17px/1 var(--font-serif);
+  }
+  .step h3 { margin: 2px 0 4px; font-size: 17px; }
+  .step p { margin: 0; font-size: 15.5px; line-height: 1.5; }
+
+  /* ---------- Stat block ---------- */
+  .stat-block {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 16px; padding: 36px 28px;
+    margin: 32px 0; text-align: center;
+  }
+  .stat-value {
+    font: 500 clamp(44px, 9vw, 72px)/1 var(--font-serif);
+    color: var(--primary); letter-spacing: -0.02em;
+    margin: 0 0 10px; max-width: none;
+  }
+  .stat-label { font: 500 16px/1.4 var(--font-sans); color: var(--ink); margin: 0 0 4px; max-width: none; }
+  .stat-note { font: 400 13.5px/1.4 var(--font-mono); color: var(--muted); margin: 0; max-width: none; }
+
+  /* ---------- Compare ---------- */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin: 32px 0; border: 0.5px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col { padding: 22px 24px; }
+  .compare-col + .compare-col { border-left: 0.5px solid var(--line); }
+  @media (max-width: 600px) {
+    .compare-col + .compare-col { border-left: none; border-top: 0.5px solid var(--line); }
+  }
+  .compare-col.left  { background: rgba(184,106,78,0.05); }
+  .compare-col.right { background: rgba(106,138,94,0.06); }
+  .compare-title {
+    font: 500 11px/1 var(--font-mono); letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0 0 14px;
+  }
+  .compare-col.left  .compare-title { color: var(--warn-ink); }
+  .compare-col.right .compare-title { color: var(--accent-ink); }
+  .compare-col ul { padding: 0; list-style: none; margin: 0; }
+  .compare-col li {
+    padding: 7px 0; font-size: 15px; line-height: 1.45; color: var(--ink2);
+    display: flex; gap: 10px; align-items: start;
+  }
+  .compare-col li::before {
+    flex: 0 0 auto; font-weight: 700; line-height: 1.45;
+  }
+  .compare-col.left  li::before { content: "✕"; color: var(--warn); }
+  .compare-col.right li::before { content: "✓"; color: var(--accent-ink); }
+
+  /* ---------- FAQ ---------- */
+  .faq { margin: 28px 0; display: grid; gap: 8px; }
+  .faq-item {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; padding: 4px 22px;
+    transition: border-color 0.15s ease;
+  }
+  .faq-item[open] { border-color: var(--border); }
+  .faq-q {
+    font: 500 16px/1.4 var(--font-sans); color: var(--ink);
+    padding: 14px 0; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q::after {
+    content: "+"; font: 400 22px/1 var(--font-serif);
+    color: var(--muted); transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-q::after { content: "−"; }
+  .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
+  /* ---------- CTA ---------- */
+  .cta-card {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 18px; padding: 32px 28px;
+    margin: 56px 0 0; text-align: center;
+  }
+  .cta-card h2 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 30px); }
+  .cta-card p { margin: 0 auto 18px; max-width: 48ch; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 26px;
+    background: var(--primary); color: #fffaf2;
+    border-radius: 999px;
+    font: 500 15px/1 var(--font-sans);
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(42,36,32,0.1), 0 8px 20px rgba(200,112,75,0.28);
+    transition: background 0.15s ease;
+  }
+  .cta-btn:hover { background: var(--primary-ink); color: #fffaf2; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px; color: var(--muted);
+  }
+  .footer a { color: var(--primary); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<div class="container">
+  <a href="/guides/" class="nav-back">← all guides</a>
+
+  <span class="eyebrow">Guide · Selangor · Automation</span>
+  <h1>Enterprise <em>finance AI</em> is here. What it means for your wallet.</h1>
+  <p class="dateline">Published <time datetime="2026-05-08">8 May 2026</time></p>
+  <p class="lede">PAIX Tech, a Selangor-based startup, secured contracts this week to automate non-trade payments and ERP financial operations with AI agents. The pattern enterprises pay millions for — categorise, reconcile, alert — is the same playbook you can run on your own money.</p>
+
+  <h2>What's happening in Selangor</h2>
+
+    <div class="stat-block">
+      <p class="stat-value">PAIX Tech</p>
+      <p class="stat-label">Selangor-based finance AI startup, post-Sidec WorldStage</p>
+      <p class="stat-note">Automating non-trade payments + ERP operations for enterprises</p>
+    </div>
+<p>Coming out of the Sidec WorldStage mission this week, PAIX Tech secured enterprise contracts for <strong>AI agents that automate non-trade payments and ERP financial operations</strong>. The pitch: AI handles the repetitive categorisation, reconciliation, and approval routing that finance teams currently slog through by hand.</p>
+<p>This isn't science fiction. Enterprises pay six and seven figures for this. The interesting question for individuals is: <strong>what's the personal-finance version of the same playbook</strong>, and which parts can you run today without paying enterprise prices?</p>
+<h2>The four jobs an enterprise finance agent does</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Enterprise pattern</p>
+        <ul><li><strong>Categorise</strong>: every incoming transaction → GL code automatically</li><li><strong>Reconcile</strong>: bank statements vs. ERP entries, flag mismatches</li><li><strong>Alert</strong>: threshold breaches, anomalies, approval-required items</li><li><strong>Report</strong>: end-of-month closes auto-drafted with variance commentary</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Personal pattern (same shape)</p>
+        <ul><li><strong>Categorise</strong>: every transaction → "Food", "Petrol", "Subscription"</li><li><strong>Reconcile</strong>: bank notification vs. logged entry — did I forget any?</li><li><strong>Alert</strong>: monthly budget breach, debt due dates approaching</li><li><strong>Report</strong>: month-over-month spend vs. last month, trend chart</li></ul>
+      </div>
+    </div>
+<p>The enterprise version handles 100,000+ transactions/month and routes through SAP/Oracle. The personal version handles ~50–200/month and runs on your phone. The architecture is the same.</p>
+<h2>What's actually automatable today (no enterprise budget)</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Auto-categorisation via merchant memory</h3>
+        <p>Modern personal finance apps remember "Spotify" → Subscription, "Petron" → Petrol. After the first manual tag, the dropdown auto-suggests. This is 90% of the categorisation problem solved without an LLM.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Receipt OCR</h3>
+        <p>Snap a photo, the app extracts amount + date + vendor. The hard part (reading mangled receipt text) is solved. Tesseract.js runs locally on your device — no cloud upload needed. Duitful Pro has this built in.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Notification capture (Android)</h3>
+        <p>When Maybank, CIMB, TNG, ShopeePay sends a transaction notification, an opt-in service can read it (with your explicit permission) and propose a draft entry. The user reviews and accepts. Duitful does this on Android via the notification listener service.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Recurring detection</h3>
+        <p>Your salary, rent, and Spotify hit the same day every month. After two cycles, the pattern is obvious. Recurring auto-copy puts next month's entries in place before the month starts. You confirm or untick.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">5</span>
+      <div>
+        <h3>Threshold alerts</h3>
+        <p>Set a budget pool ("Food RM 800"), the app warns at 75%, alarms at 100%, escalates if you overshoot. This is the simplest possible "agent" — a static rule on a moving total — and it catches the most leaks.</p>
+      </div>
+    </li>
+</ol>
+<h2>What's NOT yet ready for personal finance (and why)</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">LLM-powered "what should I do?"</p>
+        <ul><li>Real risk: hallucinated advice, wrong tax rules</li><li>Privacy: would need to upload your financial history to a cloud LLM</li><li>Cost: meaningful per-month inference bills</li><li>Better today: rule-based alerts + occasional human review</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Auto-execution of transactions</p>
+        <ul><li>Real risk: AI initiates payment, sends to wrong account, no recourse</li><li>Trust: would you let an agent transfer money without per-action confirmation?</li><li>Better today: AI proposes, you confirm. Always.</li></ul>
+      </div>
+    </div>
+<p>The pattern: <strong>propose, never execute</strong>. An agent that drafts entries you accept beats an agent that moves money on your behalf, every single time, until the trust + tooling matures.</p>
+<h2>Run your own minimum-viable finance agent</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Define 3 budget pools</h3>
+        <p>"Food", "Transport", "Subscriptions" — or whatever you actually spend on. Set a monthly limit on each. This is your alerting baseline; pool overruns are the signals that matter.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Install on your phone (Android = best automation surface)</h3>
+        <p>PWA install gives you receipt OCR + recurring auto-copy. Android additionally gives notification auto-capture. iOS PWAs can't read notifications (Apple platform limit), but receipt OCR + recurring still work.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Set debt minimums + due days</h3>
+        <p>Each debt → minimum payment + due day. Duitful's auto-managed Debt pool tracks how much you've paid this month vs. owed, escalates a banner from calm → yellow → red as due dates approach. This replaces a finance team's "AP aging report" entirely.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Review weekly, close monthly</h3>
+        <p>Once a week (10 minutes): glance at the Daily tab, accept any pending notification-captured entries, add any cash spends you missed. Once a month (15 minutes): open Reports, scan the pie chart and trend, note the biggest day. That's the closing process.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">5</span>
+      <div>
+        <h3>Use the FX feature for foreign-currency pieces</h3>
+        <p>If you have USD subscriptions, log them in USD. The app converts at entry-day rate via the open-source <a href="https://github.com/fawazahmed0/exchange-api">Currency-API</a> by @fawazahmed0. Foreign exposure is one of the spots where DIY tracking goes wrong fastest.</p>
+      </div>
+    </li>
+</ol>
+<h2>The gap between enterprise and personal</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Enterprises pay for</p>
+        <ul><li>24/7 monitoring across thousands of accounts</li><li>Audit trail and SOC 2 compliance</li><li>Multi-user approval workflows</li><li>Integration with SAP / Oracle / NetSuite</li><li>Variance commentary auto-generated for the close</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Individuals need</p>
+        <ul><li>One person reviewing one set of accounts</li><li>"Did I overspend this month?"</li><li>"When does my next bill hit?"</li><li>"Where did the RM 800 go that I can't account for?"</li><li>Privacy of the underlying data</li></ul>
+      </div>
+    </div>
+<p>The enterprise toolchain is overkill for individuals. But the <strong>mental model</strong> — categorise, reconcile, alert, report — translates directly. And the tooling that gets you there is increasingly free or one-off-paid (Duitful Pro is RM 19.90 lifetime, no subscription), not enterprise-priced.</p>
+<h2>Common questions</h2>
+<div class="faq">
+    <details class="faq-item">
+      <summary class="faq-q">Will Duitful add an LLM "ask my finances" feature?</summary>
+      <p class="faq-a">Not soon, and not on-device data. Sending financial history to a cloud LLM breaks the privacy model the app is built on (encrypted localStorage, AES-GCM). If we ever add LLM features, they'll either be on-device (small models running locally) or use synthetic queries that don't leak amounts/parties.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">How does notification auto-capture work without exposing my data?</summary>
+      <p class="faq-a">The Android notification listener service runs locally on your device. It reads notifications from a whitelist of bank apps, parses amounts/parties on-device, and adds them to a "pending" queue inside Duitful. Nothing is sent to a server. iOS doesn't allow this at the platform level — Apple blocks third-party apps from reading other apps' notifications.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Should I trust receipt OCR with sensitive receipts?</summary>
+      <p class="faq-a">It runs locally via Tesseract.js — the receipt photo never leaves your phone. The OCR happens in the same browser session that's already encrypting your data. Even Pro features keep this isolation.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">PAIX Tech sounds enterprise-only. Is there a consumer version coming?</summary>
+      <p class="faq-a">Different market. Enterprise finance AI deals with thousands of vendors, multi-step approval chains, and ERP integration — none of which an individual has. The consumer "version" of PAIX Tech is what apps like Duitful (and Money Lover, Mint, YNAB internationally) already do, just at a different scale.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">What's the simplest "AI" thing I can do today?</summary>
+      <p class="faq-a">Set up budget pools with limits. That's it. The "AI" part is the alerting rule firing when you cross 75% and 100%. Most overspend leaks die on this single intervention.</p>
+    </details>
+</div>
+<h2>The bigger lesson</h2>
+<p>When enterprise tooling becomes a press release, the playbook usually leaks downward to consumers within 2–3 years. PAIX Tech automates ERP financial operations because it's profitable to do so. The same logic — let software do the categorisation, reconciliation, and alerting, while humans handle judgment calls — works at the personal level. The tools are already here. The hard part is using them consistently.</p>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/sovereign-tech-stack-personal-data-2026/">
+          <span class="related-title">Sovereign tech stack — for you, not just for the country</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/shah-alam-ev-solar-centre-household-savings-2026/">
+          <span class="related-title">Shah Alam EV &amp;amp; solar centre</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/selangor-ic-design-career-pivot-2026/">
+          <span class="related-title">Selangor IC Design career pivot</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
+
+  <div class="cta-card">
+    <h2>Run your own finance &quot;agent&quot;</h2>
+    <p>Duitful's auto-capture (Android), receipt OCR, recurring auto-copy, and pool-based budget alerts run the same playbook enterprise finance agents do. Most of it free.</p>
+    <a class="cta-btn" href="/app/">Open Duitful →</a>
+  </div>
+
+  <div class="footer">
+    More guides at <a href="/guides/">duitful.app/guides</a>. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy policy</a>, or <a href="/contact/">say hi</a>.
+  </div>
+</div>
+</body>
+</html>

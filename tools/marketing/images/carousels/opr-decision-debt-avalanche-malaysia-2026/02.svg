@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">3 SCENARIOS · 3 AVALANCHES</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">2/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">What Thursday</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#b35a39" font-style="italic">does to your stack.</text>
+
+  <g transform="translate(80, 470)" font-family="'Inter', sans-serif" fill="#2a2420">
+    <g>
+      <rect width="920" height="200" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="14" height="200" rx="7" fill="#8fa078"/>
+      <text x="48" y="60" font-family="'JetBrains Mono', monospace" font-size="18" fill="#5c8a6e" letter-spacing="3">HOLD · ~70%</text>
+      <text x="48" y="100" font-size="26" font-weight="600">Floating loans · no change</text>
+      <text x="48" y="138" font-size="22" fill="#5c524a">Cards still 18%. Avalanche order unchanged.</text>
+      <text x="48" y="172" font-size="20" fill="#8a8178" font-style="italic">Action: keep the schedule, throw windfall at the top.</text>
+    </g>
+    <g transform="translate(0, 220)">
+      <rect width="920" height="200" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="14" height="200" rx="7" fill="#d4a04a"/>
+      <text x="48" y="60" font-family="'JetBrains Mono', monospace" font-size="18" fill="#a07820" letter-spacing="3">CUT 25 BPS · ~10%</text>
+      <text x="48" y="100" font-size="26" font-weight="600">Floating instalment drops 1–3%</text>
+      <text x="48" y="138" font-size="22" fill="#5c524a">Cards still 18%. Card payoff intensifies.</text>
+      <text x="48" y="172" font-size="20" fill="#8a8178" font-style="italic">Action: send the savings to the card, not lifestyle.</text>
+    </g>
+    <g transform="translate(0, 440)">
+      <rect width="920" height="200" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="14" height="200" rx="7" fill="#b86a4e"/>
+      <text x="48" y="60" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" letter-spacing="3">HOLD-NOW-HIKE-LATER · ~20%</text>
+      <text x="48" y="100" font-size="26" font-weight="600">Each 25 bps adds 1–3% to instalment</text>
+      <text x="48" y="138" font-size="22" fill="#5c524a">Personal-loan repricing accelerates.</text>
+      <text x="48" y="172" font-size="20" fill="#8a8178" font-style="italic">Action: accelerate top-of-stack now, lock fixed-refi if any.</text>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

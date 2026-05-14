@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">THE HIERARCHY</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">3/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Not Malaysia vs</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#b35a39" font-style="italic">offshore. How many</text>
+  <text x="100" y="448" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">parties can read it.</text>
+
+  <!-- Two columns -->
+  <g transform="translate(60, 540)" font-family="'Inter', sans-serif">
+    <g>
+      <rect width="465" height="600" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="80" rx="22" fill="#8fa078"/>
+      <rect y="60" width="465" height="20" fill="#8fa078"/>
+      <text x="232" y="50" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#fffaf2" font-weight="500">Better</text>
+      <g transform="translate(28, 130)" font-size="19" fill="#2a2420">
+        <text font-weight="600">On-device</text>
+        <text y="28" fill="#5c524a">+ passphrase you control</text>
+        <text y="80" font-weight="600">On-device</text>
+        <text y="108" fill="#5c524a">+ system biometric/key</text>
+        <text y="160" font-weight="600">On-shore + E2E encrypted</text>
+        <text y="188" fill="#5c524a">provider can't decrypt</text>
+        <text y="240" font-weight="600">On-shore + at-rest enc.</text>
+        <text y="268" fill="#5c524a">provider can decrypt with key</text>
+        <text y="350" font-style="italic" fill="#8a8178" font-size="17">Fewer parties = smaller</text>
+        <text y="376" font-style="italic" fill="#8a8178" font-size="17">blast radius if breached.</text>
+      </g>
+    </g>
+    <g transform="translate(495, 0)">
+      <rect width="465" height="600" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="80" rx="22" fill="#b86a4e"/>
+      <rect y="60" width="465" height="20" fill="#b86a4e"/>
+      <text x="232" y="50" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#fffaf2" font-weight="500">Worse</text>
+      <g transform="translate(28, 130)" font-size="19" fill="#2a2420">
+        <text font-weight="600">On-shore + plaintext</text>
+        <text y="28" fill="#5c524a">policy violation waiting</text>
+        <text y="80" font-weight="600">Offshore + at-rest enc.</text>
+        <text y="108" fill="#5c524a">foreign provider holds keys</text>
+        <text y="160" font-weight="600">Offshore + plaintext</text>
+        <text y="188" fill="#5c524a">anyone with access reads</text>
+        <text y="240" font-weight="600">Offshore · unrelated parent</text>
+        <text y="268" fill="#5c524a">different jurisdiction · opaque</text>
+        <text y="350" font-style="italic" fill="#8a8178" font-size="17">Marketing language papers</text>
+        <text y="376" font-style="italic" fill="#8a8178" font-size="17">over the architecture itself.</text>
+      </g>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

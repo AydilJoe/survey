@@ -128,6 +128,12 @@
   }
   .footer a { color: var(--primary); }
 </style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <div class="container">
@@ -135,6 +141,44 @@
 
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
+
+  <article class="release" id="v1-7">
+    <span class="release-date">May 2026 · v1.7</span>
+    <h2 class="release-title">Visual reports, searchable lists, and global FX coverage</h2>
+    <p class="release-summary">A polish-heavy follow-up to v1.6. Reports tab gets a real spending pie. Every list gets a search bar. Multi-currency now covers 46 currencies (up from 17), including AED, SAR, and VND that were display-only before. Plus a wave of UX cleanup across the app.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Spending pie chart on Reports</strong> — the by-category list on Reports is now a real SVG pie with a legend, total line, and "Other" grouping for the long tail. Filters by kind (income / expense), respects your privacy toggle, and sizes up properly on desktop.</li>
+      <li><span class="tag feat">new</span><strong>Search across all lists</strong> — a search bar on Monthly (income + expense), Daily, Debts, Savings, and the Budget Pools manager. Filters by name as you type. Auto-hides on Savings when there are too few goals to justify it.</li>
+      <li><span class="tag feat">new</span><strong>FX coverage expands to 46 currencies</strong> — switched the live-rates source from Frankfurter to the open-source <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">Currency-API</a>. AED, SAR, and VND now have real rates instead of being display-only. Added 26 more including ASEAN neighbours (BND, LAK, KHR, MMK, TWD), South Asia (PKR, BDT, LKR, NPR), GCC (QAR, KWD, OMR, BHD), and assorted Europe / Americas (SEK, NOK, DKK, PLN, BRL, MXN, ZAR, etc.). Server-side 24h cache with a CDN fallback.</li>
+      <li><span class="tag fix">fix</span><strong>Dashboard double-count</strong> — debt payments and savings contributions were being subtracted twice from "Balance Left" in some configurations. The formula now uses <code>max(min + extra, paid)</code> as the floor.</li>
+      <li><span class="tag feat">new</span><strong>Budget Pools quick-start templates</strong> — first-time pool creation offers preset templates instead of a blank form so you don't have to invent categories from scratch.</li>
+      <li><span class="tag feat">new</span><strong>Honest over-budget % + dated payoff ETA</strong> — the over-budget badge shows a real percentage instead of capping at 100%. Debt payoff projection now shows the actual target month instead of "X months from now."</li>
+      <li><span class="tag fix">fix</span><strong>Settings clarity</strong> — clearer labels on every preference, Share via Web Share where supported (falls back to copy-link), neutral greeting that doesn't assume time of day.</li>
+      <li><span class="tag fix">fix</span><strong>Debts disambiguation</strong> — duplicate debt names now get a suffix so you can tell two "Maybank Card" entries apart. Due-soon legend added to the dashboard banner.</li>
+      <li><span class="tag fix">fix</span><strong>Daily pill colours</strong> — daily-entry pill backgrounds match the brand palette consistently, with an inline legend so Spend / Pay debt / Save buckets are obvious at a glance.</li>
+      <li><span class="tag fix">fix</span><strong>Savings empty state</strong> — friendlier copy when you haven't added any goals; the search bar hides itself when the list is sparse.</li>
+      <li><span class="tag fix">fix</span><strong>Cross-app polish</strong> — global <code>accent-color</code> on form controls; dash placeholders replaced with proper empty states.</li>
+      <li><span class="tag fix">fix</span><strong>Destructive actions stand out</strong> — Delete and other destructive buttons are visually distinct from primary actions so accidental clicks are less likely.</li>
+    </ul>
+  </article>
+
+  <article class="release" id="v1-6">
+    <span class="release-date">May 2026 · v1.6</span>
+    <h2 class="release-title">Multi-currency, budget pools, running balance, and auto-recurring</h2>
+    <p class="release-summary">A four-feature drop. Track money in any of 20 currencies with daily-refreshed mid-market rates. Split your monthly money into named budget pools with rollover and overrides. See a true running balance that chains every previous month into today's number. And monthly income/expenses now repeat themselves so you stop retyping rent every month.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Multi-currency entry (Pro)</strong> — log a USD subscription, an SGD lunch, or a JPY hotel and Duitful converts to your base currency at entry time using daily mid-market rates. The original currency + sticky exchange rate are stored on each entry, so the badge stays honest forever even if rates move. Powered by the open-source <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">Currency-API</a> by <a href="https://github.com/fawazahmed0" target="_blank" rel="noopener">@fawazahmed0</a> — 40+ currencies, no API key, daily updates. Manual refresh in Settings. <em>(Originally shipped with Frankfurter/ECB covering 17 currencies; switched mid-v1.6 to expand coverage and remove the AED/SAR/VND display-only constraint.)</em></li>
+      <li><span class="tag feat">new</span><strong>Budget pools (Pro beyond 1)</strong> — split your money into named buckets (Shopping RM 500, Bali RM 3000, Subs RM 200). Tag daily and recurring expenses to a pool to track usage. Free tier gets 1 pool plus the auto-managed Debt pool. Pro unlocks unlimited pools, single-active toggle, "Copy overrides from last month", auto-suggest by category match.</li>
+      <li><span class="tag feat">new</span><strong>Pool rollover &amp; per-month overrides (Pro)</strong> — opt-in rollover carries unspent budget into next month (chains all the way back, no artificial cap). Per-month overrides let you set a higher Shopping budget in December without changing the base limit. Both surface in the manager card under Income on the Monthly tab.</li>
+      <li><span class="tag feat">new</span><strong>Auto-managed "Debt" pool (free)</strong> — a system pool whose limit auto-derives from your debts' monthly minimums. Pay-debt entries auto-tag to it. Banner escalates from calm → yellow → red as due dates approach and pass. <strong>"Pay monthly debts"</strong> button on Home opens a bulk-pay dialog with smart-default checkboxes (already-paid debts auto-skip, partials show remaining), per-row date overrides, and one-click confirm.</li>
+      <li><span class="tag feat">new</span><strong>Running balance carryover (free)</strong> — last month's ending balance now flows into this month's "Balance Left" stat. The chain extends all the way back to your first logged entry — January's surplus survives into March, terminating only at the earliest data month. Inline ✎ to manually correct historical debt minimums. The formula treats minimums as <code>max(snapshot, actual paid)</code> so skipped payments still show as a deficit you need to balance back.</li>
+      <li><span class="tag feat">new</span><strong>Recurring auto-copy (Pro)</strong> — open the app on the 1st of a new month and your salary, rent, subscriptions are already there. Per-entry "Repeat next month" checkbox (defaults on) on the income and expense forms — untick the toggle for one-off entries (year-end bonus, wedding-month rent) so they don't recur. Dedupes by name and amount, preserves currency conversions and pool tags on the copies.</li>
+      <li><span class="tag fix">fix</span><strong>Billplz checkout</strong> — payment was failing with a 401 from the Billplz API. Production environment variables aligned to the live key set; new bills now flow through cleanly.</li>
+      <li><span class="tag fix">fix</span><strong>FX picker layout</strong> — the currency dropdown next to the amount field no longer squeezes the input on narrow screens; symbol shown inline (e.g. "JPY (¥)", "MYR (RM)", "USD ($)") for faster recognition.</li>
+      <li><span class="tag fix">fix</span><strong>Bulk-pay debt dialog row layout</strong> — date input now stacks on its own line at narrow widths, fixing the meta-text wrap that made rows look cramped.</li>
+      <li><span class="tag note">note</span><strong>Storage growth</strong> — none of these features add per-day data. The new state slots (per-month debt minimum snapshots, last-opened-month pointer, budget pool definitions) total under 2 KB even after a decade of monthly use.</li>
+    </ul>
+  </article>
 
   <article class="release" id="v1-5">
     <span class="release-date">April 2026 · v1.5</span>

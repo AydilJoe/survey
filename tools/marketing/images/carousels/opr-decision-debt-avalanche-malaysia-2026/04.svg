@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">CARD STAYS ON TOP</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">4/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Every scenario.</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#b35a39" font-style="italic">Same #1.</text>
+
+  <g transform="translate(80, 470)" font-family="'Inter', sans-serif" fill="#2a2420">
+    <rect width="920" height="640" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+
+    <text x="40" y="60" font-family="'JetBrains Mono', monospace" font-size="18" fill="#8a8178" letter-spacing="3">AVALANCHE ORDER · TODAY</text>
+
+    <g transform="translate(40, 100)">
+      <rect width="840" height="80" rx="14" fill="#fbecd9" stroke="#b35a39" stroke-width="2"/>
+      <text x="30" y="50" font-family="'Fraunces', serif" font-size="32" font-weight="600" fill="#b35a39">1.</text>
+      <text x="80" y="44" font-size="24" font-weight="600">Credit card · 18%</text>
+      <text x="80" y="68" font-size="18" fill="#5c524a">Highest APR. Always. Kill first.</text>
+    </g>
+    <g transform="translate(40, 200)">
+      <rect width="840" height="70" rx="14" fill="#fffaf2" stroke="#e3d6bf"/>
+      <text x="30" y="46" font-family="'Fraunces', serif" font-size="28" fill="#5c524a">2.</text>
+      <text x="80" y="40" font-size="22" font-weight="600">Personal loan · 9% fixed</text>
+      <text x="80" y="60" font-size="17" fill="#8a8178">Doesn't move with OPR.</text>
+    </g>
+    <g transform="translate(40, 290)">
+      <rect width="840" height="70" rx="14" fill="#fffaf2" stroke="#e3d6bf"/>
+      <text x="30" y="46" font-family="'Fraunces', serif" font-size="28" fill="#5c524a">3.</text>
+      <text x="80" y="40" font-size="22" font-weight="600">Car loan · 4.5% fixed</text>
+      <text x="80" y="60" font-size="17" fill="#8a8178">Locked at signing. Stays put.</text>
+    </g>
+    <g transform="translate(40, 380)">
+      <rect width="840" height="70" rx="14" fill="#fffaf2" stroke="#e3d6bf"/>
+      <text x="30" y="46" font-family="'Fraunces', serif" font-size="28" fill="#5c524a">4.</text>
+      <text x="80" y="40" font-size="22" font-weight="600">Housing · 4.2% (BLR + 0.4)</text>
+      <text x="80" y="60" font-size="17" fill="#8a8178">Re-prices when OPR moves.</text>
+    </g>
+
+    <line x1="40" y1="490" x2="880" y2="490" stroke="#e3d6bf" stroke-width="1"/>
+    <text x="40" y="535" font-size="22" font-weight="600" fill="#2a2420">After +50 bps cumulative hike:</text>
+    <text x="40" y="572" font-size="20" fill="#5c524a">Card #1 (still 18%) · Loan rumah jumps over car loan.</text>
+    <text x="40" y="602" font-size="18" fill="#8a8178" font-style="italic">The order shuffles only at the bottom.</text>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

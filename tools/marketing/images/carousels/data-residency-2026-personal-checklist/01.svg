@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">DCCI EXPO · MAY 12 · MALAYSIA</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">1/5</text></g>
+
+  <text x="100" y="320" font-family="'Fraunces', 'Georgia', serif" font-size="76" font-weight="500" fill="#2a2420">Where does</text>
+  <text x="100" y="400" font-family="'Fraunces', 'Georgia', serif" font-size="76" font-weight="500" fill="#2a2420">your money data</text>
+  <text x="100" y="480" font-family="'Fraunces', 'Georgia', serif" font-size="76" font-weight="500" fill="#b35a39" font-style="italic">actually live?</text>
+
+  <!-- Big number -->
+  <g transform="translate(540, 800)">
+    <text x="0" y="0" text-anchor="middle" font-family="'Fraunces', 'Georgia', serif" font-size="200" font-weight="500" fill="#b35a39" font-style="italic">5 min</text>
+    <text x="0" y="80" text-anchor="middle" font-family="'Fraunces', serif" font-size="40" font-weight="500" fill="#2a2420">audit · run it on your top</text>
+    <text x="0" y="130" text-anchor="middle" font-family="'Fraunces', serif" font-size="40" font-weight="500" fill="#2a2420">4 finance apps this weekend</text>
+  </g>
+
+  <text x="540" y="1180" text-anchor="middle" font-family="'Inter', sans-serif" font-size="24" fill="#5c524a">DCCI Expo opens May 12. Most consumers have no idea</text>
+  <text x="540" y="1212" text-anchor="middle" font-family="'Inter', sans-serif" font-size="24" fill="#5c524a">where their money apps store the data they trust them with.</text>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app  ·  Swipe →</text>
+</svg>

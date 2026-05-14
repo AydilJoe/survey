@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">ARE YOU ELIGIBLE?</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">3/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Most Selangor</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">tech founders <tspan font-style="italic" fill="#b35a39">qualify.</tspan></text>
+
+  <!-- Two columns checklist -->
+  <g transform="translate(60, 470)" font-family="'Inter', sans-serif">
+    <!-- Eligible -->
+    <g>
+      <rect width="465" height="660" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="80" rx="22" fill="#8fa078"/>
+      <rect y="60" width="465" height="20" fill="#8fa078"/>
+      <text x="232" y="50" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#fffaf2" font-weight="500">Eligible</text>
+      <g transform="translate(28, 130)" font-size="20" fill="#2a2420">
+        <text>✓ MSME under SME Corp def.</text>
+        <text y="50">✓ Tax-resident in Malaysia</text>
+        <text y="100">✓ Sole-prop / partnership / Sdn Bhd</text>
+        <text y="150">✓ Training May 2026 onwards</text>
+        <text y="200">✓ Spend on own employees</text>
+        <text y="250">✓ Director on payroll counts</text>
+        <text y="300">✓ Accredited provider</text>
+      </g>
+    </g>
+    <!-- Not eligible -->
+    <g transform="translate(495, 0)">
+      <rect width="465" height="660" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+      <rect width="465" height="80" rx="22" fill="#b86a4e"/>
+      <rect y="60" width="465" height="20" fill="#b86a4e"/>
+      <text x="232" y="50" text-anchor="middle" font-family="'Fraunces', serif" font-size="32" fill="#fffaf2" font-weight="500">Not eligible</text>
+      <g transform="translate(28, 130)" font-size="20" fill="#2a2420">
+        <text>✗ Listed companies</text>
+        <text y="50">✗ Spend before operational date</text>
+        <text y="100">✗ Training non-employees</text>
+        <text y="150">✗ Founder paid out-of-pocket</text>
+        <text y="200">✗ Random YouTube / Udemy</text>
+        <text y="250">✗ Unaccredited bootcamps</text>
+        <text y="300">✗ Project consulting dressed as training</text>
+      </g>
+    </g>
+  </g>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

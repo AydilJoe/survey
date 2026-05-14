@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="primary" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">SELANGOR · SME · ESG</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">1/5</text></g>
+
+  <text x="100" y="320" font-family="'Fraunces', 'Georgia', serif" font-size="80" font-weight="500" fill="#2a2420">Hydrogen buses</text>
+  <text x="100" y="410" font-family="'Fraunces', 'Georgia', serif" font-size="72" font-weight="500" fill="#b35a39" font-style="italic">unlock SME credit.</text>
+
+  <!-- Big number -->
+  <g transform="translate(540, 740)">
+    <text x="0" y="0" text-anchor="middle" font-family="'Fraunces', 'Georgia', serif" font-size="220" font-weight="500" fill="#b35a39" font-style="italic">RM 450M</text>
+    <text x="0" y="90" text-anchor="middle" font-family="'Fraunces', serif" font-size="38" font-weight="500" fill="#2a2420">MCMC smart-city MoU</text>
+    <text x="0" y="146" text-anchor="middle" font-family="'Fraunces', serif" font-size="38" font-weight="500" fill="#2a2420">underwriting clean mobility</text>
+  </g>
+
+  <text x="540" y="1180" text-anchor="middle" font-family="'Inter', sans-serif" font-size="24" fill="#5c524a">If you run a transport, logistics, or last-mile SME —</text>
+  <text x="540" y="1212" text-anchor="middle" font-family="'Inter', sans-serif" font-size="24" fill="#5c524a">new ESG-linked credit lanes opened this week.</text>
+
+  <text x="100" y="1300" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app  ·  Swipe →</text>
+</svg>

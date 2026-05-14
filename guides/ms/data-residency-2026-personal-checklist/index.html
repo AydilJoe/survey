@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Data Residency 2026 — Checklist 5 minit untuk tahu app duit korang simpan data kat mana sebenar</title>
+<meta name="description" content="DCCI Expo 12 Mei dan rules data-residency 2026 Malaysia dah start. Side infrastructure dah dihandle policy. Side consumer pula tak — ramai orang tak tahu app finance yang diorang trust tu sebenar simpan data kat mana, siapa boleh baca, apa jadi kalau leak. Ni audit 5 minit korang boleh run sendiri hari ni, sebelum leak seterusnya buat keputusan untuk korang.">
+<meta name="keywords" content="data residency malaysia 2026, dcci expo 2026, on shore data malaysia, privacy app finance malaysia, e wallet privacy, pdpa amendment 2026, on device finance app, duitful privacy, data simpan mana, fintech malaysia">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://duitful.app/guides/ms/data-residency-2026-personal-checklist/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:locale" content="ms_MY">
+<meta property="og:url" content="https://duitful.app/guides/ms/data-residency-2026-personal-checklist/">
+<meta property="og:title" content="Data Residency 2026 — Checklist 5 minit untuk tahu app duit korang simpan data kat mana sebenar">
+<meta property="og:description" content="DCCI Expo 12 Mei dan rules data-residency 2026 Malaysia dah start. Side infrastructure dah dihandle policy. Side consumer pula tak — ramai orang tak tahu app finance yang diorang trust tu sebenar simpan data kat mana, siapa boleh baca, apa jadi kalau leak. Ni audit 5 minit korang boleh run sendiri hari ni, sebelum leak seterusnya buat keputusan untuk korang.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Data Residency 2026 — Checklist 5 minit untuk tahu app duit korang simpan data kat mana sebenar">
+<meta name="twitter:description" content="DCCI Expo 12 Mei dan rules data-residency 2026 Malaysia dah start. Side infrastructure dah dihandle policy. Side consumer pula tak — ramai orang tak tahu app finance yang diorang trust tu sebenar simpan data kat mana, siapa boleh baca, apa jadi kalau leak. Ni audit 5 minit korang boleh run sendiri hari ni, sebelum leak seterusnya buat keputusan untuk korang.">
+<meta name="twitter:image" content="https://duitful.app/og-image.svg">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/ms/"},{"@type":"ListItem","position":2,"name":"Panduan","item":"https://duitful.app/guides/ms/"},{"@type":"ListItem","position":3,"name":"Checklist data residency 2026","item":"https://duitful.app/guides/ms/data-residency-2026-personal-checklist/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Data Residency 2026 — Checklist 5 minit untuk tahu app duit korang simpan data kat mana sebenar","description":"DCCI Expo 12 Mei dan rules data-residency 2026 Malaysia dah start. Side infrastructure dah dihandle policy. Side consumer pula tak — ramai orang tak tahu app finance yang diorang trust tu sebenar simpan data kat mana, siapa boleh baca, apa jadi kalau leak. Ni audit 5 minit korang boleh run sendiri hari ni, sebelum leak seterusnya buat keputusan untuk korang.","inLanguage":"ms","datePublished":"2026-05-05","dateModified":"2026-05-05","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/ms/data-residency-2026-personal-checklist/"},"image":"https://duitful.app/og-image.svg"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Guna app bank tu langgar privacy hygiene baik ke?","acceptedAnswer":{"@type":"Answer","text":"Tak. Bank operate bawah PIDM dan regulation BNM; obligasi handling data diorang lebih kuat dari hampir semua app consumer. Point bukan elak bank korang — point elak layer 5 lagi app cloud atas bank yang semua nak baca apa bank dah tahu. Satu source-of-truth regulated (bank), plus tracking peribadi on-device, tu architecture sound."}},{"@type":"Question","name":"Rule data residency 2026 Malaysia apply pada app budgeting saya ke?","acceptedAnswer":{"@type":"Answer","text":"Untuk institusi kewangan berlesen, ya — dah. Untuk app personal-finance tak berlesen dan SaaS, timeline rolling out 2026–2027. Banyak app akan comply diam-diam; some akan exit pasaran Malaysia daripada re-architect. Korang akan tahu mana yang mana dalam 12 bulan akan datang."}},{"@type":"Question","name":"Macam mana kalau saya suka app budgeting cloud sekarang?","acceptedAnswer":{"@type":"Answer","text":"Teruskan kalau jalan untuk korang. Cuma jawab 5 soalan, tahu apa korang trade, dan jangan letak data dalam tu yang korang tak comfortable nampak dalam leak. Audit ni bukan pasal quit app — pasal informed pasal apa korang pilih."}},{"@type":"Question","name":"On-device data risky tak kalau hilang phone?","acceptedAnswer":{"@type":"Answer","text":"Bergantung pada app. App on-device yang dibina betul encrypt dengan passphrase, jadi phone yang dicuri yield data encrypted-tapi-tak-boleh-baca. Trade-off: kalau hilang passphrase, takda provider boleh recover. Tu trade-off sama dengan password manager — dan most reader manage risk tu OK dengan backup tertulis passphrase recovery simpan offline."}},{"@type":"Question","name":"Macam mana Duitful handle benda ni?","acceptedAnswer":{"@type":"Answer","text":"Duitful on-device by design. Seluruh app tu satu file HTML yang browser atau phone korang run locally. Data encrypted AES-GCM dengan passphrase yang korang sorang control (250,000 PBKDF2 iterations atas key derivation). Takda akaun, takda email, takda analytics SDK. Kami literally tak boleh baca data korang — bukan by policy, by architecture. Trade-off: takda auto sync across devices kecuali korang handle export/import sendiri, yang documented dalam app."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Data Residency 2026 — Checklist 5 minit untuk tahu app duit korang simpan data kat mana sebenar","description":"DCCI Expo 12 Mei dan rules data-residency 2026 Malaysia dah start. Side infrastructure dah dihandle policy. Side consumer pula tak — ramai orang tak tahu app finance yang diorang trust tu sebenar simpan data kat mana, siapa boleh baca, apa jadi kalau leak. Ni audit 5 minit korang boleh run sendiri hari ni, sebelum leak seterusnya buat keputusan untuk korang.","inLanguage":"ms","step":[{"@type":"HowToStep","position":1,"name":"Soalan 1 — Data tu fizikal duduk mana?","text":"Tengok dalam privacy policy app, atau dalam settings bawah \"Data &amp; privacy.\" Kalau dia tulis \"data anda diproses dan disimpan dalam server di [negara],\" tu jawapan. Kalau dia tulis \"globally distributed servers,\" hampir confirm offshore. Kalau dia tak tulis langsung, anggap offshore."},{"@type":"HowToStep","position":2,"name":"Soalan 2 — Developer boleh baca tak?","text":"Encryption tu pintu. \"Encrypted in transit and at rest\" biasa maksudnya developer pegang key dan boleh baca on demand atau bawah court order. \"End-to-end encrypted\" atau \"zero-knowledge\" maksudnya developer tak boleh. Language marketing matter sini — baca betul-betul."},{"@type":"HowToStep","position":3,"name":"Soalan 3 — Perlu akaun ke?","text":"Akaun = email, no phone, password reset flow, session token simpan kat mana-mana. Setiap akaun tu attack surface dan vector leak. App yang kerja tanpa akaun (jarang untuk financial tool) eliminate seluruh kelas breach authentication-system."},{"@type":"HowToStep","position":4,"name":"Soalan 4 — Apa jadi kalau company tutup?","text":"Test ni yang ramai skip. Kalau company fold, apa jadi data dengan akses korang? App on-device terus jalan selagi binary dalam phone korang boleh run. App cloud boleh hilang dengan notis 30 hari — dan history data korang sekali. Tracking expense tiga tahun korang tak selamat kalau duduk atas server orang lain dengan clause off-ramp 30 hari."},{"@type":"HowToStep","position":5,"name":"Soalan 5 — Policy tu boleh check ke sebenar?","text":"Privacy policy tu janji. Codebase open-source atau audit security yang published tu evidence. App yang publish architecture diorang (atau simple sampai boleh verify) boleh dicheck. App yang cakap \"kami serius pasal privacy korang\" tanpa tunjuk kerja sebenar tak boleh."}]}</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --accent: #8fa078; --accent-ink: #3a6b50;
+    --warn: #b86a4e; --warn-ink: #8a3f1c;
+    --line: rgba(42,36,32,0.08); --border: rgba(42,36,32,0.14);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 17px/1.6 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 96px; }
+  .nav-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+
+  .eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: inline-block; margin-bottom: 14px;
+  }
+
+  h1 {
+    font: 500 clamp(36px, 6vw, 52px)/1.05 var(--font-serif);
+    letter-spacing: -0.02em; margin: 0 0 14px; color: var(--ink);
+  }
+  h1 em, h2 em { font-style: italic; color: var(--primary); }
+
+  .dateline {
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 22px; max-width: none;
+  }
+  .dateline time { color: inherit; }
+  .dateline-sep { margin: 0 4px; opacity: 0.6; }
+
+  .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
+
+  h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font: 500 18px/1.35 var(--font-sans); margin: 24px 0 6px; color: var(--ink); }
+  p { margin: 0 0 16px; color: var(--ink2); max-width: 64ch; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; color: var(--ink2); }
+  li { margin: 0 0 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: var(--primary-ink); }
+  code { font: 500 14px/1.2 var(--font-mono); background: var(--card); padding: 2px 6px; border-radius: 4px; border: 0.5px solid var(--line); }
+
+  /* ---------- Steps ---------- */
+  .steps { list-style: none; padding: 0; display: grid; gap: 12px; margin: 28px 0; }
+  .step {
+    display: grid; grid-template-columns: 48px 1fr; gap: 16px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 14px; padding: 18px 22px; align-items: start;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fffaf2;
+    display: grid; place-items: center;
+    font: 500 17px/1 var(--font-serif);
+  }
+  .step h3 { margin: 2px 0 4px; font-size: 17px; }
+  .step p { margin: 0; font-size: 15.5px; line-height: 1.5; }
+
+  /* ---------- Stat block ---------- */
+  .stat-block {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 16px; padding: 36px 28px;
+    margin: 32px 0; text-align: center;
+  }
+  .stat-value {
+    font: 500 clamp(44px, 9vw, 72px)/1 var(--font-serif);
+    color: var(--primary); letter-spacing: -0.02em;
+    margin: 0 0 10px; max-width: none;
+  }
+  .stat-label { font: 500 16px/1.4 var(--font-sans); color: var(--ink); margin: 0 0 4px; max-width: none; }
+  .stat-note { font: 400 13.5px/1.4 var(--font-mono); color: var(--muted); margin: 0; max-width: none; }
+
+  /* ---------- Compare ---------- */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin: 32px 0; border: 0.5px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col { padding: 22px 24px; }
+  .compare-col + .compare-col { border-left: 0.5px solid var(--line); }
+  @media (max-width: 600px) {
+    .compare-col + .compare-col { border-left: none; border-top: 0.5px solid var(--line); }
+  }
+  .compare-col.left  { background: rgba(184,106,78,0.05); }
+  .compare-col.right { background: rgba(106,138,94,0.06); }
+  .compare-title {
+    font: 500 11px/1 var(--font-mono); letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0 0 14px;
+  }
+  .compare-col.left  .compare-title { color: var(--warn-ink); }
+  .compare-col.right .compare-title { color: var(--accent-ink); }
+  .compare-col ul { padding: 0; list-style: none; margin: 0; }
+  .compare-col li {
+    padding: 7px 0; font-size: 15px; line-height: 1.45; color: var(--ink2);
+    display: flex; gap: 10px; align-items: start;
+  }
+  .compare-col li::before {
+    flex: 0 0 auto; font-weight: 700; line-height: 1.45;
+  }
+  .compare-col.left  li::before { content: "✕"; color: var(--warn); }
+  .compare-col.right li::before { content: "✓"; color: var(--accent-ink); }
+
+  /* ---------- FAQ ---------- */
+  .faq { margin: 28px 0; display: grid; gap: 8px; }
+  .faq-item {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; padding: 4px 22px;
+    transition: border-color 0.15s ease;
+  }
+  .faq-item[open] { border-color: var(--border); }
+  .faq-q {
+    font: 500 16px/1.4 var(--font-sans); color: var(--ink);
+    padding: 14px 0; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q::after {
+    content: "+"; font: 400 22px/1 var(--font-serif);
+    color: var(--muted); transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-q::after { content: "−"; }
+  .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
+  /* ---------- CTA ---------- */
+  .cta-card {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 18px; padding: 32px 28px;
+    margin: 56px 0 0; text-align: center;
+  }
+  .cta-card h2 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 30px); }
+  .cta-card p { margin: 0 auto 18px; max-width: 48ch; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 26px;
+    background: var(--primary); color: #fffaf2;
+    border-radius: 999px;
+    font: 500 15px/1 var(--font-sans);
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(42,36,32,0.1), 0 8px 20px rgba(200,112,75,0.28);
+    transition: background 0.15s ease;
+  }
+  .cta-btn:hover { background: var(--primary-ink); color: #fffaf2; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px; color: var(--muted);
+  }
+  .footer a { color: var(--primary); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<div class="container">
+  <a href="/guides/ms/" class="nav-back">← semua panduan</a>
+
+  <span class="eyebrow">Panduan · Malaysia · Privacy &amp;amp; data</span>
+  <h1>Data Residency 2026: <em>checklist 5 minit</em> untuk tahu app duit korang simpan data kat mana sebenar.</h1>
+  <p class="dateline">Diterbit <time datetime="2026-05-05">5 Mei 2026</time></p>
+  <p class="lede">DCCI Expo bukak 12 Mei dan rules data-residency 2026 Malaysia dah biting. Side infrastructure dah dihandle level policy. Side consumer pula tak — ramai orang tak tahu app yang diorang trust dengan kewangan harian tu sebenar simpan data kat mana, siapa boleh baca, apa jadi kalau salah satu dari diorang leak. Panduan ni audit 5 minit yang korang boleh run sendiri hari ni, atas stack korang sendiri, sebelum leak seterusnya buat keputusan untuk korang.</p>
+
+  <h2>Kenapa benda ni penting minggu ni</h2>
+
+    <div class="stat-block">
+      <p class="stat-value">12 Mei 2026</p>
+      <p class="stat-label">DCCI Expo bukak — moment public-facing bila "data korang duduk mana" stop jadi soalan infrastructure dan jadi expectation consumer</p>
+      <p class="stat-note">Rules data-residency 2026 apply pada institusi kewangan dan fintech berlesen. App personal-finance dan SaaS handle PII Malaysian follow over 12–24 bulan akan datang. Most consumer takkan tahu app mana comply sampai sesuatu tak kena.</p>
+    </div>
+<p>Launch Sovereign AI Cloud <a href="/guides/sovereign-ai-cloud-data-sovereignty-2026/">minggu lepas</a> cover side policy dan apa maksudnya level infrastructure. Panduan ni complement praktikal — checklist untuk app yang dah ada dalam phone korang, ditulis untuk orang yang bukan kerja tech.</p>
+<h2>Hierarki yang korang patut tahu</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Lebih baik</p>
+        <ul><li>On-device, encrypted dengan passphrase yang korang sorang control</li><li>On-device, encrypted dengan biometric/key system</li><li>Cloud-hosted dalam Malaysia, end-to-end encrypted (provider tak boleh decrypt)</li><li>Cloud-hosted dalam Malaysia, encrypted-at-rest (provider boleh decrypt dengan key)</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Lebih teruk</p>
+        <ul><li>Cloud-hosted dalam Malaysia, plaintext</li><li>Cloud-hosted offshore, encrypted-at-rest (provider Malaysia boleh request, foreign provider pegang keys)</li><li>Cloud-hosted offshore, plaintext</li><li>Cloud-hosted offshore, owned by parent tak related dalam jurisdiction lain</li></ul>
+      </div>
+    </div>
+<p>Hierarki ni bukan pasal Malaysia vs offshore je — tu rail policy. Ni pasal berapa pihak boleh baca data korang, dan apa jadi kalau salah satu compromised. On-device dengan encryption tu satu-satunya architecture di mana jawapan untuk "siapa boleh baca data ni" adalah "takda sesiapa kecuali korang."</p>
+<h2>Audit 5 minit</h2>
+<p>Pilih 4 app dalam phone yang korang paling guna untuk duit. Run 5 soalan sama untuk setiap satu. Most readers jumpa at least satu app yang jawapannya "saya tak tahu" — tu yang patut tengok dulu.</p>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Soalan 1 — Data tu fizikal duduk mana?</h3>
+        <p>Tengok dalam privacy policy app, atau dalam settings bawah "Data &amp;amp; privacy." Kalau dia tulis "data anda diproses dan disimpan dalam server di [negara]," tu jawapan. Kalau dia tulis "globally distributed servers," hampir confirm offshore. Kalau dia tak tulis langsung, anggap offshore.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Soalan 2 — Developer boleh baca tak?</h3>
+        <p>Encryption tu pintu. "Encrypted in transit and at rest" biasa maksudnya developer pegang key dan boleh baca on demand atau bawah court order. "End-to-end encrypted" atau "zero-knowledge" maksudnya developer tak boleh. Language marketing matter sini — baca betul-betul.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Soalan 3 — Perlu akaun ke?</h3>
+        <p>Akaun = email, no phone, password reset flow, session token simpan kat mana-mana. Setiap akaun tu attack surface dan vector leak. App yang kerja tanpa akaun (jarang untuk financial tool) eliminate seluruh kelas breach authentication-system.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Soalan 4 — Apa jadi kalau company tutup?</h3>
+        <p>Test ni yang ramai skip. Kalau company fold, apa jadi data dengan akses korang? App on-device terus jalan selagi binary dalam phone korang boleh run. App cloud boleh hilang dengan notis 30 hari — dan history data korang sekali. Tracking expense tiga tahun korang tak selamat kalau duduk atas server orang lain dengan clause off-ramp 30 hari.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">5</span>
+      <div>
+        <h3>Soalan 5 — Policy tu boleh check ke sebenar?</h3>
+        <p>Privacy policy tu janji. Codebase open-source atau audit security yang published tu evidence. App yang publish architecture diorang (atau simple sampai boleh verify) boleh dicheck. App yang cakap "kami serius pasal privacy korang" tanpa tunjuk kerja sebenar tak boleh.</p>
+      </div>
+    </li>
+</ol>
+<h2>Mana app duit Malaysian biasa duduk (pattern umum)</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">App bank typical (Maybank, CIMB, RHB, Public Bank, HLB)</p>
+        <ul><li>On-shore by regulation (BNM mandate residency Malaysia)</li><li>Bank boleh baca data korang; tu macam mana servicing akaun jalan</li><li>Account-protected; biometric + password</li><li>Survival = survival bank; PIDM-insured level deposit (bukan level data)</li><li>Verdict: trustworthy by regulation, tapi setiap bank ada dan akan ada leak</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">E-wallet typical (Touch 'n Go, GrabPay, Boost, BigPay)</p>
+        <ul><li>On-shore untuk ledger wallet; SDK offshore untuk analytics common</li><li>Operator boleh baca most history transaksi korang</li><li>Account-protected; some ada biometric, semua ada recovery via no phone</li><li>Survival = survival operator; safeguard level wallet ada tapi lebih lemah dari deposit bank</li><li>Verdict: convenient, dengan exposure data material kepada partner advertising/analytics</li></ul>
+      </div>
+    </div>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">App budgeting / aggregator typical</p>
+        <ul><li>Selalu offshore-hosted (server US, Singapore)</li><li>Aggregator yang connect ke bank korang biasa boleh baca semua</li><li>Akaun perlu; some perlu login bank korang (red flag)</li><li>Risk survival real; sektor 2024–2025 nampak beberapa closure</li><li>Verdict: convenience datang dengan data exposure paling besar dari semua kategori</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Tool accounting/SME typical</p>
+        <ul><li>Mixed — some on-shore (gaya BukuKas), most offshore (Xero, QuickBooks)</li><li>Operator boleh baca buku korang; tu produk</li><li>Account-protected</li><li>Survival typically strong tapi jurisdiction berbeza-beza</li><li>Verdict: appropriate untuk record business yang IRB dah nampak, less appropriate untuk duit peribadi</li></ul>
+      </div>
+    </div>
+<p>Pattern: lagi useful app tu rasa, lagi exposed data korang biasanya. Tu bukan kebetulan — feature useful (analytics, recommendation, social, sync) biasa perlu app baca data korang.</p>
+<h2>Apa nak buat hujung minggu ni</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Run 5 soalan atas 4 app duit utama korang</h3>
+        <p>App bank, e-wallet utama, app budgeting, dan satu lagi (provider BNPL, brokerage, accounting). Tulis jawapan dalam note. Most orang terkejut at least satu. Tu yang penting — korang dah informed.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Decide setiap app perlu tahu apa</h3>
+        <p>Bank korang perlu tahu baki bank korang — tu structural. E-wallet perlu tahu seluruh history transaksi korang ke bila korang guna mostly untuk transit? App budgeting perlu login bank korang ke bila korang boleh log expense manual? Strip permissions yang korang tak guna sebenar.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Pindah record peribadi sensitive ke on-device</h3>
+        <p>Track expense peribadi, schedule bayar hutang, goal simpanan, breakdown gaji — takda satu pun dari ni structurally perlu cloud. Diorang benefit dari feature convenience yang cloud enable, tapi data itself tak perlu duduk situ. On-device, encrypted, dengan passphrase yang korang sorang control tu baseline selamat.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Track move tu dalam Duitful sendiri</h3>
+        <p>Tambah reminder berulang untuk audit privacy tahunan (1 Mac, contoh). Stack korang berubah; audit korang patut track perubahan. Tag apa-apa spend data-migration (upgrade app berbayar untuk option privacy lebih baik, subscription password manager) bawah <code>Privacy · 2026</code> supaya nampak privacy cost berapa setahun — biasa kurang RM 100, selalu kurang dari harga satu dinner.</p>
+      </div>
+    </li>
+</ol>
+<h2>Apa nak abaikan</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Claim "kami tak jual data anda" tanpa specifics</h3>
+        <p>Tak jual bukan sama dengan tak share. Banyak app share dengan "trusted partners" atau "untuk analytics purposes" — tu vector leak yang matter. Baca section data-sharing, bukan copy marketing.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>VPN dengan teater "private browsing" untuk data app</h3>
+        <p>VPN protect traffic korang in transit. Dia tak ubah mana app simpan data korang lepas dia sampai. Kalau server app tu di Singapore, data korang di Singapore — VPN ke tak. VPN solve problem berbeza.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Janji "kami akan pindah ke server on-shore Q3"</h3>
+        <p>Migration yang dijanji selalu slip. Soalan relevant tu data duduk mana hari ni dan dah duduk mana 12 bulan lepas. Migration future tak retroactively protect data yang dah dikumpul.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Switch dari satu app cloud ke satu lagi app cloud dan rasa lebih selamat</h3>
+        <p>Dua app cloud dengan architecture similar adalah architecture similar. Architecture itself tu soalan — bukan provider mana yang sekarang nampak friendlier. Kalau data duduk atas server orang lain, threat model lebih kurang sama.</p>
+      </div>
+    </li>
+</ol>
+<h2>Soalan biasa</h2>
+<div class="faq">
+    <details class="faq-item">
+      <summary class="faq-q">Guna app bank tu langgar privacy hygiene baik ke?</summary>
+      <p class="faq-a">Tak. Bank operate bawah PIDM dan regulation BNM; obligasi handling data diorang lebih kuat dari hampir semua app consumer. Point bukan elak bank korang — point elak layer 5 lagi app cloud atas bank yang semua nak baca apa bank dah tahu. Satu source-of-truth regulated (bank), plus tracking peribadi on-device, tu architecture sound.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Rule data residency 2026 Malaysia apply pada app budgeting saya ke?</summary>
+      <p class="faq-a">Untuk institusi kewangan berlesen, ya — dah. Untuk app personal-finance tak berlesen dan SaaS, timeline rolling out 2026–2027. Banyak app akan comply diam-diam; some akan exit pasaran Malaysia daripada re-architect. Korang akan tahu mana yang mana dalam 12 bulan akan datang.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Macam mana kalau saya suka app budgeting cloud sekarang?</summary>
+      <p class="faq-a">Teruskan kalau jalan untuk korang. Cuma jawab 5 soalan, tahu apa korang trade, dan jangan letak data dalam tu yang korang tak comfortable nampak dalam leak. Audit ni bukan pasal quit app — pasal informed pasal apa korang pilih.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">On-device data risky tak kalau hilang phone?</summary>
+      <p class="faq-a">Bergantung pada app. App on-device yang dibina betul encrypt dengan passphrase, jadi phone yang dicuri yield data encrypted-tapi-tak-boleh-baca. Trade-off: kalau hilang passphrase, takda provider boleh recover. Tu trade-off sama dengan password manager — dan most reader manage risk tu OK dengan backup tertulis passphrase recovery simpan offline.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Macam mana Duitful handle benda ni?</summary>
+      <p class="faq-a">Duitful on-device by design. Seluruh app tu satu file HTML yang browser atau phone korang run locally. Data encrypted AES-GCM dengan passphrase yang korang sorang control (250,000 PBKDF2 iterations atas key derivation). Takda akaun, takda email, takda analytics SDK. Kami literally tak boleh baca data korang — bukan by policy, by architecture. Trade-off: takda auto sync across devices kecuali korang handle export/import sendiri, yang documented dalam app.</p>
+    </details>
+</div>
+
+  <aside class="related" aria-label="Panduan berkaitan">
+    <span class="related-eyebrow">Panduan berkaitan</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/ms/micro-sukuk-rm10-shariah-portfolio-2026/">
+          <span class="related-title">Micro-sukuk RM 10 — bina portfolio Shariah</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/ringgit-3-91-cheaper-subscriptions-2026/">
+          <span class="related-title">Ringgit 3.91 — langganan lebih murah</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/opr-decision-debt-avalanche-malaysia-2026/">
+          <span class="related-title">OPR &amp;amp; debt avalanche korang</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
+
+  <div class="cta-card">
+    <h2>Skip cloud terus</h2>
+    <p>On-shore tu floor baru. On-device tu satu-satunya ceiling sebenar. Duitful simpan data duit korang dalam phone — encrypted AES-GCM dengan passphrase yang korang sorang tahu. Takda akaun, takda email, takda analytics. Kami sendiri tak boleh baca. Free, RM 19.90 sekali bayar untuk Pro.</p>
+    <a class="cta-btn" href="/app/">Buka Duitful →</a>
+  </div>
+
+  <div class="footer">
+    Panduan lain di <a href="/guides/ms/">duitful.app/guides/ms</a>. Baca <a href="/changelog/">log perubahan</a>, <a href="/privacy/">dasar privasi</a>, atau <a href="/contact/">hubungi</a>.
+  </div>
+</div>
+</body>
+</html>

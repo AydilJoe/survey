@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"AI-native banking","item":"https://duitful.app/guides/ai-native-banking-malaysia-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Malaysia's pivot to AI-native banking, decoded — Duitful guide","description":"At the Asian Banker Summit 2026, the Ministry of Digital reframed the conversation from \"banks using AI\" to \"AI-native economies.\" What that actually means for the bank apps you use every day, and how it differs from the consumer-protection AI we covered yesterday.","inLanguage":"en","datePublished":"2026-05-14","dateModified":"2026-05-14","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/ai-native-banking-malaysia-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Should I switch to a \"non-AI\" bank?","acceptedAnswer":{"@type":"Answer","text":"There isn't one in 2026. Every Malaysian bank operating at scale already runs ML on your account. The question is how it's regulated, not whether to opt out."}},{"@type":"Question","name":"What about the fraud-protection AI?","acceptedAnswer":{"@type":"Answer","text":"Strictly good for you — see yesterday's guide. The AI-native shift covered here is broader: it also touches the decisions the bank makes about you (lending, pricing, product offers), which is where the consumer-protection conversation gets interesting."}},{"@type":"Question","name":"Does this affect Duitful Pro pricing or features?","acceptedAnswer":{"@type":"Answer","text":"No. Duitful's design — on-device, no analytics, no cloud — is unaffected by what banks do with their AI. Drive sync stays the only optional cloud component, and you control it."}},{"@type":"Question","name":"When does the regulation actually land?","acceptedAnswer":{"@type":"Answer","text":"Best guess: BNM and SC publish initial guidelines in late 2026, with binding rules through 2027. Watch for \"AI risk management\" consultation papers from BNM; those are the leading indicator."}},{"@type":"Question","name":"Where's the bigger picture on sovereignty?","acceptedAnswer":{"@type":"Answer","text":"The sovereign tech stack guide covers the broader Ministry of Digital push — AI-native banking is one slice of that."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Malaysia's pivot to AI-native banking, decoded — Duitful guide","description":"At the Asian Banker Summit 2026, the Ministry of Digital reframed the conversation from \"banks using AI\" to \"AI-native economies.\" What that actually means for the bank apps you use every day, and how it differs from the consumer-protection AI we covered yesterday.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Loan decisions in seconds, sometimes silently","text":"The personal-loan or BNPL approval that took 48 hours becomes a real-time decision. You'll see fewer \"we'll get back to you\" messages and more instant yes/no answers. The trade-off: when you're rejected, the bank may struggle to articulate why in human terms, because the model's reasoning isn't a clean checklist."},{"@type":"HowToStep","position":2,"name":"Budgeting nudges, embedded","text":"Expect your bank app to start asking \"you spent 80% of your dining budget this week, want to pause Grab notifications until Sunday?\" or similar. Whether you find that helpful or paternalistic depends on you. Either way, the budget the bank thinks you have will diverge from the one you actually have unless you tell it."},{"@type":"HowToStep","position":3,"name":"Cross-account intelligence as a feature","text":"Banks that already see your card spending will start to correlate it with your investments, your insurance, your overdraft patterns. Apps will surface \"you're paying 18% on this card while sitting on RM 20k in a 3.5% savings account — want to consolidate?\" The advice is often correct. The point is to notice that the bank now sees the whole picture and is acting on it."},{"@type":"HowToStep","position":4,"name":"Pricing that adjusts","text":"Insurance premiums, credit-card rewards rates, loan offers — these increasingly adjust to each user's behaviour pattern in near-real-time. Cheaper for predictable users, more expensive for variable ones. The framework around this kind of pricing is what the Ministry of Digital's \"AI-native\" framing is preparing the rules for."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -181,6 +182,37 @@
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
 
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
   /* ---------- CTA ---------- */
   .cta-card {
     background: var(--card); border: 0.5px solid var(--line);
@@ -210,6 +242,12 @@
   .footer a { color: var(--primary); text-decoration: none; }
   .footer a:hover { text-decoration: underline; }
 </style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <div class="container">
@@ -361,6 +399,30 @@
       <p class="faq-a">The <a href="/guides/sovereign-tech-stack-personal-data-2026/">sovereign tech stack guide</a> covers the broader Ministry of Digital push — AI-native banking is one slice of that.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/sovereign-tech-stack-personal-data-2026/">
+          <span class="related-title">Sovereign tech stack — for you, not just for the country</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/tokenised-deposits-malaysia-2026/">
+          <span class="related-title">Tokenised deposits, decoded</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/gig-driver-income-resilience-2026/">
+          <span class="related-title">Future-proof your gig income</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Track what the AI is doing for you, on your terms</h2>

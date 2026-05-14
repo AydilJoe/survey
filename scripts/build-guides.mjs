@@ -243,6 +243,7 @@ function renderBody(md) {
   const out = [];
   let i = 0;
   let faqLd = null;
+  const stepsBlocks = [];
 
   const flushPara = (buf) => {
     const text = buf.join(" ").trim();
@@ -267,6 +268,10 @@ function renderBody(md) {
       const fn = CUSTOM_RENDERERS[name];
       if (fn) out.push(fn(body));
       if (name === "faq") faqLd = faqJsonLd(body);
+      if (name === "steps") {
+        const items = parseRecords(body).filter((r) => r.title || r.text);
+        if (items.length) stepsBlocks.push(items);
+      }
       continue;
     }
 
@@ -293,7 +298,83 @@ function renderBody(md) {
   }
   flushPara(para);
 
-  return { html: out.join("\n"), faqLd };
+  return { html: out.join("\n"), faqLd, stepsBlocks };
+}
+
+// ---------- HowTo JSON-LD from the largest :::steps block ----------
+function howToJsonLd(stepsBlocks, meta, lang, chrome) {
+  if (!stepsBlocks.length) return null;
+  const primary = stepsBlocks.slice().sort((a, b) => b.length - a.length)[0];
+  if (primary.length < 3) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: stripMd(meta.title),
+    description: stripMd(meta.description),
+    inLanguage: meta.lang || chrome.inLanguage,
+    step: primary.map((it, idx) => ({
+      "@type": "HowToStep",
+      position: idx + 1,
+      name: stripMd(it.title || `Step ${idx + 1}`),
+      text: stripMd(it.text || ""),
+    })),
+  };
+}
+
+// ---------- Related guides (keyword-token overlap, same lang) ----------
+const STOP_WORDS = new Set([
+  "the","a","an","and","or","of","for","to","in","on","with","your","you",
+  "it","is","be","by","at","as","this","that","from","how","what","why",
+  "when","where","into","via","per","new","2026","2025","duitful","guide",
+  "panduan","macam","mana","anda","dan","atau","untuk","dengan","kat",
+  "di","ke","yang","adalah","sebagai","ini","itu","dari","tentang",
+]);
+function tokenize(s) {
+  const words = new Set();
+  for (const phrase of (s || "").toLowerCase().split(/[,;]+/)) {
+    for (const w of phrase.split(/[^a-z0-9]+/)) {
+      if (!w || w.length < 3) continue;
+      if (STOP_WORDS.has(w)) continue;
+      words.add(w);
+    }
+  }
+  return [...words];
+}
+function pickRelated(target, pool, n = 3) {
+  const targetTokens = new Set(tokenize(target.keywords));
+  if (!targetTokens.size) return [];
+  const scored = pool
+    .filter((g) => g.slug !== target.slug)
+    .map((g) => {
+      const tokens = tokenize(g.keywords);
+      let overlap = 0;
+      for (const t of tokens) if (targetTokens.has(t)) overlap++;
+      return { g, overlap };
+    })
+    .filter((x) => x.overlap > 0)
+    .sort((a, b) => {
+      if (b.overlap !== a.overlap) return b.overlap - a.overlap;
+      return (b.g.date_published || "").localeCompare(a.g.date_published || "");
+    })
+    .slice(0, n)
+    .map((x) => x.g);
+  return scored;
+}
+function renderRelated(related, chrome) {
+  if (!related.length) return "";
+  const eyebrow = chrome.hubLang === "ms" ? "Panduan berkaitan" : "Related guides";
+  const items = related.map((g) => `
+      <li class="related-item">
+        <a href="${g.href}">
+          <span class="related-title">${htmlAttr(g.card_title)}</span>
+          <span class="related-cta">${chrome.cardCta}</span>
+        </a>
+      </li>`).join("");
+  return `<aside class="related" aria-label="${eyebrow}">
+    <span class="related-eyebrow">${eyebrow}</span>
+    <ul class="related-list">${items}
+    </ul>
+  </aside>`;
 }
 
 // ---------- Template fill ----------
@@ -301,11 +382,11 @@ function fill(tpl, vars) {
   return tpl.replace(/\{\{([A-Z][A-Z0-9_]*)\}\}/g, (_, k) => (k in vars ? vars[k] : ""));
 }
 
-// ---------- Build a single guide ----------
-function buildGuide(filename, lang) {
+// ---------- Parse a single guide (no file write yet) ----------
+function parseGuide(filename, lang) {
   const slug = filename.replace(/\.md$/, "");
   const chrome = CHROME[lang];
-  const raw = readFileSync(join(CONTENT_DIRS[lang], filename), "utf8");
+  const raw = readFileSync(join(CONTENT_DIRS[lang], filename), "utf8").replace(/\r\n/g, "\n");
   const { meta, body } = splitFrontmatter(raw);
 
   const required = ["title", "description", "h1", "lede", "eyebrow", "date_published", "breadcrumb_name"];
@@ -313,10 +394,33 @@ function buildGuide(filename, lang) {
     if (!meta[k]) throw new Error(`${lang}/${filename}: missing frontmatter field "${k}"`);
   }
   const dateMod = meta.date_modified || meta.date_published;
+  const { html: bodyHtml, faqLd, stepsBlocks } = renderBody(body);
 
-  const { html: bodyHtml, faqLd } = renderBody(body);
+  return {
+    slug,
+    lang,
+    chrome,
+    meta,
+    bodyHtml,
+    faqLd,
+    stepsBlocks,
+    date_published: meta.date_published,
+    date_modified: dateMod,
+    title: meta.title,
+    keywords: meta.keywords || "",
+    card_title: meta.card_title || meta.breadcrumb_name,
+    card_blurb: meta.card_blurb || meta.lede,
+    eyebrow: meta.eyebrow,
+    href: `${chrome.hubHref}${slug}/`,
+  };
+}
 
+// ---------- Write a guide page using parsed data + related list ----------
+function writeGuide(parsed, related) {
+  const { slug, lang, chrome, meta, bodyHtml, faqLd, stepsBlocks } = parsed;
+  const dateMod = parsed.date_modified;
   const guideUrl = `https://duitful.app${chrome.hubHref}${slug}/`;
+
   const breadcrumbLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -347,6 +451,8 @@ function buildGuide(filename, lang) {
 
   const schemas = [breadcrumbLd, articleLd];
   if (faqLd) schemas.push(faqLd);
+  const howToLd = howToJsonLd(stepsBlocks, meta, lang, chrome);
+  if (howToLd) schemas.push(howToLd);
   const jsonLd = schemas.map((s) => `<script type="application/ld+json">${JSON.stringify(s)}</script>`).join("\n");
 
   const html = fill(TEMPLATE, {
@@ -362,6 +468,7 @@ function buildGuide(filename, lang) {
     DATELINE: buildDateline(meta.date_published, dateMod, chrome),
     LEDE: meta.lede,
     BODY: bodyHtml,
+    RELATED: renderRelated(related, chrome),
     HUB_HREF: chrome.hubHref,
     BACK_LABEL: chrome.backLabel,
     FOOTER_HTML: chrome.pageFooterHtml,
@@ -375,20 +482,6 @@ function buildGuide(filename, lang) {
   const outDir = join(outBase, slug);
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, "index.html"), html, "utf8");
-
-  return {
-    slug,
-    lang,
-    title: meta.title,
-    h1: meta.h1,
-    lede: meta.lede,
-    eyebrow: meta.eyebrow,
-    card_title: meta.card_title || meta.breadcrumb_name,
-    card_blurb: meta.card_blurb || meta.lede,
-    date_published: meta.date_published,
-    date_modified: dateMod,
-    href: `${chrome.hubHref}${slug}/`,
-  };
 }
 
 // ---------- Build the hub ----------
@@ -489,9 +582,107 @@ function injectIntoLanding(landingPath, guides, lang) {
   writeFileSync(landingPath, html.replace(marker, replacement), "utf8");
 }
 
+// ---------- Sitemap ----------
+const STATIC_PAGES = [
+  { loc: "https://duitful.app/",          changefreq: "weekly",  priority: "1.0", hreflang: { en: "https://duitful.app/", ms: "https://duitful.app/ms/" } },
+  { loc: "https://duitful.app/ms/",       changefreq: "weekly",  priority: "0.9", hreflang: { en: "https://duitful.app/", ms: "https://duitful.app/ms/" } },
+  { loc: "https://duitful.app/changelog/", changefreq: "weekly",  priority: "0.7" },
+  { loc: "https://duitful.app/contact/",   changefreq: "monthly", priority: "0.5" },
+  { loc: "https://duitful.app/privacy/",   changefreq: "yearly",  priority: "0.6" },
+  { loc: "https://duitful.app/terms/",     changefreq: "yearly",  priority: "0.6" },
+];
+const STATIC_LASTMOD = {
+  "https://duitful.app/privacy/": "2026-04-29",
+  "https://duitful.app/terms/":   "2026-04-29",
+  "https://duitful.app/contact/": "2026-04-29",
+};
+
+function buildSitemap(parsed) {
+  const today = new Date().toISOString().slice(0, 10);
+  const latestEn = parsed.en.reduce((m, g) => (g.date_modified > m ? g.date_modified : m), "");
+  const latestMs = parsed.ms.reduce((m, g) => (g.date_modified > m ? g.date_modified : m), "");
+  const latestAll = [latestEn, latestMs, today].sort().slice(-1)[0];
+
+  const lines = [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"`,
+    `        xmlns:xhtml="http://www.w3.org/1999/xhtml">`,
+  ];
+
+  for (const p of STATIC_PAGES) {
+    let lastmod = STATIC_LASTMOD[p.loc] || latestAll || today;
+    if (p.loc === "https://duitful.app/") lastmod = latestEn || lastmod;
+    if (p.loc === "https://duitful.app/ms/") lastmod = latestMs || latestEn || lastmod;
+    lines.push(`  <url>`);
+    lines.push(`    <loc>${p.loc}</loc>`);
+    lines.push(`    <lastmod>${lastmod}</lastmod>`);
+    lines.push(`    <changefreq>${p.changefreq}</changefreq>`);
+    lines.push(`    <priority>${p.priority}</priority>`);
+    if (p.hreflang) {
+      lines.push(`    <xhtml:link rel="alternate" hreflang="en" href="${p.hreflang.en}"/>`);
+      lines.push(`    <xhtml:link rel="alternate" hreflang="ms" href="${p.hreflang.ms}"/>`);
+      lines.push(`    <xhtml:link rel="alternate" hreflang="x-default" href="${p.hreflang.en}"/>`);
+    }
+    lines.push(`  </url>`);
+  }
+
+  // Hubs
+  lines.push(`  <url>`);
+  lines.push(`    <loc>https://duitful.app/guides/</loc>`);
+  lines.push(`    <lastmod>${latestEn || today}</lastmod>`);
+  lines.push(`    <changefreq>weekly</changefreq>`);
+  lines.push(`    <priority>0.8</priority>`);
+  lines.push(`    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/"/>`);
+  lines.push(`    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/"/>`);
+  lines.push(`    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/"/>`);
+  lines.push(`  </url>`);
+  if (parsed.ms.length) {
+    lines.push(`  <url>`);
+    lines.push(`    <loc>https://duitful.app/guides/ms/</loc>`);
+    lines.push(`    <lastmod>${latestMs || today}</lastmod>`);
+    lines.push(`    <changefreq>weekly</changefreq>`);
+    lines.push(`    <priority>0.8</priority>`);
+    lines.push(`    <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/"/>`);
+    lines.push(`    <xhtml:link rel="alternate" hreflang="ms" href="https://duitful.app/guides/ms/"/>`);
+    lines.push(`    <xhtml:link rel="alternate" hreflang="x-default" href="https://duitful.app/guides/"/>`);
+    lines.push(`  </url>`);
+  }
+
+  // Build a slug map so we can link hreflang alternates
+  const enSlugs = new Set(parsed.en.map((g) => g.slug));
+  const msSlugs = new Set(parsed.ms.map((g) => g.slug));
+
+  const emitGuide = (g) => {
+    const isMs = g.lang === "ms";
+    const url = `https://duitful.app${g.href}`;
+    const enUrl = `https://duitful.app/guides/${g.slug}/`;
+    const msUrl = `https://duitful.app/guides/ms/${g.slug}/`;
+    lines.push(`  <url>`);
+    lines.push(`    <loc>${url}</loc>`);
+    lines.push(`    <lastmod>${g.date_modified || g.date_published}</lastmod>`);
+    lines.push(`    <changefreq>monthly</changefreq>`);
+    lines.push(`    <priority>0.7</priority>`);
+    const hasEn = enSlugs.has(g.slug);
+    const hasMs = msSlugs.has(g.slug);
+    if (hasEn && hasMs) {
+      lines.push(`    <xhtml:link rel="alternate" hreflang="en" href="${enUrl}"/>`);
+      lines.push(`    <xhtml:link rel="alternate" hreflang="ms" href="${msUrl}"/>`);
+      lines.push(`    <xhtml:link rel="alternate" hreflang="x-default" href="${enUrl}"/>`);
+    }
+    lines.push(`  </url>`);
+  };
+
+  parsed.en.slice().sort((a, b) => (a.date_published || "").localeCompare(b.date_published || "")).forEach(emitGuide);
+  parsed.ms.slice().sort((a, b) => (a.date_published || "").localeCompare(b.date_published || "")).forEach(emitGuide);
+
+  lines.push(`</urlset>`);
+  lines.push("");
+  writeFileSync(join(ROOT, "sitemap.xml"), lines.join("\n"), "utf8");
+}
+
 // ---------- Main ----------
 function main() {
-  const built = { en: [], ms: [] };
+  const parsed = { en: [], ms: [] };
 
   for (const lang of ["en", "ms"]) {
     const dir = CONTENT_DIRS[lang];
@@ -499,30 +690,42 @@ function main() {
     const files = readdirSync(dir, { withFileTypes: true })
       .filter((d) => d.isFile() && d.name.endsWith(".md"))
       .map((d) => d.name);
-    built[lang] = files.map((f) => buildGuide(f, lang));
-    if (built[lang].length) buildHub(built[lang], lang);
+    parsed[lang] = files.map((f) => parseGuide(f, lang));
   }
 
-  if (!built.en.length && !built.ms.length) {
+  if (!parsed.en.length && !parsed.ms.length) {
     console.error("No .md files found in content dirs");
     process.exit(1);
   }
 
+  // Pass 2: write each guide with related guides computed from same-lang pool
+  for (const lang of ["en", "ms"]) {
+    for (const g of parsed[lang]) {
+      const related = pickRelated({ slug: g.slug, keywords: g.keywords }, parsed[lang], 3);
+      writeGuide(g, related);
+    }
+    if (parsed[lang].length) buildHub(parsed[lang], lang);
+  }
+
   // Landing pages: EN homepage shows EN guides; MS homepage prefers MS guides,
   // falls back to EN if no MS exists yet.
-  injectIntoLanding(join(ROOT, "index.html"), built.en, "en");
-  const msPool = built.ms.length ? built.ms : built.en;
-  const msLang = built.ms.length ? "ms" : "en";
+  injectIntoLanding(join(ROOT, "index.html"), parsed.en, "en");
+  const msPool = parsed.ms.length ? parsed.ms : parsed.en;
+  const msLang = parsed.ms.length ? "ms" : "en";
   injectIntoLanding(join(ROOT, "ms", "index.html"), msPool, msLang);
 
-  const total = built.en.length + built.ms.length;
+  // Sitemap regenerated from the parsed pool — keeps lastmod fresh, no manual edits.
+  buildSitemap(parsed);
+
+  const total = parsed.en.length + parsed.ms.length;
   console.log(`Built ${total} guide(s):`);
   for (const lang of ["en", "ms"]) {
-    for (const g of built[lang]) console.log(`  ${g.href}  (${g.title})`);
+    for (const g of parsed[lang]) console.log(`  ${g.href}  (${g.title})`);
   }
-  if (built.en.length) console.log(`Hub: /guides/`);
-  if (built.ms.length) console.log(`Hub: /guides/ms/`);
+  if (parsed.en.length) console.log(`Hub: /guides/`);
+  if (parsed.ms.length) console.log(`Hub: /guides/ms/`);
   console.log(`Landing pages: latest 3 injected into / and /ms/`);
+  console.log(`Sitemap: regenerated at /sitemap.xml`);
 }
 
 main();

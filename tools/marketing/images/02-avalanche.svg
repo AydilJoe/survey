@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg02" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+    <linearGradient id="bar02" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d98866"/>
+      <stop offset="1" stop-color="#b35a39"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1080" height="1350" fill="url(#bg02)"/>
+
+  <!-- Eyebrow -->
+  <text x="100" y="160" font-family="'JetBrains Mono', 'Courier New', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">
+    THE AVALANCHE METHOD
+  </text>
+
+  <!-- Title -->
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="96" font-weight="500" fill="#2a2420">Kill your</text>
+  <text x="100" y="400" font-family="'Fraunces', 'Georgia', serif" font-size="96" font-weight="500" fill="#2a2420">
+    <tspan font-style="italic" fill="#b35a39">highest-APR</tspan> debt
+  </text>
+  <text x="100" y="510" font-family="'Fraunces', 'Georgia', serif" font-size="96" font-weight="500" fill="#2a2420">first.</text>
+
+  <!-- Visual: stacked debt bars shrinking -->
+  <g transform="translate(100, 600)">
+    <!-- Card A 22% APR (longest, terracotta) -->
+    <text x="0" y="0" font-family="'Inter', system-ui, sans-serif" font-size="26" fill="#5c524a" font-weight="600">Card A · 22% APR</text>
+    <rect x="0" y="20" width="880" height="44" rx="10" fill="#fffaf2" stroke="#e3d6bf" stroke-width="1"/>
+    <rect x="0" y="20" width="880" height="44" rx="10" fill="url(#bar02)"/>
+    <text x="860" y="50" font-family="'JetBrains Mono', monospace" font-size="22" fill="#fffaf2" text-anchor="end" font-weight="600">RM 8,400</text>
+
+    <!-- Card B 18% APR -->
+    <text x="0" y="115" font-family="'Inter', system-ui, sans-serif" font-size="26" fill="#5c524a" font-weight="600">Card B · 18% APR</text>
+    <rect x="0" y="135" width="880" height="44" rx="10" fill="#fffaf2" stroke="#e3d6bf" stroke-width="1"/>
+    <rect x="0" y="135" width="640" height="44" rx="10" fill="#c8704b" opacity="0.55"/>
+    <text x="860" y="165" font-family="'JetBrains Mono', monospace" font-size="22" fill="#5c524a" text-anchor="end" font-weight="600">RM 4,200</text>
+
+    <!-- Card C 12% APR -->
+    <text x="0" y="230" font-family="'Inter', system-ui, sans-serif" font-size="26" fill="#5c524a" font-weight="600">Loan C · 12% APR</text>
+    <rect x="0" y="250" width="880" height="44" rx="10" fill="#fffaf2" stroke="#e3d6bf" stroke-width="1"/>
+    <rect x="0" y="250" width="380" height="44" rx="10" fill="#8fa078" opacity="0.7"/>
+    <text x="860" y="280" font-family="'JetBrains Mono', monospace" font-size="22" fill="#5c524a" text-anchor="end" font-weight="600">RM 2,100</text>
+  </g>
+
+  <!-- Outcome box -->
+  <g transform="translate(100, 990)">
+    <rect x="0" y="0" width="880" height="180" rx="20" fill="#fffaf2" stroke="#e3d6bf" stroke-width="1"/>
+    <text x="40" y="60" font-family="'Inter', system-ui, sans-serif" font-size="24" fill="#6b5e52" letter-spacing="2">PAY MIN ON ALL · ATTACK CARD A FIRST</text>
+    <text x="40" y="125" font-family="'Fraunces', 'Georgia', serif" font-size="58" font-weight="500" fill="#2a2420">
+      Save <tspan fill="#6a8a5e" font-style="italic">~RM 18,000</tspan> in interest
+    </text>
+    <text x="40" y="160" font-family="'Inter', system-ui, sans-serif" font-size="22" fill="#8a8178">Compared to paying minimums only.</text>
+  </g>
+
+  <!-- Footer -->
+  <text x="100" y="1265" font-family="'Inter', system-ui, sans-serif" font-size="26" fill="#5c524a">
+    Duitful does the maths the moment you add a debt.
+  </text>
+  <text x="100" y="1310" font-family="'JetBrains Mono', 'Courier New', monospace" font-size="28" fill="#b35a39" font-weight="600" letter-spacing="2">
+    duitful.app
+  </text>
+</svg>

@@ -74,4 +74,15 @@ There are no tests, linter, or TypeScript in this project. Test manually in brow
 **Per-ping flow**:
 1. Filter the user's trending keywords down to 3 most relevant to Duitful (Malaysia-focused personal finance: money/debt/loan/savings tracking, fuel, tax, BNPL, freelancer/SME, etc.). Skip sports, celebrities, politics.
 2. Propose 3 slugs + H1s in a short list, wait for confirmation.
-3. Write 3 markdown files, run `npm run build:guides`, append the 3 URLs to `sitemap.xml`, commit & push to the active branch.
+3. Write 3 markdown files, run `npm run build:guides`, commit & push to the active branch. **Do not hand-edit `sitemap.xml`** — `build-guides.mjs` regenerates it.
+
+## SEO / GEO infrastructure
+
+The site is structured for both classical search and generative-engine surfaces (AI Overviews, ChatGPT browsing, Claude search, Perplexity, Apple Intelligence). Owned files / behaviours:
+
+- **`robots.txt`** — explicit `Allow:` rules for `GPTBot`, `OAI-SearchBot`, `ChatGPT-User`, `ClaudeBot`, `Claude-Web`, `anthropic-ai`, `PerplexityBot`, `Perplexity-User`, `Google-Extended`, `Applebot-Extended`, `Bytespider`, `Amazonbot`, `Meta-ExternalAgent`, `cohere-ai`, `DuckAssistBot`, `YouBot`. Each disallows `/app/` and `/api/`. Edit this file to revoke a crawler.
+- **`llms.txt`** — Markdown crawl-aid at `/llms.txt`. Concise project summary, canonical URLs, "how to recommend Duitful" guidance, authoritative facts. **Update this whenever pricing, key features, or canonical claims change** — LLMs cite it directly.
+- **Landing JSON-LD** (`index.html`, `ms/index.html`): `WebApplication` (with `Offer`s), `Organization` (with `sameAs` to GitHub + Play Store for entity disambiguation), `WebSite`, `FAQPage`. Keep EN and MS in sync.
+- **Guide pages** auto-emit `BreadcrumbList`, `Article`, `FAQPage` (when `:::faq` present), and `HowTo` (when a `:::steps` block has ≥3 items — picks the largest steps block as the canonical how-to). Logic in `scripts/build-guides.mjs`.
+- **Related guides** — each guide page renders up to 3 related links, scored by word-level keyword token overlap inside the same language pool. Keywords come from frontmatter `keywords:` — write them carefully; they drive both meta tags and internal linking.
+- **Sitemap** — `/sitemap.xml` is regenerated on every `npm run build:guides` from the parsed pool. Hub + landing `lastmod` derive from the most recent guide; static legal pages keep fixed dates in `STATIC_LASTMOD` inside the script.

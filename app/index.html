@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com https://open.er-api.com; worker-src 'self' blob:; frame-src https://accounts.google.com; base-uri 'self'; object-src 'none'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://va.vercel-scripts.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://www.googleapis.com https://oauth2.googleapis.com https://accounts.google.com https://open.er-api.com https://va.vercel-scripts.com; worker-src 'self' blob:; frame-src https://accounts.google.com; base-uri 'self'; object-src 'none'; form-action 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#e8dfd0" />
     <title>Duitful — Money & Debt Tracker</title>
@@ -22,8 +22,12 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=43" />
+    <link rel="stylesheet" href="styles.css?v=44" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    </script>
+    <script defer src="/_vercel/insights/script.js"></script>
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -144,7 +148,28 @@
               <strong id="stat-daily-month" class="neg">RM 0.00</strong>
             </div>
           </div>
-          <span class="hero-formula" id="stat-net-formula"></span>
+          <button type="button" class="debt-glance" id="hero-debt-glance" data-go-tab="debts" hidden>
+            <span class="debt-glance-row">
+              <span class="debt-glance-label">Total debt</span>
+              <strong class="debt-glance-amount neg" id="hero-debt-glance-total">RM 0.00</strong>
+            </span>
+            <span class="debt-glance-meta" id="hero-debt-glance-meta">— debts · debt-free —</span>
+          </button>
+          <details class="hero-formula-details">
+            <summary>How is this calculated?</summary>
+            <span class="hero-formula" id="stat-net-formula"></span>
+          </details>
+          <div class="last-month-line" id="last-month-line" hidden>
+            <span class="last-month-label">Last month (<span id="last-month-label-text">—</span>) ended at:</span>
+            <strong class="last-month-value" id="last-month-value">RM 0.00</strong>
+            <span class="last-month-tone" id="last-month-tone"></span>
+            <button type="button" class="last-month-edit" id="btn-edit-last-month-min" aria-label="Adjust last month's ending balance">Adjust</button>
+          </div>
+        </div>
+
+        <div class="card budget-summary-card" id="budget-summary-card" hidden>
+          <h2>Budget Pools</h2>
+          <div id="budget-summary-list"></div>
         </div>
 
         <div class="card quick-add">
@@ -169,7 +194,15 @@
             <input type="hidden" id="daily-type" name="type" value="expense" />
             <label class="field big">
               <span>Amount (<span class="cur-code">MYR</span>)</span>
-              <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+              <div class="fx-row">
+                <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+                <select class="currency-picker" name="currency" data-currency-picker></select>
+              </div>
+              <span class="fx-preview" data-fx-preview hidden></span>
+              <span class="fx-upsell" data-fx-upsell hidden>
+                Multi-currency entry is a Pro feature.
+                <a data-action="open-paywall">Unlock for RM 19.90 →</a>
+              </span>
             </label>
             <div class="quick-amounts" id="quick-amounts">
               <button type="button" data-quick="5">+5</button>
@@ -199,6 +232,13 @@
                 </select>
               </label>
             </div>
+            <label class="field" id="daily-pool-field" hidden>
+              <span>Budget pool</span>
+              <select name="budgetPool" data-budget-pool>
+                <option value="">(none)</option>
+              </select>
+              <span class="pool-preview" data-pool-preview hidden></span>
+            </label>
             <label class="field">
               <span>Note (optional)</span>
               <input type="text" name="note" placeholder="Lunch at mamak" />
@@ -277,7 +317,15 @@
               </label>
               <label class="field">
                 <span>Amount (<span class="cur-code">MYR</span>)</span>
-                <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+                <div class="fx-row">
+                  <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+                  <select class="currency-picker" name="currency" data-currency-picker></select>
+                </div>
+                <span class="fx-preview" data-fx-preview hidden></span>
+                <span class="fx-upsell" data-fx-upsell hidden>
+                  Multi-currency entry is a Pro feature.
+                  <a data-action="open-paywall">Unlock for RM 19.90 →</a>
+                </span>
               </label>
             </div>
             <div class="grid-2">
@@ -290,10 +338,93 @@
                 <input type="number" name="day" min="1" max="31" step="1" inputmode="numeric" placeholder="25" />
               </label>
             </div>
+            <label class="repeat-toggle">
+              <input type="checkbox" name="repeatNext" checked />
+              <span>Repeat next month</span>
+              <span class="hint" data-pro-only-hint hidden>(Pro: auto-copies on month rollover)</span>
+            </label>
             <button type="submit" class="primary">Add income</button>
           </form>
+          <button type="button" class="ghost bulk-import-trigger" id="btn-bulk-import-income">Bulk import from CSV</button>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="income"
+              placeholder="Search income..."
+              aria-label="Search income"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="income" hidden aria-label="Clear search">✕</button>
+          </div>
           <ul id="list-income" class="item-list"></ul>
           <div class="total-line">Total: <strong id="total-income">RM 0.00</strong></div>
+        </div>
+
+        <div class="card budget-pool-card">
+          <h2>Budget Pools</h2>
+          <p class="hint">Split your monthly money into named buckets — Shopping, Subscriptions, Vacation. Tag expenses to a pool to track usage.</p>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="pools"
+              placeholder="Search pools..."
+              aria-label="Search pools"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="pools" hidden aria-label="Clear search">✕</button>
+          </div>
+          <div id="budget-pool-list"></div>
+          <div id="pool-templates" class="pool-templates" hidden>
+            <p class="hint">Quick start with a template:</p>
+            <div class="pool-template-row">
+              <button type="button" class="pill pool-template" data-template="Shopping">+ Shopping</button>
+              <button type="button" class="pill pool-template" data-template="Subscriptions">+ Subscriptions</button>
+              <button type="button" class="pill pool-template" data-template="Groceries">+ Groceries</button>
+              <button type="button" class="pill pool-template" data-template="Vacation">+ Vacation</button>
+            </div>
+          </div>
+          <button type="button" class="primary" id="btn-add-pool">+ Add pool</button>
+          <button type="button" class="ghost" id="btn-copy-pool-overrides">Copy overrides from last month</button>
+
+          <form id="form-budget-pool" hidden>
+            <div class="grid-2">
+              <label class="field">
+                <span>Pool name</span>
+                <input type="text" name="name" placeholder="Shopping" required />
+              </label>
+              <label class="field">
+                <span>Monthly limit (<span class="cur-code">MYR</span>)</span>
+                <input type="number" name="limit" step="0.01" min="0.01" inputmode="decimal" required />
+              </label>
+            </div>
+            <fieldset class="palette-picker">
+              <legend>Color</legend>
+              <div id="pool-color-options"></div>
+            </fieldset>
+            <div class="grid-2">
+              <label class="pool-toggle">
+                <input type="checkbox" name="rollover" />
+                <span>Roll over unspent next month</span>
+              </label>
+              <label class="field">
+                <span>Override limit this month (optional)</span>
+                <input type="number" name="thisMonthOverride" step="0.01" min="0" inputmode="decimal" />
+              </label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="primary">Save pool</button>
+              <button type="button" class="ghost" id="btn-cancel-pool">Cancel</button>
+            </div>
+            <input type="hidden" name="id" value="" />
+          </form>
         </div>
 
         <div class="card">
@@ -306,7 +437,15 @@
               </label>
               <label class="field">
                 <span>Amount (<span class="cur-code">MYR</span>)</span>
-                <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+                <div class="fx-row">
+                  <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+                  <select class="currency-picker" name="currency" data-currency-picker></select>
+                </div>
+                <span class="fx-preview" data-fx-preview hidden></span>
+                <span class="fx-upsell" data-fx-upsell hidden>
+                  Multi-currency entry is a Pro feature.
+                  <a data-action="open-paywall">Unlock for RM 19.90 →</a>
+                </span>
               </label>
             </div>
             <div class="grid-2">
@@ -319,8 +458,34 @@
                 <input type="number" name="day" min="1" max="31" step="1" inputmode="numeric" placeholder="1" />
               </label>
             </div>
+            <label class="field" id="expense-pool-field" hidden>
+              <span>Budget pool</span>
+              <select name="budgetPool" data-budget-pool>
+                <option value="">(none)</option>
+              </select>
+              <span class="pool-preview" data-pool-preview hidden></span>
+            </label>
+            <label class="repeat-toggle">
+              <input type="checkbox" name="repeatNext" checked />
+              <span>Repeat next month</span>
+              <span class="hint" data-pro-only-hint hidden>(Pro: auto-copies on month rollover)</span>
+            </label>
             <button type="submit" class="primary">Add expense</button>
           </form>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="expense"
+              placeholder="Search expenses..."
+              aria-label="Search expenses"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="expense" hidden aria-label="Clear search">✕</button>
+          </div>
           <ul id="list-expense" class="item-list"></ul>
           <div class="total-line">Total: <strong id="total-expense">RM 0.00</strong></div>
         </div>
@@ -335,6 +500,29 @@
             <div class="stat"><span class="label">Entries</span><strong id="daily-month-count">0</strong></div>
           </div>
           <p class="hint">Add a new entry from the Home tab. Tap ✕ to delete.</p>
+          <details class="daily-legend-details">
+            <summary>What do the pill colors mean?</summary>
+            <p class="hint daily-legend">
+              <span class="cat-pill">Food</span> = category ·
+              <span class="cat-pill cat-pill-debt">↓ Bank</span> = debt payment ·
+              <span class="cat-pill cat-pill-saving">↑ Goal</span> = saving deposit ·
+              <span class="cat-pill cat-pill-card">◈ Card</span> = charged to card
+            </p>
+          </details>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="daily"
+              placeholder="Search daily entries..."
+              aria-label="Search daily entries"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="daily" hidden aria-label="Clear search">✕</button>
+          </div>
           <div id="daily-list" class="daily-list"></div>
         </div>
       </section>
@@ -391,6 +579,24 @@
             </label>
             <button type="submit" class="primary">Add debt</button>
           </form>
+          <div class="list-search-row">
+            <input
+              type="search"
+              class="list-search"
+              data-search="debts"
+              placeholder="Search debts..."
+              aria-label="Search debts"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="debts" hidden aria-label="Clear search">✕</button>
+          </div>
+          <p class="hint debt-legend">
+            <span class="day-chip soon">15</span> = due in the next few days ·
+            <span class="day-chip today">8</span> = due today
+          </p>
           <ul id="list-debt" class="debt-list"></ul>
         </div>
       </section>
@@ -420,6 +626,20 @@
 
         <div class="card">
           <h2>Goals</h2>
+          <div id="savings-search-row" class="list-search-row" hidden>
+            <input
+              type="search"
+              class="list-search"
+              data-search="savings"
+              placeholder="Search savings goals..."
+              aria-label="Search savings goals"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="savings" hidden aria-label="Clear search">✕</button>
+          </div>
           <div id="savings-list" class="savings-list"></div>
         </div>
       </section>
@@ -472,9 +692,20 @@
           <p class="reports-mom" id="reports-mom" hidden></p>
         </div>
 
-        <div class="card">
-          <h2>By category</h2>
-          <div id="reports-categories" class="reports-categories"></div>
+        <div class="card" id="reports-spending">
+          <div class="spending-header">
+            <h2>Spending by category</h2>
+            <span id="reports-spending-total" class="spending-total" hidden></span>
+          </div>
+          <p class="hint">Where your spending went this period. Debt payments and savings deposits are tracked separately.</p>
+          <p id="reports-spending-kind-note" class="hint hint-info" hidden>Pie always shows expenses — debt &amp; savings are separate kinds.</p>
+          <div class="spending-content">
+            <div class="spending-pie-wrap">
+              <svg id="reports-spending-pie" class="spending-pie" viewBox="0 0 200 200" role="img" aria-label="Spending breakdown by category"></svg>
+            </div>
+            <ul id="reports-spending-legend" class="spending-legend"></ul>
+          </div>
+          <div id="reports-spending-empty" class="empty" hidden>No spending in this period.</div>
         </div>
 
         <div class="card">
@@ -559,6 +790,7 @@
             <p class="hint">Share this link. When someone buys Duitful Pro through it, RM 5 lands in your bank (we pay out monthly via bank transfer).</p>
             <div class="pro-refer-url-row">
               <code id="pro-refer-url" class="pro-refer-url">https://duitful.app/app?ref=...</code>
+              <button type="button" class="primary" id="btn-pro-refer-share" hidden>Share</button>
               <button type="button" class="ghost" id="btn-pro-refer-copy">Copy</button>
             </div>
           </div>
@@ -581,27 +813,71 @@
               <option value="JPY">JPY — Japanese Yen</option>
               <option value="CNY">CNY — Chinese Yuan</option>
               <option value="HKD">HKD — Hong Kong Dollar</option>
+              <option value="TWD">TWD — Taiwan Dollar</option>
               <option value="KRW">KRW — South Korean Won</option>
               <option value="IDR">IDR — Indonesian Rupiah</option>
               <option value="THB">THB — Thai Baht</option>
               <option value="PHP">PHP — Philippine Peso</option>
               <option value="VND">VND — Vietnamese Dong</option>
+              <option value="BND">BND — Brunei Dollar</option>
+              <option value="LAK">LAK — Lao Kip</option>
+              <option value="KHR">KHR — Cambodian Riel</option>
+              <option value="MMK">MMK — Myanmar Kyat</option>
               <option value="INR">INR — Indian Rupee</option>
+              <option value="PKR">PKR — Pakistani Rupee</option>
+              <option value="BDT">BDT — Bangladeshi Taka</option>
+              <option value="LKR">LKR — Sri Lankan Rupee</option>
+              <option value="NPR">NPR — Nepalese Rupee</option>
               <option value="AED">AED — UAE Dirham</option>
               <option value="SAR">SAR — Saudi Riyal</option>
+              <option value="QAR">QAR — Qatari Riyal</option>
+              <option value="KWD">KWD — Kuwaiti Dinar</option>
+              <option value="OMR">OMR — Omani Rial</option>
+              <option value="BHD">BHD — Bahraini Dinar</option>
+              <option value="EGP">EGP — Egyptian Pound</option>
+              <option value="ILS">ILS — Israeli Shekel</option>
+              <option value="TRY">TRY — Turkish Lira</option>
+              <option value="SEK">SEK — Swedish Krona</option>
+              <option value="NOK">NOK — Norwegian Krone</option>
+              <option value="DKK">DKK — Danish Krone</option>
+              <option value="PLN">PLN — Polish Złoty</option>
+              <option value="CZK">CZK — Czech Koruna</option>
+              <option value="HUF">HUF — Hungarian Forint</option>
+              <option value="BRL">BRL — Brazilian Real</option>
+              <option value="MXN">MXN — Mexican Peso</option>
+              <option value="ARS">ARS — Argentine Peso</option>
+              <option value="ZAR">ZAR — South African Rand</option>
             </select>
           </label>
           <p class="hint">Saved values stay the same — only the display currency changes.</p>
         </div>
 
         <div class="card">
+          <h2>Currency rates</h2>
+          <p class="hint">
+            Live mid-market rates for converting foreign-currency entries.
+            Refreshed daily via the open-source
+            <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">Currency-API</a>
+            by <a href="https://github.com/fawazahmed0" target="_blank" rel="noopener">@fawazahmed0</a>
+            (public-domain, no API key, daily updates).
+          </p>
+          <div class="fx-status" id="fx-status">
+            <span id="fx-status-line" aria-live="polite">Rates not loaded yet.</span>
+            <button type="button" class="ghost" id="btn-fx-refresh" aria-describedby="fx-status-line">Refresh now</button>
+          </div>
+          <p class="hint" id="fx-unsupported-hint" hidden>
+            Some currencies are display-only — live rates are not available for these.
+          </p>
+        </div>
+
+        <div class="card">
           <h2>Reminders</h2>
           <label class="field">
-            <span>Days ahead to look</span>
+            <span>Show upcoming items for the next __ days</span>
             <input type="number" id="pref-reminders-days" min="0" max="31" step="1" inputmode="numeric" />
           </label>
           <div class="button-row" style="justify-content:flex-start;">
-            <button id="btn-enable-notifications" class="primary" type="button">Enable browser notifications</button>
+            <button id="btn-enable-notifications" class="ghost" type="button">Enable browser notifications</button>
           </div>
           <p class="hint" id="notifications-status"></p>
           <p class="hint">Shows upcoming debt/bill due dates and pay days on Home. Browser notifications fire when the app is open and once per day for items due today. Background reminders (when the app is fully closed) need a native wrapper — not available on iOS Safari PWAs.</p>
@@ -624,6 +900,14 @@
           <p class="hint">Single-page web app. All data stays on your device. Works offline once loaded. Share the URL with friends — they each get their own data.</p>
           <div class="button-row">
             <button id="btn-show-guide" class="ghost" type="button">Replay welcome tour</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Contact</h2>
+          <p class="hint">Found a bug, got an idea, or need help? Drop us an email — we read every message.</p>
+          <div class="button-row">
+            <a class="primary as-button" href="mailto:hello@duitful.app?subject=Duitful%20feedback">Email hello@duitful.app</a>
           </div>
         </div>
 
@@ -766,14 +1050,40 @@
                 <option value="JPY">JPY — Japanese Yen</option>
                 <option value="CNY">CNY — Chinese Yuan</option>
                 <option value="HKD">HKD — Hong Kong Dollar</option>
+                <option value="TWD">TWD — Taiwan Dollar</option>
                 <option value="KRW">KRW — South Korean Won</option>
                 <option value="IDR">IDR — Indonesian Rupiah</option>
                 <option value="THB">THB — Thai Baht</option>
                 <option value="PHP">PHP — Philippine Peso</option>
                 <option value="VND">VND — Vietnamese Dong</option>
+                <option value="BND">BND — Brunei Dollar</option>
+                <option value="LAK">LAK — Lao Kip</option>
+                <option value="KHR">KHR — Cambodian Riel</option>
+                <option value="MMK">MMK — Myanmar Kyat</option>
                 <option value="INR">INR — Indian Rupee</option>
+                <option value="PKR">PKR — Pakistani Rupee</option>
+                <option value="BDT">BDT — Bangladeshi Taka</option>
+                <option value="LKR">LKR — Sri Lankan Rupee</option>
+                <option value="NPR">NPR — Nepalese Rupee</option>
                 <option value="AED">AED — UAE Dirham</option>
                 <option value="SAR">SAR — Saudi Riyal</option>
+                <option value="QAR">QAR — Qatari Riyal</option>
+                <option value="KWD">KWD — Kuwaiti Dinar</option>
+                <option value="OMR">OMR — Omani Rial</option>
+                <option value="BHD">BHD — Bahraini Dinar</option>
+                <option value="EGP">EGP — Egyptian Pound</option>
+                <option value="ILS">ILS — Israeli Shekel</option>
+                <option value="TRY">TRY — Turkish Lira</option>
+                <option value="SEK">SEK — Swedish Krona</option>
+                <option value="NOK">NOK — Norwegian Krone</option>
+                <option value="DKK">DKK — Danish Krone</option>
+                <option value="PLN">PLN — Polish Złoty</option>
+                <option value="CZK">CZK — Czech Koruna</option>
+                <option value="HUF">HUF — Hungarian Forint</option>
+                <option value="BRL">BRL — Brazilian Real</option>
+                <option value="MXN">MXN — Mexican Peso</option>
+                <option value="ARS">ARS — Argentine Peso</option>
+                <option value="ZAR">ZAR — South African Rand</option>
               </select>
             </label>
           </div>
@@ -798,6 +1108,30 @@
         <div class="button-row">
           <button type="button" class="ghost" id="scan-cancel">Close</button>
           <button type="button" class="primary" id="scan-apply" hidden>Use these values</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="bulk-income-dialog" class="edit-dialog">
+      <form method="dialog">
+        <h2>Bulk import income</h2>
+        <p class="hint">Upload a Duitful CSV. Only the <code>income</code> rows are added — every other row type is ignored. Existing income, expenses, debts, savings, and daily entries are untouched.</p>
+        <label class="field">
+          <span>CSV file</span>
+          <input type="file" id="bulk-income-file" accept=".csv,text/csv" />
+        </label>
+        <div id="bulk-income-status" class="hint" hidden></div>
+        <div id="bulk-income-preview" class="bulk-income-preview" hidden>
+          <p class="bulk-income-summary"><strong id="bulk-income-count">0</strong> income rows ready to add</p>
+          <p class="hint" id="bulk-income-totals"></p>
+          <details id="bulk-income-skipped-wrap" hidden>
+            <summary><span id="bulk-income-skipped-count">0</span> rows skipped</summary>
+            <ul id="bulk-income-skipped" class="bulk-income-skipped"></ul>
+          </details>
+        </div>
+        <div class="button-row">
+          <button type="button" class="ghost" id="bulk-income-cancel">Close</button>
+          <button type="button" class="primary" id="bulk-income-apply" disabled>Add to income</button>
         </div>
       </form>
     </dialog>
@@ -828,6 +1162,66 @@
         <div class="button-row">
           <button type="button" class="ghost" data-edit-cancel>Cancel</button>
           <button type="submit" class="primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="bulk-debt-pay-dialog" class="edit-dialog">
+      <form method="dialog" id="bulk-debt-pay-form">
+        <h2>Pay monthly minimums</h2>
+        <label class="field">
+          <span>Date for all entries</span>
+          <input type="date" id="bulk-debt-default-date" />
+        </label>
+        <div id="bulk-debt-rows"></div>
+        <div class="bulk-debt-total" id="bulk-debt-total"></div>
+        <div class="form-actions">
+          <button type="button" class="ghost" data-action="bulk-debt-cancel">Cancel</button>
+          <button type="button" class="primary" id="btn-bulk-debt-confirm">Confirm payments</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="daily-edit-dialog" class="edit-dialog">
+      <form method="dialog" id="daily-edit-form">
+        <h2>Edit entry</h2>
+        <p class="hint" id="daily-edit-kind-hint">—</p>
+        <label class="field">
+          <span>Amount (<span class="cur-code">MYR</span>)</span>
+          <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+        </label>
+        <label class="field">
+          <span>Date</span>
+          <input type="date" name="date" required />
+        </label>
+        <label class="field" id="daily-edit-category-field">
+          <span>Category</span>
+          <input type="text" name="category" placeholder="Food, Transport..." />
+        </label>
+        <label class="field">
+          <span>Note (optional)</span>
+          <input type="text" name="note" />
+        </label>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="btn-daily-edit-cancel">Cancel</button>
+          <button type="button" class="primary" id="btn-daily-edit-save">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="last-month-edit-dialog" class="edit-dialog">
+      <form method="dialog" id="last-month-edit-form">
+        <h2>Edit last month's debt minimum</h2>
+        <p class="hint">For <span id="last-month-edit-month">—</span>. This affects the calculation of last month's ending balance only.</p>
+        <label class="field">
+          <span>Minimum debt obligation (<span class="cur-code">MYR</span>)</span>
+          <input type="number" name="minSum" step="0.01" min="0" inputmode="decimal" required />
+        </label>
+        <p class="hint">Currently auto-snapshotted as <strong id="last-month-edit-current">RM 0.00</strong> from your active debts. Override only if you remember different.</p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="btn-last-month-edit-cancel">Cancel</button>
+          <button type="button" class="ghost" id="btn-last-month-edit-reset">Reset to auto</button>
+          <button type="button" class="primary" id="btn-last-month-edit-save">Save</button>
         </div>
       </form>
     </dialog>
@@ -865,6 +1259,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=56"></script>
+    <script src="script.js?v=57"></script>
   </body>
 </html>

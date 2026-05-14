@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Consumer Credit Act 2026","item":"https://duitful.app/guides/consumer-credit-act-bnpl-malaysia-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"The 2026 Consumer Credit Act, in plain English — Duitful Malaysia guide","description":"Malaysia's Consumer Credit Act in force from March 1, 2026, with mandatory BNPL affordability checks from June 1. What changes for SPayLater, Atome, Grab PayLater users, and how to keep tracking it cleanly in Duitful.","inLanguage":"en","datePublished":"2026-04-30","dateModified":"2026-04-30","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/consumer-credit-act-bnpl-malaysia-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does CCA cap how much I can borrow on BNPL?","acceptedAnswer":{"@type":"Answer","text":"Not directly. The act requires providers to check affordability before approving new credit. In practice that means stricter approval for users with thin track records or high existing debt across providers."}},{"@type":"Question","name":"Will my existing BNPL plans be cancelled or repriced?","acceptedAnswer":{"@type":"Answer","text":"No. Existing plans run to completion on the terms they were issued. The new rules apply to plans issued from June 1, 2026 onwards."}},{"@type":"Question","name":"Where do I complain about a BNPL provider after June 1?","acceptedAnswer":{"@type":"Answer","text":"Escalate to the Consumer Credit Commission once the provider's own complaint channel has failed. CCC publishes its escalation process; check their site closer to the date."}},{"@type":"Question","name":"How do I track my BNPL APR if the provider doesn't show one?","acceptedAnswer":{"@type":"Answer","text":"When you sign up, look at the late-payment fee structure. A missed instalment that triggers a 5%-of-outstanding fee is effectively very high APR. Log a conservative APR in Duitful (e.g., 24%) so the avalanche planner gives the BNPL its weight."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"The 2026 Consumer Credit Act, in plain English — Duitful Malaysia guide","description":"Malaysia's Consumer Credit Act in force from March 1, 2026, with mandatory BNPL affordability checks from June 1. What changes for SPayLater, Atome, Grab PayLater users, and how to keep tracking it cleanly in Duitful.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Affordability check before every new BNPL plan","text":"Providers must verify that you can actually pay before approving a new instalment. Expect more \"no\" replies if you have thin track records or high existing debt across providers."},{"@type":"HowToStep","position":2,"name":"All fees disclosed before you confirm","text":"Late fees, conversion fees, missed-instalment penalties — every charge has to be on screen before you tap Confirm. No discovery after the fact."},{"@type":"HowToStep","position":3,"name":"A single regulator to escalate to","text":"If a BNPL provider misbehaves, the Consumer Credit Commission is the place to file a complaint. Provider-side complaint channels still apply first, but there's now a real backstop."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -181,6 +182,37 @@
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
 
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
   /* ---------- CTA ---------- */
   .cta-card {
     background: var(--card); border: 0.5px solid var(--line);
@@ -210,6 +242,12 @@
   .footer a { color: var(--primary); text-decoration: none; }
   .footer a:hover { text-decoration: underline; }
 </style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <div class="container">
@@ -307,6 +345,30 @@
       <p class="faq-a">When you sign up, look at the late-payment fee structure. A missed instalment that triggers a 5%-of-outstanding fee is effectively very high APR. Log a conservative APR in Duitful (e.g., 24%) so the avalanche planner gives the BNPL its weight.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/opr-decision-debt-avalanche-malaysia-2026/">
+          <span class="related-title">OPR &amp;amp; your debt avalanche</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/crush-credit-card-debt-avalanche-2026/">
+          <span class="related-title">Crush 18% credit-card debt</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ai-native-banking-malaysia-2026/">
+          <span class="related-title">Malaysia's pivot to AI-native banking</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Track every BNPL plan in one place</h2>

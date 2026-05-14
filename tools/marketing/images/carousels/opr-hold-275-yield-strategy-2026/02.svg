@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1350" width="1080" height="1350">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#efe6d6"/>
+      <stop offset="1" stop-color="#e3d6bf"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1350" fill="url(#bg)"/>
+
+  <text x="100" y="160" font-family="'JetBrains Mono', monospace" font-size="24" letter-spacing="5" fill="#6b5e52" font-weight="500">THE SILENT LEVY</text>
+  <g transform="translate(900, 140)"><rect width="80" height="40" rx="20" fill="#fffaf2" stroke="#e3d6bf"/><text x="40" y="27" font-family="'JetBrains Mono', monospace" font-size="18" fill="#b35a39" text-anchor="middle" font-weight="600" letter-spacing="2">2/5</text></g>
+
+  <text x="100" y="290" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#2a2420">Cash in a current</text>
+  <text x="100" y="370" font-family="'Fraunces', 'Georgia', serif" font-size="68" font-weight="500" fill="#b35a39" font-style="italic">account is bleeding.</text>
+
+  <!-- Calc card -->
+  <g transform="translate(80, 480)" font-family="'JetBrains Mono', monospace" fill="#2a2420">
+    <rect width="920" height="640" rx="22" fill="#fffaf2" stroke="#e3d6bf"/>
+    <text x="40" y="60" font-size="18" fill="#8a8178" letter-spacing="3">YOU EARN</text>
+    <text x="40" y="120" font-family="'Fraunces', serif" font-size="56" font-weight="500" fill="#2a2420">~ 0.25%</text>
+    <text x="40" y="160" font-size="20" fill="#5c524a" font-family="'Inter', sans-serif">on a typical Malaysian current account</text>
+
+    <line x1="40" y1="200" x2="880" y2="200" stroke="#e3d6bf" stroke-width="1"/>
+
+    <text x="40" y="250" font-size="18" fill="#8a8178" letter-spacing="3">SERVICE-SECTOR INFLATION</text>
+    <text x="40" y="310" font-family="'Fraunces', serif" font-size="56" font-weight="500" fill="#b35a39">5.5%</text>
+    <text x="40" y="350" font-size="20" fill="#5c524a" font-family="'Inter', sans-serif">on the things you actually buy</text>
+
+    <line x1="40" y1="390" x2="880" y2="390" stroke="#e3d6bf" stroke-width="1"/>
+
+    <text x="40" y="440" font-size="18" fill="#8a8178" letter-spacing="3">REAL-TERMS LOSS, PER YEAR</text>
+    <text x="40" y="510" font-family="'Fraunces', serif" font-size="64" font-weight="500" fill="#b86a4e" font-style="italic">~ 5%</text>
+    <text x="40" y="555" font-size="20" fill="#5c524a" font-family="'Inter', sans-serif">on every ringgit just sitting there.</text>
+    <text x="40" y="585" font-size="18" fill="#8a8178" font-family="'Inter', sans-serif" font-style="italic">Worse if your basket is services-heavy.</text>
+  </g>
+
+  <text x="100" y="1280" font-family="'JetBrains Mono', monospace" font-size="22" fill="#b35a39" font-weight="600" letter-spacing="2">duitful.app</text>
+</svg>

@@ -4,6 +4,10 @@
  * Strategy:
  *   - Network-first for HTML (so a new deploy is picked up immediately
  *     on the next reload, but we still work offline from cache).
+ *   - Network-first for manifest.webmanifest so PWA shortcut changes
+ *     reach Chrome's periodic manifest refresh (otherwise users with an
+ *     existing home-screen shortcut keep seeing the old shortcut menu
+ *     until they remove and re-add the icon).
  *   - Cache-first for versioned static assets (styles.css?v=N, script.js?v=N).
  *   - API routes (/api/*) are always bypassed — we never want stale
  *     bill-creation responses or cached license-issue errors.
@@ -11,17 +15,16 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-04-29-5";
+const VERSION = "2026-05-14-2";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=43",
-  "/app/script.js?v=56",
+  "/app/styles.css?v=44",
+  "/app/script.js?v=57",
   "/app/drive-config.js?v=1",
   "/app/drive-sync.js?v=1",
-  "/app/manifest.webmanifest",
   "/app/icon.svg",
 ];
 
@@ -31,7 +34,10 @@ self.addEventListener("install", (event) => {
     // Use {cache: "reload"} so a new SW doesn't pick up a stale browser
     // cache entry for the shell files.
     await Promise.all(SHELL.map((url) => cache.add(new Request(url, { cache: "reload" })).catch(() => {})));
-    self.skipWaiting();
+    // Don't skipWaiting here — the page decides when to swap in the new SW
+    // so it can show a "New version" banner first. iOS standalone webclips
+    // were the main motivator: without an explicit prompt, the old SW kept
+    // serving stale assets when users reopened from the home screen.
   })());
 });
 
@@ -54,8 +60,9 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/")) return;
 
   const isNavigate = req.mode === "navigate" || req.destination === "document";
+  const isManifest = url.pathname === "/app/manifest.webmanifest";
 
-  if (isNavigate) {
+  if (isNavigate || isManifest) {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req);
@@ -63,7 +70,7 @@ self.addEventListener("fetch", (event) => {
         cache.put(req, fresh.clone());
         return fresh;
       } catch {
-        return (await caches.match(req)) || (await caches.match("/app/")) || new Response("Offline", { status: 503 });
+        return (await caches.match(req)) || (isNavigate && await caches.match("/app/")) || new Response("Offline", { status: 503 });
       }
     })());
     return;

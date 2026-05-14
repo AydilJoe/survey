@@ -28,6 +28,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/ms/"},{"@type":"ListItem","position":2,"name":"Panduan","item":"https://duitful.app/guides/ms/"},{"@type":"ListItem","position":3,"name":"Ejen AI penipuan","item":"https://duitful.app/guides/ms/ai-agents-bank-fraud-malaysia-2026/"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Ejen AI kini lindungi akaun Maybank & CIMB anda — Panduan Duitful Malaysia","description":"Visa, Maybank, CIMB dan Alliance Bank baru mengaktifkan lapisan AI ejen yang menghalang penipuan deepfake secara masa-nyata. Apa yang automatik, apa yang anda masih perlu jaga, dan cara log setiap percubaan penipuan dalam Duitful.","inLanguage":"ms","datePublished":"2026-05-02","dateModified":"2026-05-02","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/ms/ai-agents-bank-fraud-malaysia-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Adakah saya akan dapat lebih sedikit false positive sekarang?","acceptedAnswer":{"@type":"Answer","text":"Mungkin ya. AI ejen nilai lebih banyak konteks dari sistem rules-based lama, jadi transaksi sah di kedai baru atau masa travel kurang kena halang. False positive belum hilang — cuma jadi pengecualian, bukan rutin."}},{"@type":"Question","name":"Macam mana dengan e-wallet saya (TNG, GrabPay, Boost)?","acceptedAnswer":{"@type":"Answer","text":"E-wallet ada lapisan penipuan sendiri, selalunya kurang matang dari bank tier-1. Anggap baki e-wallet macam tunai — jika anda tak akan bawa RM 1,000 dalam wallet, jangan park RM 1,000 dalam TNG eWallet juga. Top-up sebelum belanja, bukan sebagai akaun simpanan."}},{"@type":"Question","name":"Adakah AI ini nampak apa saya belanja?","acceptedAnswer":{"@type":"Answer","text":"Dalam persekitaran bank, ya — sentiasa nampak. Lapisan baru tak dedahkan transaksi anda kepada sesiapa baru; ia cuma benar pasukan penipuan sedia ada bank bertindak lebih cepat. Data perbelanjaan anda tak dikongsi dengan pesaing Visa atau dengan merchant melebihi footprint transaksi standard."}},{"@type":"Question","name":"Saya kena halang silap — sekarang macam mana?","acceptedAnswer":{"@type":"Answer","text":"Re-authenticate dalam app atau call-back adalah jalannya. AI log override itu, dan asas tingkah laku anda update supaya corak sama tak picu lagi. Jika transaksi berulang kali gagal tanpa sebab jelas, escalate melalui talian aduan bank — anda ada hak di bawah Akta Kredit Pengguna dan peraturan perlindungan-kewangan-pengguna BNM."}},{"@type":"Question","name":"Adakah versi Bahasa Inggeris untuk panduan ini?","acceptedAnswer":{"@type":"Answer","text":"Ya — baca dalam Bahasa Inggeris di sini."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Ejen AI kini lindungi akaun Maybank & CIMB anda — Panduan Duitful Malaysia","description":"Visa, Maybank, CIMB dan Alliance Bank baru mengaktifkan lapisan AI ejen yang menghalang penipuan deepfake secara masa-nyata. Apa yang automatik, apa yang anda masih perlu jaga, dan cara log setiap percubaan penipuan dalam Duitful.","inLanguage":"ms","step":[{"@type":"HowToStep","position":1,"name":"Scam suara deepfake masa-nyata","text":"Scammer klon suara saudara anda untuk minta \"pindahan kecemasan\" dulu jadi sebab bank hanya nampak transaksi, bukan panggilan. AI ejen rujuk silang sesi telefon, sejarah akaun destinasi, dan asas tingkah laku anda. Kebanyakan tak sampai skrin OTP sekarang."},{"@type":"HowToStep","position":2,"name":"Halang bayaran-pertama-ke-akaun-mule","text":"Duit yang dipindah ke akaun yang network dah flag (baru bukak, banyak inflow kecil dari mangsa berbeza) di-pause untuk semakan automatik. Tetingkap antara scam dan debit-tak-boleh-undur menyusut dari minit ke saat."},{"@type":"HowToStep","position":3,"name":"Padanan corak silang-bank","text":"Lapisan ejen Visa nampak corak merentasi pengeluar — jika gerombolan penipuan kena pelanggan Maybank pukul 9:14am dengan modus tertentu, pelanggan CIMB dan Alliance yang nampak modus sama pukul 9:16am dapat semakan tambahan tanpa sesiapa pun report dahulu."},{"@type":"HowToStep","position":4,"name":"Pembekuan kad terjejas","text":"Kad yang tunjuk guna kali pertama di kedai berisiko-tinggi yang luar biasa + lonjakan velositi + IP asing dapat soft-freeze tengah-transaksi, dengan jalan sah jadi cuma re-authenticate cepat dalam app, bukan panggilan 30 minit ke call centre."}]}</script>
 
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/favicon.svg">
@@ -181,6 +182,37 @@
   .faq-item[open] .faq-q::after { content: "−"; }
   .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
 
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
   /* ---------- CTA ---------- */
   .cta-card {
     background: var(--card); border: 0.5px solid var(--line);
@@ -210,6 +242,12 @@
   .footer a { color: var(--primary); text-decoration: none; }
   .footer a:hover { text-decoration: underline; }
 </style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <div class="container">
@@ -350,6 +388,30 @@
       <p class="faq-a">Ya — baca dalam <a href="/guides/ai-agents-bank-fraud-malaysia-2026/">Bahasa Inggeris di sini</a>.</p>
     </details>
 </div>
+
+  <aside class="related" aria-label="Panduan berkaitan">
+    <span class="related-eyebrow">Panduan berkaitan</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/ms/opr-hold-275-yield-strategy-2026/">
+          <span class="related-title">OPR 2.75% — playbook yield</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/budi95-fuel-tracker/">
+          <span class="related-title">Penjejak petrol &amp; diesel Budi95</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/ms/labour-day-long-weekend-budget/">
+          <span class="related-title">Belanjawan hujung minggu Hari Pekerja</span>
+          <span class="related-cta">Baca →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
 
   <div class="cta-card">
     <h2>Jejak setiap percubaan penipuan</h2>
