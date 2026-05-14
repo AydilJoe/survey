@@ -4,6 +4,10 @@
  * Strategy:
  *   - Network-first for HTML (so a new deploy is picked up immediately
  *     on the next reload, but we still work offline from cache).
+ *   - Network-first for manifest.webmanifest so PWA shortcut changes
+ *     reach Chrome's periodic manifest refresh (otherwise users with an
+ *     existing home-screen shortcut keep seeing the old shortcut menu
+ *     until they remove and re-add the icon).
  *   - Cache-first for versioned static assets (styles.css?v=N, script.js?v=N).
  *   - API routes (/api/*) are always bypassed — we never want stale
  *     bill-creation responses or cached license-issue errors.
@@ -11,7 +15,7 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-04-29-5";
+const VERSION = "2026-05-14-1";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
@@ -21,7 +25,6 @@ const SHELL = [
   "/app/script.js?v=56",
   "/app/drive-config.js?v=1",
   "/app/drive-sync.js?v=1",
-  "/app/manifest.webmanifest",
   "/app/icon.svg",
 ];
 
@@ -54,8 +57,9 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/")) return;
 
   const isNavigate = req.mode === "navigate" || req.destination === "document";
+  const isManifest = url.pathname === "/app/manifest.webmanifest";
 
-  if (isNavigate) {
+  if (isNavigate || isManifest) {
     event.respondWith((async () => {
       try {
         const fresh = await fetch(req);
@@ -63,7 +67,7 @@ self.addEventListener("fetch", (event) => {
         cache.put(req, fresh.clone());
         return fresh;
       } catch {
-        return (await caches.match(req)) || (await caches.match("/app/")) || new Response("Offline", { status: 503 });
+        return (await caches.match(req)) || (isNavigate && await caches.match("/app/")) || new Response("Offline", { status: 503 });
       }
     })());
     return;
