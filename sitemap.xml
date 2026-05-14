@@ -3,7 +3,7 @@
         xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://duitful.app/</loc>
-    <lastmod>2026-05-11</lastmod>
+    <lastmod>2026-05-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/"/>
@@ -21,7 +21,7 @@
   </url>
   <url>
     <loc>https://duitful.app/changelog/</loc>
-    <lastmod>2026-05-11</lastmod>
+    <lastmod>2026-05-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -45,7 +45,7 @@
   </url>
   <url>
     <loc>https://duitful.app/guides/</loc>
-    <lastmod>2026-05-11</lastmod>
+    <lastmod>2026-05-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
     <xhtml:link rel="alternate" hreflang="en" href="https://duitful.app/guides/"/>
@@ -274,6 +274,24 @@
   <url>
     <loc>https://duitful.app/guides/sme-carbon-tracking-green-loans-malaysia-2026/</loc>
     <lastmod>2026-05-11</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/ai-native-banking-malaysia-2026/</loc>
+    <lastmod>2026-05-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/kl2-data-center-malaysia-fintech-2026/</loc>
+    <lastmod>2026-05-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://duitful.app/guides/sovereign-tech-stack-personal-data-2026/</loc>
+    <lastmod>2026-05-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
