@@ -2844,20 +2844,79 @@ document.getElementById("paywall-restore")?.addEventListener("click", async () =
 
 // Register the service worker so Chrome lets us install, and so we
 // load in two frames on repeat visits.
-if ("serviceWorker" in navigator && location.protocol === "https:") {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/app/sw.js", { scope: "/app/" }).catch((err) => {
-      console.warn("SW register failed:", err);
+//
+// Update flow (motivated by iOS standalone webclips that kept serving
+// stale assets until the icon was deleted and re-added):
+//   1. On load, register the SW and remember the registration.
+//   2. Whenever the page becomes visible or focused, call .update() so
+//      iOS's lazy SW-update check is forced to run. Without this iOS
+//      keeps the old SW indefinitely.
+//   3. If a new SW reaches the "installed" state while an old one is
+//      still controlling, show a banner so the user opts into reloading.
+//      The new SW does NOT skipWaiting itself.
+//   4. On click, post SKIP_WAITING; controllerchange then reloads.
+function showUpdateBanner(waitingWorker) {
+  if (!waitingWorker) return;
+  let banner = document.getElementById("app-update-banner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "app-update-banner";
+    banner.className = "app-update-banner";
+    banner.setAttribute("role", "status");
+    const msg = document.createElement("span");
+    msg.textContent = "A new version is ready.";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = "Refresh";
+    btn.addEventListener("click", () => {
+      btn.disabled = true;
+      try { waitingWorker.postMessage({ type: "SKIP_WAITING" }); } catch {}
     });
-  });
-  // Auto-reload once when a new SW takes control of the page. This
-  // stops installed PWAs (iOS 'Add to Home Screen', Android install)
-  // from getting stuck on an old cached UI after we deploy updates.
+    banner.appendChild(msg);
+    banner.appendChild(btn);
+    document.body.appendChild(banner);
+  }
+  requestAnimationFrame(() => banner.classList.add("visible"));
+}
+
+if ("serviceWorker" in navigator && location.protocol === "https:") {
   let swReloading = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (swReloading) return;
     swReloading = true;
     location.reload();
+  });
+
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/app/sw.js", { scope: "/app/" }).then((registration) => {
+      const watchWorker = (worker) => {
+        if (!worker) return;
+        worker.addEventListener("statechange", () => {
+          // Only nudge the user if there's already a controller — i.e. this
+          // is an update, not a fresh install. On first install the activate
+          // event's clients.claim() will fire controllerchange on its own.
+          if (worker.state === "installed" && navigator.serviceWorker.controller) {
+            showUpdateBanner(registration.waiting || worker);
+          }
+        });
+      };
+      // If an update was already waiting when we registered (e.g. the user
+      // reopened the iPad webclip after a deploy), surface it immediately.
+      if (registration.waiting && navigator.serviceWorker.controller) {
+        showUpdateBanner(registration.waiting);
+      }
+      watchWorker(registration.installing);
+      registration.addEventListener("updatefound", () => watchWorker(registration.installing));
+
+      const checkForUpdate = () => {
+        if (document.visibilityState !== "visible") return;
+        registration.update().catch(() => {});
+      };
+      document.addEventListener("visibilitychange", checkForUpdate);
+      window.addEventListener("focus", checkForUpdate);
+    }).catch((err) => {
+      console.warn("SW register failed:", err);
+    });
   });
 }
 
