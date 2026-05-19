@@ -7,7 +7,35 @@ Auto-captures bank / e-wallet notifications on Android and sends them to the web
 - `NotificationListenerPlugin.java` — Capacitor plugin (`NotificationListener`) exposing `isEnabled()` and `openSettings()` to JS.
 - `DuitfulNotificationListenerService.java` — the actual Android service that listens to notifications.
 
-## Install (after `npm run cap:add:android`)
+## Install
+
+`npm run cap:sync` runs `scripts/install-notification-listener.mjs` automatically — it copies the two `.java` files into `android/app/src/main/java/com/aydiljoe/duitful/plugins/`, registers the plugin in `MainActivity.java`, and inserts the `<service>` block in `AndroidManifest.xml`. Idempotent and cross-platform; the script no-ops if `android/` doesn't exist (e.g. iOS-only checkout).
+
+If you ever need to (re)run just the installer without a full sync:
+
+```
+npm run native:notification-listener
+```
+
+Then:
+
+```
+npm run cap:android      # opens Android Studio for the build
+```
+
+### What the script touches
+
+- Creates `android/app/src/main/java/com/aydiljoe/duitful/plugins/`
+- Copies `NotificationListenerPlugin.java` + `DuitfulNotificationListenerService.java`
+- Adds `import com.aydiljoe.duitful.plugins.NotificationListenerPlugin;` and the `registerPlugin(NotificationListenerPlugin.class);` call to `MainActivity.java`
+- Adds the `<service android:name="…DuitfulNotificationListenerService" …>` block inside `<application>` in `AndroidManifest.xml`
+
+### Manual fallback
+
+If the script can't recognise the shape of your `MainActivity.java` (unusual edits, additional plugins) it falls back to a warning and tells you which line to add. The full manual recipe is preserved here for reference:
+
+<details>
+<summary>Manual install (deprecated, kept for emergencies)</summary>
 
 1. **Create the package directory** in the generated Android project:
    ```
@@ -47,6 +75,7 @@ Auto-captures bank / e-wallet notifications on Android and sends them to the web
    npm run cap:sync
    npm run cap:android
    ```
+</details>
 
 ## Wire from JS (already done in `script.js`)
 

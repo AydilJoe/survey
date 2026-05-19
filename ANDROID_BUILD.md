@@ -54,16 +54,32 @@ After this you'll have an `android/` folder with a real Android Studio
 project. It's git-ignored (mostly) so you'll generate it fresh on any
 new clone.
 
-## Install the notification-listener plugin (Android-only feature)
+## Notification-listener plugin (Android-only feature)
 
 This enables auto-capture of transactions from Maybank / CIMB / TNG /
-GrabPay notifications. **Optional** — skip and the app still works, just
-without auto-capture.
+GrabPay notifications. It's installed automatically — `npm run cap:sync`
+now chains `scripts/install-notification-listener.mjs`, which copies the
+two Java files into `android/app/src/main/java/com/aydiljoe/duitful/plugins/`,
+patches `MainActivity.java`, and inserts the `<service>` block in
+`AndroidManifest.xml`. The script is idempotent, so re-running cap:sync
+after upstream changes to the Java sources picks them up cleanly.
 
-If you want it, follow the steps in
-[`native/notification-listener/README.md`](native/notification-listener/README.md)
-to copy the two Java files into `android/app/src/main/java/...` and
-register the plugin.
+If you ever need to (re)run only the installer:
+
+```bash
+npm run native:notification-listener
+```
+
+To **disable** the listener for a build (e.g. you want to ship without
+the notification-access permission so you can skip the Play declaration),
+delete the `<service>` block in `AndroidManifest.xml` and the
+`registerPlugin(NotificationListenerPlugin.class);` line in `MainActivity.java`
+*after* running cap:sync. The auto-installer will re-add them on the next
+sync — comment out the `native:notification-listener` step in `package.json`'s
+`cap:sync` script to opt out permanently.
+
+Full details + manual fallback steps live in
+[`native/notification-listener/README.md`](native/notification-listener/README.md).
 
 ## Create a signing keystore (once, forever)
 
