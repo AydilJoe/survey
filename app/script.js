@@ -4744,10 +4744,38 @@ $("#file-import").addEventListener("change", async (e) => {
   try {
     const text = await file.text();
     const next = fromCSV(text);
+
+    // CSV import is a wholesale state replacement. Without these guards a
+    // free user could (a) hand-craft a CSV with N>limit debts/savings to
+    // bypass the form gates, or (b) re-import their own export to reset
+    // ocrUsage and earn fresh free scans. Block before confirm so the
+    // paywall is the user's next prompt, not a destructive overwrite.
+    if (!isPro()) {
+      if (next.debts.length > FREE_DEBT_LIMIT) {
+        status.textContent = `CSV has ${next.debts.length} debts — free tier covers ${FREE_DEBT_LIMIT}. Unlock Pro to import the full file.`;
+        openPaywall("debts");
+        return;
+      }
+      if (next.savings.length > FREE_SAVING_LIMIT) {
+        status.textContent = `CSV has ${next.savings.length} savings goals — free tier covers ${FREE_SAVING_LIMIT}. Unlock Pro to import the full file.`;
+        openPaywall("savings");
+        return;
+      }
+    }
+
     if (!confirm("Replace all current data with the CSV contents?")) {
       e.target.value = "";
       return;
     }
+
+    // Entitlements + per-device identity are not part of the CSV payload —
+    // preserve them across import so a Pro user doesn't lose their unlock
+    // and so ocrUsage / deviceId can't be reset by re-importing.
+    next.pro = state.pro;
+    next.license = state.license;
+    next.deviceId = state.deviceId;
+    next.ocrUsage = state.ocrUsage;
+
     state = next;
     save();
     renderAll();
