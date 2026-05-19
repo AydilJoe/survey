@@ -319,6 +319,39 @@ function fxRatesAreStale() {
   return Date.now() - new Date(state.fx.fetched_at).getTime() > 24 * 60 * 60 * 1000;
 }
 
+async function fetchFxFromUpstream() {
+  // Capacitor WebView resolves /api/fx to https://localhost/api/fx (404).
+  // Native builds hit the upstream Currency-API CDN directly. JSON shape is
+  // { date: "YYYY-MM-DD", eur: { usd: 1.08, gbp: 0.85, ... } } — same upstream
+  // as api/fx.js, so we apply the same lowercase-symbol filter here.
+  const SYMBOLS = [
+    "MYR","SGD","THB","IDR","PHP","VND","BND","LAK","KHR","MMK",
+    "JPY","CNY","HKD","KRW","TWD",
+    "INR","PKR","BDT","LKR","NPR",
+    "AED","SAR","QAR","KWD","OMR","BHD","EGP","ILS","TRY",
+    "GBP","CHF","SEK","NOK","DKK","PLN","CZK","HUF",
+    "USD","CAD","AUD","NZD","BRL","MXN","ARS","ZAR",
+  ];
+  const PRIMARY = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json";
+  const FALLBACK = "https://latest.currency-api.pages.dev/v1/currencies/eur.json";
+  async function fetchOnce(url) {
+    const r = await fetch(url, { headers: { Accept: "application/json" } });
+    if (!r.ok) throw new Error(`upstream ${r.status}`);
+    return r.json();
+  }
+  let data;
+  try { data = await fetchOnce(PRIMARY); }
+  catch (_) { data = await fetchOnce(FALLBACK); }
+  const lookup = data && data.eur;
+  if (!lookup || typeof lookup !== "object") throw new Error("malformed upstream payload");
+  const rates = {};
+  for (const sym of SYMBOLS) {
+    const v = lookup[sym.toLowerCase()];
+    if (typeof v === "number" && Number.isFinite(v)) rates[sym] = v;
+  }
+  return { anchor: "EUR", rates, fetched_at: new Date().toISOString(), stale: false };
+}
+
 async function loadFxRates({ force = false } = {}) {
   if (!force && fxRatesAreUsable() && !fxRatesAreStale()) {
     populateCurrencyPickers();
@@ -326,10 +359,15 @@ async function loadFxRates({ force = false } = {}) {
     return state.fx;
   }
   try {
-    const url = force ? "/api/fx?refresh=1" : "/api/fx";
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(`fx ${r.status}`);
-    const data = await r.json();
+    let data;
+    if (isNative()) {
+      data = await fetchFxFromUpstream();
+    } else {
+      const url = force ? "/api/fx?refresh=1" : "/api/fx";
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`fx ${r.status}`);
+      data = await r.json();
+    }
     state.fx = {
       anchor: data.anchor || "EUR",
       rates: data.rates || {},
@@ -2879,7 +2917,7 @@ function showUpdateBanner(waitingWorker) {
   requestAnimationFrame(() => banner.classList.add("visible"));
 }
 
-if ("serviceWorker" in navigator && location.protocol === "https:") {
+if (!isNative() && "serviceWorker" in navigator && location.protocol === "https:") {
   let swReloading = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (swReloading) return;
@@ -5946,6 +5984,17 @@ scanInput?.addEventListener("change", async (e) => {
   e.target.value = "";
   if (!file) return;
 
+  // Re-check the quota at file-pick time. The btn-scan click gate can be
+  // raced: a free user could double-tap, open two file pickers, and reach
+  // this handler twice before trackOcrUsage commits — both attempts would
+  // see scans=0 and slip through. Same applies if the hidden input is
+  // triggered programmatically.
+  if (!canOcr()) { gate("ocr"); return; }
+  // Count the attempt up front. Picking a file is the commitment point: a
+  // failed recognize (blurry image, engine load error) still consumed quota
+  // and the user shouldn't get unlimited retries on bad images.
+  trackOcrUsage();
+
   openScanDialog();
   const objectUrl = URL.createObjectURL(file);
   scanPreview.src = objectUrl;
@@ -5962,7 +6011,6 @@ scanInput?.addEventListener("change", async (e) => {
       }
     });
     const { data: { text } } = await worker.recognize(file);
-    trackOcrUsage();
     const parsed = parseReceiptText(text);
     scanOriginalAmount = parsed.amount;
     scanOriginalCurrency = parsed.currency || currentCurrency();
