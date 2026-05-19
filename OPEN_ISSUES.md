@@ -14,3 +14,6 @@ for the current release but should be addressed in subsequent PRs.
 
 ## Licensing
 - [ ] Licence token revocation mechanism (currently no way to invalidate a leaked licence).
+
+## Native build toolchain
+- [ ] Upgrade Capacitor 6 → 7. Capacitor 6 vendors an `android/build.gradle` that references `proguard-android.txt`, which AGP 8.7+ / Gradle 9 removed. `scripts/patch-capacitor-android.mjs` patches the vendored file on every `npm install` as a stop-gap; the proper fix is the Capacitor 7 upgrade (also picks up better Android 14/15 support, Gradle 8.11.1 baseline, JDK 21 requirement, compileSdk 35). Once on Capacitor 7 the postinstall patch becomes a no-op and can be deleted.
