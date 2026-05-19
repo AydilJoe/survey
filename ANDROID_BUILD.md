@@ -7,11 +7,11 @@ Estimated time: ~1 hour for first build, ~5 min per subsequent build.
 
 ## Prerequisites (install once)
 
-1. **Node.js 20 LTS** — <https://nodejs.org>
-2. **Java JDK 17** — <https://adoptium.net> (Android Gradle Plugin requires 17+)
-3. **Android Studio** (latest stable) — <https://developer.android.com/studio>
+1. **Node.js 20 LTS** — <https://nodejs.org> (Capacitor 7 requires Node 20+)
+2. **Java JDK 21** — <https://adoptium.net> (Capacitor 7 / AGP 8.7+ require JDK 21)
+3. **Android Studio Ladybug 2024.2.1 or newer** — <https://developer.android.com/studio>
    - First launch: accept SDK licenses, let it download SDK platforms
-   - Tools -> SDK Manager -> install Android 14 (API 34) at minimum (Play Store requires API 34+ for new apps since 2024)
+   - Tools -> SDK Manager -> install **Android 15 (API 35)** platform + build-tools 35.0.0 (Capacitor 7 targets API 35; Play also requires API 35 for new releases as of Aug 2025)
 4. **Git** — to clone the repo
 5. **Google Play Developer account** — $25 one-time, <https://play.google.com/console/signup>
 
@@ -26,7 +26,7 @@ and Gradle can find the SDK:
 
 ```
 ANDROID_HOME         = C:\Users\<you>\AppData\Local\Android\Sdk
-JAVA_HOME            = C:\Program Files\Eclipse Adoptium\jdk-17.0.x.x-hotspot
+JAVA_HOME            = C:\Program Files\Eclipse Adoptium\jdk-21.0.x.x-hotspot
 Path (append)        = %ANDROID_HOME%\platform-tools
 Path (append)        = %ANDROID_HOME%\emulator
 ```
@@ -35,7 +35,7 @@ Restart PowerShell after editing env vars. Verify:
 
 ```powershell
 node --version      # v20.x
-java -version       # 17.x
+java -version       # 21.x
 adb --version       # Android Debug Bridge
 ```
 
@@ -53,6 +53,43 @@ npm run cap:sync           # copies app/ into www/ and syncs into android/
 After this you'll have an `android/` folder with a real Android Studio
 project. It's git-ignored (mostly) so you'll generate it fresh on any
 new clone.
+
+## Migrating an existing Capacitor 6 checkout to Capacitor 7
+
+If you already have an `android/` folder from a Capacitor 6-era build,
+don't delete it — use Capacitor's built-in migrator instead. It updates
+Gradle wrapper to 8.11.1, AGP to 8.7.2, `compileSdk` / `targetSdk` to 35,
+`minSdk` to 23, and the Java toolchain to 21, while preserving your
+signing config, `versionCode`, and any custom code under `android/app/src/main/`.
+
+```bash
+npm install              # pulls Capacitor 7 packages
+npm run cap:migrate      # = npx cap migrate; touches android/ + ios/
+npm run cap:sync         # re-stamps the listener install + web bundle
+```
+
+Open `android/app/build.gradle` afterwards and confirm:
+- `signingConfigs { release { ... } }` block is intact (re-paste from
+  the keystore section below if missing)
+- `compileSdk 35` / `targetSdk 35` / `minSdk 23` are present in
+  `defaultConfig`
+- Java `compileOptions` reference `JavaVersion.VERSION_21`
+
+In Android Studio, **File → Sync Project with Gradle Files** then build
+once with **Build → Make Project** to confirm it compiles before
+generating the signed AAB.
+
+If `cap migrate` errors out (rare, usually permissions-related on
+Windows or a corrupted Gradle daemon), the nuclear-but-clean
+alternative is:
+
+```bash
+rm -rf android
+npm run cap:add:android      # regenerates from Capacitor 7 templates
+# Re-paste your signingConfigs block into android/app/build.gradle
+# (see the keystore section below), then:
+npm run cap:sync             # reinstalls the notification listener
+```
 
 ## Notification-listener plugin (Android-only feature)
 
@@ -316,7 +353,7 @@ That's the symptom; this loop is the fix.
 
 ## Things that might trip you up
 
-- **"Execution failed for task :app:processDebugResources"** — usually a mismatched Android SDK. Open SDK Manager, make sure Android 14 (API 34) platform AND build-tools 34.0.0 are both installed.
+- **"Execution failed for task :app:processDebugResources"** — usually a mismatched Android SDK. Open SDK Manager, make sure Android 15 (API 35) platform AND build-tools 35.0.0 are both installed.
 - **`cap sync` fails with "Could not find android SDK"** — `ANDROID_HOME` env var isn't set, or points at the wrong path. Verify with `echo %ANDROID_HOME%` (Windows) or `echo $ANDROID_HOME` (bash).
 - **First Gradle build takes forever** — normal. It downloads ~1 GB of Gradle + AGP + dependencies. Subsequent builds are fast.
 - **Play Console rejects the AAB** — most common cause: not signed with release keystore, or versionCode wasn't bumped from a previous upload.

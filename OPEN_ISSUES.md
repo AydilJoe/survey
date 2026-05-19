@@ -15,5 +15,5 @@ for the current release but should be addressed in subsequent PRs.
 ## Licensing
 - [ ] Licence token revocation mechanism (currently no way to invalidate a leaked licence).
 
-## Native build toolchain
-- [ ] Upgrade Capacitor 6 → 7. Capacitor 6 vendors an `android/build.gradle` that references `proguard-android.txt`, which AGP 8.7+ / Gradle 9 removed. `scripts/patch-capacitor-android.mjs` patches the vendored file on every `npm install` as a stop-gap; the proper fix is the Capacitor 7 upgrade (also picks up better Android 14/15 support, Gradle 8.11.1 baseline, JDK 21 requirement, compileSdk 35). Once on Capacitor 7 the postinstall patch becomes a no-op and can be deleted.
+## Native plugins
+- [ ] `@codetrix-studio/capacitor-google-auth` is on Capacitor-7-incompatible peer-dep metadata (locked to `@capacitor/core ^6.0.0`) but works at runtime on Cap 7 because it only touches stable bridge APIs. We suppress the install-time peer warning with an `overrides` entry in `package.json`. Migrate to a maintained Cap-7-native sign-in plugin (e.g. `@capgo/capacitor-social-login`) when convenient.
