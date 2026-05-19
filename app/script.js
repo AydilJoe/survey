@@ -2719,11 +2719,14 @@ function openPaywall(feature) {
   const dlg = document.getElementById("paywall-dialog");
   const reason = document.getElementById("paywall-reason");
   const hint = document.getElementById("paywall-hint");
+  const status = document.getElementById("paywall-status");
   const native = isNative();
   if (reason) reason.textContent = PAYWALL_COPY[feature] || "Unlock everything. Pay once.";
   if (hint) hint.textContent = native
     ? ""
     : "Pay with FPX, Touch 'n Go, GrabPay, Boost or any card. You get a license key you can paste on any device.";
+  // Clear any lingering "Verifying…" / error text from a previous attempt.
+  if (status) { status.textContent = ""; status.hidden = true; }
 
   // Native = App Store / Play IAP path. Web = Billplz FPX path.
   const buyBtn = document.getElementById("paywall-buy");
@@ -2747,10 +2750,48 @@ document.getElementById("paywall-close")?.addEventListener("click", closePaywall
 
 /* in-app purchase (Capacitor native) — cordova-plugin-purchase v13 */
 const PRODUCT_ID = "duitful_pro";
+
+// IAP init can race the Cordova plugin boot — on a slow cold start the
+// user may finish their passcode before CdvPurchase has injected, and the
+// original guard would silently no-op, leaving Buy/Restore visibly dead
+// until the next app launch. Retry through deviceready + short polling
+// for ~5s so the store is ready by the time the user reaches the paywall.
+let iapInitialized = false;
+let iapInitTries = 0;
+const IAP_MAX_INIT_TRIES = 25;
+
+// Bridges the async IAP event chain (approved → verify → verified) back
+// to the caller of purchasePro(), so paywall-buy can keep the dialog open
+// with a "Verifying…" state until the platform has actually confirmed the
+// unlock rather than just the order placement.
+let purchaseSettler = null;
+function settlePurchase(outcome) {
+  if (!purchaseSettler) return;
+  const fn = purchaseSettler;
+  purchaseSettler = null;
+  fn(outcome);
+}
+
 function initIAP() {
   if (!isNative()) return;
+  if (iapInitialized) return;
+
   const sdk = window.CdvPurchase;
-  if (!sdk || !sdk.store) return;
+  if (!sdk || !sdk.store) {
+    iapInitTries++;
+    if (iapInitTries === 1) {
+      // Wire Cordova's canonical "plugins are ready" signal as well as the
+      // setTimeout poll — whichever lands first re-enters initIAP.
+      document.addEventListener("deviceready", () => initIAP(), { once: true });
+    }
+    if (iapInitTries < IAP_MAX_INIT_TRIES) {
+      setTimeout(initIAP, 200);
+    } else {
+      console.warn("IAP: CdvPurchase plugin not available after ~5s — Buy/Restore won't work this session");
+    }
+    return;
+  }
+
   try {
     sdk.store.register([
       { id: PRODUCT_ID, type: sdk.ProductType.NON_CONSUMABLE, platform: sdk.Platform.APPLE_APPSTORE },
@@ -2763,29 +2804,68 @@ function initIAP() {
         save();
         renderAll();
         receipt.finish();
+        settlePurchase({ ok: true });
+      })
+      .unverified((tx) => {
+        console.warn("IAP unverified", tx);
+        settlePurchase({ ok: false, message: "Receipt couldn't be verified. Tap Restore if you completed payment." });
       });
+    // Store-wide error handler — catches SDK errors and user cancellations.
+    if (typeof sdk.store.error === "function") {
+      sdk.store.error((err) => {
+        console.warn("IAP store error", err);
+        const code = err && err.code;
+        const isCancel = code === sdk.ErrorCode?.PAYMENT_CANCELLED
+          || code === sdk.ErrorCode?.CANCELED
+          || /cancel/i.test(String(err && err.message || ""));
+        settlePurchase({
+          ok: false,
+          cancelled: isCancel,
+          message: isCancel ? null : ((err && err.message) || "Store error — try again."),
+        });
+      });
+    }
     sdk.store.initialize([
       { platform: sdk.Platform.APPLE_APPSTORE },
       { platform: sdk.Platform.GOOGLE_PLAY },
     ]);
+    iapInitialized = true;
   } catch (e) { console.warn("IAP init failed", e); }
 }
+
 async function purchasePro() {
   if (!isNative()) {
     alert("Duitful Pro is already unlocked on the web.\nInstall the iOS / Android app to purchase the lifetime Pro tier there.");
-    return;
+    return { ok: false, cancelled: true };
   }
   const sdk = window.CdvPurchase;
-  if (!sdk || !sdk.store) { alert("Store not available. Make sure the app is installed from the App Store / Play Store."); return; }
+  if (!sdk || !sdk.store) return { ok: false, message: "Store not available. Make sure the app is installed from the App Store / Play Store." };
+  if (!iapInitialized) return { ok: false, message: "Store still initialising. Try again in a moment, or restart the app." };
+  if (purchaseSettler) return { ok: false, message: "A purchase is already in progress." };
+
+  const product = sdk.store.get(PRODUCT_ID);
+  if (!product) return { ok: false, message: "Product not configured. Contact support." };
+  const offer = product.getOffer();
+  if (!offer) return { ok: false, message: "No offer available." };
+
+  // offer.order() resolves when the platform sheet closes — that's NOT when
+  // Pro unlocks. The verified/error handlers above call settlePurchase()
+  // with the real outcome; bridge them back to here.
+  const settlement = new Promise((resolve) => { purchaseSettler = resolve; });
+  const TIMEOUT_MS = 30_000;
+  const timeout = new Promise((resolve) =>
+    setTimeout(() => resolve({ ok: false, message: "Verification timed out. Tap Restore if you completed the payment." }), TIMEOUT_MS),
+  );
+
   try {
-    const product = sdk.store.get(PRODUCT_ID);
-    if (!product) { alert("Product not configured. Contact support."); return; }
-    const offer = product.getOffer();
-    if (!offer) { alert("No offer available."); return; }
     await offer.order();
   } catch (e) {
-    alert("Purchase failed: " + (e && e.message ? e.message : String(e)));
+    // order() rejects on user cancellation or platform error. store.error
+    // may also fire; settlePurchase is single-shot, first one wins.
+    settlePurchase({ ok: false, cancelled: true, message: e && e.message });
   }
+
+  return Promise.race([settlement, timeout]);
 }
 function initNotificationListener() {
   if (!isNative()) return;
@@ -2800,9 +2880,22 @@ async function restorePurchases() {
   if (!isNative()) { alert("The web version is fully unlocked — nothing to restore."); return; }
   const sdk = window.CdvPurchase;
   if (!sdk || !sdk.store) { alert("Store not available."); return; }
+  if (!iapInitialized) { alert("Store still initialising. Try again in a moment, or restart the app."); return; }
+  const wasProBefore = !!(state && state.pro);
   try {
     await sdk.store.restorePurchases();
-    alert("Restore complete. If you previously bought Pro, it's now unlocked.");
+    // restorePurchases() returns when the platform finishes its query;
+    // any restored receipts then flow through approved → verify → verified
+    // asynchronously. Give the verified handler a beat to commit state.pro
+    // so the alert text matches reality.
+    await new Promise((r) => setTimeout(r, 1500));
+    if (state && state.pro && !wasProBefore) {
+      alert("Pro restored. Welcome back!");
+    } else if (state && state.pro) {
+      alert("Already unlocked — nothing to restore.");
+    } else {
+      alert("No previous purchase found for this account. If you bought Pro on a different Google account, sign that account into the Play Store first.");
+    }
   } catch (e) {
     alert("Restore failed: " + (e && e.message ? e.message : String(e)));
   }
@@ -2875,7 +2968,28 @@ function renderProControls() {
 
 document.getElementById("btn-pro-unlock")?.addEventListener("click", () => { openPaywall(); });
 document.getElementById("btn-pro-restore")?.addEventListener("click", restorePurchases);
-document.getElementById("paywall-buy")?.addEventListener("click", async () => { await purchasePro(); closePaywall(); });
+document.getElementById("paywall-buy")?.addEventListener("click", async () => {
+  const buyBtn = document.getElementById("paywall-buy");
+  const status = document.getElementById("paywall-status");
+  const originalLabel = buyBtn ? buyBtn.textContent : "Unlock Pro";
+  if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = "Verifying…"; }
+  if (status) { status.textContent = "Confirm the purchase in the store sheet…"; status.hidden = false; }
+  try {
+    const outcome = await purchasePro();
+    if (outcome.ok) {
+      closePaywall();
+    } else if (outcome.cancelled) {
+      // User backed out of the platform sheet — leave the paywall open so
+      // they can try again or dismiss it themselves.
+      if (status) { status.textContent = ""; status.hidden = true; }
+    } else if (status) {
+      status.textContent = outcome.message || "Purchase failed. Try again.";
+      status.hidden = false;
+    }
+  } finally {
+    if (buyBtn) { buyBtn.disabled = false; buyBtn.textContent = originalLabel; }
+  }
+});
 document.getElementById("paywall-restore")?.addEventListener("click", async () => { await restorePurchases(); closePaywall(); });
 
 /* ---------- Service worker + PWA shortcut routing ---------- */
