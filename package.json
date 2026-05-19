@@ -4,7 +4,6 @@
   "private": true,
   "description": "Duitful — Capacitor shell for the PWA.",
   "scripts": {
-    "postinstall": "node scripts/patch-capacitor-android.mjs",
     "fetch:tesseract": "node scripts/fetch-tesseract.mjs",
     "build:guides": "node scripts/build-guides.mjs",
     "build:web": "node scripts/build-web.mjs",
@@ -14,21 +13,27 @@
     "cap:ios": "npm run cap:sync && npx cap open ios",
     "cap:android": "npm run cap:sync && npx cap open android",
     "cap:add:ios": "npm run build:web && npx cap add ios",
-    "cap:add:android": "npm run build:web && npx cap add android"
+    "cap:add:android": "npm run build:web && npx cap add android",
+    "cap:migrate": "npx cap migrate"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "^6.1.2",
+    "@capacitor/cli": "^7.6.5",
     "sharp": "^0.34.5"
   },
   "dependencies": {
-    "@capacitor/android": "^6.1.2",
-    "@capacitor/core": "^6.1.2",
-    "@capacitor/ios": "^6.1.2",
-    "@capacitor/local-notifications": "^6.1.2",
+    "@capacitor/android": "^7.6.5",
+    "@capacitor/core": "^7.6.5",
+    "@capacitor/ios": "^7.6.5",
+    "@capacitor/local-notifications": "^7.0.6",
     "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@vercel/analytics": "^2.0.1",
     "@vercel/kv": "^3.0.0",
-    "cordova-plugin-purchase": "^13.12.1"
+    "cordova-plugin-purchase": "^13.16.0"
+  },
+  "overrides": {
+    "@codetrix-studio/capacitor-google-auth": {
+      "@capacitor/core": "$@capacitor/core"
+    }
   }
 }
