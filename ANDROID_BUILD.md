@@ -248,6 +248,56 @@ for a new Play upload.
 Bump `versionCode` and `versionName` in `android/app/build.gradle`
 before every Play upload — Play rejects duplicates.
 
+## Keeping the Android build in sync with the web release
+
+**The Android app and the web app share the same source under `app/`. They only
+look "the same" if you rebuild + reupload the AAB after every web release** —
+Capacitor packages a *snapshot* of `app/` (via `www/`) into
+`android/app/src/main/assets/public/` at build time. There is no over-the-air
+update path; users on Play see whatever was baked into the last AAB you shipped.
+
+**After every web release** (i.e. anything merged to `main` that touches `app/`):
+
+1. **Pull latest** on the branch with the published changes.
+   ```bash
+   git checkout main && git pull
+   ```
+2. **Bump the marketing version** in `package.json` (`"version"`). Keep it
+   aligned with the web release in `changelog/index.html` (e.g. web ships
+   v1.7 → package.json `1.7.0`).
+3. **Bump native build identifiers** in `android/app/build.gradle`:
+   - `versionCode` — integer, **must** be higher than the previous Play
+     upload (Play rejects duplicates). Simple rule: increment by 1 each
+     upload.
+   - `versionName` — string, match `package.json` (e.g. `"1.7.0"`).
+4. **Sync + build**:
+   ```bash
+   npm install            # pulls any new Capacitor / plugin versions
+   npm run cap:sync       # build:web -> www/ -> android assets
+   npm run cap:android    # opens Android Studio
+   ```
+5. In Android Studio: **Build → Generate Signed Bundle / APK → Android App
+   Bundle → release → Finish**. Output at `android/app/release/app-release.aab`.
+6. **Upload to Play Console** → Internal testing → Create new release →
+   Upload AAB → write release notes (crib from `changelog/index.html`) →
+   Save → Review → Roll out.
+7. Promote Internal → Closed → Production once it's been smoke-tested. Promotion
+   does **not** require a new AAB — it reuses the one already uploaded.
+
+If you skip steps 4–6 the Play listing keeps serving the previous AAB and
+testers report "my Android app doesn't have feature X but the web does."
+That's the symptom; this loop is the fix.
+
+### Quick checklist before every Play upload
+
+- [ ] Latest `main` pulled
+- [ ] `package.json` version matches the web changelog
+- [ ] `android/app/build.gradle` `versionCode` incremented
+- [ ] `android/app/build.gradle` `versionName` matches `package.json`
+- [ ] `npm run cap:sync` ran clean (no errors)
+- [ ] Signed AAB built from `release` variant (not `debug`)
+- [ ] Release notes drafted from `changelog/index.html`
+
 ## Things that might trip you up
 
 - **"Execution failed for task :app:processDebugResources"** — usually a mismatched Android SDK. Open SDK Manager, make sure Android 14 (API 34) platform AND build-tools 34.0.0 are both installed.
