@@ -4,6 +4,7 @@
   "private": true,
   "description": "Duitful — Capacitor shell for the PWA.",
   "scripts": {
+    "postinstall": "node scripts/patch-google-auth.mjs",
     "fetch:tesseract": "node scripts/fetch-tesseract.mjs",
     "build:guides": "node scripts/build-guides.mjs",
     "build:web": "node scripts/build-web.mjs",
