@@ -2,6 +2,7 @@ native/
 resources/
 scripts/*
 !scripts/fetch-tesseract.mjs
+!scripts/patch-google-auth.mjs
 prompts/
 landing/
 pnpm-lock.yaml
