@@ -2,6 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
+const APP_VERSION = "1.7.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5341,6 +5342,11 @@ document.getElementById("guide-prev")?.addEventListener("click", () => {
 });
 document.getElementById("guide-skip")?.addEventListener("click", () => { finishGuide(); });
 document.getElementById("btn-show-guide")?.addEventListener("click", () => { openGuide(); });
+
+{
+  const versionEl = document.getElementById("about-version");
+  if (versionEl) versionEl.textContent = `Version ${APP_VERSION}${isNative() ? " · Native build" : ""}`;
+}
 guideDialog()?.addEventListener("close", () => { finishGuide(); });
 
 /* ---------- boot ---------- */
