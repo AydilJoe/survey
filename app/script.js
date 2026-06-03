@@ -183,6 +183,28 @@ function uid() {
   return "id-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+/* ---------- toast ---------- */
+
+let toastTimer = null;
+function toast(message) {
+  if (!message) return;
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.setAttribute("role", "status");
+    el.setAttribute("aria-live", "polite");
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.remove("show");
+  // force reflow so the animation restarts on rapid successive toasts
+  void el.offsetWidth;
+  el.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 1800);
+}
+
 /* ---------- formatting ---------- */
 
 const CURRENCY_LOCALE = {
@@ -3555,6 +3577,7 @@ $("#form-income").addEventListener("submit", (e) => {
   save();
   e.target.reset();
   renderAll();
+  toast(`Income added: ${name}`);
 });
 
 $("#form-expense").addEventListener("submit", (e) => {
@@ -3595,6 +3618,7 @@ $("#form-expense").addEventListener("submit", (e) => {
   save();
   e.target.reset();
   renderAll();
+  toast(`Expense added: ${name}`);
 });
 
 document.addEventListener("click", (e) => {
@@ -3728,6 +3752,10 @@ $("#form-daily").addEventListener("submit", (e) => {
   $("#form-daily").querySelector("input[name='date']").value = keepDate;
   setDailyType(keepType);
   renderAll();
+  const amountLabel = fmtMoney(amount);
+  if (type === "debt") toast(`Payment recorded · ${amountLabel}`);
+  else if (type === "saving") toast(`Savings added · ${amountLabel}`);
+  else toast(`Spending added · ${amountLabel}`);
 });
 
 /* pill buttons + quick amount chips */
@@ -3820,6 +3848,7 @@ $("#form-debt").addEventListener("submit", (e) => {
   e.target.reset();
   setDebtKind("standard");
   renderAll();
+  toast(`Debt added: ${name}`);
 });
 
 $("#form-saving").addEventListener("submit", (e) => {
@@ -3841,6 +3870,7 @@ $("#form-saving").addEventListener("submit", (e) => {
   save();
   e.target.reset();
   renderAll();
+  toast(`Savings goal added: ${name}`);
 });
 
 /* delete handlers (event delegation) */

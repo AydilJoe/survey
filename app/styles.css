@@ -2998,3 +2998,36 @@ button.ghost.icon-btn {
   .spending-pie-wrap { align-self: center; }
   .spending-legend { width: 100%; }
 }
+
+/* Toast — brief success confirmation after form submits */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translate(-50%, 16px);
+  background: var(--text, #2a2420);
+  color: var(--bg, #f5f1ea);
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22), 0 2px 6px rgba(0, 0, 0, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9999;
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.18, 0.89, 0.32, 1.18);
+  max-width: min(86vw, 360px);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  #toast { transition: opacity 120ms linear; }
+  #toast.show { transform: translate(-50%, 0); }
+}
