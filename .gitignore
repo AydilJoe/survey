@@ -17,3 +17,7 @@ vendor/
 pnpm-lock.yaml
 .vercel
 .env*.local
+
+# npx skills install artifacts — developer-local, not shipped
+.agents/
+skills-lock.json
