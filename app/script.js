@@ -2774,6 +2774,25 @@ document.getElementById("paywall-close")?.addEventListener("click", closePaywall
 function openProWelcome() {
   const dlg = document.getElementById("pro-welcome-dialog");
   if (!dlg) return;
+  // Reset transient state each open
+  const driveStatus = document.getElementById("pro-welcome-drive-status");
+  if (driveStatus) { driveStatus.textContent = ""; driveStatus.hidden = true; }
+  const poolsStatus = document.getElementById("pro-welcome-pools-status");
+  if (poolsStatus) { poolsStatus.textContent = ""; poolsStatus.hidden = true; }
+  document.querySelectorAll("#pro-welcome-pools .pool-template").forEach((b) => {
+    b.disabled = false;
+    b.classList.remove("added");
+  });
+  // If Drive already connected (e.g. license activation on a device that
+  // had Drive set up before), reflect that.
+  const driveBtn = document.getElementById("pro-welcome-drive");
+  if (driveBtn && window.DriveSync && DriveSync.isConfigured && DriveSync.isConfigured() && DriveSync.isSignedIn && DriveSync.isSignedIn()) {
+    driveBtn.disabled = true;
+    driveBtn.textContent = "✓ Already connected";
+  } else if (driveBtn) {
+    driveBtn.disabled = false;
+    driveBtn.textContent = "Connect Google Drive";
+  }
   if (typeof dlg.showModal === "function") dlg.showModal();
   else dlg.setAttribute("open", "");
 }
@@ -2782,26 +2801,57 @@ function closeProWelcome() {
   if (dlg && typeof dlg.close === "function") dlg.close();
   else if (dlg) dlg.removeAttribute("open");
 }
-function goToTabAfterWelcome(tabName, extraSelector) {
-  closeProWelcome();
-  const tabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
-  if (tabBtn) tabBtn.click();
-  if (extraSelector) {
-    setTimeout(() => {
-      const el = document.querySelector(extraSelector);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-        if (el.tagName === "BUTTON" || el.tagName === "INPUT") el.focus();
-      }
-    }, 200);
+document.getElementById("pro-welcome-done")?.addEventListener("click", closeProWelcome);
+
+document.getElementById("pro-welcome-drive")?.addEventListener("click", async () => {
+  const btn = document.getElementById("pro-welcome-drive");
+  const status = document.getElementById("pro-welcome-drive-status");
+  if (!window.DriveSync || !DriveSync.isConfigured()) {
+    if (status) { status.textContent = "Cloud backup isn't configured for this build."; status.hidden = false; }
+    return;
   }
-}
-document.getElementById("pro-welcome-skip")?.addEventListener("click", closeProWelcome);
-document.getElementById("pro-welcome-drive")?.addEventListener("click", () => {
-  goToTabAfterWelcome("data", "#btn-drive-signin");
+  if (btn) { btn.disabled = true; btn.textContent = "Connecting…"; }
+  try {
+    await DriveSync.signIn();
+    if (typeof checkDriveOnBoot === "function") await checkDriveOnBoot();
+    if (typeof renderDriveCard === "function") renderDriveCard();
+    const email = DriveSync.getAccountEmail ? DriveSync.getAccountEmail() : "";
+    if (btn) btn.textContent = "✓ Connected";
+    if (status) { status.textContent = email ? `Signed in as ${email}` : "Connected"; status.hidden = false; }
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = "Connect Google Drive"; }
+    if (status) { status.textContent = "Sign-in failed: " + (err && err.message ? err.message : String(err)); status.hidden = false; }
+  }
 });
-document.getElementById("pro-welcome-budget")?.addEventListener("click", () => {
-  goToTabAfterWelcome("flow", ".budget-pool-card");
+
+document.getElementById("pro-welcome-pools")?.addEventListener("click", (e) => {
+  const btn = e.target instanceof HTMLElement ? e.target.closest(".pool-template") : null;
+  if (!btn || btn.disabled) return;
+  const name = btn.getAttribute("data-pool") || "";
+  if (!name) return;
+  // Avoid duplicating a pool that already exists with the same name.
+  const exists = state.budgetPools.some(
+    (p) => p.system !== "debt" && (p.name || "").toLowerCase() === name.toLowerCase(),
+  );
+  if (!exists) {
+    state.budgetPools.push({
+      id: uid(),
+      name,
+      limit: 0,
+      color: null,
+      active: false,
+      rollover: false,
+      monthlyLimits: {},
+      createdAt: Date.now(),
+    });
+    save();
+    renderAll();
+  }
+  btn.disabled = true;
+  btn.classList.add("added");
+  btn.textContent = `✓ ${name}`;
+  const status = document.getElementById("pro-welcome-pools-status");
+  if (status) { status.textContent = "Set a monthly limit later in Monthly → Budget Pools."; status.hidden = false; }
 });
 
 /* in-app purchase (Capacitor native) — cordova-plugin-purchase v13 */
