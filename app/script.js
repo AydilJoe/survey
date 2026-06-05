@@ -2771,6 +2771,39 @@ function closePaywall() {
 }
 document.getElementById("paywall-close")?.addEventListener("click", closePaywall);
 
+function openProWelcome() {
+  const dlg = document.getElementById("pro-welcome-dialog");
+  if (!dlg) return;
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+function closeProWelcome() {
+  const dlg = document.getElementById("pro-welcome-dialog");
+  if (dlg && typeof dlg.close === "function") dlg.close();
+  else if (dlg) dlg.removeAttribute("open");
+}
+function goToTabAfterWelcome(tabName, extraSelector) {
+  closeProWelcome();
+  const tabBtn = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (tabBtn) tabBtn.click();
+  if (extraSelector) {
+    setTimeout(() => {
+      const el = document.querySelector(extraSelector);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (el.tagName === "BUTTON" || el.tagName === "INPUT") el.focus();
+      }
+    }, 200);
+  }
+}
+document.getElementById("pro-welcome-skip")?.addEventListener("click", closeProWelcome);
+document.getElementById("pro-welcome-drive")?.addEventListener("click", () => {
+  goToTabAfterWelcome("data", "#btn-drive-signin");
+});
+document.getElementById("pro-welcome-budget")?.addEventListener("click", () => {
+  goToTabAfterWelcome("flow", ".budget-pool-card");
+});
+
 /* in-app purchase (Capacitor native) — cordova-plugin-purchase v13 */
 const PRODUCT_ID = "duitful_pro";
 
@@ -3001,6 +3034,7 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
     const outcome = await purchasePro();
     if (outcome.ok) {
       closePaywall();
+      openProWelcome();
     } else if (outcome.cancelled) {
       // User backed out of the platform sheet — leave the paywall open so
       // they can try again or dismiss it themselves.
@@ -3264,7 +3298,7 @@ async function tryAutoActivatePendingLicense() {
   try { sessionStorage.removeItem("__pendingLicense__"); } catch {}
   try {
     await activateLicenseToken(pending);
-    alert("Pro unlocked — welcome!");
+    openProWelcome();
   } catch (e) {
     console.warn("auto-activate failed:", e);
   }
@@ -3335,7 +3369,7 @@ document.getElementById("license-verify")?.addEventListener("click", async () =>
     await activateLicenseToken(raw);
     if (err) err.hidden = true;
     if (ok) ok.hidden = false;
-    setTimeout(closeLicenseDialog, 900);
+    setTimeout(() => { closeLicenseDialog(); openProWelcome(); }, 900);
   } catch (e) {
     if (ok) ok.hidden = true;
     if (err) { err.textContent = e.message || "Invalid license"; err.hidden = false; }
