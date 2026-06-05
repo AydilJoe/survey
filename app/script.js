@@ -2782,7 +2782,13 @@ function openProWelcome() {
   document.querySelectorAll("#pro-welcome-pools .pool-template").forEach((b) => {
     b.disabled = false;
     b.classList.remove("added");
+    const name = b.getAttribute("data-pool") || "";
+    if (name) b.textContent = `+ ${name}`;
   });
+  const poolForm = document.getElementById("pro-welcome-pool-form");
+  if (poolForm) poolForm.hidden = true;
+  const poolLimit = document.getElementById("pro-welcome-pool-limit");
+  if (poolLimit) poolLimit.value = "";
   // If Drive already connected (e.g. license activation on a device that
   // had Drive set up before), reflect that.
   const driveBtn = document.getElementById("pro-welcome-drive");
@@ -2824,12 +2830,29 @@ document.getElementById("pro-welcome-drive")?.addEventListener("click", async ()
   }
 });
 
-document.getElementById("pro-welcome-pools")?.addEventListener("click", (e) => {
-  const btn = e.target instanceof HTMLElement ? e.target.closest(".pool-template") : null;
-  if (!btn || btn.disabled) return;
-  const name = btn.getAttribute("data-pool") || "";
+let pendingPoolName = null;
+function showPoolLimitForm(name) {
+  pendingPoolName = name;
+  const wrap = document.getElementById("pro-welcome-pool-form");
+  const label = document.getElementById("pro-welcome-pool-label");
+  const input = document.getElementById("pro-welcome-pool-limit");
+  if (label) label.textContent = `Monthly limit for ${name}`;
+  if (input) input.value = "";
+  if (wrap) wrap.hidden = false;
+  setTimeout(() => input?.focus(), 0);
+}
+function hidePoolLimitForm() {
+  pendingPoolName = null;
+  const wrap = document.getElementById("pro-welcome-pool-form");
+  if (wrap) wrap.hidden = true;
+}
+function commitPendingPool() {
+  const name = pendingPoolName;
   if (!name) return;
-  // Avoid duplicating a pool that already exists with the same name.
+  const input = document.getElementById("pro-welcome-pool-limit");
+  const raw = input ? Number(input.value) : 0;
+  const limit = Number.isFinite(raw) && raw > 0 ? raw : 0;
+
   const exists = state.budgetPools.some(
     (p) => p.system !== "debt" && (p.name || "").toLowerCase() === name.toLowerCase(),
   );
@@ -2837,7 +2860,7 @@ document.getElementById("pro-welcome-pools")?.addEventListener("click", (e) => {
     state.budgetPools.push({
       id: uid(),
       name,
-      limit: 0,
+      limit,
       color: null,
       active: false,
       rollover: false,
@@ -2847,11 +2870,32 @@ document.getElementById("pro-welcome-pools")?.addEventListener("click", (e) => {
     save();
     renderAll();
   }
-  btn.disabled = true;
-  btn.classList.add("added");
-  btn.textContent = `✓ ${name}`;
+  const pill = document.querySelector(`#pro-welcome-pools .pool-template[data-pool="${name}"]`);
+  if (pill) {
+    pill.disabled = true;
+    pill.classList.add("added");
+    pill.textContent = limit > 0 ? `✓ ${name} · ${fmtMoney(limit)}` : `✓ ${name}`;
+  }
   const status = document.getElementById("pro-welcome-pools-status");
-  if (status) { status.textContent = "Set a monthly limit later in Monthly → Budget Pools."; status.hidden = false; }
+  if (status) {
+    status.textContent = limit > 0
+      ? "Pool added. Tap another or hit Done."
+      : "Pool added. Set a limit later in Monthly → Budget Pools.";
+    status.hidden = false;
+  }
+  hidePoolLimitForm();
+}
+
+document.getElementById("pro-welcome-pools")?.addEventListener("click", (e) => {
+  const btn = e.target instanceof HTMLElement ? e.target.closest(".pool-template") : null;
+  if (!btn || btn.disabled) return;
+  const name = btn.getAttribute("data-pool") || "";
+  if (!name) return;
+  showPoolLimitForm(name);
+});
+document.getElementById("pro-welcome-pool-save")?.addEventListener("click", commitPendingPool);
+document.getElementById("pro-welcome-pool-limit")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); commitPendingPool(); }
 });
 
 /* in-app purchase (Capacitor native) — cordova-plugin-purchase v13 */
