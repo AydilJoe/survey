@@ -3055,3 +3055,32 @@ button.ghost.icon-btn {
   border-color: var(--accent);
   opacity: 0.85;
 }
+.pro-welcome-pool-form {
+  margin-top: 0.55rem;
+}
+.pro-welcome-pool-form .field-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+  display: block;
+}
+.pro-welcome-pool-input-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: stretch;
+}
+.pro-welcome-pool-input-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+.pro-welcome-pool-input-row button {
+  flex: 0 0 auto;
+  padding-inline: 1rem;
+}

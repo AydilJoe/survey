@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=46" />
+    <link rel="stylesheet" href="styles.css?v=47" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -990,12 +990,21 @@
 
         <section class="pro-welcome-step">
           <h3>2. Add budget pools</h3>
-          <p class="hint">Tap to add. You can set limits later in Monthly → Budget Pools.</p>
+          <p class="hint">Tap to add. Set the monthly limit (or leave blank to set it later).</p>
           <div class="pool-template-row" id="pro-welcome-pools">
             <button type="button" class="pill pool-template" data-pool="Shopping">+ Shopping</button>
             <button type="button" class="pill pool-template" data-pool="Subscriptions">+ Subscriptions</button>
             <button type="button" class="pill pool-template" data-pool="Groceries">+ Groceries</button>
             <button type="button" class="pill pool-template" data-pool="Vacation">+ Vacation</button>
+          </div>
+          <div id="pro-welcome-pool-form" class="pro-welcome-pool-form" hidden>
+            <label class="field">
+              <span class="field-label" id="pro-welcome-pool-label">Monthly limit</span>
+              <div class="pro-welcome-pool-input-row">
+                <input type="number" inputmode="decimal" min="0" step="0.01" id="pro-welcome-pool-limit" placeholder="e.g. 300" />
+                <button type="button" class="primary" id="pro-welcome-pool-save">Add</button>
+              </div>
+            </label>
           </div>
           <p class="hint" id="pro-welcome-pools-status" hidden></p>
         </section>
@@ -1307,6 +1316,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=64"></script>
+    <script src="script.js?v=65"></script>
   </body>
 </html>
