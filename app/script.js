@@ -2771,6 +2771,89 @@ function closePaywall() {
 }
 document.getElementById("paywall-close")?.addEventListener("click", closePaywall);
 
+function openProWelcome() {
+  const dlg = document.getElementById("pro-welcome-dialog");
+  if (!dlg) return;
+  // Reset transient state each open
+  const driveStatus = document.getElementById("pro-welcome-drive-status");
+  if (driveStatus) { driveStatus.textContent = ""; driveStatus.hidden = true; }
+  const poolsStatus = document.getElementById("pro-welcome-pools-status");
+  if (poolsStatus) { poolsStatus.textContent = ""; poolsStatus.hidden = true; }
+  document.querySelectorAll("#pro-welcome-pools .pool-template").forEach((b) => {
+    b.disabled = false;
+    b.classList.remove("added");
+  });
+  // If Drive already connected (e.g. license activation on a device that
+  // had Drive set up before), reflect that.
+  const driveBtn = document.getElementById("pro-welcome-drive");
+  if (driveBtn && window.DriveSync && DriveSync.isConfigured && DriveSync.isConfigured() && DriveSync.isSignedIn && DriveSync.isSignedIn()) {
+    driveBtn.disabled = true;
+    driveBtn.textContent = "✓ Already connected";
+  } else if (driveBtn) {
+    driveBtn.disabled = false;
+    driveBtn.textContent = "Connect Google Drive";
+  }
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+function closeProWelcome() {
+  const dlg = document.getElementById("pro-welcome-dialog");
+  if (dlg && typeof dlg.close === "function") dlg.close();
+  else if (dlg) dlg.removeAttribute("open");
+}
+document.getElementById("pro-welcome-done")?.addEventListener("click", closeProWelcome);
+
+document.getElementById("pro-welcome-drive")?.addEventListener("click", async () => {
+  const btn = document.getElementById("pro-welcome-drive");
+  const status = document.getElementById("pro-welcome-drive-status");
+  if (!window.DriveSync || !DriveSync.isConfigured()) {
+    if (status) { status.textContent = "Cloud backup isn't configured for this build."; status.hidden = false; }
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = "Connecting…"; }
+  try {
+    await DriveSync.signIn();
+    if (typeof checkDriveOnBoot === "function") await checkDriveOnBoot();
+    if (typeof renderDriveCard === "function") renderDriveCard();
+    const email = DriveSync.getAccountEmail ? DriveSync.getAccountEmail() : "";
+    if (btn) btn.textContent = "✓ Connected";
+    if (status) { status.textContent = email ? `Signed in as ${email}` : "Connected"; status.hidden = false; }
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = "Connect Google Drive"; }
+    if (status) { status.textContent = "Sign-in failed: " + (err && err.message ? err.message : String(err)); status.hidden = false; }
+  }
+});
+
+document.getElementById("pro-welcome-pools")?.addEventListener("click", (e) => {
+  const btn = e.target instanceof HTMLElement ? e.target.closest(".pool-template") : null;
+  if (!btn || btn.disabled) return;
+  const name = btn.getAttribute("data-pool") || "";
+  if (!name) return;
+  // Avoid duplicating a pool that already exists with the same name.
+  const exists = state.budgetPools.some(
+    (p) => p.system !== "debt" && (p.name || "").toLowerCase() === name.toLowerCase(),
+  );
+  if (!exists) {
+    state.budgetPools.push({
+      id: uid(),
+      name,
+      limit: 0,
+      color: null,
+      active: false,
+      rollover: false,
+      monthlyLimits: {},
+      createdAt: Date.now(),
+    });
+    save();
+    renderAll();
+  }
+  btn.disabled = true;
+  btn.classList.add("added");
+  btn.textContent = `✓ ${name}`;
+  const status = document.getElementById("pro-welcome-pools-status");
+  if (status) { status.textContent = "Set a monthly limit later in Monthly → Budget Pools."; status.hidden = false; }
+});
+
 /* in-app purchase (Capacitor native) — cordova-plugin-purchase v13 */
 const PRODUCT_ID = "duitful_pro";
 
@@ -3001,6 +3084,7 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
     const outcome = await purchasePro();
     if (outcome.ok) {
       closePaywall();
+      openProWelcome();
     } else if (outcome.cancelled) {
       // User backed out of the platform sheet — leave the paywall open so
       // they can try again or dismiss it themselves.
@@ -3264,7 +3348,7 @@ async function tryAutoActivatePendingLicense() {
   try { sessionStorage.removeItem("__pendingLicense__"); } catch {}
   try {
     await activateLicenseToken(pending);
-    alert("Pro unlocked — welcome!");
+    openProWelcome();
   } catch (e) {
     console.warn("auto-activate failed:", e);
   }
@@ -3335,7 +3419,7 @@ document.getElementById("license-verify")?.addEventListener("click", async () =>
     await activateLicenseToken(raw);
     if (err) err.hidden = true;
     if (ok) ok.hidden = false;
-    setTimeout(closeLicenseDialog, 900);
+    setTimeout(() => { closeLicenseDialog(); openProWelcome(); }, 900);
   } catch (e) {
     if (ok) ok.hidden = true;
     if (err) { err.textContent = e.message || "Invalid license"; err.hidden = false; }

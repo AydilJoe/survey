@@ -3031,3 +3031,27 @@ button.ghost.icon-btn {
   #toast { transition: opacity 120ms linear; }
   #toast.show { transform: translate(-50%, 0); }
 }
+
+/* Pro welcome dialog — inline setup steps */
+.pro-welcome-step {
+  border-top: 1px solid var(--line);
+  padding: 0.9rem 0 0.4rem;
+  margin: 0.6rem 0 0;
+}
+.pro-welcome-step:first-of-type {
+  border-top: 0;
+}
+.pro-welcome-step h3 {
+  margin: 0 0 0.2rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.pro-welcome-step .hint {
+  margin: 0 0 0.55rem;
+}
+.pro-welcome-step .pool-template.added {
+  background: var(--accent);
+  color: var(--card);
+  border-color: var(--accent);
+  opacity: 0.85;
+}
