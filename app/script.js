@@ -5806,6 +5806,7 @@ const RELEASE_NOTES = {
     "<strong>7-day Pro trial</strong> — every install starts with full Pro access for 7 days. The Home banner shows how many days are left.",
     "<strong>Friend codes</strong> — tap \"Got a friend code?\" in the paywall. Pairs automatically with the launch promo so the buyer saves RM 5 and the friend earns RM 5.",
     "<strong>Smoother unlock at conversion</strong> — trial users now see RM 14.90 (LAUNCH100) pre-applied when they tap Unlock forever, no typing needed.",
+    "<strong>Refer a friend — earn RM 5</strong> — Pro buyers now get a shareable 8-character code in Settings. Claimed automatically when you connect Drive, or via email if you skip Drive.",
   ],
 };
 
