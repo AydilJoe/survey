@@ -30,6 +30,7 @@ const emptyState = () => ({
   deviceId: "",
   lastEditedAt: "",
   driveAutoSync: true,
+  lastSeenVersion: "",
 });
 
 function coerceState(parsed) {
@@ -101,6 +102,7 @@ function coerceState(parsed) {
       deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : "",
       lastEditedAt: typeof parsed.lastEditedAt === "string" ? parsed.lastEditedAt : "",
       driveAutoSync: parsed.driveAutoSync !== false,
+      lastSeenVersion: typeof parsed.lastSeenVersion === "string" ? parsed.lastSeenVersion : "",
     };
   } catch { return emptyState(); }
 }
@@ -5406,6 +5408,69 @@ function maybeOpenGuideAfterSetup() {
   }
 }
 
+/* ---------- What's new on update ---------- */
+
+// One bullet list per shipped version. Keep entries short and
+// user-visible — behind-the-scenes work doesn't belong here.
+const RELEASE_NOTES = {
+  "1.7.1": [
+    "<strong>Pro welcome screen</strong> — set up Google Drive backup and budget pools in one tap after unlocking Pro.",
+    "<strong>Quick confirmation toasts</strong> after every daily entry, payment, or savings deposit.",
+    "<strong>Version shown</strong> in Settings → About so you can tell which build you're on.",
+    "<strong>Smoother Pro upgrade</strong> — clearer error messages and a more reliable restore-purchase flow.",
+  ],
+};
+
+function maybeShowWhatsNew() {
+  if (!state || !aesKey) return;
+  if (state.lastSeenVersion === APP_VERSION) return;
+  const notes = RELEASE_NOTES[APP_VERSION];
+  if (!notes || !notes.length) {
+    // No notes for this build — silently mark as seen so we don't nag.
+    state.lastSeenVersion = APP_VERSION;
+    save();
+    return;
+  }
+  // Skip on truly fresh installs (no data yet) — the welcome tour
+  // covers them; the "what changed" framing only makes sense for
+  // returning users.
+  const hasData =
+    (state.income?.length || 0) +
+    (state.expenses?.length || 0) +
+    (state.dailyExpenses?.length || 0) +
+    (state.debts?.length || 0) +
+    (state.savings?.length || 0);
+  if (!hasData && !state.lastSeenVersion) {
+    state.lastSeenVersion = APP_VERSION;
+    save();
+    return;
+  }
+  const titleEl = document.getElementById("whats-new-title");
+  if (titleEl) titleEl.textContent = `What's new in v${APP_VERSION}`;
+  const listEl = document.getElementById("whats-new-list");
+  if (listEl) listEl.innerHTML = notes.map((n) => `<li>${n}</li>`).join("");
+  openWhatsNew();
+}
+
+function openWhatsNew() {
+  const dlg = document.getElementById("whats-new-dialog");
+  if (!dlg) return;
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+function closeWhatsNew() {
+  const dlg = document.getElementById("whats-new-dialog");
+  if (dlg && typeof dlg.close === "function") dlg.close();
+  else if (dlg) dlg.removeAttribute("open");
+}
+document.getElementById("whats-new-done")?.addEventListener("click", () => {
+  if (state) {
+    state.lastSeenVersion = APP_VERSION;
+    save();
+  }
+  closeWhatsNew();
+});
+
 /* ---------- PWA install banner (one-tap on Android, iOS modal fallback) ---------- */
 
 const INSTALL_DISMISS_KEY = "duit-tracker.install-dismissed-at";
@@ -5635,6 +5700,7 @@ async function handleUnlock(passcode) {
   }
   hideLock();
   renderAll();
+  maybeShowWhatsNew();
   loadFxRates().then(() => renderAll());
   initIAP();
   initNotificationListener();

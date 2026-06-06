@@ -1015,6 +1015,22 @@
       </form>
     </dialog>
 
+    <dialog id="whats-new-dialog" class="edit-dialog paywall-dialog">
+      <form method="dialog">
+        <div class="paywall-head">
+          <span class="paywall-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6z"/></svg></span>
+          <div>
+            <h2 id="whats-new-title">What's new</h2>
+            <p class="paywall-sub">A few improvements since you last opened Duitful.</p>
+          </div>
+        </div>
+        <ul class="paywall-features whats-new-list" id="whats-new-list"></ul>
+        <div class="button-row">
+          <button type="button" class="primary" id="whats-new-done" style="width: 100%;">Got it</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="license-dialog" class="edit-dialog">
       <form id="license-form" method="dialog">
         <h2>Activate Duitful Pro</h2>
@@ -1316,6 +1332,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=66"></script>
+    <script src="script.js?v=67"></script>
   </body>
 </html>
