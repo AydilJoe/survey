@@ -31,6 +31,7 @@ const emptyState = () => ({
   lastEditedAt: "",
   driveAutoSync: true,
   lastSeenVersion: "",
+  proTrialStartedAt: 0,
 });
 
 function coerceState(parsed) {
@@ -103,6 +104,7 @@ function coerceState(parsed) {
       lastEditedAt: typeof parsed.lastEditedAt === "string" ? parsed.lastEditedAt : "",
       driveAutoSync: parsed.driveAutoSync !== false,
       lastSeenVersion: typeof parsed.lastSeenVersion === "string" ? parsed.lastSeenVersion : "",
+      proTrialStartedAt: Number.isFinite(Number(parsed.proTrialStartedAt)) ? Number(parsed.proTrialStartedAt) : 0,
     };
   } catch { return emptyState(); }
 }
@@ -2477,6 +2479,34 @@ function renderReports() {
   }
 }
 
+function renderTrialBanner() {
+  const banner = document.getElementById("trial-banner");
+  if (!banner) return;
+  if (!state || state.pro) { banner.hidden = true; return; }
+  const title = document.getElementById("trial-banner-title");
+  const sub = document.getElementById("trial-banner-sub");
+  const cta = document.getElementById("trial-banner-cta");
+  if (isTrialActive()) {
+    const left = trialDaysLeft();
+    banner.hidden = false;
+    banner.classList.remove("trial-banner-expired");
+    if (title) title.textContent = "Pro trial active";
+    if (sub) sub.textContent = `${left} day${left === 1 ? "" : "s"} left of full Pro access — keep it forever for RM 19.90.`;
+    if (cta) cta.textContent = "Unlock forever";
+  } else if (trialExpired()) {
+    banner.hidden = false;
+    banner.classList.add("trial-banner-expired");
+    if (title) title.textContent = "Pro trial ended";
+    if (sub) sub.textContent = "Pro features are locked again. Unlock for RM 19.90, one-time.";
+    if (cta) cta.textContent = "Unlock Pro";
+  } else {
+    banner.hidden = true;
+  }
+}
+document.getElementById("trial-banner-cta")?.addEventListener("click", () => {
+  openPaywall("debts");
+});
+
 function renderAll() {
   resetEndingBalanceCache();
   resetEffectiveLimitCache();
@@ -2487,6 +2517,7 @@ function renderAll() {
   ensureDebtPool();
   snapshotCurrentMinSum();
   updateCurrencyLabels();
+  renderTrialBanner();
   renderDashboard();
   renderFlow();
   renderDebts();
@@ -2700,11 +2731,43 @@ function isNative() {
 const FREE_DEBT_LIMIT = 3;
 const FREE_SAVING_LIMIT = 2;
 const FREE_OCR_MONTHLY = 3;
+const TRIAL_DAYS = 7;
+const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+
+// Auto-starts a 7-day Pro trial the first time a user lands on the app
+// (post-unlock). Re-installing the app resets the trial — that's an
+// accepted abuse window for a privacy-first app where there's no
+// account / no server-side ledger to enforce one-trial-per-user.
+function ensureTrialStarted() {
+  if (!state || !aesKey) return;
+  if (state.pro) return;
+  if (!state.proTrialStartedAt) {
+    state.proTrialStartedAt = Date.now();
+    save();
+  }
+}
+function isTrialActive() {
+  if (!state || state.pro) return false;
+  if (!state.proTrialStartedAt) return false;
+  return Date.now() - state.proTrialStartedAt < TRIAL_MS;
+}
+function trialDaysLeft() {
+  if (!isTrialActive()) return 0;
+  const elapsed = Date.now() - state.proTrialStartedAt;
+  return Math.max(1, Math.ceil((TRIAL_MS - elapsed) / (24 * 60 * 60 * 1000)));
+}
+function trialExpired() {
+  // True only if the user *had* a trial that's now over (not pre-trial,
+  // not Pro). Used to decide if the "trial ended" banner should show.
+  if (!state || state.pro) return false;
+  if (!state.proTrialStartedAt) return false;
+  return Date.now() - state.proTrialStartedAt >= TRIAL_MS;
+}
 
 function isPro() {
-  // Same gate on both surfaces: user has actually paid (state.pro set by
-  // native IAP verify, or by activating a license on web).
-  return !!(state && state.pro);
+  // Real Pro (paid) OR within the 7-day trial window. Both surfaces share
+  // this gate. state.pro = true means user has actually paid via IAP / license.
+  return !!(state && (state.pro || isTrialActive()));
 }
 function canOcr() {
   if (isPro()) return true;
@@ -2767,6 +2830,21 @@ function openPaywall(feature) {
   const promo = document.getElementById("paywall-promo");
   if (promo) promo.hidden = !native;
   resetPromoState();
+
+  // Trial / launch-promo nudge: any user who onboarded during the trial
+  // cohort (proTrialStartedAt set) gets LAUNCH100 auto-applied on native
+  // so they hit the discounted SKU at conversion. Web checkout doesn't
+  // use PROMO_CODES (Billplz applies the discount server-side), so we
+  // surface a hint there instead.
+  if (state && state.proTrialStartedAt && !state.pro) {
+    if (native) {
+      const launch = lookupPromoCode("LAUNCH100");
+      if (launch) applyPromoUI(launch);
+    } else {
+      const hint = document.getElementById("paywall-hint");
+      if (hint) hint.textContent = "Use code LAUNCH100 at checkout for RM 5.00 off — trial-period promo.";
+    }
+  }
 
   if (dlg && typeof dlg.showModal === "function") dlg.showModal();
   else if (dlg) dlg.setAttribute("open", "");
@@ -5827,6 +5905,7 @@ async function handleUnlock(passcode) {
     return;
   }
   hideLock();
+  ensureTrialStarted();
   renderAll();
   maybeShowWhatsNew();
   loadFxRates().then(() => renderAll());
@@ -5852,6 +5931,7 @@ async function handleSetup(passcode, confirm, initialState) {
   localStorage.setItem(ENC_KEY, JSON.stringify(rec));
   localStorage.removeItem(STORAGE_KEY); // clear legacy plain after migration
   hideLock();
+  ensureTrialStarted();
   renderAll();
   loadFxRates().then(() => renderAll());
   initIAP();

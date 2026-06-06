@@ -1669,6 +1669,61 @@ button.ghost.icon-btn {
 .paywall-promo-row button { flex: 0 0 auto; padding-inline: 1rem; }
 #paywall-promo-status { margin-top: 0.4rem; }
 
+/* Pro trial banner on Home */
+.trial-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  background: linear-gradient(180deg, rgba(200,112,75,0.12), rgba(200,112,75,0.05));
+  border: 0.5px solid rgba(200,112,75,0.32);
+  border-radius: 16px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.9rem;
+}
+.trial-banner-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+  flex: 1;
+  min-width: 0;
+}
+.trial-banner-mark {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--card);
+}
+.trial-banner-mark svg { width: 16px; height: 16px; }
+.trial-banner strong { font-size: 0.95rem; }
+.trial-banner-sub {
+  margin: 0.1rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ink2);
+  line-height: 1.35;
+}
+.trial-banner > .primary {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+}
+.trial-banner.trial-banner-expired {
+  background: linear-gradient(180deg, rgba(184,106,78,0.12), rgba(184,106,78,0.05));
+  border-color: rgba(184,106,78,0.32);
+}
+.trial-banner.trial-banner-expired .trial-banner-mark { background: var(--danger); }
+@media (max-width: 480px) {
+  .trial-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .trial-banner > .primary { align-self: stretch; }
+}
+
 /* Pro card in Data tab */
 .pro-card {
   background: linear-gradient(180deg, rgba(200,112,75,0.08), var(--card) 70%);

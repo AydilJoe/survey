@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=48" />
+    <link rel="stylesheet" href="styles.css?v=49" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -112,6 +112,16 @@
     <main>
       <!-- DASHBOARD -->
       <section id="tab-dashboard" class="tab-panel active" role="tabpanel" aria-labelledby="tabbtn-dashboard">
+        <div id="trial-banner" class="trial-banner" hidden>
+          <div class="trial-banner-body">
+            <span class="trial-banner-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5L19 9.5l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5z"/></svg></span>
+            <div>
+              <strong id="trial-banner-title">Pro trial active</strong>
+              <p class="trial-banner-sub" id="trial-banner-sub"></p>
+            </div>
+          </div>
+          <button type="button" class="primary" id="trial-banner-cta">Unlock forever</button>
+        </div>
         <div id="pending-card" class="card pending-card" hidden>
           <div class="card-head">
             <h2>Pending transactions</h2>
@@ -1342,6 +1352,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=72"></script>
+    <script src="script.js?v=73"></script>
   </body>
 </html>
