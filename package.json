@@ -1,6 +1,6 @@
 {
   "name": "duitful",
-  "version": "1.7.5",
+  "version": "1.7.6",
   "private": true,
   "description": "Duitful — Capacitor shell for the PWA.",
   "scripts": {
@@ -10,7 +10,9 @@
     "build:web": "node scripts/build-web.mjs",
     "assets": "npx @capacitor/assets generate --iconBackgroundColor \"#e8dfd0\" --iconBackgroundColorDark \"#2a2420\" --splashBackgroundColor \"#e8dfd0\" --splashBackgroundColorDark \"#2a2420\" && node scripts/generate-stat-icon.mjs",
     "native:notification-listener": "node scripts/install-notification-listener.mjs",
-    "cap:sync": "npm run build:web && npx cap sync && npm run native:notification-listener",
+    "patch:android": "node scripts/patch-android-aapt.mjs",
+    "patch:android-camera": "node scripts/patch-android-camera.mjs",
+    "cap:sync": "npm run build:web && npx cap sync && npm run patch:android && npm run patch:android-camera && npm run native:notification-listener",
     "cap:ios": "npm run cap:sync && npx cap open ios",
     "cap:android": "npm run cap:sync && npx cap open android",
     "cap:add:ios": "npm run build:web && npx cap add ios",
@@ -25,6 +27,7 @@
   "dependencies": {
     "@capacitor/android": "^7.6.5",
     "@capacitor/app": "^7.0.2",
+    "@capacitor/camera": "^7.0.0",
     "@capacitor/core": "^7.6.5",
     "@capacitor/ios": "^7.6.5",
     "@capacitor/local-notifications": "^7.0.6",

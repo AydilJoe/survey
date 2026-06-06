@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.7.5";
+const APP_VERSION = "1.7.6";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5808,6 +5808,10 @@ const RELEASE_NOTES = {
     "<strong>Smoother unlock at conversion</strong> — trial users now see RM 14.90 (LAUNCH100) pre-applied when they tap Unlock forever, no typing needed.",
     "<strong>Refer a friend — earn RM 5</strong> — Pro buyers now get a shareable 8-character code in Settings. Claimed automatically when you connect Drive, or via email if you skip Drive.",
   ],
+  "1.7.6": [
+    "<strong>Snap receipts with your camera</strong> — tap Scan, then Take Photo to capture a receipt on the spot, or pick one from your gallery.",
+    "<strong>Receipt scanning fix</strong> — fixed a hang where scanning could get stuck on \"loading trained data.\"",
+  ],
 };
 
 function maybeShowWhatsNew() {
@@ -6296,6 +6300,16 @@ async function getTesseractWorker(logger) {
       // can't stall the load.
       opts.workerBlobURL = false;
       opts.cacheMethod = "none";
+      // Android's asset packager (aapt) transparently decompresses *.gz
+      // assets and strips the suffix, so the bundled `eng.traineddata.gz`
+      // is served by the APK as `eng.traineddata`. Tesseract.js defaults to
+      // requesting the `.gz` URL (gzip:true), which doesn't exist in the
+      // APK → the worker hangs forever at "loading trained data". Fetch the
+      // un-suffixed, already-decompressed file instead. iOS bundles the .gz
+      // as-is, so scope this to Android only.
+      if (window.Capacitor.getPlatform && window.Capacitor.getPlatform() === "android") {
+        opts.gzip = false;
+      }
     }
     tesseractWorker = await Tess.createWorker("eng", 1, opts);
   }
@@ -6754,32 +6768,13 @@ async function applyScanConversion() {
 }
 
 document.getElementById("scan-currency")?.addEventListener("change", applyScanConversion);
-document.getElementById("btn-scan")?.addEventListener("click", () => {
-  if (!canOcr() && !gate("ocr")) return;
-  scanInput?.click();
-});
-document.getElementById("scan-cancel")?.addEventListener("click", closeScanDialog);
-
-scanInput?.addEventListener("change", async (e) => {
-  const file = e.target.files && e.target.files[0];
-  e.target.value = "";
-  if (!file) return;
-
-  // Re-check the quota at file-pick time. The btn-scan click gate can be
-  // raced: a free user could double-tap, open two file pickers, and reach
-  // this handler twice before trackOcrUsage commits — both attempts would
-  // see scans=0 and slip through. Same applies if the hidden input is
-  // triggered programmatically.
-  if (!canOcr()) { gate("ocr"); return; }
-  // Count the attempt up front. Picking a file is the commitment point: a
-  // failed recognize (blurry image, engine load error) still consumed quota
-  // and the user shouldn't get unlimited retries on bad images.
-  trackOcrUsage();
-
+// Shared OCR pipeline — accepts a File (web file-input) or a data-URL
+// (native Camera); Tesseract.recognize() handles both. `revokeUrl` is the
+// object URL to release afterward (web only — null for a self-contained
+// data-URL).
+async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
   openScanDialog();
-  const objectUrl = URL.createObjectURL(file);
-  scanPreview.src = objectUrl;
-
+  scanPreview.src = previewSrc;
   try {
     scanStatus.textContent = "Loading OCR engine (first use ~10 MB)…";
     const worker = await getTesseractWorker((m) => {
@@ -6791,7 +6786,7 @@ scanInput?.addEventListener("change", async (e) => {
         scanStatus.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1);
       }
     });
-    const { data: { text } } = await worker.recognize(file);
+    const { data: { text } } = await worker.recognize(recognizeInput);
     const parsed = parseReceiptText(text);
     scanOriginalAmount = parsed.amount;
     scanOriginalCurrency = parsed.currency || currentCurrency();
@@ -6806,8 +6801,58 @@ scanInput?.addEventListener("change", async (e) => {
   } catch (err) {
     scanStatus.textContent = "Scan failed: " + (err && err.message ? err.message : String(err));
   } finally {
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+    if (revokeUrl) setTimeout(() => URL.revokeObjectURL(revokeUrl), 5000);
   }
+}
+
+document.getElementById("btn-scan")?.addEventListener("click", async () => {
+  if (!canOcr() && !gate("ocr")) return;
+  // Native: offer the system "Take Photo / Choose from Gallery" sheet via
+  // @capacitor/camera. Falls through to the web file input when the plugin
+  // isn't available (web build, or an older shell without it).
+  const Camera = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Camera;
+  if (isNative() && Camera) {
+    let photo;
+    try {
+      photo = await Camera.getPhoto({
+        source: "PROMPT",
+        resultType: "dataUrl",
+        quality: 80,
+        correctOrientation: true,
+        promptLabelHeader: "Scan receipt",
+        promptLabelPhoto: "Choose from gallery",
+        promptLabelPicture: "Take photo",
+      });
+    } catch (err) {
+      // Cancel → silent no-op (no quota spent). Permission denied → fall
+      // back to the file picker so the gallery still works.
+      const msg = String((err && err.message) || err || "");
+      if (/denied|permission/i.test(msg)) scanInput?.click();
+      return;
+    }
+    if (!photo || !photo.dataUrl) return;
+    // Re-check the quota at capture time — the click gate can be raced.
+    if (!canOcr()) { gate("ocr"); return; }
+    trackOcrUsage();
+    await runReceiptOcr(photo.dataUrl, photo.dataUrl, null);
+  } else {
+    scanInput?.click();
+  }
+});
+document.getElementById("scan-cancel")?.addEventListener("click", closeScanDialog);
+
+scanInput?.addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+
+  // Re-check the quota at file-pick time — the btn-scan click gate can be
+  // raced (double-tap → two pickers → two change events before trackOcrUsage
+  // commits). Picking is the commitment point; count it before recognizing.
+  if (!canOcr()) { gate("ocr"); return; }
+  trackOcrUsage();
+  const objectUrl = URL.createObjectURL(file);
+  await runReceiptOcr(file, objectUrl, objectUrl);
 });
 
 scanApply?.addEventListener("click", () => {
