@@ -5572,7 +5572,25 @@ document.getElementById("btn-show-guide")?.addEventListener("click", () => { ope
 
 {
   const versionEl = document.getElementById("about-version");
-  if (versionEl) versionEl.textContent = `Version ${APP_VERSION}${isNative() ? " · Native build" : ""}`;
+  if (versionEl) {
+    // Web fallback: hardcoded APP_VERSION constant.
+    versionEl.textContent = `Version ${APP_VERSION}`;
+    // Native: read the version baked into the APK / IPA at build time
+    // via @capacitor/app. This means bumping versionName in build.gradle
+    // (or Info.plist on iOS) is enough — no need to also touch APP_VERSION
+    // for the in-app display to stay accurate.
+    if (isNative() && window.Capacitor?.Plugins?.App) {
+      window.Capacitor.Plugins.App.getInfo()
+        .then((info) => {
+          const v = info?.version || APP_VERSION;
+          versionEl.textContent = `Version ${v} · Native build`;
+        })
+        .catch(() => {
+          // Plugin call failed for some reason — fall back to the JS constant.
+          versionEl.textContent = `Version ${APP_VERSION} · Native build`;
+        });
+    }
+  }
 }
 guideDialog()?.addEventListener("close", () => { finishGuide(); });
 
