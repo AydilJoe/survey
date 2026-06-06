@@ -2955,7 +2955,7 @@ const PROMO_CODES = {
     sku: "duitful_pro_launch",
     label: "Launch promo",
     priceLabel: "RM 14.90",
-    expires: "2026-08-31",
+    expires: "2027-05-14",
   },
 };
 const PROMO_SKUS = Array.from(new Set(Object.values(PROMO_CODES).map((p) => p.sku)));
