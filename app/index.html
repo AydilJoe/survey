@@ -967,6 +967,16 @@
           <button type="button" class="ghost" id="paywall-close">Maybe later</button>
           <button type="button" class="primary" id="paywall-buy">Unlock Pro</button>
         </div>
+        <div class="paywall-promo" id="paywall-referrer">
+          <button type="button" class="ghost" id="paywall-referrer-toggle">Got a friend code?</button>
+          <div id="paywall-referrer-form" hidden>
+            <div class="paywall-promo-row">
+              <input type="text" id="paywall-referrer-code" placeholder="e.g. 418c33b4" maxlength="8" autocapitalize="none" autocomplete="off" spellcheck="false" />
+              <button type="button" class="primary" id="paywall-referrer-apply">Apply</button>
+            </div>
+            <p class="hint" id="paywall-referrer-status" hidden></p>
+          </div>
+        </div>
         <div class="paywall-promo" id="paywall-promo">
           <button type="button" class="ghost" id="paywall-promo-toggle">Have a promo code?</button>
           <div id="paywall-promo-form" hidden>
@@ -1352,6 +1362,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=73"></script>
+    <script src="script.js?v=74"></script>
   </body>
 </html>
