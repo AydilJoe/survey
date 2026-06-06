@@ -1488,9 +1488,28 @@
       <a href="#faq">Soalan</a>
     </div>
     <a href="/" class="lang-toggle" aria-label="Switch to English" title="English">EN</a>
-    <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary nav-cta">Dapatkan aplikasi</a>
+    <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary nav-cta" id="nav-cta" data-web-href="https://duitful.app/app" data-android-href="https://play.google.com/store/apps/details?id=com.aydiljoe.duitful" data-web-label="Buka aplikasi web" data-android-label="Dapatkan di Google Play">Dapatkan aplikasi</a>
   </div>
 </nav>
+<script>
+  // Hala CTA navigasi ikut peranti:
+  //   Android   → senarai Play Store
+  //   iOS + PC  → aplikasi web (belum ada binaan iOS asli)
+  // Skrip inline supaya tukar berlaku sebelum paint.
+  (function () {
+    var cta = document.getElementById('nav-cta');
+    if (!cta) return;
+    var ua = navigator.userAgent || '';
+    var isAndroid = /Android/i.test(ua);
+    if (isAndroid) {
+      cta.href = cta.dataset.androidHref;
+      cta.textContent = cta.dataset.androidLabel;
+    } else {
+      cta.href = cta.dataset.webHref;
+      cta.textContent = cta.dataset.webLabel;
+    }
+  })();
+</script>
 
 <main>
 
