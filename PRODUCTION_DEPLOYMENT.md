@@ -73,6 +73,11 @@ Required (all must show `Production`):
 Optional but recommended:
 - `OWNER_NOTIFY_EMAIL` — separate inbox for sales notifications. Falls
   back to `RESEND_REPLY_TO_EMAIL` when unset.
+- `KV_REST_API_URL` + `KV_REST_API_TOKEN` — Vercel KV (managed Redis).
+  Required for: the admin bills dashboard, the FX rate cache, and native
+  IAP referral attribution. Auto-injected when you connect a KV store to
+  the project. The app no-ops cleanly without them, but referral payouts
+  and the admin dashboard won't record/list anything. See `KV_SETUP.md`.
 
 ### 1.5 Provider parity holds
 
