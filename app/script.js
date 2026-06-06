@@ -32,6 +32,7 @@ const emptyState = () => ({
   driveAutoSync: true,
   lastSeenVersion: "",
   proTrialStartedAt: 0,
+  nativeReferrer: "",
 });
 
 function coerceState(parsed) {
@@ -105,6 +106,7 @@ function coerceState(parsed) {
       driveAutoSync: parsed.driveAutoSync !== false,
       lastSeenVersion: typeof parsed.lastSeenVersion === "string" ? parsed.lastSeenVersion : "",
       proTrialStartedAt: Number.isFinite(Number(parsed.proTrialStartedAt)) ? Number(parsed.proTrialStartedAt) : 0,
+      nativeReferrer: typeof parsed.nativeReferrer === "string" && /^[a-f0-9]{8}$/.test(parsed.nativeReferrer) ? parsed.nativeReferrer : "",
     };
   } catch { return emptyState(); }
 }
@@ -2831,6 +2833,19 @@ function openPaywall(feature) {
   if (promo) promo.hidden = !native;
   resetPromoState();
 
+  // Friend-code section: also native-only (web checkout captures the
+  // referrer from the ?ref=… URL parameter the buyer arrived with, no
+  // typing required).
+  const refSection = document.getElementById("paywall-referrer");
+  if (refSection) refSection.hidden = !native;
+  resetReferrerUI();
+  if (native && state && state.nativeReferrer) {
+    // Already typed once this install — auto-restore and re-apply LAUNCH100.
+    showReferrerApplied(state.nativeReferrer);
+    const launch = lookupPromoCode("LAUNCH100");
+    if (launch) applyPromoUI(launch);
+  }
+
   // Trial / launch-promo nudge: any user who onboarded during the trial
   // cohort (proTrialStartedAt set) gets LAUNCH100 auto-applied on native
   // so they hit the discounted SKU at conversion. Web checkout doesn't
@@ -2838,8 +2853,10 @@ function openPaywall(feature) {
   // surface a hint there instead.
   if (state && state.proTrialStartedAt && !state.pro) {
     if (native) {
-      const launch = lookupPromoCode("LAUNCH100");
-      if (launch) applyPromoUI(launch);
+      if (!activePromo) {
+        const launch = lookupPromoCode("LAUNCH100");
+        if (launch) applyPromoUI(launch);
+      }
     } else {
       const hint = document.getElementById("paywall-hint");
       if (hint) hint.textContent = "Use code LAUNCH100 at checkout for RM 5.00 off — trial-period promo.";
@@ -2869,6 +2886,26 @@ function resetPromoState() {
   if (priceAmount) priceAmount.textContent = "RM 19.90";
   if (priceSub) priceSub.textContent = "one-time · no subscription";
   if (buyBtn) buyBtn.textContent = "Unlock Pro";
+}
+
+function resetReferrerUI() {
+  const form = document.getElementById("paywall-referrer-form");
+  const input = document.getElementById("paywall-referrer-code");
+  const status = document.getElementById("paywall-referrer-status");
+  const toggle = document.getElementById("paywall-referrer-toggle");
+  if (form) form.hidden = true;
+  if (input) input.value = "";
+  if (status) { status.textContent = ""; status.hidden = true; }
+  if (toggle) toggle.textContent = "Got a friend code?";
+}
+
+function showReferrerApplied(code) {
+  const toggle = document.getElementById("paywall-referrer-toggle");
+  const form = document.getElementById("paywall-referrer-form");
+  const status = document.getElementById("paywall-referrer-status");
+  if (toggle) toggle.textContent = `Friend code ${code} applied — Remove`;
+  if (form) form.hidden = true;
+  if (status) { status.textContent = "Your friend earns RM 5 — paid manually after the sale clears."; status.hidden = false; }
 }
 
 function applyPromoUI(promo) {
@@ -3064,6 +3101,42 @@ const IAP_MAX_INIT_TRIES = 25;
 // with a "Verifying…" state until the platform has actually confirmed the
 // unlock rather than just the order placement.
 let purchaseSettler = null;
+// Records the SKU + referrer of a successful native IAP to Vercel KV
+// via /api/native/record-purchase. Used by Aydil to reconcile referrer
+// commissions monthly. Failure modes (offline, server down, etc.) are
+// silent — the user's Pro is already unlocked locally.
+async function recordNativeAttribution(receipt) {
+  if (!isNative()) return;
+  try {
+    let sku = "";
+    let txId = "";
+    let platform = "android";
+    const tx = receipt && (receipt.transaction || receipt);
+    if (tx) {
+      sku = tx.products?.[0]?.id || tx.productId || "";
+      txId = tx.transactionId || tx.purchaseToken || tx.id || "";
+      if (tx.platform && /apple/i.test(String(tx.platform))) platform = "ios";
+    }
+    if (!sku && receipt && Array.isArray(receipt.collection)) {
+      sku = receipt.collection[0]?.products?.[0]?.id || "";
+    }
+    const body = {
+      sku: sku || PRODUCT_ID,
+      txId: String(txId || ""),
+      platform,
+      referrer: state && /^[a-f0-9]{8}$/.test(state.nativeReferrer || "") ? state.nativeReferrer : "",
+      promo: activePromo && activePromo.code ? activePromo.code : "",
+      appVersion: APP_VERSION,
+    };
+    await fetch("https://duitful.app/api/native/record-purchase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      keepalive: true,
+    });
+  } catch (_) { /* silent — local Pro is already set */ }
+}
+
 function settlePurchase(outcome) {
   if (!purchaseSettler) return;
   const fn = purchaseSettler;
@@ -3111,6 +3184,10 @@ function initIAP() {
         save();
         renderAll();
         receipt.finish();
+        // Fire-and-forget attribution record so Aydil can pay the
+        // referrer manually later. Failure is silent — the purchase
+        // itself has already succeeded.
+        recordNativeAttribution(receipt).catch((e) => console.warn("attribution skipped:", e));
         settlePurchase({ ok: true });
       })
       .unverified((tx) => {
@@ -3323,6 +3400,42 @@ function tryApplyPromoCode() {
 document.getElementById("paywall-promo-apply")?.addEventListener("click", tryApplyPromoCode);
 document.getElementById("paywall-promo-code")?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") { e.preventDefault(); tryApplyPromoCode(); }
+});
+
+// Friend-code (referrer) handlers
+document.getElementById("paywall-referrer-toggle")?.addEventListener("click", () => {
+  if (state && state.nativeReferrer) {
+    // Remove path
+    state.nativeReferrer = "";
+    save();
+    resetReferrerUI();
+    resetPromoState();
+    return;
+  }
+  const form = document.getElementById("paywall-referrer-form");
+  const input = document.getElementById("paywall-referrer-code");
+  if (form) form.hidden = !form.hidden;
+  if (form && !form.hidden) setTimeout(() => input?.focus(), 0);
+});
+function tryApplyReferrerCode() {
+  const input = document.getElementById("paywall-referrer-code");
+  const status = document.getElementById("paywall-referrer-status");
+  const code = (input?.value || "").trim().toLowerCase();
+  if (!/^[a-f0-9]{8}$/.test(code)) {
+    if (status) { status.textContent = "Friend codes are exactly 8 characters (a–f, 0–9). Ask your friend for theirs."; status.hidden = false; }
+    return;
+  }
+  if (!state) return;
+  state.nativeReferrer = code;
+  save();
+  showReferrerApplied(code);
+  // Pair with LAUNCH100 so the buyer also benefits.
+  const launch = lookupPromoCode("LAUNCH100");
+  if (launch) applyPromoUI(launch);
+}
+document.getElementById("paywall-referrer-apply")?.addEventListener("click", tryApplyReferrerCode);
+document.getElementById("paywall-referrer-code")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); tryApplyReferrerCode(); }
 });
 
 /* ---------- Service worker + PWA shortcut routing ---------- */
