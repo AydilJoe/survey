@@ -493,6 +493,21 @@
       margin-top: 20px;
     }
 
+    .beta-opt {
+      margin-top: 10px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+    }
+    .beta-opt a {
+      color: var(--primary);
+      text-decoration: none;
+      border-bottom: 1px dotted currentColor;
+    }
+    .beta-opt a:hover { color: var(--primary-ink); }
+    .cta-final .beta-opt { text-align: center; }
+
     .hero-meta {
       margin-top: 32px;
       display: flex;
@@ -1494,7 +1509,7 @@
             </a>
             <a href="#features" class="btn btn-ghost">Lihat ciri</a>
           </div>
-          <div class="store-row" aria-label="Aplikasi iOS dan Android akan datang">
+          <div class="store-row" aria-label="Aplikasi iOS dan Android">
             <span class="btn-store is-soon" role="img" aria-label="App Store — akan datang">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.04c0-2.9 2.37-4.28 2.47-4.34-1.34-1.96-3.43-2.23-4.17-2.26-1.77-.18-3.45 1.04-4.35 1.04-.9 0-2.28-1.02-3.74-.99-1.93.03-3.7 1.12-4.7 2.84-2 3.46-.51 8.59 1.44 11.4.95 1.37 2.09 2.92 3.58 2.86 1.44-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.4 3.5-2.78 1.1-1.6 1.56-3.14 1.58-3.22-.03-.01-3.02-1.16-3.05-4.62zM14.23 3.7c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.37 1.73-.74.85-1.38 2.22-1.21 3.53 1.29.1 2.6-.65 3.4-1.6z"/></svg>
               <div>
@@ -1502,17 +1517,18 @@
                 <span class="big">App Store</span>
               </div>
             </span>
-            <span class="btn-store is-soon" role="img" aria-label="Google Play — akan datang">
+            <a class="btn-store" href="https://play.google.com/store/apps/details?id=com.aydiljoe.duitful" target="_blank" rel="noopener" aria-label="Google Play — Duitful">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.3c-.38.4-.6 1.03-.6 1.84v15.72c0 .81.22 1.44.6 1.84l.08.07 8.81-8.81v-.2L3.68 2.23l-.08.07zm11.72 8.74L13.47 9.2l2.66-1.51 3.65 2.08c1.04.59 1.04 1.56 0 2.16l-3.65 2.08-2.66-1.51 1.85-1.46zm-2.4.97l-8.82 8.81c.34.36.9.4 1.54.05l10.41-5.92-3.13-2.94zm0-1.92l3.13-2.94L5.64 1.22C5 .87 4.44.92 4.1 1.27l8.82 8.82z"/></svg>
               <div>
-                <span class="small">Akan datang</span>
+                <span class="small">Dapatkan di</span>
                 <span class="big">Google Play</span>
               </div>
-            </span>
+            </a>
           </div>
+          <p class="beta-opt">Guna Android? <a href="https://play.google.com/apps/testing/com.aydiljoe.duitful" target="_blank" rel="noopener">Sertai trek beta →</a></p>
           <div class="hero-meta">
             <span class="dot" aria-hidden="true"></span>
-            <span>iOS &amp; Android akan datang · Aplikasi web tersedia sekarang</span>
+            <span>Beta Android dibuka · iOS akan datang · Aplikasi web tersedia sekarang</span>
           </div>
         </div>
 
@@ -1969,7 +1985,7 @@
     <div class="container">
       <div class="reveal">
         <h2>Sedia untuk jadi <em>duitful</em>?</h2>
-        <p>Mulakan dengan aplikasi web hari ini. Aplikasi iOS dan Android akan datang tidak lama lagi.</p>
+        <p>Mulakan dengan aplikasi web hari ini. Aplikasi Android dalam <strong>beta terbuka</strong> — penguji beta dialu-alukan. iOS akan datang.</p>
         <div class="store-row">
           <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary">
             Buka aplikasi web
@@ -1979,11 +1995,12 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.04c0-2.9 2.37-4.28 2.47-4.34-1.34-1.96-3.43-2.23-4.17-2.26-1.77-.18-3.45 1.04-4.35 1.04-.9 0-2.28-1.02-3.74-.99-1.93.03-3.7 1.12-4.7 2.84-2 3.46-.51 8.59 1.44 11.4.95 1.37 2.09 2.92 3.58 2.86 1.44-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.4 3.5-2.78 1.1-1.6 1.56-3.14 1.58-3.22-.03-.01-3.02-1.16-3.05-4.62zM14.23 3.7c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.37 1.73-.74.85-1.38 2.22-1.21 3.53 1.29.1 2.6-.65 3.4-1.6z"/></svg>
             <div><span class="small">Akan datang</span><span class="big">App Store</span></div>
           </span>
-          <span class="btn-store is-soon" role="img" aria-label="Google Play — akan datang">
+          <a class="btn-store" href="https://play.google.com/store/apps/details?id=com.aydiljoe.duitful" target="_blank" rel="noopener" aria-label="Google Play — Duitful">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.3c-.38.4-.6 1.03-.6 1.84v15.72c0 .81.22 1.44.6 1.84l.08.07 8.81-8.81v-.2L3.68 2.23l-.08.07zm11.72 8.74L13.47 9.2l2.66-1.51 3.65 2.08c1.04.59 1.04 1.56 0 2.16l-3.65 2.08-2.66-1.51 1.85-1.46zm-2.4.97l-8.82 8.81c.34.36.9.4 1.54.05l10.41-5.92-3.13-2.94zm0-1.92l3.13-2.94L5.64 1.22C5 .87 4.44.92 4.1 1.27l8.82 8.82z"/></svg>
-            <div><span class="small">Akan datang</span><span class="big">Google Play</span></div>
-          </span>
+            <div><span class="small">Dapatkan di</span><span class="big">Google Play</span></div>
+          </a>
         </div>
+        <p class="beta-opt">Guna Android? <a href="https://play.google.com/apps/testing/com.aydiljoe.duitful" target="_blank" rel="noopener">Sertai trek beta →</a></p>
       </div>
     </div>
   </section>
