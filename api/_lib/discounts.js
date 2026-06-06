@@ -48,7 +48,7 @@ const CODES = {
   LAUNCH100: {
     type: "fixed",
     off: 500,
-    description: "Launch— Pro",
+    description: "Launch promo — RM 5.00 off",
     expires: "2027-05-14",
   },
   BETA01: {
