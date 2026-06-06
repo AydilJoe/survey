@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.7.3";
+const APP_VERSION = "1.7.4";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5525,7 +5525,7 @@ const RELEASE_NOTES = {
     "<strong>This panel itself</strong> — you'll see it once after every update with a quick summary of what changed.",
     "<strong>Behind-the-scenes polish</strong> — privacy policy rewritten with the full GDPR rights list, plus housekeeping for the Play Store launch.",
   ],
-  "1.7.3": [
+  "1.7.4": [
     "<strong>Promo code support</strong> — tap \"Have a promo code?\" in the paywall to apply codes like LAUNCH100 and save on the lifetime Pro price.",
     "<strong>About card auto-syncs</strong> with the native build number, so the version you see always matches the version on Play Store.",
   ],
