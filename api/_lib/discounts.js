@@ -43,6 +43,14 @@ const CODES = {
     referrerCode: "b3368d90",
     commission: 5,
   },
+  
+    
+  LAUNCH100: {
+    type: "fixed",
+    off: 500,
+    description: "Launch— Pro",
+    expires: "2027-05-14",
+  },
   BETA01: {
     type: "percent",
     off: 100,
