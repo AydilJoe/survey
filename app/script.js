@@ -2763,8 +2763,50 @@ function openPaywall(feature) {
   if (webActions) webActions.hidden = native;
   if (activateBtn) activateBtn.hidden = native;
 
+  // Promo-code section: native-only (web checkout already handles discounts via Billplz).
+  const promo = document.getElementById("paywall-promo");
+  if (promo) promo.hidden = !native;
+  resetPromoState();
+
   if (dlg && typeof dlg.showModal === "function") dlg.showModal();
   else if (dlg) dlg.setAttribute("open", "");
+}
+
+// Active promo (if a code is applied) — determines which SKU paywall-buy charges.
+let activePromo = null;
+
+function resetPromoState() {
+  activePromo = null;
+  const form = document.getElementById("paywall-promo-form");
+  const input = document.getElementById("paywall-promo-code");
+  const status = document.getElementById("paywall-promo-status");
+  const toggle = document.getElementById("paywall-promo-toggle");
+  const priceAmount = document.getElementById("paywall-price-amount");
+  const priceSub = document.getElementById("paywall-price-sub");
+  const buyBtn = document.getElementById("paywall-buy");
+  if (form) form.hidden = true;
+  if (input) input.value = "";
+  if (status) { status.textContent = ""; status.hidden = true; }
+  if (toggle) { toggle.textContent = "Have a promo code?"; toggle.hidden = false; }
+  if (priceAmount) priceAmount.textContent = "RM 19.90";
+  if (priceSub) priceSub.textContent = "one-time · no subscription";
+  if (buyBtn) buyBtn.textContent = "Unlock Pro";
+}
+
+function applyPromoUI(promo) {
+  activePromo = promo;
+  const form = document.getElementById("paywall-promo-form");
+  const status = document.getElementById("paywall-promo-status");
+  const toggle = document.getElementById("paywall-promo-toggle");
+  const priceAmount = document.getElementById("paywall-price-amount");
+  const priceSub = document.getElementById("paywall-price-sub");
+  const buyBtn = document.getElementById("paywall-buy");
+  if (status) { status.textContent = `✓ ${promo.code} applied — ${promo.label}`; status.hidden = false; }
+  if (form) form.hidden = true;
+  if (toggle) toggle.textContent = `Remove code (${promo.code})`;
+  if (priceAmount) priceAmount.textContent = promo.priceLabel;
+  if (priceSub) priceSub.textContent = `${promo.label} · one-time`;
+  if (buyBtn) buyBtn.textContent = `Unlock Pro — ${promo.priceLabel}`;
 }
 function closePaywall() {
   const dlg = document.getElementById("paywall-dialog");
@@ -2903,6 +2945,33 @@ document.getElementById("pro-welcome-pool-limit")?.addEventListener("keydown", (
 /* in-app purchase (Capacitor native) — cordova-plugin-purchase v13 */
 const PRODUCT_ID = "duitful_pro";
 
+// Promo codes typed in the paywall reveal a discounted SKU. Each SKU
+// must also exist as a Google Play / App Store product at the same price
+// — the client-side validation here only decides which SKU to charge.
+// Add a new code: create the SKU in Play Console at the right price,
+// then add an entry here.
+const PROMO_CODES = {
+  LAUNCH100: {
+    sku: "duitful_pro_launch",
+    label: "Launch promo",
+    priceLabel: "RM 14.90",
+    expires: "2026-08-31",
+  },
+};
+const PROMO_SKUS = Array.from(new Set(Object.values(PROMO_CODES).map((p) => p.sku)));
+
+function lookupPromoCode(raw) {
+  const code = (raw || "").trim().toUpperCase();
+  if (!code) return null;
+  const promo = PROMO_CODES[code];
+  if (!promo) return null;
+  if (promo.expires) {
+    const exp = new Date(promo.expires + "T23:59:59");
+    if (Number.isFinite(exp.getTime()) && Date.now() > exp.getTime()) return null;
+  }
+  return { code, ...promo };
+}
+
 // IAP init can race the Cordova plugin boot — on a slow cold start the
 // user may finish their passcode before CdvPurchase has injected, and the
 // original guard would silently no-op, leaving Buy/Restore visibly dead
@@ -2945,10 +3014,18 @@ function initIAP() {
   }
 
   try {
-    sdk.store.register([
-      { id: PRODUCT_ID, type: sdk.ProductType.NON_CONSUMABLE, platform: sdk.Platform.APPLE_APPSTORE },
-      { id: PRODUCT_ID, type: sdk.ProductType.NON_CONSUMABLE, platform: sdk.Platform.GOOGLE_PLAY },
-    ]);
+    // Register the canonical Pro SKU plus every promo SKU referenced by
+    // PROMO_CODES, on both stores. The store ignores SKUs the underlying
+    // platform doesn't have configured, so it's safe to register a SKU
+    // that only exists on Play Store — get(id) will simply return null on
+    // iOS until the matching App Store product is created.
+    const registrations = [];
+    const allSkus = [PRODUCT_ID, ...PROMO_SKUS];
+    for (const sku of allSkus) {
+      registrations.push({ id: sku, type: sdk.ProductType.NON_CONSUMABLE, platform: sdk.Platform.APPLE_APPSTORE });
+      registrations.push({ id: sku, type: sdk.ProductType.NON_CONSUMABLE, platform: sdk.Platform.GOOGLE_PLAY });
+    }
+    sdk.store.register(registrations);
     sdk.store.when()
       .approved((tx) => tx.verify())
       .verified((receipt) => {
@@ -2985,7 +3062,7 @@ function initIAP() {
   } catch (e) { console.warn("IAP init failed", e); }
 }
 
-async function purchasePro() {
+async function purchasePro(sku = PRODUCT_ID) {
   if (!isNative()) {
     alert("Duitful Pro is already unlocked on the web.\nInstall the iOS / Android app to purchase the lifetime Pro tier there.");
     return { ok: false, cancelled: true };
@@ -2995,8 +3072,8 @@ async function purchasePro() {
   if (!iapInitialized) return { ok: false, message: "Store still initialising. Try again in a moment, or restart the app." };
   if (purchaseSettler) return { ok: false, message: "A purchase is already in progress." };
 
-  const product = sdk.store.get(PRODUCT_ID);
-  if (!product) return { ok: false, message: "Product not configured. Contact support." };
+  const product = sdk.store.get(sku);
+  if (!product) return { ok: false, message: sku === PRODUCT_ID ? "Product not configured. Contact support." : "Promo SKU not yet live in the store. Try the regular Unlock Pro button." };
   const offer = product.getOffer();
   if (!offer) return { ok: false, message: "No offer available." };
 
@@ -3127,7 +3204,8 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
   if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = "Verifying…"; }
   if (status) { status.textContent = "Confirm the purchase in the store sheet…"; status.hidden = false; }
   try {
-    const outcome = await purchasePro();
+    const sku = activePromo ? activePromo.sku : PRODUCT_ID;
+    const outcome = await purchasePro(sku);
     if (outcome.ok) {
       closePaywall();
       openProWelcome();
@@ -3144,6 +3222,30 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
   }
 });
 document.getElementById("paywall-restore")?.addEventListener("click", async () => { await restorePurchases(); closePaywall(); });
+
+document.getElementById("paywall-promo-toggle")?.addEventListener("click", () => {
+  // If a promo is already active, the toggle acts as "remove".
+  if (activePromo) { resetPromoState(); return; }
+  const form = document.getElementById("paywall-promo-form");
+  const input = document.getElementById("paywall-promo-code");
+  if (form) form.hidden = !form.hidden;
+  if (form && !form.hidden) setTimeout(() => input?.focus(), 0);
+});
+function tryApplyPromoCode() {
+  const input = document.getElementById("paywall-promo-code");
+  const status = document.getElementById("paywall-promo-status");
+  const raw = input?.value || "";
+  const promo = lookupPromoCode(raw);
+  if (!promo) {
+    if (status) { status.textContent = "Code not recognised, or it has expired."; status.hidden = false; }
+    return;
+  }
+  applyPromoUI(promo);
+}
+document.getElementById("paywall-promo-apply")?.addEventListener("click", tryApplyPromoCode);
+document.getElementById("paywall-promo-code")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); tryApplyPromoCode(); }
+});
 
 /* ---------- Service worker + PWA shortcut routing ---------- */
 

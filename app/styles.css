@@ -1646,6 +1646,29 @@ button.ghost.icon-btn {
 }
 .paywall-hint { margin-top: 0.5rem; }
 
+/* Promo code section in the paywall */
+.paywall-promo { margin-top: 0.6rem; text-align: center; }
+.paywall-promo > .ghost { font-size: 0.82rem; padding: 0.4rem 0.6rem; }
+.paywall-promo-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.paywall-promo-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.paywall-promo-row button { flex: 0 0 auto; padding-inline: 1rem; }
+#paywall-promo-status { margin-top: 0.4rem; }
+
 /* Pro card in Data tab */
 .pro-card {
   background: linear-gradient(180deg, rgba(200,112,75,0.08), var(--card) 70%);
