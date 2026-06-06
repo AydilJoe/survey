@@ -1521,9 +1521,28 @@
       <a href="#faq">FAQ</a>
     </div>
     <a href="/ms/" class="lang-toggle" aria-label="Tukar ke Bahasa Melayu" title="Bahasa Melayu">BM</a>
-    <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary nav-cta">Get the app</a>
+    <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary nav-cta" id="nav-cta" data-web-href="https://duitful.app/app" data-android-href="https://play.google.com/store/apps/details?id=com.aydiljoe.duitful" data-web-label="Open the web app" data-android-label="Get on Google Play">Get the app</a>
   </div>
 </nav>
+<script>
+  // Route the nav CTA to the right destination per device:
+  //   Android   → Play Store listing
+  //   iOS + PC  → web app (no native iOS build yet)
+  // Runs inline (not deferred) so the swap happens before paint.
+  (function () {
+    var cta = document.getElementById('nav-cta');
+    if (!cta) return;
+    var ua = navigator.userAgent || '';
+    var isAndroid = /Android/i.test(ua);
+    if (isAndroid) {
+      cta.href = cta.dataset.androidHref;
+      cta.textContent = cta.dataset.androidLabel;
+    } else {
+      cta.href = cta.dataset.webHref;
+      cta.textContent = cta.dataset.webLabel;
+    }
+  })();
+</script>
 
 <main>
 
