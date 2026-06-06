@@ -53,7 +53,7 @@
     "description": "Privacy-first money, debt, loan, and savings tracker for Malaysia. Track every ringgit, plan debt payoff with the avalanche method, scan receipts with OCR, and keep everything encrypted on-device. One-time purchase, no subscription.",
     "applicationCategory": "FinanceApplication",
     "applicationSubCategory": "PersonalFinance",
-    "operatingSystem": "Any modern web browser; native iOS and Android coming soon",
+    "operatingSystem": "Web (any modern browser); Android (Google Play); iOS coming soon",
     "inLanguage": "en",
     "browserRequirements": "Requires JavaScript. Requires HTML5.",
     "isAccessibleForFree": true,
@@ -83,6 +83,32 @@
         "priceCurrency": "MYR",
         "description": "One-time purchase — unlocks unlimited debts, savings goals, receipt scans, and future Pro features."
       }
+    ]
+  }
+  </script>
+
+  <!-- Native Android app entity — keeps Google's Knowledge Graph
+       linking the Play Store listing to this domain. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MobileApplication",
+    "name": "Duitful",
+    "alternateName": "Duitful — Money & Debt Tracker",
+    "operatingSystem": "Android",
+    "applicationCategory": "FinanceApplication",
+    "applicationSubCategory": "PersonalFinance",
+    "url": "https://duitful.app/",
+    "downloadUrl": "https://play.google.com/store/apps/details?id=com.aydiljoe.duitful",
+    "installUrl": "https://play.google.com/store/apps/details?id=com.aydiljoe.duitful",
+    "softwareVersion": "1.7.1",
+    "publisher": { "@type": "Organization", "name": "Duitful", "url": "https://duitful.app/" },
+    "image": "https://duitful.app/og-image.svg",
+    "description": "Native Android shell of Duitful — adds on-device bank-notification auto-capture, native receipt OCR, and Google Drive backup on top of the web app.",
+    "isAccessibleForFree": true,
+    "offers": [
+      { "@type": "Offer", "name": "Duitful Free", "price": "0", "priceCurrency": "MYR" },
+      { "@type": "Offer", "name": "Duitful Pro", "price": "19.90", "priceCurrency": "MYR", "description": "One-time purchase — unlocks unlimited debts, savings goals, receipt scans, and future Pro features." }
     ]
   }
   </script>
