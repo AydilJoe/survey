@@ -37,7 +37,7 @@
   "url": "https://duitful.app/privacy/",
   "description": "Privacy policy for Duitful — a privacy-first personal finance tracker built in Malaysia.",
   "inLanguage": "en",
-  "dateModified": "2026-05-01",
+  "dateModified": "2026-06-06",
   "publisher": {
     "@type": "Organization",
     "name": "Duitful",
@@ -192,7 +192,7 @@
 
   <h1>Privacy <em>policy</em></h1>
   <p class="lede">Written in plain English, not legalese. The short version lives right below — the rest is the full detail you'll want if you care, or if a regulator asks.</p>
-  <p class="meta">Effective 23 April 2026 · Last updated 1 May 2026</p>
+  <p class="meta">Effective 23 April 2026 · Last updated 6 June 2026</p>
 
   <div class="tldr">
     <h2>The short version</h2>
@@ -369,18 +369,60 @@
   </ul>
 
   <h2 class="section">9. Your rights</h2>
-  <p>Under the Personal Data Protection Act 2010 (Malaysia) and equivalent laws in other jurisdictions (for example the GDPR in the EU/UK, or the PDPA in Singapore), you have the right to:</p>
-  <ul>
-    <li>ask what personal data we hold about you;</li>
-    <li>ask us to correct inaccurate personal data;</li>
-    <li>ask us to delete personal data we hold, where we are not legally required to keep it;</li>
-    <li>withdraw any consent you previously gave us, without affecting anything that happened before you withdrew;</li>
-    <li>lodge a complaint with your national data protection authority.</li>
-  </ul>
-  <p>To exercise any of these rights, email <a href="mailto:hello@duitful.app">hello@duitful.app</a>. Because most of your data is on your own device and not accessible to us, requests about that data are usually answered by pointing you at the in-app export or reset tools.</p>
+  <p>You have rights over how your personal data is handled. The exact list depends on where you live, but Duitful applies the most protective regime everywhere — if your country's law gives you a stronger right, you get it.</p>
 
-  <h2 class="section">10. International users</h2>
-  <p>Duitful is built in Malaysia for Malaysian users, but the app works anywhere and some of our vendors operate worldwide. If you use the app from outside Malaysia, the data that does leave your device (your email for a Pro purchase, and any mail you send us) will be processed in the regions where our vendors operate — including the United States for Vercel, Resend, and Cloudflare, and Malaysia for Billplz. By using the service, you consent to this transfer where required by law.</p>
+  <h3>9.1 If you are in the EU, EEA, or UK (GDPR / UK GDPR)</h3>
+  <p>Under the General Data Protection Regulation (Regulation (EU) 2016/679) and the UK GDPR, you have the following rights:</p>
+  <ul>
+    <li><strong>Right of access (Art. 15)</strong> — ask what personal data we hold about you and get a copy.</li>
+    <li><strong>Right to rectification (Art. 16)</strong> — ask us to correct inaccurate or incomplete data.</li>
+    <li><strong>Right to erasure / "right to be forgotten" (Art. 17)</strong> — ask us to delete personal data we hold, subject to limited legal exceptions.</li>
+    <li><strong>Right to restriction of processing (Art. 18)</strong> — ask us to stop processing your data while a dispute is being resolved.</li>
+    <li><strong>Right to data portability (Art. 20)</strong> — receive your personal data in a structured, machine-readable format. Inside Duitful, this is the in-app CSV export.</li>
+    <li><strong>Right to object (Art. 21)</strong> — object to processing based on legitimate interests, including direct marketing. Duitful runs no marketing automation, so in practice this is rarely needed.</li>
+    <li><strong>Right not to be subject to automated decision-making (Art. 22)</strong> — Duitful performs no automated decision-making or profiling, so this right is honoured by design.</li>
+    <li><strong>Right to withdraw consent (Art. 7(3))</strong> — withdraw any consent you previously gave, without affecting the lawfulness of processing before the withdrawal.</li>
+    <li><strong>Right to lodge a complaint (Art. 77)</strong> — complain to your national data protection authority. A directory is at <a href="https://edpb.europa.eu/about-edpb/about-edpb/members_en" target="_blank" rel="noopener">edpb.europa.eu</a>; UK residents can complain to the <a href="https://ico.org.uk/" target="_blank" rel="noopener">ICO</a>.</li>
+  </ul>
+
+  <h3>9.2 Legal basis we rely on (GDPR Art. 6)</h3>
+  <p>For users in the EU, EEA, or UK, the legal basis for each kind of processing is:</p>
+  <table class="vendors">
+    <thead>
+      <tr><th>Processing</th><th>Legal basis</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Issuing your Pro licence after payment</td><td>Performance of a contract — Art. 6(1)(b)</td></tr>
+      <tr><td>Sending the licence email via Resend</td><td>Performance of a contract — Art. 6(1)(b)</td></tr>
+      <tr><td>Storing payment audit logs on Vercel</td><td>Legitimate interest — Art. 6(1)(f): fraud prevention and dispute resolution</td></tr>
+      <tr><td>Responding to your support email</td><td>Legitimate interest at your request — Art. 6(1)(f)</td></tr>
+      <tr><td>Pro's optional Google Drive backup</td><td>Your explicit consent — Art. 6(1)(a) (you turn it on; withdraw any time)</td></tr>
+    </tbody>
+  </table>
+  <p>We do not rely on the "legitimate interest" basis for any processing other than the rows above, and we do not perform any direct-marketing processing.</p>
+
+  <h3>9.3 If you are in Malaysia (PDPA 2010)</h3>
+  <p>You have the rights of access, correction, and withdrawal of consent under the Personal Data Protection Act 2010. The supervisory authority is the <a href="https://www.pdp.gov.my/" target="_blank" rel="noopener">Personal Data Protection Department of Malaysia</a>.</p>
+
+  <h3>9.4 If you are in Singapore (PDPA)</h3>
+  <p>You have rights of access and correction under Singapore's Personal Data Protection Act. The supervisory authority is the <a href="https://www.pdpc.gov.sg/" target="_blank" rel="noopener">Personal Data Protection Commission (PDPC)</a>.</p>
+
+  <h3>9.5 If you are in California (CCPA / CPRA)</h3>
+  <p>You have rights to know what categories of personal information we collect (see Section 4), to delete it, to opt out of "sale" or "sharing" of personal information (we do neither), and to non-discrimination for exercising your rights. We do not engage in cross-context behavioural advertising.</p>
+
+  <h3>9.6 How to exercise any of these rights</h3>
+  <p>Email <a href="mailto:hello@duitful.app">hello@duitful.app</a> with the subject "Privacy request" and the right you want to exercise. We respond within 30 days (sooner where required by law). There is no fee for exercising your rights.</p>
+  <p>Because nearly all your data lives on your own device and is unreadable to us, most requests are answered by pointing you at the in-app <strong>CSV export</strong>, <strong>encrypted backup</strong>, or <strong>Reset all data</strong> tools — those give you the rights of access, portability, and erasure faster than we can.</p>
+
+  <h2 class="section">10. International users and data transfers</h2>
+  <p>Duitful is built in Malaysia, but the app works anywhere and some of our vendors operate worldwide. If you use Duitful from outside Malaysia, the small amount of data that does leave your device (your email for a Pro purchase, and any mail you send us) is processed in the regions where our vendors operate — primarily the United States (Vercel, Resend, Cloudflare) and Malaysia (Billplz).</p>
+  <p>For users in the EU, EEA, or UK, transfers of personal data to countries outside those regions rely on appropriate safeguards under GDPR Chapter V. Specifically:</p>
+  <ul>
+    <li>Transfers to <strong>US-based vendors</strong> (Vercel, Resend, Cloudflare, Google for Drive sync) are covered by the EU-US Data Privacy Framework where the vendor is certified, or by Standard Contractual Clauses (Commission Decision 2021/914) where it is not. Each vendor publishes its own transfer mechanisms; the latest status is on their respective privacy pages.</li>
+    <li>Transfers to <strong>Malaysia</strong> (for Billplz payment processing) are made with your consent or as necessary for the performance of the Pro purchase contract — recognised grounds under Art. 49 GDPR.</li>
+    <li>The encrypted Google Drive backup (Pro, optional) is end-to-end encrypted before it ever leaves your device, so even where the file is stored, the contents remain inaccessible to anyone without your passcode.</li>
+  </ul>
+  <p>By using the service, you consent to these transfers where consent is the lawful basis. You can withdraw consent and stop further transfers at any time by deleting the app and emailing us to request removal of any remaining records (see Section 9).</p>
 
   <h2 class="section">11. Security</h2>
   <p>No system is perfectly secure, but the design of Duitful is intentionally pessimistic. Your financial data is encrypted on-device with AES-GCM before it is ever written to storage, using a key derived from your passcode through 250,000 PBKDF2 iterations. Because the key never leaves your device, a theoretical breach of any Duitful-operated system would not expose your records.</p>
