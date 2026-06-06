@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=49" />
+    <link rel="stylesheet" href="styles.css?v=50" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -808,9 +808,17 @@
             <h3>Refer a friend — earn RM 5</h3>
             <p class="hint">Share this link. When someone buys Duitful Pro through it, RM 5 lands in your bank (we pay out monthly via bank transfer).</p>
             <div class="pro-refer-url-row">
-              <code id="pro-refer-url" class="pro-refer-url">https://duitful.app/app?ref=...</code>
+              <code id="pro-refer-url" class="pro-refer-url" hidden>https://duitful.app/app?ref=...</code>
               <button type="button" class="primary" id="btn-pro-refer-share" hidden>Share</button>
-              <button type="button" class="ghost" id="btn-pro-refer-copy">Copy</button>
+              <button type="button" class="ghost" id="btn-pro-refer-copy" hidden>Copy</button>
+            </div>
+            <div id="pro-refer-claim" class="pro-refer-claim" hidden>
+              <p class="hint">Enter your email to claim your referral code. We turn it into an 8-character code via SHA-256 — your email never gets emailed to us, never reaches a server.</p>
+              <div class="pro-refer-claim-row">
+                <input type="email" id="pro-refer-claim-email" placeholder="you@example.com" autocomplete="email" inputmode="email" />
+                <button type="button" class="primary" id="btn-pro-refer-claim">Claim code</button>
+              </div>
+              <p class="hint" id="pro-refer-claim-status" hidden></p>
             </div>
           </div>
         </div>
@@ -1362,6 +1370,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=75"></script>
+    <script src="script.js?v=76"></script>
   </body>
 </html>

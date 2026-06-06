@@ -1919,6 +1919,28 @@ button.ghost.icon-btn {
   white-space: nowrap;
 }
 
+.pro-refer-claim {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 0.5px dashed var(--line);
+}
+.pro-refer-claim-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.pro-refer-claim-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+.pro-refer-claim-row button { flex: 0 0 auto; padding-inline: 1rem; }
+
 /* Scan receipt */
 .scan-row {
   margin-bottom: 0.65rem;

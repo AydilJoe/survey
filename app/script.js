@@ -33,6 +33,8 @@ const emptyState = () => ({
   lastSeenVersion: "",
   proTrialStartedAt: 0,
   nativeReferrer: "",
+  proEmail: "",
+  proRefCode: "",
 });
 
 function coerceState(parsed) {
@@ -107,6 +109,8 @@ function coerceState(parsed) {
       lastSeenVersion: typeof parsed.lastSeenVersion === "string" ? parsed.lastSeenVersion : "",
       proTrialStartedAt: Number.isFinite(Number(parsed.proTrialStartedAt)) ? Number(parsed.proTrialStartedAt) : 0,
       nativeReferrer: typeof parsed.nativeReferrer === "string" && /^[a-f0-9]{8}$/.test(parsed.nativeReferrer) ? parsed.nativeReferrer : "",
+      proEmail: typeof parsed.proEmail === "string" ? parsed.proEmail : "",
+      proRefCode: typeof parsed.proRefCode === "string" && /^[a-f0-9]{8}$/.test(parsed.proRefCode) ? parsed.proRefCode : "",
     };
   } catch { return emptyState(); }
 }
@@ -182,6 +186,21 @@ function save() {
     if (typeof scheduleDriveUpload === "function") scheduleDriveUpload();
   }).catch((err) => console.error("save failed", err));
   requestReschedule();
+}
+
+// Derives a stable 8-hex referral code from an email. Matches the
+// server-side algorithm in api/_lib/referral.js byte-for-byte so the
+// same email yields the same code on web (server-issued license token)
+// and native (this helper).
+async function refCodeForEmail(email) {
+  if (!email || !crypto?.subtle) return "";
+  const norm = String(email).toLowerCase().trim();
+  const buf = new TextEncoder().encode(norm);
+  const hash = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, 8);
 }
 
 function uid() {
@@ -2981,6 +3000,21 @@ document.getElementById("pro-welcome-drive")?.addEventListener("click", async ()
     if (typeof checkDriveOnBoot === "function") await checkDriveOnBoot();
     if (typeof renderDriveCard === "function") renderDriveCard();
     const email = DriveSync.getAccountEmail ? DriveSync.getAccountEmail() : "";
+    // Piggyback on Drive auth to claim a referral code automatically.
+    // Same email → same 8-hex code as the server's refCodeFor() in
+    // api/_lib/referral.js, so the user's share link stays stable
+    // across web (license token) and native (this path).
+    if (email && state && !state.proRefCode) {
+      try {
+        const code = await refCodeForEmail(email);
+        if (code) {
+          state.proEmail = email;
+          state.proRefCode = code;
+          save();
+          renderAll();
+        }
+      } catch (_) { /* refCode is optional UX; never block Drive flow */ }
+    }
     if (btn) btn.textContent = "✓ Connected";
     if (status) { status.textContent = email ? `Signed in as ${email}` : "Connected"; status.hidden = false; }
   } catch (err) {
@@ -3315,15 +3349,30 @@ function renderProControls() {
 
   // Referral link: every Pro user gets a shareable link tied to their ref
   // code (sha256(email) truncated). They earn RM 5 per friend who buys.
+  // Two source paths:
+  //   • Web buyers carry the code in the issued license token (state.license.ref).
+  //   • Native IAP buyers derive it from their Drive email on Pro welcome
+  //     (state.proRefCode).
   const referCard = document.getElementById("pro-refer");
   const referUrlEl = document.getElementById("pro-refer-url");
-  const ref = purchased && state && state.license && state.license.ref;
-  if (referCard) referCard.hidden = !ref;
-  if (referUrlEl && ref) {
-    // Always emit the canonical production URL — location.origin on the
-    // Capacitor WebView resolves to https://localhost, not duitful.app.
-    referUrlEl.textContent = `https://duitful.app/app?ref=${ref}`;
+  const referClaim = document.getElementById("pro-refer-claim");
+  const ref = purchased && state && (
+    (state.license && state.license.ref) || state.proRefCode || ""
+  );
+  if (referCard) referCard.hidden = !purchased;
+  if (referClaim) referClaim.hidden = !purchased || !!ref;
+  if (referUrlEl) {
+    referUrlEl.hidden = !ref;
+    if (ref) {
+      // Always emit the canonical production URL — location.origin on the
+      // Capacitor WebView resolves to https://localhost, not duitful.app.
+      referUrlEl.textContent = `https://duitful.app/app?ref=${ref}`;
+    }
   }
+  const shareBtn = document.getElementById("btn-pro-refer-share");
+  const copyBtn = document.getElementById("btn-pro-refer-copy");
+  if (shareBtn) shareBtn.style.display = ref && typeof navigator?.share === "function" ? "" : "none";
+  if (copyBtn) copyBtn.style.display = ref ? "" : "none";
 
   if (status) {
     if (purchased) {
@@ -3734,9 +3783,13 @@ document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async (
       const url = document.getElementById("pro-refer-url")?.textContent || "";
       if (!url) return;
       try {
+        const code = state?.proRefCode || (state?.license && state.license.ref) || "";
+        const text = isNative()
+          ? `Try Duitful — privacy-first money tracker for Malaysia. Free 7-day Pro trial, plus RM 5 off if you use my code: ${code}\n\nGet it on Google Play: https://play.google.com/store/apps/details?id=com.aydiljoe.duitful\nOr web: ${url}`
+          : "I've been using Duitful to track my spending and pay off debts. Try it:";
         await navigator.share({
           title: "Duitful — privacy-first money tracker",
-          text: "I've been using Duitful to track my spending and pay off debts. Try it:",
+          text,
           url,
         });
       } catch {
@@ -3745,6 +3798,35 @@ document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async (
     });
   }
 }
+
+// "Claim referral code" fallback inside the Pro refer card — fires
+// when a native IAP buyer never connected Drive. Same algorithm as
+// the Drive-piggyback path so codes match cross-surface.
+document.getElementById("btn-pro-refer-claim")?.addEventListener("click", async () => {
+  const input = document.getElementById("pro-refer-claim-email");
+  const status = document.getElementById("pro-refer-claim-status");
+  const email = (input?.value || "").trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (status) { status.textContent = "That doesn't look like a valid email."; status.hidden = false; }
+    return;
+  }
+  try {
+    const code = await refCodeForEmail(email);
+    if (!code) {
+      if (status) { status.textContent = "Couldn't generate a code — try again."; status.hidden = false; }
+      return;
+    }
+    if (state) {
+      state.proEmail = email.toLowerCase();
+      state.proRefCode = code;
+      save();
+      renderAll();
+    }
+    if (status) { status.textContent = `✓ Your code is ${code}. Tap Share to send your link.`; status.hidden = false; }
+  } catch (e) {
+    if (status) { status.textContent = "Couldn't generate a code: " + (e?.message || e); status.hidden = false; }
+  }
+});
 
 document.getElementById("btn-pro-activate")?.addEventListener("click", openLicenseDialog);
 document.getElementById("paywall-activate")?.addEventListener("click", () => { closePaywall(); openLicenseDialog(); });
