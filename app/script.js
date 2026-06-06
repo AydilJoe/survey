@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.7.4";
+const APP_VERSION = "1.7.5";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5719,6 +5719,11 @@ const RELEASE_NOTES = {
   "1.7.4": [
     "<strong>Promo code support</strong> — tap \"Have a promo code?\" in the paywall to apply codes like LAUNCH100 and save on the lifetime Pro price.",
     "<strong>About card auto-syncs</strong> with the native build number, so the version you see always matches the version on Play Store.",
+  ],
+  "1.7.5": [
+    "<strong>7-day Pro trial</strong> — every install starts with full Pro access for 7 days. The Home banner shows how many days are left.",
+    "<strong>Friend codes</strong> — tap \"Got a friend code?\" in the paywall. Pairs automatically with the launch promo so the buyer saves RM 5 and the friend earns RM 5.",
+    "<strong>Smoother unlock at conversion</strong> — trial users now see RM 14.90 (LAUNCH100) pre-applied when they tap Unlock forever, no typing needed.",
   ],
 };
 
