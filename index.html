@@ -1449,12 +1449,45 @@
     /* --------------- Scroll reveal --------------- */
     .reveal {
       opacity: 0;
-      transform: translateY(18px);
-      transition: opacity 0.7s cubic-bezier(.2,.6,.2,1), transform 0.7s cubic-bezier(.2,.6,.2,1);
+      transform: translateY(22px) scale(0.985);
+      transition:
+        opacity 0.62s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.62s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: opacity, transform;
     }
-    .reveal.in { opacity: 1; transform: translateY(0); }
+    .reveal.in { opacity: 1; transform: translateY(0) scale(1); }
+
+    /* --------------- Hero entrance (one-shot, staggered cascade) --------------- */
+    .hero-intro > * {
+      opacity: 0;
+      transform: translateY(18px);
+      animation: heroRise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .hero-intro > *:nth-child(1) { animation-delay: 0.06s; }
+    .hero-intro > *:nth-child(2) { animation-delay: 0.14s; }
+    .hero-intro > *:nth-child(3) { animation-delay: 0.22s; }
+    .hero-intro > *:nth-child(4) { animation-delay: 0.30s; }
+    .hero-intro > *:nth-child(5) { animation-delay: 0.38s; }
+    .hero-intro > *:nth-child(6) { animation-delay: 0.46s; }
+    .hero-intro > *:nth-child(7) { animation-delay: 0.54s; }
+    .hero-media {
+      opacity: 0;
+      transform: translateY(26px) scale(0.96);
+      animation: heroMedia 0.95s cubic-bezier(0.22, 1, 0.36, 1) 0.28s both;
+    }
+    @keyframes heroRise { to { opacity: 1; transform: none; } }
+    @keyframes heroMedia { to { opacity: 1; transform: none; } }
+
+    /* --------------- Springy hover on store buttons --------------- */
+    @media (hover: hover) and (pointer: fine) {
+      .btn-store { transition: opacity 0.2s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
+      .btn-store:not(.is-soon):hover { transform: translateY(-2px); }
+      .btn-store:not(.is-soon):active { transform: translateY(0) scale(0.97); }
+    }
+
     @media (prefers-reduced-motion: reduce) {
       .reveal { opacity: 1; transform: none; transition: none; }
+      .hero-intro > *, .hero-media { opacity: 1; transform: none; animation: none; }
       html { scroll-behavior: auto; }
     }
   </style>
@@ -1498,7 +1531,7 @@
   <section class="hero">
     <div class="container">
       <div class="hero-grid">
-        <div class="hero-copy reveal">
+        <div class="hero-copy hero-intro">
           <span class="eyebrow">Private money, debt, loan &amp; savings tracker · Malaysia</span>
           <h1>Be <span class="serif-italic">duitful</span><br>with your duit.</h1>
           <p class="hero-sub">Track your money, debts, loans, and savings. Kill high-APR debt with the avalanche method, and keep every cent on your phone. Encrypted on-device. No account, no subscription.</p>
@@ -1533,7 +1566,7 @@
         </div>
 
         <!-- Phone mockup -->
-        <div class="phone-wrap reveal">
+        <div class="phone-wrap hero-media">
           <span class="phone-label top" aria-hidden="true">On-device · encrypted</span>
 
           <!-- Laptop in the back so visitors see this works on desktop/iPad too -->
@@ -1922,8 +1955,12 @@
     });
   }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
 
-  document.querySelectorAll('.reveal').forEach((el, i) => {
-    el.style.transitionDelay = (i % 4) * 60 + 'ms';
+  // Stagger reveals per-section: each card cascades after its siblings,
+  // so a row/grid animates in order instead of all at once.
+  document.querySelectorAll('.reveal').forEach((el) => {
+    const sibs = Array.from(el.parentElement.children).filter((c) => c.classList.contains('reveal'));
+    const idx = Math.max(0, sibs.indexOf(el));
+    el.style.transitionDelay = Math.min(idx, 6) * 70 + 'ms';
     io.observe(el);
   });
 </script>
