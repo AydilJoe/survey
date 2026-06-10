@@ -1,30 +1,37 @@
 :root {
-  /* Clay palette (from design file) */
+  /* Refined Clay palette — warm soul + sharper signaling.
+     Light mode is the default; dark mode overrides at the bottom of this
+     declaration via prefers-color-scheme. Token semantics never change
+     between modes, so every component reads from these vars and stays
+     in sync without per-component dark variants. */
   --stage: #e8dfd0;
-  --bg: #f5f1ea;
-  --bg-elev: #f0e8d8;
-  --card: #fffaf2;
-  --card-soft: #f0e8d8;
+  --bg: #f3ede1;                /* slightly cooler base — lets warm accents pop */
+  --bg-elev: #ece5d4;
+  --card: #fffefa;              /* nearly white — proper elevation over bg */
+  --card-soft: #ece5d4;
   --text: #2a2420;
   --ink2: #5c524a;
   --muted: #8a8178;
-  --primary: #c8704b;          /* terracotta */
-  --primary-hover: #b65f3c;
-  --accent: #8fa078;           /* sage */
-  --accent-3: #d4a574;         /* tan */
-  --accent-4: #7a8a9e;         /* slate blue */
-  --accent-5: #b08a6a;         /* caramel */
-  --gain: #6a8a5e;
-  --loss: #b86a4e;
-  --danger: #b86a4e;
-  --danger-hover: #9f5640;
+  --primary: #d76636;           /* terracotta with more chroma */
+  --primary-hover: #c2521f;
+  --primary-ink: #d76636;       /* alias used by a few marketing surfaces */
+  --accent: #7da062;            /* greener sage — no longer reads as olive-grey */
+  --accent-hover: #6c8f52;
+  --accent-3: #d4a574;          /* tan */
+  --accent-4: #4a6b8f;          /* SHIFTED slate blue — now the trust accent */
+  --accent-cool: #4a6b8f;       /* semantic alias for Pro / Drive / license tags */
+  --accent-5: #b08a6a;          /* caramel */
+  --gain: #5d9163;              /* forest green — distinct from sage */
+  --loss: #c8424a;              /* true red — clearly NOT a darker primary */
+  --danger: #c8424a;
+  --danger-hover: #b6303a;
   --border: rgba(42, 36, 32, 0.14);
   --line: rgba(42, 36, 32, 0.08);
   --shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 8px 24px rgba(42, 36, 32, 0.05);
   /* Liquid glass tokens (Apple-style frosted surfaces) */
-  --glass-bg: rgba(255, 250, 242, 0.55);
-  --glass-bg-strong: rgba(255, 250, 242, 0.7);
-  --glass-bg-soft: rgba(240, 232, 216, 0.5);
+  --glass-bg: rgba(255, 254, 250, 0.55);
+  --glass-bg-strong: rgba(255, 254, 250, 0.7);
+  --glass-bg-soft: rgba(236, 229, 212, 0.5);
   --glass-border: rgba(255, 255, 255, 0.6);
   --glass-border-soft: rgba(255, 255, 255, 0.55);
   --glass-blur: saturate(180%) blur(22px);
@@ -39,6 +46,54 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: 'Fraunces', Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+
+/* Dark mode — same token names, brightened ~15-20% so the role colours
+   still read on a warm-dark surface. Card vs bg keeps visible elevation.
+   Glass tokens shift to dark-tinted highlights so frosted panes stay
+   readable. No component-level overrides needed — every surface that
+   reads from a token gets dark for free. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --stage: #14110e;
+    --bg: #1a1612;
+    --bg-elev: #221c16;
+    --card: #241e18;
+    --card-soft: #2e2820;
+    --text: #f3ede1;
+    --ink2: #c4bdb0;
+    --muted: #8a8178;
+    --primary: #e87c4a;
+    --primary-hover: #f08b58;
+    --primary-ink: #e87c4a;
+    --accent: #94b67c;
+    --accent-hover: #a3c187;
+    --accent-3: #e4c089;
+    --accent-4: #7a9bb8;
+    --accent-cool: #7a9bb8;
+    --accent-5: #c9a07d;
+    --gain: #7eaa7e;
+    --loss: #e07277;
+    --danger: #e07277;
+    --danger-hover: #ec8489;
+    --border: rgba(255, 255, 255, 0.14);
+    --line: rgba(255, 255, 255, 0.08);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
+    --glass-bg: rgba(36, 30, 24, 0.55);
+    --glass-bg-strong: rgba(36, 30, 24, 0.78);
+    --glass-bg-soft: rgba(46, 40, 32, 0.55);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-border-soft: rgba(255, 255, 255, 0.08);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+    --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 14px 32px rgba(0, 0, 0, 0.35), 0 4px 10px rgba(0, 0, 0, 0.2);
+    --glass-shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.2);
+    --glass-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.02) 100%);
+    --glass-pane-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%);
+    --glass-pane-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2), 0 6px 16px rgba(0, 0, 0, 0.3);
+  }
+  /* Theme-aware meta colour so the OS status bar matches the dark surface
+     on PWA / Capacitor installs. The light value is set in index.html. */
+  html { color-scheme: dark; }
 }
 
 * { box-sizing: border-box; }
