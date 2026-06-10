@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=53" />
+    <link rel="stylesheet" href="styles.css?v=54" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -352,6 +352,19 @@
           </div>
           <button type="button" class="primary" id="btn-copy-prev">Copy from previous month</button>
           <p class="hint" id="copy-prev-hint"></p>
+        </div>
+
+        <div class="card spend-calendar-card">
+          <div class="card-head">
+            <h2>Spending calendar</h2>
+            <span class="mini-stats" id="cal-month-total"></span>
+          </div>
+          <div class="spend-cal-head" aria-hidden="true">
+            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          </div>
+          <div class="spend-cal-grid" id="spend-cal" role="grid" aria-label="Daily spending calendar"></div>
+          <div class="spend-cal-day-panel" id="spend-cal-panel" hidden></div>
+          <p class="hint">Darker days = heavier spending. Tap a day to see its entries.</p>
         </div>
 
         <div class="card">
@@ -771,6 +784,16 @@
 
       <!-- DATA -->
       <section id="tab-data" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-data">
+        <div class="card">
+          <h2>Appearance</h2>
+          <p class="hint">System follows your device's light/dark setting automatically.</p>
+          <div class="type-pills theme-pills" role="radiogroup" aria-label="Theme">
+            <button type="button" class="pill" data-theme-choice="system" role="radio" aria-checked="false">System</button>
+            <button type="button" class="pill" data-theme-choice="light" role="radio" aria-checked="false">Light</button>
+            <button type="button" class="pill" data-theme-choice="dark" role="radio" aria-checked="false">Dark</button>
+          </div>
+        </div>
+
         <div class="card">
           <h2>CSV backup</h2>
           <p class="hint">Your data lives in this browser (localStorage). Export to CSV to back it up or move to another device; import to restore.</p>
@@ -1398,6 +1421,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=78"></script>
+    <script src="script.js?v=79"></script>
   </body>
 </html>
