@@ -271,6 +271,91 @@ function fmtMoney(n) {
   try { return currencyFormatter().format(v); }
   catch { return v.toFixed(2) + " " + currentCurrency(); }
 }
+
+// Tween the split hero-balance (RM | 1,234 | .56) by animating the
+// numeric value and re-rendering the three child spans each frame. Stores
+// the last value on the element as data-tween-value so subsequent calls
+// can read it without re-parsing localized money strings.
+function tweenHeroBalance(el, toValue, opts) {
+  if (!el) return;
+  const v = Number(toValue) || 0;
+  function render(value) {
+    const mp = moneyParts(value);
+    el.innerHTML =
+      `<span class="hero-currency">${escapeHtml(mp.prefix)}</span>` +
+      `<span class="hero-whole">${escapeHtml(mp.whole)}</span>` +
+      `<span class="hero-cents">${escapeHtml(mp.frac + mp.suffix)}</span>`;
+  }
+  if (typeof window === "undefined" || !window.requestAnimationFrame ||
+      (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+    el.dataset.tweenValue = String(v);
+    render(v);
+    return;
+  }
+  const prev = Number(el.dataset.tweenValue);
+  if (!Number.isFinite(prev) || Math.abs(prev - v) < 0.005) {
+    el.dataset.tweenValue = String(v);
+    render(v);
+    return;
+  }
+  const duration = (opts && opts.duration) || 520;
+  const start = performance.now();
+  const token = Symbol("hero-tween");
+  _tweenTokens.set(el, token);
+  function frame(t) {
+    if (_tweenTokens.get(el) !== token) return;
+    const p = Math.min(1, (t - start) / duration);
+    const eased = 1 - Math.pow(1 - p, 3);
+    const value = prev + (v - prev) * eased;
+    render(value);
+    if (p < 1) requestAnimationFrame(frame);
+    else { el.dataset.tweenValue = String(v); render(v); }
+  }
+  requestAnimationFrame(frame);
+}
+
+// Smoothly tween a money element from its current displayed value to the
+// new value over ~520ms with ease-out. Reads the current numeric value
+// out of the existing text content (handles "RM 1,234.56", "−RM 12.00",
+// "RM 1.2K" — anything fmtMoney can produce). Falls back to a snap when
+// the user prefers reduced motion or the element wasn't tracked yet.
+//
+// Critical: we never assume the previous text was a money string in this
+// app's locale — if parsing fails (first render, formula text, etc.) we
+// snap to the new value. No frame leaks because every element keeps its
+// own animation token and a new tween cancels the previous one.
+const _tweenTokens = new WeakMap();
+function tweenMoney(el, toValue, opts) {
+  if (!el) return;
+  const v = Number(toValue) || 0;
+  const formatted = fmtMoney(v);
+  if (typeof window === "undefined" || !window.requestAnimationFrame) { el.textContent = formatted; return; }
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    el.textContent = formatted;
+    return;
+  }
+  // Try to parse the current text as a number. If it's blank, dash, or
+  // formula prose, snap to the new value rather than tweening from 0.
+  const prev = el.textContent ? Number(String(el.textContent).replace(/[^\d.\-]/g, "")) : NaN;
+  if (!Number.isFinite(prev) || Math.abs(prev - v) < 0.005) {
+    el.textContent = formatted;
+    return;
+  }
+  const duration = (opts && opts.duration) || 520;
+  const start = performance.now();
+  const token = Symbol("tween");
+  _tweenTokens.set(el, token);
+  function frame(t) {
+    if (_tweenTokens.get(el) !== token) return;
+    const p = Math.min(1, (t - start) / duration);
+    const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    const value = prev + (v - prev) * eased;
+    el.textContent = fmtMoney(value);
+    if (p < 1) requestAnimationFrame(frame);
+    else el.textContent = formatted;
+  }
+  requestAnimationFrame(frame);
+}
 function fmtMoneyIn(n, code) {
   const v = Number(n) || 0;
   const loc = CURRENCY_LOCALE[code] || undefined;
@@ -1459,6 +1544,15 @@ function setDailyType(type) {
     btn.setAttribute("aria-checked", on ? "true" : "false");
   });
   updateDailyTargetSelect();
+  // Recent chips are derived from spend-type entries (different schema
+  // from debt/saving). Hide for non-spend types so the chip row doesn't
+  // mislead the user.
+  const recentWrap = document.getElementById("recent-chips");
+  if (recentWrap) {
+    const row = document.getElementById("recent-chips-row");
+    const hasChips = !!(row && row.children.length);
+    recentWrap.hidden = type !== "expense" || !hasChips;
+  }
 }
 
 function updateDailyTargetSelect() {
@@ -1538,6 +1632,75 @@ function updateCategoryDatalist() {
   list.innerHTML = cats.map((c) => `<option value="${escapeHtml(c)}"></option>`).join("");
 }
 
+// Show the welcome empty-state card while the user has no entries at all.
+// Hides the moment any kind of activity appears (income, expense, debt,
+// saving, or daily entry) so it never feels like a popup nagging an
+// experienced user.
+function renderEmptyWelcome() {
+  const card = document.getElementById("empty-welcome");
+  if (!card) return;
+  if (!state) { card.hidden = true; return; }
+  const hasData =
+    (state.income?.length || 0) +
+    (state.expenses?.length || 0) +
+    (state.dailyExpenses?.length || 0) +
+    (state.debts?.length || 0) +
+    (state.savings?.length || 0);
+  card.hidden = hasData > 0;
+}
+
+// Recent-chips row: 3 most-used (category, note, amount) triples from
+// the last 30 days of daily-expense entries. Tap to autofill the form.
+// Cuts daily-entry friction by half — repeat-pattern users (Mamak, Grab,
+// Petronas) get one-tap entry instead of typing the whole row.
+function renderRecentChips() {
+  const wrap = document.getElementById("recent-chips");
+  const row = document.getElementById("recent-chips-row");
+  if (!wrap || !row) return;
+  if (!state?.dailyExpenses?.length) { wrap.hidden = true; row.innerHTML = ""; return; }
+  // Only spend-type entries — "pay debt" and "save" have totally different
+  // semantics (target, debtName/savingName) and we'd need separate UI.
+  // Same window the dailyStats() helper uses for "this month".
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const recents = state.dailyExpenses.filter((e) => {
+    if (e.kind !== "expense") return false;
+    const d = e.createdAt || (e.date ? new Date(e.date).getTime() : 0);
+    return d >= cutoff;
+  });
+  if (!recents.length) { wrap.hidden = true; row.innerHTML = ""; return; }
+  // Cluster by a key that means "this is essentially the same entry".
+  // Category + lowercased note is a strong-enough heuristic without
+  // surprising the user — same note + same category = same chip.
+  const map = new Map();
+  for (const e of recents) {
+    const key = `${e.category || ""}|${(e.note || "").trim().toLowerCase()}`;
+    const slot = map.get(key) || { category: e.category || "Others", note: (e.note || "").trim(), amounts: [], count: 0, lastUsed: 0 };
+    slot.amounts.push(Number(e.amount) || 0);
+    slot.count += 1;
+    const ts = e.createdAt || (e.date ? new Date(e.date).getTime() : 0);
+    if (ts > slot.lastUsed) slot.lastUsed = ts;
+    map.set(key, slot);
+  }
+  // Rank: most-used first, recency as a tie-breaker. Pick top 3.
+  const top = Array.from(map.values())
+    .sort((a, b) => (b.count - a.count) || (b.lastUsed - a.lastUsed))
+    .slice(0, 3);
+  if (!top.length) { wrap.hidden = true; row.innerHTML = ""; return; }
+  // Use the median amount per cluster — robust to occasional outliers
+  // (one freak RM 80 lunch shouldn't shift the chip away from RM 12).
+  function median(arr) {
+    const a = arr.slice().sort((x, y) => x - y);
+    const mid = Math.floor(a.length / 2);
+    return a.length % 2 ? a[mid] : (a[mid - 1] + a[mid]) / 2;
+  }
+  row.innerHTML = top.map((s) => {
+    const amt = median(s.amounts);
+    const label = s.note || s.category;
+    return `<button type="button" class="recent-chip" data-recent-amount="${amt.toFixed(2)}" data-recent-category="${escapeHtml(s.category)}" data-recent-note="${escapeHtml(s.note)}" title="Used ${s.count} time${s.count === 1 ? "" : "s"} recently"><span class="recent-chip-label">${escapeHtml(label)}</span><span class="recent-chip-amount">${escapeHtml(fmtMoney(amt))}</span></button>`;
+  }).join("");
+  wrap.hidden = false;
+}
+
 function debtNameById(id) {
   const d = state.debts.find((x) => x.id === id);
   return d ? d.name : null;
@@ -1545,12 +1708,12 @@ function debtNameById(id) {
 
 function renderDaily() {
   const { today, week, month } = dailyStats();
-  $("#stat-daily-today").textContent = fmtMoney(today);
-  $("#stat-daily-week").textContent = fmtMoney(week);
-  $("#stat-daily-month").textContent = fmtMoney(month);
+  tweenMoney($("#stat-daily-today"), today);
+  tweenMoney($("#stat-daily-week"), week);
+  tweenMoney($("#stat-daily-month"), month);
 
   const monthly = state.dailyExpenses.filter((e) => isSameMonth(e.date));
-  $("#daily-month-total").textContent = fmtMoney(dailySpendSum(monthly));
+  tweenMoney($("#daily-month-total"), dailySpendSum(monthly));
   $("#daily-month-count").textContent = String(monthly.length);
 
   const listEl = $("#daily-list");
@@ -1776,7 +1939,35 @@ function renderGreeting() {
   // Avoid "Late night" — reads slightly accusatory at 1am. Prefer "Evening"
   // for late hours so the greeting stays neutral.
   const part = h < 5 ? "Evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-  el.textContent = `${part} · ${now.toLocaleDateString("en-MY", { weekday: "long", day: "numeric", month: "short" })}`;
+  // Try to wrap a contextual money line around the time-of-day greeting:
+  //   "Good morning · Mon 3 Jun · about RM 53/day to play with"
+  // Falls back to the bare date when there's nothing useful to say yet
+  // (no income tracked, brand-new install).
+  const date = now.toLocaleDateString("en-MY", { weekday: "long", day: "numeric", month: "short" });
+  let context = "";
+  try {
+    const thisMonth = currentMonthISO();
+    const incomeTotal = totalOf(state.income.filter((x) => x.month === thisMonth));
+    if (incomeTotal > 0) {
+      const expenseTotal = totalOf(state.expenses.filter((x) => x.month === thisMonth));
+      const dailyMonth = dailyStats().month;
+      let carry = 0;
+      try { carry = Number(endingBalanceFor(shiftMonth(thisMonth, -1))) || 0; } catch (_) {}
+      const out = expenseTotal + dailyMonth;
+      const balance = incomeTotal + carry - out;
+      const prog = monthProgress();
+      const daysLeft = Math.max(0, prog.daysInMonth - prog.day);
+      if (balance > 0 && daysLeft > 0) {
+        const perDay = balance / daysLeft;
+        context = ` · about ${fmtMoney(perDay)}/day to play with`;
+      } else if (balance > 0) {
+        context = ` · ${fmtMoney(balance)} left for the month`;
+      } else if (daysLeft > 0) {
+        context = ` · ${fmtMoney(Math.abs(balance))} over with ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`;
+      }
+    }
+  } catch (_) { /* state may not be ready on first render — keep the bare greeting */ }
+  el.textContent = `${part} · ${date}${context}`;
 }
 
 function renderDashboard() {
@@ -1785,9 +1976,9 @@ function renderDashboard() {
   const expenseTotal = totalOf(state.expenses.filter((x) => x.month === thisMonth));
   const { total, weighted, minSum } = debtTotals(state.debts);
 
-  $("#stat-income").textContent = fmtMoney(incomeTotal);
-  $("#stat-expenses").textContent = fmtMoney(expenseTotal);
-  $("#stat-min").textContent = fmtMoney(minSum);
+  tweenMoney($("#stat-income"), incomeTotal);
+  tweenMoney($("#stat-expenses"), expenseTotal);
+  tweenMoney($("#stat-min"), minSum);
 
   const dailyMonth = dailyStats().month;
   // Card charges don't leave cash this month — they'll be picked up by
@@ -1817,11 +2008,7 @@ function renderDashboard() {
   const carryOver = endingBalanceFor(shiftMonth(thisMonth, -1));
   const net = carryOver + incomeTotal - totalOut;
   const netEl = $("#stat-net");
-  const mp = moneyParts(net);
-  netEl.innerHTML =
-    `<span class="hero-currency">${escapeHtml(mp.prefix)}</span>` +
-    `<span class="hero-whole">${escapeHtml(mp.whole)}</span>` +
-    `<span class="hero-cents">${escapeHtml(mp.frac + mp.suffix)}</span>`;
+  tweenHeroBalance(netEl, net);
   netEl.classList.toggle("pos", net >= 0);
   netEl.classList.toggle("neg", net < 0);
 
@@ -2564,12 +2751,15 @@ function renderAll() {
   ensureDebtPool();
   snapshotCurrentMinSum();
   updateCurrencyLabels();
+  renderGreeting();
   renderTrialBanner();
   renderDashboard();
   renderFlow();
   renderDebts();
   updateDailyTargetSelect();
   updateCategoryDatalist();
+  renderRecentChips();
+  renderEmptyWelcome();
   renderDaily();
   renderSavings();
   renderUpcoming();
@@ -4302,6 +4492,43 @@ document.querySelectorAll(".quick-amounts button").forEach((btn) => {
     input.value = (current + add).toFixed(2).replace(/\.00$/, "");
     input.focus();
   });
+});
+
+// Empty-welcome CTA — scrolls to the daily form and focuses the amount
+// input so the user can just start typing. Always uses the Spend pill
+// since that's the universal first-entry pattern.
+document.getElementById("empty-welcome-cta")?.addEventListener("click", () => {
+  setDailyType("expense");
+  const amountInput = document.querySelector("#form-daily input[name='amount']");
+  if (amountInput) {
+    amountInput.scrollIntoView({ behavior: "smooth", block: "center" });
+    setTimeout(() => amountInput.focus(), 400);
+  }
+});
+
+// Recent-chips: tap to autofill amount, category, and note. We don't
+// submit — the user can review/edit and hit Save normally, so this is
+// purely a friction-reducer and never adds an entry without consent.
+document.getElementById("recent-chips-row")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button.recent-chip");
+  if (!btn) return;
+  const amount = btn.dataset.recentAmount;
+  const category = btn.dataset.recentCategory || "";
+  const note = btn.dataset.recentNote || "";
+  const form = document.getElementById("form-daily");
+  if (!form) return;
+  const amountInput = form.querySelector("input[name='amount']");
+  const categoryInput = form.querySelector("input[name='category']");
+  const noteInput = form.querySelector("input[name='note']");
+  if (amountInput && amount) { amountInput.value = amount.replace(/\.00$/, ""); }
+  if (categoryInput && category) categoryInput.value = category;
+  if (noteInput) noteInput.value = note;
+  // Brief visual confirmation on the chip itself, then put focus on the
+  // amount so the user can tweak before saving.
+  btn.classList.add("filled");
+  setTimeout(() => btn.classList.remove("filled"), 700);
+  amountInput?.focus();
+  amountInput?.select?.();
 });
 
 /* go-to-tab buttons in empty states */

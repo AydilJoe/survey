@@ -1160,6 +1160,120 @@ button.primary.big {
   color: var(--text);
   border-color: rgba(200, 112, 75, 0.3);
 }
+.quick-amounts button:active { transform: scale(0.96); }
+
+/* Recent-chips — most-used (category, note, amount) triples from the
+   last 30 days. Lives right under quick-amounts, hidden until there's
+   data, hides again when the user switches to debt/saving type. */
+.recent-chips {
+  margin: 0.15rem 0 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.recent-chips-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.recent-chips-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.recent-chip {
+  appearance: none;
+  background: var(--glass-pane);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
+  box-shadow: var(--glass-pane-shadow);
+  border-radius: 14px;
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.18s ease, background 0.18s ease;
+}
+.recent-chip:hover {
+  border-color: rgba(200, 112, 75, 0.32);
+  background: var(--card);
+}
+.recent-chip:active { transform: scale(0.97); }
+.recent-chip.filled {
+  background: var(--card);
+  border-color: var(--primary);
+  transform: scale(0.97);
+}
+.recent-chip-label {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink2);
+  max-width: 14ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recent-chip-amount {
+  font-family: var(--font-serif);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+/* Fresh-install welcome card — replaces the cold "RM 0.00" hero on a
+   brand-new install. Disappears the moment any data exists. */
+.empty-welcome {
+  text-align: center;
+  padding: 1.5rem 1.25rem 1.6rem;
+  background: linear-gradient(180deg, rgba(200, 112, 75, 0.05), var(--card) 70%);
+  border: 0.5px solid rgba(200, 112, 75, 0.18);
+  border-radius: 22px;
+  margin-bottom: 0.85rem;
+}
+.empty-welcome-glyph {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 0.75rem;
+  color: var(--primary);
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(200, 112, 75, 0.08);
+}
+.empty-welcome-glyph svg { width: 32px; height: 32px; }
+.empty-welcome-title {
+  font-family: var(--font-serif);
+  font-size: 1.3rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.4rem;
+}
+.empty-welcome-body {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--ink2);
+  margin: 0 auto 1rem;
+  max-width: 34ch;
+}
+.empty-welcome-cta {
+  margin: 0 auto 0.6rem;
+  display: inline-block;
+}
+.empty-welcome-meta {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin: 0;
+}
 
 /* Empty state */
 .empty-state {
