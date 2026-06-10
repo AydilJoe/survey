@@ -6029,32 +6029,30 @@ const GUIDE_STEPS = [
   },
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z"/></svg>`,
-    title: "Home — your balance at a glance",
-    sub: "See where the month stands in one look.",
-    body: `<p>The hero card shows <strong>balance left this month</strong>: income minus recurring expenses, minimum debt payments, and daily spend.</p>
-      <ul>
-        <li>Hit <strong>Spend</strong>, <strong>Pay debt</strong>, or <strong>Save</strong> to log an entry</li>
-        <li>Tap <strong>Scan receipt</strong> to auto-fill from a photo</li>
-      </ul>`,
+    title: "Log money out",
+    sub: "Spend, pay debt, or save — your three daily actions.",
+    body: `<p>Pick a type, type the amount, and Save. <strong>Spend</strong> for daily expenses, <strong>Pay debt</strong> for loan/card payments, <strong>Save</strong> for savings goal deposits.</p>
+      <p>The hero card up top shows your balance for the month.</p>`,
     tab: "dashboard",
+    target: ".quick-add .type-pills",
   },
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`,
-    title: "Monthly — income &amp; recurring bills",
+    title: "Monthly view",
     sub: "Set it once, reuse each month.",
-    body: `<p>Add your salary and fixed bills (rent, internet, subscriptions) with pay/due days. Use <strong>Copy from previous month</strong> to reuse last month's setup.</p>`,
+    body: `<p>Navigate months from here. Add your salary and fixed bills (rent, internet, subscriptions) once, then tap <strong>Copy from previous month</strong> at the start of the next one.</p>
+      <p>The calendar shows each day's spending as a heat map.</p>`,
     tab: "flow",
+    target: ".month-card",
   },
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>`,
     title: "Debts — avalanche payoff",
     sub: "Highest APR first, minimums roll forward.",
-    body: `<p>Add balances, APR, and minimum payments. Add extra monthly cash on the Home card — Duitful shows your debt-free date and total interest saved.</p>
-      <ul>
-        <li>Standard (credit cards, loans) or installment (Atome, SPayLater)</li>
-        <li>Payoff order updates automatically</li>
-      </ul>`,
+    body: `<p>Add each debt's balance, APR, and minimum payment. Choose Standard (credit cards, loans) or Installment (Atome, SPayLater).</p>
+      <p>Duitful orders them by highest APR and shows your debt-free date.</p>`,
     tab: "debts",
+    target: "#form-debt",
   },
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>`,
@@ -6062,17 +6060,16 @@ const GUIDE_STEPS = [
     sub: "Emergency fund, Umrah, a new phone.",
     body: `<p>Create a goal with a target amount. Log contributions from Home using <strong>Save</strong>, and watch the progress bar fill up.</p>`,
     tab: "savings",
+    target: "#form-saving",
   },
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14M5 10l7 7 7-7M4 21h16"/></svg>`,
-    title: "Settings &amp; backup",
-    sub: "You own the data.",
-    body: `<p>Under <strong>Settings</strong> you can export a CSV, change currency, set reminders, change your passcode, and manage your Pro license. Import on another device to move everything across.</p>
-      <ul>
-        <li>All data is encrypted locally — there's no server</li>
-        <li>Losing the passcode means losing the data — export CSVs</li>
-      </ul>`,
+    title: "Settings — you own the data",
+    sub: "Export, theme, reminders, passcode, Pro.",
+    body: `<p>Export a CSV any time to back up or move to another device. All data is encrypted locally — there's no server.</p>
+      <p>Losing the passcode means losing the data, so keep a CSV export safe.</p>`,
     tab: "data",
+    target: "#btn-export",
   },
 ];
 
@@ -6083,43 +6080,194 @@ function guideDialog() { return document.getElementById("guide-dialog"); }
 function renderGuideStep() {
   const step = GUIDE_STEPS[guideStep];
   if (!step) return;
-  const mark = document.getElementById("guide-mark");
-  const title = document.getElementById("guide-title");
-  const sub = document.getElementById("guide-sub");
-  const body = document.getElementById("guide-body");
-  const dots = document.getElementById("guide-dots");
-  const prev = document.getElementById("guide-prev");
-  const next = document.getElementById("guide-next");
-  const skip = document.getElementById("guide-skip");
-  if (mark) mark.innerHTML = step.icon;
-  if (title) title.innerHTML = step.title;
-  if (sub) sub.textContent = step.sub || "";
-  if (body) body.innerHTML = step.install ? installInstructionsBody() : step.body;
-  if (dots) {
-    dots.innerHTML = GUIDE_STEPS.map((_, i) => `<span class="${i === guideStep ? "active" : ""}" role="tab" aria-selected="${i === guideStep ? "true" : "false"}"></span>`).join("");
-  }
-  const isLast = guideStep === GUIDE_STEPS.length - 1;
-  if (prev) prev.hidden = guideStep === 0;
-  if (next) next.textContent = isLast ? "Got it" : "Next";
-  if (skip) skip.hidden = isLast;
+
+  // Make sure the right tab is active before measuring spotlight targets.
   if (step.tab) {
     const tabBtn = document.querySelector(`.tab[data-tab="${step.tab}"]`);
     if (tabBtn) tabBtn.click();
   }
+
+  // Resolve target if the step asked for one. Multiple selectors fall
+  // back in order, so a step like ['#btn-scan', '.scan-row'] still
+  // works if the primary id ever gets renamed.
+  let targetEl = null;
+  if (step.target) {
+    const list = Array.isArray(step.target) ? step.target : [step.target];
+    for (const sel of list) {
+      const el = document.querySelector(sel);
+      if (el && el.offsetParent !== null) { targetEl = el; break; }
+    }
+  }
+
+  if (targetEl) {
+    // Step is a spotlight one. Close the modal dialog if it was open
+    // (entering spotlight mode), then position the spotlight after a
+    // short layout-settle delay.
+    const dlg = guideDialog();
+    if (dlg && dlg.open) { try { dlg.close(); } catch { dlg.removeAttribute("open"); } }
+    showGuideSpotlight(targetEl, step);
+  } else {
+    // Step is a dialog one (intro / outro). Hide spotlight, render the
+    // dialog with the same data the spotlight tooltip would have used,
+    // and show it.
+    hideGuideSpotlight();
+    const mark = document.getElementById("guide-mark");
+    const title = document.getElementById("guide-title");
+    const sub = document.getElementById("guide-sub");
+    const body = document.getElementById("guide-body");
+    const dots = document.getElementById("guide-dots");
+    const prev = document.getElementById("guide-prev");
+    const next = document.getElementById("guide-next");
+    const skip = document.getElementById("guide-skip");
+    if (mark) mark.innerHTML = step.icon;
+    if (title) title.innerHTML = step.title;
+    if (sub) sub.textContent = step.sub || "";
+    if (body) body.innerHTML = step.install ? installInstructionsBody() : step.body;
+    if (dots) {
+      dots.innerHTML = GUIDE_STEPS.map((_, i) => `<span class="${i === guideStep ? "active" : ""}" role="tab" aria-selected="${i === guideStep ? "true" : "false"}"></span>`).join("");
+    }
+    const isLast = guideStep === GUIDE_STEPS.length - 1;
+    if (prev) prev.hidden = guideStep === 0;
+    if (next) next.textContent = isLast ? "Got it" : "Next";
+    if (skip) skip.hidden = isLast;
+    const dlg = guideDialog();
+    if (dlg && !dlg.open) {
+      try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); }
+    }
+  }
+}
+
+/* ---------- Spotlight overlay (guided tour mode) ---------- */
+let _spotlightTargetEl = null;
+let _spotlightStep = null;
+let _spotlightRaf = null;
+
+function showGuideSpotlight(targetEl, step) {
+  const root = document.getElementById("guide-spotlight");
+  if (!root) return;
+  _spotlightTargetEl = targetEl;
+  _spotlightStep = step;
+  // Render content first so we can measure tooltip dimensions correctly.
+  const title = document.getElementById("guide-tooltip-title");
+  const body = document.getElementById("guide-tooltip-body");
+  const dots = document.getElementById("guide-spot-dots");
+  if (title) title.innerHTML = step.title || "";
+  if (body) body.innerHTML = step.body || "";
+  if (dots) {
+    dots.innerHTML = GUIDE_STEPS.map((_, i) => `<span class="${i === guideStep ? "active" : ""}"></span>`).join("");
+  }
+  // Skip/Back/Next labels mirror the dialog logic.
+  const isLast = guideStep === GUIDE_STEPS.length - 1;
+  const nextBtn = root.querySelector(".guide-action-next");
+  const prevBtn = root.querySelector(".guide-action-prev");
+  const skipBtn = root.querySelector(".guide-action-skip");
+  if (nextBtn) nextBtn.textContent = isLast ? "Got it" : "Next";
+  if (prevBtn) prevBtn.hidden = guideStep === 0;
+  if (skipBtn) skipBtn.hidden = isLast;
+  root.hidden = false;
+  root.classList.remove("is-ready");
+  // Scroll target into view if it's off-screen, then position next frame
+  // so the scroll has actually applied. The 'is-ready' class fades the
+  // tooltip in once layout is settled.
+  scrollTargetIntoView(targetEl);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    positionGuideSpotlight();
+    root.classList.add("is-ready");
+  }));
+  // Re-position on resize and on scroll (the target rect moves with
+  // scroll because we use viewport-relative getBoundingClientRect).
+  window.addEventListener("resize", scheduleSpotlightReposition, { passive: true });
+  window.addEventListener("scroll", scheduleSpotlightReposition, { passive: true });
+}
+
+function hideGuideSpotlight() {
+  const root = document.getElementById("guide-spotlight");
+  if (root) { root.hidden = true; root.classList.remove("is-ready"); }
+  _spotlightTargetEl = null;
+  _spotlightStep = null;
+  window.removeEventListener("resize", scheduleSpotlightReposition);
+  window.removeEventListener("scroll", scheduleSpotlightReposition);
+  if (_spotlightRaf != null) { cancelAnimationFrame(_spotlightRaf); _spotlightRaf = null; }
+}
+
+function scheduleSpotlightReposition() {
+  if (_spotlightRaf != null) return;
+  _spotlightRaf = requestAnimationFrame(() => { _spotlightRaf = null; positionGuideSpotlight(); });
+}
+
+function scrollTargetIntoView(el) {
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  const vh = window.innerHeight;
+  // If the target is more than half off-screen, scroll its container so
+  // it sits in the upper third of the viewport (leaves room for the
+  // tooltip to sit comfortably below).
+  if (r.top < 0 || r.bottom > vh - 160) {
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function positionGuideSpotlight() {
+  if (!_spotlightTargetEl) return;
+  const root = document.getElementById("guide-spotlight");
+  const tooltip = document.getElementById("guide-tooltip");
+  const ring = document.getElementById("guide-spot-ring");
+  if (!root || !tooltip || !ring) return;
+  const r = _spotlightTargetEl.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const PAD = 6;
+  const x1 = Math.max(0, r.left - PAD);
+  const y1 = Math.max(0, r.top - PAD);
+  const x2 = Math.min(vw, r.right + PAD);
+  const y2 = Math.min(vh, r.bottom + PAD);
+  const w = Math.max(0, x2 - x1);
+  const h = Math.max(0, y2 - y1);
+  // Four dim rectangles framing the cutout.
+  const top = root.querySelector(".guide-spot-dim-top");
+  const right = root.querySelector(".guide-spot-dim-right");
+  const bottom = root.querySelector(".guide-spot-dim-bottom");
+  const left = root.querySelector(".guide-spot-dim-left");
+  if (top) { top.style.cssText = `top:0;left:0;width:100%;height:${y1}px;`; }
+  if (right) { right.style.cssText = `top:${y1}px;left:${x2}px;width:${Math.max(0, vw - x2)}px;height:${h}px;`; }
+  if (bottom) { bottom.style.cssText = `top:${y2}px;left:0;width:100%;height:${Math.max(0, vh - y2)}px;`; }
+  if (left) { left.style.cssText = `top:${y1}px;left:0;width:${x1}px;height:${h}px;`; }
+  // Pulsing ring on top of the cutout.
+  ring.style.cssText = `top:${y1}px;left:${x1}px;width:${w}px;height:${h}px;`;
+  // Tooltip placement: below the target if there's room, otherwise above.
+  const ttRect = tooltip.getBoundingClientRect();
+  const ttW = ttRect.width || 320;
+  const ttH = ttRect.height || 200;
+  const margin = 14;
+  const below = y2 + margin + ttH + 12 <= vh;
+  const placeY = below ? y2 + margin : Math.max(12, y1 - margin - ttH);
+  // Centre tooltip horizontally on the target, clamp to viewport edges.
+  let placeX = r.left + r.width / 2 - ttW / 2;
+  placeX = Math.max(12, Math.min(vw - ttW - 12, placeX));
+  tooltip.style.top = `${placeY}px`;
+  tooltip.style.left = `${placeX}px`;
+  tooltip.classList.toggle("arrow-top", !below);
+  tooltip.classList.toggle("arrow-bottom", below);
+  // Arrow horizontal offset (points at the centre of the target).
+  const arrow = document.getElementById("guide-tooltip-arrow");
+  if (arrow) {
+    const arrowX = Math.max(14, Math.min(ttW - 14, r.left + r.width / 2 - placeX));
+    arrow.style.left = `${arrowX - 6}px`;
+  }
 }
 
 function openGuide(opts) {
-  const dlg = guideDialog();
-  if (!dlg) return;
   guideStep = 0;
+  // renderGuideStep dispatches between dialog and spotlight based on
+  // whether the step has a `target` selector. Don't show the dialog
+  // pre-emptively here, or the first spotlight step will flash a modal.
   renderGuideStep();
-  try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); }
 }
 
 function closeGuide() {
   const dlg = guideDialog();
-  if (!dlg) return;
-  try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+  if (dlg) { try { dlg.close(); } catch { dlg.removeAttribute("open"); } }
+  hideGuideSpotlight();
 }
 
 function finishGuide() {
@@ -6307,17 +6455,29 @@ document.getElementById("pwa-ios-close")?.addEventListener("click", () => {
   hideInstallBanner();
 });
 
-document.getElementById("guide-next")?.addEventListener("click", () => {
+function guideAdvance() {
   if (guideStep >= GUIDE_STEPS.length - 1) { finishGuide(); return; }
   guideStep += 1;
   renderGuideStep();
-});
-document.getElementById("guide-prev")?.addEventListener("click", () => {
+}
+function guideRewind() {
   if (guideStep === 0) return;
   guideStep -= 1;
   renderGuideStep();
-});
+}
+// Modal-dialog buttons.
+document.getElementById("guide-next")?.addEventListener("click", guideAdvance);
+document.getElementById("guide-prev")?.addEventListener("click", guideRewind);
 document.getElementById("guide-skip")?.addEventListener("click", () => { finishGuide(); });
+// Spotlight-tooltip buttons (live inside #guide-spotlight, separate
+// from the dialog so the tooltip can travel with the highlighted target).
+document.addEventListener("click", (e) => {
+  const t = e.target instanceof Element ? e.target : null;
+  if (!t) return;
+  if (t.closest(".guide-tooltip .guide-action-next")) guideAdvance();
+  else if (t.closest(".guide-tooltip .guide-action-prev")) guideRewind();
+  else if (t.closest(".guide-tooltip .guide-action-skip")) finishGuide();
+});
 document.getElementById("btn-show-guide")?.addEventListener("click", () => { openGuide(); });
 
 /* ---------- Calm dashboard: breakdown toggle ---------- */
