@@ -566,6 +566,7 @@
       align-items: center;
       padding: 20px 20px 20px 120px;
       min-height: 640px;
+      perspective: 1200px;
     }
     .phone {
       width: 260px;
@@ -578,6 +579,19 @@
       position: relative;
       z-index: 3;
       transform: translateX(60px);
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+    /* Apungan 3D melahu — kekalkan hero hidup pada peranti sentuh juga.
+       Diletak pada skrin dalaman supaya tidak bertembung dengan transform
+       condong JS pada .phone. */
+    .phone-screen { animation: phoneFloat 7s ease-in-out infinite; }
+    @keyframes phoneFloat {
+      0%, 100% { transform: translateY(0) rotateZ(0deg); }
+      50% { transform: translateY(-7px) rotateZ(0.4deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .phone-screen { animation: none; }
     }
 
     /* Laptop mockup behind the phone — communicates cross-device above the fold */
@@ -824,6 +838,21 @@
       transform: translateY(-3px);
       box-shadow: var(--shadow);
       border-color: rgba(200, 112, 75, 0.35);
+    }
+    /* Kilauan condong 3D — sinar lembut mengikut kursor semasa JS
+       mencondongkan kad. Penunjuk halus sahaja; peranti sentuh tidak nampak. */
+    @media (hover: hover) and (pointer: fine) {
+      .feature::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(420px circle at var(--gx, 50%) var(--gy, 50%), rgba(255, 250, 242, 0.5), transparent 55%);
+        opacity: 0;
+        transition: opacity 0.25s ease;
+        pointer-events: none;
+      }
+      .feature:hover::after { opacity: 1; }
     }
     .feature-icon {
       width: 44px;
@@ -2144,6 +2173,52 @@
     el.style.transitionDelay = Math.min(idx, 6) * 70 + 'ms';
     io.observe(el);
   });
+
+  // Condong 3D hero + kad ciri. Penunjuk halus sahaja — peranti sentuh
+  // kekal dengan apungan melahu; pengguna reduced-motion tiada kedua-duanya.
+  (function () {
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const wrap = document.querySelector('.phone-wrap');
+    const phone = document.querySelector('.phone');
+    const laptop = document.querySelector('.hero-laptop');
+    if (wrap && phone) {
+      const desktop = window.matchMedia('(min-width: 981px)');
+      let tx = 0, ty = 0;
+      let gx = 0, gy = 0;
+      let raf = null;
+      function frame() {
+        tx += (gx - tx) * 0.08;
+        ty += (gy - ty) * 0.08;
+        const base = desktop.matches ? 'translateX(60px) ' : '';
+        phone.style.transform = base + 'rotateY(' + tx.toFixed(2) + 'deg) rotateX(' + (-ty).toFixed(2) + 'deg)';
+        if (laptop) laptop.style.transform = 'translateY(-50%) translateX(' + (-40 - tx * 1.4).toFixed(1) + 'px)';
+        if (Math.abs(gx - tx) > 0.01 || Math.abs(gy - ty) > 0.01) raf = requestAnimationFrame(frame);
+        else raf = null;
+      }
+      const kick = () => { if (raf == null) raf = requestAnimationFrame(frame); };
+      wrap.addEventListener('mousemove', (e) => {
+        const r = wrap.getBoundingClientRect();
+        gx = ((e.clientX - r.left) / r.width - 0.5) * 14;
+        gy = ((e.clientY - r.top) / r.height - 0.5) * 10;
+        kick();
+      });
+      wrap.addEventListener('mouseleave', () => { gx = 0; gy = 0; kick(); });
+    }
+
+    document.querySelectorAll('.feature').forEach((card) => {
+      card.addEventListener('mousemove', (e) => {
+        const r = card.getBoundingClientRect();
+        const px = (e.clientX - r.left) / r.width;
+        const py = (e.clientY - r.top) / r.height;
+        card.style.transform = 'perspective(900px) rotateY(' + ((px - 0.5) * 6).toFixed(2) + 'deg) rotateX(' + ((0.5 - py) * 6).toFixed(2) + 'deg) translateY(-3px)';
+        card.style.setProperty('--gx', (px * 100).toFixed(1) + '%');
+        card.style.setProperty('--gy', (py * 100).toFixed(1) + '%');
+      });
+      card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+    });
+  })();
 </script>
 
 </body>

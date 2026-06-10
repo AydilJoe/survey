@@ -566,6 +566,7 @@
       align-items: center;
       padding: 20px 20px 20px 120px;
       min-height: 640px;
+      perspective: 1200px;
     }
     .phone {
       width: 260px;
@@ -578,6 +579,18 @@
       position: relative;
       z-index: 3;
       transform: translateX(60px);
+      transform-style: preserve-3d;
+      will-change: transform;
+    }
+    /* Idle 3D float — keeps the hero alive on touch devices too. Lives on
+       the inner screen so it never fights the JS tilt transform on .phone. */
+    .phone-screen { animation: phoneFloat 7s ease-in-out infinite; }
+    @keyframes phoneFloat {
+      0%, 100% { transform: translateY(0) rotateZ(0deg); }
+      50% { transform: translateY(-7px) rotateZ(0.4deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .phone-screen { animation: none; }
     }
 
     /* Laptop mockup behind the phone — communicates cross-device above the fold */
@@ -824,6 +837,21 @@
       transform: translateY(-3px);
       box-shadow: var(--shadow);
       border-color: rgba(200, 112, 75, 0.35);
+    }
+    /* 3D tilt glare — a soft sheen that follows the cursor while the JS
+       tilts the card. Fine pointers only; touch devices never see it. */
+    @media (hover: hover) and (pointer: fine) {
+      .feature::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(420px circle at var(--gx, 50%) var(--gy, 50%), rgba(255, 250, 242, 0.5), transparent 55%);
+        opacity: 0;
+        transition: opacity 0.25s ease;
+        pointer-events: none;
+      }
+      .feature:hover::after { opacity: 1; }
     }
     .feature-icon {
       width: 44px;
@@ -2025,6 +2053,57 @@
     el.style.transitionDelay = Math.min(idx, 6) * 70 + 'ms';
     io.observe(el);
   });
+
+  // 3D hero tilt + feature-card tilt. Fine pointers only — touch devices
+  // keep the idle float; reduced-motion users get neither.
+  (function () {
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    // Hero: the phone follows the cursor with spring-smoothed 3D rotation;
+    // the laptop counter-drifts behind it for parallax depth.
+    const wrap = document.querySelector('.phone-wrap');
+    const phone = document.querySelector('.phone');
+    const laptop = document.querySelector('.hero-laptop');
+    if (wrap && phone) {
+      const desktop = window.matchMedia('(min-width: 981px)');
+      let tx = 0, ty = 0;   // current, lerped toward goal each frame
+      let gx = 0, gy = 0;   // goal set by mousemove
+      let raf = null;
+      function frame() {
+        tx += (gx - tx) * 0.08;
+        ty += (gy - ty) * 0.08;
+        const base = desktop.matches ? 'translateX(60px) ' : '';
+        phone.style.transform = base + 'rotateY(' + tx.toFixed(2) + 'deg) rotateX(' + (-ty).toFixed(2) + 'deg)';
+        if (laptop) laptop.style.transform = 'translateY(-50%) translateX(' + (-40 - tx * 1.4).toFixed(1) + 'px)';
+        if (Math.abs(gx - tx) > 0.01 || Math.abs(gy - ty) > 0.01) raf = requestAnimationFrame(frame);
+        else raf = null;
+      }
+      const kick = () => { if (raf == null) raf = requestAnimationFrame(frame); };
+      wrap.addEventListener('mousemove', (e) => {
+        const r = wrap.getBoundingClientRect();
+        gx = ((e.clientX - r.left) / r.width - 0.5) * 14;   // rotateY ±7°
+        gy = ((e.clientY - r.top) / r.height - 0.5) * 10;   // rotateX ±5°
+        kick();
+      });
+      wrap.addEventListener('mouseleave', () => { gx = 0; gy = 0; kick(); });
+    }
+
+    // Feature cards: subtle 3D tilt + cursor-following glare. The card's
+    // existing 0.25s transform transition smooths the motion (transitions
+    // retarget — no keyframe restarts).
+    document.querySelectorAll('.feature').forEach((card) => {
+      card.addEventListener('mousemove', (e) => {
+        const r = card.getBoundingClientRect();
+        const px = (e.clientX - r.left) / r.width;
+        const py = (e.clientY - r.top) / r.height;
+        card.style.transform = 'perspective(900px) rotateY(' + ((px - 0.5) * 6).toFixed(2) + 'deg) rotateX(' + ((0.5 - py) * 6).toFixed(2) + 'deg) translateY(-3px)';
+        card.style.setProperty('--gx', (px * 100).toFixed(1) + '%');
+        card.style.setProperty('--gy', (py * 100).toFixed(1) + '%');
+      });
+      card.addEventListener('mouseleave', () => { card.style.transform = ''; });
+    });
+  })();
 </script>
 
 </body>
