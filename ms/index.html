@@ -1483,6 +1483,47 @@
     .foot-inner .links a { transition: color 0.2s; }
     .foot-inner .links a:hover { color: var(--ink); }
 
+    /* --------------- Bar kemajuan tatal + petunjuk --------------- */
+    .scroll-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 2px;
+      width: 100%;
+      transform-origin: left center;
+      transform: scaleX(0);
+      background: linear-gradient(90deg, var(--primary), var(--accent));
+      z-index: 200;
+      pointer-events: none;
+      will-change: transform;
+      transition: opacity 0.3s ease;
+    }
+    .scroll-hint {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      font: 500 11px/1 var(--font-mono);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--ink2);
+      opacity: 0.75;
+      pointer-events: none;
+      animation: scrollHintBob 2.2s ease-in-out infinite;
+      transition: opacity 0.4s ease;
+    }
+    .scroll-hint svg { width: 14px; height: 14px; opacity: 0.7; }
+    .scroll-hint.is-hidden { opacity: 0; }
+    @keyframes scrollHintBob {
+      0%, 100% { transform: translate(-50%, 0); }
+      50% { transform: translate(-50%, 6px); }
+    }
+    @media (max-width: 720px) { .scroll-hint { display: none; } }
+
     /* --------------- Scroll reveal --------------- */
     .reveal {
       opacity: 0;
@@ -1493,6 +1534,16 @@
       will-change: opacity, transform;
     }
     .reveal.in { opacity: 1; transform: translateY(0) scale(1); }
+
+    /* Kepala seksyen dapat reveal arah yang lebih kuat — gelongsor masuk
+       dari kiri supaya mata membaca ke hadapan ke dalam kandungan. */
+    .section-head.reveal {
+      transform: translateX(-24px) translateY(0);
+      transition:
+        opacity 0.72s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .section-head.reveal.in { transform: translateX(0) translateY(0); }
 
     /* --------------- Hero entrance (one-shot, staggered cascade) --------------- */
     .hero-intro > * {
@@ -1536,6 +1587,8 @@
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
+
+<div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
 
 <!-- ======================= NAV ======================= -->
 <nav class="nav" id="nav">
@@ -1649,6 +1702,10 @@
         </div>
       </div>
     </div>
+    <a href="#features" class="scroll-hint" id="scroll-hint" aria-label="Tatal untuk lihat ciri">
+      <span>Tatal</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </a>
   </section>
 
   <!-- ======================= TRUST STRIP ======================= -->
@@ -2120,11 +2177,35 @@
 </footer>
 
 <script>
-  // Nav shadow on scroll
+  // UI didorong tatalan: bayang nav, bar kemajuan atas, lenyap petunjuk
+  // hero, dan parallax hero. Semuanya pada satu handler scroll yang
+  // diapit rAF supaya kita tidak merosakkan transform di benang utama.
   const nav = document.getElementById('nav');
-  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8);
-  onScroll();
+  const progress = document.getElementById('scroll-progress');
+  const hint = document.getElementById('scroll-hint');
+  const phoneWrap = document.querySelector('.phone-wrap');
+  const heroCopy = document.querySelector('.hero-copy');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let scrollRaf = null;
+  function applyScroll() {
+    scrollRaf = null;
+    const y = window.scrollY || 0;
+    const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    if (nav) nav.classList.toggle('scrolled', y > 8);
+    if (progress) progress.style.transform = 'scaleX(' + Math.min(1, y / max).toFixed(4) + ')';
+    if (hint) hint.classList.toggle('is-hidden', y > 80);
+    if (!reduceMotion && window.innerWidth >= 981 && y < window.innerHeight * 1.2) {
+      if (phoneWrap) phoneWrap.style.translate = '0 ' + (-y * 0.12).toFixed(1) + 'px';
+      if (heroCopy) heroCopy.style.translate = '0 ' + (y * 0.04).toFixed(1) + 'px';
+    } else if (!reduceMotion) {
+      if (phoneWrap) phoneWrap.style.translate = '';
+      if (heroCopy) heroCopy.style.translate = '';
+    }
+  }
+  function onScroll() { if (scrollRaf == null) scrollRaf = requestAnimationFrame(applyScroll); }
+  applyScroll();
   window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
 
   // Scroll-triggered fade-in reveal
   const io = new IntersectionObserver((entries) => {
