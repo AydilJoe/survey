@@ -6074,6 +6074,12 @@ const GUIDE_STEPS = [
 ];
 
 let guideStep = 0;
+// Set while renderGuideStep / closeGuide are programmatically closing
+// the <dialog> so the listener below doesn't treat that as a user
+// dismiss. Without this, transitioning from a modal step into a
+// spotlight step would end the whole tour the moment we closed the
+// dialog (because dialog.close() fires "close" unconditionally).
+let _guideInternalClose = false;
 
 function guideDialog() { return document.getElementById("guide-dialog"); }
 
@@ -6102,9 +6108,16 @@ function renderGuideStep() {
   if (targetEl) {
     // Step is a spotlight one. Close the modal dialog if it was open
     // (entering spotlight mode), then position the spotlight after a
-    // short layout-settle delay.
+    // short layout-settle delay. _guideInternalClose tells the dialog's
+    // "close" listener that this isn't a user dismiss — without it,
+    // closing the dialog to switch into spotlight mode would end the
+    // whole tour immediately.
     const dlg = guideDialog();
-    if (dlg && dlg.open) { try { dlg.close(); } catch { dlg.removeAttribute("open"); } }
+    if (dlg && dlg.open) {
+      _guideInternalClose = true;
+      try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+      _guideInternalClose = false;
+    }
     showGuideSpotlight(targetEl, step);
   } else {
     // Step is a dialog one (intro / outro). Hide spotlight, render the
@@ -6266,7 +6279,11 @@ function openGuide(opts) {
 
 function closeGuide() {
   const dlg = guideDialog();
-  if (dlg) { try { dlg.close(); } catch { dlg.removeAttribute("open"); } }
+  if (dlg) {
+    _guideInternalClose = true;
+    try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+    _guideInternalClose = false;
+  }
   hideGuideSpotlight();
 }
 
@@ -6540,7 +6557,13 @@ document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
     }
   }
 }
-guideDialog()?.addEventListener("close", () => { finishGuide(); });
+// Only treat the close as a user dismiss when we didn't trigger it
+// ourselves (transitioning into a spotlight step). User dismisses
+// come from Esc, the modal's own close button, or clicking outside.
+guideDialog()?.addEventListener("close", () => {
+  if (_guideInternalClose) return;
+  finishGuide();
+});
 
 /* ---------- boot ---------- */
 
