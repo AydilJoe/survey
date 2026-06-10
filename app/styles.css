@@ -1761,6 +1761,31 @@ button.primary, .as-button.primary {
 button.primary:hover, .as-button.primary:hover {
   background: #1f1a17;
 }
+/* Dark mode: invert the "primary = neutral ink contrast" pattern to
+   "primary = brand colour". Cream-on-dark reads washed out and the dark
+   text loses contrast inside dialogs; terracotta + cream text matches
+   the brand energy and pops on every surface. Pinned hover/text colors
+   so they don't fall back to the light-mode hardcoded #1f1a17. */
+html[data-theme="dark"] button.primary,
+html[data-theme="dark"] .as-button.primary {
+  background: var(--primary);
+  color: #fffaf2;
+}
+html[data-theme="dark"] button.primary:hover,
+html[data-theme="dark"] .as-button.primary:hover {
+  background: var(--primary-hover);
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) button.primary,
+  html:not([data-theme="light"]) .as-button.primary {
+    background: var(--primary);
+    color: #fffaf2;
+  }
+  html:not([data-theme="light"]) button.primary:hover,
+  html:not([data-theme="light"]) .as-button.primary:hover {
+    background: var(--primary-hover);
+  }
+}
 /* Danger buttons are outlined by default (less visually "armed") and only
    fill on hover/focus to signal commitment. The destructive flow itself
    already has multi-step confirmation; this is the visual accompaniment. */
