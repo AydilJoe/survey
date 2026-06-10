@@ -479,6 +479,20 @@
       pointer-events: none;
       z-index: 0;
     }
+    /* Ambient drift — the two hero glows slowly wander and breathe so the
+       backdrop feels alive. Different durations so they never sync up. */
+    @media (prefers-reduced-motion: no-preference) {
+      .hero::before { animation: blobDriftA 22s ease-in-out infinite alternate; }
+      .hero::after { animation: blobDriftB 28s ease-in-out infinite alternate; }
+    }
+    @keyframes blobDriftA {
+      from { transform: translate(0, 0) scale(1); }
+      to { transform: translate(-70px, 50px) scale(1.15); }
+    }
+    @keyframes blobDriftB {
+      from { transform: translate(0, 0) scale(1); }
+      to { transform: translate(60px, -40px) scale(1.12); }
+    }
 
     .hero-grid {
       display: grid;
@@ -496,6 +510,79 @@
       font-weight: 400;
     }
     .hero h1 .serif-italic { font-style: italic; color: var(--primary); font-weight: 400; }
+    /* Gradient shimmer on the brand word — a slow warm sheen sweeping
+       terracotta → tan → terracotta. Static gradient under reduced motion. */
+    @supports (-webkit-background-clip: text) or (background-clip: text) {
+      .hero h1 .serif-italic {
+        background: linear-gradient(90deg, var(--primary) 0%, #d4a574 50%, var(--primary) 100%);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .hero h1 .serif-italic { animation: duitShimmer 6s ease-in-out infinite; }
+      }
+    }
+    @keyframes duitShimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    /* --------------- Works-with marquee --------------- */
+    .works {
+      border-bottom: 0.5px solid var(--line);
+      padding: 16px 0 18px;
+      background: var(--stage);
+    }
+    .works-label {
+      text-align: center;
+      font: 500 10px/1 var(--font-mono);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .works-marquee {
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+      mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+    }
+    .works-track {
+      display: flex;
+      width: max-content;
+      animation: worksScroll 38s linear infinite;
+    }
+    .works-marquee:hover .works-track { animation-play-state: paused; }
+    .works-list {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .works-list span {
+      font: 500 12px/1 var(--font-mono);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--ink2);
+      white-space: nowrap;
+      padding: 0 22px;
+      position: relative;
+    }
+    .works-list span::after {
+      content: "·";
+      position: absolute;
+      right: -4px;
+      color: var(--primary);
+      opacity: 0.6;
+    }
+    @keyframes worksScroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .works-track { animation: none; }
+    }
 
     .hero-sub {
       margin-top: 28px;
@@ -1754,6 +1841,21 @@
       <div class="trust-item">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg>
         <span>Works offline</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= WORKS-WITH MARQUEE ======================= -->
+  <div class="works" aria-label="Banks and e-wallets Duitful works with">
+    <div class="works-label">Tracks notifications &amp; statements from</div>
+    <div class="works-marquee">
+      <div class="works-track">
+        <div class="works-list">
+          <span>Maybank</span><span>CIMB</span><span>Public Bank</span><span>RHB</span><span>Hong Leong</span><span>HSBC</span><span>Bank Islam</span><span>TnG eWallet</span><span>GrabPay</span><span>Boost</span><span>BigPay</span><span>ShopeePay</span><span>Atome</span><span>SPayLater</span><span>Grab PayLater</span>
+        </div>
+        <div class="works-list" aria-hidden="true">
+          <span>Maybank</span><span>CIMB</span><span>Public Bank</span><span>RHB</span><span>Hong Leong</span><span>HSBC</span><span>Bank Islam</span><span>TnG eWallet</span><span>GrabPay</span><span>Boost</span><span>BigPay</span><span>ShopeePay</span><span>Atome</span><span>SPayLater</span><span>Grab PayLater</span>
+        </div>
       </div>
     </div>
   </div>
