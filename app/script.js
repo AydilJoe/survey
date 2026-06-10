@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.7.6";
+const APP_VERSION = "1.7.7";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -6167,6 +6167,11 @@ const RELEASE_NOTES = {
   "1.7.6": [
     "<strong>Snap receipts with your camera</strong> — tap Scan, then Take Photo to capture a receipt on the spot, or pick one from your gallery.",
     "<strong>Receipt scanning fix</strong> — fixed a hang where scanning could get stuck on \"loading trained data.\"",
+  ],
+  "1.7.7": [
+    "<strong>Choose your theme</strong> — Settings → Appearance lets you pick System, Light, or Dark independently of your phone's setting.",
+    "<strong>Spending calendar</strong> — open Monthly to see every day of the month as a heat map. Tap a day to view what you spent that day.",
+    "<strong>Cleaner dashboard greeting</strong> and a brighter primary button in dark mode.",
   ],
 };
 
