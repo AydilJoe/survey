@@ -6019,55 +6019,103 @@ const GUIDE_STEPS = [
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/><circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg>`,
     title: "Welcome to Duitful",
-    sub: "A 60-second tour — you can replay it anytime from Settings → About.",
-    body: `<p>Duitful is a private money &amp; debt tracker. Everything lives on this device, encrypted with your passcode.</p>
+    sub: "A quick tour so you know where everything lives.",
+    body: `<p>Duitful is a private money &amp; debt tracker. Everything stays on this device, encrypted with your passcode — there's no account and no server.</p>
+      <p>This tour takes about a minute. You'll learn the difference between income, recurring bills, debts, and daily spending — then you're set.</p>`,
+  },
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h16M4 19h10"/></svg>`,
+    title: "How Duitful sees your money",
+    sub: "Five buckets. Each one has its own tab.",
+    body: `<p>Everything you track falls into one of these:</p>
       <ul>
-        <li>Track monthly income &amp; bills</li>
-        <li>Pay off debt fastest with the avalanche method</li>
-        <li>Log daily spending, set savings goals</li>
+        <li><strong>Income</strong> — money coming in. <em>Salary</em> (every month) or a <em>bonus</em> (one-off).</li>
+        <li><strong>Recurring bills</strong> — fixed monthly costs that repeat. <em>Netflix, rent, internet.</em></li>
+        <li><strong>Debts</strong> — money you owe that pays down and <em>ends</em>. <em>Car loan, PTPTN, credit card.</em></li>
+        <li><strong>Daily spending</strong> — variable day-to-day. <em>Mamak, Grab, groceries.</em></li>
+        <li><strong>Savings</strong> — goals you put money toward. <em>Emergency fund, Umrah.</em></li>
+      </ul>
+      <p>The key difference: a <strong>bill repeats forever</strong> (Netflix), a <strong>debt has an end</strong> (the car loan finishes once it's paid).</p>`,
+  },
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>`,
+    title: "Add your income",
+    sub: "Salary repeats; a bonus doesn't.",
+    body: `<p>Enter what comes in each month. The <strong>Repeat next month</strong> tick decides the type:</p>
+      <ul>
+        <li><strong>Salary</strong> → leave <em>Repeat next month</em> ticked, so it carries forward automatically.</li>
+        <li><strong>Bonus / gift</strong> → untick it — it only counts this month.</li>
       </ul>`,
-  },
-  {
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z"/></svg>`,
-    title: "Log money out",
-    sub: "Spend, pay debt, or save — your three daily actions.",
-    body: `<p>Pick a type, type the amount, and Save. <strong>Spend</strong> for daily expenses, <strong>Pay debt</strong> for loan/card payments, <strong>Save</strong> for savings goal deposits.</p>
-      <p>The hero card up top shows your balance for the month.</p>`,
-    tab: "dashboard",
-    target: ".quick-add .type-pills",
-  },
-  {
-    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`,
-    title: "Monthly view",
-    sub: "Set it once, reuse each month.",
-    body: `<p>Navigate months from here. Add your salary and fixed bills (rent, internet, subscriptions) once, then tap <strong>Copy from previous month</strong> at the start of the next one.</p>
-      <p>The calendar shows each day's spending as a heat map.</p>`,
     tab: "flow",
-    target: ".month-card",
+    target: "#form-income",
+  },
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1-4h16l1 4M4 9h16v10a1 1 0 01-1 1H5a1 1 0 01-1-1V9zM9 13h6"/></svg>`,
+    title: "Add recurring bills",
+    sub: "The fixed costs that come every month.",
+    body: `<p>Rent, internet, phone, Netflix, insurance — anything with a fixed monthly amount.</p>
+      <p>Keep <strong>Repeat next month</strong> ticked so they reappear automatically. These never \"end\" — that's what makes them a bill and not a debt.</p>`,
+    tab: "flow",
+    target: "#form-expense",
   },
   {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>`,
-    title: "Debts — avalanche payoff",
-    sub: "Highest APR first, minimums roll forward.",
-    body: `<p>Add each debt's balance, APR, and minimum payment. Choose Standard (credit cards, loans) or Installment (Atome, SPayLater).</p>
-      <p>Duitful orders them by highest APR and shows your debt-free date.</p>`,
+    title: "Add your debts",
+    sub: "A debt has a balance — and an end.",
+    body: `<p>Unlike a bill, a debt has a <strong>balance that shrinks</strong> as you pay it down. Car loan, PTPTN, credit card, BNPL.</p>
+      <ul>
+        <li><strong>Standard</strong> — credit cards, personal/car loans (balance + APR + minimum).</li>
+        <li><strong>Installment</strong> — Atome, SPayLater (fixed monthly, set number of months).</li>
+      </ul>
+      <p>Duitful pays the <strong>highest-APR debt first</strong> (the avalanche method) and shows your debt-free date.</p>`,
     tab: "debts",
     target: "#form-debt",
   },
   {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z"/></svg>`,
+    title: "Log daily spending",
+    sub: "Spend, pay a debt, or save — in one tap.",
+    body: `<p>This is your day-to-day: mamak, Grab, groceries. Pick the type, type the amount, hit Save.</p>
+      <ul>
+        <li><strong>Spend</strong> — a normal expense (food, transport, shopping).</li>
+        <li><strong>Pay debt</strong> — a payment toward a debt you added.</li>
+        <li><strong>Save</strong> — a deposit into a savings goal.</li>
+      </ul>`,
+    tab: "dashboard",
+    target: ".quick-add .type-pills",
+  },
+  {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5a1 1 0 011-1h3l1.5-2h5L16 4h3a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7z"/><circle cx="12" cy="13" r="4"/></svg>`,
+    title: "Scan a receipt",
+    sub: "Snap it, we read the amount.",
+    body: `<p>Tap <strong>Scan receipt</strong> to take a photo (or pick one from your gallery). Duitful reads the total on-device — the image never leaves your phone.</p>
+      <p>Receipt scanning is a Pro feature, and your 7-day trial has it unlocked.</p>`,
+    tab: "dashboard",
+    target: "#btn-scan",
+  },
+  {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>`,
-    title: "Savings — set a goal",
+    title: "Set a savings goal",
     sub: "Emergency fund, Umrah, a new phone.",
-    body: `<p>Create a goal with a target amount. Log contributions from Home using <strong>Save</strong>, and watch the progress bar fill up.</p>`,
+    body: `<p>Create a goal with a target amount. Log deposits from Home using <strong>Save</strong>, and watch the progress bar fill toward your target.</p>`,
     tab: "savings",
     target: "#form-saving",
   },
   {
+    icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z"/></svg>`,
+    title: "Your balance at a glance",
+    sub: "Back on Home — the number that matters.",
+    body: `<p>The hero card shows <strong>balance left this month</strong>: income minus recurring bills, minimum debt payments, and daily spending.</p>
+      <p>Below it, the per-day line tells you roughly how much you can spend to stay on track.</p>`,
+    tab: "dashboard",
+    target: ".hero-card",
+  },
+  {
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14M5 10l7 7 7-7M4 21h16"/></svg>`,
     title: "Settings — you own the data",
-    sub: "Export, theme, reminders, passcode, Pro.",
-    body: `<p>Export a CSV any time to back up or move to another device. All data is encrypted locally — there's no server.</p>
-      <p>Losing the passcode means losing the data, so keep a CSV export safe.</p>`,
+    sub: "Theme, backup, reminders, passcode.",
+    body: `<p>Here you can switch <strong>Light / Dark</strong> theme, export a CSV backup, set reminders, change your passcode, and manage Pro.</p>
+      <p>Everything is encrypted on this device only. <strong>Losing your passcode means losing the data</strong>, so export a CSV somewhere safe.</p>`,
     tab: "data",
     target: "#btn-export",
   },
@@ -6080,6 +6128,10 @@ let guideStep = 0;
 // spotlight step would end the whole tour the moment we closed the
 // dialog (because dialog.close() fires "close" unconditionally).
 let _guideInternalClose = false;
+// First-run lockout: when the tour auto-opens after passcode setup the
+// user must walk through it (no Skip, Esc disabled). Replaying it later
+// from Settings → About is free to skip.
+let guideFirstRun = false;
 
 function guideDialog() { return document.getElementById("guide-dialog"); }
 
@@ -6140,7 +6192,7 @@ function renderGuideStep() {
     const isLast = guideStep === GUIDE_STEPS.length - 1;
     if (prev) prev.hidden = guideStep === 0;
     if (next) next.textContent = isLast ? "Got it" : "Next";
-    if (skip) skip.hidden = isLast;
+    if (skip) skip.hidden = isLast || guideFirstRun;
     const dlg = guideDialog();
     if (dlg && !dlg.open) {
       try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); }
@@ -6174,7 +6226,7 @@ function showGuideSpotlight(targetEl, step) {
   const skipBtn = root.querySelector(".guide-action-skip");
   if (nextBtn) nextBtn.textContent = isLast ? "Got it" : "Next";
   if (prevBtn) prevBtn.hidden = guideStep === 0;
-  if (skipBtn) skipBtn.hidden = isLast;
+  if (skipBtn) skipBtn.hidden = isLast || guideFirstRun;
   root.hidden = false;
   root.classList.remove("is-ready");
   // Scroll target into view if it's off-screen, then position next frame
@@ -6268,6 +6320,7 @@ function positionGuideSpotlight() {
 }
 
 function openGuide(opts) {
+  guideFirstRun = !!(opts && opts.firstRun);
   guideStep = 0;
   // renderGuideStep dispatches between dialog and spotlight based on
   // whether the step has a `target` selector. Don't show the dialog
@@ -6307,6 +6360,7 @@ function finishGuide() {
     state.guideSeen = true;
     save();
   }
+  guideFirstRun = false;
   closeGuide();
 }
 
@@ -6315,7 +6369,7 @@ function finishGuide() {
 // they can replay it from Settings → About → "Replay welcome tour".
 function maybeOpenGuideAfterSetup() {
   if (!state.guideSeen) {
-    setTimeout(() => openGuide(), 250);
+    setTimeout(() => openGuide({ firstRun: true }), 250);
   }
 }
 
@@ -6580,6 +6634,12 @@ document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
 guideDialog()?.addEventListener("close", () => {
   if (_guideInternalClose) { _guideInternalClose = false; return; }
   finishGuide();
+});
+// First-run users can't bail with Esc — the "cancel" event fires before
+// "close", so preventing it keeps the modal open. They have to reach the
+// end (Got it). Replay sessions (guideFirstRun false) keep Esc working.
+guideDialog()?.addEventListener("cancel", (e) => {
+  if (guideFirstRun) e.preventDefault();
 });
 
 /* ---------- boot ---------- */
