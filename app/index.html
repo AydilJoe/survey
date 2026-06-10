@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=51" />
+    <link rel="stylesheet" href="styles.css?v=52" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -139,6 +139,22 @@
           <ul id="upcoming-list" class="upcoming-list"></ul>
         </div>
 
+        <div id="empty-welcome" class="empty-welcome card" hidden>
+          <div class="empty-welcome-glyph" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22h40v28a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4V22z"/>
+              <path d="M12 22l5-10h30l5 10"/>
+              <path d="M26 36h12"/>
+              <circle cx="44" cy="14" r="3" fill="currentColor" stroke="none"/>
+              <path d="M44 7v2M44 19v2M37 14h2M49 14h2"/>
+            </svg>
+          </div>
+          <h2 class="empty-welcome-title">Welcome — let's start small</h2>
+          <p class="empty-welcome-body">Log today's lunch as your first entry. Most people start with a Mamak or Grab ride — anything between RM 5–25 works to see how the app feels.</p>
+          <button type="button" class="primary empty-welcome-cta" id="empty-welcome-cta">Log my first spend →</button>
+          <p class="empty-welcome-meta">It takes 10 seconds. Your data never leaves this device.</p>
+        </div>
+
         <div class="hero-card">
           <div class="hero-title">
             <span class="hero-label">Balance left this month</span>
@@ -236,6 +252,10 @@
               <button type="button" data-quick="20">+20</button>
               <button type="button" data-quick="50">+50</button>
               <button type="button" data-quick="100">+100</button>
+            </div>
+            <div class="recent-chips" id="recent-chips" hidden>
+              <span class="recent-chips-label">Recent</span>
+              <div class="recent-chips-row" id="recent-chips-row"></div>
             </div>
             <div class="grid-2">
               <label class="field">
@@ -1377,6 +1397,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=77"></script>
+    <script src="script.js?v=78"></script>
   </body>
 </html>
