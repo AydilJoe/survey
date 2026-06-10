@@ -1851,6 +1851,32 @@ function renderDashboard() {
     }
   }
 
+  // Friendly daily-target line — answers "what should I do?" instead of
+  // forcing the user to look at four numbers and do the math themselves.
+  // Sits between the progress bar and the optional breakdown.
+  const targetEl = $("#hero-target");
+  const targetText = $("#hero-target-text");
+  if (targetEl && targetText) {
+    const daysLeft = Math.max(0, prog.daysInMonth - prog.day);
+    const balance = (Number(incomeTotal) || 0) + (Number(carryOver) || 0) - (Number(totalOut) || 0);
+    if (incomeTotal <= 0) {
+      targetEl.hidden = true;
+    } else if (balance <= 0) {
+      targetEl.hidden = false;
+      const over = Math.abs(balance);
+      targetText.innerHTML = daysLeft > 0
+        ? `<strong>${fmtMoney(over)} over</strong> with <span class="hero-target-meta">${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`
+        : `<strong>${fmtMoney(over)} over</strong> <span class="hero-target-meta">— month ended</span>`;
+    } else if (daysLeft <= 0) {
+      targetEl.hidden = false;
+      targetText.innerHTML = `<strong>${fmtMoney(balance)}</strong> left <span class="hero-target-meta">— month ended</span>`;
+    } else {
+      targetEl.hidden = false;
+      const perDay = balance / daysLeft;
+      targetText.innerHTML = `About <strong>${fmtMoney(perDay)}/day</strong> to stay on track <span class="hero-target-meta">· ${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`;
+    }
+  }
+
   const formulaEl = $("#stat-net-formula");
   if (formulaEl) {
     // Conversational sentence form rather than ASCII math — easier to read at
@@ -5958,6 +5984,32 @@ document.getElementById("guide-prev")?.addEventListener("click", () => {
 });
 document.getElementById("guide-skip")?.addEventListener("click", () => { finishGuide(); });
 document.getElementById("btn-show-guide")?.addEventListener("click", () => { openGuide(); });
+
+/* ---------- Calm dashboard: breakdown toggle ---------- */
+// Hides the 4-stat hero grid by default so the dashboard feels calmer
+// on first load. Persisted in a plain localStorage key (not state) so
+// the preference survives pre-unlock and isn't tied to the encrypted
+// payload — purely a UI affordance.
+const HERO_BREAKDOWN_KEY = "duit-tracker.hero-breakdown-open";
+function applyHeroBreakdownState() {
+  const grid = document.getElementById("hero-grid");
+  const toggle = document.getElementById("hero-breakdown-toggle");
+  const label = document.getElementById("hero-breakdown-toggle-label");
+  if (!grid || !toggle) return;
+  let open = false;
+  try { open = localStorage.getItem(HERO_BREAKDOWN_KEY) === "1"; } catch (_) { /* private mode */ }
+  grid.hidden = !open;
+  toggle.setAttribute("aria-expanded", open ? "true" : "false");
+  if (label) label.textContent = open ? "Hide breakdown" : "Show breakdown";
+}
+document.getElementById("hero-breakdown-toggle")?.addEventListener("click", () => {
+  let current = "0";
+  try { current = localStorage.getItem(HERO_BREAKDOWN_KEY) === "1" ? "1" : "0"; } catch (_) {}
+  const next = current === "1" ? "0" : "1";
+  try { localStorage.setItem(HERO_BREAKDOWN_KEY, next); } catch (_) {}
+  applyHeroBreakdownState();
+});
+applyHeroBreakdownState();
 
 {
   const versionEl = document.getElementById("about-version");
