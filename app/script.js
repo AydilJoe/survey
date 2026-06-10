@@ -2066,35 +2066,11 @@ function renderGreeting() {
   // Avoid "Late night" — reads slightly accusatory at 1am. Prefer "Evening"
   // for late hours so the greeting stays neutral.
   const part = h < 5 ? "Evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-  // Try to wrap a contextual money line around the time-of-day greeting:
-  //   "Good morning · Mon 3 Jun · about RM 53/day to play with"
-  // Falls back to the bare date when there's nothing useful to say yet
-  // (no income tracked, brand-new install).
   const date = now.toLocaleDateString("en-MY", { weekday: "long", day: "numeric", month: "short" });
-  let context = "";
-  try {
-    const thisMonth = currentMonthISO();
-    const incomeTotal = totalOf(state.income.filter((x) => x.month === thisMonth));
-    if (incomeTotal > 0) {
-      const expenseTotal = totalOf(state.expenses.filter((x) => x.month === thisMonth));
-      const dailyMonth = dailyStats().month;
-      let carry = 0;
-      try { carry = Number(endingBalanceFor(shiftMonth(thisMonth, -1))) || 0; } catch (_) {}
-      const out = expenseTotal + dailyMonth;
-      const balance = incomeTotal + carry - out;
-      const prog = monthProgress();
-      const daysLeft = Math.max(0, prog.daysInMonth - prog.day);
-      if (balance > 0 && daysLeft > 0) {
-        const perDay = balance / daysLeft;
-        context = ` · about ${fmtMoney(perDay)}/day to play with`;
-      } else if (balance > 0) {
-        context = ` · ${fmtMoney(balance)} left for the month`;
-      } else if (daysLeft > 0) {
-        context = ` · ${fmtMoney(Math.abs(balance))} over with ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`;
-      }
-    }
-  } catch (_) { /* state may not be ready on first render — keep the bare greeting */ }
-  el.textContent = `${part} · ${date}${context}`;
+  // No money context here on purpose — the hero card's "About RM X/day"
+  // line already says it, and computing it again risks drift from the
+  // hero's totalOut formula (which includes minimum debt payments etc).
+  el.textContent = `${part} · ${date}`;
 }
 
 function renderDashboard() {
