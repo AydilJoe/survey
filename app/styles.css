@@ -3634,3 +3634,116 @@ button.ghost.icon-btn {
   color: var(--muted);
   padding: 0.3rem 0;
 }
+
+/* ---------- Guided spotlight tour ---------- */
+/* When a GUIDE_STEPS entry declares a target selector, we dim the page
+   with four edge rectangles around the target, draw a pulsing ring on
+   top of the cutout, and float a tooltip pointing at it. The cutout has
+   pointer-events: none so taps fall through to the live UI — the tour
+   is informative, never blocking. */
+.guide-spotlight {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+}
+.guide-spot-dim {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+  transition: top 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+              left 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+              width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+              height 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+html[data-theme="dark"] .guide-spot-dim,
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) .guide-spot-dim { background: rgba(0, 0, 0, 0.7); }
+}
+.guide-spot-ring {
+  position: absolute;
+  border: 2px solid var(--primary);
+  border-radius: 14px;
+  pointer-events: none;
+  transition: top 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+              left 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+              width 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+              height 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: guideSpotPulse 2.2s ease-in-out infinite;
+}
+@keyframes guideSpotPulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(215, 102, 54, 0.22); }
+  50%      { box-shadow: 0 0 0 12px rgba(215, 102, 54, 0.05); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guide-spot-ring { animation: none; box-shadow: 0 0 0 4px rgba(215, 102, 54, 0.22); }
+  .guide-spot-dim { transition: none; }
+}
+
+.guide-tooltip {
+  position: absolute;
+  background: var(--card);
+  color: var(--text);
+  border: 0.5px solid var(--line);
+  border-radius: 18px;
+  padding: 0.85rem 1rem 0.9rem;
+  max-width: 320px;
+  width: calc(100vw - 32px);
+  pointer-events: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 16px 40px rgba(0, 0, 0, 0.12);
+  z-index: 1;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+              top 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+              left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.guide-spotlight.is-ready .guide-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+.guide-tooltip-arrow {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--card);
+  border: 0.5px solid var(--line);
+  /* Hide two adjacent sides depending on side: see .arrow-bottom / .arrow-top below */
+  transform: rotate(45deg);
+}
+.guide-tooltip.arrow-bottom .guide-tooltip-arrow {
+  bottom: -7px;
+  border-top: 0;
+  border-left: 0;
+}
+.guide-tooltip.arrow-top .guide-tooltip-arrow {
+  top: -7px;
+  border-bottom: 0;
+  border-right: 0;
+}
+.guide-tooltip-title {
+  margin: 0 0 0.3rem;
+  font: 600 1.05rem/1.25 var(--font-serif);
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.guide-tooltip-body {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--ink2);
+}
+.guide-tooltip-body p { margin: 0; }
+.guide-tooltip-body p + p { margin-top: 0.4rem; }
+.guide-tooltip-body strong { color: var(--text); font-weight: 600; }
+.guide-tooltip .guide-dots {
+  margin: 0.6rem 0 0.5rem;
+  justify-content: flex-start;
+}
+.guide-tooltip .guide-nav {
+  margin: 0;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+.guide-tooltip .guide-action-skip { margin-right: auto; }
+.guide-tooltip .guide-action-prev[hidden] { display: none; }
+.guide-tooltip .guide-action-next { padding: 0.5rem 0.95rem; }

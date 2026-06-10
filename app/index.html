@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=55" />
+    <link rel="stylesheet" href="styles.css?v=56" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -1317,6 +1317,29 @@
       </form>
     </dialog>
 
+    <!-- Guided spotlight tour: dims the page and highlights one element
+         at a time. Used by GUIDE_STEPS entries that declare a `target`
+         selector. Steps without a target keep using the modal #guide-dialog
+         above (intro / outro). -->
+    <div id="guide-spotlight" class="guide-spotlight" hidden aria-hidden="true">
+      <div class="guide-spot-dim guide-spot-dim-top"></div>
+      <div class="guide-spot-dim guide-spot-dim-right"></div>
+      <div class="guide-spot-dim guide-spot-dim-bottom"></div>
+      <div class="guide-spot-dim guide-spot-dim-left"></div>
+      <div class="guide-spot-ring" id="guide-spot-ring" aria-hidden="true"></div>
+      <div class="guide-tooltip" id="guide-tooltip" role="dialog" aria-live="polite">
+        <div class="guide-tooltip-arrow" id="guide-tooltip-arrow" aria-hidden="true"></div>
+        <h3 class="guide-tooltip-title" id="guide-tooltip-title"></h3>
+        <div class="guide-tooltip-body" id="guide-tooltip-body"></div>
+        <div class="guide-dots" id="guide-spot-dots" role="tablist" aria-label="Tour progress"></div>
+        <div class="button-row guide-nav">
+          <button type="button" class="ghost guide-action-skip">Skip</button>
+          <button type="button" class="ghost guide-action-prev">Back</button>
+          <button type="button" class="primary guide-action-next">Next</button>
+        </div>
+      </div>
+    </div>
+
     <dialog id="edit-dialog" class="edit-dialog">
       <form id="edit-form" method="dialog">
         <h2 id="edit-title">Edit</h2>
@@ -1421,6 +1444,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=81"></script>
+    <script src="script.js?v=82"></script>
   </body>
 </html>
