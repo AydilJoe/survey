@@ -761,6 +761,59 @@ main {
   gap: 0.4rem;
   margin-top: 0.2rem;
 }
+/* Calm dashboard: by default the 4-stat breakdown is hidden behind a
+   tiny chevron toggle, so the hero shows balance + a single warm
+   sentence ("about RM 53/day, 8 days left") instead of a wall of
+   numbers. Users who want the breakdown back can flip it once — the
+   preference persists in localStorage. */
+.hero-grid[hidden] { display: none; }
+
+.hero-target {
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--ink2);
+  margin: 0.1rem 0 0.4rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.hero-target strong {
+  color: var(--text);
+  font-weight: 600;
+}
+.hero-target .hero-target-meta {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.hero-breakdown-toggle {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0.35rem 0.55rem;
+  margin: 0.2rem -0.55rem 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 8px;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+.hero-breakdown-toggle:hover { color: var(--text); background: var(--card-soft); }
+.hero-breakdown-toggle .chev {
+  display: inline-block;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.hero-breakdown-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
 /* On mobile, 4 tiles in one row truncates labels ("RECURRI...", "DAILY S...")
    and values ("RM 8,..."). Switch to a 2×2 grid below 480px so both label and
    amount fit cleanly. */
