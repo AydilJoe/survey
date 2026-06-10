@@ -52,9 +52,16 @@
    still read on a warm-dark surface. Card vs bg keeps visible elevation.
    Glass tokens shift to dark-tinted highlights so frosted panes stay
    readable. No component-level overrides needed — every surface that
-   reads from a token gets dark for free. */
+   reads from a token gets dark for free.
+
+   Theme override: html[data-theme] is set by the Appearance picker in
+   Settings (System / Light / Dark, stored in localStorage). The media
+   query is guarded with :not([data-theme="light"]) so a forced-light
+   user never sees dark, and the same token block is duplicated under
+   html[data-theme="dark"] for forced-dark on light-mode systems.
+   ⚠ KEEP THE TWO BLOCKS IN SYNC — plain CSS has no way to share them. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  html:not([data-theme="light"]) {
     --stage: #14110e;
     --bg: #1a1612;
     --bg-elev: #221c16;
@@ -90,11 +97,49 @@
     --glass-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.02) 100%);
     --glass-pane-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%);
     --glass-pane-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2), 0 6px 16px rgba(0, 0, 0, 0.3);
+    color-scheme: dark;
   }
-  /* Theme-aware meta colour so the OS status bar matches the dark surface
-     on PWA / Capacitor installs. The light value is set in index.html. */
-  html { color-scheme: dark; }
 }
+/* Forced dark via the Appearance picker — duplicate of the block above. */
+html[data-theme="dark"] {
+  --stage: #14110e;
+  --bg: #1a1612;
+  --bg-elev: #221c16;
+  --card: #241e18;
+  --card-soft: #2e2820;
+  --text: #f3ede1;
+  --ink2: #c4bdb0;
+  --muted: #8a8178;
+  --primary: #e87c4a;
+  --primary-hover: #f08b58;
+  --primary-ink: #e87c4a;
+  --accent: #94b67c;
+  --accent-hover: #a3c187;
+  --accent-3: #e4c089;
+  --accent-4: #7a9bb8;
+  --accent-cool: #7a9bb8;
+  --accent-5: #c9a07d;
+  --gain: #7eaa7e;
+  --loss: #e07277;
+  --danger: #e07277;
+  --danger-hover: #ec8489;
+  --border: rgba(255, 255, 255, 0.14);
+  --line: rgba(255, 255, 255, 0.08);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
+  --glass-bg: rgba(36, 30, 24, 0.55);
+  --glass-bg-strong: rgba(36, 30, 24, 0.78);
+  --glass-bg-soft: rgba(46, 40, 32, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-border-soft: rgba(255, 255, 255, 0.08);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
+  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 14px 32px rgba(0, 0, 0, 0.35), 0 4px 10px rgba(0, 0, 0, 0.2);
+  --glass-shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.2);
+  --glass-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.02) 100%);
+  --glass-pane-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%);
+  --glass-pane-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2), 0 6px 16px rgba(0, 0, 0, 0.3);
+  color-scheme: dark;
+}
+html[data-theme="light"] { color-scheme: light; }
 
 * { box-sizing: border-box; }
 
@@ -3405,4 +3450,162 @@ button.ghost.icon-btn {
 .pro-welcome-pool-input-row button {
   flex: 0 0 auto;
   padding-inline: 1rem;
+}
+
+/* ---------- Appearance picker (Settings) ---------- */
+.theme-pills {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.theme-pills .pill {
+  appearance: none;
+  flex: 1;
+  background: var(--glass-pane);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
+  box-shadow: var(--glass-pane-shadow);
+  color: var(--ink2);
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+}
+.theme-pills .pill:active { transform: scale(0.97); }
+.theme-pills .pill.active {
+  background: var(--primary);
+  color: var(--card);
+  border-color: var(--primary);
+}
+
+/* ---------- Spend calendar (Monthly tab) ---------- */
+.spend-cal-head,
+.spend-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.spend-cal-head {
+  margin: 0.4rem 0 0.3rem;
+}
+.spend-cal-head span {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.spend-cal-cell {
+  appearance: none;
+  border: 0.5px solid transparent;
+  background: var(--card-soft);
+  border-radius: 10px;
+  aspect-ratio: 1 / 1.05;
+  padding: 4px 2px 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  font: inherit;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  min-width: 0;
+}
+.spend-cal-cell:active { transform: scale(0.95); }
+.spend-cal-cell:hover { border-color: rgba(215, 102, 54, 0.35); }
+.spend-cal-cell.empty {
+  background: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+.spend-cal-cell .cal-day {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink2);
+  line-height: 1.2;
+}
+.spend-cal-cell .cal-amt {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  color: var(--muted);
+  line-height: 1.1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* Heat levels — terracotta wash scaled by spend intensity vs month max. */
+.spend-cal-cell.heat-1 { background: rgba(215, 102, 54, 0.10); }
+.spend-cal-cell.heat-2 { background: rgba(215, 102, 54, 0.22); }
+.spend-cal-cell.heat-3 { background: rgba(215, 102, 54, 0.38); }
+.spend-cal-cell.heat-4 { background: rgba(215, 102, 54, 0.55); }
+.spend-cal-cell.heat-3 .cal-day,
+.spend-cal-cell.heat-4 .cal-day { color: var(--text); font-weight: 600; }
+.spend-cal-cell.heat-3 .cal-amt,
+.spend-cal-cell.heat-4 .cal-amt { color: var(--ink2); }
+.spend-cal-cell.today {
+  border-color: var(--primary);
+  border-width: 1.5px;
+}
+.spend-cal-cell.selected {
+  outline: 2px solid var(--accent-cool);
+  outline-offset: 1px;
+}
+/* Day detail panel below the grid */
+.spend-cal-day-panel {
+  margin-top: 0.7rem;
+  border-top: 0.5px dashed var(--line);
+  padding-top: 0.6rem;
+}
+.spend-cal-day-panel .cal-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+.spend-cal-day-panel .cal-panel-head strong {
+  font-family: var(--font-serif);
+  font-size: 1rem;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-transform: none;
+}
+.cal-panel-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+  font-size: 0.86rem;
+  color: var(--ink2);
+}
+.cal-panel-row .cal-row-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-panel-row .cal-row-amt {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  flex-shrink: 0;
+}
+.cal-panel-empty {
+  font-size: 0.84rem;
+  color: var(--muted);
+  padding: 0.3rem 0;
 }

@@ -7,6 +7,43 @@ const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time mig
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
 
+/* ---------- theme (System / Light / Dark) ---------- */
+// Applied immediately at script start (before first paint of the unlock
+// screen) so a forced theme never flashes the wrong surface. Lives in
+// plain localStorage — pre-unlock UI needs it, so it can't sit in the
+// encrypted state.
+const THEME_KEY = "duit-tracker.theme";
+const THEME_SURFACES = { light: "#e8dfd0", dark: "#14110e" };
+function currentThemeChoice() {
+  try {
+    const t = localStorage.getItem(THEME_KEY);
+    return t === "light" || t === "dark" ? t : "system";
+  } catch (_) { return "system"; }
+}
+function applyTheme(choice) {
+  const root = document.documentElement;
+  if (choice === "light" || choice === "dark") root.dataset.theme = choice;
+  else delete root.dataset.theme;
+  // Keep the OS status-bar tint in sync. When the user forces a theme we
+  // pin both meta tags to that surface; on "system" we restore the
+  // per-media defaults so the browser picks the right one.
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  metas.forEach((m) => {
+    const media = m.getAttribute("media") || "";
+    if (choice === "light" || choice === "dark") {
+      m.setAttribute("content", THEME_SURFACES[choice]);
+    } else {
+      m.setAttribute("content", media.includes("dark") ? THEME_SURFACES.dark : THEME_SURFACES.light);
+    }
+  });
+  document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
+    const on = btn.dataset.themeChoice === choice;
+    btn.classList.toggle("active", on);
+    btn.setAttribute("aria-checked", on ? "true" : "false");
+  });
+}
+applyTheme(currentThemeChoice());
+
 /* ---------- state ---------- */
 
 const emptyState = () => ({
@@ -1435,7 +1472,97 @@ function dayClass(day, month) {
   return "";
 }
 
+/* ---------- spending calendar (Monthly tab) ---------- */
+// Which day the calendar panel is showing, as an ISO date, or null.
+// Reset whenever the user navigates to a different month.
+let calSelectedDate = null;
+let calRenderedMonth = null;
+
+function renderSpendCalendar() {
+  const grid = document.getElementById("spend-cal");
+  const panel = document.getElementById("spend-cal-panel");
+  const totalEl = document.getElementById("cal-month-total");
+  if (!grid) return;
+
+  if (calRenderedMonth !== selectedMonth) {
+    calSelectedDate = null;
+    calRenderedMonth = selectedMonth;
+  }
+
+  const [y, m] = selectedMonth.split("-").map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  // Monday-first column offset: JS getDay() is 0=Sun..6=Sat.
+  const firstOffset = (new Date(y, m - 1, 1).getDay() + 6) % 7;
+  const todayIso = todayISO();
+
+  // Per-day totals for the selected month — all outflow kinds count
+  // (spend, debt payment, savings deposit) to match the Daily tab's
+  // day-header totals.
+  const byDay = new Map();
+  for (const e of state.dailyExpenses) {
+    if (!e.date || !e.date.startsWith(selectedMonth)) continue;
+    byDay.set(e.date, (byDay.get(e.date) || 0) + (Number(e.amount) || 0));
+  }
+  const monthTotal = Array.from(byDay.values()).reduce((s, v) => s + v, 0);
+  const maxDay = Math.max(0, ...byDay.values());
+  if (totalEl) totalEl.textContent = monthTotal > 0 ? `${fmtMoney(monthTotal)} this month` : "";
+
+  const cells = [];
+  for (let i = 0; i < firstOffset; i++) {
+    cells.push(`<span class="spend-cal-cell empty" aria-hidden="true"></span>`);
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const iso = `${selectedMonth}-${String(d).padStart(2, "0")}`;
+    const amt = byDay.get(iso) || 0;
+    // 4 heat levels scaled to the month's heaviest day. Quartile cut
+    // keeps light days visually quiet instead of everything mid-tone.
+    let heat = "";
+    if (amt > 0 && maxDay > 0) {
+      const r = amt / maxDay;
+      heat = r > 0.75 ? " heat-4" : r > 0.5 ? " heat-3" : r > 0.25 ? " heat-2" : " heat-1";
+    }
+    const today = iso === todayIso ? " today" : "";
+    const selected = iso === calSelectedDate ? " selected" : "";
+    const amtLabel = amt > 0 ? `<span class="cal-amt">${escapeHtml(fmtMoney(amt).replace(/\.00$/, ""))}</span>` : "";
+    cells.push(
+      `<button type="button" class="spend-cal-cell${heat}${today}${selected}" data-cal-date="${iso}" aria-label="${iso}${amt > 0 ? `, spent ${fmtMoney(amt)}` : ", no spending"}">` +
+      `<span class="cal-day">${d}</span>${amtLabel}</button>`,
+    );
+  }
+  grid.innerHTML = cells.join("");
+
+  // Day panel — entries for the selected date.
+  if (!panel) return;
+  if (!calSelectedDate) { panel.hidden = true; panel.innerHTML = ""; return; }
+  const entries = state.dailyExpenses
+    .filter((e) => e.date === calSelectedDate)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  const dayTotal = dailySpendSum(entries);
+  const rows = entries.length
+    ? entries.map((e) => {
+        let label;
+        if (e.kind === "debt") label = `↓ ${debtNameById(e.debtId) || e.debtName || "Debt payment"}`;
+        else if (e.kind === "saving") label = `↑ ${state.savings.find((g) => g.id === e.savingId)?.name || e.savingName || "Savings"}`;
+        else label = e.category || "Others";
+        if (e.note) label += ` · ${e.note}`;
+        return `<div class="cal-panel-row"><span class="cal-row-label">${escapeHtml(label)}</span><span class="cal-row-amt">${fmtMoney(e.amount)}</span></div>`;
+      }).join("")
+    : `<div class="cal-panel-empty">No entries on this day.</div>`;
+  panel.hidden = false;
+  panel.innerHTML =
+    `<div class="cal-panel-head"><strong>${escapeHtml(formatDayLabel(calSelectedDate))}</strong><span>${entries.length ? fmtMoney(dayTotal) : ""}</span></div>` + rows;
+}
+
+document.getElementById("spend-cal")?.addEventListener("click", (e) => {
+  const cell = e.target.closest("[data-cal-date]");
+  if (!cell) return;
+  const iso = cell.dataset.calDate;
+  calSelectedDate = calSelectedDate === iso ? null : iso; // tap again to close
+  renderSpendCalendar();
+});
+
 function renderFlow() {
+  renderSpendCalendar();
   const incomeList = $("#list-income");
   const expenseList = $("#list-expense");
 
@@ -6237,6 +6364,18 @@ document.getElementById("hero-breakdown-toggle")?.addEventListener("click", () =
   applyHeroBreakdownState();
 });
 applyHeroBreakdownState();
+
+/* ---------- Appearance picker handlers ---------- */
+document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const choice = btn.dataset.themeChoice;
+    try {
+      if (choice === "system") localStorage.removeItem(THEME_KEY);
+      else localStorage.setItem(THEME_KEY, choice);
+    } catch (_) { /* private mode — theme still applies for this session */ }
+    applyTheme(choice);
+  });
+});
 
 {
   const versionEl = document.getElementById("about-version");
