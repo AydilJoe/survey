@@ -6114,9 +6114,7 @@ function renderGuideStep() {
     // whole tour immediately.
     const dlg = guideDialog();
     if (dlg && dlg.open) {
-      _guideInternalClose = true;
-      try { dlg.close(); } catch { dlg.removeAttribute("open"); }
-      _guideInternalClose = false;
+      guideCloseDialogInternally(dlg);
     }
     showGuideSpotlight(targetEl, step);
   } else {
@@ -6277,13 +6275,30 @@ function openGuide(opts) {
   renderGuideStep();
 }
 
-function closeGuide() {
-  const dlg = guideDialog();
-  if (dlg) {
-    _guideInternalClose = true;
-    try { dlg.close(); } catch { dlg.removeAttribute("open"); }
+// Closes the welcome dialog WITHOUT ending the tour. dialog.close()
+// queues its "close" event asynchronously (it's a queued element task,
+// not a synchronous dispatch), so we set the guard flag and leave it
+// set — the "close" listener resets it whenever the event fires. We
+// guard on dlg.open so close() always dispatches exactly one event;
+// the only path where no event fires is the ancient-browser catch
+// fallback, which resets the flag inline. No timer — a setTimeout
+// reset would race the queued close event (different task sources have
+// no ordering guarantee) and could clear the flag first, re-breaking
+// the guard.
+function guideCloseDialogInternally(dlg) {
+  if (!dlg || !dlg.open) return;
+  _guideInternalClose = true;
+  try {
+    dlg.close();
+  } catch {
+    dlg.removeAttribute("open");
     _guideInternalClose = false;
   }
+}
+
+function closeGuide() {
+  const dlg = guideDialog();
+  if (dlg && dlg.open) guideCloseDialogInternally(dlg);
   hideGuideSpotlight();
 }
 
@@ -6558,10 +6573,12 @@ document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
   }
 }
 // Only treat the close as a user dismiss when we didn't trigger it
-// ourselves (transitioning into a spotlight step). User dismisses
-// come from Esc, the modal's own close button, or clicking outside.
+// ourselves (transitioning into a spotlight step). The listener resets
+// the flag itself — the dialog's "close" event can fire ASYNChronously,
+// so the close call-site must NOT reset the flag synchronously or the
+// guard would already be false by the time this runs.
 guideDialog()?.addEventListener("close", () => {
-  if (_guideInternalClose) return;
+  if (_guideInternalClose) { _guideInternalClose = false; return; }
   finishGuide();
 });
 
