@@ -1939,7 +1939,7 @@ function renderSavingCard(goal, { mini } = { mini: false }) {
       </div>
       ${mini ? "" : `
       <div class="saving-actions">
-        <input type="number" step="0.01" min="0" inputmode="decimal" placeholder="Add amount (RM)" data-save-input="${goal.id}" aria-label="Deposit amount for ${escapeHtml(goal.name)}" />
+        <input type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount" data-save-input="${goal.id}" aria-label="Deposit amount for ${escapeHtml(goal.name)}" />
         <button class="primary" data-action="save-deposit" data-id="${goal.id}">Add</button>
         <button class="ghost" data-action="edit-saving" data-id="${goal.id}" aria-label="Edit ${escapeHtml(goal.name)}">Edit</button>
         <button class="ghost ghost-danger saving-delete" data-action="save-delete" data-id="${goal.id}" aria-label="Delete ${escapeHtml(goal.name)}">Delete</button>

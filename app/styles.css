@@ -1582,9 +1582,15 @@ select:focus {
 
 .grid-2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.4rem;
+  /* auto-fit so the two fields stack into one column when the card is
+     narrow (e.g. the dashboard log-form inside a ~300px masonry column)
+     instead of squeezing each input until the value truncates ("Fooc"). */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.4rem 0.6rem;
 }
+.grid-2 > .field { min-width: 0; }
+.grid-2 > .field input,
+.grid-2 > .field select { width: 100%; min-width: 0; }
 
 /* Month navigator */
 .month-card {
