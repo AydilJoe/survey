@@ -673,6 +673,15 @@ main {
    gets the multi-column layout immediately, even though the desktop
    "frame chrome" treatment only kicks in at >= 900px. */
 @media (min-width: 640px) {
+  /* Lift the 640px phone cap so tablets (768px / 820px / iPad portrait)
+     use their real width for the columns instead of being boxed into a
+     640px strip. The desktop frame-chrome block (>= 900px) widens this
+     further to 1080/1320 with its centered border treatment. */
+  .app-header, .tabs, main {
+    max-width: 920px;
+    margin-left: auto;
+    margin-right: auto;
+  }
   .tab-panel.active {
     column-width: 300px;
     column-gap: 1.2rem;
