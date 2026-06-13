@@ -2074,6 +2074,7 @@ function renderGreeting() {
 }
 
 function renderDashboard() {
+  renderDashboardSpending();
   const thisMonth = currentMonthISO();
   const incomeTotal = totalOf(state.income.filter((x) => x.month === thisMonth));
   const expenseTotal = totalOf(state.expenses.filter((x) => x.month === thisMonth));
@@ -2600,6 +2601,86 @@ function renderReportsSpending() {
 
   svg.innerHTML = svgInner;
   renderSpendingLegend(visible, total);
+}
+
+// Read-only current-month spending pie on the dashboard. Self-contained
+// (no Reports filter state) — aggregates this month's expense entries by
+// category and reuses the same CHART_COLORS / arcPath helpers as Reports.
+// The card hides itself when there's no spending this month so a fresh
+// dashboard stays clean.
+function renderDashboardSpending() {
+  const card = document.getElementById("dash-spending-card");
+  const svg = document.getElementById("dash-spending-pie");
+  const legend = document.getElementById("dash-spending-legend");
+  const empty = document.getElementById("dash-spending-empty");
+  const totalEl = document.getElementById("dash-spending-total");
+  if (!card || !svg || !legend || !empty) return;
+
+  const thisMonth = currentMonthISO();
+  const filtered = state.dailyExpenses.filter(
+    (e) => (e.kind || "expense") === "expense" && e.date && e.date.startsWith(thisMonth),
+  );
+
+  const hide = () => {
+    card.hidden = true;
+    svg.innerHTML = "";
+    legend.innerHTML = "";
+  };
+  if (filtered.length === 0) { hide(); return; }
+
+  const buckets = new Map();
+  for (const e of filtered) {
+    const cat = e.category || "Others";
+    const o = buckets.get(cat) || { name: cat, amount: 0, count: 0 };
+    o.amount += Number(e.amount) || 0;
+    o.count += 1;
+    buckets.set(cat, o);
+  }
+  const sorted = Array.from(buckets.values()).sort((a, b) => b.amount - a.amount);
+  const top6 = sorted.slice(0, 6);
+  const rest = sorted.slice(6);
+  const slices = rest.length === 0 ? top6 : [...top6, {
+    name: "Other",
+    amount: rest.reduce((s, b) => s + b.amount, 0),
+    count: rest.reduce((s, b) => s + b.count, 0),
+    isOther: true,
+  }];
+  const visible = slices.filter((s) => s.amount > 0);
+  const total = visible.reduce((s, b) => s + b.amount, 0);
+  if (visible.length === 0 || total <= 0) { hide(); return; }
+
+  card.hidden = false;
+  empty.hidden = true;
+  svg.removeAttribute("aria-hidden");
+  if (totalEl) { totalEl.textContent = `${fmtMoney(total)} this month`; totalEl.hidden = false; }
+
+  let svgInner = "";
+  if (visible.length === 1) {
+    const color = visible[0].isOther ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[0];
+    svgInner = `<circle cx="${PIE_CENTER}" cy="${PIE_CENTER}" r="${PIE_RADIUS}" fill="${escapeHtml(color)}"><title>${escapeHtml(visible[0].name)} · ${escapeHtml(fmtMoney(visible[0].amount))} · 100%</title></circle>`;
+  } else {
+    let cumulative = 0;
+    visible.forEach((slice, i) => {
+      const startAngle = (cumulative / total) * 360;
+      cumulative += slice.amount;
+      const endAngle = (cumulative / total) * 360;
+      const color = slice.isOther ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[i];
+      const pct = ((slice.amount / total) * 100).toFixed(0);
+      svgInner += `<path d="${arcPath(startAngle, endAngle)}" fill="${escapeHtml(color)}"><title>${escapeHtml(slice.name)} · ${escapeHtml(fmtMoney(slice.amount))} · ${pct}%</title></path>`;
+    });
+  }
+  svg.innerHTML = svgInner;
+
+  legend.innerHTML = visible.map((s, i) => {
+    const color = s.isOther ? CHART_COLORS[CHART_COLORS.length - 1] : CHART_COLORS[i];
+    const pct = total > 0 ? ((s.amount / total) * 100) : 0;
+    return `<li class="spending-legend-row">
+      <span class="spending-legend-swatch" style="background:${escapeHtml(color)}"></span>
+      <span class="spending-legend-name">${escapeHtml(s.name)}</span>
+      <span class="spending-legend-amount">${fmtMoney(s.amount)}</span>
+      <span class="spending-legend-pct">${pct.toFixed(0)}%</span>
+    </li>`;
+  }).join("");
 }
 
 function refreshReportsCategoryOptions() {

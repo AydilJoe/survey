@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=57" />
+    <link rel="stylesheet" href="styles.css?v=58" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -292,6 +292,21 @@
             </label>
             <button type="submit" class="primary big">Add entry</button>
           </form>
+        </div>
+
+        <div class="card dash-spending-card" id="dash-spending-card" hidden>
+          <div class="spending-header">
+            <h2>Spending this month</h2>
+            <span id="dash-spending-total" class="spending-total" hidden></span>
+          </div>
+          <div class="spending-content">
+            <div class="spending-pie-wrap">
+              <svg id="dash-spending-pie" class="spending-pie" viewBox="0 0 200 200" role="img" aria-label="Spending breakdown by category this month"></svg>
+            </div>
+            <ul id="dash-spending-legend" class="spending-legend"></ul>
+          </div>
+          <div id="dash-spending-empty" class="empty" hidden>No spending logged this month yet.</div>
+          <button type="button" class="ghost dash-spending-link" data-go-tab="reports">See full reports →</button>
         </div>
 
         <div class="card debt-card">
@@ -1444,6 +1459,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=85"></script>
+    <script src="script.js?v=86"></script>
   </body>
 </html>
