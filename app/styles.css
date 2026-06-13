@@ -3780,3 +3780,11 @@ html[data-theme="dark"] .guide-spot-dim,
 .guide-tooltip .guide-action-skip { margin-right: auto; }
 .guide-tooltip .guide-action-prev[hidden] { display: none; }
 .guide-tooltip .guide-action-next { padding: 0.5rem 0.95rem; }
+
+/* Dashboard spending card — reuses the Reports .spending-* styles; just
+   needs the footer link styled. */
+.dash-spending-link {
+  margin-top: 0.6rem;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.6rem;
+}
