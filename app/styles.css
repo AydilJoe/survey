@@ -651,10 +651,11 @@ main {
 .tab-panel.active { display: block; }
 
 /* ---------- Wide-screen (PC / iPad landscape) layout ----------
-   Phone-first design stays as-is; on desktop we frame the whole
-   app as a single centered column so the sticky header, tab bar
-   and content all share one boundary instead of the header
-   stretching edge-to-edge while content is 640px wide. */
+   Phone-first design stays as-is below 900px. On desktop the app
+   becomes a real workspace: a wider centered frame, and each tab's
+   cards flow into a 2-column masonry (3 columns past 1400px) instead
+   of one tall stack — so big screens get an intentional dashboard,
+   not a blown-up phone. Headline / wide cards span the full width. */
 @media (min-width: 900px) {
   html, body {
     background:
@@ -664,44 +665,76 @@ main {
   body {
     min-height: 100dvh;
   }
-  /* The "frame": a single centered column for the app shell. */
+  /* The "frame": a single centered workspace for the app shell. */
   body::before {
     content: "";
     position: fixed;
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: min(720px, 100%);
+    width: min(1080px, 100%);
     height: 100%;
     background: var(--bg);
     border-left: 0.5px solid var(--line);
     border-right: 0.5px solid var(--line);
-    box-shadow: 0 0 40px rgba(42, 36, 32, 0.06);
+    box-shadow: 0 0 60px rgba(42, 36, 32, 0.07);
     pointer-events: none;
     z-index: 0;
   }
   .app-header, .tabs, main {
-    max-width: 720px;
+    max-width: 1080px;
     margin-left: auto;
     margin-right: auto;
     position: relative;
     z-index: 1;
   }
   .app-header {
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
   .tabs {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
   main {
-    padding-left: 1.25rem;
-    padding-right: 1.25rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
   /* Tabs don't need horizontal scroll on desktop — there's plenty of room. */
   .tabs { justify-content: center; overflow-x: visible; }
   .tab { flex: 0 0 auto; }
+
+  /* Masonry: cards flow into 2 columns instead of one tall stack. */
+  .tab-panel.active {
+    column-count: 2;
+    column-gap: 1.2rem;
+  }
+  .tab-panel.active > * {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin-bottom: 1.2rem;
+  }
+  /* Full-width banner / wide-content cards span both columns. The hero
+     stays a normal column item so the dashboard reads as a dense grid
+     (balance beside the log-money form) rather than a sparse full-width
+     banner with empty space on a wide monitor. Order matters: this must
+     come after the `> *` rule (same specificity) so column-span wins. */
+  .tab-panel.active > .trial-banner,
+  .tab-panel.active > .empty-welcome,
+  .tab-panel.active > .pending-card,
+  .tab-panel.active > .month-card,
+  .tab-panel.active > .spend-calendar-card,
+  #tab-daily.tab-panel.active > .card {
+    column-span: all;
+  }
+}
+
+@media (min-width: 1400px) {
+  body::before { width: min(1320px, 100%); }
+  .app-header, .tabs, main { max-width: 1320px; }
+  /* Three columns on big monitors — but the single-card Daily tab and
+     the headline cards still span full width via the rules above. */
+  .tab-panel.active { column-count: 3; }
 }
 
 /* Cards */
