@@ -656,6 +656,52 @@ main {
    cards flow into a 2-column masonry (3 columns past 1400px) instead
    of one tall stack — so big screens get an intentional dashboard,
    not a blown-up phone. Headline / wide cards span the full width. */
+/* ---------- Wide-screen masonry — true auto-fill ---------- */
+/* Cards flow into as many columns as the container can fit, derived
+   from the actual width rather than fixed breakpoints. column-width
+   is the multi-column equivalent of CSS Grid's `auto-fill` — the
+   browser computes the column count itself.
+
+   With column-width: 300px and the 1.2rem gap, you get roughly:
+     ≥  720px viewport → 2 columns
+     ≥ 1000px viewport → 3 columns
+     ≥ 1380px viewport → 4 columns
+     ≥ 1760px viewport → 5 columns
+   and a single column on phones — continuous, no abrupt jumps.
+
+   Lives in its OWN media block (>= 640px) so iPad portrait at 768px
+   gets the multi-column layout immediately, even though the desktop
+   "frame chrome" treatment only kicks in at >= 900px. */
+@media (min-width: 640px) {
+  .tab-panel.active {
+    column-width: 300px;
+    column-gap: 1.2rem;
+  }
+  .tab-panel.active > * {
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin-bottom: 1.2rem;
+  }
+  /* Full-width banner / wide-content cards span every column. The hero
+     stays a normal column item so the dashboard reads as a dense grid
+     (balance beside the log-money form) rather than a sparse full-width
+     banner with empty space on a wide monitor. Order matters: this must
+     come after the `> *` rule (same specificity) so column-span wins. */
+  .tab-panel.active > .trial-banner,
+  .tab-panel.active > .empty-welcome,
+  .tab-panel.active > .pending-card,
+  .tab-panel.active > .month-card,
+  .tab-panel.active > .spend-calendar-card,
+  #tab-daily.tab-panel.active > .card {
+    column-span: all;
+  }
+}
+
+/* ---------- Wide-screen frame chrome (desktop visual treatment) ----
+   The centered card-like workspace with a border + soft shadow is a
+   desktop-only treatment — looks great on a laptop / monitor, would
+   feel boxed-in on a tablet held in landscape. Separate from the
+   column behaviour above so each can be tuned independently. */
 @media (min-width: 900px) {
   html, body {
     background:
@@ -703,38 +749,14 @@ main {
   /* Tabs don't need horizontal scroll on desktop — there's plenty of room. */
   .tabs { justify-content: center; overflow-x: visible; }
   .tab { flex: 0 0 auto; }
-
-  /* Masonry: cards flow into 2 columns instead of one tall stack. */
-  .tab-panel.active {
-    column-count: 2;
-    column-gap: 1.2rem;
-  }
-  .tab-panel.active > * {
-    break-inside: avoid;
-    -webkit-column-break-inside: avoid;
-    margin-bottom: 1.2rem;
-  }
-  /* Full-width banner / wide-content cards span both columns. The hero
-     stays a normal column item so the dashboard reads as a dense grid
-     (balance beside the log-money form) rather than a sparse full-width
-     banner with empty space on a wide monitor. Order matters: this must
-     come after the `> *` rule (same specificity) so column-span wins. */
-  .tab-panel.active > .trial-banner,
-  .tab-panel.active > .empty-welcome,
-  .tab-panel.active > .pending-card,
-  .tab-panel.active > .month-card,
-  .tab-panel.active > .spend-calendar-card,
-  #tab-daily.tab-panel.active > .card {
-    column-span: all;
-  }
 }
 
 @media (min-width: 1400px) {
   body::before { width: min(1320px, 100%); }
   .app-header, .tabs, main { max-width: 1320px; }
-  /* Three columns on big monitors — but the single-card Daily tab and
-     the headline cards still span full width via the rules above. */
-  .tab-panel.active { column-count: 3; }
+  /* Column count is auto-derived from container width by column-width
+     above — no override needed here, the frame just grows and more
+     columns naturally appear. */
 }
 
 /* Cards */
