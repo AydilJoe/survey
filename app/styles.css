@@ -2596,7 +2596,14 @@ button.ghost.icon-btn {
   font-size: 0.9rem;
 }
 .payoff-list li.empty::before { display: none; }
-.payoff-list .debt-name { font-weight: 600; }
+.payoff-list .debt-name {
+  font-weight: 600;
+  /* One line so every payoff item is the same height and the "Cleared by"
+     column stays aligned down the list. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .payoff-list .debt-detail {
   font-size: 0.8rem;
   color: var(--muted);
@@ -3098,17 +3105,22 @@ button.ghost.icon-btn {
 .pool-toggle input[type="checkbox"]:disabled { opacity: 0.4; cursor: not-allowed; }
 .form-actions { display: flex; gap: 8px; margin-top: 8px; }
 .pool-banner {
-  margin-top: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-size: 0.9em;
+  margin-top: 10px;
+  padding: 0.7rem 0.85rem;
+  border-radius: 12px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
 }
 .pool-banner.calm { background: rgba(0,0,0,0.04); color: var(--muted, #555); }
 .pool-banner.yellow { background: rgba(230, 184, 92, 0.18); color: #946813; }
 .pool-banner.red { background: rgba(224, 122, 95, 0.18); color: #a13d22; }
 .pool-banner.done { background: rgba(129, 178, 154, 0.18); color: #2f6b54; }
 .pool-banner .pool-banner-cta {
-  margin-left: 8px;
+  margin-left: auto;
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
@@ -3644,6 +3656,11 @@ button.ghost.icon-btn {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
+  /* Cap + centre so a full-width month card doesn't blow the cells up to
+     ~150px each. Keeps the calendar a comfortable, scannable size. */
+  max-width: 540px;
+  margin-left: auto;
+  margin-right: auto;
 }
 .spend-cal-head {
   margin: 0.4rem 0 0.3rem;
@@ -3661,7 +3678,10 @@ button.ghost.icon-btn {
   border: 0.5px solid transparent;
   background: var(--card-soft);
   border-radius: 10px;
-  aspect-ratio: 1 / 1.05;
+  /* Flat, compact cells — square cells made the month view enormous and
+     forced a long scroll, especially on desktop where the calendar spans
+     the full card width. */
+  min-height: 2.6rem;
   padding: 4px 2px 3px;
   display: flex;
   flex-direction: column;

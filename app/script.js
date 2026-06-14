@@ -1636,8 +1636,12 @@ function renderFlow() {
   if (hint) {
     if (prevHas) {
       hint.textContent = `Copies entries from ${formatMonthLabel(prev)} that aren't already in ${formatMonthLabel(selectedMonth)}.`;
+      hint.hidden = false;
     } else {
-      hint.textContent = `No entries in ${formatMonthLabel(prev)} to copy from.`;
+      // Nothing to copy — hide the line entirely rather than leaving a
+      // dead-end "No entries to copy from." notice (the button is hidden too).
+      hint.textContent = "";
+      hint.hidden = true;
     }
   }
 }
@@ -1942,7 +1946,7 @@ function renderSavingCard(goal, { mini } = { mini: false }) {
         <input type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount" data-save-input="${goal.id}" aria-label="Deposit amount for ${escapeHtml(goal.name)}" />
         <button class="primary" data-action="save-deposit" data-id="${goal.id}">Add</button>
         <button class="ghost" data-action="edit-saving" data-id="${goal.id}" aria-label="Edit ${escapeHtml(goal.name)}">Edit</button>
-        <button class="ghost ghost-danger saving-delete" data-action="save-delete" data-id="${goal.id}" aria-label="Delete ${escapeHtml(goal.name)}">Delete</button>
+        <button class="ghost icon-btn saving-delete" data-action="save-delete" data-id="${goal.id}" aria-label="Delete ${escapeHtml(goal.name)}" title="Delete this goal">✕</button>
       </div>
       `}
     </div>`;
@@ -2041,8 +2045,8 @@ function renderDebts() {
         ${nameHtml}
         <span class="meta">${fmtMoney(d.balance)}</span>
         <button class="ghost icon-btn quick-pay" data-action="quick-pay-debt" data-id="${d.id}" aria-label="Pay ${escapeHtml(d.name)}" title="Quick pay — opens Home with this debt selected">↗</button>
-        <button class="ghost icon-btn" data-action="edit-debt" data-id="${d.id}" aria-label="Edit ${escapeHtml(d.name)}">✎</button>
-        <button class="ghost icon-btn" data-action="delete-debt" data-id="${d.id}" aria-label="Delete ${escapeHtml(d.name)}">✕</button>
+        <button class="ghost icon-btn" data-action="edit-debt" data-id="${d.id}" aria-label="Edit ${escapeHtml(d.name)}" title="Edit this debt">✎</button>
+        <button class="ghost icon-btn" data-action="delete-debt" data-id="${d.id}" aria-label="Delete ${escapeHtml(d.name)}" title="Delete this debt">✕</button>
         ${metaRow}
       </li>`;
     })
