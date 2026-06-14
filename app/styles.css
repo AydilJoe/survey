@@ -1650,6 +1650,12 @@ button.primary.big {
   font-size: 0.64rem;
   margin-top: 0.15rem;
   font-variant-numeric: tabular-nums;
+  /* Narrow 4-up stat rows truncate sub text rather than wrapping it
+     into multiple jagged lines — keep card heights uniform. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .pos { color: var(--gain); }
 .neg { color: var(--loss); }
@@ -2701,6 +2707,10 @@ button.ghost.icon-btn {
   font-size: 0.9rem;
 }
 .payoff-list li.empty::before { display: none; }
+/* The middle 1fr column needs min-width: 0 so its child can actually
+   clip with ellipsis — grid items default to min-width: auto (intrinsic
+   content size), which lets a long name push the eta off the right. */
+.payoff-list .debt-info { min-width: 0; }
 .payoff-list .debt-name {
   font-weight: 600;
   /* One line so every payoff item is the same height and the "Cleared by"
