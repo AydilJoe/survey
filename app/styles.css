@@ -1627,6 +1627,9 @@ button.primary.big {
   flex-direction: column;
   gap: 0.2rem;
   box-shadow: var(--glass-pane-shadow);
+  /* Allow the card to shrink inside its grid track so wide values wrap
+     rather than spilling past the card edge. */
+  min-width: 0;
 }
 .stat .label {
   color: var(--muted);
@@ -2997,11 +3000,15 @@ button.ghost.icon-btn {
 }
 .reports-custom-range .field { margin-top: 0; }
 
+/* Auto-fit, NOT a viewport breakpoint: this card lives in a masonry
+   column that's ~300px wide on desktop regardless of viewport size, so
+   keying the column count off the viewport (the old @media 480px → 4
+   cols) forced four un-shrinkable "RM 1,888.00" values into a narrow
+   card and they clipped off the right edge. auto-fit + minmax lets the
+   grid count derive from the CARD's real width — 2-up in a narrow
+   masonry column, 4-up when the card is wide enough. */
 .stat-row.reports-headline {
-  grid-template-columns: 1fr 1fr;
-}
-@media (min-width: 480px) {
-  .stat-row.reports-headline { grid-template-columns: repeat(4, 1fr); }
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
 }
 .reports-mom {
   margin: 0.5rem 0 0;
