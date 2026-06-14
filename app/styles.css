@@ -706,12 +706,14 @@ main {
   }
 }
 
-/* ---------- Wide-screen frame chrome (desktop visual treatment) ----
-   The centered card-like workspace with a border + soft shadow is a
-   desktop-only treatment — looks great on a laptop / monitor, would
-   feel boxed-in on a tablet held in landscape. Separate from the
-   column behaviour above so each can be tuned independently. */
+/* ---------- Wide-screen layout: left sidebar nav (desktop) ----
+   On phones/tablets the horizontal pill tabs above stay the primary nav.
+   At >= 900px we shift to a classic dashboard layout — the .tabs row
+   becomes a fixed left sidebar (icon + label per row, active row has a
+   terracotta left accent), and the rest of the app shell (header + main)
+   sits to the right of it, centered within its own max-width. */
 @media (min-width: 900px) {
+  :root { --sidebar-w: 232px; }
   html, body {
     background:
       radial-gradient(1200px 600px at 50% -100px, rgba(200,112,75,0.06), transparent 60%),
@@ -719,24 +721,100 @@ main {
   }
   body {
     min-height: 100dvh;
+    padding-left: var(--sidebar-w);
   }
-  /* The "frame": a single centered workspace for the app shell. */
+  /* Soft workspace surface to the right of the sidebar — visually
+     separates the nav rail from the content area. */
   body::before {
     content: "";
     position: fixed;
     top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(1080px, 100%);
-    height: 100%;
+    left: var(--sidebar-w);
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: auto;
+    transform: none;
     background: var(--bg);
     border-left: 0.5px solid var(--line);
-    border-right: 0.5px solid var(--line);
-    box-shadow: 0 0 60px rgba(42, 36, 32, 0.07);
+    border-right: none;
+    box-shadow: none;
     pointer-events: none;
     z-index: 0;
   }
-  .app-header, .tabs, main {
+
+  /* Sidebar nav rail */
+  .tabs {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-w);
+    max-width: none;
+    margin: 0;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.2rem;
+    padding: calc(1.25rem + env(safe-area-inset-top)) 0.75rem calc(1.25rem + env(safe-area-inset-bottom));
+    background: var(--stage);
+    border-bottom: none;
+    border-right: 0.5px solid var(--line);
+    overflow-y: auto;
+    overflow-x: visible;
+    z-index: 5;
+  }
+  /* Small brand mark at the top of the rail — uses a pseudo-element so
+     we don't have to duplicate markup. */
+  .tabs::before {
+    content: "Duitful";
+    display: block;
+    font-family: var(--font-serif);
+    font-weight: 600;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    padding: 0.25rem 0.85rem 0.85rem;
+    margin-bottom: 0.35rem;
+    border-bottom: 0.5px solid var(--line);
+  }
+
+  .tab {
+    flex: 0 0 auto;
+    width: 100%;
+    justify-content: flex-start;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.9rem;
+    border-radius: 10px;
+    gap: 0.75rem;
+    text-align: left;
+    position: relative;
+  }
+  .tab-icon svg { width: 20px; height: 20px; }
+  .tab > span:not(.tab-icon) { display: inline; }
+  .tab.active {
+    background: var(--card);
+    color: var(--text);
+    border-color: var(--line);
+    box-shadow: 0 1px 2px rgba(42, 36, 32, 0.04);
+  }
+  /* Terracotta left accent bar marks the active tab — the canonical
+     dashboard visual for "you are here". */
+  .tab.active::before {
+    content: "";
+    position: absolute;
+    left: -0.75rem;
+    top: 22%;
+    bottom: 22%;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--primary);
+  }
+
+  /* Header + main sit in the content area, right of the sidebar.
+     body padding-left handles the offset, so these just need their
+     normal centered max-width treatment. */
+  .app-header, main {
     max-width: 1080px;
     margin-left: auto;
     margin-right: auto;
@@ -747,25 +825,27 @@ main {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
-  .tabs {
-    padding-left: 1rem;
-    padding-right: 1rem;
-  }
   main {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
-  /* Tabs don't need horizontal scroll on desktop — there's plenty of room. */
-  .tabs { justify-content: center; overflow-x: visible; }
-  .tab { flex: 0 0 auto; }
+}
+
+/* Toast / update banner sit centered within the content area on desktop
+   instead of behind the sidebar. They use `left: 50%; transform: translateX(-50%)`
+   on mobile; override to shift right by half the sidebar width. */
+@media (min-width: 900px) {
+  #toast { left: calc(50% + var(--sidebar-w) / 2); }
+  .app-toast,
+  .app-update-banner { left: calc(50% + var(--sidebar-w) / 2); }
 }
 
 @media (min-width: 1400px) {
-  body::before { width: min(1320px, 100%); }
-  .app-header, .tabs, main { max-width: 1320px; }
+  :root { --sidebar-w: 256px; }
+  .app-header, main { max-width: 1320px; }
   /* Column count is auto-derived from container width by column-width
-     above — no override needed here, the frame just grows and more
-     columns naturally appear. */
+     above — no override needed here, the content area just grows and
+     more columns naturally appear. */
 }
 
 /* ---------- Workflow tabs: intentional layouts, not masonry ----------
