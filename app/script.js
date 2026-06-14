@@ -155,6 +155,13 @@ function coerceState(parsed) {
 /* initial blank state; real state lands after unlock */
 let state = emptyState();
 let aesKey = null;
+/* Tween / animation gate. tweenMoney + tweenHeroBalance animate between
+   the element's current text and the new value, which means the FIRST
+   render after unlock sweeps from "RM 0.00" to the real balance — the
+   user sees a wrong value for ~520ms. Flip this true *after* the first
+   render with real data has snapped the right values in, so legitimate
+   later edits still animate. */
+let _isHydrated = false;
 
 // In-memory search queries per list. NOT persisted to encrypted state —
 // these reset on tab change and on app reload.
@@ -324,6 +331,7 @@ function tweenHeroBalance(el, toValue, opts) {
       `<span class="hero-cents">${escapeHtml(mp.frac + mp.suffix)}</span>`;
   }
   if (typeof window === "undefined" || !window.requestAnimationFrame ||
+      !_isHydrated ||
       (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
     el.dataset.tweenValue = String(v);
     render(v);
@@ -367,7 +375,7 @@ function tweenMoney(el, toValue, opts) {
   const v = Number(toValue) || 0;
   const formatted = fmtMoney(v);
   if (typeof window === "undefined" || !window.requestAnimationFrame) { el.textContent = formatted; return; }
-  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  if (!_isHydrated || (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
     el.textContent = formatted;
     return;
   }
@@ -1296,6 +1304,11 @@ function formatMonthLabel(iso) {
   const date = new Date(y, m - 1, 1);
   return date.toLocaleDateString("en-MY", { month: "long", year: "numeric" });
 }
+function formatMonthLabelShort(iso) {
+  const [y, m] = iso.split("-").map(Number);
+  const date = new Date(y, m - 1, 1);
+  return date.toLocaleDateString("en-MY", { month: "short", year: "numeric" });
+}
 
 let selectedMonth = currentMonthISO();
 
@@ -1604,7 +1617,7 @@ function renderFlow() {
         return `
           <li data-id="${it.id}">
             ${chip}
-            <span class="name">${escapeHtml(it.name)}</span>
+            <span class="name" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
             <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMoney(it.amount)}${renderFxBadge(it.fx)}</span>
             <button class="ghost icon-btn" data-action="edit-${kind}" data-id="${it.id}" aria-label="Edit ${escapeHtml(it.name)}">✎</button>
             <button class="ghost icon-btn" data-action="delete-${kind}" data-id="${it.id}" aria-label="Delete ${escapeHtml(it.name)}">✕</button>
@@ -2027,17 +2040,27 @@ function renderDebts() {
         ? `<span class="day-chip ${cls}" title="Due day">${d.dueDay}</span>`
         : `<span class="day-chip day-chip-empty" aria-hidden="true"></span>`;
       const isInstallment = d.kind === "installment";
-      // Compute remaining months for installment debts: balance / installment
+      // Compute remaining months for installment debts: balance / installment.
+      // When the installment data is missing (legacy / half-imported rows
+      // from CSV), `installment` is 0 — render a "Needs setup" state instead
+      // of "null months left" or "0 months left" which look broken.
       const installment = Number(d.installment) || Number(d.minPayment) || 0;
+      const storedMonths = Number(d.monthsLeft);
+      const needsSetup = isInstallment && (installment <= 0 || !Number.isFinite(storedMonths) || storedMonths < 0);
       const remMonths = isInstallment && installment > 0
         ? Math.max(0, Math.ceil((Number(d.balance) || 0) / installment))
         : null;
       const suffix = dupSuffix(d.name);
-      const nameHtml = isInstallment
-        ? `<span class="name">${escapeHtml(d.name)}${suffix} <span class="installment-badge">Installment</span></span>`
-        : `<span class="name">${escapeHtml(d.name)}${suffix}</span>`;
+      const badge = isInstallment
+        ? (needsSetup
+            ? ` <span class="installment-badge needs-setup">Needs setup</span>`
+            : ` <span class="installment-badge">Installment</span>`)
+        : "";
+      const nameHtml = `<span class="name">${escapeHtml(d.name)}${suffix}${badge}</span>`;
       const metaRow = isInstallment
-        ? `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMoney(installment)}/mo</span></div>`
+        ? (needsSetup
+            ? `<div class="meta-row"><span class="needs-setup-note">Tap ✎ to set monthly + months</span></div>`
+            : `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMoney(installment)}/mo</span></div>`)
         : `<div class="meta-row"><span>APR ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
       return `
       <li data-id="${d.id}">
@@ -2308,7 +2331,9 @@ function renderDashboard() {
         let etaLabel = "—";
         if (d.paidAtMonth) {
           const targetMonth = shiftMonth(baseMonth, d.paidAtMonth - 1);
-          etaLabel = `Cleared by ${formatMonthLabel(targetMonth)}`;
+          // Short month ("Aug 2030") so the eta label doesn't wrap in
+          // narrow payoff cards.
+          etaLabel = `Cleared ${formatMonthLabelShort(targetMonth)}`;
         }
         return `
         <li>
@@ -2744,6 +2769,18 @@ function renderReports() {
   $("#reports-total").textContent = fmtMoney(total);
   $("#reports-avg").textContent = fmtMoney(avgPerDay);
   $("#reports-count").textContent = String(entries.length);
+  // Subtext gives the lone integer some visual weight against the
+  // RM-totals next to it ("47" alone reads as empty).
+  const countSubEl = $("#reports-count-sub");
+  if (countSubEl) {
+    if (entries.length === 0) {
+      countSubEl.textContent = "nothing logged";
+    } else {
+      const uniqueDays = dayTotals.size;
+      const perEntry = total / entries.length;
+      countSubEl.textContent = `${fmtMoney(perEntry)} avg · ${uniqueDays} day${uniqueDays === 1 ? "" : "s"}`;
+    }
+  }
   $("#reports-biggest-day").textContent = biggestDay
     ? `${fmtMoney(biggestDay.sum)} · ${formatDayLabel(biggestDay.date)}`
     : "—";
@@ -6855,7 +6892,8 @@ async function handleUnlock(passcode) {
   }
   hideLock();
   ensureTrialStarted();
-  renderAll();
+  renderAll(); // first render: tweens snap because _isHydrated is still false
+  _isHydrated = true;
   maybeShowWhatsNew();
   loadFxRates().then(() => renderAll());
   initIAP();
@@ -6881,7 +6919,8 @@ async function handleSetup(passcode, confirm, initialState) {
   localStorage.removeItem(STORAGE_KEY); // clear legacy plain after migration
   hideLock();
   ensureTrialStarted();
-  renderAll();
+  renderAll(); // first render: tweens snap because _isHydrated is still false
+  _isHydrated = true;
   loadFxRates().then(() => renderAll());
   initIAP();
   initNotificationListener();
