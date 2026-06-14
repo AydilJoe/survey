@@ -2335,10 +2335,12 @@ function renderDashboard() {
           // narrow payoff cards.
           etaLabel = `Cleared ${formatMonthLabelShort(targetMonth)}`;
         }
+        // 3 grid children to match `grid-template-columns: auto 1fr auto`:
+        // counter (::before), name+detail, eta. A leading empty <span>
+        // here would push the eta onto a wrapped second row.
         return `
         <li>
-          <span></span>
-          <span>
+          <span class="debt-info">
             <div class="debt-name">${escapeHtml(d.name)}</div>
             <div class="debt-detail">APR ${fmtPct(d.apr)}</div>
           </span>
@@ -2769,16 +2771,17 @@ function renderReports() {
   $("#reports-total").textContent = fmtMoney(total);
   $("#reports-avg").textContent = fmtMoney(avgPerDay);
   $("#reports-count").textContent = String(entries.length);
-  // Subtext gives the lone integer some visual weight against the
-  // RM-totals next to it ("47" alone reads as empty).
+  // Short sub-line so the lone integer has visual weight against the
+  // RM-totals next to it. "RM X avg · N days" was overflowing into
+  // three wrapped lines in the narrow 4-up stat row — strip to the
+  // info the other cards don't already show.
   const countSubEl = $("#reports-count-sub");
   if (countSubEl) {
     if (entries.length === 0) {
       countSubEl.textContent = "nothing logged";
     } else {
       const uniqueDays = dayTotals.size;
-      const perEntry = total / entries.length;
-      countSubEl.textContent = `${fmtMoney(perEntry)} avg · ${uniqueDays} day${uniqueDays === 1 ? "" : "s"}`;
+      countSubEl.textContent = `across ${uniqueDays} day${uniqueDays === 1 ? "" : "s"}`;
     }
   }
   $("#reports-biggest-day").textContent = biggestDay
