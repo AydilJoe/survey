@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=64" />
+    <link rel="stylesheet" href="styles.css?v=65" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -761,7 +761,7 @@
           <div class="stat-row reports-headline">
             <div class="stat"><span class="label">Total</span><strong id="reports-total">RM 0.00</strong></div>
             <div class="stat"><span class="label">Avg / day</span><strong id="reports-avg">RM 0.00</strong></div>
-            <div class="stat"><span class="label">Entries</span><strong id="reports-count">0</strong></div>
+            <div class="stat"><span class="label">Entries</span><strong id="reports-count">0</strong><span class="sub" id="reports-count-sub">—</span></div>
             <div class="stat"><span class="label">Biggest day</span><strong id="reports-biggest-day">—</strong></div>
           </div>
           <p class="reports-mom" id="reports-mom" hidden></p>
@@ -780,7 +780,7 @@
             </div>
             <ul id="reports-spending-legend" class="spending-legend"></ul>
           </div>
-          <div id="reports-spending-empty" class="empty" hidden>No spending in this period.</div>
+          <div id="reports-spending-empty" class="empty" hidden>No categorized spending in this period.</div>
         </div>
 
         <div class="card">
@@ -1459,6 +1459,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=88"></script>
+    <script src="script.js?v=89"></script>
   </body>
 </html>
