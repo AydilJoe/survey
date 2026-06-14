@@ -660,18 +660,23 @@ main {
    cards flow into a 2-column masonry (3 columns past 1400px) instead
    of one tall stack — so big screens get an intentional dashboard,
    not a blown-up phone. Headline / wide cards span the full width. */
-/* ---------- Wide-screen masonry — true auto-fill ---------- */
-/* Cards flow into as many columns as the container can fit, derived
-   from the actual width rather than fixed breakpoints. column-width
-   is the multi-column equivalent of CSS Grid's `auto-fill` — the
-   browser computes the column count itself.
+/* ---------- Wide-screen card grid — CSS Grid auto-fill ----------
+   Cards flow into as many columns as the container can fit, derived
+   from the actual width rather than fixed breakpoints. Grid's
+   auto-fill + minmax derives the column count from the container
+   width — same density as the old CSS multicol approach but without
+   multicol's balance / column-break bugs in iPad Safari.
 
-   With column-width: 300px and the 1.2rem gap, you get roughly:
+   With minmax(280px, 1fr) and the 1.2rem gap, you get roughly:
      ≥  720px viewport → 2 columns
      ≥ 1000px viewport → 3 columns
      ≥ 1380px viewport → 4 columns
      ≥ 1760px viewport → 5 columns
    and a single column on phones — continuous, no abrupt jumps.
+
+   Trade-off vs multicol: rows align to the tallest card, so shorter
+   cards have a visible gap below them in a wider row. Worth it for
+   layout that actually renders correctly on every browser.
 
    Lives in its OWN media block (>= 640px) so iPad portrait at 768px
    gets the multi-column layout immediately, even though the desktop
@@ -687,26 +692,26 @@ main {
     margin-right: auto;
   }
   .tab-panel.active {
-    column-width: 300px;
-    column-gap: 1.2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.2rem;
+    align-items: start;
   }
   .tab-panel.active > * {
-    break-inside: avoid;
-    -webkit-column-break-inside: avoid;
-    margin-bottom: 1.2rem;
+    /* gap handles spacing — drop the per-card margin so the grid is tight. */
+    margin-bottom: 0;
   }
   /* Full-width banner / wide-content cards span every column. The hero
      stays a normal column item so the dashboard reads as a dense grid
      (balance beside the log-money form) rather than a sparse full-width
-     banner with empty space on a wide monitor. Order matters: this must
-     come after the `> *` rule (same specificity) so column-span wins. */
+     banner with empty space on a wide monitor. */
   .tab-panel.active > .trial-banner,
   .tab-panel.active > .empty-welcome,
   .tab-panel.active > .pending-card,
   .tab-panel.active > .month-card,
   .tab-panel.active > .spend-calendar-card,
   #tab-daily.tab-panel.active > .card {
-    column-span: all;
+    grid-column: 1 / -1;
   }
 }
 
@@ -847,9 +852,9 @@ main {
 @media (min-width: 1400px) {
   :root { --sidebar-w: 256px; }
   .app-header, main { max-width: 1320px; }
-  /* Column count is auto-derived from container width by column-width
-     above — no override needed here, the content area just grows and
-     more columns naturally appear. */
+  /* Column count is auto-derived from container width by the grid
+     auto-fill above — no override needed here, the content area just
+     grows and more columns naturally appear. */
 }
 
 /* ---------- Workflow tabs: intentional layouts, not masonry ----------
@@ -859,22 +864,15 @@ main {
    and Daily a centered reading-width feed instead of an edge-to-edge
    wall. Gated at >= 900px so phone/tablet keep the simple stack. */
 @media (min-width: 900px) {
-  /* Savings: two cards (form, goals) become a sidebar + main list. */
+  /* Savings: two cards (form, goals) become a sidebar + main list.
+     Overrides the auto-fill template from the >= 640px block. */
   #tab-savings.tab-panel.active {
-    column-count: initial;
-    column-width: auto;
-    display: grid;
     grid-template-columns: minmax(300px, 360px) 1fr;
-    gap: 1.2rem;
-    align-items: start;
   }
-  #tab-savings.tab-panel.active > * { margin-bottom: 0; break-inside: auto; }
 
   /* Debts: one card holds the add-form + the list. Lay them out inside
      the card as form sidebar | list, with the heading spanning both. */
   #tab-debts.tab-panel.active {
-    column-count: initial;
-    column-width: auto;
     display: block;
   }
   #tab-debts.tab-panel.active > .card {
@@ -894,12 +892,9 @@ main {
   /* Daily: a single list card — centre it at a comfortable reading width
      so transaction rows don't stretch the full monitor width. */
   #tab-daily.tab-panel.active {
-    column-count: initial;
-    column-width: auto;
     display: block;
   }
   #tab-daily.tab-panel.active > .card {
-    column-span: none;
     max-width: 760px;
     margin-left: auto;
     margin-right: auto;
@@ -916,6 +911,10 @@ main {
   padding: 1rem;
   margin-bottom: 0.85rem;
   box-shadow: var(--glass-highlight), var(--glass-shadow);
+  /* Let card shrink inside grid tracks so intrinsic-width children
+     (e.g. the spending calendar with its day columns) don't blow
+     the card past its grid cell on narrow widths. */
+  min-width: 0;
 }
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .card { background: var(--card); }
