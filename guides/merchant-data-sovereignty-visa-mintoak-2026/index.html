@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Merchant data sovereignty after Visa × Mintoak — Duitful Malaysia guide</title>
+<meta name="description" content="Visa's June 17 partnership with Mintoak consolidates in-store payments, banking, and retention analytics into a single cloud API for merchants. Slick dashboards arrive — but the data lives in Visa's cloud and serves Visa's products first. The case for keeping an independent ledger as cross-check.">
+<meta name="keywords" content="visa mintoak merchant malaysia, merchant data analytics malaysia, sme pos data sovereignty, retention analytics small business, duitful merchant ledger, independent business records malaysia, klang valley sme bookkeeping">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://duitful.app/guides/merchant-data-sovereignty-visa-mintoak-2026/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:locale" content="en_MY">
+<meta property="og:url" content="https://duitful.app/guides/merchant-data-sovereignty-visa-mintoak-2026/">
+<meta property="og:title" content="Merchant data sovereignty after Visa × Mintoak — Duitful Malaysia guide">
+<meta property="og:description" content="Visa's June 17 partnership with Mintoak consolidates in-store payments, banking, and retention analytics into a single cloud API for merchants. Slick dashboards arrive — but the data lives in Visa's cloud and serves Visa's products first. The case for keeping an independent ledger as cross-check.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Merchant data sovereignty after Visa × Mintoak — Duitful Malaysia guide">
+<meta name="twitter:description" content="Visa's June 17 partnership with Mintoak consolidates in-store payments, banking, and retention analytics into a single cloud API for merchants. Slick dashboards arrive — but the data lives in Visa's cloud and serves Visa's products first. The case for keeping an independent ledger as cross-check.">
+<meta name="twitter:image" content="https://duitful.app/og-image.svg">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Merchant data sovereignty","item":"https://duitful.app/guides/merchant-data-sovereignty-visa-mintoak-2026/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Merchant data sovereignty after Visa × Mintoak — Duitful Malaysia guide","description":"Visa's June 17 partnership with Mintoak consolidates in-store payments, banking, and retention analytics into a single cloud API for merchants. Slick dashboards arrive — but the data lives in Visa's cloud and serves Visa's products first. The case for keeping an independent ledger as cross-check.","inLanguage":"en","datePublished":"2026-06-18","dateModified":"2026-06-18","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/merchant-data-sovereignty-visa-mintoak-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Does this mean I shouldn't accept Visa's new rail?","acceptedAnswer":{"@type":"Answer","text":"No, accept it. The friction reduction is real and the dashboards help. The point of an independent ledger isn't to refuse the rail's data — it's to keep your own record alongside it so the rail's dashboard remains useful but not the only source of truth."}},{"@type":"Question","name":"Won't the rail's analytics catch everything?","acceptedAnswer":{"@type":"Answer","text":"For what's in their pipe, yes. For what isn't (suppliers, wages, fuel, rent, off-rail sales, supplier rebates), no. The rail can't analyse what it doesn't see. Most SME margin lives in the things the rail doesn't see."}},{"@type":"Question","name":"How does this differ from your other merchant guide?","acceptedAnswer":{"@type":"Answer","text":"The Ringgit stablecoins for merchants guide is about lowering fees on the rail itself. This guide is about keeping your own record alongside whatever rail you're on. Related but different lever — one is about the cost side, this one is about the visibility side."}},{"@type":"Question","name":"My accountant uses SQL Accounting / AutoCount / Xero — do I need Duitful too?","acceptedAnswer":{"@type":"Answer","text":"Probably not for the year-end books — your accountant's software handles that. Duitful sits at the front line — the daily/weekly capture before things get re-entered into the accounting system. If your current workflow is \"type everything into SQL on Friday from a stack of receipts,\" that's the gap. Capture in Duitful as it happens, export CSV to your accountant monthly."}},{"@type":"Question","name":"What about the privacy angle for my customers?","acceptedAnswer":{"@type":"Answer","text":"Anything you log in Duitful stays on your device, encrypted with your passcode. Customer-level data (names, emails) typically belongs in your CRM rather than Duitful; what you'd track in Duitful is aggregate transaction patterns, not individual identities. See the privacy policy for the full picture on how on-device storage works."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Merchant data sovereignty after Visa × Mintoak — Duitful Malaysia guide","description":"Visa's June 17 partnership with Mintoak consolidates in-store payments, banking, and retention analytics into a single cloud API for merchants. Slick dashboards arrive — but the data lives in Visa's cloud and serves Visa's products first. The case for keeping an independent ledger as cross-check.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"The dashboards will be glossy","text":"Real-time gross, refund rates, top SKUs, \"your customer churn risk\" scores. None of this is wrong. All of it is partial — your suppliers, your rent, your fuel costs, your wages don't appear. The dashboard makes you feel informed about a small slice while you stop tracking the rest."},{"@type":"HowToStep","position":2,"name":"Retention analytics serve the rail's products","text":"\"Offer this customer a credit-card upgrade\" or \"this merchant should accept Visa Direct\" are the actions the analytics drive. Useful sometimes. Not always aligned with your margin — a credit-card customer pays you the same and costs the bank more in interchange, which the rail recovers from your MDR over time."},{"@type":"HowToStep","position":3,"name":"Switching costs grow with data centralisation","text":"Today switching a POS or acquirer is annoying. After 24 months of unified analytics under one rail, switching means losing your customer-history report, your retention scores, your real-time view. The lock-in isn't formal; it's the workflow cost of starting over."},{"@type":"HowToStep","position":4,"name":"Outages take more with them","text":"When the dashboard goes down, you don't just lose POS — you lose your reporting view, your cash-flow forecast, the lot. Local backups stop being optional. They become the answer to \"what do I do when the cloud is down at 7pm Saturday?\""}]}</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --accent: #8fa078; --accent-ink: #3a6b50;
+    --warn: #b86a4e; --warn-ink: #8a3f1c;
+    --line: rgba(42,36,32,0.08); --border: rgba(42,36,32,0.14);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 17px/1.6 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 96px; }
+  .nav-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+
+  .eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: inline-block; margin-bottom: 14px;
+  }
+
+  h1 {
+    font: 500 clamp(36px, 6vw, 52px)/1.05 var(--font-serif);
+    letter-spacing: -0.02em; margin: 0 0 14px; color: var(--ink);
+  }
+  h1 em, h2 em { font-style: italic; color: var(--primary); }
+
+  .dateline {
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 22px; max-width: none;
+  }
+  .dateline time { color: inherit; }
+  .dateline-sep { margin: 0 4px; opacity: 0.6; }
+
+  .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
+
+  h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font: 500 18px/1.35 var(--font-sans); margin: 24px 0 6px; color: var(--ink); }
+  p { margin: 0 0 16px; color: var(--ink2); max-width: 64ch; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; color: var(--ink2); }
+  li { margin: 0 0 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: var(--primary-ink); }
+  code { font: 500 14px/1.2 var(--font-mono); background: var(--card); padding: 2px 6px; border-radius: 4px; border: 0.5px solid var(--line); }
+
+  /* ---------- Steps ---------- */
+  .steps { list-style: none; padding: 0; display: grid; gap: 12px; margin: 28px 0; }
+  .step {
+    display: grid; grid-template-columns: 48px 1fr; gap: 16px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 14px; padding: 18px 22px; align-items: start;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fffaf2;
+    display: grid; place-items: center;
+    font: 500 17px/1 var(--font-serif);
+  }
+  .step h3 { margin: 2px 0 4px; font-size: 17px; }
+  .step p { margin: 0; font-size: 15.5px; line-height: 1.5; }
+
+  /* ---------- Stat block ---------- */
+  .stat-block {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 16px; padding: 36px 28px;
+    margin: 32px 0; text-align: center;
+  }
+  .stat-value {
+    font: 500 clamp(44px, 9vw, 72px)/1 var(--font-serif);
+    color: var(--primary); letter-spacing: -0.02em;
+    margin: 0 0 10px; max-width: none;
+  }
+  .stat-label { font: 500 16px/1.4 var(--font-sans); color: var(--ink); margin: 0 0 4px; max-width: none; }
+  .stat-note { font: 400 13.5px/1.4 var(--font-mono); color: var(--muted); margin: 0; max-width: none; }
+
+  /* ---------- Compare ---------- */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin: 32px 0; border: 0.5px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col { padding: 22px 24px; }
+  .compare-col + .compare-col { border-left: 0.5px solid var(--line); }
+  @media (max-width: 600px) {
+    .compare-col + .compare-col { border-left: none; border-top: 0.5px solid var(--line); }
+  }
+  .compare-col.left  { background: rgba(184,106,78,0.05); }
+  .compare-col.right { background: rgba(106,138,94,0.06); }
+  .compare-title {
+    font: 500 11px/1 var(--font-mono); letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0 0 14px;
+  }
+  .compare-col.left  .compare-title { color: var(--warn-ink); }
+  .compare-col.right .compare-title { color: var(--accent-ink); }
+  .compare-col ul { padding: 0; list-style: none; margin: 0; }
+  .compare-col li {
+    padding: 7px 0; font-size: 15px; line-height: 1.45; color: var(--ink2);
+    display: flex; gap: 10px; align-items: start;
+  }
+  .compare-col li::before {
+    flex: 0 0 auto; font-weight: 700; line-height: 1.45;
+  }
+  .compare-col.left  li::before { content: "✕"; color: var(--warn); }
+  .compare-col.right li::before { content: "✓"; color: var(--accent-ink); }
+
+  /* ---------- FAQ ---------- */
+  .faq { margin: 28px 0; display: grid; gap: 8px; }
+  .faq-item {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; padding: 4px 22px;
+    transition: border-color 0.15s ease;
+  }
+  .faq-item[open] { border-color: var(--border); }
+  .faq-q {
+    font: 500 16px/1.4 var(--font-sans); color: var(--ink);
+    padding: 14px 0; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q::after {
+    content: "+"; font: 400 22px/1 var(--font-serif);
+    color: var(--muted); transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-q::after { content: "−"; }
+  .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
+  /* ---------- CTA ---------- */
+  .cta-card {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 18px; padding: 32px 28px;
+    margin: 56px 0 0; text-align: center;
+  }
+  .cta-card h2 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 30px); }
+  .cta-card p { margin: 0 auto 18px; max-width: 48ch; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 26px;
+    background: var(--primary); color: #fffaf2;
+    border-radius: 999px;
+    font: 500 15px/1 var(--font-sans);
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(42,36,32,0.1), 0 8px 20px rgba(200,112,75,0.28);
+    transition: background 0.15s ease;
+  }
+  .cta-btn:hover { background: var(--primary-ink); color: #fffaf2; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px; color: var(--muted);
+  }
+  .footer a { color: var(--primary); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<div class="container">
+  <a href="/guides/" class="nav-back">← all guides</a>
+
+  <span class="eyebrow">Guide · Malaysia · Merchant SMEs</span>
+  <h1>Your POS got smarter. <em>Yours got a copy?</em></h1>
+  <p class="dateline">Published <time datetime="2026-06-18">18 Jun 2026</time></p>
+  <p class="lede">Visa and Mintoak finalised a regional partnership yesterday that consolidates in-store payments, real-time reporting, automated banking, and retention analytics into a single cloud API for SME merchants. The dashboards will be slick. The data lives in Visa's cloud, optimised for Visa's products. Here's why an independent merchant ledger still matters — and the cheapest way to keep one.</p>
+
+  <h2>What the partnership actually ships</h2>
+
+    <div class="stat-block">
+      <p class="stat-value">Single cloud API</p>
+      <p class="stat-label">Visa × Mintoak unified merchant rail, June 17 announcement</p>
+      <p class="stat-note">Bundles in-store payments, dynamic real-time reporting, automated banking services, and merchant retention analytics. Slicker than what most Malaysian SMEs use today. Also more centralised than what most Malaysian SMEs use today.</p>
+    </div>
+<p>The upgrade itself is mostly good for merchants. Real-time reporting beats end-of-day batch files. Automated banking services beat manual reconciliation. Retention analytics beat guessing whether a customer is about to churn. If you're running a Klang Valley F&amp;B outlet, a Shah Alam retail shop, or a Subang services SME, this is going to land in your POS over the next 12 months whether you opt in or not.</p>
+<p>The unstated trade-off: the data layer becomes one external system's job to maintain, store, and analyse. That system is optimised first for Visa's revenue (interchange volumes, card retention, premium tier upsell) and second for your margin. Same data, different objective function.</p>
+<h2>Where the friction will land</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>The dashboards will be glossy</h3>
+        <p>Real-time gross, refund rates, top SKUs, "your customer churn risk" scores. None of this is wrong. All of it is partial — your suppliers, your rent, your fuel costs, your wages don't appear. The dashboard makes you feel informed about a small slice while you stop tracking the rest.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Retention analytics serve the rail's products</h3>
+        <p>"Offer this customer a credit-card upgrade" or "this merchant should accept Visa Direct" are the actions the analytics drive. Useful sometimes. Not always aligned with your margin — a credit-card customer pays you the same and costs the bank more in interchange, which the rail recovers from your MDR over time.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Switching costs grow with data centralisation</h3>
+        <p>Today switching a POS or acquirer is annoying. After 24 months of unified analytics under one rail, switching means losing your customer-history report, your retention scores, your real-time view. The lock-in isn't formal; it's the workflow cost of starting over.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Outages take more with them</h3>
+        <p>When the dashboard goes down, you don't just lose POS — you lose your reporting view, your cash-flow forecast, the lot. Local backups stop being optional. They become the answer to "what do I do when the cloud is down at 7pm Saturday?"</p>
+      </div>
+    </li>
+</ol>
+<h2>The four numbers your ledger should always hold</h2>
+
+    <div class="stat-block">
+      <p class="stat-value">Gross · Fees · Refunds · Settlement</p>
+      <p class="stat-label">The minimum independent merchant record</p>
+      <p class="stat-note">Whatever rail you're on — Visa, Mastercard, FPX, DuitNow QR, e-wallet, stablecoin — these four numbers per day, per channel, are the floor. Keep them in a record you control and you can survive any rail change.</p>
+    </div>
+<p>The four-number discipline:</p>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Gross sales by channel</h3>
+        <p>Card, DuitNow QR, e-wallet, cash. Daily totals. Not "today's takings" — split by how the money arrived. You can't optimise your channel mix if you can't see it. Open Duitful → Income entry per channel with Category set to the channel name (<code>Card</code>, <code>DuitNow</code>, <code>Boost</code>, etc).</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Fees and MDR by channel</h3>
+        <p>What you actually paid the rail for the privilege. Most Malaysian merchants don't know their effective fee rate per channel — only the headline rate. Log fees as a separate expense per channel (<code>Card-fees</code>, <code>DuitNow-fees</code>, etc). Monthly: total fees ÷ total gross per channel = your real effective rate.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Refunds and chargebacks</h3>
+        <p>Refunds reduce your gross. Chargebacks reduce your gross AND cost you a fee. Track them separately from regular expenses so you can spot patterns (a particular SKU? a particular sales channel?) before the rail's algorithm flags you as high-risk.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Settlement — when the money actually lands</h3>
+        <p>Gross sales today aren't cash today. Some channels settle T+1, some T+3, some weekend-skip. Log the settlement amount when it lands, not when the sale happens. The gap between gross and settled is what kills small-merchant cash flow during slow weeks.</p>
+      </div>
+    </li>
+</ol>
+<h2>How this fits with what Mintoak's stack will give you</h2>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">Mintoak / Visa rail gives you</p>
+        <ul><li>Real-time gross by SKU</li><li>Customer-level retention scoring</li><li>"Recommended actions" surface</li><li>Automatic reconciliation against acquirer</li><li>Embedded banking flows</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">Your independent ledger holds</p>
+        <ul><li>The four numbers per channel</li><li>Supplier costs the rail can't see</li><li>Wages, rent, utilities</li><li>Your own categorisation of customers</li><li>A copy that survives rail changes</li></ul>
+      </div>
+    </div>
+<p>These don't compete. They complement. The rail's dashboard answers "how's the morning going?" in real time. Your ledger answers "how was the quarter, can I afford the lease renewal, is the new channel actually profitable?" in a way that doesn't go away when you switch providers.</p>
+<h2>The five-minute setup for a Klang Valley merchant</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Open Duitful → add channel categories</h3>
+        <p>One per accepted channel. <code>Card-Visa</code>, <code>Card-Master</code>, <code>DuitNow</code>, <code>TNG</code>, <code>Boost</code>, <code>GrabPay</code>, <code>Cash</code>. Once the dropdown is seeded, daily entries take 15 seconds.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Add a "Fees-by-channel" expense bucket</h3>
+        <p>When the acquirer's statement lands monthly, log each channel's fees as a separate expense entry with matching category (<code>Card-Visa-fees</code>, etc). Reports filter on substring match — typing <code>-fees</code> shows you the full fee picture across all channels.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Reconcile weekly, not daily</h3>
+        <p>Sunday evening: open the rail's dashboard, open Duitful's Reports for the week, compare gross and fees by channel. The discrepancies catch acquirer errors, terminal misconfigurations, and the occasional miscategorised entry. Five minutes weekly beats four hours quarterly.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Backup as CSV monthly</h3>
+        <p>Settings → Export CSV → save with the month name. Even if Duitful disappears, even if your rail switches, even if you sell the business — the buyer/accountant/regulator gets a clean CSV with everything they need.</p>
+      </div>
+    </li>
+</ol>
+<h2>When the rail's data is enough on its own</h2>
+<p>Honest answer: for a single-channel small SME (say, an Instagram-only sole prop accepting only DuitNow QR), the rail's reporting may genuinely be enough. The independent ledger overhead pays back at the moment you have:</p>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Multiple acquirers or channels</h3>
+        <p>One acquirer for cards, DuitNow direct from the bank, a separate e-wallet plugin, an occasional Stripe invoice for foreign customers. Each gives you a partial view. Only you can stitch them together.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Suppliers and operating costs the rail doesn't see</h3>
+        <p>Rent, payroll, inventory purchases, transport fuel. The rail's dashboard shows "your margin trend" using its assumptions about your costs — almost always optimistic. Your real margin needs your real costs.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>A horizon longer than the rail's analytics window</h3>
+        <p>Most acquirer dashboards show 12–24 months. Your business decisions (lease renewals, equipment upgrades, business loans) need 36–60 months. Your own CSV archive is the only place that holds that.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">4</span>
+      <div>
+        <h3>Trade payments, customer reissues, anything cross-border</h3>
+        <p>Foreign suppliers, expat customer payments, cross-border B2B (covered separately in the <a href="/guides/ringgit-stablecoins-merchant-fees-2026/">stablecoin merchant fees guide</a>). The unified rail handles domestic well; cross-border is still your independent-ledger problem.</p>
+      </div>
+    </li>
+</ol>
+<h2>Common questions</h2>
+<div class="faq">
+    <details class="faq-item">
+      <summary class="faq-q">Does this mean I shouldn't accept Visa's new rail?</summary>
+      <p class="faq-a">No, accept it. The friction reduction is real and the dashboards help. The point of an independent ledger isn't to refuse the rail's data — it's to keep your own record alongside it so the rail's dashboard remains useful but not the only source of truth.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Won't the rail's analytics catch everything?</summary>
+      <p class="faq-a">For what's in their pipe, yes. For what isn't (suppliers, wages, fuel, rent, off-rail sales, supplier rebates), no. The rail can't analyse what it doesn't see. Most SME margin lives in the things the rail doesn't see.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">How does this differ from your other merchant guide?</summary>
+      <p class="faq-a">The <a href="/guides/ringgit-stablecoins-merchant-fees-2026/">Ringgit stablecoins for merchants guide</a> is about lowering fees on the rail itself. This guide is about keeping your own record alongside whatever rail you're on. Related but different lever — one is about the cost side, this one is about the visibility side.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">My accountant uses SQL Accounting / AutoCount / Xero — do I need Duitful too?</summary>
+      <p class="faq-a">Probably not for the year-end books — your accountant's software handles that. Duitful sits at the front line — the daily/weekly capture before things get re-entered into the accounting system. If your current workflow is "type everything into SQL on Friday from a stack of receipts," that's the gap. Capture in Duitful as it happens, export CSV to your accountant monthly.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">What about the privacy angle for my customers?</summary>
+      <p class="faq-a">Anything you log in Duitful stays on your device, encrypted with your passcode. Customer-level data (names, emails) typically belongs in your CRM rather than Duitful; what you'd track in Duitful is aggregate transaction patterns, not individual identities. See the <a href="/privacy/">privacy policy</a> for the full picture on how on-device storage works.</p>
+    </details>
+</div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/sovereign-tech-stack-personal-data-2026/">
+          <span class="related-title">Sovereign tech stack — for you, not just for the country</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/sme-carbon-tracking-green-loans-malaysia-2026/">
+          <span class="related-title">Automate carbon tracking → tier-1 green loans</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/wealthtech-life-planner-cross-check-2026/">
+          <span class="related-title">The wealthtech calculator wave + how to cross-check it</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
+
+  <div class="cta-card">
+    <h2>A ledger they don't see</h2>
+    <p>Five-minute Duitful setup gives any Klang Valley merchant the four numbers (gross, fees, refunds, settlement) that survive any rail change — Visa, FPX, DuitNow, stablecoin. The dashboard moves; your numbers stay yours.</p>
+    <a class="cta-btn" href="/app/">Open Duitful →</a>
+  </div>
+
+  <div class="footer">
+    More guides at <a href="/guides/">duitful.app/guides</a>. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy policy</a>, or <a href="/contact/">say hi</a>.
+  </div>
+</div>
+</body>
+</html>
