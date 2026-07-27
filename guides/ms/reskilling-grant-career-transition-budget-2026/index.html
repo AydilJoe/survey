@@ -151,12 +151,16 @@
   .compare-col.left  .compare-title { color: var(--warn-ink); }
   .compare-col.right .compare-title { color: var(--accent-ink); }
   .compare-col ul { padding: 0; list-style: none; margin: 0; }
+  /* The marker is absolutely positioned rather than a flex sibling: as a flex
+     item it turned every inline <strong>/<em> in the text into its own column,
+     shredding the layout of any item with emphasis in it. */
   .compare-col li {
-    padding: 7px 0; font-size: 15px; line-height: 1.45; color: var(--ink2);
-    display: flex; gap: 10px; align-items: start;
+    position: relative;
+    padding: 7px 0 7px 24px; font-size: 15px; line-height: 1.45; color: var(--ink2);
   }
   .compare-col li::before {
-    flex: 0 0 auto; font-weight: 700; line-height: 1.45;
+    position: absolute; left: 0; top: 7px;
+    font-weight: 700; line-height: 1.45;
   }
   .compare-col.left  li::before { content: "✕"; color: var(--warn); }
   .compare-col.right li::before { content: "✓"; color: var(--accent-ink); }
@@ -459,14 +463,14 @@
         </a>
       </li>
       <li class="related-item">
-        <a href="/guides/ms/ryt-bank-gamification-yield-trap-2026/">
-          <span class="related-title">Pivot stamp-card Ryt, dihurai</span>
+        <a href="/guides/ms/zakat-harta-nisab-haul-calculator-2026/">
+          <span class="related-title">Zakat harta — nisab, haul dan jumlah sebenar</span>
           <span class="related-cta">Baca →</span>
         </a>
       </li>
       <li class="related-item">
-        <a href="/guides/ms/mental-health-money-selangkah-2026/">
-          <span class="related-title">Selangkah Hab Sehat + gelung tekanan kewangan</span>
+        <a href="/guides/ms/ryt-bank-gamification-yield-trap-2026/">
+          <span class="related-title">Pivot stamp-card Ryt, dihurai</span>
           <span class="related-cta">Baca →</span>
         </a>
       </li>
