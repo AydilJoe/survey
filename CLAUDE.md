@@ -71,6 +71,13 @@ There are no tests, linter, or TypeScript in this project. Test manually in brow
 
 **Visual blocks** (skim-friendly, no long prose): `:::steps`, `:::stat`, `:::compare`, `:::faq` — separate items inside with `---` on its own line. See existing files for syntax.
 
+**Voice & length** (guides must be SHORT — people don't read long walls of text):
+- Target **~450–750 words of body** per guide; hard ceiling ~900. If it's running longer, cut.
+- Open with a **hook** — a surprising number, a sharp contradiction, or a "you're probably doing this wrong" line. The `h1` and `lede` must stop the scroll. No throat-clearing, no "In today's world…".
+- Lead with the payoff, justify after. Short sentences. Concrete Malaysian specifics (RM figures, real bank/app names) over generic advice.
+- Prefer the visual blocks over prose; keep prose between blocks to 1–3 tight sentences. Cap at 3–5 content sections, one `:::steps` of 3–4 items, and 3–4 `:::faq` questions.
+- Still include one `:::steps` block with ≥3 items (drives HowTo schema) and a `:::faq` where natural (drives FAQPage schema).
+
 **Per-ping flow**:
 1. Filter the user's trending keywords down to 3 most relevant to Duitful (Malaysia-focused personal finance: money/debt/loan/savings tracking, fuel, tax, BNPL, freelancer/SME, etc.). Skip sports, celebrities, politics.
 2. Propose 3 slugs + H1s in a short list, wait for confirmation.
