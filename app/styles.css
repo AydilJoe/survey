@@ -4144,3 +4144,21 @@ body.private #zakat-nisab-line {
   user-select: none;
   pointer-events: none;
 }
+
+/* The What's-new list reuses .paywall-features, whose li is a flex row with
+   the tick as a flex sibling. Paywall items are plain text so that's fine;
+   release notes lead with a <strong> title, which the flex layout promotes to
+   its own column and squeezes into a narrow ragged block. Absolutely position
+   the tick instead so the text stays in normal inline flow. */
+.whats-new-list li {
+  display: block;
+  position: relative;
+  padding-left: calc(18px + 0.55rem);
+  line-height: 1.45;
+}
+.whats-new-list li::before {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  margin-top: 0;
+}

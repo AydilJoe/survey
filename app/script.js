@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.7.7";
+const APP_VERSION = "1.8.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7214,6 +7214,12 @@ const RELEASE_NOTES = {
     "<strong>Choose your theme</strong> — Settings → Appearance lets you pick System, Light, or Dark independently of your phone's setting.",
     "<strong>Spending calendar</strong> — open Monthly to see every day of the month as a heat map. Tap a day to view what you spent that day.",
     "<strong>Cleaner dashboard greeting</strong> and a brighter primary button in dark mode.",
+  ],
+  "1.8.0": [
+    "<strong>Shariah mode</strong> — Settings → Islamic finance. Relabels the app for Islamic contracts: \"profit rate\" instead of APR, \"profit charges\" instead of interest. Free, on every tier.",
+    "<strong>Islamic financing debts</strong> — track Murabahah, Tawarruq, BBA, AITAB, Ijarah and Musharakah Mutanaqisah. Profit is fixed at signing and never compounds, and the balance shown is what settling today costs, with your ibra' beside it.",
+    "<strong>Smarter payoff queue</strong> — an Islamic facility has no APR but isn't free. Duitful ranks it on its effective profit rate, so a 4.8% flat facility correctly queues ahead of an 8% card.",
+    "<strong>Zakat on wealth</strong> — a zakat card on Savings: nisab from gold, silver or your state authority's figure, your zakatable base, 2.5%, and a 354-day haul countdown. Free, and an estimate for planning rather than a ruling.",
   ],
 };
 
