@@ -9,6 +9,7 @@ eyebrow: Panduan · Syariah · Pelaburan
 h1: Bina portfolio Shariah dengan <em>RM 10 sekeping</em>.
 lede: Fintech Selangor pecahkan Sukuk dan saham ESG Shariah jadi serendah RM 10 sekeping — minimum RM 1,000 dulu dah hilang. Tapi siling return tak naik, dan kebanyakan micro-investor tengah pejam mata. Ini versi jujur.
 date_published: 2026-05-11
+date_modified: 2026-07-27
 breadcrumb_name: Portfolio micro-sukuk RM 10
 card_title: Micro-sukuk RM 10 — bina portfolio Shariah
 card_blurb: Sukuk pecahan dan saham ESG Shariah sekarang start RM 10. Math, jebakan, dan macam mana nak jejak betul-betul.
@@ -82,17 +83,17 @@ text: Kebanyakan platform pecahan auto-reinvest distribusi secara default. Biar 
 ## Mana micro-Sukuk muat dalam portfolio Malaysia sebenar
 
 :::compare
-title: ✓ Sesuai untuk
-- Penyimpan Shariah-compliant kali pertama
-- Bina lapisan kecemasan halal melebihi siling ASB
-- Rakyat Malaysia pertengahan 30-an yang dah maks sumbangan EPF sukarela
-- Sesiapa yang nak tinggal fixed income konvensional untuk alternatif halal
----
-title: ✕ Tak sesuai untuk
+title: Tak sesuai untuk
 - Ganti sumbangan EPF atau PRS korang
 - Keperluan tunai jangka pendek (<12 bulan — ada penalti likuiditi)
 - Satu-satunya "pelaburan" kalau debt avalanche korang belum settle
 - Sesiapa cuba kejar return 8%+
+---
+title: Sesuai untuk
+- Penyimpan Shariah-compliant kali pertama
+- Bina lapisan kecemasan halal melebihi siling ASB
+- Rakyat Malaysia pertengahan 30-an yang dah maks sumbangan EPF sukarela
+- Sesiapa yang nak tinggal fixed income konvensional untuk alternatif halal
 :::
 
 Kalau ada apa-apa hutang 18%+ APR (kad kredit, fi lewat BNPL), bayar dulu sebelum mula micro-Sukuk. **Arbitraj negatif adalah pembunuh senyap micro-portfolio** — dapat 4% atas RM 100 sambil bayar 18% atas RM 5,000 adalah teater mahal je.
@@ -120,7 +121,7 @@ q: Apa beza micro-Sukuk dengan ASB?
 a: ASB unit trust diuruskan PNB dengan profil risiko berbeza (sebahagian besar berasaskan ekuiti, return minimum dijamin kerajaan). Sukuk pendapatan instrumen hutang — macam bond, volatiliti rendah, takde upside ekuiti. Saling melengkapi, bukan ganti. ASB cover peruntukan "pertumbuhan" korang; Sukuk cover peruntukan "pendapatan tetap", dua-dua dalam sampul halal.
 ---
 q: Hasilnya dikenakan zakat ke?
-a: Ya — distribusi Sukuk dan keuntungan modal kena zakat bila ambang nisab cukup dan haul (tahun qamari) lengkap. Kebanyakan fintech Shariah sekarang papar anggaran zakat hutang dalam app. Duitful tak kira zakat; korang boleh cerminkan jumlah papar sebagai entry perbelanjaan bawah "Zakat" sekali setahun.
+a: Ya — distribusi Sukuk dan keuntungan modal kena zakat bila ambang nisab cukup dan haul (tahun qamari) lengkap. Kebanyakan fintech Shariah sekarang papar anggaran zakat hutang dalam app. Duitful kira sekarang: hidupkan Mod Syariah dalam Tetapan, set penanda aras nisab dan tarikh haul, dan tambah nilai portfolio bawah "harta bercukai zakat lain". Ia jejak kiraan mundur haul 354 hari dan log bayaran sebagai perbelanjaan sebenar bila korang tanda dah bayar.
 ---
 q: Apa jadi kalau platform tutup?
 a: Untuk platform SC-regulated, unit-holding korang dipegang dalam akaun amanah berasingan — selamat lepas platform. Korang akan transfer holding ke pengurus dana Shariah lain. Sebab tu pilihan platform kurang penting dari orang takutkan, asalkan platform betul-betul SC-licensed (check pendaftaran awam SC).

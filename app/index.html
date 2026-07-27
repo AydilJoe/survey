@@ -331,7 +331,7 @@
             <p class="hint">Paid on top of minimums, directed to the highest-APR debt (avalanche).</p>
             <div class="stat-row">
               <div class="stat"><span class="label">Debt-free in</span><strong id="stat-months">—</strong></div>
-              <div class="stat"><span class="label">Total interest</span><strong id="stat-interest">RM 0.00</strong></div>
+              <div class="stat"><span class="label" data-term="totalInterest">Total interest</span><strong id="stat-interest">RM 0.00</strong></div>
             </div>
             <p id="stall-warning" class="hint warn" hidden></p>
           </div>
@@ -610,6 +610,7 @@
             <div class="type-pills debt-type-pills" role="radiogroup" aria-label="Debt type">
               <button type="button" class="pill active" data-debt-kind="standard" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Standard</button>
               <button type="button" class="pill" data-debt-kind="installment" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>Installment</button>
+              <button type="button" class="pill" data-debt-kind="islamic" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 5.5a7 7 0 100 13 8 8 0 110-13z"/><path d="M19.5 9l.6 1.7 1.8.1-1.4 1.2.5 1.7-1.5-1-1.5 1 .5-1.7-1.4-1.2 1.8-.1z"/></svg></span>Islamic</button>
             </div>
             <input type="hidden" id="debt-kind" name="kind" value="standard" />
             <label class="field">
@@ -624,7 +625,7 @@
                   <input type="number" name="balance" step="0.01" min="0" inputmode="decimal" />
                 </label>
                 <label class="field">
-                  <span>APR (%)</span>
+                  <span data-term="rateField">APR (%)</span>
                   <input type="number" name="apr" step="0.01" min="0" inputmode="decimal" />
                 </label>
                 <label class="field">
@@ -645,7 +646,34 @@
                   <input type="number" name="monthsLeft" step="1" min="1" max="120" inputmode="numeric" placeholder="3" />
                 </label>
               </div>
-              <p class="hint">Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left.</p>
+              <p class="hint" data-term="zeroRateHint">Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left.</p>
+            </div>
+
+            <div id="debt-fields-islamic" class="debt-fields" hidden>
+              <label class="field">
+                <span>Contract</span>
+                <select name="contract" id="debt-contract"></select>
+              </label>
+              <div class="grid-3">
+                <label class="field">
+                  <span>Financed amount (<span class="cur-code">MYR</span>)</span>
+                  <input type="number" name="principal" step="0.01" min="0" inputmode="decimal" placeholder="20000" />
+                </label>
+                <label class="field">
+                  <span>Total profit (<span class="cur-code">MYR</span>)</span>
+                  <input type="number" name="totalProfit" step="0.01" min="0" inputmode="decimal" placeholder="4800" />
+                </label>
+                <label class="field">
+                  <span>Tenure (months)</span>
+                  <input type="number" name="tenureMonths" step="1" min="1" max="480" inputmode="numeric" placeholder="60" />
+                </label>
+              </div>
+              <label class="field">
+                <span>Months already paid</span>
+                <input type="number" name="monthsPaid" step="1" min="0" max="480" inputmode="numeric" placeholder="0" />
+              </label>
+              <p class="hint" id="islamic-preview"></p>
+              <p class="hint">Profit is fixed at signing and never compounds. Duitful tracks the <strong>outstanding principal</strong> — what settling today costs after a full ibra' (rebate of unearned profit). Your bank statement shows the higher outstanding sale price.</p>
             </div>
 
             <label class="field">
@@ -697,6 +725,52 @@
             </div>
             <button type="submit" class="primary">Add goal</button>
           </form>
+        </div>
+
+        <div class="card zakat-card" id="zakat-card" hidden>
+          <div class="card-head">
+            <h2>Zakat on wealth</h2>
+            <span class="zakat-pill" id="zakat-pill" hidden></span>
+          </div>
+
+          <div class="zakat-hero">
+            <span class="label">Zakat due (2.5%)</span>
+            <strong id="zakat-due">RM 0.00</strong>
+            <span class="hint" id="zakat-due-note"></span>
+          </div>
+
+          <div class="zakat-bar" aria-hidden="true">
+            <div class="zakat-bar-fill" id="zakat-bar-fill" style="width:0%"></div>
+          </div>
+          <p class="hint" id="zakat-nisab-line"></p>
+
+          <ul class="zakat-breakdown" id="zakat-breakdown"></ul>
+
+          <div class="grid-2">
+            <label class="field">
+              <span>Other zakatable wealth (<span class="cur-code">MYR</span>)</span>
+              <input type="number" id="zakat-other-assets" step="0.01" min="0" inputmode="decimal" placeholder="Cash, gold, shares, ASB…" />
+            </label>
+            <label class="field">
+              <span>Deduct immediate debts (<span class="cur-code">MYR</span>)</span>
+              <input type="number" id="zakat-deductibles" step="0.01" min="0" inputmode="decimal" placeholder="0" />
+            </label>
+          </div>
+          <label class="field toggle-field">
+            <input type="checkbox" id="zakat-include-savings" />
+            <span>Count my savings-goal balances as zakatable</span>
+          </label>
+
+          <p class="hint" id="zakat-haul-line"></p>
+
+          <div class="button-row">
+            <button type="button" class="primary" id="btn-zakat-paid">Mark zakat paid</button>
+          </div>
+          <ul class="zakat-history" id="zakat-history"></ul>
+          <p class="hint">
+            An estimate for planning, not a fatwa. Zakat rules vary by state and by asset type —
+            confirm the final figure with your state zakat authority before paying.
+          </p>
         </div>
 
         <div class="card">
@@ -806,6 +880,59 @@
             <button type="button" class="pill" data-theme-choice="system" role="radio" aria-checked="false">System</button>
             <button type="button" class="pill" data-theme-choice="light" role="radio" aria-checked="false">Light</button>
             <button type="button" class="pill" data-theme-choice="dark" role="radio" aria-checked="false">Dark</button>
+          </div>
+        </div>
+
+        <div class="card" id="shariah-card">
+          <h2>Islamic finance</h2>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-shariah" />
+            <span>Shariah mode</span>
+          </label>
+          <p class="hint">
+            Relabels the app for Islamic contracts — “profit rate” instead of APR, “profit charges”
+            instead of interest — and unlocks the <strong>Islamic</strong> debt type
+            (Murabahah, Tawarruq, BBA, AITAB, Ijarah, Musharakah Mutanaqisah), which uses fixed,
+            non-compounding profit and estimates your ibra' on early settlement.
+          </p>
+
+          <div id="zakat-settings" hidden>
+            <label class="field toggle-field">
+              <input type="checkbox" id="pref-zakat" />
+              <span>Track zakat on wealth (zakat harta)</span>
+            </label>
+            <div id="zakat-settings-fields" hidden>
+              <label class="field">
+                <span>Nisab basis</span>
+                <select id="zakat-nisab-basis">
+                  <option value="gold">Gold — 85 g</option>
+                  <option value="silver">Silver — 595 g</option>
+                  <option value="custom">Custom amount (from your state zakat authority)</option>
+                </select>
+              </label>
+              <div class="grid-2">
+                <label class="field" id="zakat-gold-field">
+                  <span>Gold price (<span class="cur-code">MYR</span>/gram)</span>
+                  <input type="number" id="zakat-gold-price" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 480" />
+                </label>
+                <label class="field" id="zakat-silver-field" hidden>
+                  <span>Silver price (<span class="cur-code">MYR</span>/gram)</span>
+                  <input type="number" id="zakat-silver-price" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 5.20" />
+                </label>
+                <label class="field" id="zakat-custom-field" hidden>
+                  <span>Nisab (<span class="cur-code">MYR</span>)</span>
+                  <input type="number" id="zakat-custom-nisab" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 32000" />
+                </label>
+                <label class="field">
+                  <span>Haul started</span>
+                  <input type="date" id="zakat-haul-start" />
+                </label>
+              </div>
+              <p class="hint">
+                Nisab weights are fixed by fiqh; only the metal price changes. Check today's price with
+                your state authority (LZS, PPZ-MAIWP, LZNK…) — they publish it, and it moves.
+              </p>
+            </div>
           </div>
         </div>
 
