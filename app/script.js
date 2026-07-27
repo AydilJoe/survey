@@ -72,7 +72,91 @@ const emptyState = () => ({
   nativeReferrer: "",
   proEmail: "",
   proRefCode: "",
+  shariah: emptyShariah(),
 });
+
+/* ---------- Shariah / Islamic finance ---------- */
+
+// Nisab weights are fixed by fiqh, not by market: 85g gold (20 mithqal) or
+// 595g silver (200 dirham). Only the metal PRICE is user-supplied.
+const NISAB_GOLD_G = 85;
+const NISAB_SILVER_G = 595;
+const ZAKAT_RATE = 2.5;
+// Haul is one lunar (hijri) year. 354 days is the conventional approximation
+// used by Malaysian zakat authorities for a non-hijri-calendar reminder.
+const HAUL_DAYS = 354;
+
+// Sale-based Islamic financing contracts. The cash-flow maths is identical
+// across all of them — a fixed profit is agreed up front and does not
+// compound — so `contract` only drives labelling.
+const ISLAMIC_CONTRACTS = [
+  { id: "murabahah", label: "Murabahah", note: "Cost-plus sale (personal financing)" },
+  { id: "tawarruq", label: "Tawarruq", note: "Commodity murabahah (most MY personal financing)" },
+  { id: "bba", label: "BBA", note: "Bai' Bithaman Ajil (deferred-payment sale)" },
+  { id: "aitab", label: "AITAB", note: "Al-Ijarah Thumma Al-Bai' (car financing)" },
+  { id: "ijarah", label: "Ijarah", note: "Lease financing" },
+  { id: "musharakah", label: "Musharakah Mutanaqisah", note: "Diminishing partnership (home financing)" },
+];
+
+// Setting-row keys understood by the CSV importer, lowercased.
+const ZAKAT_SETTING_KEYS = new Set([
+  "shariahenabled", "zakatenabled", "zakatnisabbasis", "zakatgoldprice",
+  "zakatsilverprice", "zakatcustomnisab", "zakatotherassets",
+  "zakatdeductibles", "zakatincludesavings", "zakathaulstart",
+]);
+
+const emptyShariah = () => ({
+  enabled: false,
+  zakatEnabled: false,
+  nisabBasis: "gold",      // gold | silver | custom
+  goldPrice: 0,            // MYR per gram
+  silverPrice: 0,          // MYR per gram
+  customNisab: 0,
+  otherAssets: 0,          // zakatable wealth held outside Duitful
+  deductibles: 0,          // immediate liabilities deducted from zakatable base
+  includeSavings: true,    // count savings-goal balances as zakatable
+  haulStart: "",           // YYYY-MM-DD
+  history: [],             // [{ id, date, amount }]
+});
+
+// Islamic-financing rows carry three extra fields the conventional shape has
+// no slot for. Fill them from whatever survived a partial import so the row
+// renders a "Needs setup" state rather than NaN.
+function coerceDebt(d) {
+  if (d.kind !== "islamic") return d;
+  const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
+  const tenureMonths = Math.max(0, Math.round(num(d.tenureMonths)));
+  return {
+    ...d,
+    contract: ISLAMIC_CONTRACTS.some((c) => c.id === d.contract) ? d.contract : "murabahah",
+    principal: num(d.principal),
+    totalProfit: num(d.totalProfit),
+    tenureMonths,
+    apr: 0, // conventional APR is meaningless here; ranking uses effectiveProfitRate()
+  };
+}
+
+function coerceShariah(raw) {
+  const s = raw && typeof raw === "object" ? raw : {};
+  const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
+  return {
+    enabled: !!s.enabled,
+    zakatEnabled: !!s.zakatEnabled,
+    nisabBasis: ["gold", "silver", "custom"].includes(s.nisabBasis) ? s.nisabBasis : "gold",
+    goldPrice: num(s.goldPrice),
+    silverPrice: num(s.silverPrice),
+    customNisab: num(s.customNisab),
+    otherAssets: num(s.otherAssets),
+    deductibles: num(s.deductibles),
+    includeSavings: s.includeSavings !== false,
+    haulStart: typeof s.haulStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.haulStart) ? s.haulStart : "",
+    history: Array.isArray(s.history)
+      ? s.history
+          .filter((h) => h && /^\d{4}-\d{2}-\d{2}$/.test(String(h.date)) && Number.isFinite(Number(h.amount)))
+          .map((h) => ({ id: typeof h.id === "string" ? h.id : uid(), date: h.date, amount: Number(h.amount) }))
+      : [],
+  };
+}
 
 function coerceState(parsed) {
   try {
@@ -91,7 +175,7 @@ function coerceState(parsed) {
             repeatNext: x.repeatNext === false ? false : true,
           }))
         : [],
-      debts: Array.isArray(parsed.debts) ? parsed.debts.map((d) => ({ kind: "standard", ...d })) : [],
+      debts: Array.isArray(parsed.debts) ? parsed.debts.map((d) => coerceDebt({ kind: "standard", ...d })) : [],
       dailyExpenses: Array.isArray(parsed.dailyExpenses) ? parsed.dailyExpenses : [],
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
       budgetPools: Array.isArray(parsed.budgetPools)
@@ -148,6 +232,7 @@ function coerceState(parsed) {
       nativeReferrer: typeof parsed.nativeReferrer === "string" && /^[a-f0-9]{8}$/.test(parsed.nativeReferrer) ? parsed.nativeReferrer : "",
       proEmail: typeof parsed.proEmail === "string" ? parsed.proEmail : "",
       proRefCode: typeof parsed.proRefCode === "string" && /^[a-f0-9]{8}$/.test(parsed.proRefCode) ? parsed.proRefCode : "",
+      shariah: coerceShariah(parsed.shariah),
     };
   } catch { return emptyState(); }
 }
@@ -1255,6 +1340,122 @@ function closePoolForm() {
 
 const fmtPct = (n) => `${(Number(n) || 0).toFixed(2)}%`;
 
+/* ---------- terminology (Shariah mode) ---------- */
+
+// Riba-based vocabulary is inaccurate under an Islamic contract: there is no
+// interest accruing on a balance, there is a profit that was agreed at
+// signing. Shariah mode swaps the whole vocabulary rather than only the
+// Islamic rows, so the app reads consistently for a user who has both kinds.
+const TERMS = {
+  conventional: {
+    rate: "APR",
+    rateField: "APR (%)",
+    rateShort: "APR",
+    weightedRate: "weighted APR",
+    interest: "interest",
+    totalInterest: "Total interest",
+    zeroRateHint: "Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left.",
+    zeroRateHintEdit: "Interest-free installment (Atome / SPayLater style). Balance = monthly × months left.",
+    stallNoun: "interest",
+    belowRate: "payments below interest — debt growing",
+    unreachable: "Payments too low to cover interest — debt-free date unreachable.",
+  },
+  shariah: {
+    rate: "Profit rate",
+    rateField: "Profit rate (%)",
+    rateShort: "Rate",
+    weightedRate: "weighted rate",
+    interest: "profit charges",
+    totalInterest: "Total profit charged",
+    zeroRateHint: "Assumes no profit charge (typical for Atome, SPayLater). The total balance is monthly × months left.",
+    zeroRateHintEdit: "Profit-free installment (Atome / SPayLater style). Balance = monthly × months left.",
+    stallNoun: "profit charges",
+    belowRate: "payments below profit charges — debt growing",
+    unreachable: "Payments too low to cover profit charges — debt-free date unreachable.",
+  },
+};
+
+function shariahOn() {
+  return !!(state.shariah && state.shariah.enabled);
+}
+
+function T(key) {
+  const set = TERMS[shariahOn() ? "shariah" : "conventional"];
+  return set[key] ?? TERMS.conventional[key] ?? "";
+}
+
+// Static markup opts in with data-term="<key>"; this re-labels it on every
+// render so toggling Shariah mode needs no reload.
+function applyTerminology() {
+  document.querySelectorAll("[data-term]").forEach((el) => {
+    const val = T(el.dataset.term);
+    if (val) el.textContent = val;
+  });
+  document.body.classList.toggle("shariah-mode", shariahOn());
+}
+
+/* ---------- Islamic financing maths ---------- */
+
+// A sale-based facility fixes its profit at signing: principal P, contracted
+// profit F, tenure N months. Profit accrues in equal N slices and — crucially
+// — stops the moment the principal is cleared. Settling early therefore costs
+// the outstanding principal, which is exactly what a full ibra' (rebate of
+// unearned profit) delivers. `balance` on an islamic row is the OUTSTANDING
+// PRINCIPAL, so it stays comparable with conventional balances everywhere
+// totals are summed.
+function isIslamic(d) {
+  return d && d.kind === "islamic";
+}
+
+function islamicMonthlyProfit(d) {
+  const tenure = Number(d.tenureMonths) || 0;
+  if (tenure <= 0) return 0;
+  return (Number(d.totalProfit) || 0) / tenure;
+}
+
+// Scheduled instalment = (principal + contracted profit) / tenure.
+function islamicInstalment(d) {
+  const tenure = Number(d.tenureMonths) || 0;
+  if (tenure <= 0) return 0;
+  return ((Number(d.principal) || 0) + (Number(d.totalProfit) || 0)) / tenure;
+}
+
+function islamicMonthsLeft(d) {
+  const principalPerMonth = (Number(d.principal) || 0) / (Number(d.tenureMonths) || 0);
+  if (!Number.isFinite(principalPerMonth) || principalPerMonth <= 0) return 0;
+  return Math.max(0, Math.ceil((Number(d.balance) || 0) / principalPerMonth));
+}
+
+// Unearned profit still sitting in the contract — the rebate a bank grants on
+// early settlement. Straight-line on remaining tenure; a bank's actual ibra'
+// follows its own BNM-approved formula, so this is an estimate.
+function ibraRebate(d) {
+  const tenure = Number(d.tenureMonths) || 0;
+  if (tenure <= 0) return 0;
+  return islamicMonthlyProfit(d) * islamicMonthsLeft(d);
+}
+
+// Flat contracted profit converted to an approximate effective annual rate, so
+// an Islamic facility can be ranked against a conventional APR in the same
+// payoff queue. Flat→effective rule of thumb: r_eff ≈ r_flat × 2N/(N+1).
+function effectiveProfitRate(d) {
+  const principal = Number(d.principal) || 0;
+  const tenure = Number(d.tenureMonths) || 0;
+  if (principal <= 0 || tenure <= 0) return 0;
+  const flatAnnual = ((Number(d.totalProfit) || 0) / principal) * (12 / tenure) * 100;
+  return flatAnnual * ((2 * tenure) / (tenure + 1));
+}
+
+// The single number the payoff queue sorts on, whatever the contract type.
+function costRate(d) {
+  return isIslamic(d) ? effectiveProfitRate(d) : Number(d.apr) || 0;
+}
+
+function contractLabel(id) {
+  const c = ISLAMIC_CONTRACTS.find((x) => x.id === id);
+  return c ? c.label : "Islamic";
+}
+
 function escapeHtml(str) {
   return String(str ?? "")
     .replace(/&/g, "&amp;")
@@ -1357,7 +1558,21 @@ function simulateAvalanche(debts, extraMonthly) {
       name: d.name,
       balance: Number(d.balance) || 0,
       apr: Number(d.apr) || 0,
-      minPayment: Number(d.minPayment) || 0,
+      // Ranking rate: APR for conventional, effective profit rate for Islamic
+      // facilities (which have no APR but still have a cost of carry).
+      rate: costRate(d),
+      // Islamic profit is contracted up front and accrues in equal slices
+      // that STOP when the principal clears — that stopping is the ibra'.
+      // Conventional interest compounds on the balance instead.
+      fixedMonthlyProfit: isIslamic(d) ? islamicMonthlyProfit(d) : 0,
+      // Contracted profit can never be exceeded, however the schedule runs.
+      // Without this cap, sub-cent rounding in the stored instalment leaves a
+      // few sen outstanding at term and buys a whole extra month of profit.
+      profitRemaining: isIslamic(d) ? (Number(d.totalProfit) || 0) : Infinity,
+      islamic: isIslamic(d),
+      // Use the exact instalment for Islamic rows; `minPayment` is stored
+      // rounded to sen for display and drifts over a long tenure.
+      minPayment: isIslamic(d) ? islamicInstalment(d) : Number(d.minPayment) || 0,
       paidAtMonth: null,
     }))
     .filter((d) => d.balance > 0);
@@ -1377,12 +1592,15 @@ function simulateAvalanche(debts, extraMonthly) {
       break;
     }
 
-    // Accrue monthly interest.
+    // Accrue this month's cost of carry.
     for (const d of working) {
       if (d.balance <= 0) continue;
-      const interest = d.balance * (d.apr / 100 / 12);
-      d.balance += interest;
-      totalInterest += interest;
+      const charge = d.islamic
+        ? Math.min(d.fixedMonthlyProfit, d.profitRemaining)
+        : d.balance * (d.apr / 100 / 12);
+      if (d.islamic) d.profitRemaining -= charge;
+      d.balance += charge;
+      totalInterest += charge;
     }
 
     // Pool of payments: sum of minimums + extra.
@@ -1399,7 +1617,7 @@ function simulateAvalanche(debts, extraMonthly) {
     // Sort remaining debts by APR desc, tie-break by smaller balance.
     const remaining = working
       .filter((d) => d.balance > 0)
-      .sort((a, b) => b.apr - a.apr || a.balance - b.balance);
+      .sort((a, b) => b.rate - a.rate || a.balance - b.balance);
 
     // First pass: pay minimum (or full balance) on every debt except the target.
     // Target is remaining[0] — highest APR.
@@ -1431,7 +1649,7 @@ function simulateAvalanche(debts, extraMonthly) {
       while (pool > 0.005) {
         const next = working
           .filter((d) => d.balance > 0)
-          .sort((a, b) => b.apr - a.apr || a.balance - b.balance)[0];
+          .sort((a, b) => b.rate - a.rate || a.balance - b.balance)[0];
         if (!next) break;
         const pay2 = Math.min(pool, next.balance);
         next.balance -= pay2;
@@ -1452,6 +1670,8 @@ function simulateAvalanche(debts, extraMonthly) {
       id: d.id,
       name: d.name,
       apr: d.apr,
+      rate: d.rate,
+      islamic: d.islamic,
       paidAtMonth: d.paidAtMonth,
     }));
 
@@ -1469,7 +1689,7 @@ function totalOf(list) {
 function debtTotals(debts) {
   const total = debts.reduce((s, d) => s + (Number(d.balance) || 0), 0);
   const weighted = total > 0
-    ? debts.reduce((s, d) => s + (Number(d.balance) || 0) * (Number(d.apr) || 0), 0) / total
+    ? debts.reduce((s, d) => s + (Number(d.balance) || 0) * costRate(d), 0) / total
     : 0;
   const minSum = debts.reduce((s, d) => s + (Number(d.minPayment) || 0), 0);
   return { total, weighted, minSum };
@@ -2031,7 +2251,7 @@ function renderDebts() {
 
   ul.innerHTML = filteredDebts
     .slice()
-    .sort((a, b) => (Number(b.apr) || 0) - (Number(a.apr) || 0))
+    .sort((a, b) => costRate(b) - costRate(a))
     .map((d) => {
       const cls = d.dueDay ? dayClass(d.dueDay, currentMonthISO()) : "";
       // Empty placeholder when no due day so we keep grid alignment without
@@ -2040,6 +2260,7 @@ function renderDebts() {
         ? `<span class="day-chip ${cls}" title="Due day">${d.dueDay}</span>`
         : `<span class="day-chip day-chip-empty" aria-hidden="true"></span>`;
       const isInstallment = d.kind === "installment";
+      const islamic = isIslamic(d);
       // Compute remaining months for installment debts: balance / installment.
       // When the installment data is missing (legacy / half-imported rows
       // from CSV), `installment` is 0 — render a "Needs setup" state instead
@@ -2051,26 +2272,49 @@ function renderDebts() {
         ? Math.max(0, Math.ceil((Number(d.balance) || 0) / installment))
         : null;
       const suffix = dupSuffix(d.name);
-      const badge = isInstallment
-        ? (needsSetup
+      // Islamic rows need their own setup check — the contract is unusable
+      // without a principal and a tenure, and CSV imports can arrive partial.
+      const islamicNeedsSetup = islamic && (!(Number(d.principal) > 0) || !(Number(d.tenureMonths) > 0));
+      const badge = islamic
+        ? (islamicNeedsSetup
             ? ` <span class="installment-badge needs-setup">Needs setup</span>`
-            : ` <span class="installment-badge">Installment</span>`)
-        : "";
+            : ` <span class="installment-badge islamic-badge">${escapeHtml(contractLabel(d.contract))}</span>`)
+        : isInstallment
+          ? (needsSetup
+              ? ` <span class="installment-badge needs-setup">Needs setup</span>`
+              : ` <span class="installment-badge">Installment</span>`)
+          : "";
       const nameHtml = `<span class="name">${escapeHtml(d.name)}${suffix}${badge}</span>`;
-      const metaRow = isInstallment
-        ? (needsSetup
-            ? `<div class="meta-row"><span class="needs-setup-note">Tap ✎ to set monthly + months</span></div>`
-            : `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMoney(installment)}/mo</span></div>`)
-        : `<div class="meta-row"><span>APR ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
+      const metaRow = islamic
+        ? (islamicNeedsSetup
+            ? `<div class="meta-row"><span class="needs-setup-note">Tap ✎ to set principal, profit + tenure</span></div>`
+            : `<div class="meta-row"><span>${islamicMonthsLeft(d)} of ${d.tenureMonths} months left</span><span>${fmtMoney(islamicInstalment(d))}/mo</span></div>`)
+        : isInstallment
+          ? (needsSetup
+              ? `<div class="meta-row"><span class="needs-setup-note">Tap ✎ to set monthly + months</span></div>`
+              : `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMoney(installment)}/mo</span></div>`)
+          : `<div class="meta-row"><span>${T("rateShort")} ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
+      // The headline figure for an Islamic row is the outstanding principal —
+      // i.e. what settling today actually costs. Spell out the ibra' so the
+      // number reconciles against the bank statement, which shows the higher
+      // outstanding sale price.
+      const ibra = islamic && !islamicNeedsSetup ? ibraRebate(d) : 0;
+      const ibraRow = ibra > 0.005
+        ? `<div class="meta-row ibra-row"><span>Settle today ≈ ${fmtMoney(d.balance)}</span><span>ibra' ≈ ${fmtMoney(ibra)} saved</span></div>`
+        : "";
+      const balanceTitle = islamic && !islamicNeedsSetup
+        ? ` title="Outstanding principal. Bank statement shows ${fmtMoney(Number(d.balance) + ibra)} (sale price incl. unearned profit)."`
+        : "";
       return `
       <li data-id="${d.id}">
         ${chip}
         ${nameHtml}
-        <span class="meta">${fmtMoney(d.balance)}</span>
+        <span class="meta"${balanceTitle}>${fmtMoney(d.balance)}</span>
         <button class="ghost icon-btn quick-pay" data-action="quick-pay-debt" data-id="${d.id}" aria-label="Pay ${escapeHtml(d.name)}" title="Quick pay — opens Home with this debt selected">↗</button>
         <button class="ghost icon-btn" data-action="edit-debt" data-id="${d.id}" aria-label="Edit ${escapeHtml(d.name)}" title="Edit this debt">✎</button>
         <button class="ghost icon-btn" data-action="delete-debt" data-id="${d.id}" aria-label="Delete ${escapeHtml(d.name)}" title="Delete this debt">✕</button>
         ${metaRow}
+        ${ibraRow}
       </li>`;
     })
     .join("");
@@ -2237,7 +2481,7 @@ function renderDashboard() {
         const sim = simulateAvalanche(state.debts, state.extraMonthly);
         let etaPart;
         if (sim.infeasible) {
-          etaPart = "payments below interest — debt growing";
+          etaPart = T("belowRate");
         } else if (sim.months > 0) {
           const targetMonth = shiftMonth(currentMonthISO(), sim.months - 1);
           etaPart = `debt-free by ${formatMonthLabel(targetMonth)}`;
@@ -2257,7 +2501,7 @@ function renderDashboard() {
       bannerSub.textContent = "No debts yet";
     } else {
       const n = state.debts.length;
-      bannerSub.textContent = `${n} debt${n === 1 ? "" : "s"} · weighted APR ${fmtPct(weighted)}`;
+      bannerSub.textContent = `${n} debt${n === 1 ? "" : "s"} · ${T("weightedRate")} ${fmtPct(weighted)}`;
     }
   }
 
@@ -2295,7 +2539,7 @@ function renderDashboard() {
     interestEl.textContent = fmtMoney(0);
   } else if (sim.infeasible) {
     monthsEl.textContent = "∞";
-    monthsEl.title = "Payments too low to cover interest — debt-free date unreachable.";
+    monthsEl.title = T("unreachable");
     interestEl.textContent = "—";
   } else {
     monthsEl.textContent = formatMonths(sim.months);
@@ -2306,13 +2550,15 @@ function renderDashboard() {
   const stallEl = $("#stall-warning");
   if (stallEl) {
     const firstMonthInterest = state.debts.reduce(
-      (s, d) => s + (Number(d.balance) || 0) * ((Number(d.apr) || 0) / 100 / 12),
+      (s, d) => s + (isIslamic(d)
+        ? islamicMonthlyProfit(d)
+        : (Number(d.balance) || 0) * ((Number(d.apr) || 0) / 100 / 12)),
       0,
     );
     const pool = minSum + (Number(state.extraMonthly) || 0);
     if (state.debts.length > 0 && pool < firstMonthInterest) {
       stallEl.hidden = false;
-      stallEl.textContent = `⚠︎ Your minimums + extra (${fmtMoney(pool)}/mo) don't cover the current monthly interest (${fmtMoney(firstMonthInterest)}/mo). Debt will grow — add more to the extra payment.`;
+      stallEl.textContent = `⚠︎ Your minimums + extra (${fmtMoney(pool)}/mo) don't cover the current monthly ${T("stallNoun")} (${fmtMoney(firstMonthInterest)}/mo). Debt will grow — add more to the extra payment.`;
     } else {
       stallEl.hidden = true;
       stallEl.textContent = "";
@@ -2342,7 +2588,7 @@ function renderDashboard() {
         <li>
           <span class="debt-info">
             <div class="debt-name">${escapeHtml(d.name)}</div>
-            <div class="debt-detail">APR ${fmtPct(d.apr)}</div>
+            <div class="debt-detail">${d.islamic ? "Profit rate" : T("rateShort")} ${fmtPct(d.rate)}${d.islamic ? " eff." : ""}</div>
           </span>
           <span class="payoff-eta">${etaLabel}</span>
         </li>`;
@@ -2969,6 +3215,243 @@ document.getElementById("trial-banner-cta")?.addEventListener("click", () => {
   openPaywall("debts");
 });
 
+/* ---------- zakat ---------- */
+
+// Nisab is the wealth floor below which no zakat is owed. Which metal you
+// benchmark against is a fiqh choice — silver gives a lower threshold (more
+// people liable), gold is what most Malaysian state authorities publish.
+function zakatNisab() {
+  const s = state.shariah || emptyShariah();
+  if (s.nisabBasis === "custom") return Number(s.customNisab) || 0;
+  if (s.nisabBasis === "silver") return (Number(s.silverPrice) || 0) * NISAB_SILVER_G;
+  return (Number(s.goldPrice) || 0) * NISAB_GOLD_G;
+}
+
+function zakatBasis() {
+  const s = state.shariah || emptyShariah();
+  const savings = s.includeSavings ? savingsTotals().current : 0;
+  const other = Number(s.otherAssets) || 0;
+  const deductibles = Number(s.deductibles) || 0;
+  const gross = savings + other;
+  const net = Math.max(0, gross - deductibles);
+  return { savings, other, deductibles, gross, net };
+}
+
+// Haul is a full lunar year of continuous ownership above nisab. We can only
+// approximate it from a user-supplied start date — the app has no way to know
+// whether the balance actually stayed above nisab throughout.
+function zakatHaul() {
+  const s = state.shariah || emptyShariah();
+  if (!s.haulStart) return null;
+  const start = new Date(`${s.haulStart}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return null;
+  const due = new Date(start.getTime());
+  due.setDate(due.getDate() + HAUL_DAYS);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysLeft = Math.ceil((due.getTime() - today.getTime()) / 86400000);
+  return { start, due, daysLeft, complete: daysLeft <= 0 };
+}
+
+function zakatSummary() {
+  const nisab = zakatNisab();
+  const basis = zakatBasis();
+  const liable = nisab > 0 && basis.net >= nisab;
+  return {
+    nisab,
+    ...basis,
+    liable,
+    // Zakat is levied on the whole zakatable base once nisab is met, not on
+    // the excess above it.
+    due: liable ? +(basis.net * (ZAKAT_RATE / 100)).toFixed(2) : 0,
+    pctOfNisab: nisab > 0 ? Math.min(100, (basis.net / nisab) * 100) : 0,
+    haul: zakatHaul(),
+  };
+}
+
+function renderZakat() {
+  const card = document.getElementById("zakat-card");
+  if (!card) return;
+  const s = state.shariah || emptyShariah();
+  const on = !!(s.enabled && s.zakatEnabled);
+  card.hidden = !on;
+  if (!on) return;
+
+  const z = zakatSummary();
+  const dueEl = document.getElementById("zakat-due");
+  const noteEl = document.getElementById("zakat-due-note");
+  const pill = document.getElementById("zakat-pill");
+  const fill = document.getElementById("zakat-bar-fill");
+  const nisabLine = document.getElementById("zakat-nisab-line");
+
+  if (dueEl) dueEl.textContent = fmtMoney(z.due);
+  if (fill) fill.style.width = `${z.pctOfNisab.toFixed(1)}%`;
+
+  if (pill) {
+    if (z.nisab <= 0) {
+      pill.hidden = false;
+      pill.className = "zakat-pill warn";
+      pill.textContent = "Set nisab";
+    } else {
+      pill.hidden = false;
+      pill.className = `zakat-pill ${z.liable ? "due" : "below"}`;
+      pill.textContent = z.liable ? "Above nisab" : "Below nisab";
+    }
+  }
+
+  if (nisabLine) {
+    if (z.nisab <= 0) {
+      nisabLine.textContent =
+        s.nisabBasis === "custom"
+          ? "Enter your state authority's nisab amount in Settings → Islamic finance."
+          : `Enter today's ${s.nisabBasis} price in Settings → Islamic finance to compute your nisab.`;
+    } else {
+      const basisLabel = s.nisabBasis === "custom"
+        ? "custom nisab"
+        : `${s.nisabBasis === "silver" ? `${NISAB_SILVER_G} g silver` : `${NISAB_GOLD_G} g gold`}`;
+      nisabLine.textContent = `Nisab ${fmtMoney(z.nisab)} (${basisLabel}) · your zakatable wealth ${fmtMoney(z.net)}.`;
+    }
+  }
+
+  if (noteEl) {
+    if (z.nisab <= 0) noteEl.textContent = "Nisab not set yet.";
+    else if (!z.liable) noteEl.textContent = `${fmtMoney(z.nisab - z.net)} below nisab — nothing owed.`;
+    else if (z.haul && !z.haul.complete) noteEl.textContent = `Payable when your haul completes in ${z.haul.daysLeft} day${z.haul.daysLeft === 1 ? "" : "s"}.`;
+    else noteEl.textContent = "2.5% of your zakatable wealth.";
+  }
+
+  const breakdown = document.getElementById("zakat-breakdown");
+  if (breakdown) {
+    const rows = [
+      s.includeSavings ? ["Savings goals", z.savings] : null,
+      ["Other zakatable wealth", z.other],
+      z.deductibles > 0 ? ["Immediate debts", -z.deductibles] : null,
+    ].filter(Boolean);
+    breakdown.innerHTML = rows
+      .map(([label, amount]) =>
+        `<li><span>${escapeHtml(label)}</span><span>${amount < 0 ? "− " : ""}${fmtMoney(Math.abs(amount))}</span></li>`)
+      .join("") + `<li class="total"><span>Zakatable wealth</span><span>${fmtMoney(z.net)}</span></li>`;
+  }
+
+  const haulLine = document.getElementById("zakat-haul-line");
+  if (haulLine) {
+    if (!z.haul) {
+      haulLine.textContent = "Set a haul start date in Settings → Islamic finance to track the lunar year.";
+    } else if (z.haul.complete) {
+      haulLine.textContent = `Haul complete since ${z.haul.due.toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })}.`;
+    } else {
+      haulLine.textContent = `Haul completes ${z.haul.due.toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })} — ${z.haul.daysLeft} day${z.haul.daysLeft === 1 ? "" : "s"} to go (354-day lunar year).`;
+    }
+  }
+
+  const setVal = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && document.activeElement !== el) el.value = v ? String(v) : "";
+  };
+  setVal("zakat-other-assets", s.otherAssets);
+  setVal("zakat-deductibles", s.deductibles);
+  const inc = document.getElementById("zakat-include-savings");
+  if (inc) inc.checked = s.includeSavings !== false;
+
+  const hist = document.getElementById("zakat-history");
+  if (hist) {
+    hist.innerHTML = (s.history || [])
+      .slice()
+      .sort((a, b) => (a.date < b.date ? 1 : -1))
+      .slice(0, 5)
+      .map((h) => `<li><span>Paid ${escapeHtml(h.date)}</span><span>${fmtMoney(h.amount)}</span></li>`)
+      .join("");
+  }
+}
+
+/* ---------- Shariah settings wiring ---------- */
+
+function renderShariahSettings() {
+  const s = state.shariah || emptyShariah();
+  const toggle = document.getElementById("pref-shariah");
+  if (toggle) toggle.checked = !!s.enabled;
+  const zakatBlock = document.getElementById("zakat-settings");
+  if (zakatBlock) zakatBlock.hidden = !s.enabled;
+  const zakatToggle = document.getElementById("pref-zakat");
+  if (zakatToggle) zakatToggle.checked = !!s.zakatEnabled;
+  const zakatFields = document.getElementById("zakat-settings-fields");
+  if (zakatFields) zakatFields.hidden = !s.zakatEnabled;
+
+  const basis = document.getElementById("zakat-nisab-basis");
+  if (basis && document.activeElement !== basis) basis.value = s.nisabBasis;
+  const show = (id, on) => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = !on;
+  };
+  show("zakat-gold-field", s.nisabBasis === "gold");
+  show("zakat-silver-field", s.nisabBasis === "silver");
+  show("zakat-custom-field", s.nisabBasis === "custom");
+
+  const setVal = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && document.activeElement !== el) el.value = v ? String(v) : "";
+  };
+  setVal("zakat-gold-price", s.goldPrice);
+  setVal("zakat-silver-price", s.silverPrice);
+  setVal("zakat-custom-nisab", s.customNisab);
+  const haul = document.getElementById("zakat-haul-start");
+  if (haul && document.activeElement !== haul) haul.value = s.haulStart || "";
+}
+
+function updateShariah(patch) {
+  state.shariah = coerceShariah({ ...(state.shariah || emptyShariah()), ...patch });
+  save();
+  renderAll();
+}
+
+function bindShariahControls() {
+  const on = (id, evt, fn) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener(evt, fn);
+  };
+  on("pref-shariah", "change", (e) => updateShariah({ enabled: e.target.checked }));
+  on("pref-zakat", "change", (e) => updateShariah({ zakatEnabled: e.target.checked }));
+  on("zakat-nisab-basis", "change", (e) => updateShariah({ nisabBasis: e.target.value }));
+  on("zakat-gold-price", "change", (e) => updateShariah({ goldPrice: Number(e.target.value) || 0 }));
+  on("zakat-silver-price", "change", (e) => updateShariah({ silverPrice: Number(e.target.value) || 0 }));
+  on("zakat-custom-nisab", "change", (e) => updateShariah({ customNisab: Number(e.target.value) || 0 }));
+  on("zakat-haul-start", "change", (e) => updateShariah({ haulStart: e.target.value }));
+  on("zakat-other-assets", "change", (e) => updateShariah({ otherAssets: Number(e.target.value) || 0 }));
+  on("zakat-deductibles", "change", (e) => updateShariah({ deductibles: Number(e.target.value) || 0 }));
+  on("zakat-include-savings", "change", (e) => updateShariah({ includeSavings: e.target.checked }));
+
+  on("btn-zakat-paid", "click", () => {
+    const z = zakatSummary();
+    if (z.due <= 0) {
+      toast("No zakat due yet — you're below nisab.");
+      return;
+    }
+    const date = todayISO();
+    const s = state.shariah || emptyShariah();
+    // Paying resets the haul: the next lunar year starts from this date.
+    updateShariah({
+      history: [...(s.history || []), { id: uid(), date, amount: z.due }],
+      haulStart: date,
+    });
+    // Log it as a real expense so it shows up in cash flow and reports —
+    // zakat is an outflow, not a bookkeeping footnote.
+    state.dailyExpenses.push({
+      id: uid(),
+      createdAt: Date.now(),
+      kind: "expense",
+      date,
+      amount: z.due,
+      category: "Zakat",
+      note: "Zakat on wealth (2.5%)",
+    });
+    save();
+    renderAll();
+    toast(`Zakat recorded: ${fmtMoney(z.due)}`);
+  });
+}
+
+bindShariahControls();
+
 function renderAll() {
   resetEndingBalanceCache();
   resetEffectiveLimitCache();
@@ -2979,6 +3462,9 @@ function renderAll() {
   ensureDebtPool();
   snapshotCurrentMinSum();
   updateCurrencyLabels();
+  applyTerminology();
+  renderShariahDebtPill();
+  renderShariahSettings();
   renderGreeting();
   renderTrialBanner();
   renderDashboard();
@@ -2990,6 +3476,7 @@ function renderAll() {
   renderEmptyWelcome();
   renderDaily();
   renderSavings();
+  renderZakat();
   renderUpcoming();
   renderPending();
   renderReminderPrefs();
@@ -4779,9 +5266,60 @@ function setDebtKind(kind) {
   });
   const stdFields = document.getElementById("debt-fields-standard");
   const instFields = document.getElementById("debt-fields-installment");
+  const islamicFields = document.getElementById("debt-fields-islamic");
   if (stdFields) stdFields.hidden = kind !== "standard";
   if (instFields) instFields.hidden = kind !== "installment";
+  if (islamicFields) islamicFields.hidden = kind !== "islamic";
+  if (kind === "islamic") renderIslamicPreview();
 }
+
+// The Islamic pill only appears once Shariah mode is on — offering a
+// Murabahah option to someone who never asked for it is noise.
+function renderShariahDebtPill() {
+  const pill = document.querySelector('.debt-type-pills .pill[data-debt-kind="islamic"]');
+  if (pill) pill.hidden = !shariahOn();
+  const sel = document.getElementById("debt-contract");
+  if (sel && !sel.options.length) {
+    sel.innerHTML = ISLAMIC_CONTRACTS
+      .map((c) => `<option value="${c.id}">${escapeHtml(c.label)} — ${escapeHtml(c.note)}</option>`)
+      .join("");
+  }
+  // Shariah mode off with an islamic row still selected would strand the form
+  // on hidden fields.
+  if (!shariahOn()) {
+    const hidden = document.getElementById("debt-kind");
+    if (hidden && hidden.value === "islamic") setDebtKind("standard");
+  }
+}
+
+// Live echo of what the contract actually costs, so a user comparing a bank
+// offer against a conventional loan sees the effective rate before saving.
+function renderIslamicPreview() {
+  const el = document.getElementById("islamic-preview");
+  const form = document.getElementById("form-debt");
+  if (!el || !form) return;
+  const f = new FormData(form);
+  const draft = {
+    kind: "islamic",
+    principal: Number(f.get("principal")) || 0,
+    totalProfit: Number(f.get("totalProfit")) || 0,
+    tenureMonths: Math.round(Number(f.get("tenureMonths")) || 0),
+  };
+  if (draft.principal <= 0 || draft.tenureMonths <= 0) {
+    el.textContent = "";
+    return;
+  }
+  const monthly = islamicInstalment(draft);
+  const eff = effectiveProfitRate(draft);
+  el.textContent =
+    `Instalment ${fmtMoney(monthly)}/mo · total payable ${fmtMoney(draft.principal + draft.totalProfit)} · ` +
+    `effective rate ≈ ${fmtPct(eff)} p.a. (comparable to a conventional APR).`;
+}
+
+["principal", "totalProfit", "tenureMonths"].forEach((name) => {
+  const input = document.querySelector(`#debt-fields-islamic [name="${name}"]`);
+  if (input) input.addEventListener("input", renderIslamicPreview);
+});
 
 document.querySelectorAll(".debt-type-pills .pill").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -4803,7 +5341,32 @@ $("#form-debt").addEventListener("submit", (e) => {
   if (state.debts.length >= FREE_DEBT_LIMIT && !gate("debts")) return;
   if (kind === "installment" && !gate("installment")) return;
 
-  if (kind === "installment") {
+  if (kind === "islamic") {
+    const principal = Number(f.get("principal"));
+    const totalProfit = Number(f.get("totalProfit")) || 0;
+    const tenureMonths = Math.round(Number(f.get("tenureMonths")));
+    const monthsPaid = Math.max(0, Math.round(Number(f.get("monthsPaid")) || 0));
+    if (!Number.isFinite(principal) || principal <= 0) return;
+    if (!Number.isFinite(tenureMonths) || tenureMonths < 1) return;
+    if (totalProfit < 0) return;
+    const monthsLeft = Math.max(0, tenureMonths - Math.min(monthsPaid, tenureMonths));
+    // Stored balance is the outstanding PRINCIPAL — the settlement figure
+    // after a full ibra' — so it sums correctly with conventional balances.
+    const balance = +((principal * monthsLeft) / tenureMonths).toFixed(2);
+    state.debts.push({
+      id: uid(),
+      name,
+      balance,
+      apr: 0,
+      minPayment: +islamicInstalment({ principal, totalProfit, tenureMonths }).toFixed(2),
+      dueDay,
+      kind: "islamic",
+      contract: (f.get("contract") || "murabahah").toString(),
+      principal,
+      totalProfit,
+      tenureMonths,
+    });
+  } else if (kind === "installment") {
     const installment = Number(f.get("installment"));
     const monthsLeft = Math.round(Number(f.get("monthsLeft")));
     if (!Number.isFinite(installment) || installment <= 0) return;
@@ -5200,7 +5763,28 @@ function openEditDialog(kind, id) {
     }
   } else if (kind === "debt") {
     const isInstallment = entity.kind === "installment";
-    if (isInstallment) {
+    if (isIslamic(entity)) {
+      const tenure = Number(entity.tenureMonths) || 0;
+      const paid = Math.max(0, tenure - islamicMonthsLeft(entity));
+      editFields.innerHTML = `
+        ${textField("Name", "name", entity.name)}
+        <label class="field">
+          <span>Contract</span>
+          <select name="contract">
+            ${ISLAMIC_CONTRACTS.map((c) =>
+              `<option value="${c.id}"${c.id === entity.contract ? " selected" : ""}>${escapeHtml(c.label)}</option>`).join("")}
+          </select>
+        </label>
+        <div class="grid-3">
+          ${numberField("Financed (RM)", "principal", entity.principal, { step: "0.01", min: "0.01" })}
+          ${numberField("Total profit (RM)", "totalProfit", entity.totalProfit)}
+          ${numberField("Tenure (months)", "tenureMonths", tenure, { step: "1", min: "1", max: "480" })}
+        </div>
+        ${numberField("Months paid", "monthsPaid", paid, { step: "1", min: "0", max: "480" })}
+        ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
+        <p class="hint">Fixed profit, no compounding. Balance shown is outstanding principal — settling today costs that, with the unearned profit rebated as ibra'.</p>
+      `;
+    } else if (isInstallment) {
       const installment = Number(entity.installment) || Number(entity.minPayment) || 0;
       const remMonths = installment > 0 ? Math.max(0, Math.ceil((Number(entity.balance) || 0) / installment)) : 0;
       editFields.innerHTML = `
@@ -5210,14 +5794,14 @@ function openEditDialog(kind, id) {
           ${numberField("Months left", "monthsLeft", remMonths, { step: "1", min: "0", max: "120" })}
         </div>
         ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
-        <p class="hint">Interest-free installment (Atome / SPayLater style). Balance = monthly × months left.</p>
+        <p class="hint">${T("zeroRateHintEdit")}</p>
       `;
     } else {
       editFields.innerHTML = `
         ${textField("Name", "name", entity.name)}
         <div class="grid-3">
           ${numberField("Balance (RM)", "balance", entity.balance)}
-          ${numberField("APR (%)", "apr", entity.apr)}
+          ${numberField(T("rateField"), "apr", entity.apr)}
           ${numberField("Min (RM)", "minPayment", entity.minPayment)}
         </div>
         ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
@@ -5286,7 +5870,25 @@ editForm.addEventListener("submit", (e) => {
     const name = (f.get("name") || "").toString().trim();
     const dueDay = parseDay(f.get("dueDay"));
     if (!name) return;
-    if (it.kind === "installment") {
+    if (isIslamic(it)) {
+      const principal = Number(f.get("principal"));
+      const totalProfit = Number(f.get("totalProfit")) || 0;
+      const tenureMonths = Math.round(Number(f.get("tenureMonths")));
+      const monthsPaid = Math.max(0, Math.round(Number(f.get("monthsPaid")) || 0));
+      if (!Number.isFinite(principal) || principal <= 0) return;
+      if (!Number.isFinite(tenureMonths) || tenureMonths < 1) return;
+      if (totalProfit < 0) return;
+      const monthsLeft = Math.max(0, tenureMonths - Math.min(monthsPaid, tenureMonths));
+      it.name = name;
+      it.contract = (f.get("contract") || it.contract || "murabahah").toString();
+      it.principal = principal;
+      it.totalProfit = totalProfit;
+      it.tenureMonths = tenureMonths;
+      it.balance = +((principal * monthsLeft) / tenureMonths).toFixed(2);
+      it.minPayment = +islamicInstalment(it).toFixed(2);
+      it.apr = 0;
+      it.dueDay = dueDay;
+    } else if (it.kind === "installment") {
       const installment = Number(f.get("installment"));
       const monthsLeft = Math.round(Number(f.get("monthsLeft")));
       if (!Number.isFinite(installment) || installment <= 0) return;
@@ -5452,9 +6054,10 @@ function toCSV() {
     "pool_color", "pool_active", "pool_rollover", "pool_monthly_limits", "pool_system",
     "budget_pool_id", "budget_pool_name",
     "repeat_next",
+    "contract", "principal", "total_profit", "tenure_months",
   ];
   const rows = [HEADER];
-  const W = HEADER.length; // 30
+  const W = HEADER.length;
   const blank = (arr) => arr.concat(Array(W - arr.length).fill(""));
   const fxCols = (fx) => fx
     ? [fx.code || "", fx.amount ?? "", fx.rate ?? "", fx.base || "", fx.fetched_at || ""]
@@ -5469,9 +6072,24 @@ function toCSV() {
   }
   for (const d of state.debts) {
     const isInst = d.kind === "installment";
-    const remMonths = isInst && d.installment ? Math.max(0, Math.ceil((Number(d.balance) || 0) / d.installment)) : "";
+    const remMonths = isInst && d.installment
+      ? Math.max(0, Math.ceil((Number(d.balance) || 0) / d.installment))
+      : isIslamic(d) ? islamicMonthsLeft(d) : "";
     // Debt definition rows do not carry per-payment fx data — leave empty.
-    rows.push(blank(["debt", d.name, "", d.balance, d.apr, d.minPayment, "", "", "", "", "", "", "", "", d.dueDay ?? "", d.kind || "standard", remMonths]));
+    // Islamic rows carry their contract in the trailing columns; `balance` is
+    // the outstanding principal, same as in state.
+    const islamicCols = isIslamic(d)
+      ? [d.contract || "murabahah", d.principal ?? "", d.totalProfit ?? "", d.tenureMonths ?? ""]
+      : ["", "", "", ""];
+    rows.push(blank([
+      "debt", d.name, "", d.balance, d.apr, d.minPayment, "", "", "", "", "", "", "", "",
+      d.dueDay ?? "", d.kind || "standard", remMonths,
+      "", "", "", "", "",
+      "", "", "", "", "",
+      "", "",
+      "",
+      ...islamicCols,
+    ]));
   }
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
@@ -5486,6 +6104,25 @@ function toCSV() {
     rows.push(blank(["saving", g.name, "", "", "", "", "", "", "", "", g.target, g.current]));
   }
   rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
+  // Shariah / zakat preferences. Each is its own `setting` row so an older
+  // build that doesn't know these keys just skips them.
+  {
+    const sh = state.shariah || emptyShariah();
+    const settingRow = (key, value) => rows.push(blank(["setting", key, value]));
+    settingRow("shariahEnabled", sh.enabled ? "Y" : "N");
+    settingRow("zakatEnabled", sh.zakatEnabled ? "Y" : "N");
+    settingRow("zakatNisabBasis", sh.nisabBasis);
+    settingRow("zakatGoldPrice", sh.goldPrice || 0);
+    settingRow("zakatSilverPrice", sh.silverPrice || 0);
+    settingRow("zakatCustomNisab", sh.customNisab || 0);
+    settingRow("zakatOtherAssets", sh.otherAssets || 0);
+    settingRow("zakatDeductibles", sh.deductibles || 0);
+    settingRow("zakatIncludeSavings", sh.includeSavings ? "Y" : "N");
+    settingRow("zakatHaulStart", sh.haulStart || "");
+    for (const h of sh.history || []) {
+      rows.push(blank(["zakat-payment", "", h.amount, "", "", "", h.date]));
+    }
+  }
   // Budget pool rows — name in column 1 ("name"), limit in column 2 ("amount"),
   // remaining pool-specific data in the new pool_* columns at index 22-26.
   for (const p of state.budgetPools) {
@@ -5544,6 +6181,8 @@ function fromCSV(text) {
   const iTarget = idx("target"), iCurrent = idx("current"), iMonth = idx("month"), iDay = idx("day");
   const iDueDay = idx("dueday");
   const iKind = idx("kind"), iMonthsLeft = idx("monthsleft");
+  const iContract = idx("contract"), iPrincipal = idx("principal");
+  const iTotalProfit = idx("total_profit"), iTenureMonths = idx("tenure_months");
   const iFxCode = idx("fx_code");
   const iFxAmount = idx("fx_amount");
   const iFxRate = idx("fx_rate");
@@ -5620,7 +6259,24 @@ function fromCSV(text) {
       const rowDueDay = iDueDay >= 0 ? parseDay(row[iDueDay]) : null;
       const rowKind = iKind >= 0 ? (row[iKind] || "").trim().toLowerCase() : "";
       const rowMonthsLeft = iMonthsLeft >= 0 ? Number(row[iMonthsLeft]) : NaN;
-      if (rowKind === "installment") {
+      if (rowKind === "islamic") {
+        const principal = iPrincipal >= 0 ? Number(row[iPrincipal]) : NaN;
+        const totalProfit = iTotalProfit >= 0 ? Number(row[iTotalProfit]) : NaN;
+        const tenureMonths = iTenureMonths >= 0 ? Math.round(Number(row[iTenureMonths])) : NaN;
+        next.debts.push(coerceDebt({
+          id: uid(),
+          name,
+          balance: Number.isFinite(balance) ? balance : 0,
+          apr: 0,
+          minPayment: Number.isFinite(minPayment) ? minPayment : 0,
+          dueDay: rowDueDay != null ? rowDueDay : rowDay,
+          kind: "islamic",
+          contract: iContract >= 0 ? (row[iContract] || "").trim().toLowerCase() : "murabahah",
+          principal: Number.isFinite(principal) ? principal : 0,
+          totalProfit: Number.isFinite(totalProfit) ? totalProfit : 0,
+          tenureMonths: Number.isFinite(tenureMonths) ? tenureMonths : 0,
+        }));
+      } else if (rowKind === "installment") {
         const inst = Number.isFinite(minPayment) ? minPayment : 0;
         const months = Number.isFinite(rowMonthsLeft) && rowMonthsLeft > 0
           ? Math.round(rowMonthsLeft)
@@ -5724,6 +6380,29 @@ function fromCSV(text) {
       });
     } else if (type === "setting" && name.toLowerCase() === "extramonthly") {
       if (Number.isFinite(amount)) next.extraMonthly = amount;
+    } else if (type === "setting" && ZAKAT_SETTING_KEYS.has(name.toLowerCase())) {
+      // Shariah settings arrive as one row per key. Values ride in the
+      // `amount` column for numbers and the `name`-adjacent amount cell as a
+      // raw string for flags/dates, so read the cell rather than `amount`.
+      const raw = iAmount >= 0 ? (row[iAmount] || "").toString().trim() : "";
+      const yes = raw.toUpperCase() === "Y";
+      switch (name.toLowerCase()) {
+        case "shariahenabled": next.shariah.enabled = yes; break;
+        case "zakatenabled": next.shariah.zakatEnabled = yes; break;
+        case "zakatnisabbasis": next.shariah.nisabBasis = raw; break;
+        case "zakatgoldprice": next.shariah.goldPrice = Number(raw) || 0; break;
+        case "zakatsilverprice": next.shariah.silverPrice = Number(raw) || 0; break;
+        case "zakatcustomnisab": next.shariah.customNisab = Number(raw) || 0; break;
+        case "zakatotherassets": next.shariah.otherAssets = Number(raw) || 0; break;
+        case "zakatdeductibles": next.shariah.deductibles = Number(raw) || 0; break;
+        case "zakatincludesavings": next.shariah.includeSavings = yes; break;
+        case "zakathaulstart": next.shariah.haulStart = raw; break;
+      }
+    } else if (type === "zakat-payment") {
+      const date = iDate >= 0 ? (row[iDate] || "").trim() : "";
+      if (Number.isFinite(amount) && isValidDate(date)) {
+        next.shariah.history.push({ id: uid(), date, amount });
+      }
     } else if (type === "budget-pool" && name) {
       const poolLimit = Number.isFinite(amount) ? amount : 0;
       const color = iPoolColor >= 0 ? (row[iPoolColor] || "").trim() : POOL_COLORS[0];
@@ -5830,6 +6509,10 @@ function fromCSV(text) {
   }
   for (const e of next.dailyExpenses) relink(e);
   for (const x of next.expenses) relink(x);
+
+  // The import writes setting-row values straight onto the object; run them
+  // back through the validator since `state = next` skips coerceState().
+  next.shariah = coerceShariah(next.shariah);
 
   return next;
 }

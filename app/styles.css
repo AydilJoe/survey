@@ -4028,3 +4028,119 @@ html[data-theme="dark"] .guide-spot-dim,
   font-size: 0.82rem;
   padding: 0.4rem 0.6rem;
 }
+
+/* ---------- Islamic finance ---------- */
+
+/* Toggle rows in Settings — the base .field is a stacked label/input column,
+   which reads wrong for a checkbox. */
+.field.toggle-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+.field.toggle-field input[type="checkbox"] {
+  width: auto;
+  flex: none;
+}
+
+/* Contract badge uses the trust-blue accent so an Islamic facility is
+   visually distinct from a BNPL installment (caramel) at a glance. */
+.debt-list li .installment-badge.islamic-badge {
+  background: rgba(74, 107, 143, 0.14);
+  color: var(--accent-cool);
+  border-color: rgba(74, 107, 143, 0.35);
+}
+.debt-list .meta-row.ibra-row {
+  font-size: 0.76rem;
+  color: var(--accent-cool);
+}
+
+.zakat-card .zakat-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0.35rem 0 0.6rem;
+}
+.zakat-card .zakat-hero .label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.zakat-card .zakat-hero strong {
+  font-family: var(--font-serif);
+  font-size: 1.9rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.zakat-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--card-soft);
+  overflow: hidden;
+  border: 0.5px solid var(--line);
+}
+.zakat-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+.zakat-pill {
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.zakat-pill.due {
+  background: rgba(93, 145, 99, 0.16);
+  color: var(--gain);
+  border: 0.5px solid rgba(93, 145, 99, 0.35);
+}
+.zakat-pill.below {
+  background: var(--card-soft);
+  color: var(--muted);
+  border: 0.5px solid var(--line);
+}
+.zakat-pill.warn {
+  background: rgba(200, 112, 75, 0.14);
+  color: var(--primary);
+  border: 0.5px solid rgba(200, 112, 75, 0.4);
+}
+.zakat-breakdown, .zakat-history {
+  list-style: none;
+  padding: 0;
+  margin: 0.6rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.zakat-breakdown li, .zakat-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--ink2);
+}
+.zakat-breakdown li.total {
+  border-top: 0.5px solid var(--line);
+  padding-top: 0.35rem;
+  margin-top: 0.15rem;
+  color: var(--text);
+  font-weight: 600;
+}
+.zakat-history li {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+body.private .zakat-card .zakat-hero strong,
+body.private .zakat-breakdown,
+body.private .zakat-history,
+body.private #zakat-nisab-line {
+  filter: blur(7px);
+  user-select: none;
+  pointer-events: none;
+}
