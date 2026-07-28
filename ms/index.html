@@ -1641,6 +1641,111 @@
     }
     @media (max-width: 720px) { .scroll-hint { display: none; } }
 
+    /* --------------- Interactive avalanche demo --------------- */
+    .demo { background: var(--card-soft); }
+    .demo-card {
+      max-width: 860px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 0.5px solid var(--line);
+      border-radius: 24px;
+      padding: clamp(24px, 4vw, 44px);
+      box-shadow: var(--shadow);
+    }
+    .demo-debts { display: flex; flex-direction: column; gap: 18px; margin-bottom: 28px; }
+    .demo-debt-head {
+      display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+      margin-bottom: 6px;
+    }
+    .demo-debt-name { font-weight: 600; font-size: 15px; }
+    .demo-debt-name .chip-mono { margin-left: 8px; }
+    .demo-debt-paid {
+      font: 500 12px/1 var(--font-mono);
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .demo-track {
+      height: 12px; border-radius: 999px;
+      background: var(--bg);
+      border: 0.5px solid var(--line);
+      overflow: hidden;
+    }
+    .demo-fill {
+      height: 100%; border-radius: 999px;
+      width: 100%;
+      transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .demo-fill.f-card  { background: var(--primary); }
+    .demo-fill.f-isl   { background: var(--accent-4, #4a6b8f); }
+    .demo-fill.f-ptptn { background: var(--accent, #7da062); }
+    .demo-controls { margin: 4px 0 26px; }
+    .demo-controls label {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font: 500 13px/1.4 var(--font-mono);
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .demo-controls output {
+      font: 600 20px/1 var(--font-serif);
+      letter-spacing: -0.01em; text-transform: none; color: var(--ink);
+    }
+    input[type="range"].demo-range {
+      width: 100%; appearance: none; -webkit-appearance: none;
+      height: 8px; border-radius: 999px;
+      background: linear-gradient(to right, var(--primary) var(--pct, 20%), var(--bg) var(--pct, 20%));
+      border: 0.5px solid var(--line);
+      outline-offset: 4px;
+      cursor: ew-resize;
+    }
+    input[type="range"].demo-range::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--card);
+      border: 2px solid var(--primary);
+      box-shadow: 0 2px 8px rgba(42,36,32,0.18);
+      cursor: grab;
+    }
+    input[type="range"].demo-range:active::-webkit-slider-thumb { cursor: grabbing; transform: scale(1.12); }
+    input[type="range"].demo-range::-moz-range-thumb {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--card); border: 2px solid var(--primary);
+      box-shadow: 0 2px 8px rgba(42,36,32,0.18); cursor: grab;
+    }
+    .demo-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+      border-top: 0.5px solid var(--line); padding-top: 22px; margin-bottom: 18px;
+    }
+    .demo-stats .label {
+      display: block;
+      font: 500 11px/1.4 var(--font-mono);
+      letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .demo-stats strong {
+      display: block;
+      font: 500 clamp(20px, 2.6vw, 28px)/1.1 var(--font-serif);
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+    .demo-delta {
+      display: block; margin-top: 4px;
+      font-size: 12.5px; color: var(--accent-ink, #3a6b50);
+      min-height: 1.2em;
+    }
+    .demo-note { font-size: 13px; color: var(--muted); line-height: 1.6; margin: 0 0 20px; }
+    @media (max-width: 560px) {
+      .demo-debt-head { flex-direction: column; align-items: flex-start; gap: 3px; }
+      .demo-debt-name { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+      .demo-debt-name .chip-mono { margin-left: 0; }
+      .demo-debt-paid { font-size: 11px; }
+    }
+    @media (max-width: 640px) {
+      .demo-stats { grid-template-columns: 1fr; gap: 14px; }
+      .demo-stats strong { display: inline; margin-right: 8px; }
+      .demo-stats .label { margin-bottom: 2px; }
+    }
+
     /* --------------- Scroll reveal --------------- */
     .reveal {
       opacity: 0;
@@ -1721,6 +1826,7 @@
     </a>
     <div class="nav-links" role="navigation">
       <a href="#features">Ciri</a>
+      <a href="#demo">Demo</a>
       <a href="#devices">Peranti</a>
       <a href="#privacy">Privasi</a>
       <a href="#pricing">Harga</a>
@@ -1919,12 +2025,75 @@
 
         <div class="feature reveal">
           <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 5 5.6.8-4 3.9 1 5.5L12 14.5 7 17.2l1-5.5L4 7.8 9.6 7z"/></svg>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 5.5a7 7 0 100 13 8 8 0 110-13z"/><path d="M19.5 9l.6 1.7 1.8.1-1.4 1.2.5 1.7-1.5-1-1.5 1 .5-1.7-1.4-1.2 1.8-.1z"/></svg>
           </div>
-          <h3>Pro bayar sekali</h3>
-          <p>Bayar RM 19.90 sekali sahaja dan buka semua ciri untuk selamanya. Tahap percuma kekal selamanya. Tiada percubaan, tiada e-mel pembaharuan.</p>
-          <span class="chip-mono">Seumur hidup · tanpa langganan</span>
+          <h3>Pembiayaan Islamik &amp; zakat</h3>
+          <p>Murabahah, Tawarruq, AITAB — dijejak sebagai untung tetap dengan anggaran ibra', disusun secara adil bersama hutang konvensional. Penjejak zakat pilihan dengan nisab dan haul.</p>
+          <span class="chip-mono">Percuma · untuk semua</span>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= INTERACTIVE DEMO ======================= -->
+  <section class="block demo" id="demo">
+    <div class="container">
+      <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
+        <span class="eyebrow">Cuba kiraannya</span>
+        <h2>Seret slider. Tengok hutang <em style="font-style:italic; color:var(--primary)">cair</em>.</h2>
+        <p style="margin-left:auto; margin-right:auto;">Ini unjuran avalanche sebenar app, berjalan di sini — tiga hutang tipikal Malaysia, termasuk pembiayaan Islamik yang untungnya berhenti hari korang selesaikan. Setiap ringgit tambahan pergi ke hutang paling mahal dulu.</p>
+      </div>
+
+      <div class="demo-card reveal">
+        <div class="demo-debts">
+          <div class="demo-debt">
+            <div class="demo-debt-head">
+              <span class="demo-debt-name">Kad kredit<span class="chip-mono">18% APR</span></span>
+              <span class="demo-debt-paid" data-demo-paid="card">—</span>
+            </div>
+            <div class="demo-track"><div class="demo-fill f-card" data-demo-fill="card"></div></div>
+          </div>
+          <div class="demo-debt">
+            <div class="demo-debt-head">
+              <span class="demo-debt-name">Pembiayaan peribadi Tawarruq<span class="chip-mono">4.8% rata ≈ 9.44% efektif</span></span>
+              <span class="demo-debt-paid" data-demo-paid="isl">—</span>
+            </div>
+            <div class="demo-track"><div class="demo-fill f-isl" data-demo-fill="isl"></div></div>
+          </div>
+          <div class="demo-debt">
+            <div class="demo-debt-head">
+              <span class="demo-debt-name">PTPTN<span class="chip-mono">1% ujrah</span></span>
+              <span class="demo-debt-paid" data-demo-paid="ptptn">—</span>
+            </div>
+            <div class="demo-track"><div class="demo-fill f-ptptn" data-demo-fill="ptptn"></div></div>
+          </div>
+        </div>
+
+        <div class="demo-controls">
+          <label for="demo-extra">Bayaran tambahan setiap bulan <output id="demo-extra-out">RM 200</output></label>
+          <input type="range" class="demo-range" id="demo-extra" min="0" max="1000" step="50" value="200" aria-label="Bayaran tambahan bulanan dalam ringgit" />
+        </div>
+
+        <div class="demo-stats">
+          <div>
+            <span class="label">Bebas hutang menjelang</span>
+            <strong id="demo-date">—</strong>
+            <span class="demo-delta" id="demo-months-saved"></span>
+          </div>
+          <div>
+            <span class="label">Faedah + untung dibayar</span>
+            <strong id="demo-cost">—</strong>
+            <span class="demo-delta" id="demo-cost-saved"></span>
+          </div>
+          <div>
+            <span class="label">Ibra' diperoleh atas Tawarruq</span>
+            <strong id="demo-ibra">—</strong>
+            <span class="demo-delta" id="demo-ibra-note"></span>
+          </div>
+        </div>
+
+        <p class="demo-note">Praandaian: Kad RM 8,000 pada 18% APR (min RM 240) · Tawarruq RM 20,000, untung kontrak RM 4,800 selama 60 bulan (RM 413/bln) · PTPTN RM 15,000 pada 1% ujrah (RM 150/bln). App jalankan kiraan yang sama atas nombor sebenar korang — dalam telefon, tersulit.</p>
+        <a class="btn btn-primary" href="/app/">Jalankan atas hutang korang sendiri</a>
       </div>
     </div>
   </section>
@@ -2402,6 +2571,122 @@
       });
       card.addEventListener('mouseleave', () => { card.style.transform = ''; });
     });
+  })();
+
+  // ---------- Interactive avalanche demo ----------
+  // The same maths the app runs: conventional interest compounds on the
+  // balance; Islamic profit accrues in fixed slices capped at the contracted
+  // total, and stops when the principal clears (ibra'). Ranking is by
+  // effective rate, so the 4.8%-flat Tawarruq queues at ~9.44%.
+  (function () {
+    const extraInput = document.getElementById('demo-extra');
+    if (!extraInput) return;
+
+    const DEBTS = [
+      { id: 'card',  bal: 8000,  apr: 18, min: 240,    rate: 18 },
+      { id: 'isl',   bal: 20000, profitTotal: 4800, tenure: 60, min: 413.33, rate: 9.44, islamic: true },
+      { id: 'ptptn', bal: 15000, apr: 1,  min: 150,    rate: 1 },
+    ];
+
+    function sim(extra) {
+      const ds = DEBTS.map((d) => ({ ...d, profitLeft: d.islamic ? d.profitTotal : Infinity, paidAt: 0 }));
+      let months = 0;
+      let cost = 0;
+      let islProfit = 0;
+      while (ds.some((d) => d.bal > 0.005) && months < 600) {
+        months++;
+        for (const d of ds) {
+          if (d.bal <= 0) continue;
+          const c = d.islamic ? Math.min(d.profitTotal / d.tenure, d.profitLeft) : d.bal * d.apr / 1200;
+          if (d.islamic) { d.profitLeft -= c; islProfit += c; }
+          d.bal += c;
+          cost += c;
+        }
+        let pool = ds.reduce((sum, d) => sum + (d.bal > 0 ? d.min : 0), 0) + extra;
+        const active = ds.filter((d) => d.bal > 0).sort((a, b) => b.rate - a.rate);
+        for (let i = 1; i < active.length; i++) {
+          const d = active[i];
+          const pay = Math.min(d.min, d.bal, pool);
+          d.bal -= pay; pool -= pay;
+          if (d.bal <= 0.005) { d.bal = 0; d.paidAt = months; }
+        }
+        while (pool > 0.005) {
+          const t = ds.filter((d) => d.bal > 0).sort((a, b) => b.rate - a.rate)[0];
+          if (!t) break;
+          const pay = Math.min(pool, t.bal);
+          t.bal -= pay; pool -= pay;
+          if (t.bal <= 0.005) { t.bal = 0; t.paidAt = months; }
+        }
+      }
+      const paidAt = {};
+      ds.forEach((d) => { paidAt[d.id] = d.paidAt || months; });
+      return { months, cost, islProfit, paidAt };
+    }
+
+    const base = sim(0);
+    const fmtRM = (n) => 'RM ' + Math.round(n).toLocaleString('ms-MY');
+    const monthName = (offset) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + offset);
+      return d.toLocaleDateString('ms-MY', { month: 'short', year: 'numeric' });
+    };
+
+    // Tween displayed money values so drags feel continuous, not steppy.
+    const tweens = {};
+    function tweenText(el, target, fmt) {
+      const from = tweens[el.id] != null ? tweens[el.id] : target;
+      const start = performance.now();
+      const DUR = 380;
+      cancelAnimationFrame(el._raf);
+      function step(now) {
+        const t = Math.min(1, (now - start) / DUR);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const v = from + (target - from) * eased;
+        el.textContent = fmt(v);
+        if (t < 1) el._raf = requestAnimationFrame(step);
+      }
+      el._raf = requestAnimationFrame(step);
+      tweens[el.id] = target;
+    }
+
+    const els = {
+      out: document.getElementById('demo-extra-out'),
+      date: document.getElementById('demo-date'),
+      monthsSaved: document.getElementById('demo-months-saved'),
+      cost: document.getElementById('demo-cost'),
+      costSaved: document.getElementById('demo-cost-saved'),
+      ibra: document.getElementById('demo-ibra'),
+      ibraNote: document.getElementById('demo-ibra-note'),
+    };
+
+    function update() {
+      const extra = Number(extraInput.value) || 0;
+      extraInput.style.setProperty('--pct', (extra / Number(extraInput.max) * 100) + '%');
+      els.out.textContent = 'RM ' + extra.toLocaleString('ms-MY');
+
+      const r = sim(extra);
+      els.date.textContent = monthName(r.months);
+      const mSaved = base.months - r.months;
+      els.monthsSaved.textContent = mSaved > 0
+        ? mSaved + ' bulan lebih awal'
+        : 'bayar minimum sahaja';
+      tweenText(els.cost, r.cost, fmtRM);
+      const saved = base.cost - r.cost;
+      els.costSaved.textContent = saved > 0.5 ? fmtRM(saved) + ' dijimatkan' : '\u00a0';
+      const ibra = DEBTS[1].profitTotal - r.islProfit;
+      tweenText(els.ibra, ibra, fmtRM);
+      els.ibraNote.textContent = ibra > 0.5 ? 'untung belum diperoleh, direbat' : 'untung penuh berjalan';
+
+      for (const [id, m] of Object.entries(r.paidAt)) {
+        const fill = document.querySelector('[data-demo-fill="' + id + '"]');
+        const label = document.querySelector('[data-demo-paid="' + id + '"]');
+        if (fill) fill.style.width = Math.max(6, m / base.months * 100).toFixed(1) + '%';
+        if (label) label.textContent = 'langsai ' + monthName(m);
+      }
+    }
+
+    extraInput.addEventListener('input', update);
+    update();
   })();
 </script>
 
