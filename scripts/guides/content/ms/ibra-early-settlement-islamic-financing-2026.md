@@ -9,11 +9,12 @@ eyebrow: Panduan · Kewangan Islam · Hutang
 h1: Rebat yang tersorok dalam <em>pembiayaan Islamik</em> korang.
 lede: Penyata korang tunjuk baki tertunggak jauh lebih besar daripada apa yang korang sebenarnya kena bayar untuk lepas hari ni. Jurang tu ialah untung belum diperoleh, dan ibra' ialah rebat yang batalkannya. Ramai tak pernah kira — jadi tak pernah nampak berapa berbaloinya bayar awal.
 date_published: 2026-07-27
+date_modified: 2026-07-28
 breadcrumb_name: Ibra' dan penyelesaian awal
 card_title: Ibra' — berapa sebenarnya penyelesaian awal jimat
 card_blurb: Harga jualan tertunggak bukan angka penyelesaian. Ini jurangnya, kenapa ia wujud, dan macam mana nak rancang.
 cta_title: Tengok angka penyelesaian sebenar korang
-cta_body: Mod Syariah Duitful jejak pembiayaan Islamik atas pokok tertunggak dan anggar ibra' korang sambil jalan. Percuma, dalam telefon korang, tiada akaun.
+cta_body: Duitful jejak pembiayaan Islamik atas pokok tertunggak dan anggar ibra' korang sambil jalan. Percuma untuk semua, dalam telefon korang, tiada akaun.
 cta_label: Buka Duitful
 ---
 
@@ -118,8 +119,8 @@ title: Apa yang betul-betul jalan
 Yang betul: tukar kepada kadar efektif dan susun barisan atas dasar tu. Perancang bayar hutang Duitful buat ni automatik sekarang — kemudahan Islamik disusun atas kadar untung efektif, dan simulator model untung yang berhenti terakru bila pokok habis. Jadi percepatan muncul sebagai jimatan sebenar dalam unjuran, bukan langsung tiada perubahan.
 
 :::steps
-title: Hidupkan Mod Syariah
-text: Tetapan → Kewangan Islam. Percuma semua tier. Ia buka jenis hutang Islamik; setiap hutang kemudian dilabel ikut kontraknya sendiri, jadi kemudahan Islamik dan kad konvensional dibaca betul dalam senarai yang sama.
+title: Pilih jenis hutang Islamik
+text: Dalam tab Hutang, pilih Islamik — ia ada sebelah Standard dan Installment untuk semua orang, tiada tetapan perlu dihidupkan. Setiap hutang dilabel ikut kontraknya sendiri, jadi kemudahan Islamik dan kad konvensional dibaca betul dalam senarai yang sama.
 ---
 title: Masukkan kemudahan macam dalam kontrak korang
 text: Jumlah dibiayai, jumlah untung, tempoh dalam bulan, dan berapa bulan dah bayar. Keempat-empatnya ada dalam surat tawaran atau penyata pertama.

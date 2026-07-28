@@ -727,6 +727,25 @@
           </form>
         </div>
 
+        <div class="card">
+          <h2>Goals</h2>
+          <div id="savings-search-row" class="list-search-row" hidden>
+            <input
+              type="search"
+              class="list-search"
+              data-search="savings"
+              placeholder="Search savings goals..."
+              aria-label="Search savings goals"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
+            />
+            <button type="button" class="list-search-clear" data-search-clear="savings" hidden aria-label="Clear search">✕</button>
+          </div>
+          <div id="savings-list" class="savings-list"></div>
+        </div>
+
         <div class="card zakat-card" id="zakat-card" hidden>
           <div class="card-head">
             <h2>Zakat on wealth</h2>
@@ -743,6 +762,40 @@
             <div class="zakat-bar-fill" id="zakat-bar-fill" style="width:0%"></div>
           </div>
           <p class="hint" id="zakat-nisab-line"></p>
+
+          <details id="zakat-nisab-details" class="zakat-nisab-details">
+            <summary>Nisab &amp; haul settings</summary>
+            <label class="field">
+              <span>Nisab basis</span>
+              <select id="zakat-nisab-basis">
+                <option value="gold">Gold — 85 g</option>
+                <option value="silver">Silver — 595 g</option>
+                <option value="custom">Custom amount (from your state zakat authority)</option>
+              </select>
+            </label>
+            <div class="grid-2">
+              <label class="field" id="zakat-gold-field">
+                <span>Gold price (<span class="cur-code">MYR</span>/gram)</span>
+                <input type="number" id="zakat-gold-price" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 480" />
+              </label>
+              <label class="field" id="zakat-silver-field" hidden>
+                <span>Silver price (<span class="cur-code">MYR</span>/gram)</span>
+                <input type="number" id="zakat-silver-price" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 5.20" />
+              </label>
+              <label class="field" id="zakat-custom-field" hidden>
+                <span>Nisab (<span class="cur-code">MYR</span>)</span>
+                <input type="number" id="zakat-custom-nisab" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 32000" />
+              </label>
+              <label class="field">
+                <span>Haul started</span>
+                <input type="date" id="zakat-haul-start" />
+              </label>
+            </div>
+            <p class="hint">
+              Nisab weights are fixed by fiqh; only the metal price changes. Check today's price with
+              your state authority (LZS, PPZ-MAIWP, LZNK…) — they publish it, and it moves.
+            </p>
+          </details>
 
           <ul class="zakat-breakdown" id="zakat-breakdown"></ul>
 
@@ -765,6 +818,7 @@
 
           <div class="button-row">
             <button type="button" class="primary" id="btn-zakat-paid">Mark zakat paid</button>
+            <button type="button" class="ghost" id="btn-zakat-disable">Stop tracking</button>
           </div>
           <ul class="zakat-history" id="zakat-history"></ul>
           <p class="hint">
@@ -773,23 +827,11 @@
           </p>
         </div>
 
-        <div class="card">
-          <h2>Goals</h2>
-          <div id="savings-search-row" class="list-search-row" hidden>
-            <input
-              type="search"
-              class="list-search"
-              data-search="savings"
-              placeholder="Search savings goals..."
-              aria-label="Search savings goals"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-            />
-            <button type="button" class="list-search-clear" data-search-clear="savings" hidden aria-label="Clear search">✕</button>
+        <div class="card zakat-optin" id="zakat-optin" hidden>
+          <div class="zakat-optin-row">
+            <p class="hint">Pay zakat? Duitful can track your nisab, haul and the 2.5% — optional, computed on your device.</p>
+            <button type="button" class="ghost" id="btn-zakat-enable">Set up zakat tracking</button>
           </div>
-          <div id="savings-list" class="savings-list"></div>
         </div>
       </section>
 
@@ -880,59 +922,6 @@
             <button type="button" class="pill" data-theme-choice="system" role="radio" aria-checked="false">System</button>
             <button type="button" class="pill" data-theme-choice="light" role="radio" aria-checked="false">Light</button>
             <button type="button" class="pill" data-theme-choice="dark" role="radio" aria-checked="false">Dark</button>
-          </div>
-        </div>
-
-        <div class="card" id="shariah-card">
-          <h2>Islamic finance</h2>
-          <label class="field toggle-field">
-            <input type="checkbox" id="pref-shariah" />
-            <span>Shariah mode</span>
-          </label>
-          <p class="hint">
-            Unlocks the <strong>Islamic</strong> debt type (Murabahah, Tawarruq, BBA, AITAB, Ijarah,
-            Musharakah Mutanaqisah), which uses fixed, non-compounding profit and estimates your
-            ibra' on early settlement. Each debt is labelled by its own contract — Islamic rows say
-            “profit rate”, conventional rows keep saying APR — so a mixed portfolio reads honestly.
-          </p>
-
-          <div id="zakat-settings" hidden>
-            <label class="field toggle-field">
-              <input type="checkbox" id="pref-zakat" />
-              <span>Track zakat on wealth (zakat harta)</span>
-            </label>
-            <div id="zakat-settings-fields" hidden>
-              <label class="field">
-                <span>Nisab basis</span>
-                <select id="zakat-nisab-basis">
-                  <option value="gold">Gold — 85 g</option>
-                  <option value="silver">Silver — 595 g</option>
-                  <option value="custom">Custom amount (from your state zakat authority)</option>
-                </select>
-              </label>
-              <div class="grid-2">
-                <label class="field" id="zakat-gold-field">
-                  <span>Gold price (<span class="cur-code">MYR</span>/gram)</span>
-                  <input type="number" id="zakat-gold-price" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 480" />
-                </label>
-                <label class="field" id="zakat-silver-field" hidden>
-                  <span>Silver price (<span class="cur-code">MYR</span>/gram)</span>
-                  <input type="number" id="zakat-silver-price" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 5.20" />
-                </label>
-                <label class="field" id="zakat-custom-field" hidden>
-                  <span>Nisab (<span class="cur-code">MYR</span>)</span>
-                  <input type="number" id="zakat-custom-nisab" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 32000" />
-                </label>
-                <label class="field">
-                  <span>Haul started</span>
-                  <input type="date" id="zakat-haul-start" />
-                </label>
-              </div>
-              <p class="hint">
-                Nisab weights are fixed by fiqh; only the metal price changes. Check today's price with
-                your state authority (LZS, PPZ-MAIWP, LZNK…) — they publish it, and it moves.
-              </p>
-            </div>
           </div>
         </div>
 
