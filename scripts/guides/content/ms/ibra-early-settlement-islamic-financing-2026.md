@@ -119,7 +119,7 @@ Yang betul: tukar kepada kadar efektif dan susun barisan atas dasar tu. Perancan
 
 :::steps
 title: Hidupkan Mod Syariah
-text: Tetapan → Kewangan Islam. Percuma semua tier. Ia buka jenis hutang Islamik dan tukar label app untuk kontrak Islamik.
+text: Tetapan → Kewangan Islam. Percuma semua tier. Ia buka jenis hutang Islamik; setiap hutang kemudian dilabel ikut kontraknya sendiri, jadi kemudahan Islamik dan kad konvensional dibaca betul dalam senarai yang sama.
 ---
 title: Masukkan kemudahan macam dalam kontrak korang
 text: Jumlah dibiayai, jumlah untung, tempoh dalam bulan, dan berapa bulan dah bayar. Keempat-empatnya ada dalam surat tawaran atau penyata pertama.

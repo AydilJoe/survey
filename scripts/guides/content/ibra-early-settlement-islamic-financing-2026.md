@@ -119,7 +119,7 @@ The correct move is to convert to an effective rate and queue on that. Duitful's
 
 :::steps
 title: Turn on Shariah mode
-text: Settings → Islamic finance. Free on every tier. This unlocks the Islamic debt type and relabels the app for Islamic contracts.
+text: Settings → Islamic finance. Free on every tier. Unlocks the Islamic debt type; each debt is then labelled by its own contract, so an Islamic facility and a conventional card read correctly in the same list.
 ---
 title: Add the facility as it appears in your contract
 text: Financed amount, total profit, tenure in months, and how many months you've already paid. All four are on your offer letter or first statement.

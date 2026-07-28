@@ -142,6 +142,18 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-8-1">
+    <span class="release-date">July 2026 · v1.8.1</span>
+    <h2 class="release-title">Every debt speaks its own contract</h2>
+    <p class="release-summary">v1.8 swapped the whole app's vocabulary when you turned Shariah mode on, which meant a conventional credit card sitting next to a Tawarruq facility got labelled “Rate 18.00%” instead of “APR 18.00%”. That card charges interest, and softening the word to make one list read consistently misdescribed the contract you actually signed. Labels are now chosen per debt.</p>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Conventional debts keep saying APR</strong> — even with Shariah mode on, and even in the same list as an Islamic facility. Your credit card row reads “APR 18.00%”, your Tawarruq reads “Profit rate 9.44% eff.”, and the payoff queue shows both side by side. The add-debt form and edit dialog follow the same rule.</li>
+      <li><span class="tag feat">new</span><strong>Portfolio totals blend when you hold both</strong> — “Total interest” if all your debts are conventional, “Total profit charged” if all are Islamic, and “Total interest + profit” with a “weighted rate” when you have a mix. Decided by what you actually hold, not by the toggle — so if Shariah mode is on but your only debt is a credit card, Duitful says interest, because that's what you're paying.</li>
+      <li><span class="tag note">note</span><strong>The toggle does less than it used to</strong> — it unlocks the Islamic debt type and the zakat tracker. It no longer changes wording for debts that aren't Islamic. Existing Islamic debts stay fully editable with the mode switched off; only the option to add a new one is hidden.</li>
+      <li><span class="tag fix">fix</span><strong>Docs corrected</strong> — the v1.8 notes, guides and machine-readable summary all described the old app-wide relabelling. Updated to match how it actually behaves.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-8">
     <span class="release-date">July 2026 · v1.8</span>
     <h2 class="release-title">Shariah mode — Islamic financing and zakat, free for everyone</h2>

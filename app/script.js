@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.8.0";
+const APP_VERSION = "1.8.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1346,32 +1346,37 @@ const fmtPct = (n) => `${(Number(n) || 0).toFixed(2)}%`;
 // interest accruing on a balance, there is a profit that was agreed at
 // signing. Shariah mode swaps the whole vocabulary rather than only the
 // Islamic rows, so the app reads consistently for a user who has both kinds.
+// Vocabulary is chosen PER ROW, not per user: a conventional card sitting in
+// the same list as a Tawarruq facility must still say APR, because that is
+// what its own contract says. Only the portfolio-level aggregates — which sum
+// across both — need a blended voice, and `mixed` supplies it.
 const TERMS = {
   conventional: {
-    rate: "APR",
     rateField: "APR (%)",
     rateShort: "APR",
     weightedRate: "weighted APR",
-    interest: "interest",
     totalInterest: "Total interest",
-    zeroRateHint: "Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left.",
-    zeroRateHintEdit: "Interest-free installment (Atome / SPayLater style). Balance = monthly × months left.",
     stallNoun: "interest",
     belowRate: "payments below interest — debt growing",
     unreachable: "Payments too low to cover interest — debt-free date unreachable.",
   },
-  shariah: {
-    rate: "Profit rate",
+  islamic: {
     rateField: "Profit rate (%)",
-    rateShort: "Rate",
-    weightedRate: "weighted rate",
-    interest: "profit charges",
+    rateShort: "Profit rate",
+    weightedRate: "weighted profit rate",
     totalInterest: "Total profit charged",
-    zeroRateHint: "Assumes no profit charge (typical for Atome, SPayLater). The total balance is monthly × months left.",
-    zeroRateHintEdit: "Profit-free installment (Atome / SPayLater style). Balance = monthly × months left.",
     stallNoun: "profit charges",
     belowRate: "payments below profit charges — debt growing",
     unreachable: "Payments too low to cover profit charges — debt-free date unreachable.",
+  },
+  mixed: {
+    rateField: "Rate (%)",
+    rateShort: "Rate",
+    weightedRate: "weighted rate",
+    totalInterest: "Total interest + profit",
+    stallNoun: "interest and profit charges",
+    belowRate: "payments below interest and profit — debt growing",
+    unreachable: "Payments too low to cover interest and profit charges — debt-free date unreachable.",
   },
 };
 
@@ -1379,8 +1384,33 @@ function shariahOn() {
   return !!(state.shariah && state.shariah.enabled);
 }
 
+// Which vocabulary the portfolio-level figures use. Decided by what the user
+// actually holds, not by the mode toggle — a Shariah-mode user whose only debt
+// is a credit card is still paying interest, and should be told so.
+// BNPL instalments carry no charge of either kind, so they get no vote.
+function portfolioVoice() {
+  let islamic = 0;
+  let conventional = 0;
+  for (const d of state.debts || []) {
+    if (isIslamic(d)) islamic++;
+    else if (d.kind !== "installment") conventional++;
+  }
+  if (islamic && conventional) return "mixed";
+  if (islamic) return "islamic";
+  if (conventional) return "conventional";
+  // Nothing to infer from — fall back to the user's declared preference.
+  return shariahOn() ? "islamic" : "conventional";
+}
+
+// Portfolio-level label (totals, weighted rate, stall warnings).
 function T(key) {
-  const set = TERMS[shariahOn() ? "shariah" : "conventional"];
+  const set = TERMS[portfolioVoice()];
+  return set[key] ?? TERMS.conventional[key] ?? "";
+}
+
+// Per-row label — driven by the row's own contract, never by the mode.
+function rowTerm(debt, key) {
+  const set = isIslamic(debt) ? TERMS.islamic : TERMS.conventional;
   return set[key] ?? TERMS.conventional[key] ?? "";
 }
 
@@ -2293,7 +2323,7 @@ function renderDebts() {
           ? (needsSetup
               ? `<div class="meta-row"><span class="needs-setup-note">Tap ✎ to set monthly + months</span></div>`
               : `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMoney(installment)}/mo</span></div>`)
-          : `<div class="meta-row"><span>${T("rateShort")} ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
+          : `<div class="meta-row"><span>${rowTerm(d, "rateShort")} ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
       // The headline figure for an Islamic row is the outstanding principal —
       // i.e. what settling today actually costs. Spell out the ibra' so the
       // number reconciles against the bank statement, which shows the higher
@@ -2588,7 +2618,7 @@ function renderDashboard() {
         <li>
           <span class="debt-info">
             <div class="debt-name">${escapeHtml(d.name)}</div>
-            <div class="debt-detail">${d.islamic ? "Profit rate" : T("rateShort")} ${fmtPct(d.rate)}${d.islamic ? " eff." : ""}</div>
+            <div class="debt-detail">${d.islamic ? TERMS.islamic.rateShort : TERMS.conventional.rateShort} ${fmtPct(d.rate)}${d.islamic ? " eff." : ""}</div>
           </span>
           <span class="payoff-eta">${etaLabel}</span>
         </li>`;
@@ -5794,14 +5824,14 @@ function openEditDialog(kind, id) {
           ${numberField("Months left", "monthsLeft", remMonths, { step: "1", min: "0", max: "120" })}
         </div>
         ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
-        <p class="hint">${T("zeroRateHintEdit")}</p>
+        <p class="hint">Interest-free installment (Atome / SPayLater style). Balance = monthly × months left.</p>
       `;
     } else {
       editFields.innerHTML = `
         ${textField("Name", "name", entity.name)}
         <div class="grid-3">
           ${numberField("Balance (RM)", "balance", entity.balance)}
-          ${numberField(T("rateField"), "apr", entity.apr)}
+          ${numberField(TERMS.conventional.rateField, "apr", entity.apr)}
           ${numberField("Min (RM)", "minPayment", entity.minPayment)}
         </div>
         ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
@@ -7220,6 +7250,10 @@ const RELEASE_NOTES = {
     "<strong>Islamic financing debts</strong> — track Murabahah, Tawarruq, BBA, AITAB, Ijarah and Musharakah Mutanaqisah. Profit is fixed at signing and never compounds, and the balance shown is what settling today costs, with your ibra' beside it.",
     "<strong>Smarter payoff queue</strong> — an Islamic facility has no APR but isn't free. Duitful ranks it on its effective profit rate, so a 4.8% flat facility correctly queues ahead of an 8% card.",
     "<strong>Zakat on wealth</strong> — a zakat card on Savings: nisab from gold, silver or your state authority's figure, your zakatable base, 2.5%, and a 354-day haul countdown. Free, and an estimate for planning rather than a ruling.",
+  ],
+  "1.8.1": [
+    "<strong>Every debt speaks its own contract</strong> — a conventional card now keeps saying APR even with Shariah mode on, right next to an Islamic facility showing its profit rate. v1.8 relabelled everything, which misdescribed debts that do charge interest.",
+    "<strong>Totals blend when you hold both</strong> — \"Total interest + profit\" with a weighted rate, decided by what you actually hold rather than by the toggle.",
   ],
 };
 

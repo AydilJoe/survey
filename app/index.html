@@ -625,7 +625,7 @@
                   <input type="number" name="balance" step="0.01" min="0" inputmode="decimal" />
                 </label>
                 <label class="field">
-                  <span data-term="rateField">APR (%)</span>
+                  <span>APR (%)</span>
                   <input type="number" name="apr" step="0.01" min="0" inputmode="decimal" />
                 </label>
                 <label class="field">
@@ -646,7 +646,7 @@
                   <input type="number" name="monthsLeft" step="1" min="1" max="120" inputmode="numeric" placeholder="3" />
                 </label>
               </div>
-              <p class="hint" data-term="zeroRateHint">Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left.</p>
+              <p class="hint">Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left.</p>
             </div>
 
             <div id="debt-fields-islamic" class="debt-fields" hidden>
@@ -890,10 +890,10 @@
             <span>Shariah mode</span>
           </label>
           <p class="hint">
-            Relabels the app for Islamic contracts — “profit rate” instead of APR, “profit charges”
-            instead of interest — and unlocks the <strong>Islamic</strong> debt type
-            (Murabahah, Tawarruq, BBA, AITAB, Ijarah, Musharakah Mutanaqisah), which uses fixed,
-            non-compounding profit and estimates your ibra' on early settlement.
+            Unlocks the <strong>Islamic</strong> debt type (Murabahah, Tawarruq, BBA, AITAB, Ijarah,
+            Musharakah Mutanaqisah), which uses fixed, non-compounding profit and estimates your
+            ibra' on early settlement. Each debt is labelled by its own contract — Islamic rows say
+            “profit rate”, conventional rows keep saying APR — so a mixed portfolio reads honestly.
           </p>
 
           <div id="zakat-settings" hidden>

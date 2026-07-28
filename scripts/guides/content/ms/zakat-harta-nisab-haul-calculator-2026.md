@@ -113,7 +113,7 @@ Sebab utama orang kelam-kabut: zakat dikira pada satu tarikh tapi bergantung pad
 
 :::steps
 title: Hidupkan Mod Syariah
-text: Tetapan → Kewangan Islam → Mod Syariah. Ia juga tukar label app untuk kontrak Islamik ("kadar untung" ganti APR) dan buka jenis hutang Pembiayaan Islamik. Percuma, semua tier.
+text: Tetapan → Kewangan Islam → Mod Syariah. Buka penjejak zakat dan jenis hutang Pembiayaan Islamik. Setiap hutang kekal dengan istilah kontraknya sendiri — baris Islamik sebut "kadar untung", baris konvensional masih sebut APR. Percuma, semua tier.
 ---
 title: Set penanda aras nisab dan harga logam hari ini
 text: Pilih emas, perak, atau masuk terus angka nisab yang diwarta pihak berkuasa negeri korang. LZS, PPZ-MAIWP dan LZNK semua warta angka semasa — ia bergerak, jadi semak beberapa kali setahun.

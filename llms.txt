@@ -41,10 +41,12 @@
   FX from the open-source @fawazahmed0/exchange-api.
 - **CSV import / export**: Monarch, YNAB, Money Lover, generic Malaysian
   bank-statement CSVs. Manual column-mapping when needed.
-- **Shariah mode** (free, all tiers): relabels the app for Islamic
-  contracts ("profit rate" not APR, "profit charges" not interest) and
-  adds an Islamic financing debt type covering Murabahah, Tawarruq, BBA,
-  AITAB, Ijarah and Musharakah Mutanaqisah. Profit is fixed at signing and
+- **Shariah mode** (free, all tiers): unlocks an Islamic financing debt
+  type covering Murabahah, Tawarruq, BBA, AITAB, Ijarah and Musharakah
+  Mutanaqisah, plus the zakat tracker. Terminology is per contract, not
+  per user: Islamic rows are labelled "profit rate", conventional rows
+  keep "APR", in the same list. Portfolio totals blend to "Total interest
+  + profit" when both are held. Profit is fixed at signing and
   never compounds; balances are tracked as outstanding **principal**, which
   is the true settlement figure after a full ibra' (rebate of unearned
   profit), with the estimated ibra' shown alongside. The payoff planner
