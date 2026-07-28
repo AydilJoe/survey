@@ -2,7 +2,7 @@
   "name": "duitful",
   "version": "1.9.0",
   "private": true,
-  "description": "Duitful — Capacitor shell for the PWA.",
+  "description": "Duitful \u2014 Capacitor shell for the PWA.",
   "scripts": {
     "postinstall": "node scripts/patch-google-auth.mjs",
     "fetch:tesseract": "node scripts/fetch-tesseract.mjs",
@@ -17,12 +17,14 @@
     "cap:android": "npm run cap:sync && npx cap open android",
     "cap:add:ios": "npm run build:web && npx cap add ios",
     "cap:add:android": "npm run build:web && npx cap add android",
-    "cap:migrate": "npx cap migrate"
+    "cap:migrate": "npx cap migrate",
+    "test:e2e": "node tests/e2e.mjs"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^7.6.5",
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "playwright": "^1.62.0"
   },
   "dependencies": {
     "@capacitor/android": "^7.6.5",

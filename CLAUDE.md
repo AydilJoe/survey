@@ -36,7 +36,7 @@ npm run cap:android            # sync + open Android Studio
 npm run assets
 ```
 
-There are no tests, linter, or TypeScript in this project. Test manually in browser or native simulator.
+No linter or TypeScript. One end-to-end regression suite exists: `npm run test:e2e` (Playwright + headless Chromium, self-hosts the repo, starts from a fresh profile — see `tests/README.md`). It covers the Islamic-finance features (debt maths, ibra', payoff ranking, zakat, CSV round-trip); run it after touching `app/script.js`, and extend it when adding features. Everything else: test manually in browser or native simulator.
 
 ## Key Implementation Details
 
