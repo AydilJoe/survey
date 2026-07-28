@@ -9,11 +9,12 @@ eyebrow: Guide · Islamic finance · Debt
 h1: The rebate hiding in your <em>Islamic financing</em>.
 lede: Your statement shows an outstanding balance far bigger than what you'd actually pay to walk away today. That gap is unearned profit, and ibra' is the rebate that cancels it. Most people never compute it — and so never see how much settling early is really worth.
 date_published: 2026-07-27
+date_modified: 2026-07-28
 breadcrumb_name: Ibra' and early settlement
 card_title: Ibra' — what early settlement really saves
 card_blurb: The outstanding sale price isn't the payoff figure. Here's the gap, why it exists, and how to plan around it.
 cta_title: See your real settlement figure
-cta_body: Duitful's Shariah mode tracks Islamic financing on outstanding principal and estimates your ibra' as you go. Free, on your device, no account.
+cta_body: Duitful tracks Islamic financing on outstanding principal and estimates your ibra' as you go. Free for everyone, on your device, no account.
 cta_label: Open Duitful
 ---
 
@@ -118,8 +119,8 @@ title: What actually works
 The correct move is to convert to an effective rate and queue on that. Duitful's payoff planner now does this automatically: an Islamic facility is ranked on its effective profit rate, and the simulator models profit that stops accruing when the principal clears — so accelerating it shows up as real savings in the projection instead of no change at all.
 
 :::steps
-title: Turn on Shariah mode
-text: Settings → Islamic finance. Free on every tier. Unlocks the Islamic debt type; each debt is then labelled by its own contract, so an Islamic facility and a conventional card read correctly in the same list.
+title: Pick the Islamic debt type
+text: In the Debts tab, choose Islamic — it sits alongside Standard and Installment for every user, nothing to enable. Each debt is labelled by its own contract, so the facility and a conventional card read correctly in the same list.
 ---
 title: Add the facility as it appears in your contract
 text: Financed amount, total profit, tenure in months, and how many months you've already paid. All four are on your offer letter or first statement.

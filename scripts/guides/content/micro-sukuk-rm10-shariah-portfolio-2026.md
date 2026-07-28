@@ -9,7 +9,7 @@ eyebrow: Guide · Shariah · Investing
 h1: Building a Shariah portfolio at <em>RM 10 a slice</em>.
 lede: Selangor fintechs are fractionalising Sukuk and Shariah ESG stocks down to RM 10 per slice — the floor that used to be RM 1,000 is gone. The cap on returns hasn't moved, though, and most micro-investors are flying blind. Here's the honest version.
 date_published: 2026-05-11
-date_modified: 2026-07-27
+date_modified: 2026-07-28
 breadcrumb_name: Micro-sukuk RM 10 portfolio
 card_title: Micro-sukuk at RM 10 — build a Shariah portfolio
 card_blurb: Fractional Sukuk and Shariah ESG stocks now start at RM 10. The math, the catch, and how to track it without fooling yourself.
@@ -121,7 +121,7 @@ q: What's the difference between micro-Sukuk and ASB?
 a: ASB is a unit trust managed by PNB with a different risk profile (largely equity-based, government-guaranteed minimum return). Sukuk is debt-instrument income — bond-like, lower volatility, no equity upside. They're complementary, not substitutes. ASB covers your "growth" allocation; Sukuk covers your "fixed-income" allocation, both inside the halal envelope.
 ---
 q: Are returns Zakat-able?
-a: Yes — Sukuk distributions and capital gains are zakat-able once your nisab threshold is met and the haul (lunar year) is complete. Most Shariah fintechs now display estimated zakat owed inside the app. Duitful now computes it: turn on Shariah mode in Settings, set your nisab basis and haul date, and add the portfolio value under "other zakatable wealth". It tracks the 354-day haul countdown and logs the payment as a real expense when you mark it paid.
+a: Yes — Sukuk distributions and capital gains are zakat-able once your nisab threshold is met and the haul (lunar year) is complete. Most Shariah fintechs now display estimated zakat owed inside the app. Duitful now computes it: set up zakat tracking from the Savings tab (one tap), set your nisab basis and haul date, and add the portfolio value under "other zakatable wealth". It tracks the 354-day haul countdown and logs the payment as a real expense when you mark it paid.
 ---
 q: What happens if the platform shuts down?
 a: For SC-regulated platforms, your unit-holdings are held in a separate trust account — they survive the platform. You'd transfer the holdings to another Shariah fund manager. This is why platform choice matters less than people fear, as long as the platform is genuinely SC-licensed (check the SC public register).

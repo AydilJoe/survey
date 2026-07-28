@@ -9,11 +9,12 @@ eyebrow: Guide · Zakat · Wealth
 h1: Zakat on wealth, without the <em>guesswork</em>.
 lede: Almost every Malaysian Muslim knows the rate is 2.5%. Far fewer can say what it's 2.5% <em>of</em>, when the twelve-month clock starts, or why their figure looks nothing like their neighbour's. The rules aren't complicated — they're just rarely written down in one place.
 date_published: 2026-07-27
+date_modified: 2026-07-28
 breadcrumb_name: Zakat on wealth — nisab and haul
 card_title: Zakat on wealth — nisab, haul and the actual number
 card_blurb: The rate is 2.5%. The hard part is the base and the timing. Both explained, with the arithmetic shown.
 cta_title: Track your zakat all year
-cta_body: Duitful now tracks nisab, your zakatable wealth and the haul countdown — free, on your device, no account. Turn on Shariah mode in Settings.
+cta_body: Duitful now tracks nisab, your zakatable wealth and the haul countdown — free, on your device, no account. One tap on the Savings tab turns it on.
 cta_label: Open Duitful
 ---
 
@@ -112,8 +113,8 @@ text: If you crossed nisab in March, the haul completes 354 days later — aroun
 The reason most people scramble is that zakat is computed on a single date but depends on a balance they never watched. Duitful now does the watching.
 
 :::steps
-title: Turn on Shariah mode
-text: Settings → Islamic finance → Shariah mode. Unlocks the zakat tracker and the Islamic financing debt type. Each debt keeps its own vocabulary — Islamic rows say "profit rate", conventional rows still say APR. Free, on every tier.
+title: Turn on zakat tracking
+text: Savings tab → "Set up zakat tracking". One tap, free on every tier, and entirely optional — nothing else in the app changes, and you can stop tracking any time without losing your numbers.
 ---
 title: Set your nisab basis and today's metal price
 text: Choose gold, silver, or enter your state authority's published nisab directly. LZS, PPZ-MAIWP and LZNK all publish the current figure — it moves, so re-check it a few times a year.

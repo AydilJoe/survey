@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.8.1";
+const APP_VERSION = "1.9.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1380,10 +1380,6 @@ const TERMS = {
   },
 };
 
-function shariahOn() {
-  return !!(state.shariah && state.shariah.enabled);
-}
-
 // Which vocabulary the portfolio-level figures use. Decided by what the user
 // actually holds, not by the mode toggle — a Shariah-mode user whose only debt
 // is a credit card is still paying interest, and should be told so.
@@ -1398,8 +1394,8 @@ function portfolioVoice() {
   if (islamic && conventional) return "mixed";
   if (islamic) return "islamic";
   if (conventional) return "conventional";
-  // Nothing to infer from — fall back to the user's declared preference.
-  return shariahOn() ? "islamic" : "conventional";
+  // Nothing to infer from — neutral default until the first debt arrives.
+  return "conventional";
 }
 
 // Portfolio-level label (totals, weighted rate, stall warnings).
@@ -1421,7 +1417,6 @@ function applyTerminology() {
     const val = T(el.dataset.term);
     if (val) el.textContent = val;
   });
-  document.body.classList.toggle("shariah-mode", shariahOn());
 }
 
 /* ---------- Islamic financing maths ---------- */
@@ -3299,13 +3294,18 @@ function zakatSummary() {
   };
 }
 
+let zakatDetailsAutoOpened = false;
+
 function renderZakat() {
   const card = document.getElementById("zakat-card");
   if (!card) return;
   const s = state.shariah || emptyShariah();
-  const on = !!(s.enabled && s.zakatEnabled);
+  const on = !!s.zakatEnabled;
   card.hidden = !on;
+  const optin = document.getElementById("zakat-optin");
+  if (optin) optin.hidden = on;
   if (!on) return;
+  renderZakatSettings(s);
 
   const z = zakatSummary();
   const dueEl = document.getElementById("zakat-due");
@@ -3313,6 +3313,12 @@ function renderZakat() {
   const pill = document.getElementById("zakat-pill");
   const fill = document.getElementById("zakat-bar-fill");
   const nisabLine = document.getElementById("zakat-nisab-line");
+
+  const det = document.getElementById("zakat-nisab-details");
+  if (det && z.nisab <= 0 && !zakatDetailsAutoOpened) {
+    det.open = true;
+    zakatDetailsAutoOpened = true;
+  }
 
   if (dueEl) dueEl.textContent = fmtMoney(z.due);
   if (fill) fill.style.width = `${z.pctOfNisab.toFixed(1)}%`;
@@ -3333,8 +3339,8 @@ function renderZakat() {
     if (z.nisab <= 0) {
       nisabLine.textContent =
         s.nisabBasis === "custom"
-          ? "Enter your state authority's nisab amount in Settings → Islamic finance."
-          : `Enter today's ${s.nisabBasis} price in Settings → Islamic finance to compute your nisab.`;
+          ? "Enter your state authority's nisab amount under “Nisab & haul settings” above."
+          : `Enter today's ${s.nisabBasis} price under “Nisab & haul settings” above to compute your nisab.`;
     } else {
       const basisLabel = s.nisabBasis === "custom"
         ? "custom nisab"
@@ -3366,7 +3372,7 @@ function renderZakat() {
   const haulLine = document.getElementById("zakat-haul-line");
   if (haulLine) {
     if (!z.haul) {
-      haulLine.textContent = "Set a haul start date in Settings → Islamic finance to track the lunar year.";
+      haulLine.textContent = "Set a haul start date under “Nisab & haul settings” above to track the lunar year.";
     } else if (z.haul.complete) {
       haulLine.textContent = `Haul complete since ${z.haul.due.toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })}.`;
     } else {
@@ -3396,17 +3402,8 @@ function renderZakat() {
 
 /* ---------- Shariah settings wiring ---------- */
 
-function renderShariahSettings() {
-  const s = state.shariah || emptyShariah();
-  const toggle = document.getElementById("pref-shariah");
-  if (toggle) toggle.checked = !!s.enabled;
-  const zakatBlock = document.getElementById("zakat-settings");
-  if (zakatBlock) zakatBlock.hidden = !s.enabled;
-  const zakatToggle = document.getElementById("pref-zakat");
-  if (zakatToggle) zakatToggle.checked = !!s.zakatEnabled;
-  const zakatFields = document.getElementById("zakat-settings-fields");
-  if (zakatFields) zakatFields.hidden = !s.zakatEnabled;
-
+// Syncs the "Nisab & haul settings" block inside the zakat card.
+function renderZakatSettings(s) {
   const basis = document.getElementById("zakat-nisab-basis");
   if (basis && document.activeElement !== basis) basis.value = s.nisabBasis;
   const show = (id, on) => {
@@ -3439,8 +3436,9 @@ function bindShariahControls() {
     const el = document.getElementById(id);
     if (el) el.addEventListener(evt, fn);
   };
-  on("pref-shariah", "change", (e) => updateShariah({ enabled: e.target.checked }));
-  on("pref-zakat", "change", (e) => updateShariah({ zakatEnabled: e.target.checked }));
+  on("btn-zakat-enable", "click", () => updateShariah({ zakatEnabled: true }));
+  // Disabling hides the card but keeps every number, so coming back is free.
+  on("btn-zakat-disable", "click", () => updateShariah({ zakatEnabled: false }));
   on("zakat-nisab-basis", "change", (e) => updateShariah({ nisabBasis: e.target.value }));
   on("zakat-gold-price", "change", (e) => updateShariah({ goldPrice: Number(e.target.value) || 0 }));
   on("zakat-silver-price", "change", (e) => updateShariah({ silverPrice: Number(e.target.value) || 0 }));
@@ -3493,8 +3491,7 @@ function renderAll() {
   snapshotCurrentMinSum();
   updateCurrencyLabels();
   applyTerminology();
-  renderShariahDebtPill();
-  renderShariahSettings();
+  populateIslamicContracts();
   renderGreeting();
   renderTrialBanner();
   renderDashboard();
@@ -5303,22 +5300,16 @@ function setDebtKind(kind) {
   if (kind === "islamic") renderIslamicPreview();
 }
 
-// The Islamic pill only appears once Shariah mode is on — offering a
-// Murabahah option to someone who never asked for it is noise.
-function renderShariahDebtPill() {
-  const pill = document.querySelector('.debt-type-pills .pill[data-debt-kind="islamic"]');
-  if (pill) pill.hidden = !shariahOn();
+// The Islamic debt type is a product type, not a preference — plenty of
+// Malaysian borrowers hold an AITAB or Tawarruq facility regardless of
+// faith — so the pill is always available. This just fills the contract
+// dropdown once.
+function populateIslamicContracts() {
   const sel = document.getElementById("debt-contract");
   if (sel && !sel.options.length) {
     sel.innerHTML = ISLAMIC_CONTRACTS
       .map((c) => `<option value="${c.id}">${escapeHtml(c.label)} — ${escapeHtml(c.note)}</option>`)
       .join("");
-  }
-  // Shariah mode off with an islamic row still selected would strand the form
-  // on hidden fields.
-  if (!shariahOn()) {
-    const hidden = document.getElementById("debt-kind");
-    if (hidden && hidden.value === "islamic") setDebtKind("standard");
   }
 }
 
@@ -5396,6 +5387,9 @@ $("#form-debt").addEventListener("submit", (e) => {
       totalProfit,
       tenureMonths,
     });
+    // Legacy flag: older builds gate the Islamic pill on it, so keep it set
+    // for anyone who round-trips a CSV back to a pre-1.9 version.
+    state.shariah = coerceShariah({ ...(state.shariah || emptyShariah()), enabled: true });
   } else if (kind === "installment") {
     const installment = Number(f.get("installment"));
     const monthsLeft = Math.round(Number(f.get("monthsLeft")));
@@ -7254,6 +7248,10 @@ const RELEASE_NOTES = {
   "1.8.1": [
     "<strong>Every debt speaks its own contract</strong> — a conventional card now keeps saying APR even with Shariah mode on, right next to an Islamic facility showing its profit rate. v1.8 relabelled everything, which misdescribed debts that do charge interest.",
     "<strong>Totals blend when you hold both</strong> — \"Total interest + profit\" with a weighted rate, decided by what you actually hold rather than by the toggle.",
+  ],
+  "1.9.0": [
+    "<strong>Islamic financing, no switch needed</strong> — the Islamic debt type now sits alongside Standard and Installment for everyone. Same fixed-profit maths and ibra' estimate as before; nothing to enable first.",
+    "<strong>Zakat moved to Savings</strong> — set it up with one tap on the Savings tab; nisab and haul settings live on the card itself. Optional, and off unless you turn it on.",
   ],
 };
 

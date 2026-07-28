@@ -9,6 +9,7 @@ eyebrow: Guide · Financing · Numeracy
 h1: Two rates, two meanings, <em>one comparison</em>.
 lede: A 4.8% flat facility and a 6% reducing-balance loan sit side by side in a comparison table looking like the cheaper one is obvious. It isn't. One conversion puts both in the same unit — and often reverses the answer.
 date_published: 2026-07-27
+date_modified: 2026-07-28
 breadcrumb_name: Flat rate vs effective rate
 card_title: Flat rate vs effective rate — the conversion that reverses the answer
 card_blurb: Malaysian financing quotes two incompatible rates. Here's how to put them in the same unit before you sign.
@@ -103,8 +104,8 @@ That last point is worth more than it's usually credited. A conventional floatin
 ## Doing it in Duitful
 
 :::steps
-title: Turn on Shariah mode
-text: Settings → Islamic finance. Free on every tier.
+title: Pick the Islamic debt type
+text: In the Debts tab, choose Islamic — available to every user, no setting to enable. Plenty of Malaysian borrowers hold these facilities regardless of faith.
 ---
 title: Enter the facility from your offer letter
 text: Financed amount, total profit, tenure. Duitful shows the effective rate live as you type — before you save the row, and before you sign anything.

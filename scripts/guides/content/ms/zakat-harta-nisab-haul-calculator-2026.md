@@ -9,11 +9,12 @@ eyebrow: Panduan · Zakat · Harta
 h1: Zakat harta, tanpa <em>agak-agak</em>.
 lede: Hampir semua orang tahu kadarnya 2.5%. Yang tak ramai boleh jawab — 2.5% daripada <em>apa</em>, bila kiraan dua belas bulan tu bermula, dan kenapa jumlah korang jauh berbeza daripada jiran sebelah. Hukumnya tak rumit. Cuma jarang ditulis sekali gus di satu tempat.
 date_published: 2026-07-27
+date_modified: 2026-07-28
 breadcrumb_name: Zakat harta — nisab dan haul
 card_title: Zakat harta — nisab, haul dan jumlah sebenar
 card_blurb: Kadarnya 2.5%. Yang susah ialah asas dan masanya. Dua-dua diterangkan, dengan kiraan ditunjuk.
 cta_title: Jejak zakat korang sepanjang tahun
-cta_body: Duitful sekarang jejak nisab, harta bercukai zakat korang dan kiraan haul — percuma, dalam telefon korang, tiada akaun. Hidupkan Mod Syariah dalam Tetapan.
+cta_body: Duitful sekarang jejak nisab, harta bercukai zakat korang dan kiraan haul — percuma, dalam telefon korang, tiada akaun. Satu ketukan di tab Simpanan untuk hidupkan.
 cta_label: Buka Duitful
 ---
 
@@ -112,8 +113,8 @@ text: Kalau korang melepasi nisab bulan Mac, haul cukup 354 hari kemudian — se
 Sebab utama orang kelam-kabut: zakat dikira pada satu tarikh tapi bergantung pada baki yang tak pernah dipantau. Duitful yang pantau sekarang.
 
 :::steps
-title: Hidupkan Mod Syariah
-text: Tetapan → Kewangan Islam → Mod Syariah. Buka penjejak zakat dan jenis hutang Pembiayaan Islamik. Setiap hutang kekal dengan istilah kontraknya sendiri — baris Islamik sebut "kadar untung", baris konvensional masih sebut APR. Percuma, semua tier.
+title: Hidupkan penjejakan zakat
+text: Tab Simpanan → "Sediakan penjejakan zakat". Satu ketukan, percuma semua tier, dan sepenuhnya pilihan — bahagian lain app tak berubah, dan korang boleh berhenti bila-bila tanpa hilang nombor.
 ---
 title: Set penanda aras nisab dan harga logam hari ini
 text: Pilih emas, perak, atau masuk terus angka nisab yang diwarta pihak berkuasa negeri korang. LZS, PPZ-MAIWP dan LZNK semua warta angka semasa — ia bergerak, jadi semak beberapa kali setahun.
