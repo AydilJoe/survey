@@ -896,10 +896,10 @@
     }
 
     /* --------------- Section scaffolding --------------- */
-    section.block { padding: 96px 0; position: relative; }
-    @media (max-width: 720px) { section.block { padding: 64px 0; } }
+    section.block { padding: 72px 0; position: relative; }
+    @media (max-width: 720px) { section.block { padding: 48px 0; } }
 
-    .section-head { max-width: 680px; margin-bottom: 56px; }
+    .section-head { max-width: 680px; margin-bottom: 40px; }
     .section-head h2 {
       font-size: clamp(32px, 4.2vw, 52px);
       margin-top: 16px;
@@ -967,121 +967,11 @@
       border-radius: 999px;
     }
     @media (max-width: 960px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (max-width: 600px) { .features-grid { grid-template-columns: 1fr; } }
-
-    /* --------------- Cross-device --------------- */
-    .devices { background: var(--card-soft); }
-    .device-row {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      gap: 48px;
-      padding: 24px 0 12px;
-      flex-wrap: wrap;
-    }
-    .device-mock {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-    }
-    .device-mock .dm-screen {
-      background: linear-gradient(180deg, var(--bg), var(--stage));
-      border: 0.5px solid var(--border);
-      box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(255, 250, 242, 0.5);
-      position: relative;
-      overflow: hidden;
-    }
-    .device-mock .dm-screen img {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: top center;
-      display: block;
-    }
-    .device-mock .dm-label {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .dm-phone .dm-screen {
-      width: 110px;
-      height: 230px;
-      border-radius: 18px;
-    }
-    .dm-phone .dm-screen::before {
-      content: "";
-      position: absolute;
-      top: 6px; left: 50%;
-      transform: translateX(-50%);
-      width: 38px; height: 6px;
-      background: var(--ink);
-      border-radius: 999px;
-      z-index: 2;
-    }
-    .dm-tablet .dm-screen {
-      width: 260px;
-      height: 195px;
-      border-radius: 14px;
-    }
-    .dm-tablet .dm-screen::before {
-      content: "";
-      position: absolute;
-      top: 50%; left: 6px;
-      transform: translateY(-50%);
-      width: 4px; height: 4px;
-      background: var(--ink);
-      border-radius: 50%;
-      opacity: 0.5;
-      z-index: 2;
-    }
-    .dm-laptop {
-      gap: 0;
-    }
-    .dm-laptop .dm-screen {
-      width: 300px;
-      height: 190px;
-      border-radius: 10px 10px 0 0;
-    }
-    .dm-laptop .dm-base {
-      width: 340px;
-      height: 8px;
-      background: linear-gradient(180deg, var(--card), var(--card-soft));
-      border: 0.5px solid var(--border);
-      border-top: none;
-      border-radius: 0 0 8px 8px;
-      margin-bottom: 16px;
-      box-shadow: 0 8px 24px rgba(42, 36, 32, 0.08);
-    }
-    .device-notes {
-      list-style: none;
-      padding: 0;
-      margin: 32px auto 0;
-      max-width: 640px;
-      display: grid;
-      gap: 12px;
-      font-size: 15px;
-      line-height: 1.55;
-      color: var(--ink2);
-    }
-    .device-notes li {
-      padding: 12px 16px;
-      background: var(--card);
-      border: 0.5px solid var(--line);
-      border-radius: 10px;
-    }
-    .device-notes strong { color: var(--ink); font-weight: 500; }
-    @media (max-width: 720px) {
-      .device-row { gap: 24px; }
-      .dm-phone .dm-screen { width: 92px; height: 190px; }
-      .dm-tablet .dm-screen { width: 220px; height: 165px; }
-      .dm-laptop .dm-screen { width: 240px; height: 152px; }
-      .dm-laptop .dm-base { width: 280px; }
+    @media (max-width: 600px) {
+      .features-grid { grid-template-columns: 1fr; gap: 12px; }
+      .feature { padding: 20px 20px 22px; border-radius: 18px; }
+      .feature p { font-size: 14.5px; }
+      .feature-icon { width: 38px; height: 38px; }
     }
 
     /* --------------- Privacy --------------- */
@@ -1827,7 +1717,6 @@
     <div class="nav-links" role="navigation">
       <a href="#features">Ciri</a>
       <a href="#demo">Demo</a>
-      <a href="#devices">Peranti</a>
       <a href="#privacy">Privasi</a>
       <a href="#pricing">Harga</a>
       <a href="#founder">Tentang</a>
@@ -2041,7 +1930,7 @@
       <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
         <span class="eyebrow">Cuba kiraannya</span>
         <h2>Seret slider. Tengok hutang <em style="font-style:italic; color:var(--primary)">cair</em>.</h2>
-        <p style="margin-left:auto; margin-right:auto;">Ini unjuran avalanche sebenar app, berjalan di sini — tiga hutang tipikal Malaysia, termasuk pembiayaan Islamik yang untungnya berhenti hari korang selesaikan. Setiap ringgit tambahan pergi ke hutang paling mahal dulu.</p>
+        <p style="margin-left:auto; margin-right:auto;">Unjuran sebenar app, berjalan di sini. Setiap ringgit tambahan pergi ke hutang paling mahal dulu — termasuk kemudahan Islamik yang untungnya berhenti hari korang selesaikan.</p>
       </div>
 
       <div class="demo-card reveal">
@@ -2092,48 +1981,9 @@
           </div>
         </div>
 
-        <p class="demo-note">Praandaian: Kad RM 8,000 pada 18% APR (min RM 240) · Tawarruq RM 20,000, untung kontrak RM 4,800 selama 60 bulan (RM 413/bln) · PTPTN RM 15,000 pada 1% ujrah (RM 150/bln). App jalankan kiraan yang sama atas nombor sebenar korang — dalam telefon, tersulit.</p>
+        <p class="demo-note">Kad RM 8,000 pada 18% APR · Tawarruq RM 20,000, untung RM 4,800 selama 60 bulan · PTPTN RM 15,000 pada 1% ujrah. Kiraan sama atas nombor sebenar korang, dalam telefon.</p>
         <a class="btn btn-primary" href="/app/">Jalankan atas hutang korang sendiri</a>
       </div>
-    </div>
-  </section>
-
-  <!-- ======================= CROSS-DEVICE ======================= -->
-  <section class="block devices" id="devices">
-    <div class="container">
-      <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
-        <span class="eyebrow">Satu aplikasi, setiap skrin</span>
-        <h2>iPhone, Android, iPad, <em style="font-style:italic; color:var(--primary)">desktop</em>.</h2>
-        <p style="margin-left:auto; margin-right:auto;">Aplikasi yang sama, data yang sama, tahap percuma yang sama. Buka Duitful dalam Safari di iPhone semasa makan tengah hari, habiskan bulan di iPad anda di rumah, atau semak pelan avalanche di komputer riba. Sepanduk pemasangan uruskan selebihnya.</p>
-      </div>
-
-      <div class="device-row reveal">
-        <div class="device-mock dm-phone">
-          <div class="dm-screen">
-            <img src="/screenshots/hero-home.PNG" alt="Duitful di iPhone" loading="lazy">
-          </div>
-          <span class="dm-label">iPhone / Android</span>
-        </div>
-        <div class="device-mock dm-tablet">
-          <div class="dm-screen">
-            <img src="/screenshots/hero-tablet.png" alt="Duitful di iPad" loading="lazy">
-          </div>
-          <span class="dm-label">iPad</span>
-        </div>
-        <div class="device-mock dm-laptop">
-          <div class="dm-screen">
-            <img src="/screenshots/hero-tablet.png" alt="Duitful di desktop" loading="lazy">
-          </div>
-          <div class="dm-base"></div>
-          <span class="dm-label">Desktop</span>
-        </div>
-      </div>
-
-      <ul class="device-notes reveal">
-        <li><strong>Pasang ke skrin utama</strong> pada mana-mana OS melalui prompt terbina. Tanpa perlu App Store atau Play Store.</li>
-        <li><strong>Berfungsi luar talian</strong> sebaik sahaja dibuka, dan <em>service worker</em> mengemas kini UI secara automatik apabila kami keluarkan perubahan.</li>
-        <li><strong>Pindah antara peranti</strong> melalui eksport → import CSV. Data anda tidak pernah melalui pelayan.</li>
-      </ul>
     </div>
   </section>
 
@@ -2155,6 +2005,10 @@
         <li>
           <div class="k">Analitik</div>
           <div class="v">Tiada pada data anda. Tidak pernah.</div>
+        </li>
+        <li>
+          <div class="k">Segerak</div>
+          <div class="v">Google Drive korang sendiri, tersulit sebelum keluar</div>
         </li>
       </ul>
     </div>
