@@ -113,7 +113,7 @@ The reason most people scramble is that zakat is computed on a single date but d
 
 :::steps
 title: Turn on Shariah mode
-text: Settings → Islamic finance → Shariah mode. This also relabels the app for Islamic contracts ("profit rate" rather than APR) and unlocks the Islamic financing debt type. Free, on every tier.
+text: Settings → Islamic finance → Shariah mode. Unlocks the zakat tracker and the Islamic financing debt type. Each debt keeps its own vocabulary — Islamic rows say "profit rate", conventional rows still say APR. Free, on every tier.
 ---
 title: Set your nisab basis and today's metal price
 text: Choose gold, silver, or enter your state authority's published nisab directly. LZS, PPZ-MAIWP and LZNK all publish the current figure — it moves, so re-check it a few times a year.
