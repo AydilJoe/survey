@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.8.0";
+const APP_VERSION = "1.8.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7246,10 +7246,14 @@ const RELEASE_NOTES = {
     "<strong>Cleaner dashboard greeting</strong> and a brighter primary button in dark mode.",
   ],
   "1.8.0": [
-    "<strong>Shariah mode</strong> — Settings → Islamic finance. Unlocks Islamic financing and zakat. Each debt is labelled by its own contract, so an Islamic facility and a credit card read correctly side by side. Free, on every tier.",
+    "<strong>Shariah mode</strong> — Settings → Islamic finance. Relabels the app for Islamic contracts: \"profit rate\" instead of APR, \"profit charges\" instead of interest. Free, on every tier.",
     "<strong>Islamic financing debts</strong> — track Murabahah, Tawarruq, BBA, AITAB, Ijarah and Musharakah Mutanaqisah. Profit is fixed at signing and never compounds, and the balance shown is what settling today costs, with your ibra' beside it.",
     "<strong>Smarter payoff queue</strong> — an Islamic facility has no APR but isn't free. Duitful ranks it on its effective profit rate, so a 4.8% flat facility correctly queues ahead of an 8% card.",
     "<strong>Zakat on wealth</strong> — a zakat card on Savings: nisab from gold, silver or your state authority's figure, your zakatable base, 2.5%, and a 354-day haul countdown. Free, and an estimate for planning rather than a ruling.",
+  ],
+  "1.8.1": [
+    "<strong>Every debt speaks its own contract</strong> — a conventional card now keeps saying APR even with Shariah mode on, right next to an Islamic facility showing its profit rate. v1.8 relabelled everything, which misdescribed debts that do charge interest.",
+    "<strong>Totals blend when you hold both</strong> — \"Total interest + profit\" with a weighted rate, decided by what you actually hold rather than by the toggle.",
   ],
 };
 
