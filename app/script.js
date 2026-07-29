@@ -1923,10 +1923,31 @@ function dailyType() {
   return hidden ? hidden.value : "expense";
 }
 
+// The quick-add card shows only pills + amount by default; date, target,
+// category, card, pool and note live in a collapsed "More details" section.
+function setDailyMoreOpen(open) {
+  const wrap = document.getElementById("daily-more");
+  const btn = document.getElementById("daily-more-toggle");
+  if (!wrap || !btn) return;
+  wrap.hidden = !open;
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+  const label = document.getElementById("daily-more-toggle-label");
+  if (label) label.textContent = open ? "Hide details" : "More details";
+}
+
 function setDailyType(type) {
   const hidden = document.getElementById("daily-type");
   if (!hidden) return;
+  const prevType = hidden.value;
   hidden.value = type;
+  // Auto-expand details when the user switches into Pay debt / Save and the
+  // target isn't obvious (several candidates, or none — the field then shows
+  // "Add a debt first →" guidance). With exactly one target it stays
+  // collapsed: the sole debt/goal is preselected and unambiguous.
+  if (type !== prevType && type !== "expense") {
+    const count = type === "debt" ? (state.debts || []).length : (state.savings || []).length;
+    if (count !== 1) setDailyMoreOpen(true);
+  }
   document.querySelectorAll(".type-pills .pill").forEach((btn) => {
     const on = btn.dataset.type === type;
     btn.classList.toggle("active", on);
@@ -3575,6 +3596,9 @@ function editPending(id) {
   if (amountInput) amountInput.value = p.amount.toFixed(2);
   if (noteInput) noteInput.value = p.merchant || "";
   if (catInput) catInput.value = p.providerName || "Card";
+  // Captured merchant/category land in the collapsed details section —
+  // open it so the user can review what was pre-filled before adding.
+  setDailyMoreOpen(true);
   state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
   save();
   renderAll();
@@ -5315,6 +5339,10 @@ $("#form-daily").addEventListener("submit", (e) => {
 /* pill buttons + quick amount chips */
 document.querySelectorAll(".type-pills .pill").forEach((btn) => {
   btn.addEventListener("click", () => setDailyType(btn.dataset.type));
+});
+document.getElementById("daily-more-toggle")?.addEventListener("click", () => {
+  const wrap = document.getElementById("daily-more");
+  if (wrap) setDailyMoreOpen(wrap.hidden);
 });
 document.querySelectorAll(".quick-amounts button").forEach((btn) => {
   btn.addEventListener("click", () => {
@@ -8478,6 +8506,10 @@ scanApply?.addEventListener("click", () => {
 
   if (Number.isFinite(amt) && amt > 0 && amountInput) amountInput.value = amt.toFixed(2);
   if (vendor && noteInput) noteInput.value = vendor;
+
+  // Scanned vendor/category/target land in the collapsed details section —
+  // open it so the user can review what was pre-filled before adding.
+  setDailyMoreOpen(true);
 
   closeScanDialog();
   amountInput?.focus();

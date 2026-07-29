@@ -258,6 +258,11 @@
               <span class="recent-chips-label">Recent</span>
               <div class="recent-chips-row" id="recent-chips-row"></div>
             </div>
+            <button type="button" class="hero-breakdown-toggle daily-more-toggle" id="daily-more-toggle" aria-expanded="false" aria-controls="daily-more">
+              <span class="chev" aria-hidden="true">▾</span>
+              <span id="daily-more-toggle-label">More details</span>
+            </button>
+            <div id="daily-more" hidden>
             <div class="grid-2">
               <label class="field">
                 <span>Date</span>
@@ -290,6 +295,7 @@
               <span>Note (optional)</span>
               <input type="text" name="note" placeholder="Lunch at mamak" />
             </label>
+            </div>
             <button type="submit" class="primary big">Add entry</button>
           </form>
         </div>
