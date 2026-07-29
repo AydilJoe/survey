@@ -142,6 +142,18 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-12">
+    <span class="release-date">July 2026 · v1.12</span>
+    <h2 class="release-title">Your coast number</h2>
+    <p class="release-summary">There's a number where retirement stops being a question of saving harder and becomes a question of waiting: the pot that compounds to your target all by itself. Duitful now computes yours — in today's money, on your device, with the assumptions on the table.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Retirement card on Savings</strong> — one tap to enable, like zakat. Tell it what you'd spend per month in retirement and it derives your target pot on the 4% rule (or type your own pot to override it).</li>
+      <li><span class="tag feat">new</span><strong>Coast number today</strong> — target ÷ (1 + real return)^years. Your current pot (investments, plus savings goals if you want) is measured against it: past it you're "Coasting ✓"; short of it you see exactly how many ringgit to go.</li>
+      <li><span class="tag feat">new</span><strong>Projection at retirement</strong> — today's pot compounded plus your current monthly saving as an annuity, at a real (after-inflation) return you choose, default 4%. Shown next to what that pot would fund per month.</li>
+      <li><span class="tag note">note</span><strong>Estimates, and labelled as such</strong> — everything is in today's money; the 4% rule is a rule of thumb, not a guarantee; a nonsense horizon (retire age below current age) shows "—", never a made-up figure. The whole plan round-trips through CSV backup, and turning the card off keeps your inputs for when you come back.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-11">
     <span class="release-date">July 2026 · v1.11</span>
     <h2 class="release-title">The return your bank statement won't tell you</h2>

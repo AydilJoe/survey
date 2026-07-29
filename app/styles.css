@@ -4581,6 +4581,70 @@ body.private #zakat-nisab-line {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---------- Retirement / Coast FIRE (Phase 3) ---------- */
+
+/* Opt-in row: same quiet single-line invitation as zakat's. */
+.invest-plan-optin .invest-plan-optin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.invest-plan-optin .hint { margin: 0; flex: 1 1 16rem; }
+
+/* Same shape as .zakat-pill — deliberately its own class so the two cards can
+   drift apart later without one silently restyling the other. */
+.invest-plan-pill {
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.invest-plan-pill.ok {
+  background: rgba(93, 145, 99, 0.16);
+  color: var(--gain);
+  border: 0.5px solid rgba(93, 145, 99, 0.35);
+}
+.invest-plan-pill.warn {
+  background: rgba(200, 112, 75, 0.14);
+  color: var(--primary);
+  border: 0.5px solid rgba(200, 112, 75, 0.4);
+}
+
+.invest-plan-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.3rem 0 0.7rem;
+}
+.invest-plan-hero .label {
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+.invest-plan-hero strong {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.invest-plan-hero .hint { margin: 0.1rem 0 0; }
+
+/* Three-up stat row; the sub-lines carry sentences, so they wrap rather than
+   truncate (same reasoning as .invest-perf). */
+.invest-plan-stats { margin: 0.2rem 0 0.7rem; }
+.invest-plan-stats .stat .sub {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 body.private .invest-total-inline,
 body.private .invest-value,
 body.private .invest-meta,
@@ -4591,7 +4655,12 @@ body.private .invest-chart,
 body.private .invest-chart-range,
 body.private #invest-perf .stat strong,
 body.private #invest-perf .stat .sub,
-body.private #reports-invest-return {
+body.private #reports-invest-return,
+body.private .invest-plan-hero strong,
+body.private .invest-plan-hero .hint,
+body.private #invest-plan-pill,
+body.private .invest-plan-stats .stat strong,
+body.private .invest-plan-stats .stat .sub {
   filter: blur(7px);
   user-select: none;
   pointer-events: none;

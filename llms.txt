@@ -64,7 +64,11 @@
   top-ups, withdrawals and cash dividends against today's value), with
   yield on cost, per-account totals, and a portfolio-value-over-time
   chart in Reports; windows under 90 days show "—" rather than an
-  annualised guess. Zakatable holdings
+  annualised guess. An opt-in retirement card estimates a target pot
+  from desired monthly spending (4% rule, overridable), the coast-FIRE
+  number today (target ÷ (1+r)^years to retirement), and a projected
+  pot at retirement — all in real, after-inflation terms and labelled
+  as estimates, computed on-device. Zakatable holdings
   feed the zakat base automatically when zakat tracking is enabled
   (EPF defaults out, assessed on withdrawal).
 - **Zakat on wealth** (free, opt-in with one tap from the Savings tab —

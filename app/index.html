@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=74" />
+    <link rel="stylesheet" href="styles.css?v=75" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -840,6 +840,90 @@
           <div id="invest-accounts" class="invest-accounts" hidden></div>
           <div id="investments-list" class="investments-list"></div>
           <p class="hint">Values are typed in from your statements. Duitful never fetches prices — that would tell a server what you own.</p>
+        </div>
+
+        <div class="card invest-plan-card" id="invest-plan-card" hidden>
+          <div class="card-head">
+            <h2>Retirement</h2>
+            <span class="invest-plan-pill" id="invest-plan-pill" hidden></span>
+          </div>
+
+          <div class="invest-plan-hero">
+            <span class="label">Coast number today</span>
+            <strong id="invest-plan-coast">—</strong>
+            <span class="hint" id="invest-plan-coast-note"></span>
+          </div>
+
+          <div class="stat-row invest-plan-stats">
+            <div class="stat">
+              <span class="label">Target pot</span>
+              <strong id="invest-plan-target">—</strong>
+              <span class="sub" id="invest-plan-target-sub"></span>
+            </div>
+            <div class="stat">
+              <span class="label">Current pot</span>
+              <strong id="invest-plan-current">—</strong>
+              <span class="sub" id="invest-plan-current-sub"></span>
+            </div>
+            <div class="stat">
+              <span class="label">Projected at retirement</span>
+              <strong id="invest-plan-projected">—</strong>
+              <span class="sub" id="invest-plan-projected-sub"></span>
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <label class="field">
+              <span>Age now</span>
+              <input type="number" id="invest-plan-current-age" step="1" min="10" max="100" inputmode="numeric" placeholder="30" />
+            </label>
+            <label class="field">
+              <span>Retire at</span>
+              <input type="number" id="invest-plan-retire-age" step="1" min="10" max="100" inputmode="numeric" placeholder="60" />
+            </label>
+            <label class="field">
+              <span>Real return (%/yr)</span>
+              <input type="number" id="invest-plan-return" step="0.1" min="-10" max="20" inputmode="decimal" placeholder="4" />
+            </label>
+          </div>
+
+          <div class="grid-3">
+            <label class="field">
+              <span>Spend/month then (<span class="cur-code">MYR</span>)</span>
+              <input type="number" id="invest-plan-target-monthly" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 4000" />
+            </label>
+            <label class="field">
+              <span>Target pot (optional)</span>
+              <input type="number" id="invest-plan-target-pot" step="0.01" min="0" inputmode="decimal" placeholder="overrides the 4% rule" />
+            </label>
+            <label class="field">
+              <span>Saving/month now (<span class="cur-code">MYR</span>)</span>
+              <input type="number" id="invest-plan-contribution" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 1000" />
+            </label>
+          </div>
+
+          <label class="field toggle-field">
+            <input type="checkbox" id="invest-plan-include-savings" />
+            <span>Count my savings-goal balances towards the pot</span>
+          </label>
+
+          <div class="button-row">
+            <button type="button" class="ghost" id="btn-invest-plan-disable">Stop planning</button>
+          </div>
+
+          <p class="hint">
+            Every figure here is an estimate in today's money. The return you enter is a
+            <em>real</em> return — already after inflation — so the pot you see is what it would buy
+            at today's prices. Contributions are assumed monthly and unchanging, and the 4% rule is a
+            rule of thumb, not a guarantee. Markets don't return a straight line.
+          </p>
+        </div>
+
+        <div class="card invest-plan-optin" id="invest-plan-optin" hidden>
+          <div class="invest-plan-optin-row">
+            <p class="hint">Thinking about retiring one day? Duitful can estimate how big a pot you'd need and whether you're already on track — optional, computed on your device.</p>
+            <button type="button" class="ghost" id="btn-invest-plan-enable">Set up retirement planning</button>
+          </div>
         </div>
 
         <div class="card zakat-card" id="zakat-card" hidden>
@@ -1720,7 +1804,7 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="investments.js?v=2"></script>
-    <script src="script.js?v=99"></script>
+    <script src="investments.js?v=3"></script>
+    <script src="script.js?v=100"></script>
   </body>
 </html>
