@@ -66,6 +66,9 @@
       "BNPL and installment tracking (Atome, SPayLater, Grab PayLater)",
       "Receipt OCR via on-device Tesseract",
       "Multi-currency with auto-FX",
+      "Investment tracking — ASB, EPF, Tabung Haji, unit trusts, shares — with dividends and money-weighted returns, no price API",
+      "Retirement planning with a coast-FIRE estimate in today's money",
+      "Islamic financing tracking (Murabahah, Tawarruq, AITAB) with ibra' estimates, plus an opt-in zakat tracker",
       "CSV export and import",
       "End-to-end on-device encryption",
       "Encrypted multi-device sync via your own Google Drive (Pro)"
@@ -911,6 +914,9 @@
       grid-template-columns: repeat(3, 1fr);
       gap: 16px;
     }
+    /* Full-width finale card — deliberate span, not an orphaned 7th cell. */
+    .feature-wide { grid-column: 1 / -1; }
+    .feature-wide p { max-width: 720px; }
     .feature {
       background: var(--card);
       border: 0.5px solid var(--border);
@@ -1919,6 +1925,15 @@
           <span class="chip-mono">Free · for everyone</span>
         </div>
 
+        <div class="feature feature-wide reveal">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+          </div>
+          <h3>Investments, honest returns &amp; your coast number</h3>
+          <p>ASB, EPF, Tabung Haji, unit trusts, shares — typed in from your statements, because fetching live prices would tell a server exactly what you own. Duitful computes the return that accounts for every top-up and dividend (money-weighted, annualised), charts your portfolio over time, and its retirement card shows your <em>coast number</em>: the pot that compounds to your target all by itself, in today's money.</p>
+          <span class="chip-mono">2 holdings free · no price API, ever</span>
+        </div>
+
       </div>
     </div>
   </section>
@@ -2142,28 +2157,28 @@
 
       <div class="guides-grid reveal">
         <!-- guides:start -->
+        <a class="g-card" href="/guides/coast-fire-malaysia-calculator-2026/">
+          <span class="g-card-eyebrow">Guide · Malaysia · Retirement</span>
+          <h3 class="g-card-title">Coast FIRE — when saving becomes optional</h3>
+          <p class="g-card-blurb">The pot that compounds to your retirement target by itself is much smaller than you think. The maths in today's ringgit, EPF and ASB included.</p>
+          <div class="g-card-foot">
+            <time class="g-card-date" datetime="2026-07-29">Published 29 Jul 2026</time>
+            <span class="g-card-cta">Read →</span>
+          </div>
+        </a>
+        <a class="g-card" href="/guides/money-weighted-return-asb-epf-2026/">
+          <span class="g-card-eyebrow">Guide · Malaysia · Investing</span>
+          <h3 class="g-card-title">The return your statement won't compute</h3>
+          <p class="g-card-blurb">&quot;Up RM 3,000&quot; hides when the money went in. Money-weighted return weighs every top-up and dividend by its date — here's the maths and the honest caveats.</p>
+          <div class="g-card-foot">
+            <time class="g-card-date" datetime="2026-07-29">Published 29 Jul 2026</time>
+            <span class="g-card-cta">Read →</span>
+          </div>
+        </a>
         <a class="g-card" href="/guides/flat-rate-vs-effective-rate-islamic-conventional-2026/">
           <span class="g-card-eyebrow">Guide · Financing · Numeracy</span>
           <h3 class="g-card-title">Flat rate vs effective rate — the conversion that reverses the answer</h3>
           <p class="g-card-blurb">Malaysian financing quotes two incompatible rates. Here's how to put them in the same unit before you sign.</p>
-          <div class="g-card-foot">
-            <time class="g-card-date" datetime="2026-07-28">Updated 28 Jul 2026</time>
-            <span class="g-card-cta">Read →</span>
-          </div>
-        </a>
-        <a class="g-card" href="/guides/ibra-early-settlement-islamic-financing-2026/">
-          <span class="g-card-eyebrow">Guide · Islamic finance · Debt</span>
-          <h3 class="g-card-title">Ibra' — what early settlement really saves</h3>
-          <p class="g-card-blurb">The outstanding sale price isn't the payoff figure. Here's the gap, why it exists, and how to plan around it.</p>
-          <div class="g-card-foot">
-            <time class="g-card-date" datetime="2026-07-28">Updated 28 Jul 2026</time>
-            <span class="g-card-cta">Read →</span>
-          </div>
-        </a>
-        <a class="g-card" href="/guides/zakat-harta-nisab-haul-calculator-2026/">
-          <span class="g-card-eyebrow">Guide · Zakat · Wealth</span>
-          <h3 class="g-card-title">Zakat on wealth — nisab, haul and the actual number</h3>
-          <p class="g-card-blurb">The rate is 2.5%. The hard part is the base and the timing. Both explained, with the arithmetic shown.</p>
           <div class="g-card-foot">
             <time class="g-card-date" datetime="2026-07-28">Updated 28 Jul 2026</time>
             <span class="g-card-cta">Read →</span>

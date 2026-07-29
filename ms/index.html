@@ -66,6 +66,9 @@
       "Penjejakan BNPL dan ansuran (Atome, SPayLater, Grab PayLater)",
       "Imbas resit OCR dalam peranti menggunakan Tesseract",
       "Berbilang mata wang dengan auto-FX",
+      "Penjejakan pelaburan — ASB, EPF, Tabung Haji, unit amanah, saham — dengan dividen dan pulangan berwajaran wang, tanpa API harga",
+      "Perancangan persaraan dengan anggaran coast FIRE dalam nilai wang hari ini",
+      "Penjejakan pembiayaan Islamik (Murabahah, Tawarruq, AITAB) dengan anggaran ibra', serta penjejak zakat pilihan",
       "Eksport dan import CSV",
       "Penyulitan dalam peranti dari hujung ke hujung",
       "Penyegerakan tersulit antara peranti melalui Google Drive sendiri (Pro)"
@@ -913,6 +916,9 @@
       grid-template-columns: repeat(3, 1fr);
       gap: 16px;
     }
+    /* Kad penuh-lebar sebagai penutup — span sengaja, bukan sel ke-7 yang tergantung. */
+    .feature-wide { grid-column: 1 / -1; }
+    .feature-wide p { max-width: 720px; }
     .feature {
       background: var(--card);
       border: 0.5px solid var(--border);
@@ -1920,6 +1926,15 @@
           <p>Murabahah, Tawarruq, AITAB — dijejak sebagai untung tetap dengan anggaran ibra', disusun secara adil bersama hutang konvensional. Penjejak zakat pilihan dengan nisab dan haul.</p>
           <span class="chip-mono">Percuma · untuk semua</span>
         </div>
+
+        <div class="feature feature-wide reveal">
+          <div class="feature-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+          </div>
+          <h3>Pelaburan, pulangan jujur &amp; coast number anda</h3>
+          <p>ASB, EPF, Tabung Haji, unit amanah, saham — anda taip nilainya dari penyata, kerana mengambil harga pasaran secara automatik akan memberitahu pelayan apa yang anda miliki. Duitful mengira pulangan yang mengambil kira setiap tambahan dan dividen (berwajaran wang, disetahunkan), melakar carta portfolio anda dari masa ke masa, dan kad persaraannya menunjukkan <em>coast number</em> anda: saiz simpanan yang membesar sendiri ke sasaran menjelang persaraan, dalam nilai wang hari ini.</p>
+          <span class="chip-mono">2 pegangan percuma · tiada API harga, selamanya</span>
+        </div>
       </div>
     </div>
   </section>
@@ -2227,6 +2242,15 @@
 
       <div class="guides-grid reveal">
         <!-- guides:start -->
+        <a class="g-card" href="/guides/ms/coast-fire-malaysia-calculator-2026/">
+          <span class="g-card-eyebrow">Panduan · Malaysia · Persaraan</span>
+          <h3 class="g-card-title">Coast FIRE — bila menabung jadi pilihan</h3>
+          <p class="g-card-blurb">Simpanan yang membesar sendiri ke sasaran persaraan anda jauh lebih kecil daripada sangkaan. Pengiraannya dalam ringgit hari ini, termasuk KWSP dan ASB.</p>
+          <div class="g-card-foot">
+            <time class="g-card-date" datetime="2026-07-29">Diterbit 29 Jul 2026</time>
+            <span class="g-card-cta">Baca →</span>
+          </div>
+        </a>
         <a class="g-card" href="/guides/ms/ibra-early-settlement-islamic-financing-2026/">
           <span class="g-card-eyebrow">Panduan · Kewangan Islam · Hutang</span>
           <h3 class="g-card-title">Ibra' — berapa sebenarnya penyelesaian awal jimat</h3>
@@ -2242,15 +2266,6 @@
           <p class="g-card-blurb">Kadarnya 2.5%. Yang susah ialah asas dan masanya. Dua-dua diterangkan, dengan kiraan ditunjuk.</p>
           <div class="g-card-foot">
             <time class="g-card-date" datetime="2026-07-28">Dikemaskini 28 Jul 2026</time>
-            <span class="g-card-cta">Baca →</span>
-          </div>
-        </a>
-        <a class="g-card" href="/guides/ms/ryt-bank-gamification-yield-trap-2026/">
-          <span class="g-card-eyebrow">Panduan · Malaysia · Perbankan digital</span>
-          <h3 class="g-card-title">Pivot stamp-card Ryt, dihurai</h3>
-          <p class="g-card-blurb">3% jadi 2.05% jadi bersyarat. Apa sebenarnya kos, bila main loop, bila pindah ke pesaing. Jejak hasil efektif sebenar bulanan dalam Duitful.</p>
-          <div class="g-card-foot">
-            <time class="g-card-date" datetime="2026-06-22">Diterbit 22 Jun 2026</time>
             <span class="g-card-cta">Baca →</span>
           </div>
         </a>

@@ -979,6 +979,39 @@ const fromForm = await S(() => investPlanSummary());
 check('typing into the form drives the same maths (3,000 × 12 ÷ 4% = 900,000)',
   Math.abs(fromForm.targetPot - 900000) < 0.01, String(fromForm.targetPot));
 
+/* ── 9d. coerceState never wipes on partial corruption ─────────────────
+   One broken record (or one broken field) must degrade alone — the old
+   catch-all returned emptyState(), so a single throw during coercion wiped
+   the user's whole decrypted state and the next save() made it permanent. */
+const coerceRobust = await S(() => {
+  const good = {
+    income: [{ id: 'i1', name: 'Salary', amount: 5000 }, null], // null record throws in fillMonth spread
+    debts: [
+      { id: 'd1', name: 'Card', balance: 1000, apr: 15, minPayment: 50, kind: 'standard' },
+      Object.freeze(Object.create(null)), // hostile record
+    ],
+    savings: [{ id: 's1', name: 'Emergency', target: 10000, current: 2500 }],
+    shariah: 'not-an-object',
+    investPlan: 42,
+  };
+  const out = coerceState(good);
+  return {
+    income: out.income.length,
+    incomeName: out.income[0] && out.income[0].name,
+    debts: out.debts.length,
+    savings: out.savings.length,
+    shariahOk: !!(out.shariah && typeof out.shariah === 'object'),
+    planOk: out.investPlan === null || typeof out.investPlan === 'object',
+    nullIsEmpty: coerceState(null).income.length === 0,
+  };
+});
+check('corrupt sibling records are dropped, good ones survive',
+  coerceRobust.income === 1 && coerceRobust.incomeName === 'Salary' && coerceRobust.debts >= 1
+  && coerceRobust.savings === 1, JSON.stringify(coerceRobust));
+check('corrupt scalar fields fall back to defaults without wiping state',
+  coerceRobust.shariahOk && coerceRobust.planOk && coerceRobust.nullIsEmpty,
+  JSON.stringify(coerceRobust));
+
 /* ── 10. biometric unlock has zero web surface ─────────────────────────
    The feature is native-only (Capacitor keystore). On the web the lock
    screen must never offer the fingerprint button and Settings must never

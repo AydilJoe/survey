@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.12.0";
+const APP_VERSION = "1.12.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -172,32 +172,44 @@ function coerceShariah(raw) {
 }
 
 function coerceState(parsed) {
-  try {
-    const nowMonth = currentMonthISO();
-    const fillMonth = (x) => ({ ...x, month: x.month || nowMonth });
-    return {
-      income: Array.isArray(parsed.income)
-        ? parsed.income.map(fillMonth).map((x) => ({
-            ...x,
-            repeatNext: x.repeatNext === false ? false : true,
-          }))
-        : [],
-      expenses: Array.isArray(parsed.expenses)
-        ? parsed.expenses.map(fillMonth).map((x) => ({
-            ...x,
-            repeatNext: x.repeatNext === false ? false : true,
-          }))
-        : [],
-      debts: Array.isArray(parsed.debts) ? parsed.debts.map((d) => coerceDebt({ kind: "standard", ...d })) : [],
+  // A missing/garbage blob is the only thing that legitimately coerces to a
+  // fresh state. Past this point the user HAS data, and nothing below is
+  // allowed to lose more than the single field or record that's broken —
+  // this function used to sit inside one big try/catch whose fallback was
+  // emptyState(), which turned any single throw into a full wipe that the
+  // next save() made permanent.
+  if (!parsed || typeof parsed !== "object") return emptyState();
+
+  // One broken field falls back to its own default; the rest survive.
+  const safe = (fn, fallback) => { try { return fn(); } catch { return fallback; } };
+  // One broken record is dropped; its siblings survive.
+  const safeMap = (arr, fn) => {
+    if (!Array.isArray(arr)) return [];
+    const out = [];
+    for (const x of arr) { try { out.push(fn(x)); } catch {} }
+    return out;
+  };
+
+  const nowMonth = safe(() => currentMonthISO(), "");
+  const fillMonth = (x) => ({ ...x, month: x.month || nowMonth });
+  return {
+      income: safeMap(parsed.income, (x) => ({
+        ...fillMonth(x),
+        repeatNext: x.repeatNext === false ? false : true,
+      })),
+      expenses: safeMap(parsed.expenses, (x) => ({
+        ...fillMonth(x),
+        repeatNext: x.repeatNext === false ? false : true,
+      })),
+      debts: safeMap(parsed.debts, (d) => coerceDebt({ kind: "standard", ...d })),
       dailyExpenses: Array.isArray(parsed.dailyExpenses) ? parsed.dailyExpenses : [],
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
-      // Guarded on the module: coerceState's catch falls back to emptyState(),
-      // so a failed investments.js load must not throw here and wipe the lot.
-      investments: Array.isArray(parsed.investments) && typeof coerceInvestment === "function"
-        ? parsed.investments.map(coerceInvestment)
+      // Guarded on the module so a failed investments.js load degrades to an
+      // empty list instead of throwing here.
+      investments: typeof coerceInvestment === "function"
+        ? safeMap(parsed.investments, coerceInvestment)
         : [],
-      budgetPools: Array.isArray(parsed.budgetPools)
-        ? parsed.budgetPools.map((p) => ({
+      budgetPools: safeMap(parsed.budgetPools, (p) => ({
             id: typeof p.id === "string" ? p.id : uid(),
             name: typeof p.name === "string" ? p.name : "Untitled",
             limit: Number.isFinite(Number(p.limit)) ? Number(p.limit) : 0,
@@ -208,8 +220,7 @@ function coerceState(parsed) {
               ? p.monthlyLimits : {},
             system: typeof p.system === "string" ? p.system : undefined,
             createdAt: Number.isFinite(Number(p.createdAt)) ? Number(p.createdAt) : Date.now(),
-          }))
-        : [],
+          })),
       extraMonthly: Number(parsed.extraMonthly) || 0,
       currency: typeof parsed.currency === "string" && /^[A-Z]{3}$/i.test(parsed.currency) ? parsed.currency.toUpperCase() : "MYR",
       fx: (parsed && typeof parsed.fx === "object" && parsed.fx) ? {
@@ -250,14 +261,12 @@ function coerceState(parsed) {
       nativeReferrer: typeof parsed.nativeReferrer === "string" && /^[a-f0-9]{8}$/.test(parsed.nativeReferrer) ? parsed.nativeReferrer : "",
       proEmail: typeof parsed.proEmail === "string" ? parsed.proEmail : "",
       proRefCode: typeof parsed.proRefCode === "string" && /^[a-f0-9]{8}$/.test(parsed.proRefCode) ? parsed.proRefCode : "",
-      shariah: coerceShariah(parsed.shariah),
-      // Guarded exactly like `investments` above — coerceState's catch would
-      // otherwise turn a missing investments.js into a wiped state.
+      shariah: safe(() => coerceShariah(parsed.shariah), emptyShariah()),
+      // Guarded on the module, like `investments` above.
       investPlan: typeof coerceInvestPlan === "function"
-        ? coerceInvestPlan(parsed.investPlan)
+        ? safe(() => coerceInvestPlan(parsed.investPlan), emptyInvestPlan())
         : (parsed.investPlan && typeof parsed.investPlan === "object" ? parsed.investPlan : null),
-    };
-  } catch { return emptyState(); }
+  };
 }
 
 /* initial blank state; real state lands after unlock */
