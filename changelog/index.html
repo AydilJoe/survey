@@ -142,6 +142,16 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-10-1">
+    <span class="release-date">July 2026 · v1.10.1</span>
+    <h2 class="release-title">Unlock with your fingerprint</h2>
+    <p class="release-summary">Typing a passcode twenty times a day is how people end up choosing "1111". In the Android app you can now unlock with a fingerprint or your face — without changing what actually protects your data.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Biometric unlock, opt-in</strong> — Settings → Security → "Unlock with fingerprint / Face ID". Your passcode is kept in the phone's hardware keystore and released only after the OS scan succeeds. The passcode stays the only encryption key; biometrics just fetch it for you.</li>
+      <li><span class="tag note">note</span><strong>Fails safe</strong> — if your phone's fingerprints or faces change, the stored passcode is invalidated and the feature switches itself off. Passcode entry is always there, and changing your passcode re-stores the new one seamlessly. Web app unchanged — this is native-only.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-10">
     <span class="release-date">July 2026 · v1.10</span>
     <h2 class="release-title">Investments — holdings, dividends and net worth</h2>

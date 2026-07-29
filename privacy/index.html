@@ -37,7 +37,7 @@
   "url": "https://duitful.app/privacy/",
   "description": "Privacy policy for Duitful — a privacy-first personal finance tracker built in Malaysia.",
   "inLanguage": "en",
-  "dateModified": "2026-06-06",
+  "dateModified": "2026-07-29",
   "publisher": {
     "@type": "Organization",
     "name": "Duitful",
@@ -192,7 +192,7 @@
 
   <h1>Privacy <em>policy</em></h1>
   <p class="lede">Written in plain English, not legalese. The short version lives right below — the rest is the full detail you'll want if you care, or if a regulator asks.</p>
-  <p class="meta">Effective 23 April 2026 · Last updated 6 June 2026</p>
+  <p class="meta">Effective 23 April 2026 · Last updated 29 July 2026</p>
 
   <div class="tldr">
     <h2>The short version</h2>
@@ -234,6 +234,9 @@
   <p>This data is written to the browser's <code>localStorage</code> (or the equivalent storage inside the native app shell). It is encrypted at rest using AES-GCM with a 256-bit key derived from your passcode via PBKDF2 (250,000 iterations, SHA-256). We do not know your passcode; we do not have a copy of the derived key; we cannot decrypt your data.</p>
   <p>If you forget your passcode, your data is not recoverable — not even if you have a Google Drive backup, because the backup is encrypted with the same passcode. This is a deliberate trade-off for genuine end-to-end privacy. We recommend writing your passcode down somewhere safe, and using Pro's Google Drive sync or CSV export so you have a portable copy of the encrypted data itself.</p>
 
+  <h3>Biometric unlock (native app, optional)</h3>
+  <p>In the Android app you can optionally turn on <strong>Unlock with fingerprint / Face ID</strong> (Settings → Security). When enabled, your passcode is stored in your phone's hardware keystore (Android Keystore / iOS Keychain) and released to the app only after your phone's own fingerprint or face check succeeds. The passcode never leaves the device, is never sent to us, and remains the only key to your data — biometrics just save you typing it. Your biometric data itself (fingerprint or face) is handled entirely by the operating system; Duitful never sees it. The feature turns itself off if your device's biometric enrollment changes, and passcode entry always remains available. The web app does not use biometrics at all.</p>
+
   <h3>Local storage keys, for transparency</h3>
   <p>Duitful writes the following keys to your browser's local storage:</p>
   <ul>
@@ -242,6 +245,7 @@
     <li><code>duit-tracker.referrer</code> and <code>duit-tracker.promo</code> — optional referral / promo codes if you followed a link, kept for 30 days.</li>
     <li><code>duit-tracker.fx</code> — cached foreign-exchange rates, up to 24 hours.</li>
     <li><code>duit-tracker.privacy</code> — whether you have "blur balances" mode turned on.</li>
+    <li><code>duitful.biometricUnlock</code> — only in the native app, and only if you turned on biometric unlock: a flag that tells the lock screen to offer the fingerprint / face button. It contains no secret — the passcode itself lives in the phone's hardware keystore, not in local storage.</li>
     <li><code>duit-tracker.install-dismissed-at</code> — the timestamp when you dismissed the "install as an app" prompt, so we don't show it again for a while.</li>
     <li><code>duit-tracker.drive</code> — only present if you have connected Google Drive sync (Pro). Holds the OAuth access token Google issued to your browser, the Drive file identifier of your backup, your Google account email (so the in-app status line can show which account is connected), and the timestamp of the last successful sync. Removed when you disconnect Drive sync.</li>
   </ul>

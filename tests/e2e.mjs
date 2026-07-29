@@ -515,6 +515,20 @@ const afterDelete = await S(() => state.investments.map(h => h.name));
 check('delete removes only that holding', afterDelete.length === 1 && afterDelete[0] === 'ASM fund',
   JSON.stringify(afterDelete));
 
+/* ── 10. biometric unlock has zero web surface ─────────────────────────
+   The feature is native-only (Capacitor keystore). On the web the lock
+   screen must never offer the fingerprint button and Settings must never
+   show the toggle, regardless of state. */
+const bioSurface = await page.evaluate(() => ({
+  btnHidden: document.getElementById('lock-biometric')?.hidden,
+  rowHidden: document.getElementById('biometric-row')?.hidden,
+  flag: localStorage.getItem('duitful.biometricUnlock'),
+}));
+check('biometric lock button stays hidden on web', bioSurface.btnHidden === true,
+  JSON.stringify(bioSurface));
+check('biometric settings row stays hidden on web and no flag is written',
+  bioSurface.rowHidden === true && bioSurface.flag === null, JSON.stringify(bioSurface));
+
 await b.close();
 if (server) server.kill();
 

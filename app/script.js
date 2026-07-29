@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.10.0";
+const APP_VERSION = "1.10.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7657,6 +7657,9 @@ const RELEASE_NOTES = {
     "<strong>Dividends</strong> — log them as cash or reinvested, see your 12-month total and yield.",
     "<strong>Net worth</strong> — savings + investments − debts, on your dashboard.",
   ],
+  "1.10.1": [
+    "<strong>Unlock with your fingerprint or face</strong> (Android app) — turn it on in Settings → Security. Your passcode stays the key; it's kept in the phone's hardware keystore and released only after a successful scan. Passcode entry always remains available.",
+  ],
 };
 
 function maybeShowWhatsNew() {
@@ -7975,6 +7978,7 @@ function setLockMode(mode) {
     if (help) help.hidden = true;
     if (input) input.placeholder = "Passcode used on other device";
   }
+  updateBiometricUI(); // fingerprint button only ever shows in "unlock" mode
 }
 
 function showLock() {
@@ -8008,6 +8012,127 @@ function lockError(msg) {
   const confirmEl = document.getElementById("lock-confirm");
   if (confirmEl) confirmEl.value = "";
 }
+
+/* ---------- biometric unlock (Capacitor native only) ----------
+   Opt-in. The passcode is stored in the device's hardware keystore
+   (Android Keystore / iOS Keychain) via @capgo/capacitor-native-biometric
+   and released only after a successful fingerprint / face scan. The
+   passcode itself remains the encryption secret — biometrics only gate
+   access to it, so the web app and the crypto layer are unchanged. On a
+   plain web/PWA context the plugin is absent and every surface below
+   stays hidden. */
+
+const BIOMETRIC_FLAG = "duitful.biometricUnlock";
+const BIOMETRIC_SERVER = "app.duitful.passcode";
+
+function biometricPlugin() {
+  if (!isNative()) return null;
+  return (window.Capacitor.Plugins && window.Capacitor.Plugins.NativeBiometric) || null;
+}
+
+async function biometricAvailable() {
+  const nb = biometricPlugin();
+  if (!nb) return false;
+  try {
+    const r = await nb.isAvailable();
+    return !!(r && r.isAvailable);
+  } catch { return false; }
+}
+
+// Enabled-flag lives OUTSIDE the encrypted state: the lock screen needs it
+// before anything is decrypted. It holds no secret — just "show the button".
+function biometricEnabled() { return localStorage.getItem(BIOMETRIC_FLAG) === "1"; }
+
+async function storeBiometricPasscode(passcode) {
+  const nb = biometricPlugin();
+  if (!nb) return false;
+  try {
+    await nb.setCredentials({ username: "duitful", password: passcode, server: BIOMETRIC_SERVER });
+    return true;
+  } catch { return false; }
+}
+
+async function disableBiometric() {
+  localStorage.removeItem(BIOMETRIC_FLAG);
+  const nb = biometricPlugin();
+  if (nb) { try { await nb.deleteCredentials({ server: BIOMETRIC_SERVER }); } catch {} }
+  updateBiometricUI();
+}
+
+// Caller must have verified the passcode decrypts the current record.
+async function enableBiometric(passcode) {
+  const nb = biometricPlugin();
+  if (!nb) return false;
+  try {
+    await nb.verifyIdentity({ reason: "Enable biometric unlock", title: "Duitful" });
+  } catch { return false; } // cancelled or scan failed
+  if (!(await storeBiometricPasscode(passcode))) return false;
+  localStorage.setItem(BIOMETRIC_FLAG, "1");
+  updateBiometricUI();
+  return true;
+}
+
+async function biometricUnlock() {
+  const nb = biometricPlugin();
+  if (!nb || !biometricEnabled() || lockMode !== "unlock") return;
+  try {
+    await nb.verifyIdentity({ reason: "Unlock Duitful", title: "Duitful" });
+  } catch { return; } // cancelled or scan failed — passcode entry still there
+  let creds = null;
+  try { creds = await nb.getCredentials({ server: BIOMETRIC_SERVER }); } catch {}
+  if (!creds || !creds.password) {
+    // Keystore entry gone — the OS invalidated it (biometric enrollment
+    // changed, device credentials reset) or it was never stored.
+    await disableBiometric();
+    lockError("Biometric unlock was reset — enter your passcode, then re-enable it in Settings.");
+    return;
+  }
+  await handleUnlock(creds.password);
+  if (!aesKey) {
+    // Stored passcode no longer decrypts (changed outside this flow) —
+    // drop it so the button stops offering a dead end.
+    await disableBiometric();
+  }
+}
+
+async function updateBiometricUI() {
+  const btn = document.getElementById("lock-biometric");
+  const row = document.getElementById("biometric-row");
+  const hint = document.getElementById("biometric-hint");
+  const toggle = document.getElementById("toggle-biometric");
+  if (!btn && !row) return;
+  const avail = await biometricAvailable();
+  const on = avail && biometricEnabled();
+  if (btn) btn.hidden = !(on && lockMode === "unlock");
+  if (row) row.hidden = !avail;
+  if (hint) hint.hidden = !avail;
+  if (toggle) toggle.checked = on;
+}
+
+document.getElementById("lock-biometric")?.addEventListener("click", () => {
+  biometricUnlock().catch(() => {});
+});
+
+document.getElementById("toggle-biometric")?.addEventListener("change", async (e) => {
+  const box = e.target;
+  if (!box.checked) { await disableBiometric(); return; }
+  box.checked = false; // stays off until the whole enable flow succeeds
+  const pass = prompt("Enter your passcode to enable biometric unlock:");
+  if (pass == null) { updateBiometricUI(); return; }
+  const raw = localStorage.getItem(ENC_KEY);
+  if (!raw) { updateBiometricUI(); return; }
+  try {
+    const rec = JSON.parse(raw);
+    const checkKey = await deriveKey(pass, b64decode(rec.salt));
+    await decryptRecord(checkKey, rec);
+  } catch {
+    alert("Incorrect passcode.");
+    updateBiometricUI();
+    return;
+  }
+  const ok = await enableBiometric(pass);
+  if (!ok) alert("Couldn't enable biometric unlock — the scan was cancelled or this device refused to store the passcode.");
+});
 
 async function handleUnlock(passcode) {
   const raw = localStorage.getItem(ENC_KEY);
@@ -8812,6 +8937,7 @@ document.getElementById("btn-forgot")?.addEventListener("click", () => {
   if (!confirm("Really sure? This cannot be undone.")) return;
   localStorage.removeItem(ENC_KEY);
   localStorage.removeItem(STORAGE_KEY);
+  disableBiometric().catch(() => {}); // stored passcode dies with the data
   aesKey = null;
   state = emptyState();
   setLockMode("setup");
@@ -8840,6 +8966,13 @@ document.getElementById("btn-change-passcode")?.addEventListener("click", async 
   aesKey = newKey;
   const newRec = await encryptWith(newKey, state, saltB64);
   localStorage.setItem(ENC_KEY, JSON.stringify(newRec));
+  // Seamless biometric re-store: the keystore holds the old passcode, which
+  // no longer decrypts anything. Swap in the new one; if the keystore write
+  // fails, turn biometric unlock off rather than leave a dead entry.
+  if (biometricEnabled()) {
+    const ok = await storeBiometricPasscode(p1);
+    if (!ok) await disableBiometric();
+  }
   alert("Passcode changed. Data re-encrypted with new key.");
 });
 
