@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.11.0";
+const APP_VERSION = "1.12.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -74,6 +74,10 @@ const emptyState = () => ({
   proEmail: "",
   proRefCode: "",
   shariah: emptyShariah(),
+  // Retirement projection inputs. Same guard as `investments` below: if
+  // investments.js failed to load there's no shape to build, and a null here
+  // is what every reader already tolerates.
+  investPlan: typeof emptyInvestPlan === "function" ? emptyInvestPlan() : null,
 });
 
 /* ---------- Shariah / Islamic finance ---------- */
@@ -104,6 +108,14 @@ const ZAKAT_SETTING_KEYS = new Set([
   "shariahenabled", "zakatenabled", "zakatnisabbasis", "zakatgoldprice",
   "zakatsilverprice", "zakatcustomnisab", "zakatotherassets",
   "zakatdeductibles", "zakatincludesavings", "zakathaulstart",
+]);
+
+// Retirement-plan setting keys, lowercased. Same one-row-per-key shape as the
+// zakat block so an older build just skips the ones it doesn't recognise.
+const INVEST_PLAN_SETTING_KEYS = new Set([
+  "investplanenabled", "investplancurrentage", "investplanretireage",
+  "investplanrealreturn", "investplantargetmonthly", "investplantargetpot",
+  "investplanmonthlycontribution", "investplanincludesavings",
 ]);
 
 const emptyShariah = () => ({
@@ -239,6 +251,11 @@ function coerceState(parsed) {
       proEmail: typeof parsed.proEmail === "string" ? parsed.proEmail : "",
       proRefCode: typeof parsed.proRefCode === "string" && /^[a-f0-9]{8}$/.test(parsed.proRefCode) ? parsed.proRefCode : "",
       shariah: coerceShariah(parsed.shariah),
+      // Guarded exactly like `investments` above — coerceState's catch would
+      // otherwise turn a missing investments.js into a wiped state.
+      investPlan: typeof coerceInvestPlan === "function"
+        ? coerceInvestPlan(parsed.investPlan)
+        : (parsed.investPlan && typeof parsed.investPlan === "object" ? parsed.investPlan : null),
     };
   } catch { return emptyState(); }
 }
@@ -3551,6 +3568,7 @@ function renderAll() {
   renderDaily();
   renderSavings();
   if (typeof renderInvestments === "function") renderInvestments();
+  if (typeof renderInvestPlan === "function") renderInvestPlan();
   renderZakat();
   renderUpcoming();
   renderPending();
@@ -6489,6 +6507,21 @@ function toCSV() {
       rows.push(blank(["zakat-payment", "", h.amount, "", "", "", h.date]));
     }
   }
+  // Retirement plan — same one-setting-row-per-key shape as the zakat block.
+  // `enabled` rides along so a disabled plan round-trips as disabled rather
+  // than springing back to life on the importing device.
+  if (typeof coerceInvestPlan === "function") {
+    const pl = coerceInvestPlan(state.investPlan);
+    const settingRow = (key, value) => rows.push(blank(["setting", key, value]));
+    settingRow("investPlanEnabled", pl.enabled ? "Y" : "N");
+    settingRow("investPlanCurrentAge", pl.currentAge);
+    settingRow("investPlanRetireAge", pl.retireAge);
+    settingRow("investPlanRealReturn", pl.realReturn);
+    settingRow("investPlanTargetMonthly", pl.targetMonthly);
+    settingRow("investPlanTargetPot", pl.targetPot);
+    settingRow("investPlanMonthlyContribution", pl.monthlyContribution);
+    settingRow("investPlanIncludeSavings", pl.includeSavings ? "Y" : "N");
+  }
   // Budget pool rows — name in column 1 ("name"), limit in column 2 ("amount"),
   // remaining pool-specific data in the new pool_* columns at index 22-26.
   for (const p of state.budgetPools) {
@@ -6808,6 +6841,23 @@ function fromCSV(text) {
         case "zakatincludesavings": next.shariah.includeSavings = yes; break;
         case "zakathaulstart": next.shariah.haulStart = raw; break;
       }
+    } else if (type === "setting" && INVEST_PLAN_SETTING_KEYS.has(name.toLowerCase())) {
+      // Same read-the-cell-not-the-number treatment as the zakat rows: flags
+      // are Y/N strings, the rest are plain numbers. coerceInvestPlan at the
+      // end of this function clamps whatever lands here.
+      if (!next.investPlan) next.investPlan = typeof emptyInvestPlan === "function" ? emptyInvestPlan() : {};
+      const raw = iAmount >= 0 ? (row[iAmount] || "").toString().trim() : "";
+      const yes = raw.toUpperCase() === "Y";
+      switch (name.toLowerCase()) {
+        case "investplanenabled": next.investPlan.enabled = yes; break;
+        case "investplancurrentage": next.investPlan.currentAge = raw; break;
+        case "investplanretireage": next.investPlan.retireAge = raw; break;
+        case "investplanrealreturn": next.investPlan.realReturn = raw; break;
+        case "investplantargetmonthly": next.investPlan.targetMonthly = raw; break;
+        case "investplantargetpot": next.investPlan.targetPot = raw; break;
+        case "investplanmonthlycontribution": next.investPlan.monthlyContribution = raw; break;
+        case "investplanincludesavings": next.investPlan.includeSavings = yes; break;
+      }
     } else if (type === "zakat-payment") {
       const date = iDate >= 0 ? (row[iDate] || "").trim() : "";
       if (Number.isFinite(amount) && isValidDate(date)) {
@@ -6927,6 +6977,10 @@ function fromCSV(text) {
   // may repeat a date — coerceInvestment sorts and keeps one per day.
   if (typeof coerceInvestment === "function") {
     next.investments = next.investments.map(coerceInvestment);
+  }
+  // Ditto for the retirement plan: the setting rows wrote raw strings.
+  if (typeof coerceInvestPlan === "function") {
+    next.investPlan = coerceInvestPlan(next.investPlan);
   }
 
   return next;
@@ -7669,6 +7723,11 @@ const RELEASE_NOTES = {
     "<strong>Your real return, honestly computed</strong> — every holding and your whole portfolio now show an annualised money-weighted return: your actual top-ups, withdrawals and cash dividends against today's value. Under 90 days of history it says \"—\" instead of guessing.",
     "<strong>Portfolio value over time</strong> — a chart in Reports drawn from every valuation you've recorded.",
     "<strong>Yield on cost & per-account totals</strong> — what your dividends earn on the money you actually put in, plus your portfolio grouped by ASB, EPF, unit trusts and the rest.",
+  ],
+  "1.12.0": [
+    "<strong>Retirement planning, one tap</strong> — a new card on Savings: tell it what you'd spend per month in retirement and it estimates your target pot (4% rule), all in today's money.",
+    "<strong>Your coast number</strong> — the amount that, invested today and left alone, compounds to your target by retirement. Once your pot passes it you're \"Coasting ✓\" — future contributions become optional.",
+    "<strong>Projection with your current savings rate</strong> — where your pot lands by retirement age at your chosen real return, and what that would fund per month.",
   ],
 };
 

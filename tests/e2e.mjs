@@ -737,6 +737,248 @@ check('no holdings hides the portfolio value card entirely',
 check('no holdings hides the performance stats',
   await page.locator('#invest-perf').evaluate(e => e.hidden));
 
+/* ── 9c. Investments Phase 3: projection & Coast FIRE ─────────────────────
+   Hand-computed fixtures. Everything below is closed form, so a reviewer can
+   check it with a calculator and no app:
+
+     target pot   = spend/month × 12 ÷ 4%      (the 4% rule)
+                  = 4,000 × 12 ÷ 0.04 = 1,200,000
+     horizon      = retireAge − currentAge = 65 − 35 = 30 years
+     1.05^30      = 4.321942375150668
+     coast today  = 1,200,000 ÷ 4.321942375150668 = 277,652.93838702946
+     override pot = 900,000 ÷ 4.321942375150668  = 208,239.70379027206
+
+   Projection convention under test: today's pot compounds at the ANNUAL real
+   rate, contributions are an ORDINARY annuity (end of month) at the monthly
+   rate m = (1+r)^(1/12) − 1 — the rate that compounds to exactly the annual
+   rate over twelve months, NOT r/12.
+
+     m at r = 5%  = 1.05^(1/12) − 1 = 0.0040741237836483535
+     months       = 30 × 12 = 360
+     annuity factor ((1+m)^360 − 1) ÷ m = 815.37590695783
+     pot 100,000 + 1,000/month
+                  = 100,000 × 4.321942375150668 + 1,000 × 815.37590695783
+                  = 432,194.2375150668 + 815,375.90695783
+                  = 1,247,570.1444728968                                   */
+const POW_5_30 = 1.05 ** 30;                    // 4.321942375150668
+const COAST_5PCT = 1200000 / POW_5_30;          // 277,652.938387…
+const COAST_OVERRIDE = 900000 / POW_5_30;       // 208,239.703790…
+const PROJ_100K_1K = 100000 * POW_5_30 + 1000 * (((1.05 ** (1 / 12)) ** 360 - 1) / (1.05 ** (1 / 12) - 1));
+
+// Disabled is the default: the whole card must be absent from the Savings tab,
+// leaving only the one-line opt-in offer (same contract as the zakat opt-in).
+await page.click('#tabbtn-savings');
+await page.waitForTimeout(300);
+check('retirement card hidden by default',
+  await page.locator('#invest-plan-card').evaluate(e => e.hidden));
+check('retirement opt-in offered on Savings',
+  await page.locator('#invest-plan-optin').evaluate(e => !e.hidden));
+const savingsTextOff = await page.locator('#tab-savings').innerText();
+check('disabled plan renders zero surface — no coast/target/projection anywhere on Savings',
+  !/Coast number|Target pot|Projected at retirement|Coasting/i.test(savingsTextOff),
+  savingsTextOff.replace(/\n/g, ' | ').slice(0, 160));
+
+// One tap enables it, exactly like zakat.
+await page.click('#btn-invest-plan-enable');
+await page.waitForTimeout(400);
+check('retirement card appears after one tap',
+  await page.locator('#invest-plan-card').evaluate(e => !e.hidden));
+check('retirement opt-in hides once enabled',
+  await page.locator('#invest-plan-optin').evaluate(e => e.hidden));
+check('plan defaults are sane (30 → 60, 4% real)',
+  await S(() => {
+    const p = investPlanState();
+    return p.currentAge === 30 && p.retireAge === 60 && p.realReturn === 4;
+  }));
+
+// State is driven directly from here — the arithmetic, not the form plumbing,
+// is what these fixtures are pinning down.
+const plan = (patch) => S((p) => {
+  state.investPlan = coerceInvestPlan({ ...state.investPlan, ...p });
+  save(); renderAll();
+  return investPlanSummary();
+}, patch);
+const setPot = (invBalance, savingsCurrent) => S(([b, sv]) => {
+  state.investments = b === null ? [] : [coerceInvestment({
+    name: 'Pot', kind: 'balance', account: 'ASB', balance: b,
+  })];
+  state.savings = sv === null ? [] : [{
+    id: 'plan-goal', createdAt: Date.now(), name: 'Emergency fund', target: 100000, current: sv,
+  }];
+  save(); renderAll();
+  return investPlanSummary();
+}, [invBalance, savingsCurrent]);
+
+const p1 = await plan({
+  currentAge: 35, retireAge: 65, realReturn: 5,
+  targetMonthly: 4000, targetPot: 0, monthlyContribution: 0, includeSavings: false,
+});
+check('target pot = 4,000 × 12 ÷ 4% = 1,200,000',
+  Math.abs(p1.targetPot - 1200000) < 0.01, String(p1.targetPot));
+check('coast number = target ÷ 1.05^30 = 277,652.94',
+  Math.abs(p1.coastNumber - COAST_5PCT) < 1e-6 && Math.abs(p1.coastNumber - 277652.938387) < 0.01,
+  String(p1.coastNumber));
+check('horizon = 30 years, 360 months', p1.years === 30 && p1.months === 360,
+  JSON.stringify({ years: p1.years, months: p1.months }));
+
+// Status flips exactly at the boundary. currentPot ≥ coast is "coasting".
+const belowByOne = await setPot(COAST_5PCT - 1, null);
+check('one ringgit below the coast number is not coasting',
+  belowByOne.coasting === false && Math.abs(belowByOne.shortfall - 1) < 1e-6,
+  JSON.stringify({ coasting: belowByOne.coasting, shortfall: belowByOne.shortfall }));
+const atBoundary = await setPot(COAST_5PCT, null);
+check('exactly on the coast number counts as coasting',
+  atBoundary.coasting === true && atBoundary.shortfall === 0,
+  JSON.stringify({ coasting: atBoundary.coasting, shortfall: atBoundary.shortfall }));
+const aboveByOne = await setPot(COAST_5PCT + 1, null);
+check('one ringgit above the coast number is coasting',
+  aboveByOne.coasting === true && aboveByOne.shortfall === 0,
+  JSON.stringify({ coasting: aboveByOne.coasting, shortfall: aboveByOne.shortfall }));
+await page.waitForTimeout(200);
+check('the pill says "Coasting ✓" once the pot clears the coast number',
+  (await page.locator('#invest-plan-pill').innerText()).trim().toUpperCase().startsWith('COASTING'),
+  await page.locator('#invest-plan-pill').innerText());
+await setPot(COAST_5PCT - 1000, null);
+await page.waitForTimeout(200);
+check('the pill says how much is left when short',
+  /1,000\.00 to go/i.test(await page.locator('#invest-plan-pill').innerText()),
+  await page.locator('#invest-plan-pill').innerText());
+
+// Projection with no contributions is pure compounding of today's pot.
+const projZero = await setPot(120000, null);
+check('projection with zero contribution = pot × (1+r)^years',
+  Math.abs(projZero.projected - 120000 * POW_5_30) < 1e-6
+  && Math.abs(projZero.projected - 518633.085018) < 0.01,
+  String(projZero.projected));
+
+// Full annuity: the monthly-rate convention is what this one pins.
+await setPot(100000, null);
+const projAnnuity = await plan({ monthlyContribution: 1000 });
+check('projection with 1,000/month = 1,247,570.14 (ordinary annuity at (1.05)^(1/12)−1)',
+  Math.abs(projAnnuity.projected - PROJ_100K_1K) < 1e-6
+  && Math.abs(projAnnuity.projected - 1247570.144473) < 0.01,
+  String(projAnnuity.projected));
+
+// r = 0: the annuity factor degenerates to 0/0, so it must fall back to
+// months × contribution and the coast number must equal the target itself.
+const projFlat = await plan({ realReturn: 0 });
+check('at 0% real, projection = pot + months × contribution = 100,000 + 360,000',
+  Math.abs(projFlat.projected - 460000) < 1e-6, String(projFlat.projected));
+check('at 0% real, the coast number is the target itself',
+  Math.abs(projFlat.coastNumber - 1200000) < 1e-6, String(projFlat.coastNumber));
+
+// Override wins over the 4% derivation.
+const overridden = await plan({ realReturn: 5, targetPot: 900000 });
+check('explicit target pot overrides the 4% derivation',
+  Math.abs(overridden.targetPot - 900000) < 0.01
+  && Math.abs(overridden.coastNumber - COAST_OVERRIDE) < 1e-6
+  && Math.abs(overridden.coastNumber - 208239.703790) < 0.01,
+  JSON.stringify({ target: overridden.targetPot, coast: overridden.coastNumber }));
+const backToRule = await plan({ targetPot: 0 });
+check('clearing the override falls back to the 4% rule',
+  Math.abs(backToRule.targetPot - 1200000) < 0.01, String(backToRule.targetPot));
+
+// includeSavings moves the current pot, and nothing else.
+const withGoal = await setPot(100000, 50000);
+check('savings goals stay out of the pot while the box is unticked',
+  Math.abs(withGoal.currentPot - 100000) < 0.01, String(withGoal.currentPot));
+const included = await plan({ includeSavings: true });
+check('ticking "count my savings goals" adds them to the current pot',
+  Math.abs(included.currentPot - 150000) < 0.01
+  && Math.abs(included.investments - 100000) < 0.01
+  && Math.abs(included.savings - 50000) < 0.01,
+  JSON.stringify({ pot: included.currentPot, inv: included.investments, sav: included.savings }));
+
+// Guards: never NaN, never Infinity, never a confident zero.
+const badHorizon = await plan({ retireAge: 30 });
+check('retiring before today degrades to "—" rather than NaN',
+  badHorizon.coastNumber === null && badHorizon.projected === null
+  && badHorizon.years === null && badHorizon.horizonValid === false,
+  JSON.stringify(badHorizon));
+await page.waitForTimeout(200);
+const planTextBad = await page.locator('#invest-plan-card').innerText();
+check('an impossible horizon renders no NaN/Infinity on the card',
+  !/NaN|Infinity/.test(planTextBad) && /—/.test(planTextBad),
+  planTextBad.replace(/\n/g, ' | ').slice(0, 160));
+const noTarget = await plan({ retireAge: 65, targetMonthly: 0, targetPot: 0 });
+check('no target at all → no coast number, but the projection still stands',
+  noTarget.coastNumber === null && noTarget.targetPot === null
+  && noTarget.coasting === null && Number.isFinite(noTarget.projected),
+  JSON.stringify({ coast: noTarget.coastNumber, target: noTarget.targetPot, proj: noTarget.projected }));
+const clamped = await plan({ currentAge: 3, retireAge: 400, realReturn: 99, targetMonthly: 4000 });
+check('ages clamp to 10–100 and the real return to −10..+20',
+  clamped.years === 90 && clamped.realReturn === 20,
+  JSON.stringify({ years: clamped.years, rate: clamped.realReturn }));
+const negative = await plan({ currentAge: 35, retireAge: 65, realReturn: -99 });
+check('a negative real return is allowed and pushes the coast number above the target',
+  negative.realReturn === -10 && negative.coastNumber > negative.targetPot
+  && Number.isFinite(negative.coastNumber),
+  JSON.stringify({ rate: negative.realReturn, coast: negative.coastNumber, target: negative.targetPot }));
+
+// CSV round-trip of every field, enabled included.
+const planRt = await plan({
+  currentAge: 35, retireAge: 65, realReturn: 5.5,
+  targetMonthly: 4200, targetPot: 950000, monthlyContribution: 1250, includeSavings: true,
+});
+check('round-trip fixture installed', Math.abs(planRt.targetPot - 950000) < 0.01);
+const rtPlan = await S(() => {
+  const csv = toCSV();
+  return { csv: /investPlanEnabled/.test(csv), plan: fromCSV(csv).investPlan };
+});
+check('csv carries the retirement plan as setting rows', rtPlan.csv);
+check('every investPlan field round-trips through CSV',
+  rtPlan.plan && rtPlan.plan.enabled === true && rtPlan.plan.currentAge === 35
+  && rtPlan.plan.retireAge === 65 && Math.abs(rtPlan.plan.realReturn - 5.5) < 1e-9
+  && Math.abs(rtPlan.plan.targetMonthly - 4200) < 0.01
+  && Math.abs(rtPlan.plan.targetPot - 950000) < 0.01
+  && Math.abs(rtPlan.plan.monthlyContribution - 1250) < 0.01
+  && rtPlan.plan.includeSavings === true,
+  JSON.stringify(rtPlan.plan));
+const rtDisabled = await S(() => {
+  const before = state.investPlan;
+  state.investPlan = coerceInvestPlan({ ...before, enabled: false });
+  const back = fromCSV(toCSV()).investPlan;
+  state.investPlan = before;
+  save();
+  return back;
+});
+check('a disabled plan round-trips as disabled, inputs intact',
+  rtDisabled.enabled === false && rtDisabled.currentAge === 35
+  && Math.abs(rtDisabled.targetPot - 950000) < 0.01, JSON.stringify(rtDisabled));
+
+// Stop planning: zero surface again, every input kept.
+await page.click('#tabbtn-savings');
+await page.click('#btn-invest-plan-disable');
+await page.waitForTimeout(400);
+check('stop planning hides the card and returns the opt-in',
+  await page.locator('#invest-plan-card').evaluate(e => e.hidden)
+  && await page.locator('#invest-plan-optin').evaluate(e => !e.hidden));
+const savingsTextAfter = await page.locator('#tab-savings').innerText();
+check('disabling wipes the retirement surface from the Savings tab again',
+  !/Coast number|Target pot|Projected at retirement|Coasting/i.test(savingsTextAfter),
+  savingsTextAfter.replace(/\n/g, ' | ').slice(0, 160));
+const keptPlan = await S(() => state.investPlan);
+check('disabling keeps every saved input',
+  keptPlan.enabled === false && keptPlan.currentAge === 35 && keptPlan.retireAge === 65
+  && Math.abs(keptPlan.targetPot - 950000) < 0.01
+  && Math.abs(keptPlan.monthlyContribution - 1250) < 0.01, JSON.stringify(keptPlan));
+await page.click('#btn-invest-plan-enable');
+await page.waitForTimeout(300);
+check('re-enabling restores the card with the same numbers',
+  await page.locator('#invest-plan-card').evaluate(e => !e.hidden)
+  && Math.abs((await S(() => investPlanSummary().targetPot)) - 950000) < 0.01);
+
+// The form itself must reach the same state the fixtures set directly.
+await page.fill('#invest-plan-target-monthly', '3000');
+await page.dispatchEvent('#invest-plan-target-monthly', 'change');
+await page.waitForTimeout(300);
+await page.fill('#invest-plan-target-pot', '');
+await page.dispatchEvent('#invest-plan-target-pot', 'change');
+await page.waitForTimeout(300);
+const fromForm = await S(() => investPlanSummary());
+check('typing into the form drives the same maths (3,000 × 12 ÷ 4% = 900,000)',
+  Math.abs(fromForm.targetPot - 900000) < 0.01, String(fromForm.targetPot));
+
 /* ── 10. biometric unlock has zero web surface ─────────────────────────
    The feature is native-only (Capacitor keystore). On the web the lock
    screen must never offer the fingerprint button and Settings must never

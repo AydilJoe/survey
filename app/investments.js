@@ -303,6 +303,142 @@ function fmtReturnPct(pct) {
   return `${pct < 0 ? "−" : "+"}${Math.abs(pct).toFixed(2)}%`;
 }
 
+/* ---------- projection & Coast FIRE (Phase 3) ---------- */
+
+// The "4% rule": a pot large enough to fund 4% of itself a year is the
+// conventional shorthand for "retired". It is a rule of thumb, not a law —
+// which is why every figure downstream of it is labelled an estimate.
+const COAST_SAFE_WITHDRAWAL = 4; // % of the pot per year
+
+// Input rails. Ages outside 10–100 and real returns outside −10..+20% are
+// typos, not plans, and they make the compounding blow up or read as satire.
+// A NEGATIVE real return is deliberately allowed: it pushes the coast number
+// ABOVE the target (money shrinking needs a bigger head start). That's the
+// maths behaving, not a bug.
+const INVEST_PLAN_AGE_MIN = 10;
+const INVEST_PLAN_AGE_MAX = 100;
+const INVEST_PLAN_RETURN_MIN = -10;
+const INVEST_PLAN_RETURN_MAX = 20;
+
+// realReturn is REAL — after inflation. Everything the card shows is therefore
+// in today's money, and the copy says so rather than leaving the user to
+// discover it.
+function emptyInvestPlan() {
+  return {
+    enabled: false,
+    currentAge: 30,
+    retireAge: 60,
+    realReturn: 4,
+    targetMonthly: 0,
+    targetPot: 0, // 0 = derive from targetMonthly; >0 overrides it
+    monthlyContribution: 0,
+    includeSavings: true,
+  };
+}
+
+function coerceInvestPlan(raw) {
+  const p = raw && typeof raw === "object" ? raw : {};
+  const d = emptyInvestPlan();
+  // Missing/blank falls back to the default; 0 does NOT (a 0% real return is
+  // a legitimate answer, and Number(null) === 0 would otherwise smuggle the
+  // 4% default out from under a user who typed a zero).
+  const num = (v, dflt) =>
+    v === null || v === undefined || v === "" || !Number.isFinite(Number(v)) ? dflt : Number(v);
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const age = (v, dflt) =>
+    Math.round(clamp(num(v, dflt), INVEST_PLAN_AGE_MIN, INVEST_PLAN_AGE_MAX));
+  const money = (v) => Math.max(0, num(v, 0));
+  return {
+    enabled: !!p.enabled,
+    currentAge: age(p.currentAge, d.currentAge),
+    retireAge: age(p.retireAge, d.retireAge),
+    realReturn: clamp(num(p.realReturn, d.realReturn), INVEST_PLAN_RETURN_MIN, INVEST_PLAN_RETURN_MAX),
+    targetMonthly: money(p.targetMonthly),
+    targetPot: money(p.targetPot),
+    monthlyContribution: money(p.monthlyContribution),
+    includeSavings: p.includeSavings !== false,
+  };
+}
+
+function investPlanState() {
+  return coerceInvestPlan(state && state.investPlan);
+}
+
+// Everything the Retirement card shows, in one place, with `null` standing for
+// "we won't guess" — a nonsensical horizon or an unset target must render as
+// "—", never as NaN, Infinity or a confident zero.
+function investPlanSummary() {
+  const p = investPlanState();
+  const fin = (v) => (Number.isFinite(v) ? v : null);
+
+  const years = p.retireAge - p.currentAge;
+  // retireAge ≤ currentAge isn't a plan, it's a typo (or someone already
+  // retired). No horizon → no compounding, no coast number, no projection.
+  const horizonValid = years > 0;
+  const months = horizonValid ? Math.round(years * 12) : 0;
+
+  const r = p.realReturn / 100;
+  // Monthly rate = (1+r)^(1/12) − 1, i.e. the rate that compounds to EXACTLY
+  // the annual real rate over twelve months. The naive r/12 would pay a
+  // higher effective annual rate than the number printed on the card.
+  const monthlyRate = Math.pow(1 + r, 1 / 12) - 1;
+
+  // Target pot: the 4% rule applied to the wanted monthly spending, unless
+  // the user typed a pot of their own — an explicit override always wins.
+  const derivedPot = (Number(p.targetMonthly) || 0) * 12 / (COAST_SAFE_WITHDRAWAL / 100);
+  const override = Number(p.targetPot) || 0;
+  const targetPot = override > 0 ? override : derivedPot;
+  const targetSource = override > 0 ? "override" : derivedPot > 0 ? "spending" : null;
+
+  const investments = typeof investmentsTotals === "function" ? investmentsTotals().total : 0;
+  const savings = p.includeSavings && typeof savingsTotals === "function" ? savingsTotals().current : 0;
+  const currentPot = investments + savings;
+
+  const growth = horizonValid ? Math.pow(1 + r, years) : null;
+  // Coast number: what you'd need TODAY for zero further contributions to
+  // reach the target by retirement. target ÷ (1+r)^years.
+  const coastNumber = horizonValid && targetPot > 0 && growth > 0 ? fin(targetPot / growth) : null;
+  const coasting = coastNumber === null ? null : currentPot >= coastNumber;
+  const shortfall = coastNumber === null ? null : Math.max(0, coastNumber - currentPot);
+
+  // Projection = today's pot compounded, plus an ORDINARY annuity of the
+  // monthly contribution (paid at the end of each month, months = years × 12).
+  // At r = 0 the annuity factor degenerates to 0/0, so it's the plain
+  // months × contribution — handled explicitly rather than left to NaN.
+  const contribution = Number(p.monthlyContribution) || 0;
+  const annuity = !horizonValid
+    ? 0
+    : Math.abs(monthlyRate) < 1e-12
+      ? months * contribution
+      : contribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+  const projected = horizonValid ? fin(currentPot * growth + annuity) : null;
+  // What that projected pot would itself fund, on the same 4% rule — the
+  // number the user can compare straight back to "target monthly spending".
+  const projectedMonthly = projected === null ? null : projected * (COAST_SAFE_WITHDRAWAL / 100) / 12;
+  const gap = projected === null || targetPot <= 0 ? null : projected - targetPot;
+
+  return {
+    years: horizonValid ? years : null,
+    months,
+    horizonValid,
+    realReturn: p.realReturn,
+    monthlyRate,
+    targetPot: targetPot > 0 ? targetPot : null,
+    targetSource,
+    investments,
+    savings,
+    includeSavings: p.includeSavings,
+    currentPot,
+    coastNumber,
+    coasting,
+    shortfall,
+    contribution,
+    projected,
+    projectedMonthly,
+    gap,
+  };
+}
+
 /* ---------- mutations ---------- */
 
 // Revaluation snapshot. Max one per day: a second change on the same day
@@ -530,6 +666,140 @@ function renderInvestments() {
     }
   }
 }
+
+/* ---------- Retirement card (Phase 3) ---------- */
+
+// "—" wherever the summary said null. Mirrors fmtReturnPct's contract: a blank
+// answer is a first-class result, not a formatting failure.
+function fmtPlanMoney(v) {
+  return v === null || v === undefined || !Number.isFinite(v) ? "—" : fmtMoney(v);
+}
+
+function renderInvestPlan() {
+  const card = document.getElementById("invest-plan-card");
+  const optin = document.getElementById("invest-plan-optin");
+  if (!card) return;
+
+  const p = investPlanState();
+  // Opt-in mirrors zakat exactly: one quiet row until wanted, and disabling
+  // hides every figure while keeping the inputs on file.
+  card.hidden = !p.enabled;
+  if (optin) optin.hidden = !!p.enabled;
+  if (!p.enabled) return;
+
+  const setVal = (id, v) => {
+    const el = document.getElementById(id);
+    if (el && document.activeElement !== el) el.value = v === 0 || v ? String(v) : "";
+  };
+  setVal("invest-plan-current-age", p.currentAge);
+  setVal("invest-plan-retire-age", p.retireAge);
+  setVal("invest-plan-return", p.realReturn);
+  setVal("invest-plan-target-monthly", p.targetMonthly || "");
+  setVal("invest-plan-target-pot", p.targetPot || "");
+  setVal("invest-plan-contribution", p.monthlyContribution || "");
+  const inc = document.getElementById("invest-plan-include-savings");
+  if (inc && document.activeElement !== inc) inc.checked = p.includeSavings !== false;
+
+  const s = investPlanSummary();
+  const text = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+
+  text("invest-plan-coast", fmtPlanMoney(s.coastNumber));
+
+  const pill = document.getElementById("invest-plan-pill");
+  if (pill) {
+    if (s.coastNumber === null) {
+      pill.hidden = true;
+      pill.textContent = "";
+      pill.className = "invest-plan-pill";
+    } else {
+      pill.hidden = false;
+      pill.className = `invest-plan-pill ${s.coasting ? "ok" : "warn"}`;
+      pill.textContent = s.coasting ? "Coasting ✓" : `${fmtMoney(s.shortfall)} to go`;
+    }
+  }
+
+  const coastNote = document.getElementById("invest-plan-coast-note");
+  if (coastNote) {
+    if (!s.horizonValid) {
+      coastNote.textContent = "Set a retirement age later than your current age to see the maths.";
+    } else if (s.coastNumber === null) {
+      coastNote.textContent = "Enter what you'd want to spend each month in retirement (or a target pot) to see your coast number.";
+    } else {
+      const yrs = `${s.years} year${s.years === 1 ? "" : "s"}`;
+      coastNote.textContent = s.coasting
+        ? `Estimate: even with no further contributions, today's pot compounds to your target in ${yrs} at ${s.realReturn}% real.`
+        : `Estimate: the amount that, left alone at ${s.realReturn}% real for ${yrs}, would reach your target on its own.`;
+    }
+  }
+
+  text("invest-plan-target", fmtPlanMoney(s.targetPot));
+  const targetSub = document.getElementById("invest-plan-target-sub");
+  if (targetSub) {
+    targetSub.textContent = s.targetSource === "override"
+      ? "your own target, overriding the 4% rule"
+      : s.targetSource === "spending"
+        ? `${fmtMoney((s.targetPot || 0) * (COAST_SAFE_WITHDRAWAL / 100) / 12)}/month at ${COAST_SAFE_WITHDRAWAL}%`
+        : "no target set yet";
+  }
+
+  text("invest-plan-current", fmtMoney(s.currentPot));
+  const currentSub = document.getElementById("invest-plan-current-sub");
+  if (currentSub) {
+    currentSub.textContent = s.includeSavings
+      ? `${fmtMoney(s.investments)} invested + ${fmtMoney(s.savings)} in goals`
+      : `${fmtMoney(s.investments)} invested · goals excluded`;
+  }
+
+  text("invest-plan-projected", fmtPlanMoney(s.projected));
+  const projSub = document.getElementById("invest-plan-projected-sub");
+  if (projSub) {
+    if (s.projected === null) {
+      projSub.textContent = "needs a retirement age above your current age";
+    } else if (s.gap === null) {
+      projSub.textContent = `estimate — about ${fmtMoney(s.projectedMonthly)}/month at ${COAST_SAFE_WITHDRAWAL}%`;
+    } else if (s.gap >= 0) {
+      projSub.textContent = `estimate — ${fmtMoney(s.gap)} past your target`;
+    } else {
+      projSub.textContent = `estimate — ${fmtMoney(-s.gap)} short of your target`;
+    }
+  }
+}
+
+function updateInvestPlan(patch) {
+  state.investPlan = coerceInvestPlan({ ...investPlanState(), ...patch });
+  save();
+  renderAll();
+}
+
+function bindInvestPlanControls() {
+  const on = (id, evt, fn) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener(evt, fn);
+  };
+  on("btn-invest-plan-enable", "click", () => updateInvestPlan({ enabled: true }));
+  // Disabling hides the whole surface but keeps every input, so coming back
+  // costs one tap and no retyping — same contract as "Stop tracking" on zakat.
+  on("btn-invest-plan-disable", "click", () => updateInvestPlan({ enabled: false }));
+  const numeric = [
+    ["invest-plan-current-age", "currentAge"],
+    ["invest-plan-retire-age", "retireAge"],
+    ["invest-plan-return", "realReturn"],
+    ["invest-plan-target-monthly", "targetMonthly"],
+    ["invest-plan-target-pot", "targetPot"],
+    ["invest-plan-contribution", "monthlyContribution"],
+  ];
+  for (const [id, key] of numeric) {
+    // Blank clears back to the field's default (coerceInvestPlan decides which)
+    // rather than being read as a zero the user never typed.
+    on(id, "change", (e) => updateInvestPlan({ [key]: e.target.value === "" ? null : e.target.value }));
+  }
+  on("invest-plan-include-savings", "change", (e) => updateInvestPlan({ includeSavings: e.target.checked }));
+}
+
+bindInvestPlanControls();
 
 /* ---------- valuation history chart (Reports tab) ---------- */
 
