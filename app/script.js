@@ -7372,6 +7372,14 @@ const RELEASE_NOTES = {
     "<strong>Islamic financing, no switch needed</strong> — the Islamic debt type now sits alongside Standard and Installment for everyone. Same fixed-profit maths and ibra' estimate as before; nothing to enable first.",
     "<strong>Zakat moved to Savings</strong> — set it up with one tap on the Savings tab; nisab and haul settings live on the card itself. Optional, and off unless you turn it on.",
   ],
+  // 1.9.2 doubles as the catch-up entry for Play users updating straight
+  // from 1.7.9 — repeat the v1.8–1.9 headlines they never saw.
+  "1.9.2": [
+    "<strong>Compact Add entry</strong> — pick Spend, Pay debt or Save and type the amount; date, category, note and the rest tuck behind \"More details\" and open automatically when a choice matters.",
+    "<strong>Islamic financing + zakat</strong> — if you jumped from v1.7: Murabahah, Tawarruq, BBA and more with ibra' estimates, ranked by effective profit rate in the payoff queue, plus an optional zakat card on Savings. Free for everyone.",
+    "<strong>Themes</strong> — Settings → Appearance for System, Light or Dark, in the refreshed Refined Clay look.",
+    "<strong>Faster, smaller app</strong> — optimized build, now targeting Android 16.",
+  ],
 };
 
 function maybeShowWhatsNew() {
