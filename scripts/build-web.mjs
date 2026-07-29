@@ -23,6 +23,7 @@ const APP_FILES = [
   "manifest.webmanifest",
   "drive-config.js",
   "drive-sync.js",
+  "investments.js",
 ];
 
 function reset(dir) {

@@ -53,6 +53,15 @@
   ranks these facilities on their **effective** profit rate (flat rate
   converted via r x 2N/(N+1)), so a 4.8% flat facility correctly queues at
   ~9.44% rather than sorting last on a 0% APR.
+- **Investments** (free tier: 2 holdings; unlimited on Pro): manual
+  holdings for ASB, EPF, Tabung Haji, FD, unit trusts, shares, gold and
+  PRS — balance-style or units × price. Values are typed in from
+  statements; **no price API is ever contacted** (a per-holding quote
+  fetch would fingerprint the portfolio). Dividends logged as cash or
+  reinvested, 12-month dividend total and yield, and net worth
+  (savings + investments − debts) on the dashboard. Zakatable holdings
+  feed the zakat base automatically when zakat tracking is enabled
+  (EPF defaults out, assessed on withdrawal).
 - **Zakat on wealth** (free, opt-in with one tap from the Savings tab —
   invisible until enabled): nisab from 85 g gold, 595 g
   silver, or a custom state-authority figure; zakatable base built from

@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.9.2";
+const APP_VERSION = "1.10.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -52,6 +52,7 @@ const emptyState = () => ({
   debts: [],
   dailyExpenses: [],
   savings: [],
+  investments: [],
   budgetPools: [],
   extraMonthly: 0,
   currency: "MYR",
@@ -178,6 +179,11 @@ function coerceState(parsed) {
       debts: Array.isArray(parsed.debts) ? parsed.debts.map((d) => coerceDebt({ kind: "standard", ...d })) : [],
       dailyExpenses: Array.isArray(parsed.dailyExpenses) ? parsed.dailyExpenses : [],
       savings: Array.isArray(parsed.savings) ? parsed.savings : [],
+      // Guarded on the module: coerceState's catch falls back to emptyState(),
+      // so a failed investments.js load must not throw here and wipe the lot.
+      investments: Array.isArray(parsed.investments) && typeof coerceInvestment === "function"
+        ? parsed.investments.map(coerceInvestment)
+        : [],
       budgetPools: Array.isArray(parsed.budgetPools)
         ? parsed.budgetPools.map((p) => ({
             id: typeof p.id === "string" ? p.id : uid(),
@@ -2567,6 +2573,17 @@ function renderDashboard() {
     savingsEmpty.hidden = !empty;
     savingsMini.hidden = empty;
   }
+  // Net worth only earns its line once there's an investment to net against;
+  // savings-minus-debt is already legible from the two cards above it.
+  const investLine = $("#dash-invest-line");
+  if (investLine) {
+    const inv = typeof investmentsTotals === "function" ? investmentsTotals() : { count: 0, total: 0 };
+    investLine.hidden = inv.count === 0;
+    if (inv.count > 0) {
+      const netWorth = savingsTotals().current + inv.total - total;
+      investLine.textContent = `Invested ${fmtMoney(inv.total)} · Net worth ${fmtMoney(netWorth)}`;
+    }
+  }
   const payoffCard = $("#payoff-card");
   if (payoffCard) payoffCard.hidden = state.debts.length === 0;
 
@@ -3276,11 +3293,14 @@ function zakatNisab() {
 function zakatBasis() {
   const s = state.shariah || emptyShariah();
   const savings = s.includeSavings ? savingsTotals().current : 0;
+  // Per-holding flag, defaulted by account type (EPF is assessed on
+  // withdrawal, so it sits out of the base unless the user says otherwise).
+  const investments = typeof investmentsTotals === "function" ? investmentsTotals().zakatable : 0;
   const other = Number(s.otherAssets) || 0;
   const deductibles = Number(s.deductibles) || 0;
-  const gross = savings + other;
+  const gross = savings + investments + other;
   const net = Math.max(0, gross - deductibles);
-  return { savings, other, deductibles, gross, net };
+  return { savings, investments, other, deductibles, gross, net };
 }
 
 // Haul is a full lunar year of continuous ownership above nisab. We can only
@@ -3381,6 +3401,7 @@ function renderZakat() {
   if (breakdown) {
     const rows = [
       s.includeSavings ? ["Savings goals", z.savings] : null,
+      z.investments > 0 ? ["Investments", z.investments] : null,
       ["Other zakatable wealth", z.other],
       z.deductibles > 0 ? ["Immediate debts", -z.deductibles] : null,
     ].filter(Boolean);
@@ -3524,6 +3545,7 @@ function renderAll() {
   renderEmptyWelcome();
   renderDaily();
   renderSavings();
+  if (typeof renderInvestments === "function") renderInvestments();
   renderZakat();
   renderUpcoming();
   renderPending();
@@ -3887,6 +3909,7 @@ if (prefAnnouncements) {
 
 const FREE_DEBT_LIMIT = 3;
 const FREE_SAVING_LIMIT = 2;
+const FREE_INVESTMENT_LIMIT = 2;
 const FREE_OCR_MONTHLY = 3;
 const TRIAL_DAYS = 7;
 const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
@@ -3951,6 +3974,7 @@ function gate(feature) {
 const PAYWALL_COPY = {
   debts: `You've hit the free limit of ${FREE_DEBT_LIMIT} debts. Pro tracks unlimited.`,
   savings: `You've hit the free limit of ${FREE_SAVING_LIMIT} goals. Pro tracks unlimited.`,
+  investments: `You've hit the free limit of ${FREE_INVESTMENT_LIMIT} investment holdings. Pro tracks unlimited.`,
   installment: "Installment plans (Atome, SPayLater) are a Pro feature.",
   ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
   notifications: "Reminders and notifications are a Pro feature.",
@@ -4605,7 +4629,7 @@ function renderProControls() {
         ? "Pro unlocked. Thanks for supporting the app!"
         : "Pro unlocked — thanks for supporting Duitful!";
     } else {
-      status.textContent = `Free tier covers up to ${FREE_DEBT_LIMIT} debts, ${FREE_SAVING_LIMIT} savings goals and ${FREE_OCR_MONTHLY} receipt scans a month. Unlock Pro for unlimited everything — one-time payment, no subscription.`;
+      status.textContent = `Free tier covers up to ${FREE_DEBT_LIMIT} debts, ${FREE_SAVING_LIMIT} savings goals, ${FREE_INVESTMENT_LIMIT} investment holdings and ${FREE_OCR_MONTHLY} receipt scans a month. Unlock Pro for unlimited everything — one-time payment, no subscription.`;
     }
   }
 
@@ -5976,10 +6000,11 @@ function openEditDialog(kind, id) {
   else if (kind === "expense") entity = state.expenses.find((x) => x.id === id);
   else if (kind === "debt") entity = state.debts.find((x) => x.id === id);
   else if (kind === "saving") entity = state.savings.find((x) => x.id === id);
+  else if (kind === "investment") entity = (state.investments || []).find((x) => x.id === id);
   if (!entity) return;
 
   editContext = { kind, id };
-  const titleMap = { income: "Edit income", expense: "Edit expense", debt: "Edit debt", saving: "Edit savings goal" };
+  const titleMap = { income: "Edit income", expense: "Edit expense", debt: "Edit debt", saving: "Edit savings goal", investment: "Edit holding" };
   editTitle.textContent = titleMap[kind] || "Edit";
 
   if (kind === "income" || kind === "expense") {
@@ -6112,6 +6137,8 @@ function openEditDialog(kind, id) {
         ${numberField("Current (RM)", "current", entity.current)}
       </div>
     `;
+  } else if (kind === "investment") {
+    editFields.innerHTML = typeof investmentEditFields === "function" ? investmentEditFields(entity) : "";
   }
 
   if (typeof editDialog.showModal === "function") editDialog.showModal();
@@ -6213,6 +6240,10 @@ editForm.addEventListener("submit", (e) => {
     if (!name) return;
     if (!Number.isFinite(target) || target <= 0) return;
     it.name = name; it.target = target; it.current = Number.isFinite(current) ? Math.max(0, current) : it.current;
+  } else if (kind === "investment") {
+    const it = (state.investments || []).find((x) => x.id === id);
+    if (!it) { closeEditDialog(); return; }
+    if (typeof applyInvestmentEdit !== "function" || !applyInvestmentEdit(it, f)) return;
   }
 
   save();
@@ -6352,6 +6383,8 @@ function toCSV() {
     "budget_pool_id", "budget_pool_name",
     "repeat_next",
     "contract", "principal", "total_profit", "tenure_months",
+    "inv_kind", "inv_account", "inv_units", "inv_unit_price", "inv_cost_basis",
+    "inv_zakatable", "inv_expected_return", "inv_reinvested",
   ];
   const rows = [HEADER];
   const W = HEADER.length;
@@ -6399,6 +6432,37 @@ function toCSV() {
   }
   for (const g of state.savings) {
     rows.push(blank(["saving", g.name, "", "", "", "", "", "", "", "", g.target, g.current]));
+  }
+  // Investment rows only ever fill type/name/amount/balance/date plus the
+  // trailing inv_* block, so build them by column index instead of counting
+  // out thirty commas — and read the block's offset from HEADER so appending
+  // another column later can't silently shift them.
+  {
+    const INV0 = HEADER.indexOf("inv_kind");
+    const invRow = (type, name, { amount = "", balance = "", date = "", inv = [] } = {}) => {
+      const row = Array(W).fill("");
+      row[0] = type; row[1] = name; row[2] = amount; row[3] = balance; row[6] = date;
+      for (let k = 0; k < inv.length; k++) row[INV0 + k] = inv[k];
+      return row;
+    };
+    for (const h of state.investments || []) {
+      rows.push(invRow("investment", h.name, {
+        balance: h.balance ?? "",
+        inv: [
+          h.kind, h.account, h.units ?? "", h.unitPrice ?? "", h.costBasis ?? "",
+          h.zakatable ? "Y" : "N", h.expectedReturn ?? "", "",
+        ],
+      }));
+      for (const v of h.valuations || []) rows.push(invRow("valuation", h.name, { amount: v.value, date: v.date }));
+      for (const f of h.flows || []) rows.push(invRow("inv-flow", h.name, { amount: f.amount, date: f.date }));
+      for (const d of h.dividends || []) {
+        rows.push(invRow("inv-dividend", h.name, {
+          amount: d.amount,
+          date: d.date,
+          inv: ["", "", "", "", "", "", "", d.reinvested ? "Y" : "N"],
+        }));
+      }
+    }
   }
   rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
   // Shariah / zakat preferences. Each is its own `setting` row so an older
@@ -6493,6 +6557,18 @@ function fromCSV(text) {
   const iBudgetPoolId = idx("budget_pool_id");
   const iBudgetPoolName = idx("budget_pool_name");
   const iRepeatNext = idx("repeat_next");
+  const iInvKind = idx("inv_kind"), iInvAccount = idx("inv_account");
+  const iInvUnits = idx("inv_units"), iInvUnitPrice = idx("inv_unit_price");
+  const iInvCostBasis = idx("inv_cost_basis"), iInvZakatable = idx("inv_zakatable");
+  const iInvExpectedReturn = idx("inv_expected_return"), iInvReinvested = idx("inv_reinvested");
+
+  // Valuation / flow / dividend rows carry the holding NAME, not its id —
+  // ids are regenerated on import. Same case-insensitive link as daily-debt.
+  function findInvestmentByName(list, wanted) {
+    const key = (wanted || "").trim().toLowerCase();
+    if (!key) return null;
+    return list.find((h) => (h.name || "").toLowerCase() === key) || null;
+  }
 
   function readPoolTag(row) {
     if (iBudgetPoolId < 0 || iBudgetPoolName < 0) return null;
@@ -6675,6 +6751,38 @@ function fromCSV(text) {
         target,
         current: Number.isFinite(current) ? Math.max(0, current) : 0,
       });
+    } else if (type === "investment" && name) {
+      // Older exports have no inv_* columns at all; coerceInvestment fills
+      // the defaults so such a row still lands as a usable balance holding.
+      if (typeof coerceInvestment !== "function") continue;
+      const cell = (i) => (i >= 0 ? (row[i] || "").toString().trim() : "");
+      const zakRaw = cell(iInvZakatable).toUpperCase();
+      next.investments.push(coerceInvestment({
+        name,
+        kind: cell(iInvKind) || "balance",
+        account: cell(iInvAccount) || "Other",
+        balance: Number.isFinite(balance) ? balance : 0,
+        units: Number(cell(iInvUnits)) || 0,
+        unitPrice: Number(cell(iInvUnitPrice)) || 0,
+        costBasis: Number(cell(iInvCostBasis)) || 0,
+        zakatable: zakRaw === "Y" ? true : zakRaw === "N" ? false : undefined,
+        expectedReturn: Number(cell(iInvExpectedReturn)) || 0,
+      }));
+    } else if (type === "valuation" || type === "inv-flow" || type === "inv-dividend") {
+      const h = findInvestmentByName(next.investments, name);
+      const date = iDate >= 0 ? (row[iDate] || "").trim() : "";
+      if (!h || !Number.isFinite(amount) || !isValidDate(date)) continue;
+      if (type === "valuation") {
+        const existing = h.valuations.find((v) => v.date === date);
+        if (existing) existing.value = amount;
+        else h.valuations.push({ date, value: amount });
+      } else if (type === "inv-flow") {
+        h.flows.push({ date, amount });
+      } else {
+        const reinvested = iInvReinvested >= 0
+          && (row[iInvReinvested] || "").trim().toUpperCase() === "Y";
+        h.dividends.push({ date, amount, reinvested });
+      }
     } else if (type === "setting" && name.toLowerCase() === "extramonthly") {
       if (Number.isFinite(amount)) next.extraMonthly = amount;
     } else if (type === "setting" && ZAKAT_SETTING_KEYS.has(name.toLowerCase())) {
@@ -6810,6 +6918,11 @@ function fromCSV(text) {
   // The import writes setting-row values straight onto the object; run them
   // back through the validator since `state = next` skips coerceState().
   next.shariah = coerceShariah(next.shariah);
+  // Same reason, plus valuation/flow/dividend rows were pushed unsorted and
+  // may repeat a date — coerceInvestment sorts and keeps one per day.
+  if (typeof coerceInvestment === "function") {
+    next.investments = next.investments.map(coerceInvestment);
+  }
 
   return next;
 }
@@ -6872,6 +6985,11 @@ $("#file-import").addEventListener("change", async (e) => {
         openPaywall("savings");
         return;
       }
+      if ((next.investments || []).length > FREE_INVESTMENT_LIMIT) {
+        status.textContent = `CSV has ${next.investments.length} investment holdings — free tier covers ${FREE_INVESTMENT_LIMIT}. Unlock Pro to import the full file.`;
+        openPaywall("investments");
+        return;
+      }
     }
 
     if (!confirm("Replace all current data with the CSV contents?")) {
@@ -6890,7 +7008,7 @@ $("#file-import").addEventListener("change", async (e) => {
     state = next;
     save();
     renderAll();
-    status.textContent = `Imported ${state.income.length} income, ${state.expenses.length} expense, ${state.debts.length} debt, ${state.dailyExpenses.length} daily, ${state.savings.length} savings rows.`;
+    status.textContent = `Imported ${state.income.length} income, ${state.expenses.length} expense, ${state.debts.length} debt, ${state.dailyExpenses.length} daily, ${state.savings.length} savings, ${state.investments.length} investment rows.`;
   } catch (err) {
     status.textContent = `Import failed: ${err.message || err}`;
   } finally {
@@ -7534,6 +7652,11 @@ const RELEASE_NOTES = {
     "<strong>Themes</strong> — Settings → Appearance for System, Light or Dark, in the refreshed Refined Clay look.",
     "<strong>Faster, smaller app</strong> — optimized build, now targeting Android 16.",
   ],
+  "1.10.0": [
+    "<strong>Investments</strong> — track ASB, EPF, Tabung Haji, unit trusts and shares on the Savings tab. Typed in from your statements; Duitful never contacts a price service.",
+    "<strong>Dividends</strong> — log them as cash or reinvested, see your 12-month total and yield.",
+    "<strong>Net worth</strong> — savings + investments − debts, on your dashboard.",
+  ],
 };
 
 function maybeShowWhatsNew() {
@@ -7554,7 +7677,8 @@ function maybeShowWhatsNew() {
     (state.expenses?.length || 0) +
     (state.dailyExpenses?.length || 0) +
     (state.debts?.length || 0) +
-    (state.savings?.length || 0);
+    (state.savings?.length || 0) +
+    (state.investments?.length || 0);
   if (!hasData && !state.lastSeenVersion) {
     state.lastSeenVersion = APP_VERSION;
     save();

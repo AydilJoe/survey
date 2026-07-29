@@ -4360,3 +4360,144 @@ body.private #zakat-nisab-line {
   .pro-seal svg path { stroke-dashoffset: 0; }
   .pro-confetti { display: none; }
 }
+
+/* ---------- Investments (Savings tab) ---------- */
+
+.invest-total-inline {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.invest-total-inline strong { color: var(--gain); font-weight: 600; }
+
+/* Holding-type pills: same look as the debt-type pills, deliberately NOT the
+   same class — script.js binds setDebtKind() to every `.debt-type-pills .pill`
+   on the page. */
+.invest-type-pills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.invest-type-pills .pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.7rem 0.5rem;
+  background: var(--card-soft);
+  border: 0.5px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink2);
+  font: inherit;
+  font-weight: 500;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: -0.1px;
+}
+.invest-type-pills .pill.active {
+  background: rgba(200, 112, 75, 0.12);
+  color: var(--primary);
+  border-color: rgba(200, 112, 75, 0.4);
+  font-weight: 600;
+}
+
+.investments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+.invest-row {
+  background: var(--glass-pane);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  box-shadow: var(--glass-pane-shadow);
+}
+.invest-row .top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.invest-name {
+  font-weight: 700;
+  min-width: 0;
+}
+.invest-account {
+  background: rgba(74, 107, 143, 0.14);
+  color: var(--accent-cool);
+  border: 0.5px solid rgba(74, 107, 143, 0.35);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+/* Zakat dot renders only when zakat tracking is on — see investments.js. */
+.invest-zakat-dot {
+  color: var(--gain);
+  font-size: 0.6rem;
+  vertical-align: middle;
+}
+.invest-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.invest-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.invest-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.invest-actions button {
+  padding: 0.45rem 0.65rem;
+  font-size: 0.82rem;
+}
+/* Same reasoning as the savings delete: kept apart from the action buttons
+   so it can't be misclicked from "Dividend". */
+.invest-actions .invest-delete { margin-left: auto; }
+.invest-panel {
+  border-top: 0.5px dashed var(--line);
+  padding-top: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.invest-panel .hint { margin-top: 0; }
+.invest-networth {
+  margin-top: 0.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+body.private .invest-total-inline,
+body.private .invest-value,
+body.private .invest-meta,
+body.private .invest-networth,
+body.private #invest-dividend-line {
+  filter: blur(7px);
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.2s ease;
+}

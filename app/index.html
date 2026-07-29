@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=71" />
+    <link rel="stylesheet" href="styles.css?v=72" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -364,6 +364,7 @@
             <button type="button" class="primary" data-go-tab="savings">Start a savings goal</button>
           </div>
           <div id="savings-mini" class="savings-mini"></div>
+          <p class="hint invest-networth" id="dash-invest-line" hidden></p>
         </div>
 
         <div class="card" id="payoff-card">
@@ -763,6 +764,61 @@
           <div id="savings-list" class="savings-list"></div>
         </div>
 
+        <div class="card investments-card" id="investments-card">
+          <div class="card-head">
+            <h2>Investments</h2>
+            <span class="invest-total-inline"><strong id="invest-total">RM 0.00</strong></span>
+          </div>
+
+          <form id="form-investment" class="invest-form">
+            <div class="type-pills invest-type-pills" role="radiogroup" aria-label="Holding type">
+              <button type="button" class="pill active" data-invest-kind="balance" role="radio" aria-checked="true">Balance</button>
+              <button type="button" class="pill" data-invest-kind="units" role="radio" aria-checked="false">Units</button>
+            </div>
+            <input type="hidden" id="invest-kind" name="kind" value="balance" />
+            <div class="grid-2">
+              <label class="field">
+                <span>Name</span>
+                <input type="text" name="name" placeholder="ASB, EPF, Amanah Saham…" required />
+              </label>
+              <label class="field">
+                <span>Account type</span>
+                <select name="account" id="invest-account"></select>
+              </label>
+            </div>
+
+            <div id="invest-fields-balance" class="invest-fields">
+              <label class="field">
+                <span>Current value (<span class="cur-code">MYR</span>)</span>
+                <input type="number" name="balance" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 12000" />
+              </label>
+            </div>
+
+            <div id="invest-fields-units" class="invest-fields" hidden>
+              <div class="grid-3">
+                <label class="field">
+                  <span>Units</span>
+                  <input type="number" name="units" step="0.0001" min="0" inputmode="decimal" placeholder="1000" />
+                </label>
+                <label class="field">
+                  <span>Unit price (<span class="cur-code">MYR</span>)</span>
+                  <input type="number" name="unitPrice" step="0.0001" min="0" inputmode="decimal" placeholder="1.05" />
+                </label>
+                <label class="field">
+                  <span>Cost basis (<span class="cur-code">MYR</span>)</span>
+                  <input type="number" name="costBasis" step="0.01" min="0" inputmode="decimal" placeholder="optional" />
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" class="primary">Add holding</button>
+          </form>
+
+          <p class="hint" id="invest-dividend-line" hidden></p>
+          <div id="investments-list" class="investments-list"></div>
+          <p class="hint">Values are typed in from your statements. Duitful never fetches prices — that would tell a server what you own.</p>
+        </div>
+
         <div class="card zakat-card" id="zakat-card" hidden>
           <div class="card-head">
             <h2>Zakat on wealth</h2>
@@ -819,7 +875,7 @@
           <div class="grid-2">
             <label class="field">
               <span>Other zakatable wealth (<span class="cur-code">MYR</span>)</span>
-              <input type="number" id="zakat-other-assets" step="0.01" min="0" inputmode="decimal" placeholder="Cash, gold, shares, ASB…" />
+              <input type="number" id="zakat-other-assets" step="0.01" min="0" inputmode="decimal" placeholder="Cash in hand, gold, property…" />
             </label>
             <label class="field">
               <span>Deduct immediate debts (<span class="cur-code">MYR</span>)</span>
@@ -830,6 +886,7 @@
             <input type="checkbox" id="zakat-include-savings" />
             <span>Count my savings-goal balances as zakatable</span>
           </label>
+          <p class="hint">“Other zakatable wealth” means wealth not tracked as a savings goal or an investment holding — cash in hand, gold, property held for trade.</p>
 
           <p class="hint" id="zakat-haul-line"></p>
 
@@ -1163,7 +1220,7 @@
           </div>
         </div>
         <ul class="paywall-features">
-          <li>Unlimited debts &amp; savings goals</li>
+          <li>Unlimited debts, savings goals &amp; investment holdings</li>
           <li>Unlimited receipt scans with auto FX</li>
           <li>Installment plans (Atome, SPayLater)</li>
           <li>Smart reminders &amp; notifications</li>
@@ -1618,6 +1675,7 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=96"></script>
+    <script src="investments.js?v=1"></script>
+    <script src="script.js?v=97"></script>
   </body>
 </html>

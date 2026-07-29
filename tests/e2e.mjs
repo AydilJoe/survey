@@ -260,6 +260,261 @@ await page.click('#tabbtn-debts');
 const rowsNow = await page.locator('#list-debt').innerText();
 check('islamic debt renders regardless', /MURABAHAH/i.test(rowsNow), rowsNow.replace(/\n/g, ' | ').slice(0, 120));
 
+// ---------- 9. Investments (Phase 1: holdings, valuations, flows, dividends) ----------
+// confirm() fires on holding delete; auto-accept so the run doesn't hang.
+page.on('dialog', d => d.accept());
+await page.click('#tabbtn-savings');
+await page.waitForTimeout(200);
+
+check('investments card always visible', await page.locator('#investments-card').evaluate(e => !e.hidden));
+check('empty state invites a first holding',
+  (await page.locator('#investments-list').innerText()).includes('No holdings yet'));
+check('account select offers the Malaysian vehicles',
+  (await page.locator('#invest-account option').allTextContents()).join('|') ===
+  'ASB|EPF|Tabung Haji|FD|Unit trust|Shares|Gold|PRS|Other');
+
+// Balance holding: RM 10,000 in ASB.
+await page.fill('#form-investment [name="name"]', 'ASB');
+await page.selectOption('#invest-account', 'ASB');
+await page.fill('#form-investment [name="balance"]', '10000');
+await page.click('#form-investment button[type="submit"]');
+await page.waitForTimeout(400);
+const inv1 = await S(() => state.investments[0]);
+check('balance holding saved', !!inv1 && inv1.kind === 'balance' && inv1.balance === 10000, JSON.stringify(inv1));
+check('creation seeds one opening flow + one valuation',
+  inv1.flows.length === 1 && inv1.flows[0].amount === 10000
+  && inv1.valuations.length === 1 && inv1.valuations[0].value === 10000,
+  JSON.stringify({ f: inv1.flows, v: inv1.valuations }));
+check('portfolio total = 10000', Math.abs((await S(() => investmentsTotals().total)) - 10000) < 0.01);
+
+// Units holding: 1,000 units @ RM 1.05, cost RM 900.
+await page.click('.invest-type-pills .pill[data-invest-kind="units"]');
+await page.fill('#form-investment [name="name"]', 'ASM fund');
+await page.selectOption('#invest-account', 'Unit trust');
+await page.fill('#form-investment [name="units"]', '1000');
+await page.fill('#form-investment [name="unitPrice"]', '1.05');
+await page.fill('#form-investment [name="costBasis"]', '900');
+await page.click('#form-investment button[type="submit"]');
+await page.waitForTimeout(400);
+const inv2 = await S(() => state.investments[1]);
+check('units holding value = units x price', Math.abs((await S(() => investmentValue(state.investments[1]))) - 1050) < 0.01,
+  JSON.stringify([inv2.units, inv2.unitPrice]));
+check('units holding seeds its flow from cost basis, not value',
+  inv2.flows.length === 1 && inv2.flows[0].amount === 900, JSON.stringify(inv2.flows));
+check('portfolio total = 11050', Math.abs((await S(() => investmentsTotals().total)) - 11050) < 0.01,
+  String(await S(() => investmentsTotals().total)));
+
+const invId = await S(() => state.investments[0].id);
+
+// Top-up: writes a flow AND moves the balance.
+await page.click(`button[data-action="invest-panel"][data-panel="topup"][data-id="${invId}"]`);
+await page.fill(`[data-invest-input="topup"][data-id="${invId}"]`, '500');
+await page.click(`button[data-action="invest-topup"][data-id="${invId}"]`);
+await page.waitForTimeout(400);
+const afterTopUp = await S(() => state.investments[0]);
+check('top-up appends a flow and moves the balance',
+  afterTopUp.flows.length === 2 && afterTopUp.flows[1].amount === 500 && afterTopUp.balance === 10500,
+  JSON.stringify({ f: afterTopUp.flows.length, b: afterTopUp.balance }));
+
+// Withdrawal: same path, negative amount.
+await page.click(`button[data-action="invest-panel"][data-panel="topup"][data-id="${invId}"]`);
+await page.fill(`[data-invest-input="topup"][data-id="${invId}"]`, '-200');
+await page.click(`button[data-action="invest-topup"][data-id="${invId}"]`);
+await page.waitForTimeout(400);
+const afterWithdraw = await S(() => state.investments[0]);
+check('top-up accepts a negative as a withdrawal',
+  afterWithdraw.flows.length === 3 && afterWithdraw.flows[2].amount === -200 && afterWithdraw.balance === 10300,
+  JSON.stringify({ f: afterWithdraw.flows.at(-1), b: afterWithdraw.balance }));
+
+// Revaluation: valuation only, no flow.
+const flowsBeforeRevalue = afterWithdraw.flows.length;
+await page.click(`button[data-action="invest-panel"][data-panel="value"][data-id="${invId}"]`);
+await page.fill(`[data-invest-input="value"][data-id="${invId}"]`, '11000');
+await page.click(`button[data-action="invest-revalue"][data-id="${invId}"]`);
+await page.waitForTimeout(400);
+const afterRevalue = await S(() => state.investments[0]);
+check('update value revalues without writing a flow',
+  afterRevalue.balance === 11000 && afterRevalue.flows.length === flowsBeforeRevalue,
+  JSON.stringify({ b: afterRevalue.balance, f: afterRevalue.flows.length }));
+check('valuations stay one per day (same-day replaces)',
+  afterRevalue.valuations.length === 1 && afterRevalue.valuations[0].value === 11000,
+  JSON.stringify(afterRevalue.valuations));
+
+// Reinvested dividend: lifts the balance, records a dividend, writes no flow.
+await page.click(`button[data-action="invest-panel"][data-panel="dividend"][data-id="${invId}"]`);
+check('dividend date defaults to today',
+  await page.locator(`[data-invest-input="dividend-date"][data-id="${invId}"]`).inputValue()
+  === (await S(() => todayISO())));
+await page.fill(`[data-invest-input="dividend"][data-id="${invId}"]`, '250');
+await page.check(`[data-invest-input="dividend-reinvested"][data-id="${invId}"]`);
+await page.click(`button[data-action="invest-dividend"][data-id="${invId}"]`);
+await page.waitForTimeout(400);
+const afterReinvest = await S(() => state.investments[0]);
+check('reinvested dividend raises the balance but adds no flow',
+  afterReinvest.balance === 11250 && afterReinvest.dividends.length === 1
+  && afterReinvest.dividends[0].reinvested === true
+  && afterReinvest.flows.length === flowsBeforeRevalue,
+  JSON.stringify({ b: afterReinvest.balance, d: afterReinvest.dividends, f: afterReinvest.flows.length }));
+check('reinvested dividend leaves cost basis alone (yield-on-cost stays honest)',
+  afterReinvest.costBasis === 0, String(afterReinvest.costBasis));
+
+// Cash dividend: recorded only — balance untouched.
+const invId2 = await S(() => state.investments[1].id);
+await page.click(`button[data-action="invest-panel"][data-panel="dividend"][data-id="${invId2}"]`);
+await page.fill(`[data-invest-input="dividend"][data-id="${invId2}"]`, '40');
+await page.click(`button[data-action="invest-dividend"][data-id="${invId2}"]`);
+await page.waitForTimeout(400);
+const afterCash = await S(() => state.investments[1]);
+check('cash dividend records only — no value change, no flow, no valuation',
+  afterCash.dividends.length === 1 && afterCash.dividends[0].reinvested === false
+  && Math.abs(afterCash.units - 1000) < 0.0001 && afterCash.flows.length === 1
+  && afterCash.valuations.length === 1,
+  JSON.stringify({ d: afterCash.dividends, u: afterCash.units, v: afterCash.valuations.length }));
+
+const divStats = await S(() => investmentsTotals());
+check('12-month dividend total = 290', Math.abs(divStats.dividends12 - 290) < 0.01, String(divStats.dividends12));
+check('dividend line shows once dividends exist',
+  (await page.locator('#invest-dividend-line').textContent()).includes('Dividends last 12 months'),
+  await page.locator('#invest-dividend-line').textContent());
+
+// Dashboard net-worth line: savings current + investments − debts.
+const nw = await S(() => {
+  const el = document.getElementById('dash-invest-line');
+  const inv = investmentsTotals();
+  const netWorth = savingsTotals().current + inv.total - debtTotals(state.debts).total;
+  return {
+    hidden: el.hidden,
+    text: el.textContent,
+    expected: `Invested ${fmtMoney(inv.total)} · Net worth ${fmtMoney(netWorth)}`,
+    // Debts exist by now, so net worth must sit below the invested figure.
+    below: netWorth < inv.total,
+  };
+});
+check('dashboard shows Invested + Net worth once holdings exist',
+  !nw.hidden && nw.text === nw.expected && nw.below, JSON.stringify(nw));
+
+// Zakat surface stays off until zakat tracking is enabled.
+await page.click('#tabbtn-savings');
+await page.click('#btn-zakat-disable');
+await page.waitForTimeout(300);
+check('no zakat dot on holdings while zakat is off',
+  await page.locator('#investments-card .invest-zakat-dot').count() === 0);
+check('no zakat wording in the investments card while zakat is off',
+  !/zakat/i.test(await page.locator('#investments-card').innerText()),
+  await page.locator('#investments-card').innerText());
+await page.click(`button[data-action="edit-investment"][data-id="${invId}"]`);
+await page.waitForTimeout(300);
+check('no zakatable toggle in the edit dialog while zakat is off',
+  await page.locator('#edit-fields [name="zakatable"]').count() === 0);
+await page.click('[data-edit-cancel]');
+await page.waitForTimeout(200);
+
+await page.click('#btn-zakat-enable');
+await page.waitForTimeout(400);
+check('zakat dot appears on zakatable holdings once enabled',
+  await page.locator('#investments-card .invest-zakat-dot').count() === 2,
+  String(await page.locator('#investments-card .invest-zakat-dot').count()));
+await page.click(`button[data-action="edit-investment"][data-id="${invId}"]`);
+await page.waitForTimeout(300);
+check('zakatable toggle appears in the edit dialog once enabled',
+  await page.locator('#edit-fields [name="zakatable"]').count() === 1);
+await page.click('[data-edit-cancel]');
+await page.waitForTimeout(200);
+
+// EPF defaults out of the zakat base; everything else defaults in.
+await S(() => {
+  state.investments.push(coerceInvestment({ name: 'EPF Akaun 1', kind: 'balance', account: 'EPF', balance: 50000 }));
+  save(); renderAll();
+});
+await page.waitForTimeout(300);
+const zBasis = await S(() => ({
+  basis: zakatBasis(),
+  epfZakatable: state.investments.find(h => h.account === 'EPF').zakatable,
+  investTotal: investmentsTotals().total,
+}));
+check('EPF defaults non-zakatable', zBasis.epfZakatable === false);
+check('zakat base counts zakatable holdings only (EPF excluded)',
+  Math.abs(zBasis.basis.investments - 12300) < 0.01 && Math.abs(zBasis.investTotal - 62300) < 0.01,
+  JSON.stringify(zBasis));
+check('zakat breakdown gains an Investments row',
+  (await page.locator('#zakat-breakdown').innerText()).includes('Investments'),
+  await page.locator('#zakat-breakdown').innerText());
+
+// CSV round-trip of holdings + all three record streams.
+const invRt = await S(() => {
+  const csv = toCSV();
+  const back = fromCSV(csv);
+  return {
+    header: csv.split('\n')[0],
+    hasRows: ['investment', 'valuation', 'inv-flow', 'inv-dividend']
+      .every(t => csv.split('\n').some(line => line.startsWith(t + ','))),
+    count: back.investments.length,
+    asb: back.investments.find(h => h.name === 'ASB'),
+    asm: back.investments.find(h => h.name === 'ASM fund'),
+    epf: back.investments.find(h => h.account === 'EPF'),
+    // Pre-investments exports must still import — drop every inv row and header column.
+    legacy: (() => {
+      const lines = csv.split('\n').filter(l => !/^(investment|valuation|inv-flow|inv-dividend),/.test(l));
+      const trimmed = lines.map(l => l.replace(/(,"[^"]*"|,[^,]*){8}$/, '')).join('\n');
+      const old = fromCSV(trimmed);
+      return { debts: old.debts.length, investments: old.investments.length };
+    })(),
+  };
+});
+check('csv header keeps the old columns and appends the inv_ block',
+  invRt.header.startsWith('type,name,amount,balance,apr,minPayment,date')
+  && invRt.header.endsWith('inv_kind,inv_account,inv_units,inv_unit_price,inv_cost_basis,inv_zakatable,inv_expected_return,inv_reinvested'),
+  invRt.header);
+check('csv emits all four investment row types', invRt.hasRows);
+check('holdings round-trip', invRt.count === 3, String(invRt.count));
+check('balance holding round-trips with flows, valuations and dividends',
+  invRt.asb && invRt.asb.balance === 11250 && invRt.asb.flows.length === 3
+  && invRt.asb.valuations.length === 1 && invRt.asb.dividends.length === 1
+  && invRt.asb.dividends[0].reinvested === true,
+  JSON.stringify(invRt.asb));
+check('units holding round-trips units, price, cost basis and cash dividend',
+  invRt.asm && Math.abs(invRt.asm.units - 1000) < 0.0001 && Math.abs(invRt.asm.unitPrice - 1.05) < 0.0001
+  && invRt.asm.costBasis === 900 && invRt.asm.dividends.length === 1
+  && invRt.asm.dividends[0].reinvested === false,
+  JSON.stringify(invRt.asm));
+check('zakatable flag round-trips (EPF stays out)', invRt.epf && invRt.epf.zakatable === false,
+  JSON.stringify(invRt.epf && invRt.epf.zakatable));
+check('a pre-investments export still imports',
+  invRt.legacy.debts === 2 && invRt.legacy.investments === 0, JSON.stringify(invRt.legacy));
+
+// Free tier: 2 holdings. The fresh profile auto-starts a 7-day Pro trial, so
+// age it out rather than asserting against a trial user.
+await S(() => {
+  state.investments = state.investments.slice(0, 2);
+  state.pro = false;
+  state.proTrialStartedAt = Date.now() - 8 * 24 * 60 * 60 * 1000;
+  save(); renderAll();
+});
+await page.waitForTimeout(300);
+check('trial aged out → not Pro', (await S(() => isPro())) === false);
+await page.click('#tabbtn-savings');
+await page.click('.invest-type-pills .pill[data-invest-kind="balance"]');
+await page.fill('#form-investment [name="name"]', 'Third holding');
+await page.fill('#form-investment [name="balance"]', '1000');
+await page.click('#form-investment button[type="submit"]');
+await page.waitForTimeout(400);
+check('3rd holding is gated for a non-Pro user',
+  (await S(() => state.investments.length)) === 2
+  && await page.locator('#paywall-dialog').evaluate(e => e.open),
+  String(await S(() => state.investments.length)));
+check('paywall names the holdings limit',
+  (await page.locator('#paywall-reason').textContent()).includes('investment holdings'),
+  await page.locator('#paywall-reason').textContent());
+await page.click('#paywall-close');
+await page.waitForTimeout(300);
+
+// Delete removes the holding and its records.
+await page.click(`button[data-action="delete-investment"][data-id="${invId}"]`);
+await page.waitForTimeout(400);
+const afterDelete = await S(() => state.investments.map(h => h.name));
+check('delete removes only that holding', afterDelete.length === 1 && afterDelete[0] === 'ASM fund',
+  JSON.stringify(afterDelete));
+
 await b.close();
 if (server) server.kill();
 
