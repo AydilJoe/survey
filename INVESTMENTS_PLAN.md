@@ -16,6 +16,12 @@ the same commit when a decision genuinely changes.
   holding only; cross-posting double-counts cash flow. Reversible later.
 - **EPF defaults non-zakatable** (assessed on withdrawal); everything else
   defaults zakatable. Per-holding toggle either way.
+- **Zero zakat surface unless zakat tracking is enabled.** Zakat is opt-in
+  (since v1.9) and stays that way: when `state.shariah.zakatEnabled` is
+  false, investments show NO zakat UI at all — no zakat dot on holdings, no
+  "zakatable" toggle in the edit dialog, no mention in hints. The
+  `zakatable` field is still stored silently with its defaults so that a
+  user who enables zakat later gets correct numbers immediately.
 - **Free tier: 2 holdings.** Unlimited on Pro. Valuations/dividends free.
 - Landing page + guides get **one** update after Phase 3, not per phase.
 - Versions: Phase 1 → v1.10.0, Phase 2 → v1.11.0, Phase 3 → v1.12.0. Each
@@ -87,6 +93,8 @@ UI, in the Savings tab between the Goals card and the zakat card:
   (accepts negative for withdrawal), update value, dividend (amount +
   reinvested checkbox, date defaults today), edit (dialog, reusing the
   `openEditDialog` pattern with kind `"investment"`), delete (confirm).
+  The zakat dot and the edit-dialog "zakatable" toggle render only when
+  zakat tracking is enabled (see locked decisions).
 - Add form: name, kind pills (Balance / Units), account select, then
   balance — or units + unit price + cost basis. Gate at 2 holdings for free
   users via the existing `gate()`/paywall mechanism (`gate("investments")`);
