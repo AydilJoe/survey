@@ -515,6 +515,228 @@ const afterDelete = await S(() => state.investments.map(h => h.name));
 check('delete removes only that holding', afterDelete.length === 1 && afterDelete[0] === 'ASM fund',
   JSON.stringify(afterDelete));
 
+/* ── 9b. Investments Phase 2: money-weighted return, chart, yield on cost ──
+   Known-answer fixtures. Every date is derived from Date.now() via the app's
+   own investIsoDaysAgo(), so the day counts the solver sees are fixed (730,
+   365, …) no matter when the suite runs — which makes the expected rates
+   below constants, not moving targets.
+
+   Each was computed independently of the app: (a) in closed form,
+   r = (V/C)^(365.25/days) − 1; (b) and (c) with a throwaway Node bisection
+   over the same NPV, then cross-checked by the future-value arrangement
+   (Σ contribution × (1+r)^years must land back on the terminal value).
+   Convention: money out of the investor's pocket is negative, money returned
+   (cash dividends, today's value) is positive, discounted in 365.25-day years
+   from the first cash flow. */
+
+// (a) single opening flow: RM 10,000 → RM 12,100 over 730 days.
+//     (1.21)^(365.25/730) − 1 = 10.007181% p.a.
+const MWR_SINGLE = 10.007181;
+// (b) multi-flow: −10,000 @ d0, −5,000 @ d365, +17,000 @ d730 → 7.764696% p.a.
+const MWR_MULTI = 7.764696;
+// (c) flows + cash dividend: −10,000 @ d0, +400 @ d365, +11,000 @ d730
+//     → 6.904838% p.a.
+const MWR_DIVIDEND = 6.904838;
+// (a)+(b)+(c) as one portfolio: −30,000 @ d0, −4,600 @ d365, +40,100 @ d730
+//     → 8.207395% p.a.
+const MWR_PORTFOLIO = 8.207395;
+const PP = 0.05; // tolerance, percentage points
+
+// Fixtures are installed straight into state (created-through-the-UI holdings
+// can only ever be dated today), then saved + re-rendered like any other edit.
+const installHoldings = (specs) => S((defs) => {
+  state.investments = defs.map((d) => coerceInvestment({
+    name: d.name,
+    kind: 'balance',
+    account: d.account,
+    balance: d.balance,
+    flows: d.flows.map((f) => ({ date: investIsoDaysAgo(f.ago), amount: f.amount })),
+    valuations: d.valuations.map((v) => ({ date: investIsoDaysAgo(v.ago), value: v.value })),
+    dividends: (d.dividends || []).map((x) => ({
+      date: investIsoDaysAgo(x.ago), amount: x.amount, reinvested: !!x.reinvested,
+    })),
+  }));
+  save();
+  renderAll();
+  return {
+    perHolding: state.investments.map((h) => investmentReturn(h)),
+    portfolio: investmentsPortfolioReturn(),
+    series: investmentValuationSeries(state.investments),
+    accounts: investmentAccountTotals(),
+    totals: investmentsTotals(),
+    yieldOnCost: state.investments.map((h) => investmentYieldOnCost(h)),
+  };
+}, specs);
+
+const near = (a, b, tol = PP) => a !== null && Number.isFinite(a) && Math.abs(a - b) <= tol;
+
+// (a) single opening flow.
+const fixA = await installHoldings([{
+  name: 'Fixture A', account: 'ASB', balance: 12100,
+  flows: [{ ago: 730, amount: 10000 }],
+  valuations: [{ ago: 730, value: 10000 }, { ago: 0, value: 12100 }],
+}]);
+check('money-weighted return, single opening flow (10.01% p.a.)',
+  near(fixA.perHolding[0], MWR_SINGLE), String(fixA.perHolding[0]));
+check('single-holding portfolio return matches that holding',
+  near(fixA.portfolio, MWR_SINGLE), String(fixA.portfolio));
+
+// (b) opening flow + a later top-up.
+const fixB = await installHoldings([{
+  name: 'Fixture B', account: 'ASB', balance: 17000,
+  flows: [{ ago: 730, amount: 10000 }, { ago: 365, amount: 5000 }],
+  valuations: [{ ago: 730, value: 10000 }, { ago: 365, value: 15000 }, { ago: 0, value: 17000 }],
+}]);
+check('money-weighted return, opening flow + later top-up (7.76% p.a.)',
+  near(fixB.perHolding[0], MWR_MULTI), String(fixB.perHolding[0]));
+
+// (c) flows plus a cash dividend — money returned to the investor mid-window.
+const fixC = await installHoldings([{
+  name: 'Fixture C', account: 'ASB', balance: 11000,
+  flows: [{ ago: 730, amount: 10000 }],
+  valuations: [{ ago: 730, value: 10000 }, { ago: 0, value: 11000 }],
+  dividends: [{ ago: 365, amount: 400, reinvested: false }],
+}]);
+check('money-weighted return, flows + cash dividend (6.90% p.a.)',
+  near(fixC.perHolding[0], MWR_DIVIDEND), String(fixC.perHolding[0]));
+
+// A reinvested dividend is already inside the value — counting it as cash
+// returned would double it. Same holding, dividend flipped: rate must not move.
+const fixCReinv = await installHoldings([{
+  name: 'Fixture C reinvested', account: 'ASB', balance: 11000,
+  flows: [{ ago: 730, amount: 10000 }],
+  valuations: [{ ago: 730, value: 10000 }, { ago: 0, value: 11000 }],
+  dividends: [{ ago: 365, amount: 400, reinvested: true }],
+}]);
+// Closed form for the same holding with no cash flows but the opening one:
+// (11000/10000)^(365.25/730) − 1 = 4.884320% p.a.
+check('reinvested dividend is not a cash flow (rate matches the no-dividend case)',
+  near(fixCReinv.perHolding[0], ((11000 / 10000) ** (365.25 / 730) - 1) * 100)
+  && fixCReinv.perHolding[0] < MWR_DIVIDEND,
+  String(fixCReinv.perHolding[0]));
+
+// All three together: one pooled cash-flow stream, one portfolio rate.
+const fixAll = await installHoldings([
+  {
+    name: 'Fixture A', account: 'ASB', balance: 12100,
+    flows: [{ ago: 730, amount: 10000 }],
+    valuations: [{ ago: 730, value: 10000 }, { ago: 0, value: 12100 }],
+  },
+  {
+    name: 'Fixture B', account: 'Unit trust', balance: 17000,
+    flows: [{ ago: 730, amount: 10000 }, { ago: 365, amount: 5000 }],
+    valuations: [{ ago: 730, value: 10000 }, { ago: 365, value: 15000 }, { ago: 0, value: 17000 }],
+  },
+  {
+    name: 'Fixture C', account: 'Unit trust', balance: 11000,
+    flows: [{ ago: 730, amount: 10000 }],
+    valuations: [{ ago: 730, value: 10000 }, { ago: 0, value: 11000 }],
+    dividends: [{ ago: 365, amount: 400, reinvested: false }],
+  },
+]);
+check('portfolio money-weighted return pools every holding (8.21% p.a.)',
+  near(fixAll.portfolio, MWR_PORTFOLIO), String(fixAll.portfolio));
+check('valuation series carries each holding forward to every snapshot date',
+  fixAll.series.length === 3
+  && Math.abs(fixAll.series[0].value - 30000) < 0.01
+  && Math.abs(fixAll.series[1].value - 35000) < 0.01
+  && Math.abs(fixAll.series[2].value - 40100) < 0.01,
+  JSON.stringify(fixAll.series));
+check('per-account totals group by account, biggest first',
+  fixAll.accounts.length === 2
+  && fixAll.accounts[0].account === 'Unit trust' && fixAll.accounts[0].count === 2
+  && Math.abs(fixAll.accounts[0].total - 28000) < 0.01
+  && fixAll.accounts[1].account === 'ASB' && Math.abs(fixAll.accounts[1].total - 12100) < 0.01,
+  JSON.stringify(fixAll.accounts));
+
+// Chart: inline SVG polyline, one dot per snapshot date.
+await page.click('#tabbtn-reports');
+await page.waitForTimeout(400);
+check('reports shows the portfolio value card once holdings exist',
+  await page.locator('#reports-invest-card').evaluate(e => !e.hidden));
+check('valuation history renders as one polyline with a dot per snapshot',
+  await page.locator('#reports-invest-chart polyline.invest-chart-line').count() === 1
+  && await page.locator('#reports-invest-chart circle.invest-chart-dot').count() === 3
+  && await page.locator('#reports-invest-chart polygon.invest-chart-area').count() === 1);
+check('reports return line reports the portfolio rate',
+  /Return \(money-weighted\) \+8\.2\d%/.test(await page.locator('#reports-invest-return').textContent()),
+  await page.locator('#reports-invest-return').textContent());
+
+// Yield on cost: trailing-12-month dividends ÷ total contributed.
+const fixYoc = await installHoldings([{
+  name: 'Fixture D', account: 'PRS', balance: 21000,
+  flows: [{ ago: 400, amount: 20000 }],
+  valuations: [{ ago: 400, value: 20000 }, { ago: 0, value: 21000 }],
+  dividends: [{ ago: 30, amount: 1000, reinvested: false }],
+}]);
+check('yield on cost = 12mo dividends ÷ contributed (1000 / 20000 = 5%)',
+  Math.abs(fixYoc.yieldOnCost[0] - 5) < 0.001
+  && Math.abs(fixYoc.totals.yieldOnCost - 5) < 0.001,
+  JSON.stringify({ h: fixYoc.yieldOnCost[0], t: fixYoc.totals.yieldOnCost }));
+check('yield on cost sits above yield on value (cost < current value)',
+  fixYoc.totals.yieldOnCost > fixYoc.totals.yield12,
+  JSON.stringify({ onCost: fixYoc.totals.yieldOnCost, onValue: fixYoc.totals.yield12 }));
+
+// Rail 1: a window shorter than 90 days is never annualised.
+const fixYoung = await installHoldings([{
+  name: 'Fixture E young', account: 'Shares', balance: 6000,
+  flows: [{ ago: 60, amount: 5000 }],
+  valuations: [{ ago: 60, value: 5000 }, { ago: 0, value: 6000 }],
+}]);
+check('a holding younger than 90 days returns no rate',
+  fixYoung.perHolding[0] === null && fixYoung.portfolio === null,
+  JSON.stringify(fixYoung.perHolding));
+await page.click('#tabbtn-reports');
+await page.waitForTimeout(300);
+check('reports return line says "—" for a sub-90-day history',
+  (await page.locator('#reports-invest-return').textContent()).includes('Return (money-weighted) —'),
+  await page.locator('#reports-invest-return').textContent());
+await page.click('#tabbtn-savings');
+await page.waitForTimeout(300);
+check('holding row shows "—" for a sub-90-day history',
+  (await page.locator('#investments-card .invest-return').first().innerText()).trim() === 'Return —',
+  await page.locator('#investments-card .invest-return').first().innerText());
+check('portfolio stat shows "—" rather than a guessed rate',
+  (await page.locator('#invest-mwr').textContent()).trim() === '—'
+  && (await page.locator('#invest-mwr-sub').textContent()).includes('90+ days'),
+  await page.locator('#invest-mwr-sub').textContent());
+
+// Rail 2: nothing left and nothing paid out — the NPV never crosses zero
+// inside [−95%, +1000%], so bisection can't bracket. "—", not −95%.
+const fixWipe = await installHoldings([{
+  name: 'Fixture F wipeout', account: 'Shares', balance: 0,
+  flows: [{ ago: 400, amount: 8000 }],
+  valuations: [{ ago: 400, value: 8000 }, { ago: 0, value: 0 }],
+}]);
+check('an unbracketable stream returns no rate instead of an endpoint',
+  fixWipe.perHolding[0] === null && fixWipe.portfolio === null,
+  JSON.stringify(fixWipe.perHolding));
+await page.click('#tabbtn-savings');
+await page.waitForTimeout(300);
+check('wiped-out holding row shows "—"',
+  (await page.locator('#investments-card .invest-return').first().innerText()).trim() === 'Return —',
+  await page.locator('#investments-card .invest-return').first().innerText());
+
+// Chart degenerates gracefully: one point is not a line, no holdings is no card.
+const fixOne = await installHoldings([{
+  name: 'Fixture G single snapshot', account: 'Gold', balance: 3000,
+  flows: [{ ago: 200, amount: 3000 }],
+  valuations: [{ ago: 200, value: 3000 }],
+}]);
+check('single-snapshot fixture really has one valuation', fixOne.series.length === 1);
+await page.click('#tabbtn-reports');
+await page.waitForTimeout(300);
+check('one snapshot draws no line and says so',
+  await page.locator('#reports-invest-chart-wrap').evaluate(e => e.hidden)
+  && (await page.locator('#reports-invest-empty').innerText()).includes('One snapshot'),
+  await page.locator('#reports-invest-empty').innerText());
+await S(() => { state.investments = []; save(); renderAll(); });
+await page.waitForTimeout(300);
+check('no holdings hides the portfolio value card entirely',
+  await page.locator('#reports-invest-card').evaluate(e => e.hidden));
+check('no holdings hides the performance stats',
+  await page.locator('#invest-perf').evaluate(e => e.hidden));
+
 /* ── 10. biometric unlock has zero web surface ─────────────────────────
    The feature is native-only (Capacitor keystore). On the web the lock
    screen must never offer the fingerprint button and Settings must never

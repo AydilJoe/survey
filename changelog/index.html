@@ -142,6 +142,18 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-11">
+    <span class="release-date">July 2026 · v1.11</span>
+    <h2 class="release-title">The return your bank statement won't tell you</h2>
+    <p class="release-summary">A holding that "went up RM 2,100" tells you almost nothing if you kept topping it up along the way. Duitful now computes the number that accounts for that: your money-weighted return — and refuses to guess when there isn't enough history to say it honestly.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Money-weighted return</strong> — per holding and for the whole portfolio, annualised since inception. It weighs every top-up, withdrawal and cash dividend at the date it actually happened against today's value, solved numerically rather than approximated. Reinvested dividends are correctly <em>not</em> counted as new money.</li>
+      <li><span class="tag feat">new</span><strong>Portfolio value over time</strong> — a chart in Reports built from every valuation you've recorded, each holding carried forward to every snapshot date. Hand-drawn SVG, no chart library, nothing fetched.</li>
+      <li><span class="tag feat">new</span><strong>Yield on cost + per-account totals</strong> — trailing 12-month dividends against what you actually contributed (a truer figure than yield on current value), and your portfolio grouped by account once you hold more than one.</li>
+      <li><span class="tag note">note</span><strong>Honesty rails</strong> — under 90 days of history, or when the maths genuinely has no answer (a wiped-out holding), you get "—", never an annualised guess or a clamped endpoint.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-10-1">
     <span class="release-date">July 2026 · v1.10.1</span>
     <h2 class="release-title">Unlock with your fingerprint</h2>

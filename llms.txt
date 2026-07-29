@@ -59,7 +59,12 @@
   statements; **no price API is ever contacted** (a per-holding quote
   fetch would fingerprint the portfolio). Dividends logged as cash or
   reinvested, 12-month dividend total and yield, and net worth
-  (savings + investments − debts) on the dashboard. Zakatable holdings
+  (savings + investments − debts) on the dashboard. Performance is
+  measured as an annualised **money-weighted return** (XIRR of actual
+  top-ups, withdrawals and cash dividends against today's value), with
+  yield on cost, per-account totals, and a portfolio-value-over-time
+  chart in Reports; windows under 90 days show "—" rather than an
+  annualised guess. Zakatable holdings
   feed the zakat base automatically when zakat tracking is enabled
   (EPF defaults out, assessed on withdrawal).
 - **Zakat on wealth** (free, opt-in with one tap from the Savings tab —

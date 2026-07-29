@@ -114,7 +114,193 @@ function investmentsTotals() {
     dividends12,
     dividendCount,
     yield12: total > 0 ? (dividends12 / total) * 100 : 0,
+    // Yield on COST, not on value: what the money you actually put in is
+    // throwing off. Null (not 0) when nothing was contributed, so the UI can
+    // say "—" instead of implying a real zero.
+    yieldOnCost: contributed > 0 ? (dividends12 / contributed) * 100 : null,
   };
+}
+
+/* ---------- performance (Phase 2) ---------- */
+
+// Actual/365.25. A fixed-length year keeps two equal-length windows on the
+// same footing whichever leap years they straddle; calendar-exact years would
+// hand identical investors different rates depending on where they sat in the
+// leap cycle. Used for every annualisation in this file — do not mix in 365.
+const INVEST_YEAR_DAYS = 365.25;
+// Below a quarter, an annualised figure is a lie dressed as precision: a 3%
+// gain over three weeks annualises to ~68%. We show "—" instead.
+const INVEST_MIN_HISTORY_DAYS = 90;
+// Bisection bracket. −95% is as close to a wipeout as the discounting stays
+// finite; +1000% is far past any honest portfolio. A root outside this window
+// is reported as "no answer", never clamped to an endpoint.
+const INVEST_RATE_FLOOR = -0.95;
+const INVEST_RATE_CEIL = 10;
+
+// UTC-midnight difference, so a DST boundary inside the window can't shave an
+// hour and round the day count the wrong way.
+function investDaysBetween(fromISO, toISO) {
+  const a = Date.parse(`${fromISO}T00:00:00Z`);
+  const b = Date.parse(`${toISO}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return NaN;
+  return Math.round((b - a) / 86400000);
+}
+
+// Portfolio value on every date any holding was valued. Each holding
+// contributes its most recent valuation on-or-before that date (nothing before
+// its first one). Carrying the last known value forward is what makes this a
+// portfolio line rather than a sawtooth of whichever holding happened to be
+// updated that day.
+function investmentValuationSeries(holdings) {
+  const list = Array.isArray(holdings) ? holdings : investmentsList();
+  const dates = new Set();
+  for (const h of list) for (const v of h.valuations || []) dates.add(v.date);
+  return [...dates].sort().map((date) => {
+    let value = 0;
+    for (const h of list) {
+      let latest = null;
+      // valuations are kept sorted ascending by coerceInvestment / snapshot.
+      for (const v of h.valuations || []) {
+        if (v.date > date) break;
+        latest = v;
+      }
+      if (latest) value += Number(latest.value) || 0;
+    }
+    return { date, value };
+  });
+}
+
+// Cash flows from the INVESTOR's side — the only view that makes an IRR mean
+// anything. Money you hand over is negative, money that comes back is positive:
+//   flows[]         → −amount (a +500 top-up costs you 500; a withdrawal pays
+//                     you back, so its negative amount flips to positive)
+//   cash dividends  → +amount (reinvested ones are NOT a cash flow at all —
+//                     they never left the holding, they're inside the value)
+//   terminal        → +current value, dated today (what selling would pay)
+// The terminal value is dated by the caller, not here — this returns only the
+// dated history plus the raw amount to book against today.
+function investmentCashflows(holdings) {
+  const list = Array.isArray(holdings) ? holdings : investmentsList();
+  const entries = [];
+  let terminal = 0;
+  for (const h of list) {
+    for (const f of h.flows || []) {
+      const amount = Number(f.amount) || 0;
+      if (amount) entries.push({ date: f.date, amount: -amount });
+    }
+    for (const d of h.dividends || []) {
+      if (d.reinvested) continue;
+      const amount = Number(d.amount) || 0;
+      if (amount) entries.push({ date: d.date, amount });
+    }
+    terminal += investmentValue(h);
+  }
+  entries.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  return { entries, terminal };
+}
+
+// Net present value of a cash-flow stream at annual rate `rate`, discounting
+// each entry by its actual distance from `startISO` in 365.25-day years.
+function investNpv(entries, rate, startISO) {
+  let npv = 0;
+  for (const e of entries) {
+    const years = investDaysBetween(startISO, e.date) / INVEST_YEAR_DAYS;
+    npv += e.amount / Math.pow(1 + rate, years);
+  }
+  return npv;
+}
+
+// Money-weighted return since inception (annualised XIRR): the rate at which
+// your own contributions, cash dividends and today's value net to zero.
+//
+// Solved by BISECTION, deliberately, not Newton: a stream with withdrawals can
+// hand a solver a non-monotone NPV, and Newton will happily diverge or land on
+// a second root and present it with a straight face. Bisection either brackets
+// a sign change and converges, or admits it found nothing.
+//
+// Returns a percentage, or null wherever we'd rather say nothing (see rails).
+function investmentMoneyWeightedReturn(holdings) {
+  const today = todayISO();
+  const { entries, terminal } = investmentCashflows(holdings);
+  if (!entries.length) return null;
+
+  const start = entries[0].date;
+  const days = investDaysBetween(start, today);
+  // Rail 1: never annualise a sub-quarter window.
+  if (!Number.isFinite(days) || days < INVEST_MIN_HISTORY_DAYS) return null;
+
+  const all = terminal ? entries.concat([{ date: today, amount: terminal }]) : entries.slice();
+  let lo = INVEST_RATE_FLOOR;
+  let hi = INVEST_RATE_CEIL;
+  let fLo = investNpv(all, lo, start);
+  let fHi = investNpv(all, hi, start);
+  if (!Number.isFinite(fLo) || !Number.isFinite(fHi)) return null;
+  if (fLo === 0) return lo * 100;
+  if (fHi === 0) return hi * 100;
+  // Rail 2: no sign change across the bracket means no root inside it — a
+  // total wipeout, or flows that only ever ran one way. Say "—" rather than
+  // report an endpoint as though it were the answer.
+  if ((fLo > 0) === (fHi > 0)) return null;
+
+  for (let i = 0; i < 200 && hi - lo > 1e-9; i++) {
+    const mid = (lo + hi) / 2;
+    const fMid = investNpv(all, mid, start);
+    if (!Number.isFinite(fMid)) return null;
+    if ((fMid > 0) === (fLo > 0)) { lo = mid; fLo = fMid; } else { hi = mid; fHi = fMid; }
+  }
+  // Rail 3: bracket never tightened (shouldn't happen with a real sign change,
+  // but a NaN-free non-convergence must not surface as a number).
+  if (hi - lo > 1e-6) return null;
+  const rate = (lo + hi) / 2;
+  return Number.isFinite(rate) ? rate * 100 : null;
+}
+
+function investmentReturn(h) {
+  return h ? investmentMoneyWeightedReturn([h]) : null;
+}
+
+function investmentsPortfolioReturn() {
+  return investmentMoneyWeightedReturn(investmentsList());
+}
+
+// Units holdings carry an explicit cost basis; balance holdings derive theirs
+// from the flow history — which is exactly why a revaluation must never write
+// a flow and a reinvested dividend must never raise the basis.
+function investmentContributed(h) {
+  if (!h) return 0;
+  return h.kind === "units"
+    ? (Number(h.costBasis) || 0)
+    : (h.flows || []).reduce((s, f) => s + (Number(f.amount) || 0), 0);
+}
+
+function investmentDividends12(h) {
+  const cutoff = investIsoDaysAgo(365);
+  return ((h && h.dividends) || []).reduce(
+    (s, d) => (d.date >= cutoff ? s + (Number(d.amount) || 0) : s),
+    0,
+  );
+}
+
+function investmentYieldOnCost(h) {
+  const contributed = investmentContributed(h);
+  return contributed > 0 ? (investmentDividends12(h) / contributed) * 100 : null;
+}
+
+function investmentAccountTotals() {
+  const map = new Map();
+  for (const h of investmentsList()) {
+    const row = map.get(h.account) || { account: h.account, total: 0, count: 0 };
+    row.total += investmentValue(h);
+    row.count += 1;
+    map.set(h.account, row);
+  }
+  return [...map.values()].sort((a, b) => b.total - a.total);
+}
+
+// "—" is a first-class answer here, not an error state: see the rails above.
+function fmtReturnPct(pct) {
+  if (pct === null || pct === undefined || !Number.isFinite(pct)) return "—";
+  return `${pct < 0 ? "−" : "+"}${Math.abs(pct).toFixed(2)}%`;
 }
 
 /* ---------- mutations ---------- */
@@ -238,13 +424,19 @@ function investmentRowHtml(h) {
     const last = (h.valuations || [])[h.valuations.length - 1];
     if (last) meta.push(`Valued ${escapeHtml(last.date)}`);
   }
+  const ret = investmentReturn(h);
+  const retClass = ret === null ? "" : ret < 0 ? " neg" : " pos";
+  const retTitle = ret === null
+    ? "Not enough history yet — a money-weighted return needs 90+ days"
+    : "Money-weighted return since inception, annualised";
+  const retHtml = `<span class="invest-return${retClass}" title="${escapeHtml(retTitle)}">Return ${fmtReturnPct(ret)}</span>`;
   return `
     <div class="invest-row" data-id="${h.id}">
       <div class="top-row">
         <span class="invest-name">${escapeHtml(h.name)} <span class="invest-account">${escapeHtml(h.account)}</span>${zakatDot}</span>
         <span class="invest-value">${fmtMoney(value)}</span>
       </div>
-      <div class="invest-meta">${meta.map((m) => `<span>${m}</span>`).join("")}</div>
+      <div class="invest-meta">${meta.map((m) => `<span>${m}</span>`).join("")}${retHtml}</div>
       <div class="invest-actions">
         <button type="button" class="ghost" data-action="invest-panel" data-panel="topup" data-id="${h.id}">Top up</button>
         <button type="button" class="ghost" data-action="invest-panel" data-panel="value" data-id="${h.id}">Update value</button>
@@ -280,6 +472,51 @@ function renderInvestments() {
       : `<div class="empty">No holdings yet — add ASB, EPF, a unit trust or shares above. You type the values in from your statements; Duitful never contacts a price service.</div>`;
   }
 
+  // Portfolio performance. Both figures earn a "—" rather than a guess:
+  // money-weighted return when there isn't 90 days of history to annualise,
+  // yield on cost when nothing was ever contributed.
+  const perf = document.getElementById("invest-perf");
+  if (perf) {
+    perf.hidden = list.length === 0;
+    if (list.length) {
+      const ret = investmentsPortfolioReturn();
+      const mwrEl = document.getElementById("invest-mwr");
+      const mwrSub = document.getElementById("invest-mwr-sub");
+      if (mwrEl) {
+        mwrEl.textContent = fmtReturnPct(ret);
+        mwrEl.classList.toggle("pos", ret !== null && ret >= 0);
+        mwrEl.classList.toggle("neg", ret !== null && ret < 0);
+      }
+      if (mwrSub) {
+        mwrSub.textContent = ret === null
+          ? "needs 90+ days of history"
+          : "annualised, since inception";
+      }
+      const yocEl = document.getElementById("invest-yoc");
+      const yocSub = document.getElementById("invest-yoc-sub");
+      if (yocEl) yocEl.textContent = t.yieldOnCost === null ? "—" : `${t.yieldOnCost.toFixed(2)}%`;
+      if (yocSub) {
+        yocSub.textContent = t.yieldOnCost === null
+          ? "no contributions recorded"
+          : `${fmtMoney(t.dividends12)} on ${fmtMoney(t.contributed)}`;
+      }
+    }
+  }
+
+  // Per-account totals. A single-account breakdown just restates the card
+  // total, so it stays hidden until there are at least two.
+  const accountsEl = document.getElementById("invest-accounts");
+  if (accountsEl) {
+    const rows = investmentAccountTotals();
+    accountsEl.hidden = rows.length < 2;
+    accountsEl.innerHTML = rows.length < 2 ? "" : rows.map((a) => `
+      <div class="invest-account-row">
+        <span class="invest-account">${escapeHtml(a.account)}</span>
+        <span class="invest-account-count">${a.count} holding${a.count === 1 ? "" : "s"}</span>
+        <span class="invest-account-total">${fmtMoney(a.total)}</span>
+      </div>`).join("");
+  }
+
   const divLine = document.getElementById("invest-dividend-line");
   if (divLine) {
     if (t.dividendCount === 0) {
@@ -291,6 +528,105 @@ function renderInvestments() {
         ? `Dividends last 12 months ${fmtMoney(t.dividends12)} · yield ${t.yield12.toFixed(2)}% on current value.`
         : `Dividends last 12 months ${fmtMoney(t.dividends12)}.`;
     }
+  }
+}
+
+/* ---------- valuation history chart (Reports tab) ---------- */
+
+// Hand-rolled inline SVG, same as the spending pie — no chart library, and
+// nothing that would pull a byte off the device. Geometry only: every colour
+// comes from a CSS token via the class names, so dark mode is free.
+const INVEST_CHART_W = 320;
+const INVEST_CHART_H = 140;
+const INVEST_CHART_PAD = 8;
+// Beyond this many snapshots the per-point markers turn into a smear; the
+// line alone reads better.
+const INVEST_CHART_MAX_DOTS = 40;
+
+function investDayLabel(iso) {
+  return typeof formatDayLabel === "function" ? formatDayLabel(iso) : iso;
+}
+
+function renderInvestmentsChart() {
+  const card = document.getElementById("reports-invest-card");
+  const svg = document.getElementById("reports-invest-chart");
+  const svgWrap = document.getElementById("reports-invest-chart-wrap");
+  const empty = document.getElementById("reports-invest-empty");
+  const hint = document.getElementById("reports-invest-hint");
+  const range = document.getElementById("reports-invest-range");
+  const retLine = document.getElementById("reports-invest-return");
+  if (!card || !svg || !empty) return;
+
+  const list = investmentsList();
+  // Nothing to say without holdings — the whole card stands down rather than
+  // parking an empty frame in the middle of Reports.
+  card.hidden = list.length === 0;
+
+  if (retLine) {
+    const ret = list.length ? investmentsPortfolioReturn() : null;
+    retLine.textContent = ret === null
+      ? "Return (money-weighted) — · needs 90+ days since your first contribution."
+      : `Return (money-weighted) ${fmtReturnPct(ret)} · annualised, your cash flows plus today's value.`;
+  }
+
+  const series = list.length ? investmentValuationSeries(list) : [];
+
+  // 0 or 1 points can't be a line. Say so plainly instead of emitting an SVG
+  // with a degenerate scale.
+  if (series.length < 2) {
+    svg.innerHTML = "";
+    svg.setAttribute("aria-hidden", "true");
+    if (svgWrap) svgWrap.hidden = true;
+    empty.hidden = false;
+    empty.textContent = series.length === 0
+      ? "No valuations recorded yet."
+      : "One snapshot so far — record another value to start the line.";
+    if (range) { range.hidden = true; range.innerHTML = ""; }
+    if (hint) hint.textContent = series.length === 1 ? "1 snapshot" : "";
+    return;
+  }
+
+  const first = series[0];
+  const last = series[series.length - 1];
+  // Space the points by real elapsed days, not by index: a three-year gap
+  // followed by two same-week snapshots should look like that.
+  const span = Math.max(1, investDaysBetween(first.date, last.date));
+  const values = series.map((p) => p.value);
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  if (max - min < 1e-9) {
+    // Flat history — pad both ends so the line sits mid-height instead of
+    // being pinned to the floor by a zero-height scale.
+    const pad = Math.max(1, Math.abs(max) * 0.05);
+    min -= pad;
+    max += pad;
+  }
+
+  const innerW = INVEST_CHART_W - INVEST_CHART_PAD * 2;
+  const innerH = INVEST_CHART_H - INVEST_CHART_PAD * 2;
+  const px = (date) => INVEST_CHART_PAD + (investDaysBetween(first.date, date) / span) * innerW;
+  const py = (v) => INVEST_CHART_H - INVEST_CHART_PAD - ((v - min) / (max - min)) * innerH;
+  const pts = series.map((p) => `${px(p.date).toFixed(2)},${py(p.value).toFixed(2)}`).join(" ");
+
+  const base = INVEST_CHART_H - INVEST_CHART_PAD;
+  let inner = `<polygon class="invest-chart-area" points="${INVEST_CHART_PAD},${base} ${pts} ${INVEST_CHART_W - INVEST_CHART_PAD},${base}" />`;
+  inner += `<polyline class="invest-chart-line" points="${pts}" />`;
+  if (series.length <= INVEST_CHART_MAX_DOTS) {
+    inner += series.map((p) =>
+      `<circle class="invest-chart-dot" cx="${px(p.date).toFixed(2)}" cy="${py(p.value).toFixed(2)}" r="2.5"><title>${escapeHtml(investDayLabel(p.date))} · ${escapeHtml(fmtMoney(p.value))}</title></circle>`,
+    ).join("");
+  }
+
+  if (svgWrap) svgWrap.hidden = false;
+  svg.removeAttribute("aria-hidden");
+  svg.innerHTML = inner;
+  empty.hidden = true;
+  if (hint) hint.textContent = `${series.length} snapshots · all time`;
+  if (range) {
+    range.hidden = false;
+    range.innerHTML =
+      `<span>${escapeHtml(fmtMoney(first.value))} · ${escapeHtml(investDayLabel(first.date))}</span>` +
+      `<span>${escapeHtml(fmtMoney(last.value))} · ${escapeHtml(investDayLabel(last.date))}</span>`;
   }
 }
 

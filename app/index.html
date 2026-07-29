@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=73" />
+    <link rel="stylesheet" href="styles.css?v=74" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -823,7 +823,21 @@
             <button type="submit" class="primary">Add holding</button>
           </form>
 
+          <div class="stat-row invest-perf" id="invest-perf" hidden>
+            <div class="stat">
+              <span class="label">Return (money-weighted)</span>
+              <strong id="invest-mwr">—</strong>
+              <span class="sub" id="invest-mwr-sub"></span>
+            </div>
+            <div class="stat">
+              <span class="label">Yield on cost</span>
+              <strong id="invest-yoc">—</strong>
+              <span class="sub" id="invest-yoc-sub"></span>
+            </div>
+          </div>
+
           <p class="hint" id="invest-dividend-line" hidden></p>
+          <div id="invest-accounts" class="invest-accounts" hidden></div>
           <div id="investments-list" class="investments-list"></div>
           <p class="hint">Values are typed in from your statements. Duitful never fetches prices — that would tell a server what you own.</p>
         </div>
@@ -988,6 +1002,23 @@
             <span class="hint" id="reports-trend-hint"></span>
           </div>
           <div id="reports-trend" class="reports-trend"></div>
+        </div>
+
+        <div class="card" id="reports-invest-card" hidden>
+          <div class="card-head">
+            <h2>Portfolio value</h2>
+            <span class="hint" id="reports-invest-hint"></span>
+          </div>
+          <p class="hint">Every valuation you've recorded, all time — this card ignores the filters above.</p>
+          <!-- The wrapper carries `hidden`, not the <svg>: `hidden` is an
+               HTMLElement property, so setting it on an SVGElement from JS
+               would silently create an expando and hide nothing. -->
+          <div class="invest-chart-wrap" id="reports-invest-chart-wrap" hidden>
+            <svg id="reports-invest-chart" class="invest-chart" viewBox="0 0 320 140" role="img" aria-label="Portfolio value over time"></svg>
+          </div>
+          <div id="reports-invest-range" class="invest-chart-range" hidden></div>
+          <div id="reports-invest-empty" class="empty" hidden></div>
+          <p class="hint" id="reports-invest-return"></p>
         </div>
 
         <div class="card">
@@ -1689,7 +1720,7 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="investments.js?v=1"></script>
-    <script src="script.js?v=98"></script>
+    <script src="investments.js?v=2"></script>
+    <script src="script.js?v=99"></script>
   </body>
 </html>
