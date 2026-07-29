@@ -123,6 +123,17 @@
           </div>
           <button type="button" class="primary" id="trial-banner-cta">Unlock forever</button>
         </div>
+        <!-- Native only: shown when Google Play reports a newer build (see checkForAppUpdate). -->
+        <div id="update-banner" class="trial-banner" hidden role="region" aria-label="App update available">
+          <div class="trial-banner-body">
+            <span class="trial-banner-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg></span>
+            <div>
+              <strong>Update available</strong>
+              <p class="trial-banner-sub">A newer version of Duitful is ready on Google Play.</p>
+            </div>
+          </div>
+          <button type="button" class="primary" id="update-banner-cta">Update now</button>
+        </div>
         <div id="pending-card" class="card pending-card" hidden>
           <div class="card-head">
             <h2>Pending transactions</h2>
@@ -1581,6 +1592,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=93"></script>
+    <script src="script.js?v=94"></script>
   </body>
 </html>

@@ -3726,6 +3726,43 @@ function isNative() {
   return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
 }
 
+/* ---------- in-app update prompt (native only) ---------- */
+// Google Play In-App Updates via @capawesome/capacitor-app-update. Checked
+// once per cold start; when Play reports a newer build the dashboard shows
+// an "Update now" banner. The CTA runs Play's immediate-update flow (its
+// own full-screen UI), falling back to opening the store listing (also the
+// iOS path, where the immediate flow doesn't exist).
+async function checkForAppUpdate() {
+  if (!isNative()) return;
+  const AppUpdate = window.Capacitor?.Plugins?.AppUpdate;
+  if (!AppUpdate) return;
+  try {
+    const info = await AppUpdate.getAppUpdateInfo();
+    // 2 === AppUpdateAvailability.UPDATE_AVAILABLE
+    if (!info || info.updateAvailability !== 2) return;
+    const banner = document.getElementById("update-banner");
+    if (banner) banner.hidden = false;
+  } catch {
+    // Offline, sideloaded build, or Play unreachable — stay quiet and
+    // check again on the next launch.
+  }
+}
+document.getElementById("update-banner-cta")?.addEventListener("click", async () => {
+  const AppUpdate = window.Capacitor?.Plugins?.AppUpdate;
+  if (!AppUpdate) return;
+  try {
+    const info = await AppUpdate.getAppUpdateInfo();
+    if (info?.immediateUpdateAllowed) {
+      await AppUpdate.performImmediateUpdate();
+    } else {
+      await AppUpdate.openAppStore();
+    }
+  } catch {
+    // Immediate flow declined/failed — the store listing always works.
+    try { await AppUpdate.openAppStore(); } catch {}
+  }
+});
+
 /* ---------- Pro tier ----------
    The web version (GitHub Pages / plain browser) is fully unlocked so people
    can try everything. In the native Capacitor build, features are gated and
@@ -7619,6 +7656,9 @@ guideDialog()?.addEventListener("cancel", (e) => {
 
 const dailyDateInput = document.querySelector("#form-daily input[name='date']");
 if (dailyDateInput) dailyDateInput.value = todayISO();
+
+// Fire-and-forget: shows the "Update now" banner if Play has a newer build.
+checkForAppUpdate();
 
 renderGreeting();
 setDailyType("expense");
