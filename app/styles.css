@@ -437,6 +437,21 @@ body.loaded #splash {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+.lock-biometric {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.7rem;
+  padding: 0.7rem 1rem;
+  font-size: 0.92rem;
+}
+.lock-biometric svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
 .lock-form.shake { animation: lock-shake 0.35s cubic-bezier(.36,.07,.19,.97); }
 @keyframes lock-shake {
   10%, 90% { transform: translateX(-2px); }

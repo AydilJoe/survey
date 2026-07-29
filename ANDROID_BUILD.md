@@ -91,6 +91,24 @@ npm run cap:add:android      # regenerates from Capacitor 7 templates
 npm run cap:sync             # reinstalls the notification listener
 ```
 
+## Biometric unlock (native-only feature)
+
+`@capgo/capacitor-native-biometric` powers the opt-in fingerprint / face
+unlock (Settings → Security). `npm run cap:sync` chains
+`scripts/patch-android-biometric.mjs`, which adds the `USE_BIOMETRIC`
+and `USE_FINGERPRINT` permissions to `AndroidManifest.xml` (idempotent,
+like the camera patch). Nothing else to configure on Android.
+
+Verification is manual — emulators and e2e can't exercise real
+biometrics. Before shipping a build that touches the lock flow, on a
+device with a fingerprint enrolled: enable the toggle, relaunch, unlock
+via fingerprint; change the passcode and confirm fingerprint still
+unlocks; remove/re-add a fingerprint in Android settings and confirm the
+app falls back to passcode with the "biometric unlock was reset" notice.
+
+(iOS, when the project lands: add `NSFaceIDUsageDescription` to
+`Info.plist`.)
+
 ## Notification-listener plugin (Android-only feature)
 
 This enables auto-capture of transactions from Maybank / CIMB / TNG /

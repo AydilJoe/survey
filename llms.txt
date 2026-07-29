@@ -147,6 +147,10 @@ covers most casual use; Pro is one-time RM 19.90.
 - No advertising, no analytics on financial data, no third-party SDKs
   reading transactions.
 - Encryption: AES-GCM, PBKDF2 key derivation, 250,000 iterations.
+- Biometric unlock (Android app, opt-in): the passcode is stored in the
+  phone's hardware keystore and released only after the OS fingerprint /
+  face check. The passcode stays the only encryption key; biometric data
+  never reaches Duitful; the web app has no biometric surface.
 - Lost-passcode policy: data is unrecoverable by design — Duitful
   cannot reset it. Pro encrypted backup export is the recovery path.
 

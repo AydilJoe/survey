@@ -52,6 +52,44 @@ Uses `crypto.getRandomValues` exclusively (no `Math.random` for any
 security-relevant value). WebCrypto-backed in all supported browsers
 and the Capacitor WebView.
 
+### 1.3 Biometric unlock (native shell only, opt-in)
+
+Added in v1.10.1. When enabled from Settings → Security inside the
+Capacitor shell, the user's passcode is stored via
+`@capgo/capacitor-native-biometric` in the platform keystore (Android
+Keystore / iOS Keychain) under a dedicated entry, and released only
+after a successful OS-level fingerprint / face verification. The lock
+screen gains an "Unlock with fingerprint / face" button.
+
+Design properties:
+
+- **The passcode remains the only encryption secret.** Biometrics never
+  touch the crypto layer — PBKDF2/AES-GCM parameters and the encrypted
+  blob are byte-identical whether the passcode arrives from the keyboard
+  or from the keystore. The web app has zero biometric surface.
+- **Enable flow requires both factors**: the current passcode (verified
+  by decrypting the live record) *and* a successful biometric scan
+  before the keystore entry is written.
+- **Invalidation**: if the keystore entry becomes unreadable (OS
+  biometric enrollment changed, keystore reset) or the stored passcode
+  no longer decrypts the record, the feature disables itself, deletes
+  the entry, and falls back to passcode entry with an explanatory
+  message. Passcode entry is always available regardless.
+- **Passcode change re-stores seamlessly**: changing the passcode while
+  biometric unlock is on swaps the keystore entry to the new passcode;
+  if the keystore write fails, biometric unlock is turned off rather
+  than left pointing at a dead passcode.
+- **Reset/wipe**: the forgot-passcode wipe also deletes the keystore
+  entry and the enabled flag.
+- The enabled flag (`duitful.biometricUnlock`) lives in plain
+  localStorage — it must be readable before decryption. It contains no
+  secret, only "show the button".
+
+Residual risk: a device attacker who can pass the OS biometric check
+(enrolled finger/face) can unlock the app — the same trust boundary as
+the device lock screen itself. Accepted; the feature is opt-in and
+disclosed in the privacy policy.
+
 ---
 
 ## 2. Licence token review
