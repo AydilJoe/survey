@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.9.0";
+const APP_VERSION = "1.9.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -3907,7 +3907,88 @@ function closePaywall() {
 }
 document.getElementById("paywall-close")?.addEventListener("click", closePaywall);
 
-function openProWelcome() {
+// Brand-token confetti for the Pro moment. Colours are read from the live
+// theme rather than hardcoded, so the pieces stay visible in dark mode (where
+// --primary and friends are different hex values entirely).
+function proConfettiColours() {
+  const cs = getComputedStyle(document.documentElement);
+  return ["--primary", "--accent-3", "--accent", "--accent-4"]
+    .map((t) => cs.getPropertyValue(t).trim())
+    .filter(Boolean);
+}
+
+// Runs once per open, then removes itself from the DOM so reopening the
+// dialog can't stack layers.
+function proCelebrationConfetti(host, count = 26) {
+  if (!host) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  host.querySelectorAll(".pro-confetti").forEach((n) => n.remove());
+
+  const colours = proConfettiColours();
+  if (!colours.length) return;
+
+  const layer = document.createElement("div");
+  layer.className = "pro-confetti";
+  layer.setAttribute("aria-hidden", "true");
+
+  for (let i = 0; i < count; i++) {
+    const bit = document.createElement("i");
+    bit.style.left = `${Math.random() * 100}%`;
+    bit.style.background = colours[i % colours.length];
+    bit.style.setProperty("--delay", `${Math.random() * 0.5 + 0.25}s`);
+    bit.style.setProperty("--dur", `${Math.random() * 1.1 + 1.9}s`);
+    bit.style.setProperty("--spin", `${Math.random() * 540 + 180}deg`);
+    // A few wider pieces so the fall doesn't look uniform.
+    if (i % 5 === 0) { bit.style.width = "10px"; bit.style.height = "6px"; }
+    layer.appendChild(bit);
+  }
+
+  host.appendChild(layer);
+  window.setTimeout(() => layer.remove(), 3600);
+}
+
+// Swaps the utilitarian dialog header for the celebration block, once.
+// `paidLabel` is only passed where the amount is actually known (the IAP
+// path, which can read the applied promo) — a licence activation has no
+// price to quote, so the receipt line drops the figure rather than
+// asserting RM 19.90 at someone who paid a promo price.
+function ensureProCelebrateBlock(dlg, paidLabel) {
+  const receipt = paidLabel
+    ? `PAID ONCE · <strong>${escapeHtml(paidLabel)}</strong> · NO SUBSCRIPTION, EVER`
+    : `PAID ONCE · <strong>NO SUBSCRIPTION, EVER</strong>`;
+  const existing = dlg.querySelector(".pro-celebrate");
+  if (existing) {
+    // Built on an earlier open without a known price; fill it in if we have
+    // one now rather than leaving the weaker line in place.
+    const line = existing.querySelector(".pro-receipt");
+    if (line && paidLabel) line.innerHTML = receipt;
+    return;
+  }
+  const head = dlg.querySelector(".paywall-head");
+  if (!head) return;
+  const block = document.createElement("div");
+  block.className = "pro-celebrate";
+  block.innerHTML = `
+    <div class="pro-seal" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6L9 17l-5-5"/>
+      </svg>
+    </div>
+    <h2>Duitful Pro — yours.</h2>
+    <p class="pro-celebrate-sub">Terima kasih. That's the last time we'll ask you for money.</p>
+    <ul class="pro-unlocked">
+      <li>Unlimited debts &amp; savings goals</li>
+      <li>Unlimited receipt scans, 46 currencies</li>
+      <li>Budget pools &amp; encrypted Drive sync</li>
+    </ul>
+    <p class="pro-receipt">${receipt}</p>
+  `;
+  head.replaceWith(block);
+}
+
+function openProWelcome(paidLabel) {
   const dlg = document.getElementById("pro-welcome-dialog");
   if (!dlg) return;
   // Reset transient state each open
@@ -3935,8 +4016,16 @@ function openProWelcome() {
     driveBtn.disabled = false;
     driveBtn.textContent = "Connect Google Drive";
   }
+  ensureProCelebrateBlock(dlg, paidLabel);
+  dlg.classList.add("celebrating");
+
   if (typeof dlg.showModal === "function") dlg.showModal();
   else dlg.setAttribute("open", "");
+
+  proCelebrationConfetti(dlg.querySelector(".pro-celebrate"));
+
+  // Short haptic double-tap where supported (Android/Chrome; a no-op on iOS).
+  try { if (navigator.vibrate) navigator.vibrate([12, 60, 18]); } catch (_) { /* unsupported */ }
 }
 function closeProWelcome() {
   const dlg = document.getElementById("pro-welcome-dialog");
@@ -4369,8 +4458,10 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
     const sku = activePromo ? activePromo.sku : PRODUCT_ID;
     const outcome = await purchasePro(sku);
     if (outcome.ok) {
+      // Read the price before closePaywall() resets the applied promo.
+      const paidLabel = activePromo ? activePromo.priceLabel : "RM 19.90";
       closePaywall();
-      openProWelcome();
+      openProWelcome(paidLabel);
     } else if (outcome.cancelled) {
       // User backed out of the platform sheet — leave the paywall open so
       // they can try again or dismiss it themselves.
