@@ -1135,6 +1135,7 @@ main {
 .announce-body { margin: 0.9rem 0 1.1rem; }
 .announce-body p { margin: 0 0 0.6rem; color: var(--ink2); line-height: 1.5; }
 .announce-body p:last-child { margin-bottom: 0; }
+.announce-mute { margin: 0 0 0.9rem; }
 /* On mobile, 4 tiles in one row truncates labels ("RECURRI...", "DAILY S...")
    and values ("RM 8,..."). Switch to a 2×2 grid below 480px so both label and
    amount fit cleanly. */

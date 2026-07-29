@@ -3772,6 +3772,22 @@ document.getElementById("update-banner-cta")?.addEventListener("click", async ()
 // even before/without a data import.
 const ANNOUNCE_URL = "https://duitful.app/announcements.json";
 const ANNOUNCE_SEEN_KEY = "duitful-announce-seen";
+// Opt-out: set via the dialog's "Don't show me announcements again" checkbox,
+// reversible through Settings → Preferences → Show occasional announcements.
+const ANNOUNCE_MUTE_KEY = "duitful-announce-muted";
+
+function announcementsMuted() {
+  try { return localStorage.getItem(ANNOUNCE_MUTE_KEY) === "1"; }
+  catch { return false; }
+}
+function setAnnouncementsMuted(muted) {
+  try {
+    if (muted) localStorage.setItem(ANNOUNCE_MUTE_KEY, "1");
+    else localStorage.removeItem(ANNOUNCE_MUTE_KEY);
+  } catch {}
+  const pref = document.getElementById("pref-announcements");
+  if (pref) pref.checked = !muted;
+}
 
 function announceSeenIds() {
   try {
@@ -3833,10 +3849,17 @@ function showAnnouncement(m) {
     ctaEl.textContent = hasCta ? String(m.cta_label) : "";
     ctaEl.onclick = hasCta ? () => { window.open(url, "_blank", "noopener"); dlg.close(); } : null;
   }
-  dlg.addEventListener("close", () => markAnnounceSeen(m.id), { once: true });
+  const muteEl = document.getElementById("announce-mute");
+  if (muteEl) muteEl.checked = false;
+  dlg.addEventListener("close", () => {
+    markAnnounceSeen(m.id);
+    // Honour the opt-out however the dialog was dismissed (CTA, Got it, Esc).
+    if (muteEl && muteEl.checked) setAnnouncementsMuted(true);
+  }, { once: true });
   dlg.showModal();
 }
 async function checkAnnouncements() {
+  if (announcementsMuted()) return;
   try {
     const res = await fetch(ANNOUNCE_URL, { cache: "no-store" });
     if (!res.ok) return;
@@ -3846,6 +3869,15 @@ async function checkAnnouncements() {
   } catch {
     // Offline or feed unreachable — try again next launch.
   }
+}
+/* Settings → Preferences: announcements on/off (mirrors the dialog opt-out). */
+const prefAnnouncements = document.getElementById("pref-announcements");
+if (prefAnnouncements) {
+  prefAnnouncements.checked = !announcementsMuted();
+  prefAnnouncements.addEventListener("change", () => {
+    setAnnouncementsMuted(!prefAnnouncements.checked);
+    // Re-enabling takes effect on the next cold start.
+  });
 }
 
 /* ---------- Pro tier ----------

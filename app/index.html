@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=70" />
+    <link rel="stylesheet" href="styles.css?v=71" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -1076,6 +1076,10 @@
             </select>
           </label>
           <p class="hint">Saved values stay the same — only the display currency changes.</p>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-announcements" checked />
+            <span>Show occasional announcements from the Duitful team</span>
+          </label>
         </div>
 
         <div class="card">
@@ -1263,6 +1267,10 @@
           </div>
         </div>
         <div id="announce-body" class="announce-body"></div>
+        <label class="field toggle-field announce-mute">
+          <input type="checkbox" id="announce-mute" />
+          <span>Don't show me announcements again</span>
+        </label>
         <div class="button-row">
           <button type="button" class="primary" id="announce-cta" hidden></button>
           <button value="ok" class="ghost">Got it</button>
@@ -1610,6 +1618,6 @@
 
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
-    <script src="script.js?v=95"></script>
+    <script src="script.js?v=96"></script>
   </body>
 </html>
