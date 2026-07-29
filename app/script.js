@@ -3763,6 +3763,91 @@ document.getElementById("update-banner-cta")?.addEventListener("click", async ()
   }
 });
 
+/* ---------- remote announcements ---------- */
+// Owner-editable feed at /announcements.json on the live site: edit, commit,
+// push — no Play rollout needed for the message to reach every install.
+// Fetched fresh each cold start (the SW deliberately bypasses it); each
+// message shows once per device, tracked by id in plain localStorage rather
+// than the encrypted state — seen-ids aren't financial data and must work
+// even before/without a data import.
+const ANNOUNCE_URL = "https://duitful.app/announcements.json";
+const ANNOUNCE_SEEN_KEY = "duitful-announce-seen";
+
+function announceSeenIds() {
+  try {
+    const a = JSON.parse(localStorage.getItem(ANNOUNCE_SEEN_KEY) || "[]");
+    return Array.isArray(a) ? a : [];
+  } catch { return []; }
+}
+function markAnnounceSeen(id) {
+  const ids = announceSeenIds();
+  if (!ids.includes(id)) ids.push(id);
+  // Cap the list — 100 dismissed announcements is years of feed history.
+  try { localStorage.setItem(ANNOUNCE_SEEN_KEY, JSON.stringify(ids.slice(-100))); } catch {}
+}
+// Numeric per-segment compare ("1.9.2" < "1.10.0"); missing segments are 0.
+function versionCompare(a, b) {
+  const pa = String(a).split("."), pb = String(b).split(".");
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (parseInt(pa[i], 10) || 0) - (parseInt(pb[i], 10) || 0);
+    if (d) return d < 0 ? -1 : 1;
+  }
+  return 0;
+}
+function announceApplies(m) {
+  if (!m || !m.id || m.enabled !== true) return false;
+  if (announceSeenIds().includes(m.id)) return false;
+  const platform = isNative() ? "android" : "web";
+  if (Array.isArray(m.platforms) && m.platforms.length && !m.platforms.includes(platform)) return false;
+  const now = Date.now();
+  if (m.starts && now < Date.parse(m.starts)) return false;
+  if (m.ends && now > Date.parse(m.ends)) return false;
+  if (m.minVersion && versionCompare(APP_VERSION, m.minVersion) < 0) return false;
+  if (m.maxVersion && versionCompare(APP_VERSION, m.maxVersion) > 0) return false;
+  return true;
+}
+function showAnnouncement(m) {
+  const dlg = document.getElementById("announce-dialog");
+  if (!dlg || typeof dlg.showModal !== "function") return;
+  // Never stack on the lock screen, tour, paywall or What's-new — an
+  // unshown message stays unseen and simply waits for the next launch.
+  if (!aesKey || document.querySelector("dialog[open]")) return;
+  const titleEl = document.getElementById("announce-title");
+  const bodyEl = document.getElementById("announce-body");
+  const ctaEl = document.getElementById("announce-cta");
+  if (titleEl) titleEl.textContent = m.title || "A note from Duitful";
+  if (bodyEl) {
+    bodyEl.innerHTML = "";
+    const paras = Array.isArray(m.body) ? m.body : [String(m.body || "")];
+    // textContent, never innerHTML — the feed is remote input.
+    paras.forEach((p) => {
+      const el = document.createElement("p");
+      el.textContent = String(p);
+      bodyEl.appendChild(el);
+    });
+  }
+  if (ctaEl) {
+    const url = typeof m.cta_url === "string" && /^https:\/\//.test(m.cta_url) ? m.cta_url : null;
+    const hasCta = !!(url && m.cta_label);
+    ctaEl.hidden = !hasCta;
+    ctaEl.textContent = hasCta ? String(m.cta_label) : "";
+    ctaEl.onclick = hasCta ? () => { window.open(url, "_blank", "noopener"); dlg.close(); } : null;
+  }
+  dlg.addEventListener("close", () => markAnnounceSeen(m.id), { once: true });
+  dlg.showModal();
+}
+async function checkAnnouncements() {
+  try {
+    const res = await fetch(ANNOUNCE_URL, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const msg = (Array.isArray(data?.messages) ? data.messages : []).find(announceApplies);
+    if (msg) showAnnouncement(msg);
+  } catch {
+    // Offline or feed unreachable — try again next launch.
+  }
+}
+
 /* ---------- Pro tier ----------
    The web version (GitHub Pages / plain browser) is fully unlocked so people
    can try everything. In the native Capacitor build, features are gated and
@@ -7786,6 +7871,9 @@ async function handleUnlock(passcode) {
   renderAll(); // first render: tweens snap because _isHydrated is still false
   _isHydrated = true;
   maybeShowWhatsNew();
+  // Delayed so a What's-new dialog (or the first-run tour) claims the modal
+  // slot first — showAnnouncement() skips this launch if any dialog is open.
+  setTimeout(checkAnnouncements, 2500);
   loadFxRates().then(() => renderAll());
   initIAP();
   initNotificationListener();

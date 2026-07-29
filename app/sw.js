@@ -15,14 +15,14 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-07-29-4";
+const VERSION = "2026-07-29-5";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=69",
-  "/app/script.js?v=94",
+  "/app/styles.css?v=70",
+  "/app/script.js?v=95",
   "/app/drive-config.js?v=1",
   "/app/drive-sync.js?v=1",
   "/app/icon.svg",
@@ -58,6 +58,8 @@ self.addEventListener("fetch", (event) => {
   // Let the browser handle cross-origin and API requests.
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith("/api/")) return;
+  // The announcement feed must always be fresh — never serve it cache-first.
+  if (url.pathname === "/announcements.json") return;
 
   const isNavigate = req.mode === "navigate" || req.destination === "document";
   const isManifest = url.pathname === "/app/manifest.webmanifest";

@@ -1,0 +1,21 @@
+{
+  "_howto": "Owner-editable announcement feed. The app fetches this fresh on every cold start (web + native) — edit, commit, push; NO Play rollout needed. Each message shows once per device (tracked by id). Fields: id (required, unique, never reuse), enabled (set true to go live), title, body (array of plain-text paragraphs — HTML is NOT rendered), cta_label + cta_url (optional button, https only), platforms (optional: [\"android\"], [\"web\"] or both), minVersion/maxVersion (optional APP_VERSION range, e.g. only nudge old builds), starts/ends (optional ISO dates for a time window).",
+  "messages": [
+    {
+      "id": "2026-07-29-sample",
+      "enabled": false,
+      "title": "Sample announcement",
+      "body": [
+        "This is a sample message — flip \"enabled\" to true and push to show it to everyone.",
+        "Second paragraph goes here."
+      ],
+      "cta_label": "See what's new",
+      "cta_url": "https://duitful.app/changelog/",
+      "platforms": ["android", "web"],
+      "minVersion": "",
+      "maxVersion": "",
+      "starts": "",
+      "ends": ""
+    }
+  ]
+}
