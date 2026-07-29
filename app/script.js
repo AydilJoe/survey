@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.10.1";
+const APP_VERSION = "1.11.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -3248,6 +3248,11 @@ function renderReports() {
       }).join("");
     }
   }
+
+  // Portfolio valuation history. Lives in investments.js (loaded before this
+  // file) and reads the full history, not the filtered range — valuations are
+  // sparse enough that a "this month" filter would blank it almost always.
+  if (typeof renderInvestmentsChart === "function") renderInvestmentsChart();
 }
 
 function renderTrialBanner() {
@@ -7659,6 +7664,11 @@ const RELEASE_NOTES = {
   ],
   "1.10.1": [
     "<strong>Unlock with your fingerprint or face</strong> (Android app) — turn it on in Settings → Security. Your passcode stays the key; it's kept in the phone's hardware keystore and released only after a successful scan. Passcode entry always remains available.",
+  ],
+  "1.11.0": [
+    "<strong>Your real return, honestly computed</strong> — every holding and your whole portfolio now show an annualised money-weighted return: your actual top-ups, withdrawals and cash dividends against today's value. Under 90 days of history it says \"—\" instead of guessing.",
+    "<strong>Portfolio value over time</strong> — a chart in Reports drawn from every valuation you've recorded.",
+    "<strong>Yield on cost & per-account totals</strong> — what your dividends earn on the money you actually put in, plus your portfolio grouped by ASB, EPF, unit trusts and the rest.",
   ],
 };
 

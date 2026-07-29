@@ -4476,8 +4476,13 @@ body.private #zakat-nisab-line {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
+  flex-wrap: wrap;
   color: var(--muted);
   font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.invest-return {
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 .invest-actions {
@@ -4506,11 +4511,87 @@ body.private #zakat-nisab-line {
   font-variant-numeric: tabular-nums;
 }
 
+/* Performance summary (Phase 2) */
+.invest-perf { margin: 0.2rem 0 0.6rem; }
+/* Two-up row, so the sub-line has room to wrap — the global .stat .sub
+   truncation exists for the cramped 4-up Reports row and would clip
+   "RM 420.00 on RM 10,900.00" here. */
+.invest-perf .stat .sub {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.invest-accounts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.2rem 0 0.6rem;
+}
+.invest-account-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+.invest-account-count {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+.invest-account-total {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Valuation history chart — hand-rolled inline SVG, same approach as the
+   spending pie. Every colour is a token so the line survives dark mode. */
+.invest-chart-wrap { width: 100%; }
+.invest-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.invest-chart-line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+/* Kept faint on purpose: the fill is there to give the line a floor, and at
+   anything heavier it dominates the card on the dark palette (where --primary
+   sits against a near-black background). One value for both themes so there's
+   no token block to keep in sync. */
+.invest-chart-area {
+  fill: var(--primary);
+  opacity: 0.1;
+  stroke: none;
+}
+.invest-chart-dot { fill: var(--primary); }
+.invest-chart-range {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
 body.private .invest-total-inline,
 body.private .invest-value,
 body.private .invest-meta,
 body.private .invest-networth,
-body.private #invest-dividend-line {
+body.private #invest-dividend-line,
+body.private .invest-account-total,
+body.private .invest-chart,
+body.private .invest-chart-range,
+body.private #invest-perf .stat strong,
+body.private #invest-perf .stat .sub,
+body.private #reports-invest-return {
   filter: blur(7px);
   user-select: none;
   pointer-events: none;
