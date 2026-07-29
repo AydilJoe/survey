@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Your ASB &quot;return&quot; is probably wrong — money-weighted return explained | Duitful guide</title>
+<meta name="description" content="&quot;Up RM 3,000&quot; means nothing if you topped up monthly along the way. Money-weighted return (XIRR) is the number that accounts for when your cash actually went in — here's why it differs from the dividend rate, and how Duitful computes it on-device.">
+<meta name="keywords" content="money weighted return, xirr malaysia, asb return calculation, epf dividend vs return, unit trust actual return, portfolio return calculator malaysia, annualised return malaysia, duitful investments">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://duitful.app/guides/money-weighted-return-asb-epf-2026/">
+
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:locale" content="en_MY">
+<meta property="og:url" content="https://duitful.app/guides/money-weighted-return-asb-epf-2026/">
+<meta property="og:title" content="Your ASB &quot;return&quot; is probably wrong — money-weighted return explained | Duitful guide">
+<meta property="og:description" content="&quot;Up RM 3,000&quot; means nothing if you topped up monthly along the way. Money-weighted return (XIRR) is the number that accounts for when your cash actually went in — here's why it differs from the dividend rate, and how Duitful computes it on-device.">
+<meta property="og:image" content="https://duitful.app/og-image.svg">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Your ASB &quot;return&quot; is probably wrong — money-weighted return explained | Duitful guide">
+<meta name="twitter:description" content="&quot;Up RM 3,000&quot; means nothing if you topped up monthly along the way. Money-weighted return (XIRR) is the number that accounts for when your cash actually went in — here's why it differs from the dividend rate, and how Duitful computes it on-device.">
+<meta name="twitter:image" content="https://duitful.app/og-image.svg">
+
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Duitful","item":"https://duitful.app/"},{"@type":"ListItem","position":2,"name":"Guides","item":"https://duitful.app/guides/"},{"@type":"ListItem","position":3,"name":"Money-weighted return","item":"https://duitful.app/guides/money-weighted-return-asb-epf-2026/"}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Article","headline":"Your ASB \"return\" is probably wrong — money-weighted return explained | Duitful guide","description":"\"Up RM 3,000\" means nothing if you topped up monthly along the way. Money-weighted return (XIRR) is the number that accounts for when your cash actually went in — here's why it differs from the dividend rate, and how Duitful computes it on-device.","inLanguage":"en","datePublished":"2026-07-29","dateModified":"2026-07-29","author":{"@type":"Organization","name":"Duitful","url":"https://duitful.app/"},"publisher":{"@type":"Organization","name":"Duitful","logo":{"@type":"ImageObject","url":"https://duitful.app/favicon.svg"}},"mainEntityOfPage":{"@type":"WebPage","@id":"https://duitful.app/guides/money-weighted-return-asb-epf-2026/"},"image":"https://duitful.app/og-image.svg"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why is my money-weighted return lower than my fund's advertised return?","acceptedAnswer":{"@type":"Answer","text":"Usually timing: contributions that arrived late in a good run, or just before a dip, drag your personal rate below the fund's full-period figure. Fees and sales charges land on you too. If the gap is persistently large, your entry pattern — not the fund — is the thing to look at."}},{"@type":"Question","name":"Can it be negative while my balance is at an all-time high?","acceptedAnswer":{"@type":"Answer","text":"Yes. If most of your balance is recent top-ups, a small market dip can put the dated maths underwater even though the balance number keeps rising. That's the honesty working as intended."}},{"@type":"Question","name":"How is this different from CAGR?","acceptedAnswer":{"@type":"Answer","text":"CAGR handles one lump sum with no flows — start value, end value, done. The moment you top up monthly, CAGR has no honest answer; money-weighted return is the generalisation that does."}},{"@type":"Question","name":"What does Duitful need from me for the maths to be right?","acceptedAnswer":{"@type":"Answer","text":"Three habits — record top-ups as top-ups (not by editing the balance), log dividends and tick whether they were reinvested, and update valuations when statements arrive. The flows-vs-valuations distinction is what makes the return computable at all."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"HowTo","name":"Your ASB \"return\" is probably wrong — money-weighted return explained | Duitful guide","description":"\"Up RM 3,000\" means nothing if you topped up monthly along the way. Money-weighted return (XIRR) is the number that accounts for when your cash actually went in — here's why it differs from the dividend rate, and how Duitful computes it on-device.","inLanguage":"en","step":[{"@type":"HowToStep","position":1,"name":"Top-ups are not gains","text":"New money in raises your balance, not your return. Duitful records top-ups as flows, distinct from valuations, so a deposit never masquerades as performance."},{"@type":"HowToStep","position":2,"name":"Reinvested dividends are not new money","text":"An ASB dividend you leave inside is return, not contribution — it's already in the unit balance. Counting it as a flow would double-book it. Cash dividends you take out, on the other hand, are money returned to you and count in your favour."},{"@type":"HowToStep","position":3,"name":"Under 90 days, say nothing","text":"A 3% gain over three weeks annualises to roughly 68% — precision-shaped nonsense. Duitful shows \"—\" until a holding has a quarter of history, and never clamps an unanswerable case to a fake number."}]}</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --accent: #8fa078; --accent-ink: #3a6b50;
+    --warn: #b86a4e; --warn-ink: #8a3f1c;
+    --line: rgba(42,36,32,0.08); --border: rgba(42,36,32,0.14);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font: 17px/1.6 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { max-width: 760px; margin: 0 auto; padding: 40px 24px 96px; }
+  .nav-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+
+  .eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: inline-block; margin-bottom: 14px;
+  }
+
+  h1 {
+    font: 500 clamp(36px, 6vw, 52px)/1.05 var(--font-serif);
+    letter-spacing: -0.02em; margin: 0 0 14px; color: var(--ink);
+  }
+  h1 em, h2 em { font-style: italic; color: var(--primary); }
+
+  .dateline {
+    font: 500 11px/1.4 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 22px; max-width: none;
+  }
+  .dateline time { color: inherit; }
+  .dateline-sep { margin: 0 4px; opacity: 0.6; }
+
+  .lede { color: var(--ink2); font-size: 19px; line-height: 1.55; margin: 0 0 32px; max-width: 56ch; }
+
+  h2 { font: 500 28px/1.2 var(--font-serif); letter-spacing: -0.01em; margin: 48px 0 14px; color: var(--ink); }
+  h3 { font: 500 18px/1.35 var(--font-sans); margin: 24px 0 6px; color: var(--ink); }
+  p { margin: 0 0 16px; color: var(--ink2); max-width: 64ch; }
+  ul, ol { margin: 0 0 20px; padding-left: 22px; color: var(--ink2); }
+  li { margin: 0 0 6px; }
+  strong { color: var(--ink); font-weight: 600; }
+  a { color: var(--primary); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:hover { color: var(--primary-ink); }
+  code { font: 500 14px/1.2 var(--font-mono); background: var(--card); padding: 2px 6px; border-radius: 4px; border: 0.5px solid var(--line); }
+
+  /* ---------- Steps ---------- */
+  .steps { list-style: none; padding: 0; display: grid; gap: 12px; margin: 28px 0; }
+  .step {
+    display: grid; grid-template-columns: 48px 1fr; gap: 16px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 14px; padding: 18px 22px; align-items: start;
+  }
+  .step-num {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--primary); color: #fffaf2;
+    display: grid; place-items: center;
+    font: 500 17px/1 var(--font-serif);
+  }
+  .step h3 { margin: 2px 0 4px; font-size: 17px; }
+  .step p { margin: 0; font-size: 15.5px; line-height: 1.5; }
+
+  /* ---------- Stat block ---------- */
+  .stat-block {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 16px; padding: 36px 28px;
+    margin: 32px 0; text-align: center;
+  }
+  .stat-value {
+    font: 500 clamp(44px, 9vw, 72px)/1 var(--font-serif);
+    color: var(--primary); letter-spacing: -0.02em;
+    margin: 0 0 10px; max-width: none;
+  }
+  .stat-label { font: 500 16px/1.4 var(--font-sans); color: var(--ink); margin: 0 0 4px; max-width: none; }
+  .stat-note { font: 400 13.5px/1.4 var(--font-mono); color: var(--muted); margin: 0; max-width: none; }
+
+  /* ---------- Compare ---------- */
+  .compare {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+    margin: 32px 0; border: 0.5px solid var(--line); border-radius: 14px;
+    overflow: hidden;
+  }
+  @media (max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+  .compare-col { padding: 22px 24px; }
+  .compare-col + .compare-col { border-left: 0.5px solid var(--line); }
+  @media (max-width: 600px) {
+    .compare-col + .compare-col { border-left: none; border-top: 0.5px solid var(--line); }
+  }
+  .compare-col.left  { background: rgba(184,106,78,0.05); }
+  .compare-col.right { background: rgba(106,138,94,0.06); }
+  .compare-title {
+    font: 500 11px/1 var(--font-mono); letter-spacing: 0.16em;
+    text-transform: uppercase; margin: 0 0 14px;
+  }
+  .compare-col.left  .compare-title { color: var(--warn-ink); }
+  .compare-col.right .compare-title { color: var(--accent-ink); }
+  .compare-col ul { padding: 0; list-style: none; margin: 0; }
+  /* The marker is absolutely positioned rather than a flex sibling: as a flex
+     item it turned every inline <strong>/<em> in the text into its own column,
+     shredding the layout of any item with emphasis in it. */
+  .compare-col li {
+    position: relative;
+    padding: 7px 0 7px 24px; font-size: 15px; line-height: 1.45; color: var(--ink2);
+  }
+  .compare-col li::before {
+    position: absolute; left: 0; top: 7px;
+    font-weight: 700; line-height: 1.45;
+  }
+  .compare-col.left  li::before { content: "✕"; color: var(--warn); }
+  .compare-col.right li::before { content: "✓"; color: var(--accent-ink); }
+
+  /* ---------- FAQ ---------- */
+  .faq { margin: 28px 0; display: grid; gap: 8px; }
+  .faq-item {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; padding: 4px 22px;
+    transition: border-color 0.15s ease;
+  }
+  .faq-item[open] { border-color: var(--border); }
+  .faq-q {
+    font: 500 16px/1.4 var(--font-sans); color: var(--ink);
+    padding: 14px 0; cursor: pointer; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .faq-q::-webkit-details-marker { display: none; }
+  .faq-q::after {
+    content: "+"; font: 400 22px/1 var(--font-serif);
+    color: var(--muted); transition: transform 0.2s ease;
+  }
+  .faq-item[open] .faq-q::after { content: "−"; }
+  .faq-a { margin: 0 0 16px; font-size: 15.5px; line-height: 1.6; color: var(--ink2); }
+
+  /* ---------- Related guides ---------- */
+  .related {
+    margin: 56px 0 0;
+    padding-top: 28px;
+    border-top: 0.5px solid var(--line);
+  }
+  .related-eyebrow {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); display: block; margin-bottom: 14px;
+  }
+  .related-list {
+    list-style: none; padding: 0; margin: 0;
+    display: grid; gap: 10px;
+  }
+  .related-item a {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 16px; padding: 14px 18px;
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 12px; color: var(--ink);
+    text-decoration: none; transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .related-item a:hover { border-color: var(--primary); transform: translateY(-1px); }
+  .related-title { font: 500 16px/1.35 var(--font-serif); letter-spacing: -0.005em; }
+  .related-cta {
+    flex: 0 0 auto;
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary);
+  }
+
+  /* ---------- CTA ---------- */
+  .cta-card {
+    background: var(--card); border: 0.5px solid var(--line);
+    border-radius: 18px; padding: 32px 28px;
+    margin: 56px 0 0; text-align: center;
+  }
+  .cta-card h2 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 30px); }
+  .cta-card p { margin: 0 auto 18px; max-width: 48ch; }
+  .cta-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 26px;
+    background: var(--primary); color: #fffaf2;
+    border-radius: 999px;
+    font: 500 15px/1 var(--font-sans);
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(42,36,32,0.1), 0 8px 20px rgba(200,112,75,0.28);
+    transition: background 0.15s ease;
+  }
+  .cta-btn:hover { background: var(--primary-ink); color: #fffaf2; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: 64px; padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px; color: var(--muted);
+  }
+  .footer a { color: var(--primary); text-decoration: none; }
+  .footer a:hover { text-decoration: underline; }
+</style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<div class="container">
+  <a href="/guides/" class="nav-back">← all guides</a>
+
+  <span class="eyebrow">Guide · Malaysia · Investing</span>
+  <h1>Your portfolio is "up RM 3,000". That tells you <em>almost nothing</em>.</h1>
+  <p class="dateline">Published <time datetime="2026-07-29">29 Jul 2026</time></p>
+  <p class="lede">If you topped up along the way, most of that RM 3,000 might just be your own money coming back to greet you. Money-weighted return is the figure that weighs every top-up and dividend at the date it actually happened — and it's usually lower than the number you're proud of.</p>
+
+  <h2>Why the simple sums lie</h2>
+
+    <div class="stat-block">
+      <p class="stat-value">6.9% vs 21%</p>
+      <p class="stat-label">Same holding, two "returns"</p>
+      <p class="stat-note">RM 10,000 in, RM 400 dividend taken as cash, worth RM 11,000 two years later. "Total gain ÷ capital" says 14%; add the dividend and people quote up to 21% over the period. The money-weighted annualised answer is 6.9% — the only figure you can compare against EPF's dividend or a fund's factsheet.</p>
+    </div>
+<p>Two things break the back-of-envelope maths. <strong>Time</strong>: a 10% gain over four years is not a 10% return. <strong>Your own cash flows</strong>: if you started with RM 10,000 and topped up RM 5,000 last year, dividing today's value by RM 15,000 punishes the top-up as if it had all four years to grow.</p>
+<p>Money-weighted return (the maths behind Excel's XIRR) fixes both: every top-up, withdrawal and cash dividend is dated, and the solver finds the single annual rate that makes your actual cash-flow history grow into today's value.</p>
+<h2>The three rules that keep it honest</h2>
+<ol class="steps">
+    <li class="step">
+      <span class="step-num">1</span>
+      <div>
+        <h3>Top-ups are not gains</h3>
+        <p>New money in raises your balance, not your return. Duitful records top-ups as flows, distinct from valuations, so a deposit never masquerades as performance.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">2</span>
+      <div>
+        <h3>Reinvested dividends are not new money</h3>
+        <p>An ASB dividend you leave inside is return, not contribution — it's already in the unit balance. Counting it as a flow would double-book it. Cash dividends you take out, on the other hand, are money returned to you and count in your favour.</p>
+      </div>
+    </li>
+    <li class="step">
+      <span class="step-num">3</span>
+      <div>
+        <h3>Under 90 days, say nothing</h3>
+        <p>A 3% gain over three weeks annualises to roughly 68% — precision-shaped nonsense. Duitful shows "—" until a holding has a quarter of history, and never clamps an unanswerable case to a fake number.</p>
+      </div>
+    </li>
+</ol>
+<h2>Money-weighted vs the dividend rate</h2>
+<p>EPF declaring 6.3% and your money-weighted EPF return are different animals: the declared rate applies to the year's opening-ish balance under EPF's formula, while your MWR blends every contribution month across the year. Neither is wrong — but only MWR lets you compare <em>your</em> EPF, <em>your</em> ASB and <em>your</em> unit trust on one footing, fees and timing included.</p>
+
+    <div class="compare">
+      <div class="compare-col left">
+        <p class="compare-title">What the factsheet shows</p>
+        <ul><li>Fund-level, time-weighted performance</li><li>Ignores when you personally bought in</li><li>Gross of your entry timing, sometimes of fees</li><li>Great for judging the manager</li></ul>
+      </div>
+      <div class="compare-col right">
+        <p class="compare-title">What money-weighted return shows</p>
+        <ul><li>Your account, your dates, your fees</li><li>A late lump sum before a dip shows up honestly</li><li>One comparable annualised figure across holdings</li><li>Great for judging your outcome</li></ul>
+      </div>
+    </div>
+<h2>The privacy angle</h2>
+<p>Every calculator that does this online asks you to type your full cash-flow history into someone's server. Duitful runs the solver on your phone against holdings that are already encrypted there — no price API is ever contacted, because a per-holding quote fetch would fingerprint exactly what you own.</p>
+<div class="faq">
+    <details class="faq-item">
+      <summary class="faq-q">Why is my money-weighted return lower than my fund's advertised return?</summary>
+      <p class="faq-a">Usually timing: contributions that arrived late in a good run, or just before a dip, drag your personal rate below the fund's full-period figure. Fees and sales charges land on you too. If the gap is persistently large, your entry pattern — not the fund — is the thing to look at.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">Can it be negative while my balance is at an all-time high?</summary>
+      <p class="faq-a">Yes. If most of your balance is recent top-ups, a small market dip can put the dated maths underwater even though the balance number keeps rising. That's the honesty working as intended.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">How is this different from CAGR?</summary>
+      <p class="faq-a">CAGR handles one lump sum with no flows — start value, end value, done. The moment you top up monthly, CAGR has no honest answer; money-weighted return is the generalisation that does.</p>
+    </details>
+    <details class="faq-item">
+      <summary class="faq-q">What does Duitful need from me for the maths to be right?</summary>
+      <p class="faq-a">Three habits — record top-ups as top-ups (not by editing the balance), log dividends and tick whether they were reinvested, and update valuations when statements arrive. The flows-vs-valuations distinction is what makes the return computable at all.</p>
+    </details>
+</div>
+
+  <aside class="related" aria-label="Related guides">
+    <span class="related-eyebrow">Related guides</span>
+    <ul class="related-list">
+      <li class="related-item">
+        <a href="/guides/coast-fire-malaysia-calculator-2026/">
+          <span class="related-title">Coast FIRE — when saving becomes optional</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/flat-rate-vs-effective-rate-islamic-conventional-2026/">
+          <span class="related-title">Flat rate vs effective rate — the conversion that reverses the answer</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+      <li class="related-item">
+        <a href="/guides/zakat-harta-nisab-haul-calculator-2026/">
+          <span class="related-title">Zakat on wealth — nisab, haul and the actual number</span>
+          <span class="related-cta">Read →</span>
+        </a>
+      </li>
+    </ul>
+  </aside>
+
+  <div class="cta-card">
+    <h2>See your real annualised return</h2>
+    <p>Add your holdings once, log top-ups and dividends as they happen, and Duitful shows your money-weighted return per holding and for the whole portfolio — computed on your device, with &quot;—&quot; instead of a guess when there's under 90 days of history.</p>
+    <a class="cta-btn" href="/app/">Open Duitful →</a>
+  </div>
+
+  <div class="footer">
+    More guides at <a href="/guides/">duitful.app/guides</a>. Read the <a href="/changelog/">changelog</a>, <a href="/privacy/">privacy policy</a>, or <a href="/contact/">say hi</a>.
+  </div>
+</div>
+</body>
+</html>
