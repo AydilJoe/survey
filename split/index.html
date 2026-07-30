@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payment request — Duitful</title>
+<meta name="description" content="Someone sent you a payment request via Duitful. It decodes on your device — nothing was sent to any server.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="/app/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f1ea;
+    --card: #fffaf2;
+    --card-soft: #f0e8d8;
+    --ink: #2a2420;
+    --ink2: #5c524a;
+    --primary: #c8704b;
+    --primary-ink: #a45434;
+    --border: rgba(42, 36, 32, 0.14);
+    --shadow: 0 1px 2px rgba(42,36,32,0.04), 0 8px 24px rgba(42,36,32,0.05);
+    --shadow-lg: 0 1px 2px rgba(42,36,32,0.05), 0 20px 60px rgba(42,36,32,0.10);
+    --font-serif: "Fraunces", Georgia, "Times New Roman", serif;
+    --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: light only; background: var(--bg); }
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    color: var(--ink);
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    margin: 18px 0 26px;
+    text-decoration: none; color: var(--ink);
+  }
+  .brand svg { width: 26px; height: 26px; color: var(--primary); }
+  .brand span { font-family: var(--font-serif); font-weight: 600; font-size: 20px; letter-spacing: -0.02em; }
+  .card {
+    width: 100%; max-width: 420px;
+    background: var(--card);
+    border: 0.5px solid var(--border);
+    border-radius: 24px;
+    box-shadow: var(--shadow-lg);
+    padding: 30px 26px 26px;
+  }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--primary-ink);
+    margin: 0 0 14px;
+  }
+  .from { font-size: 15px; color: var(--ink2); margin: 0; }
+  .from strong { color: var(--ink); font-weight: 600; }
+  .amount {
+    font-family: var(--font-mono);
+    font-size: 40px; font-weight: 500; letter-spacing: -0.02em;
+    margin: 6px 0 2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .amount .cur { font-size: 20px; color: var(--ink2); margin-right: 6px; }
+  .title { font-family: var(--font-serif); font-size: 19px; font-weight: 600; margin: 2px 0 0; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+  .chip {
+    font-family: var(--font-mono); font-size: 11.5px;
+    background: var(--card-soft); color: var(--ink2);
+    border: 0.5px solid var(--border);
+    border-radius: 999px; padding: 4px 10px;
+  }
+  .chip.due { color: var(--primary-ink); border-color: rgba(200,112,75,0.35); background: rgba(200,112,75,0.08); }
+  .note {
+    margin: 14px 0 0; font-size: 14.5px; color: var(--ink2);
+    border-left: 3px solid var(--card-soft); padding-left: 10px;
+  }
+  .payto {
+    margin: 18px 0 0;
+    background: var(--card-soft);
+    border: 0.5px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 14px 12px;
+  }
+  .payto .label {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--ink2); margin: 0 0 6px;
+  }
+  .payto .dest {
+    font-family: var(--font-mono); font-size: 14px; margin: 0;
+    word-break: break-word; line-height: 1.5;
+  }
+  .payto button {
+    margin-top: 10px;
+    font: 600 13.5px var(--font-sans);
+    background: var(--ink); color: var(--card);
+    border: none; border-radius: 999px;
+    padding: 8px 16px; cursor: pointer;
+  }
+  .payto button.copied { background: var(--primary); }
+  .actions { margin: 22px 0 0; display: flex; flex-direction: column; gap: 10px; }
+  .btn {
+    display: block; text-align: center; text-decoration: none; cursor: pointer;
+    font: 600 15px var(--font-sans);
+    border-radius: 999px; padding: 13px 18px; border: none;
+  }
+  .btn-primary { background: var(--primary); color: #fffaf2; }
+  .btn-primary:hover { background: var(--primary-ink); }
+  .btn-ghost { background: transparent; color: var(--ink); border: 0.5px solid var(--border); }
+  .btn-ghost:hover { background: var(--card); }
+  .privacy {
+    margin: 18px 0 0; font-size: 12.5px; color: var(--ink2); line-height: 1.55;
+    text-align: center;
+  }
+  details { margin: 16px 0 0; }
+  summary { font-size: 13px; color: var(--ink2); cursor: pointer; }
+  .code {
+    font-family: var(--font-mono); font-size: 11px; word-break: break-all;
+    background: var(--card-soft); border-radius: 12px; padding: 10px 12px;
+    margin: 8px 0 0; max-height: 96px; overflow: auto; color: var(--ink2);
+  }
+  .fallback h1 { font-family: var(--font-serif); font-size: 24px; margin: 0 0 10px; letter-spacing: -0.02em; }
+  .fallback p { color: var(--ink2); font-size: 14.5px; line-height: 1.6; margin: 0 0 10px; }
+  .footer { margin-top: 28px; font-size: 12.5px; color: var(--ink2); }
+  .footer a { color: var(--ink2); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <a class="brand" href="/">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/>
+      <circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/>
+    </svg>
+    <span>Duitful</span>
+  </a>
+
+  <div class="card" id="request-card" hidden>
+    <p class="eyebrow">Payment request</p>
+    <p class="from"><strong id="r-from"></strong> is requesting</p>
+    <p class="amount"><span class="cur">RM</span><span id="r-amount"></span></p>
+    <p class="title" id="r-title"></p>
+    <div class="meta">
+      <span class="chip" id="r-date"></span>
+      <span class="chip due" id="r-due" hidden></span>
+    </div>
+    <p class="note" id="r-note" hidden></p>
+
+    <div class="payto" id="r-payto" hidden>
+      <p class="label">Transfer to</p>
+      <p class="dest" id="r-pay-text"></p>
+      <button type="button" id="btn-copy-pay">Copy details</button>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="btn-have-app">I have Duitful — add this request</button>
+      <a class="btn btn-ghost" href="/">Get Duitful — free, private, no sign-up</a>
+    </div>
+
+    <details>
+      <summary>Request code (paste inside Duitful)</summary>
+      <div class="code" id="r-code"></div>
+    </details>
+
+    <p class="privacy">This request was decoded <strong>on your device</strong> — it lives in the link itself and was never sent to any server. Duitful is a private money tracker built in Malaysia; it never moves money. Pay through your own banking app.</p>
+  </div>
+
+  <div class="card fallback" id="fallback-card" hidden>
+    <h1 id="f-title">This link carries a payment request</h1>
+    <p id="f-body">It looks like the request part of the link is missing — ask the sender to share it again, or paste the request code directly inside Duitful (Add a request → paste code).</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="/">What's Duitful?</a>
+    </div>
+    <p class="privacy">Duitful requests travel inside links and QR codes — decoded on your device, never sent to a server.</p>
+  </div>
+
+  <p class="footer">Track money, debts &amp; savings privately — <a href="/">duitful.app</a></p>
+
+<script>
+(async function () {
+  var reqCard = document.getElementById("request-card");
+  var fbCard = document.getElementById("fallback-card");
+
+  function fallback(title, body) {
+    if (title) document.getElementById("f-title").textContent = title;
+    if (body) document.getElementById("f-body").textContent = body;
+    fbCard.hidden = false;
+    reqCard.hidden = true;
+  }
+
+  function b64urlToBytes(s) {
+    s = s.replace(/-/g, "+").replace(/_/g, "/");
+    while (s.length % 4) s += "=";
+    var bin = atob(s);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+  }
+
+  async function inflate(bytes) {
+    var ds = new DecompressionStream("deflate-raw");
+    var stream = new Blob([bytes]).stream().pipeThrough(ds);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+
+  var raw = (location.hash || "").replace(/^#/, "");
+  if (!raw) { fallback(); return; }
+
+  var m = /^DFS(\d+)(u?)\.(.+)$/.exec(raw);
+  if (!m) {
+    fallback("This doesn't look like a Duitful request",
+      "The link may have been cut short by the app it was shared through. Ask the sender to re-share it, or to send the request code instead.");
+    return;
+  }
+  if (m[1] !== "1") {
+    fallback("This request needs a newer Duitful",
+      "It was made with a newer version of the request format. Update Duitful (or reload the app once online) and open the link again.");
+    return;
+  }
+
+  var req;
+  try {
+    var bytes = b64urlToBytes(m[3]);
+    if (!m[2]) bytes = await inflate(bytes);
+    req = JSON.parse(new TextDecoder().decode(bytes));
+    if (!req || req.t !== "req" || !Number.isFinite(Number(req.a))) throw new Error("shape");
+  } catch (e) {
+    fallback("This request couldn't be read",
+      "The link seems damaged — messaging apps sometimes trim long links. Ask the sender to re-share it, or to send the request code for pasting inside Duitful.");
+    return;
+  }
+
+  if ((req.c || "MYR") !== "MYR") {
+    fallback("Unsupported currency",
+      "This request uses a currency this version doesn't support yet.");
+    return;
+  }
+
+  var fmtAmount = Number(req.a).toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function dayLabel(iso) {
+    var d = new Date(iso + "T00:00:00");
+    return isNaN(d) ? iso : d.toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  }
+
+  document.getElementById("r-from").textContent = String(req.fr || "Someone");
+  document.getElementById("r-amount").textContent = fmtAmount;
+  document.getElementById("r-title").textContent = String(req.ti || "Payment request");
+  document.getElementById("r-date").textContent = dayLabel(String(req.d || ""));
+  if (req.dd) {
+    var due = document.getElementById("r-due");
+    due.textContent = "Due " + dayLabel(String(req.dd));
+    due.hidden = false;
+  }
+  if (req.n) {
+    var note = document.getElementById("r-note");
+    note.textContent = String(req.n);
+    note.hidden = false;
+  }
+  if (req.pay) {
+    document.getElementById("r-pay-text").textContent = String(req.pay).slice(0, 140);
+    document.getElementById("r-payto").hidden = false;
+  }
+  document.getElementById("r-code").textContent = raw;
+  reqCard.hidden = false;
+
+  document.getElementById("btn-copy-pay").addEventListener("click", function () {
+    var btn = this;
+    navigator.clipboard.writeText(String(req.pay).slice(0, 140)).then(function () {
+      btn.textContent = "Copied ✓";
+      btn.classList.add("copied");
+      setTimeout(function () { btn.textContent = "Copy details"; btn.classList.remove("copied"); }, 1800);
+    });
+  });
+
+  // Same-origin hand-off: stage the payload for the app to ingest on next
+  // unlock. Request metadata only — never account data — so plain
+  // localStorage is fine. iOS installed-PWA storage is separate from
+  // Safari's; those users use the request code or scan the QR instead.
+  document.getElementById("btn-have-app").addEventListener("click", function () {
+    try { localStorage.setItem("duitful.pendingSplit", raw); } catch (e) {}
+    location.href = "/app/";
+  });
+})();
+</script>
+</body>
+</html>
