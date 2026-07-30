@@ -23,12 +23,16 @@ this document; the session lead review-gates and releases.
   happens in the payer's own bank app (DuitNow etc.); Duitful records
   the settlement. This is a BNM licensing boundary, not a style choice —
   nothing in this feature may initiate, hold, or route a payment.
-- **Transfer details are opt-in, visible, and text-only.** A "How to pay
-  me" profile (bank + account number and/or DuitNow ID, stored in the
-  encrypted state) can ride along in request payloads so the payer sees
-  WHERE to transfer, with a copy button — but only when the master
-  toggle is on, and the share dialog always previews exactly what is
-  leaving the device. Displaying account text is information, not
+- **Transfer details are opt-in, visible, and STRUCTURED — never one
+  text blob.** A "How to pay me" profile stored in the encrypted state
+  as up to 4 label/value rows (e.g. "DuitNow" / "012-3456789",
+  "Maybank" / "512345678901"), each row editable separately. Everywhere
+  they render — /split page, the recipient's in-app record — each row is
+  its own line with its OWN copy button that copies ONLY the value
+  (the account number, not the bank name), so pasting into a banking
+  app is one tap with nothing to trim. Rides along in payloads only
+  when the master toggle is on, and the share dialog always previews
+  exactly what is leaving the device. Displaying account text is information, not
   payment routing; the BNM boundary above is untouched. Duitful never
   GENERATES DuitNow QR codes (bank-issued format, not ours to mint) and
   never attaches QR images to payloads (too large; in person the payer
@@ -61,8 +65,9 @@ this document; the session lead review-gates and releases.
   may be read by script.js at load time.
 - Vendored, self-hosted libraries in `app/vendor/` (added to
   `scripts/build-web.mjs` APP_FILES and the SW SHELL precache):
-  - QR **encoder**: `qrcode-generator` (MIT, single file). Rendered as
-    inline SVG (theme-safe, crisp).
+  - QR **encoder**: `qrcode-generator` (MIT, single file) — ALREADY
+    vendored at `app/vendor/qr/qrcode.js` (v2.0.4, session lead).
+    Rendered as inline SVG (theme-safe, crisp).
   - QR **decoder**: `jsQR` (Apache-2.0, single file) — used by BOTH the
     PWA (getUserMedia live loop, file-input fallback) and the native
     shell (Camera plugin photo → jsQR). One decoder everywhere.
@@ -82,14 +87,16 @@ DFS1.<base64url(deflate-raw(JSON))>
 - Request JSON (compact keys):
   `{ v:1, t:"req", id, fr:"Ali", ti:"Dinner @ Naz", d:"2026-07-30",
      a:23.5, c:"MYR", n:"optional note", dd:"2026-08-15",
-     pay:"DuitNow 012-3456789 (Ali) · Maybank 512345678901" }`
+     pay:[["DuitNow","012-3456789"],["Maybank","512345678901"]] }`
   (`dd` = due date, optional — set for loan-kind requests; shown on the
   /split page and on the recipient's `in` record. `pay` = transfer
   details, optional — present ONLY when the "include my transfer
-  details" toggle is on; free text capped at 140 chars; rendered with a
-  copy button on the /split page and the `in` record. A re-shared
-  payload after partial repayment carries the CURRENT remaining in `a`,
-  so "how much owed" stays true.)
+  details" toggle is on; an array of [label, value] pairs, max 4 rows,
+  label ≤20 chars, value ≤40 chars; each row renders as its own line
+  with a per-row copy button copying the VALUE only. Ingest also
+  tolerates a legacy plain-string `pay` (rendered as one line). A
+  re-shared payload after partial repayment carries the CURRENT
+  remaining in `a`, so "how much owed" stays true.)
 - `id` is the per-person request id (uuid) — ingest is idempotent:
   the same id landing twice (scan + link) creates one record.
 - Compression via native `CompressionStream("deflate-raw")` with an
@@ -126,7 +133,7 @@ DFS1.<base64url(deflate-raw(JSON))>
       settledDate, expenseId }              // expense logged on settle
   ],
   names: [],  // remembered people names, most-recent-first, cap 20
-  payTo: "",          // "How to pay me" free text, ≤140 chars
+  payTo: [],          // "How to pay me": [{label, value}], max 4 rows
   payToEnabled: false // master toggle: include payTo in outgoing payloads
 }
 ```
@@ -139,6 +146,14 @@ DFS1.<base64url(deflate-raw(JSON))>
   amount; "split equally" fills amounts, editable), your own share shown
   as the remainder. Creates one `out` record + per-person request
   payloads. The expense is linked, never rewritten.
+- **Scan-to-split**: the split dialog offers "Scan receipt" reusing the
+  EXISTING OCR pipeline (Tesseract, same Pro gating and monthly scan
+  quota as receipt scans — splitting itself stays free; only the OCR
+  entry point consumes the existing quota). OCR prefills bill total,
+  merchant → title, and date; people and shares stay manual.
+  Item-level assignment (who ordered what) is explicitly OUT of scope
+  for this arc — line-item OCR is unreliable and the equal-split +
+  edit-amounts flow covers the real case.
 - Standalone "Request money" (button beside the split surfaces, and in
   the add-entry "More" area): title, person, amount → single-person
   `out` record of kind "split". This is the "request bill" use case.
@@ -187,8 +202,13 @@ DFS1.<base64url(deflate-raw(JSON))>
   Duitful" (hand-off) and "Get Duitful" CTAs; copyable code; readable
   no-JS/no-fragment fallback copy. `noindex`; styled like the landing;
   EN with BM strings if cheap.
-- The recipient's `in` record keeps the `pay` text with the same copy
-  button until settled.
+- The recipient's `in` record keeps the `pay` rows with the same
+  per-row copy buttons until settled.
+- The page ALSO renders `t:"paid"` payloads (settlement receipts) as a
+  "Payment marked as paid" state: payer name, amount, title, paid date,
+  and "Open Duitful to confirm & settle" (same hand-off staging). The
+  /split page ships this rendering in Phase 1 (the page is the design
+  spec); the APP only emits/ingests paid payloads in Phase 2.
 
 **Owed surfaces (only while non-empty)**
 - Debts tab: "Owed to you" section listing open `out` people (name,

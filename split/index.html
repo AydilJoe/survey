@@ -93,18 +93,29 @@
     font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.12em;
     text-transform: uppercase; color: var(--ink2); margin: 0 0 6px;
   }
-  .payto .dest {
-    font-family: var(--font-mono); font-size: 14px; margin: 0;
-    word-break: break-word; line-height: 1.5;
+  .pay-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0;
   }
-  .payto button {
-    margin-top: 10px;
-    font: 600 13.5px var(--font-sans);
+  .pay-row + .pay-row { border-top: 0.5px solid var(--border); }
+  .pay-row .pay-label {
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--ink2);
+    flex: none; width: 72px;
+  }
+  .pay-row .pay-value {
+    font-family: var(--font-mono); font-size: 14.5px; color: var(--ink);
+    flex: 1; min-width: 0; word-break: break-all;
+    font-variant-numeric: tabular-nums;
+  }
+  .pay-row button {
+    flex: none;
+    font: 600 12.5px var(--font-sans);
     background: var(--ink); color: var(--card);
     border: none; border-radius: 999px;
-    padding: 8px 16px; cursor: pointer;
+    padding: 7px 14px; cursor: pointer;
   }
-  .payto button.copied { background: var(--primary); }
+  .pay-row button.copied { background: var(--primary); }
   .actions { margin: 22px 0 0; display: flex; flex-direction: column; gap: 10px; }
   .btn {
     display: block; text-align: center; text-decoration: none; cursor: pointer;
@@ -126,6 +137,13 @@
     background: var(--card-soft); border-radius: 12px; padding: 10px 12px;
     margin: 8px 0 0; max-height: 96px; overflow: auto; color: var(--ink2);
   }
+  .paid-seal {
+    width: 52px; height: 52px; border-radius: 50%;
+    background: rgba(74, 124, 89, 0.12); color: #4a7c59;
+    display: flex; align-items: center; justify-content: center;
+    margin: 2px 0 10px;
+  }
+  .paid-seal svg { width: 26px; height: 26px; }
   .fallback h1 { font-family: var(--font-serif); font-size: 24px; margin: 0 0 10px; letter-spacing: -0.02em; }
   .fallback p { color: var(--ink2); font-size: 14.5px; line-height: 1.6; margin: 0 0 10px; }
   .footer { margin-top: 28px; font-size: 12.5px; color: var(--ink2); }
@@ -155,8 +173,7 @@
 
     <div class="payto" id="r-payto" hidden>
       <p class="label">Transfer to</p>
-      <p class="dest" id="r-pay-text"></p>
-      <button type="button" id="btn-copy-pay">Copy details</button>
+      <div id="r-pay-rows"></div>
     </div>
 
     <div class="actions">
@@ -170,6 +187,23 @@
     </details>
 
     <p class="privacy">This request was decoded <strong>on your device</strong> — it lives in the link itself and was never sent to any server. Duitful is a private money tracker built in Malaysia; it never moves money. Pay through your own banking app.</p>
+  </div>
+
+  <div class="card" id="paid-card" hidden>
+    <p class="eyebrow" style="color:#4a7c59;">Payment marked as paid</p>
+    <div class="paid-seal" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+    </div>
+    <p class="from"><strong id="p-from"></strong> marked this as paid</p>
+    <p class="amount"><span class="cur">RM</span><span id="p-amount"></span></p>
+    <p class="title" id="p-title"></p>
+    <div class="meta">
+      <span class="chip" id="p-date"></span>
+    </div>
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="btn-paid-app">Open Duitful — confirm &amp; settle</button>
+    </div>
+    <p class="privacy">This is the payer's word, not a bank confirmation — check the money actually arrived before settling. Decoded on your device; nothing was sent to any server.</p>
   </div>
 
   <div class="card fallback" id="fallback-card" hidden>
@@ -230,7 +264,7 @@
     var bytes = b64urlToBytes(m[3]);
     if (!m[2]) bytes = await inflate(bytes);
     req = JSON.parse(new TextDecoder().decode(bytes));
-    if (!req || req.t !== "req" || !Number.isFinite(Number(req.a))) throw new Error("shape");
+    if (!req || (req.t !== "req" && req.t !== "paid") || !Number.isFinite(Number(req.a))) throw new Error("shape");
   } catch (e) {
     fallback("This request couldn't be read",
       "The link seems damaged — messaging apps sometimes trim long links. Ask the sender to re-share it, or to send the request code for pasting inside Duitful.");
@@ -249,6 +283,21 @@
     return isNaN(d) ? iso : d.toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   }
 
+  // Settlement receipt — the payer's "I've paid" flowing back to the
+  // requester. Rendered as its own state; the app ingests these in Phase 2.
+  if (req.t === "paid") {
+    document.getElementById("p-from").textContent = String(req.fr || "Someone");
+    document.getElementById("p-amount").textContent = fmtAmount;
+    document.getElementById("p-title").textContent = String(req.ti || "Payment");
+    document.getElementById("p-date").textContent = "Paid " + dayLabel(String(req.d || ""));
+    document.getElementById("paid-card").hidden = false;
+    document.getElementById("btn-paid-app").addEventListener("click", function () {
+      try { localStorage.setItem("duitful.pendingSplit", raw); } catch (e) {}
+      location.href = "/app/";
+    });
+    return;
+  }
+
   document.getElementById("r-from").textContent = String(req.fr || "Someone");
   document.getElementById("r-amount").textContent = fmtAmount;
   document.getElementById("r-title").textContent = String(req.ti || "Payment request");
@@ -263,21 +312,47 @@
     note.textContent = String(req.n);
     note.hidden = false;
   }
-  if (req.pay) {
-    document.getElementById("r-pay-text").textContent = String(req.pay).slice(0, 140);
+  // Transfer details: array of [label, value] rows, each with its own copy
+  // button copying ONLY the value — one tap, nothing to trim before pasting
+  // into a banking app. A legacy plain-string `pay` renders as one row.
+  var payRows = [];
+  if (Array.isArray(req.pay)) {
+    payRows = req.pay.slice(0, 4).filter(function (r) { return Array.isArray(r) && r[1]; })
+      .map(function (r) { return [String(r[0] || "").slice(0, 20), String(r[1]).slice(0, 40)]; });
+  } else if (req.pay) {
+    payRows = [["", String(req.pay).slice(0, 140)]];
+  }
+  if (payRows.length) {
+    var rowsEl = document.getElementById("r-pay-rows");
+    payRows.forEach(function (r) {
+      var row = document.createElement("div");
+      row.className = "pay-row";
+      var label = document.createElement("span");
+      label.className = "pay-label";
+      label.textContent = r[0];
+      var value = document.createElement("span");
+      value.className = "pay-value";
+      value.textContent = r[1];
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "Copy";
+      btn.setAttribute("aria-label", "Copy " + (r[0] || "details"));
+      btn.addEventListener("click", function () {
+        navigator.clipboard.writeText(r[1]).then(function () {
+          btn.textContent = "Copied ✓";
+          btn.classList.add("copied");
+          setTimeout(function () { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1800);
+        });
+      });
+      row.appendChild(label);
+      row.appendChild(value);
+      row.appendChild(btn);
+      rowsEl.appendChild(row);
+    });
     document.getElementById("r-payto").hidden = false;
   }
   document.getElementById("r-code").textContent = raw;
   reqCard.hidden = false;
-
-  document.getElementById("btn-copy-pay").addEventListener("click", function () {
-    var btn = this;
-    navigator.clipboard.writeText(String(req.pay).slice(0, 140)).then(function () {
-      btn.textContent = "Copied ✓";
-      btn.classList.add("copied");
-      setTimeout(function () { btn.textContent = "Copy details"; btn.classList.remove("copied"); }, 1800);
-    });
-  });
 
   // Same-origin hand-off: stage the payload for the app to ingest on next
   // unlock. Request metadata only — never account data — so plain
