@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.12.1";
+const APP_VERSION = "1.13.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -78,6 +78,8 @@ const emptyState = () => ({
   // investments.js failed to load there's no shape to build, and a null here
   // is what every reader already tolerates.
   investPlan: typeof emptyInvestPlan === "function" ? emptyInvestPlan() : null,
+  // Bill splitting / payment requests. Guarded on split.js the same way.
+  split: typeof emptySplit === "function" ? emptySplit() : null,
 });
 
 /* ---------- Shariah / Islamic finance ---------- */
@@ -116,6 +118,14 @@ const INVEST_PLAN_SETTING_KEYS = new Set([
   "investplanenabled", "investplancurrentage", "investplanretireage",
   "investplanrealreturn", "investplantargetmonthly", "investplantargetpot",
   "investplanmonthlycontribution", "investplanincludesavings",
+]);
+
+// "How to pay me" setting keys, lowercased. One row per pay line
+// (splitPayTo1..4, value "label|value") plus the master include toggle and
+// the display name, so an older build just skips the ones it can't read.
+const SPLIT_SETTING_KEYS = new Set([
+  "splitpayto1", "splitpayto2", "splitpayto3", "splitpayto4",
+  "splitpaytoenabled", "splitme",
 ]);
 
 const emptyShariah = () => ({
@@ -266,6 +276,11 @@ function coerceState(parsed) {
       investPlan: typeof coerceInvestPlan === "function"
         ? safe(() => coerceInvestPlan(parsed.investPlan), emptyInvestPlan())
         : (parsed.investPlan && typeof parsed.investPlan === "object" ? parsed.investPlan : null),
+      // Same guard-and-fall-back-alone contract as investPlan above: a broken
+      // split blob costs the split records, never the rest of the state.
+      split: typeof coerceSplit === "function"
+        ? safe(() => coerceSplit(parsed.split), emptySplit())
+        : (parsed.split && typeof parsed.split === "object" ? parsed.split : null),
   };
 }
 
@@ -1891,11 +1906,17 @@ function renderFlow() {
         const chip = day
           ? `<span class="day-chip ${cls}" title="${kind === "income" ? "Pay day" : "Due day"}">${day}</span>`
           : `<span class="day-chip day-chip-empty" aria-hidden="true"></span>`;
+        // Splitting an expense never rewrites it — the action only opens the
+        // composer with the total prefilled and the expense linked.
+        const splitBtn = kind === "expense"
+          ? `<button class="ghost icon-btn split-row-btn" data-action="split-expense" data-split-source="expense" data-id="${it.id}" aria-label="Split ${escapeHtml(it.name)}" title="Split this bill / request a share">⇆</button>`
+          : "";
         return `
-          <li data-id="${it.id}">
+          <li data-id="${it.id}"${splitBtn ? ' class="has-split"' : ""}>
             ${chip}
             <span class="name" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
             <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMoney(it.amount)}${renderFxBadge(it.fx)}</span>
+            ${splitBtn}
             <button class="ghost icon-btn" data-action="edit-${kind}" data-id="${it.id}" aria-label="Edit ${escapeHtml(it.name)}">✎</button>
             <button class="ghost icon-btn" data-action="delete-${kind}" data-id="${it.id}" aria-label="Delete ${escapeHtml(it.name)}">✕</button>
           </li>`;
@@ -2217,10 +2238,16 @@ function renderDaily() {
       // Empty notes render as nothing rather than a "—" placeholder — placeholder
       // dashes read as broken UI per the design review.
       note = e.note ? `<span class="daily-note">${escapeHtml(e.note)}</span>` : "";
+      // Only plain spending can be split — a debt payment or a savings
+      // deposit is not a bill anyone else owes a share of.
+      const splitBtn = (e.kind || "expense") === "expense"
+        ? `<button class="ghost icon-btn split-row-btn" data-action="split-expense" data-split-source="daily" data-id="${e.id}" aria-label="Split this entry" title="Split this bill / request a share">⇆</button>`
+        : "";
       html.push(`
-        <div class="daily-entry" data-id="${e.id}">
+        <div class="daily-entry${splitBtn ? " has-split" : ""}" data-id="${e.id}">
           <div class="primary-line">${pill}${note}</div>
           <span class="amount">${fmtMoney(e.amount)}${renderFxBadge(e.fx)}</span>
+          ${splitBtn}
           <button class="ghost icon-btn" data-action="edit-daily" data-id="${e.id}" aria-label="Edit entry" title="Edit">✎</button>
           <button class="ghost icon-btn" data-action="delete-daily" data-id="${e.id}" aria-label="Delete">✕</button>
         </div>
@@ -3578,6 +3605,7 @@ function renderAll() {
   renderSavings();
   if (typeof renderInvestments === "function") renderInvestments();
   if (typeof renderInvestPlan === "function") renderInvestPlan();
+  if (typeof renderSplit === "function") renderSplit();
   renderZakat();
   renderUpcoming();
   renderPending();
@@ -3709,6 +3737,11 @@ function upcomingReminders(daysAhead) {
       amount: Number(inc.amount) || 0, direction: "in",
     });
   }
+  // Open, due-dated receivables ride the same rail as debt due days — but on
+  // the LENDER's device. The borrower is never the notification channel.
+  if (typeof splitUpcomingItems === "function") {
+    try { items.push(...splitUpcomingItems(cap)); } catch {}
+  }
   items.sort((a, b) => a.delta - b.delta || a.name.localeCompare(b.name));
   return items;
 }
@@ -3727,14 +3760,21 @@ function renderUpcoming() {
 
   const labelFor = (delta) => delta === 0 ? "Today" : delta === 1 ? "Tmrw" : `${delta}d`;
   const dayClassFor = (it) => it.direction === "in" ? "income" : (it.delta === 0 ? "today" : "soon");
-  const tabFor = (kind) => kind === "debt" ? "debts" : kind === "income" ? "flow" : "flow";
+  const tabFor = (kind) => kind === "debt" || kind === "split" ? "debts" : "flow";
+  const subFor = (it) => it.kind === "debt"
+    ? "Min payment"
+    : it.kind === "income"
+      ? "Expected pay"
+      : it.kind === "split"
+        ? `Owed to you${it.title ? ` · ${escapeHtml(it.title)}` : ""}`
+        : "Bill due";
 
   listEl.innerHTML = items.map((it) => `
     <li data-go-tab="${tabFor(it.kind)}">
       <span class="up-day ${dayClassFor(it)}">${labelFor(it.delta)}</span>
       <span>
         <div class="up-name">${escapeHtml(it.name)}</div>
-        <div class="up-sub">${it.kind === "debt" ? "Min payment" : it.kind === "income" ? "Expected pay" : "Bill due"}</div>
+        <div class="up-sub">${subFor(it)}</div>
       </span>
       <span class="up-amount ${it.direction === "in" ? "pos" : "neg"}">${fmtMoney(it.amount)}</span>
     </li>
@@ -3754,9 +3794,11 @@ async function fireDueNotifications() {
   for (const it of items) {
     const key = `${it.kind}:${it.id}`;
     if (last[key] === today) continue;
-    const body = it.direction === "in"
-      ? `Pay day today — ${fmtMoney(it.amount)} expected`
-      : `Due today — ${fmtMoney(it.amount)}`;
+    const body = it.kind === "split"
+      ? `Owes you ${fmtMoney(it.amount)} — due today${it.title ? ` · ${it.title}` : ""}`
+      : it.direction === "in"
+        ? `Pay day today — ${fmtMoney(it.amount)} expected`
+        : `Due today — ${fmtMoney(it.amount)}`;
     try {
       new Notification(`${it.name}`, { body, tag: key });
     } catch {}
@@ -5238,6 +5280,22 @@ async function scheduleNativeReminders() {
     for (const inc of state.income) {
       if (inc.day) push(`Pay day — ${inc.name}`, `${fmtMoney(inc.amount)} expected`, inc.day);
     }
+    // A loan comes due ONCE, so it is scheduled at an absolute time rather
+    // than on the monthly-repeating day-of-month rail used above.
+    if (typeof splitNativeReminders === "function") {
+      try {
+        for (const n of splitNativeReminders()) {
+          if (notifs.length >= 60) break;
+          notifs.push({
+            id: nextId++,
+            title: n.title,
+            body: n.body,
+            schedule: { at: n.at, allowWhileIdle: true },
+            smallIcon: "ic_stat_icon",
+          });
+        }
+      } catch {}
+    }
 
     if (notifs.length) await LN.schedule({ notifications: notifs });
   } catch (err) {
@@ -6417,6 +6475,8 @@ function toCSV() {
     "contract", "principal", "total_profit", "tenure_months",
     "inv_kind", "inv_account", "inv_units", "inv_unit_price", "inv_cost_basis",
     "inv_zakatable", "inv_expected_return", "inv_reinvested",
+    "split_id", "split_kind", "split_title", "split_status", "split_due_date",
+    "split_settled_date", "split_role",
   ];
   const rows = [HEADER];
   const W = HEADER.length;
@@ -6495,6 +6555,67 @@ function toCSV() {
         }));
       }
     }
+  }
+  // Split / request rows. Built by column index (like the investment block)
+  // so appending another column later can't silently shift them.
+  //
+  //   split-out    one row per PERSON — name = person, note = title,
+  //                category = the record's own note, amount = their share.
+  //                split_id is "<recordId>|<personId>" so the people of one
+  //                bill regroup into one record on import while the person
+  //                id (which IS the payload id, and therefore the ingest
+  //                dedupe key) survives untouched.
+  //   split-in     one row per received request; split_id = the payload id.
+  //   split-repay  one row per partial repayment; split_id = the person id.
+  //
+  // Deliberately NOT exported: the remembered `names` list (per the plan),
+  // and the `pay` rows on an incoming request — those are somebody else's
+  // account numbers and a CSV backup is the one file users hand around.
+  if (typeof splitState === "function") {
+    const SP0 = HEADER.indexOf("split_id");
+    const splitRow = (type, cols, sp) => {
+      const row = Array(W).fill("");
+      row[0] = type;
+      row[1] = cols.name ?? "";
+      row[2] = cols.amount ?? "";
+      row[6] = cols.date ?? "";
+      row[7] = cols.category ?? "";
+      row[8] = cols.note ?? "";
+      for (let k = 0; k < sp.length; k++) row[SP0 + k] = sp[k];
+      rows.push(row);
+    };
+    const sp = splitState();
+    for (const rec of sp.out || []) {
+      for (const p of rec.people || []) {
+        splitRow("split-out", {
+          name: p.name, amount: p.amount, date: rec.date,
+          category: rec.note || "", note: rec.title,
+        }, [
+          `${rec.id}|${p.id}`, rec.kind, rec.title, p.status,
+          rec.dueDate || "", p.settledDate || "", "out",
+        ]);
+        for (const r of p.repayments || []) {
+          splitRow("split-repay", { amount: r.amount, date: r.date }, [
+            p.id, "", "", "", "", "", "out",
+          ]);
+        }
+      }
+    }
+    for (const rec of sp.in || []) {
+      splitRow("split-in", {
+        name: rec.from, amount: rec.amount, date: rec.date,
+        category: rec.note || "", note: rec.title,
+      }, [
+        rec.id, "", rec.title, rec.status,
+        rec.dueDate || "", rec.settledDate || "", "in",
+      ]);
+    }
+    const payRows = typeof coerceSplitPayRows === "function" ? coerceSplitPayRows(sp.payTo) : [];
+    for (let i = 0; i < payRows.length; i++) {
+      rows.push(blank(["setting", `splitPayTo${i + 1}`, `${payRows[i].label}|${payRows[i].value}`]));
+    }
+    rows.push(blank(["setting", "splitPayToEnabled", sp.payToEnabled ? "Y" : "N"]));
+    if (sp.me) rows.push(blank(["setting", "splitMe", sp.me]));
   }
   rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
   // Shariah / zakat preferences. Each is its own `setting` row so an older
@@ -6608,6 +6729,17 @@ function fromCSV(text) {
   const iInvUnits = idx("inv_units"), iInvUnitPrice = idx("inv_unit_price");
   const iInvCostBasis = idx("inv_cost_basis"), iInvZakatable = idx("inv_zakatable");
   const iInvExpectedReturn = idx("inv_expected_return"), iInvReinvested = idx("inv_reinvested");
+  const iSplitId = idx("split_id"), iSplitKind = idx("split_kind"), iSplitTitle = idx("split_title");
+  const iSplitStatus = idx("split_status"), iSplitDue = idx("split_due_date");
+  const iSplitSettled = idx("split_settled_date");
+  // Rebuilt after the row loop: people are grouped back into their parent
+  // record by the "<recordId>|<personId>" key, and repayments are attached
+  // once every person exists (a hand-edited file can order them freely).
+  const splitOutById = new Map();
+  const splitRepayById = new Map();
+  const splitPayLines = [];
+  let splitPayEnabled = false;
+  let splitMe = "";
 
   // Valuation / flow / dividend rows carry the holding NAME, not its id —
   // ids are regenerated on import. Same case-insensitive link as daily-debt.
@@ -6867,6 +6999,73 @@ function fromCSV(text) {
         case "investplanmonthlycontribution": next.investPlan.monthlyContribution = raw; break;
         case "investplanincludesavings": next.investPlan.includeSavings = yes; break;
       }
+    } else if (type === "setting" && SPLIT_SETTING_KEYS.has(name.toLowerCase())) {
+      const raw = iAmount >= 0 ? (row[iAmount] || "").toString().trim() : "";
+      const key = name.toLowerCase();
+      if (key === "splitpaytoenabled") splitPayEnabled = raw.toUpperCase() === "Y";
+      else if (key === "splitme") splitMe = raw;
+      else {
+        // "label|value" — split on the FIRST pipe only, so a value that
+        // somehow contains one survives intact.
+        const at = raw.indexOf("|");
+        const slot = Number(key.replace("splitpayto", "")) || splitPayLines.length + 1;
+        splitPayLines.push({
+          slot,
+          label: at >= 0 ? raw.slice(0, at) : "",
+          value: at >= 0 ? raw.slice(at + 1) : raw,
+        });
+      }
+    } else if (type === "split-out" || type === "split-in" || type === "split-repay") {
+      if (!next.split) next.split = typeof emptySplit === "function" ? emptySplit() : null;
+      if (!next.split) continue;
+      const cell = (i) => (i >= 0 ? (row[i] || "").toString().trim() : "");
+      const rowDate = cell(iDate);
+      const splitId = cell(iSplitId);
+      if (type === "split-repay") {
+        if (!splitId || !Number.isFinite(amount) || !isValidDate(rowDate)) continue;
+        if (!splitRepayById.has(splitId)) splitRepayById.set(splitId, []);
+        splitRepayById.get(splitId).push({ date: rowDate, amount });
+        continue;
+      }
+      if (type === "split-in") {
+        if (!Number.isFinite(amount)) continue;
+        next.split.in.push({
+          id: splitId || uid(),
+          from: name,
+          title: cell(iSplitTitle) || cell(iNote),
+          date: isValidDate(rowDate) ? rowDate : todayISO(),
+          amount,
+          note: cell(iCat),
+          dueDate: cell(iSplitDue),
+          status: cell(iSplitStatus) || "open",
+          settledDate: cell(iSplitSettled),
+        });
+        continue;
+      }
+      if (!Number.isFinite(amount)) continue;
+      const parts = splitId.split("|");
+      const recordId = parts.length > 1 ? parts[0] : (splitId || uid());
+      const personId = parts.length > 1 ? parts[1] : (splitId || uid());
+      if (!splitOutById.has(recordId)) {
+        splitOutById.set(recordId, {
+          id: recordId,
+          kind: cell(iSplitKind) === "loan" ? "loan" : "split",
+          title: cell(iSplitTitle) || cell(iNote),
+          date: isValidDate(rowDate) ? rowDate : todayISO(),
+          note: cell(iCat),
+          dueDate: cell(iSplitDue),
+          total: 0,
+          people: [],
+        });
+      }
+      splitOutById.get(recordId).people.push({
+        id: personId,
+        name,
+        amount,
+        status: cell(iSplitStatus) || "open",
+        settledDate: cell(iSplitSettled),
+        repayments: [],
+      });
     } else if (type === "zakat-payment") {
       const date = iDate >= 0 ? (row[iDate] || "").trim() : "";
       if (Number.isFinite(amount) && isValidDate(date)) {
@@ -6990,6 +7189,24 @@ function fromCSV(text) {
   // Ditto for the retirement plan: the setting rows wrote raw strings.
   if (typeof coerceInvestPlan === "function") {
     next.investPlan = coerceInvestPlan(next.investPlan);
+  }
+
+  // Reassemble the split records: people back into their bill, repayments
+  // back onto their person, pay lines back into the "How to pay me" profile.
+  if (next.split && typeof coerceSplit === "function") {
+    for (const rec of splitOutById.values()) {
+      for (const p of rec.people) {
+        const repays = splitRepayById.get(p.id);
+        if (repays) p.repayments = repays;
+      }
+      next.split.out.push(rec);
+    }
+    next.split.payTo = splitPayLines
+      .sort((a, b) => a.slot - b.slot)
+      .map((r) => [r.label, r.value]);
+    next.split.payToEnabled = splitPayEnabled;
+    next.split.me = splitMe;
+    next.split = coerceSplit(next.split);
   }
 
   return next;
@@ -7738,6 +7955,11 @@ const RELEASE_NOTES = {
     "<strong>Your coast number</strong> — the amount that, invested today and left alone, compounds to your target by retirement. Once your pot passes it you're \"Coasting ✓\" — future contributions become optional.",
     "<strong>Projection with your current savings rate</strong> — where your pot lands by retirement age at your chosen real return, and what that would fund per month.",
   ],
+  "1.13.0": [
+    "<strong>Split bills & request money</strong> — split any expense with friends, or just ask. Each person gets a QR or a WhatsApp link that opens a clean request page: how much, what for, and your account details line-by-line with copy buttons. No server ever sees it — the request travels inside the link itself.",
+    "<strong>Lend money, get reminded</strong> — \"Lent RM 500 to Adik, due the 15th\" is now a record. Duitful reminds <em>you</em> near the due date, takes partial repayments, and logs every ringgit that comes back.",
+    "<strong>Owed to you, on the Debts tab</strong> — open requests and loans in one place, settled with a tap when the transfer lands. Free for everyone, and invisible until you use it.",
+  ],
 };
 
 function maybeShowWhatsNew() {
@@ -8241,6 +8463,9 @@ async function handleUnlock(passcode) {
   maybeShowInstallBanner();
   if (typeof checkDriveOnBoot === "function") checkDriveOnBoot().catch(() => {});
   tryAutoActivatePendingLicense().catch(() => {});
+  // Same-origin hand-off from the /split page: a request staged before the
+  // app was unlocked lands now. Idempotent, so a re-run is harmless.
+  if (typeof splitConsumePending === "function") splitConsumePending().catch(() => {});
 }
 
 async function handleSetup(passcode, confirm, initialState) {
@@ -8268,6 +8493,9 @@ async function handleSetup(passcode, confirm, initialState) {
   maybeShowInstallBanner();
   if (typeof checkDriveOnBoot === "function") checkDriveOnBoot().catch(() => {});
   tryAutoActivatePendingLicense().catch(() => {});
+  // Same-origin hand-off from the /split page: a request staged before the
+  // app was unlocked lands now. Idempotent, so a re-run is harmless.
+  if (typeof splitConsumePending === "function") splitConsumePending().catch(() => {});
 }
 
 setInterval(() => { fireDueNotifications().catch(() => {}); }, 3600000);
@@ -8819,6 +9047,13 @@ function openScanDialog() {
   scanPreview.removeAttribute("src");
   setScanType("expense");
   populateScanDebtSelect();
+  // "Apply as Spend / Pay debt" makes no sense when the result is going to
+  // the bill composer — hide the pills rather than offer a dead choice.
+  const forSplit = window.scanApplyTarget === "split";
+  const scanPills = document.querySelector(".scan-type-pills");
+  if (scanPills) scanPills.hidden = forSplit;
+  const scanTitle = document.getElementById("scan-title");
+  if (scanTitle) scanTitle.textContent = forSplit ? "Scan receipt to split" : "Scan receipt";
   if (typeof scanDialog.showModal === "function") scanDialog.showModal();
   else scanDialog.setAttribute("open", "");
 }
@@ -8926,7 +9161,14 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
   }
 }
 
-document.getElementById("btn-scan")?.addEventListener("click", async () => {
+/* Where the "Use these values" button sends the scan result. Null = the
+   Home add-entry form (the original behaviour); "split" = the split
+   composer, set by split.js before it calls startReceiptScan(). */
+window.scanApplyTarget = null;
+
+// Extracted from the Scan-receipt button so the split composer can reuse the
+// EXACT same capture path — including its Pro gate and monthly quota.
+async function startReceiptScan() {
   if (!canOcr() && !gate("ocr")) return;
   // Native: offer the system "Take Photo / Choose from Gallery" sheet via
   // @capacitor/camera. Falls through to the web file input when the plugin
@@ -8959,8 +9201,16 @@ document.getElementById("btn-scan")?.addEventListener("click", async () => {
   } else {
     scanInput?.click();
   }
+}
+
+document.getElementById("btn-scan")?.addEventListener("click", () => {
+  window.scanApplyTarget = null;
+  startReceiptScan();
 });
-document.getElementById("scan-cancel")?.addEventListener("click", closeScanDialog);
+document.getElementById("scan-cancel")?.addEventListener("click", () => {
+  window.scanApplyTarget = null;
+  closeScanDialog();
+});
 
 scanInput?.addEventListener("change", async (e) => {
   const file = e.target.files && e.target.files[0];
@@ -8979,6 +9229,14 @@ scanInput?.addEventListener("change", async (e) => {
 scanApply?.addEventListener("click", () => {
   const amt = Number(scanAmount.value);
   const vendor = (scanVendor.value || "").trim();
+  // Scan-to-split: the same OCR result, prefilling the bill composer instead
+  // of the Home form. Quota was already spent at capture time either way.
+  if (window.scanApplyTarget === "split" && typeof splitApplyScan === "function") {
+    window.scanApplyTarget = null;
+    closeScanDialog();
+    splitApplyScan({ amount: amt, vendor, raw: scanRaw ? scanRaw.textContent : "" });
+    return;
+  }
   const amountInput = document.querySelector("#form-daily input[name='amount']");
   const noteInput = document.querySelector("#form-daily input[name='note']");
   const catInput = document.querySelector("#form-daily input[name='category']");

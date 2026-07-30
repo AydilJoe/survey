@@ -24,6 +24,12 @@ const APP_FILES = [
   "drive-config.js",
   "drive-sync.js",
   "investments.js",
+  "split.js",
+  // Self-hosted single-file QR libraries. cpSync creates the nested
+  // destination directory, and the root vendor/ copy below merges rather
+  // than replaces, so www/vendor/ ends up with both these and Tesseract.
+  "vendor/qr/qrcode.js",
+  "vendor/qr/jsQR.js",
 ];
 
 function reset(dir) {

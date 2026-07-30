@@ -3,6 +3,12 @@ www/
 ios/
 android/
 vendor/
+# …but app/vendor/ holds the SOURCE-CONTROLLED single-file QR libraries
+# (qrcode.js encoder, jsQR decoder). They are not downloaded by any build
+# step, so if they aren't tracked they simply don't exist on the deployed
+# site and every share/scan surface 404s. The `vendor/` rule above still
+# covers the root Tesseract dir, which IS fetched at build time.
+!app/vendor/
 .DS_Store
 *.log
 
