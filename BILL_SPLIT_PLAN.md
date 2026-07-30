@@ -23,8 +23,16 @@ this document; the session lead review-gates and releases.
   happens in the payer's own bank app (DuitNow etc.); Duitful records
   the settlement. This is a BNM licensing boundary, not a style choice —
   nothing in this feature may initiate, hold, or route a payment.
-  No DuitNow QR embedding in v1 (a bank account inside a shareable QR is
-  a privacy foot-gun; revisit only with explicit opt-in design).
+- **Transfer details are opt-in, visible, and text-only.** A "How to pay
+  me" profile (bank + account number and/or DuitNow ID, stored in the
+  encrypted state) can ride along in request payloads so the payer sees
+  WHERE to transfer, with a copy button — but only when the master
+  toggle is on, and the share dialog always previews exactly what is
+  leaving the device. Displaying account text is information, not
+  payment routing; the BNM boundary above is untouched. Duitful never
+  GENERATES DuitNow QR codes (bank-issued format, not ours to mint) and
+  never attaches QR images to payloads (too large; in person the payer
+  scans the requester's real banking-app QR anyway).
 - **Truthful cash flow.** Splitting does NOT rewrite what you paid. You
   paid RM 100 → your expense stays RM 100; the RM 75 others owe becomes
   receivables; each settlement logs a reimbursement entry (income row,
@@ -73,9 +81,15 @@ DFS1.<base64url(deflate-raw(JSON))>
   AND a `v:1` field. Unknown major version → "update Duitful" message.
 - Request JSON (compact keys):
   `{ v:1, t:"req", id, fr:"Ali", ti:"Dinner @ Naz", d:"2026-07-30",
-     a:23.5, c:"MYR", n:"optional note", dd:"2026-08-15" }`
+     a:23.5, c:"MYR", n:"optional note", dd:"2026-08-15",
+     pay:"DuitNow 012-3456789 (Ali) · Maybank 512345678901" }`
   (`dd` = due date, optional — set for loan-kind requests; shown on the
-  /split page and on the recipient's `in` record.)
+  /split page and on the recipient's `in` record. `pay` = transfer
+  details, optional — present ONLY when the "include my transfer
+  details" toggle is on; free text capped at 140 chars; rendered with a
+  copy button on the /split page and the `in` record. A re-shared
+  payload after partial repayment carries the CURRENT remaining in `a`,
+  so "how much owed" stays true.)
 - `id` is the per-person request id (uuid) — ingest is idempotent:
   the same id landing twice (scan + link) creates one record.
 - Compression via native `CompressionStream("deflate-raw")` with an
@@ -111,7 +125,9 @@ DFS1.<base64url(deflate-raw(JSON))>
       status: "open"|"settled"|"declined",
       settledDate, expenseId }              // expense logged on settle
   ],
-  names: []  // remembered people names, most-recent-first, cap 20
+  names: [],  // remembered people names, most-recent-first, cap 20
+  payTo: "",          // "How to pay me" free text, ≤140 chars
+  payToEnabled: false // master toggle: include payTo in outgoing payloads
 }
 ```
 
@@ -144,6 +160,15 @@ DFS1.<base64url(deflate-raw(JSON))>
   button (Web Share API; clipboard fallback) carrying the /split link
   plus a plain-text line ("Ali requests RM 23.50 for Dinner @ Naz —
   <link>"). Also "copy code" (the raw DFS1 payload) for paste-ingest.
+- "How to pay me" lives beside the share surfaces: set once (free text,
+  ≤140 chars, e.g. "DuitNow 012-3456789 · Maybank 512345678901"), master
+  toggle to include it in payloads. The share dialog ALWAYS previews the
+  outgoing payload fields — amount, title, due date, and the transfer
+  line when included — so nothing leaves the device unseen. The
+  plain-text share line appends "Pay to: …" when enabled.
+- "Remind" / re-share on a partially repaid record regenerates the
+  payload with the CURRENT remaining as `a`, so the recipient always
+  sees the true amount still owed.
 
 **Ingest (recipient)**
 - "Add a request" entry point near the owed surfaces + in the scan
@@ -156,9 +181,14 @@ DFS1.<base64url(deflate-raw(JSON))>
 
 **/split page (repo root, static)**
 - Decodes the fragment client-side; shows requester name, title,
-  amount, date, note; "I have Duitful" (hand-off) and "Get Duitful"
-  CTAs; copyable code; readable no-JS/no-fragment fallback copy.
-  `noindex`; styled like the landing; EN with BM strings if cheap.
+  amount, date, note, due date — and, when the payload carries `pay`,
+  a "Transfer to" block with a one-tap copy button (account number /
+  DuitNow ID copied straight for pasting into a banking app). "I have
+  Duitful" (hand-off) and "Get Duitful" CTAs; copyable code; readable
+  no-JS/no-fragment fallback copy. `noindex`; styled like the landing;
+  EN with BM strings if cheap.
+- The recipient's `in` record keeps the `pay` text with the same copy
+  button until settled.
 
 **Owed surfaces (only while non-empty)**
 - Debts tab: "Owed to you" section listing open `out` people (name,
@@ -205,6 +235,10 @@ DFS1.<base64url(deflate-raw(JSON))>
   remaining, still open, income row logged; second 200 → settled,
   settledDate set, reminder gone); due date rides the payload (`dd`)
   into the recipient's `in` record.
+- Transfer details: `pay` absent from payloads while payToEnabled is
+  false (default) even when payTo text exists; present and ≤140 chars
+  when enabled; round-trips into the `in` record; re-share after a
+  RM 300 repayment on RM 500 carries a = 200.
 - CSV round-trip incl. kinds, due dates, statuses and repayment rows.
   All dates derived from Date.now().
 
