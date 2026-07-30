@@ -1109,7 +1109,9 @@ check('tampered / truncated payloads fail gracefully instead of throwing raw',
 check('non-Duitful text is recognised as not-a-request',
   rejects.junk === 'not-duitful' && rejects.empty === 'not-duitful',
   JSON.stringify([rejects.junk, rejects.empty]));
-check('a settlement receipt is named as such, not called corrupt', rejects.paid === 'paid', rejects.paid);
+// v1.14: the decoder carries settlement receipts too — splitIngestCode routes
+// them (see the paid-receipt section below), so "accepted" here is the point.
+check('a settlement receipt decodes instead of being called corrupt', rejects.paid === 'accepted', rejects.paid);
 check('a non-MYR request is politely refused', rejects.foreign === 'currency', rejects.foreign);
 check('every rejection has a human message',
   /Update the app/.test(rejects.friendlyVersion) && /damaged/.test(rejects.friendlyDamaged),
@@ -1291,15 +1293,17 @@ check('recording a loan does not force a share — no share dialog opens',
   await page.locator('#split-share-dialog').evaluate((e) => !e.open));
 
 const loanPersonId = loan.people[0].id;
-const window3 = await S(() => {
+// Filtered to THIS loan: the Dinner @ Naz shares composed earlier are older
+// than the v1.14 stale threshold, so they legitimately sit in the same list.
+const window3 = await S((pid) => {
   state.reminders.daysAhead = 3;
   save(); renderAll();
   return {
-    items: upcomingReminders(3).filter((i) => i.kind === 'split'),
+    items: upcomingReminders(3).filter((i) => i.kind === 'split' && i.id === pid),
     cardHidden: document.getElementById('upcoming-card').hidden,
     listText: document.getElementById('upcoming-list').innerText,
   };
-});
+}, loanPersonId);
 check('a loan due in 2 days joins the upcoming window on the LENDER\'s side',
   window3.items.length === 1 && window3.items[0].name === 'Adik'
   && Math.abs(window3.items[0].amount - 500) < 0.001 && window3.items[0].delta === 2,
@@ -1307,12 +1311,12 @@ check('a loan due in 2 days joins the upcoming window on the LENDER\'s side',
 check('the upcoming card renders it as owed to you, not as a bill',
   window3.cardHidden === false && /Adik/.test(window3.listText) && /Owed to you/.test(window3.listText),
   window3.listText.replace(/\n/g, ' | ').slice(0, 140));
-const windowOut = await S((iso) => {
+const windowOut = await S(([iso, pid]) => {
   const rec = state.split.out.find((r) => r.kind === 'loan');
   rec.dueDate = iso;
   save(); renderAll();
-  return upcomingReminders(3).filter((i) => i.kind === 'split').length;
-}, dueFarISO);
+  return upcomingReminders(3).filter((i) => i.kind === 'split' && i.id === pid).length;
+}, [dueFarISO, loanPersonId]);
 check('the same loan due in 20 days stays out of a 3-day window', windowOut === 0, String(windowOut));
 await S((iso) => {
   state.split.out.find((r) => r.kind === 'loan').dueDate = iso;
@@ -1413,7 +1417,7 @@ const settledOut = await S((pid) => {
     status: person.status, settledDate: person.settledDate,
     repayments: person.repayments.length,
     income: state.income.filter((i) => i.category === 'Split repayment').length,
-    upcoming: upcomingReminders(3).filter((i) => i.kind === 'split').length,
+    upcoming: upcomingReminders(3).filter((i) => i.kind === 'split' && i.id === pid).length,
     owedHidden: document.getElementById('split-owed-card').hidden,
   };
 }, loanPersonId);
@@ -1578,6 +1582,585 @@ const doubleHandoff = await S(async () => {
 });
 check('scanning the same request after the link hand-off is still one record',
   doubleHandoff.duplicate === true && doubleHandoff.count === 1, JSON.stringify(doubleHandoff));
+
+/* ── 12. Auto-match, settlement receipts, chasing (v1.14) ──────────────
+
+   Three promises under test, in order:
+     1. a captured bank credit may SUGGEST a settlement, never perform one;
+     2. a "paid" receipt is the payer's word, so it opens a confirm and is
+        idempotent however many times it arrives;
+     3. a request that has gone past its due date (or simply gone quiet)
+        joins the reminders surface, and leaves the moment it settles.
+
+   The Android listener can't run headless, so the matcher and the notification
+   parser are exercised directly with synthetic notification objects — which is
+   where all the decision-making actually lives. Every date is from Date.now(). */
+
+// --- the notification parser: credits only, MYR only ---
+const parseTests = await S(() => {
+  const p = (text, pkg) => parseIncomingTransfer(text, pkg || 'com.maybank2u.life');
+  return {
+    plain: p('You have received RM23.50 from ALI BIN ABU'),
+    credited: p('RM 40.00 has been credited to your account from MEI LING'),
+    duitnow: p('Incoming DuitNow transfer RM12.30 from KUMAR A/L RAJ'),
+    malay: p('Anda telah menerima RM23.50 daripada ALI'),
+    debit: p('RM50.00 charged to card ending 1234 at STARBUCKS on 19-Apr-26'),
+    request: p('Your DuitNow request for RM23.50 has been received by ALI'),
+    promo: p('Congratulations! You have received 500 reward points'),
+    junk: p('Your statement is ready'),
+    merchant: p('We have received your payment of RM120.00. Thank you.'),
+  };
+});
+check('an incoming transfer is parsed with its amount and sender',
+  parseTests.plain && Math.abs(parseTests.plain.amount - 23.5) < 0.001
+  && /ALI/.test(parseTests.plain.sender) && parseTests.plain.currency === 'MYR',
+  JSON.stringify(parseTests.plain));
+check('the credit shapes Malaysian banks actually send all parse',
+  parseTests.credited && Math.abs(parseTests.credited.amount - 40) < 0.001
+  && parseTests.duitnow && Math.abs(parseTests.duitnow.amount - 12.3) < 0.001
+  && parseTests.malay && Math.abs(parseTests.malay.amount - 23.5) < 0.001,
+  JSON.stringify([parseTests.credited, parseTests.duitnow, parseTests.malay]));
+check('a card spend is never read as money arriving', parseTests.debit === null);
+check('a request, a reward and a merchant receipt are all not money arriving',
+  parseTests.request === null && parseTests.promo === null && parseTests.junk === null
+  && parseTests.merchant === null,
+  JSON.stringify([parseTests.request, parseTests.promo, parseTests.junk, parseTests.merchant]));
+
+// --- the matcher, as a pure function over synthetic candidates ---
+const matcher = await S(() => {
+  const three = [
+    { personId: 'm-ali', name: 'Ali', title: 'Dinner @ Naz', kind: 'split', remaining: 23.5 },
+    { personId: 'm-mei', name: 'Mei Ling', title: 'Karaoke', kind: 'split', remaining: 40 },
+    { personId: 'm-kumar', name: 'Kumar', title: 'Grab ride', kind: 'split', remaining: 23.5 },
+  ];
+  const two = three.slice(0, 2);
+  return {
+    exact: splitMatchIncoming({ amount: 40, currency: 'MYR' }, two),
+    short: splitMatchIncoming({ amount: 23, currency: 'MYR' }, two),
+    over: splitMatchIncoming({ amount: 24.4, currency: 'MYR' }, two),
+    outside: splitMatchIncoming({ amount: 21, currency: 'MYR' }, two),
+    ambiguous: splitMatchIncoming({ amount: 23.5, currency: 'MYR' }, three),
+    ambiguousNear: splitMatchIncoming({ amount: 23.2, currency: 'MYR' }, three),
+    named: splitMatchIncoming({ amount: 23.5, sender: 'ALI BIN ABU', currency: 'MYR' }, three),
+    foreign: splitMatchIncoming({ amount: 40, currency: 'SGD' }, two),
+    zero: splitMatchIncoming({ amount: 0, currency: 'MYR' }, two),
+    nobody: splitMatchIncoming({ amount: 40, currency: 'MYR' }, []),
+    settled: splitMatchIncoming({ amount: 40, currency: 'MYR' },
+      [{ personId: 'm-done', name: 'Done', title: 't', remaining: 0 }]),
+  };
+});
+check('an exact amount matches exactly one open request',
+  matcher.exact.status === 'exact' && matcher.exact.matches.length === 1
+  && matcher.exact.matches[0].personId === 'm-mei', JSON.stringify(matcher.exact));
+check('a match inside RM 1 is offered, but never as an exact one',
+  matcher.short.status === 'near' && matcher.short.matches.length === 1
+  && matcher.short.matches[0].personId === 'm-ali'
+  && matcher.over.status === 'near' && matcher.over.matches[0].personId === 'm-ali',
+  JSON.stringify([matcher.short.status, matcher.over.status]));
+check('more than RM 1 out is not a match at all',
+  matcher.outside.status === 'none' && matcher.outside.matches.length === 0,
+  JSON.stringify(matcher.outside));
+check('two people owing the same amount is ambiguous, never a silent guess',
+  matcher.ambiguous.status === 'ambiguous' && matcher.ambiguous.matches.length === 2
+  && matcher.ambiguousNear.status === 'ambiguous',
+  JSON.stringify(matcher.ambiguous));
+check('a name in the notification breaks the tie — inside the money match only',
+  matcher.named.status === 'exact' && matcher.named.via === 'name'
+  && matcher.named.matches.length === 1 && matcher.named.matches[0].personId === 'm-ali',
+  JSON.stringify(matcher.named));
+check('foreign currency, zero, no candidates and settled people match nothing',
+  matcher.foreign.status === 'none' && matcher.zero.status === 'none'
+  && matcher.nobody.status === 'none' && matcher.settled.status === 'none',
+  JSON.stringify([matcher.foreign.status, matcher.zero.status, matcher.nobody.status, matcher.settled.status]));
+
+// --- the bridge: a captured credit queues a pending action and settles NOTHING ---
+await S(() => {
+  state.split = emptySplit();
+  state.income = [];
+  state.pendingTxns = [];
+  state.split.out.push(coerceSplitOut({
+    id: 'auto-rec', kind: 'split', title: 'Dinner @ Naz', date: todayISO(), total: 94,
+    people: [
+      { id: 'auto-ali', name: 'Ali', amount: 23.5, status: 'open', repayments: [] },
+      { id: 'auto-mei', name: 'Mei Ling', amount: 41, status: 'open', repayments: [] },
+    ],
+  }));
+  save(); renderAll();
+});
+const queued = await S(() => {
+  const handled = window.duitfulIncoming({
+    package: 'com.maybank2u.life',
+    text: 'You have received RM23.50 from ALI BIN ABU',
+  });
+  const p = state.pendingTxns[0];
+  return {
+    handled,
+    pending: p,
+    cardHidden: document.getElementById('pending-card').hidden,
+    text: document.getElementById('pending-list').innerText,
+    person: state.split.out[0].people[0],
+    income: state.income.length,
+  };
+});
+check('a matched credit queues one pending action and nothing else',
+  queued.handled === true && queued.pending && queued.pending.kind === 'split-match'
+  && queued.pending.match === 'exact' && queued.pending.matches.length === 1
+  && queued.pending.matches[0].personId === 'auto-ali',
+  JSON.stringify(queued.pending));
+check('the pending row asks the question in plain words',
+  queued.cardHidden === false && /RM\s*23\.50 received/.test(queued.text)
+  && /Settle Ali's share of Dinner @ Naz\?/.test(queued.text),
+  queued.text.replace(/\n/g, ' | ').slice(0, 160));
+check('nothing is settled and no income is booked before the tap',
+  queued.person.status === 'open' && queued.person.repayments.length === 0 && queued.income === 0,
+  JSON.stringify({ status: queued.person.status, income: queued.income }));
+const dupeCredit = await S(() => {
+  const again = window.duitfulIncoming({
+    package: 'com.maybank2u.life',
+    text: 'You have received RM23.50 from ALI BIN ABU',
+  });
+  return { again, count: state.pendingTxns.length };
+});
+check('the same notification firing twice queues one action',
+  dupeCredit.again === false && dupeCredit.count === 1, JSON.stringify(dupeCredit));
+await page.click('#tabbtn-dashboard');
+await page.waitForTimeout(200);
+await page.click('#pending-list [data-action="pending-split-settle"]');
+await page.waitForTimeout(400);
+const autoSettled = await S(() => ({
+  person: state.split.out[0].people.find((p) => p.id === 'auto-ali'),
+  income: state.income.filter((i) => i.category === 'Split repayment'),
+  pending: state.pendingTxns.length,
+  cardHidden: document.getElementById('pending-card').hidden,
+}));
+check('the tap books the repayment as income and settles the person',
+  autoSettled.person.status === 'settled' && autoSettled.person.repayments.length === 1
+  && autoSettled.income.length === 1 && Math.abs(autoSettled.income[0].amount - 23.5) < 0.001
+  && /Ali/.test(autoSettled.income[0].name),
+  JSON.stringify(autoSettled.income));
+check('the pending action is consumed by the tap',
+  autoSettled.pending === 0 && autoSettled.cardHidden === true, JSON.stringify(autoSettled.pending));
+const unmatched = await S(() => ({
+  handled: window.duitfulIncoming({
+    package: 'com.maybank2u.life',
+    text: 'You have received RM5000.00 from PAYROLL SDN BHD',
+  }),
+  pending: state.pendingTxns.length,
+}));
+check('a credit matching nothing is dropped without a trace',
+  unmatched.handled === false && unmatched.pending === 0, JSON.stringify(unmatched));
+const ambiguousQueue = await S(() => {
+  state.pendingTxns = [];
+  const rec = state.split.out[0];
+  rec.people.push(coerceSplitPerson({ id: 'auto-kumar', name: 'Kumar', amount: 41, status: 'open', repayments: [] }));
+  save(); renderAll();
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM41.00' });
+  return {
+    pending: state.pendingTxns[0],
+    text: document.getElementById('pending-list').innerText,
+    buttons: document.querySelectorAll('#pending-list [data-action="pending-split-settle"]').length,
+  };
+});
+check('two people owing RM 41 produce a choice, not a guess',
+  ambiguousQueue.pending.match === 'ambiguous' && ambiguousQueue.pending.matches.length === 2
+  && ambiguousQueue.buttons === 2 && /who paid\?/i.test(ambiguousQueue.text),
+  ambiguousQueue.text.replace(/\n/g, ' | ').slice(0, 160));
+await S(() => { state.pendingTxns = []; save(); renderAll(); });
+
+// --- settlement receipts: emit ---
+const paidEmit = await S(async () => {
+  splitState().me = 'Aydil';
+  splitState().payTo = [{ label: 'DuitNow', value: '012-3456789' }];
+  splitState().payToEnabled = true;              // must NOT ride a receipt
+  state.split.in = [];
+  await splitIngestCode(await splitEncodePayload({
+    v: 1, t: 'req', id: 'paid-req-1', fr: 'Mei Ling', ti: 'Karaoke', d: todayISO(), a: 42.5, c: 'MYR',
+  }));
+  const rec = state.split.in.find((r) => r.id === 'paid-req-1');
+  const payload = splitPaidPayload(rec, { date: todayISO() });
+  const code = await splitEncodePayload(payload);
+  // Hand-decode, exactly as the /split page does it — that page is the contract.
+  const m = /^DFS(\d+)(u?)\.(.+)$/.exec(code);
+  let b64 = m[3].replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  const bin = atob(b64);
+  let bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  if (!m[2]) {
+    bytes = new Uint8Array(await new Response(
+      new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')),
+    ).arrayBuffer());
+  }
+  return {
+    prefix: `DFS${m[1]}${m[2]}.`,
+    hand: JSON.parse(new TextDecoder().decode(bytes)),
+    payload,
+    viaApp: await splitDecodePayload(code),
+    code,
+  };
+});
+check('a receipt hand-decodes field for field into what was emitted',
+  JSON.stringify(paidEmit.hand) === JSON.stringify(paidEmit.payload)
+  && JSON.stringify(paidEmit.viaApp) === JSON.stringify(paidEmit.payload)
+  && paidEmit.prefix === 'DFS1.',
+  JSON.stringify(paidEmit.hand));
+check('the receipt carries t:"paid", the ORIGINAL request id, amount and payer',
+  paidEmit.payload.t === 'paid' && paidEmit.payload.id === 'paid-req-1'
+  && Math.abs(paidEmit.payload.a - 42.5) < 0.001 && paidEmit.payload.fr === 'Aydil'
+  && paidEmit.payload.c === 'MYR' && /^\d{4}-\d{2}-\d{2}$/.test(paidEmit.payload.d),
+  JSON.stringify(paidEmit.payload));
+check('a receipt never carries transfer details, even with the toggle on',
+  paidEmit.payload.pay === undefined && paidEmit.hand.pay === undefined,
+  JSON.stringify(paidEmit.payload.pay));
+
+// --- and the payer reaches all that from the record itself ---
+await page.click('#tabbtn-debts');
+await page.waitForTimeout(300);
+await page.click('#split-owe-list [data-action="split-paid-share"][data-id="paid-req-1"]');
+await page.waitForTimeout(500);
+const paidShare = await S(async () => ({
+  open: document.getElementById('split-share-dialog').open === true,
+  title: document.getElementById('split-share-title').textContent,
+  qr: document.querySelectorAll('#split-share-body .split-qr-svg').length,
+  preview: document.querySelector('.split-preview-body').innerText,
+  decoded: await splitDecodePayload(splitShare.code),
+}));
+check('"I\'ve paid — tell them" builds a real receipt QR from the record',
+  paidShare.open === true && /Mei Ling/.test(paidShare.title) && paidShare.qr === 1
+  && paidShare.decoded.t === 'paid' && paidShare.decoded.id === 'paid-req-1'
+  && Math.abs(paidShare.decoded.a - 42.5) < 0.001,
+  JSON.stringify({ title: paidShare.title, qr: paidShare.qr, decoded: paidShare.decoded }));
+check('the receipt dialog previews what leaves the device, transfer rows excluded',
+  /Aydil/.test(paidShare.preview) && /42\.50/.test(paidShare.preview)
+  && /no transfer details/.test(paidShare.preview), paidShare.preview);
+await page.click('[data-action="split-share-close"]');
+await page.waitForTimeout(250);
+await page.click('button[data-action="split-panel"][data-panel="settle"][data-id="paid-req-1"]');
+await page.waitForTimeout(250);
+await page.click('button[data-action="split-settle-receipt"][data-id="paid-req-1"]');
+await page.waitForTimeout(600);
+const settleReceipt = await S(async () => {
+  const rec = state.split.in.find((r) => r.id === 'paid-req-1');
+  return {
+    status: rec.status,
+    expense: state.dailyExpenses.find((e) => e.id === rec.expenseId) || null,
+    shareOpen: document.getElementById('split-share-dialog').open === true,
+    decoded: await splitDecodePayload(splitShare.code),
+    oweHidden: document.getElementById('split-owe-card').hidden,
+  };
+});
+check('"Settle & send receipt" settles, logs the expense and offers the receipt',
+  settleReceipt.status === 'settled' && settleReceipt.expense
+  && Math.abs(settleReceipt.expense.amount - 42.5) < 0.001
+  && settleReceipt.shareOpen === true && settleReceipt.decoded.t === 'paid'
+  && settleReceipt.decoded.d === settleReceipt.expense.date,
+  JSON.stringify({ status: settleReceipt.status, share: settleReceipt.shareOpen, d: settleReceipt.decoded.d }));
+check('the settled record has already left the you-owe surface',
+  settleReceipt.oweHidden === true, String(settleReceipt.oweHidden));
+await page.click('[data-action="split-share-close"]');
+await page.waitForTimeout(250);
+
+// --- settlement receipts: ingest by the requester ---
+await S(() => {
+  state.split.out = [coerceSplitOut({
+    id: 'paid-out-rec', kind: 'split', title: 'Karaoke', date: todayISO(), total: 85,
+    people: [{ id: 'paid-req-1', name: 'Mei Ling', amount: 42.5, status: 'open', repayments: [] }],
+  })];
+  state.split.in = [];
+  state.income = [];
+  save(); renderAll();
+});
+const paidPrompt = await S(async (code) => {
+  const res = await splitIngestCode(code);
+  const person = state.split.out[0].people[0];
+  return {
+    kind: res.kind,
+    prompt: res.prompt === true,
+    dialogOpen: document.getElementById('split-paid-dialog').open === true,
+    dialogText: document.getElementById('split-paid-body').innerText,
+    status: person.status,
+    repayments: person.repayments.length,
+    income: state.income.length,
+  };
+}, paidEmit.code);
+check('a receipt opens a confirm prompt and mutates nothing on its own',
+  paidPrompt.kind === 'paid' && paidPrompt.prompt === true && paidPrompt.dialogOpen === true
+  && paidPrompt.status === 'open' && paidPrompt.repayments === 0 && paidPrompt.income === 0,
+  JSON.stringify(paidPrompt));
+check('the prompt names the payer, the amount and that it is only their word',
+  /Aydil/.test(paidPrompt.dialogText) && /42\.50/.test(paidPrompt.dialogText)
+  && /not a bank confirmation/i.test(paidPrompt.dialogText),
+  paidPrompt.dialogText.replace(/\n/g, ' | ').slice(0, 160));
+await page.click('[data-action="split-paid-confirm"]');
+await page.waitForTimeout(400);
+const paidConfirmed = await S(() => {
+  const person = state.split.out[0].people[0];
+  return {
+    status: person.status,
+    settledDate: person.settledDate,
+    repayments: person.repayments,
+    income: state.income.filter((i) => i.category === 'Split repayment'),
+    dialogOpen: document.getElementById('split-paid-dialog').open === true,
+  };
+});
+check('confirming applies the repayment against the matching person',
+  paidConfirmed.status === 'settled' && /^\d{4}-\d{2}-\d{2}$/.test(paidConfirmed.settledDate)
+  && paidConfirmed.repayments.length === 1
+  && Math.abs(paidConfirmed.repayments[0].amount - 42.5) < 0.001
+  && paidConfirmed.income.length === 1 && /Mei Ling/.test(paidConfirmed.income[0].name)
+  && paidConfirmed.dialogOpen === false,
+  JSON.stringify(paidConfirmed));
+const paidAgain = await S(async (code) => {
+  const res = await splitIngestCode(code);
+  const person = state.split.out[0].people[0];
+  return {
+    duplicate: res.duplicate === true,
+    dialogOpen: document.getElementById('split-paid-dialog').open === true,
+    repayments: person.repayments.length,
+    income: state.income.filter((i) => i.category === 'Split repayment').length,
+  };
+}, paidEmit.code);
+check('the same receipt arriving again is a no-op, not a second repayment',
+  paidAgain.duplicate === true && paidAgain.dialogOpen === false
+  && paidAgain.repayments === 1 && paidAgain.income === 1, JSON.stringify(paidAgain));
+const paidPartialTwice = await S(async () => {
+  // A part-payment receipt against a still-open person: the prompt reopens,
+  // but a repayment already booked for that date and amount is not doubled.
+  state.split.out.push(coerceSplitOut({
+    id: 'paid-part-rec', kind: 'loan', title: 'Deposit', date: todayISO(), total: 300,
+    people: [{ id: 'paid-part-1', name: 'Farid', amount: 300, status: 'open', repayments: [] }],
+  }));
+  const code = await splitEncodePayload({
+    v: 1, t: 'paid', id: 'paid-part-1', fr: 'Farid', ti: 'Deposit', d: todayISO(), a: 100, c: 'MYR',
+  });
+  await splitIngestCode(code);
+  splitConfirmPaid();
+  const first = splitFindPerson('paid-part-1').person;
+  const firstState = { status: first.status, repayments: first.repayments.length };
+  const second = await splitIngestCode(code);
+  const person = splitFindPerson('paid-part-1').person;
+  return {
+    firstState,
+    duplicate: second.duplicate === true,
+    repayments: person.repayments.length,
+    remaining: splitPersonRemaining(person),
+  };
+});
+check('a part-payment receipt records once and stays part-paid',
+  paidPartialTwice.firstState.status === 'open' && paidPartialTwice.firstState.repayments === 1
+  && Math.abs(paidPartialTwice.remaining - 200) < 0.001, JSON.stringify(paidPartialTwice));
+check('re-ingesting that part-payment receipt books nothing further',
+  paidPartialTwice.duplicate === true && paidPartialTwice.repayments === 1,
+  JSON.stringify(paidPartialTwice));
+const paidUnknown = await S(async () => {
+  const before = JSON.stringify(state.split);
+  const grab = async (payload) => {
+    try { await splitIngestCode(await splitEncodePayload(payload)); return 'accepted'; }
+    catch (e) { return { code: e.code, message: splitErrorMessage(e) }; }
+  };
+  const stranger = await grab({
+    v: 1, t: 'paid', id: 'nobody-here', fr: 'Someone', ti: 'Mystery', d: todayISO(), a: 10, c: 'MYR',
+  });
+  state.split.in.push(coerceSplitIn({ id: 'own-req-1', from: 'Mei Ling', title: 'Karaoke', amount: 10 }));
+  const mine = await grab({
+    v: 1, t: 'paid', id: 'own-req-1', fr: 'Me', ti: 'Karaoke', d: todayISO(), a: 10, c: 'MYR',
+  });
+  state.split.in = state.split.in.filter((r) => r.id !== 'own-req-1');
+  return {
+    stranger, mine,
+    unchanged: JSON.stringify(state.split) === before,
+    dialogOpen: document.getElementById('split-paid-dialog').open === true,
+  };
+});
+check('a receipt for an unknown request says so kindly and changes nothing',
+  paidUnknown.stranger.code === 'paid-unknown'
+  && /doesn't have/.test(paidUnknown.stranger.message)
+  && paidUnknown.unchanged === true && paidUnknown.dialogOpen === false,
+  JSON.stringify(paidUnknown.stranger));
+check('a receipt bounced back for a request you RECEIVED is named as such',
+  paidUnknown.mine.code === 'paid-mine', JSON.stringify(paidUnknown.mine));
+
+// --- receipts arrive through the SAME ingest surface as requests ---
+const pasteCode = await S(async () => {
+  state.split.out.push(coerceSplitOut({
+    id: 'paste-rec', kind: 'split', title: 'Petrol', date: todayISO(), total: 80,
+    people: [{ id: 'paste-1', name: 'Hafiz', amount: 40, status: 'open', repayments: [] }],
+  }));
+  save(); renderAll();
+  return splitEncodePayload({
+    v: 1, t: 'paid', id: 'paste-1', fr: 'Hafiz', ti: 'Petrol', d: todayISO(), a: 40, c: 'MYR',
+  });
+});
+await page.click('#tabbtn-debts');
+await page.waitForTimeout(200);
+await page.click('#tab-debts [data-action="split-ingest"]');
+await page.waitForTimeout(300);
+await page.fill('#split-ingest-code', pasteCode);
+await page.click('[data-action="split-ingest-paste"]');
+await page.waitForTimeout(500);
+const pasted = await S(() => ({
+  ingestOpen: document.getElementById('split-ingest-dialog').open === true,
+  paidOpen: document.getElementById('split-paid-dialog').open === true,
+  text: document.getElementById('split-paid-body').innerText,
+  person: splitFindPerson('paste-1').person,
+}));
+check('pasting a receipt into "Add a request" opens the confirm, not an error',
+  pasted.paidOpen === true && pasted.ingestOpen === false && /Hafiz/.test(pasted.text)
+  && pasted.person.status === 'open' && pasted.person.repayments.length === 0,
+  JSON.stringify({ paid: pasted.paidOpen, ingest: pasted.ingestOpen, status: pasted.person.status }));
+await page.click('[data-action="split-paid-dismiss"]');
+await page.waitForTimeout(300);
+const dismissed = await S(() => ({
+  open: document.getElementById('split-paid-dialog').open === true,
+  person: splitFindPerson('paste-1').person,
+}));
+check('"Not yet" leaves the request exactly as it was',
+  dismissed.open === false && dismissed.person.status === 'open'
+  && dismissed.person.repayments.length === 0, JSON.stringify(dismissed.person));
+
+// --- overdue requests join the reminders surface ---
+const iso = (offsetDays) => S((n) => {
+  const d = new Date(Date.now() + n * 86400000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}, offsetDays);
+const yesterdayISO = await iso(-1);
+const tomorrowISO = await iso(1);
+const oldISO = await iso(-(15));
+const recentISO = await iso(-5);
+const chase = await S(([yday, tmrw, old, recent]) => {
+  state.split = emptySplit();
+  state.reminders.daysAhead = 3;
+  state.reminders.splitOverdue = true;
+  const mk = (id, name, date, dueDate, amount) => coerceSplitOut({
+    id: `${id}-rec`, kind: 'split', title: `${name}'s bill`, date, dueDate, total: amount,
+    people: [{ id, name, amount, status: 'open', repayments: [] }],
+  });
+  state.split.out.push(mk('chase-late', 'Late', old, yday, 30));
+  state.split.out.push(mk('chase-future', 'Future', todayISO(), tmrw, 40));
+  state.split.out.push(mk('chase-stale', 'Stale', old, '', 50));
+  state.split.out.push(mk('chase-fresh', 'Fresh', recent, '', 60));
+  save(); renderAll();
+  const byId = {};
+  for (const it of upcomingReminders(3)) if (it.kind === 'split') byId[it.id] = it;
+  return {
+    byId,
+    ids: Object.keys(byId).sort(),
+    listText: document.getElementById('upcoming-list').innerText,
+    remindButtons: document.querySelectorAll('#upcoming-list [data-action="split-remind"]').length,
+  };
+}, [yesterdayISO, tomorrowISO, oldISO, recentISO]);
+check('a request past its due date appears in upcoming, marked overdue',
+  chase.byId['chase-late'] && chase.byId['chase-late'].overdue === true
+  && chase.byId['chase-late'].delta === -1 && chase.byId['chase-late'].overdueDays === 1,
+  JSON.stringify(chase.byId['chase-late']));
+check('the same request one day BEFORE its due date is not overdue',
+  chase.byId['chase-future'] && !chase.byId['chase-future'].overdue
+  && chase.byId['chase-future'].delta === 1, JSON.stringify(chase.byId['chase-future']));
+check('a due-date-less request older than 14 days starts being chased',
+  chase.byId['chase-stale'] && chase.byId['chase-stale'].stale === true
+  && chase.byId['chase-stale'].overdueDays === 15, JSON.stringify(chase.byId['chase-stale']));
+check('a five-day-old request with no due date is left alone',
+  !chase.byId['chase-fresh'], JSON.stringify(chase.ids));
+check('the overdue rows read as late and carry a re-share shortcut',
+  /Late/.test(chase.listText) && /Overdue 1 day/.test(chase.listText)
+  && /Unpaid 15 days/.test(chase.listText) && chase.remindButtons === 2,
+  chase.listText.replace(/\n/g, ' | ').slice(0, 200));
+await page.click('#tabbtn-dashboard');
+await page.waitForTimeout(200);
+await page.click('#upcoming-list [data-action="split-remind"][data-id="chase-late"]');
+await page.waitForTimeout(500);
+check('the shortcut opens the share dialog for that exact person',
+  await page.locator('#split-share-dialog').evaluate((e) => e.open)
+  && /Late's share/.test(await page.locator('#split-share-title').innerText()),
+  await page.locator('#split-share-title').innerText());
+await page.click('[data-action="split-share-close"]');
+await page.waitForTimeout(200);
+const chaseOff = await S(() => {
+  const el = document.getElementById('pref-split-overdue');
+  el.checked = false;
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  return {
+    pref: state.reminders.splitOverdue,
+    items: upcomingReminders(3).filter((i) => i.kind === 'split').map((i) => i.id).sort(),
+  };
+});
+check('the opt-out silences the chasing but keeps the due dates you set',
+  chaseOff.pref === false && JSON.stringify(chaseOff.items) === JSON.stringify(['chase-future']),
+  JSON.stringify(chaseOff));
+const chaseBackOn = await S(() => {
+  const el = document.getElementById('pref-split-overdue');
+  el.checked = true;
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  return upcomingReminders(3).filter((i) => i.kind === 'split').length;
+});
+check('turning it back on restores the overdue rows', chaseBackOn === 3, String(chaseBackOn));
+const chaseSettled = await S(() => {
+  splitRecordRepayment('chase-late', 30, todayISO());
+  splitCancelPerson('chase-stale');
+  save(); renderAll();
+  return {
+    ids: upcomingReminders(3).filter((i) => i.kind === 'split').map((i) => i.id).sort(),
+    // The repayment books an income row dated today, which legitimately shows
+    // up as "expected pay" — so the assertion looks at the overdue rows
+    // themselves rather than at the whole card's text.
+    overdueRows: document.querySelectorAll('#upcoming-list li.up-overdue').length,
+    remindButtons: document.querySelectorAll('#upcoming-list [data-action="split-remind"]').length,
+  };
+});
+check('settling (or cancelling) takes a request straight out of the reminders',
+  JSON.stringify(chaseSettled.ids) === JSON.stringify(['chase-future'])
+  && chaseSettled.overdueRows === 0 && chaseSettled.remindButtons === 0,
+  JSON.stringify(chaseSettled));
+
+// --- the /split page renders a receipt, and hands it off to the app ---
+const paidHandoffCode = await S(async () => {
+  state.split.out.push(coerceSplitOut({
+    id: 'handoff-paid-rec', kind: 'split', title: 'Futsal court', date: todayISO(), total: 60,
+    people: [{ id: 'handoff-paid-1', name: 'Kumar', amount: 30, status: 'open', repayments: [] }],
+  }));
+  save();
+  return splitEncodePayload({
+    v: 1, t: 'paid', id: 'handoff-paid-1', fr: 'Kumar', ti: 'Futsal court', d: todayISO(), a: 30, c: 'MYR',
+  });
+});
+await page.goto(`${BASE}/split/#${paidHandoffCode}`);
+await page.waitForTimeout(700);
+const paidPage = await page.evaluate(() => ({
+  paidVisible: !document.getElementById('paid-card').hidden,
+  requestVisible: !document.getElementById('request-card').hidden,
+  fallbackVisible: !document.getElementById('fallback-card').hidden,
+  from: document.getElementById('p-from').textContent,
+  amount: document.getElementById('p-amount').textContent,
+  title: document.getElementById('p-title').textContent,
+  staged: localStorage.getItem('duitful.pendingSplit'),
+}));
+check('the /split page renders the app\'s receipt as a "marked as paid" state',
+  paidPage.paidVisible && !paidPage.requestVisible && !paidPage.fallbackVisible
+  && paidPage.from === 'Kumar' && paidPage.amount === '30.00' && paidPage.title === 'Futsal court'
+  && paidPage.staged === null, JSON.stringify(paidPage));
+await page.click('#btn-paid-app');
+await page.waitForTimeout(1500);
+await page.fill('#lock-input', 'test1234');
+await page.click('#lock-submit');
+await page.waitForTimeout(2200);
+const paidHandoff = await S(() => ({
+  dialogOpen: document.getElementById('split-paid-dialog').open === true,
+  dialogText: document.getElementById('split-paid-body').innerText,
+  pending: localStorage.getItem('duitful.pendingSplit'),
+  person: splitFindPerson('handoff-paid-1').person,
+}));
+check('a receipt handed off from /split opens the confirm prompt after unlock',
+  paidHandoff.dialogOpen === true && /Kumar/.test(paidHandoff.dialogText)
+  && paidHandoff.pending === null && paidHandoff.person.status === 'open'
+  && paidHandoff.person.repayments.length === 0,
+  JSON.stringify({ open: paidHandoff.dialogOpen, status: paidHandoff.person.status }));
+await page.click('[data-action="split-paid-confirm"]');
+await page.waitForTimeout(400);
+const paidHandoffDone = await S(() => splitFindPerson('handoff-paid-1').person);
+check('confirming the handed-off receipt settles that person',
+  paidHandoffDone.status === 'settled' && paidHandoffDone.repayments.length === 1
+  && Math.abs(paidHandoffDone.repayments[0].amount - 30) < 0.001,
+  JSON.stringify(paidHandoffDone));
 
 await b.close();
 if (server) server.kill();

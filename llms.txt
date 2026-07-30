@@ -81,7 +81,10 @@
   record money lent with a due date and Duitful reminds the LENDER,
   with partial repayments tracked. Duitful never initiates, holds or
   routes payments — users pay in their own banking apps and mark
-  settlement.
+  settlement. On Android, an incoming transfer notification matching an
+  open request offers one-tap settlement (never automatic); payers can
+  send back serverless "paid" confirmation links; overdue loans and
+  stale requests join reminders with re-share.
 - **Zakat on wealth** (free, opt-in with one tap from the Savings tab —
   invisible until enabled): nisab from 85 g gold, 595 g
   silver, or a custom state-authority figure; zakatable base built from

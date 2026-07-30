@@ -1,6 +1,6 @@
 {
   "name": "duitful",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "private": true,
   "description": "Duitful \u2014 Capacitor shell for the PWA.",
   "scripts": {
@@ -13,7 +13,8 @@
     "patch:android": "node scripts/patch-android-aapt.mjs",
     "patch:android-camera": "node scripts/patch-android-camera.mjs",
     "patch:android-biometric": "node scripts/patch-android-biometric.mjs",
-    "cap:sync": "npm run build:web && npx cap sync && npm run patch:android && npm run patch:android-camera && npm run patch:android-biometric && npm run native:notification-listener",
+    "patch:android-applinks": "node scripts/patch-android-applinks.mjs",
+    "cap:sync": "npm run build:web && npx cap sync && npm run patch:android && npm run patch:android-camera && npm run patch:android-biometric && npm run patch:android-applinks && npm run native:notification-listener",
     "cap:ios": "npm run cap:sync && npx cap open ios",
     "cap:android": "npm run cap:sync && npx cap open android",
     "cap:add:ios": "npm run build:web && npx cap add ios",

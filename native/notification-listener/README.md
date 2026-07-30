@@ -96,6 +96,29 @@ if (isNative() && window.Capacitor?.Plugins?.NotificationListener) {
 4. User toggles **Duitful** on.
 5. From now on, bank/e-wallet notifications are parsed on-device and queued as pending transactions. Nothing ever leaves the phone.
 
+## Incoming transfers → split auto-match (v1.14)
+
+`window.duitfulIncoming(...)` now tries two parsers, in order:
+
+1. **Credit** (`parseIncomingTransfer` in `script.js`) — MYR only, and only
+   when the text carries a credit verb (`received` / `credited` / `incoming` /
+   `menerima` / `diterima` / `masuk`). If it parses, `splitMatchIncoming()`
+   (`split.js`) compares the amount against every open request someone owes
+   you: an exact hit, or one within RM 1, becomes a pending action reading
+   *"RM 23.50 received — settle Ali's share of Dinner @ Naz?"*. Several
+   equally good matches produce a *"who paid?"* row with one button per
+   person. **Nothing is ever settled without that tap**, and a credit that
+   matches nothing is dropped without a trace — your salary landing is not
+   Duitful's business.
+2. **Debit** (`parseBankText`) — the original card/wallet spend capture,
+   unchanged.
+
+Test it in the devtools console without a phone:
+
+```js
+duitfulIncoming({ package: "com.maybank2u.life", text: "You have received RM23.50 from ALI BIN ABU" })
+```
+
 ## Privacy
 
 Everything happens on-device. There is no server call. The notification text is parsed, displayed for user review, and discarded once accepted or dismissed.

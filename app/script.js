@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.13.0";
+const APP_VERSION = "1.14.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -59,7 +59,7 @@ const emptyState = () => ({
   fx: { anchor: "EUR", rates: {}, fetched_at: null, stale: false },
   monthlyMinSums: {},
   lastOpenedMonth: "",
-  reminders: { enabled: true, daysAhead: 3, notifications: false, lastNotified: {} },
+  reminders: { enabled: true, daysAhead: 3, notifications: false, lastNotified: {}, splitOverdue: true },
   pro: false,
   license: null,
   ocrUsage: { month: "", scans: 0 },
@@ -255,6 +255,9 @@ function coerceState(parsed) {
         daysAhead: Number(parsed.reminders && parsed.reminders.daysAhead) || 3,
         notifications: !!(parsed.reminders && parsed.reminders.notifications),
         lastNotified: (parsed.reminders && parsed.reminders.lastNotified) || {},
+        // Chasing overdue receivables is opt-OUT: absent means on, exactly
+        // like `enabled` above, so an older state file keeps the new nudge.
+        splitOverdue: !(parsed.reminders && parsed.reminders.splitOverdue === false),
       },
       pro: !!parsed.pro,
       license: parsed.license && typeof parsed.license === "object" ? parsed.license : null,
@@ -3632,13 +3635,11 @@ function renderPending() {
   list.innerHTML = items
     .slice()
     .sort((a, b) => b.createdAt - a.createdAt)
-    .map((p) => {
-      const label = p.merchant ? escapeHtml(p.merchant) : "Unknown";
-      return `
+    .map((p) => (p.kind === "split-match" ? pendingSplitMatchHtml(p) : `
         <li data-id="${p.id}">
           <div class="pending-main">
             <div class="pending-top">
-              <span class="pending-name">${label}</span>
+              <span class="pending-name">${p.merchant ? escapeHtml(p.merchant) : "Unknown"}</span>
               <span class="pending-amount">${fmtMoney(p.amount)}</span>
             </div>
             <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")}</div>
@@ -3648,8 +3649,66 @@ function renderPending() {
             <button class="ghost" data-action="pending-edit" data-id="${p.id}">Edit</button>
             <button class="primary" data-action="pending-accept" data-id="${p.id}">Add</button>
           </div>
-        </li>`;
-    }).join("");
+        </li>`)).join("");
+}
+
+/* "RM 23.50 received — settle Ali's share of Dinner @ Naz?"
+
+   One tap settles; no tap changes nothing. When several people owe the same
+   amount the row asks who paid instead of picking one, because settling the
+   wrong person's share is worse than settling nobody's. */
+function pendingSplitMatchHtml(p) {
+  const matches = Array.isArray(p.matches) ? p.matches : [];
+  if (!matches.length) return "";
+  const source = p.providerName || p.sender || p.pkg || "Notification";
+  const ambiguous = p.match === "ambiguous";
+  const m = matches[0];
+  const gap = Math.round((Number(m.remaining) - Number(p.amount)) * 100) / 100;
+
+  const sub = ambiguous
+    ? `Matches ${matches.length} open requests — who paid?`
+    : `Settle ${escapeHtml(m.name)}'s share of ${escapeHtml(m.title)}?`
+      + (Math.abs(gap) > 0.005
+        ? ` <span class="pending-match-gap">${escapeHtml(fmtMoney(m.remaining))} owed — ${gap > 0 ? `${escapeHtml(fmtMoney(gap))} short` : `${escapeHtml(fmtMoney(-gap))} over`}</span>`
+        : "");
+
+  const buttons = ambiguous
+    ? matches.map((x) => `<button class="ghost" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(x.personId)}">${escapeHtml(x.name)}</button>`).join("")
+    : `<button class="primary" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(m.personId)}">Settle ${escapeHtml(m.name)}</button>`;
+
+  return `
+    <li data-id="${p.id}" class="pending-split">
+      <div class="pending-main">
+        <div class="pending-top">
+          <span class="pending-name">${fmtMoney(p.amount)} received</span>
+          <span class="pending-amount in">${fmtMoney(p.amount)}</span>
+        </div>
+        <div class="pending-source">${escapeHtml(source)}</div>
+        <div class="pending-match-sub">${sub}</div>
+      </div>
+      <div class="pending-actions${ambiguous ? " pending-choices" : ""}">
+        <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="Dismiss">✕</button>
+        ${buttons}
+      </div>
+    </li>`;
+}
+
+/* The confirm tap behind every auto-match. Books the money that actually
+   landed as an income row through the ordinary repayment path — there is no
+   separate "auto" ledger, and nothing here runs without this call. */
+function acceptSplitMatch(pendingId, personId) {
+  const p = (state.pendingTxns || []).find((x) => x.id === pendingId);
+  if (!p) return;
+  const res = typeof splitSettleFromPayment === "function"
+    ? splitSettleFromPayment(personId, p.amount, todayISO())
+    : null;
+  state.pendingTxns = state.pendingTxns.filter((x) => x.id !== pendingId);
+  save();
+  renderAll();
+  if (!res) { toast("That request is no longer open."); return; }
+  toast(res.settled
+    ? `${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`
+    : `${fmtMoney(res.amount)} recorded · ${fmtMoney(res.remaining)} still owed`);
 }
 
 function acceptPending(id) {
@@ -3758,25 +3817,35 @@ function renderUpcoming() {
   card.hidden = false;
   if (sub) sub.textContent = `Next ${prefs.daysAhead || 3} days`;
 
-  const labelFor = (delta) => delta === 0 ? "Today" : delta === 1 ? "Tmrw" : `${delta}d`;
-  const dayClassFor = (it) => it.direction === "in" ? "income" : (it.delta === 0 ? "today" : "soon");
+  const labelFor = (it) => it.delta < 0 ? "Late" : it.delta === 0 ? "Today" : it.delta === 1 ? "Tmrw" : `${it.delta}d`;
+  const dayClassFor = (it) => it.delta < 0 ? "late" : (it.direction === "in" ? "income" : (it.delta === 0 ? "today" : "soon"));
   const tabFor = (kind) => kind === "debt" || kind === "split" ? "debts" : "flow";
+  const overdueSub = (it) => {
+    const days = Number(it.overdueDays) || 0;
+    const age = days === 1 ? "1 day" : `${days} days`;
+    // A request with no due date was never late by agreement — it has just
+    // gone quiet, and saying so is fairer than calling it overdue.
+    return `${it.stale ? `Unpaid ${age}` : `Overdue ${age}`}${it.title ? ` · ${escapeHtml(it.title)}` : ""}`;
+  };
   const subFor = (it) => it.kind === "debt"
     ? "Min payment"
     : it.kind === "income"
       ? "Expected pay"
       : it.kind === "split"
-        ? `Owed to you${it.title ? ` · ${escapeHtml(it.title)}` : ""}`
+        ? (it.overdue ? overdueSub(it) : `Owed to you${it.title ? ` · ${escapeHtml(it.title)}` : ""}`)
         : "Bill due";
 
   listEl.innerHTML = items.map((it) => `
-    <li data-go-tab="${tabFor(it.kind)}">
-      <span class="up-day ${dayClassFor(it)}">${labelFor(it.delta)}</span>
+    <li data-go-tab="${tabFor(it.kind)}"${it.kind === "split" && it.overdue ? ' class="up-overdue"' : ""}>
+      <span class="up-day ${dayClassFor(it)}">${labelFor(it)}</span>
       <span>
         <div class="up-name">${escapeHtml(it.name)}</div>
         <div class="up-sub">${subFor(it)}</div>
       </span>
       <span class="up-amount ${it.direction === "in" ? "pos" : "neg"}">${fmtMoney(it.amount)}</span>
+      ${it.kind === "split" && it.overdue
+        ? `<button type="button" class="ghost up-remind" data-action="split-remind" data-id="${escapeHtml(it.id)}">Remind</button>`
+        : ""}
     </li>
   `).join("");
 }
@@ -3795,7 +3864,9 @@ async function fireDueNotifications() {
     const key = `${it.kind}:${it.id}`;
     if (last[key] === today) continue;
     const body = it.kind === "split"
-      ? `Owes you ${fmtMoney(it.amount)} — due today${it.title ? ` · ${it.title}` : ""}`
+      ? (it.overdue
+        ? `Owes you ${fmtMoney(it.amount)} — ${it.stale ? "unpaid" : "overdue"} ${Number(it.overdueDays) || 0} day${(Number(it.overdueDays) || 0) === 1 ? "" : "s"}${it.title ? ` · ${it.title}` : ""}`
+        : `Owes you ${fmtMoney(it.amount)} — due today${it.title ? ` · ${it.title}` : ""}`)
       : it.direction === "in"
         ? `Pay day today — ${fmtMoney(it.amount)} expected`
         : `Due today — ${fmtMoney(it.amount)}`;
@@ -4615,6 +4686,32 @@ function initNotificationListener() {
   NL.addListener("notification", (data) => {
     try { window.duitfulIncoming(data); } catch (e) { console.warn(e); }
   });
+}
+
+/* Android App Links: with /.well-known/assetlinks.json served from
+   duitful.app and the autoVerify intent-filter in the manifest (added by
+   scripts/patch-android-applinks.mjs), a split link tapped in WhatsApp opens
+   this app instead of the browser. The payload still rides in the fragment
+   and is still decoded on-device — only the catcher changed. Browsers keep
+   working exactly as before, which is the fallback. */
+function initSplitDeepLinks() {
+  if (!isNative()) return;
+  const App = window.Capacitor?.Plugins?.App;
+  if (!App || typeof App.addListener !== "function") return;
+  App.addListener("appUrlOpen", (event) => {
+    const url = event && event.url;
+    if (!url || typeof splitHandleDeepLink !== "function") return;
+    splitHandleDeepLink(url).catch(() => {});
+  });
+  // A cold start launched BY the link arrives as the launch URL rather than
+  // an event, so ask for it once.
+  if (typeof App.getLaunchUrl === "function") {
+    App.getLaunchUrl().then((res) => {
+      if (res && res.url && typeof splitHandleDeepLink === "function") {
+        splitHandleDeepLink(res.url).catch(() => {});
+      }
+    }).catch(() => {});
+  }
 }
 
 async function restorePurchases() {
@@ -5925,6 +6022,9 @@ document.addEventListener("click", (e) => {
   } else if (action === "pending-accept") {
     acceptPending(id);
     return;
+  } else if (action === "pending-split-settle") {
+    acceptSplitMatch(id, target.dataset.person || "");
+    return;
   } else if (action === "pending-edit") {
     editPending(id);
     return;
@@ -6355,6 +6455,8 @@ const notifStatus = document.getElementById("notifications-status");
 function renderReminderPrefs() {
   const prefs = state.reminders || {};
   if (prefDays && document.activeElement !== prefDays) prefDays.value = prefs.daysAhead ?? 3;
+  const chase = document.getElementById("pref-split-overdue");
+  if (chase) chase.checked = prefs.splitOverdue !== false;
   if (!("Notification" in window)) {
     if (notifStatus) notifStatus.textContent = "This browser doesn't support notifications.";
     if (btnNotif) btnNotif.disabled = true;
@@ -6392,6 +6494,14 @@ function renderFxStatus() {
   const staleNote = state.fx.stale ? " · using cached value (live source unavailable)" : "";
   line.textContent = `Last refreshed ${human}${staleNote} · via Currency-API (open-source, by @fawazahmed0)`;
 }
+// Opt-out for the "chase what's gone quiet" half of the split reminders.
+// Due dates the user set themselves keep reminding either way.
+document.getElementById("pref-split-overdue")?.addEventListener("change", (e) => {
+  state.reminders = state.reminders || {};
+  state.reminders.splitOverdue = !!e.target.checked;
+  save();
+  renderUpcoming();
+});
 if (prefDays) prefDays.addEventListener("change", () => {
   const v = Math.max(0, Math.min(31, Math.round(Number(prefDays.value) || 0)));
   state.reminders = state.reminders || {};
@@ -7960,6 +8070,11 @@ const RELEASE_NOTES = {
     "<strong>Lend money, get reminded</strong> — \"Lent RM 500 to Adik, due the 15th\" is now a record. Duitful reminds <em>you</em> near the due date, takes partial repayments, and logs every ringgit that comes back.",
     "<strong>Owed to you, on the Debts tab</strong> — open requests and loans in one place, settled with a tap when the transfer lands. Free for everyone, and invisible until you use it.",
   ],
+  "1.14.0": [
+    "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
+    "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
+    "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
 };
 
 function maybeShowWhatsNew() {
@@ -8466,6 +8581,7 @@ async function handleUnlock(passcode) {
   // Same-origin hand-off from the /split page: a request staged before the
   // app was unlocked lands now. Idempotent, so a re-run is harmless.
   if (typeof splitConsumePending === "function") splitConsumePending().catch(() => {});
+  initSplitDeepLinks();
 }
 
 async function handleSetup(passcode, confirm, initialState) {
@@ -8496,6 +8612,7 @@ async function handleSetup(passcode, confirm, initialState) {
   // Same-origin hand-off from the /split page: a request staged before the
   // app was unlocked lands now. Idempotent, so a re-run is harmless.
   if (typeof splitConsumePending === "function") splitConsumePending().catch(() => {});
+  initSplitDeepLinks();
 }
 
 setInterval(() => { fireDueNotifications().catch(() => {}); }, 3600000);
@@ -8965,6 +9082,105 @@ function parseBankText(text, pkg) {
   return null;
 }
 
+/* ---------- Incoming transfers (credits), for split auto-match ----------
+   Everything above parses money LEAVING the account. A DuitNow transfer
+   arriving is the opposite shape, and it only matters for one thing: someone
+   may have just paid back a bill you split. So this parser is deliberately
+   narrow — MYR only, credit verbs only — and it never books anything. It
+   hands an amount (and a name if the bank bothered to include one) to the
+   matcher, which suggests; the user taps; only then does anything change. */
+
+const TXN_INCOMING_PATTERNS = [
+  // "You have received RM23.50 from AHMAD ALI"
+  /(?:you(?:'ve| have)?\s+)?(?:just\s+)?received\s+(?:RM|MYR)\s*([\d,]+\.?\d*)(?:\s+from\s+([^.,;]+))?/i,
+  // "RM23.50 has been credited to your account from ALI"
+  /(?:RM|MYR)\s*([\d,]+\.?\d*)\s+(?:has been |was |is )?(?:received|credited)(?:[^.]*?\bfrom\s+([^.,;]+))?/i,
+  // "Incoming DuitNow transfer RM23.50 from ALI"
+  /(?:incoming|duitnow|instant)[^.]{0,40}?(?:RM|MYR)\s*([\d,]+\.?\d*)(?:[^.]{0,20}?\bfrom\s+([^.,;]+))?/i,
+  // Bahasa Melayu: "Anda telah menerima RM23.50 daripada ALI"
+  /(?:menerima|diterima|masuk)\s*(?:RM|MYR)\s*([\d,]+\.?\d*)(?:\s*(?:daripada|dari)\s+([^.,;]+))?/i,
+];
+
+// Words that turn a "received" into something that is not money landing in
+// your account: a request, a statement, a reward.
+const INCOMING_DENY = [
+  /\b(request(?:ed|s)?|reminder|invoice|bill\s+is\s+ready|statement)\b/i,
+  /\b(refund(?:ed)?\s+request|pending|failed|unsuccessful|declined|reversed)\b/i,
+  // "We have received your payment of RM120" — a merchant confirming money
+  // you SENT. Same verb, opposite direction.
+  /\breceived\s+your\s+payment\b/i,
+  /\byour\s+payment\s+(?:of|has been)\b/i,
+];
+
+function parseIncomingTransfer(text, pkg) {
+  const raw = String(text || "");
+  if (!raw) return null;
+  if (isLikelyPromo(raw)) return null;
+  if (INCOMING_DENY.some((re) => re.test(raw))) return null;
+  // A credit verb has to be present somewhere — "RM50 to ALI" is a payment
+  // going the other way and must never look like a repayment.
+  if (!/\b(received|credited|incoming|menerima|diterima|masuk)\b/i.test(raw)) return null;
+  for (const re of TXN_INCOMING_PATTERNS) {
+    const m = raw.match(re);
+    if (!m) continue;
+    const amount = parseAmount(m[1], "MYR");
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const provider = providerForPackage(pkg);
+    return {
+      amount,
+      sender: m[2] ? String(m[2]).trim().replace(/\s{2,}/g, " ").slice(0, 60) : "",
+      currency: "MYR",
+      raw,
+      providerId: provider ? provider.id : "",
+      providerName: provider ? provider.name : "",
+    };
+  }
+  return null;
+}
+
+/* Queues the "RM 23.50 received — settle Ali's share?" pending action.
+   Returns false (and queues nothing) unless the matcher found something,
+   because a bank credit that matches no open request is not Duitful's
+   business — the user did not ask for their salary to be commented on. */
+function queueIncomingTransfer(data) {
+  const parsed = parseIncomingTransfer(data.text || "", data.package || "");
+  if (!parsed) return false;
+  if (typeof splitMatchIncoming !== "function") return false;
+  const res = splitMatchIncoming(parsed);
+  if (!res || res.status === "none" || !res.matches.length) return false;
+
+  const now = Date.now();
+  state.pendingTxns = state.pendingTxns || [];
+  // Same amount, same first candidate, inside two minutes: the bank fired
+  // twice (lock screen + drawer), not two people paying the same sum.
+  const dupe = state.pendingTxns.find((p) => p.kind === "split-match"
+    && Math.abs(Number(p.amount) - parsed.amount) < 0.005
+    && p.matches && p.matches[0] && res.matches[0] && p.matches[0].personId === res.matches[0].personId
+    && (now - p.createdAt) < 120000);
+  if (dupe) return false;
+
+  state.pendingTxns.push({
+    id: uid(),
+    kind: "split-match",
+    createdAt: now,
+    raw: String(data.text || ""),
+    pkg: String(data.package || ""),
+    amount: parsed.amount,
+    sender: parsed.sender,
+    currency: "MYR",
+    providerId: parsed.providerId,
+    providerName: parsed.providerName,
+    match: res.status,
+    via: res.via || "amount",
+    matches: res.matches.map((m) => ({
+      personId: m.personId, name: m.name, title: m.title, remaining: m.remaining,
+    })),
+  });
+  save();
+  if (typeof renderAll === "function") renderAll();
+  return true;
+}
+
 function queuePendingTxn(data) {
   const parsed = parseBankText(data.text || "", data.package || "");
   if (!parsed) return false;
@@ -8998,8 +9214,12 @@ function queuePendingTxn(data) {
      duitfulIncoming({ package: "com.mbb.malaysia.android", text: "RM50.00 charged to card ending 1234 at STARBUCKS on 19-Apr-26" })
 */
 window.duitfulIncoming = (data) => {
-  try { return queuePendingTxn(data || {}); }
-  catch (e) { console.warn("duitfulIncoming failed", e); return false; }
+  try {
+    // Credits first: a transfer landing is never also a card spend, and the
+    // debit patterns would only ever mis-read it.
+    if (queueIncomingTransfer(data || {})) return true;
+    return queuePendingTxn(data || {});
+  } catch (e) { console.warn("duitfulIncoming failed", e); return false; }
 };
 
 /* ---------- FX rate lookup (free, no API key) ---------- */

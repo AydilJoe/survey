@@ -33,6 +33,13 @@ jobs:
           # the checkout (it holds the tracked QR libraries), and `cp -R
           # vendor app/` would nest it as app/vendor/vendor/tesseract.
           cp -R vendor/. app/vendor/
+      # Android App Links live or die on this file being reachable at
+      # https://duitful.app/.well-known/assetlinks.json. upload-pages-artifact
+      # tars the whole tree including dotfiles, so it ships as-is — this guard
+      # just makes an accidental deletion fail loudly instead of silently
+      # sending every split link back to the browser.
+      - name: Check App Links file is present
+        run: test -s .well-known/assetlinks.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
