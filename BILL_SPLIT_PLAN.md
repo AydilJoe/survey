@@ -34,6 +34,14 @@ this document; the session lead review-gates and releases.
   non-MYR requests are rejected with a polite message).
 - **No contact-book access.** Names are typed; previously used names are
   remembered locally for autocomplete.
+- **Lending is a first-class record, not a special split.** "I lent Ali
+  RM 500, due the 15th" is one of the most common Malaysian money
+  situations and must be holdable directly: an `out` record of kind
+  "loan" with an optional due date, partial repayments, and the due-day
+  reminder firing on the LENDER's side through the existing
+  reminders/upcoming machinery — never routed through the borrower.
+  Sending the borrower a request payload is optional, not required for
+  the reminder to work.
 - Versions: Phase 1 → v1.13.0, Phase 2 → v1.14.0. Each ships changelog +
   RELEASE_NOTES + llms.txt; landing/guides get ONE update after Phase 2.
 
@@ -65,7 +73,9 @@ DFS1.<base64url(deflate-raw(JSON))>
   AND a `v:1` field. Unknown major version → "update Duitful" message.
 - Request JSON (compact keys):
   `{ v:1, t:"req", id, fr:"Ali", ti:"Dinner @ Naz", d:"2026-07-30",
-     a:23.5, c:"MYR", n:"optional note" }`
+     a:23.5, c:"MYR", n:"optional note", dd:"2026-08-15" }`
+  (`dd` = due date, optional — set for loan-kind requests; shown on the
+  /split page and on the recipient's `in` record.)
 - `id` is the per-person request id (uuid) — ingest is idempotent:
   the same id landing twice (scan + link) creates one record.
 - Compression via native `CompressionStream("deflate-raw")` with an
@@ -79,13 +89,21 @@ DFS1.<base64url(deflate-raw(JSON))>
 ```js
 // state.split — coerced in coerceState() via coerceSplit() (guarded)
 {
-  out: [ // bills you issued — money owed TO you
-    { id, title, date, note, total,        // total = whole bill incl. you
+  out: [ // money owed TO you — split bills and loans share one shape
+    { id, kind: "split"|"loan",
+      title, date, note, total,            // total = whole bill incl. you
+                                            // (loan: total == the amount lent)
+      dueDate,                              // ISO or "" — loans mostly, splits allowed
       expenseId,                            // your logged expense, if any
       people: [ { id,                       // == payload id for that person
                   name, amount,
                   status: "open"|"settled"|"cancelled",
-                  settledDate } ] }
+                  settledDate,
+                  repayments: [ { date, amount } ] } ] }
+                  // remaining = amount − Σ repayments; status flips to
+                  // "settled" (settledDate set) when remaining ≤ 0.
+                  // Splits typically settle in one shot but partial
+                  // repayment is legal on both kinds — one code path.
   ],
   in: [  // requests you received — money YOU owe
     { id,                                   // == payload id (dedupe key)
@@ -107,7 +125,19 @@ DFS1.<base64url(deflate-raw(JSON))>
   payloads. The expense is linked, never rewritten.
 - Standalone "Request money" (button beside the split surfaces, and in
   the add-entry "More" area): title, person, amount → single-person
-  `out` record. This is the "request bill" use case.
+  `out` record of kind "split". This is the "request bill" use case.
+- **"Lent money"** (same surface, sibling action): person, amount, date
+  lent, optional due date, note → single-person `out` record of kind
+  "loan". No payload needs to be sent for the record or its reminder to
+  work — sharing a request with the borrower is an optional extra tap.
+
+**Due-day reminders (lender-side)**
+- Open `out` entries with a `dueDate` inside the reminders window join
+  the existing upcoming/reminders surface ("Ali owes RM 500 — due
+  Friday") and the daily notification pass, exactly like debt due dates.
+  The reminder lives on the lender's device; the borrower is never the
+  channel. Respects the existing reminders on/off + days-ahead prefs;
+  disappears when the record settles.
 
 **Share**
 - Per person: QR (inline SVG dialog, brightness-friendly) and a share
@@ -138,18 +168,25 @@ DFS1.<base64url(deflate-raw(JSON))>
   hidden at zero). Debt maths NEVER mixes with receivables — no APR, no
   avalanche involvement.
 
-**Settle**
-- `out` person settled → prompt "log RM X as Split repayment income
-  today?" (default yes; category "Split repayment", note carries names).
+**Settle & repayments**
+- `out` person: "Record repayment" accepts any amount up to the
+  remainder (defaults to the full remainder, so the split one-shot case
+  stays one tap). Each repayment logs an income row (category "Split
+  repayment", note carries name + title) and appends to `repayments`;
+  remaining ≤ 0 flips status to settled with `settledDate`. The row
+  shows remaining vs original (RM 200 of RM 500 left).
 - `in` settled → prompt to log the matching expense (category from
-  title, editable). Both record `settledDate`.
+  title, editable), records `settledDate`.
 
 **CSV**
 - New row types: `split-out` (one row per person, columns reuse: name =
   person, note = title, amount, date, plus trailing new columns
-  `split_id, split_title, split_status, split_settled_date, split_role`)
-  and `split-in` (mirror). Append-only columns; import tolerates absence;
-  round-trip preserves status + linkage ids. names list NOT exported.
+  `split_id, split_kind, split_title, split_status, split_due_date,
+  split_settled_date, split_role`), `split-in` (mirror), and
+  `split-repay` (parent person id in `split_id`, amount, date — one row
+  per partial repayment). Append-only columns; import tolerates absence;
+  round-trip preserves kind, due date, statuses, repayment history and
+  linkage ids. names list NOT exported.
 
 **Tests (tests/e2e.mjs, new section)**
 - Payload round-trip: encode → decode identity, idempotent double-ingest,
@@ -163,7 +200,13 @@ DFS1.<base64url(deflate-raw(JSON))>
 - Settle both directions: repayment income row / expense row created,
   dashboard + Debts surfaces appear only while open records exist and
   vanish at zero (zero-clutter guarantee).
-- CSV round-trip incl. statuses. All dates derived from Date.now().
+- Loans: create with due date → appears in upcoming/reminders inside the
+  window and not outside it; partial repayment maths (500 − 300 → 200
+  remaining, still open, income row logged; second 200 → settled,
+  settledDate set, reminder gone); due date rides the payload (`dd`)
+  into the recipient's `in` record.
+- CSV round-trip incl. kinds, due dates, statuses and repayment rows.
+  All dates derived from Date.now().
 
 ## Phase 2 — Auto-match & polish (v1.14.0)
 
