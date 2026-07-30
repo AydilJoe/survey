@@ -220,6 +220,26 @@ input[type="checkbox"], input[type="radio"] {
 }
 .pending-actions button { padding: 0.45rem 0.9rem; font-size: 0.85rem; }
 
+/* A matched incoming transfer — money arriving, so the figure reads as a
+   gain rather than a spend. Still just a suggestion until it is tapped. */
+.pending-amount.in { color: var(--gain); }
+.pending-match-sub {
+  margin-top: 0.3rem;
+  color: var(--ink2);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.pending-match-gap {
+  display: block;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+/* Ambiguous match: one button per candidate, wrapping rather than shrinking
+   names to the point where you can't tell who you're settling. */
+.pending-choices { flex-wrap: wrap; justify-content: flex-start; }
+
 /* Upcoming reminders */
 .upcoming-card {
   background: linear-gradient(180deg, rgba(200,112,75,0.10), var(--glass-bg) 60%);
@@ -273,8 +293,13 @@ input[type="checkbox"], input[type="radio"] {
   font-size: 0.95rem;
   color: var(--text);
 }
+.upcoming-list .up-day.late   { color: var(--loss);   background: rgba(184,106,78,0.18); border-color: rgba(184,106,78,0.45); }
 .upcoming-list .up-amount.neg { color: var(--loss); }
 .upcoming-list .up-amount.pos { color: var(--gain); }
+/* Overdue receivables carry a re-share shortcut, so they need a fourth
+   column; every other row keeps the original three. */
+.upcoming-list li.up-overdue { grid-template-columns: auto 1fr auto auto; }
+.upcoming-list .up-remind { padding: 0.35rem 0.6rem; font-size: 0.78rem; }
 
 /* Splash */
 #splash {
@@ -4913,6 +4938,30 @@ body.private .invest-plan-stats .stat .sub {
   word-break: break-word;
 }
 
+/* Settlement receipt confirm prompt — a claim, not a fact, so it reads as a
+   quote from the payer with the decision left entirely to the reader. */
+.split-paid-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 0.2rem;
+}
+.split-paid-name { font-weight: 700; min-width: 0; }
+.split-paid-amount {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.split-paid-meta {
+  margin: 0.15rem 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .split-camera-wrap {
   border-radius: 14px;
   overflow: hidden;
@@ -4936,7 +4985,11 @@ body.private #split-owed-sub,
 body.private #split-owe-sub,
 body.private .split-share-sub,
 body.private .split-preview-body,
-body.private .split-pay-value {
+body.private .split-pay-value,
+body.private .split-paid-amount,
+body.private .split-paid-meta,
+body.private .pending-amount,
+body.private .pending-match-sub {
   filter: blur(7px);
   user-select: none;
   pointer-events: none;

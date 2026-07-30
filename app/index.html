@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=76" />
+    <link rel="stylesheet" href="styles.css?v=77" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -1325,6 +1325,11 @@
             <button id="btn-enable-notifications" class="ghost" type="button">Enable browser notifications</button>
           </div>
           <p class="hint" id="notifications-status"></p>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-split-overdue" checked />
+            <span>Chase requests that have gone quiet</span>
+          </label>
+          <p class="hint">Money owed to you shows up here once it's past its due date — or, with no due date, after two weeks. Turn it off and only due dates you set will remind you.</p>
           <p class="hint">Shows upcoming debt/bill due dates and pay days on Home. Browser notifications fire when the app is open and once per day for items due today. Background reminders (when the app is fully closed) need a native wrapper — not available on iOS Safari PWAs.</p>
         </div>
 
@@ -1694,7 +1699,7 @@
     <dialog id="split-ingest-dialog" class="edit-dialog split-dialog">
       <form method="dialog">
         <h2>Add a request</h2>
-        <p class="hint">Someone sent you a Duitful request? Paste the code, or scan their QR. It decodes on this device — nothing is sent anywhere.</p>
+        <p class="hint">Someone sent you a Duitful request — or a confirmation that they've paid you? Paste the code, or scan their QR. It decodes on this device — nothing is sent anywhere.</p>
         <label class="field">
           <span>Request code</span>
           <textarea id="split-ingest-code" rows="3" placeholder="DFS1.…" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
@@ -1719,6 +1724,15 @@
       <form method="dialog">
         <h2>How to pay me</h2>
         <div id="split-payto-body"></div>
+      </form>
+    </dialog>
+
+    <!-- Settlement receipt arriving back from the payer. Nothing is settled
+         until the confirm button in here is pressed — see splitIngestPaid(). -->
+    <dialog id="split-paid-dialog" class="edit-dialog split-dialog">
+      <form method="dialog">
+        <h2>They say they've paid</h2>
+        <div id="split-paid-body"></div>
       </form>
     </dialog>
 
@@ -1899,7 +1913,7 @@
          demand (see splitEnsureJsQR) — the service worker precaches it, so
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
-    <script src="split.js?v=1"></script>
-    <script src="script.js?v=102"></script>
+    <script src="split.js?v=2"></script>
+    <script src="script.js?v=103"></script>
   </body>
 </html>

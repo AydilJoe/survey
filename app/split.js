@@ -54,6 +54,24 @@ const SPLIT_NOTE_MAX = 140;
 // contact book, so this list is built purely from what the user typed.
 const SPLIT_NAMES_CAP = 20;
 
+/* ---------- Phase 2 constants ---------- */
+
+// Auto-match tolerance for a captured incoming transfer. An exact hit is the
+// normal case; anything inside RM 1 (a rounded transfer, a bank's cent-level
+// truncation) is still offered — but ALWAYS behind a confirm tap, never
+// applied on its own.
+const SPLIT_MATCH_TOLERANCE = 1;
+// Money compare epsilon — 2-dp values, so half a cent is "the same number".
+const SPLIT_MATCH_EPS = 0.005;
+// At most this many people are offered as choices when a captured amount
+// matches more than one open request. Beyond that the list stops being a
+// decision and starts being a puzzle.
+const SPLIT_MATCH_MAX_CHOICES = 4;
+// An open request with NO due date starts nagging once it is this old. Two
+// weeks is long enough that "I'll get it back at lunch" has clearly failed
+// and short enough that the trail is still warm.
+const SPLIT_STALE_DAYS = 14;
+
 /* ---------- shape ---------- */
 
 function emptySplit() {
@@ -366,10 +384,10 @@ async function splitDecodePayload(raw) {
     throw splitPayloadError("damaged");
   }
   if (!obj || typeof obj !== "object") throw splitPayloadError("damaged");
-  // A settlement receipt is a valid Duitful payload — it is just not one this
-  // phase ingests. Say so specifically rather than calling it corrupt.
-  if (obj.t === "paid") throw splitPayloadError("paid");
-  if (obj.t !== "req") throw splitPayloadError("damaged");
+  // Two payload types travel on this rail: a request ("you owe me") and a
+  // settlement receipt ("I've paid"). Both decode here; splitIngestCode
+  // routes them, because what they DO on arrival is completely different.
+  if (obj.t !== "req" && obj.t !== "paid") throw splitPayloadError("damaged");
   if (!Number.isFinite(Number(obj.a))) throw splitPayloadError("damaged");
   if ((obj.c || "MYR") !== "MYR") throw splitPayloadError("currency");
   return obj;
@@ -380,7 +398,10 @@ const SPLIT_ERRORS = {
   version: "This request was made with a newer Duitful. Update the app and try again.",
   damaged: "That request code looks damaged — messaging apps sometimes trim long links. Ask for it again.",
   currency: "Only Malaysian Ringgit requests are supported in this version.",
-  paid: "That's a payment receipt, not a request. Settle the record by hand for now.",
+  // A receipt whose request never landed here — most often the payer scanned
+  // someone else's code, or the request was already cancelled and deleted.
+  "paid-unknown": "That receipt is for a request this device doesn't have. If you cancelled it, there's nothing left to settle.",
+  "paid-mine": "That's a receipt for a request you received, not one you sent.",
   own: "That's your own request — you can't add it as one you owe.",
 };
 
@@ -415,8 +436,40 @@ function splitRequestPayload(rec, person) {
   return payload;
 }
 
+// The receipt flowing the other way: "I've paid you." Field-for-field the
+// shape the /split page already renders (it shipped that state in Phase 1),
+// and `id` is the ORIGINAL request id — that is what lets the requester find
+// the right person without any account, server or contact list.
+//
+// Deliberately never carries `pay`: transfer details belong to whoever is
+// asking for money, and a receipt is the opposite direction.
+function splitPaidPayload(rec, opts) {
+  const o = opts || {};
+  const s = splitState();
+  const payload = {
+    v: SPLIT_VERSION,
+    t: "paid",
+    id: rec.id,
+    ti: rec.title,
+    d: splitIsDate(o.date) ? o.date : (splitIsDate(rec.settledDate) ? rec.settledDate : todayISO()),
+    a: splitRound2(Number(rec.amount) || 0),
+    c: typeof currentCurrency === "function" ? currentCurrency() : "MYR",
+  };
+  const me = splitText(s.me, SPLIT_NAME_MAX);
+  if (me) payload.fr = me;
+  return payload;
+}
+
 function splitShareLink(code) {
   return `${SPLIT_LINK_BASE}#${code}`;
+}
+
+function splitPaidShareText(rec, code, date) {
+  const s = splitState();
+  const who = splitText(s.me, SPLIT_NAME_MAX) || "Someone";
+  const amount = typeof fmtMoney === "function" ? fmtMoney(rec.amount) : String(rec.amount);
+  const when = splitIsDate(date) ? date : todayISO();
+  return `${who} paid ${amount} for ${rec.title} on ${splitDayLabel(when)} — ${splitShareLink(code)}`;
 }
 
 function splitShareText(rec, person, code) {
@@ -437,14 +490,22 @@ function splitShareText(rec, person, code) {
 
 /* ---------- ingest ---------- */
 
-// Idempotent by payload id: the same request arriving twice (scanned AND
-// opened from the link) lands as one record and a quiet "already added".
+// One door for every payload that arrives — pasted, scanned, deep-linked or
+// handed off by the /split page — so idempotency and the error messages are
+// written once. The payload's own `t` decides what happens next.
 async function splitIngestCode(raw) {
   const obj = await splitDecodePayload(raw);
+  if (obj.t === "paid") return splitIngestPaid(obj);
+  return splitIngestRequest(obj);
+}
+
+// Idempotent by payload id: the same request arriving twice (scanned AND
+// opened from the link) lands as one record and a quiet "already added".
+function splitIngestRequest(obj) {
   const id = typeof obj.id === "string" && obj.id ? obj.id : "";
   if (id && splitFindPerson(id)) throw splitPayloadError("own");
   if (id && splitInList().some((r) => r.id === id)) {
-    return { duplicate: true, record: splitInList().find((r) => r.id === id) };
+    return { kind: "request", duplicate: true, record: splitInList().find((r) => r.id === id) };
   }
   const record = coerceSplitIn({
     id: id || uid(),
@@ -461,7 +522,48 @@ async function splitIngestCode(raw) {
   splitRememberName(record.from);
   save();
   if (typeof renderAll === "function") renderAll();
-  return { duplicate: false, record };
+  return { kind: "request", duplicate: false, record };
+}
+
+/* A settlement receipt landing back on the requester's device.
+ *
+ * It NEVER settles anything by itself. A receipt is the payer's word, not a
+ * bank confirmation — so it opens a confirm prompt and the repayment is
+ * applied only when the person who is owed the money taps it. Everything
+ * before that tap is read-only.
+ *
+ * Idempotence has two layers, because a receipt carries no id of its own
+ * (the payload's `id` is the REQUEST's, by contract with the /split page):
+ * a person who is no longer open is already done, and a repayment with the
+ * same date and amount is the same receipt arriving twice.
+ */
+function splitIngestPaid(obj) {
+  const id = typeof obj.id === "string" && obj.id ? obj.id : "";
+  if (!id) throw splitPayloadError("damaged");
+  // A receipt for a request YOU received means someone bounced your own
+  // payload back — say so rather than hunting for a person who can't exist.
+  if (splitInList().some((r) => r.id === id)) throw splitPayloadError("paid-mine");
+  const found = splitFindPerson(id);
+  if (!found) throw splitPayloadError("paid-unknown");
+  const { rec, person } = found;
+  const date = splitIsDate(obj.d) ? obj.d : todayISO();
+  const claimed = splitRound2(Math.max(0, splitNum(obj.a)));
+  const remaining = splitPersonRemaining(person);
+  const amount = splitRound2(Math.min(claimed > 0 ? claimed : remaining, remaining));
+  const from = splitText(obj.fr, SPLIT_NAME_MAX) || person.name;
+
+  const done = person.status !== "open" || remaining <= 0;
+  const alreadyBooked = (person.repayments || []).some(
+    (r) => r.date === date && Math.abs(Number(r.amount) - amount) < SPLIT_MATCH_EPS,
+  );
+  if (done || alreadyBooked) {
+    return { kind: "paid", duplicate: true, record: rec, person, amount, date, from };
+  }
+
+  splitPaidPrompt = { personId: person.id, amount, date, from, claimed };
+  splitRenderPaidPrompt();
+  splitShowDialog(splitPaidDialogEl());
+  return { kind: "paid", duplicate: false, prompt: true, record: rec, person, amount, date, from };
 }
 
 // Same-origin hand-off from the /split page. Read-and-clear before ingesting
@@ -475,13 +577,39 @@ async function splitConsumePending() {
   } catch { return; }
   if (!raw) return;
   try {
-    const res = await splitIngestCode(raw);
-    if (typeof toast === "function") {
-      toast(res.duplicate ? "Already added" : `Request added: ${res.record.from} · ${fmtMoney(res.record.amount)}`);
-    }
+    splitIngestToast(await splitIngestCode(raw));
   } catch (err) {
     if (typeof toast === "function") toast(splitErrorMessage(err));
   }
+}
+
+// One sentence per outcome, in the recipient's language of what just changed.
+// A receipt that opened a confirm prompt says nothing — the prompt IS the
+// message, and a toast behind a modal is noise.
+function splitIngestToast(res) {
+  if (!res || typeof toast !== "function") return;
+  if (res.kind === "paid") {
+    if (res.duplicate) toast(`${res.person.name} is already settled`);
+    return;
+  }
+  toast(res.duplicate ? "Already added" : `Request added: ${res.record.from} · ${fmtMoney(res.record.amount)}`);
+}
+
+// Android App Link: a duitful.app/split link tapped in WhatsApp opens the
+// native shell straight into this, instead of the browser. The payload still
+// travels in the fragment and is still decoded locally — the deep link only
+// changes which app catches it.
+async function splitHandleDeepLink(url) {
+  const raw = String(url == null ? "" : url);
+  if (!/\/split(\/|#|\?|$)/i.test(raw)) return false;
+  const code = splitCodeFromScanned(raw);
+  if (!/^DFS\d/.test(code)) return false;
+  try {
+    splitIngestToast(await splitIngestCode(code));
+  } catch (err) {
+    if (typeof toast === "function") toast(splitErrorMessage(err));
+  }
+  return true;
 }
 
 /* ---------- reminders (lender side) ----------
@@ -489,26 +617,66 @@ async function splitConsumePending() {
    as a debt due day — but on the LENDER's device. The borrower is never the
    channel; sending them a request link is optional and unrelated. */
 
+// Opt-out for the chasing half only (Phase 2). The due-day reminder is the
+// same promise a debt due day makes and stays; what you can switch off is
+// Duitful reminding you about requests that have simply gone quiet.
+function splitOverdueEnabled() {
+  if (typeof state !== "object" || !state) return true;
+  const prefs = state.reminders || {};
+  return prefs.splitOverdue !== false;
+}
+
+// Days a request has been outstanding, counted from the day it was made.
+function splitRequestAge(rec) {
+  const delta = splitDaysUntil(rec && rec.date);
+  return Number.isFinite(delta) ? -delta : NaN;
+}
+
+/* Three ways a receivable reaches the upcoming surface:
+     - due inside the reminder window   → delta 0..cap, the Phase 1 behaviour
+     - past its due date                → negative delta, shown until settled
+     - no due date, older than 14 days  → the "you've quietly written this
+       off" case, which is exactly the one worth surfacing
+   The last two are the Phase 2 chasing rail and honour the opt-out. */
 function splitUpcomingItems(daysAhead) {
   const cap = Math.max(0, Math.min(31, Number(daysAhead) || 0));
+  const chasing = splitOverdueEnabled();
   const items = [];
   for (const rec of splitOutList()) {
-    if (!rec.dueDate) continue;
-    const delta = splitDaysUntil(rec.dueDate);
-    if (!Number.isFinite(delta) || delta < 0 || delta > cap) continue;
     for (const p of rec.people || []) {
       if (p.status !== "open") continue;
       const remaining = splitPersonRemaining(p);
       if (remaining <= 0) continue;
-      items.push({
+      const base = {
         kind: "split",
         id: p.id,
         name: p.name,
         title: rec.title,
         amount: remaining,
         direction: "in",
-        delta,
-        day: Number(rec.dueDate.slice(8, 10)),
+      };
+      if (rec.dueDate) {
+        const delta = splitDaysUntil(rec.dueDate);
+        if (!Number.isFinite(delta)) continue;
+        const day = Number(rec.dueDate.slice(8, 10));
+        if (delta >= 0) {
+          if (delta <= cap) items.push({ ...base, delta, day });
+        } else if (chasing) {
+          items.push({ ...base, delta, day, overdue: true, overdueDays: -delta });
+        }
+        continue;
+      }
+      if (!chasing) continue;
+      const age = splitRequestAge(rec);
+      if (!Number.isFinite(age) || age < SPLIT_STALE_DAYS) continue;
+      // No due date was ever set, so "how late" is simply how old it is.
+      items.push({
+        ...base,
+        delta: -age,
+        day: Number(rec.date.slice(8, 10)),
+        overdue: true,
+        stale: true,
+        overdueDays: age,
       });
     }
   }
@@ -536,6 +704,83 @@ function splitNativeReminders() {
     }
   }
   return out;
+}
+
+/* ---------- auto-match (Android auto-capture) ----------
+   The notification listener parses an INCOMING transfer and asks this: does
+   RM 23.50 landing in my account correspond to something someone owes me?
+   The answer is only ever a suggestion. Nothing here mutates anything; the
+   caller queues a pending action and the user taps, exactly like a captured
+   card spend. Native-only in practice — the listener does not exist on the
+   web — but the maths is plain and portable so it can be tested directly. */
+
+// The flattened open receivables, in the shape the matcher compares against.
+// Passing an explicit list (tests, future callers) short-circuits the state
+// read entirely, which is what keeps the matcher a pure function.
+function splitMatchCandidates() {
+  return splitOpenPeople().map(({ rec, person }) => ({
+    personId: person.id,
+    name: person.name,
+    title: rec.title,
+    kind: rec.kind,
+    remaining: splitPersonRemaining(person),
+  }));
+}
+
+// Narrowing by name is allowed ONLY inside a set that already matched on
+// money, and never on its own — it breaks a tie, it does not create one.
+function splitMatchByName(list, text) {
+  const hay = String(text || "").toLowerCase();
+  if (!hay.trim()) return [];
+  return list.filter((c) => {
+    const name = String(c.name || "").toLowerCase().trim();
+    if (name.length < 3) return false;
+    if (hay.includes(name)) return true;
+    const first = name.split(/\s+/)[0];
+    return first.length >= 3 && hay.includes(first);
+  });
+}
+
+/* parsed: { amount, currency?, sender?, raw? } — whatever the notification
+   parser could pull out of the text.
+   Returns { status, amount, matches, via }, where status is:
+     "exact"     one open person owes precisely this much
+     "near"      one open person is within RM 1 of it (still a confirm)
+     "ambiguous" several are equally plausible — offer the choice, never pick
+     "none"      nothing to suggest; the notification is dropped silently
+   No status ever means "settle it". Every one of them ends in a tap. */
+function splitMatchIncoming(parsed, candidates) {
+  const p = parsed && typeof parsed === "object" ? parsed : {};
+  const amount = splitRound2(splitNum(p.amount));
+  const empty = { status: "none", amount, matches: [] };
+  if (!(amount > 0)) return empty;
+  // MYR only in v1, same rule the payloads follow. A foreign-currency credit
+  // is not evidence about a ringgit IOU.
+  if (p.currency && String(p.currency).toUpperCase() !== "MYR") return empty;
+
+  const list = (Array.isArray(candidates) ? candidates : splitMatchCandidates())
+    .filter((c) => c && Number(c.remaining) > 0);
+  if (!list.length) return empty;
+
+  let status = "exact";
+  let matches = list.filter((c) => Math.abs(Number(c.remaining) - amount) < SPLIT_MATCH_EPS);
+  if (!matches.length) {
+    status = "near";
+    matches = list.filter((c) => Math.abs(Number(c.remaining) - amount) <= SPLIT_MATCH_TOLERANCE + SPLIT_MATCH_EPS);
+  }
+  if (!matches.length) return empty;
+  if (matches.length === 1) return { status, amount, matches, via: "amount" };
+
+  const named = splitMatchByName(matches, `${p.sender || ""} ${p.raw || ""}`);
+  if (named.length === 1) return { status, amount, matches: named, via: "name" };
+  // Several people owe the same amount and the text doesn't say who paid.
+  // Guessing here would settle the wrong person's debt, so the surface asks.
+  return {
+    status: "ambiguous",
+    amount,
+    matches: matches.slice(0, SPLIT_MATCH_MAX_CHOICES),
+    via: "amount",
+  };
 }
 
 /* ---------- mutations ---------- */
@@ -578,6 +823,34 @@ function splitRecordRepayment(personId, amount, dateISO) {
   }
   save();
   return { record: rec, person, amount: paid, income: entry, settled: person.status === "settled" };
+}
+
+/* Settling from a payment that actually landed — a matched bank notification
+   or a confirmed receipt. Always reached from a tap.
+
+   The income row is the money that REALLY arrived, never the amount that was
+   owed: that is the truthful-cash-flow rule. What this adds on top is the
+   sub-RM 1 remainder a rounded transfer leaves behind (RM 23 sent against
+   RM 23.50 owed) — the IOU closes, but no phantom 50 sen is booked as income.
+   Anything larger stays open and visibly part-paid. */
+function splitSettleFromPayment(personId, amount, dateISO) {
+  const found = splitFindPerson(personId);
+  if (!found) return null;
+  const { person } = found;
+  const when = splitIsDate(dateISO) ? dateISO : todayISO();
+  const remaining = splitPersonRemaining(person);
+  const paid = splitRound2(Math.min(Math.max(0, Number(amount) || 0), remaining));
+  const res = splitRecordRepayment(personId, paid, when);
+  if (!res) return null;
+  const left = splitPersonRemaining(person);
+  let writtenOff = 0;
+  if (person.status === "open" && left > 0 && left <= SPLIT_MATCH_TOLERANCE) {
+    writtenOff = left;
+    person.status = "settled";
+    person.settledDate = when;
+    save();
+  }
+  return { ...res, settled: person.status === "settled", remaining: left, writtenOff };
 }
 
 function splitCancelPerson(personId) {
@@ -677,6 +950,7 @@ function splitComposeDialogEl() { return document.getElementById("split-compose-
 function splitShareDialogEl() { return document.getElementById("split-share-dialog"); }
 function splitIngestDialogEl() { return document.getElementById("split-ingest-dialog"); }
 function splitPayToDialogEl() { return document.getElementById("split-payto-dialog"); }
+function splitPaidDialogEl() { return document.getElementById("split-paid-dialog"); }
 
 function splitShowDialog(dlg) {
   if (!dlg) return;
@@ -1025,7 +1299,7 @@ function splitApplyScan(parsed) {
 
 /* ---------- share dialog ---------- */
 
-let splitShare = null; // { recordId, index, code }
+let splitShare = null; // { mode: "req"|"paid", recordId, index, code, date }
 
 async function splitOpenShare(recordId, index) {
   const rec = splitOutList().find((r) => r.id === recordId);
@@ -1033,12 +1307,106 @@ async function splitOpenShare(recordId, index) {
   const people = rec.people.filter((p) => p.status !== "cancelled");
   if (!people.length) return;
   const i = Math.max(0, Math.min(people.length - 1, Number(index) || 0));
-  splitShare = { recordId, index: i, code: "" };
+  splitShare = { mode: "req", recordId, index: i, code: "" };
   splitShowDialog(splitShareDialogEl());
   await splitRenderShare();
 }
 
+// The receipt direction: an `in` record (money YOU owe) turned into an "I've
+// paid" payload for the person who asked. Same dialog, same QR, opposite way
+// down the wire.
+async function splitOpenPaidShare(recordId, date) {
+  const rec = splitInList().find((r) => r.id === recordId);
+  if (!rec) return;
+  splitShare = {
+    mode: "paid",
+    recordId,
+    index: 0,
+    code: "",
+    date: splitIsDate(date) ? date : (splitIsDate(rec.settledDate) ? rec.settledDate : todayISO()),
+  };
+  splitShowDialog(splitShareDialogEl());
+  await splitRenderShare();
+}
+
+// The QR always carries the LINK, never the bare code: any camera app then
+// opens the public page, while Duitful's own scanner pulls the payload out of
+// the fragment.
+function splitQrHtml(link) {
+  try {
+    if (typeof qrcode !== "function") return "";
+    for (const ec of ["M", "L"]) {
+      try {
+        const candidate = qrcode(0, ec);
+        candidate.addData(link);
+        candidate.make();
+        return candidate.createSvgTag({ cellSize: 4, margin: 2, scalable: true })
+          .replace("<svg ", '<svg class="split-qr-svg" ');
+      } catch {}
+    }
+  } catch {}
+  return "";
+}
+
 async function splitRenderShare() {
+  if (splitShare && splitShare.mode === "paid") return splitRenderPaidShare();
+  return splitRenderRequestShare();
+}
+
+// "I've paid you" — name, amount, title, date. Never transfer details: a
+// receipt is not a request, and nothing about it needs an account number.
+async function splitRenderPaidShare() {
+  const body = document.getElementById("split-share-body");
+  const titleEl = document.getElementById("split-share-title");
+  if (!body || !splitShare) return;
+  const rec = splitInList().find((r) => r.id === splitShare.recordId);
+  if (!rec) return;
+
+  const s = splitState();
+  const payload = splitPaidPayload(rec, { date: splitShare.date });
+  const code = await splitEncodePayload(payload);
+  splitShare.code = code;
+  const qrHtml = splitQrHtml(splitShareLink(code));
+
+  if (titleEl) titleEl.textContent = `Confirm you paid ${rec.from}`;
+
+  const previewParts = [
+    splitText(s.me, SPLIT_NAME_MAX) || "your name (not set)",
+    fmtMoney(rec.amount),
+    `"${rec.title}"`,
+    `paid ${splitDayLabel(payload.d)}`,
+    "no transfer details",
+  ];
+
+  const nameField = splitText(s.me, SPLIT_NAME_MAX)
+    ? ""
+    : `<label class="field">
+         <span>Your name (so they know who paid)</span>
+         <input type="text" id="split-share-me" placeholder="e.g. Aydil" maxlength="${SPLIT_NAME_MAX}" />
+       </label>`;
+
+  body.innerHTML = `
+    <p class="hint split-share-sub">${escapeHtml([fmtMoney(rec.amount), rec.title, `paid ${splitDayLabel(payload.d)}`].join(" · "))}</p>
+    ${qrHtml
+      ? `<div class="split-qr-panel">${qrHtml}</div>
+         <p class="hint split-qr-note">${escapeHtml(rec.from)} scans this — Duitful asks them to confirm before anything is settled.</p>`
+      : `<p class="hint">This receipt is too long for a QR code — use the link or the code below.</p>`}
+    ${nameField}
+    <div class="split-preview">
+      <p class="split-preview-label">What leaves your phone</p>
+      <p class="split-preview-body">${escapeHtml(previewParts.join(" · "))}</p>
+    </div>
+    <p class="hint">Duitful didn't move this money and can't prove it arrived — you paid ${escapeHtml(rec.from)} in your own banking app. This just tells them so.</p>
+    <div class="form-actions split-share-actions">
+      <button type="button" class="primary" data-action="split-share-link">Send confirmation</button>
+      <div class="button-row split-share-secondary">
+        <button type="button" class="ghost" data-action="split-copy-code">Copy code</button>
+        <button type="button" class="ghost" data-action="split-share-close">Done</button>
+      </div>
+    </div>`;
+}
+
+async function splitRenderRequestShare() {
   const body = document.getElementById("split-share-body");
   const titleEl = document.getElementById("split-share-title");
   if (!body || !splitShare) return;
@@ -1059,27 +1427,7 @@ async function splitRenderShare() {
   const subParts = [fmtMoney(splitPersonRemaining(person)), rec.title];
   if (rec.dueDate) subParts.push(splitDueLabel(rec.dueDate));
 
-  // The QR carries the LINK, so any camera app opens the public request page
-  // while Duitful's own scanner reads the same payload straight out of it.
-  let qrHtml = "";
-  try {
-    if (typeof qrcode === "function") {
-      let qr = null;
-      for (const ec of ["M", "L"]) {
-        try {
-          const candidate = qrcode(0, ec);
-          candidate.addData(link);
-          candidate.make();
-          qr = candidate;
-          break;
-        } catch {}
-      }
-      if (qr) {
-        qrHtml = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true })
-          .replace("<svg ", '<svg class="split-qr-svg" ');
-      }
-    }
-  } catch {}
+  const qrHtml = splitQrHtml(link);
 
   const payRows = s.payToEnabled ? coerceSplitPayRows(s.payTo) : [];
   const previewParts = [
@@ -1127,14 +1475,25 @@ async function splitRenderShare() {
 
 async function splitDoShare() {
   if (!splitShare) return;
-  const rec = splitOutList().find((r) => r.id === splitShare.recordId);
-  if (!rec) return;
-  const person = rec.people.filter((p) => p.status !== "cancelled")[splitShare.index];
-  if (!person) return;
-  const text = splitShareText(rec, person, splitShare.code);
+  const paid = splitShare.mode === "paid";
+  let text = "";
+  let title = "";
+  if (paid) {
+    const rec = splitInList().find((r) => r.id === splitShare.recordId);
+    if (!rec) return;
+    text = splitPaidShareText(rec, splitShare.code, splitShare.date);
+    title = `Payment for ${rec.title}`;
+  } else {
+    const rec = splitOutList().find((r) => r.id === splitShare.recordId);
+    if (!rec) return;
+    const person = rec.people.filter((p) => p.status !== "cancelled")[splitShare.index];
+    if (!person) return;
+    text = splitShareText(rec, person, splitShare.code);
+    title = `Request for ${rec.title}`;
+  }
   if (navigator.share) {
     try {
-      await navigator.share({ title: `Request for ${rec.title}`, text });
+      await navigator.share({ title, text });
       return;
     } catch (err) {
       // AbortError = the user closed the sheet; anything else falls through
@@ -1143,7 +1502,55 @@ async function splitDoShare() {
     }
   }
   const ok = await splitCopyText(text);
-  toast(ok ? "Request copied — paste it to them" : "Couldn't copy — use “Copy code” instead");
+  if (ok) toast(paid ? "Confirmation copied — paste it to them" : "Request copied — paste it to them");
+  else toast("Couldn't copy — use “Copy code” instead");
+}
+
+/* ---------- settlement receipt: the confirm prompt ---------- */
+
+// Set only by splitIngestPaid, cleared the moment the prompt closes. A
+// half-answered "did Ali really pay?" is not state worth persisting.
+let splitPaidPrompt = null; // { personId, amount, date, from, claimed }
+
+function splitRenderPaidPrompt() {
+  const body = document.getElementById("split-paid-body");
+  if (!body || !splitPaidPrompt) return;
+  const found = splitFindPerson(splitPaidPrompt.personId);
+  if (!found) return;
+  const { rec, person } = found;
+  const remaining = splitPersonRemaining(person);
+  const amount = splitPaidPrompt.amount;
+  const short = splitRound2(remaining - amount);
+
+  const meta = [rec.title, `paid ${splitDayLabel(splitPaidPrompt.date)}`];
+  if (short > 0) meta.push(`${fmtMoney(short)} of ${fmtMoney(remaining)} would still be owed`);
+
+  body.innerHTML = `
+    <div class="split-paid-summary">
+      <span class="split-paid-name">${escapeHtml(splitPaidPrompt.from)}</span>
+      <span class="split-paid-amount">${fmtMoney(amount)}</span>
+    </div>
+    <p class="split-paid-meta">${escapeHtml(meta.join(" · "))}</p>
+    <p class="hint">This is ${escapeHtml(splitPaidPrompt.from)}'s word, not a bank confirmation. Check the money actually landed before you settle — nothing is recorded until you do.</p>
+    <div class="form-actions">
+      <button type="button" class="ghost" data-action="split-paid-dismiss">Not yet</button>
+      <button type="button" class="primary" data-action="split-paid-confirm">Confirm &amp; settle</button>
+    </div>`;
+}
+
+// The tap that ends the receipt flow. Books the repayment exactly like a
+// hand-recorded one — same income row, same maths, same audit trail.
+function splitConfirmPaid() {
+  if (!splitPaidPrompt) return;
+  const { personId, amount, date } = splitPaidPrompt;
+  const res = splitSettleFromPayment(personId, amount, date);
+  splitPaidPrompt = null;
+  splitCloseDialog(splitPaidDialogEl());
+  if (typeof renderAll === "function") renderAll();
+  if (!res) { toast("That request is no longer open."); return; }
+  toast(res.settled
+    ? `${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`
+    : `${fmtMoney(res.amount)} recorded · ${fmtMoney(res.remaining)} still owed`);
 }
 
 /* ---------- "How to pay me" ---------- */
@@ -1256,8 +1663,10 @@ async function splitHandleScanned(text) {
   splitStopCamera();
   try {
     const res = await splitIngestCode(text);
+    // Closed before the toast: a receipt opens its own confirm dialog, and
+    // two stacked modals is one modal too many.
     splitCloseDialog(splitIngestDialogEl());
-    toast(res.duplicate ? "Already added" : `Request added: ${res.record.from} · ${fmtMoney(res.record.amount)}`);
+    splitIngestToast(res);
   } catch (err) {
     splitIngestStatus(splitErrorMessage(err), true);
   }
@@ -1404,6 +1813,7 @@ function splitPanelHtml(kind, id, person, rec) {
         <div class="button-row">
           <button type="button" class="primary" data-action="split-settle-log" data-id="${id}">Settle &amp; log expense</button>
           <button type="button" class="ghost" data-action="split-settle-plain" data-id="${id}">Settle only</button>
+          <button type="button" class="ghost" data-action="split-settle-receipt" data-id="${id}">Settle &amp; send receipt</button>
         </div>
         <p class="hint">Duitful never moved this money — you paid ${escapeHtml(rec.from)} in your own banking app. This just records it.</p>
       </div>`;
@@ -1452,6 +1862,7 @@ function splitInRowHtml(rec) {
       ${splitPayRowsHtml(rec.pay)}
       <div class="split-actions">
         <button type="button" class="ghost" data-action="split-panel" data-panel="settle" data-id="${rec.id}">Settle</button>
+        <button type="button" class="ghost" data-action="split-paid-share" data-id="${rec.id}">I've paid — tell them</button>
         <button type="button" class="ghost icon-btn split-cancel" data-action="split-decline" data-id="${rec.id}" aria-label="Decline request from ${escapeHtml(rec.from)}" title="Decline this request">✕</button>
       </div>
       ${splitPanelHtml("in", rec.id, null, rec)}
@@ -1587,6 +1998,13 @@ document.addEventListener("click", (e) => {
   } else if (action === "split-share-close") {
     splitCloseDialog(splitShareDialogEl());
     splitShare = null;
+  } else if (action === "split-paid-share") {
+    splitOpenPaidShare(id);
+  } else if (action === "split-paid-confirm") {
+    splitConfirmPaid();
+  } else if (action === "split-paid-dismiss") {
+    splitPaidPrompt = null;
+    splitCloseDialog(splitPaidDialogEl());
   } else if (action === "split-payto-open") {
     splitRenderPayTo();
     splitShowDialog(splitPayToDialogEl());
@@ -1662,16 +2080,25 @@ document.addEventListener("click", (e) => {
     splitCancelPerson(id);
     splitOpenPanel = null;
     if (typeof renderAll === "function") renderAll();
-  } else if (action === "split-settle-log" || action === "split-settle-plain") {
+  } else if (action === "split-settle-log" || action === "split-settle-plain" || action === "split-settle-receipt") {
     const catEl = splitPanelInput(id, "settle-category");
     const dateEl = splitPanelInput(id, "settle-date");
+    const when = dateEl && dateEl.value;
     const res = splitSettleIncoming(id, {
-      logExpense: action === "split-settle-log",
+      // The receipt path logs the expense too — you paid the money either
+      // way; the only difference is that they get told.
+      logExpense: action !== "split-settle-plain",
       category: catEl && catEl.value,
-      date: dateEl && dateEl.value,
+      date: when,
     });
     splitOpenPanel = null;
     if (typeof renderAll === "function") renderAll();
+    if (res && action === "split-settle-receipt") {
+      // Settled records leave the you-owe list, so the receipt has to be
+      // offered now — this is the last moment the record is on screen.
+      splitOpenPaidShare(id, res.record.settledDate);
+      return;
+    }
     if (res) toast(res.expense ? "Settled and logged as spending" : "Settled");
   } else if (action === "split-decline") {
     const rec = splitInList().find((r) => r.id === id);
@@ -1734,12 +2161,15 @@ document.getElementById("split-image-input")?.addEventListener("change", async (
   }
 });
 
-for (const dlgId of ["split-compose-dialog", "split-share-dialog", "split-ingest-dialog", "split-payto-dialog"]) {
+for (const dlgId of ["split-compose-dialog", "split-share-dialog", "split-ingest-dialog", "split-payto-dialog", "split-paid-dialog"]) {
   const dlg = document.getElementById(dlgId);
   if (!dlg) continue;
   dlg.addEventListener("close", () => {
     if (dlgId === "split-ingest-dialog") splitStopCamera();
     if (dlgId === "split-compose-dialog") splitCompose = null;
+    // Escape out of the receipt prompt is a "no" like any other: the
+    // repayment is never applied unless the confirm button was pressed.
+    if (dlgId === "split-paid-dialog") splitPaidPrompt = null;
   });
 }
 

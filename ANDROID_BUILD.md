@@ -133,8 +133,71 @@ delete the `<service>` block in `AndroidManifest.xml` and the
 sync — comment out the `native:notification-listener` step in `package.json`'s
 `cap:sync` script to opt out permanently.
 
+Since v1.14 the same listener also parses **incoming** MYR transfers and,
+when the amount matches an open bill-split request, offers a one-tap
+"RM 23.50 received — settle Ali's share?" pending action. It never settles
+anything on its own, and a credit that matches nothing is discarded.
+
 Full details + manual fallback steps live in
 [`native/notification-listener/README.md`](native/notification-listener/README.md).
+
+## Android App Links for /split (bill splitting)
+
+A shared request travels as `https://duitful.app/split#<payload>`. With App
+Links verified, tapping that link in WhatsApp opens **Duitful** directly
+instead of a browser tab; the payload still lives in the URL fragment and is
+still decoded on-device.
+
+Two halves, and both must line up:
+
+1. **Manifest** — `npm run cap:sync` chains
+   `scripts/patch-android-applinks.mjs`, which inserts an
+   `android:autoVerify="true"` intent filter for `duitful.app/split` and
+   `www.duitful.app/split` into `MainActivity`'s `<activity>` block.
+   Idempotent, like the camera/biometric patches. Nothing to do by hand.
+2. **Website** — `/.well-known/assetlinks.json` in this repo, served by
+   GitHub Pages at
+   <https://duitful.app/.well-known/assetlinks.json>. **It ships with a
+   placeholder fingerprint and must be filled in before links will open the
+   app.**
+
+### Filling in the fingerprint (do this once, after the first Play upload)
+
+Play re-signs every release with its own key, so the fingerprint you need is
+the **App signing key**, not your upload key:
+
+1. Play Console → app → **Test and release → Setup → App signing**
+2. Copy the **SHA-256 certificate fingerprint** under *App signing key
+   certificate* (colon-separated uppercase hex, e.g. `AB:CD:…:12`)
+3. Open `.well-known/assetlinks.json` and replace
+   `TODO_REPLACE_WITH_PLAY_APP_SIGNING_SHA256_FINGERPRINT` with it
+4. Commit and push to `main` — Pages redeploys and Android re-verifies on the
+   next install/update
+
+Sideloading your own debug builds? Add the debug fingerprint as a *second*
+string in the same array:
+
+```bash
+keytool -list -v -keystore ~/.android/debug.keystore \
+  -alias androiddebugkey -storepass android -keypass android
+```
+
+### Verifying on a device
+
+```bash
+curl -s https://duitful.app/.well-known/assetlinks.json   # 200, valid JSON
+adb shell pm get-app-links com.aydiljoe.duitful           # want: duitful.app -> verified
+adb shell am start -a android.intent.action.VIEW \
+  -d "https://duitful.app/split#DFS1.example"             # should open Duitful
+```
+
+Until verification passes, links open in the browser and the /split page's
+"I have Duitful" hand-off still works — the fallback is the pre-App-Links
+behaviour, so nothing breaks while the fingerprint is missing.
+
+The web deploy needs no special handling: the Pages workflow uploads the
+whole repo (`path: .`), dotfiles included, and neither `build:web` nor the
+Vercel build touches `.well-known/`. See `.well-known/README.md`.
 
 ## Create a signing keystore (once, forever)
 
