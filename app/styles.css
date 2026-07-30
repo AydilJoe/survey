@@ -260,7 +260,10 @@ input[type="checkbox"], input[type="radio"] {
   border-radius: 12px;
   padding: 0.55rem 0.75rem;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  /* minmax(0,…): a bare 1fr's implicit minimum is the unwrapped text width,
+     which lets a long split title push the amount clean out of the card
+     instead of letting .up-name's ellipsis engage. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.65rem;
   cursor: pointer;
@@ -287,6 +290,7 @@ input[type="checkbox"], input[type="radio"] {
 .upcoming-list .up-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .upcoming-list .up-sub  { color: var(--muted); font-size: 0.75rem; font-family: var(--font-mono); }
 .upcoming-list .up-amount {
+  white-space: nowrap;
   font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
@@ -298,7 +302,7 @@ input[type="checkbox"], input[type="radio"] {
 .upcoming-list .up-amount.pos { color: var(--gain); }
 /* Overdue receivables carry a re-share shortcut, so they need a fourth
    column; every other row keeps the original three. */
-.upcoming-list li.up-overdue { grid-template-columns: auto 1fr auto auto; }
+.upcoming-list li.up-overdue { grid-template-columns: auto minmax(0, 1fr) auto auto; }
 .upcoming-list .up-remind { padding: 0.35rem 0.6rem; font-size: 0.78rem; }
 
 /* Splash */
