@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=75" />
+    <link rel="stylesheet" href="styles.css?v=76" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -218,6 +218,10 @@
             </span>
             <span class="debt-glance-meta" id="hero-debt-glance-meta">— debts · debt-free —</span>
           </button>
+          <!-- One line, and only while open requests exist. Receivables are
+               deliberately kept out of the debt maths above — no APR, no
+               avalanche. See split.js / renderSplit(). -->
+          <p class="split-dash-line" id="split-dash-line" data-go-tab="debts" hidden></p>
           <details class="hero-formula-details">
             <summary>How is this calculated?</summary>
             <span class="hero-formula" id="stat-net-formula"></span>
@@ -315,6 +319,10 @@
               <span>Note (optional)</span>
               <input type="text" name="note" placeholder="Lunch at mamak" />
             </label>
+            <div class="button-row split-entry-row">
+              <button type="button" class="ghost" data-action="split-compose" data-split-prefill="daily-form">Split this / request money</button>
+              <button type="button" class="ghost" data-action="split-ingest">Add a request</button>
+            </div>
             </div>
             <button type="submit" class="primary big">Add entry</button>
           </form>
@@ -728,6 +736,32 @@
             <span class="day-chip today">8</span> = due today
           </p>
           <ul id="list-debt" class="debt-list"></ul>
+        </div>
+
+        <!-- Split / request surfaces. Both cards stay hidden until there is
+             something open — a user who never splits a bill sees only the
+             two action buttons below. -->
+        <div class="card split-card" id="split-owed-card" hidden>
+          <div class="card-head">
+            <h2>Owed to you</h2>
+            <span class="mini-stats" id="split-owed-sub"></span>
+          </div>
+          <div id="split-owed-list" class="split-list"></div>
+          <p class="hint">Receivables, not debt — they never touch your payoff plan or weighted rate.</p>
+        </div>
+
+        <div class="card split-card" id="split-owe-card" hidden>
+          <div class="card-head">
+            <h2>You owe</h2>
+            <span class="mini-stats" id="split-owe-sub"></span>
+          </div>
+          <div id="split-owe-list" class="split-list"></div>
+          <p class="hint">Pay in your own banking app, then settle here. Duitful never moves money.</p>
+        </div>
+
+        <div class="split-entry-row">
+          <button type="button" class="ghost" data-action="split-compose">Split a bill or request money</button>
+          <button type="button" class="ghost" data-action="split-ingest">Add a request</button>
         </div>
       </section>
 
@@ -1629,8 +1663,62 @@
         </div>
         <div class="button-row">
           <button type="button" class="ghost" id="scan-cancel">Close</button>
+          <button type="button" class="ghost" data-action="split-ingest">Scanning a request QR?</button>
           <button type="button" class="primary" id="scan-apply" hidden>Use these values</button>
         </div>
+      </form>
+    </dialog>
+
+    <!-- Split &amp; request: compose (three modes), share (QR + link),
+         ingest (paste / camera) and the "How to pay me" profile. The bodies
+         are rendered by split.js; only the shells live here. -->
+    <dialog id="split-compose-dialog" class="edit-dialog split-dialog">
+      <form method="dialog">
+        <h2>Split &amp; request</h2>
+        <div class="type-pills split-mode-pills" role="radiogroup" aria-label="Request type">
+          <button type="button" class="pill active" data-split-mode="split" role="radio" aria-checked="true">Split a bill</button>
+          <button type="button" class="pill" data-split-mode="request" role="radio" aria-checked="false">Request money</button>
+          <button type="button" class="pill" data-split-mode="loan" role="radio" aria-checked="false">Lent money</button>
+        </div>
+        <div id="split-compose-body"></div>
+      </form>
+    </dialog>
+
+    <dialog id="split-share-dialog" class="edit-dialog split-dialog">
+      <form method="dialog">
+        <h2 id="split-share-title">Share request</h2>
+        <div id="split-share-body"></div>
+      </form>
+    </dialog>
+
+    <dialog id="split-ingest-dialog" class="edit-dialog split-dialog">
+      <form method="dialog">
+        <h2>Add a request</h2>
+        <p class="hint">Someone sent you a Duitful request? Paste the code, or scan their QR. It decodes on this device — nothing is sent anywhere.</p>
+        <label class="field">
+          <span>Request code</span>
+          <textarea id="split-ingest-code" rows="3" placeholder="DFS1.…" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+        </label>
+        <div class="button-row">
+          <button type="button" class="primary" data-action="split-ingest-paste">Add request</button>
+          <button type="button" class="ghost" data-action="split-ingest-camera">Scan QR</button>
+          <button type="button" class="ghost" data-action="split-ingest-image">Pick a photo</button>
+        </div>
+        <div id="split-camera-wrap" class="split-camera-wrap" hidden>
+          <video id="split-camera" playsinline muted></video>
+        </div>
+        <input type="file" id="split-image-input" accept="image/*" hidden />
+        <p id="split-ingest-status" class="hint" hidden></p>
+        <div class="button-row">
+          <button type="button" class="ghost" data-action="split-ingest-close">Close</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="split-payto-dialog" class="edit-dialog split-dialog">
+      <form method="dialog">
+        <h2>How to pay me</h2>
+        <div id="split-payto-body"></div>
       </form>
     </dialog>
 
@@ -1805,6 +1893,13 @@
     <script src="drive-config.js?v=1"></script>
     <script src="drive-sync.js?v=1"></script>
     <script src="investments.js?v=3"></script>
-    <script src="script.js?v=101"></script>
+    <!-- QR encoder (MIT, vendored). Needed on every share dialog, so it
+         loads with the shell. The jsQR DECODER is ~250 KB and only used
+         when a camera or an image is involved, so split.js injects it on
+         demand (see splitEnsureJsQR) — the service worker precaches it, so
+         scanning still works offline. -->
+    <script src="vendor/qr/qrcode.js?v=1"></script>
+    <script src="split.js?v=1"></script>
+    <script src="script.js?v=102"></script>
   </body>
 </html>

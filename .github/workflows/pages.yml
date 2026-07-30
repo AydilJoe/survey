@@ -28,8 +28,11 @@ jobs:
       - name: Self-host Tesseract under /app/
         run: |
           node scripts/fetch-tesseract.mjs
-          mkdir -p app
-          cp -R vendor app/
+          mkdir -p app/vendor
+          # Copy the CONTENTS, not the directory: app/vendor/ now exists in
+          # the checkout (it holds the tracked QR libraries), and `cp -R
+          # vendor app/` would nest it as app/vendor/vendor/tesseract.
+          cp -R vendor/. app/vendor/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

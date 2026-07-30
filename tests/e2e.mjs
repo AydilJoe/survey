@@ -455,7 +455,8 @@ const invRt = await S(() => {
     // Pre-investments exports must still import — drop every inv row and header column.
     legacy: (() => {
       const lines = csv.split('\n').filter(l => !/^(investment|valuation|inv-flow|inv-dividend),/.test(l));
-      const trimmed = lines.map(l => l.replace(/(,"[^"]*"|,[^,]*){8}$/, '')).join('\n');
+      // 8 inv_ columns + 7 split_ columns back off to a pre-investments export.
+      const trimmed = lines.map(l => l.replace(/(,"[^"]*"|,[^,]*){15}$/, '')).join('\n');
       const old = fromCSV(trimmed);
       return { debts: old.debts.length, investments: old.investments.length };
     })(),
@@ -463,7 +464,7 @@ const invRt = await S(() => {
 });
 check('csv header keeps the old columns and appends the inv_ block',
   invRt.header.startsWith('type,name,amount,balance,apr,minPayment,date')
-  && invRt.header.endsWith('inv_kind,inv_account,inv_units,inv_unit_price,inv_cost_basis,inv_zakatable,inv_expected_return,inv_reinvested'),
+  && invRt.header.includes('inv_kind,inv_account,inv_units,inv_unit_price,inv_cost_basis,inv_zakatable,inv_expected_return,inv_reinvested'),
   invRt.header);
 check('csv emits all four investment row types', invRt.hasRows);
 check('holdings round-trip', invRt.count === 3, String(invRt.count));
@@ -1025,6 +1026,558 @@ check('biometric lock button stays hidden on web', bioSurface.btnHidden === true
   JSON.stringify(bioSurface));
 check('biometric settings row stays hidden on web and no flag is written',
   bioSurface.rowHidden === true && bioSurface.flag === null, JSON.stringify(bioSurface));
+
+/* ── 11. Bill splitting & payment requests (v1.13) ─────────────────────
+   Transport is state-passing: the request is JSON that travels inside a QR
+   or a URL fragment. Nothing here contacts a server, and splitting is free
+   for everyone — no gate() may appear in any of these paths.
+
+   Every date below is derived from Date.now(), so the reminder-window and
+   ageing assertions hold whenever the suite runs. */
+
+// Known-empty split state (and income ledger) so the zero-clutter and
+// "an income row was logged" assertions are exact rather than relative.
+await S(() => { state.split = emptySplit(); state.income = []; save(); renderAll(); });
+await page.click('#tabbtn-debts');
+await page.waitForTimeout(300);
+const zeroClutter = await S(() => ({
+  owed: document.getElementById('split-owed-card').hidden,
+  owe: document.getElementById('split-owe-card').hidden,
+  dash: document.getElementById('split-dash-line').hidden,
+  debtsText: document.getElementById('tab-debts').innerText,
+}));
+check('zero open requests → no owed card, no you-owe card, no dashboard line',
+  zeroClutter.owed === true && zeroClutter.owe === true && zeroClutter.dash === true,
+  JSON.stringify({ owed: zeroClutter.owed, owe: zeroClutter.owe, dash: zeroClutter.dash }));
+check('zero open requests renders no owed/you-owe wording at all',
+  !/Owed to you|You owe/i.test(zeroClutter.debtsText),
+  zeroClutter.debtsText.replace(/\n/g, ' | ').slice(0, 140));
+
+// --- payload: the app's own encoder against a hand-rolled decode ---
+const payloadRt = await S(async () => {
+  const src = { v: 1, t: 'req', id: 'rt-1', fr: 'Aydil', ti: 'Dinner @ Naz', d: '2026-01-02', a: 23.5, c: 'MYR' };
+  const code = await splitEncodePayload(src);
+  const m = /^DFS(\d+)(u?)\.(.+)$/.exec(code);
+  let b64 = m[3].replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  const bin = atob(b64);
+  let bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  if (!m[2]) {
+    bytes = new Uint8Array(await new Response(
+      new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')),
+    ).arrayBuffer());
+  }
+  return {
+    prefix: `DFS${m[1]}${m[2]}.`,
+    hand: JSON.stringify(JSON.parse(new TextDecoder().decode(bytes))),
+    src: JSON.stringify(src),
+    viaApp: JSON.stringify(await splitDecodePayload(code)),
+    urlSafe: !/[+/=]/.test(m[3]),
+  };
+});
+check('encoder emits the DFS1. prefix the /split page decoder expects',
+  payloadRt.prefix === 'DFS1.', payloadRt.prefix);
+check('payload body is url-safe base64 (survives a URL fragment)', payloadRt.urlSafe);
+check('hand-decoding the app\'s payload reproduces it field for field',
+  payloadRt.hand === payloadRt.src, `${payloadRt.hand} vs ${payloadRt.src}`);
+check('the app\'s own decoder round-trips its own encoder',
+  payloadRt.viaApp === payloadRt.src, payloadRt.viaApp);
+
+const rejects = await S(async () => {
+  const good = await splitEncodePayload({ v: 1, t: 'req', id: 'x', ti: 't', d: '2026-01-01', a: 10, c: 'MYR' });
+  const grab = async (code) => {
+    try { await splitDecodePayload(code); return 'accepted'; } catch (e) { return e.code || 'threw'; }
+  };
+  return {
+    v2: await grab(good.replace(/^DFS1\./, 'DFS2.')),
+    truncated: await grab(good.slice(0, good.length - 8)),
+    corrupted: await grab(`${good.slice(0, 12)}AAAA${good.slice(16)}`),
+    junk: await grab('just some text someone pasted'),
+    empty: await grab(''),
+    paid: await grab(await splitEncodePayload({ v: 1, t: 'paid', id: 'p', ti: 't', d: '2026-01-01', a: 10, c: 'MYR' })),
+    foreign: await grab(await splitEncodePayload({ v: 1, t: 'req', id: 'f', ti: 't', d: '2026-01-01', a: 10, c: 'SGD' })),
+    friendlyVersion: splitErrorMessage({ code: 'version' }),
+    friendlyDamaged: splitErrorMessage({ code: 'damaged' }),
+  };
+});
+check('a DFS2 payload is refused on the prefix, before any field is read',
+  rejects.v2 === 'version', rejects.v2);
+check('tampered / truncated payloads fail gracefully instead of throwing raw',
+  rejects.truncated === 'damaged' && rejects.corrupted === 'damaged',
+  JSON.stringify({ t: rejects.truncated, c: rejects.corrupted }));
+check('non-Duitful text is recognised as not-a-request',
+  rejects.junk === 'not-duitful' && rejects.empty === 'not-duitful',
+  JSON.stringify([rejects.junk, rejects.empty]));
+check('a settlement receipt is named as such, not called corrupt', rejects.paid === 'paid', rejects.paid);
+check('a non-MYR request is politely refused', rejects.foreign === 'currency', rejects.foreign);
+check('every rejection has a human message',
+  /Update the app/.test(rejects.friendlyVersion) && /damaged/.test(rejects.friendlyDamaged),
+  rejects.friendlyVersion);
+
+// --- the vendored encoder and decoder agree, end to end ---
+// A live camera can't run headless, but the pixels can: render the QR the
+// share dialog would show, then read it back with the same jsQR build the
+// scanner uses. That covers everything except the video element itself.
+const qrLoop = await S(async () => {
+  const code = await splitEncodePayload({
+    v: 1, t: 'req', id: 'qr-1', fr: 'Ali', ti: 'Test', d: todayISO(), a: 12.5, c: 'MYR',
+  });
+  await splitEnsureJsQR();
+  const qr = qrcode(0, 'M');
+  qr.addData(splitShareLink(code));
+  qr.make();
+  const size = qr.getModuleCount();
+  const scale = 6;
+  const margin = 4 * scale;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size * scale + margin * 2;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (qr.isDark(r, c)) ctx.fillRect(margin + c * scale, margin + r * scale, scale, scale);
+    }
+  }
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const found = window.jsQR(img.data, img.width, img.height);
+  const scanned = found ? splitCodeFromScanned(found.data) : null;
+  return {
+    lazyLoaded: typeof window.jsQR === 'function',
+    matched: scanned === code,
+    payload: scanned ? await splitDecodePayload(scanned) : null,
+  };
+});
+check('jsQR is injected on demand rather than blocking every cold start',
+  qrLoop.lazyLoaded === true);
+check('a rendered QR scans back into the exact same payload',
+  qrLoop.matched === true && qrLoop.payload && Math.abs(qrLoop.payload.a - 12.5) < 0.001
+  && qrLoop.payload.fr === 'Ali',
+  JSON.stringify(qrLoop.payload));
+
+// --- ingest is idempotent by payload id ---
+const dupIngest = await S(async () => {
+  const code = await splitEncodePayload({
+    v: 1, t: 'req', id: 'dup-1', fr: 'Ali', ti: 'Grab ride', d: todayISO(), a: 18.4, c: 'MYR',
+  });
+  const first = await splitIngestCode(code);
+  const second = await splitIngestCode(code);
+  return {
+    first: first.duplicate, second: second.duplicate,
+    matching: state.split.in.filter((r) => r.id === 'dup-1').length,
+    amount: state.split.in.find((r) => r.id === 'dup-1').amount,
+    from: state.split.in.find((r) => r.id === 'dup-1').from,
+  };
+});
+check('the same request arriving twice creates exactly one record',
+  dupIngest.first === false && dupIngest.second === true && dupIngest.matching === 1,
+  JSON.stringify(dupIngest));
+check('the ingested record carries the requester and amount',
+  dupIngest.from === 'Ali' && Math.abs(dupIngest.amount - 18.4) < 0.001, JSON.stringify(dupIngest));
+
+// --- compose from a monthly expense: the expense is never rewritten ---
+await page.click('#tabbtn-flow');
+await page.fill('#form-expense [name="name"]', 'Dinner @ Naz');
+await page.fill('#form-expense [name="amount"]', '94');
+await page.fill('#form-expense [name="day"]', '12');
+await page.click('#form-expense button[type="submit"]');
+await page.waitForTimeout(400);
+const expenseId = await S(() => state.expenses.find((x) => x.name === 'Dinner @ Naz').id);
+check('every expense row offers a split action',
+  await page.locator(`#list-expense [data-action="split-expense"][data-id="${expenseId}"]`).count() === 1);
+await page.click(`#list-expense [data-action="split-expense"][data-id="${expenseId}"]`);
+await page.waitForTimeout(300);
+check('the composer opens with the bill total prefilled from the expense',
+  await page.locator('#split-compose-dialog').evaluate((e) => e.open)
+  && (await page.locator('#split-compose-body [name="total"]').inputValue()) === '94.00',
+  await page.locator('#split-compose-body [name="total"]').inputValue());
+await page.click('[data-action="split-person-add"]');
+await page.click('[data-action="split-person-add"]');
+await page.waitForTimeout(200);
+const personRows = page.locator('#split-compose-body [data-split-person]');
+await personRows.nth(0).locator('[data-person-name]').fill('Ali');
+await personRows.nth(1).locator('[data-person-name]').fill('Mei Ling');
+await personRows.nth(2).locator('[data-person-name]').fill('Kumar');
+await page.click('[data-action="split-equally"]');
+await page.waitForTimeout(250);
+check('split equally divides among the people PLUS you (94 ÷ 4 = 23.50)',
+  JSON.stringify(await page.locator('#split-compose-body [data-person-amount]').evaluateAll((e) => e.map((x) => x.value)))
+  === JSON.stringify(['23.50', '23.50', '23.50']),
+  JSON.stringify(await page.locator('#split-compose-body [data-person-amount]').evaluateAll((e) => e.map((x) => x.value))));
+check('your own share is shown as the remainder',
+  /Your share:\s*RM\s*23\.50/.test(await page.locator('#split-compose-hint').innerText()),
+  await page.locator('#split-compose-hint').innerText());
+await page.click('[data-action="split-compose-save"]');
+await page.waitForTimeout(600);
+const composed = await S((id) => {
+  const rec = state.split.out.find((r) => r.expenseId === id);
+  const expense = state.expenses.find((x) => x.id === id);
+  return {
+    rec, expenseAmount: expense.amount, expenseName: expense.name,
+    shareOpen: document.getElementById('split-share-dialog').open,
+    shareTitle: document.getElementById('split-share-title').textContent,
+    qr: document.querySelectorAll('#split-share-body .split-qr-svg').length,
+  };
+}, expenseId);
+check('the split links the expense but leaves it at exactly what you paid',
+  composed.expenseAmount === 94 && composed.expenseName === 'Dinner @ Naz'
+  && composed.rec && composed.rec.expenseId === expenseId, JSON.stringify(composed.rec));
+check('one out record with three open people at 23.50 each',
+  composed.rec.people.length === 3
+  && composed.rec.people.every((p) => p.status === 'open' && Math.abs(p.amount - 23.5) < 0.001)
+  && composed.rec.kind === 'split' && Math.abs(composed.rec.total - 94) < 0.001,
+  JSON.stringify(composed.rec.people));
+check('the share dialog opens on the first person with a real QR',
+  composed.shareOpen === true && /Ali/.test(composed.shareTitle) && composed.qr === 1,
+  JSON.stringify({ open: composed.shareOpen, title: composed.shareTitle, qr: composed.qr }));
+check('the share preview always states what leaves the device',
+  /RM\s*23\.50/.test(await page.locator('.split-preview-body').innerText())
+  && /no transfer details/.test(await page.locator('.split-preview-body').innerText()),
+  await page.locator('.split-preview-body').innerText());
+await page.click('[data-action="split-share-next"]');
+await page.waitForTimeout(400);
+check('"Next person" walks the rest of the bill',
+  /Mei Ling/.test(await page.locator('#split-share-title').innerText()),
+  await page.locator('#split-share-title').innerText());
+await page.click('[data-action="split-share-close"]');
+await page.waitForTimeout(200);
+
+// --- standalone request (no expense behind it) ---
+await page.click('#tabbtn-debts');
+await page.click('#tab-debts [data-action="split-compose"]');
+await page.waitForTimeout(300);
+await page.click('#split-compose-dialog .pill[data-split-mode="request"]');
+await page.waitForTimeout(200);
+await page.fill('#split-compose-body [name="person"]', 'Farid');
+await page.fill('#split-compose-body [name="title"]', 'Concert ticket');
+await page.fill('#split-compose-body [name="amount"]', '150');
+await page.click('[data-action="split-compose-save"]');
+await page.waitForTimeout(500);
+await page.click('[data-action="split-share-close"]').catch(() => {});
+await page.waitForTimeout(200);
+const standalone = await S(() => state.split.out.find((r) => r.title === 'Concert ticket'));
+check('a standalone request is a one-person out record with no expense link',
+  standalone && standalone.people.length === 1 && standalone.people[0].name === 'Farid'
+  && Math.abs(standalone.people[0].amount - 150) < 0.001 && standalone.expenseId === '',
+  JSON.stringify(standalone));
+
+// --- lending: due date, reminders window, partial repayment ---
+const dueSoonISO = await S(() => {
+  const d = new Date(Date.now() + 2 * 86400000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+});
+const dueFarISO = await S(() => {
+  const d = new Date(Date.now() + 20 * 86400000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+});
+await page.click('#tab-debts [data-action="split-compose"]');
+await page.waitForTimeout(300);
+await page.click('#split-compose-dialog .pill[data-split-mode="loan"]');
+await page.waitForTimeout(200);
+await page.fill('#split-compose-body [name="person"]', 'Adik');
+await page.fill('#split-compose-body [name="amount"]', '500');
+await page.fill('#split-compose-body [name="dueDate"]', dueSoonISO);
+await page.fill('#split-compose-body [name="note"]', 'Until gaji day');
+await page.click('[data-action="split-compose-save"]');
+await page.waitForTimeout(500);
+const loan = await S(() => state.split.out.find((r) => r.kind === 'loan'));
+check('a loan is a first-class record: kind, due date, note, one person',
+  loan && loan.kind === 'loan' && loan.dueDate && loan.note === 'Until gaji day'
+  && loan.people.length === 1 && Math.abs(loan.people[0].amount - 500) < 0.001,
+  JSON.stringify(loan));
+check('recording a loan does not force a share — no share dialog opens',
+  await page.locator('#split-share-dialog').evaluate((e) => !e.open));
+
+const loanPersonId = loan.people[0].id;
+const window3 = await S(() => {
+  state.reminders.daysAhead = 3;
+  save(); renderAll();
+  return {
+    items: upcomingReminders(3).filter((i) => i.kind === 'split'),
+    cardHidden: document.getElementById('upcoming-card').hidden,
+    listText: document.getElementById('upcoming-list').innerText,
+  };
+});
+check('a loan due in 2 days joins the upcoming window on the LENDER\'s side',
+  window3.items.length === 1 && window3.items[0].name === 'Adik'
+  && Math.abs(window3.items[0].amount - 500) < 0.001 && window3.items[0].delta === 2,
+  JSON.stringify(window3.items));
+check('the upcoming card renders it as owed to you, not as a bill',
+  window3.cardHidden === false && /Adik/.test(window3.listText) && /Owed to you/.test(window3.listText),
+  window3.listText.replace(/\n/g, ' | ').slice(0, 140));
+const windowOut = await S((iso) => {
+  const rec = state.split.out.find((r) => r.kind === 'loan');
+  rec.dueDate = iso;
+  save(); renderAll();
+  return upcomingReminders(3).filter((i) => i.kind === 'split').length;
+}, dueFarISO);
+check('the same loan due in 20 days stays out of a 3-day window', windowOut === 0, String(windowOut));
+await S((iso) => {
+  state.split.out.find((r) => r.kind === 'loan').dueDate = iso;
+  save(); renderAll();
+}, dueSoonISO);
+
+// Partial repayment through the UI panel: 500 − 300 → 200 still open.
+await page.click('#tabbtn-debts');
+await page.waitForTimeout(300);
+await page.click(`button[data-action="split-panel"][data-panel="repay"][data-id="${loanPersonId}"]`);
+await page.waitForTimeout(250);
+check('the repayment panel defaults to the full remainder (one tap to settle)',
+  (await page.locator(`[data-split-input="repay"][data-id="${loanPersonId}"]`).inputValue()) === '500.00',
+  await page.locator(`[data-split-input="repay"][data-id="${loanPersonId}"]`).inputValue());
+await page.fill(`[data-split-input="repay"][data-id="${loanPersonId}"]`, '300');
+await page.click(`button[data-action="split-repay-save"][data-id="${loanPersonId}"]`);
+await page.waitForTimeout(500);
+const partial = await S((pid) => {
+  const rec = state.split.out.find((r) => r.kind === 'loan');
+  const person = rec.people.find((p) => p.id === pid);
+  return {
+    remaining: splitPersonRemaining(person),
+    status: person.status,
+    repayments: person.repayments,
+    income: state.income.filter((i) => i.category === 'Split repayment'),
+    rowText: document.getElementById('split-owed-list').innerText,
+  };
+}, loanPersonId);
+check('500 − 300 leaves 200 outstanding and the record still open',
+  Math.abs(partial.remaining - 200) < 0.001 && partial.status === 'open'
+  && partial.repayments.length === 1 && Math.abs(partial.repayments[0].amount - 300) < 0.001,
+  JSON.stringify(partial.repayments));
+check('the repayment is booked as an income row, not as a smaller expense',
+  partial.income.length === 1 && Math.abs(partial.income[0].amount - 300) < 0.001
+  && /Adik/.test(partial.income[0].name) && partial.income[0].repeatNext === false,
+  JSON.stringify(partial.income));
+check('the row shows remaining against the original',
+  /200\.00 of RM\s*500\.00 left/.test(partial.rowText.replace(/\n/g, ' ')),
+  partial.rowText.replace(/\n/g, ' | ').slice(0, 160));
+
+// Re-sharing after a partial repayment must carry the CURRENT remaining.
+const reshare = await S(async (pid) => {
+  const rec = state.split.out.find((r) => r.kind === 'loan');
+  const person = rec.people.find((p) => p.id === pid);
+  const payload = splitRequestPayload(rec, person);
+  return { a: payload.a, dd: payload.dd, decoded: await splitDecodePayload(await splitEncodePayload(payload)) };
+}, loanPersonId);
+check('a re-shared payload carries the remaining 200, not the original 500',
+  Math.abs(reshare.a - 200) < 0.001 && Math.abs(reshare.decoded.a - 200) < 0.001, String(reshare.a));
+check('the loan\'s due date rides the payload as dd', reshare.dd === dueSoonISO, String(reshare.dd));
+
+// --- transfer details: opt-in, structured, per-row ---
+const payOff = await S((pid) => {
+  const s = splitState();
+  s.me = 'Aydil';
+  s.payTo = [{ label: 'DuitNow', value: '012-3456789' }, { label: 'Maybank', value: '512345678901' }];
+  s.payToEnabled = false;
+  save();
+  const rec = state.split.out.find((r) => r.kind === 'loan');
+  return splitRequestPayload(rec, rec.people.find((p) => p.id === pid));
+}, loanPersonId);
+check('transfer details never ride along while the master toggle is off',
+  payOff.pay === undefined && payOff.fr === 'Aydil', JSON.stringify(payOff));
+const payOn = await S(async (pid) => {
+  splitState().payToEnabled = true;
+  save();
+  const rec = state.split.out.find((r) => r.kind === 'loan');
+  const payload = splitRequestPayload(rec, rec.people.find((p) => p.id === pid));
+  // Ingest it as if it had come FROM someone else, to prove the rows survive
+  // the wire and land on the recipient's record.
+  const asIncoming = { ...payload, id: 'payto-in-1', fr: 'Aydil' };
+  await splitIngestCode(await splitEncodePayload(asIncoming));
+  return { payload, incoming: state.split.in.find((r) => r.id === 'payto-in-1') };
+}, loanPersonId);
+check('turning the toggle on puts structured [label, value] rows in the payload',
+  JSON.stringify(payOn.payload.pay) === JSON.stringify([['DuitNow', '012-3456789'], ['Maybank', '512345678901']]),
+  JSON.stringify(payOn.payload.pay));
+check('the rows round-trip onto the recipient\'s record, value by value',
+  payOn.incoming.pay.length === 2 && payOn.incoming.pay[0].label === 'DuitNow'
+  && payOn.incoming.pay[0].value === '012-3456789'
+  && payOn.incoming.pay[1].value === '512345678901',
+  JSON.stringify(payOn.incoming.pay));
+await page.click('#tabbtn-debts');
+await page.waitForTimeout(300);
+check('the you-owe row renders one copy button per pay line, copying the VALUE only',
+  await page.locator('#split-owe-list [data-action="split-copy-value"]').count() === 2
+  && (await page.locator('#split-owe-list [data-action="split-copy-value"]').first().getAttribute('data-value')) === '012-3456789',
+  await page.locator('#split-owe-list [data-action="split-copy-value"]').first().getAttribute('data-value'));
+
+// --- settle, both directions ---
+await page.click(`button[data-action="split-panel"][data-panel="repay"][data-id="${loanPersonId}"]`);
+await page.waitForTimeout(250);
+await page.click(`button[data-action="split-repay-save"][data-id="${loanPersonId}"]`);
+await page.waitForTimeout(500);
+const settledOut = await S((pid) => {
+  const person = state.split.out.find((r) => r.kind === 'loan').people.find((p) => p.id === pid);
+  return {
+    status: person.status, settledDate: person.settledDate,
+    repayments: person.repayments.length,
+    income: state.income.filter((i) => i.category === 'Split repayment').length,
+    upcoming: upcomingReminders(3).filter((i) => i.kind === 'split').length,
+    owedHidden: document.getElementById('split-owed-card').hidden,
+  };
+}, loanPersonId);
+check('paying the rest settles the person and stamps the date',
+  settledOut.status === 'settled' && /^\d{4}-\d{2}-\d{2}$/.test(settledOut.settledDate)
+  && settledOut.repayments === 2 && settledOut.income === 2, JSON.stringify(settledOut));
+check('a settled loan leaves the reminders window', settledOut.upcoming === 0, String(settledOut.upcoming));
+
+const inId = await S(() => state.split.in.find((r) => r.id === 'payto-in-1').id);
+await page.click(`button[data-action="split-panel"][data-panel="settle"][data-id="${inId}"]`);
+await page.waitForTimeout(250);
+await page.fill(`[data-split-input="settle-category"][data-id="${inId}"]`, 'Loan repaid');
+await page.click(`button[data-action="split-settle-log"][data-id="${inId}"]`);
+await page.waitForTimeout(500);
+const settledIn = await S(() => {
+  const rec = state.split.in.find((r) => r.id === 'payto-in-1');
+  return { rec, expense: state.dailyExpenses.find((e) => e.id === rec.expenseId) };
+});
+check('settling what you owe records the date and logs the matching expense',
+  settledIn.rec.status === 'settled' && /^\d{4}-\d{2}-\d{2}$/.test(settledIn.rec.settledDate)
+  && settledIn.expense && settledIn.expense.category === 'Loan repaid'
+  && Math.abs(settledIn.expense.amount - settledIn.rec.amount) < 0.001,
+  JSON.stringify({ status: settledIn.rec.status, expense: settledIn.expense }));
+
+// --- receivables never touch debt maths ---
+const debtIsolation = await S(() => {
+  const before = simulateAvalanche(state.debts, state.extraMonthly);
+  return {
+    months: before.months,
+    totals: debtTotals(state.debts),
+    dashDebt: document.getElementById('hero-debt-glance-total').textContent,
+  };
+});
+check('receivables stay out of the avalanche and the debt totals',
+  Number.isFinite(debtIsolation.totals.total) && !/NaN/.test(debtIsolation.dashDebt)
+  && debtIsolation.totals.total === (await S(() => debtTotals(state.debts).total)),
+  JSON.stringify({ months: debtIsolation.months, total: debtIsolation.totals.total }));
+
+// --- CSV round-trip, including kinds, due dates, statuses and repayments ---
+const splitCsv = await S(() => {
+  const csv = toCSV();
+  const back = fromCSV(csv);
+  const loanBack = back.split.out.find((r) => r.kind === 'loan');
+  const dinner = back.split.out.find((r) => r.title === 'Dinner @ Naz');
+  return {
+    header: csv.split('\n')[0],
+    hasRows: ['split-out', 'split-in', 'split-repay'].every((t) => csv.split('\n').some((l) => l.startsWith(`${t},`))),
+    hasPaySetting: /setting,splitPayTo1,"?DuitNow\|012-3456789/.test(csv),
+    namesLeak: /Mei Ling/.test(csv.split('\n').filter((l) => l.startsWith('setting,')).join('\n')),
+    outCount: back.split.out.length,
+    inCount: back.split.in.length,
+    loan: loanBack,
+    dinnerPeople: dinner ? dinner.people.length : 0,
+    dinnerTitle: dinner ? dinner.title : '',
+    payTo: back.split.payTo,
+    payToEnabled: back.split.payToEnabled,
+    me: back.split.me,
+    inSettled: back.split.in.find((r) => r.id === 'payto-in-1'),
+    inPay: (back.split.in.find((r) => r.id === 'payto-in-1') || {}).pay,
+  };
+});
+check('csv header appends the split_ block after the inv_ block',
+  splitCsv.header.endsWith('split_id,split_kind,split_title,split_status,split_due_date,split_settled_date,split_role'),
+  splitCsv.header.slice(-120));
+check('csv emits all three split row types plus the pay setting rows',
+  splitCsv.hasRows && splitCsv.hasPaySetting,
+  JSON.stringify({ rows: splitCsv.hasRows, pay: splitCsv.hasPaySetting }));
+check('the remembered names list is not exported', splitCsv.namesLeak === false);
+check('a three-person bill regroups into ONE record on import',
+  splitCsv.dinnerPeople === 3 && splitCsv.dinnerTitle === 'Dinner @ Naz',
+  JSON.stringify({ people: splitCsv.dinnerPeople, title: splitCsv.dinnerTitle }));
+check('the loan round-trips its kind, due date, status and both repayments',
+  splitCsv.loan && splitCsv.loan.kind === 'loan' && splitCsv.loan.dueDate === dueSoonISO
+  && splitCsv.loan.people[0].status === 'settled' && splitCsv.loan.people[0].settledDate
+  && splitCsv.loan.people[0].repayments.length === 2
+  && Math.abs(splitCsv.loan.people[0].repayments.reduce((s, r) => s + r.amount, 0) - 500) < 0.001
+  && splitCsv.loan.note === 'Until gaji day',
+  JSON.stringify(splitCsv.loan));
+check('the person id (the payload dedupe key) survives the round-trip',
+  splitCsv.loan.people[0].id === loanPersonId, splitCsv.loan.people[0].id);
+check('incoming requests round-trip with their status and settled date',
+  splitCsv.inSettled && splitCsv.inSettled.status === 'settled'
+  && splitCsv.inSettled.settledDate && splitCsv.inSettled.from === 'Aydil',
+  JSON.stringify(splitCsv.inSettled));
+check('someone else\'s account numbers are deliberately NOT exported',
+  Array.isArray(splitCsv.inPay) && splitCsv.inPay.length === 0, JSON.stringify(splitCsv.inPay));
+check('"How to pay me" round-trips as one setting row per line, toggle included',
+  splitCsv.payTo.length === 2 && splitCsv.payTo[0].label === 'DuitNow'
+  && splitCsv.payTo[0].value === '012-3456789' && splitCsv.payTo[1].value === '512345678901'
+  && splitCsv.payToEnabled === true && splitCsv.me === 'Aydil',
+  JSON.stringify(splitCsv.payTo));
+
+// --- back to zero: cancelling / settling everything hides every surface ---
+await S(() => {
+  for (const rec of state.split.out) for (const p of rec.people) if (p.status === 'open') p.status = 'cancelled';
+  for (const rec of state.split.in) if (rec.status === 'open') rec.status = 'declined';
+  save(); renderAll();
+});
+await page.click('#tabbtn-debts');
+await page.waitForTimeout(300);
+const backToZero = await S(() => ({
+  owed: document.getElementById('split-owed-card').hidden,
+  owe: document.getElementById('split-owe-card').hidden,
+  dash: document.getElementById('split-dash-line').hidden,
+  records: state.split.out.length + state.split.in.length,
+}));
+check('closing every request hides all three surfaces again, records intact',
+  backToZero.owed === true && backToZero.owe === true && backToZero.dash === true
+  && backToZero.records > 0, JSON.stringify(backToZero));
+
+// --- the public /split page and the same-origin hand-off ---
+const handoffCode = await S(async (due) => splitEncodePayload({
+  v: 1, t: 'req', id: 'handoff-1', fr: 'Mei Ling', ti: 'Karaoke', d: todayISO(),
+  a: 42.5, c: 'MYR', dd: due, pay: [['DuitNow', '019-8887777']],
+}), dueSoonISO);
+await page.goto(`${BASE}/split/#${handoffCode}`);
+await page.waitForTimeout(700);
+const splitPage = await page.evaluate(() => ({
+  cardVisible: !document.getElementById('request-card').hidden,
+  fallbackVisible: !document.getElementById('fallback-card').hidden,
+  from: document.getElementById('r-from').textContent,
+  amount: document.getElementById('r-amount').textContent,
+  title: document.getElementById('r-title').textContent,
+  due: document.getElementById('r-due').hidden ? '' : document.getElementById('r-due').textContent,
+  payRows: document.querySelectorAll('#r-pay-rows .pay-row').length,
+  payValue: document.querySelector('#r-pay-rows .pay-value')?.textContent,
+  staged: localStorage.getItem('duitful.pendingSplit'),
+}));
+check('the /split page decodes the app\'s payload client-side',
+  splitPage.cardVisible && !splitPage.fallbackVisible && splitPage.from === 'Mei Ling'
+  && splitPage.amount === '42.50' && splitPage.title === 'Karaoke' && /Due /.test(splitPage.due),
+  JSON.stringify(splitPage));
+check('the page renders the transfer rows with their own copy buttons',
+  splitPage.payRows === 1 && splitPage.payValue === '019-8887777', JSON.stringify(splitPage.payRows));
+check('nothing is staged until the user asks for the hand-off', splitPage.staged === null);
+await page.click('#btn-have-app');
+await page.waitForTimeout(1500);
+await page.fill('#lock-input', 'test1234');
+await page.click('#lock-submit');
+await page.waitForTimeout(2000);
+await page.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+await page.waitForTimeout(300);
+const afterHandoff = await S(() => ({
+  record: state.split.in.find((r) => r.id === 'handoff-1'),
+  pending: localStorage.getItem('duitful.pendingSplit'),
+  oweVisible: !document.getElementById('split-owe-card').hidden,
+}));
+check('the app consumes the staged request on the next unlock',
+  !!afterHandoff.record && afterHandoff.record.from === 'Mei Ling'
+  && Math.abs(afterHandoff.record.amount - 42.5) < 0.001
+  && afterHandoff.record.dueDate === dueSoonISO
+  && afterHandoff.record.pay.length === 1,
+  JSON.stringify(afterHandoff.record));
+check('the hand-off slot is cleared once consumed', afterHandoff.pending === null);
+check('the you-owe surface comes back for the newly ingested request',
+  afterHandoff.oweVisible === true);
+const doubleHandoff = await S(async () => {
+  const again = await splitIngestCode(await splitEncodePayload({
+    v: 1, t: 'req', id: 'handoff-1', fr: 'Mei Ling', ti: 'Karaoke', d: todayISO(), a: 42.5, c: 'MYR',
+  }));
+  return { duplicate: again.duplicate, count: state.split.in.filter((r) => r.id === 'handoff-1').length };
+});
+check('scanning the same request after the link hand-off is still one record',
+  doubleHandoff.duplicate === true && doubleHandoff.count === 1, JSON.stringify(doubleHandoff));
 
 await b.close();
 if (server) server.kill();

@@ -264,6 +264,13 @@ DFS1.<base64url(deflate-raw(JSON))>
 
 ## Phase 2 — Auto-match & polish (v1.14.0)
 
+- **Android App Links for /split**: host `/.well-known/assetlinks.json`
+  (signing-cert fingerprint) and add an autoVerify intent filter for
+  `duitful.app/split` to the native shell (patch-script pattern), so a
+  split link tapped in WhatsApp opens the native app directly instead
+  of the browser. PWA/browser flow unchanged as fallback. (iOS
+  Universal Links land with the future native iOS app.)
+
 - **Android auto-capture matching**: when the notification listener
   parses an incoming transfer whose amount matches an open `out` person
   (exact match; ±RM 1 tolerance behind a confirm), surface "RM 23.50

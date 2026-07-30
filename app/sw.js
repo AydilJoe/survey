@@ -15,17 +15,22 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-07-29-11";
+const VERSION = "2026-07-30-1";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=75",
-  "/app/script.js?v=101",
+  "/app/styles.css?v=76",
+  "/app/script.js?v=102",
   "/app/drive-config.js?v=1",
   "/app/drive-sync.js?v=1",
   "/app/investments.js?v=3",
+  "/app/split.js?v=1",
+  "/app/vendor/qr/qrcode.js?v=1",
+  // Precached even though split.js injects it on demand — that is what
+  // keeps QR scanning working offline without paying 250 KB on every boot.
+  "/app/vendor/qr/jsQR.js?v=1",
   "/app/icon.svg",
 ];
 

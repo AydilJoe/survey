@@ -4666,3 +4666,279 @@ body.private .invest-plan-stats .stat .sub {
   pointer-events: none;
   transition: filter 0.2s ease;
 }
+
+/* ---------- Bill splitting & payment requests (v1.13) ----------
+   Every colour here comes from an existing token, so dark mode is free.
+   The two owed cards are hidden by split.js until something is open —
+   nothing below renders for a user who never splits a bill. */
+
+/* Split action on an expense row. On the daily grid it needs its own
+   column; the plain flex item-list rows just gain another child. */
+.split-row-btn { flex: none; }
+/* A third icon button costs ~40px, which on a phone truncated "Rent" to
+   "R…". Same fix the debt list already uses: give the name its own line and
+   push the amount + actions onto the second one. Only rows that actually
+   carry the split button wrap — income rows are untouched. */
+@media (max-width: 520px) {
+  .item-list li.has-split { flex-wrap: wrap; }
+  .item-list li.has-split .name {
+    flex: 1 0 calc(100% - 3rem);
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+  .item-list li.has-split .amount { margin-right: auto; }
+}
+.daily-entry > [data-action="split-expense"] { grid-area: split; }
+.daily-entry.has-split {
+  grid-template-columns: 1fr auto auto auto auto;
+  grid-template-areas: "primary amount split edit delete";
+}
+@media (max-width: 480px) {
+  .daily-entry.has-split {
+    grid-template-columns: 1fr auto auto auto;
+    grid-template-areas:
+      "primary split  edit   delete"
+      "amount  amount amount amount";
+  }
+}
+
+/* One dashboard line, hidden at zero open requests. */
+.split-dash-line {
+  margin: 0.6rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 12px;
+  border: 0.5px dashed var(--line);
+  background: var(--card-soft);
+  color: var(--ink2);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  cursor: pointer;
+}
+.split-dash-line[hidden] { display: none; }
+
+/* Always-available entry points. Two ghost buttons, no card, no heading. */
+.split-entry-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.split-entry-row button { flex: 1 1 auto; }
+
+.split-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+.split-row {
+  background: var(--glass-pane);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  box-shadow: var(--glass-pane-shadow);
+}
+.split-row .top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.split-name { font-weight: 700; min-width: 0; }
+.split-tag {
+  background: rgba(74, 107, 143, 0.14);
+  color: var(--accent-cool);
+  border: 0.5px solid rgba(74, 107, 143, 0.35);
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.split-amount {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.split-amount.overdue { color: var(--loss); }
+.split-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+.split-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.split-actions button { padding: 0.45rem 0.65rem; font-size: 0.82rem; }
+/* Kept apart from the useful actions so "cancel" can't be misclicked. */
+.split-actions .split-cancel { margin-left: auto; }
+.split-panel {
+  border-top: 0.5px dashed var(--line);
+  padding-top: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.split-panel .hint { margin-top: 0; }
+
+/* Transfer details — one row per line, each with its OWN copy button that
+   copies the VALUE only, so pasting into a banking app needs no trimming. */
+.split-pay-rows {
+  border: 0.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--card-soft);
+  padding: 0.15rem 0.55rem;
+}
+.split-pay-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+}
+.split-pay-row + .split-pay-row { border-top: 0.5px solid var(--line); }
+.split-pay-label {
+  flex: none;
+  width: 5.2rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.split-pay-value {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+.split-pay-copy { flex: none; padding: 0.35rem 0.7rem; font-size: 0.78rem; }
+.split-pay-copy.copied { color: var(--gain); border-color: var(--gain); }
+
+/* Dialogs */
+.split-dialog form { gap: 0.45rem; }
+.split-dialog .type-pills[hidden],
+.scan-dialog .type-pills[hidden] { display: none; }
+.split-people {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-bottom: 0.2rem;
+}
+.split-people-label {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.split-person-row,
+.split-payto-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+.split-person-row input[data-person-name] { flex: 2; min-width: 0; }
+.split-person-row input[data-person-amount] { flex: 1; min-width: 0; }
+.split-payto-row input { flex: 1; min-width: 0; }
+.split-payto-row input[data-payto-label] { flex: 0 1 40%; }
+.split-payto-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.split-payto-preview { margin-bottom: 0.5rem; }
+.split-share-hint { margin-top: 0.3rem; }
+.split-share-actions {
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+.split-share-secondary { justify-content: center; }
+.split-payto-link { align-self: flex-start; }
+
+/* White plate behind the QR: a dark-mode-tinted QR is a QR that doesn't
+   scan, so this panel stays white in both themes on purpose. */
+.split-qr-panel {
+  background: #ffffff;
+  border: 0.5px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  width: min(240px, 70%);
+  margin: 0.5rem auto;
+}
+.split-qr-svg { display: block; width: 100%; height: auto; }
+.split-qr-note { text-align: center; margin-top: -0.1rem; }
+
+.split-preview {
+  border: 0.5px solid var(--line);
+  border-radius: 12px;
+  padding: 0.6rem 0.75rem;
+  margin: 0.4rem 0 0.2rem;
+}
+.split-preview-label {
+  margin: 0 0 0.3rem;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.split-preview-body {
+  margin: 0;
+  color: var(--ink2);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.split-camera-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--card-soft);
+  margin: 0.4rem 0;
+}
+.split-camera-wrap[hidden] { display: none; }
+.split-camera-wrap video {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+}
+
+/* Privacy blur — every money figure the split surfaces render. */
+body.private .split-dash-line,
+body.private .split-amount,
+body.private .split-meta,
+body.private .split-owed-sub,
+body.private #split-owed-sub,
+body.private #split-owe-sub,
+body.private .split-share-sub,
+body.private .split-preview-body,
+body.private .split-pay-value {
+  filter: blur(7px);
+  user-select: none;
+  pointer-events: none;
+  transition: filter 0.2s ease;
+}
