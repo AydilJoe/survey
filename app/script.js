@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.15.0";
+const APP_VERSION = "1.15.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8090,12 +8090,32 @@ const RELEASE_NOTES = {
   ],
 };
 
+// One digest, not one popup per release. Shipping fast must not make the
+// app interruptive: this accumulates every unseen release's notes into a
+// single dialog and never shows more than one dialog per WHATS_NEW_GAP_MS
+// per device — extra releases inside the window just batch for the next
+// digest. Device-local timestamp (no secret); "Done" clears the whole
+// backlog via lastSeenVersion as before.
+const WHATS_NEW_GAP_MS = 5 * 86400000; // at most one digest per 5 days
+const WHATS_NEW_SHOWN_KEY = "duitful.whatsNewShownAt";
+const WHATS_NEW_MAX_BULLETS = 6;
+
+function whatsNewUnseenVersions() {
+  const seen = state.lastSeenVersion || "";
+  return Object.keys(RELEASE_NOTES)
+    .filter((v) =>
+      versionCompare(v, APP_VERSION) <= 0 &&
+      (!seen || versionCompare(v, seen) > 0) &&
+      (RELEASE_NOTES[v] || []).length)
+    .sort((a, b) => versionCompare(b, a)); // newest first
+}
+
 function maybeShowWhatsNew() {
   if (!state || !aesKey) return;
   if (state.lastSeenVersion === APP_VERSION) return;
-  const notes = RELEASE_NOTES[APP_VERSION];
-  if (!notes || !notes.length) {
-    // No notes for this build — silently mark as seen so we don't nag.
+  const unseen = whatsNewUnseenVersions();
+  if (!unseen.length) {
+    // Nothing noteworthy between then and now — silently mark as seen.
     state.lastSeenVersion = APP_VERSION;
     save();
     return;
@@ -8115,10 +8135,31 @@ function maybeShowWhatsNew() {
     save();
     return;
   }
+  // Throttle: inside the quiet window, say nothing and DON'T mark seen —
+  // the backlog simply waits for the next digest.
+  const shownAt = Number(localStorage.getItem(WHATS_NEW_SHOWN_KEY)) || 0;
+  if (Date.now() - shownAt < WHATS_NEW_GAP_MS) return;
+
   const titleEl = document.getElementById("whats-new-title");
-  if (titleEl) titleEl.textContent = `What's new in v${APP_VERSION}`;
+  if (titleEl) {
+    titleEl.textContent = unseen.length === 1
+      ? `What's new in v${APP_VERSION}`
+      : `What's new since you last looked`;
+  }
+  // Newest release first, capped so a long absence never becomes a wall.
+  const bullets = [];
+  for (const v of unseen) {
+    for (const n of RELEASE_NOTES[v]) {
+      if (bullets.length < WHATS_NEW_MAX_BULLETS) bullets.push(`<li>${n}</li>`);
+    }
+  }
+  const total = unseen.reduce((s, v) => s + RELEASE_NOTES[v].length, 0);
+  if (total > WHATS_NEW_MAX_BULLETS) {
+    bullets.push(`<li>…and more — the <a href="/changelog/" target="_blank" rel="noopener">full changelog</a> has everything.</li>`);
+  }
   const listEl = document.getElementById("whats-new-list");
-  if (listEl) listEl.innerHTML = notes.map((n) => `<li>${n}</li>`).join("");
+  if (listEl) listEl.innerHTML = bullets.join("");
+  try { localStorage.setItem(WHATS_NEW_SHOWN_KEY, String(Date.now())); } catch {}
   openWhatsNew();
 }
 
