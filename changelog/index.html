@@ -142,6 +142,17 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-16">
+    <span class="release-date">July 2026 · v1.16</span>
+    <h2 class="release-title">The scanner learns to read columns</h2>
+    <p class="release-summary">Receipts are two columns — names left, prices right — but OCR flattens them into soup. Duitful now reads word positions off the photo and rebuilds the actual rows, so "TEH AIS …… 2.20" stays one item. And splitting no longer hides in a menu.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Split / Request on Home</strong> — a permanent quick action beside the add-entry form, carrying whatever you've typed straight into the composer. The Debts-tab entry stays.</li>
+      <li><span class="tag feat">new</span><strong>Layout-aware receipt reading</strong> — word bounding boxes are grouped into physical rows (tilt-tolerant), the rightmost price pairs with its item, and tax flags are stripped. Feeds both the expense scan and split-by-item.</li>
+      <li><span class="tag perf">perf</span><strong>Cleaner input, better output</strong> — receipts are upscaled, grayscaled and contrast-stretched before recognition; low-contrast thermal paper benefits most. Everything still happens on your device.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-15-1">
     <span class="release-date">July 2026 · v1.15.1</span>
     <h2 class="release-title">Fewer popups, same news</h2>

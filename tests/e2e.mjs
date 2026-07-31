@@ -2183,7 +2183,7 @@ const wnDigest = await S(() => {
     open: dlg.open, title,
     count: lis.length,
     hasOverflow: /full changelog/.test(lis[lis.length - 1]?.innerHTML || ''),
-    newestFirst: /item|receipt|ate/i.test(lis[0]?.textContent || ''),
+    newestFirst: (lis[0]?.textContent || '').startsWith(RELEASE_NOTES[APP_VERSION][0].replace(/<[^>]+>/g, '').slice(0, 30)),
     unseen: whatsNewUnseenVersions().length,
   };
   dlg.close();
@@ -2606,6 +2606,170 @@ check('after a trip through by-item, Equally still halves the bill and writes no
   equalRegression.filled === '47.00' && equalRegression.people === 1
   && equalRegression.amount === 47 && equalRegression.note === '' && equalRegression.total === 94,
   JSON.stringify(equalRegression));
+
+/* ── 16. receipt OCR phase 1: layout, preprocessing, and the Home entry ──
+   Real OCR never runs headless (10 MB of wasm, a camera, and a photo), so
+   everything testable here is the pure code AROUND the engine: rebuilding
+   physical rows from word boxes, the canvas pixel maths, and the always-
+   visible Split entry point that feeds the composer. */
+
+// --- word boxes → physical rows ---
+// A two-column receipt as the boxes actually arrive: names on the left,
+// prices on the right, deliberate y-jitter between the two columns, one
+// wrapped name spanning a wide x-range, a tax flag printed right of the
+// price, a SERVICE CHARGE row and a TOTAL row. Fed in SHUFFLED order — the
+// reconstruction owns both the vertical and the horizontal sort.
+const receiptWords = (() => {
+  const w = (text, x0, y0, width = 60, height = 20) =>
+    ({ text, x0, y0, x1: x0 + width, y1: y0 + height });
+  const rows = [
+    // header
+    [w('RESTORAN', 40, 100), w('MAKAN', 150, 100), w('SEDAP', 250, 100)],
+    // item 1 — the price column sits 6px lower than the name column, so a
+    // naive "same y" grouping would file the name and its price separately.
+    [w('1', 40, 140, 14), w('NASI', 70, 140), w('GORENG', 150, 140),
+     w('AYAM', 250, 140), w('12.90', 620, 146), w('T', 700, 146, 14)],
+    // item 2 — a long wrapped name reaching much further right
+    [w('TEH', 40, 190), w('TARIK', 110, 190), w('KURANG', 190, 190),
+     w('MANIS', 290, 190), w('BESAR', 380, 194), w('5.50', 620, 190)],
+    [w('SERVICE', 40, 240), w('CHARGE', 140, 240), w('10%', 240, 240, 40),
+     w('1.84', 620, 244)],
+    [w('TOTAL', 40, 290), w('20.24', 620, 292)],
+  ].flat();
+  // Handed over in reverse: bottom-to-top, right-to-left. Both sorts have to
+  // do real work, and nothing may depend on the engine's emission order.
+  return rows.reverse();
+})();
+const rebuilt = await S((words) => ({
+  rows: splitReconstructRows(words),
+  text: splitReconstructText(words),
+  parsed: splitParseReceiptItems(splitReconstructText(words)),
+}), receiptWords);
+check('word boxes rebuild the receipt\'s physical rows, top-to-bottom, left-to-right',
+  JSON.stringify(rebuilt.rows) === JSON.stringify([
+    'RESTORAN MAKAN SEDAP',
+    '1 NASI GORENG AYAM 12.90',
+    'TEH TARIK KURANG MANIS BESAR 5.50',
+    'SERVICE CHARGE 10% 1.84',
+    'TOTAL 20.24',
+  ]), JSON.stringify(rebuilt.rows));
+check('a price printed 6px below its name still joins that row (naive y-equality would not)',
+  rebuilt.rows[1] === '1 NASI GORENG AYAM 12.90'
+  // proof the case is real: the two columns genuinely disagree on y0
+  && receiptWords.filter((x) => ['NASI', '12.90'].includes(x.text))
+    .map((x) => x.y0).sort((a, b) => a - b).join('/') === '140/146',
+  rebuilt.rows[1]);
+check('a tax flag printed right of the price is dropped, keeping the "name … price" shape',
+  !/\bT\b/.test(rebuilt.rows[1]) && /12\.90$/.test(rebuilt.rows[1]), rebuilt.rows[1]);
+check('the rebuilt rows feed the EXISTING item parser: two items, one charge, TOTAL dropped',
+  JSON.stringify(rebuilt.parsed.items) === JSON.stringify([
+    { name: 'NASI GORENG AYAM', price: 12.9 },
+    { name: 'TEH TARIK KURANG MANIS BESAR', price: 5.5 },
+  ]) && Math.abs(rebuilt.parsed.charges - 1.84) < 1e-9 && rebuilt.parsed.chargeLines === 1
+  && rebuilt.parsed.dropped.includes('TOTAL 20.24'),
+  JSON.stringify(rebuilt.parsed));
+check('no word boxes → no rows, so the pipeline falls back to the flat OCR text',
+  await S(() => JSON.stringify([
+    splitReconstructRows([]), splitReconstructRows(null),
+    splitReconstructRows([{ text: 'x' }]),            // no bbox at all
+    splitReconstructRows([{ text: '', x0: 1, y0: 1, x1: 2, y1: 2 }]),
+  ])) === JSON.stringify([[], [], [], []]));
+check('Tesseract\'s own {text, bbox} shape is accepted unchanged',
+  await S(() => splitReconstructRows([
+    { text: 'KOPI', bbox: { x0: 40, y0: 100, x1: 100, y1: 120 } },
+    { text: '3.20', bbox: { x0: 600, y0: 103, x1: 660, y1: 123 } },
+  ]).join('|')) === 'KOPI 3.20');
+
+// --- canvas preprocessing maths ---
+const pixels = await S(() => {
+  // grayscale: Rec. 601 luma on pure red / green / blue
+  const gray = new ImageData(3, 1);
+  const rgb = [[255, 0, 0], [0, 255, 0], [0, 0, 255]];
+  rgb.forEach((c, i) => {
+    gray.data[i * 4] = c[0]; gray.data[i * 4 + 1] = c[1];
+    gray.data[i * 4 + 2] = c[2]; gray.data[i * 4 + 3] = 255;
+  });
+  receiptGrayscaleImageData(gray);
+  // contrast stretch: 10x10 = 5 px @20, 5 px @92, 85 px @128, 5 px @255.
+  // p5 = 20, p95 = 128 → v' = round((v-20) * 255 / 108), clamped.
+  const stretch = new ImageData(10, 10);
+  const levels = [].concat(
+    new Array(5).fill(20), new Array(5).fill(92),
+    new Array(85).fill(128), new Array(5).fill(255));
+  levels.forEach((v, i) => {
+    stretch.data[i * 4] = v; stretch.data[i * 4 + 1] = v;
+    stretch.data[i * 4 + 2] = v; stretch.data[i * 4 + 3] = 255;
+  });
+  receiptContrastStretchImageData(stretch);
+  // a flat image has no percentile span — stretching it would be pure noise
+  const flat = new ImageData(4, 1);
+  for (let i = 0; i < 4; i++) {
+    flat.data[i * 4] = 128; flat.data[i * 4 + 1] = 128;
+    flat.data[i * 4 + 2] = 128; flat.data[i * 4 + 3] = 255;
+  }
+  receiptEnhanceImageData(flat);
+  const at = (img, i) => [img.data[i * 4], img.data[i * 4 + 1], img.data[i * 4 + 2], img.data[i * 4 + 3]];
+  return {
+    gray: [at(gray, 0), at(gray, 1), at(gray, 2)],
+    stretch: [at(stretch, 0)[0], at(stretch, 5)[0], at(stretch, 12)[0], at(stretch, 96)[0]],
+    stretchAlpha: at(stretch, 0)[3],
+    flat: at(flat, 0)[0],
+    size: [
+      receiptPreprocessSize(900, 600),   // small → upscale so short side ≥1200
+      receiptPreprocessSize(3000, 4000), // huge  → long side capped at 2400
+      receiptPreprocessSize(1600, 1200), // already fine → untouched
+      receiptPreprocessSize(0, 0),       // nonsense → null, original is used
+    ],
+  };
+});
+check('grayscale uses Rec. 601 luma and writes it to all three channels',
+  JSON.stringify(pixels.gray) === JSON.stringify([
+    [76, 76, 76, 255], [150, 150, 150, 255], [29, 29, 29, 255]]),
+  JSON.stringify(pixels.gray));
+check('contrast stretch maps the 5th percentile to 0 and the 95th to 255, clamping above',
+  JSON.stringify(pixels.stretch) === JSON.stringify([0, 170, 255, 255])
+  && pixels.stretchAlpha === 255, JSON.stringify(pixels.stretch));
+check('a flat image is left alone instead of having its noise amplified',
+  pixels.flat === 128, String(pixels.flat));
+check('preprocess sizing: upscale to a 1200px short side, cap the long side at 2400',
+  JSON.stringify(pixels.size.map((s) => (s ? [s.width, s.height] : s)))
+  === JSON.stringify([[1800, 1200], [1800, 2400], [1600, 1200], null]),
+  JSON.stringify(pixels.size));
+
+// --- the Home quick action: visible without opening "More details" ---
+await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+await page.click('#tabbtn-dashboard');
+await page.waitForTimeout(250);
+check('Split / Request money sits on Home permanently, with "More details" still collapsed',
+  await page.locator('#btn-split-quick').isVisible()
+  && await page.locator('#daily-more').isHidden()
+  && await page.locator('#daily-more-toggle').evaluate((e) => e.getAttribute('aria-expanded') === 'false'));
+check('the Home entry point keeps the old ones alive (Debts tab row untouched)',
+  await page.locator('#tab-debts [data-action="split-compose"]').count() === 1
+  && await page.locator('#daily-more [data-action="split-compose"]').count() === 1);
+await page.fill('#form-daily [name="amount"]', '42.50');
+// The note lives inside "More details" — open it, type, and shut it again, so
+// the click below happens with the disclosure genuinely collapsed.
+await page.click('#daily-more-toggle');
+await page.waitForTimeout(150);
+await page.fill('#form-daily [name="note"]', 'Lunch at mamak');
+await page.click('#daily-more-toggle');
+await page.waitForTimeout(150);
+check('the quick action stays reachable once "More details" is shut again',
+  await page.locator('#daily-more').isHidden() && await page.locator('#btn-split-quick').isVisible());
+await page.click('#btn-split-quick');
+await page.waitForTimeout(300);
+check('it opens the composer in Split mode with the typed amount and note carried across',
+  await page.locator('#split-compose-dialog').evaluate((e) => e.open)
+  && (await page.locator('#split-compose-body [name="total"]').inputValue()) === '42.50'
+  && (await page.locator('#split-compose-body [name="title"]').inputValue()) === 'Lunch at mamak',
+  JSON.stringify({
+    total: await page.locator('#split-compose-body [name="total"]').inputValue(),
+    title: await page.locator('#split-compose-body [name="title"]').inputValue(),
+  }));
+await page.click('[data-action="split-compose-cancel"]');
+await page.waitForTimeout(200);
+await page.fill('#form-daily [name="amount"]', '');
 
 /* ── 15. auto-biometric attempt is a no-op on web ───────────────────────
    showLock schedules one automatic biometric attempt per presentation
