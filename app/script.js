@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.15.1";
+const APP_VERSION = "1.16.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8075,6 +8075,10 @@ const RELEASE_NOTES = {
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
   ],
+  "1.16.0": [
+    "<strong>Split & request, front and centre</strong> — one tap from Home, right where you type expenses. No more hunting through menus.",
+    "<strong>Sharper receipt scanning</strong> — photos are cleaned up before reading (crumpled, faded thermal receipts included), and item names now pair with their prices using their actual positions on the receipt, so splitting by item finds much more.",
+  ],
   "1.15.0": [
     "<strong>Split by item</strong> — scan the receipt, tick who ate what (shared dishes divide among their eaters, right down to the sen), and everyone's share computes itself. Every request shows the person exactly what they're paying for.",
     "<strong>Service charge & SST, handled</strong> — detected off the receipt automatically, split equally by default, or flip one switch to charge each person in proportion to what they ate.",
@@ -8885,8 +8889,193 @@ async function getTesseractWorker(logger) {
       }
     }
     tesseractWorker = await Tess.createWorker("eng", 1, opts);
+    // A receipt is ONE narrow column of variable-size print. PSM 4 stops
+    // Tesseract from hunting for page-wide paragraphs (which is what shuffles
+    // a dish and its price onto different lines), and preserving interword
+    // spaces keeps the gap between the name and the price column readable.
+    // Guarded: an older tesseract.js build may not expose setParameters, and
+    // an unknown key must never take the whole scan down.
+    try {
+      if (typeof tesseractWorker.setParameters === "function") {
+        await tesseractWorker.setParameters({
+          tessedit_pageseg_mode: "4",
+          preserve_interword_spaces: "1",
+        });
+      }
+    } catch {}
   }
   return tesseractWorker;
+}
+
+/* ---------- receipt image preprocessing (pure canvas, on-device) ----------
+
+   A phone photo of a thermal receipt is the worst input Tesseract can get:
+   small faded print, grey on grey, at whatever resolution the camera chose.
+   Three cheap fixes before recognition — upscale so the glyphs are tall
+   enough for the LSTM, drop to grayscale, then stretch the contrast so faded
+   print reads as black on white. Canvas only: no dependency, no upload,
+   nothing leaves the device, and every failure path falls straight back to
+   the untouched image. */
+
+const RECEIPT_MIN_SHORT_SIDE = 1200;
+const RECEIPT_MAX_LONG_SIDE = 2400;
+const RECEIPT_STRETCH_LO = 0.05;
+const RECEIPT_STRETCH_HI = 0.95;
+
+// Target canvas size: short side up to at least 1200px, long side capped at
+// 2400px (the cap wins — a 12 MP photo gets DOWN-scaled, which is both faster
+// and kinder to the recognizer than feeding it 4000px of noise).
+function receiptPreprocessSize(w, h) {
+  const width = Number(w), height = Number(h);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return null;
+  const shortSide = Math.min(width, height);
+  const longSide = Math.max(width, height);
+  let scale = Math.max(1, RECEIPT_MIN_SHORT_SIDE / shortSide);
+  if (longSide * scale > RECEIPT_MAX_LONG_SIDE) scale = RECEIPT_MAX_LONG_SIDE / longSide;
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+    scale,
+  };
+}
+
+// Rec. 601 luma, in place. Colour carries nothing on a receipt and costs the
+// contrast pass two extra channels to reason about.
+function receiptGrayscaleImageData(img) {
+  const d = img && img.data;
+  if (!d) return img;
+  for (let i = 0; i < d.length; i += 4) {
+    const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+    d[i] = d[i + 1] = d[i + 2] = g;
+  }
+  return img;
+}
+
+// Percentile contrast stretch: map the 5th percentile grey to 0 and the 95th
+// to 255. Percentiles rather than min/max so one black speck or one blown
+// highlight can't flatten the whole receipt back to grey. Expects grayscale
+// input (reads the red channel); a flat image is left alone rather than
+// amplified into noise.
+function receiptContrastStretchImageData(img) {
+  const d = img && img.data;
+  if (!d || !d.length) return img;
+  const hist = new Array(256).fill(0);
+  let n = 0;
+  for (let i = 0; i < d.length; i += 4) { hist[d[i]] += 1; n += 1; }
+  if (!n) return img;
+  const loTarget = n * RECEIPT_STRETCH_LO;
+  const hiTarget = n * RECEIPT_STRETCH_HI;
+  let cum = 0, lo = 0, hi = 255;
+  for (let v = 0; v < 256; v++) { cum += hist[v]; if (cum >= loTarget) { lo = v; break; } }
+  cum = 0;
+  for (let v = 0; v < 256; v++) { cum += hist[v]; if (cum >= hiTarget) { hi = v; break; } }
+  if (!(hi > lo)) return img;
+  const span = hi - lo;
+  const lut = new Uint8ClampedArray(256);
+  for (let v = 0; v < 256; v++) {
+    lut[v] = Math.round(Math.min(255, Math.max(0, ((v - lo) * 255) / span)));
+  }
+  for (let i = 0; i < d.length; i += 4) {
+    const g = lut[d[i]];
+    d[i] = d[i + 1] = d[i + 2] = g;
+  }
+  return img;
+}
+
+function receiptEnhanceImageData(img) {
+  return receiptContrastStretchImageData(receiptGrayscaleImageData(img));
+}
+
+// Accepts the same two things the OCR pipeline does: a File/Blob (web file
+// input) or a data-URL string (native Camera).
+function receiptLoadImage(source) {
+  return new Promise((resolve, reject) => {
+    let revoke = null;
+    let src = "";
+    if (typeof source === "string") {
+      src = source;
+    } else if (typeof Blob !== "undefined" && source instanceof Blob) {
+      revoke = URL.createObjectURL(source);
+      src = revoke;
+    } else {
+      reject(new Error("unsupported image source"));
+      return;
+    }
+    const img = new Image();
+    img.onload = () => resolve({ img, revoke });
+    img.onerror = () => {
+      if (revoke) URL.revokeObjectURL(revoke);
+      reject(new Error("image decode failed"));
+    };
+    img.src = src;
+  });
+}
+
+// Returns a prepared <canvas> (Tesseract accepts one directly), or null when
+// anything at all goes wrong — the caller then recognizes the original image.
+async function receiptPreprocessImage(source) {
+  try {
+    const { img, revoke } = await receiptLoadImage(source);
+    try {
+      const size = receiptPreprocessSize(img.naturalWidth || img.width, img.naturalHeight || img.height);
+      if (!size) return null;
+      const canvas = document.createElement("canvas");
+      canvas.width = size.width;
+      canvas.height = size.height;
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return null;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, 0, 0, size.width, size.height);
+      const data = ctx.getImageData(0, 0, size.width, size.height);
+      receiptEnhanceImageData(data);
+      ctx.putImageData(data, 0, 0);
+      return canvas;
+    } finally {
+      if (revoke) URL.revokeObjectURL(revoke);
+    }
+  } catch {
+    return null;
+  }
+}
+
+/* Tesseract's result shape moved between majors: v4 exposes data.words, v5
+   nests words under data.blocks[].paragraphs[].lines[].words. Collect from
+   whichever is present, in that order, so the layout pass works on both. */
+function collectOcrWords(data) {
+  const out = [];
+  if (!data || typeof data !== "object") return out;
+  const pushLine = (l) => { if (l && Array.isArray(l.words)) for (const w of l.words) if (w) out.push(w); };
+  const pushLines = (lines) => { if (Array.isArray(lines)) lines.forEach(pushLine); };
+  if (Array.isArray(data.words) && data.words.length) return data.words.filter(Boolean);
+  pushLines(data.lines);
+  if (out.length) return out;
+  if (Array.isArray(data.blocks)) {
+    for (const b of data.blocks) {
+      if (!b) continue;
+      if (Array.isArray(b.paragraphs)) for (const p of b.paragraphs) pushLines(p && p.lines);
+      pushLines(b.lines);
+    }
+  }
+  return out;
+}
+
+/* Layout-aware text for the parsers. Falls back to Tesseract's own blob
+   whenever the reconstruction is missing, degenerate, or visibly thinner than
+   the blob — a partial word list must never silently lose lines. */
+function receiptTextFromWords(words, fallbackText) {
+  const fallback = String(fallbackText == null ? "" : fallbackText);
+  try {
+    if (typeof splitReconstructRows !== "function") return fallback;
+    const rows = splitReconstructRows(words);
+    if (rows.length < 2) return fallback;
+    const rebuilt = rows.join("\n");
+    const dense = (s) => (String(s).match(/\S/g) || []).length;
+    if (dense(rebuilt) < dense(fallback) * 0.5) return fallback;
+    return rebuilt;
+  } catch {
+    return fallback;
+  }
 }
 
 /* Map common receipt markers to ISO codes. Longer/more-specific patterns
@@ -9459,6 +9648,11 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
   openScanDialog();
   scanPreview.src = previewSrc;
   try {
+    scanStatus.textContent = "Preparing image…";
+    // Upscale + grayscale + contrast stretch. Null on any canvas trouble, in
+    // which case the original image is recognized exactly as before.
+    const prepared = await receiptPreprocessImage(recognizeInput);
+    const recognizeSource = prepared || recognizeInput;
     scanStatus.textContent = "Loading OCR engine (first use ~10 MB)…";
     const worker = await getTesseractWorker((m) => {
       if (m.status === "recognizing text") {
@@ -9469,7 +9663,20 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
         scanStatus.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1);
       }
     });
-    const { data: { text } } = await worker.recognize(recognizeInput);
+    // v5 needs the block tree requested explicitly to hand back word boxes;
+    // older builds reject the extra argument, so fall back to the plain call.
+    let result;
+    try {
+      result = await worker.recognize(recognizeSource, {}, { blocks: true, text: true });
+    } catch {
+      result = await worker.recognize(recognizeSource);
+    }
+    const data = (result && result.data) || {};
+    // Layout-aware lines when the word boxes are there, Tesseract's flat blob
+    // when they aren't. Both parsers (expense amount/vendor here, item split
+    // via splitApplyScan reading scan-raw) then see the same reconstructed
+    // text, so a two-column receipt stops arriving as two separate lists.
+    const text = receiptTextFromWords(collectOcrWords(data), data.text || "");
     const parsed = parseReceiptText(text);
     scanOriginalAmount = parsed.amount;
     scanOriginalCurrency = parsed.currency || currentCurrency();

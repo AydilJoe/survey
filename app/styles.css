@@ -4747,6 +4747,23 @@ body.private .invest-plan-stats .stat .sub {
 }
 .split-dash-line[hidden] { display: none; }
 
+/* Home add-entry quick action: one quiet, always-visible ghost row sitting
+   between the amount chips and "More details". Full width so it reads as a
+   row rather than a stray button, and quiet enough not to compete with
+   "Add entry" below it. */
+.split-quick-row {
+  display: flex;
+  margin: 0 0 0.55rem;
+}
+.split-quick-row button {
+  flex: 1 1 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+}
+
 /* Always-available entry points. Two ghost buttons, no card, no heading. */
 .split-entry-row {
   display: flex;

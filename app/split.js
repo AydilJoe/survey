@@ -1006,6 +1006,103 @@ function splitItemName(raw) {
   return splitText(s, SPLIT_ITEM_NAME_MAX);
 }
 
+/* ---------- physical-row reconstruction from OCR word boxes ----------
+
+   Tesseract hands the parser a flat text blob whose newlines follow ITS
+   reading order, not the receipt's two-column layout. A dish printed on the
+   left and its price printed on the right of the SAME physical row routinely
+   arrive as two separate lines — and then the parser sees a name with no
+   price and a price with no name, and drops both.
+
+   The word boxes carry the geometry the blob throws away. Rebuilding rows
+   from them costs nothing (no engine change, no network) and is the single
+   biggest win available on the existing OCR output.
+
+   PURE: an array of {text, x0, y0, x1, y1} (or Tesseract's {text, bbox}) in,
+   an array of row strings out. No DOM, no state, no engine. */
+
+// Two words belong to the same physical row when their vertical CENTRES sit
+// within this fraction of a median word height. Receipts are photographed at
+// an angle and thermal print wobbles, so exact y-equality never groups a real
+// row; 0.6 of a line's height is wide enough for that jitter and still
+// narrower than the gap to the next line.
+const SPLIT_ROW_TOL_RATIO = 0.6;
+// A lone tax/flag letter printed to the RIGHT of the price column ("12.00 T",
+// "3.50 SR"). Dropping it keeps the row in the "name … price" shape the item
+// parser expects; it carries no money and no name.
+const SPLIT_ROW_FLAG_RX = /^[A-Za-z*#]{1,2}$/;
+
+function splitNormalizeWordBoxes(words) {
+  const list = Array.isArray(words) ? words : [];
+  const out = [];
+  for (const w of list) {
+    if (!w || typeof w !== "object") continue;
+    const box = w.bbox && typeof w.bbox === "object" ? w.bbox : w;
+    const x0 = Number(box.x0), y0 = Number(box.y0);
+    const x1 = Number(box.x1), y1 = Number(box.y1);
+    if (![x0, y0, x1, y1].every((n) => Number.isFinite(n))) continue;
+    const text = String(w.text == null ? "" : w.text).replace(/\s+/g, " ").trim();
+    if (!text) continue;
+    out.push({
+      text,
+      x0: Math.min(x0, x1), x1: Math.max(x0, x1),
+      y0: Math.min(y0, y1), y1: Math.max(y0, y1),
+    });
+  }
+  return out;
+}
+
+// One row's words (already left-to-right) → "name … price". The price is the
+// RIGHTMOST money token on the row; anything the scanner picked up to the
+// right of it is a flag, not part of the name.
+function splitRowText(rowWords) {
+  const texts = rowWords.map((w) => w.text);
+  let priceIdx = -1;
+  for (let i = texts.length - 1; i >= 0; i--) {
+    SPLIT_MONEY_RX.lastIndex = 0;
+    if (SPLIT_MONEY_RX.test(texts[i])) { priceIdx = i; break; }
+  }
+  SPLIT_MONEY_RX.lastIndex = 0;
+  if (priceIdx < 0 || priceIdx === texts.length - 1) return texts.join(" ").trim();
+  const head = texts.slice(0, priceIdx);
+  const tail = texts.slice(priceIdx + 1).filter((t) => !SPLIT_ROW_FLAG_RX.test(t));
+  return head.concat(tail, texts[priceIdx]).join(" ").trim();
+}
+
+function splitReconstructRows(words) {
+  const list = splitNormalizeWordBoxes(words);
+  if (!list.length) return [];
+  const heights = list.map((w) => w.y1 - w.y0).filter((h) => h > 0).sort((a, b) => a - b);
+  const median = heights.length ? heights[Math.floor(heights.length / 2)] : 0;
+  const tol = (median > 0 ? median : 10) * SPLIT_ROW_TOL_RATIO;
+  const centre = (w) => (w.y0 + w.y1) / 2;
+  const sorted = list.slice().sort((a, b) => centre(a) - centre(b) || a.x0 - b.x0);
+  const rows = [];
+  let cur = null;
+  for (const w of sorted) {
+    const c = centre(w);
+    // Compare against the row's running mean, not its first word: a row that
+    // drifts downward across the page (a tilted photo) still holds together.
+    if (cur && Math.abs(c - cur.centre) <= tol) {
+      cur.words.push(w);
+      cur.sum += c;
+      cur.centre = cur.sum / cur.words.length;
+    } else {
+      cur = { words: [w], sum: c, centre: c };
+      rows.push(cur);
+    }
+  }
+  return rows
+    .map((r) => splitRowText(r.words.slice().sort((a, b) => a.x0 - b.x0 || a.y0 - b.y0)))
+    .filter(Boolean);
+}
+
+// Convenience for the OCR pipeline: rows as one text blob, ready to hand to
+// splitParseReceiptItems / parseReceiptText exactly like Tesseract's own text.
+function splitReconstructText(words) {
+  return splitReconstructRows(words).join("\n");
+}
+
 /* Returns { items:[{name, price}], charges, chargeLines, dropped:[line] }.
    `dropped` exists so the behaviour is inspectable (and testable) rather than
    a black box — nothing in the UI depends on it. */

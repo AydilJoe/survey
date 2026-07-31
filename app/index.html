@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=79" />
+    <link rel="stylesheet" href="styles.css?v=80" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -281,6 +281,13 @@
             <div class="recent-chips" id="recent-chips" hidden>
               <span class="recent-chips-label">Recent</span>
               <div class="recent-chips-row" id="recent-chips-row"></div>
+            </div>
+            <!-- Permanent entry point. Splitting was only reachable from the
+                 Debts tab and from inside "More details", which is where
+                 features go to be never found. One quiet ghost row, always
+                 visible, carrying whatever is already typed above. -->
+            <div class="split-quick-row">
+              <button type="button" class="ghost" id="btn-split-quick" data-action="split-compose" data-split-prefill="daily-form"><span aria-hidden="true">⇆</span> Split / Request money</button>
             </div>
             <button type="button" class="hero-breakdown-toggle daily-more-toggle" id="daily-more-toggle" aria-expanded="false" aria-controls="daily-more">
               <span class="chev" aria-hidden="true">▾</span>
@@ -1924,7 +1931,7 @@
          demand (see splitEnsureJsQR) — the service worker precaches it, so
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
-    <script src="split.js?v=4"></script>
-    <script src="script.js?v=108"></script>
+    <script src="split.js?v=5"></script>
+    <script src="script.js?v=109"></script>
   </body>
 </html>
