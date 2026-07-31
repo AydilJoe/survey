@@ -1677,6 +1677,17 @@
     <!-- Split &amp; request: compose (three modes), share (QR + link),
          ingest (paste / camera) and the "How to pay me" profile. The bodies
          are rendered by split.js; only the shells live here. -->
+    <dialog id="bio-offer-dialog" class="edit-dialog">
+      <form method="dialog">
+        <h2>Unlock with your fingerprint?</h2>
+        <p class="hint">Skip typing the passcode next time. It stays the only key to your data — kept in this phone's secure keystore and released only after your fingerprint or face. Passcode entry always remains available, and you can turn this off anytime in Settings → Security.</p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="btn-bio-offer-later">Not now</button>
+          <button type="button" class="primary" id="btn-bio-offer-enable">Enable fingerprint unlock</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="split-compose-dialog" class="edit-dialog split-dialog">
       <form method="dialog">
         <h2>Split &amp; request</h2>
@@ -1914,6 +1925,6 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=3"></script>
-    <script src="script.js?v=104"></script>
+    <script src="script.js?v=105"></script>
   </body>
 </html>
