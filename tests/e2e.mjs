@@ -2227,6 +2227,17 @@ check('checkbox renders only in loan mode',
     return !has;
   }));
 
+/* ── 14. auto-biometric attempt is a no-op on web ───────────────────────
+   showLock schedules one automatic biometric attempt per presentation
+   (native-only). On web it must fall straight through: passcode entry
+   visible, no dialog, no crash (a throw would land in pageerror). */
+await S(() => relock());
+await page.waitForTimeout(800); // past the 400ms auto-attempt delay
+check('relock on web shows passcode entry untouched by the auto attempt',
+  await page.locator('#lock-input').isVisible()
+  && await S(() => typeof maybeAutoBiometric === 'function' && !aesKey
+    && document.getElementById('lock-biometric').hidden === true));
+
 await b.close();
 if (server) server.kill();
 
