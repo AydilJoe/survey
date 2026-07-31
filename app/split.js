@@ -1015,6 +1015,8 @@ function splitComposeSync() {
   if (splitIsDate(date)) c.date = date;
   const due = val("[name=dueDate]");
   c.dueDate = splitIsDate(due) ? due : "";
+  const logEl = body.querySelector("[name=logExpense]");
+  if (logEl) c.logExpense = logEl.checked;
   const total = Number(val("[name=total]"));
   if (Number.isFinite(total)) c.total = splitRound2(total);
   if (c.mode === "split") {
@@ -1137,6 +1139,10 @@ function splitRenderCompose() {
         <span>Note (optional)</span>
         <input type="text" name="note" value="${escapeHtml(c.note)}" placeholder="Until gaji day" />
       </label>
+      ${c.mode === "loan" ? `<label class="field toggle-field">
+        <input type="checkbox" name="logExpense" ${c.logExpense !== false ? "checked" : ""} />
+        <span>Log as an expense — the money left me today</span>
+      </label>` : ""}
       <p class="hint split-share-hint" id="split-compose-hint">${splitComposeHintHtml()}</p>
       <div class="form-actions">
         <button type="button" class="ghost" data-action="split-compose-cancel">Cancel</button>
@@ -1227,12 +1233,32 @@ function splitComposeSave() {
   });
   splitOutList().push(record);
   for (const p of record.people) splitRememberName(p.name);
+  // Lending is money genuinely leaving you today — without this the monthly
+  // balance never dips and the eventual repayment books as phantom income.
+  // Opt-out kept for people lending from savings rather than the budget.
+  let lentExpense = null;
+  if (record.kind === "loan" && c.logExpense !== false) {
+    const p = record.people[0];
+    lentExpense = {
+      id: uid(),
+      createdAt: Date.now(),
+      kind: "expense",
+      date: record.date,
+      amount: Number(p.amount) || 0,
+      category: "Money lent",
+      note: `Lent ${p.name}${record.title && record.title !== "Money lent" ? " · " + record.title : ""}`,
+    };
+    state.dailyExpenses.push(lentExpense);
+    record.expenseId = lentExpense.id;
+  }
   save();
   if (typeof renderAll === "function") renderAll();
   splitCloseDialog(splitComposeDialogEl());
   splitCompose = null;
   if (record.kind === "loan") {
-    toast(`Loan recorded: ${record.people[0].name} · ${fmtMoney(record.people[0].amount)}`);
+    toast(lentExpense
+      ? `Loan recorded: ${record.people[0].name} · ${fmtMoney(record.people[0].amount)} — logged as an expense`
+      : `Loan recorded: ${record.people[0].name} · ${fmtMoney(record.people[0].amount)}`);
     return;
   }
   toast(`${record.people.length} request${record.people.length === 1 ? "" : "s"} created`);

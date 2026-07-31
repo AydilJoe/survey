@@ -2162,6 +2162,65 @@ check('confirming the handed-off receipt settles that person',
   && Math.abs(paidHandoffDone.repayments[0].amount - 30) < 0.001,
   JSON.stringify(paidHandoffDone));
 
+/* ── 13. lending logs the outgoing expense (v1.14.1) ────────────────────
+   Money lent genuinely leaves you: default-on checkbox books a "Money
+   lent" expense on the lend date, so the eventual repayment income nets
+   to zero instead of appearing as phantom income. Opt-out books nothing. */
+const lendLog = await S(() => {
+  const expBefore = state.dailyExpenses.length;
+  splitOpenCompose({ mode: 'loan' });
+  const body = document.getElementById('split-compose-body');
+  body.querySelector('[name=person]').value = 'Adik';
+  body.querySelector('[name=amount]').value = '100';
+  splitComposeSave();
+  const rec = splitOutList()[splitOutList().length - 1];
+  const exp = state.dailyExpenses[state.dailyExpenses.length - 1];
+  return {
+    added: state.dailyExpenses.length - expBefore,
+    cat: exp && exp.category, amt: exp && exp.amount, date: exp && exp.date,
+    linked: rec.expenseId === (exp && exp.id), recDate: rec.date,
+    recId: rec.id, personId: rec.people[0].id,
+  };
+});
+check('recording a loan books a "Money lent" expense by default',
+  lendLog.added === 1 && lendLog.cat === 'Money lent' && Math.abs(lendLog.amt - 100) < 0.01
+  && lendLog.date === lendLog.recDate && lendLog.linked, JSON.stringify(lendLog));
+
+const lendNet = await S((ids) => {
+  const incBefore = state.income.length;
+  splitRecordRepayment(ids.personId, 100);
+  const inc = state.income[state.income.length - 1];
+  const rec = splitOutList().find(r => r.id === ids.recId);
+  return { incAdded: state.income.length - incBefore, incAmt: inc && inc.amount,
+    settled: rec.people[0].status === 'settled' };
+}, { recId: lendLog.recId, personId: lendLog.personId });
+check('full repayment books matching income — loan nets to zero',
+  lendNet.incAdded === 1 && Math.abs(lendNet.incAmt - 100) < 0.01 && lendNet.settled,
+  JSON.stringify(lendNet));
+
+const lendOptOut = await S(() => {
+  const expBefore = state.dailyExpenses.length;
+  splitOpenCompose({ mode: 'loan' });
+  const body = document.getElementById('split-compose-body');
+  body.querySelector('[name=person]').value = 'Abang';
+  body.querySelector('[name=amount]').value = '50';
+  body.querySelector('[name=logExpense]').checked = false;
+  splitComposeSave();
+  const rec = splitOutList()[splitOutList().length - 1];
+  return { added: state.dailyExpenses.length - expBefore, expenseId: rec.expenseId,
+    recorded: rec.people[0].name === 'Abang' };
+});
+check('opt-out books no expense but still records the loan',
+  lendOptOut.added === 0 && lendOptOut.expenseId === '' && lendOptOut.recorded,
+  JSON.stringify(lendOptOut));
+check('checkbox renders only in loan mode',
+  await S(() => {
+    splitOpenCompose({ mode: 'request' });
+    const has = !!document.querySelector('#split-compose-body [name=logExpense]');
+    document.getElementById('split-compose-dialog').close();
+    return !has;
+  }));
+
 await b.close();
 if (server) server.kill();
 
