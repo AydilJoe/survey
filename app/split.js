@@ -72,6 +72,16 @@ const SPLIT_MATCH_MAX_CHOICES = 4;
 // and short enough that the trail is still warm.
 const SPLIT_STALE_DAYS = 14;
 
+/* ---------- Phase 2.5 constants (itemized split) ---------- */
+
+const SPLIT_ITEM_NAME_MAX = 40;
+// A receipt with more lines than this is either a wholesale run or OCR noise;
+// either way the composer stops being usable long before it stops parsing.
+const SPLIT_ITEMS_MAX = 40;
+// Anything above this on a single line is a phone number, a member id or a
+// mis-read — not a dish.
+const SPLIT_ITEM_PRICE_MAX = 10000;
+
 /* ---------- shape ---------- */
 
 function emptySplit() {
@@ -129,6 +139,11 @@ function coerceSplitPerson(raw) {
     id: typeof p.id === "string" && p.id ? p.id : uid(),
     name: splitText(p.name, SPLIT_NAME_MAX) || "Someone",
     amount: Math.max(0, splitNum(p.amount)),
+    // Per-person note. An itemized split writes each person's own breakdown
+    // here ("Ayam goreng 12.00 · ½ Tomyam 9.25 · charges 2.25") because the
+    // items themselves are compose-time only — this line IS the durable
+    // record, and it is what rides out in the request payload's `n`.
+    note: splitText(p.note, SPLIT_NOTE_MAX),
     status,
     settledDate: splitIsDate(p.settledDate) ? p.settledDate : "",
     repayments,
@@ -425,7 +440,11 @@ function splitRequestPayload(rec, person) {
   };
   const me = splitText(s.me, SPLIT_NAME_MAX);
   if (me) payload.fr = me;
-  if (rec.note) payload.n = rec.note;
+  // The person's own breakdown wins over the record-wide note: on an itemized
+  // split "what am I actually paying for" is the per-person line, and on
+  // every other kind of request that field is empty and this is a no-op.
+  const note = splitText(person && person.note, SPLIT_NOTE_MAX) || rec.note;
+  if (note) payload.n = note;
   if (rec.dueDate) payload.dd = rec.dueDate;
   // Opt-in only. payTo can be fully populated and still never leave the
   // device while the master toggle is off — that invariant is under test.
@@ -937,6 +956,220 @@ async function splitCopyText(text) {
   }
 }
 
+/* ---------- itemized split: receipt parsing (Phase 2.5) ----------
+
+   OCR is PREFILL, never oracle. Everything this parser pulls out lands in an
+   editable row and is shown to the user before a single sen is computed, so
+   the worst a mis-read can do is waste a correction — never quietly bill the
+   wrong person. Kept a PURE function over raw text (no DOM, no state) so the
+   heuristics can be tested directly against real receipt shapes.
+
+   Three buckets, decided per line:
+     - summary lines (TOTAL, CASH, CHANGE, TUNAI, BAKI…) are DROPPED. They
+       restate money that is already on the receipt; counting them again is
+       the one mistake that silently doubles a bill.
+     - charge lines (SERVICE, SST, GST, TAX, ROUNDING…) go to the charges
+       bucket. That money belongs to the bill but to no dish.
+     - everything else with a name and a price is an item candidate. */
+
+const SPLIT_CHARGE_RX = /(SERVICE|SST|GST|TAX|ROUNDING|SRV|SVC)/i;
+const SPLIT_SUMMARY_RX = /(TOTAL|SUBTOTAL|CASH|CHANGE|TUNAI|JUMLAH|DISCOUNT|DISKAUN|BAKI)/i;
+// A dd/mm/yyyy-style run anywhere on the line. Without this "01.07.2026"
+// reads as a RM 1.07 item — the most common false positive there is.
+const SPLIT_DATEISH_RX = /\b\d{1,2}\s*[/.-]\s*\d{1,2}\s*[/.-]\s*\d{2,4}\b/;
+// Money as receipts actually print it, with the leading minus / bracket that
+// marks a rounding credit. Global: callers reset lastIndex before use.
+const SPLIT_MONEY_RX = /(-|\()?\s*(?:RM|MYR)?\s*(\d{1,3}(?:[,\s]\d{3})*|\d+)[.,]\s?(\d{2})(?!\d)/gi;
+
+function splitMoneyOnLine(line) {
+  const out = [];
+  SPLIT_MONEY_RX.lastIndex = 0;
+  let m;
+  while ((m = SPLIT_MONEY_RX.exec(line))) {
+    const whole = m[2].replace(/[^\d]/g, "");
+    let value = Number(`${whole}.${m[3]}`);
+    if (!Number.isFinite(value)) continue;
+    if (m[1]) value = -value; // "-0.02" and "(0.02)" are both a credit
+    out.push({ value, start: m.index, end: m.index + m[0].length });
+  }
+  return out;
+}
+
+// "2 x Nasi Lemak ......" → "Nasi Lemak". Leading quantity markers and the
+// dot leaders that reach the price column carry no meaning once the price is
+// already captured; a name with fewer than two letters is OCR debris.
+function splitItemName(raw) {
+  let s = String(raw == null ? "" : raw).replace(/[.•·]{2,}/g, " ").replace(/\s+/g, " ").trim();
+  s = s.replace(/^\d{1,3}\s*[xX*@]?\s+/, "").trim();
+  s = s.replace(/[-:,;|]+$/, "").trim();
+  if ((s.match(/[A-Za-z]/g) || []).length < 2) return "";
+  return splitText(s, SPLIT_ITEM_NAME_MAX);
+}
+
+/* Returns { items:[{name, price}], charges, chargeLines, dropped:[line] }.
+   `dropped` exists so the behaviour is inspectable (and testable) rather than
+   a black box — nothing in the UI depends on it. */
+function splitParseReceiptItems(rawText) {
+  // Same OCR glitch fix the receipt parser uses: a letter O in front of a
+  // decimal is a zero, every time.
+  const text = String(rawText == null ? "" : rawText).replace(/[oO](?=[.,]\d{2})/g, "0");
+  const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const items = [];
+  const dropped = [];
+  let charges = 0;
+  let chargeLines = 0;
+  for (const line of lines) {
+    if (SPLIT_SUMMARY_RX.test(line)) { dropped.push(line); continue; }
+    const money = splitMoneyOnLine(line);
+    if (SPLIT_CHARGE_RX.test(line)) {
+      // The charge itself is the LAST figure on the line — "SST 8% 3.64"
+      // leads with a rate, not an amount.
+      if (money.length) {
+        charges = splitRound2(charges + money[money.length - 1].value);
+        chargeLines += 1;
+      } else {
+        dropped.push(line);
+      }
+      continue;
+    }
+    if (!money.length || SPLIT_DATEISH_RX.test(line)) { dropped.push(line); continue; }
+    const price = money[money.length - 1];
+    if (!(price.value > 0) || price.value > SPLIT_ITEM_PRICE_MAX) { dropped.push(line); continue; }
+    const name = splitItemName(line.slice(0, price.start));
+    if (!name) { dropped.push(line); continue; }
+    if (items.length >= SPLIT_ITEMS_MAX) { dropped.push(line); continue; }
+    items.push({ name, price: splitRound2(price.value) });
+  }
+  return { items, charges: splitRound2(charges), chargeLines, dropped };
+}
+
+/* ---------- itemized split: the maths ----------
+
+   Everything below works in SEN as integers. Ringgit floats cannot represent
+   a third of RM 10, and "the shares add up to the bill" is the one promise
+   this feature cannot break — so the division happens where it is exact and
+   only the final answer comes back as ringgit. */
+
+// Largest-remainder apportionment: hand out floor(share) to everyone, then
+// give the leftover sen to the largest fractional remainders. Ties break by
+// position, which makes the result deterministic — the same bill always
+// splits the same way, and a test can hand-compute every sen.
+function splitApportion(cents, weights) {
+  const list = Array.isArray(weights) ? weights : [];
+  const n = list.length;
+  const out = new Array(n).fill(0);
+  if (!n) return out;
+  const target = Math.round(Number(cents) || 0);
+  if (!target) return out;
+  // A negative bucket (a rounding credit that outweighs the tax) splits by
+  // exactly the same rule, just mirrored.
+  if (target < 0) return splitApportion(-target, list).map((v) => -v);
+  const clean = list.map((w) => (Number(w) > 0 ? Number(w) : 0));
+  const total = clean.reduce((s, w) => s + w, 0);
+  // Nothing to weigh by (a zero-priced item, or proportional charges on a
+  // bill with no priced items yet) — an even split still lands every sen.
+  if (!(total > 0)) return splitApportion(target, clean.map(() => 1));
+  const fracs = [];
+  let used = 0;
+  for (let i = 0; i < n; i++) {
+    const exact = (target * clean[i]) / total;
+    const base = Math.floor(exact);
+    out[i] = base;
+    used += base;
+    fracs.push({ i, frac: exact - base });
+  }
+  let left = target - used;
+  fracs.sort((a, b) => b.frac - a.frac || a.i - b.i);
+  for (let k = 0; k < fracs.length && left > 0; k++) { out[fracs[k].i] += 1; left -= 1; }
+  return out;
+}
+
+// "shared by two" reads faster as ½ than as "1/2 of". Beyond a sixth nobody
+// is picturing the fraction anyway, so it falls back to plain text.
+const SPLIT_FRACTION_GLYPHS = { 2: "½", 3: "⅓", 4: "¼", 5: "⅕", 6: "⅙" };
+function splitShareGlyph(n) {
+  const k = Number(n) || 0;
+  if (k <= 1) return "";
+  return SPLIT_FRACTION_GLYPHS[k] || `1/${k}`;
+}
+
+/* The whole itemized calculation as a PURE function over plain data, so every
+   sen in the tests is hand-computable.
+
+   input: { people: [{key, name}]  — the payer ("You") FIRST; they are the
+                                     tie-break for a spare sen and the fallback
+                                     owner of anything nobody ticked,
+           items: [{name, price, who:[key]}],
+           charges: number,
+           chargesMode: "equal" | "proportional" }
+
+   Returns per-person items/charges/total in ringgit plus the breakdown note.
+   Σ(amount) === itemsTotal + charges, exactly, by construction. */
+function splitComputeItems(input) {
+  const o = input && typeof input === "object" ? input : {};
+  const people = (Array.isArray(o.people) ? o.people : []).map((p, i) => ({
+    key: p && p.key != null ? String(p.key) : String(i),
+    name: (p && p.name) || "",
+  }));
+  const index = new Map();
+  people.forEach((p, i) => { if (!index.has(p.key)) index.set(p.key, i); });
+
+  const itemCents = people.map(() => 0);
+  const noteLines = people.map(() => []);
+  let itemsCents = 0;
+
+  for (const raw of Array.isArray(o.items) ? o.items : []) {
+    const cents = Math.round(splitRound2(raw && raw.price) * 100);
+    if (!cents) continue;
+    let who = (Array.isArray(raw.who) ? raw.who : []).map(String).filter((k) => index.has(k));
+    // Nobody ticked: it lands on the payer. Leaving it unassigned would break
+    // "the shares add up to the bill", which is the invariant everything else
+    // here exists to protect.
+    if (!who.length && people.length) who = [people[0].key];
+    if (!who.length) continue;
+    // De-duplicated, and kept in people order so the spare sen always goes to
+    // the same person for the same bill.
+    const seats = people.map((p, i) => i).filter((i) => who.includes(people[i].key));
+    if (!seats.length) continue;
+    const shares = splitApportion(cents, seats.map(() => 1));
+    const glyph = splitShareGlyph(seats.length);
+    seats.forEach((i, j) => {
+      itemCents[i] += shares[j];
+      const label = splitText(raw && raw.name, SPLIT_ITEM_NAME_MAX) || "Item";
+      noteLines[i].push(`${glyph ? `${glyph} ` : ""}${label} ${(shares[j] / 100).toFixed(2)}`);
+    });
+    itemsCents += cents;
+  }
+
+  const chargeCents = Math.round(splitRound2(o.charges) * 100);
+  const proportional = o.chargesMode === "proportional";
+  // Equal: everyone at the table paid for the same service. Proportional: the
+  // person who ordered the lobster pays the service charge on the lobster.
+  const weights = proportional ? itemCents.slice() : people.map(() => 1);
+  const chargeShares = splitApportion(chargeCents, weights);
+
+  const rows = people.map((p, i) => {
+    const parts = noteLines[i].slice();
+    if (chargeShares[i]) parts.push(`charges ${(chargeShares[i] / 100).toFixed(2)}`);
+    return {
+      key: p.key,
+      name: p.name,
+      you: i === 0,
+      items: splitRound2(itemCents[i] / 100),
+      charges: splitRound2(chargeShares[i] / 100),
+      amount: splitRound2((itemCents[i] + chargeShares[i]) / 100),
+      note: splitText(parts.join(" · "), SPLIT_NOTE_MAX),
+    };
+  });
+
+  return {
+    people: rows,
+    itemsTotal: splitRound2(itemsCents / 100),
+    charges: splitRound2(chargeCents / 100),
+    total: splitRound2((itemsCents + chargeCents) / 100),
+  };
+}
+
 /* ---------- compose dialog ---------- */
 
 // Transient composer state. Never persisted: it is a half-typed form, and
@@ -964,17 +1197,37 @@ function splitCloseDialog(dlg) {
   else dlg.removeAttribute("open");
 }
 
+// Row keys for the composer only. Item assignments point at people by key, so
+// adding or removing a row can never silently re-target someone else's food
+// the way a plain array index would.
+let splitKeySeq = 0;
+function splitNewKey(prefix) { splitKeySeq += 1; return `${prefix}${splitKeySeq}`; }
+function splitNewPerson() { return { key: splitNewKey("p"), name: "", amount: 0 }; }
+// "You" is implicit and always first: the payer assigns their own food too,
+// and that chip never becomes a request.
+const SPLIT_YOU_KEY = "you";
+function splitComposeKeys() {
+  const c = splitCompose;
+  return [SPLIT_YOU_KEY].concat(c ? c.people.map((p) => p.key) : []);
+}
+
 function splitOpenCompose(opts) {
   const o = opts || {};
   splitCompose = {
     mode: o.mode === "loan" ? "loan" : o.mode === "request" ? "request" : "split",
+    // "equal" is the whole of Phase 1 and stays the default; "item" is the
+    // Phase 2.5 tick-who-ate-what flow.
+    method: "equal",
     expenseId: o.expenseId || "",
     title: splitText(o.title, SPLIT_TITLE_MAX),
     date: splitIsDate(o.date) ? o.date : todayISO(),
     total: Number(o.total) > 0 ? splitRound2(o.total) : 0,
     note: "",
     dueDate: "",
-    people: [{ name: "", amount: 0 }],
+    people: [splitNewPerson()],
+    items: [],
+    charges: 0,
+    chargesMode: "equal",
   };
   splitRenderCompose();
   splitShowDialog(splitComposeDialogEl());
@@ -1017,22 +1270,83 @@ function splitComposeSync() {
   c.dueDate = splitIsDate(due) ? due : "";
   const logEl = body.querySelector("[name=logExpense]");
   if (logEl) c.logExpense = logEl.checked;
-  const total = Number(val("[name=total]"));
-  if (Number.isFinite(total)) c.total = splitRound2(total);
+  // By item the total is DERIVED (items + charges) and the box on screen is
+  // read-only, so it must never write back: a bill total prefilled from an
+  // expense has to survive a look at the by-item tab and come back intact.
+  if (!(c.mode === "split" && c.method === "item")) {
+    const total = Number(val("[name=total]"));
+    if (Number.isFinite(total)) c.total = splitRound2(total);
+  }
   if (c.mode === "split") {
     const rows = [...body.querySelectorAll("[data-split-person]")];
     if (rows.length) {
-      c.people = rows.map((row) => ({
-        name: splitText(row.querySelector("[data-person-name]")?.value, SPLIT_NAME_MAX),
-        amount: splitRound2(Number(row.querySelector("[data-person-amount]")?.value) || 0),
-      }));
+      c.people = rows.map((row, i) => {
+        const prev = c.people[i] || {};
+        const amountEl = row.querySelector("[data-person-amount]");
+        return {
+          key: row.dataset.pkey || prev.key || splitNewKey("p"),
+          name: splitText(row.querySelector("[data-person-name]")?.value, SPLIT_NAME_MAX),
+          // By item there is no amount to type — it is computed from the
+          // ticks, and the last computed value is what stays in the row.
+          amount: amountEl
+            ? splitRound2(Number(amountEl.value) || 0)
+            : splitRound2(Number(prev.amount) || 0),
+        };
+      });
     }
+    if (c.method === "item") splitComposeSyncItems(body);
   } else {
     const amount = Number(val("[name=amount]"));
     const name = splitText(val("[name=person]"), SPLIT_NAME_MAX);
     c.people = [{ name, amount: Number.isFinite(amount) ? splitRound2(amount) : 0 }];
     if (Number.isFinite(amount)) c.total = splitRound2(amount);
   }
+}
+
+// Items and the charges bucket, read back the same way the people rows are:
+// whatever is on screen wins, and the tick-lists follow their row by key so a
+// re-render never re-targets someone's food.
+function splitComposeSyncItems(body) {
+  const c = splitCompose;
+  if (!c || !body) return;
+  const rows = [...body.querySelectorAll("[data-split-item]")];
+  if (rows.length) {
+    const keys = splitComposeKeys();
+    c.items = rows.map((row) => {
+      const key = row.dataset.key || splitNewKey("i");
+      const prev = c.items.find((it) => it.key === key);
+      return {
+        key,
+        name: splitText(row.querySelector("[data-item-name]")?.value, SPLIT_ITEM_NAME_MAX),
+        price: splitRound2(Number(row.querySelector("[data-item-price]")?.value) || 0),
+        who: (prev && Array.isArray(prev.who) ? prev.who : keys).filter((k) => keys.includes(k)),
+      };
+    });
+  }
+  const chargeEl = body.querySelector("[name=charges]");
+  if (chargeEl) {
+    const ch = Number(chargeEl.value);
+    if (Number.isFinite(ch)) c.charges = splitRound2(ch);
+  }
+}
+
+// The composer's data in the shape splitComputeItems() wants: "You" first,
+// then every people row (named or not — an unnamed row still eats).
+function splitComposeItemsInput() {
+  const c = splitCompose;
+  if (!c) return { people: [], items: [], charges: 0, chargesMode: "equal" };
+  return {
+    people: [{ key: SPLIT_YOU_KEY, name: "You" }].concat(c.people.map((p) => ({ key: p.key, name: p.name }))),
+    items: c.items,
+    charges: c.charges,
+    chargesMode: c.chargesMode,
+  };
+}
+
+// Names are optional while you are still typing, so the chips and the totals
+// need something to say in the meantime.
+function splitPersonLabel(name, i) {
+  return splitText(name, SPLIT_NAME_MAX) || `Person ${i + 1}`;
 }
 
 function splitRenderCompose() {
@@ -1049,9 +1363,11 @@ function splitRenderCompose() {
   const cur = typeof currentCurrency === "function" ? currentCurrency() : "MYR";
   const listAttr = splitState().names.length ? ` list="split-name-options"` : "";
 
-  if (c.mode === "split") {
+  if (c.mode === "split" && c.method === "item") {
+    body.innerHTML = splitComposeItemBodyHtml(cur, listAttr);
+  } else if (c.mode === "split") {
     const peopleRows = c.people.map((p, i) => `
-      <div class="split-person-row" data-split-person data-index="${i}">
+      <div class="split-person-row" data-split-person data-index="${i}" data-pkey="${escapeHtml(p.key || "")}">
         <input type="text" data-person-name value="${escapeHtml(p.name)}" placeholder="Name"${listAttr} />
         <input type="number" data-person-amount step="0.01" min="0" inputmode="decimal" value="${p.amount ? p.amount.toFixed(2) : ""}" placeholder="0.00" />
         <button type="button" class="ghost icon-btn" data-action="split-person-remove" data-index="${i}" aria-label="Remove person">✕</button>
@@ -1061,6 +1377,7 @@ function splitRenderCompose() {
       <div class="button-row split-scan-row">
         <button type="button" class="ghost" data-action="split-scan">Scan receipt to prefill</button>
       </div>
+      ${splitMethodPillsHtml(c.method)}
       <label class="field">
         <span>What for</span>
         <input type="text" name="title" value="${escapeHtml(c.title)}" placeholder="Dinner @ Naz Kitchen" />
@@ -1151,11 +1468,124 @@ function splitRenderCompose() {
   }
 }
 
+/* ---------- by-item composer UI ---------- */
+
+// Equally (everything Phase 1 does) vs By item (tick who ate what). Rendered
+// inside the body rather than the dialog shell so it re-renders with the rest
+// of the form; the delegated click handler wires it.
+function splitMethodPillsHtml(method) {
+  const on = method === "item" ? "item" : "equal";
+  const pill = (value, label) => `<button type="button" class="pill${on === value ? " active" : ""}" data-action="split-method" data-split-method="${value}" role="radio" aria-checked="${on === value ? "true" : "false"}">${label}</button>`;
+  return `<div class="type-pills split-method-pills" role="radiogroup" aria-label="How to split this bill">
+        ${pill("equal", "Equally")}${pill("item", "By item")}
+      </div>`;
+}
+
+function splitItemTotalsHtml(calc) {
+  const rows = calc.people.map((p, i) => `
+        <div class="split-total-row">
+          <span class="split-total-name">${escapeHtml(p.you ? "You" : splitPersonLabel(p.name, i))}</span>
+          <span class="split-total-amount">${fmtMoney(p.amount)}</span>
+        </div>`).join("");
+  return `${rows}
+        <div class="split-total-row is-sum">
+          <span class="split-total-name">Bill total</span>
+          <span class="split-total-amount">${fmtMoney(calc.total)}</span>
+        </div>`;
+}
+
+function splitComposeItemBodyHtml(cur, listAttr) {
+  const c = splitCompose;
+  const calc = splitComputeItems(splitComposeItemsInput());
+  const chips = [{ key: SPLIT_YOU_KEY, label: "You" }]
+    .concat(c.people.map((p, i) => ({ key: p.key, label: splitPersonLabel(p.name, i + 1) })));
+
+  const peopleRows = c.people.map((p, i) => `
+        <div class="split-person-row" data-split-person data-index="${i}" data-pkey="${escapeHtml(p.key || "")}">
+          <input type="text" data-person-name value="${escapeHtml(p.name)}" placeholder="Name"${listAttr} />
+          <button type="button" class="ghost icon-btn" data-action="split-person-remove" data-index="${i}" aria-label="Remove person">✕</button>
+        </div>`).join("");
+
+  const itemRows = c.items.map((it) => {
+    const who = Array.isArray(it.who) ? it.who : [];
+    const label = it.name || "this item";
+    return `
+        <div class="split-item" data-split-item data-key="${escapeHtml(it.key)}">
+          <div class="split-item-row">
+            <input type="text" data-item-name value="${escapeHtml(it.name)}" placeholder="Item" />
+            <input type="number" data-item-price step="0.01" min="0" inputmode="decimal" value="${it.price ? Number(it.price).toFixed(2) : ""}" placeholder="0.00" />
+            <button type="button" class="ghost icon-btn" data-action="split-item-remove" data-key="${escapeHtml(it.key)}" aria-label="Remove ${escapeHtml(label)}">✕</button>
+          </div>
+          <div class="split-item-eaters" role="group" aria-label="Who shared ${escapeHtml(label)}">
+            ${chips.map((ch) => {
+              const on = who.includes(ch.key);
+              return `<button type="button" class="chip split-eater${on ? " active" : ""}" data-action="split-item-who" data-key="${escapeHtml(it.key)}" data-who="${escapeHtml(ch.key)}" aria-pressed="${on ? "true" : "false"}">${escapeHtml(ch.label)}</button>`;
+            }).join("")}
+          </div>
+        </div>`;
+  }).join("");
+
+  const chargeChip = (value, label) => `<button type="button" class="chip${c.chargesMode === value ? " active" : ""}" data-action="split-charge-mode" data-charge-mode="${value}" aria-pressed="${c.chargesMode === value ? "true" : "false"}">${label}</button>`;
+
+  return `
+      ${splitNameDatalist()}
+      <div class="button-row split-scan-row">
+        <button type="button" class="ghost" data-action="split-scan">Scan receipt to prefill</button>
+      </div>
+      ${splitMethodPillsHtml(c.method)}
+      <label class="field">
+        <span>What for</span>
+        <input type="text" name="title" value="${escapeHtml(c.title)}" placeholder="Dinner @ Naz Kitchen" />
+      </label>
+      <div class="grid-2">
+        <label class="field">
+          <span>Bill total (${escapeHtml(cur)})</span>
+          <input type="number" name="total" step="0.01" readonly value="${calc.total ? calc.total.toFixed(2) : ""}" placeholder="0.00" aria-describedby="split-total-note" />
+        </label>
+        <label class="field">
+          <span>Date</span>
+          <input type="date" name="date" value="${escapeHtml(c.date)}" />
+        </label>
+      </div>
+      <p class="hint split-total-note" id="split-total-note">Items plus charges — it adds itself up.</p>
+      <span class="split-people-label">People</span>
+      <div class="split-people">${peopleRows}</div>
+      <div class="button-row split-people-actions">
+        <button type="button" class="ghost" data-action="split-person-add">+ Add person</button>
+      </div>
+      <span class="split-people-label">Items</span>
+      <div class="split-items">${itemRows}</div>
+      ${c.items.length ? "" : `<p class="hint">Scan the receipt above, or add the items by hand. Everything stays editable — the scan only fills the rows in.</p>`}
+      <div class="button-row split-people-actions">
+        <button type="button" class="ghost" data-action="split-item-add">+ Add item</button>
+      </div>
+      <span class="split-people-label">Service charge, tax &amp; rounding</span>
+      <div class="split-charges">
+        <label class="field">
+          <span>Charges (${escapeHtml(cur)})</span>
+          <input type="number" name="charges" step="0.01" inputmode="decimal" value="${c.charges ? Number(c.charges).toFixed(2) : ""}" placeholder="0.00" />
+        </label>
+        <div class="split-charge-modes" role="group" aria-label="How to split the charges">
+          ${chargeChip("equal", "Split equally")}${chargeChip("proportional", "In proportion to items")}
+        </div>
+      </div>
+      <div class="split-totals" id="split-item-totals">${splitItemTotalsHtml(calc)}</div>
+      <p class="hint split-share-hint" id="split-compose-hint">${splitComposeHintHtml()}</p>
+      <div class="form-actions">
+        <button type="button" class="ghost" data-action="split-compose-cancel">Cancel</button>
+        <button type="button" class="primary" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
+      </div>`;
+}
+
 function splitComposeCtaLabel() {
   const c = splitCompose;
   if (!c) return "Save";
   if (c.mode === "loan") return "Record loan";
   if (c.mode === "request") return "Create request";
+  if (c.method === "item") {
+    const owing = splitComputeItems(splitComposeItemsInput()).people.slice(1).filter((p) => p.amount > 0).length;
+    return owing ? `Create ${owing} request${owing === 1 ? "" : "s"}` : "Create requests";
+  }
   const n = c.people.filter((p) => p.name || p.amount > 0).length || c.people.length;
   return `Create ${n} request${n === 1 ? "" : "s"}`;
 }
@@ -1168,6 +1598,16 @@ function splitComposeHintHtml() {
   }
   if (c.mode === "request") {
     return "Creates a request you can send as a link or QR. Nothing is charged and no money moves — Duitful just records the IOU.";
+  }
+  if (c.method === "item") {
+    const calc = splitComputeItems(splitComposeItemsInput());
+    if (!(calc.total > 0)) {
+      return "Add the items and their prices, then tick who shared each one. Anything nobody ticks stays on you.";
+    }
+    const yourShare = calc.people[0] ? calc.people[0].amount : 0;
+    const requested = splitRound2(calc.total - yourShare);
+    const mode = c.chargesMode === "proportional" ? "in proportion to what each person ate" : "equally";
+    return `Your share: <strong>${fmtMoney(yourShare)}</strong> — stays in your expense. The other ${fmtMoney(requested)} becomes requests. Charges are split ${mode}.`;
   }
   const { others, yours } = splitComposeShare();
   if (!(Number(c.total) > 0)) {
@@ -1182,8 +1622,23 @@ function splitComposeHintHtml() {
 function splitUpdateComposeHint() {
   const el = document.getElementById("split-compose-hint");
   if (el) el.innerHTML = splitComposeHintHtml();
+  splitUpdateItemTotals();
   const cta = document.querySelector("#split-compose-dialog [data-action='split-compose-save']");
   if (cta) cta.textContent = splitComposeCtaLabel();
+}
+
+// Per-person totals and the running bill total, patched in place on every
+// keystroke. A full re-render here would steal focus mid-price.
+function splitUpdateItemTotals() {
+  const c = splitCompose;
+  const box = document.getElementById("split-item-totals");
+  if (!c || !box || c.mode !== "split" || c.method !== "item") return;
+  const calc = splitComputeItems(splitComposeItemsInput());
+  box.innerHTML = splitItemTotalsHtml(calc);
+  // The bill total shown here is derived, never typed: items + charges. It is
+  // not written back into the composer — see splitComposeSync().
+  const totalInput = document.querySelector("#split-compose-body [name=total]");
+  if (totalInput) totalInput.value = calc.total ? calc.total.toFixed(2) : "";
 }
 
 function splitEqually() {
@@ -1200,10 +1655,58 @@ function splitEqually() {
   splitRenderCompose();
 }
 
+/* An itemized split reaches the SAME out record as an equal one — the only
+   difference is where the per-person amounts came from and that each person
+   carries their own breakdown note. The items and the ticks are compose-time
+   only: nothing about who ate the tomyam is persisted, because the note is
+   the durable record and a settled bill has no use for the seating plan. */
+function splitComposeSaveItems() {
+  const c = splitCompose;
+  const calc = splitComputeItems(splitComposeItemsInput());
+  // calc.people[0] is You — your own share never becomes a request.
+  const owing = calc.people.slice(1).filter((p) => p.amount > 0);
+  if (!owing.length) {
+    toast("Nobody owes anything yet — add items and tick who shared them.");
+    return;
+  }
+  if (owing.some((p) => !splitText(p.name, SPLIT_NAME_MAX))) {
+    toast("Add a name for everyone you're requesting from.");
+    return;
+  }
+  const record = coerceSplitOut({
+    id: uid(),
+    kind: "split",
+    title: c.title || "Split bill",
+    date: c.date,
+    note: c.note,
+    // Items + charges, computed — never whatever was last in the total box.
+    total: calc.total,
+    dueDate: c.dueDate,
+    expenseId: c.expenseId,
+    people: owing.map((p) => ({
+      id: uid(),
+      name: splitText(p.name, SPLIT_NAME_MAX),
+      amount: p.amount,
+      status: "open",
+      repayments: [],
+      note: p.note,
+    })),
+  });
+  splitOutList().push(record);
+  for (const p of record.people) splitRememberName(p.name);
+  save();
+  if (typeof renderAll === "function") renderAll();
+  splitCloseDialog(splitComposeDialogEl());
+  splitCompose = null;
+  toast(`${record.people.length} request${record.people.length === 1 ? "" : "s"} created`);
+  splitOpenShare(record.id, 0);
+}
+
 function splitComposeSave() {
   const c = splitCompose;
   if (!c) return;
   splitComposeSync();
+  if (c.mode === "split" && c.method === "item") { splitComposeSaveItems(); return; }
   const people = c.people
     .map((p) => ({ name: splitText(p.name, SPLIT_NAME_MAX), amount: splitRound2(p.amount) }))
     .filter((p) => p.amount > 0 || p.name);
@@ -1319,6 +1822,26 @@ function splitApplyScan(parsed) {
   const date = splitDateFromReceipt(p.raw);
   if (date) c.date = date;
   if (c.mode !== "split") c.mode = "split";
+  // By item, the same scan fills the item rows instead of the total. Every
+  // line lands editable and nothing is computed until the user has looked at
+  // it — an OCR mis-read costs a correction, never a wrong request.
+  if (c.method === "item") {
+    const read = splitParseReceiptItems(p.raw);
+    if (read.items.length) {
+      const keys = splitComposeKeys();
+      c.items = read.items.map((it) => ({
+        key: splitNewKey("i"),
+        name: it.name,
+        price: it.price,
+        // Shared-dishes reality: everyone is ticked until someone says no.
+        who: keys.slice(),
+      }));
+      c.charges = read.charges;
+      toast(`${read.items.length} item${read.items.length === 1 ? "" : "s"} read — check them before you split`);
+    } else {
+      toast("Couldn't read the item lines — type them in, or split equally instead.");
+    }
+  }
   splitRenderCompose();
   splitShowDialog(splitComposeDialogEl());
 }
@@ -1990,15 +2513,63 @@ document.addEventListener("click", (e) => {
     splitSetMode(btn.dataset.splitMode || "split");
   } else if (action === "split-person-add") {
     splitComposeSync();
-    if (splitCompose) splitCompose.people.push({ name: "", amount: 0 });
+    if (splitCompose) {
+      const added = splitNewPerson();
+      splitCompose.people.push(added);
+      // Someone who joins the table is on every dish until told otherwise —
+      // the same "default all ticked" rule a scanned item starts with.
+      for (const it of splitCompose.items) {
+        if (Array.isArray(it.who) && !it.who.includes(added.key)) it.who.push(added.key);
+      }
+    }
     splitRenderCompose();
     const rows = document.querySelectorAll("#split-compose-body [data-split-person] [data-person-name]");
     if (rows.length) rows[rows.length - 1].focus();
   } else if (action === "split-person-remove") {
     splitComposeSync();
     const index = Number(btn.dataset.index);
-    if (splitCompose && splitCompose.people.length > 1) splitCompose.people.splice(index, 1);
-    else if (splitCompose) splitCompose.people = [{ name: "", amount: 0 }];
+    if (splitCompose) {
+      const gone = splitCompose.people[index];
+      if (splitCompose.people.length > 1) splitCompose.people.splice(index, 1);
+      else splitCompose.people = [splitNewPerson()];
+      const keys = splitComposeKeys();
+      // A removed person leaves every item they were on; anything that ends
+      // up ticked by nobody falls back to you at compute time.
+      for (const it of splitCompose.items) {
+        if (Array.isArray(it.who)) it.who = it.who.filter((k) => keys.includes(k) && (!gone || k !== gone.key));
+      }
+    }
+    splitRenderCompose();
+  } else if (action === "split-method") {
+    if (splitCompose) {
+      splitComposeSync();
+      splitCompose.method = btn.dataset.splitMethod === "item" ? "item" : "equal";
+      splitRenderCompose();
+    }
+  } else if (action === "split-item-add") {
+    splitComposeSync();
+    if (splitCompose) {
+      splitCompose.items.push({ key: splitNewKey("i"), name: "", price: 0, who: splitComposeKeys() });
+    }
+    splitRenderCompose();
+    const rows = document.querySelectorAll("#split-compose-body [data-split-item] [data-item-name]");
+    if (rows.length) rows[rows.length - 1].focus();
+  } else if (action === "split-item-remove") {
+    splitComposeSync();
+    if (splitCompose) splitCompose.items = splitCompose.items.filter((it) => it.key !== btn.dataset.key);
+    splitRenderCompose();
+  } else if (action === "split-item-who") {
+    splitComposeSync();
+    const item = splitCompose ? splitCompose.items.find((it) => it.key === btn.dataset.key) : null;
+    if (item) {
+      const who = Array.isArray(item.who) ? item.who : [];
+      const key = btn.dataset.who || "";
+      item.who = who.includes(key) ? who.filter((k) => k !== key) : who.concat([key]);
+    }
+    splitRenderCompose();
+  } else if (action === "split-charge-mode") {
+    splitComposeSync();
+    if (splitCompose) splitCompose.chargesMode = btn.dataset.chargeMode === "proportional" ? "proportional" : "equal";
     splitRenderCompose();
   } else if (action === "split-equally") {
     splitEqually();
