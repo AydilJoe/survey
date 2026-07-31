@@ -2168,6 +2168,50 @@ check('confirming the handed-off receipt settles that person',
   && Math.abs(paidHandoffDone.repayments[0].amount - 30) < 0.001,
   JSON.stringify(paidHandoffDone));
 
+/* ── 12b. What's-new digests instead of nagging ─────────────────────────
+   Fast shipping must not mean a popup per release: unseen notes merge
+   into ONE capped digest, at most one dialog per 5 days per device. */
+const wnDigest = await S(() => {
+  document.querySelectorAll('dialog[open]').forEach(d => d.close());
+  localStorage.removeItem('duitful.whatsNewShownAt');
+  state.lastSeenVersion = '1.12.0'; // several noted releases behind
+  maybeShowWhatsNew();
+  const dlg = document.getElementById('whats-new-dialog');
+  const title = document.getElementById('whats-new-title').textContent;
+  const lis = [...document.querySelectorAll('#whats-new-list li')];
+  const out = {
+    open: dlg.open, title,
+    count: lis.length,
+    hasOverflow: /full changelog/.test(lis[lis.length - 1]?.innerHTML || ''),
+    newestFirst: /item|receipt|ate/i.test(lis[0]?.textContent || ''),
+    unseen: whatsNewUnseenVersions().length,
+  };
+  dlg.close();
+  return out;
+});
+check('unseen releases merge into one capped digest, newest first',
+  wnDigest.open && wnDigest.unseen >= 3 && wnDigest.title.includes('since you last looked')
+  && wnDigest.count === 7 && wnDigest.hasOverflow && wnDigest.newestFirst,
+  JSON.stringify(wnDigest));
+const wnThrottle = await S(() => {
+  // shown moments ago → inside the quiet window: no dialog, backlog kept
+  maybeShowWhatsNew();
+  const openNow = document.getElementById('whats-new-dialog').open;
+  const backlogKept = state.lastSeenVersion === '1.12.0';
+  // outside the window → shows again
+  localStorage.setItem('duitful.whatsNewShownAt', String(Date.now() - 6 * 86400000));
+  maybeShowWhatsNew();
+  const reopens = document.getElementById('whats-new-dialog').open;
+  document.getElementById('whats-new-dialog').close();
+  state.lastSeenVersion = APP_VERSION; // restore
+  localStorage.removeItem('duitful.whatsNewShownAt');
+  save();
+  return { openNow, backlogKept, reopens };
+});
+check('digest throttles to one per 5 days and keeps the backlog',
+  !wnThrottle.openNow && wnThrottle.backlogKept && wnThrottle.reopens,
+  JSON.stringify(wnThrottle));
+
 /* ── 13. lending logs the outgoing expense (v1.14.1) ────────────────────
    Money lent genuinely leaves you: default-on checkbox books a "Money
    lent" expense on the lend date, so the eventual repayment income nets
