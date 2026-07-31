@@ -2227,7 +2227,343 @@ check('checkbox renders only in loan mode',
     return !has;
   }));
 
-/* ── 14. auto-biometric attempt is a no-op on web ───────────────────────
+/* ── 14. itemized split (Phase 2.5, v1.15.0) ────────────────────────────
+   Tick who ate what. OCR is prefill, never oracle, so the parser is a pure
+   function tested directly against real Malaysian receipt shapes; the
+   division is largest-remainder in sen, so "the shares add up to the bill"
+   is checked to the last cent on deliberately awkward figures. */
+
+// --- the pure parser: items kept, charges bucketed, summaries dropped ---
+const mamakReceipt = [
+  'RESTORAN NASI KANDAR ALIF',
+  'NO 12, JALAN SS2/24',
+  'TEL 03-7877 1234',
+  '--------------------------------',
+  '1 NASI KANDAR AYAM        12.00',
+  '2 TEH TARIK                7.00',
+  '1 ROTI CANAI               1.60',
+  '--------------------------------',
+  'SUBTOTAL                  20.60',
+  'SST 6%                     1.24',
+  'ROUNDING                   0.01',
+  'TOTAL                     21.85',
+  'TUNAI                     50.00',
+  'BAKI                      28.15',
+].join('\n');
+const mamakParse = await S((raw) => splitParseReceiptItems(raw), mamakReceipt);
+check('mamak receipt: item lines kept with their prices, quantity prefix stripped',
+  JSON.stringify(mamakParse.items) === JSON.stringify([
+    { name: 'NASI KANDAR AYAM', price: 12 },
+    { name: 'TEH TARIK', price: 7 },
+    { name: 'ROTI CANAI', price: 1.6 },
+  ]), JSON.stringify(mamakParse.items));
+check('mamak receipt: SST + rounding land in the charges bucket (1.24 + 0.01)',
+  Math.abs(mamakParse.charges - 1.25) < 0.0001 && mamakParse.chargeLines === 2,
+  JSON.stringify({ charges: mamakParse.charges, lines: mamakParse.chargeLines }));
+check('mamak receipt: TOTAL / SUBTOTAL / TUNAI / BAKI are dropped, never itemised',
+  !mamakParse.items.some((i) => /TOTAL|TUNAI|BAKI/i.test(i.name))
+  // dropped lines come back whitespace-collapsed, as the parser reads them
+  && ['SUBTOTAL 20.60', 'TOTAL 21.85', 'TUNAI 50.00', 'BAKI 28.15']
+    .every((l) => mamakParse.dropped.includes(l)),
+  JSON.stringify(mamakParse.dropped));
+
+const chainReceipt = [
+  'THE CHICKEN RICE SHOP',
+  'Bill 01/07/2026 19:32',
+  'Ayam Goreng Berempah      12.00',
+  'Tomyam Campur             18.50',
+  'Nasi Putih x2              4.00',
+  'Air Sirap Limau            6.90',
+  'Subtotal                  41.40',
+  'Service Charge 10%         4.14',
+  'SST 8%                     3.64',
+  'Rounding Adj              -0.02',
+  'TOTAL                     49.16',
+  'CASH                      50.00',
+  'CHANGE                     0.84',
+].join('\n');
+const chainParse = await S((raw) => splitParseReceiptItems(raw), chainReceipt);
+check('chain receipt: four dishes read, header and date line ignored',
+  JSON.stringify(chainParse.items.map((i) => `${i.name} ${i.price.toFixed(2)}`)) === JSON.stringify([
+    'Ayam Goreng Berempah 12.00', 'Tomyam Campur 18.50',
+    'Nasi Putih x2 4.00', 'Air Sirap Limau 6.90',
+  ]), JSON.stringify(chainParse.items));
+check('chain receipt: service charge + SST + a NEGATIVE rounding sum to 7.76',
+  Math.abs(chainParse.charges - 7.76) < 0.0001 && chainParse.chargeLines === 3,
+  JSON.stringify({ charges: chainParse.charges, lines: chainParse.chargeLines }));
+check('chain receipt: CASH and CHANGE never become items',
+  !chainParse.items.some((i) => /CASH|CHANGE|Subtotal/i.test(i.name))
+  && chainParse.items.length === 4, JSON.stringify(chainParse.items.map((i) => i.name)));
+
+// --- a shared item divides sen-exactly among whoever is ticked ---
+const shares = await S(() => {
+  const people = [{ key: 'you', name: 'You' }, { key: 'a', name: 'Ali' }, { key: 'm', name: 'Mei' }];
+  const two = splitComputeItems({
+    people, charges: 0, chargesMode: 'equal',
+    items: [{ name: 'Tomyam', price: 18.5, who: ['you', 'a'] }],
+  });
+  const three = splitComputeItems({
+    people, charges: 0, chargesMode: 'equal',
+    items: [{ name: 'Steamboat', price: 10, who: ['you', 'a', 'm'] }],
+  });
+  return {
+    two: two.people.map((p) => p.amount),
+    twoTotal: two.total,
+    three: three.people.map((p) => p.amount),
+    threeSum: three.people.reduce((s, p) => s + p.amount, 0),
+    note: three.people[1].note,
+  };
+});
+check('an item shared by two splits clean down the middle (18.50 → 9.25 each)',
+  JSON.stringify(shares.two) === JSON.stringify([9.25, 9.25, 0]) && shares.twoTotal === 18.5,
+  JSON.stringify(shares.two));
+check('an item shared by three gives the odd sen to the payer (10.00 → 3.34/3.33/3.33)',
+  JSON.stringify(shares.three) === JSON.stringify([3.34, 3.33, 3.33])
+  && Math.abs(shares.threeSum - 10) < 1e-9, JSON.stringify(shares.three));
+check('the breakdown note names the fraction that was shared',
+  shares.note === '⅓ Steamboat 3.33', shares.note);
+
+/* --- both charge modes, hand-computed ---
+   Items: Ayam 12.00 (You), Tomyam 18.50 (You+Ali), Nasi 4.00 (all three),
+   Sirap 6.90 (Mei). Item subtotals: You 22.59, Ali 10.58, Mei 8.23 = 41.40.
+   Charges 7.76.
+     equally      776 ÷ 3 = 258.67 → 259 / 259 / 258 (spare sen by position)
+                  → You 25.18, Ali 13.17, Mei 10.81
+     proportional 776 × 2259/4140 = 423.43 → 424 (largest remainder)
+                  776 × 1058/4140 = 198.31 → 198
+                  776 ×  823/4140 = 154.26 → 154
+                  → You 26.83, Ali 12.56, Mei 9.77
+   Both sum to 49.16 exactly. */
+const modes = await S(() => {
+  const base = {
+    people: [{ key: 'you', name: 'You' }, { key: 'a', name: 'Ali' }, { key: 'm', name: 'Mei' }],
+    items: [
+      { name: 'Ayam Goreng Berempah', price: 12, who: ['you'] },
+      { name: 'Tomyam Campur', price: 18.5, who: ['you', 'a'] },
+      { name: 'Nasi Putih x2', price: 4, who: ['you', 'a', 'm'] },
+      { name: 'Air Sirap Limau', price: 6.9, who: ['m'] },
+    ],
+    charges: 7.76,
+  };
+  const eq = splitComputeItems({ ...base, chargesMode: 'equal' });
+  const pr = splitComputeItems({ ...base, chargesMode: 'proportional' });
+  const sum = (c) => Math.round(c.people.reduce((s, p) => s + p.amount, 0) * 100) / 100;
+  return {
+    itemsOnly: eq.people.map((p) => p.items),
+    eq: eq.people.map((p) => p.amount), eqSum: sum(eq), eqTotal: eq.total,
+    pr: pr.people.map((p) => p.amount), prSum: sum(pr), prTotal: pr.total,
+    eqNote: eq.people[1].note, prNote: pr.people[1].note,
+  };
+});
+check('item subtotals per person are exact (22.59 / 10.58 / 8.23 = 41.40)',
+  JSON.stringify(modes.itemsOnly) === JSON.stringify([22.59, 10.58, 8.23]),
+  JSON.stringify(modes.itemsOnly));
+check('charges split equally: 25.18 / 13.17 / 10.81, summing to the bill',
+  JSON.stringify(modes.eq) === JSON.stringify([25.18, 13.17, 10.81])
+  && modes.eqSum === 49.16 && modes.eqTotal === 49.16,
+  JSON.stringify({ shares: modes.eq, sum: modes.eqSum }));
+check('charges in proportion to items: 26.83 / 12.56 / 9.77, summing to the bill',
+  JSON.stringify(modes.pr) === JSON.stringify([26.83, 12.56, 9.77])
+  && modes.prSum === 49.16 && modes.prTotal === 49.16,
+  JSON.stringify({ shares: modes.pr, sum: modes.prSum }));
+check('each person\'s note carries their own items and their own charge share',
+  modes.eqNote === '½ Tomyam Campur 9.25 · ⅓ Nasi Putih x2 1.33 · charges 2.59'
+  && /charges 1\.98$/.test(modes.prNote),
+  JSON.stringify({ eq: modes.eqNote, pr: modes.prNote }));
+
+// --- the awkward one: nothing divides, and it still lands on the sen ---
+const awkward = await S(() => {
+  const people = [{ key: 'you', name: 'You' }, { key: 'a', name: 'Ali' }, { key: 'm', name: 'Mei' }];
+  const base = { people, items: [{ name: 'Steamboat set', price: 47.35, who: ['you', 'a', 'm'] }], charges: 7.11 };
+  const eq = splitComputeItems({ ...base, chargesMode: 'equal' });
+  const pr = splitComputeItems({ ...base, chargesMode: 'proportional' });
+  const cents = (c) => c.people.reduce((s, p) => s + Math.round(p.amount * 100), 0);
+  return { eq: eq.people.map((p) => p.amount), eqCents: cents(eq), eqTotal: eq.total,
+    pr: pr.people.map((p) => p.amount), prCents: cents(pr), prTotal: pr.total };
+});
+check('items 47.35 + charges 7.11 across three: shares sum to 54.46 exactly, split equally',
+  awkward.eqCents === 5446 && awkward.eqTotal === 54.46
+  && JSON.stringify(awkward.eq) === JSON.stringify([18.16, 18.15, 18.15]),
+  JSON.stringify(awkward));
+check('same figures in proportion to items still sum to 54.46 exactly',
+  awkward.prCents === 5446 && awkward.prTotal === 54.46,
+  JSON.stringify({ shares: awkward.pr, cents: awkward.prCents }));
+
+// --- the composer: toggle, chips, live totals, and what it saves ---
+// The handoff section above reloaded the app, so a "what's new" dialog may be
+// sitting over the tabs; stand every open dialog down before driving the UI.
+await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+await page.waitForTimeout(200);
+await page.click('#tabbtn-debts');
+await page.click('#tab-debts [data-action="split-compose"]');
+await page.waitForTimeout(300);
+check('"Split a bill" offers the Equally / By item toggle, Equally first',
+  await page.locator('#split-compose-body [data-action="split-method"]').count() === 2
+  && await page.locator('#split-compose-body [data-split-method="equal"]').evaluate((e) => e.classList.contains('active')));
+await page.click('#split-compose-body [data-split-method="item"]');
+await page.waitForTimeout(250);
+check('by-item mode renders an items list, a charges bucket and a read-only total',
+  await page.locator('#split-compose-body .split-items').count() === 1
+  && await page.locator('#split-compose-body [name=charges]').count() === 1
+  && await page.locator('#split-compose-body [name=total]').evaluate((e) => e.readOnly === true));
+
+await S((raw) => {
+  const c = splitCompose;
+  c.title = 'Dinner @ Naz';
+  c.people = [{ key: 'pA', name: 'Ali', amount: 0 }, { key: 'pM', name: 'Mei', amount: 0 }];
+  // Straight from the scan path: the parser's rows, everyone ticked.
+  const read = splitParseReceiptItems(raw);
+  c.items = read.items.map((it, i) => ({ key: `i${i + 1}`, name: it.name, price: it.price, who: ['you', 'pA', 'pM'] }));
+  c.charges = read.charges;
+  splitRenderCompose();
+}, chainReceipt);
+await page.waitForTimeout(200);
+check('scanned items arrive with every person ticked by default',
+  await page.locator('#split-compose-body .split-item').count() === 4
+  && await page.locator('#split-compose-body .split-item[data-key="i1"] .chip.active').count() === 3
+  && (await page.locator('#split-compose-body [name=charges]').inputValue()) === '7.76');
+// Ayam → You only; Tomyam → You + Ali; Nasi → everyone; Sirap → Mei only.
+for (const sel of [
+  '.split-item[data-key="i1"] .chip[data-who="pA"]',
+  '.split-item[data-key="i1"] .chip[data-who="pM"]',
+  '.split-item[data-key="i2"] .chip[data-who="pM"]',
+  '.split-item[data-key="i4"] .chip[data-who="you"]',
+  '.split-item[data-key="i4"] .chip[data-who="pA"]',
+]) {
+  await page.click(`#split-compose-body ${sel}`);
+  await page.waitForTimeout(80);
+}
+const liveTotals = await S(() => ({
+  text: document.getElementById('split-item-totals').innerText.replace(/\n/g, ' | '),
+  total: document.querySelector('#split-compose-body [name=total]').value,
+  cta: document.querySelector('#split-compose-body [data-action="split-compose-save"]').textContent,
+  hint: document.getElementById('split-compose-hint').innerText,
+}));
+check('unticking a chip re-divides live: You 25.18 · Ali 13.17 · Mei 10.81',
+  /You \| RM\s*25\.18/.test(liveTotals.text) && /Ali \| RM\s*13\.17/.test(liveTotals.text)
+  && /Mei \| RM\s*10\.81/.test(liveTotals.text), liveTotals.text);
+check('the bill total auto-syncs to items + charges (49.16) and stays read-only',
+  liveTotals.total === '49.16' && /Bill total \| RM\s*49\.16/.test(liveTotals.text),
+  JSON.stringify({ total: liveTotals.total }));
+check('your own share is shown as yours and the CTA counts only the others',
+  /Your share:\s*RM\s*25\.18/.test(liveTotals.hint) && liveTotals.cta === 'Create 2 requests',
+  JSON.stringify({ hint: liveTotals.hint.slice(0, 90), cta: liveTotals.cta }));
+
+await page.click('#split-compose-body [data-charge-mode="proportional"]');
+await page.waitForTimeout(200);
+const proportionalText = (await page.locator('#split-item-totals').innerText()).replace(/\n/g, ' | ');
+check('switching charges to "in proportion to items" reprices everyone (26.83 / 12.56 / 9.77)',
+  /You \| RM\s*26\.83/.test(proportionalText) && /Ali \| RM\s*12\.56/.test(proportionalText)
+  && /Mei \| RM\s*9\.77/.test(proportionalText), proportionalText);
+await page.click('#split-compose-body [data-charge-mode="equal"]');
+await page.waitForTimeout(200);
+await page.click('#split-compose-body [data-action="split-compose-save"]');
+await page.waitForTimeout(600);
+await page.click('[data-action="split-share-close"]').catch(() => {});
+await page.waitForTimeout(200);
+
+const itemised = await S(async () => {
+  const rec = state.split.out.find((r) => r.title === 'Dinner @ Naz' && r.people.length === 2);
+  const ali = rec.people.find((p) => p.name === 'Ali');
+  const payload = splitRequestPayload(rec, ali);
+  return {
+    kind: rec.kind, total: rec.total, expenseId: rec.expenseId,
+    people: rec.people.map((p) => ({ name: p.name, amount: p.amount, note: p.note })),
+    yourShare: Math.round((rec.total - rec.people.reduce((s, p) => s + p.amount, 0)) * 100) / 100,
+    payloadNote: payload.n, payloadAmount: payload.a,
+    // Nothing about who ate what survives the save — the note is the record.
+    itemKeys: Object.keys(rec).filter((k) => /item|charge|who/i.test(k)),
+    composeCleared: splitCompose === null,
+  };
+});
+check('saving an itemized split creates the same out record shape with computed amounts',
+  itemised.kind === 'split' && itemised.total === 49.16
+  && JSON.stringify(itemised.people.map((p) => [p.name, p.amount]))
+     === JSON.stringify([['Ali', 13.17], ['Mei', 10.81]]),
+  JSON.stringify(itemised.people));
+check('"You" never becomes a request but is still inside the bill total (25.18)',
+  itemised.people.length === 2 && itemised.yourShare === 25.18,
+  JSON.stringify({ share: itemised.yourShare, people: itemised.people.length }));
+check('each request carries that person\'s own breakdown in the payload note',
+  itemised.payloadNote === '½ Tomyam Campur 9.25 · ⅓ Nasi Putih x2 1.33 · charges 2.59'
+  && Math.abs(itemised.payloadAmount - 13.17) < 0.001, JSON.stringify(itemised.payloadNote));
+check('items and assignments are compose-time only — nothing about them is persisted',
+  itemised.itemKeys.length === 0 && itemised.composeCleared === true,
+  JSON.stringify(itemised.itemKeys));
+
+// --- the scan entry point fills item rows, not just a total ---
+const scanPrefill = await S((raw) => {
+  splitOpenCompose({ mode: 'split' });
+  splitCompose.method = 'item';
+  splitRenderCompose();
+  // What script.js hands over after the OCR pass (same Pro quota, same pipeline).
+  splitApplyScan({ amount: 49.16, vendor: 'The Chicken Rice Shop', raw });
+  const c = splitCompose;
+  const out = {
+    items: c.items.map((i) => `${i.name} ${i.price.toFixed(2)}`),
+    charges: c.charges,
+    title: c.title,
+    allTicked: c.items.every((i) => i.who.length === splitComposeKeys().length),
+    total: document.querySelector('#split-compose-body [name=total]').value,
+  };
+  document.getElementById('split-compose-dialog').close();
+  return out;
+}, chainReceipt);
+check('scan-to-split by item fills editable rows, charges and the merchant name',
+  scanPrefill.items.length === 4 && scanPrefill.items[1] === 'Tomyam Campur 18.50'
+  && Math.abs(scanPrefill.charges - 7.76) < 0.001 && scanPrefill.title === 'The Chicken Rice Shop'
+  && scanPrefill.allTicked === true, JSON.stringify(scanPrefill));
+check('the parsed rows add back up to the total printed on the receipt (49.16)',
+  scanPrefill.total === '49.16', scanPrefill.total);
+
+// --- a long bill truncates the note instead of blowing the payload cap ---
+const capped = await S(async () => {
+  splitOpenCompose({ mode: 'split' });
+  const c = splitCompose;
+  c.method = 'item';
+  c.title = 'Kenduri makan';
+  c.people = [{ key: 'pZ', name: 'Zul', amount: 0 }];
+  c.items = Array.from({ length: 14 }, (_, i) => ({
+    key: `k${i}`, name: `Hidangan istimewa nombor ${i + 1}`, price: 9.9, who: ['pZ'],
+  }));
+  c.charges = 4.2;
+  splitRenderCompose(); // the composer reads the DOM back, so it has to exist
+  splitComposeSave();
+  const rec = state.split.out.find((r) => r.title === 'Kenduri makan');
+  const payload = splitRequestPayload(rec, rec.people[0]);
+  document.getElementById('split-share-dialog').close();
+  return { note: rec.people[0].note, len: rec.people[0].note.length, n: payload.n, amount: rec.people[0].amount };
+});
+// 14 × 9.90 = 138.60 on Zul alone, plus half the 4.20 charges (equal split
+// between You and Zul) = 140.70.
+check('a long breakdown is truncated to the note cap, payload included',
+  capped.len <= 140 && capped.n === capped.note && /Hidangan istimewa nombor 1 9\.90/.test(capped.note)
+  && Math.abs(capped.amount - 140.7) < 0.001,
+  JSON.stringify({ len: capped.len, amount: capped.amount }));
+
+// --- and the equally flow is exactly what it always was ---
+const equalRegression = await S(() => {
+  splitOpenCompose({ mode: 'split', title: 'Regression lunch', total: 94 });
+  splitCompose.method = 'item';
+  splitRenderCompose();
+  splitSetMode('split');
+  splitCompose.method = 'equal';
+  splitRenderCompose();
+  const body = document.getElementById('split-compose-body');
+  body.querySelector('[data-person-name]').value = 'Ali';
+  splitEqually();
+  const filled = document.querySelector('#split-compose-body [data-person-amount]').value;
+  splitComposeSave();
+  const rec = state.split.out.find((r) => r.title === 'Regression lunch');
+  document.getElementById('split-share-dialog').close();
+  return { filled, people: rec.people.length, amount: rec.people[0].amount, note: rec.people[0].note, total: rec.total };
+});
+check('after a trip through by-item, Equally still halves the bill and writes no breakdown',
+  equalRegression.filled === '47.00' && equalRegression.people === 1
+  && equalRegression.amount === 47 && equalRegression.note === '' && equalRegression.total === 94,
+  JSON.stringify(equalRegression));
+
+/* ── 15. auto-biometric attempt is a no-op on web ───────────────────────
    showLock schedules one automatic biometric attempt per presentation
    (native-only). On web it must fall straight through: passcode entry
    visible, no dialog, no crash (a throw would land in pageerror). */

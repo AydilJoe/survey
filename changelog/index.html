@@ -142,6 +142,17 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-15">
+    <span class="release-date">July 2026 · v1.15</span>
+    <h2 class="release-title">Tick who ate what</h2>
+    <p class="release-summary">The mamak-table problem, solved properly: three of you shared the tomyam, one had two teh ais, and the service charge belongs to everyone. Scan the receipt and assign it — the maths lands on the sen.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Split by item</strong> — a "By item" mode in Split a bill: the receipt scan prefills the item list (service charge, SST and rounding auto-detected into their own bucket; totals and change dropped), every line stays editable, and people chips under each item mark who shared it. Shared dishes divide equally among their eaters.</li>
+      <li><span class="tag feat">new</span><strong>Charges, your way</strong> — service charge and tax split equally by default, or switch to proportional so each person pays charges on what they actually ate.</li>
+      <li><span class="tag note">note</span><strong>Exact to the sen</strong> — shares always sum to the bill total precisely, and every request carries that person's item breakdown so nobody wonders where RM 23.50 came from. Item assignments live only while composing; the breakdown rides in the request itself.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-14-3">
     <span class="release-date">July 2026 · v1.14.3</span>
     <h2 class="release-title">Fingerprint first, passcode as fallback</h2>

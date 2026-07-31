@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.14.3";
+const APP_VERSION = "1.15.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8074,6 +8074,10 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.15.0": [
+    "<strong>Split by item</strong> — scan the receipt, tick who ate what (shared dishes divide among their eaters, right down to the sen), and everyone's share computes itself. Every request shows the person exactly what they're paying for.",
+    "<strong>Service charge & SST, handled</strong> — detected off the receipt automatically, split equally by default, or flip one switch to charge each person in proportion to what they ate.",
   ],
   "1.14.3": [
     "<strong>Fingerprint fires first</strong> (Android app) — with biometric unlock on, the scan sheet now appears the moment the lock screen does. Cancel and the passcode is right there; no re-prompt loops.",
