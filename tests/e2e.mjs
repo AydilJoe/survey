@@ -7,13 +7,40 @@
 // fresh browser profile, so every run starts from the first-run passcode
 // screen with empty localStorage.
 import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { existsSync, symlinkSync, unlinkSync, lstatSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.TEST_PORT || 8899);
 const BASE = process.env.BASE_URL || `http://localhost:${PORT}`;
+
+/* ---------- vendored Tesseract, for the real end-to-end OCR check ----------
+   The app loads its engine from `vendor/tesseract/` RELATIVE to the page, so
+   the served app at /app/ looks for /app/vendor/tesseract/. In the Capacitor
+   bundle build-web.mjs puts it there; here we fetch it into the repo's
+   vendor/ (the same script the build uses) and point a symlink at it. The
+   link is developer-local — .gitignore covers it — and is removed on the way
+   out so a checkout never keeps a 20 MB shadow of itself. */
+const VENDOR_SRC = path.join(REPO_ROOT, 'vendor', 'tesseract');
+const VENDOR_LINK = path.join(REPO_ROOT, 'app', 'vendor', 'tesseract');
+let vendorLinkCreated = false;
+if (!existsSync(path.join(VENDOR_SRC, 'tesseract.min.js'))) {
+  console.log('e2e: vendoring tesseract (one-time download)…');
+  const r = spawnSync('node', ['scripts/fetch-tesseract.mjs'], { cwd: REPO_ROOT, stdio: 'inherit' });
+  if (r.status !== 0) throw new Error('could not vendor tesseract — the OCR engine check needs it');
+}
+if (!existsSync(VENDOR_LINK)) {
+  symlinkSync(path.relative(path.dirname(VENDOR_LINK), VENDOR_SRC), VENDOR_LINK, 'dir');
+  vendorLinkCreated = true;
+}
+const dropVendorLink = () => {
+  if (!vendorLinkCreated) return;
+  vendorLinkCreated = false;
+  try { if (lstatSync(VENDOR_LINK).isSymbolicLink()) unlinkSync(VENDOR_LINK); } catch {}
+};
+process.on('exit', dropVendorLink);
 
 let server = null;
 if (!process.env.BASE_URL) {
@@ -39,7 +66,10 @@ const b = await chromium.launch(launchOpts);
 const page = await b.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
-page.on('console', m => { if (m.type() === 'error' && !/Content Security Policy|ERR_CONNECTION_RESET|ERR_NAME_NOT_RESOLVED|Failed to load resource/.test(m.text())) errors.push('console: ' + m.text()); });
+// "Estimating resolution as N" is Tesseract's wasm writing to stderr on every
+// recognize() — emscripten routes that to console.error. It is engine chatter,
+// not a page error.
+page.on('console', m => { if (m.type() === 'error' && !/Content Security Policy|ERR_CONNECTION_RESET|ERR_NAME_NOT_RESOLVED|Failed to load resource|Estimating resolution as/.test(m.text())) errors.push('console: ' + m.text()); });
 
 const ok = [];
 const bad = [];
@@ -2771,6 +2801,232 @@ await page.click('[data-action="split-compose-cancel"]');
 await page.waitForTimeout(200);
 await page.fill('#form-daily [name="amount"]', '');
 
+/* ── 17. OCR engines: selection, the ML Kit mapper, and one REAL read ────
+   v1.17 runs two engines behind one pipeline: ML Kit on native Android,
+   Tesseract 7 everywhere else. The rule that picks between them is pure, so
+   it is checked directly; ML Kit's own result shape is checked through a
+   synthetic block tree (no device needed); and the Tesseract path is checked
+   for real — rendered text, through the vendored wasm engine, into the same
+   row reconstruction the app ships. */
+
+// --- the selection rule ---
+const engines = await S(() => ({
+  web:            pickOcrEngine({ native: false, mlkitAvailable: false }),
+  webWithPlugin:  pickOcrEngine({ native: false, mlkitAvailable: true }),
+  nativeNoPlugin: pickOcrEngine({ native: true, mlkitAvailable: false }),
+  nativePlugin:   pickOcrEngine({ native: true, mlkitAvailable: true }),
+  junk: [pickOcrEngine(), pickOcrEngine(null), pickOcrEngine('yes'), pickOcrEngine({})],
+}));
+check('ML Kit only when BOTH native and the plugin are there; Tesseract otherwise',
+  engines.nativePlugin === 'mlkit' && engines.web === 'tesseract'
+  && engines.webWithPlugin === 'tesseract' && engines.nativeNoPlugin === 'tesseract',
+  JSON.stringify(engines));
+check('a missing or malformed environment picks Tesseract, never a crash',
+  engines.junk.join('|') === 'tesseract|tesseract|tesseract|tesseract', JSON.stringify(engines.junk));
+
+// --- web build carries no ML Kit surface at all ---
+const webSurface = await S(async () => ({
+  native: isNative(),
+  capacitor: typeof window.Capacitor,
+  plugin: mlkitTextPlugin(),
+  chosen: pickOcrEngine({ native: isNative(), mlkitAvailable: !!mlkitTextPlugin() }),
+  mlkitRun: await runMlKitOcr('data:image/png;base64,QUJD'),
+}));
+check('on the web the bridge is absent, the engine is Tesseract, and ML Kit is a silent no-op',
+  webSurface.native === false && webSurface.plugin === null
+  && webSurface.chosen === 'tesseract' && webSurface.mlkitRun === null,
+  JSON.stringify(webSurface));
+
+// --- ML Kit base64: the plugin decodes with android.util.Base64, which
+// throws (uncaught, on the Kotlin side) on a data-URL preamble ---
+check('the data-URL preamble is stripped and anything undecodable becomes ""',
+  JSON.stringify(await S(() => [
+    mlkitBase64FromDataUrl('data:image/jpeg;base64,QUJD'),
+    mlkitBase64FromDataUrl('QUJD'),
+    mlkitBase64FromDataUrl('QU\nJD  '),
+    mlkitBase64FromDataUrl('data:image/png;base64,***'),
+    mlkitBase64FromDataUrl('http://example.com/a.png'),
+    mlkitBase64FromDataUrl(''),
+    mlkitBase64FromDataUrl(null),
+  ])) === JSON.stringify(['QUJD', 'QUJD', 'QUJD', '', '', '', '']));
+
+// --- ML Kit blocks/lines/elements + frames → the SAME word shape ---
+// Shaped exactly as the plugin returns it: block → line → element, each with
+// a {left, top, right, bottom} boundingBox. Deliberately includes a line with
+// no elements, a block with no lines, and a box that only has cornerPoints —
+// all three must still contribute a word rather than vanish.
+const mlkitResult = {
+  text: 'RESTORAN MAKAN SEDAP\nNASI GORENG\n12.90\nTEH TARIK 5.50\nTOTAL 20.24',
+  blocks: [
+    {
+      text: 'RESTORAN MAKAN SEDAP',
+      boundingBox: { left: 40, top: 100, right: 330, bottom: 120 },
+      lines: [{
+        text: 'RESTORAN MAKAN SEDAP',
+        boundingBox: { left: 40, top: 100, right: 330, bottom: 120 },
+        elements: [
+          { text: 'RESTORAN', boundingBox: { left: 40, top: 100, right: 140, bottom: 120 } },
+          { text: 'MAKAN', boundingBox: { left: 150, top: 100, right: 230, bottom: 120 } },
+          { text: 'SEDAP', boundingBox: { left: 250, top: 100, right: 330, bottom: 120 } },
+        ],
+      }],
+    },
+    {
+      // name column and price column arrive as SEPARATE blocks, 6px apart in
+      // y — the row reconstruction is what puts them back together.
+      text: 'NASI GORENG',
+      boundingBox: { left: 70, top: 140, right: 240, bottom: 160 },
+      lines: [{
+        text: 'NASI GORENG',
+        boundingBox: { left: 70, top: 140, right: 240, bottom: 160 },
+        elements: [
+          { text: 'NASI', boundingBox: { left: 70, top: 140, right: 130, bottom: 160 } },
+          { text: 'GORENG', boundingBox: { left: 150, top: 140, right: 240, bottom: 160 } },
+        ],
+      }],
+    },
+    {
+      text: '12.90',
+      boundingBox: { left: 620, top: 146, right: 690, bottom: 166 },
+      lines: [{
+        text: '12.90',
+        boundingBox: { left: 620, top: 146, right: 690, bottom: 166 },
+        elements: [{ text: '12.90', boundingBox: { left: 620, top: 146, right: 690, bottom: 166 } }],
+      }],
+    },
+    {
+      text: 'TEH TARIK',
+      boundingBox: { left: 40, top: 190, right: 200, bottom: 210 },
+      // a line with no element breakdown → the line box carries the text
+      lines: [{ text: 'TEH TARIK', boundingBox: { left: 40, top: 190, right: 200, bottom: 210 }, elements: [] }],
+    },
+    {
+      text: '5.50',
+      boundingBox: { left: 620, top: 190, right: 680, bottom: 210 },
+      lines: [{ text: '5.50', boundingBox: { left: 620, top: 190, right: 680, bottom: 210 } }],
+    },
+    // a block with no lines at all → the block box carries the text
+    { text: 'TOTAL', boundingBox: { left: 40, top: 290, right: 110, bottom: 310 }, lines: [] },
+    // …and a box ML Kit left null, described only by its corners
+    {
+      text: '20.24',
+      boundingBox: null,
+      cornerPoints: {
+        topLeft: { x: 620, y: 292 }, topRight: { x: 690, y: 292 },
+        bottomRight: { x: 690, y: 312 }, bottomLeft: { x: 620, y: 312 },
+      },
+      lines: [],
+    },
+    // pure junk must be skipped, not thrown on
+    { text: '', boundingBox: { left: 1, top: 1, right: 2, bottom: 2 }, lines: [] },
+    { text: 'ghost', boundingBox: null, cornerPoints: null, lines: [] },
+    null,
+  ],
+};
+const mlkitMapped = await S((res) => {
+  const words = mlkitWordsFromResult(res);
+  const rows = splitReconstructRows(words);
+  return {
+    count: words.length,
+    shape: Object.keys(words[0] || {}).sort().join(','),
+    corners: words.find((w) => w.text === '20.24'),
+    rows,
+    text: receiptTextFromWords(words, res.text),
+    parsed: splitParseReceiptItems(rows.join('\n')),
+  };
+}, mlkitResult);
+check('ML Kit frames map to {text,x0,y0,x1,y1} and rebuild the receipt\'s physical rows',
+  mlkitMapped.shape === 'text,x0,x1,y0,y1'
+  && JSON.stringify(mlkitMapped.rows) === JSON.stringify([
+    'RESTORAN MAKAN SEDAP',
+    'NASI GORENG 12.90',
+    'TEH TARIK 5.50',
+    'TOTAL 20.24',
+  ]), JSON.stringify(mlkitMapped.rows));
+check('a null boundingBox is rebuilt from cornerPoints, and empty/broken nodes are dropped',
+  JSON.stringify(mlkitMapped.corners) === JSON.stringify({ text: '20.24', x0: 620, y0: 292, x1: 690, y1: 312 })
+  // 3 header elements + 2 name elements + 1 price + 2 element-less lines
+  // + 1 line-less block + 1 corners-only block = 10; the empty-text node,
+  // the box-less "ghost" and the null block contribute nothing.
+  && mlkitMapped.count === 10, JSON.stringify({ corners: mlkitMapped.corners, count: mlkitMapped.count }));
+check('the mapped words feed the EXISTING parsers unchanged (same items, TOTAL dropped)',
+  mlkitMapped.text === mlkitMapped.rows.join('\n')
+  && JSON.stringify(mlkitMapped.parsed.items) === JSON.stringify([
+    { name: 'NASI GORENG', price: 12.9 },
+    { name: 'TEH TARIK', price: 5.5 },
+  ]) && mlkitMapped.parsed.dropped.includes('TOTAL 20.24'),
+  JSON.stringify(mlkitMapped.parsed));
+
+/* --- the real thing: rendered text → vendored Tesseract 7 → parsed scan ---
+   This is the only check that proves the engine swap actually works. It
+   draws a two-column "receipt" onto a canvas and pushes it through the app's
+   own runReceiptOcr (preprocessing, worker, word boxes, row reconstruction,
+   parseReceiptText, #scan-raw), then reads the word boxes once more directly
+   so the layout data is visibly there, not assumed. Slow by nature: the
+   worker downloads ~7 MB of wasm and 2 MB of traineddata from the test
+   server on first use. */
+const realOcr = await S(async (timeoutMs) => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1000; canvas.height = 520;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000000';
+  ctx.textBaseline = 'top';
+  ctx.font = 'bold 64px sans-serif';
+  // Two columns, item then total — the shape the row reconstruction exists for.
+  ctx.fillText('NASI GORENG', 60, 120);
+  ctx.fillText('12.50', 640, 120);
+  ctx.fillText('TOTAL', 60, 280);
+  ctx.fillText('15.00', 640, 280);
+  const dataUrl = canvas.toDataURL('image/png');
+
+  const guard = (p) => Promise.race([
+    p, new Promise((_, rej) => setTimeout(() => rej(new Error('OCR timed out')), timeoutMs)),
+  ]);
+  try {
+    await guard(runReceiptOcr(dataUrl, dataUrl, null));
+    const raw = document.getElementById('scan-raw').textContent || '';
+    const amount = document.getElementById('scan-amount').value;
+    const status = document.getElementById('scan-status').textContent || '';
+    // Second pass on the same (now warm) worker: the word boxes themselves.
+    const worker = await guard(getTesseractWorker(() => {}));
+    const res = await guard(worker.recognize(canvas, {}, { blocks: true, text: true }));
+    const data = (res && res.data) || {};
+    const words = collectOcrWords(data);
+    const boxed = words.filter((w) => {
+      const b = (w && w.bbox) || w || {};
+      return ['x0', 'y0', 'x1', 'y1'].every((k) => Number.isFinite(Number(b[k])));
+    });
+    return {
+      raw, amount, status,
+      version: (data.version || '') + '',
+      flat: data.text || '',
+      words: words.length,
+      boxed: boxed.length,
+      rows: splitReconstructRows(words),
+      items: splitParseReceiptItems(splitReconstructRows(words).join('\n')).items,
+    };
+  } catch (err) {
+    return { error: String((err && err.message) || err) };
+  }
+}, 180000);
+await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+check('the vendored Tesseract engine actually reads rendered text end-to-end',
+  !realOcr.error && /NASI/i.test(realOcr.raw) && /GORENG/i.test(realOcr.raw)
+  && /12\.50/.test(realOcr.raw) && /TOTAL/i.test(realOcr.raw) && /15\.00/.test(realOcr.raw),
+  JSON.stringify({ error: realOcr.error, raw: realOcr.raw, status: realOcr.status }));
+check('the scan dialog is filled from that read (TOTAL wins the amount)',
+  realOcr.amount === '15.00', JSON.stringify({ amount: realOcr.amount, raw: realOcr.raw }));
+check('word boxes came back and flowed into row reconstruction (name and price on ONE row)',
+  realOcr.words >= 4 && realOcr.boxed === realOcr.words
+  && Array.isArray(realOcr.rows) && realOcr.rows.length >= 2
+  && realOcr.rows.some((r) => /NASI\s+GORENG\s+12\.50/i.test(r))
+  && realOcr.rows.some((r) => /TOTAL\s+15\.00/i.test(r)),
+  JSON.stringify({ words: realOcr.words, boxed: realOcr.boxed, rows: realOcr.rows }));
+check('the reconstructed rows still parse as one item plus a dropped TOTAL',
+  JSON.stringify(realOcr.items) === JSON.stringify([{ name: 'NASI GORENG', price: 12.5 }]),
+  JSON.stringify(realOcr.items));
+
 /* ── 15. auto-biometric attempt is a no-op on web ───────────────────────
    showLock schedules one automatic biometric attempt per presentation
    (native-only). On web it must fall straight through: passcode entry
@@ -2784,6 +3040,7 @@ check('relock on web shows passcode entry untouched by the auto attempt',
 
 await b.close();
 if (server) server.kill();
+dropVendorLink();
 
 console.log('\n✅ PASS (' + ok.length + ')');
 ok.forEach(o => console.log('  ✓ ' + o));

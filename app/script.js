@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.16.0";
+const APP_VERSION = "1.17.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8075,6 +8075,10 @@ const RELEASE_NOTES = {
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
   ],
+  "1.17.0": [
+    "<strong>A new scanning engine</strong> (Android app) — receipts are read by Google's ML Kit, fully on your device: near-instant, far more accurate on crumpled thermal paper, and nothing ever leaves your phone. Web scanning upgraded too.",
+    "<strong>Split & request dialog polished</strong> — proper buttons with clear selected states, and a more visible Split / Request action on Home.",
+  ],
   "1.16.0": [
     "<strong>Split & request, front and centre</strong> — one tap from Home, right where you type expenses. No more hunting through menus.",
     "<strong>Sharper receipt scanning</strong> — photos are cleaned up before reading (crumpled, faded thermal receipts included), and item names now pair with their prices using their actual positions on the receipt, so splitting by item finds much more.",
@@ -8821,7 +8825,14 @@ document.getElementById("btn-setup-restore")?.addEventListener("click", () => {
   startDriveRestoreFromLock().catch(() => {});
 });
 
-/* ---------- receipt scanning (client-side OCR via Tesseract.js) ---------- */
+/* ---------- receipt scanning (on-device OCR) ----------
+
+   Two engines, one pipeline. Android reads the photo with Google's ML Kit
+   text recognition (native, on-device, no network, no image ever leaves the
+   phone); everything else — web, PWA, iOS — uses the vendored Tesseract.js
+   wasm build. Whichever engine runs, the SAME downstream applies: canvas
+   preprocessing before it, word boxes → splitReconstructRows → parseReceiptText
+   after it. Any ML Kit trouble at all falls silently back to Tesseract. */
 
 let tesseractWorker = null;
 
@@ -8888,6 +8899,14 @@ async function getTesseractWorker(logger) {
         opts.gzip = false;
       }
     }
+    // tesseract.js 7: createWorker(langs, oem, options) RESOLVES to a worker
+    // that is already loaded, has its language data, and is initialized —
+    // the old load()/loadLanguage()/initialize() chain is gone (calling
+    // `load` now only logs a deprecation warning). OEM 1 = LSTM_ONLY, which
+    // is also what decides that the worker imports the `-lstm` core variants
+    // vendored by scripts/fetch-tesseract.mjs. A failure anywhere in that
+    // chain rejects this promise, which runReceiptOcr reports as a failed
+    // scan exactly as before.
     tesseractWorker = await Tess.createWorker("eng", 1, opts);
     // A receipt is ONE narrow column of variable-size print. PSM 4 stops
     // Tesseract from hunting for page-wide paragraphs (which is what shuffles
@@ -9039,9 +9058,11 @@ async function receiptPreprocessImage(source) {
   }
 }
 
-/* Tesseract's result shape moved between majors: v4 exposes data.words, v5
-   nests words under data.blocks[].paragraphs[].lines[].words. Collect from
-   whichever is present, in that order, so the layout pass works on both. */
+/* Tesseract's result shape moved between majors: v4 exposes data.words, v5–v7
+   nest words under data.blocks[].paragraphs[].lines[].words (v7 builds that
+   tree from the engine's JSON output, only when `blocks: true` is requested).
+   Collect from whichever is present, in that order, so the layout pass works
+   on all of them. */
 function collectOcrWords(data) {
   const out = [];
   if (!data || typeof data !== "object") return out;
@@ -9076,6 +9097,139 @@ function receiptTextFromWords(words, fallbackText) {
   } catch {
     return fallback;
   }
+}
+
+/* ---------- ML Kit text recognition (native Android) ----------
+
+   @pantrist/capacitor-plugin-ml-kit-text-recognition wraps Google's ML Kit
+   Latin text recognizer. It is on-device: the bitmap is handed to a local
+   model, nothing is uploaded, and Google receives nothing. It reads a phone
+   photo of a thermal receipt far better than a wasm Tesseract does, so on
+   Android it goes first — but it is only ever an accelerator. Every failure
+   path here returns null and the caller runs Tesseract instead. */
+
+// Pure: which engine SHOULD run, given what the device offers. Keeping this
+// a plain function (rather than reading globals) is what makes the rule
+// testable, and it is the single place the choice is made.
+function pickOcrEngine(env) {
+  const o = env && typeof env === "object" ? env : {};
+  return o.native && o.mlkitAvailable ? "mlkit" : "tesseract";
+}
+
+// The bridge object, or null when this build/platform doesn't carry the
+// plugin (web, older shells, iOS). Never throws.
+function mlkitTextPlugin() {
+  try {
+    if (!isNative()) return null;
+    const plugins = window.Capacitor && window.Capacitor.Plugins;
+    const p = plugins && plugins.CapacitorPluginMlKitTextRecognition;
+    return p && typeof p.detectText === "function" ? p : null;
+  } catch { return null; }
+}
+
+// Pure: the plugin decodes with android.util.Base64, which throws on the
+// "data:image/png;base64," preamble (and on stray newlines) — and that throw
+// is NOT caught on the Kotlin side. Hand it bare base64 or nothing.
+function mlkitBase64FromDataUrl(src) {
+  const s = String(src == null ? "" : src).trim();
+  if (!s) return "";
+  const comma = s.indexOf(",");
+  const body = /^data:/i.test(s) ? (comma >= 0 ? s.slice(comma + 1) : "") : s;
+  const clean = body.replace(/\s+/g, "");
+  return /^[A-Za-z0-9+/]+={0,2}$/.test(clean) ? clean : "";
+}
+
+/* Pure: ML Kit's blocks → the {text, x0, y0, x1, y1} word shape
+   splitReconstructRows already consumes. ML Kit nests block → line →
+   element, with a `boundingBox` of {left, top, right, bottom} in image
+   pixels; elements are word-level, which is exactly the granularity the row
+   reconstruction wants. Lines whose elements are missing degrade to the line
+   box itself, and blocks without lines to the block box, so a partial result
+   still produces usable rows instead of nothing. */
+function mlkitWordsFromResult(result) {
+  const out = [];
+  const box = (node) => {
+    if (!node || typeof node !== "object") return null;
+    const b = node.boundingBox;
+    if (b && typeof b === "object") {
+      const x0 = Number(b.left), y0 = Number(b.top), x1 = Number(b.right), y1 = Number(b.bottom);
+      if ([x0, y0, x1, y1].every((n) => Number.isFinite(n))) {
+        return { x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) };
+      }
+    }
+    // No rect (ML Kit may hand back null) — rebuild one from the corners.
+    const c = node.cornerPoints;
+    if (c && typeof c === "object") {
+      const pts = [c.topLeft, c.topRight, c.bottomRight, c.bottomLeft]
+        .filter((p) => p && Number.isFinite(Number(p.x)) && Number.isFinite(Number(p.y)));
+      if (pts.length) {
+        const xs = pts.map((p) => Number(p.x)), ys = pts.map((p) => Number(p.y));
+        return { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) };
+      }
+    }
+    return null;
+  };
+  const push = (node) => {
+    const text = String(node && node.text != null ? node.text : "").replace(/\s+/g, " ").trim();
+    const b = box(node);
+    if (!text || !b) return false;
+    out.push({ text, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 });
+    return true;
+  };
+  const blocks = result && Array.isArray(result.blocks) ? result.blocks : [];
+  for (const block of blocks) {
+    if (!block || typeof block !== "object") continue;
+    const lines = Array.isArray(block.lines) ? block.lines : [];
+    if (!lines.length) { push(block); continue; }
+    for (const line of lines) {
+      if (!line || typeof line !== "object") continue;
+      const elements = Array.isArray(line.elements) ? line.elements : [];
+      let any = false;
+      for (const el of elements) if (push(el)) any = true;
+      if (!any) push(line);
+    }
+  }
+  return out;
+}
+
+/* Run the native recognizer on the preprocessed image. Returns the layout-
+   aware text, or null on ANY problem — a missing plugin, an image we can't
+   turn into base64, a rejected bridge call, or an empty read. The caller
+   treats null as "use Tesseract", so a bad ML Kit day is invisible. */
+async function runMlKitOcr(source) {
+  const plugin = mlkitTextPlugin();
+  if (!plugin) return null;
+  try {
+    const base64 = mlkitBase64FromDataUrl(await ocrSourceToDataUrl(source));
+    if (!base64) return null;
+    const res = await plugin.detectText({ base64Image: base64, rotation: 0 });
+    if (!res) return null;
+    const words = mlkitWordsFromResult(res);
+    const text = receiptTextFromWords(words, res.text || "");
+    return text && text.trim() ? text : null;
+  } catch { return null; }
+}
+
+/* Whatever the scan pipeline is holding — the preprocessed canvas, a native
+   data URL, or the web file input's File — as a data URL. Only ML Kit needs
+   this; Tesseract eats all three shapes directly. */
+async function ocrSourceToDataUrl(source) {
+  if (!source) return "";
+  if (typeof source === "string") return source;
+  if (typeof HTMLCanvasElement !== "undefined" && source instanceof HTMLCanvasElement) {
+    // JPEG, not PNG: the preprocessed canvas is a 2400px grey image and the
+    // base64 crosses the Capacitor bridge as one string.
+    return source.toDataURL("image/jpeg", 0.92);
+  }
+  if (typeof Blob !== "undefined" && source instanceof Blob) {
+    return await new Promise((resolve) => {
+      const fr = new FileReader();
+      fr.onload = () => resolve(String(fr.result || ""));
+      fr.onerror = () => resolve("");
+      fr.readAsDataURL(source);
+    });
+  }
+  return "";
 }
 
 /* Map common receipt markers to ISO codes. Longer/more-specific patterns
@@ -9641,7 +9795,7 @@ async function applyScanConversion() {
 
 document.getElementById("scan-currency")?.addEventListener("change", applyScanConversion);
 // Shared OCR pipeline — accepts a File (web file-input) or a data-URL
-// (native Camera); Tesseract.recognize() handles both. `revokeUrl` is the
+// (native Camera); both engines handle both shapes. `revokeUrl` is the
 // object URL to release afterward (web only — null for a self-contained
 // data-URL).
 async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
@@ -9653,30 +9807,43 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     // which case the original image is recognized exactly as before.
     const prepared = await receiptPreprocessImage(recognizeInput);
     const recognizeSource = prepared || recognizeInput;
-    scanStatus.textContent = "Loading OCR engine (first use ~10 MB)…";
-    const worker = await getTesseractWorker((m) => {
-      if (m.status === "recognizing text") {
-        const pct = Math.round((m.progress || 0) * 100);
-        scanProgress.style.width = pct + "%";
-        scanStatus.textContent = `Reading receipt… ${pct}%`;
-      } else if (m.status) {
-        scanStatus.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1);
-      }
-    });
-    // v5 needs the block tree requested explicitly to hand back word boxes;
-    // older builds reject the extra argument, so fall back to the plain call.
-    let result;
-    try {
-      result = await worker.recognize(recognizeSource, {}, { blocks: true, text: true });
-    } catch {
-      result = await worker.recognize(recognizeSource);
+    // ONE path, two possible engines. ML Kit only where it exists (native
+    // Android with the plugin); null back from it means "nothing read" and
+    // Tesseract picks the job up as if ML Kit had never been tried.
+    let text = null;
+    if (pickOcrEngine({ native: isNative(), mlkitAvailable: !!mlkitTextPlugin() }) === "mlkit") {
+      scanStatus.textContent = "Reading receipt…";
+      text = await runMlKitOcr(recognizeSource);
+      if (text) scanProgress.style.width = "90%";
     }
-    const data = (result && result.data) || {};
-    // Layout-aware lines when the word boxes are there, Tesseract's flat blob
-    // when they aren't. Both parsers (expense amount/vendor here, item split
-    // via splitApplyScan reading scan-raw) then see the same reconstructed
-    // text, so a two-column receipt stops arriving as two separate lists.
-    const text = receiptTextFromWords(collectOcrWords(data), data.text || "");
+    if (text == null) {
+      scanStatus.textContent = "Loading OCR engine (first use ~10 MB)…";
+      const worker = await getTesseractWorker((m) => {
+        if (m.status === "recognizing text") {
+          const pct = Math.round((m.progress || 0) * 100);
+          scanProgress.style.width = pct + "%";
+          scanStatus.textContent = `Reading receipt… ${pct}%`;
+        } else if (m.status) {
+          scanStatus.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1);
+        }
+      });
+      // v5+ needs the block tree requested explicitly to hand back word
+      // boxes; older builds reject the extra argument, so fall back to the
+      // plain call.
+      let result;
+      try {
+        result = await worker.recognize(recognizeSource, {}, { blocks: true, text: true });
+      } catch {
+        result = await worker.recognize(recognizeSource);
+      }
+      const data = (result && result.data) || {};
+      // Layout-aware lines when the word boxes are there, the engine's flat
+      // blob when they aren't. Both parsers (expense amount/vendor here, item
+      // split via splitApplyScan reading scan-raw) then see the same
+      // reconstructed text, so a two-column receipt stops arriving as two
+      // separate lists.
+      text = receiptTextFromWords(collectOcrWords(data), data.text || "");
+    }
     const parsed = parseReceiptText(text);
     scanOriginalAmount = parsed.amount;
     scanOriginalCurrency = parsed.currency || currentCurrency();
