@@ -142,6 +142,16 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-14-1">
+    <span class="release-date">July 2026 · v1.14.1</span>
+    <h2 class="release-title">Lending now counts as money out</h2>
+    <p class="release-summary">If you lend RM 100, you're down RM 100 — but recording a loan didn't touch your balance, and the repayment later showed up as income out of nowhere. Now the books balance.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Loans log the expense</strong> — recording "Lent money" now books a "Money lent" expense on the lend date (on by default, linked to the loan), so your monthly balance dips like your bank account did. The repayment's income row then nets the loan to zero instead of appearing as phantom income.</li>
+      <li><span class="tag note">note</span><strong>Opt-out kept</strong> — untick "Log as an expense" when lending from savings rather than the monthly budget, and your spending stats stay untouched. Also fixed: amounts overflowing the Upcoming card on long titles.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-14">
     <span class="release-date">July 2026 · v1.14</span>
     <h2 class="release-title">The money arriving is the sync</h2>
