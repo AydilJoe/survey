@@ -142,6 +142,17 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-17">
+    <span class="release-date">July 2026 · v1.17</span>
+    <h2 class="release-title">New eyes, same privacy</h2>
+    <p class="release-summary">Receipt scanning gets a new engine on Android — Google's ML Kit, running entirely on your phone — and a major Tesseract upgrade everywhere else. Faster, sharper, and still nothing leaves the device.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>ML Kit on Android</strong> — on-device text recognition: ~1-second scans, much better on faded thermal receipts, with proper text coordinates feeding the item-split pairing. Google receives nothing; devices without Play services fall back to Tesseract automatically.</li>
+      <li><span class="tag perf">perf</span><strong>Tesseract 5 → 7</strong> — the web/PWA engine jumps two major versions, with a real end-to-end OCR test now guarding every future release.</li>
+      <li><span class="tag fix">fix</span><strong>Split dialog styling</strong> — the mode and method pills fell through to browser-default buttons (blue text on iPhone); they now wear the app's proper pill styling with clear selected states, and the Home Split / Request action is visible at a glance.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-16">
     <span class="release-date">July 2026 · v1.16</span>
     <h2 class="release-title">The scanner learns to read columns</h2>

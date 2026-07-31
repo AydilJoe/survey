@@ -32,8 +32,10 @@
 - **BNPL & instalment tracking**: Atome, SPayLater, Grab PayLater,
   ShopBack PayLater, credit-card instalment plans (CIMB, Maybank, Public
   Bank, etc.).
-- **Receipt OCR**: on-device via Tesseract.js — receipts never leave the
-  phone. Auto-extracts amount, merchant, date.
+- **Receipt OCR**: fully on-device — Google ML Kit inside the Android
+  app (on-device model; Google receives nothing), Tesseract.js on the
+  web. Receipts never leave the phone. Auto-extracts amount, merchant,
+  date, and line items for bill splitting.
 - **Auto-capture (Android)**: opt-in NotificationListenerService reads
   bank/e-wallet notifications (Maybank, CIMB, Public Bank, RHB, Hong
   Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay) and proposes

@@ -9,6 +9,9 @@ vendor/
 # site and every share/scan surface 404s. The `vendor/` rule above still
 # covers the root Tesseract dir, which IS fetched at build time.
 !app/vendor/
+# …except the Tesseract runtime, which the e2e suite symlinks in from the
+# root vendor/ dir so the served app can reach it at /app/vendor/tesseract/.
+app/vendor/tesseract
 .DS_Store
 *.log
 

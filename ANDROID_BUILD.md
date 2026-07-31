@@ -141,6 +141,28 @@ anything on its own, and a credit that matches nothing is discarded.
 Full details + manual fallback steps live in
 [`native/notification-listener/README.md`](native/notification-listener/README.md).
 
+## Receipt OCR: ML Kit on Android (v1.17+)
+
+Receipt scanning reads the photo with Google's **ML Kit** text recognition
+on Android, and falls back to the bundled Tesseract build everywhere else
+(web, PWA, iOS) — and on any Android device where ML Kit fails.
+
+Nothing to install by hand: `@pantrist/capacitor-plugin-ml-kit-text-recognition`
+is a normal dependency, so `npm install` + `npm run cap:sync` picks it up
+and Gradle pulls `com.google.android.gms:play-services-mlkit-text-recognition`
+with it. Recognition is on-device; no image or text is uploaded, and the
+`INTERNET` permission is not involved.
+
+Device-test checklist (do this once per release, on a real phone — the
+emulator's camera can't photograph a receipt):
+
+- [ ] Scan a real paper receipt → the amount and merchant prefill, and
+      "Split by item" lists the individual lines with their prices
+- [ ] The scan finishes in ~1 second (ML Kit); a 10-second "Loading OCR
+      engine" progress bar means it fell through to Tesseract
+- [ ] On a device without Google Play services (or with Play services
+      disabled), the same scan still completes via the Tesseract fallback
+
 ## Android App Links for /split (bill splitting)
 
 A shared request travels as `https://duitful.app/split#<payload>`. With App
@@ -439,3 +461,4 @@ That's the symptom; this loop is the fix.
 - **First Gradle build takes forever** — normal. It downloads ~1 GB of Gradle + AGP + dependencies. Subsequent builds are fast.
 - **Play Console rejects the AAB** — most common cause: not signed with release keystore, or versionCode wasn't bumped from a previous upload.
 - **Tesseract files missing in native build** — `npm run fetch:tesseract` didn't run. Run `npm run build:web` manually to verify it downloads into `vendor/`, then `cap sync` again.
+- **Receipt scan reads nothing, or the worker dies on "loading tesseract core"** — a `vendor/tesseract/` left over from an older tesseract.js major. The fetch script stamps the directory (`vendor/tesseract/.versions`) and wipes it when the pin changes, so `npm run fetch:tesseract` fixes it; `rm -rf vendor/tesseract` then re-running is the manual version.
