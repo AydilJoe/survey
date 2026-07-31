@@ -262,6 +262,44 @@ DFS1.<base64url(deflate-raw(JSON))>
 - CSV round-trip incl. kinds, due dates, statuses and repayment rows.
   All dates derived from Date.now().
 
+## Phase 2.5 — Itemized split (v1.15.0)
+
+Owner override of the earlier "item-level out of scope" call: tick who
+ate what, with OCR as PREFILL, never oracle.
+
+- "Split a bill" gains a method toggle: **Equally** (existing flow,
+  unchanged) / **By item**.
+- By-item mode:
+  - Items list: rows { name, price }, fully editable (add/remove/fix).
+    Sources: typed by hand, or the existing OCR scan (same Pro-quota
+    entry point) parsed for item-line candidates. The parser is a PURE
+    function over the raw OCR text: lines matching name-then-price;
+    lines matching /(SERVICE|SST|GST|TAX|ROUNDING|SRV|SVC)/i are routed
+    to the charges bucket instead; /(TOTAL|SUBTOTAL|CASH|CHANGE|TUNAI|
+    JUMLAH|DISCOUNT|DISKAUN|BAKI)/i lines are dropped. Every extraction
+    is shown editable before anything is computed.
+  - People: the split's people PLUS an implicit "You" chip first —
+    the user assigns their own food too; "You" never becomes a request.
+  - Assignment: under each item, tick-chips of who shared it. Default
+    ALL ticked (shared-dishes reality); item price divides equally
+    among ticked people, sen-exact by largest-remainder.
+  - Charges bucket (service charge + SST + rounding, auto-detected +
+    manually editable single amount): toggle **"Split charges equally"
+    (DEFAULT)** vs **"In proportion to items"** (each person's charge
+    share = charges × their items subtotal ÷ all items subtotal).
+  - Live per-person totals; Σ shares == bill total EXACTLY at sen level
+    (largest-remainder on both items and charges), enforced by test.
+  - Output: the same out record (kind "split") with computed per-person
+    amounts; each person's request `n` (note) carries their item
+    breakdown ("Ayam goreng 12.00 · ½ Tomyam 9.25 · charges 2.25"),
+    truncated to the note cap. Items/assignments are COMPOSE-TIME ONLY —
+    not persisted in state or CSV; the note is the durable record.
+- Tests: pure parser on synthetic Malaysian receipt text (items kept,
+  charges routed, totals dropped); shared-item division; both charge
+  modes hand-computed; sen-exactness (sum == total on awkward figures
+  like RM 100 ÷ 3 with 16.54 charges); "You" share excluded from
+  requests; note breakdown present and capped.
+
 ## Phase 2 — Auto-match & polish (v1.14.0)
 
 - **Android App Links for /split**: host `/.well-known/assetlinks.json`
