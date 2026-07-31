@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.14.2";
+const APP_VERSION = "1.14.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8075,6 +8075,9 @@ const RELEASE_NOTES = {
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
   ],
+  "1.14.3": [
+    "<strong>Fingerprint fires first</strong> (Android app) — with biometric unlock on, the scan sheet now appears the moment the lock screen does. Cancel and the passcode is right there; no re-prompt loops.",
+  ],
   "1.14.2": [
     "<strong>Fingerprint unlock, offered when it matters</strong> (Android app) — after you type your passcode, Duitful asks once if you'd like your fingerprint to do it next time. One scan to enable; \"Not now\" means we never ask again (Settings → Security if you change your mind).",
   ],
@@ -8408,6 +8411,11 @@ function showLock() {
   lock.hidden = false;
   lock.setAttribute("aria-hidden", "false");
   setTimeout(() => document.getElementById("lock-input")?.focus(), 50);
+  // Each presentation of the lock screen earns one automatic biometric
+  // attempt (native + enabled only; no-op on web). Slight delay so the
+  // WebView is settled and any pending dialog has claimed the slot first.
+  if (typeof biometricAutoTried !== "undefined") biometricAutoTried = false;
+  setTimeout(() => { if (typeof maybeAutoBiometric === "function") maybeAutoBiometric(); }, 400);
 }
 function hideLock() {
   const lock = document.getElementById("lock");
@@ -8558,6 +8566,22 @@ async function maybeOfferBiometric(passcode) {
     document.getElementById("btn-bio-offer-later").onclick = () => { pass = null; dlg.close(); };
     dlg.showModal();
   }, 1400);
+}
+
+// Auto-fire the scan when the lock screen appears (banking-app pattern):
+// open the app → the OS sheet is already up → scan → in. ONE attempt per
+// lock-screen presentation — cancel or a failed scan falls back to the
+// passcode field and the manual button with no re-prompt loop; backgrounding
+// and returning is a new presentation, so it offers again.
+let biometricAutoTried = false;
+function maybeAutoBiometric() {
+  if (biometricAutoTried) return;
+  if (lockMode !== "unlock" || aesKey) return;
+  if (!biometricEnabled() || !biometricPlugin()) return;
+  if (document.visibilityState !== "visible") return; // fired mid-background
+  if (document.querySelector("dialog[open]")) return; // system/app dialog first
+  biometricAutoTried = true;
+  biometricUnlock().catch(() => {});
 }
 
 document.getElementById("lock-biometric")?.addEventListener("click", () => {
