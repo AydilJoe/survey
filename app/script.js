@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.14.1";
+const APP_VERSION = "1.14.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8075,6 +8075,9 @@ const RELEASE_NOTES = {
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
   ],
+  "1.14.2": [
+    "<strong>Fingerprint unlock, offered when it matters</strong> (Android app) — after you type your passcode, Duitful asks once if you'd like your fingerprint to do it next time. One scan to enable; \"Not now\" means we never ask again (Settings → Security if you change your mind).",
+  ],
   "1.14.1": [
     "<strong>Lending counts as money out</strong> — recording a loan now logs a \"Money lent\" expense (on by default), so your balance dips like your bank account did, and the repayment nets it back to zero instead of appearing as income from nowhere.",
   ],
@@ -8527,6 +8530,36 @@ async function updateBiometricUI() {
   if (toggle) toggle.checked = on;
 }
 
+// One-time post-unlock offer (native only). Asked at the one moment the
+// passcode is already in hand — enabling needs a scan, not a re-type. Shown
+// once ever: "Not now" is respected forever, with Settings → Security as the
+// change-of-heart path. Skipped silently if another dialog (What's-new, tour)
+// holds the modal slot — the flag stays unset so it offers on the next unlock.
+const BIOMETRIC_OFFERED = "duitful.biometricOffered";
+async function maybeOfferBiometric(passcode) {
+  if (!isNative() || !passcode) return;
+  if (biometricEnabled() || localStorage.getItem(BIOMETRIC_OFFERED) === "1") return;
+  if (!(await biometricAvailable())) return;
+  setTimeout(() => {
+    if (!aesKey) return; // relocked while waiting
+    if (document.querySelector("dialog[open]")) return;
+    const dlg = document.getElementById("bio-offer-dialog");
+    if (!dlg) return;
+    let pass = passcode;
+    localStorage.setItem(BIOMETRIC_OFFERED, "1");
+    document.getElementById("btn-bio-offer-enable").onclick = async () => {
+      dlg.close();
+      const ok = pass && await enableBiometric(pass);
+      pass = null;
+      toast(ok
+        ? "Fingerprint unlock is on. Turn it off anytime in Settings → Security."
+        : "Couldn't enable it — you can try again in Settings → Security.");
+    };
+    document.getElementById("btn-bio-offer-later").onclick = () => { pass = null; dlg.close(); };
+    dlg.showModal();
+  }, 1400);
+}
+
 document.getElementById("lock-biometric")?.addEventListener("click", () => {
   biometricUnlock().catch(() => {});
 });
@@ -8570,6 +8603,7 @@ async function handleUnlock(passcode) {
   renderAll(); // first render: tweens snap because _isHydrated is still false
   _isHydrated = true;
   maybeShowWhatsNew();
+  maybeOfferBiometric(passcode).catch(() => {});
   // Delayed so a What's-new dialog (or the first-run tour) claims the modal
   // slot first — showAnnouncement() skips this launch if any dialog is open.
   setTimeout(checkAnnouncements, 2500);
@@ -8608,6 +8642,7 @@ async function handleSetup(passcode, confirm, initialState) {
   initNotificationListener();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
+  maybeOfferBiometric(passcode).catch(() => {});
   maybeOpenGuideAfterSetup();
   maybeShowInstallBanner();
   if (typeof checkDriveOnBoot === "function") checkDriveOnBoot().catch(() => {});

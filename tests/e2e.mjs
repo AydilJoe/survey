@@ -1026,6 +1026,12 @@ check('biometric lock button stays hidden on web', bioSurface.btnHidden === true
   JSON.stringify(bioSurface));
 check('biometric settings row stays hidden on web and no flag is written',
   bioSurface.rowHidden === true && bioSurface.flag === null, JSON.stringify(bioSurface));
+// The post-unlock enable offer is native-only: on web it must never open
+// and must never burn its once-ever flag.
+await page.waitForTimeout(1600); // past the offer's 1.4s delay
+check('biometric offer dialog never fires on web',
+  await S(() => !document.getElementById('bio-offer-dialog').open
+    && localStorage.getItem('duitful.biometricOffered') === null));
 
 /* ── 11. Bill splitting & payment requests (v1.13) ─────────────────────
    Transport is state-passing: the request is JSON that travels inside a QR
