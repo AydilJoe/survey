@@ -7,9 +7,13 @@
 # survives between runs, and no signing material is ever committed.
 #
 # Two lanes:
-#   build_only  — compiles for the simulator with signing disabled. Needs no
-#                 Apple account at all. Use it to prove a change builds
-#                 before spending an Apple Developer enrolment on it.
+#   build_only  — compiles with signing disabled, twice: once for the
+#                 simulator (pure validation) and once for a real device,
+#                 which is then packaged as an UNSIGNED Duitful-unsigned.ipa
+#                 for AltStore sideloading. Needs no Apple account at all.
+#                 Use it to prove a change builds — and to actually run the
+#                 app on your phone with a free Apple ID — before spending
+#                 an Apple Developer enrolment on it.
 #   testflight  — creates/downloads signing assets from the App Store
 #                 Connect API key, archives, exports an app-store IPA and
 #                 uploads it to TestFlight.
@@ -58,7 +62,7 @@ REPO_ROOT = File.expand_path("..", __dir__)
 SIGNING_DIR = File.expand_path("~/duitful-signing")
 
 platform :ios do
-  desc "Compile for the simulator with signing disabled — no Apple account needed"
+  desc "Compile with signing disabled — no Apple account needed. Also emits an unsigned IPA for AltStore."
   lane :build_only do
     build_app(
       workspace: WORKSPACE,
@@ -75,6 +79,9 @@ platform :ios do
       xcargs: "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO",
     )
     UI.success("build_only: the iOS project compiles. Signing was not exercised.")
+
+    ipa = package_unsigned_ipa
+    UI.success("Unsigned IPA for AltStore: #{ipa}")
   end
 
   desc "Archive, sign and upload a build to TestFlight"
@@ -184,6 +191,89 @@ end
   def package_version
     require "json"
     JSON.parse(File.read(File.join(REPO_ROOT, "package.json")))["version"]
+  end
+
+  # Builds an UNSIGNED, device-installable .ipa — the thing AltStore needs.
+  #
+  # Why a second build instead of reusing the simulator one above: a
+  # simulator .app is x86_64/arm64-sim Mach-O and will never run on a
+  # phone. This one targets `-sdk iphoneos` (arm64) with code signing
+  # switched off, so it needs no certificate, no profile, no Apple account
+  # — AltStore re-signs it on the Windows PC with the owner's free Apple ID.
+  #
+  # Why plain xcodebuild instead of build_app: gym's export step *requires*
+  # signing assets to produce an .ipa. There is no "export unsigned" path.
+  # An .ipa is only a zip with the .app inside a Payload/ folder, so we
+  # build the .app and zip it ourselves.
+  #
+  # Entitlements: CODE_SIGN_ENTITLEMENTS is overridden to empty on the
+  # command line, which drops the Associated Domains (Universal Links)
+  # entitlement patch-ios.mjs wired into the project. Free Apple IDs cannot
+  # carry that entitlement — installd rejects the app outright — and while
+  # AltStore normally rewrites entitlements from the free provisioning
+  # profile it generates, "normally" is not a guarantee worth debugging
+  # over USB. Note this only affects THIS unsigned artifact: the TestFlight
+  # lane still ships the entitlement, and build_only still runs the patch
+  # script, so a broken patch still fails the simulator build above.
+  def package_unsigned_ipa
+    require "fileutils"
+    require "shellwords"
+
+    derived   = File.join(REPO_ROOT, "build/ios-unsigned-dd")
+    stage     = File.join(REPO_ROOT, "build/ios-unsigned-stage")
+    out_dir   = File.join(REPO_ROOT, "build/ios-unsigned")
+    app       = File.join(derived, "Build/Products/Release-iphoneos/App.app")
+    ipa       = File.join(out_dir, "Duitful-unsigned.ipa")
+
+    marketing_version = package_version
+    build_number = ENV["DUITFUL_BUILD_NUMBER"].to_s.strip
+    build_number = Time.now.utc.strftime("%y%m%d%H%M") if build_number.empty?
+
+    FileUtils.rm_rf([derived, stage, out_dir])
+
+    UI.message("Building an unsigned device IPA (Duitful #{marketing_version} (#{build_number}))")
+
+    sh([
+      "xcodebuild",
+      "-workspace", File.join(REPO_ROOT, WORKSPACE).shellescape,
+      "-scheme", SCHEME.shellescape,
+      "-configuration", "Release",
+      "-sdk", "iphoneos",
+      "-derivedDataPath", derived.shellescape,
+      "CODE_SIGNING_ALLOWED=NO",
+      "CODE_SIGNING_REQUIRED=NO",
+      "CODE_SIGN_IDENTITY=",
+      "CODE_SIGN_ENTITLEMENTS=",
+      "DEVELOPMENT_TEAM=",
+      "MARKETING_VERSION=#{marketing_version}",
+      "CURRENT_PROJECT_VERSION=#{build_number}",
+      "build",
+    ].join(" "))
+
+    UI.user_error!("unsigned build produced no App.app at #{app}") unless File.directory?(app)
+
+    payload_app = File.join(stage, "Payload", "App.app")
+    FileUtils.mkdir_p(File.dirname(payload_app))
+    FileUtils.cp_r(app, payload_app)
+
+    # Belt and braces. None of these should exist in an unsigned build, but
+    # if a future Xcode starts emitting them they are exactly the files that
+    # make a free-account re-sign fail.
+    leftovers = Dir.glob(File.join(payload_app, "**", "{*.xcent,embedded.mobileprovision}")) +
+                Dir.glob(File.join(payload_app, "**", "_CodeSignature"))
+    leftovers.each do |path|
+      UI.important("Removing #{path.sub(stage, '')} from the unsigned payload")
+      FileUtils.rm_rf(path)
+    end
+
+    FileUtils.mkdir_p(out_dir)
+    # -y: keep symlinks as symlinks. Frameworks inside an .app are symlink
+    # farms on macOS and following them corrupts the bundle.
+    sh("cd #{stage.shellescape} && zip -qry #{ipa.shellescape} Payload")
+    UI.user_error!("failed to package #{ipa}") unless File.file?(ipa)
+
+    FileUtils.rm_rf(stage)
+    ipa
   end
 
   # Builds the api_key hash every other action takes. ASC_KEY_P8 may hold
