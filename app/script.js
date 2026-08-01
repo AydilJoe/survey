@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.20.0";
+const APP_VERSION = "1.21.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5170,28 +5170,139 @@ function storedPromoCode() {
   } catch { return ""; }
 }
 
-// Handle ?action=spend / ?action=debt / ?action=scan from PWA shortcuts
-// (long-press the home-screen icon on Android to see these).
-function handlePwaShortcut() {
-  try {
-    const params = new URLSearchParams(location.search);
-    const action = params.get("action");
-    if (!action) return;
-    // Let the initial render finish first.
-    setTimeout(() => {
-      if (action === "spend" || action === "debt" || action === "saving") {
-        const kind = action === "debt" ? "debt" : action === "saving" ? "saving" : "expense";
-        try { setDailyType(kind); } catch {}
-        document.getElementById("amount")?.focus();
-      } else if (action === "scan") {
-        document.getElementById("btn-scan-receipt")?.click();
-      }
-      // Clean the URL so refresh doesn't re-trigger.
-      history.replaceState({}, "", location.pathname);
-    }, 400);
-  } catch {}
+/* ---------- Quick actions ----------
+
+   Long-press the home-screen icon: Spend · Scan · Split · Pay debt. Three
+   entry points, one destination:
+     - PWA / browser  →  ?action=<name> on the launch URL
+     - Android        →  a shortcuts.xml intent opening duitful://action/<name>
+     - iOS            →  a UIApplicationShortcutItem, converted to the same
+                         URL in AppDelegate so it arrives as appUrlOpen
+
+   The hard part is not the routing, it is the lock. A shortcut fires while
+   the passcode screen is still up, and the old version acted on it there and
+   then — selecting a form nobody could see, then wiping ?action= from the
+   URL. By the time the passcode was typed the request was gone, so every
+   shortcut in effect just opened the app. Hold the intent instead, and
+   replay it the moment the vault is actually open.
+
+   Nothing here is a Pro gate and nothing writes outside the vault: a quick
+   action is a launch intent, not data. */
+
+const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving"]);
+// Held until the app is genuinely usable. Survives the whole unlock flow.
+let pendingQuickAction = null;
+
+// Pure: pull the action name out of any of the three launch shapes. Returns
+// null for anything unrecognised, so a stray URL can never drive the UI.
+function quickActionFromUrl(url) {
+  const raw = String(url == null ? "" : url);
+  if (!raw) return null;
+  let name = "";
+  const custom = /^duitful:\/\/action\/([a-z-]+)/i.exec(raw.trim());
+  if (custom) {
+    name = custom[1];
+  } else {
+    try {
+      const q = raw.includes("?") ? raw.slice(raw.indexOf("?")) : "";
+      name = new URLSearchParams(q).get("action") || "";
+    } catch { return null; }
+  }
+  name = String(name).toLowerCase();
+  return QUICK_ACTIONS.has(name) ? name : null;
 }
-handlePwaShortcut();
+
+function isLockedNow() {
+  const lock = document.getElementById("lock");
+  return !!lock && !lock.hidden;
+}
+
+// Do the thing. Only ever called with a vetted name, and only once unlocked.
+function runQuickAction(name) {
+  switch (name) {
+    case "spend":
+    case "debt":
+    case "saving": {
+      const kind = name === "debt" ? "debt" : name === "saving" ? "saving" : "expense";
+      document.getElementById("tabbtn-dashboard")?.click();
+      try { setDailyType(kind); } catch {}
+      // The add-entry amount field has a name, not an id — the previous
+      // version reached for getElementById("amount") and so had never
+      // actually focused anything.
+      const amount = document.querySelector("#form-daily input[name='amount']");
+      if (amount) { try { amount.focus(); } catch {} }
+      break;
+    }
+    case "scan":
+      document.getElementById("tabbtn-dashboard")?.click();
+      document.getElementById("btn-scan-receipt")?.click();
+      break;
+    case "split":
+      document.getElementById("tabbtn-dashboard")?.click();
+      // Click the real control rather than calling splitOpenCompose(): that
+      // builds the draft but does not present the dialog, and going through
+      // the button keeps the quick action on exactly the production path
+      // (including the prefill from anything already typed).
+      document.getElementById("btn-split-quick")?.click();
+      break;
+    default:
+      break;
+  }
+}
+
+/* Queue an action, or run it now if there is nothing in the way. Called from
+   the launch URL, from appUrlOpen while the app is already running, and again
+   from the unlock path. */
+function requestQuickAction(name) {
+  if (!QUICK_ACTIONS.has(name)) return;
+  pendingQuickAction = name;
+  flushQuickAction();
+}
+
+/* iOS delivers a cold-start shortcut through getLaunchUrl() and a warm one
+   through appUrlOpen, and the launch path has a fallback that can produce
+   both. Without this, one long-press opened two split composers. Same action
+   inside the window is the same tap. */
+const QUICK_ACTION_DEDUPE_MS = 2000;
+let lastQuickAction = { name: "", at: 0 };
+
+function flushQuickAction() {
+  if (!pendingQuickAction) return;
+  if (isLockedNow()) return; // try again after unlock
+  const name = pendingQuickAction;
+  pendingQuickAction = null;
+  const now = Date.now();
+  if (lastQuickAction.name === name && now - lastQuickAction.at < QUICK_ACTION_DEDUPE_MS) return;
+  lastQuickAction = { name, at: now };
+  // One frame of slack so a render triggered by unlocking has settled and
+  // the elements the action reaches for actually exist.
+  setTimeout(() => { try { runQuickAction(name); } catch {} }, 120);
+}
+
+function initQuickActions() {
+  // Browser / PWA: the action rides on the launch URL.
+  const fromUrl = quickActionFromUrl(location.search);
+  if (fromUrl) {
+    // Clean the URL immediately — a refresh must not re-fire the action — but
+    // keep the intent in memory, which is the whole point.
+    try { history.replaceState({}, "", location.pathname); } catch {}
+    requestQuickAction(fromUrl);
+  }
+  if (!isNative()) return;
+  const App = window.Capacitor?.Plugins?.App;
+  if (!App || typeof App.addListener !== "function") return;
+  App.addListener("appUrlOpen", (event) => {
+    const name = quickActionFromUrl(event && event.url);
+    if (name) requestQuickAction(name);
+  });
+  if (typeof App.getLaunchUrl === "function") {
+    App.getLaunchUrl().then((res) => {
+      const name = quickActionFromUrl(res && res.url);
+      if (name) requestQuickAction(name);
+    }).catch(() => {});
+  }
+}
+initQuickActions();
 
 /* ---------- Web Pro: license activation + Billplz FPX checkout ---------- */
 
@@ -8203,6 +8314,10 @@ const RELEASE_NOTES = {
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
   ],
+  "1.21.0": [
+    "<strong>Long-press the icon</strong> — Spend, Scan a receipt, Split a bill and Pay debt are now one press away from your home screen, on Android and iPhone as well as the installed web app.",
+    "<strong>Shortcuts that survive the passcode</strong> — before, a shortcut fired while the lock screen was still up and was quietly thrown away, so it only ever opened the app. Duitful now remembers what you asked for and does it the moment you unlock.",
+  ],
   "1.20.0": [
     "<strong>Receipt scanning reads real receipts now</strong> — supermarket slips that print the item name on one line and the price on the next used to come back empty; they itemise properly. Names lose the barcode and column clutter, and \"3 x Ais Kosong\" becomes three rows so three people can each claim one.",
     "<strong>A restaurant bill no longer doubles</strong> — a line reading \"NET VALUE (EXCLD TAX)\" was being added as a service charge. Duitful now checks the items against the total printed on the receipt and adds nothing that is already inside the prices.",
@@ -8635,6 +8750,10 @@ function hideLock() {
   const confirmEl = document.getElementById("lock-confirm");
   if (input) input.value = "";
   if (confirmEl) confirmEl.value = "";
+  // A quick action held at the passcode screen becomes doable exactly here.
+  // Every unlock path — passcode, first-run setup, Drive restore, biometric —
+  // funnels through this function, so nothing needs to remember to call it.
+  if (typeof flushQuickAction === "function") flushQuickAction();
 }
 function lockError(msg) {
   const err = document.getElementById("lock-error");
