@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.18.0";
+const APP_VERSION = "1.18.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1035,13 +1035,28 @@ function autoRecurFromLastMonth() {
 function renderBudgetManager() {
   const listEl = document.getElementById("budget-pool-list");
   if (!listEl) return;
-  const m = currentMonthISO();
+  // Follow the month the user navigated to, not today. This list sits on the
+  // same tab as the month arrows, and the maths beneath it (poolUsageInMonth,
+  // effectiveLimit with its per-month overrides and rollover) has always been
+  // month-aware — only this view was pinned to "now", so paging back to July
+  // moved every other number on the tab except the budgets.
+  const m = selectedMonth;
+  const isPast = m < currentMonthISO();
   const pools = state.budgetPools.slice().sort((a, b) => {
     // System Debt pool floats to top
     if (a.system === "debt") return -1;
     if (b.system === "debt") return 1;
     return (a.createdAt || 0) - (b.createdAt || 0);
   });
+
+  // Say plainly which month these bars describe once it isn't this one —
+  // "did I go over in July?" must never be answered by numbers that look
+  // like today's.
+  const note = document.getElementById("pool-month-note");
+  if (note) {
+    note.hidden = !isPast;
+    if (isPast) note.textContent = `Showing ${formatMonthLabel(m)} — a finished month. Use the arrows above to come back to ${formatMonthLabel(currentMonthISO())}.`;
+  }
 
   // Show quick-start templates only when the user has no user-created pools
   // yet. Once they create one, hide the templates so the panel doesn't shout.
@@ -1372,7 +1387,13 @@ function openPoolForm(poolId) {
   form.querySelector("input[name='name']").value = editing ? editing.name : "";
   form.querySelector("input[name='limit']").value = editing ? editing.limit : "";
   form.querySelector("input[name='rollover']").checked = !!(editing && editing.rollover);
+  // Deliberately the CURRENT month, even while browsing an earlier one: a
+  // finished month's budget is the record you came to read, and letting a
+  // history view rewrite it would falsify the answer. Naming the month in
+  // the label keeps that unambiguous.
   const m = currentMonthISO();
+  const overrideMonthEl = document.getElementById("pool-override-month");
+  if (overrideMonthEl) overrideMonthEl.textContent = formatMonthLabel(m);
   form.querySelector("input[name='thisMonthOverride']").value = (editing && editing.monthlyLimits && editing.monthlyLimits[m] != null)
     ? editing.monthlyLimits[m] : "";
   form.querySelector("input[name='id']").value = editing ? editing.id : "";
@@ -8103,6 +8124,9 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.18.1": [
+    "<strong>Check any past month's budgets</strong> — page back with the month arrows on Monthly and the budget pools now follow, so you can finally answer \"did I go over in July?\". Finished months are labelled, and their budgets stay read-only.",
   ],
   "1.18.0": [
     "<strong>Google Drive backup on iPhone</strong> — the iOS app can now connect Drive like Android does, restoring your data (and your Pro licence) from an encrypted backup only your passcode can open.",

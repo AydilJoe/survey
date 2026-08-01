@@ -3338,6 +3338,63 @@ check('an empty or malformed iosClientId yields no URL scheme (patch-ios skips i
   check('index.html and the service-worker shell agree on the drive script versions', agree);
 }
 
+/* ── 16b. budget pools follow the month you navigated to ────────────────
+   "Did I go over budget in July?" — the pool list sits on the same tab as
+   the month arrows and the maths under it was always month-aware, but the
+   view was pinned to today, so paging back moved every number on the tab
+   except the budgets. */
+const poolsHistory = await S(() => {
+  const cur = currentMonthISO();
+  const prev = shiftMonth(cur, -1);
+  state.budgetPools = [{
+    id: 'p-hist', name: 'Food', limit: 500, color: '#E07A5F',
+    active: true, rollover: false, monthlyLimits: {}, createdAt: Date.now(),
+  }];
+  // Spend RM 800 last month (over), RM 100 this month (under).
+  state.dailyExpenses = [
+    { id: 'e-prev', createdAt: Date.now(), kind: 'expense', date: `${prev}-15`,
+      amount: 800, category: 'Food', note: '', budgetPoolId: 'p-hist' },
+    { id: 'e-cur', createdAt: Date.now(), kind: 'expense', date: `${cur}-02`,
+      amount: 100, category: 'Food', note: '', budgetPoolId: 'p-hist' },
+  ];
+  save();
+  const read = () => {
+    renderBudgetManager();
+    const row = document.querySelector('#budget-pool-list');
+    return {
+      text: row ? row.textContent.replace(/\s+/g, ' ') : '',
+      noteHidden: document.getElementById('pool-month-note').hidden,
+      note: document.getElementById('pool-month-note').textContent,
+    };
+  };
+  selectedMonth = cur;
+  const now = read();
+  selectedMonth = prev;
+  const past = read();
+  selectedMonth = cur; // restore
+  renderBudgetManager();
+  return { now, past, cur, prev,
+    usageNow: poolUsageInMonth('p-hist', cur), usagePast: poolUsageInMonth('p-hist', prev) };
+});
+check('pool usage differs by month in the data (100 now / 800 then)',
+  Math.abs(poolsHistory.usageNow - 100) < 0.01 && Math.abs(poolsHistory.usagePast - 800) < 0.01,
+  JSON.stringify({ n: poolsHistory.usageNow, p: poolsHistory.usagePast }));
+check('paging back shows THAT month\'s spending, not today\'s',
+  /800/.test(poolsHistory.past.text) && !/800/.test(poolsHistory.now.text)
+  && /100/.test(poolsHistory.now.text), poolsHistory.past.text.slice(0, 120));
+check('a finished month is labelled as such, and the current month is not',
+  poolsHistory.now.noteHidden === true && poolsHistory.past.noteHidden === false
+  && poolsHistory.past.note.includes('finished month'), poolsHistory.past.note);
+check('the override field names the current month even while browsing a past one',
+  await S((prev) => {
+    selectedMonth = prev;
+    openPoolForm('p-hist');
+    const label = document.getElementById('pool-override-month').textContent;
+    closePoolForm();
+    selectedMonth = currentMonthISO();
+    return label === formatMonthLabel(currentMonthISO());
+  }, poolsHistory.prev));
+
 /* ── 17. native plugin allowlists stay deliberate ───────────────────────
    Both platforms pin includePlugins, so a newly added plugin dependency
    reaches a native build ONLY when someone lists it. That is what keeps
