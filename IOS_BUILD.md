@@ -96,6 +96,32 @@ Do this in Safari, before the first `testflight` run.
 > **skip_associated_domains = true** to get a build out and enable it
 > later.
 
+### 1b. A second Identifier, for the home-screen widget
+
+The widget is an **app extension** — a separate bundle inside the app, with
+its own App ID and its own provisioning profile. Apple will not mint a
+profile for an identifier that was never registered, and the failure arrives
+at the *export* step, twenty minutes into a build.
+
+Repeat the steps above once more:
+
+- Bundle ID: **Explicit** → `com.aydiljoe.duitful.DuitfulWidget`
+  (must match `WIDGET_IDENTIFIER` in `fastlane/Fastfile` and the bundle id
+  `scripts/patch-ios.mjs` writes into the extension target)
+- **Capabilities**: tick nothing. The widget shows no figures, reads no
+  shared container and holds no entitlements — that is deliberate, and it is
+  what keeps your data inside the encrypted vault. See the widget section of
+  the changelog.
+
+The `testflight` lane fetches both profiles and signs both targets. The
+`build-only` lane needs neither, because signing is switched off there.
+
+> **Sideloading with AltStore**: the unsigned IPA now contains a nested
+> `.appex`, so AltStore has two bundles to re-sign rather than one. It
+> handles this, but it is a slower and slightly more failure-prone install
+> than before. If a sideload starts failing where it used to work, that
+> nesting is the first thing to suspect.
+
 While you're here, note your **Team ID**: Membership details →
 **Team ID**, ten characters. You need it for Universal Links below.
 

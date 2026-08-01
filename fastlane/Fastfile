@@ -48,6 +48,12 @@
 default_platform(:ios)
 
 APP_IDENTIFIER = "com.aydiljoe.duitful"
+# The home-screen widget is an embedded app extension, and an extension is a
+# separate bundle with its own App ID and its own provisioning profile. Miss
+# either and the archive exports with "no profile for
+# com.aydiljoe.duitful.DuitfulWidget" — long after the 20 minutes of build.
+WIDGET_IDENTIFIER = "com.aydiljoe.duitful.DuitfulWidget"
+WIDGET_TARGET = "DuitfulWidget"
 WORKSPACE = "ios/App/App.xcworkspace"
 XCODEPROJ = "ios/App/App.xcodeproj"
 SCHEME = "App"
@@ -119,7 +125,25 @@ platform :ios do
     team_id = ENV["sigh_#{APP_IDENTIFIER}_appstore_team-id"]
     UI.user_error!("sigh did not report a profile name — cannot sign") if profile_name.to_s.empty?
     UI.user_error!("sigh did not report a Team ID — cannot sign") if team_id.to_s.empty?
-    UI.message("Signing as team #{team_id} with profile '#{profile_name}'")
+
+    # Second profile, for the widget extension. `sigh` creates it the first
+    # time, but only if the App ID exists in the portal — Apple will not mint
+    # a profile for an identifier that was never registered. See the widget
+    # note in IOS_BUILD.md.
+    get_provisioning_profile(
+      api_key: key,
+      app_identifier: WIDGET_IDENTIFIER,
+      readonly: false,
+      output_path: SIGNING_DIR,
+    )
+    widget_profile_name = ENV["sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name"]
+    if widget_profile_name.to_s.empty?
+      UI.user_error!(
+        "No App Store profile for #{WIDGET_IDENTIFIER}. Register that App ID at " \
+        "developer.apple.com (Identifiers → + → App IDs → App) and run again.",
+      )
+    end
+    UI.message("Signing as team #{team_id} with '#{profile_name}' + '#{widget_profile_name}'")
 
     # Capacitor's template ships CODE_SIGN_STYLE = Automatic, which on a
     # headless runner means "ask Xcode to guess". Pin it to the profile we
@@ -132,6 +156,17 @@ platform :ios do
       bundle_identifier: APP_IDENTIFIER,
       code_sign_identity: "Apple Distribution",
       profile_name: profile_name,
+    )
+    # Same again for the extension: it is a separate target and inherits none
+    # of the above.
+    update_code_signing_settings(
+      path: XCODEPROJ,
+      use_automatic_signing: false,
+      team_id: team_id,
+      targets: [WIDGET_TARGET],
+      bundle_identifier: WIDGET_IDENTIFIER,
+      code_sign_identity: "Apple Distribution",
+      profile_name: widget_profile_name,
     )
 
     marketing_version = package_version
@@ -156,7 +191,10 @@ platform :ios do
         method: "app-store",
         signingStyle: "manual",
         teamID: team_id,
-        provisioningProfiles: { APP_IDENTIFIER => profile_name },
+        provisioningProfiles: {
+          APP_IDENTIFIER => profile_name,
+          WIDGET_IDENTIFIER => widget_profile_name,
+        },
         uploadSymbols: true,
       },
       output_directory: "build/ios",

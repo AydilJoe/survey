@@ -3880,6 +3880,56 @@ check('a failure never strands the button, and says something happened',
     names.every((n) => n && ['spend', 'scan', 'split', 'debt', 'saving'].includes(n)), JSON.stringify(names));
 }
 
+/* ── 16h. one action contract, four surfaces ────────────────────────────
+   The same four actions are now declared in the PWA manifest, in the Android
+   shortcuts patch, in the iOS patch, and (as the set of names it will act on)
+   in script.js. Nothing forces them to agree, and disagreement is silent: a
+   shortcut whose name the app does not recognise simply opens the app and
+   does nothing, which is exactly the bug this whole release existed to fix.
+   Read the declarations back out of each file and require they match. */
+{
+  const readFile = (...p) => readFileSync(path.join(REPO_ROOT, ...p), 'utf8');
+  const CONTRACT = ['spend', 'scan', 'split', 'debt'];
+
+  const manifest = JSON.parse(readFile('app', 'manifest.webmanifest'));
+  const pwa = (manifest.shortcuts || [])
+    .map((s) => new URL(s.url, 'https://x').searchParams.get('action'));
+
+  const androidSrc = readFile('scripts', 'patch-android-shortcuts.mjs');
+  const android = [...androidSrc.matchAll(/\{\s*name:\s*"([a-z]+)"/g)].map((m) => m[1]);
+
+  const iosSrc = readFile('scripts', 'patch-ios.mjs');
+  const iosBlock = /const SHORTCUTS = \[([\s\S]*?)\];/.exec(iosSrc);
+  const ios = iosBlock ? [...iosBlock[1].matchAll(/\["([a-z]+)"/g)].map((m) => m[1]) : [];
+
+  check('the PWA, Android and iOS declare the same four actions in the same order',
+    JSON.stringify(pwa) === JSON.stringify(CONTRACT)
+    && JSON.stringify(android) === JSON.stringify(CONTRACT)
+    && JSON.stringify(ios) === JSON.stringify(CONTRACT),
+    JSON.stringify({ pwa, android, ios }));
+
+  // Every declared name must be one the running app will actually act on.
+  const routed = await S((names) => names.map((n) => quickActionFromUrl(`duitful://action/${n}`)), CONTRACT);
+  check('and the app routes every one of them',
+    JSON.stringify(routed) === JSON.stringify(CONTRACT), JSON.stringify(routed));
+
+  // Both native surfaces must emit the URL shape the app parses. A second
+  // scheme, or a different path, would be a silent no-op on device.
+  check('both native surfaces emit the duitful://action/ URL the app parses',
+    /duitful:\/\/action\//.test(androidSrc) && /duitful:\/\/action\//.test(iosSrc)
+    && !/duitful:\/\/[a-z]+\//.test(androidSrc.replace(/duitful:\/\/action\//g, ''))
+    && !/duitful:\/\/[a-z]+\//.test(iosSrc.replace(/duitful:\/\/action\//g, '')));
+
+  // Actions-only, by the owner's explicit choice: a widget or shortcut must
+  // never write figures where they can be read without the passcode. Guard
+  // the native patches against an App Group / shared-prefs creeping in.
+  const widgetSrcs = ['patch-android-shortcuts.mjs', 'patch-ios.mjs', 'patch-android-widget.mjs']
+    .filter((f) => existsSync(path.join(REPO_ROOT, 'scripts', f)))
+    .map((f) => readFile('scripts', f)).join('\n');
+  check('no native patch opens a shared container for app data',
+    !/com\.apple\.security\.application-groups|group\.com\.aydiljoe|getSharedPreferences|UserDefaults\(suiteName/i.test(widgetSrcs));
+}
+
 /* ── 17. native plugin allowlists stay deliberate ───────────────────────
    Both platforms pin includePlugins, so a newly added plugin dependency
    reaches a native build ONLY when someone lists it. That is what keeps
