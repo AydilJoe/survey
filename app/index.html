@@ -138,7 +138,7 @@
             <span class="trial-banner-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg></span>
             <div>
               <strong>Update available</strong>
-              <p class="trial-banner-sub">A newer version of Duitful is ready on Google Play.</p>
+              <p class="trial-banner-sub" id="update-banner-sub">A newer version of Duitful is ready on Google Play.</p>
             </div>
           </div>
           <button type="button" class="primary" id="update-banner-cta">Update now</button>
@@ -1376,7 +1376,10 @@
 
         <div class="card">
           <h2>Legal</h2>
-          <p class="hint">How Duitful handles your data, and the rules for using it. Both pages also explain how to recover your Pro licence with a Billplz transaction ID.</p>
+          <!-- The licence-recovery sentence is web-only: App Review 3.1.1 bars
+               the native shells from pointing at the web checkout. Rewritten
+               per-platform in renderProControls(). -->
+          <p class="hint" id="legal-hint">How Duitful handles your data, and the rules for using it. Both pages also explain how to recover your Pro licence with a Billplz transaction ID.</p>
           <div class="button-row">
             <a class="ghost as-button" href="https://duitful.app/privacy/" target="_blank" rel="noopener">Privacy policy</a>
             <a class="ghost as-button" href="https://duitful.app/terms/" target="_blank" rel="noopener">Terms of service</a>
@@ -1932,6 +1935,6 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=5"></script>
-    <script src="script.js?v=110"></script>
+    <script src="script.js?v=111"></script>
   </body>
 </html>

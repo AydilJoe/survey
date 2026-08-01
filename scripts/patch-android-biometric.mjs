@@ -6,8 +6,8 @@
 // cap:sync) re-applies the permissions after a fresh `npx cap add android`.
 // Idempotent; no-op on iOS-only checkouts.
 //
-// (iOS needs NSFaceIDUsageDescription in Info.plist instead — handled when
-// an ios/ project is generated.)
+// (iOS needs NSFaceIDUsageDescription in Info.plist instead — see
+// scripts/patch-ios.mjs.)
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";

@@ -1,0 +1,12 @@
+# fastlane, pinned so a bad upstream release can't break a release run.
+#
+# Lives in fastlane/ rather than the repo root so the Node/Vercel side of
+# the project stays Ruby-free; the workflow points bundler at it with
+#   BUNDLE_GEMFILE: fastlane/Gemfile
+#
+# There is no committed Gemfile.lock: this is only ever installed on a
+# throwaway macOS runner, and a lock would need refreshing from a Mac —
+# which is the one thing this pipeline exists to avoid.
+source "https://rubygems.org"
+
+gem "fastlane", "~> 2.228"

@@ -106,8 +106,9 @@ via fingerprint; change the passcode and confirm fingerprint still
 unlocks; remove/re-add a fingerprint in Android settings and confirm the
 app falls back to passcode with the "biometric unlock was reset" notice.
 
-(iOS, when the project lands: add `NSFaceIDUsageDescription` to
-`Info.plist`.)
+(iOS: `NSFaceIDUsageDescription` is added to `Info.plist` by
+`scripts/patch-ios.mjs`, the mirror of this patch. See
+[`IOS_BUILD.md`](IOS_BUILD.md).)
 
 ## Notification-listener plugin (Android-only feature)
 

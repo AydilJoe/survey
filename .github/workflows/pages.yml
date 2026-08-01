@@ -34,12 +34,17 @@ jobs:
           # vendor app/` would nest it as app/vendor/vendor/tesseract.
           cp -R vendor/. app/vendor/
       # Android App Links live or die on this file being reachable at
-      # https://duitful.app/.well-known/assetlinks.json. upload-pages-artifact
-      # tars the whole tree including dotfiles, so it ships as-is — this guard
-      # just makes an accidental deletion fail loudly instead of silently
-      # sending every split link back to the browser.
-      - name: Check App Links file is present
-        run: test -s .well-known/assetlinks.json
+      # https://duitful.app/.well-known/assetlinks.json, and iOS Universal
+      # Links on apple-app-site-association next to it (extensionless, per
+      # Apple's spec). upload-pages-artifact tars the whole tree including
+      # dotfiles, so they ship as-is — this guard just makes an accidental
+      # deletion fail loudly instead of silently sending every split link
+      # back to the browser.
+      - name: Check App Links files are present
+        run: |
+          test -s .well-known/assetlinks.json
+          test -s .well-known/apple-app-site-association
+          python3 -c "import json;json.load(open('.well-known/apple-app-site-association'))"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

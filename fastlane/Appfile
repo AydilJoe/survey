@@ -1,0 +1,10 @@
+# Duitful — fastlane app identity.
+#
+# Deliberately minimal: everything else (Team ID, Apple ID, ASC app id) is
+# resolved at runtime from the App Store Connect API key, so nothing about
+# the developer account is committed to this public repo.
+#
+# Must match `appId` in capacitor.config.json — that string is what
+# `npx cap add ios` stamps into the generated Xcode project, and what the
+# provisioning profile is created for.
+app_identifier("com.aydiljoe.duitful")
