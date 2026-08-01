@@ -274,6 +274,37 @@ to enrol.
    pick `Duitful-unsigned.ipa`
 4. It signs and installs in 30–60 seconds. Duitful is on the home screen.
 
+### The home-screen widget will NOT work on a sideloaded build
+
+Confirmed on iOS 26.5.2 with Sideloadly and a free Apple ID. The IPA is
+correct — `Payload/App.app/PlugIns/DuitfulWidget.appex` is present, and the
+`build-only` lane now fails outright if it ever isn't — but two things in the
+free-signing path defeat it:
+
+```
+iOS version 26.5.2, will mangle bundleID
+Using app ID "Duitful" with id A7H725SGWL
+```
+
+1. **Only the app gets an App ID.** An extension is a separate bundle and
+   needs its own (`com.aydiljoe.duitful.DuitfulWidget`). Sideloadly
+   registers one and never provisions the widget. It is not a quota problem —
+   the same run reported 9 App IDs still available.
+2. **The bundle ID is mangled.** iOS loads an extension only when its bundle
+   ID sits *underneath* its host app's. Once the app is re-signed as
+   `com.aydiljoe.duitful.<something>`, the widget's identifier is no longer a
+   child of it, so iOS ignores the extension — silently, with nothing in
+   Settings and nothing in the console.
+
+The app installs and runs normally; the widget is simply absent from the
+gallery. Don't debug this on the device — check the two lines above in
+Sideloadly's log and stop there.
+
+**It is not a bug, and there is nothing to fix.** TestFlight and App Store
+builds sign both bundles properly with real profiles, so the widget works
+there. Until enrolment, test the widget on Android, where it has none of
+this in its way.
+
 ### What works, and what genuinely doesn't
 
 Everything that matters for testing the app works. The limits below are
@@ -284,6 +315,9 @@ Apple's rules for free accounts, not bugs in the build:
   AltServer running on the same Wi-Fi) once a week and it keeps working.
   AltStore can do this in the background if you leave the PC on.
 - 🔢 **3 sideloaded apps max** per free Apple ID, at any one time.
+- 🧩 **The home-screen widget won't appear.** Free signing provisions only
+  the app, and mangles its bundle id, so iOS ignores the extension. See the
+  section above — it is not a bug and there is nothing to fix.
 - 🔗 **Universal Links won't work.** Tapping a `https://duitful.app/split#…`
   link opens Safari, never the app — the Associated Domains entitlement is
   deliberately stripped from this build because free Apple IDs can't carry
