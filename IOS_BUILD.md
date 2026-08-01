@@ -477,3 +477,14 @@ then — see the long comment at the top of the Fastfile.
   repo. Later runs are faster.
 - **Build logs** — every failed run uploads `ios-build-logs` as an
   artifact (Actions → the run → Artifacts). That's your Xcode window.
+
+## Known gap: Google Drive sync is not in the iOS build
+
+The Drive-sync auth plugin pins GoogleSignIn 6.x, whose GTMSessionFetcher
+requirement is incompatible with ML Kit's — CocoaPods cannot install both.
+Since Drive sync also lacks an iOS OAuth client ID (it was already
+non-functional on iOS), the plugin is excluded from the iOS build via
+`ios.includePlugins` in capacitor.config.json. Android and the web keep
+Drive sync exactly as before. To bring it to iOS later: move to a
+maintained google-auth plugin built on GoogleSignIn 7+, create an iOS
+OAuth client, and add the REVERSED_CLIENT_ID URL scheme.
