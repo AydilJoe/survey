@@ -8,9 +8,10 @@
 // screen with empty localStorage.
 import { chromium } from 'playwright';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, symlinkSync, unlinkSync, lstatSync } from 'node:fs';
+import { existsSync, symlinkSync, unlinkSync, lstatSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { readIosClientId, reversedClientId } from '../scripts/google-ios-client.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.TEST_PORT || 8899);
@@ -3037,6 +3038,340 @@ check('relock on web shows passcode entry untouched by the auto attempt',
   await page.locator('#lock-input').isVisible()
   && await S(() => typeof maybeAutoBiometric === 'function' && !aesKey
     && document.getElementById('lock-biometric').hidden === true));
+
+/* ── 16. Drive sync: per-platform auth wiring ───────────────────────────
+   iOS signs in through @capgo/capacitor-social-login (the codetrix plugin
+   pins a GoogleSignIn whose pods can't coexist with ML Kit), while Android
+   keeps @codetrix-studio/capacitor-google-auth and the web keeps Google
+   Identity Services. None of that is reachable from a browser, so the
+   checks below re-evaluate app/drive-sync.js in an isolated scope with a
+   fake `window` — one instance per platform, with stub plugins that record
+   what the module actually calls. The point is the wiring: which plugin,
+   which client id, which scopes, and where the access token comes from. */
+
+const driveSrc = readFileSync(path.join(REPO_ROOT, 'app', 'drive-sync.js'), 'utf8');
+const driveIso = await S(async (src) => {
+  const KEY = 'duit-tracker.drive';
+  const savedToken = localStorage.getItem(KEY);
+  const savedFetch = window.fetch;
+  const savedGoogle = window.google;
+  const out = { fetches: [] };
+
+  // Every instance gets both plugins, so "was the other one touched?" is a
+  // real question and not an accident of what we bothered to define.
+  const spyPlugins = (calls) => ({
+    GoogleAuth: {
+      initialize: async (o) => { calls.push(['GoogleAuth.initialize', o]); },
+      signIn: async () => {
+        calls.push(['GoogleAuth.signIn']);
+        return { authentication: { accessToken: 'android-access-token' }, email: 'android@example.com' };
+      },
+      refresh: async () => {
+        calls.push(['GoogleAuth.refresh']);
+        return { authentication: { accessToken: 'android-refreshed' } };
+      },
+      signOut: async () => { calls.push(['GoogleAuth.signOut']); },
+    },
+    SocialLogin: {
+      initialize: async (o) => { calls.push(['SocialLogin.initialize', o]); },
+      login: async (o) => {
+        calls.push(['SocialLogin.login', o]);
+        return {
+          provider: 'google',
+          result: {
+            accessToken: { token: 'ios-access-token', refreshToken: 'r', userId: 'u' },
+            idToken: 'id-token',
+            profile: { email: 'ios@example.com', name: 'Test' },
+            responseType: 'online',
+          },
+        };
+      },
+      getAuthorizationCode: async (o) => {
+        calls.push(['SocialLogin.getAuthorizationCode', o]);
+        return { jwt: 'id-token', accessToken: 'ios-refreshed-token' };
+      },
+      logout: async (o) => { calls.push(['SocialLogin.logout', o]); },
+    },
+  });
+
+  const load = (platform, cfg, calls, extra) => {
+    const w = Object.assign({
+      DRIVE_CONFIG: cfg,
+      Capacitor: {
+        isNativePlatform: () => platform === 'ios' || platform === 'android',
+        getPlatform: () => platform,
+        Plugins: spyPlugins(calls || []),
+      },
+    }, extra || {});
+    new Function('window', src)(w);
+    return w;
+  };
+
+  const SCOPES = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email';
+  const full = { webClientId: 'web-client', iosClientId: 'ios-client.apps.googleusercontent.com', scopes: SCOPES, fileName: 'duitful-backup.enc' };
+  const webOnly = { webClientId: 'web-client', scopes: SCOPES, fileName: 'duitful-backup.enc' };
+
+  try {
+    // Drive REST calls all funnel through the global fetch; capture the
+    // bearer token each platform ends up sending, and fail the request so
+    // nothing here can reach the network.
+    window.fetch = async (url, opts) => {
+      out.fetches.push({ url: String(url), auth: ((opts || {}).headers || {}).Authorization || null });
+      return { ok: false, status: 500, json: async () => ({}), text: async () => '' };
+    };
+
+    // --- public surface + platform mapping ---
+    const real = Object.keys(window.DriveSync).sort().join(',');
+    out.surface = { real };
+    for (const p of ['web', 'android', 'ios']) {
+      out.surface[p] = Object.keys(load(p, full).DriveSync).sort().join(',');
+    }
+    const pick = load('web', full).drivePickAuthMode;
+    out.pick = ['web', 'android', 'ios', 'electron', undefined].map((p) => `${p}:${pick(p)}`).join(' ');
+
+    // --- isConfigured per platform ---
+    out.configured = {
+      webFull: load('web', full).DriveSync.isConfigured(),
+      webEmpty: load('web', { scopes: SCOPES }).DriveSync.isConfigured(),
+      androidNoIosId: load('android', webOnly).DriveSync.isConfigured(),
+      iosNoIosId: load('ios', webOnly).DriveSync.isConfigured(),
+      iosFull: load('ios', full).DriveSync.isConfigured(),
+      iosEmptyString: load('ios', { webClientId: 'web-client', iosClientId: '', scopes: SCOPES }).DriveSync.isConfigured(),
+    };
+
+    // --- iOS with no client id: refuses politely, touches no plugin ---
+    localStorage.removeItem(KEY);
+    {
+      const calls = [];
+      const w = load('ios', { webClientId: 'web-client', iosClientId: '', scopes: SCOPES }, calls);
+      out.iosUnconfigured = { error: null, calls: calls.length, status: null, signedIn: null };
+      try { await w.DriveSync.signIn(); }
+      catch (e) { out.iosUnconfigured.error = e.message; }
+      out.iosUnconfigured.calls = calls.length;
+      out.iosUnconfigured.status = w.DriveSync.getStatus().state;
+      out.iosUnconfigured.signedIn = w.DriveSync.isSignedIn();
+    }
+
+    // --- iOS sign-in: SocialLogin only, token from result.accessToken.token ---
+    localStorage.removeItem(KEY);
+    {
+      const calls = [];
+      const w = load('ios', full, calls);
+      out.iosSignIn = { error: null };
+      try { await w.DriveSync.signIn(); }
+      catch (e) { out.iosSignIn.error = e.message; }
+      out.iosSignIn.calls = JSON.parse(JSON.stringify(calls));
+      out.iosSignIn.signedIn = w.DriveSync.isSignedIn();
+      out.iosSignIn.email = w.DriveSync.getAccountEmail();
+      out.iosSignIn.stored = JSON.parse(localStorage.getItem(KEY) || 'null');
+      out.iosSignIn.auth = out.fetches.length ? out.fetches[out.fetches.length - 1].auth : null;
+    }
+
+    // --- iOS silent refresh: expired token → getAuthorizationCode ---
+    localStorage.setItem(KEY, JSON.stringify({
+      token: { access_token: 'stale', expires_at: Date.now() - 60000 },
+      email: 'ios@example.com',
+    }));
+    {
+      const calls = [];
+      const w = load('ios', full, calls);
+      const before = out.fetches.length;
+      out.iosRefresh = { error: null };
+      try { await w.DriveSync.getRemoteMeta(); }
+      catch (e) { out.iosRefresh.error = e.message; }
+      out.iosRefresh.calls = JSON.parse(JSON.stringify(calls));
+      out.iosRefresh.auth = out.fetches.slice(before).map((f) => f.auth);
+    }
+
+    // --- Android sign-in: GoogleAuth only, webClientId, unchanged shape ---
+    localStorage.removeItem(KEY);
+    {
+      const calls = [];
+      const w = load('android', full, calls);
+      out.android = { error: null };
+      try { await w.DriveSync.signIn(); }
+      catch (e) { out.android.error = e.message; }
+      out.android.calls = JSON.parse(JSON.stringify(calls));
+      out.android.stored = JSON.parse(localStorage.getItem(KEY) || 'null');
+    }
+
+    // --- Web sign-in: Google Identity Services only, no Capacitor ---
+    localStorage.removeItem(KEY);
+    {
+      const calls = [];
+      const gis = [];
+      window.google = {
+        accounts: {
+          oauth2: {
+            initTokenClient: (o) => {
+              gis.push(o);
+              const client = {
+                callback: () => {},
+                requestAccessToken: () => client.callback({ access_token: 'web-token', expires_in: 3600 }),
+              };
+              return client;
+            },
+            revoke: () => {},
+          },
+        },
+      };
+      // The GIS flow reads window.google to know the script has loaded and
+      // then calls the bare `google` global, so the stub has to be both.
+      const w = load('web', full, calls, { google: window.google });
+      out.web = { error: null };
+      try { await w.DriveSync.signIn(); }
+      catch (e) { out.web.error = e.message; }
+      out.web.gis = JSON.parse(JSON.stringify(gis));
+      out.web.calls = JSON.parse(JSON.stringify(calls));
+      out.web.stored = JSON.parse(localStorage.getItem(KEY) || 'null');
+    }
+  } catch (e) {
+    out.fatal = String((e && e.message) || e);
+  } finally {
+    window.fetch = savedFetch;
+    if (savedGoogle === undefined) delete window.google; else window.google = savedGoogle;
+    if (savedToken === null) localStorage.removeItem(KEY); else localStorage.setItem(KEY, savedToken);
+  }
+  return out;
+}, driveSrc);
+
+check('drive-sync loads on every platform without throwing', !driveIso.fatal, driveIso.fatal);
+check('DriveSync exposes the same public API on web, Android and iOS',
+  driveIso.surface && driveIso.surface.real === driveIso.surface.web
+  && driveIso.surface.web === driveIso.surface.android
+  && driveIso.surface.android === driveIso.surface.ios
+  && driveIso.surface.real === 'downloadEncryptedRecord,getAccountEmail,getRemoteMeta,getStatus,isConfigured,isSignedIn,signIn,signOut,subscribe,uploadEncryptedRecord',
+  JSON.stringify(driveIso.surface));
+check('platform → auth mode mapping (only ios/android are native; everything else is web)',
+  driveIso.pick === 'web:web android:android ios:ios electron:web undefined:web', driveIso.pick);
+check('iOS reads iosClientId for configuredness, web and Android still read webClientId',
+  driveIso.configured && driveIso.configured.webFull === true
+  && driveIso.configured.webEmpty === false
+  && driveIso.configured.androidNoIosId === true
+  && driveIso.configured.iosNoIosId === false
+  && driveIso.configured.iosFull === true
+  && driveIso.configured.iosEmptyString === false,
+  JSON.stringify(driveIso.configured));
+check('an empty iosClientId degrades to "not configured" instead of throwing at load or calling a plugin',
+  driveIso.iosUnconfigured
+  && driveIso.iosUnconfigured.error === 'Drive backup is not configured for this build.'
+  && driveIso.iosUnconfigured.calls === 0
+  && driveIso.iosUnconfigured.signedIn === false,
+  JSON.stringify(driveIso.iosUnconfigured));
+check('iOS sign-in initializes SocialLogin with the iOS client id and the Drive scopes',
+  driveIso.iosSignIn
+  && JSON.stringify(driveIso.iosSignIn.calls[0]) === JSON.stringify(['SocialLogin.initialize', { google: { iOSClientId: 'ios-client.apps.googleusercontent.com', mode: 'online' } }])
+  && JSON.stringify(driveIso.iosSignIn.calls[1]) === JSON.stringify(['SocialLogin.login', {
+    provider: 'google',
+    options: { scopes: ['https://www.googleapis.com/auth/drive.appdata', 'https://www.googleapis.com/auth/userinfo.email'] },
+  }]),
+  JSON.stringify(driveIso.iosSignIn));
+check('iOS sign-in stores result.accessToken.token and sends it as the Drive bearer token',
+  driveIso.iosSignIn
+  && driveIso.iosSignIn.error === null
+  && driveIso.iosSignIn.signedIn === true
+  && driveIso.iosSignIn.email === 'ios@example.com'
+  && driveIso.iosSignIn.stored && driveIso.iosSignIn.stored.token.access_token === 'ios-access-token'
+  && driveIso.iosSignIn.stored.token.expires_at > Date.now()
+  && driveIso.iosSignIn.auth === 'Bearer ios-access-token',
+  JSON.stringify(driveIso.iosSignIn));
+check('iOS never reaches for the Android GoogleAuth plugin',
+  driveIso.iosSignIn && driveIso.iosSignIn.calls.every((c) => !String(c[0]).startsWith('GoogleAuth')),
+  JSON.stringify((driveIso.iosSignIn || {}).calls));
+check('an expired iOS token refreshes silently through getAuthorizationCode',
+  driveIso.iosRefresh
+  && JSON.stringify(driveIso.iosRefresh.calls[1]) === JSON.stringify(['SocialLogin.getAuthorizationCode', { provider: 'google' }])
+  && driveIso.iosRefresh.auth.includes('Bearer ios-refreshed-token'),
+  JSON.stringify(driveIso.iosRefresh));
+check('Android still signs in through GoogleAuth with the web client id — unchanged',
+  driveIso.android
+  && driveIso.android.error === null
+  && JSON.stringify(driveIso.android.calls[0]) === JSON.stringify(['GoogleAuth.initialize', {
+    clientId: 'web-client',
+    scopes: ['https://www.googleapis.com/auth/drive.appdata', 'https://www.googleapis.com/auth/userinfo.email'],
+    grantOfflineAccess: false,
+  }])
+  && JSON.stringify(driveIso.android.calls[1]) === JSON.stringify(['GoogleAuth.signIn'])
+  && driveIso.android.calls.every((c) => !String(c[0]).startsWith('SocialLogin'))
+  && driveIso.android.stored.token.access_token === 'android-access-token',
+  JSON.stringify(driveIso.android));
+check('web still signs in through Google Identity Services and touches no Capacitor plugin',
+  driveIso.web
+  && driveIso.web.error === null
+  && driveIso.web.calls.length === 0
+  && driveIso.web.gis.length === 1
+  && driveIso.web.gis[0].client_id === 'web-client'
+  && driveIso.web.gis[0].scope === 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email'
+  && driveIso.web.stored.token.access_token === 'web-token',
+  JSON.stringify(driveIso.web));
+
+/* ── 17. iOS URL scheme derivation (build-time, no device needed) ───────
+   Google's iOS SDK receives its sign-in callback on the reversed client id,
+   which scripts/patch-ios.mjs writes into Info.plist. The derivation is
+   pure, so assert it directly — including on the id this repo ships. */
+const driveConfigSrc = readFileSync(path.join(REPO_ROOT, 'app', 'drive-config.js'), 'utf8');
+const shippedIosId = readIosClientId(driveConfigSrc);
+check('drive-config.js declares an iosClientId',
+  /^\d+-[a-z0-9]+\.apps\.googleusercontent\.com$/.test(shippedIosId) || shippedIosId === '',
+  shippedIosId);
+check('the reversed client id is the Google-specified scheme for the shipped iOS client',
+  reversedClientId('184121637925-7aiidqonv3s7bhpppabi1hssjss8vvn3.apps.googleusercontent.com')
+    === 'com.googleusercontent.apps.184121637925-7aiidqonv3s7bhpppabi1hssjss8vvn3',
+  reversedClientId('184121637925-7aiidqonv3s7bhpppabi1hssjss8vvn3.apps.googleusercontent.com'));
+check('patch-ios derives that scheme from the committed drive-config.js, not a hard-coded string',
+  shippedIosId === '' || reversedClientId(shippedIosId) === 'com.googleusercontent.apps.' + shippedIosId.replace(/\.apps\.googleusercontent\.com$/, ''),
+  shippedIosId + ' → ' + reversedClientId(shippedIosId));
+check('an empty or malformed iosClientId yields no URL scheme (patch-ios skips instead of failing)',
+  reversedClientId('') === null && reversedClientId(null) === null
+  && reversedClientId('.apps.googleusercontent.com') === null
+  && reversedClientId('not-a-client-id') === null);
+
+/* Cache-busting: index.html and the service-worker shell must agree, or
+   installed PWAs keep serving the old drive-sync.js. */
+{
+  const idx = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
+  const sw = readFileSync(path.join(REPO_ROOT, 'app', 'sw.js'), 'utf8');
+  const agree = ['drive-sync.js', 'drive-config.js'].every((f) => {
+    const m = new RegExp(`src="${f.replace('.', '\\.')}\\?v=(\\d+)"`).exec(idx);
+    return !!m && sw.includes(`"/app/${f}?v=${m[1]}"`);
+  });
+  check('index.html and the service-worker shell agree on the drive script versions', agree);
+}
+
+/* ── 17. native plugin allowlists stay deliberate ───────────────────────
+   Both platforms pin includePlugins, so a newly added plugin dependency
+   reaches a native build ONLY when someone lists it. That is what keeps
+   the iOS-only social-login plugin out of Android (where it would drag
+   play-services-auth from 18.x up to 21.4.0 under a shipped feature).
+   The failure mode this guards is silence: an unlisted plugin simply
+   never registers, and you find out on a device. */
+{
+  const cfg = JSON.parse(readFileSync(new URL('../capacitor.config.json', import.meta.url), 'utf8'));
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  // Capacitor's own runtime packages are not plugins.
+  const NOT_PLUGINS = new Set(['@capacitor/core', '@capacitor/android', '@capacitor/ios', '@capacitor/cli']);
+  const pluginDeps = Object.keys(pkg.dependencies)
+    .filter(d => (d.includes('capacitor') || d.startsWith('cordova-plugin')) && !NOT_PLUGINS.has(d));
+  const ios = cfg.ios?.includePlugins || [];
+  const android = cfg.android?.includePlugins || [];
+  const unlisted = pluginDeps.filter(d => !ios.includes(d) && !android.includes(d));
+  const ghosts = [...ios, ...android].filter(d => !pluginDeps.includes(d));
+
+  check('every plugin dependency is listed for at least one platform',
+    unlisted.length === 0, unlisted.join(', '));
+  check('no allowlist entry names a plugin that is not installed',
+    ghosts.length === 0, ghosts.join(', '));
+  check('the iOS-only auth plugin is excluded from Android',
+    ios.includes('@capgo/capacitor-social-login')
+    && !android.includes('@capgo/capacitor-social-login'));
+  check('the Android auth plugin is excluded from iOS (its GoogleSignIn pin clashes with ML Kit)',
+    android.includes('@codetrix-studio/capacitor-google-auth')
+    && !ios.includes('@codetrix-studio/capacitor-google-auth'));
+  check('both platforms still get camera, biometrics, OCR and purchases',
+    ['@capacitor/camera', '@capgo/capacitor-native-biometric',
+     '@pantrist/capacitor-plugin-ml-kit-text-recognition', 'cordova-plugin-purchase']
+      .every(p => ios.includes(p) && android.includes(p)));
+}
 
 await b.close();
 if (server) server.kill();

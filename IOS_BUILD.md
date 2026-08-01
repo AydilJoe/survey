@@ -442,10 +442,6 @@ then — see the long comment at the top of the Fastfile.
 
 ## Known gaps on iOS
 
-- **Google Drive backup** needs an iOS OAuth client ID and a
-  `REVERSED_CLIENT_ID` URL scheme in `Info.plist`; only the web client ID
-  exists today (`app/drive-config.js`). Drive sign-in will error on iOS
-  until that's added. Everything else works.
 - **Notification auto-capture** is Android-only by design — iOS has no
   equivalent to a notification listener service. Nothing to declare.
 - **ML Kit OCR** is Android-only; iOS falls back to the bundled Tesseract
@@ -478,13 +474,51 @@ then — see the long comment at the top of the Fastfile.
 - **Build logs** — every failed run uploads `ios-build-logs` as an
   artifact (Actions → the run → Artifacts). That's your Xcode window.
 
-## Known gap: Google Drive sync is not in the iOS build
+## Google Drive sync on iOS
 
-The Drive-sync auth plugin pins GoogleSignIn 6.x, whose GTMSessionFetcher
-requirement is incompatible with ML Kit's — CocoaPods cannot install both.
-Since Drive sync also lacks an iOS OAuth client ID (it was already
-non-functional on iOS), the plugin is excluded from the iOS build via
-`ios.includePlugins` in capacitor.config.json. Android and the web keep
-Drive sync exactly as before. To bring it to iOS later: move to a
-maintained google-auth plugin built on GoogleSignIn 7+, create an iOS
-OAuth client, and add the REVERSED_CLIENT_ID URL scheme.
+iOS signs in through a different plugin than Android, for a pod reason:
+`@codetrix-studio/capacitor-google-auth` pins GoogleSignIn 6.2.4, which
+wants `GTMSessionFetcher/Core < 3.0`, while ML Kit's `MLKitCommon` wants
+`>= 3.3.2`. CocoaPods cannot satisfy both, so that plugin stays excluded
+from iOS via `ios.includePlugins` in `capacitor.config.json`, and iOS uses
+**`@capgo/capacitor-social-login`** (GoogleSignIn 9.x, GTMSessionFetcher
+3.3+ — compatible with ML Kit) instead. Android is untouched: it still
+uses the codetrix plugin and the web client ID.
+
+`app/drive-sync.js` picks the implementation at load time from
+`Capacitor.getPlatform()`: `ios` → SocialLogin, `android` → GoogleAuth,
+anything else → the browser's Google Identity Services flow.
+
+### Setup (one-time, already done for this repo)
+
+1. Google Cloud console → the **same project** as the existing web client →
+   APIs & Services → Credentials → Create credentials → OAuth client ID.
+2. Application type **iOS**, bundle ID `com.aydiljoe.duitful` (must match
+   `appId` in `capacitor.config.json`).
+3. Paste the client ID into `iosClientId` in `app/drive-config.js`. Client
+   IDs are public; committing one is fine.
+4. Rebuild. `npm run patch:ios` derives the reversed-client-ID URL scheme
+   (`com.googleusercontent.apps.<id>`) from that value and writes it into
+   `Info.plist` as a `CFBundleURLTypes` entry — Google's SDK will not start
+   sign-in without it. Nothing to edit by hand; change the id in
+   drive-config.js and the scheme follows.
+
+The OAuth consent screen needs no change: same scopes as web and Android
+(`drive.appdata`, `userinfo.email`), same hidden app-data folder, same
+client-side encryption. The privacy policy therefore needs no change
+either.
+
+If `iosClientId` is left empty (a fork without its own Google project), the
+build still compiles: the Cloud backup card reports that backup isn't
+configured, and `patch:ios` skips the URL scheme.
+
+### If sign-in opens Google and then hangs on the way back
+
+GoogleSignIn 6+ completes the callback inside `ASWebAuthenticationSession`,
+so Capacitor's stock `AppDelegate` is enough. If a future SDK version routes
+the callback through the app instead, add
+`GIDSignIn.sharedInstance.handle(url)` to
+`application(_:open:options:)` in `ios/App/App/AppDelegate.swift` before the
+`ApplicationDelegateProxy` call — that file is regenerated on every CI run,
+so it would need a patch in `scripts/patch-ios.mjs` rather than a manual
+edit.

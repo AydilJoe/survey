@@ -7,10 +7,14 @@
  *
  * Auth:
  *  - Web: Google Identity Services (GIS) implicit flow via initTokenClient.
- *  - Native (Capacitor Android): @codetrix-studio/capacitor-google-auth
- *    using the device's Google account.
+ *  - Native Android: @codetrix-studio/capacitor-google-auth using the
+ *    device's Google account.
+ *  - Native iOS: @capgo/capacitor-social-login (Google provider). The
+ *    codetrix plugin pins GoogleSignIn 6.2.4, whose GTMSessionFetcher
+ *    requirement is unsatisfiable alongside ML Kit, so it is excluded from
+ *    the iOS build (see capacitor.config.json → ios.includePlugins).
  *
- * Both implementations expose the same window.DriveSync surface.
+ * All three implementations expose the same window.DriveSync surface.
  *
  * Public API (unchanged from web-only version):
  *   DriveSync.isConfigured(), .isSignedIn(), .getAccountEmail(),
@@ -29,6 +33,27 @@
     typeof window.Capacitor.isNativePlatform === "function" &&
     window.Capacitor.isNativePlatform()
   );
+
+  /* Which auth implementation a platform gets. Pure and side-effect free so
+   * the mapping can be asserted without a device — the reason it exists as a
+   * named function instead of an inline ternary. Anything that isn't a
+   * recognised native platform (including "web" and a missing Capacitor)
+   * falls back to the browser GIS flow, which is what shipped before iOS
+   * had an implementation at all. */
+  function drivePickAuthMode(platform) {
+    if (platform === "ios") return "ios";
+    if (platform === "android") return "android";
+    return "web";
+  }
+  window.drivePickAuthMode = drivePickAuthMode;
+
+  const PLATFORM = (window.Capacitor && typeof window.Capacitor.getPlatform === "function")
+    ? window.Capacitor.getPlatform()
+    : "web";
+  // Non-native contexts are pinned to "web" before the mapping runs, so a
+  // browser can never be routed at a native plugin no matter what
+  // getPlatform() claims.
+  const AUTH_MODE = drivePickAuthMode(IS_NATIVE ? PLATFORM : "web");
 
   // ---------- shared module state ----------
 
@@ -229,8 +254,31 @@
     return !!(c.token && c.token.access_token && c.token.expires_at > Date.now() - 24 * 3600 * 1000);
   }
 
+  // iOS signs in with its own OAuth client (Google's iOS SDK rejects a web
+  // client ID), so that is the id that decides whether the build is
+  // configured there. Web and Android are unchanged: webClientId.
   function isConfigured() {
-    return !!(window.DRIVE_CONFIG && window.DRIVE_CONFIG.webClientId);
+    const cfg = window.DRIVE_CONFIG || {};
+    if (AUTH_MODE === "ios") return !!cfg.iosClientId;
+    return !!cfg.webClientId;
+  }
+
+  // Shared by both native implementations. `sourceLabel` only names the
+  // plugin in the error message.
+  function persistToken({ accessToken, expiresIn, email }, sourceLabel) {
+    if (!accessToken) throw new Error("No access token returned by " + (sourceLabel || "GoogleAuth"));
+    const ttlSec = Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600;
+    const expiresAt = Date.now() + (ttlSec - 60) * 1000;
+    const c = loadCache();
+    c.token = { access_token: accessToken, expires_at: expiresAt };
+    if (email) c.email = email;
+    saveCache();
+    return accessToken;
+  }
+
+  function scopeList() {
+    const cfg = window.DRIVE_CONFIG || {};
+    return (cfg.scopes || "").split(/\s+/).filter(Boolean);
   }
   function getAccountEmail() {
     return loadCache().email || null;
@@ -348,6 +396,8 @@
   }
 
   // ---------- native implementation (Capacitor Android) ----------
+  // Unchanged behaviour: @codetrix-studio/capacitor-google-auth, webClientId,
+  // silent refresh() then interactive signIn(). iOS never reaches this code.
 
   function installNativeDriveSync() {
     // Plugin handle. Resolved lazily — the plugin object is registered when
@@ -369,7 +419,7 @@
       if (!cfg.webClientId) throw new Error("DRIVE_CONFIG.webClientId is not set");
       await getPlugin().initialize({
         clientId: cfg.webClientId,
-        scopes: (cfg.scopes || "").split(/\s+/).filter(Boolean),
+        scopes: scopeList(),
         grantOfflineAccess: false,
       });
       initialized = true;
@@ -385,17 +435,6 @@
         expiresIn: auth && (auth.expiresIn || auth.expires_in),
         email: result && result.email,
       };
-    }
-
-    function persistToken({ accessToken, expiresIn, email }) {
-      if (!accessToken) throw new Error("No access token returned by GoogleAuth");
-      const ttlSec = Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600;
-      const expiresAt = Date.now() + (ttlSec - 60) * 1000;
-      const c = loadCache();
-      c.token = { access_token: accessToken, expires_at: expiresAt };
-      if (email) c.email = email;
-      saveCache();
-      return accessToken;
     }
 
     async function refreshToken() {
@@ -463,9 +502,146 @@
     return Object.assign({ signIn, signOut }, helpers);
   }
 
+  // ---------- native implementation (Capacitor iOS) ----------
+  //
+  // @capgo/capacitor-social-login, Google provider, "online" mode. The API
+  // (from the plugin's own typings, v7.20.0):
+  //
+  //   initialize({ google: { iOSClientId?, iOSServerClientId?, mode? } })
+  //   login({ provider: "google", options: { scopes?, forcePrompt? } })
+  //     -> { provider: "google",
+  //          result: { accessToken: { token, refreshToken, userId } | null,
+  //                    idToken, profile: { email, ... },
+  //                    responseType: "online" } }
+  //   getAuthorizationCode({ provider: "google" }) -> { jwt, accessToken }
+  //   logout({ provider: "google" })
+  //
+  // The Drive REST calls need a bearer access token: that is
+  // `result.accessToken.token` from login (GIDGoogleUser.accessToken), and
+  // `accessToken` from getAuthorizationCode, which the native side produces
+  // by calling refreshTokensIfNeeded on the signed-in user — the silent
+  // refresh path, mirroring GoogleAuth.refresh() on Android. Neither call
+  // reports an expiry, so we fall back to the standard Google hour (the
+  // 401-retry in driveFetch covers a bad guess either way).
+  //
+  // The Drive scope is requested through login({ options: { scopes } }); on
+  // iOS the plugin passes it to GIDSignIn as additionalScopes.
+
+  function installIosDriveSync() {
+    let plugin = null;
+    let initialized = false;
+
+    function getPlugin() {
+      if (plugin) return plugin;
+      const p = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SocialLogin;
+      if (!p) throw new Error("SocialLogin plugin not available — is the native build up to date?");
+      plugin = p;
+      return p;
+    }
+
+    async function ensureInitialized() {
+      if (initialized) return;
+      const cfg = window.DRIVE_CONFIG || {};
+      if (!cfg.iosClientId) throw new Error("DRIVE_CONFIG.iosClientId is not set");
+      await getPlugin().initialize({
+        google: {
+          iOSClientId: cfg.iosClientId,
+          mode: "online",
+        },
+      });
+      initialized = true;
+    }
+
+    // login() resolves { provider, result }; be tolerant of a bare result.
+    function extractLogin(res) {
+      const r = (res && res.result) || res || {};
+      const at = r.accessToken || null;
+      return {
+        accessToken: at && (typeof at === "string" ? at : at.token),
+        email: (r.profile && r.profile.email) || null,
+      };
+    }
+
+    async function interactiveLogin() {
+      await ensureInitialized();
+      const res = await getPlugin().login({
+        provider: "google",
+        options: { scopes: scopeList() },
+      });
+      return persistToken(extractLogin(res), "SocialLogin");
+    }
+
+    async function refreshToken() {
+      await ensureInitialized();
+      const res = await getPlugin().getAuthorizationCode({ provider: "google" });
+      return persistToken(
+        { accessToken: res && res.accessToken, email: loadCache().email },
+        "SocialLogin",
+      );
+    }
+
+    async function getValidAccessToken(allowInteractive) {
+      const c = loadCache();
+      const t = c.token;
+      if (t && t.access_token && t.expires_at && t.expires_at > Date.now()) {
+        return t.access_token;
+      }
+      try { return await refreshToken(); }
+      catch (e) {
+        if (allowInteractive) {
+          await signIn();
+          return loadCache().token.access_token;
+        }
+        throw e;
+      }
+    }
+
+    const helpers = buildSharedHelpers(getValidAccessToken, refreshToken);
+
+    // GIDSignIn surfaces its errors as localized strings, so match on text
+    // as well as on the canonical cancel code (-5, kGIDSignInErrorCodeCanceled).
+    function humanizeError(err) {
+      if (!err) return "Sign-in failed";
+      const code = String((err && (err.code || err.error)) || "");
+      const msg = (err && err.message) || "";
+      if (code === "-5" || /cancel/i.test(msg)) return "Sign-in cancelled";
+      if (/not available/i.test(msg)) return "Sign-in failed — Google sign-in isn't in this build";
+      return msg || "Sign-in failed";
+    }
+
+    async function signIn() {
+      if (!isConfigured()) throw new Error("Drive backup is not configured for this build.");
+      setStatus("working", "Signing in…");
+      try {
+        await interactiveLogin();
+        // fetchUserEmail also confirms the access token is usable.
+        await helpers.fetchUserEmail();
+        setStatus("idle", "Signed in");
+      } catch (e) {
+        const msg = humanizeError(e);
+        setStatus(msg === "Sign-in cancelled" ? "idle" : "error", msg);
+        if (msg !== "Sign-in cancelled") throw new Error(msg);
+      }
+    }
+
+    async function signOut() {
+      try {
+        await ensureInitialized();
+        await getPlugin().logout({ provider: "google" });
+      } catch {} // best-effort; we still clear local cache below
+      clearCache();
+      setStatus("idle", "Signed out");
+    }
+
+    return Object.assign({ signIn, signOut }, helpers);
+  }
+
   // ---------- module entrypoint ----------
 
-  const impl = IS_NATIVE ? installNativeDriveSync() : installWebDriveSync();
+  const impl =
+    AUTH_MODE === "ios" ? installIosDriveSync() :
+    AUTH_MODE === "android" ? installNativeDriveSync() :
+    installWebDriveSync();
 
   window.DriveSync = {
     isConfigured,

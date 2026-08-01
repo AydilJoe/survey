@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=81" />
+    <link rel="stylesheet" href="styles.css?v=82" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -1191,7 +1191,7 @@
               <button id="btn-drive-signin" class="primary" type="button">Connect Google Drive</button>
             </div>
             <p class="hint" id="drive-unconfigured" hidden>
-              Cloud backup isn't configured for this build. Set <code>DRIVE_CONFIG.webClientId</code> in <code>app/drive-config.js</code>.
+              Cloud backup isn't configured for this build. Set <code>DRIVE_CONFIG.webClientId</code> (or <code>iosClientId</code> on iOS) in <code>app/drive-config.js</code>.
             </p>
           </div>
           <div id="drive-signed-in" hidden>
@@ -1925,8 +1925,8 @@
       </div>
     </dialog>
 
-    <script src="drive-config.js?v=1"></script>
-    <script src="drive-sync.js?v=1"></script>
+    <script src="drive-config.js?v=2"></script>
+    <script src="drive-sync.js?v=2"></script>
     <script src="investments.js?v=3"></script>
     <!-- QR encoder (MIT, vendored). Needed on every share dialog, so it
          loads with the shell. The jsQR DECODER is ~250 KB and only used
@@ -1935,6 +1935,6 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=5"></script>
-    <script src="script.js?v=112"></script>
+    <script src="script.js?v=113"></script>
   </body>
 </html>

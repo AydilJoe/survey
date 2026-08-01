@@ -8,7 +8,28 @@
   "plugins": {
     "LocalNotifications": {
       "iconColor": "#c8704b"
+    },
+    "SocialLogin": {
+      "providers": {
+        "google": true,
+        "facebook": false,
+        "apple": false,
+        "twitter": false
+      }
     }
+  },
+  "android": {
+    "//": "Pinned so @capgo/capacitor-social-login (iOS-only, added purely to dodge the GoogleSignIn/ML Kit pod clash) cannot join the Android build. Without this list Android would silently inherit it and Gradle would resolve play-services-auth up from the 18.x the google-auth plugin asks for to 21.4.0 — an unreviewed change to a shipped Pro feature. Guarded by an e2e check: adding a plugin dependency without listing it here (or in the iOS list) fails the suite.",
+    "includePlugins": [
+      "@capacitor/app",
+      "@capacitor/camera",
+      "@capacitor/local-notifications",
+      "@capawesome/capacitor-app-update",
+      "@capgo/capacitor-native-biometric",
+      "@codetrix-studio/capacitor-google-auth",
+      "@pantrist/capacitor-plugin-ml-kit-text-recognition",
+      "cordova-plugin-purchase"
+    ]
   },
   "ios": {
     "includePlugins": [
@@ -17,6 +38,7 @@
       "@capacitor/local-notifications",
       "@capawesome/capacitor-app-update",
       "@capgo/capacitor-native-biometric",
+      "@capgo/capacitor-social-login",
       "@pantrist/capacitor-plugin-ml-kit-text-recognition",
       "cordova-plugin-purchase"
     ]
