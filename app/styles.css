@@ -1821,6 +1821,113 @@ li.empty-block-host {
   word-break: break-word;
 }
 
+/* ---------- First run: two questions, then the answer ----------
+   Deliberately unlike the rest of the app's forms: one question per screen,
+   one oversized field, nothing else competing for attention. Someone who has
+   just installed a money app has not agreed to fill in a form yet. */
+.onboard-dialog { max-width: 24rem; }
+.onboard-form { display: flex; flex-direction: column; gap: 0.2rem; }
+.onboard-progress { display: flex; gap: 0.3rem; margin-bottom: 1.1rem; }
+.onboard-tick {
+  height: 3px; flex: 1; border-radius: 999px;
+  background: var(--line);
+  transition: background 0.25s ease;
+}
+.onboard-tick.is-on { background: var(--primary); }
+.onboard-h {
+  font-family: var(--font-serif);
+  font-size: 1.32rem;
+  line-height: 1.25;
+  margin: 0 0 0.35rem;
+  letter-spacing: -0.02em;
+}
+.onboard-sub {
+  margin: 0 0 1.1rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+/* The amount field is the whole point of step one, so it gets to be big. */
+.onboard-field {
+  display: flex; align-items: center; gap: 0.5rem;
+  border: 0.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  padding: 0.55rem 0.85rem;
+}
+.onboard-field:focus-within { border-color: var(--primary); }
+.onboard-cur {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+/* Id-scoped: the app's global input styling is more specific than a bare
+   class, and left the field rendering as a box inside a box. */
+#onboard-dialog .onboard-field input {
+  border: 0; background: transparent; box-shadow: none;
+  padding: 0; margin: 0; min-width: 0; width: 100%; height: auto;
+  font-family: var(--font-serif);
+  font-size: 1.9rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  -webkit-appearance: none;
+  appearance: none;
+}
+#onboard-dialog .onboard-field input:focus { outline: none; box-shadow: none; }
+/* Spinner arrows on a money field are a mis-tap waiting to happen. */
+#onboard-dialog .onboard-field input::-webkit-outer-spin-button,
+#onboard-dialog .onboard-field input::-webkit-inner-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+#onboard-dialog .onboard-field input[type="number"] { -moz-appearance: textfield; }
+.onboard-field-sm { padding: 0.35rem 0.6rem; flex: 0 0 9.5rem; }
+#onboard-dialog .onboard-field-sm input { font-size: 1.1rem; }
+.onboard-rows { display: flex; flex-direction: column; gap: 0.5rem; }
+.onboard-row { display: flex; gap: 0.5rem; align-items: center; }
+.onboard-row .onboard-bill-name {
+  flex: 1 1 auto; min-width: 0;
+  border: 0.5px solid var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  padding: 0.7rem 0.85rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.onboard-add { align-self: flex-start; margin-top: 0.55rem; font-size: 0.86rem; }
+.onboard-actions {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  margin-top: 1.4rem;
+}
+.onboard-actions .primary { width: 100%; padding: 0.8rem; font-size: 1rem; }
+.onboard-actions .ghost { width: 100%; }
+/* The payoff screen. This is the first time the app tells them anything. */
+.onboard-result { text-align: center; padding-top: 0.6rem; }
+.onboard-eyebrow {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.onboard-big {
+  margin: 0.35rem 0 0.15rem;
+  font-family: var(--font-serif);
+  font-size: 2.6rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--gain);
+  line-height: 1.05;
+}
+.onboard-perday {
+  margin: 0 0 0.9rem;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.onboard-result .onboard-sub { margin-bottom: 0; }
+
 /* ---------- Working state for async buttons ----------
    Unlocking runs 250k PBKDF2 rounds. On an older phone that is most of a
    second in which the only feedback was that nothing happened, so people

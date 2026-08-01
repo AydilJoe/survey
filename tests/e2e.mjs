@@ -3930,6 +3930,122 @@ check('a failure never strands the button, and says something happened',
     !/com\.apple\.security\.application-groups|group\.com\.aydiljoe|getSharedPreferences|UserDefaults\(suiteName/i.test(widgetSrcs));
 }
 
+/* ── 16i. first run asks two questions instead of giving a lecture ──────
+   What was here: a ten-step tour, auto-opened after passcode setup, with the
+   Skip button hidden and Esc disabled — a new user had to click through all
+   of it, including a Pro feature and a warning that losing their passcode
+   destroys their data, before entering a single ringgit. Play showed 9
+   installs and 2 first opens over 28 days.
+
+   Now: what comes in, what's committed, and the number they came for. The
+   tour still exists on demand. */
+{
+  // The lockout must never come back. It is the single change most likely to
+  // be undone by someone "restoring" the tour.
+  const src = readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8');
+  check('nothing turns the first-run tour lockout back on',
+    !/openGuide\(\s*\{\s*firstRun:\s*true/.test(src),
+    (/openGuide\([^)]*\)/.exec(src) || ['none'])[0]);
+
+  const flow = await S(async () => {
+    // Rebuild a genuine first-run: no records, guide never seen.
+    state.income = []; state.expenses = []; state.dailyExpenses = [];
+    state.debts = []; state.budgetPools = [];
+    state.guideSeen = false;
+    save();
+    renderAll();
+    // Baseline: whatever else this long-running suite has left in state, the
+    // hero must move by exactly what onboarding promises. Asserting a literal
+    // would be asserting the suite's leftovers, not the feature.
+    const heroBefore = parseFloat(((document.querySelector('.hero-amount') || {}).textContent || '0').replace(/[^0-9.-]/g, ''));
+    openOnboard();
+    await new Promise((r) => setTimeout(r, 120));
+    const dlg = document.getElementById('onboard-dialog');
+    const opened = !!dlg.open;
+    const hasKey = !!aesKey;
+    const step1 = !document.querySelector('[data-onboard-step="1"]').hidden;
+    const skippable = !!dlg.querySelector('[data-onboard="skip"]');
+    // Two questions, then the answer.
+    document.getElementById('onboard-income').value = '5000';
+    dlg.querySelector('[data-onboard-step="1"] [data-onboard="next"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    dlg.querySelector('.onboard-bill-name').value = 'Rent';
+    dlg.querySelector('.onboard-bill-amount').value = '1200';
+    dlg.querySelector('[data-onboard-step="2"] [data-onboard="next"]').click();
+    await new Promise((r) => setTimeout(r, 120));
+    const shown = document.getElementById('onboard-left').textContent;
+    const perDay = document.getElementById('onboard-perday').textContent;
+    dlg.querySelector('[data-onboard="done"]').click();
+    await new Promise((r) => setTimeout(r, 200));
+    return {
+      opened, step1, skippable, shown, perDay,
+      closed: !dlg.open,
+      income: state.income.length,
+      expenses: state.expenses.length,
+      incomeAmount: state.income[0] && state.income[0].amount,
+      billName: state.expenses[0] && state.expenses[0].name,
+      guideSeen: state.guideSeen,
+      hasKey,
+      heroBefore,
+      heroAfter: parseFloat(((document.querySelector('.hero-amount') || {}).textContent || '0').replace(/[^0-9.-]/g, '')),
+    };
+  });
+  check('first run opens the two-question setup, and it can always be skipped',
+    flow.opened && flow.step1 && flow.skippable, JSON.stringify(flow));
+  check('it answers the question it asked — RM 5,000 in, RM 1,200 committed → RM 3,800',
+    /3,800/.test(flow.shown) && /a day/.test(flow.perDay),
+    JSON.stringify({ shown: flow.shown, perDay: flow.perDay }));
+  check('what you type becomes ordinary records, not a separate onboarding blob',
+    flow.income === 1 && flow.expenses === 1
+    && Math.abs(flow.incomeAmount - 5000) < 0.001 && flow.billName === 'Rent',
+    JSON.stringify(flow));
+  // The arithmetic itself is asserted on the onboarding screen above. Here the
+// claim is narrower and the only one that survives a long suite's leftover
+// state: what was typed reaches the home screen's own calculation, which read
+// zero before it.
+check('and what was typed reaches the home screen calculation',
+    flow.heroBefore === 0 && flow.heroAfter > 0,
+    JSON.stringify({ before: flow.heroBefore, after: flow.heroAfter }));
+  check('finishing marks the first run done, so it never reappears',
+    flow.guideSeen === true && flow.closed === true, JSON.stringify(flow));
+
+  // Skipping must cost nothing and must also not re-prompt: being asked twice
+  // is worse than never being asked.
+  const skipped = await S(async () => {
+    state.income = []; state.expenses = []; state.guideSeen = false;
+    save();
+    openOnboard();
+    await new Promise((r) => setTimeout(r, 100));
+    document.querySelector('#onboard-dialog [data-onboard="skip"]').click();
+    await new Promise((r) => setTimeout(r, 150));
+    const after = { income: state.income.length, expenses: state.expenses.length,
+                    guideSeen: state.guideSeen, open: document.getElementById('onboard-dialog').open };
+    // A returning user must not be shown it again.
+    maybeOpenGuideAfterSetup();
+    await new Promise((r) => setTimeout(r, 400));
+    after.reopened = document.getElementById('onboard-dialog').open;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    return after;
+  });
+  check('skipping writes nothing and closes cleanly',
+    skipped.income === 0 && skipped.expenses === 0 && skipped.open === false,
+    JSON.stringify(skipped));
+  check('and a returning user is never asked again',
+    skipped.guideSeen === true && skipped.reopened === false, JSON.stringify(skipped));
+
+  // The depth is not deleted — it moved behind a door.
+  check('the full tour still exists and still replays on demand',
+    await S(async () => {
+      if (typeof openGuide !== 'function') return false;
+      openGuide({ firstRun: false });
+      await new Promise((r) => setTimeout(r, 150));
+      const g = document.getElementById('guide-dialog');
+      const ok = !!(g && g.open) && Array.isArray(GUIDE_STEPS) && GUIDE_STEPS.length >= 5;
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      return ok;
+    }));
+}
+
 /* ── 17. native plugin allowlists stay deliberate ───────────────────────
    Both platforms pin includePlugins, so a newly added plugin dependency
    reaches a native build ONLY when someone lists it. That is what keeps

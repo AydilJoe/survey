@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.22.0";
+const APP_VERSION = "1.23.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7985,9 +7985,11 @@ let guideStep = 0;
 // spotlight step would end the whole tour the moment we closed the
 // dialog (because dialog.close() fires "close" unconditionally).
 let _guideInternalClose = false;
-// First-run lockout: when the tour auto-opens after passcode setup the
-// user must walk through it (no Skip, Esc disabled). Replaying it later
-// from Settings → About is free to skip.
+// Was a first-run lockout: the tour auto-opened after passcode setup with
+// Skip hidden and Esc disabled, so a new user had to click through all ten
+// steps. That is gone — the tour no longer auto-opens at all, and is always
+// escapable. The flag is kept because openGuide() takes it, but nothing
+// sets it true any more.
 let guideFirstRun = false;
 
 function guideDialog() { return document.getElementById("guide-dialog"); }
@@ -8213,20 +8215,168 @@ function closeGuide() {
 }
 
 function finishGuide() {
-  if (aesKey && !state.guideSeen) {
+  // Same reasoning as closeOnboard(): the flag is free, only the write costs.
+  if (!state.guideSeen) {
     state.guideSeen = true;
-    save();
+    if (aesKey) save();
   }
   guideFirstRun = false;
   closeGuide();
 }
 
+/* ---------- First run: two questions, then the answer ----------
+
+   What used to happen here: a ten-step tour, auto-opened, with the Skip
+   button hidden — a brand-new user had to click through every screen,
+   including a Pro feature and a warning that losing their passcode destroys
+   their data, before they had entered a single ringgit. Nine of ten people
+   who installed the app never opened it twice.
+
+   A tour explains features to someone who has not yet decided they care.
+   This asks for two numbers and hands back the one they came for: what's
+   left this month. Everything else — debts, split, investments, zakat,
+   receipt scanning — is still there, just not in anyone's face on day one.
+
+   Always skippable. The full tour is unchanged and still available on
+   demand from Settings → About. */
+
+let onboardBillRows = 1;
+
+function onboardDialog() { return document.getElementById("onboard-dialog"); }
+
+function onboardShowStep(n) {
+  document.querySelectorAll("#onboard-dialog .onboard-step").forEach((el) => {
+    el.hidden = Number(el.dataset.onboardStep) !== n;
+  });
+  document.querySelectorAll("#onboard-dialog .onboard-tick").forEach((el, i) => {
+    el.classList.toggle("is-on", i < n);
+  });
+  if (n === 1) setTimeout(() => document.getElementById("onboard-income")?.focus(), 60);
+}
+
+function onboardAddBillRow(focus) {
+  const wrap = document.getElementById("onboard-bill-rows");
+  if (!wrap) return;
+  const i = onboardBillRows++;
+  const row = document.createElement("div");
+  row.className = "onboard-row";
+  row.innerHTML = `
+    <input type="text" class="onboard-bill-name" placeholder="Rent, Astro, car loan…" autocomplete="off" />
+    <label class="onboard-field onboard-field-sm">
+      <span class="onboard-cur">RM</span>
+      <input type="number" class="onboard-bill-amount" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off" />
+    </label>`;
+  wrap.appendChild(row);
+  if (focus) setTimeout(() => row.querySelector(".onboard-bill-name")?.focus(), 60);
+  // Three is plenty to make the number feel real; more is a data-entry chore
+  // and the Monthly tab does it better.
+  const add = document.querySelector('[data-onboard="add-bill"]');
+  if (add) add.hidden = onboardBillRows >= 3;
+}
+
+// Reads the form and writes real records — no scratch format, no separate
+// "onboarding state" to reconcile later. What you type here is an ordinary
+// income row and ordinary recurring expenses, editable on Monthly like any
+// other. Returns what was committed so the result step can talk about it.
+function onboardCommit() {
+  const m = currentMonthISO();
+  const income = Number(document.getElementById("onboard-income")?.value) || 0;
+  if (income > 0 && !state.income.some((r) => r.month === m)) {
+    state.income.push({ id: uid(), name: "Income", amount: splitRound2Safe(income), month: m, day: null });
+  }
+  let bills = 0;
+  document.querySelectorAll("#onboard-bill-rows .onboard-row").forEach((row) => {
+    const amount = Number(row.querySelector(".onboard-bill-amount")?.value) || 0;
+    if (!(amount > 0)) return;
+    const name = (row.querySelector(".onboard-bill-name")?.value || "").trim() || "Bill";
+    state.expenses.push({ id: uid(), name, amount: splitRound2Safe(amount), month: m, day: null });
+    bills += amount;
+  });
+  save();
+  renderAll();
+  return { income, bills };
+}
+
+// Local rounding helper: split.js may not have loaded, and this must never
+// be the thing that breaks someone's first thirty seconds.
+function splitRound2Safe(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+function onboardShowResult() {
+  const { income, bills } = onboardCommit();
+  const left = Math.max(0, income - bills);
+  const daysLeft = Math.max(1, daysRemainingInMonth());
+  const leftEl = document.getElementById("onboard-left");
+  const perDayEl = document.getElementById("onboard-perday");
+  const explainEl = document.getElementById("onboard-explain");
+  if (leftEl) leftEl.textContent = fmtMoney(left);
+  if (perDayEl) {
+    perDayEl.textContent = left > 0
+      ? `About ${fmtMoney(left / daysLeft)} a day for the rest of the month.`
+      : "";
+  }
+  if (explainEl) {
+    explainEl.textContent = income > 0
+      ? `${fmtMoney(income)} coming in, ${fmtMoney(bills)} already committed. Every expense you log comes off this number.`
+      : "Add your income any time from the Monthly tab and this fills in.";
+  }
+  onboardShowStep(3);
+}
+
+function daysRemainingInMonth() {
+  const now = new Date();
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return Math.max(1, last - now.getDate() + 1);
+}
+
+function openOnboard() {
+  const dlg = onboardDialog();
+  if (!dlg) { openGuide({ firstRun: false }); return; } // markup missing: fall back to the tour
+  onboardBillRows = 0;
+  const wrap = document.getElementById("onboard-bill-rows");
+  if (wrap) wrap.innerHTML = "";
+  onboardAddBillRow(false);
+  const inc = document.getElementById("onboard-income");
+  if (inc) inc.value = "";
+  onboardShowStep(1);
+  if (!dlg.open) dlg.showModal();
+}
+
+function closeOnboard() {
+  const dlg = onboardDialog();
+  if (dlg && dlg.open) dlg.close();
+  // Mark it seen in memory whether or not we can persist. Gating the flag
+  // itself on aesKey means that if the key is ever missing here, the user is
+  // asked to set up again on every launch — an onboarding loop, which is far
+  // worse than a flag that fails to survive one restart. Only the write needs
+  // the key.
+  if (!state.guideSeen) {
+    state.guideSeen = true;
+    if (aesKey) save();
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target instanceof HTMLElement ? e.target.closest("[data-onboard]") : null;
+  if (!btn) return;
+  const action = btn.dataset.onboard;
+  const step = Number(btn.closest(".onboard-step")?.dataset.onboardStep || 1);
+  if (action === "skip") { closeOnboard(); return; }
+  if (action === "done") { closeOnboard(); return; }
+  if (action === "back") { onboardShowStep(step - 1); return; }
+  if (action === "add-bill") { onboardAddBillRow(true); return; }
+  if (action === "next") {
+    if (step === 1) onboardShowStep(2);
+    else onboardShowResult();
+  }
+});
+
 // Fires only from the passcode-setup flow (first-run or legacy migration).
-// Returning users who already have a passcode never see the tour auto-open;
-// they can replay it from Settings → About → "Replay welcome tour".
+// Returning users never see it; the full tour replays from Settings → About.
 function maybeOpenGuideAfterSetup() {
   if (!state.guideSeen) {
-    setTimeout(() => openGuide({ firstRun: true }), 250);
+    setTimeout(() => openOnboard(), 250);
   }
 }
 
@@ -8313,6 +8463,10 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.23.0": [
+    "<strong>A much shorter start</strong> — the old welcome made you click through ten screens before you could do anything, and you couldn't skip it. Now it asks two questions — what comes in, what's already committed — and shows you what's left. Twenty seconds, and skippable.",
+    "<strong>The full tour is still there</strong> if you want it: Settings → About → Replay welcome tour.",
   ],
   "1.22.0": [
     "<strong>A home-screen widget</strong> (Android now, iPhone soon) — Spend, Scan, Split and Pay debt in one tap, in three sizes. It shows no figures at all: a widget can't read your encrypted vault, and putting numbers where they'd be readable without your passcode isn't a trade worth making.",
