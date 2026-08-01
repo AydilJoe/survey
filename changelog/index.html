@@ -142,6 +142,19 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-19">
+    <span class="release-date">August 2026 · v1.19</span>
+    <h2 class="release-title">The first second, and the empty screens</h2>
+    <p class="release-summary">An offline-first app was blocking its own first paint on a font CDN. Fixing that turned into a pass over every moment where Duitful had nothing to show you yet.</p>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>No more white flash on launch</strong> — the colours needed for the first frame are now inlined in the page itself, so the app paints its own surface immediately instead of the WebView's default white. Dark mode was the worse case: a bright rectangle on every cold start.</li>
+      <li><span class="tag fix">fix</span><strong>The fonts no longer hold the app hostage</strong> — the webfont stylesheet was render-blocking and lives on a third-party CDN. On a cold start with no signal that meant a blank screen until the request gave up. It loads async now, and the splash stops waiting on it after a second either way.</li>
+      <li><span class="tag feat">new</span><strong>Unlock shows its working</strong> — deriving a key from your passcode is 250,000 rounds of PBKDF2, which is most of a second on an older phone. The button now spins instead of appearing to do nothing, and a genuine failure says so rather than silently doing nothing.</li>
+      <li><span class="tag feat">new</span><strong>Empty screens that help</strong> — a fresh Debts, Daily, Savings or Reports list now says what belongs there, why it's worth filling, and where there's an obvious next step, offers it. "No debts yet." was true and useless.</li>
+      <li><span class="tag note">note</span><strong>A search with no hits is not an empty state</strong> — those keep the compact one-liner with a clear-search link. A full illustrated panel for a typo reads as a dead end.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-18-2">
     <span class="release-date">August 2026 · v1.18.2</span>
     <h2 class="release-title">Over budget now looks like it</h2>

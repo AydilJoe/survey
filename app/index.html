@@ -20,10 +20,73 @@
     <link rel="icon" href="icon.svg?v=2" type="image/svg+xml" />
     <link rel="manifest" href="manifest.webmanifest" />
 
+    <!-- Boot paint. Duplicated from styles.css on purpose: this is the ONLY
+         style available on the first frame, and it is what stands between the
+         native launch image and the app. Without it the WebView paints its
+         default white while styles.css is still in flight — a white flash on
+         every cold start, and a bright one in dark mode. Keep the colours in
+         sync with --stage / --card / --text / --muted / --primary. -->
+    <style>
+      html, body { background: #e8dfd0; margin: 0; }
+      #splash {
+        position: fixed; inset: 0; z-index: 10000;
+        display: flex; align-items: center; justify-content: center;
+        background: #e8dfd0;
+      }
+      #splash .splash-inner { display: flex; flex-direction: column; align-items: center; gap: 0.9rem; }
+      #splash .splash-mark {
+        border-radius: 22px; padding: 1rem;
+        background: #fffefa; border: 0.5px solid rgba(42, 36, 32, 0.08);
+        box-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 8px 24px rgba(42, 36, 32, 0.08);
+        display: inline-flex; color: #d76636;
+      }
+      #splash .splash-mark svg { width: 38px; height: 38px; display: block; }
+      #splash .splash-title {
+        font-family: Fraunces, Georgia, "Times New Roman", serif;
+        font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; color: #2a2420;
+      }
+      #splash .splash-dots { display: inline-flex; gap: 0.35rem; margin-top: 0.15rem; }
+      #splash .splash-dots span { width: 6px; height: 6px; border-radius: 50%; background: #8a8178; }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]), html:not([data-theme="light"]) body { background: #14110e; }
+        html:not([data-theme="light"]) #splash { background: #14110e; }
+        html:not([data-theme="light"]) #splash .splash-mark {
+          background: #241e18; border-color: rgba(255, 255, 255, 0.08);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
+          color: #e87c4a;
+        }
+        html:not([data-theme="light"]) #splash .splash-title { color: #f3ede1; }
+        html:not([data-theme="light"]) #splash .splash-dots span { background: #a8a097; }
+      }
+      html[data-theme="dark"], html[data-theme="dark"] body { background: #14110e; }
+      html[data-theme="dark"] #splash { background: #14110e; }
+      html[data-theme="dark"] #splash .splash-mark {
+        background: #241e18; border-color: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
+        color: #e87c4a;
+      }
+      html[data-theme="dark"] #splash .splash-title { color: #f3ede1; }
+      html[data-theme="dark"] #splash .splash-dots span { background: #a8a097; }
+    </style>
+    <script>
+      // The theme choice is stored outside the encrypted vault precisely so it
+      // can be read here, before anything else paints. Otherwise a dark-mode
+      // user gets a cream flash on every launch.
+      try {
+        var t = localStorage.getItem("duit-tracker.theme");
+        if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    </script>
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=83" />
+    <!-- Loaded async. Duitful is offline-first and the native shell runs from
+         localhost, so a render-blocking stylesheet on a third-party CDN meant
+         a cold start with no signal sat on a blank screen until the request
+         gave up. font-display:swap in the URL covers the swap-in. -->
+    <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
+    <link rel="stylesheet" href="styles.css?v=84" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -1936,6 +1999,6 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=5"></script>
-    <script src="script.js?v=115"></script>
+    <script src="script.js?v=116"></script>
   </body>
 </html>
