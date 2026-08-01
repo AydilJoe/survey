@@ -86,7 +86,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=85" />
+    <link rel="stylesheet" href="styles.css?v=86" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -1864,6 +1864,53 @@
       </form>
     </dialog>
 
+    <!-- First run: three questions, then the answer.
+         This replaces a ten-step tour that a new user could not skip. A tour
+         explains features to someone who has not yet decided they care; this
+         asks for two numbers and hands back the one they came for. The full
+         tour still exists, on demand, from Settings → About. -->
+    <dialog id="onboard-dialog" class="edit-dialog onboard-dialog" aria-labelledby="onboard-title">
+      <form method="dialog" class="onboard-form">
+        <div class="onboard-progress" aria-hidden="true">
+          <span class="onboard-tick is-on"></span><span class="onboard-tick"></span><span class="onboard-tick"></span>
+        </div>
+
+        <section class="onboard-step" data-onboard-step="1">
+          <h2 id="onboard-title" class="onboard-h">What comes in each month?</h2>
+          <p class="onboard-sub">Your salary, or roughly what you earn. An estimate is fine — you can change it later.</p>
+          <label class="onboard-field">
+            <span class="onboard-cur">RM</span>
+            <input type="number" id="onboard-income" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off" />
+          </label>
+          <div class="onboard-actions">
+            <button type="button" class="primary" data-onboard="next">Next</button>
+            <button type="button" class="ghost" data-onboard="skip">Skip setup</button>
+          </div>
+        </section>
+
+        <section class="onboard-step" data-onboard-step="2" hidden>
+          <h2 class="onboard-h">What's already spoken for?</h2>
+          <p class="onboard-sub">Rent, a bill, a loan repayment — money that leaves every month before you spend anything.</p>
+          <div class="onboard-rows" id="onboard-bill-rows"></div>
+          <button type="button" class="ghost onboard-add" data-onboard="add-bill">+ Add another</button>
+          <div class="onboard-actions">
+            <button type="button" class="primary" data-onboard="next">Next</button>
+            <button type="button" class="ghost" data-onboard="back">Back</button>
+          </div>
+        </section>
+
+        <section class="onboard-step onboard-result" data-onboard-step="3" hidden>
+          <p class="onboard-eyebrow">Left to spend this month</p>
+          <p class="onboard-big" id="onboard-left">RM 0.00</p>
+          <p class="onboard-perday" id="onboard-perday"></p>
+          <p class="onboard-sub" id="onboard-explain"></p>
+          <div class="onboard-actions">
+            <button type="button" class="primary" data-onboard="done">Start tracking</button>
+          </div>
+        </section>
+      </form>
+    </dialog>
+
     <!-- Guided spotlight tour: dims the page and highlights one element
          at a time. Used by GUIDE_STEPS entries that declare a `target`
          selector. Steps without a target keep using the modal #guide-dialog
@@ -1999,6 +2046,6 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=6"></script>
-    <script src="script.js?v=119"></script>
+    <script src="script.js?v=120"></script>
   </body>
 </html>
