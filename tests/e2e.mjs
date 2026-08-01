@@ -2326,12 +2326,19 @@ const mamakReceipt = [
   'BAKI                      28.15',
 ].join('\n');
 const mamakParse = await S((raw) => splitParseReceiptItems(raw), mamakReceipt);
-check('mamak receipt: item lines kept with their prices, quantity prefix stripped',
+// "2 TEH TARIK 7.00" is two drinks at 3.50, and two people may each want to
+// claim one — so a stated quantity now expands into separate tickable rows
+// (whole counts up to 4, only when the total divides into clean sen).
+check('mamak receipt: item lines kept, quantity prefix expanded into claimable rows',
   JSON.stringify(mamakParse.items) === JSON.stringify([
     { name: 'NASI KANDAR AYAM', price: 12 },
-    { name: 'TEH TARIK', price: 7 },
+    { name: 'TEH TARIK', price: 3.5 },
+    { name: 'TEH TARIK', price: 3.5 },
     { name: 'ROTI CANAI', price: 1.6 },
   ]), JSON.stringify(mamakParse.items));
+check('mamak receipt: the expanded rows still sum to the printed line total',
+  Math.abs(mamakParse.items.filter((i) => i.name === 'TEH TARIK')
+    .reduce((s, i) => s + i.price, 0) - 7) < 0.0001);
 check('mamak receipt: SST + rounding land in the charges bucket (1.24 + 0.01)',
   Math.abs(mamakParse.charges - 1.25) < 0.0001 && mamakParse.chargeLines === 2,
   JSON.stringify({ charges: mamakParse.charges, lines: mamakParse.chargeLines }));
@@ -2369,6 +2376,116 @@ check('chain receipt: service charge + SST + a NEGATIVE rounding sum to 7.76',
 check('chain receipt: CASH and CHANGE never become items',
   !chainParse.items.some((i) => /CASH|CHANGE|Subtotal/i.test(i.name))
   && chainParse.items.length === 4, JSON.stringify(chainParse.items.map((i) => i.name)));
+
+/* --- three real receipts the owner photographed, as fixtures ---------------
+   Each broke the parser in a different way, and each is now pinned. The point
+   is not the exact row count but the failure mode: get any of these wrong
+   again and the split is wrong by real money. */
+
+// 1. A restaurant guest check with PRICE / QTY / TOTAL columns. The old
+//    parser found the items but booked "NET VALUE (EXCLD TAX) 85.00" as a
+//    service charge — RM 85 added on top of a RM 90.10 bill, so everybody
+//    paid roughly double. It also left the column noise in every name.
+const guestCheck = [
+  'NZ RETAIL (WANGSA LINK) S/B',
+  'Ticket # 786',
+  'GUEST CHECK',
+  'DATE 23/07/2026 23:58:41',
+  'DESCRIPTION PRICE QTY TOTAL',
+  'Naan Cheese + Garlic D 8.10 1 8.10 SR',
+  'Tandoori Ayam D 10.80 1 10.80 SR',
+  'Satay Ayam 5Pcs D 11.90 1 11.90 SR',
+  'Teh Tarik D 2.60 1 2.60 SR',
+  'Ais Kosong D 0.30 3 0.90 SR',
+  'Roti Canai D 2.00 1 2.00 SR',
+  'SUB TOTAL (INCLUDE TAX) 36.30',
+  'NET VALUE (EXCLD TAX) 34.24',
+  'TAX 2.06',
+  'TOTAL AMOUNT RM 36.30',
+].join('\n');
+const guest = await S((raw) => splitParseReceiptItems(raw), guestCheck);
+check('guest check: names lose the D / price / qty columns',
+  guest.items.slice(0, 3).map((i) => i.name).join(' | ')
+  === 'Naan Cheese + Garlic | Tandoori Ayam | Satay Ayam 5Pcs',
+  JSON.stringify(guest.items.map((i) => i.name)));
+check('guest check: "NET VALUE (EXCLD TAX)" is never a service charge',
+  guest.charges === 0, JSON.stringify({ charges: guest.charges, reconciled: guest.reconciled }));
+check('guest check: items reconcile against the printed total, so nothing is added on top',
+  Math.abs(guest.itemSum - 36.30) < 0.005 && guest.statedTotal === 36.30
+  && guest.reconciled === true, JSON.stringify({ sum: guest.itemSum, total: guest.statedTotal }));
+check('guest check: 3 ais kosong become three rows people can claim separately',
+  guest.items.filter((i) => i.name === 'Ais Kosong').length === 3
+  && guest.items.filter((i) => i.name === 'Ais Kosong').every((i) => Math.abs(i.price - 0.3) < 0.0001),
+  JSON.stringify(guest.items.filter((i) => i.name === 'Ais Kosong')));
+check('guest check: a Satay "5Pcs" is one dish, not five rows',
+  guest.items.filter((i) => i.name === 'Satay Ayam 5Pcs').length === 1);
+
+// 2. A supermarket receipt that prints the name on one line and the barcode +
+//    unit*qty + line total on the next. Every item spanned two lines, so BOTH
+//    halves were discarded and a perfect transcription still yielded 0 items.
+const twoLineMart = [
+  'BLUE KEY SELF-RAISING FLOUR 1KG',
+  '9556755010012 5.20*1 5.20',
+  'BUAH GAJUS 100GM',
+  '1000544100 5.80*2 11.60',
+  'CHN BAWANG KUNING HOLLAND (KG)',
+  '0252850002250090026 2.49*0.904 2.25',
+  'NZL FRZ BEEF INSIDE CUT',
+  '02115540947702204 43*2.204 94.77',
+  'Total Item 4 Sub Total 113.82',
+  'Total 113.82',
+].join('\n');
+const mart = await S((raw) => splitParseReceiptItems(raw), twoLineMart);
+check('two-line receipt: the name above pairs with the price below',
+  mart.items.length >= 4
+  && mart.items[0].name === 'BLUE KEY SELF-RAISING FLOUR 1KG'
+  && Math.abs(mart.items[0].price - 5.20) < 0.0001, JSON.stringify(mart.items));
+check('two-line receipt: a weighed item takes the LINE TOTAL, not the price per kg',
+  mart.items.some((i) => i.name.startsWith('CHN BAWANG') && Math.abs(i.price - 2.25) < 0.0001)
+  && mart.items.some((i) => i.name.startsWith('NZL FRZ BEEF') && Math.abs(i.price - 94.77) < 0.0001),
+  JSON.stringify(mart.items.map((i) => `${i.name} ${i.price}`)));
+check('two-line receipt: "5.80*2 11.60" becomes two rows of 5.80',
+  mart.items.filter((i) => i.name === 'BUAH GAJUS 100GM').length === 2
+  && Math.abs(mart.items.filter((i) => i.name === 'BUAH GAJUS 100GM')
+    .reduce((s, i) => s + i.price, 0) - 11.60) < 0.0001);
+check('two-line receipt: the barcode never becomes an item name',
+  !mart.items.some((i) => /^\d{5,}/.test(i.name)), JSON.stringify(mart.items.map((i) => i.name)));
+
+// 3. A hypermarket receipt with barcode | short name | price on ONE row. The
+//    names are already truncated by the printer, so trimming them further
+//    loses the only word that says what was bought.
+const barcodeRows = [
+  'LOTUSS STORES (MALAYSIA) SDN BHD',
+  '0885954430039 LOTUSS CEN 0.79',
+  '0955565870164 GG PROMO V 7.99',
+  '0212046000219 BROKOLI CH 2.19',
+  '0955521659892 LTS C.E W 10.99',
+  'SUB-TOTAL 21.96',
+  'BUY 3 FOR RM 2 -0.37',
+  'TOTAL TO PAY 21.59',
+  'Rounding 0.00',
+].join('\n');
+const lotus = await S((raw) => splitParseReceiptItems(raw), barcodeRows);
+check('barcode rows: the leading barcode is stripped from the name',
+  lotus.items.map((i) => i.name).join(' | ') === 'LOTUSS CEN | GG PROMO V | BROKOLI CH | LTS C.E W',
+  JSON.stringify(lotus.items.map((i) => i.name)));
+check('barcode rows: a trailing short word is kept — it is name, not a column',
+  lotus.items.some((i) => i.name === 'GG PROMO V') && lotus.items.some((i) => i.name === 'BROKOLI CH'),
+  JSON.stringify(lotus.items.map((i) => i.name)));
+check('barcode rows: a negative promo line never becomes an item',
+  !lotus.items.some((i) => i.price < 0) && lotus.items.length === 4,
+  JSON.stringify(lotus.items));
+
+// Every skipped line can say why it was skipped — this is what the
+// "What did it read?" panel shows, and what makes a bad scan reportable.
+check('every dropped line carries a reason',
+  Array.isArray(guest.dropReasons) && guest.dropReasons.length > 0
+  && guest.dropReasons.every((d) => d && typeof d.line === 'string' && typeof d.why === 'string' && d.why.length > 0)
+  && guest.dropReasons.length === guest.dropped.length,
+  JSON.stringify(guest.dropReasons.slice(0, 3)));
+check('the tax line on a tax-inclusive bill is explained, not silently swallowed',
+  guest.dropReasons.some((d) => /NET VALUE/i.test(d.line)),
+  JSON.stringify(guest.dropReasons.map((d) => d.line)));
 
 // --- a shared item divides sen-exactly among whoever is ticked ---
 const shares = await S(() => {

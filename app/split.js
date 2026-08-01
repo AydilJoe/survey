@@ -81,6 +81,10 @@ const SPLIT_ITEMS_MAX = 40;
 // Anything above this on a single line is a phone number, a member id or a
 // mis-read — not a dish.
 const SPLIT_ITEM_PRICE_MAX = 10000;
+// Expand a quantity into separate tickable rows only up to this many. Three
+// teh ais should be three rows people can claim individually; a tray of 24
+// eggs should stay one.
+const SPLIT_QTY_EXPAND_MAX = 4;
 
 /* ---------- shape ---------- */
 
@@ -972,8 +976,31 @@ async function splitCopyText(text) {
        bucket. That money belongs to the bill but to no dish.
      - everything else with a name and a price is an item candidate. */
 
-const SPLIT_CHARGE_RX = /(SERVICE|SST|GST|TAX|ROUNDING|SRV|SVC)/i;
-const SPLIT_SUMMARY_RX = /(TOTAL|SUBTOTAL|CASH|CHANGE|TUNAI|JUMLAH|DISCOUNT|DISKAUN|BAKI)/i;
+/* Word-anchored, not substring. The substring versions booked "Cashew Nut"
+   as a CASH summary line and "Taxi" as a TAX charge — and on a real NZ Curry
+   House bill, "NET VALUE (EXCLD TAX) 85.00" landed in the charges bucket, so
+   RM 85 of net value was added on top of RM 90.10 of items and the split came
+   out at double. \b alone is not enough there (it is a genuine word), which
+   is why NET VALUE / EXCL lines are excluded outright below. */
+const SPLIT_CHARGE_RX = /\b(SERVICE\s*CHARGE|SERVICE|SST|GST|TAX|CUKAI|ROUNDING|PEMBUNDARAN|SRV|SVC)\b/i;
+const SPLIT_SUMMARY_RX = /\b(TOTAL|SUB[-\s]?TOTAL|CASH|CHANGE|TUNAI|JUMLAH|DISCOUNT|DISKAUN|BAKI|NETT?\s*VALUE|AMOUNT\s*DUE|BALANCE)\b/i;
+/* A restatement of the bill, not a charge on it. "NET VALUE (EXCLD TAX)" and
+   "TOTAL BEFORE TAX" both name TAX while describing money that is already
+   accounted for; adding either double-counts the whole receipt. */
+const SPLIT_NOT_A_CHARGE_RX = /\b(NETT?\s*VALUE|EXCL(UD(ING|E|ED))?|BEFORE\s*TAX|SUBJECT\s*TO|INCLUS(IVE)?|INCLUDE[DS]?)\b/i;
+/* Column headers on a tabulated guest check. They carry no money of their own
+   but do echo the words we key on, so name them explicitly. */
+const SPLIT_HEADER_RX = /^\s*(DESCRIPTION|ITEM|QTY|QUANTITY|PRICE|AMOUNT|U\/?PRICE|UNIT)\b[\s\S]*$/i;
+// A bare barcode / PLU / SKU: a long digit run that opens a line.
+const SPLIT_BARCODE_RX = /^\s*\d{5,}\s*/;
+/* A trailing token that is column furniture rather than part of a dish name:
+   a bare number (unit price, quantity) or a one-or-two-letter uppercase flag
+   (the "D" and "SR" columns on a guest check). Stripped from the right until
+   a real word is reached, which is safer than one big tail regex — "Coke
+   1.5L" and "Satay Ayam 5Pcs" keep their trailing tokens because those carry
+   letters. */
+const SPLIT_NAME_NUMERIC_TOKEN_RX = /^(?:(?:RM|MYR)?[-(]?\d{1,4}(?:[.,]\d{1,3})?\)?|[xX*@|:;.-]+)$/;
+const SPLIT_NAME_FLAG_TOKEN_RX = /^[A-Z]{1,2}$/;
 // A dd/mm/yyyy-style run anywhere on the line. Without this "01.07.2026"
 // reads as a RM 1.07 item — the most common false positive there is.
 const SPLIT_DATEISH_RX = /\b\d{1,2}\s*[/.-]\s*\d{1,2}\s*[/.-]\s*\d{2,4}\b/;
@@ -1000,10 +1027,61 @@ function splitMoneyOnLine(line) {
 // already captured; a name with fewer than two letters is OCR debris.
 function splitItemName(raw) {
   let s = String(raw == null ? "" : raw).replace(/[.•·]{2,}/g, " ").replace(/\s+/g, " ").trim();
+  // A leading barcode / PLU. Supermarkets print it in its own column, and it
+  // is the first thing a shopper's eye skips — "0885954430039 LOTUSS CEN" is
+  // not a name anyone can tick.
+  s = s.replace(SPLIT_BARCODE_RX, "").trim();
   s = s.replace(/^\d{1,3}\s*[xX*@]?\s+/, "").trim();
+  // Column furniture left over on a tabulated guest check, right to left:
+  // "Naan Cheese + Garlic D 8.10 1" → "Naan Cheese + Garlic".
+  //
+  // A short uppercase token is only furniture when it sits BEHIND a numeric
+  // column we just removed. Standing alone it is almost always name: a
+  // supermarket truncates "GG PROMO VEG" to "GG PROMO V" and "BROKOLI CHINA"
+  // to "BROKOLI CH", and stripping those loses the only word that told the
+  // shopper what they bought.
+  const parts = s.split(" ").filter(Boolean);
+  let numericStripped = false;
+  while (parts.length > 1) {
+    const last = parts[parts.length - 1];
+    if (SPLIT_NAME_NUMERIC_TOKEN_RX.test(last)) { parts.pop(); numericStripped = true; continue; }
+    if (numericStripped && SPLIT_NAME_FLAG_TOKEN_RX.test(last)) { parts.pop(); continue; }
+    break;
+  }
+  s = parts.join(" ");
   s = s.replace(/[-:,;|]+$/, "").trim();
   if ((s.match(/[A-Za-z]/g) || []).length < 2) return "";
   return splitText(s, SPLIT_ITEM_NAME_MAX);
+}
+
+/* Quantity on a tabulated line: "5.80*2 11.60" and "D 0.30 3 0.90" both say
+   "n units". Returns n only when it is a small whole number AND the arithmetic
+   agrees with the line total — a coincidence like "Satay Ayam 5Pcs … 11.90"
+   must never be read as five units. Pure. */
+function splitLineQuantity(line, total) {
+  const t = Number(total);
+  if (!(t > 0)) return 1;
+  const str = String(line == null ? "" : line);
+  const money = splitMoneyOnLine(str);
+  // A leading count ("2 TEH TARIK 7.00") states the quantity outright. Trust
+  // it when the total divides into whole sen — no unit price needed.
+  const lead = /^\s*(\d{1,2})\s*[xX*@]?\s+\D/.exec(str);
+  if (lead) {
+    const n = Number(lead[1]);
+    const cents = Math.round(t * 100);
+    if (n >= 2 && n <= SPLIT_QTY_EXPAND_MAX && cents % n === 0) return n;
+  }
+  // Every whole number 2..SPLIT_QTY_EXPAND_MAX on the line is a candidate.
+  const cands = (String(line).match(/\b\d{1,2}\b/g) || [])
+    .map(Number)
+    .filter((n) => n >= 2 && n <= SPLIT_QTY_EXPAND_MAX);
+  for (const n of cands) {
+    // Confirm against a unit price actually printed on the same line.
+    for (const m of money) {
+      if (m.value > 0 && Math.abs(splitRound2(m.value * n) - t) < 0.005) return n;
+    }
+  }
+  return 1;
 }
 
 /* ---------- physical-row reconstruction from OCR word boxes ----------
@@ -1103,7 +1181,8 @@ function splitReconstructText(words) {
   return splitReconstructRows(words).join("\n");
 }
 
-/* Returns { items:[{name, price}], charges, chargeLines, dropped:[line] }.
+/* Returns { items:[{name, price}], charges, chargeLines, dropped:[line],
+   dropReasons:[{line, why}], itemSum, statedTotal, reconciled }.
    `dropped` exists so the behaviour is inspectable (and testable) rather than
    a black box — nothing in the UI depends on it. */
 function splitParseReceiptItems(rawText) {
@@ -1113,31 +1192,102 @@ function splitParseReceiptItems(rawText) {
   const lines = text.split(/\r?\n/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
   const items = [];
   const dropped = [];
+  const dropReasons = [];
+  const drop = (line, why) => { dropped.push(line); dropReasons.push({ line, why }); };
   let charges = 0;
   let chargeLines = 0;
+  // Biggest figure on a line naming the grand total, used to reconcile below.
+  let statedTotal = 0;
+  // A name line waiting for the price line beneath it (supermarket layout).
+  let pendingName = null;
+
   for (const line of lines) {
-    if (SPLIT_SUMMARY_RX.test(line)) { dropped.push(line); continue; }
+    if (SPLIT_HEADER_RX.test(line) && !splitMoneyOnLine(line).length) {
+      pendingName = null; drop(line, "column header"); continue;
+    }
     const money = splitMoneyOnLine(line);
-    if (SPLIT_CHARGE_RX.test(line)) {
+
+    if (SPLIT_SUMMARY_RX.test(line)) {
+      // Remember the grand total so charges can be sanity-checked against it.
+      if (/\bTOTAL\b/i.test(line) && !/\bSUB[-\s]?TOTAL\b/i.test(line)) {
+        for (const m of money) if (m.value > statedTotal) statedTotal = m.value;
+      }
+      pendingName = null; drop(line, "summary line"); continue;
+    }
+
+    if (SPLIT_CHARGE_RX.test(line) && !SPLIT_NOT_A_CHARGE_RX.test(line)) {
       // The charge itself is the LAST figure on the line — "SST 8% 3.64"
       // leads with a rate, not an amount.
       if (money.length) {
         charges = splitRound2(charges + money[money.length - 1].value);
         chargeLines += 1;
       } else {
-        dropped.push(line);
+        drop(line, "charge keyword, no amount");
       }
+      pendingName = null; continue;
+    }
+
+    if (SPLIT_DATEISH_RX.test(line)) { pendingName = null; drop(line, "looks like a date"); continue; }
+
+    if (!money.length) {
+      // No price here. On a two-line supermarket receipt this is the item's
+      // name, and its price is on the next line — hold it rather than bin it.
+      const asName = splitItemName(line);
+      if (asName) {
+        // Only the line immediately above a price can be its name. Anything
+        // displaced here (a shop name, a ticket number) is reported rather
+        // than silently swallowed — a panel that hides what it discarded is
+        // no better than no panel.
+        if (pendingName) drop(pendingName.line, "text with no price on the line below");
+        pendingName = { name: asName, line };
+      } else drop(line, "no amount and no usable name");
       continue;
     }
-    if (!money.length || SPLIT_DATEISH_RX.test(line)) { dropped.push(line); continue; }
+
     const price = money[money.length - 1];
-    if (!(price.value > 0) || price.value > SPLIT_ITEM_PRICE_MAX) { dropped.push(line); continue; }
-    const name = splitItemName(line.slice(0, price.start));
-    if (!name) { dropped.push(line); continue; }
-    if (items.length >= SPLIT_ITEMS_MAX) { dropped.push(line); continue; }
-    items.push({ name, price: splitRound2(price.value) });
+    if (!(price.value > 0) || price.value > SPLIT_ITEM_PRICE_MAX) {
+      if (pendingName) { drop(pendingName.line, "text with no price on the line below"); pendingName = null; }
+      drop(line, price.value > 0 ? "amount above the item ceiling" : "not a positive amount");
+      continue;
+    }
+
+    let name = splitItemName(line.slice(0, price.start));
+    // Nothing name-like on the price line (it is a barcode + figures row):
+    // take the name held from the line above. This is the whole fix for the
+    // supermarket layout, where every item spans two lines and BOTH halves
+    // used to be discarded.
+    if (!name && pendingName) name = pendingName.name;
+    pendingName = null;
+    if (!name) { drop(line, "price with no name"); continue; }
+    if (items.length >= SPLIT_ITEMS_MAX) { drop(line, "over the item limit"); continue; }
+
+    // Quantity: "Ais Kosong D 0.30 3 0.90" is three drinks, and three people
+    // may each want to claim one. Only expand when the arithmetic confirms it
+    // and the count is small — nobody wants 24 rows for a tray of eggs.
+    const qty = splitLineQuantity(line, price.value);
+    if (qty > 1 && items.length + qty <= SPLIT_ITEMS_MAX) {
+      const each = splitApportion(Math.round(price.value * 100), new Array(qty).fill(1));
+      for (const cents of each) items.push({ name, price: splitRound2(cents / 100) });
+    } else {
+      items.push({ name, price: splitRound2(price.value) });
+    }
   }
-  return { items, charges: splitRound2(charges), chargeLines, dropped };
+  if (pendingName) drop(pendingName.line, "text with no price on the line below");
+
+  /* Reconcile. When the items already add up to the printed total, the
+     "charges" found are a restatement of money that is inside those prices,
+     not money on top of them — the NZ Curry House bill prints its line totals
+     tax-inclusive, so adding its RM 5.10 tax line doubled nothing less than
+     the whole receipt. Trust the arithmetic over the keywords. */
+  const itemSum = splitRound2(items.reduce((s, i) => s + i.price, 0));
+  let chargesOut = splitRound2(charges);
+  let reconciled = false;
+  if (statedTotal > 0 && chargesOut > 0) {
+    const withCharges = Math.abs(splitRound2(itemSum + chargesOut) - statedTotal);
+    const without = Math.abs(itemSum - statedTotal);
+    if (without <= 0.05 && without < withCharges) { chargesOut = 0; chargeLines = 0; reconciled = true; }
+  }
+  return { items, charges: chargesOut, chargeLines, dropped, dropReasons, itemSum, statedTotal, reconciled };
 }
 
 /* ---------- itemized split: the maths ----------
@@ -1591,6 +1741,50 @@ function splitItemTotalsHtml(calc) {
         </div>`;
 }
 
+/* "What did it read?" — the scan, shown its working.
+
+   Every failure in this feature used to be invisible from both ends: the user
+   saw rows that were wrong or missing, and nobody could say which step lost
+   them. The parser already recorded every discarded line and why; this just
+   puts it on screen. Collapsed by default — it is a diagnostic, not part of
+   the flow — and it never leaves the device: `scanReport` lives on the draft
+   and is not part of any payload. */
+function splitScanReportHtml(report) {
+  const r = report;
+  if (!r) return "";
+  const money = (v) => `RM ${Number(v || 0).toFixed(2)}`;
+  const mismatch = r.statedTotal > 0 && Math.abs(splitRound2(r.itemSum + r.charges) - r.statedTotal) > 0.05;
+  const lines = [
+    `Items read: ${r.itemCount} — ${money(r.itemSum)}`,
+    r.charges ? `Charges added: ${money(r.charges)}` : `Charges added: none`,
+    r.statedTotal > 0 ? `Total printed on the receipt: ${money(r.statedTotal)}` : `No total found on the receipt`,
+  ];
+  if (r.reconciled) {
+    lines.push(`The items already add up to the printed total, so no tax or service charge was added on top.`);
+  }
+  const warn = mismatch
+    ? `<p class="hint warn">These don't add up to the printed total — a line was probably missed or misread. Check the rows before you send this.</p>`
+    : "";
+  const droppedRows = r.dropped.length
+    ? r.dropped.map((d) => {
+        const line = d && d.line, why = d && d.why;
+        return `<li><span class="scan-report-line">${escapeHtml(line)}</span>${why ? `<span class="scan-report-why">${escapeHtml(why)}</span>` : ""}</li>`;
+      }).join("")
+    : `<li><span class="scan-report-line">Nothing was skipped.</span></li>`;
+  return `
+    <details class="scan-report">
+      <summary>What did it read?</summary>
+      <div class="scan-report-body">
+        ${lines.map((l) => `<p class="hint">${escapeHtml(l)}</p>`).join("")}
+        ${warn}
+        <span class="split-people-label">Lines it skipped</span>
+        <ul class="scan-report-dropped">${droppedRows}</ul>
+        <span class="split-people-label">Raw text from the scan</span>
+        <pre class="scan-report-raw">${escapeHtml(r.raw)}</pre>
+      </div>
+    </details>`;
+}
+
 function splitComposeItemBodyHtml(cur, listAttr) {
   const c = splitCompose;
   const calc = splitComputeItems(splitComposeItemsInput());
@@ -1653,6 +1847,7 @@ function splitComposeItemBodyHtml(cur, listAttr) {
       <span class="split-people-label">Items</span>
       <div class="split-items">${itemRows}</div>
       ${c.items.length ? "" : `<p class="hint">Scan the receipt above, or add the items by hand. Everything stays editable — the scan only fills the rows in.</p>`}
+      ${splitScanReportHtml(c.scanReport)}
       <div class="button-row split-people-actions">
         <button type="button" class="ghost" data-action="split-item-add">+ Add item</button>
       </div>
@@ -1938,6 +2133,18 @@ function splitApplyScan(parsed) {
     } else {
       toast("Couldn't read the item lines — type them in, or split equally instead.");
     }
+    // Kept for the "What did it read?" panel. Held on the compose object so
+    // it dies with the draft and never reaches a payload — the receipt text
+    // is the user's, and nothing about it belongs in a shared link.
+    c.scanReport = {
+      itemCount: read.items.length,
+      itemSum: read.itemSum,
+      statedTotal: read.statedTotal,
+      charges: read.charges,
+      reconciled: !!read.reconciled,
+      dropped: read.dropReasons.slice(0, 60),
+      raw: String(p.raw == null ? "" : p.raw).slice(0, 4000),
+    };
   }
   splitRenderCompose();
   splitShowDialog(splitComposeDialogEl());
