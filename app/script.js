@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.21.0";
+const APP_VERSION = "1.22.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8313,6 +8313,9 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.22.0": [
+    "<strong>A home-screen widget</strong> (Android now, iPhone soon) — Spend, Scan, Split and Pay debt in one tap, in three sizes. It shows no figures at all: a widget can't read your encrypted vault, and putting numbers where they'd be readable without your passcode isn't a trade worth making.",
   ],
   "1.21.0": [
     "<strong>Long-press the icon</strong> — Spend, Scan a receipt, Split a bill and Pay debt are now one press away from your home screen, on Android and iPhone as well as the installed web app.",
