@@ -1,4 +1,12 @@
-# `/.well-known/` — Android App Links
+# `/.well-known/` — Android App Links + iOS Universal Links
+
+Two files, one job: make `https://duitful.app/split#…` open the **native
+app** instead of a browser tab. `assetlinks.json` does it on Android,
+`apple-app-site-association` on iOS. Both ship with a placeholder that must
+be replaced before the OS will verify the domain; until then links open in
+the browser, which is the designed fallback.
+
+## Android — `assetlinks.json`
 
 `assetlinks.json` is what lets a `https://duitful.app/split#…` link tapped in
 WhatsApp open the **native Duitful app** instead of a browser tab. Android
@@ -51,5 +59,36 @@ Google's checker: <https://developers.google.com/digital-asset-links/tools/gener
 - Deployment: the GitHub Pages workflow uploads the whole repo (`path: .`),
   dotfiles included, so `.well-known/` ships as-is. Nothing in
   `scripts/build-web.mjs` or the Vercel build touches it.
-- iOS Universal Links (`apple-app-site-association`) land with the future
-  native iOS app; there is no iOS project in this repo yet.
+## iOS — `apple-app-site-association`
+
+Same idea, Apple's format. **No file extension** — that is the spec, not an
+oversight, so don't "fix" it to `.json`.
+
+### TODO before the first TestFlight build
+
+`appIDs` currently holds `TEAMID.com.aydiljoe.duitful`. Replace `TEAMID`
+with your 10-character Apple Developer **Team ID**:
+
+1. <https://developer.apple.com/account> → **Membership details**
+2. Copy **Team ID** (e.g. `A1B2C3D4E5`)
+3. Paste it in place of `TEAMID` (keep the dot and the bundle id), commit,
+   push — Pages redeploys and iOS re-checks on the next install
+
+### Verifying
+
+```bash
+curl -sI https://duitful.app/.well-known/apple-app-site-association   # 200
+curl -s  https://duitful.app/.well-known/apple-app-site-association   # valid JSON, real Team ID
+```
+
+Apple's own diagnostics live in **Settings → Developer → Universal Links →
+Diagnostics** on a device with a build installed.
+
+Serving notes: Apple wants `Content-Type: application/json`. Vercel is told
+so explicitly in `vercel.json`; GitHub Pages guesses from the (absent)
+extension and may serve `application/octet-stream`, which Apple's CDN
+tolerates in practice but is worth checking with the `curl -sI` above if
+verification never turns green. The matching entitlement
+(`applinks:duitful.app`, `applinks:www.duitful.app`) is written into the
+generated Xcode project by `scripts/patch-ios.mjs`. Full walkthrough in
+[`IOS_BUILD.md`](../IOS_BUILD.md).

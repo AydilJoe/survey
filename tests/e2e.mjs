@@ -2213,7 +2213,7 @@ const wnDigest = await S(() => {
     open: dlg.open, title,
     count: lis.length,
     hasOverflow: /full changelog/.test(lis[lis.length - 1]?.innerHTML || ''),
-    newestFirst: (lis[0]?.textContent || '').startsWith(RELEASE_NOTES[APP_VERSION][0].replace(/<[^>]+>/g, '').slice(0, 30)),
+    newestFirst: (lis[0]?.textContent || '').startsWith(RELEASE_NOTES[whatsNewUnseenVersions()[0]][0].replace(/<[^>]+>/g, '').slice(0, 30)),
     unseen: whatsNewUnseenVersions().length,
   };
   dlg.close();

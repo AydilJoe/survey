@@ -1,0 +1,245 @@
+# Duitful — iOS release lanes.
+#
+# Context: the owner has no Mac. Every iOS build happens on a GitHub-hosted
+# macOS runner (free for this public repo), triggered by hand from
+# .github/workflows/ios.yml. The runner is thrown away afterwards, which
+# drives most of the decisions below — nothing may depend on state that
+# survives between runs, and no signing material is ever committed.
+#
+# Two lanes:
+#   build_only  — compiles for the simulator with signing disabled. Needs no
+#                 Apple account at all. Use it to prove a change builds
+#                 before spending an Apple Developer enrolment on it.
+#   testflight  — creates/downloads signing assets from the App Store
+#                 Connect API key, archives, exports an app-store IPA and
+#                 uploads it to TestFlight.
+#
+# ---------------------------------------------------------------------------
+# Why this signing approach (API key + cert/sigh, no `match`)
+# ---------------------------------------------------------------------------
+# `match` is the usual answer, but it needs a second private repo, a
+# MATCH_PASSWORD, and a first run from a machine that already has the certs.
+# For a FIRST-EVER submission from CI with no existing certificates, the
+# shortest correct path is to let the App Store Connect API key create them:
+# `get_certificates` makes the Apple Distribution certificate (and the
+# private key, on this runner) and `get_provisioning_profile` makes the
+# matching App Store profile. Zero extra infrastructure, works on run #1.
+#
+# Xcode "cloud signing" (-allowProvisioningUpdates) was the other candidate.
+# It solves the same problem but hides it inside xcodebuild, where a failure
+# surfaces as an unreadable "No signing certificate found" 40 lines into a
+# build log. Explicit cert + profile steps fail early, loudly, and name the
+# thing that went wrong — which matters a lot more when the person reading
+# the log cannot reproduce the build locally.
+#
+# The one sharp edge: because the runner is disposable, the private key that
+# pairs with the certificate is destroyed after every run, so the next run
+# has to create a NEW certificate. Apple caps distribution certificates (3),
+# so run #4 would fail. `recycle_distribution_certificates` below revokes the
+# stale ones first. Revoking a distribution certificate does not affect apps
+# already on the App Store or in TestFlight — it only invalidates profiles,
+# which are regenerated on every run anyway. If a Mac ever enters the
+# picture, switch to `match` (see IOS_BUILD.md) so the same cert is shared.
+
+default_platform(:ios)
+
+APP_IDENTIFIER = "com.aydiljoe.duitful"
+WORKSPACE = "ios/App/App.xcworkspace"
+XCODEPROJ = "ios/App/App.xcodeproj"
+SCHEME = "App"
+
+# Ruby-level file reads resolve relative to this Fastfile's folder; fastlane
+# actions resolve relative to the repo root. Compute the root once so the
+# difference can never bite.
+REPO_ROOT = File.expand_path("..", __dir__)
+
+# Keep signing material out of the checkout — anything left in the workspace
+# risks being swept into an artifact, and this repo is public.
+SIGNING_DIR = File.expand_path("~/duitful-signing")
+
+platform :ios do
+  desc "Compile for the simulator with signing disabled — no Apple account needed"
+  lane :build_only do
+    build_app(
+      workspace: WORKSPACE,
+      scheme: SCHEME,
+      configuration: "Release",
+      sdk: "iphonesimulator",
+      destination: "generic/platform=iOS Simulator",
+      # Validation only: no archive, no export, no signing. This still
+      # compiles every Capacitor plugin's Swift/ObjC, resolves the Podfile,
+      # and parses Info.plist + App.entitlements, which is where a bad
+      # patch-ios.mjs edit would show up.
+      skip_archive: true,
+      skip_codesigning: true,
+      xcargs: "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO",
+    )
+    UI.success("build_only: the iOS project compiles. Signing was not exercised.")
+  end
+
+  desc "Archive, sign and upload a build to TestFlight"
+  lane :testflight_build do
+    key = asc_api_key
+
+    # Throwaway keychain for the certificate's private key. Without this the
+    # import lands in the runner's login keychain, where codesign can't get
+    # at it non-interactively.
+    setup_ci(force: true)
+
+    recycle_distribution_certificates if ENV["DUITFUL_RECYCLE_CERTS"] != "0"
+
+    # create: true is implicit — `cert` creates a distribution certificate
+    # when it can't find a usable one, which on a fresh runner is always.
+    get_certificates(
+      api_key: key,
+      development: false,
+      output_path: SIGNING_DIR,
+      keychain_path: File.expand_path("~/Library/Keychains/#{ENV['MATCH_KEYCHAIN_NAME'] || 'fastlane_tmp_keychain'}-db"),
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "",
+    )
+
+    # readonly: false lets sigh create the App Store profile the first time.
+    # It also installs the profile into ~/Library/MobileDevice, which is
+    # where xcodebuild looks for it during export.
+    get_provisioning_profile(
+      api_key: key,
+      app_identifier: APP_IDENTIFIER,
+      readonly: false,
+      output_path: SIGNING_DIR,
+    )
+
+    profile_name = ENV["sigh_#{APP_IDENTIFIER}_appstore_profile-name"]
+    team_id = ENV["sigh_#{APP_IDENTIFIER}_appstore_team-id"]
+    UI.user_error!("sigh did not report a profile name — cannot sign") if profile_name.to_s.empty?
+    UI.user_error!("sigh did not report a Team ID — cannot sign") if team_id.to_s.empty?
+    UI.message("Signing as team #{team_id} with profile '#{profile_name}'")
+
+    # Capacitor's template ships CODE_SIGN_STYLE = Automatic, which on a
+    # headless runner means "ask Xcode to guess". Pin it to the profile we
+    # just created instead.
+    update_code_signing_settings(
+      path: XCODEPROJ,
+      use_automatic_signing: false,
+      team_id: team_id,
+      targets: ["App"],
+      bundle_identifier: APP_IDENTIFIER,
+      code_sign_identity: "Apple Distribution",
+      profile_name: profile_name,
+    )
+
+    marketing_version = package_version
+    build_number = ENV["DUITFUL_BUILD_NUMBER"].to_s.strip
+    build_number = Time.now.utc.strftime("%y%m%d%H%M") if build_number.empty?
+    UI.message("Building Duitful #{marketing_version} (#{build_number})")
+
+    # Versions are injected on the xcodebuild command line rather than
+    # written into project.pbxproj: ios/ is git-ignored and regenerated per
+    # run, so there is nothing to commit them back to. package.json stays
+    # the single source of truth for the marketing version, and the build
+    # number comes from the workflow run number — monotonic by construction,
+    # which is exactly what App Store Connect demands.
+    build_app(
+      workspace: WORKSPACE,
+      scheme: SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      codesigning_identity: "Apple Distribution",
+      xcargs: "MARKETING_VERSION=#{marketing_version} CURRENT_PROJECT_VERSION=#{build_number}",
+      export_options: {
+        method: "app-store",
+        signingStyle: "manual",
+        teamID: team_id,
+        provisioningProfiles: { APP_IDENTIFIER => profile_name },
+        uploadSymbols: true,
+      },
+      output_directory: "build/ios",
+      output_name: "Duitful.ipa",
+      clean: true,
+    )
+
+    # skip_waiting_for_build_processing: Apple's processing takes 5–30 min
+    # and the runner is billed for every minute of it. The build appears in
+    # TestFlight on its own; nothing here needs to watch it happen.
+    upload_to_testflight(
+      api_key: key,
+      app_identifier: APP_IDENTIFIER,
+      skip_waiting_for_build_processing: true,
+      skip_submission: true,
+    )
+
+    UI.success("Uploaded Duitful #{marketing_version} (#{build_number}) to TestFlight.")
+    UI.important("It takes Apple 5–30 minutes to finish processing before the build is installable.")
+  end
+
+end
+
+# ---------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------
+# Top-level on purpose: a `def` here becomes an instance method of the
+# Fastfile itself, callable from any lane above.
+
+  # Marketing version = package.json "version". One number, bumped in one
+  # place, shared by web / Android / iOS.
+  def package_version
+    require "json"
+    JSON.parse(File.read(File.join(REPO_ROOT, "package.json")))["version"]
+  end
+
+  # Builds the api_key hash every other action takes. ASC_KEY_P8 may hold
+  # either the raw .p8 text (newlines and all — GitHub secrets keep them) or
+  # a base64 blob of it, because pasting a multi-line secret is exactly the
+  # step people get wrong. Sniff for the PEM header and let fastlane know.
+  def asc_api_key
+    key_content = ENV["ASC_KEY_P8"].to_s
+    UI.user_error!("ASC_KEY_P8 is empty — add the App Store Connect .p8 as a repo secret") if key_content.strip.empty?
+    raw_pem = key_content.include?("BEGIN PRIVATE KEY")
+
+    app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: key_content,
+      is_key_content_base64: !raw_pem,
+      in_house: false,
+    )
+  end
+
+  # Apple allows only a handful of distribution certificates per account,
+  # and this pipeline necessarily burns one per run (see the header note).
+  # Revoke the old ones so the account never fills up. Best-effort: a key
+  # without certificate permissions, or an API hiccup, must not take the
+  # release down — `cert` will fail with a clear message if it really is out
+  # of room.
+  def recycle_distribution_certificates
+    require "spaceship"
+    require "base64"
+
+    key_content = ENV["ASC_KEY_P8"].to_s
+    p8 = key_content.include?("BEGIN PRIVATE KEY") ? key_content : Base64.decode64(key_content)
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key: p8,
+    )
+
+    distribution_types = ["DISTRIBUTION", "IOS_DISTRIBUTION"]
+    certs = Spaceship::ConnectAPI::Certificate.all.select do |c|
+      distribution_types.include?(c.certificate_type.to_s)
+    end
+
+    # Leave at most one in place, so there is always headroom for the
+    # certificate this run is about to create.
+    return UI.message("Certificate recycling: #{certs.count} distribution cert(s), nothing to revoke.") if certs.count < 2
+
+    stale = certs.sort_by { |c| c.expiration_date.to_s }.first(certs.count - 1)
+    stale.each do |c|
+      UI.important("Revoking stale distribution certificate #{c.id} (#{c.name}, expires #{c.expiration_date})")
+      c.delete!
+    end
+  rescue StandardError => e
+    UI.important("Certificate recycling skipped: #{e.message}")
+  end
+
+error do |lane, exception|
+  UI.error("Lane #{lane} failed: #{exception.message}")
+end

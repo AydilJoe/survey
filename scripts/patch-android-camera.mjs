@@ -6,7 +6,7 @@
 // fresh `npx cap add android`. Idempotent; no-op on iOS-only checkouts.
 //
 // (iOS needs NSCameraUsageDescription / NSPhotoLibraryUsageDescription in
-// Info.plist instead — handled when an ios/ project is generated.)
+// Info.plist instead — see scripts/patch-ios.mjs.)
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";

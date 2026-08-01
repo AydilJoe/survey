@@ -15,6 +15,14 @@ app/vendor/tesseract
 .DS_Store
 *.log
 
+# fastlane run artifacts (the iOS pipeline only ever runs on a throwaway
+# macOS runner, so none of this is worth keeping)
+fastlane/report.xml
+fastlane/README.md
+fastlane/Gemfile.lock
+fastlane/certs/
+build/
+
 # Editor / IDE
 .idea/
 .vscode/

@@ -1,0 +1,155 @@
+name: iOS — TestFlight
+
+# Manual only. There is no push trigger on purpose: every run consumes a
+# macOS runner (~15 min) and, on the testflight lane, an App Store Connect
+# upload slot. Press the button when you actually want a build.
+#
+# Owner setup lives in IOS_BUILD.md — read that first if this is your first
+# run. Short version: enrol in the Apple Developer Program, create an App
+# Store Connect API key, and add three repo secrets:
+#   ASC_KEY_ID      the key's 10-character Key ID
+#   ASC_ISSUER_ID   the Issuer ID shown above the key list (a UUID)
+#   ASC_KEY_P8      the downloaded AuthKey_XXXXXXXXXX.p8 — paste the whole
+#                   file including the BEGIN/END lines, or a base64 blob of
+#                   it if your clipboard mangles newlines. Both work; the
+#                   Fastfile sniffs which one it got.
+on:
+  workflow_dispatch:
+    inputs:
+      lane:
+        description: "What to run"
+        type: choice
+        default: testflight
+        options:
+          - testflight
+          - build-only
+      skip_associated_domains:
+        description: "Skip the Universal Links entitlement (use if the App ID doesn't have Associated Domains enabled yet)"
+        type: boolean
+        default: false
+      revoke_stale_certs:
+        description: "Revoke old distribution certificates first (keeps you under Apple's cap)"
+        type: boolean
+        default: true
+
+# One iOS build at a time: two concurrent runs would fight over the same
+# distribution certificate and the same TestFlight build number.
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      # fastlane refuses to run under a non-UTF-8 locale.
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+      BUNDLE_GEMFILE: fastlane/Gemfile
+      FASTLANE_SKIP_UPDATE_CHECK: "1"
+      FASTLANE_HIDE_CHANGELOG: "1"
+      # xcodebuild -showBuildSettings is slow on a cold runner; the default
+      # 10s timeout trips before Pods have been indexed.
+      FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
+      # CFBundleVersion. github.run_number only ever increases, which is
+      # exactly App Store Connect's requirement for build numbers. The
+      # marketing version comes from package.json (see the Fastfile).
+      DUITFUL_BUILD_NUMBER: ${{ github.run_number }}
+      DUITFUL_RECYCLE_CERTS: ${{ inputs.revoke_stale_certs && '1' || '0' }}
+      DUITFUL_IOS_SKIP_ASSOCIATED_DOMAINS: ${{ inputs.skip_associated_domains && '1' || '0' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          node --version
+          pod --version
+          sw_vers
+
+      # Fails now, with a readable message, instead of 12 minutes later
+      # inside fastlane. Skipped for build-only, which needs no account.
+      - name: Check signing secrets are present
+        if: inputs.lane == 'testflight'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          missing=""
+          [ -n "$ASC_KEY_ID" ]    || missing="$missing ASC_KEY_ID"
+          [ -n "$ASC_ISSUER_ID" ] || missing="$missing ASC_ISSUER_ID"
+          [ -n "$ASC_KEY_P8" ]    || missing="$missing ASC_KEY_P8"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repo secret(s):$missing — see IOS_BUILD.md, 'Three secrets, once'."
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Also fetches Tesseract into vendor/ and copies it into www/ — the
+      # OCR engine is bundled in the IPA, never downloaded at runtime.
+      - name: Build web assets
+        run: npm run build:web
+
+      # ios/ is git-ignored and generated fresh on every run, so the build
+      # can never drift from a stale committed Xcode project.
+      - name: Generate the iOS project
+        run: npx cap add ios
+
+      # Real app icon + splash instead of Capacitor's placeholder logo.
+      - name: Generate native icons and splash
+        run: npm run assets
+
+      # Info.plist usage strings, export-compliance flag, Associated
+      # Domains entitlement. Idempotent; see scripts/patch-ios.mjs.
+      - name: Patch the iOS project
+        run: npm run patch:ios
+
+      - name: Sync web assets into the iOS project
+        run: npx cap sync ios
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Install fastlane
+        run: bundle install --jobs 4 --retry 3
+
+      - name: Build only (no signing, no upload)
+        if: inputs.lane == 'build-only'
+        run: bundle exec fastlane ios build_only
+
+      # Lane is `testflight_build`, not `testflight`: fastlane reserves the
+      # bare name for the upload_to_testflight action alias.
+      - name: Build, sign and upload to TestFlight
+        if: inputs.lane == 'testflight'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: bundle exec fastlane ios testflight_build
+
+      # The whole point of this pipeline is that the owner can't open Xcode
+      # to see what went wrong. Keep the logs.
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ~/Library/Logs/gym
+            ~/Library/Logs/fastlane

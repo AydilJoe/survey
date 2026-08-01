@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.17.0";
+const APP_VERSION = "1.17.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -3893,6 +3893,13 @@ function isNative() {
   return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
 }
 
+// "android" | "ios" | "web". Which store, which review rules, which copy —
+// several strings are wrong (or rejectable) in the other shell.
+function nativePlatform() {
+  if (!isNative() || typeof window.Capacitor.getPlatform !== "function") return "web";
+  return window.Capacitor.getPlatform();
+}
+
 /* ---------- in-app update prompt (native only) ---------- */
 // Google Play In-App Updates via @capawesome/capacitor-app-update. Checked
 // once per cold start; when Play reports a newer build the dashboard shows
@@ -3907,6 +3914,11 @@ async function checkForAppUpdate() {
     const info = await AppUpdate.getAppUpdateInfo();
     // 2 === AppUpdateAvailability.UPDATE_AVAILABLE
     if (!info || info.updateAvailability !== 2) return;
+    // Naming the wrong store inside the wrong shell is both a lie and an
+    // App Review flag, and this plugin runs on iOS too (it checks the
+    // iTunes lookup API there).
+    const sub = document.getElementById("update-banner-sub");
+    if (sub && nativePlatform() === "ios") sub.textContent = "A newer version of Duitful is ready on the App Store.";
     const banner = document.getElementById("update-banner");
     if (banner) banner.hidden = false;
   } catch {
@@ -4814,6 +4826,16 @@ function renderProControls() {
     if (activate) activate.hidden = native || purchased;
   }
 
+  // Legal card blurb: the licence-recovery half names Billplz, i.e. the web
+  // checkout. App Review 3.1.1 doesn't allow the native shells to point at
+  // any purchase route other than IAP, so it's web-only copy.
+  const legalHint = document.getElementById("legal-hint");
+  if (legalHint) {
+    legalHint.textContent = native
+      ? "How Duitful handles your data, and the rules for using it."
+      : "How Duitful handles your data, and the rules for using it. Both pages also explain how to recover your Pro licence with a Billplz transaction ID.";
+  }
+
   // Show "(Pro: auto-copies...)" hint only for free users on the repeat-toggle.
   const proHints = document.querySelectorAll("[data-pro-only-hint]");
   proHints.forEach((el) => { el.hidden = isPro(); });
@@ -5206,9 +5228,16 @@ document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async (
       if (!url) return;
       try {
         const code = state?.proRefCode || (state?.license && state.license.ref) || "";
-        const text = isNative()
+        // The iOS shell gets its own line: naming Google Play inside an App
+        // Store build is a review flag (2.3.10), and pairing a discount with
+        // a web link that sells Pro outside IAP is a 3.1.1 one. The referral
+        // link itself still rides along as navigator.share's `url`.
+        const platform = nativePlatform();
+        const text = platform === "android"
           ? `Try Duitful — privacy-first money tracker for Malaysia. Free 7-day Pro trial, plus RM 5 off if you use my code: ${code}\n\nGet it on Google Play: https://play.google.com/store/apps/details?id=com.aydiljoe.duitful\nOr web: ${url}`
-          : "I've been using Duitful to track my spending and pay off debts. Try it:";
+          : platform === "ios"
+            ? `Try Duitful — privacy-first money tracker for Malaysia. Free 7-day Pro trial, plus RM 5 off if you use my code: ${code}`
+            : "I've been using Duitful to track my spending and pay off debts. Try it:";
         await navigator.share({
           title: "Duitful — privacy-first money tracker",
           text,
