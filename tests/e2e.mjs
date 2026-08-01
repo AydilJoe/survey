@@ -3395,6 +3395,86 @@ check('the override field names the current month even while browsing a past one
     return label === formatMonthLabel(currentMonthISO());
   }, poolsHistory.prev));
 
+/* ── 16c. an overspent pool bar is unmistakable ─────────────────────────
+   Four pools over budget all drew their bars in their own pastel colours,
+   so "which ones did I blow" cost four lines of small text to read. Over
+   now means one alarm red with a glow, in the manager and on the home card.
+   Two deliberate exceptions are pinned here: the system Debt pool (past its
+   limit means you paid MORE than the monthly minimums, so it stays green,
+   not red), and the glow itself (an overflow:hidden track would clip it). */
+const overBars = await S(() => {
+  const cur = currentMonthISO();
+  state.budgetPools = [
+    { id: 'p-over', name: 'Shopping', limit: 500, color: '#E07A5F',
+      active: true, rollover: false, monthlyLimits: {}, createdAt: 1 },
+    { id: 'p-under', name: 'Petrol', limit: 500, color: '#5A7BA8',
+      active: true, rollover: false, monthlyLimits: {}, createdAt: 2 },
+  ];
+  state.debts = [{ id: 'd-neon', name: 'Card', balance: 5000, apr: 18,
+    minPayment: 200, dueDay: 5, kind: 'conventional' }];
+  ensureDebtPool();
+  state.dailyExpenses = [
+    { id: 'x1', createdAt: 1, kind: 'expense', date: `${cur}-03`, amount: 851.02,
+      category: 'Shopping', note: '', budgetPoolId: 'p-over' },
+    { id: 'x2', createdAt: 2, kind: 'expense', date: `${cur}-04`, amount: 120,
+      category: 'Petrol', note: '', budgetPoolId: 'p-under' },
+    // Paid RM 900 against RM 200 of minimums — over the Debt pool, but ahead.
+    { id: 'x3', createdAt: 3, kind: 'expense', date: `${cur}-05`, amount: 900,
+      category: 'Debt', note: '', budgetPoolId: 'system-debt' },
+  ];
+  save();
+  selectedMonth = cur;
+  renderBudgetManager();
+  renderBudgetSummary();
+
+  const read = (root, id) => {
+    const el = document.querySelector(`${root} [data-id="${id}"] .pool-progress > .fill`);
+    if (!el) return null;
+    const cs = getComputedStyle(el);
+    return {
+      over: el.classList.contains('over'),
+      bg: cs.backgroundColor,
+      glow: cs.boxShadow,
+      inline: el.style.background,
+      h: Math.round(el.getBoundingClientRect().height),
+      clipped: getComputedStyle(el.parentElement).overflow !== 'visible',
+    };
+  };
+  // Resolve the token the same way the browser will paint it, so the check
+  // survives a palette edit and works under either theme.
+  const probe = document.createElement('div');
+  probe.style.color = getComputedStyle(document.documentElement)
+    .getPropertyValue('--over-neon').trim();
+  document.body.appendChild(probe);
+  const neon = getComputedStyle(probe).color;
+  probe.remove();
+
+  return {
+    neon,
+    mgrOver: read('#budget-pool-list', 'p-over'),
+    mgrUnder: read('#budget-pool-list', 'p-under'),
+    mgrDebt: read('#budget-pool-list', 'system-debt'),
+    sumOver: read('#budget-summary-list', 'p-over'),
+    sumDebt: read('#budget-summary-list', 'system-debt'),
+  };
+});
+check('overspent pool bar paints the neon red, not the pool colour',
+  overBars.mgrOver && overBars.mgrOver.over && overBars.mgrOver.bg === overBars.neon
+  && overBars.mgrOver.inline === '', JSON.stringify(overBars.mgrOver));
+check('the overspend glow is not clipped away by the track',
+  overBars.mgrOver && overBars.mgrOver.glow !== 'none' && !overBars.mgrOver.clipped,
+  JSON.stringify({ glow: overBars.mgrOver?.glow, clipped: overBars.mgrOver?.clipped }));
+check('a pool still inside its limit keeps its own colour',
+  overBars.mgrUnder && !overBars.mgrUnder.over
+  && overBars.mgrUnder.bg !== overBars.neon, JSON.stringify(overBars.mgrUnder));
+check('paying past the Debt pool minimums never turns the bar red',
+  overBars.mgrDebt && !overBars.mgrDebt.over && overBars.mgrDebt.bg !== overBars.neon
+  && overBars.sumDebt && !overBars.sumDebt.over && overBars.sumDebt.bg !== overBars.neon,
+  JSON.stringify({ mgr: overBars.mgrDebt, sum: overBars.sumDebt }));
+check('the home summary card shows the same red — and its bars have height',
+  overBars.sumOver && overBars.sumOver.over && overBars.sumOver.bg === overBars.neon
+  && overBars.sumOver.h > 0 && overBars.sumDebt.h > 0, JSON.stringify(overBars.sumOver));
+
 /* ── 17. native plugin allowlists stay deliberate ───────────────────────
    Both platforms pin includePlugins, so a newly added plugin dependency
    reaches a native build ONLY when someone lists it. That is what keeps

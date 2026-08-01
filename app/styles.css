@@ -25,6 +25,15 @@
   --loss: #c8424a;              /* true red — clearly NOT a darker primary */
   --danger: #c8424a;
   --danger-hover: #b6303a;
+  /* Overspend alarm. Hotter and pinker than --loss on purpose: --loss is a
+     reading ("you lost money"), this is a siren ("you blew the budget"), and
+     the pink shift keeps it from reading as the terracotta primary at 6px. */
+  --over-neon: #ff2740;
+  --over-neon-glow: rgba(255, 39, 64, 0.5);
+  /* Ink for the over/near-limit chips. Tokenised because the light values are
+     dark browns that all but vanish against a dark card. */
+  --warn-red-ink: #a13d22;
+  --warn-yellow-ink: #946813;
   --border: rgba(42, 36, 32, 0.14);
   --line: rgba(42, 36, 32, 0.08);
   --shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 8px 24px rgba(42, 36, 32, 0.05);
@@ -86,6 +95,10 @@
     --loss: #e07277;
     --danger: #e07277;
     --danger-hover: #ec8489;
+    --over-neon: #ff3d55;
+    --over-neon-glow: rgba(255, 61, 85, 0.75);
+    --warn-red-ink: #ffa294;
+    --warn-yellow-ink: #e8c775;
     --border: rgba(255, 255, 255, 0.14);
     --line: rgba(255, 255, 255, 0.08);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
@@ -127,6 +140,10 @@ html[data-theme="dark"] {
   --loss: #e07277;
   --danger: #e07277;
   --danger-hover: #ec8489;
+  --over-neon: #ff3d55;
+  --over-neon-glow: rgba(255, 61, 85, 0.75);
+  --warn-red-ink: #ffa294;
+  --warn-yellow-ink: #e8c775;
   --border: rgba(255, 255, 255, 0.14);
   --line: rgba(255, 255, 255, 0.08);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
@@ -3249,12 +3266,27 @@ button.ghost.icon-btn {
 }
 .budget-pool-card .pool-row .pool-name { font-weight: 600; }
 .budget-pool-card .pool-row .pool-meta { font-size: 0.85em; color: var(--muted, #666); }
-.budget-pool-card .pool-progress {
-  height: 6px; border-radius: 3px; overflow: hidden;
+/* Deliberately unscoped: the home summary card draws the same bar markup,
+   and while the rule lived under .budget-pool-card those bars collapsed to
+   zero height — the fill has no intrinsic size of its own.
+   No overflow:hidden on the track either — it would clip the overspend glow
+   below. The fill inherits the radius, which is all the clipping ever did. */
+.pool-progress {
+  height: 6px; border-radius: 3px;
   background: rgba(0,0,0,0.06); margin: 6px 0;
-  grid-column: 1 / -1;
 }
-.budget-pool-card .pool-progress > .fill { height: 100%; transition: width 0.2s ease; }
+.budget-pool-card .pool-progress { grid-column: 1 / -1; }
+.pool-progress > .fill { height: 100%; border-radius: inherit; transition: width 0.2s ease; }
+
+/* Overspent: drop the pool's own colour for one alarm red. At a glance you
+   want "which pools did I blow", not "which pool is which" — the swatch beside
+   the name still carries the pool colour, so identity isn't lost. The system
+   Debt pool never gets this: exceeding its minimums means paying down faster,
+   which is why that bar goes green instead. */
+.pool-progress > .fill.over {
+  background: var(--over-neon);
+  box-shadow: 0 0 6px var(--over-neon-glow), 0 0 12px var(--over-neon-glow);
+}
 .budget-pool-card .pool-actions { display: flex; gap: 4px; }
 .budget-pool-card .pool-actions button { padding: 4px 8px; font-size: 0.85em; }
 .budget-pool-card .system-tag {
@@ -3336,13 +3368,13 @@ button.ghost.icon-btn {
   display: inline-block; padding: 1px 6px;
   font-size: 0.78em; font-weight: 600;
   border-radius: 4px;
-  background: rgba(230, 184, 92, 0.22); color: #946813;
+  background: rgba(230, 184, 92, 0.22); color: var(--warn-yellow-ink);
 }
 .pool-warn-red {
   display: inline-block; padding: 1px 6px;
   font-size: 0.78em; font-weight: 600;
   border-radius: 4px;
-  background: rgba(224, 122, 95, 0.22); color: #a13d22;
+  background: rgba(224, 122, 95, 0.22); color: var(--warn-red-ink);
 }
 .pool-preview {
   display: block;
@@ -3356,8 +3388,8 @@ button.ghost.icon-btn {
   background: transparent;
   padding: 0;
 }
-.pool-preview.pool-warn-yellow { color: #946813; }
-.pool-preview.pool-warn-red { color: #a13d22; }
+.pool-preview.pool-warn-yellow { color: var(--warn-yellow-ink); }
+.pool-preview.pool-warn-red { color: var(--warn-red-ink); }
 .hint-link {
   margin-left: 6px;
   cursor: pointer;

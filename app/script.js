@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.18.1";
+const APP_VERSION = "1.18.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1085,6 +1085,9 @@ function renderBudgetManager() {
     const limit = effectiveLimit(pool, m);
     const usedPct = limit > 0 ? Math.min(100, (usage / limit) * 100) : 0;
     const isOver = limit > 0 && usage > limit;
+    // The Debt pool is excluded: going past its limit means you paid more than
+    // the monthly minimums, which is the opposite of an overspend.
+    const overspent = isOver && !isSystem;
     const overrideTag = (!isSystem && pool.monthlyLimits && pool.monthlyLimits[m] != null)
       ? `<span class="system-tag">override</span>` : "";
     const rolloverTag = (!isSystem && pool.rollover)
@@ -1122,7 +1125,7 @@ function renderBudgetManager() {
         <div>
           <div class="pool-name">${escapeHtml(pool.name)}${systemTag}${activeTag}${overrideTag}${rolloverTag}</div>
           <div class="pool-meta">${escapeHtml(meta)} · ${fmtMoney(usage)} of ${fmtMoney(limit)}${isOver ? ` <strong>(over by ${fmtMoney(usage - limit)})</strong>` : ""}</div>
-          <div class="pool-progress"><div class="fill" style="width:${usedPct.toFixed(1)}%;background:${escapeHtml(pool.color)}"></div></div>
+          <div class="pool-progress"><div class="fill${overspent ? " over" : ""}" style="width:${usedPct.toFixed(1)}%${overspent ? "" : `;background:${escapeHtml(pool.color)}`}"></div></div>
         </div>
         ${actions}
       </div>
@@ -1188,6 +1191,7 @@ function renderBudgetSummary() {
       else if (usedPct >= 80) chip = `<span class="pool-warn-yellow">${usedPct.toFixed(0)}%</span>`;
     }
 
+    const overspent = isOver && !isSystem;
     const fillColor = isSystem && isOver ? "#81B29A" : pool.color;
     const meta = isSystem && isOver
       ? `Ahead of schedule — paid ${fmtMoney(usage)}, ${fmtMoney(usage - limit)} over minimums`
@@ -1200,7 +1204,7 @@ function renderBudgetSummary() {
           <span class="pool-name">${escapeHtml(pool.name)}${isSystem ? ` <span class="system-tag">system</span>` : ""}${pool.active ? ` <span class="system-tag">active</span>` : ""}</span>
           <span class="pool-meta-right">${escapeHtml(meta)} ${chip}</span>
         </div>
-        <div class="pool-progress"><div class="fill" style="width:${usedPct.toFixed(1)}%;background:${escapeHtml(fillColor)}"></div></div>
+        <div class="pool-progress"><div class="fill${overspent ? " over" : ""}" style="width:${usedPct.toFixed(1)}%${overspent ? "" : `;background:${escapeHtml(fillColor)}`}"></div></div>
         ${banner}
       </div>
     `;
@@ -8124,6 +8128,9 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.18.2": [
+    "<strong>Blown a budget? You'll see it</strong> — a pool that goes over its limit now paints its bar in a bright alarm red with a glow, on Home and on Monthly. No more reading four lines of small print to work out which pools you overspent.",
   ],
   "1.18.1": [
     "<strong>Check any past month's budgets</strong> — page back with the month arrows on Monthly and the budget pools now follow, so you can finally answer \"did I go over in July?\". Finished months are labelled, and their budgets stay read-only.",
