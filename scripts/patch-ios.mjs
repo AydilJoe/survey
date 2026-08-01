@@ -172,3 +172,40 @@ function insertPlistEntry(src, entry) {
   }
   return src.slice(0, closeIdx) + entry + src.slice(closeIdx);
 }
+
+/* ---------- iOS deployment target: 14.0 → 15.5 ----------
+   GoogleMLKit/TextRecognition 7.0.0 (pulled by the ML Kit plugin)
+   requires iOS 15.5+, but Capacitor's template generates the project at
+   14.0 — so `pod install` fails during `cap add ios` before this script
+   even runs. The workflow tolerates that first pod failure; this patch
+   then raises the target in BOTH the Podfile (the resolver's input) and
+   the pbxproj (the compiler's), and the subsequent `cap sync ios` re-runs
+   pod install successfully. iOS 15.5 covers effectively every device in
+   use (every iPhone since the 6s can run it). */
+{
+  const PODFILE = resolve(ROOT, "ios/App/Podfile");
+  const PBXPROJ_DT = resolve(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
+  const TARGET = "15.5";
+  if (existsSync(PODFILE)) {
+    let pod = readFileSync(PODFILE, "utf8");
+    const patched = pod.replace(/platform :ios, '(\d+\.\d+)'/, (m, v) =>
+      parseFloat(v) < parseFloat(TARGET) ? `platform :ios, '${TARGET}'` : m);
+    if (patched !== pod) {
+      writeFileSync(PODFILE, patched);
+      console.log(`patch-ios: Podfile platform raised to iOS ${TARGET}.`);
+    } else {
+      console.log("patch-ios: Podfile platform already sufficient, skipping.");
+    }
+  }
+  if (existsSync(PBXPROJ_DT)) {
+    let proj = readFileSync(PBXPROJ_DT, "utf8");
+    const patched = proj.replace(/IPHONEOS_DEPLOYMENT_TARGET = (\d+\.\d+);/g, (m, v) =>
+      parseFloat(v) < parseFloat(TARGET) ? `IPHONEOS_DEPLOYMENT_TARGET = ${TARGET};` : m);
+    if (patched !== proj) {
+      writeFileSync(PBXPROJ_DT, patched);
+      console.log(`patch-ios: pbxproj deployment target raised to iOS ${TARGET}.`);
+    } else {
+      console.log("patch-ios: pbxproj deployment target already sufficient, skipping.");
+    }
+  }
+}
