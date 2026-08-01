@@ -498,6 +498,7 @@
             />
             <button type="button" class="list-search-clear" data-search-clear="pools" hidden aria-label="Clear search">✕</button>
           </div>
+          <p class="hint pool-month-note" id="pool-month-note" hidden></p>
           <div id="budget-pool-list"></div>
           <div id="pool-templates" class="pool-templates" hidden>
             <p class="hint">Quick start with a template:</p>
@@ -532,7 +533,7 @@
                 <span>Roll over unspent next month</span>
               </label>
               <label class="field">
-                <span>Override limit this month (optional)</span>
+                <span>Override limit for <span id="pool-override-month">this month</span> (optional)</span>
                 <input type="number" name="thisMonthOverride" step="0.01" min="0" inputmode="decimal" />
               </label>
             </div>
@@ -1935,6 +1936,6 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=5"></script>
-    <script src="script.js?v=113"></script>
+    <script src="script.js?v=114"></script>
   </body>
 </html>
