@@ -500,6 +500,12 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.1px;
+  /* Kills iOS's double-tap-to-zoom (which fires on any quick second tap —
+     paying two debts in a row would leave the app zoomed) WITHOUT killing
+     pinch-zoom. `user-scalable=no` in the viewport would stop both, and
+     taking pinch-zoom away from someone who needs it to read their own
+     balance is not a trade this app makes. */
+  touch-action: manipulation;
 }
 
 main {
