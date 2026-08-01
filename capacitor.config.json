@@ -9,5 +9,16 @@
     "LocalNotifications": {
       "iconColor": "#c8704b"
     }
+  },
+  "ios": {
+    "includePlugins": [
+      "@capacitor/app",
+      "@capacitor/camera",
+      "@capacitor/local-notifications",
+      "@capawesome/capacitor-app-update",
+      "@capgo/capacitor-native-biometric",
+      "@pantrist/capacitor-plugin-ml-kit-text-recognition",
+      "cordova-plugin-purchase"
+    ]
   }
 }
