@@ -1753,6 +1753,74 @@ li.empty-block-host {
   display: block;
 }
 
+/* ---------- "What did it read?" scan diagnostics ----------
+   Collapsed by default: this is for the moment a scan goes wrong, not part of
+   the normal flow. Everything in it is local to the draft — no scanned text
+   is stored or shared. */
+.scan-report {
+  margin: 0.6rem 0 0.2rem;
+  border: 0.5px solid var(--line);
+  border-radius: 12px;
+  background: var(--card-soft, rgba(0, 0, 0, 0.03));
+}
+.scan-report > summary {
+  cursor: pointer;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  list-style: none;
+}
+.scan-report > summary::-webkit-details-marker { display: none; }
+.scan-report > summary::before { content: "▸ "; }
+.scan-report[open] > summary::before { content: "▾ "; }
+.scan-report-body { padding: 0 0.75rem 0.75rem; }
+.scan-report-body .hint { margin: 0.15rem 0; }
+.scan-report-dropped {
+  list-style: none;
+  margin: 0.3rem 0 0.6rem;
+  padding: 0;
+  max-height: 190px;
+  overflow-y: auto;
+}
+.scan-report-dropped li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+  border-bottom: 0.5px solid var(--line);
+  font-size: 0.8rem;
+}
+.scan-report-dropped li:last-child { border-bottom: 0; }
+.scan-report-line {
+  font-family: var(--font-mono);
+  color: var(--text);
+  word-break: break-word;
+  min-width: 0;
+}
+.scan-report-why {
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.scan-report-raw {
+  margin: 0.3rem 0 0;
+  padding: 0.5rem;
+  max-height: 220px;
+  overflow: auto;
+  background: var(--card);
+  border: 0.5px solid var(--line);
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* ---------- Working state for async buttons ----------
    Unlocking runs 250k PBKDF2 rounds. On an older phone that is most of a
    second in which the only feedback was that nothing happened, so people

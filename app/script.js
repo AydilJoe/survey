@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.19.0";
+const APP_VERSION = "1.20.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8202,6 +8202,11 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.20.0": [
+    "<strong>Receipt scanning reads real receipts now</strong> — supermarket slips that print the item name on one line and the price on the next used to come back empty; they itemise properly. Names lose the barcode and column clutter, and \"3 x Ais Kosong\" becomes three rows so three people can each claim one.",
+    "<strong>A restaurant bill no longer doubles</strong> — a line reading \"NET VALUE (EXCLD TAX)\" was being added as a service charge. Duitful now checks the items against the total printed on the receipt and adds nothing that is already inside the prices.",
+    "<strong>\"What did it read?\"</strong> — every scan can show its working: what it found, what it skipped and why, and the raw text. It never leaves your device.",
   ],
   "1.19.0": [
     "<strong>Opens without the white flash</strong> — the app now paints its own colours on the very first frame, and no longer waits on a font server before showing you anything. Cold starts are noticeably quicker, especially offline.",

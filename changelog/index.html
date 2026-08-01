@@ -142,6 +142,20 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-20">
+    <span class="release-date">August 2026 · v1.20</span>
+    <h2 class="release-title">Receipts, read properly</h2>
+    <p class="release-summary">Three real Malaysian receipts, three different ways the itemiser failed. One of them was quietly doubling restaurant bills.</p>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>A restaurant bill no longer doubles</strong> — a guest check printing <em>NET VALUE (EXCLD TAX) 85.00</em> had that RM 85 booked as a service charge on top of RM 90.10 of food. Charge keywords are now matched as whole words, restatements of the bill are excluded, and the items are reconciled against the total printed on the receipt: if they already add up, nothing is added on top.</li>
+      <li><span class="tag fix">fix</span><strong>Supermarket receipts itemise at all</strong> — slips that print the item name on one line and the barcode, unit price and line total on the next produced <em>zero</em> items, even from a flawless scan. Both halves were being discarded. They pair up now.</li>
+      <li><span class="tag fix">fix</span><strong>Readable item names</strong> — no more <em>"Naan Cheese + Garlic D 8.10 1"</em> or <em>"0885954430039 LOTUSS CEN"</em>. Leading barcodes and trailing price/quantity columns are stripped, while genuinely short name fragments are kept: a hypermarket that truncates "Brokoli China" to "BROKOLI CH" keeps its last word.</li>
+      <li><span class="tag feat">new</span><strong>Quantities become claimable rows</strong> — "3 x Ais Kosong 0.90" is now three rows of RM 0.30, so three people can each take one. Only for small whole counts that divide into clean sen; a tray of 24 eggs stays a single row.</li>
+      <li><span class="tag feat">new</span><strong>"What did it read?"</strong> — every scan can show its working: items found, charges added, the total printed on the receipt, and every line it skipped with the reason. Collapsed by default, and none of it is stored or shared.</li>
+      <li><span class="tag note">note</span>All three receipts are now fixtures in the test suite, so none of these can come back.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-19">
     <span class="release-date">August 2026 · v1.19</span>
     <h2 class="release-title">The first second, and the empty screens</h2>
