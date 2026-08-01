@@ -23,7 +23,7 @@ on:
       lane:
         description: "What to run"
         type: choice
-        default: testflight
+        default: build-only
         options:
           - testflight
           - build-only
