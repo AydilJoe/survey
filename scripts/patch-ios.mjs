@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Stamps the generated ios/ project with everything Capacitor's template
 // doesn't know about: the three usage-description strings App Review
-// requires, the export-compliance flag, and the Associated Domains
-// entitlement that makes https://duitful.app/split open the app.
+// requires, the export-compliance flag, the Google sign-in URL scheme that
+// Drive backup needs, and the Associated Domains entitlement that makes
+// https://duitful.app/split open the app.
 //
 // The ios/ project is git-ignored and regenerated on every CI run (and on
 // any Mac), so this script — wired into cap:sync and into the iOS release
@@ -27,9 +28,12 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readIosClientId, reversedClientId } from "./google-ios-client.mjs";
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const IOS_APP = resolve(ROOT, "ios/App");
 const INFO_PLIST = resolve(IOS_APP, "App/Info.plist");
+const DRIVE_CONFIG = resolve(ROOT, "app/drive-config.js");
 const ENTITLEMENTS = resolve(IOS_APP, "App/App.entitlements");
 const PBXPROJ = resolve(IOS_APP, "App.xcodeproj/project.pbxproj");
 
@@ -81,6 +85,51 @@ for (const [key, value] of PLIST_KEYS) {
 if (!plist.includes("<key>ITSAppUsesNonExemptEncryption</key>")) {
   plist = insertPlistEntry(plist, "\t<key>ITSAppUsesNonExemptEncryption</key>\n\t<false/>\n");
   plistAdded++;
+}
+
+// Google Drive sign-in on iOS: Google's SDK hands the OAuth result back on a
+// custom URL scheme — the client ID with its domain parts reversed — and
+// refuses to start if that scheme isn't registered in CFBundleURLTypes. The
+// value is derived from DRIVE_CONFIG.iosClientId in app/drive-config.js
+// rather than hard-coded, so re-pointing the app at another Google project
+// is a one-line edit there. An empty id (a fork with no Google project of
+// its own) skips this cleanly: the app then reports cloud backup as not
+// configured instead of failing at sign-in. See app/drive-sync.js.
+const IOS_URL_SCHEME = existsSync(DRIVE_CONFIG)
+  ? reversedClientId(readIosClientId(readFileSync(DRIVE_CONFIG, "utf8")))
+  : null;
+
+if (!IOS_URL_SCHEME) {
+  console.log("patch-ios: DRIVE_CONFIG.iosClientId is empty, no Google URL scheme to add.");
+} else if (plist.includes(`<string>${IOS_URL_SCHEME}</string>`)) {
+  console.log("patch-ios: Google URL scheme already registered, skipping.");
+} else {
+  // Capacitor's template ships no CFBundleURLTypes at all, so the common
+  // case is writing the whole array. If something else added one first
+  // (a future plugin), append our dict to it instead of replacing it.
+  const entry =
+    "\t\t<dict>\n" +
+    "\t\t\t<key>CFBundleURLSchemes</key>\n" +
+    "\t\t\t<array>\n" +
+    `\t\t\t\t<string>${IOS_URL_SCHEME}</string>\n` +
+    "\t\t\t</array>\n" +
+    "\t\t</dict>\n";
+  if (plist.includes("<key>CFBundleURLTypes</key>")) {
+    const arrayStart = plist.indexOf("<array>", plist.indexOf("<key>CFBundleURLTypes</key>"));
+    const insertAt = arrayStart === -1 ? -1 : arrayStart + "<array>".length;
+    if (insertAt === -1) {
+      console.error("patch-ios: CFBundleURLTypes is present but malformed in", INFO_PLIST);
+      process.exit(1);
+    }
+    plist = plist.slice(0, insertAt) + "\n" + entry.replace(/\n$/, "") + plist.slice(insertAt);
+  } else {
+    plist = insertPlistEntry(
+      plist,
+      "\t<key>CFBundleURLTypes</key>\n\t<array>\n" + entry + "\t</array>\n",
+    );
+  }
+  plistAdded++;
+  console.log(`patch-ios: registered Google URL scheme ${IOS_URL_SCHEME}.`);
 }
 
 if (plistAdded) {

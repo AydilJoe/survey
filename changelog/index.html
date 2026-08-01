@@ -142,6 +142,17 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-18">
+    <span class="release-date">August 2026 · v1.18</span>
+    <h2 class="release-title">Drive backup lands on iPhone</h2>
+    <p class="release-summary">The iOS app can now connect Google Drive — same encrypted file, same hidden folder, same passcode-only access as Android. Getting there meant untangling a dependency knot between Google's sign-in library and its own ML Kit.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Drive sync on iOS</strong> — connect your Drive and restore an encrypted backup made on any device. Duitful still never holds a key; Google still receives an unreadable blob.</li>
+      <li><span class="tag fix">fix</span><strong>No more double-tap zoom</strong> — paying two debts in a row used to leave the iPhone app zoomed at a random spot. Pinch-zoom is untouched, because taking it away from anyone who needs it isn't a trade worth making.</li>
+      <li><span class="tag note">note</span><strong>Android and web unchanged</strong> — iOS uses a different sign-in plugin purely to avoid a library clash; both platforms keep their existing, tested path, and the plugin allowlists are now guarded by tests so neither can drift.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-17">
     <span class="release-date">July 2026 · v1.17</span>
     <h2 class="release-title">New eyes, same privacy</h2>

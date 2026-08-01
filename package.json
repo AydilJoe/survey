@@ -1,6 +1,6 @@
 {
   "name": "duitful",
-  "version": "1.17.2",
+  "version": "1.18.0",
   "private": true,
   "description": "Duitful \u2014 Capacitor shell for the PWA.",
   "scripts": {
@@ -38,6 +38,7 @@
     "@capacitor/local-notifications": "^7.0.6",
     "@capawesome/capacitor-app-update": "^7.2.0",
     "@capgo/capacitor-native-biometric": "^7.6.0",
+    "@capgo/capacitor-social-login": "^7.20.0",
     "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
     "@pantrist/capacitor-plugin-ml-kit-text-recognition": "^7.0.0",
     "@vercel/analytics": "^2.0.1",
