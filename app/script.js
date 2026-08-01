@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.17.1";
+const APP_VERSION = "1.17.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9904,7 +9904,9 @@ async function startReceiptScan() {
   // @capacitor/camera. Falls through to the web file input when the plugin
   // isn't available (web build, or an older shell without it).
   const Camera = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Camera;
-  if (isNative() && Camera) {
+  // getPhoto must exist, not just the plugin object: Capacitor registers a
+  // proxy stub for every declared plugin, so a truthy Camera proves nothing.
+  if (isNative() && Camera && typeof Camera.getPhoto === "function") {
     let photo;
     try {
       photo = await Camera.getPhoto({
@@ -9917,10 +9919,17 @@ async function startReceiptScan() {
         promptLabelPicture: "Take photo",
       });
     } catch (err) {
-      // Cancel → silent no-op (no quota spent). Permission denied → fall
-      // back to the file picker so the gallery still works.
+      // Only a genuine user cancellation is a silent no-op (no quota spent).
+      // EVERYTHING else falls back to the file picker — which on iOS and
+      // Android alike offers Take Photo / Photo Library. The old code only
+      // fell back on /denied|permission/ and returned silently otherwise,
+      // so any other plugin error (iOS words them differently, and an
+      // unregistered plugin says "not implemented") made the Scan button
+      // look dead. A dead button is never an acceptable failure mode.
       const msg = String((err && err.message) || err || "");
-      if (/denied|permission/i.test(msg)) scanInput?.click();
+      if (/cancel/i.test(msg)) return;
+      console.warn("Camera plugin unavailable, using file picker:", msg);
+      scanInput?.click();
       return;
     }
     if (!photo || !photo.dataUrl) return;
