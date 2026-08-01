@@ -3475,6 +3475,174 @@ check('the home summary card shows the same red — and its bars have height',
   overBars.sumOver && overBars.sumOver.over && overBars.sumOver.bg === overBars.neon
   && overBars.sumOver.h > 0 && overBars.sumDebt.h > 0, JSON.stringify(overBars.sumOver));
 
+/* ── 16d. the boot paint cannot regress to a white flash ────────────────
+   Two things stood between the launch image and the app: a stylesheet that
+   had to arrive before anything painted, and a webfont on a third-party CDN
+   that blocked it. On a cold offline start that was a blank screen for as
+   long as the request took to give up. The critical style is now inline and
+   the fonts load async — both are easy to "tidy away" later, so pin them. */
+{
+  const idx = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
+  const head = idx.slice(0, idx.indexOf('</head>'));
+  const inlineStyle = /<style>([\s\S]*?)<\/style>/.exec(head);
+  const css = inlineStyle ? inlineStyle[1] : '';
+  check('the first-frame style is inline in <head>, not only in styles.css',
+    css.includes('#splash') && /html,\s*body\s*\{[^}]*background/.test(css));
+  check('that style paints the dark surface too, so dark mode never flashes cream',
+    css.includes('prefers-color-scheme: dark') && css.includes('#14110e'));
+  const fontSheet = (/<link(?![^>]*rel="preconnect")[^>]*fonts\.googleapis\.com[^>]*>/.exec(head) || ['none'])[0];
+  check('the webfont stylesheet does not block first paint',
+    /media="print"/.test(fontSheet) && /onload=/.test(fontSheet) && /this\.media='all'/.test(fontSheet),
+    fontSheet.slice(0, 140));
+  check('a <noscript> fallback still loads the fonts',
+    /<noscript>\s*<link[^>]+fonts\.googleapis\.com/.test(head));
+  // The pre-paint script reads the stored theme directly. If THEME_KEY ever
+  // changes in script.js and this string doesn't, dark-mode users silently
+  // get a cream flash on every launch — and nothing else breaks, so nobody
+  // would notice for months.
+  const themeKey = /const THEME_KEY = "([^"]+)"/.exec(readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8'));
+  check('the pre-paint theme script uses the same key script.js writes',
+    !!themeKey && head.includes(`localStorage.getItem("${themeKey[1]}")`), themeKey && themeKey[1]);
+}
+
+/* The check that actually matters: hold styles.css, script.js and the font
+   CDN open and see what the user is left looking at. Before the inline block
+   this was a white rectangle in both themes — on a plane, for as long as the
+   requests took to fail. Uses its own page so the suite's session is left
+   alone, and never awaits a screenshot: with fonts blocked, Playwright's
+   screenshot path waits on document.fonts.ready and hangs. */
+for (const scheme of ['light', 'dark']) {
+  const cold = await b.newPage({ colorScheme: scheme });
+  await cold.route('**/styles.css*', () => {});
+  await cold.route('**/script.js*', () => {});
+  await cold.route('**/fonts.googleapis.com/**', () => {});
+  cold.goto(`${BASE}/app/index.html`).catch(() => {});
+  await cold.waitForTimeout(1200);
+  const paint = await cold.evaluate(() => {
+    const el = document.getElementById('splash');
+    const r = el && el.getBoundingClientRect();
+    return {
+      page: getComputedStyle(document.documentElement).backgroundColor,
+      splash: el ? getComputedStyle(el).backgroundColor : null,
+      visible: !!(r && r.width > 0 && r.height > 0),
+      title: el ? getComputedStyle(el.querySelector('.splash-title')).color : null,
+    };
+  });
+  await cold.close();
+  const want = scheme === 'dark' ? 'rgb(20, 17, 14)' : 'rgb(232, 223, 208)';
+  check(`a stalled cold start still paints the ${scheme} surface, not white`,
+    paint.page === want && paint.splash === want && paint.visible === true,
+    JSON.stringify(paint));
+  check(`the ${scheme} splash wordmark is legible against it`,
+    paint.title === (scheme === 'dark' ? 'rgb(243, 237, 225)' : 'rgb(42, 36, 32)'), paint.title);
+}
+
+/* ── 16e. empty states say what to do; search misses stay compact ───────
+   "No debts yet." was true and useless. Genuinely-empty lists now carry a
+   mark, a reason and (where there's an obvious next step) a button. A list
+   filtered to nothing is NOT the same thing and keeps the one-liner — an
+   illustrated panel for a typo reads as a dead end. */
+const empties = await S(() => {
+  state.debts = [];
+  state.dailyExpenses = [];
+  state.savings = [];
+  searchQueries.debts = '';
+  save();
+  renderAll();
+  const read = (sel) => {
+    const el = document.querySelector(sel);
+    return el ? el.innerHTML : '';
+  };
+  const debtsEmpty = read('#list-debt');
+  const dailyEmpty = read('#daily-list') || read('#list-daily');
+  // Now filter a populated list to nothing and confirm the compact form.
+  state.debts = [{ id: 'd1', name: 'Maybank', balance: 100, apr: 5, minPayment: 10, dueDay: 1, kind: 'standard' }];
+  save();
+  searchQueries.debts = 'zzzznotathing';
+  renderDebts();
+  const debtsMiss = read('#list-debt');
+  searchQueries.debts = '';
+  state.debts = [];
+  save();
+  renderAll();
+  return { debtsEmpty, dailyEmpty, debtsMiss };
+});
+check('an empty debts list explains what belongs there',
+  empties.debtsEmpty.includes('empty-block')
+  && empties.debtsEmpty.includes('No debts tracked yet')
+  && !/class="empty"/.test(empties.debtsEmpty), empties.debtsEmpty.slice(0, 120));
+check('an empty entry list offers the next step, via the existing go-to-tab idiom',
+  empties.dailyEmpty.includes('empty-block')
+  && /data-go-tab="dashboard"/.test(empties.dailyEmpty)
+  && !/data-goto-tab/.test(empties.dailyEmpty), empties.dailyEmpty.slice(0, 200));
+check('a search with no hits keeps the compact one-liner, not a panel',
+  /class="empty"/.test(empties.debtsMiss) && !empties.debtsMiss.includes('empty-block')
+  && empties.debtsMiss.includes('clear search'), empties.debtsMiss.slice(0, 120));
+check('the empty-state button actually switches tabs',
+  await S(() => {
+    document.getElementById('tabbtn-daily').click();
+    renderAll();
+    const btn = document.querySelector('#tab-daily [data-go-tab="dashboard"]');
+    if (!btn) return false;
+    btn.click();
+    const ok = document.getElementById('tab-dashboard').classList.contains('active');
+    return ok;
+  }));
+
+/* ── 16f. slow work looks like work ─────────────────────────────────────
+   Unlocking runs 250k PBKDF2 rounds. Before this the button sat inert for
+   most of a second on an older phone, so people tapped it again. */
+const working = await S(async () => {
+  const btn = document.getElementById('lock-submit');
+  const orig = window.handleUnlock;
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  window.handleUnlock = () => gate;
+  setLockMode('unlock');
+  document.getElementById('lock-input').value = '0000';
+  document.getElementById('lock-form').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+  const during = {
+    cls: btn.classList.contains('is-working'),
+    disabled: btn.disabled,
+    busy: btn.getAttribute('aria-busy'),
+  };
+  release();
+  await new Promise((r) => setTimeout(r, 40));
+  const after = {
+    cls: btn.classList.contains('is-working'),
+    disabled: btn.disabled,
+    busy: btn.getAttribute('aria-busy'),
+  };
+  window.handleUnlock = orig;
+  document.getElementById('lock-input').value = '';
+  // And it must clear even when the work throws, or the lock screen strands.
+  window.handleUnlock = () => Promise.reject(new Error('boom'));
+  document.getElementById('lock-input').value = '0000';
+  let threw = false;
+  try {
+    document.getElementById('lock-form').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+    await new Promise((r) => setTimeout(r, 40));
+  } catch { threw = true; }
+  const errEl = document.getElementById('lock-error');
+  const afterThrow = {
+    cls: btn.classList.contains('is-working'),
+    disabled: btn.disabled,
+    shown: !!errEl && !errEl.hidden && errEl.textContent.length > 0,
+  };
+  window.handleUnlock = orig;
+  document.getElementById('lock-input').value = '';
+  return { during, after, afterThrow, threw };
+});
+check('the unlock button shows a working state while the key is derived',
+  working.during.cls === true && working.during.disabled === true
+  && working.during.busy === 'true', JSON.stringify(working.during));
+check('and returns to normal when the work finishes',
+  working.after.cls === false && working.after.disabled === false
+  && working.after.busy === null, JSON.stringify(working.after));
+check('a failure never strands the button, and says something happened',
+  working.afterThrow.cls === false && working.afterThrow.disabled === false
+  && working.afterThrow.shown === true, JSON.stringify(working.afterThrow));
+
 /* ── 17. native plugin allowlists stay deliberate ───────────────────────
    Both platforms pin includePlugins, so a newly added plugin dependency
    reaches a native build ONLY when someone lists it. That is what keeps

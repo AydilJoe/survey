@@ -389,6 +389,13 @@ body.loaded #splash {
   0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
   30%           { opacity: 1;   transform: translateY(-3px); }
 }
+/* The splash is the one screen a user cannot dismiss, so its motion is the
+   least escapable in the app. Hold the layout, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .splash-inner { animation: none; }
+  .splash-mark { animation: none; }
+  .splash-dots span { animation: none; opacity: 0.55; }
+}
 
 /* Lock screen — reuses splash look, stays until unlocked */
 #lock {
@@ -1690,6 +1697,93 @@ button.primary.big {
   font-size: 0.92rem;
 }
 .empty-state button { min-width: 200px; }
+
+/* ---------- Shared empty state ----------
+   Built by emptyBlock() in script.js. A first-run list used to say "No debts
+   yet." in italics and nothing else — technically true, and no help at all
+   about what to do next. This gives every genuinely-empty list the same
+   shape: a mark, one line of what's missing, one line of why it's worth
+   filling, and where there's an obvious next step, a button that takes it.
+   Search misses deliberately keep the old one-liner — they are not empty
+   states, they are a filter with no hits. */
+.empty-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 1.5rem 1rem 1.35rem;
+  color: var(--muted);
+}
+.empty-block-mark {
+  width: 44px; height: 44px;
+  border-radius: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--card-soft, rgba(0, 0, 0, 0.04));
+  border: 0.5px solid var(--line);
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.empty-block-mark svg { width: 21px; height: 21px; display: block; }
+.empty-block-title {
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: var(--text);
+  font-style: normal;
+}
+.empty-block-body {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  max-width: 30ch;
+  font-style: normal;
+}
+.empty-block button {
+  margin-top: 0.25rem;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.9rem;
+}
+/* Lists render the block inside an <li>, which would otherwise inherit the
+   row chrome (bullet, border, hover) from .item-list / .debt-list. */
+li.empty-block-host {
+  list-style: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  display: block;
+}
+
+/* ---------- Working state for async buttons ----------
+   Unlocking runs 250k PBKDF2 rounds. On an older phone that is most of a
+   second in which the only feedback was that nothing happened, so people
+   tapped Unlock again. */
+button.is-working {
+  position: relative;
+  color: transparent !important;
+  pointer-events: none;
+}
+button.is-working::after {
+  content: "";
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 16px; height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  /* Explicit rather than currentColor — the button's own colour is
+     transparent above, which is what hides the label. */
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: btn-spin 0.65s linear infinite;
+}
+button.ghost.is-working::after,
+button.secondary.is-working::after {
+  border-color: rgba(138, 129, 120, 0.35);
+  border-top-color: var(--muted);
+}
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  button.is-working::after { animation-duration: 1.6s; }
+}
 
 .stat {
   background: var(--glass-pane);

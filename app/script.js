@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.18.2";
+const APP_VERSION = "1.19.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1211,6 +1211,55 @@ function renderBudgetSummary() {
   }).join("");
 }
 
+/* ---------- Shared empty state ----------
+   One shape for every list that is genuinely empty: a mark, what's missing,
+   why it's worth filling, and — where there is an obvious next step — a
+   button that takes it. Search misses are NOT empty states and keep the
+   compact one-liner; a big illustrated panel for "no rows match 'maybnk'"
+   reads as a dead end rather than a typo.
+
+   `action` is {label, tab} — routed through the existing data-go-tab
+   delegate — or {label, action} to fire a data-action. */
+const EMPTY_GLYPHS = {
+  debt: `<path d="M3 6h18v12H3z"/><path d="M3 10h18"/>`,
+  entry: `<path d="M4 7h16M4 12h16M4 17h10"/>`,
+  saving: `<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>`,
+  chart: `<path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/>`,
+};
+function emptyBlock({ glyph = "entry", title, body = "", action = null, host = "div" }) {
+  const btn = action
+    ? `<button type="button" class="ghost" ${action.tab ? `data-go-tab="${escapeHtml(action.tab)}"` : `data-action="${escapeHtml(action.action)}"`}>${escapeHtml(action.label)}</button>`
+    : "";
+  const inner = `
+    <div class="empty-block">
+      <span class="empty-block-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${EMPTY_GLYPHS[glyph] || EMPTY_GLYPHS.entry}</svg></span>
+      <span class="empty-block-title">${escapeHtml(title)}</span>
+      ${body ? `<p class="empty-block-body">${escapeHtml(body)}</p>` : ""}
+      ${btn}
+    </div>`;
+  return host === "li" ? `<li class="empty-block-host">${inner}</li>` : inner;
+}
+
+/* Async buttons: show that work is happening. Returns a function that puts
+   the button back, so callers can `finally` it and never strand the UI. */
+function beginWork(btn) {
+  if (!btn) return () => {};
+  if (btn.classList.contains("is-working")) return () => {};
+  btn.classList.add("is-working");
+  btn.disabled = true;
+  const wasBusy = btn.getAttribute("aria-busy");
+  btn.setAttribute("aria-busy", "true");
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    btn.classList.remove("is-working");
+    btn.disabled = false;
+    if (wasBusy === null) btn.removeAttribute("aria-busy");
+    else btn.setAttribute("aria-busy", wasBusy);
+  };
+}
+
 function listSearchMatches(query, fields) {
   if (!query) return true;
   const q = query.trim().toLowerCase();
@@ -2209,7 +2258,12 @@ function renderDaily() {
 
   const listEl = $("#daily-list");
   if (state.dailyExpenses.length === 0) {
-    listEl.innerHTML = `<div class="empty">No daily entries yet. Add one from the Home tab.</div>`;
+    listEl.innerHTML = emptyBlock({
+      glyph: "entry",
+      title: "No entries yet",
+      body: "Log today's lunch or a Grab ride. A few days of entries is enough for the charts to mean something.",
+      action: { label: "Add an entry", tab: "dashboard" },
+    });
     return;
   }
 
@@ -2326,7 +2380,11 @@ function renderSavings() {
   if (searchRow) searchRow.hidden = state.savings.length < 3;
 
   if (state.savings.length === 0) {
-    listEl.innerHTML = `<div class="empty">No savings goals yet — create one above. Even RM 50/month can grow into something meaningful.</div>`;
+    listEl.innerHTML = emptyBlock({
+      glyph: "saving",
+      title: "No savings goals yet",
+      body: "Name one thing you're saving for — an emergency fund, Umrah, a new phone. Even RM 50 a month adds up.",
+    });
   } else {
     const savingsQuery = searchQueries.savings;
     const filteredSavings = savingsQuery
@@ -2353,7 +2411,11 @@ function renderSavings() {
 function renderDebts() {
   const ul = $("#list-debt");
   if (!state.debts.length) {
-    ul.innerHTML = `<li class="empty">No debts yet.</li>`;
+    ul.innerHTML = emptyBlock({
+      glyph: "debt", host: "li",
+      title: "No debts tracked yet",
+      body: "Add a card, a loan or an instalment plan and Duitful works out the cheapest order to clear them.",
+    });
     return;
   }
   const debtsQuery = searchQueries.debts;
@@ -2711,7 +2773,11 @@ function renderDashboard() {
 
   const orderEl = $("#payoff-order");
   if (state.debts.length === 0) {
-    orderEl.innerHTML = `<li class="empty">No debts yet. Add some in the Debts tab.</li>`;
+    // Unreachable in practice — #payoff-card is hidden above when there are
+    // no debts, and the dashboard's #debt-empty carries the real call to
+    // action. Kept as a defensive placeholder, deliberately not an
+    // empty-block: a panel nobody can see is just a thing to maintain.
+    orderEl.innerHTML = `<li class="empty">No debts yet.</li>`;
   } else {
     // Convert "Month N" to "Cleared by <Month YYYY>" so the label reads as a
     // calendar deadline rather than an ordinal rank.
@@ -3267,7 +3333,11 @@ function renderReports() {
     }
     trendEl.classList.toggle("dense", buckets.length > 14);
     if (!buckets.length) {
-      trendEl.innerHTML = `<div class="empty">No data to chart.</div>`;
+      trendEl.innerHTML = emptyBlock({
+        glyph: "chart",
+        title: "Nothing to chart yet",
+        body: "Pick a wider date range, or log a few entries and the trend line fills in.",
+      });
     } else {
       const max = Math.max(...buckets.map((b) => b.total), 1);
       // Per-bar value labels collide when there are many bars; only show on
@@ -3313,7 +3383,11 @@ function renderReports() {
   if (topEl) {
     const top = entries.slice().sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0)).slice(0, 5);
     if (!top.length) {
-      topEl.innerHTML = `<div class="empty">No entries.</div>`;
+      topEl.innerHTML = emptyBlock({
+        glyph: "entry",
+        title: "No entries in this period",
+        body: "Widen the range above, or clear the category filter.",
+      });
     } else {
       topEl.innerHTML = top.map((e) => {
         const cat = reportsCategoryLabel(e);
@@ -8129,6 +8203,11 @@ const RELEASE_NOTES = {
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
   ],
+  "1.19.0": [
+    "<strong>Opens without the white flash</strong> — the app now paints its own colours on the very first frame, and no longer waits on a font server before showing you anything. Cold starts are noticeably quicker, especially offline.",
+    "<strong>Unlock tells you it's working</strong> — the button spins while your passcode is being turned into a key, instead of looking like nothing happened.",
+    "<strong>Emptier screens now say what to do</strong> — a fresh Debts, Daily, Savings or Reports list explains what goes there and offers the next step, rather than a bare \"No debts yet.\"",
+  ],
   "1.18.2": [
     "<strong>Blown a budget? You'll see it</strong> — a pool that goes over its limit now paints its bar in a bright alarm red with a glow, on Home and on Monthly. No more reading four lines of small print to work out which pools you overspent.",
   ],
@@ -8468,10 +8547,18 @@ document.getElementById("btn-privacy").addEventListener("click", () => {
 /* Initial render uses empty state until unlocked; real render happens post-unlock. */
 renderAll();
 
-/* splash → hide when fonts load, after a minimum delay so it doesn't flash */
+/* Splash → hide once the webfonts have settled, after a minimum beat so it
+   never flashes. The font wait is capped: the faces come from a CDN the app
+   is otherwise independent of, and on a cold offline start document.fonts
+   .ready can sit unresolved far longer than anyone will wait to see their
+   own money. Past the cap we paint in the fallback stack and let the real
+   faces swap in whenever they arrive. */
 {
-  const minDelay = new Promise((r) => setTimeout(r, 450));
-  const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+  const MIN_SPLASH_MS = 450;
+  const FONT_WAIT_CAP_MS = 1200;
+  const minDelay = new Promise((r) => setTimeout(r, MIN_SPLASH_MS));
+  const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+  const fonts = Promise.race([fontsReady, new Promise((r) => setTimeout(r, FONT_WAIT_CAP_MS))]);
   Promise.all([minDelay, fonts]).then(() => document.body.classList.add("loaded"));
 }
 
@@ -8812,17 +8899,32 @@ if (lockForm) {
     const confirmEl = document.getElementById("lock-confirm");
     const pass = (input && input.value) || "";
     if (!pass) return;
-    if (lockMode === "unlock") {
-      await handleUnlock(pass);
-    } else if (lockMode === "setup") {
-      await handleSetup(pass, (confirmEl && confirmEl.value) || "", emptyState());
-    } else if (lockMode === "migrate") {
-      const legacy = localStorage.getItem(STORAGE_KEY);
-      let legacyState = emptyState();
-      try { legacyState = coerceState(JSON.parse(legacy || "{}")); } catch {}
-      await handleSetup(pass, (confirmEl && confirmEl.value) || "", legacyState);
-    } else if (lockMode === "restore") {
-      await handleRestoreFromDrive(pass);
+    // Key derivation is 250k PBKDF2 rounds — most of a second on an older
+    // phone, with no feedback before this, so people tapped Unlock twice and
+    // assumed the app had hung. Every branch below runs it.
+    const endWork = beginWork(document.getElementById("lock-submit"));
+    try {
+      if (lockMode === "unlock") {
+        await handleUnlock(pass);
+      } else if (lockMode === "setup") {
+        await handleSetup(pass, (confirmEl && confirmEl.value) || "", emptyState());
+      } else if (lockMode === "migrate") {
+        const legacy = localStorage.getItem(STORAGE_KEY);
+        let legacyState = emptyState();
+        try { legacyState = coerceState(JSON.parse(legacy || "{}")); } catch {}
+        await handleSetup(pass, (confirmEl && confirmEl.value) || "", legacyState);
+      } else if (lockMode === "restore") {
+        await handleRestoreFromDrive(pass);
+      }
+    } catch (err) {
+      // Every branch handles its own expected failures (wrong passcode, no
+      // backup found). Anything reaching here is unexpected — without this
+      // it became an unhandled rejection and the user just saw the button
+      // come back with no explanation.
+      console.warn("Unlock flow failed:", err);
+      lockError("Something went wrong. Please try again.");
+    } finally {
+      endWork();
     }
   });
 }
@@ -10591,7 +10693,11 @@ function openBulkDebtPayDialog() {
 
   dateEl.value = todayISO();
   if (state.debts.length === 0) {
-    rowsEl.innerHTML = `<p class="empty">No debts to pay.</p>`;
+    rowsEl.innerHTML = emptyBlock({
+      glyph: "debt",
+      title: "Nothing to pay",
+      body: "This is where your debts' monthly minimums get paid in one go, once you've added some.",
+    });
     document.getElementById("bulk-debt-total").textContent = "";
   } else {
     rowsEl.innerHTML = state.debts.map((d) => {
