@@ -149,6 +149,40 @@ jobs:
       # without an Apple Developer membership. See "Test free with AltStore"
       # in IOS_BUILD.md. Not produced by the testflight lane, which ships a
       # properly signed build instead.
+      # What is actually inside the thing you are about to install. The build
+      # log proving the widget compiled is NOT the same as the widget being in
+      # the IPA, and the gap between those two facts cost an evening once. The
+      # extension's own Info.plist is dumped too, because a widget that is
+      # present but declares the wrong extension point never appears in the
+      # gallery and reports no error anywhere.
+      - name: Show what the IPA contains
+        if: inputs.lane == 'build-only'
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          unzip -q build/ios-unsigned/Duitful-unsigned.ipa -d "$work"
+          app="$work/Payload/App.app"
+          echo "::group::Bundle structure"
+          find "$app" -maxdepth 2 -name '*.appex' -o -maxdepth 1 -type d | sed "s|$work/||"
+          echo "::endgroup::"
+          appex="$app/PlugIns/DuitfulWidget.appex"
+          if [ ! -d "$appex" ]; then
+            echo "::error::No DuitfulWidget.appex in the IPA — the widget will not appear on any device."
+            exit 1
+          fi
+          echo "Widget extension present: $(du -sh "$appex" | cut -f1)"
+          echo "::group::Widget Info.plist"
+          plutil -p "$appex/Info.plist"
+          echo "::endgroup::"
+          point=$(plutil -extract NSExtension.NSExtensionPointIdentifier raw "$appex/Info.plist")
+          [ "$point" = "com.apple.widgetkit-extension" ] || {
+            echo "::error::Widget declares extension point '$point', expected com.apple.widgetkit-extension."
+            exit 1
+          }
+          minos=$(plutil -extract MinimumOSVersion raw "$appex/Info.plist")
+          echo "Widget MinimumOSVersion: $minos — it will not appear on a device older than this."
+          rm -rf "$work"
+
       - name: Upload the unsigned IPA (AltStore sideloading)
         if: inputs.lane == 'build-only'
         uses: actions/upload-artifact@v4
