@@ -168,7 +168,7 @@ Safari on the iPad.
 | Input | When to change it |
 |---|---|
 | **lane** = `testflight` | the normal path: build, sign, upload |
-| **lane** = `build-only` | validate that the project compiles, with no Apple account involved at all. Free, safe, and the right first run |
+| **lane** = `build-only` | validate that the project compiles, with no Apple account involved at all. Free, safe, and the right first run. Also spits out an unsigned IPA you can sideload — see *Test free with AltStore* below |
 | **skip_associated_domains** | tick it if you haven't enabled the Associated Domains capability yet |
 | **revoke_stale_certs** | leave it on (see *Certificates* below) |
 
@@ -195,6 +195,110 @@ What the run does:
 increasing, which is exactly what App Store Connect demands. You never
 edit a version in Xcode; bump `package.json` like you do for the web
 release and the next build follows.
+
+## Test free with AltStore (before paying Apple)
+
+You do **not** need the $99 membership to run Duitful on your own iPhone.
+Apple lets any **free Apple ID** sign apps for personal use, and
+[AltStore](https://altstore.io) does that signing from your Windows PC. The
+`build-only` lane now produces exactly the file AltStore wants: an
+**unsigned** IPA, built for a real device, with no certificate baked in.
+
+Use this to smoke-test the real app on real hardware, then decide whether
+to enrol.
+
+### 1. Get the IPA
+
+1. Repo → **Actions** → **iOS — TestFlight** → **Run workflow**
+2. **lane** = `build-only` (leave the other inputs alone — the unsigned
+   build strips its own entitlements, so `skip_associated_domains` makes no
+   difference here)
+3. Wait ~15–20 min for the green tick
+4. Open the run → **Artifacts** at the bottom → download
+   **`duitful-unsigned-ipa`**
+5. That download is a **zip containing `Duitful-unsigned.ipa`** — GitHub
+   always zips artifacts. Extract it; you want the `.ipa` inside, not the
+   zip. Artifacts are deleted after 14 days.
+
+### 2. Install AltServer on Windows
+
+1. Download **AltServer** for Windows from <https://altstore.io> and run
+   the installer
+2. It also needs **iTunes** and **iCloud** — get the versions from
+   *apple.com*, **not** the Microsoft Store ones (AltServer can't talk to
+   the Store builds)
+3. Plug the iPhone in over USB, unlock it, tap **Trust This Computer**
+4. Windows system tray → **AltServer** icon → **Install AltStore** → pick
+   your iPhone → sign in with your **free Apple ID**
+5. On the iPhone: **Settings → General → VPN & Device Management** → tap
+   your Apple ID → **Trust**. AltStore now appears on the home screen.
+
+> Use a throwaway Apple ID if you'd rather not hand your main one to a
+> desktop app. It doesn't need to be the same ID as the phone's iCloud
+> account — only the signing identity.
+
+### 3. Sideload Duitful
+
+1. Keep AltServer running on the PC, with the iPhone on **the same Wi-Fi**
+   (USB works too and is faster the first time)
+2. Copy `Duitful-unsigned.ipa` to the iPhone — AirDrop won't help from
+   Windows, so use **Files** via a USB copy, iCloud Drive, OneDrive, or
+   just email it to yourself and save it to Files
+3. On the iPhone: open **AltStore** → **My Apps** tab → **+** (top left) →
+   pick `Duitful-unsigned.ipa`
+4. It signs and installs in 30–60 seconds. Duitful is on the home screen.
+
+### What works, and what genuinely doesn't
+
+Everything that matters for testing the app works. The limits below are
+Apple's rules for free accounts, not bugs in the build:
+
+- ⏳ **7-day expiry.** A free-account signature lasts one week, then the app
+  refuses to launch. Open AltStore → **My Apps** → **Refresh All** (with
+  AltServer running on the same Wi-Fi) once a week and it keeps working.
+  AltStore can do this in the background if you leave the PC on.
+- 🔢 **3 sideloaded apps max** per free Apple ID, at any one time.
+- 🔗 **Universal Links won't work.** Tapping a `https://duitful.app/split#…`
+  link opens Safari, never the app — the Associated Domains entitlement is
+  deliberately stripped from this build because free Apple IDs can't carry
+  it (see below). The `/split` page's "I have Duitful" hand-off still
+  works, which is the designed fallback anyway.
+- 💳 **The Pro purchase is untestable.** There is no `duitful_pro` product
+  without an App Store Connect app record, so the paywall's Unlock button
+  will error. Nothing you can do about it short of enrolling.
+- ✅ **Everything else is real**: passcode + Face ID / Touch ID unlock,
+  receipt scanning with the bundled Tesseract OCR, bill splitting, debt
+  payoff simulation, CSV import/export, local notification reminders,
+  encrypted storage. That's the whole app apart from the till.
+
+### Why the entitlement is stripped
+
+Free Apple IDs are not allowed the **Associated Domains** capability. If it
+were left in the binary, iOS could refuse the install with a bare
+`ApplicationVerificationFailed` and no explanation. AltStore normally
+rewrites entitlements from the free provisioning profile it creates, which
+would drop it anyway — but "normally" is not something worth debugging over
+USB, so `fastlane/Fastfile` overrides `CODE_SIGN_ENTITLEMENTS` to empty for
+this build and scrubs any leftover entitlement files from the payload.
+
+This affects **only** the unsigned artifact. The `testflight` lane still
+ships the Associated Domains entitlement, and `build-only` still runs
+`patch-ios.mjs` in full, so a broken entitlement patch still fails the
+build.
+
+### If it goes wrong
+
+- **"Unable to install — could not find AltServer"** — AltServer isn't
+  running, or the phone and PC are on different Wi-Fi networks (or a guest
+  network that blocks device-to-device traffic). Plug in the USB cable.
+- **"Untrusted Developer" on launch** — you skipped the Trust step:
+  Settings → General → VPN & Device Management.
+- **Install fails right at the end** — usually the 3-app limit. Delete
+  another sideloaded app.
+- **The app was working, now it won't open** — the 7 days are up. Refresh
+  in AltStore.
+- **Mac users**: same flow, or use [Sideloadly](https://sideloadly.io).
+  With an actual Mac you'd usually just use Xcode.
 
 ## Installing the build on your iPhone/iPad
 

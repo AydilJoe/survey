@@ -13,6 +13,10 @@ name: iOS — TestFlight
 #                   file including the BEGIN/END lines, or a base64 blob of
 #                   it if your clipboard mangles newlines. Both work; the
 #                   Fastfile sniffs which one it got.
+#
+# The build-only lane needs none of that, and additionally uploads a
+# `duitful-unsigned-ipa` artifact you can sideload with AltStore and a free
+# Apple ID — see "Test free with AltStore" in IOS_BUILD.md.
 on:
   workflow_dispatch:
     inputs:
@@ -127,9 +131,25 @@ jobs:
       - name: Install fastlane
         run: bundle install --jobs 4 --retry 3
 
+      # Compiles for the simulator (validation) and then for a real device
+      # with signing disabled, packaging the result as an unsigned IPA.
       - name: Build only (no signing, no upload)
         if: inputs.lane == 'build-only'
         run: bundle exec fastlane ios build_only
+
+      # The free-Apple-ID path: download this, feed the .ipa to AltStore on
+      # Windows, and Duitful runs on the owner's iPhone for 7 days at a time
+      # without an Apple Developer membership. See "Test free with AltStore"
+      # in IOS_BUILD.md. Not produced by the testflight lane, which ships a
+      # properly signed build instead.
+      - name: Upload the unsigned IPA (AltStore sideloading)
+        if: inputs.lane == 'build-only'
+        uses: actions/upload-artifact@v4
+        with:
+          name: duitful-unsigned-ipa
+          retention-days: 14
+          if-no-files-found: error
+          path: build/ios-unsigned/Duitful-unsigned.ipa
 
       # Lane is `testflight_build`, not `testflight`: fastlane reserves the
       # bare name for the upload_to_testflight action alias.
