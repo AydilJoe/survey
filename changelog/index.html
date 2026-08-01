@@ -142,6 +142,18 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-21">
+    <span class="release-date">August 2026 · v1.21</span>
+    <h2 class="release-title">Quick actions, on every platform</h2>
+    <p class="release-summary">Long-press the Duitful icon: Spend · Scan · Split · Pay debt. The three that already existed had never actually worked — they were being thrown away at the lock screen.</p>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Shortcuts now survive the passcode</strong> — the old handler acted on your choice 400 ms after launch, while the lock screen was still covering everything, then wiped the request from the URL. By the time you'd typed your passcode it was gone, so a shortcut in practice just opened the app. Duitful holds the intent now and runs it the instant the vault opens.</li>
+      <li><span class="tag feat">new</span><strong>Quick actions on the native apps</strong> — Android and iPhone had none at all; web-app shortcuts don't carry over to a native shell. Both now ship the same four, injected at build time.</li>
+      <li><span class="tag feat">new</span><strong>Split a bill is one of them</strong> — the feature most likely to be wanted while you're still standing at the till, and it had no shortcut anywhere.</li>
+      <li><span class="tag note">note</span>A quick action is only a launch intent — no figures are written outside your encrypted vault, so nothing here is readable without your passcode.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-20">
     <span class="release-date">August 2026 · v1.20</span>
     <h2 class="release-title">Receipts, read properly</h2>

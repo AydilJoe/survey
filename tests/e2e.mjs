@@ -3760,6 +3760,126 @@ check('a failure never strands the button, and says something happened',
   working.afterThrow.cls === false && working.afterThrow.disabled === false
   && working.afterThrow.shown === true, JSON.stringify(working.afterThrow));
 
+/* ── 16g. quick actions survive the lock screen ─────────────────────────
+   Long-pressing the icon fires the shortcut while the passcode screen is
+   still up. The old handler acted on it there and then — selecting a form
+   nobody could see — and wiped ?action= from the URL, so by the time the
+   passcode was typed the request was gone and every shortcut merely opened
+   the app. Verified against a locked vault before the fix: nothing selected,
+   nothing focused, parameter gone. */
+{
+  // Pure parsing first: all three launch shapes, and nothing else.
+  const parsed = await S(() => ({
+    pwa: quickActionFromUrl('?action=spend'),
+    pwaExtra: quickActionFromUrl('?foo=1&action=split&bar=2'),
+    ios: quickActionFromUrl('duitful://action/scan'),
+    android: quickActionFromUrl('duitful://action/debt'),
+    upper: quickActionFromUrl('duitful://action/SPEND'),
+    unknown: quickActionFromUrl('?action=wipe-everything'),
+    hostile: quickActionFromUrl('https://evil.example/?action=scan'),
+    splitLink: quickActionFromUrl('https://duitful.app/split#DFS1.abc'),
+    empty: quickActionFromUrl(''),
+    nul: quickActionFromUrl(null),
+  }));
+  check('quick actions parse from PWA query, iOS and Android URLs alike',
+    parsed.pwa === 'spend' && parsed.pwaExtra === 'split'
+    && parsed.ios === 'scan' && parsed.android === 'debt' && parsed.upper === 'spend',
+    JSON.stringify(parsed));
+  check('an unrecognised action name is refused, never run',
+    parsed.unknown === null && parsed.empty === null && parsed.nul === null,
+    JSON.stringify(parsed));
+  check('a split deep link is not mistaken for a quick action',
+    parsed.splitLink === null, JSON.stringify(parsed.splitLink));
+
+  // The behaviour that actually broke: request while locked, replay after.
+  const held = await S(async () => {
+    const lock = document.getElementById('lock');
+    lock.hidden = false;                       // pretend we are at the passcode screen
+    document.getElementById('tabbtn-savings').click();
+    requestQuickAction('spend');
+    await new Promise((r) => setTimeout(r, 200));
+    const during = {
+      queued: pendingQuickAction,
+      tab: document.querySelector('.tab-panel.active').id,
+    };
+    hideLock();                                 // the unlock moment
+    await new Promise((r) => setTimeout(r, 250));
+    const after = {
+      queued: pendingQuickAction,
+      tab: document.querySelector('.tab-panel.active').id,
+      focused: document.activeElement && (document.activeElement.name || document.activeElement.id),
+    };
+    // Restore to the UNLOCKED state explicitly. Restoring a captured value
+    // let a stray flag leak into every later section — the split check below
+    // failed for a whole run because this element was left visible.
+    lock.hidden = true;
+    return { during, after };
+  });
+  check('a quick action fired at the lock screen is held, not run',
+    held.during.queued === 'spend' && held.during.tab !== 'tab-dashboard',
+    JSON.stringify(held.during));
+  check('and runs the moment the vault opens',
+    held.after.queued === null && held.after.tab === 'tab-dashboard'
+    && held.after.focused === 'amount', JSON.stringify(held.after));
+
+  // Split is the flagship feature and had no shortcut at all before this.
+  const splitQa = await S(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    document.getElementById('lock').hidden = true;
+    requestQuickAction('split');
+    await new Promise((r) => setTimeout(r, 300));
+    const dlg = document.getElementById('split-compose-dialog');
+    const info = {
+      open: !!(dlg && dlg.open),
+      pending: pendingQuickAction,
+      tab: document.querySelector('.tab-panel.active').id,
+      btn: !!document.getElementById('btn-split-quick'),
+      anyOpen: [...document.querySelectorAll('dialog[open]')].map((d) => d.id),
+      locked: !document.getElementById('lock').hidden,
+    };
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    return info;
+  });
+  check('the split quick action opens the composer', splitQa.open === true, JSON.stringify(splitQa));
+
+  // iOS hands a cold-start shortcut to getLaunchUrl() AND can also fire
+  // performActionFor; both routes reach requestQuickAction. Without a guard
+  // one long-press opened two composers. Uses an action no earlier check has
+  // touched — the guard is time-based, so a recently-used name would be
+  // suppressed outright and the test would pass for the wrong reason.
+  const twice = await S(async () => {
+    document.getElementById('lock').hidden = true;
+    const real = window.runQuickAction;
+    let ran = 0;
+    window.runQuickAction = (n) => { ran += 1; };
+    requestQuickAction('saving');   // getLaunchUrl
+    requestQuickAction('saving');   // appUrlOpen, same tap
+    await new Promise((r) => setTimeout(r, 400));
+    const deduped = ran;
+    // Past the window it is a NEW tap and must run again, or the shortcut
+    // would be usable only once per launch.
+    await new Promise((r) => setTimeout(r, 2100));
+    requestQuickAction('saving');
+    await new Promise((r) => setTimeout(r, 300));
+    const afterWindow = ran;
+    window.runQuickAction = real;
+    return { deduped, afterWindow };
+  });
+  check('the same shortcut arriving twice only runs once',
+    twice.deduped === 1, JSON.stringify(twice));
+  check('but pressing it again later does run again',
+    twice.afterWindow === 2, JSON.stringify(twice));
+
+  // One contract across three platforms — the manifest is the half we can
+  // read here; the native halves are pinned by their own patch scripts.
+  const manifest = JSON.parse(readFileSync(path.join(REPO_ROOT, 'app', 'manifest.webmanifest'), 'utf8'));
+  const names = (manifest.shortcuts || []).map((s) => new URL(s.url, 'https://x').searchParams.get('action'));
+  check('the PWA manifest declares the same four actions, in the same order',
+    JSON.stringify(names) === JSON.stringify(['spend', 'scan', 'split', 'debt']), JSON.stringify(names));
+  check('every declared shortcut is one the app can actually route',
+    names.every((n) => n && ['spend', 'scan', 'split', 'debt', 'saving'].includes(n)), JSON.stringify(names));
+}
+
 /* ── 17. native plugin allowlists stay deliberate ───────────────────────
    Both platforms pin includePlugins, so a newly added plugin dependency
    reaches a native build ONLY when someone lists it. That is what keeps

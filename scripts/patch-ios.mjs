@@ -2,8 +2,9 @@
 // Stamps the generated ios/ project with everything Capacitor's template
 // doesn't know about: the three usage-description strings App Review
 // requires, the export-compliance flag, the Google sign-in URL scheme that
-// Drive backup needs, and the Associated Domains entitlement that makes
-// https://duitful.app/split open the app.
+// Drive backup needs, the Home Screen quick actions (icon long-press menu)
+// and the AppDelegate glue that routes them, and the Associated Domains
+// entitlement that makes https://duitful.app/split open the app.
 //
 // The ios/ project is git-ignored and regenerated on every CI run (and on
 // any Mac), so this script — wired into cap:sync and into the iOS release
@@ -36,8 +37,35 @@ const INFO_PLIST = resolve(IOS_APP, "App/Info.plist");
 const DRIVE_CONFIG = resolve(ROOT, "app/drive-config.js");
 const ENTITLEMENTS = resolve(IOS_APP, "App/App.entitlements");
 const PBXPROJ = resolve(IOS_APP, "App.xcodeproj/project.pbxproj");
+const APP_DELEGATE = resolve(IOS_APP, "App/AppDelegate.swift");
+const CAP_CONFIG = resolve(ROOT, "capacitor.config.json");
 
 const HOSTS = ["duitful.app", "www.duitful.app"];
+// Quick-action types are namespaced with the real bundle id, read from the
+// one place that already owns it. Hard-coding it here would let a rename in
+// capacitor.config.json silently orphan the menu. Parsed defensively: a
+// checkout with no ios/ never gets far enough to care.
+const APP_ID = (() => {
+  try {
+    return String(JSON.parse(readFileSync(CAP_CONFIG, "utf8")).appId || "").trim();
+  } catch {
+    return "";
+  }
+})();
+// The custom scheme the quick actions (and any future duitful:// link) ride
+// in on. Registered in CFBundleURLTypes alongside — never instead of — the
+// Google reversed-client-id scheme.
+const APP_SCHEME = "duitful";
+// Home Screen quick actions, in menu order (iOS shows at most four). The
+// type is namespaced with the bundle id, App Store convention; AppDelegate
+// takes the last dot-component back off and turns it into
+// duitful://action/<name>, which is what the web layer already parses.
+const SHORTCUTS = [
+  ["spend", "Log a spend", "UIApplicationShortcutIconTypeAdd"],
+  ["scan", "Scan a receipt", "UIApplicationShortcutIconTypeCapture"],
+  ["split", "Split a bill", "UIApplicationShortcutIconTypeShare"],
+  ["debt", "Log a debt payment", "UIApplicationShortcutIconTypeConfirmation"],
+];
 const SKIP_DOMAINS = process.env.DUITFUL_IOS_SKIP_ASSOCIATED_DOMAINS === "1";
 
 if (!existsSync(INFO_PLIST)) {
@@ -104,32 +132,54 @@ if (!IOS_URL_SCHEME) {
 } else if (plist.includes(`<string>${IOS_URL_SCHEME}</string>`)) {
   console.log("patch-ios: Google URL scheme already registered, skipping.");
 } else {
-  // Capacitor's template ships no CFBundleURLTypes at all, so the common
-  // case is writing the whole array. If something else added one first
-  // (a future plugin), append our dict to it instead of replacing it.
-  const entry =
-    "\t\t<dict>\n" +
-    "\t\t\t<key>CFBundleURLSchemes</key>\n" +
-    "\t\t\t<array>\n" +
-    `\t\t\t\t<string>${IOS_URL_SCHEME}</string>\n` +
-    "\t\t\t</array>\n" +
-    "\t\t</dict>\n";
-  if (plist.includes("<key>CFBundleURLTypes</key>")) {
-    const arrayStart = plist.indexOf("<array>", plist.indexOf("<key>CFBundleURLTypes</key>"));
-    const insertAt = arrayStart === -1 ? -1 : arrayStart + "<array>".length;
-    if (insertAt === -1) {
-      console.error("patch-ios: CFBundleURLTypes is present but malformed in", INFO_PLIST);
-      process.exit(1);
-    }
-    plist = plist.slice(0, insertAt) + "\n" + entry.replace(/\n$/, "") + plist.slice(insertAt);
-  } else {
-    plist = insertPlistEntry(
-      plist,
-      "\t<key>CFBundleURLTypes</key>\n\t<array>\n" + entry + "\t</array>\n",
-    );
-  }
+  plist = registerUrlScheme(plist, IOS_URL_SCHEME);
   plistAdded++;
   console.log(`patch-ios: registered Google URL scheme ${IOS_URL_SCHEME}.`);
+}
+
+/* ---------- 2. Home Screen quick actions (Info.plist) ---------- */
+// The menu behind a long press on the app icon. Two halves live here: the
+// static UIApplicationShortcutItems array below (iOS reads it straight out
+// of the bundle, so the menu exists before the app has ever been opened),
+// and the duitful:// scheme those actions are delivered on — see section 3
+// for the AppDelegate half that does the delivering.
+//
+// The scheme registration deliberately goes through the same helper as the
+// Google one: CFBundleURLTypes is a single array shared by every scheme the
+// app answers to, and appending to it is the only correct move. Replacing
+// it would silently break Drive sign-in.
+// Scoped to the CFBundleURLTypes block rather than the whole file: unlike
+// the reversed client id, "duitful" is a plausible value elsewhere in a
+// plist, and a false positive here would skip the registration silently.
+if (schemeAlreadyRegistered(plist, APP_SCHEME)) {
+  console.log(`patch-ios: ${APP_SCHEME}:// URL scheme already registered, skipping.`);
+} else {
+  plist = registerUrlScheme(plist, APP_SCHEME);
+  plistAdded++;
+  console.log(`patch-ios: registered ${APP_SCHEME}:// URL scheme.`);
+}
+
+if (!APP_ID) {
+  console.error("patch-ios: no appId in", CAP_CONFIG, "— cannot namespace the quick actions.");
+  process.exit(1);
+} else if (plist.includes("<key>UIApplicationShortcutItems</key>")) {
+  console.log("patch-ios: UIApplicationShortcutItems already present, skipping.");
+} else {
+  const items = SHORTCUTS.map(([name, title, icon]) =>
+    "\t\t<dict>\n" +
+    "\t\t\t<key>UIApplicationShortcutItemType</key>\n" +
+    `\t\t\t<string>${APP_ID}.${name}</string>\n` +
+    "\t\t\t<key>UIApplicationShortcutItemTitle</key>\n" +
+    `\t\t\t<string>${title}</string>\n` +
+    "\t\t\t<key>UIApplicationShortcutItemIconType</key>\n" +
+    `\t\t\t<string>${icon}</string>\n` +
+    "\t\t</dict>\n").join("");
+  plist = insertPlistEntry(
+    plist,
+    "\t<key>UIApplicationShortcutItems</key>\n\t<array>\n" + items + "\t</array>\n",
+  );
+  plistAdded++;
+  console.log(`patch-ios: added ${SHORTCUTS.length} Home Screen quick action(s).`);
 }
 
 if (plistAdded) {
@@ -139,7 +189,91 @@ if (plistAdded) {
   console.log("patch-ios: Info.plist keys already present, skipping.");
 }
 
-/* ---------- 2. Associated Domains entitlement ---------- */
+/* ---------- 3. Quick-action routing in AppDelegate.swift ---------- */
+// iOS does not hand a quick action to the app as a URL — it arrives as a
+// UIApplicationShortcutItem on the app delegate, so nothing in the web
+// layer would ever see it. This injects the two delegate callbacks that
+// translate the item into duitful://action/<name> and push it through
+// ApplicationDelegateProxy, i.e. the exact same door a real deep link
+// walks through, which is what makes it come out as Capacitor's
+// appUrlOpen / getLaunchUrl.
+//
+// AppDelegate.swift is regenerated by `npx cap add ios`, so the injection
+// re-runs from scratch every time. It appends whole new methods just above
+// the class's closing brace rather than rewriting anything Capacitor
+// generated — the template's own didFinishLaunching / open-url methods are
+// left byte-for-byte alone.
+const SHORTCUT_SWIFT = `    // MARK: - Home Screen quick actions (injected by scripts/patch-ios.mjs)
+    //
+    // A quick action is a UIApplicationShortcutItem, never a URL. Turn it
+    // into the duitful://action/<name> URL the web layer already listens
+    // for and hand it to Capacitor's delegate proxy, which posts it as
+    // appUrlOpen and records it as the launch URL.
+
+    private func duitfulShortcutURL(_ item: UIApplicationShortcutItem) -> URL? {
+        // "com.aydiljoe.duitful.spend" -> "duitful://action/spend"
+        guard let name = item.type.components(separatedBy: ".").last, !name.isEmpty else {
+            return nil
+        }
+        return URL(string: "${APP_SCHEME}://action/" + name)
+    }
+
+    @discardableResult
+    private func duitfulHandleShortcut(_ application: UIApplication, _ item: UIApplicationShortcutItem) -> Bool {
+        guard let url = duitfulShortcutURL(item) else { return false }
+        return ApplicationDelegateProxy.shared.application(application, open: url, options: [:])
+    }
+
+    // Warm start: the app is already alive, so this surfaces in JS as an
+    // appUrlOpen event, exactly like a tapped deep link.
+    func application(_ application: UIApplication, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
+        completionHandler(duitfulHandleShortcut(application, shortcutItem))
+    }
+
+    // Cold start: when the quick action LAUNCHES the app, iOS delivers the
+    // item in the launch options instead of calling performActionFor. Feed
+    // it to the proxy here — that sets the proxy's lastURL, which is what
+    // App.getLaunchUrl() returns, so the web layer picks it up on its first
+    // read just like a cold-started deep link.
+    //
+    // Returning false is Apple's documented "already handled" signal: it
+    // stops iOS also calling performActionFor for the same tap, which would
+    // otherwise log the action twice. And if a launch ever arrives without
+    // the key, we return true and the performActionFor path above delivers
+    // it instead — one route or the other, never both.
+    func application(_ application: UIApplication, willFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        guard let item = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem else {
+            return true
+        }
+        return !duitfulHandleShortcut(application, item)
+    }
+`;
+
+if (!existsSync(APP_DELEGATE)) {
+  console.error("patch-ios: AppDelegate.swift not found at", APP_DELEGATE);
+  process.exit(1);
+}
+
+let swift = readFileSync(APP_DELEGATE, "utf8");
+
+if (swift.includes("duitfulHandleShortcut")) {
+  console.log("patch-ios: AppDelegate already routes quick actions, skipping.");
+} else {
+  // Insert before the final closing brace, which in Capacitor's template
+  // (and in anything Xcode would produce) is the one that ends the
+  // AppDelegate class.
+  const classIdx = swift.indexOf("class AppDelegate");
+  const closeIdx = swift.lastIndexOf("\n}");
+  if (classIdx === -1 || closeIdx <= classIdx) {
+    console.error("patch-ios: unrecognised AppDelegate.swift, cannot inject quick actions:", APP_DELEGATE);
+    process.exit(1);
+  }
+  swift = swift.slice(0, closeIdx + 1) + SHORTCUT_SWIFT + swift.slice(closeIdx + 1);
+  writeFileSync(APP_DELEGATE, swift);
+  console.log("patch-ios: injected quick-action routing into AppDelegate.swift.");
+}
+
+/* ---------- 4. Associated Domains entitlement ---------- */
 if (SKIP_DOMAINS) {
   console.log("patch-ios: DUITFUL_IOS_SKIP_ASSOCIATED_DOMAINS=1, leaving entitlements alone.");
   process.exit(0);
@@ -169,7 +303,7 @@ if (wantsRewrite) {
   console.log("patch-ios: App.entitlements already declares both applinks, skipping.");
 }
 
-/* ---------- 3. Wire the entitlement into the Xcode project ---------- */
+/* ---------- 5. Wire the entitlement into the Xcode project ---------- */
 // xcodebuild only signs with an entitlements file if CODE_SIGN_ENTITLEMENTS
 // points at it, so the .entitlements above is inert until the build setting
 // exists in both of the App target's configurations.
@@ -220,6 +354,39 @@ function insertPlistEntry(src, entry) {
     process.exit(1);
   }
   return src.slice(0, closeIdx) + entry + src.slice(closeIdx);
+}
+
+// Adds one custom URL scheme to CFBundleURLTypes and returns the new plist.
+//
+// Capacitor's template ships no CFBundleURLTypes at all, so the first
+// caller writes the whole array. Every caller after that — the second
+// scheme here, or a future plugin's — appends its dict to the existing
+// array instead of replacing it. Getting that wrong is how you'd silently
+// unregister Google sign-in, so the append is the only path taken once the
+// key exists.
+function schemeAlreadyRegistered(src, scheme) {
+  const keyIdx = src.indexOf("<key>CFBundleURLTypes</key>");
+  return keyIdx !== -1 && src.indexOf(`<string>${scheme}</string>`, keyIdx) !== -1;
+}
+
+function registerUrlScheme(src, scheme) {
+  const entry =
+    "\t\t<dict>\n" +
+    "\t\t\t<key>CFBundleURLSchemes</key>\n" +
+    "\t\t\t<array>\n" +
+    `\t\t\t\t<string>${scheme}</string>\n` +
+    "\t\t\t</array>\n" +
+    "\t\t</dict>\n";
+  if (!src.includes("<key>CFBundleURLTypes</key>")) {
+    return insertPlistEntry(src, "\t<key>CFBundleURLTypes</key>\n\t<array>\n" + entry + "\t</array>\n");
+  }
+  const arrayStart = src.indexOf("<array>", src.indexOf("<key>CFBundleURLTypes</key>"));
+  const insertAt = arrayStart === -1 ? -1 : arrayStart + "<array>".length;
+  if (insertAt === -1) {
+    console.error("patch-ios: CFBundleURLTypes is present but malformed in", INFO_PLIST);
+    process.exit(1);
+  }
+  return src.slice(0, insertAt) + "\n" + entry.replace(/\n$/, "") + src.slice(insertAt);
 }
 
 /* ---------- iOS deployment target: 14.0 → 15.5 ----------
