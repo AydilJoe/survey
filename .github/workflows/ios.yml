@@ -110,7 +110,14 @@ jobs:
       # ios/ is git-ignored and generated fresh on every run, so the build
       # can never drift from a stale committed Xcode project.
       - name: Generate the iOS project
-        run: npx cap add ios
+        # GoogleMLKit needs iOS 15.5+ but the template starts at 14.0, so the
+        # pod install inside `cap add` fails on the first pass by design.
+        # patch:ios raises the deployment target right after this step, and
+        # `cap sync ios` re-runs pod install against the fixed Podfile — so a
+        # pod failure HERE is tolerated; any real problem still fails loudly
+        # at the sync step.
+        run: npx cap add ios || echo "::notice::pod install deferred — patch:ios raises the deployment target and cap sync retries"
+
 
       # Real app icon + splash instead of Capacitor's placeholder logo.
       - name: Generate native icons and splash
