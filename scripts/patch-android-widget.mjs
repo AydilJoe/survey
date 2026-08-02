@@ -270,7 +270,34 @@ const targetClass = declaredName.startsWith(".")
     : `${appId}.${declaredName}`;
 
 const providerClass = `${javaPackage}.${CLASS_NAME}`;
-const quickAddClass = `${appId}.${QUICK_ADD_CLASS}`;
+
+// Resolve the quick-add receiver's fully-qualified name instead of assuming it.
+// An explicit broadcast at a class that does not exist is dropped without a
+// crash, a log line the user will ever see, or any visible difference on the
+// widget — so a wrong package here is the most expensive kind of bug: silent.
+// In priority order:
+//   1. the package declared by the receiver's own source file, which is the
+//      thing being targeted and therefore cannot drift from it;
+//   2. a receiver of that name already in the manifest, for the run order where
+//      install-notification-listener.mjs got there first;
+//   3. <appId>.plugins.DuitfulQuickAddReceiver — today's answer — as a floor.
+const resolveQuickAddClass = () => {
+  if (existsSync(QUICK_ADD_SOURCE)) {
+    const declared = /^\s*package\s+([A-Za-z_][A-Za-z0-9_.]*)\s*;/m.exec(
+      readFileSync(QUICK_ADD_SOURCE, "utf8"),
+    );
+    if (declared && isJavaPackage(declared[1])) return `${declared[1]}.${QUICK_ADD_CLASS}`;
+  }
+  const inManifest = new RegExp(`android:name="([A-Za-z0-9_.]*${QUICK_ADD_CLASS})"`).exec(src);
+  if (inManifest) {
+    const name = inManifest[1];
+    const full = name.startsWith(".") ? `${appId}${name}` : name.includes(".") ? name : `${appId}.${name}`;
+    if (isJavaPackage(full)) return full;
+  }
+  return `${appId}.${QUICK_ADD_FALLBACK_SUBPACKAGE}.${QUICK_ADD_CLASS}`;
+};
+
+const quickAddClass = resolveQuickAddClass();
 const quickAddAction = `${appId}.${QUICK_ADD_ACTION_SUFFIX}`;
 const pickAction = `${appId}.${PICK_ACTION_SUFFIX}`;
 
