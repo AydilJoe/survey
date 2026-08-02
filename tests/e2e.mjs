@@ -4046,6 +4046,116 @@ check('and what was typed reaches the home screen calculation',
     }));
 }
 
+/* Re-unlock if the suite has auto-locked. AUTO_LOCK_MS is 10s of being
+   hidden, and the cold-start checks above open their own pages, which
+   backgrounds this one — the app dropping its key there is correct, but the
+   sections below need one. */
+// Ask the vault, not the overlay: earlier sections hide #lock directly, so
+// the app can be locked with the passcode screen not showing.
+if (await S(() => !aesKey)) {
+  await S(() => { setLockMode('unlock'); showLock(); });
+  await page.fill('#lock-input', 'test1234');
+  await page.click('#lock-submit');
+  await page.waitForTimeout(1400);
+  await page.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+}
+check('the vault is open before the quick-add checks',
+  await S(() => !!aesKey));
+
+/* ── 16j. quick add: the widget and the shade reach the ledger ──────────
+   A tap on the widget's +RM 10, or an amount typed into the quick-add
+   notification, happens while the app is CLOSED — so it cannot touch the
+   vault. Native queues a plain entry; this is the drain that turns it into an
+   ordinary pending transaction, reviewed in the same card as a captured bank
+   notification. Nothing lands in the ledger without a tap. */
+{
+  // Pure shape conversion first — a malformed entry must be dropped, never
+  // thrown on, or one bad row would poison the whole drain.
+  const shaped = await S(() => ({
+    plain: quickAddToPending({ a: 12.5, c: 'Food', t: 1754000000000 }),
+    noCat: quickAddToPending({ a: 8, t: 1754000000000 }),
+    rounded: quickAddToPending({ a: 3.005, c: 'Transport', t: 1 }),
+    zero: quickAddToPending({ a: 0, c: 'Food' }),
+    negative: quickAddToPending({ a: -5, c: 'Food' }),
+    nan: quickAddToPending({ a: 'abc', c: 'Food' }),
+    missing: quickAddToPending({}),
+    nul: quickAddToPending(null),
+  }));
+  check('a queued amount becomes an ordinary pending transaction',
+    shaped.plain && Math.abs(shaped.plain.amount - 12.5) < 0.001
+    && shaped.plain.merchant === 'Food'
+    && shaped.plain.providerId === 'quick-add'
+    && shaped.plain.createdAt === 1754000000000, JSON.stringify(shaped.plain));
+  check('an entry with no category still works, and money stays in sen',
+    shaped.noCat && shaped.noCat.merchant === ''
+    && Math.abs(shaped.rounded.amount - 3.01) < 0.0001, JSON.stringify(shaped.rounded));
+  check('junk in the queue is dropped, not thrown on',
+    [shaped.zero, shaped.negative, shaped.nan, shaped.missing, shaped.nul]
+      .every((v) => v === null), JSON.stringify(shaped));
+
+  // Then the drain itself, against a stubbed plugin.
+  const drained = await S(async () => {
+    const before = (state.pendingTxns || []).length;
+    const prevPlugins = window.Capacitor && window.Capacitor.Plugins;
+    const prevIsNative = window.Capacitor && window.Capacitor.isNativePlatform;
+    let calls = 0;
+    // isNative() asks Capacitor, not a global — stub the bridge, not the fn.
+    window.Capacitor = window.Capacitor || {};
+    window.Capacitor.isNativePlatform = () => true;
+    window.Capacitor.Plugins = Object.assign({}, prevPlugins, {
+      NotificationListener: {
+        drainQuickAdd: async () => {
+          calls += 1;
+          // Second call returns nothing: native clears the queue on drain, so
+          // a re-drain must be a no-op rather than duplicating everything.
+          return calls === 1
+            ? { items: [ { a: 10, c: 'Food', t: Date.now() }, { a: 4.5, c: '', t: Date.now() }, { a: 0, c: 'Food' } ] }
+            : { items: [] };
+        },
+      },
+    });
+    const first = await drainQuickAdd();
+    const afterFirst = (state.pendingTxns || []).filter((p) => p.providerId === 'quick-add').length;
+    const second = await drainQuickAdd();
+    const afterSecond = (state.pendingTxns || []).filter((p) => p.providerId === 'quick-add').length;
+    // And a plugin that throws must not take the app down with it.
+    window.Capacitor.Plugins.NotificationListener = {
+      drainQuickAdd: async () => { throw new Error('binder died'); },
+    };
+    let threw = false;
+    try { await drainQuickAdd(); } catch { threw = true; }
+    window.Capacitor.Plugins = prevPlugins;
+    if (prevIsNative) window.Capacitor.isNativePlatform = prevIsNative;
+    else delete window.Capacitor.isNativePlatform;
+    state.pendingTxns = (state.pendingTxns || []).filter((p) => p.providerId !== 'quick-add');
+    save();
+    return { before, first, afterFirst, second, afterSecond, threw };
+  });
+  check('draining files the good entries and skips the bad one',
+    drained.first === 2 && drained.afterFirst === 2, JSON.stringify(drained));
+  check('a second drain adds nothing — the queue is cleared natively',
+    drained.second === 0 && drained.afterSecond === 2, JSON.stringify(drained));
+  check('a failing native call is swallowed, never thrown at the app',
+    drained.threw === false, JSON.stringify(drained));
+
+  // Nothing reaches the ledger by itself: quick adds land in the same review
+  // card as bank captures and need an explicit Add.
+  check('a quick add is queued for review, not written straight to spending',
+    await S(async () => {
+      const spendBefore = state.dailyExpenses.length;
+      state.pendingTxns = (state.pendingTxns || []).concat([
+        quickAddToPending({ a: 9.9, c: 'Food', t: Date.now() }),
+      ]);
+      save(); renderAll();
+      const card = document.getElementById('pending-card');
+      const visible = !!card && !card.hidden;
+      const untouched = state.dailyExpenses.length === spendBefore;
+      state.pendingTxns = state.pendingTxns.filter((p) => p.providerId !== 'quick-add');
+      save(); renderAll();
+      return visible && untouched;
+    }));
+}
+
 /* ── 17. native plugin allowlists stay deliberate ───────────────────────
    Both platforms pin includePlugins, so a newly added plugin dependency
    reaches a native build ONLY when someone lists it. That is what keeps

@@ -4790,6 +4790,20 @@ async function purchasePro(sku = PRODUCT_ID) {
 
   return Promise.race([settlement, timeout]);
 }
+/* The widget is tapped while Duitful is in the background as often as while
+   it is closed, so draining only at unlock would leave entries sitting until
+   the next cold start. Bound once — appStateChange lives for the process. */
+let _quickAddResumeBound = false;
+function initQuickAddResume() {
+  if (_quickAddResumeBound || !isNative()) return;
+  const App = window.Capacitor?.Plugins?.App;
+  if (!App || typeof App.addListener !== "function") return;
+  _quickAddResumeBound = true;
+  App.addListener("appStateChange", (st) => {
+    if (st && st.isActive) drainQuickAdd().catch(() => {});
+  });
+}
+
 function initNotificationListener() {
   if (!isNative()) return;
   const NL = window.Capacitor?.Plugins?.NotificationListener;
@@ -9119,6 +9133,8 @@ async function handleUnlock(passcode) {
   loadFxRates().then(() => renderAll());
   initIAP();
   initNotificationListener();
+  drainQuickAdd().catch(() => {});
+  initQuickAddResume();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
   maybeShowInstallBanner();
@@ -9149,6 +9165,8 @@ async function handleSetup(passcode, confirm, initialState) {
   loadFxRates().then(() => renderAll());
   initIAP();
   initNotificationListener();
+  drainQuickAdd().catch(() => {});
+  initQuickAddResume();
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
   maybeOfferBiometric(passcode).catch(() => {});
@@ -10104,6 +10122,87 @@ function queuePendingTxn(data) {
   save();
   if (typeof renderAll === "function") renderAll();
   return true;
+}
+
+/* ---------- Quick add: the widget and the shade ----------
+
+   A tap on the widget's +RM 10, or an amount typed into the quick-add
+   notification, happens while the app is closed — so it cannot reach the
+   vault. The key is derived from the passcode and only exists in memory
+   while Duitful is open.
+
+   So native appends a small plain entry to a queue and we drain it here, the
+   moment there IS a key. Each one becomes an ordinary pending transaction,
+   reviewed in the same card as a captured bank notification: nothing lands in
+   the ledger without a tap. That queue is the only Duitful data that ever
+   sits outside the encryption, and it holds an amount and a category — never
+   a balance, never a total.
+
+   Note this is strictly better than the bank-notification capture beside it,
+   which drops anything arriving while the app is closed because
+   NotificationListenerPlugin.emit() no-ops without a live instance. */
+function quickAddPlugin() {
+  try {
+    if (!isNative()) return null;
+    const p = window.Capacitor?.Plugins?.NotificationListener;
+    return p && typeof p.drainQuickAdd === "function" ? p : null;
+  } catch { return null; }
+}
+
+// Pure: one queued entry → one pending transaction. Separated so the shape
+// can be tested without a device, and so a malformed entry is dropped rather
+// than poisoning the drain.
+function quickAddToPending(entry) {
+  const amount = Number(entry && entry.a);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  const category = typeof entry.c === "string" && entry.c.trim() ? entry.c.trim() : "";
+  const ts = Number(entry && entry.t);
+  return {
+    id: uid(),
+    createdAt: Number.isFinite(ts) && ts > 0 ? ts : Date.now(),
+    raw: "",
+    pkg: "",
+    amount: Math.round(amount * 100) / 100,
+    merchant: category,
+    providerId: "quick-add",
+    providerName: category ? `Quick add · ${category}` : "Quick add",
+    country: "MY",
+    currency: typeof currentCurrency === "function" ? currentCurrency() : "MYR",
+  };
+}
+
+async function drainQuickAdd() {
+  const plugin = quickAddPlugin();
+  if (!plugin || !aesKey) return 0;
+  let items = [];
+  try {
+    const res = await plugin.drainQuickAdd();
+    items = (res && Array.isArray(res.items)) ? res.items : [];
+  } catch (err) {
+    console.warn("quick-add drain failed:", err);
+    return 0;
+  }
+  if (!items.length) return 0;
+  state.pendingTxns = state.pendingTxns || [];
+  let added = 0;
+  for (const entry of items) {
+    const p = quickAddToPending(entry);
+    if (!p) continue;
+    // The queue is drained-and-cleared natively, so a duplicate here means a
+    // genuine double-tap rather than a re-read. Same 2-minute window the
+    // bank capture uses.
+    const dupe = state.pendingTxns.find((x) => x.providerId === "quick-add"
+      && x.amount === p.amount && x.merchant === p.merchant
+      && Math.abs(p.createdAt - x.createdAt) < 120000);
+    if (dupe) continue;
+    state.pendingTxns.push(p);
+    added += 1;
+  }
+  if (!added) return 0;
+  save();
+  renderAll();
+  toast(added === 1 ? "1 quick entry to review" : `${added} quick entries to review`);
+  return added;
 }
 
 /* Bridge: the Android NotificationListenerPlugin calls this.
