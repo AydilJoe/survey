@@ -173,6 +173,9 @@ const CATEGORIES = [
 
 const DEFAULT_CATEGORY_SLOT = 0; // Food — see CATEGORIES order.
 
+// Sized against the ~2x2's ~42x40dp buttons, not against a roomy preview.
+const SMALL_CELL = { iconSize: 18, labelSize: 9, pad: 3, margin: 2 };
+
 // One code per (amount, category) pair: 110,111,112,113 / 120,… / 130,… / 140,…
 const taggedRequest = (amountIndex, categoryIndex) => 110 + amountIndex * 10 + categoryIndex;
 
@@ -613,16 +616,20 @@ ${p}</LinearLayout>`;
 };
 
 // A full action button: icon over label. This is the ~2x2 widget's whole
-// vocabulary, so the target is big and the label always shows.
-const actionCell = (indent, action, { iconSize, labelSize, pad }) => {
+// vocabulary, so the label always shows — but a 2x2 cell is 110dp wide and
+// after padding and gutters each button is ~42dp across and ~40dp tall. Every
+// number passed in here was sized against that, not against the roomy preview:
+// "Pay debt" is the longest label on the widget and it has to fit unclipped in
+// the smallest box we offer.
+const actionCell = (indent, action, { iconSize, labelSize, pad, margin }) => {
   const p = " ".repeat(indent);
   return `${p}<LinearLayout
 ${p}    android:id="@+id/${viewId(action.name)}"
 ${p}    android:layout_width="0dp"
 ${p}    android:layout_height="match_parent"
 ${p}    android:layout_weight="1"
-${p}    android:layout_marginStart="3dp"
-${p}    android:layout_marginEnd="3dp"
+${p}    android:layout_marginStart="${margin}dp"
+${p}    android:layout_marginEnd="${margin}dp"
 ${p}    android:orientation="vertical"
 ${p}    android:gravity="center"
 ${p}    android:paddingTop="${pad}dp"
@@ -636,7 +643,7 @@ ${p}        android:src="@drawable/${iconRes(action.icon)}" />
 ${p}    <TextView
 ${p}        android:layout_width="wrap_content"
 ${p}        android:layout_height="wrap_content"
-${p}        android:layout_marginTop="4dp"
+${p}        android:layout_marginTop="3dp"
 ${p}        android:text="@string/${labelKey(action.name)}"
 ${p}        android:textColor="@color/duitful_widget_text_muted"
 ${p}        android:textSize="${labelSize}sp"
@@ -700,6 +707,12 @@ ${p}    android:ellipsize="end" />`;
 
 // A category chip. The background here is only the unselected default — the
 // provider rewrites it on every bind so the selected one stays lit.
+//
+// Tighter margins and a smaller face than the amount chips on purpose: at the
+// narrowest four-cell width a phone will give us (250dp, the pre-31 grid's
+// definition of 4 cells) four equal chips are ~54dp each, and "Groceries" and
+// "Transport" are the longest words on the widget. They fit at this size; a
+// step larger and they ellipsize into nonsense.
 const categoryChip = (indent, category, { textSize }) => {
   const p = " ".repeat(indent);
   return `${p}<TextView
@@ -707,8 +720,8 @@ ${p}    android:id="@+id/${categoryViewId(category.key)}"
 ${p}    android:layout_width="0dp"
 ${p}    android:layout_height="match_parent"
 ${p}    android:layout_weight="1"
-${p}    android:layout_marginStart="3dp"
-${p}    android:layout_marginEnd="3dp"
+${p}    android:layout_marginStart="2dp"
+${p}    android:layout_marginEnd="2dp"
 ${p}    android:gravity="center"
 ${p}    android:background="@drawable/duitful_widget_chip"
 ${p}    android:text="@string/${categoryKey(category.key)}"
@@ -762,12 +775,16 @@ ${body}
 // ~2x2: the four actions, icon over label, two by two. No chips — there is no
 // honest way to fit a legible amount chip AND its context in this footprint,
 // and a half-legible one that spends money is worse than none.
+//
+// The budget: 110dp square, less 9dp padding a side and the rows' 3dp margins,
+// leaves each button ~42x40dp. 18 + 3 + ~12 + 6 = 39dp of content height, and
+// "Pay debt" at 9sp is ~36dp wide inside 42dp. It fits; a step larger does not.
 files.set(
   resolve(ANDROID_MAIN, "res/layout/duitful_widget_small.xml"),
   layout(
     [
-      row(4, 1, ACTIONS.slice(0, 2).map((a) => actionCell(8, a, { iconSize: 20, labelSize: 10, pad: 5 }))),
-      row(4, 1, ACTIONS.slice(2, 4).map((a) => actionCell(8, a, { iconSize: 20, labelSize: 10, pad: 5 }))),
+      row(4, 1, ACTIONS.slice(0, 2).map((a) => actionCell(8, a, SMALL_CELL))),
+      row(4, 1, ACTIONS.slice(2, 4).map((a) => actionCell(8, a, SMALL_CELL))),
     ].join("\n"),
   ),
 );
@@ -795,7 +812,7 @@ files.set(
       headerRow(4, { markSize: 18, textSize: 15, hintSize: 10, marginBottom: 2 }),
       row(4, 3, AMOUNTS.map((a) => amountChip(8, a, { textSize: 19 }))),
       caption(4, "duitful_widget_category_caption", { textSize: 10 }),
-      row(4, 2, CATEGORIES.map((c) => categoryChip(8, c, { textSize: 12 }))),
+      row(4, 2, CATEGORIES.map((c) => categoryChip(8, c, { textSize: 10 }))),
       row(4, 2, COMPACT_ACTIONS.map((a) => compactActionCell(8, a, { iconSize: 18, labelSize: 13 }))),
     ].join("\n"),
   ),

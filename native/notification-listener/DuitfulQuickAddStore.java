@@ -66,6 +66,13 @@ public final class DuitfulQuickAddStore {
      */
     private static final Pattern AMOUNT = Pattern.compile("\\d{1,9}(\\.\\d{1,6})?");
 
+    /** "12,50" — the comma is a decimal point. */
+    private static final Pattern DECIMAL_COMMA = Pattern.compile("\\d{1,9},\\d{1,2}");
+    /** "1,234,567" — the commas group thousands. */
+    private static final Pattern GROUPED = Pattern.compile("\\d{1,3}(,\\d{3})+");
+    /** "1,234.50" — grouped thousands and a decimal point. */
+    private static final Pattern GROUPED_WITH_DOT = Pattern.compile("\\d{1,3}(,\\d{3})+\\.\\d{1,6}");
+
     private DuitfulQuickAddStore() {}
 
     static SharedPreferences prefs(Context context) {
@@ -205,19 +212,23 @@ public final class DuitfulQuickAddStore {
         s = sb.toString();
         if (s.length() == 0) return Double.NaN;
 
-        int firstComma = s.indexOf(',');
-        if (firstComma >= 0) {
-            int lastComma = s.lastIndexOf(',');
-            int afterLast = s.length() - lastComma - 1;
+        if (s.indexOf(',') >= 0) {
             if (s.indexOf('.') >= 0) {
-                // Both present: the dot is the decimal point, commas group digits.
+                // Both present: the dot is the decimal point and the commas
+                // must be grouping digits, or this is not a number anyone meant.
+                if (!GROUPED_WITH_DOT.matcher(s).matches()) return Double.NaN;
                 s = s.replace(",", "");
-            } else if (firstComma == lastComma && afterLast >= 1 && afterLast <= 2) {
-                // A single comma with one or two digits behind it is a decimal
+            } else if (DECIMAL_COMMA.matcher(s).matches()) {
+                // One comma with one or two digits behind it is a decimal
                 // point — "12,50" is RM 12.50, not RM 1250.
-                s = s.substring(0, lastComma) + "." + s.substring(lastComma + 1);
-            } else {
+                s = s.replace(',', '.');
+            } else if (GROUPED.matcher(s).matches()) {
                 s = s.replace(",", "");
+            } else {
+                // "12,3456" — neither a decimal comma nor a legal grouping.
+                // Guessing here means guessing between RM 12.35 and RM 123,456,
+                // so refuse and let the user retype.
+                return Double.NaN;
             }
         }
 

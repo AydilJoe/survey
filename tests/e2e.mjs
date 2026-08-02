@@ -4156,6 +4156,54 @@ check('the vault is open before the quick-add checks',
     }));
 }
 
+/* ── 16k. the widget and the receiver must agree ────────────────────────
+   An explicit broadcast at a class that does not exist is dropped by Android
+   silently — no crash, no log, nothing. The first draft of this feature had
+   the widget sending to com.aydiljoe.duitful.DuitfulQuickAddReceiver while
+   the receiver actually lives in the .plugins package, which would have
+   shipped four perfect-looking amount chips that logged nothing at all.
+   Nothing about that failure is visible on a device, so pin it here. */
+{
+  const read = (...p) => readFileSync(path.join(REPO_ROOT, ...p), 'utf8');
+  const recv = read('native', 'notification-listener', 'DuitfulQuickAddReceiver.java');
+  const pkg = (/^package\s+([\w.]+);/m.exec(recv) || [])[1];
+  check('the quick-add receiver declares a package',
+    pkg === 'com.aydiljoe.duitful.plugins', pkg);
+
+  const widget = read('scripts', 'patch-android-widget.mjs');
+  // The widget script must DERIVE the class name, never hard-code it — the
+  // package moved once already.
+  check('the widget does not hard-code a receiver class that could go stale',
+    !/["']com\.aydiljoe\.duitful\.DuitfulQuickAddReceiver["']/.test(widget),
+    (/["']com\.aydiljoe\.duitful[\w.]*Receiver["']/.exec(widget) || ['none'])[0]);
+  check('and it reads the real package from the receiver source',
+    /DuitfulQuickAddReceiver\.java/.test(widget) || /resolveQuickAddClass/.test(widget));
+
+  // The action string is the other half of the contract. The two scripts
+  // compose it from the app id rather than hard-coding it — which is right,
+  // so match the suffix, not the literal.
+  const installer = read('scripts', 'install-notification-listener.mjs');
+  check('widget, receiver and installer all name the same broadcast action',
+    /\.QUICK_ADD\b/.test(widget) && recv.includes('com.aydiljoe.duitful.QUICK_ADD')
+    && /\.QUICK_ADD\b/.test(installer));
+
+  // The queue is the one thing that lives outside the vault. It must not ride
+  // to Google in a system backup — that would quietly contradict the whole
+  // pitch, and nobody would ever notice.
+  check('the quick-add queue is excluded from Android auto-backup',
+    /dataExtractionRules/.test(installer) && /fullBackupContent/.test(installer)
+    && /duitful_quickadd\.xml/.test(installer));
+
+  // Still actions-only: the widget shows no figures beyond its own chips.
+  // Comments are stripped first — the file explains at length that it shows
+  // no balance, and matching that prose would pass for the wrong reason.
+  const code = widget.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  check('the widget reaches for no storage and renders no balance',
+    !/getSharedPreferences|openFileOutput|drainQuickAdd|itemSum/.test(code)
+    && !/setTextViewText\([^)]*balance/i.test(code),
+    (/(getSharedPreferences|drainQuickAdd|itemSum)/.exec(code) || ['clean'])[0]);
+}
+
 /* ── 17. native plugin allowlists stay deliberate ───────────────────────
    Both platforms pin includePlugins, so a newly added plugin dependency
    reaches a native build ONLY when someone lists it. That is what keeps

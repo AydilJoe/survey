@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.23.0";
+const APP_VERSION = "1.24.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4790,6 +4790,61 @@ async function purchasePro(sku = PRODUCT_ID) {
 
   return Promise.race([settlement, timeout]);
 }
+/* The quick-add notification is opt-in, and only exists on the Android shell
+   with the plugin present — the toggle stays hidden everywhere else rather
+   than offering something that cannot happen.
+
+   POST_NOTIFICATIONS is a runtime permission from Android 13. Without asking,
+   enableQuickAddNotification() succeeds and the notification simply never
+   appears — a silent nothing, which is the worst possible outcome for a
+   feature whose whole point is being there when you need it. Requested
+   through @capacitor/local-notifications, which already carries it. */
+async function initQuickAddNotificationPref() {
+  const field = document.getElementById("quickadd-notif-field");
+  const hint = document.getElementById("quickadd-notif-hint");
+  const box = document.getElementById("pref-quickadd-notif");
+  const plugin = quickAddPlugin();
+  if (!field || !box) return;
+  if (!plugin || typeof plugin.isQuickAddNotificationEnabled !== "function") {
+    field.hidden = true;
+    if (hint) hint.hidden = true;
+    return;
+  }
+  field.hidden = false;
+  if (hint) hint.hidden = false;
+  try {
+    const res = await plugin.isQuickAddNotificationEnabled();
+    box.checked = !!(res && res.enabled);
+  } catch { box.checked = false; }
+
+  if (box.dataset.bound) return;
+  box.dataset.bound = "1";
+  box.addEventListener("change", async () => {
+    const want = box.checked;
+    try {
+      if (want) {
+        const LN = window.Capacitor?.Plugins?.LocalNotifications;
+        if (LN && typeof LN.requestPermissions === "function") {
+          const perm = await LN.requestPermissions();
+          if (perm && perm.display && perm.display !== "granted") {
+            box.checked = false;
+            toast("Notifications are off for Duitful — turn them on in Android settings first.");
+            return;
+          }
+        }
+        await plugin.enableQuickAddNotification();
+        toast("Quick add is in your notification shade");
+      } else {
+        await plugin.disableQuickAddNotification();
+      }
+    } catch (err) {
+      console.warn("quick-add notification toggle failed:", err);
+      box.checked = !want;
+      toast("Couldn't change that — try again.");
+    }
+  });
+}
+
 /* The widget is tapped while Duitful is in the background as often as while
    it is closed, so draining only at unlock would leave entries sitting until
    the next cold start. Bound once — appStateChange lives for the process. */
@@ -8478,6 +8533,11 @@ const RELEASE_NOTES = {
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
   ],
+  "1.24.0": [
+    "<strong>Log a spend without opening Duitful</strong> (Android) — the widget now has +RM 5 / 10 / 20 / 50 buttons that record straight from your home screen, and the bigger size lets you tag the category too. One tap instead of four.",
+    "<strong>Type an amount from the notification shade</strong> — switch on \"Quick add\" in Settings and a quiet notification sits there ready. Works from the lock screen.",
+    "<strong>Nothing is added behind your back</strong> — quick entries wait in the same review card as captured bank alerts, and only land when you tap Add.",
+  ],
   "1.23.0": [
     "<strong>A much shorter start</strong> — the old welcome made you click through ten screens before you could do anything, and you couldn't skip it. Now it asks two questions — what comes in, what's already committed — and shows you what's left. Twenty seconds, and skippable.",
     "<strong>The full tour is still there</strong> if you want it: Settings → About → Replay welcome tour.",
@@ -9135,6 +9195,7 @@ async function handleUnlock(passcode) {
   initNotificationListener();
   drainQuickAdd().catch(() => {});
   initQuickAddResume();
+  initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
   maybeShowInstallBanner();
@@ -9167,6 +9228,7 @@ async function handleSetup(passcode, confirm, initialState) {
   initNotificationListener();
   drainQuickAdd().catch(() => {});
   initQuickAddResume();
+  initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
   maybeOfferBiometric(passcode).catch(() => {});
