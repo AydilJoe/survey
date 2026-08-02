@@ -1,15 +1,22 @@
-# Duitful — Android NotificationListenerService plugin
+# Duitful — Android notification plugin (capture + quick-add queue)
 
-Auto-captures bank / e-wallet notifications on Android and sends them to the web layer for user review.
+Two features sharing one package and one Capacitor plugin:
+
+1. **Auto-capture** — reads bank / e-wallet notifications and sends them to the web layer for user review.
+2. **Quick add** — logs a spend *without opening the app*, from the home-screen widget or by typing an amount straight into a notification.
 
 ## Files
 
-- `NotificationListenerPlugin.java` — Capacitor plugin (`NotificationListener`) exposing `isEnabled()` and `openSettings()` to JS.
-- `DuitfulNotificationListenerService.java` — the actual Android service that listens to notifications.
+- `NotificationListenerPlugin.java` — Capacitor plugin (`NotificationListener`). Exposes `isEnabled()`, `openSettings()`, `drainQuickAdd()`, `enableQuickAddNotification()`, `disableQuickAddNotification()`, `isQuickAddNotificationEnabled()`.
+- `DuitfulNotificationListenerService.java` — the Android service that listens to notifications.
+- `DuitfulQuickAddStore.java` — the quick-add queue: a capped, locked, plaintext outbox in SharedPreferences. **Read the class comment before touching it** — it explains what is deliberately *not* stored there and why.
+- `DuitfulQuickAddReceiver.java` — the `com.aydiljoe.duitful.QUICK_ADD` broadcast contract, plus the notification's reply and undo actions.
+- `DuitfulQuickAddNotifier.java` — builds the "Log a spend" notification (with its `RemoteInput` field) and the "RM 12.50 saved" confirmation.
+- `DuitfulQuickAddBootReceiver.java` — re-posts the notification after a reboot or an app update.
 
 ## Install
 
-`npm run cap:sync` runs `scripts/install-notification-listener.mjs` automatically — it copies the two `.java` files into `android/app/src/main/java/com/aydiljoe/duitful/plugins/`, registers the plugin in `MainActivity.java`, and inserts the `<service>` block in `AndroidManifest.xml`. Idempotent and cross-platform; the script no-ops if `android/` doesn't exist (e.g. iOS-only checkout).
+`npm run cap:sync` runs `scripts/install-notification-listener.mjs` automatically — it copies the `.java` files into `android/app/src/main/java/com/aydiljoe/duitful/plugins/`, registers the plugin in `MainActivity.java`, writes the quick-add notification icon, and inserts the `<service>`, `<receiver>` and `<uses-permission>` entries in `AndroidManifest.xml`. Idempotent and cross-platform; the script no-ops if `android/` doesn't exist (e.g. iOS-only checkout).
 
 If you ever need to (re)run just the installer without a full sync:
 
@@ -26,9 +33,51 @@ npm run cap:android      # opens Android Studio for the build
 ### What the script touches
 
 - Creates `android/app/src/main/java/com/aydiljoe/duitful/plugins/`
-- Copies `NotificationListenerPlugin.java` + `DuitfulNotificationListenerService.java`
+- Copies all six `.java` files listed above
 - Adds `import com.aydiljoe.duitful.plugins.NotificationListenerPlugin;` and the `registerPlugin(NotificationListenerPlugin.class);` call to `MainActivity.java`
 - Adds the `<service android:name="…DuitfulNotificationListenerService" …>` block inside `<application>` in `AndroidManifest.xml`
+- Writes `res/drawable/duitful_quickadd_ic.xml` (the notification's small icon)
+- Adds `POST_NOTIFICATIONS` + `RECEIVE_BOOT_COMPLETED` permissions and the two quick-add `<receiver>` blocks
+
+## Quick add
+
+### Why a queue at all
+
+The vault is AES-GCM encrypted under a key derived from the user's passcode, and that key only exists in the app process's memory while the app is open. A widget runs in the *launcher's* process; a broadcast receiver may run with no unlocked session at all. Neither can write a transaction. So native writes a tiny plain record — amount, optional category, timestamp — into `SharedPreferences("duitful_quickadd")["queue"]`, capped at 50, and the web layer drains it and commits it into the vault on next open. Nothing else is ever mirrored outside the vault.
+
+### The broadcast contract
+
+Fixed. The home-screen widget (`scripts/patch-android-widget.mjs`) sends exactly this:
+
+```
+action  com.aydiljoe.duitful.QUICK_ADD          (receiver is NOT exported — in-app senders only)
+extra   amount    double, required, must be > 0
+extra   category  String, optional
+```
+
+Each accepted broadcast posts a brief *"RM 12.50 saved · filed when you next open Duitful"* confirmation with an **Undo** action that deletes that one entry by its timestamp.
+
+### The notification you can type into
+
+Android widgets cannot contain a text field — `RemoteViews` has no `EditText`. Notifications can, via `RemoteInput`, which is the same mechanism as replying to a chat app from the shade. So the persistent quick-add notification (ongoing, silent, low-priority, titled **Log a spend**) carries two actions: **Add**, which opens an inline "Amount" field, and **Scan receipt**, which opens `duitful://action/scan`.
+
+The typed amount is parsed leniently — `12`, `12.50`, `RM12.50`, `rm 12,50`, ` 12.5 `, `1,234.50` all work. Anything that is not a positive amount (`abc`, `-5`, `0`, `1e9`) re-posts the notification with the reason instead of being dropped silently. Valid amounts go through the same queue as the widget.
+
+### Wire it from JS
+
+```js
+const NL = window.Capacitor?.Plugins?.NotificationListener;
+
+// On app start / resume — commit anything logged while the app was closed.
+const { items } = await NL.drainQuickAdd();      // [{ a: 12.5, c: "Food", t: 1754123456789 }, …]
+
+// Settings toggle.
+const { enabled, permitted, pending } = await NL.isQuickAddNotificationEnabled();
+await NL.enableQuickAddNotification();           // needs POST_NOTIFICATIONS on API 33+
+await NL.disableQuickAddNotification();
+```
+
+`drainQuickAdd()` empties the queue in the same lock it read it under, so entries are handed over exactly once — **whatever is returned must be committed or it is gone.** `permitted` is false when Android will not show the notification (permission denied or channel blocked); `enabled` is only what the user asked for.
 
 ### Manual fallback
 

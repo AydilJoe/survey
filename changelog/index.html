@@ -142,6 +142,19 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-24">
+    <span class="release-date">August 2026 · v1.24</span>
+    <h2 class="release-title">Logging a spend without opening the app</h2>
+    <p class="release-summary">The widget used to be four shortcuts that just opened Duitful, and it gave you bigger buttons when you made it bigger. Now it logs.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Amount buttons on the widget</strong> (Android) — <em>+RM 5 / 10 / 20 / 50</em> record a spend straight from the home screen. The 4×4 size adds category chips, so one tap means "RM 10 on Food". A bigger widget now buys you more to do, not larger buttons.</li>
+      <li><span class="tag feat">new</span><strong>Type an amount in the notification shade</strong> — turn on <em>Quick add</em> under Settings → Reminders and a quiet notification stays put with a field you can type into. Works from the lock screen. Android widgets can't contain a text field at all — notifications can, which is why it lives there.</li>
+      <li><span class="tag note">note</span><strong>Nothing is added behind your back.</strong> Neither surface can reach your encrypted data — the key only exists while Duitful is open. They queue the entry, and it waits in the same review card as a captured bank alert until you tap Add.</li>
+      <li><span class="tag note">note</span><strong>That queue is excluded from Google's backup.</strong> It's the one piece of Duitful data that ever sits outside the encryption — an amount and a category, briefly — and letting it ride to the cloud in a system backup would have quietly contradicted the entire point.</li>
+      <li><span class="tag fix">fix</span><strong>Clearer widget icons.</strong> Split was rendering as a circle with a line through it and Scan as a bracket.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-23">
     <span class="release-date">August 2026 · v1.23</span>
     <h2 class="release-title">Two questions instead of ten screens</h2>

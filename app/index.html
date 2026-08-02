@@ -86,7 +86,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=86" />
+    <link rel="stylesheet" href="styles.css?v=87" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -1396,6 +1396,11 @@
             <button id="btn-enable-notifications" class="ghost" type="button">Enable browser notifications</button>
           </div>
           <p class="hint" id="notifications-status"></p>
+          <label class="field toggle-field" id="quickadd-notif-field" hidden>
+            <input type="checkbox" id="pref-quickadd-notif" />
+            <span>Quick add from the notification shade</span>
+          </label>
+          <p class="hint" id="quickadd-notif-hint" hidden>A quiet notification that stays put, so you can type an amount without opening Duitful. It's filed for review next time you open the app — nothing is added on its own.</p>
           <label class="field toggle-field">
             <input type="checkbox" id="pref-split-overdue" checked />
             <span>Chase requests that have gone quiet</span>
@@ -2046,6 +2051,6 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=6"></script>
-    <script src="script.js?v=120"></script>
+    <script src="script.js?v=121"></script>
   </body>
 </html>
