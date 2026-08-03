@@ -4368,6 +4368,48 @@ check('an unknown lender round-trips without gaining a brand or a tenure',
   bnplCsv.kop && bnplCsv.kop.brand === undefined && bnplCsv.kop.termMonths === undefined,
   JSON.stringify(bnplCsv.kop));
 
+// -- the same plans, summarised on the Home debt card --
+await S(() => {
+  state.pro = true;
+  state.debts = [
+    { id:'m1', name:'Atome',        brand:'atome',     kind:'installment', balance:533.34, apr:0, minPayment:266.67, installment:266.67, monthsLeft:2, termMonths:3 },
+    { id:'m2', name:'SPayLater',    brand:'spaylater', kind:'installment', balance:423.33, apr:0, minPayment:141.11, installment:141.11, monthsLeft:3, termMonths:18 },
+    { id:'m3', name:'GrabPayLater', brand:'grabpay',   kind:'installment', balance:236,    apr:0, minPayment:118,    installment:118,    monthsLeft:2, termMonths:12 },
+    { id:'m4', name:'Boost',        brand:'boost',     kind:'installment', balance:260,    apr:0, minPayment:130,    installment:130,    monthsLeft:2, termMonths:12 },
+    { id:'m5', name:'Legacy plan',                     kind:'installment', balance:500,    apr:0, minPayment:100,    installment:100,    monthsLeft:5 },
+    { id:'m6', name:'Maybank card', brand:'maybank',   kind:'standard',    balance:3200,   apr:18, minPayment:160 },
+  ];
+  save(); renderAll();
+});
+await page.click('#tabbtn-dashboard');
+await page.waitForTimeout(400);
+const mini = await S(() => ({
+  rows: [...document.querySelectorAll('#debts-mini .debt-mini-row')]
+    .map(r => r.querySelector('.debt-mini-name').textContent),
+  counts: [...document.querySelectorAll('#debts-mini .debt-mini-count')].map(e => e.textContent),
+  bars: document.querySelectorAll('#debts-mini .inst-progress > i').length,
+  more: (document.querySelector('.debt-mini-more') || {}).textContent || '',
+}));
+check('the Home debt card lists instalment plans, capped at three',
+  mini.rows.length === 3 && mini.bars === 3, JSON.stringify(mini));
+check('nearest to finishing comes first — that is the glanceable one',
+  mini.counts[0].startsWith('15') && !mini.rows.includes('Atome'), JSON.stringify(mini));
+check('a plan with no known tenure never appears — it has no bar to draw',
+  !mini.rows.includes('Legacy plan'), JSON.stringify(mini.rows));
+check('a standard card is not listed as an instalment plan',
+  !mini.rows.includes('Maybank card'), JSON.stringify(mini.rows));
+check('the overflow link counts only the plans actually hidden',
+  /^1 more plan/.test(mini.more), JSON.stringify(mini.more));
+
+// The block has to disappear cleanly for the many users with no BNPL at all,
+// or every one of them pays for this feature with dead space.
+await S(() => { state.debts = state.debts.filter(d => d.kind === 'standard'); save(); renderAll(); });
+await page.waitForTimeout(300);
+check('with no instalment plans the block collapses to nothing',
+  (await S(() => document.getElementById('debts-mini').getBoundingClientRect().height)) === 0);
+check('and the rest of the Home debt card still renders',
+  (await S(() => document.getElementById('stat-debt-total').textContent)).includes('3,200'));
+
 // -- every script the page loads must reach the native build --
 // build-web.mjs copies an explicit allowlist into www/, so adding a <script>
 // to index.html without adding it there ships a working PWA and a broken

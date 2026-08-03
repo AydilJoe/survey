@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.25.0";
+const APP_VERSION = "1.25.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -2601,6 +2601,52 @@ function debtBrandTile(d) {
   return `<span class="brand-swatch tile" style="${style}" aria-hidden="true">${escapeHtml(r.monogram)}</span>`;
 }
 
+// Instalment plans on the Home debt card, mirroring how #savings-mini shows
+// the top few goals.
+//
+// Only plans whose tenure is known appear here. That is the whole reason this
+// block earns its space — a bar is the one thing the Home card cannot already
+// say with a number, and a row without a known denominator has no bar to draw.
+// A user with only cards and loans gets an empty div, which CSS collapses.
+//
+// Sorted by progress descending: the nearly-finished plan is the one worth
+// glancing at, and "15 of 18 paid" is the line that makes someone open the app
+// again. Capped at three so the card keeps its shape.
+function renderDebtsMini() {
+  const host = document.getElementById("debts-mini");
+  if (!host) return;
+  if (typeof brandResolve !== "function") { host.innerHTML = ""; return; }
+
+  const plans = state.debts
+    .map((d) => ({ d, p: installmentProgress(d) }))
+    .filter((x) => x.p && x.p.known && x.p.term > 0)
+    .sort((a, b) => (b.p.paid / b.p.term) - (a.p.paid / a.p.term))
+    .slice(0, 3);
+
+  if (!plans.length) { host.innerHTML = ""; return; }
+
+  const hidden = state.debts.filter((d) => {
+    const p = installmentProgress(d);
+    return p && p.known && p.term > 0;
+  }).length - plans.length;
+
+  host.innerHTML = plans.map(({ d, p }) => {
+    const pct = (p.paid / p.term) * 100;
+    return `
+      <div class="debt-mini-row" data-id="${escapeHtml(d.id)}">
+        <div class="top-row">
+          ${debtBrandTile(d)}
+          <span class="debt-mini-name">${escapeHtml(d.name)}</span>
+          <span class="debt-mini-count">${p.paid}<span class="of">/${p.term}</span></span>
+        </div>
+        <div class="inst-progress"><i style="width:${pct.toFixed(1)}%"></i></div>
+      </div>`;
+  }).join("")
+    + (hidden > 0
+        ? `<button type="button" class="ghost debt-mini-more" data-go-tab="debts">${hidden} more plan${hidden === 1 ? "" : "s"} →</button>`
+        : "");
+}
+
 function monthProgress() {
   const now = new Date();
   const y = now.getFullYear();
@@ -2773,6 +2819,8 @@ function renderDashboard() {
       }
     }
   }
+
+  renderDebtsMini();
 
   const banner = $("#stat-debt-banner");
   const bannerSub = $("#stat-debt-banner-sub");

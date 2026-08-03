@@ -3070,6 +3070,70 @@ button.ghost.icon-btn {
   .inst-progress > i { transition: none; }
 }
 
+/* ── Instalment plans on the Home debt card ──────────────────────────────────
+   Same glass-pane treatment as .saving-card next door, so the two cards read
+   as siblings rather than as two different ideas about what a mini row is. */
+.debts-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.1rem 0 0.2rem;
+}
+.debts-mini:empty { display: none; }
+.debt-mini-row {
+  background: var(--glass-pane);
+  -webkit-backdrop-filter: var(--glass-blur-soft);
+  backdrop-filter: var(--glass-blur-soft);
+  border: 0.5px solid var(--glass-border-soft);
+  border-radius: 10px;
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow: var(--glass-pane-shadow);
+}
+.debt-mini-row .top-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.debt-mini-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.86rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.debt-mini-count {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.debt-mini-count .of { color: var(--muted); font-weight: 400; }
+/* The tile is already sized for the Debts list; nudge off the inline-block
+   baseline offset it carries there, since this row is flex. */
+.debt-mini-row .brand-swatch.tile { margin-right: 0; vertical-align: 0; }
+.debt-mini-row .inst-progress { margin-top: 0; }
+/* A quiet link, not a button — .ghost carries a border and padding that make
+   it compete with "Add your first debt" two elements away. This is a way out
+   of a truncated list, not a call to action. */
+.debt-mini-more {
+  align-self: flex-start;
+  font-size: 0.78rem;
+  padding: 0.1rem 0;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  box-shadow: none;
+  min-height: 0;
+}
+.debt-mini-more:hover { color: var(--primary); background: none; }
+
 /* ── Brand combobox on the debt form ── */
 .brand-field { position: relative; }
 .brand-input-row {

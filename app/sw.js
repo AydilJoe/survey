@@ -15,14 +15,14 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-08-03-2";
+const VERSION = "2026-08-03-3";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=89",
-  "/app/script.js?v=123",
+  "/app/styles.css?v=90",
+  "/app/script.js?v=124",
   "/app/drive-config.js?v=2",
   "/app/drive-sync.js?v=2",
   "/app/investments.js?v=3",
