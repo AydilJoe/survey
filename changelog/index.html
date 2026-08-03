@@ -142,6 +142,18 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-25">
+    <span class="release-date">August 2026 · v1.25</span>
+    <h2 class="release-title">Knowing which paylater is which</h2>
+    <p class="release-summary">If you're juggling four buy-now-pay-later plans, the hard part isn't the maths — it's working out which row is which before you've read any of them.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Instalment plans carry their provider's colour.</strong> Start typing "ato" in the name field and Atome comes up with its colour attached; same for SPayLater, GrabPayLater, Boost, Touch 'n Go and the major banks. A lender that isn't in the list still gets a colour of its own, worked out from the name, so no row ever looks half-finished.</li>
+      <li><span class="tag feat">new</span><strong>"4 of 12 paid" instead of "8 months left".</strong> Same plan, same number, but one of them is ground you've covered and the other is a sentence you're serving. Instalment rows now show a progress bar against the full plan.</li>
+      <li><span class="tag note">note</span><strong>Old plans need one number from you.</strong> Duitful never recorded how long a plan originally ran — only what was left — and that can't be worked back out from the balance. Rather than tell you you're at 0 of 12 when you're at 10, those rows keep showing months left until you fill in <em>Total months</em> under ✎.</li>
+      <li><span class="tag note">note</span><strong>The provider list is bundled, not looked up.</strong> Searching a logo service would have meant sending your list of lenders to someone else's server, which is the single most sensitive thing in the app. Matching happens on your device, offline, like everything else.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-24">
     <span class="release-date">August 2026 · v1.24</span>
     <h2 class="release-title">Logging a spend without opening the app</h2>

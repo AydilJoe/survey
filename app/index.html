@@ -86,7 +86,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=87" />
+    <link rel="stylesheet" href="styles.css?v=88" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -719,9 +719,20 @@
               <button type="button" class="pill" data-debt-kind="islamic" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 5.5a7 7 0 100 13 8 8 0 110-13z"/><path d="M19.5 9l.6 1.7 1.8.1-1.4 1.2.5 1.7-1.5-1-1.5 1 .5-1.7-1.4-1.2 1.8-.1z"/></svg></span>Islamic</button>
             </div>
             <input type="hidden" id="debt-kind" name="kind" value="standard" />
-            <label class="field">
+            <!-- Combobox, not a <datalist>: the suggestion rows carry a colour
+                 swatch, and the point of the control is recognising a brand by
+                 colour. Matching is local — see brands.js on why there is no
+                 lookup service behind this. -->
+            <label class="field brand-field">
               <span>Name</span>
-              <input type="text" name="name" placeholder="Credit card / Atome — phone" required />
+              <span class="brand-input-row">
+                <span class="brand-swatch" id="debt-brand-swatch" aria-hidden="true"></span>
+                <input type="text" name="name" placeholder="Credit card / Atome — phone" required
+                       autocomplete="off" role="combobox" aria-expanded="false"
+                       aria-autocomplete="list" aria-controls="debt-brand-list" />
+              </span>
+              <input type="hidden" name="brand" id="debt-brand" value="" />
+              <ul class="brand-suggest" id="debt-brand-list" role="listbox" hidden></ul>
             </label>
 
             <div id="debt-fields-standard" class="debt-fields">
@@ -742,7 +753,7 @@
             </div>
 
             <div id="debt-fields-installment" class="debt-fields" hidden>
-              <div class="grid-2">
+              <div class="grid-3">
                 <label class="field">
                   <span>Monthly (<span class="cur-code">MYR</span>)</span>
                   <input type="number" name="installment" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 100" />
@@ -751,8 +762,12 @@
                   <span>Months left</span>
                   <input type="number" name="monthsLeft" step="1" min="1" max="120" inputmode="numeric" placeholder="3" />
                 </label>
+                <label class="field">
+                  <span>Total months</span>
+                  <input type="number" name="termMonths" step="1" min="1" max="120" inputmode="numeric" placeholder="same" />
+                </label>
               </div>
-              <p class="hint">Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left.</p>
+              <p class="hint">Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left. Set total months to see progress like "4 of 12 paid".</p>
             </div>
 
             <div id="debt-fields-islamic" class="debt-fields" hidden>
@@ -2051,6 +2066,7 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=6"></script>
-    <script src="script.js?v=121"></script>
+    <script src="brands.js?v=1"></script>
+    <script src="script.js?v=122"></script>
   </body>
 </html>

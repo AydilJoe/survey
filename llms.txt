@@ -30,8 +30,13 @@
   freed-up minimums forward; shows your exact debt-free date as it
   shifts with each payment.
 - **BNPL & instalment tracking**: Atome, SPayLater, Grab PayLater,
-  ShopBack PayLater, credit-card instalment plans (CIMB, Maybank, Public
-  Bank, etc.).
+  ShopBack PayLater, Boost PayFlex, Touch 'n Go, credit-card instalment
+  plans (CIMB, Maybank, Public Bank, etc.). Plans are colour-coded by
+  provider so a list of four paylater apps is readable at a glance, and
+  each shows progress against the full plan ("4 of 12 paid") rather than
+  months remaining. The provider list is bundled in the app — matching
+  happens on-device, so the set of lenders someone owes is never sent
+  anywhere.
 - **Receipt OCR**: fully on-device — Google ML Kit inside the Android
   app (on-device model; Google receives nothing), Tesseract.js on the
   web. Receipts never leave the phone. Auto-extracts amount, merchant,

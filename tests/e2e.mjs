@@ -1516,9 +1516,17 @@ const splitCsv = await S(() => {
     inPay: (back.split.in.find((r) => r.id === 'payto-in-1') || {}).pay,
   };
 });
-check('csv header appends the split_ block after the inv_ block',
-  splitCsv.header.endsWith('split_id,split_kind,split_title,split_status,split_due_date,split_settled_date,split_role'),
-  splitCsv.header.slice(-120));
+// The invariant is that new column blocks are APPENDED, never inserted —
+// an older CSV must keep parsing, and every column an older build wrote must
+// stay at the index it wrote it to. Asserting the header merely *contains*
+// the split_ run in order (rather than ends with it) keeps that guarantee
+// while letting later releases add their own blocks after it.
+check('csv header keeps the inv_ block ahead of the split_ block, contiguous',
+  splitCsv.header.includes('inv_reinvested,split_id,split_kind,split_title,split_status,split_due_date,split_settled_date,split_role'),
+  splitCsv.header.slice(-160));
+check('csv column blocks are appended, never inserted — split_ precedes 1.25 columns',
+  splitCsv.header.indexOf('split_role') < splitCsv.header.indexOf('term_months'),
+  splitCsv.header.slice(-160));
 check('csv emits all three split row types plus the pay setting rows',
   splitCsv.hasRows && splitCsv.hasPaySetting,
   JSON.stringify({ rows: splitCsv.hasRows, pay: splitCsv.hasPaySetting }));
@@ -4238,6 +4246,203 @@ check('the vault is open before the quick-add checks',
      '@pantrist/capacitor-plugin-ml-kit-text-recognition', 'cordova-plugin-purchase']
       .every(p => ios.includes(p) && android.includes(p)));
 }
+
+// ---------- 17. Loans & BNPL: brand recognition + instalment progress ----------
+// The whole point of this group is that a row is identifiable before it is
+// read, and that progress reads as ground covered rather than time remaining.
+// Both of those are easy to regress into "looks fine, means nothing".
+
+// Instalment plans are Pro-gated and the trial was aged out earlier in this
+// file, so restore Pro before touching the form — otherwise every add below
+// silently no-ops and the section passes vacuously.
+await S(() => { state.pro = true; state.debts = []; save(); renderAll(); });
+await page.click('#tabbtn-debts');
+await page.waitForTimeout(200);
+
+// -- the brand combobox --
+await page.click('.debt-type-pills .pill[data-debt-kind="installment"]');
+await page.fill('#form-debt [name="name"]', 'ato');
+await page.waitForTimeout(200);
+check('typing part of a brand offers it locally',
+  await page.locator('#debt-brand-list li[data-brand="atome"]').isVisible());
+check('the suggestion carries the colour, which is the actual identifier',
+  /rgb\(237, 246, 75\)/.test(
+    await page.locator('#debt-brand-list li[data-brand="atome"] .brand-swatch')
+      .evaluate(e => getComputedStyle(e).backgroundColor)));
+
+await page.click('#debt-brand-list li[data-brand="atome"]');
+await page.waitForTimeout(150);
+check('picking completes the name and records the brand',
+  (await page.inputValue('#form-debt [name="name"]')) === 'Atome'
+  && (await page.inputValue('#debt-brand')) === 'atome');
+check('the suggestion list closes once a brand is chosen',
+  await page.locator('#debt-brand-list').isHidden());
+
+// Atome: RM 266.67 x 3, one paid → 2 left of a 3-month plan.
+await page.fill('#debt-fields-installment [name="installment"]', '266.67');
+await page.fill('#debt-fields-installment [name="monthsLeft"]', '2');
+await page.fill('#debt-fields-installment [name="termMonths"]', '3');
+await page.click('#form-debt button[type="submit"]');
+await page.waitForTimeout(300);
+
+check('the brand survives onto the stored debt',
+  (await S(() => (state.debts[0] || {}).brand)) === 'atome');
+check('and so does the original tenure, which the balance alone cannot give',
+  (await S(() => (state.debts[0] || {}).termMonths)) === 3);
+
+const prog = await S(() => installmentProgress(state.debts[0]));
+check('progress counts payments made, not months remaining',
+  prog.known === true && prog.paid === 1 && prog.term === 3 && prog.left === 2,
+  JSON.stringify(prog));
+check('the row says "1 of 3 paid" rather than "2 months left"',
+  /1 of 3 paid/.test(await page.locator('#list-debt li').first().innerText()),
+  await page.locator('#list-debt li').first().innerText());
+check('a progress bar is drawn at the right fraction',
+  Math.abs(parseFloat(await page.locator('#list-debt li .inst-progress > i').first()
+    .evaluate(e => e.style.width)) - 33.3) < 0.2);
+
+// -- a name that matches nothing still gets a stable identity --
+// A successful submit resets the form to Standard, so the kind has to be
+// re-selected before the instalment fields exist again.
+await page.click('.debt-type-pills .pill[data-debt-kind="installment"]');
+await page.fill('#form-debt [name="name"]', 'Koperasi pinjaman');
+await page.waitForTimeout(150);
+check('an unknown lender offers no suggestions', await page.locator('#debt-brand-list').isHidden());
+await page.fill('#debt-fields-installment [name="installment"]', '100');
+await page.fill('#debt-fields-installment [name="monthsLeft"]', '5');
+await page.fill('#debt-fields-installment [name="termMonths"]', '');
+await page.click('#form-debt button[type="submit"]');
+await page.waitForTimeout(300);
+
+const unknown = await S(() => {
+  const d = state.debts.find(x => x.name === 'Koperasi pinjaman');
+  return { brand: d.brand, term: d.termMonths, color: brandResolve(d).color, prog: installmentProgress(d) };
+});
+check('no brand is force-fitted to a name that matches nothing',
+  unknown.brand === undefined, JSON.stringify(unknown.brand));
+check('but it still resolves to a real colour, so the row never looks broken',
+  /^#[0-9a-f]{6}$/.test(unknown.color), unknown.color);
+check('a blank total-months means "tracking from the start", not "unknown"',
+  unknown.term === 5 && unknown.prog.known === true && unknown.prog.paid === 0,
+  JSON.stringify(unknown));
+
+// -- the honesty case: a legacy row must NOT claim zero progress --
+await S(() => {
+  const d = state.debts.find(x => x.name === 'Koperasi pinjaman');
+  delete d.termMonths;
+  save(); renderAll();
+});
+await page.waitForTimeout(250);
+const legacy = await S(() => installmentProgress(state.debts.find(x => x.name === 'Koperasi pinjaman')));
+check('a row with no recorded tenure reports progress as unknown',
+  legacy.known === false, JSON.stringify(legacy));
+check('and falls back to "months left" instead of inventing "0 of N paid"',
+  /5 months left/.test(await page.locator('#list-debt li:has-text("Koperasi") ').first().innerText())
+  && !/0 of/.test(await page.locator('#list-debt li:has-text("Koperasi") ').first().innerText()),
+  await page.locator('#list-debt li:has-text("Koperasi")').first().innerText());
+check('no progress bar is drawn when there is nothing truthful to draw',
+  (await page.locator('#list-debt li:has-text("Koperasi") .inst-progress').count()) === 0);
+
+// -- CSV round-trip --
+const bnplCsv = await S(() => {
+  const csv = toCSV();
+  const back = fromCSV(csv);
+  const atome = back.debts.find(d => d.name === 'Atome');
+  const kop = back.debts.find(d => d.name === 'Koperasi pinjaman');
+  return {
+    header: csv.split('\n')[0],
+    atome,
+    kop,
+    // Column count must match the header on every row, or a later block shifts.
+    ragged: csv.split('\n').filter(Boolean)
+      .some(l => (l.match(/,/g) || []).length !== (csv.split('\n')[0].match(/,/g) || []).length),
+  };
+});
+check('csv carries the new debt columns', /term_months,brand,brand_color/.test(bnplCsv.header));
+check('no row is ragged — the appended block did not shift any column',
+  bnplCsv.ragged === false);
+check('brand and tenure survive a csv round-trip',
+  bnplCsv.atome && bnplCsv.atome.brand === 'atome' && bnplCsv.atome.termMonths === 3,
+  JSON.stringify(bnplCsv.atome));
+check('an unknown lender round-trips without gaining a brand or a tenure',
+  bnplCsv.kop && bnplCsv.kop.brand === undefined && bnplCsv.kop.termMonths === undefined,
+  JSON.stringify(bnplCsv.kop));
+
+// -- every script the page loads must reach the native build --
+// build-web.mjs copies an explicit allowlist into www/, so adding a <script>
+// to index.html without adding it there ships a working PWA and a broken
+// Capacitor app — and nothing in the web tests would notice.
+{
+  const html = readFileSync(path.join(REPO_ROOT, 'app/index.html'), 'utf8');
+  const buildWeb = readFileSync(path.join(REPO_ROOT, 'scripts/build-web.mjs'), 'utf8');
+  const swSrc = readFileSync(path.join(REPO_ROOT, 'app/sw.js'), 'utf8');
+  // Local scripts only — the Google sign-in tag is a remote URL by design.
+  const local = [...html.matchAll(/<script src="(?!https?:)([^"?]+)/g)].map(m => m[1]);
+  const missingFromBuild = local.filter(f => !buildWeb.includes(`"${f}"`));
+  const missingFromShell = local.filter(f => !swSrc.includes(`/app/${f}`));
+  check('every local script in index.html is copied into the native build',
+    local.length >= 6 && missingFromBuild.length === 0,
+    JSON.stringify({ found: local.length, missing: missingFromBuild }));
+  check('and every one of them is precached by the service worker',
+    missingFromShell.length === 0, JSON.stringify(missingFromShell));
+  // Cache-busting only works if the ?v= in the page matches the ?v= in SHELL;
+  // a mismatch means the SW precaches a URL the page never requests.
+  const versioned = [...html.matchAll(/(?:src|href)="((?:[\w./-]+)\.(?:js|css)\?v=\d+)"/g)].map(m => m[1]);
+  const shellMismatch = versioned.filter(v => !swSrc.includes(`/app/${v}`));
+  check('the ?v= query on every asset matches the service worker SHELL entry',
+    versioned.length >= 6 && shellMismatch.length === 0,
+    JSON.stringify({ checked: versioned.length, mismatched: shellMismatch }));
+}
+
+// -- monograms have to be readable as the brand, or the tile is just noise --
+const monograms = await S(() => ({
+  bankIslam: brandMonogram('Bank Islam'),
+  publicBank: brandMonogram('Public Bank'),
+  typed: brandMonogram('Bank Rakyat pinjaman'),
+  suffix: brandMonogram('Koperasi Jaya Sdn Bhd'),
+  empty: brandMonogram(''),
+}));
+check('"Bank" is kept in a monogram — "Bank Islam" reads as BI, never IS',
+  monograms.bankIslam === 'BI' && monograms.publicBank === 'PB' && monograms.typed === 'BR',
+  JSON.stringify(monograms));
+check('legal suffixes are still dropped, and an empty name never crashes',
+  monograms.suffix === 'KJ' && monograms.empty === '?', JSON.stringify(monograms));
+
+// -- an absent logo file must not be requested, and must not break the tile --
+const logoGating = await S(() => {
+  return {
+    // No catalogue entry ships artwork yet, so no path should ever be built.
+    noneShipToday: ['atome', 'boost', 'spaylater', 'grabpay'].every(id => brandLogoUrl(id) === ''),
+    // The tile still renders — as letters, not a broken image.
+    tileHasNoImg: !/<img/.test(debtBrandTile({ name: 'Atome', brand: 'atome', kind: 'installment' })),
+    tileHasMonogram: /AT/.test(debtBrandTile({ name: 'Atome', brand: 'atome', kind: 'installment' })),
+    // A user-attached inline image is different: it always renders.
+    userImageRenders: /<img/.test(debtBrandTile({ name: 'X', kind: 'installment', image: 'data:image/png;base64,AA' })),
+  };
+});
+check('no <img> is emitted for a logo that does not ship — no 404 per row',
+  logoGating.noneShipToday && logoGating.tileHasNoImg, JSON.stringify(logoGating));
+check('the tile falls back to letters, which is what the page CSP forces',
+  logoGating.tileHasMonogram);
+check('a user-attached inline image still renders', logoGating.userImageRenders);
+check('no branded row requested a missing logo file',
+  (await S(() => performance.getEntriesByType('resource')
+    .filter(r => /brand-logos\//.test(r.name)).length)) === 0);
+
+// -- the privacy invariant this feature could quietly break --
+const brandPrivacy = await S(() => ({
+  remoteImageDropped: brandResolve({ name: 'X', image: 'https://tracker.example/pixel.png' }).image === '',
+  dataImageKept: brandResolve({ name: 'X', image: 'data:image/png;base64,AA' }).image !== '',
+  coerceStripsRemote: coerceDebt({ kind: 'installment', name: 'X', image: 'https://tracker.example/a.png' }).image === undefined,
+  logoIsRelative: !/^https?:/.test(brandLogoUrl('atome')),
+}));
+check('a remote image url is never accepted as a debt logo — that would phone home on render',
+  brandPrivacy.remoteImageDropped && brandPrivacy.coerceStripsRemote, JSON.stringify(brandPrivacy));
+check('a user-attached inline image is still allowed', brandPrivacy.dataImageKept);
+check('bundled logos resolve to a relative path, never a cdn', brandPrivacy.logoIsRelative);
+check('the brand catalogue makes no network calls at all',
+  (await S(() => /fetch\(|XMLHttpRequest|https?:\/\//.test(
+    typeof brandSearch === 'function' ? String(brandSearch) + String(brandResolve) + String(brandGuess) : 'https://'))) === false);
 
 await b.close();
 if (server) server.kill();
