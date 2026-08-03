@@ -25,18 +25,35 @@ aren't associated with your app"*. Because `SPLIT_LINK_BASE` in
 `app/split.js` points at the **bare** domain, every link users actually
 shared was the one that didn't work.
 
-The fix is a hosting setting, not a repo change: **`duitful.app` must serve
-the site directly, and `www.duitful.app` must be the one that redirects.**
-That direction also matches the ~1,160 canonical `https://duitful.app` URLs
-already published across the site. Check with:
+### The correct config (restored 2026-08-03)
+
+On Vercel → **Settings → Domains**, *both* domains are set to
+**Connect to an environment → Production**. Neither redirects:
+
+| Domain | Setting |
+|---|---|
+| `duitful.app` | Connect to an environment → Production |
+| `www.duitful.app` | Connect to an environment → Production |
+
+**Do not "tidy this up" by pointing `www` at the bare domain with a 308.**
+That is the obvious-looking move and it does not work: whichever host
+redirects is the host that fails verification, so a `www` → bare redirect
+simply moves the Play Console warning from one row to the other. Both hosts
+are claimed in `AndroidManifest.xml` and `App.entitlements`, so both must
+serve the files directly.
+
+Serving the same content on two hosts costs nothing here: all 80 HTML pages
+carry `rel="canonical"` pointing at the bare domain and none point at `www`,
+so search engines consolidate on `duitful.app` regardless of which host they
+crawl.
+
+Check with `npm run check:applinks`, or by hand — note `--max-redirs 0`,
+since a plain `curl -L` would follow the redirect and hide the bug:
 
 ```bash
-curl -sS -o /dev/null -w "%{http_code}\n" https://duitful.app/.well-known/assetlinks.json   # must be 200, not 3xx
+curl -sS --max-redirs 0 -o /dev/null -w "%{http_code}\n" \
+  https://duitful.app/.well-known/assetlinks.json   # must be 200, not 3xx
 ```
-
-Both hosts stay claimed in the manifest and entitlements — that is correct,
-and keeps a `www` link working if someone types one. Only the *serving*
-direction needs to change.
 
 ## Android — `assetlinks.json`
 
