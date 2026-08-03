@@ -23,7 +23,8 @@
     "cap:add:ios": "npm run build:web && npx cap add ios",
     "cap:add:android": "npm run build:web && npx cap add android",
     "cap:migrate": "npx cap migrate",
-    "test:e2e": "node tests/e2e.mjs"
+    "test:e2e": "node tests/e2e.mjs",
+    "check:applinks": "node scripts/check-applinks.mjs"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

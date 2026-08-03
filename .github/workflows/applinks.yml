@@ -1,0 +1,33 @@
+name: App Links
+
+# Deep links break from *outside* the repo: a DNS change, a Vercel domain
+# reconfiguration, or a stale deploy can stop an association file from being
+# served directly, and nothing in git changes. That is how duitful.app ended up
+# 307-ing to www and failing Android verification while every shared split link
+# pointed at the failing host.
+#
+# So this runs on a schedule rather than on push, and it hits the live domains.
+on:
+  schedule:
+    # Mondays 01:00 UTC (09:00 MYT).
+    - cron: "0 1 * * 1"
+  workflow_dispatch:
+  push:
+    # Re-check when the claimed hosts or the association files themselves move.
+    paths:
+      - ".well-known/**"
+      - "scripts/patch-android-applinks.mjs"
+      - "scripts/patch-ios.mjs"
+      - "scripts/check-applinks.mjs"
+      - "app/split.js"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      # No dependencies — the script uses only node: builtins and fetch.
+      - run: npm run check:applinks
