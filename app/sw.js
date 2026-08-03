@@ -15,19 +15,25 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-08-03-1";
+const VERSION = "2026-08-03-2";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=88",
-  "/app/script.js?v=122",
+  "/app/styles.css?v=89",
+  "/app/script.js?v=123",
   "/app/drive-config.js?v=2",
   "/app/drive-sync.js?v=2",
   "/app/investments.js?v=3",
   "/app/split.js?v=6",
-  "/app/brands.js?v=1",
+  "/app/brands.js?v=2",
+  // Brand marks: tiny (0.3–3 KB each) and drawn on the Debts tab, so they are
+  // precached rather than fetched on first paint. Add a line when a new logo
+  // ships — an unlisted one still works online, it just pops in offline.
+  "/app/brand-logos/spaylater.svg",
+  "/app/brand-logos/grabpay.svg",
+  "/app/brand-logos/hsbc.svg",
   "/app/vendor/qr/qrcode.js?v=1",
   // Precached even though split.js injects it on demand — that is what
   // keeps QR scanning working offline without paying 250 KB on every boot.

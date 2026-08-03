@@ -55,6 +55,19 @@ reset(WWW);
 console.log("build-web: copying app shell ->", WWW);
 copyFiles(APP_FILES, APP, WWW);
 
+// Brand marks are a directory rather than a fixed list on purpose: adding one
+// is meant to be "drop the SVG in and flip a flag in brands.js", and having to
+// remember a third place would be exactly the step people forget. Copied
+// wholesale, README excluded — it is documentation, not a shipped asset.
+const BRAND_LOGOS = resolve(APP, "brand-logos");
+if (existsSync(BRAND_LOGOS)) {
+  console.log("build-web: copying brand-logos/ -> www/brand-logos/");
+  cpSync(BRAND_LOGOS, resolve(WWW, "brand-logos"), {
+    recursive: true,
+    filter: (src) => !src.endsWith(".md"),
+  });
+}
+
 console.log("build-web: fetching tesseract (if needed)");
 const fetchResult = spawnSync("npm", ["run", "fetch:tesseract"], {
   cwd: ROOT,

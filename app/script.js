@@ -2577,15 +2577,28 @@ function debtBrandTile(d) {
   if (typeof brandResolve !== "function") return "";
   const r = brandResolve(d);
   const style = `background:${escapeHtml(r.color)};color:${escapeHtml(r.ink)}`;
-  // A user-attached image is inline data and always renders. A bundled logo is
-  // only referenced when the catalogue says one ships — brandLogoUrl() returns
-  // "" otherwise, so an absent file is never requested rather than 404-ing and
-  // falling back (which the page CSP would block anyway).
-  const src = r.image || r.logo;
-  const inner = src
-    ? `<img src="${escapeHtml(src)}" alt="" loading="lazy" />`
-    : escapeHtml(r.monogram);
-  return `<span class="brand-swatch tile" style="${style}" aria-hidden="true">${inner}</span>`;
+  // Three renderings, most specific first:
+  //
+  //  - A user-attached image is full-colour inline data, so it goes in an
+  //    <img> as-is.
+  //  - A bundled logo is a single-path monochrome mark, drawn as a CSS mask so
+  //    it picks up the tile's ink colour. It cannot be an <img>: an <img>
+  //    renders SVG in an isolated context, so `fill="currentColor"` would come
+  //    out black on every tile instead of white.
+  //  - Otherwise the monogram, which is the common case — brandLogoUrl()
+  //    returns "" unless the catalogue says artwork actually ships, so an
+  //    absent file is never requested.
+  if (r.image) {
+    return `<span class="brand-swatch tile" style="${style}" aria-hidden="true"><img src="${escapeHtml(r.image)}" alt="" loading="lazy" /></span>`;
+  }
+  if (r.logo) {
+    // The ink travels as a custom property, not via currentColor. `color` is
+    // set by a dozen rules across this stylesheet and inheriting it into a
+    // masked element is one specificity accident away from an invisible mark;
+    // a custom property inherits without competing.
+    return `<span class="brand-swatch tile has-logo" style="${style};--brand-ink:${escapeHtml(r.ink)};--brand-logo:url('${encodeURI(r.logo)}')" aria-hidden="true"><i class="brand-glyph"></i></span>`;
+  }
+  return `<span class="brand-swatch tile" style="${style}" aria-hidden="true">${escapeHtml(r.monogram)}</span>`;
 }
 
 function monthProgress() {

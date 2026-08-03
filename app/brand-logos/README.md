@@ -1,9 +1,27 @@
 # `app/brand-logos/`
 
-Optional real logo artwork for the Loans & BNPL rows. **This directory ships
-empty on purpose.**
+Real logo artwork for the Loans & BNPL rows. Three marks ship today; every
+other brand renders as a coloured monogram.
 
-## Why it's empty
+## What's here
+
+| File | Brand | Source |
+|---|---|---|
+| `spaylater.svg` | Shopee (SPayLater is Shopee's BNPL) | Simple Icons |
+| `grabpay.svg` | Grab (GrabPayLater) | Simple Icons |
+| `hsbc.svg` | HSBC | Simple Icons |
+
+From [Simple Icons](https://simpleicons.org) — the SVG data is CC0. The
+trademarks remain their owners'; inclusion there is not endorsement, and the
+nominative-use reasoning below is what actually permits the use here.
+
+**Atome and Boost are deliberately absent.** Simple Icons has no Atome, and
+its "Boost" is [Boost Mobile](https://www.boostmobile.com), the US carrier
+(orange `#F7901E`) — not Malaysian Boost eWallet (red `#EE2E24`). Shipping
+that would have put a US telco's mark on someone's Malaysian BNPL plan. Both
+brands need their marks from an official press kit instead.
+
+## Why most brands have no artwork
 
 `app/brands.js` renders every debt as a coloured monogram tile. That works
 offline, ships nothing trademarked, and — because the colour is derived

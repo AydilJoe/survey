@@ -40,8 +40,8 @@ const BRAND_FALLBACK_PALETTE = [
 const BRAND_CATALOGUE = [
   // ── BNPL ──
   { id: "atome",     name: "Atome",          color: "#edf64b", ink: "#17181a", group: "BNPL", match: ["atome"] },
-  { id: "spaylater", name: "SPayLater",      color: "#ee4d2d", ink: "#ffffff", group: "BNPL", match: ["spaylater", "shopee paylater", "shopee"] },
-  { id: "grabpay",   name: "GrabPayLater",   color: "#00b14f", ink: "#ffffff", group: "BNPL", match: ["grabpaylater", "grab paylater", "grab"] },
+  { id: "spaylater", name: "SPayLater",      color: "#ee4d2d", ink: "#ffffff", group: "BNPL", logo: true, match: ["spaylater", "shopee paylater", "shopee"] },
+  { id: "grabpay",   name: "GrabPayLater",   color: "#00b14f", ink: "#ffffff", group: "BNPL", logo: true, match: ["grabpaylater", "grab paylater", "grab"] },
   { id: "boost",     name: "Boost PayFlex",  color: "#ee2e24", ink: "#ffffff", group: "BNPL", match: ["boost payflex", "payflex", "boost"] },
   { id: "shopback",  name: "ShopBack PayLater", color: "#ff5c5c", ink: "#ffffff", group: "BNPL", match: ["shopback"] },
   { id: "tng",       name: "Touch 'n Go",    color: "#0f4c9c", ink: "#ffffff", group: "BNPL", match: ["touch n go", "touch 'n go", "tng", "gopinjam"] },
@@ -55,7 +55,7 @@ const BRAND_CATALOGUE = [
   { id: "ambank",    name: "AmBank",         color: "#e01a2b", ink: "#ffffff", group: "Bank", match: ["ambank"] },
   { id: "bankislam", name: "Bank Islam",     color: "#006b54", ink: "#ffffff", group: "Bank", match: ["bank islam", "bimb"] },
   { id: "bsn",       name: "BSN",            color: "#e30613", ink: "#ffffff", group: "Bank", match: ["bsn", "bank simpanan"] },
-  { id: "hsbc",      name: "HSBC",           color: "#db0011", ink: "#ffffff", group: "Bank", match: ["hsbc"] },
+  { id: "hsbc",      name: "HSBC",           color: "#db0011", ink: "#ffffff", group: "Bank", logo: true, match: ["hsbc"] },
   { id: "uob",       name: "UOB",            color: "#005eb8", ink: "#ffffff", group: "Bank", match: ["uob"] },
   { id: "ocbc",      name: "OCBC",           color: "#e60012", ink: "#ffffff", group: "Bank", match: ["ocbc"] },
   { id: "stanchart", name: "Standard Chartered", color: "#0473ea", ink: "#ffffff", group: "Bank", match: ["standard chartered", "stanchart", "scb"] },

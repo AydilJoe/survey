@@ -4408,26 +4408,76 @@ check('"Bank" is kept in a monogram — "Bank Islam" reads as BI, never IS',
 check('legal suffixes are still dropped, and an empty name never crashes',
   monograms.suffix === 'KJ' && monograms.empty === '?', JSON.stringify(monograms));
 
-// -- an absent logo file must not be requested, and must not break the tile --
-const logoGating = await S(() => {
-  return {
-    // No catalogue entry ships artwork yet, so no path should ever be built.
-    noneShipToday: ['atome', 'boost', 'spaylater', 'grabpay'].every(id => brandLogoUrl(id) === ''),
-    // The tile still renders — as letters, not a broken image.
-    tileHasNoImg: !/<img/.test(debtBrandTile({ name: 'Atome', brand: 'atome', kind: 'installment' })),
-    tileHasMonogram: /AT/.test(debtBrandTile({ name: 'Atome', brand: 'atome', kind: 'installment' })),
-    // A user-attached inline image is different: it always renders.
-    userImageRenders: /<img/.test(debtBrandTile({ name: 'X', kind: 'installment', image: 'data:image/png;base64,AA' })),
-  };
+// -- logos only ship where the catalogue says so, and only where a file exists --
+const logoGating = await S(() => ({
+  // Artwork ships for these three; nothing else has a file yet.
+  shipping: ['spaylater', 'grabpay', 'hsbc'].every(id => brandLogoUrl(id) !== ''),
+  absent: ['atome', 'boost', 'cimb', 'maybank'].every(id => brandLogoUrl(id) === ''),
+  // A brand with no artwork renders letters — no <img>, so no 404 per row.
+  noArtNoImg: !/<img/.test(debtBrandTile({ name: 'Atome', brand: 'atome', kind: 'installment' })),
+  noArtMonogram: /AT/.test(debtBrandTile({ name: 'Atome', brand: 'atome', kind: 'installment' })),
+  // A bundled mark is masked, never an <img>: an <img> renders SVG in an
+  // isolated context, so the file's own fill would win and the mark would come
+  // out in its brand colour on its own brand background — i.e. invisible.
+  artIsMasked: /has-logo/.test(debtBrandTile({ name: 'GrabPayLater', brand: 'grabpay', kind: 'installment' }))
+    && !/<img/.test(debtBrandTile({ name: 'GrabPayLater', brand: 'grabpay', kind: 'installment' })),
+  // A user-attached inline image is full-colour data and does use an <img>.
+  userImageRenders: /<img/.test(debtBrandTile({ name: 'X', kind: 'installment', image: 'data:image/png;base64,AA' })),
+}));
+check('artwork is referenced only for brands whose catalogue entry declares it',
+  logoGating.shipping && logoGating.absent, JSON.stringify(logoGating));
+check('a brand with no artwork renders letters, not a requested-then-broken image',
+  logoGating.noArtNoImg && logoGating.noArtMonogram, JSON.stringify(logoGating));
+check('a bundled mark is masked rather than <img>-ed, so it takes the tile ink',
+  logoGating.artIsMasked, JSON.stringify(logoGating));
+check('a user-attached inline image still renders as an image',
+  logoGating.userImageRenders);
+
+// Flipping logo:true without adding the file, or vice versa, is the obvious
+// way this breaks. Fetch every declared path and require a real 200.
+const declaredLogos = await S(() => BRAND_CATALOGUE.filter(b => b.logo).map(b => b.id));
+const logoFetches = await S(async (ids) => {
+  const out = {};
+  for (const id of ids) {
+    try { out[id] = (await fetch(`brand-logos/${id}.svg`)).status; }
+    catch { out[id] = 'threw'; }
+  }
+  return out;
+}, declaredLogos);
+check('every brand that declares a logo actually has the file on disk',
+  declaredLogos.length >= 3 && Object.values(logoFetches).every(s => s === 200),
+  JSON.stringify(logoFetches));
+{
+  const swSrc = readFileSync(path.join(REPO_ROOT, 'app/sw.js'), 'utf8');
+  const missing = declaredLogos.filter(id => !swSrc.includes(`/app/brand-logos/${id}.svg`));
+  check('and is precached, so the Debts tab looks the same offline',
+    missing.length === 0, JSON.stringify(missing));
+}
+
+// The regression that actually happened: the mask element was called
+// .brand-mark, which is ALSO the app's header logo class and sets
+// color: var(--primary). Every brand mark silently rendered terracotta on its
+// own brand background. Assert the painted colour, not the markup — that is
+// the only thing a future cascade collision cannot slip past.
+await S(() => {
+  state.debts = [{ id: 'lg', name: 'GrabPayLater', brand: 'grabpay', kind: 'installment',
+    balance: 236, apr: 0, minPayment: 118, installment: 118, monthsLeft: 2, termMonths: 12 }];
+  save(); renderAll();
 });
-check('no <img> is emitted for a logo that does not ship — no 404 per row',
-  logoGating.noneShipToday && logoGating.tileHasNoImg, JSON.stringify(logoGating));
-check('the tile falls back to letters, which is what the page CSP forces',
-  logoGating.tileHasMonogram);
-check('a user-attached inline image still renders', logoGating.userImageRenders);
-check('no branded row requested a missing logo file',
+await page.waitForTimeout(300);
+const glyphPaint = await S(() => {
+  const g = document.querySelector('#list-debt .brand-swatch.has-logo > .brand-glyph');
+  if (!g) return { missing: true };
+  const cs = getComputedStyle(g);
+  return { bg: cs.backgroundColor, mask: cs.maskImage || cs.webkitMaskImage, w: cs.width };
+});
+check('the masked glyph is painted in the tile ink, not whatever set color last',
+  glyphPaint.bg === 'rgb(255, 255, 255)', JSON.stringify(glyphPaint));
+check('and the mask image actually resolved to the bundled file',
+  /brand-logos\/grabpay\.svg/.test(glyphPaint.mask || ''), JSON.stringify(glyphPaint));
+check('no brand-logos request 404ed',
   (await S(() => performance.getEntriesByType('resource')
-    .filter(r => /brand-logos\//.test(r.name)).length)) === 0);
+    .filter(r => /brand-logos\//.test(r.name) && r.responseStatus >= 400).length)) === 0);
 
 // -- the privacy invariant this feature could quietly break --
 const brandPrivacy = await S(() => ({

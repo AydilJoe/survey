@@ -3020,6 +3020,27 @@ button.ghost.icon-btn {
   margin-right: 0.4rem;
   vertical-align: -0.28rem;
 }
+/* Bundled marks are single-path monochrome SVGs, drawn as a mask rather than
+   an <img> so they take the tile's ink colour. An <img> renders SVG in an
+   isolated context, so the file's own fill would win and every mark would
+   come out in its brand colour on its own brand background — invisible. */
+/* NOT .brand-mark — that class is the app's own header logo (index.html:164)
+   and sets color: var(--primary), which silently repainted every masked brand
+   glyph terracotta. */
+.brand-swatch.has-logo > .brand-glyph {
+  display: block;
+  width: 62%;
+  height: 62%;
+  background: var(--brand-ink, #fff);
+  -webkit-mask-image: var(--brand-logo);
+  mask-image: var(--brand-logo);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
 .brand-swatch.sm {
   width: 1.55rem;
   height: 1.55rem;
