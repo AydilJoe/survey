@@ -2986,6 +2986,138 @@ button.ghost.icon-btn {
   color: var(--muted);
   font-size: 0.82rem;
 }
+
+/* ── Brand recognition ──────────────────────────────────────────────────────
+   The colour is the identifier — see app/brands.js for why it is a colour and
+   not a logo. Every swatch is inline-styled with its brand colour, so nothing
+   here sets background/color; these rules own shape and layout only. */
+.brand-swatch {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  /* Brand colours are chosen for their own backgrounds, not Duitful's, so a
+     hairline keeps a pale swatch (Atome yellow) from dissolving into a light
+     card without tinting the colour itself. */
+  box-shadow: inset 0 0 0 0.5px rgba(42, 36, 32, 0.18);
+}
+.brand-swatch > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* Sits over the monogram: when a logo file exists it covers the letters,
+     and if it 404s the <img> removes itself and the monogram is already
+     underneath — no flash of a broken-image icon. */
+  grid-area: 1 / 1;
+}
+.brand-swatch.tile {
+  width: 1.4rem;
+  height: 1.4rem;
+  font-size: 0.62rem;
+  margin-right: 0.4rem;
+  vertical-align: -0.28rem;
+}
+/* Bundled marks are single-path monochrome SVGs, drawn as a mask rather than
+   an <img> so they take the tile's ink colour. An <img> renders SVG in an
+   isolated context, so the file's own fill would win and every mark would
+   come out in its brand colour on its own brand background — invisible. */
+/* NOT .brand-mark — that class is the app's own header logo (index.html:164)
+   and sets color: var(--primary), which silently repainted every masked brand
+   glyph terracotta. */
+.brand-swatch.has-logo > .brand-glyph {
+  display: block;
+  width: 62%;
+  height: 62%;
+  background: var(--brand-ink, #fff);
+  -webkit-mask-image: var(--brand-logo);
+  mask-image: var(--brand-logo);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+.brand-swatch.sm {
+  width: 1.55rem;
+  height: 1.55rem;
+  font-size: 0.68rem;
+}
+
+/* Progress along the original plan. Only rendered when the tenure is known —
+   see installmentProgress(). Deliberately the sage accent, not the terracotta
+   primary: paying an instalment down is good news, and the primary is already
+   spoken for by due-soon and overspend warnings. */
+.inst-progress {
+  width: 100%;
+  height: 4px;
+  margin-top: 0.35rem;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 10%, transparent);
+  overflow: hidden;
+}
+.inst-progress > i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .inst-progress > i { transition: none; }
+}
+
+/* ── Brand combobox on the debt form ── */
+.brand-field { position: relative; }
+.brand-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.brand-input-row > input { flex: 1; min-width: 0; }
+.brand-input-row > .brand-swatch {
+  width: 2.1rem;
+  height: 2.1rem;
+  font-size: 0.78rem;
+  border-radius: 0.55rem;
+}
+.brand-suggest {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  max-height: 15rem;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  box-shadow: var(--shadow);
+}
+.brand-suggest li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.45rem;
+  cursor: pointer;
+}
+.brand-suggest li:hover,
+.brand-suggest li:focus-visible { background: var(--card-soft); }
+.brand-suggest-name { flex: 1; font-weight: 500; font-size: 0.9rem; }
+.brand-suggest-group {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
 /* On mobile the row has too many cells (chip, name, balance, ↗pay, ✎edit,
    ✕delete) and the name truncates to "M.", "P...", etc. Give the name its
    own line so it can show in full, then push balance + action buttons to

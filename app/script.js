@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.24.0";
+const APP_VERSION = "1.25.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -142,10 +142,34 @@ const emptyShariah = () => ({
   history: [],             // [{ id, date, amount }]
 });
 
+// Brand/colour fields are optional everywhere and never load-bearing: a row
+// with neither still renders (brandResolve derives a deterministic colour from
+// the name). This only strips values that would render as garbage.
+function coerceDebtBrand(d) {
+  const out = { ...d };
+  if (typeof out.brand !== "string" || !out.brand || (typeof brandById === "function" && !brandById(out.brand))) {
+    delete out.brand;
+  }
+  if (typeof out.color !== "string" || !/^#[0-9a-f]{6}$/i.test(out.color)) delete out.color;
+  // A user-supplied logo is stored inline. Anything that is not a data: image
+  // is dropped rather than handed to an <img src> — a remote URL here would
+  // turn a private debt list into an outbound request on every render.
+  if (typeof out.image !== "string" || !out.image.startsWith("data:image/")) delete out.image;
+  if (out.kind === "installment") {
+    const term = Math.round(Number(out.termMonths));
+    if (Number.isFinite(term) && term > 0 && term <= 600) out.termMonths = term;
+    else delete out.termMonths;
+  } else {
+    delete out.termMonths;
+  }
+  return out;
+}
+
 // Islamic-financing rows carry three extra fields the conventional shape has
 // no slot for. Fill them from whatever survived a partial import so the row
 // renders a "Needs setup" state rather than NaN.
 function coerceDebt(d) {
+  d = coerceDebtBrand(d);
   if (d.kind !== "islamic") return d;
   const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
   const tenureMonths = Math.max(0, Math.round(num(d.tenureMonths)));
@@ -157,6 +181,26 @@ function coerceDebt(d) {
     tenureMonths,
     apr: 0, // conventional APR is meaningless here; ranking uses effectiveProfitRate()
   };
+}
+
+// Progress on a 0%-interest instalment plan: how many of the original
+// payments are behind you.
+//
+// `termMonths` is only present on rows created since 1.25.0. Older rows —
+// and any CSV written by an older build — genuinely do not record how many
+// payments were already made when the plan was added, and there is no way to
+// recover it. Rather than invent a denominator (which would tell someone at
+// 10/12 that they were at 0/12), progress is reported as unknown and the
+// caller falls back to the old "N months left" line. The edit dialog exposes
+// the field so it can be filled in.
+function installmentProgress(d) {
+  if (!d || d.kind !== "installment") return null;
+  const per = Number(d.installment) || Number(d.minPayment) || 0;
+  if (per <= 0) return null;
+  const left = Math.max(0, Math.ceil((Number(d.balance) || 0) / per));
+  const term = Math.round(Number(d.termMonths) || 0);
+  if (!Number.isFinite(term) || term < left || term < 1) return { left, term: 0, paid: 0, known: false };
+  return { left, term, paid: term - left, known: true };
 }
 
 function coerceShariah(raw) {
@@ -2479,7 +2523,14 @@ function renderDebts() {
               ? ` <span class="installment-badge needs-setup">Needs setup</span>`
               : ` <span class="installment-badge">Installment</span>`)
           : "";
-      const nameHtml = `<span class="name">${escapeHtml(d.name)}${suffix}${badge}</span>`;
+      const brandTile = isInstallment ? debtBrandTile(d) : "";
+      const nameHtml = `<span class="name">${brandTile}${escapeHtml(d.name)}${suffix}${badge}</span>`;
+      // Progress bar for instalment rows that know their original tenure.
+      // Rows that don't keep the old "N months left" meta row untouched.
+      const prog = isInstallment && !needsSetup ? installmentProgress(d) : null;
+      const progRow = prog && prog.known && prog.term > 0
+        ? `<div class="inst-progress" title="${prog.paid} of ${prog.term} payments made"><i style="width:${((prog.paid / prog.term) * 100).toFixed(1)}%"></i></div>`
+        : "";
       const metaRow = islamic
         ? (islamicNeedsSetup
             ? `<div class="meta-row"><span class="needs-setup-note">Tap ✎ to set principal, profit + tenure</span></div>`
@@ -2487,7 +2538,11 @@ function renderDebts() {
         : isInstallment
           ? (needsSetup
               ? `<div class="meta-row"><span class="needs-setup-note">Tap ✎ to set monthly + months</span></div>`
-              : `<div class="meta-row"><span>${remMonths} month${remMonths === 1 ? "" : "s"} left</span><span>${fmtMoney(installment)}/mo</span></div>`)
+              // "4 of 12 paid" wherever the tenure is known — progress reads
+              // as ground covered, where "8 months left" reads as a sentence.
+              : `<div class="meta-row"><span>${prog && prog.known
+                    ? `${prog.paid} of ${prog.term} paid`
+                    : `${remMonths} month${remMonths === 1 ? "" : "s"} left`}</span><span>${fmtMoney(installment)}/mo</span></div>`)
           : `<div class="meta-row"><span>${rowTerm(d, "rateShort")} ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
       // The headline figure for an Islamic row is the outstanding principal —
       // i.e. what settling today actually costs. Spell out the ibra' so the
@@ -2509,10 +2564,41 @@ function renderDebts() {
         <button class="ghost icon-btn" data-action="edit-debt" data-id="${d.id}" aria-label="Edit ${escapeHtml(d.name)}" title="Edit this debt">✎</button>
         <button class="ghost icon-btn" data-action="delete-debt" data-id="${d.id}" aria-label="Delete ${escapeHtml(d.name)}" title="Delete this debt">✕</button>
         ${metaRow}
+        ${progRow}
         ${ibraRow}
       </li>`;
     })
     .join("");
+}
+
+// The recognition cue: a user-attached image wins over a bundled logo, which
+// wins over the coloured monogram.
+function debtBrandTile(d) {
+  if (typeof brandResolve !== "function") return "";
+  const r = brandResolve(d);
+  const style = `background:${escapeHtml(r.color)};color:${escapeHtml(r.ink)}`;
+  // Three renderings, most specific first:
+  //
+  //  - A user-attached image is full-colour inline data, so it goes in an
+  //    <img> as-is.
+  //  - A bundled logo is a single-path monochrome mark, drawn as a CSS mask so
+  //    it picks up the tile's ink colour. It cannot be an <img>: an <img>
+  //    renders SVG in an isolated context, so `fill="currentColor"` would come
+  //    out black on every tile instead of white.
+  //  - Otherwise the monogram, which is the common case — brandLogoUrl()
+  //    returns "" unless the catalogue says artwork actually ships, so an
+  //    absent file is never requested.
+  if (r.image) {
+    return `<span class="brand-swatch tile" style="${style}" aria-hidden="true"><img src="${escapeHtml(r.image)}" alt="" loading="lazy" /></span>`;
+  }
+  if (r.logo) {
+    // The ink travels as a custom property, not via currentColor. `color` is
+    // set by a dozen rules across this stylesheet and inheriting it into a
+    // masked element is one specificity accident away from an invisible mark;
+    // a custom property inherits without competing.
+    return `<span class="brand-swatch tile has-logo" style="${style};--brand-ink:${escapeHtml(r.ink)};--brand-logo:url('${encodeURI(r.logo)}')" aria-hidden="true"><i class="brand-glyph"></i></span>`;
+  }
+  return `<span class="brand-swatch tile" style="${style}" aria-hidden="true">${escapeHtml(r.monogram)}</span>`;
 }
 
 function monthProgress() {
@@ -6142,6 +6228,105 @@ document.querySelectorAll(".debt-type-pills .pill").forEach((btn) => {
   });
 });
 
+// ── Brand picker ────────────────────────────────────────────────────────────
+// Reads the value the user explicitly picked from the suggestion list, and
+// falls back to an alias match on the typed name. Typing "Atome — laptop"
+// without touching the list still lands on Atome; typing "Koperasi pinjaman"
+// stays unbranded and gets a derived colour at render time.
+function debtBrandFromForm(f, name) {
+  const picked = String(f.get("brand") || "").trim();
+  const brand = (typeof brandById === "function" && brandById(picked))
+    ? picked
+    : (typeof brandGuess === "function" ? brandGuess(name) : "");
+  return brand ? { brand } : {};
+}
+
+// Blank means "tracking from the start", so the tenure equals what's left.
+// A value below monthsLeft would imply more payments remaining than the plan
+// ever had, so it is raised rather than rejected — the user is mid-form and a
+// silent clamp beats a rejected submit with no visible reason.
+function debtTermFromForm(f, monthsLeft) {
+  const raw = f.get("termMonths");
+  if (raw == null || String(raw).trim() === "") return monthsLeft;
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n) || n < 1) return monthsLeft;
+  return Math.max(n, monthsLeft);
+}
+
+function initDebtBrandPicker() {
+  const form = document.getElementById("form-debt");
+  if (!form || typeof brandSearch !== "function") return;
+  const input = form.querySelector('input[name="name"]');
+  const hidden = document.getElementById("debt-brand");
+  const list = document.getElementById("debt-brand-list");
+  const swatch = document.getElementById("debt-brand-swatch");
+  if (!input || !hidden || !list || !swatch) return;
+
+  const paint = () => {
+    const r = brandResolve({ name: input.value, brand: hidden.value });
+    swatch.style.background = r.color;
+    swatch.style.color = r.ink;
+    swatch.textContent = input.value.trim() ? r.monogram : "";
+  };
+
+  const close = () => {
+    list.hidden = true;
+    list.innerHTML = "";
+    input.setAttribute("aria-expanded", "false");
+  };
+
+  const choose = (brand) => {
+    hidden.value = brand.id;
+    input.value = brand.name;
+    close();
+    paint();
+    input.focus();
+  };
+
+  input.addEventListener("input", () => {
+    // Typing after picking invalidates the pick — otherwise editing "Atome"
+    // to "Atomic Ltd" would silently keep Atome's colour.
+    hidden.value = "";
+    paint();
+    const matches = brandSearch(input.value, 6);
+    if (!matches.length) return close();
+    list.innerHTML = matches
+      .map((b) => `<li role="option" tabindex="-1" data-brand="${escapeHtml(b.id)}">
+        <span class="brand-swatch sm" style="background:${escapeHtml(b.color)};color:${escapeHtml(b.ink)}">${escapeHtml(brandMonogram(b.name))}</span>
+        <span class="brand-suggest-name">${escapeHtml(b.name)}</span>
+        <span class="brand-suggest-group">${escapeHtml(b.group)}</span>
+      </li>`)
+      .join("");
+    list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+  });
+
+  list.addEventListener("mousedown", (e) => {
+    // mousedown, not click: blur would close the list first and swallow it.
+    const li = e.target.closest("li[data-brand]");
+    if (!li) return;
+    e.preventDefault();
+    const b = brandById(li.dataset.brand);
+    if (b) choose(b);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !list.hidden) { e.stopPropagation(); return close(); }
+    if (e.key !== "Enter" || list.hidden) return;
+    const first = list.querySelector("li[data-brand]");
+    if (!first) return;
+    // Enter completes the suggestion instead of submitting a half-typed name.
+    e.preventDefault();
+    const b = brandById(first.dataset.brand);
+    if (b) choose(b);
+  });
+
+  input.addEventListener("blur", () => setTimeout(close, 120));
+  form.addEventListener("reset", () => { hidden.value = ""; setTimeout(paint, 0); });
+  paint();
+}
+initDebtBrandPicker();
+
 $("#form-debt").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
@@ -6198,6 +6383,11 @@ $("#form-debt").addEventListener("submit", (e) => {
       kind: "installment",
       installment,
       monthsLeft,
+      // Blank "Total months" means the plan is being tracked from its start,
+      // so the tenure IS what's left. Anything shorter than monthsLeft would
+      // imply negative progress, so it is clamped rather than rejected.
+      termMonths: debtTermFromForm(f, monthsLeft),
+      ...debtBrandFromForm(f, name),
     });
   } else {
     const balance = Number(f.get("balance"));
@@ -6607,14 +6797,23 @@ function openEditDialog(kind, id) {
     } else if (isInstallment) {
       const installment = Number(entity.installment) || Number(entity.minPayment) || 0;
       const remMonths = installment > 0 ? Math.max(0, Math.ceil((Number(entity.balance) || 0) / installment)) : 0;
+      // "Total months" is the field that makes progress reporting possible.
+      // It is pre-filled with whatever the row knows; on a legacy row that is
+      // blank, and the hint explains what filling it in unlocks.
+      const prog = installmentProgress(entity);
       editFields.innerHTML = `
         ${textField("Name", "name", entity.name)}
-        <div class="grid-2">
+        <div class="grid-3">
           ${numberField("Monthly (RM)", "installment", installment)}
           ${numberField("Months left", "monthsLeft", remMonths, { step: "1", min: "0", max: "120" })}
+          ${numberField("Total months", "termMonths", entity.termMonths ?? "", { step: "1", min: "1", max: "120" })}
         </div>
         ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
-        <p class="hint">Interest-free installment (Atome / SPayLater style). Balance = monthly × months left.</p>
+        <p class="hint">Interest-free installment (Atome / SPayLater style). Balance = monthly × months left.${
+          prog && prog.known
+            ? ""
+            : " Set total months to show progress — how many payments you've already made can't be worked out from the balance alone."
+        }</p>
       `;
     } else {
       editFields.innerHTML = `
@@ -6722,6 +6921,17 @@ editForm.addEventListener("submit", (e) => {
       it.minPayment = installment;
       it.apr = 0;
       it.dueDay = dueDay;
+      // Clearing the field removes progress reporting rather than silently
+      // reinstating the old default — the user may be correcting a wrong term.
+      const rawTerm = f.get("termMonths");
+      if (rawTerm == null || String(rawTerm).trim() === "") delete it.termMonths;
+      else {
+        const t = Math.round(Number(rawTerm));
+        if (Number.isFinite(t) && t >= 1) it.termMonths = Math.max(t, monthsLeft);
+      }
+      // Renaming can change which brand a row belongs to.
+      const guessed = typeof brandGuess === "function" ? brandGuess(name) : "";
+      if (guessed) it.brand = guessed; else delete it.brand;
     } else {
       const balance = Number(f.get("balance"));
       const apr = Number(f.get("apr"));
@@ -6895,6 +7105,7 @@ function toCSV() {
     "inv_zakatable", "inv_expected_return", "inv_reinvested",
     "split_id", "split_kind", "split_title", "split_status", "split_due_date",
     "split_settled_date", "split_role",
+    "term_months", "brand", "brand_color",
   ];
   const rows = [HEADER];
   const W = HEADER.length;
@@ -6921,7 +7132,7 @@ function toCSV() {
     const islamicCols = isIslamic(d)
       ? [d.contract || "murabahah", d.principal ?? "", d.totalProfit ?? "", d.tenureMonths ?? ""]
       : ["", "", "", ""];
-    rows.push(blank([
+    const row = blank([
       "debt", d.name, "", d.balance, d.apr, d.minPayment, "", "", "", "", "", "", "", "",
       d.dueDay ?? "", d.kind || "standard", remMonths,
       "", "", "", "", "",
@@ -6929,7 +7140,18 @@ function toCSV() {
       "", "",
       "",
       ...islamicCols,
-    ]));
+    ]);
+    // Set by header name rather than by counting padding: the trailing block
+    // has grown three times now, and every hand-counted "" is a silent
+    // off-by-one waiting to shift someone's data into the wrong column.
+    //
+    // A user-attached image is deliberately not exported — it would add
+    // kilobytes of base64 to a format people mail to themselves. The brand id
+    // survives, so a re-import still resolves a colour.
+    row[HEADER.indexOf("term_months")] = isInst ? (d.termMonths ?? "") : "";
+    row[HEADER.indexOf("brand")] = d.brand || "";
+    row[HEADER.indexOf("brand_color")] = d.color || "";
+    rows.push(row);
   }
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
@@ -7130,6 +7352,7 @@ function fromCSV(text) {
   const iKind = idx("kind"), iMonthsLeft = idx("monthsleft");
   const iContract = idx("contract"), iPrincipal = idx("principal");
   const iTotalProfit = idx("total_profit"), iTenureMonths = idx("tenure_months");
+  const iTermMonths = idx("term_months"), iBrand = idx("brand"), iBrandColor = idx("brand_color");
   const iFxCode = idx("fx_code");
   const iFxAmount = idx("fx_amount");
   const iFxRate = idx("fx_rate");
@@ -7173,6 +7396,21 @@ function fromCSV(text) {
     const name = (row[iBudgetPoolName] || "").trim();
     if (!id || !name) return null;
     return { id, name };
+  }
+
+  // Brand columns are absent from every CSV written before 1.25.0, so this
+  // falls back to matching the name — which is how the vast majority of rows
+  // get their colour anyway. Returns a spreadable object, never null, because
+  // an unbranded debt is a normal outcome and not an error.
+  function readDebtBrand(row, name) {
+    const out = {};
+    const raw = iBrand >= 0 ? (row[iBrand] || "").trim().toLowerCase() : "";
+    const guessed = typeof brandGuess === "function" ? brandGuess(name) : "";
+    const id = (typeof brandById === "function" && brandById(raw)) ? raw : guessed;
+    if (id) out.brand = id;
+    const color = iBrandColor >= 0 ? (row[iBrandColor] || "").trim() : "";
+    if (/^#[0-9a-f]{6}$/i.test(color)) out.color = color;
+    return out;
   }
 
   function readFx(row) {
@@ -7251,7 +7489,8 @@ function fromCSV(text) {
         const months = Number.isFinite(rowMonthsLeft) && rowMonthsLeft > 0
           ? Math.round(rowMonthsLeft)
           : (inst > 0 && Number.isFinite(balance) ? Math.max(1, Math.ceil(balance / inst)) : 1);
-        next.debts.push({
+        const rowTerm = iTermMonths >= 0 ? Math.round(Number(row[iTermMonths])) : NaN;
+        next.debts.push(coerceDebt({
           id: uid(),
           name,
           balance: Number.isFinite(balance) ? balance : +(inst * months).toFixed(2),
@@ -7261,7 +7500,12 @@ function fromCSV(text) {
           kind: "installment",
           installment: inst,
           monthsLeft: months,
-        });
+          // A term shorter than what's left is not repairable data, so it is
+          // dropped and the row reports "months left" instead of inventing
+          // progress. coerceDebt discards anything else malformed.
+          ...(Number.isFinite(rowTerm) && rowTerm >= months ? { termMonths: rowTerm } : {}),
+          ...readDebtBrand(row, name),
+        }));
       } else {
         next.debts.push({
           id: uid(),

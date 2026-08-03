@@ -2,9 +2,58 @@
 
 Two files, one job: make `https://duitful.app/split#…` open the **native
 app** instead of a browser tab. `assetlinks.json` does it on Android,
-`apple-app-site-association` on iOS. Both ship with a placeholder that must
-be replaced before the OS will verify the domain; until then links open in
-the browser, which is the designed fallback.
+`apple-app-site-association` on iOS. Each carries a placeholder that must be
+replaced before the OS will verify the domain; until then links open in the
+browser, which is the designed fallback.
+
+**Run `npm run check:applinks` after any DNS or hosting change.** It fetches
+both files from every claimed host exactly the way the OS does, and fails
+loudly on the traps below. A weekly GitHub Action
+(`.github/workflows/applinks.yml`) runs the same check.
+
+## Redirects break verification — the trap that actually bit us
+
+Neither Android's verifier nor Apple's CDN follows redirects when fetching an
+association file. A `301`/`307` is treated as *"no file"*, so the host fails
+verification even though the same URL renders fine in a browser (browsers
+*do* follow redirects, which is what makes this so easy to miss).
+
+In August 2026 `duitful.app` was configured on Vercel to redirect to
+`www.duitful.app`. Result: `www` verified, the bare domain failed, and Play
+Console reported *"One deep link may be failing because your web domains
+aren't associated with your app"*. Because `SPLIT_LINK_BASE` in
+`app/split.js` points at the **bare** domain, every link users actually
+shared was the one that didn't work.
+
+### The correct config (restored 2026-08-03)
+
+On Vercel → **Settings → Domains**, *both* domains are set to
+**Connect to an environment → Production**. Neither redirects:
+
+| Domain | Setting |
+|---|---|
+| `duitful.app` | Connect to an environment → Production |
+| `www.duitful.app` | Connect to an environment → Production |
+
+**Do not "tidy this up" by pointing `www` at the bare domain with a 308.**
+That is the obvious-looking move and it does not work: whichever host
+redirects is the host that fails verification, so a `www` → bare redirect
+simply moves the Play Console warning from one row to the other. Both hosts
+are claimed in `AndroidManifest.xml` and `App.entitlements`, so both must
+serve the files directly.
+
+Serving the same content on two hosts costs nothing here: all 80 HTML pages
+carry `rel="canonical"` pointing at the bare domain and none point at `www`,
+so search engines consolidate on `duitful.app` regardless of which host they
+crawl.
+
+Check with `npm run check:applinks`, or by hand — note `--max-redirs 0`,
+since a plain `curl -L` would follow the redirect and hide the bug:
+
+```bash
+curl -sS --max-redirs 0 -o /dev/null -w "%{http_code}\n" \
+  https://duitful.app/.well-known/assetlinks.json   # must be 200, not 3xx
+```
 
 ## Android — `assetlinks.json`
 
@@ -15,18 +64,14 @@ signed with the certificate listed here. Until the fingerprint below is real,
 verification fails and links keep opening in the browser — which is the
 designed fallback, not a breakage.
 
-## TODO before the first Play release
+### Fingerprint — done
 
-`sha256_cert_fingerprints` currently holds the placeholder
-`TODO_REPLACE_WITH_PLAY_APP_SIGNING_SHA256_FINGERPRINT`. Replace it with the
-**Play App Signing** certificate fingerprint (not the upload key — Play
-re-signs every release):
-
-1. Play Console → your app → **Test and release → Setup → App signing**
-2. Copy the **SHA-256 certificate fingerprint** under
-   *App signing key certificate* (colon-separated uppercase hex)
-3. Paste it into `assetlinks.json`, commit, push — GitHub Pages serves the
-   file at <https://duitful.app/.well-known/assetlinks.json>
+`sha256_cert_fingerprints` now carries the real **Play App Signing**
+certificate fingerprint (not the upload key — Play re-signs every release).
+If it ever needs re-checking or the app is re-keyed, it comes from Play
+Console → your app → **Test and release → Setup → App signing** → *App
+signing key certificate* → **SHA-256 certificate fingerprint**
+(colon-separated uppercase hex).
 
 If you also sideload debug builds and want links to open in those, add the
 debug keystore fingerprint as a **second** string in the same array:
@@ -39,7 +84,7 @@ keytool -list -v -keystore ~/.android/debug.keystore \
 ## Verifying
 
 ```bash
-curl -s https://duitful.app/.well-known/assetlinks.json      # must be JSON, 200, application/json
+npm run check:applinks                                       # both hosts, both files, no-redirect
 adb shell pm get-app-links com.aydiljoe.duitful              # want: duitful.app -> verified
 adb shell am start -a android.intent.action.VIEW \
   -d "https://duitful.app/split#DFS1.example"                # should open Duitful
@@ -77,9 +122,13 @@ with your 10-character Apple Developer **Team ID**:
 ### Verifying
 
 ```bash
-curl -sI https://duitful.app/.well-known/apple-app-site-association   # 200
-curl -s  https://duitful.app/.well-known/apple-app-site-association   # valid JSON, real Team ID
+npm run check:applinks   # 200 with no redirect, valid JSON, /split claimed
+curl -s https://duitful.app/.well-known/apple-app-site-association   # real Team ID, not TEAMID
 ```
+
+`check:applinks` reports the unresolved `TEAMID` as a *note* rather than a
+failure, since it is harmless until an iOS build ships — but Universal Links
+will not verify until it is replaced.
 
 Apple's own diagnostics live in **Settings → Developer → Universal Links →
 Diagnostics** on a device with a build installed.
