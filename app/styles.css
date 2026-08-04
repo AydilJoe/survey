@@ -4,27 +4,27 @@
      declaration via prefers-color-scheme. Token semantics never change
      between modes, so every component reads from these vars and stays
      in sync without per-component dark variants. */
-  --stage: #e8dfd0;
-  --bg: #f3ede1;                /* slightly cooler base — lets warm accents pop */
-  --bg-elev: #ece5d4;
-  --card: #fffefa;              /* nearly white — proper elevation over bg */
-  --card-soft: #ece5d4;
-  --text: #2a2420;
-  --ink2: #5c524a;
-  --muted: #8a8178;
-  --primary: #d76636;           /* terracotta with more chroma */
-  --primary-hover: #c2521f;
-  --primary-ink: #d76636;       /* alias used by a few marketing surfaces */
-  --accent: #7da062;            /* greener sage — no longer reads as olive-grey */
-  --accent-hover: #6c8f52;
-  --accent-3: #d4a574;          /* tan */
-  --accent-4: #4a6b8f;          /* SHIFTED slate blue — now the trust accent */
-  --accent-cool: #4a6b8f;       /* semantic alias for Pro / Drive / license tags */
-  --accent-5: #b08a6a;          /* caramel */
-  --gain: #5d9163;              /* forest green — distinct from sage */
-  --loss: #c8424a;              /* true red — clearly NOT a darker primary */
-  --danger: #c8424a;
-  --danger-hover: #b6303a;
+  --stage: #e9e1d3;
+  --bg: #efe9dd;                /* slightly cooler base — lets warm accents pop */
+  --bg-elev: #e9e2d4;
+  --card: #f9f5ed;              /* nearly white — proper elevation over bg */
+  --card-soft: #f2ece0;
+  --text: #241f1a;
+  --ink2: #6b6157;
+  --muted: #8d8376;
+  --primary: #1c2b38;           /* terracotta with more chroma */
+  --primary-hover: #101c27;
+  --primary-ink: #1c2b38;       /* alias used by a few marketing surfaces */
+  --accent: #6f9457;            /* greener sage — no longer reads as olive-grey */
+  --accent-hover: #5e8248;
+  --accent-3: #c99a68;          /* tan */
+  --accent-4: #5b7f9e;          /* SHIFTED slate blue — now the trust accent */
+  --accent-cool: #5b7f9e;       /* semantic alias for Pro / Drive / license tags */
+  --accent-5: #a5805f;          /* caramel */
+  --gain: #4f8657;              /* forest green — distinct from sage */
+  --loss: #bd3a42;              /* true red — clearly NOT a darker primary */
+  --danger: #bd3a42;
+  --danger-hover: #a82e35;
   /* Overspend alarm. Hotter and pinker than --loss on purpose: --loss is a
      reading ("you lost money"), this is a siren ("you blew the budget"), and
      the pink shift keeps it from reading as the terracotta primary at 6px. */
@@ -34,24 +34,64 @@
      dark browns that all but vanish against a dark card. */
   --warn-red-ink: #a13d22;
   --warn-yellow-ink: #946813;
-  --border: rgba(42, 36, 32, 0.14);
-  --line: rgba(42, 36, 32, 0.08);
+  --border: rgba(36, 31, 26, 0.15);
+  --line: rgba(36, 31, 26, 0.09);
   --shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 8px 24px rgba(42, 36, 32, 0.05);
   /* Liquid glass tokens (Apple-style frosted surfaces) */
-  --glass-bg: rgba(255, 254, 250, 0.55);
-  --glass-bg-strong: rgba(255, 254, 250, 0.7);
-  --glass-bg-soft: rgba(236, 229, 212, 0.5);
-  --glass-border: rgba(255, 255, 255, 0.6);
-  --glass-border-soft: rgba(255, 255, 255, 0.55);
-  --glass-blur: saturate(180%) blur(22px);
-  --glass-blur-soft: saturate(160%) blur(14px);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65), inset 0 0 0 0.5px rgba(255, 255, 255, 0.2);
-  --glass-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 14px 32px rgba(42, 36, 32, 0.09), 0 4px 10px rgba(42, 36, 32, 0.05);
-  --glass-shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 1px 2px rgba(42, 36, 32, 0.03), 0 4px 12px rgba(42, 36, 32, 0.04);
+  --glass-bg: #f9f5ed;
+  --glass-bg-strong: #fbf8f2;
+  --glass-bg-soft: #f2ece0;
+  --glass-border: rgba(36, 31, 26, 0.11);
+  --glass-border-soft: rgba(36, 31, 26, 0.08);
+  --glass-blur: none;
+  --glass-blur-soft: none;
+  --glass-highlight: inset 0 0 0 0 rgba(0,0,0,0);
+  --glass-shadow: 0 1px 2px rgba(0,0,0,.05);
+  --glass-shadow-soft: inset 0 0 0 0 rgba(0,0,0,0);
   /* Inner glass pane (for sub-cards nested inside a glass parent) */
-  --glass-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.28) 45%, rgba(255, 255, 255, 0.18) 100%);
-  --glass-pane-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.42) 50%, rgba(255, 255, 255, 0.28) 100%);
-  --glass-pane-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(255, 255, 255, 0.25), 0 1px 2px rgba(42, 36, 32, 0.05), 0 6px 16px rgba(42, 36, 32, 0.06);
+  --glass-pane: var(--card);
+  --glass-pane-strong: var(--card);
+  --glass-pane-shadow: inset 0 0 0 0 rgba(0,0,0,0);
+
+  /* ── Ringgit denominations ───────────────────────────────────────────────
+     Colour in this app states the SIZE OF A NUMBER, and nothing else. The
+     hues are the Malaysian note series, so the scale is one every user
+     already reads fluently without a legend.
+
+     This is the only chroma allowed to carry data. Interactive colour is
+     --primary (ink), alarm is --loss / --over-neon. Keeping those three jobs
+     on separate palettes is what stops the screen turning into a fruit
+     salad — see denomToken() in script.js for the thresholds. */
+  /* Attention, not action. Kept off --primary on purpose: interactive ink,
+     warning amber and overdue red are three separate jobs. */
+  /* ── Radii ───────────────────────────────────────────────────────────────
+     Was 23 distinct values. Nobody can tell 10px from 12px from 14px, so
+     those were not decisions, they were an accumulation — each one added by
+     eyeballing a component on its own. Four, each with a job:
+       xs   hairline marks and bars
+       sm   controls you tap: inputs, buttons, chips, tiles
+       md   containers: cards, panels, dialogs
+       pill fully round ends — pills, and bars whose ends should be round
+     50% stays literal where a circle is structural, not stylistic. */
+  --r-xs: 3px;
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-pill: 999px;
+  /* Brand mark only — the wallet glyph in the header, matching the #c8704b
+     baked into icon.svg so the in-app mark and the home-screen icon are the
+     same colour. Terracotta lives here and nowhere else: it is 12-21 dE from
+     the RM20, warn and RM10 hues, so it can state identity but must never
+     state a status or an amount. */
+  --brand: #c8704b;
+  --warn: #a8631a;
+  --warn-bg: rgba(168, 99, 26, 0.10);
+  --warn-line: rgba(168, 99, 26, 0.32);
+  --rm1:   #2b5faa;
+  --rm5:   #2e7d4f;
+  --rm10:  #b8362f;
+  --rm20:  #c96a1e;
+  --rm50:  #0f7f8c;
+  --rm100: #6a4193;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: 'Fraunces', Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
@@ -71,25 +111,25 @@
    ⚠ KEEP THE TWO BLOCKS IN SYNC — plain CSS has no way to share them. */
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]) {
-    --stage: #14110e;
-    --bg: #1a1612;
-    --bg-elev: #221c16;
-    --card: #241e18;
-    --card-soft: #2e2820;
+    --stage: #131110;
+    --bg: #191614;
+    --bg-elev: #201c19;
+    --card: #221e1a;
+    --card-soft: #2b2622;
     --text: #f3ede1;
     --ink2: #c4bdb0;
     /* Bumped from #8a8178 → #a8a097 for better AA contrast against the
        warm-dark backgrounds. Captions like "Min RM 155.00" were hard to
        read on top of #1a1612. */
     --muted: #a8a097;
-    --primary: #e87c4a;
-    --primary-hover: #f08b58;
-    --primary-ink: #e87c4a;
-    --accent: #94b67c;
+    --primary: #d8dfe5;
+    --primary-hover: #eaeff3;
+    --primary-ink: #d8dfe5;
+    --accent: #8fb277;
     --accent-hover: #a3c187;
     --accent-3: #e4c089;
-    --accent-4: #7a9bb8;
-    --accent-cool: #7a9bb8;
+    --accent-4: #86a8c6;
+    --accent-cool: #86a8c6;
     --accent-5: #c9a07d;
     --gain: #7eaa7e;
     --loss: #e07277;
@@ -102,39 +142,50 @@
     --border: rgba(255, 255, 255, 0.14);
     --line: rgba(255, 255, 255, 0.08);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
-    --glass-bg: rgba(36, 30, 24, 0.55);
-    --glass-bg-strong: rgba(36, 30, 24, 0.78);
-    --glass-bg-soft: rgba(46, 40, 32, 0.55);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --glass-border-soft: rgba(255, 255, 255, 0.08);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
-    --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 14px 32px rgba(0, 0, 0, 0.35), 0 4px 10px rgba(0, 0, 0, 0.2);
-    --glass-shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.2);
-    --glass-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.02) 100%);
-    --glass-pane-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%);
-    --glass-pane-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2), 0 6px 16px rgba(0, 0, 0, 0.3);
+    --glass-bg: #221e1a;
+    --glass-bg-strong: #282320;
+    --glass-bg-soft: #2b2622;
+    --glass-border: rgba(255, 255, 255, 0.13);
+    --glass-border-soft: rgba(255, 255, 255, 0.09);
+    --glass-highlight: inset 0 0 0 0 rgba(0,0,0,0);
+    --glass-shadow: 0 1px 2px rgba(0,0,0,.05);
+    --glass-shadow-soft: inset 0 0 0 0 rgba(0,0,0,0);
+    --glass-pane: var(--card);
+    --glass-pane-strong: var(--card);
+    --glass-pane-shadow: inset 0 0 0 0 rgba(0,0,0,0);
+
+    --brand: #dd8a63;
+    --warn: #e0a44f;
+    --warn-bg: rgba(224, 164, 79, 0.14);
+    --warn-line: rgba(224, 164, 79, 0.36);
+    --rm1:   #6b9ee0;
+    --rm5:   #5cae7d;
+    --rm10:  #e2675f;
+    --rm20:  #e0954c;
+    --rm50:  #45b3c0;
+    --rm100: #a17ccc;
     color-scheme: dark;
   }
 }
 /* Forced dark via the Appearance picker — duplicate of the block above. */
 html[data-theme="dark"] {
-  --stage: #14110e;
-  --bg: #1a1612;
-  --bg-elev: #221c16;
-  --card: #241e18;
-  --card-soft: #2e2820;
+  --stage: #131110;
+  --bg: #191614;
+  --bg-elev: #201c19;
+  --card: #221e1a;
+  --card-soft: #2b2622;
   --text: #f3ede1;
   --ink2: #c4bdb0;
   /* Same bump as the prefers-color-scheme block — keep these in sync. */
   --muted: #a8a097;
-  --primary: #e87c4a;
-  --primary-hover: #f08b58;
-  --primary-ink: #e87c4a;
-  --accent: #94b67c;
+  --primary: #d8dfe5;
+  --primary-hover: #eaeff3;
+  --primary-ink: #d8dfe5;
+  --accent: #8fb277;
   --accent-hover: #a3c187;
   --accent-3: #e4c089;
-  --accent-4: #7a9bb8;
-  --accent-cool: #7a9bb8;
+  --accent-4: #86a8c6;
+  --accent-cool: #86a8c6;
   --accent-5: #c9a07d;
   --gain: #7eaa7e;
   --loss: #e07277;
@@ -147,17 +198,27 @@ html[data-theme="dark"] {
   --border: rgba(255, 255, 255, 0.14);
   --line: rgba(255, 255, 255, 0.08);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
-  --glass-bg: rgba(36, 30, 24, 0.55);
-  --glass-bg-strong: rgba(36, 30, 24, 0.78);
-  --glass-bg-soft: rgba(46, 40, 32, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-border-soft: rgba(255, 255, 255, 0.08);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
-  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 14px 32px rgba(0, 0, 0, 0.35), 0 4px 10px rgba(0, 0, 0, 0.2);
-  --glass-shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.2);
-  --glass-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.02) 100%);
-  --glass-pane-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%);
-  --glass-pane-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2), 0 6px 16px rgba(0, 0, 0, 0.3);
+  --glass-bg: #221e1a;
+  --glass-bg-strong: #282320;
+  --glass-bg-soft: #2b2622;
+  --glass-border: rgba(255, 255, 255, 0.13);
+  --glass-border-soft: rgba(255, 255, 255, 0.09);
+  --glass-highlight: inset 0 0 0 0 rgba(0,0,0,0);
+  --glass-shadow: 0 1px 2px rgba(0,0,0,.05);
+  --glass-shadow-soft: inset 0 0 0 0 rgba(0,0,0,0);
+  --glass-pane: var(--card);
+  --glass-pane-strong: var(--card);
+  --glass-pane-shadow: inset 0 0 0 0 rgba(0,0,0,0);
+  --brand: #dd8a63;
+  --warn: #e0a44f;
+  --warn-bg: rgba(224, 164, 79, 0.14);
+  --warn-line: rgba(224, 164, 79, 0.36);
+  --rm1:   #6b9ee0;
+  --rm5:   #5cae7d;
+  --rm10:  #e2675f;
+  --rm20:  #e0954c;
+  --rm50:  #45b3c0;
+  --rm100: #a17ccc;
   color-scheme: dark;
 }
 html[data-theme="light"] { color-scheme: light; }
@@ -189,10 +250,8 @@ input[type="checkbox"], input[type="radio"] {
 }
 .pending-list li {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.7rem 0.8rem;
   box-shadow: var(--glass-pane-shadow);
   display: flex;
@@ -214,7 +273,6 @@ input[type="checkbox"], input[type="radio"] {
   white-space: nowrap;
 }
 .pending-amount {
-  font-family: var(--font-serif);
   font-weight: 500;
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
@@ -259,7 +317,7 @@ input[type="checkbox"], input[type="radio"] {
 
 /* Upcoming reminders */
 .upcoming-card {
-  background: linear-gradient(180deg, rgba(200,112,75,0.10), var(--glass-bg) 60%);
+  background: linear-gradient(180deg, rgba(28, 43, 56, 0.10), var(--glass-bg) 60%);
 }
 .upcoming-list {
   list-style: none;
@@ -271,10 +329,8 @@ input[type="checkbox"], input[type="radio"] {
 }
 .upcoming-list li {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.75rem;
   display: grid;
   /* minmax(0,…): a bare 1fr's implicit minimum is the unwrapped text width,
@@ -292,29 +348,27 @@ input[type="checkbox"], input[type="radio"] {
   min-width: 2.4rem;
   text-align: center;
   padding: 0.25rem 0.4rem;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   border: 0.5px solid var(--line);
   color: var(--muted);
-  font-family: var(--font-serif);
   font-weight: 600;
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
 }
-.upcoming-list .up-day.today  { color: var(--loss);   background: rgba(184,106,78,0.12); border-color: rgba(184,106,78,0.35); }
-.upcoming-list .up-day.soon   { color: var(--primary); background: rgba(200,112,75,0.1); border-color: rgba(200,112,75,0.3); }
+.upcoming-list .up-day.today  { color: var(--loss);   background: rgba(28, 43, 56, 0.12); border-color: rgba(28, 43, 56, 0.35); }
+.upcoming-list .up-day.soon   { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-line); }
 .upcoming-list .up-day.income { color: var(--gain);   background: rgba(106,138,94,0.12); border-color: rgba(106,138,94,0.35); }
 .upcoming-list .up-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .upcoming-list .up-sub  { color: var(--muted); font-size: 0.75rem; font-family: var(--font-mono); }
 .upcoming-list .up-amount {
   white-space: nowrap;
-  font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
   font-size: 0.95rem;
   color: var(--text);
 }
-.upcoming-list .up-day.late   { color: var(--loss);   background: rgba(184,106,78,0.18); border-color: rgba(184,106,78,0.45); }
+.upcoming-list .up-day.late   { color: var(--loss);   background: rgba(28, 43, 56, 0.18); border-color: rgba(28, 43, 56, 0.45); }
 .upcoming-list .up-amount.neg { color: var(--loss); }
 .upcoming-list .up-amount.pos { color: var(--gain); }
 /* Overdue receivables carry a re-share shortcut, so they need a fourth
@@ -348,7 +402,7 @@ body.loaded #splash {
 .splash-mark {
   background: var(--card);
   border: 0.5px solid var(--line);
-  border-radius: 22px;
+  border-radius: var(--r-md);
   padding: 1rem;
   color: var(--primary);
   box-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 8px 24px rgba(42, 36, 32, 0.08);
@@ -422,7 +476,6 @@ body.loaded #splash {
   text-align: center;
 }
 .lock-welcome-lead {
-  font-family: var(--font-serif);
   font-size: 1.4rem;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -463,12 +516,11 @@ body.loaded #splash {
 .lock-form input {
   width: 100%;
   text-align: center;
-  font-family: var(--font-serif);
   font-size: 1.35rem;
   letter-spacing: 0.2em;
   padding: 0.85rem 0.9rem;
   background: var(--card);
-  border-radius: 14px;
+  border-radius: var(--r-md);
 }
 .lock-form button.primary {
   width: 100%;
@@ -534,12 +586,15 @@ html, body {
 
 main {
   background:
-    radial-gradient(1200px 600px at 85% -10%, rgba(200, 112, 75, 0.14), transparent 60%),
+    radial-gradient(1200px 600px at 85% -10%, rgba(28, 43, 56, 0.14), transparent 60%),
     radial-gradient(900px 500px at -10% 20%, rgba(143, 160, 120, 0.12), transparent 60%),
     radial-gradient(700px 400px at 50% 110%, rgba(212, 165, 116, 0.12), transparent 60%),
     var(--bg);
 }
-h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3px; }
+/* Serif is now scarce enough to mean something: the wordmark and the one
+   figure the app exists to show. h2 was 58 card titles all shouting. */
+h1 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3px; }
+h2 { font-weight: 600; letter-spacing: -0.2px; }
 
 .app-header {
   padding: calc(1rem + env(safe-area-inset-top)) 1rem 0.25rem;
@@ -556,19 +611,21 @@ h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3p
   line-height: 1;
   background: var(--card);
   border: 0.5px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.55rem;
   box-shadow: var(--shadow);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary);
+  /* Brand, not interactive — the glyph strokes with currentColor, so this is
+     what decides it. Pointing it at --primary is how it silently turned navy
+     when terracotta was retired from the UI palette. */
+  color: var(--brand);
 }
 .brand-mark svg { width: 22px; height: 22px; display: block; }
 .privacy-toggle svg { width: 20px; height: 20px; display: block; }
 .app-header h1 {
   margin: 0;
-  font-family: var(--font-serif);
   font-size: 1.35rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -585,7 +642,7 @@ h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3p
   appearance: none;
   background: var(--card);
   border: 0.5px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   width: 2.4rem;
   height: 2.4rem;
   padding: 0;
@@ -601,8 +658,8 @@ h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3p
 }
 .privacy-toggle:active { transform: scale(0.94); }
 body.private .privacy-toggle {
-  background: rgba(200, 112, 75, 0.12);
-  border-color: rgba(200, 112, 75, 0.35);
+  background: rgba(28, 43, 56, 0.12);
+  border-color: rgba(28, 43, 56, 0.35);
 }
 
 /* Privacy blur on amounts */
@@ -688,7 +745,7 @@ body.private #stall-warning {
   color: var(--muted);
   border: 1px solid transparent;
   padding: 0.5rem 0.75rem;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   font: inherit;
   font-weight: 600;
   font-size: 0.82rem;
@@ -799,7 +856,7 @@ main {
   :root { --sidebar-w: 232px; }
   html, body {
     background:
-      radial-gradient(1200px 600px at 50% -100px, rgba(200,112,75,0.06), transparent 60%),
+      radial-gradient(1200px 600px at 50% -100px, rgba(28, 43, 56, 0.06), transparent 60%),
       var(--stage);
   }
   body {
@@ -851,8 +908,8 @@ main {
      we don't have to duplicate markup. */
   .tabs::before {
     content: "Duitful";
-    display: block;
     font-family: var(--font-serif);
+    display: block;
     font-weight: 600;
     font-size: 1.05rem;
     letter-spacing: -0.01em;
@@ -868,7 +925,7 @@ main {
     justify-content: flex-start;
     padding: 0.6rem 0.85rem;
     font-size: 0.9rem;
-    border-radius: 10px;
+    border-radius: var(--r-sm);
     gap: 0.75rem;
     text-align: left;
     position: relative;
@@ -890,7 +947,7 @@ main {
     top: 22%;
     bottom: 22%;
     width: 3px;
-    border-radius: 2px;
+    border-radius: var(--r-xs);
     background: var(--primary);
   }
 
@@ -978,10 +1035,8 @@ main {
 /* Cards */
 .card {
   background: var(--glass-bg);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
   border: 0.5px solid var(--glass-border);
-  border-radius: 20px;
+  border-radius: var(--r-md);
   padding: 1rem;
   margin-bottom: 0.85rem;
   box-shadow: var(--glass-highlight), var(--glass-shadow);
@@ -990,12 +1045,8 @@ main {
      the card past its grid cell on narrow widths. */
   min-width: 0;
 }
-@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .card { background: var(--card); }
-}
 .card h2 {
   margin: 0 0 0.75rem;
-  font-family: var(--font-serif);
   font-weight: 600;
   font-size: 1.15rem;
   letter-spacing: -0.02em;
@@ -1008,9 +1059,9 @@ main {
 }
 .hint.warn {
   color: var(--loss);
-  background: rgba(184, 106, 78, 0.08);
-  border: 0.5px solid rgba(184, 106, 78, 0.25);
-  border-radius: 12px;
+  background: rgba(28, 43, 56, 0.08);
+  border: 0.5px solid rgba(28, 43, 56, 0.25);
+  border-radius: var(--r-md);
   padding: 0.55rem 0.7rem;
   font-size: 0.82rem;
 }
@@ -1018,18 +1069,13 @@ main {
 /* Hero */
 .hero-card {
   background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
   border: 0.5px solid var(--glass-border);
-  border-radius: 24px;
+  border-radius: var(--r-md);
   padding: 1.25rem 1.1rem 1rem;
   margin-bottom: 0.85rem;
   box-shadow: var(--glass-highlight), var(--glass-shadow);
   position: relative;
   overflow: hidden;
-}
-@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .hero-card { background: var(--card); }
 }
 .hero-card::before {
   content: "";
@@ -1038,7 +1084,7 @@ main {
   width: 220px;
   height: 220px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(200, 112, 75, 0.18), transparent 65%);
+  background: radial-gradient(circle, rgba(28, 43, 56, 0.18), transparent 65%);
   pointer-events: none;
 }
 .hero-card::after {
@@ -1071,10 +1117,10 @@ main {
   font-weight: 500;
 }
 .hero-amount {
+  font-family: var(--font-serif);
   display: inline-flex;
   align-items: baseline;
   gap: 2px;
-  font-family: var(--font-serif);
   font-size: 2.75rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
@@ -1099,19 +1145,19 @@ main {
 .hero-amount.pos { color: var(--gain); }
 .hero-amount.neg { color: var(--loss); }
 .hero-amount.pos .hero-cents { color: rgba(106, 138, 94, 0.5); }
-.hero-amount.neg .hero-cents { color: rgba(184, 106, 78, 0.5); }
+.hero-amount.neg .hero-cents { color: rgba(28, 43, 56, 0.5); }
 
 .hero-progress { margin-bottom: 0.85rem; }
 .hero-progress .progress-bar {
   height: 6px;
   background: var(--card-soft);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 .hero-progress .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--primary));
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   width: 0%;
   transition: width 0.6s cubic-bezier(.2,.8,.2,1);
 }
@@ -1192,7 +1238,7 @@ main {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   transition: color 0.18s ease, background 0.18s ease;
 }
 .hero-breakdown-toggle:hover { color: var(--text); background: var(--card-soft); }
@@ -1223,10 +1269,8 @@ main {
   flex-direction: column;
   gap: 0.12rem;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.6rem;
   min-width: 0;
   cursor: pointer;
@@ -1238,7 +1282,7 @@ main {
 .hero-stat.expanded {
   grid-column: 1 / -1;
   background: var(--glass-bg-strong);
-  border-color: rgba(200, 112, 75, 0.3);
+  border-color: rgba(28, 43, 56, 0.3);
   padding: 0.75rem 0.9rem;
 }
 .hero-stat.expanded strong {
@@ -1259,7 +1303,6 @@ main {
   text-overflow: ellipsis;
 }
 .hero-stat strong {
-  font-family: var(--font-serif);
   font-weight: 500;
   font-size: 0.95rem;
   font-variant-numeric: tabular-nums;
@@ -1290,10 +1333,8 @@ main {
   appearance: none;
   -webkit-appearance: none;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.75rem;
   margin-top: 0.5rem;
   width: 100%;
@@ -1326,7 +1367,6 @@ main {
   letter-spacing: 0.04em;
 }
 .debt-glance-amount {
-  font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   font-size: 1.05rem;
   font-weight: 600;
@@ -1401,7 +1441,6 @@ main {
 }
 .mini-stats span { color: var(--text); font-weight: 600; }
 .debt-total-inline {
-  font-family: var(--font-serif);
   font-size: 1.1rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1409,7 +1448,6 @@ main {
   letter-spacing: -0.02em;
 }
 .saving-total-inline {
-  font-family: var(--font-serif);
   font-size: 1rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -1432,10 +1470,8 @@ main {
   gap: 0.35rem;
   padding: 0.75rem 0.5rem;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   color: var(--ink2);
   font: inherit;
   font-weight: 500;
@@ -1448,15 +1484,15 @@ main {
 .pill-icon { display: inline-flex; align-items: center; line-height: 1; }
 .pill-icon svg { width: 18px; height: 18px; display: block; }
 .quick-add .pill.active {
-  background: rgba(200, 112, 75, 0.12);
+  background: rgba(28, 43, 56, 0.12);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
+  border-color: rgba(28, 43, 56, 0.4);
   font-weight: 600;
 }
 .quick-add .pill[data-type="debt"].active {
-  background: rgba(184, 106, 78, 0.12);
+  background: rgba(28, 43, 56, 0.12);
   color: var(--loss);
-  border-color: rgba(184, 106, 78, 0.4);
+  border-color: rgba(28, 43, 56, 0.4);
 }
 .quick-add .pill[data-type="saving"].active {
   background: rgba(143, 160, 120, 0.14);
@@ -1480,7 +1516,7 @@ main {
   padding: 0.7rem 0.5rem;
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   color: var(--ink2);
   font: inherit;
   font-weight: 500;
@@ -1490,9 +1526,9 @@ main {
   letter-spacing: -0.1px;
 }
 .debt-type-pills .pill.active {
-  background: rgba(200, 112, 75, 0.12);
+  background: rgba(28, 43, 56, 0.12);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
+  border-color: rgba(28, 43, 56, 0.4);
   font-weight: 600;
 }
 .debt-type-pills .pill[data-debt-kind="installment"].active {
@@ -1505,7 +1541,7 @@ main {
   background: rgba(212, 165, 116, 0.14);
   color: var(--accent-5);
   border: 0.5px solid rgba(212, 165, 116, 0.35);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
@@ -1517,16 +1553,15 @@ main {
 /* Half-configured installment debt (monthly or term missing) — warn-toned
    badge so the user sees the row needs attention, not a "broken" zero. */
 .debt-list li .installment-badge.needs-setup {
-  background: rgba(200, 112, 75, 0.14);
+  background: rgba(28, 43, 56, 0.14);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
+  border-color: rgba(28, 43, 56, 0.4);
 }
 .debt-list li .needs-setup-note {
   color: var(--primary);
   font-style: italic;
 }
 .field.big input {
-  font-family: var(--font-serif);
   font-size: 1.5rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -1548,13 +1583,11 @@ button.primary.big {
 .quick-amounts button {
   appearance: none;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   box-shadow: var(--glass-pane-shadow);
   color: var(--ink2);
   padding: 0.45rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 500;
@@ -1565,7 +1598,7 @@ button.primary.big {
 .quick-amounts button:hover {
   background: var(--card);
   color: var(--text);
-  border-color: rgba(200, 112, 75, 0.3);
+  border-color: rgba(28, 43, 56, 0.3);
 }
 .quick-amounts button:active { transform: scale(0.96); }
 
@@ -1593,11 +1626,9 @@ button.primary.big {
 .recent-chip {
   appearance: none;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   box-shadow: var(--glass-pane-shadow);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.5rem 0.7rem;
   display: flex;
   flex-direction: column;
@@ -1610,7 +1641,7 @@ button.primary.big {
   transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.18s ease, background 0.18s ease;
 }
 .recent-chip:hover {
-  border-color: rgba(200, 112, 75, 0.32);
+  border-color: rgba(28, 43, 56, 0.32);
   background: var(--card);
 }
 .recent-chip:active { transform: scale(0.97); }
@@ -1629,7 +1660,6 @@ button.primary.big {
   text-overflow: ellipsis;
 }
 .recent-chip-amount {
-  font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   font-size: 0.95rem;
   color: var(--text);
@@ -1641,9 +1671,9 @@ button.primary.big {
 .empty-welcome {
   text-align: center;
   padding: 1.5rem 1.25rem 1.6rem;
-  background: linear-gradient(180deg, rgba(200, 112, 75, 0.05), var(--card) 70%);
-  border: 0.5px solid rgba(200, 112, 75, 0.18);
-  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(28, 43, 56, 0.05), var(--card) 70%);
+  border: 0.5px solid rgba(28, 43, 56, 0.18);
+  border-radius: var(--r-md);
   margin-bottom: 0.85rem;
 }
 .empty-welcome-glyph {
@@ -1653,12 +1683,11 @@ button.primary.big {
   color: var(--primary);
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  background: rgba(200, 112, 75, 0.08);
+  border-radius: var(--r-md);
+  background: rgba(28, 43, 56, 0.08);
 }
 .empty-welcome-glyph svg { width: 32px; height: 32px; }
 .empty-welcome-title {
-  font-family: var(--font-serif);
   font-size: 1.3rem;
   letter-spacing: -0.02em;
   margin: 0 0 0.4rem;
@@ -1717,7 +1746,7 @@ button.primary.big {
 }
 .empty-block-mark {
   width: 44px; height: 44px;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--card-soft, rgba(0, 0, 0, 0.04));
   border: 0.5px solid var(--line);
@@ -1760,7 +1789,7 @@ li.empty-block-host {
 .scan-report {
   margin: 0.6rem 0 0.2rem;
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--card-soft, rgba(0, 0, 0, 0.03));
 }
 .scan-report > summary {
@@ -1812,7 +1841,7 @@ li.empty-block-host {
   overflow: auto;
   background: var(--card);
   border: 0.5px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   line-height: 1.5;
@@ -1829,13 +1858,12 @@ li.empty-block-host {
 .onboard-form { display: flex; flex-direction: column; gap: 0.2rem; }
 .onboard-progress { display: flex; gap: 0.3rem; margin-bottom: 1.1rem; }
 .onboard-tick {
-  height: 3px; flex: 1; border-radius: 999px;
+  height: 3px; flex: 1; border-radius: var(--r-pill);
   background: var(--line);
   transition: background 0.25s ease;
 }
 .onboard-tick.is-on { background: var(--primary); }
 .onboard-h {
-  font-family: var(--font-serif);
   font-size: 1.32rem;
   line-height: 1.25;
   margin: 0 0 0.35rem;
@@ -1851,7 +1879,7 @@ li.empty-block-host {
 .onboard-field {
   display: flex; align-items: center; gap: 0.5rem;
   border: 0.5px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--card);
   padding: 0.55rem 0.85rem;
 }
@@ -1867,7 +1895,6 @@ li.empty-block-host {
 #onboard-dialog .onboard-field input {
   border: 0; background: transparent; box-shadow: none;
   padding: 0; margin: 0; min-width: 0; width: 100%; height: auto;
-  font-family: var(--font-serif);
   font-size: 1.9rem;
   font-weight: 600;
   color: var(--text);
@@ -1889,7 +1916,7 @@ li.empty-block-host {
 .onboard-row .onboard-bill-name {
   flex: 1 1 auto; min-width: 0;
   border: 0.5px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--card);
   padding: 0.7rem 0.85rem;
   font-size: 0.95rem;
@@ -1914,7 +1941,6 @@ li.empty-block-host {
 }
 .onboard-big {
   margin: 0.35rem 0 0.15rem;
-  font-family: var(--font-serif);
   font-size: 2.6rem;
   font-weight: 600;
   letter-spacing: -0.03em;
@@ -1962,10 +1988,8 @@ button.secondary.is-working::after {
 
 .stat {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.7rem 0.8rem;
   display: flex;
   flex-direction: column;
@@ -1984,7 +2008,6 @@ button.secondary.is-working::after {
   letter-spacing: 0.1em;
 }
 .stat strong {
-  font-family: var(--font-serif);
   font-weight: 500;
   font-size: 1.15rem;
   font-variant-numeric: tabular-nums;
@@ -2056,7 +2079,7 @@ select {
   color: var(--text);
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   -webkit-appearance: none;
   appearance: none;
 }
@@ -2165,7 +2188,6 @@ select:focus {
   align-items: baseline;
 }
 .daily-group-header .day-total {
-  font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   color: var(--text);
   font-weight: 500;
@@ -2175,10 +2197,8 @@ select:focus {
 }
 .daily-entry {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.7rem 0.85rem;
   display: grid;
   grid-template-columns: 1fr auto auto auto;
@@ -2217,13 +2237,13 @@ select:focus {
   min-width: 0;
 }
 .daily-entry .cat-pill {
-  background: rgba(200, 112, 75, 0.1);
+  background: rgba(28, 43, 56, 0.1);
   color: var(--primary);
-  border: 0.5px solid rgba(200, 112, 75, 0.25);
+  border: 0.5px solid rgba(28, 43, 56, 0.25);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   padding: 0.2rem 0.55rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-weight: 500;
   white-space: nowrap;
   text-transform: uppercase;
@@ -2241,7 +2261,6 @@ select:focus {
   font-style: italic;
 }
 .daily-entry .amount {
-  font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
   font-size: 1.05rem;
@@ -2259,10 +2278,8 @@ select:focus {
 .savings-mini:empty { display: none; }
 .saving-card {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 0.7rem 0.8rem;
   display: flex;
   flex-direction: column;
@@ -2284,13 +2301,13 @@ select:focus {
 .saving-card .progress-bar {
   height: 8px;
   background: var(--card-soft);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 .saving-card .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--accent-3));
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   transition: width 0.6s cubic-bezier(.2,.8,.2,1);
 }
 .saving-card .saving-meta {
@@ -2324,7 +2341,7 @@ select:focus {
 button, .as-button {
   appearance: none;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 0.7rem 1rem;
   font: inherit;
   font-weight: 600;
@@ -2401,10 +2418,10 @@ button.ghost:hover { background: var(--card-soft); color: var(--text); }
    subtle until hover so it doesn't shout, but its color signals consequence. */
 button.ghost.ghost-danger {
   color: var(--loss);
-  border-color: rgba(184, 106, 78, 0.4);
+  border-color: rgba(28, 43, 56, 0.4);
 }
 button.ghost.ghost-danger:hover {
-  background: rgba(184, 106, 78, 0.1);
+  background: rgba(28, 43, 56, 0.1);
   color: var(--loss);
   border-color: var(--loss);
 }
@@ -2426,7 +2443,7 @@ button.ghost.icon-btn {
   border: 0.5px solid var(--line);
   background: var(--card);
   color: var(--text);
-  border-radius: 22px;
+  border-radius: var(--r-md);
   padding: 0;
   max-width: 420px;
   width: calc(100% - 2rem);
@@ -2461,9 +2478,9 @@ button.ghost.icon-btn {
 .paywall-mark {
   width: 2.8rem;
   height: 2.8rem;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(200,112,75,0.2), rgba(212,165,116,0.2));
-  border: 0.5px solid rgba(200,112,75,0.35);
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, rgba(28, 43, 56, 0.2), rgba(212,165,116,0.2));
+  border: 0.5px solid rgba(28, 43, 56, 0.35);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2504,11 +2521,10 @@ button.ghost.icon-btn {
   padding: 0.7rem 0.9rem;
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   margin-bottom: 0.75rem;
 }
 .paywall-price strong {
-  font-family: var(--font-serif);
   font-size: 1.6rem;
   font-weight: 600;
   color: var(--text);
@@ -2535,7 +2551,7 @@ button.ghost.icon-btn {
   min-width: 0;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   color: var(--text);
   font-size: 1rem;
@@ -2550,9 +2566,9 @@ button.ghost.icon-btn {
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  background: linear-gradient(180deg, rgba(200,112,75,0.12), rgba(200,112,75,0.05));
-  border: 0.5px solid rgba(200,112,75,0.32);
-  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(28, 43, 56, 0.12), rgba(28, 43, 56, 0.05));
+  border: 0.5px solid rgba(28, 43, 56, 0.32);
+  border-radius: var(--r-md);
   padding: 0.85rem 1rem;
   margin-bottom: 0.9rem;
 }
@@ -2588,8 +2604,8 @@ button.ghost.icon-btn {
   font-size: 0.85rem;
 }
 .trial-banner.trial-banner-expired {
-  background: linear-gradient(180deg, rgba(184,106,78,0.12), rgba(184,106,78,0.05));
-  border-color: rgba(184,106,78,0.32);
+  background: linear-gradient(180deg, rgba(28, 43, 56, 0.12), rgba(28, 43, 56, 0.05));
+  border-color: rgba(28, 43, 56, 0.32);
 }
 .trial-banner.trial-banner-expired .trial-banner-mark { background: var(--danger); }
 @media (max-width: 480px) {
@@ -2602,13 +2618,13 @@ button.ghost.icon-btn {
 
 /* Pro card in Data tab */
 .pro-card {
-  background: linear-gradient(180deg, rgba(200,112,75,0.08), var(--card) 70%);
+  background: linear-gradient(180deg, rgba(28, 43, 56, 0.08), var(--card) 70%);
 }
 .pro-badge {
   background: rgba(106,138,94,0.15);
   color: var(--gain);
   border: 0.5px solid rgba(106,138,94,0.4);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.18rem 0.6rem;
   font-family: var(--font-mono);
   font-size: 0.68rem;
@@ -2630,16 +2646,16 @@ button.ghost.icon-btn {
 }
 .cat-pill-card {
   color: var(--primary);
-  border-color: rgba(200,112,75,0.4);
-  background: rgba(200,112,75,0.08);
+  border-color: rgba(28, 43, 56, 0.4);
+  background: rgba(28, 43, 56, 0.08);
 }
 /* Debt-payment pill — uses --loss tokens (terracotta-red, on-brand) instead
    of the previous bright red inline styles that were off-palette. */
 .daily-entry .cat-pill-debt,
 .cat-pill-debt {
   color: var(--loss);
-  border-color: rgba(184,106,78,0.4);
-  background: rgba(184,106,78,0.08);
+  border-color: rgba(28, 43, 56, 0.4);
+  background: rgba(28, 43, 56, 0.08);
 }
 /* Savings-deposit pill — uses --gain tokens (sage-green, on-brand). */
 .daily-entry .cat-pill-saving,
@@ -2703,16 +2719,15 @@ button.ghost.icon-btn {
   min-width: 1.6rem;
   padding: 0.1rem 0.35rem;
   font-size: 0.72rem;
-  font-family: var(--font-serif);
   font-weight: 600;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   text-align: center;
   vertical-align: middle;
 }
 .debt-legend .day-chip.soon {
-  color: var(--primary);
-  background: rgba(200, 112, 75, 0.1);
-  border: 0.5px solid rgba(200, 112, 75, 0.3);
+  color: var(--warn);
+  background: var(--warn-bg);
+  border: 0.5px solid var(--warn-line);
 }
 .debt-legend .day-chip.today {
   color: var(--accent);
@@ -2732,9 +2747,9 @@ button.ghost.icon-btn {
   color: var(--primary);
 }
 .debt-list .quick-pay:hover {
-  background: rgba(200, 112, 75, 0.1);
+  background: rgba(28, 43, 56, 0.1);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.3);
+  border-color: rgba(28, 43, 56, 0.3);
 }
 /* Quick-start template chips for Budget Pools — shown only when the user has
    no user-created pools yet. Pre-fills the form so they don't have to type. */
@@ -2752,7 +2767,7 @@ button.ghost.icon-btn {
   border: 0.5px dashed var(--line);
   background: transparent;
   color: var(--ink2);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 .pool-template:hover {
   background: var(--card-soft);
@@ -2767,7 +2782,6 @@ button.ghost.icon-btn {
 }
 .pro-refer h3 {
   margin: 0 0 0.3rem;
-  font-family: var(--font-serif);
   font-size: 1rem;
   font-weight: 500;
 }
@@ -2783,7 +2797,7 @@ button.ghost.icon-btn {
   padding: 0.55rem 0.7rem;
   background: var(--card-soft, #f3ece0);
   border: 0.5px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   font: 12px/1.4 ui-monospace, SFMono-Regular, monospace;
   color: var(--ink);
   word-break: break-all;
@@ -2810,7 +2824,7 @@ button.ghost.icon-btn {
   min-width: 0;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   color: var(--text);
   font-size: 0.95rem;
@@ -2834,7 +2848,7 @@ button.ghost.icon-btn {
   border: 0.5px solid var(--primary);
   color: var(--card) !important;
   padding: 0.75rem 1rem;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   font: inherit;
   font-weight: 600;
   font-size: 0.95rem;
@@ -2849,7 +2863,7 @@ button.ghost.icon-btn {
 .scan-dialog form { gap: 0.65rem; }
 .scan-preview-wrap {
   background: var(--card-soft);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.5rem;
   text-align: center;
   max-height: 240px;
@@ -2858,7 +2872,7 @@ button.ghost.icon-btn {
 .scan-preview-wrap img {
   max-width: 100%;
   max-height: 220px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   object-fit: contain;
   display: none;
 }
@@ -2866,13 +2880,13 @@ button.ghost.icon-btn {
 .scan-pb {
   height: 6px;
   background: var(--card-soft);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 .scan-pb .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--primary));
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   width: 0%;
   transition: width 0.25s ease;
 }
@@ -2891,7 +2905,7 @@ button.ghost.icon-btn {
   font-family: var(--font-mono);
   font-size: 0.7rem;
   background: var(--card-soft);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 0.5rem 0.65rem;
   color: var(--ink2);
   white-space: pre-wrap;
@@ -2917,14 +2931,14 @@ button.ghost.icon-btn {
 .item-list li, .debt-list li, .payoff-list li {
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.7rem 0.85rem;
   display: flex;
   align-items: center;
   gap: 0.6rem;
 }
 .item-list li .amount, .debt-list li .meta {
-  font-family: var(--font-serif);
+  font-variant-numeric: tabular-nums;
   font-weight: 500;
   font-size: 1rem;
   letter-spacing: -0.02em;
@@ -2943,20 +2957,19 @@ button.ghost.icon-btn {
 .item-list li .day-chip, .debt-list li .day-chip {
   min-width: 2.2rem;
   padding: 0.2rem 0.45rem;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   border: 0.5px solid var(--line);
   color: var(--muted);
-  font-family: var(--font-serif);
   font-size: 0.8rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
 .item-list li .day-chip.soon, .debt-list li .day-chip.soon {
-  color: var(--primary);
-  background: rgba(200, 112, 75, 0.1);
-  border-color: rgba(200, 112, 75, 0.3);
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-color: var(--warn-line);
 }
 .item-list li .day-chip.today, .debt-list li .day-chip.today {
   color: var(--accent);
@@ -2977,6 +2990,27 @@ button.ghost.icon-btn {
 }
 .debt-list li {
   flex-wrap: wrap;
+  /* The denomination rail. Set inline per row from denomVar(balance), so the
+     colour is a fact about the number rather than a style choice. Falls back
+     to the hairline when a row has no --denom, which keeps any list that
+     hasn't been taught the system from looking broken. */
+  position: relative;
+  padding-left: 0.85rem;
+}
+.debt-list li::before,
+.debt-mini-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--denom, var(--border));
+}
+.debt-mini-row {
+  position: relative;
+  padding-left: 0.85rem;
 }
 .debt-list .meta-row {
   width: 100%;
@@ -2995,7 +3029,7 @@ button.ghost.icon-btn {
   display: inline-grid;
   place-items: center;
   flex: none;
-  border-radius: 0.5rem;
+  border-radius: var(--r-sm);
   font-weight: 700;
   letter-spacing: -0.02em;
   overflow: hidden;
@@ -3055,14 +3089,14 @@ button.ghost.icon-btn {
   width: 100%;
   height: 4px;
   margin-top: 0.35rem;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--text) 10%, transparent);
   overflow: hidden;
 }
 .inst-progress > i {
   display: block;
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   background: var(--accent);
   transition: width 0.3s ease;
 }
@@ -3082,10 +3116,8 @@ button.ghost.icon-btn {
 .debts-mini:empty { display: none; }
 .debt-mini-row {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 0.5rem 0.65rem;
   display: flex;
   flex-direction: column;
@@ -3146,7 +3178,7 @@ button.ghost.icon-btn {
   width: 2.1rem;
   height: 2.1rem;
   font-size: 0.78rem;
-  border-radius: 0.55rem;
+  border-radius: var(--r-sm);
 }
 .brand-suggest {
   position: absolute;
@@ -3161,7 +3193,7 @@ button.ghost.icon-btn {
   overflow-y: auto;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 0.7rem;
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow);
 }
 .brand-suggest li {
@@ -3169,7 +3201,7 @@ button.ghost.icon-btn {
   align-items: center;
   gap: 0.55rem;
   padding: 0.4rem 0.5rem;
-  border-radius: 0.45rem;
+  border-radius: var(--r-sm);
   cursor: pointer;
 }
 .brand-suggest li:hover,
@@ -3217,7 +3249,6 @@ button.ghost.icon-btn {
 }
 .total-line strong {
   color: var(--text);
-  font-family: var(--font-serif);
   font-weight: 500;
   font-size: 1rem;
   letter-spacing: -0.02em;
@@ -3239,7 +3270,6 @@ button.ghost.icon-btn {
   content: counter(payoff);
   background: var(--text);
   color: var(--card);
-  font-family: var(--font-serif);
   font-weight: 600;
   width: 1.8rem;
   height: 1.8rem;
@@ -3285,9 +3315,9 @@ button.ghost.icon-btn {
 .guide-mark {
   width: 2.8rem;
   height: 2.8rem;
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(200,112,75,0.18), rgba(212,165,116,0.22));
-  border: 0.5px solid rgba(200,112,75,0.3);
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, rgba(28, 43, 56, 0.18), rgba(212,165,116,0.22));
+  border: 0.5px solid rgba(28, 43, 56, 0.3);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3389,7 +3419,7 @@ button.ghost.icon-btn {
 .guide-dots span.active {
   background: var(--primary);
   width: 18px;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
 }
 .guide-nav {
   justify-content: flex-end;
@@ -3412,7 +3442,7 @@ button.ghost.icon-btn {
   padding: 0.85rem 0.95rem;
   background: var(--card, #fffaf2);
   border: 0.5px solid var(--line, rgba(42, 36, 32, 0.08));
-  border-radius: 16px;
+  border-radius: var(--r-md);
   box-shadow: 0 10px 32px rgba(42, 36, 32, 0.18);
   animation: pwa-install-slide 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
@@ -3428,7 +3458,7 @@ button.ghost.icon-btn {
 .pwa-install-icon {
   width: 38px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card-soft, #f3ece0);
   display: inline-flex;
   align-items: center;
@@ -3444,7 +3474,6 @@ button.ghost.icon-btn {
   min-width: 0;
 }
 .pwa-install-text strong {
-  font-family: var(--font-serif);
   font-size: 1rem;
   font-weight: 500;
   color: var(--ink);
@@ -3468,7 +3497,7 @@ button.ghost.icon-btn {
 .pwa-install-ios {
   border: none;
   padding: 0;
-  border-radius: 20px;
+  border-radius: var(--r-md);
   background: var(--card, #fffaf2);
   color: var(--ink);
   max-width: 420px;
@@ -3477,13 +3506,11 @@ button.ghost.icon-btn {
 }
 .pwa-install-ios::backdrop {
   background: rgba(42, 36, 32, 0.45);
-  backdrop-filter: blur(4px);
 }
 .pwa-install-ios-inner {
   padding: 1.3rem 1.2rem 1.1rem;
 }
 .pwa-install-ios-inner h2 {
-  font-family: var(--font-serif);
   font-size: 1.3rem;
   font-weight: 500;
   margin: 0 0 0.3rem;
@@ -3505,7 +3532,7 @@ button.ghost.icon-btn {
 .chip {
   display: inline-flex; align-items: center;
   padding: 0.42rem 0.85rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(42, 36, 32, 0.04);
   border: 0.5px solid var(--glass-border, rgba(42, 36, 32, 0.14));
   color: var(--ink);
@@ -3521,7 +3548,7 @@ button.ghost.icon-btn {
 .check-chip {
   display: inline-flex; align-items: center; gap: 0.45rem;
   padding: 0.4rem 0.85rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(42, 36, 32, 0.04);
   border: 0.5px solid var(--glass-border, rgba(42, 36, 32, 0.14));
   font-size: 0.85rem;
@@ -3530,7 +3557,7 @@ button.ghost.icon-btn {
 }
 .check-chip input { accent-color: var(--primary); }
 .check-chip:has(input:checked) {
-  background: rgba(200, 112, 75, 0.1);
+  background: rgba(28, 43, 56, 0.1);
   border-color: var(--primary);
   color: var(--primary-ink, var(--ink));
 }
@@ -3625,7 +3652,7 @@ button.ghost.icon-btn {
 
 /* Cloud backup card */
 .drive-status-pill {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.18rem 0.6rem;
   font-family: var(--font-mono);
   font-size: 0.68rem;
@@ -3644,9 +3671,9 @@ button.ghost.icon-btn {
   border-color: rgba(138,129,120,0.4);
 }
 .drive-status-pill.error {
-  background: rgba(184,106,78,0.15);
+  background: rgba(28, 43, 56, 0.15);
   color: var(--loss);
-  border-color: rgba(184,106,78,0.4);
+  border-color: rgba(28, 43, 56, 0.4);
 }
 
 /* Bulk import income dialog */
@@ -3666,7 +3693,7 @@ button.ghost.icon-btn {
   width: 7rem;
   padding: 4px 8px;
   border: 1px solid var(--border, #ddd);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: transparent;
   text-overflow: ellipsis;
   overflow: hidden;
@@ -3691,7 +3718,7 @@ button.ghost.icon-btn {
   margin-left: 6px;
   padding: 1px 6px;
   font-size: 0.78em;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--badge-bg, #f3efe7);
   color: var(--muted, #666);
   white-space: nowrap;
@@ -3721,7 +3748,7 @@ button.ghost.icon-btn {
   align-items: center;
   padding: 10px 12px;
   border: 1px solid var(--line, #ddd);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--bg);
 }
 .budget-pool-card .pool-row.system { opacity: 0.95; }
@@ -3737,7 +3764,7 @@ button.ghost.icon-btn {
    No overflow:hidden on the track either — it would clip the overspend glow
    below. The fill inherits the radius, which is all the clipping ever did. */
 .pool-progress {
-  height: 6px; border-radius: 3px;
+  height: 6px; border-radius: var(--r-xs);
   background: rgba(0,0,0,0.06); margin: 6px 0;
 }
 .budget-pool-card .pool-progress { grid-column: 1 / -1; }
@@ -3761,7 +3788,7 @@ button.ghost.icon-btn {
   letter-spacing: 0.05em;
   padding: 1px 6px;
   margin-left: 6px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: rgba(0,0,0,0.08);
   color: var(--muted, #666);
 }
@@ -3786,7 +3813,7 @@ button.ghost.icon-btn {
 .pool-banner {
   margin-top: 10px;
   padding: 0.7rem 0.85rem;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   font-size: 0.88rem;
   line-height: 1.45;
   display: flex;
@@ -3832,13 +3859,13 @@ button.ghost.icon-btn {
 .pool-warn-yellow {
   display: inline-block; padding: 1px 6px;
   font-size: 0.78em; font-weight: 600;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: rgba(230, 184, 92, 0.22); color: var(--warn-yellow-ink);
 }
 .pool-warn-red {
   display: inline-block; padding: 1px 6px;
   font-size: 0.78em; font-weight: 600;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: rgba(224, 122, 95, 0.22); color: var(--warn-red-ink);
 }
 .pool-preview {
@@ -3878,7 +3905,7 @@ button.ghost.icon-btn {
   align-items: center;
   padding: 8px 10px;
   border: 1px solid var(--line, #ddd);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
 }
 .bulk-debt-row > input[type="checkbox"] { grid-area: check; }
 .bulk-debt-row > div { grid-area: name; min-width: 0; }
@@ -3886,7 +3913,7 @@ button.ghost.icon-btn {
 .bulk-debt-row > input[type="date"] { grid-area: date; justify-self: end; }
 .bulk-debt-row.greyed { opacity: 0.55; background: rgba(0,0,0,0.03); }
 .bulk-debt-row .row-meta { font-size: 0.78em; color: var(--muted, #666); }
-.bulk-debt-row input[type="date"] { font: inherit; padding: 2px 6px; border: 1px solid var(--line, #ddd); border-radius: 6px; }
+.bulk-debt-row input[type="date"] { font: inherit; padding: 2px 6px; border: 1px solid var(--line, #ddd); border-radius: var(--r-sm); }
 /* Editable amount per debt row — defaults to remaining minimum, but the user
    can pay extra (attack principal) or less (cash-strapped month). */
 .bulk-debt-row input.row-amount {
@@ -3897,7 +3924,7 @@ button.ghost.icon-btn {
   width: 6.5rem;
   padding: 4px 8px;
   border: 1px solid var(--line, #ddd);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--card);
   color: var(--text);
 }
@@ -3948,7 +3975,7 @@ button.ghost.icon-btn {
   cursor: pointer;
   color: var(--primary);
   text-decoration: underline;
-  text-decoration-color: rgba(200, 112, 75, 0.4);
+  text-decoration-color: rgba(28, 43, 56, 0.4);
   text-underline-offset: 2px;
   opacity: 0.85;
 }
@@ -3962,7 +3989,7 @@ button.ghost.icon-btn {
   background: rgba(20, 20, 20, 0.92);
   color: #fff;
   padding: 10px 16px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: 0.85em;
   pointer-events: none;
   opacity: 0;
@@ -3985,7 +4012,7 @@ button.ghost.icon-btn {
   background: rgba(20, 20, 20, 0.94);
   color: #fff;
   padding: 10px 12px 10px 16px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: 0.9em;
   opacity: 0;
   transition: opacity 0.2s, transform 0.2s;
@@ -4005,7 +4032,7 @@ button.ghost.icon-btn {
   font: inherit;
   font-weight: 600;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   cursor: pointer;
 }
 .app-update-banner button:disabled {
@@ -4044,7 +4071,7 @@ button.ghost.icon-btn {
   font: inherit;
   padding: 6px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--bg);
   color: var(--text);
   -webkit-appearance: none;
@@ -4142,7 +4169,7 @@ button.ghost.icon-btn {
   grid-area: swatch;
   width: 12px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
   display: inline-block;
 }
 .spending-legend-name {
@@ -4193,7 +4220,7 @@ button.ghost.icon-btn {
   background: rgba(143, 160, 120, 0.12);
   border-left: 3px solid var(--accent);
   padding: 6px 10px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   margin: 6px 0 12px;
 }
 
@@ -4221,7 +4248,7 @@ button.ghost.icon-btn {
   background: var(--text, #2a2420);
   color: var(--bg, #f5f1ea);
   padding: 10px 18px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: 0.92rem;
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -4287,7 +4314,7 @@ button.ghost.icon-btn {
   min-width: 0;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   color: var(--text);
   font-size: 1rem;
@@ -4308,13 +4335,11 @@ button.ghost.icon-btn {
   appearance: none;
   flex: 1;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   box-shadow: var(--glass-pane-shadow);
   color: var(--ink2);
   padding: 0.55rem 0.8rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font: inherit;
   font-size: 0.88rem;
   font-weight: 500;
@@ -4356,7 +4381,7 @@ button.ghost.icon-btn {
   appearance: none;
   border: 0.5px solid transparent;
   background: var(--card-soft);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   /* Flat, compact cells — square cells made the month view enormous and
      forced a long scroll, especially on desktop where the calendar spans
      the full card width. */
@@ -4374,7 +4399,7 @@ button.ghost.icon-btn {
   min-width: 0;
 }
 .spend-cal-cell:active { transform: scale(0.95); }
-.spend-cal-cell:hover { border-color: rgba(215, 102, 54, 0.35); }
+.spend-cal-cell:hover { border-color: rgba(28, 43, 56, 0.35); }
 .spend-cal-cell.empty {
   background: transparent;
   cursor: default;
@@ -4398,10 +4423,10 @@ button.ghost.icon-btn {
   font-variant-numeric: tabular-nums;
 }
 /* Heat levels — terracotta wash scaled by spend intensity vs month max. */
-.spend-cal-cell.heat-1 { background: rgba(215, 102, 54, 0.10); }
-.spend-cal-cell.heat-2 { background: rgba(215, 102, 54, 0.22); }
-.spend-cal-cell.heat-3 { background: rgba(215, 102, 54, 0.38); }
-.spend-cal-cell.heat-4 { background: rgba(215, 102, 54, 0.55); }
+.spend-cal-cell.heat-1 { background: rgba(28, 43, 56, 0.10); }
+.spend-cal-cell.heat-2 { background: rgba(28, 43, 56, 0.22); }
+.spend-cal-cell.heat-3 { background: rgba(28, 43, 56, 0.38); }
+.spend-cal-cell.heat-4 { background: rgba(28, 43, 56, 0.55); }
 .spend-cal-cell.heat-3 .cal-day,
 .spend-cal-cell.heat-4 .cal-day { color: var(--text); font-weight: 600; }
 .spend-cal-cell.heat-3 .cal-amt,
@@ -4432,7 +4457,6 @@ button.ghost.icon-btn {
   margin-bottom: 0.4rem;
 }
 .spend-cal-day-panel .cal-panel-head strong {
-  font-family: var(--font-serif);
   font-size: 1rem;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -4492,7 +4516,7 @@ html[data-theme="dark"] .guide-spot-dim,
 .guide-spot-ring {
   position: absolute;
   border: 2px solid var(--primary);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   pointer-events: none;
   transition: top 0.32s cubic-bezier(0.22, 1, 0.36, 1),
               left 0.32s cubic-bezier(0.22, 1, 0.36, 1),
@@ -4501,11 +4525,11 @@ html[data-theme="dark"] .guide-spot-dim,
   animation: guideSpotPulse 2.2s ease-in-out infinite;
 }
 @keyframes guideSpotPulse {
-  0%, 100% { box-shadow: 0 0 0 4px rgba(215, 102, 54, 0.22); }
-  50%      { box-shadow: 0 0 0 12px rgba(215, 102, 54, 0.05); }
+  0%, 100% { box-shadow: 0 0 0 4px rgba(28, 43, 56, 0.22); }
+  50%      { box-shadow: 0 0 0 12px rgba(28, 43, 56, 0.05); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .guide-spot-ring { animation: none; box-shadow: 0 0 0 4px rgba(215, 102, 54, 0.22); }
+  .guide-spot-ring { animation: none; box-shadow: 0 0 0 4px rgba(28, 43, 56, 0.22); }
   .guide-spot-dim { transition: none; }
 }
 
@@ -4514,7 +4538,7 @@ html[data-theme="dark"] .guide-spot-dim,
   background: var(--card);
   color: var(--text);
   border: 0.5px solid var(--line);
-  border-radius: 18px;
+  border-radius: var(--r-md);
   padding: 0.85rem 1rem 0.9rem;
   max-width: 320px;
   width: calc(100vw - 32px);
@@ -4622,7 +4646,6 @@ html[data-theme="dark"] .guide-spot-dim,
   font-size: 0.8rem;
 }
 .zakat-card .zakat-hero strong {
-  font-family: var(--font-serif);
   font-size: 1.9rem;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -4630,7 +4653,7 @@ html[data-theme="dark"] .guide-spot-dim,
 }
 .zakat-bar {
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--card-soft);
   overflow: hidden;
   border: 0.5px solid var(--line);
@@ -4638,11 +4661,11 @@ html[data-theme="dark"] .guide-spot-dim,
 .zakat-bar-fill {
   height: 100%;
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   transition: width 0.35s ease;
 }
 .zakat-pill {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
@@ -4662,9 +4685,9 @@ html[data-theme="dark"] .guide-spot-dim,
   border: 0.5px solid var(--line);
 }
 .zakat-pill.warn {
-  background: rgba(200, 112, 75, 0.14);
+  background: rgba(28, 43, 56, 0.14);
   color: var(--primary);
-  border: 0.5px solid rgba(200, 112, 75, 0.4);
+  border: 0.5px solid rgba(28, 43, 56, 0.4);
 }
 .zakat-breakdown, .zakat-history {
   list-style: none;
@@ -4732,7 +4755,7 @@ body.private #zakat-nisab-line {
 /* Nisab & haul settings — collapsed once configured. */
 .zakat-nisab-details {
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.85rem;
   margin: 0.6rem 0;
   background: var(--card-soft);
@@ -4766,9 +4789,9 @@ body.private #zakat-nisab-line {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, rgba(215, 102, 54, 0.18), rgba(212, 165, 116, 0.22));
-  border: 0.5px solid rgba(215, 102, 54, 0.4);
-  box-shadow: var(--glass-highlight), 0 10px 28px rgba(215, 102, 54, 0.18);
+  background: linear-gradient(135deg, rgba(28, 43, 56, 0.18), rgba(212, 165, 116, 0.22));
+  border: 0.5px solid rgba(28, 43, 56, 0.4);
+  box-shadow: var(--glass-highlight), 0 10px 28px rgba(28, 43, 56, 0.18);
   animation: seal-in 620ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 .pro-seal svg {
@@ -4790,12 +4813,11 @@ body.private #zakat-nisab-line {
   width: 5.5rem;
   height: 5.5rem;
   border-radius: 50%;
-  border: 2px solid rgba(215, 102, 54, 0.45);
+  border: 2px solid rgba(28, 43, 56, 0.45);
   animation: ring-out 900ms ease-out 420ms both;
 }
 
 .pro-celebrate h2 {
-  font-family: var(--font-serif);
   font-size: 1.75rem;
   margin: 0 0 0.35rem;
   animation: rise 500ms ease-out 240ms both;
@@ -4822,7 +4844,7 @@ body.private #zakat-nisab-line {
   align-items: center;
   gap: 0.6rem;
   padding: 0.55rem 0.8rem;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--glass-bg-soft);
   border: 0.5px solid var(--glass-border-soft);
   font-size: 0.95rem;
@@ -4863,7 +4885,7 @@ body.private #zakat-nisab-line {
   top: -12%;
   width: 7px;
   height: 12px;
-  border-radius: 1px;
+  border-radius: var(--r-xs);
   opacity: 0;
   animation: confetti-fall var(--dur, 2.4s) linear var(--delay, 0s) both;
 }
@@ -4936,7 +4958,7 @@ body.private #zakat-nisab-line {
   padding: 0.7rem 0.5rem;
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   color: var(--ink2);
   font: inherit;
   font-weight: 500;
@@ -4946,9 +4968,9 @@ body.private #zakat-nisab-line {
   letter-spacing: -0.1px;
 }
 .invest-type-pills .pill.active {
-  background: rgba(200, 112, 75, 0.12);
+  background: rgba(28, 43, 56, 0.12);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
+  border-color: rgba(28, 43, 56, 0.4);
   font-weight: 600;
 }
 
@@ -4960,10 +4982,8 @@ body.private #zakat-nisab-line {
 }
 .invest-row {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 0.7rem 0.8rem;
   display: flex;
   flex-direction: column;
@@ -4984,7 +5004,7 @@ body.private #zakat-nisab-line {
   background: rgba(74, 107, 143, 0.14);
   color: var(--accent-cool);
   border: 0.5px solid rgba(74, 107, 143, 0.35);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
@@ -5128,7 +5148,7 @@ body.private #zakat-nisab-line {
 /* Same shape as .zakat-pill — deliberately its own class so the two cards can
    drift apart later without one silently restyling the other. */
 .invest-plan-pill {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
@@ -5143,9 +5163,9 @@ body.private #zakat-nisab-line {
   border: 0.5px solid rgba(93, 145, 99, 0.35);
 }
 .invest-plan-pill.warn {
-  background: rgba(200, 112, 75, 0.14);
+  background: rgba(28, 43, 56, 0.14);
   color: var(--primary);
-  border: 0.5px solid rgba(200, 112, 75, 0.4);
+  border: 0.5px solid rgba(28, 43, 56, 0.4);
 }
 
 .invest-plan-hero {
@@ -5239,7 +5259,7 @@ body.private .invest-plan-stats .stat .sub {
 .split-dash-line {
   margin: 0.6rem 0 0;
   padding: 0.55rem 0.7rem;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   border: 0.5px dashed var(--line);
   background: var(--card-soft);
   color: var(--ink2);
@@ -5284,10 +5304,8 @@ body.private .invest-plan-stats .stat .sub {
 }
 .split-row {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.7rem 0.8rem;
   display: flex;
   flex-direction: column;
@@ -5305,7 +5323,7 @@ body.private .invest-plan-stats .stat .sub {
   background: rgba(74, 107, 143, 0.14);
   color: var(--accent-cool);
   border: 0.5px solid rgba(74, 107, 143, 0.35);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
@@ -5352,7 +5370,7 @@ body.private .invest-plan-stats .stat .sub {
    copies the VALUE only, so pasting into a banking app needs no trimming. */
 .split-pay-rows {
   border: 0.5px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card-soft);
   padding: 0.15rem 0.55rem;
 }
@@ -5432,7 +5450,7 @@ body.private .invest-plan-stats .stat .sub {
 .split-qr-panel {
   background: #ffffff;
   border: 0.5px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--r-md);
   padding: 12px;
   width: min(240px, 70%);
   margin: 0.5rem auto;
@@ -5442,7 +5460,7 @@ body.private .invest-plan-stats .stat .sub {
 
 .split-preview {
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.6rem 0.75rem;
   margin: 0.4rem 0 0.2rem;
 }
@@ -5473,7 +5491,6 @@ body.private .invest-plan-stats .stat .sub {
 }
 .split-paid-name { font-weight: 700; min-width: 0; }
 .split-paid-amount {
-  font-family: var(--font-serif);
   font-size: 1.4rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -5500,7 +5517,7 @@ body.private .invest-plan-stats .stat .sub {
   padding: 0.55rem 0.5rem;
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   color: var(--ink2);
   font: inherit;
   font-weight: 500;
@@ -5509,9 +5526,9 @@ body.private .invest-plan-stats .stat .sub {
   transition: all 0.15s ease;
 }
 .split-method-pills .pill.active {
-  background: rgba(200, 112, 75, 0.12);
+  background: rgba(28, 43, 56, 0.12);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
+  border-color: rgba(28, 43, 56, 0.4);
   font-weight: 600;
 }
 .split-total-note { margin: -0.1rem 0 0.3rem; }
@@ -5524,7 +5541,7 @@ body.private .invest-plan-stats .stat .sub {
 .split-item {
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.5rem 0.55rem;
 }
 .split-item-row {
@@ -5556,7 +5573,7 @@ body.private .invest-plan-stats .stat .sub {
   flex-direction: column;
   gap: 0.25rem;
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.65rem;
   margin: 0.45rem 0 0.1rem;
 }
@@ -5580,7 +5597,7 @@ body.private .invest-plan-stats .stat .sub {
 }
 
 .split-camera-wrap {
-  border-radius: 14px;
+  border-radius: var(--r-md);
   overflow: hidden;
   background: var(--card-soft);
   margin: 0.4rem 0;
@@ -5632,7 +5649,7 @@ body.private .pending-match-sub {
   background: var(--card);
   color: var(--muted);
   border: 0.5px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.55rem 1rem;
   font: inherit;
   font-size: 0.88rem;
@@ -5643,9 +5660,9 @@ body.private .pending-match-sub {
 }
 .split-dialog .pill.active,
 .split-dialog .pill[aria-checked="true"] {
-  background: rgba(200, 112, 75, 0.14);
+  background: rgba(28, 43, 56, 0.14);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.5);
+  border-color: rgba(28, 43, 56, 0.5);
 }
 /* Scan-to-prefill: full-width row instead of floating ragged-right. */
 .split-dialog .split-scan-row { justify-content: stretch; }
@@ -5655,9 +5672,9 @@ body.private .pending-match-sub {
    instead of a ghost row that vanishes into the form. */
 .split-quick-row .ghost {
   width: 100%;
-  border: 0.5px solid rgba(200, 112, 75, 0.45);
+  border: 0.5px solid rgba(28, 43, 56, 0.45);
   color: var(--primary);
   font-weight: 600;
   padding: 0.68rem 1rem;
-  border-radius: 12px;
+  border-radius: var(--r-md);
 }

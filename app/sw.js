@@ -15,19 +15,19 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-08-03-3";
+const VERSION = "2026-08-04-1";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=90",
-  "/app/script.js?v=124",
+  "/app/styles.css?v=91",
+  "/app/script.js?v=125",
   "/app/drive-config.js?v=2",
   "/app/drive-sync.js?v=2",
   "/app/investments.js?v=3",
   "/app/split.js?v=6",
-  "/app/brands.js?v=2",
+  "/app/brands.js?v=3",
   // Brand marks: tiny (0.3–3 KB each) and drawn on the Debts tab, so they are
   // precached rather than fetched on first paint. Add a line when a new logo
   // ships — an unlisted one still works online, it just pops in offline.
