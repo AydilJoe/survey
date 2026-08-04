@@ -16,8 +16,8 @@ Everything below is written at **Level 2**. Swapping down is a two-word edit.
 | | What appears publicly | Trust signal |
 |---|---|---|
 | **1 — Anonymous** | "Built in KL by one person" | Weak. Still better than nothing. |
-| **2 — First name** ← drafted | "I'm Aydil, in KL" | Strong, low exposure. **Recommended.** |
-| **3 — Name + face** | Full name, photo, maybe X/LinkedIn | Strongest. Real exposure — you'd be the public face of a money app. |
+| **2 — First name** | "I'm Aydil" | Strong, low exposure. |
+| **3 — Name + face** ← shipped | Name + photo in the hero | Strongest. Chosen. |
 
 For a finance app the author *is* the trust story, so this is the one decision
 that matters more than any wording below. Level 2 gets most of the benefit
@@ -33,8 +33,8 @@ Keep the `<h1>` — *"Be duitful with your duit"* is the best line on the site.
 
 > Every budgeting app I tried wanted my bank login. So I built one that can't
 > have it. There's no server for your money to sit on — it's encrypted on your
-> phone and it stays there. I'm Aydil, in KL. The code is on GitHub if you'd
-> rather check than trust me.
+> phone and it stays there. The code is on GitHub if you'd rather check than
+> trust me.
 
 Why this and not the old version:
 
