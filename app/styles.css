@@ -64,6 +64,19 @@
      salad — see denomToken() in script.js for the thresholds. */
   /* Attention, not action. Kept off --primary on purpose: interactive ink,
      warning amber and overdue red are three separate jobs. */
+  /* ── Radii ───────────────────────────────────────────────────────────────
+     Was 23 distinct values. Nobody can tell 10px from 12px from 14px, so
+     those were not decisions, they were an accumulation — each one added by
+     eyeballing a component on its own. Four, each with a job:
+       xs   hairline marks and bars
+       sm   controls you tap: inputs, buttons, chips, tiles
+       md   containers: cards, panels, dialogs
+       pill fully round ends — pills, and bars whose ends should be round
+     50% stays literal where a circle is structural, not stylistic. */
+  --r-xs: 3px;
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-pill: 999px;
   --warn: #a8631a;
   --warn-bg: rgba(168, 99, 26, 0.10);
   --warn-line: rgba(168, 99, 26, 0.32);
@@ -230,7 +243,7 @@ input[type="checkbox"], input[type="radio"] {
 .pending-list li {
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.7rem 0.8rem;
   box-shadow: var(--glass-pane-shadow);
   display: flex;
@@ -252,7 +265,6 @@ input[type="checkbox"], input[type="radio"] {
   white-space: nowrap;
 }
 .pending-amount {
-  font-family: var(--font-serif);
   font-weight: 500;
   font-size: 1.05rem;
   font-variant-numeric: tabular-nums;
@@ -310,7 +322,7 @@ input[type="checkbox"], input[type="radio"] {
 .upcoming-list li {
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.75rem;
   display: grid;
   /* minmax(0,…): a bare 1fr's implicit minimum is the unwrapped text width,
@@ -328,11 +340,10 @@ input[type="checkbox"], input[type="radio"] {
   min-width: 2.4rem;
   text-align: center;
   padding: 0.25rem 0.4rem;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   border: 0.5px solid var(--line);
   color: var(--muted);
-  font-family: var(--font-serif);
   font-weight: 600;
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
@@ -344,7 +355,6 @@ input[type="checkbox"], input[type="radio"] {
 .upcoming-list .up-sub  { color: var(--muted); font-size: 0.75rem; font-family: var(--font-mono); }
 .upcoming-list .up-amount {
   white-space: nowrap;
-  font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
   font-size: 0.95rem;
@@ -384,7 +394,7 @@ body.loaded #splash {
 .splash-mark {
   background: var(--card);
   border: 0.5px solid var(--line);
-  border-radius: 22px;
+  border-radius: var(--r-md);
   padding: 1rem;
   color: var(--primary);
   box-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 8px 24px rgba(42, 36, 32, 0.08);
@@ -458,7 +468,6 @@ body.loaded #splash {
   text-align: center;
 }
 .lock-welcome-lead {
-  font-family: var(--font-serif);
   font-size: 1.4rem;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -499,12 +508,11 @@ body.loaded #splash {
 .lock-form input {
   width: 100%;
   text-align: center;
-  font-family: var(--font-serif);
   font-size: 1.35rem;
   letter-spacing: 0.2em;
   padding: 0.85rem 0.9rem;
   background: var(--card);
-  border-radius: 14px;
+  border-radius: var(--r-md);
 }
 .lock-form button.primary {
   width: 100%;
@@ -575,7 +583,10 @@ main {
     radial-gradient(700px 400px at 50% 110%, rgba(212, 165, 116, 0.12), transparent 60%),
     var(--bg);
 }
-h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3px; }
+/* Serif is now scarce enough to mean something: the wordmark and the one
+   figure the app exists to show. h2 was 58 card titles all shouting. */
+h1 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3px; }
+h2 { font-weight: 600; letter-spacing: -0.2px; }
 
 .app-header {
   padding: calc(1rem + env(safe-area-inset-top)) 1rem 0.25rem;
@@ -592,7 +603,7 @@ h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3p
   line-height: 1;
   background: var(--card);
   border: 0.5px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.55rem;
   box-shadow: var(--shadow);
   display: inline-flex;
@@ -604,7 +615,6 @@ h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3p
 .privacy-toggle svg { width: 20px; height: 20px; display: block; }
 .app-header h1 {
   margin: 0;
-  font-family: var(--font-serif);
   font-size: 1.35rem;
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -621,7 +631,7 @@ h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3p
   appearance: none;
   background: var(--card);
   border: 0.5px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   width: 2.4rem;
   height: 2.4rem;
   padding: 0;
@@ -724,7 +734,7 @@ body.private #stall-warning {
   color: var(--muted);
   border: 1px solid transparent;
   padding: 0.5rem 0.75rem;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   font: inherit;
   font-weight: 600;
   font-size: 0.82rem;
@@ -887,8 +897,8 @@ main {
      we don't have to duplicate markup. */
   .tabs::before {
     content: "Duitful";
-    display: block;
     font-family: var(--font-serif);
+    display: block;
     font-weight: 600;
     font-size: 1.05rem;
     letter-spacing: -0.01em;
@@ -904,7 +914,7 @@ main {
     justify-content: flex-start;
     padding: 0.6rem 0.85rem;
     font-size: 0.9rem;
-    border-radius: 10px;
+    border-radius: var(--r-sm);
     gap: 0.75rem;
     text-align: left;
     position: relative;
@@ -926,7 +936,7 @@ main {
     top: 22%;
     bottom: 22%;
     width: 3px;
-    border-radius: 2px;
+    border-radius: var(--r-xs);
     background: var(--primary);
   }
 
@@ -1015,7 +1025,7 @@ main {
 .card {
   background: var(--glass-bg);
   border: 0.5px solid var(--glass-border);
-  border-radius: 20px;
+  border-radius: var(--r-md);
   padding: 1rem;
   margin-bottom: 0.85rem;
   box-shadow: var(--glass-highlight), var(--glass-shadow);
@@ -1026,7 +1036,6 @@ main {
 }
 .card h2 {
   margin: 0 0 0.75rem;
-  font-family: var(--font-serif);
   font-weight: 600;
   font-size: 1.15rem;
   letter-spacing: -0.02em;
@@ -1041,7 +1050,7 @@ main {
   color: var(--loss);
   background: rgba(28, 43, 56, 0.08);
   border: 0.5px solid rgba(28, 43, 56, 0.25);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.7rem;
   font-size: 0.82rem;
 }
@@ -1050,7 +1059,7 @@ main {
 .hero-card {
   background: var(--glass-bg-strong);
   border: 0.5px solid var(--glass-border);
-  border-radius: 24px;
+  border-radius: var(--r-md);
   padding: 1.25rem 1.1rem 1rem;
   margin-bottom: 0.85rem;
   box-shadow: var(--glass-highlight), var(--glass-shadow);
@@ -1097,10 +1106,10 @@ main {
   font-weight: 500;
 }
 .hero-amount {
+  font-family: var(--font-serif);
   display: inline-flex;
   align-items: baseline;
   gap: 2px;
-  font-family: var(--font-serif);
   font-size: 2.75rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
@@ -1131,13 +1140,13 @@ main {
 .hero-progress .progress-bar {
   height: 6px;
   background: var(--card-soft);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 .hero-progress .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--primary));
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   width: 0%;
   transition: width 0.6s cubic-bezier(.2,.8,.2,1);
 }
@@ -1218,7 +1227,7 @@ main {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   transition: color 0.18s ease, background 0.18s ease;
 }
 .hero-breakdown-toggle:hover { color: var(--text); background: var(--card-soft); }
@@ -1250,7 +1259,7 @@ main {
   gap: 0.12rem;
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.6rem;
   min-width: 0;
   cursor: pointer;
@@ -1283,7 +1292,6 @@ main {
   text-overflow: ellipsis;
 }
 .hero-stat strong {
-  font-family: var(--font-serif);
   font-weight: 500;
   font-size: 0.95rem;
   font-variant-numeric: tabular-nums;
@@ -1315,7 +1323,7 @@ main {
   -webkit-appearance: none;
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.75rem;
   margin-top: 0.5rem;
   width: 100%;
@@ -1348,7 +1356,6 @@ main {
   letter-spacing: 0.04em;
 }
 .debt-glance-amount {
-  font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   font-size: 1.05rem;
   font-weight: 600;
@@ -1423,7 +1430,6 @@ main {
 }
 .mini-stats span { color: var(--text); font-weight: 600; }
 .debt-total-inline {
-  font-family: var(--font-serif);
   font-size: 1.1rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -1431,7 +1437,6 @@ main {
   letter-spacing: -0.02em;
 }
 .saving-total-inline {
-  font-family: var(--font-serif);
   font-size: 1rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -1455,7 +1460,7 @@ main {
   padding: 0.75rem 0.5rem;
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   color: var(--ink2);
   font: inherit;
   font-weight: 500;
@@ -1500,7 +1505,7 @@ main {
   padding: 0.7rem 0.5rem;
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   color: var(--ink2);
   font: inherit;
   font-weight: 500;
@@ -1525,7 +1530,7 @@ main {
   background: rgba(212, 165, 116, 0.14);
   color: var(--accent-5);
   border: 0.5px solid rgba(212, 165, 116, 0.35);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
@@ -1546,7 +1551,6 @@ main {
   font-style: italic;
 }
 .field.big input {
-  font-family: var(--font-serif);
   font-size: 1.5rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -1572,7 +1576,7 @@ button.primary.big {
   box-shadow: var(--glass-pane-shadow);
   color: var(--ink2);
   padding: 0.45rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font: inherit;
   font-size: 0.82rem;
   font-weight: 500;
@@ -1613,7 +1617,7 @@ button.primary.big {
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
   box-shadow: var(--glass-pane-shadow);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.5rem 0.7rem;
   display: flex;
   flex-direction: column;
@@ -1645,7 +1649,6 @@ button.primary.big {
   text-overflow: ellipsis;
 }
 .recent-chip-amount {
-  font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   font-size: 0.95rem;
   color: var(--text);
@@ -1659,7 +1662,7 @@ button.primary.big {
   padding: 1.5rem 1.25rem 1.6rem;
   background: linear-gradient(180deg, rgba(28, 43, 56, 0.05), var(--card) 70%);
   border: 0.5px solid rgba(28, 43, 56, 0.18);
-  border-radius: 22px;
+  border-radius: var(--r-md);
   margin-bottom: 0.85rem;
 }
 .empty-welcome-glyph {
@@ -1669,12 +1672,11 @@ button.primary.big {
   color: var(--primary);
   display: grid;
   place-items: center;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: rgba(28, 43, 56, 0.08);
 }
 .empty-welcome-glyph svg { width: 32px; height: 32px; }
 .empty-welcome-title {
-  font-family: var(--font-serif);
   font-size: 1.3rem;
   letter-spacing: -0.02em;
   margin: 0 0 0.4rem;
@@ -1733,7 +1735,7 @@ button.primary.big {
 }
 .empty-block-mark {
   width: 44px; height: 44px;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--card-soft, rgba(0, 0, 0, 0.04));
   border: 0.5px solid var(--line);
@@ -1776,7 +1778,7 @@ li.empty-block-host {
 .scan-report {
   margin: 0.6rem 0 0.2rem;
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--card-soft, rgba(0, 0, 0, 0.03));
 }
 .scan-report > summary {
@@ -1828,7 +1830,7 @@ li.empty-block-host {
   overflow: auto;
   background: var(--card);
   border: 0.5px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   line-height: 1.5;
@@ -1845,13 +1847,12 @@ li.empty-block-host {
 .onboard-form { display: flex; flex-direction: column; gap: 0.2rem; }
 .onboard-progress { display: flex; gap: 0.3rem; margin-bottom: 1.1rem; }
 .onboard-tick {
-  height: 3px; flex: 1; border-radius: 999px;
+  height: 3px; flex: 1; border-radius: var(--r-pill);
   background: var(--line);
   transition: background 0.25s ease;
 }
 .onboard-tick.is-on { background: var(--primary); }
 .onboard-h {
-  font-family: var(--font-serif);
   font-size: 1.32rem;
   line-height: 1.25;
   margin: 0 0 0.35rem;
@@ -1867,7 +1868,7 @@ li.empty-block-host {
 .onboard-field {
   display: flex; align-items: center; gap: 0.5rem;
   border: 0.5px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--card);
   padding: 0.55rem 0.85rem;
 }
@@ -1883,7 +1884,6 @@ li.empty-block-host {
 #onboard-dialog .onboard-field input {
   border: 0; background: transparent; box-shadow: none;
   padding: 0; margin: 0; min-width: 0; width: 100%; height: auto;
-  font-family: var(--font-serif);
   font-size: 1.9rem;
   font-weight: 600;
   color: var(--text);
@@ -1905,7 +1905,7 @@ li.empty-block-host {
 .onboard-row .onboard-bill-name {
   flex: 1 1 auto; min-width: 0;
   border: 0.5px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--card);
   padding: 0.7rem 0.85rem;
   font-size: 0.95rem;
@@ -1930,7 +1930,6 @@ li.empty-block-host {
 }
 .onboard-big {
   margin: 0.35rem 0 0.15rem;
-  font-family: var(--font-serif);
   font-size: 2.6rem;
   font-weight: 600;
   letter-spacing: -0.03em;
@@ -1979,7 +1978,7 @@ button.secondary.is-working::after {
 .stat {
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.7rem 0.8rem;
   display: flex;
   flex-direction: column;
@@ -1998,7 +1997,6 @@ button.secondary.is-working::after {
   letter-spacing: 0.1em;
 }
 .stat strong {
-  font-family: var(--font-serif);
   font-weight: 500;
   font-size: 1.15rem;
   font-variant-numeric: tabular-nums;
@@ -2070,7 +2068,7 @@ select {
   color: var(--text);
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   -webkit-appearance: none;
   appearance: none;
 }
@@ -2179,7 +2177,6 @@ select:focus {
   align-items: baseline;
 }
 .daily-group-header .day-total {
-  font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   color: var(--text);
   font-weight: 500;
@@ -2190,7 +2187,7 @@ select:focus {
 .daily-entry {
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.7rem 0.85rem;
   display: grid;
   grid-template-columns: 1fr auto auto auto;
@@ -2235,7 +2232,7 @@ select:focus {
   font-family: var(--font-mono);
   font-size: 0.68rem;
   padding: 0.2rem 0.55rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-weight: 500;
   white-space: nowrap;
   text-transform: uppercase;
@@ -2253,7 +2250,6 @@ select:focus {
   font-style: italic;
 }
 .daily-entry .amount {
-  font-family: var(--font-serif);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
   font-size: 1.05rem;
@@ -2272,7 +2268,7 @@ select:focus {
 .saving-card {
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 0.7rem 0.8rem;
   display: flex;
   flex-direction: column;
@@ -2294,13 +2290,13 @@ select:focus {
 .saving-card .progress-bar {
   height: 8px;
   background: var(--card-soft);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 .saving-card .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--accent-3));
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   transition: width 0.6s cubic-bezier(.2,.8,.2,1);
 }
 .saving-card .saving-meta {
@@ -2334,7 +2330,7 @@ select:focus {
 button, .as-button {
   appearance: none;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 0.7rem 1rem;
   font: inherit;
   font-weight: 600;
@@ -2436,7 +2432,7 @@ button.ghost.icon-btn {
   border: 0.5px solid var(--line);
   background: var(--card);
   color: var(--text);
-  border-radius: 22px;
+  border-radius: var(--r-md);
   padding: 0;
   max-width: 420px;
   width: calc(100% - 2rem);
@@ -2471,7 +2467,7 @@ button.ghost.icon-btn {
 .paywall-mark {
   width: 2.8rem;
   height: 2.8rem;
-  border-radius: 16px;
+  border-radius: var(--r-md);
   background: linear-gradient(135deg, rgba(28, 43, 56, 0.2), rgba(212,165,116,0.2));
   border: 0.5px solid rgba(28, 43, 56, 0.35);
   display: inline-flex;
@@ -2514,11 +2510,10 @@ button.ghost.icon-btn {
   padding: 0.7rem 0.9rem;
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   margin-bottom: 0.75rem;
 }
 .paywall-price strong {
-  font-family: var(--font-serif);
   font-size: 1.6rem;
   font-weight: 600;
   color: var(--text);
@@ -2545,7 +2540,7 @@ button.ghost.icon-btn {
   min-width: 0;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   color: var(--text);
   font-size: 1rem;
@@ -2562,7 +2557,7 @@ button.ghost.icon-btn {
   gap: 0.9rem;
   background: linear-gradient(180deg, rgba(28, 43, 56, 0.12), rgba(28, 43, 56, 0.05));
   border: 0.5px solid rgba(28, 43, 56, 0.32);
-  border-radius: 16px;
+  border-radius: var(--r-md);
   padding: 0.85rem 1rem;
   margin-bottom: 0.9rem;
 }
@@ -2618,7 +2613,7 @@ button.ghost.icon-btn {
   background: rgba(106,138,94,0.15);
   color: var(--gain);
   border: 0.5px solid rgba(106,138,94,0.4);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.18rem 0.6rem;
   font-family: var(--font-mono);
   font-size: 0.68rem;
@@ -2713,9 +2708,8 @@ button.ghost.icon-btn {
   min-width: 1.6rem;
   padding: 0.1rem 0.35rem;
   font-size: 0.72rem;
-  font-family: var(--font-serif);
   font-weight: 600;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   text-align: center;
   vertical-align: middle;
 }
@@ -2762,7 +2756,7 @@ button.ghost.icon-btn {
   border: 0.5px dashed var(--line);
   background: transparent;
   color: var(--ink2);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
 }
 .pool-template:hover {
   background: var(--card-soft);
@@ -2777,7 +2771,6 @@ button.ghost.icon-btn {
 }
 .pro-refer h3 {
   margin: 0 0 0.3rem;
-  font-family: var(--font-serif);
   font-size: 1rem;
   font-weight: 500;
 }
@@ -2793,7 +2786,7 @@ button.ghost.icon-btn {
   padding: 0.55rem 0.7rem;
   background: var(--card-soft, #f3ece0);
   border: 0.5px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   font: 12px/1.4 ui-monospace, SFMono-Regular, monospace;
   color: var(--ink);
   word-break: break-all;
@@ -2820,7 +2813,7 @@ button.ghost.icon-btn {
   min-width: 0;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   color: var(--text);
   font-size: 0.95rem;
@@ -2844,7 +2837,7 @@ button.ghost.icon-btn {
   border: 0.5px solid var(--primary);
   color: var(--card) !important;
   padding: 0.75rem 1rem;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   font: inherit;
   font-weight: 600;
   font-size: 0.95rem;
@@ -2859,7 +2852,7 @@ button.ghost.icon-btn {
 .scan-dialog form { gap: 0.65rem; }
 .scan-preview-wrap {
   background: var(--card-soft);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.5rem;
   text-align: center;
   max-height: 240px;
@@ -2868,7 +2861,7 @@ button.ghost.icon-btn {
 .scan-preview-wrap img {
   max-width: 100%;
   max-height: 220px;
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   object-fit: contain;
   display: none;
 }
@@ -2876,13 +2869,13 @@ button.ghost.icon-btn {
 .scan-pb {
   height: 6px;
   background: var(--card-soft);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   overflow: hidden;
 }
 .scan-pb .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--primary));
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   width: 0%;
   transition: width 0.25s ease;
 }
@@ -2901,7 +2894,7 @@ button.ghost.icon-btn {
   font-family: var(--font-mono);
   font-size: 0.7rem;
   background: var(--card-soft);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 0.5rem 0.65rem;
   color: var(--ink2);
   white-space: pre-wrap;
@@ -2927,14 +2920,14 @@ button.ghost.icon-btn {
 .item-list li, .debt-list li, .payoff-list li {
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   padding: 0.7rem 0.85rem;
   display: flex;
   align-items: center;
   gap: 0.6rem;
 }
 .item-list li .amount, .debt-list li .meta {
-  font-family: var(--font-serif);
+  font-variant-numeric: tabular-nums;
   font-weight: 500;
   font-size: 1rem;
   letter-spacing: -0.02em;
@@ -2953,11 +2946,10 @@ button.ghost.icon-btn {
 .item-list li .day-chip, .debt-list li .day-chip {
   min-width: 2.2rem;
   padding: 0.2rem 0.45rem;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   border: 0.5px solid var(--line);
   color: var(--muted);
-  font-family: var(--font-serif);
   font-size: 0.8rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -3026,7 +3018,7 @@ button.ghost.icon-btn {
   display: inline-grid;
   place-items: center;
   flex: none;
-  border-radius: 0.5rem;
+  border-radius: var(--r-sm);
   font-weight: 700;
   letter-spacing: -0.02em;
   overflow: hidden;
@@ -3086,14 +3078,14 @@ button.ghost.icon-btn {
   width: 100%;
   height: 4px;
   margin-top: 0.35rem;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--text) 10%, transparent);
   overflow: hidden;
 }
 .inst-progress > i {
   display: block;
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--r-xs);
   background: var(--accent);
   transition: width 0.3s ease;
 }
@@ -3114,7 +3106,7 @@ button.ghost.icon-btn {
 .debt-mini-row {
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 0.5rem 0.65rem;
   display: flex;
   flex-direction: column;
@@ -3175,7 +3167,7 @@ button.ghost.icon-btn {
   width: 2.1rem;
   height: 2.1rem;
   font-size: 0.78rem;
-  border-radius: 0.55rem;
+  border-radius: var(--r-sm);
 }
 .brand-suggest {
   position: absolute;
@@ -3190,7 +3182,7 @@ button.ghost.icon-btn {
   overflow-y: auto;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 0.7rem;
+  border-radius: var(--r-sm);
   box-shadow: var(--shadow);
 }
 .brand-suggest li {
@@ -3198,7 +3190,7 @@ button.ghost.icon-btn {
   align-items: center;
   gap: 0.55rem;
   padding: 0.4rem 0.5rem;
-  border-radius: 0.45rem;
+  border-radius: var(--r-sm);
   cursor: pointer;
 }
 .brand-suggest li:hover,
@@ -3246,7 +3238,6 @@ button.ghost.icon-btn {
 }
 .total-line strong {
   color: var(--text);
-  font-family: var(--font-serif);
   font-weight: 500;
   font-size: 1rem;
   letter-spacing: -0.02em;
@@ -3268,7 +3259,6 @@ button.ghost.icon-btn {
   content: counter(payoff);
   background: var(--text);
   color: var(--card);
-  font-family: var(--font-serif);
   font-weight: 600;
   width: 1.8rem;
   height: 1.8rem;
@@ -3314,7 +3304,7 @@ button.ghost.icon-btn {
 .guide-mark {
   width: 2.8rem;
   height: 2.8rem;
-  border-radius: 16px;
+  border-radius: var(--r-md);
   background: linear-gradient(135deg, rgba(28, 43, 56, 0.18), rgba(212,165,116,0.22));
   border: 0.5px solid rgba(28, 43, 56, 0.3);
   display: inline-flex;
@@ -3418,7 +3408,7 @@ button.ghost.icon-btn {
 .guide-dots span.active {
   background: var(--primary);
   width: 18px;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
 }
 .guide-nav {
   justify-content: flex-end;
@@ -3441,7 +3431,7 @@ button.ghost.icon-btn {
   padding: 0.85rem 0.95rem;
   background: var(--card, #fffaf2);
   border: 0.5px solid var(--line, rgba(42, 36, 32, 0.08));
-  border-radius: 16px;
+  border-radius: var(--r-md);
   box-shadow: 0 10px 32px rgba(42, 36, 32, 0.18);
   animation: pwa-install-slide 0.32s cubic-bezier(0.2, 0.7, 0.2, 1);
 }
@@ -3457,7 +3447,7 @@ button.ghost.icon-btn {
 .pwa-install-icon {
   width: 38px;
   height: 38px;
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card-soft, #f3ece0);
   display: inline-flex;
   align-items: center;
@@ -3473,7 +3463,6 @@ button.ghost.icon-btn {
   min-width: 0;
 }
 .pwa-install-text strong {
-  font-family: var(--font-serif);
   font-size: 1rem;
   font-weight: 500;
   color: var(--ink);
@@ -3497,7 +3486,7 @@ button.ghost.icon-btn {
 .pwa-install-ios {
   border: none;
   padding: 0;
-  border-radius: 20px;
+  border-radius: var(--r-md);
   background: var(--card, #fffaf2);
   color: var(--ink);
   max-width: 420px;
@@ -3511,7 +3500,6 @@ button.ghost.icon-btn {
   padding: 1.3rem 1.2rem 1.1rem;
 }
 .pwa-install-ios-inner h2 {
-  font-family: var(--font-serif);
   font-size: 1.3rem;
   font-weight: 500;
   margin: 0 0 0.3rem;
@@ -3533,7 +3521,7 @@ button.ghost.icon-btn {
 .chip {
   display: inline-flex; align-items: center;
   padding: 0.42rem 0.85rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(42, 36, 32, 0.04);
   border: 0.5px solid var(--glass-border, rgba(42, 36, 32, 0.14));
   color: var(--ink);
@@ -3549,7 +3537,7 @@ button.ghost.icon-btn {
 .check-chip {
   display: inline-flex; align-items: center; gap: 0.45rem;
   padding: 0.4rem 0.85rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(42, 36, 32, 0.04);
   border: 0.5px solid var(--glass-border, rgba(42, 36, 32, 0.14));
   font-size: 0.85rem;
@@ -3653,7 +3641,7 @@ button.ghost.icon-btn {
 
 /* Cloud backup card */
 .drive-status-pill {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.18rem 0.6rem;
   font-family: var(--font-mono);
   font-size: 0.68rem;
@@ -3694,7 +3682,7 @@ button.ghost.icon-btn {
   width: 7rem;
   padding: 4px 8px;
   border: 1px solid var(--border, #ddd);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: transparent;
   text-overflow: ellipsis;
   overflow: hidden;
@@ -3719,7 +3707,7 @@ button.ghost.icon-btn {
   margin-left: 6px;
   padding: 1px 6px;
   font-size: 0.78em;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--badge-bg, #f3efe7);
   color: var(--muted, #666);
   white-space: nowrap;
@@ -3749,7 +3737,7 @@ button.ghost.icon-btn {
   align-items: center;
   padding: 10px 12px;
   border: 1px solid var(--line, #ddd);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--bg);
 }
 .budget-pool-card .pool-row.system { opacity: 0.95; }
@@ -3765,7 +3753,7 @@ button.ghost.icon-btn {
    No overflow:hidden on the track either — it would clip the overspend glow
    below. The fill inherits the radius, which is all the clipping ever did. */
 .pool-progress {
-  height: 6px; border-radius: 3px;
+  height: 6px; border-radius: var(--r-xs);
   background: rgba(0,0,0,0.06); margin: 6px 0;
 }
 .budget-pool-card .pool-progress { grid-column: 1 / -1; }
@@ -3789,7 +3777,7 @@ button.ghost.icon-btn {
   letter-spacing: 0.05em;
   padding: 1px 6px;
   margin-left: 6px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: rgba(0,0,0,0.08);
   color: var(--muted, #666);
 }
@@ -3814,7 +3802,7 @@ button.ghost.icon-btn {
 .pool-banner {
   margin-top: 10px;
   padding: 0.7rem 0.85rem;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   font-size: 0.88rem;
   line-height: 1.45;
   display: flex;
@@ -3860,13 +3848,13 @@ button.ghost.icon-btn {
 .pool-warn-yellow {
   display: inline-block; padding: 1px 6px;
   font-size: 0.78em; font-weight: 600;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: rgba(230, 184, 92, 0.22); color: var(--warn-yellow-ink);
 }
 .pool-warn-red {
   display: inline-block; padding: 1px 6px;
   font-size: 0.78em; font-weight: 600;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   background: rgba(224, 122, 95, 0.22); color: var(--warn-red-ink);
 }
 .pool-preview {
@@ -3906,7 +3894,7 @@ button.ghost.icon-btn {
   align-items: center;
   padding: 8px 10px;
   border: 1px solid var(--line, #ddd);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
 }
 .bulk-debt-row > input[type="checkbox"] { grid-area: check; }
 .bulk-debt-row > div { grid-area: name; min-width: 0; }
@@ -3914,7 +3902,7 @@ button.ghost.icon-btn {
 .bulk-debt-row > input[type="date"] { grid-area: date; justify-self: end; }
 .bulk-debt-row.greyed { opacity: 0.55; background: rgba(0,0,0,0.03); }
 .bulk-debt-row .row-meta { font-size: 0.78em; color: var(--muted, #666); }
-.bulk-debt-row input[type="date"] { font: inherit; padding: 2px 6px; border: 1px solid var(--line, #ddd); border-radius: 6px; }
+.bulk-debt-row input[type="date"] { font: inherit; padding: 2px 6px; border: 1px solid var(--line, #ddd); border-radius: var(--r-sm); }
 /* Editable amount per debt row — defaults to remaining minimum, but the user
    can pay extra (attack principal) or less (cash-strapped month). */
 .bulk-debt-row input.row-amount {
@@ -3925,7 +3913,7 @@ button.ghost.icon-btn {
   width: 6.5rem;
   padding: 4px 8px;
   border: 1px solid var(--line, #ddd);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   background: var(--card);
   color: var(--text);
 }
@@ -3990,7 +3978,7 @@ button.ghost.icon-btn {
   background: rgba(20, 20, 20, 0.92);
   color: #fff;
   padding: 10px 16px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: 0.85em;
   pointer-events: none;
   opacity: 0;
@@ -4013,7 +4001,7 @@ button.ghost.icon-btn {
   background: rgba(20, 20, 20, 0.94);
   color: #fff;
   padding: 10px 12px 10px 16px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: 0.9em;
   opacity: 0;
   transition: opacity 0.2s, transform 0.2s;
@@ -4033,7 +4021,7 @@ button.ghost.icon-btn {
   font: inherit;
   font-weight: 600;
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   cursor: pointer;
 }
 .app-update-banner button:disabled {
@@ -4072,7 +4060,7 @@ button.ghost.icon-btn {
   font: inherit;
   padding: 6px 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: var(--bg);
   color: var(--text);
   -webkit-appearance: none;
@@ -4170,7 +4158,7 @@ button.ghost.icon-btn {
   grid-area: swatch;
   width: 12px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: var(--r-xs);
   display: inline-block;
 }
 .spending-legend-name {
@@ -4221,7 +4209,7 @@ button.ghost.icon-btn {
   background: rgba(143, 160, 120, 0.12);
   border-left: 3px solid var(--accent);
   padding: 6px 10px;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   margin: 6px 0 12px;
 }
 
@@ -4249,7 +4237,7 @@ button.ghost.icon-btn {
   background: var(--text, #2a2420);
   color: var(--bg, #f5f1ea);
   padding: 10px 18px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: 0.92rem;
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -4315,7 +4303,7 @@ button.ghost.icon-btn {
   min-width: 0;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card);
   color: var(--text);
   font-size: 1rem;
@@ -4340,7 +4328,7 @@ button.ghost.icon-btn {
   box-shadow: var(--glass-pane-shadow);
   color: var(--ink2);
   padding: 0.55rem 0.8rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font: inherit;
   font-size: 0.88rem;
   font-weight: 500;
@@ -4382,7 +4370,7 @@ button.ghost.icon-btn {
   appearance: none;
   border: 0.5px solid transparent;
   background: var(--card-soft);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   /* Flat, compact cells — square cells made the month view enormous and
      forced a long scroll, especially on desktop where the calendar spans
      the full card width. */
@@ -4458,7 +4446,6 @@ button.ghost.icon-btn {
   margin-bottom: 0.4rem;
 }
 .spend-cal-day-panel .cal-panel-head strong {
-  font-family: var(--font-serif);
   font-size: 1rem;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -4518,7 +4505,7 @@ html[data-theme="dark"] .guide-spot-dim,
 .guide-spot-ring {
   position: absolute;
   border: 2px solid var(--primary);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   pointer-events: none;
   transition: top 0.32s cubic-bezier(0.22, 1, 0.36, 1),
               left 0.32s cubic-bezier(0.22, 1, 0.36, 1),
@@ -4540,7 +4527,7 @@ html[data-theme="dark"] .guide-spot-dim,
   background: var(--card);
   color: var(--text);
   border: 0.5px solid var(--line);
-  border-radius: 18px;
+  border-radius: var(--r-md);
   padding: 0.85rem 1rem 0.9rem;
   max-width: 320px;
   width: calc(100vw - 32px);
@@ -4648,7 +4635,6 @@ html[data-theme="dark"] .guide-spot-dim,
   font-size: 0.8rem;
 }
 .zakat-card .zakat-hero strong {
-  font-family: var(--font-serif);
   font-size: 1.9rem;
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -4656,7 +4642,7 @@ html[data-theme="dark"] .guide-spot-dim,
 }
 .zakat-bar {
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--card-soft);
   overflow: hidden;
   border: 0.5px solid var(--line);
@@ -4664,11 +4650,11 @@ html[data-theme="dark"] .guide-spot-dim,
 .zakat-bar-fill {
   height: 100%;
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   transition: width 0.35s ease;
 }
 .zakat-pill {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
@@ -4758,7 +4744,7 @@ body.private #zakat-nisab-line {
 /* Nisab & haul settings — collapsed once configured. */
 .zakat-nisab-details {
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.85rem;
   margin: 0.6rem 0;
   background: var(--card-soft);
@@ -4821,7 +4807,6 @@ body.private #zakat-nisab-line {
 }
 
 .pro-celebrate h2 {
-  font-family: var(--font-serif);
   font-size: 1.75rem;
   margin: 0 0 0.35rem;
   animation: rise 500ms ease-out 240ms both;
@@ -4848,7 +4833,7 @@ body.private #zakat-nisab-line {
   align-items: center;
   gap: 0.6rem;
   padding: 0.55rem 0.8rem;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--glass-bg-soft);
   border: 0.5px solid var(--glass-border-soft);
   font-size: 0.95rem;
@@ -4889,7 +4874,7 @@ body.private #zakat-nisab-line {
   top: -12%;
   width: 7px;
   height: 12px;
-  border-radius: 1px;
+  border-radius: var(--r-xs);
   opacity: 0;
   animation: confetti-fall var(--dur, 2.4s) linear var(--delay, 0s) both;
 }
@@ -4962,7 +4947,7 @@ body.private #zakat-nisab-line {
   padding: 0.7rem 0.5rem;
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   color: var(--ink2);
   font: inherit;
   font-weight: 500;
@@ -4987,7 +4972,7 @@ body.private #zakat-nisab-line {
 .invest-row {
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   padding: 0.7rem 0.8rem;
   display: flex;
   flex-direction: column;
@@ -5008,7 +4993,7 @@ body.private #zakat-nisab-line {
   background: rgba(74, 107, 143, 0.14);
   color: var(--accent-cool);
   border: 0.5px solid rgba(74, 107, 143, 0.35);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
@@ -5152,7 +5137,7 @@ body.private #zakat-nisab-line {
 /* Same shape as .zakat-pill — deliberately its own class so the two cards can
    drift apart later without one silently restyling the other. */
 .invest-plan-pill {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
@@ -5263,7 +5248,7 @@ body.private .invest-plan-stats .stat .sub {
 .split-dash-line {
   margin: 0.6rem 0 0;
   padding: 0.55rem 0.7rem;
-  border-radius: 12px;
+  border-radius: var(--r-md);
   border: 0.5px dashed var(--line);
   background: var(--card-soft);
   color: var(--ink2);
@@ -5309,7 +5294,7 @@ body.private .invest-plan-stats .stat .sub {
 .split-row {
   background: var(--glass-pane);
   border: 0.5px solid var(--glass-border-soft);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.7rem 0.8rem;
   display: flex;
   flex-direction: column;
@@ -5327,7 +5312,7 @@ body.private .invest-plan-stats .stat .sub {
   background: rgba(74, 107, 143, 0.14);
   color: var(--accent-cool);
   border: 0.5px solid rgba(74, 107, 143, 0.35);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
   font-family: var(--font-mono);
   font-size: 0.62rem;
@@ -5374,7 +5359,7 @@ body.private .invest-plan-stats .stat .sub {
    copies the VALUE only, so pasting into a banking app needs no trimming. */
 .split-pay-rows {
   border: 0.5px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r-sm);
   background: var(--card-soft);
   padding: 0.15rem 0.55rem;
 }
@@ -5454,7 +5439,7 @@ body.private .invest-plan-stats .stat .sub {
 .split-qr-panel {
   background: #ffffff;
   border: 0.5px solid var(--line);
-  border-radius: 16px;
+  border-radius: var(--r-md);
   padding: 12px;
   width: min(240px, 70%);
   margin: 0.5rem auto;
@@ -5464,7 +5449,7 @@ body.private .invest-plan-stats .stat .sub {
 
 .split-preview {
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.6rem 0.75rem;
   margin: 0.4rem 0 0.2rem;
 }
@@ -5495,7 +5480,6 @@ body.private .invest-plan-stats .stat .sub {
 }
 .split-paid-name { font-weight: 700; min-width: 0; }
 .split-paid-amount {
-  font-family: var(--font-serif);
   font-size: 1.4rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
@@ -5522,7 +5506,7 @@ body.private .invest-plan-stats .stat .sub {
   padding: 0.55rem 0.5rem;
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   color: var(--ink2);
   font: inherit;
   font-weight: 500;
@@ -5546,7 +5530,7 @@ body.private .invest-plan-stats .stat .sub {
 .split-item {
   background: var(--card-soft);
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.5rem 0.55rem;
 }
 .split-item-row {
@@ -5578,7 +5562,7 @@ body.private .invest-plan-stats .stat .sub {
   flex-direction: column;
   gap: 0.25rem;
   border: 0.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   padding: 0.55rem 0.65rem;
   margin: 0.45rem 0 0.1rem;
 }
@@ -5602,7 +5586,7 @@ body.private .invest-plan-stats .stat .sub {
 }
 
 .split-camera-wrap {
-  border-radius: 14px;
+  border-radius: var(--r-md);
   overflow: hidden;
   background: var(--card-soft);
   margin: 0.4rem 0;
@@ -5654,7 +5638,7 @@ body.private .pending-match-sub {
   background: var(--card);
   color: var(--muted);
   border: 0.5px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.55rem 1rem;
   font: inherit;
   font-size: 0.88rem;
@@ -5681,5 +5665,5 @@ body.private .pending-match-sub {
   color: var(--primary);
   font-weight: 600;
   padding: 0.68rem 1rem;
-  border-radius: 12px;
+  border-radius: var(--r-md);
 }
