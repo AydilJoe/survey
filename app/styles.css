@@ -2925,23 +2925,49 @@ button.ghost.icon-btn {
 }
 
 /* Lists */
+/* ── Lists are sheets, not stacks of cards ───────────────────────────────────
+   Every row used to carry its own background, border, radius and a 0.4rem
+   gap, which made a list of five debts read as five equally important
+   objects. One container, rows divided by hairlines: the group reads as one
+   thing, the eye scans down a column instead of stopping at each edge, and
+   roughly 0.9rem of chrome per row goes back to content. */
 .item-list, .debt-list, .payoff-list {
   list-style: none;
   padding: 0;
   margin: 0.25rem 0 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-}
-.item-list li, .debt-list li, .payoff-list li {
+  gap: 0;
   background: var(--card-soft);
   border: 0.5px solid var(--line);
   border-radius: var(--r-md);
-  padding: 0.7rem 0.85rem;
+  /* Clips the first and last row into the container's corners. Safe here —
+     nothing in these lists overflows on purpose. */
+  overflow: hidden;
+}
+/* A list holding only an empty-state block should not draw a frame round it. */
+.item-list:has(> li.empty:only-child),
+.debt-list:has(> li.empty:only-child),
+.payoff-list:has(> li.empty:only-child),
+.item-list:has(> li.empty-block-host:only-child),
+.debt-list:has(> li.empty-block-host:only-child),
+.payoff-list:has(> li.empty-block-host:only-child) {
+  background: transparent;
+  border: 0;
+}
+.item-list li, .debt-list li, .payoff-list li {
+  background: transparent;
+  border: 0;
+  border-top: 0.5px solid var(--line);
+  border-radius: 0;
+  padding: 0.65rem 0.85rem;
   display: flex;
   align-items: center;
   gap: 0.6rem;
 }
+.item-list li:first-child,
+.debt-list li:first-child,
+.payoff-list li:first-child { border-top: 0; }
 .item-list li .amount, .debt-list li .meta {
   font-variant-numeric: tabular-nums;
   font-weight: 500;
@@ -3007,10 +3033,12 @@ button.ghost.icon-btn {
   content: "";
   position: absolute;
   left: 0;
-  top: 0.35rem;
-  bottom: 0.35rem;
+  top: 0;
+  bottom: 0;
   width: 3px;
-  border-radius: 0 2px 2px 0;
+  /* Square, not rounded: rows touch, so the rails read as one continuous
+     edge down the sheet rather than a column of separate pills. */
+  border-radius: 0;
   background: var(--denom, var(--border));
 }
 .debt-mini-row {

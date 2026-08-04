@@ -1,6 +1,6 @@
 {
   "name": "duitful",
-  "version": "1.26.2",
+  "version": "1.27.0",
   "private": true,
   "description": "Duitful \u2014 Capacitor shell for the PWA.",
   "scripts": {
