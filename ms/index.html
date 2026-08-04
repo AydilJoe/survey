@@ -599,6 +599,38 @@
       line-height: 1.55;
     }
 
+    /* Author byline. Deliberately not a card — a card would make it a
+       feature block, and the whole point is that it reads as a signature on
+       the claim above it. */
+    .byline {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-top: 20px;
+      max-width: 520px;
+    }
+    .byline img {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex: none;
+      /* The source is a phone screenshot, so it is soft at any size. The ring
+         gives it a defined edge instead of letting it dissolve into the page. */
+      box-shadow: 0 0 0 1px rgba(42, 36, 32, 0.12), 0 2px 8px rgba(42, 36, 32, 0.10);
+    }
+    .byline p {
+      margin: 0;
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--ink2);
+    }
+    .byline strong { color: var(--ink); font-weight: 600; }
+    @media (max-width: 560px) {
+      .byline img { width: 48px; height: 48px; }
+      .byline p { font-size: 13.5px; }
+    }
+
     .hero-ctas {
       display: flex;
       flex-wrap: wrap;
@@ -1762,7 +1794,11 @@
         <div class="hero-copy hero-intro">
           <span class="eyebrow">Penjejak duit, hutang, pinjaman &amp; simpanan peribadi · Malaysia</span>
           <h1>Be <span class="serif-italic">duitful</span><br>with your duit.</h1>
-          <p class="hero-sub">Setiap app bajet yang saya cuba nak login bank saya. Jadi saya buat satu yang memang tak boleh minta. Tiada server untuk duit anda duduk &mdash; semuanya disulitkan dalam telefon anda dan kekal di situ. Saya Aydil, orang KL. Kodnya ada di <a href="https://github.com/AydilJoe/survey">GitHub</a> kalau anda lebih suka semak daripada percaya cakap saya.</p>
+          <p class="hero-sub">Setiap app bajet yang saya cuba nak login bank saya. Jadi saya buat satu yang memang tak boleh minta. Tiada server untuk duit anda duduk &mdash; semuanya disulitkan dalam telefon anda dan kekal di situ. Kodnya ada di <a href="https://github.com/AydilJoe/survey">GitHub</a> kalau anda lebih suka semak daripada percaya cakap saya.</p>
+          <div class="byline">
+            <img src="../assets/aydil.jpg" width="56" height="56" alt="Aydil, pembina Duitful" loading="lazy" decoding="async" />
+            <p><strong>Aydil</strong> &mdash; Saya bina Duitful seorang diri, di Kuala Lumpur. Ini bukan syarikat: tiada pelabur, tiada rangkaian iklan, tiada sesiapa beli data anda. Kalau rosak, saya orangnya anda email.</p>
+          </div>
           <div class="hero-ctas">
             <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary cta-web">
               Cuba aplikasi web

@@ -598,6 +598,38 @@
       line-height: 1.55;
     }
 
+    /* Author byline. Deliberately not a card — a card would make it a
+       feature block, and the whole point is that it reads as a signature on
+       the claim above it. */
+    .byline {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      margin-top: 20px;
+      max-width: 520px;
+    }
+    .byline img {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex: none;
+      /* The source is a phone screenshot, so it is soft at any size. The ring
+         gives it a defined edge instead of letting it dissolve into the page. */
+      box-shadow: 0 0 0 1px rgba(42, 36, 32, 0.12), 0 2px 8px rgba(42, 36, 32, 0.10);
+    }
+    .byline p {
+      margin: 0;
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--ink2);
+    }
+    .byline strong { color: var(--ink); font-weight: 600; }
+    @media (max-width: 560px) {
+      .byline img { width: 48px; height: 48px; }
+      .byline p { font-size: 13.5px; }
+    }
+
     .hero-ctas {
       display: flex;
       flex-wrap: wrap;
@@ -1760,7 +1792,14 @@
         <div class="hero-copy hero-intro">
           <span class="eyebrow">Private money, debt, loan &amp; savings tracker · Malaysia</span>
           <h1>Be <span class="serif-italic">duitful</span><br>with your duit.</h1>
-          <p class="hero-sub">Every budgeting app I tried wanted my bank login. So I built one that can&rsquo;t have it. There&rsquo;s no server for your money to sit on &mdash; it&rsquo;s encrypted on your phone and it stays there. I&rsquo;m Aydil, in KL. The code is on <a href="https://github.com/AydilJoe/survey">GitHub</a> if you&rsquo;d rather check than trust me.</p>
+          <p class="hero-sub">Every budgeting app I tried wanted my bank login. So I built one that can&rsquo;t have it. There&rsquo;s no server for your money to sit on &mdash; it&rsquo;s encrypted on your phone and it stays there. The code is on <a href="https://github.com/AydilJoe/survey">GitHub</a> if you&rsquo;d rather check than trust me.</p>
+          <!-- Sits directly under the privacy claim, not in a separate "about"
+               section. The point of a face here is that someone is accountable
+               for the sentence above it. -->
+          <div class="byline">
+            <img src="assets/aydil.jpg" width="56" height="56" alt="Aydil, who builds Duitful" loading="lazy" decoding="async" />
+            <p><strong>Aydil</strong> &mdash; I build Duitful on my own, in Kuala Lumpur. It&rsquo;s not a company: no investors, no ad network, nobody buying your data. If it breaks, you&rsquo;re emailing me.</p>
+          </div>
           <div class="hero-ctas">
             <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary cta-web">
               Try the web app
