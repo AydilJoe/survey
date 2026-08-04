@@ -4534,10 +4534,12 @@ check('a real Malaysian lender name fits without an ellipsis',
     if (forced) await pg.evaluate(t => document.documentElement.setAttribute('data-theme', t), forced);
     await pg.waitForTimeout(200);
     const seen = await pg.evaluate(() => {
-      const el = document.querySelector('button.primary, .as-button.primary');
-      if (!el) return null;
-      const cs = getComputedStyle(el);
-      return { fg: cs.color, bg: cs.backgroundColor };
+      // Every filled control that pairs background:var(--primary) with
+      // color:var(--bg) — the pairing that shipped cream-on-white once.
+      const els = [...document.querySelectorAll('button.primary, .as-button.primary, .debt-list .quick-pay')];
+      const worst = els.map(el => { const cs = getComputedStyle(el); return { fg: cs.color, bg: cs.backgroundColor }; })
+        .filter(x => x.bg && x.bg !== 'rgba(0, 0, 0, 0)');
+      return worst[0] || null;
     });
     await pg.close();
     if (!seen) { results.push({ scheme, forced, skipped: true }); continue; }

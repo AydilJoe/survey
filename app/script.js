@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.28.0";
+const APP_VERSION = "1.28.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -2562,7 +2562,10 @@ function renderDebts() {
         ${chip}
         ${nameHtml}
         <span class="meta"${balanceTitle}>${fmtMoney(d.balance)}</span>
-        <button class="ghost icon-btn quick-pay" data-action="quick-pay-debt" data-id="${d.id}" aria-label="Pay ${escapeHtml(d.name)}" title="Quick pay — opens Home with this debt selected">↗</button>
+        <!-- Reads "Pay", not an arrow. This is the most frequent action in the
+             row and ↗ said "opens elsewhere", with the only explanation in a
+             title attribute that never appears on a phone. -->
+        <button class="ghost quick-pay" data-action="quick-pay-debt" data-id="${d.id}" aria-label="Record a payment for ${escapeHtml(d.name)}" title="Record a payment — opens Home with this debt and its minimum filled in">Pay</button>
         <!-- Edit and delete live behind the overflow so the name and the
              balance can share one line. Paying is the frequent action and
              stays inline; editing a debt is a once-per-debt job. Delete
