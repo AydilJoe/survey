@@ -4450,6 +4450,46 @@ check('"Bank" is kept in a monogram — "Bank Islam" reads as BI, never IS',
 check('legal suffixes are still dropped, and an empty name never crashes',
   monograms.suffix === 'KJ' && monograms.empty === '?', JSON.stringify(monograms));
 
+// -- a control must stay readable in every theme path --
+// Twice now a token has been re-pointed while a colour pinned against its old
+// value stayed put: dark primary buttons shipped cream text on a near-white
+// background, invisible. Contrast is the thing to assert, because it fails
+// whichever half of the pair drifts.
+{
+  const luminance = (rgb) => {
+    const [r, g, b] = rgb.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number)
+      .map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const ratio = (fg, bg) => {
+    const [a, b] = [luminance(fg), luminance(bg)].sort((x, y) => y - x);
+    return (a + 0.05) / (b + 0.05);
+  };
+  const results = [];
+  for (const [scheme, forced] of [['light', null], ['dark', null], ['light', 'dark'], ['dark', 'light']]) {
+    const pg = await b.newPage({ viewport: { width: 420, height: 900 }, colorScheme: scheme });
+    await pg.goto(`${BASE}/app/index.html`, { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    if (forced) await pg.evaluate(t => document.documentElement.setAttribute('data-theme', t), forced);
+    await pg.waitForTimeout(200);
+    const seen = await pg.evaluate(() => {
+      const el = document.querySelector('button.primary, .as-button.primary');
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return { fg: cs.color, bg: cs.backgroundColor };
+    });
+    await pg.close();
+    if (!seen) { results.push({ scheme, forced, skipped: true }); continue; }
+    results.push({ scheme, forced, ratio: +ratio(seen.fg, seen.bg).toFixed(2), ...seen });
+  }
+  const measured = results.filter(r => !r.skipped);
+  // 4.5:1 is the WCAG AA floor for body-sized text.
+  const bad = measured.filter(r => r.ratio < 4.5);
+  check('the primary button stays legible in all four theme paths',
+    measured.length === 4 && bad.length === 0,
+    JSON.stringify(bad.length ? bad : measured.map(r => `${r.scheme}/${r.forced || '-'}:${r.ratio}`)));
+}
+
 // -- logos only ship where the catalogue says so, and only where a file exists --
 const logoGating = await S(() => ({
   // Artwork ships for these three; nothing else has a file yet.
