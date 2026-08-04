@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.27.0";
+const APP_VERSION = "1.28.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -2524,7 +2524,9 @@ function renderDebts() {
               : ` <span class="installment-badge">Installment</span>`)
           : "";
       const brandTile = isInstallment ? debtBrandTile(d) : "";
-      const nameHtml = `<span class="name">${brandTile}${escapeHtml(d.name)}${suffix}${badge}</span>`;
+      // The badge moves to the meta line: with the name and the balance now
+      // sharing one row, an inline pill is what pushes long names to ellipsis.
+      const nameHtml = `<span class="name">${brandTile}${escapeHtml(d.name)}${suffix}</span>`;
       // Progress bar for instalment rows that know their original tenure.
       // Rows that don't keep the old "N months left" meta row untouched.
       const prog = isInstallment && !needsSetup ? installmentProgress(d) : null;
@@ -2533,17 +2535,17 @@ function renderDebts() {
         : "";
       const metaRow = islamic
         ? (islamicNeedsSetup
-            ? `<div class="meta-row"><span class="needs-setup-note">Tap ✎ to set principal, profit + tenure</span></div>`
-            : `<div class="meta-row"><span>${islamicMonthsLeft(d)} of ${d.tenureMonths} months left</span><span>${fmtMoney(islamicInstalment(d))}/mo</span></div>`)
+            ? `<div class="meta-row"><span class="needs-setup-note">Tap ⋯ → Edit to set principal, profit + tenure</span></div>`
+            : `<div class="meta-row"><span>${badge}${islamicMonthsLeft(d)} of ${d.tenureMonths} months left</span><span>${fmtMoney(islamicInstalment(d))}/mo</span></div>`)
         : isInstallment
           ? (needsSetup
-              ? `<div class="meta-row"><span class="needs-setup-note">Tap ✎ to set monthly + months</span></div>`
+              ? `<div class="meta-row"><span class="needs-setup-note">Tap ⋯ → Edit to set monthly + months</span></div>`
               // "4 of 12 paid" wherever the tenure is known — progress reads
               // as ground covered, where "8 months left" reads as a sentence.
-              : `<div class="meta-row"><span>${prog && prog.known
+              : `<div class="meta-row"><span>${badge}${prog && prog.known
                     ? `${prog.paid} of ${prog.term} paid`
                     : `${remMonths} month${remMonths === 1 ? "" : "s"} left`}</span><span>${fmtMoney(installment)}/mo</span></div>`)
-          : `<div class="meta-row"><span>${rowTerm(d, "rateShort")} ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
+          : `<div class="meta-row"><span>${badge}${rowTerm(d, "rateShort")} ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
       // The headline figure for an Islamic row is the outstanding principal —
       // i.e. what settling today actually costs. Spell out the ibra' so the
       // number reconciles against the bank statement, which shows the higher
@@ -2561,8 +2563,16 @@ function renderDebts() {
         ${nameHtml}
         <span class="meta"${balanceTitle}>${fmtMoney(d.balance)}</span>
         <button class="ghost icon-btn quick-pay" data-action="quick-pay-debt" data-id="${d.id}" aria-label="Pay ${escapeHtml(d.name)}" title="Quick pay — opens Home with this debt selected">↗</button>
-        <button class="ghost icon-btn" data-action="edit-debt" data-id="${d.id}" aria-label="Edit ${escapeHtml(d.name)}" title="Edit this debt">✎</button>
-        <button class="ghost icon-btn" data-action="delete-debt" data-id="${d.id}" aria-label="Delete ${escapeHtml(d.name)}" title="Delete this debt">✕</button>
+        <!-- Edit and delete live behind the overflow so the name and the
+             balance can share one line. Paying is the frequent action and
+             stays inline; editing a debt is a once-per-debt job. Delete
+             gaining a deliberate second tap is a bonus — it used to sit one
+             thumb-slip from a row that cannot be recovered. -->
+        <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${d.id}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(d.name)}" title="More">⋯</button>
+        <div class="row-menu" hidden>
+          <button data-action="edit-debt" data-id="${d.id}">Edit</button>
+          <button class="danger" data-action="delete-debt" data-id="${d.id}">Delete</button>
+        </div>
         ${metaRow}
         ${progRow}
         ${ibraRow}
@@ -6495,6 +6505,39 @@ $("#form-saving").addEventListener("submit", (e) => {
   renderAll();
   toast(`Savings goal added: ${name}`);
 });
+
+// Row overflow menus. Delegated because the debt list is re-rendered whole on
+// every state change — binding per row would leak a listener each render.
+document.addEventListener("click", (e) => {
+  const el = e.target instanceof HTMLElement ? e.target : null;
+  const toggle = el && el.closest('[data-action="row-menu"]');
+  // Any click that isn't on an open menu's own button closes every menu. That
+  // includes clicks on Edit/Delete inside one, which is what we want — those
+  // re-render the list anyway.
+  document.querySelectorAll(".row-menu:not([hidden])").forEach((menu) => {
+    if (toggle && menu.previousElementSibling === toggle) return;
+    menu.hidden = true;
+    const btn = menu.previousElementSibling;
+    if (btn) btn.setAttribute("aria-expanded", "false");
+  });
+  if (!toggle) return;
+  const menu = toggle.nextElementSibling;
+  if (!menu || !menu.classList.contains("row-menu")) return;
+  menu.hidden = !menu.hidden;
+  toggle.setAttribute("aria-expanded", menu.hidden ? "false" : "true");
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const open = document.querySelectorAll(".row-menu:not([hidden])");
+  if (!open.length) return;
+  // Don't let Escape also close a dialog behind the menu.
+  e.stopPropagation();
+  open.forEach((menu) => {
+    menu.hidden = true;
+    const btn = menu.previousElementSibling;
+    if (btn) { btn.setAttribute("aria-expanded", "false"); btn.focus(); }
+  });
+}, true);
 
 /* delete handlers (event delegation) */
 document.addEventListener("click", (e) => {
