@@ -1059,8 +1059,8 @@ main {
 }
 .hint.warn {
   color: var(--loss);
-  background: rgba(28, 43, 56, 0.08);
-  border: 0.5px solid rgba(28, 43, 56, 0.25);
+  background: color-mix(in srgb, var(--loss) 8%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--loss) 25%, transparent);
   border-radius: var(--r-md);
   padding: 0.55rem 0.7rem;
   font-size: 0.82rem;
@@ -1144,8 +1144,11 @@ main {
 }
 .hero-amount.pos { color: var(--gain); }
 .hero-amount.neg { color: var(--loss); }
-.hero-amount.pos .hero-cents { color: rgba(106, 138, 94, 0.5); }
-.hero-amount.neg .hero-cents { color: rgba(28, 43, 56, 0.5); }
+/* Dimmed from the same token as the figure. These were literal rgba pairs;
+   the negative one got swept into ink during the palette move and the cents
+   went invisible on dark. */
+.hero-amount.pos .hero-cents { color: color-mix(in srgb, var(--gain) 55%, transparent); }
+.hero-amount.neg .hero-cents { color: color-mix(in srgb, var(--loss) 55%, transparent); }
 
 .hero-progress { margin-bottom: 0.85rem; }
 .hero-progress .progress-bar {
@@ -2420,10 +2423,10 @@ button.ghost:hover { background: var(--card-soft); color: var(--text); }
    subtle until hover so it doesn't shout, but its color signals consequence. */
 button.ghost.ghost-danger {
   color: var(--loss);
-  border-color: rgba(28, 43, 56, 0.4);
+  border-color: color-mix(in srgb, var(--loss) 40%, transparent);
 }
 button.ghost.ghost-danger:hover {
-  background: rgba(28, 43, 56, 0.1);
+  background: color-mix(in srgb, var(--loss) 10%, transparent);
   color: var(--loss);
   border-color: var(--loss);
 }
@@ -4688,9 +4691,9 @@ html[data-theme="dark"] .guide-spot-dim,
   border: 0.5px solid var(--line);
 }
 .zakat-pill.warn {
-  background: rgba(28, 43, 56, 0.14);
-  color: var(--primary);
-  border: 0.5px solid rgba(28, 43, 56, 0.4);
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 0.5px solid var(--warn-line);
 }
 .zakat-breakdown, .zakat-history {
   list-style: none;
@@ -5166,9 +5169,9 @@ body.private #zakat-nisab-line {
   border: 0.5px solid rgba(93, 145, 99, 0.35);
 }
 .invest-plan-pill.warn {
-  background: rgba(28, 43, 56, 0.14);
-  color: var(--primary);
-  border: 0.5px solid rgba(28, 43, 56, 0.4);
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 0.5px solid var(--warn-line);
 }
 
 .invest-plan-hero {
