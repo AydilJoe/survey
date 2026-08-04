@@ -2362,15 +2362,17 @@ button.primary, .as-button.primary {
 button.primary:hover, .as-button.primary:hover {
   background: #1f1a17;
 }
-/* Dark mode: invert the "primary = neutral ink contrast" pattern to
-   "primary = brand colour". Cream-on-dark reads washed out and the dark
-   text loses contrast inside dialogs; terracotta + cream text matches
-   the brand energy and pops on every surface. Pinned hover/text colors
-   so they don't fall back to the light-mode hardcoded #1f1a17. */
+/* Dark mode keeps the same idea as light — a primary button is the highest
+   contrast thing on the surface — but inverted: light ground gets ink, dark
+   ground gets paper.
+   The text colour MUST track --primary. It was pinned to cream back when
+   --primary was terracotta; when terracotta was retired and --primary became
+   pale ink, that pin left cream text on a near-white button. Use --bg so the
+   pair can never drift apart again. */
 html[data-theme="dark"] button.primary,
 html[data-theme="dark"] .as-button.primary {
   background: var(--primary);
-  color: #fffaf2;
+  color: var(--bg);
 }
 html[data-theme="dark"] button.primary:hover,
 html[data-theme="dark"] .as-button.primary:hover {
@@ -2380,7 +2382,7 @@ html[data-theme="dark"] .as-button.primary:hover {
   html:not([data-theme="light"]) button.primary,
   html:not([data-theme="light"]) .as-button.primary {
     background: var(--primary);
-    color: #fffaf2;
+    color: var(--bg);
   }
   html:not([data-theme="light"]) button.primary:hover,
   html:not([data-theme="light"]) .as-button.primary:hover {
@@ -3387,7 +3389,8 @@ button.ghost.icon-btn {
   height: 1.4rem;
   border-radius: 50%;
   background: var(--primary, #c8704b);
-  color: #fffaf2;
+  /* Tracks --primary: ink button gets paper text, paper button gets ink. */
+  color: var(--bg);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 600;
@@ -3542,7 +3545,7 @@ button.ghost.icon-btn {
 }
 .chip:hover { border-color: var(--primary); }
 .chip.active {
-  background: var(--primary); color: #fffaf2;
+  background: var(--primary); color: var(--bg);
   border-color: var(--primary);
 }
 .check-chip {
