@@ -3247,21 +3247,73 @@ button.ghost.icon-btn {
   letter-spacing: 0.08em;
   color: var(--muted);
 }
-/* On mobile the row has too many cells (chip, name, balance, ↗pay, ✎edit,
-   ✕delete) and the name truncates to "M.", "P...", etc. Give the name its
-   own line so it can show in full, then push balance + action buttons to
-   the second line. */
-@media (max-width: 480px) {
-  .debt-list li .name {
-    flex: 1 0 calc(100% - 3rem);
-    white-space: normal;
-    overflow: visible;
-    text-overflow: clip;
-  }
-  .debt-list li .meta {
-    margin-left: auto;
-  }
+/* The name used to get its own line on mobile because chip + name + balance +
+   three buttons could not fit, and the name truncated to "M...". Two buttons
+   fit, so the name and the balance now share the first line and every row is
+   one line shorter. */
+.debt-list li .name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.debt-list li .meta { margin-left: auto; flex: none; }
+
+/* In a dense list every pixel of chrome is a pixel the lender's name does not
+   get, so these shrink from 2.2rem to 1.95rem — about 31px drawn.
+   31px clears WCAG 2.2 SC 2.5.8 (24px) but is under Apple's 44pt and
+   Android's 48dp guidance, so the ::after expands the HIT area back past 44px
+   without changing what is drawn. Horizontal growth is held to 3px a side:
+   the row gap is 7.2px, and 4px would make adjacent targets overlap. */
+.debt-list li button.ghost.icon-btn {
+  min-width: 1.95rem;
+  min-height: 1.95rem;
+  padding: 0.3rem 0.4rem;
+  position: relative;
+}
+.debt-list li button.ghost.icon-btn::after {
+  content: "";
+  position: absolute;
+  inset: -7px -3px;
+}
+.debt-list li { gap: 0.45rem; }
+.debt-list li .day-chip { min-width: 1.9rem; }
+/* The balance is the widest fixed cell. Trimming its tracking and size buys
+   the name another few characters without making it harder to read. */
+.debt-list li .meta { font-size: 0.94rem; letter-spacing: -0.03em; }
+
+/* ── Row overflow menu ── */
+.row-menu {
+  flex: 1 0 100%;
+  order: 99;
+  margin-top: 0.4rem;
+  background: var(--card);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 0.2rem;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+}
+.row-menu[hidden] { display: none; }
+.row-menu button {
+  background: transparent;
+  border: 0;
+  text-align: left;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  font-size: 0.88rem;
+  color: var(--ink2);
+  min-height: 0;
+}
+.row-menu button:hover { background: var(--card-soft); color: var(--text); }
+.row-menu button.danger { color: var(--loss); background: transparent; border: 0; }
+.row-menu button.danger:hover { background: color-mix(in srgb, var(--loss) 10%, transparent); }
+.debt-list li .row-more { font-size: 1rem; letter-spacing: 0.05em; }
+/* The badge sits on the meta line now, so it needs to sit on a text baseline
+   rather than in the middle of a flex row. */
+.debt-list .meta-row .installment-badge { margin-right: 0.4rem; }
 
 .empty {
   color: var(--muted);

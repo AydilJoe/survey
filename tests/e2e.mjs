@@ -4450,6 +4450,67 @@ check('"Bank" is kept in a monogram — "Bank Islam" reads as BI, never IS',
 check('legal suffixes are still dropped, and an empty name never crashes',
   monograms.suffix === 'KJ' && monograms.empty === '?', JSON.stringify(monograms));
 
+// -- the row overflow menu --
+// Edit and delete moved behind "⋯" so the name and the balance could share a
+// line. That trade is only worth it if the hidden actions still work and the
+// shrunken button is still reachable with a thumb.
+await S(() => {
+  state.pro = true;
+  state.debts = [
+    { id: 'rm1', name: 'Atome', brand: 'atome', kind: 'installment', balance: 533.34, apr: 0, minPayment: 266.67, installment: 266.67, monthsLeft: 2, termMonths: 3 },
+    { id: 'rm2', name: 'Maybank card', brand: 'maybank', kind: 'standard', balance: 3200, apr: 18, minPayment: 160 },
+  ];
+  save(); renderAll();
+});
+await page.click('#tabbtn-debts');
+await page.waitForTimeout(300);
+
+check('every row hides its edit/delete behind one overflow button',
+  (await page.locator('#list-debt .row-more').count()) === 2
+  && (await page.locator('#list-debt .row-menu:not([hidden])').count()) === 0);
+
+// 31px drawn clears WCAG 2.2 SC 2.5.8 but not Apple's 44pt, so the hit area is
+// expanded with ::after. Assert the real target, not the drawn box.
+const tap = await S(() => {
+  const b = document.querySelector('#list-debt .row-more');
+  const r = b.getBoundingClientRect();
+  const a = getComputedStyle(b, '::after');
+  return { drawn: Math.round(r.height), hit: Math.round(r.height + Math.abs(parseFloat(a.top || 0)) * 2) };
+});
+check('the shrunken overflow button keeps a 44px+ tap target',
+  tap.hit >= 44, JSON.stringify(tap));
+
+await page.locator('#list-debt .row-more').first().click();
+await page.waitForTimeout(150);
+check('tapping it opens that row\'s menu and says so to a screen reader',
+  (await page.locator('#list-debt .row-menu:not([hidden])').count()) === 1
+  && (await page.locator('#list-debt .row-more').first().getAttribute('aria-expanded')) === 'true');
+
+await page.locator('#list-debt .row-more').nth(1).click();
+await page.waitForTimeout(150);
+check('opening a second menu closes the first — never two at once',
+  (await page.locator('#list-debt .row-menu:not([hidden])').count()) === 1);
+
+await page.keyboard.press('Escape');
+await page.waitForTimeout(150);
+check('escape closes it', (await page.locator('#list-debt .row-menu:not([hidden])').count()) === 0);
+
+await page.locator('#list-debt .row-more').first().click();
+await page.waitForTimeout(150);
+await page.locator('#list-debt .row-menu button[data-action="edit-debt"]').first().click();
+await page.waitForTimeout(400);
+check('Edit inside the menu still reaches the edit dialog',
+  await page.locator('#edit-dialog').isVisible());
+await page.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d => d.close()));
+await page.waitForTimeout(200);
+
+// The name is why the buttons shrank; if it still truncates, the trade failed.
+check('a real Malaysian lender name fits without an ellipsis',
+  await S(() => {
+    const n = [...document.querySelectorAll('#list-debt .name')].find(e => /Maybank/.test(e.textContent));
+    return n ? n.scrollWidth <= n.clientWidth + 1 : false;
+  }));
+
 // -- a control must stay readable in every theme path --
 // Twice now a token has been re-pointed while a colour pinned against its old
 // value stayed put: dark primary buttons shipped cream text on a near-white
