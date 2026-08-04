@@ -2746,15 +2746,34 @@ button.ghost.icon-btn {
   font-weight: 400;
   font-size: 0.85em;
 }
-/* Quick-pay button on debt rows — opens Home with the debt pre-selected.
-   Tinted terracotta to telegraph "primary action" without being a heavy CTA. */
+/* The pay button on debt rows. A word rather than a glyph: this is the action
+   people come to the list to perform, and no icon reliably means "record a
+   payment" — the old ↗ read as "opens elsewhere", and its only explanation
+   lived in a title attribute that a phone never shows. Filled rather than
+   ghosted, because it is now the one thing in the row worth tapping. */
 .debt-list .quick-pay {
-  color: var(--primary);
+  background: var(--primary);
+  color: var(--bg);
+  border: 0;
+  min-width: 0;
+  min-height: 1.95rem;
+  padding: 0 0.55rem;
+  border-radius: var(--r-sm);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  flex: none;
+  position: relative;
+}
+/* Same hit-area expansion as the icon buttons beside it. */
+.debt-list .quick-pay::after {
+  content: "";
+  position: absolute;
+  inset: -7px -3px;
 }
 .debt-list .quick-pay:hover {
-  background: rgba(28, 43, 56, 0.1);
-  color: var(--primary);
-  border-color: rgba(28, 43, 56, 0.3);
+  background: var(--primary-hover);
+  color: var(--bg);
 }
 /* Quick-start template chips for Budget Pools — shown only when the user has
    no user-created pools yet. Pre-fills the form so they don't have to type. */
