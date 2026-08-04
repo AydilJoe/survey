@@ -4,27 +4,27 @@
      declaration via prefers-color-scheme. Token semantics never change
      between modes, so every component reads from these vars and stays
      in sync without per-component dark variants. */
-  --stage: #e8dfd0;
-  --bg: #f3ede1;                /* slightly cooler base — lets warm accents pop */
-  --bg-elev: #ece5d4;
-  --card: #fffefa;              /* nearly white — proper elevation over bg */
-  --card-soft: #ece5d4;
-  --text: #2a2420;
-  --ink2: #5c524a;
-  --muted: #8a8178;
-  --primary: #d76636;           /* terracotta with more chroma */
-  --primary-hover: #c2521f;
-  --primary-ink: #d76636;       /* alias used by a few marketing surfaces */
-  --accent: #7da062;            /* greener sage — no longer reads as olive-grey */
-  --accent-hover: #6c8f52;
-  --accent-3: #d4a574;          /* tan */
-  --accent-4: #4a6b8f;          /* SHIFTED slate blue — now the trust accent */
-  --accent-cool: #4a6b8f;       /* semantic alias for Pro / Drive / license tags */
-  --accent-5: #b08a6a;          /* caramel */
-  --gain: #5d9163;              /* forest green — distinct from sage */
-  --loss: #c8424a;              /* true red — clearly NOT a darker primary */
-  --danger: #c8424a;
-  --danger-hover: #b6303a;
+  --stage: #e9e1d3;
+  --bg: #efe9dd;                /* slightly cooler base — lets warm accents pop */
+  --bg-elev: #e9e2d4;
+  --card: #f9f5ed;              /* nearly white — proper elevation over bg */
+  --card-soft: #f2ece0;
+  --text: #241f1a;
+  --ink2: #6b6157;
+  --muted: #8d8376;
+  --primary: #1f4670;           /* terracotta with more chroma */
+  --primary-hover: #16375c;
+  --primary-ink: #1f4670;       /* alias used by a few marketing surfaces */
+  --accent: #6f9457;            /* greener sage — no longer reads as olive-grey */
+  --accent-hover: #5e8248;
+  --accent-3: #c99a68;          /* tan */
+  --accent-4: #5b7f9e;          /* SHIFTED slate blue — now the trust accent */
+  --accent-cool: #5b7f9e;       /* semantic alias for Pro / Drive / license tags */
+  --accent-5: #a5805f;          /* caramel */
+  --gain: #4f8657;              /* forest green — distinct from sage */
+  --loss: #bd3a42;              /* true red — clearly NOT a darker primary */
+  --danger: #bd3a42;
+  --danger-hover: #a82e35;
   /* Overspend alarm. Hotter and pinker than --loss on purpose: --loss is a
      reading ("you lost money"), this is a siren ("you blew the budget"), and
      the pink shift keeps it from reading as the terracotta primary at 6px. */
@@ -34,24 +34,45 @@
      dark browns that all but vanish against a dark card. */
   --warn-red-ink: #a13d22;
   --warn-yellow-ink: #946813;
-  --border: rgba(42, 36, 32, 0.14);
-  --line: rgba(42, 36, 32, 0.08);
+  --border: rgba(36, 31, 26, 0.15);
+  --line: rgba(36, 31, 26, 0.09);
   --shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 8px 24px rgba(42, 36, 32, 0.05);
   /* Liquid glass tokens (Apple-style frosted surfaces) */
-  --glass-bg: rgba(255, 254, 250, 0.55);
-  --glass-bg-strong: rgba(255, 254, 250, 0.7);
-  --glass-bg-soft: rgba(236, 229, 212, 0.5);
-  --glass-border: rgba(255, 255, 255, 0.6);
-  --glass-border-soft: rgba(255, 255, 255, 0.55);
-  --glass-blur: saturate(180%) blur(22px);
-  --glass-blur-soft: saturate(160%) blur(14px);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65), inset 0 0 0 0.5px rgba(255, 255, 255, 0.2);
-  --glass-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 14px 32px rgba(42, 36, 32, 0.09), 0 4px 10px rgba(42, 36, 32, 0.05);
-  --glass-shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 1px 2px rgba(42, 36, 32, 0.03), 0 4px 12px rgba(42, 36, 32, 0.04);
+  --glass-bg: #f9f5ed;
+  --glass-bg-strong: #fbf8f2;
+  --glass-bg-soft: #f2ece0;
+  --glass-border: rgba(36, 31, 26, 0.11);
+  --glass-border-soft: rgba(36, 31, 26, 0.08);
+  --glass-blur: none;
+  --glass-blur-soft: none;
+  --glass-highlight: inset 0 0 0 0 rgba(0,0,0,0);
+  --glass-shadow: 0 1px 2px rgba(0,0,0,.05);
+  --glass-shadow-soft: inset 0 0 0 0 rgba(0,0,0,0);
   /* Inner glass pane (for sub-cards nested inside a glass parent) */
-  --glass-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.28) 45%, rgba(255, 255, 255, 0.18) 100%);
-  --glass-pane-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.42) 50%, rgba(255, 255, 255, 0.28) 100%);
-  --glass-pane-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(255, 255, 255, 0.25), 0 1px 2px rgba(42, 36, 32, 0.05), 0 6px 16px rgba(42, 36, 32, 0.06);
+  --glass-pane: var(--card);
+  --glass-pane-strong: var(--card);
+  --glass-pane-shadow: inset 0 0 0 0 rgba(0,0,0,0);
+
+  /* ── Ringgit denominations ───────────────────────────────────────────────
+     Colour in this app states the SIZE OF A NUMBER, and nothing else. The
+     hues are the Malaysian note series, so the scale is one every user
+     already reads fluently without a legend.
+
+     This is the only chroma allowed to carry data. Interactive colour is
+     --primary (ink), alarm is --loss / --over-neon. Keeping those three jobs
+     on separate palettes is what stops the screen turning into a fruit
+     salad — see denomToken() in script.js for the thresholds. */
+  /* Attention, not action. Kept off --primary on purpose: interactive ink,
+     warning amber and overdue red are three separate jobs. */
+  --warn: #a8631a;
+  --warn-bg: rgba(168, 99, 26, 0.10);
+  --warn-line: rgba(168, 99, 26, 0.32);
+  --rm1:   #2b5faa;
+  --rm5:   #2e7d4f;
+  --rm10:  #b8362f;
+  --rm20:  #c96a1e;
+  --rm50:  #0f7f8c;
+  --rm100: #6a4193;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-serif: 'Fraunces', Georgia, serif;
   --font-mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
@@ -71,25 +92,25 @@
    ⚠ KEEP THE TWO BLOCKS IN SYNC — plain CSS has no way to share them. */
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]) {
-    --stage: #14110e;
-    --bg: #1a1612;
-    --bg-elev: #221c16;
-    --card: #241e18;
-    --card-soft: #2e2820;
+    --stage: #131110;
+    --bg: #191614;
+    --bg-elev: #201c19;
+    --card: #221e1a;
+    --card-soft: #2b2622;
     --text: #f3ede1;
     --ink2: #c4bdb0;
     /* Bumped from #8a8178 → #a8a097 for better AA contrast against the
        warm-dark backgrounds. Captions like "Min RM 155.00" were hard to
        read on top of #1a1612. */
     --muted: #a8a097;
-    --primary: #e87c4a;
-    --primary-hover: #f08b58;
-    --primary-ink: #e87c4a;
-    --accent: #94b67c;
+    --primary: #83aada;
+    --primary-hover: #9bbde5;
+    --primary-ink: #83aada;
+    --accent: #8fb277;
     --accent-hover: #a3c187;
     --accent-3: #e4c089;
-    --accent-4: #7a9bb8;
-    --accent-cool: #7a9bb8;
+    --accent-4: #86a8c6;
+    --accent-cool: #86a8c6;
     --accent-5: #c9a07d;
     --gain: #7eaa7e;
     --loss: #e07277;
@@ -102,39 +123,52 @@
     --border: rgba(255, 255, 255, 0.14);
     --line: rgba(255, 255, 255, 0.08);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
-    --glass-bg: rgba(36, 30, 24, 0.55);
-    --glass-bg-strong: rgba(36, 30, 24, 0.78);
-    --glass-bg-soft: rgba(46, 40, 32, 0.55);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --glass-border-soft: rgba(255, 255, 255, 0.08);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
-    --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 14px 32px rgba(0, 0, 0, 0.35), 0 4px 10px rgba(0, 0, 0, 0.2);
-    --glass-shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.2);
-    --glass-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.02) 100%);
-    --glass-pane-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%);
-    --glass-pane-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2), 0 6px 16px rgba(0, 0, 0, 0.3);
+    --glass-bg: #221e1a;
+    --glass-bg-strong: #282320;
+    --glass-bg-soft: #2b2622;
+    --glass-border: rgba(255, 255, 255, 0.13);
+    --glass-border-soft: rgba(255, 255, 255, 0.09);
+    --glass-highlight: inset 0 0 0 0 rgba(0,0,0,0);
+    --glass-shadow: 0 1px 2px rgba(0,0,0,.05);
+    --glass-shadow-soft: inset 0 0 0 0 rgba(0,0,0,0);
+    --glass-pane: var(--card);
+    --glass-pane-strong: var(--card);
+    --glass-pane-shadow: inset 0 0 0 0 rgba(0,0,0,0);
+
+    --warn: #e0a44f;
+    --warn-bg: rgba(224, 164, 79, 0.14);
+    --warn-line: rgba(224, 164, 79, 0.36);
+    --warn: #e0a44f;
+  --warn-bg: rgba(224, 164, 79, 0.14);
+  --warn-line: rgba(224, 164, 79, 0.36);
+  --rm1:   #6b9ee0;
+    --rm5:   #5cae7d;
+    --rm10:  #e2675f;
+    --rm20:  #e0954c;
+    --rm50:  #45b3c0;
+    --rm100: #a17ccc;
     color-scheme: dark;
   }
 }
 /* Forced dark via the Appearance picker — duplicate of the block above. */
 html[data-theme="dark"] {
-  --stage: #14110e;
-  --bg: #1a1612;
-  --bg-elev: #221c16;
-  --card: #241e18;
-  --card-soft: #2e2820;
+  --stage: #131110;
+  --bg: #191614;
+  --bg-elev: #201c19;
+  --card: #221e1a;
+  --card-soft: #2b2622;
   --text: #f3ede1;
   --ink2: #c4bdb0;
   /* Same bump as the prefers-color-scheme block — keep these in sync. */
   --muted: #a8a097;
-  --primary: #e87c4a;
-  --primary-hover: #f08b58;
-  --primary-ink: #e87c4a;
-  --accent: #94b67c;
+  --primary: #83aada;
+  --primary-hover: #9bbde5;
+  --primary-ink: #83aada;
+  --accent: #8fb277;
   --accent-hover: #a3c187;
   --accent-3: #e4c089;
-  --accent-4: #7a9bb8;
-  --accent-cool: #7a9bb8;
+  --accent-4: #86a8c6;
+  --accent-cool: #86a8c6;
   --accent-5: #c9a07d;
   --gain: #7eaa7e;
   --loss: #e07277;
@@ -147,17 +181,23 @@ html[data-theme="dark"] {
   --border: rgba(255, 255, 255, 0.14);
   --line: rgba(255, 255, 255, 0.08);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
-  --glass-bg: rgba(36, 30, 24, 0.55);
-  --glass-bg-strong: rgba(36, 30, 24, 0.78);
-  --glass-bg-soft: rgba(46, 40, 32, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-border-soft: rgba(255, 255, 255, 0.08);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 0.5px rgba(255, 255, 255, 0.05);
-  --glass-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 14px 32px rgba(0, 0, 0, 0.35), 0 4px 10px rgba(0, 0, 0, 0.2);
-  --glass-shadow-soft: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.2);
-  --glass-pane: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.02) 100%);
-  --glass-pane-strong: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.03) 100%);
-  --glass-pane-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 -1px 0 rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2), 0 6px 16px rgba(0, 0, 0, 0.3);
+  --glass-bg: #221e1a;
+  --glass-bg-strong: #282320;
+  --glass-bg-soft: #2b2622;
+  --glass-border: rgba(255, 255, 255, 0.13);
+  --glass-border-soft: rgba(255, 255, 255, 0.09);
+  --glass-highlight: inset 0 0 0 0 rgba(0,0,0,0);
+  --glass-shadow: 0 1px 2px rgba(0,0,0,.05);
+  --glass-shadow-soft: inset 0 0 0 0 rgba(0,0,0,0);
+  --glass-pane: var(--card);
+  --glass-pane-strong: var(--card);
+  --glass-pane-shadow: inset 0 0 0 0 rgba(0,0,0,0);
+  --rm1:   #6b9ee0;
+  --rm5:   #5cae7d;
+  --rm10:  #e2675f;
+  --rm20:  #e0954c;
+  --rm50:  #45b3c0;
+  --rm100: #a17ccc;
   color-scheme: dark;
 }
 html[data-theme="light"] { color-scheme: light; }
@@ -189,8 +229,6 @@ input[type="checkbox"], input[type="radio"] {
 }
 .pending-list li {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 14px;
   padding: 0.7rem 0.8rem;
@@ -259,7 +297,7 @@ input[type="checkbox"], input[type="radio"] {
 
 /* Upcoming reminders */
 .upcoming-card {
-  background: linear-gradient(180deg, rgba(200,112,75,0.10), var(--glass-bg) 60%);
+  background: linear-gradient(180deg, rgba(31, 70, 112, 0.10), var(--glass-bg) 60%);
 }
 .upcoming-list {
   list-style: none;
@@ -271,8 +309,6 @@ input[type="checkbox"], input[type="radio"] {
 }
 .upcoming-list li {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 12px;
   padding: 0.55rem 0.75rem;
@@ -301,8 +337,8 @@ input[type="checkbox"], input[type="radio"] {
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
 }
-.upcoming-list .up-day.today  { color: var(--loss);   background: rgba(184,106,78,0.12); border-color: rgba(184,106,78,0.35); }
-.upcoming-list .up-day.soon   { color: var(--primary); background: rgba(200,112,75,0.1); border-color: rgba(200,112,75,0.3); }
+.upcoming-list .up-day.today  { color: var(--loss);   background: rgba(31, 70, 112, 0.12); border-color: rgba(31, 70, 112, 0.35); }
+.upcoming-list .up-day.soon   { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-line); }
 .upcoming-list .up-day.income { color: var(--gain);   background: rgba(106,138,94,0.12); border-color: rgba(106,138,94,0.35); }
 .upcoming-list .up-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .upcoming-list .up-sub  { color: var(--muted); font-size: 0.75rem; font-family: var(--font-mono); }
@@ -314,7 +350,7 @@ input[type="checkbox"], input[type="radio"] {
   font-size: 0.95rem;
   color: var(--text);
 }
-.upcoming-list .up-day.late   { color: var(--loss);   background: rgba(184,106,78,0.18); border-color: rgba(184,106,78,0.45); }
+.upcoming-list .up-day.late   { color: var(--loss);   background: rgba(31, 70, 112, 0.18); border-color: rgba(31, 70, 112, 0.45); }
 .upcoming-list .up-amount.neg { color: var(--loss); }
 .upcoming-list .up-amount.pos { color: var(--gain); }
 /* Overdue receivables carry a re-share shortcut, so they need a fourth
@@ -534,7 +570,7 @@ html, body {
 
 main {
   background:
-    radial-gradient(1200px 600px at 85% -10%, rgba(200, 112, 75, 0.14), transparent 60%),
+    radial-gradient(1200px 600px at 85% -10%, rgba(31, 70, 112, 0.14), transparent 60%),
     radial-gradient(900px 500px at -10% 20%, rgba(143, 160, 120, 0.12), transparent 60%),
     radial-gradient(700px 400px at 50% 110%, rgba(212, 165, 116, 0.12), transparent 60%),
     var(--bg);
@@ -601,8 +637,8 @@ h1, h2 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3p
 }
 .privacy-toggle:active { transform: scale(0.94); }
 body.private .privacy-toggle {
-  background: rgba(200, 112, 75, 0.12);
-  border-color: rgba(200, 112, 75, 0.35);
+  background: rgba(31, 70, 112, 0.12);
+  border-color: rgba(31, 70, 112, 0.35);
 }
 
 /* Privacy blur on amounts */
@@ -799,7 +835,7 @@ main {
   :root { --sidebar-w: 232px; }
   html, body {
     background:
-      radial-gradient(1200px 600px at 50% -100px, rgba(200,112,75,0.06), transparent 60%),
+      radial-gradient(1200px 600px at 50% -100px, rgba(31, 70, 112, 0.06), transparent 60%),
       var(--stage);
   }
   body {
@@ -978,8 +1014,6 @@ main {
 /* Cards */
 .card {
   background: var(--glass-bg);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
   border: 0.5px solid var(--glass-border);
   border-radius: 20px;
   padding: 1rem;
@@ -989,9 +1023,6 @@ main {
      (e.g. the spending calendar with its day columns) don't blow
      the card past its grid cell on narrow widths. */
   min-width: 0;
-}
-@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .card { background: var(--card); }
 }
 .card h2 {
   margin: 0 0 0.75rem;
@@ -1008,8 +1039,8 @@ main {
 }
 .hint.warn {
   color: var(--loss);
-  background: rgba(184, 106, 78, 0.08);
-  border: 0.5px solid rgba(184, 106, 78, 0.25);
+  background: rgba(31, 70, 112, 0.08);
+  border: 0.5px solid rgba(31, 70, 112, 0.25);
   border-radius: 12px;
   padding: 0.55rem 0.7rem;
   font-size: 0.82rem;
@@ -1018,8 +1049,6 @@ main {
 /* Hero */
 .hero-card {
   background: var(--glass-bg-strong);
-  -webkit-backdrop-filter: var(--glass-blur);
-  backdrop-filter: var(--glass-blur);
   border: 0.5px solid var(--glass-border);
   border-radius: 24px;
   padding: 1.25rem 1.1rem 1rem;
@@ -1028,9 +1057,6 @@ main {
   position: relative;
   overflow: hidden;
 }
-@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .hero-card { background: var(--card); }
-}
 .hero-card::before {
   content: "";
   position: absolute;
@@ -1038,7 +1064,7 @@ main {
   width: 220px;
   height: 220px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(200, 112, 75, 0.18), transparent 65%);
+  background: radial-gradient(circle, rgba(31, 70, 112, 0.18), transparent 65%);
   pointer-events: none;
 }
 .hero-card::after {
@@ -1099,7 +1125,7 @@ main {
 .hero-amount.pos { color: var(--gain); }
 .hero-amount.neg { color: var(--loss); }
 .hero-amount.pos .hero-cents { color: rgba(106, 138, 94, 0.5); }
-.hero-amount.neg .hero-cents { color: rgba(184, 106, 78, 0.5); }
+.hero-amount.neg .hero-cents { color: rgba(31, 70, 112, 0.5); }
 
 .hero-progress { margin-bottom: 0.85rem; }
 .hero-progress .progress-bar {
@@ -1223,8 +1249,6 @@ main {
   flex-direction: column;
   gap: 0.12rem;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 12px;
   padding: 0.55rem 0.6rem;
@@ -1238,7 +1262,7 @@ main {
 .hero-stat.expanded {
   grid-column: 1 / -1;
   background: var(--glass-bg-strong);
-  border-color: rgba(200, 112, 75, 0.3);
+  border-color: rgba(31, 70, 112, 0.3);
   padding: 0.75rem 0.9rem;
 }
 .hero-stat.expanded strong {
@@ -1290,8 +1314,6 @@ main {
   appearance: none;
   -webkit-appearance: none;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 12px;
   padding: 0.55rem 0.75rem;
@@ -1432,8 +1454,6 @@ main {
   gap: 0.35rem;
   padding: 0.75rem 0.5rem;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 14px;
   color: var(--ink2);
@@ -1448,15 +1468,15 @@ main {
 .pill-icon { display: inline-flex; align-items: center; line-height: 1; }
 .pill-icon svg { width: 18px; height: 18px; display: block; }
 .quick-add .pill.active {
-  background: rgba(200, 112, 75, 0.12);
+  background: rgba(31, 70, 112, 0.12);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
+  border-color: rgba(31, 70, 112, 0.4);
   font-weight: 600;
 }
 .quick-add .pill[data-type="debt"].active {
-  background: rgba(184, 106, 78, 0.12);
+  background: rgba(31, 70, 112, 0.12);
   color: var(--loss);
-  border-color: rgba(184, 106, 78, 0.4);
+  border-color: rgba(31, 70, 112, 0.4);
 }
 .quick-add .pill[data-type="saving"].active {
   background: rgba(143, 160, 120, 0.14);
@@ -1490,9 +1510,9 @@ main {
   letter-spacing: -0.1px;
 }
 .debt-type-pills .pill.active {
-  background: rgba(200, 112, 75, 0.12);
+  background: rgba(31, 70, 112, 0.12);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
+  border-color: rgba(31, 70, 112, 0.4);
   font-weight: 600;
 }
 .debt-type-pills .pill[data-debt-kind="installment"].active {
@@ -1517,9 +1537,9 @@ main {
 /* Half-configured installment debt (monthly or term missing) — warn-toned
    badge so the user sees the row needs attention, not a "broken" zero. */
 .debt-list li .installment-badge.needs-setup {
-  background: rgba(200, 112, 75, 0.14);
+  background: rgba(31, 70, 112, 0.14);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
+  border-color: rgba(31, 70, 112, 0.4);
 }
 .debt-list li .needs-setup-note {
   color: var(--primary);
@@ -1548,8 +1568,6 @@ button.primary.big {
 .quick-amounts button {
   appearance: none;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   box-shadow: var(--glass-pane-shadow);
   color: var(--ink2);
@@ -1565,7 +1583,7 @@ button.primary.big {
 .quick-amounts button:hover {
   background: var(--card);
   color: var(--text);
-  border-color: rgba(200, 112, 75, 0.3);
+  border-color: rgba(31, 70, 112, 0.3);
 }
 .quick-amounts button:active { transform: scale(0.96); }
 
@@ -1593,8 +1611,6 @@ button.primary.big {
 .recent-chip {
   appearance: none;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   box-shadow: var(--glass-pane-shadow);
   border-radius: 14px;
@@ -1610,7 +1626,7 @@ button.primary.big {
   transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.18s ease, background 0.18s ease;
 }
 .recent-chip:hover {
-  border-color: rgba(200, 112, 75, 0.32);
+  border-color: rgba(31, 70, 112, 0.32);
   background: var(--card);
 }
 .recent-chip:active { transform: scale(0.97); }
@@ -1641,8 +1657,8 @@ button.primary.big {
 .empty-welcome {
   text-align: center;
   padding: 1.5rem 1.25rem 1.6rem;
-  background: linear-gradient(180deg, rgba(200, 112, 75, 0.05), var(--card) 70%);
-  border: 0.5px solid rgba(200, 112, 75, 0.18);
+  background: linear-gradient(180deg, rgba(31, 70, 112, 0.05), var(--card) 70%);
+  border: 0.5px solid rgba(31, 70, 112, 0.18);
   border-radius: 22px;
   margin-bottom: 0.85rem;
 }
@@ -1654,7 +1670,7 @@ button.primary.big {
   display: grid;
   place-items: center;
   border-radius: 14px;
-  background: rgba(200, 112, 75, 0.08);
+  background: rgba(31, 70, 112, 0.08);
 }
 .empty-welcome-glyph svg { width: 32px; height: 32px; }
 .empty-welcome-title {
@@ -1962,8 +1978,6 @@ button.secondary.is-working::after {
 
 .stat {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 14px;
   padding: 0.7rem 0.8rem;
@@ -2175,8 +2189,6 @@ select:focus {
 }
 .daily-entry {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 14px;
   padding: 0.7rem 0.85rem;
@@ -2217,9 +2229,9 @@ select:focus {
   min-width: 0;
 }
 .daily-entry .cat-pill {
-  background: rgba(200, 112, 75, 0.1);
+  background: rgba(31, 70, 112, 0.1);
   color: var(--primary);
-  border: 0.5px solid rgba(200, 112, 75, 0.25);
+  border: 0.5px solid rgba(31, 70, 112, 0.25);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   padding: 0.2rem 0.55rem;
@@ -2259,8 +2271,6 @@ select:focus {
 .savings-mini:empty { display: none; }
 .saving-card {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 10px;
   padding: 0.7rem 0.8rem;
@@ -2401,10 +2411,10 @@ button.ghost:hover { background: var(--card-soft); color: var(--text); }
    subtle until hover so it doesn't shout, but its color signals consequence. */
 button.ghost.ghost-danger {
   color: var(--loss);
-  border-color: rgba(184, 106, 78, 0.4);
+  border-color: rgba(31, 70, 112, 0.4);
 }
 button.ghost.ghost-danger:hover {
-  background: rgba(184, 106, 78, 0.1);
+  background: rgba(31, 70, 112, 0.1);
   color: var(--loss);
   border-color: var(--loss);
 }
@@ -2462,8 +2472,8 @@ button.ghost.icon-btn {
   width: 2.8rem;
   height: 2.8rem;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(200,112,75,0.2), rgba(212,165,116,0.2));
-  border: 0.5px solid rgba(200,112,75,0.35);
+  background: linear-gradient(135deg, rgba(31, 70, 112, 0.2), rgba(212,165,116,0.2));
+  border: 0.5px solid rgba(31, 70, 112, 0.35);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2550,8 +2560,8 @@ button.ghost.icon-btn {
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  background: linear-gradient(180deg, rgba(200,112,75,0.12), rgba(200,112,75,0.05));
-  border: 0.5px solid rgba(200,112,75,0.32);
+  background: linear-gradient(180deg, rgba(31, 70, 112, 0.12), rgba(31, 70, 112, 0.05));
+  border: 0.5px solid rgba(31, 70, 112, 0.32);
   border-radius: 16px;
   padding: 0.85rem 1rem;
   margin-bottom: 0.9rem;
@@ -2588,8 +2598,8 @@ button.ghost.icon-btn {
   font-size: 0.85rem;
 }
 .trial-banner.trial-banner-expired {
-  background: linear-gradient(180deg, rgba(184,106,78,0.12), rgba(184,106,78,0.05));
-  border-color: rgba(184,106,78,0.32);
+  background: linear-gradient(180deg, rgba(31, 70, 112, 0.12), rgba(31, 70, 112, 0.05));
+  border-color: rgba(31, 70, 112, 0.32);
 }
 .trial-banner.trial-banner-expired .trial-banner-mark { background: var(--danger); }
 @media (max-width: 480px) {
@@ -2602,7 +2612,7 @@ button.ghost.icon-btn {
 
 /* Pro card in Data tab */
 .pro-card {
-  background: linear-gradient(180deg, rgba(200,112,75,0.08), var(--card) 70%);
+  background: linear-gradient(180deg, rgba(31, 70, 112, 0.08), var(--card) 70%);
 }
 .pro-badge {
   background: rgba(106,138,94,0.15);
@@ -2630,16 +2640,16 @@ button.ghost.icon-btn {
 }
 .cat-pill-card {
   color: var(--primary);
-  border-color: rgba(200,112,75,0.4);
-  background: rgba(200,112,75,0.08);
+  border-color: rgba(31, 70, 112, 0.4);
+  background: rgba(31, 70, 112, 0.08);
 }
 /* Debt-payment pill — uses --loss tokens (terracotta-red, on-brand) instead
    of the previous bright red inline styles that were off-palette. */
 .daily-entry .cat-pill-debt,
 .cat-pill-debt {
   color: var(--loss);
-  border-color: rgba(184,106,78,0.4);
-  background: rgba(184,106,78,0.08);
+  border-color: rgba(31, 70, 112, 0.4);
+  background: rgba(31, 70, 112, 0.08);
 }
 /* Savings-deposit pill — uses --gain tokens (sage-green, on-brand). */
 .daily-entry .cat-pill-saving,
@@ -2710,9 +2720,9 @@ button.ghost.icon-btn {
   vertical-align: middle;
 }
 .debt-legend .day-chip.soon {
-  color: var(--primary);
-  background: rgba(200, 112, 75, 0.1);
-  border: 0.5px solid rgba(200, 112, 75, 0.3);
+  color: var(--warn);
+  background: var(--warn-bg);
+  border: 0.5px solid var(--warn-line);
 }
 .debt-legend .day-chip.today {
   color: var(--accent);
@@ -2732,9 +2742,9 @@ button.ghost.icon-btn {
   color: var(--primary);
 }
 .debt-list .quick-pay:hover {
-  background: rgba(200, 112, 75, 0.1);
+  background: rgba(31, 70, 112, 0.1);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.3);
+  border-color: rgba(31, 70, 112, 0.3);
 }
 /* Quick-start template chips for Budget Pools — shown only when the user has
    no user-created pools yet. Pre-fills the form so they don't have to type. */
@@ -2954,9 +2964,9 @@ button.ghost.icon-btn {
   text-align: center;
 }
 .item-list li .day-chip.soon, .debt-list li .day-chip.soon {
-  color: var(--primary);
-  background: rgba(200, 112, 75, 0.1);
-  border-color: rgba(200, 112, 75, 0.3);
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-color: var(--warn-line);
 }
 .item-list li .day-chip.today, .debt-list li .day-chip.today {
   color: var(--accent);
@@ -2977,6 +2987,27 @@ button.ghost.icon-btn {
 }
 .debt-list li {
   flex-wrap: wrap;
+  /* The denomination rail. Set inline per row from denomVar(balance), so the
+     colour is a fact about the number rather than a style choice. Falls back
+     to the hairline when a row has no --denom, which keeps any list that
+     hasn't been taught the system from looking broken. */
+  position: relative;
+  padding-left: 0.85rem;
+}
+.debt-list li::before,
+.debt-mini-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.35rem;
+  bottom: 0.35rem;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--denom, var(--border));
+}
+.debt-mini-row {
+  position: relative;
+  padding-left: 0.85rem;
 }
 .debt-list .meta-row {
   width: 100%;
@@ -3082,8 +3113,6 @@ button.ghost.icon-btn {
 .debts-mini:empty { display: none; }
 .debt-mini-row {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 10px;
   padding: 0.5rem 0.65rem;
@@ -3286,8 +3315,8 @@ button.ghost.icon-btn {
   width: 2.8rem;
   height: 2.8rem;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(200,112,75,0.18), rgba(212,165,116,0.22));
-  border: 0.5px solid rgba(200,112,75,0.3);
+  background: linear-gradient(135deg, rgba(31, 70, 112, 0.18), rgba(212,165,116,0.22));
+  border: 0.5px solid rgba(31, 70, 112, 0.3);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3477,7 +3506,6 @@ button.ghost.icon-btn {
 }
 .pwa-install-ios::backdrop {
   background: rgba(42, 36, 32, 0.45);
-  backdrop-filter: blur(4px);
 }
 .pwa-install-ios-inner {
   padding: 1.3rem 1.2rem 1.1rem;
@@ -3530,7 +3558,7 @@ button.ghost.icon-btn {
 }
 .check-chip input { accent-color: var(--primary); }
 .check-chip:has(input:checked) {
-  background: rgba(200, 112, 75, 0.1);
+  background: rgba(31, 70, 112, 0.1);
   border-color: var(--primary);
   color: var(--primary-ink, var(--ink));
 }
@@ -3644,9 +3672,9 @@ button.ghost.icon-btn {
   border-color: rgba(138,129,120,0.4);
 }
 .drive-status-pill.error {
-  background: rgba(184,106,78,0.15);
+  background: rgba(31, 70, 112, 0.15);
   color: var(--loss);
-  border-color: rgba(184,106,78,0.4);
+  border-color: rgba(31, 70, 112, 0.4);
 }
 
 /* Bulk import income dialog */
@@ -3948,7 +3976,7 @@ button.ghost.icon-btn {
   cursor: pointer;
   color: var(--primary);
   text-decoration: underline;
-  text-decoration-color: rgba(200, 112, 75, 0.4);
+  text-decoration-color: rgba(31, 70, 112, 0.4);
   text-underline-offset: 2px;
   opacity: 0.85;
 }
@@ -4308,8 +4336,6 @@ button.ghost.icon-btn {
   appearance: none;
   flex: 1;
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   box-shadow: var(--glass-pane-shadow);
   color: var(--ink2);
@@ -4374,7 +4400,7 @@ button.ghost.icon-btn {
   min-width: 0;
 }
 .spend-cal-cell:active { transform: scale(0.95); }
-.spend-cal-cell:hover { border-color: rgba(215, 102, 54, 0.35); }
+.spend-cal-cell:hover { border-color: rgba(31, 70, 112, 0.35); }
 .spend-cal-cell.empty {
   background: transparent;
   cursor: default;
@@ -4398,10 +4424,10 @@ button.ghost.icon-btn {
   font-variant-numeric: tabular-nums;
 }
 /* Heat levels — terracotta wash scaled by spend intensity vs month max. */
-.spend-cal-cell.heat-1 { background: rgba(215, 102, 54, 0.10); }
-.spend-cal-cell.heat-2 { background: rgba(215, 102, 54, 0.22); }
-.spend-cal-cell.heat-3 { background: rgba(215, 102, 54, 0.38); }
-.spend-cal-cell.heat-4 { background: rgba(215, 102, 54, 0.55); }
+.spend-cal-cell.heat-1 { background: rgba(31, 70, 112, 0.10); }
+.spend-cal-cell.heat-2 { background: rgba(31, 70, 112, 0.22); }
+.spend-cal-cell.heat-3 { background: rgba(31, 70, 112, 0.38); }
+.spend-cal-cell.heat-4 { background: rgba(31, 70, 112, 0.55); }
 .spend-cal-cell.heat-3 .cal-day,
 .spend-cal-cell.heat-4 .cal-day { color: var(--text); font-weight: 600; }
 .spend-cal-cell.heat-3 .cal-amt,
@@ -4501,11 +4527,11 @@ html[data-theme="dark"] .guide-spot-dim,
   animation: guideSpotPulse 2.2s ease-in-out infinite;
 }
 @keyframes guideSpotPulse {
-  0%, 100% { box-shadow: 0 0 0 4px rgba(215, 102, 54, 0.22); }
-  50%      { box-shadow: 0 0 0 12px rgba(215, 102, 54, 0.05); }
+  0%, 100% { box-shadow: 0 0 0 4px rgba(31, 70, 112, 0.22); }
+  50%      { box-shadow: 0 0 0 12px rgba(31, 70, 112, 0.05); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .guide-spot-ring { animation: none; box-shadow: 0 0 0 4px rgba(215, 102, 54, 0.22); }
+  .guide-spot-ring { animation: none; box-shadow: 0 0 0 4px rgba(31, 70, 112, 0.22); }
   .guide-spot-dim { transition: none; }
 }
 
@@ -4662,9 +4688,9 @@ html[data-theme="dark"] .guide-spot-dim,
   border: 0.5px solid var(--line);
 }
 .zakat-pill.warn {
-  background: rgba(200, 112, 75, 0.14);
+  background: rgba(31, 70, 112, 0.14);
   color: var(--primary);
-  border: 0.5px solid rgba(200, 112, 75, 0.4);
+  border: 0.5px solid rgba(31, 70, 112, 0.4);
 }
 .zakat-breakdown, .zakat-history {
   list-style: none;
@@ -4766,9 +4792,9 @@ body.private #zakat-nisab-line {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, rgba(215, 102, 54, 0.18), rgba(212, 165, 116, 0.22));
-  border: 0.5px solid rgba(215, 102, 54, 0.4);
-  box-shadow: var(--glass-highlight), 0 10px 28px rgba(215, 102, 54, 0.18);
+  background: linear-gradient(135deg, rgba(31, 70, 112, 0.18), rgba(212, 165, 116, 0.22));
+  border: 0.5px solid rgba(31, 70, 112, 0.4);
+  box-shadow: var(--glass-highlight), 0 10px 28px rgba(31, 70, 112, 0.18);
   animation: seal-in 620ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 .pro-seal svg {
@@ -4790,7 +4816,7 @@ body.private #zakat-nisab-line {
   width: 5.5rem;
   height: 5.5rem;
   border-radius: 50%;
-  border: 2px solid rgba(215, 102, 54, 0.45);
+  border: 2px solid rgba(31, 70, 112, 0.45);
   animation: ring-out 900ms ease-out 420ms both;
 }
 
@@ -4946,9 +4972,9 @@ body.private #zakat-nisab-line {
   letter-spacing: -0.1px;
 }
 .invest-type-pills .pill.active {
-  background: rgba(200, 112, 75, 0.12);
+  background: rgba(31, 70, 112, 0.12);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
+  border-color: rgba(31, 70, 112, 0.4);
   font-weight: 600;
 }
 
@@ -4960,8 +4986,6 @@ body.private #zakat-nisab-line {
 }
 .invest-row {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 10px;
   padding: 0.7rem 0.8rem;
@@ -5143,9 +5167,9 @@ body.private #zakat-nisab-line {
   border: 0.5px solid rgba(93, 145, 99, 0.35);
 }
 .invest-plan-pill.warn {
-  background: rgba(200, 112, 75, 0.14);
+  background: rgba(31, 70, 112, 0.14);
   color: var(--primary);
-  border: 0.5px solid rgba(200, 112, 75, 0.4);
+  border: 0.5px solid rgba(31, 70, 112, 0.4);
 }
 
 .invest-plan-hero {
@@ -5284,8 +5308,6 @@ body.private .invest-plan-stats .stat .sub {
 }
 .split-row {
   background: var(--glass-pane);
-  -webkit-backdrop-filter: var(--glass-blur-soft);
-  backdrop-filter: var(--glass-blur-soft);
   border: 0.5px solid var(--glass-border-soft);
   border-radius: 12px;
   padding: 0.7rem 0.8rem;
@@ -5509,9 +5531,9 @@ body.private .invest-plan-stats .stat .sub {
   transition: all 0.15s ease;
 }
 .split-method-pills .pill.active {
-  background: rgba(200, 112, 75, 0.12);
+  background: rgba(31, 70, 112, 0.12);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.4);
+  border-color: rgba(31, 70, 112, 0.4);
   font-weight: 600;
 }
 .split-total-note { margin: -0.1rem 0 0.3rem; }
@@ -5643,9 +5665,9 @@ body.private .pending-match-sub {
 }
 .split-dialog .pill.active,
 .split-dialog .pill[aria-checked="true"] {
-  background: rgba(200, 112, 75, 0.14);
+  background: rgba(31, 70, 112, 0.14);
   color: var(--primary);
-  border-color: rgba(200, 112, 75, 0.5);
+  border-color: rgba(31, 70, 112, 0.5);
 }
 /* Scan-to-prefill: full-width row instead of floating ragged-right. */
 .split-dialog .split-scan-row { justify-content: stretch; }
@@ -5655,7 +5677,7 @@ body.private .pending-match-sub {
    instead of a ghost row that vanishes into the form. */
 .split-quick-row .ghost {
   width: 100%;
-  border: 0.5px solid rgba(200, 112, 75, 0.45);
+  border: 0.5px solid rgba(31, 70, 112, 0.45);
   color: var(--primary);
   font-weight: 600;
   padding: 0.68rem 1rem;

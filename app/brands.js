@@ -25,13 +25,17 @@
 //    lender looks intentional rather than broken, and two different debts
 //    never collide by accident.
 
+// Drawn from the ringgit note series rather than the UI palette, so an
+// unknown lender's tile sits in the same colour world as the denomination
+// rails beside it. Deliberately does NOT include the interactive ink or any
+// alarm hue — a brand tile must never be mistakable for a button or a warning.
 const BRAND_FALLBACK_PALETTE = [
-  { color: "#d76636", ink: "#ffffff" }, // terracotta
-  { color: "#4a6b8f", ink: "#ffffff" }, // slate
-  { color: "#7da062", ink: "#ffffff" }, // sage
-  { color: "#b08a6a", ink: "#ffffff" }, // caramel
-  { color: "#8a6a9c", ink: "#ffffff" }, // plum
-  { color: "#4f8b8b", ink: "#ffffff" }, // teal
+  { color: "#2b5faa", ink: "#ffffff" }, // RM1 blue
+  { color: "#2e7d4f", ink: "#ffffff" }, // RM5 green
+  { color: "#b8362f", ink: "#ffffff" }, // RM10 red
+  { color: "#c96a1e", ink: "#ffffff" }, // RM20 orange
+  { color: "#0f7f8c", ink: "#ffffff" }, // RM50 teal
+  { color: "#6a4193", ink: "#ffffff" }, // RM100 purple
 ];
 
 // `match` holds lowercase substrings that should resolve to this brand. They

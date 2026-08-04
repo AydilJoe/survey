@@ -2556,7 +2556,7 @@ function renderDebts() {
         ? ` title="Outstanding principal. Bank statement shows ${fmtMoney(Number(d.balance) + ibra)} (sale price incl. unearned profit)."`
         : "";
       return `
-      <li data-id="${d.id}">
+      <li data-id="${d.id}" style="--denom:${denomVar(d.balance)}">
         ${chip}
         ${nameHtml}
         <span class="meta"${balanceTitle}>${fmtMoney(d.balance)}</span>
@@ -2569,6 +2569,26 @@ function renderDebts() {
       </li>`;
     })
     .join("");
+}
+
+// Which banknote you'd reach for to settle this. Colour states the size of a
+// figure, so the eye can rank a list before reading any of it.
+//
+// The thresholds are the note you'd actually hand over, not a tidy log scale:
+// RM 260 is a fifty-and-change, RM 3,200 is a stack of hundreds. Malaysians
+// read this scale fluently without a legend, which is the whole point — it is
+// the one palette in the app that needs no explaining.
+const DENOM_STEPS = [
+  [1, "rm1"], [5, "rm5"], [10, "rm10"], [20, "rm20"], [50, "rm50"],
+];
+function denomToken(amount) {
+  const n = Math.abs(Number(amount) || 0);
+  for (const [ceiling, token] of DENOM_STEPS) if (n <= ceiling) return token;
+  // RM 100 is the top note in circulation, so it also stands for "and above".
+  return "rm100";
+}
+function denomVar(amount) {
+  return `var(--${denomToken(amount)})`;
 }
 
 // The recognition cue: a user-attached image wins over a bundled logo, which
@@ -2633,7 +2653,7 @@ function renderDebtsMini() {
   host.innerHTML = plans.map(({ d, p }) => {
     const pct = (p.paid / p.term) * 100;
     return `
-      <div class="debt-mini-row" data-id="${escapeHtml(d.id)}">
+      <div class="debt-mini-row" data-id="${escapeHtml(d.id)}" style="--denom:${denomVar(d.balance)}">
         <div class="top-row">
           ${debtBrandTile(d)}
           <span class="debt-mini-name">${escapeHtml(d.name)}</span>
