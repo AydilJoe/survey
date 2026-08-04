@@ -250,6 +250,17 @@
 <!-- Vercel Web Analytics -->
 <script>
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  /* Owner opt-out — see index.html for the full note. ?noanalytics=1 once per
+     device; beforeSend returning null drops the event before it is sent. */
+  (function () {
+    var KEY = "duitful-analytics-off";
+    try {
+      var q = new URLSearchParams(location.search).get("noanalytics");
+      if (q === "1") { localStorage.setItem(KEY, "1"); alert("Duitful: this device is now excluded from analytics."); }
+      else if (q === "0") { localStorage.removeItem(KEY); alert("Duitful: this device is counted in analytics again."); }
+      if (localStorage.getItem(KEY)) window.va("beforeSend", function () { return null; });
+    } catch (e) { /* storage blocked (private mode) — just count normally */ }
+  })();
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
 </head>
