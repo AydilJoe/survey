@@ -245,19 +245,30 @@
 
     :root {
       color-scheme: light only;
-      --stage: #e8dfd0;
-      --bg: #f5f1ea;
-      --card: #fffaf2;
-      --card-soft: #f0e8d8;
-      --ink: #2a2420;
-      --ink2: #5c524a;
-      --muted: #8a8178;
-      --primary: #c8704b;
-      --primary-ink: #a45434;
-      --accent: #8fa078;
+      --stage: #e9e1d3;
+      --bg: #efe9dd;
+      --card: #f9f5ed;
+      --card-soft: #f2ece0;
+      --ink: #241f1a;
+      --ink2: #6b6157;
+      --muted: #8d8376;
+      /* Interactive ink. Terracotta was retired from this role because it
+         sits ~12-21 dE from the RM20, warn and RM10 hues the app now uses to
+         state amounts — a button that close to a warning stops reading as
+         either. It survives below as --brand. */
+      --primary: #1c2b38;
+      --primary-ink: #101c27;
+      /* Brand mark only: the italic "duitful", the icon, the glow behind the
+         hero. Never a control, never a status. */
+      --brand: #c8704b;
+      --brand-ink: #a45434;
+      /* Attention. Separate from both, for the same reason. */
+      --warn: #a8631a;
+      --warn-bg: rgba(168, 99, 26, 0.12);
+      --accent: #6f9457;
       --accent-3: #d4a574;
-      --gain: #6a8a5e;
-      --loss: #b86a4e;
+      --gain: #4f8657;
+      --loss: #bd3a42;
       --border: rgba(42, 36, 32, 0.14);
       --line: rgba(42, 36, 32, 0.08);
       --shadow-sm: 0 1px 2px rgba(42, 36, 32, 0.04);
@@ -360,7 +371,7 @@
     .btn-primary {
       background: var(--primary);
       color: #fffaf2;
-      box-shadow: 0 1px 2px rgba(42, 36, 32, 0.1), 0 8px 20px rgba(200, 112, 75, 0.28);
+      box-shadow: 0 1px 2px rgba(42, 36, 32, 0.1), 0 8px 20px rgba(28, 43, 56, 0.28);
     }
     .btn-primary:hover { background: var(--primary-ink); }
 
@@ -470,7 +481,7 @@
       right: -200px;
       width: 700px;
       height: 700px;
-      background: radial-gradient(circle, rgba(200, 112, 75, 0.18), transparent 65%);
+      background: radial-gradient(circle, rgba(200, 112, 75, 0.18), transparent 65%); /* brand glow */
       pointer-events: none;
       z-index: 0;
     }
@@ -516,12 +527,12 @@
       margin-top: 24px;
       font-weight: 400;
     }
-    .hero h1 .serif-italic { font-style: italic; color: var(--primary); font-weight: 400; }
+    .hero h1 .serif-italic { font-style: italic; color: var(--brand); font-weight: 400; }
     /* Kilauan gradien pada perkataan jenama — sinar hangat perlahan
        terakota → tan → terakota. Gradien statik bawah reduced motion. */
     @supports (-webkit-background-clip: text) or (background-clip: text) {
       .hero h1 .serif-italic {
-        background: linear-gradient(90deg, var(--primary) 0%, #d4a574 50%, var(--primary) 100%);
+        background: linear-gradient(90deg, var(--brand) 0%, #d4a574 50%, var(--brand) 100%);
         background-size: 200% 100%;
         -webkit-background-clip: text;
         background-clip: text;
@@ -895,7 +906,7 @@
       color: var(--ink2);
       letter-spacing: 0.1em;
     }
-    .bills .chip.due { background: rgba(200, 112, 75, 0.12); color: var(--primary-ink); }
+    .bills .chip.due { background: var(--warn-bg); color: var(--warn); }
     .bills .amt { font-family: var(--font-serif); font-weight: 500; font-size: 13px; letter-spacing: -0.01em; }
 
     @media (max-width: 900px) {
@@ -966,7 +977,7 @@
     .feature:hover {
       transform: translateY(-3px);
       box-shadow: var(--shadow);
-      border-color: rgba(200, 112, 75, 0.35);
+      border-color: rgba(28, 43, 56, 0.35);
     }
     /* Kilauan condong 3D — sinar lembut mengikut kursor semasa JS
        mencondongkan kad. Penunjuk halus sahaja; peranti sentuh tidak nampak. */
@@ -1030,7 +1041,7 @@
       right: -200px;
       width: 600px;
       height: 600px;
-      background: radial-gradient(circle, rgba(200, 112, 75, 0.22), transparent 65%);
+      background: radial-gradient(circle, rgba(200, 112, 75, 0.22), transparent 65%); /* brand glow */
       pointer-events: none;
     }
     .privacy::after {
@@ -1126,7 +1137,7 @@
       padding: 3px 8px;
       border-radius: 6px;
     }
-    .debt-meta .apr.high { background: rgba(200, 112, 75, 0.14); color: var(--primary-ink); }
+    .debt-meta .apr.high { background: var(--warn-bg); color: var(--warn); }
     .debt-meta .apr.low { background: rgba(143, 160, 120, 0.15); color: var(--accent); }
     .debt-bar {
       height: 14px;
@@ -1201,7 +1212,7 @@
     }
     .founder-copy p strong { color: var(--ink); font-weight: 500; }
     .founder-copy p em { font-style: italic; color: var(--primary-ink); }
-    .founder-copy a { color: var(--primary); text-decoration: none; border-bottom: 1px solid rgba(200,112,75,0.3); }
+    .founder-copy a { color: var(--primary); text-decoration: none; border-bottom: 1px solid rgba(28, 43, 56, 0.3); }
     .founder-copy a:hover { border-bottom-color: var(--primary); }
     .founder-sign {
       font-family: var(--font-serif);
@@ -1229,7 +1240,7 @@
     }
     .plan.pro {
       border: 1px solid var(--primary);
-      box-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 20px 48px rgba(200, 112, 75, 0.12);
+      box-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 20px 48px rgba(28, 43, 56, 0.12);
     }
     .plan .plan-tag {
       position: absolute;
@@ -1290,11 +1301,11 @@
       color: var(--gain);
     }
     .plan .plan-version {
-      background: rgba(200, 112, 75, 0.12);
+      background: rgba(28, 43, 56, 0.12);
       color: var(--primary-ink, var(--primary));
       transition: background 0.15s ease;
     }
-    .plan .plan-version:hover { background: rgba(200, 112, 75, 0.22); }
+    .plan .plan-version:hover { background: rgba(28, 43, 56, 0.22); }
     .plan.pro li svg { color: var(--primary); }
     .plan .btn { width: 100%; }
 
