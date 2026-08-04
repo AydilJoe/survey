@@ -9712,12 +9712,17 @@ document.getElementById("btn-setup-restore")?.addEventListener("click", () => {
 
 /* ---------- receipt scanning (on-device OCR) ----------
 
-   Two engines, one pipeline. Android reads the photo with Google's ML Kit
-   text recognition (native, on-device, no network, no image ever leaves the
-   phone); everything else — web, PWA, iOS — uses the vendored Tesseract.js
-   wasm build. Whichever engine runs, the SAME downstream applies: canvas
-   preprocessing before it, word boxes → splitReconstructRows → parseReceiptText
-   after it. Any ML Kit trouble at all falls silently back to Tesseract. */
+   Two engines, one pipeline. Both native shells read the photo with Google's
+   ML Kit text recognition (on-device, no network, no image ever leaves the
+   phone) — the plugin is in android.includePlugins AND ios.includePlugins in
+   capacitor.config.json, pinned by an e2e check. Web and the installed PWA
+   use the vendored Tesseract.js wasm build. Whichever engine runs, the SAME
+   downstream applies: canvas preprocessing before it, word boxes →
+   splitReconstructRows → parseReceiptText after it. Any ML Kit trouble at all
+   falls silently back to Tesseract.
+
+   Selection is by capability, not platform: mlkitTextPlugin() returns the
+   bridge if the shell carries it. Nothing here branches on getPlatform(). */
 
 let tesseractWorker = null;
 
@@ -10001,8 +10006,9 @@ function pickOcrEngine(env) {
   return o.native && o.mlkitAvailable ? "mlkit" : "tesseract";
 }
 
-// The bridge object, or null when this build/platform doesn't carry the
-// plugin (web, older shells, iOS). Never throws.
+// The bridge object, or null when this build doesn't carry the plugin — web,
+// the installed PWA, or an older shell. Both native platforms do carry it.
+// Never throws.
 function mlkitTextPlugin() {
   try {
     if (!isNative()) return null;
