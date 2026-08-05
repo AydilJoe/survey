@@ -662,7 +662,19 @@ body.private .privacy-toggle {
   border-color: rgba(28, 43, 56, 0.35);
 }
 
-/* Privacy blur on amounts */
+/* Privacy blur on amounts.
+ *
+ * The rule: hide the ringgit, keep everything else. Percentages, category
+ * names, "38 of 84 paid", entry counts, the pie and the trend bars all stay —
+ * a screenshot with amounts off should still be worth sharing, which is the
+ * only reason anyone reaches for this button.
+ *
+ * `.amt` is the primitive (see amt() in script.js) for figures that share an
+ * element with text worth keeping. The named selectors below are elements
+ * whose entire content is a figure. When adding a new one, prefer .amt — the
+ * e2e privacy audit walks every tab and fails on any ringgit left legible, so
+ * a missed selector will not reach a release quietly. */
+body.private .amt,
 body.private .hero-amount,
 body.private .hero-stat strong,
 body.private .hero-formula,
@@ -672,22 +684,33 @@ body.private .debt-total-inline,
 body.private .saving-total-inline,
 body.private .item-list li .amount,
 body.private .debt-list li .meta,
-body.private .debt-list li .meta-row,
 body.private .daily-entry .amount,
 body.private .daily-group-header .day-total,
 body.private .total-line,
 body.private .saving-card .saving-meta,
-body.private .saving-card .saving-pct,
 body.private .stat strong,
 body.private #stat-debt-banner-sub,
 body.private .payoff-list .debt-detail,
 body.private .payoff-list .payoff-eta,
-body.private #stall-warning {
+body.private #stall-warning,
+/* Elements that hold nothing but a figure. */
+body.private .up-amount,
+body.private .debt-glance-amount,
+body.private .last-month-value,
+body.private .recent-chip-amount,
+body.private .cal-amt,
+body.private .spending-legend-amount,
+body.private .reports-trend-bar .value,
+body.private .top-amount {
   filter: blur(7px);
   user-select: none;
   pointer-events: none;
   transition: filter 0.2s ease;
 }
+/* A goal's percentage is progress, not money — it is exactly what someone
+   sharing a savings screenshot wants to show. Same for a debt row's
+   "38 of 84 paid": the instalment figure beside it carries .amt and blurs on
+   its own, so the row no longer has to be hidden wholesale. */
 .app-header h1 {
   margin: 0;
   font-size: 1.25rem;

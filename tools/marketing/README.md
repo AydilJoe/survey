@@ -56,6 +56,48 @@ Outputs four PNGs back into `tools/marketing/images/`. Uses `sharp`
 
 Cross-link Threads → IG and vice versa in replies.
 
+## Screenshots — use `sample-data.csv`, never real data
+
+`sample-data.csv` is an invented but plausible three months (June, July and
+the first days of August 2026) for a KL working adult on RM 5,100 net.
+Regenerate with:
+
+```sh
+node scripts/make-sample-data.mjs
+```
+
+It is seeded, so the output is byte-identical every run — a diff means
+somebody changed the profile, not that the dice landed differently. The
+script prints the monthly category split so you can sanity-check the
+figures without importing.
+
+**How to use it**
+
+1. Open the app in a **separate browser profile** (or a private window that
+   you will not use for anything else). The import replaces state.
+2. Settings → Data → Import → pick `tools/marketing/sample-data.csv`.
+3. Screenshot. Reports → **Last month** gives the fullest picture.
+4. Close the profile. Nothing needs cleaning up because nothing real was in
+   there.
+
+**Why the data is shaped the way it is**
+
+- Three months, not one. Reports draws a "vs prior period" line, and with a
+  single month of data that line reads `RM 0.00 · ▲ —`, which looks like a
+  broken app in a screenshot.
+- June overspends and July recovers, so the comparison says something true
+  and the post has a story. June also skips its emergency-fund deposit,
+  because saving the same amount in a month you overspent is the sort of
+  detail that gives synthetic data away.
+- Prices are anchored to real 2026 Malaysian ones: RON95 at RM 1.99/L under
+  Budi95, Unifi 100Mbps at RM 139, economy rice at RM 9.50–13, a Myvi hire
+  purchase at RM 545/month, a PTPTN minimum of RM 150.
+- Debt names are kept to about 14 characters. A debt row puts the name and
+  the balance on one line, so anything longer truncates at phone width.
+- The debts deliberately span all three brand-tile renderings: SPayLater
+  ships bundled artwork, Atome falls back to its brand colour, and the car
+  loan falls back to a monogram.
+
 ## Adding a new post
 
 1. Add a new `.svg` to `images/` (1080×1350, brand palette).

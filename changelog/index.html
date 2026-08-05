@@ -153,6 +153,17 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-30">
+    <span class="release-date">August 2026 · v1.30</span>
+    <h2 class="release-title">Share the chart, keep the numbers</h2>
+    <p class="release-summary">The eye button in the top corner hides your amounts. It has been there a while &mdash; it just wasn&rsquo;t hiding enough of them, and it was hiding the wrong other things.</p>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Reports was leaking almost everything.</strong> Only the four summary tiles were being hidden. Every category amount, the trend chart&rsquo;s peak labels, the prior-period figure and the whole &ldquo;Top 5 entries&rdquo; list stayed in plain view &mdash; on the one screen you&rsquo;d actually screenshot. All hidden now, across every tab.</li>
+      <li><span class="tag feat">new</span><strong>Percentages stay.</strong> Hiding a row used to take the percentage with it, which defeats the point. Now it&rsquo;s the ringgit that goes and everything else stays: &ldquo;Food &mdash; 34% &mdash; 46 entries&rdquo;, &ldquo;1 of 3 paid&rdquo;, the pie, the progress bars. A screenshot with amounts off is still worth posting.</li>
+      <li><span class="tag note">note</span><strong>It can&rsquo;t quietly break again.</strong> The old approach was a list of things to hide, which is how the leaks piled up. There&rsquo;s now a test that walks every tab with amounts off and fails the build if a single ringgit figure is still readable.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-29">
     <span class="release-date">August 2026 · v1.29</span>
     <h2 class="release-title">The same bill, four times, every morning</h2>
