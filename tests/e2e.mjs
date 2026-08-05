@@ -3626,8 +3626,9 @@ check('the home summary card shows the same red — and its bars have height',
   // get a cream flash on every launch — and nothing else breaks, so nobody
   // would notice for months.
   const themeKey = /const THEME_KEY = "([^"]+)"/.exec(readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8'));
+  const themeBoot = readFileSync(path.join(REPO_ROOT, 'app', 'theme-boot.js'), 'utf8');
   check('the pre-paint theme script uses the same key script.js writes',
-    !!themeKey && head.includes(`localStorage.getItem("${themeKey[1]}")`), themeKey && themeKey[1]);
+    !!themeKey && themeBoot.includes(`localStorage.getItem("${themeKey[1]}")`), themeKey && themeKey[1]);
 }
 
 /* The check that actually matters: hold styles.css, script.js and the font
@@ -4638,6 +4639,125 @@ check('bundled logos resolve to a relative path, never a cdn', brandPrivacy.logo
 check('the brand catalogue makes no network calls at all',
   (await S(() => /fetch\(|XMLHttpRequest|https?:\/\//.test(
     typeof brandSearch === 'function' ? String(brandSearch) + String(brandResolve) + String(brandGuess) : 'https://'))) === false);
+
+// -- reminders: one per bill, not one per month the bill has existed --
+// Bills are stored per month and "Repeat next month" clones the row, so a
+// bill that has been around since April had four rows by August — and every
+// one of them scheduled the same day-of-month reminder. The user saw the
+// same "Utilities (TNB)" notification stacked on the lock screen.
+{
+  const rem = await S(() => {
+    const months = ['2026-04', '2026-05', '2026-06', '2026-07', '2026-08'];
+    // Split loans ride the same list but schedule at an absolute time; this
+    // section is about the monthly day-of-month rail.
+    const notifs = buildReminders({
+      debts: [
+        { name: 'Atome iPhone 15', dueDay: 5, installment: 0, minPayment: 0 },
+        { name: 'Maybank card', dueDay: 5, installment: 0, minPayment: 160 },
+      ],
+      expenses: months.map((month, i) => ({ month, name: 'Utilities (TNB)', amount: 100 + i * 5, day: 12 })),
+      income: months.map((month) => ({ month, name: 'Salary', amount: 5000, day: 25 })),
+    }).filter(n => n.schedule && n.schedule.on);
+    return {
+      total: notifs.length,
+      titles: notifs.map(n => n.title),
+      days: notifs.map(n => n.schedule.on.day),
+      ids: notifs.map(n => n.id),
+      tnbBody: (notifs.find(n => n.title.startsWith('Utilities')) || {}).body,
+      zeroBody: (notifs.find(n => n.title.startsWith('Atome')) || {}).body,
+      minBody: (notifs.find(n => n.title.startsWith('Maybank')) || {}).body,
+    };
+  });
+  check('five months of the same bill schedule one reminder, not five',
+    rem.total === 4 && rem.titles.filter(t => t.startsWith('Utilities')).length === 1,
+    JSON.stringify(rem));
+  check('the salary reminder is deduped the same way',
+    rem.titles.filter(t => t.startsWith('Pay day')).length === 1, JSON.stringify(rem.titles));
+  check('every notification still gets a distinct id',
+    new Set(rem.ids).size === rem.ids.length, JSON.stringify(rem.ids));
+  check('no (day, title) pair is ever scheduled twice',
+    new Set(rem.titles.map((t, i) => rem.days[i] + '|' + t)).size === rem.total);
+  check('the amount shown comes from the newest month on record, not the oldest',
+    /120/.test(rem.tnbBody || ''), rem.tnbBody);
+  check('a debt with no minimum says "Payment due today", never "Min payment RM 0.00"',
+    rem.zeroBody === 'Payment due today', rem.zeroBody);
+  check('a debt that does have a minimum still shows it',
+    /160/.test(rem.minBody || ''), rem.minBody);
+
+  // Two different bills falling on the same day are NOT duplicates.
+  const distinct = await S(() => buildReminders({
+    debts: [], income: [],
+    expenses: [
+      { month: '2026-08', name: 'Utilities (TNB)', amount: 195, day: 12 },
+      { month: '2026-08', name: 'Unifi', amount: 129, day: 12 },
+    ],
+  }).filter(n => n.schedule.on).length);
+  check('two different bills on the same day are both kept', distinct === 2, String(distinct));
+
+  // The pending cap is a real device limit — iOS silently drops past ~64.
+  const capped = await S(() => buildReminders({
+    debts: [], income: [],
+    expenses: Array.from({ length: 200 }, (_, i) => ({ month: '2026-08', name: 'Bill ' + i, amount: 10, day: (i % 28) + 1 })),
+  }).filter(n => n.schedule.on).length);
+  check('the schedule never exceeds the pending-notification budget', capped <= 60, String(capped));
+
+  // A day out of range would throw on the native side rather than no-op.
+  const junk = await S(() => buildReminders({
+    debts: [], income: [],
+    expenses: [
+      { month: '2026-08', name: 'Bad', amount: 10, day: 0 },
+      { month: '2026-08', name: 'Worse', amount: 10, day: 44 },
+      { month: '2026-08', name: 'Fine', amount: 10, day: '12' },
+    ],
+  }).filter(n => n.schedule.on));
+  check('an out-of-range due day is dropped instead of scheduled',
+    junk.length === 1 && junk[0].schedule.on.day === 12, JSON.stringify(junk));
+}
+
+// -- the install counter must stay narrow --
+// It exists to answer "how many people actually use this", and nothing else.
+// If it ever starts reporting in a plain tab, in the native shell, or more
+// than once a launch, the privacy policy stops being true.
+{
+  const analytics = readFileSync(path.join(REPO_ROOT, 'app/analytics.js'), 'utf8');
+  check('the counter only runs for an installed app',
+    /display-mode: standalone/.test(analytics) && /navigator\.standalone/.test(analytics));
+  check('it bails out inside the native shell',
+    /isNativePlatform\(\)\) return/.test(analytics));
+  check('it honours the same device opt-out as the landing page',
+    /duitful-analytics-off/.test(analytics));
+  check('it caps itself at one report per launch',
+    /beforeSend/.test(analytics) && /if \(sent\) return null/.test(analytics));
+  check('it sends no payload of its own — no custom event, no app data',
+    !/va\(\s*["']event["']/.test(analytics) && !/state\./.test(analytics));
+  const appHtml = readFileSync(path.join(REPO_ROOT, 'app/index.html'), 'utf8');
+  check('the loader is an external file — an inline one is refused by the CSP',
+    /<script src="analytics\.js\?v=\d+" defer><\/script>/.test(appHtml)
+    && !/insights\/script\.js/.test(appHtml.split('</head>')[0].replace(/<script src="analytics[^>]*><\/script>/, '')));
+  // A blocking <script> placed AFTER a <link rel=stylesheet> cannot run until
+  // that sheet arrives — so on a cold start with the font CDN or styles.css
+  // stalled, the parser stops dead in <head> and the splash never paints. The
+  // splash test above catches it, but only for the scripts that exist today.
+  // theme-boot.js is the one legitimate blocking script: it must finish before
+  // the first paint, which is exactly why it sits above every stylesheet.
+  const headTags = appHtml.split('</head>')[0];
+  const afterSheet = headTags.slice(headTags.indexOf('<link rel="stylesheet"'));
+  const blockingHead = [...afterSheet.matchAll(/<script\s+([^>]*src=[^>]*)>/g)]
+    .map(m => m[1]).filter(a => !/\bdefer\b/.test(a) && !/\basync\b/.test(a));
+  check('no script after a stylesheet link blocks the parser',
+    blockingHead.length === 0, JSON.stringify(blockingHead));
+  check('the pre-paint theme script runs before any stylesheet, and blocks on purpose',
+    headTags.indexOf('theme-boot.js') < headTags.indexOf('<link rel="stylesheet"')
+    && /<script src="theme-boot\.js\?v=\d+"><\/script>/.test(headTags));
+  // It was inline for months and silently refused every time. Nothing in this
+  // page may rely on an inline script again.
+  check('no inline script survives in the app shell — the CSP refuses them all',
+    !/<script(?![^>]*\ssrc=)[^>]*>[\s\S]*?<\/script>/.test(appHtml),
+    (/<script(?![^>]*\ssrc=)[^>]*>([\s\S]{0,80})/.exec(appHtml) || [])[1]);
+  const priv = readFileSync(path.join(REPO_ROOT, 'privacy/index.html'), 'utf8');
+  check('the privacy policy documents it rather than claiming no analytics at all',
+    /id="counting"/.test(priv) && !/We do not use analytics,/.test(priv));
+}
 
 await b.close();
 if (server) server.kill();

@@ -1747,6 +1747,21 @@
   <!-- Vercel Web Analytics -->
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+    /* Keep my own testing out of the numbers. Visit any page once with
+       ?noanalytics=1 to opt this device+browser out; ?noanalytics=0 opts back in.
+       Verified against the shipped script: it does `if (v === false || v === null)
+       return` on the beforeSend result, so returning null drops the event before
+       it is sent. The call is queued into window.vaq and replayed once
+       script.js loads, so ordering with the deferred tag is safe. */
+    (function () {
+      var KEY = "duitful-analytics-off";
+      try {
+        var q = new URLSearchParams(location.search).get("noanalytics");
+        if (q === "1") { localStorage.setItem(KEY, "1"); alert("Duitful: this device is now excluded from analytics."); }
+        else if (q === "0") { localStorage.removeItem(KEY); alert("Duitful: this device is counted in analytics again."); }
+        if (localStorage.getItem(KEY)) window.va("beforeSend", function () { return null; });
+      } catch (e) { /* storage blocked (private mode) — just count normally */ }
+    })();
   </script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>

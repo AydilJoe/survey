@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.28.1";
+const APP_VERSION = "1.29.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5810,6 +5810,78 @@ document.getElementById("fpx-continue")?.addEventListener("click", async () => {
   }
 });
 
+// Build the reminder list. Kept separate from the scheduling call so it can
+// be exercised without a native shell.
+function buildReminders(src) {
+  const debts = (src && src.debts) || [];
+  const expenses = (src && src.expenses) || [];
+  const income = (src && src.income) || [];
+  const notifs = [];
+  let nextId = 1;
+  const hour = 9, minute = 0;
+
+  // Income and expenses are stored PER MONTH, and "Repeat next month" makes
+  // a fresh row every month — so "Utilities (TNB)" exists once for July, once
+  // for August, and so on, every one of them carrying the same day. These
+  // notifications repeat monthly on a day-of-month, so each of those rows was
+  // scheduling the SAME reminder again: one duplicate per month the bill had
+  // existed, growing forever and eating the pending-notification budget.
+  // Key on what the user actually sees — the title and the day.
+  const seen = new Set();
+  const push = (title, body, day) => {
+    const d = Number(day);
+    if (!Number.isFinite(d) || d < 1 || d > 31) return;
+    const key = `${d}|${title}`;
+    if (seen.has(key)) return;
+    if (notifs.length >= 60) return; // iOS pending cap ~64
+    seen.add(key);
+    notifs.push({
+      id: nextId++,
+      title,
+      body,
+      schedule: { on: { day: d, hour, minute }, allowWhileIdle: true },
+      smallIcon: "ic_stat_icon",
+    });
+  };
+
+  for (const d of debts) {
+    if (!d.dueDay) continue;
+    // "Min payment RM 0.00" is worse than saying nothing — it reads as a bug,
+    // and it is what a row with no minimum set actually produced. Use the
+    // instalment where there is one, and drop the figure entirely when there
+    // is none worth showing.
+    const due = Number(d.installment) || Number(d.minPayment) || 0;
+    const body = due > 0 ? `Min payment ${fmtMoney(due)}` : "Payment due today";
+    push(`${d.name} — due today`, body, d.dueDay);
+  }
+  // Newest month first, so the amount shown is the most recent one on record
+  // rather than whichever month happened to be stored first.
+  const byMonthDesc = (a, b) => String(b.month || "").localeCompare(String(a.month || ""));
+  for (const ex of [...expenses].sort(byMonthDesc)) {
+    if (ex.day) push(`${ex.name} — bill due`, `${fmtMoney(ex.amount)}`, ex.day);
+  }
+  for (const inc of [...income].sort(byMonthDesc)) {
+    if (inc.day) push(`Pay day — ${inc.name}`, `${fmtMoney(inc.amount)} expected`, inc.day);
+  }
+  // A loan comes due ONCE, so it is scheduled at an absolute time rather than
+  // on the monthly-repeating day-of-month rail used above.
+  if (typeof splitNativeReminders === "function") {
+    try {
+      for (const n of splitNativeReminders()) {
+        if (notifs.length >= 60) break;
+        notifs.push({
+          id: nextId++,
+          title: n.title,
+          body: n.body,
+          schedule: { at: n.at, allowWhileIdle: true },
+          smallIcon: "ic_stat_icon",
+        });
+      }
+    } catch {}
+  }
+  return notifs;
+}
+
 async function scheduleNativeReminders() {
   if (!isNative()) return;
   const LN = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
@@ -5825,50 +5897,10 @@ async function scheduleNativeReminders() {
       await LN.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
     }
 
-    const notifs = [];
-    let nextId = 1;
-    const hour = 9, minute = 0;
     const prefs = state.reminders || {};
     if (prefs.enabled === false) return;
 
-    const push = (title, body, day) => {
-      if (!Number.isFinite(day) || day < 1 || day > 31) return;
-      if (notifs.length >= 60) return; // iOS pending cap ~64
-      notifs.push({
-        id: nextId++,
-        title,
-        body,
-        schedule: { on: { day, hour, minute }, allowWhileIdle: true },
-        smallIcon: "ic_stat_icon",
-      });
-    };
-
-    for (const d of state.debts) {
-      if (d.dueDay) push(`${d.name} — due today`, `Min payment ${fmtMoney(d.minPayment)}`, d.dueDay);
-    }
-    for (const ex of state.expenses) {
-      if (ex.day) push(`${ex.name} — bill due`, `${fmtMoney(ex.amount)}`, ex.day);
-    }
-    for (const inc of state.income) {
-      if (inc.day) push(`Pay day — ${inc.name}`, `${fmtMoney(inc.amount)} expected`, inc.day);
-    }
-    // A loan comes due ONCE, so it is scheduled at an absolute time rather
-    // than on the monthly-repeating day-of-month rail used above.
-    if (typeof splitNativeReminders === "function") {
-      try {
-        for (const n of splitNativeReminders()) {
-          if (notifs.length >= 60) break;
-          notifs.push({
-            id: nextId++,
-            title: n.title,
-            body: n.body,
-            schedule: { at: n.at, allowWhileIdle: true },
-            smallIcon: "ic_stat_icon",
-          });
-        }
-      } catch {}
-    }
-
+    const notifs = buildReminders(state);
     if (notifs.length) await LN.schedule({ notifications: notifs });
   } catch (err) {
     console.warn("Native LN schedule failed", err);
@@ -9712,12 +9744,17 @@ document.getElementById("btn-setup-restore")?.addEventListener("click", () => {
 
 /* ---------- receipt scanning (on-device OCR) ----------
 
-   Two engines, one pipeline. Android reads the photo with Google's ML Kit
-   text recognition (native, on-device, no network, no image ever leaves the
-   phone); everything else — web, PWA, iOS — uses the vendored Tesseract.js
-   wasm build. Whichever engine runs, the SAME downstream applies: canvas
-   preprocessing before it, word boxes → splitReconstructRows → parseReceiptText
-   after it. Any ML Kit trouble at all falls silently back to Tesseract. */
+   Two engines, one pipeline. Both native shells read the photo with Google's
+   ML Kit text recognition (on-device, no network, no image ever leaves the
+   phone) — the plugin is in android.includePlugins AND ios.includePlugins in
+   capacitor.config.json, pinned by an e2e check. Web and the installed PWA
+   use the vendored Tesseract.js wasm build. Whichever engine runs, the SAME
+   downstream applies: canvas preprocessing before it, word boxes →
+   splitReconstructRows → parseReceiptText after it. Any ML Kit trouble at all
+   falls silently back to Tesseract.
+
+   Selection is by capability, not platform: mlkitTextPlugin() returns the
+   bridge if the shell carries it. Nothing here branches on getPlatform(). */
 
 let tesseractWorker = null;
 
@@ -10001,8 +10038,9 @@ function pickOcrEngine(env) {
   return o.native && o.mlkitAvailable ? "mlkit" : "tesseract";
 }
 
-// The bridge object, or null when this build/platform doesn't carry the
-// plugin (web, older shells, iOS). Never throws.
+// The bridge object, or null when this build doesn't carry the plugin — web,
+// the installed PWA, or an older shell. Both native platforms do carry it.
+// Never throws.
 function mlkitTextPlugin() {
   try {
     if (!isNative()) return null;

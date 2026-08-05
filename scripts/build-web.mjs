@@ -26,6 +26,8 @@ const APP_FILES = [
   "investments.js",
   "split.js",
   "brands.js",
+  "analytics.js",
+  "theme-boot.js",
   // Self-hosted single-file QR libraries. cpSync creates the nested
   // destination directory, and the root vendor/ copy below merges rather
   // than replaces, so www/vendor/ ends up with both these and Tesseract.

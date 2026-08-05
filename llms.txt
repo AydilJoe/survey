@@ -175,7 +175,11 @@ covers most casual use; Pro is one-time RM 19.90.
   sync.
 - Zakat figures are planning estimates, not religious rulings.
 - No advertising, no analytics on financial data, no third-party SDKs
-  reading transactions.
+  reading transactions. The only measurement anywhere is a cookieless
+  count of installed-app launches (one per launch, no page paths, no
+  financial data, nothing at all in the native apps or in a browser tab),
+  documented at https://duitful.app/privacy/#counting with a one-URL
+  opt-out.
 - Encryption: AES-GCM, PBKDF2 key derivation, 250,000 iterations.
 - Biometric unlock (Android app, opt-in): the passcode is stored in the
   phone's hardware keystore and released only after the OS fingerprint /

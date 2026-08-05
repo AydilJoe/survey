@@ -7,7 +7,7 @@
 <meta name="color-scheme" content="light only">
 
 <title>Privacy policy — Duitful</title>
-<meta name="description" content="How Duitful handles your data — on-device encryption, no analytics, no sync server, and a short honest list of the third parties involved in running the app.">
+<meta name="description" content="How Duitful handles your data — on-device encryption, no sync server, cookieless counting only, and a short honest list of the third parties involved in running the app.">
 <link rel="canonical" href="https://duitful.app/privacy/">
 <meta name="robots" content="index, follow">
 
@@ -15,7 +15,7 @@
 <meta property="og:site_name" content="Duitful">
 <meta property="og:url" content="https://duitful.app/privacy/">
 <meta property="og:title" content="Privacy policy — Duitful">
-<meta property="og:description" content="On-device encryption. No analytics. No sync server. A short, honest privacy policy written in plain language.">
+<meta property="og:description" content="On-device encryption. No sync server. Cookieless counting only, with a one-click opt-out. A short, honest privacy policy written in plain language.">
 <meta property="og:image" content="https://duitful.app/og-image.svg">
 
 <script type="application/ld+json">
@@ -37,7 +37,7 @@
   "url": "https://duitful.app/privacy/",
   "description": "Privacy policy for Duitful — a privacy-first personal finance tracker built in Malaysia.",
   "inLanguage": "en",
-  "dateModified": "2026-07-31",
+  "dateModified": "2026-08-05",
   "publisher": {
     "@type": "Organization",
     "name": "Duitful",
@@ -183,6 +183,17 @@
 <!-- Vercel Web Analytics -->
 <script>
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  /* Owner opt-out — see index.html for the full note. ?noanalytics=1 once per
+     device; beforeSend returning null drops the event before it is sent. */
+  (function () {
+    var KEY = "duitful-analytics-off";
+    try {
+      var q = new URLSearchParams(location.search).get("noanalytics");
+      if (q === "1") { localStorage.setItem(KEY, "1"); alert("Duitful: this device is now excluded from analytics."); }
+      else if (q === "0") { localStorage.removeItem(KEY); alert("Duitful: this device is counted in analytics again."); }
+      if (localStorage.getItem(KEY)) window.va("beforeSend", function () { return null; });
+    } catch (e) { /* storage blocked (private mode) — just count normally */ }
+  })();
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
 </head>
@@ -192,7 +203,7 @@
 
   <h1>Privacy <em>policy</em></h1>
   <p class="lede">Written in plain English, not legalese. The short version lives right below — the rest is the full detail you'll want if you care, or if a regulator asks.</p>
-  <p class="meta">Effective 23 April 2026 · Last updated 31 July 2026</p>
+  <p class="meta">Effective 23 April 2026 · Last updated 5 August 2026</p>
 
   <div class="tldr">
     <h2>The short version</h2>
@@ -201,7 +212,7 @@
       <li>If you turn on Pro's optional <strong>Google Drive sync</strong>, an already-encrypted copy of your database is uploaded directly from your device to a hidden folder in <em>your own</em> Google Drive. Duitful never sees the bytes; Google cannot read them without your passcode.</li>
       <li>Receipt scanning runs <strong>entirely on your device</strong> — Google's ML Kit inside the Android app, Tesseract.js on the web, both on-device. Receipt images and extracted text are never uploaded to us or to any third party, and Google receives nothing from an ML Kit scan.</li>
       <li>On Android, bank and e-wallet notifications are parsed <strong>on the device itself</strong>. Nothing from a notification is transmitted anywhere.</li>
-      <li>We don't use analytics, advertising trackers, or error-reporting SDKs. There are no tracking cookies.</li>
+      <li>No advertising trackers, no error-reporting SDKs, no tracking cookies. The only measurement anywhere is a cookieless page count — and inside the app it fires <strong>once per launch, only if you installed the app to your home screen</strong>, and carries nothing about you or your money. See <a href="#counting">section 4.7</a>.</li>
       <li>When you buy Pro, your name and email go through Billplz (our payment processor) so we can send you a licence. That is the only time we knowingly receive personal data.</li>
       <li>The Pro licence itself is a cryptographically signed token. It does not contain device identifiers and cannot be used to track you.</li>
     </ul>
@@ -216,7 +227,7 @@
   <ul>
     <li>We do not have a user account system. There is no sign-up, no login, no password stored anywhere.</li>
     <li>We do not run a sync server, and we do not store your transactions in any database we operate. Pro's optional Google Drive sync writes an already-encrypted file directly from your device to your own Google Drive — the bytes never pass through any Duitful infrastructure.</li>
-    <li>We do not use analytics, product telemetry, crash reporting SDKs, or advertising identifiers. Not Google Analytics, Firebase, Sentry, Mixpanel, PostHog, Amplitude, Crashlytics, or anything similar.</li>
+    <li>We do not use product telemetry, crash reporting SDKs, or advertising identifiers. Not Google Analytics, Firebase, Sentry, Mixpanel, PostHog, Amplitude, Crashlytics, or anything similar. The one exception is a cookieless page count, described in full in <a href="#counting">section 4.7</a> — it never records what you do inside the app, and none of your financial data is involved in it.</li>
     <li>We do not set tracking cookies on this website.</li>
     <li>We do not sell, rent, share, or monetise personal data. There is no ad network involved anywhere in the product.</li>
     <li>We do not read, scan, or upload your receipt images. OCR runs on the device and the image never leaves it.</li>
@@ -295,6 +306,17 @@
   <p>The public website at <code>duitful.app</code> is served by GitHub Pages. When you visit, GitHub's servers receive standard HTTP request metadata — IP address, user-agent, referrer, requested path — which GitHub retains as part of its own operations under its own privacy policy. We don't operate our own web-access logging on top of that, and we don't receive or analyse those logs.</p>
   <p>Our Pro-checkout endpoints are hosted on Vercel. When you hit those endpoints, Vercel retains similar request metadata for operational and security purposes, as described in Vercel's own privacy policy.</p>
 
+  <h3 id="counting">4.7 Counting pages and installs</h3>
+  <p>We use <strong>Vercel Web Analytics</strong> to count page views on the marketing site and this policy page. It is cookieless and does not build a profile: no cookie is set, no advertising or device identifier is stored, and there is no cross-site tracking. What it records per view is the page path, the referrer, and coarse device information (country, browser, operating system, desktop or mobile) derived from the request. IP addresses are used transiently to derive that country and are not retained by us in any form we can read.</p>
+  <p>Inside the app itself, the measurement is deliberately narrower than that:</p>
+  <ul>
+    <li><strong>It only runs if you installed Duitful</strong> to your home screen or desktop. Open <code>/app</code> in an ordinary browser tab and nothing is reported at all.</li>
+    <li><strong>One hit per launch.</strong> Moving between tabs inside the app — Home, Debts, Savings, Settings — reports nothing. We count launches, so we know roughly how many people actually use the thing; we do not watch how you use it.</li>
+    <li><strong>Nothing about your money is attached.</strong> No amounts, no debt names, no categories, no counts of anything you entered. Your vault stays encrypted on your device and is never read for this or any other purpose.</li>
+    <li><strong>Nothing runs in the native apps.</strong> The Android and iOS builds do not include this at all.</li>
+  </ul>
+  <p>If you would rather not be counted anywhere, visit any Duitful page once with <code>?noanalytics=1</code> on the end of the URL — for example <a href="/privacy/?noanalytics=1">duitful.app/privacy/?noanalytics=1</a>. That sets a flag in your browser's local storage which switches the counting off for that browser, on the website and in the installed app alike. <code>?noanalytics=0</code> reverses it. The flag lives on your device; we never see whether you set it. Browser "do not track" and global privacy-control signals are honoured by Vercel's script independently of this.</p>
+
   <h2 class="section">5. Third parties we use</h2>
   <p>Running a finance app on the modern internet involves a small number of service providers. Here is the complete list, what they see, and why we use them.</p>
 
@@ -330,8 +352,8 @@
       </tr>
       <tr>
         <td>Vercel</td>
-        <td>Hosts the Pro-checkout serverless functions.</td>
-        <td>Request metadata (IP, user-agent, referrer) for endpoints under <code>/api/</code>.</td>
+        <td>Hosts the Pro-checkout serverless functions, and provides the cookieless page count described in 4.7.</td>
+        <td>Request metadata (IP, user-agent, referrer) for endpoints under <code>/api/</code>; for the page count, the page path, referrer and coarse device/country information — never any of your financial data.</td>
       </tr>
       <tr>
         <td>GitHub Pages</td>

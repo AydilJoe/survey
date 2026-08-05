@@ -132,6 +132,17 @@
 <!-- Vercel Web Analytics -->
 <script>
   window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  /* Owner opt-out — see index.html for the full note. ?noanalytics=1 once per
+     device; beforeSend returning null drops the event before it is sent. */
+  (function () {
+    var KEY = "duitful-analytics-off";
+    try {
+      var q = new URLSearchParams(location.search).get("noanalytics");
+      if (q === "1") { localStorage.setItem(KEY, "1"); alert("Duitful: this device is now excluded from analytics."); }
+      else if (q === "0") { localStorage.removeItem(KEY); alert("Duitful: this device is counted in analytics again."); }
+      if (localStorage.getItem(KEY)) window.va("beforeSend", function () { return null; });
+    } catch (e) { /* storage blocked (private mode) — just count normally */ }
+  })();
 </script>
 <script defer src="/_vercel/insights/script.js"></script>
 </head>
@@ -141,6 +152,30 @@
 
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
+
+  <article class="release" id="v1-29">
+    <span class="release-date">August 2026 · v1.29</span>
+    <h2 class="release-title">The same bill, four times, every morning</h2>
+    <p class="release-summary">A reader sent a lock-screen photo with &ldquo;Utilities (TNB)&rdquo; on it twice. It should have been on it once, and the reason it wasn&rsquo;t turns out to be a nice little bug.</p>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Bill reminders no longer stack up.</strong> Bills are stored one row per month, and &ldquo;repeat next month&rdquo; makes a new row each time &mdash; so a bill you&rsquo;d had since April had four rows by August, and every one of them booked the same reminder. You now get one reminder per bill, showing the most recent amount.</li>
+      <li><span class="tag fix">fix</span><strong>&ldquo;Min payment RM 0.00&rdquo; is gone.</strong> A debt with no minimum set now just says &ldquo;Payment due today&rdquo;, which is what it meant.</li>
+      <li><span class="tag fix">fix</span><strong>Dark mode no longer flashes cream on launch.</strong> The bit of code that reads your theme before the first frame was being blocked by the app&rsquo;s own security policy &mdash; on every single launch, quietly, for months. It runs now.</li>
+      <li><span class="tag note">note</span><strong>Installed launches are counted, and nothing else is.</strong> One cookieless ping when you open Duitful from your home screen, so I have some idea whether anyone is using this. Not a page path, not a tap, not a single figure from your data &mdash; and nothing at all in a browser tab or the Android app. <a href="/privacy/#counting">The privacy policy spells it out</a>, including how to switch it off.</li>
+    </ul>
+  </article>
+
+  <article class="release" id="ios-alpha">
+    <span class="release-date">August 2026 · status</span>
+    <h2 class="release-title">The iPhone app is real, and it&rsquo;s an alpha</h2>
+    <p class="release-summary">Not a release &mdash; a progress note, because &ldquo;coming soon&rdquo; has been sitting on the front page for a while and that&rsquo;s not very informative.</p>
+    <ul>
+      <li><span class="tag note">note</span><strong>There is a working iOS build.</strong> The whole app runs natively on iPhone: passcode, Face ID unlock, receipt scanning, bill splitting, the lot. A home-screen widget is in it too.</li>
+      <li><span class="tag note">note</span><strong>You can&rsquo;t install it yet, and that&rsquo;s the honest part.</strong> Putting an app on the App Store or TestFlight needs an Apple Developer account &mdash; USD $99 a year. Until that&rsquo;s paid there is no way to hand you a build, however finished it looks on my desk.</li>
+      <li><span class="tag note">note</span><strong>Alpha means alpha.</strong> The known gap is universal links: tapping a shared split link opens Safari instead of jumping into the app. Everything else has been exercised on a real iPhone, but &ldquo;works on my device&rdquo; is not the same as tested.</li>
+      <li><span class="tag note">note</span><strong>Meanwhile the web app is a real iPhone app.</strong> Open duitful.app/app in Safari, Share &rarr; Add to Home Screen, and it runs full-screen and offline with your data encrypted on the device. That is not a stopgap &mdash; it&rsquo;s how most people use Duitful today.</li>
+    </ul>
+  </article>
 
   <article class="release" id="v1-26">
     <span class="release-date">August 2026 · v1.26</span>
