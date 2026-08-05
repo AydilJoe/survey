@@ -68,15 +68,13 @@
       html[data-theme="dark"] #splash .splash-title { color: #f3ede1; }
       html[data-theme="dark"] #splash .splash-dots span { background: #a8a097; }
     </style>
-    <script>
-      // The theme choice is stored outside the encrypted vault precisely so it
-      // can be read here, before anything else paints. Otherwise a dark-mode
-      // user gets a cream flash on every launch.
-      try {
-        var t = localStorage.getItem("duit-tracker.theme");
-        if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
-      } catch (e) {}
-    </script>
+    <!-- Applies the saved theme before the first paint. Deliberately BLOCKING
+         and deliberately above every stylesheet link: it has to finish before
+         anything paints, and a blocking script after a <link rel=stylesheet>
+         waits on that sheet. External because the CSP has no 'unsafe-inline'
+         — the inline version this replaced was refused on every load, so
+         dark-mode users had been getting a cream flash all along. -->
+    <script src="theme-boot.js?v=1"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -86,30 +84,16 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=96" />
+    <link rel="stylesheet" href="styles.css?v=97" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script>
-      // NOTE: this whole inline block is dead. The page CSP is
-      // script-src 'self' with no 'unsafe-inline', so the browser refuses to
-      // execute it — window.va never gets defined and the loader below never
-      // runs, which means /_vercel/insights/script.js is never requested and
-      // the APP has never reported analytics at all. Only the landing page and
-      // the guides do. Moving this to an external file would start collecting
-      // in-app data for the first time; that is a product decision, not a bug
-      // fix, so it is left switched off and documented rather than silently
-      // enabled. The ?noanalytics=1 opt-out lives in the pages that DO track.
-      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-      // Vercel Analytics lives at /_vercel/insights/script.js. Capacitor's
-      // WebView base is https://localhost so that path 404s on native — only
-      // inject the tag on web. window.Capacitor is set up by the Capacitor
-      // bridge before page scripts run, so this check is safe in <head>.
-      if (!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform())) {
-        const s = document.createElement("script");
-        s.defer = true;
-        s.src = "/_vercel/insights/script.js";
-        document.head.appendChild(s);
-      }
-    </script>
+    <!-- Counts installed-app launches only, one hit per launch. External file
+         because the CSP above has no 'unsafe-inline' — the inline block this
+         replaced was refused by the browser every time it ever loaded.
+         defer is load-bearing, not tidiness: a blocking script placed after a
+         stylesheet cannot run until that sheet arrives, so on a cold start
+         with the CDN stalled the parser stops here and the splash never
+         paints. Counting launches must never cost a frame. -->
+    <script src="analytics.js?v=1" defer></script>
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -2080,6 +2064,6 @@
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=6"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=127"></script>
+    <script src="script.js?v=128"></script>
   </body>
 </html>

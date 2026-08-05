@@ -153,6 +153,18 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-29">
+    <span class="release-date">August 2026 · v1.29</span>
+    <h2 class="release-title">The same bill, four times, every morning</h2>
+    <p class="release-summary">A reader sent a lock-screen photo with &ldquo;Utilities (TNB)&rdquo; on it twice. It should have been on it once, and the reason it wasn&rsquo;t turns out to be a nice little bug.</p>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Bill reminders no longer stack up.</strong> Bills are stored one row per month, and &ldquo;repeat next month&rdquo; makes a new row each time &mdash; so a bill you&rsquo;d had since April had four rows by August, and every one of them booked the same reminder. You now get one reminder per bill, showing the most recent amount.</li>
+      <li><span class="tag fix">fix</span><strong>&ldquo;Min payment RM 0.00&rdquo; is gone.</strong> A debt with no minimum set now just says &ldquo;Payment due today&rdquo;, which is what it meant.</li>
+      <li><span class="tag fix">fix</span><strong>Dark mode no longer flashes cream on launch.</strong> The bit of code that reads your theme before the first frame was being blocked by the app&rsquo;s own security policy &mdash; on every single launch, quietly, for months. It runs now.</li>
+      <li><span class="tag note">note</span><strong>Installed launches are counted, and nothing else is.</strong> One cookieless ping when you open Duitful from your home screen, so I have some idea whether anyone is using this. Not a page path, not a tap, not a single figure from your data &mdash; and nothing at all in a browser tab or the Android app. <a href="/privacy/#counting">The privacy policy spells it out</a>, including how to switch it off.</li>
+    </ul>
+  </article>
+
   <article class="release" id="ios-alpha">
     <span class="release-date">August 2026 · status</span>
     <h2 class="release-title">The iPhone app is real, and it&rsquo;s an alpha</h2>
