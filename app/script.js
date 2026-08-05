@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.29.0";
+const APP_VERSION = "1.30.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -493,6 +493,20 @@ function fmtMoney(n) {
   const v = Number(n) || 0;
   try { return currencyFormatter().format(v); }
   catch { return v.toFixed(2) + " " + currentCurrency(); }
+}
+
+/* Wraps a figure so privacy mode can hide the ringgit without taking the
+ * sentence around it. "RM 649.12 · 34%" has to become "▓▓▓▓▓ · 34%" — the
+ * percentage is the whole reason someone shares a screenshot with amounts
+ * off. Blurring the parent element would hide both.
+ *
+ * Use this anywhere money shares an element with text worth keeping. Where an
+ * element holds nothing but a figure, add its class to the privacy block in
+ * styles.css instead — no markup change needed.
+ */
+function amt(n) {
+  const text = typeof n === "string" ? n : fmtMoney(n);
+  return `<span class="amt">${escapeHtml(text)}</span>`;
 }
 
 // Tween the split hero-balance (RM | 1,234 | .56) by animating the
@@ -1140,9 +1154,11 @@ function renderBudgetManager() {
       ? `<span class="system-tag">active</span>` : "";
     const systemTag = isSystem ? `<span class="system-tag">system</span>` : "";
 
+    // HTML, not text — "Base"/"this month" are labels worth keeping legible
+    // when the figures beside them are hidden.
     const meta = isSystem
       ? `Auto-derived from your debts' monthly minimums`
-      : `Base ${fmtMoney(pool.limit)}${overrideTag ? ` · this month ${fmtMoney(limit)}` : ""}`;
+      : `Base ${amt(pool.limit)}${overrideTag ? ` · this month ${amt(limit)}` : ""}`;
 
     const activeToggle = isSystem ? "" : `
       <label class="pool-toggle pool-toggle-active" title="When on, pool is pre-selected on the daily form">
@@ -1168,7 +1184,7 @@ function renderBudgetManager() {
         <span class="swatch" style="background:${escapeHtml(pool.color)}"></span>
         <div>
           <div class="pool-name">${escapeHtml(pool.name)}${systemTag}${activeTag}${overrideTag}${rolloverTag}</div>
-          <div class="pool-meta">${escapeHtml(meta)} · ${fmtMoney(usage)} of ${fmtMoney(limit)}${isOver ? ` <strong>(over by ${fmtMoney(usage - limit)})</strong>` : ""}</div>
+          <div class="pool-meta">${meta} · ${amt(usage)} of ${amt(limit)}${isOver ? ` <strong>(over by ${amt(usage - limit)})</strong>` : ""}</div>
           <div class="pool-progress"><div class="fill${overspent ? " over" : ""}" style="width:${usedPct.toFixed(1)}%${overspent ? "" : `;background:${escapeHtml(pool.color)}`}"></div></div>
         </div>
         ${actions}
@@ -1216,12 +1232,12 @@ function renderBudgetSummary() {
       } else {
         const ctaBtn = `<button type="button" class="pool-banner-cta" data-action="open-bulk-debt-pay">Pay monthly debts →</button>`;
         if (tier === "calm") {
-          banner = `<div class="pool-banner calm">${fmtMoney(stillDue)} due this month.${ctaBtn}</div>`;
+          banner = `<div class="pool-banner calm">${amt(stillDue)} due this month.${ctaBtn}</div>`;
         } else if (tier === "yellow") {
           const earliest = state.debts
             .map((d) => Number(d.dueDay)).filter((n) => Number.isFinite(n) && n >= 1 && n <= 31)
             .reduce((min, n) => Math.min(min, n), 32);
-          banner = `<div class="pool-banner yellow">${fmtMoney(stillDue)} due — earliest due day is the ${earliest}${ordinalSuffix(earliest)}.${ctaBtn}</div>`;
+          banner = `<div class="pool-banner yellow">${amt(stillDue)} due — earliest due day is the ${earliest}${ordinalSuffix(earliest)}.${ctaBtn}</div>`;
         } else { // red
           const overdue = state.debts.find((d) => {
             return Number.isFinite(d.dueDay) && d.dueDay < new Date().getDate() && paidThisMonth(d.id) < (Number(d.minPayment) || 0);
@@ -1237,16 +1253,18 @@ function renderBudgetSummary() {
 
     const overspent = isOver && !isSystem;
     const fillColor = isSystem && isOver ? "#81B29A" : pool.color;
+    // Built as HTML, not text: the "ahead of schedule" half is worth keeping
+    // visible in privacy mode even when the figures are not.
     const meta = isSystem && isOver
-      ? `Ahead of schedule — paid ${fmtMoney(usage)}, ${fmtMoney(usage - limit)} over minimums`
-      : `${fmtMoney(usage)} of ${fmtMoney(limit)}`;
+      ? `Ahead of schedule — paid ${amt(usage)}, ${amt(usage - limit)} over minimums`
+      : `${amt(usage)} of ${amt(limit)}`;
 
     return `
       <div class="summary-pool-row${isSystem ? " system" : ""}" data-id="${escapeHtml(pool.id)}">
         <div class="summary-pool-head">
           <span class="swatch" style="background:${escapeHtml(pool.color)}"></span>
           <span class="pool-name">${escapeHtml(pool.name)}${isSystem ? ` <span class="system-tag">system</span>` : ""}${pool.active ? ` <span class="system-tag">active</span>` : ""}</span>
-          <span class="pool-meta-right">${escapeHtml(meta)} ${chip}</span>
+          <span class="pool-meta-right">${meta} ${chip}</span>
         </div>
         <div class="pool-progress"><div class="fill${overspent ? " over" : ""}" style="width:${usedPct.toFixed(1)}%${overspent ? "" : `;background:${escapeHtml(fillColor)}`}"></div></div>
         ${banner}
@@ -1931,7 +1949,7 @@ function renderSpendCalendar() {
   }
   const monthTotal = Array.from(byDay.values()).reduce((s, v) => s + v, 0);
   const maxDay = Math.max(0, ...byDay.values());
-  if (totalEl) totalEl.textContent = monthTotal > 0 ? `${fmtMoney(monthTotal)} this month` : "";
+  if (totalEl) totalEl.innerHTML = monthTotal > 0 ? `${amt(monthTotal)} this month` : "";
 
   const cells = [];
   for (let i = 0; i < firstOffset; i++) {
@@ -2536,7 +2554,7 @@ function renderDebts() {
       const metaRow = islamic
         ? (islamicNeedsSetup
             ? `<div class="meta-row"><span class="needs-setup-note">Tap ⋯ → Edit to set principal, profit + tenure</span></div>`
-            : `<div class="meta-row"><span>${badge}${islamicMonthsLeft(d)} of ${d.tenureMonths} months left</span><span>${fmtMoney(islamicInstalment(d))}/mo</span></div>`)
+            : `<div class="meta-row"><span>${badge}${islamicMonthsLeft(d)} of ${d.tenureMonths} months left</span><span>${amt(fmtMoney(islamicInstalment(d)) + "/mo")}</span></div>`)
         : isInstallment
           ? (needsSetup
               ? `<div class="meta-row"><span class="needs-setup-note">Tap ⋯ → Edit to set monthly + months</span></div>`
@@ -2544,15 +2562,15 @@ function renderDebts() {
               // as ground covered, where "8 months left" reads as a sentence.
               : `<div class="meta-row"><span>${badge}${prog && prog.known
                     ? `${prog.paid} of ${prog.term} paid`
-                    : `${remMonths} month${remMonths === 1 ? "" : "s"} left`}</span><span>${fmtMoney(installment)}/mo</span></div>`)
-          : `<div class="meta-row"><span>${badge}${rowTerm(d, "rateShort")} ${fmtPct(d.apr)}</span><span>Min ${fmtMoney(d.minPayment)}</span></div>`;
+                    : `${remMonths} month${remMonths === 1 ? "" : "s"} left`}</span><span>${amt(fmtMoney(installment) + "/mo")}</span></div>`)
+          : `<div class="meta-row"><span>${badge}${rowTerm(d, "rateShort")} ${fmtPct(d.apr)}</span><span>Min ${amt(d.minPayment)}</span></div>`;
       // The headline figure for an Islamic row is the outstanding principal —
       // i.e. what settling today actually costs. Spell out the ibra' so the
       // number reconciles against the bank statement, which shows the higher
       // outstanding sale price.
       const ibra = islamic && !islamicNeedsSetup ? ibraRebate(d) : 0;
       const ibraRow = ibra > 0.005
-        ? `<div class="meta-row ibra-row"><span>Settle today ≈ ${fmtMoney(d.balance)}</span><span>ibra' ≈ ${fmtMoney(ibra)} saved</span></div>`
+        ? `<div class="meta-row ibra-row"><span>Settle today ≈ ${amt(d.balance)}</span><span>ibra' ≈ ${amt(ibra)} saved</span></div>`
         : "";
       const balanceTitle = islamic && !islamicNeedsSetup
         ? ` title="Outstanding principal. Bank statement shows ${fmtMoney(Number(d.balance) + ibra)} (sale price incl. unearned profit)."`
@@ -2795,7 +2813,7 @@ function renderDashboard() {
     } else {
       targetEl.hidden = false;
       const perDay = balance / daysLeft;
-      targetText.innerHTML = `About <strong>${fmtMoney(perDay)}/day</strong> to stay on track <span class="hero-target-meta">· ${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`;
+      targetText.innerHTML = `About <strong>${amt(fmtMoney(perDay) + "/day")}</strong> to stay on track <span class="hero-target-meta">· ${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`;
     }
   }
 
@@ -3231,7 +3249,7 @@ function renderReportsSpending() {
   svg.removeAttribute("aria-hidden");
   if (totalEl) {
     const catCount = visible.length;
-    totalEl.textContent = `${fmtMoney(total)} · ${catCount} ${catCount === 1 ? "category" : "categories"}`;
+    totalEl.innerHTML = `${amt(total)} · ${catCount} ${catCount === 1 ? "category" : "categories"}`;
     totalEl.hidden = false;
   }
 
@@ -3306,7 +3324,7 @@ function renderDashboardSpending() {
   card.hidden = false;
   empty.hidden = true;
   svg.removeAttribute("aria-hidden");
-  if (totalEl) { totalEl.textContent = `${fmtMoney(total)} this month`; totalEl.hidden = false; }
+  if (totalEl) { totalEl.innerHTML = `${amt(total)} this month`; totalEl.hidden = false; }
 
   let svgInner = "";
   if (visible.length === 1) {
@@ -3451,7 +3469,7 @@ function renderReports() {
       const titleAttr = pctTitle ? ` title="${escapeHtml(pctTitle)}"` : "";
       momEl.innerHTML =
         `vs prior period (${formatDayLabel(priorStart)} – ${formatDayLabel(priorEnd)}): ` +
-        `${fmtMoney(priorTotal)} · ` +
+        `${amt(priorTotal)} · ` +
         `<span class="${cls}"${titleAttr}>${arrow} ${pctText}</span>`;
       momEl.hidden = false;
     } else {
@@ -3538,7 +3556,7 @@ function renderReports() {
             const baseHint = trendHint.textContent;
             // Use the bucket key (ISO date or YYYY-MM) for a friendly label.
             const peakLabel = days <= 62 ? formatDayLabel(peakBucket.key) : formatMonthLabel(peakBucket.key);
-            trendHint.textContent = `${baseHint} · peak on ${peakLabel} (${fmtMoney(peakBucket.total)})`;
+            trendHint.innerHTML = `${escapeHtml(baseHint)} · peak on ${escapeHtml(peakLabel)} (${amt(peakBucket.total)})`;
           }
         }
       }
@@ -9276,7 +9294,13 @@ function applyPrivacy(on) {
   document.body.classList.toggle("private", !!on);
   const btn = document.getElementById("btn-privacy");
   const icon = document.getElementById("privacy-icon");
-  if (btn) btn.setAttribute("aria-pressed", on ? "true" : "false");
+  if (btn) {
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.setAttribute("aria-label", on ? "Show amounts" : "Hide amounts");
+    btn.setAttribute("title", on
+      ? "Amounts hidden — percentages and progress are still visible. Tap to show."
+      : "Hide amounts — percentages and progress stay visible, so a screenshot is still shareable");
+  }
   if (icon) icon.innerHTML = on ? ICON_EYE_OFF : ICON_EYE;
   localStorage.setItem(PRIVACY_KEY, on ? "1" : "0");
 }
@@ -11596,7 +11620,7 @@ function updateBulkDebtTotal() {
     total += amount;
     count++;
   });
-  totalEl.textContent = `Total: ${fmtMoney(total)} in ${count} ${count === 1 ? "entry" : "entries"}`;
+  totalEl.innerHTML = `Total: ${amt(total)} in ${count} ${count === 1 ? "entry" : "entries"}`;
 }
 
 document.addEventListener("change", (e) => {

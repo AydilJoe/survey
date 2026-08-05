@@ -4714,6 +4714,128 @@ check('the brand catalogue makes no network calls at all',
     junk.length === 1 && junk[0].schedule.on.day === 12, JSON.stringify(junk));
 }
 
+// -- privacy mode: hide the ringgit, keep everything else --
+// The eye button exists so a screenshot can be shared. That only works if two
+// things hold at once, and both had broken: every figure is actually hidden
+// (Reports was leaking category amounts, trend peaks and the whole "Top 5"
+// list), and everything that isn't a figure survives (blurring a whole row
+// took the percentage with it, which is the part people want to show).
+//
+// This walks each tab and fails on any legible ringgit, rather than pinning a
+// list of selectors — a list is what let the leaks accumulate in the first
+// place.
+{
+  await S(() => {
+    state.pro = true;
+    state.debts = [
+      { id: 'p1', name: 'Maybank card', kind: 'standard', balance: 3240, apr: 18, minPayment: 162, dueDay: 15 },
+      { id: 'p2', name: 'SPayLater', kind: 'installment', balance: 533.34, apr: 0, minPayment: 266.67, installment: 266.67, monthsLeft: 2, termMonths: 3, brand: 'spaylater' },
+    ];
+    state.savings = [{ id: 'p3', name: 'Simpanan', target: 15000, current: 4200 }];
+    state.income = [{ id: 'p4', name: 'Gaji', amount: 5100, month: currentMonthISO(), day: 25 }];
+    state.expenses = [{ id: 'p5', name: 'Sewa', amount: 1200, month: currentMonthISO(), day: 1 }];
+    state.dailyExpenses = [
+      { id: 'p6', kind: 'expense', date: todayISO(), amount: 42.5, category: 'Food', note: 'Lunch' },
+      { id: 'p7', kind: 'expense', date: todayISO(), amount: 128.04, category: 'Transport', note: 'Petrol' },
+      { id: 'p8', kind: 'debt', date: todayISO(), amount: 266.67, debtName: 'SPayLater' },
+    ];
+    save(); renderAll();
+  });
+  const wasPrivate = await S(() => document.body.classList.contains('private'));
+  if (!wasPrivate) await page.click('#btn-privacy');
+  await page.waitForTimeout(300);
+
+  const tabs = await S(() => [...document.querySelectorAll('.tabs button')].map(b => b.id));
+  const leaks = [];
+  for (const t of tabs) {
+    await page.click('#' + t);
+    await page.waitForTimeout(400);
+    await page.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d => d.close()));
+    leaks.push(...await S(() => {
+      const MONEY = /RM\s? ?[\d,]+\.\d{2}/;
+      const found = [];
+      const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let n;
+      while ((n = walk.nextNode())) {
+        const txt = n.textContent.replace(/ /g, ' ').trim();
+        if (!MONEY.test(txt)) continue;
+        const el = n.parentElement;
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        let a = el, blurred = false;
+        while (a && a !== document.body) {
+          if (/blur\(/.test(getComputedStyle(a).filter || '')) { blurred = true; break; }
+          a = a.parentElement;
+        }
+        if (!blurred) found.push(el.tagName + '.' + (el.getAttribute('class') || '-') + ' :: ' + txt.slice(0, 36));
+      }
+      return [...new Set(found)];
+    }));
+  }
+  check('privacy mode leaves no ringgit legible on any tab',
+    leaks.length === 0, JSON.stringify(leaks.slice(0, 6)));
+
+  // The other half: a screenshot with amounts off still has to say something.
+  await page.click('#tabbtn-debts');
+  await page.waitForTimeout(400);
+  // Read the TEXT NODES, not element.textContent — a parent's textContent
+  // includes its blurred children, so "Min <blurred>RM 162.00</blurred>"
+  // would read as a leak when it is exactly the intended result.
+  const survives = await S(() => {
+    const walk = document.createTreeWalker(document.querySelector('#list-debt'), NodeFilter.SHOW_TEXT);
+    const out = [];
+    let n;
+    while ((n = walk.nextNode())) {
+      const txt = n.textContent.replace(/ /g, ' ').trim();
+      if (!txt) continue;
+      let a = n.parentElement, blurred = false;
+      while (a && a !== document.body) {
+        if (/blur\(/.test(getComputedStyle(a).filter || '')) { blurred = true; break; }
+        a = a.parentElement;
+      }
+      out.push({ txt, blurred });
+    }
+    return out;
+  });
+  const legibleTxt = survives.filter(x => !x.blurred).map(x => x.txt);
+  const hiddenTxt = survives.filter(x => x.blurred).map(x => x.txt);
+  check('instalment progress stays readable with amounts hidden',
+    legibleTxt.some(t => /\d+ of \d+ paid/.test(t)), JSON.stringify(legibleTxt));
+  check('the APR and Min labels survive — only the figures beside them go',
+    legibleTxt.some(t => /APR/.test(t)) && legibleTxt.some(t => /Min/.test(t)), JSON.stringify(legibleTxt));
+  check('and every ringgit figure in the row is on the hidden side',
+    hiddenTxt.some(t => /162\.00/.test(t)) && hiddenTxt.some(t => /266\.67/.test(t))
+    && !legibleTxt.some(t => /RM\s? ?[\d,]+\.\d{2}/.test(t)),
+    JSON.stringify({ hiddenTxt, legibleTxt }))
+
+  // Percentages are the entire point — they are what gets shared.
+  await page.click('#tabbtn-savings');
+  await page.waitForTimeout(400);
+  const pct = await S(() => [...document.querySelectorAll('.saving-card .saving-pct')]
+    .filter((e) => {
+      let a = e;
+      while (a && a !== document.body) {
+        if (/blur\(/.test(getComputedStyle(a).filter || '')) return false;
+        a = a.parentElement;
+      }
+      return true;
+    }).map((e) => e.textContent.trim()));
+  check('a savings goal still shows its percentage', pct.length > 0 && /%/.test(pct[0] || ''), JSON.stringify(pct));
+
+  // amt() must escape — it is interpolated raw into innerHTML now.
+  check('amt() escapes its input rather than trusting the caller',
+    (await S(() => amt('<img src=x onerror=alert(1)>'))).includes('&lt;img'));
+
+  await page.click('#btn-privacy');
+  await page.waitForTimeout(300);
+  check('toggling back makes amounts legible again',
+    (await S(() => {
+      const el = document.querySelector('.amt');
+      return !el || !/blur\(/.test(getComputedStyle(el).filter || '');
+    })));
+}
+
 // -- the install counter must stay narrow --
 // It exists to answer "how many people actually use this", and nothing else.
 // If it ever starts reporting in a plain tab, in the native shell, or more
