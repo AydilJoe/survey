@@ -11088,8 +11088,11 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     if (curPrefix) curPrefix.textContent = currencySymbolFor(scanOriginalCurrency);
     setScanConfidence(document.getElementById("scan-amount-conf"), parsed.amountConfidence);
     setScanConfidence(document.getElementById("scan-vendor-conf"), parsed.vendorConfidence);
+    // No date on the receipt means the field is showing today as an
+    // assumption, so it gets flagged rather than left bare — an unmarked
+    // field reads as "this came off the receipt".
     setScanConfidence(document.getElementById("scan-date-conf"),
-      parsed.date ? parsed.dateConfidence : "none");
+      parsed.date ? parsed.dateConfidence : "low");
     // Only surface the currency picker when the receipt disagrees with the
     // currency the user already works in.
     const curWrap = document.getElementById("scan-currency-wrap");
