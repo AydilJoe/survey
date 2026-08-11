@@ -2937,6 +2937,105 @@ button.ghost.icon-btn {
   width: 0%;
   transition: width 0.25s ease;
 }
+/* The total gets the size, because it is the reason the camera was opened.
+   Everything else on this screen is a supporting field. */
+.scan-headline {
+  background: var(--card-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 0.7rem 0.85rem 0.55rem;
+}
+.scan-headline-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.1rem;
+}
+.scan-headline-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.scan-amount-row { display: flex; align-items: baseline; gap: 0.4rem; }
+.scan-cur {
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  color: var(--muted);
+  flex: none;
+}
+.scan-amount-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.scan-amount-row input:focus { outline: none; }
+.scan-headline:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+/* Says whether a field was read off the receipt or guessed. A wrong number
+   the user was warned about is a very different thing from a wrong number
+   presented with the same confidence as a correct one. */
+.scan-conf {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: color-mix(in srgb, var(--accent) 70%, var(--text));
+}
+.scan-conf.is-check {
+  background: color-mix(in srgb, var(--warn) 18%, transparent);
+  color: color-mix(in srgb, var(--warn) 72%, var(--text));
+}
+.scan-fields { margin-top: 0.1rem; }
+.scan-currency-toggle {
+  align-self: flex-start;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+}
+.scan-currency-toggle[hidden] { display: none; }
+
+.scan-items {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  max-height: 180px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}
+.scan-items li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+}
+.scan-items li + li { border-top: 1px solid var(--line); }
+.scan-items .scan-item-name {
+  color: var(--ink2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scan-items .scan-item-price { font-family: var(--font-mono); flex: none; }
+
 .scan-result details { margin-top: 0.25rem; }
 .scan-result summary {
   color: var(--muted);
@@ -5533,6 +5632,38 @@ body.private .invest-plan-stats .stat .sub {
 .split-dialog form { gap: 0.45rem; }
 .split-dialog .type-pills[hidden],
 .scan-dialog .type-pills[hidden] { display: none; }
+/* The scan dialog was the one place .pill had no rule at all, so both buttons
+   fell back to the browser's default and neither looked selected. */
+.scan-dialog .type-pills { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.scan-dialog .pill {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--card);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Filled, not tinted. A 14%-tint active state is invisible in dark mode,
+   where --primary is already a pale ink — the same trap the primary buttons
+   fell into. Foreground is --bg so it inverts correctly in both themes. */
+.scan-dialog .pill.active,
+.scan-dialog .pill[aria-checked="true"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--bg);
+}
+.scan-dialog .pill.active .pill-icon svg { stroke: var(--bg); }
+.scan-dialog .pill .pill-icon svg { width: 16px; height: 16px; }
 .split-people {
   display: flex;
   flex-direction: column;

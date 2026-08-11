@@ -153,6 +153,20 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-31">
+    <span class="release-date">August 2026 · v1.31</span>
+    <h2 class="release-title">The receipt scanner was wrong more often than it was right about some things</h2>
+    <p class="release-summary">Nobody had ever measured it. Scored against 361 real Malaysian receipts, it was reading the total correctly 58% of the time &mdash; and the ways it failed were worse than the number suggests.</p>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>It used to log your discount as your spend.</strong> At Watsons, &ldquo;TOTAL SAVINGS 8.40&rdquo; appears above &ldquo;TOTAL 42.90&rdquo;, and the scanner took the first line containing the word &ldquo;total&rdquo;. Same story for &ldquo;SUB TOTAL&rdquo; and &ldquo;TOTAL SALES EXCLUDING GST&rdquo;.</li>
+      <li><span class="tag fix">fix</span><strong>It didn&rsquo;t know a single word of Malay.</strong> A mamak bill saying <em>JUMLAH</em> had no recognisable total, so it fell back to the biggest number on the slip &mdash; which is <em>TUNAI</em>, the cash you handed over. You&rsquo;d get RM 20.00 logged for an RM 18.50 dinner.</li>
+      <li><span class="tag feat">new</span><strong>It reads the date now.</strong> There was no date extraction at all, so a receipt from Tuesday was logged as today, silently. Also reads the 5-sen rounding line, so a RM 169.78 subtotal lands as the RM 169.80 you actually paid.</li>
+      <li><span class="tag feat">new</span><strong>Rebuilt review screen.</strong> The total is now the big thing on the screen, with the date, merchant and category beside it, and the line items listed so a wrong total is diagnosable. Each field says whether it was <em>read</em> or is worth a <em>check</em> &mdash; and the warning is rare on purpose, so it means something when it appears.</li>
+      <li><span class="tag fix">fix</span><strong>No more phantom &ldquo;Receipt&rdquo; category.</strong> Scanning used to file the spend under a category called &ldquo;Receipt&rdquo; whenever you left the field blank, which then showed up in your spending chart as if it were a kind of shopping.</li>
+      <li><span class="tag note">note</span><strong>Now measured, not guessed.</strong> Totals 58% &rarr; 94.5%, merchant 67% &rarr; 96%, date 0 &rarr; 99.6%. The receipts are committed as a test fixture, so a change that makes the parser worse fails the build instead of shipping.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-30">
     <span class="release-date">August 2026 · v1.30</span>
     <h2 class="release-title">Share the chart, keep the numbers</h2>

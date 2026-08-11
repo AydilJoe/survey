@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=98" />
+    <link rel="stylesheet" href="styles.css?v=99" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -1682,11 +1682,37 @@
         <div id="scan-status" class="hint">Loading…</div>
         <div class="progress-bar scan-pb"><div id="scan-progress" class="progress-fill"></div></div>
         <div id="scan-result" class="scan-result" hidden>
-          <div class="grid-2">
+          <!-- The total is the reason the user opened the camera, so it gets
+               the size. Everything else is a supporting field. -->
+          <div class="scan-headline">
+            <div class="scan-headline-top">
+              <span class="scan-headline-label">Total</span>
+              <span class="scan-conf" id="scan-amount-conf" hidden></span>
+            </div>
+            <div class="scan-amount-row">
+              <span class="scan-cur" id="scan-cur-prefix">RM</span>
+              <input type="number" id="scan-amount" step="0.01" min="0" inputmode="decimal" placeholder="0.00" aria-label="Total" />
+            </div>
+          </div>
+
+          <div class="grid-2 scan-fields">
             <label class="field">
-              <span>Detected total</span>
-              <input type="number" id="scan-amount" step="0.01" min="0" inputmode="decimal" />
+              <span>Date <span class="scan-conf" id="scan-date-conf" hidden></span></span>
+              <input type="date" id="scan-date" />
             </label>
+            <label class="field">
+              <span>Category</span>
+              <input type="text" id="scan-category" list="category-options" placeholder="Food, Groceries…" />
+            </label>
+          </div>
+          <label class="field">
+            <span>Vendor / note <span class="scan-conf" id="scan-vendor-conf" hidden></span></span>
+            <input type="text" id="scan-vendor" />
+          </label>
+          <!-- Hidden whenever the receipt is in the currency the user already
+               uses, which on a Malaysian slip is almost always. -->
+          <button type="button" class="ghost scan-currency-toggle" id="scan-currency-toggle">Different currency?</button>
+          <div class="grid-2" id="scan-currency-wrap" hidden>
             <label class="field">
               <span>Currency</span>
               <select id="scan-currency">
@@ -1739,11 +1765,8 @@
               </select>
             </label>
           </div>
+          </div>
           <p id="scan-convert-note" class="hint" hidden></p>
-          <label class="field">
-            <span>Vendor / note</span>
-            <input type="text" id="scan-vendor" />
-          </label>
           <div class="type-pills scan-type-pills" role="radiogroup" aria-label="Apply as">
             <button type="button" class="pill active" data-scan-type="expense" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="8" cy="8" r="1.5"/></svg></span>Spend</button>
             <button type="button" class="pill" data-scan-type="debt" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Pay debt</button>
@@ -1752,6 +1775,12 @@
             <span>Pay which debt</span>
             <select id="scan-debt-select"></select>
           </label>
+          <!-- What the OCR actually read, so a wrong total is diagnosable
+               without leaving the dialog. -->
+          <details id="scan-items-details" hidden>
+            <summary id="scan-items-summary">Items</summary>
+            <ul class="scan-items" id="scan-items"></ul>
+          </details>
           <details>
             <summary>Raw OCR text</summary>
             <pre id="scan-raw"></pre>
@@ -1759,7 +1788,6 @@
         </div>
         <div class="button-row">
           <button type="button" class="ghost" id="scan-cancel">Close</button>
-          <button type="button" class="ghost" data-action="split-ingest">Scanning a request QR?</button>
           <button type="button" class="primary" id="scan-apply" hidden>Use these values</button>
         </div>
       </form>
@@ -2064,6 +2092,6 @@
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=6"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=129"></script>
+    <script src="script.js?v=130"></script>
   </body>
 </html>
