@@ -4810,6 +4810,66 @@ check('the brand catalogue makes no network calls at all',
   check('"TAX INVOICE" is never offered as the merchant',
     /99 SPEEDMART/.test(cases.vendorSkip), String(cases.vendorSkip));
 
+  // -- the breakdown has to reconcile, or it is not a breakdown --
+  // A real KL restaurant bill: 15 items summing to RM 136.60, then 5% service
+  // charge and 6% SST on top, reaching RM 151.65. Listing the items without
+  // naming the RM 15.05 gap leaves the reader unable to tell which figure is
+  // wrong, which is the whole reason to open the panel.
+  {
+    const bill = [
+      'ICE CREAM & COFFEE HOUSE', 'REGISTRATION NO: 001177610-U',
+      'NO.8G, JLN PANDAN INDAH 4/33,', 'PANDAN INDAH, 55100 KUALA LUMPUR.',
+      'TEL:03-42969760 FAX:03-42977678', '[ BILL ]', 'BIZDATE: 05/08/2026',
+      '1 C07-Fried Kuey Teow Beef 13.90', '1 K04-Honey Lemon Cold (XL) 13.00',
+      '1 H09-Spicy Fried chicken 16.90', '1 B15-Pattaya F Rice 14.90',
+      '1 B04-Garlic F Rice 13.90', '1 L10-Peach Tea Cold (L) 9.90',
+      '1 Lemon Tea Cold (L) 9.90', '3 Ice Water @1.00 3.00',
+      '1 B17-Salted Egg F Rice 13.90', '1 SALTED RGG CHICKEN 12.90',
+      '1 Sauce 2.00', '1 H19-Fried Potato 11.90', '1 Open Drink 0.50',
+      '15 SUB TOTAL 136.60', 'SERVICE CHARGE 5% 6.88', 'SERVICE TAX 6% 8.16',
+      'ROUNDING ADJ 0.01', 'NET TOTAL 151.65',
+    ].join('\n');
+    const bd = await S((text) => {
+      const parsed = parseReceiptText(text, new Date('2026-08-11T00:00:00Z'));
+      renderScanItems(text, parsed.amount);
+      const foot = [...document.querySelectorAll('#scan-items-foot li')]
+        .map((li) => li.textContent.trim());
+      return {
+        amount: parsed.amount,
+        vendor: parsed.vendor,
+        date: parsed.date,
+        items: document.querySelectorAll('#scan-items li').length,
+        summary: document.getElementById('scan-items-summary').textContent,
+        foot,
+        // The footer must sit outside the scrolling list, or the arithmetic
+        // scrolls out of sight — which is where it was first put.
+        footIsOutsideScroller: !document.getElementById('scan-items')
+          .contains(document.getElementById('scan-items-foot')),
+      };
+    }, bill);
+    check('a service charge and SST bill totals correctly', bd.amount === 151.65, String(bd.amount));
+    check('the merchant is the shop, not the last line item',
+      /COFFEE HOUSE/.test(bd.vendor) && !/Open Drink/.test(bd.vendor), bd.vendor);
+    check('"3 Ice Water @1.00" expands into three lines', bd.items === 15, String(bd.items));
+    check('the breakdown names the charges instead of leaving a silent gap',
+      bd.foot.some((t) => /Service charge & tax/.test(t) && /15\.05/.test(t)), JSON.stringify(bd.foot));
+    check('and it ends on the total the items reconcile to',
+      bd.foot.some((t) => /Total/.test(t) && /151\.65/.test(t)), JSON.stringify(bd.foot));
+    check('the summary says so without expanding the panel',
+      /adds up/.test(bd.summary), bd.summary);
+    check('the arithmetic does not scroll out of the capped list',
+      bd.footIsOutsideScroller);
+
+    // And when it does NOT add up, that has to be said — an unexplained gap is
+    // the strongest signal available that the total was misread.
+    const off = await S(() => {
+      renderScanItems('KEDAI\n1 Roti canai 3.00\n1 Teh tarik 2.50\nTOTAL 5.50', 99.99);
+      return document.getElementById('scan-items-summary').textContent;
+    });
+    check('a gap between the items and the total is named, not hidden',
+      /unaccounted/.test(off), off);
+  }
+
   // "Receipt" is a source, not a category. It used to be pre-filled whenever
   // the user left the field blank, so it showed up in the spending pie as a
   // category of its own and quietly distorted every report.

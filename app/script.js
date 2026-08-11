@@ -10911,23 +10911,58 @@ function setScanConfidence(el, level) {
   el.classList.toggle("is-check", check);
 }
 
-/* Lists what the OCR read as line items. Purely diagnostic: if the total
-   looks wrong, seeing the items is how you find out why without hunting
-   through the raw text. splitParseReceiptItems already does the parsing for
-   the itemised-split feature, so this reuses it rather than duplicating it. */
-function renderScanItems(raw) {
+/* The breakdown behind the total: every line item, then the charges on top,
+   then whether the two actually add up to the figure about to be saved.
+
+   A list of items that sums to RM 136.60 under a headline of RM 151.65 is
+   half a breakdown — the reader is left to wonder which number is wrong. The
+   RM 15.05 gap is the service charge and SST, and naming it is the whole
+   point. When the arithmetic does NOT close, that is the strongest available
+   signal that the total was misread, so it is stated plainly.
+
+   splitParseReceiptItems already does this parsing for the itemised-split
+   feature, including expanding "3 Ice Water @1.00" into three lines, so this
+   reuses it rather than growing a second receipt parser. */
+function renderScanItems(raw, total) {
   const details = document.getElementById("scan-items-details");
   const list = document.getElementById("scan-items");
   const summary = document.getElementById("scan-items-summary");
   if (!details || !list || typeof splitParseReceiptItems !== "function") return;
-  let items = [];
-  try { items = (splitParseReceiptItems(raw) || {}).items || []; } catch { items = []; }
+  let read = null;
+  try { read = splitParseReceiptItems(raw); } catch { read = null; }
+  const items = (read && read.items) || [];
   if (!items.length) { details.hidden = true; list.innerHTML = ""; return; }
+
+  const charges = Number(read.charges) || 0;
+  const itemSum = Number(read.itemSum) || 0;
+  const shown = Number(total);
+  const expected = Math.round((itemSum + charges) * 100) / 100;
+  // 5 sen of slack: Malaysian cash totals are rounded to the nearest 5 sen,
+  // so an exact match is not the right test.
+  const adds = Number.isFinite(shown) && shown > 0 && Math.abs(expected - shown) <= 0.05;
+  const gap = Number.isFinite(shown) ? Math.round((shown - expected) * 100) / 100 : 0;
+
   details.hidden = false;
-  if (summary) summary.textContent = `${items.length} item${items.length === 1 ? "" : "s"} read`;
-  list.innerHTML = items.map((it) =>
-    `<li><span class="scan-item-name">${escapeHtml(it.name || "—")}</span>` +
-    `<span class="scan-item-price">${escapeHtml(fmtMoney(it.price))}</span></li>`).join("");
+  if (summary) {
+    summary.textContent = `${items.length} item${items.length === 1 ? "" : "s"}`
+      + (Number.isFinite(shown) && shown > 0
+        ? (adds ? " · adds up" : ` · ${fmtMoney(Math.abs(gap))} unaccounted`)
+        : "");
+    summary.classList.toggle("is-off", Number.isFinite(shown) && shown > 0 && !adds);
+  }
+
+  const row = (name, value, cls) =>
+    `<li${cls ? ` class="${cls}"` : ""}><span class="scan-item-name">${escapeHtml(name)}</span>` +
+    `<span class="scan-item-price">${escapeHtml(fmtMoney(value))}</span></li>`;
+
+  list.innerHTML = items.map((it) => row(it.name || "—", it.price)).join("");
+  const foot = document.getElementById("scan-items-foot");
+  if (foot) {
+    foot.innerHTML =
+      row(`${items.length} item${items.length === 1 ? "" : "s"}`, itemSum, "scan-item-sub")
+      + (charges > 0 ? row("Service charge & tax", charges, "scan-item-sub") : "")
+      + (Number.isFinite(shown) && shown > 0 ? row("Total", shown, "scan-item-total") : "");
+  }
 }
 
 function openScanDialog() {
@@ -11101,7 +11136,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     if (curWrap) curWrap.hidden = !differs;
     if (curToggle) curToggle.hidden = differs;
     scanRaw.textContent = parsed.raw || "(no text detected)";
-    renderScanItems(parsed.raw || "");
+    renderScanItems(parsed.raw || "", parsed.amount);
     scanResult.hidden = false;
     scanApply.hidden = false;
     await applyScanConversion();
