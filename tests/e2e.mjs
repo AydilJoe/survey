@@ -4860,6 +4860,54 @@ check('the brand catalogue makes no network calls at all',
     check('the arithmetic does not scroll out of the capped list',
       bd.footIsOutsideScroller);
 
+    // The opposite trap, from a real NZ Curry House guest check: the tax is
+    // INSIDE the total, not on top. Items sum to 90.10 and the bill says
+    // 90.10, with a "TAX 5.10" line that restates money already counted.
+    // Adding it would report 95.20 and cry "RM 5.10 unaccounted" — confidently
+    // wrong is worse than silent. Every item line also ends in "SR", the
+    // standard-rated tax code, and "NET VALUE (EXCLD TAX) 85.00" sits right
+    // above the real total.
+    const nz = [
+      'NZ RETAIL (WANGSA LINK) S/B', '(1030565-X)', 'LOT PT 6558 SEKSYEN 5',
+      'WANGSA MAJU 53300', 'KUALA LUMPUR', 'Ph.: 017-2101010',
+      'GUEST CHECK', 'DATE 23/07/2026 23:58:41',
+      'DESCRIPTION PRICE QTY TOTAL',
+      'Naan Cheese + Garlic D 8.10 1 8.10 SR', 'Tandoori Ayam D 10.80 1 10.80 SR',
+      'Satay Ayam 5Pcs D 11.90 1 11.90 SR', 'Satay Daging 5Pcs D 13.90 1 13.90 SR',
+      'Maggi Sup D 5.50 1 5.50 SR', 'Naan Cheese D 7.80 1 7.80 SR',
+      'Roti Sardin D 5.50 1 5.50 SR', 'Teh Tarik D 2.60 1 2.60 SR',
+      'Honey Lemon Panas D 6.10 1 6.10 SR', 'Fresh Orange D 7.00 1 7.00 SR',
+      'Ais Kosong D 0.30 3 0.90 SR', 'Nasi Goreng Kampong D 8.00 1 8.00 SR',
+      'Roti Canai D 2.00 1 2.00 SR',
+      'SUB TOTAL (INCLUDE TAX) 90.10', 'NET VALUE (EXCLD TAX) 85.00',
+      'TAX 5.10', 'TOTAL AMOUNT RM 90.10', 'THIS IS NOT A RECEIPT!',
+    ].join('\n');
+    const inclusive = await S((text) => {
+      const parsed = parseReceiptText(text, new Date('2026-08-11T00:00:00Z'));
+      renderScanItems(text, parsed.amount);
+      const read = splitParseReceiptItems(text);
+      return {
+        amount: parsed.amount, vendor: parsed.vendor, date: parsed.date,
+        currency: parsed.currency, charges: read.charges, itemSum: read.itemSum,
+        items: read.items.length,
+        summary: document.getElementById('scan-items-summary').textContent,
+      };
+    }, nz);
+    check('a tax-inclusive bill totals to the printed amount, not the net value',
+      inclusive.amount === 90.10, String(inclusive.amount));
+    check('a restated tax line is not added on top of prices that already include it',
+      inclusive.charges === 0 && inclusive.itemSum === 90.10, JSON.stringify(inclusive));
+    check('so a tax-inclusive receipt still reads as adding up',
+      /adds up/.test(inclusive.summary), inclusive.summary);
+    check('a qty column expands rather than double-counting the row total',
+      inclusive.items === 15, String(inclusive.items));
+    check('lines ending in the SR tax code stay in ringgit',
+      inclusive.currency === 'MYR', String(inclusive.currency));
+    check('a bracketed registration number on the next line is not glued to the merchant',
+      inclusive.vendor === 'NZ RETAIL (WANGSA LINK) S/B', inclusive.vendor);
+    check('a near-midnight timestamp does not roll the date forward',
+      inclusive.date === '2026-07-23', inclusive.date);
+
     // And when it does NOT add up, that has to be said — an unexplained gap is
     // the strongest signal available that the total was misread.
     const off = await S(() => {
