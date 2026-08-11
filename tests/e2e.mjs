@@ -4714,6 +4714,218 @@ check('the brand catalogue makes no network calls at all',
     junk.length === 1 && junk[0].schedule.on.day === 12, JSON.stringify(junk));
 }
 
+// -- receipt parsing, scored against 120 real Malaysian receipts --
+// The parser was tuned by eye for a long time and was reading the total
+// correctly on 58.4% of real receipts. Three hand-written cases would not have
+// caught that; a corpus did. See tests/fixtures/README.md for provenance.
+//
+// Thresholds sit a little under the measured score so ordinary drift doesn't
+// fail the build, but a real regression does.
+{
+  const receipts = JSON.parse(
+    readFileSync(path.join(REPO_ROOT, 'tests/fixtures/sroie-receipts.json'), 'utf8'));
+  // Pin "today" — the parser rejects dates more than five years old, and these
+  // receipts are from 2016–2018.
+  const scored = await S((rows) => {
+    const norm = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    // Ground-truth dates appear in both D/M/Y and M/D/Y; resolve by validity.
+    const gtISO = (s) => {
+      const m = String(s).match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/);
+      if (!m) return null;
+      let d = +m[1], mo = +m[2];
+      if (mo > 12) { const t = d; d = mo; mo = t; }
+      if (mo > 12 || d > 31) return null;
+      return `${m[3]}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    };
+    const pinned = new Date('2020-01-01T00:00:00Z');
+    let total = 0, vendor = 0, date = 0, dated = 0, flagged = 0, flaggedWrong = 0;
+    const worst = [];
+    for (const r of rows) {
+      const g = parseReceiptText(r.text, pinned);
+      const want = Number(String(r.total).replace(/[^0-9.]/g, ''));
+      const ok = g.amount != null && Math.abs(g.amount - want) < 0.005;
+      if (ok) total++; else worst.push(`${want} -> ${g.amount}`);
+      if (g.amountConfidence !== 'high') { flagged++; if (!ok) flaggedWrong++; }
+      const gv = norm(g.vendor), gc = norm(r.company);
+      if (gv && gc && (gc.includes(gv) || gv.includes(gc))) vendor++;
+      const iso = gtISO(r.date);
+      if (iso) { dated++; if (iso === g.date) date++; }
+    }
+    return { n: rows.length, total, vendor, date, dated, flagged, flaggedWrong, worst: worst.slice(0, 5) };
+  }, receipts);
+
+  const pct = (n, d) => Math.round((n / d) * 1000) / 10;
+  const totalPct = pct(scored.total, scored.n);
+  const vendorPct = pct(scored.vendor, scored.n);
+  const datePct = pct(scored.date, scored.dated);
+  check(`reads the total on at least 88% of real receipts (${totalPct}%)`,
+    totalPct >= 88, JSON.stringify(scored.worst));
+  check(`reads the merchant on at least 90% (${vendorPct}%)`, vendorPct >= 90);
+  check(`reads the date on at least 95% (${datePct}%)`, datePct >= 95);
+  // The chip that says "check this" only earns its place if it stays rare.
+  // Warning on half the receipts would train people to ignore it.
+  check(`flags fewer than 15% of receipts for review (${pct(scored.flagged, scored.n)}%)`,
+    scored.flagged / scored.n < 0.15, JSON.stringify(scored));
+
+  // The specific failures that motivated the rewrite, as named cases. The
+  // corpus proves the aggregate; these say WHICH bug must stay dead.
+  const cases = await S(() => {
+    const t = (text) => parseReceiptText(text, new Date('2026-08-05T00:00:00Z'));
+    return {
+      // "TOTAL SAVINGS 8.40" used to win over "TOTAL 42.90" by appearing first.
+      savings: t('WATSONS\nTOTAL SAVINGS 8.40\nSUBTOTAL 51.30\nTOTAL 42.90\nCASH 42.90').amount,
+      // No English "total" at all — the Malay word, and cash tendered below it.
+      malay: t('RESTORAN SUBAIDAH\nROTI CANAI 3.00\nJUMLAH 18.50\nTUNAI 20.00\nBAKI 1.50').amount,
+      // "SUB TOTAL" contains "total"; the rounded figure is what was paid.
+      subtotal: t('LOTUS\nSUB TOTAL 87.32\nROUNDING ADJ -0.02\nTOTAL 87.30').amount,
+      // A header row matching /total/ with no figure on it used to abort the
+      // search entirely and fall through to the largest number on the page.
+      header: t('GERBANG ALAF\nQTY ITEM TOTAL\nTAKEOUT TOTAL (INCL GST) 38.90\nCASH TENDERED 50.00\nCHANGE 11.10').amount,
+      // A collapsed quantity column: "1 170.00" is not one thousand.
+      column: t('OJC MARKETING SDN BHD\nWIDGET 1 170.00\nTOTAL AMOUNT: 170.00').amount,
+      // Two label/value pairs merged onto one line by column collapse.
+      merged: t('STAR GROCER SDN BHD\nITEM 7 TOTAL WITH GST 66.17\nTOTAL SAVING 0.00 TOTAL 66.15').amount,
+      // "SR" is the standard-rated GST code, not Saudi Riyal.
+      taxCode: t('KEDAI RUNCIT\nTAX CODE SR 6%\nTOTAL RM 12.00').currency,
+      date: t('KEDAI KOPI\nDATE : 17/07/2026 19:42\nTOTAL 12.80').date,
+      vendorReg: t('OLD TOWN KOPITIAM SDN BHD (716269-X)\nSRI RAMPAI\nTOTAL 21.20').vendor,
+      vendorSkip: t('TAX INVOICE\n99 SPEEDMART S/B\nTOTAL 23.45').vendor,
+    };
+  });
+  check('a discount line never wins over the total', cases.savings === 42.90, String(cases.savings));
+  check('JUMLAH is a total and TUNAI is not', cases.malay === 18.50, String(cases.malay));
+  check('the rounded total beats the sub-total', cases.subtotal === 87.30, String(cases.subtotal));
+  check('a column header matching /total/ does not abort the search',
+    cases.header === 38.90, String(cases.header));
+  check('a collapsed quantity column is not read into the amount',
+    cases.column === 170, String(cases.column));
+  check('two label/value pairs on one line are judged separately',
+    cases.merged === 66.15, String(cases.merged));
+  check('the SR tax code is not mistaken for Saudi Riyal',
+    cases.taxCode === 'MYR', String(cases.taxCode));
+  check('the date is read off the receipt rather than assumed to be today',
+    cases.date === '2026-07-17', String(cases.date));
+  check('a registration number is stripped from the merchant name',
+    cases.vendorReg === 'OLD TOWN KOPITIAM SDN BHD', String(cases.vendorReg));
+  check('"TAX INVOICE" is never offered as the merchant',
+    /99 SPEEDMART/.test(cases.vendorSkip), String(cases.vendorSkip));
+
+  // -- the breakdown has to reconcile, or it is not a breakdown --
+  // A real KL restaurant bill: 15 items summing to RM 136.60, then 5% service
+  // charge and 6% SST on top, reaching RM 151.65. Listing the items without
+  // naming the RM 15.05 gap leaves the reader unable to tell which figure is
+  // wrong, which is the whole reason to open the panel.
+  {
+    const bill = [
+      'ICE CREAM & COFFEE HOUSE', 'REGISTRATION NO: 001177610-U',
+      'NO.8G, JLN PANDAN INDAH 4/33,', 'PANDAN INDAH, 55100 KUALA LUMPUR.',
+      'TEL:03-42969760 FAX:03-42977678', '[ BILL ]', 'BIZDATE: 05/08/2026',
+      '1 C07-Fried Kuey Teow Beef 13.90', '1 K04-Honey Lemon Cold (XL) 13.00',
+      '1 H09-Spicy Fried chicken 16.90', '1 B15-Pattaya F Rice 14.90',
+      '1 B04-Garlic F Rice 13.90', '1 L10-Peach Tea Cold (L) 9.90',
+      '1 Lemon Tea Cold (L) 9.90', '3 Ice Water @1.00 3.00',
+      '1 B17-Salted Egg F Rice 13.90', '1 SALTED RGG CHICKEN 12.90',
+      '1 Sauce 2.00', '1 H19-Fried Potato 11.90', '1 Open Drink 0.50',
+      '15 SUB TOTAL 136.60', 'SERVICE CHARGE 5% 6.88', 'SERVICE TAX 6% 8.16',
+      'ROUNDING ADJ 0.01', 'NET TOTAL 151.65',
+    ].join('\n');
+    const bd = await S((text) => {
+      const parsed = parseReceiptText(text, new Date('2026-08-11T00:00:00Z'));
+      renderScanItems(text, parsed.amount);
+      const foot = [...document.querySelectorAll('#scan-items-foot li')]
+        .map((li) => li.textContent.trim());
+      return {
+        amount: parsed.amount,
+        vendor: parsed.vendor,
+        date: parsed.date,
+        items: document.querySelectorAll('#scan-items li').length,
+        summary: document.getElementById('scan-items-summary').textContent,
+        foot,
+        // The footer must sit outside the scrolling list, or the arithmetic
+        // scrolls out of sight — which is where it was first put.
+        footIsOutsideScroller: !document.getElementById('scan-items')
+          .contains(document.getElementById('scan-items-foot')),
+      };
+    }, bill);
+    check('a service charge and SST bill totals correctly', bd.amount === 151.65, String(bd.amount));
+    check('the merchant is the shop, not the last line item',
+      /COFFEE HOUSE/.test(bd.vendor) && !/Open Drink/.test(bd.vendor), bd.vendor);
+    check('"3 Ice Water @1.00" expands into three lines', bd.items === 15, String(bd.items));
+    check('the breakdown names the charges instead of leaving a silent gap',
+      bd.foot.some((t) => /Service charge & tax/.test(t) && /15\.05/.test(t)), JSON.stringify(bd.foot));
+    check('and it ends on the total the items reconcile to',
+      bd.foot.some((t) => /Total/.test(t) && /151\.65/.test(t)), JSON.stringify(bd.foot));
+    check('the summary says so without expanding the panel',
+      /adds up/.test(bd.summary), bd.summary);
+    check('the arithmetic does not scroll out of the capped list',
+      bd.footIsOutsideScroller);
+
+    // The opposite trap, from a real NZ Curry House guest check: the tax is
+    // INSIDE the total, not on top. Items sum to 90.10 and the bill says
+    // 90.10, with a "TAX 5.10" line that restates money already counted.
+    // Adding it would report 95.20 and cry "RM 5.10 unaccounted" — confidently
+    // wrong is worse than silent. Every item line also ends in "SR", the
+    // standard-rated tax code, and "NET VALUE (EXCLD TAX) 85.00" sits right
+    // above the real total.
+    const nz = [
+      'NZ RETAIL (WANGSA LINK) S/B', '(1030565-X)', 'LOT PT 6558 SEKSYEN 5',
+      'WANGSA MAJU 53300', 'KUALA LUMPUR', 'Ph.: 017-2101010',
+      'GUEST CHECK', 'DATE 23/07/2026 23:58:41',
+      'DESCRIPTION PRICE QTY TOTAL',
+      'Naan Cheese + Garlic D 8.10 1 8.10 SR', 'Tandoori Ayam D 10.80 1 10.80 SR',
+      'Satay Ayam 5Pcs D 11.90 1 11.90 SR', 'Satay Daging 5Pcs D 13.90 1 13.90 SR',
+      'Maggi Sup D 5.50 1 5.50 SR', 'Naan Cheese D 7.80 1 7.80 SR',
+      'Roti Sardin D 5.50 1 5.50 SR', 'Teh Tarik D 2.60 1 2.60 SR',
+      'Honey Lemon Panas D 6.10 1 6.10 SR', 'Fresh Orange D 7.00 1 7.00 SR',
+      'Ais Kosong D 0.30 3 0.90 SR', 'Nasi Goreng Kampong D 8.00 1 8.00 SR',
+      'Roti Canai D 2.00 1 2.00 SR',
+      'SUB TOTAL (INCLUDE TAX) 90.10', 'NET VALUE (EXCLD TAX) 85.00',
+      'TAX 5.10', 'TOTAL AMOUNT RM 90.10', 'THIS IS NOT A RECEIPT!',
+    ].join('\n');
+    const inclusive = await S((text) => {
+      const parsed = parseReceiptText(text, new Date('2026-08-11T00:00:00Z'));
+      renderScanItems(text, parsed.amount);
+      const read = splitParseReceiptItems(text);
+      return {
+        amount: parsed.amount, vendor: parsed.vendor, date: parsed.date,
+        currency: parsed.currency, charges: read.charges, itemSum: read.itemSum,
+        items: read.items.length,
+        summary: document.getElementById('scan-items-summary').textContent,
+      };
+    }, nz);
+    check('a tax-inclusive bill totals to the printed amount, not the net value',
+      inclusive.amount === 90.10, String(inclusive.amount));
+    check('a restated tax line is not added on top of prices that already include it',
+      inclusive.charges === 0 && inclusive.itemSum === 90.10, JSON.stringify(inclusive));
+    check('so a tax-inclusive receipt still reads as adding up',
+      /adds up/.test(inclusive.summary), inclusive.summary);
+    check('a qty column expands rather than double-counting the row total',
+      inclusive.items === 15, String(inclusive.items));
+    check('lines ending in the SR tax code stay in ringgit',
+      inclusive.currency === 'MYR', String(inclusive.currency));
+    check('a bracketed registration number on the next line is not glued to the merchant',
+      inclusive.vendor === 'NZ RETAIL (WANGSA LINK) S/B', inclusive.vendor);
+    check('a near-midnight timestamp does not roll the date forward',
+      inclusive.date === '2026-07-23', inclusive.date);
+
+    // And when it does NOT add up, that has to be said — an unexplained gap is
+    // the strongest signal available that the total was misread.
+    const off = await S(() => {
+      renderScanItems('KEDAI\n1 Roti canai 3.00\n1 Teh tarik 2.50\nTOTAL 5.50', 99.99);
+      return document.getElementById('scan-items-summary').textContent;
+    });
+    check('a gap between the items and the total is named, not hidden',
+      /unaccounted/.test(off), off);
+  }
+
+  // "Receipt" is a source, not a category. It used to be pre-filled whenever
+  // the user left the field blank, so it showed up in the spending pie as a
+  // category of its own and quietly distorted every report.
+  check('a scan never invents a "Receipt" category',
+    !/catInput\.value = "Receipt"/.test(
+      readFileSync(path.join(REPO_ROOT, 'app/script.js'), 'utf8')));
+}
+
 // -- privacy mode: hide the ringgit, keep everything else --
 // The eye button exists so a screenshot can be shared. That only works if two
 // things hold at once, and both had broken: every figure is actually hidden

@@ -39,8 +39,15 @@
   anywhere.
 - **Receipt OCR**: fully on-device — Google ML Kit inside the Android
   app (on-device model; Google receives nothing), Tesseract.js on the
-  web. Receipts never leave the phone. Auto-extracts amount, merchant,
-  date, and line items for bill splitting.
+  web. Receipts never leave the phone. Extracts total, merchant, date
+  and line items, and is tuned for Malaysian receipts specifically:
+  Malay keywords (JUMLAH, TUNAI, BAKI), the 5-sen cash-rounding line,
+  SST/GST breakdowns, and cash-tendered lines that must not be mistaken
+  for the bill. Accuracy is measured, not asserted — scored against 361
+  real Malaysian receipts from the ICDAR 2019 SROIE dataset: total
+  94.5%, merchant 96.4%, date 99.6%. Every scanned field is shown for
+  review before anything is saved, and fields the parser is unsure of
+  are flagged.
 - **Auto-capture (Android)**: opt-in NotificationListenerService reads
   bank/e-wallet notifications (Maybank, CIMB, Public Bank, RHB, Hong
   Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay) and proposes

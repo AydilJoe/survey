@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.30.0";
+const APP_VERSION = "1.31.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -10192,7 +10192,9 @@ const RECEIPT_CURRENCIES = [
   { re: /\bRp\b|\bIDR\b/i, code: "IDR" },
   { re: /\bCHF\b/i, code: "CHF" },
   { re: /\bAED\b|\bDH\b|\bDHS\b/i, code: "AED" },
-  { re: /\bSAR\b|\bSR\b/i, code: "SAR" },
+  // Not \bSR\b: "SR" is the Standard-Rated GST tax code printed on Malaysian
+  // receipts, and it was claiming 29 of them for Saudi Arabia.
+  { re: /\bSAR\b/i, code: "SAR" },
   { re: /£|\bGBP\b/,   code: "GBP" },
   { re: /€|\bEUR\b/,   code: "EUR" },
   { re: /¥|\bJPY\b/,   code: "JPY" }, // also CNY; JPY is the stronger default
@@ -10202,55 +10204,213 @@ const RECEIPT_CURRENCIES = [
   { re: /฿|\bTHB\b/,   code: "THB" },
   { re: /₫|\bVND\b/,   code: "VND" },
   { re: /\bCNY\b|\bRMB\b|元/i, code: "CNY" },
-  { re: /\$/, code: "USD" }, // plain $ falls back to USD
+  // Only an explicit USD marker. A bare "$" appears often enough as OCR noise
+  // on a Malaysian slip that treating it as US dollars silently converted 21
+  // ringgit receipts. When nothing is recognised the caller falls back to the
+  // user's own currency, which is the safer wrong answer.
+  { re: /\bUSD\b|US\$/i, code: "USD" },
 ];
 function detectCurrencyFromText(text) {
   for (const { re, code } of RECEIPT_CURRENCIES) if (re.test(text)) return code;
   return null;
 }
 
-function parseReceiptText(text) {
-  // Clean common OCR glitches
-  const norm = text.replace(/[oO](?=\.\d{2})/g, "0");
-  const lines = norm.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
-  const rxAmount = /(?:rm|myr)?\s*(\d{1,3}(?:[, ]\d{3})*|\d+)[.,]\s?(\d{2})\b/i;
-  const allAmounts = [];
-  for (const line of lines) {
-    const matches = [...line.matchAll(/(?:rm|myr)?\s*(\d{1,3}(?:[,\s]\d{3})*|\d+)[.,]\s?(\d{2})\b/gi)];
-    for (const m of matches) {
-      const whole = m[1].replace(/[^\d]/g, "");
-      const cents = m[2];
-      const value = Number(whole + "." + cents);
-      if (Number.isFinite(value) && value > 0) allAmounts.push({ value, line });
-    }
+const RECEIPT_MONTHS = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12,
+  mac:3, ogo:8, dis:12, okt:10 }; // Malay month abbreviations
+
+// Lines at or below one of these headers are a tax breakdown, never the bill
+// total. Real receipts repeat the word TOTAL inside them.
+const RECEIPT_TAX_SECTION = /\b(gst|sst|tax)\s*(summary|analysis|breakdown)\b|\bringkasan\s*(gst|cukai)\b/i;
+
+// Label tiers. Higher wins; ties break toward the lower line on the receipt.
+const RECEIPT_TOTAL_TIERS = [
+  [100, /\b(?:total\s*(?:amt|amount)?\s*(?:payable|due)|amount\s*payable|rounded\s*total|total\s*rounded|nett?\s*total|total\s*nett?|grand\s*total|jumlah\s*besar|jumlah\s*perlu\s*dibayar)\b/i],
+  // Punctuation-tolerant: real slips print "TOTAL SALES (INCLUSIVE GST)",
+  // and requiring whitespace between the words dropped it a whole tier.
+  [80,  /\b(?:total\s*(?:sales\s*)?inclusive|total\s*incl|total\s*amount|amount\s*due|jumlah\s*bayaran|jumlah)\b/i],
+  [60,  /\btotal\b/i],
+  [20,  /\bsub\s*-?\s*total\b/i],
+  // "TOTAL INCLUDES 6% GST 2.20" is the tax line at McDonald's but the actual
+  // total at Pasaraya ("TOTAL INCLUDES GST 0% 10.40"). Demoted rather than
+  // excluded, so it only wins when the receipt offers nothing better.
+  [10,  /\btotal\s*includes?\b/i],
+];
+
+// Any of these in the label and the line is not the bill total, whatever else
+// it says. Ordered by how often they actually bite on Malaysian receipts.
+const RECEIPT_NOT_TOTAL = [
+  /\bexclud(?:e|es|ed|ing)\b|\bexcl\b|\btidak\s*termasuk\b/i,   // TOTAL SALES EXCLUDING GST
+  /\b(?:cash|tunai|tendered|tender|paid\s*amount|payment|bayaran\s*tunai)\b/i,
+  /\b(?:change|baki|wang\s*kembali|duit\s*kembali)\b/i,
+  /\b(?:qty|quantity|kuantiti|item\s*count|total\s*item|item\(s\)|bilangan)\b/i,
+  /\b(?:discount|diskaun|saving|savings|jimat|rebate|voucher|baucar|point|mata)\b/i,
+  /\brounding|pembulatan|round\s*(?:amt|adj)/i,               // the adjustment, not the total
+  /\b(?:total\s*gst|total\s*sst|total\s*tax|gst\s*payable)\b/i,
+  /\bservice\s*charge|caj\s*perkhidmatan\b/i,
+  /\bbalance|baki\s*akaun|deposit|credit\s*limit\b/i,
+  /\b(?:card|acc(?:t|ount)?|ref|invoice|inv|receipt|bill)\s*(?:no|num|#)\b/i,
+];
+
+// Never the vendor. Everything a Malaysian receipt prints above the shop name.
+const RECEIPT_NOT_VENDOR = [
+  /\b(?:tax\s*)?invoice|invois|cukai|receipt|resit|cash\s*bill|bil\s*tunai|statement\b/i,
+  /\b(?:gst|sst|roc|ssm)\b[^a-z]*(?:id|no|reg)?[^a-z]*\d|\b(?:co|company|syarikat|reg)\.?\s*(?:no|num)\b/i,
+  /\b(?:tel|fax|faks|phone|h\/?p|email|e-mail|www|http)\b/i,
+  /\bthank\s*you|terima\s*kasih|welcome|selamat|please\s*come|sila\s*datang\b/i,
+  /\b(?:copy|salinan|duplicate|reprint|original)\b/i,
+  /\b(?:cashier|juruwang|operator|server|staff|counter|kaunter|table|meja)\b/i,
+  /\b(?:date|tarikh|time|masa|bill\s*to|address|alamat)\b/i,
+  /^\W*$/,
+];
+// Address-ish lines: a postcode, or the words a street line starts with.
+const RECEIPT_ADDRESS_LINE = /\b\d{5}\b|\b(?:no|lot|jalan|jln|taman|tmn|persiaran|lorong|blok|bandar|kampung|kg|batu)\b\.?\s*\d|\b(?:selangor|johor|penang|pulau\s*pinang|kedah|perak|melaka|pahang|kelantan|terengganu|sabah|sarawak|putrajaya|labuan|perlis|negeri\s*sembilan)\b/i;
+// Strong signal that a line IS the company: a Malaysian legal suffix.
+const RECEIPT_COMPANY_WORD = /\b(?:sdn\.?\s*bhd|s\/b|bhd|berhad|enterprise|trading|holdings?|resources?|marketing|sdn|pte|llp|perniagaan|syarikat|pasaraya|restoran|restaurant|kedai|gerai|warung|koperasi|chop|hardware|stationery|pharmacy|farmasi|klinik)\b/i;
+
+// Comma only as a thousands separator. A SPACE there turns a collapsed
+// quantity column ("1  170.00") into 1170.00 — one of the real misses.
+const RECEIPT_NUM = /(?:^|[^\d.,])(\d{1,3}(?:,\d{3})+|\d+)[.,](\d{2})(?![\d])/g;
+
+function receiptAmountsIn(line) {
+  const out = [];
+  for (const m of line.matchAll(RECEIPT_NUM)) {
+    const v = Number(m[1].replace(/,/g, "") + "." + m[2]);
+    if (Number.isFinite(v)) out.push({ value: v, index: m.index });
   }
-
-  // Prefer a line mentioning TOTAL / AMOUNT DUE / GRAND TOTAL
-  const totalLine = lines.find((l) => /\b(grand\s*total|total(?:\s*due)?|amount\s*due|payable|nett?\b)/i.test(l));
-  let amount = null;
-  if (totalLine) {
-    const m = totalLine.match(rxAmount);
-    if (m) {
-      amount = Number(m[1].replace(/[^\d]/g, "") + "." + m[2]);
-    }
-  }
-  // Fallback: pick the largest plausible amount under RM 10,000
-  if (!amount && allAmounts.length) {
-    const candidates = allAmounts.filter((a) => a.value <= 10000);
-    amount = candidates.length ? Math.max(...candidates.map((a) => a.value)) : null;
-  }
-
-  // Vendor guess: first ALL-CAPS or title-case line with mostly letters
-  const vendor = lines.find((l) => l.length >= 3 && l.length <= 40 && /[A-Za-z]/.test(l) && !/\d{2}/.test(l));
-
-  // Currency guess: check the total line first, then the whole text
-  let currency = null;
-  if (totalLine) currency = detectCurrencyFromText(totalLine);
-  if (!currency) currency = detectCurrencyFromText(text);
-
-  return { amount, vendor: vendor || "", currency, raw: text };
+  return out;
 }
+
+function parseReceiptTotal(lines) {
+  let best = null;
+  const roundedTotals = [];
+  const all = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (RECEIPT_TAX_SECTION.test(line)) break;            // a tax breakdown follows
+    // 99 Speedmart prints "ROUNDING ADJUSTMENT RM .02" (the delta) and then
+    // "ROUNDING RM 4.00" (the settled total) on separate lines. A rounding
+    // line carrying a figure far too large to be a delta IS the total.
+    if (/\brounding\b|\bpembulatan\b/i.test(line) && !/adjust|adj\b/i.test(line)) {
+      for (const n of receiptAmountsIn(line)) if (n.value > 0.2) roundedTotals.push(n.value);
+    }
+    const nums = receiptAmountsIn(line);
+    if (!nums.length) continue;
+    // The label is everything before the FIRST figure on the line.
+    const label = line.slice(0, nums[0].index);
+    for (const n of nums) all.push({ ...n, line, label, i });
+    // Evaluate each (label, figure) pair on the line independently. A
+    // collapsed two-column row like "TOTAL SAVING 0.00 TOTAL 66.15" carries a
+    // killed pair and a good one; judging the whole line by the text before
+    // its first figure discards the good one.
+    for (let k = 0; k < nums.length; k++) {
+      const from = k === 0 ? 0 : nums[k - 1].index + String(nums[k - 1].value).length;
+      const seg = line.slice(from, nums[k].index);
+      if (RECEIPT_NOT_TOTAL.some((re) => re.test(seg))) continue;
+      let tier = 0;
+      for (const [t, re] of RECEIPT_TOTAL_TIERS) { if (re.test(seg)) { tier = t; break; } }
+      if (!tier) continue;
+      const value = nums[k].value;
+      if (value <= 0 || value > 1e6) continue;
+      if (!best || tier > best.tier || (tier === best.tier && i >= best.i)) {
+        best = { value, tier, i, line };
+      }
+    }
+  }
+  if (best) {
+    // Prefer a settled ROUNDING total, but only when it is within 5 sen of the
+    // figure we picked — that proximity is what proves the two lines describe
+    // the same bill rather than an unrelated number.
+    const settled = roundedTotals.find((v) => Math.abs(v - best.value) <= 0.05 && v !== best.value);
+    const value = settled != null && best.tier < 100 ? settled : best.value;
+    // Threshold set from the benchmark, not from taste. Accuracy by winning
+    // tier over 361 real receipts: tier 100 → 99.1%, tier 80 → 94.0%,
+    // tier 60 ("TOTAL") → 93.0%, unlabelled fallback → 72.7%. A labelled
+    // total is trustworthy at every tier, so "check this" is reserved for the
+    // fallback. Warning on half the receipts would just train people to
+    // ignore the warning.
+    return { amount: value, line: best.line, confidence: best.tier >= 60 ? "high" : "medium" };
+  }
+  // Nothing labelled. Largest figure that is not on an excluded line — which
+  // is what stops "CASH 50.00" being read as a RM 38.90 lunch.
+  const usable = all.filter((a) => !RECEIPT_NOT_TOTAL.some((re) => re.test(a.label)) && a.value > 0 && a.value <= 1e5);
+  if (!usable.length) return { amount: null, line: "", confidence: "none" };
+  const top = usable.reduce((a, b) => (b.value > a.value ? b : a));
+  return { amount: top.value, line: top.line, confidence: "low" };
+}
+
+// "OLD TOWN KOPITIAM SDN BHD (716269-X)" is the same shop as "OLD TOWN
+// KOPITIAM SDN BHD". The registration number belongs to the company, not to
+// its name, and carrying it makes the field noisy in the UI too.
+function receiptStripRegNo(s) {
+  return String(s)
+    .replace(/\s*[({\[]\s*[A-Z]{0,3}[\d]{4,}\s*-?\s*[A-Z\d]?\s*[)}\]]\s*$/i, "")
+    .replace(/\s*[-,:]\s*$/, "")
+    .trim();
+}
+
+function parseReceiptVendor(lines) {
+  const head = lines.slice(0, 8).map(receiptStripRegNo);
+  const ok = (l) => l.length >= 3 && l.length <= 45 && /[A-Za-z]{3}/.test(l)
+    && !RECEIPT_NOT_VENDOR.some((re) => re.test(l)) && !RECEIPT_ADDRESS_LINE.test(l);
+  const suffixed = head.find((l) => ok(l) && RECEIPT_COMPANY_WORD.test(l));
+  if (suffixed) return { vendor: suffixed, confidence: "high" };
+  const anySuffixed = lines.slice(0, 15).map(receiptStripRegNo).find((l) => ok(l) && RECEIPT_COMPANY_WORD.test(l));
+  if (anySuffixed) return { vendor: anySuffixed, confidence: "medium" };
+  const plain = head.find((l) => ok(l) && !/\d{2}/.test(l));
+  return { vendor: plain || "", confidence: plain ? "low" : "none" };
+}
+
+function parseReceiptDate(text, today) {
+  const now = today ? new Date(today) : new Date();
+  const cands = [];
+  const push = (y, m, d) => {
+    if (y < 100) y += y > 70 ? 1900 : 2000;
+    if (m < 1 || m > 12 || d < 1 || d > 31 || y < 2000) return;
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    if (dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return;  // 31 Feb
+    // A receipt is never from the future, and rarely older than a few years.
+    if (dt > now || now - dt > 5 * 365 * 864e5) return;
+    cands.push(dt);
+  };
+  for (const m of text.matchAll(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/g)) push(+m[1], +m[2], +m[3]);
+  // DD/MM/YYYY is the Malaysian order; try it first and fall back to MM/DD.
+  for (const m of text.matchAll(/\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/g)) {
+    const before = cands.length;
+    push(+m[3], +m[2], +m[1]);
+    if (cands.length === before) push(+m[3], +m[1], +m[2]);
+  }
+  for (const m of text.matchAll(/\b(\d{1,2})\s*[-\s]\s*([A-Za-z]{3,4})\.?\s*[-\s]?\s*(\d{2,4})\b/g)) {
+    const mo = RECEIPT_MONTHS[m[2].toLowerCase()];
+    if (mo) push(+m[3], mo, +m[1]);
+  }
+  if (!cands.length) return { date: "", confidence: "none" };
+  // Earliest plausible: a receipt often reprints a later "due"/"valid" date.
+  const pick = cands.sort((a, b) => a - b)[0];
+  return { date: pick.toISOString().slice(0, 10), confidence: cands.length === 1 ? "high" : "medium" };
+}
+
+/* Returns every field the review screen shows, each with a confidence so the
+   UI can say "read" versus "guessed" instead of presenting all of them with
+   equal authority. `today` is injectable purely so the tests can pin it. */
+function parseReceiptText(text, today) {
+  const norm = String(text || "").replace(/[oO](?=[.,]\d{2})/g, "0");
+  const lines = norm.split(/\r?\n/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const t = parseReceiptTotal(lines);
+  const v = parseReceiptVendor(lines);
+  const d = parseReceiptDate(norm, today);
+  // Currency: the winning total's own line first, then the whole receipt.
+  let currency = t.line ? detectCurrencyFromText(t.line) : null;
+  if (!currency) currency = detectCurrencyFromText(norm);
+  return {
+    amount: t.amount, amountConfidence: t.confidence,
+    vendor: v.vendor, vendorConfidence: v.confidence,
+    date: d.date, dateConfidence: d.confidence,
+    currency,
+    raw: text,
+  };
+}
+
 
 /* ---------- Auto-capture from bank / e-wallet notifications (Android) ----------
    The native NotificationListenerService pushes raw notification text to
@@ -10735,6 +10895,75 @@ const scanAmount = document.getElementById("scan-amount");
 const scanVendor = document.getElementById("scan-vendor");
 const scanRaw = document.getElementById("scan-raw");
 const scanApply = document.getElementById("scan-apply");
+const scanDate = document.getElementById("scan-date");
+const scanCategory = document.getElementById("scan-category");
+
+/* Marks a field as read-off-the-receipt or worth-checking. A wrong figure the
+   user was warned about is a very different thing from a wrong figure shown
+   with the same authority as a correct one — which is what this screen used
+   to do for every field. */
+function setScanConfidence(el, level) {
+  if (!el) return;
+  if (!level || level === "none") { el.hidden = true; el.textContent = ""; return; }
+  const check = level !== "high";
+  el.hidden = false;
+  el.textContent = check ? "check this" : "read";
+  el.classList.toggle("is-check", check);
+}
+
+/* The breakdown behind the total: every line item, then the charges on top,
+   then whether the two actually add up to the figure about to be saved.
+
+   A list of items that sums to RM 136.60 under a headline of RM 151.65 is
+   half a breakdown — the reader is left to wonder which number is wrong. The
+   RM 15.05 gap is the service charge and SST, and naming it is the whole
+   point. When the arithmetic does NOT close, that is the strongest available
+   signal that the total was misread, so it is stated plainly.
+
+   splitParseReceiptItems already does this parsing for the itemised-split
+   feature, including expanding "3 Ice Water @1.00" into three lines, so this
+   reuses it rather than growing a second receipt parser. */
+function renderScanItems(raw, total) {
+  const details = document.getElementById("scan-items-details");
+  const list = document.getElementById("scan-items");
+  const summary = document.getElementById("scan-items-summary");
+  if (!details || !list || typeof splitParseReceiptItems !== "function") return;
+  let read = null;
+  try { read = splitParseReceiptItems(raw); } catch { read = null; }
+  const items = (read && read.items) || [];
+  if (!items.length) { details.hidden = true; list.innerHTML = ""; return; }
+
+  const charges = Number(read.charges) || 0;
+  const itemSum = Number(read.itemSum) || 0;
+  const shown = Number(total);
+  const expected = Math.round((itemSum + charges) * 100) / 100;
+  // 5 sen of slack: Malaysian cash totals are rounded to the nearest 5 sen,
+  // so an exact match is not the right test.
+  const adds = Number.isFinite(shown) && shown > 0 && Math.abs(expected - shown) <= 0.05;
+  const gap = Number.isFinite(shown) ? Math.round((shown - expected) * 100) / 100 : 0;
+
+  details.hidden = false;
+  if (summary) {
+    summary.textContent = `${items.length} item${items.length === 1 ? "" : "s"}`
+      + (Number.isFinite(shown) && shown > 0
+        ? (adds ? " · adds up" : ` · ${fmtMoney(Math.abs(gap))} unaccounted`)
+        : "");
+    summary.classList.toggle("is-off", Number.isFinite(shown) && shown > 0 && !adds);
+  }
+
+  const row = (name, value, cls) =>
+    `<li${cls ? ` class="${cls}"` : ""}><span class="scan-item-name">${escapeHtml(name)}</span>` +
+    `<span class="scan-item-price">${escapeHtml(fmtMoney(value))}</span></li>`;
+
+  list.innerHTML = items.map((it) => row(it.name || "—", it.price)).join("");
+  const foot = document.getElementById("scan-items-foot");
+  if (foot) {
+    foot.innerHTML =
+      row(`${items.length} item${items.length === 1 ? "" : "s"}`, itemSum, "scan-item-sub")
+      + (charges > 0 ? row("Service charge & tax", charges, "scan-item-sub") : "")
+      + (Number.isFinite(shown) && shown > 0 ? row("Total", shown, "scan-item-total") : "");
+  }
+}
 
 function openScanDialog() {
   if (!scanDialog) return;
@@ -10822,6 +11051,12 @@ async function applyScanConversion() {
 }
 
 document.getElementById("scan-currency")?.addEventListener("change", applyScanConversion);
+document.getElementById("scan-currency-toggle")?.addEventListener("click", (e) => {
+  const wrap = document.getElementById("scan-currency-wrap");
+  if (wrap) wrap.hidden = false;
+  e.currentTarget.hidden = true;
+  document.getElementById("scan-currency")?.focus();
+});
 // Shared OCR pipeline — accepts a File (web file-input) or a data-URL
 // (native Camera); both engines handle both shapes. `revokeUrl` is the
 // object URL to release afterward (web only — null for a self-contained
@@ -10829,6 +11064,8 @@ document.getElementById("scan-currency")?.addEventListener("change", applyScanCo
 async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
   openScanDialog();
   scanPreview.src = previewSrc;
+  const pbEl = scanProgress.closest(".scan-pb");
+  if (pbEl) pbEl.hidden = false;
   try {
     scanStatus.textContent = "Preparing image…";
     // Upscale + grayscale + contrast stretch. Null on any canvas trouble, in
@@ -10878,11 +11115,35 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     const scanCurrencyInput = document.getElementById("scan-currency");
     if (scanCurrencyInput) scanCurrencyInput.value = scanOriginalCurrency;
     scanVendor.value = parsed.vendor || "";
+    // A receipt from Tuesday used to be logged as today, silently, because
+    // nothing ever read the date off it.
+    if (scanDate) scanDate.value = parsed.date || todayISO();
+    if (scanCategory) scanCategory.value = "";
+    const curPrefix = document.getElementById("scan-cur-prefix");
+    if (curPrefix) curPrefix.textContent = currencySymbolFor(scanOriginalCurrency);
+    setScanConfidence(document.getElementById("scan-amount-conf"), parsed.amountConfidence);
+    setScanConfidence(document.getElementById("scan-vendor-conf"), parsed.vendorConfidence);
+    // No date on the receipt means the field is showing today as an
+    // assumption, so it gets flagged rather than left bare — an unmarked
+    // field reads as "this came off the receipt".
+    setScanConfidence(document.getElementById("scan-date-conf"),
+      parsed.date ? parsed.dateConfidence : "low");
+    // Only surface the currency picker when the receipt disagrees with the
+    // currency the user already works in.
+    const curWrap = document.getElementById("scan-currency-wrap");
+    const curToggle = document.getElementById("scan-currency-toggle");
+    const differs = scanOriginalCurrency !== currentCurrency();
+    if (curWrap) curWrap.hidden = !differs;
+    if (curToggle) curToggle.hidden = differs;
     scanRaw.textContent = parsed.raw || "(no text detected)";
+    renderScanItems(parsed.raw || "", parsed.amount);
     scanResult.hidden = false;
     scanApply.hidden = false;
     await applyScanConversion();
+    // A full green bar sitting under a finished result is just noise.
     scanProgress.style.width = "100%";
+    const pb = scanProgress.closest(".scan-pb");
+    if (pb) pb.hidden = true;
   } catch (err) {
     scanStatus.textContent = "Scan failed: " + (err && err.message ? err.message : String(err));
   } finally {
@@ -10978,6 +11239,7 @@ scanApply?.addEventListener("click", () => {
   const amountInput = document.querySelector("#form-daily input[name='amount']");
   const noteInput = document.querySelector("#form-daily input[name='note']");
   const catInput = document.querySelector("#form-daily input[name='category']");
+  const dateInput = document.querySelector("#form-daily input[name='date']");
   const typeBtn = document.querySelector(".scan-type-pills .pill.active");
   const chosenType = (typeBtn && typeBtn.dataset.scanType) || "expense";
 
@@ -10992,11 +11254,19 @@ scanApply?.addEventListener("click", () => {
     if (targetSel && sel && sel.value) targetSel.value = sel.value;
   } else {
     setDailyType("expense");
-    if (catInput && !catInput.value) catInput.value = "Receipt";
+    // Whatever the user picked on the review screen. It used to default to
+    // "Receipt" when left blank, which is a source, not a category — it
+    // showed up in the spending pie as a category of its own and quietly
+    // distorted every report.
+    const picked = scanCategory ? (scanCategory.value || "").trim() : "";
+    if (catInput && picked) catInput.value = picked;
   }
 
   if (Number.isFinite(amt) && amt > 0 && amountInput) amountInput.value = amt.toFixed(2);
   if (vendor && noteInput) noteInput.value = vendor;
+  // The date printed on the receipt, not the date it happened to be scanned.
+  const pickedDate = scanDate ? scanDate.value : "";
+  if (dateInput && /^\d{4}-\d{2}-\d{2}$/.test(pickedDate)) dateInput.value = pickedDate;
 
   // Scanned vendor/category/target land in the collapsed details section —
   // open it so the user can review what was pre-filled before adding.
