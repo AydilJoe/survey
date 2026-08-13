@@ -4714,6 +4714,45 @@ check('the brand catalogue makes no network calls at all',
     junk.length === 1 && junk[0].schedule.on.day === 12, JSON.stringify(junk));
 }
 
+// -- no field may be labelled by its placeholder alone --
+// A placeholder is not a label. It vanishes the moment anything is typed, so
+// the field goes anonymous exactly when the user looks away and comes back to
+// check what they were filling in — and it is invisible to a screen reader
+// from the start. Four fields in this app were relying on one.
+//
+// aria-label counts: some rows are genuinely too tight for printed text (a
+// repeating two-column onboarding row, a code box that sits under a button
+// already naming it). What is not acceptable is nothing at all.
+{
+  const unlabelled = await S(() => {
+    // Dynamically-built rows have to exist before they can be checked.
+    if (typeof onboardAddBillRow === 'function') { try { onboardAddBillRow(false); } catch {} }
+    const bad = [];
+    for (const el of document.querySelectorAll('input,select,textarea')) {
+      // File inputs here are triggered by buttons and never rendered.
+      if (el.type === 'hidden' || el.type === 'file') continue;
+      const wrapped = el.closest('label');
+      const forLabel = el.id ? document.querySelector(`label[for="${CSS.escape(el.id)}"]`) : null;
+      const aria = el.getAttribute('aria-label') || el.getAttribute('aria-labelledby');
+      const text = (wrapped && wrapped.textContent.replace(el.value || '', '').trim().length > 1)
+        || (forLabel && forLabel.textContent.trim());
+      if (!text && !aria) {
+        // Name the nearest identifiable ancestor: several of these are inside
+        // dynamically-built rows and carry no id or class of their own.
+        let a = el.parentElement, where = '';
+        while (a && a !== document.body) {
+          if (a.id || a.className) { where = a.id ? '#' + a.id : '.' + String(a.className).split(' ')[0]; break; }
+          a = a.parentElement;
+        }
+        bad.push(`${el.tagName.toLowerCase()}[${el.type || '-'}] in ${where || '?'} [ph: ${el.placeholder || 'none'}]`);
+      }
+    }
+    return bad;
+  });
+  check('every form field has a label that survives being typed into',
+    unlabelled.length === 0, JSON.stringify(unlabelled));
+}
+
 // -- receipt parsing, scored against 120 real Malaysian receipts --
 // The parser was tuned by eye for a long time and was reading the total
 // correctly on 58.4% of real receipts. Three hand-written cases would not have

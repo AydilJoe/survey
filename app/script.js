@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.31.0";
+const APP_VERSION = "1.31.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1487,9 +1487,12 @@ function tagEntryWithPool(entry, kind, formEl) {
 function renderPoolColorOptions(selectedColor) {
   const container = document.getElementById("pool-color-options");
   if (!container) return;
-  container.innerHTML = POOL_COLORS.map((color) => `
+  // The swatch IS the label — there is no text to read, so without an
+  // aria-label a screen reader announces six anonymous radio buttons and the
+  // colour picker is unusable.
+  container.innerHTML = POOL_COLORS.map((color, i) => `
     <label style="background:${color}" class="${color === selectedColor ? "selected" : ""}">
-      <input type="radio" name="color" value="${color}"${color === selectedColor ? " checked" : ""} />
+      <input type="radio" name="color" value="${color}" aria-label="Colour ${i + 1}"${color === selectedColor ? " checked" : ""} />
     </label>
   `).join("");
 }
@@ -8737,11 +8740,17 @@ function onboardAddBillRow(focus) {
   const i = onboardBillRows++;
   const row = document.createElement("div");
   row.className = "onboard-row";
+  // aria-label rather than a visible one: these are repeating rows in a
+  // two-column layout where a printed label above each field would treble the
+  // height. The placeholder is an example ("Rent, Astro…"), not the field's
+  // name, and it disappears the moment anything is typed — so on its own it
+  // leaves the field anonymous to a screen reader and to anyone who looks
+  // away mid-entry.
   row.innerHTML = `
-    <input type="text" class="onboard-bill-name" placeholder="Rent, Astro, car loan…" autocomplete="off" />
+    <input type="text" class="onboard-bill-name" aria-label="Bill name" placeholder="Rent, Astro, car loan…" autocomplete="off" />
     <label class="onboard-field onboard-field-sm">
       <span class="onboard-cur">RM</span>
-      <input type="number" class="onboard-bill-amount" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off" />
+      <input type="number" class="onboard-bill-amount" aria-label="Monthly amount" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off" />
     </label>`;
   wrap.appendChild(row);
   if (focus) setTimeout(() => row.querySelector(".onboard-bill-name")?.focus(), 60);

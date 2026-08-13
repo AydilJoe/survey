@@ -1615,8 +1615,8 @@ function splitRenderCompose() {
   } else if (c.mode === "split") {
     const peopleRows = c.people.map((p, i) => `
       <div class="split-person-row" data-split-person data-index="${i}" data-pkey="${escapeHtml(p.key || "")}">
-        <input type="text" data-person-name value="${escapeHtml(p.name)}" placeholder="Name"${listAttr} />
-        <input type="number" data-person-amount step="0.01" min="0" inputmode="decimal" value="${p.amount ? p.amount.toFixed(2) : ""}" placeholder="0.00" />
+        <input type="text" data-person-name value="${escapeHtml(p.name)}" aria-label="Person ${i + 1} name" placeholder="Name"${listAttr} />
+        <input type="number" data-person-amount step="0.01" min="0" inputmode="decimal" value="${p.amount ? p.amount.toFixed(2) : ""}" aria-label="Person ${i + 1} amount" placeholder="0.00" />
         <button type="button" class="ghost icon-btn" data-action="split-person-remove" data-index="${i}" aria-label="Remove person">✕</button>
       </div>`).join("");
     body.innerHTML = `
@@ -1793,7 +1793,7 @@ function splitComposeItemBodyHtml(cur, listAttr) {
 
   const peopleRows = c.people.map((p, i) => `
         <div class="split-person-row" data-split-person data-index="${i}" data-pkey="${escapeHtml(p.key || "")}">
-          <input type="text" data-person-name value="${escapeHtml(p.name)}" placeholder="Name"${listAttr} />
+          <input type="text" data-person-name value="${escapeHtml(p.name)}" aria-label="Person ${i + 1} name" placeholder="Name"${listAttr} />
           <button type="button" class="ghost icon-btn" data-action="split-person-remove" data-index="${i}" aria-label="Remove person">✕</button>
         </div>`).join("");
 

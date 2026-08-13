@@ -1312,7 +1312,7 @@
             <div id="pro-refer-claim" class="pro-refer-claim" hidden>
               <p class="hint">Enter your email to claim your referral code. We turn it into an 8-character code via SHA-256 — your email never gets emailed to us, never reaches a server.</p>
               <div class="pro-refer-claim-row">
-                <input type="email" id="pro-refer-claim-email" placeholder="you@example.com" autocomplete="email" inputmode="email" />
+                <input type="email" id="pro-refer-claim-email" aria-label="Your email address" placeholder="you@example.com" autocomplete="email" inputmode="email" />
                 <button type="button" class="primary" id="btn-pro-refer-claim">Claim code</button>
               </div>
               <p class="hint" id="pro-refer-claim-status" hidden></p>
@@ -1498,7 +1498,7 @@
           <button type="button" class="ghost" id="paywall-referrer-toggle">Got a friend code?</button>
           <div id="paywall-referrer-form" hidden>
             <div class="paywall-promo-row">
-              <input type="text" id="paywall-referrer-code" placeholder="e.g. 418c33b4" maxlength="8" autocapitalize="none" autocomplete="off" spellcheck="false" />
+              <input type="text" id="paywall-referrer-code" aria-label="Friend code" placeholder="e.g. 418c33b4" maxlength="8" autocapitalize="none" autocomplete="off" spellcheck="false" />
               <button type="button" class="primary" id="paywall-referrer-apply">Apply</button>
             </div>
             <p class="hint" id="paywall-referrer-status" hidden></p>
@@ -1508,7 +1508,7 @@
           <button type="button" class="ghost" id="paywall-promo-toggle">Have a promo code?</button>
           <div id="paywall-promo-form" hidden>
             <div class="paywall-promo-row">
-              <input type="text" id="paywall-promo-code" placeholder="Enter code" autocapitalize="characters" autocomplete="off" spellcheck="false" />
+              <input type="text" id="paywall-promo-code" aria-label="Promo code" placeholder="Enter code" autocapitalize="characters" autocomplete="off" spellcheck="false" />
               <button type="button" class="primary" id="paywall-promo-apply">Apply</button>
             </div>
             <p class="hint" id="paywall-promo-status" hidden></p>
@@ -2093,8 +2093,8 @@
          demand (see splitEnsureJsQR) — the service worker precaches it, so
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
-    <script src="split.js?v=6"></script>
+    <script src="split.js?v=7"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=130"></script>
+    <script src="script.js?v=131"></script>
   </body>
 </html>
