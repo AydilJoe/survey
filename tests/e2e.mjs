@@ -4714,6 +4714,50 @@ check('the brand catalogue makes no network calls at all',
     junk.length === 1 && junk[0].schedule.on.day === 12, JSON.stringify(junk));
 }
 
+// -- APR presets --
+// The avalanche method ranks debts by rate, so a blank or guessed APR quietly
+// produces the wrong payoff order. The presets exist because most people do
+// not know their card's rate — BNM prices cards in tiers by payment history
+// rather than publishing one number.
+{
+  await page.click('#tabbtn-debts');
+  await page.waitForTimeout(300);
+  const opts = await S(() => [...document.querySelectorAll('#debt-apr-preset option')]
+    .filter((o) => o.value).map((o) => Number(o.value)));
+  check('the picker offers all three BNM credit-card tiers',
+    [15, 17, 18].every((r) => opts.includes(r)), JSON.stringify(opts));
+  check('and the rates Malaysians actually carry — PTPTN, housing, personal',
+    opts.includes(1) && opts.some((r) => r > 4 && r < 5) && opts.includes(10),
+    JSON.stringify(opts));
+  check('every preset is a plausible annual rate',
+    opts.length > 0 && opts.every((r) => r > 0 && r <= 18), JSON.stringify(opts));
+
+  await page.selectOption('#debt-apr-preset', '15');
+  await page.waitForTimeout(150);
+  check('picking a preset fills the APR field',
+    (await page.inputValue("#form-debt input[name='apr']")) === '15');
+  // Resetting matters: left selected it would claim the debt "is" that preset
+  // even after the number beside it is edited to something else.
+  check('and the picker resets itself rather than claiming to be the value',
+    (await page.inputValue('#debt-apr-preset')) === '');
+  await page.fill("#form-debt input[name='apr']", '6.88');
+  check('a typed rate still wins — the input is what gets saved',
+    (await page.inputValue("#form-debt input[name='apr']")) === '6.88');
+  await page.fill("#form-debt input[name='apr']", '');
+
+  // Presets are a convenience on the conventional form; an Islamic facility is
+  // described by principal, profit and tenure, and has no APR to preset.
+  await page.click('.debt-type-pills .pill[data-debt-kind="islamic"]');
+  await page.waitForTimeout(250);
+  check('the preset row is hidden along with the rest of the APR fields',
+    await S(() => {
+      const el = document.getElementById('debt-apr-preset');
+      return !el.closest('#debt-fields-standard') || document.getElementById('debt-fields-standard').hidden;
+    }));
+  await page.click('.debt-type-pills .pill[data-debt-kind="standard"]');
+  await page.waitForTimeout(250);
+}
+
 // -- no field may be labelled by its placeholder alone --
 // A placeholder is not a label. It vanishes the moment anything is typed, so
 // the field goes anonymous exactly when the user looks away and comes back to

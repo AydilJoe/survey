@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.31.1";
+const APP_VERSION = "1.32.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -6360,6 +6360,29 @@ document.querySelectorAll(".debt-type-pills .pill").forEach((btn) => {
     if (k === "installment" && !gate("installment")) return;
     setDebtKind(k);
   });
+});
+
+/* APR presets. The avalanche method ranks debts by rate, so a blank or
+   guessed APR quietly produces the wrong payoff order — and most people
+   genuinely do not know their card's rate, because BNM prices cards in tiers
+   by payment history rather than publishing one number.
+
+   The picker only fills the input; the input remains the value that is saved,
+   so an exact rate off a statement always wins. The select resets itself
+   afterwards rather than sitting there implying the debt "is" that preset —
+   the number in the APR box is the feedback. */
+document.getElementById("debt-apr-preset")?.addEventListener("change", (e) => {
+  const sel = e.currentTarget;
+  const rate = sel.value;
+  sel.value = "";
+  if (!rate) return;
+  const apr = document.querySelector("#form-debt input[name='apr']");
+  if (!apr) return;
+  apr.value = rate;
+  // Anything watching the field (previews, validation) should see this as a
+  // real edit, because it is one.
+  apr.dispatchEvent(new Event("input", { bubbles: true }));
+  apr.focus();
 });
 
 // ── Brand picker ────────────────────────────────────────────────────────────
