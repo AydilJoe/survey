@@ -2937,6 +2937,22 @@ button.ghost.icon-btn {
   width: 0%;
   transition: width 0.25s ease;
 }
+/* Sits under the three-column balance/APR/min row, full width, because the
+   option text is long and would truncate to uselessness in a third of a
+   phone screen. */
+.apr-preset-field { margin-top: 0.5rem; }
+/* A direct child <span> of .field is styled as the field's label — uppercase
+   mono, which is unreadable for a sentence. This one is a sentence. */
+.apr-preset-field .hint {
+  margin-top: 0.3rem;
+  font-family: inherit;
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
 /* The total gets the size, because it is the reason the camera was opened.
    Everything else on this screen is a supporting field. */
 .scan-headline {
