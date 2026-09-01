@@ -140,7 +140,7 @@ they are not all covered by the same terms.
 
 | What | Terms |
 | --- | --- |
-| **The code** — everything that runs | [GPL-3.0-only](LICENSE) |
+| **The code** — everything that runs | [GPL-3.0-only](LICENSE), plus an [app store exception](LICENSE-EXCEPTION.md) |
 | **The name, wordmark, logo and icons** | Not licensed — see [TRADEMARK.md](TRADEMARK.md) |
 | **The written guides** under `scripts/guides/content/` and `guides/` | All rights reserved |
 | **`tests/fixtures/sroie-receipts.json`** | CC-BY-4.0, third-party — see [the fixture README](tests/fixtures/README.md) |
@@ -162,6 +162,22 @@ isn't allowed, and the answer is more generous than most people expect.
 
 **The guides are not code.** `/guides/` is search distribution, not software,
 and it is not licensed for republication.
+
+**One exception to the copyleft, and only one.** Apple's App Store terms
+impose restrictions on recipients that the GPL forbids — the conflict that got
+VLC pulled from the store in 2011. [LICENSE-EXCEPTION.md](LICENSE-EXCEPTION.md)
+grants everyone permission to distribute through an app store despite that,
+while leaving every other GPL obligation intact: whatever you ship to a store,
+its source still has to be available. An app nobody can install protects
+nobody's privacy.
+
+### Contributing
+
+Pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the
+Developer Certificate of Origin sign-off (`git commit -s`), the cache-busting
+rules that will otherwise strand installed users on a stale file, and the
+handful of constraints that exist because they have broken something here
+before. There is no CLA — you keep the copyright in what you write.
 
 ### Don't trust the claims — check them
 

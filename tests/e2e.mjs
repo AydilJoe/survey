@@ -4766,8 +4766,38 @@ check('the brand catalogue makes no network calls at all',
   check('script-src still refuses inline scripts',
     !/script-src[^;]*'unsafe-inline'/.test(html));
 
+  // The Apple conflict is real - VLC was pulled from the App Store in 2011 over
+  // it - and an unshippable app protects nobody. The exception has to stay an
+  // ADDITIONAL permission under section 7, never an edit to the GPL text, and
+  // it must not quietly waive the source-availability obligation.
+  const exc = read('LICENSE-EXCEPTION.md');
+  check('the app store exception is granted under GPL section 7, not by editing the licence',
+    /[Aa]dditional permission/.test(exc) && /section 7/.test(exc)
+    && licence.split('\n').length > 600);
+  check('and it still requires the source of whatever ships to be available',
+    /Corresponding Source/.test(exc) && /available under the GPL/.test(exc));
+  check('it does not hand over the trademark along with it',
+    /TRADEMARK\.md/.test(exc));
+
+  // A DCO certifies provenance. It deliberately does NOT assign copyright, so
+  // contributors keep theirs - which is worth stating plainly in both
+  // directions rather than leaving people to assume either way.
+  const contrib = read('CONTRIBUTING.md');
+  check('contributors are asked to sign off under the DCO',
+    /Developer Certificate of Origin/.test(contrib) && /git commit -s/.test(contrib)
+    && /Signed-off-by/.test(contrib));
+  check('and it is explicit that inbound terms equal outbound, with no CLA',
+    /[Nn]o CLA/.test(contrib) && /GPL-3\.0-only/.test(contrib)
+    && /LICENSE-EXCEPTION\.md/.test(contrib));
+  // The rule most likely to be broken by a first-time contributor, and the one
+  // that silently strands every installed user on a stale file.
+  check('it warns about the cache-busting rule that a test already enforces',
+    /\?v=/.test(contrib) && /sw\.js/.test(contrib));
+
   check('the README explains which terms cover which part',
-    /GPL-3\.0/.test(read('README.md')) && /TRADEMARK\.md/.test(read('README.md')));
+    /GPL-3\.0/.test(read('README.md')) && /TRADEMARK\.md/.test(read('README.md'))
+    && /LICENSE-EXCEPTION\.md/.test(read('README.md'))
+    && /CONTRIBUTING\.md/.test(read('README.md')));
   // A stray .env in a public repo would carry the Billplz and licence-signing
   // keys straight into it.
   check('.gitignore covers every env shape, not just *.local',
