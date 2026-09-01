@@ -33,7 +33,11 @@ build/
 # Don't ship a second lockfile — npm is canonical for this repo
 pnpm-lock.yaml
 .vercel
-.env*.local
+# Every env shape, not just *.local. This repo is public, and a stray `.env`
+# would carry the Billplz key and the licence signing key straight into it.
+.env
+.env.*
+!.env.example
 
 # npx skills install artifacts — developer-local, not shipped
 .agents/

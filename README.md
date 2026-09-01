@@ -130,3 +130,44 @@ Android-only feature that reads notifications on-device and queues a "pending tr
 Native plugin files + install instructions live under `native/notification-listener/`. Copy the two Java files into the generated Android project after `npm run cap:add:android`, register the plugin, add the service to `AndroidManifest.xml`, and the "Pending transactions" card on Home will start populating.
 
 Supported out of the box: Maybank, CIMB, Hong Leong, RHB, Public Bank, Touch 'n Go, GrabPay, Boost, BigPay, SPayLater, Atome. Add more patterns by editing `TXN_PROVIDERS` in `script.js` and the `ALLOWED` set in `DuitfulNotificationListenerService.java`.
+
+---
+
+## Licence
+
+Duitful is free software. Three different things live in this repository and
+they are not all covered by the same terms.
+
+| What | Terms |
+| --- | --- |
+| **The code** — everything that runs | [GPL-3.0-only](LICENSE) |
+| **The name, wordmark, logo and icons** | Not licensed — see [TRADEMARK.md](TRADEMARK.md) |
+| **The written guides** under `scripts/guides/content/` and `guides/` | All rights reserved |
+| **`tests/fixtures/sroie-receipts.json`** | CC-BY-4.0, third-party — see [the fixture README](tests/fixtures/README.md) |
+
+**GPL-3.0 for the code.** You can run it, read it, change it, and ship it,
+including commercially. The condition is reciprocity: if you distribute a
+modified version, that version's source has to be available too. A private
+fork you keep to yourself carries no obligation at all.
+
+That choice is deliberate. The point of publishing a finance app is that
+people can check what it does with their money — a closed fork of a
+privacy-first app is the one outcome worth preventing, and copyleft is the
+only licence family that prevents it.
+
+**Bring your own name.** The mark is reserved so that "which build is the real
+one?" stays answerable at the point of install. Take the code; call it
+something else. [TRADEMARK.md](TRADEMARK.md) sets out exactly what is and
+isn't allowed, and the answer is more generous than most people expect.
+
+**The guides are not code.** `/guides/` is search distribution, not software,
+and it is not licensed for republication.
+
+### Don't trust the claims — check them
+
+The whole reason this is public is that "your data never leaves your device"
+should be verifiable rather than believed.
+[VERIFYING-PRIVACY.md](VERIFYING-PRIVACY.md) walks through the four files that
+carry that promise and what to run against each. It takes about ten minutes.
+
+Found a hole? [SECURITY.md](SECURITY.md).

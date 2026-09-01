@@ -4714,6 +4714,66 @@ check('the brand catalogue makes no network calls at all',
     junk.length === 1 && junk[0].schedule.on.day === 12, JSON.stringify(junk));
 }
 
+// -- the licence set --
+// The repository was public for a long time with no LICENSE file, which is the
+// worst configuration available: anyone could already read and copy every line,
+// while nobody could legally fork, contribute or self-host. These files are the
+// fix, and each one makes a promise that has to stay true.
+{
+  const read = (f) => readFileSync(path.join(REPO_ROOT, f), 'utf8');
+  const licence = read('LICENSE');
+  check('the code carries a real, verbatim GPL-3.0',
+    /GNU GENERAL PUBLIC LICENSE/.test(licence)
+    && /Version 3, 29 June 2007/.test(licence)
+    && licence.split('\n').length > 600);
+  check('package.json declares the same licence',
+    JSON.parse(read('package.json')).license === 'GPL-3.0-only');
+
+  // GPL-3.0 is a copyright licence and says nothing about marks. Reserving
+  // them is what keeps "which build is the real one?" answerable at install
+  // time, and it is the reason the code can be given away safely.
+  const tm = read('TRADEMARK.md');
+  check('the name and marks are explicitly reserved, separately from the code',
+    /Duitful/.test(tm) && /[Nn]ot licensed/.test(tm) && /GPL/.test(tm));
+
+  const sec = read('SECURITY.md');
+  check('there is a reporting route and a stated response time',
+    /hello@duitful\.app/.test(sec) && /72 hours/.test(sec));
+  // Pro is a local boolean by design; enforcing it would mean phoning home
+  // about what a user owns. Saying so plainly stops researchers wasting time.
+  check('and it says plainly that flipping the local Pro flag is not a finding',
+    /[Oo]ut of scope/.test(sec) && /isPro\(\)/.test(sec));
+
+  // The claims this file points at have to resolve to real code, or the
+  // walkthrough is worse than nothing.
+  const vp = read('VERIFYING-PRIVACY.md');
+  const app = read('app/script.js');
+  const html = read('app/index.html');
+  check('the privacy walkthrough points at code that exists',
+    /deriveKey/.test(vp) && /deriveKey/.test(app)
+    && /connect-src/.test(vp) && /connect-src/.test(html)
+    && /analytics\.js/.test(vp));
+  // The walkthrough names the unsafe-* values in the POLICY, and warns that a
+  // naive grep over the file counts source comments too. Both numbers have to
+  // stay true, so both are derived here rather than trusted.
+  const csp = (html.match(/content="(default-src[^"]*)"/) || [])[1] || '';
+  const inPolicy = (csp.match(/unsafe-inline|unsafe-eval/g) || []).length;
+  const inFile = (html.match(/unsafe-inline|unsafe-eval/g) || []).length;
+  check('the CSP still carries exactly the two unsafe-* values the walkthrough explains',
+    inPolicy === 2 && /wasm-unsafe-eval/.test(csp), JSON.stringify({ inPolicy, csp }));
+  check('and the walkthrough reports the raw grep count honestly, comments included',
+    new RegExp(`\\| wc -l    # ${inFile} matches`).test(vp), String(inFile));
+  check('script-src still refuses inline scripts',
+    !/script-src[^;]*'unsafe-inline'/.test(html));
+
+  check('the README explains which terms cover which part',
+    /GPL-3\.0/.test(read('README.md')) && /TRADEMARK\.md/.test(read('README.md')));
+  // A stray .env in a public repo would carry the Billplz and licence-signing
+  // keys straight into it.
+  check('.gitignore covers every env shape, not just *.local',
+    /^\.env$/m.test(read('.gitignore')) && /^\.env\.\*$/m.test(read('.gitignore')));
+}
+
 // -- APR presets --
 // The avalanche method ranks debts by rate, so a blank or guessed APR quietly
 // produces the wrong payoff order. The presets exist because most people do
