@@ -8,10 +8,10 @@
 // Returns: { license, payload }
 
 const crypto = require("crypto");
-const { signLicense } = require("../_lib/license");
-const { getBill, billplzEnv } = require("../_lib/billplz");
-const { getBillRecord } = require("../_lib/bills-store");
-const { refCodeFor } = require("../_lib/referral");
+const { signLicense } = require("../license");
+const { getBill, billplzEnv } = require("../billplz");
+const { getBillRecord } = require("../bills-store");
+const { refCodeFor } = require("../referral");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");

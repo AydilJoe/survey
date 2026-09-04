@@ -20,9 +20,9 @@
 // masked in every response and every log line.
 
 const crypto = require("crypto");
-const { getBillRecord, updateBill, HAS_KV } = require("../_lib/bills-store");
-const { createPayout, getPayout, maskTail } = require("../_lib/payout");
-const { billplzEnv } = require("../_lib/billplz");
+const { getBillRecord, updateBill, HAS_KV } = require("../bills-store");
+const { createPayout, getPayout, maskTail } = require("../payout");
+const { billplzEnv } = require("../billplz");
 
 // Guard 5. Nothing this project sells comes close to it.
 const REFUND_CEILING_SEN = 10000; // RM 100.00

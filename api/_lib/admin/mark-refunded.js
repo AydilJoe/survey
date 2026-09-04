@@ -7,7 +7,7 @@
 // under which Payment Order reference.
 
 const crypto = require("crypto");
-const { updateBill, getBillRecord, HAS_KV } = require("../_lib/bills-store");
+const { updateBill, getBillRecord, HAS_KV } = require("../bills-store");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");

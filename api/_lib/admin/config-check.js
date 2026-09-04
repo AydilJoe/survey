@@ -15,7 +15,7 @@
 // It never returns a secret. Only booleans, lengths, and what Billplz said.
 
 const crypto = require("crypto");
-const { billplzEnv, getBill } = require("../_lib/billplz");
+const { billplzEnv, getBill } = require("../billplz");
 
 function requireAdmin(req, res) {
   const adminKey = process.env.ADMIN_KEY;

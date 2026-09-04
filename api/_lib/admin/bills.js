@@ -23,8 +23,8 @@
 // endpoint returns 503 with a hint to enable Vercel KV.
 
 const crypto = require("crypto");
-const { listBills, HAS_KV } = require("../_lib/bills-store");
-const { getBill } = require("../_lib/billplz");
+const { listBills, HAS_KV } = require("../bills-store");
+const { getBill } = require("../billplz");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
