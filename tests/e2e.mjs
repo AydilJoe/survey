@@ -4752,17 +4752,47 @@ check('the brand catalogue makes no network calls at all',
   check('and the first charge is kept while the rest are owed back',
     /overpaidSen/.test(dupes) && /keep:/.test(dupes));
 
-  // Billplz has no refund endpoint; a refund is an irreversible outbound
-  // transfer. Putting that behind one env var would turn a leaked ADMIN_KEY
-  // from "free licences" into "empties a bank balance".
   for (const [name, src] of [['duplicate finder', dupes], ['refund register', marked]]) {
     check(`the ${name} is admin-gated`,
       /timingSafeEqual/.test(src) && /x-admin-key/.test(src));
-    check(`and it moves no money — no payment order, no disbursement (${name})`,
-      !/payment_order|bank_account_number|paymentOrder/i.test(src));
+    check(`and it reports only — the disbursement lives in one place (${name})`,
+      !/mass_payment_instructions/.test(src));
   }
   check('marking a refund twice is refused rather than silently accepted',
     /Already marked refunded/.test(marked) && /409/.test(marked));
+
+  // -- the one endpoint that can move money out --
+  // Billplz has no refund endpoint: a refund is a payout, a fresh outbound
+  // transfer that cannot be reversed once submitted. Every guard below exists
+  // because the failure mode is somebody else's money leaving the account.
+  const refund = readFileSync(path.join(REPO_ROOT, 'api/admin/refund.js'), 'utf8');
+  const payout = readFileSync(path.join(REPO_ROOT, 'api/_lib/payout.js'), 'utf8');
+
+  check('the refund endpoint is admin-gated', /timingSafeEqual/.test(refund));
+  // The amount must never be attacker- or typo-controlled.
+  check('the refund amount is read from the recorded bill, never from the request',
+    /const totalSen = Number\(record\.amount\)/.test(refund)
+    && !/body\.amount|body\.totalSen/.test(refund));
+  check('it refuses a bill that is unknown, unpaid, or already refunded',
+    /No record of bill/.test(refund) && /not paid|", not paid/.test(refund) && /Already refunded/.test(refund));
+  check('it requires the ringgit figure typed back to the sen',
+    /confirmAmountRM !== expectedRM/.test(refund) && /Confirmation mismatch/.test(refund));
+  // Pro is RM 19.90. A refund of hundreds means something is badly wrong.
+  check('it has a hard ceiling independent of every other guard',
+    /REFUND_CEILING_SEN/.test(refund) && /Refusing to refund/.test(refund));
+  // SWIFT and FPX codes are different namespaces for the same bank.
+  check('it rejects the FPX code the checkout uses in place of a SWIFT code',
+    /SWIFT\/BIC/.test(refund) && /\[A-Z\]\{4\}MY/.test(refund));
+  check('account and identity numbers are masked, never logged in full',
+    /maskTail/.test(refund) && /maskTail/.test(payout)
+    && !/account: accountNumber/.test(refund));
+  check('it reads back what Billplz recorded rather than echoing what was sent',
+    /submittedTotal/.test(refund) && /expectedTotalSen/.test(refund));
+  // Deriving v4 from the bills URL means payouts can never point at a
+  // different environment from the charges they are refunding.
+  check('the payout API follows the bills environment rather than a second variable',
+    /replace\(\/\\\/api\\\/v\\d\+\$\/, "\/api\/v4"\)/.test(payout)
+    && !/BILLPLZ_PAYOUT_BASE_URL/.test(payout));
 }
 
 // -- a 404 on a real bill has to explain itself --

@@ -58,11 +58,16 @@ module.exports = async function handler(req, res) {
     BILLPLZ_COLLECTION_ID: { ...present("BILLPLZ_COLLECTION_ID"), value: process.env.BILLPLZ_COLLECTION_ID || null },
     LICENSE_SIGNING_PRIVATE_KEY: present("LICENSE_SIGNING_PRIVATE_KEY"),
     APP_BASE_URL: { ...present("APP_BASE_URL"), value: process.env.APP_BASE_URL || null },
+    // Only needed to issue refunds. Its absence is not a broken checkout.
+    BILLPLZ_PAYOUT_COLLECTION_ID: { ...present("BILLPLZ_PAYOUT_COLLECTION_ID"), value: process.env.BILLPLZ_PAYOUT_COLLECTION_ID || null, optional: true },
   };
 
   const problems = [];
   for (const [name, info] of Object.entries(vars)) {
-    if (!info.set) problems.push(`${name} is not set`);
+    if (!info.set && !info.optional) problems.push(`${name} is not set`);
+  }
+  if (!vars.BILLPLZ_PAYOUT_COLLECTION_ID.set) {
+    problems.push("BILLPLZ_PAYOUT_COLLECTION_ID is not set — refunds will fail until it is (checkout is unaffected)");
   }
   if (env === "unknown" && vars.BILLPLZ_BASE_URL.set) {
     problems.push("BILLPLZ_BASE_URL is set but is neither billplz.com nor billplz-sandbox.com");

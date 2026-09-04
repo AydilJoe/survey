@@ -385,11 +385,48 @@ async function loadDupes() {
         <span class="off">RM ${b.amountRM.toFixed(2)}</span>
         ${b.refunded
           ? `<span class="pill">refunded ${escapeHtml(String(b.refundedAt || "").slice(0, 10))}</span>`
-          : `<button class="ghost mini" data-refunded="${escapeHtml(b.billId)}">Mark refunded</button>`}
+          : `<button class="ghost mini" data-refund="${escapeHtml(b.billId)}" data-rm="${b.amountRM.toFixed(2)}">Refund RM ${b.amountRM.toFixed(2)}</button>
+             <button class="ghost mini" data-refunded="${escapeHtml(b.billId)}">Mark done manually</button>`}
       </div>`).join("");
       return `<div class="coupon-row"><span class="code">${escapeHtml(u.email)}</span>
         <span class="off">${u.charges} charges · RM ${u.overpaidRM.toFixed(2)} owed back</span></div>${rows}`;
     }).join("") + `<p class="hint">Total owed back: <strong>RM ${d.owedRM.toFixed(2)}</strong>. ${escapeHtml(d.howToRefund || "")}</p>`;
+    // A real payout. Irreversible once submitted, so the details are gathered
+    // deliberately rather than behind one click, and the amount has to be
+    // typed back before the server will send anything.
+    body.querySelectorAll("[data-refund]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const billId = btn.getAttribute("data-refund");
+        const rm = btn.getAttribute("data-rm");
+        const name = prompt(`Refund RM ${rm} for bill ${billId}.\n\nAccount holder's full name, exactly as the bank has it:`);
+        if (!name) return;
+        const bankCode = prompt("Bank SWIFT/BIC code — e.g. MBBEMYKL for Maybank, CIBBMYKL for CIMB.\n\nThis is NOT the FPX code used at checkout:");
+        if (!bankCode) return;
+        const accountNumber = prompt("Bank account number (digits only):");
+        if (!accountNumber) return;
+        const identityNumber = prompt("Buyer's NRIC or passport number (Billplz requires it):");
+        if (!identityNumber) return;
+        const confirmAmountRM = prompt(`This sends RM ${rm} out of your Billplz payout balance and CANNOT be reversed.\n\nType ${rm} to confirm:`);
+        if (!confirmAmountRM) return;
+        btn.disabled = true;
+        btn.textContent = "Sending…";
+        try {
+          const rr = await fetch("/api/admin/refund", {
+            method: "POST",
+            headers: { "x-admin-key": key, "Content-Type": "application/json" },
+            body: JSON.stringify({ billId, name, bankCode, accountNumber, identityNumber, confirmAmountRM }),
+          });
+          const dd = await rr.json();
+          if (!rr.ok) throw new Error(dd.error + (dd.detail ? ` — ${dd.detail}` : ""));
+          alert(`Payout ${dd.payoutId} created for RM ${rm} (status: ${dd.status}).\n\nBillplz recorded a total of ${dd.submittedTotal} sen against an expected ${dd.expectedTotalSen}. Payouts cannot be reversed.`);
+          loadDupes();
+        } catch (e) {
+          btn.disabled = false;
+          btn.textContent = `Refund RM ${rm}`;
+          alert(String(e.message || e));
+        }
+      });
+    });
     body.querySelectorAll("[data-refunded]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const billId = btn.getAttribute("data-refunded");
