@@ -337,7 +337,7 @@ async function loadConfig() {
   const body = document.getElementById("config-body");
   body.innerHTML = `<p class="hint">Checking…</p>`;
   try {
-    const r = await fetch("/api/admin/config-check", { headers: { "x-admin-key": key } });
+    const r = await fetch("/api/admin/ops?op=config-check", { headers: { "x-admin-key": key } });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
     const rows = Object.entries(d.vars || {}).map(([name, info]) => {
@@ -371,7 +371,7 @@ async function loadDupes() {
   const body = document.getElementById("dupes-body");
   body.innerHTML = `<p class="hint">Checking…</p>`;
   try {
-    const r = await fetch("/api/admin/duplicate-payments", { headers: { "x-admin-key": key } });
+    const r = await fetch("/api/admin/ops?op=duplicate-payments", { headers: { "x-admin-key": key } });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || d.error || `HTTP ${r.status}`);
     const dupes = d.duplicates || [];
@@ -411,7 +411,7 @@ async function loadDupes() {
         btn.disabled = true;
         btn.textContent = "Sending…";
         try {
-          const rr = await fetch("/api/admin/refund", {
+          const rr = await fetch("/api/admin/ops?op=refund", {
             method: "POST",
             headers: { "x-admin-key": key, "Content-Type": "application/json" },
             body: JSON.stringify({ billId, name, bankCode, accountNumber, identityNumber, confirmAmountRM }),
@@ -433,7 +433,7 @@ async function loadDupes() {
         const refundRef = prompt(`Payment Order reference for ${billId} (optional):`) || "";
         btn.disabled = true;
         try {
-          const rr = await fetch("/api/admin/mark-refunded", {
+          const rr = await fetch("/api/admin/ops?op=mark-refunded", {
             method: "POST",
             headers: { "x-admin-key": key, "Content-Type": "application/json" },
             body: JSON.stringify({ billId, refundRef }),

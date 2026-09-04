@@ -203,7 +203,7 @@ document.getElementById("test-redirect").addEventListener("click", async () => {
   btn.disabled = true;
   btn.textContent = "Building…";
   try {
-    const r = await fetch("/api/admin/test-redirect", {
+    const r = await fetch("/api/admin/ops?op=test-redirect", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
       body: JSON.stringify({ bill_id: billId }),

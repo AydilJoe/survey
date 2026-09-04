@@ -4,7 +4,7 @@
 // table. Rotating a code still requires editing the file + deploying.
 
 const crypto = require("crypto");
-const { CODES, effectiveExpiry } = require("../discounts");
+const { CODES, effectiveExpiry } = require("../_lib/discounts");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
