@@ -4920,6 +4920,43 @@ check('the brand catalogue makes no network calls at all',
       called.add(m[1]);
     }
   }
+  // .vercelignore is applied to the whole deployment before the build sees it,
+  // and an unanchored directory pattern matches that directory at ANY depth.
+  // "native/" therefore also matched api/native/, so the native IAP endpoint
+  // was stripped from every deployment - /api/native/record-purchase 404ed
+  // while app/script.js kept POSTing to it after each verified purchase, and
+  // nothing surfaced the loss. Deployment-shaping files get the same scrutiny
+  // as code.
+  {
+    const lines = readFileSync(path.join(REPO_ROOT, '.vercelignore'), 'utf8')
+      .split('\n').map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#') && !l.startsWith('!'));
+    const apiDirs = new Set(['api']);
+    const walk = (dir, prefix) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        apiDirs.add(entry.name);
+        walk(path.join(dir, entry.name), `${prefix}/${entry.name}`);
+      }
+    };
+    walk(path.join(REPO_ROOT, 'api'), 'api');
+
+    // A pattern is dangerous when it names a directory that also exists under
+    // api/ and is not anchored to the repository root with a leading slash.
+    const dangerous = lines.filter((l) => {
+      if (l.startsWith('/')) return false;
+      const name = l.replace(/\/$|\/\*$/, '');
+      return !name.includes('/') && apiDirs.has(name);
+    });
+    check('no .vercelignore pattern strips a function out of api/',
+      dangerous.length === 0, `unanchored: ${dangerous.join(', ') || 'none'}`);
+
+    check('the native IAP endpoint is part of the deployment',
+      existsSync(path.join(REPO_ROOT, 'api/native/record-purchase.js'))
+      && /\/api\/native\/record-purchase/.test(readFileSync(path.join(REPO_ROOT, 'app/script.js'), 'utf8')),
+      'app/script.js POSTs to it, so it has to ship');
+  }
+
   // billplz-list has never existed: the live-list tab of tools/billplz-bills/
   // has been calling a 404 since it was written. That is a real bug, but it
   // predates the dispatcher and is not this change's to fix - it is named here
