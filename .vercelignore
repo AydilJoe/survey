@@ -1,4 +1,9 @@
-native/
+# Anchored with a leading slash on purpose. An unanchored "native/" also
+# matches api/native/, which silently dropped the native IAP endpoint from
+# every deployment - /api/native/record-purchase 404ed while the app kept
+# POSTing to it. Keep directory patterns root-anchored; tests/e2e.mjs checks
+# that nothing under api/ is excluded.
+/native/
 resources/
 scripts/*
 !scripts/fetch-tesseract.mjs

@@ -8,7 +8,7 @@
 // screen with empty localStorage.
 import { chromium } from 'playwright';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, symlinkSync, unlinkSync, lstatSync, readFileSync } from 'node:fs';
+import { existsSync, symlinkSync, unlinkSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readIosClientId, reversedClientId } from '../scripts/google-ios-client.mjs';
@@ -4722,8 +4722,8 @@ check('the brand catalogue makes no network calls at all',
 {
   const create = readFileSync(path.join(REPO_ROOT, 'api/billplz/create-bill.js'), 'utf8');
   const redirect = readFileSync(path.join(REPO_ROOT, 'api/billplz/redirect.js'), 'utf8');
-  const dupes = readFileSync(path.join(REPO_ROOT, 'api/admin/duplicate-payments.js'), 'utf8');
-  const marked = readFileSync(path.join(REPO_ROOT, 'api/admin/mark-refunded.js'), 'utf8');
+  const dupes = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/duplicate-payments.js'), 'utf8');
+  const marked = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/mark-refunded.js'), 'utf8');
   const store = readFileSync(path.join(REPO_ROOT, 'api/_lib/bills-store.js'), 'utf8');
 
   check('checkout returns the licence already owned instead of charging again',
@@ -4765,7 +4765,7 @@ check('the brand catalogue makes no network calls at all',
   // Billplz has no refund endpoint: a refund is a payout, a fresh outbound
   // transfer that cannot be reversed once submitted. Every guard below exists
   // because the failure mode is somebody else's money leaving the account.
-  const refund = readFileSync(path.join(REPO_ROOT, 'api/admin/refund.js'), 'utf8');
+  const refund = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/refund.js'), 'utf8');
   const payout = readFileSync(path.join(REPO_ROOT, 'api/_lib/payout.js'), 'utf8');
 
   check('the refund endpoint is admin-gated', /timingSafeEqual/.test(refund));
@@ -4803,8 +4803,8 @@ check('the brand catalogue makes no network calls at all',
 // looking like the bill id was wrong.
 {
   const store = readFileSync(path.join(REPO_ROOT, 'api/_lib/bills-store.js'), 'utf8');
-  const lookup = readFileSync(path.join(REPO_ROOT, 'api/admin/billplz-bill.js'), 'utf8');
-  const issue = readFileSync(path.join(REPO_ROOT, 'api/admin/issue-license.js'), 'utf8');
+  const lookup = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/billplz-bill.js'), 'utf8');
+  const issue = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/issue-license.js'), 'utf8');
   const tool = readFileSync(path.join(REPO_ROOT, 'tools/issue/index.html'), 'utf8');
 
   // Without this stamp a 404 is indistinguishable from a mistyped id.
@@ -4836,7 +4836,7 @@ check('the brand catalogue makes no network calls at all',
 {
   const lib = readFileSync(path.join(REPO_ROOT, 'api/_lib/billplz.js'), 'utf8');
   const redirect = readFileSync(path.join(REPO_ROOT, 'api/billplz/redirect.js'), 'utf8');
-  const cfg = readFileSync(path.join(REPO_ROOT, 'api/admin/config-check.js'), 'utf8');
+  const cfg = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/config-check.js'), 'utf8');
 
   check('Billplz errors name the environment they looked in',
     /billplzEnv\(\)/.test(lib) && /getBill \$\{r\.status\} \[env: /.test(lib));
@@ -4867,6 +4867,106 @@ check('the brand catalogue makes no network calls at all',
     && !/value: process\.env\.BILLPLZ_API_KEY/.test(cfg)
     && !/value: process\.env\.BILLPLZ_X_SIGNATURE/.test(cfg)
     && !/value: process\.env\.LICENSE_SIGNING_PRIVATE_KEY/.test(cfg));
+}
+
+// -- the serverless function budget --
+// Vercel's Hobby plan builds at most 12 functions per deployment, and one file
+// per endpoint under api/ had taken us to 16. The build failed, so a merged
+// change never went live while the previously deployed endpoints kept
+// answering - the site looked healthy and the new endpoints simply 404ed.
+// Nothing in the repository said the budget existed, so this is where it says
+// so, before the next endpoint costs another silent deployment.
+{
+  const HOBBY_FUNCTION_LIMIT = 12;
+  const listFunctions = (dir, prefix = '') => {
+    const out = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      // Vercel does not build anything under a path segment starting with "_".
+      if (entry.name.startsWith('_')) continue;
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) out.push(...listFunctions(path.join(dir, entry.name), rel));
+      else if (entry.name.endsWith('.js')) out.push(rel);
+    }
+    return out;
+  };
+  const functions = listFunctions(path.join(REPO_ROOT, 'api'));
+
+  check(`api/ builds ${functions.length} functions, within the Hobby limit of ${HOBBY_FUNCTION_LIMIT}`,
+    functions.length <= HOBBY_FUNCTION_LIMIT, functions.join(', '));
+
+  // The admin surface is one function serving many endpoints. If a handler is
+  // added to api/_lib/admin/ and not wired into the dispatcher, its URL 404s
+  // exactly the way the over-budget deployment did.
+  const dispatcher = readFileSync(path.join(REPO_ROOT, 'api/admin/[op].js'), 'utf8');
+  const handlers = readdirSync(path.join(REPO_ROOT, 'api/_lib/admin'))
+    .filter((f) => f.endsWith('.js'))
+    .map((f) => f.replace(/\.js$/, ''))
+    .sort();
+  const wired = [...dispatcher.matchAll(/require\("\.\.\/_lib\/admin\/([a-z-]+)\.js"\)/g)]
+    .map((m) => m[1]).sort();
+
+  check('every admin handler is reachable through the dispatcher',
+    handlers.length > 0 && handlers.join(',') === wired.join(','),
+    `handlers: ${handlers.join(', ')} | wired: ${wired.join(', ')}`);
+  check('the admin routes keep their public URLs',
+    ['verify', 'bills', 'refund', 'config-check', 'issue-license'].every((op) => wired.includes(op)),
+    wired.join(', '));
+
+  // Every page that calls an admin URL has to be calling one that still exists.
+  const callers = ['tools/admin/index.html', 'tools/issue/index.html', 'tools/billplz-bills/index.html'];
+  const called = new Set();
+  for (const f of callers) {
+    for (const m of readFileSync(path.join(REPO_ROOT, f), 'utf8').matchAll(/\/api\/admin\/([a-z-]+)/g)) {
+      called.add(m[1]);
+    }
+  }
+  // .vercelignore is applied to the whole deployment before the build sees it,
+  // and an unanchored directory pattern matches that directory at ANY depth.
+  // "native/" therefore also matched api/native/, so the native IAP endpoint
+  // was stripped from every deployment - /api/native/record-purchase 404ed
+  // while app/script.js kept POSTing to it after each verified purchase, and
+  // nothing surfaced the loss. Deployment-shaping files get the same scrutiny
+  // as code.
+  {
+    const lines = readFileSync(path.join(REPO_ROOT, '.vercelignore'), 'utf8')
+      .split('\n').map((l) => l.trim())
+      .filter((l) => l && !l.startsWith('#') && !l.startsWith('!'));
+    const apiDirs = new Set(['api']);
+    const walk = (dir, prefix) => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        apiDirs.add(entry.name);
+        walk(path.join(dir, entry.name), `${prefix}/${entry.name}`);
+      }
+    };
+    walk(path.join(REPO_ROOT, 'api'), 'api');
+
+    // A pattern is dangerous when it names a directory that also exists under
+    // api/ and is not anchored to the repository root with a leading slash.
+    const dangerous = lines.filter((l) => {
+      if (l.startsWith('/')) return false;
+      const name = l.replace(/\/$|\/\*$/, '');
+      return !name.includes('/') && apiDirs.has(name);
+    });
+    check('no .vercelignore pattern strips a function out of api/',
+      dangerous.length === 0, `unanchored: ${dangerous.join(', ') || 'none'}`);
+
+    check('the native IAP endpoint is part of the deployment',
+      existsSync(path.join(REPO_ROOT, 'api/native/record-purchase.js'))
+      && /\/api\/native\/record-purchase/.test(readFileSync(path.join(REPO_ROOT, 'app/script.js'), 'utf8')),
+      'app/script.js POSTs to it, so it has to ship');
+  }
+
+  // billplz-list has never existed: the live-list tab of tools/billplz-bills/
+  // has been calling a 404 since it was written. That is a real bug, but it
+  // predates the dispatcher and is not this change's to fix - it is named here
+  // so the check stays strict about everything else.
+  const KNOWN_MISSING = ['billplz-list'];
+  const missing = [...called].filter((op) => !wired.includes(op) && !KNOWN_MISSING.includes(op));
+  check('no admin tool calls an endpoint the dispatcher does not serve',
+    missing.length === 0, `unserved: ${missing.join(', ') || 'none'}`);
+  check('the known-missing list is still accurate, not stale',
+    KNOWN_MISSING.every((op) => called.has(op) && !wired.includes(op)), KNOWN_MISSING.join(', '));
 }
 
 // -- the licence set --

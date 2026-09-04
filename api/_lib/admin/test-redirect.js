@@ -8,7 +8,7 @@
 // just like Billplz would after a real payment.
 
 const crypto = require("crypto");
-const { getBill } = require("../_lib/billplz");
+const { getBill } = require("../billplz");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");

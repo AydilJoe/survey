@@ -10,8 +10,8 @@
 // response for why refunding is deliberately not automated here.
 
 const crypto = require("crypto");
-const { listBills, HAS_KV } = require("../_lib/bills-store");
-const { billplzEnv } = require("../_lib/billplz");
+const { listBills, HAS_KV } = require("../bills-store");
+const { billplzEnv } = require("../billplz");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");

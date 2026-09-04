@@ -11,6 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Web app** (`app/`): Plain HTML/CSS/JS, no framework, no build step. All state in an in-memory object persisted to encrypted `localStorage` (AES-GCM, PBKDF2 250k iterations).
 - **Native wrapper**: Capacitor 7 for iOS/Android. Adds local notifications, IAP (CdvPurchase v13), OCR (Tesseract.js bundled), and Android notification auto-capture.
 - **Serverless API** (`api/`): Vercel functions for Billplz payment flow and ECDSA P-256 license signing. No database — licenses are cryptographic tokens.
+  - **Vercel Hobby builds at most 12 functions per deployment.** Over the limit the *whole build fails* and the previous deployment keeps serving, so the site looks fine while new endpoints 404. Anything under a path segment starting with `_` is not built as a function, so shared code and the admin handlers live in `api/_lib/`. The admin surface is one function — `api/admin/[op].js` — dispatching to `api/_lib/admin/<name>.js`; `/api/admin/<name>` URLs are unchanged. Add a new admin endpoint by dropping a handler in `api/_lib/admin/` **and wiring it into the dispatcher's `ROUTES`**. `npm run test:e2e` enforces both the budget and the wiring.
 - **Landing page** (`landing/`): Separate static marketing site.
 
 The main app logic lives in `app/script.js` (~3.3k lines). This single file handles state management, encryption, CSV import/export, avalanche simulation, OCR, IAP, and all UI rendering.
