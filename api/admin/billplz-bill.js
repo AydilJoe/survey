@@ -4,7 +4,8 @@
 // tools tab. Billplz v3 has no "list bills" endpoint; this wraps getBill.
 
 const crypto = require("crypto");
-const { getBill } = require("../_lib/billplz");
+const { getBill, billplzEnv } = require("../_lib/billplz");
+const { getBillRecord } = require("../_lib/bills-store");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -45,6 +46,23 @@ module.exports = async function handler(req, res) {
     const bill = await getBill(id);
     res.status(200).json({ bill });
   } catch (err) {
-    res.status(502).json({ error: "Billplz lookup failed", detail: String(err.message || err) });
+    const detail = String(err.message || err);
+    const current = billplzEnv();
+    // A 404 is nearly always an environment mismatch rather than a wrong id.
+    // If this deployment minted the bill, the record says which environment
+    // it was minted in - which turns a dead end into the actual answer.
+    let diagnosis = null;
+    if (/ 404 /.test(detail)) {
+      let record = null;
+      try { record = await getBillRecord(id); } catch (_) { record = null; }
+      if (record && record.env && record.env !== current) {
+        diagnosis = `This bill was created in the ${record.env} environment, but the server is currently configured for ${current}. Billplz keeps the two entirely separate. Point BILLPLZ_BASE_URL, BILLPLZ_API_KEY and BILLPLZ_X_SIGNATURE back at ${record.env} to recover it, or issue the licence by hand with the bill id left blank.`;
+      } else if (record) {
+        diagnosis = `This deployment did create bill ${id}${record.createdAt ? ` on ${new Date(record.createdAt).toISOString().slice(0, 10)}` : ""}, but ${current} no longer returns it. The Billplz credentials have most likely changed since. Check the Payment config card on /tools/admin/.`;
+      } else {
+        diagnosis = `No record of this deployment creating bill ${id}, and ${current} does not have it. Either it belongs to a different Billplz account, or it was created before the bills store was configured.`;
+      }
+    }
+    res.status(502).json({ error: "Billplz lookup failed", detail, environment: current, diagnosis });
   }
 };

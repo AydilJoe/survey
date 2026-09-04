@@ -43,7 +43,9 @@
   .ghost { background: transparent; color: var(--ink); border-color: var(--line); }
   .actions { display: flex; gap: 0.5rem; margin-top: 0.6rem; flex-wrap: wrap; }
   .warn { background: rgba(200,112,75,0.08); border: 0.5px solid rgba(200,112,75,0.35); color: #8a3f1c; padding: 0.6rem 0.8rem; border-radius: 10px; font-size: 0.88rem; margin: 0.4rem 0; }
-  .err { color: #8a3f1c; font-size: 0.85rem; margin-top: 0.4rem; display:none; }
+  /* pre-wrap so a multi-line diagnosis renders as written rather than
+     collapsing into one run-on sentence. */
+  .err { color: #8a3f1c; font-size: 0.85rem; margin-top: 0.4rem; display:none; white-space: pre-wrap; }
   .ok { color: #3a6b50; font-size: 0.85rem; margin-top: 0.4rem; display:none; }
   .log { font: 11px/1.4 ui-monospace, SFMono-Regular, monospace; color: var(--muted); white-space: pre-wrap; }
   code { font: 12px/1 ui-monospace, SFMono-Regular, monospace; background: rgba(0,0,0,0.05); padding: 1px 5px; border-radius: 4px; }
@@ -161,6 +163,9 @@ document.getElementById("issue").addEventListener("click", async () => {
     const data = await r.json();
     if (!r.ok || !data.license) {
       const base = data.error || "Failed";
+      // `diagnosis` is the plain-English cause when the server can work it
+      // out. It is far more use than the raw Billplz body, so it leads.
+      if (data.diagnosis) throw new Error(`${data.diagnosis}\n\n(${base} — ${data.detail || ""})`);
       throw new Error(data.detail ? `${base} — ${data.detail}` : base);
     }
     out.value = data.license;

@@ -9,7 +9,8 @@
 
 const crypto = require("crypto");
 const { signLicense } = require("../_lib/license");
-const { getBill } = require("../_lib/billplz");
+const { getBill, billplzEnv } = require("../_lib/billplz");
+const { getBillRecord } = require("../_lib/bills-store");
 const { refCodeFor } = require("../_lib/referral");
 
 module.exports = async function handler(req, res) {
@@ -54,7 +55,24 @@ module.exports = async function handler(req, res) {
       try {
         bill = await getBill(billId);
       } catch (e) {
-        res.status(404).json({ error: "Could not fetch bill from Billplz", detail: String(e.message || e) });
+        const detail = String(e.message || e);
+        const current = billplzEnv();
+        // The same 404 diagnosis the bill-lookup tool gives. This is the
+        // screen the owner is actually on when a buyer's licence needs
+        // recovering, so it is the screen that has to explain itself.
+        let diagnosis = null;
+        if (/ 404 /.test(detail)) {
+          let record = null;
+          try { record = await getBillRecord(billId); } catch (_) { record = null; }
+          if (record && record.env && record.env !== current) {
+            diagnosis = `Bill ${billId} was created in the ${record.env} environment; this server is configured for ${current}. Billplz keeps them entirely separate. Either repoint the three BILLPLZ_ variables at ${record.env}, or leave the bill id blank and issue the licence to the buyer's email by hand.`;
+          } else if (record) {
+            diagnosis = `This deployment created bill ${billId}, but ${current} no longer returns it — the Billplz credentials have most likely changed since. See the Payment config card on /tools/admin/. To unblock the buyer now, clear the bill id and issue to their email directly.`;
+          } else {
+            diagnosis = `${current} has no bill ${billId}, and there is no local record of creating it. To unblock the buyer now, clear the bill id and issue the licence to their email directly.`;
+          }
+        }
+        res.status(404).json({ error: "Could not fetch bill from Billplz", detail, environment: current, diagnosis });
         return;
       }
       if (!bill || bill.state !== "paid") {
