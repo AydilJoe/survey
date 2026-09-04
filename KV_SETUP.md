@@ -91,7 +91,7 @@ List native purchases with referrer attribution:
 
 ```sh
 curl -H "x-admin-key: $ADMIN_KEY" \
-  https://duitful.app/api/admin/native-attributions
+  "https://duitful.app/api/admin/ops?op=native-attributions"
 ```
 
 Returns:
@@ -112,7 +112,7 @@ Pay each unpaid referrer RM 5 (bank transfer / Billplz), then mark each as paid:
 curl -X PATCH -H "x-admin-key: $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{"txId":"GPA.1234-5678-9012-34567"}' \
-  https://duitful.app/api/admin/native-attributions
+  "https://duitful.app/api/admin/ops?op=native-attributions"
 ```
 
 ## Related setup docs

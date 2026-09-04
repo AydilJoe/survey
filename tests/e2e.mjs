@@ -4803,8 +4803,8 @@ check('the brand catalogue makes no network calls at all',
 // looking like the bill id was wrong.
 {
   const store = readFileSync(path.join(REPO_ROOT, 'api/_lib/bills-store.js'), 'utf8');
-  const lookup = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/billplz-bill.js'), 'utf8');
-  const issue = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/issue-license.js'), 'utf8');
+  const lookup = readFileSync(path.join(REPO_ROOT, 'api/admin/billplz-bill.js'), 'utf8');
+  const issue = readFileSync(path.join(REPO_ROOT, 'api/admin/issue-license.js'), 'utf8');
   const tool = readFileSync(path.join(REPO_ROOT, 'tools/issue/index.html'), 'utf8');
 
   // Without this stamp a 404 is indistinguishable from a mistyped id.
@@ -4894,55 +4894,28 @@ check('the brand catalogue makes no network calls at all',
   check(`api/ builds ${functions.length} functions, within the Hobby limit of ${HOBBY_FUNCTION_LIMIT}`,
     functions.length <= HOBBY_FUNCTION_LIMIT, functions.join(', '));
 
-  // The admin surface is one function serving many endpoints. If a handler is
-  // added to api/_lib/admin/ and not wired into the dispatcher, its URL 404s
-  // exactly the way the over-budget deployment did.
-  const dispatcher = readFileSync(path.join(REPO_ROOT, 'api/admin/[op].js'), 'utf8');
-  const handlers = readdirSync(path.join(REPO_ROOT, 'api/_lib/admin'))
-    .filter((f) => f.endsWith('.js'))
-    .map((f) => f.replace(/\.js$/, ''))
-    .sort();
-  const wired = [...dispatcher.matchAll(/require\("\.\.\/_lib\/admin\/([a-z-]+)\.js"\)/g)]
-    .map((m) => m[1]).sort();
-
-  check('every admin handler is reachable through the dispatcher',
-    handlers.length > 0 && handlers.join(',') === wired.join(','),
-    `handlers: ${handlers.join(', ')} | wired: ${wired.join(', ')}`);
-  check('the admin routes keep their public URLs',
-    ['verify', 'bills', 'refund', 'config-check', 'issue-license'].every((op) => wired.includes(op)),
-    wired.join(', '));
-
-  // Every page that calls an admin URL has to be calling one that still exists.
-  const callers = ['tools/admin/index.html', 'tools/issue/index.html', 'tools/billplz-bills/index.html'];
-  const called = new Set();
-  for (const f of callers) {
-    for (const m of readFileSync(path.join(REPO_ROOT, f), 'utf8').matchAll(/\/api\/admin\/([a-z-]+)/g)) {
-      called.add(m[1]);
-    }
-  }
   // .vercelignore is applied to the whole deployment before the build sees it,
   // and an unanchored directory pattern matches that directory at ANY depth.
   // "native/" therefore also matched api/native/, so the native IAP endpoint
   // was stripped from every deployment - /api/native/record-purchase 404ed
   // while app/script.js kept POSTing to it after each verified purchase, and
-  // nothing surfaced the loss. Deployment-shaping files get the same scrutiny
-  // as code.
+  // nothing surfaced the loss. It also hid the real function count: 13 files
+  // minus that one was exactly 12, which is why the deployment before this one
+  // squeaked through. Deployment-shaping files get the same scrutiny as code.
   {
     const lines = readFileSync(path.join(REPO_ROOT, '.vercelignore'), 'utf8')
       .split('\n').map((l) => l.trim())
       .filter((l) => l && !l.startsWith('#') && !l.startsWith('!'));
     const apiDirs = new Set(['api']);
-    const walk = (dir, prefix) => {
+    const walk = (dir) => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
         if (!entry.isDirectory()) continue;
         apiDirs.add(entry.name);
-        walk(path.join(dir, entry.name), `${prefix}/${entry.name}`);
+        walk(path.join(dir, entry.name));
       }
     };
-    walk(path.join(REPO_ROOT, 'api'), 'api');
+    walk(path.join(REPO_ROOT, 'api'));
 
-    // A pattern is dangerous when it names a directory that also exists under
-    // api/ and is not anchored to the repository root with a leading slash.
     const dangerous = lines.filter((l) => {
       if (l.startsWith('/')) return false;
       const name = l.replace(/\/$|\/\*$/, '');
@@ -4957,16 +4930,51 @@ check('the brand catalogue makes no network calls at all',
       'app/script.js POSTs to it, so it has to ship');
   }
 
+  // Six endpoints share api/admin/ops.js, addressed as ?op=<name>. A dynamic
+  // route (api/admin/[op].js) was tried first and does not work here: with
+  // "trailingSlash": true every request is redirected to its slashed form,
+  // which the generated dynamic pattern does not match, and the entire admin
+  // surface returned Vercel's own NOT_FOUND. A plain filename plus a query
+  // parameter is the shape that demonstrably routes.
+  const ops = readFileSync(path.join(REPO_ROOT, 'api/admin/ops.js'), 'utf8');
+  const handlers = readdirSync(path.join(REPO_ROOT, 'api/_lib/admin'))
+    .filter((f) => f.endsWith('.js'))
+    .map((f) => f.replace(/\.js$/, ''))
+    .sort();
+  const wired = [...ops.matchAll(/require\("\.\.\/_lib\/admin\/([a-z-]+)\.js"\)/g)]
+    .map((m) => m[1]).sort();
+
+  check('every handler in api/_lib/admin is reachable through ops.js',
+    handlers.length > 0 && handlers.join(',') === wired.join(','),
+    `handlers: ${handlers.join(', ')} | wired: ${wired.join(', ')}`);
+  check('no admin route is a dynamic [param] file',
+    !functions.some((f) => f.includes('[')), functions.join(', '));
+
+  // Every page that calls an admin URL has to be calling one that still
+  // exists - either its own function file, or ops.js with a wired op.
+  const standalone = readdirSync(path.join(REPO_ROOT, 'api/admin'))
+    .filter((f) => f.endsWith('.js')).map((f) => f.replace(/\.js$/, ''));
+  const callers = ['tools/admin/index.html', 'tools/issue/index.html', 'tools/billplz-bills/index.html'];
+  const called = new Set();
+  for (const f of callers) {
+    const src = readFileSync(path.join(REPO_ROOT, f), 'utf8');
+    for (const m of src.matchAll(/\/api\/admin\/([a-z-]+)(\?op=([a-z-]+))?/g)) {
+      called.add(m[3] ? `ops:${m[3]}` : m[1]);
+    }
+  }
   // billplz-list has never existed: the live-list tab of tools/billplz-bills/
   // has been calling a 404 since it was written. That is a real bug, but it
-  // predates the dispatcher and is not this change's to fix - it is named here
-  // so the check stays strict about everything else.
+  // predates this change - it is named here so the check stays strict about
+  // everything else.
   const KNOWN_MISSING = ['billplz-list'];
-  const missing = [...called].filter((op) => !wired.includes(op) && !KNOWN_MISSING.includes(op));
-  check('no admin tool calls an endpoint the dispatcher does not serve',
+  const missing = [...called].filter((c) => {
+    if (KNOWN_MISSING.includes(c)) return false;
+    return c.startsWith('ops:') ? !wired.includes(c.slice(4)) : !standalone.includes(c);
+  });
+  check('no admin tool calls an endpoint that is not served',
     missing.length === 0, `unserved: ${missing.join(', ') || 'none'}`);
   check('the known-missing list is still accurate, not stale',
-    KNOWN_MISSING.every((op) => called.has(op) && !wired.includes(op)), KNOWN_MISSING.join(', '));
+    KNOWN_MISSING.every((op) => called.has(op) && !standalone.includes(op)), KNOWN_MISSING.join(', '));
 }
 
 // -- the licence set --

@@ -277,7 +277,7 @@ API endpoints in `api/`:
 | `/api/billplz/webhook` | Billplz X-Signature | Payment confirmation webhook. |
 | `/api/admin/issue-license` | `X-Admin-Key: $ADMIN_KEY` | Mint a licence by hand. |
 | `/api/admin/coupons` | `X-Admin-Key: $ADMIN_KEY` | Manage discount codes. |
-| `/api/admin/test-redirect` | `X-Admin-Key: $ADMIN_KEY` | Sandbox test of the post-payment flow. |
+| `/api/admin/ops?op=test-redirect` | `X-Admin-Key: $ADMIN_KEY` | Sandbox test of the post-payment flow. |
 | `/api/admin/verify` | `X-Admin-Key: $ADMIN_KEY` | Verify a licence token (admin debug). |
 
 **Audit findings:**
