@@ -432,7 +432,10 @@ async function loadDupes() {
     body.querySelectorAll("[data-refunded]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const billId = btn.getAttribute("data-refunded");
-        const refundRef = prompt(`Payment Order reference for ${billId} (optional):`) || "";
+        // "Mark done manually" covers a refund paid any way at all - most
+        // often a DuitNow transfer from your own account, not a Billplz
+        // Payment Order - so the prompt asks for whichever reference exists.
+        const refundRef = prompt(`Reference for ${billId} — your bank or DuitNow reference, or a Billplz Payment Order id (optional):`) || "";
         btn.disabled = true;
         try {
           const rr = await fetch("/api/admin/ops?op=mark-refunded", {

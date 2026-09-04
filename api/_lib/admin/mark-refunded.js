@@ -2,9 +2,11 @@
 // no money and cannot; see duplicate-payments.js for why disbursement is not
 // automated here.
 //
-// The point is that the Duplicate payments card on /tools/admin/ stops showing a buyer as owed money once
-// you have actually paid them back, and that there is a record of when and
-// under which Payment Order reference.
+// The point is that the Duplicate payments card on /tools/admin/ stops showing
+// a buyer as owed money once you have actually paid them back, and that there
+// is a record of when and under which reference. The refund itself is usually
+// a DuitNow transfer from the operator's own account rather than a Billplz
+// Payment Order - both are refunds, and both belong here.
 
 const crypto = require("crypto");
 const { updateBill, getBillRecord, HAS_KV } = require("../bills-store");
