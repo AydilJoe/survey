@@ -404,8 +404,10 @@ async function loadDupes() {
         if (!bankCode) return;
         const accountNumber = prompt("Bank account number (digits only):");
         if (!accountNumber) return;
-        const identityNumber = prompt("Buyer's NRIC or passport number (Billplz requires it):");
-        if (!identityNumber) return;
+        // Optional in the v5 Payment Order API. Some Billplz accounts are
+        // configured to require it for an individual recipient, so it is
+        // offered rather than skipped — Cancel leaves it out.
+        const identityNumber = prompt("Buyer's NRIC or passport number (optional — leave blank if you don't have it):") || "";
         const confirmAmountRM = prompt(`This sends RM ${rm} out of your Billplz payout balance and CANNOT be reversed.\n\nType ${rm} to confirm:`);
         if (!confirmAmountRM) return;
         btn.disabled = true;
