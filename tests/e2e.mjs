@@ -4714,6 +4714,48 @@ check('the brand catalogue makes no network calls at all',
     junk.length === 1 && junk[0].schedule.on.day === 12, JSON.stringify(junk));
 }
 
+// -- the payment config check --
+// Billplz runs sandbox and production as separate worlds with separate api
+// keys AND separate X-Signature keys. Mixing them produces two failures that
+// look unrelated - getBill 404s on bills that exist, and every buyer lands on
+// "Signature mismatch" - because neither error named the environment. These
+// checks are about that diagnosis staying possible.
+{
+  const lib = readFileSync(path.join(REPO_ROOT, 'api/_lib/billplz.js'), 'utf8');
+  const redirect = readFileSync(path.join(REPO_ROOT, 'api/billplz/redirect.js'), 'utf8');
+  const cfg = readFileSync(path.join(REPO_ROOT, 'api/admin/config-check.js'), 'utf8');
+
+  check('Billplz errors name the environment they looked in',
+    /billplzEnv\(\)/.test(lib) && /getBill \$\{r\.status\} \[env: /.test(lib));
+  check('a 404 explains that the bill may be in the other environment',
+    /the other Billplz environment|has no bill with this id/.test(lib));
+
+  // A tracking parameter appended to the redirect URL would otherwise be
+  // prefixed with "billplz" and folded into the signed source string,
+  // breaking a signature that was genuinely valid.
+  check('the redirect signs only the parameters Billplz actually sent',
+    /bracketedOnly: true/.test(redirect) && /bracketedOnly = false/.test(lib));
+  check('a failed signature logs the environment, never the key or the signature',
+    /signature mismatch/.test(redirect) && /env: billplzEnv\(\)/.test(redirect)
+    && !/BILLPLZ_X_SIGNATURE\s*[,}]/.test(redirect.split('console.error')[1] || ''));
+  // A buyer whose money left their account must not be told only that
+  // something failed.
+  check('and the buyer is told their payment is not lost, with the bill id',
+    /not lost/.test(redirect) && /hello@duitful\.app/.test(redirect));
+
+  check('the config check is admin-gated like every other admin endpoint',
+    /x-admin-key/.test(cfg) && /timingSafeEqual/.test(cfg) && /ADMIN_KEY/.test(cfg));
+  // Reporting "the key is set" would have been useless here: the key WAS set,
+  // just for the wrong environment. It has to be probed.
+  check('it probes the api key live rather than only reporting that it is set',
+    /apiKeyProbe/.test(cfg) && /getBill\(/.test(cfg));
+  check('and it never returns a secret value, only whether it is set',
+    /present\(.BILLPLZ_API_KEY.\)/.test(cfg)
+    && !/value: process\.env\.BILLPLZ_API_KEY/.test(cfg)
+    && !/value: process\.env\.BILLPLZ_X_SIGNATURE/.test(cfg)
+    && !/value: process\.env\.LICENSE_SIGNING_PRIVATE_KEY/.test(cfg));
+}
+
 // -- the licence set --
 // The repository was public for a long time with no LICENSE file, which is the
 // worst configuration available: anyone could already read and copy every line,
