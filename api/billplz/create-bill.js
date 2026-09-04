@@ -4,7 +4,7 @@ const { refCodeFor } = require("../_lib/referral");
 const { lookup: lookupDiscount, applyTo: applyDiscount } = require("../_lib/discounts");
 const { signLicense } = require("../_lib/license");
 const { sendLicenseEmail, sendOwnerCompNotification } = require("../_lib/email");
-const { recordBill } = require("../_lib/bills-store");
+const { recordBill, findBillsByEmail } = require("../_lib/bills-store");
 
 module.exports = async function handler(req, res) {
   // CORS: allow the Duitful app (same origin in production, but helpful in dev).
@@ -95,6 +95,46 @@ module.exports = async function handler(req, res) {
       ]);
       res.status(200).json({ license, comp: true, discount: { code: discount.code, description: discount.description } });
       return;
+    }
+
+    // ── Already paid? ────────────────────────────────────────────────────
+    // A buyer paid three times for one lifetime licence. Nothing stopped
+    // them: this endpoint minted a fresh bill on every attempt with no idea
+    // one was already paid. The likely trigger was the redirect failing its
+    // signature check — from the buyer's side that looks exactly like a
+    // failed payment, so they paid again. And again.
+    //
+    // Pro is a one-time lifetime unlock, so a second charge is never correct.
+    // Hand back the licence they already own instead of taking more money.
+    // Best-effort throughout: if KV is unconfigured or unreachable, fall
+    // through to the normal flow rather than blocking a genuine purchase.
+    try {
+      const prior = await findBillsByEmail(email);
+      const paid = prior.find((b) => b.status === "paid" || b.status === "comp");
+      if (paid) {
+        const license = signLicense({
+          sub: paid.billId,
+          email,
+          product: "duitful_pro",
+          ref: refCodeFor(email),
+          iat: Math.floor(Date.now() / 1000),
+          source: "already-paid",
+        });
+        console.log("create-bill: buyer already owns Pro, reissuing", {
+          email, billId: paid.billId, status: paid.status,
+        });
+        await sendLicenseEmail({ to: email, license, billId: paid.billId })
+          .catch((e) => { console.warn("reissue email threw:", e); });
+        res.status(200).json({
+          license,
+          alreadyPaid: true,
+          billId: paid.billId,
+          message: "You already own Duitful Pro — this is the licence from your earlier purchase, not a new charge.",
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn("already-paid check failed, continuing to checkout:", e);
     }
 
     // Validate the referral code: 8 lowercase hex chars, and MUST NOT be

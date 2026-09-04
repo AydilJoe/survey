@@ -94,6 +94,31 @@ async function getBillRecord(id) {
   }
 }
 
+// Every bill recorded for an email address, newest first. Vercel KV has no
+// secondary index, so this walks the recent slice of the index — fine at this
+// volume, and bounded so it can never become an unbounded scan.
+//
+// This exists because a buyer paid three times. Nothing stopped them: the
+// checkout minted a fresh bill on every attempt, with no idea they already
+// had one paid.
+async function findBillsByEmail(email, { scan = 500 } = {}) {
+  if (!HAS_KV || !email) return [];
+  const wanted = String(email).trim().toLowerCase();
+  if (!wanted) return [];
+  const { kv } = kvModule;
+  try {
+    const ids = await kv.zrange(INDEX_KEY, 0, Math.max(0, scan - 1), { rev: true });
+    if (!ids || !ids.length) return [];
+    const records = await kv.mget(...ids.map(billKey));
+    return (records || [])
+      .filter((r) => r && String(r.email || "").trim().toLowerCase() === wanted)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  } catch (e) {
+    console.warn("KV findBillsByEmail failed:", e);
+    return [];
+  }
+}
+
 async function listBills({ limit = 100, offset = 0, since = null } = {}) {
   if (!HAS_KV) return { bills: [], total: 0, configured: false };
   const { kv } = kvModule;
@@ -116,4 +141,4 @@ async function listBills({ limit = 100, offset = 0, since = null } = {}) {
   }
 }
 
-module.exports = { recordBill, updateBill, getBillRecord, listBills, HAS_KV };
+module.exports = { recordBill, updateBill, getBillRecord, findBillsByEmail, listBills, HAS_KV };

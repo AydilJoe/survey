@@ -200,6 +200,17 @@
 
     <div class="coupons-card">
       <div class="coupons-head">
+        <h2>Duplicate payments</h2>
+        <button id="refresh-dupes" class="ghost mini">Re-check</button>
+      </div>
+      <p class="hint">Pro is a one-time unlock, so a second charge is never correct. A buyer who sees a failed-looking redirect will often just pay again — this finds anyone that happened to.</p>
+      <div id="dupes-body">
+        <p class="hint">Loading…</p>
+      </div>
+    </div>
+
+    <div class="coupons-card">
+      <div class="coupons-head">
         <h2>Payment config</h2>
         <button id="refresh-config" class="ghost mini">Re-check</button>
       </div>
@@ -354,11 +365,63 @@ async function loadConfig() {
 }
 document.getElementById("refresh-config").addEventListener("click", loadConfig);
 
+async function loadDupes() {
+  const key = sessionStorage.getItem(K);
+  if (!key) return;
+  const body = document.getElementById("dupes-body");
+  body.innerHTML = `<p class="hint">Checking…</p>`;
+  try {
+    const r = await fetch("/api/admin/duplicate-payments", { headers: { "x-admin-key": key } });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || d.error || `HTTP ${r.status}`);
+    const dupes = d.duplicates || [];
+    if (!dupes.length) {
+      body.innerHTML = `<p class="coupon-empty">No duplicate payments in the last ${d.scanned} bills.</p>`;
+      return;
+    }
+    body.innerHTML = dupes.map((u) => {
+      const rows = u.refund.map((b) => `<div class="coupon-row">
+        <span class="code">${escapeHtml(b.billId)}</span>
+        <span class="off">RM ${b.amountRM.toFixed(2)}</span>
+        ${b.refunded
+          ? `<span class="pill">refunded ${escapeHtml(String(b.refundedAt || "").slice(0, 10))}</span>`
+          : `<button class="ghost mini" data-refunded="${escapeHtml(b.billId)}">Mark refunded</button>`}
+      </div>`).join("");
+      return `<div class="coupon-row"><span class="code">${escapeHtml(u.email)}</span>
+        <span class="off">${u.charges} charges · RM ${u.overpaidRM.toFixed(2)} owed back</span></div>${rows}`;
+    }).join("") + `<p class="hint">Total owed back: <strong>RM ${d.owedRM.toFixed(2)}</strong>. ${escapeHtml(d.howToRefund || "")}</p>`;
+    body.querySelectorAll("[data-refunded]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const billId = btn.getAttribute("data-refunded");
+        const refundRef = prompt(`Payment Order reference for ${billId} (optional):`) || "";
+        btn.disabled = true;
+        try {
+          const rr = await fetch("/api/admin/mark-refunded", {
+            method: "POST",
+            headers: { "x-admin-key": key, "Content-Type": "application/json" },
+            body: JSON.stringify({ billId, refundRef }),
+          });
+          const dd = await rr.json();
+          if (!rr.ok) throw new Error(dd.error || `HTTP ${rr.status}`);
+          loadDupes();
+        } catch (e) {
+          btn.disabled = false;
+          alert(String(e.message || e));
+        }
+      });
+    });
+  } catch (e) {
+    body.innerHTML = `<p class="err">${escapeHtml(String(e.message || e))}</p>`;
+  }
+}
+document.getElementById("refresh-dupes").addEventListener("click", loadDupes);
+
+
 
 // Patch showDashboard so coupons load automatically once the admin
 // unlocks the page.
 const _origShowDashboard = showDashboard;
-showDashboard = function() { _origShowDashboard(); loadCoupons(); loadConfig(); };
+showDashboard = function() { _origShowDashboard(); loadCoupons(); loadConfig(); loadDupes(); };
 
 // Auto-unlock if a valid key is already in sessionStorage (e.g. set by
 // another tool in this tab).

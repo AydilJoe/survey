@@ -10,6 +10,7 @@
 const { getBill, verifyXSignature, flattenBillplzParams, xSignatureKeys, billplzEnv } = require("../_lib/billplz");
 const { signLicense } = require("../_lib/license");
 const { refCodeFor } = require("../_lib/referral");
+const { updateBill } = require("../_lib/bills-store");
 const { sendLicenseEmail, sendOwnerSaleNotification, escapeHtml } = require("../_lib/email");
 
 // Safe JSON for embedding inside a <script> tag. JSON.stringify alone
@@ -155,11 +156,57 @@ module.exports = async function handler(req, res) {
         xSignatureConfigured: Boolean(process.env.BILLPLZ_X_SIGNATURE),
         billId: raw.id || null,
       });
-      res.status(400).setHeader("Content-Type", "text/html; charset=utf-8").end(
+      // A broken signature means we cannot trust the QUERY STRING. It says
+      // nothing about whether the payment happened — that we can still
+      // establish authoritatively, by asking Billplz ourselves with our own
+      // api key. So rescue the buyer rather than stranding them:
+      //
+      //   - record the bill as paid, so the checkout knows not to charge
+      //     again (this is exactly how someone ended up paying three times)
+      //   - email the licence to the address ON THE BILL
+      //
+      // What we deliberately do NOT do is render the licence on this page.
+      // The visitor here is unauthenticated and the bill id came from an
+      // unverified query string, so showing the key would hand a guessed id
+      // someone else's licence. Emailing the bill's own address cannot leak.
+      let rescued = false;
+      if (raw.id) {
+        try {
+          const unverified = await getBill(raw.id);
+          if (unverified && unverified.state === "paid" && unverified.email) {
+            await updateBill(unverified.id, {
+              status: "paid", paid: true, billplzState: "paid",
+              paidAt: new Date().toISOString(),
+              note: "recorded via redirect after signature mismatch",
+            }).catch(() => {});
+            const rescueLicense = signLicense({
+              sub: unverified.id,
+              email: unverified.email,
+              product: "duitful_pro",
+              ref: refCodeFor(unverified.email),
+              iat: Math.floor(Date.now() / 1000),
+              source: "redirect-signature-mismatch",
+            });
+            const sent = await sendLicenseEmail({
+              to: unverified.email, license: rescueLicense, billId: unverified.id,
+            }).catch((e) => { console.warn("rescue email threw:", e); return { sent: false }; });
+            rescued = Boolean(sent && sent.sent);
+            console.log("redirect rescue after signature mismatch", {
+              billId: unverified.id, emailed: rescued,
+            });
+          }
+        } catch (e) {
+          console.warn("redirect rescue lookup failed:", e);
+        }
+      }
+
+      res.status(rescued ? 200 : 400).setHeader("Content-Type", "text/html; charset=utf-8").end(
         renderPage({
-          status: "err",
-          title: "Signature mismatch",
-          body: `We couldn't verify this payment redirect came from Billplz, so no licence was issued automatically. <strong>Your payment is not lost.</strong> Email <a href="mailto:hello@duitful.app">hello@duitful.app</a>${raw.id ? ` quoting bill <code>${escapeHtml(String(raw.id))}</code>` : ""} and your licence will be issued by hand.`,
+          status: rescued ? "ok" : "err",
+          title: rescued ? "Payment received — licence emailed" : "Signature mismatch",
+          body: rescued
+            ? `Your payment went through and <strong>Duitful Pro is yours</strong>. We couldn't verify this redirect page itself, so rather than show the key here we've emailed it to the address on your bill. <strong>Please don't pay again.</strong> If it hasn't arrived in a few minutes, email <a href="mailto:hello@duitful.app">hello@duitful.app</a>${raw.id ? ` quoting bill <code>${escapeHtml(String(raw.id))}</code>` : ""}.`
+            : `We couldn't verify this payment redirect came from Billplz, so no licence was issued automatically. <strong>Your payment is not lost, and you should not pay again.</strong> Email <a href="mailto:hello@duitful.app">hello@duitful.app</a>${raw.id ? ` quoting bill <code>${escapeHtml(String(raw.id))}</code>` : ""} and your licence will be issued by hand.`,
         })
       );
       return;
@@ -176,6 +223,14 @@ module.exports = async function handler(req, res) {
       );
       return;
     }
+
+    // Record it here as well as in the webhook. Two independent writers, so
+    // one failing does not leave the store thinking an paid bill is open -
+    // which is what lets the checkout charge somebody twice.
+    await updateBill(bill.id, {
+      status: "paid", paid: true, billplzState: bill.state,
+      paidAt: bill.paid_at || new Date().toISOString(),
+    }).catch(() => {});
 
     const license = signLicense({
       sub: bill.id,

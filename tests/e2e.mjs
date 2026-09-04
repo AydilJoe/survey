@@ -4714,6 +4714,57 @@ check('the brand catalogue makes no network calls at all',
     junk.length === 1 && junk[0].schedule.on.day === 12, JSON.stringify(junk));
 }
 
+// -- nobody should be able to pay twice for a lifetime unlock --
+// A buyer was charged three times for one licence. Nothing stopped them:
+// create-bill minted a fresh bill on every attempt with no idea one was
+// already paid, and the redirect that told them it had failed was the
+// signature bug. Both halves are fixed here; these checks are the halves.
+{
+  const create = readFileSync(path.join(REPO_ROOT, 'api/billplz/create-bill.js'), 'utf8');
+  const redirect = readFileSync(path.join(REPO_ROOT, 'api/billplz/redirect.js'), 'utf8');
+  const dupes = readFileSync(path.join(REPO_ROOT, 'api/admin/duplicate-payments.js'), 'utf8');
+  const marked = readFileSync(path.join(REPO_ROOT, 'api/admin/mark-refunded.js'), 'utf8');
+  const store = readFileSync(path.join(REPO_ROOT, 'api/_lib/bills-store.js'), 'utf8');
+
+  check('checkout returns the licence already owned instead of charging again',
+    /findBillsByEmail/.test(create) && /alreadyPaid: true/.test(create)
+    && /findBillsByEmail/.test(store));
+  // If the store cannot be reached, a genuine buyer must still be able to buy.
+  check('and a store failure falls through to checkout rather than blocking a sale',
+    /already-paid check failed, continuing to checkout/.test(create));
+
+  // Both writers matter: during the outage the webhook ALSO failed signature
+  // verification, so nothing recorded the payment and nothing could know.
+  check('the redirect records the payment too, not just the webhook',
+    /updateBill\(bill\.id/.test(redirect));
+  check('a signature failure still confirms with Billplz and rescues the buyer',
+    /rescued/.test(redirect) && /state === "paid"/.test(redirect)
+    && /don't pay again|not pay again/i.test(redirect));
+  // The bill id came from an unverified query string, so rendering the key
+  // would hand a guessed id somebody else's licence.
+  check('but it emails the licence rather than rendering it to an unverified visitor',
+    /rescueLicense/.test(redirect)
+    && /sendLicenseEmail\(\{\s*\n?\s*to: unverified\.email/.test(redirect)
+    && !/license: rescueLicense,\s*\n\s*email/.test(redirect));
+
+  check('duplicates count only settled charges, never abandoned checkouts',
+    /status !== "paid" && bill\.status !== "comp"/.test(dupes) && /Number\(b\.amount\) > 0/.test(dupes));
+  check('and the first charge is kept while the rest are owed back',
+    /overpaidSen/.test(dupes) && /keep:/.test(dupes));
+
+  // Billplz has no refund endpoint; a refund is an irreversible outbound
+  // transfer. Putting that behind one env var would turn a leaked ADMIN_KEY
+  // from "free licences" into "empties a bank balance".
+  for (const [name, src] of [['duplicate finder', dupes], ['refund register', marked]]) {
+    check(`the ${name} is admin-gated`,
+      /timingSafeEqual/.test(src) && /x-admin-key/.test(src));
+    check(`and it moves no money — no payment order, no disbursement (${name})`,
+      !/payment_order|bank_account_number|paymentOrder/i.test(src));
+  }
+  check('marking a refund twice is refused rather than silently accepted',
+    /Already marked refunded/.test(marked) && /409/.test(marked));
+}
+
 // -- a 404 on a real bill has to explain itself --
 // The reported failure: the issue-licence tool returning "Billplz getBill 404
 // RecordNotFound" for a bill a buyer had genuinely paid. The bill was real -
