@@ -200,6 +200,17 @@
 
     <div class="coupons-card">
       <div class="coupons-head">
+        <h2>Payment config</h2>
+        <button id="refresh-config" class="ghost mini">Re-check</button>
+      </div>
+      <p class="hint">Billplz runs sandbox and production as separate worlds, each with its own API key <em>and</em> its own X-Signature key. Mixing them shows up as bills that 404 and buyers landing on &ldquo;Signature mismatch&rdquo;.</p>
+      <div id="config-body">
+        <p class="hint">Loading…</p>
+      </div>
+    </div>
+
+    <div class="coupons-card">
+      <div class="coupons-head">
         <h2>Active coupons</h2>
         <button id="refresh-coupons" class="ghost mini">Refresh</button>
       </div>
@@ -309,10 +320,45 @@ function escapeHtml(s) {
 
 document.getElementById("refresh-coupons").addEventListener("click", loadCoupons);
 
+async function loadConfig() {
+  const key = sessionStorage.getItem(K);
+  if (!key) return;
+  const body = document.getElementById("config-body");
+  body.innerHTML = `<p class="hint">Checking…</p>`;
+  try {
+    const r = await fetch("/api/admin/config-check", { headers: { "x-admin-key": key } });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+    const rows = Object.entries(d.vars || {}).map(([name, info]) => {
+      const shown = info.value ? escapeHtml(String(info.value))
+        : info.set ? `set (${info.length} chars)` : "NOT SET";
+      return `<div class="coupon-row">
+        <span class="code">${escapeHtml(name)}</span>
+        <span class="off">${info.set ? "" : "&#9888; "}${shown}</span>
+      </div>`;
+    }).join("");
+    const probe = d.apiKeyProbe || {};
+    const probeLine = probe.ran
+      ? `<p class="hint">${probe.ok ? "&#10003;" : "&#9888;"} ${escapeHtml(probe.note || "")}</p>`
+      : `<p class="hint">API key not probed — base URL or key missing.</p>`;
+    const problems = (d.problems || []).length
+      ? `<p class="err">${d.problems.map(escapeHtml).join("<br>")}</p>` : "";
+    body.innerHTML = `
+      <div class="coupon-row"><span class="code">Environment</span>
+        <span class="off">${escapeHtml(d.environment || "unknown")}</span></div>
+      ${rows}${probeLine}${problems}
+      <p class="hint">${escapeHtml(d.note || "")}</p>`;
+  } catch (e) {
+    body.innerHTML = `<p class="err">${escapeHtml(String(e.message || e))}</p>`;
+  }
+}
+document.getElementById("refresh-config").addEventListener("click", loadConfig);
+
+
 // Patch showDashboard so coupons load automatically once the admin
 // unlocks the page.
 const _origShowDashboard = showDashboard;
-showDashboard = function() { _origShowDashboard(); loadCoupons(); };
+showDashboard = function() { _origShowDashboard(); loadCoupons(); loadConfig(); };
 
 // Auto-unlock if a valid key is already in sessionStorage (e.g. set by
 // another tool in this tab).

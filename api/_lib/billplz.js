@@ -19,6 +19,19 @@ function baseUrl() {
   return u.replace(/\/$/, "");
 }
 
+// Billplz runs two entirely separate worlds. A bill created in sandbox does
+// not exist in production and vice versa, and each has its OWN api key and
+// its OWN X-Signature key. Mixing them produces two failures that look
+// unrelated: getBill returns 404 RecordNotFound, and every redirect fails
+// signature verification. Naming the environment in the error is what turns
+// that into a five-second diagnosis.
+function billplzEnv() {
+  const u = process.env.BILLPLZ_BASE_URL || "";
+  if (/billplz-sandbox\./i.test(u)) return "sandbox";
+  if (/billplz\.com/i.test(u)) return "production";
+  return "unknown";
+}
+
 async function createBill({ name, email, amount, description, redirectUrl, callbackUrl, reference, referrerCode, discountCode }) {
   const collectionId = process.env.BILLPLZ_COLLECTION_ID;
   if (!collectionId) throw new Error("BILLPLZ_COLLECTION_ID not set");
@@ -53,7 +66,7 @@ async function createBill({ name, email, amount, description, redirectUrl, callb
     body: JSON.stringify(body),
   });
   const text = await r.text();
-  if (!r.ok) throw new Error(`Billplz createBill ${r.status}: ${text}`);
+  if (!r.ok) throw new Error(`Billplz createBill ${r.status} [env: ${billplzEnv()}]: ${text}`);
   return JSON.parse(text);
 }
 
@@ -62,7 +75,15 @@ async function getBill(id) {
     headers: { Authorization: authHeader() },
   });
   const text = await r.text();
-  if (!r.ok) throw new Error(`Billplz getBill ${r.status}: ${text}`);
+  if (!r.ok) {
+    // 404 here is almost never a wrong ID typed by hand — it is the bill
+    // existing in the OTHER Billplz environment, or under a different
+    // account's api key.
+    const hint = r.status === 404
+      ? ` — the ${billplzEnv()} environment has no bill with this id. If the payment was real, check that BILLPLZ_BASE_URL, BILLPLZ_API_KEY and BILLPLZ_X_SIGNATURE all come from the same Billplz dashboard.`
+      : "";
+    throw new Error(`Billplz getBill ${r.status} [env: ${billplzEnv()}]: ${text}${hint}`);
+  }
   return JSON.parse(text);
 }
 
@@ -96,13 +117,27 @@ function verifyXSignature(params, { keyPrefix = "" } = {}) {
 // billplz[id]=xxx, billplz[paid]=true, etc. The Node URL parser gives
 // us keys like "billplz[id]". Billplz expects verification against
 // keys without the wrapper: "id", "paid", etc.
-function flattenBillplzParams(query) {
+function flattenBillplzParams(query, { bracketedOnly = false } = {}) {
   const out = {};
   for (const [k, v] of Object.entries(query || {})) {
     const m = /^billplz\[(.+)\]$/.exec(k);
+    // On the redirect, ONLY the billplz[...] params were signed. Anything
+    // else on the URL — a tracking parameter appended by a browser, an app
+    // or a link shim — would otherwise be prefixed with "billplz" and folded
+    // into the source string, breaking a signature that was actually valid.
+    if (!m && bracketedOnly) continue;
     out[m ? m[1] : k] = v;
   }
   return out;
+}
+
+// The signed key list, for logging when verification fails. Never returns the
+// secret, the values, or the signature itself.
+function xSignatureKeys(params, { keyPrefix = "" } = {}) {
+  return Object.keys(params || {})
+    .filter((k) => k !== "x_signature")
+    .map((k) => keyPrefix + k)
+    .sort();
 }
 
 module.exports = {
@@ -110,4 +145,6 @@ module.exports = {
   getBill,
   verifyXSignature,
   flattenBillplzParams,
+  xSignatureKeys,
+  billplzEnv,
 };

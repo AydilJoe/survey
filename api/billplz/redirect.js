@@ -7,7 +7,7 @@
 //
 // No DB; the license itself is the proof of purchase.
 
-const { getBill, verifyXSignature, flattenBillplzParams } = require("../_lib/billplz");
+const { getBill, verifyXSignature, flattenBillplzParams, xSignatureKeys, billplzEnv } = require("../_lib/billplz");
 const { signLicense } = require("../_lib/license");
 const { refCodeFor } = require("../_lib/referral");
 const { sendLicenseEmail, sendOwnerSaleNotification, escapeHtml } = require("../_lib/email");
@@ -137,17 +137,29 @@ ${license ? `(function(){
 module.exports = async function handler(req, res) {
   try {
     // Vercel provides parsed query at req.query.
-    const raw = flattenBillplzParams(req.query);
+    // bracketedOnly: sign only what Billplz sent. A tracking parameter
+    // appended to the URL by a browser or link shim would otherwise be folded
+    // into the source string and break an otherwise-valid signature.
+    const raw = flattenBillplzParams(req.query, { bracketedOnly: true });
     // Log the params we received so we can compare against what Billplz
     // sent (visible in Vercel -> Functions -> redirect -> Logs).
     console.log("billplz redirect params:", raw);
 
     if (!verifyXSignature(raw, { keyPrefix: "billplz" })) {
+      // The overwhelmingly likely cause is an X-Signature key from the other
+      // Billplz environment, so say which one this deployment is configured
+      // for. Keys and the signature itself are never logged.
+      console.error("billplz redirect signature mismatch", {
+        env: billplzEnv(),
+        signedKeys: xSignatureKeys(raw, { keyPrefix: "billplz" }),
+        xSignatureConfigured: Boolean(process.env.BILLPLZ_X_SIGNATURE),
+        billId: raw.id || null,
+      });
       res.status(400).setHeader("Content-Type", "text/html; charset=utf-8").end(
         renderPage({
           status: "err",
           title: "Signature mismatch",
-          body: "We couldn't verify this payment redirect came from Billplz. No license issued. If you just paid, please contact support with your bill reference.",
+          body: `We couldn't verify this payment redirect came from Billplz, so no licence was issued automatically. <strong>Your payment is not lost.</strong> Email <a href="mailto:hello@duitful.app">hello@duitful.app</a>${raw.id ? ` quoting bill <code>${escapeHtml(String(raw.id))}</code>` : ""} and your licence will be issued by hand.`,
         })
       );
       return;
