@@ -4788,11 +4788,53 @@ check('the brand catalogue makes no network calls at all',
     && !/account: accountNumber/.test(refund));
   check('it reads back what Billplz recorded rather than echoing what was sent',
     /submittedTotal/.test(refund) && /expectedTotalSen/.test(refund));
-  // Deriving v4 from the bills URL means payouts can never point at a
-  // different environment from the charges they are refunding.
+  // Deriving the payout URL from the bills URL means payouts can never point
+  // at a different environment from the charges they are refunding.
   check('the payout API follows the bills environment rather than a second variable',
-    /replace\(\/\\\/api\\\/v\\d\+\$\/, "\/api\/v4"\)/.test(payout)
-    && !/BILLPLZ_PAYOUT_BASE_URL/.test(payout));
+    /"\/api\/v5"/.test(payout) && !/BILLPLZ_PAYOUT_BASE_URL/.test(payout));
+
+  // The first version of this file was written against v4
+  // "mass_payment_instructions", which is not the API Billplz actually
+  // exposes. Refunds go through v5 Payment Orders, every call is signed, and
+  // an unsigned request is rejected - so the shape is pinned here rather than
+  // discovered the next time somebody tries to refund a real buyer.
+  check('refunds use the v5 Payment Order API, not the v4 endpoints that do not exist',
+    /payment_order_collections/.test(payout) && /\/payment_orders/.test(payout)
+    && !/mass_payment_instruction/.test(payout));
+  check('every payout call carries an epoch and an HMAC-SHA512 checksum',
+    /createHmac\("sha512"/.test(payout)
+    && (payout.match(/checksum: checksum\(\[/g) || []).length >= 2
+    && /epoch/.test(payout));
+  check('the checksum is signed with the X Signature key, and refuses to run without it',
+    /BILLPLZ_X_SIGNATURE/.test(payout) && /not set/.test(payout));
+  // Documented order, no separator. Getting either wrong produces a signature
+  // Billplz rejects, which is a wasted attempt at somebody's refund.
+  check('the payment order checksum signs collection id, account, total and epoch in that order',
+    /checksum\(\[collectionId, accountNumber, totalSen, epoch\]\)/.test(payout));
+  check('payouts are form-encoded, which is what the v5 API accepts',
+    /x-www-form-urlencoded/.test(payout) && /URLSearchParams/.test(payout));
+  // Billplz rejects a description carrying special characters, and this
+  // project writes em dashes everywhere else.
+  check('the payout description is plain ASCII',
+    // eslint-disable-next-line no-control-regex
+    /description: `Duitful Pro refund for bill/.test(refund)
+    && !/description: `[^`]*[^\x00-\x7F][^`]*`/.test(refund));
+  // v5 does not require it; demanding it would block a refund for a buyer
+  // who never gave one.
+  check('the identity number is optional rather than a blocker',
+    /if \(identityNumber && !/.test(refund) && /identityNumber \?/.test(payout));
+
+  // A payment order needs a collection, and creating it by hand invites
+  // pasting an id from the wrong Billplz environment - the exact mistake that
+  // caused the payment failures this whole thread started with.
+  const setup = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/payout-collection.js'), 'utf8');
+  check('the payout collection is created through the same credentials refunds use',
+    /createPayoutCollection/.test(setup) && /billplzEnv\(\)/.test(setup)
+    && /timingSafeEqual/.test(setup));
+  check('and it will not quietly create a second one',
+    /already set to/.test(setup) && /force/.test(setup) && /409/.test(setup));
+  check('the config check points at it instead of just naming the variable',
+    /op=payout-collection/.test(readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/config-check.js'), 'utf8')));
 }
 
 // -- a 404 on a real bill has to explain itself --

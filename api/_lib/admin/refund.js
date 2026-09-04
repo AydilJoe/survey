@@ -1,7 +1,7 @@
 // Issues a real refund from the admin page.
 //
-// Billplz has no refund endpoint. This creates a PAYOUT — a fresh outbound
-// bank transfer to the buyer — which is irreversible once submitted. That
+// Billplz has no refund endpoint. This creates a v5 PAYMENT ORDER — a fresh
+// outbound bank transfer to the buyer — irreversible once submitted. That
 // makes this the only endpoint in the project that can move money out, so it
 // carries guards the others do not need:
 //
@@ -73,7 +73,12 @@ module.exports = async function handler(req, res) {
     return;
   }
   if (!/^\d{6,20}$/.test(accountNumber)) { res.status(400).json({ error: "Bank account number must be 6–20 digits" }); return; }
-  if (!/^[A-Za-z0-9]{6,20}$/.test(identityNumber)) { res.status(400).json({ error: "Identity number (NRIC or passport) is required" }); return; }
+  // Optional in v5, but a malformed one is worse than none, so it is checked
+  // when supplied and dropped when not.
+  if (identityNumber && !/^[A-Za-z0-9]{6,20}$/.test(identityNumber)) {
+    res.status(400).json({ error: "Identity number must be 6-20 letters or digits (NRIC or passport), or left blank" });
+    return;
+  }
   if (name.length < 2) { res.status(400).json({ error: "Account holder name is required" }); return; }
 
   // Guard 2.
@@ -114,9 +119,10 @@ module.exports = async function handler(req, res) {
       accountNumber,
       identityNumber,
       name,
-      description: `Duitful Pro refund — bill ${billId}`,
+      description: `Duitful Pro refund for bill ${billId}`,
       totalSen,
       referenceId: billId,
+      email: record.email || undefined,
     });
   } catch (err) {
     console.error("refund payout failed", { billId, env: billplzEnv(), detail: String(err.message || err) });
@@ -124,7 +130,7 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const payoutId = payout && (payout.id || payout.mass_payment_instruction_id) || null;
+  const payoutId = (payout && (payout.id || payout.payment_order_id)) || null;
   await updateBill(billId, {
     refundedAt: new Date().toISOString(),
     refundRef: payoutId,

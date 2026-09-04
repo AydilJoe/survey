@@ -1,4 +1,4 @@
-// Six admin endpoints behind one Vercel Function, addressed as
+// Seven admin endpoints behind one Vercel Function, addressed as
 // /api/admin/ops?op=<name>.
 //
 // Two constraints meet here. Vercel's Hobby plan builds at most 12 functions
@@ -12,13 +12,14 @@
 // A plain filename plus a query parameter is the shape that demonstrably
 // routes here - api/admin/billplz-bill.js has been reading req.query.id in
 // production all along. The five endpoints that predate the budget keep their
-// own files and their own URLs; these six share this one.
+// own files and their own URLs; these seven share this one.
 
 const ROUTES = {
   "config-check": require("../_lib/admin/config-check.js"),
   "duplicate-payments": require("../_lib/admin/duplicate-payments.js"),
   "mark-refunded": require("../_lib/admin/mark-refunded.js"),
   "native-attributions": require("../_lib/admin/native-attributions.js"),
+  "payout-collection": require("../_lib/admin/payout-collection.js"),
   refund: require("../_lib/admin/refund.js"),
   "test-redirect": require("../_lib/admin/test-redirect.js"),
 };

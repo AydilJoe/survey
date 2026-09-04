@@ -45,7 +45,8 @@ No linter or TypeScript. One end-to-end regression suite exists: `npm run test:e
 - **CSV row types**: `income`, `expense`, `debt`, `saving`, `daily`, `daily-saving`, `daily-debt`, `setting`.
 - **Avalanche simulator**: `simulateAvalanche(debts, extraMonthly)` — prioritizes highest APR, rolls minimums forward.
 - **Android auto-capture**: `DuitfulNotificationListenerService` in `native/notification-listener/` whitelists bank packages and forwards notification text to JS via Capacitor plugin. Install instructions in `native/notification-listener/README.md`.
-- **Env vars** (Vercel): `BILLPLZ_API_KEY`, `BILLPLZ_COLLECTION_ID`, `BILLPLZ_X_SIGNATURE`, `LICENSE_SIGNING_PRIVATE_KEY`.
+- **Env vars** (Vercel): `BILLPLZ_API_KEY`, `BILLPLZ_COLLECTION_ID`, `BILLPLZ_X_SIGNATURE`, `LICENSE_SIGNING_PRIVATE_KEY`, and `BILLPLZ_PAYOUT_COLLECTION_ID` (refunds only).
+- **Refunds**: Billplz has no refund endpoint — FPX is non-reversible, so a refund is a **v5 Payment Order**, a fresh outbound transfer keyed on the buyer's SWIFT/BIC code and account number (*not* the FPX code checkout uses). Every v5 call is signed: HMAC-SHA512 of the documented values concatenated with no separator, keyed by `BILLPLZ_X_SIGNATURE`. A payment order needs a collection — create it once per environment with `POST /api/admin/ops?op=payout-collection` and paste the id into `BILLPLZ_PAYOUT_COLLECTION_ID`. Payouts cannot be reversed; `api/_lib/admin/refund.js` carries five guards, including reading the amount from the recorded bill rather than the request.
 
 ## Deployment
 

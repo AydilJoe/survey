@@ -67,7 +67,7 @@ module.exports = async function handler(req, res) {
     if (!info.set && !info.optional) problems.push(`${name} is not set`);
   }
   if (!vars.BILLPLZ_PAYOUT_COLLECTION_ID.set) {
-    problems.push("BILLPLZ_PAYOUT_COLLECTION_ID is not set — refunds will fail until it is (checkout is unaffected)");
+    problems.push("BILLPLZ_PAYOUT_COLLECTION_ID is not set — refunds will fail until it is. POST /api/admin/ops?op=payout-collection to create one (checkout is unaffected)");
   }
   if (env === "unknown" && vars.BILLPLZ_BASE_URL.set) {
     problems.push("BILLPLZ_BASE_URL is set but is neither billplz.com nor billplz-sandbox.com");
