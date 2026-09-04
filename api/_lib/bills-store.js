@@ -18,10 +18,18 @@
 // Storage shape:
 //   key  bill:<billId>      JSON record { billId, createdAt, amount,
 //                                          email, status, discountCode,
-//                                          ref, source, updatedAt? }
+//                                          ref, source, env, updatedAt? }
+//
+// `env` is the Billplz environment the bill was MINTED in. Billplz keeps
+// sandbox and production entirely separate, so a bill created under one set
+// of credentials returns 404 RecordNotFound under the other. Recording the
+// environment at creation time is what makes that diagnosable afterwards
+// instead of looking like a bad bill id.
 //   sset bills:index        sorted-set scored by createdAt (ms epoch),
 //                           members are billIds (or comp:<uuid> for
 //                           full-comp licenses that skipped Billplz).
+
+const { billplzEnv } = require("./billplz");
 
 let kvModule = null;
 try { kvModule = require("@vercel/kv"); } catch (_) { /* not installed */ }
@@ -46,6 +54,7 @@ async function recordBill(record) {
     discountCode: record.discountCode || "",
     ref: record.ref || "",
     source: record.source || "",
+    env: record.env || billplzEnv(),
   };
   try {
     await kv.set(billKey(id), data);
@@ -72,6 +81,19 @@ async function updateBill(id, patch) {
   }
 }
 
+// One record by id. Used when a live Billplz lookup 404s, to tell an
+// environment mismatch apart from a bill that was never ours.
+async function getBillRecord(id) {
+  if (!HAS_KV || !id) return null;
+  const { kv } = kvModule;
+  try {
+    return (await kv.get(billKey(id))) || null;
+  } catch (e) {
+    console.warn("KV getBillRecord failed:", e);
+    return null;
+  }
+}
+
 async function listBills({ limit = 100, offset = 0, since = null } = {}) {
   if (!HAS_KV) return { bills: [], total: 0, configured: false };
   const { kv } = kvModule;
@@ -94,4 +116,4 @@ async function listBills({ limit = 100, offset = 0, since = null } = {}) {
   }
 }
 
-module.exports = { recordBill, updateBill, listBills, HAS_KV };
+module.exports = { recordBill, updateBill, getBillRecord, listBills, HAS_KV };

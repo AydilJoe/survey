@@ -4714,6 +4714,38 @@ check('the brand catalogue makes no network calls at all',
     junk.length === 1 && junk[0].schedule.on.day === 12, JSON.stringify(junk));
 }
 
+// -- a 404 on a real bill has to explain itself --
+// The reported failure: the issue-licence tool returning "Billplz getBill 404
+// RecordNotFound" for a bill a buyer had genuinely paid. The bill was real -
+// it just lived in the other Billplz environment, and nothing on the screen
+// said which environment had been searched. So the recovery screen sat there
+// looking like the bill id was wrong.
+{
+  const store = readFileSync(path.join(REPO_ROOT, 'api/_lib/bills-store.js'), 'utf8');
+  const lookup = readFileSync(path.join(REPO_ROOT, 'api/admin/billplz-bill.js'), 'utf8');
+  const issue = readFileSync(path.join(REPO_ROOT, 'api/admin/issue-license.js'), 'utf8');
+  const tool = readFileSync(path.join(REPO_ROOT, 'tools/issue/index.html'), 'utf8');
+
+  // Without this stamp a 404 is indistinguishable from a mistyped id.
+  check('every bill records the Billplz environment it was minted in',
+    /env: record\.env \|\| billplzEnv\(\)/.test(store) && /getBillRecord/.test(store));
+
+  for (const [name, src] of [['bill lookup', lookup], ['issue licence', issue]]) {
+    check(`the ${name} tool turns a 404 into a diagnosis, not just a status code`,
+      /diagnosis/.test(src) && /getBillRecord/.test(src) && /billplzEnv\(\)/.test(src));
+    check(`and it names both environments when they disagree (${name})`,
+      /record\.env !== current/.test(src) && /entirely separate/.test(src));
+    // The buyer is waiting. There has to be a way forward on the screen.
+    check(`and it says how to unblock the buyer right now (${name})`,
+      /by hand|blank|directly/.test(src));
+  }
+
+  check('the recovery screen leads with the diagnosis rather than the raw Billplz body',
+    /data\.diagnosis/.test(tool));
+  check('and its error box preserves the line breaks that diagnosis is written with',
+    /\.err \{[^}]*white-space: pre-wrap/.test(tool));
+}
+
 // -- the payment config check --
 // Billplz runs sandbox and production as separate worlds with separate api
 // keys AND separate X-Signature keys. Mixing them produces two failures that
