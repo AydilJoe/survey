@@ -446,7 +446,7 @@ function writeGuide(parsed, related) {
       logo: { "@type": "ImageObject", url: "https://duitful.app/favicon.svg" },
     },
     mainEntityOfPage: { "@type": "WebPage", "@id": guideUrl },
-    image: "https://duitful.app/og-image.svg",
+    image: "https://duitful.app/og-image.png",
   };
 
   const schemas = [breadcrumbLd, articleLd];

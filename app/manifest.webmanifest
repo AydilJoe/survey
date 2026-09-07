@@ -90,7 +90,7 @@
   ],
   "screenshots": [
     {
-      "src": "/screenshots/hero-home.png",
+      "src": "/screenshots/pwa-home-narrow.png",
       "sizes": "1206x2622",
       "type": "image/png",
       "form_factor": "narrow",
