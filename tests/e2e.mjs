@@ -5103,14 +5103,24 @@ check('the brand catalogue makes no network calls at all',
     existsSync(path.join(REPO_ROOT, 'og-image.svg'))
     && existsSync(path.join(REPO_ROOT, 'scripts/render-site-images.mjs')));
 
-  // The first version of this page styled its links as plain ink with a
-  // :hover background and nothing else. Touch devices have no hover, so on a
-  // phone the list read as a table of text and nobody could tell it was
-  // navigation. Affordance has to be in the RESTING state.
+  // Two rewrites live in these checks. The first version styled its links as
+  // plain ink with a :hover background and nothing else — touch devices have
+  // no hover, so on a phone the list read as a table of text. The second was
+  // correct and dull, which is its own failure for a page whose job is to
+  // keep somebody on the site. It is now a receipt that prints itself, and
+  // the total is the joke. None of that is allowed to cost the affordance,
+  // the touch targets or the contrast the first fix bought.
   {
     const ctx404 = await b.newContext({ viewport: { width: 390, height: 844 } });
     const p404 = await ctx404.newPage();
     await p404.goto(`${BASE}/404.html`, { waitUntil: 'domcontentloaded' });
+    // Headless Chromium does not advance animations on a page it never paints,
+    // so waiting on the clock here proves nothing and hangs. Assert the page
+    // really does animate, then run them to their end and check what a visitor
+    // is finally left looking at.
+    const animCount = await p404.evaluate(() => document.getAnimations().length);
+    check('the receipt animates rather than just appearing', animCount > 5, `${animCount} animations`);
+    await p404.evaluate(() => document.getAnimations().forEach((a) => a.finish()));
 
     const rows = await p404.locator('main ul li a').evaluateAll((els) => els.map((a) => {
       const cs = getComputedStyle(a);
@@ -5118,25 +5128,37 @@ check('the brand catalogue makes no network calls at all',
       return {
         height: a.getBoundingClientRect().height,
         color: cs.color,
-        chevron: !!a.querySelector('svg'),
+        leader: !!a.querySelector('.leader'),
+        price: (a.querySelector('.price') || {}).textContent,
         noteHeight: note ? note.getBoundingClientRect().height : 0,
+        opacity: +cs.opacity,
       };
     }));
     const bodyInk = await p404.evaluate(() => getComputedStyle(document.querySelector('main > p')).color);
 
-    check('every 404 link carries a chevron, not just a hover state',
-      rows.length >= 4 && rows.every((r) => r.chevron), `${rows.length} rows`);
+    check('every 404 row is a receipt line with a leader and a price',
+      rows.length >= 4 && rows.every((r) => r.leader && /RM/.test(r.price || '')),
+      `${rows.length} rows`);
     check('their ink differs from body text, so they read as interactive at rest',
       rows.length > 0 && rows.every((r) => r.color !== bodyInk), `${rows[0]?.color} vs ${bodyInk}`);
     // 44px is the smallest target Apple and Google both consider tappable.
     const shortest = Math.min(...rows.map((r) => r.height));
     check('each row is a real touch target', shortest >= 44, `${shortest.toFixed(0)}px`);
-    // A one-line description that wraps to two lines and right-aligns is what
-    // the old side-by-side layout did to "Contact".
     const wrapped = rows.filter((r) => r.noteHeight > 24).length;
     check('no row description wraps', wrapped === 0, `${wrapped} wrapped`);
+    // An animation that never finishes is a blank page.
+    check('every row has finished printing',
+      rows.every((r) => r.opacity === 1), rows.map((r) => r.opacity).join(', '));
 
-    // Contrast, since the palette is hand-written here rather than inherited.
+    const joke = await p404.evaluate(() => ({
+      total: document.querySelector('.total')?.textContent.replace(/\s+/g, ' ').trim(),
+      stamp: document.querySelector('.stamp')?.textContent.trim(),
+      stampOpacity: +getComputedStyle(document.querySelector('.stamp')).opacity,
+    }));
+    check('the receipt totals to nothing, which is the point', /RM 0\.00/.test(joke.total), joke.total);
+    check('and the stamp lands rather than staying invisible',
+      joke.stampOpacity > 0.5 && /NOTHING OWED/.test(joke.stamp), `${joke.stampOpacity} ${joke.stamp}`);
+
     const contrast = await p404.evaluate(() => {
       const lum = (c) => {
         const [r, g, bl] = c.match(/\d+/g).map(Number).map((v) => {
@@ -5147,16 +5169,34 @@ check('the brand catalogue makes no network calls at all',
       const ratio = (x, y) => { const [hi, lo] = [lum(x), lum(y)].sort((m, n) => n - m); return (hi + 0.05) / (lo + 0.05); };
       const card = getComputedStyle(document.querySelector('main')).backgroundColor;
       const link = document.querySelector('main ul li a');
+      const at = (sel) => ratio(getComputedStyle(document.querySelector(sel)).color, card);
       return {
         link: ratio(getComputedStyle(link).color, card),
         note: ratio(getComputedStyle(link.querySelector('.note')).color, card),
-        body: ratio(getComputedStyle(document.querySelector('main > p')).color, card),
+        lede: at('main > p:not(.meta):not(.close)'),
+        meta: at('.meta'),
+        total: at('.total'),
+        heading: at('h1'),
       };
     });
     for (const [what, r] of Object.entries(contrast)) {
       check(`404 ${what} text clears WCAG AA (4.5:1)`, r >= 4.5, `${r.toFixed(2)}:1`);
     }
     await ctx404.close();
+
+    // Somebody who has asked for less motion gets the finished receipt, not a
+    // performance of one — and above all, not an empty page.
+    const still = await b.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+    const pStill = await still.newPage();
+    await pStill.goto(`${BASE}/404.html`, { waitUntil: 'domcontentloaded' });
+    const shown = await pStill.evaluate(() => {
+      const op = (sel) => +getComputedStyle(document.querySelector(sel)).opacity;
+      return { main: op('main'), first: op('.row'), stamp: op('.stamp'), cta: op('.cta') };
+    });
+    check('with reduced motion the whole receipt is there immediately',
+      shown.main === 1 && shown.first === 1 && shown.cta === 1 && shown.stamp > 0.5,
+      JSON.stringify(shown));
+    await still.close();
   }
 
   // A custom 404 is only useful if the host actually serves it, which for a
