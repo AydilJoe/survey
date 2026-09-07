@@ -5019,6 +5019,61 @@ check('the brand catalogue makes no network calls at all',
     KNOWN_MISSING.every((op) => called.has(op) && !standalone.includes(op)), KNOWN_MISSING.join(', '));
 }
 
+// -- one hero, one action --
+// The hero had grown three routes to the same app (nav button, hero button,
+// a fallback link) plus a Google Play button sitting directly above a Google
+// Play badge, and a status line restating what the badges said. The
+// duplication was not decoration: CSS hid the wrong variant per platform. So
+// collapsing it is only safe if the surviving button still becomes the right
+// thing on Android — which the first attempt did NOT, because the script that
+// relabels it runs above the markup it was trying to relabel.
+{
+  for (const [lang, pagePath, webLabel, androidLabel] of [
+    ['en', '/', 'Open the app', 'Get on Google Play'],
+    ['ms', '/ms/', 'Buka aplikasi', 'Dapatkan di Google Play'],
+  ]) {
+    for (const [platform, ua] of [
+      ['desktop', null],
+      ['android', 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36'],
+    ]) {
+      const ctx = await b.newContext(ua ? { userAgent: ua } : {});
+      const page2 = await ctx.newPage();
+      await page2.goto(BASE + pagePath, { waitUntil: 'domcontentloaded' });
+      const hero = page2.locator('.hero').first();
+      const primary = hero.locator('.btn-primary');
+
+      const count = await primary.count();
+      check(`${lang} ${platform}: the hero offers exactly one primary action`,
+        count === 1, String(count));
+
+      const label = (await primary.first().innerText()).trim();
+      const href = await primary.first().getAttribute('href');
+      const wantLabel = platform === 'android' ? androidLabel : webLabel;
+      check(`${lang} ${platform}: it is labelled "${wantLabel}"`, label === wantLabel, label);
+      check(`${lang} ${platform}: and points where that label promises`,
+        platform === 'android' ? /play\.google\.com/.test(href) : /duitful\.app\/app/.test(href),
+        String(href));
+
+      // Android loses the web app from the button, so it keeps the small link
+      // back to it. Every other platform must not show a third route.
+      const fallback = await hero.locator('.cta-fallback').isVisible().catch(() => false);
+      check(`${lang} ${platform}: the web-app escape hatch shows only where it is needed`,
+        fallback === (platform === 'android'), String(fallback));
+
+      // The Play badge would otherwise repeat the button beside it.
+      const badge = await hero.locator('.cta-play-store').isVisible().catch(() => false);
+      check(`${lang} ${platform}: the Play badge never duplicates the primary button`,
+        badge === (platform !== 'android'), String(badge));
+
+      if (platform === 'desktop') {
+        const words = (await hero.locator('.hero-copy').innerText()).trim().split(/\s+/).length;
+        check(`${lang}: the hero says it in under 60 words`, words < 60, `${words} words`);
+      }
+      await ctx.close();
+    }
+  }
+}
+
 // -- the launch checklist items that were quietly wrong --
 // Two of these looked done and were not. A social preview pointing at an SVG
 // is a preview nobody ever sees, and a 404 that returns the host's plain-text
