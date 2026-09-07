@@ -5103,6 +5103,62 @@ check('the brand catalogue makes no network calls at all',
     existsSync(path.join(REPO_ROOT, 'og-image.svg'))
     && existsSync(path.join(REPO_ROOT, 'scripts/render-site-images.mjs')));
 
+  // The first version of this page styled its links as plain ink with a
+  // :hover background and nothing else. Touch devices have no hover, so on a
+  // phone the list read as a table of text and nobody could tell it was
+  // navigation. Affordance has to be in the RESTING state.
+  {
+    const ctx404 = await b.newContext({ viewport: { width: 390, height: 844 } });
+    const p404 = await ctx404.newPage();
+    await p404.goto(`${BASE}/404.html`, { waitUntil: 'domcontentloaded' });
+
+    const rows = await p404.locator('main ul li a').evaluateAll((els) => els.map((a) => {
+      const cs = getComputedStyle(a);
+      const note = a.querySelector('.note');
+      return {
+        height: a.getBoundingClientRect().height,
+        color: cs.color,
+        chevron: !!a.querySelector('svg'),
+        noteHeight: note ? note.getBoundingClientRect().height : 0,
+      };
+    }));
+    const bodyInk = await p404.evaluate(() => getComputedStyle(document.querySelector('main > p')).color);
+
+    check('every 404 link carries a chevron, not just a hover state',
+      rows.length >= 4 && rows.every((r) => r.chevron), `${rows.length} rows`);
+    check('their ink differs from body text, so they read as interactive at rest',
+      rows.length > 0 && rows.every((r) => r.color !== bodyInk), `${rows[0]?.color} vs ${bodyInk}`);
+    // 44px is the smallest target Apple and Google both consider tappable.
+    const shortest = Math.min(...rows.map((r) => r.height));
+    check('each row is a real touch target', shortest >= 44, `${shortest.toFixed(0)}px`);
+    // A one-line description that wraps to two lines and right-aligns is what
+    // the old side-by-side layout did to "Contact".
+    const wrapped = rows.filter((r) => r.noteHeight > 24).length;
+    check('no row description wraps', wrapped === 0, `${wrapped} wrapped`);
+
+    // Contrast, since the palette is hand-written here rather than inherited.
+    const contrast = await p404.evaluate(() => {
+      const lum = (c) => {
+        const [r, g, bl] = c.match(/\d+/g).map(Number).map((v) => {
+          v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+      };
+      const ratio = (x, y) => { const [hi, lo] = [lum(x), lum(y)].sort((m, n) => n - m); return (hi + 0.05) / (lo + 0.05); };
+      const card = getComputedStyle(document.querySelector('main')).backgroundColor;
+      const link = document.querySelector('main ul li a');
+      return {
+        link: ratio(getComputedStyle(link).color, card),
+        note: ratio(getComputedStyle(link.querySelector('.note')).color, card),
+        body: ratio(getComputedStyle(document.querySelector('main > p')).color, card),
+      };
+    });
+    for (const [what, r] of Object.entries(contrast)) {
+      check(`404 ${what} text clears WCAG AA (4.5:1)`, r >= 4.5, `${r.toFixed(2)}:1`);
+    }
+    await ctx404.close();
+  }
+
   // A custom 404 is only useful if the host actually serves it, which for a
   // static output means a 404.html at the root.
   const notFound = readFileSync(path.join(REPO_ROOT, '404.html'), 'utf8');

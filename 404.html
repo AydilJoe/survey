@@ -67,21 +67,39 @@
     font-weight: 600;
   }
   p { margin: 0 0 24px; color: var(--ink2); }
-  ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+  /* These read as a table unless they carry an affordance a touch device can
+     see. :hover does not exist on a phone, so the tappability has to be in
+     the resting state: interactive ink, a divider per row, and a chevron. */
+  ul { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--border); }
+  li + li { border-top: 1px solid var(--border); }
   li a {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: baseline;
-    padding: 12px 14px;
-    margin: 0 -14px;
-    border-radius: 12px;
-    color: var(--ink);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 2px 12px;
+    padding: 14px 14px 14px 0;
+    margin: 0 -14px 0 0;
+    color: var(--primary);
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
+    -webkit-tap-highlight-color: rgba(28, 43, 56, 0.08);
   }
-  li a:hover, li a:focus-visible { background: rgba(42, 36, 32, 0.05); }
-  li a span { color: var(--muted); font-weight: 400; font-size: 14px; text-align: right; }
+  li a .note {
+    grid-column: 1;
+    color: var(--ink2);
+    font-weight: 400;
+    font-size: 14px;
+  }
+  li a .chev {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    color: var(--muted);
+    flex: none;
+    transition: transform 0.15s ease;
+  }
+  li a:hover, li a:focus-visible { color: #101c27; }
+  li a:hover .chev { transform: translateX(2px); }
+  li a:active { opacity: 0.6; }
   .cta {
     display: inline-block;
     margin-top: 28px;
@@ -102,11 +120,11 @@
     <h1>That page isn't here.</h1>
     <p>The link may be old, or the address slightly off. Nothing is broken on your end.</p>
     <ul>
-      <li><a href="/">Home <span>What Duitful does</span></a></li>
-      <li><a href="/app/">Open the app <span>Free, no account</span></a></li>
-      <li><a href="/guides/">Guides <span>Money, debt &amp; tax in Malaysia</span></a></li>
-      <li><a href="/changelog/">Changelog <span>What shipped recently</span></a></li>
-      <li><a href="/contact/">Contact <span>Tell us what you were looking for</span></a></li>
+      <li><a href="/">Home<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg><span class="note">What Duitful does</span></a></li>
+      <li><a href="/app/">Open the app<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg><span class="note">Free, no account</span></a></li>
+      <li><a href="/guides/">Guides<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg><span class="note">Money, debt &amp; tax in Malaysia</span></a></li>
+      <li><a href="/changelog/">Changelog<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg><span class="note">What shipped recently</span></a></li>
+      <li><a href="/contact/">Contact<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg><span class="note">Tell me what you were after</span></a></li>
     </ul>
     <a class="cta" href="/app/">Open Duitful</a>
   </main>
