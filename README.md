@@ -33,18 +33,28 @@ Plain HTML/CSS/JS. No framework, no build step for the web app.
   settlement, and a payoff queue that ranks by *effective* profit rate so a
   0%-APR Islamic facility sorts where it actually belongs
 - Instalment and BNPL plans, with brand tiles for Malaysian providers
-- Android auto-capture: reads bank and e-wallet notifications on-device and
-  queues them for review
 
 **Savings and beyond**
 - Savings goals with progress
-- Zakat: nisab from live gold or silver, haul countdown, deductibles
+- Zakat: nisab on a gold or silver basis at a price you set, haul
+  countdown, deductibles, and savings included or excluded
 - Investment holdings and a retirement projection
 - Bill splitting
 
+**Getting things in**
+- Copy last month's income and expenses forward instead of retyping them
+- Android auto-capture: reads bank and e-wallet notifications on-device and
+  queues them for review — never sent anywhere
+- Home-screen widget, app shortcuts and a quick-add action from the
+  notification shade (Android)
+
 **Your data**
-- CSV export and import, round-trip safe
-- Optional Google Drive backup of the *encrypted* blob
+- CSV export and import, round-trip safe, with unknown `setting` keys skipped
+  rather than failing the import
+- Optional Google Drive backup of the *encrypted* blob — Drive never sees a
+  readable figure
+- Biometric unlock on Android, on top of the passcode
+- Light and dark themes, picked before first paint so there is no flash
 - Works offline once loaded; installable as a PWA
 
 ## Run it locally

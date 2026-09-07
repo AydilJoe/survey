@@ -5160,6 +5160,47 @@ check('the brand catalogue makes no network calls at all',
   check('it does not claim the web build is unlocked, since Pro gates it too',
     !/web deploy[^.]*fully unlocked/i.test(readme));
 
+  // A feature list is the part that rots fastest, and the part a reader
+  // decides on. Each of these named a thing that has to still be in the code.
+  const app = (f) => readFileSync(path.join(REPO_ROOT, 'app', f), 'utf8');
+  const modules = {
+    script: app('script.js'), split: app('split.js'),
+    investments: app('investments.js'), drive: app('drive-sync.js'),
+    brands: app('brands.js'), theme: app('theme-boot.js'),
+  };
+  const claims = [
+    ['privacy mode', /Privacy mode/i, () => /function amt\(/.test(modules.script)],
+    ['prior-period comparison', /prior-period comparison/i, () => /vs prior period/.test(modules.script)],
+    ['receipt reconciliation', /reconcile to the printed total/i, () => /parseReceiptText/.test(modules.script)],
+    ['cached FX', /cached FX rates/i, () => existsSync(path.join(REPO_ROOT, 'api/fx.js'))],
+    ['ibra\'', /ibra'/, () => /ibra/i.test(modules.script)],
+    ['instalment plans', /Instalment and BNPL/i, () => /kind === "installment"/.test(modules.script)],
+    ['BNPL brand tiles', /brand tiles/i, () => /BNPL/.test(modules.brands)],
+    ['bill splitting', /Bill splitting/i, () => /bill splitting/i.test(modules.split)],
+    ['retirement projection', /retirement projection/i, () => /retireAge/.test(modules.investments)],
+    ['encrypted Drive backup', /Drive never sees a\s+readable figure/i, () => /encrypted/i.test(modules.drive)],
+    ['copy last month', /Copy last month/i, () => /btn-copy-prev/.test(modules.script)],
+    ['themes before paint', /before first paint/i, () => /theme/i.test(modules.theme)],
+  ];
+  const broken = claims.filter(([, inReadme, inCode]) => inReadme.test(readme) && !inCode());
+  const dropped = claims.filter(([, inReadme]) => !inReadme.test(readme)).map(([n]) => n);
+  check('every feature the README claims is still in the code',
+    broken.length === 0, broken.map(([n]) => n).join(', ') || 'none');
+  check(`the feature list still covers all ${claims.length} things it is checked against`,
+    dropped.length === 0, dropped.join(', ') || 'none');
+
+  // Every Islamic contract the README names has to be one the app offers.
+  const contracts = [...modules.script.matchAll(/\{ id: "([a-z]+)", label: "([^"]+)"/g)].map((m) => m[2]);
+  const namedInReadme = contracts.filter((c) => readme.includes(c.split(' ')[0]));
+  check(`the README names every Islamic contract the app offers (${contracts.length})`,
+    contracts.length > 0 && namedInReadme.length === contracts.length,
+    contracts.filter((c) => !readme.includes(c.split(' ')[0])).join(', ') || 'none');
+
+  // The nisab price is typed in, not fetched. Saying "live" would be a claim
+  // the app does not make good on.
+  check('it does not claim a live gold or silver price it never fetches',
+    !/live gold|live silver/i.test(readme));
+
   // Every repository path and npm script it names has to resolve.
   const paths = [...readme.matchAll(/\]\((?!https?:)([^)#]+)\)/g)].map((m) => m[1]);
   const missingPaths = paths.filter((f) => !existsSync(path.join(REPO_ROOT, f)));
