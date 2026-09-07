@@ -660,10 +660,10 @@
     /* CTA peka peranti: kedua-dua varian wujud dalam HTML, CSS sembunyikan
        satu mengikut platform semasa. Pautan sandaran beri pengguna Android
        jalan ringkas ke aplikasi web. */
-    .cta-android { display: none; }
-    [data-platform="android"] .cta-web { display: none; }
-    [data-platform="android"] .cta-android { display: inline-flex; }
     [data-platform="android"] .cta-play-store { display: none; }
+    .lbl-android { display: none; }
+    [data-platform="android"] .lbl-web { display: none; }
+    [data-platform="android"] .lbl-android { display: inline; }
 
     .cta-fallback {
       display: none;
@@ -682,18 +682,6 @@
     [data-platform="android"] .cta-fallback { display: block; }
     .cta-final .cta-fallback { text-align: center; }
 
-    .hero-meta {
-      margin-top: 32px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-family: var(--font-mono);
-      font-size: 11px;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .hero-meta .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; }
 
     /* --------------- Phone mockup --------------- */
     .phone-wrap {
@@ -1803,10 +1791,23 @@
     var ua = navigator.userAgent || '';
     var isAndroid = /Android/i.test(ua);
     if (isAndroid) document.documentElement.dataset.platform = 'android';
-    var cta = document.getElementById('nav-cta');
-    if (cta) {
-      cta.href = isAndroid ? cta.dataset.androidHref : cta.dataset.webHref;
-      cta.textContent = isAndroid ? cta.dataset.androidLabel : cta.dataset.webLabel;
+    var nav = document.getElementById('nav-cta');
+    if (nav) {
+      nav.href = isAndroid ? nav.dataset.androidHref : nav.dataset.webHref;
+      nav.textContent = isAndroid ? nav.dataset.androidLabel : nav.dataset.webLabel;
+    }
+    // The hero and closing buttons sit BELOW this script, so it cannot touch
+    // them yet — an earlier version tried and silently did nothing, leaving
+    // Android users a button that said "Open the app". Their label is swapped
+    // by CSS off the <html> attribute set above, so there is no flash, and
+    // only the href waits for the DOM. Nobody can click an element that does
+    // not exist.
+    if (isAndroid) {
+      document.addEventListener('DOMContentLoaded', function () {
+        [].forEach.call(document.querySelectorAll('.platform-cta'), function (a) {
+          a.href = a.dataset.androidHref;
+        });
+      });
     }
   })();
 </script>
@@ -1818,24 +1819,22 @@
     <div class="container">
       <div class="hero-grid">
         <div class="hero-copy hero-intro">
-          <span class="eyebrow">Penjejak duit, hutang, pinjaman &amp; simpanan peribadi · Malaysia</span>
           <h1>Be <span class="serif-italic">duitful</span><br>with your duit.</h1>
-          <p class="hero-sub">Setiap app bajet yang saya cuba nak login bank saya. Jadi saya buat satu yang memang tak boleh minta. Tiada server untuk duit anda duduk &mdash; semuanya disulitkan dalam telefon anda dan kekal di situ. Kodnya ada di <a href="https://github.com/AydilJoe/survey">GitHub</a> kalau anda lebih suka semak daripada percaya cakap saya.</p>
+          <p class="hero-sub">Semua app bajet nak login bank saya. Yang ini memang tak boleh. Duit anda tak keluar dari telefon.</p>
           <div class="byline">
             <img src="../assets/aydil.jpg" width="56" height="56" alt="Aydil, pembina Duitful" loading="lazy" decoding="async" />
-            <p><strong>Aydil</strong> &mdash; Duitful ini saya bina sendiri. Bukan syarikat, tiada pelabur, tiada sesiapa beli data anda.</p>
+            <p><strong>Aydil</strong>, bina sendiri. <a href="https://github.com/AydilJoe/survey">Baca kodnya</a> kalau lebih suka semak daripada percaya cakap saya.</p>
           </div>
           <div class="hero-ctas">
-            <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary cta-web">
-              Cuba aplikasi web
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
-            </a>
-            <a href="https://play.google.com/store/apps/details?id=com.aydiljoe.duitful" target="_blank" rel="noopener" class="btn btn-primary cta-android" aria-label="Dapatkan di Google Play — Duitful">
-              Dapatkan di Google Play
+            <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary platform-cta"
+               data-web-href="https://duitful.app/app" data-web-label="Buka aplikasi"
+               data-android-href="https://play.google.com/store/apps/details?id=com.aydiljoe.duitful" data-android-label="Dapatkan di Google Play">
+              <span class="lbl-web">Buka aplikasi</span><span class="lbl-android">Dapatkan di Google Play</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
             </a>
             <a href="#features" class="btn btn-ghost">Lihat ciri</a>
           </div>
+          <p class="cta-fallback"><a href="https://duitful.app/app" target="_blank" rel="noopener">atau guna aplikasi web &rarr;</a></p>
           <div class="store-row" aria-label="Aplikasi iOS dan Android">
             <span class="btn-store is-soon" role="img" aria-label="App Store — akan datang">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.04c0-2.9 2.37-4.28 2.47-4.34-1.34-1.96-3.43-2.23-4.17-2.26-1.77-.18-3.45 1.04-4.35 1.04-.9 0-2.28-1.02-3.74-.99-1.93.03-3.7 1.12-4.7 2.84-2 3.46-.51 8.59 1.44 11.4.95 1.37 2.09 2.92 3.58 2.86 1.44-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.4 3.5-2.78 1.1-1.6 1.56-3.14 1.58-3.22-.03-.01-3.02-1.16-3.05-4.62zM14.23 3.7c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.37 1.73-.74.85-1.38 2.22-1.21 3.53 1.29.1 2.6-.65 3.4-1.6z"/></svg>
@@ -1851,11 +1850,6 @@
                 <span class="big">Google Play</span>
               </div>
             </a>
-          </div>
-          <p class="cta-fallback"><a href="https://duitful.app/app" target="_blank" rel="noopener">Cuba aplikasi web sebaliknya →</a></p>
-          <div class="hero-meta">
-            <span class="dot" aria-hidden="true"></span>
-            <span>Android &amp; aplikasi web tersedia sekarang · iOS akan datang</span>
           </div>
         </div>
 
@@ -2380,13 +2374,10 @@
         <h2>Sedia untuk jadi <em>duitful</em>?</h2>
         <p>Mulakan dengan aplikasi web hari ini, atau dapatkan aplikasi Android di Google Play. iOS akan datang.</p>
         <div class="store-row">
-          <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary cta-web">
-            Buka aplikasi web
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
-          </a>
-          <a href="https://play.google.com/store/apps/details?id=com.aydiljoe.duitful" target="_blank" rel="noopener" class="btn btn-primary cta-android" aria-label="Dapatkan di Google Play — Duitful">
-            Dapatkan di Google Play
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
+          <a href="https://duitful.app/app" target="_blank" rel="noopener" class="btn btn-primary platform-cta"
+             data-web-href="https://duitful.app/app" data-web-label="Buka aplikasi"
+             data-android-href="https://play.google.com/store/apps/details?id=com.aydiljoe.duitful" data-android-label="Dapatkan di Google Play">
+            <span class="lbl-web">Buka aplikasi</span><span class="lbl-android">Dapatkan di Google Play</span>
           </a>
           <span class="btn-store is-soon" role="img" aria-label="App Store — akan datang">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.04c0-2.9 2.37-4.28 2.47-4.34-1.34-1.96-3.43-2.23-4.17-2.26-1.77-.18-3.45 1.04-4.35 1.04-.9 0-2.28-1.02-3.74-.99-1.93.03-3.7 1.12-4.7 2.84-2 3.46-.51 8.59 1.44 11.4.95 1.37 2.09 2.92 3.58 2.86 1.44-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.4 3.5-2.78 1.1-1.6 1.56-3.14 1.58-3.22-.03-.01-3.02-1.16-3.05-4.62zM14.23 3.7c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.37 1.73-.74.85-1.38 2.22-1.21 3.53 1.29.1 2.6-.65 3.4-1.6z"/></svg>
