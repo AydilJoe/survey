@@ -1,135 +1,164 @@
 # Duitful
 
-A single-page money tracker for **monthly in/out** and **debt payoff using the avalanche method**. Built as plain HTML/CSS/JS — no build step, no backend. All data stays in your browser's `localStorage`. Currency: **MYR**.
+**A private money, debt and savings tracker for Malaysia.** Your figures are
+AES-GCM encrypted in the browser with a key derived from your passcode
+(PBKDF2, 250k iterations) and never leave the device. There is no account and
+no server holding your money data — because the passcode *is* the key, nobody
+including me can read your vault or recover it for you.
 
-## Features
+**Live:** <https://duitful.app> · **App:** <https://duitful.app/app> ·
+**Android:** [Google Play](https://play.google.com/store/apps/details?id=com.aydiljoe.duitful)
+· iOS coming soon
 
-- Add monthly income and expenses
-- Add outstanding debts (balance, APR, minimum payment)
-- Avalanche payoff simulator — highest APR first, rolls minimums forward
-- Dashboard: net cash flow, total debt, weighted APR, debt-free timeline, total interest paid
-- CSV export/import for backup and transferring between devices
-- Mobile-first, works offline once loaded
+Plain HTML/CSS/JS. No framework, no build step for the web app.
 
-## Run locally
+## What it does
 
-Open `index.html` in a browser, or serve the folder:
+**Money in and out**
+- Monthly income and expenses, plus a daily log with categories
+- Reports with a real prior-period comparison, not a lone month
+- Receipt scanning (Tesseract OCR, on-device) that reads the total, merchant
+  and date, tells you its confidence, and shows whether the line items
+  reconcile to the printed total
+- Multi-currency with cached FX rates
+- Privacy mode — hide every ringgit figure while keeping percentages, so a
+  screenshot can be shared
+
+**Debt**
+- Avalanche payoff simulator: highest effective rate first, minimums rolled
+  forward
+- Islamic financing as a first-class contract type, not conventional maths
+  with a label: Murabahah, Tawarruq, BBA, AITAB, Ijarah and Musharakah
+  Mutanaqisah. Fixed profit that does not compound, ibra' (rebate) on early
+  settlement, and a payoff queue that ranks by *effective* profit rate so a
+  0%-APR Islamic facility sorts where it actually belongs
+- Instalment and BNPL plans, with brand tiles for Malaysian providers
+- Android auto-capture: reads bank and e-wallet notifications on-device and
+  queues them for review
+
+**Savings and beyond**
+- Savings goals with progress
+- Zakat: nisab from live gold or silver, haul countdown, deductibles
+- Investment holdings and a retirement projection
+- Bill splitting
+
+**Your data**
+- CSV export and import, round-trip safe
+- Optional Google Drive backup of the *encrypted* blob
+- Works offline once loaded; installable as a PWA
+
+## Run it locally
 
 ```sh
 python3 -m http.server 8000
-# then visit http://localhost:8000
 ```
 
-## Deploy (GitHub Pages)
+- <http://localhost:8000/> — the landing page
+- <http://localhost:8000/app/> — the app itself
 
-This repo ships a workflow at `.github/workflows/pages.yml` that publishes the site to GitHub Pages whenever `main` is updated. To enable:
+The web app needs no build step. `/api/` (Billplz payments and licence
+signing) only runs on Vercel, so purchase flows are inert locally — everything
+else works.
 
-1. Push to GitHub.
-2. Repo → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. The site URL will appear at the top of the Pages settings — share that link.
+## Tests
+
+```sh
+npm install
+npm run test:e2e     # Playwright + headless Chromium, ~640 checks
+```
+
+The suite self-hosts the repo and starts from a fresh profile. It covers the
+debt maths against worked examples, the receipt parser against a fixed corpus
+of 120 real scanned receipts (mostly Malaysian) with a pinned accuracy floor,
+zakat, CSV round-trips, the encryption boundary, the
+service-worker cache-busting rules, and the deployment constraints that have
+broken production before. Run it after touching `app/script.js`.
+
+## Repository layout
+
+```
+app/          the web app — script.js carries most of it, plus split.js,
+              investments.js, drive-sync.js, brands.js, analytics.js, sw.js
+api/          Vercel functions: Billplz payments, ECDSA P-256 licence signing
+index.html    the landing page (ms/index.html is the Bahasa version)
+guides/       generated from scripts/guides/content/*.md — do not hand-edit
+native/       Capacitor extras, incl. the Android notification listener
+tests/        the end-to-end suite and its fixtures
+tools/        internal admin pages (noindex)
+```
 
 ## CSV format
 
-A single file with columns:
+One file, one row per record, `type` in the first column:
 
 ```
 type,name,amount,balance,apr,minPayment
 income,Salary,5000,,,
 expense,Rent,1500,,,
 debt,Credit Card,,3000,18,150
+saving,Emergency fund,,5000,,
+daily,Lunch,12.50,,,
 setting,extraMonthly,500,,,
 ```
 
-Rows for `income`/`expense` use `amount`. Rows for `debt` use `balance`, `apr`, `minPayment`. The `setting` row for `extraMonthly` stores the extra payment allocated to the avalanche each month.
+Row types: `income`, `expense`, `debt`, `saving`, `daily`, `daily-saving`,
+`daily-debt`, `setting`. `income`/`expense`/`daily` use `amount`; `debt` uses
+`balance`, `apr`, `minPayment`. `setting` rows carry one key each —
+`extraMonthly`, the zakat block, the retirement-plan block — and a build that
+doesn't recognise a key skips it rather than failing the import.
 
-## Files
+## Free and Pro
 
-- `index.html` — markup (Dashboard / In-Out / Debts / Data tabs)
-- `styles.css` — mobile-first dark UI
-- `script.js` — state, avalanche simulation, CSV import/export
+Pro is a **one-time RM 19.90**, not a subscription, and the same gate applies
+on the web app and inside the native shell. Every new vault gets a 7-day Pro
+trial.
 
-## Native builds (iOS / Android) — Capacitor
+| | Free | Pro |
+| --- | --- | --- |
+| Debts | 3 | unlimited |
+| Savings goals | 2 | unlimited |
+| Investment holdings | 2 | unlimited |
+| Receipt scans | 3 per month | unlimited |
+| Instalment / BNPL plans | — | ✓ |
+| Reminders | — | ✓ |
 
-The same web app can be wrapped into a real iOS/Android app using [Capacitor](https://capacitorjs.com/). Inside the native shell the app schedules OS-level **local notifications** that fire even when the app is fully closed (something PWAs can't do on iOS). On web everything else still works; only the native notification scheduling is skipped.
+Product ID `duitful_pro` (non-consumable). The price exists to cover the Apple
+Developer Program (USD $99/year) and the Play console fee (USD $25 one-time).
+Payment goes through Billplz; the licence is an ECDSA P-256 signed token, so
+there is no user database behind it.
 
-### One-time setup
+## Deployment
+
+- **Vercel** serves <https://duitful.app>, including `/api/`. Note the Hobby
+  plan builds at most **12 functions per deployment** — over that the whole
+  build fails while the previous deployment keeps serving, so the site looks
+  healthy and new endpoints 404. `npm run test:e2e` enforces the budget.
+- **GitHub Pages** also publishes the static site from `main` via
+  `.github/workflows/pages.yml`, without `/api/`.
+
+## Native builds (Capacitor)
+
+The same web app wraps into iOS and Android apps. The native shell adds
+OS-level local notifications that fire when the app is closed, in-app
+purchase, bundled OCR, and Android notification auto-capture.
 
 ```sh
-# Requires Node 18+, Xcode (iOS), Android Studio (Android)
 npm install
-npm run cap:add:ios      # first time only
-npm run cap:add:android  # first time only
+npm run cap:add:ios          # first time only, needs Xcode
+npm run cap:add:android      # first time only, needs Android Studio
+
+npm run cap:sync             # copy web files into www/, then cap sync
+npm run cap:ios              # open in Xcode
+npm run cap:android          # open in Android Studio
+npm run assets               # regenerate icons + splash from resources/*.svg
 ```
 
-### Build loop
-
-Every time you change the web files, sync them into the native projects:
-
-```sh
-npm run cap:sync         # copies web files into www/, then runs cap sync
-npm run cap:ios          # opens the iOS project in Xcode
-npm run cap:android      # opens the Android project in Android Studio
-```
-
-In Xcode: hit Run to test on a simulator or connected device. In Android Studio: press the green play button.
-
-### Signing & stores
-
-- **iOS** — needs a paid Apple Developer account ($99/year). Configure signing in Xcode → Signing & Capabilities, then archive and upload via Xcode Organizer to App Store Connect / TestFlight.
-- **Android** — needs a Google Play Developer account ($25 one-time). In Android Studio: Build → Generate Signed Bundle / APK, create a keystore, upload the `.aab` to Play Console.
-
-### Icon / splash
-
-The repo ships four source SVGs under `resources/`:
-
-- `resources/icon.svg` — 1024×1024, full icon (cream gradient bg + terracotta wallet mark). Used as a fallback by `@capacitor/assets`.
-- `resources/icon-foreground.svg` — 1024×1024, transparent bg, wallet sized to fit the 66% safe zone for Android adaptive icons.
-- `resources/icon-background.svg` — 1024×1024, the clay gradient / glow layer only.
-- `resources/splash.svg` — 2732×2732, minimal clay background with a centred wallet.
-
-Generate every size and density both stores + Android adaptive icons need:
-
-```sh
-npm run assets
-```
-
-That runs `@capacitor/assets generate`, which reads from `resources/`, writes PNGs into the iOS and Android projects, and sets the splash background colours defined in `package.json` (`#e8dfd0` light / `#2a2420` dark). Re-run whenever the SVGs change.
-
-### Duitful Pro (one-time IAP)
-
-The native app ships with a **free / Pro** split. The **web deploy on GitHub Pages is fully unlocked** — Pro only gates features inside the Capacitor native shell.
-
-Free (native) caps:
-- Up to 3 debts, 2 savings goals
-- 3 receipt scans per calendar month
-- In-app "Upcoming" banner only (no browser / OS notifications)
-- Manual monthly entry (no Copy-from-previous-month)
-- Standard debts only (no installment / BNPL tracking)
-
-Pro (native) unlocks everything above + future charts/reports.
-
-Product ID: **`duitful_pro`** (non-consumable). Configure this SKU in both App Store Connect and Play Console before submission. Suggested price **RM 19.90 lifetime**.
-
-IAP is handled via `cordova-plugin-purchase` (CdvPurchase v13). The plugin is installed as a dependency; after `npm run cap:sync` the native projects pick it up. On a successful purchase the `approved → verified` hook sets `state.pro = true`, encrypts it, and re-renders.
-
-Store-specific to-do before first submission:
-- **Apple**: create a non-consumable IAP with product ID `duitful_pro`, attach to the app in App Store Connect, add a privacy nutrition label.
-- **Google Play**: create a managed product `duitful_pro`, non-consumable, active, at the same price.
-
-### What changes for native users
-
-- Local notifications are scheduled from `state.debts`/`state.expenses`/`state.income` any time those change (debounced).
-- Notifications fire monthly on the configured day at 09:00 local time.
-- OCR (Tesseract) is bundled into the app, so receipt scanning works with **zero network** from first use. `npm run build:web` calls `npm run fetch:tesseract`, which downloads the runtime + English traineddata into `vendor/tesseract/` (~12 MB, gitignored) and copies it into `www/vendor/`. Subsequent builds reuse the cached files.
-- All other features (encryption, CSV, PWA styling) are identical.
-
-### Android auto-capture (from bank / e-wallet notifications)
-
-Android-only feature that reads notifications on-device and queues a "pending transaction" for user review. iOS sandbox doesn't allow this.
-
-Native plugin files + install instructions live under `native/notification-listener/`. Copy the two Java files into the generated Android project after `npm run cap:add:android`, register the plugin, add the service to `AndroidManifest.xml`, and the "Pending transactions" card on Home will start populating.
-
-Supported out of the box: Maybank, CIMB, Hong Leong, RHB, Public Bank, Touch 'n Go, GrabPay, Boost, BigPay, SPayLater, Atome. Add more patterns by editing `TXN_PROVIDERS` in `script.js` and the `ALLOWED` set in `DuitfulNotificationListenerService.java`.
+Signing and store steps are in [ANDROID_BUILD.md](ANDROID_BUILD.md). The
+Android notification listener needs two Java files copied into the generated
+project — see [`native/notification-listener/`](native/notification-listener/).
+It ships patterns for Maybank, CIMB, Hong Leong, RHB, Public Bank, Touch 'n
+Go, GrabPay, Boost, BigPay, SPayLater and Atome; add more in `TXN_PROVIDERS`
+in `app/script.js` and `ALLOWED` in `DuitfulNotificationListenerService.java`.
 
 ---
 

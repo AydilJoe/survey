@@ -5125,6 +5125,59 @@ check('the brand catalogue makes no network calls at all',
     && /pwa-home-narrow\.png/.test(readFileSync(path.join(REPO_ROOT, 'app/manifest.webmanifest'), 'utf8')));
 }
 
+// -- the README has to still be true --
+// It sat at v1.0 for a long time: it told readers to open index.html (which is
+// now the landing page, not the app), claimed "no backend" next to a directory
+// of serverless functions, and said the web build was fully unlocked after
+// Pro gates had been applied to it. A README nobody checks is documentation
+// that quietly becomes fiction.
+{
+  const readme = readFileSync(path.join(REPO_ROOT, 'README.md'), 'utf8');
+  const src = readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8');
+  const num = (re) => Number((re.exec(src) || [])[1]);
+
+  // Every free-tier number in the table is a constant in the app.
+  for (const [label, konst] of [
+    ['debts', 'FREE_DEBT_LIMIT'],
+    ['savings goals', 'FREE_SAVING_LIMIT'],
+    ['investment holdings', 'FREE_INVESTMENT_LIMIT'],
+    ['receipt scans', 'FREE_OCR_MONTHLY'],
+  ]) {
+    const value = num(new RegExp(`const ${konst} = (\\d+)`));
+    const row = new RegExp(`\\|[^|\\n]*${label}[^|\\n]*\\|[^|\\n]*\\b${value}\\b`, 'i');
+    check(`the README's free ${label} limit matches ${konst} (${value})`,
+      row.test(readme), `looking for ${value}`);
+  }
+  const trial = num(/const TRIAL_DAYS = (\d+)/);
+  check(`the README states the real trial length (${trial} days)`,
+    new RegExp(`${trial}-day Pro\\s+trial|${trial}-day Pro trial`).test(readme), `${trial}`);
+
+  // Claims that were false and are the reason this block exists.
+  check('it does not tell readers to open the landing page as the app',
+    !/Open `index\.html` in a browser/.test(readme));
+  check('it does not claim there is no backend while api/ exists',
+    !/no backend/i.test(readme) || !existsSync(path.join(REPO_ROOT, 'api')));
+  check('it does not claim the web build is unlocked, since Pro gates it too',
+    !/web deploy[^.]*fully unlocked/i.test(readme));
+
+  // Every repository path and npm script it names has to resolve.
+  const paths = [...readme.matchAll(/\]\((?!https?:)([^)#]+)\)/g)].map((m) => m[1]);
+  const missingPaths = paths.filter((f) => !existsSync(path.join(REPO_ROOT, f)));
+  check('every relative link in the README resolves',
+    missingPaths.length === 0, missingPaths.join(', ') || 'none');
+
+  const pkg = JSON.parse(readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
+  const scripts = [...readme.matchAll(/npm run ([a-z0-9:_-]+)/g)].map((m) => m[1]);
+  const missingScripts = [...new Set(scripts)].filter((n) => !pkg.scripts[n]);
+  check('every npm script the README names exists',
+    missingScripts.length === 0, missingScripts.join(', ') || 'none');
+
+  // The corpus size is quoted in two places and was wrong in one of them.
+  const corpus = JSON.parse(readFileSync(path.join(REPO_ROOT, 'tests/fixtures/sroie-receipts.json'), 'utf8')).length;
+  check(`the README quotes the real receipt corpus size (${corpus})`,
+    new RegExp(`\\b${corpus}\\b[^.]*receipts`).test(readme), String(corpus));
+}
+
 // -- the licence set --
 // The repository was public for a long time with no LICENSE file, which is the
 // worst configuration available: anyone could already read and copy every line,
