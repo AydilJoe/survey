@@ -5120,7 +5120,42 @@ check('the brand catalogue makes no network calls at all',
     // is finally left looking at.
     const animCount = await p404.evaluate(() => document.getAnimations().length);
     check('the receipt animates rather than just appearing', animCount > 5, `${animCount} animations`);
-    await p404.evaluate(() => document.getAnimations().forEach((a) => a.finish()));
+
+    // The paper has to FEED - lengthen downward out of a slot - not fade in.
+    // Drive the clock rather than race it, since a page that never paints
+    // never advances an animation on its own.
+    const feed = await p404.evaluate(async () => {
+      const main = document.querySelector('main');
+      const at = async (ms) => {
+        document.getAnimations().forEach((a) => { a.pause(); a.currentTime = ms; });
+        await new Promise((r) => requestAnimationFrame(r));
+        return getComputedStyle(main).clipPath;
+      };
+      return { start: await at(0), mid: await at(600), end: await at(4000) };
+    });
+    const bottomInset = (v) => {
+      const m = /inset\(([^)]*)\)/.exec(v || '');
+      if (!m) return null;
+      const parts = m[1].trim().split(/\s+/);
+      return parts[2] ?? parts[0];
+    };
+    check('the paper is still in the slot when printing starts',
+      /100%|calc/.test(bottomInset(feed.start) || ''), feed.start);
+    check('it has fed part-way out mid-print, not appeared whole',
+      (() => { const b = parseFloat(bottomInset(feed.mid)); return b > 0 && b < 100; })(),
+      feed.mid);
+    check('and it is fully out by the end', parseFloat(bottomInset(feed.end)) === 0, feed.end);
+
+    // The tears live inside the border box precisely so the feed cannot clip
+    // them away, which is what happened the first time this was tried.
+    const tears = await p404.evaluate(() => {
+      const cs = (sel) => getComputedStyle(document.querySelector('main'), sel);
+      return { top: cs('::before').top, bottom: cs('::after').bottom };
+    });
+    check('the torn edges sit inside the clipped box, so the feed cannot eat them',
+      tears.top === '0px' && tears.bottom === '0px', JSON.stringify(tears));
+
+    await p404.evaluate(() => document.getAnimations().forEach((a) => { a.play(); a.finish(); }));
 
     const rows = await p404.locator('main ul li a').evaluateAll((els) => els.map((a) => {
       const cs = getComputedStyle(a);

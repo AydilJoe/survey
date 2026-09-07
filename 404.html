@@ -46,30 +46,33 @@
     width: 100%;
     max-width: 400px;
     background: var(--paper);
-    padding: 34px 26px 30px;
+    padding: 45px 26px 41px;
     box-shadow: 0 1px 2px rgba(42, 36, 32, 0.05), 0 18px 44px rgba(42, 36, 32, 0.13);
-    animation: feed 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: feed 1250ms cubic-bezier(0.33, 0.1, 0.2, 1) both;
     transform-origin: top center;
   }
-  /* Torn edge. One conic gradient per tile draws exactly one triangle, which
-     is the only version of this that does not leave a ghost row of the
-     repeating tile showing underneath. */
+  /* Torn edge, bitten into the paper from inside rather than added outside
+     it. Outside, the clip-path that feeds the paper would cut them off — a
+     clip on an element clips its pseudo-elements too, which is exactly how
+     they went missing the first time. One conic gradient per tile draws
+     exactly one triangle; two overlapping gradients leave a ghost row of the
+     repeating tile showing. */
   main::before, main::after {
     content: "";
     position: absolute;
     left: 0;
     width: 100%;
     height: 11px;
-    background: conic-gradient(from 135deg at 50% 0, var(--paper) 0 90deg, transparent 0)
+    background: conic-gradient(from 135deg at 50% 0, var(--stage) 0 90deg, transparent 0)
       repeat-x 0 0 / 22px 11px;
   }
-  main::before { top: -11px; transform: scaleY(-1); }
-  main::after { bottom: -11px; transform: scaleY(-1); }
+  main::before { top: 0; transform: scaleY(-1); }
+  main::after { bottom: 0; }
 
   /* Paper feeding out of the printer. */
   @keyframes feed {
-    from { opacity: 0; transform: translateY(-16px) scaleY(0.985); }
-    to   { opacity: 1; transform: translateY(0) scaleY(1); }
+    from { clip-path: inset(0 0 100% 0); }
+    to   { clip-path: inset(0 0 0 0); }
   }
   /* Each line lands as it prints. */
   @keyframes line {
@@ -84,12 +87,12 @@
     100% { opacity: 1; transform: rotate(-9deg) scale(1); }
   }
 
-  .row { animation: line 320ms ease-out both; }
-  .d1 { animation-delay: 340ms; } .d2 { animation-delay: 400ms; }
-  .d3 { animation-delay: 470ms; } .d4 { animation-delay: 540ms; }
-  .d5 { animation-delay: 610ms; } .d6 { animation-delay: 680ms; }
-  .d7 { animation-delay: 750ms; } .d8 { animation-delay: 820ms; }
-  .d9 { animation-delay: 890ms; } .d10 { animation-delay: 960ms; }
+  .row { animation: line 260ms ease-out both; }
+  .d1 { animation-delay: 90ms; }  .d2 { animation-delay: 180ms; }
+  .d3 { animation-delay: 300ms; } .d4 { animation-delay: 430ms; }
+  .d5 { animation-delay: 545ms; } .d6 { animation-delay: 660ms; }
+  .d7 { animation-delay: 775ms; } .d8 { animation-delay: 890ms; }
+  .d9 { animation-delay: 1010ms; } .d10 { animation-delay: 1140ms; }
 
   .mark {
     display: block;
@@ -186,7 +189,7 @@
     border-radius: 8px;
     padding: 8px 16px;
     opacity: 0.9;
-    animation: stamp 460ms cubic-bezier(0.3, 1.4, 0.5, 1) 1080ms both;
+    animation: stamp 460ms cubic-bezier(0.3, 1.4, 0.5, 1) 1420ms both;
   }
 
   .close {
