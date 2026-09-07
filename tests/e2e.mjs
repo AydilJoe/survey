@@ -7,8 +7,8 @@
 // fresh browser profile, so every run starts from the first-run passcode
 // screen with empty localStorage.
 import { chromium } from 'playwright';
-import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, symlinkSync, unlinkSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
+import { existsSync, symlinkSync, unlinkSync, lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { readIosClientId, reversedClientId } from '../scripts/google-ios-client.mjs';
@@ -5017,6 +5017,57 @@ check('the brand catalogue makes no network calls at all',
     missing.length === 0, `unserved: ${missing.join(', ') || 'none'}`);
   check('the known-missing list is still accurate, not stale',
     KNOWN_MISSING.every((op) => called.has(op) && !standalone.includes(op)), KNOWN_MISSING.join(', '));
+}
+
+// -- the launch checklist items that were quietly wrong --
+// Two of these looked done and were not. A social preview pointing at an SVG
+// is a preview nobody ever sees, and a 404 that returns the host's plain-text
+// NOT_FOUND is a dead end on a site with seventy-odd guide URLs.
+{
+  const htmlFiles = execFileSync('git', ['ls-files', '*.html'], { cwd: REPO_ROOT, encoding: 'utf8' })
+    .split('\n').filter(Boolean)
+    .filter((f) => !f.startsWith('tools/') && !f.startsWith('app/') && !f.startsWith('scripts/'));
+
+  // Facebook, WhatsApp, X, LinkedIn, iMessage and Telegram all refuse to
+  // render an SVG og:image. The file has to be a raster one.
+  const socialRefs = [];
+  for (const f of htmlFiles) {
+    const src = readFileSync(path.join(REPO_ROOT, f), 'utf8');
+    for (const m of src.matchAll(/(?:og:image|twitter:image)" content="([^"]+)"/g)) socialRefs.push([f, m[1]]);
+  }
+  const svgSocial = socialRefs.filter(([, u]) => /\.svgx?$/i.test(u));
+  check(`every social preview image is a raster file (${socialRefs.length} references)`,
+    socialRefs.length > 0 && svgSocial.length === 0,
+    svgSocial.slice(0, 3).map(([f, u]) => `${f} -> ${u}`).join(' | ') || 'none');
+  check('and the file the tags point at is actually committed',
+    existsSync(path.join(REPO_ROOT, 'og-image.png')));
+  check('og:image:type matches the file it describes',
+    !htmlFiles.some((f) => /og:image:type" content="image\/svg/.test(readFileSync(path.join(REPO_ROOT, f), 'utf8'))));
+  // The SVG stays as the source the PNG is rendered from.
+  check('the PNG is rendered from a committed source rather than pasted in',
+    existsSync(path.join(REPO_ROOT, 'og-image.svg'))
+    && existsSync(path.join(REPO_ROOT, 'scripts/render-site-images.mjs')));
+
+  // A custom 404 is only useful if the host actually serves it, which for a
+  // static output means a 404.html at the root.
+  const notFound = readFileSync(path.join(REPO_ROOT, '404.html'), 'utf8');
+  check('the 404 page offers a way back rather than a dead end',
+    /href="\/"/.test(notFound) && /href="\/app\//.test(notFound) && /href="\/guides\//.test(notFound));
+  check('and it is not indexable, so it cannot rank for anything',
+    /name="robots" content="noindex/.test(notFound));
+  check('the 404 page is not listed in the sitemap',
+    !/404/.test(readFileSync(path.join(REPO_ROOT, 'sitemap.xml'), 'utf8')));
+
+  // The landing hero shipped at 1206x2622 for a 300x608 slot - four times the
+  // pixels anyone sees, and the heaviest thing on the page.
+  const heroBytes = statSync(path.join(REPO_ROOT, 'screenshots/hero-home.PNG')).size;
+  check('the landing hero image stays under 150 KB',
+    heroBytes < 150 * 1024, `${(heroBytes / 1024).toFixed(0)} KB`);
+  // Two files differing only in case is a trap on any case-insensitive
+  // checkout; the manifest's copy is a different image for a different job.
+  check('no two committed images differ only by the case of their name',
+    !existsSync(path.join(REPO_ROOT, 'screenshots/hero-home.png'))
+    && /pwa-home-narrow\.png/.test(readFileSync(path.join(REPO_ROOT, 'app/manifest.webmanifest'), 'utf8')));
 }
 
 // -- the licence set --
