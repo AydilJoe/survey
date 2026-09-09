@@ -153,6 +153,19 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-33">
+    <span class="release-date">September 2026 · v1.33</span>
+    <h2 class="release-title">You shouldn&rsquo;t have to take my word for it</h2>
+    <p class="release-summary">Duitful&rsquo;s whole pitch is that your money never leaves your phone. Until now that was a claim made by a stranger on the internet, which is worth about what you&rsquo;d expect. The code is public now, and there&rsquo;s a page that walks you through checking each claim yourself.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>The source is public, under GPL-3.0.</strong> The app, the payment functions, the tests, all of it. <code>app/script.js</code> ships unminified on purpose, so you can diff what actually runs at <code>duitful.app</code> against what&rsquo;s on GitHub and satisfy yourself they&rsquo;re the same thing. An app store exception keeps the licence from colliding with Apple&rsquo;s and Google&rsquo;s terms, so the native builds can still ship.</li>
+      <li><span class="tag feat">new</span><strong>A ten-minute guide to not trusting me.</strong> <em>Verifying the privacy claims</em> takes the four promises off the front page and maps each one to the file that carries it and the command that checks it. The strongest isn&rsquo;t code at all: the <code>connect-src</code> allowlist in the app&rsquo;s Content-Security-Policy names every host Duitful is <em>able</em> to reach, and the browser enforces it &mdash; against any JavaScript I might add later, and against anything an attacker manages to inject.</li>
+      <li><span class="tag fix">fix</span><strong>Nobody gets charged twice for the lifetime unlock again.</strong> A signature bug made a completed payment look like a failed one, so buyers paid a second time &mdash; one of them a third. Checkout now looks for a licence you already own and re-sends that instead of taking more money, and the page after payment says plainly not to try again.</li>
+      <li><span class="tag note">note</span><strong>The name is still mine, the code is yours.</strong> Run it, study it, change it, redistribute it, commercially included. The name <em>Duitful</em>, the wordmark and the domain aren&rsquo;t part of that grant &mdash; fork it freely, just ship it under your own name.</li>
+      <li><span class="tag note">note</span><strong>The app&rsquo;s own what&rsquo;s-new panel had been silent since v1.24.</strong> Eight releases went by without it saying a word, which is why this page was the only place any of them were written down. Working again, with the backlog filled in.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-32">
     <span class="release-date">August 2026 · v1.32</span>
     <h2 class="release-title">You probably don&rsquo;t know your credit card&rsquo;s interest rate</h2>

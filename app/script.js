@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.32.0";
+const APP_VERSION = "1.33.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8972,6 +8972,47 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.33.0": [
+    "<strong>Duitful's source is public now, under the GPL</strong> — the privacy claim stopped being something you have to take on faith. VERIFYING-PRIVACY.md walks you through watching your own network tab and confirming nothing leaves the device.",
+    "<strong>Paying twice for the lifetime unlock can't happen again</strong> — a signature bug made a successful payment look like a failed one, so buyers paid again. Checkout now finds the licence you already own and re-sends it instead of taking more money.",
+    "<strong>This panel had been quiet since v1.24</strong> — eight releases shipped without a word here. Their notes are below, and the full history is at duitful.app/changelog.",
+  ],
+  "1.32.0": [
+    "<strong>Pick a typical rate instead of guessing</strong> — a rate picker under the APR box on the Debts form: all three BNM credit card tiers (15%, 17%, 18%), housing at 4.3%, personal loan at 10%, PTPTN at 1%. It fills the box rather than replacing it, so the exact figure off your statement still wins.",
+    "<strong>Labels that survive being typed into</strong> — ten fields lost their label the moment you filled them in, including the promo and referral code boxes and the bill-splitting rows, where every row said \"Name\" until you typed and then none of them said anything at all.",
+  ],
+  "1.31.0": [
+    "<strong>The receipt scanner reads totals 94.5% of the time, up from 58%</strong> — measured against 361 real Malaysian receipts. It used to take the first line containing the word \"total\", so a Watsons \"TOTAL SAVINGS 8.40\" became your spend.",
+    "<strong>It knows Malay now</strong> — a bill saying JUMLAH had no total it recognised, so it fell back to the biggest number on the slip: TUNAI, the cash you handed over. An RM 18.50 dinner logged as RM 20.00.",
+    "<strong>It reads the date, and the 5-sen rounding</strong> — there was no date extraction at all, so a receipt from Tuesday was filed as today, silently. The review screen is rebuilt around the total, with the line items listed so a wrong one is diagnosable.",
+  ],
+  "1.30.0": [
+    "<strong>Privacy mode covers Reports properly</strong> — category amounts, the trend chart's peak labels, the prior-period figure and the whole Top 5 list stayed in plain view, on the one screen you'd actually screenshot. Hidden now, on every tab.",
+    "<strong>Percentages stay when the ringgit goes</strong> — \"Food — 34% — 46 entries\", the pie and the progress bars all survive, so a screenshot with your amounts off is still worth posting.",
+  ],
+  "1.29.0": [
+    "<strong>One reminder per bill, not one per month it has existed</strong> — \"repeat next month\" adds a row each time, and every row was booking its own reminder, so a bill you'd had since April went off four times every morning.",
+    "<strong>\"Min payment RM 0.00\" is gone</strong> — a debt with no minimum set now just says \"Payment due today\", which is what it meant.",
+    "<strong>Dark mode no longer flashes cream on launch</strong> — the code that reads your theme before the first frame was being blocked by the app's own security policy, on every launch, quietly, for months.",
+  ],
+  "1.28.0": [
+    "<strong>Five debts now fit where three did</strong> — edit and delete moved behind a ⋯ menu on each row, which freed the width for the name and the balance to share a line. Real lender names render in full instead of \"GrabPay...\".",
+    "<strong>The pay button says Pay</strong> — it used to be an arrow pointing out of a box, which means \"opens elsewhere\". It still pre-fills the minimum payment.",
+    "<strong>Delete takes a deliberate second tap</strong> — it used to sit one thumb-slip from a row that can't be recovered.",
+  ],
+  "1.27.0": [
+    "<strong>Lists read as one thing instead of five</strong> — debts, entries and the payoff queue now sit in a single sheet divided by hairlines, rather than a stack of separate cards each carrying its own border.",
+  ],
+  "1.26.0": [
+    "<strong>Amounts are colour-coded by ringgit note</strong> — a RM 3,200 balance carries the RM100 purple, an RM 40 one the RM20 orange. It's a scale you already read without thinking, so a list of debts can be ranked before you've read any of it.",
+    "<strong>Flat surfaces</strong> — every frosted panel is now solid. Easier to read, and noticeably lighter on cheaper phones, where each blurred panel was costing its own drawing layer.",
+    "<strong>Colour with a job</strong> — terracotta is the logo and nothing else. Buttons and links are ink, \"due soon\" is amber, overdue stays red: three signals that no longer look like each other.",
+  ],
+  "1.25.0": [
+    "<strong>Instalment plans carry their provider's colour</strong> — type \"ato\" and Atome comes up with its colour attached; same for SPayLater, GrabPayLater, Boost, Touch 'n Go and the major banks. The list is bundled and matched on your device, so your lenders never leave it.",
+    "<strong>\"4 of 12 paid\" instead of \"8 months left\"</strong> — the same number, but one of them is ground you've covered. Older plans keep showing months left until you fill in Total months under Edit, because Duitful never recorded it.",
+    "<strong>The nearest-finished plans show on Home</strong> — up to three on the Debts card, sorted by how close they are to done.",
   ],
   "1.24.0": [
     "<strong>Log a spend without opening Duitful</strong> (Android) — the widget now has +RM 5 / 10 / 20 / 50 buttons that record straight from your home screen, and the bigger size lets you tag the category too. One tap instead of four.",
