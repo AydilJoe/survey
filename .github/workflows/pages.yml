@@ -45,6 +45,10 @@ jobs:
           test -s .well-known/assetlinks.json
           test -s .well-known/apple-app-site-association
           python3 -c "import json;json.load(open('.well-known/apple-app-site-association'))"
+      # Agent tooling (Claude Code skills) lives in the repo but is not part
+      # of the site; the whole-tree upload below would otherwise publish it.
+      - name: Drop agent tooling from the site
+        run: rm -rf .claude
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
