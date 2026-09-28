@@ -48,7 +48,7 @@ jobs:
       # Agent tooling (Claude Code skills) lives in the repo but is not part
       # of the site; the whole-tree upload below would otherwise publish it.
       - name: Drop agent tooling from the site
-        run: rm -rf .claude
+        run: rm -rf .claude .impeccable PRODUCT.md
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
