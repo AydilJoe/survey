@@ -3974,20 +3974,25 @@ check('a failure never strands the button, and says something happened',
     const hasKey = !!aesKey;
     const step1 = !document.querySelector('[data-onboard-step="1"]').hidden;
     const skippable = !!dlg.querySelector('[data-onboard="skip"]');
-    // Two questions, then the answer.
+    // Three questions, then the answer — with nothing owed, so the answer is
+    // what's left this month. The debt path is checked on its own below.
     document.getElementById('onboard-income').value = '5000';
     dlg.querySelector('[data-onboard-step="1"] [data-onboard="next"]').click();
     await new Promise((r) => setTimeout(r, 60));
     dlg.querySelector('.onboard-bill-name').value = 'Rent';
     dlg.querySelector('.onboard-bill-amount').value = '1200';
     dlg.querySelector('[data-onboard-step="2"] [data-onboard="next"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const noDebtLabel = document.getElementById('onboard-debt-next').textContent;
+    dlg.querySelector('[data-onboard-step="3"] [data-onboard="next"]').click();
     await new Promise((r) => setTimeout(r, 120));
     const shown = document.getElementById('onboard-left').textContent;
     const perDay = document.getElementById('onboard-perday').textContent;
     dlg.querySelector('[data-onboard="done"]').click();
     await new Promise((r) => setTimeout(r, 200));
     return {
-      opened, step1, skippable, shown, perDay,
+      opened, step1, skippable, shown, perDay, noDebtLabel,
+      debts: state.debts.length,
       closed: !dlg.open,
       income: state.income.length,
       expenses: state.expenses.length,
@@ -3999,8 +4004,10 @@ check('a failure never strands the button, and says something happened',
       heroAfter: parseFloat(((document.querySelector('.hero-amount') || {}).textContent || '0').replace(/[^0-9.-]/g, '')),
     };
   });
-  check('first run opens the two-question setup, and it can always be skipped',
+  check('first run opens the setup, and it can always be skipped',
     flow.opened && flow.step1 && flow.skippable, JSON.stringify(flow));
+  check('owing nothing is one tap, and writes no debt',
+    /don't owe anything/.test(flow.noDebtLabel) && flow.debts === 0, JSON.stringify(flow));
   check('it answers the question it asked — RM 5,000 in, RM 1,200 committed → RM 3,800',
     /3,800/.test(flow.shown) && /a day/.test(flow.perDay),
     JSON.stringify({ shown: flow.shown, perDay: flow.perDay }));
@@ -4053,6 +4060,133 @@ check('and what was typed reaches the home screen calculation',
       document.querySelectorAll('dialog[open]').forEach((d) => d.close());
       return ok;
     }));
+}
+
+/* ── First run, debt path: the answer the primary user came for ──────────
+   Someone juggling a card, a BNPL plan and PTPTN gets the month they're
+   debt-free, from two numbers per debt, and the same month Home shows. */
+{
+  const debtFlow = await S(async () => {
+    state.income = []; state.expenses = []; state.dailyExpenses = [];
+    state.debts = []; state.budgetPools = []; state.extraMonthly = 0;
+    state.guideSeen = false;
+    save(); renderAll();
+    openOnboard();
+    await new Promise((r) => setTimeout(r, 100));
+    const dlg = document.getElementById('onboard-dialog');
+    document.getElementById('onboard-income').value = '4200';
+    dlg.querySelector('[data-onboard-step="1"] [data-onboard="next"]').click();
+    dlg.querySelector('[data-onboard-step="2"] [data-onboard="next"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const fill = (i, bal, mo) => {
+      const row = dlg.querySelectorAll('.onboard-debt')[i];
+      row.querySelector('.onboard-debt-balance').value = bal;
+      row.querySelector('.onboard-debt-monthly').value = mo;
+    };
+    dlg.querySelector('[data-onboard-debt="card"]').click();  fill(0, '8400', '420');
+    dlg.querySelector('[data-onboard-debt="bnpl"]').click();  fill(1, '600', '200');
+    dlg.querySelector('[data-onboard-debt="ptptn"]').click(); fill(2, '21000', '250');
+    const label = document.getElementById('onboard-debt-next').textContent;
+    dlg.querySelector('[data-onboard-step="3"] [data-onboard="next"]').click();
+    await new Promise((r) => setTimeout(r, 120));
+    const date = document.getElementById('onboard-free-date').textContent;
+    const freeShown = !document.getElementById('onboard-free').hidden;
+    const sim = simulateAvalanche(state.debts, 0);
+    const expected = formatMonthLabel(shiftMonth(currentMonthISO(), sim.months - 1));
+    const lever = document.getElementById('onboard-lever');
+    const leverShown = !lever.hidden;
+    lever.click();
+    await new Promise((r) => setTimeout(r, 60));
+    const dateWithExtra = document.getElementById('onboard-free-date').textContent;
+    const extra = state.extraMonthly;
+    const glance = (document.getElementById('hero-debt-glance-meta') || {}).textContent || '';
+    dlg.querySelector('[data-onboard="done"]').click();
+    await new Promise((r) => setTimeout(r, 100));
+    return {
+      label, date, expected, freeShown, leverShown, dateWithExtra, extra, glance,
+      debts: state.debts.map((d) => ({ name: d.name, kind: d.kind, apr: d.apr, balance: d.balance, min: d.minPayment, months: d.monthsLeft })),
+    };
+  });
+  check('adding a debt turns the button into the promise',
+    /debt-free date/.test(debtFlow.label), debtFlow.label);
+  check('each debt is stored as its contract works — card and PTPTN accrue, BNPL is fixed instalments',
+    debtFlow.debts.length === 3
+    && debtFlow.debts[0].kind === 'standard' && debtFlow.debts[0].apr === 18 && debtFlow.debts[0].min === 420
+    && debtFlow.debts[1].kind === 'installment' && debtFlow.debts[1].months === 3 && debtFlow.debts[1].balance === 600
+    && debtFlow.debts[2].kind === 'standard' && debtFlow.debts[2].apr === 1,
+    JSON.stringify(debtFlow.debts));
+  check('the answer is the debt-free month, from the same avalanche Home uses',
+    debtFlow.freeShown && debtFlow.date === debtFlow.expected, JSON.stringify(debtFlow));
+  check('the extra-a-month lever is a real setting and moves the date sooner',
+    debtFlow.leverShown && debtFlow.extra > 0 && debtFlow.dateWithExtra !== debtFlow.date
+    && debtFlow.glance.includes(debtFlow.dateWithExtra),
+    JSON.stringify(debtFlow));
+  await S(() => { state.debts = []; state.extraMonthly = 0; save(); renderAll(); });
+}
+
+/* ── First week pacing: no pitch on day one, no cold permission prompt ──
+   The trial banner waits a day. On the phone app, Android's notification
+   prompt is only ever raised by a yes — on day 3, from a card that says
+   what the reminders are for — never by setup or by saving. */
+{
+  const pacing = await S(async () => {
+    const saved = { pro: state.pro, trial: state.proTrialStartedAt, first: state.firstRunAt, done: state.reminderAskDone, cap: window.Capacitor };
+    state.pro = false;
+    state.proTrialStartedAt = Date.now();
+    renderTrialBanner();
+    const dayOne = document.getElementById('trial-banner').hidden;
+    state.proTrialStartedAt = Date.now() - 864e5;
+    renderTrialBanner();
+    const dayTwo = !document.getElementById('trial-banner').hidden;
+
+    let asked = 0;
+    window.__perm = 'prompt';
+    window.Capacitor = { isNativePlatform: () => true, Plugins: { LocalNotifications: {
+      checkPermissions: async () => ({ display: window.__perm }),
+      requestPermissions: async () => { asked += 1; window.__perm = 'granted'; return { display: 'granted' }; },
+      getPending: async () => ({ notifications: [] }), cancel: async () => {}, schedule: async () => {},
+    } } };
+    const quiet = await scheduleNativeReminders();
+    const askedWithoutYes = asked;
+
+    state.debts = [{ id: 'rm1', name: 'Card', balance: 1000, apr: 18, minPayment: 50, dueDay: null, kind: 'standard' }];
+    state.reminderAskDone = false; reminderAskPhase = 'offer'; reminderAskGranted = null;
+    state.firstRunAt = Date.now() - 864e5;
+    renderReminderAsk();
+    await new Promise((r) => setTimeout(r, 50));
+    const hiddenDayTwo = document.getElementById('reminder-ask').hidden;
+    state.firstRunAt = Date.now() - 2 * 864e5;
+    renderReminderAsk();
+    await new Promise((r) => setTimeout(r, 50));
+    const shownDayThree = !document.getElementById('reminder-ask').hidden;
+    renderTrialBanner();
+    const oneAskAtATime = document.getElementById('trial-banner').hidden;
+
+    document.getElementById('reminder-ask-yes').click();
+    await new Promise((r) => setTimeout(r, 80));
+    const datesShown = !document.getElementById('reminder-ask-dates').hidden;
+    document.querySelector('#reminder-ask-rows input').value = '12';
+    document.getElementById('reminder-ask-dates').requestSubmit();
+    await new Promise((r) => setTimeout(r, 80));
+    const out = {
+      dayOne, dayTwo, quiet, askedWithoutYes, askedAfterYes: asked, hiddenDayTwo, shownDayThree, oneAskAtATime,
+      datesShown, dueDay: state.debts[0].dueDay, done: state.reminderAskDone,
+      closed: document.getElementById('reminder-ask').hidden,
+    };
+    window.Capacitor = saved.cap;
+    state.pro = saved.pro; state.proTrialStartedAt = saved.trial; state.firstRunAt = saved.first; state.reminderAskDone = saved.done;
+    state.debts = []; reminderAskPhase = 'offer'; reminderAskGranted = null;
+    save(); renderAll();
+    return out;
+  });
+  check('the trial banner waits until day two', pacing.dayOne && pacing.dayTwo, JSON.stringify(pacing));
+  check('nothing raises the phone\'s notification prompt without a yes',
+    pacing.quiet === false && pacing.askedWithoutYes === 0, JSON.stringify(pacing));
+  check('the reminders ask arrives on day 3, not before, and the pitch steps aside for it',
+    pacing.hiddenDayTwo && pacing.shownDayThree && pacing.oneAskAtATime, JSON.stringify(pacing));
+  check('a yes asks once, then asks for due dates so a reminder can actually fire',
+    pacing.askedAfterYes === 1 && pacing.datesShown && pacing.dueDay === 12 && pacing.done && pacing.closed,
+    JSON.stringify(pacing));
 }
 
 /* Re-unlock if the suite has auto-locked. AUTO_LOCK_MS is 10s of being

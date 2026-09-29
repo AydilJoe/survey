@@ -70,6 +70,10 @@ const emptyState = () => ({
   driveAutoSync: true,
   lastSeenVersion: "",
   proTrialStartedAt: 0,
+  // When this device's vault was first set up. Drives the pacing of first-week
+  // asks (the trial banner waits a day, the reminders ask waits until day 3).
+  firstRunAt: 0,
+  reminderAskDone: false,
   nativeReferrer: "",
   proEmail: "",
   proRefCode: "",
@@ -315,6 +319,8 @@ function coerceState(parsed) {
       driveAutoSync: parsed.driveAutoSync !== false,
       lastSeenVersion: typeof parsed.lastSeenVersion === "string" ? parsed.lastSeenVersion : "",
       proTrialStartedAt: Number.isFinite(Number(parsed.proTrialStartedAt)) ? Number(parsed.proTrialStartedAt) : 0,
+      firstRunAt: Number.isFinite(Number(parsed.firstRunAt)) ? Number(parsed.firstRunAt) : 0,
+      reminderAskDone: !!parsed.reminderAskDone,
       nativeReferrer: typeof parsed.nativeReferrer === "string" && /^[a-f0-9]{8}$/.test(parsed.nativeReferrer) ? parsed.nativeReferrer : "",
       proEmail: typeof parsed.proEmail === "string" ? parsed.proEmail : "",
       proRefCode: typeof parsed.proRefCode === "string" && /^[a-f0-9]{8}$/.test(parsed.proRefCode) ? parsed.proRefCode : "",
@@ -2800,19 +2806,16 @@ function renderDashboard() {
   const targetEl = $("#hero-target");
   const targetText = $("#hero-target-text");
   if (targetEl && targetText) {
-    const daysLeft = Math.max(0, prog.daysInMonth - prog.day);
+    // Today counts: at 9pm on the 30th there is still a day to spend in, and
+    // the first-run result screen divides by the same number.
+    const daysLeft = daysRemainingInMonth();
     const balance = (Number(incomeTotal) || 0) + (Number(carryOver) || 0) - (Number(totalOut) || 0);
     if (incomeTotal <= 0) {
       targetEl.hidden = true;
     } else if (balance <= 0) {
       targetEl.hidden = false;
       const over = Math.abs(balance);
-      targetText.innerHTML = daysLeft > 0
-        ? `<strong>${fmtMoney(over)} over</strong> with <span class="hero-target-meta">${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`
-        : `<strong>${fmtMoney(over)} over</strong> <span class="hero-target-meta">— month ended</span>`;
-    } else if (daysLeft <= 0) {
-      targetEl.hidden = false;
-      targetText.innerHTML = `<strong>${fmtMoney(balance)}</strong> left <span class="hero-target-meta">— month ended</span>`;
+      targetText.innerHTML = `<strong>${fmtMoney(over)} over</strong> with <span class="hero-target-meta">${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`;
     } else {
       targetEl.hidden = false;
       const perDay = balance / daysLeft;
@@ -3606,6 +3609,12 @@ function renderTrialBanner() {
   const sub = document.getElementById("trial-banner-sub");
   const cta = document.getElementById("trial-banner-cta");
   if (isTrialActive()) {
+    // Not on day one. Someone who installed an hour ago has not seen what
+    // they'd be paying for yet; the trial still runs from install, the pitch
+    // just waits until tomorrow.
+    if (calendarDaysSince(state.proTrialStartedAt) < 1) { banner.hidden = true; return; }
+    // One ask at a time: while Home is asking about reminders, the pitch waits.
+    if (document.getElementById("reminder-ask")?.hidden === false) { banner.hidden = true; return; }
     const left = trialDaysLeft();
     banner.hidden = false;
     banner.classList.remove("trial-banner-expired");
@@ -3884,6 +3893,7 @@ function renderAll() {
   populateIslamicContracts();
   renderGreeting();
   renderTrialBanner();
+  renderReminderAsk();
   renderDashboard();
   renderFlow();
   renderDebts();
@@ -4364,12 +4374,29 @@ const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 // account / no server-side ledger to enforce one-trial-per-user.
 function ensureTrialStarted() {
   if (!state || !aesKey) return;
+  // Vaults from before firstRunAt existed date from their trial, which began
+  // on their first unlock; failing that, from now. Either way they're long
+  // past the first-week pacing, so the reminders ask reaches them once too.
+  if (!state.firstRunAt) {
+    state.firstRunAt = state.proTrialStartedAt || Date.now();
+    save();
+  }
   if (state.pro) return;
   if (!state.proTrialStartedAt) {
     state.proTrialStartedAt = Date.now();
     save();
   }
 }
+// Calendar days since a timestamp: 0 on the same day, 1 tomorrow. Counted by
+// date, not 24-hour blocks, so "day 2" starts at midnight the way a person
+// would count it.
+function calendarDaysSince(ts) {
+  if (!ts) return 0;
+  const start = new Date(ts); start.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.round((today - start) / (24 * 60 * 60 * 1000));
+}
+
 function isTrialActive() {
   if (!state || state.pro) return false;
   if (!state.proTrialStartedAt) return false;
@@ -5903,15 +5930,21 @@ function buildReminders(src) {
   return notifs;
 }
 
-async function scheduleNativeReminders() {
-  if (!isNative()) return;
+// Only asks the OS for permission when the user has just said yes to
+// reminders (`ask`). It used to ask on every save — which on a fresh install
+// meant Android's "Allow notifications?" landed on top of the first-run
+// setup, before anyone knew what a reminder here would be for. Returns
+// whether notifications are allowed.
+async function scheduleNativeReminders(opts) {
+  if (!isNative()) return false;
   const LN = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
-  if (!LN) return;
+  if (!LN) return false;
   try {
     const perm = await LN.checkPermissions();
     if (perm.display !== "granted") {
+      if (!(opts && opts.ask)) return false;
       const req = await LN.requestPermissions();
-      if (req.display !== "granted") return;
+      if (req.display !== "granted") return false;
     }
     const pending = await LN.getPending();
     if (pending && pending.notifications && pending.notifications.length) {
@@ -5919,12 +5952,14 @@ async function scheduleNativeReminders() {
     }
 
     const prefs = state.reminders || {};
-    if (prefs.enabled === false) return;
+    if (prefs.enabled === false) return true;
 
     const notifs = buildReminders(state);
     if (notifs.length) await LN.schedule({ notifications: notifs });
+    return true;
   } catch (err) {
     console.warn("Native LN schedule failed", err);
+    return false;
   }
 }
 
@@ -7165,6 +7200,21 @@ function renderReminderPrefs() {
   if (prefDays && document.activeElement !== prefDays) prefDays.value = prefs.daysAhead ?? 3;
   const chase = document.getElementById("pref-split-overdue");
   if (chase) chase.checked = prefs.splitOverdue !== false;
+  // The phone app has no browser Notification API; its reminders are OS
+  // notifications scheduled on the device. Before the day-3 ask existed the
+  // only way to grant them was the prompt at setup — this is the other door.
+  if (isNative()) {
+    if (btnNotif) { btnNotif.disabled = false; btnNotif.textContent = "Allow notifications"; }
+    nativeNotificationsGranted().then((granted) => {
+      if (btnNotif) btnNotif.hidden = granted;
+      if (notifStatus) {
+        notifStatus.textContent = granted
+          ? "Notifications: on. Reminders arrive at 9am on each due date."
+          : "Notifications: off.";
+      }
+    });
+    return;
+  }
   if (!("Notification" in window)) {
     if (notifStatus) notifStatus.textContent = "This browser doesn't support notifications.";
     if (btnNotif) btnNotif.disabled = true;
@@ -7218,6 +7268,13 @@ if (prefDays) prefDays.addEventListener("change", () => {
   renderUpcoming();
 });
 if (btnNotif) btnNotif.addEventListener("click", async () => {
+  if (isNative()) {
+    const ok = await scheduleNativeReminders({ ask: true });
+    if (!ok) toast("Notifications are off for Duitful — turn them on in your phone's settings first.");
+    reminderAskGranted = ok;
+    renderReminderPrefs();
+    return;
+  }
   if (!("Notification" in window)) return;
   state.reminders = state.reminders || {};
   if (state.reminders.notifications && Notification.permission === "granted") {
@@ -8727,7 +8784,157 @@ function finishGuide() {
   closeGuide();
 }
 
-/* ---------- First run: two questions, then the answer ----------
+/* ---------- Day-3 reminders ask (phone app) ----------
+
+   Android's permission prompt used to fire the instant a passcode was
+   created, over the first-run setup, with no reason given. People say no to
+   that, and on Android a second no is permanent. Now nothing asks on day
+   one. On day 3, when there's something worth reminding about, a card on
+   Home says what a reminder here is and asks; only a yes reaches the OS
+   prompt. A yes then asks for due dates, because first-run records have
+   none and a reminder with no date never fires. */
+
+const REMINDER_ASK_AFTER_DAYS = 2; // calendar days after setup: day 3
+let reminderAskPhase = "offer";    // offer | dates | blocked | closed
+let reminderAskGranted = null;     // cached OS answer; null until checked
+
+function reminderAskDue() {
+  return isNative()
+    && !!state
+    && !state.reminderAskDone
+    && !!state.firstRunAt
+    && calendarDaysSince(state.firstRunAt) >= REMINDER_ASK_AFTER_DAYS
+    && state.reminders?.enabled !== false
+    && (state.debts.length > 0 || state.expenses.length > 0);
+}
+
+// Things that could remind but can't yet: no due day recorded. This month's
+// bills only — older months' rows are history, not upcoming.
+function reminderAskUndated() {
+  const m = currentMonthISO();
+  const rows = [];
+  for (const d of state.debts) {
+    if (!d.dueDay && (Number(d.balance) || 0) > 0) rows.push({ kind: "debt", id: d.id, name: d.name });
+  }
+  for (const e of state.expenses) {
+    if (e.month === m && !e.day) rows.push({ kind: "expense", id: e.id, name: e.name });
+  }
+  return rows.slice(0, 6);
+}
+
+async function nativeNotificationsGranted() {
+  const LN = window.Capacitor?.Plugins?.LocalNotifications;
+  if (!LN || typeof LN.checkPermissions !== "function") return false;
+  try { return (await LN.checkPermissions()).display === "granted"; } catch { return false; }
+}
+
+function reminderAskFinish() {
+  reminderAskPhase = "closed";
+  if (!state.reminderAskDone) { state.reminderAskDone = true; save(); }
+  renderReminderAsk();
+  renderTrialBanner();
+}
+
+function renderReminderAsk() {
+  const card = document.getElementById("reminder-ask");
+  if (!card) return;
+  if (reminderAskPhase === "closed" || (reminderAskPhase === "offer" && !reminderAskDue())) {
+    card.hidden = true;
+    return;
+  }
+  if (reminderAskPhase === "offer" && reminderAskGranted === null) {
+    // Someone who already allowed notifications (an older install, or via
+    // Settings) has nothing to be asked. Check once, then render for real.
+    card.hidden = true;
+    nativeNotificationsGranted().then((granted) => {
+      reminderAskGranted = granted;
+      if (granted) reminderAskFinish();
+      else renderReminderAsk();
+    });
+    return;
+  }
+  card.hidden = false;
+  const trial = document.getElementById("trial-banner");
+  if (trial) trial.hidden = true;
+  document.getElementById("reminder-ask-offer").hidden = reminderAskPhase !== "offer";
+  document.getElementById("reminder-ask-dates").hidden = reminderAskPhase !== "dates";
+  document.getElementById("reminder-ask-blocked").hidden = reminderAskPhase !== "blocked";
+  const title = document.getElementById("reminder-ask-title");
+  if (title) {
+    title.textContent = reminderAskPhase === "dates"
+      ? "Reminders are on. When is each one due?"
+      : reminderAskPhase === "blocked"
+        ? "Reminders can't reach you yet"
+        : "Want a nudge on the day payments are due?";
+  }
+}
+
+function reminderAskShowDates(rows) {
+  const host = document.getElementById("reminder-ask-rows");
+  if (!host) return;
+  host.innerHTML = rows.map((r, i) => `
+    <label class="reminder-ask-row">
+      <span class="reminder-ask-name">${escapeHtml(r.name)}</span>
+      <input type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="Day"
+        data-kind="${r.kind}" data-id="${escapeHtml(r.id)}" aria-label="Day of the month ${escapeHtml(r.name)} is due" />
+    </label>`).join("");
+  reminderAskPhase = "dates";
+  renderReminderAsk();
+  setTimeout(() => host.querySelector("input")?.focus(), 60);
+}
+
+document.getElementById("reminder-ask-yes")?.addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  const ok = await scheduleNativeReminders({ ask: true });
+  btn.disabled = false;
+  reminderAskGranted = ok;
+  if (!ok) {
+    reminderAskPhase = "blocked";
+    state.reminderAskDone = true;
+    save();
+    renderReminderAsk();
+    renderReminderPrefs();
+    return;
+  }
+  renderReminderPrefs();
+  const rows = reminderAskUndated();
+  if (!rows.length) {
+    reminderAskFinish();
+    toast("Reminders are on — 9am on each due date.");
+    return;
+  }
+  reminderAskShowDates(rows);
+});
+
+document.getElementById("reminder-ask-no")?.addEventListener("click", () => {
+  reminderAskFinish();
+  toast("No reminders. You can turn them on in Settings → Reminders.");
+});
+document.getElementById("reminder-ask-later")?.addEventListener("click", reminderAskFinish);
+document.getElementById("reminder-ask-ok")?.addEventListener("click", reminderAskFinish);
+
+document.getElementById("reminder-ask-dates")?.addEventListener("submit", (e) => {
+  e.preventDefault();
+  let set = 0;
+  e.currentTarget.querySelectorAll("input[data-id]").forEach((input) => {
+    const day = Math.round(Number(input.value));
+    if (!Number.isFinite(day) || day < 1 || day > 31) return;
+    const list = input.dataset.kind === "debt" ? state.debts : state.expenses;
+    const row = list.find((x) => x.id === input.dataset.id);
+    if (!row) return;
+    if (input.dataset.kind === "debt") row.dueDay = day;
+    else row.day = day;
+    set += 1;
+  });
+  reminderAskFinish(); // saves, which reschedules with the new dates
+  renderAll();
+  toast(set
+    ? `${set} reminder${set === 1 ? "" : "s"} set — 9am on the day.`
+    : "Reminders are on. Add a due day to a bill or debt any time.");
+});
+
+/* ---------- First run: three questions, then the answer ----------
 
    What used to happen here: a ten-step tour, auto-opened, with the Skip
    button hidden — a brand-new user had to click through every screen,
@@ -8736,14 +8943,36 @@ function finishGuide() {
    who installed the app never opened it twice.
 
    A tour explains features to someone who has not yet decided they care.
-   This asks for two numbers and hands back the one they came for: what's
-   left this month. Everything else — debts, split, investments, zakat,
-   receipt scanning — is still there, just not in anyone's face on day one.
+   This asks what comes in, what's already spoken for, and what's owed, and
+   hands back the one number they came for. For someone carrying debt that is
+   the month they're debt-free — the reason the app exists — with what's left
+   to spend underneath. With no debts it is what's left this month. Split,
+   investments, zakat and receipt scanning are still there, just not in
+   anyone's face on day one.
 
-   Always skippable. The full tour is unchanged and still available on
-   demand from Settings → About. */
+   Always skippable, and "I don't owe anything" is one tap. The full tour is
+   unchanged and still available on demand from Settings → About. */
 
 let onboardBillRows = 1;
+let onboardDebtRows = 0;
+const ONBOARD_DEBT_MAX = 5;
+
+// Two numbers per debt instead of the Debts tab's seven. Everything else
+// comes from the type, modelled the way the contract actually works:
+//   - cards, personal loans and PTPTN are balances that accrue on what's left,
+//     at the same typical rates the Debts form's "Not sure of your rate?"
+//     picker offers (card at the 18% cap, so the first date is never rosier
+//     than the truth);
+//   - BNPL and car hire purchase are fixed instalments with the charge already
+//     inside them (BNPL is 0%; Malaysian HP interest is flat and baked into
+//     the instalment), so what's left to pay is simply instalments × months.
+const ONBOARD_DEBTS = {
+  card:     { name: "Credit card",   kind: "standard",    apr: 18,  owe: "Statement balance", note: "18% assumed" },
+  bnpl:     { name: "BNPL",          kind: "installment", apr: 0,   owe: "Left to pay",       note: "0% instalments" },
+  ptptn:    { name: "PTPTN",         kind: "standard",    apr: 1,   owe: "Still owe",         note: "1% ujrah assumed" },
+  car:      { name: "Car loan",      kind: "installment", apr: 0,   owe: "Left to pay",       note: "Fixed instalments" },
+  personal: { name: "Personal loan", kind: "standard",    apr: 10,  owe: "Still owe",         note: "10% assumed" },
+};
 
 function onboardDialog() { return document.getElementById("onboard-dialog"); }
 
@@ -8755,6 +8984,7 @@ function onboardShowStep(n) {
     el.classList.toggle("is-on", i < n);
   });
   if (n === 1) setTimeout(() => document.getElementById("onboard-income")?.focus(), 60);
+  if (n === 3) onboardSyncDebtStep();
 }
 
 function onboardAddBillRow(focus) {
@@ -8770,7 +9000,7 @@ function onboardAddBillRow(focus) {
   // leaves the field anonymous to a screen reader and to anyone who looks
   // away mid-entry.
   row.innerHTML = `
-    <input type="text" class="onboard-bill-name" aria-label="Bill name" placeholder="Rent, Astro, car loan…" autocomplete="off" />
+    <input type="text" class="onboard-bill-name" aria-label="Bill name" placeholder="Rent, Astro, TNB…" autocomplete="off" />
     <label class="onboard-field onboard-field-sm">
       <span class="onboard-cur">RM</span>
       <input type="number" class="onboard-bill-amount" aria-label="Monthly amount" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off" />
@@ -8783,10 +9013,65 @@ function onboardAddBillRow(focus) {
   if (add) add.hidden = onboardBillRows >= 3;
 }
 
+function onboardAddDebtRow(type) {
+  const spec = ONBOARD_DEBTS[type];
+  const wrap = document.getElementById("onboard-debt-rows");
+  if (!spec || !wrap) return;
+  if (wrap.children.length >= ONBOARD_DEBT_MAX) return;
+  const n = ++onboardDebtRows;
+  const row = document.createElement("div");
+  row.className = "onboard-debt";
+  row.dataset.type = type;
+  // Visible labels here, unlike the bill rows: two amounts side by side are
+  // easy to swap, and swapping them is the difference between a 3-year and a
+  // 30-year answer.
+  row.innerHTML = `
+    <div class="onboard-debt-head">
+      <input type="text" class="onboard-debt-name" aria-label="Debt name" value="${escapeHtml(spec.name)}" autocomplete="off" />
+      <span class="onboard-debt-rate">${escapeHtml(spec.note)}</span>
+      <button type="button" class="onboard-debt-remove" data-onboard="remove-debt" aria-label="Remove ${escapeHtml(spec.name)}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="onboard-debt-fields">
+      <label class="onboard-debt-field">
+        <span class="onboard-debt-label" id="od-owe-${n}">${escapeHtml(spec.owe)}</span>
+        <span class="onboard-field onboard-field-sm">
+          <span class="onboard-cur">RM</span>
+          <input type="number" class="onboard-debt-balance" aria-labelledby="od-owe-${n}" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off" />
+        </span>
+      </label>
+      <label class="onboard-debt-field">
+        <span class="onboard-debt-label" id="od-pay-${n}">Pay monthly</span>
+        <span class="onboard-field onboard-field-sm">
+          <span class="onboard-cur">RM</span>
+          <input type="number" class="onboard-debt-monthly" aria-labelledby="od-pay-${n}" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off" />
+        </span>
+      </label>
+    </div>`;
+  wrap.appendChild(row);
+  setTimeout(() => row.querySelector(".onboard-debt-balance")?.focus(), 60);
+  onboardSyncDebtStep();
+}
+
+// The primary button says what it will do. With nothing added it is the
+// one-tap way past the step; once a debt is in, it promises the answer.
+function onboardSyncDebtStep() {
+  const wrap = document.getElementById("onboard-debt-rows");
+  const count = wrap ? wrap.children.length : 0;
+  const next = document.getElementById("onboard-debt-next");
+  if (next) next.textContent = count ? "Show my debt-free date" : "I don't owe anything";
+  const note = document.getElementById("onboard-debt-note");
+  if (note) note.hidden = !wrap || !wrap.querySelector('[data-type="card"], [data-type="ptptn"], [data-type="personal"]');
+  const full = count >= ONBOARD_DEBT_MAX;
+  document.querySelectorAll("#onboard-dialog [data-onboard-debt]").forEach((b) => { b.disabled = full; });
+}
+
 // Reads the form and writes real records — no scratch format, no separate
 // "onboarding state" to reconcile later. What you type here is an ordinary
-// income row and ordinary recurring expenses, editable on Monthly like any
-// other. Returns what was committed so the result step can talk about it.
+// income row, ordinary recurring expenses and ordinary debts, editable on
+// Monthly and Debts like any other. Returns what was committed so the result
+// step can talk about it.
 function onboardCommit() {
   const m = currentMonthISO();
   const income = Number(document.getElementById("onboard-income")?.value) || 0;
@@ -8801,9 +9086,36 @@ function onboardCommit() {
     state.expenses.push({ id: uid(), name, amount: splitRound2Safe(amount), month: m, day: null });
     bills += amount;
   });
+  const debts = [];
+  document.querySelectorAll("#onboard-debt-rows .onboard-debt").forEach((row) => {
+    const spec = ONBOARD_DEBTS[row.dataset.type];
+    if (!spec) return;
+    const balance = splitRound2Safe(row.querySelector(".onboard-debt-balance")?.value);
+    const monthly = splitRound2Safe(row.querySelector(".onboard-debt-monthly")?.value);
+    if (!(balance > 0)) return;
+    const name = (row.querySelector(".onboard-debt-name")?.value || "").trim() || spec.name;
+    let debt;
+    if (spec.kind === "installment" && monthly > 0) {
+      const monthsLeft = Math.max(1, Math.ceil(balance / monthly));
+      debt = {
+        id: uid(), name, balance, apr: 0, minPayment: monthly, dueDay: null,
+        kind: "installment", installment: monthly, monthsLeft, termMonths: monthsLeft,
+      };
+    } else {
+      // An instalment plan with no instalment is not one; keep what was typed
+      // as an ordinary balance so the payoff maths flags it rather than
+      // inventing a payment.
+      debt = { id: uid(), name, balance, apr: spec.apr, minPayment: monthly, dueDay: null, kind: "standard" };
+    }
+    // Same brand guess the Debts form makes from a typed name ("Atome",
+    // "Maybank card"), so the row gets its logo tile like any other.
+    try { Object.assign(debt, debtBrandFromForm({ get: () => "" }, name)); } catch {}
+    state.debts.push(debt);
+    debts.push(debt);
+  });
   save();
   renderAll();
-  return { income, bills };
+  return { income, bills, debts };
 }
 
 // Local rounding helper: split.js may not have loaded, and this must never
@@ -8812,40 +9124,143 @@ function splitRound2Safe(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
 }
 
-function onboardShowResult() {
-  const { income, bills } = onboardCommit();
-  const left = Math.max(0, income - bills);
-  const daysLeft = Math.max(1, daysRemainingInMonth());
-  const leftEl = document.getElementById("onboard-left");
-  const perDayEl = document.getElementById("onboard-perday");
-  const explainEl = document.getElementById("onboard-explain");
-  if (leftEl) leftEl.textContent = fmtMoney(left);
-  if (perDayEl) {
-    perDayEl.textContent = left > 0
-      ? `About ${fmtMoney(left / daysLeft)} a day for the rest of the month.`
-      : "";
-  }
-  if (explainEl) {
-    explainEl.textContent = income > 0
-      ? `${fmtMoney(income)} coming in, ${fmtMoney(bills)} already committed. Every expense you log comes off this number.`
-      : "Add your income any time from the Monthly tab and this fills in.";
-  }
-  onboardShowStep(3);
-}
-
+// Counts today. The home screen uses the same helper, so the day rate on the
+// result screen and the one on the hero card are the same number.
 function daysRemainingInMonth() {
   const now = new Date();
   const last = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   return Math.max(1, last - now.getDate() + 1);
 }
 
+// A round, affordable nudge: about a tenth of what's left, in RM 50 steps,
+// between RM 50 and RM 500. Enough to move the date visibly, small enough
+// to be believable on a first day.
+function onboardExtraSuggestion(left) {
+  if (!(left >= 100)) return 0;
+  return Math.min(500, Math.max(50, Math.round((left * 0.1) / 50) * 50));
+}
+
+let onboardResult = null;
+
+function onboardDebtFreeLabel(months) {
+  return formatMonthLabel(shiftMonth(currentMonthISO(), months - 1));
+}
+
+function onboardRenderResult() {
+  const r = onboardResult;
+  if (!r) return;
+  const extra = r.extraOn ? r.extra : 0;
+  const minSum = r.debts.reduce((s, d) => s + (Number(d.minPayment) || 0), 0);
+  const left = Math.max(0, r.income - r.bills - minSum - extra);
+  const daysLeft = daysRemainingInMonth();
+  const perDay = left > 0 ? `about ${fmtMoney(left / daysLeft)} a day` : "";
+
+  const freeWrap = document.getElementById("onboard-free");
+  const leftWrap = document.getElementById("onboard-left-wrap");
+  const explainEl = document.getElementById("onboard-explain");
+  const hasDebts = r.debts.length > 0;
+  if (freeWrap) freeWrap.hidden = !hasDebts;
+  if (leftWrap) leftWrap.hidden = hasDebts;
+
+  if (hasDebts) {
+    const sim = simulateAvalanche(r.debts, extra);
+    const owed = r.debts.reduce((s, d) => s + (Number(d.balance) || 0), 0);
+    const dateEl = document.getElementById("onboard-free-date");
+    const metaEl = document.getElementById("onboard-free-meta");
+    const lever = document.getElementById("onboard-lever");
+    const leverText = document.getElementById("onboard-lever-text");
+    const spendEl = document.getElementById("onboard-spend");
+    const n = r.debts.length;
+    const across = `${fmtMoney(owed)} across ${n} debt${n === 1 ? "" : "s"}`;
+    if (sim.infeasible) {
+      freeWrap.classList.add("is-stuck");
+      if (dateEl) dateEl.textContent = "Not at these payments";
+      if (metaEl) metaEl.textContent = `${across}. The monthly payments don't outpace the ${minSum > 0 ? "interest" : "balance — add what you pay each month"}. The Debts tab shows what it takes.`;
+    } else {
+      freeWrap.classList.remove("is-stuck");
+      if (dateEl) dateEl.textContent = onboardDebtFreeLabel(sim.months);
+      if (metaEl) {
+        metaEl.textContent = `${formatMonths(sim.months)} from now. ${across}${sim.totalInterest > 0.5 ? `, plus ${fmtMoney(sim.totalInterest)} interest` : ""}.`;
+      }
+    }
+    // The lever is the point of the screen: the date is not fixed, and here
+    // is what moves it. It's a real setting (Debts → extra per month), not a
+    // demo, and it's off until they choose it.
+    if (lever && leverText) {
+      const base = r.extraOn ? simulateAvalanche(r.debts, 0) : sim;
+      const boosted = r.extraOn ? sim : simulateAvalanche(r.debts, r.extra);
+      const saved = base.infeasible ? 0 : base.months - boosted.months;
+      const show = r.extra > 0 && !boosted.infeasible && (base.infeasible || saved > 0);
+      lever.hidden = !show;
+      lever.setAttribute("aria-pressed", r.extraOn ? "true" : "false");
+      if (show) {
+        const when = onboardDebtFreeLabel(boosted.months);
+        const gain = base.infeasible
+          ? "and it clears"
+          : `${saved} month${saved === 1 ? "" : "s"} sooner${base.totalInterest - boosted.totalInterest > 0.5 ? `, ${fmtMoney(base.totalInterest - boosted.totalInterest)} less interest` : ""}`;
+        leverText.innerHTML = r.extraOn
+          ? `<strong>Paying ${fmtMoney(r.extra)} extra a month</strong><span>Moved from ${escapeHtml(base.infeasible ? "never" : onboardDebtFreeLabel(base.months))} — ${escapeHtml(gain)}</span>`
+          : `<strong>Pay ${fmtMoney(r.extra)} extra a month?</strong><span>Debt-free by ${escapeHtml(when)} — ${escapeHtml(gain)}</span>`;
+      }
+    }
+    if (spendEl) {
+      spendEl.innerHTML = r.income > 0
+        ? `<span>Left to spend this month</span><strong>${escapeHtml(fmtMoney(left))}</strong>${perDay ? `<em>${escapeHtml(perDay)}</em>` : ""}`
+        : "";
+      spendEl.hidden = !(r.income > 0);
+    }
+    if (explainEl) {
+      explainEl.textContent = r.income > 0
+        ? "Highest rate gets paid first. Log what you spend and pay, and the date stays honest."
+        : "Add your income from the Monthly tab and your spending money shows up here.";
+    }
+  } else {
+    const leftEl = document.getElementById("onboard-left");
+    const perDayEl = document.getElementById("onboard-perday");
+    if (leftEl) leftEl.textContent = fmtMoney(left);
+    if (perDayEl) perDayEl.textContent = perDay ? `${perDay[0].toUpperCase()}${perDay.slice(1)} for the rest of the month.` : "";
+    if (explainEl) {
+      explainEl.textContent = r.income > 0
+        ? `${fmtMoney(r.income)} coming in, ${fmtMoney(r.bills)} already committed. Every expense you log comes off this number.`
+        : "Add your income any time from the Monthly tab and this fills in.";
+    }
+  }
+}
+
+function onboardShowResult() {
+  const { income, bills, debts } = onboardCommit();
+  const minSum = debts.reduce((s, d) => s + (Number(d.minPayment) || 0), 0);
+  onboardResult = {
+    income, bills, debts,
+    extra: onboardExtraSuggestion(income - bills - minSum),
+    extraOn: false,
+  };
+  onboardRenderResult();
+  onboardShowStep(4);
+}
+
+function onboardToggleExtra() {
+  const r = onboardResult;
+  if (!r || !r.extra) return;
+  r.extraOn = !r.extraOn;
+  state.extraMonthly = r.extraOn ? r.extra : 0;
+  save();
+  renderAll();
+  onboardRenderResult();
+}
+
 function openOnboard() {
   const dlg = onboardDialog();
   if (!dlg) { openGuide({ firstRun: false }); return; } // markup missing: fall back to the tour
   onboardBillRows = 0;
+  onboardDebtRows = 0;
+  onboardResult = null;
   const wrap = document.getElementById("onboard-bill-rows");
   if (wrap) wrap.innerHTML = "";
+  const debtWrap = document.getElementById("onboard-debt-rows");
+  if (debtWrap) debtWrap.innerHTML = "";
   onboardAddBillRow(false);
+  onboardSyncDebtStep();
   const inc = document.getElementById("onboard-income");
   if (inc) inc.value = "";
   onboardShowStep(1);
@@ -8867,16 +9282,27 @@ function closeOnboard() {
 }
 
 document.addEventListener("click", (e) => {
-  const btn = e.target instanceof HTMLElement ? e.target.closest("[data-onboard]") : null;
+  const btn = e.target instanceof Element ? e.target.closest("[data-onboard], [data-onboard-debt], #onboard-lever") : null;
   if (!btn) return;
+  if (btn.id === "onboard-lever") { onboardToggleExtra(); return; }
+  if (btn.dataset.onboardDebt) { onboardAddDebtRow(btn.dataset.onboardDebt); return; }
   const action = btn.dataset.onboard;
   const step = Number(btn.closest(".onboard-step")?.dataset.onboardStep || 1);
   if (action === "skip") { closeOnboard(); return; }
   if (action === "done") { closeOnboard(); return; }
   if (action === "back") { onboardShowStep(step - 1); return; }
   if (action === "add-bill") { onboardAddBillRow(true); return; }
+  if (action === "remove-debt") {
+    const row = btn.closest(".onboard-debt");
+    const wrap = row?.parentElement;
+    row?.remove();
+    onboardSyncDebtStep();
+    (wrap?.querySelector(".onboard-debt:last-child .onboard-debt-balance")
+      || document.querySelector("#onboard-dialog [data-onboard-debt]"))?.focus();
+    return;
+  }
   if (action === "next") {
-    if (step === 1) onboardShowStep(2);
+    if (step < 3) onboardShowStep(step + 1);
     else onboardShowResult();
   }
 });

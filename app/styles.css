@@ -1955,14 +1955,86 @@ li.empty-block-host {
 }
 .onboard-actions .primary { width: 100%; padding: 0.8rem; font-size: 1rem; }
 .onboard-actions .ghost { width: 100%; }
+/* Step 3: debts. Chips add a row; each row is two amounts under a name the
+   user can retype ("Maybank card"). Rows are divided by hairlines, not boxed:
+   the dialog is already the card. */
+.onboard-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.onboard-chip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.85rem 0.4rem 0.65rem;
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-pill);
+  background: var(--card);
+  color: var(--text);
+  font: inherit; font-size: 0.88rem; font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.onboard-chip svg {
+  width: 15px; height: 15px; flex: 0 0 auto;
+  fill: none; stroke: var(--muted); stroke-width: 2; stroke-linecap: round;
+}
+.onboard-chip:hover { border-color: var(--primary); }
+.onboard-chip:active { transform: scale(0.97); }
+.onboard-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.onboard-chip:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.onboard-debts { display: flex; flex-direction: column; margin-top: 0.4rem; }
+.onboard-debt {
+  padding: 0.85rem 0 0.2rem;
+  border-bottom: 0.5px solid var(--line);
+  animation: onboard-row-in 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.onboard-debt:last-child { border-bottom: 0; }
+@keyframes onboard-row-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.onboard-debt-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.45rem; }
+#onboard-dialog .onboard-debt-name {
+  flex: 1 1 auto; min-width: 0;
+  border: 0; border-bottom: 1px dashed transparent; border-radius: 0;
+  background: transparent; box-shadow: none;
+  padding: 0.15rem 0; height: auto;
+  font: inherit; font-size: 1rem; font-weight: 600;
+  color: var(--text);
+}
+#onboard-dialog .onboard-debt-name:hover { border-bottom-color: var(--border); }
+#onboard-dialog .onboard-debt-name:focus { outline: none; box-shadow: none; border-bottom-color: var(--primary); }
+.onboard-debt-rate {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.onboard-debt-remove {
+  flex: 0 0 auto;
+  width: 2.75rem; height: 2.75rem; margin: -0.6rem -0.75rem -0.6rem 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0; min-width: 0;
+  border: 0; border-radius: 50%; background: transparent;
+  color: var(--ink2); cursor: pointer;
+}
+.onboard-debt-remove svg { flex: 0 0 auto; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.onboard-debt-remove:hover { color: var(--loss); background: var(--line); }
+.onboard-debt-remove:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.onboard-debt-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.onboard-debt-field { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.onboard-debt-label { font-size: 0.78rem; color: var(--muted); }
+.onboard-debt-field .onboard-field-sm { flex: none; }
+.onboard-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
 /* The payoff screen. This is the first time the app tells them anything. */
 .onboard-result { text-align: center; padding-top: 0.6rem; }
-.onboard-eyebrow {
+.onboard-lead {
   margin: 0;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.95rem;
   color: var(--muted);
 }
 .onboard-big {
@@ -1972,13 +2044,126 @@ li.empty-block-host {
   letter-spacing: -0.03em;
   color: var(--gain);
   line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+/* The debt-free month speaks in the hero card's serif, so the promise made
+   here looks like the number that keeps it on Home. */
+.onboard-date {
+  margin-bottom: 0.45rem;
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: clamp(2.2rem, 9vw, 2.75rem);
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  animation: onboard-date-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes onboard-date-in {
+  from { opacity: 0; transform: translateY(6px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+#onboard-free.is-stuck .onboard-date {
+  color: var(--loss);
+  font-size: clamp(1.7rem, 7vw, 2rem);
 }
 .onboard-perday {
-  margin: 0 0 0.9rem;
-  font-size: 0.95rem;
+  margin: 0 auto 0.9rem;
+  max-width: 30ch;
+  font-size: 0.92rem;
+  line-height: 1.45;
   color: var(--text);
+  text-wrap: pretty;
 }
 .onboard-result .onboard-sub { margin-bottom: 0; }
+
+/* The lever: a real setting (extra per month), offered as a question with
+   its answer attached. Off until chosen. */
+.onboard-lever {
+  display: flex; align-items: flex-start; gap: 0.7rem;
+  width: 100%;
+  margin: 0.2rem 0 0;
+  padding: 0.8rem 0.9rem;
+  border: 0.5px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--card);
+  color: var(--text);
+  font: inherit; text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.onboard-lever:hover { border-color: var(--gain); }
+.onboard-lever:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.onboard-lever-box {
+  flex: 0 0 auto;
+  width: 1.3rem; height: 1.3rem; margin-top: 0.1rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.onboard-lever-box svg {
+  width: 14px; height: 14px; fill: none;
+  stroke: var(--card); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round;
+  stroke-dasharray: 22; stroke-dashoffset: 22;
+  transition: stroke-dashoffset 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.onboard-lever-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.onboard-lever-text strong { font-size: 0.95rem; font-weight: 600; }
+.onboard-lever-text span { font-size: 0.84rem; color: var(--muted); line-height: 1.4; }
+.onboard-lever[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--gain) 55%, transparent);
+  background: color-mix(in srgb, var(--gain) 9%, var(--card));
+}
+.onboard-lever[aria-pressed="true"] .onboard-lever-box { background: var(--gain); border-color: var(--gain); }
+.onboard-lever[aria-pressed="true"] .onboard-lever-box svg { stroke-dashoffset: 0; }
+.onboard-lever[aria-pressed="true"] .onboard-lever-text span { color: var(--text); }
+
+/* Left-to-spend, demoted to a line under the date when there is debt. */
+.onboard-spend {
+  display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+  gap: 0.1rem 0.75rem;
+  margin: 0.9rem 0 0.8rem;
+  padding-top: 0.85rem;
+  border-top: 0.5px solid var(--line);
+  text-align: left;
+  font-size: 0.9rem;
+}
+.onboard-spend span { color: var(--muted); }
+.onboard-spend strong { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--gain); }
+.onboard-spend em { flex-basis: 100%; font-style: normal; font-size: 0.82rem; color: var(--muted); text-align: right; }
+
+@media (prefers-reduced-motion: reduce) {
+  .onboard-debt, .onboard-date { animation: none; }
+  .onboard-lever-box svg { transition: none; }
+}
+
+/* ---------- Day-3 reminders ask (phone app) ---------- */
+.reminder-ask { margin-bottom: 0.9rem; }
+.reminder-ask-head { display: flex; align-items: center; gap: 0.7rem; margin-bottom: 0.45rem; }
+.reminder-ask-mark {
+  flex: 0 0 auto;
+  width: 2rem; height: 2rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-cool) 16%, var(--card));
+  color: var(--accent-cool);
+}
+.reminder-ask-mark svg { width: 17px; height: 17px; }
+.reminder-ask-head h2 { margin: 0; font-size: 1.02rem; line-height: 1.3; text-wrap: balance; }
+.reminder-ask-body { margin: 0 0 0.85rem; font-size: 0.88rem; line-height: 1.5; color: var(--ink2, var(--muted)); max-width: 60ch; }
+.reminder-ask-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.reminder-ask-actions .primary { flex: 1 1 12rem; min-height: 2.75rem; }
+.reminder-ask-actions .ghost { flex: 0 1 auto; min-height: 2.75rem; }
+.reminder-ask-rows { display: flex; flex-direction: column; margin-bottom: 0.85rem; }
+.reminder-ask-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 0.5px solid var(--line);
+}
+.reminder-ask-row:last-child { border-bottom: 0; }
+.reminder-ask-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.92rem; }
+.reminder-ask-row input { flex: 0 0 5.5rem; width: 5.5rem; text-align: center; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+.reminder-ask-row input::-webkit-outer-spin-button,
+.reminder-ask-row input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
 /* ---------- Working state for async buttons ----------
    Unlocking runs 250k PBKDF2 rounds. On an older phone that is most of a
