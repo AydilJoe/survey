@@ -13,3 +13,5 @@ landing/
 pnpm-lock.yaml
 capacitor.config.json
 /.claude/
+/.impeccable/
+/PRODUCT.md
