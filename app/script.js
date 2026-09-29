@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.35.1";
+const APP_VERSION = "1.35.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9598,6 +9598,9 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.35.2": [
+    "<strong>A calmer, cleaner look</strong> — labels are plain words instead of tiny spaced-out capitals, figures sit on the page instead of in boxes inside boxes, and lists are simple rows. Nothing moved; it's just easier on the eyes.",
   ],
   "1.35.1": [
     "<strong>Spending pools can be edited again after the free trial</strong> — a pool that got rollover or a monthly override during the trial couldn't be renamed or re-limited once it ended. Now it can, and you can switch those settings off. Turning them on is still Pro.",
