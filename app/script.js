@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.33.0";
+const APP_VERSION = "1.34.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9398,6 +9398,11 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.34.0": [
+    "<strong>Setup now ends on your debt-free date</strong> — add your card, BNPL, PTPTN or car loan with two numbers each (what's left and what you pay monthly) and the first thing Duitful shows you is the month you're clear, plus what RM 100 or so extra a month would do to it.",
+    "<strong>No more permission pop-up the second you open the app</strong> (Android app) — Duitful asks about reminders on your third day instead, says what they're for, and then asks which day each bill is due so they actually arrive.",
+    "<strong>Home and setup agree on your daily budget</strong> — today now counts as a day left in both places.",
   ],
   "1.33.0": [
     "<strong>Duitful's source is public now, under the GPL</strong> — the privacy claim stopped being something you have to take on faith. VERIFYING-PRIVACY.md walks you through watching your own network tab and confirming nothing leaves the device.",

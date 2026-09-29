@@ -153,6 +153,19 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-34">
+    <span class="release-date">September 2026 · v1.34</span>
+    <h2 class="release-title">The first screen now answers the question you came with</h2>
+    <p class="release-summary">Most people who install Duitful are carrying a card balance, a BNPL plan or two, and PTPTN, and want one thing: when does this end? Setup used to ask about your salary and bills and never mention debt at all. Now it asks, and the first number you see is the month you&rsquo;re debt-free.</p>
+    <ul>
+      <li><span class="tag feat">new</span><strong>&ldquo;What do you owe?&rdquo; in setup.</strong> Tap Credit card, BNPL, PTPTN, Car loan or Personal loan and fill in two numbers: what&rsquo;s left and what you pay a month. Each is modelled the way that product actually works &mdash; cards and loans accrue on the balance at typical Malaysian rates (a card at the 18% cap, so the date is never rosier than the truth), BNPL and car hire purchase as fixed instalments. The screen says which rates are assumed; your statement has the exact one. Owe nothing? One tap and you&rsquo;re past it.</li>
+      <li><span class="tag feat">new</span><strong>Your debt-free month, and what moves it.</strong> The result leads with the date, worked out by the same avalanche maths as the Debts tab, then offers a real choice: put a little extra toward it each month and see how many months and how much interest it saves. Tick it and it becomes your actual extra payment setting.</li>
+      <li><span class="tag fix">fix</span><strong>No notification pop-up on first open.</strong> On Android, the system &ldquo;Allow notifications?&rdquo; prompt fired the moment you set a passcode, on top of setup, with no reason given. Now nothing asks until your third day, when a card on Home explains what a reminder is for &mdash; and if you say yes, asks which day each bill is due, because a reminder with no date never arrives. Settings &rarr; Reminders can turn them on any time.</li>
+      <li><span class="tag fix">fix</span><strong>The Pro trial doesn&rsquo;t pitch on day one.</strong> The seven days still start at install; the banner just waits until tomorrow, and steps aside while Home is asking about reminders.</li>
+      <li><span class="tag fix">fix</span><strong>One daily budget, not two.</strong> Setup said RM 1,650 a day while Home said RM 3,300 for the same numbers, because only one of them counted today. Both do now.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-33">
     <span class="release-date">September 2026 · v1.33</span>
     <h2 class="release-title">You shouldn&rsquo;t have to take my word for it</h2>
