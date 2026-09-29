@@ -4302,6 +4302,62 @@ check('and what was typed reaches the home screen calculation',
   await page.click('#tabbtn-dashboard');
 }
 
+/* ── Spending pools stay editable after the trial ────────────────────────
+   A pool given rollover or a monthly override during the trial used to be
+   locked once the trial ended: the Pro gate fired on the setting being
+   present, so no edit — not even a rename — could be saved. The gate is for
+   turning a Pro setting on. */
+{
+  await page.click('#tabbtn-flow');
+  const pools = await S(async () => {
+    const saved = { pro: state.pro, trial: state.proTrialStartedAt, pools: state.budgetPools };
+    const m = currentMonthISO();
+    state.pro = false; state.proTrialStartedAt = Date.now() - 9 * 864e5;
+    state.budgetPools = saved.pools.filter((p) => p.system === 'debt').concat([
+      { id: 'pr', name: 'Rolls', limit: 300, color: POOL_COLORS[0], active: false, rollover: true, monthlyLimits: {}, createdAt: 1 },
+      { id: 'po', name: 'Overridden', limit: 300, color: POOL_COLORS[0], active: false, rollover: false, monthlyLimits: { [m]: 500 }, createdAt: 2 },
+      { id: 'pp', name: 'Plain', limit: 300, color: POOL_COLORS[0], active: false, rollover: false, monthlyLimits: {}, createdAt: 3 },
+    ]);
+    renderAll();
+    const form = document.getElementById('form-budget-pool');
+    const paywallOpen = () => document.getElementById('paywall-dialog')?.open;
+    const closeAll = () => document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const edit = (id, fn) => {
+      openPoolForm(id);
+      fn(form);
+      form.requestSubmit();
+      const blocked = !!paywallOpen();
+      closeAll();
+      return blocked;
+    };
+    const out = {};
+    out.titled = (openPoolForm('pr'), document.getElementById('pool-form-title').textContent);
+    out.addHidden = document.getElementById('btn-add-pool').hidden;
+    closePoolForm();
+    out.addBack = !document.getElementById('btn-add-pool').hidden;
+    out.renameRollBlocked = edit('pr', (f) => { f.querySelector('[name="name"]').value = 'Rolls renamed'; });
+    out.renameOverBlocked = edit('po', (f) => { f.querySelector('[name="limit"]').value = '350'; });
+    out.turnOffBlocked = edit('pr', (f) => { f.querySelector('[name="rollover"]').checked = false; });
+    out.newRolloverBlocked = edit('pp', (f) => { f.querySelector('[name="rollover"]').checked = true; });
+    out.newOverrideBlocked = edit('pp', (f) => { f.querySelector('[name="thisMonthOverride"]').value = '999'; });
+    out.state = state.budgetPools.filter((p) => p.system !== 'debt').map((p) => [p.name, p.limit, p.rollover, p.monthlyLimits[m] ?? null]);
+    state.pro = saved.pro; state.proTrialStartedAt = saved.trial; state.budgetPools = saved.pools;
+    closePoolForm(); save(); renderAll();
+    return out;
+  });
+  check('editing a pool says which one, and hides "+ Add pool" while open',
+    pools.titled === 'Edit Rolls' && pools.addHidden && pools.addBack, JSON.stringify(pools));
+  check('after the trial, a pool with rollover or an override can still be renamed and re-limited',
+    !pools.renameRollBlocked && !pools.renameOverBlocked
+    && pools.state[0][0] === 'Rolls renamed' && pools.state[1][1] === 350 && pools.state[1][3] === 500,
+    JSON.stringify(pools));
+  check('and its Pro setting can be switched off',
+    !pools.turnOffBlocked && pools.state[0][2] === false, JSON.stringify(pools));
+  check('turning a Pro setting on still asks for Pro',
+    pools.newRolloverBlocked && pools.newOverrideBlocked
+    && pools.state[2][2] === false && pools.state[2][3] === null, JSON.stringify(pools));
+}
+
 /* Re-unlock if the suite has auto-locked. AUTO_LOCK_MS is 10s of being
    hidden, and the cold-start checks above open their own pages, which
    backgrounds this one — the app dropping its key there is correct, but the

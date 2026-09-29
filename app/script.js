@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.35.0";
+const APP_VERSION = "1.35.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1507,11 +1507,23 @@ function renderPoolColorOptions(selectedColor) {
   `).join("");
 }
 
-function openPoolForm(poolId) {
+function openPoolForm(poolId, opts) {
   const form = document.getElementById("form-budget-pool");
   if (!form) return;
   const editing = poolId ? state.budgetPools.find((p) => p.id === poolId) : null;
   form.hidden = false;
+  // Say which pool is open, and put the form where the eye is: on a phone it
+  // opened below the fold under "+ Add pool" with nothing saying what it was
+  // for, so an edit tap looked like it did nothing.
+  const title = document.getElementById("pool-form-title");
+  if (title) title.textContent = editing ? `Edit ${editing.name}` : "New pool";
+  document.getElementById("btn-add-pool")?.setAttribute("hidden", "");
+  document.getElementById("btn-copy-pool-overrides")?.setAttribute("hidden", "");
+  setTimeout(() => {
+    form.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "nearest" });
+    const target = opts && opts.focus === "limit" ? "input[name='limit']" : "input[name='name']";
+    form.querySelector(target)?.focus({ preventScroll: true });
+  }, 30);
   form.querySelector("input[name='name']").value = editing ? editing.name : "";
   form.querySelector("input[name='limit']").value = editing ? editing.limit : "";
   form.querySelector("input[name='rollover']").checked = !!(editing && editing.rollover);
@@ -1535,6 +1547,8 @@ function closePoolForm() {
     form.reset();
     form.querySelector("input[name='id']").value = "";
   }
+  document.getElementById("btn-add-pool")?.removeAttribute("hidden");
+  document.getElementById("btn-copy-pool-overrides")?.removeAttribute("hidden");
 }
 
 const fmtPct = (n) => `${(Number(n) || 0).toFixed(2)}%`;
@@ -9585,6 +9599,9 @@ const RELEASE_NOTES = {
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
   ],
+  "1.35.1": [
+    "<strong>Spending pools can be edited again after the free trial</strong> — a pool that got rollover or a monthly override during the trial couldn't be renamed or re-limited once it ended. Now it can, and you can switch those settings off. Turning them on is still Pro.",
+  ],
   "1.35.0": [
     "<strong>Less to read, less to scroll</strong> — Home is now your balance, Add entry and today's spending. The payoff plan moved to Debts, where it belongs.",
     "<strong>Five tabs instead of seven</strong> — All entries and Reports open from Home's Today card.",
@@ -12349,14 +12366,11 @@ document.addEventListener("click", (e) => {
     // Pro gate (same rule as +Add pool)
     const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
     if (userPoolCount >= 1 && !gate("budgetPools")) return;
-    openPoolForm(null);
+    // Focus lands on the limit, so the user just types the limit and saves.
+    openPoolForm(null, { focus: "limit" });
     const form = document.getElementById("form-budget-pool");
     const nameInput = form?.querySelector("input[name='name']");
-    if (nameInput) {
-      nameInput.value = name;
-      // Focus the limit field so the user just types the limit and saves.
-      form.querySelector("input[name='limit']")?.focus();
-    }
+    if (nameInput) nameInput.value = name;
   });
 
   document.getElementById("btn-cancel-pool")?.addEventListener("click", () => closePoolForm());
@@ -12384,9 +12398,19 @@ document.addEventListener("click", (e) => {
       return;
     }
 
-    // Pro gate: rollover and per-month overrides
-    if (rollover && !isPro()) { openPaywall("budgetPoolsRollover"); return; }
-    if (overrideRaw && !isPro()) { openPaywall("budgetPoolsOverrides"); return; }
+    // Pro gate: rollover and per-month overrides — but only for switching one
+    // ON. A pool that got rollover or an override during the trial must stay
+    // editable after it: gating on the setting merely being present locked
+    // those pools completely, so not even a rename or a new limit could be
+    // saved, and turning the Pro setting off wasn't possible either.
+    const existing = id ? state.budgetPools.find((p) => p.id === id) : null;
+    const hadRollover = !!(existing && existing.rollover);
+    const hadOverride = existing && existing.monthlyLimits && existing.monthlyLimits[m] != null
+      ? Number(existing.monthlyLimits[m]) : null;
+    const turningOnRollover = rollover && !hadRollover;
+    const newOverride = overrideRaw && Number(overrideRaw) !== hadOverride;
+    if (turningOnRollover && !isPro()) { openPaywall("budgetPoolsRollover"); return; }
+    if (newOverride && !isPro()) { openPaywall("budgetPoolsOverrides"); return; }
 
     let pool;
     if (id) {
