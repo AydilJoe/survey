@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=101" />
+    <link rel="stylesheet" href="styles.css?v=102" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -106,8 +106,7 @@
         </div>
         <div class="splash-title">Duitful</div>
         <div id="lock-welcome" class="lock-welcome" hidden>
-          <p class="lock-welcome-lead">Welcome.</p>
-          <p class="lock-welcome-body">A private tracker for your money and debts — entirely on this device.</p>
+          <p class="lock-welcome-lead">Your money and debts, private to this phone.</p>
           <ul class="lock-welcome-points">
             <li><span aria-hidden="true">•</span> No account, no cloud, no tracking</li>
             <li><span aria-hidden="true">•</span> Encrypted with a passcode you choose</li>
@@ -168,10 +167,10 @@
     <nav class="tabs" role="tablist">
       <button class="tab active" data-tab="dashboard" role="tab" id="tabbtn-dashboard" aria-selected="true" aria-controls="tab-dashboard"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z"/></svg></span><span>Home</span></button>
       <button class="tab" data-tab="flow" role="tab" id="tabbtn-flow" aria-selected="false" aria-controls="tab-flow" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span><span>Monthly</span></button>
-      <button class="tab" data-tab="daily" role="tab" id="tabbtn-daily" aria-selected="false" aria-controls="tab-daily" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><span>Daily</span></button>
+      <button class="tab" data-tab="daily" data-parent-tab="dashboard" role="tab" id="tabbtn-daily" hidden aria-selected="false" aria-controls="tab-daily" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span><span>Daily</span></button>
       <button class="tab" data-tab="debts" role="tab" id="tabbtn-debts" aria-selected="false" aria-controls="tab-debts" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span><span>Debts</span></button>
       <button class="tab" data-tab="savings" role="tab" id="tabbtn-savings" aria-selected="false" aria-controls="tab-savings" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span><span>Savings</span></button>
-      <button class="tab" data-tab="reports" role="tab" id="tabbtn-reports" aria-selected="false" aria-controls="tab-reports" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></svg></span><span>Reports</span></button>
+      <button class="tab" data-tab="reports" data-parent-tab="dashboard" role="tab" id="tabbtn-reports" hidden aria-selected="false" aria-controls="tab-reports" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></svg></span><span>Reports</span></button>
       <button class="tab" data-tab="data" role="tab" id="tabbtn-data" aria-selected="false" aria-controls="tab-data" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span><span>Settings</span></button>
     </nav>
 
@@ -322,11 +321,6 @@
           </div>
         </div>
 
-        <div class="card budget-summary-card" id="budget-summary-card" hidden>
-          <h2>Budget Pools</h2>
-          <div id="budget-summary-list"></div>
-        </div>
-
         <div class="card quick-add">
           <div class="card-head">
             <h2>Add entry</h2>
@@ -415,7 +409,6 @@
               <input type="text" name="note" placeholder="Lunch at mamak" />
             </label>
             <div class="button-row split-entry-row">
-              <button type="button" class="ghost" data-action="split-compose" data-split-prefill="daily-form">Split this / request money</button>
               <button type="button" class="ghost" data-action="split-ingest">Add a request</button>
             </div>
             </div>
@@ -423,72 +416,21 @@
           </form>
         </div>
 
-        <div class="card dash-spending-card" id="dash-spending-card" hidden>
-          <div class="spending-header">
-            <h2>Spending this month</h2>
-            <span id="dash-spending-total" class="spending-total" hidden></span>
-          </div>
-          <div class="spending-content">
-            <div class="spending-pie-wrap">
-              <svg id="dash-spending-pie" class="spending-pie" viewBox="0 0 200 200" role="img" aria-label="Spending breakdown by category this month"></svg>
-            </div>
-            <ul id="dash-spending-legend" class="spending-legend"></ul>
-          </div>
-          <div id="dash-spending-empty" class="empty" hidden>No spending logged this month yet.</div>
-          <button type="button" class="ghost dash-spending-link" data-go-tab="reports">See full reports →</button>
-        </div>
-
-        <div class="card debt-card">
+        <!-- Today, at a glance. The full log and the reports live one tap
+             away; Home keeps only what's needed to log and to know where you
+             stand. -->
+        <section class="card today-card" id="today-card" aria-labelledby="today-title">
           <div class="card-head">
-            <h2>Debts</h2>
-            <span class="debt-total-inline" id="stat-debt-banner">RM 0.00</span>
+            <h2 id="today-title">Today</h2>
+            <span class="today-total" id="today-total"></span>
           </div>
-          <p class="sub" id="stat-debt-banner-sub">No debts yet</p>
-          <div id="debt-empty" class="empty-state" hidden>
-            <p>Track balances and see a payoff timeline.</p>
-            <button type="button" class="primary" data-go-tab="debts">Add your first debt</button>
+          <ul class="today-list" id="today-list"></ul>
+          <p class="today-empty" id="today-empty">Nothing logged today.</p>
+          <div class="today-links">
+            <button type="button" class="ghost" data-go-tab="daily">All entries</button>
+            <button type="button" class="ghost" data-go-tab="reports">Reports</button>
           </div>
-          <div id="debt-details">
-            <div class="stat-row">
-              <div class="stat"><span class="label">Total balance</span><strong id="stat-debt-total">RM 0.00</strong></div>
-              <div class="stat"><span class="label">Weighted APR</span><strong id="stat-debt-apr">0.00%</strong></div>
-            </div>
-            <!-- Instalment plans near the finish line. Collapses to nothing
-                 (:empty) when there are none, so a user with only cards and
-                 loans sees the card exactly as before. -->
-            <div id="debts-mini" class="debts-mini"></div>
-            <label class="field">
-              <span>Extra monthly payment (<span class="cur-code">MYR</span>)</span>
-              <input type="number" id="extra-monthly" min="0" step="0.01" inputmode="decimal" placeholder="0.00" />
-            </label>
-            <p class="hint">Paid on top of minimums, directed to the highest-APR debt (avalanche).</p>
-            <div class="stat-row">
-              <div class="stat"><span class="label">Debt-free in</span><strong id="stat-months">—</strong></div>
-              <div class="stat"><span class="label" data-term="totalInterest">Total interest</span><strong id="stat-interest">RM 0.00</strong></div>
-            </div>
-            <p id="stall-warning" class="hint warn" hidden></p>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-head">
-            <h2>Savings</h2>
-            <span class="saving-total-inline"><strong id="stat-save-current">RM 0.00</strong> <span class="muted">/ <span id="stat-save-target">RM 0.00</span></span></span>
-          </div>
-          <div id="savings-empty" class="empty-state" hidden>
-            <p>Set a goal — emergency fund, Umrah, a phone.</p>
-            <button type="button" class="primary" data-go-tab="savings">Start a savings goal</button>
-          </div>
-          <div id="savings-mini" class="savings-mini"></div>
-          <p class="hint invest-networth" id="dash-invest-line" hidden></p>
-        </div>
-
-        <div class="card" id="payoff-card">
-          <h2>Avalanche payoff order</h2>
-          <ol id="payoff-order" class="payoff-list">
-            <li class="empty">No debts yet.</li>
-          </ol>
-        </div>
+        </section>
       </section>
 
       <!-- FLOW (Income + Expenses) -->
@@ -513,12 +455,15 @@
           </div>
           <div class="spend-cal-grid" id="spend-cal" role="grid" aria-label="Daily spending calendar"></div>
           <div class="spend-cal-day-panel" id="spend-cal-panel" hidden></div>
-          <p class="hint">Darker days = heavier spending. Tap a day to see its entries.</p>
+          <p class="hint">Tap a day to see what you spent.</p>
         </div>
 
         <div class="card">
-          <h2>Income</h2>
-          <form id="form-income" class="flow-form">
+          <div class="card-head">
+            <h2>Income</h2>
+            <button type="button" class="add-toggle" data-add-toggle="form-income" aria-expanded="false" aria-controls="form-income" aria-label="Add income"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
+          </div>
+          <form id="form-income" class="flow-form add-form" hidden>
             <div class="grid-2">
               <label class="field">
                 <span>Source</span>
@@ -553,8 +498,8 @@
               <span class="hint" data-pro-only-hint hidden>(Pro: auto-copies on month rollover)</span>
             </label>
             <button type="submit" class="primary">Add income</button>
+            <button type="button" class="ghost bulk-import-trigger" id="btn-bulk-import-income">Import from CSV instead</button>
           </form>
-          <button type="button" class="ghost bulk-import-trigger" id="btn-bulk-import-income">Bulk import from CSV</button>
           <div class="list-search-row">
             <input
               type="search"
@@ -575,7 +520,7 @@
 
         <div class="card budget-pool-card">
           <h2>Budget Pools</h2>
-          <p class="hint">Split your monthly money into named buckets — Shopping, Subscriptions, Vacation. Tag expenses to a pool to track usage.</p>
+          <p class="hint">Monthly limits for things like Shopping. Tag spending to a pool.</p>
           <div class="list-search-row">
             <input
               type="search"
@@ -638,8 +583,11 @@
         </div>
 
         <div class="card">
-          <h2>Recurring expenses</h2>
-          <form id="form-expense" class="flow-form">
+          <div class="card-head">
+            <h2>Recurring expenses</h2>
+            <button type="button" class="add-toggle" data-add-toggle="form-expense" aria-expanded="false" aria-controls="form-expense" aria-label="Add a recurring expense"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
+          </div>
+          <form id="form-expense" class="flow-form add-form" hidden>
             <div class="grid-2">
               <label class="field">
                 <span>Item</span>
@@ -703,13 +651,15 @@
 
       <!-- DAILY -->
       <section id="tab-daily" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-daily">
+        <div class="subpage-head">
+          <button type="button" class="subpage-back" data-go-tab="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>Home</span></button>
+          <h2 class="subpage-title">All entries</h2>
+        </div>
         <div class="card">
-          <h2>Log</h2>
           <div class="stat-row">
             <div class="stat"><span class="label">This month</span><strong id="daily-month-total">RM 0.00</strong></div>
             <div class="stat"><span class="label">Entries</span><strong id="daily-month-count">0</strong></div>
           </div>
-          <p class="hint">Add a new entry from the Home tab. Tap ✕ to delete.</p>
           <details class="daily-legend-details">
             <summary>What do the pill colors mean?</summary>
             <p class="hint daily-legend">
@@ -740,8 +690,11 @@
       <!-- DEBTS -->
       <section id="tab-debts" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-debts">
         <div class="card">
-          <h2>Outstanding debts</h2>
-          <form id="form-debt" class="debt-form">
+          <div class="card-head">
+            <h2>Outstanding debts</h2>
+            <button type="button" class="add-toggle" data-add-toggle="form-debt" aria-expanded="false" aria-controls="form-debt" aria-label="Add a debt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
+          </div>
+          <form id="form-debt" class="debt-form add-form" hidden>
             <div class="type-pills debt-type-pills" role="radiogroup" aria-label="Debt type">
               <button type="button" class="pill active" data-debt-kind="standard" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Standard</button>
               <button type="button" class="pill" data-debt-kind="installment" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>Installment</button>
@@ -869,7 +822,7 @@
             />
             <button type="button" class="list-search-clear" data-search-clear="debts" hidden aria-label="Clear search">✕</button>
           </div>
-          <p class="hint debt-legend">
+          <p class="hint debt-legend" id="debt-legend" hidden>
             <span class="day-chip soon">15</span> = due in the next few days ·
             <span class="day-chip today">8</span> = due today
           </p>
@@ -879,6 +832,45 @@
         <!-- Split / request surfaces. Both cards stay hidden until there is
              something open — a user who never splits a bill sees only the
              two action buttons below. -->
+        <div class="card debt-card" id="debt-card">
+          <div class="card-head">
+            <h2>Payoff plan</h2>
+            <span class="debt-total-inline" id="stat-debt-banner">RM 0.00</span>
+          </div>
+          <p class="sub" id="stat-debt-banner-sub">No debts yet</p>
+          <div id="debt-empty" class="empty-state" hidden>
+            <p>Track balances and see a payoff timeline.</p>
+            <button type="button" class="primary" data-go-tab="debts">Add your first debt</button>
+          </div>
+          <div id="debt-details">
+            <div class="stat-row" hidden>
+              <div class="stat"><span class="label">Total balance</span><strong id="stat-debt-total">RM 0.00</strong></div>
+              <div class="stat"><span class="label">Weighted APR</span><strong id="stat-debt-apr">0.00%</strong></div>
+            </div>
+            <!-- Instalment plans near the finish line. Collapses to nothing
+                 (:empty) when there are none, so a user with only cards and
+                 loans sees the card exactly as before. -->
+            <div id="debts-mini" class="debts-mini"></div>
+            <label class="field">
+              <span>Extra monthly payment (<span class="cur-code">MYR</span>)</span>
+              <input type="number" id="extra-monthly" min="0" step="0.01" inputmode="decimal" placeholder="0.00" />
+            </label>
+            <p class="hint">On top of minimums, to the highest-rate debt first.</p>
+            <div class="stat-row">
+              <div class="stat"><span class="label">Debt-free in</span><strong id="stat-months">—</strong></div>
+              <div class="stat"><span class="label" data-term="totalInterest">Total interest</span><strong id="stat-interest">RM 0.00</strong></div>
+            </div>
+            <p id="stall-warning" class="hint warn" hidden></p>
+            <button type="button" class="ghost debt-pay-all" data-action="open-bulk-debt-pay">Pay this month's minimums</button>
+          </div>
+        </div>
+
+        <div class="card" id="payoff-card">
+          <h2>Avalanche payoff order</h2>
+          <ol id="payoff-order" class="payoff-list">
+            <li class="empty">No debts yet.</li>
+          </ol>
+        </div>
         <div class="card split-card" id="split-owed-card" hidden>
           <div class="card-head">
             <h2>Owed to you</h2>
@@ -906,28 +898,27 @@
       <!-- SAVINGS -->
       <section id="tab-savings" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-savings">
         <div class="card">
-          <h2>New savings goal</h2>
-          <form id="form-saving" class="saving-form">
+          <div class="card-head">
+            <h2>Goals</h2>
+            <button type="button" class="add-toggle" data-add-toggle="form-saving" aria-expanded="false" aria-controls="form-saving" aria-label="Add a savings goal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
+          </div>
+          <form id="form-saving" class="saving-form add-form" hidden>
+          <label class="field">
+            <span>What are you saving for?</span>
+            <input type="text" name="name" placeholder="Emergency fund, Umrah, new phone…" required />
+          </label>
+          <div class="grid-2">
             <label class="field">
-              <span>What are you saving for?</span>
-              <input type="text" name="name" placeholder="Emergency fund, Umrah, new phone…" required />
+              <span>Target (<span class="cur-code">MYR</span>)</span>
+              <input type="number" name="target" step="0.01" min="0" inputmode="decimal" required />
             </label>
-            <div class="grid-2">
-              <label class="field">
-                <span>Target (<span class="cur-code">MYR</span>)</span>
-                <input type="number" name="target" step="0.01" min="0" inputmode="decimal" required />
-              </label>
-              <label class="field">
-                <span>Current (<span class="cur-code">MYR</span>)</span>
-                <input type="number" name="current" step="0.01" min="0" inputmode="decimal" placeholder="0" />
-              </label>
-            </div>
-            <button type="submit" class="primary">Add goal</button>
+            <label class="field">
+              <span>Current (<span class="cur-code">MYR</span>)</span>
+              <input type="number" name="current" step="0.01" min="0" inputmode="decimal" placeholder="0" />
+            </label>
+          </div>
+          <button type="submit" class="primary">Add goal</button>
           </form>
-        </div>
-
-        <div class="card">
-          <h2>Goals</h2>
           <div id="savings-search-row" class="list-search-row" hidden>
             <input
               type="search"
@@ -949,9 +940,11 @@
           <div class="card-head">
             <h2>Investments</h2>
             <span class="invest-total-inline"><strong id="invest-total">RM 0.00</strong></span>
+            <button type="button" class="add-toggle" data-add-toggle="form-investment" aria-expanded="false" aria-controls="form-investment" aria-label="Add an investment holding"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
           </div>
 
-          <form id="form-investment" class="invest-form">
+          <p class="hint invest-networth" id="dash-invest-line" hidden></p>
+          <form id="form-investment" class="invest-form add-form" hidden>
             <div class="type-pills invest-type-pills" role="radiogroup" aria-label="Holding type">
               <button type="button" class="pill active" data-invest-kind="balance" role="radio" aria-checked="true">Balance</button>
               <button type="button" class="pill" data-invest-kind="units" role="radio" aria-checked="false">Units</button>
@@ -1093,7 +1086,7 @@
 
         <div class="card invest-plan-optin" id="invest-plan-optin" hidden>
           <div class="invest-plan-optin-row">
-            <p class="hint">Thinking about retiring one day? Duitful can estimate how big a pot you'd need and whether you're already on track — optional, computed on your device.</p>
+            <p class="hint">How big a pot you need, and whether you're on track.</p>
             <button type="button" class="ghost" id="btn-invest-plan-enable">Set up retirement planning</button>
           </div>
         </div>
@@ -1182,7 +1175,7 @@
 
         <div class="card zakat-optin" id="zakat-optin" hidden>
           <div class="zakat-optin-row">
-            <p class="hint">Pay zakat? Duitful can track your nisab, haul and the 2.5% — optional, computed on your device.</p>
+            <p class="hint">Nisab, haul and the 2.5%, worked out on this phone.</p>
             <button type="button" class="ghost" id="btn-zakat-enable">Set up zakat tracking</button>
           </div>
         </div>
@@ -1190,6 +1183,10 @@
 
       <!-- REPORTS -->
       <section id="tab-reports" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-reports">
+        <div class="subpage-head">
+          <button type="button" class="subpage-back" data-go-tab="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>Home</span></button>
+          <h2 class="subpage-title">Reports</h2>
+        </div>
         <div class="card reports-filters">
           <h2>Filters</h2>
           <div class="reports-presets" role="group" aria-label="Date range">
@@ -1241,7 +1238,6 @@
             <h2>Spending by category</h2>
             <span id="reports-spending-total" class="spending-total" hidden></span>
           </div>
-          <p class="hint">Where your spending went this period. Debt payments and savings deposits are tracked separately.</p>
           <p id="reports-spending-kind-note" class="hint hint-info" hidden>Pie always shows expenses — debt &amp; savings are separate kinds.</p>
           <div class="spending-content">
             <div class="spending-pie-wrap">
@@ -1287,7 +1283,7 @@
       <section id="tab-data" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-data">
         <div class="card">
           <h2>Appearance</h2>
-          <p class="hint">System follows your device's light/dark setting automatically.</p>
+          
           <div class="type-pills theme-pills" role="radiogroup" aria-label="Theme">
             <button type="button" class="pill" data-theme-choice="system" role="radio" aria-checked="false">System</button>
             <button type="button" class="pill" data-theme-choice="light" role="radio" aria-checked="false">Light</button>
@@ -1297,7 +1293,7 @@
 
         <div class="card">
           <h2>CSV backup</h2>
-          <p class="hint">Your data lives in this browser (localStorage). Export to CSV to back it up or move to another device; import to restore.</p>
+          <p class="hint">A copy you keep. Import it to restore or move devices.</p>
           <div class="button-row">
             <button id="btn-export" class="primary">Export CSV</button>
             <label class="primary as-button">
@@ -1313,10 +1309,7 @@
             <h2>Cloud backup</h2>
             <span class="drive-status-pill" id="drive-status-pill" hidden></span>
           </div>
-          <p class="hint" id="drive-blurb">
-            Sync your encrypted backup to your own Google Drive (hidden app folder).
-            Your passcode encrypts the data before upload — Duitful and Google never see it unencrypted.
-          </p>
+          <p class="hint" id="drive-blurb">Encrypted before upload. Only your passcode opens it.</p>
           <div id="drive-signed-out">
             <div class="button-row">
               <button id="btn-drive-signin" class="primary" type="button">Connect Google Drive</button>
@@ -1329,8 +1322,7 @@
             <p class="hint" id="drive-account-line"></p>
             <p class="hint" id="drive-last-synced"></p>
             <p class="hint warn" id="drive-pro-hint" hidden>
-              You're not Pro on this device. If you have a Pro backup in Google Drive,
-              click <strong>Restore from cloud</strong> to bring it back — Pro will turn on automatically.
+              Not Pro on this device. <strong>Restore from cloud</strong> brings back a Pro backup.
             </p>
             <label class="field" style="flex-direction:row; align-items:center; gap:.5rem;">
               <input type="checkbox" id="drive-auto-sync" />
@@ -1349,7 +1341,7 @@
             <h2>Duitful Pro</h2>
             <span class="pro-badge" id="pro-badge" hidden>UNLOCKED</span>
           </div>
-          <p class="hint" id="pro-status">Unlock unlimited tracking, receipt scans, reminders and installments. One-time purchase — no subscription.</p>
+          <p class="hint" id="pro-status">Unlimited debts and goals, receipt scans, instalments. Pay once.</p>
           <p class="hint pro-watermark" id="pro-watermark" hidden></p>
           <div class="button-row" id="pro-actions">
             <button id="btn-pro-unlock" class="primary" type="button">Unlock Duitful Pro</button>
@@ -1358,14 +1350,14 @@
           </div>
           <div id="pro-refer" class="pro-refer" hidden>
             <h3>Refer a friend — earn RM 5</h3>
-            <p class="hint">Share this link. When someone buys Duitful Pro through it, RM 5 lands in your bank (we pay out monthly via bank transfer).</p>
+            <p class="hint">RM 5 to your bank for every Pro bought through your link. Paid monthly.</p>
             <div class="pro-refer-url-row">
               <code id="pro-refer-url" class="pro-refer-url" hidden>https://duitful.app/app?ref=...</code>
               <button type="button" class="primary" id="btn-pro-refer-share" hidden>Share</button>
               <button type="button" class="ghost" id="btn-pro-refer-copy" hidden>Copy link</button>
             </div>
             <div id="pro-refer-claim" class="pro-refer-claim" hidden>
-              <p class="hint">Enter your email to claim your referral code. We turn it into an 8-character code via SHA-256 — your email never gets emailed to us, never reaches a server.</p>
+              <p class="hint">Your email becomes a code on this phone. It's never sent anywhere.</p>
               <div class="pro-refer-claim-row">
                 <input type="email" id="pro-refer-claim-email" aria-label="Your email address" placeholder="you@example.com" autocomplete="email" inputmode="email" />
                 <button type="button" class="primary" id="btn-pro-refer-claim">Claim code</button>
@@ -1428,7 +1420,7 @@
               <option value="ZAR">ZAR — South African Rand</option>
             </select>
           </label>
-          <p class="hint">Saved values stay the same — only the display currency changes.</p>
+          <p class="hint">Changes the display only. Amounts stay as saved.</p>
           <label class="field toggle-field">
             <input type="checkbox" id="pref-announcements" checked />
             <span>Show occasional announcements from the Duitful team</span>
@@ -1437,19 +1429,13 @@
 
         <div class="card">
           <h2>Currency rates</h2>
-          <p class="hint">
-            Live mid-market rates for converting foreign-currency entries.
-            Refreshed daily via the open-source
-            <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">Currency-API</a>
-            by <a href="https://github.com/fawazahmed0" target="_blank" rel="noopener">@fawazahmed0</a>
-            (public-domain, no API key, daily updates).
-          </p>
+          <p class="hint">Daily rates from the open <a href="https://github.com/fawazahmed0/exchange-api" target="_blank" rel="noopener">Currency-API</a>.</p>
           <div class="fx-status" id="fx-status">
             <span id="fx-status-line" aria-live="polite">Rates not loaded yet.</span>
             <button type="button" class="ghost" id="btn-fx-refresh" aria-describedby="fx-status-line">Refresh now</button>
           </div>
           <p class="hint" id="fx-unsupported-hint" hidden>
-            Some currencies are display-only — live rates are not available for these.
+            No live rate for this currency — display only.
           </p>
         </div>
 
@@ -1467,18 +1453,18 @@
             <input type="checkbox" id="pref-quickadd-notif" />
             <span>Quick add from the notification shade</span>
           </label>
-          <p class="hint" id="quickadd-notif-hint" hidden>A quiet notification that stays put, so you can type an amount without opening Duitful. It's filed for review next time you open the app — nothing is added on its own.</p>
+          <p class="hint" id="quickadd-notif-hint" hidden>Type an amount from the notification shade. You review it before it's added.</p>
           <label class="field toggle-field">
             <input type="checkbox" id="pref-split-overdue" checked />
             <span>Chase requests that have gone quiet</span>
           </label>
-          <p class="hint">Money owed to you shows up here once it's past its due date — or, with no due date, after two weeks. Turn it off and only due dates you set will remind you.</p>
-          <p class="hint">Shows upcoming debt/bill due dates and pay days on Home. Browser notifications fire when the app is open and once per day for items due today. Background reminders (when the app is fully closed) need a native wrapper — not available on iOS Safari PWAs.</p>
+          <p class="hint">Nudges you about money owed to you once it's overdue.</p>
+          
         </div>
 
         <div class="card">
           <h2>Security</h2>
-          <p class="hint">Your data is encrypted with your passcode using AES-GCM (key derived from the passcode via PBKDF2). If you lose the passcode, the data is unrecoverable — export CSV regularly as a backup.</p>
+          <p class="hint">Encrypted with your passcode. Lose it and nobody can recover your data — keep a backup. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a></p>
           <div class="button-row">
             <button id="btn-change-passcode" class="primary" type="button">Change passcode</button>
           </div>
@@ -1486,7 +1472,7 @@
             <input type="checkbox" id="toggle-biometric" />
             <span>Unlock with fingerprint / Face ID</span>
           </label>
-          <p class="hint" id="biometric-hint" hidden>Your passcode is kept in this phone's hardware keystore and released only after a successful scan. It turns itself off if the phone's fingerprints or faces change; your passcode always works.</p>
+          <p class="hint" id="biometric-hint" hidden>Your passcode still works. This turns off if your enrolled fingerprints or faces change.</p>
         </div>
 
         <div class="card">
@@ -1495,7 +1481,7 @@
         </div>
         <div class="card">
           <h2>About</h2>
-          <p class="hint">Single-page web app. All data stays on your device. Works offline once loaded. Share the URL with friends — they each get their own data.</p>
+          
           <p class="hint" id="about-version" aria-live="polite"></p>
           <div class="button-row">
             <button id="btn-show-guide" class="ghost" type="button">Replay welcome tour</button>
@@ -1504,7 +1490,7 @@
 
         <div class="card">
           <h2>Contact</h2>
-          <p class="hint">Found a bug, got an idea, or need help? Drop us an email — we read every message.</p>
+          <p class="hint">Bugs, ideas, help — I read every one.</p>
           <div class="button-row">
             <a class="primary as-button" href="mailto:hello@duitful.app?subject=Duitful%20feedback">Email hello@duitful.app</a>
           </div>
@@ -1515,7 +1501,7 @@
           <!-- The licence-recovery sentence is web-only: App Review 3.1.1 bars
                the native shells from pointing at the web checkout. Rewritten
                per-platform in renderProControls(). -->
-          <p class="hint" id="legal-hint">How Duitful handles your data, and the rules for using it. Both pages also explain how to recover your Pro licence with a Billplz transaction ID.</p>
+          <p class="hint" id="legal-hint">Also how to recover a Pro licence.</p>
           <div class="button-row">
             <a class="ghost as-button" href="https://duitful.app/privacy/" target="_blank" rel="noopener">Privacy policy</a>
             <a class="ghost as-button" href="https://duitful.app/terms/" target="_blank" rel="noopener">Terms of service</a>
@@ -2177,7 +2163,7 @@
 
     <script src="drive-config.js?v=2"></script>
     <script src="drive-sync.js?v=2"></script>
-    <script src="investments.js?v=3"></script>
+    <script src="investments.js?v=4"></script>
     <!-- QR encoder (MIT, vendored). Needed on every share dialog, so it
          loads with the shell. The jsQR DECODER is ~250 KB and only used
          when a camera or an image is involved, so split.js injects it on
@@ -2186,6 +2172,6 @@
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=7"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=134"></script>
+    <script src="script.js?v=135"></script>
   </body>
 </html>

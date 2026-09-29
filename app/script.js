@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.34.0";
+const APP_VERSION = "1.35.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1295,8 +1295,12 @@ const EMPTY_GLYPHS = {
   chart: `<path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/>`,
 };
 function emptyBlock({ glyph = "entry", title, body = "", action = null, host = "div" }) {
+  const hook = !action ? ""
+    : action.open ? `data-add-open="${escapeHtml(action.open)}"`
+    : action.tab ? `data-go-tab="${escapeHtml(action.tab)}"`
+    : `data-action="${escapeHtml(action.action)}"`;
   const btn = action
-    ? `<button type="button" class="ghost" ${action.tab ? `data-go-tab="${escapeHtml(action.tab)}"` : `data-action="${escapeHtml(action.action)}"`}>${escapeHtml(action.label)}</button>`
+    ? `<button type="button" class="ghost" ${hook}>${escapeHtml(action.label)}</button>`
     : "";
   const inner = `
     <div class="empty-block">
@@ -2317,6 +2321,37 @@ function debtNameById(id) {
   return d ? d.name : null;
 }
 
+// Home's "Today": what was logged today, newest first, and nothing else.
+// Editing, search and history live on the full log one tap away.
+const TODAY_CARD_MAX = 5;
+function renderTodayCard() {
+  const list = document.getElementById("today-list");
+  const empty = document.getElementById("today-empty");
+  const totalEl = document.getElementById("today-total");
+  if (!list || !empty) return;
+  const today = todayISO();
+  const entries = state.dailyExpenses
+    .filter((e) => e.date === today)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  empty.hidden = entries.length > 0;
+  // Through amt() like every other figure, so privacy mode masks it.
+  if (totalEl) totalEl.innerHTML = entries.length ? amt(fmtMoney(dailySpendSum(entries))) : "";
+  const shown = entries.slice(0, TODAY_CARD_MAX);
+  list.innerHTML = shown.map((e) => {
+    let label;
+    if (e.kind === "debt") label = `Paid ${debtNameById(e.debtId) || e.debtName || "a debt"}`;
+    else if (e.kind === "saving") label = `Saved to ${state.savings.find((g) => g.id === e.savingId)?.name || e.savingName || "savings"}`;
+    else label = e.note || e.category || "Spending";
+    const meta = (e.kind || "expense") === "expense" && e.note && e.category ? e.category : "";
+    return `<li class="today-row">
+      <span class="today-label">${escapeHtml(label)}${meta ? `<span class="today-meta">${escapeHtml(meta)}</span>` : ""}</span>
+      <span class="today-amount${e.kind === "saving" ? " is-saving" : ""}">${amt(fmtMoney(Number(e.amount) || 0))}</span>
+    </li>`;
+  }).join("") + (entries.length > TODAY_CARD_MAX
+    ? `<li class="today-more">+${entries.length - TODAY_CARD_MAX} more today</li>`
+    : "");
+}
+
 function renderDaily() {
   const { today, week, month } = dailyStats();
   tweenMoney($("#stat-daily-today"), today);
@@ -2454,7 +2489,8 @@ function renderSavings() {
     listEl.innerHTML = emptyBlock({
       glyph: "saving",
       title: "No savings goals yet",
-      body: "Name one thing you're saving for — an emergency fund, Umrah, a new phone. Even RM 50 a month adds up.",
+      body: "Even RM 50 a month adds up.",
+      action: { label: "Add a goal", open: "form-saving" },
     });
   } else {
     const savingsQuery = searchQueries.savings;
@@ -2469,11 +2505,13 @@ function renderSavings() {
   }
 
   const { current, target } = savingsTotals();
-  $("#stat-save-current").textContent = fmtMoney(current);
-  $("#stat-save-target").textContent = fmtMoney(target);
+  const saveCurrent = $("#stat-save-current");
+  const saveTarget = $("#stat-save-target");
+  if (saveCurrent) saveCurrent.textContent = fmtMoney(current);
+  if (saveTarget) saveTarget.textContent = fmtMoney(target);
 
   const mini = $("#savings-mini");
-  mini.innerHTML = state.savings
+  if (mini) mini.innerHTML = state.savings
     .slice(0, 3)
     .map((g) => renderSavingCard(g, { mini: true }))
     .join("");
@@ -2481,11 +2519,15 @@ function renderSavings() {
 
 function renderDebts() {
   const ul = $("#list-debt");
+  // The due-date key only earns its line once a debt has a due day to key.
+  const legend = document.getElementById("debt-legend");
+  if (legend) legend.hidden = !state.debts.some((d) => d.dueDay);
   if (!state.debts.length) {
     ul.innerHTML = emptyBlock({
       glyph: "debt", host: "li",
-      title: "No debts tracked yet",
-      body: "Add a card, a loan or an instalment plan and Duitful works out the cheapest order to clear them.",
+      title: "No debts yet",
+      body: "Add one to see your debt-free date.",
+      action: { label: "Add a debt", open: "form-debt" },
     });
     return;
   }
@@ -2891,7 +2933,10 @@ function renderDashboard() {
     }
   }
 
-  // Empty-state toggles for Debts/Savings dashboard cards
+  // The payoff plan lives on the Debts tab, under the list. With nothing
+  // owed there is no plan to show — the list's own empty state speaks.
+  const debtCard = $("#debt-card");
+  if (debtCard) debtCard.hidden = state.debts.length === 0;
   const debtEmpty = $("#debt-empty");
   const debtDetails = $("#debt-details");
   if (debtEmpty && debtDetails) {
@@ -3901,6 +3946,8 @@ function renderAll() {
   updateCategoryDatalist();
   renderRecentChips();
   renderEmptyWelcome();
+  renderTodayCard();
+  syncSearchRows();
   renderDaily();
   renderSavings();
   if (typeof renderInvestments === "function") renderInvestments();
@@ -5983,8 +6030,12 @@ document.querySelectorAll(".tab").forEach((btn) => {
   btn.addEventListener("click", () => {
     resetAllSearchQueries();
     const name = btn.dataset.tab;
+    // All entries and Reports are pages under Home, not tabs of their own:
+    // their buttons stay in the DOM (deep links, the tour and data-go-tab
+    // all click them) but are hidden, and Home stays lit in the nav.
+    const navName = btn.dataset.parentTab || name;
     document.querySelectorAll(".tab").forEach((b) => {
-      const isActive = b === btn;
+      const isActive = b.dataset.tab === navName;
       b.classList.toggle("active", isActive);
       b.setAttribute("aria-selected", isActive ? "true" : "false");
       if (isActive) b.removeAttribute("tabindex");
@@ -5993,6 +6044,12 @@ document.querySelectorAll(".tab").forEach((btn) => {
     document.querySelectorAll(".tab-panel").forEach((p) => {
       p.classList.toggle("active", p.id === `tab-${name}`);
     });
+    // A page change lands at the top, and on its heading for keyboard and
+    // screen-reader users arriving from a link rather than the nav.
+    if (btn.dataset.parentTab || btn.hidden) {
+      window.scrollTo({ top: 0 });
+      document.querySelector(`#tab-${name} .subpage-back`)?.focus({ preventScroll: true });
+    }
     if (name === "reports") renderReports();
   });
 });
@@ -6319,6 +6376,128 @@ document.getElementById("recent-chips-row")?.addEventListener("click", (e) => {
   amountInput?.focus();
   amountInput?.select?.();
 });
+
+// A currency picker set to anything but the home currency stops being a
+// quiet suffix, so a foreign amount is never entered by accident.
+function syncCurrencyPickerEmphasis(sel) {
+  if (!sel) return;
+  sel.classList.toggle("is-foreign", !!sel.value && sel.value !== currentCurrency());
+}
+document.addEventListener("change", (e) => {
+  if (e.target instanceof HTMLSelectElement && e.target.matches("[data-currency-picker]")) {
+    syncCurrencyPickerEmphasis(e.target);
+  }
+});
+document.addEventListener("reset", (e) => {
+  const form = e.target;
+  if (form instanceof HTMLFormElement) {
+    setTimeout(() => form.querySelectorAll("select[data-currency-picker]").forEach(syncCurrencyPickerEmphasis), 0);
+  }
+}, true);
+
+/* ---------- Add forms: closed until asked for ----------
+   Every list tab used to open on an empty form above the user's own data,
+   so the first thing each tab asked for was typing. Now the list comes
+   first and the form opens from "+ Add" in the card's head (or from an
+   empty state's button). It closes on Cancel, on Escape, and after a
+   successful save — every handler resets its form on success, so the reset
+   is the signal. */
+function addFormToggle(form) {
+  return form ? document.querySelector(`[data-add-toggle="${form.id}"]`) : null;
+}
+function openAddForm(formOrId, opts) {
+  const form = typeof formOrId === "string" ? document.getElementById(formOrId) : formOrId;
+  if (!form || !form.classList.contains("add-form")) return;
+  form.hidden = false;
+  const toggle = addFormToggle(form);
+  if (toggle) { toggle.setAttribute("aria-expanded", "true"); toggle.hidden = true; }
+  if (!(opts && opts.focus === false)) {
+    const first = form.querySelector("input:not([type=hidden]):not([disabled]), select, textarea");
+    setTimeout(() => {
+      form.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "nearest" });
+      first?.focus({ preventScroll: true });
+    }, 30);
+  }
+}
+function closeAddForm(formOrId, opts) {
+  const form = typeof formOrId === "string" ? document.getElementById(formOrId) : formOrId;
+  if (!form || !form.classList.contains("add-form") || form.hidden) return;
+  const hadFocus = form.contains(document.activeElement);
+  form.hidden = true;
+  const toggle = addFormToggle(form);
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.hidden = false;
+    if (hadFocus && !(opts && opts.quiet)) toggle.focus();
+  }
+}
+function prefersReducedMotion() {
+  try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; }
+}
+// Each add form gets a Cancel beside its submit, so closing is as obvious
+// as opening.
+document.querySelectorAll("form.add-form").forEach((form) => {
+  const submit = form.querySelector('button[type="submit"]');
+  if (!submit || form.querySelector("[data-add-cancel]")) return;
+  const row = document.createElement("div");
+  row.className = "add-form-actions";
+  submit.replaceWith(row);
+  row.appendChild(submit);
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "ghost";
+  cancel.dataset.addCancel = "";
+  cancel.textContent = "Cancel";
+  row.appendChild(cancel);
+});
+document.addEventListener("click", (e) => {
+  const t = e.target instanceof Element ? e.target : null;
+  if (!t) return;
+  const toggle = t.closest("[data-add-toggle]");
+  if (toggle) { openAddForm(toggle.dataset.addToggle); return; }
+  const opener = t.closest("[data-add-open]");
+  if (opener) { openAddForm(opener.dataset.addOpen); return; }
+  const cancel = t.closest("[data-add-cancel]");
+  if (cancel) { const f = cancel.closest("form.add-form"); f?.reset(); closeAddForm(f); }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  const form = e.target instanceof Element ? e.target.closest("form.add-form") : null;
+  if (!form || form.hidden) return;
+  if (e.target.closest("dialog")) return; // a dialog's own Escape wins
+  e.preventDefault();
+  closeAddForm(form);
+});
+document.addEventListener("reset", (e) => {
+  const form = e.target;
+  if (form instanceof HTMLFormElement && form.classList.contains("add-form")) {
+    // After the handler that reset it has finished (it may still be reading
+    // the form), and without stealing focus if the user has moved on.
+    setTimeout(() => closeAddForm(form, { quiet: !form.contains(document.activeElement) }), 0);
+  }
+});
+
+// Search boxes appear once a list is long enough to need one. A search box
+// over two rows is a question nobody needs to answer.
+const SEARCH_ROW_MIN = { income: 6, expense: 6, pools: 6, debts: 6, daily: 8 };
+function syncSearchRows() {
+  if (!state) return;
+  const m = selectedMonth;
+  const counts = {
+    income: state.income.filter((r) => r.month === m).length,
+    expense: state.expenses.filter((r) => r.month === m).length,
+    pools: state.budgetPools.length,
+    debts: state.debts.length,
+    daily: state.dailyExpenses.length,
+  };
+  for (const [key, min] of Object.entries(SEARCH_ROW_MIN)) {
+    const input = document.querySelector(`.list-search[data-search="${key}"]`);
+    const row = input?.closest(".list-search-row");
+    if (!row) continue;
+    const querying = !!(searchQueries[key] && searchQueries[key].trim());
+    row.hidden = !querying && counts[key] < min;
+  }
+}
 
 /* go-to-tab buttons in empty states */
 document.addEventListener("click", (e) => {
@@ -7221,9 +7400,11 @@ function renderReminderPrefs() {
     return;
   }
   if (notifStatus) {
-    if (Notification.permission === "granted" && prefs.notifications) notifStatus.textContent = "Browser notifications: on.";
-    else if (Notification.permission === "denied") notifStatus.textContent = "Browser notifications blocked in system settings.";
-    else notifStatus.textContent = "Browser notifications: off.";
+    // The one caveat worth keeping from the old paragraph: a browser can only
+    // remind you while Duitful is open in it.
+    if (Notification.permission === "granted" && prefs.notifications) notifStatus.textContent = "On — while Duitful is open in this browser.";
+    else if (Notification.permission === "denied") notifStatus.textContent = "Blocked in your browser's site settings.";
+    else notifStatus.textContent = "Off. Browser reminders arrive only while Duitful is open.";
   }
   if (btnNotif) {
     btnNotif.textContent = (Notification.permission === "granted" && prefs.notifications) ? "Disable notifications" : "Enable browser notifications";
@@ -8570,6 +8751,11 @@ function renderGuideStep() {
   let targetEl = null;
   if (step.target) {
     const list = Array.isArray(step.target) ? step.target : [step.target];
+    // Add forms start closed; the tour opens the one it's about to point at.
+    for (const sel of list) {
+      const el = document.querySelector(sel);
+      if (el && el.classList.contains("add-form")) openAddForm(el, { focus: false });
+    }
     for (const sel of list) {
       const el = document.querySelector(sel);
       if (el && el.offsetParent !== null) { targetEl = el; break; }
@@ -9398,6 +9584,11 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.35.0": [
+    "<strong>Less to read, less to scroll</strong> — Home is now your balance, Add entry and today's spending. The payoff plan moved to Debts, where it belongs.",
+    "<strong>Five tabs instead of seven</strong> — All entries and Reports open from Home's Today card.",
+    "<strong>Forms stay out of the way</strong> — every list shows your data first; tap + Add when you want to add something. Settings says the same things in about half the words.",
   ],
   "1.34.0": [
     "<strong>Setup now ends on your debt-free date</strong> — add your card, BNPL, PTPTN or car loan with two numbers each (what's left and what you pay monthly) and the first thing Duitful shows you is the month you're clear, plus what RM 100 or so extra a month would do to it.",

@@ -605,7 +605,7 @@ function renderInvestments() {
   if (listEl) {
     listEl.innerHTML = list.length
       ? list.map((h) => investmentRowHtml(h)).join("")
-      : `<div class="empty">No holdings yet — add ASB, EPF, a unit trust or shares above. You type the values in from your statements; Duitful never contacts a price service.</div>`;
+      : `<div class="empty">No holdings yet — ASB, EPF, unit trusts or shares.</div>`;
   }
 
   // Portfolio performance. Both figures earn a "—" rather than a guess:
