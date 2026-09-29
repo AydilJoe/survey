@@ -91,6 +91,8 @@ await page.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d =>
 await page.waitForTimeout(300);
 
 const S = async (fn, ...a) => page.evaluate(fn, ...a);
+// Add forms start closed behind a "+ Add" button; open one before filling it.
+const openAdd = (id) => S((f) => openAddForm(f, { focus: false }), id);
 
 // ---------- 1. No mode: pill always there, zakat opt-in and invisible ----------
 check('islamic pill visible with no setting',
@@ -108,6 +110,7 @@ check('no debts → neutral conventional aggregate',
 // ---------- 3. Add an Islamic facility ----------
 // RM 20,000 financed, RM 4,800 profit, 60 months, 0 paid.
 await page.click('#tabbtn-debts');
+await openAdd('form-debt');
 await page.click('.debt-type-pills .pill[data-debt-kind="islamic"]');
 await page.fill('#form-debt [name="name"]', 'Bank Islam personal financing');
 await page.fill('#debt-fields-islamic [name="principal"]', '20000');
@@ -305,6 +308,7 @@ check('account select offers the Malaysian vehicles',
   'ASB|EPF|Tabung Haji|FD|Unit trust|Shares|Gold|PRS|Other');
 
 // Balance holding: RM 10,000 in ASB.
+await openAdd('form-investment');
 await page.fill('#form-investment [name="name"]', 'ASB');
 await page.selectOption('#invest-account', 'ASB');
 await page.fill('#form-investment [name="balance"]', '10000');
@@ -319,6 +323,7 @@ check('creation seeds one opening flow + one valuation',
 check('portfolio total = 10000', Math.abs((await S(() => investmentsTotals().total)) - 10000) < 0.01);
 
 // Units holding: 1,000 units @ RM 1.05, cost RM 900.
+await openAdd('form-investment');
 await page.click('.invest-type-pills .pill[data-invest-kind="units"]');
 await page.fill('#form-investment [name="name"]', 'ASM fund');
 await page.selectOption('#invest-account', 'Unit trust');
@@ -421,7 +426,7 @@ const nw = await S(() => {
     below: netWorth < inv.total,
   };
 });
-check('dashboard shows Invested + Net worth once holdings exist',
+check('the investments card shows Invested + Net worth once holdings exist',
   !nw.hidden && nw.text === nw.expected && nw.below, JSON.stringify(nw));
 
 // Zakat surface stays off until zakat tracking is enabled.
@@ -525,6 +530,7 @@ await S(() => {
 await page.waitForTimeout(300);
 check('trial aged out → not Pro', (await S(() => isPro())) === false);
 await page.click('#tabbtn-savings');
+await openAdd('form-investment');
 await page.click('.invest-type-pills .pill[data-invest-kind="balance"]');
 await page.fill('#form-investment [name="name"]', 'Third holding');
 await page.fill('#form-investment [name="balance"]', '1000');
@@ -682,7 +688,7 @@ check('per-account totals group by account, biggest first',
   JSON.stringify(fixAll.accounts));
 
 // Chart: inline SVG polyline, one dot per snapshot date.
-await page.click('#tabbtn-reports');
+await S(() => document.getElementById('tabbtn-reports').click());
 await page.waitForTimeout(400);
 check('reports shows the portfolio value card once holdings exist',
   await page.locator('#reports-invest-card').evaluate(e => !e.hidden));
@@ -718,7 +724,7 @@ const fixYoung = await installHoldings([{
 check('a holding younger than 90 days returns no rate',
   fixYoung.perHolding[0] === null && fixYoung.portfolio === null,
   JSON.stringify(fixYoung.perHolding));
-await page.click('#tabbtn-reports');
+await S(() => document.getElementById('tabbtn-reports').click());
 await page.waitForTimeout(300);
 check('reports return line says "—" for a sub-90-day history',
   (await page.locator('#reports-invest-return').textContent()).includes('Return (money-weighted) —'),
@@ -756,7 +762,7 @@ const fixOne = await installHoldings([{
   valuations: [{ ago: 200, value: 3000 }],
 }]);
 check('single-snapshot fixture really has one valuation', fixOne.series.length === 1);
-await page.click('#tabbtn-reports');
+await S(() => document.getElementById('tabbtn-reports').click());
 await page.waitForTimeout(300);
 check('one snapshot draws no line and says so',
   await page.locator('#reports-invest-chart-wrap').evaluate(e => e.hidden)
@@ -1218,6 +1224,7 @@ check('the ingested record carries the requester and amount',
 
 // --- compose from a monthly expense: the expense is never rewritten ---
 await page.click('#tabbtn-flow');
+await openAdd('form-expense');
 await page.fill('#form-expense [name="name"]', 'Dinner @ Naz');
 await page.fill('#form-expense [name="amount"]', '94');
 await page.fill('#form-expense [name="day"]', '12');
@@ -2900,9 +2907,11 @@ check('Split / Request money sits on Home permanently, with "More details" still
   await page.locator('#btn-split-quick').isVisible()
   && await page.locator('#daily-more').isHidden()
   && await page.locator('#daily-more-toggle').evaluate((e) => e.getAttribute('aria-expanded') === 'false'));
-check('the Home entry point keeps the old ones alive (Debts tab row untouched)',
+// v1.35 dropped the second copy inside "More details": one entry point on
+// Home is enough, and the Debts tab row is untouched.
+check('Home has exactly one Split entry point, and the Debts tab keeps its own',
   await page.locator('#tab-debts [data-action="split-compose"]').count() === 1
-  && await page.locator('#daily-more [data-action="split-compose"]').count() === 1);
+  && await page.locator('#tab-dashboard [data-action="split-compose"]').count() === 1);
 await page.fill('#form-daily [name="amount"]', '42.50');
 // The note lives inside "More details" — open it, type, and shut it again, so
 // the click below happens with the disclosure genuinely collapsed.
@@ -3550,7 +3559,6 @@ const overBars = await S(() => {
   save();
   selectedMonth = cur;
   renderBudgetManager();
-  renderBudgetSummary();
 
   const read = (root, id) => {
     const el = document.querySelector(`${root} [data-id="${id}"] .pool-progress > .fill`);
@@ -3579,8 +3587,6 @@ const overBars = await S(() => {
     mgrOver: read('#budget-pool-list', 'p-over'),
     mgrUnder: read('#budget-pool-list', 'p-under'),
     mgrDebt: read('#budget-pool-list', 'system-debt'),
-    sumOver: read('#budget-summary-list', 'p-over'),
-    sumDebt: read('#budget-summary-list', 'system-debt'),
   };
 });
 check('overspent pool bar paints the neon red, not the pool colour',
@@ -3593,12 +3599,8 @@ check('a pool still inside its limit keeps its own colour',
   overBars.mgrUnder && !overBars.mgrUnder.over
   && overBars.mgrUnder.bg !== overBars.neon, JSON.stringify(overBars.mgrUnder));
 check('paying past the Debt pool minimums never turns the bar red',
-  overBars.mgrDebt && !overBars.mgrDebt.over && overBars.mgrDebt.bg !== overBars.neon
-  && overBars.sumDebt && !overBars.sumDebt.over && overBars.sumDebt.bg !== overBars.neon,
-  JSON.stringify({ mgr: overBars.mgrDebt, sum: overBars.sumDebt }));
-check('the home summary card shows the same red — and its bars have height',
-  overBars.sumOver && overBars.sumOver.over && overBars.sumOver.bg === overBars.neon
-  && overBars.sumOver.h > 0 && overBars.sumDebt.h > 0, JSON.stringify(overBars.sumOver));
+  overBars.mgrDebt && !overBars.mgrDebt.over && overBars.mgrDebt.bg !== overBars.neon,
+  JSON.stringify({ mgr: overBars.mgrDebt }));
 
 /* ── 16d. the boot paint cannot regress to a white flash ────────────────
    Two things stood between the launch image and the app: a stylesheet that
@@ -3695,7 +3697,8 @@ const empties = await S(() => {
 });
 check('an empty debts list explains what belongs there',
   empties.debtsEmpty.includes('empty-block')
-  && empties.debtsEmpty.includes('No debts tracked yet')
+  && empties.debtsEmpty.includes('No debts yet')
+  && empties.debtsEmpty.includes('data-add-open="form-debt"')
   && !/class="empty"/.test(empties.debtsEmpty), empties.debtsEmpty.slice(0, 120));
 check('an empty entry list offers the next step, via the existing go-to-tab idiom',
   empties.dailyEmpty.includes('empty-block')
@@ -4189,6 +4192,116 @@ check('and what was typed reaches the home screen calculation',
     JSON.stringify(pacing));
 }
 
+/* ── v1.35: less to read, less to scroll ─────────────────────────────────
+   Five tabs; All entries and Reports are pages under Home. Add forms start
+   closed. Search boxes appear once a list is long enough to need one. Home
+   holds the balance, Add entry and Today — the payoff plan lives on Debts. */
+{
+  const nav = await S(() => ({
+    visible: [...document.querySelectorAll('.tabs .tab')].filter((b) => b.getClientRects().length).map((b) => b.dataset.tab),
+    payoffOnDebts: !!document.querySelector('#tab-debts #payoff-card') && !!document.querySelector('#tab-debts #debt-card'),
+    homeCards: [...document.querySelectorAll('#tab-dashboard > .card, #tab-dashboard > section.card')].map((c) => c.id || c.className.split(' ').slice(0, 2).join('.')),
+  }));
+  check('the nav is five tabs', JSON.stringify(nav.visible) === JSON.stringify(['dashboard', 'flow', 'debts', 'savings', 'data']),
+    JSON.stringify(nav.visible));
+  check('the payoff plan and order live on Debts, not Home',
+    nav.payoffOnDebts && !nav.homeCards.some((c) => /debt-card|payoff|dash-spending|budget-summary/.test(c)),
+    JSON.stringify(nav.homeCards));
+
+  const sub = await S(async () => {
+    document.getElementById('tabbtn-dashboard').click();
+    document.querySelector('.today-links [data-go-tab="daily"]').click();
+    await new Promise((r) => setTimeout(r, 60));
+    const onDaily = document.getElementById('tab-daily').classList.contains('active');
+    const homeLit = document.getElementById('tabbtn-dashboard').classList.contains('active');
+    const focusBack = document.activeElement?.classList.contains('subpage-back');
+    document.querySelector('#tab-daily .subpage-back').click();
+    await new Promise((r) => setTimeout(r, 60));
+    return { onDaily, homeLit, focusBack, back: document.getElementById('tab-dashboard').classList.contains('active') };
+  });
+  check('All entries opens from Home, keeps Home lit, and Back returns',
+    sub.onDaily && sub.homeLit && sub.focusBack && sub.back, JSON.stringify(sub));
+
+  await page.click('#tabbtn-debts');
+  const forms = await S(async () => {
+    const all = [...document.querySelectorAll('form.add-form')].map((f) => ({ id: f.id, hidden: f.hidden }));
+    const toggle = document.querySelector('[data-add-toggle="form-debt"]');
+    toggle.click();
+    await new Promise((r) => setTimeout(r, 80));
+    const form = document.getElementById('form-debt');
+    const opened = !form.hidden && toggle.hidden && toggle.getAttribute('aria-expanded') === 'true';
+    const focused = form.contains(document.activeElement);
+    const hasCancel = !!form.querySelector('[data-add-cancel]');
+    form.querySelector('[name="name"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await new Promise((r) => setTimeout(r, 30));
+    const escClosed = form.hidden && !toggle.hidden;
+    toggle.click();
+    await new Promise((r) => setTimeout(r, 30));
+    form.reset(); // what every save handler does on success
+    await new Promise((r) => setTimeout(r, 30));
+    return { all, opened, focused, hasCancel, escClosed, savedClosed: form.hidden };
+  });
+  check('every add form starts closed', forms.all.length === 5 && forms.all.every((f) => f.hidden), JSON.stringify(forms.all));
+  check('+ Add opens the form on its first field, with a Cancel beside Save',
+    forms.opened && forms.focused && forms.hasCancel, JSON.stringify(forms));
+  check('Escape and a successful save both close it again',
+    forms.escClosed && forms.savedClosed, JSON.stringify(forms));
+
+  const search = await S(() => {
+    const saved = state.debts;
+    const row = () => document.querySelector('.list-search[data-search="debts"]').closest('.list-search-row').hidden;
+    state.debts = saved.slice(0, 2); renderAll();
+    const fewHidden = row();
+    state.debts = Array.from({ length: 7 }, (_, i) => ({ id: 's' + i, name: 'Card ' + i, balance: 100, apr: 18, minPayment: 10, kind: 'standard' }));
+    renderAll();
+    const manyShown = !row();
+    state.debts = saved; renderAll();
+    return { fewHidden, manyShown };
+  });
+  check('search appears only once a list is long enough to need it',
+    search.fewHidden && search.manyShown, JSON.stringify(search));
+
+  await page.click('#tabbtn-dashboard');
+  const today = await S(async () => {
+    const saved = state.dailyExpenses;
+    const t = todayISO();
+    state.dailyExpenses = Array.from({ length: 7 }, (_, i) => ({
+      id: 't' + i, kind: 'expense', date: t, amount: 10 + i, category: 'Food', createdAt: i,
+      note: i === 6 ? 'Nasi kandar with extra everything and a very long note that must not push the amount off a narrow phone' : 'Lunch ' + i,
+    }));
+    renderAll();
+    await new Promise((r) => setTimeout(r, 30));
+    const rows = [...document.querySelectorAll('#today-list .today-row')];
+    const first = rows[0];
+    const out = {
+      rows: rows.length,
+      more: document.querySelector('#today-list .today-more')?.textContent || '',
+      newestFirst: first?.textContent.includes('Nasi kandar'),
+      fits: rows.every((r) => r.scrollWidth <= r.clientWidth + 1),
+      total: document.getElementById('today-total').textContent,
+    };
+    state.dailyExpenses = []; renderAll();
+    out.emptyShown = !document.getElementById('today-empty').hidden;
+    state.dailyExpenses = saved; renderAll();
+    return out;
+  });
+  check('Today lists the newest five, counts the rest, and never overflows on a long note',
+    today.rows === 5 && /\+2 more/.test(today.more) && today.newestFirst && today.fits && /91\.00/.test(today.total),
+    JSON.stringify(today));
+  check('and says so plainly when nothing is logged', today.emptyShown, JSON.stringify(today));
+
+  await page.click('#tabbtn-data');
+  const settingsWords = await S(() => {
+    const w = document.createTreeWalker(document.getElementById('tab-data'), NodeFilter.SHOW_TEXT);
+    let n = 0, t;
+    while ((t = w.nextNode())) { const el = t.parentElement; if (!el || el.closest('[hidden]') || !el.getClientRects().length) continue; n += (t.textContent.trim().match(/\S+/g) || []).length; }
+    return n;
+  });
+  // Was ~390 words before v1.35. A ceiling, so it can't creep back.
+  check('Settings reads in under 260 words', settingsWords < 260, String(settingsWords));
+  await page.click('#tabbtn-dashboard');
+}
+
 /* Re-unlock if the suite has auto-locked. AUTO_LOCK_MS is 10s of being
    hidden, and the cold-start checks above open their own pages, which
    backgrounds this one — the app dropping its key there is correct, but the
@@ -4395,6 +4508,7 @@ await page.click('#tabbtn-debts');
 await page.waitForTimeout(200);
 
 // -- the brand combobox --
+await openAdd('form-debt');
 await page.click('.debt-type-pills .pill[data-debt-kind="installment"]');
 await page.fill('#form-debt [name="name"]', 'ato');
 await page.waitForTimeout(200);
@@ -4438,7 +4552,9 @@ check('a progress bar is drawn at the right fraction',
 
 // -- a name that matches nothing still gets a stable identity --
 // A successful submit resets the form to Standard, so the kind has to be
-// re-selected before the instalment fields exist again.
+// re-selected before the instalment fields exist again. It also closes the
+// form, so open it again first.
+await openAdd('form-debt');
 await page.click('.debt-type-pills .pill[data-debt-kind="installment"]');
 await page.fill('#form-debt [name="name"]', 'Koperasi pinjaman');
 await page.waitForTimeout(150);
@@ -5581,6 +5697,7 @@ check('the brand catalogue makes no network calls at all',
 // rather than publishing one number.
 {
   await page.click('#tabbtn-debts');
+  await openAdd('form-debt');
   await page.waitForTimeout(300);
   const opts = await S(() => [...document.querySelectorAll('#debt-apr-preset option')]
     .filter((o) => o.value).map((o) => Number(o.value)));
@@ -5903,7 +6020,9 @@ check('the brand catalogue makes no network calls at all',
   const tabs = await S(() => [...document.querySelectorAll('.tabs button')].map(b => b.id));
   const leaks = [];
   for (const t of tabs) {
-    await page.click('#' + t);
+    // All entries and Reports have no visible nav button any more, but
+    // their pages still have to be leak-free — so click every one in script.
+    await S((id) => document.getElementById(id).click(), t);
     await page.waitForTimeout(400);
     await page.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d => d.close()));
     leaks.push(...await S(() => {
