@@ -9600,6 +9600,7 @@ const RELEASE_NOTES = {
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
   ],
   "1.35.2": [
+    "<strong>WhatsApp support</strong> — message us at +60 13-493 2131 from Settings → Contact. Email still works too.",
     "<strong>A calmer, cleaner look</strong> — labels are plain words instead of tiny spaced-out capitals, figures sit on the page instead of in boxes inside boxes, and lists are simple rows. Nothing moved; it's just easier on the eyes.",
   ],
   "1.35.1": [

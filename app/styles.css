@@ -2632,6 +2632,9 @@ button, .as-button {
   justify-content: center;
 }
 button:active, .as-button:active { transform: scale(0.98); }
+/* Links dressed as buttons (Email, WhatsApp, Privacy, Terms) kept the
+   browser's underline and, as ghosts, its link blue. */
+.as-button { text-decoration: none; }
 
 button.primary, .as-button.primary {
   background: var(--text);
@@ -2688,14 +2691,14 @@ button.danger:focus-visible {
   outline: 2px solid var(--danger-hover);
   outline-offset: 2px;
 }
-button.ghost {
+button.ghost, .as-button.ghost {
   background: transparent;
   color: var(--ink2);
   border-color: var(--line);
   padding: 0.45rem 0.7rem;
   font-size: 0.85rem;
 }
-button.ghost:hover { background: var(--card-soft); color: var(--text); }
+button.ghost:hover, .as-button.ghost:hover { background: var(--card-soft); color: var(--text); }
 /* Ghost button with danger affinity — used to visually separate destructive
    actions (e.g. Savings Delete) from primary actions next to them. Stays
    subtle until hover so it doesn't shout, but its color signals consequence. */
