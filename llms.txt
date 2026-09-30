@@ -217,7 +217,7 @@ diffed against the repository. The hosted product is not a subscription
 
 ## Contact
 
-- Operated by: Codyl Enterprise (Malaysia)
+- Duitful is a product of Codyl Enterprise (Malaysia), which operates it
 - Email: hello@duitful.app
 - WhatsApp: +60 13-493 2131 (https://wa.me/60134932131)
 - GitHub issues: https://github.com/AydilJoe/survey/issues
