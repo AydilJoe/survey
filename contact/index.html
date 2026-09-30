@@ -39,11 +39,13 @@
   "mainEntity": {
     "@type": "Organization",
     "name": "Duitful",
+    "parentOrganization": { "@type": "Organization", "name": "Codyl Enterprise", "address": { "@type": "PostalAddress", "addressCountry": "MY" } },
     "url": "https://duitful.app/",
     "contactPoint": {
       "@type": "ContactPoint",
       "contactType": "customer support",
       "email": "hello@duitful.app",
+      "telephone": "+60-13-493-2131",
       "availableLanguage": ["en", "ms"]
     }
   }
@@ -103,6 +105,8 @@
     margin-bottom: 40px;
     text-align: center;
   }
+  /* Email and WhatsApp are one group of ways to reach us. */
+  .email-card + .email-card { margin-top: -28px; }
   .email-card .label {
     font: 500 12px/1 var(--font-mono);
     letter-spacing: 0.12em;
@@ -251,6 +255,11 @@
     <button class="copy-btn" id="copyBtn" type="button" aria-label="Copy email address">Copy</button>
   </div>
 
+  <div class="email-card">
+    <div class="label">WhatsApp</div>
+    <a class="addr" href="https://wa.me/60134932131" target="_blank" rel="noopener">+60 13-493 2131</a>
+  </div>
+
   <h2 class="section-title">Pick a reason &mdash; we'll prefill the subject</h2>
   <p class="section-sub">Tap any option to open your email app with the subject already filled in.</p>
 
@@ -287,7 +296,7 @@
   </div>
 
   <div class="footer">
-    Prefer the web? The app lives at <a href="/app/">duitful.app/app</a>, the release notes at <a href="/changelog/">duitful.app/changelog</a>, the privacy policy at <a href="/privacy/">duitful.app/privacy</a>, and the terms of service at <a href="/terms/">duitful.app/terms</a>.
+    Duitful is a product of Codyl Enterprise, Malaysia. Prefer the web? The app lives at <a href="/app/">duitful.app/app</a>, the release notes at <a href="/changelog/">duitful.app/changelog</a>, the privacy policy at <a href="/privacy/">duitful.app/privacy</a>, and the terms of service at <a href="/terms/">duitful.app/terms</a>.
   </div>
 </div>
 

@@ -37,7 +37,7 @@
   "url": "https://duitful.app/privacy/",
   "description": "Privacy policy for Duitful — a privacy-first personal finance tracker built in Malaysia.",
   "inLanguage": "en",
-  "dateModified": "2026-08-05",
+  "dateModified": "2026-09-30",
   "publisher": {
     "@type": "Organization",
     "name": "Duitful",
@@ -203,7 +203,7 @@
 
   <h1>Privacy <em>policy</em></h1>
   <p class="lede">Written in plain English, not legalese. The short version lives right below — the rest is the full detail you'll want if you care, or if a regulator asks.</p>
-  <p class="meta">Effective 23 April 2026 · Last updated 5 August 2026</p>
+  <p class="meta">Effective 23 April 2026 · Last updated 30 September 2026</p>
 
   <div class="tldr">
     <h2>The short version</h2>
@@ -219,8 +219,8 @@
   </div>
 
   <h2 class="section">1. Who we are</h2>
-  <p>Duitful is a personal finance application operated by an independent developer based in Malaysia ("Duitful", "we", "us", or "our"). Duitful is distributed as a progressive web app at <a href="https://duitful.app/app/">duitful.app/app</a> and as native apps on the Apple App Store and Google Play Store.</p>
-  <p>For any privacy question, including requests under the Personal Data Protection Act 2010 (Malaysia) or any other applicable law, email <a href="mailto:hello@duitful.app">hello@duitful.app</a>. A human reads every message.</p>
+  <p>Duitful is a personal finance application and a product of <strong>Codyl Enterprise</strong>, a business based in Malaysia that operates it ("Duitful", "we", "us", or "our"). Duitful is distributed as a progressive web app at <a href="https://duitful.app/app/">duitful.app/app</a> and as native apps on the Apple App Store and Google Play Store.</p>
+  <p>For any privacy question, including requests under the Personal Data Protection Act 2010 (Malaysia) or any other applicable law, email <a href="mailto:hello@duitful.app">hello@duitful.app</a> or message us on <a href="https://wa.me/60134932131" target="_blank" rel="noopener">WhatsApp +60 13-493 2131</a>. A human reads every message.</p>
 
   <h2 class="section">2. What we do <em style="font-style:italic;color:var(--primary)">not</em> do</h2>
   <p>Because the things we don't do are central to how Duitful is built, it's easier to list them first.</p>
@@ -283,8 +283,9 @@
   <h3>4.3 The Pro licence token</h3>
   <p>Once payment is confirmed, we generate a Pro licence. It is a short signed token, using ECDSA on the P-256 curve. The payload contains: a subject identifier (your Billplz bill ID, or a complimentary code for free licences), the email address you provided at checkout, the product code (<code>duitful_pro</code>), the referral code if any, the issue timestamp, and — when applicable — the discount source. The token is verified on your device with a public key built into the app. It contains no device identifier, no IP address, no location.</p>
 
-  <h3>4.4 When you email us</h3>
+  <h3>4.4 When you email or WhatsApp us</h3>
   <p>If you email <a href="mailto:hello@duitful.app">hello@duitful.app</a> for support, feedback, or a bug report, the contents of your email, your email address, and any information you choose to include reach the operator directly. Inbound mail is forwarded through Cloudflare Email Routing to a personal inbox. We keep support correspondence for as long as needed to resolve the conversation and a reasonable period afterwards for reference; you can ask us to delete it at any time.</p>
+  <p>If you message us on WhatsApp at +60 13-493 2131, we receive your phone number, your WhatsApp profile name and whatever you send. Those messages travel through WhatsApp, which is operated by Meta under its own privacy policy. We keep them on the same terms as email, and delete them on request. Email remains available if you would rather not use WhatsApp.</p>
 
   <h3>4.5 When you enable Pro's Google Drive sync</h3>
   <p>Pro includes an optional encrypted-backup feature that uses <strong>your own</strong> Google Drive as the storage destination. The feature is off by default; turning it on requires you to sign in with a Google account and grant Duitful permission to access only its hidden application data folder on Drive (the <code>drive.appdata</code> OAuth scope). Duitful cannot see, list, read, or modify any other file in your Drive — only the single backup file it writes for itself.</p>
@@ -349,6 +350,11 @@
         <td>Cloudflare Email Routing</td>
         <td>Forwards mail sent to <code>hello@duitful.app</code> to the operator's inbox.</td>
         <td>Standard email metadata and message bodies, in transit.</td>
+      </tr>
+      <tr>
+        <td>WhatsApp (Meta)</td>
+        <td>Carries support messages sent to +60 13-493 2131, only if you choose to message us there.</td>
+        <td>Your phone number, WhatsApp profile name and the messages you send. Governed by WhatsApp's privacy policy.</td>
       </tr>
       <tr>
         <td>Vercel</td>
@@ -449,10 +455,10 @@
   <p>Because nearly all your data lives on your own device and is unreadable to us, most requests are answered by pointing you at the in-app <strong>CSV export</strong>, <strong>encrypted backup</strong>, or <strong>Reset all data</strong> tools — those give you the rights of access, portability, and erasure faster than we can.</p>
 
   <h2 class="section">10. International users and data transfers</h2>
-  <p>Duitful is built in Malaysia, but the app works anywhere and some of our vendors operate worldwide. If you use Duitful from outside Malaysia, the small amount of data that does leave your device (your email for a Pro purchase, and any mail you send us) is processed in the regions where our vendors operate — primarily the United States (Vercel, Resend, Cloudflare) and Malaysia (Billplz).</p>
+  <p>Duitful is built in Malaysia, but the app works anywhere and some of our vendors operate worldwide. If you use Duitful from outside Malaysia, the small amount of data that does leave your device (your email for a Pro purchase, and any email or WhatsApp message you send us) is processed in the regions where our vendors operate — primarily the United States (Vercel, Resend, Cloudflare) and Malaysia (Billplz).</p>
   <p>For users in the EU, EEA, or UK, transfers of personal data to countries outside those regions rely on appropriate safeguards under GDPR Chapter V. Specifically:</p>
   <ul>
-    <li>Transfers to <strong>US-based vendors</strong> (Vercel, Resend, Cloudflare, Google for Drive sync) are covered by the EU-US Data Privacy Framework where the vendor is certified, or by Standard Contractual Clauses (Commission Decision 2021/914) where it is not. Each vendor publishes its own transfer mechanisms; the latest status is on their respective privacy pages.</li>
+    <li>Transfers to <strong>US-based vendors</strong> (Vercel, Resend, Cloudflare, Google for Drive sync, and Meta if you message us on WhatsApp) are covered by the EU-US Data Privacy Framework where the vendor is certified, or by Standard Contractual Clauses (Commission Decision 2021/914) where it is not. Each vendor publishes its own transfer mechanisms; the latest status is on their respective privacy pages.</li>
     <li>Transfers to <strong>Malaysia</strong> (for Billplz payment processing) are made with your consent or as necessary for the performance of the Pro purchase contract — recognised grounds under Art. 49 GDPR.</li>
     <li>The encrypted Google Drive backup (Pro, optional) is end-to-end encrypted before it ever leaves your device, so even where the file is stored, the contents remain inaccessible to anyone without your passcode.</li>
   </ul>
@@ -466,8 +472,8 @@
   <p>When this policy changes, we update the "last updated" date at the top and add an entry to the <a href="/changelog/">changelog</a>. Material changes — anything that meaningfully affects what happens to your data — will be summarised in the changelog entry. Continuing to use Duitful after a change means you accept the updated policy.</p>
 
   <h2 class="section">13. Contact</h2>
-  <p>Questions, complaints, data requests, or just a hello — all go to the same address:</p>
-  <p><a href="mailto:hello@duitful.app">hello@duitful.app</a></p>
+  <p>Duitful is a product of Codyl Enterprise, Malaysia. Questions, complaints, data requests, or just a hello:</p>
+  <p><a href="mailto:hello@duitful.app">hello@duitful.app</a> · <a href="https://wa.me/60134932131" target="_blank" rel="noopener">WhatsApp +60 13-493 2131</a></p>
 
   <div class="footer">
     You may also want the <a href="/">main page</a>, the <a href="/terms/">terms of service</a>, the <a href="/changelog/">changelog</a>, or the <a href="/contact/">contact page</a>.
