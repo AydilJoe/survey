@@ -125,7 +125,7 @@
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "Duitful",
-    "parentOrganization": { "@type": "Organization", "name": "Codyl Enterprise", "address": { "@type": "PostalAddress", "addressCountry": "MY" } },
+    "parentOrganization": { "@type": "Organization", "name": "Codyl Enterprise", "url": "https://codyl.dev/", "address": { "@type": "PostalAddress", "addressCountry": "MY" } },
     "url": "https://duitful.app/",
     "logo": "https://duitful.app/favicon.svg",
     "image": "https://duitful.app/og-image.png",
@@ -1531,6 +1531,10 @@
     .foot-inner .links { display: flex; flex-wrap: wrap; gap: 12px 24px; }
     .foot-inner .links a { transition: color 0.2s; }
     .foot-inner .links a:hover { color: var(--ink); }
+    /* The maker's name is the one link inside a sentence, so it needs an
+       underline to read as a link at all. */
+    .foot-inner > div:first-child a { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; transition: color 0.2s; }
+    .foot-inner > div:first-child a:hover { color: var(--ink); }
 
     /* --------------- Bar kemajuan tatal + petunjuk --------------- */
     .scroll-progress {
@@ -2399,7 +2403,7 @@
 <!-- ======================= FOOTER ======================= -->
 <footer>
   <div class="container foot-inner">
-    <div>© 2026 Duitful · Produk Codyl Enterprise · Dibuat dengan teliti di Malaysia</div>
+    <div>© 2026 Duitful · Produk <a href="https://codyl.dev/" target="_blank" rel="noopener">Codyl Enterprise</a> · Dibuat dengan teliti di Malaysia</div>
     <div class="links">
       <a href="#pricing">Harga</a>
       <a href="#faq">Soalan</a>
