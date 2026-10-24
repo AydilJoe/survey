@@ -4648,6 +4648,46 @@ check('the vault is open before the quick-add checks',
   if (vpBefore) await page.setViewportSize(vpBefore);
 }
 
+/* ── Landing click counting, Hobby-plan style ────────────────────────────
+   Vercel's Hobby plan records page views but not custom events, so every
+   landing and guide button goes through /go/app/ or /go/play/ with a
+   utm_content naming the button. Those pages must always forward — even when
+   the analytics script is blocked, which is exactly the case on this test
+   server (no /_vercel route). */
+{
+  const PLAY = 'https://play.google.com/store/apps/details?id=com.aydiljoe.duitful';
+  for (const f of ['index.html', 'ms/index.html']) {
+    const html = readFileSync(path.join(REPO_ROOT, f), 'utf8');
+    const direct = [...html.matchAll(/(?:^|\s)(?:data-[a-z-]+-)?href="([^"]+)"/g)].map((m) => m[1])
+      .filter((h) => h === '/app/' || h === 'https://duitful.app/app' || h === 'https://duitful.app/app/' || h === PLAY);
+    const counted = [...html.matchAll(/href="https:\/\/duitful\.app\/go\/(app|play)\/\?([^"]+)"/g)].map((m) => m[2]);
+    check(`${f}: every app / Play button is counted through /go/, tagged with its placement`,
+      direct.length === 0 && counted.length >= 10 && counted.every((q) => /utm_source=landing/.test(q) && /utm_content=[a-z-]+/.test(q)),
+      JSON.stringify({ direct, n: counted.length }));
+  }
+  const guide = readFileSync(path.join(REPO_ROOT, 'guides', readdirSync(path.join(REPO_ROOT, 'guides')).find((d) => existsSync(path.join(REPO_ROOT, 'guides', d, 'index.html')) && d !== 'ms'), 'index.html'), 'utf8');
+  check('a generated guide\'s call to action is counted, tagged with its slug',
+    /href="https:\/\/duitful\.app\/go\/app\/\?utm_source=guide&amp;utm_medium=en&amp;utm_content=[a-z0-9-]+"/.test(guide));
+
+  const ctx = await b.newContext();
+  const gp = await ctx.newPage();
+  await ctx.route('https://play.google.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>play</title>' }));
+  const t0 = Date.now();
+  await gp.goto(`${BASE}/go/app/?utm_source=landing&utm_medium=en&utm_content=hero`);
+  await gp.waitForURL(/\/app\/(index\.html)?$/, { timeout: 4000 }).catch(() => {});
+  const appUrl = gp.url(); const appMs = Date.now() - t0;
+  await gp.goto(`${BASE}/go/play/?utm_content=final`);
+  await gp.waitForURL(/play\.google\.com/, { timeout: 4000 }).catch(() => {});
+  const playUrl = gp.url();
+  const robots = readFileSync(path.join(REPO_ROOT, 'robots.txt'), 'utf8');
+  await ctx.close();
+  check('/go/ pages forward to the app and to Play even with analytics blocked',
+    /\/app\/(index\.html)?$/.test(new URL(appUrl).pathname) && appMs < 3000 && playUrl.startsWith(PLAY), JSON.stringify({ appUrl, appMs, playUrl }));
+  check('/go/ is kept out of search (noindex + robots)',
+    /noindex/.test(readFileSync(path.join(REPO_ROOT, 'go/app/index.html'), 'utf8'))
+    && (robots.match(/Disallow: \/go\//g) || []).length === (robots.match(/Disallow: \/api\//g) || []).length);
+}
+
 /* ── 16j. quick add: the widget and the shade reach the ledger ──────────
    A tap on the widget's +RM 10, or an amount typed into the quick-add
    notification, happens while the app is CLOSED — so it cannot touch the
@@ -5658,7 +5698,8 @@ check('the brand catalogue makes no network calls at all',
       const wantLabel = platform === 'android' ? androidLabel : webLabel;
       check(`${lang} ${platform}: it is labelled "${wantLabel}"`, label === wantLabel, label);
       check(`${lang} ${platform}: and points where that label promises`,
-        platform === 'android' ? /play\.google\.com/.test(href) : /duitful\.app\/app/.test(href),
+        // Direct, or through the /go/ click counter that forwards there.
+        platform === 'android' ? /play\.google\.com|duitful\.app\/go\/play\//.test(href) : /duitful\.app\/(app|go\/app\/)/.test(href),
         String(href));
 
       // Android loses the web app from the button, so it keeps the small link
