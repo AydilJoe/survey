@@ -3,6 +3,7 @@ User-agent: *
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 # ---------------------------------------------------------------
 # Generative-engine crawlers — explicitly allowed.
@@ -15,86 +16,103 @@ User-agent: GPTBot
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: OAI-SearchBot
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: ChatGPT-User
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: ClaudeBot
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: Claude-Web
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: anthropic-ai
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: PerplexityBot
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: Perplexity-User
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: Google-Extended
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: Applebot
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: Applebot-Extended
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: Bytespider
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: Amazonbot
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: Meta-ExternalAgent
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: cohere-ai
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: DuckAssistBot
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 User-agent: YouBot
 Allow: /
 Disallow: /app/
 Disallow: /api/
+Disallow: /go/
 
 # Explicitly allow social-preview scrapers (OG image, link cards)
 User-agent: facebookexternalhit

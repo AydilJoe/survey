@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Opening Google Play…</title>
+<link rel="canonical" href="https://play.google.com/store/apps/details?id=com.aydiljoe.duitful">
+<noscript><meta http-equiv="refresh" content="0; url=https://play.google.com/store/apps/details?id=com.aydiljoe.duitful"></noscript>
+<!--
+  Click counter for the landing page and guides. Vercel's Hobby plan has no
+  custom events, but it does count page views — so each "Google Play" button
+  links here, this page counts one view (with utm_content saying which button),
+  and forwards at once. Nothing about the visitor is stored, and the app
+  itself is never tracked. If the analytics script is blocked or fails, the
+  redirect still happens: a click is never lost to measurement.
+-->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  (function () {
+    try { if (localStorage.getItem("duitful-analytics-off")) window.va("beforeSend", function () { return null; }); } catch (e) {}
+    var dest = "https://play.google.com/store/apps/details?id=com.aydiljoe.duitful";
+    var gone = false;
+    function go() { if (gone) return; gone = true; location.replace(dest); }
+    var s = document.createElement("script");
+    s.defer = true;
+    s.src = "/_vercel/insights/script.js";
+    // The page view goes out as the script initialises; give it a beat.
+    s.onload = function () { setTimeout(go, 250); };
+    s.onerror = go;
+    document.head.appendChild(s);
+    setTimeout(go, 1500);
+  })();
+</script>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: #efe9dd; color: #241f1a; }
+  a { color: #a65533; }
+  @media (prefers-color-scheme: dark) { body { background: #191614; color: #f3ede1; } a { color: #dd8a63; } }
+</style>
+</head>
+<body>
+<p>Opening Google Play… <a href="https://play.google.com/store/apps/details?id=com.aydiljoe.duitful">Continue</a></p>
+</body>
+</html>
