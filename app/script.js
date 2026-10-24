@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.40.0";
+const APP_VERSION = "1.40.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -2485,16 +2485,25 @@ function renderDaily() {
       note = e.note ? `<span class="daily-note">${escapeHtml(e.note)}</span>` : "";
       // Only plain spending can be split — a debt payment or a savings
       // deposit is not a bill anyone else owes a share of.
-      const splitBtn = (e.kind || "expense") === "expense"
-        ? `<button class="ghost icon-btn split-row-btn" data-action="split-expense" data-split-source="daily" data-id="${e.id}" aria-label="Split this entry" title="Split this bill / request a share">⇆</button>`
+      const canSplit = (e.kind || "expense") === "expense";
+      const splitBtn = canSplit
+        ? `<button data-action="split-expense" data-split-source="daily" data-id="${e.id}">Split this bill</button>`
         : "";
+      // One line per entry with Edit/Split/Delete behind ⋯, like every other
+      // list since v1.37. Colour follows meaning: a savings deposit is a gain,
+      // spending and debt payments are plain text — red is for trouble.
+      const amtCls = e.kind === "saving" ? " is-saving" : "";
+      const label = e.note || e.category || "entry";
       html.push(`
-        <div class="daily-entry${splitBtn ? " has-split" : ""}" data-id="${e.id}">
+        <div class="daily-entry" data-id="${e.id}">
           <div class="primary-line">${pill}${note}</div>
-          <span class="amount">${fmtMoney(e.amount)}${renderFxBadge(e.fx)}</span>
-          ${splitBtn}
-          <button class="ghost icon-btn" data-action="edit-daily" data-id="${e.id}" aria-label="Edit entry" title="Edit">✎</button>
-          <button class="ghost icon-btn" data-action="delete-daily" data-id="${e.id}" aria-label="Delete">✕</button>
+          <span class="amount${amtCls}">${fmtMoney(e.amount)}${renderFxBadge(e.fx)}</span>
+          <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${e.id}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(label)}" title="More">⋯</button>
+          <div class="row-menu" hidden>
+            <button data-action="edit-daily" data-id="${e.id}">Edit</button>
+            ${splitBtn}
+            <button class="danger" data-action="delete-daily" data-id="${e.id}">Delete</button>
+          </div>
         </div>
       `);
     }
@@ -2908,11 +2917,11 @@ function renderDashboard() {
     } else if (balance <= 0) {
       targetEl.hidden = false;
       const over = Math.abs(balance);
-      targetText.innerHTML = `<strong>${fmtMoney(over)} over</strong> with <span class="hero-target-meta">${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`;
+      targetText.innerHTML = `<strong>${fmtMoney(over)} over</strong> this month <span class="hero-target-meta">${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`;
     } else {
       targetEl.hidden = false;
       const perDay = balance / daysLeft;
-      targetText.innerHTML = `About <strong>${amt(fmtMoney(perDay) + "/day")}</strong> to stay on track <span class="hero-target-meta">· ${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`;
+      targetText.innerHTML = `About <strong>${amt(fmtMoney(perDay) + "/day")}</strong> to stay on track <span class="hero-target-meta">${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`;
     }
   }
 
@@ -9721,6 +9730,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.40.1": [
+    "<strong>All entries, tidier</strong> — one line per entry with edit, split and delete behind ⋯, like every other list. Spending is no longer shown in red; savings deposits are green.",
+    "<strong>Desktop Home without gaps</strong> — Today sits right under Upcoming, and the header lines up with the cards.",
+  ],
   "1.40.0": [
     "<strong>No more silent failures</strong> — if your phone's storage is full and an entry can't be saved, Duitful now tells you straight away and offers Try again or Export CSV.",
     "<strong>Big numbers fit</strong> — seven- and eight-figure balances shrink to fit small phones instead of spilling off the screen, and an amount over RM 100 million is caught as a typo.",
