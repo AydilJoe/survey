@@ -8,8 +8,10 @@ Estimated time: ~1 hour for first build, ~5 min per subsequent build.
 ## Prerequisites (install once)
 
 1. **Node.js 20 LTS** — <https://nodejs.org> (Capacitor 7 requires Node 20+)
-2. **Java JDK 21** — <https://adoptium.net> (Capacitor 7 / AGP 8.7+ require JDK 21)
-3. **Android Studio Ladybug 2024.2.1 or newer** — <https://developer.android.com/studio>
+2. **Java JDK 21** — <https://adoptium.net> (Capacitor 7 / AGP 9 require JDK 21)
+3. **A current Android Studio** — <https://developer.android.com/studio>. The
+   project builds with **AGP 9.4.1 / Gradle 9.8.2** (see *Play Console vitals*
+   below); an older Studio will refuse to sync and tell you to update.
    - First launch: accept SDK licenses, let it download SDK platforms
    - Tools -> SDK Manager -> install **Android 15 (API 35)** platform + build-tools 35.0.0 (Capacitor 7 targets API 35; Play also requires API 35 for new releases as of Aug 2025)
 4. **Git** — to clone the repo
@@ -54,6 +56,33 @@ After this you'll have an `android/` folder with a real Android Studio
 project. It's git-ignored (mostly) so you'll generate it fresh on any
 new clone.
 
+## Play Console vitals (edge-to-edge, deprecated APIs, R8)
+
+Play flags three things on a targetSdk 35 build. `npm run cap:sync` fixes all
+three through two scripts, so a freshly generated `android/` is already clean:
+
+| Play recommendation | Fix | Script |
+|---|---|---|
+| Edge-to-edge may not display for all users | `EdgeToEdge.enable(this)` in `MainActivity`, plus an insets listener that keeps the WebView clear of the status bar, nav bar, cutout and keyboard | `patch-android-play-vitals.mjs` |
+| Deprecated `Window.setStatusBarColor` / `setNavigationBarColor` (from Material's date picker and Play's in-app update) | R8 `-assumenosideeffects` strips those calls; they do nothing on Android 15+ anyway, and the theme's `colorPrimaryDark` colours the bars on 14 and below | `patch-android-play-vitals.mjs` (`app/duitful-rules.pro`) |
+| Enable R8 optimized resource shrinking / AGP 9 | Release builds: `minifyEnabled`, `shrinkResources`, `android.r8.optimizedResourceShrinking=true`; AGP 9.4.1 + Gradle 9.8.2 | `patch-android-play-vitals.mjs` + `patch-android-plugins-agp9.mjs` |
+
+AGP 9 needs three compatibility moves, all scripted: the plugins in
+`node_modules` switch `proguard-android.txt` → `proguard-android-optimize.txt`
+and `jcenter()` → `mavenCentral()` (runs on `postinstall` too);
+`gradle.properties` sets `android.builtInKotlin=false` and
+`android.newDsl=false` because Capacitor 7 plugins still apply Kotlin and the
+classic DSL themselves; and the app depends on `androidx.activity` directly.
+
+Because release builds are now minified, **test the signed release build on a
+device before uploading**, not just a debug run:
+
+- [ ] Android 15+: content sits below the status bar and above the gesture/nav bar; nothing hidden under the camera cutout
+- [ ] Android 14 or older: status bar is the app's beige (dark mode: near-black), not white
+- [ ] Keyboard: open Add entry, focus the amount field — the field stays visible above the keyboard
+- [ ] Splash → lock screen with no white flash
+- [ ] Receipt scan (camera + OCR), biometric unlock, Google sign-in, Pro purchase sheet, a reminder notification, home-screen widget quick-add
+
 ## Migrating an existing Capacitor 6 checkout to Capacitor 7
 
 If you already have an `android/` folder from a Capacitor 6-era build,
@@ -61,6 +90,8 @@ don't delete it — use Capacitor's built-in migrator instead. It updates
 Gradle wrapper to 8.11.1, AGP to 8.7.2, `compileSdk` / `targetSdk` to 35,
 `minSdk` to 23, and the Java toolchain to 21, while preserving your
 signing config, `versionCode`, and any custom code under `android/app/src/main/`.
+
+`npm run cap:sync` then lifts that to AGP 9.4.1 / Gradle 9.8.2 — see below.
 
 ```bash
 npm install              # pulls Capacitor 7 packages
