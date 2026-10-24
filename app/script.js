@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.37.0";
+const APP_VERSION = "1.38.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9651,6 +9651,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.38.0": [
+    "<strong>Easier to read</strong> — the small grey labels (dates, \"of RM 800\", hints) and green amounts are darker in light mode, so they're readable in sunlight.",
+    "<strong>Duitful's own colour</strong> — the terracotta from the logo now marks where you are: the active tab, what you're logging, and the busy days on the calendar. In dark mode, buttons are a warm sand instead of cold grey.",
+    "<strong>Red means trouble, not debt</strong> — your debt total is no longer shown in red. Red is kept for overspending, late payments and a negative balance.",
+  ],
   "1.37.0": [
     "<strong>Tabs at the bottom</strong> — on your phone, Home, Monthly, Debts, Savings and Settings now sit at the bottom, where your thumb already is. They step aside while you type.",
     "<strong>Clearer payoff advice</strong> — the Debts list is now \"When each debt is cleared\", and it says outright which debt your extra money should go to first (the highest rate). A short 0% plan finishing first no longer looks like the one to pay.",
