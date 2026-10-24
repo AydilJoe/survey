@@ -6809,3 +6809,81 @@ body.private .pending-match-sub {
   min-width: 9rem;
   margin-top: 0;
 }
+
+/* ---------- v1.38 Colour pass ----------
+   1. Contrast. Light-mode muted text was 3.4:1 on a card and text-green
+      4.0:1 — both under WCAG AA (4.5:1) for the small labels they carry.
+      Secondary ink steps down with them so the three levels stay distinct.
+   2. One accent. The logo is terracotta (--brand) but the interface had
+      drifted to navy / icy grey and never used it. Terracotta now marks
+      "you are here" and "this matters": the active tab, the selected spend
+      type, focus rings, the calendar heat. Dark-mode primary buttons are a
+      warm sand instead of a cold blue-grey slab on warm brown.
+   3. Red means trouble. Having debt is not an error; overspending, a late
+      payment or a negative balance is. Debt totals are plain ink now. */
+:root {
+  --ink2: #574e45;      /* 7.6:1 on card */
+  --muted: #6e6458;     /* 5.3:1 on card, 4.8:1 on bg (was 3.4 / 3.1) */
+  --gain: #3d6f45;      /* 5.4:1 on card (was 4.0) */
+  /* Terracotta for lines and glyphs. --brand (#c8704b) is ~3:1 on the page:
+     right for fills and tints, too faint for an icon or a focus ring. */
+  --brand-ink: #a65533; /* 4.9:1 on card, 4.1:1 on the tab bar */
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --primary: #e8d5b9;        /* warm sand; labels on it 11.6:1 */
+    --primary-hover: #f1e3cd;
+    --primary-ink: #e8d5b9;
+    --brand-ink: #dd8a63;
+  }
+}
+html[data-theme="dark"] {
+  --primary: #e8d5b9;
+  --primary-hover: #f1e3cd;
+  --primary-ink: #e8d5b9;
+  --brand-ink: #dd8a63;
+}
+
+/* Text that used the sage fill colour (3.2:1) uses the readable green. */
+.quick-add .pill[data-type="saving"].active,
+.item-list li .day-chip.today,
+.debt-list li .day-chip.today { color: var(--gain); }
+
+/* -- terracotta: where you are -- */
+@media (max-width: 899px) {
+  .tabs .tab.active .tab-icon,
+  .tabs .tab.active:hover .tab-icon { background: color-mix(in srgb, var(--brand) 20%, transparent); color: var(--brand-ink); }
+  .tabs .tab:hover .tab-icon { background: color-mix(in srgb, var(--brand) 9%, transparent); }
+}
+@media (min-width: 900px) {
+  .tab.active::before { background: var(--brand); }
+  .tab.active .tab-icon { color: var(--brand-ink); }
+}
+.quick-add .pill.active {
+  background: color-mix(in srgb, var(--brand) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--brand) 65%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 35%, transparent);
+}
+.quick-add .pill.active .pill-icon { color: var(--brand-ink); }
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand-ink);
+  outline-offset: 2px;
+}
+.search-opt mark { background: color-mix(in srgb, var(--brand) 22%, transparent); }
+.card.search-flash { animation-name: search-flash-brand; }
+@keyframes search-flash-brand {
+  from { box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 60%, transparent), var(--shadow); }
+  to { box-shadow: 0 0 0 2px transparent, var(--shadow); }
+}
+
+/* -- calendar heat in terracotta, day numbers readable at every level -- */
+.spend-cal-cell.heat-1 { background: color-mix(in srgb, var(--brand) 14%, var(--card)); }
+.spend-cal-cell.heat-2 { background: color-mix(in srgb, var(--brand) 28%, var(--card)); }
+.spend-cal-cell.heat-3 { background: color-mix(in srgb, var(--brand) 44%, var(--card)); }
+.spend-cal-cell.heat-4 { background: color-mix(in srgb, var(--brand) 60%, var(--card)); }
+.spend-cal-cell.heat-3 .cal-amt,
+.spend-cal-cell.heat-4 .cal-amt { color: var(--text); }
+
+/* -- red only for trouble -- */
+.debt-total-inline,
+.debt-glance-amount.neg { color: var(--text); }
