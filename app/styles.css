@@ -6301,3 +6301,86 @@ body.private .pending-match-sub {
   text-underline-offset: 2px;
 }
 .hint a:hover { color: var(--text); text-decoration-color: currentColor; }
+
+/* ---------- Motion: the amount that travels into the balance ----------
+   Positioned by script (fixed, transformed), so its box never affects
+   layout; removed the moment it lands. */
+.amount-flight {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9998;
+  pointer-events: none;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  border: 0.5px solid var(--border);
+  box-shadow: 0 6px 18px rgba(42, 36, 32, 0.16), 0 1px 3px rgba(42, 36, 32, 0.08);
+  color: var(--loss);
+  font-weight: 600;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+
+/* The entry you just logged lands at the top of Today: it settles down into
+   place under a gain-tinted wash that fades out. */
+.today-row.is-new {
+  animation:
+    today-row-land 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both,
+    today-row-wash 1.6s ease-out 0.35s both;
+  border-radius: var(--r-sm);
+}
+@keyframes today-row-land {
+  from { transform: translateY(-8px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes today-row-wash {
+  from { background-color: color-mix(in srgb, var(--gain) 16%, transparent); box-shadow: -0.5rem 0 0 color-mix(in srgb, var(--gain) 16%, transparent), 0.5rem 0 0 color-mix(in srgb, var(--gain) 16%, transparent); }
+  to { background-color: transparent; box-shadow: -0.5rem 0 0 transparent, 0.5rem 0 0 transparent; }
+}
+
+/* Dialogs rise into place over a backdrop that fades in, instead of
+   appearing in a single frame. Closing stays instant: you're done. */
+.edit-dialog[open] { animation: dialog-rise 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
+.edit-dialog[open]::backdrop { animation: backdrop-in 0.22s ease-out; }
+@keyframes dialog-rise {
+  from { opacity: 0; transform: translateY(12px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep what each one means, drop the travel. */
+  .today-row.is-new { animation: today-row-wash 1.6s ease-out both; }
+  .edit-dialog[open] { animation: backdrop-in 0.14s ease-out; }
+}
+
+/* The balance, brought to you when it's scrolled out of sight. */
+.balance-peek {
+  position: fixed;
+  left: 50%;
+  z-index: 9997;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--r-pill);
+  background: var(--card);
+  border: 0.5px solid var(--border);
+  box-shadow: 0 8px 24px rgba(42, 36, 32, 0.14), 0 1px 3px rgba(42, 36, 32, 0.06);
+  transform: translate(-50%, 0);
+  white-space: nowrap;
+}
+.balance-peek span { font-size: 0.78rem; color: var(--muted); }
+.balance-peek strong {
+  display: inline-block;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--gain);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}

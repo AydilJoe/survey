@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.35.2";
+const APP_VERSION = "1.35.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -2338,6 +2338,13 @@ function debtNameById(id) {
 // Home's "Today": what was logged today, newest first, and nothing else.
 // Editing, search and history live on the full log one tap away.
 const TODAY_CARD_MAX = 5;
+// The entry just logged from Home, so Today can land it once. `var`, not
+// `let`: renderAll can run before the motion section further down is
+// evaluated, and a `let` read there would throw.
+var lastLoggedEntryId = null;
+// The hero's current figure, kept so the balance peek can count from the
+// old balance to the new one. `var` for the same reason as above.
+var lastHeroNet = null;
 function renderTodayCard() {
   const list = document.getElementById("today-list");
   const empty = document.getElementById("today-empty");
@@ -2357,13 +2364,16 @@ function renderTodayCard() {
     else if (e.kind === "saving") label = `Saved to ${state.savings.find((g) => g.id === e.savingId)?.name || e.savingName || "savings"}`;
     else label = e.note || e.category || "Spending";
     const meta = (e.kind || "expense") === "expense" && e.note && e.category ? e.category : "";
-    return `<li class="today-row">
+    return `<li class="today-row${e.id === lastLoggedEntryId ? " is-new" : ""}" data-id="${escapeHtml(e.id)}">
       <span class="today-label">${escapeHtml(label)}${meta ? `<span class="today-meta">${escapeHtml(meta)}</span>` : ""}</span>
       <span class="today-amount${e.kind === "saving" ? " is-saving" : ""}">${amt(fmtMoney(Number(e.amount) || 0))}</span>
     </li>`;
   }).join("") + (entries.length > TODAY_CARD_MAX
     ? `<li class="today-more">+${entries.length - TODAY_CARD_MAX} more today</li>`
     : "");
+  // Land it once — renderAll runs again for rates, sync and the rest, and a
+  // row that re-plays its arrival on each of those is noise.
+  if (lastLoggedEntryId && list.querySelector(".today-row.is-new")) lastLoggedEntryId = null;
 }
 
 function renderDaily() {
@@ -2825,6 +2835,7 @@ function renderDashboard() {
   // Carryover from the prior month's running balance (recursive — chains all the way back).
   const carryOver = endingBalanceFor(shiftMonth(thisMonth, -1));
   const net = carryOver + incomeTotal - totalOut;
+  lastHeroNet = net;
   const netEl = $("#stat-net");
   tweenHeroBalance(netEl, net);
   netEl.classList.toggle("pos", net >= 0);
@@ -6038,6 +6049,138 @@ function updateCurrencyLabels() {
   if (prefEl && document.activeElement !== prefEl) prefEl.value = code;
 }
 
+/* ---------- Motion ----------
+   Motion here explains, it doesn't decorate. Three jobs:
+   - the one authored moment: a logged amount travels into the balance it
+     comes off, while the balance counts down to its new value;
+   - continuity: a page arrives from the side it lives on (Material's
+     shared axis — tabs left to right, pages under Home from the right);
+   - feedback: the entry you just logged lands in Today with a brief wash.
+   DOM changes stay synchronous — every animation runs on an element that
+   is already in its final state, so nothing waits on motion and nothing
+   breaks if an animation never runs. Reduced motion keeps the meaning
+   (fades and colour) and drops the travel. */
+const MOTION_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
+const TAB_ORDER = ["dashboard", "flow", "debts", "savings", "data"];
+let currentTabName = "dashboard";
+
+function canAnimate(el) {
+  return !!el && typeof el.animate === "function" && typeof _isHydrated !== "undefined" && _isHydrated;
+}
+function guideIsShowing() {
+  const spot = document.getElementById("guide-spotlight");
+  return (spot && !spot.hidden) || !!document.getElementById("guide-dialog")?.open;
+}
+
+// The page arriving: from the right when moving forward (a later tab, or a
+// page under Home), from the left when going back. 16px and a fade — enough
+// to say where you went, short enough never to be waited on.
+function animatePanelIn(panel, dir) {
+  if (!canAnimate(panel) || guideIsShowing()) return;
+  const reduce = prefersReducedMotion();
+  panel.getAnimations().forEach((a) => a.cancel());
+  panel.animate(
+    reduce
+      ? [{ opacity: 0 }, { opacity: 1 }]
+      : [{ opacity: 0, transform: `translateX(${dir * 16}px)` }, { opacity: 1, transform: "none" }],
+    { duration: reduce ? 140 : 260, easing: MOTION_EASE },
+  );
+}
+
+function tabDirection(from, to) {
+  // Pages under Home sit one level deeper than every tab.
+  const depth = (n) => (n === "daily" || n === "reports" ? 1 : 0);
+  if (depth(to) !== depth(from)) return depth(to) > depth(from) ? 1 : -1;
+  const a = TAB_ORDER.indexOf(from), b = TAB_ORDER.indexOf(to);
+  return a < 0 || b < 0 || a === b ? 0 : b > a ? 1 : -1;
+}
+
+// The authored moment. The amount lifts off the button that logged it and
+// arcs into the balance, shrinking as it lands; the balance gives a small
+// nod as it arrives. Only when the balance actually changes (spending and
+// savings this month, not card charges or debt payments, which the
+// balance treats differently) and only when the balance is on screen —
+// otherwise Today's highlight says it on its own.
+function flyAmountToBalance(fromEl, amountText, netBefore, netAfter) {
+  const hero = document.getElementById("stat-net");
+  if (!canAnimate(hero) || !fromEl || prefersReducedMotion() || guideIsShowing()) return;
+  const a = fromEl.getBoundingClientRect();
+  if (!a.width) return;
+  const vh = window.innerHeight || document.documentElement.clientHeight;
+  // On a phone the tab bar is sticky across the top, and a balance scrolled
+  // under it is not on screen. (On desktop the nav is a sidebar: no cover.)
+  const tabs = document.querySelector(".tabs")?.getBoundingClientRect();
+  const covered = tabs && tabs.width > tabs.height ? tabs.bottom : 0;
+  const hb = hero.getBoundingClientRect();
+  const heroVisible = hb.width && hb.top >= covered + 4 && hb.bottom <= vh - 24;
+
+  let target = hero;
+  let peek = null;
+  if (!heroVisible) {
+    // The usual case on a phone: you scrolled down to Add entry, so the
+    // balance is out of sight. Rather than scroll you away, the balance comes
+    // to you — a small pill under the tab bar that the amount drops into,
+    // counting down from the old balance to the new, then it goes.
+    if (!covered || !Number.isFinite(netBefore) || !Number.isFinite(netAfter)) return;
+    peek = document.createElement("div");
+    peek.className = "balance-peek";
+    peek.setAttribute("aria-hidden", "true");
+    peek.style.top = `${Math.round(covered + 10)}px`;
+    peek.innerHTML = `<span>Balance left</span><strong class="amt">${escapeHtml(fmtMoney(netBefore))}</strong>`;
+    document.body.appendChild(peek);
+    peek.animate(
+      [{ opacity: 0, transform: "translate(-50%, -8px) scale(0.96)" }, { opacity: 1, transform: "translate(-50%, 0) scale(1)" }],
+      { duration: 240, easing: MOTION_EASE, fill: "both" },
+    );
+    target = peek.querySelector("strong");
+  }
+
+  const b = target.getBoundingClientRect();
+  const chip = document.createElement("div");
+  chip.className = "amount-flight";
+  chip.setAttribute("aria-hidden", "true");
+  chip.innerHTML = `− <span class="amt">${escapeHtml(amountText)}</span>`;
+  document.body.appendChild(chip);
+  const w = chip.offsetWidth, h = chip.offsetHeight;
+  const x0 = a.left + a.width / 2 - w / 2, y0 = a.top + a.height / 2 - h / 2;
+  const x1 = b.left + Math.min(b.width, 160) / 2 - w / 2, y1 = b.top + b.height / 2 - h / 2;
+  const lift = Math.min(y0, y1) - Math.min(90, Math.abs(y0 - y1) * 0.25 + 30);
+  const arcTop = Math.max(covered + 2, lift);
+  const flight = chip.animate([
+    { transform: `translate(${x0}px, ${y0}px) scale(0.9)`, opacity: 0 },
+    { transform: `translate(${x0 + (x1 - x0) * 0.1}px, ${y0 - 14}px) scale(1)`, opacity: 1, offset: 0.14 },
+    { transform: `translate(${(x0 + x1) / 2}px, ${peek ? (y0 + y1) / 2 : arcTop}px) scale(0.92)`, opacity: 1, offset: 0.55 },
+    { transform: `translate(${x1}px, ${y1}px) scale(0.55)`, opacity: 0 },
+  ], { duration: 640, easing: "cubic-bezier(0.45, 0, 0.25, 1)" });
+  flight.finished.catch(() => {}).finally(() => chip.remove());
+
+  setTimeout(() => {
+    if (!target.isConnected) return;
+    target.animate(
+      [{ transform: "scale(1)" }, { transform: "scale(1.04)" }, { transform: "scale(1)" }],
+      { duration: 320, easing: MOTION_EASE },
+    );
+    if (!peek) return;
+    // Count down to the new balance, hold a beat so it can be read, then go.
+    const start = performance.now(), dur = 620;
+    const step = (now) => {
+      if (!peek.isConnected) return;
+      const t = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - t, 3);
+      target.textContent = fmtMoney(netBefore + (netAfter - netBefore) * e);
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    setTimeout(() => {
+      if (!peek.isConnected) return;
+      peek.animate(
+        [{ opacity: 1, transform: "translate(-50%, 0)" }, { opacity: 0, transform: "translate(-50%, -6px)" }],
+        { duration: 200, easing: "ease-in", fill: "both" },
+      ).finished.catch(() => {}).finally(() => peek.remove());
+    }, dur + 900);
+  }, 520);
+}
+
 /* ---------- tabs ---------- */
 
 document.querySelectorAll(".tab").forEach((btn) => {
@@ -6058,6 +6201,9 @@ document.querySelectorAll(".tab").forEach((btn) => {
     document.querySelectorAll(".tab-panel").forEach((p) => {
       p.classList.toggle("active", p.id === `tab-${name}`);
     });
+    const from = currentTabName;
+    currentTabName = name;
+    if (from !== name) animatePanelIn(document.getElementById(`tab-${name}`), tabDirection(from, name));
     // A page change lands at the top, and on its heading for keyboard and
     // screen-reader users arriving from a link rather than the nav.
     if (btn.dataset.parentTab || btn.hidden) {
@@ -6323,6 +6469,10 @@ $("#form-daily").addEventListener("submit", (e) => {
   }
 
   save();
+  lastLoggedEntryId = id;
+  const movesBalance = isSameMonth(date) && (type === "saving" || (type === "expense" && !(f.get("card") || "").toString().trim()));
+  const flightFrom = e.submitter || e.target.querySelector('button[type="submit"]');
+  const netBefore = lastHeroNet;
   const keepDate = date;
   const keepType = type;
   e.target.reset();
@@ -6330,6 +6480,7 @@ $("#form-daily").addEventListener("submit", (e) => {
   setDailyType(keepType);
   renderAll();
   const amountLabel = fmtMoney(amount);
+  if (movesBalance) flyAmountToBalance(flightFrom, amountLabel, netBefore, lastHeroNet);
   if (type === "debt") toast(`Payment recorded · ${amountLabel}`);
   else if (type === "saving") toast(`Savings added · ${amountLabel}`);
   else toast(`Spending added · ${amountLabel}`);
@@ -9598,6 +9749,10 @@ const RELEASE_NOTES = {
     "<strong>The transfer settles itself</strong> (Android app) — when a friend's DuitNow lands, your bank's notification is matched to the open request: \"RM 23.50 received — settle Ali's share?\". One tap. Never automatic, never guessed.",
     "<strong>\"I've paid\" receipts</strong> — after paying, send back a paid confirmation QR or link; the requester confirms and it settles with the repayment logged. Works through the same links — still no server.",
     "<strong>Gentle chasing</strong> — overdue loans and stale requests join your reminders with a one-tap re-share. Optional, off with one toggle.",
+  ],
+  "1.35.3": [
+    "<strong>Watch it come off your balance</strong> — log a spend and the amount drops into your balance as it counts down. Scrolled down? The balance pops up under the tabs so you still see it land.",
+    "<strong>Smoother moves</strong> — tabs slide in from the side they live on, dialogs rise into place, and what you just logged lands at the top of Today. Reduce Motion turns the movement off and keeps the cues.",
   ],
   "1.35.2": [
     "<strong>WhatsApp support</strong> — message us at +60 13-493 2131 from Settings → Contact. Email still works too.",
