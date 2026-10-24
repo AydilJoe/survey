@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.36.0";
+const APP_VERSION = "1.36.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9602,6 +9602,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.36.1": [
+    "<strong>What's new, whenever you want it</strong> — Settings → About now has a What's new button, and searching \"changelog\" or \"apa baru\" finds it. The automatic popup still only appears every few days, so it never nags.",
+  ],
   "1.36.0": [
     "<strong>Search everything</strong> — tap the magnifier at the top (or press /) and type. Find any spend by note, category, date or amount, any debt, goal or pool, and any setting. \"grab oct\" shows every Grab ride in October, with the total.",
     "<strong>Works in Bahasa too</strong> — \"sandaran\", \"mata wang\" or \"zakat\" take you straight to the right setting.",
@@ -9859,28 +9862,41 @@ function maybeShowWhatsNew() {
   const shownAt = Number(localStorage.getItem(WHATS_NEW_SHOWN_KEY)) || 0;
   if (Date.now() - shownAt < WHATS_NEW_GAP_MS) return;
 
+  fillWhatsNew(unseen, unseen.length === 1 ? `What's new in v${APP_VERSION}` : "What's new since you last looked");
+  try { localStorage.setItem(WHATS_NEW_SHOWN_KEY, String(Date.now())); } catch {}
+  openWhatsNew();
+}
+
+function fillWhatsNew(versions, title) {
   const titleEl = document.getElementById("whats-new-title");
-  if (titleEl) {
-    titleEl.textContent = unseen.length === 1
-      ? `What's new in v${APP_VERSION}`
-      : `What's new since you last looked`;
-  }
+  if (titleEl) titleEl.textContent = title;
   // Newest release first, capped so a long absence never becomes a wall.
   const bullets = [];
-  for (const v of unseen) {
+  for (const v of versions) {
     for (const n of RELEASE_NOTES[v]) {
       if (bullets.length < WHATS_NEW_MAX_BULLETS) bullets.push(`<li>${n}</li>`);
     }
   }
-  const total = unseen.reduce((s, v) => s + RELEASE_NOTES[v].length, 0);
-  if (total > WHATS_NEW_MAX_BULLETS) {
-    bullets.push(`<li>…and more — the <a href="/changelog/" target="_blank" rel="noopener">full changelog</a> has everything.</li>`);
-  }
+  const total = versions.reduce((s, v) => s + RELEASE_NOTES[v].length, 0);
+  bullets.push(total > WHATS_NEW_MAX_BULLETS
+    ? `<li>…and more — the <a href="/changelog/" target="_blank" rel="noopener">full changelog</a> has everything.</li>`
+    : `<li>Older releases are in the <a href="/changelog/" target="_blank" rel="noopener">full changelog</a>.</li>`);
   const listEl = document.getElementById("whats-new-list");
   if (listEl) listEl.innerHTML = bullets.join("");
-  try { localStorage.setItem(WHATS_NEW_SHOWN_KEY, String(Date.now())); } catch {}
+}
+
+// On demand, from Settings → About or search: never throttled. Shows what
+// you haven't seen yet, or else this release, so it is never empty.
+function showWhatsNewNow() {
+  const unseen = whatsNewUnseenVersions();
+  const versions = unseen.length ? unseen
+    : Object.keys(RELEASE_NOTES).filter((v) => versionCompare(v, APP_VERSION) <= 0 && RELEASE_NOTES[v].length)
+      .sort((a, b) => versionCompare(b, a)).slice(0, 1);
+  if (!versions.length) return;
+  fillWhatsNew(versions, unseen.length > 1 ? "What's new since you last looked" : `What's new in v${versions[0]}`);
   openWhatsNew();
 }
+document.getElementById("btn-whats-new")?.addEventListener("click", showWhatsNewNow);
 
 function openWhatsNew() {
   const dlg = document.getElementById("whats-new-dialog");
@@ -13035,6 +13051,7 @@ const SEARCH_FEATURES = [
   { title: "Change passcode", where: "Settings", kw: "passcode password pin security lock kata laluan kod keselamatan kunci", go: ["data", "#btn-change-passcode"] },
   { title: "Fingerprint / face unlock", where: "Settings", kw: "fingerprint face id biometric unlock cap jari muka biometrik", go: ["data", "#biometric-row"] },
   { title: "Hide amounts", where: "Header", kw: "hide amounts privacy blur screenshot sembunyi jumlah privasi", run: () => { closeSearch(); document.getElementById("btn-privacy")?.click(); } },
+  { title: "What's new", where: "Settings", kw: "whats new what's new changelog release notes update version updates apa baru kemas kini versi", run: () => { closeSearch(); showWhatsNewNow(); } },
   { title: "Welcome tour", where: "Settings", kw: "tour guide help tutorial panduan bantuan", go: ["data", "#btn-show-guide"] },
   { title: "Contact & WhatsApp", where: "Settings", kw: "contact support help whatsapp email feedback hubungi sokongan bantuan maklum balas", go: ["data", '#tab-data a[href^="https://wa.me/"]'] },
   { title: "Clear all data", where: "Settings", kw: "clear delete wipe reset data padam kosongkan set semula", go: ["data", "#btn-clear"] },
