@@ -4345,7 +4345,7 @@ check('and what was typed reaches the home screen calculation',
     closePoolForm(); save(); renderAll();
     return out;
   });
-  check('editing a pool says which one, and hides "+ Add pool" while open',
+  check('editing a pool says which one, and hides the pool Add button while open',
     pools.titled === 'Edit Rolls' && pools.addHidden && pools.addBack, JSON.stringify(pools));
   check('after the trial, a pool with rollover or an override can still be renamed and re-limited',
     !pools.renameRollBlocked && !pools.renameOverBlocked

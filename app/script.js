@@ -1129,7 +1129,7 @@ function renderBudgetManager() {
   if (templates) templates.hidden = userPoolCount > 0;
 
   if (pools.length === 0 || (pools.length === 1 && pools[0].system === "debt" && state.debts.length === 0)) {
-    listEl.innerHTML = `<p class="empty">No budget pools yet — pick a template below or tap "+ Add pool" to create one.</p>`;
+    listEl.innerHTML = `<p class="empty">No budget pools yet — pick a template below or tap Add to make your own.</p>`;
     return;
   }
 
@@ -1513,7 +1513,7 @@ function openPoolForm(poolId, opts) {
   const editing = poolId ? state.budgetPools.find((p) => p.id === poolId) : null;
   form.hidden = false;
   // Say which pool is open, and put the form where the eye is: on a phone it
-  // opened below the fold under "+ Add pool" with nothing saying what it was
+  // opened below the fold under the Add button with nothing saying what it was
   // for, so an edit tap looked like it did nothing.
   const title = document.getElementById("pool-form-title");
   if (title) title.textContent = editing ? `Edit ${editing.name}` : "New pool";
@@ -9754,6 +9754,7 @@ const RELEASE_NOTES = {
     "<strong>Watch it come off your balance</strong> — log a spend and the amount drops into your balance as it counts down. Scrolled down? The balance pops up under the tabs so you still see it land.",
     "<strong>Smoother moves</strong> — tabs slide in from the side they live on, dialogs rise into place, and what you just logged lands at the top of Today. Reduce Motion turns the movement off and keeps the cues.",
     "<strong>Restore with Google, front and centre</strong> — on a new phone, the Google Drive restore is now a proper button on the first screen instead of a small link.",
+    "<strong>Tidier Budget Pools</strong> — Add sits in the card header like Income and Recurring expenses.",
   ],
   "1.35.2": [
     "<strong>WhatsApp support</strong> — message us at +60 13-493 2131 from Settings → Contact. Email still works too.",
@@ -12523,7 +12524,7 @@ document.addEventListener("click", (e) => {
     if (!btn) return;
     const name = btn.getAttribute("data-template") || "";
     if (!name) return;
-    // Pro gate (same rule as +Add pool)
+    // Pro gate (same rule as the pool Add button)
     const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
     if (userPoolCount >= 1 && !gate("budgetPools")) return;
     // Focus lands on the limit, so the user just types the limit and saves.

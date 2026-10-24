@@ -531,7 +531,10 @@
         </div>
 
         <div class="card budget-pool-card">
-          <h2>Budget Pools</h2>
+          <div class="card-head">
+            <h2>Budget Pools</h2>
+            <button type="button" class="add-toggle" id="btn-add-pool" aria-label="Add a budget pool"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
+          </div>
           <p class="hint">Monthly limits for things like Shopping. Tag spending to a pool.</p>
           <div class="list-search-row">
             <input
@@ -558,7 +561,6 @@
               <button type="button" class="pill pool-template" data-template="Vacation">+ Vacation</button>
             </div>
           </div>
-          <button type="button" class="primary" id="btn-add-pool">+ Add pool</button>
           <button type="button" class="ghost" id="btn-copy-pool-overrides">Copy overrides from last month</button>
 
           <form id="form-budget-pool" hidden>

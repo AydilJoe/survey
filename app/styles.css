@@ -1541,6 +1541,7 @@ main {
   cursor: pointer;
   transition: border-color 0.15s ease, background-color 0.15s ease;
 }
+.budget-pool-card #btn-copy-pool-overrides { margin-top: 0.75rem; }
 .add-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .add-toggle:hover { border-color: var(--primary); }
 .add-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
