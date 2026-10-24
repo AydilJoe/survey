@@ -168,67 +168,23 @@
     "mainEntity": [
       {
         "@type": "Question",
-        "name": "Why one-time pricing and not a subscription?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "A tracker shouldn't cost more than the problem it solves. Duitful Pro is a one-time RM 19.90 — you keep the app forever, get every future Pro feature, and never see a renewal email. Server costs are near-zero because your data stays on your phone, so subscriptions would just be charging you to subsidise someone else's growth metrics."
-        }
+        "name": "Why pay once instead of a subscription?",
+        "acceptedAnswer": { "@type": "Answer", "text": "A money app shouldn’t cost more than it saves you. Pro is RM 19.90 once, with every future Pro feature included." }
       },
       {
         "@type": "Question",
-        "name": "Does my data really never leave the phone?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Correct. All your transactions, debts, and goals live in an AES-GCM-encrypted database on your device, locked with a PBKDF2-derived key from your passcode. There is no sign-up, no sync server, no analytics SDK on your financial data. Receipt OCR happens via a privacy-focused API only when you explicitly scan — no receipts are stored remotely."
-        }
+        "name": "Does my data really never leave my phone?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. It’s encrypted on your phone with your passcode. There’s no account and no server copy. Backup goes to your own Google Drive, encrypted first." }
       },
       {
         "@type": "Question",
-        "name": "Which banks are supported for auto-capture?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "On Android, Duitful parses notifications from major Malaysian banks and e-wallets — Maybank, CIMB, Public Bank, RHB, Hong Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay and more. You review each transaction before it's saved. iOS doesn't allow notification reading, so on iPhone you'll use receipt scans and manual entry."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Can I use Duitful outside Malaysia?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. The app supports MYR, SGD, USD, EUR, GBP, JPY, THB, IDR and more, with automatic FX conversion for travel expenses. Singapore users in particular get full BNPL coverage (Atome, SPayLater, ShopBack PayLater). Auto-capture notification parsing is currently tuned for Malaysian banks, with Singapore banks next on the roadmap."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "What happens if I lose my passcode?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Your data cannot be recovered. This is the honest trade-off for real end-to-end privacy — because Duitful never has a copy of your passcode or your data, we can't reset it for you. We strongly recommend writing your passcode down somewhere safe, or using Pro's encrypted-backup export so you can restore to a new device."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Can I import from Monarch, YNAB or a CSV?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes. Duitful Pro imports CSV files in the standard formats exported by Monarch, YNAB, Money Lover, and most Malaysian bank statements. You can map columns manually if your export is non-standard. Export works the same way — your data is yours to take anywhere, any time."
-        }
+        "name": "What if I forget my passcode?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Nobody can recover it, not even us — that’s what keeps it private. Export a backup now and then from Settings." }
       },
       {
         "@type": "Question",
         "name": "Was Duitful built with AI?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Yes — most of the code, the landing page, and the guides were written with the help of Claude Code (an AI coding assistant). The product idea, the spreadsheet this started from, and every shipping decision are mine, and I review every change before it ships. The full source is public on GitHub at github.com/AydilJoe/survey so anyone can verify."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "How does Pro sync across devices?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Pro syncs through your own Google Drive, not a Duitful server. Your encrypted database is written to a single file in your Drive. Other devices sign in with the same Google account, pull the file, and decrypt it locally with your passcode. Duitful runs no sync server. The passcode never leaves your device, so the data sitting in Drive is unreadable to anyone else — including Google and including me."
-        }
+        "acceptedAnswer": { "@type": "Answer", "text": "Partly. Aydil, in Kuala Lumpur, decides what ships; much of the code was written with Claude Code. The source is public on GitHub." }
       }
     ]
   }
@@ -1682,14 +1638,36 @@
       .demo-stats .label { margin-bottom: 2px; }
     }
 
+    /* --------------- Benefits (v2 landing) --------------- */
+    .benefits-grid { grid-template-columns: repeat(3, 1fr); }
+    .benefits .feature h3 { font-size: 1.2rem; margin-bottom: 4px; }
+    .benefits .feature p { font-size: 1rem; margin: 0; }
+    @media (max-width: 960px) { .benefits-grid { grid-template-columns: 1fr; } }
+    .benefit-tags {
+      list-style: none; padding: 0; margin: 28px auto 0;
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+      max-width: 720px;
+    }
+    .benefit-tags li {
+      padding: 6px 12px; border-radius: 999px;
+      background: var(--card); border: 1px solid var(--line, rgba(0,0,0,.08));
+      font-size: 0.85rem; font-weight: 600; color: var(--ink-2, inherit);
+    }
+    /* Guides on the home page: titles only, a list rather than tall cards. */
+    .guides-spotlight .guides-grid { display: grid; grid-template-columns: 1fr; gap: 0; max-width: 640px; margin: 0 auto; }
+    .guides-spotlight .g-card { padding: 14px 4px; border: 0; border-bottom: 1px solid var(--line, rgba(0,0,0,.08)); border-radius: 0; background: transparent; box-shadow: none; }
+    .guides-spotlight .g-card-eyebrow, .guides-spotlight .g-card-blurb, .guides-spotlight .g-card-foot { display: none; }
+    .guides-spotlight .g-card-title { font-size: 1.02rem; margin: 0; }
+    .guides-spotlight .g-card-title::after { content: " →"; color: var(--primary); }
+
     /* --------------- Scroll reveal --------------- */
+    /* Content is visible from the first frame: a fast scroll used to outrun
+       the fade and show whole blank screens. Only a short slide remains. */
     .reveal {
-      opacity: 0;
-      transform: translateY(22px) scale(0.985);
-      transition:
-        opacity 0.62s cubic-bezier(0.22, 1, 0.36, 1),
-        transform 0.62s cubic-bezier(0.22, 1, 0.36, 1);
-      will-change: opacity, transform;
+      opacity: 1;
+      transform: translateY(14px);
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform;
     }
     .reveal.in { opacity: 1; transform: translateY(0) scale(1); }
 
@@ -1778,10 +1756,9 @@
     <div class="nav-links" role="navigation">
       <a href="#features">Features</a>
       <a href="#demo">Demo</a>
-      <a href="#privacy">Privacy</a>
       <a href="#pricing">Pricing</a>
-      <a href="#founder">About</a>
       <a href="#faq">FAQ</a>
+      <a href="/guides/">Guides</a>
     </div>
     <a href="/ms/" class="lang-toggle" aria-label="Tukar ke Bahasa Melayu" title="Bahasa Melayu">BM</a>
     <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=nav" target="_blank" rel="noopener" class="btn btn-primary nav-cta" id="nav-cta" data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=nav" data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=nav" data-web-label="Open the web app" data-android-label="Get on Google Play">Get the app</a>
@@ -1826,7 +1803,7 @@
       <div class="hero-grid">
         <div class="hero-copy hero-intro">
           <h1>Be <span class="serif-italic">duitful</span><br>with your duit.</h1>
-          <p class="hero-sub">Every budgeting app wanted my bank login. This one can&rsquo;t have it. Your money never leaves your phone.</p>
+          <p class="hero-sub">Track spending. Clear debt faster. Your money data never leaves your phone.</p>
           <!-- Sits directly under the privacy claim, not in a separate "about"
                section. The point of a face here is that someone is accountable
                for the sentence above it. -->
@@ -1841,7 +1818,6 @@
               <span class="lbl-web">Open the app</span><span class="lbl-android">Get on Google Play</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
             </a>
-            <a href="#features" class="btn btn-ghost">See features</a>
           </div>
           <p class="cta-fallback"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" target="_blank" rel="noopener">or use the web app &rarr;</a></p>
           <div class="store-row" aria-label="App stores">
@@ -1931,89 +1907,32 @@
     </div>
   </div>
 
-  <!-- ======================= FEATURES ======================= -->
-  <section class="block" id="features">
+  <!-- ======================= BENEFITS =======================
+       Three things, a few words each. The full feature list lived here as
+       eight cards and ~370 words; visitors decide in a screen or two, so the
+       detail moved into the app and the guides. -->
+  <section class="block benefits" id="features">
     <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">What's inside</span>
-        <h2>Track what's actually<br>leaving your <em style="font-style:italic; color:var(--primary)">account</em>.</h2>
-        <p>Most trackers ignore the bits that hurt most: high-APR cards, BNPL instalments, foreign-currency subscriptions. Duitful was built around all three.</p>
+      <div class="features-grid benefits-grid">
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></div>
+          <h3>Log a spend in 2 taps</h3>
+          <p>Or snap the receipt. Duitful reads it.</p>
+        </div>
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div>
+          <h3>See your debt-free date</h3>
+          <p>Costliest debt first. BNPL and Islamic financing included.</p>
+        </div>
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div>
+          <h3>Your data stays on your phone</h3>
+          <p>Encrypted. No account. No bank login.</p>
+        </div>
       </div>
-
-      <div class="features-grid">
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18L12 4z"/><path d="M12 10v6M12 18h.01"/></svg>
-          </div>
-          <h3>Debt avalanche</h3>
-          <p>Highest-APR debt first, so you pay less interest. Your exact debt-free date shifts with every payment.</p>
-          <span class="chip-mono">Payoff timeline</span>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
-          </div>
-          <h3>BNPL &amp; installments</h3>
-          <p>Atome, SPayLater, Grab PayLater and card instalments in one place — no surprises from that phone you bought six months ago.</p>
-          <span class="chip-mono">SEA-native</span>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10l3 4v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/><path d="M8 10h8M8 14h6M8 18h4"/></svg>
-          </div>
-          <h3>Receipt OCR + auto-FX</h3>
-          <p>Snap a receipt; Duitful pulls amount, merchant and category. Foreign currency converts to MYR at the day's rate.</p>
-          <span class="chip-mono">3 scans/mo free</span>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
-          </div>
-          <h3>Auto-capture (Android)</h3>
-          <p>Bank and e-wallet alerts — Maybank, CIMB, TNG, GrabPay — become draft entries you approve. Parsed on the phone, never uploaded.</p>
-          <span class="chip-mono">You approve every entry</span>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
-          </div>
-          <h3>On-device encryption</h3>
-          <p>AES-GCM encrypted with a passcode-derived key. Nothing leaves your phone — not even Duitful can read it.</p>
-          <span class="chip-mono">AES-GCM · PBKDF2</span>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 5.5a7 7 0 100 13 8 8 0 110-13z"/><path d="M19.5 9l.6 1.7 1.8.1-1.4 1.2.5 1.7-1.5-1-1.5 1 .5-1.7-1.4-1.2 1.8-.1z"/></svg>
-          </div>
-          <h3>Islamic financing &amp; zakat</h3>
-          <p>Murabahah, Tawarruq, AITAB — fixed profit with an ibra' estimate, ranked fairly against conventional debt. Opt-in zakat tracker too.</p>
-          <span class="chip-mono">Free · for everyone</span>
-        </div>
-
-        <div class="feature feature-wide reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
-          </div>
-          <h3>Investments, honest returns &amp; your coast number</h3>
-          <p>ASB, EPF, Tabung Haji, unit trusts, shares — typed in from your statements, because fetching live prices would tell a server exactly what you own. Duitful computes the return that accounts for every top-up and dividend (money-weighted, annualised), charts your portfolio over time, and its retirement card shows your <em>coast number</em>: the pot that compounds to your target all by itself, in today's money.</p>
-          <span class="chip-mono">2 holdings free · no price API, ever</span>
-        </div>
-
-        <div class="feature feature-wide reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l4-6h6"/><path d="M7 12l4 6h6"/><path d="M17 3l3 3-3 3"/><path d="M17 15l3 3-3 3"/></svg>
-          </div>
-          <h3>Split bills &amp; track who owes you — no accounts, no server</h3>
-          <p>Split a dinner four ways, or record "lent Ali RM 500 until gaji". The request travels <em>inside</em> a QR code or a link — decoded on your friend's phone, never on a server — so it works even if they've never installed Duitful. Your transfer details (DuitNow, Maybank) render as their own lines with a one-tap copy on each, so paying is a paste into their banking app. On Android, when the DuitNow lands, Duitful spots the matching amount and offers to settle — one tap, never automatic. Due-day reminders fire on <em>your</em> phone, not theirs, and Duitful never moves the money.</p>
-          <span class="chip-mono">Free · works without the app</span>
-        </div>
-
-      </div>
+      <ul class="benefit-tags reveal" aria-label="Also inside">
+        <li>Atome</li><li>SPayLater</li><li>PTPTN</li><li>Credit cards</li><li>Zakat</li><li>Split bills</li><li>Receipt scan</li><li>Drive backup</li><li>Works offline</li>
+      </ul>
     </div>
   </section>
 
@@ -2023,7 +1942,7 @@
       <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
         <span class="eyebrow">Try the maths</span>
         <h2>Drag the slider. Watch the <em style="font-style:italic; color:var(--primary)">debt melt</em>.</h2>
-        <p style="margin-left:auto; margin-right:auto;">The app's real projection, running right here. Every extra ringgit goes at the most expensive debt first — including an Islamic facility whose profit stops the day you settle.</p>
+        <p style="margin-left:auto; margin-right:auto;">The app&rsquo;s real maths. Slide to pay a little extra each month.</p>
       </div>
 
       <div class="demo-card reveal">
@@ -2074,36 +1993,9 @@
           </div>
         </div>
 
-        <p class="demo-note">RM 8,000 card at 18% APR · RM 20,000 Tawarruq, RM 4,800 profit over 60 months · RM 15,000 PTPTN at 1% ujrah. Same maths on your real numbers, on your phone.</p>
+        <p class="demo-note">Example: RM 8k card · RM 20k Tawarruq · RM 15k PTPTN.</p>
         <a class="btn btn-primary" href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=demo">Run it on your own debts</a>
       </div>
-    </div>
-  </section>
-
-  <!-- ======================= PRIVACY ======================= -->
-  <section class="privacy" id="privacy">
-    <div class="container privacy-inner reveal">
-      <span class="eyebrow">Privacy, actually</span>
-      <h2>Your money data<br>never leaves your <em>phone</em>.</h2>
-      <p class="big">Most trackers send your transactions to a server, then charge you a subscription on top. Duitful keeps your data on your phone, full stop. Encrypted, passcode-locked, no sync server to breach.</p>
-      <ul class="privacy-bullets">
-        <li>
-          <div class="k">Encryption</div>
-          <div class="v">AES-GCM at rest, PBKDF2 key derivation</div>
-        </li>
-        <li>
-          <div class="k">Accounts</div>
-          <div class="v">None. No email. No sign-up.</div>
-        </li>
-        <li>
-          <div class="k">Analytics</div>
-          <div class="v">None on your data. None ever.</div>
-        </li>
-        <li>
-          <div class="k">Sync</div>
-          <div class="v">Your own Google Drive, encrypted before it leaves</div>
-        </li>
-      </ul>
     </div>
   </section>
 
@@ -2112,8 +2004,7 @@
     <div class="container">
       <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
         <span class="eyebrow">Pricing</span>
-        <h2>Pay once. <em style="font-style:italic; color:var(--primary)">Keep</em> the app.</h2>
-        <p style="margin-left:auto; margin-right:auto;">The free tier is permanent. Pro is a one-time purchase, because a tracker for your money shouldn't cost more than the money it helps you save.</p>
+        <h2>Free. Or RM 19.90 <em style="font-style:italic; color:var(--primary)">once</em>.</h2>
       </div>
 
       <div class="pricing-grid">
@@ -2123,14 +2014,11 @@
             <span class="amount"><span class="sym">RM</span>0</span>
             <span class="per">forever</span>
           </div>
-          <div class="plan-note">Everything you need to start.</div>
+          
           <ul>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Up to 3 debts</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Up to 2 savings goals</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Up to 2 investment holdings</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>3 receipt scans per month</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Manual expense &amp; income tracking</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Full on-device encryption</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Up to 3 debts and 2 savings goals</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>3 receipt scans a month</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Full on-device encryption</li>
           </ul>
           <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=pricing-free" target="_blank" rel="noopener" class="btn btn-ghost">Start free</a>
         </div>
@@ -2142,32 +2030,13 @@
             <span class="amount"><span class="sym">RM</span>19<span class="cents">.90</span></span>
             <span class="per">one&#8209;time</span>
           </div>
-          <div class="plan-note">Pay once. No subscription. Ever.</div>
+          <div class="plan-note">No subscription. Ever.</div>
           <ul>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Unlimited debts, goals and receipt scans</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Multi-currency entry in 40+ currencies at daily rates</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Budget pools with rollover and per-month overrides</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Auto-recurring monthly income and bills</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Android auto-capture and encrypted Drive sync</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Every future Pro feature, included <a class="plan-version" href="/changelog/">see changelog</a></li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Unlimited debts, goals and scans</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Multi-currency and budget pools</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Drive backup and Android auto-capture</li>
           </ul>
           <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=pricing-pro" target="_blank" rel="noopener" class="btn btn-primary">Unlock Pro</a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================= FOUNDER ======================= -->
-  <section class="block founder" id="founder">
-    <div class="container">
-      <div class="founder-grid">
-        <div class="founder-copy reveal">
-          <span class="eyebrow">Why Duitful</span>
-          <h2>Built by one person, in Malaysia, for Malaysians.</h2>
-          <p>I'm <strong>Aydil</strong>. Duitful started as an Excel sheet for a friend struggling with cash flow — every paid app I'd tried either pushed a forever-subscription, kept asking to link my bank, or sold my data on the side.</p>
-          <p>So: <em>pay once, own it forever</em>, built for ringgit, and <strong>your data never leaves your device</strong>. Missing something Malaysia-specific? It goes to the top of the roadmap — <a href="mailto:hello@duitful.app">hello@duitful.app</a>.</p>
-          <p>Honest disclosure: most of the code and a lot of this page were written with <strong>Claude Code</strong>. The product idea and what ships are mine — full source on <a href="https://github.com/AydilJoe/survey" target="_blank" rel="noopener">GitHub</a>.</p>
-          <p class="founder-sign">— Aydil, Kuala Lumpur</p>
         </div>
       </div>
     </div>
@@ -2184,42 +2053,31 @@
       <div class="faq-list">
         <details class="faq-item reveal">
           <summary>
-            Why one-time pricing and not a subscription?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+            Why pay once instead of a subscription?
+            <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">A money tracker shouldn't cost more than the money it tracks. Pro is RM 19.90 once. You keep the app, get every future Pro feature, and never see a renewal email. Server costs are near-zero because your data stays on your phone — a subscription would just fund our growth chart.</p>
+          <p class="answer">A money app shouldn&rsquo;t cost more than it saves you. Pro is RM 19.90 once, with every future Pro feature included.</p>
         </details>
-
         <details class="faq-item reveal">
           <summary>
-            Does my data really never leave the phone?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+            Does my data really never leave my phone?
+            <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Correct. All your transactions, debts, and goals live in an AES-GCM-encrypted database on your device, locked with a PBKDF2-derived key from your passcode. There is no sign-up, no sync server, no analytics SDK on your financial data. Receipt OCR happens via a privacy-focused API only when you explicitly scan, and no receipts are stored remotely.</p>
+          <p class="answer">Yes. It&rsquo;s encrypted on your phone with your passcode. There&rsquo;s no account and no server copy. Backup goes to your own Google Drive, encrypted first.</p>
         </details>
-
         <details class="faq-item reveal">
           <summary>
-            Which banks are supported for auto-capture?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+            What if I forget my passcode?
+            <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">On Android, Duitful parses notifications from major Malaysian banks and e-wallets: Maybank, CIMB, Public Bank, RHB, Hong Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay, and more. You review each transaction before it's saved. iOS doesn't allow notification reading, so on iPhone you'll use receipt scans and manual entry instead.</p>
+          <p class="answer">Nobody can recover it, not even us &mdash; that&rsquo;s what keeps it private. Export a backup now and then from Settings.</p>
         </details>
-
         <details class="faq-item reveal">
           <summary>
-            What happens if I lose my passcode?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+            Was Duitful built with AI?
+            <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Your data cannot be recovered — that's the trade-off for real end-to-end privacy. Duitful never has a copy of your passcode or data, so it can't reset for you. Write your passcode down somewhere safe, or use Pro's encrypted backup to restore to a new device.</p>
-        </details>
-
-        <details class="faq-item reveal">
-          <summary>
-            How does Pro sync across devices?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-          </summary>
-          <p class="answer">Through your own Google Drive — not a Duitful server. Your encrypted database lands in a hidden app folder. Other devices sign in with the same Google account, pull the file, and decrypt it locally with your passcode. The passcode never leaves your device, so the data in Drive is unreadable to Google and to me.</p>
+          <p class="answer">Partly. Aydil, in Kuala Lumpur, decides what ships; much of the code was written with Claude Code. The source is public on GitHub.</p>
         </details>
       </div>
     </div>
@@ -2230,8 +2088,7 @@
     <div class="container">
       <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
         <span class="eyebrow">Guides</span>
-        <h2>How-tos for <em>Malaysian</em> money.</h2>
-        <p>Petrol subsidies, tax relief, freelancer cashflow. The bits no one explains in plain words.</p>
+        <h2>Money guides</h2>
       </div>
 
       <div class="guides-grid reveal">
@@ -2277,7 +2134,7 @@
     <div class="container">
       <div class="reveal">
         <h2>Ready to be <em>duitful</em>?</h2>
-        <p>Start on the web today, or grab the Android app on Google Play. iOS coming soon.</p>
+        <p>Free to start. No sign-up.</p>
         <div class="store-row">
           <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" target="_blank" rel="noopener" class="btn btn-primary platform-cta"
              data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" data-web-label="Open the app"
@@ -2293,7 +2150,6 @@
             <div><span class="small">Get it on</span><span class="big">Google Play</span></div>
           </a>
         </div>
-        <p class="cta-fallback"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" target="_blank" rel="noopener">Open the web app instead →</a></p>
       </div>
     </div>
   </section>
@@ -2302,7 +2158,7 @@
 <!-- ======================= FOOTER ======================= -->
 <footer>
   <div class="container foot-inner">
-    <div>© 2026 Duitful · A product of <a href="https://codyl.dev/" target="_blank" rel="noopener">Codyl Enterprise</a> · Made with care in Malaysia</div>
+    <div>© 2026 Duitful · A product of <a href="https://codyl.dev/" target="_blank" rel="noopener">Codyl Enterprise</a> · Built by Aydil in Kuala Lumpur</div>
     <div class="links">
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
@@ -2362,14 +2218,14 @@
         io.unobserve(e.target);
       }
     });
-  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  }, { threshold: 0, rootMargin: '0px 0px 15% 0px' });
 
   // Stagger reveals per-section: each card cascades after its siblings,
   // so a row/grid animates in order instead of all at once.
   document.querySelectorAll('.reveal').forEach((el) => {
     const sibs = Array.from(el.parentElement.children).filter((c) => c.classList.contains('reveal'));
     const idx = Math.max(0, sibs.indexOf(el));
-    el.style.transitionDelay = Math.min(idx, 6) * 70 + 'ms';
+    el.style.transitionDelay = Math.min(idx, 3) * 50 + 'ms';
     io.observe(el);
   });
 
