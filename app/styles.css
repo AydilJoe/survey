@@ -3809,7 +3809,7 @@ button.ghost.icon-btn {
 .row-menu button:hover { background: var(--card-soft); color: var(--text); }
 .row-menu button.danger { color: var(--loss); background: transparent; border: 0; }
 .row-menu button.danger:hover { background: color-mix(in srgb, var(--loss) 10%, transparent); }
-.debt-list li .row-more { font-size: 1rem; letter-spacing: 0.05em; }
+.debt-list li .row-more, .item-list li .row-more { font-size: 1rem; letter-spacing: 0.05em; }
 /* The badge sits on the meta line now, so it needs to sit on a text baseline
    rather than in the middle of a flex row. */
 .debt-list .meta-row .installment-badge { margin-right: 0.4rem; }
@@ -5016,8 +5016,8 @@ button.ghost.icon-btn {
   line-height: 1.2;
 }
 .spend-cal-cell .cal-amt {
-  font-family: var(--font-mono);
-  font-size: 0.56rem;
+  font-size: 0.68rem;
+  font-weight: 600;
   color: var(--muted);
   line-height: 1.1;
   max-width: 100%;
@@ -6627,3 +6627,185 @@ body.private .pending-match-sub {
 .whats-new-actions { display: flex; gap: 0.6rem; }
 .whats-new-actions > * { flex: 1; justify-content: center; text-align: center; }
 @media (max-width: 360px) { .whats-new-actions { flex-direction: column-reverse; } }
+
+/* The avalanche target, stated above the clearing order. */
+.payoff-target {
+  margin: -0.25rem 0 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--ink2, var(--muted));
+}
+.payoff-target strong { color: var(--text); }
+
+/* ---------- v1.37 Add entry hierarchy ----------
+   One primary action per card: "Add entry" spans the card at the bottom.
+   Scan receipt is a secondary, outlined — it used to be the darkest thing
+   on the page and out-ranked the button it exists to feed. */
+#form-daily > button[type="submit"] {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin-top: 0.15rem;
+}
+.quick-add .scan-btn,
+.scan-btn {
+  background: var(--card) !important;
+  border: 1px solid var(--border);
+  color: var(--text) !important;
+  font-weight: 600;
+}
+.scan-btn:hover { background: color-mix(in srgb, var(--primary) 6%, var(--card)) !important; border-color: var(--primary); }
+.scan-btn .pill-icon svg { stroke: currentColor; }
+.split-entry-row { flex-wrap: wrap; }
+
+/* Selected type pill. The old tint was a fixed navy at 12%, which vanishes
+   on the dark theme — you couldn't tell Spend from Pay debt. Built from the
+   theme's own colours, it reads in both. */
+.quick-add .pill.active {
+  background: color-mix(in srgb, var(--primary) 13%, var(--card));
+  border-color: color-mix(in srgb, var(--primary) 60%, transparent);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+.quick-add .pill[data-type="debt"].active {
+  background: color-mix(in srgb, var(--loss) 13%, var(--card));
+  border-color: color-mix(in srgb, var(--loss) 60%, transparent);
+  color: var(--loss);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--loss) 35%, transparent);
+}
+.quick-add .pill[data-type="saving"].active {
+  background: color-mix(in srgb, var(--gain) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--gain) 60%, transparent);
+  color: var(--gain);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gain) 35%, transparent);
+}
+
+/* ---------- v1.37 Bottom tab bar on phones ----------
+   Below the desktop sidebar breakpoint the tabs sit at the bottom, in thumb
+   reach, the way iOS and Android apps do it. Labels stay under the icons.
+   Everything else that hugs the bottom edge (toasts, banners) is lifted by
+   --tabbar-h, and the bar steps aside while the keyboard is up. */
+@media (max-width: 899px) {
+  :root { --tabbar-h: calc(4.1rem + env(safe-area-inset-bottom, 0px)); }
+  .tabs {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    padding-top: 0.35rem;
+    padding-bottom: calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    border-bottom: none;
+    border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--stage) 88%, transparent);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    backdrop-filter: saturate(1.4) blur(14px);
+    justify-content: space-around;
+  }
+  .tabs .tab {
+    flex: 1 1 0;
+    max-width: 7rem;
+    min-width: 0;
+    min-height: 3.1rem;
+    padding: 0.3rem 0.2rem;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.15rem;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+  /* "You are here": colour and a heavier icon in a soft capsule, not a card. */
+  .tabs .tab.active {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    color: var(--text);
+  }
+  .tabs .tab .tab-icon {
+    width: 3.2rem;
+    height: 1.75rem;
+    border-radius: var(--r-pill);
+    transition: background 0.2s ease;
+  }
+  .tabs .tab.active .tab-icon { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+  .tabs .tab:hover { background: transparent; }
+  .tabs .tab:hover .tab-icon { background: color-mix(in srgb, var(--primary) 7%, transparent); }
+  .tabs .tab.active:hover .tab-icon { background: color-mix(in srgb, var(--primary) 14%, transparent); }
+  .tabs .tab > span:not(.tab-icon) { font-size: 0.7rem; }
+
+  main { padding-bottom: calc(var(--tabbar-h) + 1.5rem); }
+
+  .app-toast,
+  .app-update-banner { bottom: calc(var(--tabbar-h) + 12px); }
+  #toast { bottom: calc(var(--tabbar-h) + 14px); }
+  .pwa-install-banner { bottom: calc(var(--tabbar-h) + 0.75rem); }
+
+  /* Typing: the bar would sit on top of the keyboard and the field. */
+  body.is-typing .tabs { transform: translateY(110%); }
+  .tabs { transition: transform 0.2s ease; }
+}
+@media (max-width: 899px) and (prefers-reduced-motion: reduce) {
+  .tabs { transition: none; }
+}
+
+/* Savings goal: deposit stays inline; Edit and Delete behind ⋯ (v1.37). */
+.saving-card .saving-actions { flex-wrap: wrap; }
+.saving-card .saving-actions .row-more { flex: none; font-size: 1rem; letter-spacing: 0.05em; }
+
+/* Debt due date, in words on the detail line (v1.37). */
+.debt-due.soon { color: var(--warn-yellow-ink); font-weight: 600; }
+.debt-due.today { color: var(--loss); font-weight: 600; }
+/* A debt that needs setup offers the edit directly, not directions to it. */
+.debt-list .needs-setup-note.link-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem 0;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-style: normal;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  text-align: left;
+}
+.reports-pie-note { display: block; margin-top: 0.15rem; font-size: 0.78rem; color: var(--muted); }
+
+/* ---------- v1.37 Less typewriter ----------
+   Monospace is for things that are literally machine text (raw receipt
+   lines, codes). On greetings, meta lines, day headers and pills it made
+   every card read as three typefaces at once. Figures keep tabular digits
+   so columns still line up. */
+.subtitle,
+.lock-sub,
+.hero-meta,
+.hero-target .hero-target-meta,
+.hero-formula,
+.recent-chips-label,
+.stat .sub,
+.daily-group-header,
+.daily-entry .cat-pill,
+.spend-cal-cell .cal-day,
+.empty-welcome-meta {
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+}
+.daily-entry .cat-pill { text-transform: none; font-size: 0.74rem; }
+.subtitle { font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Pool rows: Edit and Delete behind ⋯ like every other list (v1.37). The
+   actions cell is narrow, so the menu drops down instead of opening a row. */
+.pool-row-actions { position: relative; }
+.pool-row-actions .row-more { font-size: 1rem; letter-spacing: 0.05em; }
+.pool-row-actions .row-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 5;
+  min-width: 9rem;
+  margin-top: 0;
+}

@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.36.3";
+const APP_VERSION = "1.37.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1149,15 +1149,16 @@ function renderBudgetManager() {
       ? `<span class="system-tag">override</span>` : "";
     const rolloverTag = (!isSystem && pool.rollover)
       ? `<span class="system-tag">rollover</span>` : "";
-    const activeTag = (!isSystem && pool.active)
-      ? `<span class="system-tag">active</span>` : "";
-    const systemTag = isSystem ? `<span class="system-tag">system</span>` : "";
+    // The "Active" checkbox already says whether a pool is active, and
+    // "system" said nothing the meta line doesn't — badges are kept for what
+    // isn't visible elsewhere (override, rollover).
 
     // HTML, not text — "Base"/"this month" are labels worth keeping legible
-    // when the figures beside them are hidden.
+    // when the figures beside them are hidden. The base limit is only worth
+    // a mention when this month overrides it; otherwise it is the "of" below.
     const meta = isSystem
-      ? `Auto-derived from your debts' monthly minimums`
-      : `Base ${amt(pool.limit)}${overrideTag ? ` · this month ${amt(limit)}` : ""}`;
+      ? `From your debt minimums · `
+      : (overrideTag ? `Base ${amt(pool.limit)} · ` : "");
 
     const activeToggle = isSystem ? "" : `
       <label class="pool-toggle pool-toggle-active" title="When on, pool is pre-selected on the daily form">
@@ -1171,9 +1172,10 @@ function renderBudgetManager() {
       : `
         <div class="pool-row-actions">
           ${activeToggle}
-          <div class="pool-actions">
-            <button class="ghost" data-action="edit-pool" data-id="${escapeHtml(pool.id)}" aria-label="Edit ${escapeHtml(pool.name)}">✎</button>
-            <button class="ghost" data-action="delete-pool" data-id="${escapeHtml(pool.id)}" aria-label="Delete ${escapeHtml(pool.name)}">✕</button>
+          <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${escapeHtml(pool.id)}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(pool.name)}" title="More">⋯</button>
+          <div class="row-menu" hidden>
+            <button data-action="edit-pool" data-id="${escapeHtml(pool.id)}">Edit</button>
+            <button class="danger" data-action="delete-pool" data-id="${escapeHtml(pool.id)}">Delete</button>
           </div>
         </div>
       `;
@@ -1182,8 +1184,8 @@ function renderBudgetManager() {
       <div class="pool-row${isSystem ? " system" : ""}" data-id="${escapeHtml(pool.id)}">
         <span class="swatch" style="background:${escapeHtml(pool.color)}"></span>
         <div>
-          <div class="pool-name">${escapeHtml(pool.name)}${systemTag}${activeTag}${overrideTag}${rolloverTag}</div>
-          <div class="pool-meta">${meta} · ${amt(usage)} of ${amt(limit)}${isOver ? ` <strong>(over by ${amt(usage - limit)})</strong>` : ""}</div>
+          <div class="pool-name">${escapeHtml(pool.name)}${overrideTag}${rolloverTag}</div>
+          <div class="pool-meta">${meta}${amt(usage)} of ${amt(limit)}${isOver ? ` <strong>(over by ${amt(usage - limit)})</strong>` : ""}</div>
           <div class="pool-progress"><div class="fill${overspent ? " over" : ""}" style="width:${usedPct.toFixed(1)}%${overspent ? "" : `;background:${escapeHtml(pool.color)}`}"></div></div>
         </div>
         ${actions}
@@ -1969,7 +1971,11 @@ function renderSpendCalendar() {
     }
     const today = iso === todayIso ? " today" : "";
     const selected = iso === calSelectedDate ? " selected" : "";
-    const amtLabel = amt > 0 ? `<span class="cal-amt">${escapeHtml(fmtMoney(amt).replace(/\.00$/, ""))}</span>` : "";
+    // A day cell is ~45px wide: "RM 142.30" was cut to "RM 142…". The
+    // currency is the whole calendar's, so a cell shows just the figure,
+    // whole units, thousands as "1.2k". The aria-label keeps the exact sum.
+    const compact = amt >= 1000 ? `${(amt / 1000).toFixed(amt >= 10000 ? 0 : 1).replace(/\.0$/, "")}k` : String(Math.round(amt));
+    const amtLabel = amt > 0 ? `<span class="cal-amt">${compact}</span>` : "";
     cells.push(
       `<button type="button" class="spend-cal-cell${heat}${today}${selected}" data-cal-date="${iso}" aria-label="${iso}${amt > 0 ? `, spent ${fmtMoney(amt)}` : ", no spending"}">` +
       `<span class="cal-day">${d}</span>${amtLabel}</button>`,
@@ -2038,16 +2044,22 @@ function renderFlow() {
         // Splitting an expense never rewrites it — the action only opens the
         // composer with the total prefilled and the expense linked.
         const splitBtn = kind === "expense"
-          ? `<button class="ghost icon-btn split-row-btn" data-action="split-expense" data-split-source="expense" data-id="${it.id}" aria-label="Split ${escapeHtml(it.name)}" title="Split this bill / request a share">⇆</button>`
+          ? `<button data-action="split-expense" data-split-source="expense" data-id="${it.id}">Split this bill</button>`
           : "";
+        // Edit, Split and Delete sit behind one ⋯, as on the debt list: three
+        // icon buttons pushed the amount onto its own line on a phone, and
+        // Delete sat one thumb-slip from Edit.
         return `
-          <li data-id="${it.id}"${splitBtn ? ' class="has-split"' : ""}>
+          <li data-id="${it.id}">
             ${chip}
             <span class="name" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
             <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMoney(it.amount)}${renderFxBadge(it.fx)}</span>
-            ${splitBtn}
-            <button class="ghost icon-btn" data-action="edit-${kind}" data-id="${it.id}" aria-label="Edit ${escapeHtml(it.name)}">✎</button>
-            <button class="ghost icon-btn" data-action="delete-${kind}" data-id="${it.id}" aria-label="Delete ${escapeHtml(it.name)}">✕</button>
+            <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${it.id}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(it.name)}" title="More">⋯</button>
+            <div class="row-menu" hidden>
+              <button data-action="edit-${kind}" data-id="${it.id}">Edit</button>
+              ${splitBtn}
+              <button class="danger" data-action="delete-${kind}" data-id="${it.id}">Delete</button>
+            </div>
           </li>`;
       })
       .join("");
@@ -2458,8 +2470,11 @@ function renderSavingCard(goal, { mini } = { mini: false }) {
       <div class="saving-actions">
         <input type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount" data-save-input="${goal.id}" aria-label="Deposit amount for ${escapeHtml(goal.name)}" />
         <button class="primary" data-action="save-deposit" data-id="${goal.id}">Add</button>
-        <button class="ghost" data-action="edit-saving" data-id="${goal.id}" aria-label="Edit ${escapeHtml(goal.name)}">Edit</button>
-        <button class="ghost icon-btn saving-delete" data-action="save-delete" data-id="${goal.id}" aria-label="Delete ${escapeHtml(goal.name)}" title="Delete this goal">✕</button>
+        <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${goal.id}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(goal.name)}" title="More">⋯</button>
+        <div class="row-menu" hidden>
+          <button data-action="edit-saving" data-id="${goal.id}">Edit</button>
+          <button class="danger" data-action="save-delete" data-id="${goal.id}">Delete</button>
+        </div>
       </div>
       `}
     </div>`;
@@ -2493,9 +2508,6 @@ function renderSavings() {
 
 function renderDebts() {
   const ul = $("#list-debt");
-  // The due-date key only earns its line once a debt has a due day to key.
-  const legend = document.getElementById("debt-legend");
-  if (legend) legend.hidden = !state.debts.some((d) => d.dueDay);
   if (!state.debts.length) {
     ul.innerHTML = emptyBlock({
       glyph: "debt", host: "li",
@@ -2528,11 +2540,15 @@ function renderDebts() {
     .sort((a, b) => costRate(b) - costRate(a))
     .map((d) => {
       const cls = d.dueDay ? dayClass(d.dueDay, currentMonthISO()) : "";
-      // Empty placeholder when no due day so we keep grid alignment without
-      // showing a "–" that reads as broken UI.
-      const chip = d.dueDay
-        ? `<span class="day-chip ${cls}" title="Due day">${d.dueDay}</span>`
-        : `<span class="day-chip day-chip-empty" aria-hidden="true"></span>`;
+      // The due day is said in words on the detail line ("due in 2 days"),
+      // not as a bare "12" chip that needed a legend to decode — and the
+      // name gets the chip's width back.
+      const daysToDue = d.dueDay ? d.dueDay - new Date().getDate() : null;
+      const dueText = !d.dueDay ? ""
+        : cls === "today" ? "due today"
+        : cls === "soon" ? `due in ${daysToDue} day${daysToDue === 1 ? "" : "s"}`
+        : `due ${d.dueDay}${ordinalSuffix(d.dueDay)}`;
+      const due = dueText ? `<span class="debt-due ${cls}">${dueText}</span>` : "";
       const isInstallment = d.kind === "installment";
       const islamic = isIslamic(d);
       // Compute remaining months for installment debts: balance / installment.
@@ -2570,17 +2586,17 @@ function renderDebts() {
         : "";
       const metaRow = islamic
         ? (islamicNeedsSetup
-            ? `<div class="meta-row"><span class="needs-setup-note">Tap ⋯ → Edit to set principal, profit + tenure</span></div>`
-            : `<div class="meta-row"><span>${badge}${islamicMonthsLeft(d)} of ${d.tenureMonths} months left</span><span>${amt(fmtMoney(islamicInstalment(d)) + "/mo")}</span></div>`)
+            ? `<div class="meta-row"><button type="button" class="link-btn needs-setup-note" data-action="edit-debt" data-id="${d.id}">Finish setup: principal, profit and tenure →</button></div>`
+            : `<div class="meta-row"><span>${badge}${islamicMonthsLeft(d)} of ${d.tenureMonths} months left${due ? " · " + due : ""}</span><span>${amt(fmtMoney(islamicInstalment(d)) + "/mo")}</span></div>`)
         : isInstallment
           ? (needsSetup
-              ? `<div class="meta-row"><span class="needs-setup-note">Tap ⋯ → Edit to set monthly + months</span></div>`
+              ? `<div class="meta-row"><button type="button" class="link-btn needs-setup-note" data-action="edit-debt" data-id="${d.id}">Finish setup: monthly amount and months →</button></div>`
               // "4 of 12 paid" wherever the tenure is known — progress reads
               // as ground covered, where "8 months left" reads as a sentence.
               : `<div class="meta-row"><span>${badge}${prog && prog.known
                     ? `${prog.paid} of ${prog.term} paid`
-                    : `${remMonths} month${remMonths === 1 ? "" : "s"} left`}</span><span>${amt(fmtMoney(installment) + "/mo")}</span></div>`)
-          : `<div class="meta-row"><span>${badge}${rowTerm(d, "rateShort")} ${fmtPct(d.apr)}</span><span>Min ${amt(d.minPayment)}</span></div>`;
+                    : `${remMonths} month${remMonths === 1 ? "" : "s"} left`}${due ? " · " + due : ""}</span><span>${amt(fmtMoney(installment) + "/mo")}</span></div>`)
+          : `<div class="meta-row"><span>${badge}${rowTerm(d, "rateShort")} ${fmtPct(d.apr)}${due ? " · " + due : ""}</span><span>Min ${amt(d.minPayment)}</span></div>`;
       // The headline figure for an Islamic row is the outstanding principal —
       // i.e. what settling today actually costs. Spell out the ibra' so the
       // number reconciles against the bank statement, which shows the higher
@@ -2594,7 +2610,6 @@ function renderDebts() {
         : "";
       return `
       <li data-id="${d.id}" style="--denom:${denomVar(d.balance)}">
-        ${chip}
         ${nameHtml}
         <span class="meta"${balanceTitle}>${fmtMoney(d.balance)}</span>
         <!-- Reads "Pay", not an arrow. This is the most frequent action in the
@@ -2732,7 +2747,9 @@ function renderGreeting() {
   // Avoid "Late night" — reads slightly accusatory at 1am. Prefer "Evening"
   // for late hours so the greeting stays neutral.
   const part = h < 5 ? "Evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
-  const date = now.toLocaleDateString("en-MY", { weekday: "long", day: "numeric", month: "short" });
+  // Short weekday: "Good afternoon · Saturday, 24 Oct" wrapped to two lines
+  // beside the search and privacy buttons on a phone.
+  const date = now.toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short" });
   // No money context here on purpose — the hero card's "About RM X/day"
   // line already says it, and computing it again risks drift from the
   // hero's totalOut formula (which includes minimum debt payments etc).
@@ -2982,6 +2999,21 @@ function renderDashboard() {
     // empty-block: a panel nobody can see is just a thing to maintain.
     orderEl.innerHTML = `<li class="empty">No debts yet.</li>`;
   } else {
+    // This list runs in the order debts get CLEARED, which is not the order
+    // to attack them: a short 0% instalment plan ends first on its own. Say
+    // where the avalanche actually sends extra money — the same pick
+    // simulateAvalanche makes (highest cost rate, then smaller balance) — so
+    // a "1" next to a 0% plan never reads as "pay this first".
+    const targetEl = document.getElementById("payoff-target");
+    const target = state.debts
+      .filter((d) => (Number(d.balance) || 0) > 0)
+      .sort((a, b) => costRate(b) - costRate(a) || (Number(a.balance) || 0) - (Number(b.balance) || 0))[0];
+    if (targetEl) {
+      targetEl.hidden = !target || state.debts.filter((d) => (Number(d.balance) || 0) > 0).length < 2;
+      if (target) {
+        targetEl.innerHTML = `Anything extra goes to <strong>${escapeHtml(target.name)}</strong> first (${fmtPct(costRate(target))}${isIslamic(target) ? " eff." : ""}) — the highest rate. Everything else gets its minimum.`;
+      }
+    }
     // Convert "Month N" to "Cleared by <Month YYYY>" so the label reads as a
     // calendar deadline rather than an ordinal rank.
     const baseMonth = currentMonthISO();
@@ -3267,7 +3299,10 @@ function renderReportsSpending() {
   svg.removeAttribute("aria-hidden");
   if (totalEl) {
     const catCount = visible.length;
-    totalEl.innerHTML = `${amt(total)} · ${catCount} ${catCount === 1 ? "category" : "categories"}`;
+    // Spending only: debt payments and savings deposits are in the period
+    // total above but are not spending, so the pie leaves them out — say so,
+    // or RM 512 above and RM 392 here look like an error.
+    totalEl.innerHTML = `${amt(total)} spent · ${catCount} ${catCount === 1 ? "category" : "categories"} <span class="reports-pie-note">(debt payments and savings aren't spending)</span>`;
     totalEl.hidden = false;
   }
 
@@ -3463,7 +3498,11 @@ function renderReports() {
         return e.date && e.date >= priorStart && e.date <= priorEnd;
       })
       .reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    if (priorTotal > 0 || total > 0) {
+    if (priorTotal === 0 && total > 0) {
+      // Nothing to compare against reads as a fact, not as "RM 0.00 · ▲ —".
+      momEl.textContent = `Nothing logged in the prior period (${formatDayLabel(priorStart)} – ${formatDayLabel(priorEnd)}) to compare with.`;
+      momEl.hidden = false;
+    } else if (priorTotal > 0 || total > 0) {
       const delta = total - priorTotal;
       // Cap visually-alarming percentages at 999%. Beyond that, switch to a
       // multiplier (e.g. 64×) which is more honest about scale than "6488%"
@@ -3593,13 +3632,15 @@ function renderReports() {
       });
     } else {
       topEl.innerHTML = top.map((e) => {
+        // Lead with what it was ("Mydin groceries"); the category is detail.
         const cat = reportsCategoryLabel(e);
-        const note = e.note ? `<span class="top-note">${escapeHtml(e.note)}</span>` : "";
+        const title = e.note || cat;
+        const catMeta = e.note ? `<span class="top-note">${escapeHtml(cat)}</span>` : "";
         return `
           <div class="reports-top-row">
             <div>
-              <div class="top-name">${escapeHtml(cat)}</div>
-              <div class="top-meta">${escapeHtml(formatDayLabel(e.date))}${note ? " · " : ""}${note}</div>
+              <div class="top-name">${escapeHtml(title)}</div>
+              <div class="top-meta">${escapeHtml(formatDayLabel(e.date))}${catMeta ? " · " : ""}${catMeta}</div>
             </div>
             <span class="top-amount">${fmtMoney(e.amount)}</span>
           </div>`;
@@ -6053,12 +6094,16 @@ function flyAmountToBalance(fromEl, amountText, netBefore, netAfter) {
   const a = fromEl.getBoundingClientRect();
   if (!a.width) return;
   const vh = window.innerHeight || document.documentElement.clientHeight;
-  // On a phone the tab bar is sticky across the top, and a balance scrolled
-  // under it is not on screen. (On desktop the nav is a sidebar: no cover.)
+  // On a phone the tab bar runs across the bottom edge (v1.37; it used to
+  // be sticky across the top). Whatever edge it is on, a balance under it is
+  // not on screen. On desktop the nav is a sidebar: no cover.
   const tabs = document.querySelector(".tabs")?.getBoundingClientRect();
-  const covered = tabs && tabs.width > tabs.height ? tabs.bottom : 0;
+  const bar = !!(tabs && tabs.width > tabs.height);
+  const barAtTop = bar && tabs.top < vh / 2;
+  const coverTop = barAtTop ? tabs.bottom : 0;
+  const coverBottom = bar && !barAtTop ? Math.max(0, vh - tabs.top) : 0;
   const hb = hero.getBoundingClientRect();
-  const heroVisible = hb.width && hb.top >= covered + 4 && hb.bottom <= vh - 24;
+  const heroVisible = hb.width && hb.top >= coverTop + 4 && hb.bottom <= vh - coverBottom - 24;
 
   let target = hero;
   let peek = null;
@@ -6067,11 +6112,11 @@ function flyAmountToBalance(fromEl, amountText, netBefore, netAfter) {
     // balance is out of sight. Rather than scroll you away, the balance comes
     // to you — a small pill under the tab bar that the amount drops into,
     // counting down from the old balance to the new, then it goes.
-    if (!covered || !Number.isFinite(netBefore) || !Number.isFinite(netAfter)) return;
+    if (!bar || !Number.isFinite(netBefore) || !Number.isFinite(netAfter)) return;
     peek = document.createElement("div");
     peek.className = "balance-peek";
     peek.setAttribute("aria-hidden", "true");
-    peek.style.top = `${Math.round(covered + 10)}px`;
+    peek.style.top = `calc(env(safe-area-inset-top, 0px) + ${Math.round(coverTop + 10)}px)`;
     peek.innerHTML = `<span>Balance left</span><strong class="amt">${escapeHtml(fmtMoney(netBefore))}</strong>`;
     document.body.appendChild(peek);
     peek.animate(
@@ -6091,7 +6136,7 @@ function flyAmountToBalance(fromEl, amountText, netBefore, netAfter) {
   const x0 = a.left + a.width / 2 - w / 2, y0 = a.top + a.height / 2 - h / 2;
   const x1 = b.left + Math.min(b.width, 160) / 2 - w / 2, y1 = b.top + b.height / 2 - h / 2;
   const lift = Math.min(y0, y1) - Math.min(90, Math.abs(y0 - y1) * 0.25 + 30);
-  const arcTop = Math.max(covered + 2, lift);
+  const arcTop = Math.max(coverTop + 2, lift);
   const flight = chip.animate([
     { transform: `translate(${x0}px, ${y0}px) scale(0.9)`, opacity: 0 },
     { transform: `translate(${x0 + (x1 - x0) * 0.1}px, ${y0 - 14}px) scale(1)`, opacity: 1, offset: 0.14 },
@@ -9606,6 +9651,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.37.0": [
+    "<strong>Tabs at the bottom</strong> — on your phone, Home, Monthly, Debts, Savings and Settings now sit at the bottom, where your thumb already is. They step aside while you type.",
+    "<strong>Clearer payoff advice</strong> — the Debts list is now \"When each debt is cleared\", and it says outright which debt your extra money should go to first (the highest rate). A short 0% plan finishing first no longer looks like the one to pay.",
+    "<strong>Calmer screens</strong> — Add entry has one big button, edit and delete live behind ⋯ on every list, due dates say \"due in 2 days\", calendar days show the full amount, and Reports leads with what you bought.",
+  ],
   "1.36.2": [
     "<strong>Shorter What's new</strong> — just the top three changes, with a button to read the full changelog on the website.",
   ],
@@ -13428,5 +13478,22 @@ function searchShowAll(query) {
       e.preventDefault();
       openSearch();
     }
+  });
+}
+
+// Phones: the bottom tab bar steps aside while a text field has focus, so it
+// never sits between the keyboard and what you're typing. Buttons, checkboxes
+// and the like don't count — they don't raise a keyboard.
+{
+  const TYPING = /^(text|search|number|email|tel|url|password|date|month|time|datetime-local)$/;
+  const isTypingField = (el) => el instanceof HTMLElement && (
+    el.tagName === "TEXTAREA" || el.isContentEditable
+    || (el.tagName === "INPUT" && TYPING.test(el.type || "text")));
+  document.addEventListener("focusin", (e) => {
+    document.body.classList.toggle("is-typing", isTypingField(e.target));
+  });
+  document.addEventListener("focusout", () => {
+    // focusout fires before the next focusin; check after focus settles.
+    setTimeout(() => document.body.classList.toggle("is-typing", isTypingField(document.activeElement)), 0);
   });
 }

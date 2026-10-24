@@ -1233,6 +1233,7 @@ await page.waitForTimeout(400);
 const expenseId = await S(() => state.expenses.find((x) => x.name === 'Dinner @ Naz').id);
 check('every expense row offers a split action',
   await page.locator(`#list-expense [data-action="split-expense"][data-id="${expenseId}"]`).count() === 1);
+await page.click(`#list-expense [data-action="row-menu"][data-id="${expenseId}"]`);
 await page.click(`#list-expense [data-action="split-expense"][data-id="${expenseId}"]`);
 await page.waitForTimeout(300);
 check('the composer opens with the bill total prefilled from the expense',
@@ -2899,29 +2900,25 @@ check('preprocess sizing: upscale to a 1200px short side, cap the long side at 2
   === JSON.stringify([[1800, 1200], [1800, 2400], [1600, 1200], null]),
   JSON.stringify(pixels.size));
 
-// --- the Home quick action: visible without opening "More details" ---
+// --- the Home split action: inside "More details" since v1.37 ---
+// On the card's face it out-ranked "Add entry" itself. It now sits with
+// "Add a request" behind More details; search and the Debts tab reach it too.
 await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
 await page.click('#tabbtn-dashboard');
 await page.waitForTimeout(250);
-check('Split / Request money sits on Home permanently, with "More details" still collapsed',
-  await page.locator('#btn-split-quick').isVisible()
-  && await page.locator('#daily-more').isHidden()
-  && await page.locator('#daily-more-toggle').evaluate((e) => e.getAttribute('aria-expanded') === 'false'));
-// v1.35 dropped the second copy inside "More details": one entry point on
-// Home is enough, and the Debts tab row is untouched.
+check('Split / Request money sits inside "More details", off the card\'s face',
+  await page.locator('#daily-more').isHidden()
+  && !(await page.locator('#btn-split-quick').isVisible())
+  && await page.locator('#btn-split-quick').evaluate((e) => !!e.closest('#daily-more')));
 check('Home has exactly one Split entry point, and the Debts tab keeps its own',
   await page.locator('#tab-debts [data-action="split-compose"]').count() === 1
   && await page.locator('#tab-dashboard [data-action="split-compose"]').count() === 1);
 await page.fill('#form-daily [name="amount"]', '42.50');
-// The note lives inside "More details" — open it, type, and shut it again, so
-// the click below happens with the disclosure genuinely collapsed.
 await page.click('#daily-more-toggle');
 await page.waitForTimeout(150);
 await page.fill('#form-daily [name="note"]', 'Lunch at mamak');
-await page.click('#daily-more-toggle');
-await page.waitForTimeout(150);
-check('the quick action stays reachable once "More details" is shut again',
-  await page.locator('#daily-more').isHidden() && await page.locator('#btn-split-quick').isVisible());
+check('opening "More details" shows the split action',
+  await page.locator('#btn-split-quick').isVisible());
 await page.click('#btn-split-quick');
 await page.waitForTimeout(300);
 check('it opens the composer in Split mode with the typed amount and note carried across',
@@ -4575,6 +4572,80 @@ check('the vault is open before the quick-add checks',
   });
   check('the web-checkout referral card is hidden in the iOS app, kept on Android and web',
     refer.ios === false && refer.android === true && refer.web === true, JSON.stringify(refer));
+}
+
+/* ── v1.37 UI pass: what the screen claims, and where things sit ─────────
+   The payoff list is in clearing order, so it must say where extra money
+   actually goes (the avalanche target), never imply "pay the 0% plan first".
+   One primary action in Add entry; tabs at the bottom on a phone; numbers
+   that don't truncate; Reports that reconcile. */
+{
+  const vpBefore = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click('#tabbtn-dashboard');
+  const ui = await S(async () => {
+    const out = {};
+    const keep = { debts: state.debts, daily: state.dailyExpenses };
+    const m = currentMonthISO();
+    state.debts = [
+      { id: 'u1', name: 'Atome Plan', balance: 360, apr: 0, minPayment: 120, dueDay: 18, kind: 'installment', installment: 120, termMonths: 6, monthsLeft: 3 },
+      { id: 'u2', name: 'Visa Card', balance: 2300, apr: 18, minPayment: 150, dueDay: 12, kind: 'standard' },
+      { id: 'u3', name: 'Study Loan', balance: 8000, apr: 1, minPayment: 120, dueDay: 5, kind: 'standard' },
+    ];
+    state.dailyExpenses = [
+      { id: 'v1', createdAt: 1, kind: 'expense', date: m + '-02', amount: 142.3, note: 'Mydin groceries', category: 'Food' },
+      { id: 'v2', createdAt: 2, kind: 'debt', date: m + '-03', amount: 120, debtId: 'u3', debtName: 'Study Loan', note: '' },
+    ];
+    save(); renderAll();
+    out.title = document.querySelector('#payoff-card h2').textContent;
+    out.target = document.getElementById('payoff-target').textContent;
+    out.debtLegend = !!document.getElementById('debt-legend');
+    out.dueWords = [...document.querySelectorAll('#list-debt .debt-due')].map((e) => e.textContent);
+    out.chips = document.querySelectorAll('#list-debt .day-chip').length;
+
+    const sub = document.querySelector('#form-daily > button[type="submit"]');
+    const card = document.querySelector('.quick-add').getBoundingClientRect();
+    out.submitFull = sub.getBoundingClientRect().width > card.width * 0.8;
+    out.splitInMore = !!document.getElementById('btn-split-quick').closest('#daily-more');
+
+    const tabs = document.querySelector('.tabs').getBoundingClientRect();
+    out.tabsAtBottom = Math.abs(tabs.bottom - innerHeight) < 2;
+
+    renderSpendCalendar();
+    out.calAmts = [...document.querySelectorAll('#spend-cal .cal-amt')].map((e) => e.textContent);
+
+    document.getElementById('tabbtn-reports').click();
+    await new Promise((r) => setTimeout(r, 100));
+    out.top1 = document.querySelector('#reports-top .top-name')?.textContent;
+    out.pieNote = document.querySelector('.reports-pie-note')?.textContent || '';
+
+    state.debts = keep.debts; state.dailyExpenses = keep.daily;
+    save();
+    document.getElementById('tabbtn-dashboard').click();
+    renderAll();
+    return out;
+  });
+  check('the payoff list says it is clearing order, and names the real avalanche target',
+    ui.title === 'When each debt is cleared' && /Visa Card/.test(ui.target) && /highest rate/.test(ui.target), JSON.stringify(ui));
+  check('due dates are words on the debt row ("due 12th"), no chip legend to decode',
+    !ui.debtLegend && ui.chips === 0 && ui.dueWords.length === 3 && ui.dueWords.every((w) => /^due (today|in \d+ days?|\d+(st|nd|rd|th))$/.test(w)), JSON.stringify(ui.dueWords));
+  check('Add entry is the one full-width primary; Split sits in More details',
+    ui.submitFull && ui.splitInMore, JSON.stringify(ui));
+  check('on a phone the tabs sit along the bottom edge', ui.tabsAtBottom, JSON.stringify(ui));
+  check('calendar days show a whole figure that fits (142, not "RM 142…")',
+    ui.calAmts.includes('142') && ui.calAmts.every((a) => !/RM|…/.test(a)), JSON.stringify(ui.calAmts));
+  check('Reports Top 5 leads with what it was, and the pie says why it excludes debt and savings',
+    ui.top1 === 'Mydin groceries' && /aren't spending/.test(ui.pieNote), JSON.stringify(ui));
+
+  // The bar steps aside while a text field has focus.
+  await page.focus('#form-daily input[name="amount"]');
+  await page.waitForTimeout(300);
+  const hidden = await S(() => document.querySelector('.tabs').getBoundingClientRect().top >= innerHeight - 2);
+  await S(() => document.activeElement.blur());
+  await page.waitForTimeout(300);
+  const back = await S(() => document.querySelector('.tabs').getBoundingClientRect().bottom <= innerHeight + 1);
+  check('the bottom tab bar hides while typing and comes back after', hidden && back, JSON.stringify({ hidden, back }));
+  if (vpBefore) await page.setViewportSize(vpBefore);
 }
 
 /* ── 16j. quick add: the widget and the shade reach the ledger ──────────
