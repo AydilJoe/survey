@@ -857,7 +857,7 @@
 
     @media (max-width: 900px) {
       .hero { padding: 48px 0 64px; }
-      .hero-grid { grid-template-columns: 1fr; gap: 56px; }
+      .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 56px; }
       .phone-wrap { order: 2; padding: 20px; min-height: 0; }
       .phone { width: 260px; height: 530px; }
       .phone-label { display: none; }
@@ -1682,9 +1682,10 @@
     .section-head.reveal.in { transform: translateX(0) translateY(0); }
 
     /* --------------- Hero entrance (one-shot, staggered cascade) --------------- */
+    /* Visible by default: the keyframes start hidden and the backwards fill
+       covers the delay, so a browser that never runs the animation (blocked
+       CSS animations, an old WebView) still shows the hero. */
     .hero-intro > * {
-      opacity: 0;
-      transform: translateY(18px);
       animation: heroRise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
     .hero-intro > *:nth-child(1) { animation-delay: 0.06s; }
@@ -1695,12 +1696,18 @@
     .hero-intro > *:nth-child(6) { animation-delay: 0.46s; }
     .hero-intro > *:nth-child(7) { animation-delay: 0.54s; }
     .hero-media {
-      opacity: 0;
-      transform: translateY(26px) scale(0.96);
       animation: heroMedia 0.95s cubic-bezier(0.22, 1, 0.36, 1) 0.28s both;
     }
-    @keyframes heroRise { to { opacity: 1; transform: none; } }
-    @keyframes heroMedia { to { opacity: 1; transform: none; } }
+    @keyframes heroRise { from { opacity: 0; transform: translateY(18px); } }
+    @keyframes heroMedia { from { opacity: 0; transform: translateY(26px) scale(0.96); } }
+
+    /* 320px: brand + language toggle + "Open the web app" overflowed by ~50px. */
+    @media (max-width: 360px) {
+      .nav-cta { padding: 0 12px; font-size: 13px; letter-spacing: -0.01em; }
+    }
+    /* A long Malay label ("Jalankan atas hutang korang sendiri") ran past a
+       fixed 48px-high button. Buttons grow taller instead of wider. */
+    .btn:not(.nav-cta) { max-width: 100%; height: auto; min-height: 48px; white-space: normal; text-align: center; line-height: 1.25; padding-top: 10px; padding-bottom: 10px; }
 
     /* --------------- Springy hover on store buttons --------------- */
     @media (hover: hover) and (pointer: fine) {
@@ -1761,7 +1768,7 @@
       <a href="/guides/ms/">Panduan</a>
     </div>
     <a href="/" class="lang-toggle" aria-label="Switch to English" title="English">EN</a>
-    <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" target="_blank" rel="noopener" class="btn btn-primary nav-cta" id="nav-cta" data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-web-label="Buka aplikasi web" data-android-label="Dapatkan di Google Play">Dapatkan aplikasi</a>
+    <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" target="_blank" rel="noopener" class="btn btn-primary nav-cta" id="nav-cta" data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-web-label="Buka aplikasi web" data-android-label="Dapatkan di Google Play">Buka app</a>
   </div>
 </nav>
 <script>
@@ -1777,7 +1784,9 @@
     var nav = document.getElementById('nav-cta');
     if (nav) {
       nav.href = isAndroid ? nav.dataset.androidHref : nav.dataset.webHref;
-      nav.textContent = isAndroid ? nav.dataset.androidLabel : nav.dataset.webLabel;
+      // Under 360px the long label pushed the nav past the screen edge; the
+      // short default ("Get the app") fits and still goes to the same place.
+      if (window.innerWidth > 360) nav.textContent = isAndroid ? nav.dataset.androidLabel : nav.dataset.webLabel;
     }
     // The hero and closing buttons sit BELOW this script, so it cannot touch
     // them yet — an earlier version tried and silently did nothing, leaving

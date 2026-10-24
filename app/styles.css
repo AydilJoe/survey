@@ -6911,3 +6911,50 @@ html[data-theme="dark"] {
 }
 .lock-welcome-chips svg { width: 15px; height: 15px; color: var(--brand-ink); flex: none; }
 .lock-form input::placeholder { letter-spacing: normal; font-size: 1rem; }
+
+/* ---------- v1.40 hardening: real data, long text, huge numbers ---------- */
+
+/* Save failed: stays up until a write succeeds. Above the tab bar. */
+.save-error {
+  position: fixed; z-index: 1200;
+  left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 5.25rem);
+  width: min(32rem, calc(100% - 2rem));
+  background: var(--card, #fff); color: var(--text);
+  border: 1px solid var(--danger, #b3261e);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  padding: 0.85rem 1rem;
+}
+.save-error[hidden] { display: none; }
+.save-error p { margin: 0 0 0.6rem; font-size: 0.9rem; line-height: 1.4; }
+.save-error-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+/* Today row: the name truncates, the meta keeps its place. */
+.today-label { display: flex; align-items: baseline; }
+.today-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-meta { flex: 0 1 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Hero balance: step down for 7+ and 10+ digit figures instead of
+   spilling out of the card at 320px. */
+.hero-amount { max-width: 100%; }
+.hero-amount.is-long { font-size: 2.15rem; }
+.hero-amount.is-xlong { font-size: 1.6rem; }
+
+/* Reports: a long figure wraps inside its tile rather than widening the page. */
+.reports-stats .stat, .stat-grid .stat, .stat { min-width: 0; }
+.stat strong { overflow-wrap: anywhere; }
+.reports-top-row .top-name {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
+.reports-trend { overflow: hidden; }
+.reports-trend-bar:first-child > .value { left: 0; transform: translateY(-100%); }
+.reports-trend-bar:last-child > .value { left: auto; right: 0; transform: translateY(-100%); }
+
+/* Debt rows: a seven-figure balance steps down so Pay and the menu stay on
+   the name's line instead of wrapping on to a line of their own. */
+.debt-list li .meta.is-long { font-size: 0.8rem; letter-spacing: -0.04em; }
+
+/* All entries paging */
+.daily-more { display: block; width: 100%; margin: 0.75rem 0 0.25rem; padding: 0.7rem; }

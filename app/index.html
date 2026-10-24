@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=112" />
+    <link rel="stylesheet" href="styles.css?v=113" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -359,7 +359,7 @@
             <label class="field big">
               <span>Amount (<span class="cur-code">MYR</span>)</span>
               <div class="fx-row">
-                <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" placeholder="0.00" required />
+                <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="0.00" required />
                 <select class="currency-picker" name="currency" data-currency-picker></select>
               </div>
               <span class="fx-preview" data-fx-preview hidden></span>
@@ -484,7 +484,7 @@
               <label class="field">
                 <span>Amount (<span class="cur-code">MYR</span>)</span>
                 <div class="fx-row">
-                  <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+                  <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" required />
                   <select class="currency-picker" name="currency" data-currency-picker></select>
                 </div>
                 <span class="fx-preview" data-fx-preview hidden></span>
@@ -583,7 +583,7 @@
               <label class="field">
                 <span>Amount (<span class="cur-code">MYR</span>)</span>
                 <div class="fx-row">
-                  <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+                  <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" required />
                   <select class="currency-picker" name="currency" data-currency-picker></select>
                 </div>
                 <span class="fx-preview" data-fx-preview hidden></span>
@@ -694,7 +694,7 @@
               <div class="grid-3">
                 <label class="field">
                   <span>Balance (<span class="cur-code">MYR</span>)</span>
-                  <input type="number" name="balance" step="0.01" min="0" inputmode="decimal" />
+                  <input type="number" name="balance" step="0.01" min="0" max="100000000" inputmode="decimal" />
                 </label>
                 <label class="field">
                   <span>APR (%)</span>
@@ -702,7 +702,7 @@
                 </label>
                 <label class="field">
                   <span>Min payment (<span class="cur-code">MYR</span>)</span>
-                  <input type="number" name="minPayment" step="0.01" min="0" inputmode="decimal" />
+                  <input type="number" name="minPayment" step="0.01" min="0" max="100000000" inputmode="decimal" />
                 </label>
               </div>
               <!-- Most people do not know their APR, and the avalanche method
@@ -870,11 +870,11 @@
           <div class="grid-2">
             <label class="field">
               <span>Target (<span class="cur-code">MYR</span>)</span>
-              <input type="number" name="target" step="0.01" min="0" inputmode="decimal" required />
+              <input type="number" name="target" step="0.01" min="0" max="100000000" inputmode="decimal" required />
             </label>
             <label class="field">
               <span>Current (<span class="cur-code">MYR</span>)</span>
-              <input type="number" name="current" step="0.01" min="0" inputmode="decimal" placeholder="0" />
+              <input type="number" name="current" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="0" />
             </label>
           </div>
           <button type="submit" class="primary">Add goal</button>
@@ -910,7 +910,7 @@
             <div id="invest-fields-balance" class="invest-fields">
               <label class="field">
                 <span>Current value (<span class="cur-code">MYR</span>)</span>
-                <input type="number" name="balance" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 12000" />
+                <input type="number" name="balance" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="e.g. 12000" />
               </label>
             </div>
 
@@ -2064,7 +2064,7 @@
         <p class="hint" id="daily-edit-kind-hint">—</p>
         <label class="field">
           <span>Amount (<span class="cur-code">MYR</span>)</span>
-          <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" required />
+          <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" required />
         </label>
         <label class="field">
           <span>Date</span>
@@ -2144,6 +2144,6 @@
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=7"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=145"></script>
+    <script src="script.js?v=146"></script>
   </body>
 </html>
