@@ -53,6 +53,11 @@
   94.5%, merchant 96.4%, date 99.6%. Every scanned field is shown for
   review before anything is saved, and fields the parser is unsure of
   are flagged.
+- **Universal search**: one search from any screen (magnifier in the
+  header, or "/") finds entries by note, category, date or amount, plus
+  debts, savings goals, budget pools and app settings, with English and
+  Bahasa Melayu keywords. Runs on-device over the unlocked data only;
+  nothing is indexed to disk or sent anywhere.
 - **Auto-capture (Android)**: opt-in NotificationListenerService reads
   bank/e-wallet notifications (Maybank, CIMB, Public Bank, RHB, Hong
   Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay) and proposes

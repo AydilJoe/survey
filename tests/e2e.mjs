@@ -3674,7 +3674,7 @@ const empties = await S(() => {
   state.debts = [];
   state.dailyExpenses = [];
   state.savings = [];
-  searchQueries.debts = '';
+  searchQueries.daily = '';
   save();
   renderAll();
   const read = (sel) => {
@@ -3684,13 +3684,13 @@ const empties = await S(() => {
   const debtsEmpty = read('#list-debt');
   const dailyEmpty = read('#daily-list') || read('#list-daily');
   // Now filter a populated list to nothing and confirm the compact form.
-  state.debts = [{ id: 'd1', name: 'Maybank', balance: 100, apr: 5, minPayment: 10, dueDay: 1, kind: 'standard' }];
+  state.dailyExpenses = [{ id: 'x1', createdAt: 1, kind: 'expense', date: currentMonthISO() + '-01', amount: 5, note: 'Teh tarik', category: 'Food' }];
   save();
-  searchQueries.debts = 'zzzznotathing';
-  renderDebts();
-  const debtsMiss = read('#list-debt');
-  searchQueries.debts = '';
-  state.debts = [];
+  searchQueries.daily = 'zzzznotathing';
+  renderDaily();
+  const debtsMiss = read('#daily-list');
+  searchQueries.daily = '';
+  state.dailyExpenses = [];
   save();
   renderAll();
   return { debtsEmpty, dailyEmpty, debtsMiss };
@@ -4248,17 +4248,17 @@ check('and what was typed reaches the home screen calculation',
     forms.escClosed && forms.savedClosed, JSON.stringify(forms));
 
   const search = await S(() => {
-    const saved = state.debts;
-    const row = () => document.querySelector('.list-search[data-search="debts"]').closest('.list-search-row').hidden;
-    state.debts = saved.slice(0, 2); renderAll();
+    const saved = state.dailyExpenses;
+    const row = () => document.querySelector('.list-search[data-search="daily"]').closest('.list-search-row').hidden;
+    state.dailyExpenses = saved.slice(0, 2); renderAll();
     const fewHidden = row();
-    state.debts = Array.from({ length: 7 }, (_, i) => ({ id: 's' + i, name: 'Card ' + i, balance: 100, apr: 18, minPayment: 10, kind: 'standard' }));
+    state.dailyExpenses = Array.from({ length: 9 }, (_, i) => ({ id: 's' + i, createdAt: i, kind: 'expense', date: currentMonthISO() + '-01', amount: 3, note: 'Kopi ' + i, category: 'Food' }));
     renderAll();
     const manyShown = !row();
-    state.debts = saved; renderAll();
+    state.dailyExpenses = saved; renderAll();
     return { fewHidden, manyShown };
   });
-  check('search appears only once a list is long enough to need it',
+  check('the All entries filter appears only once the list is long enough to need it',
     search.fewHidden && search.manyShown, JSON.stringify(search));
 
   await page.click('#tabbtn-dashboard');
@@ -4442,6 +4442,104 @@ if (await S(() => !aesKey)) {
 }
 check('the vault is open before the quick-add checks',
   await S(() => !!aesKey));
+
+/* ── Universal search: one place to find anything ────────────────────────
+   Every word must hit; a number matches amounts; spent and saved total apart;
+   results honour privacy mode; every "In the app" target exists; queries are
+   remembered only inside the encrypted vault; the old per-list boxes are gone
+   and All entries keeps a filter that "show all" pre-fills. */
+{
+  await page.click('#tabbtn-dashboard');
+  const se = await S(async () => {
+    const out = {};
+    const keep = { daily: state.dailyExpenses, debts: state.debts, recent: state.recentSearches, privacy: document.body.classList.contains('private') };
+    const m = currentMonthISO();
+    const prev = (() => { const [y, mm] = m.split('-').map(Number); const d = new Date(y, mm - 2, 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+    state.debts = [...keep.debts, { id: 'srch-d', name: 'PTPTN Search', balance: 8240, apr: 1, minPayment: 120, dueDay: 5, kind: 'standard' }];
+    state.dailyExpenses = [
+      { id: 'q1', createdAt: 1, kind: 'expense', date: m + '-03', amount: 12.5, note: 'Grab to KLCC', category: 'Transport' },
+      { id: 'q2', createdAt: 2, kind: 'expense', date: prev + '-10', amount: 20, note: 'Grab food', category: 'Food' },
+      { id: 'q3', createdAt: 3, kind: 'expense', date: m + '-04', amount: 150, note: 'Groceries', category: 'Food' },
+      { id: 'q4', createdAt: 4, kind: 'saving', date: m + '-05', amount: 50, note: 'Grab rebate saved', category: '' },
+    ];
+    save(); renderAll();
+    const monthName = new Date(Number(m.slice(0, 4)), Number(m.slice(5)) - 1, 1).toLocaleDateString('en-MY', { month: 'short' }).toLowerCase();
+    out.both = runSearch(`grab ${monthName}`, 'all').entries.map((x) => x.e.id).sort().join();
+    out.amount50 = runSearch('50', 'all').entries.map((x) => x.e.id).join();
+    out.amount12 = runSearch('12.5', 'entries').entries.map((x) => x.e.id).join();
+    out.debt = runSearch('ptptn search', 'all').debts.map((d) => d.id).join();
+    out.scoped = runSearch('ptptn search', 'entries').debts.length;
+    out.bm = runSearch('sandaran', 'all').app.map((f) => f.title);
+    out.missing = SEARCH_FEATURES.filter((f) => f.go && !document.querySelector(f.go[1])).map((f) => f.title);
+    out.tabsExist = SEARCH_FEATURES.filter((f) => f.go && !document.querySelector(`.tab[data-tab="${f.go[0]}"]`)).map((f) => f.title);
+
+    openSearch('grab');
+    renderSearch();
+    out.total = document.querySelector('.search-group-total')?.textContent || '';
+    document.body.classList.add('private');
+    const amtEl = document.querySelector('.search-opt-amt .amt');
+    out.masked = !!amtEl && getComputedStyle(amtEl).filter.includes('blur');
+    if (!keep.privacy) document.body.classList.remove('private');
+
+    // Remembered only in the vault: the plaintext store never sees it.
+    rememberSearch('grab secret-query-xyz');
+    out.recent = state.recentSearches[0];
+    await new Promise((r) => setTimeout(r, 400));
+    out.leak = Object.keys(localStorage).some((k) => (localStorage.getItem(k) || '').includes('secret-query-xyz'));
+
+    // "Show all" lands on All entries with the filter pre-filled.
+    searchShowAll('grab');
+    await new Promise((r) => setTimeout(r, 200));
+    out.showAll = {
+      tab: document.querySelector('.tab-panel.active')?.id,
+      filter: document.querySelector('.list-search[data-search="daily"]').value,
+      shown: !document.querySelector('.list-search[data-search="daily"]').closest('.list-search-row').hidden,
+      sheetClosed: !document.getElementById('search-dialog').open,
+    };
+    out.oldBoxes = [...document.querySelectorAll('.list-search[data-search]')].map((el) => el.dataset.search);
+
+    // Relock wipes the decrypted results out of the DOM.
+    openSearch('grab'); renderSearch();
+    const had = document.getElementById('search-results').innerHTML.includes('KLCC');
+    closeSearch({ wipe: true });
+    out.wiped = had && !document.getElementById('search-results').innerHTML && !document.getElementById('search-input').value;
+
+    state.dailyExpenses = keep.daily; state.debts = keep.debts; state.recentSearches = keep.recent;
+    searchQueries.daily = '';
+    save();
+    document.getElementById('tabbtn-dashboard').click();
+    renderAll();
+    return out;
+  });
+  check('every word must match: "grab <month>" finds only this month\'s Grab entries',
+    se.both === 'q1,q4', JSON.stringify(se));
+  check('a number matches amounts exactly (50 is not 150)', se.amount50 === 'q4' && se.amount12 === 'q1', JSON.stringify(se));
+  check('debts are found by name, and scope chips narrow the groups', se.debt === 'srch-d' && se.scoped === 0, JSON.stringify(se));
+  check('Bahasa Melayu keywords find app features ("sandaran" → Cloud backup)', se.bm.includes('Cloud backup'), JSON.stringify(se.bm));
+  check('every "In the app" search target exists on a real tab', !se.missing.length && !se.tabsExist.length, JSON.stringify(se));
+  check('search totals spent and saved apart, never summed together',
+    /32\.50 spent/.test(se.total) && /50\.00 saved/.test(se.total), se.total);
+  check('search results honour privacy mode', se.masked, JSON.stringify(se));
+  check('recent searches live in the encrypted vault, never in plain storage',
+    se.recent === 'grab secret-query-xyz' && !se.leak, JSON.stringify(se));
+  check('"show all" lands on All entries with the filter pre-filled', se.showAll.tab === 'tab-daily'
+    && se.showAll.filter === 'grab' && se.showAll.shown && se.showAll.sheetClosed, JSON.stringify(se.showAll));
+  check('the per-list search boxes are gone; All entries keeps its filter',
+    JSON.stringify(se.oldBoxes) === '["daily"]', JSON.stringify(se.oldBoxes));
+  check('closing on lock wipes decrypted results from the sheet', se.wiped, JSON.stringify(se));
+
+  // Keyboard: "/" opens it, Escape closes it (a search field eats the first
+  // Escape otherwise) and focus returns to the button.
+  await page.keyboard.press('/');
+  await page.waitForTimeout(150);
+  const opened = await S(() => document.getElementById('search-dialog').open && document.activeElement?.id === 'search-input');
+  await page.keyboard.type('grab');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(150);
+  const closed = await S(() => ({ open: document.getElementById('search-dialog').open, focus: document.activeElement?.id }));
+  check('"/" opens search on the input, Escape closes it even mid-query',
+    opened && !closed.open, JSON.stringify(closed));
+}
 
 /* ── 16j. quick add: the widget and the shade reach the ledger ──────────
    A tap on the widget's +RM 10, or an amount typed into the quick-add
