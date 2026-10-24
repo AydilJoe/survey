@@ -1,0 +1,92 @@
+<!doctype html><meta charset="utf-8">
+<link rel="stylesheet" href="fonts-local.css">
+<style>
+:root{--bg:#efe9dd;--ink:#241f1a;--sage:#6f9457;--terra:#c8704b;--navy:#1c2b38;--muted:#8d8376}
+*{box-sizing:border-box;margin:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:var(--bg)}
+#stage{position:absolute;inset:0;background:
+ radial-gradient(900px 700px at 90% 8%,rgba(200,112,75,.16),transparent 70%),
+ radial-gradient(900px 800px at 5% 100%,rgba(111,148,87,.18),transparent 70%),var(--bg)}
+.serif{font-family:'Fraunces',Georgia,serif;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.sans{font-family:'Inter',sans-serif;font-weight:500;color:var(--ink)}
+.abs{position:absolute;left:0;right:0;text-align:center}
+#hook{top:560px}
+#hook .w{font-size:168px;line-height:1.05;display:block;opacity:0}
+#hook .w.t{color:var(--terra);font-style:italic}
+#logo{top:520px;display:flex;justify-content:center}
+#logo img{width:280px;height:280px;border-radius:64px;box-shadow:0 30px 60px rgba(36,31,26,.18)}
+#word{top:850px;font-size:190px}
+#sub{top:1110px;font-size:58px;padding:0 100px;color:#5d5348}
+#cap{top:96px;height:230px}
+#cap .c{position:absolute;left:70px;right:70px;top:0;font-size:84px;line-height:1.05;text-align:center;opacity:0}
+#phone{position:absolute;left:94px;top:340px;width:892px;height:1564px;border-radius:78px;background:var(--ink);padding:14px;box-shadow:0 50px 90px rgba(36,31,26,.28),0 8px 20px rgba(36,31,26,.2);opacity:0}
+#phone .scr{width:864px;height:1536px;border-radius:64px;overflow:hidden;background:#efe9dd}
+#phone img{width:864px;height:1536px;display:block}
+#o1{top:600px;font-size:150px}
+#o2{top:780px;font-size:150px;color:var(--terra);font-style:italic}
+#o3{top:1040px;font-size:62px;padding:0 90px}
+#cta{top:1250px;display:flex;justify-content:center}
+#cta span{background:var(--ink);color:#f9f5ed;font-family:Inter;font-weight:600;font-size:68px;padding:38px 80px;border-radius:120px}
+#o4{top:1470px;font-size:46px;color:#5d5348}
+#o0{top:330px;display:flex;justify-content:center}
+#o0 img{width:170px;height:170px;border-radius:40px;box-shadow:0 20px 40px rgba(36,31,26,.16)}
+</style>
+<div id="stage">
+ <div id="hook" class="abs serif"><span class="w">Where did</span><span class="w">your salary</span><span class="w t">go?</span></div>
+ <div id="logo" class="abs"><img src="icon.svg"></div>
+ <div id="word" class="abs serif">Duitful</div>
+ <div id="sub" class="abs sans">Private money tracker for Malaysia</div>
+ <div id="cap" class="abs serif">
+  <div class="c">Log a spend in seconds.</div>
+  <div class="c">Highest APR first.<br>Debt&#8209;free sooner.</div>
+  <div class="c">Goals that <em style="color:var(--terra)">fill up.</em></div>
+  <div class="c">Hide every ringgit.</div>
+ </div>
+ <div id="phone"><div class="scr"><img id="app"></div></div>
+ <div id="o0" class="abs"><img src="icon.svg"></div>
+ <div id="o1" class="abs serif">No account.</div>
+ <div id="o2" class="abs serif">No server.</div>
+ <div id="o3" class="abs sans">Encrypted on your phone. Only your passcode opens it.</div>
+ <div id="cta" class="abs"><span>duitful.app/app</span></div>
+ <div id="o4" class="abs sans">Free to start · also on Google Play</div>
+</div>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const ease=x=>1-Math.pow(1-cl(x),3);
+const prog=(t,s,d)=>ease((t-s)/d);
+function show(el,t,s,d=.35,rise=40,out){ // fade+rise in at s, optional out at [out0,out1]
+  let p=prog(t,s,d), o=p;
+  if(out&&t>=out[0]) o=p*(1-cl((t-out[0])/(out[1]-out[0])));
+  el.style.opacity=o; el.style.transform=`translateY(${(1-p)*rise}px)`;
+}
+window.renderAt=function(t,src){
+  // intro hook 0-2
+  $$('#hook .w').forEach((w,i)=>show(w,t,i*.5,.3,50,[1.8,2.0]));
+  // reveal 2-4
+  show($('#logo'),t,2.0,.4,60,[3.75,4.0]);
+  $('#logo img').style.transform=`scale(${.7+.3*prog(t,2,.45)})`;
+  show($('#word'),t,2.25,.4,50,[3.75,4.0]);
+  show($('#sub'),t,2.5,.4,30,[3.75,4.0]);
+  // app 4-17
+  const pe=prog(t,4.0,.45), px=1-cl((t-16.6)/.4);
+  const ph=$('#phone');
+  ph.style.opacity=t<4?0:(t>17?0:Math.min(pe,1)*1);
+  const yIn=(1-pe)*160, yOut=t>16.6?ease((t-16.6)/.4)*260:0;
+  ph.style.transform=`translateY(${yIn+yOut}px)`;
+  if(src) $('#app').src=src;
+  const spans=[[4,8],[8,12],[12,15],[15,17]];
+  $$('#cap .c').forEach((c,i)=>{const [s,e]=spans[i]; const inn=prog(t,s,.35);
+    let o=t<s?0:inn; if(t>e-.2) o*=1-cl((t-(e-.2))/.2); if(i==3&&t>16.6) o=Math.min(o,1-cl((t-16.6)/.3));
+    c.style.opacity=t>=s&&t<e?o:0; c.style.transform=`translateY(${(1-inn)*40}px)`;});
+  // outro 17-20
+  show($('#o0'),t,17.0,.4,50); 
+  show($('#o1'),t,17.1,.4,50); show($('#o2'),t,17.6,.4,50);
+  show($('#o3'),t,18.1,.4,30); show($('#cta'),t,18.6,.4,40); show($('#o4'),t,19.0,.4,30);
+  if(t<17){for(const id of['#o0','#o1','#o2','#o3','#cta','#o4'])$(id).style.opacity=0}
+  if(t>=4||t<2){for(const id of['#hook'])if(t>=2)$(id).style.opacity=0}
+  if(t>=2&&t<17){$('#hook').style.opacity=0}
+  if(t<2||t>=4){ /* logo group visible only 2-4 */ if(t>=4){for(const id of['#logo','#word','#sub'])$(id).style.opacity=0}}
+  if(t<2){for(const id of['#logo','#word','#sub'])$(id).style.opacity=0}
+};
+</script>
