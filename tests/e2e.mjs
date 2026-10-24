@@ -4713,6 +4713,31 @@ check('the vault is open before the quick-add checks',
     && (robots.match(/Disallow: \/go\//g) || []).length === (robots.match(/Disallow: \/api\//g) || []).length);
 }
 
+/* ── First run stays short ───────────────────────────────────────────────
+   People don't read setup screens. Each one says what it needs in a line;
+   these budgets fail the build if the copy creeps back. */
+{
+  const fctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const fp = await fctx.newPage();
+  await fp.goto(`${BASE}/app/index.html`);
+  await fp.waitForTimeout(1200);
+  const count = (sel) => fp.evaluate((sel) => document.querySelector(sel).innerText.split(/\s+/).filter(Boolean).length, sel);
+  const lockWords = await count('#lock');
+  await fp.fill('#lock-input', '1234'); await fp.fill('#lock-confirm', '1234'); await fp.click('#lock-submit');
+  await fp.waitForTimeout(1500);
+  const steps = [];
+  for (let i = 1; i <= 3; i++) {
+    steps.push(await count(`[data-onboard-step="${i}"]`));
+    if (i === 1) await fp.fill('#onboard-income', '4200');
+    await fp.click(`[data-onboard-step="${i}"] [data-onboard="next"]`);
+    await fp.waitForTimeout(300);
+  }
+  steps.push(await count('[data-onboard-step="4"]'));
+  await fctx.close();
+  check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
+    lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
+}
+
 /* ── 16j. quick add: the widget and the shade reach the ledger ──────────
    A tap on the widget's +RM 10, or an amount typed into the quick-add
    notification, happens while the app is CLOSED — so it cannot touch the

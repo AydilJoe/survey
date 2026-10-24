@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.38.0";
+const APP_VERSION = "1.39.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9542,8 +9542,8 @@ function onboardRenderResult() {
     }
     if (explainEl) {
       explainEl.textContent = r.income > 0
-        ? "Highest rate gets paid first. Log what you spend and pay, and the date stays honest."
-        : "Add your income from the Monthly tab and your spending money shows up here.";
+        ? "Highest rate gets paid first."
+        : "Add your income on the Monthly tab to see this.";
     }
   } else {
     const leftEl = document.getElementById("onboard-left");
@@ -9552,8 +9552,8 @@ function onboardRenderResult() {
     if (perDayEl) perDayEl.textContent = perDay ? `${perDay[0].toUpperCase()}${perDay.slice(1)} for the rest of the month.` : "";
     if (explainEl) {
       explainEl.textContent = r.income > 0
-        ? `${fmtMoney(r.income)} coming in, ${fmtMoney(r.bills)} already committed. Every expense you log comes off this number.`
-        : "Add your income any time from the Monthly tab and this fills in.";
+        ? "Every spend you log comes off this."
+        : "Add your income on the Monthly tab to see this.";
     }
   }
 }
@@ -9651,6 +9651,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.39.0": [
+    "<strong>A quicker start</strong> — setting up Duitful now takes half the reading: three icons instead of a list on the first screen, and one short line per setup step.",
+  ],
   "1.38.0": [
     "<strong>Easier to read</strong> — the small grey labels (dates, \"of RM 800\", hints) and green amounts are darker in light mode, so they're readable in sunlight.",
     "<strong>Duitful's own colour</strong> — the terracotta from the logo now marks where you are: the active tab, what you're logging, and the busy days on the calendar. In dark mode, buttons are a warm sand instead of cold grey.",
@@ -10236,7 +10239,7 @@ function setLockMode(mode) {
     if (confirmEl) confirmEl.hidden = true;
     if (help) help.hidden = false;
   } else if (mode === "setup") {
-    if (sub) sub.textContent = "Pick a passcode to get started.";
+    if (sub) sub.textContent = "Pick a passcode.";
     if (submit) submit.textContent = "Create passcode";
     if (confirmEl) { confirmEl.hidden = false; confirmEl.value = ""; }
     if (help) help.hidden = true;
