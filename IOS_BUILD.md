@@ -474,6 +474,64 @@ stays "not collected".)
   without an account — they can, so say so in Review Notes:
   "No account needed. Set any 6-digit passcode on first launch.")
 
+## iPhone Duo (the foldable)
+
+iPhone Duo (released 23 October 2026) is an **iPhone**, so the iPhone-only
+build runs on it: a 5.4" outer display (compact width, like any iPhone) and
+a 7.6" inner display (regular width and height, nearly square).
+
+- **Which SDK decides how it looks inside.** Built with an SDK older than
+  iOS 27, the app opens on the inner display at a familiar iPhone size, not
+  full screen. Built with the **iOS 27.1 SDK**, it goes edge to edge with
+  system vertical bars. The workflow picks the newest stable Xcode on a
+  `macos-26` runner; once Xcode 27.1 is stable there, rebuilds pick it up.
+- **The web layout already adapts.** Duitful is one responsive page: the
+  inner display gets the same width breakpoints a small tablet would, and
+  `viewport-fit=cover` + `env(safe-area-inset-left/right)` on the tab bar
+  and main column already handle the asymmetric side insets the Duo has
+  when a vertical bar sits on the left.
+- **Touch ID, not Face ID.** The Duo unlocks with Touch ID. The app's own
+  label says "fingerprint / Face ID" and the biometric plugin asks the
+  system, so nothing is hard-coded wrong — but don't write "Face ID" in new
+  copy or screenshots.
+- **Keep controls off the fold.** When half-folded, the fold is a reserved
+  region outside the safe area. Duitful's primary actions sit in the top
+  half and the tab bar, so nothing important lands on the crease, but
+  check it on a real Duo before claiming Duo support in the listing.
+- **Screenshots:** App Store Connect is adding Duo slots (outer 1398×2034,
+  inner 2007×2853). Optional until they're required; iPhone 6.9" is enough
+  for v1.0.
+
+## App icon (iOS 26+ Liquid Glass)
+
+iOS 26 renders app icons as layered glass that reacts to light, in six
+looks: default, dark, clear light, clear dark, tinted light, tinted dark.
+Apple's tool for this is **Icon Composer** (Mac only). Without a Mac, a
+flat 1024×1024 PNG is still accepted — iOS derives the dark, clear and
+tinted looks from it, less precisely.
+
+What `resources/` already gets right: the icon exists as separate
+**background** (`icon-background.svg`, cream gradient) and **foreground**
+(`icon-foreground.svg`, the wallet glyph) layers — exactly what Icon
+Composer wants, and what Android's adaptive icon already uses.
+
+Before submitting:
+
+- [ ] **No baked-in effects.** The system adds the glass, specular and
+      shadow. The terracotta glow in `icon.svg` competes with it; drop it
+      from the iOS version, keep the flat cream background.
+- [ ] **A bolder glyph.** The wallet stroke is ~36 px on 1024 — about 2 px
+      on a Home Screen. Apple's guidance is simple and bold; ~52 px
+      (stroke-width 2 in the 24-unit glyph) reads better at small sizes
+      and in tinted mode, where only the shape survives.
+- [ ] **Check the tinted look.** Tinted mode turns the icon monochrome;
+      the glyph must stay legible as a single-colour silhouette.
+- [ ] **No text, no photos, no transparency** in the 1024 PNG, and square
+      corners — iOS applies the mask.
+- [ ] If you ever get Mac access (a friend's, or a rented cloud Mac for an
+      hour), import the two SVG layers into Icon Composer, preview all six
+      looks, and export the `.icon` file into the Xcode project.
+
 ## Submitting for review
 
 1. TestFlight build processed and smoke-tested on your own device
