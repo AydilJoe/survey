@@ -9753,6 +9753,7 @@ const RELEASE_NOTES = {
   "1.35.3": [
     "<strong>Watch it come off your balance</strong> — log a spend and the amount drops into your balance as it counts down. Scrolled down? The balance pops up under the tabs so you still see it land.",
     "<strong>Smoother moves</strong> — tabs slide in from the side they live on, dialogs rise into place, and what you just logged lands at the top of Today. Reduce Motion turns the movement off and keeps the cues.",
+    "<strong>Restore with Google, front and centre</strong> — on a new phone, the Google Drive restore is now a proper button on the first screen instead of a small link.",
   ],
   "1.35.2": [
     "<strong>WhatsApp support</strong> — message us at +60 13-493 2131 from Settings → Contact. Email still works too.",
