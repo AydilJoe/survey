@@ -4683,6 +4683,31 @@ check('the vault is open before the quick-add checks',
   await ctx.close();
   check('/go/ pages forward to the app and to Play even with analytics blocked',
     /\/app\/(index\.html)?$/.test(new URL(appUrl).pathname) && appMs < 3000 && playUrl.startsWith(PLAY), JSON.stringify({ appUrl, appMs, playUrl }));
+  // Malaysian visitors decide on the home page and don't read long pages:
+  // the landing pages stay short, never show blank screens while scrolling,
+  // and their FAQ rich result matches the FAQ people can see.
+  for (const [lang, pagePath] of [['en', '/'], ['ms', '/ms/']]) {
+    const lctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+    const lp = await lctx.newPage();
+    await lp.goto(BASE + pagePath, { waitUntil: 'domcontentloaded' });
+    const L = await lp.evaluate(() => {
+      const words = document.body.innerText.split(/\s+/).filter(Boolean).length;
+      const hidden = [...document.querySelectorAll('.reveal')].filter((el) => parseFloat(getComputedStyle(el).opacity) < 0.99).length;
+      const visibleFaq = [...document.querySelectorAll('.faq-item summary')].map((s) => s.textContent.trim());
+      let schemaFaq = [];
+      for (const sc of document.querySelectorAll('script[type="application/ld+json"]')) {
+        const j = JSON.parse(sc.textContent);
+        if (j['@type'] === 'FAQPage') schemaFaq = j.mainEntity.map((q) => q.name);
+      }
+      return { words, hidden, visibleFaq, schemaFaq };
+    });
+    await lctx.close();
+    check(`${lang} landing stays short: under 600 words`, L.words < 600, String(L.words));
+    check(`${lang} landing never starts a section invisible (no blank screens on a fast scroll)`, L.hidden === 0, String(L.hidden));
+    check(`${lang} FAQ rich result lists exactly the questions on the page`,
+      L.visibleFaq.length >= 3 && JSON.stringify(L.visibleFaq) === JSON.stringify(L.schemaFaq.map((n) => n.replace(/’/g, '’'))),
+      JSON.stringify(L));
+  }
   check('/go/ is kept out of search (noindex + robots)',
     /noindex/.test(readFileSync(path.join(REPO_ROOT, 'go/app/index.html'), 'utf8'))
     && (robots.match(/Disallow: \/go\//g) || []).length === (robots.match(/Disallow: \/api\//g) || []).length);
