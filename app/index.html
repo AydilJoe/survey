@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=109" />
+    <link rel="stylesheet" href="styles.css?v=110" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -379,13 +379,6 @@
               <span class="recent-chips-label">Recent</span>
               <div class="recent-chips-row" id="recent-chips-row"></div>
             </div>
-            <!-- Permanent entry point. Splitting was only reachable from the
-                 Debts tab and from inside "More details", which is where
-                 features go to be never found. One quiet ghost row, always
-                 visible, carrying whatever is already typed above. -->
-            <div class="split-quick-row">
-              <button type="button" class="ghost" id="btn-split-quick" data-action="split-compose" data-split-prefill="daily-form"><span aria-hidden="true">⇆</span> Split / Request money</button>
-            </div>
             <button type="button" class="hero-breakdown-toggle daily-more-toggle" id="daily-more-toggle" aria-expanded="false" aria-controls="daily-more">
               <span class="chev" aria-hidden="true">▾</span>
               <span id="daily-more-toggle-label">More details</span>
@@ -423,7 +416,11 @@
               <span>Note (optional)</span>
               <input type="text" name="note" placeholder="Lunch at mamak" />
             </label>
+            <!-- Splitting lives here now: on the card's face it out-ranked
+                 "Add entry". Search ("split") and the Debts tab reach it too,
+                 and it still carries whatever is already typed above. -->
             <div class="button-row split-entry-row">
+              <button type="button" class="ghost" id="btn-split-quick" data-action="split-compose" data-split-prefill="daily-form"><span aria-hidden="true">⇆</span> Split / Request money</button>
               <button type="button" class="ghost" data-action="split-ingest">Add a request</button>
             </div>
             </div>
@@ -784,10 +781,6 @@
             </label>
             <button type="submit" class="primary">Add debt</button>
           </form>
-          <p class="hint debt-legend" id="debt-legend" hidden>
-            <span class="day-chip soon">15</span> = due in the next few days ·
-            <span class="day-chip today">8</span> = due today
-          </p>
           <ul id="list-debt" class="debt-list"></ul>
         </div>
 
@@ -828,7 +821,8 @@
         </div>
 
         <div class="card" id="payoff-card">
-          <h2>Avalanche payoff order</h2>
+          <h2>When each debt is cleared</h2>
+          <p class="payoff-target" id="payoff-target" hidden></p>
           <ol id="payoff-order" class="payoff-list">
             <li class="empty">No debts yet.</li>
           </ol>
@@ -851,9 +845,13 @@
           <p class="hint">Pay in your own banking app, then settle here. Duitful never moves money.</p>
         </div>
 
-        <div class="split-entry-row">
-          <button type="button" class="ghost" data-action="split-compose">Split a bill or request money</button>
-          <button type="button" class="ghost" data-action="split-ingest">Add a request</button>
+        <div class="card split-start-card">
+          <h2>Split a bill</h2>
+          <p class="hint">Share a bill or ask someone to pay you back. They get a link; nobody needs the app.</p>
+          <div class="button-row split-entry-row">
+            <button type="button" class="primary" data-action="split-compose">Split or request money</button>
+            <button type="button" class="ghost" data-action="split-ingest">Add a request I received</button>
+          </div>
         </div>
       </section>
 
@@ -1033,9 +1031,10 @@
         </div>
 
         <div class="card invest-plan-optin" id="invest-plan-optin" hidden>
+          <h2>Retirement</h2>
           <div class="invest-plan-optin-row">
             <p class="hint">How big a pot you need, and whether you're on track.</p>
-            <button type="button" class="ghost" id="btn-invest-plan-enable">Set up retirement planning</button>
+            <button type="button" class="ghost" id="btn-invest-plan-enable">Set it up</button>
           </div>
         </div>
 
@@ -1122,9 +1121,10 @@
         </div>
 
         <div class="card zakat-optin" id="zakat-optin" hidden>
+          <h2>Zakat on wealth</h2>
           <div class="zakat-optin-row">
             <p class="hint">Nisab, haul and the 2.5%, worked out on this phone.</p>
-            <button type="button" class="ghost" id="btn-zakat-enable">Set up zakat tracking</button>
+            <button type="button" class="ghost" id="btn-zakat-enable">Set it up</button>
           </div>
         </div>
       </section>
@@ -2144,6 +2144,6 @@
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=7"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=142"></script>
+    <script src="script.js?v=143"></script>
   </body>
 </html>
