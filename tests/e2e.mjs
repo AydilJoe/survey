@@ -4683,9 +4683,59 @@ check('the vault is open before the quick-add checks',
   await ctx.close();
   check('/go/ pages forward to the app and to Play even with analytics blocked',
     /\/app\/(index\.html)?$/.test(new URL(appUrl).pathname) && appMs < 3000 && playUrl.startsWith(PLAY), JSON.stringify({ appUrl, appMs, playUrl }));
+  // Malaysian visitors decide on the home page and don't read long pages:
+  // the landing pages stay short, never show blank screens while scrolling,
+  // and their FAQ rich result matches the FAQ people can see.
+  for (const [lang, pagePath] of [['en', '/'], ['ms', '/ms/']]) {
+    const lctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+    const lp = await lctx.newPage();
+    await lp.goto(BASE + pagePath, { waitUntil: 'domcontentloaded' });
+    const L = await lp.evaluate(() => {
+      const words = document.body.innerText.split(/\s+/).filter(Boolean).length;
+      const hidden = [...document.querySelectorAll('.reveal')].filter((el) => parseFloat(getComputedStyle(el).opacity) < 0.99).length;
+      const visibleFaq = [...document.querySelectorAll('.faq-item summary')].map((s) => s.textContent.trim());
+      let schemaFaq = [];
+      for (const sc of document.querySelectorAll('script[type="application/ld+json"]')) {
+        const j = JSON.parse(sc.textContent);
+        if (j['@type'] === 'FAQPage') schemaFaq = j.mainEntity.map((q) => q.name);
+      }
+      return { words, hidden, visibleFaq, schemaFaq };
+    });
+    await lctx.close();
+    check(`${lang} landing stays short: under 600 words`, L.words < 600, String(L.words));
+    check(`${lang} landing never starts a section invisible (no blank screens on a fast scroll)`, L.hidden === 0, String(L.hidden));
+    check(`${lang} FAQ rich result lists exactly the questions on the page`,
+      L.visibleFaq.length >= 3 && JSON.stringify(L.visibleFaq) === JSON.stringify(L.schemaFaq.map((n) => n.replace(/’/g, '’'))),
+      JSON.stringify(L));
+  }
   check('/go/ is kept out of search (noindex + robots)',
     /noindex/.test(readFileSync(path.join(REPO_ROOT, 'go/app/index.html'), 'utf8'))
     && (robots.match(/Disallow: \/go\//g) || []).length === (robots.match(/Disallow: \/api\//g) || []).length);
+}
+
+/* ── First run stays short ───────────────────────────────────────────────
+   People don't read setup screens. Each one says what it needs in a line;
+   these budgets fail the build if the copy creeps back. */
+{
+  const fctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const fp = await fctx.newPage();
+  await fp.goto(`${BASE}/app/index.html`);
+  await fp.waitForTimeout(1200);
+  const count = (sel) => fp.evaluate((sel) => document.querySelector(sel).innerText.split(/\s+/).filter(Boolean).length, sel);
+  const lockWords = await count('#lock');
+  await fp.fill('#lock-input', '1234'); await fp.fill('#lock-confirm', '1234'); await fp.click('#lock-submit');
+  await fp.waitForTimeout(1500);
+  const steps = [];
+  for (let i = 1; i <= 3; i++) {
+    steps.push(await count(`[data-onboard-step="${i}"]`));
+    if (i === 1) await fp.fill('#onboard-income', '4200');
+    await fp.click(`[data-onboard-step="${i}"] [data-onboard="next"]`);
+    await fp.waitForTimeout(300);
+  }
+  steps.push(await count('[data-onboard-step="4"]'));
+  await fctx.close();
+  check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
+    lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
 }
 
 /* ── 16j. quick add: the widget and the shade reach the ledger ──────────

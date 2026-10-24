@@ -6887,3 +6887,27 @@ html[data-theme="dark"] {
 /* -- red only for trouble -- */
 .debt-total-inline,
 .debt-glance-amount.neg { color: var(--text); }
+
+/* First run (v1.39): the lock screen's promises are three icon chips, not
+   sentences. */
+.lock-welcome-chips {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  text-align: center;
+}
+.lock-welcome-chips li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--brand) 10%, var(--card));
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.lock-welcome-chips svg { width: 15px; height: 15px; color: var(--brand-ink); flex: none; }
+.lock-form input::placeholder { letter-spacing: normal; font-size: 1rem; }

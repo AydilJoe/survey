@@ -168,67 +168,23 @@
     "mainEntity": [
       {
         "@type": "Question",
-        "name": "Kenapa harga bayar sekali dan bukan langganan?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Aplikasi penjejak tak patut kos lebih daripada masalah yang diselesaikannya. Duitful Pro hanya RM 19.90 sekali bayar — anda simpan aplikasi selamanya, dapat semua ciri Pro akan datang, dan tiada e-mel pembaharuan. Kos pelayan hampir sifar kerana data anda kekal dalam telefon anda, jadi model langganan hanya akan mengecas anda untuk membiayai metrik pertumbuhan orang lain."
-        }
+        "name": "Kenapa bayar sekali, bukan langganan?",
+        "acceptedAnswer": { "@type": "Answer", "text": "App duit tak patut kos lebih daripada yang ia jimatkan. Pro RM 19.90 sekali, termasuk semua ciri Pro akan datang." }
       },
       {
         "@type": "Question",
-        "name": "Betulkah data saya tak pernah keluar dari telefon?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Betul. Semua transaksi, hutang, dan matlamat anda tersimpan dalam pangkalan data AES-GCM yang disulitkan dalam peranti anda, dikunci dengan kunci PBKDF2 yang diterbitkan daripada kod laluan anda. Tiada pendaftaran, tiada pelayan sinkronisasi, tiada SDK analitik pada data kewangan anda. OCR resit hanya berlaku dalam peranti sahaja — tiada resit disimpan di pelayan luar."
-        }
+        "name": "Betul ke data saya tak keluar dari telefon?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Betul. Ia disulitkan dalam telefon dengan kod laluan anda. Tiada akaun, tiada salinan di server. Sandaran ke Google Drive anda sendiri, disulitkan dulu." }
       },
       {
         "@type": "Question",
-        "name": "Bank mana yang disokong untuk auto-tangkap?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Di Android, Duitful membaca notifikasi daripada bank dan e-dompet utama Malaysia — Maybank, CIMB, Public Bank, RHB, Hong Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay dan lain-lain. Anda semak setiap transaksi sebelum ia disimpan. iOS tidak membenarkan pembacaan notifikasi, jadi di iPhone anda boleh guna imbas resit dan masukan manual."
-        }
+        "name": "Kalau saya lupa kod laluan?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Tiada siapa boleh pulihkan, termasuk kami — itulah yang buat ia peribadi. Eksport sandaran sesekali dari Settings." }
       },
       {
         "@type": "Question",
-        "name": "Boleh ke saya guna Duitful di luar Malaysia?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Boleh. Aplikasi ini menyokong MYR, SGD, USD, EUR, GBP, JPY, THB, IDR dan banyak lagi, dengan penukaran FX automatik untuk perbelanjaan semasa bercuti. Pengguna Singapura khususnya mendapat liputan BNPL penuh (Atome, SPayLater, ShopBack PayLater). Penghuraian notifikasi auto-tangkap buat masa ini ditala untuk bank Malaysia, dengan bank Singapura seterusnya dalam senarai pembangunan."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Apa jadi kalau saya lupa kod laluan?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Data anda tidak boleh dipulihkan. Ini pertukaran jujur untuk privasi hujung ke hujung yang sebenar — kerana Duitful tiada salinan kod laluan atau data anda, kami tak boleh reset untuk anda. Kami sangat mencadangkan supaya anda menulis kod laluan di tempat yang selamat, atau gunakan eksport sandaran tersulit Pro supaya anda boleh pulihkan ke peranti baru."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Boleh ke saya import dari Monarch, YNAB atau CSV?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Boleh. Duitful Pro menerima fail CSV dalam format standard yang dieksport oleh Monarch, YNAB, Money Lover, dan kebanyakan penyata bank Malaysia. Anda boleh petakan lajur secara manual jika format eksport anda bukan standard. Eksport berfungsi dengan cara yang sama — data anda ialah milik anda untuk dibawa ke mana-mana, bila-bila masa."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Adakah Duitful dibina dengan AI?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Ya — sebahagian besar kod, halaman pendaratan ini, dan panduan-panduan ditulis dengan bantuan Claude Code (pembantu pengaturcaraan AI). Idea produk, lembaran Excel asal, dan setiap keputusan penghantaran adalah dari saya, dan saya semak setiap perubahan sebelum ia dihantar. Kod sumber penuh terbuka di GitHub di github.com/AydilJoe/survey jika sesiapa ingin mengesahkan."
-        }
-      },
-      {
-        "@type": "Question",
-        "name": "Bagaimana Pro menyegerakkan antara peranti?",
-        "acceptedAnswer": {
-          "@type": "Answer",
-          "text": "Pro menyegerak melalui Google Drive anda sendiri, bukan pelayan Duitful. Pangkalan data anda yang tersulit ditulis ke satu fail dalam Drive anda. Peranti lain log masuk dengan akaun Google yang sama, tarik fail itu, dan menyahsulitkannya secara tempatan dengan kod laluan anda. Duitful tidak menjalankan pelayan penyegerakan. Kod laluan tidak pernah keluar dari peranti, jadi data yang berada dalam Drive tidak boleh dibaca oleh sesiapa pun, termasuk Google dan termasuk saya."
-        }
+        "name": "Duitful dibina dengan AI?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Sebahagiannya. Aydil, di Kuala Lumpur, tentukan apa yang dilancarkan; banyak kod ditulis dengan Claude Code. Kod sumber terbuka di GitHub." }
       }
     ]
   }
@@ -1682,14 +1638,36 @@
       .demo-stats .label { margin-bottom: 2px; }
     }
 
+    /* --------------- Benefits (v2 landing) --------------- */
+    .benefits-grid { grid-template-columns: repeat(3, 1fr); }
+    .benefits .feature h3 { font-size: 1.2rem; margin-bottom: 4px; }
+    .benefits .feature p { font-size: 1rem; margin: 0; }
+    @media (max-width: 960px) { .benefits-grid { grid-template-columns: 1fr; } }
+    .benefit-tags {
+      list-style: none; padding: 0; margin: 28px auto 0;
+      display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+      max-width: 720px;
+    }
+    .benefit-tags li {
+      padding: 6px 12px; border-radius: 999px;
+      background: var(--card); border: 1px solid var(--line, rgba(0,0,0,.08));
+      font-size: 0.85rem; font-weight: 600; color: var(--ink-2, inherit);
+    }
+    /* Guides on the home page: titles only, a list rather than tall cards. */
+    .guides-spotlight .guides-grid { display: grid; grid-template-columns: 1fr; gap: 0; max-width: 640px; margin: 0 auto; }
+    .guides-spotlight .g-card { padding: 14px 4px; border: 0; border-bottom: 1px solid var(--line, rgba(0,0,0,.08)); border-radius: 0; background: transparent; box-shadow: none; }
+    .guides-spotlight .g-card-eyebrow, .guides-spotlight .g-card-blurb, .guides-spotlight .g-card-foot { display: none; }
+    .guides-spotlight .g-card-title { font-size: 1.02rem; margin: 0; }
+    .guides-spotlight .g-card-title::after { content: " →"; color: var(--primary); }
+
     /* --------------- Scroll reveal --------------- */
+    /* Content is visible from the first frame: a fast scroll used to outrun
+       the fade and show whole blank screens. Only a short slide remains. */
     .reveal {
-      opacity: 0;
-      transform: translateY(22px) scale(0.985);
-      transition:
-        opacity 0.62s cubic-bezier(0.22, 1, 0.36, 1),
-        transform 0.62s cubic-bezier(0.22, 1, 0.36, 1);
-      will-change: opacity, transform;
+      opacity: 1;
+      transform: translateY(14px);
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform;
     }
     .reveal.in { opacity: 1; transform: translateY(0) scale(1); }
 
@@ -1778,10 +1756,9 @@
     <div class="nav-links" role="navigation">
       <a href="#features">Ciri</a>
       <a href="#demo">Demo</a>
-      <a href="#privacy">Privasi</a>
       <a href="#pricing">Harga</a>
-      <a href="#founder">Tentang</a>
       <a href="#faq">Soalan</a>
+      <a href="/guides/ms/">Panduan</a>
     </div>
     <a href="/" class="lang-toggle" aria-label="Switch to English" title="English">EN</a>
     <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" target="_blank" rel="noopener" class="btn btn-primary nav-cta" id="nav-cta" data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-web-label="Buka aplikasi web" data-android-label="Dapatkan di Google Play">Dapatkan aplikasi</a>
@@ -1826,7 +1803,7 @@
       <div class="hero-grid">
         <div class="hero-copy hero-intro">
           <h1>Be <span class="serif-italic">duitful</span><br>with your duit.</h1>
-          <p class="hero-sub">Semua app bajet nak login bank saya. Yang ini memang tak boleh. Duit anda tak keluar dari telefon.</p>
+          <p class="hero-sub">Jejak belanja. Langsaikan hutang lebih cepat. Data duit anda tak keluar dari telefon.</p>
           <div class="byline">
             <img src="../assets/aydil.jpg" width="56" height="56" alt="Aydil, pembina Duitful" loading="lazy" decoding="async" />
             <p><strong>Aydil</strong>, bina sendiri. <a href="https://github.com/AydilJoe/survey">Baca kodnya</a> kalau lebih suka semak daripada percaya cakap saya.</p>
@@ -1838,7 +1815,6 @@
               <span class="lbl-web">Buka aplikasi</span><span class="lbl-android">Dapatkan di Google Play</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
             </a>
-            <a href="#features" class="btn btn-ghost">Lihat ciri</a>
           </div>
           <p class="cta-fallback"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=hero" target="_blank" rel="noopener">atau guna aplikasi web &rarr;</a></p>
           <div class="store-row" aria-label="Aplikasi iOS dan Android">
@@ -1874,10 +1850,9 @@
           <!-- Phone layered in front -->
           <div class="phone">
             <div class="phone-screen">
-              <video class="screenshot" autoplay muted loop playsinline preload="metadata" poster="/screenshots/hero-home.PNG" width="300" height="608" aria-label="Pandangan skrin utama Duitful — baki, hutang, simpanan, dan rekod perbelanjaan harian">
-                <source src="/screenshots/hero-home.mp4" type="video/mp4">
-                <source src="/screenshots/hero-home.webm" type="video/webm">
-                <img class="screenshot" src="/screenshots/hero-home.PNG" alt="Skrin utama Duitful menunjukkan baki RM 428.30 untuk bulan ini, pendapatan bebas tugas akan datang dan bayaran hutang" loading="eager" width="300" height="608">
+              <video class="screenshot" autoplay muted loop playsinline preload="metadata" poster="screenshots/hero-home.PNG" width="300" height="608" aria-label="Demo Duitful: catat belanja dan tengok baki berkurang, lihat tarikh bebas hutang, cari perbelanjaan">
+                <source src="screenshots/hero-home.mp4" type="video/mp4">
+                <img class="screenshot" src="screenshots/hero-home.PNG" alt="Skrin utama Duitful: baki RM 2,833.60 bulan ini, jumlah hutang dan tarikh bebas hutang" loading="eager" width="300" height="608">
               </video>
             </div>
           </div>
@@ -1928,88 +1903,30 @@
     </div>
   </div>
 
-  <!-- ======================= FEATURES ======================= -->
-  <section class="block" id="features">
+  <!-- ======================= BENEFITS =======================
+       Tiga perkara, beberapa perkataan setiap satu (sama seperti versi EN). -->
+  <section class="block benefits" id="features">
     <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">Yang ada di dalam</span>
-        <h2>Setiap alat yang anda perlu<br>untuk <em style="font-style:italic; color:var(--primary)">jujur</em> dengan duit anda.</h2>
-        <p>Jejak duit, hutang, pinjaman, dan simpanan dalam satu tempat. Dibina mengikut realiti kewangan Malaysia: beli-sekarang-bayar-kemudian, perjalanan pelbagai mata wang, dan hutang berkadar faedah tinggi yang ramai aplikasi lain abaikan.</p>
-      </div>
-
-      <div class="features-grid">
+      <div class="features-grid benefits-grid">
         <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18L12 4z"/><path d="M12 10v6M12 18h.01"/></svg>
-          </div>
-          <h3>Avalanche hutang</h3>
-          <p>Utamakan hutang berkadar faedah paling tinggi supaya anda bayar kurang faedah keseluruhan. Lihat tarikh bebas hutang berubah dengan setiap bayaran.</p>
-          <span class="chip-mono">Garis masa pelunasan</span>
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></div>
+          <h3>Catat belanja dalam 2 ketik</h3>
+          <p>Atau snap resit. Duitful baca sendiri.</p>
         </div>
-
         <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
-          </div>
-          <h3>BNPL &amp; ansuran</h3>
-          <p>Jejak Atome, SPayLater, Grab PayLater dan ansuran kad dalam satu tempat. Tiada lagi kejutan daripada telefon yang anda beli enam bulan lalu.</p>
-          <span class="chip-mono">Mesra Asia Tenggara</span>
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div>
+          <h3>Tahu bila bebas hutang</h3>
+          <p>Hutang paling mahal dulu. BNPL dan pembiayaan Islamik sekali.</p>
         </div>
-
         <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 2h10l3 4v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"/><path d="M8 10h8M8 14h6M8 18h4"/></svg>
-          </div>
-          <h3>Imbas resit + auto-FX</h3>
-          <p>Ambil gambar resit, dan Duitful akan tarik jumlah, peniaga, dan kategori. Mata wang asing ditukar ke MYR secara automatik pada kadar hari itu.</p>
-          <span class="chip-mono">3 imbasan/bln percuma</span>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
-          </div>
-          <h3>Auto-tangkap (Android)</h3>
-          <p>Membaca notifikasi bank dan e-dompet dalam peranti, barisan untuk semakan anda, dan tiada apa-apa yang sampai ke pelayan. Anda kekal mengawal.</p>
-          <span class="chip-mono">Data kekal dalam telefon</span>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
-          </div>
-          <h3>Penyulitan dalam peranti</h3>
-          <p>Data anda disulitkan dengan AES-GCM menggunakan kunci yang diterbitkan daripada kod laluan anda melalui PBKDF2. Penyegerakan pilihan melalui Google Drive anda sendiri (Pro) — fail tersebut disulitkan sebelum keluar dari peranti.</p>
-          <span class="chip-mono">AES-GCM · PBKDF2</span>
-        </div>
-
-        <div class="feature reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 5.5a7 7 0 100 13 8 8 0 110-13z"/><path d="M19.5 9l.6 1.7 1.8.1-1.4 1.2.5 1.7-1.5-1-1.5 1 .5-1.7-1.4-1.2 1.8-.1z"/></svg>
-          </div>
-          <h3>Pembiayaan Islamik &amp; zakat</h3>
-          <p>Murabahah, Tawarruq, AITAB — dijejak sebagai untung tetap dengan anggaran ibra', disusun secara adil bersama hutang konvensional. Penjejak zakat pilihan dengan nisab dan haul.</p>
-          <span class="chip-mono">Percuma · untuk semua</span>
-        </div>
-
-        <div class="feature feature-wide reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
-          </div>
-          <h3>Pelaburan, pulangan jujur &amp; coast number anda</h3>
-          <p>ASB, EPF, Tabung Haji, unit amanah, saham — anda taip nilainya dari penyata, kerana mengambil harga pasaran secara automatik akan memberitahu pelayan apa yang anda miliki. Duitful mengira pulangan yang mengambil kira setiap tambahan dan dividen (berwajaran wang, disetahunkan), melakar carta portfolio anda dari masa ke masa, dan kad persaraannya menunjukkan <em>coast number</em> anda: saiz simpanan yang membesar sendiri ke sasaran menjelang persaraan, dalam nilai wang hari ini.</p>
-          <span class="chip-mono">2 pegangan percuma · tiada API harga, selamanya</span>
-        </div>
-
-        <div class="feature feature-wide reveal">
-          <div class="feature-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l4-6h6"/><path d="M7 12l4 6h6"/><path d="M17 3l3 3-3 3"/><path d="M17 15l3 3-3 3"/></svg>
-          </div>
-          <h3>Kongsi bil &amp; jejak siapa hutang dengan korang — tiada akaun, tiada pelayan</h3>
-          <p>Bahagi bil makan empat orang, atau rekod "pinjamkan Ali RM 500 sampai gaji". Permintaan tu bergerak <em>dalam</em> kod QR atau pautan — dinyahkod dalam telefon kawan korang, bukan di pelayan — jadi ia jalan walaupun dia tak pernah pasang Duitful. Butiran pemindahan korang (DuitNow, Maybank) keluar sebaris-sebaris dengan butang salin sendiri, jadi bayar cuma tampal dalam app bank dia. Di Android, bila DuitNow tu masuk, Duitful kesan jumlah yang padan dan tawar untuk selesaikan — satu ketukan, tak pernah automatik. Peringatan tarikh tempoh masuk telefon <em>korang</em>, bukan telefon dia, dan Duitful tak pernah gerakkan duit tu.</p>
-          <span class="chip-mono">Percuma · jalan tanpa app</span>
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div>
+          <h3>Data kekal dalam telefon</h3>
+          <p>Disulitkan. Tiada akaun. Tiada login bank.</p>
         </div>
       </div>
+      <ul class="benefit-tags reveal" aria-label="Juga ada">
+        <li>Atome</li><li>SPayLater</li><li>PTPTN</li><li>Kad kredit</li><li>Zakat</li><li>Kongsi bil</li><li>Imbas resit</li><li>Sandaran Drive</li><li>Guna offline</li>
+      </ul>
     </div>
   </section>
 
@@ -2019,7 +1936,7 @@
       <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
         <span class="eyebrow">Cuba kiraannya</span>
         <h2>Seret slider. Tengok hutang <em style="font-style:italic; color:var(--primary)">cair</em>.</h2>
-        <p style="margin-left:auto; margin-right:auto;">Unjuran sebenar app, berjalan di sini. Setiap ringgit tambahan pergi ke hutang paling mahal dulu — termasuk kemudahan Islamik yang untungnya berhenti hari korang selesaikan.</p>
+        <p style="margin-left:auto; margin-right:auto;">Kiraan sebenar app. Seret untuk bayar lebih sikit setiap bulan.</p>
       </div>
 
       <div class="demo-card reveal">
@@ -2070,110 +1987,8 @@
           </div>
         </div>
 
-        <p class="demo-note">Kad RM 8,000 pada 18% APR · Tawarruq RM 20,000, untung RM 4,800 selama 60 bulan · PTPTN RM 15,000 pada 1% ujrah. Kiraan sama atas nombor sebenar korang, dalam telefon.</p>
+        <p class="demo-note">Contoh: kad RM 8k · Tawarruq RM 20k · PTPTN RM 15k.</p>
         <a class="btn btn-primary" href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=demo">Jalankan atas hutang korang sendiri</a>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================= PRIVACY ======================= -->
-  <section class="privacy" id="privacy">
-    <div class="container privacy-inner reveal">
-      <span class="eyebrow">Privasi, betul-betul</span>
-      <h2>Data duit anda<br>tak pernah keluar dari <em>telefon</em>.</h2>
-      <p class="big">Kebanyakan aplikasi penjejak hantar transaksi anda ke pelayan, jalankan analitik ke atasnya, kemudian caj langganan di atas itu. Duitful sebaliknya. Transaksi, hutang, dan matlamat anda disulitkan dalam peranti anda, dikunci di sebalik kod laluan yang hanya anda tahu. Tiada pelayan sinkronisasi, jadi tiada apa-apa untuk diceroboh di awan.</p>
-      <ul class="privacy-bullets">
-        <li>
-          <div class="k">Penyulitan</div>
-          <div class="v">AES-GCM, penerbitan kunci PBKDF2</div>
-        </li>
-        <li>
-          <div class="k">Akaun</div>
-          <div class="v">Tiada. Tiada e-mel. Tiada pendaftaran.</div>
-        </li>
-        <li>
-          <div class="k">Analitik</div>
-          <div class="v">Tiada pada data anda. Tidak pernah.</div>
-        </li>
-        <li>
-          <div class="k">Segerak</div>
-          <div class="v">Google Drive korang sendiri, tersulit sebelum keluar</div>
-        </li>
-      </ul>
-    </div>
-  </section>
-
-  <!-- ======================= AVALANCHE EXPLAINER ======================= -->
-  <section class="block avalanche">
-    <div class="container">
-      <div class="ava-grid">
-        <div class="ava-viz reveal" aria-label="Ilustrasi pelunasan avalanche">
-          <h4>Dengan avalanche · +RM 500/bln tambahan</h4>
-
-          <div class="debt-row">
-            <div class="debt-meta">
-              <span class="name">Maybank Visa</span>
-              <span class="apr high">24% APR</span>
-            </div>
-            <div class="debt-bar" aria-hidden="true">
-              <div class="paid cc"></div>
-            </div>
-            <div class="debt-footnote">
-              <span>Dibayar 82%</span>
-              <span>Selesai · Okt 2026</span>
-            </div>
-          </div>
-
-          <div class="debt-row">
-            <div class="debt-meta">
-              <span class="name">Kad Kredit HSBC</span>
-              <span class="apr high">18% APR</span>
-            </div>
-            <div class="debt-bar" aria-hidden="true">
-              <div class="paid loan"></div>
-            </div>
-            <div class="debt-footnote">
-              <span>Dibayar 28%</span>
-              <span>Selesai · Mei 2027</span>
-            </div>
-          </div>
-
-          <div class="ava-summary">
-            <div>
-              <div class="label">Jumlah faedah dijimatkan</div>
-              <div class="val hi">RM 2,140</div>
-            </div>
-            <div>
-              <div class="label">Bebas hutang</div>
-              <div class="val">14 bulan lebih awal</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="ava-copy reveal">
-          <span class="eyebrow">Kenapa avalanche</span>
-          <h3>Bayar hutang <em>mahal</em> dahulu. Matematik memang tegas, tapi ia betul.</h3>
-          <p>Kaedah snowball terasa best sebab anda langsaikan baki kecil dengan pantas. Tapi faedah tetap faedah: kad kredit 18% lebih membakar duit setiap bulan daripada pinjaman peribadi 7%.</p>
-          <p>Avalanche mengarahkan setiap ringgit tambahan ke hutang berkadar paling tinggi. Anda bayar kurang faedah keseluruhan, dan anda akan bebas lebih cepat. Duitful susun secara automatik, tunjuk jurang, dan rancang semula dengan segera apabila hidup berubah.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ======================= FOUNDER ======================= -->
-  <section class="block founder" id="founder">
-    <div class="container">
-      <div class="founder-grid">
-        <div class="founder-copy reveal">
-          <span class="eyebrow">Kenapa Duitful</span>
-          <h2>Dibina oleh seorang, di Malaysia, untuk rakyat Malaysia.</h2>
-          <p>Saya <strong>Aydil</strong>. Versi pertama Duitful sebenarnya satu lembaran Excel manual yang saya bina untuk seorang kawan yang bergelut dengan aliran tunai tahun lepas. Dia guna, rasa berguna, jadi saya fikir baik kalau saya buat untuk sesiapa sahaja boleh guna.</p>
-          <p>Sebelum itu saya jejak semua dalam Excel sendiri merentasi akaun bank, kad kredit, dan pinjaman. Kemas kini baris satu-satu, bergelut dengan formula di telefon, bina semula setiap kali lajur jadi bersepah. Aplikasi berbayar yang saya cuba sama ada mahu langganan bulanan selamanya, asyik ajak pautkan akaun bank, atau jual data saya kepada pengiklan di belakang.</p>
-          <p>Duitful ialah penjejak yang saya mahu: <em>bayar sekali, milik selamanya</em>, dibina untuk ringgit dan bank Malaysia dari asas, dan <strong>data anda tak pernah keluar dari peranti anda</strong>. Tiada akaun, tiada pelayan sinkronisasi, tiada syarikat analitik yang membeli tabiat perbelanjaan anda.</p>
-          <p>Jika aplikasi ini membantu anda langsaikan hutang atau menabung untuk matlamat, hantar mesej di <a href="mailto:hello@duitful.app">hello@duitful.app</a>. Jika ada yang kurang, terutamanya berkaitan Malaysia, itu akan terus ke atas senarai pembangunan.</p>
-          <p>Satu lagi yang saya nak terus terang. Sebahagian besar kod laman ini, dan banyak teks pada halaman ini, ditulis dengan bantuan <strong>Claude Code</strong> (pembantu pengaturcaraan AI). Idea, lembaran Excel asal, dan apa yang dihantar adalah dari saya. Saya semak setiap perubahan sebelum ia keluar. Tapi saya tak akan berpura-pura yang saya menaip kebanyakan barisnya sendiri. Kod sumber penuh ada di <a href="https://github.com/AydilJoe/survey" target="_blank" rel="noopener">GitHub</a> jika anda nak periksa apa-apa.</p>
-          <p class="founder-sign">— Aydil, Kuala Lumpur</p>
-        </div>
       </div>
     </div>
   </section>
@@ -2183,8 +1998,7 @@
     <div class="container">
       <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
         <span class="eyebrow">Harga</span>
-        <h2>Bayar sekali. <em style="font-style:italic; color:var(--primary)">Simpan</em> aplikasi.</h2>
-        <p style="margin-left:auto; margin-right:auto;">Tahap percuma kekal selamanya. Pro ialah pembelian sekali sahaja, kerana penjejak untuk duit anda tak patut kos lebih daripada duit yang ia bantu anda jimatkan.</p>
+        <h2>Percuma. Atau RM 19.90 <em style="font-style:italic; color:var(--primary)">sekali</em>.</h2>
       </div>
 
       <div class="pricing-grid">
@@ -2194,14 +2008,11 @@
             <span class="amount"><span class="sym">RM</span>0</span>
             <span class="per">selamanya</span>
           </div>
-          <div class="plan-note">Semua yang anda perlu untuk mula.</div>
+          
           <ul>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Sehingga 3 hutang</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Sehingga 2 matlamat simpanan</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Sehingga 2 pegangan pelaburan</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>3 imbasan resit sebulan</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Rekod perbelanjaan &amp; pendapatan manual</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Penyulitan penuh dalam peranti</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Sehingga 3 hutang dan 2 matlamat simpanan</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>3 imbasan resit sebulan</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Penyulitan penuh dalam telefon</li>
           </ul>
           <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=pricing-free" target="_blank" rel="noopener" class="btn btn-ghost">Mula percuma</a>
         </div>
@@ -2213,15 +2024,11 @@
             <span class="amount"><span class="sym">RM</span>19<span class="cents">.90</span></span>
             <span class="per">sekali&#8209;bayar</span>
           </div>
-          <div class="plan-note">Bayar sekali. Tanpa langganan. Selama-lamanya.</div>
+          <div class="plan-note">Tanpa langganan. Selama-lamanya.</div>
           <ul>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg><strong style="color:var(--ink); font-weight:500;">Tanpa had</strong> hutang, matlamat &amp; akaun</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Imbas resit tanpa had + auto-FX</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Auto-tangkap notifikasi Android</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Perancang avalanche &amp; senario andaian</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Eksport &amp; import CSV (Monarch, YNAB)</li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Penyegerakan tersulit antara peranti melalui Google Drive anda sendiri <a class="plan-version" href="/changelog/#v1-4">v1.4</a></li>
-            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Semua ciri Pro akan datang disertakan</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Hutang, matlamat dan imbasan tanpa had</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Pelbagai mata wang dan pool bajet</li>
+            <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>Sandaran Drive dan tangkapan auto Android</li>
           </ul>
           <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=pricing-pro" target="_blank" rel="noopener" class="btn btn-primary">Buka Pro</a>
         </div>
@@ -2240,66 +2047,31 @@
       <div class="faq-list">
         <details class="faq-item reveal">
           <summary>
-            Kenapa harga bayar sekali dan bukan langganan?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+            Kenapa bayar sekali, bukan langganan?
+            <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Aplikasi penjejak tak patut kos lebih daripada masalah yang diselesaikannya. Pro hanya RM 19.90 sekali bayar. Anda simpan aplikasi selamanya, dapat semua ciri Pro akan datang, dan tiada e-mel pembaharuan. Kos pelayan hampir sifar kerana data anda kekal dalam telefon anda, jadi langganan hanya akan mengecas anda untuk membiayai metrik pertumbuhan orang lain.</p>
+          <p class="answer">App duit tak patut kos lebih daripada yang ia jimatkan. Pro RM 19.90 sekali, termasuk semua ciri Pro akan datang.</p>
         </details>
-
         <details class="faq-item reveal">
           <summary>
-            Betulkah data saya tak pernah keluar dari telefon?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+            Betul ke data saya tak keluar dari telefon?
+            <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Betul. Semua transaksi, hutang, dan matlamat anda tersimpan dalam pangkalan data AES-GCM yang disulitkan dalam peranti anda, dikunci dengan kunci PBKDF2 yang diterbitkan daripada kod laluan anda. Tiada pendaftaran, tiada pelayan sinkronisasi, tiada SDK analitik pada data kewangan anda. OCR resit hanya berlaku dalam peranti sahaja apabila anda mengimbas, dan tiada resit disimpan di pelayan luar.</p>
+          <p class="answer">Betul. Ia disulitkan dalam telefon dengan kod laluan anda. Tiada akaun, tiada salinan di server. Sandaran ke Google Drive anda sendiri, disulitkan dulu.</p>
         </details>
-
         <details class="faq-item reveal">
           <summary>
-            Bank mana yang disokong untuk auto-tangkap?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+            Kalau saya lupa kod laluan?
+            <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Di Android, Duitful membaca notifikasi daripada bank dan e-dompet utama Malaysia: Maybank, CIMB, Public Bank, RHB, Hong Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay dan lain-lain. Anda semak setiap transaksi sebelum ia disimpan. iOS tidak membenarkan pembacaan notifikasi, jadi di iPhone anda boleh guna imbas resit dan masukan manual.</p>
+          <p class="answer">Tiada siapa boleh pulihkan, termasuk kami &mdash; itulah yang buat ia peribadi. Eksport sandaran sesekali dari Settings.</p>
         </details>
-
         <details class="faq-item reveal">
           <summary>
-            Boleh ke saya guna Duitful di luar Malaysia?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+            Duitful dibina dengan AI?
+            <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Boleh. Aplikasi ini menyokong MYR, SGD, USD, EUR, GBP, JPY, THB, IDR dan banyak lagi, dengan penukaran FX automatik untuk perbelanjaan semasa bercuti. Pengguna Singapura khususnya mendapat liputan BNPL penuh (Atome, SPayLater, ShopBack PayLater). Penghuraian notifikasi auto-tangkap buat masa ini ditala untuk bank Malaysia, dengan bank Singapura seterusnya dalam senarai pembangunan.</p>
-        </details>
-
-        <details class="faq-item reveal">
-          <summary>
-            Apa jadi kalau saya lupa kod laluan?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-          </summary>
-          <p class="answer">Data anda tidak boleh dipulihkan. Ini pertukaran untuk privasi hujung ke hujung yang sebenar. Kerana Duitful tiada salinan kod laluan atau data anda, saya tak boleh reset untuk anda. Saya sangat mencadangkan supaya anda menulis kod laluan di tempat yang selamat, atau gunakan eksport sandaran tersulit Pro supaya anda boleh pulihkan ke peranti baru.</p>
-        </details>
-
-        <details class="faq-item reveal">
-          <summary>
-            Boleh ke saya import dari Monarch, YNAB atau CSV?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-          </summary>
-          <p class="answer">Boleh. Duitful Pro menerima fail CSV dalam format standard yang dieksport oleh Monarch, YNAB, Money Lover, dan kebanyakan penyata bank Malaysia. Anda boleh petakan lajur secara manual jika format eksport anda bukan standard. Eksport berfungsi dengan cara yang sama, dan data anda ialah milik anda untuk dibawa ke mana-mana, bila-bila masa.</p>
-        </details>
-
-        <details class="faq-item reveal">
-          <summary>
-            Adakah Duitful dibina dengan AI?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-          </summary>
-          <p class="answer">Ya. Sebahagian besar kod, halaman pendaratan ini, dan panduan-panduan ditulis dengan bantuan <strong>Claude Code</strong> (pembantu pengaturcaraan AI). Idea produk, lembaran Excel asal, dan apa yang dihantar adalah dari saya. Saya semak setiap perubahan sebelum ia keluar. Kod sumber penuh ada di <a href="https://github.com/AydilJoe/survey" target="_blank" rel="noopener">GitHub</a> jika anda nak periksa apa-apa.</p>
-        </details>
-
-        <details class="faq-item reveal">
-          <summary>
-            Bagaimana Pro menyegerakkan antara peranti?
-            <span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
-          </summary>
-          <p class="answer">Pro menyegerak melalui Google Drive anda sendiri, bukan pelayan Duitful. Pangkalan data anda yang tersulit ditulis ke satu fail dalam Drive anda. Peranti lain log masuk dengan akaun Google yang sama, tarik fail itu, dan menyahsulitkannya secara tempatan dengan kod laluan anda. Duitful tidak menjalankan pelayan penyegerakan. Kod laluan tidak pernah keluar dari peranti, jadi data yang berada dalam Drive tidak boleh dibaca oleh sesiapa, termasuk Google dan termasuk saya.</p>
+          <p class="answer">Sebahagiannya. Aydil, di Kuala Lumpur, tentukan apa yang dilancarkan; banyak kod ditulis dengan Claude Code. Kod sumber terbuka di GitHub.</p>
         </details>
       </div>
     </div>
@@ -2310,8 +2082,7 @@
     <div class="container">
       <div class="section-head reveal" style="margin-left: auto; margin-right: auto; text-align: center;">
         <span class="eyebrow">Panduan</span>
-        <h2>Imbas, kemudian <em>buat</em>.</h2>
-        <p>Panduan visual dan ringkas untuk hal-hal duit Malaysia yang menyusahkan: subsidi minyak, pelepasan cukai, perbelanjaan freelancer.</p>
+        <h2>Panduan duit</h2>
       </div>
 
       <div class="guides-grid reveal">
@@ -2378,7 +2149,7 @@
     <div class="container">
       <div class="reveal">
         <h2>Sedia untuk jadi <em>duitful</em>?</h2>
-        <p>Mulakan dengan aplikasi web hari ini, atau dapatkan aplikasi Android di Google Play. iOS akan datang.</p>
+        <p>Percuma untuk mula. Tanpa daftar.</p>
         <div class="store-row">
           <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final" target="_blank" rel="noopener" class="btn btn-primary platform-cta"
              data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final" data-web-label="Buka aplikasi"
@@ -2394,7 +2165,6 @@
             <div><span class="small">Dapatkan di</span><span class="big">Google Play</span></div>
           </a>
         </div>
-        <p class="cta-fallback"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final" target="_blank" rel="noopener">Buka aplikasi web sebaliknya →</a></p>
       </div>
     </div>
   </section>
@@ -2403,7 +2173,7 @@
 <!-- ======================= FOOTER ======================= -->
 <footer>
   <div class="container foot-inner">
-    <div>© 2026 Duitful · Produk <a href="https://codyl.dev/" target="_blank" rel="noopener">Codyl Enterprise</a> · Dibuat dengan teliti di Malaysia</div>
+    <div>© 2026 Duitful · Produk <a href="https://codyl.dev/" target="_blank" rel="noopener">Codyl Enterprise</a> · Dibina oleh Aydil di Kuala Lumpur</div>
     <div class="links">
       <a href="#pricing">Harga</a>
       <a href="#faq">Soalan</a>
@@ -2458,14 +2228,14 @@
         io.unobserve(e.target);
       }
     });
-  }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+  }, { threshold: 0, rootMargin: '0px 0px 15% 0px' });
 
   // Stagger reveals per-section: each card cascades after its siblings,
   // so a row/grid animates in order instead of all at once.
   document.querySelectorAll('.reveal').forEach((el) => {
     const sibs = Array.from(el.parentElement.children).filter((c) => c.classList.contains('reveal'));
     const idx = Math.max(0, sibs.indexOf(el));
-    el.style.transitionDelay = Math.min(idx, 6) * 70 + 'ms';
+    el.style.transitionDelay = Math.min(idx, 3) * 50 + 'ms';
     io.observe(el);
   });
 
