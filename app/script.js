@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.36.1";
+const APP_VERSION = "1.36.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9602,6 +9602,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.36.2": [
+    "<strong>Shorter What's new</strong> — just the top three changes, with a button to read the full changelog on the website.",
+  ],
   "1.36.1": [
     "<strong>What's new, whenever you want it</strong> — Settings → About now has a What's new button, and searching \"changelog\" or \"apa baru\" finds it. The automatic popup still only appears every few days, so it never nags.",
   ],
@@ -9820,7 +9823,7 @@ const RELEASE_NOTES = {
 // backlog via lastSeenVersion as before.
 const WHATS_NEW_GAP_MS = 5 * 86400000; // at most one digest per 5 days
 const WHATS_NEW_SHOWN_KEY = "duitful.whatsNewShownAt";
-const WHATS_NEW_MAX_BULLETS = 6;
+const WHATS_NEW_MAX_BULLETS = 3; // the rest is one tap away: "Read the full changelog"
 
 function whatsNewUnseenVersions() {
   const seen = state.lastSeenVersion || "";
@@ -9877,10 +9880,6 @@ function fillWhatsNew(versions, title) {
       if (bullets.length < WHATS_NEW_MAX_BULLETS) bullets.push(`<li>${n}</li>`);
     }
   }
-  const total = versions.reduce((s, v) => s + RELEASE_NOTES[v].length, 0);
-  bullets.push(total > WHATS_NEW_MAX_BULLETS
-    ? `<li>…and more — the <a href="/changelog/" target="_blank" rel="noopener">full changelog</a> has everything.</li>`
-    : `<li>Older releases are in the <a href="/changelog/" target="_blank" rel="noopener">full changelog</a>.</li>`);
   const listEl = document.getElementById("whats-new-list");
   if (listEl) listEl.innerHTML = bullets.join("");
 }

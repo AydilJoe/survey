@@ -2228,16 +2228,16 @@ const wnDigest = await S(() => {
   const out = {
     open: dlg.open, title,
     count: lis.length,
-    hasOverflow: /full changelog/.test(lis[lis.length - 1]?.innerHTML || ''),
+    hasOverflow: !!dlg.querySelector('a#whats-new-full[href="https://duitful.app/changelog/"]'),
     newestFirst: (lis[0]?.textContent || '').startsWith(RELEASE_NOTES[whatsNewUnseenVersions()[0]][0].replace(/<[^>]+>/g, '').slice(0, 30)),
     unseen: whatsNewUnseenVersions().length,
   };
   dlg.close();
   return out;
 });
-check('unseen releases merge into one capped digest, newest first',
+check('unseen releases merge into one digest of the top 3, newest first, with a full-changelog button',
   wnDigest.open && wnDigest.unseen >= 3 && wnDigest.title.includes('since you last looked')
-  && wnDigest.count === 7 && wnDigest.hasOverflow && wnDigest.newestFirst,
+  && wnDigest.count === 3 && wnDigest.hasOverflow && wnDigest.newestFirst,
   JSON.stringify(wnDigest));
 const wnThrottle = await S(() => {
   // shown moments ago → inside the quiet window: no dialog, backlog kept
@@ -4545,12 +4545,12 @@ check('the vault is open before the quick-add checks',
     localStorage.setItem(WHATS_NEW_SHOWN_KEY, String(Date.now())); // just shown
     document.getElementById('btn-whats-new').click();
     const dlg = document.getElementById('whats-new-dialog');
-    const out = { open: dlg.open, items: dlg.querySelectorAll('#whats-new-list li').length, link: !!dlg.querySelector('a[href="/changelog/"]'), found: runSearch('changelog', 'app').app.map((f) => f.title) };
+    const out = { open: dlg.open, items: dlg.querySelectorAll('#whats-new-list li').length, link: !!dlg.querySelector('a#whats-new-full[href="https://duitful.app/changelog/"]'), found: runSearch('changelog', 'app').app.map((f) => f.title) };
     dlg.close();
     return out;
   });
-  check('"What\'s new" in Settings opens the notes even inside the 5-day quiet window, and search finds it',
-    wn.open && wn.items >= 2 && wn.link && wn.found.includes("What's new"), JSON.stringify(wn));
+  check('"What\'s new" in Settings opens at most 3 notes plus a full-changelog button, even inside the 5-day quiet window, and search finds it',
+    wn.open && wn.items >= 1 && wn.items <= 3 && wn.link && wn.found.includes("What's new"), JSON.stringify(wn));
 }
 
 /* ── 16j. quick add: the widget and the shade reach the ledger ──────────

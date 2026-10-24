@@ -6622,3 +6622,8 @@ body.private .pending-match-sub {
 @media (prefers-reduced-motion: reduce) {
   .search-dialog[open] { animation: backdrop-in 0.14s ease-out; }
 }
+
+/* What's new: the full changelog sits beside "Got it", both full height. */
+.whats-new-actions { display: flex; gap: 0.6rem; }
+.whats-new-actions > * { flex: 1; justify-content: center; text-align: center; }
+@media (max-width: 360px) { .whats-new-actions { flex-direction: column-reverse; } }
