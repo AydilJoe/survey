@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.39.0";
+const APP_VERSION = "1.40.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -415,8 +415,43 @@ function save() {
     const rec = await encryptWith(aesKey, snapshot, prev.salt);
     localStorage.setItem(ENC_KEY, JSON.stringify(rec));
     if (typeof scheduleDriveUpload === "function") scheduleDriveUpload();
-  }).catch((err) => console.error("save failed", err));
+    showSaveError(false);
+  }).catch((err) => { console.error("save failed", err); showSaveError(true, err); });
   requestReschedule();
+}
+
+// A typo like 99999999999999 is never a real household amount, and it
+// breaks every total it lands in. Inputs carry max="100000000"; this gives
+// the browser's bubble words a person can act on.
+const MAX_AMOUNT = 100000000;
+document.addEventListener("input", (e) => {
+  const el = e.target;
+  if (!(el instanceof HTMLInputElement) || el.type !== "number" || el.max !== String(MAX_AMOUNT)) return;
+  el.setCustomValidity(Number(el.value) > MAX_AMOUNT ? "That's more than RM 100 million — check for an extra zero." : "");
+});
+
+// A failed write (storage full, private mode, quota) used to be silent: the
+// toast said "added" and the entry was gone on reload. Keep a banner up
+// until a save succeeds, with the two ways out.
+function showSaveError(on, err) {
+  let el = document.getElementById("save-error");
+  if (!on) { if (el) el.hidden = true; return; }
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "save-error";
+    el.className = "save-error";
+    el.setAttribute("role", "alert");
+    el.innerHTML = `<p><strong>Couldn't save on this device.</strong> <span class="save-error-why"></span></p>
+      <div class="save-error-actions"><button type="button" class="primary" data-save-retry>Try again</button><button type="button" class="ghost" data-save-export>Export CSV</button></div>`;
+    el.querySelector("[data-save-retry]").addEventListener("click", () => save());
+    el.querySelector("[data-save-export]").addEventListener("click", () => document.getElementById("btn-export")?.click());
+    document.body.appendChild(el);
+  }
+  const full = err && (err.name === "QuotaExceededError" || /quota/i.test(String(err.message || err)));
+  el.querySelector(".save-error-why").textContent = full
+    ? "Storage is full. Your latest change is only in memory — export a CSV before closing."
+    : "Your latest change is only in memory — export a CSV before closing.";
+  el.hidden = false;
 }
 
 // Derives a stable 8-hex referral code from an email. Matches the
@@ -521,9 +556,22 @@ function amt(n) {
 // numeric value and re-rendering the three child spans each frame. Stores
 // the last value on the element as data-tween-value so subsequent calls
 // can read it without re-parsing localized money strings.
+function compactAmount(n) {
+  const a = Math.abs(Number(n) || 0);
+  const sign = n < 0 ? "-" : "";
+  if (a >= 1e6) return `${sign}${(a / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\.0$/, "")}m`;
+  if (a >= 1000) return `${sign}${(a / 1000).toFixed(a >= 10000 ? 0 : 1).replace(/\.0$/, "")}k`;
+  return `${sign}${Math.round(a)}`;
+}
+
 function tweenHeroBalance(el, toValue, opts) {
   if (!el) return;
   const v = Number(toValue) || 0;
+  // Size by the final figure so the tween doesn't jump between steps:
+  // RM 1,234,567.89 fits a 320px card only a step smaller.
+  const digits = String(Math.floor(Math.abs(v))).length;
+  el.classList.toggle("is-long", digits >= 7 && digits < 10);
+  el.classList.toggle("is-xlong", digits >= 10);
   function render(value) {
     const mp = moneyParts(value);
     el.innerHTML =
@@ -2340,7 +2388,7 @@ function renderTodayCard() {
     else label = e.note || e.category || "Spending";
     const meta = (e.kind || "expense") === "expense" && e.note && e.category ? e.category : "";
     return `<li class="today-row${e.id === lastLoggedEntryId ? " is-new" : ""}" data-id="${escapeHtml(e.id)}">
-      <span class="today-label">${escapeHtml(label)}${meta ? `<span class="today-meta">${escapeHtml(meta)}</span>` : ""}</span>
+      <span class="today-label"><span class="today-name">${escapeHtml(label)}</span>${meta ? `<span class="today-meta">${escapeHtml(meta)}</span>` : ""}</span>
       <span class="today-amount${e.kind === "saving" ? " is-saving" : ""}">${amt(fmtMoney(Number(e.amount) || 0))}</span>
     </li>`;
   }).join("") + (entries.length > TODAY_CARD_MAX
@@ -2351,6 +2399,8 @@ function renderTodayCard() {
   if (lastLoggedEntryId && list.querySelector(".today-row.is-new")) lastLoggedEntryId = null;
 }
 
+const DAILY_PAGE = 150;
+let dailyShowLimit = DAILY_PAGE;
 function renderDaily() {
   const { today, week, month } = dailyStats();
   tweenMoney($("#stat-daily-today"), today);
@@ -2395,15 +2445,23 @@ function renderDaily() {
     return;
   }
 
-  const groups = new Map();
+  // 2,000 entries took ~1.5s to render in one go. Render the newest slice and
+  // let "Show more" extend it; day totals still use the whole day.
+  const shown = filteredSorted.slice(0, dailyShowLimit);
+  const dayAll = new Map();
   for (const e of filteredSorted) {
+    if (!dayAll.has(e.date)) dayAll.set(e.date, []);
+    dayAll.get(e.date).push(e);
+  }
+  const groups = new Map();
+  for (const e of shown) {
     if (!groups.has(e.date)) groups.set(e.date, []);
     groups.get(e.date).push(e);
   }
 
   const html = [];
   for (const [date, entries] of groups.entries()) {
-    const dayTotal = dailySpendSum(entries);
+    const dayTotal = dailySpendSum(dayAll.get(date) || entries);
     html.push(`<div class="daily-group-header"><span>${escapeHtml(formatDayLabel(date))}</span><span class="day-total">${fmtMoney(dayTotal)}</span></div>`);
     for (const e of entries) {
       let pill = "";
@@ -2441,8 +2499,17 @@ function renderDaily() {
       `);
     }
   }
+  const rest = filteredSorted.length - shown.length;
+  if (rest > 0) {
+    html.push(`<button type="button" class="ghost daily-more" data-daily-more>Show ${Math.min(rest, DAILY_PAGE)} more <span class="muted">(${rest} older)</span></button>`);
+  }
   listEl.innerHTML = html.join("");
 }
+document.addEventListener("click", (e) => {
+  if (!e.target.closest("[data-daily-more]")) return;
+  dailyShowLimit += DAILY_PAGE;
+  renderDaily();
+});
 
 function savingsTotals() {
   const current = state.savings.reduce((s, g) => s + (Number(g.current) || 0), 0);
@@ -2468,7 +2535,7 @@ function renderSavingCard(goal, { mini } = { mini: false }) {
       </div>
       ${mini ? "" : `
       <div class="saving-actions">
-        <input type="number" step="0.01" min="0" inputmode="decimal" placeholder="Amount" data-save-input="${goal.id}" aria-label="Deposit amount for ${escapeHtml(goal.name)}" />
+        <input type="number" step="0.01" min="0" inputmode="decimal" max="100000000" placeholder="Amount" data-save-input="${goal.id}" aria-label="Deposit amount for ${escapeHtml(goal.name)}" />
         <button class="primary" data-action="save-deposit" data-id="${goal.id}">Add</button>
         <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${goal.id}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(goal.name)}" title="More">⋯</button>
         <div class="row-menu" hidden>
@@ -2611,7 +2678,7 @@ function renderDebts() {
       return `
       <li data-id="${d.id}" style="--denom:${denomVar(d.balance)}">
         ${nameHtml}
-        <span class="meta"${balanceTitle}>${fmtMoney(d.balance)}</span>
+        <span class="meta${Math.abs(Number(d.balance) || 0) >= 1e6 ? " is-long" : ""}"${balanceTitle}>${fmtMoney(d.balance)}</span>
         <!-- Reads "Pay", not an arrow. This is the most frequent action in the
              row and ↗ said "opens elsewhere", with the only explanation in a
              title attribute that never appears on a phone. -->
@@ -3591,7 +3658,10 @@ function renderReports() {
       trendEl.innerHTML = buckets.map((b) => {
         const h = (b.total / max) * 100;
         const showValue = !dense || peakSet.has(b.key);
-        const valLine = showValue && b.total > 0 ? fmtMoney(b.total) : "";
+        // Dense bars are ~12px wide: a full "RM 1,234.00" spilled into its
+        // neighbours and past the card edge. Peaks there read "1.2k".
+        const valLine = !(showValue && b.total > 0) ? ""
+          : dense ? compactAmount(b.total) : fmtMoney(b.total);
         return `
           <div class="reports-trend-bar" title="${escapeHtml(b.key + ' — ' + fmtMoney(b.total))}">
             <span class="value">${escapeHtml(valLine)}</span>
@@ -6387,7 +6457,7 @@ $("#form-daily").addEventListener("submit", (e) => {
   const note = (f.get("note") || "").toString().trim();
   const fromCode = (f.get("currency") || currentCurrency()).toString();
   const toCode = currentCurrency();
-  if (!Number.isFinite(rawAmount) || rawAmount <= 0) return;
+  if (!Number.isFinite(rawAmount) || rawAmount <= 0 || rawAmount > MAX_AMOUNT) return;
 
   let amount = rawAmount;
   let fxBlock = null;
@@ -7035,9 +7105,9 @@ document.addEventListener("click", (e) => {
       if (input) { input.focus(); input.placeholder = "Enter an amount first"; }
       return;
     }
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_AMOUNT) {
       input.value = "";
-      input.placeholder = "Must be a positive number";
+      input.placeholder = amount > MAX_AMOUNT ? "Max RM 100,000,000" : "Must be a positive number";
       input.focus();
       return;
     }
@@ -9651,6 +9721,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.40.0": [
+    "<strong>No more silent failures</strong> — if your phone's storage is full and an entry can't be saved, Duitful now tells you straight away and offers Try again or Export CSV.",
+    "<strong>Big numbers fit</strong> — seven- and eight-figure balances shrink to fit small phones instead of spilling off the screen, and an amount over RM 100 million is caught as a typo.",
+    "<strong>Faster with years of data</strong> — All entries shows 150 at a time with Show more, and search is about six times quicker.",
+  ],
   "1.39.0": [
     "<strong>A quicker start</strong> — setting up Duitful now takes half the reading: three icons instead of a list on the first screen, and one short line per setup step.",
   ],
@@ -13138,9 +13213,17 @@ function searchMatches(words, fields, amounts) {
   });
 }
 
+const searchMonthCache = new Map();
 function searchMonthWords(iso) {
   // "2026-10-24" → "24 oct october 2026 24/10" so "oct" or "24/10" hit.
   if (!iso || !/^\d{4}-\d{2}/.test(iso)) return "";
+  const hit = searchMonthCache.get(iso);
+  if (hit !== undefined) return hit;
+  const words = searchMonthWordsUncached(iso);
+  searchMonthCache.set(iso, words);
+  return words;
+}
+function searchMonthWordsUncached(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   const dt = new Date(y, m - 1, d || 1);
   const short = dt.toLocaleDateString("en-MY", { month: "short" });
@@ -13156,10 +13239,13 @@ function runSearch(query, scope) {
     || (scope === "entries" && g === "recurring") || (scope === "goals" && g === "goals");
 
   if (want("entries")) {
+    // One lookup table per run instead of a .find() per entry per field.
+    const debtNames = new Map(state.debts.map((d) => [d.id, d.name]));
+    const goalNames = new Map(state.savings.map((g) => [g.id, g.name]));
     for (const e of state.dailyExpenses) {
-      const debtName = e.debtId ? (debtNameById(e.debtId) || e.debtName) : e.debtName;
-      const goalName = e.savingId ? (state.savings.find((g) => g.id === e.savingId)?.name || e.savingName) : e.savingName;
-      const cardName = e.cardDebtId ? debtNameById(e.cardDebtId) : "";
+      const debtName = e.debtId ? (debtNames.get(e.debtId) || e.debtName) : e.debtName;
+      const goalName = e.savingId ? (goalNames.get(e.savingId) || e.savingName) : e.savingName;
+      const cardName = e.cardDebtId ? debtNames.get(e.cardDebtId) : "";
       const kindWord = e.kind === "debt" ? "debt payment" : e.kind === "saving" ? "saving deposit" : "spend expense";
       if (searchMatches(words, [e.category, e.note, debtName, goalName, cardName, e.budgetPoolName, kindWord, searchMonthWords(e.date)], [e.amount])) {
         out.entries.push({ e, label: e.note || e.category || debtName || goalName || "Entry", sub: [e.category && e.note ? e.category : "", debtName, goalName, cardName ? `on ${cardName}` : ""].filter(Boolean).join(" · ") });

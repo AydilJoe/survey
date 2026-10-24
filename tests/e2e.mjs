@@ -4702,6 +4702,22 @@ check('the vault is open before the quick-add checks',
       return { words, hidden, visibleFaq, schemaFaq };
     });
     await lctx.close();
+    // 320px: a long nav label or a long Malay button once widened the page.
+    // The hero is visible with no animation at all (blocked or unsupported).
+    const nctx = await b.newContext({ viewport: { width: 320, height: 640 } });
+    const np = await nctx.newPage();
+    await np.goto(BASE + pagePath, { waitUntil: 'domcontentloaded' });
+    await np.waitForTimeout(400);
+    const N = await np.evaluate(() => {
+      const sw = document.documentElement.scrollWidth;
+      for (const a of document.getAnimations()) a.cancel();
+      const h1 = getComputedStyle(document.querySelector('.hero-intro h1')).opacity;
+      const media = document.querySelector('.hero-media');
+      return { sw, h1, media: media ? getComputedStyle(media).opacity : '1' };
+    });
+    await nctx.close();
+    check(`${lang} landing fits a 320px phone (no sideways scroll)`, N.sw <= 320, JSON.stringify(N));
+    check(`${lang} hero is visible even when its entrance animation never runs`, N.h1 === '1' && N.media === '1', JSON.stringify(N));
     check(`${lang} landing stays short: under 600 words`, L.words < 600, String(L.words));
     check(`${lang} landing never starts a section invisible (no blank screens on a fast scroll)`, L.hidden === 0, String(L.hidden));
     check(`${lang} FAQ rich result lists exactly the questions on the page`,
@@ -4736,6 +4752,88 @@ check('the vault is open before the quick-add checks',
   await fctx.close();
   check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
     lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
+}
+
+/* ── Hardening: real data breaks nothing quietly ──────────────────────────
+   A full phone, a fat-fingered amount, a millionaire's balance, 2,000
+   entries. Each of these once failed silently or pushed the page sideways. */
+{
+  const vpBefore = page.viewportSize();
+  await page.setViewportSize({ width: 320, height: 700 });
+  // 1. A failed write is said out loud, and the banner leaves once one works.
+  const saveFail = await page.evaluate(async () => {
+    const real = Storage.prototype.setItem;
+    const realErr = console.error; console.error = () => {}; // the failure is the point
+    Storage.prototype.setItem = function () { const e = new Error('full'); e.name = 'QuotaExceededError'; throw e; };
+    save(); await saveChain; await new Promise((r) => setTimeout(r, 50));
+    const el = document.getElementById('save-error');
+    const shown = !!el && !el.hidden && el.getAttribute('role') === 'alert';
+    const text = el ? el.textContent : '';
+    const actions = el ? [...el.querySelectorAll('button')].map((x) => x.textContent.trim()) : [];
+    Storage.prototype.setItem = real; console.error = realErr;
+    save(); await saveChain; await new Promise((r) => setTimeout(r, 50));
+    return { shown, text, actions, hiddenAfter: !el || el.hidden };
+  });
+  check('a failed save shows a persistent alert naming the fix (try again / export)',
+    saveFail.shown && /Storage is full/.test(saveFail.text) && saveFail.actions.includes('Try again') && saveFail.actions.includes('Export CSV'),
+    JSON.stringify(saveFail));
+  check('the save alert clears on the next successful save', saveFail.hiddenAfter);
+
+  // 2. Amounts are capped at RM 100 million, with words, not a silent no-op.
+  const cap = await page.evaluate(() => {
+    const ins = [...document.querySelectorAll('input[type="number"][name="amount"], input[type="number"][name="balance"], input[type="number"][name="target"]')];
+    const el = document.querySelector('#form-daily input[name="amount"]');
+    el.value = '99999999999999'; el.dispatchEvent(new Event('input', { bubbles: true }));
+    const msg = el.validationMessage; const valid = el.checkValidity();
+    el.value = ''; el.dispatchEvent(new Event('input', { bubbles: true }));
+    return { all: ins.every((i) => i.max === '100000000'), n: ins.length, msg, valid };
+  });
+  check('every money input carries the RM 100 million cap', cap.all && cap.n >= 5, JSON.stringify(cap));
+  check('an extra-zeros amount is refused with a reason', !cap.valid && /100 million/.test(cap.msg), cap.msg);
+
+  // 3. Huge figures and long text stay inside a 320px screen.
+  const snap = await page.evaluate(() => JSON.stringify({ d: state.debts, e: state.dailyExpenses }));
+  const huge = await page.evaluate(async () => {
+    const today = todayISO();
+    state.debts.push({ id: 'hz-debt', name: 'Pinjaman Perumahan Maybank Islamic Berhad (Rumah Pertama)', balance: 1234567.89, apr: 4.2, minPayment: 5200, kind: 'standard' });
+    for (let i = 0; i < 400; i++) state.dailyExpenses.push({ id: 'hz-' + i, date: shiftDaysISO(today, -(i % 40)), amount: 1234.5 + i, category: 'Food', note: i === 0 ? 'Makan malam keluarga besar di restoran seafood Kuala Selangor sempena hari jadi atuk yang ke-80 tahun' : '', kind: 'expense', createdAt: Date.now() - i });
+    state.income.push({ id: 'hz-inc', name: 'Gaji', amount: 98765432.1, month: currentMonthISO() });
+    renderAll();
+    const res = {};
+    for (const tab of ['dashboard', 'debts', 'daily', 'reports']) {
+      document.querySelector(`.tab[data-tab="${tab}"]`)?.click();
+      await new Promise((r) => setTimeout(r, 200));
+      res[tab] = document.documentElement.scrollWidth;
+    }
+    document.querySelector('.tab[data-tab="dashboard"]')?.click();
+    await new Promise((r) => setTimeout(r, 200));
+    const hero = document.getElementById('stat-net');
+    const card = hero.closest('.card, section, .hero') || hero.parentElement;
+    res.heroClass = hero.className;
+    const probe = document.createElement('strong'); tweenHeroBalance(probe, 12345678901.5);
+    res.tenDigitClass = probe.className;
+    res.heroFits = hero.getBoundingClientRect().right <= card.getBoundingClientRect().right + 1;
+    const row = document.querySelector('.debt-list li[data-id="hz-debt"]');
+    const pay = row?.querySelector('.quick-pay'); const name = row?.querySelector('.name');
+    res.payOnNameLine = !!pay && !!name && Math.abs(pay.getBoundingClientRect().top - name.getBoundingClientRect().top) < 16;
+    res.dailyRows = document.querySelectorAll('#daily-list .daily-entry').length;
+    res.more = !!document.querySelector('#daily-list [data-daily-more]');
+    return res;
+  });
+  check('no tab scrolls sideways at 320px with seven- and eight-figure amounts',
+    ['dashboard', 'debts', 'daily', 'reports'].every((t) => huge[t] <= 320), JSON.stringify(huge));
+  check('the Home balance steps down for an eight-figure net and stays in its card',
+    /is-long/.test(huge.heroClass) && huge.heroFits && /is-xlong/.test(huge.tenDigitClass), JSON.stringify(huge));
+  check('a seven-figure debt keeps Pay on the name line', huge.payOnNameLine, JSON.stringify(huge));
+  check('All entries renders a page at a time, with Show more', huge.dailyRows <= 150 && huge.more, JSON.stringify(huge));
+  await page.evaluate((snap) => {
+    const o = JSON.parse(snap);
+    state.debts = o.d; state.dailyExpenses = o.e;
+    state.income = state.income.filter((r) => r.id !== 'hz-inc');
+    dailyShowLimit = DAILY_PAGE;
+    renderAll(); save();
+  }, snap);
+  if (vpBefore) await page.setViewportSize(vpBefore);
 }
 
 /* ── 16j. quick add: the widget and the shade reach the ledger ──────────
