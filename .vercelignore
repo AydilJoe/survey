@@ -8,6 +8,7 @@ resources/
 scripts/*
 !scripts/fetch-tesseract.mjs
 !scripts/patch-google-auth.mjs
+!scripts/patch-android-plugins-agp9.mjs
 prompts/
 landing/
 pnpm-lock.yaml

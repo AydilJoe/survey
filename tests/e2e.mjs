@@ -5347,6 +5347,33 @@ check('the brand catalogue makes no network calls at all',
       'app/script.js POSTs to it, so it has to ship');
   }
 
+  // Vercel runs `npm install` (so postinstall) and vercel.json's buildCommand
+  // on the files LEFT after .vercelignore. scripts/* is ignored apart from an
+  // allow-list, so adding a script to postinstall without allowing it here
+  // failed every deployment within seconds while the old one kept serving.
+  {
+    const rules = readFileSync(path.join(REPO_ROOT, '.vercelignore'), 'utf8')
+      .split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+    const toRe = (glob) => {
+      const anchored = glob.startsWith('/');
+      const body = glob.replace(/^\//, '').replace(/\/$/, '/**')
+        .replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*');
+      return new RegExp(`${anchored ? '^' : '(^|/)'}${body}$`);
+    };
+    const ignored = (file) => rules.reduce((out, r) => {
+      const neg = r.startsWith('!');
+      const re = toRe(neg ? r.slice(1) : r);
+      return re.test(file) ? !neg : out;
+    }, false);
+    const pkg = JSON.parse(readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
+    const vercel = JSON.parse(readFileSync(path.join(REPO_ROOT, 'vercel.json'), 'utf8'));
+    const used = [pkg.scripts.postinstall || '', vercel.buildCommand || '']
+      .flatMap((cmd) => cmd.match(/scripts\/[\w.-]+\.m?js/g) || []);
+    const dropped = used.filter((f) => ignored(f));
+    check('every script npm install and the Vercel build run is deployed',
+      used.length > 0 && dropped.length === 0, `stripped by .vercelignore: ${dropped.join(', ') || 'none'}`);
+  }
+
   // Six endpoints share api/admin/ops.js, addressed as ?op=<name>. A dynamic
   // route (api/admin/[op].js) was tried first and does not work here: with
   // "trailingSlash": true every request is redirected to its slashed form,
