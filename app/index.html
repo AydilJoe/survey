@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=111" />
+    <link rel="stylesheet" href="styles.css?v=112" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -106,11 +106,11 @@
         </div>
         <div class="splash-title">Duitful</div>
         <div id="lock-welcome" class="lock-welcome" hidden>
-          <p class="lock-welcome-lead">Your money and debts, private to this phone.</p>
-          <ul class="lock-welcome-points">
-            <li><span aria-hidden="true">•</span> No account, no cloud, no tracking</li>
-            <li><span aria-hidden="true">•</span> Encrypted with a passcode you choose</li>
-            <li><span aria-hidden="true">•</span> Works offline, forever</li>
+          <p class="lock-welcome-lead">Your money, private to this phone.</p>
+          <ul class="lock-welcome-points lock-welcome-chips">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>Encrypted</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/><path d="M3 3l18 18"/></svg>No account</li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h3M19 12h3M12 2v3M12 19v3"/><circle cx="12" cy="12" r="5"/></svg>Offline</li>
           </ul>
         </div>
         <div class="lock-sub" id="lock-sub">Enter your passcode</div>
@@ -1940,7 +1940,7 @@
 
         <section class="onboard-step" data-onboard-step="1">
           <h2 id="onboard-title" class="onboard-h">What comes in each month?</h2>
-          <p class="onboard-sub">Your salary, or roughly what you earn. An estimate is fine — you can change it later.</p>
+          <p class="onboard-sub">Your salary. A rough figure is fine.</p>
           <label class="onboard-field">
             <span class="onboard-cur">RM</span>
             <input type="number" id="onboard-income" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off" />
@@ -1953,7 +1953,7 @@
 
         <section class="onboard-step" data-onboard-step="2" hidden>
           <h2 class="onboard-h">What's already spoken for?</h2>
-          <p class="onboard-sub">Rent, phone, Astro — bills that leave every month before you spend anything. Loans and cards come next.</p>
+          <p class="onboard-sub">Rent, phone, Astro: bills that go first.</p>
           <div class="onboard-rows" id="onboard-bill-rows"></div>
           <button type="button" class="ghost onboard-add" data-onboard="add-bill">+ Add another</button>
           <div class="onboard-actions">
@@ -1968,7 +1968,7 @@
              out loud so nobody mistakes it for their statement. -->
         <section class="onboard-step" data-onboard-step="3" hidden>
           <h2 class="onboard-h">What do you owe?</h2>
-          <p class="onboard-sub">Add the big ones and you'll see the month you're debt-free. What you still owe and what you pay each month is enough.</p>
+          <p class="onboard-sub">Add the big ones to see your debt-free month.</p>
           <div class="onboard-chips" role="group" aria-label="Add a debt">
             <button type="button" class="onboard-chip" data-onboard-debt="card"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Credit card</button>
             <button type="button" class="onboard-chip" data-onboard-debt="bnpl"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>BNPL</button>
@@ -1977,7 +1977,7 @@
             <button type="button" class="onboard-chip" data-onboard-debt="personal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Personal loan</button>
           </div>
           <div class="onboard-debts" id="onboard-debt-rows"></div>
-          <p class="onboard-note" id="onboard-debt-note" hidden>Rates are typical Malaysian figures. Your statement has the exact one — change it any time on the Debts tab.</p>
+          <p class="onboard-note" id="onboard-debt-note" hidden>Typical rates. Change them any time on the Debts tab.</p>
           <div class="onboard-actions">
             <button type="button" class="primary" data-onboard="next" id="onboard-debt-next">I don't owe anything</button>
             <button type="button" class="ghost" data-onboard="back">Back</button>
@@ -2144,6 +2144,6 @@
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=7"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=144"></script>
+    <script src="script.js?v=145"></script>
   </body>
 </html>
