@@ -4,11 +4,13 @@ The landing's hero phone frame uses a `<video>` element with fallbacks. Drop any
 
 | Filename | Type | Purpose |
 |---|---|---|
-| `hero-home.mp4` | MP4 (H.264) | Primary — autoplays muted + loops in the hero phone frame |
-| `hero-home.webm` | WebM (optional) | Smaller file for Chrome/Firefox; falls through to MP4 otherwise |
+| `hero-home.mp4` | MP4 (H.264) | Autoplays muted + loops in the hero phone frame |
 | `hero-home.PNG` | PNG | Poster frame while the video loads **and** the fallback if a browser blocks video |
+| `hero-tablet.png` | JPEG (despite the name) | The laptop behind the phone — the app's desktop layout |
 
-The `<video>` references all three — first match wins. The PNG doubles as the poster so slow connections see something useful instantly.
+The PNG doubles as the poster so slow connections see something useful instantly. Keep it under 150 KB (`npm run test:e2e` checks); `node scripts/render-site-images.mjs` compresses it.
+
+**Current clip (October 2026, v1.38):** 13 s, 600×1216, ~640 KB, recorded from the real app with sample data (no personal figures): the balance → type 18.50 and **Add entry** (the amount flies into the balance) → **Debts** (debt-free date, where extra money goes) → **search "grab"** (the total) → Home. Recorded headless with Playwright at 390×790 and encoded with ffmpeg (`libx264 -crf 24 -movflags +faststart`). Re-record whenever the Home screen changes noticeably — the iPhone method below works just as well.
 
 ## Record the demo on iPhone
 
