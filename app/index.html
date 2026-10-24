@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=105" />
+    <link rel="stylesheet" href="styles.css?v=106" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -132,9 +132,21 @@
         <p id="lock-help" class="lock-help" hidden>
           <button type="button" id="btn-forgot">Forgot passcode? Reset and wipe data</button>
         </p>
-        <p id="lock-restore" class="lock-help" hidden>
-          <button type="button" id="btn-setup-restore">Already use Duitful elsewhere? Restore from Google Drive →</button>
-        </p>
+        <div id="lock-restore" class="lock-restore" hidden>
+          <div class="lock-or" aria-hidden="true"><span>or</span></div>
+          <button type="button" class="lock-google" id="btn-setup-restore">
+            <svg class="lock-google-g" viewBox="0 0 48 48" aria-hidden="true">
+              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            </svg>
+            <span class="lock-google-text">
+              <strong>Restore with Google</strong>
+              <small>Already use Duitful? Get your data from Drive</small>
+            </span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -519,7 +531,10 @@
         </div>
 
         <div class="card budget-pool-card">
-          <h2>Budget Pools</h2>
+          <div class="card-head">
+            <h2>Budget Pools</h2>
+            <button type="button" class="add-toggle" id="btn-add-pool" aria-label="Add a budget pool"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
+          </div>
           <p class="hint">Monthly limits for things like Shopping. Tag spending to a pool.</p>
           <div class="list-search-row">
             <input
@@ -546,7 +561,6 @@
               <button type="button" class="pill pool-template" data-template="Vacation">+ Vacation</button>
             </div>
           </div>
-          <button type="button" class="primary" id="btn-add-pool">+ Add pool</button>
           <button type="button" class="ghost" id="btn-copy-pool-overrides">Copy overrides from last month</button>
 
           <form id="form-budget-pool" hidden>
@@ -2175,6 +2189,6 @@
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=7"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=137"></script>
+    <script src="script.js?v=138"></script>
   </body>
 </html>

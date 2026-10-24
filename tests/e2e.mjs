@@ -4345,7 +4345,7 @@ check('and what was typed reaches the home screen calculation',
     closePoolForm(); save(); renderAll();
     return out;
   });
-  check('editing a pool says which one, and hides "+ Add pool" while open',
+  check('editing a pool says which one, and hides the pool Add button while open',
     pools.titled === 'Edit Rolls' && pools.addHidden && pools.addBack, JSON.stringify(pools));
   check('after the trial, a pool with rollover or an override can still be renamed and re-limited',
     !pools.renameRollBlocked && !pools.renameOverBlocked
@@ -4356,6 +4356,75 @@ check('and what was typed reaches the home screen calculation',
   check('turning a Pro setting on still asks for Pro',
     pools.newRolloverBlocked && pools.newOverrideBlocked
     && pools.state[2][2] === false && pools.state[2][3] === null, JSON.stringify(pools));
+}
+
+/* ── Motion: explains, never blocks ──────────────────────────────────────
+   Logging a spend sends the amount into the balance (or into a balance pill
+   when the balance is scrolled out of sight); a debt payment does not, since
+   the balance treats it differently. The new row lands in Today once. Pages
+   arrive from their side. None of it delays the DOM. */
+{
+  await page.click('#tabbtn-dashboard');
+  const mo = await S(async () => {
+    const out = {};
+    const form = document.getElementById('form-daily');
+    const before = state.dailyExpenses.length;
+    setDailyType('expense');
+    form.querySelector('[name="amount"]').value = '7.25';
+    form.requestSubmit();
+    out.savedNow = state.dailyExpenses.length === before + 1; // synchronous
+    out.flew = document.querySelectorAll('.amount-flight').length;
+    out.newRow = !!document.querySelector('#today-list .today-row.is-new');
+    renderAll();
+    out.noReplay = !document.querySelector('#today-list .today-row.is-new');
+    await new Promise((r) => setTimeout(r, 900));
+    out.cleaned = document.querySelectorAll('.amount-flight').length === 0;
+    // A debt payment never flies.
+    if (state.debts.length) {
+      setDailyType('debt');
+      const sel = form.querySelector('[name="target"]');
+      if (sel && sel.options.length > 1) sel.selectedIndex = 1;
+      form.querySelector('[name="amount"]').value = '1';
+      form.requestSubmit();
+      out.debtFlew = document.querySelectorAll('.amount-flight').length;
+      setDailyType('expense');
+    }
+    // A tab arrives with an animation, and is active immediately.
+    document.getElementById('tabbtn-savings').click();
+    out.tabActiveNow = document.getElementById('tab-savings').classList.contains('active');
+    out.tabAnimated = document.getElementById('tab-savings').getAnimations().length > 0;
+    document.getElementById('tabbtn-dashboard').click();
+    return out;
+  });
+  check('logging a spend saves at once, and sends the amount to the balance',
+    mo.savedNow && mo.flew === 1 && mo.cleaned, JSON.stringify(mo));
+  check('the new entry lands in Today once, not on every re-render',
+    mo.newRow && mo.noReplay, JSON.stringify(mo));
+  check('a debt payment never flies into the balance', !mo.debtFlew, JSON.stringify(mo));
+  check('a page arrives animated but is active immediately',
+    mo.tabActiveNow && mo.tabAnimated, JSON.stringify(mo));
+
+  const still = await b.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  const pStill = await still.newPage();
+  await pStill.goto(`${BASE}/app/index.html`);
+  await pStill.waitForTimeout(1200);
+  await pStill.fill('#lock-input', '1234'); await pStill.fill('#lock-confirm', '1234');
+  await pStill.click('#lock-submit'); await pStill.waitForTimeout(1500);
+  await pStill.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const rm = await pStill.evaluate(() => {
+    const form = document.getElementById('form-daily');
+    form.querySelector('[name="amount"]').value = '3';
+    form.requestSubmit();
+    const flew = document.querySelectorAll('.amount-flight, .balance-peek').length;
+    const marked = !!document.querySelector('#today-list .today-row.is-new');
+    document.getElementById('tabbtn-flow').click();
+    const moves = document.getElementById('tab-flow').getAnimations()
+      .some((a) => a.effect.getKeyframes().some((k) => k.transform && k.transform !== 'none'));
+    return { flew, marked, moves };
+  });
+  await still.close();
+  check('reduced motion: nothing travels, but the new entry is still marked',
+    rm.flew === 0 && rm.marked && !rm.moves, JSON.stringify(rm));
 }
 
 /* Re-unlock if the suite has auto-locked. AUTO_LOCK_MS is 10s of being
