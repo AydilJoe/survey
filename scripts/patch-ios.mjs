@@ -680,7 +680,7 @@ if (widgetFilesWritten) {
         ? "\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;"
         : '\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = "";',
       "\t\t\t\tSWIFT_VERSION = 5.0;",
-      '\t\t\t\tTARGETED_DEVICE_FAMILY = "1,2";',
+      '\t\t\t\tTARGETED_DEVICE_FAMILY = 1;', // iPhone only, like the app (see below)
     ].join("\n");
 
     // --- new objects, appended to their sections in Xcode's own order ---
@@ -853,74 +853,79 @@ if (widgetFilesWritten) {
 }
 
 /* ---------- 5. Associated Domains entitlement ---------- */
-if (SKIP_DOMAINS) {
-  console.log("patch-ios: DUITFUL_IOS_SKIP_ASSOCIATED_DOMAINS=1, leaving entitlements alone.");
-  process.exit(0);
+// A labelled block, not process.exit(): the sections after this one (iOS
+// deployment target, device family) must run on every pass — including the
+// skip-domains first build and any re-run where this is already applied.
+domains: {
+  if (SKIP_DOMAINS) {
+    console.log("patch-ios: DUITFUL_IOS_SKIP_ASSOCIATED_DOMAINS=1, leaving entitlements alone.");
+    break domains;
+  }
+
+  const applinks = HOSTS.map((h) => `\t\t<string>applinks:${h}</string>`).join("\n");
+  const ENTITLEMENTS_BODY = `<?xml version="1.0" encoding="UTF-8"?>
+  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+  <plist version="1.0">
+  <dict>
+  \t<key>com.apple.developer.associated-domains</key>
+  \t<array>
+  ${applinks}
+  \t</array>
+  </dict>
+  </plist>
+  `;
+
+  const wantsRewrite =
+    !existsSync(ENTITLEMENTS) ||
+    HOSTS.some((h) => !readFileSync(ENTITLEMENTS, "utf8").includes(`applinks:${h}`));
+
+  if (wantsRewrite) {
+    writeFileSync(ENTITLEMENTS, ENTITLEMENTS_BODY);
+    console.log(`patch-ios: wrote App.entitlements (${HOSTS.map((h) => `applinks:${h}`).join(", ")}).`);
+  } else {
+    console.log("patch-ios: App.entitlements already declares both applinks, skipping.");
+  }
+
+  /* ---------- 6. Wire the entitlement into the Xcode project ---------- */
+  // xcodebuild only signs with an entitlements file if CODE_SIGN_ENTITLEMENTS
+  // points at it, so the .entitlements above is inert until the build setting
+  // exists in both of the App target's configurations.
+  //
+  // Anchoring on `INFOPLIST_FILE = App/Info.plist;` rather than on the bundle
+  // id or a hard-coded object UUID: that line appears exactly twice in
+  // Capacitor's template (App target Debug + Release) and never in the Pods
+  // project, so the edit can't leak into a dependency's build settings.
+  //
+  // The file is deliberately NOT added to a PBXGroup. CODE_SIGN_ENTITLEMENTS
+  // is a plain SRCROOT-relative path — xcodebuild does not care whether the
+  // file appears in the project navigator, and inventing PBXFileReference
+  // UUIDs by hand is the fragile part of pbxproj surgery, not this.
+  if (!existsSync(PBXPROJ)) {
+    console.error("patch-ios: project.pbxproj not found at", PBXPROJ);
+    process.exit(1);
+  }
+
+  let pbx = readFileSync(PBXPROJ, "utf8");
+
+  if (pbx.includes("CODE_SIGN_ENTITLEMENTS = App/App.entitlements;")) {
+    console.log("patch-ios: CODE_SIGN_ENTITLEMENTS already set, skipping.");
+    break domains;
+  }
+
+  const ANCHOR = /^(\s*)INFOPLIST_FILE = App\/Info\.plist;$/gm;
+  const matches = [...pbx.matchAll(ANCHOR)];
+  if (matches.length === 0) {
+    console.error("patch-ios: no `INFOPLIST_FILE = App/Info.plist;` build setting found in", PBXPROJ);
+    process.exit(1);
+  }
+
+  // Keys inside buildSettings are alphabetical in Xcode's own output;
+  // CODE_SIGN_ENTITLEMENTS sorts before INFOPLIST_FILE, so inserting just
+  // above the anchor keeps the file looking like Xcode wrote it.
+  pbx = pbx.replace(ANCHOR, (line, indent) => `${indent}CODE_SIGN_ENTITLEMENTS = App/App.entitlements;\n${line}`);
+  writeFileSync(PBXPROJ, pbx);
+  console.log(`patch-ios: set CODE_SIGN_ENTITLEMENTS on ${matches.length} build configuration(s).`);
 }
-
-const applinks = HOSTS.map((h) => `\t\t<string>applinks:${h}</string>`).join("\n");
-const ENTITLEMENTS_BODY = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-\t<key>com.apple.developer.associated-domains</key>
-\t<array>
-${applinks}
-\t</array>
-</dict>
-</plist>
-`;
-
-const wantsRewrite =
-  !existsSync(ENTITLEMENTS) ||
-  HOSTS.some((h) => !readFileSync(ENTITLEMENTS, "utf8").includes(`applinks:${h}`));
-
-if (wantsRewrite) {
-  writeFileSync(ENTITLEMENTS, ENTITLEMENTS_BODY);
-  console.log(`patch-ios: wrote App.entitlements (${HOSTS.map((h) => `applinks:${h}`).join(", ")}).`);
-} else {
-  console.log("patch-ios: App.entitlements already declares both applinks, skipping.");
-}
-
-/* ---------- 6. Wire the entitlement into the Xcode project ---------- */
-// xcodebuild only signs with an entitlements file if CODE_SIGN_ENTITLEMENTS
-// points at it, so the .entitlements above is inert until the build setting
-// exists in both of the App target's configurations.
-//
-// Anchoring on `INFOPLIST_FILE = App/Info.plist;` rather than on the bundle
-// id or a hard-coded object UUID: that line appears exactly twice in
-// Capacitor's template (App target Debug + Release) and never in the Pods
-// project, so the edit can't leak into a dependency's build settings.
-//
-// The file is deliberately NOT added to a PBXGroup. CODE_SIGN_ENTITLEMENTS
-// is a plain SRCROOT-relative path — xcodebuild does not care whether the
-// file appears in the project navigator, and inventing PBXFileReference
-// UUIDs by hand is the fragile part of pbxproj surgery, not this.
-if (!existsSync(PBXPROJ)) {
-  console.error("patch-ios: project.pbxproj not found at", PBXPROJ);
-  process.exit(1);
-}
-
-let pbx = readFileSync(PBXPROJ, "utf8");
-
-if (pbx.includes("CODE_SIGN_ENTITLEMENTS = App/App.entitlements;")) {
-  console.log("patch-ios: CODE_SIGN_ENTITLEMENTS already set, skipping.");
-  process.exit(0);
-}
-
-const ANCHOR = /^(\s*)INFOPLIST_FILE = App\/Info\.plist;$/gm;
-const matches = [...pbx.matchAll(ANCHOR)];
-if (matches.length === 0) {
-  console.error("patch-ios: no `INFOPLIST_FILE = App/Info.plist;` build setting found in", PBXPROJ);
-  process.exit(1);
-}
-
-// Keys inside buildSettings are alphabetical in Xcode's own output;
-// CODE_SIGN_ENTITLEMENTS sorts before INFOPLIST_FILE, so inserting just
-// above the anchor keeps the file looking like Xcode wrote it.
-pbx = pbx.replace(ANCHOR, (line, indent) => `${indent}CODE_SIGN_ENTITLEMENTS = App/App.entitlements;\n${line}`);
-writeFileSync(PBXPROJ, pbx);
-console.log(`patch-ios: set CODE_SIGN_ENTITLEMENTS on ${matches.length} build configuration(s).`);
 
 /* ---------- helpers ---------- */
 // Inserts a <key>/<value> pair just before the plist's closing </dict>.
@@ -1108,6 +1113,29 @@ function pbxAddTargetAttributes(src, projectObject, targetId) {
       console.log(`patch-ios: pbxproj deployment target raised to iOS ${TARGET}.`);
     } else {
       console.log("patch-ios: pbxproj deployment target already sufficient, skipping.");
+    }
+  }
+}
+
+/* ---------- iPhone only, for now ----------
+   Capacitor's template targets iPhone AND iPad ("1,2"). Shipping on iPad
+   means App Review exercises the iPad layout and App Store Connect demands
+   13" iPad screenshots — two ways to fail a first review for a layout
+   nobody has designed. v1.0 ships iPhone-only (family 1); iPhone apps still
+   run on iPad in compatibility mode. Flip IOS_DEVICE_FAMILY to "1,2" once
+   the iPad layout is designed and screenshotted. */
+{
+  const PBXPROJ_FAM = resolve(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
+  const IOS_DEVICE_FAMILY = "1";
+  if (existsSync(PBXPROJ_FAM)) {
+    const proj = readFileSync(PBXPROJ_FAM, "utf8");
+    const value = IOS_DEVICE_FAMILY.includes(",") ? `"${IOS_DEVICE_FAMILY}"` : IOS_DEVICE_FAMILY;
+    const patched = proj.replace(/TARGETED_DEVICE_FAMILY = (?:"[\d,]+"|\d+);/g, `TARGETED_DEVICE_FAMILY = ${value};`);
+    if (patched !== proj) {
+      writeFileSync(PBXPROJ_FAM, patched);
+      console.log(`patch-ios: device family set to ${IOS_DEVICE_FAMILY === "1" ? "iPhone only" : IOS_DEVICE_FAMILY}.`);
+    } else {
+      console.log("patch-ios: device family already set, skipping.");
     }
   }
 }

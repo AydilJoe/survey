@@ -159,6 +159,18 @@ shows nothing without it.
 8. Save. Status will sit at **Ready to Submit** until it goes for review
    alongside the first app version.
 
+**Then create a second one, the same way:** Product ID
+**`duitful_pro_launch`**, Non-Consumable, Reference Name `Duitful Pro
+(launch promo)`, priced at the tier that lands on **RM 14.90**, same
+description. The paywall's friend code and the `LAUNCH100` promo switch the
+purchase to this product (`PROMO_CODES` in `app/script.js`) — if it doesn't
+exist, that button fails in front of the reviewer (guideline 2.1). Attach
+**both** products to the version you submit.
+
+Neither can be tested or reviewed until **Agreements, Tax and Banking**
+shows the Paid Applications Agreement as **Active** (bank account and
+W-8BEN tax form filled in) — do that the day the membership is approved.
+
 ### ⚠️ The iOS build must never mention Billplz, FPX or web checkout
 
 This is the single easiest way to get rejected. **App Review guideline
@@ -181,6 +193,11 @@ that nothing new has slipped past it:
       per-platform in `renderProControls()`)
 - [ ] Nothing in the app names **Google Play** or **Android** as a way to
       get the app (guideline 2.3.10)
+- [ ] After buying Pro, Settings shows **no "Refer a friend — earn RM 5"
+      card**. Its link sells Pro on the web and pays cash per sale, so
+      `renderProControls()` hides it when `nativePlatform() === "ios"`
+      (pinned by an e2e check). The paywall's friend code stays: it buys
+      through Apple
 
 The *linked* privacy policy and terms pages on duitful.app may describe the
 web purchase — Apple's rule covers the app, not your website, as long as
@@ -427,8 +444,12 @@ from the iPad.
 **Screenshots** (required sizes, upload from your device's Photos app):
 
 - 6.7" / 6.9" iPhone (e.g. iPhone 15 Pro Max, 1290×2796) — **mandatory**
-- 13" iPad (2064×2752) — mandatory only if you tick iPad support, which
-  Capacitor's default `TARGETED_DEVICE_FAMILY = "1,2"` does
+- No iPad screenshots: v1.0 ships **iPhone-only**. Capacitor's template
+  targets iPhone and iPad (`"1,2"`); `scripts/patch-ios.mjs` sets
+  `TARGETED_DEVICE_FAMILY = 1` so App Review doesn't test an iPad layout
+  nobody designed. The app still runs on iPad in iPhone compatibility mode.
+  To ship on iPad later, change `IOS_DEVICE_FAMILY` in that script to
+  `"1,2"` and add 13" iPad (2064×2752) screenshots
 
 Take them on your own device from a TestFlight build: Dashboard,
 Debt payoff plan, Receipt scan, Bill split, Settings/privacy. Five is

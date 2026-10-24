@@ -4553,6 +4553,30 @@ check('the vault is open before the quick-add checks',
     wn.open && wn.items >= 1 && wn.items <= 3 && wn.link && wn.found.includes("What's new"), JSON.stringify(wn));
 }
 
+/* ── iOS review: no web-checkout referral card in the App Store build ────
+   The referral link sells Pro through Billplz and pays cash per sale, so it
+   must never show inside the iOS shell (App Review 3.1.1). Android and web
+   keep it; the paywall's friend code (an Apple IAP) stays everywhere. */
+{
+  const refer = await S(() => {
+    const keep = { cap: window.Capacitor, pro: state.pro };
+    const shown = (platform) => {
+      window.Capacitor = platform === 'web' ? keep.cap
+        : { isNativePlatform: () => true, getPlatform: () => platform, Plugins: {} };
+      state.pro = true;
+      try { renderProControls(); } catch (e) { return 'threw: ' + e.message; }
+      return !document.getElementById('pro-refer').hidden;
+    };
+    const out = { ios: shown('ios'), android: shown('android'), web: shown('web') };
+    window.Capacitor = keep.cap;
+    state.pro = keep.pro;
+    renderProControls();
+    return out;
+  });
+  check('the web-checkout referral card is hidden in the iOS app, kept on Android and web',
+    refer.ios === false && refer.android === true && refer.web === true, JSON.stringify(refer));
+}
+
 /* ── 16j. quick add: the widget and the shade reach the ledger ──────────
    A tap on the widget's +RM 10, or an amount typed into the quick-add
    notification, happens while the app is CLOSED — so it cannot touch the
