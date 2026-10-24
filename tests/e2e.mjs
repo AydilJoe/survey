@@ -4539,6 +4539,18 @@ check('the vault is open before the quick-add checks',
   const closed = await S(() => ({ open: document.getElementById('search-dialog').open, focus: document.activeElement?.id }));
   check('"/" opens search on the input, Escape closes it even mid-query',
     opened && !closed.open, JSON.stringify(closed));
+
+  // What's new is throttled when it pops up by itself, never when you ask.
+  const wn = await S(() => {
+    localStorage.setItem(WHATS_NEW_SHOWN_KEY, String(Date.now())); // just shown
+    document.getElementById('btn-whats-new').click();
+    const dlg = document.getElementById('whats-new-dialog');
+    const out = { open: dlg.open, items: dlg.querySelectorAll('#whats-new-list li').length, link: !!dlg.querySelector('a[href="/changelog/"]'), found: runSearch('changelog', 'app').app.map((f) => f.title) };
+    dlg.close();
+    return out;
+  });
+  check('"What\'s new" in Settings opens the notes even inside the 5-day quiet window, and search finds it',
+    wn.open && wn.items >= 2 && wn.link && wn.found.includes("What's new"), JSON.stringify(wn));
 }
 
 /* ── 16j. quick add: the widget and the shade reach the ledger ──────────
