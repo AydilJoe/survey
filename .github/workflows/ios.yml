@@ -47,7 +47,12 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-15
+    # App Store Connect has refused uploads built with anything older than
+    # Xcode 26 / the iOS 26 SDK since 28 April 2026. macos-15 defaults to an
+    # older Xcode, so the build runs on macos-26 and picks its newest stable
+    # Xcode below. The iOS 27.1 SDK is also what lets the app fill iPhone
+    # Duo's inner display edge to edge.
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       # fastlane refuses to run under a non-UTF-8 locale.
@@ -73,6 +78,21 @@ jobs:
         with:
           node-version: 20
           cache: npm
+
+      # Newest installed stable Xcode (no betas / release candidates), and a
+      # hard stop if it is older than Apple's upload minimum — failing here
+      # in seconds beats an upload rejected after a 15-minute build.
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app 2>/dev/null | grep -viE 'beta|_rc|release_candidate' | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then echo "::error::No stable Xcode found on this runner"; ls -d /Applications/Xcode* || true; exit 1; fi
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          MAJOR=$(xcodebuild -version | head -1 | sed -E 's/Xcode ([0-9]+).*/\1/')
+          echo "Selected $XCODE (Xcode major $MAJOR)"
+          if [ "$MAJOR" -lt 26 ]; then
+            echo "::error::Xcode $MAJOR is below the App Store minimum (26). Bump runs-on to a newer macOS image."
+            exit 1
+          fi
 
       - name: Show toolchain
         run: |
