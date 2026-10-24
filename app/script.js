@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.36.2";
+const APP_VERSION = "1.36.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5188,7 +5188,11 @@ function renderProControls() {
   const ref = purchased && state && (
     (state.license && state.license.ref) || state.proRefCode || ""
   );
-  if (referCard) referCard.hidden = !purchased;
+  // Not in the iOS app: the referral link sells Pro on the web (Billplz) and
+  // pays cash per sale. Inside an App Store build that is steering buyers to
+  // a non-IAP purchase (guideline 3.1.1). The friend code at the paywall
+  // stays — it buys through Apple. Android and web keep the card.
+  if (referCard) referCard.hidden = !purchased || nativePlatform() === "ios";
   if (referClaim) referClaim.hidden = !purchased || !!ref;
   if (referUrlEl) {
     referUrlEl.hidden = !ref;
