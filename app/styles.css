@@ -6291,3 +6291,13 @@ body.private .pending-match-sub {
   letter-spacing: 0;
   text-transform: none;
 }
+
+/* Links inside hint text (Codyl Enterprise, How it's protected,
+   Currency-API) were the browser's default blue. */
+.hint a {
+  color: var(--ink2);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+  text-underline-offset: 2px;
+}
+.hint a:hover { color: var(--text); text-decoration-color: currentColor; }
