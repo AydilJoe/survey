@@ -1533,7 +1533,7 @@ main {
   flex: 0 0 auto;
   display: inline-flex; align-items: center; gap: 0.3rem;
   min-height: 2.75rem;
-  margin: -0.4rem -0.35rem -0.4rem 0;
+  margin: -0.4rem 0;
   padding: 0 0.85rem 0 0.7rem;
   border: 0.5px solid var(--border);
   border-radius: var(--r-pill);
@@ -2492,9 +2492,11 @@ select:focus {
 .daily-list {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0;
   margin-top: 0.5rem;
 }
+.daily-list .daily-group-header { margin: 1rem 0 0.15rem; }
+.daily-list .daily-group-header:first-child { margin-top: 0.25rem; }
 .daily-group-header {
   color: var(--muted);
   font-size: 0.78rem;
@@ -2532,41 +2534,22 @@ select:focus {
   letter-spacing: -0.02em;
   text-transform: none;
 }
+/* One line per entry — what it was, the amount, ⋯ — like Today and every
+   other list. The card-per-entry with three glyph buttons and the amount
+   on its own line made 11 entries two screens tall. */
 .daily-entry {
-  background: var(--glass-pane);
-  border: 0.5px solid var(--glass-border-soft);
-  border-radius: var(--r-md);
-  padding: 0.7rem 0.85rem;
   display: grid;
-  grid-template-columns: 1fr auto auto auto;
-  grid-template-areas: "primary amount edit delete";
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.5rem;
   align-items: center;
-  box-shadow: var(--glass-pane-shadow);
+  padding: 0.5rem 0;
+  border-bottom: 0.5px solid var(--line);
 }
-.daily-entry .primary-line { grid-area: primary; }
-.daily-entry > .amount { grid-area: amount; }
-.daily-entry > [data-action="edit-daily"] { grid-area: edit; }
-.daily-entry > [data-action="delete-daily"] { grid-area: delete; }
-/* On mobile, FX badges + currency-converted amounts overflow the single-row
-   grid and visually overlap the pill. Stack the amount onto its own row so
-   nothing collides. Edit + delete sit on the right of the primary row. */
-@media (max-width: 480px) {
-  .daily-entry {
-    grid-template-columns: 1fr auto auto;
-    grid-template-areas:
-      "primary edit  delete"
-      "amount  amount amount";
-    row-gap: 0.3rem;
-  }
-  .daily-entry > .amount {
-    text-align: right;
-    justify-self: end;
-  }
-  .daily-entry .fx-badge {
-    margin-left: 4px;
-  }
-}
+.daily-entry:last-child,
+.daily-entry:has(+ .daily-group-header),
+.daily-entry:has(+ .daily-more) { border-bottom: 0; }
+.daily-entry > .row-menu { grid-column: 1 / -1; margin-top: 0.1rem; }
+.daily-entry .fx-badge { margin-left: 4px; }
 .daily-entry .primary-line {
   display: flex;
   align-items: center;
@@ -2599,11 +2582,13 @@ select:focus {
 }
 .daily-entry .amount {
   font-variant-numeric: tabular-nums;
-  font-weight: 500;
-  font-size: 1.05rem;
+  font-weight: 600;
+  font-size: 0.98rem;
   letter-spacing: -0.02em;
-  color: var(--loss);
+  color: var(--text);
+  white-space: nowrap;
 }
+.daily-entry .amount.is-saving { color: var(--gain); }
 
 /* Savings */
 .savings-list, .savings-mini {
@@ -2997,7 +2982,7 @@ button.ghost.icon-btn {
    of the previous bright red inline styles that were off-palette. */
 .daily-entry .cat-pill-debt,
 .cat-pill-debt {
-  color: var(--loss);
+  color: var(--text);
   border-color: rgba(28, 43, 56, 0.4);
   background: rgba(28, 43, 56, 0.08);
 }
@@ -5845,19 +5830,6 @@ body.private .invest-plan-stats .stat .sub {
   }
   .item-list li.has-split .amount { margin-right: auto; }
 }
-.daily-entry > [data-action="split-expense"] { grid-area: split; }
-.daily-entry.has-split {
-  grid-template-columns: 1fr auto auto auto auto;
-  grid-template-areas: "primary amount split edit delete";
-}
-@media (max-width: 480px) {
-  .daily-entry.has-split {
-    grid-template-columns: 1fr auto auto auto;
-    grid-template-areas:
-      "primary split  edit   delete"
-      "amount  amount amount amount";
-  }
-}
 
 /* One dashboard line, hidden at zero open requests. */
 .split-dash-line {
@@ -6958,3 +6930,51 @@ html[data-theme="dark"] {
 
 /* All entries paging */
 .daily-more { display: block; width: 100%; margin: 0.75rem 0 0.25rem; padding: 0.7rem; }
+
+/* Row actions line up with the card's own right edge — the "+ Add" in the
+   header above, and the content of every other card. */
+.item-list li, .debt-list li { padding-right: 0; }
+
+/* Desktop Home: Upcoming and Today stack in the first column beside the
+   balance and the Add entry form, instead of Today waiting below the
+   tallest card with a 330px hole above it. The 1fr second row takes the
+   spanning cards' extra height, so the first row hugs Upcoming. Only when
+   no full-width banner occupies the first row. */
+@media (min-width: 1180px) {
+  #tab-dashboard.tab-panel.active { grid-auto-flow: row dense; }
+  #tab-dashboard.tab-panel.active > .hero-card,
+  #tab-dashboard.tab-panel.active > .quick-add { grid-row: span 2; }
+  #tab-dashboard.tab-panel.active:not(:has(> .trial-banner:not([hidden]), > .empty-welcome:not([hidden]), > .pending-card:not([hidden]), > .reminder-ask:not([hidden]))) {
+    grid-template-rows: auto 1fr;
+  }
+}
+/* "Pay debt" broke onto two lines in a 320px-wide desktop column. */
+.quick-add .pill { white-space: nowrap; }
+/* "· 8 days left" stays one unit instead of orphaning "days left". */
+.hero-target-meta { white-space: nowrap; }
+
+/* Desktop frame: main painted its own gradient and stopped where the
+   content did, leaving a hard edge across the workspace a third of the
+   way down a short tab. The workspace surface (body::before) carries the
+   wash now, full height, and main and the header sit on it. The header's
+   brand row spans the same width as the cards instead of a 640px phone
+   column centred over them. */
+@media (min-width: 900px) {
+  main, .app-header { background: transparent; }
+  body::before {
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(28, 43, 56, 0.1), transparent 60%),
+      radial-gradient(900px 500px at 0% 30%, rgba(143, 160, 120, 0.1), transparent 60%),
+      var(--bg);
+  }
+  .app-header .brand { max-width: none; }
+}
+/* The days-left note sits on its own line under the per-day target at
+   every width, rather than wrapping to "· 8 / days left" on some. */
+#hero-target .hero-target-meta, .hero-target .hero-target-meta { display: block; margin-top: 0.15rem; }
+/* A payment due in two days is a plan, not trouble: plain text. Overdue
+   rows keep red. */
+.upcoming-list .up-amount.neg { color: var(--text); }
+.upcoming-list li.up-overdue .up-amount.neg { color: var(--loss); }
+/* Instalments-near-done list and the Extra payment field were touching. */
+.debts-mini:not(:empty) { margin-bottom: 1rem; }

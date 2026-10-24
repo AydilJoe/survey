@@ -4818,6 +4818,13 @@ check('the vault is open before the quick-add checks',
     res.payOnNameLine = !!pay && !!name && Math.abs(pay.getBoundingClientRect().top - name.getBoundingClientRect().top) < 16;
     res.dailyRows = document.querySelectorAll('#daily-list .daily-entry').length;
     res.more = !!document.querySelector('#daily-list [data-daily-more]');
+    const rows = [...document.querySelectorAll('#daily-list .daily-entry')];
+    res.rowsWithMenu = rows.filter((r) => r.querySelector(':scope > .row-more') && r.querySelector(':scope > .row-menu [data-action="edit-daily"]')).length;
+    res.inlineGlyphs = document.querySelectorAll('#daily-list .daily-entry > [data-action="edit-daily"], #daily-list .daily-entry > [data-action="delete-daily"]').length;
+    const amt = rows[0]?.querySelector('.amount');
+    res.spendRed = amt ? getComputedStyle(amt).color === getComputedStyle(document.body).getPropertyValue('--loss').trim() : null;
+    res.spendColor = amt ? getComputedStyle(amt).color : '';
+    res.textColor = getComputedStyle(document.body).color;
     return res;
   });
   check('no tab scrolls sideways at 320px with seven- and eight-figure amounts',
@@ -4825,6 +4832,8 @@ check('the vault is open before the quick-add checks',
   check('the Home balance steps down for an eight-figure net and stays in its card',
     /is-long/.test(huge.heroClass) && huge.heroFits && /is-xlong/.test(huge.tenDigitClass), JSON.stringify(huge));
   check('a seven-figure debt keeps Pay on the name line', huge.payOnNameLine, JSON.stringify(huge));
+  check('All entries rows put Edit/Delete behind ⋯ like every other list, and spending is not red',
+    huge.rowsWithMenu === huge.dailyRows && huge.inlineGlyphs === 0 && huge.spendColor === huge.textColor, JSON.stringify(huge));
   check('All entries renders a page at a time, with Show more', huge.dailyRows <= 150 && huge.more, JSON.stringify(huge));
   await page.evaluate((snap) => {
     const o = JSON.parse(snap);
