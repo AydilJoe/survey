@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=106" />
+    <link rel="stylesheet" href="styles.css?v=107" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -170,6 +170,9 @@
           <h1>Duitful</h1>
           <p class="subtitle" id="greeting">Loading…</p>
         </div>
+        <button id="btn-search" class="header-search" type="button" aria-label="Search" aria-haspopup="dialog" aria-keyshortcuts="/ Control+K Meta+K" title="Search (/)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>
+        </button>
         <button id="btn-privacy" class="privacy-toggle" type="button" aria-label="Hide amounts" aria-pressed="false" title="Hide amounts — percentages and progress stay visible, so a screenshot is still shareable">
           <span id="privacy-icon" aria-hidden="true"></span>
         </button>
@@ -512,20 +515,6 @@
             <button type="submit" class="primary">Add income</button>
             <button type="button" class="ghost bulk-import-trigger" id="btn-bulk-import-income">Import from CSV instead</button>
           </form>
-          <div class="list-search-row">
-            <input
-              type="search"
-              class="list-search"
-              data-search="income"
-              placeholder="Search income..."
-              aria-label="Search income"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-            />
-            <button type="button" class="list-search-clear" data-search-clear="income" hidden aria-label="Clear search">✕</button>
-          </div>
           <ul id="list-income" class="item-list"></ul>
           <div class="total-line">Total: <strong id="total-income">RM 0.00</strong></div>
         </div>
@@ -536,20 +525,6 @@
             <button type="button" class="add-toggle" id="btn-add-pool" aria-label="Add a budget pool"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
           </div>
           <p class="hint">Monthly limits for things like Shopping. Tag spending to a pool.</p>
-          <div class="list-search-row">
-            <input
-              type="search"
-              class="list-search"
-              data-search="pools"
-              placeholder="Search pools..."
-              aria-label="Search pools"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-            />
-            <button type="button" class="list-search-clear" data-search-clear="pools" hidden aria-label="Clear search">✕</button>
-          </div>
           <p class="hint pool-month-note" id="pool-month-note" hidden></p>
           <div id="budget-pool-list"></div>
           <div id="pool-templates" class="pool-templates" hidden>
@@ -645,20 +620,6 @@
             </label>
             <button type="submit" class="primary">Add expense</button>
           </form>
-          <div class="list-search-row">
-            <input
-              type="search"
-              class="list-search"
-              data-search="expense"
-              placeholder="Search expenses..."
-              aria-label="Search expenses"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-            />
-            <button type="button" class="list-search-clear" data-search-clear="expense" hidden aria-label="Clear search">✕</button>
-          </div>
           <ul id="list-expense" class="item-list"></ul>
           <div class="total-line">Total: <strong id="total-expense">RM 0.00</strong></div>
         </div>
@@ -689,8 +650,8 @@
               type="search"
               class="list-search"
               data-search="daily"
-              placeholder="Search daily entries..."
-              aria-label="Search daily entries"
+              placeholder="Filter entries…"
+              aria-label="Filter entries"
               autocomplete="off"
               autocorrect="off"
               autocapitalize="off"
@@ -823,20 +784,6 @@
             </label>
             <button type="submit" class="primary">Add debt</button>
           </form>
-          <div class="list-search-row">
-            <input
-              type="search"
-              class="list-search"
-              data-search="debts"
-              placeholder="Search debts..."
-              aria-label="Search debts"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-            />
-            <button type="button" class="list-search-clear" data-search-clear="debts" hidden aria-label="Clear search">✕</button>
-          </div>
           <p class="hint debt-legend" id="debt-legend" hidden>
             <span class="day-chip soon">15</span> = due in the next few days ·
             <span class="day-chip today">8</span> = due today
@@ -934,20 +881,6 @@
           </div>
           <button type="submit" class="primary">Add goal</button>
           </form>
-          <div id="savings-search-row" class="list-search-row" hidden>
-            <input
-              type="search"
-              class="list-search"
-              data-search="savings"
-              placeholder="Search savings goals..."
-              aria-label="Search savings goals"
-              autocomplete="off"
-              autocorrect="off"
-              autocapitalize="off"
-              spellcheck="false"
-            />
-            <button type="button" class="list-search-clear" data-search-clear="savings" hidden aria-label="Clear search">✕</button>
-          </div>
           <div id="savings-list" class="savings-list"></div>
         </div>
 
@@ -1927,6 +1860,26 @@
       </form>
     </dialog>
 
+    <!-- Universal search. Runs in memory on the unlocked state only; nothing
+         is indexed to disk and no query ever leaves the device. -->
+    <dialog id="search-dialog" class="search-dialog" aria-label="Search Duitful">
+      <div class="search-top">
+        <button type="button" class="search-back" data-search-close aria-label="Close search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <label for="search-input" class="sr-only">Search Duitful</label>
+        <input id="search-input" type="search" role="combobox" aria-expanded="false" aria-controls="search-results" aria-autocomplete="list" placeholder="Search entries, debts, settings…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search" />
+        <button type="button" class="search-clear" id="search-clear" aria-label="Clear search" hidden>✕</button>
+      </div>
+      <div class="search-scopes" role="radiogroup" aria-label="Search in">
+        <button type="button" class="pill active" data-search-scope="all" role="radio" aria-checked="true">All</button>
+        <button type="button" class="pill" data-search-scope="entries" role="radio" aria-checked="false">Entries</button>
+        <button type="button" class="pill" data-search-scope="debts" role="radio" aria-checked="false">Debts</button>
+        <button type="button" class="pill" data-search-scope="goals" role="radio" aria-checked="false">Goals &amp; pools</button>
+        <button type="button" class="pill" data-search-scope="app" role="radio" aria-checked="false">In the app</button>
+      </div>
+      <div id="search-results" class="search-results" role="listbox" aria-label="Search results"></div>
+      <p id="search-status" class="sr-only" aria-live="polite"></p>
+    </dialog>
+
     <dialog id="bulk-income-dialog" class="edit-dialog">
       <form method="dialog">
         <h2>Bulk import income</h2>
@@ -2189,6 +2142,6 @@
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=7"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=138"></script>
+    <script src="script.js?v=139"></script>
   </body>
 </html>
