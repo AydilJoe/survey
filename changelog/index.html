@@ -153,6 +153,16 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-41-0">
+    <span class="release-date">October 2026 &middot; v1.41.0</span>
+    <h2 class="release-title">Scan, check, done</h2>
+    <ul>
+      <li><span class="tag feat">new</span><strong>One tap to save a scan.</strong> The button used to say &ldquo;Use these values&rdquo; and only fill in the form &mdash; you still had to find Add entry, and it was easy to walk away thinking it was saved. Now it says &ldquo;Add RM 23.40&rdquo; (or &ldquo;Pay RM 120.00&rdquo; for a debt), saves it, and gives you five seconds to Undo. &ldquo;Edit first&rdquo; still opens the form when you want to add more.</li>
+      <li><span class="tag fix">fix</span><strong>Says what it&rsquo;s doing.</strong> Instead of &ldquo;Initializing api&rdquo; and a bar stuck at 0%, the scan shows three plain steps &mdash; getting the reader ready (a one-time ~10 MB download), reading the receipt with a real percentage, checking the total &mdash; and screen readers hear each one.</li>
+      <li><span class="tag fix">fix</span><strong>A way forward when it can&rsquo;t read.</strong> A photo that can&rsquo;t be read now offers Retake photo or Type it in, which takes you straight to the amount box.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-40-2">
     <span class="release-date">October 2026 &middot; v1.40.2</span>
     <h2 class="release-title">Receipts that check their own total</h2>

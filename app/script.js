@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.40.2";
+const APP_VERSION = "1.41.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -477,7 +477,9 @@ function uid() {
 /* ---------- toast ---------- */
 
 let toastTimer = null;
-function toast(message) {
+// opts.action = { label, run }: a button inside the toast (Undo). The toast
+// then stays 5 s instead of 1.8, and becomes tappable for that time.
+function toast(message, opts) {
   if (!message) return;
   let el = document.getElementById("toast");
   if (!el) {
@@ -488,12 +490,26 @@ function toast(message) {
     document.body.appendChild(el);
   }
   el.textContent = message;
+  const action = opts && opts.action;
+  el.classList.toggle("has-action", !!action);
+  if (action) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "toast-action";
+    btn.textContent = action.label;
+    btn.addEventListener("click", () => {
+      el.classList.remove("show", "has-action");
+      if (toastTimer) clearTimeout(toastTimer);
+      action.run();
+    }, { once: true });
+    el.appendChild(btn);
+  }
   el.classList.remove("show");
   // force reflow so the animation restarts on rapid successive toasts
   void el.offsetWidth;
   el.classList.add("show");
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 1800);
+  toastTimer = setTimeout(() => el.classList.remove("show", "has-action"), action ? 5000 : 1800);
 }
 
 /* ---------- formatting ---------- */
@@ -7067,6 +7083,28 @@ document.addEventListener("keydown", (e) => {
   });
 }, true);
 
+// Takes an entry out and reverses what adding it did to a debt, a goal or a
+// card. Shared by Delete (after its confirm) and the scan's Undo.
+function removeDailyEntry(id) {
+  const entry = state.dailyExpenses.find((x) => x.id === id);
+  if (!entry) return false;
+  if (entry.kind === "debt" && entry.debtId) {
+    const debt = state.debts.find((d) => d.id === entry.debtId);
+    if (debt) debt.balance = (Number(debt.balance) || 0) + (Number(entry.amount) || 0);
+  }
+  if (entry.kind === "saving" && entry.savingId) {
+    const goal = state.savings.find((g) => g.id === entry.savingId);
+    if (goal) goal.current = Math.max(0, (Number(goal.current) || 0) - (Number(entry.amount) || 0));
+  }
+  // Charge-to-card expense: roll the card balance back down on delete.
+  if (entry.kind === "expense" && entry.cardDebtId) {
+    const card = state.debts.find((d) => d.id === entry.cardDebtId);
+    if (card) card.balance = Math.max(0, (Number(card.balance) || 0) - (Number(entry.amount) || 0));
+  }
+  state.dailyExpenses = state.dailyExpenses.filter((x) => x.id !== id);
+  return true;
+}
+
 /* delete handlers (event delegation) */
 document.addEventListener("click", (e) => {
   const target = e.target instanceof HTMLElement ? e.target.closest("button[data-action]") : null;
@@ -7097,20 +7135,7 @@ document.addEventListener("click", (e) => {
       ? `deposit of ${fmtMoney(entry.amount)} to ${entry.savingName || "savings"}`
       : `expense of ${fmtMoney(entry.amount)}${entry.category ? " (" + entry.category + ")" : ""}`;
     if (!confirm(`Delete ${label}?\n\nDebt/savings balances will be reversed.`)) return;
-    if (entry.kind === "debt" && entry.debtId) {
-      const debt = state.debts.find((d) => d.id === entry.debtId);
-      if (debt) debt.balance = (Number(debt.balance) || 0) + (Number(entry.amount) || 0);
-    }
-    if (entry.kind === "saving" && entry.savingId) {
-      const goal = state.savings.find((g) => g.id === entry.savingId);
-      if (goal) goal.current = Math.max(0, (Number(goal.current) || 0) - (Number(entry.amount) || 0));
-    }
-    // Charge-to-card expense: roll the card balance back down on delete.
-    if (entry.kind === "expense" && entry.cardDebtId) {
-      const card = state.debts.find((d) => d.id === entry.cardDebtId);
-      if (card) card.balance = Math.max(0, (Number(card.balance) || 0) - (Number(entry.amount) || 0));
-    }
-    state.dailyExpenses = state.dailyExpenses.filter((x) => x.id !== id);
+    removeDailyEntry(id);
   } else if (action === "save-delete") {
     const g = state.savings.find((x) => x.id === id);
     if (!g) return;
@@ -9741,6 +9766,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.41.0": [
+    "<strong>Scan, check, done</strong> — after a scan the button says \"Add RM 23.40\" and saves it straight away, with Undo if you change your mind. \"Edit first\" is there when you want to add a note or pick a pool.",
+    "<strong>Clearer while it reads</strong> — the scan now says what it's doing in plain words (getting ready, reading, checking the total), and if a photo can't be read you can retake it or type the amount in.",
+  ],
   "1.40.2": [
     "<strong>Receipt scans check themselves</strong> — when the items or the cash minus change don't match the total, the total says \"check this\" and offers the right figure in one tap. A scan that can't read anything no longer uses up one of your free scans.",
     "<strong>Split fixes</strong> — choosing Split, Request or Lent now highlights just that one, and switching keeps what you typed in \"What for\".",
@@ -11884,6 +11913,7 @@ const scanAmount = document.getElementById("scan-amount");
 const scanVendor = document.getElementById("scan-vendor");
 const scanRaw = document.getElementById("scan-raw");
 const scanApply = document.getElementById("scan-apply");
+const scanCancel = document.getElementById("scan-cancel");
 const scanDate = document.getElementById("scan-date");
 const scanCategory = document.getElementById("scan-category");
 
@@ -11988,6 +12018,39 @@ function scanTotalCheck(amount, raw, itemsCheck) {
   return { off: itemsOff || tenderOff, suggest, source: suggest == null ? null : (itemsCheck && near(suggest, itemsCheck.expected) ? "items" : "cash") };
 }
 
+// One step at a time: words always, a percentage only when the engine gives
+// a real one. pct null = indeterminate (the bar moves, but claims nothing).
+function setScanStep(text, pct) {
+  scanStatus.textContent = text;
+  const pb = scanProgress.closest(".scan-pb");
+  if (!pb) return;
+  pb.classList.toggle("is-indeterminate", pct == null);
+  if (pct == null) { pb.removeAttribute("aria-valuenow"); return; }
+  scanProgress.style.width = pct + "%";
+  pb.setAttribute("aria-valuenow", String(pct));
+}
+
+// The primary button says what it will do: "Add RM 23.40", "Pay RM 120.00".
+function updateScanApplyLabel() {
+  if (!scanApply) return;
+  if (window.scanApplyTarget === "split") { scanApply.textContent = "Use in split"; return; }
+  const amt = Number(scanAmount && scanAmount.value);
+  const type = document.querySelector(".scan-type-pills .pill.active")?.dataset.scanType || "expense";
+  const money = Number.isFinite(amt) && amt > 0 ? fmtMoney(amt) : "";
+  scanApply.textContent = type === "debt" ? (money ? `Pay ${money}` : "Pay debt") : (money ? `Add ${money}` : "Add");
+  scanApply.disabled = !money;
+}
+scanAmount?.addEventListener("input", updateScanApplyLabel);
+
+function setScanFailed(failed) {
+  const retake = document.getElementById("scan-retake");
+  const edit = document.getElementById("scan-edit");
+  if (retake) retake.hidden = !failed;
+  if (edit) edit.hidden = failed || window.scanApplyTarget === "split";
+  if (scanCancel) scanCancel.textContent = failed ? "Type it in" : "Close";
+  if (scanCancel) scanCancel.dataset.typeIn = failed ? "1" : "";
+}
+
 function showScanTotalSuggestion(check) {
   const el = document.getElementById("scan-amount-suggest");
   if (!el) return;
@@ -12003,14 +12066,21 @@ document.addEventListener("click", (e) => {
   scanAmount.dispatchEvent(new Event("input", { bubbles: true }));
   setScanConfidence(document.getElementById("scan-amount-conf"), "high");
   showScanTotalSuggestion(null);
+  scanStatus.textContent = "Check it against your receipt, then add it.";
 });
 
 function openScanDialog() {
   if (!scanDialog) return;
-  scanStatus.textContent = "Loading…";
+  setScanStep("Opening the photo…", null);
   scanProgress.style.width = "0%";
+  const pbOpen = scanProgress.closest(".scan-pb");
+  if (pbOpen) pbOpen.hidden = false;
   scanResult.hidden = true;
   scanApply.hidden = true;
+  setScanFailed(false);
+  const editBtn = document.getElementById("scan-edit");
+  if (editBtn) editBtn.hidden = true;
+  showScanTotalSuggestion(null);
   scanPreview.removeAttribute("src");
   setScanType("expense");
   populateScanDebtSelect();
@@ -12048,7 +12118,7 @@ function populateScanDebtSelect() {
 }
 
 document.querySelectorAll(".scan-type-pills .pill").forEach((btn) => {
-  btn.addEventListener("click", () => setScanType(btn.dataset.scanType));
+  btn.addEventListener("click", () => { setScanType(btn.dataset.scanType); updateScanApplyLabel(); });
 });
 function closeScanDialog() {
   if (!scanDialog) return;
@@ -12086,8 +12156,9 @@ async function applyScanConversion() {
   }
   scanAmount.value = applied != null ? applied.toFixed(2) : "";
   scanStatus.textContent = applied != null
-    ? "Review and apply, or edit first."
-    : "No amount detected — fill in manually or cancel.";
+    ? "Check it against your receipt, then add it."
+    : "Couldn't find the total. Type it in from the receipt.";
+  updateScanApplyLabel();
 }
 
 document.getElementById("scan-currency")?.addEventListener("change", applyScanConversion);
@@ -12107,7 +12178,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
   const pbEl = scanProgress.closest(".scan-pb");
   if (pbEl) pbEl.hidden = false;
   try {
-    scanStatus.textContent = "Preparing image…";
+    setScanStep("Preparing the photo…", null);
     // Upscale + grayscale + contrast stretch. Null on any canvas trouble, in
     // which case the original image is recognized exactly as before.
     const prepared = await receiptPreprocessImage(recognizeInput);
@@ -12117,19 +12188,17 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     // Tesseract picks the job up as if ML Kit had never been tried.
     let text = null;
     if (pickOcrEngine({ native: isNative(), mlkitAvailable: !!mlkitTextPlugin() }) === "mlkit") {
-      scanStatus.textContent = "Reading receipt…";
+      setScanStep("Reading the receipt…", null);
       text = await runMlKitOcr(recognizeSource);
       if (text) scanProgress.style.width = "90%";
     }
     if (text == null) {
-      scanStatus.textContent = "Loading OCR engine (first use ~10 MB)…";
+      // Three steps in plain words. The engine's own messages ("Initializing
+      // api", "Loading tesseract core") read as a hang to everyone but us.
+      setScanStep("Getting the reader ready (one-time download, about 10 MB)…", null);
       const worker = await getTesseractWorker((m) => {
         if (m.status === "recognizing text") {
-          const pct = Math.round((m.progress || 0) * 100);
-          scanProgress.style.width = pct + "%";
-          scanStatus.textContent = `Reading receipt… ${pct}%`;
-        } else if (m.status) {
-          scanStatus.textContent = m.status.charAt(0).toUpperCase() + m.status.slice(1);
+          setScanStep("Reading the receipt…", Math.round((m.progress || 0) * 100));
         }
       });
       // v5+ needs the block tree requested explicitly to hand back word
@@ -12149,6 +12218,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
       // separate lists.
       text = receiptTextFromWords(collectOcrWords(data), data.text || "");
     }
+    setScanStep("Checking the total…", 100);
     const parsed = parseReceiptText(text);
     scanOriginalAmount = parsed.amount;
     scanOriginalCurrency = parsed.currency || currentCurrency();
@@ -12182,12 +12252,15 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     scanRaw.textContent = parsed.raw || "(no text detected)";
     scanResult.hidden = false;
     scanApply.hidden = false;
+    const editShow = document.getElementById("scan-edit");
+    if (editShow) editShow.hidden = window.scanApplyTarget === "split";
     await applyScanConversion();
     // A full green bar sitting under a finished result is just noise.
     scanProgress.style.width = "100%";
     const pb = scanProgress.closest(".scan-pb");
     if (pb) pb.hidden = true;
     if (totalCheck.off) {
+      scanStatus.textContent = "The total doesn't match the receipt's own numbers. Check it before adding.";
       scanAmount?.focus();
       scanAmount?.select?.();
     }
@@ -12197,6 +12270,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     // Plain words, not the engine's error. This scan isn't counted.
     scanStatus.textContent = "Couldn't read this receipt. Try a flatter, brighter photo, or type the amount in.";
     if (pbEl) pbEl.hidden = true;
+    setScanFailed(true);
     return false;
   } finally {
     if (revokeUrl) setTimeout(() => URL.revokeObjectURL(revokeUrl), 5000);
@@ -12259,8 +12333,10 @@ document.getElementById("btn-scan")?.addEventListener("click", () => {
   startReceiptScan();
 });
 document.getElementById("scan-cancel")?.addEventListener("click", () => {
+  const typeIn = scanCancel?.dataset.typeIn === "1" && window.scanApplyTarget !== "split";
   window.scanApplyTarget = null;
   closeScanDialog();
+  if (typeIn) document.querySelector("#form-daily input[name='amount']")?.focus();
 });
 
 scanInput?.addEventListener("change", async (e) => {
@@ -12277,7 +12353,16 @@ scanInput?.addEventListener("change", async (e) => {
   if (!(await runReceiptOcr(file, objectUrl, objectUrl))) refundOcrUsage();
 });
 
-scanApply?.addEventListener("click", () => {
+// "Add RM 23.40" saves it; "Edit first" keeps the old fill-the-form path for
+// anything the scan screen doesn't cover (a pool, a card, a note).
+scanApply?.addEventListener("click", () => applyScanResult({ direct: true }));
+document.getElementById("scan-edit")?.addEventListener("click", () => applyScanResult({ direct: false }));
+document.getElementById("scan-retake")?.addEventListener("click", () => {
+  closeScanDialog();
+  startReceiptScan();
+});
+
+function applyScanResult({ direct }) {
   const amt = Number(scanAmount.value);
   const vendor = (scanVendor.value || "").trim();
   // Scan-to-split: the same OCR result, prefilling the bill composer instead
@@ -12320,13 +12405,37 @@ scanApply?.addEventListener("click", () => {
   const pickedDate = scanDate ? scanDate.value : "";
   if (dateInput && /^\d{4}-\d{2}-\d{2}$/.test(pickedDate)) dateInput.value = pickedDate;
 
+  if (direct) {
+    // The form's own submit does the saving (FX, pools, card balances, the
+    // spend animation), so a scanned entry is exactly a typed one. Its new
+    // row is the one appended past the old length.
+    const beforeLen = state.dailyExpenses.length;
+    const form = document.getElementById("form-daily");
+    if (typeof form.requestSubmit === "function") form.requestSubmit();
+    else form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+    const added = state.dailyExpenses.length > beforeLen ? state.dailyExpenses[state.dailyExpenses.length - 1].id : null;
+    if (added) {
+      closeScanDialog();
+      const entry = state.dailyExpenses.find((x) => x.id === added);
+      const what = entry && entry.kind === "debt" ? `Paid ${fmtMoney(entry.amount)} to ${entry.debtName}`
+        : `Added ${fmtMoney(entry ? entry.amount : amt)}${vendor ? " · " + vendor : ""}`;
+      toast(what, { action: { label: "Undo", run: () => {
+        if (removeDailyEntry(added)) { save(); renderAll(); toast("Removed"); }
+      } } });
+      return;
+    }
+    // The form refused it (no debt chosen, a currency it can't convert):
+    // fall through and show the form with everything filled in, so the
+    // user sees why instead of a button that did nothing.
+  }
+
   // Scanned vendor/category/target land in the collapsed details section —
   // open it so the user can review what was pre-filled before adding.
   setDailyMoreOpen(true);
 
   closeScanDialog();
   amountInput?.focus();
-});
+}
 
 document.getElementById("btn-forgot")?.addEventListener("click", () => {
   if (!confirm("Reset will permanently delete all encrypted data. Continue?")) return;
