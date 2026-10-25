@@ -6995,3 +6995,31 @@ html[data-theme="dark"] {
 .split-people-label, .split-preview-label { font-size: 0.75rem; }
 /* "How to pay me — edit" measured 3.19:1 in the share dialog. */
 .split-payto-link { color: var(--brand-ink); }
+
+/* v1.41 — receipt scan */
+/* Indeterminate: the engine is loading and has no real percentage yet. A
+   sliding segment says "working" without pretending to know how far. */
+.scan-pb.is-indeterminate .progress-fill {
+  width: 35% !important;
+  transition: none;
+  animation: scan-indeterminate 1.3s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+@keyframes scan-indeterminate {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(290%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scan-pb.is-indeterminate .progress-fill { animation: none; width: 100% !important; opacity: 0.35; }
+}
+.scan-pb .progress-fill { transition: transform 0.25s ease, width 0.25s ease; }
+.scan-dialog .button-row { flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+.scan-dialog #scan-cancel { margin-right: auto; }
+#scan-apply:disabled { opacity: 0.5; cursor: default; }
+/* Toast with an Undo: tappable while it shows, and room for the button. */
+#toast.has-action { pointer-events: auto; display: inline-flex; align-items: center; gap: 0.9rem; padding: 6px 8px 6px 18px; }
+#toast .toast-action {
+  background: transparent; border: 0; padding: 0 0.6rem; min-height: 40px;
+  color: inherit; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+  border-radius: var(--r-pill);
+}
+#toast .toast-action:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }

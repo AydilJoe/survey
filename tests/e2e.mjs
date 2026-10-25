@@ -4824,6 +4824,70 @@ check('the vault is open before the quick-add checks',
     /\.btn-primary \{ background: var\(--primary-ink\)/.test(friend));
 }
 
+/* ── v1.41: a scan ends in a saved entry, and failure has a way forward ──
+   "Use these values" used to fill the form and stop, so a distracted user
+   left thinking it was saved. Now the button says "Add RM 23.40", saves
+   through the same submit as a typed entry, and offers Undo. A failed read
+   offers Retake / Type it in and costs nothing. */
+{
+  const r = await page.evaluate(async () => {
+    const out = {};
+    openScanDialog();
+    out.pbRole = document.querySelector('.scan-pb').getAttribute('role');
+    out.indeterminate = document.querySelector('.scan-pb').classList.contains('is-indeterminate');
+    setScanStep('Reading the receipt…', 40);
+    out.valuenow = document.querySelector('.scan-pb').getAttribute('aria-valuenow');
+    scanVendor.value = 'Mydin'; scanDate.value = todayISO();
+    if (scanCategory) scanCategory.value = 'Groceries';
+    scanOriginalAmount = 31.2; scanOriginalCurrency = currentCurrency();
+    scanResult.hidden = false; scanApply.hidden = false;
+    await applyScanConversion();
+    out.label = scanApply.textContent;
+    const n0 = state.dailyExpenses.length;
+    scanApply.click();
+    await new Promise((res) => setTimeout(res, 150));
+    out.added = state.dailyExpenses.length - n0;
+    const e = state.dailyExpenses[state.dailyExpenses.length - 1];
+    out.entry = { amount: e.amount, note: e.note, category: e.category, kind: e.kind };
+    out.dialogOpen = document.getElementById('scan-dialog').open;
+    out.undoShown = !!document.querySelector('#toast .toast-action');
+    document.querySelector('#toast .toast-action')?.click();
+    await new Promise((res) => setTimeout(res, 100));
+    out.afterUndo = state.dailyExpenses.length - n0;
+    return out;
+  });
+  check('the scan progress bar is a real progressbar, indeterminate until the engine reports',
+    r.pbRole === 'progressbar' && r.indeterminate && r.valuenow === '40', JSON.stringify(r));
+  check('the scan button says what it does: "Add RM 31.20"', /^Add RM\s?31\.20$/.test(r.label.trim()), r.label);
+  check('Add saves the scanned entry directly (amount, shop, category) and closes',
+    r.added === 1 && r.entry.amount === 31.2 && r.entry.note === 'Mydin' && r.entry.category === 'Groceries' && !r.dialogOpen, JSON.stringify(r));
+  check('Undo takes the scanned entry back out', r.undoShown && r.afterUndo === 0, JSON.stringify(r));
+
+  const f = await page.evaluate(async () => {
+    // The engine failing, without feeding it a broken image (which makes
+    // the real one log decoder errors).
+    const realWorker = window.getTesseractWorker, realPrep = window.receiptPreprocessImage;
+    window.getTesseractWorker = async () => { throw new Error('Tesseract assets not bundled'); };
+    window.receiptPreprocessImage = async () => null;
+    const ok = await runReceiptOcr('x', 'data:image/png;base64,AAAA', null);
+    window.getTesseractWorker = realWorker; window.receiptPreprocessImage = realPrep;
+    const out = {
+      ok,
+      status: document.getElementById('scan-status').textContent,
+      retake: !document.getElementById('scan-retake').hidden,
+      cancel: document.getElementById('scan-cancel').textContent,
+      apply: !document.getElementById('scan-apply').hidden,
+    };
+    document.getElementById('scan-cancel').click();
+    await new Promise((res) => setTimeout(res, 50));
+    out.focused = document.activeElement?.getAttribute('name');
+    return out;
+  });
+  check('a failed read says what to try, with Retake photo and Type it in',
+    f.ok === false && !/tesseract|scan failed/i.test(f.status) && f.retake && f.cancel === 'Type it in' && !f.apply, JSON.stringify(f));
+  check('Type it in lands on the amount box', f.focused === 'amount', JSON.stringify(f));
+}
+
 /* ── Hardening: real data breaks nothing quietly ──────────────────────────
    A full phone, a fat-fingered amount, a millionaire's balance, 2,000
    entries. Each of these once failed silently or pushed the page sideways. */
