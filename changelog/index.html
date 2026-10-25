@@ -153,6 +153,18 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-40-2">
+    <span class="release-date">October 2026 &middot; v1.40.2</span>
+    <h2 class="release-title">Receipts that check their own total</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>A misread total is caught.</strong> A receipt printing JUMLAH RM 23.40 could be read as RM 23.46 and still marked &ldquo;read&rdquo;. Now the total is checked against the items and against cash paid minus change; if they disagree it says &ldquo;check this&rdquo;, and when they agree with each other it offers their figure &mdash; &ldquo;Use RM 23.40&rdquo; &mdash; in one tap.</li>
+      <li><span class="tag fix">fix</span><strong>Failed scans are free.</strong> A photo the reader couldn&rsquo;t make sense of used to count as one of your three free scans a month, and the message mentioned &ldquo;Tesseract&rdquo;. It no longer counts, and it says what to try instead.</li>
+      <li><span class="tag fix">fix</span><strong>A tidier scan screen.</strong> The Spend / Pay debt choice and the item list no longer show up while the receipt is still being read, and screen readers now hear the progress.</li>
+      <li><span class="tag fix">fix</span><strong>Split, Request, Lent.</strong> Tapping one used to light up all three, and switching to Lent and back wiped &ldquo;What for&rdquo;. Fixed &mdash; and it no longer resets the Add entry type behind it.</li>
+      <li><span class="tag fix">fix</span><strong>Easier to read.</strong> The button on the page your friend opens is darker (3.4:1 &rarr; 5.1:1 contrast), and the small labels on it and in the split screens are larger.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-40-1">
     <span class="release-date">October 2026 &middot; v1.40.1</span>
     <h2 class="release-title">Finishing touches</h2>

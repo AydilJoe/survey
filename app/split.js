@@ -1509,8 +1509,10 @@ function splitComposeSync() {
     const el = body.querySelector(sel);
     return el ? el.value : "";
   };
-  c.title = splitText(val("[name=title]"), SPLIT_TITLE_MAX);
-  c.note = splitText(val("[name=note]"), SPLIT_NOTE_MAX);
+  // Lent mode has no "What for" box; reading a missing field as "" wiped the
+  // title on Request → Lent → Request. Only fields on screen write back.
+  if (body.querySelector("[name=title]")) c.title = splitText(val("[name=title]"), SPLIT_TITLE_MAX);
+  if (body.querySelector("[name=note]")) c.note = splitText(val("[name=note]"), SPLIT_NOTE_MAX);
   const date = val("[name=date]");
   if (splitIsDate(date)) c.date = date;
   const due = val("[name=dueDate]");
@@ -1616,7 +1618,7 @@ function splitRenderCompose() {
     const peopleRows = c.people.map((p, i) => `
       <div class="split-person-row" data-split-person data-index="${i}" data-pkey="${escapeHtml(p.key || "")}">
         <input type="text" data-person-name value="${escapeHtml(p.name)}" aria-label="Person ${i + 1} name" placeholder="Name"${listAttr} />
-        <input type="number" data-person-amount step="0.01" min="0" inputmode="decimal" value="${p.amount ? p.amount.toFixed(2) : ""}" aria-label="Person ${i + 1} amount" placeholder="0.00" />
+        <input type="number" data-person-amount step="0.01" min="0" max="100000000" inputmode="decimal" value="${p.amount ? p.amount.toFixed(2) : ""}" aria-label="Person ${i + 1} amount" placeholder="0.00" />
         <button type="button" class="ghost icon-btn" data-action="split-person-remove" data-index="${i}" aria-label="Remove person">✕</button>
       </div>`).join("");
     body.innerHTML = `
@@ -1632,7 +1634,7 @@ function splitRenderCompose() {
       <div class="grid-2">
         <label class="field">
           <span>Bill total (${escapeHtml(cur)})</span>
-          <input type="number" name="total" step="0.01" min="0" inputmode="decimal" value="${c.total ? c.total.toFixed(2) : ""}" placeholder="0.00" />
+          <input type="number" name="total" step="0.01" min="0" max="100000000" inputmode="decimal" value="${c.total ? c.total.toFixed(2) : ""}" placeholder="0.00" />
         </label>
         <label class="field">
           <span>Date</span>
@@ -1665,7 +1667,7 @@ function splitRenderCompose() {
       <div class="grid-2">
         <label class="field">
           <span>Amount (${escapeHtml(cur)})</span>
-          <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" value="${p.amount ? Number(p.amount).toFixed(2) : ""}" placeholder="0.00" />
+          <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" value="${p.amount ? Number(p.amount).toFixed(2) : ""}" placeholder="0.00" />
         </label>
         <label class="field">
           <span>Date</span>
@@ -1688,7 +1690,7 @@ function splitRenderCompose() {
       <div class="grid-2">
         <label class="field">
           <span>Amount (${escapeHtml(cur)})</span>
-          <input type="number" name="amount" step="0.01" min="0" inputmode="decimal" value="${p.amount ? Number(p.amount).toFixed(2) : ""}" placeholder="0.00" />
+          <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" value="${p.amount ? Number(p.amount).toFixed(2) : ""}" placeholder="0.00" />
         </label>
         <label class="field">
           <span>Date lent</span>
@@ -1804,7 +1806,7 @@ function splitComposeItemBodyHtml(cur, listAttr) {
         <div class="split-item" data-split-item data-key="${escapeHtml(it.key)}">
           <div class="split-item-row">
             <input type="text" data-item-name value="${escapeHtml(it.name)}" placeholder="Item" />
-            <input type="number" data-item-price step="0.01" min="0" inputmode="decimal" value="${it.price ? Number(it.price).toFixed(2) : ""}" placeholder="0.00" />
+            <input type="number" data-item-price step="0.01" min="0" max="100000000" inputmode="decimal" value="${it.price ? Number(it.price).toFixed(2) : ""}" placeholder="0.00" />
             <button type="button" class="ghost icon-btn" data-action="split-item-remove" data-key="${escapeHtml(it.key)}" aria-label="Remove ${escapeHtml(label)}">✕</button>
           </div>
           <div class="split-item-eaters" role="group" aria-label="Who shared ${escapeHtml(label)}">

@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.40.1";
+const APP_VERSION = "1.40.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -2190,7 +2190,7 @@ function setDailyType(type) {
     const count = type === "debt" ? (state.debts || []).length : (state.savings || []).length;
     if (count !== 1) setDailyMoreOpen(true);
   }
-  document.querySelectorAll(".type-pills .pill").forEach((btn) => {
+  document.querySelectorAll(".type-pills .pill[data-type]").forEach((btn) => {
     const on = btn.dataset.type === type;
     btn.classList.toggle("active", on);
     btn.setAttribute("aria-checked", on ? "true" : "false");
@@ -4569,6 +4569,14 @@ function trackOcrUsage() {
   state.ocrUsage.scans = (state.ocrUsage.scans || 0) + 1;
   save();
 }
+// A scan that read nothing usable gives its count back — picking the photo
+// still commits it (that's what stops a double-tap racing two pickers), but a
+// failed read shouldn't cost one of the three free scans.
+function refundOcrUsage() {
+  if (isPro() || !state.ocrUsage || state.ocrUsage.month !== currentMonthISO()) return;
+  state.ocrUsage.scans = Math.max(0, (state.ocrUsage.scans || 0) - 1);
+  save();
+}
 function gate(feature) {
   if (isPro()) return true;
   openPaywall(feature);
@@ -6557,7 +6565,10 @@ $("#form-daily").addEventListener("submit", (e) => {
 });
 
 /* pill buttons + quick amount chips */
-document.querySelectorAll(".type-pills .pill").forEach((btn) => {
+// [data-type] only: the split and scan dialogs reuse .type-pills for their
+// own choices, and binding them here once set the Add-entry type to nothing
+// and lit every split mode pill at once.
+document.querySelectorAll(".type-pills .pill[data-type]").forEach((btn) => {
   btn.addEventListener("click", () => setDailyType(btn.dataset.type));
 });
 document.getElementById("daily-more-toggle")?.addEventListener("click", () => {
@@ -9730,6 +9741,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.40.2": [
+    "<strong>Receipt scans check themselves</strong> — when the items or the cash minus change don't match the total, the total says \"check this\" and offers the right figure in one tap. A scan that can't read anything no longer uses up one of your free scans.",
+    "<strong>Split fixes</strong> — choosing Split, Request or Lent now highlights just that one, and switching keeps what you typed in \"What for\".",
+  ],
   "1.40.1": [
     "<strong>All entries, tidier</strong> — one line per entry with edit, split and delete behind ⋯, like every other list. Spending is no longer shown in red; savings deposits are green.",
     "<strong>Desktop Home without gaps</strong> — Today sits right under Upcoming, and the header lines up with the cards.",
@@ -11905,7 +11920,7 @@ function renderScanItems(raw, total) {
   let read = null;
   try { read = splitParseReceiptItems(raw); } catch { read = null; }
   const items = (read && read.items) || [];
-  if (!items.length) { details.hidden = true; list.innerHTML = ""; return; }
+  if (!items.length) { details.hidden = true; list.innerHTML = ""; return null; }
 
   const charges = Number(read.charges) || 0;
   const itemSum = Number(read.itemSum) || 0;
@@ -11937,7 +11952,58 @@ function renderScanItems(raw, total) {
       + (charges > 0 ? row("Service charge & tax", charges, "scan-item-sub") : "")
       + (Number.isFinite(shown) && shown > 0 ? row("Total", shown, "scan-item-total") : "");
   }
+  return { expected, adds };
 }
+
+/* Cash handed over minus change given is the bill, printed by the shop's own
+   till. "TUNAI 50.00 / BAKI 26.60" says the total was 23.40 whatever the OCR
+   made of the TOTAL line. Null when either line is missing. */
+function receiptTenderTotal(raw) {
+  const amountAtEnd = /(\d{1,6}[.,]\d{2})\s*$/;
+  let paid = null, change = null;
+  for (const line of String(raw || "").split(/\n/)) {
+    const m = amountAtEnd.exec(line.trim());
+    if (!m) continue;
+    const v = Number(m[1].replace(",", "."));
+    if (/\b(?:change|baki|wang\s*kembali|duit\s*kembali)\b/i.test(line) && !/baki\s*akaun/i.test(line)) change = v;
+    else if (/\b(?:cash|tunai|tendered|tender)\b/i.test(line)) paid = v;
+  }
+  if (paid == null || change == null || change > paid) return null;
+  return Math.round((paid - change) * 100) / 100;
+}
+
+/* The receipt can check itself: the items plus charges, and cash minus
+   change, should both land on the total. When one disagrees, the total is
+   flagged instead of being shown as "read" — and when the two checks agree
+   with each other, their figure is offered as a one-tap fix. */
+function scanTotalCheck(amount, raw, itemsCheck) {
+  const near = (a, b) => Math.abs(a - b) <= 0.05;
+  const tender = receiptTenderTotal(raw);
+  const has = Number.isFinite(amount) && amount > 0;
+  const itemsOff = !!(itemsCheck && has && !itemsCheck.adds);
+  const tenderOff = tender != null && has && !near(tender, amount);
+  let suggest = null;
+  if (tender != null && itemsCheck && near(tender, itemsCheck.expected) && (!has || !near(tender, amount))) suggest = tender;
+  else if (tender != null && !has) suggest = tender;
+  return { off: itemsOff || tenderOff, suggest, source: suggest == null ? null : (itemsCheck && near(suggest, itemsCheck.expected) ? "items" : "cash") };
+}
+
+function showScanTotalSuggestion(check) {
+  const el = document.getElementById("scan-amount-suggest");
+  if (!el) return;
+  if (!check || check.suggest == null) { el.hidden = true; el.innerHTML = ""; return; }
+  const why = check.source === "items" ? "The items and the cash paid both add up to" : "Cash paid minus change comes to";
+  el.innerHTML = `${escapeHtml(why)} <strong>${escapeHtml(fmtMoney(check.suggest))}</strong>. <button type="button" class="link-btn" data-scan-use="${check.suggest}">Use ${escapeHtml(fmtMoney(check.suggest))}</button>`;
+  el.hidden = false;
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target instanceof Element ? e.target.closest("[data-scan-use]") : null;
+  if (!btn || !scanAmount) return;
+  scanAmount.value = Number(btn.dataset.scanUse).toFixed(2);
+  scanAmount.dispatchEvent(new Event("input", { bubbles: true }));
+  setScanConfidence(document.getElementById("scan-amount-conf"), "high");
+  showScanTotalSuggestion(null);
+});
 
 function openScanDialog() {
   if (!scanDialog) return;
@@ -12095,7 +12161,11 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     if (scanCategory) scanCategory.value = "";
     const curPrefix = document.getElementById("scan-cur-prefix");
     if (curPrefix) curPrefix.textContent = currencySymbolFor(scanOriginalCurrency);
-    setScanConfidence(document.getElementById("scan-amount-conf"), parsed.amountConfidence);
+    const itemsCheck = renderScanItems(parsed.raw || "", parsed.amount);
+    const totalCheck = scanTotalCheck(Number(parsed.amount), parsed.raw || "", itemsCheck);
+    setScanConfidence(document.getElementById("scan-amount-conf"),
+      totalCheck.off ? "low" : parsed.amountConfidence);
+    showScanTotalSuggestion(totalCheck);
     setScanConfidence(document.getElementById("scan-vendor-conf"), parsed.vendorConfidence);
     // No date on the receipt means the field is showing today as an
     // assumption, so it gets flagged rather than left bare — an unmarked
@@ -12110,7 +12180,6 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     if (curWrap) curWrap.hidden = !differs;
     if (curToggle) curToggle.hidden = differs;
     scanRaw.textContent = parsed.raw || "(no text detected)";
-    renderScanItems(parsed.raw || "", parsed.amount);
     scanResult.hidden = false;
     scanApply.hidden = false;
     await applyScanConversion();
@@ -12118,8 +12187,17 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     scanProgress.style.width = "100%";
     const pb = scanProgress.closest(".scan-pb");
     if (pb) pb.hidden = true;
+    if (totalCheck.off) {
+      scanAmount?.focus();
+      scanAmount?.select?.();
+    }
+    return Number(parsed.amount) > 0 || totalCheck.suggest != null;
   } catch (err) {
-    scanStatus.textContent = "Scan failed: " + (err && err.message ? err.message : String(err));
+    console.warn("Receipt scan failed:", err);
+    // Plain words, not the engine's error. This scan isn't counted.
+    scanStatus.textContent = "Couldn't read this receipt. Try a flatter, brighter photo, or type the amount in.";
+    if (pbEl) pbEl.hidden = true;
+    return false;
   } finally {
     if (revokeUrl) setTimeout(() => URL.revokeObjectURL(revokeUrl), 5000);
   }
@@ -12170,7 +12248,7 @@ async function startReceiptScan() {
     // Re-check the quota at capture time — the click gate can be raced.
     if (!canOcr()) { gate("ocr"); return; }
     trackOcrUsage();
-    await runReceiptOcr(photo.dataUrl, photo.dataUrl, null);
+    if (!(await runReceiptOcr(photo.dataUrl, photo.dataUrl, null))) refundOcrUsage();
   } else {
     scanInput?.click();
   }
@@ -12196,7 +12274,7 @@ scanInput?.addEventListener("change", async (e) => {
   if (!canOcr()) { gate("ocr"); return; }
   trackOcrUsage();
   const objectUrl = URL.createObjectURL(file);
-  await runReceiptOcr(file, objectUrl, objectUrl);
+  if (!(await runReceiptOcr(file, objectUrl, objectUrl))) refundOcrUsage();
 });
 
 scanApply?.addEventListener("click", () => {

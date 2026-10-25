@@ -6978,3 +6978,20 @@ html[data-theme="dark"] {
 .upcoming-list li.up-overdue .up-amount.neg { color: var(--loss); }
 /* Instalments-near-done list and the Extra payment field were touching. */
 .debts-mini:not(:empty) { margin-bottom: 1rem; }
+
+/* v1.40.2 — contrast and size from the scan / split critique */
+.scan-conf { font-size: 0.72rem; color: color-mix(in srgb, var(--accent) 50%, var(--text)); }
+.scan-conf.is-check { color: color-mix(in srgb, var(--warn) 55%, var(--text)); }
+.scan-amount-suggest {
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--warn) 12%, var(--card));
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.scan-amount-suggest[hidden] { display: none; }
+.scan-amount-suggest .link-btn { display: flex; align-items: center; min-height: 44px; margin-bottom: -0.35rem; padding: 0; font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; color: var(--text); background: none; border: 0; cursor: pointer; }
+.split-people-label, .split-preview-label { font-size: 0.75rem; }
+/* "How to pay me — edit" measured 3.19:1 in the share dialog. */
+.split-payto-link { color: var(--brand-ink); }
