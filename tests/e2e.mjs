@@ -6056,8 +6056,11 @@ check('the brand catalogue makes no network calls at all',
     heroBytes < 150 * 1024, `${(heroBytes / 1024).toFixed(0)} KB`);
   // Two files differing only in case is a trap on any case-insensitive
   // checkout; the manifest's copy is a different image for a different job.
+  // Compare listed names, not existsSync: on Windows and macOS existsSync
+  // ignores case, so it found hero-home.PNG and failed on a clean checkout.
+  const shots = readdirSync(path.join(REPO_ROOT, 'screenshots'));
   check('no two committed images differ only by the case of their name',
-    !existsSync(path.join(REPO_ROOT, 'screenshots/hero-home.png'))
+    new Set(shots.map((f) => f.toLowerCase())).size === shots.length
     && /pwa-home-narrow\.png/.test(readFileSync(path.join(REPO_ROOT, 'app/manifest.webmanifest'), 'utf8')));
 }
 
