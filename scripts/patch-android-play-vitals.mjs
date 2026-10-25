@@ -73,7 +73,16 @@ function edit(path, fn, label) {
 // ---- 1. MainActivity: edge-to-edge with bar + keyboard insets ------------
 const mainActivity = resolve(APP_DIR, "src/main/java", ...APP_ID.split("."), "MainActivity.java");
 edit(mainActivity, (src) => {
-  if (src.includes(MARK)) return src;
+  if (src.includes(MARK)) {
+    // Older runs enabled edge-to-edge before super.onCreate(). That builds the
+    // window under the splash theme — before BridgeActivity switches to
+    // AppTheme.NoActionBar — so a title bar showing the stretched splash image
+    // stayed above the app. Move the call after super.onCreate().
+    return src.replace(
+      /\n([ \t]*)\/\/ [^\n]*edge-to-edge on every Android version[^\n]*\n[ \t]*EdgeToEdge\.enable\(this\);(\n[ \t]*super\.onCreate\(savedInstanceState\);)/,
+      `$2\n$1// ${MARK}: edge-to-edge on every Android version (enforced from 15). After\n$1// super.onCreate(), once Capacitor has switched off the splash theme.\n$1EdgeToEdge.enable(this);`,
+    );
+  }
   const imports = [
     "import android.view.View;",
     "import android.view.ViewGroup;",
@@ -94,7 +103,7 @@ edit(mainActivity, (src) => {
   }
   src = src.replace(
     /(\n([ \t]*)super\.onCreate\(savedInstanceState\);)/,
-    `\n$2// ${MARK}: edge-to-edge on every Android version (enforced from 15).\n$2EdgeToEdge.enable(this);$1\n$2keepWebViewClearOfSystemBars();`,
+    `$1\n$2// ${MARK}: edge-to-edge on every Android version (enforced from 15). After\n$2// super.onCreate(), once Capacitor has switched off the splash theme.\n$2EdgeToEdge.enable(this);\n$2keepWebViewClearOfSystemBars();`,
   );
   const helper = `
     // ${MARK}: the WebView sits inside the status bar, navigation bar, cutout
