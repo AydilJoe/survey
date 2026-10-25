@@ -1,0 +1,44 @@
+<!doctype html><meta charset="utf-8">
+<link rel="stylesheet" href="fonts-local.css">
+<style>
+:root{--bg:#efe9dd;--ink:#241f1a;--terra:#c8704b}
+*{box-sizing:border-box;margin:0}
+html,body{width:886px;height:1920px;overflow:hidden;background:var(--bg)}
+#stage{position:absolute;inset:0;background:radial-gradient(700px 500px at 95% 0%,rgba(200,112,75,.18),transparent 70%),radial-gradient(700px 500px at 0% 100%,rgba(111,148,87,.16),transparent 70%),var(--bg)}
+.serif{font-family:'Fraunces',Georgia,serif;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.sans{font-family:'Inter',sans-serif;font-weight:500;color:var(--ink)}
+#band{position:absolute;left:0;top:0;width:886px;height:320px}
+.c{position:absolute;left:40px;right:40px;top:0;height:320px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:66px;line-height:1.08;opacity:0;padding-top:30px}
+.c em{color:var(--terra)}
+#app{position:absolute;left:0;top:320px;width:886px;height:1600px;display:block;box-shadow:0 -10px 30px rgba(36,31,26,.12)}
+#out{position:absolute;inset:0;background:var(--bg);opacity:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+#out img{width:240px;height:240px;border-radius:56px;box-shadow:0 26px 50px rgba(36,31,26,.18);margin-bottom:70px}
+#out .n{font-size:150px}
+#out .s{font-size:58px;color:var(--terra);margin-top:30px}
+#out .s2{font-size:40px;color:#5d5348;margin-top:34px;padding:0 70px}
+#out>*{opacity:0}
+</style>
+<div id="stage">
+ <div id="band"></div>
+ <img id="app">
+ <div id="out"><img id="lg" src="icon.svg"><div class="n serif" id="on">Duitful</div><div class="s serif" id="os"><em>Private by design.</em></div><div class="s2 sans" id="os2">Money, debt &amp; savings for Malaysia.</div></div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const cl=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const ease=x=>1-Math.pow(1-cl(x),3);
+const prog=(t,s,d)=>ease((t-s)/d);
+window.setup=function(cfg){
+  window.CFG=cfg; const band=$('#band'); band.innerHTML='';
+  cfg.caps.forEach(c=>{const d=document.createElement('div');d.className='c serif';d.innerHTML='<span>'+c[2]+'</span>';band.appendChild(d);});
+};
+window.renderAt=function(t,src){
+  const {caps,out}=CFG;
+  [...document.querySelectorAll('.c')].forEach((el,i)=>{const [s,e]=caps[i];const inn=i==0?1:prog(t,s,.35);let o=t<s?0:inn;if(t>e-.2&&i<caps.length-1)o*=1-cl((t-(e-.2))/.2);if(i==caps.length-1&&t>out-.25)o*=1-cl((t-(out-.25))/.25);
+    el.style.opacity=(t>=s&&t<e)?o:0;el.style.transform=`translateY(${(1-inn)*36}px)`;});
+  if(src)$('#app').src=src;
+  const po=prog(t,out,.35); $('#out').style.opacity=t<out?0:po;
+  const sh=(el,s,d)=>{const p=prog(t,s,d);el.style.opacity=t<out?0:p;el.style.transform=`translateY(${(1-p)*40}px)`};
+  sh($('#lg'),out+.1,.4);sh($('#on'),out+.35,.4);sh($('#os'),out+.9,.4);sh($('#os2'),out+1.4,.4);
+};
+</script>

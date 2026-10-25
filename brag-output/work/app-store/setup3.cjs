@@ -1,0 +1,22 @@
+const { chromium } = require('playwright');
+exports.boot = async (S) => {
+  const b = await chromium.launch({ args: ['--force-device-scale-factor=2'] });
+  const ctx = await b.newContext({ viewport: { width: 443, height: 800 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  page.on('pageerror', e => console.log('ERR', e.message));
+  page.on('dialog', d => d.accept());
+  await page.goto('http://localhost:8911/app/index.html');
+  await page.waitForTimeout(800);
+  await page.fill('#lock-input', '4821');
+  if (await page.locator('#lock-confirm').isVisible()) await page.fill('#lock-confirm', '4821');
+  await page.click('#lock-submit');
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d => d.close()));
+  await page.click('#tabbtn-data');
+  await page.setInputFiles('#file-import', S + '/work/demo.csv');
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d => d.close()));
+  await page.click('#tabbtn-dashboard');
+  await page.waitForTimeout(600);
+  return { b, ctx, page };
+};
