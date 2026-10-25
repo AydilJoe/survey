@@ -31,16 +31,16 @@
 // 4. Android Gradle Plugin 9 (Play: "Upgrade ... to version 9.0 or higher").
 //    Capacitor 7's template pins AGP 8.7.2 / Gradle 8.11.1. AGP 9 builds this
 //    app once (a) the plugins' build files are fixed —
-//    patch-android-plugins-agp9.mjs — (b) the plugins' own kotlin-android is
-//    allowed to keep working (android.builtInKotlin=false, android.newDsl=false,
-//    AGP 9's documented opt-outs for libraries not yet on the new DSL), and
-//    (c) androidx.activity is a direct dependency: AGP 9 no longer leaks it to
+//    patch-android-plugins-agp9.mjs, which also moves the one Kotlin plugin
+//    onto AGP 9's built-in Kotlin, so no builtInKotlin/newDsl opt-out (both
+//    deprecated, gone in AGP 10) is needed — (b) flatDir is gone while no
+//    local .aar/.jar exists, and (c) androidx.activity is a direct dependency: AGP 9 no longer leaks it to
 //    the app through appcompat, and MainActivity uses EdgeToEdge from it.
 //    Verified: bundleRelease succeeds, every plugin class survives R8.
 //
 // Idempotent and cross-platform; no-op on a checkout without android/.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -211,9 +211,11 @@ edit(resolve(APP_DIR, "build.gradle"), (src) => {
 edit(resolve(ANDROID, "gradle.properties"), (src) => {
   const want = {
     "android.r8.optimizedResourceShrinking": ["true", "R8 shrinks resources it can prove unused, not just unreferenced ones."],
-    "android.builtInKotlin": ["false", "AGP 9: let Capacitor 7 plugins keep applying kotlin-android themselves."],
-    "android.newDsl": ["false", "AGP 9: plugins still use the classic android {} DSL."],
   };
+  // Earlier runs opted out of built-in Kotlin and the new DSL for the OCR
+  // plugin. patch-android-plugins-agp9.mjs now moves it onto both, and AGP 10
+  // removes the opt-outs, so take them (and their comment) back out.
+  src = src.replace(/(?:^# [^\n]*\n)?^android\.(?:builtInKotlin|newDsl)=.*\n?/gm, "");
   for (const [key, [value, why]] of Object.entries(want)) {
     const re = new RegExp(`^${key.replace(/\./g, "\\.")}=.*$`, "m");
     src = re.test(src)
@@ -222,6 +224,20 @@ edit(resolve(ANDROID, "gradle.properties"), (src) => {
   }
   return src;
 }, "gradle.properties: optimized resource shrinking + AGP 9 compatibility");
+
+// Capacitor's template looks for local .aar/.jar files through flatDir, which
+// AGP warns about (no metadata). Nothing here ships one, so drop it — but only
+// while those folders are empty, in case a Cordova plugin adds a local library.
+const localLibDirs = [
+  resolve(ANDROID, "capacitor-cordova-android-plugins/src/main/libs"),
+  resolve(ANDROID, "capacitor-cordova-android-plugins/libs"),
+  resolve(APP_DIR, "libs"),
+];
+if (!localLibDirs.some((dir) => existsSync(dir) && readdirSync(dir).some((f) => /\.(aar|jar)$/i.test(f)))) {
+  for (const file of [resolve(APP_DIR, "build.gradle"), resolve(ANDROID, "capacitor-cordova-android-plugins/build.gradle")]) {
+    if (existsSync(file)) edit(file, (src) => src.replace(/\n[ \t]*flatDir\s*\{[^}]*\}/, ""), "no flatDir");
+  }
+}
 
 // ---- 4. AGP 9 + Gradle 9 --------------------------------------------------
 edit(resolve(ANDROID, "build.gradle"), (src) =>
