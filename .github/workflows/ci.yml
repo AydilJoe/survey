@@ -1,0 +1,87 @@
+name: CI
+
+# Every pull request (including Dependabot's dependency updates) and every
+# push to main. Two independent checks:
+#   e2e      - the Playwright suite against the web app (tests/e2e.mjs).
+#   android  - generates android/ from scratch the way a new machine would
+#              (it is gitignored), applies every patch script through
+#              cap:sync, and builds an unsigned release bundle with R8. Catches
+#              a plugin update that breaks the native build or a patch script
+#              that no longer matches the plugin's code.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      # One retry: tests/e2e.mjs:4450 occasionally dies with Playwright's
+      # "Resulting promise was garbage collected" before any check runs. A
+      # real failing check fails both attempts.
+      - name: npm run test:e2e
+        run: npm run test:e2e || { echo "::warning::e2e failed once, retrying"; npm run test:e2e; }
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Capacitor 7 needs JDK 21. The runner's preinstalled Android SDK
+      # (ANDROID_HOME) supplies platforms;android-36 and build-tools.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+
+      - name: Generate android/ and apply the patch scripts
+        run: |
+          npm run cap:add:android
+          npm run cap:sync
+
+      - name: Build the release bundle
+        working-directory: android
+        # shell: bash adds pipefail, so a failed build is not hidden by tee.
+        shell: bash
+        run: ./gradlew :app:bundleRelease --no-daemon --console=plain 2>&1 | tee build.log
+
+      # Play rejects a bundle below API 24, and a plugin update could bring
+      # back the AGP opt-outs patch-android-plugins-agp9 removed.
+      - name: Check minSdk and build warnings
+        working-directory: android
+        run: |
+          grep -q "minSdkVersion = 24" variables.gradle || { echo "::error::minSdk is not 24"; exit 1; }
+          if grep -q "AGPBI" build.log; then
+            echo "::warning::Android Gradle plugin warnings in the build:"
+            grep "AGPBI" build.log
+          fi
