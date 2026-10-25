@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=114" />
+    <link rel="stylesheet" href="styles.css?v=115" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -1666,13 +1666,13 @@
       </form>
     </dialog>
 
-    <dialog id="scan-dialog" class="edit-dialog scan-dialog">
+    <dialog id="scan-dialog" class="edit-dialog scan-dialog" aria-labelledby="scan-title">
       <form method="dialog">
         <h2 id="scan-title">Scan receipt</h2>
         <div class="scan-preview-wrap">
           <img id="scan-preview" alt="" />
         </div>
-        <div id="scan-status" class="hint">Loading…</div>
+        <div id="scan-status" class="hint" role="status" aria-live="polite">Loading…</div>
         <div class="progress-bar scan-pb"><div id="scan-progress" class="progress-fill"></div></div>
         <div id="scan-result" class="scan-result" hidden>
           <!-- The total is the reason the user opened the camera, so it gets
@@ -1687,6 +1687,7 @@
               <input type="number" id="scan-amount" step="0.01" min="0" inputmode="decimal" placeholder="0.00" aria-label="Total" />
             </div>
           </div>
+          <p class="scan-amount-suggest" id="scan-amount-suggest" role="status" hidden></p>
 
           <div class="grid-2 scan-fields">
             <label class="field">
@@ -1757,7 +1758,6 @@
                 <option value="ZAR">ZAR — South African Rand</option>
               </select>
             </label>
-          </div>
           </div>
           <p id="scan-convert-note" class="hint" hidden></p>
           <div class="type-pills scan-type-pills" role="radiogroup" aria-label="Apply as">
@@ -2142,8 +2142,8 @@
          demand (see splitEnsureJsQR) — the service worker precaches it, so
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
-    <script src="split.js?v=7"></script>
+    <script src="split.js?v=8"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=147"></script>
+    <script src="script.js?v=148"></script>
   </body>
 </html>

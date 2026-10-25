@@ -4754,6 +4754,76 @@ check('the vault is open before the quick-add checks',
     lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
 }
 
+/* ── v1.40.2: the receipt checks itself; split pills stay single ─────────
+   From the scan/split critique: a misread total (23.46 for 23.40) was shown
+   as "read" while the receipt's own items and cash-minus-change disagreed;
+   failed scans cost a free scan; and every split mode pill lit up at once. */
+{
+  const chk = await S(() => ({
+    tender: receiptTenderTotal("ITEM A 10.00\nJUMLAH RM 23.46\nTUNAI 50.00\nBAKI 26.60"),
+    misread: scanTotalCheck(23.46, "TUNAI 50.00\nBAKI 26.60", { expected: 23.4, adds: false }),
+    good: scanTotalCheck(23.4, "TUNAI 50.00\nBAKI 26.60", { expected: 23.4, adds: true }),
+    noTender: scanTotalCheck(12, "TOTAL 12.00", { expected: 12, adds: true }),
+    noTotal: scanTotalCheck(NaN, "CASH 20.00\nCHANGE 1.50", null),
+  }));
+  check('cash minus change gives the bill (TUNAI 50.00 / BAKI 26.60 → 23.40)', chk.tender === 23.4, JSON.stringify(chk));
+  check('a total the items and cash both contradict is flagged, with their figure offered',
+    chk.misread.off && chk.misread.suggest === 23.4 && chk.misread.source === 'items', JSON.stringify(chk.misread));
+  check('a total everything agrees with stays "read", with nothing offered', !chk.good.off && chk.good.suggest == null, JSON.stringify(chk.good));
+  check('no cash lines → no tender check, nothing invented', !chk.noTender.off && chk.noTender.suggest == null);
+  check('no total read at all → cash minus change is offered', chk.noTotal.suggest === 18.5, JSON.stringify(chk.noTotal));
+
+  const dom = await page.evaluate(() => {
+    const r = document.getElementById('scan-result');
+    return {
+      pillsInside: !!r.querySelector('.scan-type-pills'),
+      rawInside: !!r.querySelector('#scan-raw'),
+      itemsInside: !!r.querySelector('#scan-items-details'),
+      statusLive: document.getElementById('scan-status').getAttribute('aria-live'),
+      named: document.getElementById('scan-dialog').getAttribute('aria-labelledby'),
+    };
+  });
+  check('scan result controls stay hidden until there is a result (no stray </div>)',
+    dom.pillsInside && dom.rawInside && dom.itemsInside, JSON.stringify(dom));
+  check('scan progress is announced and the dialog is named', dom.statusLive === 'polite' && dom.named === 'scan-title', JSON.stringify(dom));
+
+  const quota = await page.evaluate(() => {
+    const realPro = window.isPro; window.isPro = () => false;
+    const before = state.ocrUsage; state.ocrUsage = { month: currentMonthISO(), scans: 2 };
+    refundOcrUsage();
+    const after = state.ocrUsage.scans;
+    state.ocrUsage = before; window.isPro = realPro;
+    return after;
+  });
+  check('a scan that read nothing gives its free-scan count back', quota === 1, String(quota));
+
+  const pills = await page.evaluate(async () => {
+    const dailyBefore = document.getElementById('daily-type').value;
+    splitOpenCompose({});
+    await new Promise((r) => setTimeout(r, 150));
+    const body = document.getElementById('split-compose-body');
+    const title = body.querySelector('[name=title]');
+    if (title) { title.value = 'Makan mamak'; title.dispatchEvent(new Event('input', { bubbles: true })); }
+    const pill = (m) => document.querySelector(`#split-compose-dialog .split-mode-pills .pill[data-split-mode="${m}"]`);
+    pill('request').click(); await new Promise((r) => setTimeout(r, 80));
+    const t1 = document.querySelector('#split-compose-body [name=title]');
+    if (t1) { t1.value = 'Makan mamak'; t1.dispatchEvent(new Event('input', { bubbles: true })); }
+    pill('loan').click(); await new Promise((r) => setTimeout(r, 80));
+    const activeOnLoan = [...document.querySelectorAll('#split-compose-dialog .split-mode-pills .pill.active')].map((b) => b.dataset.splitMode);
+    pill('request').click(); await new Promise((r) => setTimeout(r, 80));
+    const titleBack = document.querySelector('#split-compose-body [name=title]')?.value || '';
+    const dailyAfter = document.getElementById('daily-type').value;
+    document.getElementById('split-compose-dialog').close();
+    return { activeOnLoan, titleBack, dailyBefore, dailyAfter };
+  });
+  check('only the chosen split mode pill is selected', JSON.stringify(pills.activeOnLoan) === '["loan"]', JSON.stringify(pills));
+  check('switching split modes keeps "What for"', pills.titleBack === 'Makan mamak', JSON.stringify(pills));
+  check('split mode pills no longer clear the Add entry type', pills.dailyAfter === pills.dailyBefore && !!pills.dailyAfter, JSON.stringify(pills));
+  const friend = readFileSync(path.join(REPO_ROOT, 'split/index.html'), 'utf8');
+  check('the friend page primary button uses the dark terracotta (≥4.5:1 on cream)',
+    /\.btn-primary \{ background: var\(--primary-ink\)/.test(friend));
+}
+
 /* ── Hardening: real data breaks nothing quietly ──────────────────────────
    A full phone, a fat-fingered amount, a millionaire's balance, 2,000
    entries. Each of these once failed silently or pushed the page sideways. */
