@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=120" />
+    <link rel="stylesheet" href="styles.css?v=121" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -1175,8 +1175,10 @@
           <h3>Your claims &amp; receipts</h3>
           <p class="hint" id="tax-claims-empty">Nothing claimed yet. Claim an expense above, or add one yourself.</p>
           <ul class="tax-list" id="tax-claims"></ul>
+          <p class="hint tax-checks" id="tax-checks"></p>
           <div class="button-row">
-            <button type="button" class="primary" id="btn-tax-add">Add a claim</button>
+            <button type="button" class="primary" id="btn-tax-review">Review my year</button>
+            <button type="button" class="ghost" id="btn-tax-add">Add a claim</button>
             <button type="button" class="ghost" id="btn-tax-export">Export claims</button>
           </div>
 
@@ -2226,8 +2228,8 @@
           <img id="tax-claim-receipt-img" alt="Receipt preview" hidden />
           <p class="hint" id="tax-claim-receipt-none">LHDN can ask for receipts for up to 7 years. Keep a photo here — it's encrypted on this device and never uploaded.</p>
           <div class="button-row">
-            <label class="ghost tax-file-btn">Take photo<input type="file" id="tax-claim-photo" accept="image/*" capture="environment" hidden /></label>
-            <label class="ghost tax-file-btn">Choose file<input type="file" id="tax-claim-file" accept="image/*" hidden /></label>
+            <label class="as-button ghost tax-file-btn">Take photo<input type="file" id="tax-claim-photo" accept="image/*" capture="environment" hidden /></label>
+            <label class="as-button ghost tax-file-btn">Choose file<input type="file" id="tax-claim-file" accept="image/*" hidden /></label>
             <button type="button" class="ghost" id="tax-claim-receipt-remove" hidden>Remove</button>
           </div>
         </div>
@@ -2239,13 +2241,62 @@
       </form>
     </dialog>
 
+    <!-- One modal for every tax check: new spending, "Review my year",
+         the November check and the one before e-Filing. tax.js / taxOpenReview. -->
+    <dialog id="tax-review-dialog" class="edit-dialog tax-review-dialog" aria-labelledby="tax-review-title">
+      <form method="dialog" id="tax-review-form">
+        <p class="tax-review-eyebrow" id="tax-review-eyebrow"></p>
+        <h2 id="tax-review-title">Use this for your tax claim?</h2>
+        <div id="tax-review-ask">
+          <div class="tax-review-entry">
+            <div class="tax-row-main">
+              <strong id="tax-review-what"></strong>
+              <span class="hint" id="tax-review-meta"></span>
+            </div>
+            <span class="tax-row-amt" id="tax-review-amt"></span>
+          </div>
+          <label class="field">
+            <span>Relief</span>
+            <select id="tax-review-relief"></select>
+          </label>
+          <label class="field" id="tax-review-sub-field" hidden>
+            <span>Type</span>
+            <select id="tax-review-sub"></select>
+          </label>
+          <p class="hint" id="tax-review-why"></p>
+          <div class="form-actions">
+            <button type="button" class="ghost" id="tax-review-no">Not tax</button>
+            <button type="button" class="ghost" id="tax-review-later">Later</button>
+            <button type="button" class="primary" id="tax-review-yes">Yes, claim it</button>
+          </div>
+        </div>
+        <div id="tax-review-docs" hidden>
+          <p class="tax-review-what-docs" id="tax-review-what-docs"></p>
+          <p id="tax-review-deadline"></p>
+          <p class="hint" id="tax-review-required"></p>
+          <ul class="tax-files" id="tax-review-files"></ul>
+          <div class="button-row" id="tax-review-receipt-row">
+            <label class="as-button ghost tax-file-btn">Take photo<input type="file" id="tax-review-receipt-photo" accept="image/*" capture="environment" hidden /></label>
+            <label class="as-button ghost tax-file-btn">Choose receipt<input type="file" id="tax-review-receipt-file" accept="image/*,application/pdf" hidden /></label>
+          </div>
+          <div class="button-row">
+            <label class="as-button ghost tax-file-btn">Add another document<input type="file" id="tax-review-doc-file" accept="image/*,application/pdf" hidden /></label>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="ghost" id="tax-review-skipdocs">Add later</button>
+            <button type="button" class="primary" id="tax-review-save" hidden>Save</button>
+          </div>
+        </div>
+        <button type="button" class="tax-review-stop" id="tax-review-stop">Stop for now</button>
+      </form>
+    </dialog>
+
     <dialog id="tax-receipt-dialog" class="edit-dialog">
       <form method="dialog">
-        <h2>Receipt</h2>
-        <img id="tax-receipt-img" class="tax-receipt-full" alt="Saved receipt" />
+        <h2>Receipt &amp; documents</h2>
         <p class="hint" id="tax-receipt-caption"></p>
+        <div class="tax-receipt-files" id="tax-receipt-files"></div>
         <div class="form-actions">
-          <a class="ghost tax-file-btn" id="tax-receipt-download" href="#" download>Download</a>
           <button type="button" class="primary" id="tax-receipt-close">Close</button>
         </div>
       </form>
@@ -2309,9 +2360,9 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=11"></script>
-    <script src="tax-data.js?v=1"></script>
-    <script src="tax.js?v=3"></script>
+    <script src="tax-data.js?v=2"></script>
+    <script src="tax.js?v=5"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=155"></script>
+    <script src="script.js?v=156"></script>
   </body>
 </html>

@@ -84,6 +84,6 @@ on its own.
 - **Tax relief & refund estimate** — LHDN band tax and the RM400 rebate against
   hand-worked figures, relief caps, zakat as a rebate, keyword suggestions (and
   the things that must *not* match: car takaful, phone bills), the
-  expense → toast → claim → receipt flow, the scan hand-off, receipts encrypted
+  delta → review modal → claim → receipt flow, Later / Not tax / Review my year, documents added afterwards, the November and pre-e-Filing check-ins and their native notifications, the scan hand-off, receipts encrypted
   at rest and resealed on a passcode change, claim/receipt cleanup when the
   expense is deleted, and the CSV round trip.

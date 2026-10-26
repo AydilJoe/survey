@@ -6099,6 +6099,21 @@ function buildReminders(src) {
       }
     } catch {}
   }
+  // Tax check-ins (November, and before e-Filing opens) — one-off, like loans.
+  if (typeof taxNativeReminders === "function") {
+    try {
+      for (const n of taxNativeReminders()) {
+        if (notifs.length >= 60) break;
+        notifs.push({
+          id: nextId++,
+          title: n.title,
+          body: n.body,
+          schedule: { at: n.at, allowWhileIdle: true },
+          smallIcon: "ic_stat_icon",
+        });
+      }
+    } catch {}
+  }
   return notifs;
 }
 
@@ -8621,6 +8636,9 @@ function fromCSV(text) {
   // amount; with no match it simply becomes a standalone claim.
   if (typeof coerceTax === "function") {
     next.tax = coerceTax(next.tax);
+    // Every imported row is stamped "created now"; none of it is new spending
+    // to ask about. The full-year review is where old entries get looked at.
+    next.tax.deltaSince = Date.now() + 1;
     const taken = new Set();
     for (const c of next.tax.claims) {
       const hit = next.dailyExpenses.find((e) => (e.kind || "expense") === "expense" && !taken.has(e.id)
@@ -12628,6 +12646,7 @@ let hiddenAt = 0;
 function relock() {
   // The search sheet renders decrypted entries — never leave it behind the lock.
   closeSearch({ wipe: true });
+  if (typeof taxCloseAll === "function") taxCloseAll();
   aesKey = null;
   state = emptyState();
   setLockMode("unlock");

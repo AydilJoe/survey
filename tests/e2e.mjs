@@ -7156,30 +7156,44 @@ check('the brand catalogue makes no network calls at all',
     sum0.inputs.income === 72000 && sum0.inputs.projected && sum0.payable > 0, JSON.stringify([sum0.inputs.income, sum0.payable]));
   check('tax: hero shows an amount for the tracked year', /RM\s?[\d,]+\.\d\d/.test(hero1) && hero1 !== 'RM 0.00', hero1);
 
-  // 1) Typed expense → toast with a Claim action → dialog → receipt attached.
-  await S(() => document.getElementById('tabbtn-dashboard').click());
-  await S(() => setDailyMoreOpen(true));
-  await page.fill('#form-daily input[name="amount"]', '120');
-  await page.fill('#form-daily input[name="category"]', 'Books');
-  await page.fill('#form-daily input[name="note"]', 'Popular bookstore');
-  await page.click('#form-daily button[type="submit"]');
-  await page.waitForTimeout(400);
-  const toastTxt = await page.locator('#toast').textContent();
-  check('tax: a deductible expense raises a toast with a Claim action',
-    /tax relief/i.test(toastTxt) && await page.locator('#toast .toast-action').count() === 1, toastTxt);
-  await page.click('#toast .toast-action');
+  // The seasonal checks would fire if this suite runs in November or Feb–May;
+  // mark them done so the flow below is the same on any date (tested on its own in 6).
+  await S(() => { const y = new Date().getFullYear(); const t = taxState(); t.reviews[`${y}-nov`] = 1; t.reviews[`${y - 1}-final`] = 1; save(); });
+  const addSpend = async (amount, category, note) => {
+    await S(() => document.getElementById('tabbtn-dashboard').click());
+    await S(() => setDailyMoreOpen(true));
+    await page.fill('#form-daily input[name="amount"]', amount);
+    await page.fill('#form-daily input[name="category"]', category);
+    await page.fill('#form-daily input[name="note"]', note);
+    await page.click('#form-daily button[type="submit"]');
+    await page.waitForTimeout(1600);
+  };
+  const reviewOpen = () => page.locator('#tax-review-dialog').evaluate(d => d.open);
+  const deadline = await S(() => taxDateLabel(taxFilingFor(taxYear()).deadline));
+
+  // 1) Delta: a new spend that hits a rule opens the review modal by itself.
+  await addSpend('120', 'Books', 'Popular bookstore');
+  check('tax delta: a new deductible spend opens the review modal',
+    await reviewOpen() && /New spending/.test(await page.locator('#tax-review-eyebrow').textContent())
+    && await page.inputValue('#tax-review-relief') === 'lifestyle'
+    && /120\.00/.test(await page.locator('#tax-review-amt').textContent()));
+  await page.click('#tax-review-yes');
   await page.waitForTimeout(200);
-  check('tax: claim dialog opens pre-filled (lifestyle, RM120)',
-    await page.locator('#tax-claim-dialog').evaluate(d => d.open)
-    && await page.inputValue('#tax-claim-relief') === 'lifestyle'
-    && Number(await page.inputValue('#tax-claim-amount')) === 120);
-  await page.setInputFiles('#tax-claim-file', { name: 'r.png', mimeType: 'image/png', buffer: png });
-  await page.waitForTimeout(300);
-  check('tax: chosen receipt previews in the dialog', await page.locator('#tax-claim-receipt-img').evaluate(i => !i.hidden && !!i.src));
-  await page.click('#tax-claim-save');
-  await page.waitForTimeout(600);
+  const docsTxt = await page.locator('#tax-review-docs').innerText();
+  check('tax delta: "Yes" asks for the receipt — optional, with the date it can be added by and what LHDN may ask for',
+    await page.locator('#tax-review-docs').isVisible() && /Optional/.test(docsTxt) && docsTxt.includes(deadline)
+    && /e-Filing deadline for YA \d{4}/.test(docsTxt) && /Official tax receipts/.test(docsTxt) && /7 years/.test(docsTxt),
+    docsTxt.replace(/\n/g, ' | '));
+  check('tax delta: the claim exists as soon as they say yes', (await S(() => taxState().claims.length)) === 1);
+  await page.setInputFiles('#tax-review-receipt-file', { name: 'r.png', mimeType: 'image/png', buffer: png });
+  await page.waitForTimeout(200);
+  check('tax delta: the chosen receipt is staged with a preview and Save appears',
+    await page.locator('#tax-review-files li.is-new img').count() === 1 && await page.locator('#tax-review-save').isVisible());
+  await page.click('#tax-review-save');
+  await page.waitForTimeout(700);
   const c1 = await S(() => taxState().claims.slice());
-  check('tax: claim saved with a receipt id', c1.length === 1 && c1[0].relief === 'lifestyle' && c1[0].amount === 120 && !!c1[0].receiptId,
+  check('tax delta: saved — modal closes, claim has its receipt',
+    !(await reviewOpen()) && c1.length === 1 && c1[0].relief === 'lifestyle' && c1[0].amount === 120 && !!c1[0].receiptId,
     JSON.stringify(c1));
   const vault = await S(async (rid) => {
     const raw = await taxIdb('readonly', (s) => s.get(rid));
@@ -7197,45 +7211,158 @@ check('the brand catalogue makes no network calls at all',
   await page.waitForTimeout(200);
   const relTxt = await page.locator('#tax-reliefs').innerText();
   check('tax: Reports shows lifestyle RM120 of RM2,500', /Lifestyle[\s\S]*120\.00[\s\S]*2,500\.00/.test(relTxt), relTxt.replace(/\n/g, ' | '));
-  check('tax: claim row offers the receipt', await page.locator('#tax-claims [data-tax-view]').count() === 1);
+  check('tax: claim row offers its files', await page.locator('#tax-claims [data-tax-view]').count() === 1);
   await page.click('#tax-claims [data-tax-view]');
   await page.waitForTimeout(300);
-  check('tax: receipt viewer shows the decrypted photo',
+  check('tax: file viewer shows the decrypted receipt',
     await page.locator('#tax-receipt-dialog').evaluate(d => d.open)
-    && await page.locator('#tax-receipt-img').evaluate(i => i.complete && i.naturalWidth > 0));
+    && await page.locator('#tax-receipt-files img').first().evaluate(i => i.complete && i.naturalWidth > 0));
   await page.click('#tax-receipt-close');
 
-  // 2) Scanner hand-off: a stashed photo opens the dialog by itself, receipt attached.
-  await S(() => document.getElementById('tabbtn-dashboard').click());
+  // 2) Scanner hand-off: the scanned photo is already staged as the receipt.
   await S(async (b64) => {
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     taxStashScanReceipt(new Blob([bytes], { type: 'image/png' }));
   }, png.toString('base64'));
-  await page.fill('#form-daily input[name="amount"]', '89');
-  await page.fill('#form-daily input[name="category"]', 'Fitness');
-  await page.fill('#form-daily input[name="note"]', 'Gym membership');
-  await page.click('#form-daily button[type="submit"]');
-  await page.waitForTimeout(900);
-  check('tax: a scanned deductible receipt opens the claim dialog with the photo attached',
-    await page.locator('#tax-claim-dialog').evaluate(d => d.open)
-    && await page.inputValue('#tax-claim-relief') === 'sports'
-    && await page.locator('#tax-claim-receipt-img').evaluate(i => !i.hidden));
-  await page.click('#tax-claim-cancel');
-  await page.waitForTimeout(150);
-  check('tax: "Not now" leaves the expense to review, no claim, no orphan photo',
-    (await S(() => taxState().claims.length)) === 1
-    && (await S(() => taxPendingExpenses(taxYear()).length)) === 1
-    && (await S(() => taxIdb('readonly', (s) => s.count()))) === 1);
+  await addSpend('89', 'Fitness', 'Gym membership');
+  check('tax scan: the modal opens for a scanned deductible spend', await reviewOpen()
+    && await page.inputValue('#tax-review-relief') === 'sports');
+  await page.click('#tax-review-yes');
+  await page.waitForTimeout(200);
+  check('tax scan: "Yes" pre-attaches the photo from the scan',
+    /Receipt from your scan/.test(await page.locator('#tax-review-files').innerText()));
+  await page.click('#tax-review-save');
+  await page.waitForTimeout(700);
+  check('tax scan: claim saved with the scanned receipt',
+    await S(() => !!taxState().claims.find(c => c.relief === 'sports' && c.receiptId)));
   check('tax: the stashed photo is spent after one submit', (await S(() => taxTakeScanReceipt())) === null);
 
-  // 3) Deleting the spending removes its claim and its receipt.
-  const gone = await S(async () => {
-    const id = taxState().claims[0].entryId;
-    removeDailyEntry(id);
-    await new Promise(r => setTimeout(r, 200));
-    return { claims: taxState().claims.length, photos: await taxIdb('readonly', (s) => s.count()) };
+  // 3) "Later" on a delta: no claim, and no second pop-up for the same spend.
+  await addSpend('150', 'Health', 'Dental check-up');
+  check('tax delta: dental check-up suggests Medical with the dental sub-limit',
+    await reviewOpen() && await page.inputValue('#tax-review-relief') === 'medical' && await page.inputValue('#tax-review-sub') === 'dental');
+  await page.click('#tax-review-later');
+  await page.waitForTimeout(300);
+  await S(() => renderAll());
+  await page.waitForTimeout(1600);
+  check('tax delta: "Later" closes it, makes no claim, and does not ask again on its own',
+    !(await reviewOpen()) && (await S(() => taxState().claims.length)) === 2);
+
+  // 4) "Review my year" (manual full-year refresh) brings it back; claim without a receipt.
+  await S(() => document.getElementById('tabbtn-reports').click());
+  await page.click('#btn-tax-review');
+  await page.waitForTimeout(300);
+  check('tax review: "Review my year" brings back what was left for later',
+    await reviewOpen() && /Review YA \d{4}/.test(await page.locator('#tax-review-eyebrow').textContent())
+    && /Dental/.test(await page.locator('#tax-review-what').textContent()));
+  await page.click('#tax-review-yes');
+  await page.waitForTimeout(200);
+  check('tax review: with nothing staged the docs step offers "Add later"',
+    (await page.locator('#tax-review-skipdocs').textContent()) === 'Add later' && await page.locator('#tax-review-save').isHidden());
+  await page.click('#tax-review-skipdocs');
+  await page.waitForTimeout(500);
+  const dental = await S(() => taxState().claims.find(c => c.relief === 'medical'));
+  check('tax review: claimed without a receipt, under the dental sub-limit', !!dental && !dental.receiptId && dental.sub === 'dental', JSON.stringify(dental));
+  const checksTxt = await page.locator('#tax-checks').textContent();
+  check('tax card: says how many claims still need a receipt and by when',
+    /1 claim still needs a receipt/.test(checksTxt) && checksTxt.includes(deadline), checksTxt);
+  check('tax card: the claim row offers "Add receipt"',
+    await page.locator(`#tax-claims [data-tax-docs="${dental.id}"]`).textContent() === 'Add receipt');
+  await page.click(`#tax-claims [data-tax-docs="${dental.id}"]`);
+  await page.waitForTimeout(200);
+  check('tax docs: "Add receipt" opens the modal straight at the documents step',
+    await reviewOpen() && await page.locator('#tax-review-docs').isVisible() && await page.locator('#tax-review-ask').isHidden());
+  await page.setInputFiles('#tax-review-doc-file', { name: 'doctor-letter.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n% test\n') });
+  await page.waitForTimeout(150);
+  await page.click('#tax-review-save');
+  await page.waitForTimeout(600);
+  const dental2 = await S(() => taxState().claims.find(c => c.relief === 'medical'));
+  const pdfBack = await S(async (id) => { const b = await taxReceiptGet(id); return b && b.type; }, dental2.docIds[0]);
+  check('tax docs: a supporting PDF is kept as a document, encrypted, still PDF when opened',
+    dental2.docIds.length === 1 && !dental2.receiptId && pdfBack === 'application/pdf', JSON.stringify([dental2, pdfBack]));
+
+  // 5) "Not tax" remembers the answer.
+  await addSpend('139', 'Bills', 'Unifi internet');
+  check('tax delta: home internet → lifestyle', await reviewOpen() && await page.inputValue('#tax-review-relief') === 'lifestyle');
+  await page.click('#tax-review-no');
+  await page.waitForTimeout(300);
+  check('tax delta: "Not tax" closes it, skips the spend, and it leaves the review list',
+    !(await reviewOpen()) && (await S(() => taxPendingExpenses(taxYear()).length)) === 0
+    && (await S(() => taxReviewItems(taxYear()).every(i => i.kind === 'claim'))));
+
+  // 6) Seasonal check-ins and their native notifications.
+  const season = await S(() => {
+    const t = taxState();
+    const saved = { ...t.reviews };
+    t.reviews = {};
+    const out = {
+      oct: taxSeasonDue(new Date(2026, 9, 26)),
+      nov: taxSeasonDue(new Date(2026, 10, 20)),
+      dec: taxSeasonDue(new Date(2026, 11, 30)),
+      feb: taxSeasonDue(new Date(2027, 1, 25)),
+      jun: taxSeasonDue(new Date(2027, 5, 1)),
+      native: taxNativeReminders(new Date(2026, 9, 26)).map(n => [n.at.toISOString(), n.title]),
+      nativeFirstAfterDone: null,
+    };
+    t.reviews['2026-nov'] = 1;
+    out.novDone = taxSeasonDue(new Date(2026, 10, 20));
+    const after = taxNativeReminders(new Date(2026, 9, 26));
+    out.nativeAfter = after.length;
+    out.nativeFirstAfterDone = after[0] && after[0].at.getMonth();
+    t.reviews = saved;
+    return out;
   });
-  check('tax: deleting the expense deletes the claim and the receipt photo', gone.claims === 0 && gone.photos === 0, JSON.stringify(gone));
+  check('tax season: November check from 15 Nov to 31 Dec, for this YA',
+    season.oct === null && season.nov?.kind === 'nov' && season.nov.year === 2026 && season.dec?.kind === 'nov', JSON.stringify(season));
+  check('tax season: the final check runs from 20 Feb to the filing deadline, for last YA',
+    season.feb?.kind === 'final' && season.feb.year === 2026 && season.jun === null, JSON.stringify(season));
+  check('tax season: each check runs once', season.novDone === null);
+  check('tax notify: next native reminders are 15 Nov and 20 Feb at 9am, naming e-Filing',
+    season.native.length >= 2
+    && new Date(season.native[0][0]).getMonth() === 10 && new Date(season.native[0][0]).getDate() === 15 && new Date(season.native[0][0]).getHours() === 9
+    && new Date(season.native[1][0]).getMonth() === 1 && new Date(season.native[1][0]).getDate() === 20 && /e-Filing/.test(season.native[1][1]),
+    JSON.stringify(season.native));
+  check('tax notify: a check already done is not notified again',
+    season.nativeFirstAfterDone === 1, JSON.stringify([season.nativeAfter, season.nativeFirstAfterDone]));
+  check('tax notify: the reminder builder includes them',
+    await S(() => buildReminders(state).some(n => /tax check|e-Filing/.test(n.title))));
+  const nov = await S(() => {
+    const t = taxState();
+    const saved = { ...t.reviews };
+    t.reviews = {};
+    taxRunChecks(new Date(new Date().getFullYear(), 10, 20, 10));
+    const r = { open: document.getElementById('tax-review-dialog').open,
+      eyebrow: document.getElementById('tax-review-eyebrow').textContent,
+      marked: !!t.reviews[`${new Date().getFullYear()}-nov`] };
+    t.reviews = { ...saved, ...t.reviews };
+    return r;
+  });
+  check('tax season: the November check opens the review (here: the claim still missing a receipt) and is marked done',
+    nov.open && /November check/.test(nov.eyebrow) && nov.marked, JSON.stringify(nov));
+  await page.click('#tax-review-stop');
+  await page.waitForTimeout(300);
+  check('tax review: "Stop for now" closes it', !(await reviewOpen()));
+
+  // 7) An import is not "new spending": no flood of pop-ups.
+  const imp = await S(() => {
+    const back = fromCSV(toCSV());
+    const newest = Math.max(...back.dailyExpenses.map(e => Number(e.createdAt) || 0));
+    return { since: back.tax.deltaSince, newest };
+  });
+  check('tax import: imported entries are older than the delta baseline', imp.since > imp.newest, JSON.stringify(imp));
+  check('tax lock: auto-lock closes the review modal so nothing shows above the lock',
+    await S(() => { taxOpenReview(taxReviewItems(taxYear()), 'year', taxYear()); const was = document.getElementById('tax-review-dialog').open; taxCloseAll(); return was && !document.getElementById('tax-review-dialog').open; }));
+
+  // 8) Deleting the spending removes its claim and its files.
+  const gone = await S(async () => {
+    const c = taxState().claims.find(x => x.relief === 'lifestyle');
+    const before = { claims: taxState().claims.length, files: await taxIdb('readonly', (s) => s.count()) };
+    removeDailyEntry(c.entryId);
+    await new Promise(r => setTimeout(r, 200));
+    return { before, claims: taxState().claims.length, files: await taxIdb('readonly', (s) => s.count()) };
+  });
+  check('tax: deleting the expense deletes its claim and its receipt photo',
+    gone.claims === gone.before.claims - 1 && gone.files === gone.before.files - 1, JSON.stringify(gone));
 
   // 4) CSV round trip keeps settings and claims (never photos).
   const rt = await S(() => {

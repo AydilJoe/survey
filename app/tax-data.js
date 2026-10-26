@@ -13,6 +13,11 @@
  *     `since_ya` / `until_ya` (first / last year it exists).
  *   - `income_tax_by_ya` holds the rate bands and the rebate; same
  *     nearest-earlier rule. `up_to: null` is the top, open-ended band.
+ *   - `filing_by_ya` holds the dates the app works to, as "MM-DD", same
+ *     nearest-earlier rule. For YA <year>: `november_check` falls in <year>;
+ *     `final_check` (the last reminder before filing season), `efiling_opens`
+ *     and `deadline` (the date people are told they can add receipts by) fall
+ *     in <year>+1. `keep_records_years` is how long LHDN can ask for records.
  *   - `code` (A1, B1 …) must stay unique and should not be renumbered.
  *   - Optional `app` block per item: `id` (stable internal id; defaults to the
  *     lower-cased code), `label` (short name for the UI), `common` (nudge
@@ -78,6 +83,16 @@ const TAX_DATA = {
      "rate": 0.3
     }
    ]
+  }
+ },
+ "filing_by_ya": {
+  "2026": {
+   "november_check": "11-15",
+   "final_check": "02-20",
+   "efiling_opens": "03-01",
+   "deadline": "05-15",
+   "deadline_note": "BE form via e-Filing (30 April, plus LHDN's 15-day e-Filing grace)",
+   "keep_records_years": 7
   }
  },
  "tax_relief_categories": [
