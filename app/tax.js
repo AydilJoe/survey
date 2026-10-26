@@ -744,6 +744,7 @@ function taxOpenClaim(opts) {
   const sub = existing ? existing.sub : (o.sub || (entry ? taxSuggestSub(relief, entry.category, entry.note, year) : ""));
   taxFillReliefOptions(relief, sub);
   taxEl("tax-claim-title").textContent = existing ? "Edit claim" : (entry ? "Claim as tax relief" : "Add a tax claim");
+  taxEl("tax-claim-save").textContent = existing ? "Save" : "Claim";
   taxEl("tax-claim-delete").hidden = !existing;
   taxRefreshClaimHint();
   taxRefreshReceiptArea();
@@ -922,7 +923,8 @@ async function taxViewReceipt(claimId) {
     </figure>`);
   }
   taxEl("tax-receipt-files").innerHTML = parts.join("");
-  taxEl("tax-receipt-caption").textContent = `${taxClaimLabel(c)} · ${fmtMoney(c.amount)} · ${c.date}${c.note ? " · " + c.note : ""}`;
+  taxEl("tax-receipt-caption").innerHTML = `${escapeHtml(c.note || taxClaimShortLabel(c))} · ${amt(c.amount)} · ${escapeHtml(taxDay(c.date))}`;
+  taxEl("tax-receipt-add").dataset.claim = c.id;
   if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
 }
 
@@ -959,6 +961,7 @@ function taxEnable(opts) {
   t.deltaSince = (opts && opts.since) || Date.now();
   save();
   renderAll();
+  document.getElementById("tabbtn-tax")?.click();
   // First switch-on: walk through this year's spending once, if any matches.
   if (!(opts && opts.since)) {
     const items = taxReviewItems(taxYear());
@@ -1045,6 +1048,8 @@ function taxReviewGo(i) {
   }
   if (r.i >= r.items.length) { taxFinishReview(); return; }
   taxReviewRender();
+  const first = r.step === "ask" ? taxEl("tax-review-yes") : taxEl("tax-review-receipt-row").hidden ? taxEl("tax-review-skipdocs") : taxEl("tax-review-receipt-row").querySelector("button");
+  if (first && taxEl("tax-review-dialog").open) first.focus();
 }
 
 function taxFinishReview() {
@@ -1064,7 +1069,7 @@ function taxFinishReview() {
 function taxCloseAll() {
   taxReview = null;
   taxCtx = null;
-  for (const id of ["tax-review-dialog", "tax-claim-dialog", "tax-receipt-dialog"]) {
+  for (const id of ["tax-review-dialog", "tax-claim-dialog", "tax-receipt-dialog", "tax-numbers-dialog"]) {
     const d = taxEl(id);
     if (d && d.open) { if (typeof d.close === "function") d.close(); else d.removeAttribute("open"); }
   }
@@ -1091,14 +1096,16 @@ function taxReviewRender() {
   taxEl("tax-review-eyebrow").textContent = n > 1 ? `${r.i + 1} of ${n} · ${label}` : label;
   taxEl("tax-review-ask").hidden = r.step !== "ask";
   taxEl("tax-review-docs").hidden = r.step !== "docs";
+  const claimedEl = taxEl("tax-review-claimed");
 
   if (r.step === "ask") {
     const e = state.dailyExpenses.find((x) => x.id === it.entryId);
     const year = Number(String(e.date).slice(0, 4));
-    taxEl("tax-review-title").textContent = `Use this for your YA ${year} tax claim?`;
+    taxEl("tax-review-title").textContent = `Claim this for YA ${year}?`;
     taxEl("tax-review-what").textContent = e.note || e.category || "Spending";
-    taxEl("tax-review-meta").textContent = `${e.date}${e.note && e.category ? " · " + e.category : ""}`;
-    taxEl("tax-review-amt").textContent = fmtMoney(e.amount);
+    taxEl("tax-review-meta").textContent = `${taxDay(e.date)}${e.note && e.category ? " · " + e.category : ""}`;
+    taxEl("tax-review-amt").innerHTML = amt(e.amount);
+    claimedEl.hidden = true;
     const list = taxReliefsFor(year);
     const sel = taxEl("tax-review-relief");
     sel.innerHTML = list.map((x) => `<option value="${x.id}">${escapeHtml(x.label)}</option>`).join("");
@@ -1107,41 +1114,50 @@ function taxReviewRender() {
     return;
   }
 
-  // docs step
+  // docs step — same entry block, now confirmed as a claim
   const c = taxReviewCurrentClaim();
   const year = Number(c.date.slice(0, 4));
   const f = taxFilingFor(year);
   const rel = taxReliefFor(year, c.relief);
   const info = (rel && rel.info) || {};
   taxEl("tax-review-title").textContent = c.receiptId ? "Add supporting documents?" : "Add the receipt?";
-  taxEl("tax-review-what-docs").textContent = `${c.note || taxClaimLabel(c)} · ${fmtMoney(c.amount)} · ${taxClaimLabel(c)}`;
-  taxEl("tax-review-deadline").textContent =
-    `Optional — you can add ${c.receiptId ? "them" : "it"} any time before ${taxDateLabel(f.deadline)}, the e-Filing deadline for YA ${year}.`;
+  taxEl("tax-review-what").textContent = c.note || taxClaimShortLabel(c);
+  taxEl("tax-review-meta").textContent = `${taxDay(c.date)} · ${taxClaimShortLabel(c)}`;
+  taxEl("tax-review-amt").innerHTML = amt(c.amount);
+  if (it.justClaimed) {
+    claimedEl.hidden = false;
+    claimedEl.innerHTML = `${TAX_ICON.check}<span>Claimed${it.gained > 0 ? ` — saves about ${amt(it.gained)} tax` : ""}</span>`;
+  } else claimedEl.hidden = true;
+  taxEl("tax-review-deadline").innerHTML =
+    `Optional. You can add ${c.receiptId ? "them" : "it"} any time before <strong>${escapeHtml(taxDateLabel(f.deadline))}</strong>, the e-Filing deadline for YA ${year}.`;
   taxEl("tax-review-required").textContent = info.required_documentation
     ? `LHDN may ask for: ${info.required_documentation}. Keep them for ${f.keepYears} years.`
     : `Keep records for ${f.keepYears} years — LHDN can ask for them.`;
   taxEl("tax-review-receipt-row").hidden = !!c.receiptId;
-  // Staged files, then what's already on the claim.
   taxReviewClearPreviews();
   const rows = [];
-  if (c.receiptId) rows.push(`<li class="is-saved">Receipt saved</li>`);
-  if ((c.docIds || []).length) rows.push(`<li class="is-saved">${c.docIds.length} document${c.docIds.length === 1 ? "" : "s"} saved</li>`);
+  if (c.receiptId) rows.push(`<li class="is-saved">${TAX_ICON.check}<span>Receipt saved</span></li>`);
+  if ((c.docIds || []).length) rows.push(`<li class="is-saved">${TAX_ICON.check}<span>${c.docIds.length} document${c.docIds.length === 1 ? "" : "s"} saved</span></li>`);
   const stagedRow = (blob, name, key) => {
-    let thumb = "";
+    let thumb = `<span class="tax-file-thumb" aria-hidden="true">${TAX_ICON.receipt}</span>`;
     if (blob instanceof Blob && /^image\//.test(blob.type)) {
       const u = URL.createObjectURL(blob); taxReviewUrls.push(u);
       thumb = `<img src="${u}" alt="" />`;
     } else if (typeof blob === "string" && blob.startsWith("data:image/")) {
       thumb = `<img src="${escapeHtml(blob)}" alt="" />`;
     }
-    return `<li class="is-new">${thumb}<span>${escapeHtml(name)}</span><button type="button" class="ghost small" data-tax-unstage="${key}">Remove</button></li>`;
+    return `<li class="is-new">${thumb}<span>${escapeHtml(name)}</span><button type="button" class="ghost" data-tax-unstage="${key}" aria-label="Remove ${escapeHtml(name)}">Remove</button></li>`;
   };
   if (r.staged.receipt) rows.push(stagedRow(r.staged.receipt, r.staged.fromScan ? "Receipt from your scan" : "Receipt", "receipt"));
   r.staged.docs.forEach((d, i) => rows.push(stagedRow(d, d.name || `Document ${i + 1}`, `doc:${i}`)));
   taxEl("tax-review-files").innerHTML = rows.join("");
+  taxEl("tax-review-files").hidden = !rows.length;
   const staged = !!r.staged.receipt || r.staged.docs.length > 0;
   taxEl("tax-review-save").hidden = !staged;
-  taxEl("tax-review-skipdocs").textContent = staged ? "Discard" : "Add later";
+  taxEl("tax-review-skipdocs").hidden = staged;
+  // Keep focus inside the dialog when a step swaps its buttons out.
+  const focusTo = staged ? taxEl("tax-review-save") : null;
+  if (focusTo && document.activeElement && document.activeElement.closest && document.activeElement.closest("#tax-review-files")) focusTo.focus();
 }
 
 function taxReviewFillSubs(year, sub) {
@@ -1177,17 +1193,23 @@ function taxReviewYes() {
     amount: e.amount, date: e.date, note: e.note || e.category || "",
   });
   if (!claim) { taxReviewGo(r.i + 1); return; }
+  const before = taxSummary(Number(claim.date.slice(0, 4))).savedByClaims;
   t.claims.push(claim);
   t.skipped = t.skipped.filter((x) => x !== e.id);
   save();
   r.claimed++;
   it.claimIdLive = claim.id;
+  it.justClaimed = true;
+  it.gained = Math.round((taxSummary(Number(claim.date.slice(0, 4))).savedByClaims - before) * 100) / 100;
   r.step = "docs";
   r.staged = { receipt: null, docs: [] };
   // The photo from the scan that created this expense is the receipt.
   const scanned = taxScanReceipts.get(e.id);
   if (scanned) { r.staged.receipt = scanned; r.staged.fromScan = true; taxScanReceipts.delete(e.id); }
   taxReviewRender();
+  // The Yes button just vanished; land focus on the step's first action.
+  const next = r.staged.receipt ? taxEl("tax-review-save") : taxEl("tax-review-receipt-row").querySelector("button");
+  if (next) next.focus();
 }
 
 function taxReviewNo() {
@@ -1250,45 +1272,315 @@ function taxDaysLeftInYear(year) {
   return Math.max(0, Math.ceil((new Date(year, 11, 31, 23, 59, 59) - now) / 86400000));
 }
 
+const TAX_ICON = {
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  receipt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6"/></svg>',
+  calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
+};
+
+// "12 May" — the year is the YA the card already shows.
+function taxDay(iso) {
+  const [y, m, d] = String(iso).split("-").map(Number);
+  if (!y || !m || !d) return String(iso || "");
+  return new Date(y, m - 1, d).toLocaleDateString("en-MY", { day: "numeric", month: "short" });
+}
+
+// LHDN limits are whole ringgit and public: "RM 10,000", not hidden in privacy mode.
+function taxCap(n) { return `RM ${Number(n).toLocaleString("en-MY")}`; }
+
+// "Medical (self, spouse, child)" → "Medical": the short name for tight rows.
+function taxShort(label) { return String(label).replace(/\s*\([^)]*\)\s*$/, ""); }
+
+function taxClaimShortLabel(c) {
+  const r = taxRelief(c.relief);
+  if (!r) return c.relief;
+  const sub = c.sub ? (r.subs || []).find((x) => x.id === c.sub) : null;
+  return taxShort(r.label) + (sub ? ` · ${sub.label}` : "");
+}
+
+// View state for the tax page. Not persisted: it resets on reload like the
+// Reports filters do.
+const taxUi = { reliefOpen: "", showAll: false, filter: "all", inbox: 0 };
+
 function renderTax() {
-  const card = taxEl("tax-card");
-  const optin = taxEl("tax-optin");
-  if (!card || !optin) return;
   const t = taxState();
   const myr = TAX_OK && (typeof currentCurrency !== "function" || currentCurrency() === "MYR");
-  card.hidden = !(t.enabled && myr);
-  optin.hidden = t.enabled || !myr;
-  if (card.hidden) return;
+  const on = t.enabled && myr;
+  const show = (id, v) => { const el = taxEl(id); if (el) el.hidden = !v; };
+  // Ways in: Reports (opt-in or a summary), Home's Today links, the page itself.
+  show("tax-optin", !t.enabled && myr);
+  show("tax-page-optin", !t.enabled && myr);
+  show("tax-entry", on);
+  show("today-tax-link", on);
+  for (const id of ["tax-card", "tax-reliefs-card", "tax-claims-card", "tax-details-card"]) show(id, on);
+  document.querySelector("#tab-tax .tax-year")?.toggleAttribute("hidden", !on);
+  if (!on) { show("tax-pending-wrap", false); return; }
 
   const year = taxYear();
   const s = taxSummary(year);
-  const f = taxFigures(year);
   taxEl("tax-year-label").textContent = `YA ${year}`;
   taxEl("tax-year-next").disabled = year >= new Date().getFullYear();
+  const pending = taxPendingExpenses(year);
+  const claims = taxYearClaims(year).sort((a, b) => (a.date < b.date ? 1 : -1));
 
-  const owe = s.balance < 0;
-  taxEl("tax-hero-label").textContent = s.inputs.income <= 0 ? "Estimated refund" : owe ? "Tax still to pay" : "Estimated refund";
-  taxEl("tax-hero").textContent = fmtMoney(Math.abs(s.balance));
-  taxEl("tax-hero").classList.toggle("is-owe", owe && s.inputs.income > 0);
-  const lines = [];
-  if (s.inputs.income <= 0) {
-    lines.push("Add your income in the Monthly tab, or type your yearly salary below, to see the number.");
-  } else {
-    lines.push(`Tax ${fmtMoney(s.payable)} on ${fmtMoney(s.chargeable)} taxable income`
-      + (s.zakat > 0 ? ` (after ${fmtMoney(s.zakat)} zakat)` : "")
-      + ` − ${fmtMoney(s.pcb)} PCB already paid.`);
-    if (!s.pcb) lines.push("Enter the PCB from your payslips below — without it the figure is just your tax bill.");
-    if (s.savedByClaims > 0) lines.push(`Your claims are saving you about ${fmtMoney(s.savedByClaims)}.`);
+  taxRenderHero(year, s, pending, claims);
+  taxRenderInbox(year, s, pending);
+  taxRenderReliefs(year, s);
+  taxRenderClaims(claims);
+  taxRenderDetails(year, s);
+  taxRenderEntry(year, s, pending, claims);
+  taxScheduleChecks();
+}
+
+/* 1. The refund: the figure, tax due against PCB paid, and the working. */
+function taxRenderHero(year, s, pending, claims) {
+  const fd = taxFilingFor(year);
+  const now = new Date();
+  const hasIncome = s.inputs.income > 0;
+  const owe = hasIncome && s.balance < 0;
+  taxEl("tax-hero-label").textContent = owe ? `Tax still to pay · YA ${year}` : `Estimated refund · YA ${year}`;
+  const fig = taxEl("tax-hero");
+  fig.textContent = fmtMoney(Math.abs(s.balance));
+  fig.classList.toggle("is-owe", owe);
+  fig.classList.toggle("is-empty", !hasIncome);
+
+  // Two bars on one scale: the gap between them is the refund (or the bill).
+  const split = taxEl("tax-split");
+  split.hidden = !hasIncome;
+  if (hasIncome) {
+    const max = Math.max(s.payable, s.pcb, 1);
+    taxEl("tax-split-due").style.width = `${(s.payable / max) * 100}%`;
+    taxEl("tax-split-paid").style.width = `${(s.pcb / max) * 100}%`;
+    taxEl("tax-split-due-val").innerHTML = amt(s.payable);
+    taxEl("tax-split-paid-val").innerHTML = s.pcb ? amt(s.pcb) : "—";
   }
-  taxEl("tax-hero-note").textContent = lines.join(" ");
 
-  const srcEl = taxEl("tax-income-source");
-  srcEl.textContent = s.inputs.incomeSource === "typed"
-    ? `Using the yearly income you typed (${fmtMoney(s.inputs.income)}).`
+  let note;
+  if (!hasIncome) {
+    note = `Add your salary in the Monthly tab, or <button type="button" class="tax-inline-btn" data-tax-numbers="tax-in-income">type your yearly income</button>, to see your refund.`;
+  } else if (!s.pcb) {
+    note = `Without your PCB this is your tax bill, not your refund. <button type="button" class="tax-inline-btn" data-tax-numbers="tax-in-pcb">Add the PCB from your payslips</button>.`;
+  } else if (s.savedByClaims > 0) {
+    note = `Your claims are saving you about ${amt(s.savedByClaims)}.`;
+  } else {
+    note = `Claim what you've spent on reliefs and this grows.`;
+  }
+  taxEl("tax-hero-note").innerHTML = note;
+
+  // The working, one line per step.
+  const step = (sign, label, v, cls) => `<li class="${cls || ""}"><span class="tax-step-sign">${sign}</span><span>${label}</span><span class="tax-step-val">${amt(v)}</span></li>`;
+  const rows = [
+    step("", "Gross income", s.income),
+    step("−", "Automatic reliefs (you, family)", s.autoRelief),
+    step("−", "Reliefs you've claimed, with EPF", s.claimedTotal),
+    step("=", "Taxable income", s.chargeable, "is-sum"),
+    step("", "Tax on that, at resident rates", s.gross),
+  ];
+  if (s.rebate > 0) rows.push(step("−", "RM 400 rebate", s.rebate));
+  if (s.zakat > 0) rows.push(step("−", "Zakat paid", s.zakat));
+  rows.push(step("=", "Tax due", s.payable, "is-sum"));
+  rows.push(step("−", "PCB already paid", s.pcb));
+  rows.push(step("=", owe ? "Still to pay" : "Refund", Math.abs(s.balance), "is-total"));
+  taxEl("tax-steps").innerHTML = rows.join("");
+  taxEl("tax-how").hidden = !hasIncome;
+
+  const missing = claims.filter((c) => !c.receiptId).length;
+  const days = taxDaysLeftInYear(year);
+  const room = s.opportunities.reduce((a, o) => a + o.saving, 0);
+  const nextCheck = [fd.novCheck, fd.finalCheck].find((d) => d > now);
+  const status = [];
+  if (days != null && now.getMonth() >= 9 && hasIncome && room > 0) {
+    status.push(`<li class="is-warn">${TAX_ICON.clock}<span>${days} day${days === 1 ? "" : "s"} left in ${year} — unused relief could still save you up to ${amt(room)}.</span></li>`);
+  }
+  if (missing) {
+    status.push(`<li>${TAX_ICON.receipt}<span>${missing} claim${missing === 1 ? "" : "s"} still need${missing === 1 ? "s" : ""} a receipt — add by ${escapeHtml(taxDateLabel(fd.deadline))}.</span></li>`);
+  }
+  if (nextCheck) {
+    status.push(`<li>${TAX_ICON.calendar}<span>Next check-in ${escapeHtml(taxDateLabel(nextCheck))}${nextCheck === fd.finalCheck ? `, before e-Filing opens ${escapeHtml(taxDateLabel(fd.efilingOpens))}` : ""}.</span></li>`);
+  }
+  taxEl("tax-checks").innerHTML = status.join("");
+  taxEl("tax-checks").hidden = !status.length;
+  const toReview = pending.length + missing;
+  const countEl = taxEl("tax-review-count");
+  countEl.hidden = !toReview;
+  countEl.textContent = toReview ? `${toReview} to check` : "";
+}
+
+/* 2. To check: one undecided spend at a time, decided in place. */
+function taxRenderInbox(year, s, pending) {
+  const wrap = taxEl("tax-pending-wrap");
+  wrap.hidden = !pending.length;
+  if (!pending.length) { taxUi.inbox = 0; taxEl("tax-pending").innerHTML = ""; return; }
+  const i = Math.min(Math.max(0, taxUi.inbox), pending.length - 1);
+  taxUi.inbox = i;
+  const { entry, relief } = pending[i];
+  const r = taxReliefFor(year, relief);
+  const left = r ? Math.max(0, r.cap - (s.used[r.id] || 0)) : 0;
+  // What claiming this one spend would be worth, at today's figures.
+  let gain = 0;
+  if (r && left > 0 && s.inputs.income > 0) {
+    const extra = Math.min(Number(entry.amount) || 0, left);
+    const claimsNow = taxYearClaims(year).map((c) => ({ relief: c.relief, sub: c.sub, amount: c.amount }));
+    const after = taxEstimate({ ...s.inputs, claims: claimsNow.concat([{ relief, sub: "", amount: extra }]) });
+    gain = Math.round((s.payable - after.payable) * 100) / 100;
+  }
+  taxEl("tax-inbox-pager").hidden = pending.length < 2;
+  taxEl("tax-inbox-pos").textContent = `${i + 1} of ${pending.length}`;
+  taxEl("tax-inbox-prev").disabled = i === 0;
+  taxEl("tax-inbox-next").disabled = i >= pending.length - 1;
+  taxEl("tax-pending").innerHTML = `
+    <div class="tax-review-entry">
+      <div class="tax-row-main">
+        <strong>${escapeHtml(entry.note || entry.category || "Spending")}</strong>
+        <span class="hint">${escapeHtml(taxDay(entry.date))}${entry.note && entry.category ? ` · ${escapeHtml(entry.category)}` : ""}</span>
+      </div>
+      <span class="tax-row-amt">${amt(entry.amount)}</span>
+    </div>
+    <p class="tax-inbox-why">
+      <span class="tax-pill">${escapeHtml(r ? taxShort(r.label) : relief)}</span>
+      <span class="hint">${r ? `${amt(left)} of ${escapeHtml(taxCap(r.cap))} left` : ""}${gain > 0 ? ` · saves about ${amt(gain)}` : ""}</span>
+    </p>
+    <div class="tax-inbox-actions">
+      <button type="button" class="ghost" data-tax-skip="${escapeHtml(entry.id)}">Not tax</button>
+      <button type="button" class="primary" data-tax-claim="${escapeHtml(entry.id)}" data-tax-relief="${relief}">Claim it</button>
+    </div>`;
+}
+
+/* 3. Reliefs as tiles; one opens into its detail. */
+function taxRenderReliefs(year, s) {
+  const live = taxReliefsFor(year);
+  const hasIncome = s.inputs.income > 0;
+  const top = s.opportunities.filter((o) => o.saving > 0).slice(0, 3).map((o) => o.id);
+  const claimed = live.filter((r) => s.used[r.id] > 0).sort((a, b) => s.used[b.id] - s.used[a.id]);
+  const open = live.filter((r) => !(s.used[r.id] > 0) && top.includes(r.id));
+  let shown = taxUi.showAll ? live : [...claimed, ...open];
+  // Keep the grid even on a phone: top up with the common reliefs.
+  if (!taxUi.showAll && shown.length % 2) {
+    const extra = live.find((r) => r.common && !shown.includes(r));
+    if (extra) shown = [...shown, extra];
+  }
+  if (!shown.length) shown = live.filter((r) => r.common).slice(0, 4);
+  const toggle = taxEl("tax-reliefs-toggle");
+  toggle.hidden = live.length <= shown.length && !taxUi.showAll;
+  toggle.textContent = taxUi.showAll ? "Show fewer" : `Show all ${live.length}`;
+  toggle.setAttribute("aria-expanded", taxUi.showAll ? "true" : "false");
+  if (taxUi.reliefOpen && !live.some((r) => r.id === taxUi.reliefOpen)) taxUi.reliefOpen = "";
+
+  taxEl("tax-reliefs").innerHTML = shown.map((r) => {
+    const used = s.used[r.id] || 0;
+    const full = used >= r.cap;
+    const opp = hasIncome && top.includes(r.id) && s.opportunities.find((o) => o.id === r.id);
+    const isOpen = taxUi.reliefOpen === r.id;
+    const note = full ? `${TAX_ICON.check}<span>Limit reached</span>`
+      : opp ? `<span>saves about ${amt(opp.saving)}</span>`
+      : `<span>${amt(r.cap - used)} left</span>`;
+    return `<li><button type="button" class="tax-tile${full ? " is-full" : ""}${opp ? " is-room" : ""}${isOpen ? " is-open" : ""}"
+        data-tax-relief-open="${r.id}" aria-expanded="${isOpen ? "true" : "false"}" aria-controls="tax-relief-detail">
+      <span class="tax-tile-name">${escapeHtml(taxShort(r.label))}</span>
+      <span class="tax-tile-val">${used > 0 ? amt(used) : "RM 0"} <span class="tax-tile-cap">of ${escapeHtml(taxCap(r.cap))}</span></span>
+      <span class="tax-tile-bar"><span style="width:${taxPct(used, r.cap)}%"></span></span>
+      <span class="tax-tile-note">${note}</span>
+    </button></li>`;
+  }).join("");
+
+  const detail = taxEl("tax-relief-detail");
+  const r = live.find((x) => x.id === taxUi.reliefOpen);
+  detail.hidden = !r;
+  if (!r) { detail.innerHTML = ""; return; }
+  const used = s.used[r.id] || 0;
+  const opp = s.opportunities.find((o) => o.id === r.id);
+  const inRelief = taxYearClaims(year).filter((c) => c.relief === r.id).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const subs = r.subs.map((x) => {
+    const u = s.usedSub[`${r.id}:${x.id}`] || 0;
+    return `<li><span>${escapeHtml(x.label)}</span><span class="tax-detail-sub-val">${u > 0 ? amt(u) : "RM 0"} <span class="tax-tile-cap">of ${escapeHtml(taxCap(x.cap))}</span></span>
+      <span class="tax-tile-bar"><span style="width:${taxPct(u, x.cap)}%"></span></span></li>`;
+  }).join("");
+  detail.innerHTML = `
+    <div class="tax-detail-head">
+      <h3>${escapeHtml(r.label)}</h3>
+      <button type="button" class="ghost icon-btn" data-tax-relief-open="${r.id}" aria-label="Close ${escapeHtml(taxShort(r.label))}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <p class="hint">${escapeHtml(r.hint)}</p>
+    <p class="tax-detail-figure">${amt(used)} <span class="tax-tile-cap">of ${escapeHtml(taxCap(r.cap))} used</span>${opp && opp.saving > 0 && s.inputs.income > 0 ? ` · filling it saves about ${amt(opp.saving)}` : ""}</p>
+    ${subs ? `<h4>Limits inside this relief</h4><ul class="tax-detail-subs">${subs}</ul>` : ""}
+    <h4>${inRelief.length ? `Your claims (${inRelief.length})` : "No claims yet"}</h4>
+    ${inRelief.length ? `<ul class="tax-detail-claims">${inRelief.slice(0, 6).map((c) => `<li><span>${escapeHtml(c.note || taxClaimShortLabel(c))}</span><span class="hint">${escapeHtml(taxDay(c.date))}</span><span>${amt(c.amount)}</span></li>`).join("")}</ul>` : ""}
+    <button type="button" class="ghost tax-add" data-tax-relief-add="${r.id}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <span>Claim under ${escapeHtml(taxShort(r.label))}</span>
+    </button>`;
+}
+
+/* 4. Claims & receipts, filterable to the ones still missing a receipt. */
+function taxRenderClaims(claims) {
+  const missing = claims.filter((c) => !c.receiptId);
+  const filterMissing = taxEl("tax-claims-filter").querySelector('[data-tax-filter="missing"]');
+  filterMissing.textContent = missing.length ? `Needs receipt (${missing.length})` : "Needs receipt";
+  taxEl("tax-claims-filter").hidden = !claims.length;
+  for (const b of taxEl("tax-claims-filter").querySelectorAll("[data-tax-filter]")) {
+    const on = b.dataset.taxFilter === taxUi.filter;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+  const list = taxUi.filter === "missing" ? missing : claims;
+  const empty = taxEl("tax-claims-empty");
+  empty.hidden = list.length > 0;
+  if (!list.length) empty.innerHTML = claims.length
+    ? "Every claim has its receipt."
+    : "Nothing claimed yet. Claim a spend from <em>To check</em>, or add one yourself.";
+  taxEl("tax-claims").innerHTML = list.map((c) => {
+    const docs = (c.docIds || []).length;
+    const files = c.receiptId
+      ? `<button type="button" class="ghost tax-chip is-ok" data-tax-view="${escapeHtml(c.id)}">${TAX_ICON.check}<span>Receipt${docs ? ` + ${docs}` : ""}</span></button>`
+      : docs
+        ? `<button type="button" class="ghost tax-chip" data-tax-view="${escapeHtml(c.id)}">${docs} document${docs === 1 ? "" : "s"}</button>
+           <button type="button" class="ghost tax-chip is-warn" data-tax-docs="${escapeHtml(c.id)}">Add receipt</button>`
+        : `<button type="button" class="ghost tax-chip is-warn" data-tax-docs="${escapeHtml(c.id)}">Add receipt</button>`;
+    return `
+    <li>
+      <div class="tax-row-main">
+        <strong>${escapeHtml(c.note || taxClaimShortLabel(c))}</strong>
+        <span class="hint">${escapeHtml(taxDay(c.date))} · ${escapeHtml(taxClaimShortLabel(c))}</span>
+      </div>
+      <span class="tax-row-amt">${amt(c.amount)}</span>
+      <div class="tax-row-actions">
+        ${files}
+        <button type="button" class="ghost" data-tax-edit="${escapeHtml(c.id)}" aria-label="Edit ${escapeHtml(c.note || taxClaimShortLabel(c))}">Edit</button>
+      </div>
+    </li>`;
+  }).join("");
+}
+
+/* 5. Your details: a summary that opens the form at the right field. */
+function taxRenderDetails(year, s) {
+  const t = taxState();
+  const f = taxFigures(year);
+  const fam = [];
+  if (t.spouse) fam.push("spouse with no income");
+  const kids = t.children + t.childrenPre + t.childrenTertiary;
+  if (kids) fam.push(`${kids} child${kids === 1 ? "" : "ren"}`);
+  if (t.disabledSelf || t.disabledSpouse || t.disabledChildren) fam.push("disability relief");
+  const fact = (field, label, value, sub, warn) => `<li><button type="button" class="tax-fact${warn ? " is-warn" : ""}" data-tax-numbers="${field}">
+      <span class="tax-fact-label">${label}</span>
+      <span class="tax-fact-value">${value}</span>
+      ${sub ? `<span class="tax-fact-sub">${sub}</span>` : ""}
+    </button></li>`;
+  const incomeSub = s.inputs.incomeSource === "typed" ? "typed by you"
+    : s.inputs.income > 0 ? (s.inputs.projected ? `Monthly tab, ${s.inputs.months} month${s.inputs.months === 1 ? "" : "s"} × 12` : "Monthly tab") : "";
+  taxEl("tax-facts").innerHTML = [
+    fact("tax-in-income", "Gross income", s.inputs.income > 0 ? amt(s.inputs.income) : "Not added", incomeSub, !(s.inputs.income > 0)),
+    fact("tax-in-pcb", "PCB paid", f.pcb ? amt(f.pcb) : "Not added", f.pcb ? "" : "from your payslips", !f.pcb),
+    fact("tax-in-epf", "Your EPF", f.epf ? amt(f.epf) : "Not added", ""),
+    fact("tax-in-children", "Family", fam.length ? escapeHtml(fam.join(", ").replace(/^./, (c) => c.toUpperCase())) : "Just me", ""),
+  ].join("");
+  taxEl("tax-income-source").innerHTML = s.inputs.incomeSource === "typed"
+    ? `Using the yearly income you typed: ${amt(s.inputs.income)}.`
     : s.inputs.income > 0
-      ? `From your Monthly income entries: ${fmtMoney(s.inputs.income)}${s.inputs.projected ? ` (average of ${s.inputs.months} logged month${s.inputs.months === 1 ? "" : "s"}, times 12)` : ""}. If you log take-home pay, type your gross yearly salary instead.`
+      ? `From your Monthly income: ${amt(s.inputs.income)}${s.inputs.projected ? ` (average of ${s.inputs.months} logged month${s.inputs.months === 1 ? "" : "s"}, times 12)` : ""}. If you log take-home pay, type your gross salary instead.`
       : "";
-
   const setVal = (id, v) => { const el = taxEl(id); if (el && document.activeElement !== el) el.value = v ? v : ""; };
   setVal("tax-in-income", f.income);
   setVal("tax-in-pcb", f.pcb);
@@ -1298,76 +1590,31 @@ function renderTax() {
     if (el && document.activeElement !== el) el.value = t[key] || 0;
   }
   for (const [id, key] of TAX_FLAG_FIELDS) taxEl(id).checked = !!t[key];
-
-  // Year-end nudge
-  const nudge = taxEl("tax-nudge");
-  const days = taxDaysLeftInYear(year);
-  const room = s.opportunities.reduce((a, o) => a + o.saving, 0);
-  if (days != null && new Date().getMonth() >= 9 && s.inputs.income > 0 && room > 0) {
-    nudge.hidden = false;
-    nudge.textContent = `${days} day${days === 1 ? "" : "s"} left in ${year}. Unused relief could still save you up to ${fmtMoney(room)}.`;
-  } else nudge.hidden = true;
-
-  // Spending that looks deductible
-  const pending = taxPendingExpenses(year);
-  const pendEl = taxEl("tax-pending");
-  taxEl("tax-pending-wrap").hidden = !pending.length;
-  pendEl.innerHTML = pending.slice(0, 5).map(({ entry, relief }) => `
-    <li>
-      <div class="tax-row-main">
-        <strong>${escapeHtml(entry.note || entry.category || "Spending")}</strong>
-        <span class="hint">${escapeHtml(entry.date)} · ${escapeHtml(taxRelief(relief).label)}</span>
-      </div>
-      <span class="tax-row-amt">${escapeHtml(fmtMoney(entry.amount))}</span>
-      <div class="tax-row-actions">
-        <button type="button" class="primary small" data-tax-claim="${escapeHtml(entry.id)}" data-tax-relief="${relief}">Claim</button>
-        <button type="button" class="ghost small" data-tax-skip="${escapeHtml(entry.id)}">Not tax</button>
-      </div>
-    </li>`).join("");
-  taxEl("tax-pending-more").textContent = pending.length > 5 ? `+ ${pending.length - 5} more that look deductible` : "";
-
-  // Reliefs with progress
-  const rows = taxReliefsFor(year).filter((r) => s.used[r.id] > 0 || r.common);
-  taxEl("tax-reliefs").innerHTML = rows.map((r) => {
-    const used = s.used[r.id];
-    const opp = s.opportunities.find((o) => o.id === r.id);
-    const full = used >= r.cap;
-    return `<li>
-      <div class="tax-relief-top"><span>${escapeHtml(r.label)}</span><span>${escapeHtml(fmtMoney(used))} / ${escapeHtml(fmtMoney(r.cap))}</span></div>
-      <div class="tax-bar" aria-hidden="true"><div class="tax-bar-fill${full ? " is-full" : ""}" style="width:${taxPct(used, r.cap)}%"></div></div>
-      ${opp && opp.saving > 0 && s.inputs.income > 0 ? `<span class="hint">${escapeHtml(fmtMoney(opp.room))} left — claiming it would save about ${escapeHtml(fmtMoney(opp.saving))}</span>` : ""}
-    </li>`;
-  }).join("");
-
-  // Claims & receipts
-  const claims = taxYearClaims(year).sort((a, b) => (a.date < b.date ? 1 : -1));
-  taxEl("tax-claims-empty").hidden = claims.length > 0;
-  taxEl("tax-claims").innerHTML = claims.map((c) => `
-    <li>
-      <div class="tax-row-main">
-        <strong>${escapeHtml(c.note || taxClaimLabel(c))}</strong>
-        <span class="hint">${escapeHtml(c.date)} · ${escapeHtml(taxClaimLabel(c))} · ${c.receiptId
-          ? `receipt saved${(c.docIds || []).length ? ` + ${c.docIds.length} doc${c.docIds.length === 1 ? "" : "s"}` : ""}`
-          : `<span class="tax-no-receipt">no receipt yet</span>`}</span>
-      </div>
-      <span class="tax-row-amt">${escapeHtml(fmtMoney(c.amount))}</span>
-      <div class="tax-row-actions">
-        ${taxHasFiles(c) ? `<button type="button" class="ghost small" data-tax-view="${escapeHtml(c.id)}">Files</button>` : ""}
-        <button type="button" class="ghost small" data-tax-docs="${escapeHtml(c.id)}">${c.receiptId ? "Add document" : "Add receipt"}</button>
-        <button type="button" class="ghost small" data-tax-edit="${escapeHtml(c.id)}">Edit</button>
-      </div>
-    </li>`).join("");
-  const fd = taxFilingFor(year);
-  const missing = claims.filter((c) => !c.receiptId).length;
-  const now = new Date();
-  const nextCheck = [fd.novCheck, fd.finalCheck].find((d) => d > now);
-  taxEl("tax-checks").textContent = [
-    missing ? `${missing} claim${missing === 1 ? "" : "s"} still need${missing === 1 ? "s" : ""} a receipt — add by ${taxDateLabel(fd.deadline)}.` : "",
-    nextCheck ? `Next check-in: ${taxDateLabel(nextCheck)}${nextCheck === fd.finalCheck ? `, before e-Filing opens ${taxDateLabel(fd.efilingOpens)}` : ""}.` : "",
-  ].filter(Boolean).join(" ");
-  taxScheduleChecks();
   taxEl("tax-footnote").textContent =
-    `Relief limits follow the LHDN ${TAX_TABLE_LABEL} schedule; tax bands are the current resident rates. This is an estimate for planning — check LHDN's figures before you file in e-Filing.`;
+    `Relief limits follow the LHDN ${TAX_TABLE_LABEL} schedule; tax bands are the current resident rates. An estimate for planning — check LHDN's figures before you file.`;
+}
+
+/* Reports: the way in, with the number. */
+function taxRenderEntry(year, s, pending, claims) {
+  const owe = s.inputs.income > 0 && s.balance < 0;
+  taxEl("tax-entry-year").textContent = `YA ${year}`;
+  const fig = taxEl("tax-entry-figure");
+  fig.textContent = s.inputs.income > 0 ? `${owe ? "To pay " : ""}${fmtMoney(Math.abs(s.balance))}` : "Add your income";
+  fig.classList.toggle("is-owe", owe);
+  const missing = claims.filter((c) => !c.receiptId).length;
+  const bits = [];
+  if (pending.length) bits.push(`${pending.length} to check`);
+  if (missing) bits.push(`${missing} receipt${missing === 1 ? "" : "s"} to add`);
+  if (!bits.length && s.savedByClaims > 0) bits.push(`claims saving you about ${fmtMoney(s.savedByClaims)}`);
+  taxEl("tax-entry-sub").textContent = bits.join(" · ") || "Claims, receipts and your refund";
+}
+
+function taxOpenNumbers(focusId) {
+  const dlg = taxEl("tax-numbers-dialog");
+  if (!dlg) return;
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  const el = focusId && taxEl(focusId);
+  if (el) setTimeout(() => { el.focus(); if (el.select) el.select(); }, 30);
 }
 
 /* ---------- export ---------- */
@@ -1457,11 +1704,29 @@ document.addEventListener("click", (e) => {
     const t = taxState();
     if (!t.skipped.includes(b.dataset.taxSkip)) t.skipped.push(b.dataset.taxSkip);
     save(); renderTax();
+    taxEl("tax-pending").querySelector("[data-tax-claim]")?.focus();
   } else if ((b = hit("[data-tax-edit]"))) taxOpenClaim({ claimId: b.dataset.taxEdit });
   else if ((b = hit("[data-tax-view]"))) taxViewReceipt(b.dataset.taxView);
-  else if (hit("#btn-tax-enable")) taxEnable();
+  else if (hit("[data-tax-enable]")) taxEnable();
+  else if ((b = hit("[data-tax-relief-open]"))) {
+    const id = b.dataset.taxReliefOpen;
+    taxUi.reliefOpen = taxUi.reliefOpen === id ? "" : id;
+    renderTax();
+    if (taxUi.reliefOpen) {
+      taxEl("tax-relief-detail").scrollIntoView({ block: "nearest", behavior: typeof prefersReducedMotion === "function" && prefersReducedMotion() ? "auto" : "smooth" });
+    } else document.querySelector(`.tax-tile[data-tax-relief-open="${id}"]`)?.focus();
+  }
+  else if ((b = hit("[data-tax-relief-add]"))) taxOpenClaim({ relief: b.dataset.taxReliefAdd });
+  else if (hit("#tax-reliefs-toggle")) { taxUi.showAll = !taxUi.showAll; renderTax(); }
+  else if ((b = hit("[data-tax-filter]"))) { taxUi.filter = b.dataset.taxFilter; renderTax(); }
+  else if (hit("#tax-inbox-prev")) { taxUi.inbox--; renderTax(); }
+  else if (hit("#tax-inbox-next")) { taxUi.inbox++; renderTax(); }
+  else if ((b = hit("[data-tax-numbers]"))) taxOpenNumbers(b.dataset.taxNumbers);
+  else if (hit("#btn-tax-numbers")) taxOpenNumbers();
+  else if (hit("#tax-numbers-done")) taxEl("tax-numbers-dialog").close();
   else if (hit("#btn-tax-disable")) {
-    if (confirm("Stop tracking tax relief? Your claims and receipts are kept; the card just hides.")) {
+    if (confirm("Stop tracking tax relief? Your claims and receipts are kept; the tax page just hides.")) {
+      taxEl("tax-numbers-dialog").close();
       taxState().enabled = false; save(); renderAll();
     }
   }
@@ -1480,6 +1745,13 @@ document.addEventListener("click", (e) => {
     if (taxCtx) { taxCtx.newReceipt = null; taxCtx.dropReceipt = true; taxRefreshReceiptArea(); }
   }
   else if (hit("#tax-receipt-close")) taxEl("tax-receipt-dialog").close();
+  else if (hit("#tax-receipt-add")) {
+    const id = taxEl("tax-receipt-add").dataset.claim;
+    taxEl("tax-receipt-dialog").close();
+    if (id) taxOpenReview([{ kind: "claim", claimId: id, year: taxYear() }], "year", taxYear());
+  }
+  // File pickers are real buttons (keyboard-reachable) driving hidden inputs.
+  else if ((b = hit("[data-tax-pick]"))) taxEl(b.dataset.taxPick)?.click();
 });
 
 ["tax-in-income", "tax-in-pcb", "tax-in-epf"].forEach((id) => {
@@ -1517,6 +1789,7 @@ taxEl("tax-receipt-dialog")?.addEventListener("close", () => {
 // Review modal: Esc / back closes it like "Stop for now".
 taxEl("tax-review-dialog")?.addEventListener("close", () => { if (taxReview) taxFinishReview(); });
 taxEl("tax-review-form")?.addEventListener("submit", (e) => e.preventDefault());
+taxEl("tax-numbers-form")?.addEventListener("submit", (e) => { e.preventDefault(); taxEl("tax-numbers-dialog").close(); });
 taxEl("tax-review-relief")?.addEventListener("change", () => {
   const it = taxReview && taxReview.items[taxReview.i];
   const e = it && state.dailyExpenses.find((x) => x.id === it.entryId);

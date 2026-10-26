@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=121" />
+    <link rel="stylesheet" href="styles.css?v=125" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -186,6 +186,7 @@
       <button class="tab" data-tab="debts" role="tab" id="tabbtn-debts" aria-selected="false" aria-controls="tab-debts" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span><span>Debts</span></button>
       <button class="tab" data-tab="savings" role="tab" id="tabbtn-savings" aria-selected="false" aria-controls="tab-savings" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span><span>Savings</span></button>
       <button class="tab" data-tab="reports" data-parent-tab="dashboard" role="tab" id="tabbtn-reports" hidden aria-selected="false" aria-controls="tab-reports" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></svg></span><span>Reports</span></button>
+      <button class="tab" data-tab="tax" data-parent-tab="dashboard" role="tab" id="tabbtn-tax" hidden aria-selected="false" aria-controls="tab-tax" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></span><span>Tax</span></button>
       <button class="tab" data-tab="data" role="tab" id="tabbtn-data" aria-selected="false" aria-controls="tab-data" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span><span>Settings</span></button>
     </nav>
 
@@ -441,6 +442,7 @@
           <div class="today-links">
             <button type="button" class="ghost" data-go-tab="daily">All entries</button>
             <button type="button" class="ghost" data-go-tab="reports">Reports</button>
+            <button type="button" class="ghost" data-go-tab="tax" id="today-tax-link" hidden>Tax</button>
           </div>
         </section>
       </section>
@@ -1136,108 +1138,22 @@
           <h2 class="subpage-title">Reports</h2>
         </div>
 
-        <!-- Tax relief & refund estimate. Logic, table and receipt vault live
-             in tax.js / renderTax(); only the shells are here. -->
+        <!-- Tax lives on its own page (#tab-tax); Reports carries the way in. -->
         <div class="card tax-optin" id="tax-optin" hidden>
           <h2>Tax refund estimate</h2>
           <div class="tax-optin-row">
             <p class="hint">Spot spending that counts as LHDN tax relief, keep the receipts, and see your likely refund — all on this phone.</p>
-            <button type="button" class="ghost" id="btn-tax-enable">Set it up</button>
+            <button type="button" class="ghost" id="btn-tax-enable" data-tax-enable>Set it up</button>
           </div>
         </div>
-
-        <div class="card tax-card" id="tax-card" hidden>
-          <div class="card-head">
-            <h2>Tax refund estimate</h2>
-            <div class="tax-year" role="group" aria-label="Tax year">
-              <button type="button" class="ghost small" id="tax-year-prev" aria-label="Previous year">‹</button>
-              <span id="tax-year-label">YA 2026</span>
-              <button type="button" class="ghost small" id="tax-year-next" aria-label="Next year">›</button>
-            </div>
-          </div>
-
-          <div class="tax-hero">
-            <span class="label" id="tax-hero-label">Estimated refund</span>
-            <strong id="tax-hero">RM 0.00</strong>
-            <span class="hint" id="tax-hero-note"></span>
-          </div>
-          <p class="tax-nudge" id="tax-nudge" role="status" hidden></p>
-
-          <div id="tax-pending-wrap" hidden>
-            <h3>Looks tax-deductible</h3>
-            <ul class="tax-list" id="tax-pending"></ul>
-            <p class="hint" id="tax-pending-more"></p>
-          </div>
-
-          <h3>Reliefs this year</h3>
-          <ul class="tax-reliefs" id="tax-reliefs"></ul>
-
-          <h3>Your claims &amp; receipts</h3>
-          <p class="hint" id="tax-claims-empty">Nothing claimed yet. Claim an expense above, or add one yourself.</p>
-          <ul class="tax-list" id="tax-claims"></ul>
-          <p class="hint tax-checks" id="tax-checks"></p>
-          <div class="button-row">
-            <button type="button" class="primary" id="btn-tax-review">Review my year</button>
-            <button type="button" class="ghost" id="btn-tax-add">Add a claim</button>
-            <button type="button" class="ghost" id="btn-tax-export">Export claims</button>
-          </div>
-
-          <details class="tax-inputs">
-            <summary>My numbers</summary>
-            <div class="grid-2">
-              <label class="field">
-                <span>Gross yearly income (<span class="cur-code">MYR</span>)</span>
-                <input type="number" id="tax-in-income" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="From payslip, before EPF/PCB" />
-              </label>
-              <label class="field">
-                <span>PCB paid this year (<span class="cur-code">MYR</span>)</span>
-                <input type="number" id="tax-in-pcb" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="Monthly tax deduction, total" />
-              </label>
-              <label class="field">
-                <span>Your EPF contributions (<span class="cur-code">MYR</span>)</span>
-                <input type="number" id="tax-in-epf" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="Employee share, whole year" />
-              </label>
-            </div>
-            <h4 class="tax-sub-head">Family</h4>
-            <div class="grid-2">
-              <label class="field">
-                <span>Children under 18</span>
-                <input type="number" id="tax-in-children" step="1" min="0" max="20" inputmode="numeric" />
-              </label>
-              <label class="field">
-                <span>Children 18+, pre-university / diploma</span>
-                <input type="number" id="tax-in-children-pre" step="1" min="0" max="20" inputmode="numeric" />
-              </label>
-              <label class="field">
-                <span>Children 18+, degree or higher</span>
-                <input type="number" id="tax-in-children-tertiary" step="1" min="0" max="20" inputmode="numeric" />
-              </label>
-              <label class="field">
-                <span>Disabled children (JKM)</span>
-                <input type="number" id="tax-in-disabled-children" step="1" min="0" max="20" inputmode="numeric" />
-              </label>
-            </div>
-            <p class="hint">A disabled child also counts in their age group above — the disabled-child relief is on top of the normal child relief.</p>
-            <label class="field toggle-field">
-              <input type="checkbox" id="tax-in-spouse" />
-              <span>My spouse has no income</span>
-            </label>
-            <label class="field toggle-field">
-              <input type="checkbox" id="tax-in-disabled-self" />
-              <span>I'm a JKM-registered disabled person</span>
-            </label>
-            <label class="field toggle-field">
-              <input type="checkbox" id="tax-in-disabled-spouse" />
-              <span>My spouse is a JKM-registered disabled person</span>
-            </label>
-            <p class="hint" id="tax-income-source"></p>
-          </details>
-
-          <div class="button-row">
-            <button type="button" class="ghost" id="btn-tax-disable">Stop tracking</button>
-          </div>
-          <p class="hint" id="tax-footnote"></p>
-        </div>
+        <button type="button" class="card tax-entry" id="tax-entry" data-go-tab="tax" hidden>
+          <span class="tax-entry-text">
+            <span class="label">Tax refund estimate · <span id="tax-entry-year">YA 2026</span></span>
+            <strong id="tax-entry-figure">RM 0.00</strong>
+            <span class="hint" id="tax-entry-sub"></span>
+          </span>
+          <span class="tax-entry-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></span>
+        </button>
 
         <div class="card reports-filters">
           <h2>Filters</h2>
@@ -1329,6 +1245,97 @@
           <h2>Top 5 entries</h2>
           <div id="reports-top" class="reports-top"></div>
         </div>
+      </section>
+
+      <!-- TAX — pages under Home, like Reports. Cards are filled by tax.js / renderTax(). -->
+      <section id="tab-tax" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-tax">
+        <div class="subpage-head">
+          <button type="button" class="subpage-back" data-go-tab="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>Home</span></button>
+          <h2 class="subpage-title">Tax</h2>
+          <div class="tax-year" role="group" aria-label="Tax year">
+            <button type="button" class="ghost icon-btn tax-year-btn" id="tax-year-prev" aria-label="Previous year"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+            <span id="tax-year-label" aria-live="polite">YA 2026</span>
+            <button type="button" class="ghost icon-btn tax-year-btn" id="tax-year-next" aria-label="Next year"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+          </div>
+        </div>
+
+        <div class="card tax-optin" id="tax-page-optin" hidden>
+          <h2>Tax refund estimate</h2>
+          <div class="tax-optin-row">
+            <p class="hint">Spot spending that counts as LHDN tax relief, keep the receipts, and see your likely refund — all on this phone.</p>
+            <button type="button" class="primary" data-tax-enable>Set it up</button>
+          </div>
+        </div>
+
+        <!-- 1. The refund -->
+        <section class="card tax-hero-card" id="tax-card" hidden aria-labelledby="tax-hero-label">
+          <span class="label" id="tax-hero-label">Estimated refund</span>
+          <strong class="tax-hero-figure" id="tax-hero">RM 0.00</strong>
+          <div class="tax-split" id="tax-split" aria-hidden="true">
+            <div class="tax-split-row"><span>Tax due</span><span class="tax-split-track"><span class="tax-split-fill is-due" id="tax-split-due"></span></span><span class="tax-split-val" id="tax-split-due-val"></span></div>
+            <div class="tax-split-row"><span>PCB paid</span><span class="tax-split-track"><span class="tax-split-fill is-paid" id="tax-split-paid"></span></span><span class="tax-split-val" id="tax-split-paid-val"></span></div>
+          </div>
+          <p class="hint tax-hero-note" id="tax-hero-note"></p>
+          <details class="tax-how" id="tax-how">
+            <summary>How it's worked out</summary>
+            <ol class="tax-steps" id="tax-steps"></ol>
+          </details>
+          <ul class="tax-status" id="tax-checks"></ul>
+          <button type="button" class="primary tax-review-btn" id="btn-tax-review">
+            <span>Review my year</span>
+            <span class="tax-count" id="tax-review-count" hidden></span>
+          </button>
+        </section>
+
+        <!-- 2. To check: one undecided spend at a time -->
+        <section class="card tax-inbox-card" id="tax-pending-wrap" hidden aria-labelledby="tax-inbox-title">
+          <div class="card-head">
+            <h2 id="tax-inbox-title">To check</h2>
+            <div class="tax-pager" id="tax-inbox-pager">
+              <button type="button" class="ghost icon-btn" id="tax-inbox-prev" aria-label="Previous spend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+              <span id="tax-inbox-pos" aria-live="polite"></span>
+              <button type="button" class="ghost icon-btn" id="tax-inbox-next" aria-label="Next spend"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+            </div>
+          </div>
+          <div class="tax-inbox" id="tax-pending"></div>
+        </section>
+
+        <!-- 3. Reliefs as tiles -->
+        <section class="card tax-reliefs-card" id="tax-reliefs-card" hidden aria-labelledby="tax-reliefs-title">
+          <div class="card-head">
+            <h2 id="tax-reliefs-title">Reliefs</h2>
+            <button type="button" class="ghost tax-toggle" id="tax-reliefs-toggle" aria-expanded="false">Show all</button>
+          </div>
+          <ul class="tax-tiles" id="tax-reliefs"></ul>
+          <div class="tax-relief-detail" id="tax-relief-detail" hidden></div>
+        </section>
+
+        <!-- 4. Claims & receipts -->
+        <section class="card tax-claims-card" id="tax-claims-card" hidden aria-labelledby="tax-claims-title">
+          <div class="card-head">
+            <h2 id="tax-claims-title">Claims &amp; receipts</h2>
+            <div class="tax-head-actions">
+              <button type="button" class="ghost icon-btn" id="btn-tax-export" aria-label="Export claims as CSV" title="Export claims"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/></svg></button>
+              <button type="button" class="ghost tax-add" id="btn-tax-add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
+            </div>
+          </div>
+          <div class="tax-filter" role="group" aria-label="Show claims" id="tax-claims-filter">
+            <button type="button" class="chip active" data-tax-filter="all" aria-pressed="true">All</button>
+            <button type="button" class="chip" data-tax-filter="missing" aria-pressed="false">Needs receipt</button>
+          </div>
+          <p class="hint" id="tax-claims-empty">Nothing claimed yet. Claim a spend from <em>To check</em>, or add one yourself.</p>
+          <ul class="tax-list" id="tax-claims"></ul>
+        </section>
+
+        <!-- 5. Your details: a summary; the form is a dialog -->
+        <section class="card tax-details-card" id="tax-details-card" hidden aria-labelledby="tax-details-title">
+          <div class="card-head">
+            <h2 id="tax-details-title">Your details</h2>
+            <button type="button" class="ghost" id="btn-tax-numbers">Edit</button>
+          </div>
+          <dl class="tax-facts" id="tax-facts"></dl>
+          <p class="hint tax-footnote" id="tax-footnote"></p>
+        </section>
       </section>
 
       <!-- DATA -->
@@ -2191,6 +2198,63 @@
       </form>
     </dialog>
 
+    <dialog id="tax-numbers-dialog" class="edit-dialog" aria-labelledby="tax-numbers-title">
+      <form method="dialog" id="tax-numbers-form">
+        <h2 id="tax-numbers-title">Your details</h2>
+        <p class="hint" id="tax-income-source"></p>
+        <div class="grid-2">
+          <label class="field">
+            <span>Gross yearly income (<span class="cur-code">MYR</span>)</span>
+            <input type="number" id="tax-in-income" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="From payslip, before EPF/PCB" />
+          </label>
+          <label class="field">
+            <span>PCB paid this year (<span class="cur-code">MYR</span>)</span>
+            <input type="number" id="tax-in-pcb" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="Monthly tax deduction, total" />
+          </label>
+          <label class="field">
+            <span>Your EPF contributions (<span class="cur-code">MYR</span>)</span>
+            <input type="number" id="tax-in-epf" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="Employee share, whole year" />
+          </label>
+        </div>
+        <h3 class="tax-sub-head">Family</h3>
+        <div class="grid-2">
+          <label class="field">
+            <span>Children under 18</span>
+            <input type="number" id="tax-in-children" step="1" min="0" max="20" inputmode="numeric" />
+          </label>
+          <label class="field">
+            <span>Children 18+, pre-university / diploma</span>
+            <input type="number" id="tax-in-children-pre" step="1" min="0" max="20" inputmode="numeric" />
+          </label>
+          <label class="field">
+            <span>Children 18+, degree or higher</span>
+            <input type="number" id="tax-in-children-tertiary" step="1" min="0" max="20" inputmode="numeric" />
+          </label>
+          <label class="field">
+            <span>Disabled children (JKM)</span>
+            <input type="number" id="tax-in-disabled-children" step="1" min="0" max="20" inputmode="numeric" />
+          </label>
+        </div>
+        <p class="hint">A disabled child also counts in their age group above — the disabled-child relief is on top of the normal child relief.</p>
+        <label class="field toggle-field">
+          <input type="checkbox" id="tax-in-spouse" />
+          <span>My spouse has no income</span>
+        </label>
+        <label class="field toggle-field">
+          <input type="checkbox" id="tax-in-disabled-self" />
+          <span>I'm a JKM-registered disabled person</span>
+        </label>
+        <label class="field toggle-field">
+          <input type="checkbox" id="tax-in-disabled-spouse" />
+          <span>My spouse is a JKM-registered disabled person</span>
+        </label>
+        <div class="form-actions tax-claim-actions">
+          <button type="button" class="ghost ghost-danger" id="btn-tax-disable">Stop tracking tax</button>
+          <button type="button" class="primary" id="tax-numbers-done">Done</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="tax-claim-dialog" class="edit-dialog" aria-labelledby="tax-claim-title">
       <form method="dialog" id="tax-claim-form">
         <h2 id="tax-claim-title">Claim as tax relief</h2>
@@ -2227,15 +2291,17 @@
           <span class="label">Receipt</span>
           <img id="tax-claim-receipt-img" alt="Receipt preview" hidden />
           <p class="hint" id="tax-claim-receipt-none">LHDN can ask for receipts for up to 7 years. Keep a photo here — it's encrypted on this device and never uploaded.</p>
-          <div class="button-row">
-            <label class="as-button ghost tax-file-btn">Take photo<input type="file" id="tax-claim-photo" accept="image/*" capture="environment" hidden /></label>
-            <label class="as-button ghost tax-file-btn">Choose file<input type="file" id="tax-claim-file" accept="image/*" hidden /></label>
+          <div class="tax-pickers">
+            <button type="button" class="ghost" data-tax-pick="tax-claim-photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Take photo</span></button>
+            <button type="button" class="ghost" data-tax-pick="tax-claim-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 01-7.1-7.1l8.5-8.5a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.8-7.8"/></svg><span>Choose file</span></button>
             <button type="button" class="ghost" id="tax-claim-receipt-remove" hidden>Remove</button>
           </div>
+          <input type="file" id="tax-claim-photo" accept="image/*" capture="environment" hidden />
+          <input type="file" id="tax-claim-file" accept="image/*" hidden />
         </div>
-        <div class="form-actions">
-          <button type="button" class="ghost danger" id="tax-claim-delete" hidden>Delete</button>
-          <button type="button" class="ghost" id="tax-claim-cancel">Not now</button>
+        <div class="form-actions tax-claim-actions">
+          <button type="button" class="ghost ghost-danger" id="tax-claim-delete" hidden>Delete</button>
+          <button type="button" class="ghost" id="tax-claim-cancel">Cancel</button>
           <button type="button" class="primary" id="tax-claim-save">Claim</button>
         </div>
       </form>
@@ -2245,16 +2311,16 @@
          the November check and the one before e-Filing. tax.js / taxOpenReview. -->
     <dialog id="tax-review-dialog" class="edit-dialog tax-review-dialog" aria-labelledby="tax-review-title">
       <form method="dialog" id="tax-review-form">
-        <p class="tax-review-eyebrow" id="tax-review-eyebrow"></p>
         <h2 id="tax-review-title">Use this for your tax claim?</h2>
-        <div id="tax-review-ask">
-          <div class="tax-review-entry">
-            <div class="tax-row-main">
-              <strong id="tax-review-what"></strong>
-              <span class="hint" id="tax-review-meta"></span>
-            </div>
-            <span class="tax-row-amt" id="tax-review-amt"></span>
+        <div class="tax-review-entry">
+          <div class="tax-row-main">
+            <strong id="tax-review-what"></strong>
+            <span class="hint" id="tax-review-meta"></span>
           </div>
+          <span class="tax-row-amt" id="tax-review-amt"></span>
+          <p class="tax-review-claimed" id="tax-review-claimed" hidden></p>
+        </div>
+        <div id="tax-review-ask">
           <label class="field">
             <span>Relief</span>
             <select id="tax-review-relief"></select>
@@ -2271,23 +2337,26 @@
           </div>
         </div>
         <div id="tax-review-docs" hidden>
-          <p class="tax-review-what-docs" id="tax-review-what-docs"></p>
-          <p id="tax-review-deadline"></p>
+          <p class="tax-review-deadline" id="tax-review-deadline"></p>
           <p class="hint" id="tax-review-required"></p>
           <ul class="tax-files" id="tax-review-files"></ul>
-          <div class="button-row" id="tax-review-receipt-row">
-            <label class="as-button ghost tax-file-btn">Take photo<input type="file" id="tax-review-receipt-photo" accept="image/*" capture="environment" hidden /></label>
-            <label class="as-button ghost tax-file-btn">Choose receipt<input type="file" id="tax-review-receipt-file" accept="image/*,application/pdf" hidden /></label>
+          <div class="tax-pickers" id="tax-review-receipt-row">
+            <button type="button" class="ghost" data-tax-pick="tax-review-receipt-photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Take photo</span></button>
+            <button type="button" class="ghost" data-tax-pick="tax-review-receipt-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 01-7.1-7.1l8.5-8.5a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.8-7.8"/></svg><span>Choose receipt</span></button>
           </div>
-          <div class="button-row">
-            <label class="as-button ghost tax-file-btn">Add another document<input type="file" id="tax-review-doc-file" accept="image/*,application/pdf" hidden /></label>
-          </div>
+          <button type="button" class="tax-link" data-tax-pick="tax-review-doc-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add another document</span></button>
+          <input type="file" id="tax-review-receipt-photo" accept="image/*" capture="environment" hidden />
+          <input type="file" id="tax-review-receipt-file" accept="image/*,application/pdf" hidden />
+          <input type="file" id="tax-review-doc-file" accept="image/*,application/pdf" hidden />
           <div class="form-actions">
             <button type="button" class="ghost" id="tax-review-skipdocs">Add later</button>
             <button type="button" class="primary" id="tax-review-save" hidden>Save</button>
           </div>
         </div>
-        <button type="button" class="tax-review-stop" id="tax-review-stop">Stop for now</button>
+        <div class="tax-review-foot">
+          <span id="tax-review-eyebrow"></span>
+          <button type="button" class="tax-review-stop" id="tax-review-stop">Stop for now</button>
+        </div>
       </form>
     </dialog>
 
@@ -2297,6 +2366,7 @@
         <p class="hint" id="tax-receipt-caption"></p>
         <div class="tax-receipt-files" id="tax-receipt-files"></div>
         <div class="form-actions">
+          <button type="button" class="ghost" id="tax-receipt-add">Add a document</button>
           <button type="button" class="primary" id="tax-receipt-close">Close</button>
         </div>
       </form>
@@ -2360,9 +2430,9 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=13"></script>
-    <script src="tax-data.js?v=2"></script>
-    <script src="tax.js?v=5"></script>
+    <script src="tax-data.js?v=3"></script>
+    <script src="tax.js?v=8"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=157"></script>
+    <script src="script.js?v=159"></script>
   </body>
 </html>

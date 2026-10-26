@@ -9,7 +9,7 @@
  *     a year before the first key uses the first; `null` means "no relief that
  *     year" (discontinued).
  *   - Sub-limits (`sub_limits`) sit INSIDE their item's cap. Each takes an
- *     `id` (stable — saved claims point at it), `limit_myr`, and optionally
+ *     `id` (stable — saved claims point at it), an optional short `label`, `limit_myr`, and optionally
  *     `since_ya` / `until_ya` (first / last year it exists).
  *   - `income_tax_by_ya` holds the rate bands and the rebate; same
  *     nearest-earlier rule. `up_to: null` is the top, open-ended band.
@@ -20,7 +20,8 @@
  *     in <year>+1. `keep_records_years` is how long LHDN can ask for records.
  *   - `code` (A1, B1 …) must stay unique and should not be renumbered.
  *   - Optional `app` block per item: `id` (stable internal id; defaults to the
- *     lower-cased code), `label` (short name for the UI), `common` (nudge
+ *     lower-cased code), `label` (short name for the UI), `hint` (one plain
+ *     line saying what counts; defaults to the first claimable item), `common` (nudge
  *     people about unused room), `keywords` (a regex source that makes
  *     matching spending suggest this relief), and `auto` for reliefs given
  *     without a receipt: individual, spouse, disabledSelf, disabledSpouse,
@@ -148,7 +149,8 @@ const TAX_DATA = {
      "required_documentation": "Official tax receipts, purchase invoices, and JKM registration card / medical practitioner certificate",
      "app": {
       "id": "supporting",
-      "label": "Disability support equipment"
+      "label": "Disability support equipment",
+      "hint": "Wheelchair, hearing aid, prosthetics or dialysis machine for a disabled family member"
      }
     }
    ]
@@ -165,6 +167,7 @@ const TAX_DATA = {
      "sub_limits": [
       {
        "id": "checkup",
+       "label": "Check-up & vaccination",
        "sub_category": "Full Body Checkup & Vaccinations for Parents/Grandparents",
        "limit_myr": 1000
       }
@@ -182,7 +185,8 @@ const TAX_DATA = {
      "required_documentation": "Official receipts from registered clinics/hospitals/daycare centres, prescription letters, and carer work permits/contract (if applicable)",
      "app": {
       "id": "medparents",
-      "label": "Parents' & grandparents' care"
+      "label": "Parents' & grandparents' care",
+      "hint": "Treatment, dental, nursing home, daycare or a carer for your parents (grandparents from YA 2027)"
      }
     }
    ]
@@ -199,32 +203,38 @@ const TAX_DATA = {
      "sub_limits": [
       {
        "id": "checkup",
+       "label": "Check-up, mental health & test kits",
        "sub_category": "Complete Health Examination, Mental Health Consultations & Diagnostic Kits",
        "limit_myr": 1000
       },
       {
        "id": "dental",
+       "label": "Dental",
        "sub_category": "Dental Treatments (Non-cosmetic)",
        "limit_myr": 1000
       },
       {
        "id": "vaccine",
+       "label": "Vaccination",
        "sub_category": "Vaccinations (NPRA-registered)",
        "limit_myr": 1000
       },
       {
        "id": "fertility",
+       "label": "Fertility treatment",
        "sub_category": "Fertility Treatments (IVF, IUI, ICSI)",
        "limit_myr": 10000
       },
       {
        "id": "postnatal",
+       "label": "Postnatal care",
        "sub_category": "Postnatal Care Services (New in YA 2027)",
        "limit_myr": 3000,
        "since_ya": 2027
       },
       {
        "id": "breastfeeding",
+       "label": "Breastfeeding equipment",
        "sub_category": "Breastfeeding Equipment (Integrated in YA 2027)",
        "limit_myr": 1000,
        "since_ya": 2027
@@ -245,7 +255,8 @@ const TAX_DATA = {
      "required_documentation": "Official clinic/hospital tax receipts, itemized invoices, test reports, and registered doctor certificates",
      "app": {
       "id": "medical",
-      "label": "Medical (self, spouse, child)"
+      "label": "Medical (self, spouse, child)",
+      "hint": "Serious illness, fertility treatment, full check-up, dental, vaccination"
      }
     },
     {
@@ -264,7 +275,8 @@ const TAX_DATA = {
      "required_documentation": "Diagnostic report from registered specialist doctor, official tuition/therapy receipts, and practitioner registration details",
      "app": {
       "id": "learning",
-      "label": "Learning-disability support (child)"
+      "label": "Learning-disability support (child)",
+      "hint": "Assessment, early intervention and therapy for a child with ASD, ADHD, Down syndrome, dyslexia or GDD"
      }
     },
     {
@@ -280,7 +292,8 @@ const TAX_DATA = {
      "required_documentation": "Official purchase receipts",
      "app": {
       "id": "breastfeeding",
-      "label": "Breastfeeding equipment"
+      "label": "Breastfeeding equipment",
+      "hint": "Breast pump, milk storage and cooler bags — once every two years"
      }
     }
    ]
@@ -395,7 +408,8 @@ const TAX_DATA = {
      "required_documentation": "Official monthly receipts issued by registered childcare centres / kindergartens with registration number",
      "app": {
       "id": "childcare",
-      "label": "Childcare & kindergarten fees"
+      "label": "Childcare & kindergarten fees",
+      "hint": "Registered taska, tadika or after-school centre, child 12 or under"
      }
     },
     {
@@ -412,7 +426,8 @@ const TAX_DATA = {
      "app": {
       "id": "sspn",
       "label": "SSPN (child savings)",
-      "common": true
+      "common": true,
+      "hint": "Deposits minus withdrawals in your child's SSPN for the year"
      }
     }
    ]
@@ -429,17 +444,20 @@ const TAX_DATA = {
      "sub_limits": [
       {
        "id": "upskill",
+       "label": "Upskilling course",
        "sub_category": "Personal Upskilling & Technical/Vocational Courses",
        "limit_myr": 2000
       },
       {
        "id": "tvet",
+       "label": "TVET course",
        "sub_category": "TVET Skill Improvement Courses (YA 2027 expansion)",
        "limit_myr": 3000,
        "since_ya": 2027
       },
       {
        "id": "tuition",
+       "label": "Children's STEM, language & religion classes",
        "sub_category": "Children Special Tuition/Classes (YA 2027 expansion - STEM, Languages, Religion)",
        "limit_myr": 2000,
        "since_ya": 2027
@@ -455,7 +473,8 @@ const TAX_DATA = {
      "required_documentation": "Tuition fee receipts, course registration slips, and accreditation certificates",
      "app": {
       "id": "education",
-      "label": "Education fees (own)"
+      "label": "Education fees (own)",
+      "hint": "Your own diploma, degree, masters or professional course"
      }
     }
    ]
@@ -472,12 +491,14 @@ const TAX_DATA = {
      "sub_limits": [
       {
        "id": "ai",
+       "label": "AI subscription",
        "sub_category": "Artificial Intelligence (AI) Software Subscriptions (New in YA 2027)",
        "limit_myr": 2500,
        "since_ya": 2027
       },
       {
        "id": "pet",
+       "label": "Pet adoption & vet care",
        "sub_category": "Pet Shelter Adoption & Veterinary Care (New in YA 2027)",
        "limit_myr": 2500,
        "since_ya": 2027
@@ -496,7 +517,8 @@ const TAX_DATA = {
      "app": {
       "id": "lifestyle",
       "label": "Lifestyle",
-      "common": true
+      "common": true,
+      "hint": "Books, phone, laptop or tablet, home internet, skill courses"
      }
     },
     {
@@ -507,6 +529,7 @@ const TAX_DATA = {
      "sub_limits": [
       {
        "id": "shoes",
+       "label": "Sports shoes",
        "sub_category": "Sports Shoes (New in YA 2027)",
        "limit_myr": 300,
        "since_ya": 2027
@@ -524,7 +547,8 @@ const TAX_DATA = {
      "app": {
       "id": "sports",
       "label": "Sports & gym",
-      "common": true
+      "common": true,
+      "hint": "Gym, court rental, sports equipment, competition fees"
      }
     },
     {
@@ -542,7 +566,8 @@ const TAX_DATA = {
      "required_documentation": "Tax invoice and installation service receipts under taxpayer's name",
      "app": {
       "id": "ev",
-      "label": "EV charging, food-waste & home CCTV"
+      "label": "EV charging, food-waste & home CCTV",
+      "hint": "EV charger or subscription, food-waste machine, home CCTV"
      }
     },
     {
@@ -559,7 +584,8 @@ const TAX_DATA = {
      "required_documentation": "Official entrance tickets and digital payment receipts",
      "app": {
       "id": "tourism",
-      "label": "Domestic tourism & culture"
+      "label": "Domestic tourism & culture",
+      "hint": "Tickets to museums, parks, heritage sites and cultural shows in Malaysia"
      }
     }
    ]
@@ -584,7 +610,8 @@ const TAX_DATA = {
       "id": "epf",
       "label": "EPF (yours + voluntary)",
       "common": true,
-      "employeeEpf": true
+      "employeeEpf": true,
+      "hint": "Your EPF share plus voluntary top-ups or i-Saraan"
      }
     },
     {
@@ -603,7 +630,8 @@ const TAX_DATA = {
      "app": {
       "id": "lifeins",
       "label": "Life insurance / family takaful",
-      "common": true
+      "common": true,
+      "hint": "Life insurance or family takaful premiums — not motor or fire"
      }
     },
     {
@@ -622,7 +650,8 @@ const TAX_DATA = {
      "app": {
       "id": "insurance",
       "label": "Education & medical insurance",
-      "common": true
+      "common": true,
+      "hint": "Medical card or your child's education-plan premiums"
      }
     },
     {
@@ -633,6 +662,7 @@ const TAX_DATA = {
      "sub_limits": [
       {
        "id": "voluntary",
+       "label": "Voluntary Lindung 24 Jam",
        "sub_category": "Voluntary Lindung 24 Jam / Lindung Kendiri Protection (YA 2027 expansion)",
        "limit_myr": 150,
        "since_ya": 2027
@@ -648,7 +678,8 @@ const TAX_DATA = {
      "required_documentation": "EA Form / SOCSO SKSPS payment receipts",
      "app": {
       "id": "socso",
-      "label": "SOCSO / EIS"
+      "label": "SOCSO / EIS",
+      "hint": "Your SOCSO and EIS deductions, or SKSPS if self-employed"
      }
     },
     {
@@ -666,7 +697,8 @@ const TAX_DATA = {
      "app": {
       "id": "prs",
       "label": "PRS / deferred annuity",
-      "common": true
+      "common": true,
+      "hint": "Private Retirement Scheme or deferred annuity contributions"
      }
     }
    ]
@@ -683,11 +715,13 @@ const TAX_DATA = {
      "sub_limits": [
       {
        "id": "low",
+       "label": "Home up to RM500,000",
        "sub_category": "Residential property valued up to RM500,000",
        "limit_myr": 7000
       },
       {
        "id": "mid",
+       "label": "Home RM500,001–750,000",
        "sub_category": "Residential property valued between RM500,001 and RM750,000",
        "limit_myr": 5000
       }
@@ -699,7 +733,8 @@ const TAX_DATA = {
      "required_documentation": "Executed Sales & Purchase Agreement (SPA) and annual housing loan interest statement issued by financing institution",
      "app": {
       "id": "housing",
-      "label": "First-home loan interest"
+      "label": "First-home loan interest",
+      "hint": "Interest on your first home loan, for 3 years from the first payment"
      }
     }
    ]

@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.45.0";
+const APP_VERSION = "1.46.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -6204,7 +6204,7 @@ function animatePanelIn(panel, dir) {
 
 function tabDirection(from, to) {
   // Pages under Home sit one level deeper than every tab.
-  const depth = (n) => (n === "daily" || n === "reports" ? 1 : 0);
+  const depth = (n) => (n === "daily" || n === "reports" || n === "tax" ? 1 : 0);
   if (depth(to) !== depth(from)) return depth(to) > depth(from) ? 1 : -1;
   const a = TAB_ORDER.indexOf(from), b = TAB_ORDER.indexOf(to);
   return a < 0 || b < 0 || a === b ? 0 : b > a ? 1 : -1;
@@ -9873,6 +9873,12 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.46.0": [
+    "<strong>Tax has its own page</strong> — Home → Tax, or the card on Reports. Your refund sits on top with tax due next to the PCB you've paid, and \"How it's worked out\" shows every step from income to refund.",
+    "<strong>Tap a relief to open it</strong> — reliefs are tiles now. Open one to see the limits inside it (dental, check-ups, fertility…), the claims you've filed under it, and claim straight into it.",
+    "<strong>Decide spends one at a time</strong> — To check shows one undecided spend with the relief it fits and what claiming it would save. Your income, PCB and family details are a tap away, and the form only opens when you need it.",
+    "<strong>Privacy mode now covers tax</strong> — every ringgit on the tax page and in the claim prompts hides with the eye button, like the rest of the app.",
+  ],
   "1.45.0": [
     "<strong>Tax refund estimate</strong> — Reports → Tax refund estimate works out your likely LHDN refund from your income and the PCB already deducted, using the YA 2026–2027 reliefs, and shows what each relief is still worth to you.",
     "<strong>Never miss a claim</strong> — when something you buy counts as tax relief, Duitful asks if you want to claim it, then offers to keep the receipt and any documents LHDN may ask for. Review your whole year any time, with a check-in in November and again before e-Filing opens.",
@@ -13518,6 +13524,7 @@ const SEARCH_FEATURES = [
   { title: "Upcoming payments", where: "Home", kw: "upcoming due bills soon akan datang tarikh bayar", go: ["dashboard", "#upcoming-card"] },
   { title: "All entries", where: "Home", kw: "all entries history list transactions semua catatan sejarah senarai transaksi", go: ["daily", "#daily-list"] },
   { title: "Reports", where: "Home", kw: "reports chart category trend yearly monthly spending laporan carta kategori tahunan bulanan perbelanjaan", go: ["reports", "#tab-reports"] },
+  { title: "Tax refund estimate", where: "Home", kw: "tax lhdn relief refund pcb e-filing claim receipt cukai pelepasan bayaran balik resit", go: ["tax", "#tab-tax"] },
   { title: "Spending calendar", where: "Monthly", kw: "calendar day daily kalendar hari", go: ["flow", "#spend-cal"] },
   { title: "Income", where: "Monthly", kw: "income salary pay gaji pendapatan elaun", go: ["flow", '[aria-controls="form-income"]'] },
   { title: "Import income from CSV", where: "Monthly", kw: "import income csv bulk import pendapatan", go: ["flow", "#btn-bulk-import-income"] },
