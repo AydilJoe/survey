@@ -7183,8 +7183,13 @@ check('the brand catalogue makes no network calls at all',
   check('tax: opt-in offered on Reports, card hidden', await page.locator('#tax-optin').evaluate(e => !e.hidden)
     && await page.locator('#tax-card').isHidden());
   await page.click('#btn-tax-enable');
-  await page.waitForTimeout(200);
-  check('tax: card appears after one tap', await page.locator('#tax-card').evaluate(e => !e.hidden));
+  await page.waitForTimeout(300);
+  check('tax: one tap turns it on and lands on the Tax page',
+    await page.locator('#tax-card').evaluate(e => !e.hidden) && await page.locator('#tab-tax').evaluate(e => e.classList.contains('active')));
+  check('tax: the page is cards — refund, reliefs, claims, details',
+    await S(() => ['tax-card', 'tax-reliefs-card', 'tax-claims-card', 'tax-details-card'].every(id => !document.getElementById(id).hidden)));
+  check('tax: Reports carries a way in, and Home links to it',
+    await S(() => !document.getElementById('tax-entry').hidden && document.getElementById('tax-optin').hidden && !document.getElementById('today-tax-link').hidden));
   const hero1 = await page.locator('#tax-hero').textContent();
   // One logged month of RM6,000 → RM72,000 a year → RM63,000 chargeable → RM1,680 tax, no PCB typed yet.
   const sum0 = await S(() => taxSummary(taxYear()));
@@ -7243,7 +7248,7 @@ check('the brand catalogue makes no network calls at all',
     JSON.stringify(vault));
   check('tax: receipt is not in the saved state blob',
     !(await S(() => JSON.stringify(state).includes('data:image'))));
-  await S(() => document.getElementById('tabbtn-reports').click());
+  await S(() => document.getElementById('tabbtn-tax').click());
   await page.waitForTimeout(200);
   const relTxt = await page.locator('#tax-reliefs').innerText();
   check('tax: Reports shows lifestyle RM120 of RM2,500', /Lifestyle[\s\S]*120\.00[\s\S]*RM 2,500(?!\.)/.test(relTxt), relTxt.replace(/\n/g, ' | '));
@@ -7285,7 +7290,7 @@ check('the brand catalogue makes no network calls at all',
     !(await reviewOpen()) && (await S(() => taxState().claims.length)) === 2);
 
   // 4) "Review my year" (manual full-year refresh) brings it back; claim without a receipt.
-  await S(() => document.getElementById('tabbtn-reports').click());
+  await S(() => document.getElementById('tabbtn-tax').click());
   await page.click('#btn-tax-review');
   await page.waitForTimeout(300);
   check('tax review: "Review my year" brings back what was left for later',
@@ -7382,12 +7387,12 @@ check('the brand catalogue makes no network calls at all',
   // 6b) Privacy mode hides every ringgit on the tax card and in the review modal.
   const taxLeaks = await S(() => {
     document.body.classList.add('private');
-    document.getElementById('tabbtn-reports').click();
+    document.getElementById('tabbtn-tax').click();
     renderAll();
     taxOpenReview(taxReviewItems(taxYear()), 'year', taxYear());
     const MONEY = /RM\s? ?[\d,]+\.\d{2}/;
     const found = [];
-    for (const root of [document.getElementById('tax-card'), document.getElementById('tax-review-dialog')]) {
+    for (const root of [document.getElementById('tab-tax'), document.getElementById('tax-entry'), document.getElementById('tax-review-dialog')]) {
       const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
       let n;
       while ((n = walk.nextNode())) {
@@ -7418,6 +7423,60 @@ check('the brand catalogue makes no network calls at all',
   check('tax import: imported entries are older than the delta baseline', imp.since > imp.newest, JSON.stringify(imp));
   check('tax lock: auto-lock closes the review modal so nothing shows above the lock',
     await S(() => { taxOpenReview(taxReviewItems(taxYear()), 'year', taxYear()); const was = document.getElementById('tax-review-dialog').open; taxCloseAll(); return was && !document.getElementById('tax-review-dialog').open; }));
+
+  // 7b) The cards are interactive.
+  await S(() => document.getElementById('tabbtn-tax').click());
+  await page.waitForTimeout(150);
+  await page.click('.tax-tile[data-tax-relief-open="medical"]');
+  await page.waitForTimeout(200);
+  const detTxt = await page.locator('#tax-relief-detail').innerText();
+  check('tax tiles: a tile opens its detail — sub-limits and the claims under it',
+    await page.locator('#tax-relief-detail').isVisible() && /Dental/.test(detTxt) && /Your claims \(1\)/.test(detTxt)
+    && await page.locator('.tax-tile[data-tax-relief-open="medical"]').getAttribute('aria-expanded') === 'true', detTxt.replace(/\n/g, ' | '));
+  await page.click('[data-tax-relief-add="medical"]');
+  await page.waitForTimeout(200);
+  check('tax tiles: "Claim under Medical" opens the claim dialog on that relief',
+    await page.locator('#tax-claim-dialog').evaluate(d => d.open) && await page.inputValue('#tax-claim-relief') === 'medical');
+  await page.click('#tax-claim-cancel');
+  await page.click('.tax-tile[data-tax-relief-open="medical"]');
+  await page.waitForTimeout(150);
+  check('tax tiles: tapping the open tile closes it', await page.locator('#tax-relief-detail').isHidden());
+  await page.click('[data-tax-filter="missing"]');
+  await page.waitForTimeout(150);
+  const missingRows = await page.locator('#tax-claims li').count();
+  const allClaims = await S(() => taxYearClaims(taxYear()).length);
+  const missingClaims = await S(() => taxYearClaims(taxYear()).filter(c => !c.receiptId).length);
+  check('tax claims: "Needs receipt" shows only claims without one',
+    missingRows === missingClaims && missingRows < allClaims, `${missingRows}/${missingClaims}/${allClaims}`);
+  await page.click('[data-tax-filter="all"]');
+  await page.click('.tax-fact[data-tax-numbers="tax-in-pcb"]');
+  await page.waitForTimeout(200);
+  check('tax details: a fact opens the details dialog at that field',
+    await page.locator('#tax-numbers-dialog').evaluate(d => d.open) && await S(() => document.activeElement && document.activeElement.id === 'tax-in-pcb'));
+  await page.fill('#tax-in-pcb', '2500');
+  await page.dispatchEvent('#tax-in-pcb', 'change');
+  await page.click('#tax-numbers-done');
+  await page.waitForTimeout(200);
+  check('tax details: an edit there updates the refund card',
+    await S(() => taxFigures(taxYear()).pcb === 2500) && /2,500\.00/.test(await page.locator('#tax-split-paid-val').textContent()));
+  const inbox = await S(() => {
+    state.dailyExpenses.push({ id: 'inbox1', kind: 'expense', date: todayISO(), amount: 60, category: 'Books', note: 'Kinokuniya', createdAt: 1 });
+    renderAll();
+    return { shown: !document.getElementById('tax-pending-wrap').hidden, txt: document.getElementById('tax-pending').innerText };
+  });
+  check('tax inbox: an undecided spend shows in To check with its relief', inbox.shown && /Kinokuniya/.test(inbox.txt) && /Lifestyle/.test(inbox.txt), inbox.txt);
+  await page.click('#tax-pending [data-tax-claim]');
+  await page.waitForTimeout(200);
+  check('tax inbox: "Claim it" opens the review modal on that spend', await reviewOpen() && /Kinokuniya/.test(await page.locator('#tax-review-what').textContent()));
+  await page.click('#tax-review-stop');
+  await page.waitForTimeout(200);
+  await S(() => { state.dailyExpenses = state.dailyExpenses.filter(e => e.id !== 'inbox1'); renderAll(); });
+  await page.click('#tabbtn-dashboard').catch(() => {});
+  await S(() => document.getElementById('tabbtn-reports').click());
+  await page.waitForTimeout(150);
+  await page.click('#tax-entry');
+  await page.waitForTimeout(200);
+  check('tax entry: the Reports card opens the Tax page', await page.locator('#tab-tax').evaluate(e => e.classList.contains('active')));
 
   // 8) Deleting the spending removes its claim and its files.
   const gone = await S(async () => {
