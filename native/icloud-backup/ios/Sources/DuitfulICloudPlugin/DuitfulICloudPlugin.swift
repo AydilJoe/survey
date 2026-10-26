@@ -37,20 +37,23 @@ public class DuitfulICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     private let queue = DispatchQueue(label: "app.duitful.icloud", qos: .userInitiated)
     private var container: URL?
 
-    /// `reason` says which of the two gates failed, so the app can tell
-    /// someone what to change instead of one generic line:
-    ///   "no-account"   — no iCloud identity: signed out, or iCloud Drive off
-    ///   "no-container" — iCloud is on, but this build can't open Duitful's
-    ///                    container (entitlement/profile, or iCloud for
-    ///                    Duitful switched off)
+    /// Opening the container is the test. ubiquityIdentityToken was the
+    /// first gate here and came back nil on a phone with iCloud Drive on and
+    /// Duitful switched on in Settings, so it only explains a failure now:
+    ///   "no-account"   — no container and no iCloud identity (signed out,
+    ///                    or iCloud Drive off)
+    ///   "no-container" — iCloud is on, but Duitful's container won't open
+    /// On a fresh install iCloud can take a moment to set the container up,
+    /// so one failed attempt is retried after a short wait.
     @objc func status(_ call: CAPPluginCall) {
-        guard FileManager.default.ubiquityIdentityToken != nil else {
-            call.resolve(["available": false, "reason": "no-account"])
-            return
-        }
         queue.async {
-            let ok = self.fileURL() != nil
-            call.resolve(["available": ok, "reason": ok ? "" : "no-container"])
+            var ok = self.fileURL() != nil
+            if !ok {
+                Thread.sleep(forTimeInterval: 1.5)
+                ok = self.fileURL() != nil
+            }
+            let reason = ok ? "" : (FileManager.default.ubiquityIdentityToken == nil ? "no-account" : "no-container")
+            call.resolve(["available": ok, "reason": reason])
         }
     }
 
@@ -133,7 +136,11 @@ public class DuitfulICloudPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func fileURL() -> URL? {
         if container == nil {
+            // By name first; nil means "the first container in the
+            // entitlements", which is the same one, and is the form Apple's
+            // own samples use.
             container = FileManager.default.url(forUbiquityContainerIdentifier: Self.containerId)
+                ?? FileManager.default.url(forUbiquityContainerIdentifier: nil)
         }
         return container?
             .appendingPathComponent(Self.folder, isDirectory: true)
