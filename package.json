@@ -9,7 +9,7 @@
     "fetch:tesseract": "node scripts/fetch-tesseract.mjs",
     "build:guides": "node scripts/build-guides.mjs",
     "build:web": "node scripts/build-web.mjs",
-    "assets": "npx @capacitor/assets generate --iconBackgroundColor \"#e8dfd0\" --iconBackgroundColorDark \"#2a2420\" --splashBackgroundColor \"#e8dfd0\" --splashBackgroundColorDark \"#2a2420\" && node scripts/generate-stat-icon.mjs",
+    "assets": "npx @capacitor/assets generate --assetPath resources --iconBackgroundColor \"#e8dfd0\" --iconBackgroundColorDark \"#2a2420\" --splashBackgroundColor \"#e8dfd0\" --splashBackgroundColorDark \"#2a2420\" && node scripts/generate-stat-icon.mjs",
     "native:notification-listener": "node scripts/install-notification-listener.mjs",
     "patch:android": "node scripts/patch-android-aapt.mjs",
     "patch:android-plugins-agp9": "node scripts/patch-android-plugins-agp9.mjs",

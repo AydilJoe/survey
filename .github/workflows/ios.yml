@@ -178,8 +178,17 @@ jobs:
 
 
       # Real app icon + splash instead of Capacitor's placeholder logo.
+      # @capacitor/assets prints "No assets found" and exits 0 when it looks
+      # in the wrong folder, which shipped the first TestFlight build with
+      # Capacitor's blue X icon. Fail here if no iOS icon was written.
       - name: Generate native icons and splash
-        run: npm run assets
+        run: |
+          set -o pipefail
+          npm run assets 2>&1 | tee "$RUNNER_TEMP/assets.log"
+          grep -q "CREATE ios icon" "$RUNNER_TEMP/assets.log" || {
+            echo "::error::@capacitor/assets wrote no iOS app icon — the build would ship Capacitor's placeholder. Check --assetPath in package.json's assets script."
+            exit 1
+          }
 
       # Info.plist usage strings, export-compliance flag, Associated
       # Domains entitlement. Idempotent; see scripts/patch-ios.mjs.
