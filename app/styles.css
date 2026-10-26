@@ -7092,3 +7092,31 @@ html[data-theme="dark"] {
    wrap to a second line instead of ending in "…". */
 #toast { white-space: normal; width: max-content; border-radius: 18px; }
 .scan-type-pills[hidden] { display: none; }
+
+/* ---------- tax relief & refund estimate (tax.js) ---------- */
+.tax-optin-row { display: flex; align-items: center; gap: 0.75rem; justify-content: space-between; }
+.tax-optin-row .hint { margin: 0; }
+.tax-year { display: inline-flex; align-items: center; gap: 0.35rem; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; }
+.tax-card button.small { padding: 0.25rem 0.6rem; min-height: 0; font-size: 0.8rem; }
+.tax-card h3 { margin: 1.1rem 0 0.4rem; font-size: 0.95rem; }
+.tax-hero { display: flex; flex-direction: column; gap: 0.15rem; margin: 0.4rem 0 0.6rem; }
+.tax-hero strong { font-size: 1.9rem; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; color: var(--gain); }
+.tax-hero strong.is-owe { color: var(--danger); }
+.tax-nudge { margin: 0.4rem 0; padding: 0.55rem 0.7rem; border-radius: var(--r-md, 10px); background: var(--warn-bg); color: var(--warn); border: 0.5px solid var(--warn-line); font-size: 0.85rem; }
+.tax-list, .tax-reliefs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.tax-list li { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 0.75rem; align-items: center; padding: 0.55rem 0; border-top: 0.5px solid var(--line); }
+.tax-list li:first-child { border-top: 0; }
+.tax-row-main { display: flex; flex-direction: column; min-width: 0; }
+.tax-row-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.tax-row-amt { font-variant-numeric: tabular-nums; }
+.tax-row-actions { grid-column: 1 / -1; display: flex; gap: 0.4rem; }
+.tax-relief-top { display: flex; justify-content: space-between; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.tax-bar { height: 6px; border-radius: var(--r-pill); background: var(--card-soft); border: 0.5px solid var(--line); overflow: hidden; margin: 0.25rem 0; }
+.tax-bar-fill { height: 100%; background: var(--accent); border-radius: var(--r-pill); transition: width 0.35s ease; }
+.tax-bar-fill.is-full { background: var(--accent-3); }
+.tax-inputs { margin-top: 1rem; }
+.tax-inputs summary { cursor: pointer; font-weight: 500; }
+.tax-receipt { margin-top: 0.5rem; }
+.tax-receipt img { display: block; max-width: 100%; max-height: 200px; border-radius: 8px; border: 0.5px solid var(--line); margin: 0.4rem 0; }
+.tax-receipt-full { display: block; max-width: 100%; max-height: 70vh; margin: 0.5rem auto; border-radius: 8px; }
+.tax-file-btn { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none; }

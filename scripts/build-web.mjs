@@ -25,6 +25,7 @@ const APP_FILES = [
   "drive-sync.js",
   "investments.js",
   "split.js",
+  "tax.js",
   "brands.js",
   "analytics.js",
   "theme-boot.js",

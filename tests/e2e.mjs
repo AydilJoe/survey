@@ -6951,6 +6951,209 @@ check('the brand catalogue makes no network calls at all',
     })));
 }
 
+// ---------- Tax relief: refund maths, suggestions, claims, receipt vault ----------
+{
+  // Pure maths against hand-worked LHDN figures.
+  const m = await S(() => ({
+    t35: taxBandTax(35000), t50: taxBandTax(50000), t100: taxBandTax(100000),
+    p35: taxPayableFor(35000, 0).payable, p36: taxPayableFor(36000, 0).payable,
+    zk: taxPayableFor(60000, 99999).payable,
+    base: taxEstimate({ income: 80000, pcb: 4000 }),
+    claimed: taxEstimate({ income: 80000, pcb: 4000, claimsByRelief: { lifestyle: 3000 } }),
+    kids: taxEstimate({ income: 80000, children: 2, spouse: true }),
+    epf: taxEstimate({ income: 80000, epfPaid: 5000 }),
+    low: taxEstimate({ income: 20000, pcb: 100 }),
+  }));
+  check('tax: RM35,000 chargeable = RM600 before rebate', m.t35 === 600, String(m.t35));
+  check('tax: RM50,000 chargeable = RM1,500', m.t50 === 1500, String(m.t50));
+  check('tax: RM100,000 chargeable = RM9,400', m.t100 === 9400, String(m.t100));
+  check('tax: RM400 rebate at RM35,000, gone at RM36,000', m.p35 === 200 && m.p36 === 660, `${m.p35}/${m.p36}`);
+  check('tax: zakat can wipe out the bill but not go negative', m.zk === 0, String(m.zk));
+  // 80k - 9k = 71k → 3,700 (to 70k) + 190 = 3,890 tax; PCB 4,000 → refund 110.
+  check('tax: RM80k salary, no claims → RM3,890 tax, RM110 refund',
+    m.base.payable === 3890 && m.base.balance === 110, `${m.base.payable}/${m.base.balance}`);
+  // lifestyle capped at 2,500 → chargeable 68,500 → 3,535; saved 355.
+  check('tax: lifestyle claim caps at RM2,500 and saves RM355',
+    m.claimed.used.lifestyle === 2500 && m.claimed.payable === 3535 && m.claimed.savedByClaims === 355,
+    JSON.stringify([m.claimed.used.lifestyle, m.claimed.payable, m.claimed.savedByClaims]));
+  check('tax: spouse (4,000) + 2 children (4,000) lower the chargeable income',
+    m.kids.autoRelief === 17000 && m.kids.chargeable === 63000, `${m.kids.autoRelief}/${m.kids.chargeable}`);
+  check('tax: own EPF counts toward the RM4,000 EPF relief, capped',
+    m.epf.used.epf === 4000, String(m.epf.used.epf));
+  check('tax: income under the threshold owes nothing and the full PCB comes back',
+    m.low.payable === 0 && m.low.balance === 100, `${m.low.payable}/${m.low.balance}`);
+  check('tax: unused common reliefs are offered with a real saving',
+    m.base.opportunities.length > 3 && m.base.opportunities.every(o => o.saving > 0 && o.room > 0),
+    JSON.stringify(m.base.opportunities.slice(0, 2)));
+
+  // Suggestions: the words people actually type.
+  const sug = await S(() => ({
+    book: taxSuggestRelief('Books', 'Popular'),
+    parents: taxSuggestRelief('Medical', "Mak's clinic visit"),
+    self: taxSuggestRelief('', 'Dental check-up'),
+    food: taxSuggestRelief('Food', 'nasi lemak'),
+    carTakaful: taxSuggestRelief('Insurance', 'car takaful renewal'),
+    life: taxSuggestRelief('', 'AIA premium'),
+    gym: taxSuggestRelief('Fitness', 'Gym membership'),
+    sspn: taxSuggestRelief('SSPN', 'top-up'),
+    net: taxSuggestRelief('Bills', 'Unifi internet'),
+    phoneBill: taxSuggestRelief('Bills', 'Maxis phone bill'),
+  }));
+  check('suggest: books → lifestyle', sug.book === 'lifestyle', sug.book);
+  check("suggest: parent's clinic → parents' medical, not own medical", sug.parents === 'medparents', sug.parents);
+  check('suggest: dental check-up → medical', sug.self === 'medical', sug.self);
+  check('suggest: nasi lemak and car takaful are NOT tax relief', sug.food === null && sug.carTakaful === null,
+    `${sug.food}/${sug.carTakaful}`);
+  check('suggest: life insurance, gym, SSPN, home internet',
+    sug.life === 'lifeins' && sug.gym === 'sports' && sug.sspn === 'sspn' && sug.net === 'lifestyle',
+    JSON.stringify(sug));
+  check('suggest: a phone bill is not lifestyle relief', sug.phoneBill === null, String(sug.phoneBill));
+
+  // Live flow. Salary logged for the current month so the card has an income.
+  const png = Buffer.from((await S(() => {
+    const c = document.createElement('canvas'); c.width = 60; c.height = 90;
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 60, 90);
+    x.fillStyle = '#000'; x.fillRect(5, 5, 50, 8);
+    return c.toDataURL('image/png').split(',')[1];
+  })), 'base64');
+  await S(() => {
+    state.income = [{ id: 'sal', name: 'Salary', amount: 6000, month: currentMonthISO(), day: 25 }];
+    state.dailyExpenses = [];
+    save(); renderAll();
+  });
+  await page.click('#tabbtn-dashboard');
+  await S(() => document.getElementById('tabbtn-reports').click());
+  await page.waitForTimeout(200);
+  check('tax: opt-in offered on Reports, card hidden', await page.locator('#tax-optin').evaluate(e => !e.hidden)
+    && await page.locator('#tax-card').isHidden());
+  await page.click('#btn-tax-enable');
+  await page.waitForTimeout(200);
+  check('tax: card appears after one tap', await page.locator('#tax-card').evaluate(e => !e.hidden));
+  const hero1 = await page.locator('#tax-hero').textContent();
+  // One logged month of RM6,000 → RM72,000 a year → RM63,000 chargeable → RM1,680 tax, no PCB typed yet.
+  const sum0 = await S(() => taxSummary(taxYear()));
+  check('tax: one logged month is annualised (RM6,000 × 12), not left at year-to-date',
+    sum0.inputs.income === 72000 && sum0.inputs.projected && sum0.payable > 0, JSON.stringify([sum0.inputs.income, sum0.payable]));
+  check('tax: hero shows an amount for the tracked year', /RM\s?[\d,]+\.\d\d/.test(hero1) && hero1 !== 'RM 0.00', hero1);
+
+  // 1) Typed expense → toast with a Claim action → dialog → receipt attached.
+  await S(() => document.getElementById('tabbtn-dashboard').click());
+  await S(() => setDailyMoreOpen(true));
+  await page.fill('#form-daily input[name="amount"]', '120');
+  await page.fill('#form-daily input[name="category"]', 'Books');
+  await page.fill('#form-daily input[name="note"]', 'Popular bookstore');
+  await page.click('#form-daily button[type="submit"]');
+  await page.waitForTimeout(400);
+  const toastTxt = await page.locator('#toast').textContent();
+  check('tax: a deductible expense raises a toast with a Claim action',
+    /tax relief/i.test(toastTxt) && await page.locator('#toast .toast-action').count() === 1, toastTxt);
+  await page.click('#toast .toast-action');
+  await page.waitForTimeout(200);
+  check('tax: claim dialog opens pre-filled (lifestyle, RM120)',
+    await page.locator('#tax-claim-dialog').evaluate(d => d.open)
+    && await page.inputValue('#tax-claim-relief') === 'lifestyle'
+    && Number(await page.inputValue('#tax-claim-amount')) === 120);
+  await page.setInputFiles('#tax-claim-file', { name: 'r.png', mimeType: 'image/png', buffer: png });
+  await page.waitForTimeout(300);
+  check('tax: chosen receipt previews in the dialog', await page.locator('#tax-claim-receipt-img').evaluate(i => !i.hidden && !!i.src));
+  await page.click('#tax-claim-save');
+  await page.waitForTimeout(600);
+  const c1 = await S(() => taxState().claims.slice());
+  check('tax: claim saved with a receipt id', c1.length === 1 && c1[0].relief === 'lifestyle' && c1[0].amount === 120 && !!c1[0].receiptId,
+    JSON.stringify(c1));
+  const vault = await S(async (rid) => {
+    const raw = await taxIdb('readonly', (s) => s.get(rid));
+    const back = await taxReceiptGet(rid);
+    const head = Array.from(new Uint8Array(raw.ct).slice(0, 4));
+    return { type: back && back.type, size: back && back.size, head };
+  }, c1[0].receiptId);
+  check('tax: receipt is stored encrypted (no PNG/JPEG magic at rest) and decrypts back to an image',
+    vault.type === 'image/jpeg' && vault.size > 100
+    && !(vault.head[0] === 0xff && vault.head[1] === 0xd8) && !(vault.head[0] === 0x89 && vault.head[1] === 0x50),
+    JSON.stringify(vault));
+  check('tax: receipt is not in the saved state blob',
+    !(await S(() => JSON.stringify(state).includes('data:image'))));
+  await S(() => document.getElementById('tabbtn-reports').click());
+  await page.waitForTimeout(200);
+  const relTxt = await page.locator('#tax-reliefs').innerText();
+  check('tax: Reports shows lifestyle RM120 of RM2,500', /Lifestyle[\s\S]*120\.00[\s\S]*2,500\.00/.test(relTxt), relTxt.replace(/\n/g, ' | '));
+  check('tax: claim row offers the receipt', await page.locator('#tax-claims [data-tax-view]').count() === 1);
+  await page.click('#tax-claims [data-tax-view]');
+  await page.waitForTimeout(300);
+  check('tax: receipt viewer shows the decrypted photo',
+    await page.locator('#tax-receipt-dialog').evaluate(d => d.open)
+    && await page.locator('#tax-receipt-img').evaluate(i => i.complete && i.naturalWidth > 0));
+  await page.click('#tax-receipt-close');
+
+  // 2) Scanner hand-off: a stashed photo opens the dialog by itself, receipt attached.
+  await S(() => document.getElementById('tabbtn-dashboard').click());
+  await S(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    taxStashScanReceipt(new Blob([bytes], { type: 'image/png' }));
+  }, png.toString('base64'));
+  await page.fill('#form-daily input[name="amount"]', '89');
+  await page.fill('#form-daily input[name="category"]', 'Fitness');
+  await page.fill('#form-daily input[name="note"]', 'Gym membership');
+  await page.click('#form-daily button[type="submit"]');
+  await page.waitForTimeout(900);
+  check('tax: a scanned deductible receipt opens the claim dialog with the photo attached',
+    await page.locator('#tax-claim-dialog').evaluate(d => d.open)
+    && await page.inputValue('#tax-claim-relief') === 'sports'
+    && await page.locator('#tax-claim-receipt-img').evaluate(i => !i.hidden));
+  await page.click('#tax-claim-cancel');
+  await page.waitForTimeout(150);
+  check('tax: "Not now" leaves the expense to review, no claim, no orphan photo',
+    (await S(() => taxState().claims.length)) === 1
+    && (await S(() => taxPendingExpenses(taxYear()).length)) === 1
+    && (await S(() => taxIdb('readonly', (s) => s.count()))) === 1);
+  check('tax: the stashed photo is spent after one submit', (await S(() => taxTakeScanReceipt())) === null);
+
+  // 3) Deleting the spending removes its claim and its receipt.
+  const gone = await S(async () => {
+    const id = taxState().claims[0].entryId;
+    removeDailyEntry(id);
+    await new Promise(r => setTimeout(r, 200));
+    return { claims: taxState().claims.length, photos: await taxIdb('readonly', (s) => s.count()) };
+  });
+  check('tax: deleting the expense deletes the claim and the receipt photo', gone.claims === 0 && gone.photos === 0, JSON.stringify(gone));
+
+  // 4) CSV round trip keeps settings and claims (never photos).
+  const rt = await S(() => {
+    const t = taxState();
+    t.enabled = true; t.spouse = true; t.children = 2;
+    t.figures['2026'] = { pcb: 4321, epf: 7777, income: 90000 };
+    t.claims = [coerceTaxClaim({ relief: 'prs', amount: 1500, date: '2026-03-04', note: 'PRS top-up', receiptId: 'x' })];
+    const csv = toCSV();
+    const back = fromCSV(csv);
+    return { hasRow: /(^|\n)tax-claim,prs,1500,/.test(csv), t: back.tax };
+  });
+  check('tax csv: export writes a tax-claim row', rt.hasRow);
+  check('tax csv: settings and claim survive a round trip; photo link does not',
+    rt.t.enabled && rt.t.spouse && rt.t.children === 2
+    && rt.t.figures['2026'].pcb === 4321 && rt.t.figures['2026'].epf === 7777 && rt.t.figures['2026'].income === 90000
+    && rt.t.claims.length === 1 && rt.t.claims[0].relief === 'prs' && rt.t.claims[0].amount === 1500
+    && rt.t.claims[0].date === '2026-03-04' && rt.t.claims[0].receiptId === '',
+    JSON.stringify(rt.t));
+  await S(() => { taxState().claims = []; taxState().figures = {}; save(); renderAll(); });
+
+  // 5) A passcode change must not strand the saved photos.
+  const rk = await S(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const id = await taxReceiptPut(new Blob([bytes], { type: 'image/jpeg' }));
+    const orig = aesKey;
+    const k2 = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    await taxReceiptsRekey(orig, k2);
+    aesKey = k2;
+    const afterRekey = await taxReceiptGet(id);
+    await taxReceiptsRekey(k2, orig);
+    aesKey = orig;
+    const restored = await taxReceiptGet(id);
+    await taxReceiptDelete(id);
+    return { afterRekey: afterRekey && afterRekey.size, restored: restored && restored.size };
+  }, png.toString('base64'));
+  check('tax: receipts reseal under a new vault key and open again', rk.afterRekey > 0 && rk.restored > 0, JSON.stringify(rk));
+}
+
 // -- the install counter must stay narrow --
 // It exists to answer "how many people actually use this", and nothing else.
 // If it ever starts reporting in a plain tab, in the native shell, or more
