@@ -1,8 +1,17 @@
-name: iOS — TestFlight
+name: iOS — TestFlight / signed IPA
 
-# Manual only. There is no push trigger on purpose: every run consumes a
-# macOS runner (~15 min) and, on the testflight lane, an App Store Connect
-# upload slot. Press the button when you actually want a build.
+# Manual, or called by release.yml on a version tag. There is no push trigger
+# on purpose: every run consumes a macOS runner (~15 min) and, on the
+# testflight lane, an App Store Connect upload slot.
+#
+# Three lanes:
+#   build-only   unsigned; proves it compiles; unsigned IPA for AltStore.
+#   signed-ipa   signed with an App Store distribution certificate and
+#                profile (created from the API key below) and kept as the
+#                `duitful-signed-ipa` artifact. NOT uploaded anywhere.
+#                An App Store IPA installs only through TestFlight / the
+#                App Store — it cannot be sideloaded onto a device.
+#   testflight   the same signed IPA, uploaded to TestFlight as well.
 #
 # Owner setup lives in IOS_BUILD.md — read that first if this is your first
 # run. Short version: enrol in the Apple Developer Program, create an App
@@ -18,6 +27,17 @@ name: iOS — TestFlight
 # `duitful-unsigned-ipa` artifact you can sideload with AltStore and a free
 # Apple ID — see "Test free with AltStore" in IOS_BUILD.md.
 on:
+  workflow_call:
+    inputs:
+      lane:
+        type: string
+        default: signed-ipa
+      skip_associated_domains:
+        type: boolean
+        default: false
+      revoke_stale_certs:
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       lane:
@@ -25,6 +45,7 @@ on:
         type: choice
         default: build-only
         options:
+          - signed-ipa
           - testflight
           - build-only
       skip_associated_domains:
@@ -64,15 +85,24 @@ jobs:
       # xcodebuild -showBuildSettings is slow on a cold runner; the default
       # 10s timeout trips before Pods have been indexed.
       FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
-      # CFBundleVersion. github.run_number only ever increases, which is
-      # exactly App Store Connect's requirement for build numbers. The
-      # marketing version comes from package.json (see the Fastfile).
-      DUITFUL_BUILD_NUMBER: ${{ github.run_number }}
+      # The marketing version comes from package.json (see the Fastfile); the
+      # build number (CFBundleVersion) is computed in the first step.
       DUITFUL_RECYCLE_CERTS: ${{ inputs.revoke_stale_certs && '1' || '0' }}
       DUITFUL_IOS_SKIP_ASSOCIATED_DOMAINS: ${{ inputs.skip_associated_domains && '1' || '0' }}
 
     steps:
       - uses: actions/checkout@v4
+
+      # CFBundleVersion must only ever go up for App Store Connect, and this
+      # file can be reached from two workflows whose github.run_number
+      # counters are independent — so a counter would eventually collide or
+      # run backwards. A UTC timestamp cannot: yymmdd.Hmm, e.g. 261026.910
+      # (two dotted integers is a valid CFBundleVersion, compared
+      # component-wise). It also sorts above every plain integer an earlier
+      # run uploaded.
+      - name: Compute the build number
+        run: |
+          echo "DUITFUL_BUILD_NUMBER=$(date -u +%y%m%d).$((10#$(date -u +%H%M)))" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v4
         with:
@@ -104,7 +134,7 @@ jobs:
       # Fails now, with a readable message, instead of 12 minutes later
       # inside fastlane. Skipped for build-only, which needs no account.
       - name: Check signing secrets are present
-        if: inputs.lane == 'testflight'
+        if: inputs.lane != 'build-only'
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
@@ -221,6 +251,44 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: bundle exec fastlane ios testflight_build
+
+      # Same lane, same signing and export — it just stops before the upload.
+      - name: Build and sign the IPA (no upload)
+        if: inputs.lane == 'signed-ipa'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          DUITFUL_SKIP_UPLOAD: "1"
+        run: bundle exec fastlane ios testflight_build
+
+      # A signed IPA that is not really signed would only be found out at
+      # upload. codesign on the unzipped app says so now, and names the team.
+      - name: Verify the signature
+        if: inputs.lane != 'build-only'
+        run: |
+          set -euo pipefail
+          ipa=build/ios/Duitful.ipa
+          test -f "$ipa" || { echo "::error::$ipa was not produced"; ls -la build/ios || true; exit 1; }
+          work=$(mktemp -d)
+          unzip -q "$ipa" -d "$work"
+          app="$work/Payload/App.app"
+          codesign --verify --deep --strict "$app"
+          codesign -dv "$app" 2>&1 | grep -E "Identifier|Authority=Apple Distribution|TeamIdentifier" || true
+          for appex in "$app"/PlugIns/*.appex; do codesign --verify --strict "$appex" && echo "signed: $(basename "$appex")"; done
+          ls -la "$ipa"
+          rm -rf "$work"
+
+      - name: Upload the signed IPA
+        if: inputs.lane != 'build-only'
+        uses: actions/upload-artifact@v4
+        with:
+          name: duitful-signed-ipa
+          retention-days: 30
+          if-no-files-found: error
+          path: |
+            build/ios/Duitful.ipa
+            build/ios/*.dSYM.zip
 
       # The whole point of this pipeline is that the owner can't open Xcode
       # to see what went wrong. Keep the logs.

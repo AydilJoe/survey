@@ -178,8 +178,9 @@ platform :ios do
     # written into project.pbxproj: ios/ is git-ignored and regenerated per
     # run, so there is nothing to commit them back to. package.json stays
     # the single source of truth for the marketing version, and the build
-    # number comes from the workflow run number — monotonic by construction,
-    # which is exactly what App Store Connect demands.
+    # number is a UTC timestamp computed by the workflow (yymmdd.Hmm) —
+    # monotonic by construction, which is exactly what App Store Connect
+    # demands, and independent of which workflow ran.
     build_app(
       workspace: WORKSPACE,
       scheme: SCHEME,
@@ -201,6 +202,14 @@ platform :ios do
       output_name: "Duitful.ipa",
       clean: true,
     )
+
+    # DUITFUL_SKIP_UPLOAD=1 (the workflow's "signed-ipa" lane) stops here with
+    # a signed App Store IPA in build/ios/ for the workflow to keep as an
+    # artifact — same signing, same export, nothing sent to Apple.
+    if ENV["DUITFUL_SKIP_UPLOAD"] == "1"
+      UI.success("Signed Duitful #{marketing_version} (#{build_number}) — IPA left in build/ios, not uploaded.")
+      next
+    end
 
     # skip_waiting_for_build_processing: Apple's processing takes 5–30 min
     # and the runner is billed for every minute of it. The build appears in

@@ -324,6 +324,53 @@ In Android Studio:
 6. Build variant: **release** -> **Finish**
 7. Output lands in `android/app/release/app-release.aab`
 
+## Signed builds from CI (no Android Studio)
+
+The **Release builds** workflow (`.github/workflows/release.yml`) builds the
+signed `.aab` for you. `android/` is regenerated on every run, so the signing
+config and the version are written in by `scripts/patch-android-signing.mjs`
+from the secrets below; nothing about your keystore is ever committed or
+printed.
+
+**1. Turn your upload keystore into one line of text** (the same
+`duitful-release.keystore` you already upload with — a different key is
+rejected by Play):
+
+```bash
+# macOS / Linux
+base64 -w0 duitful-release.keystore        # macOS: base64 -i duitful-release.keystore | pbcopy
+# Windows PowerShell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("duitful-release.keystore")) | Set-Clipboard
+```
+
+**2. Add four repo secrets** (GitHub → Settings → Secrets and variables →
+Actions → New repository secret):
+
+| Secret | Value |
+|---|---|
+| `ANDROID_KEYSTORE_BASE64` | the one line from step 1 |
+| `ANDROID_KEYSTORE_PASSWORD` | the keystore password |
+| `ANDROID_KEY_ALIAS` | `duitful` (the alias you chose) |
+| `ANDROID_KEY_PASSWORD` | the key password (often the same as the keystore's) |
+
+**3. Run it.** Either tag a release — `git tag v1.46.1 && git push origin v1.46.1`
+(the tag must match `package.json`) — or Actions → **Release builds** → **Run
+workflow**.
+
+**4. Take the bundle.** Open the run → **Artifacts** → `duitful-aab`
+(and `duitful-aab-mapping`, the R8 mapping file). Upload the `.aab` in Play
+Console → your release; upload `mapping.txt` under *App bundle explorer →
+Downloads → Upload deobfuscation file* so crash traces are readable. The run
+log prints the signing certificate's SHA-256 — it should match your **upload
+certificate** in Play Console → Setup → App signing.
+
+`versionName` comes from `package.json`. `versionCode` is the number of
+minutes since 1 Jan 2025 (UTC), about 1,000,000 today: it only ever rises, so
+there is no counter to keep in step and no manual bump before an upload (the
+manual `versionCode` step further down is for building in Android Studio).
+The PR check (`ci.yml`) is unchanged: it compiles an *unsigned* bundle and
+never sees these secrets.
+
 ## Play Console setup (first submission)
 
 1. Play Console -> **Create app** (the form you're on)

@@ -7696,6 +7696,70 @@ check('the brand catalogue makes no network calls at all',
   await S(() => { state.tax = emptyTax(); state.tax.introSeen = true; state.dailyExpenses = []; save(); renderAll(); });
 }
 
+// ---------- Signed release builds from CI: the Android patch and the workflows ----------
+{
+  const { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, readFileSync: rf } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const fixture = path.join(REPO_ROOT, 'tests/fixtures/android-app-build.gradle');
+  const run = (extraEnv) => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'duitful-android-'));
+    mkdirSync(path.join(dir, 'app'), { recursive: true });
+    copyFileSync(fixture, path.join(dir, 'app/build.gradle'));
+    const ks = path.join(dir, 'u.keystore'); writeFileSync(ks, 'x');
+    const env = { PATH: process.env.PATH, DUITFUL_ANDROID_DIR: dir, DUITFUL_KEYSTORE_FILE: ks,
+      DUITFUL_KEYSTORE_PASSWORD: 'pw', DUITFUL_KEY_ALIAS: 'duitful', DUITFUL_KEY_PASSWORD: 'pw2',
+      DUITFUL_VERSION_CODE: '1042351', DUITFUL_VERSION_NAME: '1.46.1', ...extraEnv };
+    const r = spawnSync('node', [path.join(REPO_ROOT, 'scripts/patch-android-signing.mjs')], { env, encoding: 'utf8' });
+    const second = spawnSync('node', [path.join(REPO_ROOT, 'scripts/patch-android-signing.mjs')], { env, encoding: 'utf8' });
+    return { r, second, gradle: rf(path.join(dir, 'app/build.gradle'), 'utf8') };
+  };
+  const ok1 = run({});
+  const g = ok1.gradle;
+  const btAt = g.indexOf('    buildTypes {');
+  const sigAt = g.indexOf('    signingConfigs {');
+  const relInBuildTypes = g.slice(btAt).match(/release \{\n\s+signingConfig signingConfigs\.release/);
+  check('android signing: version code and name are stamped into the generated build.gradle',
+    ok1.r.status === 0 && /versionCode 1042351\b/.test(g) && /versionName "1\.46\.1"/.test(g), ok1.r.stderr);
+  check('android signing: the release build type uses the signing config — not the signingConfigs block itself',
+    sigAt > 0 && sigAt < btAt && !!relInBuildTypes
+    && !/signingConfigs \{\n\s+release \{\n\s+signingConfig /.test(g), g.slice(sigAt, sigAt + 700));
+  check('android signing: passwords are read from the environment at build time, never written into the file',
+    /System\.getenv\("DUITFUL_KEYSTORE_PASSWORD"\)/.test(g) && !/\bpw2?\b/.test(g.replace(/DUITFUL_\w+/g, '')));
+  check('android signing: running it twice changes nothing more (one config, one signingConfig line)',
+    ok1.second.status === 0 && (g.match(/signingConfig signingConfigs\.release/g) || []).length === 1
+    && (g.match(/signingConfigs \{/g) || []).length === 1);
+  const bad = [run({ DUITFUL_VERSION_CODE: 'abc' }), run({ DUITFUL_KEY_PASSWORD: '' }), run({ DUITFUL_KEYSTORE_FILE: '/definitely/not/here' }), run({ DUITFUL_VERSION_CODE: '2200000000' })];
+  check('android signing: a bad version code, a missing credential or a missing keystore each fails the build loudly',
+    bad.every(b => b.r.status === 1), JSON.stringify(bad.map(b => b.r.status)));
+  const none = run({ DUITFUL_KEYSTORE_FILE: '', DUITFUL_VERSION_CODE: '', DUITFUL_VERSION_NAME: '' });
+  check('android signing: with nothing in the environment it leaves the file alone (a PR build stays unsigned)',
+    none.r.status === 0 && none.gradle === rf(fixture, 'utf8'));
+
+  // The workflows: wired together the way the docs say.
+  const rel = rf(path.join(REPO_ROOT, '.github/workflows/release.yml'), 'utf8');
+  const ios = rf(path.join(REPO_ROOT, '.github/workflows/ios.yml'), 'utf8');
+  const ci = rf(path.join(REPO_ROOT, '.github/workflows/ci.yml'), 'utf8');
+  const fl = rf(path.join(REPO_ROOT, 'fastlane/Fastfile'), 'utf8');
+  check('release workflow: runs on a version tag and by hand, and refuses a tag that disagrees with package.json',
+    /tags: \["v\*"\]/.test(rel) && /workflow_dispatch:/.test(rel) && /does not match package\.json/.test(rel));
+  check('release workflow: builds a signed AAB, proves it is signed, and keeps it plus the R8 mapping',
+    /bundleRelease/.test(rel) && /patch-android-signing\.mjs/.test(rel) && /jarsigner -verify/.test(rel)
+    && /name: duitful-aab\b/.test(rel) && /name: duitful-aab-mapping/.test(rel) && /Delete the keystore/.test(rel) && /if: always\(\)/.test(rel));
+  check('release workflow: all four Android secrets are checked up front and passed only to the steps that need them',
+    ['ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD'].every(k => rel.includes(`secrets.${k}`))
+    && !/^env:\n(?:  .*\n)*  .*secrets\./m.test(rel.replace(/\njobs:[\s\S]*/, '')), 'no workflow-level env with secrets');
+  check('release workflow: the iOS half calls ios.yml (signed IPA, TestFlight only if ticked) and inherits its secrets',
+    /uses: \.\/\.github\/workflows\/ios\.yml/.test(rel) && /secrets: inherit/.test(rel) && /'signed-ipa'/.test(rel) && /'testflight'/.test(rel));
+  check('ios workflow: callable, has a signed-ipa lane that does not upload, verifies the signature and keeps the IPA',
+    /workflow_call:/.test(ios) && /- signed-ipa/.test(ios) && /DUITFUL_SKIP_UPLOAD: "1"/.test(ios)
+    && /codesign --verify --deep --strict/.test(ios) && /name: duitful-signed-ipa/.test(ios) && /DUITFUL_SKIP_UPLOAD/.test(fl));
+  check('ios workflow: the secrets check covers every signed lane, and the build number is a timestamp that cannot run backwards',
+    /Check signing secrets are present\n\s+if: inputs\.lane != 'build-only'/.test(ios)
+    && /DUITFUL_BUILD_NUMBER=\$\(date -u \+%y%m%d\)/.test(ios) && !/DUITFUL_BUILD_NUMBER: \$\{\{ github\.run_number/.test(ios));
+  check('PR CI is unchanged: it only compiles an unsigned bundle and never sees a signing secret',
+    /bundleRelease/.test(ci) && !/secrets\./.test(ci) && !/patch-android-signing/.test(ci));
+}
+
 // -- the install counter must stay narrow --
 // It exists to answer "how many people actually use this", and nothing else.
 // If it ever starts reporting in a plain tab, in the native shell, or more
