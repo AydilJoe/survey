@@ -1,0 +1,16 @@
+{
+  "name": "duitful-capacitor-icloud",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Duitful's iCloud backup transport: one encrypted file in the app's own iCloud container.",
+  "license": "MIT",
+  "author": "Aydil Johari",
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  },
+  "peerDependencies": {
+    "@capacitor/core": ">=7.0.0"
+  }
+}

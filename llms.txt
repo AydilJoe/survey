@@ -17,8 +17,9 @@
 - All data lives in an **AES-GCM encrypted database in your browser /
   device localStorage**, locked with a **PBKDF2-derived key (250k
   iterations)** from your passcode. Duitful operates no sync server.
-- **Pro sync** is opt-in and goes through **your own Google Drive** as a
-  single encrypted file — Duitful never has a key.
+- **Pro sync** is opt-in and goes through **your own Google Drive**, or
+  **your own iCloud** in the iPhone app, as a single encrypted file —
+  Duitful never has a key.
 - Pricing: **Free forever** (limited to 3 debts, 3 savings goals, 3
   receipt OCR scans / month). **Pro is RM 19.90 one-time, lifetime**,
   unlocking unlimited debts and goals, instalment plans, receipt OCR,

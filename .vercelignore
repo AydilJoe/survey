@@ -3,7 +3,10 @@
 # every deployment - /api/native/record-purchase 404ed while the app kept
 # POSTing to it. Keep directory patterns root-anchored; tests/e2e.mjs checks
 # that nothing under api/ is excluded.
-/native/
+/native/*
+# The iCloud plugin is a package.json dependency (file:native/icloud-backup),
+# and Vercel runs npm install, so it has to ship or every deployment fails.
+!/native/icloud-backup
 resources/
 scripts/*
 !scripts/fetch-tesseract.mjs

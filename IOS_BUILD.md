@@ -87,8 +87,21 @@ Do this in Safari, before the first `testflight` run.
    (must match `appId` in `capacitor.config.json` — do not improvise)
 5. **Capabilities** — tick:
    - **Associated Domains** (Universal Links for `/split`)
+   - **iCloud** (iCloud backup) — leave **Include CloudKit support** off
    - **In-App Purchase** (usually on by default)
 6. **Continue** → **Register**
+7. iCloud needs a container, which is its own identifier. **Identifiers**
+   → **+** → **iCloud Containers** → Description `Duitful`, Identifier
+   `iCloud.com.aydiljoe.duitful` → **Register**.
+8. Back in **Identifiers**, open `com.aydiljoe.duitful` → **iCloud** →
+   **Configure** (or **Edit**) → tick `iCloud.com.aydiljoe.duitful` →
+   **Continue** → **Save**. Apple may warn that existing profiles become
+   invalid; that's fine, CI makes a fresh one on every run.
+
+> If you skip iCloud or its container, the first signed build fails with a
+> provisioning-profile error naming `com.apple.developer.icloud-*`. Finish
+> steps 5–8, or run the workflow once with **skip_icloud = true**: the app
+> then offers Google Drive backup only.
 
 > If you skip Associated Domains, the first signed build fails with
 > *"Provisioning profile doesn't support the Associated Domains
@@ -214,6 +227,7 @@ Safari on the iPad.
 | **lane** = `testflight` | the normal path: build, sign, upload |
 | **lane** = `build-only` | validate that the project compiles, with no Apple account involved at all. Free, safe, and the right first run. Also spits out an unsigned IPA you can sideload — see *Test free with AltStore* below |
 | **skip_associated_domains** | tick it if you haven't enabled the Associated Domains capability yet |
+| **skip_icloud** | tick it if the App ID doesn't have iCloud with the `iCloud.com.aydiljoe.duitful` container yet |
 | **revoke_stale_certs** | leave it on (see *Certificates* below) |
 
 **Do your first run as `build-only`, before you've even paid Apple.** It
@@ -625,6 +639,9 @@ then — see the long comment at the top of the Fastfile.
 - **"Provisioning profile doesn't support the Associated Domains
   capability"** — tick Associated Domains on the App ID (see above), or
   re-run with `skip_associated_domains = true`.
+- **Provisioning profile error naming `com.apple.developer.icloud-…`** —
+  enable iCloud on the App ID and assign the container (steps 5–8 under
+  *Identifier*), or re-run with `skip_icloud = true`.
 - **"You have reached the maximum number of certificates"** — run with
   `revoke_stale_certs` on, or delete old certificates by hand under
   developer.apple.com → Certificates.
@@ -641,6 +658,35 @@ then — see the long comment at the top of the Fastfile.
   repo. Later runs are faster.
 - **Build logs** — every failed run uploads `ios-build-logs` as an
   artifact (Actions → the run → Artifacts). That's your Xcode window.
+
+## iCloud backup on iOS
+
+On iPhone, backup goes to iCloud by default, with nothing to sign into. It
+stores the same encrypted record as Drive, encrypted on the phone with the
+passcode before Swift ever sees it, as one file in Duitful's private
+container (`iCloud.com.aydiljoe.duitful`, under `Backups/`). The container
+is not published to the Files app, so the file can't be moved or deleted
+there by accident.
+
+- **Native side:** `native/icloud-backup`, a local Capacitor plugin
+  (`duitful-capacitor-icloud`, a `file:` dependency in `package.json`,
+  listed only in `ios.includePlugins`). Three calls: `status`, `read` and
+  `write`. On a new iPhone, `read` asks iCloud's index (`NSMetadataQuery`)
+  whether a backup exists before downloading it, so a backup the phone
+  hasn't fetched yet is still found.
+- **Web side:** `app/icloud-sync.js` (`window.ICloudSync`). `script.js`
+  treats iCloud and Drive as two providers of the same record. Each save
+  goes to every provider that is connected and switched on, and the
+  unlock check offers whichever backup is newest. Backing up is Pro;
+  restoring is free, as with Drive.
+- **Entitlements:** `patch-ios.mjs` writes iCloud Documents
+  (`CloudDocuments` + the container) into `App.entitlements`, and the
+  Fastfile exports with `iCloudContainerEnvironment: Production`.
+  `skip_icloud` (`DUITFUL_IOS_SKIP_ICLOUD=1`) drops both. Without the
+  entitlement, as with AltStore and `build-only`, iCloud reports itself
+  unavailable and the app shows Drive only.
+- **Drive stays** on iPhone, under the iCloud section. It is what lets
+  someone restore on Android or the web.
 
 ## Google Drive sync on iOS
 
