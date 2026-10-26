@@ -7948,6 +7948,19 @@ check('the brand catalogue makes no network calls at all',
     renderDriveCard();
   });
 
+  // App icon: @capacitor/assets reads ./assets when that folder exists, and
+  // ./assets holds the landing page's maker photo, not the icon. Without an
+  // explicit --assetPath it found nothing, exited 0, and the first TestFlight
+  // build shipped Capacitor's placeholder icon.
+  {
+    const assetsScript = JSON.parse(readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8')).scripts.assets || '';
+    const dir = (/--assetPath\s+(\S+)/.exec(assetsScript) || [])[1];
+    check('the native icon generator is pointed at resources/, where the icon sources are',
+      dir === 'resources' && ['icon-foreground.svg', 'icon-background.svg', 'splash.svg'].every((f) => existsSync(path.join(REPO_ROOT, 'resources', f))),
+      assetsScript);
+    check('the iOS build fails loudly if no app icon was generated',
+      /CREATE ios icon/.test(readFileSync(path.join(REPO_ROOT, '.github/workflows/ios.yml'), 'utf8')));
+  }
   // Native wiring: every name that must agree, agrees.
   // Universal Links: Apple matches appIDs against TeamID.bundleId of the
   // installed build. A placeholder or typo leaves split links in Safari.
