@@ -387,12 +387,43 @@
   var raw = (location.hash || "").replace(/^#/, "");
   if (!raw) { fallback(); return; }
 
+  // Same two formats as app/split.js: DFS2 packed fields (every new link)
+  // and DFS1 JSON (older links). Keep the two decoders in step.
+  var DAY0 = Date.UTC(2020, 0, 1);
+  function dayUnpack(v) {
+    if (!v) return "";
+    var n = parseInt(v, 36);
+    return isFinite(n) ? new Date(DAY0 + n * 864e5).toISOString().slice(0, 10) : "";
+  }
+  // Mirrors splitCheck in app/split.js: a trimmed or garbled link is refused,
+  // never shown with a wrong amount.
+  function check(text) {
+    var h = 0x811c9dc5, bytes = new TextEncoder().encode(text);
+    for (var i = 0; i < bytes.length; i++) { h ^= bytes[i]; h = Math.imul(h, 16777619) >>> 0; }
+    var c = (h % 1296).toString(36);
+    return c.length < 2 ? "0" + c : c;
+  }
+  function unpack(text) {
+    var all = String(text), cut = all.lastIndexOf("\u001f");
+    if (cut < 0 || check(all.slice(0, cut)) !== all.slice(cut + 1)) return null;
+    var f = all.slice(0, cut).split("\u001f");
+    if (f.length < 6 || (f[0] !== "r" && f[0] !== "p")) return null;
+    var o = { v: 2, t: f[0] === "p" ? "paid" : "req", id: f[1], ti: f[2], d: dayUnpack(f[3]), a: parseInt(f[4], 36) / 100 };
+    if (f[5]) o.fr = f[5];
+    if (f[6]) o.dd = dayUnpack(f[6]);
+    if (f[7]) o.n = f[7];
+    if (f[8]) o.c = f[8];
+    var pay = f.slice(9).map(function (r) { return r.split("\u001e"); }).filter(function (r) { return r[1]; });
+    if (pay.length) o.pay = pay.map(function (r) { return [r[0] || "", r[1]]; });
+    return o;
+  }
+
   var m = /^DFS(\d+)(u?)\.(.+)$/.exec(raw);
   if (!m) {
     fallback(T("notDuitfulT"), T("notDuitfulB"));
     return;
   }
-  if (m[1] !== "1") {
+  if (m[1] !== "1" && m[1] !== "2") {
     fallback(T("newerT"), T("newerB"));
     return;
   }
@@ -400,8 +431,9 @@
   var req;
   try {
     var bytes = b64urlToBytes(m[3]);
-    if (!m[2]) bytes = await inflate(bytes);
-    req = JSON.parse(new TextDecoder().decode(bytes));
+    if (m[1] === "1" && !m[2]) bytes = await inflate(bytes);
+    var text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    req = m[1] === "2" ? unpack(text) : JSON.parse(text);
     if (!req || (req.t !== "req" && req.t !== "paid") || !Number.isFinite(Number(req.a))) throw new Error("shape");
   } catch (e) {
     fallback(T("damagedT"), T("damagedB"));
@@ -511,15 +543,17 @@
     for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
-  async function encode(obj) {
-    var bytes = new TextEncoder().encode(JSON.stringify(obj));
-    if (typeof CompressionStream === "function") {
-      try {
-        var stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));
-        return "DFS1." + bytesToB64url(new Uint8Array(await new Response(stream).arrayBuffer()));
-      } catch (e) {}
-    }
-    return "DFS1u." + bytesToB64url(bytes);
+  function dayPack(iso) {
+    var p = String(iso || "").split("-").map(Number);
+    return p.length === 3 ? Math.round((Date.UTC(p[0], p[1] - 1, p[2]) - DAY0) / 864e5).toString(36) : "";
+  }
+  // The receipt, packed exactly as the app's splitPack packs a "paid".
+  function encodePaid(o) {
+    var clean = function (v) { return String(v == null ? "" : v).replace(/[\u001e\u001f]/g, " "); };
+    var f = ["p", clean(o.id), clean(o.ti), dayPack(o.d), Math.round(Number(o.a) * 100).toString(36), clean(o.fr)];
+    if (o.c && o.c !== "MYR") f.push("", "", clean(o.c));
+    var body = f.join("\u001f");
+    return "DFS2." + bytesToB64url(new TextEncoder().encode(body + "\u001f" + check(body)));
   }
   var openBtn = document.getElementById("btn-paid-open");
   var form = document.getElementById("paid-form");
@@ -538,7 +572,7 @@
     var iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
     var paid = { v: 1, t: "paid", id: req.id, ti: req.ti, d: iso, a: Number(req.a), fr: name };
     if (req.c && req.c !== "MYR") paid.c = req.c;
-    var link = location.origin + "/split/#" + (await encode(paid));
+    var link = location.origin + "/split#" + encodePaid(paid);
     // Words first, link last — the same shape as the app's own messages.
     var text = T("paidText").replace("{name}", name).replace("{amt}", fmtAmount).replace("{title}", String(req.ti || T("theBill"))) + "\n" + T("receipt") + ": " + link;
     if (navigator.share) {
