@@ -117,14 +117,14 @@ No account is needed. On first launch, set any passcode of 4 or more digits; eve
 
 Duitful Pro is a non-consumable in-app purchase: Settings → Unlock Pro. "Restore purchase" is on the same screen. Two products are attached: duitful_pro (standard) and duitful_pro_launch (used when a friend code such as LAUNCH100 is entered on the purchase screen).
 
-All data is stored encrypted on the device. Bill-split links carry their details in the URL fragment and are never sent to a server. The optional Google Drive backup writes to the user's own Drive.
+All data is stored encrypted on the device. Bill-split links carry their details in the URL fragment and are never sent to a server. Backup (Pro) writes an already-encrypted file to the user's own iCloud, or, optionally, to their own Google Drive.
 ```
 
 ## App Privacy
 
 **Data Not Collected.** Answer "No" to every collection question. Duitful has
 no account, no analytics SDK in the native app and no server that receives user
-data; Drive backup goes to the user's own Drive, which Apple does not count as
+data; iCloud and Drive backups go to the user's own account, already encrypted, which Apple does not count as
 collection by the developer.
 
 ## In-app purchases (attach both to version 1.0)

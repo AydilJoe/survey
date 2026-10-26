@@ -7805,6 +7805,205 @@ check('the brand catalogue makes no network calls at all',
     /id="counting"/.test(priv) && !/We do not use analytics,/.test(priv));
 }
 
+/* ── iCloud backup (iPhone app) ─────────────────────────────────────────
+   The iOS shell backs up to the app's own iCloud container with no sign-in,
+   through the DuitfulICloud plugin in native/icloud-backup. The browser has
+   no such plugin, so these checks swap in an ICloudSync built from the real
+   app/icloud-sync.js against a fake iOS shell whose plugin keeps the "file"
+   in memory. Everything above the plugin is the shipped code. */
+{
+  const icloudSrc = readFileSync(path.join(REPO_ROOT, 'app', 'icloud-sync.js'), 'utf8');
+  const installFakeICloud = (p, seed, available = true) => p.evaluate(async ([src, seed, available]) => {
+    const fake = { file: seed, writes: 0, available };
+    const shell = { Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: { DuitfulICloud: {
+      status: async () => ({ available: fake.available }),
+      read: async () => ({ data: fake.file }),
+      write: async ({ data }) => { fake.file = data; fake.writes++; return { ok: true }; },
+    } } } };
+    new Function('window', src)(shell);
+    window.__fakeICloud = fake;
+    window.ICloudSync = shell.ICloudSync;
+    await ICloudSync.ready();
+    ICloudSync.subscribe(() => { renderDriveCard(); renderLockRestore(); });
+    renderDriveCard();
+    renderLockRestore();
+  }, [icloudSrc, seed, available]);
+
+  // On the web nothing about iCloud shows: the card reads as Drive-only.
+  const web = await S(() => ({
+    configured: ICloudSync.isConfigured(),
+    block: document.getElementById('icloud-backup').hidden,
+    headings: getComputedStyle(document.querySelector('.cloud-provider-name')).display,
+    lockBtn: document.getElementById('btn-setup-restore-icloud').hidden,
+  }));
+  check('on the web there is no iCloud: card stays Drive-only, no iCloud restore button',
+    !web.configured && web.block && web.headings === 'none' && web.lockBtn, JSON.stringify(web));
+
+  await S(() => { state.pro = true; state.icloudBackup = true; state.debts.push({ id: 'icloud-probe', name: 'Probe Kad Kredit', balance: 1234, apr: 18, minPayment: 50, kind: 'standard' }); save(); });
+  await page.waitForTimeout(300);
+  await installFakeICloud(page, null);
+  const shown = await S(() => ({
+    block: !document.getElementById('icloud-backup').hidden,
+    on: !document.getElementById('icloud-on').hidden,
+    auto: document.getElementById('icloud-auto').checked,
+    hasIcloud: document.getElementById('drive-card').classList.contains('has-icloud'),
+    active: activeClouds(),
+  }));
+  check('inside the iPhone app iCloud shows first, on by default, with Drive kept as the second option',
+    shown.block && shown.on && shown.auto && shown.hasIcloud && shown.active.includes('icloud'), JSON.stringify(shown));
+
+  await S(() => runDriveUpload('icloud'));
+  const file = await S(() => window.__fakeICloud.file);
+  let body = null; try { body = JSON.parse(file); } catch {}
+  const lastEdited = await S(() => state.lastEditedAt);
+  check('Back up now writes one encrypted record to iCloud, stamped for the restore check',
+    !!body && body.schema === 1 && !!body.record && !!body.record.cipher && !!body.record.salt
+    && body.appProperties.lastEditedAt === lastEdited, file && file.slice(0, 120));
+  check('nothing readable reaches iCloud — the record is encrypted before the plugin sees it',
+    !!file && !file.includes('Probe Kad Kredit') && !file.includes('1234'));
+  check('the card reports the backup', /Last backed up/.test(await page.locator('#icloud-last-synced').textContent()));
+
+  const gated = await S(async () => {
+    const real = window.isPro; window.isPro = () => false;
+    const before = window.__fakeICloud.writes;
+    try { await runDriveUpload('icloud'); } finally { window.isPro = real; }
+    return window.__fakeICloud.writes - before;
+  });
+  check('backing up stays a Pro feature, as with Drive', gated === 0, String(gated));
+
+  const off = await S(() => { state.icloudBackup = false; const a = activeClouds(); state.icloudBackup = true; return a; });
+  check('switching iCloud off stops saves going there', !off.includes('icloud'), JSON.stringify(off));
+
+  const signedOut = await S(async () => {
+    window.__fakeICloud.available = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise((r) => setTimeout(r, 50));
+    const out = { off: !document.getElementById('icloud-off').hidden, active: activeClouds().includes('icloud') };
+    window.__fakeICloud.available = true;
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise((r) => setTimeout(r, 50));
+    return out;
+  });
+  check('signed out of iCloud: the card says how to turn it on, and nothing is sent',
+    signedOut.off && !signedOut.active, JSON.stringify(signedOut));
+
+  // A newer iCloud backup on unlock is offered, naming iCloud.
+  const offered = await S(async () => {
+    const b = JSON.parse(window.__fakeICloud.file);
+    b.appProperties.lastEditedAt = '2999-01-01T00:00:00.000Z';
+    window.__fakeICloud.file = JSON.stringify(b);
+    const realConfirm = window.confirm; let asked = '';
+    window.confirm = (m) => { asked = m; return false; };
+    // Bypass the 15s read cache so the edited file is what gets compared.
+    document.dispatchEvent(new Event('visibilitychange'));
+    await new Promise((r) => setTimeout(r, 50));
+    try { await checkDriveOnBoot(); } finally { window.confirm = realConfirm; }
+    return asked;
+  });
+  check('a newer iCloud backup is offered on unlock, by name', /newer backup exists in iCloud/.test(offered), offered);
+
+  // A new iPhone restores from iCloud straight from the first screen.
+  const seed = file;
+  const ctx = await b.newContext();
+  const fresh = await ctx.newPage();
+  const freshErrors = [];
+  fresh.on('pageerror', (e) => freshErrors.push(e.message));
+  await fresh.goto(`${BASE}/app/index.html`);
+  await fresh.waitForTimeout(500);
+  await installFakeICloud(fresh, seed);
+  check('a fresh iPhone offers Restore from iCloud on the first screen',
+    await fresh.locator('#btn-setup-restore-icloud').isVisible());
+  await fresh.click('#btn-setup-restore-icloud');
+  await fresh.waitForTimeout(300);
+  check('it asks for the passcode used on the other iPhone',
+    (await fresh.locator('#lock-submit').textContent()).includes('Restore from iCloud'));
+  await fresh.fill('#lock-input', '0000');
+  await fresh.click('#lock-submit');
+  await fresh.waitForTimeout(1500);
+  check('a wrong passcode is refused and nothing is replaced',
+    /Wrong passcode/.test(await fresh.locator('#lock-error').textContent()));
+  await fresh.fill('#lock-input', 'test1234');
+  await fresh.click('#lock-submit');
+  await fresh.waitForTimeout(2500);
+  const restored = await fresh.evaluate(() => (state.debts || []).some((d) => d.name === 'Probe Kad Kredit'));
+  check('the right passcode restores the iCloud backup on the new phone', restored);
+
+  const empty = await b.newContext();
+  const none = await empty.newPage();
+  await none.goto(`${BASE}/app/index.html`);
+  await none.waitForTimeout(500);
+  await installFakeICloud(none, null);
+  await none.click('#btn-setup-restore-icloud');
+  await none.waitForTimeout(300);
+  check('no iCloud backup: says so instead of asking for a passcode',
+    /No Duitful backup found in this iCloud account/.test(await none.locator('#lock-error').textContent()));
+  check('the iCloud restore pages raised no errors', freshErrors.length === 0, freshErrors.join(' | '));
+  await ctx.close();
+  await empty.close();
+
+  await S(() => {
+    state.debts = state.debts.filter((d) => d.id !== 'icloud-probe');
+    save();
+    window.ICloudSync = { isConfigured: () => false, isSignedIn: () => false, getStatus: () => ({}), subscribe() {}, ready: async () => false };
+    renderDriveCard();
+  });
+
+  // Native wiring: every name that must agree, agrees.
+  // An unanchored "ios/" in .gitignore once kept this Swift out of git: the
+  // checks below passed locally and CI had no plugin source at all.
+  const tracked = execFileSync('git', ['ls-files', 'native/icloud-backup'], { cwd: REPO_ROOT, encoding: 'utf8' });
+  check('the iCloud plugin\'s Swift is tracked by git, not swallowed by .gitignore',
+    tracked.includes('native/icloud-backup/ios/Sources/DuitfulICloudPlugin/DuitfulICloudPlugin.swift'), tracked.trim().split('\n').join(', '));
+  const swift = readFileSync(path.join(REPO_ROOT, 'native/icloud-backup/ios/Sources/DuitfulICloudPlugin/DuitfulICloudPlugin.swift'), 'utf8');
+  const npkg = JSON.parse(readFileSync(path.join(REPO_ROOT, 'native/icloud-backup/package.json'), 'utf8'));
+  const podspecs = readdirSync(path.join(REPO_ROOT, 'native/icloud-backup')).filter((f) => f.endsWith('.podspec'));
+  const podspec = podspecs.length === 1 ? readFileSync(path.join(REPO_ROOT, 'native/icloud-backup', podspecs[0]), 'utf8') : '';
+  // Capacitor's CLI names the pod after the npm package (cli/dist/plugin.js fixName).
+  const capPodName = npkg.name.replace(/\//g, '_').replace(/-/g, '_').replace(/@/g, '').replace(/_\w/g, (m) => m[1].toUpperCase());
+  const podName = capPodName.charAt(0).toUpperCase() + capPodName.slice(1);
+  check('the pod is named the way Capacitor will ask for it',
+    podspecs[0] === `${podName}.podspec` && podspec.includes(`s.name = '${podName}'`), `${podspecs[0]} vs ${podName}`);
+  check('Capacitor finds the plugin class and the JS name the app calls',
+    /@objc\(DuitfulICloudPlugin\)/.test(swift) && /jsName = "DuitfulICloud"/.test(swift)
+    && icloudSrc.includes('Plugins.DuitfulICloud') && npkg.capacitor?.ios?.src === 'ios');
+  const patchIos = readFileSync(path.join(REPO_ROOT, 'scripts/patch-ios.mjs'), 'utf8');
+  const container = (/containerId = "([^"]+)"/.exec(swift) || [])[1];
+  check('Swift writes to the same container the entitlement grants',
+    !!container && patchIos.includes(`ICLOUD_CONTAINER = "${container}"`), container);
+  check('the entitlement is iCloud Documents, and can be skipped for a build without the capability',
+    /CloudDocuments/.test(patchIos) && /ubiquity-container-identifiers/.test(patchIos)
+    && /DUITFUL_IOS_SKIP_ICLOUD/.test(patchIos));
+  const iosYml = readFileSync(path.join(REPO_ROOT, '.github/workflows/ios.yml'), 'utf8');
+  const fastfile = readFileSync(path.join(REPO_ROOT, 'fastlane/Fastfile'), 'utf8');
+  check('the workflow exposes skip_icloud and the App Store export targets Production iCloud',
+    /skip_icloud:/.test(iosYml) && /DUITFUL_IOS_SKIP_ICLOUD: \$\{\{ inputs\.skip_icloud/.test(iosYml)
+    && /iCloudContainerEnvironment: "Production"/.test(fastfile));
+  check('Swift never parses the record — it moves a string', !/JSONSerialization|JSONDecoder/.test(swift));
+
+  // Vercel runs npm install on what .vercelignore leaves, so a file:
+  // dependency it strips fails every deployment.
+  const pkg = JSON.parse(readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
+  const rules = readFileSync(path.join(REPO_ROOT, '.vercelignore'), 'utf8')
+    .split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  const toRe = (glob) => {
+    const anchored = glob.startsWith('/');
+    const body = glob.replace(/^\//, '').replace(/\/$/, '/**')
+      .replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\u0000').replace(/\*/g, '[^/]*').replace(/\u0000/g, '.*');
+    return new RegExp(`${anchored ? '^' : '(^|/)'}${body}$`);
+  };
+  const ignored = (f) => rules.reduce((out, r) => (toRe(r.replace(/^!/, '')).test(f) ? !r.startsWith('!') : out), false);
+  const localDeps = Object.values(pkg.dependencies).filter((v) => String(v).startsWith('file:')).map((v) => v.slice(5).replace(/\/$/, ''));
+  check('every file: dependency survives .vercelignore (npm install needs it)',
+    localDeps.length > 0 && localDeps.every((d) => !ignored(d)), localDeps.join(', '));
+
+  const idx = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
+  const sw = readFileSync(path.join(REPO_ROOT, 'app', 'sw.js'), 'utf8');
+  const v = (/src="icloud-sync\.js\?v=(\d+)"/.exec(idx) || [])[1];
+  check('icloud-sync.js is cached by the service worker at the version the page loads, and bundled natively',
+    !!v && sw.includes(`"/app/icloud-sync.js?v=${v}"`)
+    && readFileSync(path.join(REPO_ROOT, 'scripts/build-web.mjs'), 'utf8').includes('"icloud-sync.js"'));
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

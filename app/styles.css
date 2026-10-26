@@ -584,6 +584,8 @@ body.loaded #splash {
   transition: border-color 0.15s ease, transform 0.1s ease;
 }
 .lock-google:hover { border-color: var(--primary); }
+.lock-icloud { margin-bottom: 0.6rem; }
+.lock-icloud .lock-google-g { color: var(--primary); }
 .lock-google:active { transform: scale(0.985); }
 .lock-google:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .lock-google-g {
@@ -4224,6 +4226,23 @@ button.ghost.icon-btn {
 }
 
 /* Cloud backup card */
+/* Provider headings only appear once there is more than one provider (the
+   iPhone app). Elsewhere the card reads exactly as it did: Drive only. */
+.cloud-provider-name, .cloud-provider-why { display: none; }
+.has-icloud .cloud-provider-name {
+  display: block;
+  margin: 0.9rem 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+.has-icloud .cloud-provider-why { display: block; margin-top: 0; }
+.has-icloud #drive-provider {
+  margin-top: 1rem;
+  padding-top: 0.2rem;
+  border-top: 1px solid var(--border);
+}
 .drive-status-pill {
   border-radius: var(--r-pill);
   padding: 0.18rem 0.6rem;

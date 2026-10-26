@@ -17,7 +17,9 @@ install: what's left, when you're debt-free, and that nothing leaves the phone.
 ## Apple's rules this set follows
 
 - **Size:** 1320 × 2868 px portrait (6.9" display). App Store Connect scales
-  it down for every smaller iPhone, so no other sizes are required.
+  it down for every smaller iPhone, so no other sizes are required. If the
+  6.1" / 6.3" slot asks for its own set anyway, upload `en-6.3/`
+  (1206 × 2622, the same six shots scaled by `scripts/resize-6.3.mjs`).
 - **Format:** PNG, RGB, no alpha channel (App Store Connect rejects
   transparency).
 - **Shows the app in use** (guideline 2.3.3). Every screen inside the frame

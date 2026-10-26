@@ -25,6 +25,11 @@
 //     Skip the entitlement entirely. Use this for the very first build if
 //     the Associated Domains capability isn't enabled on the App ID yet —
 //     signing fails outright when the profile can't carry the entitlement.
+//   DUITFUL_IOS_SKIP_ICLOUD=1
+//     Leave out the iCloud entitlement (iCloud backup). Same reason: use it
+//     if the App ID doesn't have iCloud enabled, with the
+//     iCloud.com.aydiljoe.duitful container, yet. The app then simply offers
+//     Google Drive only.
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -83,6 +88,10 @@ const SHORTCUTS = [
   ["debt", "Log a debt payment", "UIApplicationShortcutIconTypeConfirmation"],
 ];
 const SKIP_DOMAINS = process.env.DUITFUL_IOS_SKIP_ASSOCIATED_DOMAINS === "1";
+const SKIP_ICLOUD = process.env.DUITFUL_IOS_SKIP_ICLOUD === "1";
+// iCloud backup (native/icloud-backup) writes into this container. It must
+// also exist in the developer portal and be assigned to the App ID.
+const ICLOUD_CONTAINER = "iCloud.com.aydiljoe.duitful";
 
 if (!existsSync(INFO_PLIST)) {
   console.log("patch-ios: ios/ project not present, skipping.");
@@ -852,38 +861,59 @@ if (widgetFilesWritten) {
   }
 }
 
-/* ---------- 5. Associated Domains entitlement ---------- */
+/* ---------- 5. Entitlements: Associated Domains + iCloud ---------- */
 // A labelled block, not process.exit(): the sections after this one (iOS
 // deployment target, device family) must run on every pass — including the
-// skip-domains first build and any re-run where this is already applied.
-domains: {
+// skip-both first build and any re-run where this is already applied.
+//
+// The file is rebuilt from scratch on every pass rather than edited, so
+// flipping a skip switch between runs can't leave a stale entitlement
+// behind. Each capability must be enabled on the App ID, or signing fails.
+entitlements: {
+  const parts = [];
   if (SKIP_DOMAINS) {
-    console.log("patch-ios: DUITFUL_IOS_SKIP_ASSOCIATED_DOMAINS=1, leaving entitlements alone.");
-    break domains;
+    console.log("patch-ios: DUITFUL_IOS_SKIP_ASSOCIATED_DOMAINS=1, no Associated Domains entitlement.");
+  } else {
+    const applinks = HOSTS.map((h) => `\t\t<string>applinks:${h}</string>`).join("\n");
+    parts.push(`\t<key>com.apple.developer.associated-domains</key>\n\t<array>\n${applinks}\n\t</array>`);
+  }
+  if (SKIP_ICLOUD) {
+    console.log("patch-ios: DUITFUL_IOS_SKIP_ICLOUD=1, no iCloud entitlement (Drive-only backup).");
+  } else {
+    // iCloud Documents (CloudDocuments), not CloudKit or key-value storage:
+    // the backup is one file of unbounded size, and key-value storage caps
+    // out at 1 MB. The ubiquity-container key is what
+    // url(forUbiquityContainerIdentifier:) reads.
+    const container = `\t<array>\n\t\t<string>${ICLOUD_CONTAINER}</string>\n\t</array>`;
+    parts.push(
+      `\t<key>com.apple.developer.icloud-container-identifiers</key>\n${container}`,
+      `\t<key>com.apple.developer.icloud-services</key>\n\t<array>\n\t\t<string>CloudDocuments</string>\n\t</array>`,
+      `\t<key>com.apple.developer.ubiquity-container-identifiers</key>\n${container}`,
+    );
+  }
+  if (parts.length === 0) {
+    console.log("patch-ios: no entitlements requested, leaving App.entitlements alone.");
+    break entitlements;
   }
 
-  const applinks = HOSTS.map((h) => `\t\t<string>applinks:${h}</string>`).join("\n");
   const ENTITLEMENTS_BODY = `<?xml version="1.0" encoding="UTF-8"?>
-  <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-  <plist version="1.0">
-  <dict>
-  \t<key>com.apple.developer.associated-domains</key>
-  \t<array>
-  ${applinks}
-  \t</array>
-  </dict>
-  </plist>
-  `;
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+${parts.join("\n")}
+</dict>
+</plist>
+`;
 
-  const wantsRewrite =
-    !existsSync(ENTITLEMENTS) ||
-    HOSTS.some((h) => !readFileSync(ENTITLEMENTS, "utf8").includes(`applinks:${h}`));
-
-  if (wantsRewrite) {
+  const current = existsSync(ENTITLEMENTS) ? readFileSync(ENTITLEMENTS, "utf8") : "";
+  if (current !== ENTITLEMENTS_BODY) {
     writeFileSync(ENTITLEMENTS, ENTITLEMENTS_BODY);
-    console.log(`patch-ios: wrote App.entitlements (${HOSTS.map((h) => `applinks:${h}`).join(", ")}).`);
+    console.log(`patch-ios: wrote App.entitlements (${[
+      !SKIP_DOMAINS && HOSTS.map((h) => `applinks:${h}`).join(", "),
+      !SKIP_ICLOUD && `iCloud ${ICLOUD_CONTAINER}`,
+    ].filter(Boolean).join("; ")}).`);
   } else {
-    console.log("patch-ios: App.entitlements already declares both applinks, skipping.");
+    console.log("patch-ios: App.entitlements already up to date, skipping.");
   }
 
   /* ---------- 6. Wire the entitlement into the Xcode project ---------- */
@@ -909,7 +939,7 @@ domains: {
 
   if (pbx.includes("CODE_SIGN_ENTITLEMENTS = App/App.entitlements;")) {
     console.log("patch-ios: CODE_SIGN_ENTITLEMENTS already set, skipping.");
-    break domains;
+    break entitlements;
   }
 
   const ANCHOR = /^(\s*)INFOPLIST_FILE = App\/Info\.plist;$/gm;

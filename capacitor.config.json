@@ -40,7 +40,8 @@
       "@capgo/capacitor-native-biometric",
       "@capgo/capacitor-social-login",
       "@pantrist/capacitor-plugin-ml-kit-text-recognition",
-      "cordova-plugin-purchase"
+      "cordova-plugin-purchase",
+      "duitful-capacitor-icloud"
     ]
   }
 }

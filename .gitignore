@@ -1,7 +1,10 @@
 node_modules/
 www/
-ios/
-android/
+# The generated native projects, root-anchored: an unanchored "ios/" also
+# matched native/icloud-backup/ios/ and silently kept the plugin's Swift out
+# of git, so CI built a plugin with no source.
+/ios/
+/android/
 vendor/
 # …but app/vendor/ holds the SOURCE-CONTROLLED single-file QR libraries
 # (qrcode.js encoder, jsQR decoder). They are not downloaded by any build

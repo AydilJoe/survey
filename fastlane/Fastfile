@@ -197,7 +197,12 @@ platform :ios do
           WIDGET_IDENTIFIER => widget_profile_name,
         },
         uploadSymbols: true,
-      },
+      }.merge(
+        # iCloud backup: an App Store build must talk to the Production
+        # iCloud environment. Without the iCloud entitlement (the
+        # skip_icloud workflow switch) there is nothing to set.
+        ENV["DUITFUL_IOS_SKIP_ICLOUD"] == "1" ? {} : { iCloudContainerEnvironment: "Production" },
+      ),
       output_directory: "build/ios",
       output_name: "Duitful.ipa",
       clean: true,

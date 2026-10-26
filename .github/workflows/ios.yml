@@ -35,6 +35,9 @@ on:
       skip_associated_domains:
         type: boolean
         default: false
+      skip_icloud:
+        type: boolean
+        default: false
       revoke_stale_certs:
         type: boolean
         default: true
@@ -50,6 +53,10 @@ on:
           - build-only
       skip_associated_domains:
         description: "Skip the Universal Links entitlement (use if the App ID doesn't have Associated Domains enabled yet)"
+        type: boolean
+        default: false
+      skip_icloud:
+        description: "Skip the iCloud backup entitlement (use if the App ID doesn't have iCloud + the iCloud.com.aydiljoe.duitful container yet)"
         type: boolean
         default: false
       revoke_stale_certs:
@@ -89,6 +96,7 @@ jobs:
       # build number (CFBundleVersion) is computed in the first step.
       DUITFUL_RECYCLE_CERTS: ${{ inputs.revoke_stale_certs && '1' || '0' }}
       DUITFUL_IOS_SKIP_ASSOCIATED_DOMAINS: ${{ inputs.skip_associated_domains && '1' || '0' }}
+      DUITFUL_IOS_SKIP_ICLOUD: ${{ inputs.skip_icloud && '1' || '0' }}
 
     steps:
       - uses: actions/checkout@v4
