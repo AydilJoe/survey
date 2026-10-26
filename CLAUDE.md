@@ -48,6 +48,10 @@ No linter or TypeScript. One end-to-end regression suite exists: `npm run test:e
 - **Env vars** (Vercel): `BILLPLZ_API_KEY`, `BILLPLZ_COLLECTION_ID`, `BILLPLZ_X_SIGNATURE`, `LICENSE_SIGNING_PRIVATE_KEY`, and `BILLPLZ_PAYOUT_COLLECTION_ID` (refunds only).
 - **Refunds**: Billplz has no refund endpoint — FPX is non-reversible, so a refund is a **v5 Payment Order**, a fresh outbound transfer keyed on the buyer's SWIFT/BIC code and account number (*not* the FPX code checkout uses). Every v5 call is signed: HMAC-SHA512 of the documented values concatenated with no separator, keyed by `BILLPLZ_X_SIGNATURE`. A payment order needs a collection — create it once per environment with `POST /api/admin/ops?op=payout-collection` and paste the id into `BILLPLZ_PAYOUT_COLLECTION_ID`. Payouts cannot be reversed; `api/_lib/admin/refund.js` carries five guards, including reading the amount from the recorded bill rather than the request.
 
+## Tax relief data (update every Budget)
+
+The tax refund estimate (`app/tax.js`) reads all LHDN figures — relief limits, sub-limits, rate bands, the rebate — from **`app/tax-data.js`**. To roll in a new Budget: paste the new schedule JSON over the object after `const TAX_DATA =` (keep the trailing `;`), add the new `limit_ya_<year>_myr` keys, bump the `tax-data.js?v=N` query in `app/index.html` and `app/sw.js`, and run `npm run test:e2e`. The file header documents the format (year fallback rules, `sub_limits` ids and `since_ya`, `app` block, `income_tax_by_ya`). A relief with a new `code` appears automatically for manual claims; add `app.keywords` to make spending suggest it. Invalid data switches the tax card off (and the e2e suite fails) instead of breaking the app.
+
 ## Deployment
 
 - **Web**: Push to `main` auto-deploys to GitHub Pages via `.github/workflows/pages.yml`. Also deployable on Vercel (handles `/api/` routes).

@@ -7016,6 +7016,75 @@ check('the brand catalogue makes no network calls at all',
   check('tax: family and disability reliefs add up to RM44,000',
     m.fam.autoRelief === 44000, String(m.fam.autoRelief));
 
+  // ---- The schedule is data: tax-data.js is the one file a Budget update touches. ----
+  const dataSrc = readFileSync(path.join(REPO_ROOT, 'app/tax-data.js'), 'utf8');
+  const bodyOf = (txt) => txt.slice(txt.indexOf('const TAX_DATA = ') + 'const TAX_DATA = '.length).replace(/;\s*$/, '');
+  let dataJson = null;
+  try { dataJson = JSON.parse(bodyOf(dataSrc)); } catch (e) { dataJson = null; }
+  check('tax data: tax-data.js body is strict JSON (paste-over safe)', !!dataJson);
+  check('tax data: loads and passes its own validation in the app',
+    await S(() => TAX_OK && TAX_PROBLEMS.length === 0), JSON.stringify(await S(() => TAX_PROBLEMS)));
+  const res = await S(() => ({
+    mid: taxResolveLimit({ limit_ya_2026_myr: 100, limit_ya_2028_myr: 300 }, 2027),
+    after: taxResolveLimit({ limit_ya_2026_myr: 100, limit_ya_2027_myr: 200 }, 2030),
+    before: taxResolveLimit({ limit_ya_2026_myr: 100, limit_ya_2027_myr: 200 }, 2020),
+    gone: taxResolveLimit({ limit_ya_2026_myr: 100, limit_ya_2027_myr: null }, 2027),
+    lateOnly: taxResolveLimit({ limit_ya_2027_myr: 50 }, 2026),
+    individual28: taxAutoAmounts(2030).individual,
+  }));
+  check('tax data: a missing year uses the nearest earlier one; after the last year, the last',
+    res.mid === 100 && res.after === 200 && res.individual28 === 12000, JSON.stringify(res));
+  check('tax data: a year before the schedule uses its first; null ends a relief; a later-only relief is absent earlier',
+    res.before === 100 && res.gone === null && res.lateOnly === null, JSON.stringify(res));
+
+  // A "Budget 2028" file, served instead of the real one: new year keys, a new relief, new rebate.
+  const served = async (mutate) => {
+    const pg = await b.newPage();
+    await pg.route('**/app/tax-data.js*', async (route) => {
+      const r = await route.fetch();
+      const d = JSON.parse(bodyOf(await r.text()));
+      mutate(d);
+      await route.fulfill({ response: r, body: 'const TAX_DATA = ' + JSON.stringify(d) + ';' });
+    });
+    await pg.goto(`${BASE}/app/index.html`);
+    await pg.waitForTimeout(500);
+    return pg;
+  };
+  const b28 = await served((d) => {
+    const items = d.tax_relief_categories.flatMap(c => c.items);
+    const byCode = (c) => items.find(i => i.code === c);
+    byCode('A1').limit_ya_2028_myr = 13000;
+    byCode('F1').limit_ya_2028_myr = 3000;
+    byCode('F1').sub_limits[0].limit_ya_2028_myr = 4000;
+    d.tax_relief_categories[0].items.push({ code: 'Z9', name: 'Origami Kit Relief', limit_ya_2028_myr: 500,
+      claimable_items: ['Origami kits'], eligibility_criteria: 'x', required_documentation: 'receipt',
+      app: { id: 'yogamat', keywords: 'origami' } });
+    d.income_tax_by_ya['2028'] = { rebate: { amount: 500, chargeable_income_up_to: 35000 }, bands: d.income_tax_by_ya['2026'].bands };
+  });
+  const r28 = await b28.evaluate(() => ({
+    ok: TAX_OK, label: TAX_TABLE_LABEL,
+    ind: taxEstimate({ year: 2028, income: 50000 }).autoRelief,
+    lifestyle: taxReliefFor(2028, 'lifestyle').cap,
+    ai: taxReliefFor(2028, 'lifestyle').subs.find(x => x.id === 'ai').cap,
+    new28: !!taxReliefFor(2028, 'yogamat'), new27: !!taxReliefFor(2027, 'yogamat'),
+    suggest: taxSuggestRelief('Hobby', 'Origami paper', 2028), suggest27: taxSuggestRelief('Hobby', 'Origami paper', 2027),
+    rebate: taxPayableFor(35000, 0, 2028).payable, rebate26: taxPayableFor(35000, 0, 2026).payable,
+    still27: taxReliefFor(2027, 'lifestyle').cap,
+  }));
+  check('tax data (Budget 2028 simulation): new individual relief, caps, sub-limits and rebate take effect',
+    r28.ok && r28.ind === 13000 && r28.lifestyle === 3000 && r28.ai === 4000 && r28.rebate === 100 && r28.rebate26 === 200 && r28.still27 === 2500,
+    JSON.stringify(r28));
+  check('tax data (Budget 2028 simulation): a brand-new relief appears only from its year and is suggested via app.keywords',
+    r28.new28 && !r28.new27 && r28.suggest === 'yogamat' && r28.suggest27 !== 'yogamat' && r28.label === 'YA 2026–2028', JSON.stringify(r28));
+  await b28.close();
+
+  // A broken paste must switch the tax card off, not break the app.
+  const bad = await served((d) => { d.tax_relief_categories[0].items[1].code = 'A1'; });
+  const rBad = await bad.evaluate(() => ({ ok: TAX_OK, problems: TAX_PROBLEMS, appUp: typeof save === 'function' }));
+  check('tax data: a duplicate code is reported, the tax card is off, the rest of the app still loads',
+    !rBad.ok && rBad.problems.some(x => /duplicated/.test(x)) && rBad.appUp, JSON.stringify(rBad));
+  await bad.close();
+
   // Suggestions: the words people actually type.
   const sug = await S(() => ({
     book: taxSuggestRelief('Books', 'Popular'),

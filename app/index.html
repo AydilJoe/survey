@@ -2201,6 +2201,12 @@
           <select id="tax-claim-sub"></select>
         </label>
         <p class="hint" id="tax-claim-hint"></p>
+        <details class="tax-claim-info">
+          <summary>What counts &amp; what to keep</summary>
+          <ul id="tax-claim-info-list"></ul>
+          <p class="hint" id="tax-claim-info-who"></p>
+          <p class="hint" id="tax-claim-info-docs"></p>
+        </details>
         <div class="grid-2">
           <label class="field">
             <span>Amount (<span class="cur-code">MYR</span>)</span>
@@ -2303,8 +2309,9 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=11"></script>
-    <script src="tax.js?v=2"></script>
+    <script src="tax-data.js?v=1"></script>
+    <script src="tax.js?v=3"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=154"></script>
+    <script src="script.js?v=155"></script>
   </body>
 </html>

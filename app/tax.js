@@ -12,111 +12,168 @@
  *      IndexedDB on this device. A photo never goes in `state`: it would
  *      bloat the one localStorage blob that every save rewrites.
  *
- * Everything is an ESTIMATE. The rate table and relief caps below follow the
- * LHDN schedule for YA 2025; Budget changes are a one-line edit here.
+ * Everything is an ESTIMATE. Relief limits, sub-limits, rate bands and the
+ * rebate are data, not code: they live in tax-data.js and are replaced there
+ * each Budget.
  */
 
 /* ---------- LHDN tables ---------- */
 
-const TAX_REBATE = 400;            // chargeable income <= TAX_REBATE_LIMIT
-const TAX_REBATE_LIMIT = 35000;
-// Relief and cap tables follow the LHDN schedule for YA 2026 and YA 2027. A
-// year outside that range uses the nearest table. The band rates below are
-// unchanged from YA 2025 — edit TAX_BANDS if a Budget moves them.
-const TAX_TABLE_LABEL = "YA 2026–2027";
-const TAX_AUTO_RELIEF = {
-  spouse: 4000, child: 2000, childPre: 2000, childTertiary: 8000,
-  disabledSelf: 7000, disabledSpouse: 6000, disabledChild: 6000,
-};
-function taxIndividualRelief(year) { return year >= 2027 ? 12000 : 9000; }
+/* ---------- LHDN schedule: read from tax-data.js ----------
+ * All limits, sub-limits, rate bands and the rebate live in TAX_DATA
+ * (app/tax-data.js) — update that file each Budget; nothing here changes.
+ * See the header of tax-data.js for the format and the year-resolution rules. */
 
-// [upper bound of band, rate]. Resident individual rates.
-const TAX_BANDS = [
-  [5000, 0], [20000, 0.01], [35000, 0.03], [50000, 0.06], [70000, 0.11],
-  [100000, 0.19], [400000, 0.25], [600000, 0.26], [2000000, 0.28], [Infinity, 0.30],
-];
+const TAX_AUTO_KEYS = ["individual", "spouse", "disabledSelf", "disabledSpouse", "child", "childPre", "childTertiary", "disabledChild"];
 
-// `common` reliefs are the ones nearly everyone can still use, so they get
-// the "you have room left" nudge even before the first claim. `subs` are
-// sub-limits INSIDE the relief's cap (a RM1,000 dental limit inside RM10,000
-// medical). `since`/`until` bound the years a relief or sub-limit exists;
-// `cap2027` overrides the cap from YA 2027.
-const TAX_RELIEFS = [
-  { id: "lifestyle", label: "Lifestyle", cap: 2500, common: true,
-    hint: "Books, phone/laptop/tablet, home internet, skill courses",
-    subs: [
-      { id: "ai", label: "AI software subscriptions", cap: 2500, since: 2027 },
-      { id: "pet", label: "Pet shelter adoption & vet care", cap: 2500, since: 2027 },
-    ] },
-  { id: "sports", label: "Sports & gym", cap: 1000, common: true,
-    hint: "Equipment, court rental, competition fees, gym and trainer (Sports Development Act sports)",
-    subs: [{ id: "shoes", label: "Sports shoes", cap: 300, since: 2027 }] },
-  { id: "tourism", label: "Domestic tourism & culture", cap: 1000,
-    hint: "Tickets to registered attractions, museums, parks, arts and cultural shows in Malaysia" },
-  { id: "medical", label: "Medical (self, spouse, child)", cap: 10000,
-    hint: "Serious illness, fertility, check-ups, dental, vaccination",
-    subs: [
-      { id: "checkup", label: "Health check-up, mental health & test kits", cap: 1000 },
-      { id: "dental", label: "Dental (non-cosmetic)", cap: 1000 },
-      { id: "vaccine", label: "Vaccination", cap: 1000 },
-      { id: "fertility", label: "Fertility treatment", cap: 10000 },
-      { id: "postnatal", label: "Postnatal care", cap: 3000, since: 2027 },
-      { id: "breastfeeding", label: "Breastfeeding equipment", cap: 1000, since: 2027 },
-    ] },
-  { id: "medparents", label: "Parents' & grandparents' care", cap: 8000,
-    hint: "Treatment, dental, nursing home, daycare or carer for parents (grandparents from YA 2027)",
-    subs: [{ id: "checkup", label: "Check-up & vaccination", cap: 1000 }] },
-  { id: "supporting", label: "Disability support equipment", cap: 6000,
-    hint: "Wheelchair, hearing aid, prosthetics for a JKM-registered or certified disabled self, spouse, child or parent" },
-  { id: "learning", label: "Learning-disability support (child)", cap: 10000,
-    hint: "Assessment, early intervention and therapy for a child 18 or under with ASD, ADHD, Down syndrome, dyslexia or GDD" },
-  { id: "education", label: "Education fees (own)", cap: 7000,
-    hint: "Recognised diploma, degree, masters, professional course",
-    subs: [
-      { id: "upskill", label: "Upskilling & vocational courses", cap: 2000 },
-      { id: "tvet", label: "TVET courses", cap: 3000, since: 2027 },
-      { id: "tuition", label: "Children's STEM, language & religion classes", cap: 2000, since: 2027 },
-    ] },
-  { id: "insurance", label: "Education & medical insurance", cap: 3000, common: true,
-    hint: "Medical card or education-plan premiums" },
-  { id: "lifeins", label: "Life insurance / family takaful", cap: 3000, common: true,
-    hint: "Life insurance or family takaful premiums (not motor or fire)" },
-  { id: "epf", label: "EPF (yours + voluntary)", cap: 4000, common: true,
-    hint: "Your own EPF contribution plus any voluntary top-up or i-Saraan" },
-  { id: "prs", label: "PRS / deferred annuity", cap: 3000, common: true,
-    hint: "Private Retirement Scheme contributions" },
-  { id: "sspn", label: "SSPN (child savings)", cap: 8000, common: true,
-    hint: "Deposits minus withdrawals in your child's SSPN-i for the year" },
-  { id: "childcare", label: "Childcare & kindergarten fees", cap: 3000,
-    hint: "Registered taska, tadika or after-school centre, child 12 or under" },
-  { id: "breastfeeding", label: "Breastfeeding equipment", cap: 1000, until: 2026,
-    hint: "Once every two years (from YA 2027 it is part of Medical)" },
-  { id: "ev", label: "EV charging, food-waste & home CCTV", cap: 2500,
-    hint: "EV charger and subscription, food-waste machine, home CCTV — EV and CCTV once every two years" },
-  { id: "socso", label: "SOCSO / EIS", cap: 350, cap2027: 500,
-    hint: "Employee contributions (your payslip shows them), or SKSPS if self-employed",
-    subs: [{ id: "voluntary", label: "Voluntary Lindung 24 Jam", cap: 150, since: 2027 }] },
-  { id: "housing", label: "First-home loan interest", cap: 7000,
-    hint: "Interest on your first home (SPA signed 2025–2027), for 3 years, not rented out",
-    subs: [
-      { id: "low", label: "Home priced up to RM500,000", cap: 7000 },
-      { id: "mid", label: "Home priced RM500,001–750,000", cap: 5000 },
-    ] },
-];
+function taxLimitYears(obj) {
+  return Object.keys(obj || {}).map((k) => { const m = /^limit_ya_(\d{4})_myr$/.exec(k); return m ? Number(m[1]) : 0; })
+    .filter(Boolean).sort((a, b) => a - b);
+}
 
-function taxRelief(id) { return TAX_RELIEFS.find((r) => r.id === id) || null; }
-function taxReliefFor(year, id) { return taxReliefsFor(year).find((r) => r.id === id) || null; }
+function taxStructureProblems(data) {
+  const out = [];
+  if (!data || !Array.isArray(data.tax_relief_categories)) return ["tax_relief_categories is missing"];
+  const codes = new Set(), ids = new Set();
+  for (const cat of data.tax_relief_categories) {
+    for (const item of (cat && cat.items) || []) {
+      const code = item && item.code;
+      if (!code || codes.has(code)) out.push(`item code "${code}" is missing or duplicated`);
+      codes.add(code);
+      const app = item.app || {};
+      const id = app.id || String(code).toLowerCase();
+      if (ids.has(id)) out.push(`item ${code}: id "${id}" is used twice`);
+      ids.add(id);
+      if (!item.name) out.push(`item ${code}: name is missing`);
+      const years = taxLimitYears(item);
+      if (!years.length) out.push(`item ${code}: no limit_ya_<year>_myr key`);
+      for (const y of years) {
+        const v = item[`limit_ya_${y}_myr`];
+        if (v !== null && !(typeof v === "number" && v >= 0)) out.push(`item ${code}: limit_ya_${y}_myr must be a number or null`);
+      }
+      if (app.auto && !TAX_AUTO_KEYS.includes(app.auto)) out.push(`item ${code}: unknown app.auto "${app.auto}"`);
+      if (app.keywords) { try { new RegExp(app.keywords, "i"); } catch { out.push(`item ${code}: app.keywords is not a valid regex`); } }
+      const subIds = new Set();
+      for (const sub of item.sub_limits || []) {
+        const sid = sub.id || String(sub.sub_category || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+        if (!sid || subIds.has(sid)) out.push(`item ${code}: sub-limit id "${sid}" is missing or duplicated`);
+        subIds.add(sid);
+        const hasYears = taxLimitYears(sub).length > 0;
+        if (!hasYears && !(typeof sub.limit_myr === "number" && sub.limit_myr >= 0)) out.push(`item ${code}: sub-limit "${sid}" needs limit_myr`);
+      }
+    }
+  }
+  const tax = data.income_tax_by_ya;
+  if (!tax || !Object.keys(tax).length) out.push("income_tax_by_ya is missing");
+  else for (const [y, t] of Object.entries(tax)) {
+    const bands = (t && t.bands) || [];
+    if (!/^\d{4}$/.test(y) || !bands.length) { out.push(`income_tax_by_ya.${y}: needs a year and bands`); continue; }
+    bands.forEach((b, i) => {
+      const last = i === bands.length - 1;
+      if (last ? b.up_to !== null : !(typeof b.up_to === "number" && (i === 0 || b.up_to > bands[i - 1].up_to))) out.push(`income_tax_by_ya.${y}: band ${i + 1} out of order (last band's up_to must be null)`);
+      if (!(typeof b.rate === "number" && b.rate >= 0 && b.rate <= 1)) out.push(`income_tax_by_ya.${y}: band ${i + 1} rate must be 0–1`);
+    });
+    if (!t.rebate || typeof t.rebate.amount !== "number" || typeof t.rebate.chargeable_income_up_to !== "number") out.push(`income_tax_by_ya.${y}: rebate needs amount and chargeable_income_up_to`);
+  }
+  return out;
+}
 
-// The reliefs in force for a year, with that year's caps resolved.
+const TAX_PROBLEMS = typeof TAX_DATA === "undefined" ? ["tax-data.js did not load"] : taxStructureProblems(TAX_DATA);
+const TAX_OK = TAX_PROBLEMS.length === 0;
+if (!TAX_OK) console.error("Tax data is invalid — the tax card is switched off:", TAX_PROBLEMS);
+
+// One normalised list of everything in the schedule, whatever the year.
+const TAX_CATALOG = TAX_OK ? TAX_DATA.tax_relief_categories.flatMap((cat) => cat.items.map((item) => {
+  const app = item.app || {};
+  return {
+    id: app.id || String(item.code).toLowerCase(),
+    code: item.code,
+    label: app.label || item.name,
+    hint: app.hint || (item.claimable_items || [])[0] || "",
+    common: !!app.common,
+    auto: app.auto || "",
+    employeeEpf: !!app.employeeEpf,
+    keywords: app.keywords ? new RegExp(app.keywords, "i") : null,
+    item,
+    subs: (item.sub_limits || []).map((sub) => ({
+      id: sub.id || String(sub.sub_category).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+      // "(New in YA 2027)" is a note for maintainers, not a label.
+      label: sub.label || String(sub.sub_category).replace(/\s*\((new in|integrated in|ya \d{4})[^)]*\)\s*$/i, ""),
+      keywords: sub.keywords ? new RegExp(sub.keywords, "i") : null,
+      sub,
+    })),
+  };
+})) : [];
+
+const TAX_YEAR_MIN = Math.min(...TAX_CATALOG.flatMap((c) => taxLimitYears(c.item)), 9999);
+const TAX_YEAR_MAX = Math.max(...TAX_CATALOG.flatMap((c) => taxLimitYears(c.item)), 0);
+const TAX_TABLE_LABEL = TAX_OK ? (TAX_YEAR_MIN === TAX_YEAR_MAX ? `YA ${TAX_YEAR_MIN}` : `YA ${TAX_YEAR_MIN}–${TAX_YEAR_MAX}`) : "";
+
+// The value a `limit_ya_<year>_myr` set gives for `year`: that year's key, else
+// the nearest EARLIER year's, else (a year before the whole schedule) the
+// first. null = no relief that year.
+function taxResolveLimit(obj, year) {
+  const ys = taxLimitYears(obj);
+  if (!ys.length) return undefined;
+  const earlier = ys.filter((y) => y <= year);
+  const y = earlier.length ? earlier[earlier.length - 1] : (year < TAX_YEAR_MIN ? ys[0] : null);
+  if (y == null) return null;
+  const v = obj[`limit_ya_${y}_myr`];
+  return typeof v === "number" ? v : null;
+}
+
+function taxSubCap(sub, year) {
+  const resolved = taxResolveLimit(sub, year);
+  if (resolved !== undefined) return resolved;
+  if (sub.since_ya && year < sub.since_ya) return null;
+  if (sub.until_ya && year > sub.until_ya) return null;
+  return typeof sub.limit_myr === "number" ? sub.limit_myr : null;
+}
+
+const taxYearCache = {};
+// The claimable reliefs in force for a year, with that year's caps resolved.
+// Automatic reliefs (individual, spouse, children …) are not claims and are
+// not in this list — see taxAutoAmounts.
 function taxReliefsFor(year) {
   const y = year || new Date().getFullYear();
-  return TAX_RELIEFS
-    .filter((r) => (!r.until || y <= r.until) && (!r.since || y >= r.since))
-    .map((r) => ({
-      ...r,
-      cap: y >= 2027 && r.cap2027 ? r.cap2027 : r.cap,
-      subs: (r.subs || []).filter((x) => !x.since || y >= x.since),
-    }));
+  if (taxYearCache[y]) return taxYearCache[y];
+  const out = [];
+  for (const c of TAX_CATALOG) {
+    if (c.auto) continue;
+    const cap = taxResolveLimit(c.item, y);
+    if (!(cap > 0)) continue;
+    const subs = c.subs.map((x) => ({ id: x.id, label: x.label, keywords: x.keywords, cap: taxSubCap(x.sub, y) })).filter((x) => x.cap > 0);
+    out.push({ id: c.id, code: c.code, label: c.label, hint: c.hint, common: c.common, employeeEpf: c.employeeEpf,
+      keywords: c.keywords, cap, subs, info: c.item });
+  }
+  return (taxYearCache[y] = out);
+}
+
+// Any year, for labels and for validating a stored claim.
+function taxRelief(id) {
+  const c = TAX_CATALOG.find((x) => x.id === id && !x.auto);
+  return c ? { id: c.id, label: c.label, subs: c.subs } : null;
+}
+function taxReliefFor(year, id) { return taxReliefsFor(year).find((r) => r.id === id) || null; }
+
+// Reliefs given without a receipt, in ringgit each, for a year.
+function taxAutoAmounts(year) {
+  const out = {};
+  for (const c of TAX_CATALOG) if (c.auto) out[c.auto] = Math.max(0, taxResolveLimit(c.item, year) || 0);
+  return out;
+}
+
+// Rate bands + rebate for a year (nearest earlier schedule, else the first).
+function taxIncomeTaxFor(year) {
+  const tax = TAX_DATA.income_tax_by_ya;
+  const ys = Object.keys(tax).map(Number).sort((a, b) => a - b);
+  const earlier = ys.filter((y) => y <= year);
+  const t = tax[String(earlier.length ? earlier[earlier.length - 1] : ys[0])];
+  return {
+    bands: t.bands.map((b) => [b.up_to === null ? Infinity : b.up_to, b.rate]),
+    rebate: t.rebate.amount,
+    rebateLimit: t.rebate.chargeable_income_up_to,
+  };
 }
 
 // Most specific first: "parents' clinic" must reach `medparents` before the
@@ -143,14 +200,20 @@ const TAX_RULES = [
   ["lifestyle", /\b(lifestyle|books?|buku|popular|mph|kinokuniya|laptop|macbook|ipad|tablet|smartphone|iphone|handphone|unifi|time fibre|maxis fibre|internet|broadband|wifi|udemy|coursera|course|kursus|magazine|newspaper|chatgpt|claude|midjourney|copilot|pet adoption|pet shelter|vets?|veterinary)\b/],
 ];
 
-// year matters only for breastfeeding: from YA 2027 it is a Medical sub-limit.
+// `year` matters because the schedule changes: a relief can end, merge or arrive.
 function taxSuggestRelief(category, note, year) {
   const text = `${category || ""} ${note || ""}`.toLowerCase();
   if (!text.trim()) return null;
+  const live = taxReliefsFor(year || new Date().getFullYear());
+  const has = (id) => live.some((r) => r.id === id);
   for (const [id, re] of TAX_RULES) {
     if (!re.test(text)) continue;
-    return id === "breastfeeding" && (year || new Date().getFullYear()) >= 2027 ? "medical" : id;
+    // A relief a Budget folded into another one (breastfeeding → Medical).
+    if (id === "breastfeeding" && !has(id)) return has("medical") ? "medical" : null;
+    if (has(id)) return id;
   }
+  // Reliefs added to tax-data.js with their own `app.keywords`.
+  for (const r of live) if (r.keywords && r.keywords.test(text)) return r.id;
   return null;
 }
 
@@ -171,6 +234,8 @@ function taxSuggestSub(relief, category, note, year) {
   const text = `${category || ""} ${note || ""}`.toLowerCase();
   const valid = (taxReliefFor(year || new Date().getFullYear(), relief) || { subs: [] }).subs.map((x) => x.id);
   for (const [id, re] of TAX_SUB_RULES[relief] || []) if (re.test(text) && valid.includes(id)) return id;
+  const r = taxReliefFor(year || new Date().getFullYear(), relief);
+  for (const x of (r && r.subs) || []) if (x.keywords && x.keywords.test(text)) return x.id;
   return "";
 }
 
@@ -252,10 +317,10 @@ function taxFigures(year) {
 
 /* ---------- the maths (pure) ---------- */
 
-function taxBandTax(chargeable) {
+function taxBandTax(chargeable, year) {
   const c = Math.max(0, Number(chargeable) || 0);
   let tax = 0, lower = 0;
-  for (const [upper, rate] of TAX_BANDS) {
+  for (const [upper, rate] of taxIncomeTaxFor(year || new Date().getFullYear()).bands) {
     if (c > lower) tax += (Math.min(c, upper) - lower) * rate;
     lower = upper;
     if (c <= upper) break;
@@ -263,18 +328,21 @@ function taxBandTax(chargeable) {
   return Math.round(tax * 100) / 100;
 }
 
-function taxMarginalRate(chargeable) {
+function taxMarginalRate(chargeable, year) {
   const c = Math.max(0, Number(chargeable) || 0);
-  for (const [upper, rate] of TAX_BANDS) if (c <= upper) return rate;
-  return 0.30;
+  const bands = taxIncomeTaxFor(year || new Date().getFullYear()).bands;
+  for (const [upper, rate] of bands) if (c <= upper) return rate;
+  return bands[bands.length - 1][1];
 }
 
 // Tax actually owed on a chargeable income: band tax, minus the RM400 rebate
 // for chargeable income up to RM35,000, minus zakat paid (a ringgit-for-ringgit
 // rebate that can wipe the bill out but never creates a refund of its own).
-function taxPayableFor(chargeable, zakat) {
-  const gross = taxBandTax(chargeable);
-  const rebate = chargeable <= TAX_REBATE_LIMIT ? Math.min(gross, TAX_REBATE) : 0;
+function taxPayableFor(chargeable, zakat, year) {
+  const y = year || new Date().getFullYear();
+  const gross = taxBandTax(chargeable, y);
+  const t = taxIncomeTaxFor(y);
+  const rebate = chargeable <= t.rebateLimit ? Math.min(gross, t.rebate) : 0;
   const zakatUsed = Math.min(Math.max(0, Number(zakat) || 0), gross - rebate);
   return { gross, rebate, zakat: zakatUsed, payable: Math.max(0, Math.round((gross - rebate - zakatUsed) * 100) / 100) };
 }
@@ -291,15 +359,15 @@ function taxEstimate(inp) {
     : Object.entries(inp.claimsByRelief || {}).map(([relief, amount]) => ({ relief, sub: "", amount }));
   const n = (v) => Math.max(0, Math.round(Number(v) || 0));
   const income = Math.max(0, Number(inp.income) || 0);
-  const A = TAX_AUTO_RELIEF;
-  const auto = taxIndividualRelief(year)
-    + (inp.spouse ? A.spouse : 0)
-    + (inp.disabledSelf ? A.disabledSelf : 0)
-    + (inp.disabledSpouse ? A.disabledSpouse : 0)
-    + n(inp.children) * A.child
-    + n(inp.childrenPre) * A.childPre
-    + n(inp.childrenTertiary) * A.childTertiary
-    + n(inp.disabledChildren) * A.disabledChild;
+  const A = taxAutoAmounts(year);
+  const auto = (A.individual || 0)
+    + (inp.spouse ? (A.spouse || 0) : 0)
+    + (inp.disabledSelf ? (A.disabledSelf || 0) : 0)
+    + (inp.disabledSpouse ? (A.disabledSpouse || 0) : 0)
+    + n(inp.children) * (A.child || 0)
+    + n(inp.childrenPre) * (A.childPre || 0)
+    + n(inp.childrenTertiary) * (A.childTertiary || 0)
+    + n(inp.disabledChildren) * (A.disabledChild || 0);
 
   const used = {};
   const usedSub = {};
@@ -318,20 +386,20 @@ function taxEstimate(inp) {
       usedSub[`${r.id}:${x.id}`] = Math.min(x.cap, subSum[x.id] || 0);
       amt += usedSub[`${r.id}:${x.id}`];
     }
-    if (r.id === "epf") amt += Number(inp.epfPaid) || 0;
+    if (r.employeeEpf) amt += Number(inp.epfPaid) || 0;
     used[r.id] = Math.min(r.cap, Math.max(0, amt));
     claimedTotal += used[r.id];
   }
   // What the employer-side reliefs alone would give — so "your claims saved
   // you RM x" is a real difference, not a guess.
-  const epfRelief = reliefs.find((r) => r.id === "epf");
-  const epfOnly = Math.min(epfRelief.cap, Math.max(0, Number(inp.epfPaid) || 0));
+  const epfRelief = reliefs.find((r) => r.employeeEpf);
+  const epfOnly = epfRelief ? Math.min(epfRelief.cap, Math.max(0, Number(inp.epfPaid) || 0)) : 0;
   const chargeableNoClaims = Math.max(0, income - auto - epfOnly);
 
   const chargeable = Math.max(0, Math.round((income - auto - claimedTotal) * 100) / 100);
   const zakat = Number(inp.zakat) || 0;
-  const t = taxPayableFor(chargeable, zakat);
-  const base = taxPayableFor(chargeableNoClaims, zakat);
+  const t = taxPayableFor(chargeable, zakat, year);
+  const base = taxPayableFor(chargeableNoClaims, zakat, year);
   const pcb = Math.max(0, Number(inp.pcb) || 0);
 
   const opportunities = [];
@@ -340,7 +408,7 @@ function taxEstimate(inp) {
     if (room <= 0) continue;
     const eligible = r.common || used[r.id] > 0;
     if (!eligible) continue;
-    const saving = t.payable - taxPayableFor(Math.max(0, chargeable - room), zakat).payable;
+    const saving = t.payable - taxPayableFor(Math.max(0, chargeable - room), zakat, year).payable;
     opportunities.push({ id: r.id, label: r.label, room, saving: Math.round(saving * 100) / 100 });
   }
   opportunities.sort((a, b) => b.saving - a.saving);
@@ -351,7 +419,7 @@ function taxEstimate(inp) {
     pcb,
     balance: Math.round((pcb - t.payable) * 100) / 100,   // > 0 refund, < 0 still owe
     savedByClaims: Math.max(0, Math.round((base.payable - t.payable) * 100) / 100),
-    marginal: taxMarginalRate(chargeable),
+    marginal: taxMarginalRate(chargeable, year),
     opportunities,
   };
 }
@@ -605,7 +673,7 @@ function taxRefreshClaimHint() {
   if (!r) return;
   const others = taxYearClaims(year).filter((c) => c.relief === r.id && c.id !== (taxCtx && taxCtx.claimId));
   const sub = r.subs.find((x) => x.id === taxEl("tax-claim-sub").value);
-  const usedElsewhere = others.reduce((s, c) => s + c.amount, 0) + (r.id === "epf" ? taxFigures(year).epf : 0);
+  const usedElsewhere = others.reduce((s, c) => s + c.amount, 0) + (r.employeeEpf ? taxFigures(year).epf : 0);
   const left = Math.max(0, r.cap - usedElsewhere);
   let text = `${r.hint}. Limit ${fmtMoney(r.cap)} a year · ${fmtMoney(left)} left for ${year}.`;
   if (sub) {
@@ -613,6 +681,11 @@ function taxRefreshClaimHint() {
     text += ` ${sub.label}: ${fmtMoney(sub.cap)} limit, ${fmtMoney(subLeft)} left.`;
   }
   taxEl("tax-claim-hint").textContent = text;
+  // What counts and what to keep, straight from the schedule.
+  const info = r.info || {};
+  taxEl("tax-claim-info-list").innerHTML = (info.claimable_items || []).map((x) => `<li>${escapeHtml(x)}</li>`).join("");
+  taxEl("tax-claim-info-who").textContent = info.eligibility_criteria || "";
+  taxEl("tax-claim-info-docs").textContent = info.required_documentation ? `Keep: ${info.required_documentation}` : "";
 }
 
 async function taxRefreshReceiptArea() {
@@ -732,7 +805,7 @@ async function taxViewReceipt(claimId) {
 // Called by the Add-entry submit and by the scanner for a just-saved expense.
 // Returns true when it took over the toast slot (so the caller keeps quiet).
 function taxAfterExpense(entry, receipt) {
-  if (!entry || (entry.kind || "expense") !== "expense") return false;
+  if (!TAX_OK || !entry || (entry.kind || "expense") !== "expense") return false;
   const relief = taxSuggestRelief(entry.category, entry.note);
   if (!relief) return false;
   const t = taxState();
@@ -783,7 +856,7 @@ function renderTax() {
   const optin = taxEl("tax-optin");
   if (!card || !optin) return;
   const t = taxState();
-  const myr = typeof currentCurrency !== "function" || currentCurrency() === "MYR";
+  const myr = TAX_OK && (typeof currentCurrency !== "function" || currentCurrency() === "MYR");
   card.hidden = !(t.enabled && myr);
   optin.hidden = t.enabled || !myr;
   if (card.hidden) return;
@@ -897,7 +970,7 @@ function taxClaimsCSV(year) {
   const s = taxSummary(year);
   lines.push("");
   lines.push(["Relief", "Claimed", "Limit"].join(","));
-  for (const r of TAX_RELIEFS) if (s.used[r.id] > 0) lines.push([r.label, s.used[r.id].toFixed(2), r.cap].map(esc).join(","));
+  for (const r of taxReliefsFor(year)) if (s.used[r.id] > 0) lines.push([r.label, s.used[r.id].toFixed(2), r.cap].map(esc).join(","));
   return lines.join("\n");
 }
 

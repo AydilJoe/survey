@@ -7120,3 +7120,7 @@ html[data-theme="dark"] {
 .tax-receipt img { display: block; max-width: 100%; max-height: 200px; border-radius: 8px; border: 0.5px solid var(--line); margin: 0.4rem 0; }
 .tax-receipt-full { display: block; max-width: 100%; max-height: 70vh; margin: 0.5rem auto; border-radius: 8px; }
 .tax-file-btn { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none; }
+.tax-claim-info { margin: 0.25rem 0 0.5rem; font-size: 0.85rem; }
+.tax-claim-info summary { cursor: pointer; color: var(--muted); }
+.tax-claim-info ul { margin: 0.4rem 0; padding-left: 1.1rem; }
+.tax-sub-head { margin: 0.9rem 0 0.2rem; font-size: 0.85rem; color: var(--muted); font-weight: 500; }
