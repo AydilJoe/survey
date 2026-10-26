@@ -37,9 +37,15 @@ public class DuitfulICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     private let queue = DispatchQueue(label: "app.duitful.icloud", qos: .userInitiated)
     private var container: URL?
 
+    /// `reason` says which of the two gates failed, so the app can tell
+    /// someone what to change instead of one generic line:
+    ///   "no-account"   — no iCloud identity: signed out, or iCloud Drive off
+    ///   "no-container" — iCloud is on, but this build can't open Duitful's
+    ///                    container (entitlement/profile, or iCloud for
+    ///                    Duitful switched off)
     @objc func status(_ call: CAPPluginCall) {
         guard FileManager.default.ubiquityIdentityToken != nil else {
-            call.resolve(["available": false, "reason": "signed-out"])
+            call.resolve(["available": false, "reason": "no-account"])
             return
         }
         queue.async {

@@ -36,6 +36,9 @@
   }
 
   let available = false;
+  // Why not, when not: "no-account", "no-container", "error" or "" (see the
+  // Swift status()). Shown on the card so a fix is possible without a log.
+  let reason = "";
   let listeners = new Set();
   let status = { state: "idle", message: "", lastSyncedAt: readLastSynced() };
   // One read serves the meta probe and the download that usually follows it,
@@ -59,6 +62,7 @@
   function isConfigured() { return !!plugin(); }
   function isSignedIn() { return isConfigured() && available; }
   function getStatus() { return status; }
+  function unavailableReason() { return isConfigured() && !available ? reason : ""; }
   function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 
   // Availability is only known asynchronously (Swift asks iCloud for the
@@ -70,8 +74,10 @@
     try {
       const res = await p.status();
       available = !!(res && res.available);
+      reason = available ? "" : String((res && res.reason) || "error");
     } catch {
       available = false;
+      reason = "error";
     }
     setStatus(status.state === "working" ? "idle" : status.state, status.message);
     return available;
@@ -139,6 +145,8 @@
   window.ICloudSync = {
     isConfigured,
     isSignedIn,
+    unavailableReason,
+    refresh,
     ready,
     getStatus,
     subscribe,
