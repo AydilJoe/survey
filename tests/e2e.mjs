@@ -7949,6 +7949,11 @@ check('the brand catalogue makes no network calls at all',
   });
 
   // Native wiring: every name that must agree, agrees.
+  // An unanchored "ios/" in .gitignore once kept this Swift out of git: the
+  // checks below passed locally and CI had no plugin source at all.
+  const tracked = execFileSync('git', ['ls-files', 'native/icloud-backup'], { cwd: REPO_ROOT, encoding: 'utf8' });
+  check('the iCloud plugin\'s Swift is tracked by git, not swallowed by .gitignore',
+    tracked.includes('native/icloud-backup/ios/Sources/DuitfulICloudPlugin/DuitfulICloudPlugin.swift'), tracked.trim().split('\n').join(', '));
   const swift = readFileSync(path.join(REPO_ROOT, 'native/icloud-backup/ios/Sources/DuitfulICloudPlugin/DuitfulICloudPlugin.swift'), 'utf8');
   const npkg = JSON.parse(readFileSync(path.join(REPO_ROOT, 'native/icloud-backup/package.json'), 'utf8'));
   const podspecs = readdirSync(path.join(REPO_ROOT, 'native/icloud-backup')).filter((f) => f.endsWith('.podspec'));
