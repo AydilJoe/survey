@@ -105,7 +105,7 @@
   }
   .pay-row .pay-value {
     font-family: var(--font-mono); font-size: 14.5px; color: var(--ink);
-    flex: 1; min-width: 0; word-break: break-all;
+    flex: 1; min-width: 0; overflow-wrap: anywhere;
     font-variant-numeric: tabular-nums;
   }
   .pay-row button {
@@ -113,7 +113,7 @@
     font: 600 12.5px var(--font-sans);
     background: var(--ink); color: var(--card);
     border: none; border-radius: 999px;
-    padding: 7px 14px; cursor: pointer;
+    padding: 0 16px; min-height: 44px; min-width: 64px; cursor: pointer;
   }
   .pay-row button.copied { background: var(--primary); }
   .actions { margin: 22px 0 0; display: flex; flex-direction: column; gap: 10px; }
@@ -125,6 +125,8 @@
   /* --primary-ink, not --primary: cream on #c8704b measured 3.4:1. */
   .btn-primary { background: var(--primary-ink); color: #fffaf2; }
   .btn-primary:hover { background: #8e4629; }
+  /* Ink, not terracotta: the page's one terracotta button stays the app. */
+  .btn-ink { background: var(--ink); color: var(--card); }
   .btn-ghost { background: transparent; color: var(--ink); border: 0.5px solid var(--border); }
   .btn-ghost:hover { background: var(--card); }
   .privacy {
@@ -150,6 +152,23 @@
   .footer { margin-top: 28px; font-size: 12.5px; color: var(--ink2); }
   .footer a { color: var(--ink2); }
   .hidden { display: none !important; }
+  /* "Already paid?" — deliberately small: the page's job is still the app,
+     this is the way back for someone who will never install it. */
+  .paid-back { margin: 14px 0 0; text-align: center; }
+  .linkish {
+    background: none; border: 0; padding: 10px 6px; min-height: 44px; cursor: pointer;
+    font: 600 14px var(--font-sans); color: var(--ink);
+    text-decoration: underline; text-underline-offset: 3px;
+  }
+  .paid-form { margin: 8px 0 0; text-align: left; }
+  .paid-form label { display: block; font-size: 13px; color: var(--ink2); margin: 0 0 6px; }
+  .paid-form input {
+    width: 100%; box-sizing: border-box; font: 16px var(--font-sans);
+    padding: 12px 14px; border-radius: 12px; border: 0.5px solid var(--border);
+    background: var(--card); color: var(--ink); margin: 0 0 10px;
+  }
+  .paid-form .hint { font-size: 12.5px; color: var(--ink2); margin: 8px 0 0; line-height: 1.5; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -163,7 +182,7 @@
 
   <div class="card" id="request-card" hidden>
     <p class="eyebrow">Payment request</p>
-    <p class="from"><strong id="r-from"></strong> is requesting</p>
+    <p class="from" id="r-from-line"><strong id="r-from"></strong> is requesting</p>
     <p class="amount"><span class="cur">RM</span><span id="r-amount"></span></p>
     <p class="title" id="r-title"></p>
     <div class="meta">
@@ -182,8 +201,18 @@
       <a class="btn btn-ghost" href="/">Get Duitful — free, private, no sign-up</a>
     </div>
 
+    <div class="paid-back">
+      <button type="button" class="linkish" id="btn-paid-open" aria-expanded="false" aria-controls="paid-form">Already paid? Let them know</button>
+      <div class="paid-form" id="paid-form" hidden>
+        <label for="paid-name">Your name</label>
+        <input type="text" id="paid-name" maxlength="40" autocomplete="name" placeholder="So they know who paid" />
+        <button type="button" class="btn btn-ink" id="btn-paid-send" style="width:100%">Send “I’ve paid”</button>
+        <p class="hint">Sends a link back through WhatsApp or any app. It says you paid — it doesn't move money.</p>
+      </div>
+    </div>
+
     <details>
-      <summary>Request code (in Duitful: Debts tab → Add a request)</summary>
+      <summary>Request code — for pasting into Duitful</summary>
       <div class="code" id="r-code"></div>
     </details>
 
@@ -216,6 +245,7 @@
     <p class="privacy">Duitful requests travel inside links and QR codes — decoded on your device, never sent to a server.</p>
   </div>
 
+  <p class="sr-only" id="live" aria-live="polite"></p>
   <p class="footer">Track money, debts &amp; savings privately — <a href="/">duitful.app</a></p>
 
 <script>
@@ -299,7 +329,9 @@
     return;
   }
 
-  document.getElementById("r-from").textContent = String(req.fr || "Someone");
+  // No sender name set: say what this is rather than "Someone is requesting".
+  if (req.fr) document.getElementById("r-from").textContent = String(req.fr);
+  else document.getElementById("r-from-line").textContent = "You've got a payment request";
   document.getElementById("r-amount").textContent = fmtAmount;
   document.getElementById("r-title").textContent = String(req.ti || "Payment request");
   document.getElementById("r-date").textContent = dayLabel(String(req.d || ""));
@@ -342,6 +374,7 @@
         navigator.clipboard.writeText(r[1]).then(function () {
           btn.textContent = "Copied ✓";
           btn.classList.add("copied");
+          document.getElementById("live").textContent = (r[0] || "Details") + " copied";
           setTimeout(function () { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1800);
         });
       });
@@ -362,6 +395,50 @@
   document.getElementById("btn-have-app").addEventListener("click", function () {
     try { localStorage.setItem("duitful.pendingSplit", raw); } catch (e) {}
     location.href = "/app/";
+  });
+
+  // "I've paid" without the app. Builds the same receipt the app's own
+  // "I've paid — tell them" makes — t:"paid", the ORIGINAL request id — so
+  // the requester's Duitful matches it to the right person and asks them to
+  // confirm. Nothing is stored or sent anywhere but the chat they pick.
+  function bytesToB64url(bytes) {
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  async function encode(obj) {
+    var bytes = new TextEncoder().encode(JSON.stringify(obj));
+    if (typeof CompressionStream === "function") {
+      try {
+        var stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+        return "DFS1." + bytesToB64url(new Uint8Array(await new Response(stream).arrayBuffer()));
+      } catch (e) {}
+    }
+    return "DFS1u." + bytesToB64url(bytes);
+  }
+  var openBtn = document.getElementById("btn-paid-open");
+  var form = document.getElementById("paid-form");
+  var nameInput = document.getElementById("paid-name");
+  try { nameInput.value = localStorage.getItem("duitful.payerName") || ""; } catch (e) {}
+  openBtn.addEventListener("click", function () {
+    form.hidden = !form.hidden;
+    openBtn.setAttribute("aria-expanded", form.hidden ? "false" : "true");
+    if (!form.hidden) nameInput.focus();
+  });
+  document.getElementById("btn-paid-send").addEventListener("click", async function () {
+    var name = nameInput.value.trim().slice(0, 40);
+    if (!name) { nameInput.focus(); document.getElementById("live").textContent = "Add your name first"; return; }
+    try { localStorage.setItem("duitful.payerName", name); } catch (e) {}
+    var today = new Date();
+    var iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+    var paid = { v: 1, t: "paid", id: req.id, ti: req.ti, d: iso, a: Number(req.a), c: req.c || "MYR", fr: name };
+    var link = location.origin + "/split/#" + (await encode(paid));
+    var text = name + " paid RM " + fmtAmount + " for " + String(req.ti || "the bill") + " — " + link;
+    if (navigator.share) {
+      try { await navigator.share({ title: "Paid: " + String(req.ti || ""), text: text }); return; }
+      catch (e) { if (e && e.name === "AbortError") return; }
+    }
+    location.href = "https://wa.me/?text=" + encodeURIComponent(text);
   });
 })();
 </script>

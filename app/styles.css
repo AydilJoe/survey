@@ -7023,3 +7023,4 @@ html[data-theme="dark"] {
   border-radius: var(--r-pill);
 }
 #toast .toast-action:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
+.split-payto-link { font-size: 0.9rem; text-align: left; display: block; margin: 0.35rem 0 0.2rem; min-height: 44px; }
