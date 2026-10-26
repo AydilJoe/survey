@@ -57,26 +57,28 @@ The code is public at github.com/AydilJoe/survey. Don't trust me — check.
 BUILT FOR MALAYSIA
 
 • Pay-later plans like Atome and SPayLater show how many payments are left and when each one is due
-• Islamic financing as a real debt type: murabahah, tawarruq, AITAB, with ibra' worked out properly instead of a conventional rate pretending to fit
-• Zakat tracker with nisab from live gold or silver prices
+• Islamic financing as a real debt type: murabahah, tawarruq, BBA and AITAB, with ibra' worked out properly instead of a conventional rate pretending to fit
+• Zakat on wealth: nisab, haul and the 2.5%, using the gold price you enter
+• LHDN tax relief: Duitful spots spending that counts, keeps the receipt with the claim (encrypted on your phone), estimates your refund and checks in every November and before e-Filing opens. An estimate for planning, not tax advice
 • Ringgit first, with local banks and e-wallets in mind
 
 
 WHAT IT DOES
 
-• Monthly income and bills, and what's actually left this month
+• Monthly income and bills, and what's actually left this month and per day
 • Debt payoff by the avalanche method — highest rate first — and the month you'll be debt-free
-• Savings goals and investments
+• Savings goals and investments (values you type in)
 • Split a bill by sending a link. The details travel inside the link itself: no accounts, no server, and your friends don't need the app
 • Scan a receipt and the total, date and shop are read on your phone, then checked against the receipt's own numbers
+• Privacy mode hides every amount
 • Works offline
 
 
 FREE AND PRO
 
-Everything above is free for up to 3 debts and 3 savings goals.
+Free covers up to 3 debts, 2 savings goals, 2 investments and 3 receipt scans a month. Islamic finance and zakat are always free.
 
-Duitful Pro is a one-time in-app purchase — no subscription. It removes the limits and adds receipt scanning, instalment plans and reminders.
+Duitful Pro is a one-time in-app purchase — no subscription. It removes the limits and adds instalment plans, reminders and multi-device sync.
 
 
 I'm Aydil, in Kuala Lumpur. Duitful is not a company — no investors, no ad network, no data partners. If something's broken or wrong, tell me and I'll fix it.

@@ -1,7 +1,8 @@
 # Store listing & landing copy
 
-Draft for review. **Nothing here is published yet** — the landing page and Play
-Console still carry the old text.
+The Play Store section is current as of v1.46 (tax relief, Islamic finance,
+split bills). The landing copy below is an older draft. Neither is published
+until pasted into Play Console / the site by hand.
 
 The change in one line: the current copy is a feature list written in nobody's
 voice. Every sentence is true, balanced and complete, which is exactly what
@@ -55,76 +56,103 @@ Why this and not the old version:
 
 ## Play Store
 
+Paste-ready. Plain text, one line per paragraph (Play re-wraps it; hard line
+breaks mid-sentence were what made the old listing ragged).
+
 ### Title (30 char limit)
 
 ```
-Duitful: Money & Debt Tracker
+Duitful: Budget & Debt Tracker
 ```
-29 characters.
+30 characters. Alternative: `Duitful: Money & Debt Tracker` (29).
 
 ### Short description (80 char limit)
 
-⚠️ Your last one was rejected for *"keywords that indicate price or
-promotion"*. **No "free", "no subscription", "lifetime", or any RM figure in
-this field.** All three of these are clean:
+No "free", "no subscription", "lifetime" or RM figure here — an earlier one was
+rejected for *"keywords that indicate price or promotion"*.
+
+```
+Your daily spend, debts and tax claims. Encrypted on your phone, no account.
+```
+76 chars — recommended. Alternatives:
+
+```
+Know what you can spend today. Debts, tax and bills, private on your phone.
+```
+75 chars.
 
 ```
 Track duit, debts and paylater plans. Encrypted on your phone.
 ```
-62 chars — recommended.
-
-```
-Money, debts and BNPL, tracked on your phone. Nothing is uploaded.
-```
-65 chars.
-
-```
-Your duit, your debts, your phone. Nothing leaves the device.
-```
-60 chars.
+62 chars (the previous pick).
 
 ### Full description
 
-Pricing is fine here — the promotion rule applies to the short description.
+Do not hard-code the Pro price: the store shows it per region (RM 15.99–19.90).
 
 ```
-Every budgeting app I tried wanted my bank login. So I built one that can't have it.
+How much can I actually spend today?
 
-Duitful has no server. Your income, your debts, your spending — all of it is encrypted on your phone with a passcode only you know. Not "encrypted in transit". There is nowhere for it to go. I couldn't read your data if you asked me to.
+Duitful answers that. Tell it what comes in and what's already spoken for — rent, bills, a car loan — and it shows what's left, and roughly what that is per day. Log a lunch, watch the number move.
 
-The code is public at github.com/AydilJoe/survey. Don't trust me — check.
-
-
-BUILT FOR MALAYSIA, NOT TRANSLATED FOR IT
-
-• Atome, SPayLater, GrabPayLater, Boost — instalment plans show which provider is which at a glance, and how many payments you have left
-• Islamic financing as a real debt type: murabahah, tawarruq, AITAB, with ibra' worked out properly instead of a conventional APR pretending to fit
-• Zakat tracker with nisab from live gold or silver prices
-• Ringgit, local banks, local e-wallets
+I built it because every budgeting app I tried wanted my bank login. Duitful has no server and no account. Your income, debts, spending and receipts are encrypted on your phone with a passcode only you know, so there is nowhere for them to go. I couldn't read your data if you asked me to. The code is public at github.com/AydilJoe/survey. Don't trust me — check.
 
 
-WHAT IT DOES
+Day to day
+• Add a spend in a couple of taps, or from the notification shade without opening the app
+• See what's left this month and what that is per day
+• Budget pools, a spending calendar, and reports by category and trend
+• A home-screen widget for quick adds
+• Privacy mode hides every amount before you hand someone your phone
 
-• Monthly income and bills, with what's actually left over
-• Debt payoff by avalanche — highest rate first, minimums rolled forward, and the month you'll be clear
-• Savings goals and investment holdings
-• Split a bill by sharing a link. The whole request travels inside the link itself. No accounts, no server, and the other person doesn't need the app
-• Snap a receipt and pull out the line items, processed on your phone
-• Works offline. Install it from the browser or get it here
+Get out of debt
+• Cards, car loans, PTPTN and pay-later plans in one list
+• Avalanche payoff: highest rate first, minimums rolled forward, and the month you'll be debt-free
+• Atome, SPayLater and other pay-later plans show how many payments are left and when each is due
+
+Tax time, sorted
+• Spots spending that counts as LHDN tax relief — books, gym, medical, insurance, SSPN, PRS and more — and asks if you want to claim it
+• Keeps the receipt with the claim, encrypted on your phone
+• Estimates your refund from your income and the PCB already deducted
+• Checks in every November and before e-Filing opens, so nothing slips
+An estimate for planning, not tax advice. Check LHDN's figures before you file.
+
+Split a bill, no sign-ups
+Send a link. The whole request travels inside the link itself — no accounts, no server, and your friends don't need the app. They tap "I've paid" and you confirm.
+
+Scan a receipt
+The total, date and shop are read on your phone, then checked against the receipt's own numbers. Nothing is uploaded. Split it by item if you ate different things.
+
+Islamic finance and zakat
+• Murabahah, tawarruq, BBA and AITAB facilities as a real debt type, with ibra' on early settlement worked out properly instead of a conventional rate pretending to fit
+• Zakat on wealth: nisab, haul and the 2.5%, using the gold price you enter
+These are free for everyone and never behind the paywall.
+
+Also
+Savings goals, investments (ASB, EPF, Tabung Haji, unit trusts, shares — values you type in, no price lookups), fingerprint unlock, and it all works offline.
+
+Optional, and off until you switch it on
+• Bank and e-wallet notifications: Duitful reads notifications from a short list of bank and e-wallet apps on your phone and drafts entries for you to approve. Nothing leaves the phone.
+• An encrypted backup to your own Google Drive.
 
 
-FREE AND PAID
+Free and Pro
+Free: up to 3 debts, 2 savings goals, 2 investments and 3 receipt scans a month. Pro is a one-time in-app purchase — no subscription — that lifts the limits and adds pay-later and instalment plans, reminders and multi-device sync.
 
-Everything above is free for up to 3 debts and 3 savings goals.
-
-Duitful Pro is RM 19.90, once, forever — no subscription. It removes the limits and adds receipt scanning, instalment plans and reminders. It exists to cover the Apple and Google developer fees, which is the only reason there's a price at all.
-
-
-I'm Aydil, in Kuala Lumpur. Duitful is not a company — no investors, no ad network, no data partners. If something's broken or wrong, tell me and I'll fix it.
+I'm Aydil, in Kuala Lumpur. Duitful isn't a company: no investors, no ad network, no data partners. If something's broken or wrong, tell me and I'll fix it.
 ```
 
-~1,600 of 4,000 characters. Deliberately short — long listings don't get read,
-and the first two lines are the only ones most people see before "Read more".
+~3,200 of 4,000 characters. Facts checked against the code: free limits are
+3 debts, 2 savings goals, 2 investments and 3 receipt scans a month
+(`FREE_*` constants in `app/script.js`); zakat uses a gold price the user
+types; notification capture and Google Drive backup are both opt-in.
+
+### What's new (500 char limit)
+
+```
+Tax time, sorted: Duitful now spots spending that counts as LHDN tax relief, keeps the receipts encrypted on your phone, and estimates your refund against the PCB already deducted. It checks in every November and before e-Filing opens.
+Also: a calmer Tax page, privacy mode on every tax figure, and small fixes.
+```
 
 ---
 
