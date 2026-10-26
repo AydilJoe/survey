@@ -49,3 +49,11 @@ for f in marketing/app-store/en/0*.png; do ffmpeg -y -i "$f" -pix_fmt rgb24 t.pn
 Set `CHROMIUM_PATH` if Playwright's bundled browser isn't installed. The
 fonts are installed locally because Google Fonts may be unreachable from CI;
 the scripts serve them to the app in place of the Google Fonts request.
+
+## Google Play feature graphic
+
+`../google-play/feature-graphic.png` — 1024 × 500, RGB, the banner across the
+top of the Play listing (Play Console → Main store listing → Graphics). The
+App Store has no equivalent slot. Regenerate with
+`node marketing/app-store/scripts/feature-graphic.mjs` after `capture.mjs`
+(it reuses the raw Home screen), then strip the alpha channel as above.

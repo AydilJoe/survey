@@ -399,7 +399,7 @@ never sees these secrets.
    - Short description (80 chars): "Private money & debt tracker for Malaysia. Avalanche payoff, no ads, no subscription."
    - Full description: crib from the landing page copy
    - App icon (512x512 PNG): use `resources/icon.svg` -> export at 512x512 (npm run assets already does this under android/app/src/main/res/)
-   - Feature graphic (1024x500 PNG): design later
+   - Feature graphic (1024x500 PNG): `marketing/google-play/feature-graphic.png` (regenerate with `marketing/app-store/scripts/feature-graphic.mjs`)
    - Phone screenshots (min 2, max 8, min 320px on one side): use iPhone screenshots (Play accepts them) or grab fresh ones from an Android emulator
 
 ## Closed testing & sharing the opt-in link
