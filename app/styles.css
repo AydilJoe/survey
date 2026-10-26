@@ -7024,3 +7024,65 @@ html[data-theme="dark"] {
 }
 #toast .toast-action:focus-visible { outline: 2px solid currentColor; outline-offset: -2px; }
 .split-payto-link { font-size: 0.9rem; text-align: left; display: block; margin: 0.35rem 0 0.2rem; min-height: 44px; }
+
+/* v1.43 — a split is one bill: progress, who's paid, and an ending */
+.split-bill {
+  padding: 0.75rem 0 0.25rem;
+  border-top: 0.5px solid var(--line);
+}
+.split-bill:first-child { border-top: 0; padding-top: 0.2rem; }
+.split-bill-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
+.split-bill-title { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split-bill-count { flex: none; font-size: 0.85rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.split-bill-bar {
+  height: 6px; margin: 0.45rem 0 0.4rem;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--gain) 14%, var(--card-soft));
+  overflow: hidden;
+}
+.split-bill-bar i {
+  display: block; height: 100%;
+  border-radius: inherit;
+  background: var(--gain);
+  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.split-bill-paid {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.6rem;
+  margin: 0 0 0.3rem; font-size: 0.85rem; color: var(--gain);
+}
+.split-bill-paid svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+/* Rows inside a bill are lines, not cards inside a card. */
+.split-bill .split-row {
+  background: none; border: 0; box-shadow: none; border-radius: 0;
+  padding: 0.6rem 0 0.55rem;
+  border-top: 0.5px dashed var(--line);
+}
+.split-bill-count { color: var(--muted); }
+.split-bill.is-done .split-bill-count { color: var(--gain); font-weight: 600; }
+.split-bill-done-line {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  margin: 0.15rem 0 0; font-size: 0.92rem;
+}
+.split-bill-done-line .link-btn {
+  min-height: 44px; padding: 0 0.25rem; font: inherit; font-weight: 600;
+  background: none; border: 0; color: var(--text); text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+}
+/* The one moment: the bar fills, the bill settles. */
+.split-bill.is-done .split-bill-bar i { animation: split-bill-fill 700ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes split-bill-fill { from { width: 66%; } to { width: 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .split-bill-bar i, .split-bill.is-done .split-bill-bar i { transition: none; animation: none; }
+}
+/* Single requests and loans: lines like every other list, not cards inside
+   the card (the detector's nested-cards finding on these lists). */
+#split-owed-list > .split-row,
+#split-owe-list > .split-row {
+  background: none; border: 0; box-shadow: none; border-radius: 0;
+  padding: 0.75rem 0 0.6rem;
+  border-top: 0.5px solid var(--line);
+}
+#split-owed-list > :first-child,
+#split-owe-list > :first-child { border-top: 0; padding-top: 0.2rem; }
+#split-owed-list, #split-owe-list { gap: 0; }
+/* Inside a bill the title is the header; each row needn't repeat it. */
+.split-bill .split-meta > span:first-child { display: none; }

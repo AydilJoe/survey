@@ -4808,6 +4808,69 @@ check('the vault is open before the quick-add checks',
     lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
 }
 
+/* ── v1.43: a split is one bill with an ending; the friend page speaks BM ─
+   Settled people used to vanish one by one until the card hid itself; now a
+   bill shows "1 of 3 paid", names who paid, and says "Everyone's paid". */
+{
+  const bill = await page.evaluate(async () => {
+    const s = splitState();
+    const rec = { id: 'bill-v143', kind: 'split', title: 'Tealive round', date: todayISO(), total: 40, people: [
+      { id: 'b143-a', name: 'Hana', amount: 10, status: 'open', repayments: [] },
+      { id: 'b143-b', name: 'Iman', amount: 10, status: 'open', repayments: [] },
+      { id: 'b143-c', name: 'Jaz', amount: 10, status: 'open', repayments: [] }] };
+    s.out.push(rec);
+    renderSplit();
+    const q = () => document.querySelector('#split-owed-list [data-bill="bill-v143"]');
+    const out = {};
+    out.start = q()?.querySelector('.split-bill-count')?.textContent;
+    out.rows = q()?.querySelectorAll('.split-row').length;
+    splitRecordRepayment('b143-a', 10, todayISO()); renderSplit();
+    out.one = q()?.querySelector('.split-bill-count')?.textContent;
+    out.oneNow = q()?.querySelector('.split-bill-bar')?.getAttribute('aria-valuenow');
+    out.paidNames = q()?.querySelector('.split-bill-paid')?.textContent.trim();
+    out.rowsAfter = q()?.querySelectorAll('.split-row').length;
+    splitRecordRepayment('b143-b', 10, todayISO());
+    splitRecordRepayment('b143-c', 10, todayISO()); renderSplit();
+    out.done = q()?.querySelector('.split-bill-count')?.textContent;
+    out.doneLine = q()?.querySelector('.split-bill-done-line')?.textContent.replace(/\s+/g, ' ').trim();
+    out.toast = document.getElementById('toast')?.textContent || '';
+    q()?.querySelector('[data-action="split-bill-dismiss"]')?.click();
+    await new Promise((r) => setTimeout(r, 50));
+    out.gone = !q();
+    s.out = s.out.filter((r) => r.id !== 'bill-v143');
+    state.income = state.income.filter((i) => !/Tealive round/.test(i.name || ''));
+    save(); renderAll();
+    return out;
+  });
+  check('a 3-person split shows as one bill: "0 of 3 paid" with its 3 rows', bill.start === '0 of 3 paid' && bill.rows === 3, JSON.stringify(bill));
+  check('a settled person counts toward the bill and is named, not just removed',
+    bill.one === '1 of 3 paid' && bill.oneNow === '1' && /Hana/.test(bill.paidNames) && bill.rowsAfter === 2, JSON.stringify(bill));
+  check('the last payment ends the bill: "Everyone\'s paid", the total back, a toast, then Done clears it',
+    bill.done === "Everyone's paid" && /RM\s*30\.00 back from 3 people/.test(bill.doneLine) && /Everyone's paid for Tealive round/.test(bill.toast) && bill.gone,
+    JSON.stringify(bill));
+
+  const reqCode = await S(async () => splitEncodePayload({ v: 1, t: 'req', id: 'bm-1', fr: 'Aydil', ti: 'Makan', d: todayISO(), a: 12, c: 'MYR' }));
+  const ms = await b.newContext({ colorScheme: 'dark' });
+  const mp = await ms.newPage();
+  await mp.addInitScript(() => { try { localStorage.setItem('duitful.splitLang', 'ms'); } catch (e) {} });
+  await mp.goto(`${BASE}/split/#${reqCode}`);
+  await mp.waitForTimeout(500);
+  const bm = await mp.evaluate(() => ({
+    lang: document.documentElement.lang,
+    eyebrow: document.querySelector('[data-t="eyebrow"]').textContent,
+    line: document.getElementById('r-from-line').textContent.replace(/\s+/g, ' ').trim(),
+    haveApp: document.getElementById('btn-have-app').textContent,
+    pressed: document.querySelector('.lang [data-lang="ms"]').getAttribute('aria-pressed'),
+    bg: getComputedStyle(document.body).backgroundColor,
+    btn: getComputedStyle(document.getElementById('btn-have-app')).backgroundColor,
+  }));
+  await ms.close();
+  check('the friend page speaks Bahasa Melayu when chosen', bm.lang === 'ms' && bm.eyebrow === 'Permintaan bayaran'
+    && bm.line === 'Aydil minta bayaran' && /^Saya ada Duitful/.test(bm.haveApp) && bm.pressed === 'true', JSON.stringify(bm));
+  check('the friend page follows dark mode, and its button keeps cream-on-terracotta contrast',
+    bm.bg === 'rgb(23, 20, 17)' && bm.btn === 'rgb(164, 84, 52)', JSON.stringify(bm));
+}
+
 /* ── v1.40.2: the receipt checks itself; split pills stay single ─────────
    From the scan/split critique: a misread total (23.46 for 23.40) was shown
    as "read" while the receipt's own items and cash-minus-change disagreed;
@@ -4875,7 +4938,7 @@ check('the vault is open before the quick-add checks',
   check('split mode pills no longer clear the Add entry type', pills.dailyAfter === pills.dailyBefore && !!pills.dailyAfter, JSON.stringify(pills));
   const friend = readFileSync(path.join(REPO_ROOT, 'split/index.html'), 'utf8');
   check('the friend page primary button uses the dark terracotta (≥4.5:1 on cream)',
-    /\.btn-primary \{ background: var\(--primary-ink\)/.test(friend));
+    /\.btn-primary \{ background: var\(--btn-bg\)/.test(friend) && /--btn-bg: #a45434/.test(friend));
 }
 
 /* ── v1.41: a scan ends in a saved entry, and failure has a way forward ──
