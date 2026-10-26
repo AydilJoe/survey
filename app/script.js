@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.43.1";
+const APP_VERSION = "1.43.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9774,6 +9774,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.43.2": [
+    "<strong>Links that look trustworthy</strong> — split and request messages now read like a person wrote them: who, how much and how to pay first, the link last. In WhatsApp the link shows a Duitful card instead of \"Someone sent you a payment request\".",
+  ],
   "1.43.1": [
     "<strong>Finishing touches</strong> — a shop you've scanned before remembers its category, Remind sends a reminder (not the whole request again), and money a friend already paid you back no longer shows as \"Expected pay\".",
   ],

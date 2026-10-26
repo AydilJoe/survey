@@ -1914,7 +1914,8 @@ check('a receipt hand-decodes field for field into what was emitted',
 check('the receipt carries t:"paid", the ORIGINAL request id, amount and payer',
   paidEmit.payload.t === 'paid' && paidEmit.payload.id === 'paid-req-1'
   && Math.abs(paidEmit.payload.a - 42.5) < 0.001 && paidEmit.payload.fr === 'Aydil'
-  && paidEmit.payload.c === 'MYR' && /^\d{4}-\d{2}-\d{2}$/.test(paidEmit.payload.d),
+  // MYR is the default every reader assumes, so it no longer travels.
+  && paidEmit.payload.c === undefined && /^\d{4}-\d{2}-\d{2}$/.test(paidEmit.payload.d),
   JSON.stringify(paidEmit.payload));
 check('a receipt never carries transfer details, even with the toggle on',
   paidEmit.payload.pay === undefined && paidEmit.hand.pay === undefined,
@@ -4806,6 +4807,35 @@ check('the vault is open before the quick-add checks',
   await fctx.close();
   check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
     lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
+}
+
+/* ── v1.43.2: a share message that doesn't look like phishing ────────────
+   The owner's own WhatsApp: a "Someone sent you…" preview, 300 characters of
+   code before the payment details, "for Money lent", "on Today". */
+{
+  const m = await page.evaluate(async () => {
+    const s = splitState();
+    const keep = { me: s.me, payToEnabled: s.payToEnabled, payTo: s.payTo };
+    s.me = 'Aydil Johari'; s.payToEnabled = true; s.payTo = [{ label: 'DuitNow', value: '0176890159' }];
+    const loan = { kind: 'loan', title: 'Money lent', people: [] };
+    const person = { id: splitShortId(), name: 'Dollah', amount: 100, repayments: [] };
+    const req = splitShareText(loan, person, 'DFS1.abc');
+    const paidToday = splitPaidShareText({ title: 'Money lent', amount: 100 }, 'DFS1.abc', todayISO());
+    const payload = splitRequestPayload({ title: 'Makan', date: todayISO() }, person);
+    Object.assign(s, keep);
+    return { req, paidToday, id: person.id, payload };
+  });
+  const lines = m.req.split('\n');
+  check('a request reads as a sentence first, payment details next, the link last on its own line',
+    /^Aydil Johari: RM\s100\.00 for the money I lent you\.$/.test(lines[0]) && /^Pay to DuitNow 0176890159$/.test(lines[1])
+    && /^Details: https:\/\/duitful\.app\/split#DFS1\./.test(lines[2]) && lines.length === 3, m.req);
+  check('a receipt from today says "today", not "on Today"', /^Aydil Johari paid RM\s100\.00 for Money lent today\.\nReceipt: /.test(m.paidToday), m.paidToday);
+  check('new request ids are 12 characters (a shorter link), and MYR is not repeated in it',
+    /^[A-Za-z0-9]{12}$/.test(m.id) && m.payload.c === undefined, JSON.stringify(m.payload));
+  const friendHtml = readFileSync(path.join(REPO_ROOT, 'split/index.html'), 'utf8');
+  check('the split link previews as Duitful with an image, not "Someone sent you a payment request"',
+    /og:image" content="https:\/\/duitful\.app\/split\/og\.jpg"/.test(friendHtml) && /og:title" content="Duitful/.test(friendHtml)
+    && !/Someone sent you/.test(friendHtml) && existsSync(path.join(REPO_ROOT, 'split/og.jpg')), '');
 }
 
 /* ── v1.43.1 polish ─────────────────────────────────────────────────────── */
