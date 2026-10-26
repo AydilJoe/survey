@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.46.0";
+const APP_VERSION = "1.46.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9873,6 +9873,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.46.1": [
+    "<strong>Tax is easier to find</strong> — if some of your spending looks like LHDN tax relief, a card on Home tells you once, with the number. It comes back in November and before e-Filing opens, and there's now always a Tax link on Home.",
+    "<strong>A proper welcome page</strong> — Home → Tax shows what Duitful already found in your spending, what it does with it, and what you'll need before you turn it on.",
+  ],
   "1.46.0": [
     "<strong>Tax has its own page</strong> — Home → Tax, or the card on Reports. Your refund sits on top with tax due next to the PCB you've paid, and \"How it's worked out\" shows every step from income to refund.",
     "<strong>Tap a relief to open it</strong> — reliefs are tiles now. Open one to see the limits inside it (dental, check-ups, fertility…), the claims you've filed under it, and claim straight into it.",
