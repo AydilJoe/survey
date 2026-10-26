@@ -60,19 +60,23 @@ App Store has no equivalent slot. Regenerate with
 
 ## Creative assets (optional, iOS/iPadOS 27+)
 
-From [App Store asset best practices](https://developer.apple.com/app-store/asset-best-practices/)
-and the creative-asset specs. In `creative/`, regenerate with
-`node marketing/app-store/scripts/creative-assets.mjs` after `capture.mjs`:
+From [App Store asset best practices](https://developer.apple.com/app-store/asset-best-practices/),
+the creative-asset specs, and Apple's **Creative Assets template** (Figma),
+whose green "Art Safe Area" in each frame is the only region guaranteed to
+survive every device's crop. In `creative/`; regenerate with
+`node marketing/app-store/scripts/creative-assets.mjs` after `capture.mjs`
+(`DEBUG=1` draws the safe box for checking):
 
-| File | Placement | Size | Idea |
-|---|---|---|---|
-| `header-21x9.png` | Product page header | 3840 × 1646 (21:9) | "Your money *stays on your phone.*" + Payoff / Home / Scan |
-| `search-3x2.png` | Search results | 3840 × 2560 (3:2, the max) | "Be *duitful* with your duit." + Payoff / Home / Split |
+| File | Placement | Size | Art Safe Area (x, y, w × h) | Idea |
+|---|---|---|---|---|
+| `header-21x9.png` | Product page header | 3840 × 1646 | 1097, 493, 1646 × 661 | "Your money *stays on your phone.*" + Payoff / Home / Scan |
+| `search-3x2.png` | Search results | 3840 × 2560 | 836, 765, 2168 × 1030 | "Be *duitful* with your duit." + Payoff / Home / Split |
+| `universal-16x9.png` | Either (one asset for both) | 5244 × 2950 | 1921, 660, 1402 × 962 | as search |
 
-Both: PNG, no alpha; one clear idea; real app interface; no prices, URLs,
-awards or other platforms. The header's lower-left is kept quiet because the
-store draws the app name and Get button over the header.
+The headline and the readable top of each screen sit inside the safe area;
+the phones' lower halves and the warm background are bleed. All: PNG, no
+alpha; real app interface; no prices, URLs, awards or other platforms.
 Upload: App Store Connect → the app version → Product Page Information →
-**Header and Search Results** (or Asset Library), then check them in
-**Preview** on iPhone and iPad before submitting — the preview is the only
-place the system overlay and safe area can be seen exactly.
+**Header and Search Results** (or Asset Library). Use either the
+header + search pair, or the universal asset for both, then check
+**Preview** on iPhone and iPad before submitting.
