@@ -121,8 +121,9 @@ platform :ios do
       output_path: SIGNING_DIR,
     )
 
-    profile_name = ENV["sigh_#{APP_IDENTIFIER}_appstore_profile-name"]
-    team_id = ENV["sigh_#{APP_IDENTIFIER}_appstore_team-id"]
+    app_profile = sigh_result
+    profile_name = app_profile[:name]
+    team_id = app_profile[:team_id]
     UI.user_error!("sigh did not report a profile name — cannot sign") if profile_name.to_s.empty?
     UI.user_error!("sigh did not report a Team ID — cannot sign") if team_id.to_s.empty?
 
@@ -136,7 +137,7 @@ platform :ios do
       readonly: false,
       output_path: SIGNING_DIR,
     )
-    widget_profile_name = ENV["sigh_#{WIDGET_IDENTIFIER}_appstore_profile-name"]
+    widget_profile_name = sigh_result[:name]
     if widget_profile_name.to_s.empty?
       UI.user_error!(
         "No App Store profile for #{WIDGET_IDENTIFIER}. Register that App ID at " \
@@ -237,6 +238,21 @@ end
 # ---------------------------------------------------------------------
 # Top-level on purpose: a `def` here becomes an instance method of the
 # Fastfile itself, callable from any lane above.
+
+  # The profile get_provisioning_profile just made or fetched. Read from
+  # lane_context (and the .mobileprovision itself for the team) rather than
+  # the sigh_<bundle>_<type>_profile-name ENV variables: fastlane 2.241
+  # stopped setting those, and the first real TestFlight run died on it with
+  # a perfectly good profile already on disk. Call it straight after each
+  # get_provisioning_profile, because the next call overwrites lane_context.
+  def sigh_result
+    path = Fastlane::Actions.lane_context[Fastlane::Actions::SharedValues::SIGH_PROFILE_PATH].to_s
+    team = ""
+    unless path.empty? || !File.exist?(path)
+      team = Array(FastlaneCore::ProvisioningProfile.parse(path)["TeamIdentifier"]).first.to_s
+    end
+    { name: Fastlane::Actions.lane_context[Fastlane::Actions::SharedValues::SIGH_NAME].to_s, path: path, team_id: team }
+  end
 
   # Marketing version = package.json "version". One number, bumped in one
   # place, shared by web / Android / iOS.
