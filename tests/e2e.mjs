@@ -7816,7 +7816,7 @@ check('the brand catalogue makes no network calls at all',
   const installFakeICloud = (p, seed, available = true) => p.evaluate(async ([src, seed, available]) => {
     const fake = { file: seed, writes: 0, available };
     const shell = { Capacitor: { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: { DuitfulICloud: {
-      status: async () => ({ available: fake.available }),
+      status: async () => ({ available: fake.available, reason: fake.available ? '' : (window.__fakeReason || 'no-account') }),
       read: async () => ({ data: fake.file }),
       write: async ({ data }) => { fake.file = data; fake.writes++; return { ok: true }; },
     } } } };
@@ -7886,6 +7886,25 @@ check('the brand catalogue makes no network calls at all',
   });
   check('signed out of iCloud: the card says how to turn it on, and nothing is sent',
     signedOut.off && !signedOut.active, JSON.stringify(signedOut));
+
+  // Each unavailable reason names its own fix on the card.
+  const reasons = await S(async () => {
+    const out = {};
+    for (const r of ['no-account', 'no-container']) {
+      window.__fakeICloud.available = false;
+      window.__fakeReason = r;
+      await ICloudSync.refresh();
+      renderDriveCard();
+      out[r] = document.getElementById('icloud-off-why').textContent;
+    }
+    window.__fakeReason = '';
+    window.__fakeICloud.available = true;
+    await ICloudSync.refresh();
+    renderDriveCard();
+    return out;
+  });
+  check('an unavailable iCloud says why: no account vs no access to Duitful\'s storage',
+    /iCloud Drive/.test(reasons['no-account']) && /no-container/.test(reasons['no-container']), JSON.stringify(reasons));
 
   // A newer iCloud backup on unlock is offered, naming iCloud.
   const offered = await S(async () => {
@@ -7960,6 +7979,19 @@ check('the brand catalogue makes no network calls at all',
       assetsScript);
     check('the iOS build fails loudly if no app icon was generated',
       /CREATE ios icon/.test(readFileSync(path.join(REPO_ROOT, '.github/workflows/ios.yml'), 'utf8')));
+  }
+  // The native shells can't use /api/fx, so they fetch exchange rates from
+  // the upstream CDNs directly. The CSP shipped without those hosts, so every
+  // currency read "(offline)" in the iPhone and Android apps.
+  {
+    const appSrc = readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8');
+    const fxFn = appSrc.slice(appSrc.indexOf('async function fetchFxFromUpstream'), appSrc.indexOf('async function loadFxRates'));
+    const fxOrigins = [...fxFn.matchAll(/"(https:\/\/[^"\/]+)\//g)].map((m) => m[1]);
+    const csp = (/Content-Security-Policy" content="([^"]+)"/.exec(readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8')) || [])[1] || '';
+    const connect = (/connect-src([^;]*)/.exec(csp) || [])[1] || '';
+    const blocked = fxOrigins.filter((o) => !connect.split(/\s+/).includes(o));
+    check('the CSP lets the native apps reach the exchange-rate CDNs',
+      fxOrigins.length >= 2 && blocked.length === 0, `blocked: ${blocked.join(', ') || 'none'}`);
   }
   // Native wiring: every name that must agree, agrees.
   // Universal Links: Apple matches appIDs against TeamID.bundleId of the

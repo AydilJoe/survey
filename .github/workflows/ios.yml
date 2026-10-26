@@ -293,6 +293,22 @@ jobs:
           codesign --verify --deep --strict "$app"
           codesign -dv "$app" 2>&1 | grep -E "Identifier|Authority=Apple Distribution|TeamIdentifier" || true
           for appex in "$app"/PlugIns/*.appex; do codesign --verify --strict "$appex" && echo "signed: $(basename "$appex")"; done
+          # What the signed app may actually do. iCloud failing on a device
+          # with no error anywhere is almost always a key missing here, or in
+          # the profile it was signed with.
+          codesign -d --entitlements - --xml "$app" > "$work/ent.plist" 2>/dev/null \
+            || codesign -d --entitlements :- "$app" > "$work/ent.plist"
+          echo "::group::Signed app entitlements"; plutil -p "$work/ent.plist" || cat "$work/ent.plist"; echo "::endgroup::"
+          echo "::group::Provisioning profile entitlements"
+          security cms -D -i "$app/embedded.mobileprovision" > "$work/profile.plist"
+          plutil -extract Entitlements xml1 -o - "$work/profile.plist" | plutil -p - || true
+          echo "::endgroup::"
+          if [ "${DUITFUL_IOS_SKIP_ICLOUD:-0}" != "1" ]; then
+            grep -q "iCloud.com.aydiljoe.duitful" "$work/ent.plist" \
+              || { echo "::error::The signed app has no iCloud container entitlement — iCloud backup cannot work."; exit 1; }
+            grep -q "icloud-container-environment" "$work/ent.plist" \
+              || echo "::warning::The signed app has no com.apple.developer.icloud-container-environment entitlement."
+          fi
           ls -la "$ipa"
           rm -rf "$work"
 

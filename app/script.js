@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.47.0";
+const APP_VERSION = "1.47.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9877,6 +9877,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.47.1": [
+    "<strong>Exchange rates work in the phone apps again</strong> — every currency showed \"offline\" in the iPhone and Android apps because the rates were being blocked before they arrived. Fixed.",
+    "<strong>iCloud tells you what's wrong</strong> — if iCloud backup can't start, the card now says which switch to change, with a Check again button.",
+  ],
   "1.47.0": [
     "<strong>iCloud backup, for the iPhone app</strong> — on iPhone, Pro backs up to your own iCloud with nothing to sign into. It's the same encrypted file as the Drive backup, so only your passcode opens it. Google Drive stays, for restoring on Android or the web.",
   ],
@@ -12913,6 +12917,17 @@ function renderDriveCard() {
     const offEl = document.getElementById("icloud-off");
     if (onEl) onEl.hidden = !icOn;
     if (offEl) offEl.hidden = icOn;
+    const why = document.getElementById("icloud-off-why");
+    if (why && !icOn) {
+      // Each reason names the one switch that fixes it. The code in
+      // brackets is for a bug report, not for the reader.
+      const reason = (ic.unavailableReason && ic.unavailableReason()) || "";
+      why.textContent = reason === "no-account"
+        ? "iCloud isn't available. In the Settings app, sign in to iCloud and turn on iCloud Drive, then come back."
+        : reason === "no-container"
+          ? "iCloud is on, but Duitful can't reach its iCloud storage. In Settings → your name → iCloud → Saved to iCloud (or iCloud Drive), make sure Duitful is on, then tap Check again. (no-container)"
+          : "Couldn't reach iCloud just now. Tap Check again. (" + (reason || "unknown") + ")";
+    }
     if (icOn) {
       const auto = document.getElementById("icloud-auto");
       if (auto) {
@@ -13047,6 +13062,12 @@ function renderDriveCard() {
     } catch (err) {
       alert("iCloud backup failed: " + (err.message || err));
     }
+  });
+  onClick("btn-icloud-recheck", async () => {
+    const btn = document.getElementById("btn-icloud-recheck");
+    const endWork = beginWork(btn);
+    try { if (window.ICloudSync && ICloudSync.refresh) await ICloudSync.refresh(); }
+    finally { endWork(); renderDriveCard(); }
   });
   onClick("btn-icloud-restore", async () => {
     if (!confirm("Restore from iCloud will replace the data on this device. Continue?")) return;
