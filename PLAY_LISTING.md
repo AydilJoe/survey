@@ -149,9 +149,32 @@ types; notification capture and Google Drive backup are both opt-in.
 
 ### What's new (500 char limit)
 
+For 1.46.1 (version code 44). Covers everything since the last Play
+release, v1.40.x: tax (1.45–1.46), split bills and shorter links
+(1.42–1.44), one-tap receipt scans (1.41).
+
+English (en-US), 436 chars:
+
 ```
-Tax time, sorted: Duitful now spots spending that counts as LHDN tax relief, keeps the receipts encrypted on your phone, and estimates your refund against the PCB already deducted. It checks in every November and before e-Filing opens.
-Also: a calmer Tax page, privacy mode on every tax figure, and small fixes.
+What's new in 1.46
+• Tax relief, caught as you spend: Duitful spots LHDN reliefs, keeps receipts encrypted on your phone and estimates your refund
+• Tax has its own page, with a check-in in November and before e-Filing
+• Split a bill with the group in one message; friends tap "I've paid"
+• Split links are half the length and look like a person sent them
+• Scan a receipt and save it in one tap
+• Privacy mode now hides tax amounts too
+```
+
+Bahasa Melayu (ms-MY), 431 chars:
+
+```
+Apa baru dalam 1.46
+• Pelepasan cukai dikesan semasa berbelanja: Duitful cari pelepasan LHDN, simpan resit tersulit di telefon dan anggar bayaran balik
+• Cukai ada halaman sendiri, dengan peringatan November dan sebelum e-Filing
+• Bahagi bil dengan kumpulan dalam satu mesej; kawan tekan "Saya dah bayar"
+• Pautan bahagi bil separuh lebih pendek
+• Imbas resit dan simpan dengan satu tekan
+• Mod privasi kini sorok jumlah cukai juga
 ```
 
 ---
