@@ -10,6 +10,7 @@ target_fingerprint: "sha256:516921b20994ae6d021f7f1cd1d0206552fbc9f5f38ded77a20c
 target_path: /home/user/survey/split/index.html
 timestamp: 2026-10-25T23-20-34Z
 slug: split-index-html
+closed: true
 ---
 # Critique: split bills (split/index.html, app/split.js, split dialogs in app/index.html)
 Method: dual-agent. Score 24/40 (Acceptable).
