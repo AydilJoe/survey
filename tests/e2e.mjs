@@ -6958,11 +6958,21 @@ check('the brand catalogue makes no network calls at all',
     t35: taxBandTax(35000), t50: taxBandTax(50000), t100: taxBandTax(100000),
     p35: taxPayableFor(35000, 0).payable, p36: taxPayableFor(36000, 0).payable,
     zk: taxPayableFor(60000, 99999).payable,
-    base: taxEstimate({ income: 80000, pcb: 4000 }),
-    claimed: taxEstimate({ income: 80000, pcb: 4000, claimsByRelief: { lifestyle: 3000 } }),
-    kids: taxEstimate({ income: 80000, children: 2, spouse: true }),
-    epf: taxEstimate({ income: 80000, epfPaid: 5000 }),
-    low: taxEstimate({ income: 20000, pcb: 100 }),
+    base: taxEstimate({ year: 2026, income: 80000, pcb: 4000 }),
+    claimed: taxEstimate({ year: 2026, income: 80000, pcb: 4000, claimsByRelief: { lifestyle: 3000 } }),
+    kids: taxEstimate({ year: 2026, income: 80000, children: 2, spouse: true }),
+    epf: taxEstimate({ year: 2026, income: 80000, epfPaid: 5000 }),
+    low: taxEstimate({ year: 2026, income: 20000, pcb: 100 }),
+    ya27: taxEstimate({ year: 2027, income: 80000 }),
+    subs: taxEstimate({ year: 2026, income: 80000, claims: [
+      { relief: 'medical', sub: 'dental', amount: 1800 }, { relief: 'medical', sub: 'fertility', amount: 4000 },
+      { relief: 'medical', sub: '', amount: 500 }, { relief: 'lifestyle', sub: 'ai', amount: 900 }] }),
+    subs27: taxEstimate({ year: 2027, income: 80000, claims: [
+      { relief: 'lifestyle', sub: 'ai', amount: 900 }, { relief: 'sports', sub: 'shoes', amount: 700 }, { relief: 'socso', sub: 'voluntary', amount: 400 }] }),
+    fam: taxEstimate({ year: 2026, income: 80000, disabledSelf: true, disabledSpouse: true, spouse: true,
+      children: 1, childrenPre: 1, childrenTertiary: 1, disabledChildren: 1 }),
+    rel26: taxReliefsFor(2026).map(r => r.id), rel27: taxReliefsFor(2027).map(r => r.id),
+    soc26: taxReliefFor(2026, 'socso').cap, soc27: taxReliefFor(2027, 'socso').cap,
   }));
   check('tax: RM35,000 chargeable = RM600 before rebate', m.t35 === 600, String(m.t35));
   check('tax: RM50,000 chargeable = RM1,500', m.t50 === 1500, String(m.t50));
@@ -6986,6 +6996,26 @@ check('the brand catalogue makes no network calls at all',
     m.base.opportunities.length > 3 && m.base.opportunities.every(o => o.saving > 0 && o.room > 0),
     JSON.stringify(m.base.opportunities.slice(0, 2)));
 
+  check('tax YA2026: individual relief RM9,000; YA2027: RM12,000',
+    m.base.autoRelief === 9000 && m.ya27.autoRelief === 12000, `${m.base.autoRelief}/${m.ya27.autoRelief}`);
+  // dental 1,000 cap + fertility 4,000 + general 500 = 5,500; 'ai' does not exist in 2026 so 900 is general lifestyle.
+  check('tax subs: dental capped at its RM1,000 sub-limit inside Medical (1000+4000+500)',
+    m.subs.used.medical === 5500 && m.subs.usedSub['medical:dental'] === 1000, JSON.stringify([m.subs.used.medical, m.subs.usedSub['medical:dental']]));
+  check('tax subs: a YA2027-only sub-limit is ignored in YA2026 (AI claim counts as general lifestyle)',
+    m.subs.used.lifestyle === 900 && !('lifestyle:ai' in m.subs.usedSub), JSON.stringify(m.subs.used.lifestyle));
+  check('tax subs YA2027: sports shoes cap RM300, SOCSO voluntary cap RM150, AI RM900 counts',
+    m.subs27.usedSub['sports:shoes'] === 300 && m.subs27.used.sports === 300
+    && m.subs27.usedSub['socso:voluntary'] === 150 && m.subs27.used.socso === 150 && m.subs27.used.lifestyle === 900,
+    JSON.stringify([m.subs27.used.sports, m.subs27.used.socso, m.subs27.used.lifestyle]));
+  check('tax: SOCSO cap RM350 → RM500 in YA2027', m.soc26 === 350 && m.soc27 === 500, `${m.soc26}/${m.soc27}`);
+  check('tax: standalone breastfeeding relief ends with YA2026 (folded into Medical)',
+    m.rel26.includes('breastfeeding') && !m.rel27.includes('breastfeeding'));
+  check('tax: new reliefs present (tourism, supporting equipment, learning disability, housing interest)',
+    ['tourism', 'supporting', 'learning', 'housing'].every(id => m.rel26.includes(id) && m.rel27.includes(id)), JSON.stringify(m.rel26));
+  // 9,000 + spouse 4,000 + self disabled 7,000 + spouse disabled 6,000 + child 2,000 + pre 2,000 + tertiary 8,000 + disabled child 6,000
+  check('tax: family and disability reliefs add up to RM44,000',
+    m.fam.autoRelief === 44000, String(m.fam.autoRelief));
+
   // Suggestions: the words people actually type.
   const sug = await S(() => ({
     book: taxSuggestRelief('Books', 'Popular'),
@@ -7008,6 +7038,27 @@ check('the brand catalogue makes no network calls at all',
     sug.life === 'lifeins' && sug.gym === 'sports' && sug.sspn === 'sspn' && sug.net === 'lifestyle',
     JSON.stringify(sug));
   check('suggest: a phone bill is not lifestyle relief', sug.phoneBill === null, String(sug.phoneBill));
+  const sug2 = await S(() => ({
+    wheel: taxSuggestRelief('Medical', 'Wheelchair for dad'),
+    adhd: taxSuggestRelief('Kids', 'ADHD occupational therapy'),
+    museum: taxSuggestRelief('Fun', 'Muzium Negara ticket'),
+    cctv: taxSuggestRelief('Home', 'CCTV installation'),
+    gpt: taxSuggestRelief('Software', 'ChatGPT Plus'),
+    pump27: taxSuggestRelief('', 'breast pump', 2027), pump26: taxSuggestRelief('', 'breast pump', 2026),
+    dentalSub: taxSuggestSub('medical', 'Health', 'Dental scaling', 2026),
+    gptSub27: taxSuggestSub('lifestyle', 'Software', 'ChatGPT Plus', 2027),
+    gptSub26: taxSuggestSub('lifestyle', 'Software', 'ChatGPT Plus', 2026),
+    petrol: taxSuggestRelief('Transport', 'Petronas petrol'),
+  }));
+  check('suggest: wheelchair → supporting equipment, ADHD therapy → learning support',
+    sug2.wheel === 'supporting' && sug2.adhd === 'learning', JSON.stringify(sug2));
+  check('suggest: museum → tourism, CCTV → home/EV bucket, ChatGPT → lifestyle',
+    sug2.museum === 'tourism' && sug2.cctv === 'ev' && sug2.gpt === 'lifestyle', JSON.stringify(sug2));
+  check('suggest: breast pump is its own relief to YA2026, a Medical sub-limit from YA2027',
+    sug2.pump26 === 'breastfeeding' && sug2.pump27 === 'medical', `${sug2.pump26}/${sug2.pump27}`);
+  check('suggest: sub-limit picked from wording, and only where it exists that year',
+    sug2.dentalSub === 'dental' && sug2.gptSub27 === 'ai' && sug2.gptSub26 === '', JSON.stringify(sug2));
+  check('suggest: petrol is not "pet"', sug2.petrol === null, String(sug2.petrol));
 
   // Live flow. Salary logged for the current month so the card has an income.
   const png = Buffer.from((await S(() => {
@@ -7122,7 +7173,9 @@ check('the brand catalogue makes no network calls at all',
     const t = taxState();
     t.enabled = true; t.spouse = true; t.children = 2;
     t.figures['2026'] = { pcb: 4321, epf: 7777, income: 90000 };
-    t.claims = [coerceTaxClaim({ relief: 'prs', amount: 1500, date: '2026-03-04', note: 'PRS top-up', receiptId: 'x' })];
+    t.childrenPre = 1; t.childrenTertiary = 2; t.disabledChildren = 1; t.disabledSelf = true; t.disabledSpouse = true;
+    t.claims = [coerceTaxClaim({ relief: 'prs', amount: 1500, date: '2026-03-04', note: 'PRS top-up', receiptId: 'x' }),
+      coerceTaxClaim({ relief: 'medical', sub: 'dental', amount: 800, date: '2026-04-05', note: 'Scaling' })];
     const csv = toCSV();
     const back = fromCSV(csv);
     return { hasRow: /(^|\n)tax-claim,prs,1500,/.test(csv), t: back.tax };
@@ -7131,7 +7184,8 @@ check('the brand catalogue makes no network calls at all',
   check('tax csv: settings and claim survive a round trip; photo link does not',
     rt.t.enabled && rt.t.spouse && rt.t.children === 2
     && rt.t.figures['2026'].pcb === 4321 && rt.t.figures['2026'].epf === 7777 && rt.t.figures['2026'].income === 90000
-    && rt.t.claims.length === 1 && rt.t.claims[0].relief === 'prs' && rt.t.claims[0].amount === 1500
+    && rt.t.childrenPre === 1 && rt.t.childrenTertiary === 2 && rt.t.disabledChildren === 1 && rt.t.disabledSelf && rt.t.disabledSpouse
+    && rt.t.claims.length === 2 && rt.t.claims[1].relief === 'medical' && rt.t.claims[1].sub === 'dental' && rt.t.claims[0].relief === 'prs' && rt.t.claims[0].amount === 1500
     && rt.t.claims[0].date === '2026-03-04' && rt.t.claims[0].receiptId === '',
     JSON.stringify(rt.t));
   await S(() => { taxState().claims = []; taxState().figures = {}; save(); renderAll(); });

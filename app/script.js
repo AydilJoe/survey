@@ -7996,13 +7996,18 @@ function toCSV() {
     settingRow("taxEnabled", tx.enabled ? "Y" : "N");
     settingRow("taxSpouse", tx.spouse ? "Y" : "N");
     settingRow("taxChildren", tx.children);
+    settingRow("taxChildrenPre", tx.childrenPre);
+    settingRow("taxChildrenTertiary", tx.childrenTertiary);
+    settingRow("taxDisabledChildren", tx.disabledChildren);
+    settingRow("taxDisabledSelf", tx.disabledSelf ? "Y" : "N");
+    settingRow("taxDisabledSpouse", tx.disabledSpouse ? "Y" : "N");
     for (const [y, f] of Object.entries(tx.figures)) {
       if (f.pcb) settingRow(`taxPcb${y}`, f.pcb);
       if (f.epf) settingRow(`taxEpf${y}`, f.epf);
       if (f.income) settingRow(`taxIncome${y}`, f.income);
     }
     for (const c of tx.claims) {
-      rows.push(blank(["tax-claim", c.relief, c.amount, "", "", "", c.date, c.entryId, c.note]));
+      rows.push(blank(["tax-claim", c.sub ? `${c.relief}:${c.sub}` : c.relief, c.amount, "", "", "", c.date, c.entryId, c.note]));
     }
   }
   // Retirement plan — same one-setting-row-per-key shape as the zakat block.
@@ -8352,7 +8357,7 @@ function fromCSV(text) {
           && (row[iInvReinvested] || "").trim().toUpperCase() === "Y";
         h.dividends.push({ date, amount, reinvested });
       }
-    } else if (type === "setting" && /^tax(enabled|spouse|children|(pcb|epf|income)\d{4})$/i.test(name)) {
+    } else if (type === "setting" && /^tax(enabled|spouse|children|childrenpre|childrentertiary|disabledchildren|disabledself|disabledspouse|(pcb|epf|income)\d{4})$/i.test(name)) {
       // Cells, not numbers, for the same reason as the zakat rows. coerceTax
       // below clamps whatever lands here.
       const raw = iAmount >= 0 ? (row[iAmount] || "").toString().trim() : "";
@@ -8361,15 +8366,22 @@ function fromCSV(text) {
       if (key === "taxenabled") tx.enabled = raw.toUpperCase() === "Y";
       else if (key === "taxspouse") tx.spouse = raw.toUpperCase() === "Y";
       else if (key === "taxchildren") tx.children = Number(raw) || 0;
+      else if (key === "taxchildrenpre") tx.childrenPre = Number(raw) || 0;
+      else if (key === "taxchildrentertiary") tx.childrenTertiary = Number(raw) || 0;
+      else if (key === "taxdisabledchildren") tx.disabledChildren = Number(raw) || 0;
+      else if (key === "taxdisabledself") tx.disabledSelf = raw.toUpperCase() === "Y";
+      else if (key === "taxdisabledspouse") tx.disabledSpouse = raw.toUpperCase() === "Y";
       else {
         const m = key.match(/^tax(pcb|epf|income)(\d{4})$/);
         tx.figures[m[2]] = { ...(tx.figures[m[2]] || {}), [m[1]]: Number(raw) || 0 };
       }
     } else if (type === "tax-claim") {
       const tx = next.tax || (next.tax = emptyTax());
+      const [reliefId, subId] = name.split(":");
       tx.claims.push({
         id: uid(),
-        relief: name,
+        relief: reliefId,
+        sub: subId || "",
         amount,
         date: iDate >= 0 ? (row[iDate] || "").trim() : "",
         entryId: iCat >= 0 ? (row[iCat] || "").trim() : "",

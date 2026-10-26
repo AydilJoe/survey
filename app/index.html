@@ -1195,14 +1195,38 @@
                 <span>Your EPF contributions (<span class="cur-code">MYR</span>)</span>
                 <input type="number" id="tax-in-epf" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="Employee share, whole year" />
               </label>
+            </div>
+            <h4 class="tax-sub-head">Family</h4>
+            <div class="grid-2">
               <label class="field">
                 <span>Children under 18</span>
                 <input type="number" id="tax-in-children" step="1" min="0" max="20" inputmode="numeric" />
               </label>
+              <label class="field">
+                <span>Children 18+, pre-university / diploma</span>
+                <input type="number" id="tax-in-children-pre" step="1" min="0" max="20" inputmode="numeric" />
+              </label>
+              <label class="field">
+                <span>Children 18+, degree or higher</span>
+                <input type="number" id="tax-in-children-tertiary" step="1" min="0" max="20" inputmode="numeric" />
+              </label>
+              <label class="field">
+                <span>Disabled children (JKM)</span>
+                <input type="number" id="tax-in-disabled-children" step="1" min="0" max="20" inputmode="numeric" />
+              </label>
             </div>
+            <p class="hint">A disabled child also counts in their age group above — the disabled-child relief is on top of the normal child relief.</p>
             <label class="field toggle-field">
               <input type="checkbox" id="tax-in-spouse" />
               <span>My spouse has no income</span>
+            </label>
+            <label class="field toggle-field">
+              <input type="checkbox" id="tax-in-disabled-self" />
+              <span>I'm a JKM-registered disabled person</span>
+            </label>
+            <label class="field toggle-field">
+              <input type="checkbox" id="tax-in-disabled-spouse" />
+              <span>My spouse is a JKM-registered disabled person</span>
             </label>
             <p class="hint" id="tax-income-source"></p>
           </details>
@@ -2172,6 +2196,10 @@
           <span>Relief</span>
           <select id="tax-claim-relief"></select>
         </label>
+        <label class="field" id="tax-claim-sub-field" hidden>
+          <span>Type</span>
+          <select id="tax-claim-sub"></select>
+        </label>
         <p class="hint" id="tax-claim-hint"></p>
         <div class="grid-2">
           <label class="field">
@@ -2275,8 +2303,8 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=11"></script>
-    <script src="tax.js?v=1"></script>
+    <script src="tax.js?v=2"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=153"></script>
+    <script src="script.js?v=154"></script>
   </body>
 </html>
