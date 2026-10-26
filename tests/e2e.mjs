@@ -7182,7 +7182,21 @@ check('the brand catalogue makes no network calls at all',
   await page.waitForTimeout(200);
   check('tax: opt-in offered on Reports, card hidden', await page.locator('#tax-optin').evaluate(e => !e.hidden)
     && await page.locator('#tax-card').isHidden());
-  await page.click('#btn-tax-enable');
+  check('tax: Home always has a Tax link, even before it is turned on', await S(() => !document.getElementById('today-tax-link').hidden));
+  await page.click('#tax-optin');
+  await page.waitForTimeout(300);
+  check('tax welcome: the Reports card opens a welcome page, not a switch',
+    await page.locator('#tab-tax').evaluate(e => e.classList.contains('active'))
+    && await page.locator('#tax-page-optin').isVisible() && await page.locator('#tax-card').isHidden()
+    && await S(() => !taxState().enabled));
+  check('tax welcome: explains the three things it does and what you will need',
+    /Spots claimable spending/.test(await page.locator('#tax-page-optin').innerText())
+    && /Keeps the receipts/.test(await page.locator('#tax-page-optin').innerText())
+    && /Checks in/.test(await page.locator('#tax-page-optin').innerText())
+    && /PCB total/.test(await page.locator('#tax-page-optin').innerText()));
+  check('tax welcome: the button is wide enough to read on a phone (not squeezed to a word per line)',
+    await page.locator('#tab-tax [data-tax-enable]').evaluate(b => b.getBoundingClientRect().width > 160 && b.getBoundingClientRect().height < 70));
+  await page.click('#tab-tax [data-tax-enable]');
   await page.waitForTimeout(300);
   check('tax: one tap turns it on and lands on the Tax page',
     await page.locator('#tax-card').evaluate(e => !e.hidden) && await page.locator('#tab-tax').evaluate(e => e.classList.contains('active')));
@@ -7527,6 +7541,159 @@ check('the brand catalogue makes no network calls at all',
     return { afterRekey: afterRekey && afterRekey.size, restored: restored && restored.size };
   }, png.toString('base64'));
   check('tax: receipts reseal under a new vault key and open again', rk.afterRekey > 0 && rk.restored > 0, JSON.stringify(rk));
+}
+
+// ---------- Tax discovery: how people who never open Tax find out ----------
+{
+  const y = new Date().getFullYear();
+  const reset = (tax) => S((t) => {
+    state.income = [{ id: 'sal', name: 'Salary', amount: 6000, month: currentMonthISO(), day: 25 }];
+    const d = (m, dd) => `${new Date().getFullYear()}-${String(m).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+    state.dailyExpenses = [
+      { id: 'f1', kind: 'expense', date: d(3, 4), amount: 2199, category: 'Gadgets', note: 'MacBook Air', createdAt: 1 },
+      { id: 'f2', kind: 'expense', date: d(5, 12), amount: 450, category: 'Health', note: 'Dental scaling', createdAt: 1 },
+      { id: 'f3', kind: 'expense', date: d(1, 9), amount: 30, category: 'Food', note: 'Nasi lemak', createdAt: 1 },
+    ];
+    state.firstRunAt = 0;
+    state.reminderAskDone = true;
+    state.tax = Object.assign(emptyTax(), t || {});
+    save(); renderAll();
+    document.getElementById('tabbtn-dashboard').click();
+  }, tax);
+  const card = () => S(() => { const e = document.getElementById('tax-intro'); return { shown: !e.hidden, kind: e.dataset.kind || '', title: e.querySelector('h2').textContent, body: e.querySelector('p').textContent }; });
+
+  // 1) The one-off intro: a card on Home with a number that is true for this person.
+  await reset();
+  await page.waitForTimeout(250);
+  const intro = await card();
+  check('tax intro: a person not tracking sees ONE card on Home, with a hook computed from their own spending',
+    intro.shown && intro.kind === 'intro' && /2 of your spends may count as tax relief/.test(intro.title)
+    && /2,649\.00/.test(intro.body) && /Lifestyle/.test(intro.body) && /Medical/.test(intro.body), JSON.stringify(intro));
+  check('tax intro: it is a card, not a modal — nothing is blocked',
+    await S(() => !document.querySelector('dialog[open]')));
+  await page.click('#tax-intro-go');
+  await page.waitForTimeout(300);
+  check('tax intro: "See what I can claim" opens the welcome page, which lists what it found',
+    await page.locator('#tab-tax').evaluate(e => e.classList.contains('active'))
+    && /2 spends/.test(await page.locator('#tax-found-title').textContent())
+    && /MacBook Air/.test(await page.locator('#tax-found-list').innerText())
+    && !(await S(() => taxState().enabled)));
+  await S(() => document.getElementById('tabbtn-dashboard').click());
+  await page.waitForTimeout(200);
+  check('tax intro: once acted on it never returns', !(await card()).shown && await S(() => taxState().introSeen));
+
+  // 2) "Not now" is final too. And it retires itself if ignored.
+  await reset();
+  await page.click('#tax-intro-no');
+  await page.waitForTimeout(150);
+  check('tax intro: "Not now" dismisses it for good', !(await card()).shown && await S(() => taxState().introSeen));
+  await reset({ introDays: ['2026-01-01', '2026-01-02', '2026-01-03'] });
+  check('tax intro: shown on 3 different days and ignored, it retires itself', !(await card()).shown);
+
+  // 3) Never in the way of other asks, new installs, other currencies, or when there is nothing to say.
+  await reset();
+  await S(() => { state.firstRunAt = Date.now(); renderAll(); });
+  check('tax intro: not in the first days (setup, tour and reminders come first)', !(await card()).shown);
+  await reset();
+  await S(() => { state.reminderAskDone = false; document.getElementById('reminder-ask').hidden = false; renderTax(); });
+  check('tax intro: waits while Home is already asking about reminders', !(await card()).shown);
+  await S(() => { document.getElementById('reminder-ask').hidden = true; });
+  await reset({ enabled: true });
+  check('tax intro: not shown to someone already tracking', !(await card()).shown);
+  await reset();
+  await S(() => { state.currency = 'USD'; renderAll(); });
+  check('tax intro: not shown outside MYR, and the Tax link goes too',
+    !(await card()).shown && await S(() => document.getElementById('today-tax-link').hidden));
+  await S(() => { state.currency = 'MYR'; renderAll(); });
+  await S(() => { state.dailyExpenses = []; state.income = []; state.expenses = []; renderAll(); });
+  check('tax intro: not shown with no data at all (nothing to say yet)', !(await card()).shown);
+
+  // 4) Seasons, for people who never turned it on.
+  const season = await S(() => {
+    const t = taxState();
+    t.introSeen = true;
+    const at = (...a) => { const d = taxHomeCard(new Date(...a)); return d && d.kind; };
+    const y = new Date().getFullYear();
+    state.dailyExpenses = [{ id: 's1', kind: 'expense', date: `${y}-03-04`, amount: 900, category: 'Books', note: 'Popular', createdAt: 1 }];
+    state.income = [{ id: 'sal', name: 'Salary', amount: 6000, month: currentMonthISO(), day: 25 }];
+    const out = {
+      oct: at(y, 9, 20), nov: at(y, 10, 20), dec: at(y, 11, 30),
+      feb: at(y + 1, 1, 25), may: at(y + 1, 4, 10), jun: at(y + 1, 5, 1),
+    };
+    t.nudges[`${y}-nov`] = 1;
+    out.novDone = at(y, 10, 20);
+    state.dailyExpenses = [];
+    t.nudges = {};
+    out.nothingToSay = at(y, 10, 20);
+    return out;
+  });
+  check('tax season: untracked people get the card again in November and before e-Filing — not in between',
+    season.oct === null && season.nov === 'nov' && season.dec === 'nov' && season.feb === 'final' && season.may === 'final' && season.jun === null,
+    JSON.stringify(season));
+  check('tax season: each season card is shown until dealt with, then not again; and not with nothing claimable',
+    season.novDone === null && season.nothingToSay === null, JSON.stringify(season));
+  const novCard = await S(() => {
+    state.dailyExpenses = [{ id: 's1', kind: 'expense', date: `${new Date().getFullYear()}-03-04`, amount: 900, category: 'Books', note: 'Popular', createdAt: 1 }];
+    const c = { kind: 'nov', year: new Date().getFullYear(), key: `${new Date().getFullYear()}-nov` };
+    const copy = taxHomeCopy(c);
+    return { title: copy.title, body: copy.body.replace(/<[^>]+>/g, '') };
+  });
+  check('tax season: the November card says what is at stake, in numbers', /1 spend may still count/.test(novCard.title) && /900\.00/.test(novCard.body) && /days? left/.test(novCard.body), JSON.stringify(novCard));
+
+  // 5) Phone notifications for people not tracking: only with something to say, never a made-up count.
+  const nn = await S(() => {
+    const y = new Date().getFullYear();
+    state.dailyExpenses = [{ id: 's1', kind: 'expense', date: `${y}-03-04`, amount: 900, category: 'Books', note: 'Popular', createdAt: 1 }];
+    taxState().enabled = false; taxState().nudges = {};
+    const withSpend = taxNativeReminders(new Date(y, 8, 1)).map(n => [n.at.getMonth(), n.at.getDate(), n.title, n.body]);
+    state.dailyExpenses = [];
+    const none = taxNativeReminders(new Date(y, 8, 1)).length;
+    return { withSpend, none };
+  });
+  check('tax notify (not tracking): November and pre-e-Filing reminders only when something looks claimable, with no invented count',
+    nn.withSpend.length === 2 && nn.withSpend[0][0] === 10 && nn.withSpend[0][1] === 15 && !/\d+ of your/.test(nn.withSpend[0][3]) && nn.none === 0, JSON.stringify(nn));
+
+  // 6) Enabling from the welcome page walks this year's spending once.
+  await reset();
+  await S(() => document.getElementById('tabbtn-tax').click());
+  await page.click('#tab-tax [data-tax-enable]');
+  await page.waitForTimeout(900);
+  check('tax welcome: turning on opens the review straight away with what it found, and the intro is retired',
+    await page.locator('#tax-review-dialog').evaluate(d => d.open) && await S(() => taxState().enabled && taxState().introSeen));
+  await page.click('#tax-review-stop');
+  await page.waitForTimeout(200);
+  await S(() => { taxState().enabled = false; taxState().introSeen = false; renderAll(); });
+
+  // 7) Privacy mode covers the discovery surfaces too.
+  await reset();
+  const discLeaks = await S(() => {
+    document.body.classList.add('private');
+    document.getElementById('tabbtn-dashboard').click();
+    renderAll();
+    const roots = [document.getElementById('tax-intro')];
+    document.getElementById('tabbtn-tax').click();
+    roots.push(document.getElementById('tax-page-optin'));
+    const MONEY = /RM\s? ?[\d,]+\.\d{2}/;
+    const found = [];
+    for (const root of roots) {
+      const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let n;
+      while ((n = walk.nextNode())) {
+        const txt = n.textContent.replace(/ /g, ' ').trim();
+        if (!MONEY.test(txt)) continue;
+        const el = n.parentElement;
+        let a = el, blurred = false;
+        while (a && a !== document.body) { if (/blur\(/.test(getComputedStyle(a).filter || '')) { blurred = true; break; } a = a.parentElement; }
+        if (!blurred) found.push(el.tagName + '.' + (el.className || '-') + ' :: ' + txt.slice(0, 40));
+      }
+    }
+    document.body.classList.remove('private');
+    renderAll();
+    return found;
+  });
+  check('tax discovery privacy: no ringgit legible on the Home card or the welcome page with privacy on', discLeaks.length === 0, JSON.stringify(discLeaks));
+  await reset();
+  await S(() => { state.tax = emptyTax(); state.tax.introSeen = true; state.dailyExpenses = []; save(); renderAll(); });
 }
 
 // -- the install counter must stay narrow --

@@ -284,6 +284,9 @@ const emptyTax = () => ({
   claims: [],            // see coerceTaxClaim
   skipped: [],           // expense ids the person said "not tax" to
   hintSeen: false,       // one-time "this looks deductible" nudge while off
+  introSeen: false,      // Home's one-off "tax is here" card was dismissed or acted on
+  introDays: [],         // days that card was on screen (it retires itself after a few)
+  nudges: {},            // { "2026-nov": ms, "2026-final": ms } — season cards done, for people not tracking
   deltaSince: 0,         // ms: spending created after this is "new" (0 = set on first check)
   prompted: [],          // expense ids already asked about as new spending
   reviews: {},           // { "2026-nov": ms, "2026-final": ms } — seasonal checks done
@@ -331,6 +334,11 @@ function coerceTax(raw) {
     claims: (Array.isArray(t.claims) ? t.claims : []).map(coerceTaxClaim).filter(Boolean),
     skipped: (Array.isArray(t.skipped) ? t.skipped : []).filter((x) => typeof x === "string").slice(-500),
     hintSeen: !!t.hintSeen,
+    introSeen: !!t.introSeen,
+    introDays: (Array.isArray(t.introDays) ? t.introDays : []).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(String(x))).slice(-10),
+    nudges: t.nudges && typeof t.nudges === "object"
+      ? Object.fromEntries(Object.entries(t.nudges).filter(([k, v]) => /^\d{4}-(nov|final)$/.test(k) && Number.isFinite(Number(v))))
+      : {},
     deltaSince: Number.isFinite(Number(t.deltaSince)) ? Number(t.deltaSince) : 0,
     prompted: (Array.isArray(t.prompted) ? t.prompted : []).filter((x) => typeof x === "string").slice(-500),
     reviews: t.reviews && typeof t.reviews === "object"
@@ -595,9 +603,27 @@ function taxSeasonDue(now) {
 // One-off native notifications, scheduled by script.js's reminder builder.
 function taxNativeReminders(now) {
   const t = state.tax;
-  if (!TAX_OK || !t || !t.enabled) return [];
+  if (!TAX_OK || !t || (typeof currentCurrency === "function" && currentCurrency() !== "MYR")) return [];
   const n = now || new Date();
   const out = [];
+  if (!t.enabled) {
+    // Someone who never opted in gets the same two dates, but only when there
+    // is something to say — spending that looks claimable — and in plain words
+    // that don't promise a count the app can't know when it fires.
+    for (const year of [n.getFullYear() - 1, n.getFullYear()]) {
+      if (!taxPendingExpenses(year).length) continue;
+      const f = taxFilingFor(year);
+      if (f.novCheck > n && !t.nudges[`${year}-nov`]) {
+        out.push({ at: f.novCheck, title: "November tax check",
+          body: `Some of your ${year} spending may count as tax relief. See what you can claim before 31 Dec.` });
+      }
+      if (f.finalCheck > n && !t.nudges[`${year}-final`]) {
+        out.push({ at: f.finalCheck, title: `YA ${year}: e-Filing opens ${taxDateLabel(f.efilingOpens)}`,
+          body: `Some of your ${year} spending may count as tax relief. See what you can claim before ${taxDateLabel(f.deadline)}.` });
+      }
+    }
+    return out.sort((a, b) => a.at - b.at).slice(0, 2);
+  }
   for (const year of [n.getFullYear() - 1, n.getFullYear(), n.getFullYear() + 1]) {
     const f = taxFilingFor(year);
     if (f.novCheck > n && !t.reviews[`${year}-nov`]) {
@@ -958,6 +984,7 @@ function taxAfterExpense(entry, receipt) {
 function taxEnable(opts) {
   const t = taxState();
   t.enabled = true;
+  t.introSeen = true;
   t.deltaSince = (opts && opts.since) || Date.now();
   save();
   renderAll();
@@ -1262,6 +1289,119 @@ function taxTakeScanReceipt() {
   return r && Date.now() - r.at < 10 * 60 * 1000 ? r.source : null;
 }
 
+/* ---------- discovery: how people who never open Tax find out ----------
+   Tax lives one page down, so nothing here assumes anyone goes looking. For
+   anyone not tracking yet, Home shows ONE quiet card (never a modal): once
+   when tax first arrives, then again in November and before e-Filing opens.
+   The hook is computed on this phone from spending they already logged —
+   "7 of your spends may count" — so it says something true about them.
+   Tracking people get the review modal instead (taxRunChecks). */
+
+const TAX_INTRO_MAX_DAYS = 3;   // the intro card retires itself after this many days on screen
+
+// Spending that looks claimable for a year, with what it adds up to.
+function taxFound(year) {
+  const items = taxPendingExpenses(year);
+  const total = items.reduce((a, x) => a + (Number(x.entry.amount) || 0), 0);
+  const reliefs = [...new Set(items.map((x) => taxShort(taxRelief(x.relief).label)))];
+  return { n: items.length, total: Math.round(total * 100) / 100, items, reliefs };
+}
+
+// A season card is owed once per season: November for this YA, and the weeks
+// before e-Filing for last year's. Shown until it is acted on or dismissed.
+function taxNudgeDue(now) {
+  const t = taxState();
+  const y = now.getFullYear();
+  if (now >= taxFilingFor(y).novCheck && !t.nudges[`${y}-nov`]) return { kind: "nov", year: y, key: `${y}-nov` };
+  const fin = taxFilingFor(y - 1);
+  if (now >= fin.finalCheck && now <= fin.deadline && !t.nudges[`${y - 1}-final`]) {
+    return { kind: "final", year: y - 1, key: `${y - 1}-final` };
+  }
+  return null;
+}
+
+// Which card, if any, Home should show a person who isn't tracking tax.
+function taxHomeCard(now) {
+  if (!TAX_OK || !state || typeof currentCurrency !== "function" || currentCurrency() !== "MYR") return null;
+  const t = taxState();
+  if (t.enabled) return null;
+  const hasData = (state.income || []).length + (state.dailyExpenses || []).length + (state.expenses || []).length > 0;
+  if (!hasData) return null;
+  const season = taxNudgeDue(now);
+  // A season card without anything to claim is noise: say nothing.
+  if (season) return taxFound(season.year).n > 0 ? season : null;
+  if (t.introSeen) return null;
+  // Not in the first days: setup, the tour and the reminders ask come first.
+  if (state.firstRunAt && calendarDaysSince(state.firstRunAt) < 3) return null;
+  const today = todayISO();
+  if (t.introDays.length >= TAX_INTRO_MAX_DAYS && !t.introDays.includes(today)) return null;
+  return { kind: "intro", year: now.getFullYear(), key: "intro" };
+}
+
+function taxHomeCopy(card) {
+  const f = taxFound(card.year);
+  const money = f.n ? fmtMoney(f.total) : "";
+  const what = f.reliefs.slice(0, 3).join(", ");
+  if (card.kind === "nov") {
+    const days = taxDaysLeftInYear(card.year);
+    return {
+      title: `${f.n} spend${f.n === 1 ? "" : "s"} may still count for your ${card.year} tax`,
+      body: `It's the last stretch of ${card.year}${days != null ? ` — ${days} day${days === 1 ? "" : "s"} left` : ""}. ${amt(money)} of your spending looks like tax relief (${escapeHtml(what)}). Claim it and keep the receipts.`,
+      go: "See what I can claim",
+    };
+  }
+  if (card.kind === "final") {
+    const f2 = taxFilingFor(card.year);
+    return {
+      title: `e-Filing for YA ${card.year} opens ${taxDateLabel(f2.efilingOpens)}`,
+      body: `${f.n} spend${f.n === 1 ? "" : "s"} (${amt(money)}) from ${card.year} may count as tax relief. Decide now, and add receipts any time before ${taxDateLabel(f2.deadline)}.`,
+      go: "See what I can claim",
+    };
+  }
+  return f.n
+    ? {
+        title: `${f.n} of your spends may count as tax relief`,
+        body: `${amt(money)} so far this year (${escapeHtml(what)}). Duitful can claim them for you, keep the receipts, and show your likely LHDN refund — all on this phone.`,
+        go: "See what I can claim",
+      }
+    : {
+        title: "Find out your likely tax refund",
+        body: "Duitful now spots spending that counts as LHDN tax relief, keeps the receipts, and works out what comes back to you. All on this phone, nothing sent anywhere.",
+        go: "Take a look",
+      };
+}
+
+function renderTaxHome() {
+  const el = taxEl("tax-intro");
+  if (!el) return;
+  const card = taxHomeCard(new Date());
+  // One ask at a time: while Home is asking about reminders, tax waits.
+  if (!card || document.getElementById("reminder-ask")?.hidden === false) { el.hidden = true; delete el.dataset.kind; return; }
+  const copy = taxHomeCopy(card);
+  taxEl("tax-intro-title").textContent = copy.title;
+  taxEl("tax-intro-body").innerHTML = copy.body;
+  taxEl("tax-intro-go").textContent = copy.go;
+  el.dataset.kind = card.kind;
+  el.dataset.key = card.key;
+  el.hidden = false;
+  // Count a day on screen once; after a few days an unanswered intro retires.
+  if (card.kind === "intro") {
+    const t = taxState();
+    const today = todayISO();
+    if (!t.introDays.includes(today)) { t.introDays.push(today); save(); }
+  }
+}
+
+// Whatever happened to the card — acted on or waved away — it is done.
+function taxHomeDone() {
+  const el = taxEl("tax-intro");
+  const t = taxState();
+  if (el && el.dataset.kind === "intro") t.introSeen = true;
+  else if (el && el.dataset.key) t.nudges[el.dataset.key] = Date.now();
+  save();
+  renderTaxHome();
+}
+
 /* ---------- card ---------- */
 
 function taxPct(v, cap) { return cap > 0 ? Math.min(100, Math.round((v / cap) * 100)) : 0; }
@@ -1312,7 +1452,9 @@ function renderTax() {
   show("tax-optin", !t.enabled && myr);
   show("tax-page-optin", !t.enabled && myr);
   show("tax-entry", on);
-  show("today-tax-link", on);
+  show("today-tax-link", myr);   // always findable, tracking or not
+  renderTaxHome();
+  if (!t.enabled && myr) taxRenderWelcome();
   for (const id of ["tax-card", "tax-reliefs-card", "tax-claims-card", "tax-details-card"]) show(id, on);
   document.querySelector("#tab-tax .tax-year")?.toggleAttribute("hidden", !on);
   if (!on) { show("tax-pending-wrap", false); return; }
@@ -1331,6 +1473,25 @@ function renderTax() {
   taxRenderDetails(year, s);
   taxRenderEntry(year, s, pending, claims);
   taxScheduleChecks();
+}
+
+/* The page for someone not tracking yet: what it does, what it already found. */
+function taxRenderWelcome() {
+  const year = new Date().getFullYear();
+  const f = taxFound(year);
+  const box = taxEl("tax-found");
+  box.hidden = !f.n;
+  if (!f.n) { taxEl("tax-found-list").innerHTML = ""; return; }
+  taxEl("tax-found-title").innerHTML = `We found <strong>${f.n} spend${f.n === 1 ? "" : "s"}</strong> in ${year} that may count — ${amt(f.total)}`;
+  taxEl("tax-found-list").innerHTML = f.items.slice(0, 3).map(({ entry, relief }) => `
+    <li>
+      <div class="tax-row-main">
+        <strong>${escapeHtml(entry.note || entry.category || "Spending")}</strong>
+        <span class="hint">${escapeHtml(taxDay(entry.date))} · ${escapeHtml(taxShort(taxRelief(relief).label))}</span>
+      </div>
+      <span class="tax-row-amt">${amt(entry.amount)}</span>
+    </li>`).join("");
+  taxEl("tax-found-more").textContent = f.n > 3 ? `and ${f.n - 3} more` : "";
 }
 
 /* 1. The refund: the figure, tax due against PCB paid, and the working. */
@@ -1708,6 +1869,8 @@ document.addEventListener("click", (e) => {
   } else if ((b = hit("[data-tax-edit]"))) taxOpenClaim({ claimId: b.dataset.taxEdit });
   else if ((b = hit("[data-tax-view]"))) taxViewReceipt(b.dataset.taxView);
   else if (hit("[data-tax-enable]")) taxEnable();
+  else if (hit("#tax-intro-go")) { taxHomeDone(); document.getElementById("tabbtn-tax")?.click(); }
+  else if (hit("#tax-intro-no")) taxHomeDone();
   else if ((b = hit("[data-tax-relief-open]"))) {
     const id = b.dataset.taxReliefOpen;
     taxUi.reliefOpen = taxUi.reliefOpen === id ? "" : id;
