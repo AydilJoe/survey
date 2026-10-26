@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.44.0";
+const APP_VERSION = "1.45.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -87,6 +87,8 @@ const emptyState = () => ({
   investPlan: typeof emptyInvestPlan === "function" ? emptyInvestPlan() : null,
   // Bill splitting / payment requests. Guarded on split.js the same way.
   split: typeof emptySplit === "function" ? emptySplit() : null,
+  // Tax relief claims and refund inputs. Guarded on tax.js like the rest.
+  tax: typeof emptyTax === "function" ? emptyTax() : null,
 });
 
 /* ---------- Shariah / Islamic finance ---------- */
@@ -340,6 +342,10 @@ function coerceState(parsed) {
       split: typeof coerceSplit === "function"
         ? safe(() => coerceSplit(parsed.split), emptySplit())
         : (parsed.split && typeof parsed.split === "object" ? parsed.split : null),
+      // A broken tax blob costs the claims, never the rest of the state.
+      tax: typeof coerceTax === "function"
+        ? safe(() => coerceTax(parsed.tax), emptyTax())
+        : (parsed.tax && typeof parsed.tax === "object" ? parsed.tax : null),
   };
 }
 
@@ -4057,6 +4063,7 @@ function renderAll() {
   if (typeof renderInvestPlan === "function") renderInvestPlan();
   if (typeof renderSplit === "function") renderSplit();
   renderZakat();
+  if (typeof renderTax === "function") renderTax();
   renderUpcoming();
   renderPending();
   renderReminderPrefs();
@@ -6092,6 +6099,21 @@ function buildReminders(src) {
       }
     } catch {}
   }
+  // Tax check-ins (November, and before e-Filing opens) — one-off, like loans.
+  if (typeof taxNativeReminders === "function") {
+    try {
+      for (const n of taxNativeReminders()) {
+        if (notifs.length >= 60) break;
+        notifs.push({
+          id: nextId++,
+          title: n.title,
+          body: n.body,
+          schedule: { at: n.at, allowWhileIdle: true },
+          smallIcon: "ic_stat_icon",
+        });
+      }
+    } catch {}
+  }
   return notifs;
 }
 
@@ -6578,8 +6600,13 @@ $("#form-daily").addEventListener("submit", (e) => {
   renderAll();
   const amountLabel = fmtMoney(amount);
   if (movesBalance) flyAmountToBalance(flightFrom, amountLabel, netBefore, lastHeroNet);
+  // A scanned photo is held for exactly one submit; whatever type this was,
+  // it is spent now so it can't attach to a later, unrelated expense.
+  const scanReceipt = typeof taxTakeScanReceipt === "function" ? taxTakeScanReceipt() : null;
   if (type === "debt") toast(`Payment recorded · ${amountLabel}`);
   else if (type === "saving") toast(`Savings added · ${amountLabel}`);
+  // Looks like a tax relief: the tax prompt shares the toast slot.
+  else if (typeof taxAfterExpense === "function" && taxAfterExpense(state.dailyExpenses.find((x) => x.id === id), scanReceipt)) { /* prompted */ }
   // The moment someone just paid for the table is the moment they think
   // "split this" — offer it right there, not three taps deep.
   else if (typeof splitFromExpense === "function") {
@@ -7110,6 +7137,7 @@ function removeDailyEntry(id) {
     if (card) card.balance = Math.max(0, (Number(card.balance) || 0) - (Number(entry.amount) || 0));
   }
   state.dailyExpenses = state.dailyExpenses.filter((x) => x.id !== id);
+  if (typeof taxOnEntryRemoved === "function") taxOnEntryRemoved(id);
   return true;
 }
 
@@ -7973,6 +8001,30 @@ function toCSV() {
       rows.push(blank(["zakat-payment", "", h.amount, "", "", "", h.date]));
     }
   }
+  // Tax relief: settings as `setting` rows (per-year figures keyed by year),
+  // each claim as a `tax-claim` row — relief id in name, linked expense id in
+  // category. Receipt PHOTOS are deliberately not in the CSV; they stay in the
+  // encrypted on-device vault.
+  if (typeof coerceTax === "function") {
+    const tx = coerceTax(state.tax);
+    const settingRow = (key, value) => rows.push(blank(["setting", key, value]));
+    settingRow("taxEnabled", tx.enabled ? "Y" : "N");
+    settingRow("taxSpouse", tx.spouse ? "Y" : "N");
+    settingRow("taxChildren", tx.children);
+    settingRow("taxChildrenPre", tx.childrenPre);
+    settingRow("taxChildrenTertiary", tx.childrenTertiary);
+    settingRow("taxDisabledChildren", tx.disabledChildren);
+    settingRow("taxDisabledSelf", tx.disabledSelf ? "Y" : "N");
+    settingRow("taxDisabledSpouse", tx.disabledSpouse ? "Y" : "N");
+    for (const [y, f] of Object.entries(tx.figures)) {
+      if (f.pcb) settingRow(`taxPcb${y}`, f.pcb);
+      if (f.epf) settingRow(`taxEpf${y}`, f.epf);
+      if (f.income) settingRow(`taxIncome${y}`, f.income);
+    }
+    for (const c of tx.claims) {
+      rows.push(blank(["tax-claim", c.sub ? `${c.relief}:${c.sub}` : c.relief, c.amount, "", "", "", c.date, c.entryId, c.note]));
+    }
+  }
   // Retirement plan — same one-setting-row-per-key shape as the zakat block.
   // `enabled` rides along so a disabled plan round-trips as disabled rather
   // than springing back to life on the importing device.
@@ -8320,6 +8372,37 @@ function fromCSV(text) {
           && (row[iInvReinvested] || "").trim().toUpperCase() === "Y";
         h.dividends.push({ date, amount, reinvested });
       }
+    } else if (type === "setting" && /^tax(enabled|spouse|children|childrenpre|childrentertiary|disabledchildren|disabledself|disabledspouse|(pcb|epf|income)\d{4})$/i.test(name)) {
+      // Cells, not numbers, for the same reason as the zakat rows. coerceTax
+      // below clamps whatever lands here.
+      const raw = iAmount >= 0 ? (row[iAmount] || "").toString().trim() : "";
+      const key = name.toLowerCase();
+      const tx = next.tax || (next.tax = emptyTax());
+      if (key === "taxenabled") tx.enabled = raw.toUpperCase() === "Y";
+      else if (key === "taxspouse") tx.spouse = raw.toUpperCase() === "Y";
+      else if (key === "taxchildren") tx.children = Number(raw) || 0;
+      else if (key === "taxchildrenpre") tx.childrenPre = Number(raw) || 0;
+      else if (key === "taxchildrentertiary") tx.childrenTertiary = Number(raw) || 0;
+      else if (key === "taxdisabledchildren") tx.disabledChildren = Number(raw) || 0;
+      else if (key === "taxdisabledself") tx.disabledSelf = raw.toUpperCase() === "Y";
+      else if (key === "taxdisabledspouse") tx.disabledSpouse = raw.toUpperCase() === "Y";
+      else {
+        const m = key.match(/^tax(pcb|epf|income)(\d{4})$/);
+        tx.figures[m[2]] = { ...(tx.figures[m[2]] || {}), [m[1]]: Number(raw) || 0 };
+      }
+    } else if (type === "tax-claim") {
+      const tx = next.tax || (next.tax = emptyTax());
+      const [reliefId, subId] = name.split(":");
+      tx.claims.push({
+        id: uid(),
+        relief: reliefId,
+        sub: subId || "",
+        amount,
+        date: iDate >= 0 ? (row[iDate] || "").trim() : "",
+        entryId: iCat >= 0 ? (row[iCat] || "").trim() : "",
+        note: iNote >= 0 ? (row[iNote] || "").trim() : "",
+        receiptId: "",
+      });
     } else if (type === "setting" && name.toLowerCase() === "extramonthly") {
       if (Number.isFinite(amount)) next.extraMonthly = amount;
     } else if (type === "setting" && ZAKAT_SETTING_KEYS.has(name.toLowerCase())) {
@@ -8547,6 +8630,22 @@ function fromCSV(text) {
   // Ditto for the retirement plan: the setting rows wrote raw strings.
   if (typeof coerceInvestPlan === "function") {
     next.investPlan = coerceInvestPlan(next.investPlan);
+  }
+  // And for tax: drops claims with an unknown relief or a bad amount. Imported
+  // expenses get fresh ids, so a claim finds its expense again by date and
+  // amount; with no match it simply becomes a standalone claim.
+  if (typeof coerceTax === "function") {
+    next.tax = coerceTax(next.tax);
+    // Every imported row is stamped "created now"; none of it is new spending
+    // to ask about. The full-year review is where old entries get looked at.
+    next.tax.deltaSince = Date.now() + 1;
+    const taken = new Set();
+    for (const c of next.tax.claims) {
+      const hit = next.dailyExpenses.find((e) => (e.kind || "expense") === "expense" && !taken.has(e.id)
+        && e.date === c.date && Math.abs(Number(e.amount) - c.amount) < 0.005);
+      c.entryId = hit ? hit.id : "";
+      if (hit) taken.add(hit.id);
+    }
   }
 
   // Reassemble the split records: people back into their bill, repayments
@@ -9774,6 +9873,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.45.0": [
+    "<strong>Tax refund estimate</strong> — Reports → Tax refund estimate works out your likely LHDN refund from your income and the PCB already deducted, using the YA 2026–2027 reliefs, and shows what each relief is still worth to you.",
+    "<strong>Never miss a claim</strong> — when something you buy counts as tax relief, Duitful asks if you want to claim it, then offers to keep the receipt and any documents LHDN may ask for. Review your whole year any time, with a check-in in November and again before e-Filing opens.",
+    "<strong>Receipts, kept private</strong> — saved photos and documents are encrypted on this device with your passcode and never uploaded. Export your claims as a CSV when e-Filing opens.",
+  ],
   "1.44.0": [
     "<strong>Links half the length</strong> — a split or request link is now about 80–120 characters instead of 160–220, so it no longer fills the chat. Older links still open, and a link that got cut off in a chat is refused instead of showing a wrong amount.",
   ],
@@ -12212,6 +12316,8 @@ document.getElementById("scan-currency-toggle")?.addEventListener("click", (e) =
 // object URL to release afterward (web only — null for a self-contained
 // data-URL).
 async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
+  // Kept so a tax-deductible scan can offer to save the photo (tax.js).
+  window.scanLastSource = recognizeInput;
   openScanDialog();
   scanPreview.src = previewSrc;
   const pbEl = scanProgress.closest(".scan-pb");
@@ -12414,6 +12520,8 @@ function applyScanResult({ direct }) {
     splitApplyScan({ amount: amt, vendor, raw: scanRaw ? scanRaw.textContent : "" });
     return;
   }
+  // Hand the photo to the tax module for the one expense this scan creates.
+  if (typeof taxStashScanReceipt === "function") taxStashScanReceipt(window.scanLastSource || null);
   const amountInput = document.querySelector("#form-daily input[name='amount']");
   const noteInput = document.querySelector("#form-daily input[name='note']");
   const catInput = document.querySelector("#form-daily input[name='category']");
@@ -12483,6 +12591,7 @@ document.getElementById("btn-forgot")?.addEventListener("click", () => {
   if (!confirm("Really sure? This cannot be undone.")) return;
   localStorage.removeItem(ENC_KEY);
   localStorage.removeItem(STORAGE_KEY);
+  if (typeof taxReceiptsWipe === "function") taxReceiptsWipe(); // receipt photos go with the data
   disableBiometric().catch(() => {}); // stored passcode dies with the data
   aesKey = null;
   state = emptyState();
@@ -12509,6 +12618,9 @@ document.getElementById("btn-change-passcode")?.addEventListener("click", async 
   const saltBytes = crypto.getRandomValues(new Uint8Array(16));
   const saltB64 = b64encode(saltBytes);
   const newKey = await deriveKey(p1, saltBytes);
+  // Saved tax receipts are sealed with the vault key: reseal them first, or
+  // the new passcode would lock the photos away for good.
+  if (typeof taxReceiptsRekey === "function") await taxReceiptsRekey(aesKey, newKey);
   aesKey = newKey;
   const newRec = await encryptWith(newKey, state, saltB64);
   localStorage.setItem(ENC_KEY, JSON.stringify(newRec));
@@ -12540,6 +12652,7 @@ let hiddenAt = 0;
 function relock() {
   // The search sheet renders decrypted entries — never leave it behind the lock.
   closeSearch({ wipe: true });
+  if (typeof taxCloseAll === "function") taxCloseAll();
   aesKey = null;
   state = emptyState();
   setLockMode("unlock");

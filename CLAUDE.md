@@ -41,12 +41,18 @@ No linter or TypeScript. One end-to-end regression suite exists: `npm run test:e
 
 ## Key Implementation Details
 
-- **Free/Pro split**: Pro gates apply on both the web app and inside the native Capacitor shell. Pro unlocks receipt OCR, unlimited debts and savings goals, instalment plans, and reminders. Product ID: `duitful_pro` (non-consumable, RM 19.90 lifetime). The price exists to fund the Apple Developer Program (USD $99/year) and Google Play console fee (USD $25 one-time) — native apps ship gated on demand.
+- **Free/Pro split**: Pro gates apply on both the web app and inside the native Capacitor shell. Pro unlocks receipt OCR, unlimited debts and savings goals, instalment plans, and reminders. Product ID: `duitful_pro` (non-consumable, RM 19.90 lifetime). The price helps cover the Apple Developer Program (USD $99/year — the membership is paid) and the Google Play console fee (USD $25 one-time).
 - **CSV row types**: `income`, `expense`, `debt`, `saving`, `daily`, `daily-saving`, `daily-debt`, `setting`.
 - **Avalanche simulator**: `simulateAvalanche(debts, extraMonthly)` — prioritizes highest APR, rolls minimums forward.
 - **Android auto-capture**: `DuitfulNotificationListenerService` in `native/notification-listener/` whitelists bank packages and forwards notification text to JS via Capacitor plugin. Install instructions in `native/notification-listener/README.md`.
 - **Env vars** (Vercel): `BILLPLZ_API_KEY`, `BILLPLZ_COLLECTION_ID`, `BILLPLZ_X_SIGNATURE`, `LICENSE_SIGNING_PRIVATE_KEY`, and `BILLPLZ_PAYOUT_COLLECTION_ID` (refunds only).
 - **Refunds**: Billplz has no refund endpoint — FPX is non-reversible, so a refund is a **v5 Payment Order**, a fresh outbound transfer keyed on the buyer's SWIFT/BIC code and account number (*not* the FPX code checkout uses). Every v5 call is signed: HMAC-SHA512 of the documented values concatenated with no separator, keyed by `BILLPLZ_X_SIGNATURE`. A payment order needs a collection — create it once per environment with `POST /api/admin/ops?op=payout-collection` and paste the id into `BILLPLZ_PAYOUT_COLLECTION_ID`. Payouts cannot be reversed; `api/_lib/admin/refund.js` carries five guards, including reading the amount from the recorded bill rather than the request.
+
+## Tax relief data (update every Budget)
+
+The tax refund estimate (`app/tax.js`) reads all LHDN figures — relief limits, sub-limits, rate bands, the rebate — from **`app/tax-data.js`**. To roll in a new Budget: paste the new schedule JSON over the object after `const TAX_DATA =` (keep the trailing `;`), add the new `limit_ya_<year>_myr` keys, bump the `tax-data.js?v=N` query in `app/index.html` and `app/sw.js`, and run `npm run test:e2e`. The file header documents the format (year fallback rules, `sub_limits` ids and `since_ya`, `app` block, `income_tax_by_ya`). A relief with a new `code` appears automatically for manual claims; add `app.keywords` to make spending suggest it. Invalid data switches the tax card off (and the e2e suite fails) instead of breaking the app. The same file's `filing_by_ya` sets the check-in dates and the "add receipts by" deadline shown to users.
+
+Tax check-ins all go through one review modal (`taxOpenReview` in `tax.js`): **delta** (new spending that matches a relief rule — asked once; imports and restores move `deltaSince` forward so they never flood), **Review my year** (manual, full year), the **November check** and the **final check before e-Filing** (in-app once per season, plus native notifications via `buildReminders`). Saying yes creates the claim, then offers the receipt and the documents the schedule lists — optional, with the deadline.
 
 ## Deployment
 

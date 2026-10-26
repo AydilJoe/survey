@@ -81,3 +81,9 @@ onto a phone and check the feature it powers:
 A major version (Capacitor 7 → 8) is a migration: read the changelogs, check
 every script in `scripts/patch-android-*.mjs` still matches, and release it
 on its own.
+- **Tax relief & refund estimate** — LHDN band tax and the RM400 rebate against
+  hand-worked figures, relief caps, zakat as a rebate, keyword suggestions (and
+  the things that must *not* match: car takaful, phone bills), the
+  delta → review modal → claim → receipt flow, Later / Not tax / Review my year, documents added afterwards, the November and pre-e-Filing check-ins and their native notifications, the scan hand-off, receipts encrypted
+  at rest and resealed on a passcode change, claim/receipt cleanup when the
+  expense is deleted, and the CSV round trip.

@@ -6987,6 +6987,459 @@ check('the brand catalogue makes no network calls at all',
     })));
 }
 
+// ---------- Tax relief: refund maths, suggestions, claims, receipt vault ----------
+{
+  // Pure maths against hand-worked LHDN figures.
+  const m = await S(() => ({
+    t35: taxBandTax(35000), t50: taxBandTax(50000), t100: taxBandTax(100000),
+    p35: taxPayableFor(35000, 0).payable, p36: taxPayableFor(36000, 0).payable,
+    zk: taxPayableFor(60000, 99999).payable,
+    base: taxEstimate({ year: 2026, income: 80000, pcb: 4000 }),
+    claimed: taxEstimate({ year: 2026, income: 80000, pcb: 4000, claimsByRelief: { lifestyle: 3000 } }),
+    kids: taxEstimate({ year: 2026, income: 80000, children: 2, spouse: true }),
+    epf: taxEstimate({ year: 2026, income: 80000, epfPaid: 5000 }),
+    low: taxEstimate({ year: 2026, income: 20000, pcb: 100 }),
+    ya27: taxEstimate({ year: 2027, income: 80000 }),
+    subs: taxEstimate({ year: 2026, income: 80000, claims: [
+      { relief: 'medical', sub: 'dental', amount: 1800 }, { relief: 'medical', sub: 'fertility', amount: 4000 },
+      { relief: 'medical', sub: '', amount: 500 }, { relief: 'lifestyle', sub: 'ai', amount: 900 }] }),
+    subs27: taxEstimate({ year: 2027, income: 80000, claims: [
+      { relief: 'lifestyle', sub: 'ai', amount: 900 }, { relief: 'sports', sub: 'shoes', amount: 700 }, { relief: 'socso', sub: 'voluntary', amount: 400 }] }),
+    fam: taxEstimate({ year: 2026, income: 80000, disabledSelf: true, disabledSpouse: true, spouse: true,
+      children: 1, childrenPre: 1, childrenTertiary: 1, disabledChildren: 1 }),
+    rel26: taxReliefsFor(2026).map(r => r.id), rel27: taxReliefsFor(2027).map(r => r.id),
+    soc26: taxReliefFor(2026, 'socso').cap, soc27: taxReliefFor(2027, 'socso').cap,
+  }));
+  check('tax: RM35,000 chargeable = RM600 before rebate', m.t35 === 600, String(m.t35));
+  check('tax: RM50,000 chargeable = RM1,500', m.t50 === 1500, String(m.t50));
+  check('tax: RM100,000 chargeable = RM9,400', m.t100 === 9400, String(m.t100));
+  check('tax: RM400 rebate at RM35,000, gone at RM36,000', m.p35 === 200 && m.p36 === 660, `${m.p35}/${m.p36}`);
+  check('tax: zakat can wipe out the bill but not go negative', m.zk === 0, String(m.zk));
+  // 80k - 9k = 71k → 3,700 (to 70k) + 190 = 3,890 tax; PCB 4,000 → refund 110.
+  check('tax: RM80k salary, no claims → RM3,890 tax, RM110 refund',
+    m.base.payable === 3890 && m.base.balance === 110, `${m.base.payable}/${m.base.balance}`);
+  // lifestyle capped at 2,500 → chargeable 68,500 → 3,535; saved 355.
+  check('tax: lifestyle claim caps at RM2,500 and saves RM355',
+    m.claimed.used.lifestyle === 2500 && m.claimed.payable === 3535 && m.claimed.savedByClaims === 355,
+    JSON.stringify([m.claimed.used.lifestyle, m.claimed.payable, m.claimed.savedByClaims]));
+  check('tax: spouse (4,000) + 2 children (4,000) lower the chargeable income',
+    m.kids.autoRelief === 17000 && m.kids.chargeable === 63000, `${m.kids.autoRelief}/${m.kids.chargeable}`);
+  check('tax: own EPF counts toward the RM4,000 EPF relief, capped',
+    m.epf.used.epf === 4000, String(m.epf.used.epf));
+  check('tax: income under the threshold owes nothing and the full PCB comes back',
+    m.low.payable === 0 && m.low.balance === 100, `${m.low.payable}/${m.low.balance}`);
+  check('tax: unused common reliefs are offered with a real saving',
+    m.base.opportunities.length > 3 && m.base.opportunities.every(o => o.saving > 0 && o.room > 0),
+    JSON.stringify(m.base.opportunities.slice(0, 2)));
+
+  check('tax YA2026: individual relief RM9,000; YA2027: RM12,000',
+    m.base.autoRelief === 9000 && m.ya27.autoRelief === 12000, `${m.base.autoRelief}/${m.ya27.autoRelief}`);
+  // dental 1,000 cap + fertility 4,000 + general 500 = 5,500; 'ai' does not exist in 2026 so 900 is general lifestyle.
+  check('tax subs: dental capped at its RM1,000 sub-limit inside Medical (1000+4000+500)',
+    m.subs.used.medical === 5500 && m.subs.usedSub['medical:dental'] === 1000, JSON.stringify([m.subs.used.medical, m.subs.usedSub['medical:dental']]));
+  check('tax subs: a YA2027-only sub-limit is ignored in YA2026 (AI claim counts as general lifestyle)',
+    m.subs.used.lifestyle === 900 && !('lifestyle:ai' in m.subs.usedSub), JSON.stringify(m.subs.used.lifestyle));
+  check('tax subs YA2027: sports shoes cap RM300, SOCSO voluntary cap RM150, AI RM900 counts',
+    m.subs27.usedSub['sports:shoes'] === 300 && m.subs27.used.sports === 300
+    && m.subs27.usedSub['socso:voluntary'] === 150 && m.subs27.used.socso === 150 && m.subs27.used.lifestyle === 900,
+    JSON.stringify([m.subs27.used.sports, m.subs27.used.socso, m.subs27.used.lifestyle]));
+  check('tax: SOCSO cap RM350 → RM500 in YA2027', m.soc26 === 350 && m.soc27 === 500, `${m.soc26}/${m.soc27}`);
+  check('tax: standalone breastfeeding relief ends with YA2026 (folded into Medical)',
+    m.rel26.includes('breastfeeding') && !m.rel27.includes('breastfeeding'));
+  check('tax: new reliefs present (tourism, supporting equipment, learning disability, housing interest)',
+    ['tourism', 'supporting', 'learning', 'housing'].every(id => m.rel26.includes(id) && m.rel27.includes(id)), JSON.stringify(m.rel26));
+  // 9,000 + spouse 4,000 + self disabled 7,000 + spouse disabled 6,000 + child 2,000 + pre 2,000 + tertiary 8,000 + disabled child 6,000
+  check('tax: family and disability reliefs add up to RM44,000',
+    m.fam.autoRelief === 44000, String(m.fam.autoRelief));
+
+  // ---- The schedule is data: tax-data.js is the one file a Budget update touches. ----
+  const dataSrc = readFileSync(path.join(REPO_ROOT, 'app/tax-data.js'), 'utf8');
+  const bodyOf = (txt) => txt.slice(txt.indexOf('const TAX_DATA = ') + 'const TAX_DATA = '.length).replace(/;\s*$/, '');
+  let dataJson = null;
+  try { dataJson = JSON.parse(bodyOf(dataSrc)); } catch (e) { dataJson = null; }
+  check('tax data: tax-data.js body is strict JSON (paste-over safe)', !!dataJson);
+  check('tax data: loads and passes its own validation in the app',
+    await S(() => TAX_OK && TAX_PROBLEMS.length === 0), JSON.stringify(await S(() => TAX_PROBLEMS)));
+  const res = await S(() => ({
+    mid: taxResolveLimit({ limit_ya_2026_myr: 100, limit_ya_2028_myr: 300 }, 2027),
+    after: taxResolveLimit({ limit_ya_2026_myr: 100, limit_ya_2027_myr: 200 }, 2030),
+    before: taxResolveLimit({ limit_ya_2026_myr: 100, limit_ya_2027_myr: 200 }, 2020),
+    gone: taxResolveLimit({ limit_ya_2026_myr: 100, limit_ya_2027_myr: null }, 2027),
+    lateOnly: taxResolveLimit({ limit_ya_2027_myr: 50 }, 2026),
+    individual28: taxAutoAmounts(2030).individual,
+  }));
+  check('tax data: a missing year uses the nearest earlier one; after the last year, the last',
+    res.mid === 100 && res.after === 200 && res.individual28 === 12000, JSON.stringify(res));
+  check('tax data: a year before the schedule uses its first; null ends a relief; a later-only relief is absent earlier',
+    res.before === 100 && res.gone === null && res.lateOnly === null, JSON.stringify(res));
+
+  // A "Budget 2028" file, served instead of the real one: new year keys, a new relief, new rebate.
+  const served = async (mutate) => {
+    const pg = await b.newPage();
+    await pg.route('**/app/tax-data.js*', async (route) => {
+      const r = await route.fetch();
+      const d = JSON.parse(bodyOf(await r.text()));
+      mutate(d);
+      await route.fulfill({ response: r, body: 'const TAX_DATA = ' + JSON.stringify(d) + ';' });
+    });
+    await pg.goto(`${BASE}/app/index.html`);
+    await pg.waitForTimeout(500);
+    return pg;
+  };
+  const b28 = await served((d) => {
+    const items = d.tax_relief_categories.flatMap(c => c.items);
+    const byCode = (c) => items.find(i => i.code === c);
+    byCode('A1').limit_ya_2028_myr = 13000;
+    byCode('F1').limit_ya_2028_myr = 3000;
+    byCode('F1').sub_limits[0].limit_ya_2028_myr = 4000;
+    d.tax_relief_categories[0].items.push({ code: 'Z9', name: 'Origami Kit Relief', limit_ya_2028_myr: 500,
+      claimable_items: ['Origami kits'], eligibility_criteria: 'x', required_documentation: 'receipt',
+      app: { id: 'yogamat', keywords: 'origami' } });
+    d.income_tax_by_ya['2028'] = { rebate: { amount: 500, chargeable_income_up_to: 35000 }, bands: d.income_tax_by_ya['2026'].bands };
+  });
+  const r28 = await b28.evaluate(() => ({
+    ok: TAX_OK, label: TAX_TABLE_LABEL,
+    ind: taxEstimate({ year: 2028, income: 50000 }).autoRelief,
+    lifestyle: taxReliefFor(2028, 'lifestyle').cap,
+    ai: taxReliefFor(2028, 'lifestyle').subs.find(x => x.id === 'ai').cap,
+    new28: !!taxReliefFor(2028, 'yogamat'), new27: !!taxReliefFor(2027, 'yogamat'),
+    suggest: taxSuggestRelief('Hobby', 'Origami paper', 2028), suggest27: taxSuggestRelief('Hobby', 'Origami paper', 2027),
+    rebate: taxPayableFor(35000, 0, 2028).payable, rebate26: taxPayableFor(35000, 0, 2026).payable,
+    still27: taxReliefFor(2027, 'lifestyle').cap,
+  }));
+  check('tax data (Budget 2028 simulation): new individual relief, caps, sub-limits and rebate take effect',
+    r28.ok && r28.ind === 13000 && r28.lifestyle === 3000 && r28.ai === 4000 && r28.rebate === 100 && r28.rebate26 === 200 && r28.still27 === 2500,
+    JSON.stringify(r28));
+  check('tax data (Budget 2028 simulation): a brand-new relief appears only from its year and is suggested via app.keywords',
+    r28.new28 && !r28.new27 && r28.suggest === 'yogamat' && r28.suggest27 !== 'yogamat' && r28.label === 'YA 2026–2028', JSON.stringify(r28));
+  await b28.close();
+
+  // A broken paste must switch the tax card off, not break the app.
+  const bad = await served((d) => { d.tax_relief_categories[0].items[1].code = 'A1'; });
+  const rBad = await bad.evaluate(() => ({ ok: TAX_OK, problems: TAX_PROBLEMS, appUp: typeof save === 'function' }));
+  check('tax data: a duplicate code is reported, the tax card is off, the rest of the app still loads',
+    !rBad.ok && rBad.problems.some(x => /duplicated/.test(x)) && rBad.appUp, JSON.stringify(rBad));
+  await bad.close();
+
+  // Suggestions: the words people actually type.
+  const sug = await S(() => ({
+    book: taxSuggestRelief('Books', 'Popular'),
+    parents: taxSuggestRelief('Medical', "Mak's clinic visit"),
+    self: taxSuggestRelief('', 'Dental check-up'),
+    food: taxSuggestRelief('Food', 'nasi lemak'),
+    carTakaful: taxSuggestRelief('Insurance', 'car takaful renewal'),
+    life: taxSuggestRelief('', 'AIA premium'),
+    gym: taxSuggestRelief('Fitness', 'Gym membership'),
+    sspn: taxSuggestRelief('SSPN', 'top-up'),
+    net: taxSuggestRelief('Bills', 'Unifi internet'),
+    phoneBill: taxSuggestRelief('Bills', 'Maxis phone bill'),
+  }));
+  check('suggest: books → lifestyle', sug.book === 'lifestyle', sug.book);
+  check("suggest: parent's clinic → parents' medical, not own medical", sug.parents === 'medparents', sug.parents);
+  check('suggest: dental check-up → medical', sug.self === 'medical', sug.self);
+  check('suggest: nasi lemak and car takaful are NOT tax relief', sug.food === null && sug.carTakaful === null,
+    `${sug.food}/${sug.carTakaful}`);
+  check('suggest: life insurance, gym, SSPN, home internet',
+    sug.life === 'lifeins' && sug.gym === 'sports' && sug.sspn === 'sspn' && sug.net === 'lifestyle',
+    JSON.stringify(sug));
+  check('suggest: a phone bill is not lifestyle relief', sug.phoneBill === null, String(sug.phoneBill));
+  const sug2 = await S(() => ({
+    wheel: taxSuggestRelief('Medical', 'Wheelchair for dad'),
+    adhd: taxSuggestRelief('Kids', 'ADHD occupational therapy'),
+    museum: taxSuggestRelief('Fun', 'Muzium Negara ticket'),
+    cctv: taxSuggestRelief('Home', 'CCTV installation'),
+    gpt: taxSuggestRelief('Software', 'ChatGPT Plus'),
+    pump27: taxSuggestRelief('', 'breast pump', 2027), pump26: taxSuggestRelief('', 'breast pump', 2026),
+    dentalSub: taxSuggestSub('medical', 'Health', 'Dental scaling', 2026),
+    gptSub27: taxSuggestSub('lifestyle', 'Software', 'ChatGPT Plus', 2027),
+    gptSub26: taxSuggestSub('lifestyle', 'Software', 'ChatGPT Plus', 2026),
+    petrol: taxSuggestRelief('Transport', 'Petronas petrol'),
+  }));
+  check('suggest: wheelchair → supporting equipment, ADHD therapy → learning support',
+    sug2.wheel === 'supporting' && sug2.adhd === 'learning', JSON.stringify(sug2));
+  check('suggest: museum → tourism, CCTV → home/EV bucket, ChatGPT → lifestyle',
+    sug2.museum === 'tourism' && sug2.cctv === 'ev' && sug2.gpt === 'lifestyle', JSON.stringify(sug2));
+  check('suggest: breast pump is its own relief to YA2026, a Medical sub-limit from YA2027',
+    sug2.pump26 === 'breastfeeding' && sug2.pump27 === 'medical', `${sug2.pump26}/${sug2.pump27}`);
+  check('suggest: sub-limit picked from wording, and only where it exists that year',
+    sug2.dentalSub === 'dental' && sug2.gptSub27 === 'ai' && sug2.gptSub26 === '', JSON.stringify(sug2));
+  check('suggest: petrol is not "pet"', sug2.petrol === null, String(sug2.petrol));
+
+  // Live flow. Salary logged for the current month so the card has an income.
+  const png = Buffer.from((await S(() => {
+    const c = document.createElement('canvas'); c.width = 60; c.height = 90;
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 60, 90);
+    x.fillStyle = '#000'; x.fillRect(5, 5, 50, 8);
+    return c.toDataURL('image/png').split(',')[1];
+  })), 'base64');
+  await S(() => {
+    state.income = [{ id: 'sal', name: 'Salary', amount: 6000, month: currentMonthISO(), day: 25 }];
+    state.dailyExpenses = [];
+    save(); renderAll();
+  });
+  await page.click('#tabbtn-dashboard');
+  await S(() => document.getElementById('tabbtn-reports').click());
+  await page.waitForTimeout(200);
+  check('tax: opt-in offered on Reports, card hidden', await page.locator('#tax-optin').evaluate(e => !e.hidden)
+    && await page.locator('#tax-card').isHidden());
+  await page.click('#btn-tax-enable');
+  await page.waitForTimeout(200);
+  check('tax: card appears after one tap', await page.locator('#tax-card').evaluate(e => !e.hidden));
+  const hero1 = await page.locator('#tax-hero').textContent();
+  // One logged month of RM6,000 → RM72,000 a year → RM63,000 chargeable → RM1,680 tax, no PCB typed yet.
+  const sum0 = await S(() => taxSummary(taxYear()));
+  check('tax: one logged month is annualised (RM6,000 × 12), not left at year-to-date',
+    sum0.inputs.income === 72000 && sum0.inputs.projected && sum0.payable > 0, JSON.stringify([sum0.inputs.income, sum0.payable]));
+  check('tax: hero shows an amount for the tracked year', /RM\s?[\d,]+\.\d\d/.test(hero1) && hero1 !== 'RM 0.00', hero1);
+
+  // The seasonal checks would fire if this suite runs in November or Feb–May;
+  // mark them done so the flow below is the same on any date (tested on its own in 6).
+  await S(() => { const y = new Date().getFullYear(); const t = taxState(); t.reviews[`${y}-nov`] = 1; t.reviews[`${y - 1}-final`] = 1; save(); });
+  const addSpend = async (amount, category, note) => {
+    await S(() => document.getElementById('tabbtn-dashboard').click());
+    await S(() => setDailyMoreOpen(true));
+    await page.fill('#form-daily input[name="amount"]', amount);
+    await page.fill('#form-daily input[name="category"]', category);
+    await page.fill('#form-daily input[name="note"]', note);
+    await page.click('#form-daily button[type="submit"]');
+    await page.waitForTimeout(1600);
+  };
+  const reviewOpen = () => page.locator('#tax-review-dialog').evaluate(d => d.open);
+  const deadline = await S(() => taxDateLabel(taxFilingFor(taxYear()).deadline));
+
+  // 1) Delta: a new spend that hits a rule opens the review modal by itself.
+  await addSpend('120', 'Books', 'Popular bookstore');
+  check('tax delta: a new deductible spend opens the review modal',
+    await reviewOpen() && /New spending/.test(await page.locator('#tax-review-eyebrow').textContent())
+    && await page.inputValue('#tax-review-relief') === 'lifestyle'
+    && /120\.00/.test(await page.locator('#tax-review-amt').textContent()));
+  await page.click('#tax-review-yes');
+  await page.waitForTimeout(200);
+  const docsTxt = await page.locator('#tax-review-docs').innerText();
+  check('tax delta: "Yes" asks for the receipt — optional, with the date it can be added by and what LHDN may ask for',
+    await page.locator('#tax-review-docs').isVisible() && /Optional/.test(docsTxt) && docsTxt.includes(deadline)
+    && /e-Filing deadline for YA \d{4}/.test(docsTxt) && /Official tax receipts/.test(docsTxt) && /7 years/.test(docsTxt),
+    docsTxt.replace(/\n/g, ' | '));
+  check('tax delta: the claim exists as soon as they say yes', (await S(() => taxState().claims.length)) === 1);
+  await page.setInputFiles('#tax-review-receipt-file', { name: 'r.png', mimeType: 'image/png', buffer: png });
+  await page.waitForTimeout(200);
+  check('tax delta: the chosen receipt is staged with a preview and Save appears',
+    await page.locator('#tax-review-files li.is-new img').count() === 1 && await page.locator('#tax-review-save').isVisible());
+  await page.click('#tax-review-save');
+  await page.waitForTimeout(700);
+  const c1 = await S(() => taxState().claims.slice());
+  check('tax delta: saved — modal closes, claim has its receipt',
+    !(await reviewOpen()) && c1.length === 1 && c1[0].relief === 'lifestyle' && c1[0].amount === 120 && !!c1[0].receiptId,
+    JSON.stringify(c1));
+  const vault = await S(async (rid) => {
+    const raw = await taxIdb('readonly', (s) => s.get(rid));
+    const back = await taxReceiptGet(rid);
+    const head = Array.from(new Uint8Array(raw.ct).slice(0, 4));
+    return { type: back && back.type, size: back && back.size, head };
+  }, c1[0].receiptId);
+  check('tax: receipt is stored encrypted (no PNG/JPEG magic at rest) and decrypts back to an image',
+    vault.type === 'image/jpeg' && vault.size > 100
+    && !(vault.head[0] === 0xff && vault.head[1] === 0xd8) && !(vault.head[0] === 0x89 && vault.head[1] === 0x50),
+    JSON.stringify(vault));
+  check('tax: receipt is not in the saved state blob',
+    !(await S(() => JSON.stringify(state).includes('data:image'))));
+  await S(() => document.getElementById('tabbtn-reports').click());
+  await page.waitForTimeout(200);
+  const relTxt = await page.locator('#tax-reliefs').innerText();
+  check('tax: Reports shows lifestyle RM120 of RM2,500', /Lifestyle[\s\S]*120\.00[\s\S]*2,500\.00/.test(relTxt), relTxt.replace(/\n/g, ' | '));
+  check('tax: claim row offers its files', await page.locator('#tax-claims [data-tax-view]').count() === 1);
+  await page.click('#tax-claims [data-tax-view]');
+  await page.waitForTimeout(300);
+  check('tax: file viewer shows the decrypted receipt',
+    await page.locator('#tax-receipt-dialog').evaluate(d => d.open)
+    && await page.locator('#tax-receipt-files img').first().evaluate(i => i.complete && i.naturalWidth > 0));
+  await page.click('#tax-receipt-close');
+
+  // 2) Scanner hand-off: the scanned photo is already staged as the receipt.
+  await S(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    taxStashScanReceipt(new Blob([bytes], { type: 'image/png' }));
+  }, png.toString('base64'));
+  await addSpend('89', 'Fitness', 'Gym membership');
+  check('tax scan: the modal opens for a scanned deductible spend', await reviewOpen()
+    && await page.inputValue('#tax-review-relief') === 'sports');
+  await page.click('#tax-review-yes');
+  await page.waitForTimeout(200);
+  check('tax scan: "Yes" pre-attaches the photo from the scan',
+    /Receipt from your scan/.test(await page.locator('#tax-review-files').innerText()));
+  await page.click('#tax-review-save');
+  await page.waitForTimeout(700);
+  check('tax scan: claim saved with the scanned receipt',
+    await S(() => !!taxState().claims.find(c => c.relief === 'sports' && c.receiptId)));
+  check('tax: the stashed photo is spent after one submit', (await S(() => taxTakeScanReceipt())) === null);
+
+  // 3) "Later" on a delta: no claim, and no second pop-up for the same spend.
+  await addSpend('150', 'Health', 'Dental check-up');
+  check('tax delta: dental check-up suggests Medical with the dental sub-limit',
+    await reviewOpen() && await page.inputValue('#tax-review-relief') === 'medical' && await page.inputValue('#tax-review-sub') === 'dental');
+  await page.click('#tax-review-later');
+  await page.waitForTimeout(300);
+  await S(() => renderAll());
+  await page.waitForTimeout(1600);
+  check('tax delta: "Later" closes it, makes no claim, and does not ask again on its own',
+    !(await reviewOpen()) && (await S(() => taxState().claims.length)) === 2);
+
+  // 4) "Review my year" (manual full-year refresh) brings it back; claim without a receipt.
+  await S(() => document.getElementById('tabbtn-reports').click());
+  await page.click('#btn-tax-review');
+  await page.waitForTimeout(300);
+  check('tax review: "Review my year" brings back what was left for later',
+    await reviewOpen() && /Review YA \d{4}/.test(await page.locator('#tax-review-eyebrow').textContent())
+    && /Dental/.test(await page.locator('#tax-review-what').textContent()));
+  await page.click('#tax-review-yes');
+  await page.waitForTimeout(200);
+  check('tax review: with nothing staged the docs step offers "Add later"',
+    (await page.locator('#tax-review-skipdocs').textContent()) === 'Add later' && await page.locator('#tax-review-save').isHidden());
+  await page.click('#tax-review-skipdocs');
+  await page.waitForTimeout(500);
+  const dental = await S(() => taxState().claims.find(c => c.relief === 'medical'));
+  check('tax review: claimed without a receipt, under the dental sub-limit', !!dental && !dental.receiptId && dental.sub === 'dental', JSON.stringify(dental));
+  const checksTxt = await page.locator('#tax-checks').textContent();
+  check('tax card: says how many claims still need a receipt and by when',
+    /1 claim still needs a receipt/.test(checksTxt) && checksTxt.includes(deadline), checksTxt);
+  check('tax card: the claim row offers "Add receipt"',
+    await page.locator(`#tax-claims [data-tax-docs="${dental.id}"]`).textContent() === 'Add receipt');
+  await page.click(`#tax-claims [data-tax-docs="${dental.id}"]`);
+  await page.waitForTimeout(200);
+  check('tax docs: "Add receipt" opens the modal straight at the documents step',
+    await reviewOpen() && await page.locator('#tax-review-docs').isVisible() && await page.locator('#tax-review-ask').isHidden());
+  await page.setInputFiles('#tax-review-doc-file', { name: 'doctor-letter.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4\n% test\n') });
+  await page.waitForTimeout(150);
+  await page.click('#tax-review-save');
+  await page.waitForTimeout(600);
+  const dental2 = await S(() => taxState().claims.find(c => c.relief === 'medical'));
+  const pdfBack = await S(async (id) => { const b = await taxReceiptGet(id); return b && b.type; }, dental2.docIds[0]);
+  check('tax docs: a supporting PDF is kept as a document, encrypted, still PDF when opened',
+    dental2.docIds.length === 1 && !dental2.receiptId && pdfBack === 'application/pdf', JSON.stringify([dental2, pdfBack]));
+
+  // 5) "Not tax" remembers the answer.
+  await addSpend('139', 'Bills', 'Unifi internet');
+  check('tax delta: home internet → lifestyle', await reviewOpen() && await page.inputValue('#tax-review-relief') === 'lifestyle');
+  await page.click('#tax-review-no');
+  await page.waitForTimeout(300);
+  check('tax delta: "Not tax" closes it, skips the spend, and it leaves the review list',
+    !(await reviewOpen()) && (await S(() => taxPendingExpenses(taxYear()).length)) === 0
+    && (await S(() => taxReviewItems(taxYear()).every(i => i.kind === 'claim'))));
+
+  // 6) Seasonal check-ins and their native notifications.
+  const season = await S(() => {
+    const t = taxState();
+    const saved = { ...t.reviews };
+    t.reviews = {};
+    const out = {
+      oct: taxSeasonDue(new Date(2026, 9, 26)),
+      nov: taxSeasonDue(new Date(2026, 10, 20)),
+      dec: taxSeasonDue(new Date(2026, 11, 30)),
+      feb: taxSeasonDue(new Date(2027, 1, 25)),
+      jun: taxSeasonDue(new Date(2027, 5, 1)),
+      native: taxNativeReminders(new Date(2026, 9, 26)).map(n => [n.at.toISOString(), n.title]),
+      nativeFirstAfterDone: null,
+    };
+    t.reviews['2026-nov'] = 1;
+    out.novDone = taxSeasonDue(new Date(2026, 10, 20));
+    const after = taxNativeReminders(new Date(2026, 9, 26));
+    out.nativeAfter = after.length;
+    out.nativeFirstAfterDone = after[0] && after[0].at.getMonth();
+    t.reviews = saved;
+    return out;
+  });
+  check('tax season: November check from 15 Nov to 31 Dec, for this YA',
+    season.oct === null && season.nov?.kind === 'nov' && season.nov.year === 2026 && season.dec?.kind === 'nov', JSON.stringify(season));
+  check('tax season: the final check runs from 20 Feb to the filing deadline, for last YA',
+    season.feb?.kind === 'final' && season.feb.year === 2026 && season.jun === null, JSON.stringify(season));
+  check('tax season: each check runs once', season.novDone === null);
+  check('tax notify: next native reminders are 15 Nov and 20 Feb at 9am, naming e-Filing',
+    season.native.length >= 2
+    && new Date(season.native[0][0]).getMonth() === 10 && new Date(season.native[0][0]).getDate() === 15 && new Date(season.native[0][0]).getHours() === 9
+    && new Date(season.native[1][0]).getMonth() === 1 && new Date(season.native[1][0]).getDate() === 20 && /e-Filing/.test(season.native[1][1]),
+    JSON.stringify(season.native));
+  check('tax notify: a check already done is not notified again',
+    season.nativeFirstAfterDone === 1, JSON.stringify([season.nativeAfter, season.nativeFirstAfterDone]));
+  check('tax notify: the reminder builder includes them',
+    await S(() => buildReminders(state).some(n => /tax check|e-Filing/.test(n.title))));
+  const nov = await S(() => {
+    const t = taxState();
+    const saved = { ...t.reviews };
+    t.reviews = {};
+    taxRunChecks(new Date(new Date().getFullYear(), 10, 20, 10));
+    const r = { open: document.getElementById('tax-review-dialog').open,
+      eyebrow: document.getElementById('tax-review-eyebrow').textContent,
+      marked: !!t.reviews[`${new Date().getFullYear()}-nov`] };
+    t.reviews = { ...saved, ...t.reviews };
+    return r;
+  });
+  check('tax season: the November check opens the review (here: the claim still missing a receipt) and is marked done',
+    nov.open && /November check/.test(nov.eyebrow) && nov.marked, JSON.stringify(nov));
+  await page.click('#tax-review-stop');
+  await page.waitForTimeout(300);
+  check('tax review: "Stop for now" closes it', !(await reviewOpen()));
+
+  // 7) An import is not "new spending": no flood of pop-ups.
+  const imp = await S(() => {
+    const back = fromCSV(toCSV());
+    const newest = Math.max(...back.dailyExpenses.map(e => Number(e.createdAt) || 0));
+    return { since: back.tax.deltaSince, newest };
+  });
+  check('tax import: imported entries are older than the delta baseline', imp.since > imp.newest, JSON.stringify(imp));
+  check('tax lock: auto-lock closes the review modal so nothing shows above the lock',
+    await S(() => { taxOpenReview(taxReviewItems(taxYear()), 'year', taxYear()); const was = document.getElementById('tax-review-dialog').open; taxCloseAll(); return was && !document.getElementById('tax-review-dialog').open; }));
+
+  // 8) Deleting the spending removes its claim and its files.
+  const gone = await S(async () => {
+    const c = taxState().claims.find(x => x.relief === 'lifestyle');
+    const before = { claims: taxState().claims.length, files: await taxIdb('readonly', (s) => s.count()) };
+    removeDailyEntry(c.entryId);
+    await new Promise(r => setTimeout(r, 200));
+    return { before, claims: taxState().claims.length, files: await taxIdb('readonly', (s) => s.count()) };
+  });
+  check('tax: deleting the expense deletes its claim and its receipt photo',
+    gone.claims === gone.before.claims - 1 && gone.files === gone.before.files - 1, JSON.stringify(gone));
+
+  // 4) CSV round trip keeps settings and claims (never photos).
+  const rt = await S(() => {
+    const t = taxState();
+    t.enabled = true; t.spouse = true; t.children = 2;
+    t.figures['2026'] = { pcb: 4321, epf: 7777, income: 90000 };
+    t.childrenPre = 1; t.childrenTertiary = 2; t.disabledChildren = 1; t.disabledSelf = true; t.disabledSpouse = true;
+    t.claims = [coerceTaxClaim({ relief: 'prs', amount: 1500, date: '2026-03-04', note: 'PRS top-up', receiptId: 'x' }),
+      coerceTaxClaim({ relief: 'medical', sub: 'dental', amount: 800, date: '2026-04-05', note: 'Scaling' })];
+    const csv = toCSV();
+    const back = fromCSV(csv);
+    return { hasRow: /(^|\n)tax-claim,prs,1500,/.test(csv), t: back.tax };
+  });
+  check('tax csv: export writes a tax-claim row', rt.hasRow);
+  check('tax csv: settings and claim survive a round trip; photo link does not',
+    rt.t.enabled && rt.t.spouse && rt.t.children === 2
+    && rt.t.figures['2026'].pcb === 4321 && rt.t.figures['2026'].epf === 7777 && rt.t.figures['2026'].income === 90000
+    && rt.t.childrenPre === 1 && rt.t.childrenTertiary === 2 && rt.t.disabledChildren === 1 && rt.t.disabledSelf && rt.t.disabledSpouse
+    && rt.t.claims.length === 2 && rt.t.claims[1].relief === 'medical' && rt.t.claims[1].sub === 'dental' && rt.t.claims[0].relief === 'prs' && rt.t.claims[0].amount === 1500
+    && rt.t.claims[0].date === '2026-03-04' && rt.t.claims[0].receiptId === '',
+    JSON.stringify(rt.t));
+  await S(() => { taxState().claims = []; taxState().figures = {}; save(); renderAll(); });
+
+  // 5) A passcode change must not strand the saved photos.
+  const rk = await S(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const id = await taxReceiptPut(new Blob([bytes], { type: 'image/jpeg' }));
+    const orig = aesKey;
+    const k2 = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    await taxReceiptsRekey(orig, k2);
+    aesKey = k2;
+    const afterRekey = await taxReceiptGet(id);
+    await taxReceiptsRekey(k2, orig);
+    aesKey = orig;
+    const restored = await taxReceiptGet(id);
+    await taxReceiptDelete(id);
+    return { afterRekey: afterRekey && afterRekey.size, restored: restored && restored.size };
+  }, png.toString('base64'));
+  check('tax: receipts reseal under a new vault key and open again', rk.afterRekey > 0 && rk.restored > 0, JSON.stringify(rk));
+}
+
 // -- the install counter must stay narrow --
 // It exists to answer "how many people actually use this", and nothing else.
 // If it ever starts reporting in a plain tab, in the native shell, or more

@@ -77,6 +77,18 @@
   ranks these facilities on their **effective** profit rate (flat rate
   converted via r x 2N/(N+1)), so a 4.8% flat facility correctly queues at
   ~9.44% rather than sorting last on a 0% APR.
+- **Tax relief & refund estimate (LHDN)** (free, opt-in on Reports):
+  estimates the year's income tax from gross income, automatic and
+  claimed reliefs, the RM 400 rebate and zakat paid, then compares it
+  with PCB already deducted to show the likely refund or balance due.
+  Uses the YA 2026–2027 relief schedule, including sub-limits (e.g.
+  dental RM 1,000 inside medical RM 10,000). Spending that matches a
+  relief prompts "use this for your tax claim?", then offers to keep the
+  receipt and supporting documents — encrypted on-device, never
+  uploaded — with the e-Filing deadline as the date to add them by.
+  Check-ins: on new spending, on demand ("Review my year"), in
+  November, and before e-Filing opens. Claims export as CSV for
+  e-Filing. Duitful does not file tax or contact LHDN.
 - **Investments** (free tier: 2 holdings; unlimited on Pro): manual
   holdings for ASB, EPF, Tabung Haji, FD, unit trusts, shares, gold and
   PRS — balance-style or units × price. Values are typed in from
