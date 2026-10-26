@@ -1,0 +1,202 @@
+name: Release builds (signed AAB + IPA)
+
+# Signed store builds, straight from CI.
+#
+#   android   a signed Android App Bundle (.aab) for the Play Console, plus
+#             the R8 mapping file Play asks for.
+#   ios       a signed App Store IPA (.ipa) — see ios.yml, lane signed-ipa.
+#             Optionally uploaded to TestFlight too.
+#
+# Both land as workflow ARTIFACTS (Actions run page → Artifacts, kept 30
+# days). Nothing is sent to Google or Apple unless you tick "TestFlight".
+#
+# When it runs:
+#   - on a version tag:  git tag v1.46.1 && git push origin v1.46.1
+#     (the tag must match package.json, or the run stops before building)
+#   - by hand: Actions → Release builds → Run workflow
+#
+# Not on every push to main, on purpose: a signed iOS build needs a macOS
+# runner (~20 min) and mints a distribution certificate (Apple caps them), so
+# it runs when you cut a release, not on every merge.
+#
+# Secrets (Settings → Secrets and variables → Actions), set once — see
+# ANDROID_BUILD.md and IOS_BUILD.md, "Signed builds from CI":
+#   ANDROID_KEYSTORE_BASE64    base64 of your upload keystore (one line)
+#   ANDROID_KEYSTORE_PASSWORD  keystore password
+#   ANDROID_KEY_ALIAS          key alias, e.g. duitful
+#   ANDROID_KEY_PASSWORD       key password
+#   ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8     App Store Connect API key
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      android:
+        description: "Build the signed Android bundle (.aab)"
+        type: boolean
+        default: true
+      ios:
+        description: "Build the signed iOS app (.ipa)"
+        type: boolean
+        default: true
+      testflight:
+        description: "Also upload the iOS build to TestFlight"
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      # package.json is the one place the version lives; a tag that disagrees
+      # with it would ship a build whose number is not the release's.
+      - name: Read the version and check the tag
+        id: v
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "package.json version: $version"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json ($version). Retag as v$version, or bump package.json."
+            exit 1
+          fi
+
+  android:
+    needs: prepare
+    if: ${{ github.event_name == 'push' || inputs.android }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Capacitor 7 needs JDK 21 (same as ci.yml).
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Fails in seconds with a readable list, not 15 minutes in.
+      - name: Check signing secrets are present
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=""
+          [ -n "$ANDROID_KEYSTORE_BASE64" ]   || missing="$missing ANDROID_KEYSTORE_BASE64"
+          [ -n "$ANDROID_KEYSTORE_PASSWORD" ] || missing="$missing ANDROID_KEYSTORE_PASSWORD"
+          [ -n "$ANDROID_KEY_ALIAS" ]         || missing="$missing ANDROID_KEY_ALIAS"
+          [ -n "$ANDROID_KEY_PASSWORD" ]      || missing="$missing ANDROID_KEY_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repo secret(s):$missing — see ANDROID_BUILD.md, 'Signed builds from CI'."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - name: Generate android/ and apply the patch scripts
+        run: |
+          npm run cap:add:android
+          npm run cap:sync
+
+      # The keystore only ever exists on this runner, under RUNNER_TEMP, and
+      # is deleted again at the end whatever happens.
+      - name: Write the keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          umask 077
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/duitful-upload.keystore"
+          test -s "$RUNNER_TEMP/duitful-upload.keystore" || { echo "::error::ANDROID_KEYSTORE_BASE64 decoded to an empty file"; exit 1; }
+          echo "DUITFUL_KEYSTORE_FILE=$RUNNER_TEMP/duitful-upload.keystore" >> "$GITHUB_ENV"
+
+      # versionCode must exceed every code Play has already seen. Minutes
+      # since 2025-01-01 UTC only ever rise, need no counter anyone has to
+      # keep in step, and sit far above any hand-numbered earlier upload
+      # (~1,000,000 now; Play's ceiling is 2,100,000,000).
+      - name: Sign and version the build
+        env:
+          DUITFUL_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          DUITFUL_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          DUITFUL_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          DUITFUL_VERSION_NAME: ${{ needs.prepare.outputs.version }}
+        run: |
+          export DUITFUL_VERSION_CODE=$(( ($(date -u +%s) - 1735689600) / 60 ))
+          echo "versionCode $DUITFUL_VERSION_CODE, versionName $DUITFUL_VERSION_NAME"
+          node scripts/patch-android-signing.mjs
+
+      - name: Build the signed release bundle
+        working-directory: android
+        shell: bash
+        env:
+          DUITFUL_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          DUITFUL_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          DUITFUL_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew :app:bundleRelease --no-daemon --console=plain 2>&1 | tee build.log
+
+      # jarsigner exits 0 even for an unsigned bundle, so read what it says.
+      # Printing the SHA-256 lets you compare it with the upload certificate
+      # in Play Console → App signing before you upload anything.
+      - name: Verify the bundle is signed
+        run: |
+          aab=android/app/build/outputs/bundle/release/app-release.aab
+          test -f "$aab" || { echo "::error::$aab was not produced"; exit 1; }
+          out=$(jarsigner -verify "$aab" 2>&1 || true)
+          echo "$out" | head -5
+          if ! echo "$out" | grep -q "jar verified" || echo "$out" | grep -qi "unsigned"; then
+            echo "::error::The bundle is not signed."
+            exit 1
+          fi
+          echo "Signing certificate:"
+          keytool -printcert -jarfile "$aab" | grep -E "Owner|SHA256"
+          grep -q "minSdkVersion = 24" android/variables.gradle || { echo "::error::minSdk is not 24"; exit 1; }
+          ls -la "$aab"
+
+      - name: Upload the signed bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: duitful-aab
+          retention-days: 30
+          if-no-files-found: error
+          path: android/app/build/outputs/bundle/release/app-release.aab
+
+      # Play Console → the release → "Upload deobfuscation file". Without it,
+      # crash stack traces from the R8-minified app are unreadable.
+      - name: Upload the R8 mapping file
+        uses: actions/upload-artifact@v4
+        with:
+          name: duitful-aab-mapping
+          retention-days: 30
+          if-no-files-found: warn
+          path: android/app/build/outputs/mapping/release/mapping.txt
+
+      - name: Delete the keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/duitful-upload.keystore"
+
+  ios:
+    needs: prepare
+    if: ${{ github.event_name == 'push' || inputs.ios }}
+    uses: ./.github/workflows/ios.yml
+    with:
+      lane: ${{ (github.event_name == 'workflow_dispatch' && inputs.testflight) && 'testflight' || 'signed-ipa' }}
+    secrets: inherit

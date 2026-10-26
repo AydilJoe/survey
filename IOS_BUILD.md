@@ -210,6 +210,7 @@ Safari on the iPad.
 
 | Input | When to change it |
 |---|---|
+| **lane** = `signed-ipa` | build and sign an App Store IPA and keep it as a downloadable artifact — **nothing is uploaded**. Also what a release tag runs (see *Signed builds from CI*) |
 | **lane** = `testflight` | the normal path: build, sign, upload |
 | **lane** = `build-only` | validate that the project compiles, with no Apple account involved at all. Free, safe, and the right first run. Also spits out an unsigned IPA you can sideload — see *Test free with AltStore* below |
 | **skip_associated_domains** | tick it if you haven't enabled the Associated Domains capability yet |
@@ -234,10 +235,37 @@ What the run does:
    TestFlight
 
 **Version numbers**: the marketing version (`1.17.0`) comes from
-`package.json`, and the build number is the **GitHub run number** — always
-increasing, which is exactly what App Store Connect demands. You never
-edit a version in Xcode; bump `package.json` like you do for the web
-release and the next build follows.
+`package.json`, and the build number is a **UTC timestamp** in the form
+`yymmdd.Hmm` (for example `261026.910`) — always increasing, which is
+exactly what App Store Connect demands, and independent of which workflow
+ran (a run counter would not be: `ios.yml` and `release.yml` count
+separately). You never edit a version in Xcode; bump `package.json` like you
+do for the web release and the next build follows.
+
+## Signed builds from CI
+
+The **Release builds** workflow (`.github/workflows/release.yml`) makes the
+signed iOS app and the signed Android bundle in one go. It uses the same
+three App Store Connect secrets as above — nothing new to add for iOS.
+
+- **By tag:** `git tag v1.46.1 && git push origin v1.46.1`. The tag has to
+  match `package.json` (`1.46.1`) or the run stops before building.
+- **By hand:** Actions → **Release builds** → **Run workflow**. Untick
+  *android* or *ios* to build one; tick *testflight* to upload the iOS build
+  as well.
+
+The signed IPA appears under the run's **Artifacts** as
+`duitful-signed-ipa` (30 days), next to `duitful-aab`. Before uploading it the
+workflow runs `codesign --verify` on the app and the widget and prints the
+signing identity, so an unsigned or half-signed build fails there instead of
+at Apple.
+
+**An App Store IPA cannot be installed on a phone directly.** It is signed
+for distribution through TestFlight and the App Store only. To get it onto a
+device, tick *testflight*; to run on your own phone with no Apple account,
+use the unsigned `build-only` IPA and AltStore (next section). An ad-hoc IPA
+that installs on specific devices needs those devices registered with Apple
+first and is not built here.
 
 ## Test free with AltStore (before paying Apple)
 

@@ -58,6 +58,7 @@ The tax UI is its own page under Home (`#tab-tax`, like Reports): refund card, T
 
 - **Web**: Push to `main` auto-deploys to GitHub Pages via `.github/workflows/pages.yml`. Also deployable on Vercel (handles `/api/` routes).
 - **Native**: Build signed bundles in Xcode / Android Studio, upload to App Store Connect / Play Console. See `ANDROID_BUILD.md` for Android signing checklist.
+- **Signed builds from CI**: `.github/workflows/release.yml` (on a `v*` tag matching `package.json`, or by hand) builds a signed `.aab` (`scripts/patch-android-signing.mjs` injects the keystore from secrets and a time-based `versionCode`) and a signed App Store `.ipa` (`ios.yml`, lane `signed-ipa`; add TestFlight with the `testflight` input). Both are kept as run artifacts for 30 days; nothing is uploaded to Google. Secrets and setup: "Signed builds from CI" in `ANDROID_BUILD.md` and `IOS_BUILD.md`. PR CI (`ci.yml`) stays unsigned and secret-free. iOS build numbers are a UTC timestamp (`yymmdd.Hmm`), not a run counter.
 
 ## Daily SEO guides workflow
 
