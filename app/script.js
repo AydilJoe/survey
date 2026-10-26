@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.43.0";
+const APP_VERSION = "1.43.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4238,6 +4238,9 @@ function upcomingReminders(daysAhead) {
   for (const inc of state.income) {
     if (inc.month !== thisMonthISO) continue;
     if (!inc.day) continue;
+    // A recorded split repayment is money that already arrived — not pay
+    // to look forward to. It showed as "Expected pay · Today".
+    if (inc.splitPersonId || inc.category === "Split repayment") continue;
     pushIf(inc.day, {
       kind: "income", id: inc.id, name: inc.name,
       amount: Number(inc.amount) || 0, direction: "in",
@@ -9771,6 +9774,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.43.1": [
+    "<strong>Finishing touches</strong> — a shop you've scanned before remembers its category, Remind sends a reminder (not the whole request again), and money a friend already paid you back no longer shows as \"Expected pay\".",
+  ],
   "1.43.0": [
     "<strong>See the whole bill</strong> — a split with friends now shows \"1 of 3 paid\" with a bar and who's paid, instead of people quietly disappearing. When the last one pays, it says \"Everyone's paid\".",
     "<strong>Bahasa Melayu for your friends</strong> — the page your friends open from your link now has EN / BM, and follows their phone's dark mode.",
@@ -12064,6 +12070,16 @@ function setScanFailed(failed) {
   if (scanCancel) scanCancel.dataset.typeIn = failed ? "1" : "";
 }
 
+function scanCategoryFor(vendor) {
+  const key = String(vendor || "").trim().toLowerCase();
+  if (key.length < 3) return "";
+  for (let i = state.dailyExpenses.length - 1; i >= 0; i--) {
+    const e = state.dailyExpenses[i];
+    if (e.kind === "expense" && e.category && e.category !== "Others" && String(e.note || "").trim().toLowerCase() === key) return e.category;
+  }
+  return "";
+}
+
 function showScanTotalSuggestion(check) {
   const el = document.getElementById("scan-amount-suggest");
   if (!el) return;
@@ -12101,7 +12117,7 @@ function openScanDialog() {
   // the bill composer — hide the pills rather than offer a dead choice.
   const forSplit = window.scanApplyTarget === "split";
   const scanPills = document.querySelector(".scan-type-pills");
-  if (scanPills) scanPills.hidden = forSplit;
+  if (scanPills) scanPills.hidden = forSplit || state.debts.length === 0;
   const scanTitle = document.getElementById("scan-title");
   if (scanTitle) scanTitle.textContent = forSplit ? "Scan receipt to split" : "Scan receipt";
   if (typeof scanDialog.showModal === "function") scanDialog.showModal();
@@ -12120,6 +12136,10 @@ function setScanType(type) {
 
 function populateScanDebtSelect() {
   const sel = document.getElementById("scan-debt-select");
+  // No debts: "Pay debt" could only end in an alert, and a choice of one
+  // isn't a choice, so the Spend / Pay debt pair isn't shown at all.
+  const pills = document.querySelector(".scan-type-pills");
+  if (pills && window.scanApplyTarget !== "split") pills.hidden = state.debts.length === 0;
   if (!sel) return;
   if (state.debts.length === 0) {
     sel.innerHTML = `<option value="">No debts — add one in the Debts tab</option>`;
@@ -12241,7 +12261,9 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     // A receipt from Tuesday used to be logged as today, silently, because
     // nothing ever read the date off it.
     if (scanDate) scanDate.value = parsed.date || todayISO();
-    if (scanCategory) scanCategory.value = "";
+    // The category this shop got last time ("99 Speed Mart" → Groceries),
+    // so a regular shop doesn't need the same choice every scan.
+    if (scanCategory) scanCategory.value = scanCategoryFor(parsed.vendor) || "";
     const curPrefix = document.getElementById("scan-cur-prefix");
     if (curPrefix) curPrefix.textContent = currencySymbolFor(scanOriginalCurrency);
     const itemsCheck = renderScanItems(parsed.raw || "", parsed.amount);
