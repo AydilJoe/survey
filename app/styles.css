@@ -7086,3 +7086,9 @@ html[data-theme="dark"] {
 #split-owed-list, #split-owe-list { gap: 0; }
 /* Inside a bill the title is the header; each row needn't repeat it. */
 .split-bill .split-meta > span:first-child { display: none; }
+
+/* v1.43.1 polish */
+/* Long toasts ("Loan recorded: Hakim · RM 500.00 — logged as an expense")
+   wrap to a second line instead of ending in "…". */
+#toast { white-space: normal; width: max-content; border-radius: 18px; }
+.scan-type-pills[hidden] { display: none; }

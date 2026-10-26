@@ -2178,7 +2178,7 @@ await page.click('#upcoming-list [data-action="split-remind"][data-id="chase-lat
 await page.waitForTimeout(500);
 check('the shortcut opens the share dialog for that exact person',
   await page.locator('#split-share-dialog').evaluate((e) => e.open)
-  && /Late's share/.test(await page.locator('#split-share-title').innerText()),
+  && /Remind Late/.test(await page.locator('#split-share-title').innerText()),
   await page.locator('#split-share-title').innerText());
 await page.click('[data-action="split-share-close"]');
 await page.waitForTimeout(200);
@@ -4806,6 +4806,38 @@ check('the vault is open before the quick-add checks',
   await fctx.close();
   check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
     lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
+}
+
+/* ── v1.43.1 polish ─────────────────────────────────────────────────────── */
+{
+  const pol = await page.evaluate(() => {
+    const out = {};
+    // A recorded split repayment never shows as upcoming "Expected pay".
+    const s = splitState();
+    s.out.push({ id: 'pol-r', kind: 'request', title: 'Pol test', date: todayISO(), total: 9, people: [{ id: 'pol-p', name: 'Zed', amount: 9, status: 'open', repayments: [] }] });
+    const res = splitRecordRepayment('pol-p', 9, todayISO());
+    out.upcomingHasIt = upcomingReminders(7).some((it) => it.kind === 'income' && it.id === res.income.id);
+    state.income = state.income.filter((i) => i.id !== res.income.id);
+    s.out = s.out.filter((r) => r.id !== 'pol-r');
+    // Remind is worded as a reminder, for what is still left.
+    const rec = { title: 'Karaoke' };
+    out.remind = splitShareText(rec, { amount: 30, repayments: [{ amount: 10 }] }, 'DFS1.x', { remind: true });
+    // A shop logged before brings its category back on the next scan.
+    state.dailyExpenses.push({ id: 'pol-e', kind: 'expense', date: todayISO(), amount: 5, note: 'Family Mart', category: 'Snacks', createdAt: 1 });
+    out.cat = scanCategoryFor('family mart');
+    state.dailyExpenses = state.dailyExpenses.filter((e) => e.id !== 'pol-e');
+    // No debts → no one-option Spend / Pay debt choice on the scan.
+    const debts = state.debts; state.debts = [];
+    openScanDialog();
+    out.pillsHidden = document.querySelector('.scan-type-pills').hidden;
+    closeScanDialog(); state.debts = debts;
+    save(); renderAll();
+    return out;
+  });
+  check('a split repayment already received is not listed as upcoming "Expected pay"', pol.upcomingHasIt === false, JSON.stringify(pol));
+  check('Remind reads as a reminder for what is still left', /^Friendly reminder: RM\s*20\.00 still to go for Karaoke/.test(pol.remind), pol.remind);
+  check('a shop scanned before gets its last category back', pol.cat === 'Snacks', JSON.stringify(pol));
+  check('with no debts, the scan doesn\'t offer a one-option Spend / Pay debt choice', pol.pillsHidden === true, JSON.stringify(pol));
 }
 
 /* ── v1.43: a split is one bill with an ending; the friend page speaks BM ─

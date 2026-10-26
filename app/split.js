@@ -495,13 +495,17 @@ function splitPaidShareText(rec, code, date) {
   return `${who} paid ${amount} for ${rec.title} on ${splitDayLabel(when)} — ${splitShareLink(code)}`;
 }
 
-function splitShareText(rec, person, code) {
+function splitShareText(rec, person, code, opts) {
   const s = splitState();
   const who = splitText(s.me, SPLIT_NAME_MAX) || "Someone";
   const amount = typeof fmtMoney === "function"
     ? fmtMoney(splitPersonRemaining(person))
     : String(splitPersonRemaining(person));
-  let line = `${who} requests ${amount} for ${rec.title} — ${splitShareLink(code)}`;
+  // Remind used to resend the original request word for word. A nudge reads
+  // as a nudge — and it is the amount still LEFT, after any part-payments.
+  let line = opts && opts.remind
+    ? `Friendly reminder: ${amount} still to go for ${rec.title} — ${splitShareLink(code)}`
+    : `${who} requests ${amount} for ${rec.title} — ${splitShareLink(code)}`;
   if (s.payToEnabled) {
     const rows = coerceSplitPayRows(s.payTo);
     if (rows.length) {
@@ -2156,13 +2160,13 @@ function splitApplyScan(parsed) {
 
 let splitShare = null; // { mode: "req"|"paid", recordId, index, code, date }
 
-async function splitOpenShare(recordId, index) {
+async function splitOpenShare(recordId, index, opts) {
   const rec = splitOutList().find((r) => r.id === recordId);
   if (!rec || !rec.people.length) return;
   const people = rec.people.filter((p) => p.status !== "cancelled");
   if (!people.length) return;
   const i = Math.max(0, Math.min(people.length - 1, Number(index) || 0));
-  splitShare = { mode: "req", recordId, index: i, code: "" };
+  splitShare = { mode: "req", recordId, index: i, code: "", remind: !!(opts && opts.remind) };
   splitShowDialog(splitShareDialogEl());
   await splitRenderShare();
 }
@@ -2278,9 +2282,11 @@ async function splitRenderRequestShare() {
   const link = splitShareLink(code);
 
   // "1 of 3": sharing one by one used to give no sense of how many were left.
-  if (titleEl) titleEl.textContent = people.length > 1
-    ? `${person.name}'s share · ${splitShare.index + 1} of ${people.length}`
-    : `Request ${person.name}'s share`;
+  if (titleEl) titleEl.textContent = splitShare.remind
+    ? `Remind ${person.name}`
+    : people.length > 1
+      ? `${person.name}'s share · ${splitShare.index + 1} of ${people.length}`
+      : `Request ${person.name}'s share`;
 
   const subParts = [fmtMoney(splitPersonRemaining(person)), rec.title];
   if (rec.dueDate) subParts.push(splitDueLabel(rec.dueDate));
@@ -2325,7 +2331,9 @@ async function splitRenderRequestShare() {
       // Without this the link tells them what they owe but not where to send it.
       : "Add your DuitNow or bank, so they can pay from the link"}</button>
     <div class="form-actions split-share-actions">
-      ${people.length > 1
+      ${splitShare.remind
+        ? `<button type="button" class="primary" data-action="split-share-link">Send reminder</button>`
+        : people.length > 1
         // A bill split at the mamak table goes to the group chat: one
         // message, everyone's line and link, instead of N trips out and back.
         ? `<button type="button" class="primary" data-action="split-share-all">Send all ${people.length} in one message</button>
@@ -2333,7 +2341,7 @@ async function splitRenderRequestShare() {
         : `<button type="button" class="primary" data-action="split-share-link">Share link (WhatsApp, anything)</button>`}
       <div class="button-row split-share-secondary">
         <button type="button" class="ghost" data-action="split-copy-code">Copy code</button>
-        ${people.length > 1 ? `<button type="button" class="ghost" data-action="split-share-next">Next person →</button>` : ""}
+        ${people.length > 1 && !splitShare.remind ? `<button type="button" class="ghost" data-action="split-share-next">Next person →</button>` : ""}
         <button type="button" class="ghost" data-action="split-share-close">Done</button>
       </div>
     </div>`;
@@ -2390,7 +2398,7 @@ async function splitDoShare() {
     if (!rec) return;
     const person = rec.people.filter((p) => p.status !== "cancelled")[splitShare.index];
     if (!person) return;
-    text = splitShareText(rec, person, splitShare.code);
+    text = splitShareText(rec, person, splitShare.code, { remind: splitShare.remind });
     title = `Request for ${rec.title}`;
   }
   if (navigator.share) {
@@ -3089,7 +3097,7 @@ document.addEventListener("click", (e) => {
     const found = splitFindPerson(id);
     if (found) {
       const people = found.rec.people.filter((p) => p.status !== "cancelled");
-      splitOpenShare(found.rec.id, people.indexOf(found.person));
+      splitOpenShare(found.rec.id, people.indexOf(found.person), { remind: true });
     }
   } else if (action === "split-cancel") {
     const found = splitFindPerson(id);
