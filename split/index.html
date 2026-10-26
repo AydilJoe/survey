@@ -26,8 +26,27 @@
     --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
     --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   }
+  /* The button keeps its own token: --primary-ink doubles as text colour,
+     which has to get LIGHTER on a dark card while the button stays dark
+     enough for cream text (5.1:1). */
+  :root { --btn-bg: #a45434; --paid: #4a7c59; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171411;
+      --card: #221e1a;
+      --card-soft: #2c2722;
+      --ink: #f1eae0;
+      --ink2: #bfb4a7;
+      --primary: #d98a66;
+      --primary-ink: #e7a283;
+      --border: rgba(241, 234, 224, 0.14);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+      --shadow-lg: 0 1px 2px rgba(0,0,0,0.3), 0 20px 60px rgba(0,0,0,0.45);
+      --paid: #8fbf8f;
+    }
+  }
   * { box-sizing: border-box; }
-  html { color-scheme: light only; background: var(--bg); }
+  html { color-scheme: light dark; background: var(--bg); }
   body {
     margin: 0;
     font-family: var(--font-sans);
@@ -123,7 +142,7 @@
     border-radius: 999px; padding: 13px 18px; border: none;
   }
   /* --primary-ink, not --primary: cream on #c8704b measured 3.4:1. */
-  .btn-primary { background: var(--primary-ink); color: #fffaf2; }
+  .btn-primary { background: var(--btn-bg); color: #fffaf2; }
   .btn-primary:hover { background: #8e4629; }
   /* Ink, not terracotta: the page's one terracotta button stays the app. */
   .btn-ink { background: var(--ink); color: var(--card); }
@@ -142,7 +161,7 @@
   }
   .paid-seal {
     width: 52px; height: 52px; border-radius: 50%;
-    background: rgba(74, 124, 89, 0.12); color: #4a7c59;
+    background: color-mix(in srgb, var(--paid) 14%, transparent); color: var(--paid);
     display: flex; align-items: center; justify-content: center;
     margin: 2px 0 10px;
   }
@@ -152,6 +171,14 @@
   .footer { margin-top: 28px; font-size: 12.5px; color: var(--ink2); }
   .footer a { color: var(--ink2); }
   .hidden { display: none !important; }
+  .topbar { width: 100%; max-width: 420px; display: flex; align-items: center; justify-content: space-between; margin: 18px 0 26px; }
+  .topbar .brand { margin: 0; }
+  .lang { display: inline-flex; border: 0.5px solid var(--border); border-radius: 999px; padding: 3px; background: var(--card); }
+  .lang button {
+    font: 600 13px var(--font-sans); color: var(--ink2); background: none; border: 0;
+    min-width: 44px; min-height: 36px; border-radius: 999px; cursor: pointer;
+  }
+  .lang button[aria-pressed="true"] { background: var(--ink); color: var(--card); }
   /* "Already paid?" — deliberately small: the page's job is still the app,
      this is the way back for someone who will never install it. */
   .paid-back { margin: 14px 0 0; text-align: center; }
@@ -172,17 +199,23 @@
 </style>
 </head>
 <body>
-  <a class="brand" href="/">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/>
-      <circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/>
-    </svg>
-    <span>Duitful</span>
-  </a>
+  <div class="topbar">
+    <a class="brand" href="/">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/>
+        <circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/>
+      </svg>
+      <span>Duitful</span>
+    </a>
+    <div class="lang" role="group" aria-label="Language / Bahasa">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="ms" aria-pressed="false">BM</button>
+    </div>
+  </div>
 
   <div class="card" id="request-card" hidden>
-    <p class="eyebrow">Payment request</p>
-    <p class="from" id="r-from-line"><strong id="r-from"></strong> is requesting</p>
+    <p class="eyebrow" data-t="eyebrow">Payment request</p>
+    <p class="from" id="r-from-line"><strong id="r-from"></strong> <span data-t="isRequesting">is requesting</span></p>
     <p class="amount"><span class="cur">RM</span><span id="r-amount"></span></p>
     <p class="title" id="r-title"></p>
     <div class="meta">
@@ -192,64 +225,127 @@
     <p class="note" id="r-note" hidden></p>
 
     <div class="payto" id="r-payto" hidden>
-      <p class="label">Transfer to</p>
+      <p class="label" data-t="transferTo">Transfer to</p>
       <div id="r-pay-rows"></div>
     </div>
 
     <div class="actions">
-      <button type="button" class="btn btn-primary" id="btn-have-app">I have Duitful — add this request</button>
-      <a class="btn btn-ghost" href="/">Get Duitful — free, private, no sign-up</a>
+      <button type="button" class="btn btn-primary" id="btn-have-app" data-t="haveApp">I have Duitful — add this request</button>
+      <a class="btn btn-ghost" href="/" data-t="getApp">Get Duitful — free, private, no sign-up</a>
     </div>
 
     <div class="paid-back">
-      <button type="button" class="linkish" id="btn-paid-open" aria-expanded="false" aria-controls="paid-form">Already paid? Let them know</button>
+      <button type="button" class="linkish" id="btn-paid-open" aria-expanded="false" aria-controls="paid-form" data-t="alreadyPaid">Already paid? Let them know</button>
       <div class="paid-form" id="paid-form" hidden>
-        <label for="paid-name">Your name</label>
-        <input type="text" id="paid-name" maxlength="40" autocomplete="name" placeholder="So they know who paid" />
-        <button type="button" class="btn btn-ink" id="btn-paid-send" style="width:100%">Send “I’ve paid”</button>
-        <p class="hint">Sends a link back through WhatsApp or any app. It says you paid — it doesn't move money.</p>
+        <label for="paid-name" data-t="yourName">Your name</label>
+        <input type="text" id="paid-name" maxlength="40" autocomplete="name" placeholder="So they know who paid" data-t-placeholder="namePh" />
+        <button type="button" class="btn btn-ink" id="btn-paid-send" style="width:100%" data-t="sendPaid">Send “I’ve paid”</button>
+        <p class="hint" data-t="sendHint">Sends a link back through WhatsApp or any app. It says you paid — it doesn't move money.</p>
       </div>
     </div>
 
     <details>
-      <summary>Request code — for pasting into Duitful</summary>
+      <summary data-t="codeSummary">Request code — for pasting into Duitful</summary>
       <div class="code" id="r-code"></div>
     </details>
 
-    <p class="privacy">This request was decoded <strong>on your device</strong> — it lives in the link itself and was never sent to any server. Duitful is a private money tracker built in Malaysia; it never moves money. Pay through your own banking app.</p>
+    <p class="privacy" data-t-html="privacy">This request was decoded <strong>on your device</strong> — it lives in the link itself and was never sent to any server. Duitful is a private money tracker built in Malaysia; it never moves money. Pay through your own banking app.</p>
   </div>
 
   <div class="card" id="paid-card" hidden>
-    <p class="eyebrow" style="color:#4a7c59;">Payment marked as paid</p>
+    <p class="eyebrow" style="color:var(--paid);" data-t="paidEyebrow">Payment marked as paid</p>
     <div class="paid-seal" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
     </div>
-    <p class="from"><strong id="p-from"></strong> marked this as paid</p>
+    <p class="from"><strong id="p-from"></strong> <span data-t="markedPaid">marked this as paid</span></p>
     <p class="amount"><span class="cur">RM</span><span id="p-amount"></span></p>
     <p class="title" id="p-title"></p>
     <div class="meta">
       <span class="chip" id="p-date"></span>
     </div>
     <div class="actions">
-      <button type="button" class="btn btn-primary" id="btn-paid-app">Open Duitful — confirm &amp; settle</button>
+      <button type="button" class="btn btn-primary" id="btn-paid-app" data-t="openConfirm">Open Duitful — confirm &amp; settle</button>
     </div>
-    <p class="privacy">This is the payer's word, not a bank confirmation — check the money actually arrived before settling. Decoded on your device; nothing was sent to any server.</p>
+    <p class="privacy" data-t="paidPrivacy">This is the payer's word, not a bank confirmation — check the money actually arrived before settling. Decoded on your device; nothing was sent to any server.</p>
   </div>
 
   <div class="card fallback" id="fallback-card" hidden>
-    <h1 id="f-title">This link carries a payment request</h1>
-    <p id="f-body">It looks like the request part of the link is missing — ask the sender to share it again, or paste the request code inside Duitful: open the Debts tab → Add a request.</p>
+    <h1 id="f-title" data-t="missingTitle">This link carries a payment request</h1>
+    <p id="f-body" data-t="missingBody">It looks like the request part of the link is missing — ask the sender to share it again, or paste the request code inside Duitful: open the Debts tab → Add a request.</p>
     <div class="actions">
-      <a class="btn btn-primary" href="/">What's Duitful?</a>
+      <a class="btn btn-primary" href="/" data-t="whatIs">What's Duitful?</a>
     </div>
-    <p class="privacy">Duitful requests travel inside links and QR codes — decoded on your device, never sent to a server.</p>
+    <p class="privacy" data-t="fbPrivacy">Duitful requests travel inside links and QR codes — decoded on your device, never sent to a server.</p>
   </div>
 
   <p class="sr-only" id="live" aria-live="polite"></p>
-  <p class="footer">Track money, debts &amp; savings privately — <a href="/">duitful.app</a></p>
+  <p class="footer"><span data-t="footer">Track money, debts &amp; savings privately</span> — <a href="/">duitful.app</a></p>
 
 <script>
 (async function () {
+  // English or Bahasa Melayu: the visitor's own choice first, then their
+  // phone's language. Switching reloads — every string is set once, at
+  // render, and the request lives in the hash so nothing is lost.
+  var LANG = "en";
+  try { LANG = localStorage.getItem("duitful.splitLang") || ""; } catch (e) {}
+  if (LANG !== "en" && LANG !== "ms") LANG = /^ms|^id/i.test(navigator.language || "") ? "ms" : "en";
+  var STR = {
+    en: {
+      eyebrow: "Payment request", isRequesting: "is requesting", gotRequest: "You've got a payment request",
+      transferTo: "Transfer to", haveApp: "I have Duitful — add this request", getApp: "Get Duitful — free, private, no sign-up",
+      alreadyPaid: "Already paid? Let them know", yourName: "Your name", namePh: "So they know who paid",
+      sendPaid: "Send “I’ve paid”", sendHint: "Sends a link back through WhatsApp or any app. It says you paid — it doesn't move money.",
+      codeSummary: "Request code — for pasting into Duitful",
+      privacy: "This request was decoded <strong>on your device</strong> — it lives in the link itself and was never sent to any server. Duitful is a private money tracker built in Malaysia; it never moves money. Pay through your own banking app.",
+      paidEyebrow: "Payment marked as paid", markedPaid: "marked this as paid", openConfirm: "Open Duitful — confirm & settle",
+      paidPrivacy: "This is the payer's word, not a bank confirmation — check the money actually arrived before settling. Decoded on your device; nothing was sent to any server.",
+      whatIs: "What's Duitful?", fbPrivacy: "Duitful requests travel inside links and QR codes — decoded on your device, never sent to a server.",
+      footer: "Track money, debts & savings privately",
+      missingTitle: "This link carries a payment request",
+      missingBody: "It looks like the request part of the link is missing — ask the sender to share it again, or paste the request code inside Duitful: open the Debts tab → Add a request.",
+      notDuitfulT: "This doesn't look like a Duitful request", notDuitfulB: "The link may have been cut short by the app it was shared through. Ask the sender to re-share it, or to send the request code instead.",
+      newerT: "This request needs a newer Duitful", newerB: "It was made with a newer version of the request format. Update Duitful (or reload the app once online) and open the link again.",
+      damagedT: "This request couldn't be read", damagedB: "The link seems damaged — messaging apps sometimes trim long links. Ask the sender to re-share it, or to send the request code for pasting inside Duitful.",
+      currencyT: "Unsupported currency", currencyB: "This request uses a currency this version doesn't support yet.",
+      paid: "Paid", due: "Due", copy: "Copy", copied: "Copied ✓", copiedLive: "copied", details: "Details", nameFirst: "Add your name first",
+      paidText: "{name} paid RM {amt} for {title}", theBill: "the bill", title: "Payment request — Duitful",
+    },
+    ms: {
+      eyebrow: "Permintaan bayaran", isRequesting: "minta bayaran", gotRequest: "Ada permintaan bayaran untuk anda",
+      transferTo: "Pindahkan ke", haveApp: "Saya ada Duitful — tambah permintaan ini", getApp: "Dapatkan Duitful — percuma, peribadi, tanpa daftar",
+      alreadyPaid: "Dah bayar? Beritahu mereka", yourName: "Nama anda", namePh: "Supaya mereka tahu siapa yang bayar",
+      sendPaid: "Hantar “Saya dah bayar”", sendHint: "Hantar pautan balik melalui WhatsApp atau mana-mana aplikasi. Ia cuma memberitahu anda dah bayar — ia tidak memindahkan wang.",
+      codeSummary: "Kod permintaan — untuk ditampal dalam Duitful",
+      privacy: "Permintaan ini dibaca <strong>pada peranti anda</strong> — ia ada dalam pautan itu sendiri dan tidak pernah dihantar ke mana-mana pelayan. Duitful ialah penjejak wang peribadi buatan Malaysia; ia tidak memindahkan wang. Bayar melalui aplikasi bank anda sendiri.",
+      paidEyebrow: "Bayaran ditanda selesai", markedPaid: "tandakan ini sebagai dah dibayar", openConfirm: "Buka Duitful — sahkan & selesaikan",
+      paidPrivacy: "Ini kata pembayar, bukan pengesahan bank — semak wang betul-betul dah masuk sebelum selesaikan. Dibaca pada peranti anda; tiada apa-apa dihantar ke pelayan.",
+      whatIs: "Apa itu Duitful?", fbPrivacy: "Permintaan Duitful dihantar dalam pautan dan kod QR — dibaca pada peranti anda, tidak pernah dihantar ke pelayan.",
+      footer: "Jejak wang, hutang & simpanan secara peribadi",
+      missingTitle: "Pautan ini membawa permintaan bayaran",
+      missingBody: "Nampaknya bahagian permintaan dalam pautan ini hilang — minta penghantar kongsi semula, atau tampal kod permintaan dalam Duitful: buka tab Debts → Add a request.",
+      notDuitfulT: "Ini bukan permintaan Duitful", notDuitfulB: "Pautan mungkin terpotong oleh aplikasi yang digunakan untuk berkongsi. Minta penghantar kongsi semula, atau hantar kod permintaan.",
+      newerT: "Permintaan ini perlukan Duitful yang lebih baharu", newerB: "Ia dibuat dengan format permintaan yang lebih baharu. Kemas kini Duitful (atau buka semula aplikasi sekali semasa ada internet) dan buka pautan itu lagi.",
+      damagedT: "Permintaan ini tidak dapat dibaca", damagedB: "Pautan nampak rosak — aplikasi mesej kadang-kadang memotong pautan panjang. Minta penghantar kongsi semula, atau hantar kod permintaan untuk ditampal dalam Duitful.",
+      currencyT: "Mata wang tidak disokong", currencyB: "Permintaan ini menggunakan mata wang yang belum disokong dalam versi ini.",
+      paid: "Dibayar", due: "Tarikh akhir", copy: "Salin", copied: "Disalin ✓", copiedLive: "disalin", details: "Butiran", nameFirst: "Masukkan nama anda dahulu",
+      paidText: "{name} dah bayar RM {amt} untuk {title}", theBill: "bil ini", title: "Permintaan bayaran — Duitful",
+    },
+  };
+  function T(k) { return (STR[LANG] && STR[LANG][k]) || STR.en[k] || ""; }
+  document.documentElement.lang = LANG;
+  document.title = T("title");
+  [].forEach.call(document.querySelectorAll("[data-t]"), function (el) { el.textContent = T(el.dataset.t); });
+  [].forEach.call(document.querySelectorAll("[data-t-html]"), function (el) { el.innerHTML = T(el.dataset.tHtml); });
+  [].forEach.call(document.querySelectorAll("[data-t-placeholder]"), function (el) { el.placeholder = T(el.dataset.tPlaceholder); });
+  [].forEach.call(document.querySelectorAll(".lang [data-lang]"), function (b) {
+    b.setAttribute("aria-pressed", b.dataset.lang === LANG ? "true" : "false");
+    b.addEventListener("click", function () {
+      if (b.dataset.lang === LANG) return;
+      try { localStorage.setItem("duitful.splitLang", b.dataset.lang); } catch (e) {}
+      location.reload();
+    });
+  });
+
   var reqCard = document.getElementById("request-card");
   var fbCard = document.getElementById("fallback-card");
 
@@ -280,13 +376,11 @@
 
   var m = /^DFS(\d+)(u?)\.(.+)$/.exec(raw);
   if (!m) {
-    fallback("This doesn't look like a Duitful request",
-      "The link may have been cut short by the app it was shared through. Ask the sender to re-share it, or to send the request code instead.");
+    fallback(T("notDuitfulT"), T("notDuitfulB"));
     return;
   }
   if (m[1] !== "1") {
-    fallback("This request needs a newer Duitful",
-      "It was made with a newer version of the request format. Update Duitful (or reload the app once online) and open the link again.");
+    fallback(T("newerT"), T("newerB"));
     return;
   }
 
@@ -297,21 +391,19 @@
     req = JSON.parse(new TextDecoder().decode(bytes));
     if (!req || (req.t !== "req" && req.t !== "paid") || !Number.isFinite(Number(req.a))) throw new Error("shape");
   } catch (e) {
-    fallback("This request couldn't be read",
-      "The link seems damaged — messaging apps sometimes trim long links. Ask the sender to re-share it, or to send the request code for pasting inside Duitful.");
+    fallback(T("damagedT"), T("damagedB"));
     return;
   }
 
   if ((req.c || "MYR") !== "MYR") {
-    fallback("Unsupported currency",
-      "This request uses a currency this version doesn't support yet.");
+    fallback(T("currencyT"), T("currencyB"));
     return;
   }
 
   var fmtAmount = Number(req.a).toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function dayLabel(iso) {
     var d = new Date(iso + "T00:00:00");
-    return isNaN(d) ? iso : d.toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    return isNaN(d) ? iso : d.toLocaleDateString(LANG === "ms" ? "ms-MY" : "en-MY", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   }
 
   // Settlement receipt — the payer's "I've paid" flowing back to the
@@ -320,7 +412,7 @@
     document.getElementById("p-from").textContent = String(req.fr || "Someone");
     document.getElementById("p-amount").textContent = fmtAmount;
     document.getElementById("p-title").textContent = String(req.ti || "Payment");
-    document.getElementById("p-date").textContent = "Paid " + dayLabel(String(req.d || ""));
+    document.getElementById("p-date").textContent = T("paid") + " " + dayLabel(String(req.d || ""));
     document.getElementById("paid-card").hidden = false;
     document.getElementById("btn-paid-app").addEventListener("click", function () {
       try { localStorage.setItem("duitful.pendingSplit", raw); } catch (e) {}
@@ -331,13 +423,13 @@
 
   // No sender name set: say what this is rather than "Someone is requesting".
   if (req.fr) document.getElementById("r-from").textContent = String(req.fr);
-  else document.getElementById("r-from-line").textContent = "You've got a payment request";
+  else document.getElementById("r-from-line").textContent = T("gotRequest");
   document.getElementById("r-amount").textContent = fmtAmount;
   document.getElementById("r-title").textContent = String(req.ti || "Payment request");
   document.getElementById("r-date").textContent = dayLabel(String(req.d || ""));
   if (req.dd) {
     var due = document.getElementById("r-due");
-    due.textContent = "Due " + dayLabel(String(req.dd));
+    due.textContent = T("due") + " " + dayLabel(String(req.dd));
     due.hidden = false;
   }
   if (req.n) {
@@ -368,14 +460,14 @@
       value.textContent = r[1];
       var btn = document.createElement("button");
       btn.type = "button";
-      btn.textContent = "Copy";
-      btn.setAttribute("aria-label", "Copy " + (r[0] || "details"));
+      btn.textContent = T("copy");
+      btn.setAttribute("aria-label", T("copy") + " " + (r[0] || T("details")));
       btn.addEventListener("click", function () {
         navigator.clipboard.writeText(r[1]).then(function () {
-          btn.textContent = "Copied ✓";
+          btn.textContent = T("copied");
           btn.classList.add("copied");
-          document.getElementById("live").textContent = (r[0] || "Details") + " copied";
-          setTimeout(function () { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1800);
+          document.getElementById("live").textContent = (r[0] || T("details")) + " " + T("copiedLive");
+          setTimeout(function () { btn.textContent = T("copy"); btn.classList.remove("copied"); }, 1800);
         });
       });
       row.appendChild(label);
@@ -427,13 +519,13 @@
   });
   document.getElementById("btn-paid-send").addEventListener("click", async function () {
     var name = nameInput.value.trim().slice(0, 40);
-    if (!name) { nameInput.focus(); document.getElementById("live").textContent = "Add your name first"; return; }
+    if (!name) { nameInput.focus(); document.getElementById("live").textContent = T("nameFirst"); return; }
     try { localStorage.setItem("duitful.payerName", name); } catch (e) {}
     var today = new Date();
     var iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
     var paid = { v: 1, t: "paid", id: req.id, ti: req.ti, d: iso, a: Number(req.a), c: req.c || "MYR", fr: name };
     var link = location.origin + "/split/#" + (await encode(paid));
-    var text = name + " paid RM " + fmtAmount + " for " + String(req.ti || "the bill") + " — " + link;
+    var text = T("paidText").replace("{name}", name).replace("{amt}", fmtAmount).replace("{title}", String(req.ti || T("theBill"))) + " — " + link;
     if (navigator.share) {
       try { await navigator.share({ title: "Paid: " + String(req.ti || ""), text: text }); return; }
       catch (e) { if (e && e.name === "AbortError") return; }

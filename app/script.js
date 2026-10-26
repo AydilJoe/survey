@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.42.0";
+const APP_VERSION = "1.43.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9771,6 +9771,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.43.0": [
+    "<strong>See the whole bill</strong> — a split with friends now shows \"1 of 3 paid\" with a bar and who's paid, instead of people quietly disappearing. When the last one pays, it says \"Everyone's paid\".",
+    "<strong>Bahasa Melayu for your friends</strong> — the page your friends open from your link now has EN / BM, and follows their phone's dark mode.",
+  ],
   "1.42.0": [
     "<strong>Split in the group chat</strong> — splitting with 3 people? Send everyone's share in one message, each with their own link. And right after you log a meal, the \"Spending added\" message has a Split button.",
     "<strong>Friends can say \"I've paid\"</strong> — no app needed. The link you send now has \"Already paid? Let them know\", which sends a receipt back to you to confirm and settle.",

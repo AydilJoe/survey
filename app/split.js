@@ -2771,6 +2771,56 @@ function splitInRowHtml(rec) {
     </div>`;
 }
 
+// People a bill is counted over: everyone but the cancelled.
+function splitBillPeople(rec) {
+  return (rec.people || []).filter((p) => p.status !== "cancelled");
+}
+
+function splitBillHtml(rec, rowsHtml) {
+  const people = splitBillPeople(rec);
+  const paid = people.filter((p) => p.status !== "open");
+  const all = paid.length === people.length;
+  const pct = people.length ? Math.round((paid.length / people.length) * 100) : 0;
+  const back = splitRound2(people.reduce((sum, p) => sum + splitPersonPaid(p), 0));
+  const paidNames = paid.map((p) => `<span class="split-bill-paid-name">${escapeHtml(p.name)}</span>`).join("");
+  return `
+    <section class="split-bill${all ? " is-done" : ""}" data-bill="${escapeHtml(rec.id)}" aria-label="${escapeHtml(rec.title)}">
+      <div class="split-bill-head">
+        <span class="split-bill-title">${escapeHtml(rec.title)}</span>
+        <span class="split-bill-count">${all ? "Everyone's paid" : `${paid.length} of ${people.length} paid`}</span>
+      </div>
+      <div class="split-bill-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${people.length}" aria-valuenow="${paid.length}" aria-label="${paid.length} of ${people.length} paid"><i style="width:${pct}%"></i></div>
+      ${paid.length ? `<p class="split-bill-paid"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>${paidNames}</p>` : ""}
+      ${all ? `<p class="split-bill-done-line">${escapeHtml(fmtMoney(back))} back from ${people.length} ${people.length === 1 ? "person" : "people"}.
+        <button type="button" class="link-btn" data-action="split-bill-dismiss" data-id="${escapeHtml(rec.id)}">Done</button></p>` : rowsHtml}
+    </section>`;
+}
+
+// Bills that became fully paid while the app was open get one moment: they
+// stay on the card as "Everyone's paid" until dismissed (or the next launch),
+// with a toast, instead of the card quietly emptying itself.
+const splitJustSettled = new Set();
+let splitBillOpenSnapshot = null; // rec id -> open count, from the last render
+function splitNoticeSettledBills() {
+  const now = new Map();
+  for (const rec of splitOutList()) {
+    const people = splitBillPeople(rec);
+    if (people.length < 2) continue;
+    now.set(rec.id, people.filter((p) => p.status === "open").length);
+  }
+  if (splitBillOpenSnapshot) {
+    for (const [id, openNow] of now) {
+      const before = splitBillOpenSnapshot.get(id);
+      if (before > 0 && openNow === 0) {
+        splitJustSettled.add(id);
+        const rec = splitOutList().find((r) => r.id === id);
+        if (rec && typeof toast === "function") toast(`Everyone's paid for ${rec.title}`);
+      }
+    }
+  }
+  splitBillOpenSnapshot = now;
+}
+
 // Zero clutter is a hard guarantee, not a nicety: a user who never splits a
 // bill must see no card, no line and no empty state anywhere.
 function renderSplit() {
@@ -2793,18 +2843,31 @@ function renderSplit() {
   const owedSub = document.getElementById("split-owed-sub");
   if (owedCard && owedList) {
     const open = splitOpenPeople();
-    owedCard.hidden = open.length === 0;
-    if (open.length) {
-      if (owedSub) owedSub.textContent = fmtMoney(t.owedToYou);
-      owedList.innerHTML = open
-        .slice()
-        .sort((a, b) => {
-          const da = a.rec.dueDate ? splitDaysUntil(a.rec.dueDate) : 9999;
-          const db = b.rec.dueDate ? splitDaysUntil(b.rec.dueDate) : 9999;
-          return da - db || (a.rec.date < b.rec.date ? -1 : 1);
-        })
-        .map((x) => splitOutRowHtml(x.rec, x.person))
-        .join("");
+    splitNoticeSettledBills();
+    const done = splitOutList().filter((r) => splitJustSettled.has(r.id));
+    owedCard.hidden = open.length === 0 && done.length === 0;
+    if (open.length || done.length) {
+      if (owedSub) owedSub.textContent = open.length ? fmtMoney(t.owedToYou) : "All paid";
+      const sorted = open.slice().sort((a, b) => {
+        const da = a.rec.dueDate ? splitDaysUntil(a.rec.dueDate) : 9999;
+        const db = b.rec.dueDate ? splitDaysUntil(b.rec.dueDate) : 9999;
+        return da - db || (a.rec.date < b.rec.date ? -1 : 1);
+      });
+      // A split of 2+ people is one bill: its rows sit together under a
+      // "1 of 3 paid" bar, so settled people count instead of vanishing.
+      // Requests and loans (one person) stay plain rows.
+      const html = [];
+      const seen = new Set();
+      for (const x of sorted) {
+        const rec = x.rec;
+        const counted = splitBillPeople(rec);
+        if (counted.length < 2) { html.push(splitOutRowHtml(rec, x.person)); continue; }
+        if (seen.has(rec.id)) continue;
+        seen.add(rec.id);
+        html.push(splitBillHtml(rec, sorted.filter((y) => y.rec.id === rec.id).map((y) => splitOutRowHtml(rec, y.person)).join("")));
+      }
+      for (const rec of done) html.push(splitBillHtml(rec, ""));
+      owedList.innerHTML = html.join("");
     } else {
       owedList.innerHTML = "";
     }
@@ -2932,6 +2995,9 @@ document.addEventListener("click", (e) => {
     splitFromExpense(btn.dataset.splitSource || "expense", id);
   } else if (action === "split-share-link") {
     splitDoShare();
+  } else if (action === "split-bill-dismiss") {
+    splitJustSettled.delete(id);
+    renderSplit();
   } else if (action === "split-share-all") {
     splitDoShareAll();
   } else if (action === "split-copy-code") {
