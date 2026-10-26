@@ -1,0 +1,47 @@
+# Dependency updates arrive as pull requests, and every one runs ci.yml (e2e
+# suite + a fresh Android build) before anything is merged. Nothing updates
+# on its own: package-lock.json pins what ships until one of these PRs lands.
+#
+# How the PRs are grouped:
+#   capacitor  - every native plugin in one PR. Capacitor's packages have to
+#                move to the same major together (7 -> 8 is a migration, not
+#                a bump), and the patch scripts in scripts/ match their code.
+#   tooling    - dev dependencies (Playwright, sharp, the Capacitor CLI's
+#                helpers) minor/patch in one PR; they never reach users.
+#   cordova-plugin-purchase is left in a PR of its own: it is the payment
+#   code, and each update needs a real purchase + restore on a phone.
+#
+# Before merging a native-plugin PR, run the device checklist in
+# tests/README.md ("After a plugin update") on a phone.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Kuala_Lumpur
+    open-pull-requests-limit: 5
+    groups:
+      capacitor:
+        patterns:
+          - "@capacitor/*"
+          - "@capawesome/*"
+          - "@capgo/*"
+          - "@pantrist/*"
+          - "@codetrix-studio/*"
+      tooling:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns:
+          - "*"

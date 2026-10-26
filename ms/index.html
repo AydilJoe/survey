@@ -424,6 +424,9 @@
 
     @media (max-width: 720px) {
       .nav-links { display: none; }
+      /* Logo, language and button only: desktop gaps pushed the button past
+         the edge with a wider fallback font (DejaVu Sans on Linux). */
+      .nav-inner { gap: 12px; }
     }
 
     /* --------------- Hero --------------- */
@@ -1171,7 +1174,7 @@
     /* --------------- Pricing --------------- */
     .pricing-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 16px;
       max-width: 880px;
       margin: 0 auto;
@@ -1202,7 +1205,7 @@
       text-transform: uppercase;
     }
     .plan-name { font-family: var(--font-serif); font-size: 24px; font-weight: 500; letter-spacing: -0.02em; }
-    .plan-price { margin-top: 14px; display: flex; align-items: baseline; gap: 8px; }
+    .plan-price { margin-top: 14px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
     .plan-price .amount { font-size: 52px; }
     .plan-price .per {
       font-family: var(--font-mono);
@@ -1255,7 +1258,7 @@
     .plan.pro li svg { color: var(--primary); }
     .plan .btn { width: 100%; }
 
-    @media (max-width: 720px) { .pricing-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) { .pricing-grid { grid-template-columns: minmax(0, 1fr); } }
 
     /* --------------- FAQ --------------- */
     .faq-list { max-width: 820px; margin: 0 auto; }

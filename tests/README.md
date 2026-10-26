@@ -60,3 +60,24 @@ Two rules learned the hard way:
 2. **Assert against the state, not just the DOM** — `page.evaluate` has
    full access to `state`, `simulateAvalanche`, `zakatSummary` etc.,
    which catches maths bugs the rendered text rounds away.
+
+## After a plugin update
+
+CI (`.github/workflows/ci.yml`) runs this suite and a from-scratch Android
+build on every pull request, Dependabot's included. Neither touches the
+native plugins at runtime, so before merging a PR that updates one, build it
+onto a phone and check the feature it powers:
+
+| plugin | check on the device |
+|---|---|
+| `cordova-plugin-purchase` | buy Pro with a licence-test account, then restore it |
+| `@pantrist/capacitor-plugin-ml-kit-text-recognition` | scan a receipt |
+| `@capgo/capacitor-native-biometric` | unlock with fingerprint |
+| `@capgo/capacitor-social-login`, `@codetrix-studio/capacitor-google-auth` | restore from Google Drive |
+| `@capacitor/local-notifications` | a bill reminder fires |
+| `@capacitor/camera` | take a receipt photo |
+| `@capawesome/capacitor-app-update` | the update prompt appears |
+
+A major version (Capacitor 7 → 8) is a migration: read the changelogs, check
+every script in `scripts/patch-android-*.mjs` still matches, and release it
+on its own.

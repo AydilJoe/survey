@@ -62,6 +62,8 @@ const STAGE_DARK = "#131110";
 // Toolchain Play asks for. Bump both together; AGP 9.4 needs Gradle 9.x.
 const AGP_VERSION = "9.4.1";
 const GRADLE_VERSION = "9.8.2";
+// Play's automatic protection needs API 24+.
+const MIN_SDK = 24;
 
 function edit(path, fn, label) {
   if (!existsSync(path)) { console.warn(`patch-android-play-vitals: ${path} missing — ${label} skipped`); return; }
@@ -238,6 +240,11 @@ if (!localLibDirs.some((dir) => existsSync(dir) && readdirSync(dir).some((f) => 
     if (existsSync(file)) edit(file, (src) => src.replace(/\n[ \t]*flatDir\s*\{[^}]*\}/, ""), "no flatDir");
   }
 }
+
+// ---- 5. minSdk 24 ----------------------------------------------------------
+edit(resolve(ANDROID, "variables.gradle"), (src) =>
+  src.replace(/(minSdkVersion\s*=\s*)(\d+)/, (m, key, v) => (Number(v) < MIN_SDK ? `${key}${MIN_SDK}` : m)),
+`minSdk ${MIN_SDK}`);
 
 // ---- 4. AGP 9 + Gradle 9 --------------------------------------------------
 edit(resolve(ANDROID, "build.gradle"), (src) =>
