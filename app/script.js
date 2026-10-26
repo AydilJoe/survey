@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.41.0";
+const APP_VERSION = "1.42.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -6577,7 +6577,12 @@ $("#form-daily").addEventListener("submit", (e) => {
   if (movesBalance) flyAmountToBalance(flightFrom, amountLabel, netBefore, lastHeroNet);
   if (type === "debt") toast(`Payment recorded · ${amountLabel}`);
   else if (type === "saving") toast(`Savings added · ${amountLabel}`);
-  else toast(`Spending added · ${amountLabel}`);
+  // The moment someone just paid for the table is the moment they think
+  // "split this" — offer it right there, not three taps deep.
+  else if (typeof splitFromExpense === "function") {
+    const loggedId = id;
+    toast(`Spending added · ${amountLabel}`, { action: { label: "Split", run: () => splitFromExpense("daily", loggedId) } });
+  } else toast(`Spending added · ${amountLabel}`);
 });
 
 /* pill buttons + quick amount chips */
@@ -9766,6 +9771,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.42.0": [
+    "<strong>Split in the group chat</strong> — splitting with 3 people? Send everyone's share in one message, each with their own link. And right after you log a meal, the \"Spending added\" message has a Split button.",
+    "<strong>Friends can say \"I've paid\"</strong> — no app needed. The link you send now has \"Already paid? Let them know\", which sends a receipt back to you to confirm and settle.",
+  ],
   "1.41.0": [
     "<strong>Scan, check, done</strong> — after a scan the button says \"Add RM 23.40\" and saves it straight away, with Undo if you change your mind. \"Edit first\" is there when you want to add a note or pick a pool.",
     "<strong>Clearer while it reads</strong> — the scan now says what it's doing in plain words (getting ready, reading, checking the total), and if a photo can't be read you can retake it or type the amount in.",

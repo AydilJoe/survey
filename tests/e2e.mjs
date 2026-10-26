@@ -1288,6 +1288,60 @@ await page.waitForTimeout(400);
 check('"Next person" walks the rest of the bill',
   /Mei Ling/.test(await page.locator('#split-share-title').innerText()),
   await page.locator('#split-share-title').innerText());
+// v1.42: progress while sharing, and one message for the group chat.
+{
+  const g = await S(async (id) => {
+    const rec = state.split.out.find((r) => r.expenseId === id);
+    const text = await splitGroupShareText(rec);
+    return {
+      title: document.getElementById('split-share-title').textContent,
+      allBtn: document.querySelector('#split-share-body [data-action="split-share-all"]')?.textContent || '',
+      text,
+      links: (text.match(/duitful\.app\/split\/?#DFS1/g) || []).length,
+      names: rec.people.map((p) => p.name),
+    };
+  }, expenseId);
+  check('the share dialog says how far through the bill you are ("2 of 3")', /2 of 3/.test(g.title), g.title);
+  check('a split with 3 people offers "Send all 3 in one message"', /Send all 3 in one message/.test(g.allBtn), g.allBtn);
+  check('the group message carries every person\'s own line and link',
+    g.links === 3 && g.names.every((n) => g.text.includes(n)) && /RM\s*23\.50/.test(g.text), g.text);
+}
+// v1.42: the friend who never installs Duitful can still say "I've paid" —
+// and that receipt settles the right person in the requester's app.
+{
+  const reqCode = await S(async (id) => {
+    const rec = state.split.out.find((r) => r.expenseId === id);
+    return splitEncodePayload(splitRequestPayload(rec, rec.people[0]));
+  }, expenseId);
+  const fctxPaid = await b.newContext();
+  const fp = await fctxPaid.newPage();
+  await fp.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async (d) => { window.__shared = d; } });
+  });
+  await fp.goto(`${BASE}/split/#${reqCode}`);
+  await fp.waitForTimeout(600);
+  const before = await fp.evaluate(() => ({ formHidden: document.getElementById('paid-form').hidden, primary: document.getElementById('btn-have-app').textContent }));
+  await fp.click('#btn-paid-open');
+  await fp.fill('#paid-name', 'Ali');
+  await fp.click('#btn-paid-send');
+  await fp.waitForTimeout(400);
+  const shared = await fp.evaluate(() => window.__shared || null);
+  await fctxPaid.close();
+  check('the friend page keeps "I have Duitful" as the main button, "Already paid?" tucked under it',
+    before.formHidden && /I have Duitful/.test(before.primary), JSON.stringify(before));
+  const code = shared && (/#(DFS1u?\.[A-Za-z0-9_-]+)/.exec(shared.text) || [])[1];
+  check('"I\'ve paid" from the friend page shares a receipt link with their name and the amount',
+    !!code && /^Ali paid RM 23\.50 for /.test(shared.text), JSON.stringify(shared));
+  const res = await S(async (code) => {
+    const obj = await splitDecodePayload(code);
+    const r = await splitIngestCode(code);
+    const open = document.getElementById('split-paid-dialog').open;
+    if (open) document.getElementById('split-paid-dialog').close();
+    return { t: obj.t, fr: obj.fr, kind: r && r.kind, prompt: !!(r && r.prompt), person: r && r.person && r.person.name, open };
+  }, code);
+  check('that receipt opens "confirm & settle" for the right person in the requester\'s app',
+    res.t === 'paid' && res.fr === 'Ali' && res.kind === 'paid' && res.prompt && res.open && res.person === 'Ali', JSON.stringify(res));
+}
 await page.click('[data-action="split-share-close"]');
 await page.waitForTimeout(200);
 

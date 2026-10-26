@@ -1726,7 +1726,7 @@ function splitMethodPillsHtml(method) {
   const on = method === "item" ? "item" : "equal";
   const pill = (value, label) => `<button type="button" class="pill${on === value ? " active" : ""}" data-action="split-method" data-split-method="${value}" role="radio" aria-checked="${on === value ? "true" : "false"}">${label}</button>`;
   return `<div class="type-pills split-method-pills" role="radiogroup" aria-label="How to split this bill">
-        ${pill("equal", "Equally")}${pill("item", "By item")}
+        ${pill("equal", "By person")}${pill("item", "By item")}
       </div>`;
 }
 
@@ -2277,7 +2277,10 @@ async function splitRenderRequestShare() {
   splitShare.code = code;
   const link = splitShareLink(code);
 
-  if (titleEl) titleEl.textContent = `Request ${person.name}'s share`;
+  // "1 of 3": sharing one by one used to give no sense of how many were left.
+  if (titleEl) titleEl.textContent = people.length > 1
+    ? `${person.name}'s share · ${splitShare.index + 1} of ${people.length}`
+    : `Request ${person.name}'s share`;
 
   const subParts = [fmtMoney(splitPersonRemaining(person)), rec.title];
   if (rec.dueDate) subParts.push(splitDueLabel(rec.dueDate));
@@ -2317,15 +2320,59 @@ async function splitRenderRequestShare() {
       <input type="checkbox" id="split-share-payto"${s.payToEnabled ? " checked" : ""} />
       <span>Include my transfer details</span>
     </label>
-    <button type="button" class="hint-link split-payto-link" data-action="split-payto-open">How to pay me — edit${s.payTo.length ? ` (${s.payTo.length} row${s.payTo.length === 1 ? "" : "s"})` : ""}</button>
+    <button type="button" class="hint-link split-payto-link" data-action="split-payto-open">${s.payTo.length
+      ? `How to pay me — edit (${s.payTo.length} row${s.payTo.length === 1 ? "" : "s"})`
+      // Without this the link tells them what they owe but not where to send it.
+      : "Add your DuitNow or bank, so they can pay from the link"}</button>
     <div class="form-actions split-share-actions">
-      <button type="button" class="primary" data-action="split-share-link">Share link (WhatsApp, anything)</button>
+      ${people.length > 1
+        // A bill split at the mamak table goes to the group chat: one
+        // message, everyone's line and link, instead of N trips out and back.
+        ? `<button type="button" class="primary" data-action="split-share-all">Send all ${people.length} in one message</button>
+           <button type="button" class="ghost" data-action="split-share-link">Send ${escapeHtml(person.name)}'s only</button>`
+        : `<button type="button" class="primary" data-action="split-share-link">Share link (WhatsApp, anything)</button>`}
       <div class="button-row split-share-secondary">
         <button type="button" class="ghost" data-action="split-copy-code">Copy code</button>
         ${people.length > 1 ? `<button type="button" class="ghost" data-action="split-share-next">Next person →</button>` : ""}
         <button type="button" class="ghost" data-action="split-share-close">Done</button>
       </div>
     </div>`;
+}
+
+// Everyone's request in one message for a group chat. Each person keeps their
+// own link (their own id), so whoever pays still settles only their line.
+async function splitGroupShareText(rec) {
+  const s = splitState();
+  const who = splitText(s.me, SPLIT_NAME_MAX) || "I";
+  const people = rec.people.filter((p) => p.status !== "cancelled" && splitPersonRemaining(p) > 0);
+  const lines = [];
+  for (const person of people) {
+    const code = await splitEncodePayload(splitRequestPayload(rec, person));
+    lines.push(`• ${person.name} — ${fmtMoney(splitPersonRemaining(person))}: ${splitShareLink(code)}`);
+  }
+  let text = `${who === "I" ? "I" : who} split ${rec.title}. Your share:\n${lines.join("\n")}`;
+  if (s.payToEnabled) {
+    const rows = coerceSplitPayRows(s.payTo);
+    if (rows.length) text += `\nPay to: ${rows.map((r) => (r.label ? `${r.label} ${r.value}` : r.value)).join(" · ")}`;
+  }
+  return text;
+}
+
+async function splitDoShareAll() {
+  if (!splitShare) return;
+  const rec = splitOutList().find((r) => r.id === splitShare.recordId);
+  if (!rec) return;
+  const text = await splitGroupShareText(rec);
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: `Split: ${rec.title}`, text });
+      return;
+    } catch (err) {
+      if (err && err.name === "AbortError") return;
+    }
+  }
+  const ok = await splitCopyText(text);
+  toast(ok ? "Copied — paste it in the group chat" : "Couldn't copy — send them one by one instead");
 }
 
 async function splitDoShare() {
@@ -2885,6 +2932,8 @@ document.addEventListener("click", (e) => {
     splitFromExpense(btn.dataset.splitSource || "expense", id);
   } else if (action === "split-share-link") {
     splitDoShare();
+  } else if (action === "split-share-all") {
+    splitDoShareAll();
   } else if (action === "split-copy-code") {
     if (splitShare && splitShare.code) {
       splitCopyText(splitShare.code).then((ok) => toast(ok ? "Request code copied" : "Couldn't copy the code"));
