@@ -132,8 +132,9 @@ trial.
 | Instalment / BNPL plans | — | ✓ |
 | Reminders | — | ✓ |
 
-Product ID `duitful_pro` (non-consumable). The price exists to cover the Apple
-Developer Program (USD $99/year) and the Play console fee (USD $25 one-time).
+Product ID `duitful_pro` (non-consumable). The price helps cover the Apple
+Developer Program membership (USD $99/year, paid) and the Play console fee
+(USD $25 one-time).
 Payment goes through Billplz; the licence is an ECDSA P-256 signed token, so
 there is no user database behind it.
 

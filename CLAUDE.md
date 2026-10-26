@@ -41,7 +41,7 @@ No linter or TypeScript. One end-to-end regression suite exists: `npm run test:e
 
 ## Key Implementation Details
 
-- **Free/Pro split**: Pro gates apply on both the web app and inside the native Capacitor shell. Pro unlocks receipt OCR, unlimited debts and savings goals, instalment plans, and reminders. Product ID: `duitful_pro` (non-consumable, RM 19.90 lifetime). The price exists to fund the Apple Developer Program (USD $99/year) and Google Play console fee (USD $25 one-time) — native apps ship gated on demand.
+- **Free/Pro split**: Pro gates apply on both the web app and inside the native Capacitor shell. Pro unlocks receipt OCR, unlimited debts and savings goals, instalment plans, and reminders. Product ID: `duitful_pro` (non-consumable, RM 19.90 lifetime). The price helps cover the Apple Developer Program (USD $99/year — the membership is paid) and the Google Play console fee (USD $25 one-time).
 - **CSV row types**: `income`, `expense`, `debt`, `saving`, `daily`, `daily-saving`, `daily-debt`, `setting`.
 - **Avalanche simulator**: `simulateAvalanche(debts, extraMonthly)` — prioritizes highest APR, rolls minimums forward.
 - **Android auto-capture**: `DuitfulNotificationListenerService` in `native/notification-listener/` whitelists bank packages and forwards notification text to JS via Capacitor plugin. Install instructions in `native/notification-listener/README.md`.
