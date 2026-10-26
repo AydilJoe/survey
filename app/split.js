@@ -440,8 +440,10 @@ function splitRequestPayload(rec, person) {
     ti: rec.title,
     d: rec.date,
     a: splitPersonRemaining(person),
-    c: typeof currentCurrency === "function" ? currentCurrency() : "MYR",
   };
+  // Readers default to MYR, so it only travels when it isn't.
+  const cur = typeof currentCurrency === "function" ? currentCurrency() : "MYR";
+  if (cur !== "MYR") payload.c = cur;
   const me = splitText(s.me, SPLIT_NAME_MAX);
   if (me) payload.fr = me;
   // The person's own breakdown wins over the record-wide note: on an itemized
@@ -476,8 +478,9 @@ function splitPaidPayload(rec, opts) {
     ti: rec.title,
     d: splitIsDate(o.date) ? o.date : (splitIsDate(rec.settledDate) ? rec.settledDate : todayISO()),
     a: splitRound2(Number(rec.amount) || 0),
-    c: typeof currentCurrency === "function" ? currentCurrency() : "MYR",
   };
+  const cur = typeof currentCurrency === "function" ? currentCurrency() : "MYR";
+  if (cur !== "MYR") payload.c = cur;
   const me = splitText(s.me, SPLIT_NAME_MAX);
   if (me) payload.fr = me;
   return payload;
@@ -487,32 +490,49 @@ function splitShareLink(code) {
   return `${SPLIT_LINK_BASE}#${code}`;
 }
 
+// How a request or receipt reads in a chat. The sentence a person reads comes
+// first and the link goes last on its own line: a message that OPENS with
+// 300 characters of code is what a phishing link looks like.
+function splitWhenPhrase(iso) {
+  if (!splitIsDate(iso) || iso === todayISO()) return "today";
+  return `on ${splitDayLabel(iso)}`;
+}
+function splitForPhrase(rec) {
+  // The default loan title is the lender's word for it; to the borrower
+  // "for Money lent" reads like a form field.
+  if (rec.kind === "loan" && (!rec.title || rec.title === "Money lent")) return "the money I lent you";
+  return rec.title;
+}
+function splitPayLine() {
+  const s = splitState();
+  if (!s.payToEnabled) return "";
+  const rows = coerceSplitPayRows(s.payTo);
+  return rows.length ? `Pay to ${rows.map((r) => (r.label ? `${r.label} ${r.value}` : r.value)).join(" · ")}` : "";
+}
+
 function splitPaidShareText(rec, code, date) {
   const s = splitState();
-  const who = splitText(s.me, SPLIT_NAME_MAX) || "Someone";
+  const who = splitText(s.me, SPLIT_NAME_MAX) || "I";
   const amount = typeof fmtMoney === "function" ? fmtMoney(rec.amount) : String(rec.amount);
-  const when = splitIsDate(date) ? date : todayISO();
-  return `${who} paid ${amount} for ${rec.title} on ${splitDayLabel(when)} — ${splitShareLink(code)}`;
+  const paid = who === "I" ? "I've paid" : `${who} paid`;
+  return `${paid} ${amount} for ${rec.title} ${splitWhenPhrase(date)}.\nReceipt: ${splitShareLink(code)}`;
 }
 
 function splitShareText(rec, person, code, opts) {
   const s = splitState();
-  const who = splitText(s.me, SPLIT_NAME_MAX) || "Someone";
+  const who = splitText(s.me, SPLIT_NAME_MAX);
   const amount = typeof fmtMoney === "function"
     ? fmtMoney(splitPersonRemaining(person))
     : String(splitPersonRemaining(person));
+  const what = splitForPhrase(rec);
+  const due = rec.dueDate ? `, due ${splitDayLabel(rec.dueDate)}` : "";
   // Remind used to resend the original request word for word. A nudge reads
   // as a nudge — and it is the amount still LEFT, after any part-payments.
-  let line = opts && opts.remind
-    ? `Friendly reminder: ${amount} still to go for ${rec.title} — ${splitShareLink(code)}`
-    : `${who} requests ${amount} for ${rec.title} — ${splitShareLink(code)}`;
-  if (s.payToEnabled) {
-    const rows = coerceSplitPayRows(s.payTo);
-    if (rows.length) {
-      line += `\nPay to: ${rows.map((r) => (r.label ? `${r.label} ${r.value}` : r.value)).join(" · ")}`;
-    }
-  }
-  return line;
+  const head = opts && opts.remind
+    ? `Friendly reminder: ${amount} still to go for ${what}${due}.`
+    : `${who ? `${who}: ` : ""}${amount} for ${what}${due}.`;
+  const pay = splitPayLine();
+  return `${head}${pay ? `\n${pay}` : ""}\nDetails: ${splitShareLink(code)}`;
 }
 
 /* ---------- ingest ---------- */
@@ -1452,6 +1472,18 @@ function splitCloseDialog(dlg) {
 // adding or removing a row can never silently re-target someone else's food
 // the way a plain array index would.
 let splitKeySeq = 0;
+// A person's id travels inside every link, so new ones are 12 characters
+// instead of a 36-character UUID — about a sixth of the link's length. Only
+// unique on this device is required: it matches a receipt to its request.
+function splitShortId() {
+  const abc = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  let out = "";
+  for (const b of bytes) out += abc[b % abc.length];
+  return out;
+}
+
 function splitNewKey(prefix) { splitKeySeq += 1; return `${prefix}${splitKeySeq}`; }
 function splitNewPerson() { return { key: splitNewKey("p"), name: "", amount: 0 }; }
 // "You" is implicit and always first: the payer assigns their own food too,
@@ -2030,7 +2062,7 @@ function splitComposeSave() {
     total: c.mode === "split" ? Math.max(Number(c.total) || 0, othersTotal) : othersTotal,
     dueDate: c.dueDate,
     expenseId: c.expenseId,
-    people: people.map((p) => ({ id: uid(), name: p.name, amount: p.amount, status: "open", repayments: [] })),
+    people: people.map((p) => ({ id: splitShortId(), name: p.name, amount: p.amount, status: "open", repayments: [] })),
   });
   splitOutList().push(record);
   for (const p of record.people) splitRememberName(p.name);
@@ -2356,14 +2388,15 @@ async function splitGroupShareText(rec) {
   const lines = [];
   for (const person of people) {
     const code = await splitEncodePayload(splitRequestPayload(rec, person));
-    lines.push(`• ${person.name} — ${fmtMoney(splitPersonRemaining(person))}: ${splitShareLink(code)}`);
+    lines.push({ name: person.name, amount: fmtMoney(splitPersonRemaining(person)), link: splitShareLink(code) });
   }
-  let text = `${who === "I" ? "I" : who} split ${rec.title}. Your share:\n${lines.join("\n")}`;
-  if (s.payToEnabled) {
-    const rows = coerceSplitPayRows(s.payTo);
-    if (rows.length) text += `\nPay to: ${rows.map((r) => (r.label ? `${r.label} ${r.value}` : r.value)).join(" · ")}`;
-  }
-  return text;
+  // Everyone's line first (the part people read), then the links underneath.
+  const pay = splitPayLine();
+  return `${who === "I" ? "I" : who} split ${rec.title}:\n`
+    + lines.map((l) => `• ${l.name} — ${l.amount}`).join("\n")
+    + (pay ? `\n${pay}` : "")
+    + `\n\nYour own link:\n`
+    + lines.map((l) => `${l.name}: ${l.link}`).join("\n");
 }
 
 async function splitDoShareAll() {
