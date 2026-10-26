@@ -150,8 +150,8 @@ shows nothing without it.
    prices by tier; choose the Malaysian storefront and find the tier whose
    MYR price is 19.90)
 6. **Localization** (English): Display Name `Duitful Pro`, Description
-   "One-time purchase. Unlimited tracking, receipt scans, reminders and
-   instalments. Yours forever — no subscription."
+   "Unlimited debts, scans and reminders. Pay once." (Apple caps IAP
+   descriptions at 55 characters)
 7. **Review information**: screenshot of the paywall (take one in the
    simulator-free way: install a TestFlight build, screenshot the unlock
    sheet on your iPhone) plus a note: "Non-consumable lifetime unlock.
@@ -472,7 +472,8 @@ stays "not collected".)
 - Copyright: `2026 Aydil Johari`
 - Sign-in required: **No** (App Review must be able to use everything
   without an account — they can, so say so in Review Notes:
-  "No account needed. Set any 6-digit passcode on first launch.")
+  "No account needed. Set any passcode of 4+ digits on first launch.")
+  The full listing copy, review notes included, is in `APP_STORE_LISTING.md`.
 
 ## iPhone Duo (the foldable)
 
