@@ -57,3 +57,22 @@ top of the Play listing (Play Console → Main store listing → Graphics). The
 App Store has no equivalent slot. Regenerate with
 `node marketing/app-store/scripts/feature-graphic.mjs` after `capture.mjs`
 (it reuses the raw Home screen), then strip the alpha channel as above.
+
+## Creative assets (optional, iOS/iPadOS 27+)
+
+From [App Store asset best practices](https://developer.apple.com/app-store/asset-best-practices/)
+and the creative-asset specs. In `creative/`, regenerate with
+`node marketing/app-store/scripts/creative-assets.mjs` after `capture.mjs`:
+
+| File | Placement | Size | Idea |
+|---|---|---|---|
+| `header-21x9.png` | Product page header | 3840 × 1646 (21:9) | "Your money *stays on your phone.*" + Payoff / Home / Scan |
+| `search-3x2.png` | Search results | 3840 × 2560 (3:2, the max) | "Be *duitful* with your duit." + Payoff / Home / Split |
+
+Both: PNG, no alpha; one clear idea; real app interface; no prices, URLs,
+awards or other platforms. The header's lower-left is kept quiet because the
+store draws the app name and Get button over the header.
+Upload: App Store Connect → the app version → Product Page Information →
+**Header and Search Results** (or Asset Library), then check them in
+**Preview** on iPhone and iPad before submitting — the preview is the only
+place the system overlay and safe area can be seen exactly.
