@@ -7093,49 +7093,180 @@ html[data-theme="dark"] {
 #toast { white-space: normal; width: max-content; border-radius: 18px; }
 .scan-type-pills[hidden] { display: none; }
 
-/* ---------- tax relief & refund estimate (tax.js) ---------- */
+/* ---------- tax relief & refund estimate (tax.js) ----------
+   Same family as the zakat card: one hero figure, then quiet lists. Status
+   colour is reserved for state — gain for a refund and a finished receipt,
+   loss for tax still owed, warn for something with a deadline. */
 .tax-optin-row { display: flex; align-items: center; gap: 0.75rem; justify-content: space-between; }
 .tax-optin-row .hint { margin: 0; }
-.tax-year { display: inline-flex; align-items: center; gap: 0.35rem; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.06em; }
-.tax-card button.small { padding: 0.25rem 0.6rem; min-height: 0; font-size: 0.8rem; }
-.tax-card h3 { margin: 1.1rem 0 0.4rem; font-size: 0.95rem; }
-.tax-hero { display: flex; flex-direction: column; gap: 0.15rem; margin: 0.4rem 0 0.6rem; }
-.tax-hero strong { font-size: 1.9rem; font-weight: 500; letter-spacing: -0.02em; line-height: 1.1; color: var(--gain); }
-.tax-hero strong.is-owe { color: var(--danger); }
-.tax-nudge { margin: 0.4rem 0; padding: 0.55rem 0.7rem; border-radius: var(--r-md, 10px); background: var(--warn-bg); color: var(--warn); border: 0.5px solid var(--warn-line); font-size: 0.85rem; }
-.tax-list, .tax-reliefs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-.tax-list li { display: grid; grid-template-columns: 1fr auto; gap: 0.25rem 0.75rem; align-items: center; padding: 0.55rem 0; border-top: 0.5px solid var(--line); }
-.tax-list li:first-child { border-top: 0; }
-.tax-row-main { display: flex; flex-direction: column; min-width: 0; }
+
+.tax-card .card-head { align-items: center; }
+.tax-card h2 { text-wrap: balance; }
+.tax-year { display: inline-flex; align-items: center; gap: 0.15rem; flex-shrink: 0; }
+#tax-year-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  padding: 0 0.15rem;
+}
+.tax-year-btn svg { width: 1rem; height: 1rem; display: block; }
+.tax-year-btn:disabled { opacity: 0.35; cursor: default; }
+
+.tax-hero { display: flex; flex-direction: column; gap: 0.2rem; margin: 0.35rem 0 0.9rem; }
+.tax-hero strong {
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--gain);
+  font-variant-numeric: tabular-nums;
+}
+.tax-hero strong.is-owe { color: var(--loss); }
+.tax-hero strong.is-empty { color: var(--muted); }
+.tax-hero .hint { margin: 0.2rem 0 0; max-width: 62ch; line-height: 1.5; }
+.tax-hero .hint strong { font-size: inherit; color: var(--text); font-weight: 600; letter-spacing: 0; }
+body.private .tax-hero > strong { filter: blur(7px); user-select: none; pointer-events: none; }
+
+/* Status lines: icon + one sentence each; only the year-end one is coloured. */
+.tax-status { list-style: none; padding: 0; margin: 0 0 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.tax-status li { display: grid; grid-template-columns: 1.1rem 1fr; gap: 0.55rem; align-items: start; font-size: 0.86rem; line-height: 1.45; color: var(--ink2); }
+.tax-status svg { width: 1.1rem; height: 1.1rem; margin-top: 0.08rem; color: var(--muted); }
+.tax-status li.is-warn { padding: 0.6rem 0.7rem; border-radius: var(--r-sm); background: var(--warn-bg); border: 0.5px solid var(--warn-line); color: var(--warn); }
+.tax-status li.is-warn svg { color: var(--warn); }
+
+.tax-review-btn { display: inline-flex; align-items: center; gap: 0.6rem; min-height: 2.75rem; padding-inline: 1rem; }
+.tax-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.tax-section { margin-top: 1.4rem; }
+.tax-section h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+.tax-section-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.35rem; }
+.tax-section-head h3 { margin: 0; }
+.tax-add { display: inline-flex; align-items: center; gap: 0.35rem; }
+.tax-add svg { width: 0.95rem; height: 0.95rem; }
+
+/* Rows: what, when · which relief, amount; actions under. */
+.tax-list { list-style: none; padding: 0; margin: 0; }
+.tax-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.15rem 0.9rem; align-items: baseline; padding: 0.7rem 0; border-top: 0.5px solid var(--line); }
+.tax-list li:first-child { border-top: 0; padding-top: 0.2rem; }
+.tax-row-main { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
 .tax-row-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
-.tax-row-amt { font-variant-numeric: tabular-nums; }
-.tax-row-actions { grid-column: 1 / -1; display: flex; gap: 0.4rem; }
-.tax-relief-top { display: flex; justify-content: space-between; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
-.tax-bar { height: 6px; border-radius: var(--r-pill); background: var(--card-soft); border: 0.5px solid var(--line); overflow: hidden; margin: 0.25rem 0; }
-.tax-bar-fill { height: 100%; background: var(--accent); border-radius: var(--r-pill); transition: width 0.35s ease; }
-.tax-bar-fill.is-full { background: var(--accent-3); }
-.tax-inputs { margin-top: 1rem; }
+.tax-row-main .hint { margin: 0; }
+.tax-row-amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tax-row-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.45rem; }
+.tax-chip { display: inline-flex; align-items: center; gap: 0.35rem; }
+.tax-chip svg { width: 0.95rem; height: 0.95rem; }
+button.ghost.tax-chip.is-ok { color: var(--gain); border-color: color-mix(in srgb, var(--gain) 35%, transparent); }
+button.ghost.tax-chip.is-warn { color: var(--warn); border-color: var(--warn-line); background: var(--warn-bg); }
+button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+
+/* Relief bars */
+.tax-reliefs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.85rem; }
+.tax-relief-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.75rem; align-items: baseline; font-size: 0.88rem; }
+.tax-relief-name { min-width: 0; }
+.tax-relief-val { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tax-relief-cap { color: var(--muted); }
+.tax-bar { height: 6px; border-radius: var(--r-pill); background: var(--card-soft); border: 0.5px solid var(--line); overflow: hidden; margin: 0.35rem 0 0.25rem; }
+.tax-bar-fill { height: 100%; background: var(--accent); border-radius: var(--r-pill); transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
+.tax-reliefs li.is-full .tax-bar-fill { background: var(--gain); }
+.tax-relief-note { display: block; margin: 0; font-size: 0.8rem; line-height: 1.45; }
+.tax-relief-note.is-done { display: inline-flex; align-items: center; gap: 0.3rem; }
+.tax-relief-note svg { width: 0.9rem; height: 0.9rem; color: var(--gain); }
+.tax-more { margin-top: 0.9rem; }
+.tax-more summary { cursor: pointer; font-size: 0.86rem; color: var(--ink2); }
+.tax-reliefs.is-compact { margin-top: 0.6rem; gap: 0.6rem; }
+.tax-reliefs.is-compact li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.05rem 0.75rem; font-size: 0.86rem; }
+.tax-reliefs.is-compact .hint { grid-column: 1 / -1; margin: 0; font-size: 0.8rem; }
+
+/* My numbers + footer */
+.tax-inputs { margin-top: 1.4rem; padding-top: 0.9rem; border-top: 0.5px solid var(--line); }
 .tax-inputs summary { cursor: pointer; font-weight: 500; }
+.tax-inputs > .hint:first-of-type { margin: 0.5rem 0 0.25rem; }
+.tax-sub-head { margin: 0.9rem 0 0.2rem; font-size: 0.85rem; color: var(--muted); font-weight: 500; }
+.tax-inputs-foot { margin-top: 0.75rem; }
+.tax-foot { margin-top: 1rem; padding-top: 0.9rem; border-top: 0.5px solid var(--line); display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+.tax-foot .hint { margin: 0; max-width: 62ch; }
+
+/* File pickers: real buttons driving hidden inputs. */
+.tax-pickers { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.6rem 0 0.2rem; }
+.tax-pickers button, .tax-link { display: inline-flex; align-items: center; gap: 0.4rem; }
+.tax-pickers svg, .tax-link svg { width: 1rem; height: 1rem; }
+.tax-link {
+  background: none;
+  border: 0;
+  padding: 0.45rem 0;
+  min-height: 0;
+  color: var(--ink2);
+  font-size: 0.86rem;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  cursor: pointer;
+}
+.tax-link:hover { color: var(--text); }
+
+/* Claim dialog */
 .tax-receipt { margin-top: 0.5rem; }
-.tax-receipt img { display: block; max-width: 100%; max-height: 200px; border-radius: 8px; border: 0.5px solid var(--line); margin: 0.4rem 0; }
-.tax-receipt-full { display: block; max-width: 100%; max-height: 70vh; margin: 0.5rem auto; border-radius: 8px; }
-.tax-file-btn { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; text-decoration: none; }
+.tax-receipt img { display: block; max-width: 100%; max-height: 200px; border-radius: var(--r-sm); border: 0.5px solid var(--line); margin: 0.4rem 0; }
+.tax-claim-actions #tax-claim-delete { margin-right: auto; }
 .tax-claim-info { margin: 0.25rem 0 0.5rem; font-size: 0.85rem; }
 .tax-claim-info summary { cursor: pointer; color: var(--muted); }
 .tax-claim-info ul { margin: 0.4rem 0; padding-left: 1.1rem; }
-.tax-sub-head { margin: 0.9rem 0 0.2rem; font-size: 0.85rem; color: var(--muted); font-weight: 500; }
-.tax-checks { margin: 0.6rem 0 0; }
-.tax-no-receipt { color: var(--warn); }
-.tax-review-eyebrow { margin: 0; font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
-.tax-review-entry { display: grid; grid-template-columns: 1fr auto; gap: 0.75rem; align-items: center; padding: 0.7rem 0.8rem; margin: 0.6rem 0; border-radius: 10px; background: var(--card-soft); border: 0.5px solid var(--line); }
-.tax-review-what-docs { margin: 0.4rem 0; font-weight: 500; }
-.tax-files { list-style: none; padding: 0; margin: 0.6rem 0; display: flex; flex-direction: column; gap: 0.4rem; }
+
+/* Review modal */
+.tax-review-dialog h2 { text-wrap: balance; }
+.tax-review-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.15rem 0.9rem;
+  align-items: baseline;
+  padding: 0.8rem 0.9rem;
+  margin: 0.7rem 0 0.9rem;
+  border-radius: var(--r-sm);
+  background: var(--card-soft);
+  border: 0.5px solid var(--line);
+}
+.tax-review-entry .tax-row-amt { font-size: 1.05rem; }
+.tax-review-claimed { grid-column: 1 / -1; display: flex; align-items: center; gap: 0.4rem; margin: 0.45rem 0 0; padding-top: 0.5rem; border-top: 0.5px solid var(--line); color: var(--gain); font-size: 0.86rem; font-weight: 500; }
+.tax-review-claimed svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+.tax-review-deadline { margin: 0 0 0.35rem; line-height: 1.5; }
+#tax-review-ask .form-actions, #tax-review-docs .form-actions { justify-content: flex-end; margin-top: 1rem; }
+#tax-review-ask .form-actions #tax-review-no { margin-right: auto; }
+.tax-files { list-style: none; padding: 0; margin: 0.7rem 0; display: flex; flex-direction: column; gap: 0.45rem; }
 .tax-files li { display: flex; align-items: center; gap: 0.6rem; font-size: 0.88rem; }
-.tax-files li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tax-files li.is-saved::before { content: "✓"; color: var(--gain); }
-.tax-files img { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 0.5px solid var(--line); }
-.tax-review-stop { display: block; margin: 0.8rem auto 0; background: none; border: 0; color: var(--muted); font-size: 0.82rem; text-decoration: underline; cursor: pointer; min-height: 0; padding: 0.3rem; }
+.tax-files li > span:not(.tax-file-thumb) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tax-files li.is-saved { color: var(--gain); font-weight: 500; }
+.tax-files li.is-saved svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+.tax-files img, .tax-file-thumb { width: 44px; height: 44px; flex-shrink: 0; object-fit: cover; border-radius: var(--r-sm); border: 0.5px solid var(--line); }
+.tax-file-thumb { display: grid; place-items: center; background: var(--card-soft); color: var(--muted); }
+.tax-file-thumb svg { width: 1.2rem; height: 1.2rem; }
+.tax-review-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 1rem; padding-top: 0.75rem; border-top: 0.5px solid var(--line); }
+#tax-review-eyebrow { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 0; }
+.tax-review-stop {
+  background: none; border: 0; padding: 0.4rem 0; min-height: 0; flex-shrink: 0;
+  color: var(--ink2); font-size: 0.82rem; cursor: pointer;
+  text-decoration: underline; text-underline-offset: 0.2em;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+}
+.tax-review-stop:hover { color: var(--text); }
+
+/* File viewer */
 .tax-receipt-files { display: flex; flex-direction: column; gap: 0.8rem; margin: 0.5rem 0; }
 .tax-receipt-files figure { margin: 0; }
-.tax-receipt-files img { display: block; max-width: 100%; max-height: 60vh; margin: 0 auto; border-radius: 8px; }
+.tax-receipt-files img { display: block; max-width: 100%; max-height: 60vh; margin: 0 auto; border-radius: var(--r-sm); }
 .tax-receipt-files figcaption { font-size: 0.8rem; color: var(--muted); text-align: center; margin-top: 0.25rem; }
+
+/* Touch: row actions and pickers get a full finger. */
+@media (pointer: coarse) {
+  .tax-row-actions button, .tax-pickers button, .tax-chip, .tax-add { min-height: 44px; }
+  .tax-year-btn { min-width: 44px; min-height: 44px; }
+  .tax-link, .tax-review-stop { min-height: 44px; }
+}

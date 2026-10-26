@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.45.0";
+const APP_VERSION = "1.45.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9873,6 +9873,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.45.1": [
+    "<strong>A calmer tax card</strong> — your refund, what still needs doing and when Duitful checks in next sit at the top, with one Review my year button. Reliefs you've used come first; the rest fold away. Each claim shows a single receipt button: green when it's saved, amber when it's still to add.",
+    "<strong>Privacy mode now covers tax</strong> — every ringgit on the tax card and in the claim prompts hides with the eye button, like the rest of the app.",
+  ],
   "1.45.0": [
     "<strong>Tax refund estimate</strong> — Reports → Tax refund estimate works out your likely LHDN refund from your income and the PCB already deducted, using the YA 2026–2027 reliefs, and shows what each relief is still worth to you.",
     "<strong>Never miss a claim</strong> — when something you buy counts as tax relief, Duitful asks if you want to claim it, then offers to keep the receipt and any documents LHDN may ask for. Review your whole year any time, with a check-in in November and again before e-Filing opens.",

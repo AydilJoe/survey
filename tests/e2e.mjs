@@ -7246,7 +7246,7 @@ check('the brand catalogue makes no network calls at all',
   await S(() => document.getElementById('tabbtn-reports').click());
   await page.waitForTimeout(200);
   const relTxt = await page.locator('#tax-reliefs').innerText();
-  check('tax: Reports shows lifestyle RM120 of RM2,500', /Lifestyle[\s\S]*120\.00[\s\S]*2,500\.00/.test(relTxt), relTxt.replace(/\n/g, ' | '));
+  check('tax: Reports shows lifestyle RM120 of RM2,500', /Lifestyle[\s\S]*120\.00[\s\S]*RM 2,500(?!\.)/.test(relTxt), relTxt.replace(/\n/g, ' | '));
   check('tax: claim row offers its files', await page.locator('#tax-claims [data-tax-view]').count() === 1);
   await page.click('#tax-claims [data-tax-view]');
   await page.waitForTimeout(300);
@@ -7378,6 +7378,36 @@ check('the brand catalogue makes no network calls at all',
   await page.click('#tax-review-stop');
   await page.waitForTimeout(300);
   check('tax review: "Stop for now" closes it', !(await reviewOpen()));
+
+  // 6b) Privacy mode hides every ringgit on the tax card and in the review modal.
+  const taxLeaks = await S(() => {
+    document.body.classList.add('private');
+    document.getElementById('tabbtn-reports').click();
+    renderAll();
+    taxOpenReview(taxReviewItems(taxYear()), 'year', taxYear());
+    const MONEY = /RM\s? ?[\d,]+\.\d{2}/;
+    const found = [];
+    for (const root of [document.getElementById('tax-card'), document.getElementById('tax-review-dialog')]) {
+      const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let n;
+      while ((n = walk.nextNode())) {
+        const txt = n.textContent.replace(/\u00a0/g, ' ').trim();
+        if (!MONEY.test(txt)) continue;
+        const el = n.parentElement;
+        if (!el.getClientRects().length) continue;
+        let a = el, blurred = false;
+        while (a && a !== document.body) { if (/blur\(/.test(getComputedStyle(a).filter || '')) { blurred = true; break; } a = a.parentElement; }
+        if (!blurred) found.push(el.tagName + '.' + (el.className || '-') + ' :: ' + txt.slice(0, 40));
+      }
+    }
+    taxCloseAll();
+    document.body.classList.remove('private');
+    renderAll();
+    return found;
+  });
+  check('tax privacy: no ringgit legible on the tax card or in the review modal with privacy on', taxLeaks.length === 0, JSON.stringify(taxLeaks));
+  check('tax a11y: file pickers are real, focusable buttons',
+    await S(() => [...document.querySelectorAll('[data-tax-pick]')].every(b => b.tagName === 'BUTTON' && b.tabIndex >= 0)));
 
   // 7) An import is not "new spending": no flood of pop-ups.
   const imp = await S(() => {
