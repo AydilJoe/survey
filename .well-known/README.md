@@ -109,15 +109,12 @@ Google's checker: <https://developers.google.com/digital-asset-links/tools/gener
 Same idea, Apple's format. **No file extension** — that is the spec, not an
 oversight, so don't "fix" it to `.json`.
 
-### TODO before the first TestFlight build
+### Team ID
 
-`appIDs` currently holds `TEAMID.com.aydiljoe.duitful`. Replace `TEAMID`
-with your 10-character Apple Developer **Team ID**:
-
-1. <https://developer.apple.com/account> → **Membership details**
-2. Copy **Team ID** (e.g. `A1B2C3D4E5`)
-3. Paste it in place of `TEAMID` (keep the dot and the bundle id), commit,
-   push — Pages redeploys and iOS re-checks on the next install
+`appIDs` holds `S4MTZAY8N4.com.aydiljoe.duitful`: the Apple Developer Team
+ID (developer.apple.com → **Membership details**), a dot, then the bundle
+id. If the app ever moves to another team, change the first part, commit,
+push. Pages redeploys and iOS re-checks the domain on the next install.
 
 ### Verifying
 
