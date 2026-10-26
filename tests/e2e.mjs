@@ -7949,6 +7949,16 @@ check('the brand catalogue makes no network calls at all',
   });
 
   // Native wiring: every name that must agree, agrees.
+  // Universal Links: Apple matches appIDs against TeamID.bundleId of the
+  // installed build. A placeholder or typo leaves split links in Safari.
+  {
+    const aasa = JSON.parse(readFileSync(path.join(REPO_ROOT, '.well-known/apple-app-site-association'), 'utf8'));
+    const capId = JSON.parse(readFileSync(path.join(REPO_ROOT, 'capacitor.config.json'), 'utf8')).appId;
+    const ids = aasa.applinks.details.flatMap((d) => d.appIDs || []);
+    check('the iOS app-site-association names the real Team ID and the app\'s bundle id',
+      ids.length > 0 && ids.every((id) => /^[A-Z0-9]{10}\./.test(id) && id.endsWith('.' + capId) && !/TEAMID/.test(id)),
+      ids.join(', '));
+  }
   // An unanchored "ios/" in .gitignore once kept this Swift out of git: the
   // checks below passed locally and CI had no plugin source at all.
   const tracked = execFileSync('git', ['ls-files', 'native/icloud-backup'], { cwd: REPO_ROOT, encoding: 'utf8' });

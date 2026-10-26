@@ -452,27 +452,27 @@ build.
       Duitful once Universal Links verify, opens Safari before that
       (both are acceptable outcomes; the browser is the designed fallback)
 
-## Universal Links: replace `TEAMID`
+## Universal Links: the Team ID
 
-`/.well-known/apple-app-site-association` in this repo ships with a
-placeholder:
+`/.well-known/apple-app-site-association` in this repo names the app as
+Team ID + bundle id:
 
 ```json
-"appIDs": ["TEAMID.com.aydiljoe.duitful"]
+"appIDs": ["S4MTZAY8N4.com.aydiljoe.duitful"]
 ```
 
-After enrolment, replace `TEAMID` with your 10-character Team ID
-(developer.apple.com → Membership details), commit, push to `main`. Pages
-redeploys and iOS re-checks the domain the next time the app is installed
-or updated.
+`S4MTZAY8N4` is the Apple Developer Team ID (developer.apple.com →
+Membership details). It must match the team that signs the build, which
+fastlane reports in the TestFlight run's log ("Signing as team …").
+iOS re-checks the domain the next time the app is installed or updated.
 
 The app-side half — the `applinks:duitful.app` entitlement — is written
 into the Xcode project by `scripts/patch-ios.mjs` on every run. Nothing to
 do by hand.
 
-Until the Team ID is real, links open in Safari and the `/split` page's
-"I have Duitful" hand-off still works. Nothing breaks; the feature is just
-dormant. Verify with:
+Until an iOS build with that entitlement is installed, links open in
+Safari and the `/split` page's "I have Duitful" hand-off still works.
+Verify with:
 
 ```
 Settings → Developer → Universal Links → Diagnostics   (on the device)
