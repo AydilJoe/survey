@@ -26,8 +26,9 @@
 
 /* ---------- payload format ----------
 
-   DFS1.<base64url(deflate-raw(JSON))>      compressed (the normal case)
-   DFS1u.<base64url(JSON)>                  uncompressed fallback
+   DFS2.<base64url(packed fields)>          every new link (see splitPack)
+   DFS1.<base64url(deflate-raw(JSON))>      older links, still decoded
+   DFS1u.<base64url(JSON)>                  older uncompressed fallback
 
    The version lives in the prefix AND in `v`, so a future DFS2 payload is
    rejected by the prefix check before anything tries to read its fields.
@@ -359,27 +360,81 @@ function splitB64UrlToBytes(str) {
   return out;
 }
 
-async function splitDeflate(bytes) {
-  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-
 async function splitInflate(bytes) {
   const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
-// Compression is a nice-to-have, not a requirement: engines without
-// CompressionStream emit the `u` marker and the decoder (here and on the
-// /split page) reads it uncompressed. A payload never fails to encode.
+// Only DFS1 links were ever compressed; new links aren't (see splitPack).
+/* DFS2 — the packed form every new link uses. JSON's field names, a full
+   ISO date and deflate's own overhead were most of a 190-character link; the
+   same request packs into well under half of that. Fields are positional,
+   separated by U+001F (a character no title or name can contain — splitText
+   strips control characters), pay rows by U+001E:
+
+     t ␟ id ␟ title ␟ date ␟ amount ␟ from ␟ due ␟ note ␟ currency ␟ pay… ␟ check
+
+   t is "r" (request) or "p" (paid); dates are days since 2020-01-01 and the
+   amount is whole sen, both in base 36. Empty trailing fields are dropped.
+   DFS1 links (JSON) still decode forever; an older app that meets a DFS2
+   link says "made with a newer Duitful — update", never "damaged". */
+const SPLIT_DAY0 = Date.UTC(2020, 0, 1);
+function splitDayPack(iso) {
+  if (!splitIsDate(iso)) return "";
+  const [y, m, d] = iso.split("-").map(Number);
+  return Math.round((Date.UTC(y, m - 1, d) - SPLIT_DAY0) / 864e5).toString(36);
+}
+function splitDayUnpack(v) {
+  if (!v) return "";
+  const n = parseInt(v, 36);
+  if (!Number.isFinite(n)) return "";
+  return new Date(SPLIT_DAY0 + n * 864e5).toISOString().slice(0, 10);
+}
+function splitPack(obj) {
+  const clean = (v) => String(v == null ? "" : v).replace(/[\u001e\u001f]/g, " ");
+  const f = [
+    obj.t === "paid" ? "p" : "r",
+    clean(obj.id),
+    clean(obj.ti),
+    splitDayPack(obj.d),
+    Math.round((Number(obj.a) || 0) * 100).toString(36),
+    clean(obj.fr),
+    splitDayPack(obj.dd),
+    clean(obj.n),
+    obj.c && obj.c !== "MYR" ? clean(obj.c) : "",
+  ];
+  for (const row of Array.isArray(obj.pay) ? obj.pay : []) f.push(`${clean(row[0])}\u001e${clean(row[1])}`);
+  while (f.length > 6 && f[f.length - 1] === "") f.pop();
+  const body = f.join("\u001f");
+  return `${body}\u001f${splitCheck(body)}`;
+}
+// Two base-36 characters of FNV-1a over the packed fields. JSON failed loudly
+// when a chat app trimmed or garbled a link; packed fields would instead read
+// as a valid request with a wrong amount. This makes damage a refusal again.
+function splitCheck(text) {
+  let h = 0x811c9dc5;
+  const bytes = new TextEncoder().encode(text);
+  for (let i = 0; i < bytes.length; i++) { h ^= bytes[i]; h = Math.imul(h, 16777619) >>> 0; }
+  return (h % 1296).toString(36).padStart(2, "0");
+}
+function splitUnpack(text) {
+  const all = String(text);
+  const cut = all.lastIndexOf("\u001f");
+  if (cut < 0 || splitCheck(all.slice(0, cut)) !== all.slice(cut + 1)) return null;
+  const f = all.slice(0, cut).split("\u001f");
+  if (f.length < 6 || (f[0] !== "r" && f[0] !== "p")) return null;
+  const obj = { v: 2, t: f[0] === "p" ? "paid" : "req", id: f[1], ti: f[2], d: splitDayUnpack(f[3]), a: parseInt(f[4], 36) / 100 };
+  if (f[5]) obj.fr = f[5];
+  if (f[6]) obj.dd = splitDayUnpack(f[6]);
+  if (f[7]) obj.n = f[7];
+  if (f[8]) obj.c = f[8];
+  const pay = f.slice(9).map((r) => r.split("\u001e")).filter((r) => r[1]);
+  if (pay.length) obj.pay = pay.map((r) => [r[0] || "", r[1]]);
+  return obj;
+}
+
 async function splitEncodePayload(obj) {
-  const bytes = new TextEncoder().encode(JSON.stringify(obj));
-  if (typeof CompressionStream === "function") {
-    try {
-      return `${SPLIT_PREFIX}${SPLIT_VERSION}.${splitBytesToB64Url(await splitDeflate(bytes))}`;
-    } catch {}
-  }
-  return `${SPLIT_PREFIX}${SPLIT_VERSION}u.${splitBytesToB64Url(bytes)}`;
+  return `${SPLIT_PREFIX}2.${splitBytesToB64Url(new TextEncoder().encode(splitPack(obj)))}`;
 }
 
 async function splitDecodePayload(raw) {
@@ -388,17 +443,19 @@ async function splitDecodePayload(raw) {
   if (!m) throw splitPayloadError("not-duitful");
   // Unknown MAJOR version is refused before any field is read — that is the
   // whole point of putting the version in the prefix.
-  if (Number(m[1]) !== SPLIT_VERSION) throw splitPayloadError("version");
+  const major = Number(m[1]);
+  if (major !== 1 && major !== 2) throw splitPayloadError("version");
   let bytes;
   try {
     bytes = splitB64UrlToBytes(m[3]);
-    if (!m[2]) bytes = await splitInflate(bytes);
+    if (major === 1 && !m[2]) bytes = await splitInflate(bytes);
   } catch {
     throw splitPayloadError("damaged");
   }
   let obj;
   try {
-    obj = JSON.parse(new TextDecoder().decode(bytes));
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    obj = major === 2 ? splitUnpack(text) : JSON.parse(text);
   } catch {
     throw splitPayloadError("damaged");
   }
@@ -440,8 +497,10 @@ function splitRequestPayload(rec, person) {
     ti: rec.title,
     d: rec.date,
     a: splitPersonRemaining(person),
-    c: typeof currentCurrency === "function" ? currentCurrency() : "MYR",
   };
+  // Readers default to MYR, so it only travels when it isn't.
+  const cur = typeof currentCurrency === "function" ? currentCurrency() : "MYR";
+  if (cur !== "MYR") payload.c = cur;
   const me = splitText(s.me, SPLIT_NAME_MAX);
   if (me) payload.fr = me;
   // The person's own breakdown wins over the record-wide note: on an itemized
@@ -476,8 +535,9 @@ function splitPaidPayload(rec, opts) {
     ti: rec.title,
     d: splitIsDate(o.date) ? o.date : (splitIsDate(rec.settledDate) ? rec.settledDate : todayISO()),
     a: splitRound2(Number(rec.amount) || 0),
-    c: typeof currentCurrency === "function" ? currentCurrency() : "MYR",
   };
+  const cur = typeof currentCurrency === "function" ? currentCurrency() : "MYR";
+  if (cur !== "MYR") payload.c = cur;
   const me = splitText(s.me, SPLIT_NAME_MAX);
   if (me) payload.fr = me;
   return payload;
@@ -487,32 +547,49 @@ function splitShareLink(code) {
   return `${SPLIT_LINK_BASE}#${code}`;
 }
 
+// How a request or receipt reads in a chat. The sentence a person reads comes
+// first and the link goes last on its own line: a message that OPENS with
+// 300 characters of code is what a phishing link looks like.
+function splitWhenPhrase(iso) {
+  if (!splitIsDate(iso) || iso === todayISO()) return "today";
+  return `on ${splitDayLabel(iso)}`;
+}
+function splitForPhrase(rec) {
+  // The default loan title is the lender's word for it; to the borrower
+  // "for Money lent" reads like a form field.
+  if (rec.kind === "loan" && (!rec.title || rec.title === "Money lent")) return "the money I lent you";
+  return rec.title;
+}
+function splitPayLine() {
+  const s = splitState();
+  if (!s.payToEnabled) return "";
+  const rows = coerceSplitPayRows(s.payTo);
+  return rows.length ? `Pay to ${rows.map((r) => (r.label ? `${r.label} ${r.value}` : r.value)).join(" · ")}` : "";
+}
+
 function splitPaidShareText(rec, code, date) {
   const s = splitState();
-  const who = splitText(s.me, SPLIT_NAME_MAX) || "Someone";
+  const who = splitText(s.me, SPLIT_NAME_MAX) || "I";
   const amount = typeof fmtMoney === "function" ? fmtMoney(rec.amount) : String(rec.amount);
-  const when = splitIsDate(date) ? date : todayISO();
-  return `${who} paid ${amount} for ${rec.title} on ${splitDayLabel(when)} — ${splitShareLink(code)}`;
+  const paid = who === "I" ? "I've paid" : `${who} paid`;
+  return `${paid} ${amount} for ${rec.title} ${splitWhenPhrase(date)}.\nReceipt: ${splitShareLink(code)}`;
 }
 
 function splitShareText(rec, person, code, opts) {
   const s = splitState();
-  const who = splitText(s.me, SPLIT_NAME_MAX) || "Someone";
+  const who = splitText(s.me, SPLIT_NAME_MAX);
   const amount = typeof fmtMoney === "function"
     ? fmtMoney(splitPersonRemaining(person))
     : String(splitPersonRemaining(person));
+  const what = splitForPhrase(rec);
+  const due = rec.dueDate ? `, due ${splitDayLabel(rec.dueDate)}` : "";
   // Remind used to resend the original request word for word. A nudge reads
   // as a nudge — and it is the amount still LEFT, after any part-payments.
-  let line = opts && opts.remind
-    ? `Friendly reminder: ${amount} still to go for ${rec.title} — ${splitShareLink(code)}`
-    : `${who} requests ${amount} for ${rec.title} — ${splitShareLink(code)}`;
-  if (s.payToEnabled) {
-    const rows = coerceSplitPayRows(s.payTo);
-    if (rows.length) {
-      line += `\nPay to: ${rows.map((r) => (r.label ? `${r.label} ${r.value}` : r.value)).join(" · ")}`;
-    }
-  }
-  return line;
+  const head = opts && opts.remind
+    ? `Friendly reminder: ${amount} still to go for ${what}${due}.`
+    : `${who ? `${who}: ` : ""}${amount} for ${what}${due}.`;
+  const pay = splitPayLine();
+  return `${head}${pay ? `\n${pay}` : ""}\nDetails: ${splitShareLink(code)}`;
 }
 
 /* ---------- ingest ---------- */
@@ -1452,6 +1529,18 @@ function splitCloseDialog(dlg) {
 // adding or removing a row can never silently re-target someone else's food
 // the way a plain array index would.
 let splitKeySeq = 0;
+// A person's id travels inside every link, so new ones are 8 characters
+// instead of a 36-character UUID (56^8 ≈ 10^14 — plenty on one device). Only
+// unique on this device is required: it matches a receipt to its request.
+function splitShortId() {
+  const abc = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  let out = "";
+  for (const b of bytes) out += abc[b % abc.length];
+  return out;
+}
+
 function splitNewKey(prefix) { splitKeySeq += 1; return `${prefix}${splitKeySeq}`; }
 function splitNewPerson() { return { key: splitNewKey("p"), name: "", amount: 0 }; }
 // "You" is implicit and always first: the payer assigns their own food too,
@@ -2030,7 +2119,7 @@ function splitComposeSave() {
     total: c.mode === "split" ? Math.max(Number(c.total) || 0, othersTotal) : othersTotal,
     dueDate: c.dueDate,
     expenseId: c.expenseId,
-    people: people.map((p) => ({ id: uid(), name: p.name, amount: p.amount, status: "open", repayments: [] })),
+    people: people.map((p) => ({ id: splitShortId(), name: p.name, amount: p.amount, status: "open", repayments: [] })),
   });
   splitOutList().push(record);
   for (const p of record.people) splitRememberName(p.name);
@@ -2356,14 +2445,15 @@ async function splitGroupShareText(rec) {
   const lines = [];
   for (const person of people) {
     const code = await splitEncodePayload(splitRequestPayload(rec, person));
-    lines.push(`• ${person.name} — ${fmtMoney(splitPersonRemaining(person))}: ${splitShareLink(code)}`);
+    lines.push({ name: person.name, amount: fmtMoney(splitPersonRemaining(person)), link: splitShareLink(code) });
   }
-  let text = `${who === "I" ? "I" : who} split ${rec.title}. Your share:\n${lines.join("\n")}`;
-  if (s.payToEnabled) {
-    const rows = coerceSplitPayRows(s.payTo);
-    if (rows.length) text += `\nPay to: ${rows.map((r) => (r.label ? `${r.label} ${r.value}` : r.value)).join(" · ")}`;
-  }
-  return text;
+  // Everyone's line first (the part people read), then the links underneath.
+  const pay = splitPayLine();
+  return `${who === "I" ? "I" : who} split ${rec.title}:\n`
+    + lines.map((l) => `• ${l.name} — ${l.amount}`).join("\n")
+    + (pay ? `\n${pay}` : "")
+    + `\n\nYour own link:\n`
+    + lines.map((l) => `${l.name}: ${l.link}`).join("\n");
 }
 
 async function splitDoShareAll() {

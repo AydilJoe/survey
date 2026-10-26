@@ -1097,35 +1097,40 @@ check('zero open requests renders no owed/you-owe wording at all',
   zeroClutter.debtsText.replace(/\n/g, ' | ').slice(0, 140));
 
 // --- payload: the app's own encoder against a hand-rolled decode ---
+// DFS2: positional fields joined by U+001F, dates as base-36 days since
+// 2020-01-01, the amount in base-36 sen, a 2-char check last.
 const payloadRt = await S(async () => {
-  const src = { v: 1, t: 'req', id: 'rt-1', fr: 'Aydil', ti: 'Dinner @ Naz', d: '2026-01-02', a: 23.5, c: 'MYR' };
+  const src = { v: 1, t: 'req', id: 'rt-1', fr: 'Aydil', ti: 'Dinner @ Naz', d: '2026-01-02', a: 23.5 };
   const code = await splitEncodePayload(src);
   const m = /^DFS(\d+)(u?)\.(.+)$/.exec(code);
   let b64 = m[3].replace(/-/g, '+').replace(/_/g, '/');
   while (b64.length % 4) b64 += '=';
   const bin = atob(b64);
-  let bytes = new Uint8Array(bin.length);
+  const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  if (!m[2]) {
-    bytes = new Uint8Array(await new Response(
-      new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')),
-    ).arrayBuffer());
-  }
+  const f = new TextDecoder().decode(bytes).split('\u001f');
+  const day = (v) => new Date(Date.UTC(2020, 0, 1) + parseInt(v, 36) * 864e5).toISOString().slice(0, 10);
+  const back = await splitDecodePayload(code);
+  delete back.v;
+  const want = { ...src }; delete want.v;
   return {
     prefix: `DFS${m[1]}${m[2]}.`,
-    hand: JSON.stringify(JSON.parse(new TextDecoder().decode(bytes))),
-    src: JSON.stringify(src),
-    viaApp: JSON.stringify(await splitDecodePayload(code)),
+    hand: { t: f[0], id: f[1], ti: f[2], d: day(f[3]), a: parseInt(f[4], 36) / 100, fr: f[5], fields: f.length },
+    viaApp: JSON.stringify(back, Object.keys(back).sort()), want: JSON.stringify(want, Object.keys(want).sort()),
     urlSafe: !/[+/=]/.test(m[3]),
+    linkLen: splitShareLink(code).length,
   };
 });
-check('encoder emits the DFS1. prefix the /split page decoder expects',
-  payloadRt.prefix === 'DFS1.', payloadRt.prefix);
+check('encoder emits the DFS2. prefix the /split page decoder expects',
+  payloadRt.prefix === 'DFS2.', payloadRt.prefix);
 check('payload body is url-safe base64 (survives a URL fragment)', payloadRt.urlSafe);
 check('hand-decoding the app\'s payload reproduces it field for field',
-  payloadRt.hand === payloadRt.src, `${payloadRt.hand} vs ${payloadRt.src}`);
+  payloadRt.hand.t === 'r' && payloadRt.hand.id === 'rt-1' && payloadRt.hand.ti === 'Dinner @ Naz'
+  && payloadRt.hand.d === '2026-01-02' && payloadRt.hand.a === 23.5 && payloadRt.hand.fr === 'Aydil' && payloadRt.hand.fields === 7,
+  JSON.stringify(payloadRt.hand));
 check('the app\'s own decoder round-trips its own encoder',
-  payloadRt.viaApp === payloadRt.src, payloadRt.viaApp);
+  payloadRt.viaApp === payloadRt.want, `${payloadRt.viaApp} vs ${payloadRt.want}`);
+check('a request link is short: under 100 characters for a plain split', payloadRt.linkLen < 100, String(payloadRt.linkLen));
 
 const rejects = await S(async () => {
   const good = await splitEncodePayload({ v: 1, t: 'req', id: 'x', ti: 't', d: '2026-01-01', a: 10, c: 'MYR' });
@@ -1133,7 +1138,9 @@ const rejects = await S(async () => {
     try { await splitDecodePayload(code); return 'accepted'; } catch (e) { return e.code || 'threw'; }
   };
   return {
-    v2: await grab(good.replace(/^DFS1\./, 'DFS2.')),
+    v3: await grab(good.replace(/^DFS2\./, 'DFS3.')),
+    // A link from before v1.44 still opens.
+    v1: await grab('DFS1u.' + btoa(JSON.stringify({ v: 1, t: 'req', id: 'old', ti: 'Old link', d: '2026-01-01', a: 10 })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')),
     truncated: await grab(good.slice(0, good.length - 8)),
     corrupted: await grab(`${good.slice(0, 12)}AAAA${good.slice(16)}`),
     junk: await grab('just some text someone pasted'),
@@ -1144,8 +1151,9 @@ const rejects = await S(async () => {
     friendlyDamaged: splitErrorMessage({ code: 'damaged' }),
   };
 });
-check('a DFS2 payload is refused on the prefix, before any field is read',
-  rejects.v2 === 'version', rejects.v2);
+check('a DFS3 payload is refused on the prefix, before any field is read',
+  rejects.v3 === 'version', rejects.v3);
+check('an older DFS1 link still decodes', rejects.v1 === 'accepted', rejects.v1);
 check('tampered / truncated payloads fail gracefully instead of throwing raw',
   rejects.truncated === 'damaged' && rejects.corrupted === 'damaged',
   JSON.stringify({ t: rejects.truncated, c: rejects.corrupted }));
@@ -1297,7 +1305,7 @@ check('"Next person" walks the rest of the bill',
       title: document.getElementById('split-share-title').textContent,
       allBtn: document.querySelector('#split-share-body [data-action="split-share-all"]')?.textContent || '',
       text,
-      links: (text.match(/duitful\.app\/split\/?#DFS1/g) || []).length,
+      links: (text.match(/duitful\.app\/split\/?#DFS\d/g) || []).length,
       names: rec.people.map((p) => p.name),
     };
   }, expenseId);
@@ -1329,7 +1337,7 @@ check('"Next person" walks the rest of the bill',
   await fctxPaid.close();
   check('the friend page keeps "I have Duitful" as the main button, "Already paid?" tucked under it',
     before.formHidden && /I have Duitful/.test(before.primary), JSON.stringify(before));
-  const code = shared && (/#(DFS1u?\.[A-Za-z0-9_-]+)/.exec(shared.text) || [])[1];
+  const code = shared && (/#(DFS\du?\.[A-Za-z0-9_-]+)/.exec(shared.text) || [])[1];
   check('"I\'ve paid" from the friend page shares a receipt link with their name and the amount',
     !!code && /^Ali paid RM 23\.50 for /.test(shared.text), JSON.stringify(shared));
   const res = await S(async (code) => {
@@ -1891,30 +1899,29 @@ const paidEmit = await S(async () => {
   let b64 = m[3].replace(/-/g, '+').replace(/_/g, '/');
   while (b64.length % 4) b64 += '=';
   const bin = atob(b64);
-  let bytes = new Uint8Array(bin.length);
+  const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  if (!m[2]) {
-    bytes = new Uint8Array(await new Response(
-      new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')),
-    ).arrayBuffer());
-  }
+  const f = new TextDecoder().decode(bytes).split('\u001f');
+  const day = (v) => new Date(Date.UTC(2020, 0, 1) + parseInt(v, 36) * 864e5).toISOString().slice(0, 10);
+  const hand = { t: f[0] === 'p' ? 'paid' : f[0], id: f[1], ti: f[2], d: day(f[3]), a: parseInt(f[4], 36) / 100, fr: f[5] };
+  const viaApp = await splitDecodePayload(code);
+  const strip = (o) => { const c = { ...o }; delete c.v; return JSON.stringify(c); };
   return {
     prefix: `DFS${m[1]}${m[2]}.`,
-    hand: JSON.parse(new TextDecoder().decode(bytes)),
+    hand, fieldCount: f.length,
     payload,
-    viaApp: await splitDecodePayload(code),
+    viaApp, same: strip(viaApp) === strip(payload) && strip(hand) === strip(payload),
     code,
   };
 });
 check('a receipt hand-decodes field for field into what was emitted',
-  JSON.stringify(paidEmit.hand) === JSON.stringify(paidEmit.payload)
-  && JSON.stringify(paidEmit.viaApp) === JSON.stringify(paidEmit.payload)
-  && paidEmit.prefix === 'DFS1.',
-  JSON.stringify(paidEmit.hand));
+  paidEmit.same && paidEmit.prefix === 'DFS2.' && paidEmit.fieldCount === 7,
+  JSON.stringify({ hand: paidEmit.hand, payload: paidEmit.payload, viaApp: paidEmit.viaApp }));
 check('the receipt carries t:"paid", the ORIGINAL request id, amount and payer',
   paidEmit.payload.t === 'paid' && paidEmit.payload.id === 'paid-req-1'
   && Math.abs(paidEmit.payload.a - 42.5) < 0.001 && paidEmit.payload.fr === 'Aydil'
-  && paidEmit.payload.c === 'MYR' && /^\d{4}-\d{2}-\d{2}$/.test(paidEmit.payload.d),
+  // MYR is the default every reader assumes, so it no longer travels.
+  && paidEmit.payload.c === undefined && /^\d{4}-\d{2}-\d{2}$/.test(paidEmit.payload.d),
   JSON.stringify(paidEmit.payload));
 check('a receipt never carries transfer details, even with the toggle on',
   paidEmit.payload.pay === undefined && paidEmit.hand.pay === undefined,
@@ -4806,6 +4813,35 @@ check('the vault is open before the quick-add checks',
   await fctx.close();
   check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
     lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
+}
+
+/* ── v1.43.2: a share message that doesn't look like phishing ────────────
+   The owner's own WhatsApp: a "Someone sent you…" preview, 300 characters of
+   code before the payment details, "for Money lent", "on Today". */
+{
+  const m = await page.evaluate(async () => {
+    const s = splitState();
+    const keep = { me: s.me, payToEnabled: s.payToEnabled, payTo: s.payTo };
+    s.me = 'Aydil Johari'; s.payToEnabled = true; s.payTo = [{ label: 'DuitNow', value: '0176890159' }];
+    const loan = { kind: 'loan', title: 'Money lent', people: [] };
+    const person = { id: splitShortId(), name: 'Dollah', amount: 100, repayments: [] };
+    const req = splitShareText(loan, person, 'DFS1.abc');
+    const paidToday = splitPaidShareText({ title: 'Money lent', amount: 100 }, 'DFS1.abc', todayISO());
+    const payload = splitRequestPayload({ title: 'Makan', date: todayISO() }, person);
+    Object.assign(s, keep);
+    return { req, paidToday, id: person.id, payload };
+  });
+  const lines = m.req.split('\n');
+  check('a request reads as a sentence first, payment details next, the link last on its own line',
+    /^Aydil Johari: RM\s100\.00 for the money I lent you\.$/.test(lines[0]) && /^Pay to DuitNow 0176890159$/.test(lines[1])
+    && /^Details: https:\/\/duitful\.app\/split#DFS1\./.test(lines[2]) && lines.length === 3, m.req);
+  check('a receipt from today says "today", not "on Today"', /^Aydil Johari paid RM\s100\.00 for Money lent today\.\nReceipt: /.test(m.paidToday), m.paidToday);
+  check('new request ids are 8 characters (a shorter link), and MYR is not repeated in it',
+    /^[A-Za-z0-9]{8}$/.test(m.id) && m.payload.c === undefined, JSON.stringify(m.payload));
+  const friendHtml = readFileSync(path.join(REPO_ROOT, 'split/index.html'), 'utf8');
+  check('the split link previews as Duitful with an image, not "Someone sent you a payment request"',
+    /og:image" content="https:\/\/duitful\.app\/split\/og\.jpg"/.test(friendHtml) && /og:title" content="Duitful/.test(friendHtml)
+    && !/Someone sent you/.test(friendHtml) && existsSync(path.join(REPO_ROOT, 'split/og.jpg')), '');
 }
 
 /* ── v1.43.1 polish ─────────────────────────────────────────────────────── */

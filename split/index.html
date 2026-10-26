@@ -3,8 +3,21 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Payment request — Duitful</title>
-<meta name="description" content="Someone sent you a payment request via Duitful. It decodes on your device — nothing was sent to any server.">
+<title>Duitful — split &amp; pay back</title>
+<meta name="description" content="Open to see who it's from, the amount and how to pay. The details live in this link — Duitful never holds or moves money.">
+<!-- The chat preview. Crawlers never see the #code, so this can't name the
+     sender or amount; it can look like what it is instead of a bare link. -->
+<meta property="og:site_name" content="Duitful">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://duitful.app/split/">
+<meta property="og:title" content="Duitful — split &amp; pay back">
+<meta property="og:description" content="Open to see who it's from, the amount and how to pay. Duitful never holds or moves money.">
+<meta property="og:image" content="https://duitful.app/split/og.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Duitful — split the bill, pay back, no account needed">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="/app/icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -308,7 +321,7 @@
       damagedT: "This request couldn't be read", damagedB: "The link seems damaged — messaging apps sometimes trim long links. Ask the sender to re-share it, or to send the request code for pasting inside Duitful.",
       currencyT: "Unsupported currency", currencyB: "This request uses a currency this version doesn't support yet.",
       paid: "Paid", due: "Due", copy: "Copy", copied: "Copied ✓", copiedLive: "copied", details: "Details", nameFirst: "Add your name first",
-      paidText: "{name} paid RM {amt} for {title}", theBill: "the bill", title: "Payment request — Duitful",
+      paidText: "{name} paid RM {amt} for {title} today.", theBill: "the bill", receipt: "Receipt", title: "Payment request — Duitful",
     },
     ms: {
       eyebrow: "Permintaan bayaran", isRequesting: "minta bayaran", gotRequest: "Ada permintaan bayaran untuk anda",
@@ -328,7 +341,7 @@
       damagedT: "Permintaan ini tidak dapat dibaca", damagedB: "Pautan nampak rosak — aplikasi mesej kadang-kadang memotong pautan panjang. Minta penghantar kongsi semula, atau hantar kod permintaan untuk ditampal dalam Duitful.",
       currencyT: "Mata wang tidak disokong", currencyB: "Permintaan ini menggunakan mata wang yang belum disokong dalam versi ini.",
       paid: "Dibayar", due: "Tarikh akhir", copy: "Salin", copied: "Disalin ✓", copiedLive: "disalin", details: "Butiran", nameFirst: "Masukkan nama anda dahulu",
-      paidText: "{name} dah bayar RM {amt} untuk {title}", theBill: "bil ini", title: "Permintaan bayaran — Duitful",
+      paidText: "{name} dah bayar RM {amt} untuk {title} hari ini.", theBill: "bil ini", receipt: "Resit", title: "Permintaan bayaran — Duitful",
     },
   };
   function T(k) { return (STR[LANG] && STR[LANG][k]) || STR.en[k] || ""; }
@@ -374,12 +387,43 @@
   var raw = (location.hash || "").replace(/^#/, "");
   if (!raw) { fallback(); return; }
 
+  // Same two formats as app/split.js: DFS2 packed fields (every new link)
+  // and DFS1 JSON (older links). Keep the two decoders in step.
+  var DAY0 = Date.UTC(2020, 0, 1);
+  function dayUnpack(v) {
+    if (!v) return "";
+    var n = parseInt(v, 36);
+    return isFinite(n) ? new Date(DAY0 + n * 864e5).toISOString().slice(0, 10) : "";
+  }
+  // Mirrors splitCheck in app/split.js: a trimmed or garbled link is refused,
+  // never shown with a wrong amount.
+  function check(text) {
+    var h = 0x811c9dc5, bytes = new TextEncoder().encode(text);
+    for (var i = 0; i < bytes.length; i++) { h ^= bytes[i]; h = Math.imul(h, 16777619) >>> 0; }
+    var c = (h % 1296).toString(36);
+    return c.length < 2 ? "0" + c : c;
+  }
+  function unpack(text) {
+    var all = String(text), cut = all.lastIndexOf("\u001f");
+    if (cut < 0 || check(all.slice(0, cut)) !== all.slice(cut + 1)) return null;
+    var f = all.slice(0, cut).split("\u001f");
+    if (f.length < 6 || (f[0] !== "r" && f[0] !== "p")) return null;
+    var o = { v: 2, t: f[0] === "p" ? "paid" : "req", id: f[1], ti: f[2], d: dayUnpack(f[3]), a: parseInt(f[4], 36) / 100 };
+    if (f[5]) o.fr = f[5];
+    if (f[6]) o.dd = dayUnpack(f[6]);
+    if (f[7]) o.n = f[7];
+    if (f[8]) o.c = f[8];
+    var pay = f.slice(9).map(function (r) { return r.split("\u001e"); }).filter(function (r) { return r[1]; });
+    if (pay.length) o.pay = pay.map(function (r) { return [r[0] || "", r[1]]; });
+    return o;
+  }
+
   var m = /^DFS(\d+)(u?)\.(.+)$/.exec(raw);
   if (!m) {
     fallback(T("notDuitfulT"), T("notDuitfulB"));
     return;
   }
-  if (m[1] !== "1") {
+  if (m[1] !== "1" && m[1] !== "2") {
     fallback(T("newerT"), T("newerB"));
     return;
   }
@@ -387,8 +431,9 @@
   var req;
   try {
     var bytes = b64urlToBytes(m[3]);
-    if (!m[2]) bytes = await inflate(bytes);
-    req = JSON.parse(new TextDecoder().decode(bytes));
+    if (m[1] === "1" && !m[2]) bytes = await inflate(bytes);
+    var text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    req = m[1] === "2" ? unpack(text) : JSON.parse(text);
     if (!req || (req.t !== "req" && req.t !== "paid") || !Number.isFinite(Number(req.a))) throw new Error("shape");
   } catch (e) {
     fallback(T("damagedT"), T("damagedB"));
@@ -498,15 +543,17 @@
     for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
     return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
-  async function encode(obj) {
-    var bytes = new TextEncoder().encode(JSON.stringify(obj));
-    if (typeof CompressionStream === "function") {
-      try {
-        var stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream("deflate-raw"));
-        return "DFS1." + bytesToB64url(new Uint8Array(await new Response(stream).arrayBuffer()));
-      } catch (e) {}
-    }
-    return "DFS1u." + bytesToB64url(bytes);
+  function dayPack(iso) {
+    var p = String(iso || "").split("-").map(Number);
+    return p.length === 3 ? Math.round((Date.UTC(p[0], p[1] - 1, p[2]) - DAY0) / 864e5).toString(36) : "";
+  }
+  // The receipt, packed exactly as the app's splitPack packs a "paid".
+  function encodePaid(o) {
+    var clean = function (v) { return String(v == null ? "" : v).replace(/[\u001e\u001f]/g, " "); };
+    var f = ["p", clean(o.id), clean(o.ti), dayPack(o.d), Math.round(Number(o.a) * 100).toString(36), clean(o.fr)];
+    if (o.c && o.c !== "MYR") f.push("", "", clean(o.c));
+    var body = f.join("\u001f");
+    return "DFS2." + bytesToB64url(new TextEncoder().encode(body + "\u001f" + check(body)));
   }
   var openBtn = document.getElementById("btn-paid-open");
   var form = document.getElementById("paid-form");
@@ -523,9 +570,11 @@
     try { localStorage.setItem("duitful.payerName", name); } catch (e) {}
     var today = new Date();
     var iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
-    var paid = { v: 1, t: "paid", id: req.id, ti: req.ti, d: iso, a: Number(req.a), c: req.c || "MYR", fr: name };
-    var link = location.origin + "/split/#" + (await encode(paid));
-    var text = T("paidText").replace("{name}", name).replace("{amt}", fmtAmount).replace("{title}", String(req.ti || T("theBill"))) + " — " + link;
+    var paid = { v: 1, t: "paid", id: req.id, ti: req.ti, d: iso, a: Number(req.a), fr: name };
+    if (req.c && req.c !== "MYR") paid.c = req.c;
+    var link = location.origin + "/split#" + encodePaid(paid);
+    // Words first, link last — the same shape as the app's own messages.
+    var text = T("paidText").replace("{name}", name).replace("{amt}", fmtAmount).replace("{title}", String(req.ti || T("theBill"))) + "\n" + T("receipt") + ": " + link;
     if (navigator.share) {
       try { await navigator.share({ title: "Paid: " + String(req.ti || ""), text: text }); return; }
       catch (e) { if (e && e.name === "AbortError") return; }

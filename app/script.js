@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.44.0";
+const APP_VERSION = "1.45.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9873,10 +9873,16 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.45.0": [
+    "<strong>Tax refund estimate</strong> — Reports → Tax refund estimate works out your likely LHDN refund from your income and the PCB already deducted, using the YA 2026–2027 reliefs, and shows what each relief is still worth to you.",
+    "<strong>Never miss a claim</strong> — when something you buy counts as tax relief, Duitful asks if you want to claim it, then offers to keep the receipt and any documents LHDN may ask for. Review your whole year any time, with a check-in in November and again before e-Filing opens.",
+    "<strong>Receipts, kept private</strong> — saved photos and documents are encrypted on this device with your passcode and never uploaded. Export your claims as a CSV when e-Filing opens.",
+  ],
   "1.44.0": [
-    "<strong>Tax refund estimate</strong> — Reports → Tax refund estimate works out your likely LHDN refund from your income and the PCB already deducted, and shows what each relief is still worth to you.",
-    "<strong>Spots tax-deductible spending</strong> — books, gym, medical, insurance, SSPN, PRS and more. Duitful asks if you want to claim it, and if you scanned the receipt, whether to keep the photo.",
-    "<strong>Receipts, kept private</strong> — saved photos are encrypted on this device with your passcode and never uploaded. Export your claims as a CSV when e-Filing opens.",
+    "<strong>Links half the length</strong> — a split or request link is now about 80–120 characters instead of 160–220, so it no longer fills the chat. Older links still open, and a link that got cut off in a chat is refused instead of showing a wrong amount.",
+  ],
+  "1.43.2": [
+    "<strong>Links that look trustworthy</strong> — split and request messages now read like a person wrote them: who, how much and how to pay first, the link last. In WhatsApp the link shows a Duitful card instead of \"Someone sent you a payment request\".",
   ],
   "1.43.1": [
     "<strong>Finishing touches</strong> — a shop you've scanned before remembers its category, Remind sends a reminder (not the whole request again), and money a friend already paid you back no longer shows as \"Expected pay\".",

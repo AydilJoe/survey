@@ -153,6 +153,26 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-44-0">
+    <span class="release-date">October 2026 &middot; v1.44.0</span>
+    <h2 class="release-title">Links half the length</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Shorter links, same privacy.</strong> The details of a request still travel inside the link itself &mdash; nothing is stored on a server &mdash; but they&rsquo;re packed far tighter. A loan request with your DuitNow details went from 219 characters to 117, a three-way split share from about 158 to 87, and an &ldquo;I&rsquo;ve paid&rdquo; receipt to 79.</li>
+      <li><span class="tag fix">fix</span><strong>Damaged links are refused.</strong> Each link carries a small check, so one that a chat app cut short or mangled says &ldquo;ask them to re-share it&rdquo; instead of ever showing a wrong amount.</li>
+      <li><span class="tag fix">fix</span><strong>Old links keep working.</strong> Every link sent before this update still opens. An older copy of Duitful that gets a new link says &ldquo;made with a newer Duitful &mdash; update the app&rdquo;.</li>
+    </ul>
+  </article>
+
+  <article class="release" id="v1-43-2">
+    <span class="release-date">October 2026 &middot; v1.43.2</span>
+    <h2 class="release-title">Links that don&rsquo;t look like a scam</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Words first, link last.</strong> A request used to open with three lines of code before the DuitNow number, which is exactly what a phishing message looks like. Now it reads &ldquo;Aydil: RM 100.00 for the money I lent you. / Pay to DuitNow 012&hellip; / Details: &lt;link&gt;&rdquo;, and the link is about a sixth shorter.</li>
+      <li><span class="tag fix">fix</span><strong>A proper preview.</strong> In WhatsApp and Telegram the link showed &ldquo;Someone sent you a payment request via Duitful. It decodes on your device&hellip;&rdquo; with no picture. It now shows a Duitful card: &ldquo;Split the bill. Pay it back.&rdquo;</li>
+      <li><span class="tag fix">fix</span><strong>Small words.</strong> &ldquo;Dollah paid RM 100.00 for Money lent on Today&rdquo; now says &ldquo;today&rdquo;, and a loan reads &ldquo;for the money I lent you&rdquo; instead of &ldquo;for Money lent&rdquo;.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-43-1">
     <span class="release-date">October 2026 &middot; v1.43.1</span>
     <h2 class="release-title">Finishing touches</h2>
