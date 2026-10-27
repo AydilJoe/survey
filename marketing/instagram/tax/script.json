@@ -1,0 +1,12 @@
+[
+  { "id": "hook",    "text": "Tax season shouldn't mean digging through a whole year of receipts." },
+  { "id": "found",   "text": "Duitful reads the spending you already track, and finds what may count as tax relief. Five spends, over four thousand ringgit, found on its own." },
+  { "id": "refund",  "text": "Then it estimates your refund: the tax you owe, against the P C B your employer already paid." },
+  { "id": "ask",     "text": "When new spending looks like a relief, it asks you once. Dental scaling? That counts as medical." },
+  { "id": "claimed", "text": "One tap to claim it, and it shows you what that saves." },
+  { "id": "claims",  "text": "Every claim keeps its receipt, encrypted, right on your phone, ready for the e-Filing deadline." },
+  { "id": "relief",  "text": "Each relief shows its limit, and how much room you have left." },
+  { "id": "how",     "text": "And your refund is worked out line by line, so nothing is a mystery." },
+  { "id": "checkin", "text": "It checks in every November, and again before e-Filing opens, so nothing slips through." },
+  { "id": "end",     "text": "Duitful. Find your tax refund. Free on the App Store and Google Play." }
+]
