@@ -1,4 +1,6 @@
-// App captures for the tax video, sized for the iPhone Duo's two screens:
+// App captures for the tax video. PHONE=1 shoots every screen at iPhone size
+// (440 × 868 pt, the App Store set's viewport) with a "p-" prefix; otherwise
+// they are sized for the iPhone Duo's two screens:
 //   outer 5.4", 1:1.4 portrait  → 430 × 602 pt @3x
 //   inner 7.6", 1.42:1 landscape → 890 × 626 pt @3x (2670 × 1878, its panel)
 // Every screen is the real app with a sample person; nothing is mocked.
@@ -7,6 +9,10 @@ import { chromium } from 'playwright';
 import { readFileSync, mkdirSync } from 'node:fs';
 
 const S = process.env.WORK || '/tmp/duitful-shots';
+const PHONE = process.env.PHONE === '1';
+const [OVW, OVH] = PHONE ? [440, 868] : [430, 602];
+const [IVW, IVH] = PHONE ? [440, 868] : [890, 626];
+const PFX = PHONE ? 'p-' : '';
 const OUT = S + '/duo/';
 mkdirSync(OUT, { recursive: true });
 const F = S + '/fonts/node_modules/';
@@ -66,12 +72,12 @@ async function open(vw, vh, tracking) {
 const snap = async (p, name) => {
   await p.evaluate(() => { document.activeElement?.blur(); return document.fonts.ready; });
   await p.waitForTimeout(350);
-  await p.screenshot({ path: OUT + name + '.png' });
+  await p.screenshot({ path: OUT + PFX + name + '.png' });
 };
 
 // OUTER screen: Home, for someone not tracking tax yet. The one quiet card.
 {
-  const { p, ctx } = await open(430, 602, false);
+  const { p, ctx } = await open(OVW, OVH, false);
   await p.evaluate(() => { document.getElementById('tabbtn-dashboard').click(); renderAll(); });
   await p.waitForTimeout(600);
   await p.evaluate(() => { const c = document.getElementById('tax-intro'); c?.scrollIntoView({ block: 'center' }); });
@@ -82,7 +88,7 @@ const snap = async (p, name) => {
 // INNER screen.
 {
   // Welcome page: what it already found in this person's spending.
-  const { p, ctx } = await open(890, 626, false);
+  const { p, ctx } = await open(IVW, IVH, false);
   await p.evaluate(() => { document.getElementById('tabbtn-dashboard').click(); renderAll(); });
   await p.waitForTimeout(400);
   await p.click('#tax-intro-go').catch(async () => { await p.evaluate(() => document.getElementById('tabbtn-tax').click()); });
@@ -92,7 +98,7 @@ const snap = async (p, name) => {
   await ctx.close();
 }
 {
-  const { p, ctx } = await open(890, 626, true);
+  const { p, ctx } = await open(IVW, IVH, true);
   await p.evaluate(() => { document.getElementById('tabbtn-tax').click(); scrollTo(0, 0); });
   await p.waitForTimeout(1500);
   // The automatic check opens on its own for new matching spending.
