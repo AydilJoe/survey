@@ -55,6 +55,12 @@ svg.ribbon{position:absolute;inset:0}
 .p-l{left:${1150 - 500}px;top:470px;transform:rotate(-9deg) scale(.51);z-index:0}
 .p-r{left:${2090 - 500}px;top:470px;transform:rotate(9deg) scale(.51);z-index:0}
 .p-c{z-index:1}
+/* Real phones are 8.25 mm thick: a titanium band, and the side wall facing
+   the camera, so the fan doesn't read as cards of paper. */
+.phone{background:linear-gradient(145deg,#1d1a17,#0c0b0a);border:6px solid #b6a189}
+.p-c{box-shadow:0 18px 0 -2px #8f7b66,0 90px 160px -40px rgba(60,38,20,.55)}
+.p-l{box-shadow:-34px 14px 0 -4px #9b8670,-34px 14px 0 2px #6f604f,0 90px 160px -40px rgba(60,38,20,.5)}
+.p-r{box-shadow:34px 14px 0 -4px #9b8670,34px 14px 0 2px #6f604f,0 90px 160px -40px rgba(60,38,20,.5)}
 .t1{position:absolute;left:96px;top:120px;width:820px}
 .eyebrow{display:inline-flex;align-items:center;gap:14px;padding:14px 26px;border-radius:999px;background:#2a2420;color:#f6eee2;font:650 30px/1 I;letter-spacing:.06em;text-transform:uppercase}
 .eyebrow b{width:14px;height:14px;border-radius:50%;background:#e7a283}
@@ -62,33 +68,37 @@ h1{margin:52px 0 0;font-family:F,serif;font-weight:540;font-size:128px;line-heig
 h1 em{font-style:italic;font-weight:480;color:#a45434}
 .t1 p{margin:40px 0 0;font-size:44px;line-height:1.3;color:#5c524a}
 .t1 .made{position:absolute;top:1100px;left:0;font:600 32px/1.3 I;color:#7a6c60}
-.t3{position:absolute;left:${2160 + 330}px;top:130px;width:660px}
-.t3 h2{margin:0;font-family:F,serif;font-weight:540;font-size:76px;line-height:1.04;letter-spacing:-0.02em;color:#2a2420}
+.t3{position:absolute;left:${2160 + 330}px;top:110px;width:680px}
+.t3 h2{margin:0;font-family:F,serif;font-weight:540;font-size:70px;line-height:1.04;letter-spacing:-0.02em;color:#2a2420}
 .t3 h2 em{font-style:italic;color:#a45434}
-.t3 ul{list-style:none;margin:46px 0 0;padding:0;display:grid;gap:26px}
-.t3 li{display:flex;gap:20px;align-items:flex-start;font:500 38px/1.25 I;color:#3d342d}
+.t3 ul{list-style:none;margin:40px 0 0;padding:0;display:grid;gap:20px}
+.t3 li{display:flex;gap:18px;align-items:flex-start;font:500 33px/1.25 I;color:#3d342d}
+.t3 li.new{padding:18px 20px;margin:0 -20px;border-radius:24px;background:rgba(164,84,52,.12);color:#5a2c18}
+.t3 li b{color:#a45434}
 .t3 li i{flex:none;width:46px;height:46px;border-radius:14px;background:#a45434;color:#fff;font:700 28px/46px I;text-align:center;font-style:normal}
-.cta{position:absolute;left:${2160 + 330}px;top:1010px;width:660px}
+.cta{position:absolute;left:${2160 + 330}px;top:1110px;width:680px}
 .cta .pill{display:inline-block;white-space:nowrap;padding:28px 40px;border-radius:999px;background:#2a2420;color:#f6eee2;font:650 35px/1 I}
 .cta p{margin:26px 0 0;font:500 32px/1.35 I;color:#5c524a}
 </style></head><body>
 <svg class="ribbon" viewBox="0 0 ${W} ${H}"><path d="M-40 1180 C 600 1320, 900 980, 1620 1120 S 2700 1380, 3300 1060" fill="none" stroke="#c9774f" stroke-width="10" stroke-linecap="round" opacity=".55"/>
 <path d="M-40 1240 C 700 1380, 1000 1060, 1620 1200 S 2600 1420, 3300 1140" fill="none" stroke="#c9774f" stroke-width="4" stroke-linecap="round" opacity=".3"/></svg>
 ${phone(shot('2-payoff'), 'p-l')}
-${phone(shot('4-split'), 'p-r')}
+${phone(shot('7-tax'), 'p-r')}
 ${phone(shot('1-home'), 'p-c')}
 <div class="t1">
   <span class="eyebrow"><b></b>Now on the App Store</span>
   <h1>Akhirnya,<br>Duitful dah ada kat <em>iPhone.</em></h1>
-  <p>Track duit, settle hutang, split bill. Semua dalam satu app.</p>
+  <p>Track duit, settle hutang, claim tax relief, split bill. Semua dalam satu app.</p>
   <div class="made">Made in Malaysia 🇲🇾</div>
 </div>
 <div class="t3">
   <h2>Duit you,<br><em>phone you.</em></h2>
   <ul>
+    <li class="new"><i>★</i><span><b>Baru:</b> detect sendiri belanja yang boleh claim tax LHDN, siap anggaran refund</span></li>
     <li><i>✓</i>Tahu baki duit bulan ni, sekali pandang</li>
-    <li><i>✓</i>Bayar hutang paling mahal dulu, jimat interest</li>
-    <li><i>✓</i>Split bill guna satu link je</li>
+    <li><i>✓</i>Hutang paling mahal settle dulu, BNPL pun track</li>
+    <li><i>✓</i>Islamic financing, ibra’ & zakat dikira betul</li>
+    <li><i>✓</i>Scan resit, split bill guna satu link</li>
     <li><i>✓</i>Encrypted dalam phone. No bank login.</li>
   </ul>
 </div>
