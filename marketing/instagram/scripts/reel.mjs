@@ -17,6 +17,12 @@ const F = S + '/fonts/node_modules/';
 const b64 = (f) => readFileSync(f).toString('base64');
 const shot = (n) => 'data:image/png;base64,' + b64(`${S}/as/raw-${n}.png`);
 const FPS = 30, W = 1080, H = 1920;
+// Official store badges, unmodified; Apple's first. Google's PNG includes
+// its clear space (41 of 250 px), so it is scaled to match Apple's height.
+const BADGES = new URL('../../badges/', import.meta.url).pathname;
+const appStoreBadge = 'data:image/svg+xml;base64,' + b64(BADGES + 'app-store-download-black.svg');
+const playBadge = 'data:image/png;base64,' + b64(BADGES + 'google-play-get-it-on.png');
+const BADGE_H = 118;
 
 const SCREENS = [
   { img: '1-home', cap: 'Akhirnya!<br><em>Duitful dah ada kat iPhone.</em>' },
@@ -87,7 +93,9 @@ body{font-family:I,sans-serif;background:linear-gradient(170deg,#f8f1e6 0%,#efe2
 #end .chips{margin-top:46px;display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
 #end .chips span{padding:14px 24px;border-radius:999px;background:rgba(164,84,52,.1);color:#7d3f26;font:600 32px/1 I}
 #end .chips span.n{background:#a45434;color:#fff}
-#end .pill{margin-top:56px;padding:34px 52px;border-radius:999px;background:#2a2420;color:#f6eee2;font:650 44px/1 I}
+#end .badges{margin-top:56px;display:flex;align-items:center;gap:20px}
+#end .badges .as{height:${BADGE_H}px}
+#end .badges .gp{height:${Math.round(BADGE_H * 250 / 168)}px;margin:0 -${Math.round(BADGE_H * 41 / 168)}px}
 #end .fine{margin-top:30px;font:500 34px/1.35 I;color:#6b5f55}
 </style></head><body>
 <script>window.__shots=${JSON.stringify(Object.fromEntries([...new Set(SCREENS.map((s) => s.img))].map((n) => [n, shot(n)])))};</script>
@@ -106,9 +114,9 @@ body{font-family:I,sans-serif;background:linear-gradient(170deg,#f8f1e6 0%,#efe2
 <div id="end" style="opacity:0">
   <div class="icon"><svg width="160" height="160" viewBox="0 0 24 24" fill="none" stroke="#c46a45" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/><circle cx="17" cy="13" r="1.5" fill="#c46a45" stroke="none"/></svg></div>
   <h2>Duitful</h2>
-  <div class="sub">Dah ada kat iPhone 🇲🇾</div>
+  <div class="sub">Dah ada kat iPhone &amp; Android 🇲🇾</div>
   <div class="chips"><span class="n">Auto tax relief</span><span>Debt payoff</span><span>Islamic financing</span><span>Zakat</span><span>BNPL</span><span>Receipt scan</span><span>Split bill</span><span>Savings goals</span><span>iCloud backup</span><span>Offline</span></div>
-  <div class="pill">Search “Duitful” on the App Store</div>
+  <div class="badges" id="badges"><img class="as" src="${appStoreBadge}" alt="Download on the App Store"><img class="gp" src="${playBadge}" alt="Get it on Google Play"></div>
   <div class="fine">Free to start · Pro RM 19.90, sekali bayar</div>
 </div>
 <script>

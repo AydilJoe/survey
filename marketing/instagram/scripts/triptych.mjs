@@ -22,6 +22,12 @@ const fonts = `
 @font-face{font-family:F;font-style:normal;font-weight:100 900;src:url(data:font/woff2;base64,${b64(F + '@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2')}) format("woff2")}
 @font-face{font-family:F;font-style:italic;font-weight:100 900;src:url(data:font/woff2;base64,${b64(F + '@fontsource-variable/fraunces/files/fraunces-latin-full-italic.woff2')}) format("woff2")}
 @font-face{font-family:I;font-weight:100 900;src:url(data:font/woff2;base64,${b64(F + '@fontsource-variable/inter/files/inter-latin-wght-normal.woff2')}) format("woff2")}`;
+// Official store badges, unmodified (marketing/badges/). Apple's first, per
+// its guidelines; Google's PNG carries its own clear space (41 of 250 px),
+// so it is scaled until its visible badge matches Apple's height.
+const BADGES = new URL('../../badges/', import.meta.url).pathname;
+const appStoreBadge = 'data:image/svg+xml;base64,' + b64(BADGES + 'app-store-download-black.svg');
+const playBadge = 'data:image/png;base64,' + b64(BADGES + 'google-play-get-it-on.png');
 const shot = (n) => 'data:image/png;base64,' + b64(`${S}/as/raw-${n}.png`);
 
 // One phone, drawn at the App Store frame's native 1000 × 2172 and scaled.
@@ -76,8 +82,10 @@ h1 em{font-style:italic;font-weight:480;color:#a45434}
 .t3 li.new{padding:18px 20px;margin:0 -20px;border-radius:24px;background:rgba(164,84,52,.12);color:#5a2c18}
 .t3 li b{color:#a45434}
 .t3 li i{flex:none;width:46px;height:46px;border-radius:14px;background:#a45434;color:#fff;font:700 28px/46px I;text-align:center;font-style:normal}
-.cta{position:absolute;left:${2160 + 330}px;top:1110px;width:680px}
-.cta .pill{display:inline-block;white-space:nowrap;padding:28px 40px;border-radius:999px;background:#2a2420;color:#f6eee2;font:650 35px/1 I}
+.cta{position:absolute;left:${2160 + 330}px;top:1100px;width:700px}
+.badges{display:flex;align-items:center;gap:14px}
+.badges .as{height:104px}
+.badges .gp{height:${Math.round(104 * 250 / 168)}px;margin:0 -${Math.round(104 * 41 / 168)}px}
 .cta p{margin:26px 0 0;font:500 32px/1.35 I;color:#5c524a}
 </style></head><body>
 <svg class="ribbon" viewBox="0 0 ${W} ${H}"><path d="M-40 1180 C 600 1320, 900 980, 1620 1120 S 2700 1380, 3300 1060" fill="none" stroke="#c9774f" stroke-width="10" stroke-linecap="round" opacity=".55"/>
@@ -102,7 +110,7 @@ ${phone(shot('1-home'), 'p-c')}
     <li><i>✓</i>Encrypted dalam phone. No bank login.</li>
   </ul>
 </div>
-<div class="cta"><span class="pill">Search “Duitful” on the App Store</span>
+<div class="cta"><div class="badges"><img class="as" src="${appStoreBadge}" alt="Download on the App Store"><img class="gp" src="${playBadge}" alt="Get it on Google Play"></div>
 <p>Free to start. Pro RM 19.90, sekali bayar je.</p></div>
 </body></html>`;
 
