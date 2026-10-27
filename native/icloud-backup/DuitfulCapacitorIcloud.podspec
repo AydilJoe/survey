@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
   s.author = package['author']
   s.source = { :git => 'https://github.com/AydilJoe/survey.git', :tag => "v#{package['version']}" }
   s.source_files = 'ios/Sources/**/*.swift'
-  s.ios.deployment_target = '14.0'
+  s.ios.deployment_target = '15.0' # CKModifyRecordsOperation.modifyRecordsResultBlock
   s.dependency 'Capacitor'
   s.swift_version = '5.1'
 end

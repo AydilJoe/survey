@@ -1,22 +1,28 @@
 import Foundation
 import Capacitor
+import CloudKit
 
-/// iCloud backup transport for Duitful.
+/// iCloud backup transport for Duitful, on CloudKit.
 ///
-/// Stores ONE file in the app's own iCloud container
-/// (iCloud.com.aydiljoe.duitful): the same AES-GCM record the web layer
-/// already writes to localStorage and to Google Drive, wrapped with a little
-/// metadata. Swift never sees plaintext and never parses the record. All it
-/// does is move a string in and out of iCloud.
+/// Stores ONE record in the user's private CloudKit database, in Duitful's
+/// container (iCloud.com.aydiljoe.duitful): record type `Backup`, record
+/// name `duitful-backup`, with the backup as an Asset in `payload`. The
+/// payload is the same AES-GCM record the web layer already writes to
+/// localStorage and to Google Drive, wrapped with a little metadata. Swift
+/// never sees plaintext and never parses it. All it does is move a string
+/// in and out of iCloud.
 ///
-/// The container is private to Duitful. Nothing declares it public in
-/// Info.plist (NSUbiquitousContainers), so the file does not show in the
-/// Files app, where it could be moved or deleted by accident.
+/// Why CloudKit and not an iCloud Drive file: the first version used iCloud
+/// Documents, which needs iCloud Drive switched on. On a real iPhone with
+/// iCloud Drive off, the container never opened and the card said iCloud
+/// was unavailable. CloudKit's private database only needs the user to be
+/// signed in to iCloud.
 ///
-/// No container (the user is signed out of iCloud, has turned iCloud off for
-/// Duitful, or the build carries no iCloud entitlement, as with AltStore and
-/// build-only) is reported as `available: false`, never as an error. The web
-/// layer then falls back to Google Drive.
+/// Production CloudKit refuses record types that aren't in its deployed
+/// schema, so `Backup` (one Asset field, `payload`) must exist in the
+/// container's Production schema. See "iCloud backup on iOS" in
+/// IOS_BUILD.md. Until it does, read returns no backup and write fails
+/// with code SCHEMA.
 @objc(DuitfulICloudPlugin)
 public class DuitfulICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     public let identifier = "DuitfulICloudPlugin"
@@ -28,32 +34,37 @@ public class DuitfulICloudPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private static let containerId = "iCloud.com.aydiljoe.duitful"
-    private static let folder = "Backups"
-    private static let fileName = "duitful-backup.json"
+    private static let recordType = "Backup"
+    private static let recordName = "duitful-backup"
+    private static let payloadKey = "payload"
 
-    // Every container and file operation runs on this queue. Apple says
-    // url(forUbiquityContainerIdentifier:) can block while iCloud prepares
-    // the container, so it must never run on the main thread.
-    private let queue = DispatchQueue(label: "app.duitful.icloud", qos: .userInitiated)
-    private var container: URL?
+    private lazy var container = CKContainer(identifier: Self.containerId)
+    private var database: CKDatabase { container.privateCloudDatabase }
+    private var recordID: CKRecord.ID { CKRecord.ID(recordName: Self.recordName) }
 
-    /// Opening the container is the test. ubiquityIdentityToken was the
-    /// first gate here and came back nil on a phone with iCloud Drive on and
-    /// Duitful switched on in Settings, so it only explains a failure now:
-    ///   "no-account"   — no container and no iCloud identity (signed out,
-    ///                    or iCloud Drive off)
-    ///   "no-container" — iCloud is on, but Duitful's container won't open
-    /// On a fresh install iCloud can take a moment to set the container up,
-    /// so one failed attempt is retried after a short wait.
+    /// `reason` names what to change when iCloud can't be used:
+    ///   "no-account"              — not signed in to iCloud
+    ///   "restricted"              — Screen Time / MDM blocks iCloud
+    ///   "temporarily-unavailable" — iCloud needs attention in Settings
+    ///   "error"                   — anything else (message attached)
     @objc func status(_ call: CAPPluginCall) {
-        queue.async {
-            var ok = self.fileURL() != nil
-            if !ok {
-                Thread.sleep(forTimeInterval: 1.5)
-                ok = self.fileURL() != nil
+        container.accountStatus { status, error in
+            switch status {
+            case .available:
+                call.resolve(["available": true, "reason": ""])
+            case .noAccount:
+                call.resolve(["available": false, "reason": "no-account"])
+            case .restricted:
+                call.resolve(["available": false, "reason": "restricted"])
+            case .temporarilyUnavailable:
+                call.resolve(["available": false, "reason": "temporarily-unavailable"])
+            default:
+                call.resolve([
+                    "available": false,
+                    "reason": "error",
+                    "message": error?.localizedDescription ?? "Couldn't determine the iCloud account",
+                ])
             }
-            let reason = ok ? "" : (FileManager.default.ubiquityIdentityToken == nil ? "no-account" : "no-container")
-            call.resolve(["available": ok, "reason": reason])
         }
     }
 
@@ -62,69 +73,53 @@ public class DuitfulICloudPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("Nothing to save", "BAD_INPUT")
             return
         }
-        queue.async {
-            guard let url = self.fileURL() else {
-                call.reject("iCloud isn't available on this iPhone", "UNAVAILABLE")
-                return
-            }
-            do {
-                try FileManager.default.createDirectory(
-                    at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            } catch {
-                call.reject("Couldn't prepare iCloud: \(error.localizedDescription)", "WRITE_FAILED")
-                return
-            }
-            // Coordinated, so iCloud's sync daemon never uploads a half-written file.
-            var coordError: NSError?
-            var writeError: Error?
-            NSFileCoordinator(filePresenter: nil)
-                .coordinate(writingItemAt: url, options: .forReplacing, error: &coordError) { target in
-                    do { try data.write(to: target, options: .atomic) } catch { writeError = error }
-                }
-            if let err = writeError ?? (coordError as Error?) {
-                call.reject("Couldn't save to iCloud: \(err.localizedDescription)", "WRITE_FAILED")
-                return
-            }
-            call.resolve(["ok": true])
+        // CKAsset uploads from a file. A temp file per write, removed when
+        // CloudKit is done with it.
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("duitful-backup-\(UUID().uuidString).json")
+        do {
+            try data.write(to: tmp, options: .atomic)
+        } catch {
+            call.reject("Couldn't prepare the backup: \(error.localizedDescription)", "WRITE_FAILED")
+            return
         }
+        let record = CKRecord(recordType: Self.recordType, recordID: recordID)
+        record[Self.payloadKey] = CKAsset(fileURL: tmp)
+
+        // .allKeys overwrites whatever the server holds without needing its
+        // change tag: last write wins, which is the backup's whole policy.
+        let op = CKModifyRecordsOperation(recordsToSave: [record], recordIDsToDelete: nil)
+        op.savePolicy = .allKeys
+        op.qualityOfService = .userInitiated
+        op.modifyRecordsResultBlock = { result in
+            try? FileManager.default.removeItem(at: tmp)
+            switch result {
+            case .success:
+                call.resolve(["ok": true])
+            case .failure(let error):
+                let (message, code) = Self.describe(error, verb: "save to")
+                call.reject(message, code)
+            }
+        }
+        database.add(op)
     }
 
     /// Resolves `{ data: String }`, or `{ data: null }` when there is no backup.
-    ///
-    /// On a new iPhone the backup can exist in iCloud before this device has
-    /// downloaded it, or before the device even knows it exists. So read
-    /// first asks iCloud's index (NSMetadataQuery), then downloads the file
-    /// and waits for it.
     @objc func read(_ call: CAPPluginCall) {
-        queue.async {
-            guard let url = self.fileURL() else {
-                call.reject("iCloud isn't available on this iPhone", "UNAVAILABLE")
-                return
-            }
-            let fm = FileManager.default
-            let placeholder = url.deletingLastPathComponent()
-                .appendingPathComponent(".\(Self.fileName).icloud")
-            let known = fm.fileExists(atPath: url.path) || fm.fileExists(atPath: placeholder.path)
-            if !known && !self.indexHasBackup(timeout: 8) {
+        database.fetch(withRecordID: recordID) { record, error in
+            if let ck = error as? CKError, ck.code == .unknownItem {
                 call.resolve(["data": NSNull()])
                 return
             }
-            guard self.waitUntilCurrent(url, timeout: 30) else {
-                call.reject("iCloud is still downloading your backup. Try again in a minute.", "TIMEOUT")
+            if let error = error {
+                let (message, code) = Self.describe(error, verb: "read from")
+                call.reject(message, code)
                 return
             }
-            var coordError: NSError?
-            var data: Data?
-            var readError: Error?
-            NSFileCoordinator(filePresenter: nil)
-                .coordinate(readingItemAt: url, options: [], error: &coordError) { target in
-                    do { data = try Data(contentsOf: target) } catch { readError = error }
-                }
-            if let err = readError ?? (coordError as Error?) {
-                call.reject("Couldn't read the iCloud backup: \(err.localizedDescription)", "READ_FAILED")
-                return
-            }
-            guard let bytes = data, let text = String(data: bytes, encoding: .utf8) else {
+            guard let asset = record?[Self.payloadKey] as? CKAsset,
+                  let url = asset.fileURL,
+                  let data = try? Data(contentsOf: url),
+                  let text = String(data: data, encoding: .utf8) else {
                 call.reject("The iCloud backup is damaged", "READ_FAILED")
                 return
             }
@@ -132,80 +127,29 @@ public class DuitfulICloudPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    // MARK: - helpers (all on `queue`)
-
-    private func fileURL() -> URL? {
-        if container == nil {
-            // By name first; nil means "the first container in the
-            // entitlements", which is the same one, and is the form Apple's
-            // own samples use.
-            container = FileManager.default.url(forUbiquityContainerIdentifier: Self.containerId)
-                ?? FileManager.default.url(forUbiquityContainerIdentifier: nil)
+    /// A sentence a person can act on, and a code the web layer can branch on.
+    private static func describe(_ error: Error, verb: String) -> (String, String) {
+        guard let ck = error as? CKError else {
+            return ("Couldn't \(verb) iCloud: \(error.localizedDescription)", "FAILED")
         }
-        return container?
-            .appendingPathComponent(Self.folder, isDirectory: true)
-            .appendingPathComponent(Self.fileName, isDirectory: false)
-    }
-
-    /// Asks iCloud's index whether the backup exists, waiting up to `timeout`
-    /// for the first results. NSMetadataQuery needs a run loop, so it lives on main.
-    private func indexHasBackup(timeout: TimeInterval) -> Bool {
-        let done = DispatchSemaphore(value: 0)
-        var query: NSMetadataQuery?
-        var observers: [NSObjectProtocol] = []
-        var found = false
-
-        DispatchQueue.main.async {
-            let q = NSMetadataQuery()
-            q.searchScopes = [NSMetadataQueryUbiquitousDataScope]
-            q.predicate = NSPredicate(format: "%K == %@", NSMetadataItemFSNameKey, Self.fileName)
-            let check: (Notification) -> Void = { _ in
-                guard !found, q.resultCount > 0 else { return }
-                found = true
-                done.signal()
-            }
-            observers = [
-                NotificationCenter.default.addObserver(
-                    forName: .NSMetadataQueryDidFinishGathering, object: q, queue: .main, using: check),
-                NotificationCenter.default.addObserver(
-                    forName: .NSMetadataQueryDidUpdate, object: q, queue: .main, using: check),
-            ]
-            query = q
-            q.start()
+        // A partial failure wraps the per-record error; that one says why.
+        if ck.code == .partialFailure,
+           let inner = ck.partialErrorsByItemID?.values.first {
+            return describe(inner, verb: verb)
         }
-
-        _ = done.wait(timeout: .now() + timeout)
-        var result = false
-        DispatchQueue.main.sync {
-            result = found
-            query?.stop()
-            observers.forEach { NotificationCenter.default.removeObserver($0) }
-        }
-        return result
-    }
-
-    /// Starts the download if needed and waits until the local copy is the
-    /// latest version. If time runs out and an older local copy exists, that
-    /// copy is good enough to read. The web layer compares timestamps anyway.
-    private func waitUntilCurrent(_ url: URL, timeout: TimeInterval) -> Bool {
-        let fm = FileManager.default
-        let deadline = Date().addingTimeInterval(timeout)
-        var asked = false
-        while true {
-            var status: URLUbiquitousItemDownloadingStatus?
-            var u = url
-            u.removeAllCachedResourceValues()
-            if let values = try? u.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]) {
-                status = values.ubiquitousItemDownloadingStatus
-            }
-            if status == .current { return true }
-            if status == nil && fm.fileExists(atPath: url.path) { return true } // not ubiquitous-tracked yet: a fresh local write
-            if !asked {
-                try? fm.startDownloadingUbiquitousItem(at: url)
-                asked = true
-            }
-            if Date() >= deadline { return fm.fileExists(atPath: url.path) }
-            Thread.sleep(forTimeInterval: 0.4)
+        switch ck.code {
+        case .notAuthenticated:
+            return ("Sign in to iCloud in the Settings app first.", "NO_ACCOUNT")
+        case .networkUnavailable, .networkFailure, .serviceUnavailable, .requestRateLimited, .zoneBusy:
+            return ("iCloud can't be reached right now. It will try again on your next change.", "OFFLINE")
+        case .quotaExceeded:
+            return ("Your iCloud storage is full.", "QUOTA")
+        case .serverRejectedRequest, .invalidArguments, .unknownItem:
+            // The usual cause in Production: the Backup record type was
+            // never deployed to the container's schema.
+            return ("iCloud refused the backup (\(ck.code.rawValue)): \(ck.localizedDescription)", "SCHEMA")
+        default:
+            return ("Couldn't \(verb) iCloud (\(ck.code.rawValue)): \(ck.localizedDescription)", "FAILED")
         }
     }
 }

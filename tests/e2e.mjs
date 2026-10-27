@@ -7890,7 +7890,7 @@ check('the brand catalogue makes no network calls at all',
   // Each unavailable reason names its own fix on the card.
   const reasons = await S(async () => {
     const out = {};
-    for (const r of ['no-account', 'no-container']) {
+    for (const r of ['no-account', 'restricted']) {
       window.__fakeICloud.available = false;
       window.__fakeReason = r;
       await ICloudSync.refresh();
@@ -7903,8 +7903,9 @@ check('the brand catalogue makes no network calls at all',
     renderDriveCard();
     return out;
   });
-  check('an unavailable iCloud says why: no account vs no access to Duitful\'s storage',
-    /iCloud Drive/.test(reasons['no-account']) && /no-container/.test(reasons['no-container']), JSON.stringify(reasons));
+  check('an unavailable iCloud says why: not signed in vs restricted, and never asks for iCloud Drive',
+    /not signed in to iCloud/.test(reasons['no-account']) && !/iCloud Drive/.test(reasons['no-account'])
+    && /restricted/.test(reasons['restricted']), JSON.stringify(reasons));
 
   // A newer iCloud backup on unlock is offered, naming iCloud.
   const offered = await S(async () => {
@@ -8025,9 +8026,14 @@ check('the brand catalogue makes no network calls at all',
   const container = (/containerId = "([^"]+)"/.exec(swift) || [])[1];
   check('Swift writes to the same container the entitlement grants',
     !!container && patchIos.includes(`ICLOUD_CONTAINER = "${container}"`), container);
-  check('the entitlement is iCloud Documents, and can be skipped for a build without the capability',
-    /CloudDocuments/.test(patchIos) && /ubiquity-container-identifiers/.test(patchIos)
+  // CloudKit, not iCloud Documents: a Drive file needs iCloud Drive on, and on
+  // a real iPhone with it off the backup could never start.
+  check('the entitlement is CloudKit (no iCloud Drive needed), and can be skipped for a build without the capability',
+    /<string>CloudKit<\/string>/.test(patchIos) && !/<string>CloudDocuments<\/string>/.test(patchIos)
     && /DUITFUL_IOS_SKIP_ICLOUD/.test(patchIos));
+  check('Swift stores the backup as a CloudKit record in the private database, with a record type the schema must carry',
+    /privateCloudDatabase/.test(swift) && /recordType = "Backup"/.test(swift) && /payloadKey = "payload"/.test(swift)
+    && /savePolicy = \.allKeys/.test(swift) && !/ubiquityIdentityToken|forUbiquityContainerIdentifier/.test(swift));
   const iosYml = readFileSync(path.join(REPO_ROOT, '.github/workflows/ios.yml'), 'utf8');
   const fastfile = readFileSync(path.join(REPO_ROOT, 'fastlane/Fastfile'), 'utf8');
   check('the workflow exposes skip_icloud and the App Store export targets Production iCloud',

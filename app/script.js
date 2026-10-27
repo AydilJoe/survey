@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.47.1";
+const APP_VERSION = "1.47.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9877,6 +9877,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.47.2": [
+    "<strong>iCloud backup no longer needs iCloud Drive</strong> — on iPhone it now only needs you signed in to iCloud.",
+  ],
   "1.47.1": [
     "<strong>Exchange rates work in the phone apps again</strong> — every currency showed \"offline\" in the iPhone and Android apps because the rates were being blocked before they arrived. Fixed.",
     "<strong>iCloud tells you what's wrong</strong> — if iCloud backup can't start, the card now says which switch to change, with a Check again button.",
@@ -12923,10 +12926,12 @@ function renderDriveCard() {
       // brackets is for a bug report, not for the reader.
       const reason = (ic.unavailableReason && ic.unavailableReason()) || "";
       why.textContent = reason === "no-account"
-        ? "iCloud isn't available. In the Settings app, sign in to iCloud and turn on iCloud Drive, then come back."
-        : reason === "no-container"
-          ? "iCloud is on, but Duitful can't reach its iCloud storage. In Settings → your name → iCloud → Saved to iCloud (or iCloud Drive), make sure Duitful is on, then tap Check again. (no-container)"
-          : "Couldn't reach iCloud just now. Tap Check again. (" + (reason || "unknown") + ")";
+        ? "You're not signed in to iCloud on this iPhone. Sign in from the Settings app, then tap Check again."
+        : reason === "restricted"
+          ? "iCloud is restricted on this iPhone (Screen Time or a work profile). Lift the restriction, then tap Check again. (restricted)"
+          : reason === "temporarily-unavailable"
+            ? "iCloud needs your attention in the Settings app, often to re-enter your password. Then tap Check again. (temporarily-unavailable)"
+            : "Couldn't reach iCloud just now. Tap Check again. (" + (reason || "unknown") + ")";
     }
     if (icOn) {
       const auto = document.getElementById("icloud-auto");
