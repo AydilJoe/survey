@@ -87,7 +87,7 @@ Do this in Safari, before the first `testflight` run.
    (must match `appId` in `capacitor.config.json` — do not improvise)
 5. **Capabilities** — tick:
    - **Associated Domains** (Universal Links for `/split`)
-   - **iCloud** (iCloud backup) — leave **Include CloudKit support** off
+   - **iCloud** (iCloud backup) — with **CloudKit** support
    - **In-App Purchase** (usually on by default)
 6. **Continue** → **Register**
 7. iCloud needs a container, which is its own identifier. **Identifiers**
@@ -661,30 +661,55 @@ then — see the long comment at the top of the Fastfile.
 
 ## iCloud backup on iOS
 
-On iPhone, backup goes to iCloud by default, with nothing to sign into. It
-stores the same encrypted record as Drive, encrypted on the phone with the
-passcode before Swift ever sees it, as one file in Duitful's private
-container (`iCloud.com.aydiljoe.duitful`, under `Backups/`). The container
-is not published to the Files app, so the file can't be moved or deleted
-there by accident.
+On iPhone, Pro backs up to iCloud with nothing to sign into. It stores the
+same encrypted record as Drive, encrypted on the phone with the passcode
+before Swift ever sees it, as **one CloudKit record in the user's private
+database** in Duitful's container (`iCloud.com.aydiljoe.duitful`): record
+type `Backup`, record name `duitful-backup`, the backup itself in the Asset
+field `payload`.
+
+CloudKit, not an iCloud Drive file: the first version used iCloud
+Documents, which only works with iCloud Drive switched on. On a real iPhone
+with it off, the backup could never start. CloudKit's private database only
+needs the user to be signed in to iCloud.
+
+### One-time: deploy the `Backup` record type (CloudKit Console)
+
+Production CloudKit refuses record types that aren't in its deployed
+schema, and TestFlight and App Store builds always use Production. Until
+this is done, backing up fails with *"iCloud refused the backup"*.
+
+1. <https://icloud.developer.apple.com> → sign in → **CloudKit Database**
+   → choose the container **iCloud.com.aydiljoe.duitful**.
+2. Make sure the environment at the top says **Development**.
+3. **Schema → Record Types → +** → name **`Backup`** → **Save**.
+4. In `Backup`, add a field: name **`payload`**, type **Asset** → **Save**.
+5. **Deploy Schema Changes…** (bottom left) → **Deploy**. This copies the
+   schema to **Production**.
+
+No indexes are needed: the app fetches its one record by name, never by
+query. Changing the schema later means repeating step 5; fields already in
+Production can't be removed, only added to.
+
+### How it fits together
 
 - **Native side:** `native/icloud-backup`, a local Capacitor plugin
   (`duitful-capacitor-icloud`, a `file:` dependency in `package.json`,
-  listed only in `ios.includePlugins`). Three calls: `status`, `read` and
-  `write`. On a new iPhone, `read` asks iCloud's index (`NSMetadataQuery`)
-  whether a backup exists before downloading it, so a backup the phone
-  hasn't fetched yet is still found.
+  listed only in `ios.includePlugins`). Three calls: `status` (the iCloud
+  account status), `read` (fetch the record; no record means no backup) and
+  `write` (save with `savePolicy = .allKeys`: last write wins, no change tag
+  needed).
 - **Web side:** `app/icloud-sync.js` (`window.ICloudSync`). `script.js`
   treats iCloud and Drive as two providers of the same record. Each save
   goes to every provider that is connected and switched on, and the
   unlock check offers whichever backup is newest. Backing up is Pro;
   restoring is free, as with Drive.
-- **Entitlements:** `patch-ios.mjs` writes iCloud Documents
-  (`CloudDocuments` + the container) into `App.entitlements`, and the
-  Fastfile exports with `iCloudContainerEnvironment: Production`.
-  `skip_icloud` (`DUITFUL_IOS_SKIP_ICLOUD=1`) drops both. Without the
-  entitlement, as with AltStore and `build-only`, iCloud reports itself
-  unavailable and the app shows Drive only.
+- **Entitlements:** `patch-ios.mjs` writes the container and
+  `icloud-services = CloudKit` into `App.entitlements`, and the Fastfile
+  exports with `iCloudContainerEnvironment: Production`. `skip_icloud`
+  (`DUITFUL_IOS_SKIP_ICLOUD=1`) drops both. Without the entitlement, as
+  with AltStore and `build-only`, iCloud reports itself unavailable and the
+  app shows Drive only.
 - **Drive stays** on iPhone, under the iCloud section. It is what lets
   someone restore on Android or the web.
 

@@ -880,15 +880,14 @@ entitlements: {
   if (SKIP_ICLOUD) {
     console.log("patch-ios: DUITFUL_IOS_SKIP_ICLOUD=1, no iCloud entitlement (Drive-only backup).");
   } else {
-    // iCloud Documents (CloudDocuments), not CloudKit or key-value storage:
-    // the backup is one file of unbounded size, and key-value storage caps
-    // out at 1 MB. The ubiquity-container key is what
-    // url(forUbiquityContainerIdentifier:) reads.
+    // CloudKit, not iCloud Documents: an iCloud Drive file needs iCloud
+    // Drive switched on, and on a real iPhone with it off the container never
+    // opened. CloudKit's private database only needs an iCloud sign-in.
+    // (Key-value storage was never an option: it caps out at 1 MB.)
     const container = `\t<array>\n\t\t<string>${ICLOUD_CONTAINER}</string>\n\t</array>`;
     parts.push(
       `\t<key>com.apple.developer.icloud-container-identifiers</key>\n${container}`,
-      `\t<key>com.apple.developer.icloud-services</key>\n\t<array>\n\t\t<string>CloudDocuments</string>\n\t</array>`,
-      `\t<key>com.apple.developer.ubiquity-container-identifiers</key>\n${container}`,
+      `\t<key>com.apple.developer.icloud-services</key>\n\t<array>\n\t\t<string>CloudKit</string>\n\t</array>`,
     );
   }
   if (parts.length === 0) {
