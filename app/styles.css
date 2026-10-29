@@ -7428,3 +7428,20 @@ button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn)
 .tax-rules-problems p { margin: 0 0 0.25rem; }
 .tax-rules-problems ul { margin: 0; padding-left: 1.1rem; }
 .tax-rules-problems li { margin: 0.15rem 0; overflow-wrap: anywhere; }
+
+/* The status bar strip. With viewport-fit=cover the page runs under the
+   phone's clock and battery icons, so content scrolled up collided with
+   them (iPhone app, and installed PWAs with a notch). A fixed strip the
+   height of the safe area, in the page colour, keeps that band clear
+   on every page. Zero height where there is no inset. */
+html::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top, 0px);
+  background: var(--bg);
+  z-index: 1000;
+  pointer-events: none;
+}
