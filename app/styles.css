@@ -7406,3 +7406,25 @@ button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn)
   #tab-tax.tab-panel.active > .tax-welcome { grid-column: 1 / -1; max-width: 640px; justify-self: center; width: 100%; }
 }
 @media (pointer: coarse) { .tax-optin { min-height: 44px; } }
+
+/* Outside Malaysia the web paywall points to the phone apps instead of
+   Billplz: the Play link, and a line for iPhone underneath. */
+.paywall-stores { flex-direction: column; align-items: center; }
+.paywall-stores .hint { margin: 0; }
+
+/* Tax rules: the card on the Tax page and the JSON editor. */
+.tax-rules-summary { margin: 0 0 0.75rem; color: var(--text); line-height: 1.45; }
+.tax-rules-actions { justify-content: flex-start; flex-wrap: wrap; }
+.tax-rules-dialog textarea {
+  width: 100%; box-sizing: border-box; min-height: 14rem; resize: vertical;
+  font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.45; tab-size: 1;
+  white-space: pre; overflow: auto;
+}
+.tax-rules-tools { justify-content: flex-start; flex-wrap: wrap; }
+.tax-rules-problems {
+  border-left: 3px solid var(--danger); padding: 0.5rem 0.75rem; margin: 0.5rem 0;
+  background: var(--card-soft); border-radius: var(--r-sm); font-size: 0.875rem;
+}
+.tax-rules-problems p { margin: 0 0 0.25rem; }
+.tax-rules-problems ul { margin: 0; padding-left: 1.1rem; }
+.tax-rules-problems li { margin: 0.15rem 0; overflow-wrap: anywhere; }

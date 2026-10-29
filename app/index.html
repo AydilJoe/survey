@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=127" />
+    <link rel="stylesheet" href="styles.css?v=128" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -1287,7 +1287,7 @@
         <section class="card tax-welcome" id="tax-page-optin" hidden aria-labelledby="tax-welcome-title">
           <span class="tax-welcome-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></span>
           <h2 id="tax-welcome-title">See your likely tax refund</h2>
-          <p class="tax-welcome-lede">Your employer deducts PCB from every salary before your lifestyle, medical and insurance reliefs are counted. Claim them and the difference comes back.</p>
+          <p class="tax-welcome-lede">Your employer deducts <span data-tax-term="withholding">PCB</span> from every salary before your lifestyle, medical and insurance reliefs are counted. Claim them and the difference comes back.</p>
 
           <div class="tax-found" id="tax-found" hidden>
             <p class="tax-found-title" id="tax-found-title"></p>
@@ -1300,7 +1300,7 @@
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 017 0v2.5"/></svg><span><strong>Keeps the receipts</strong> LHDN may ask for, encrypted on this phone and never uploaded.</span></li>
             <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/></svg><span><strong>Checks in</strong> every November and before e-Filing opens, so nothing slips.</span></li>
           </ul>
-          <p class="hint tax-need">You'll need your gross salary and the PCB total from your payslips — about a minute.</p>
+          <p class="hint tax-need">You'll need your gross salary and the <span data-tax-term="withholding">PCB</span> total from your payslips — about a minute.</p>
 
           <div class="tax-welcome-actions">
             <button type="button" class="primary" data-tax-enable>Turn on tax tracking</button>
@@ -1376,6 +1376,19 @@
           </div>
           <dl class="tax-facts" id="tax-facts"></dl>
           <p class="hint tax-footnote" id="tax-footnote"></p>
+        </section>
+
+        <!-- 6. Whose rules: Malaysia's built in, or the person's own country's -->
+        <section class="card tax-rules-card" id="tax-rules-card" aria-labelledby="tax-rules-title">
+          <div class="card-head">
+            <h2 id="tax-rules-title">Tax rules</h2>
+          </div>
+          <p class="tax-rules-summary" id="tax-rules-summary"></p>
+          <div class="button-row tax-rules-actions">
+            <button type="button" class="primary" id="btn-tax-rules">Use my country's rules</button>
+            <button type="button" class="ghost" id="btn-tax-rules-reset" hidden>Back to Malaysia's</button>
+          </div>
+          <p class="hint">No rules for your country yet? <a href="https://duitful.app/tax-rules/" target="_blank" rel="noopener" id="tax-rules-guide">Send this page to your AI</a> and it will write them for you.</p>
         </section>
       </section>
 
@@ -1684,6 +1697,10 @@
         </div>
         <div class="button-row" id="paywall-web-actions" hidden>
           <button type="button" class="primary" id="paywall-fpx">Pay with FPX / TNG / GrabPay</button>
+        </div>
+        <div class="button-row paywall-stores" id="paywall-stores" hidden>
+          <a class="primary as-button" id="paywall-play" href="https://duitful.app/go/play/?utm_source=app&amp;utm_medium=web&amp;utm_content=paywall" target="_blank" rel="noopener">Get it on Google Play</a>
+          <p class="hint">On iPhone, search “Duitful” in the App Store.</p>
         </div>
         <div class="button-row" style="justify-content:center;">
           <button type="button" class="ghost" id="paywall-restore">Restore purchase</button>
@@ -2270,14 +2287,14 @@
         <div class="grid-2">
           <label class="field">
             <span>Gross yearly income (<span class="cur-code">MYR</span>)</span>
-            <input type="number" id="tax-in-income" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="From payslip, before EPF/PCB" />
+            <input type="number" id="tax-in-income" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="From payslip, before deductions" />
           </label>
           <label class="field">
-            <span>PCB paid this year (<span class="cur-code">MYR</span>)</span>
+            <span><span data-tax-term="withholding">PCB</span> paid this year (<span class="cur-code">MYR</span>)</span>
             <input type="number" id="tax-in-pcb" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="Monthly tax deduction, total" />
           </label>
           <label class="field">
-            <span>Your EPF contributions (<span class="cur-code">MYR</span>)</span>
+            <span>Your <span data-tax-term="pension">EPF</span> contributions (<span class="cur-code">MYR</span>)</span>
             <input type="number" id="tax-in-epf" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="Employee share, whole year" />
           </label>
         </div>
@@ -2355,7 +2372,7 @@
         <div class="tax-receipt">
           <span class="label">Receipt</span>
           <img id="tax-claim-receipt-img" alt="Receipt preview" hidden />
-          <p class="hint" id="tax-claim-receipt-none">LHDN can ask for receipts for up to 7 years. Keep a photo here — it's encrypted on this device and never uploaded.</p>
+          <p class="hint" id="tax-claim-receipt-none"><span data-tax-term="authority">LHDN</span> can ask for receipts for up to 7 years. Keep a photo here — it's encrypted on this device and never uploaded.</p>
           <div class="tax-pickers">
             <button type="button" class="ghost" data-tax-pick="tax-claim-photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Take photo</span></button>
             <button type="button" class="ghost" data-tax-pick="tax-claim-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11.5l-7.8 7.8a5 5 0 01-7.1-7.1l8.5-8.5a3.3 3.3 0 014.7 4.7l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.8-7.8"/></svg><span>Choose file</span></button>
@@ -2368,6 +2385,33 @@
           <button type="button" class="ghost ghost-danger" id="tax-claim-delete" hidden>Delete</button>
           <button type="button" class="ghost" id="tax-claim-cancel">Cancel</button>
           <button type="button" class="primary" id="tax-claim-save">Claim</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Custom tax rules: paste or upload a JSON file in tax-data.js's format.
+         Checked here, kept in the encrypted vault. tax.js / taxOpenRules. -->
+    <dialog id="tax-rules-dialog" class="edit-dialog tax-rules-dialog" aria-labelledby="tax-rules-dialog-title">
+      <form method="dialog" id="tax-rules-form">
+        <h2 id="tax-rules-dialog-title">Your country's tax rules</h2>
+        <p class="hint">Paste the rules as JSON, or upload a <code>.json</code> file. They stay in your encrypted data on this device and replace Malaysia's while they're here.</p>
+        <p class="hint"><a href="https://duitful.app/tax-rules/" target="_blank" rel="noopener">How to write them, with a prompt for your AI →</a></p>
+        <label class="field">
+          <span>Rules (JSON)</span>
+          <textarea id="tax-rules-text" rows="12" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder='{ "country": "Singapore", "currency": "SGD", … }'></textarea>
+        </label>
+        <div class="button-row tax-rules-tools">
+          <button type="button" class="ghost" data-tax-pick="tax-rules-file">Upload file</button>
+          <button type="button" class="ghost" id="tax-rules-sample">Start from Malaysia's</button>
+          <input type="file" id="tax-rules-file" accept=".json,application/json,text/plain" hidden />
+        </div>
+        <div class="tax-rules-problems" id="tax-rules-problems" role="alert" hidden>
+          <p><strong>Not saved yet. Fix these first:</strong></p>
+          <ul id="tax-rules-problem-list"></ul>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="tax-rules-cancel">Cancel</button>
+          <button type="button" class="primary" id="tax-rules-save">Check &amp; save</button>
         </div>
       </form>
     </dialog>
@@ -2496,9 +2540,10 @@
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
     <script src="split.js?v=13"></script>
+    <script src="region.js?v=1"></script>
     <script src="tax-data.js?v=3"></script>
-    <script src="tax.js?v=9"></script>
+    <script src="tax.js?v=10"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=165"></script>
+    <script src="script.js?v=166"></script>
   </body>
 </html>
