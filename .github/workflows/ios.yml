@@ -114,7 +114,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       # Newest installed stable Xcode (no betas / release candidates), and a
@@ -174,7 +174,10 @@ jobs:
         # `cap sync ios` re-runs pod install against the fixed Podfile — so a
         # pod failure HERE is tolerated; any real problem still fails loudly
         # at the sync step.
-        run: npx cap add ios || echo "::notice::pod install deferred — patch:ios raises the deployment target and cap sync retries"
+        # Capacitor 8 makes Swift Package Manager the default for new iOS
+        # projects. Everything here (Podfile patches, App.xcworkspace in the
+        # Fastfile, the iCloud plugin's podspec, ML Kit) is CocoaPods: pin it.
+        run: npx cap add ios --packagemanager CocoaPods || echo "::notice::pod install deferred — patch:ios raises the deployment target and cap sync retries"
 
 
       # Real app icon + splash instead of Capacitor's placeholder logo.
