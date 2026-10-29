@@ -4,6 +4,8 @@
 // Source: fawazahmed0/currency-api (free, no key, daily updates).
 // Falls back to last-known cache if the upstream is unreachable.
 
+const { cors } = require("./_lib/cors");
+
 let kvModule = null;
 try { kvModule = require("@vercel/kv"); } catch (_) { /* not installed */ }
 const HAS_KV = !!(kvModule && process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
@@ -73,9 +75,8 @@ async function writeCache(payload) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", process.env.APP_BASE_URL || "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  if (req.method === "OPTIONS") { res.status(204).end(); return; }
+  // The iPhone and Android apps call this too (see _lib/cors.js).
+  if (cors(req, res, "GET, OPTIONS")) return;
   if (req.method !== "GET") { res.status(405).json({ error: "Method not allowed" }); return; }
 
   const force = String((req.query && req.query.refresh) || "") === "1";
