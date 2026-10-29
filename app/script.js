@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.49.1";
+const APP_VERSION = "1.50.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4046,6 +4046,62 @@ function renderAll() {
   renderBudgetSummary();
   populatePoolDropdowns();
   if (typeof renderDriveCard === "function") renderDriveCard();
+  checkDebtsPaidOff();
+}
+
+/* ---------- a debt reaches zero ----------
+   Whatever got it there (a payment logged on Home, Pay debts, editing the
+   balance, the last instalment), the moment a debt that still had something
+   owing reaches zero is celebrated. Balances are remembered per state
+   object: unlocking, restoring or importing swaps the object, and that only
+   takes a new snapshot, so data arriving already paid off never cheers. */
+let debtsSeen = null;
+let debtsSeenFor = null;
+function checkDebtsPaidOff() {
+  if (typeof aesKey === "undefined" || !aesKey || !state || !Array.isArray(state.debts)) { debtsSeen = null; return; }
+  const now = new Map(state.debts.map((d) => [d.id, Number(d.balance) || 0]));
+  const first = debtsSeenFor !== state || !debtsSeen;
+  const cleared = first ? [] : state.debts.filter((d) => (debtsSeen.get(d.id) || 0) > 0 && (now.get(d.id) || 0) <= 0);
+  debtsSeen = now;
+  debtsSeenFor = state;
+  if (cleared.length) setTimeout(() => showDebtPaidOff(cleared), 350);
+}
+
+function showDebtPaidOff(cleared) {
+  const dlg = document.getElementById("debt-paid-dialog");
+  if (!dlg || !aesKey) return;
+  const left = state.debts.filter((d) => (Number(d.balance) || 0) > 0);
+  const names = cleared.map((d) => d.name || "A debt");
+  const title = cleared.length === 1 ? `${names[0]} is paid off.` : `${cleared.length} debts paid off.`;
+  let sub;
+  if (!left.length) sub = cleared.length === 1 ? "That was the last one. You're debt-free." : "Those were the last ones. You're debt-free.";
+  else {
+    const next = left.slice().sort((a, b) => costRate(b) - costRate(a) || (Number(a.balance) || 0) - (Number(b.balance) || 0))[0];
+    sub = `${left.length} to go. Next up: ${next.name}.`;
+  }
+  const ids = new Set(cleared.map((d) => d.id));
+  const paid = (state.dailyExpenses || [])
+    .filter((e) => e.kind === "debt" && ids.has(e.debtId))
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  // HTML lines: only the money goes through amt(), so privacy mode hides
+  // the figures and keeps the words.
+  const stats = [];
+  if (cleared.length > 1) stats.push(escapeHtml(names.join(", ")));
+  if (paid > 0) stats.push(`${amt(paid)} paid with Duitful`);
+  const freed = cleared.reduce((s, d) => s + (Number(d.minPayment) || Number(d.installment) || 0), 0);
+  if (freed > 0) stats.push(`${amt(freed)} a month freed up`);
+  document.getElementById("debt-paid-title").textContent = left.length ? title : "Debt-free.";
+  document.getElementById("debt-paid-sub").textContent = left.length ? sub : `${title.replace(/\.$/, "")}. ${sub}`;
+  // One span per line: the list item is a flex row, which would push the
+  // amount and its words apart.
+  document.getElementById("debt-paid-stats").innerHTML = stats.slice(0, 3).map((t) => `<li><span>${t}</span></li>`).join("");
+  document.getElementById("debt-paid-done").textContent = left.length ? "Keep going" : "Celebrate";
+  if (!dlg.open) {
+    // Another sheet (Pay debts, the entry editor) steps aside for this.
+    document.querySelectorAll("dialog[open]").forEach((d) => { if (d !== dlg) d.close(); });
+    dlg.showModal();
+  }
+  proCelebrationConfetti(document.getElementById("debt-paid-celebrate"), left.length ? 26 : 48);
 }
 
 function renderPending() {
@@ -9882,6 +9938,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.50.0": [
+    "<strong>Every debt you clear gets its moment</strong> — the second a debt hits zero, Duitful celebrates it: what you paid, what it frees up each month, and which debt is next. Clear the last one and it says the words: debt-free.",
+  ],
   "1.49.1": [
     "<strong>Welcome back</strong> — restoring from iCloud or Google Drive now ends with a little celebration that shows what came back.",
   ],

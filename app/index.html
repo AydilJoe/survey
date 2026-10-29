@@ -1707,6 +1707,23 @@
       </form>
     </dialog>
 
+    <!-- A debt reached zero. checkDebtsPaidOff in script.js. -->
+    <dialog id="debt-paid-dialog" class="edit-dialog restore-dialog" aria-labelledby="debt-paid-title">
+      <form method="dialog">
+        <div class="pro-celebrate" id="debt-paid-celebrate">
+          <div class="pro-seal" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <h2 id="debt-paid-title">Paid off.</h2>
+          <p class="pro-celebrate-sub" id="debt-paid-sub"></p>
+          <ul class="pro-unlocked" id="debt-paid-stats"></ul>
+        </div>
+        <div class="form-actions restore-actions">
+          <button type="submit" class="primary" id="debt-paid-done">Keep going</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- After a restore from iCloud or Google Drive: the data is back. -->
     <dialog id="restore-dialog" class="edit-dialog restore-dialog" aria-labelledby="restore-title">
       <form method="dialog">
@@ -2557,6 +2574,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=11"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=171"></script>
+    <script src="script.js?v=172"></script>
   </body>
 </html>

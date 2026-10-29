@@ -4900,6 +4900,68 @@ check('the vault is open before the quick-add checks',
     check('the no-passcode flows raised no page errors', nErr.length === 0, nErr.join(' | '));
     await nctx.close();
   }
+  {
+    // A debt reaching zero is celebrated, whichever way it got there; data
+    // that arrives already paid off is not.
+    const dctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+    const dp = await dctx.newPage();
+    const dErr = [];
+    dp.on('pageerror', (e) => dErr.push(e.message));
+    await dp.goto(`${BASE}/app/index.html`);
+    await dp.waitForTimeout(800);
+    await dp.click('#btn-start-open');
+    await dp.waitForTimeout(1500);
+    const paid = await dp.evaluate(async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      state.debts = [
+        { id: 'pd1', name: 'Atome', kind: 'standard', balance: 120, apr: 0, minPayment: 40 },
+        { id: 'pd2', name: 'Maybank card', kind: 'standard', balance: 3000, apr: 18, minPayment: 150 },
+        { id: 'pd3', name: 'PTPTN', kind: 'standard', balance: 5000, apr: 1, minPayment: 100 },
+      ];
+      save(); renderAll();
+      await wait(500);
+      const quiet = !document.getElementById('debt-paid-dialog').open;
+      // Pay Atome off from Home's Add entry.
+      setDailyType('debt');
+      const form = document.getElementById('form-daily');
+      form.querySelector('[name="target"]').value = 'debt:pd1';
+      form.querySelector('[name="amount"]').value = '120';
+      form.requestSubmit();
+      setDailyType('expense');
+      await wait(700);
+      const dlg = document.getElementById('debt-paid-dialog');
+      const one = { open: dlg.open, title: document.getElementById('debt-paid-title').textContent,
+        sub: document.getElementById('debt-paid-sub').textContent, stats: document.getElementById('debt-paid-stats').textContent };
+      dlg.close();
+      // Nothing new happened: a re-render must not cheer again.
+      renderAll(); await wait(500);
+      const once = !dlg.open;
+      // The last two cleared at once by editing balances: one dialog, debt-free.
+      state.debts.forEach((d) => { d.balance = 0; });
+      save(); renderAll(); await wait(700);
+      const all = { open: dlg.open, title: document.getElementById('debt-paid-title').textContent,
+        sub: document.getElementById('debt-paid-sub').textContent, done: document.getElementById('debt-paid-done').textContent };
+      dlg.close();
+      // A new state object (unlock, restore, import) with a paid-off debt: no cheer.
+      state = coerceState({ ...JSON.parse(JSON.stringify(state)), debts: [{ id: 'pd9', name: 'Old car', kind: 'standard', balance: 0, apr: 3, minPayment: 0 }] });
+      renderAll(); await wait(600);
+      // A brand-new debt added at zero: no cheer either.
+      state.debts.push({ id: 'pd10', name: 'Zero', kind: 'standard', balance: 0, apr: 0, minPayment: 0 });
+      renderAll(); await wait(600);
+      return { quiet, one, once, all, noRestoreCheer: !dlg.open };
+    });
+    check('debt paid off: Paying a debt to zero celebrates it by name, with the next target, what was paid and what is freed up',
+      paid.quiet && paid.one.open && /Atome is paid off/.test(paid.one.title) && /2 to go\. Next up: Maybank card/.test(paid.one.sub)
+        && /paid with Duitful/.test(paid.one.stats) && /a month freed up/.test(paid.one.stats), JSON.stringify(paid.one));
+    check('debt paid off: celebrated once, not on every re-render', paid.once);
+    check('debt paid off: clearing the last debts at once says Debt-free in one dialog',
+      paid.all.open && paid.all.title === 'Debt-free.' && /2 debts paid off/.test(paid.all.sub) && /last one/.test(paid.all.sub) && paid.all.done === 'Celebrate',
+      JSON.stringify(paid.all));
+    check('debt paid off: data that arrives already at zero (restore, import, a new debt) is not celebrated', paid.noRestoreCheer);
+    check('debt paid off: no page errors', dErr.length === 0, dErr.join(' | '));
+    await dctx.close();
+  }
   check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
     lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
 }
