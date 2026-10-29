@@ -5,33 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#e8dfd0">
 <meta name="color-scheme" content="light only">
-
-<title>Tax rules for your country — Duitful</title>
-<meta name="description" content="Duitful ships with Malaysia's tax reliefs. For anywhere else, copy this prompt into ChatGPT, Claude or Gemini and it writes your country's tax rules as JSON, ready to paste into the app.">
+<title>Tax rules — Duitful</title>
+<meta name="description" content="A prompt for your AI and Malaysia's tax rules as a sample JSON, to add your country's tax rules to Duitful.">
 <link rel="canonical" href="https://duitful.app/tax-rules/">
 <meta name="robots" content="index, follow">
-
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Duitful">
 <meta property="og:url" content="https://duitful.app/tax-rules/">
-<meta property="og:title" content="Tax rules for your country — Duitful">
-<meta property="og:description" content="Send this page to your AI. It writes your country's tax reliefs and rate bands as JSON for Duitful's tax refund estimate.">
+<meta property="og:title" content="Tax rules — Duitful">
+<meta property="og:description" content="A prompt for your AI and a sample JSON.">
 <meta property="og:image" content="https://duitful.app/og-image.png">
-
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "HowTo",
-  "name": "Add your country's tax rules to Duitful",
-  "step": [
-    { "@type": "HowToStep", "position": 1, "name": "Copy the prompt", "text": "Copy the prompt on this page and fill in your country, tax year and currency." },
-    { "@type": "HowToStep", "position": 2, "name": "Ask your AI", "text": "Paste it into ChatGPT, Claude or Gemini. It replies with the rules as JSON." },
-    { "@type": "HowToStep", "position": 3, "name": "Check the figures", "text": "Compare the limits and rates with your tax office's website." },
-    { "@type": "HowToStep", "position": 4, "name": "Paste into Duitful", "text": "In Duitful, open Tax, then Tax rules, then paste or upload the JSON." }
-  ]
-}
-</script>
-
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -165,22 +148,13 @@
   }
   .footer a { color: var(--primary); }
 
-  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0 0 32px; }
-  .steps li { counter-increment: s; position: relative; padding-left: 44px; margin: 0 0 14px; }
-  .steps li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
-    display: grid; place-items: center; background: var(--primary); color: #fff; font: 600 14px/1 var(--font-sans); }
-  .prompt-box { position: relative; background: var(--card); border: 0.5px solid var(--line); border-radius: 14px; margin: 0 0 12px; }
-  .prompt-box pre { margin: 0; padding: 20px 22px 22px; white-space: pre-wrap; word-break: break-word;
-    font: 400 13px/1.6 var(--font-mono); color: var(--ink); max-height: 460px; overflow: auto; }
-  .copy-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 40px; }
-  .btn { appearance: none; border: 0; border-radius: 999px; padding: 12px 20px; font: 600 15px/1 var(--font-sans);
-    background: var(--primary); color: #fff; cursor: pointer; min-height: 44px; }
-  .btn:hover { background: var(--primary-ink); }
+  .box { background: var(--card); border: 0.5px solid var(--line); border-radius: 14px; margin: 0 0 12px; }
+  .box pre { margin: 0; padding: 18px 20px; white-space: pre-wrap; word-break: break-word; font: 400 13px/1.6 var(--font-mono); color: var(--ink); max-height: 420px; overflow: auto; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 40px; }
+  .btn { appearance: none; border: 0; border-radius: 999px; padding: 12px 20px; font: 600 15px/1 var(--font-sans); background: var(--primary); color: #fff; cursor: pointer; min-height: 44px; text-decoration: none; display: inline-flex; align-items: center; }
+  .btn.alt { background: transparent; color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
   .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  .copied { font: 500 13px/1 var(--font-mono); color: var(--muted); }
-  pre.example { background: var(--stage); border-radius: 12px; padding: 18px 20px; overflow: auto;
-    font: 400 12.5px/1.55 var(--font-mono); color: var(--ink); margin: 0 0 20px; }
-  table.vendors td:first-child code { white-space: nowrap; }
+  .done { font: 500 13px/1 var(--font-mono); color: var(--muted); }
 </style>
 
 <!-- Vercel Web Analytics -->
@@ -203,181 +177,754 @@
 <body>
 <main class="container">
   <a class="nav-back" href="/">← Duitful</a>
-  <h1>Your country's <em>tax rules</em>, written by your AI.</h1>
-  <p class="lede">Duitful comes with Malaysia's tax reliefs. Anywhere else, give this page to ChatGPT, Claude or Gemini: it writes your country's rules in about a minute, and Duitful spots reliefs in your spending and estimates your refund the same way.</p>
-  <p class="meta">Updated 29 Oct 2026 · Free · Stays on your phone</p>
+  <h1>Tax <em>rules</em></h1>
+  <p class="lede">Paste the prompt into your AI. Paste its answer into Duitful → Tax → Tax rules.</p>
 
-  <ol class="steps">
-    <li><strong>Copy the prompt</strong> below and fill in your country, tax year and currency.</li>
-    <li><strong>Paste it into your AI.</strong> Or just send it this page's link: <code>duitful.app/tax-rules</code>.</li>
-    <li><strong>Check the figures</strong> against your tax office's website. AI gets numbers wrong.</li>
-    <li><strong>In Duitful:</strong> Tax → Tax rules → <em>Use my country's rules</em>, then paste or upload the JSON. The app checks it and tells you exactly what to fix.</li>
-  </ol>
+  <h2 class="section">Prompt</h2>
+  <div class="box"><pre id="prompt">Write my country&#x27;s personal income tax rules as JSON for the Duitful app.
 
-  <h2 class="section">The prompt</h2>
-  <div class="prompt-box"><pre id="prompt">You are helping me set up Duitful, a private budgeting app, with my country&#x27;s personal income tax rules. Write them as ONE JSON object in the format below, and reply with only the JSON (no commentary, no code fence).
+Country: [COUNTRY]
+Tax year: [YEAR]
+Currency: [3-letter code]
 
-My country: [COUNTRY]
-Tax year: [YEAR]   (the calendar year my spending happens in)
-My currency: [3-LETTER CODE, e.g. SGD]
-
-FORMAT
-{
-  &quot;country&quot;: &quot;Country name&quot;,
-  &quot;currency&quot;: &quot;ISO 4217 code the amounts are in&quot;,
-  &quot;tax_authority&quot;: &quot;Name of the tax office&quot;,
-  &quot;terms&quot;: {
-    &quot;authority&quot;: &quot;short name of the tax office, e.g. IRAS&quot;,
-    &quot;year&quot;: &quot;how a tax year is labelled, e.g. YA or Tax year&quot;,
-    &quot;withholding&quot;: &quot;name for tax deducted from salary, e.g. PAYE&quot;,
-    &quot;pension&quot;: &quot;name for the employee&#x27;s compulsory retirement contribution, e.g. CPF&quot;,
-    &quot;filing&quot;: &quot;name of the online filing system, e.g. myTax Portal&quot;,
-    &quot;rebate&quot;: &quot;word for a flat tax rebate&quot;
-  },
-  &quot;tax_by_year&quot;: {
-    &quot;YEAR&quot;: {
-      &quot;bands&quot;: [ { &quot;up_to&quot;: 20000, &quot;rate&quot;: 0 }, { &quot;up_to&quot;: 30000, &quot;rate&quot;: 0.02 }, { &quot;up_to&quot;: null, &quot;rate&quot;: 0.24 } ],
-      &quot;rebate&quot;: { &quot;amount&quot;: 0, &quot;chargeable_income_up_to&quot;: 0 }
-    }
-  },
-  &quot;filing_by_year&quot;: {
-    &quot;YEAR&quot;: {
-      &quot;november_check&quot;: &quot;11-15&quot;,
-      &quot;final_check&quot;: &quot;MM-DD (a few weeks before filing opens, in YEAR+1)&quot;,
-      &quot;efiling_opens&quot;: &quot;MM-DD (in YEAR+1)&quot;,
-      &quot;deadline&quot;: &quot;MM-DD (filing deadline, in YEAR+1)&quot;,
-      &quot;deadline_note&quot;: &quot;one line about the deadline&quot;,
-      &quot;keep_records_years&quot;: 5
-    }
-  },
-  &quot;tax_relief_categories&quot;: [
-    {
-      &quot;category_id&quot;: &quot;CAT_SOMETHING&quot;,
-      &quot;category_name&quot;: &quot;Group name&quot;,
-      &quot;items&quot;: [
-        {
-          &quot;code&quot;: &quot;A1&quot;,
-          &quot;name&quot;: &quot;Official name of the relief, deduction or allowance&quot;,
-          &quot;limit_YEAR&quot;: 1000,
-          &quot;sub_limits&quot;: [ { &quot;id&quot;: &quot;short-id&quot;, &quot;label&quot;: &quot;Part of the relief&quot;, &quot;limit&quot;: 500 } ],
-          &quot;claimable_items&quot;: [ &quot;What counts, in plain words&quot; ],
-          &quot;eligibility_criteria&quot;: &quot;Who can claim it&quot;,
-          &quot;required_documentation&quot;: &quot;What to keep as proof&quot;,
-          &quot;app&quot;: {
-            &quot;id&quot;: &quot;short-stable-id&quot;,
-            &quot;label&quot;: &quot;Short UI name&quot;,
-            &quot;hint&quot;: &quot;One plain line saying what counts&quot;,
-            &quot;common&quot;: true,
-            &quot;keywords&quot;: &quot;regex source matched against spending text, e.g. \\b(gym|fitness)\\b&quot;
-          }
-        }
-      ]
-    }
-  ]
-}
-
-RULES
-- Rate bands: progressive, in order, rate as a fraction (0.05 = 5%). Each &quot;up_to&quot; is the top of that band in chargeable income; the last band has &quot;up_to&quot;: null.
-- Every item needs a unique &quot;code&quot; and a &quot;limit_YEAR&quot; key (use the real year, e.g. &quot;limit_2026&quot;). A number is the yearly cap; null means it doesn&#x27;t exist that year.
-- Sub-limits sit inside their item&#x27;s cap. Use null for &quot;sub_limits&quot; when there are none.
-- Reliefs everyone gets automatically (personal allowance, spouse, children) get &quot;app&quot;: { &quot;auto&quot;: &quot;&lt;kind&gt;&quot; }, where kind is one of: individual, spouse, disabledSelf, disabledSpouse, child, childPre, childTertiary, disabledChild. Leave out &quot;keywords&quot; for those.
-- For the employee&#x27;s compulsory pension contribution relief, add &quot;employeeEpf&quot;: true to its &quot;app&quot; block.
-- Give &quot;keywords&quot; to reliefs ordinary spending can match (medical, education, sports, books, insurance, childcare, donations…), in the languages people in my country write receipts in. Use \\b word boundaries; escape backslashes for JSON.
-- Only include reliefs for resident individuals. Use the official figures for the year I gave; if you aren&#x27;t sure of a figure, leave that relief out instead of guessing.
-- Dates are &quot;MM-DD&quot;. If my country has no flat rebate, use { &quot;amount&quot;: 0, &quot;chargeable_income_up_to&quot;: 0 }.
-- Add &quot;zakat_rebate&quot;: true only if religious-tax payments come off income tax one-for-one in my country.
-
-After the JSON, I will check every figure against the tax office&#x27;s own website.</pre></div>
-  <div class="copy-row">
-    <button type="button" class="btn" id="copy">Copy prompt</button>
-    <span class="copied" id="copied" aria-live="polite"></span>
+Use the Malaysia JSON at https://duitful.app/tax-rules/malaysia.json as the exact format. Keep every key name and structure; replace the values with my country&#x27;s official figures. Change country, currency, tax_authority and terms to my country&#x27;s. Leave out any relief you&#x27;re not sure of. Reply with the JSON only.</pre></div>
+  <div class="row">
+    <button type="button" class="btn" data-copy="prompt">Copy prompt</button>
+    <span class="done" aria-live="polite"></span>
   </div>
 
-  <div class="tldr">
-    <h2>Private by design</h2>
-    <ul>
-      <li>Your rules are saved <strong>inside your encrypted data on your phone</strong>, like everything else in Duitful. Nothing is uploaded.</li>
-      <li>They replace Malaysia's rules while they're there. <strong>Back to Malaysia's</strong> on the same card removes them.</li>
-      <li>Everything Duitful shows is an <strong>estimate for planning</strong>, not tax advice.</li>
-    </ul>
-  </div>
-
-  <h2 class="section">The format</h2>
-  <p>The same format as Duitful's own <a href="https://duitful.app/app/tax-data.js">Malaysian schedule</a>, which is the fullest example. Keys ending in <code>_myr</code> there have plain twins: <code>limit_2026</code> for <code>limit_ya_2026_myr</code>, <code>limit</code> for <code>limit_myr</code>, <code>tax_by_year</code> and <code>filing_by_year</code>.</p>
-  <table class="vendors">
-    <thead><tr><th>Key</th><th>What it is</th></tr></thead>
-    <tbody>
-      <tr><td><code>country</code></td><td>Country name, shown on the Tax page.</td></tr>
-      <tr><td><code>currency</code></td><td><strong>Required.</strong> The 3-letter code the amounts are in (<code>SGD</code>, <code>GBP</code>, <code>EUR</code>). Tax switches on when this matches the currency you keep your money in.</td></tr>
-      <tr><td><code>terms</code></td><td>Your country's words: <code>authority</code>, <code>year</code>, <code>withholding</code> (tax taken from pay), <code>pension</code>, <code>filing</code>, <code>rebate</code>. Anything left out gets a plain word.</td></tr>
-      <tr><td><code>tax_by_year</code></td><td>Rate bands and any flat rebate, per year. A year without its own entry uses the nearest earlier one.</td></tr>
-      <tr><td><code>filing_by_year</code></td><td>Optional. The check-in dates and the filing deadline, as <code>"MM-DD"</code>.</td></tr>
-      <tr><td><code>tax_relief_categories</code></td><td>Groups of reliefs. Each item needs a unique <code>code</code>, a <code>name</code> and a <code>limit_&lt;year&gt;</code>.</td></tr>
-      <tr><td><code>app.auto</code></td><td>Reliefs given without a receipt: <code>individual</code>, <code>spouse</code>, <code>disabledSelf</code>, <code>disabledSpouse</code>, <code>child</code>, <code>childPre</code>, <code>childTertiary</code>, <code>disabledChild</code>.</td></tr>
-      <tr><td><code>app.keywords</code></td><td>A regular expression. Spending whose category or note matches is offered as a claim for this relief.</td></tr>
-      <tr><td><code>zakat_rebate</code></td><td>Optional. <code>true</code> if zakat paid comes off income tax one-for-one.</td></tr>
-    </tbody>
-  </table>
-
-  <h3>A small example</h3>
-  <p>Made-up country, made-up figures: it shows the shape, not real tax.</p>
-  <pre class="example">{
-  &quot;country&quot;: &quot;Exampleland&quot;,
-  &quot;currency&quot;: &quot;EUR&quot;,
-  &quot;tax_authority&quot;: &quot;Exampleland Revenue Office&quot;,
-  &quot;terms&quot;: { &quot;authority&quot;: &quot;ERO&quot;, &quot;year&quot;: &quot;Tax year&quot;, &quot;withholding&quot;: &quot;Wage tax&quot;, &quot;pension&quot;: &quot;Pension&quot;, &quot;filing&quot;: &quot;ERO Online&quot;, &quot;rebate&quot;: &quot;rebate&quot; },
-  &quot;tax_by_year&quot;: {
-    &quot;2026&quot;: {
-      &quot;bands&quot;: [ { &quot;up_to&quot;: 10000, &quot;rate&quot;: 0 }, { &quot;up_to&quot;: 40000, &quot;rate&quot;: 0.2 }, { &quot;up_to&quot;: null, &quot;rate&quot;: 0.4 } ],
-      &quot;rebate&quot;: { &quot;amount&quot;: 0, &quot;chargeable_income_up_to&quot;: 0 }
-    }
-  },
-  &quot;filing_by_year&quot;: {
-    &quot;2026&quot;: { &quot;november_check&quot;: &quot;11-15&quot;, &quot;final_check&quot;: &quot;03-10&quot;, &quot;efiling_opens&quot;: &quot;04-01&quot;, &quot;deadline&quot;: &quot;06-30&quot;, &quot;keep_records_years&quot;: 6 }
-  },
-  &quot;tax_relief_categories&quot;: [
+  <h2 class="section">Sample: Malaysia</h2>
+  <div class="box"><pre id="sample">{
+ &quot;country&quot;: &quot;Malaysia&quot;,
+ &quot;currency&quot;: &quot;MYR&quot;,
+ &quot;tax_authority&quot;: &quot;Lembaga Hasil Dalam Negeri Malaysia (LHDN)&quot;,
+ &quot;terms&quot;: {
+  &quot;authority&quot;: &quot;LHDN&quot;,
+  &quot;year&quot;: &quot;YA&quot;,
+  &quot;withholding&quot;: &quot;PCB&quot;,
+  &quot;pension&quot;: &quot;EPF&quot;,
+  &quot;filing&quot;: &quot;e-Filing&quot;,
+  &quot;rebate&quot;: &quot;rebate&quot;
+ },
+ &quot;title&quot;: &quot;Malaysian Individual Personal Tax Reliefs - Detailed Itemized Breakdown (YA 2026 &amp; YA 2027)&quot;,
+ &quot;income_tax_by_ya&quot;: {
+  &quot;2026&quot;: {
+   &quot;rebate&quot;: {
+    &quot;amount&quot;: 400,
+    &quot;chargeable_income_up_to&quot;: 35000
+   },
+   &quot;bands&quot;: [
     {
-      &quot;category_id&quot;: &quot;CAT_BASIC&quot;,
-      &quot;category_name&quot;: &quot;Allowances&quot;,
-      &quot;items&quot;: [
-        { &quot;code&quot;: &quot;A1&quot;, &quot;name&quot;: &quot;Personal allowance&quot;, &quot;limit_2026&quot;: 3000, &quot;sub_limits&quot;: null, &quot;app&quot;: { &quot;auto&quot;: &quot;individual&quot; } },
-        { &quot;code&quot;: &quot;A2&quot;, &quot;name&quot;: &quot;Child allowance&quot;, &quot;limit_2026&quot;: 1500, &quot;sub_limits&quot;: null, &quot;app&quot;: { &quot;auto&quot;: &quot;child&quot; } }
-      ]
+     &quot;up_to&quot;: 5000,
+     &quot;rate&quot;: 0
     },
     {
-      &quot;category_id&quot;: &quot;CAT_SPENDING&quot;,
-      &quot;category_name&quot;: &quot;Deductible spending&quot;,
-      &quot;items&quot;: [
-        {
-          &quot;code&quot;: &quot;B1&quot;, &quot;name&quot;: &quot;Medical expenses&quot;, &quot;limit_2026&quot;: 2000,
-          &quot;sub_limits&quot;: [ { &quot;id&quot;: &quot;dental&quot;, &quot;label&quot;: &quot;Dental&quot;, &quot;limit&quot;: 500 } ],
-          &quot;claimable_items&quot;: [ &quot;Doctor, hospital and dental bills&quot; ],
-          &quot;required_documentation&quot;: &quot;Receipts&quot;,
-          &quot;app&quot;: { &quot;id&quot;: &quot;medical&quot;, &quot;label&quot;: &quot;Medical&quot;, &quot;common&quot;: true, &quot;keywords&quot;: &quot;\\b(doctor|clinic|hospital|dentist|dental|pharmacy)\\b&quot; }
-        },
-        {
-          &quot;code&quot;: &quot;B2&quot;, &quot;name&quot;: &quot;Pension contributions&quot;, &quot;limit_2026&quot;: 4000, &quot;sub_limits&quot;: null,
-          &quot;app&quot;: { &quot;id&quot;: &quot;pension&quot;, &quot;label&quot;: &quot;Pension&quot;, &quot;employeeEpf&quot;: true }
-        }
-      ]
+     &quot;up_to&quot;: 20000,
+     &quot;rate&quot;: 0.01
+    },
+    {
+     &quot;up_to&quot;: 35000,
+     &quot;rate&quot;: 0.03
+    },
+    {
+     &quot;up_to&quot;: 50000,
+     &quot;rate&quot;: 0.06
+    },
+    {
+     &quot;up_to&quot;: 70000,
+     &quot;rate&quot;: 0.11
+    },
+    {
+     &quot;up_to&quot;: 100000,
+     &quot;rate&quot;: 0.19
+    },
+    {
+     &quot;up_to&quot;: 400000,
+     &quot;rate&quot;: 0.25
+    },
+    {
+     &quot;up_to&quot;: 600000,
+     &quot;rate&quot;: 0.26
+    },
+    {
+     &quot;up_to&quot;: 2000000,
+     &quot;rate&quot;: 0.28
+    },
+    {
+     &quot;up_to&quot;: null,
+     &quot;rate&quot;: 0.3
     }
-  ]
-}</pre>
-
-  <div class="footer">
-    <a href="/">Duitful</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · <a href="/contact/">Contact</a>
+   ]
+  }
+ },
+ &quot;filing_by_ya&quot;: {
+  &quot;2026&quot;: {
+   &quot;november_check&quot;: &quot;11-15&quot;,
+   &quot;final_check&quot;: &quot;02-20&quot;,
+   &quot;efiling_opens&quot;: &quot;03-01&quot;,
+   &quot;deadline&quot;: &quot;05-15&quot;,
+   &quot;deadline_note&quot;: &quot;BE form via e-Filing (30 April, plus LHDN&#x27;s 15-day e-Filing grace)&quot;,
+   &quot;keep_records_years&quot;: 7
+  }
+ },
+ &quot;tax_relief_categories&quot;: [
+  {
+   &quot;category_id&quot;: &quot;CAT_INDIVIDUAL_BASIC&quot;,
+   &quot;category_name&quot;: &quot;Individual &amp; Basic Reliefs&quot;,
+   &quot;items&quot;: [
+    {
+     &quot;code&quot;: &quot;A1&quot;,
+     &quot;name&quot;: &quot;Automatic Individual &amp; Dependent Relatives Relief&quot;,
+     &quot;limit_ya_2026_myr&quot;: 9000,
+     &quot;limit_ya_2027_myr&quot;: 12000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Automatic baseline tax deduction for resident individuals in Malaysia&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Granted automatically to every resident individual taxpayer upon filing tax returns.&quot;,
+     &quot;required_documentation&quot;: &quot;None (automatic)&quot;,
+     &quot;app&quot;: {
+      &quot;auto&quot;: &quot;individual&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;A2&quot;,
+     &quot;name&quot;: &quot;Disabled Individual Relief&quot;,
+     &quot;limit_ya_2026_myr&quot;: 7000,
+     &quot;limit_ya_2027_myr&quot;: 7000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Additional flat relief for certified disabled individuals&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Taxpayer must be certified as a disabled person by the Department of Social Welfare (JKM).&quot;,
+     &quot;required_documentation&quot;: &quot;JKM disability card / registration document&quot;,
+     &quot;app&quot;: {
+      &quot;auto&quot;: &quot;disabledSelf&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;A3&quot;,
+     &quot;name&quot;: &quot;Basic Supporting Equipment&quot;,
+     &quot;limit_ya_2026_myr&quot;: 6000,
+     &quot;limit_ya_2027_myr&quot;: 6000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Wheelchairs&quot;,
+      &quot;Hemodialysis machines&quot;,
+      &quot;Hearing aids&quot;,
+      &quot;Artificial limbs&quot;,
+      &quot;Prosthetics and orthopedic braces&quot;,
+      &quot;Other necessary basic supporting equipment for disabled self, spouse, child, or parent&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Purchased for self, spouse, child, or parent who is registered disabled with JKM or certified disabled by a medical practitioner.&quot;,
+     &quot;required_documentation&quot;: &quot;Official tax receipts, purchase invoices, and JKM registration card / medical practitioner certificate&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;supporting&quot;,
+      &quot;label&quot;: &quot;Disability support equipment&quot;,
+      &quot;hint&quot;: &quot;Wheelchair, hearing aid, prosthetics or dialysis machine for a disabled family member&quot;
+     }
+    }
+   ]
+  },
+  {
+   &quot;category_id&quot;: &quot;CAT_PARENTS_GRANDPARENTS&quot;,
+   &quot;category_name&quot;: &quot;Parents &amp; Grandparents Care&quot;,
+   &quot;items&quot;: [
+    {
+     &quot;code&quot;: &quot;B1&quot;,
+     &quot;name&quot;: &quot;Medical, Healthcare &amp; Care Expenses for Parents / Grandparents&quot;,
+     &quot;limit_ya_2026_myr&quot;: 8000,
+     &quot;limit_ya_2027_myr&quot;: 8000,
+     &quot;sub_limits&quot;: [
+      {
+       &quot;id&quot;: &quot;checkup&quot;,
+       &quot;label&quot;: &quot;Check-up &amp; vaccination&quot;,
+       &quot;sub_category&quot;: &quot;Full Body Checkup &amp; Vaccinations for Parents/Grandparents&quot;,
+       &quot;limit_myr&quot;: 1000
+      }
+     ],
+     &quot;claimable_items&quot;: [
+      &quot;Medical treatments at private clinics, hospitals, or nursing homes&quot;,
+      &quot;Non-cosmetic dental treatments (extractions, fillings, root canals, dentures)&quot;,
+      &quot;Full body medical checkups for parents/grandparents (max RM1,000)&quot;,
+      &quot;NPRA-registered vaccinations for parents/grandparents (max RM1,000)&quot;,
+      &quot;Care services provided by registered daycare centres or nursing homes&quot;,
+      &quot;Carer expenses for parents/grandparents (certified home nursing)&quot;,
+      &quot;Over-the-counter medical supplies and nutritional supplements prescribed by a doctor&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;For parents residing in Malaysia. In YA 2027, scope expands to include grandparents and general eldercare services without requiring strict medical doctor certification.&quot;,
+     &quot;required_documentation&quot;: &quot;Official receipts from registered clinics/hospitals/daycare centres, prescription letters, and carer work permits/contract (if applicable)&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;medparents&quot;,
+      &quot;label&quot;: &quot;Parents&#x27; &amp; grandparents&#x27; care&quot;,
+      &quot;hint&quot;: &quot;Treatment, dental, nursing home, daycare or a carer for your parents (grandparents from YA 2027)&quot;
+     }
+    }
+   ]
+  },
+  {
+   &quot;category_id&quot;: &quot;CAT_MEDICAL_HEALTHCARE&quot;,
+   &quot;category_name&quot;: &quot;Medical, Healthcare &amp; Well-Being (Self, Spouse, Child)&quot;,
+   &quot;items&quot;: [
+    {
+     &quot;code&quot;: &quot;C1&quot;,
+     &quot;name&quot;: &quot;Medical Expenses for Self, Spouse, or Child&quot;,
+     &quot;limit_ya_2026_myr&quot;: 10000,
+     &quot;limit_ya_2027_myr&quot;: 10000,
+     &quot;sub_limits&quot;: [
+      {
+       &quot;id&quot;: &quot;checkup&quot;,
+       &quot;label&quot;: &quot;Check-up, mental health &amp; test kits&quot;,
+       &quot;sub_category&quot;: &quot;Complete Health Examination, Mental Health Consultations &amp; Diagnostic Kits&quot;,
+       &quot;limit_myr&quot;: 1000
+      },
+      {
+       &quot;id&quot;: &quot;dental&quot;,
+       &quot;label&quot;: &quot;Dental&quot;,
+       &quot;sub_category&quot;: &quot;Dental Treatments (Non-cosmetic)&quot;,
+       &quot;limit_myr&quot;: 1000
+      },
+      {
+       &quot;id&quot;: &quot;vaccine&quot;,
+       &quot;label&quot;: &quot;Vaccination&quot;,
+       &quot;sub_category&quot;: &quot;Vaccinations (NPRA-registered)&quot;,
+       &quot;limit_myr&quot;: 1000
+      },
+      {
+       &quot;id&quot;: &quot;fertility&quot;,
+       &quot;label&quot;: &quot;Fertility treatment&quot;,
+       &quot;sub_category&quot;: &quot;Fertility Treatments (IVF, IUI, ICSI)&quot;,
+       &quot;limit_myr&quot;: 10000
+      },
+      {
+       &quot;id&quot;: &quot;postnatal&quot;,
+       &quot;label&quot;: &quot;Postnatal care&quot;,
+       &quot;sub_category&quot;: &quot;Postnatal Care Services (New in YA 2027)&quot;,
+       &quot;limit_myr&quot;: 3000,
+       &quot;since_ya&quot;: 2027
+      },
+      {
+       &quot;id&quot;: &quot;breastfeeding&quot;,
+       &quot;label&quot;: &quot;Breastfeeding equipment&quot;,
+       &quot;sub_category&quot;: &quot;Breastfeeding Equipment (Integrated in YA 2027)&quot;,
+       &quot;limit_myr&quot;: 1000,
+       &quot;since_ya&quot;: 2027
+      }
+     ],
+     &quot;claimable_items&quot;: [
+      &quot;Serious disease treatments (cancer, heart disease, kidney failure, leukemia, major organ transplant, severe burns, etc.)&quot;,
+      &quot;Fertility treatments (IVF, IUI, ICSI) for legally married couples&quot;,
+      &quot;Routine full-body health screenings and blood tests&quot;,
+      &quot;Psychiatric and psychological consultations, therapy, and mental health screenings&quot;,
+      &quot;Self-testing kits (COVID-19 rapid tests, blood glucose monitors, blood pressure monitors)&quot;,
+      &quot;Non-cosmetic dental treatments (tooth extractions, fillings, scaling, root canals, crowns, bridge installations)&quot;,
+      &quot;NPRA-registered vaccines (HPV, Influenza, Pneumococcal, Hepatitis, Rotavirus, Shingles, COVID-19 booster)&quot;,
+      &quot;Registered confinement center fees or qualified home postnatal care services (max RM3,000 for YA 2027)&quot;,
+      &quot;Breastfeeding equipment (breast pumps, ice packs, milk storage bags, cooler bags for children aged 2 years and under - claimable once every 2 years)&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Expenses incurred for self, legal spouse, or biological/adopted children.&quot;,
+     &quot;required_documentation&quot;: &quot;Official clinic/hospital tax receipts, itemized invoices, test reports, and registered doctor certificates&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;medical&quot;,
+      &quot;label&quot;: &quot;Medical (self, spouse, child)&quot;,
+      &quot;hint&quot;: &quot;Serious illness, fertility treatment, full check-up, dental, vaccination&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;C2&quot;,
+     &quot;name&quot;: &quot;Learning Disability Support / Special Needs Child&quot;,
+     &quot;limit_ya_2026_myr&quot;: 10000,
+     &quot;limit_ya_2027_myr&quot;: 10000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Diagnostic assessment expenses conducted by registered medical practitioners&quot;,
+      &quot;Early intervention program fees&quot;,
+      &quot;Rehabilitation therapy (occupational therapy, speech therapy, sensory integration therapy)&quot;,
+      &quot;Special education tuition and specialized training classes&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;For children aged 18 and below diagnosed with Autism Spectrum Disorder (ASD), Attention Deficit Hyperactivity Disorder (ADHD), Down Syndrome, Dyslexia, or Global Developmental Delay (GDD).&quot;,
+     &quot;required_documentation&quot;: &quot;Diagnostic report from registered specialist doctor, official tuition/therapy receipts, and practitioner registration details&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;learning&quot;,
+      &quot;label&quot;: &quot;Learning-disability support (child)&quot;,
+      &quot;hint&quot;: &quot;Assessment, early intervention and therapy for a child with ASD, ADHD, Down syndrome, dyslexia or GDD&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;C3&quot;,
+     &quot;name&quot;: &quot;Breastfeeding Equipment (standalone, to YA 2026)&quot;,
+     &quot;limit_ya_2026_myr&quot;: 1000,
+     &quot;limit_ya_2027_myr&quot;: null,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Breastfeeding equipment (breast pumps, ice packs, milk storage bags, cooler bags for children aged 2 years and under - claimable once every 2 years)&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Once every two years. From YA 2027 this is a sub-limit of C1.&quot;,
+     &quot;required_documentation&quot;: &quot;Official purchase receipts&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;breastfeeding&quot;,
+      &quot;label&quot;: &quot;Breastfeeding equipment&quot;,
+      &quot;hint&quot;: &quot;Breast pump, milk storage and cooler bags — once every two years&quot;
+     }
+    }
+   ]
+  },
+  {
+   &quot;category_id&quot;: &quot;CAT_FAMILY_CHILDREN&quot;,
+   &quot;category_name&quot;: &quot;Family &amp; Children Reliefs&quot;,
+   &quot;items&quot;: [
+    {
+     &quot;code&quot;: &quot;D1&quot;,
+     &quot;name&quot;: &quot;Spouse Relief / Alimony to Ex-Wife&quot;,
+     &quot;limit_ya_2026_myr&quot;: 4000,
+     &quot;limit_ya_2027_myr&quot;: 4000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Basic spouse relief when spouse has no income source or elects joint assessment&quot;,
+      &quot;Alimony payments to ex-wife&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Spouse has no income, or elects joint tax assessment under taxpayer. Alimony must be supported by a formal legal separation/divorce court agreement.&quot;,
+     &quot;required_documentation&quot;: &quot;Marriage certificate, formal legal agreement for alimony, and bank transfer receipts&quot;,
+     &quot;app&quot;: {
+      &quot;auto&quot;: &quot;spouse&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;D2&quot;,
+     &quot;name&quot;: &quot;Disabled Spouse Relief&quot;,
+     &quot;limit_ya_2026_myr&quot;: 6000,
+     &quot;limit_ya_2027_myr&quot;: 6000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Additional relief for a certified disabled spouse&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Spouse registered as a disabled person with JKM.&quot;,
+     &quot;required_documentation&quot;: &quot;JKM disability card of spouse&quot;,
+     &quot;app&quot;: {
+      &quot;auto&quot;: &quot;disabledSpouse&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;D3&quot;,
+     &quot;name&quot;: &quot;Child Relief (Under 18 Years)&quot;,
+     &quot;limit_ya_2026_myr&quot;: 2000,
+     &quot;limit_ya_2027_myr&quot;: 2000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Per unmarried child under 18 years of age at any time during the basis year&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Unmarried biological, step-child, or legally adopted child under 18.&quot;,
+     &quot;required_documentation&quot;: &quot;Child&#x27;s birth certificate / MyKid&quot;,
+     &quot;app&quot;: {
+      &quot;auto&quot;: &quot;child&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;D4&quot;,
+     &quot;name&quot;: &quot;Child Relief (18+ in Pre-University / A-Levels / Diploma)&quot;,
+     &quot;limit_ya_2026_myr&quot;: 2000,
+     &quot;limit_ya_2027_myr&quot;: 2000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Per unmarried child aged 18 and above receiving full-time secondary education, matriculation, A-Levels, STPM, or foundation diploma&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Unmarried child studying full-time at pre-university or diploma level.&quot;,
+     &quot;required_documentation&quot;: &quot;Student enrollment confirmation letter from school/college&quot;,
+     &quot;app&quot;: {
+      &quot;auto&quot;: &quot;childPre&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;D5&quot;,
+     &quot;name&quot;: &quot;Child Relief (18+ in Tertiary Education / Degree or Higher)&quot;,
+     &quot;limit_ya_2026_myr&quot;: 8000,
+     &quot;limit_ya_2027_myr&quot;: 8000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Per unmarried child studying full-time at Bachelor&#x27;s Degree, Master&#x27;s, Doctorate (PhD), or professional qualification level&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Studying at recognized higher education institutions in Malaysia or overseas.&quot;,
+     &quot;required_documentation&quot;: &quot;Student ID card, course enrollment letter, and university fee receipts&quot;,
+     &quot;app&quot;: {
+      &quot;auto&quot;: &quot;childTertiary&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;D6&quot;,
+     &quot;name&quot;: &quot;Disabled Child Relief&quot;,
+     &quot;limit_ya_2026_myr&quot;: 6000,
+     &quot;limit_ya_2027_myr&quot;: 6000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Per unmarried disabled child certified by JKM (Increases to RM14,000 total if child pursues tertiary degree level)&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Child registered with JKM.&quot;,
+     &quot;required_documentation&quot;: &quot;JKM disability card and university enrollment verification (if claiming RM14,000)&quot;,
+     &quot;app&quot;: {
+      &quot;auto&quot;: &quot;disabledChild&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;D7&quot;,
+     &quot;name&quot;: &quot;Childcare &amp; Kindergarten Fees&quot;,
+     &quot;limit_ya_2026_myr&quot;: 3000,
+     &quot;limit_ya_2027_myr&quot;: 3000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Monthly childcare fees at registered child care centres (Taska)&quot;,
+      &quot;Kindergarten (Tadika) tuition fees&quot;,
+      &quot;Registered transit after-school daycare centre fees&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;For children aged up to 12 years. Centre must be registered with JKM or MOE. Can be claimed by either father or mother (not split beyond RM3,000 combined per child).&quot;,
+     &quot;required_documentation&quot;: &quot;Official monthly receipts issued by registered childcare centres / kindergartens with registration number&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;childcare&quot;,
+      &quot;label&quot;: &quot;Childcare &amp; kindergarten fees&quot;,
+      &quot;hint&quot;: &quot;Registered taska, tadika or after-school centre, child 12 or under&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;D8&quot;,
+     &quot;name&quot;: &quot;SSPN Net Savings Deposit&quot;,
+     &quot;limit_ya_2026_myr&quot;: 8000,
+     &quot;limit_ya_2027_myr&quot;: 8000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Net annual deposits into Skim Simpanan Pendidikan Nasional (SSPN-i / SSPN-i Plus) accounts for biological or legally adopted children&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Claimed amount is calculated as Total Deposits minus Total Withdrawals made during the calendar year.&quot;,
+     &quot;required_documentation&quot;: &quot;Annual SSPN Statement of Account issued by PTPTN&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;sspn&quot;,
+      &quot;label&quot;: &quot;SSPN (child savings)&quot;,
+      &quot;common&quot;: true,
+      &quot;hint&quot;: &quot;Deposits minus withdrawals in your child&#x27;s SSPN for the year&quot;
+     }
+    }
+   ]
+  },
+  {
+   &quot;category_id&quot;: &quot;CAT_EDUCATION_SKILLS&quot;,
+   &quot;category_name&quot;: &quot;Education &amp; Self-Upskilling&quot;,
+   &quot;items&quot;: [
+    {
+     &quot;code&quot;: &quot;E1&quot;,
+     &quot;name&quot;: &quot;Education Fees for Self&quot;,
+     &quot;limit_ya_2026_myr&quot;: 7000,
+     &quot;limit_ya_2027_myr&quot;: 7000,
+     &quot;sub_limits&quot;: [
+      {
+       &quot;id&quot;: &quot;upskill&quot;,
+       &quot;label&quot;: &quot;Upskilling course&quot;,
+       &quot;sub_category&quot;: &quot;Personal Upskilling &amp; Technical/Vocational Courses&quot;,
+       &quot;limit_myr&quot;: 2000
+      },
+      {
+       &quot;id&quot;: &quot;tvet&quot;,
+       &quot;label&quot;: &quot;TVET course&quot;,
+       &quot;sub_category&quot;: &quot;TVET Skill Improvement Courses (YA 2027 expansion)&quot;,
+       &quot;limit_myr&quot;: 3000,
+       &quot;since_ya&quot;: 2027
+      },
+      {
+       &quot;id&quot;: &quot;tuition&quot;,
+       &quot;label&quot;: &quot;Children&#x27;s STEM, language &amp; religion classes&quot;,
+       &quot;sub_category&quot;: &quot;Children Special Tuition/Classes (YA 2027 expansion - STEM, Languages, Religion)&quot;,
+       &quot;limit_myr&quot;: 2000,
+       &quot;since_ya&quot;: 2027
+      }
+     ],
+     &quot;claimable_items&quot;: [
+      &quot;Master&#x27;s or PhD degree tuition fees (any field of study)&quot;,
+      &quot;Diploma, Bachelor&#x27;s Degree, or Professional qualifications (ACCA, CIMA, CFA, CLP, Bar, etc.) in Law, Accounting, Technical, Vocational, Industrial, Information Technology, STEM, or Islamic Finance&quot;,
+      &quot;Short courses for self-upskilling/reskilling approved by the Department of Skills Development (JPK)&quot;,
+      &quot;In YA 2027: Expanded to higher education in any field, TVET courses (max RM3,000), and tuition fees for children in STEM, foreign languages, arts, or religious studies (max RM2,000)&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Course undertaken at recognized local institutions or professional bodies.&quot;,
+     &quot;required_documentation&quot;: &quot;Tuition fee receipts, course registration slips, and accreditation certificates&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;education&quot;,
+      &quot;label&quot;: &quot;Education fees (own)&quot;,
+      &quot;hint&quot;: &quot;Your own diploma, degree, masters or professional course&quot;
+     }
+    }
+   ]
+  },
+  {
+   &quot;category_id&quot;: &quot;CAT_LIFESTYLE_SPORTS_SUSTAINABILITY&quot;,
+   &quot;category_name&quot;: &quot;Lifestyle, Sports, Sustainable Living &amp; Tourism&quot;,
+   &quot;items&quot;: [
+    {
+     &quot;code&quot;: &quot;F1&quot;,
+     &quot;name&quot;: &quot;General Lifestyle Relief&quot;,
+     &quot;limit_ya_2026_myr&quot;: 2500,
+     &quot;limit_ya_2027_myr&quot;: 2500,
+     &quot;sub_limits&quot;: [
+      {
+       &quot;id&quot;: &quot;ai&quot;,
+       &quot;label&quot;: &quot;AI subscription&quot;,
+       &quot;sub_category&quot;: &quot;Artificial Intelligence (AI) Software Subscriptions (New in YA 2027)&quot;,
+       &quot;limit_myr&quot;: 2500,
+       &quot;since_ya&quot;: 2027
+      },
+      {
+       &quot;id&quot;: &quot;pet&quot;,
+       &quot;label&quot;: &quot;Pet adoption &amp; vet care&quot;,
+       &quot;sub_category&quot;: &quot;Pet Shelter Adoption &amp; Veterinary Care (New in YA 2027)&quot;,
+       &quot;limit_myr&quot;: 2500,
+       &quot;since_ya&quot;: 2027
+      }
+     ],
+     &quot;claimable_items&quot;: [
+      &quot;Books, printed journals, physical magazines, and digital e-books (excluding prohibited publication materials)&quot;,
+      &quot;Personal computers, laptops, smartphones, and tablets (not for commercial business use)&quot;,
+      &quot;Monthly subscriptions for home broadband internet (registered under taxpayer&#x27;s name)&quot;,
+      &quot;Self-enhancement skill acquisition courses&quot;,
+      &quot;In YA 2027: AI software subscriptions (e.g. ChatGPT Plus, Midjourney, Claude, Copilot)&quot;,
+      &quot;In YA 2027: Pet adoption fees paid to registered animal shelters, plus veterinary services (vaccinations, spaying, neutering, health treatments)&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Items purchased for self, spouse, or children.&quot;,
+     &quot;required_documentation&quot;: &quot;Official tax receipts, electronic invoices, or monthly internet statements&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;lifestyle&quot;,
+      &quot;label&quot;: &quot;Lifestyle&quot;,
+      &quot;common&quot;: true,
+      &quot;hint&quot;: &quot;Books, phone, laptop or tablet, home internet, skill courses&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;F2&quot;,
+     &quot;name&quot;: &quot;Sports Equipment &amp; Activity Relief&quot;,
+     &quot;limit_ya_2026_myr&quot;: 1000,
+     &quot;limit_ya_2027_myr&quot;: 1000,
+     &quot;sub_limits&quot;: [
+      {
+       &quot;id&quot;: &quot;shoes&quot;,
+       &quot;label&quot;: &quot;Sports shoes&quot;,
+       &quot;sub_category&quot;: &quot;Sports Shoes (New in YA 2027)&quot;,
+       &quot;limit_myr&quot;: 300,
+       &quot;since_ya&quot;: 2027
+      }
+     ],
+     &quot;claimable_items&quot;: [
+      &quot;Purchase of sports equipment for sports listed under the Sports Development Act 1997 (rackets, balls, bicycles, swimming gear, etc.)&quot;,
+      &quot;Rental fees for sports facilities and court bookings (badminton, futsal, tennis, etc.)&quot;,
+      &quot;Entrance fees or registration fees for sports competitions (marathons, cycling events, tournaments)&quot;,
+      &quot;Gym membership fees and personal fitness trainer packages&quot;,
+      &quot;In YA 2027: Sports shoes / running shoes (capped at RM300 within the overall RM1,000 limit)&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Sports items and activities must fall under the Sports Development Act 1997.&quot;,
+     &quot;required_documentation&quot;: &quot;Official purchase receipts, gym membership tax invoices, and event registration receipts&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;sports&quot;,
+      &quot;label&quot;: &quot;Sports &amp; gym&quot;,
+      &quot;common&quot;: true,
+      &quot;hint&quot;: &quot;Gym, court rental, sports equipment, competition fees&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;F3&quot;,
+     &quot;name&quot;: &quot;EV Charging, Food Waste Equipment &amp; Home Security CCTV&quot;,
+     &quot;limit_ya_2026_myr&quot;: 2500,
+     &quot;limit_ya_2027_myr&quot;: 2500,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Electric Vehicle (EV) home charger equipment purchase, installation, maintenance, or monthly subscription fees&quot;,
+      &quot;Food waste composting machines and food waste disposal units&quot;,
+      &quot;Home Closed-Circuit Television (CCTV) security system equipment and installation&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Claimable once every 2 years for EV facilities and home CCTV systems.&quot;,
+     &quot;required_documentation&quot;: &quot;Tax invoice and installation service receipts under taxpayer&#x27;s name&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;ev&quot;,
+      &quot;label&quot;: &quot;EV charging, food-waste &amp; home CCTV&quot;,
+      &quot;hint&quot;: &quot;EV charger or subscription, food-waste machine, home CCTV&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;F4&quot;,
+     &quot;name&quot;: &quot;Domestic Tourism &amp; Cultural Events&quot;,
+     &quot;limit_ya_2026_myr&quot;: 1000,
+     &quot;limit_ya_2027_myr&quot;: 1000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Entrance tickets to local registered tourist attractions, heritage sites, national parks, and museums&quot;,
+      &quot;Entrance fees to local arts, musical, and cultural performances&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Incurred within Malaysia for registered tourism places or events.&quot;,
+     &quot;required_documentation&quot;: &quot;Official entrance tickets and digital payment receipts&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;tourism&quot;,
+      &quot;label&quot;: &quot;Domestic tourism &amp; culture&quot;,
+      &quot;hint&quot;: &quot;Tickets to museums, parks, heritage sites and cultural shows in Malaysia&quot;
+     }
+    }
+   ]
+  },
+  {
+   &quot;category_id&quot;: &quot;CAT_INSURANCE_EPF_RETIREMENT&quot;,
+   &quot;category_name&quot;: &quot;Insurance, EPF &amp; Social Protection&quot;,
+   &quot;items&quot;: [
+    {
+     &quot;code&quot;: &quot;G1&quot;,
+     &quot;name&quot;: &quot;EPF / Approved Pension Scheme&quot;,
+     &quot;limit_ya_2026_myr&quot;: 4000,
+     &quot;limit_ya_2027_myr&quot;: 4000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Mandatory statutory employee EPF contributions&quot;,
+      &quot;Voluntary self-contributions into EPF (i-Saraan, self-employed contributions)&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Contributions made to EPF or any approved pension fund.&quot;,
+     &quot;required_documentation&quot;: &quot;Annual EA Form or EPF Annual Statement&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;epf&quot;,
+      &quot;label&quot;: &quot;EPF (yours + voluntary)&quot;,
+      &quot;common&quot;: true,
+      &quot;employeeEpf&quot;: true,
+      &quot;hint&quot;: &quot;Your EPF share plus voluntary top-ups or i-Saraan&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;G2&quot;,
+     &quot;name&quot;: &quot;Life Insurance &amp; Family Takaful&quot;,
+     &quot;limit_ya_2026_myr&quot;: 3000,
+     &quot;limit_ya_2027_myr&quot;: 3000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Life insurance premium payments&quot;,
+      &quot;Family takaful contributions&quot;,
+      &quot;Additional voluntary EPF contributions (if life insurance cap is underutilized)&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Policy covering self, legal spouse, or children.&quot;,
+     &quot;required_documentation&quot;: &quot;Annual Life Insurance / Takaful Premium Statement&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;lifeins&quot;,
+      &quot;label&quot;: &quot;Life insurance / family takaful&quot;,
+      &quot;common&quot;: true,
+      &quot;hint&quot;: &quot;Life insurance or family takaful premiums — not motor or fire&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;G3&quot;,
+     &quot;name&quot;: &quot;Education &amp; Medical Insurance&quot;,
+     &quot;limit_ya_2026_myr&quot;: 3000,
+     &quot;limit_ya_2027_myr&quot;: 3000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Medical insurance policy premiums (hospitalization &amp; surgical coverage)&quot;,
+      &quot;Education insurance policy premiums for children&quot;,
+      &quot;Riders attached to medical policies covering critical illness and hospital stay costs&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Policies benefiting self, spouse, or children.&quot;,
+     &quot;required_documentation&quot;: &quot;Annual Medical &amp; Education Insurance Premium Statement&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;insurance&quot;,
+      &quot;label&quot;: &quot;Education &amp; medical insurance&quot;,
+      &quot;common&quot;: true,
+      &quot;hint&quot;: &quot;Medical card or your child&#x27;s education-plan premiums&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;G4&quot;,
+     &quot;name&quot;: &quot;SOCSO (PERKESO) / EIS Protection&quot;,
+     &quot;limit_ya_2026_myr&quot;: 350,
+     &quot;limit_ya_2027_myr&quot;: 500,
+     &quot;sub_limits&quot;: [
+      {
+       &quot;id&quot;: &quot;voluntary&quot;,
+       &quot;label&quot;: &quot;Voluntary Lindung 24 Jam&quot;,
+       &quot;sub_category&quot;: &quot;Voluntary Lindung 24 Jam / Lindung Kendiri Protection (YA 2027 expansion)&quot;,
+       &quot;limit_myr&quot;: 150,
+       &quot;since_ya&quot;: 2027
+      }
+     ],
+     &quot;claimable_items&quot;: [
+      &quot;Mandatory employee contributions to SOCSO (PERKESO)&quot;,
+      &quot;Mandatory contributions to Employment Insurance System (EIS)&quot;,
+      &quot;Self-employed / gig worker contributions under Self-Employment Social Security Scheme (SKSPS)&quot;,
+      &quot;In YA 2027: Additional RM150 relief specifically for voluntary SOCSO protection schemes (Lindung 24 Jam)&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Contributions deducted from salary or paid voluntarily under SKSPS.&quot;,
+     &quot;required_documentation&quot;: &quot;EA Form / SOCSO SKSPS payment receipts&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;socso&quot;,
+      &quot;label&quot;: &quot;SOCSO / EIS&quot;,
+      &quot;hint&quot;: &quot;Your SOCSO and EIS deductions, or SKSPS if self-employed&quot;
+     }
+    },
+    {
+     &quot;code&quot;: &quot;G5&quot;,
+     &quot;name&quot;: &quot;Private Retirement Scheme (PRS) &amp; Deferred Annuity&quot;,
+     &quot;limit_ya_2026_myr&quot;: 3000,
+     &quot;limit_ya_2027_myr&quot;: 3000,
+     &quot;sub_limits&quot;: null,
+     &quot;claimable_items&quot;: [
+      &quot;Contributions into approved Private Retirement Schemes (PRS)&quot;,
+      &quot;Premium payments for deferred annuity plans&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Tax relief extended until Year of Assessment 2030.&quot;,
+     &quot;required_documentation&quot;: &quot;Annual PPA (Private Pension Administrator) contribution statement&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;prs&quot;,
+      &quot;label&quot;: &quot;PRS / deferred annuity&quot;,
+      &quot;common&quot;: true,
+      &quot;hint&quot;: &quot;Private Retirement Scheme or deferred annuity contributions&quot;
+     }
+    }
+   ]
+  },
+  {
+   &quot;category_id&quot;: &quot;CAT_FIRST_HOME_INTEREST&quot;,
+   &quot;category_name&quot;: &quot;First-Home Housing Loan Interest Relief&quot;,
+   &quot;items&quot;: [
+    {
+     &quot;code&quot;: &quot;H1&quot;,
+     &quot;name&quot;: &quot;First-Home Mortgage Housing Loan Interest Relief&quot;,
+     &quot;limit_ya_2026_myr&quot;: 7000,
+     &quot;limit_ya_2027_myr&quot;: 7000,
+     &quot;sub_limits&quot;: [
+      {
+       &quot;id&quot;: &quot;low&quot;,
+       &quot;label&quot;: &quot;Home up to RM500,000&quot;,
+       &quot;sub_category&quot;: &quot;Residential property valued up to RM500,000&quot;,
+       &quot;limit_myr&quot;: 7000
+      },
+      {
+       &quot;id&quot;: &quot;mid&quot;,
+       &quot;label&quot;: &quot;Home RM500,001–750,000&quot;,
+       &quot;sub_category&quot;: &quot;Residential property valued between RM500,001 and RM750,000&quot;,
+       &quot;limit_myr&quot;: 5000
+      }
+     ],
+     &quot;claimable_items&quot;: [
+      &quot;Housing loan interest paid on first residential home purchase&quot;
+     ],
+     &quot;eligibility_criteria&quot;: &quot;Claimable for 3 consecutive assessment years starting from the year housing loan interest payment commences. Sale and Purchase Agreement (SPA) must be executed between 1 January 2025 and 31 December 2027. Property must not be rented out for income generation.&quot;,
+     &quot;required_documentation&quot;: &quot;Executed Sales &amp; Purchase Agreement (SPA) and annual housing loan interest statement issued by financing institution&quot;,
+     &quot;app&quot;: {
+      &quot;id&quot;: &quot;housing&quot;,
+      &quot;label&quot;: &quot;First-home loan interest&quot;,
+      &quot;hint&quot;: &quot;Interest on your first home loan, for 3 years from the first payment&quot;
+     }
+    }
+   ]
+  }
+ ]
+}</pre></div>
+  <div class="row">
+    <button type="button" class="btn" data-copy="sample">Copy JSON</button>
+    <a class="btn alt" href="/tax-rules/malaysia.json" download>Download</a>
+    <span class="done" aria-live="polite"></span>
   </div>
 </main>
 <script>
-  document.getElementById("copy").addEventListener("click", async function () {
-    var text = document.getElementById("prompt").textContent;
-    var out = document.getElementById("copied");
-    try { await navigator.clipboard.writeText(text); out.textContent = "Copied. Paste it into your AI."; }
-    catch (e) {
-      var r = document.createRange(); r.selectNodeContents(document.getElementById("prompt"));
-      var s = getSelection(); s.removeAllRanges(); s.addRange(r);
-      out.textContent = "Selected: press Ctrl+C or ⌘C.";
-    }
+  document.querySelectorAll("[data-copy]").forEach(function (b) {
+    b.addEventListener("click", async function () {
+      var el = document.getElementById(b.dataset.copy), out = b.parentNode.querySelector(".done");
+      try { await navigator.clipboard.writeText(el.textContent); out.textContent = "Copied"; }
+      catch (e) { var r = document.createRange(); r.selectNodeContents(el); var s = getSelection(); s.removeAllRanges(); s.addRange(r); out.textContent = "Selected — copy it"; }
+    });
   });
 </script>
 </body>

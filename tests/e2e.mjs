@@ -7191,7 +7191,7 @@ check('the brand catalogue makes no network calls at all',
     ],
   };
   const pageSrc = readFileSync(path.join(REPO_ROOT, 'tax-rules/index.html'), 'utf8');
-  const pageExample = pageSrc.slice(pageSrc.indexOf('<pre class="example">') + 21, pageSrc.indexOf('</pre>', pageSrc.indexOf('<pre class="example">')))
+  const pageExample = pageSrc.slice(pageSrc.indexOf('<pre id="sample">') + 17, pageSrc.indexOf('</pre>', pageSrc.indexOf('<pre id="sample">')))
     .replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
   const cr = await S(([ex, pageEx]) => {
     const bad = taxCheckRules('{"tax_relief_categories": []');
@@ -7205,7 +7205,15 @@ check('the brand catalogue makes no network calls at all',
   check('tax rules: broken JSON, a missing currency and a bad band are each named; a good file passes',
     /valid JSON/.test(cr.bad[0]) && cr.noCur.some((p) => /currency/.test(p)) && cr.badBand.length > 0 && cr.good
       && cr.keys.includes('limit_ya_2026_myr'), JSON.stringify(cr));
-  check('tax rules: the example on duitful.app/tax-rules/ passes the app\'s own check', cr.fromPage === true, JSON.stringify(cr.fromPage));
+  check('tax rules: the Malaysia sample on duitful.app/tax-rules/ passes the app\'s own check', cr.fromPage === true, JSON.stringify(cr.fromPage));
+  {
+    const fileSample = readFileSync(path.join(REPO_ROOT, 'tax-rules/malaysia.json'), 'utf8');
+    const { country, currency, tax_authority, terms, ...rest } = JSON.parse(fileSample);
+    const { $schema, country: c2, tax_authority: a2, ...live } = dataJson || {};
+    check('tax rules: malaysia.json and the page sample match app/tax-data.js (run node scripts/build-tax-sample.mjs after a Budget)',
+      JSON.stringify(rest) === JSON.stringify(live) && country === c2 && tax_authority === a2 && currency === 'MYR'
+        && JSON.stringify(JSON.parse(pageExample)) === JSON.stringify(JSON.parse(fileSample)));
+  }
 
   const own = await S((ex) => {
     const before = { currency: state.currency, tax: JSON.stringify(state.tax) };
