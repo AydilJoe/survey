@@ -7981,18 +7981,26 @@ check('the brand catalogue makes no network calls at all',
     check('the iOS build fails loudly if no app icon was generated',
       /CREATE ios icon/.test(readFileSync(path.join(REPO_ROOT, '.github/workflows/ios.yml'), 'utf8')));
   }
-  // The native shells can't use /api/fx, so they fetch exchange rates from
-  // the upstream CDNs directly. The CSP shipped without those hosts, so every
-  // currency read "(offline)" in the iPhone and Android apps.
+  // Exchange rates come only from Duitful's own /api/fx, on every shell. The
+  // native apps once fetched the upstream CDNs directly, and the CSP didn't
+  // list them, so every currency read "(offline)" on iPhone and Android.
   {
     const appSrc = readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8');
-    const fxFn = appSrc.slice(appSrc.indexOf('async function fetchFxFromUpstream'), appSrc.indexOf('async function loadFxRates'));
-    const fxOrigins = [...fxFn.matchAll(/"(https:\/\/[^"\/]+)\//g)].map((m) => m[1]);
     const csp = (/Content-Security-Policy" content="([^"]+)"/.exec(readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8')) || [])[1] || '';
-    const connect = (/connect-src([^;]*)/.exec(csp) || [])[1] || '';
-    const blocked = fxOrigins.filter((o) => !connect.split(/\s+/).includes(o));
-    check('the CSP lets the native apps reach the exchange-rate CDNs',
-      fxOrigins.length >= 2 && blocked.length === 0, `blocked: ${blocked.join(', ') || 'none'}`);
+    const connect = ((/connect-src([^;]*)/.exec(csp) || [])[1] || '').split(/\s+/);
+    const origin = (/const FX_ORIGIN = "([^"]+)"/.exec(appSrc) || [])[1];
+    check('native exchange rates go to Duitful\'s own /api/fx, which the CSP allows',
+      !!origin && connect.includes(origin) && /isNative\(\) \? FX_ORIGIN \+ path : path/.test(appSrc), origin);
+    check('no third-party exchange-rate host is called from the app',
+      !/open\.er-api\.com|currency-api|cdn\.jsdelivr\.net\/npm\/@fawazahmed0/.test(appSrc) && !connect.some((h) => /er-api|currency-api|jsdelivr/.test(h)));
+    const { allowedOrigin } = await import(path.join(REPO_ROOT, 'api', '_lib', 'cors.js'));
+    check('the API answers the native apps\' origins (CORS), and only the site\'s otherwise',
+      allowedOrigin('capacitor://localhost', 'https://duitful.app') === 'capacitor://localhost'
+      && allowedOrigin('https://localhost', 'https://duitful.app') === 'https://localhost'
+      && allowedOrigin('https://evil.example', 'https://duitful.app') === 'https://duitful.app'
+      && allowedOrigin('https://evil.example', undefined) === '*');
+    const usesCors = ['fx.js', 'native/record-purchase.js'].every((f) => /require\("\.\.?\/_lib\/cors"\)/.test(readFileSync(path.join(REPO_ROOT, 'api', f), 'utf8')));
+    check('both endpoints the phone apps call send those CORS headers', usesCors);
   }
   // Native wiring: every name that must agree, agrees.
   // Universal Links: Apple matches appIDs against TeamID.bundleId of the

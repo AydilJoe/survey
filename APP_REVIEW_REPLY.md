@@ -50,7 +50,7 @@ No login credentials or sample files are needed.
 
 - **Apple In-App Purchase (StoreKit):** buying and restoring Duitful Pro.
 - **Duitful server (duitful.app, hosted on Vercel):** after a completed purchase, the app sends the product ID, the store transaction ID, the app version and, if one was entered, a referral or promo code. This is used only to pay referral commissions. No financial data, name or email is sent. The app also loads a small announcements file from duitful.app, which the user can turn off.
-- **Exchange rates:** public Currency API data served from cdn.jsdelivr.net and latest.currency-api.pages.dev, with open.er-api.com as a fallback. These requests send only a currency code.
+- **Exchange rates:** fetched from Duitful's own server (duitful.app/api/fx), which caches the free public Currency API once a day. These requests send no user data.
 - **iCloud (CloudKit), optional:** encrypted backup to the user's own private CloudKit database. The data is encrypted on the device with the user's passcode before upload.
 - **Google Drive with Google Sign-In, optional:** the same encrypted backup, written to the user's own Drive app folder.
 - **Google ML Kit text recognition:** reads receipts on the device; images are not uploaded.

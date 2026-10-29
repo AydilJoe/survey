@@ -16,6 +16,8 @@
 //
 // No-ops cleanly when KV env is missing.
 
+const { cors } = require("../_lib/cors");
+
 let kvModule = null;
 try { kvModule = require("@vercel/kv"); } catch (_) { /* not installed */ }
 
@@ -31,6 +33,9 @@ function isAllowedPromo(p) { return typeof p === "string" && /^[a-z0-9_-]{0,40}$
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
+  // Only the native apps call this. Without CORS headers their JSON POST
+  // fails its preflight and the purchase is never recorded.
+  if (cors(req, res, "POST, OPTIONS")) return;
 
   if (req.method !== "POST") {
     res.status(405).json({ ok: false, error: "Method not allowed" });

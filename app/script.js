@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.47.2";
+const APP_VERSION = "1.47.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -772,38 +772,7 @@ function fxRatesAreStale() {
   return Date.now() - new Date(state.fx.fetched_at).getTime() > 24 * 60 * 60 * 1000;
 }
 
-async function fetchFxFromUpstream() {
-  // Capacitor WebView resolves /api/fx to https://localhost/api/fx (404).
-  // Native builds hit the upstream Currency-API CDN directly. JSON shape is
-  // { date: "YYYY-MM-DD", eur: { usd: 1.08, gbp: 0.85, ... } } — same upstream
-  // as api/fx.js, so we apply the same lowercase-symbol filter here.
-  const SYMBOLS = [
-    "MYR","SGD","THB","IDR","PHP","VND","BND","LAK","KHR","MMK",
-    "JPY","CNY","HKD","KRW","TWD",
-    "INR","PKR","BDT","LKR","NPR",
-    "AED","SAR","QAR","KWD","OMR","BHD","EGP","ILS","TRY",
-    "GBP","CHF","SEK","NOK","DKK","PLN","CZK","HUF",
-    "USD","CAD","AUD","NZD","BRL","MXN","ARS","ZAR",
-  ];
-  const PRIMARY = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json";
-  const FALLBACK = "https://latest.currency-api.pages.dev/v1/currencies/eur.json";
-  async function fetchOnce(url) {
-    const r = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!r.ok) throw new Error(`upstream ${r.status}`);
-    return r.json();
-  }
-  let data;
-  try { data = await fetchOnce(PRIMARY); }
-  catch (_) { data = await fetchOnce(FALLBACK); }
-  const lookup = data && data.eur;
-  if (!lookup || typeof lookup !== "object") throw new Error("malformed upstream payload");
-  const rates = {};
-  for (const sym of SYMBOLS) {
-    const v = lookup[sym.toLowerCase()];
-    if (typeof v === "number" && Number.isFinite(v)) rates[sym] = v;
-  }
-  return { anchor: "EUR", rates, fetched_at: new Date().toISOString(), stale: false };
-}
+const FX_ORIGIN = "https://duitful.app";
 
 async function loadFxRates({ force = false } = {}) {
   if (!force && fxRatesAreUsable() && !fxRatesAreStale()) {
@@ -812,15 +781,13 @@ async function loadFxRates({ force = false } = {}) {
     return state.fx;
   }
   try {
-    let data;
-    if (isNative()) {
-      data = await fetchFxFromUpstream();
-    } else {
-      const url = force ? "/api/fx?refresh=1" : "/api/fx";
-      const r = await fetch(url);
-      if (!r.ok) throw new Error(`fx ${r.status}`);
-      data = await r.json();
-    }
+    // Every shell asks Duitful's own /api/fx (server-cached, one upstream).
+    // The native WebView's origin is localhost, so it needs the absolute URL;
+    // api/_lib/cors.js lets those origins through.
+    const path = force ? "/api/fx?refresh=1" : "/api/fx";
+    const r = await fetch(isNative() ? FX_ORIGIN + path : path);
+    if (!r.ok) throw new Error(`fx ${r.status}`);
+    const data = await r.json();
     state.fx = {
       anchor: data.anchor || "EUR",
       rates: data.rates || {},
@@ -9877,6 +9844,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.47.3": [
+    "<strong>Exchange rates load more reliably in the phone apps</strong> — they now come from Duitful's own server, the same as on the web.",
+  ],
   "1.47.2": [
     "<strong>iCloud backup no longer needs iCloud Drive</strong> — on iPhone it now only needs you signed in to iCloud.",
   ],
@@ -12060,29 +12030,17 @@ window.duitfulIncoming = (data) => {
   } catch (e) { console.warn("duitfulIncoming failed", e); return false; }
 };
 
-/* ---------- FX rate lookup (free, no API key) ---------- */
-const FX_CACHE_KEY = "duit-tracker.fx";
-const FX_TTL_MS = 24 * 60 * 60 * 1000;
+/* ---------- FX rate lookup for receipt scans ----------
+   The same rates as the currency pickers (loadFxRates → /api/fx), so a
+   scanned receipt in another currency converts with no other service.
+   null when the currency isn't one /api/fx carries, or rates can't load. */
 async function getFxRate(from, to) {
-  if (!from || !to || from === to) return 1;
+  if (!from || !to) return null;
   from = from.toUpperCase(); to = to.toUpperCase();
-  let cache = {};
-  try { cache = JSON.parse(localStorage.getItem(FX_CACHE_KEY) || "{}"); } catch {}
-  const fresh = cache[from];
-  if (fresh && fresh.ts + FX_TTL_MS > Date.now() && fresh.rates && fresh.rates[to]) {
-    return fresh.rates[to];
-  }
-  try {
-    const resp = await fetch(`https://open.er-api.com/v6/latest/${from}`);
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-    const data = await resp.json();
-    if (!data || !data.rates) throw new Error("no rates");
-    cache[from] = { ts: Date.now(), rates: data.rates };
-    try { localStorage.setItem(FX_CACHE_KEY, JSON.stringify(cache)); } catch {}
-    return data.rates[to] || null;
-  } catch {
-    return null;
-  }
+  if (from === to) return 1;
+  if (!fxRatesAreUsable() || fxRatesAreStale()) await loadFxRates();
+  const r = pairRate(from, to);
+  return Number.isFinite(r) && r > 0 ? r : null;
 }
 
 const scanDialog = document.getElementById("scan-dialog");
