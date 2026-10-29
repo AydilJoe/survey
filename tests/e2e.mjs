@@ -7175,6 +7175,13 @@ check('the brand catalogue makes no network calls at all',
     return r;
   });
   check('worldwide: in Malaysia the web paywall keeps FPX / TNG / GrabPay', myPay.fpx && !myPay.stores, JSON.stringify(myPay));
+  const strip = await S(() => {
+    const cs = getComputedStyle(document.documentElement, '::before');
+    return { pos: cs.position, top: cs.top, z: Number(cs.zIndex), events: cs.pointerEvents,
+      bg: cs.backgroundColor, page: (() => { const d = document.createElement('div'); d.style.background = 'var(--bg)'; document.body.appendChild(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; })() };
+  });
+  check('status bar: a fixed strip covers the safe area on every page, above content, in the page colour, never catching taps',
+    strip.pos === 'fixed' && strip.top === '0px' && strip.z >= 1000 && strip.events === 'none' && strip.bg === strip.page, JSON.stringify(strip));
 
   // ---- Custom tax rules: someone's own country, private in the vault ----
   const exampleRules = {

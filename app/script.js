@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.48.2";
+const APP_VERSION = "1.48.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9859,6 +9859,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.48.3": [
+    "<strong>Nothing under the clock</strong> — on iPhone, pages no longer scroll underneath the time and battery icons.",
+  ],
   "1.48.2": [
     "<strong>Tidier Settings</strong> — the Currency rates card is gone. Rates still update on their own every day.",
   ],
