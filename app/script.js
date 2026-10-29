@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.48.0";
+const APP_VERSION = "1.48.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9859,6 +9859,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.48.1": [
+    "<strong>Uploading a tax rules file works</strong> — the Upload file button did nothing; pasting was fine. Rules can also name their country with its three-letter ISO code (MYS, SGP).",
+  ],
   "1.48.0": [
     "<strong>Tax for any country</strong> — on the Tax page, add your own country's tax rules as JSON (paste or upload). Not sure how? duitful.app/tax-rules has a prompt you can send to your AI. The rules stay in your encrypted data on this phone.",
     "<strong>Your currency from the start</strong> — a new setup now starts in the currency of where your phone is, not always ringgit.",

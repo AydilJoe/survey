@@ -7197,21 +7197,35 @@ check('the brand catalogue makes no network calls at all',
     const bad = taxCheckRules('{"tax_relief_categories": []');
     const noCur = taxCheckRules(JSON.stringify({ ...ex, currency: undefined }));
     const badBand = taxCheckRules(JSON.stringify({ ...ex, tax_by_year: { 2026: { bands: [{ up_to: 5, rate: 3 }], rebate: { amount: 0, chargeable_income_up_to: 0 } } } }));
+    const badCode = taxCheckRules(JSON.stringify({ ...ex, country_code: 'SG' })).problems;
+    const okCode = taxCheckRules(JSON.stringify({ ...ex, country_code: 'deu' })).ok;
     const good = taxCheckRules(JSON.stringify(ex));
     const fromPage = taxCheckRules(pageEx);
-    return { bad: bad.problems, noCur: noCur.problems, badBand: badBand.problems, good: good.ok,
+    return { badCode, okCode, bad: bad.problems, noCur: noCur.problems, badBand: badBand.problems, good: good.ok,
       keys: good.ok && Object.keys(good.data.tax_relief_categories[1].items[0]), fromPage: fromPage.ok || fromPage.problems };
   }, [exampleRules, pageExample]);
   check('tax rules: broken JSON, a missing currency and a bad band are each named; a good file passes',
     /valid JSON/.test(cr.bad[0]) && cr.noCur.some((p) => /currency/.test(p)) && cr.badBand.length > 0 && cr.good
       && cr.keys.includes('limit_ya_2026_myr'), JSON.stringify(cr));
+  check('tax rules: country_code must be ISO 3166-1 alpha-3 (SG refused, deu accepted as DEU)',
+    cr.badCode.some((p) => /three-letter/.test(p)) && cr.okCode, JSON.stringify({ badCode: cr.badCode, okCode: cr.okCode }));
+  {
+    // Upload file: the real button and file input, not taxCheckRules directly.
+    await S(() => { document.getElementById('tabbtn-dashboard')?.click(); taxOpenRules(); });
+    await page.setInputFiles('#tax-rules-file', { name: 'rules.json', mimeType: 'application/json', buffer: Buffer.from('{"country":"X"}') });
+    await page.waitForTimeout(200);
+    const up = await S(() => ({ text: document.getElementById('tax-rules-text').value,
+      problems: !document.getElementById('tax-rules-problems').hidden, open: document.getElementById('tax-rules-dialog').open }));
+    await S(() => document.getElementById('tax-rules-dialog').close());
+    check('tax rules: Upload file reads the file into the editor and names its problems', up.text === '{"country":"X"}' && up.problems && up.open, JSON.stringify(up));
+  }
   check('tax rules: the Malaysia sample on duitful.app/tax-rules/ passes the app\'s own check', cr.fromPage === true, JSON.stringify(cr.fromPage));
   {
     const fileSample = readFileSync(path.join(REPO_ROOT, 'tax-rules/malaysia.json'), 'utf8');
-    const { country, currency, tax_authority, terms, ...rest } = JSON.parse(fileSample);
+    const { country, country_code, currency, tax_authority, terms, ...rest } = JSON.parse(fileSample);
     const { $schema, country: c2, tax_authority: a2, ...live } = dataJson || {};
     check('tax rules: malaysia.json and the page sample match app/tax-data.js (run node scripts/build-tax-sample.mjs after a Budget)',
-      JSON.stringify(rest) === JSON.stringify(live) && country === c2 && tax_authority === a2 && currency === 'MYR'
+      JSON.stringify(rest) === JSON.stringify(live) && country === c2 && tax_authority === a2 && currency === 'MYR' && country_code === 'MYS'
         && JSON.stringify(JSON.parse(pageExample)) === JSON.stringify(JSON.parse(fileSample)));
   }
 

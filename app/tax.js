@@ -198,7 +198,11 @@ function taxWhole(n) {
 
 /* ---------- custom rules: check, store, apply ---------- */
 
-const TAX_SCHEDULE_MAX_BYTES = 400 * 1024;
+const TAX_RULES_MAX_BYTES = 400 * 1024;
+
+// ISO 3166-1 alpha-3 country codes, for a rules file's optional
+// "country_code" (MYS, SGP, GBR).
+const TAX_ISO3 = new Set("ABW AFG AGO AIA ALA ALB AND ARE ARG ARM ASM ATA ATF ATG AUS AUT AZE BDI BEL BEN BES BFA BGD BGR BHR BHS BIH BLM BLR BLZ BMU BOL BRA BRB BRN BTN BVT BWA CAF CAN CCK CHE CHL CHN CIV CMR COD COG COK COL COM CPV CRI CUB CUW CXR CYM CYP CZE DEU DJI DMA DNK DOM DZA ECU EGY ERI ESH ESP EST ETH FIN FJI FLK FRA FRO FSM GAB GBR GEO GGY GHA GIB GIN GLP GMB GNB GNQ GRC GRD GRL GTM GUF GUM GUY HKG HMD HND HRV HTI HUN IDN IMN IND IOT IRL IRN IRQ ISL ISR ITA JAM JEY JOR JPN KAZ KEN KGZ KHM KIR KNA KOR KWT LAO LBN LBR LBY LCA LIE LKA LSO LTU LUX LVA MAC MAF MAR MCO MDA MDG MDV MEX MHL MKD MLI MLT MMR MNE MNG MNP MOZ MRT MSR MTQ MUS MWI MYS MYT NAM NCL NER NFK NGA NIC NIU NLD NOR NPL NRU NZL OMN PAK PAN PCN PER PHL PLW PNG POL PRI PRK PRT PRY PSE PYF QAT REU ROU RUS RWA SAU SDN SEN SGP SGS SHN SJM SLB SLE SLV SMR SOM SPM SRB SSD STP SUR SVK SVN SWE SWZ SXM SYC SYR TCA TCD TGO THA TJK TKL TKM TLS TON TTO TUN TUR TUV TWN TZA UGA UKR UMI URY USA UZB VAT VCT VEN VGB VIR VNM VUT WLF WSM YEM ZAF ZMB ZWE".split(" "));
 
 // The format is Duitful's own schedule (tax-data.js). For other countries
 // the ringgit-flavoured key names have plain twins, so a file can say
@@ -224,6 +228,7 @@ function taxNormaliseRules(raw) {
     }
   }
   if (typeof data.currency === "string") data.currency = data.currency.trim().toUpperCase();
+  if (typeof data.country_code === "string") data.country_code = data.country_code.trim().toUpperCase();
   return data;
 }
 
@@ -231,7 +236,7 @@ function taxNormaliseRules(raw) {
 // sentences a person (or their AI) can fix.
 function taxCheckRules(text) {
   if (typeof text !== "string" || !text.trim()) return { ok: false, problems: ["The file is empty."] };
-  if (text.length > TAX_SCHEDULE_MAX_BYTES) return { ok: false, problems: [`The file is over ${Math.round(TAX_SCHEDULE_MAX_BYTES / 1024)} KB. Tax rules are usually under 60 KB.`] };
+  if (text.length > TAX_RULES_MAX_BYTES) return { ok: false, problems: [`The file is over ${Math.round(TAX_RULES_MAX_BYTES / 1024)} KB. Tax rules are usually under 60 KB.`] };
   let raw;
   // Accept a pasted tax-data.js too: take the object after `=`.
   const body = text.trim().replace(/^[\s\S]*const\s+TAX_DATA\s*=\s*/, "").replace(/;\s*$/, "");
@@ -241,6 +246,7 @@ function taxCheckRules(text) {
   const problems = [];
   if (!/^[A-Z]{3}$/.test(data.currency || "")) problems.push('Add "currency": the 3-letter code the amounts are in, e.g. "SGD" or "GBP".');
   else { try { new Intl.NumberFormat("en", { style: "currency", currency: data.currency }); } catch { problems.push(`"${data.currency}" isn't a currency code.`); } }
+  if (data.country_code !== undefined && !TAX_ISO3.has(data.country_code)) problems.push(`"country_code" must be the ISO 3166-1 three-letter code, e.g. "MYS" or "SGP".`);
   if (data.terms !== undefined && (typeof data.terms !== "object" || Array.isArray(data.terms))) problems.push('"terms" must be an object of words, e.g. { "withholding": "PAYE" }.');
   problems.push(...taxStructureProblems(data));
   return problems.length ? { ok: false, problems } : { ok: true, data, problems: [] };
