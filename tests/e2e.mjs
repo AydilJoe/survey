@@ -8178,6 +8178,15 @@ check('the brand catalogue makes no network calls at all',
   await fresh.waitForTimeout(2500);
   const restored = await fresh.evaluate(() => (state.debts || []).some((d) => d.name === 'Probe Kad Kredit'));
   check('the right passcode restores the iCloud backup on the new phone', restored);
+  const party = await fresh.evaluate(() => {
+    const d = document.getElementById('restore-dialog');
+    return { open: d.open, title: document.getElementById('restore-title').textContent,
+      sub: document.getElementById('restore-sub').textContent, stats: [...document.querySelectorAll('#restore-stats li')].map((li) => li.textContent),
+      tour: !!document.querySelector('#onboard-dialog[open], dialog.onboard[open]'), guideSeen: state.guideSeen };
+  });
+  check('a restore ends in a Welcome back celebration naming iCloud and what came back, with no tour on top',
+    party.open && /Welcome back/.test(party.title) && /iCloud/.test(party.sub) && party.stats.some((t) => /debt/.test(t))
+      && !party.tour && party.guideSeen, JSON.stringify(party));
 
   const empty = await b.newContext();
   const none = await empty.newPage();
@@ -8213,6 +8222,16 @@ check('the brand catalogue makes no network calls at all',
       debt: (state.debts || []).some((d) => d.name === 'Open Probe Loan') }));
     check('a no-passcode iCloud backup restores without asking, and the phone stays without a passcode',
       or.unlocked && or.open && or.lock && or.debt, JSON.stringify(or));
+    check('the no-passcode restore gets the Welcome back celebration too',
+      await op.evaluate(() => document.getElementById('restore-dialog').open && /1 debt/.test(document.getElementById('restore-stats').textContent)));
+    const fromSettings = await op.evaluate(async () => {
+      document.getElementById('restore-dialog').close();
+      const alerts = []; window.alert = (m) => alerts.push(m);
+      await restoreFromDrive('icloud');
+      return { open: document.getElementById('restore-dialog').open, alerts, sub: document.getElementById('restore-sub').textContent };
+    });
+    check('restoring from Settings celebrates instead of a bare "Restore complete" alert',
+      fromSettings.open && !fromSettings.alerts.length && /iCloud/.test(fromSettings.sub), JSON.stringify(fromSettings));
     await octx.close();
   }
 
