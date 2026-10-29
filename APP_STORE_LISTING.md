@@ -49,7 +49,7 @@ their words are repeated here.
 ```
 Every budgeting app I tried wanted my bank login. So I built one that can't have it.
 
-Duitful has no server. Your income, your debts, your spending — all of it is encrypted on your phone with a passcode only you know. There is nowhere for it to go. I couldn't read your data if you asked me to.
+Duitful has no server. Your income, your debts, your spending — all of it is encrypted on your phone, behind a passcode only you know if you set one. There is nowhere for it to go. I couldn't read your data if you asked me to.
 
 The code is public at github.com/AydilJoe/survey. Don't trust me — check.
 
@@ -113,7 +113,7 @@ Use realistic Malaysian sample data, not your real figures.
 Notes:
 
 ```
-No account is needed. On first launch, set any passcode of 4 or more digits; everything after that works offline.
+No account is needed. On first launch, tap Get started; a passcode (4 or more digits) is optional, then or later. Everything works offline.
 
 Duitful Pro is a non-consumable in-app purchase: Settings → Unlock Pro. "Restore purchase" is on the same screen. Two products are attached: duitful_pro (standard) and duitful_pro_launch (used when a friend code such as LAUNCH100 is entered on the purchase screen).
 

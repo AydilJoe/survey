@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.48.3";
+const APP_VERSION = "1.49.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8881,17 +8881,13 @@ bulkIncomeApply?.addEventListener("click", () => {
 $("#btn-clear").addEventListener("click", async () => {
   if (!confirm("Erase ALL data — income, recurring expenses, debts, daily entries, savings goals and settings? This cannot be undone.")) return;
   if (!confirm("Really sure? Export CSV first if you want a backup.")) return;
-  const pass = prompt("Enter your passcode to confirm:");
-  if (pass == null) return;
-  const raw = localStorage.getItem(ENC_KEY);
-  if (!raw) return;
-  try {
-    const rec = JSON.parse(raw);
-    const checkKey = await deriveKey(pass, b64decode(rec.salt));
-    await decryptRecord(checkKey, rec);
-  } catch {
-    alert("Incorrect passcode. Data was not cleared.");
-    return;
+  if (!vaultIsOpen()) {
+    const pass = prompt("Enter your passcode to confirm:");
+    if (pass == null) return;
+    if (!(await vaultPasscodeMatches(pass))) {
+      alert("Incorrect passcode. Data was not cleared.");
+      return;
+    }
   }
   state = emptyState();
   save();
@@ -9859,6 +9855,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.49.0": [
+    "<strong>Start in one tap</strong> — new here? Tap Get started. A passcode is now optional: set one first, or any time in Settings → Security, and turn it off there too.",
+  ],
   "1.48.3": [
     "<strong>Nothing under the clock</strong> — on iPhone, pages no longer scroll underneath the time and battery icons.",
   ],
@@ -10500,6 +10499,21 @@ renderAll();
 
 let lockMode = "unlock"; // "unlock" | "setup" | "migrate"
 
+/* A vault without a passcode. People can start without setting one; their
+   data is still AES-GCM encrypted, under this fixed code, so storage,
+   backups and restore stay one path. It is no secret: the flag outside the
+   vault says "this one opens with OPEN_PASSCODE", and the app then opens
+   without asking. Setting a passcode later re-encrypts under it. Nobody may
+   choose OPEN_PASSCODE as their own: it would look locked and isn't. */
+const OPEN_PASSCODE = "0000";
+const OPEN_FLAG = "duitful.noPasscode";
+function vaultIsOpen() { return localStorage.getItem(OPEN_FLAG) === "1"; }
+const OPEN_REFUSED = "0000 can't be a passcode. Pick another, or skip it.";
+
+// First open shows Get started / Set a passcode; this is true once they
+// chose to set one, which brings up the passcode fields.
+let setupWantsPasscode = false;
+
 // Which backup the lock screen's "restore" mode decrypts: "drive" or "icloud".
 // Declared above setLockMode, which reads it and can run during boot.
 let lockRestoreSource = "drive";
@@ -10517,6 +10531,19 @@ function setLockMode(mode) {
   if (input) { input.placeholder = "Passcode"; input.value = ""; }
   if (confirmEl) confirmEl.value = "";
   if (welcome) welcome.hidden = !(mode === "setup" || mode === "migrate");
+  const choosing = mode === "setup" && !setupWantsPasscode;
+  const start = document.getElementById("lock-start");
+  const form = document.getElementById("lock-form");
+  const startOpen = document.getElementById("btn-start-open");
+  const startPass = document.getElementById("btn-start-passcode");
+  if (start) start.hidden = mode !== "setup";
+  if (form) form.hidden = choosing;
+  if (sub) sub.hidden = choosing;
+  if (startPass) startPass.hidden = !choosing;
+  if (startOpen) {
+    startOpen.textContent = choosing ? "Get started" : "Skip, no passcode";
+    startOpen.className = choosing ? "primary" : "ghost";
+  }
   // Restore-from-Drive link only makes sense on a fresh / migrating device.
   if (restoreLink) restoreLink.hidden = !(mode === "setup" || mode === "migrate");
   if (typeof renderLockRestore === "function") renderLockRestore();
@@ -10572,6 +10599,7 @@ function hideLock() {
   // Every unlock path — passcode, first-run setup, Drive restore, biometric —
   // funnels through this function, so nothing needs to remember to call it.
   if (typeof flushQuickAction === "function") flushQuickAction();
+  if (typeof renderSecurityCard === "function") renderSecurityCard();
 }
 function lockError(msg) {
   const err = document.getElementById("lock-error");
@@ -10679,8 +10707,10 @@ async function updateBiometricUI() {
   const avail = await biometricAvailable();
   const on = avail && biometricEnabled();
   if (btn) btn.hidden = !(on && lockMode === "unlock");
-  if (row) row.hidden = !avail;
-  if (hint) hint.hidden = !avail;
+  // Without a passcode there is nothing for a fingerprint to release.
+  const open = typeof vaultIsOpen === "function" && vaultIsOpen();
+  if (row) row.hidden = !avail || open;
+  if (hint) hint.hidden = !avail || open;
   if (toggle) toggle.checked = on;
 }
 
@@ -10755,25 +10785,25 @@ document.getElementById("toggle-biometric")?.addEventListener("change", async (e
   if (!ok) alert("Couldn't enable biometric unlock — the scan was cancelled or this device refused to store the passcode.");
 });
 
-async function handleUnlock(passcode) {
+async function handleUnlock(passcode, { silent = false } = {}) {
   const raw = localStorage.getItem(ENC_KEY);
-  if (!raw) { lockError("No encrypted data."); return; }
-  const rec = JSON.parse(raw);
+  if (!raw) { if (!silent) lockError("No encrypted data."); return false; }
   try {
+    const rec = JSON.parse(raw);
     const key = await deriveKey(passcode, b64decode(rec.salt));
     const plain = await decryptRecord(key, rec);
     aesKey = key;
     state = coerceState(plain);
   } catch {
-    lockError("Incorrect passcode");
-    return;
+    if (!silent) lockError("Incorrect passcode");
+    return false;
   }
   hideLock();
   ensureTrialStarted();
   renderAll(); // first render: tweens snap because _isHydrated is still false
   _isHydrated = true;
   maybeShowWhatsNew();
-  maybeOfferBiometric(passcode).catch(() => {});
+  if (passcode !== OPEN_PASSCODE) maybeOfferBiometric(passcode).catch(() => {});
   // Delayed so a What's-new dialog (or the first-run tour) claims the modal
   // slot first — showAnnouncement() skips this launch if any dialog is open.
   setTimeout(checkAnnouncements, 2500);
@@ -10792,9 +10822,11 @@ async function handleUnlock(passcode) {
   // app was unlocked lands now. Idempotent, so a re-run is harmless.
   if (typeof splitConsumePending === "function") splitConsumePending().catch(() => {});
   initSplitDeepLinks();
+  return true;
 }
 
-async function handleSetup(passcode, confirm, initialState) {
+async function handleSetup(passcode, confirm, initialState, { open = false } = {}) {
+  if (!open && passcode === OPEN_PASSCODE) { lockError(OPEN_REFUSED); return; }
   if (!/^\d+$/.test(passcode)) { lockError("Numbers only"); return; }
   if (passcode.length < 4) { lockError("Min 4 digits"); return; }
   if (passcode !== confirm) { lockError("Passcodes don't match"); return; }
@@ -10806,6 +10838,8 @@ async function handleSetup(passcode, confirm, initialState) {
   const rec = await encryptWith(key, state, saltB64);
   localStorage.setItem(ENC_KEY, JSON.stringify(rec));
   localStorage.removeItem(STORAGE_KEY); // clear legacy plain after migration
+  if (open) localStorage.setItem(OPEN_FLAG, "1"); else localStorage.removeItem(OPEN_FLAG);
+  setupWantsPasscode = false;
   hideLock();
   ensureTrialStarted();
   renderAll(); // first render: tweens snap because _isHydrated is still false
@@ -10818,7 +10852,7 @@ async function handleSetup(passcode, confirm, initialState) {
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
   scheduleNativeReminders().catch(() => {});
-  maybeOfferBiometric(passcode).catch(() => {});
+  if (!open) maybeOfferBiometric(passcode).catch(() => {});
   maybeOpenGuideAfterSetup();
   maybeShowInstallBanner();
   if (typeof checkDriveOnBoot === "function") checkDriveOnBoot().catch(() => {});
@@ -10855,10 +10889,7 @@ if (lockForm) {
       if (lockMode === "unlock") {
         await handleUnlock(pass);
       } else if (lockMode === "setup") {
-        // A brand-new vault starts in the currency of where the phone is.
-        const fresh = emptyState();
-        if (typeof regionDefaultCurrency === "function") fresh.currency = regionDefaultCurrency();
-        await handleSetup(pass, (confirmEl && confirmEl.value) || "", fresh);
+        await handleSetup(pass, (confirmEl && confirmEl.value) || "", freshVaultState());
       } else if (lockMode === "migrate") {
         const legacy = localStorage.getItem(STORAGE_KEY);
         let legacyState = emptyState();
@@ -10878,6 +10909,40 @@ if (lockForm) {
       endWork();
     }
   });
+}
+
+// A brand-new vault starts in the currency of where the phone is.
+function freshVaultState() {
+  const fresh = emptyState();
+  if (typeof regionDefaultCurrency === "function") fresh.currency = regionDefaultCurrency();
+  return fresh;
+}
+
+document.getElementById("btn-start-passcode")?.addEventListener("click", () => {
+  setupWantsPasscode = true;
+  setLockMode("setup");
+  setTimeout(() => document.getElementById("lock-input")?.focus(), 50);
+});
+document.getElementById("btn-start-open")?.addEventListener("click", async (e) => {
+  const endWork = beginWork(e.currentTarget);
+  try { await handleSetup(OPEN_PASSCODE, OPEN_PASSCODE, freshVaultState(), { open: true }); }
+  finally { endWork(); }
+});
+
+// A vault without a passcode opens itself. The lock screen stays up as a
+// splash (nothing to type) while the key derives; if the fixed code no
+// longer opens it, the flag was stale and the passcode screen takes over.
+async function openVaultOnBoot() {
+  const lock = document.getElementById("lock");
+  setLockMode("unlock");
+  if (lock) { lock.hidden = false; lock.setAttribute("aria-hidden", "false"); lock.classList.add("is-opening"); }
+  let ok = false;
+  try { ok = await handleUnlock(OPEN_PASSCODE, { silent: true }); } catch {}
+  if (lock) lock.classList.remove("is-opening");
+  if (!ok) {
+    localStorage.removeItem(OPEN_FLAG);
+    showLock();
+  }
 }
 
 /* "Restore" paths on the lock screen — for fresh devices that already have
@@ -10922,6 +10987,17 @@ async function startDriveRestoreFromLock(id = "drive") {
       return;
     }
     lockRestoreSource = id;
+    // A backup made without a passcode opens with the fixed code: restore it
+    // straight away instead of asking for a passcode that never existed.
+    const rec = await api.downloadEncryptedRecord().catch(() => null);
+    if (rec) {
+      let plain = null;
+      try { plain = await decryptRecord(await deriveKey(OPEN_PASSCODE, b64decode(rec.salt)), rec); } catch {}
+      if (plain) {
+        await handleSetup(OPEN_PASSCODE, OPEN_PASSCODE, coerceState(plain), { open: true });
+        return;
+      }
+    }
     setLockMode("restore");
     setTimeout(() => document.getElementById("lock-input")?.focus(), 50);
   } catch (err) {
@@ -10957,7 +11033,7 @@ async function handleRestoreFromDrive(passcode) {
   }
   // Re-encrypt locally with a fresh salt under the same passcode and the
   // recovered state. handleSetup also runs renderAll, IAP init etc.
-  await handleSetup(passcode, passcode, coerceState(plain));
+  await handleSetup(passcode, passcode, coerceState(plain), { open: passcode === OPEN_PASSCODE });
 }
 
 document.getElementById("btn-setup-restore")?.addEventListener("click", () => {
@@ -12635,55 +12711,114 @@ document.getElementById("btn-forgot")?.addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
   if (typeof taxReceiptsWipe === "function") taxReceiptsWipe(); // receipt photos go with the data
   disableBiometric().catch(() => {}); // stored passcode dies with the data
+  localStorage.removeItem(OPEN_FLAG);
   aesKey = null;
   state = emptyState();
+  setupWantsPasscode = false;
   setLockMode("setup");
 });
 
-document.getElementById("btn-change-passcode")?.addEventListener("click", async () => {
-  if (!aesKey) return;
-  const cur = prompt("Current passcode:");
-  if (cur == null) return;
-  // verify by attempting to decrypt
-  const raw = localStorage.getItem(ENC_KEY);
-  if (!raw) return;
-  const rec = JSON.parse(raw);
-  try {
-    const checkKey = await deriveKey(cur, b64decode(rec.salt));
-    await decryptRecord(checkKey, rec);
-  } catch { alert("Incorrect passcode."); return; }
-  const p1 = prompt("New passcode (numbers only, min 4 digits):");
-  if (p1 == null) return;
-  if (!/^\d{4,}$/.test(p1)) { alert("Must be at least 4 digits, numbers only."); return; }
-  const p2 = prompt("Confirm new passcode:");
-  if (p1 !== p2) { alert("Passcodes don't match."); return; }
+// Re-encrypt the vault (and the sealed tax receipts) under a new code.
+// `open` means the new code is OPEN_PASSCODE: no lock from now on.
+async function rekeyVault(newPass, { open = false } = {}) {
   const saltBytes = crypto.getRandomValues(new Uint8Array(16));
   const saltB64 = b64encode(saltBytes);
-  const newKey = await deriveKey(p1, saltBytes);
+  const newKey = await deriveKey(newPass, saltBytes);
   // Saved tax receipts are sealed with the vault key: reseal them first, or
-  // the new passcode would lock the photos away for good.
+  // the new code would lock the photos away for good.
   if (typeof taxReceiptsRekey === "function") await taxReceiptsRekey(aesKey, newKey);
   aesKey = newKey;
   const newRec = await encryptWith(newKey, state, saltB64);
   localStorage.setItem(ENC_KEY, JSON.stringify(newRec));
-  // Seamless biometric re-store: the keystore holds the old passcode, which
-  // no longer decrypts anything. Swap in the new one; if the keystore write
-  // fails, turn biometric unlock off rather than leave a dead entry.
-  if (biometricEnabled()) {
-    const ok = await storeBiometricPasscode(p1);
-    if (!ok) await disableBiometric();
+  if (open) localStorage.setItem(OPEN_FLAG, "1"); else localStorage.removeItem(OPEN_FLAG);
+  // Biometric unlock holds the passcode. With no passcode there is nothing
+  // to hold; with a new one, swap it in or switch biometrics off rather than
+  // leave a dead entry.
+  if (open) await disableBiometric();
+  else if (biometricEnabled() && !(await storeBiometricPasscode(newPass))) await disableBiometric();
+  // Backups carry the same encryption: push the re-keyed record.
+  save();
+  renderSecurityCard();
+}
+
+async function vaultPasscodeMatches(pass) {
+  const raw = localStorage.getItem(ENC_KEY);
+  if (!raw || pass == null) return false;
+  try {
+    const rec = JSON.parse(raw);
+    await decryptRecord(await deriveKey(pass, b64decode(rec.salt)), rec);
+    return true;
+  } catch { return false; }
+}
+
+function askNewPasscode() {
+  const p1 = prompt("New passcode (numbers only, min 4 digits):");
+  if (p1 == null) return null;
+  if (p1 === OPEN_PASSCODE) { alert(OPEN_REFUSED); return null; }
+  if (!/^\d{4,}$/.test(p1)) { alert("Must be at least 4 digits, numbers only."); return null; }
+  const p2 = prompt("Confirm new passcode:");
+  if (p2 == null) return null;
+  if (p1 !== p2) { alert("Passcodes don't match."); return null; }
+  return p1;
+}
+
+// Settings → Security: set a passcode when there is none; change or turn
+// it off when there is one.
+function renderSecurityCard() {
+  const open = vaultIsOpen();
+  const change = document.getElementById("btn-change-passcode");
+  const remove = document.getElementById("btn-remove-passcode");
+  const hint = document.getElementById("security-hint");
+  if (change) change.textContent = open ? "Set a passcode" : "Change passcode";
+  if (remove) remove.hidden = open;
+  if (hint) {
+    hint.innerHTML = open
+      ? `No passcode: Duitful opens without asking, and your backups are protected only by your Apple or Google account. Set one to lock both with a code only you know. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`
+      : `Encrypted with your passcode. Lose it and nobody can recover your data — keep a backup. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`;
   }
+  updateBiometricUI();
+}
+
+document.getElementById("btn-change-passcode")?.addEventListener("click", async () => {
+  if (!aesKey) return;
+  if (vaultIsOpen()) {
+    const p1 = askNewPasscode();
+    if (!p1) return;
+    await rekeyVault(p1);
+    alert("Passcode set. Duitful will ask for it when you open the app, and your backups now use it too.");
+    maybeOfferBiometric(p1).catch(() => {});
+    return;
+  }
+  const cur = prompt("Current passcode:");
+  if (cur == null) return;
+  if (!(await vaultPasscodeMatches(cur))) { alert("Incorrect passcode."); return; }
+  const p1 = askNewPasscode();
+  if (!p1) return;
+  await rekeyVault(p1);
   alert("Passcode changed. Data re-encrypted with new key.");
+});
+
+document.getElementById("btn-remove-passcode")?.addEventListener("click", async () => {
+  if (!aesKey || vaultIsOpen()) return;
+  if (!confirm("Turn off the passcode? Duitful will open without asking, and your backups will be protected only by your Apple or Google account.")) return;
+  const cur = prompt("Current passcode:");
+  if (cur == null) return;
+  if (!(await vaultPasscodeMatches(cur))) { alert("Incorrect passcode."); return; }
+  await rekeyVault(OPEN_PASSCODE, { open: true });
+  toast("Passcode off. You can set one again in Settings → Security.");
 });
 
 /* decide the initial lock mode and show it */
 {
   const hasEnc = !!localStorage.getItem(ENC_KEY);
   const hasPlain = !!localStorage.getItem(STORAGE_KEY);
-  if (hasEnc) setLockMode("unlock");
-  else if (hasPlain) setLockMode("migrate");
-  else setLockMode("setup");
-  showLock();
+  if (hasEnc && vaultIsOpen()) openVaultOnBoot();
+  else {
+    if (hasEnc) setLockMode("unlock");
+    else if (hasPlain) setLockMode("migrate");
+    else setLockMode("setup");
+    showLock();
+  }
 }
 
 /* Auto-lock when the app is backgrounded for longer than the grace period.
@@ -12692,6 +12827,8 @@ document.getElementById("btn-change-passcode")?.addEventListener("click", async 
 const AUTO_LOCK_MS = 10_000;
 let hiddenAt = 0;
 function relock() {
+  // Nothing to lock without a passcode.
+  if (vaultIsOpen()) return;
   // The search sheet renders decrypted entries — never leave it behind the lock.
   closeSearch({ wipe: true });
   if (typeof taxCloseAll === "function") taxCloseAll();
@@ -12713,6 +12850,14 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", () => {
   // Page is unloading or entering the back/forward cache — drop the key.
   aesKey = null;
+});
+// Back from the back/forward cache with the key gone: open again (no
+// passcode) or show the passcode screen, rather than an app whose saves
+// would be silently dropped.
+window.addEventListener("pageshow", (e) => {
+  if (!e.persisted || aesKey || !localStorage.getItem(ENC_KEY)) return;
+  if (vaultIsOpen()) openVaultOnBoot();
+  else relock();
 });
 
 /* ---------- Cloud backup: iCloud and Google Drive ---------- */
@@ -12856,7 +13001,12 @@ async function restoreFromDrive(id = "drive") {
   let plain = null;
   try {
     plain = await decryptRecord(aesKey, rec);
-  } catch {
+  } catch {}
+  // A backup made without a passcode opens with the fixed code.
+  if (!plain) {
+    try { plain = await decryptRecord(await deriveKey(OPEN_PASSCODE, b64decode(rec.salt)), rec); } catch {}
+  }
+  if (!plain) {
     const altPass = prompt(
       `Enter your passcode to decrypt the backup from ${where}:`,
     );
@@ -13716,7 +13866,7 @@ const SEARCH_FEATURES = [
   { title: "Duitful Pro", where: "Settings", kw: "pro upgrade premium unlock licence license naik taraf lesen", go: ["data", "#pro-card"] },
   { title: "Currency", where: "Settings", kw: "currency myr usd sgd money mata wang", go: ["data", "#pref-currency"] },
   { title: "Reminders", where: "Settings", kw: "reminders notifications alerts due peringatan notifikasi makluman", go: ["data", "#pref-reminders-days"] },
-  { title: "Change passcode", where: "Settings", kw: "passcode password pin security lock kata laluan kod keselamatan kunci", go: ["data", "#btn-change-passcode"] },
+  { title: "Change passcode", where: "Settings", kw: "passcode password pin security lock set turn off remove kata laluan kod keselamatan kunci", go: ["data", "#btn-change-passcode"] },
   { title: "Fingerprint / face unlock", where: "Settings", kw: "fingerprint face id biometric unlock cap jari muka biometrik", go: ["data", "#biometric-row"] },
   { title: "Hide amounts", where: "Header", kw: "hide amounts privacy blur screenshot sembunyi jumlah privasi", run: () => { closeSearch(); document.getElementById("btn-privacy")?.click(); } },
   { title: "What's new", where: "Settings", kw: "whats new what's new changelog release notes update version updates apa baru kemas kini versi", run: () => { closeSearch(); showWhatsNewNow(); } },

@@ -37,7 +37,7 @@
   "url": "https://duitful.app/privacy/",
   "description": "Privacy policy for Duitful — a privacy-first personal finance tracker built in Malaysia.",
   "inLanguage": "en",
-  "dateModified": "2026-10-26",
+  "dateModified": "2026-10-29",
   "publisher": {
     "@type": "Organization",
     "name": "Duitful",
@@ -203,12 +203,12 @@
 
   <h1>Privacy <em>policy</em></h1>
   <p class="lede">Written in plain English, not legalese. The short version lives right below — the rest is the full detail you'll want if you care, or if a regulator asks.</p>
-  <p class="meta">Effective 23 April 2026 · Last updated 26 October 2026</p>
+  <p class="meta">Effective 23 April 2026 · Last updated 29 October 2026</p>
 
   <div class="tldr">
     <h2>The short version</h2>
     <ul>
-      <li>Your transactions, debts, savings, receipts and notes <strong>stay on your device</strong>, encrypted with AES-GCM using a key derived from your passcode. Duitful runs no sync server.</li>
+      <li>Your transactions, debts, savings, receipts and notes <strong>stay on your device</strong>, encrypted with AES-GCM using a key derived from your passcode. Duitful runs no sync server. The passcode is optional; see <a href="#no-passcode">without a passcode</a>.</li>
       <li>If you turn on Pro's optional <strong>Google Drive sync</strong>, an already-encrypted copy of your database is uploaded directly from your device to a hidden folder in <em>your own</em> Google Drive. Duitful never sees the bytes; Google cannot read them without your passcode.</li>
       <li>In the iPhone app, Pro backs up the same already-encrypted copy to <em>your own</em> <strong>iCloud</strong> (see <a href="#icloud">4.6</a>). Duitful never sees the bytes; Apple cannot read them without your passcode.</li>
       <li>Receipt scanning runs <strong>entirely on your device</strong> — Google's ML Kit inside the Android app, Tesseract.js on the web, both on-device. Receipt images and extracted text are never uploaded to us or to any third party, and Google receives nothing from an ML Kit scan.</li>
@@ -246,6 +246,9 @@
   <p>This data is written to the browser's <code>localStorage</code> (or the equivalent storage inside the native app shell). It is encrypted at rest using AES-GCM with a 256-bit key derived from your passcode via PBKDF2 (250,000 iterations, SHA-256). We do not know your passcode; we do not have a copy of the derived key; we cannot decrypt your data.</p>
   <p>If you forget your passcode, your data is not recoverable — not even if you have a Google Drive backup, because the backup is encrypted with the same passcode. This is a deliberate trade-off for genuine end-to-end privacy. We recommend writing your passcode down somewhere safe, and using Pro's Google Drive sync or CSV export so you have a portable copy of the encrypted data itself.</p>
 
+  <h3 id="no-passcode">Without a passcode</h3>
+  <p>A passcode is optional. If you tap <strong>Get started</strong> instead of setting one, your data is still encrypted in exactly the same way, but under a fixed code built into the app (<code>0000</code>), so Duitful can open without asking. That protects nothing from someone holding your unlocked phone, and your Google Drive or iCloud backup is then protected only by your Google or Apple account. Set a passcode at any time in <strong>Settings → Security</strong>: everything, including the backup, is re-encrypted under it. You can turn it off again there too. <code>0000</code> itself can't be chosen as a passcode.</p>
+
   <h3>Receipt scanning (on-device OCR)</h3>
   <p>Scanning a receipt reads the photo <strong>on the device itself</strong>. Nothing about the image or the text pulled out of it is uploaded — not to us, and not to any third party. Two engines do the reading, depending on where you are running Duitful:</p>
   <ul>
@@ -266,6 +269,7 @@
     <li><code>duit-tracker.fx</code> — cached foreign-exchange rates, up to 24 hours.</li>
     <li><code>duit-tracker.privacy</code> — whether you have "blur balances" mode turned on.</li>
     <li><code>duitful.biometricUnlock</code> — only in the native app, and only if you turned on biometric unlock: a flag that tells the lock screen to offer the fingerprint / face button. It contains no secret — the passcode itself lives in the phone's hardware keystore, not in local storage.</li>
+    <li><code>duitful.noPasscode</code> — only if you started without a passcode: a flag that tells the app to open with the built-in code instead of asking. It contains no secret.</li>
     <li><code>duit-tracker.install-dismissed-at</code> — the timestamp when you dismissed the "install as an app" prompt, so we don't show it again for a while.</li>
     <li><code>duit-tracker.drive</code> — only present if you have connected Google Drive sync (Pro). Holds the OAuth access token Google issued to your browser, the Drive file identifier of your backup, your Google account email (so the in-app status line can show which account is connected), and the timestamp of the last successful sync. Removed when you disconnect Drive sync.</li>
   </ul>
