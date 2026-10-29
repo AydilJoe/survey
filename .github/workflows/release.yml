@@ -58,7 +58,7 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # package.json is the one place the version lives; a tag that disagrees
       # with it would ship a build whose number is not the release's.
       - name: Read the version and check the tag
@@ -78,20 +78,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
 
       # Capacitor 7 needs JDK 21 (same as ci.yml).
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
 
       # Fails in seconds with a readable list, not 15 minutes in.
       - name: Check signing secrets are present
@@ -172,7 +172,7 @@ jobs:
           ls -la "$aab"
 
       - name: Upload the signed bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: duitful-aab
           retention-days: 30
@@ -182,7 +182,7 @@ jobs:
       # Play Console → the release → "Upload deobfuscation file". Without it,
       # crash stack traces from the R8-minified app are unreadable.
       - name: Upload the R8 mapping file
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: duitful-aab-mapping
           retention-days: 30

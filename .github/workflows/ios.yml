@@ -99,7 +99,7 @@ jobs:
       DUITFUL_IOS_SKIP_ICLOUD: ${{ inputs.skip_icloud && '1' || '0' }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # CFBundleVersion must only ever go up for App Store Connect, and this
       # file can be reached from two workflows whose github.run_number
@@ -112,7 +112,7 @@ jobs:
         run: |
           echo "DUITFUL_BUILD_NUMBER=$(date -u +%y%m%d).$((10#$(date -u +%H%M)))" >> "$GITHUB_ENV"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: npm
@@ -252,7 +252,7 @@ jobs:
 
       - name: Upload the unsigned IPA (AltStore sideloading)
         if: inputs.lane == 'build-only'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: duitful-unsigned-ipa
           retention-days: 14
@@ -314,7 +314,7 @@ jobs:
 
       - name: Upload the signed IPA
         if: inputs.lane != 'build-only'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: duitful-signed-ipa
           retention-days: 30
@@ -327,7 +327,7 @@ jobs:
       # to see what went wrong. Keep the logs.
       - name: Upload build logs
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-build-logs
           retention-days: 7
