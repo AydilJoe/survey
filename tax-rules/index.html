@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+
+<title>Tax rules for your country — Duitful</title>
+<meta name="description" content="Duitful ships with Malaysia's tax reliefs. For anywhere else, copy this prompt into ChatGPT, Claude or Gemini and it writes your country's tax rules as JSON, ready to paste into the app.">
+<link rel="canonical" href="https://duitful.app/tax-rules/">
+<meta name="robots" content="index, follow">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:url" content="https://duitful.app/tax-rules/">
+<meta property="og:title" content="Tax rules for your country — Duitful">
+<meta property="og:description" content="Send this page to your AI. It writes your country's tax reliefs and rate bands as JSON for Duitful's tax refund estimate.">
+<meta property="og:image" content="https://duitful.app/og-image.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "HowTo",
+  "name": "Add your country's tax rules to Duitful",
+  "step": [
+    { "@type": "HowToStep", "position": 1, "name": "Copy the prompt", "text": "Copy the prompt on this page and fill in your country, tax year and currency." },
+    { "@type": "HowToStep", "position": 2, "name": "Ask your AI", "text": "Paste it into ChatGPT, Claude or Gemini. It replies with the rules as JSON." },
+    { "@type": "HowToStep", "position": 3, "name": "Check the figures", "text": "Compare the limits and rates with your tax office's website." },
+    { "@type": "HowToStep", "position": 4, "name": "Paste into Duitful", "text": "In Duitful, open Tax, then Tax rules, then paste or upload the JSON." }
+  ]
+}
+</script>
+
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #f3ece0; --card: #fffaf2;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --line: rgba(42,36,32,0.08);
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.65 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+  .nav-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font: 500 13px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 24px;
+  }
+  .nav-back:hover { color: var(--primary); }
+  h1 {
+    font: 500 clamp(40px, 6vw, 56px)/1.1 var(--font-serif);
+    letter-spacing: -0.02em;
+    margin: 0 0 12px;
+  }
+  h1 em { font-style: italic; color: var(--primary); }
+  .lede { color: var(--ink2); font-size: 18px; line-height: 1.6; margin: 0 0 24px; max-width: 58ch; }
+  .meta {
+    font: 500 12px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 40px;
+  }
+
+  .tldr {
+    background: var(--stage);
+    border: 0.5px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 0 0 48px;
+  }
+  .tldr h2 {
+    font: 500 14px/1 var(--font-mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin: 0 0 14px;
+  }
+  .tldr ul { margin: 0; padding-left: 18px; }
+  .tldr li { margin: 0 0 8px; color: var(--ink2); font-size: 15.5px; line-height: 1.55; }
+  .tldr li:last-child { margin-bottom: 0; }
+  .tldr strong { color: var(--ink); font-weight: 600; }
+
+  h2.section {
+    font: 500 24px/1.25 var(--font-serif);
+    letter-spacing: -0.01em;
+    margin: 48px 0 6px;
+  }
+  h2.section:first-of-type { margin-top: 0; }
+  h3 {
+    font: 600 15.5px/1.35 var(--font-sans);
+    margin: 24px 0 6px;
+    color: var(--ink);
+  }
+  p, li { color: var(--ink2); }
+  p { margin: 0 0 14px; }
+  ul, ol { padding-left: 20px; margin: 0 0 14px; }
+  li { margin-bottom: 6px; line-height: 1.6; }
+  a { color: var(--primary); }
+  a:hover { color: var(--primary-ink); }
+  code {
+    font: 500 13.5px/1.3 var(--font-mono);
+    background: var(--stage);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--ink);
+  }
+
+  table.vendors {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 20px;
+    font-size: 14.5px;
+  }
+  table.vendors th, table.vendors td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 0.5px solid var(--line);
+    vertical-align: top;
+  }
+  table.vendors th {
+    font: 500 11px/1 var(--font-mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  table.vendors td:first-child { white-space: nowrap; font-weight: 500; color: var(--ink); }
+  @media (max-width: 560px) {
+    table.vendors, table.vendors tbody, table.vendors tr, table.vendors td, table.vendors th { display: block; }
+    table.vendors thead { display: none; }
+    table.vendors tr { border-bottom: 0.5px solid var(--line); padding: 12px 0; }
+    table.vendors td { padding: 3px 0; border: 0; }
+    table.vendors td:first-child { font-weight: 600; margin-bottom: 4px; }
+  }
+
+  .footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 0.5px solid var(--line);
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .footer a { color: var(--primary); }
+
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0 0 32px; }
+  .steps li { counter-increment: s; position: relative; padding-left: 44px; margin: 0 0 14px; }
+  .steps li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%;
+    display: grid; place-items: center; background: var(--primary); color: #fff; font: 600 14px/1 var(--font-sans); }
+  .prompt-box { position: relative; background: var(--card); border: 0.5px solid var(--line); border-radius: 14px; margin: 0 0 12px; }
+  .prompt-box pre { margin: 0; padding: 20px 22px 22px; white-space: pre-wrap; word-break: break-word;
+    font: 400 13px/1.6 var(--font-mono); color: var(--ink); max-height: 460px; overflow: auto; }
+  .copy-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 40px; }
+  .btn { appearance: none; border: 0; border-radius: 999px; padding: 12px 20px; font: 600 15px/1 var(--font-sans);
+    background: var(--primary); color: #fff; cursor: pointer; min-height: 44px; }
+  .btn:hover { background: var(--primary-ink); }
+  .btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .copied { font: 500 13px/1 var(--font-mono); color: var(--muted); }
+  pre.example { background: var(--stage); border-radius: 12px; padding: 18px 20px; overflow: auto;
+    font: 400 12.5px/1.55 var(--font-mono); color: var(--ink); margin: 0 0 20px; }
+  table.vendors td:first-child code { white-space: nowrap; }
+</style>
+
+<!-- Vercel Web Analytics -->
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+  /* Owner opt-out — see index.html for the full note. ?noanalytics=1 once per
+     device; beforeSend returning null drops the event before it is sent. */
+  (function () {
+    var KEY = "duitful-analytics-off";
+    try {
+      var q = new URLSearchParams(location.search).get("noanalytics");
+      if (q === "1") { localStorage.setItem(KEY, "1"); alert("Duitful: this device is now excluded from analytics."); }
+      else if (q === "0") { localStorage.removeItem(KEY); alert("Duitful: this device is counted in analytics again."); }
+      if (localStorage.getItem(KEY)) window.va("beforeSend", function () { return null; });
+    } catch (e) { /* storage blocked (private mode) — just count normally */ }
+  })();
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+</head>
+<body>
+<main class="container">
+  <a class="nav-back" href="/">← Duitful</a>
+  <h1>Your country's <em>tax rules</em>, written by your AI.</h1>
+  <p class="lede">Duitful comes with Malaysia's tax reliefs. Anywhere else, give this page to ChatGPT, Claude or Gemini: it writes your country's rules in about a minute, and Duitful spots reliefs in your spending and estimates your refund the same way.</p>
+  <p class="meta">Updated 29 Oct 2026 · Free · Stays on your phone</p>
+
+  <ol class="steps">
+    <li><strong>Copy the prompt</strong> below and fill in your country, tax year and currency.</li>
+    <li><strong>Paste it into your AI.</strong> Or just send it this page's link: <code>duitful.app/tax-rules</code>.</li>
+    <li><strong>Check the figures</strong> against your tax office's website. AI gets numbers wrong.</li>
+    <li><strong>In Duitful:</strong> Tax → Tax rules → <em>Use my country's rules</em>, then paste or upload the JSON. The app checks it and tells you exactly what to fix.</li>
+  </ol>
+
+  <h2 class="section">The prompt</h2>
+  <div class="prompt-box"><pre id="prompt">You are helping me set up Duitful, a private budgeting app, with my country&#x27;s personal income tax rules. Write them as ONE JSON object in the format below, and reply with only the JSON (no commentary, no code fence).
+
+My country: [COUNTRY]
+Tax year: [YEAR]   (the calendar year my spending happens in)
+My currency: [3-LETTER CODE, e.g. SGD]
+
+FORMAT
+{
+  &quot;country&quot;: &quot;Country name&quot;,
+  &quot;currency&quot;: &quot;ISO 4217 code the amounts are in&quot;,
+  &quot;tax_authority&quot;: &quot;Name of the tax office&quot;,
+  &quot;terms&quot;: {
+    &quot;authority&quot;: &quot;short name of the tax office, e.g. IRAS&quot;,
+    &quot;year&quot;: &quot;how a tax year is labelled, e.g. YA or Tax year&quot;,
+    &quot;withholding&quot;: &quot;name for tax deducted from salary, e.g. PAYE&quot;,
+    &quot;pension&quot;: &quot;name for the employee&#x27;s compulsory retirement contribution, e.g. CPF&quot;,
+    &quot;filing&quot;: &quot;name of the online filing system, e.g. myTax Portal&quot;,
+    &quot;rebate&quot;: &quot;word for a flat tax rebate&quot;
+  },
+  &quot;tax_by_year&quot;: {
+    &quot;YEAR&quot;: {
+      &quot;bands&quot;: [ { &quot;up_to&quot;: 20000, &quot;rate&quot;: 0 }, { &quot;up_to&quot;: 30000, &quot;rate&quot;: 0.02 }, { &quot;up_to&quot;: null, &quot;rate&quot;: 0.24 } ],
+      &quot;rebate&quot;: { &quot;amount&quot;: 0, &quot;chargeable_income_up_to&quot;: 0 }
+    }
+  },
+  &quot;filing_by_year&quot;: {
+    &quot;YEAR&quot;: {
+      &quot;november_check&quot;: &quot;11-15&quot;,
+      &quot;final_check&quot;: &quot;MM-DD (a few weeks before filing opens, in YEAR+1)&quot;,
+      &quot;efiling_opens&quot;: &quot;MM-DD (in YEAR+1)&quot;,
+      &quot;deadline&quot;: &quot;MM-DD (filing deadline, in YEAR+1)&quot;,
+      &quot;deadline_note&quot;: &quot;one line about the deadline&quot;,
+      &quot;keep_records_years&quot;: 5
+    }
+  },
+  &quot;tax_relief_categories&quot;: [
+    {
+      &quot;category_id&quot;: &quot;CAT_SOMETHING&quot;,
+      &quot;category_name&quot;: &quot;Group name&quot;,
+      &quot;items&quot;: [
+        {
+          &quot;code&quot;: &quot;A1&quot;,
+          &quot;name&quot;: &quot;Official name of the relief, deduction or allowance&quot;,
+          &quot;limit_YEAR&quot;: 1000,
+          &quot;sub_limits&quot;: [ { &quot;id&quot;: &quot;short-id&quot;, &quot;label&quot;: &quot;Part of the relief&quot;, &quot;limit&quot;: 500 } ],
+          &quot;claimable_items&quot;: [ &quot;What counts, in plain words&quot; ],
+          &quot;eligibility_criteria&quot;: &quot;Who can claim it&quot;,
+          &quot;required_documentation&quot;: &quot;What to keep as proof&quot;,
+          &quot;app&quot;: {
+            &quot;id&quot;: &quot;short-stable-id&quot;,
+            &quot;label&quot;: &quot;Short UI name&quot;,
+            &quot;hint&quot;: &quot;One plain line saying what counts&quot;,
+            &quot;common&quot;: true,
+            &quot;keywords&quot;: &quot;regex source matched against spending text, e.g. \\b(gym|fitness)\\b&quot;
+          }
+        }
+      ]
+    }
+  ]
+}
+
+RULES
+- Rate bands: progressive, in order, rate as a fraction (0.05 = 5%). Each &quot;up_to&quot; is the top of that band in chargeable income; the last band has &quot;up_to&quot;: null.
+- Every item needs a unique &quot;code&quot; and a &quot;limit_YEAR&quot; key (use the real year, e.g. &quot;limit_2026&quot;). A number is the yearly cap; null means it doesn&#x27;t exist that year.
+- Sub-limits sit inside their item&#x27;s cap. Use null for &quot;sub_limits&quot; when there are none.
+- Reliefs everyone gets automatically (personal allowance, spouse, children) get &quot;app&quot;: { &quot;auto&quot;: &quot;&lt;kind&gt;&quot; }, where kind is one of: individual, spouse, disabledSelf, disabledSpouse, child, childPre, childTertiary, disabledChild. Leave out &quot;keywords&quot; for those.
+- For the employee&#x27;s compulsory pension contribution relief, add &quot;employeeEpf&quot;: true to its &quot;app&quot; block.
+- Give &quot;keywords&quot; to reliefs ordinary spending can match (medical, education, sports, books, insurance, childcare, donations…), in the languages people in my country write receipts in. Use \\b word boundaries; escape backslashes for JSON.
+- Only include reliefs for resident individuals. Use the official figures for the year I gave; if you aren&#x27;t sure of a figure, leave that relief out instead of guessing.
+- Dates are &quot;MM-DD&quot;. If my country has no flat rebate, use { &quot;amount&quot;: 0, &quot;chargeable_income_up_to&quot;: 0 }.
+- Add &quot;zakat_rebate&quot;: true only if religious-tax payments come off income tax one-for-one in my country.
+
+After the JSON, I will check every figure against the tax office&#x27;s own website.</pre></div>
+  <div class="copy-row">
+    <button type="button" class="btn" id="copy">Copy prompt</button>
+    <span class="copied" id="copied" aria-live="polite"></span>
+  </div>
+
+  <div class="tldr">
+    <h2>Private by design</h2>
+    <ul>
+      <li>Your rules are saved <strong>inside your encrypted data on your phone</strong>, like everything else in Duitful. Nothing is uploaded.</li>
+      <li>They replace Malaysia's rules while they're there. <strong>Back to Malaysia's</strong> on the same card removes them.</li>
+      <li>Everything Duitful shows is an <strong>estimate for planning</strong>, not tax advice.</li>
+    </ul>
+  </div>
+
+  <h2 class="section">The format</h2>
+  <p>The same format as Duitful's own <a href="https://duitful.app/app/tax-data.js">Malaysian schedule</a>, which is the fullest example. Keys ending in <code>_myr</code> there have plain twins: <code>limit_2026</code> for <code>limit_ya_2026_myr</code>, <code>limit</code> for <code>limit_myr</code>, <code>tax_by_year</code> and <code>filing_by_year</code>.</p>
+  <table class="vendors">
+    <thead><tr><th>Key</th><th>What it is</th></tr></thead>
+    <tbody>
+      <tr><td><code>country</code></td><td>Country name, shown on the Tax page.</td></tr>
+      <tr><td><code>currency</code></td><td><strong>Required.</strong> The 3-letter code the amounts are in (<code>SGD</code>, <code>GBP</code>, <code>EUR</code>). Tax switches on when this matches the currency you keep your money in.</td></tr>
+      <tr><td><code>terms</code></td><td>Your country's words: <code>authority</code>, <code>year</code>, <code>withholding</code> (tax taken from pay), <code>pension</code>, <code>filing</code>, <code>rebate</code>. Anything left out gets a plain word.</td></tr>
+      <tr><td><code>tax_by_year</code></td><td>Rate bands and any flat rebate, per year. A year without its own entry uses the nearest earlier one.</td></tr>
+      <tr><td><code>filing_by_year</code></td><td>Optional. The check-in dates and the filing deadline, as <code>"MM-DD"</code>.</td></tr>
+      <tr><td><code>tax_relief_categories</code></td><td>Groups of reliefs. Each item needs a unique <code>code</code>, a <code>name</code> and a <code>limit_&lt;year&gt;</code>.</td></tr>
+      <tr><td><code>app.auto</code></td><td>Reliefs given without a receipt: <code>individual</code>, <code>spouse</code>, <code>disabledSelf</code>, <code>disabledSpouse</code>, <code>child</code>, <code>childPre</code>, <code>childTertiary</code>, <code>disabledChild</code>.</td></tr>
+      <tr><td><code>app.keywords</code></td><td>A regular expression. Spending whose category or note matches is offered as a claim for this relief.</td></tr>
+      <tr><td><code>zakat_rebate</code></td><td>Optional. <code>true</code> if zakat paid comes off income tax one-for-one.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>A small example</h3>
+  <p>Made-up country, made-up figures: it shows the shape, not real tax.</p>
+  <pre class="example">{
+  &quot;country&quot;: &quot;Exampleland&quot;,
+  &quot;currency&quot;: &quot;EUR&quot;,
+  &quot;tax_authority&quot;: &quot;Exampleland Revenue Office&quot;,
+  &quot;terms&quot;: { &quot;authority&quot;: &quot;ERO&quot;, &quot;year&quot;: &quot;Tax year&quot;, &quot;withholding&quot;: &quot;Wage tax&quot;, &quot;pension&quot;: &quot;Pension&quot;, &quot;filing&quot;: &quot;ERO Online&quot;, &quot;rebate&quot;: &quot;rebate&quot; },
+  &quot;tax_by_year&quot;: {
+    &quot;2026&quot;: {
+      &quot;bands&quot;: [ { &quot;up_to&quot;: 10000, &quot;rate&quot;: 0 }, { &quot;up_to&quot;: 40000, &quot;rate&quot;: 0.2 }, { &quot;up_to&quot;: null, &quot;rate&quot;: 0.4 } ],
+      &quot;rebate&quot;: { &quot;amount&quot;: 0, &quot;chargeable_income_up_to&quot;: 0 }
+    }
+  },
+  &quot;filing_by_year&quot;: {
+    &quot;2026&quot;: { &quot;november_check&quot;: &quot;11-15&quot;, &quot;final_check&quot;: &quot;03-10&quot;, &quot;efiling_opens&quot;: &quot;04-01&quot;, &quot;deadline&quot;: &quot;06-30&quot;, &quot;keep_records_years&quot;: 6 }
+  },
+  &quot;tax_relief_categories&quot;: [
+    {
+      &quot;category_id&quot;: &quot;CAT_BASIC&quot;,
+      &quot;category_name&quot;: &quot;Allowances&quot;,
+      &quot;items&quot;: [
+        { &quot;code&quot;: &quot;A1&quot;, &quot;name&quot;: &quot;Personal allowance&quot;, &quot;limit_2026&quot;: 3000, &quot;sub_limits&quot;: null, &quot;app&quot;: { &quot;auto&quot;: &quot;individual&quot; } },
+        { &quot;code&quot;: &quot;A2&quot;, &quot;name&quot;: &quot;Child allowance&quot;, &quot;limit_2026&quot;: 1500, &quot;sub_limits&quot;: null, &quot;app&quot;: { &quot;auto&quot;: &quot;child&quot; } }
+      ]
+    },
+    {
+      &quot;category_id&quot;: &quot;CAT_SPENDING&quot;,
+      &quot;category_name&quot;: &quot;Deductible spending&quot;,
+      &quot;items&quot;: [
+        {
+          &quot;code&quot;: &quot;B1&quot;, &quot;name&quot;: &quot;Medical expenses&quot;, &quot;limit_2026&quot;: 2000,
+          &quot;sub_limits&quot;: [ { &quot;id&quot;: &quot;dental&quot;, &quot;label&quot;: &quot;Dental&quot;, &quot;limit&quot;: 500 } ],
+          &quot;claimable_items&quot;: [ &quot;Doctor, hospital and dental bills&quot; ],
+          &quot;required_documentation&quot;: &quot;Receipts&quot;,
+          &quot;app&quot;: { &quot;id&quot;: &quot;medical&quot;, &quot;label&quot;: &quot;Medical&quot;, &quot;common&quot;: true, &quot;keywords&quot;: &quot;\\b(doctor|clinic|hospital|dentist|dental|pharmacy)\\b&quot; }
+        },
+        {
+          &quot;code&quot;: &quot;B2&quot;, &quot;name&quot;: &quot;Pension contributions&quot;, &quot;limit_2026&quot;: 4000, &quot;sub_limits&quot;: null,
+          &quot;app&quot;: { &quot;id&quot;: &quot;pension&quot;, &quot;label&quot;: &quot;Pension&quot;, &quot;employeeEpf&quot;: true }
+        }
+      ]
+    }
+  ]
+}</pre>
+
+  <div class="footer">
+    <a href="/">Duitful</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · <a href="/contact/">Contact</a>
+  </div>
+</main>
+<script>
+  document.getElementById("copy").addEventListener("click", async function () {
+    var text = document.getElementById("prompt").textContent;
+    var out = document.getElementById("copied");
+    try { await navigator.clipboard.writeText(text); out.textContent = "Copied. Paste it into your AI."; }
+    catch (e) {
+      var r = document.createRange(); r.selectNodeContents(document.getElementById("prompt"));
+      var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      out.textContent = "Selected: press Ctrl+C or ⌘C.";
+    }
+  });
+</script>
+</body>
+</html>

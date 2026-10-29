@@ -84,36 +84,189 @@ function taxStructureProblems(data) {
   return out;
 }
 
-const TAX_PROBLEMS = typeof TAX_DATA === "undefined" ? ["tax-data.js did not load"] : taxStructureProblems(TAX_DATA);
-const TAX_OK = TAX_PROBLEMS.length === 0;
-if (!TAX_OK) console.error("Tax data is invalid — the tax card is switched off:", TAX_PROBLEMS);
+/* ---------- which rules are in force ----------
+ * The built-in schedule is Malaysia's (tax-data.js). Someone elsewhere can
+ * paste or upload their own country's rules in the same format; those live in
+ * state.tax.rules — inside the encrypted vault, never sent anywhere — and
+ * replace the built-in ones while present. Everything below reads the active
+ * set through these variables, which taxLoadRules swaps. */
+const TAX_BUILTIN = typeof TAX_DATA === "undefined" ? null : TAX_DATA;
+
+// Words that differ by country. A custom rules file can override any of them
+// in its `terms` block; Malaysia's are the defaults.
+const TAX_TERMS_MY = {
+  authority: "LHDN",
+  year: "YA",                 // "YA 2026"
+  withholding: "PCB",         // tax the employer deducts from pay
+  pension: "EPF",             // the employee's own retirement contribution
+  filing: "e-Filing",         // where and how the return is filed
+  rebate: "rebate",
+};
+
+let TAX_SCHEDULE = TAX_BUILTIN;
+let TAX_CUSTOM = false;
+let TAX_PROBLEMS = [];
+let TAX_OK = false;
+let TAX_CATALOG = [];
+let TAX_YEAR_MIN = 9999;
+let TAX_YEAR_MAX = 0;
+let TAX_TABLE_LABEL = "";
+let TAX_CURRENCY = "MYR";
+let TAX_TERMS = TAX_TERMS_MY;
+let TAX_COUNTRY = "Malaysia";
+let taxYearCache = {};
 
 // One normalised list of everything in the schedule, whatever the year.
-const TAX_CATALOG = TAX_OK ? TAX_DATA.tax_relief_categories.flatMap((cat) => cat.items.map((item) => {
-  const app = item.app || {};
-  return {
-    id: app.id || String(item.code).toLowerCase(),
-    code: item.code,
-    label: app.label || item.name,
-    hint: app.hint || (item.claimable_items || [])[0] || "",
-    common: !!app.common,
-    auto: app.auto || "",
-    employeeEpf: !!app.employeeEpf,
-    keywords: app.keywords ? new RegExp(app.keywords, "i") : null,
-    item,
-    subs: (item.sub_limits || []).map((sub) => ({
-      id: sub.id || String(sub.sub_category).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-      // "(New in YA 2027)" is a note for maintainers, not a label.
-      label: sub.label || String(sub.sub_category).replace(/\s*\((new in|integrated in|ya \d{4})[^)]*\)\s*$/i, ""),
-      keywords: sub.keywords ? new RegExp(sub.keywords, "i") : null,
-      sub,
-    })),
-  };
-})) : [];
+function taxBuildCatalog(data) {
+  return data.tax_relief_categories.flatMap((cat) => cat.items.map((item) => {
+    const app = item.app || {};
+    return {
+      id: app.id || String(item.code).toLowerCase(),
+      code: item.code,
+      label: app.label || item.name,
+      hint: app.hint || (item.claimable_items || [])[0] || "",
+      common: !!app.common,
+      auto: app.auto || "",
+      employeeEpf: !!app.employeeEpf,
+      keywords: app.keywords ? new RegExp(app.keywords, "i") : null,
+      item,
+      subs: (item.sub_limits || []).map((sub) => ({
+        id: sub.id || String(sub.sub_category).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        // "(New in YA 2027)" is a note for maintainers, not a label.
+        label: sub.label || String(sub.sub_category).replace(/\s*\((new in|integrated in|ya \d{4})[^)]*\)\s*$/i, ""),
+        keywords: sub.keywords ? new RegExp(sub.keywords, "i") : null,
+        sub,
+      })),
+    };
+  }));
+}
 
-const TAX_YEAR_MIN = Math.min(...TAX_CATALOG.flatMap((c) => taxLimitYears(c.item)), 9999);
-const TAX_YEAR_MAX = Math.max(...TAX_CATALOG.flatMap((c) => taxLimitYears(c.item)), 0);
-const TAX_TABLE_LABEL = TAX_OK ? (TAX_YEAR_MIN === TAX_YEAR_MAX ? `YA ${TAX_YEAR_MIN}` : `YA ${TAX_YEAR_MIN}–${TAX_YEAR_MAX}`) : "";
+function taxLoadRules(data, custom) {
+  TAX_SCHEDULE = data;
+  TAX_CUSTOM = !!custom;
+  TAX_PROBLEMS = !data ? ["tax-data.js did not load"] : taxStructureProblems(data);
+  TAX_OK = TAX_PROBLEMS.length === 0;
+  if (!TAX_OK) console.error("Tax data is invalid — the tax card is switched off:", TAX_PROBLEMS);
+  TAX_CATALOG = TAX_OK ? taxBuildCatalog(data) : [];
+  TAX_CURRENCY = (custom && data && data.currency) || "MYR";
+  TAX_TERMS = { ...TAX_TERMS_MY, ...(custom ? taxCustomTerms(data) : {}) };
+  TAX_COUNTRY = (data && data.country) || "";
+  const years = TAX_CATALOG.flatMap((c) => taxLimitYears(c.item));
+  TAX_YEAR_MIN = Math.min(...years, 9999);
+  TAX_YEAR_MAX = Math.max(...years, 0);
+  TAX_TABLE_LABEL = TAX_OK ? (TAX_YEAR_MIN === TAX_YEAR_MAX ? taxYearLabel(TAX_YEAR_MIN) : `${TAX_TERMS.year} ${TAX_YEAR_MIN}–${TAX_YEAR_MAX}`.trim()) : "";
+  taxYearCache = {};
+}
+
+// Someone else's rules get no Malaysian words they didn't ask for: a term
+// they leave out falls back to a plain one, not to "PCB" or "LHDN".
+function taxCustomTerms(data) {
+  const t = (data && data.terms && typeof data.terms === "object") ? data.terms : {};
+  const pick = (k, d) => (typeof t[k] === "string" && t[k].trim() ? t[k].trim().slice(0, 40) : d);
+  return {
+    authority: pick("authority", (typeof data.tax_authority === "string" && data.tax_authority.trim()) ? data.tax_authority.trim().slice(0, 60) : "the tax office"),
+    year: pick("year", "Tax year"),
+    withholding: pick("withholding", "Tax withheld"),
+    pension: pick("pension", "Pension"),
+    filing: pick("filing", "filing"),
+    rebate: pick("rebate", "rebate"),
+  };
+}
+
+function taxYearLabel(year) { return `${TAX_TERMS.year} ${year}`.trim(); }
+
+taxLoadRules(TAX_BUILTIN, false);
+
+/* ---------- country words and money ---------- */
+
+// "e-Filing opens", capitalised for the start of a title when asked.
+function taxFilingName(capital) {
+  const f = TAX_TERMS.filing;
+  return capital ? f.charAt(0).toUpperCase() + f.slice(1) : f;
+}
+
+// Limits are public whole amounts: "RM 10,000", "£12,570". Not hidden in
+// privacy mode, and in the rules' currency.
+function taxWhole(n) {
+  const v = Math.round(Number(n) || 0);
+  if (TAX_CURRENCY === "MYR") return `RM ${v.toLocaleString("en-MY")}`;
+  try {
+    return new Intl.NumberFormat(typeof currencyLocale === "function" ? currencyLocale() : undefined,
+      { style: "currency", currency: TAX_CURRENCY, maximumFractionDigits: 0 }).format(v);
+  } catch { return `${v.toLocaleString()} ${TAX_CURRENCY}`; }
+}
+
+/* ---------- custom rules: check, store, apply ---------- */
+
+const TAX_SCHEDULE_MAX_BYTES = 400 * 1024;
+
+// The format is Duitful's own schedule (tax-data.js). For other countries
+// the ringgit-flavoured key names have plain twins, so a file can say
+// `limit_2026` instead of `limit_ya_2026_myr`, `limit` instead of
+// `limit_myr`, `tax_by_year` and `filing_by_year`. This rewrites them to the
+// built-in names so one engine reads both.
+function taxNormaliseRules(raw) {
+  const data = JSON.parse(JSON.stringify(raw));
+  const fixLimits = (o) => {
+    if (!o || typeof o !== "object") return;
+    for (const k of Object.keys(o)) {
+      const m = /^limit_(?:ya_)?(\d{4})(?:_[a-z]{3})?$/i.exec(k);
+      if (m && k !== `limit_ya_${m[1]}_myr`) { o[`limit_ya_${m[1]}_myr`] = o[k]; delete o[k]; }
+    }
+    if (o.limit !== undefined && o.limit_myr === undefined) { o.limit_myr = o.limit; delete o.limit; }
+  };
+  if (data.tax_by_year && !data.income_tax_by_ya) { data.income_tax_by_ya = data.tax_by_year; delete data.tax_by_year; }
+  if (data.filing_by_year && !data.filing_by_ya) { data.filing_by_ya = data.filing_by_year; delete data.filing_by_year; }
+  for (const cat of Array.isArray(data.tax_relief_categories) ? data.tax_relief_categories : []) {
+    for (const item of (cat && Array.isArray(cat.items)) ? cat.items : []) {
+      fixLimits(item);
+      for (const sub of Array.isArray(item && item.sub_limits) ? item.sub_limits : []) fixLimits(sub);
+    }
+  }
+  if (typeof data.currency === "string") data.currency = data.currency.trim().toUpperCase();
+  return data;
+}
+
+// Parse and check a rules file. { ok, data, problems } — problems are
+// sentences a person (or their AI) can fix.
+function taxCheckRules(text) {
+  if (typeof text !== "string" || !text.trim()) return { ok: false, problems: ["The file is empty."] };
+  if (text.length > TAX_SCHEDULE_MAX_BYTES) return { ok: false, problems: [`The file is over ${Math.round(TAX_SCHEDULE_MAX_BYTES / 1024)} KB. Tax rules are usually under 60 KB.`] };
+  let raw;
+  // Accept a pasted tax-data.js too: take the object after `=`.
+  const body = text.trim().replace(/^[\s\S]*const\s+TAX_DATA\s*=\s*/, "").replace(/;\s*$/, "");
+  try { raw = JSON.parse(body); } catch (e) { return { ok: false, problems: [`It isn't valid JSON: ${e.message}`] }; }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false, problems: ["The top level must be an object { … }."] };
+  const data = taxNormaliseRules(raw);
+  const problems = [];
+  if (!/^[A-Z]{3}$/.test(data.currency || "")) problems.push('Add "currency": the 3-letter code the amounts are in, e.g. "SGD" or "GBP".');
+  else { try { new Intl.NumberFormat("en", { style: "currency", currency: data.currency }); } catch { problems.push(`"${data.currency}" isn't a currency code.`); } }
+  if (data.terms !== undefined && (typeof data.terms !== "object" || Array.isArray(data.terms))) problems.push('"terms" must be an object of words, e.g. { "withholding": "PAYE" }.');
+  problems.push(...taxStructureProblems(data));
+  return problems.length ? { ok: false, problems } : { ok: true, data, problems: [] };
+}
+
+// Make the active rules match the vault: the person's own if they saved
+// some, else the built-in schedule. Cheap when nothing changed.
+let _taxRulesFrom = undefined;
+function taxSyncRules() {
+  const own = (typeof state !== "undefined" && state && state.tax && state.tax.rules) || null;
+  if (own === _taxRulesFrom) return;
+  _taxRulesFrom = own;
+  if (own) {
+    const checked = taxCheckRules(JSON.stringify(own));
+    if (checked.ok) { taxLoadRules(checked.data, true); return; }
+    console.error("Saved tax rules no longer check out; using the built-in ones:", checked.problems);
+  }
+  taxLoadRules(TAX_BUILTIN, false);
+}
+
+// Tax runs when the rules load and the vault keeps its books in the rules'
+// currency: Malaysian reliefs against euro spending would be nonsense.
+function taxReady() {
+  taxSyncRules();
+  return TAX_OK && (typeof currentCurrency !== "function" || currentCurrency() === TAX_CURRENCY);
+}
 
 // The value a `limit_ya_<year>_myr` set gives for `year`: that year's key, else
 // the nearest EARLIER year's, else (a year before the whole schedule) the
@@ -136,7 +289,6 @@ function taxSubCap(sub, year) {
   return typeof sub.limit_myr === "number" ? sub.limit_myr : null;
 }
 
-const taxYearCache = {};
 // The claimable reliefs in force for a year, with that year's caps resolved.
 // Automatic reliefs (individual, spouse, children …) are not claims and are
 // not in this list — see taxAutoAmounts.
@@ -171,7 +323,7 @@ function taxAutoAmounts(year) {
 
 // Rate bands + rebate for a year (nearest earlier schedule, else the first).
 function taxIncomeTaxFor(year) {
-  const tax = TAX_DATA.income_tax_by_ya;
+  const tax = TAX_SCHEDULE.income_tax_by_ya;
   const ys = Object.keys(tax).map(Number).sort((a, b) => a - b);
   const earlier = ys.filter((y) => y <= year);
   const t = tax[String(earlier.length ? earlier[earlier.length - 1] : ys[0])];
@@ -184,7 +336,7 @@ function taxIncomeTaxFor(year) {
 
 // The dates the app works to for YA `year` (see filing_by_ya in tax-data.js).
 function taxFilingFor(year) {
-  const all = (TAX_OK && TAX_DATA.filing_by_ya) || {};
+  const all = (TAX_OK && TAX_SCHEDULE.filing_by_ya) || {};
   const ys = Object.keys(all).map(Number).sort((a, b) => a - b);
   const earlier = ys.filter((y) => y <= year);
   const f = { november_check: "11-15", final_check: "02-20", efiling_opens: "03-01", deadline: "05-15",
@@ -235,7 +387,8 @@ function taxSuggestRelief(category, note, year) {
   if (!text.trim()) return null;
   const live = taxReliefsFor(year || new Date().getFullYear());
   const has = (id) => live.some((r) => r.id === id);
-  for (const [id, re] of TAX_RULES) {
+  // The word lists above are Malaysian; someone's own rules bring their own.
+  for (const [id, re] of TAX_CUSTOM ? [] : TAX_RULES) {
     if (!re.test(text)) continue;
     // A relief a Budget folded into another one (breastfeeding → Medical).
     if (id === "breastfeeding" && !has(id)) return has("medical") ? "medical" : null;
@@ -262,7 +415,7 @@ const TAX_SUB_RULES = {
 function taxSuggestSub(relief, category, note, year) {
   const text = `${category || ""} ${note || ""}`.toLowerCase();
   const valid = (taxReliefFor(year || new Date().getFullYear(), relief) || { subs: [] }).subs.map((x) => x.id);
-  for (const [id, re] of TAX_SUB_RULES[relief] || []) if (re.test(text) && valid.includes(id)) return id;
+  for (const [id, re] of (TAX_CUSTOM ? null : TAX_SUB_RULES[relief]) || []) if (re.test(text) && valid.includes(id)) return id;
   const r = taxReliefFor(year || new Date().getFullYear(), relief);
   for (const x of (r && r.subs) || []) if (x.keywords && x.keywords.test(text)) return x.id;
   return "";
@@ -290,6 +443,7 @@ const emptyTax = () => ({
   deltaSince: 0,         // ms: spending created after this is "new" (0 = set on first check)
   prompted: [],          // expense ids already asked about as new spending
   reviews: {},           // { "2026-nov": ms, "2026-final": ms } — seasonal checks done
+  rules: null,           // the person's own country's rules (tax-data.js format), or null = built-in
 });
 
 function coerceTaxClaim(raw) {
@@ -312,6 +466,15 @@ function coerceTaxClaim(raw) {
 
 function coerceTax(raw) {
   const t = raw && typeof raw === "object" ? raw : {};
+  // Claims are checked against the reliefs they were made under, so the
+  // vault's own rules go in force before the claims are read.
+  let rules = null;
+  if (t.rules && typeof t.rules === "object") {
+    const checked = taxCheckRules(JSON.stringify(t.rules));
+    if (checked.ok) rules = checked.data;
+  }
+  taxLoadRules(rules || TAX_BUILTIN, !!rules);
+  _taxRulesFrom = rules;
   const num = (v) => (Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
   const figures = {};
   if (t.figures && typeof t.figures === "object") {
@@ -344,6 +507,7 @@ function coerceTax(raw) {
     reviews: t.reviews && typeof t.reviews === "object"
       ? Object.fromEntries(Object.entries(t.reviews).filter(([k, v]) => /^\d{4}-(nov|final)$/.test(k) && Number.isFinite(Number(v))))
       : {},
+    rules,
   };
 }
 
@@ -524,7 +688,8 @@ function taxInputs(year) {
     disabledSpouse: t.disabledSpouse,
     epfPaid: f.epf,
     pcb: f.pcb,
-    zakat: taxZakatPaid(year),
+    // Zakat comes off Malaysian tax ringgit for ringgit. Other rules opt in.
+    zakat: (!TAX_CUSTOM || TAX_SCHEDULE.zakat_rebate === true) ? taxZakatPaid(year) : 0,
     claims: taxYearClaims(year).map((c) => ({ relief: c.relief, sub: c.sub, amount: c.amount })),
   };
 }
@@ -603,7 +768,7 @@ function taxSeasonDue(now) {
 // One-off native notifications, scheduled by script.js's reminder builder.
 function taxNativeReminders(now) {
   const t = state.tax;
-  if (!TAX_OK || !t || (typeof currentCurrency === "function" && currentCurrency() !== "MYR")) return [];
+  if (!t || !taxReady()) return [];
   const n = now || new Date();
   const out = [];
   if (!t.enabled) {
@@ -618,7 +783,7 @@ function taxNativeReminders(now) {
           body: `Some of your ${year} spending may count as tax relief. See what you can claim before 31 Dec.` });
       }
       if (f.finalCheck > n && !t.nudges[`${year}-final`]) {
-        out.push({ at: f.finalCheck, title: `YA ${year}: e-Filing opens ${taxDateLabel(f.efilingOpens)}`,
+        out.push({ at: f.finalCheck, title: `${taxYearLabel(year)}: ${taxFilingName()} opens ${taxDateLabel(f.efilingOpens)}`,
           body: `Some of your ${year} spending may count as tax relief. See what you can claim before ${taxDateLabel(f.deadline)}.` });
       }
     }
@@ -631,7 +796,7 @@ function taxNativeReminders(now) {
         body: `Anything you bought in ${year} that counts as tax relief? Claim it and add receipts before 31 Dec.` });
     }
     if (f.finalCheck > n && !t.reviews[`${year}-final`]) {
-      out.push({ at: f.finalCheck, title: `YA ${year}: e-Filing opens ${taxDateLabel(f.efilingOpens)}`,
+      out.push({ at: f.finalCheck, title: `${taxYearLabel(year)}: ${taxFilingName()} opens ${taxDateLabel(f.efilingOpens)}`,
         body: `Review your tax claims and add missing receipts — you have until ${taxDateLabel(f.deadline)}.` });
     }
   }
@@ -972,7 +1137,7 @@ function taxAfterExpense(entry, receipt) {
   const t = taxState();
   if (t.enabled) { taxScheduleChecks(900); return false; }
   // One quiet introduction for people who haven't opted in — never a repeat.
-  if (t.hintSeen || currentCurrency() !== "MYR") return false;
+  if (t.hintSeen || !taxReady()) return false;
   t.hintSeen = true;
   save();
   toast(`Spending added · may count as ${taxRelief(relief).label} tax relief`, { action: { label: "Track it", run: () => {
@@ -1003,10 +1168,10 @@ let taxCheckTimer = null;
 
 const TAX_REVIEW_SOURCES = {
   delta: () => "New spending",
-  first: (y) => `Your YA ${y} so far`,
-  year: (y) => `Review YA ${y}`,
-  nov: (y) => `November check · YA ${y}`,
-  final: (y) => `Before e-Filing · YA ${y}`,
+  first: (y) => `Your ${taxYearLabel(y)} so far`,
+  year: (y) => `Review ${taxYearLabel(y)}`,
+  nov: (y) => `November check · ${taxYearLabel(y)}`,
+  final: (y) => `Before ${taxFilingName()} · ${taxYearLabel(y)}`,
 };
 
 function taxScheduleChecks(delay) {
@@ -1018,7 +1183,7 @@ function taxScheduleChecks(delay) {
 // Never over another dialog, never while locked.
 function taxRunChecks(now) {
   if (!TAX_OK || typeof aesKey === "undefined" || !aesKey || !state.tax || !state.tax.enabled) return;
-  if (typeof currentCurrency === "function" && currentCurrency() !== "MYR") return;
+  if (!taxReady()) return;
   if (taxReview) return;
   if (document.querySelector("dialog[open]")) { taxScheduleChecks(2000); return; }
   const t = taxState();
@@ -1128,7 +1293,7 @@ function taxReviewRender() {
   if (r.step === "ask") {
     const e = state.dailyExpenses.find((x) => x.id === it.entryId);
     const year = Number(String(e.date).slice(0, 4));
-    taxEl("tax-review-title").textContent = `Claim this for YA ${year}?`;
+    taxEl("tax-review-title").textContent = `Claim this for ${taxYearLabel(year)}?`;
     taxEl("tax-review-what").textContent = e.note || e.category || "Spending";
     taxEl("tax-review-meta").textContent = `${taxDay(e.date)}${e.note && e.category ? " · " + e.category : ""}`;
     taxEl("tax-review-amt").innerHTML = amt(e.amount);
@@ -1156,10 +1321,10 @@ function taxReviewRender() {
     claimedEl.innerHTML = `${TAX_ICON.check}<span>Claimed${it.gained > 0 ? ` — saves about ${amt(it.gained)} tax` : ""}</span>`;
   } else claimedEl.hidden = true;
   taxEl("tax-review-deadline").innerHTML =
-    `Optional. You can add ${c.receiptId ? "them" : "it"} any time before <strong>${escapeHtml(taxDateLabel(f.deadline))}</strong>, the e-Filing deadline for YA ${year}.`;
+    `Optional. You can add ${c.receiptId ? "them" : "it"} any time before <strong>${escapeHtml(taxDateLabel(f.deadline))}</strong>, the ${TAX_TERMS.filing} deadline for ${taxYearLabel(year)}.`;
   taxEl("tax-review-required").textContent = info.required_documentation
-    ? `LHDN may ask for: ${info.required_documentation}. Keep them for ${f.keepYears} years.`
-    : `Keep records for ${f.keepYears} years — LHDN can ask for them.`;
+    ? `${TAX_TERMS.authority} may ask for: ${info.required_documentation}. Keep them for ${f.keepYears} years.`
+    : `Keep records for ${f.keepYears} years — ${TAX_TERMS.authority} can ask for them.`;
   taxEl("tax-review-receipt-row").hidden = !!c.receiptId;
   taxReviewClearPreviews();
   const rows = [];
@@ -1205,8 +1370,8 @@ function taxReviewHint(year) {
   const left = Math.max(0, r.cap - (s.used[r.id] || 0));
   const sub = r.subs.find((x) => x.id === taxEl("tax-review-sub").value);
   taxEl("tax-review-why").textContent = sub
-    ? `${sub.label}: ${fmtMoney(Math.min(left, Math.max(0, sub.cap - (s.usedSub[`${r.id}:${sub.id}`] || 0))))} of ${fmtMoney(sub.cap)} left, inside ${r.label} (${fmtMoney(left)} of ${fmtMoney(r.cap)} left) for YA ${year}.`
-    : `${r.hint}. ${fmtMoney(left)} of ${fmtMoney(r.cap)} left for YA ${year}.`;
+    ? `${sub.label}: ${fmtMoney(Math.min(left, Math.max(0, sub.cap - (s.usedSub[`${r.id}:${sub.id}`] || 0))))} of ${fmtMoney(sub.cap)} left, inside ${r.label} (${fmtMoney(left)} of ${fmtMoney(r.cap)} left) for ${taxYearLabel(year)}.`
+    : `${r.hint}. ${fmtMoney(left)} of ${fmtMoney(r.cap)} left for ${taxYearLabel(year)}.`;
 }
 
 function taxReviewYes() {
@@ -1322,7 +1487,7 @@ function taxNudgeDue(now) {
 
 // Which card, if any, Home should show a person who isn't tracking tax.
 function taxHomeCard(now) {
-  if (!TAX_OK || !state || typeof currentCurrency !== "function" || currentCurrency() !== "MYR") return null;
+  if (!state || typeof currentCurrency !== "function" || !taxReady()) return null;
   const t = taxState();
   if (t.enabled) return null;
   const hasData = (state.income || []).length + (state.dailyExpenses || []).length + (state.expenses || []).length > 0;
@@ -1353,7 +1518,7 @@ function taxHomeCopy(card) {
   if (card.kind === "final") {
     const f2 = taxFilingFor(card.year);
     return {
-      title: `e-Filing for YA ${card.year} opens ${taxDateLabel(f2.efilingOpens)}`,
+      title: `${taxFilingName(true)} for ${taxYearLabel(card.year)} opens ${taxDateLabel(f2.efilingOpens)}`,
       body: `${f.n} spend${f.n === 1 ? "" : "s"} (${amt(money)}) from ${card.year} may count as tax relief. Decide now, and add receipts any time before ${taxDateLabel(f2.deadline)}.`,
       go: "See what I can claim",
     };
@@ -1361,12 +1526,12 @@ function taxHomeCopy(card) {
   return f.n
     ? {
         title: `${f.n} of your spends may count as tax relief`,
-        body: `${amt(money)} so far this year (${escapeHtml(what)}). Duitful can claim them for you, keep the receipts, and show your likely LHDN refund — all on this phone.`,
+        body: `${amt(money)} so far this year (${escapeHtml(what)}). Duitful can claim them for you, keep the receipts, and show your likely ${escapeHtml(TAX_TERMS.authority)} refund — all on this phone.`,
         go: "See what I can claim",
       }
     : {
         title: "Find out your likely tax refund",
-        body: "Duitful now spots spending that counts as LHDN tax relief, keeps the receipts, and works out what comes back to you. All on this phone, nothing sent anywhere.",
+        body: `Duitful now spots spending that counts as ${escapeHtml(TAX_TERMS.authority)} tax relief, keeps the receipts, and works out what comes back to you. All on this phone, nothing sent anywhere.`,
         go: "Take a look",
       };
 }
@@ -1427,7 +1592,7 @@ function taxDay(iso) {
 }
 
 // LHDN limits are whole ringgit and public: "RM 10,000", not hidden in privacy mode.
-function taxCap(n) { return `RM ${Number(n).toLocaleString("en-MY")}`; }
+function taxCap(n) { return taxWhole(n); }
 
 // "Medical (self, spouse, child)" → "Medical": the short name for tight rows.
 function taxShort(label) { return String(label).replace(/\s*\([^)]*\)\s*$/, ""); }
@@ -1440,19 +1605,97 @@ function taxClaimShortLabel(c) {
 }
 
 // View state for the tax page. Not persisted: it resets on reload like the
+/* ---------- custom rules: the card and the editor ---------- */
+
+function taxRenderRules() {
+  const box = taxEl("tax-rules-summary");
+  if (!box) return;
+  const t = taxState();
+  const cur = typeof currentCurrency === "function" ? currentCurrency() : "MYR";
+  const own = !!t.rules && TAX_CUSTOM;
+  let text;
+  if (own) {
+    const where = TAX_COUNTRY ? `${TAX_COUNTRY}` : "Your own rules";
+    text = `${where} · ${TAX_TABLE_LABEL} · amounts in ${TAX_CURRENCY}. Added by you, kept on this device.`;
+    if (cur !== TAX_CURRENCY) text += ` Your money is in ${cur}, so tax is off until the two match: change the currency in Settings, or add rules in ${cur}.`;
+  } else if (cur === "MYR") {
+    text = `Malaysia (LHDN), ${TAX_TABLE_LABEL}, built in and updated each Budget. Somewhere else? Add your country's rules.`;
+  } else {
+    text = `The built-in rules are Malaysia's, in ringgit, and your money is in ${cur}. Add your country's tax rules and Duitful will spot reliefs and estimate your refund the same way.`;
+  }
+  box.textContent = text;
+  taxEl("btn-tax-rules").textContent = own ? "Edit rules" : "Use my country's rules";
+  taxEl("btn-tax-rules-reset").hidden = !own;
+}
+
+function taxOpenRules() {
+  const t = taxState();
+  taxEl("tax-rules-text").value = t.rules ? JSON.stringify(t.rules, null, 1) : "";
+  taxShowRuleProblems([]);
+  const dlg = taxEl("tax-rules-dialog");
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+}
+
+function taxShowRuleProblems(problems) {
+  const wrap = taxEl("tax-rules-problems");
+  wrap.hidden = !problems.length;
+  taxEl("tax-rules-problem-list").innerHTML = problems.slice(0, 12).map((p) => `<li>${escapeHtml(p)}</li>`).join("")
+    + (problems.length > 12 ? `<li>…and ${problems.length - 12} more.</li>` : "");
+}
+
+// Claims made under one set of rules point at its relief ids. Ones the new
+// rules don't have would be dropped on the next load anyway; say so first.
+function taxClaimsLost(data) {
+  const ids = new Set(taxBuildCatalog(data).filter((c) => !c.auto).map((c) => c.id));
+  return taxState().claims.filter((c) => !ids.has(c.relief));
+}
+
+function taxApplyRules(data) {
+  const t = taxState();
+  const lost = taxClaimsLost(data || TAX_BUILTIN);
+  if (lost.length && !confirm(`${lost.length} claim${lost.length === 1 ? "" : "s"} you made under the current rules ${lost.length === 1 ? "has" : "have"} no match in the new ones and will be removed. Continue?`)) return false;
+  const drop = new Set(lost.map((c) => c.id));
+  t.claims = t.claims.filter((c) => !drop.has(c.id));
+  t.rules = data || null;
+  taxSyncRules();
+  save();
+  renderAll();
+  return true;
+}
+
+function taxSaveRulesFromEditor() {
+  const checked = taxCheckRules(taxEl("tax-rules-text").value);
+  if (!checked.ok) { taxShowRuleProblems(checked.problems); return; }
+  if (!taxApplyRules(checked.data)) return;
+  taxEl("tax-rules-dialog").close();
+  const cur = typeof currentCurrency === "function" ? currentCurrency() : "";
+  toast(cur && cur !== checked.data.currency
+    ? `Rules saved. They're in ${checked.data.currency}, your money is in ${cur} — change the currency in Settings to use them.`
+    : `Tax rules saved${checked.data.country ? ` for ${checked.data.country}` : ""}`);
+}
+
+function taxResetRules() {
+  if (!confirm("Remove your rules and go back to Malaysia's built-in ones?")) return;
+  if (taxApplyRules(null)) toast("Back to Malaysia's rules");
+}
+
 // Reports filters do.
 const taxUi = { reliefOpen: "", showAll: false, filter: "all", inbox: 0 };
 
 function renderTax() {
   const t = taxState();
-  const myr = TAX_OK && (typeof currentCurrency !== "function" || currentCurrency() === "MYR");
+  const myr = taxReady();
   const on = t.enabled && myr;
   const show = (id, v) => { const el = taxEl(id); if (el) el.hidden = !v; };
   // Ways in: Reports (opt-in or a summary), Home's Today links, the page itself.
   show("tax-optin", !t.enabled && myr);
   show("tax-page-optin", !t.enabled && myr);
   show("tax-entry", on);
-  show("today-tax-link", myr);   // always findable, tracking or not
+  // Always findable, tracking or not — and for someone outside Malaysia it
+  // is the way to the rules editor.
+  show("today-tax-link", true);
+  document.querySelectorAll("[data-tax-term]").forEach((el) => { el.textContent = TAX_TERMS[el.dataset.taxTerm] || el.textContent; });
+  taxRenderRules();
   renderTaxHome();
   if (!t.enabled && myr) taxRenderWelcome();
   for (const id of ["tax-card", "tax-reliefs-card", "tax-claims-card", "tax-details-card"]) show(id, on);
@@ -1461,7 +1704,7 @@ function renderTax() {
 
   const year = taxYear();
   const s = taxSummary(year);
-  taxEl("tax-year-label").textContent = `YA ${year}`;
+  taxEl("tax-year-label").textContent = taxYearLabel(year);
   taxEl("tax-year-next").disabled = year >= new Date().getFullYear();
   const pending = taxPendingExpenses(year);
   const claims = taxYearClaims(year).sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -1500,7 +1743,7 @@ function taxRenderHero(year, s, pending, claims) {
   const now = new Date();
   const hasIncome = s.inputs.income > 0;
   const owe = hasIncome && s.balance < 0;
-  taxEl("tax-hero-label").textContent = owe ? `Tax still to pay · YA ${year}` : `Estimated refund · YA ${year}`;
+  taxEl("tax-hero-label").textContent = owe ? `Tax still to pay · ${taxYearLabel(year)}` : `Estimated refund · ${taxYearLabel(year)}`;
   const fig = taxEl("tax-hero");
   fig.textContent = fmtMoney(Math.abs(s.balance));
   fig.classList.toggle("is-owe", owe);
@@ -1521,7 +1764,7 @@ function taxRenderHero(year, s, pending, claims) {
   if (!hasIncome) {
     note = `Add your salary in the Monthly tab, or <button type="button" class="tax-inline-btn" data-tax-numbers="tax-in-income">type your yearly income</button>, to see your refund.`;
   } else if (!s.pcb) {
-    note = `Without your PCB this is your tax bill, not your refund. <button type="button" class="tax-inline-btn" data-tax-numbers="tax-in-pcb">Add the PCB from your payslips</button>.`;
+    note = `Without your ${escapeHtml(TAX_TERMS.withholding)} this is your tax bill, not your refund. <button type="button" class="tax-inline-btn" data-tax-numbers="tax-in-pcb">Add the ${escapeHtml(TAX_TERMS.withholding)} from your payslips</button>.`;
   } else if (s.savedByClaims > 0) {
     note = `Your claims are saving you about ${amt(s.savedByClaims)}.`;
   } else {
@@ -1534,14 +1777,14 @@ function taxRenderHero(year, s, pending, claims) {
   const rows = [
     step("", "Gross income", s.income),
     step("−", "Automatic reliefs (you, family)", s.autoRelief),
-    step("−", "Reliefs you've claimed, with EPF", s.claimedTotal),
+    step("−", `Reliefs you've claimed, with ${TAX_TERMS.pension}`, s.claimedTotal),
     step("=", "Taxable income", s.chargeable, "is-sum"),
     step("", "Tax on that, at resident rates", s.gross),
   ];
-  if (s.rebate > 0) rows.push(step("−", "RM 400 rebate", s.rebate));
+  if (s.rebate > 0) rows.push(step("−", `${taxWhole(s.rebate)} ${TAX_TERMS.rebate}`, s.rebate));
   if (s.zakat > 0) rows.push(step("−", "Zakat paid", s.zakat));
   rows.push(step("=", "Tax due", s.payable, "is-sum"));
-  rows.push(step("−", "PCB already paid", s.pcb));
+  rows.push(step("−", `${TAX_TERMS.withholding} already paid`, s.pcb));
   rows.push(step("=", owe ? "Still to pay" : "Refund", Math.abs(s.balance), "is-total"));
   taxEl("tax-steps").innerHTML = rows.join("");
   taxEl("tax-how").hidden = !hasIncome;
@@ -1558,7 +1801,7 @@ function taxRenderHero(year, s, pending, claims) {
     status.push(`<li>${TAX_ICON.receipt}<span>${missing} claim${missing === 1 ? "" : "s"} still need${missing === 1 ? "s" : ""} a receipt — add by ${escapeHtml(taxDateLabel(fd.deadline))}.</span></li>`);
   }
   if (nextCheck) {
-    status.push(`<li>${TAX_ICON.calendar}<span>Next check-in ${escapeHtml(taxDateLabel(nextCheck))}${nextCheck === fd.finalCheck ? `, before e-Filing opens ${escapeHtml(taxDateLabel(fd.efilingOpens))}` : ""}.</span></li>`);
+    status.push(`<li>${TAX_ICON.calendar}<span>Next check-in ${escapeHtml(taxDateLabel(nextCheck))}${nextCheck === fd.finalCheck ? `, before ${escapeHtml(taxFilingName())} opens ${escapeHtml(taxDateLabel(fd.efilingOpens))}` : ""}.</span></li>`);
   }
   taxEl("tax-checks").innerHTML = status.join("");
   taxEl("tax-checks").hidden = !status.length;
@@ -1639,7 +1882,7 @@ function taxRenderReliefs(year, s) {
     return `<li><button type="button" class="tax-tile${full ? " is-full" : ""}${opp ? " is-room" : ""}${isOpen ? " is-open" : ""}"
         data-tax-relief-open="${r.id}" aria-expanded="${isOpen ? "true" : "false"}" aria-controls="tax-relief-detail">
       <span class="tax-tile-name">${escapeHtml(taxShort(r.label))}</span>
-      <span class="tax-tile-val">${used > 0 ? amt(used) : "RM 0"} <span class="tax-tile-cap">of ${escapeHtml(taxCap(r.cap))}</span></span>
+      <span class="tax-tile-val">${used > 0 ? amt(used) : escapeHtml(taxWhole(0))} <span class="tax-tile-cap">of ${escapeHtml(taxCap(r.cap))}</span></span>
       <span class="tax-tile-bar"><span style="width:${taxPct(used, r.cap)}%"></span></span>
       <span class="tax-tile-note">${note}</span>
     </button></li>`;
@@ -1654,7 +1897,7 @@ function taxRenderReliefs(year, s) {
   const inRelief = taxYearClaims(year).filter((c) => c.relief === r.id).sort((a, b) => (a.date < b.date ? 1 : -1));
   const subs = r.subs.map((x) => {
     const u = s.usedSub[`${r.id}:${x.id}`] || 0;
-    return `<li><span>${escapeHtml(x.label)}</span><span class="tax-detail-sub-val">${u > 0 ? amt(u) : "RM 0"} <span class="tax-tile-cap">of ${escapeHtml(taxCap(x.cap))}</span></span>
+    return `<li><span>${escapeHtml(x.label)}</span><span class="tax-detail-sub-val">${u > 0 ? amt(u) : escapeHtml(taxWhole(0))} <span class="tax-tile-cap">of ${escapeHtml(taxCap(x.cap))}</span></span>
       <span class="tax-tile-bar"><span style="width:${taxPct(u, x.cap)}%"></span></span></li>`;
   }).join("");
   detail.innerHTML = `
@@ -1733,8 +1976,8 @@ function taxRenderDetails(year, s) {
     : s.inputs.income > 0 ? (s.inputs.projected ? `Monthly tab, ${s.inputs.months} month${s.inputs.months === 1 ? "" : "s"} × 12` : "Monthly tab") : "";
   taxEl("tax-facts").innerHTML = [
     fact("tax-in-income", "Gross income", s.inputs.income > 0 ? amt(s.inputs.income) : "Not added", incomeSub, !(s.inputs.income > 0)),
-    fact("tax-in-pcb", "PCB paid", f.pcb ? amt(f.pcb) : "Not added", f.pcb ? "" : "from your payslips", !f.pcb),
-    fact("tax-in-epf", "Your EPF", f.epf ? amt(f.epf) : "Not added", ""),
+    fact("tax-in-pcb", `${TAX_TERMS.withholding} paid`, f.pcb ? amt(f.pcb) : "Not added", f.pcb ? "" : "from your payslips", !f.pcb),
+    fact("tax-in-epf", `Your ${TAX_TERMS.pension}`, f.epf ? amt(f.epf) : "Not added", ""),
     fact("tax-in-children", "Family", fam.length ? escapeHtml(fam.join(", ").replace(/^./, (c) => c.toUpperCase())) : "Just me", ""),
   ].join("");
   taxEl("tax-income-source").innerHTML = s.inputs.incomeSource === "typed"
@@ -1752,13 +1995,15 @@ function taxRenderDetails(year, s) {
   }
   for (const [id, key] of TAX_FLAG_FIELDS) taxEl(id).checked = !!t[key];
   taxEl("tax-footnote").textContent =
-    `Relief limits follow the LHDN ${TAX_TABLE_LABEL} schedule; tax bands are the current resident rates. An estimate for planning — check LHDN's figures before you file.`;
+    (TAX_CUSTOM
+      ? `Relief limits and tax bands come from the ${TAX_TABLE_LABEL} rules you added${TAX_COUNTRY ? ` for ${TAX_COUNTRY}` : ""}. An estimate for planning — check ${TAX_TERMS.authority}'s figures before you file.`
+      : `Relief limits follow the LHDN ${TAX_TABLE_LABEL} schedule; tax bands are the current resident rates. An estimate for planning — check LHDN's figures before you file.`);
 }
 
 /* Reports: the way in, with the number. */
 function taxRenderEntry(year, s, pending, claims) {
   const owe = s.inputs.income > 0 && s.balance < 0;
-  taxEl("tax-entry-year").textContent = `YA ${year}`;
+  taxEl("tax-entry-year").textContent = `${taxYearLabel(year)}`;
   const fig = taxEl("tax-entry-figure");
   fig.textContent = s.inputs.income > 0 ? `${owe ? "To pay " : ""}${fmtMoney(Math.abs(s.balance))}` : "Add your income";
   fig.classList.toggle("is-owe", owe);
@@ -1846,7 +2091,7 @@ document.addEventListener("click", (e) => {
   } else if (hit("#btn-tax-review")) {
     const items = taxReviewItems(taxYear());
     if (items.length) taxOpenReview(items, "year", taxYear());
-    else toast(`All sorted — nothing left to review for YA ${taxYear()}`);
+    else toast(`All sorted — nothing left to review for ${taxYearLabel(taxYear())}`);
   } else if (hit("#tax-review-yes")) taxReviewYes();
   else if (hit("#tax-review-no")) taxReviewNo();
   else if (hit("#tax-review-later")) { if (taxReview) taxReviewGo(taxReview.i + 1); }
@@ -1913,9 +2158,32 @@ document.addEventListener("click", (e) => {
     taxEl("tax-receipt-dialog").close();
     if (id) taxOpenReview([{ kind: "claim", claimId: id, year: taxYear() }], "year", taxYear());
   }
+  else if (hit("#btn-tax-rules")) taxOpenRules();
+  else if (hit("#btn-tax-rules-reset")) taxResetRules();
+  else if (hit("#tax-rules-cancel")) taxEl("tax-rules-dialog").close();
+  else if (hit("#tax-rules-save")) taxSaveRulesFromEditor();
+  else if (hit("#tax-rules-sample")) {
+    const box = taxEl("tax-rules-text");
+    if (!box.value.trim() || confirm("Replace what's in the box with Malaysia's rules?")) {
+      box.value = JSON.stringify({ currency: "MYR", ...TAX_BUILTIN }, null, 1);
+      taxShowRuleProblems([]);
+    }
+  }
   // File pickers are real buttons (keyboard-reachable) driving hidden inputs.
   else if ((b = hit("[data-tax-pick]"))) taxEl(b.dataset.taxPick)?.click();
 });
+
+taxEl("tax-rules-file")?.addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  if (file.size > TAX_RULES_MAX_BYTES) { taxShowRuleProblems([`The file is over ${Math.round(TAX_RULES_MAX_BYTES / 1024)} KB.`]); return; }
+  const text = await file.text();
+  taxEl("tax-rules-text").value = text;
+  const checked = taxCheckRules(text);
+  taxShowRuleProblems(checked.problems);
+});
+taxEl("tax-rules-form")?.addEventListener("submit", (e) => e.preventDefault());
 
 ["tax-in-income", "tax-in-pcb", "tax-in-epf"].forEach((id) => {
   taxEl(id)?.addEventListener("change", (e) => taxSetFigure(id.slice(7), taxNumber(e.target)));

@@ -90,6 +90,17 @@
   Check-ins: on new spending, on demand ("Review my year"), in
   November, and before e-Filing opens. Claims export as CSV for
   e-Filing. Duitful does not file tax or contact LHDN.
+- **Tax rules for other countries**: Malaysia's LHDN schedule is built
+  in. Anyone else can add their own country's rules as JSON (paste or
+  upload on the Tax page); they are validated, kept only in the
+  encrypted vault on the device, and drive the same relief matching and
+  refund estimate in that country's currency and terms.
+  https://duitful.app/tax-rules/ documents the format and gives a prompt
+  to have an AI assistant write the rules.
+- **Currency at setup**: a new vault starts in the currency of the
+  phone's region (from its time zone); changeable in Settings. The web
+  checkout (Billplz: FPX, Touch 'n Go, GrabPay) is for Malaysia;
+  elsewhere Pro is bought in the Google Play or App Store app.
 - **Investments** (free tier: 2 holdings; unlimited on Pro): manual
   holdings for ASB, EPF, Tabung Haji, FD, unit trusts, shares, gold and
   PRS — balance-style or units × price. Values are typed in from

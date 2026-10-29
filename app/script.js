@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.47.3";
+const APP_VERSION = "1.48.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4594,16 +4594,29 @@ const PAYWALL_COPY = {
   budgetPoolsRollover: "Rollover is a Pro feature — carry unspent budget into the next month.",
   budgetPoolsOverrides: "Per-month limit overrides are a Pro feature.",
 };
+/* The web checkout is Billplz, which takes ringgit from Malaysian banks and
+ * e-wallets. It is offered to people in Malaysia, or keeping their books in
+ * ringgit; the price is shown in RM either way. */
+function paysWithBillplz() {
+  const cc = typeof regionCountry === "function" ? regionCountry() : "MY";
+  return cc === "MY" || currentCurrency() === "MYR";
+}
+
 function openPaywall(feature) {
   const dlg = document.getElementById("paywall-dialog");
   const reason = document.getElementById("paywall-reason");
   const hint = document.getElementById("paywall-hint");
   const status = document.getElementById("paywall-status");
   const native = isNative();
+  // Billplz (FPX, Touch 'n Go, GrabPay) is a Malaysian checkout in ringgit.
+  // Everyone else on the web buys through the phone app's store.
+  const billplz = !native && paysWithBillplz();
   if (reason) reason.textContent = PAYWALL_COPY[feature] || "Unlock everything. Pay once.";
   if (hint) hint.textContent = native
     ? ""
-    : "Pay with FPX, Touch 'n Go, GrabPay, Boost or any card. You get a license key you can paste on any device.";
+    : billplz
+      ? "Pay with FPX, Touch 'n Go, GrabPay, Boost or any card. You get a license key you can paste on any device."
+      : "Outside Malaysia, Duitful Pro is bought in the phone app, through Google Play or the App Store. Your data moves across with a backup.";
   // Clear any lingering "Verifying…" / error text from a previous attempt.
   if (status) { status.textContent = ""; status.hidden = true; }
 
@@ -4614,7 +4627,9 @@ function openPaywall(feature) {
   const activateBtn = document.getElementById("paywall-activate");
   if (buyBtn) buyBtn.hidden = !native;
   if (restoreBtn) restoreBtn.hidden = !native;
-  if (webActions) webActions.hidden = native;
+  if (webActions) webActions.hidden = !billplz;
+  const stores = document.getElementById("paywall-stores");
+  if (stores) stores.hidden = native || billplz;
   if (activateBtn) activateBtn.hidden = native;
 
   // Promo-code section: native-only (web checkout already handles discounts via Billplz).
@@ -4646,7 +4661,7 @@ function openPaywall(feature) {
         const launch = lookupPromoCode("LAUNCH100");
         if (launch) applyPromoUI(launch);
       }
-    } else {
+    } else if (billplz) {
       const hint = document.getElementById("paywall-hint");
       if (hint) hint.textContent = "Use code LAUNCH100 at checkout for RM 5.00 off — trial-period promo.";
     }
@@ -9844,6 +9859,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.48.0": [
+    "<strong>Tax for any country</strong> — on the Tax page, add your own country's tax rules as JSON (paste or upload). Not sure how? duitful.app/tax-rules has a prompt you can send to your AI. The rules stay in your encrypted data on this phone.",
+    "<strong>Your currency from the start</strong> — a new setup now starts in the currency of where your phone is, not always ringgit.",
+  ],
   "1.47.3": [
     "<strong>Exchange rates load more reliably in the phone apps</strong> — they now come from Duitful's own server, the same as on the web.",
   ],
@@ -10827,7 +10846,10 @@ if (lockForm) {
       if (lockMode === "unlock") {
         await handleUnlock(pass);
       } else if (lockMode === "setup") {
-        await handleSetup(pass, (confirmEl && confirmEl.value) || "", emptyState());
+        // A brand-new vault starts in the currency of where the phone is.
+        const fresh = emptyState();
+        if (typeof regionDefaultCurrency === "function") fresh.currency = regionDefaultCurrency();
+        await handleSetup(pass, (confirmEl && confirmEl.value) || "", fresh);
       } else if (lockMode === "migrate") {
         const legacy = localStorage.getItem(STORAGE_KEY);
         let legacyState = emptyState();

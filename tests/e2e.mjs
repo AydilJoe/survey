@@ -64,6 +64,21 @@ if (!process.env.BASE_URL) {
 // a Playwright-managed download (e.g. CI images, remote sandboxes).
 const launchOpts = process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {};
 const b = await chromium.launch(launchOpts);
+// A new vault picks its currency from the phone's time zone. The suite is
+// written in ringgit, so every page reports a Malaysian zone to that lookup
+// and the clock itself is left alone.
+const asMalaysia = () => {
+  const ro = Intl.DateTimeFormat.prototype.resolvedOptions;
+  Intl.DateTimeFormat.prototype.resolvedOptions = function () {
+    const o = ro.call(this);
+    return { ...o, timeZone: 'Asia/Kuala_Lumpur' };
+  };
+};
+{
+  const newContext = b.newContext.bind(b), newPage = b.newPage.bind(b);
+  b.newContext = async (opts) => { const c = await newContext(opts); await c.addInitScript(asMalaysia); return c; };
+  b.newPage = async (opts) => { const p = await newPage(opts); await p.addInitScript(asMalaysia); return p; };
+}
 const page = await b.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
@@ -7121,6 +7136,119 @@ check('the brand catalogue makes no network calls at all',
     !rBad.ok && rBad.problems.some(x => /duplicated/.test(x)) && rBad.appUp, JSON.stringify(rBad));
   await bad.close();
 
+  // ---- Worldwide: currency from where the phone is, Billplz only in Malaysia ----
+  const region = await S(() => ({
+    kuching: regionCountryFromTz('Asia/Kuching'), london: regionCountryFromTz('Europe/London'),
+    gb: regionCurrencyFor('GB'), sg: regionCurrencyFor('SG'), de: regionCurrencyFor('DE'), my: regionCurrencyFor('MY'),
+    us: regionCurrencyFor('us'), none: regionCurrencyFor('ZZ'), here: regionDefaultCurrency(),
+  }));
+  check('region: time zone → country → currency (Kuching is MY, London GBP, Berlin EUR, unknown → nothing)',
+    region.kuching === 'MY' && region.london === 'GB' && region.gb === 'GBP' && region.sg === 'SGD' && region.de === 'EUR'
+      && region.my === 'MYR' && region.us === 'USD' && region.none === '' && region.here === 'MYR', JSON.stringify(region));
+  {
+    const lctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+    await lctx.addInitScript(() => {
+      const ro = Intl.DateTimeFormat.prototype.resolvedOptions;
+      Intl.DateTimeFormat.prototype.resolvedOptions = function () { return { ...ro.call(this), timeZone: 'Europe/London' }; };
+    });
+    const lp = await lctx.newPage();
+    await lp.goto(`${BASE}/app/index.html`);
+    await lp.waitForTimeout(1000);
+    await lp.fill('#lock-input', '1234'); await lp.fill('#lock-confirm', '1234'); await lp.click('#lock-submit');
+    await lp.waitForTimeout(1500);
+    const uk = await lp.evaluate(() => {
+      openPaywall('debts');
+      const r = { currency: state.currency, fpx: !document.getElementById('paywall-web-actions').hidden,
+        stores: !document.getElementById('paywall-stores').hidden,
+        play: document.getElementById('paywall-play').getAttribute('href') };
+      document.getElementById('paywall-dialog').close();
+      return r;
+    });
+    await lctx.close();
+    check('worldwide: a new vault in London starts in GBP, and the web paywall sends them to the app stores, not Billplz',
+      uk.currency === 'GBP' && !uk.fpx && uk.stores && /\/go\/play\/\?utm_source=app/.test(uk.play), JSON.stringify(uk));
+  }
+  const myPay = await S(() => {
+    openPaywall('debts');
+    const r = { fpx: !document.getElementById('paywall-web-actions').hidden, stores: !document.getElementById('paywall-stores').hidden };
+    document.getElementById('paywall-dialog').close();
+    return r;
+  });
+  check('worldwide: in Malaysia the web paywall keeps FPX / TNG / GrabPay', myPay.fpx && !myPay.stores, JSON.stringify(myPay));
+
+  // ---- Custom tax rules: someone's own country, private in the vault ----
+  const exampleRules = {
+    country: 'Exampleland', currency: 'EUR', tax_authority: 'Exampleland Revenue Office',
+    terms: { authority: 'ERO', year: 'Tax year', withholding: 'Wage tax', pension: 'Pension', filing: 'ERO Online' },
+    tax_by_year: { 2026: { bands: [{ up_to: 10000, rate: 0 }, { up_to: 40000, rate: 0.2 }, { up_to: null, rate: 0.4 }], rebate: { amount: 0, chargeable_income_up_to: 0 } } },
+    filing_by_year: { 2026: { november_check: '11-15', final_check: '03-10', efiling_opens: '04-01', deadline: '06-30' } },
+    tax_relief_categories: [
+      { category_id: 'A', category_name: 'Allowances', items: [{ code: 'A1', name: 'Personal allowance', limit_2026: 3000, sub_limits: null, app: { auto: 'individual' } }] },
+      { category_id: 'B', category_name: 'Spending', items: [
+        { code: 'B1', name: 'Medical expenses', limit_2026: 2000, sub_limits: [{ id: 'dental', label: 'Dental', limit: 500 }],
+          app: { id: 'doctor', label: 'Medical', common: true, keywords: '\\b(doctor|dentist|apotheke)\\b' } },
+      ] },
+    ],
+  };
+  const pageSrc = readFileSync(path.join(REPO_ROOT, 'tax-rules/index.html'), 'utf8');
+  const pageExample = pageSrc.slice(pageSrc.indexOf('<pre class="example">') + 21, pageSrc.indexOf('</pre>', pageSrc.indexOf('<pre class="example">')))
+    .replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  const cr = await S(([ex, pageEx]) => {
+    const bad = taxCheckRules('{"tax_relief_categories": []');
+    const noCur = taxCheckRules(JSON.stringify({ ...ex, currency: undefined }));
+    const badBand = taxCheckRules(JSON.stringify({ ...ex, tax_by_year: { 2026: { bands: [{ up_to: 5, rate: 3 }], rebate: { amount: 0, chargeable_income_up_to: 0 } } } }));
+    const good = taxCheckRules(JSON.stringify(ex));
+    const fromPage = taxCheckRules(pageEx);
+    return { bad: bad.problems, noCur: noCur.problems, badBand: badBand.problems, good: good.ok,
+      keys: good.ok && Object.keys(good.data.tax_relief_categories[1].items[0]), fromPage: fromPage.ok || fromPage.problems };
+  }, [exampleRules, pageExample]);
+  check('tax rules: broken JSON, a missing currency and a bad band are each named; a good file passes',
+    /valid JSON/.test(cr.bad[0]) && cr.noCur.some((p) => /currency/.test(p)) && cr.badBand.length > 0 && cr.good
+      && cr.keys.includes('limit_ya_2026_myr'), JSON.stringify(cr));
+  check('tax rules: the example on duitful.app/tax-rules/ passes the app\'s own check', cr.fromPage === true, JSON.stringify(cr.fromPage));
+
+  const own = await S((ex) => {
+    const before = { currency: state.currency, tax: JSON.stringify(state.tax) };
+    state.currency = 'EUR';
+    state.tax = emptyTax(); state.tax.enabled = true; state.tax.year = 2026;
+    renderAll();
+    const off = { ready: taxReady(), summary: document.getElementById('tax-rules-summary').textContent };
+    const checked = taxCheckRules(JSON.stringify(ex));
+    window.confirm = () => true;
+    taxApplyRules(checked.data);
+    state.tax.figures['2026'] = { income: 50000, pcb: 8000, epf: 0 };
+    state.tax.claims.push({ id: 'c1', entryId: '', relief: 'doctor', sub: '', amount: 1200, date: '2026-03-01', note: '', receiptId: '', docIds: [] });
+    renderAll();
+    const s = taxSummary(2026);
+    const on = {
+      ready: taxReady(), custom: TAX_CUSTOM, label: document.getElementById('tax-year-label').textContent,
+      sugg: taxSuggestRelief('Health', 'Dentist visit', 2026), mySugg: taxSuggestRelief('Books', 'Popular', 2026),
+      steps: document.getElementById('tax-steps').textContent, facts: document.getElementById('tax-facts').textContent,
+      payable: s.payable, tiles: document.getElementById('tax-reliefs').textContent,
+      summary: document.getElementById('tax-rules-summary').textContent,
+      reset: !document.getElementById('btn-tax-rules-reset').hidden,
+    };
+    // Survives a save and a reload of the vault (coerceState → coerceTax).
+    const again = coerceTax(JSON.parse(JSON.stringify(state.tax)));
+    const kept = { claims: again.claims.length, rules: !!again.rules, custom: TAX_CUSTOM };
+    taxApplyRules(null);
+    const back = { custom: TAX_CUSTOM, claims: state.tax.claims.length, ready: taxReady() };
+    state.currency = before.currency; state.tax = coerceTax(JSON.parse(before.tax)); save(); renderAll();
+    return { off, on, kept, back };
+  }, exampleRules);
+  // 50,000 − 3,000 personal − 1,200 medical = 45,800 chargeable: 30,000 × 20% + 5,800 × 40% = 8,320.
+  check('tax rules: built-in Malaysian rules stay off for a EUR vault, and the card says how to add your own',
+    !own.off.ready && /Malaysia's, in ringgit/.test(own.off.summary), JSON.stringify(own.off));
+  check('tax rules: with your own rules, tax runs in their currency and words (Tax year, Wage tax, Pension, no RM/PCB/LHDN)',
+    own.on.ready && own.on.custom && own.on.label === 'Tax year 2026' && /Wage tax/.test(own.on.steps) && /Pension/.test(own.on.facts)
+      && !/RM|PCB|LHDN|EPF/.test(own.on.steps + own.on.facts + own.on.tiles) && /€/.test(own.on.tiles), JSON.stringify(own.on));
+  check('tax rules: the estimate uses their bands and reliefs', Math.abs(own.on.payable - 8320) < 0.01, String(own.on.payable));
+  check('tax rules: their keywords suggest claims; Malaysian word lists stay out', own.on.sugg === 'doctor' && own.on.mySugg === null,
+    `${own.on.sugg}/${own.on.mySugg}`);
+  check('tax rules: kept with the claims through a vault reload; "Back to Malaysia\'s" drops claims the built-in rules lack',
+    own.kept.claims === 1 && own.kept.rules && own.on.reset && !own.back.custom && own.back.claims === 0 && !own.back.ready,
+    JSON.stringify({ kept: own.kept, back: own.back }));
+
   // Suggestions: the words people actually type.
   const sug = await S(() => ({
     book: taxSuggestRelief('Books', 'Popular'),
@@ -7602,8 +7730,8 @@ check('the brand catalogue makes no network calls at all',
   check('tax intro: not shown to someone already tracking', !(await card()).shown);
   await reset();
   await S(() => { state.currency = 'USD'; renderAll(); });
-  check('tax intro: not shown outside MYR, and the Tax link goes too',
-    !(await card()).shown && await S(() => document.getElementById('today-tax-link').hidden));
+  check('tax intro: not shown outside MYR, but the Tax link stays (it leads to the rules editor)',
+    !(await card()).shown && await S(() => !document.getElementById('today-tax-link').hidden));
   await S(() => { state.currency = 'MYR'; renderAll(); });
   await S(() => { state.dailyExpenses = []; state.income = []; state.expenses = []; renderAll(); });
   check('tax intro: not shown with no data at all (nothing to say yet)', !(await card()).shown);
