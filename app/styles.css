@@ -7465,3 +7465,14 @@ html::before {
   z-index: 1000;
   pointer-events: none;
 }
+
+/* Restore celebration: the Pro moment's seal and confetti, for "your data is
+   back". The motion rules above (and their reduced-motion guard) apply. */
+.restore-dialog .pro-celebrate {
+  position: relative;
+  text-align: center;
+  padding: 1.4rem 0 0.6rem;
+  overflow: hidden;
+}
+.restore-actions { justify-content: center; }
+.restore-actions .primary { min-width: 12rem; }

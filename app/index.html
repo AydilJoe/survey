@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=130" />
+    <link rel="stylesheet" href="styles.css?v=131" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -1707,6 +1707,23 @@
       </form>
     </dialog>
 
+    <!-- After a restore from iCloud or Google Drive: the data is back. -->
+    <dialog id="restore-dialog" class="edit-dialog restore-dialog" aria-labelledby="restore-title">
+      <form method="dialog">
+        <div class="pro-celebrate" id="restore-celebrate">
+          <div class="pro-seal" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <h2 id="restore-title">Welcome back.</h2>
+          <p class="pro-celebrate-sub" id="restore-sub">Your data is back.</p>
+          <ul class="pro-unlocked" id="restore-stats"></ul>
+        </div>
+        <div class="form-actions restore-actions">
+          <button type="submit" class="primary" id="restore-done">Let's go</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="pro-welcome-dialog" class="edit-dialog paywall-dialog">
       <form method="dialog">
         <div class="paywall-head">
@@ -2540,6 +2557,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=11"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=170"></script>
+    <script src="script.js?v=171"></script>
   </body>
 </html>

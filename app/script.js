@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.49.0";
+const APP_VERSION = "1.49.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4813,6 +4813,31 @@ function ensureProCelebrateBlock(dlg, paidLabel) {
     <p class="pro-receipt">${receipt}</p>
   `;
   head.replaceWith(block);
+}
+
+// "Welcome back": shown once a restore from iCloud or Google Drive has put
+// the data in place, with what came back so it is plain nothing is missing.
+function showRestoreCelebration(source) {
+  const dlg = document.getElementById("restore-dialog");
+  if (!dlg || !state) return;
+  const where = source === "icloud" ? "iCloud" : "Google Drive";
+  const n = (a) => (Array.isArray(a) ? a.length : 0);
+  const plural = (k, one, many) => `${k.toLocaleString()} ${k === 1 ? one : many}`;
+  const stats = [];
+  const entries = n(state.dailyExpenses);
+  const monthly = n(state.income) + n(state.expenses);
+  if (entries) stats.push(plural(entries, "entry", "entries"));
+  if (monthly) stats.push(plural(monthly, "monthly item", "monthly items"));
+  if (n(state.debts)) stats.push(plural(n(state.debts), "debt", "debts"));
+  if (n(state.savings)) stats.push(plural(n(state.savings), "savings goal", "savings goals"));
+  if (!stats.length) stats.push("Your settings");
+  if (!state.guideSeen) { state.guideSeen = true; save(); }
+  document.getElementById("restore-sub").textContent = `Everything is back from ${where}.`;
+  document.getElementById("restore-stats").innerHTML = stats.slice(0, 3).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
+  // Another dialog (the tour, What's new) waits its turn rather than stacking.
+  document.querySelectorAll("dialog[open]").forEach((d) => { if (d !== dlg) d.close(); });
+  if (!dlg.open) dlg.showModal();
+  proCelebrationConfetti(document.getElementById("restore-celebrate"));
 }
 
 function openProWelcome(paidLabel) {
@@ -9845,8 +9870,10 @@ document.addEventListener("click", (e) => {
 // Fires only from the passcode-setup flow (first-run or legacy migration).
 // Returning users never see it; the full tour replays from Settings → About.
 function maybeOpenGuideAfterSetup() {
+  // Checked again when the timer fires: a restore marks the tour seen
+  // (someone bringing their data back knows the app) in the meantime.
   if (!state.guideSeen) {
-    setTimeout(() => openOnboard(), 250);
+    setTimeout(() => { if (!state.guideSeen) openOnboard(); }, 250);
   }
 }
 
@@ -9855,6 +9882,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.49.1": [
+    "<strong>Welcome back</strong> — restoring from iCloud or Google Drive now ends with a little celebration that shows what came back.",
+  ],
   "1.49.0": [
     "<strong>Start in one tap</strong> — new here? Tap Get started. A passcode is now optional: set one first, or any time in Settings → Security, and turn it off there too.",
   ],
@@ -10995,6 +11025,7 @@ async function startDriveRestoreFromLock(id = "drive") {
       try { plain = await decryptRecord(await deriveKey(OPEN_PASSCODE, b64decode(rec.salt)), rec); } catch {}
       if (plain) {
         await handleSetup(OPEN_PASSCODE, OPEN_PASSCODE, coerceState(plain), { open: true });
+        if (aesKey) showRestoreCelebration(id);
         return;
       }
     }
@@ -11034,6 +11065,7 @@ async function handleRestoreFromDrive(passcode) {
   // Re-encrypt locally with a fresh salt under the same passcode and the
   // recovered state. handleSetup also runs renderAll, IAP init etc.
   await handleSetup(passcode, passcode, coerceState(plain), { open: passcode === OPEN_PASSCODE });
+  if (aesKey) showRestoreCelebration(lockRestoreSource);
 }
 
 document.getElementById("btn-setup-restore")?.addEventListener("click", () => {
@@ -13025,7 +13057,7 @@ async function restoreFromDrive(id = "drive") {
   const reRec = await encryptWith(aesKey, state, prev.salt);
   localStorage.setItem(ENC_KEY, JSON.stringify(reRec));
   renderAll();
-  alert("Restore complete.");
+  showRestoreCelebration(id);
 }
 
 function formatRelative(iso) {
