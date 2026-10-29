@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=129" />
+    <link rel="stylesheet" href="styles.css?v=130" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -119,6 +119,13 @@
           <input type="password" id="lock-confirm" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Confirm passcode" placeholder="Confirm" hidden />
           <button type="submit" class="primary" id="lock-submit">Unlock</button>
         </form>
+        <!-- First open: start straight away, or set a passcode first. Without
+             one the vault is still encrypted, under a fixed code (script.js,
+             OPEN_PASSCODE), and opens without asking. -->
+        <div id="lock-start" class="lock-start" hidden>
+          <button type="button" class="primary" id="btn-start-open">Get started</button>
+          <button type="button" class="ghost" id="btn-start-passcode">Set a passcode</button>
+        </div>
         <button type="button" class="ghost lock-biometric" id="lock-biometric" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12 11a3 3 0 013 3c0 1.5-.5 3.5-1.5 5"/>
@@ -1589,9 +1596,10 @@
 
         <div class="card">
           <h2>Security</h2>
-          <p class="hint">Encrypted with your passcode. Lose it and nobody can recover your data — keep a backup. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a></p>
+          <p class="hint" id="security-hint">Encrypted with your passcode. Lose it and nobody can recover your data — keep a backup. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a></p>
           <div class="button-row">
             <button id="btn-change-passcode" class="primary" type="button">Change passcode</button>
+            <button id="btn-remove-passcode" class="ghost" type="button">Turn off passcode</button>
           </div>
           <label class="field toggle-field" id="biometric-row" hidden>
             <input type="checkbox" id="toggle-biometric" />
@@ -2532,6 +2540,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=11"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=169"></script>
+    <script src="script.js?v=170"></script>
   </body>
 </html>

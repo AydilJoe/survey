@@ -532,6 +532,26 @@ body.loaded #splash {
   padding: 0.85rem 1rem;
   font-size: 1rem;
 }
+/* First open: Get started / Set a passcode, laid out like the form. */
+.lock-start {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 340px;
+  margin: 0.4rem auto 0;
+}
+.lock-start button { width: 100%; padding: 0.85rem 1rem; font-size: 1rem; }
+.lock-form[hidden], .lock-start[hidden] { display: none; }
+/* A vault without a passcode opens itself: the lock screen stands in as a
+   splash for the moment the key takes to derive, with nothing to type. */
+#lock.is-opening .lock-sub,
+#lock.is-opening .lock-form,
+#lock.is-opening .lock-start,
+#lock.is-opening .lock-help,
+#lock.is-opening .lock-restore,
+#lock.is-opening .lock-welcome,
+#lock.is-opening #lock-biometric { visibility: hidden; }
 .lock-help {
   margin-top: 0.6rem;
   text-align: center;

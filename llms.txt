@@ -17,6 +17,10 @@
 - All data lives in an **AES-GCM encrypted database in your browser /
   device localStorage**, locked with a **PBKDF2-derived key (250k
   iterations)** from your passcode. Duitful operates no sync server.
+  The passcode is optional: without one (first screen: Get started) the
+  data is encrypted under a fixed built-in code and the app opens
+  without asking; a passcode can be set or removed in Settings →
+  Security, and 0000 can't be chosen.
 - **Pro sync** is opt-in and goes through **your own Google Drive**, or
   **your own iCloud** in the iPhone app, as a single encrypted file —
   Duitful never has a key.

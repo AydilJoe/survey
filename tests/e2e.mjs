@@ -94,7 +94,9 @@ const check = (name, cond, extra = '') => (cond ? ok : bad).push(`${name}${extra
 await page.goto(`${BASE}/app/index.html`);
 await page.waitForTimeout(500);
 
-// First-run passcode setup
+// First-run passcode setup: the first screen offers Get started (no
+// passcode) or Set a passcode; the suite runs with a passcode.
+await page.click('#btn-start-passcode');
 await page.fill('#lock-input', 'test1234');
 if (await page.locator('#lock-confirm').isVisible()) await page.fill('#lock-confirm', 'test1234');
 await page.click('#lock-submit');
@@ -4481,8 +4483,7 @@ check('and what was typed reaches the home screen calculation',
   const pStill = await still.newPage();
   await pStill.goto(`${BASE}/app/index.html`);
   await pStill.waitForTimeout(1200);
-  await pStill.fill('#lock-input', '1234'); await pStill.fill('#lock-confirm', '1234');
-  await pStill.click('#lock-submit'); await pStill.waitForTimeout(1500);
+  await pStill.click('#btn-start-open'); await pStill.waitForTimeout(1500);
   await pStill.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
   const rm = await pStill.evaluate(() => {
     const form = document.getElementById('form-daily');
@@ -4815,7 +4816,7 @@ check('the vault is open before the quick-add checks',
   await fp.waitForTimeout(1200);
   const count = (sel) => fp.evaluate((sel) => document.querySelector(sel).innerText.split(/\s+/).filter(Boolean).length, sel);
   const lockWords = await count('#lock');
-  await fp.fill('#lock-input', '1234'); await fp.fill('#lock-confirm', '1234'); await fp.click('#lock-submit');
+  await fp.click('#btn-start-open');
   await fp.waitForTimeout(1500);
   const steps = [];
   for (let i = 1; i <= 3; i++) {
@@ -4826,6 +4827,79 @@ check('the vault is open before the quick-add checks',
   }
   steps.push(await count('[data-onboard-step="4"]'));
   await fctx.close();
+  {
+    // First open: no passcode needed. Get started opens the app; it stays
+    // encrypted under 0000 and opens without asking from then on.
+    const nctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+    const np = await nctx.newPage();
+    const nErr = [];
+    np.on('pageerror', (e) => nErr.push(e.message));
+    await np.goto(`${BASE}/app/index.html`);
+    await np.waitForTimeout(1000);
+    const first = await np.evaluate(() => ({
+      start: !document.getElementById('btn-start-open').hidden, setPass: !document.getElementById('btn-start-passcode').hidden,
+      form: !document.getElementById('lock-form').hidden, restore: !document.getElementById('btn-setup-restore').hidden }));
+    check('first open: Get started, Set a passcode and Restore are offered; no passcode field yet',
+      first.start && first.setPass && !first.form && first.restore, JSON.stringify(first));
+    // 0000 is refused as a chosen passcode.
+    await np.click('#btn-start-passcode');
+    await np.fill('#lock-input', '0000'); await np.fill('#lock-confirm', '0000'); await np.click('#lock-submit');
+    await np.waitForTimeout(400);
+    const refused = await np.evaluate(() => ({ err: document.getElementById('lock-error').textContent, key: !!aesKey,
+      skip: document.getElementById('btn-start-open').textContent }));
+    check('first open: 0000 cannot be chosen as a passcode, and Skip stays available',
+      /0000 can.t be a passcode/.test(refused.err) && !refused.key && /Skip/.test(refused.skip), JSON.stringify(refused));
+    await np.click('#btn-start-open');
+    await np.waitForTimeout(1500);
+    const opened = await np.evaluate(() => ({ key: !!aesKey, open: vaultIsOpen(), lock: document.getElementById('lock').hidden,
+      rec: (() => { try { const r = JSON.parse(localStorage.getItem('duit-tracker.enc')); return !!(r && r.cipher && r.salt); } catch { return false; } })() }));
+    check('Get started: the app opens, still encrypted (under the fixed code), marked as no passcode',
+      opened.key && opened.open && opened.lock && opened.rec, JSON.stringify(opened));
+    await np.evaluate(() => { document.querySelectorAll('dialog[open]').forEach((d) => d.close()); state.debts.push({ id: 'np1', name: 'No Pass Probe', kind: 'standard', balance: 50, apr: 1, minPayment: 5 }); save(); });
+    await np.waitForTimeout(400);
+    await np.reload();
+    await np.waitForTimeout(2000);
+    const back = await np.evaluate(() => {
+      relock();
+      return { key: !!aesKey, lock: document.getElementById('lock').hidden, probe: state.debts.some((d) => d.name === 'No Pass Probe'),
+        setLabel: document.getElementById('btn-change-passcode').textContent, removeHidden: document.getElementById('btn-remove-passcode').hidden };
+    });
+    check('no passcode: reopening goes straight in with the data, and nothing relocks it',
+      back.key && back.lock && back.probe, JSON.stringify(back));
+    check('no passcode: Settings offers Set a passcode, not Turn off', back.setLabel === 'Set a passcode' && back.removeHidden, JSON.stringify(back));
+    // Set a passcode later (0000 refused there too), then it locks.
+    const setLater = await np.evaluate(async () => {
+      const answers = ['0000', '2468', '2468']; const alerts = [];
+      window.prompt = () => answers.shift(); window.alert = (m) => alerts.push(m);
+      document.getElementById('btn-change-passcode').click();
+      await new Promise((r) => setTimeout(r, 300));
+      const refusedLater = /0000 can.t be a passcode/.test(alerts[0] || '') && vaultIsOpen();
+      document.getElementById('btn-change-passcode').click();
+      await new Promise((r) => setTimeout(r, 2500));
+      return { refusedLater, open: vaultIsOpen(), label: document.getElementById('btn-change-passcode').textContent,
+        matches: await vaultPasscodeMatches('2468'), old: await vaultPasscodeMatches('0000') };
+    });
+    check('Set a passcode later: 0000 refused; a real one re-encrypts the vault and replaces the fixed code',
+      setLater.refusedLater && !setLater.open && setLater.label === 'Change passcode' && setLater.matches && !setLater.old, JSON.stringify(setLater));
+    await np.reload();
+    await np.waitForTimeout(1500);
+    const locked = await np.evaluate(() => ({ lock: !document.getElementById('lock').hidden, key: !!aesKey,
+      sub: document.getElementById('lock-sub').textContent }));
+    check('with a passcode set, the app asks for it on open', locked.lock && !locked.key && /passcode/i.test(locked.sub), JSON.stringify(locked));
+    await np.fill('#lock-input', '2468'); await np.click('#lock-submit');
+    await np.waitForTimeout(1500);
+    const off = await np.evaluate(async () => {
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      const answers = ['2468'];
+      window.prompt = () => answers.shift(); window.confirm = () => true;
+      document.getElementById('btn-remove-passcode').click();
+      await new Promise((r) => setTimeout(r, 2500));
+      return { open: vaultIsOpen(), zero: await vaultPasscodeMatches('0000'), probe: state.debts.some((d) => d.name === 'No Pass Probe') };
+    });
+    check('Turn off passcode: back to opening without asking, data kept', off.open && off.zero && off.probe, JSON.stringify(off));
+    check('the no-passcode flows raised no page errors', nErr.length === 0, nErr.join(' | '));
+    await nctx.close();
+  }
   check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
     lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
 }
@@ -7154,7 +7228,7 @@ check('the brand catalogue makes no network calls at all',
     const lp = await lctx.newPage();
     await lp.goto(`${BASE}/app/index.html`);
     await lp.waitForTimeout(1000);
-    await lp.fill('#lock-input', '1234'); await lp.fill('#lock-confirm', '1234'); await lp.click('#lock-submit');
+    await lp.click('#btn-start-open');
     await lp.waitForTimeout(1500);
     const uk = await lp.evaluate(() => {
       openPaywall('debts');
@@ -8091,10 +8165,10 @@ check('the brand catalogue makes no network calls at all',
   check('a fresh iPhone offers Restore from iCloud on the first screen',
     await fresh.locator('#btn-setup-restore-icloud').isVisible());
   await fresh.click('#btn-setup-restore-icloud');
-  await fresh.waitForTimeout(300);
+  await fresh.waitForTimeout(1500);
   check('it asks for the passcode used on the other iPhone',
     (await fresh.locator('#lock-submit').textContent()).includes('Restore from iCloud'));
-  await fresh.fill('#lock-input', '0000');
+  await fresh.fill('#lock-input', '9999');
   await fresh.click('#lock-submit');
   await fresh.waitForTimeout(1500);
   check('a wrong passcode is refused and nothing is replaced',
@@ -8111,12 +8185,36 @@ check('the brand catalogue makes no network calls at all',
   await none.waitForTimeout(500);
   await installFakeICloud(none, null);
   await none.click('#btn-setup-restore-icloud');
-  await none.waitForTimeout(300);
+  await none.waitForTimeout(800);
   check('no iCloud backup: says so instead of asking for a passcode',
     /No Duitful backup found in this iCloud account/.test(await none.locator('#lock-error').textContent()));
   check('the iCloud restore pages raised no errors', freshErrors.length === 0, freshErrors.join(' | '));
   await ctx.close();
   await empty.close();
+
+  // A backup made without a passcode restores on a new phone with no
+  // passcode question, and the new phone opens without one too.
+  {
+    const octx = await b.newContext();
+    const op = await octx.newPage();
+    await op.goto(`${BASE}/app/index.html`);
+    await op.waitForTimeout(500);
+    await installFakeICloud(op, null);
+    await op.evaluate(async () => {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const st = emptyState();
+      st.debts = [{ id: 'open-probe', name: 'Open Probe Loan', kind: 'standard', balance: 100, apr: 5, minPayment: 10 }];
+      const rec = await encryptWith(await deriveKey('0000', salt), st, b64encode(salt));
+      await ICloudSync.uploadEncryptedRecord(rec, {});
+    });
+    await op.click('#btn-setup-restore-icloud');
+    await op.waitForTimeout(2500);
+    const or = await op.evaluate(() => ({ unlocked: !!aesKey, open: vaultIsOpen(), lock: document.getElementById('lock').hidden,
+      debt: (state.debts || []).some((d) => d.name === 'Open Probe Loan') }));
+    check('a no-passcode iCloud backup restores without asking, and the phone stays without a passcode',
+      or.unlocked && or.open && or.lock && or.debt, JSON.stringify(or));
+    await octx.close();
+  }
 
   await S(() => {
     state.debts = state.debts.filter((d) => d.id !== 'icloud-probe');

@@ -13,7 +13,7 @@ Hello, and thank you for reviewing Duitful. Here is the information you asked fo
 **1. Screen recording**
 
 Attached: a screen recording on a physical iPhone running the latest iOS. It starts with launching the app and shows the typical flow:
-- creating the passcode (there is no account);
+- the first screen (Get started; a passcode is optional and there is no account);
 - adding income, a bill and a spend;
 - adding a debt and seeing the payoff plan;
 - scanning a receipt;
@@ -21,13 +21,13 @@ Attached: a screen recording on a physical iPhone running the latest iOS. It sta
 - the tax relief estimate;
 - unlocking Duitful Pro through In-App Purchase (sandbox), and Restore purchase.
 
-Duitful has no account registration or login, so there is nothing to create or delete. To delete all data, use "Forgot passcode? Reset and wipe data" on the passcode screen, or delete the app. It has no user-generated content shared with other users, so no reporting or blocking is needed.
+Duitful has no account registration or login, so there is nothing to create or delete. To delete all data, use Settings → Clear all data, or delete the app. It has no user-generated content shared with other users, so no reporting or blocking is needed.
 
 **2. Purpose and audience**
 
 Duitful is a private personal-finance tracker for people in Malaysia. It covers monthly income and bills, daily spending, debts and their payoff order, savings goals, splitting bills with friends, and an estimate of the yearly LHDN income tax refund.
 
-The problem: most budgeting apps want a bank login or an account. Duitful keeps everything encrypted on the phone with a passcode the user chooses, so there is nothing to sign up for and no server holding the user's finances.
+The problem: most budgeting apps want a bank login or an account. Duitful keeps everything encrypted on the phone, behind a passcode if the user sets one, so there is nothing to sign up for and no server holding the user's finances.
 
 The value: people see what's left this month, when they'll be debt-free, and which of their spending counts as tax relief, without handing their data to anyone. It also handles Malaysian specifics, such as pay-later instalments (Atome, SPayLater), Islamic financing (murabahah, AITAB) and zakat.
 
@@ -35,7 +35,7 @@ The value: people see what's left this month, when they'll be debt-free, and whi
 
 No login credentials or sample files are needed.
 
-1. Launch the app and create any passcode of 4 or more digits. A short tour follows; tap Skip if you like.
+1. Launch the app and tap Get started. (Set a passcode, any 4 or more digits, is optional, here or later in Settings → Security.) A short tour follows; tap Skip if you like.
 2. **Home:** tap Add entry to log a spend, or Scan receipt to read a receipt with the camera. Text recognition runs on the device.
 3. **Monthly:** add income and bills. Home then shows the balance left this month.
 4. **Debts:** add a debt. The payoff plan orders them highest rate first and shows when each is cleared.
@@ -51,7 +51,7 @@ No login credentials or sample files are needed.
 - **Apple In-App Purchase (StoreKit):** buying and restoring Duitful Pro.
 - **Duitful server (duitful.app, hosted on Vercel):** after a completed purchase, the app sends the product ID, the store transaction ID, the app version and, if one was entered, a referral or promo code. This is used only to pay referral commissions. No financial data, name or email is sent. The app also loads a small announcements file from duitful.app, which the user can turn off.
 - **Exchange rates:** fetched from Duitful's own server (duitful.app/api/fx), which caches the free public Currency API once a day. These requests send no user data.
-- **iCloud (CloudKit), optional:** encrypted backup to the user's own private CloudKit database. The data is encrypted on the device with the user's passcode before upload.
+- **iCloud (CloudKit), optional:** encrypted backup to the user's own private CloudKit database. The data is encrypted on the device before upload, with the user's passcode if they set one.
 - **Google Drive with Google Sign-In, optional:** the same encrypted backup, written to the user's own Drive app folder.
 - **Google ML Kit text recognition:** reads receipts on the device; images are not uploaded.
 - **Local notifications:** bill and payment reminders, scheduled on the device.
@@ -79,7 +79,7 @@ Record from the TestFlight build, with Control Center → Screen Recording.
 - **Data:** use sample data, not your real finances.
 - **Length:** aim for 2–4 minutes.
 
-1. Tap the icon. Create a passcode, then skip the tour.
+1. Tap the icon. Tap Get started, then skip the tour.
 2. Monthly: add Salary RM 5,000, then Rent RM 1,300.
 3. Home: Add entry → a spend (Lunch RM 15). Show the balance update.
 4. Scan receipt: photograph any receipt, then add it.
@@ -90,4 +90,4 @@ Record from the TestFlight build, with Control Center → Screen Recording.
    - Settings → Unlock Duitful Pro → buy. In TestFlight this is a free sandbox purchase; sign in with a sandbox tester account if asked.
    - Show the paywalled feature now open, for example add a 4th debt.
    - Show Restore purchase.
-9. Settings: show Cloud backup (iCloud). Then lock the app and show "Forgot passcode? Reset and wipe data" on the passcode screen. You don't have to confirm the wipe.
+9. Settings: show Cloud backup (iCloud), Security → Set a passcode, and Clear all data. You don't have to confirm the wipe.
