@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.48.1";
+const APP_VERSION = "1.48.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9859,6 +9859,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.48.2": [
+    "<strong>Tidier Settings</strong> — the Currency rates card is gone. Rates still update on their own every day.",
+  ],
   "1.48.1": [
     "<strong>Uploading a tax rules file works</strong> — the Upload file button did nothing; pasting was fine. Rules can also name their country with its three-letter ISO code (MYS, SGP).",
   ],
@@ -13709,7 +13712,6 @@ const SEARCH_FEATURES = [
   { title: "Cloud backup", where: "Settings", kw: "cloud backup google drive sync restore sandaran awan segerak pulih", go: ["data", "#drive-card"] },
   { title: "Duitful Pro", where: "Settings", kw: "pro upgrade premium unlock licence license naik taraf lesen", go: ["data", "#pro-card"] },
   { title: "Currency", where: "Settings", kw: "currency myr usd sgd money mata wang", go: ["data", "#pref-currency"] },
-  { title: "Exchange rates", where: "Settings", kw: "exchange rates fx forex kadar tukaran asing", go: ["data", "#btn-fx-refresh"] },
   { title: "Reminders", where: "Settings", kw: "reminders notifications alerts due peringatan notifikasi makluman", go: ["data", "#pref-reminders-days"] },
   { title: "Change passcode", where: "Settings", kw: "passcode password pin security lock kata laluan kod keselamatan kunci", go: ["data", "#btn-change-passcode"] },
   { title: "Fingerprint / face unlock", where: "Settings", kw: "fingerprint face id biometric unlock cap jari muka biometrik", go: ["data", "#biometric-row"] },
