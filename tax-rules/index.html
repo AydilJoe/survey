@@ -185,9 +185,10 @@
 
 Country: [COUNTRY]
 Tax year: [YEAR]
-Currency: [3-letter code]
+Country code: [ISO 3166-1 alpha-3, e.g. SGP]
+Currency: [ISO 4217, e.g. SGD]
 
-Use the Malaysia JSON at https://duitful.app/tax-rules/malaysia.json as the exact format. Keep every key name and structure; replace the values with my country&#x27;s official figures. Change country, currency, tax_authority and terms to my country&#x27;s. Leave out any relief you&#x27;re not sure of. Reply with the JSON only.</pre></div>
+Use the Malaysia JSON at https://duitful.app/tax-rules/malaysia.json as the exact format. Keep every key name and structure; replace the values with my country&#x27;s official figures. Change country, country_code (ISO 3166-1 alpha-3, e.g. SGP), currency (ISO 4217), tax_authority and terms to my country&#x27;s. Leave out any relief you&#x27;re not sure of. Reply with the JSON only.</pre></div>
   <div class="row">
     <button type="button" class="btn" data-copy="prompt">Copy prompt</button>
     <span class="done" aria-live="polite"></span>
@@ -196,6 +197,7 @@ Use the Malaysia JSON at https://duitful.app/tax-rules/malaysia.json as the exac
   <h2 class="section">Sample: Malaysia</h2>
   <div class="box"><pre id="sample">{
  &quot;country&quot;: &quot;Malaysia&quot;,
+ &quot;country_code&quot;: &quot;MYS&quot;,
  &quot;currency&quot;: &quot;MYR&quot;,
  &quot;tax_authority&quot;: &quot;Lembaga Hasil Dalam Negeri Malaysia (LHDN)&quot;,
  &quot;terms&quot;: {

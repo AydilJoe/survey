@@ -9,7 +9,7 @@ const data = JSON.parse(src.slice(src.lastIndexOf('const TAX_DATA = ') + 17).tri
 delete data.$schema;
 const { country, tax_authority, ...rest } = data;
 const sample = {
-  country, currency: 'MYR', tax_authority,
+  country, country_code: 'MYS', currency: 'MYR', tax_authority,
   terms: { authority: 'LHDN', year: 'YA', withholding: 'PCB', pension: 'EPF', filing: 'e-Filing', rebate: 'rebate' },
   ...rest,
 };
