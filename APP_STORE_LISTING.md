@@ -27,7 +27,31 @@ asks. Adapted from `PLAY_LISTING.md`, with Apple's rules applied:
 | Marketing URL | `https://duitful.app/` |
 | Copyright | `2026 Aydil Johari` |
 
-## Version 1.0 page
+## Submitting 1.50.0 for review
+
+The build: TestFlight build **1.50.0** from `main` (ios.yml, lane
+`testflight`). Apple pairs a build with the App Store version of the same
+number, so the version in App Store Connect must read 1.50.0 too.
+
+In App Store Connect → Duitful → the version waiting for review:
+
+1. **Version number:** change it to `1.50.0` (allowed until the first
+   approval).
+2. **Build:** remove the old one, then add the 1.50.0 build once it says
+   "Ready to Submit" (10–30 minutes after the upload).
+3. **In-App Purchases and Subscriptions:** add `duitful_pro` and
+   `duitful_pro_launch`. Both need their 1024×1024 image
+   (`marketing/app-store/iap/duitful-pro-1024.png`) and a review screenshot.
+4. **App Privacy:** as in the App Privacy section below (Purchase History).
+5. **App Review Information → Notes:** paste the notes below.
+6. **Reply to the 2.1 message** in App Review (Resolution Center) with the
+   text in `APP_REVIEW_REPLY.md`, and **attach the screen recording** it
+   describes. Apple asked for one; resubmitting without it gets the same
+   reply.
+7. **Add for Review**, then **Submit to App Review**. Release: "Manually
+   release this version", so you choose the day.
+
+## Version page
 
 ### Promotional text (170 — editable any time, no review)
 
@@ -122,12 +146,19 @@ All data is stored encrypted on the device. Bill-split links carry their details
 
 ## App Privacy
 
-**Data Not Collected.** Answer "No" to every collection question. Duitful has
-no account, no analytics SDK in the native app and no server that receives user
-data; iCloud and Drive backups go to the user's own account, already encrypted, which Apple does not count as
-collection by the developer.
+One data type is collected: **Purchases → Purchase History**.
 
-## In-app purchases (attach both to version 1.0)
+- After an in-app purchase the app sends the product ID, the store
+  transaction ID, the app version and any friend/promo code to duitful.app
+  (`api/native/record-purchase.js`), to pay referral commissions.
+- Answers for it: used for **App Functionality**; **not linked** to the
+  user's identity; **not used for tracking**.
+
+Everything else is "No": there is no account, no analytics SDK in the native
+app, and iCloud / Drive backups go to the user's own account already
+encrypted, which Apple does not count as collection by the developer.
+
+## In-app purchases (attach both to the version you submit)
 
 | Product ID | Type | Price (Malaysia) | Display name |
 |---|---|---|---|
