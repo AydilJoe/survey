@@ -21,12 +21,11 @@ Pod::Spec.new do |s|
   # Same GoogleMLKit range as the text-recognition plugin, so CocoaPods
   # resolves both subspecs from one GoogleMLKit release.
   s.dependency 'GoogleMLKit/EntityExtraction', '>= 8.0.0', '< 10.0.0'
-  # MLKitEntityExtraction ships no x86_64 simulator slice, so an Intel
-  # simulator link fails with undefined MLKEntity* symbols. Simulator builds
-  # (the build-only lane) are arm64-only; device builds are untouched. The
-  # app target needs the same exclusion or its x86_64 slice can't link us.
-  s.pod_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'x86_64' }
-  s.user_target_xcconfig = { 'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'x86_64' }
+  # ML Kit ships static frameworks. Under the Podfile's use_frameworks! a
+  # dynamic pod would have to link them itself and doesn't (undefined
+  # MLKEntity* symbols); as a static framework it links into the app with
+  # the rest of ML Kit, exactly like the text-recognition plugin.
+  s.static_framework = true
   s.frameworks = 'VisionKit', 'PhotosUI'
   # iOS 26+. Weak, so the app still launches on iOS 15–18.
   s.weak_frameworks = 'FoundationModels'
