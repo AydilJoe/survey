@@ -15,7 +15,7 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-10-30-3";
+const VERSION = "2026-10-30-4";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [

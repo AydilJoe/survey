@@ -168,6 +168,19 @@ jobs:
           npm run cap:add:android
           npm run cap:sync
 
+      # A fresh android/ carries Capacitor's placeholder launcher icon (a blue
+      # X on a white grid); 1.51.0 shipped to Play with it. Generate Duitful's
+      # icons, splash and notification icon, and fail rather than ship the
+      # placeholder again.
+      - name: Generate native icons and splash
+        run: |
+          set -o pipefail
+          npm run assets 2>&1 | tee "$RUNNER_TEMP/assets.log"
+          grep -q "CREATE android icon" "$RUNNER_TEMP/assets.log" || {
+            echo "::error::@capacitor/assets wrote no Android launcher icon — the bundle would ship Capacitor's placeholder. Check --assetPath in package.json's assets script."
+            exit 1
+          }
+
       # The keystore only ever exists on this runner, under RUNNER_TEMP, and
       # is deleted again at the end whatever happens.
       - name: Write the keystore
