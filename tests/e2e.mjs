@@ -8533,6 +8533,59 @@ check('the brand catalogue makes no network calls at all',
     && readFileSync(path.join(REPO_ROOT, 'scripts/build-web.mjs'), 'utf8').includes('"icloud-sync.js"'));
 }
 
+// -- /folds/: the 3D fold lab and the layout rules it shares with these checks --
+// Every device x posture x screen (with and without a dialog) must keep
+// tappable things off a dividing fold, inside the display and the safe
+// area, and use even grids. The checker must also be able to fail: the same
+// half-open postures laid out as if flat do put things on the fold.
+{
+  const fp = await b.newPage({ viewport: { width: 1280, height: 860 } });
+  const pageErrs = [];
+  fp.on('pageerror', (e) => pageErrs.push(e.message));
+  await fp.goto(`${BASE}/folds/?device=galaxy-flip&posture=tabletop&screen=tax&dialog=1`, { waitUntil: 'load' });
+  await fp.waitForTimeout(400);
+  const fl = await fp.evaluate(() => {
+    const FL = window.FoldLab;
+    const cases = FL.allCases();
+    const failing = [];
+    for (const c of cases) {
+      const L = FL.layout(c.device, c.posture, c.screen, { dialog: c.dialog });
+      const p = FL.problems(L);
+      if (p.length) failing.push(`${c.device}/${c.posture}/${c.screen}${c.dialog ? '+dialog' : ''}: ${p[0].box.kind} ${p[0].problem}`);
+    }
+    // Lay half-open postures out as if flat, then check against the real fold.
+    let caught = 0;
+    for (const d of FL.DEVICES) for (const p of d.postures.filter((x) => x.separating)) {
+      const naive = FL.layout(d.id, p.id, 'entries', { separating: false, dialog: true });
+      naive.fold = FL.foldRect(naive.display, { ...p, separating: true });
+      if (FL.problems(naive).some((x) => x.problem === 'on the fold')) caught++;
+    }
+    const cur = window.foldLabCurrent();
+    return {
+      cases: cases.length, failing, caught,
+      separatingPostures: FL.DEVICES.reduce((n, d) => n + d.postures.filter((x) => x.separating).length, 0),
+      shown: { device: cur.device.id, posture: cur.posture.id, fold: !!cur.fold, dialogInTop: cur.boxes.some((x) => x.kind === 'dialog' && x.y + x.h <= cur.fold.y) },
+      halves: document.querySelectorAll('#device .half').length,
+      canvases: document.querySelectorAll('#device .canvas').length,
+      check: document.querySelector('#readout .ok') ? 'ok' : (document.querySelector('#readout .bad') || {}).textContent,
+    };
+  });
+  check(`fold lab: all ${fl.cases} device/posture/screen layouts keep taps off the fold, inside the safe area, on even grids`,
+    fl.cases >= 100 && fl.failing.length === 0, fl.failing.slice(0, 3).join(' | '));
+  check('fold lab: the checker catches a layout that ignores a half-open fold',
+    fl.separatingPostures >= 3 && fl.caught === fl.separatingPostures, JSON.stringify({ caught: fl.caught, of: fl.separatingPostures }));
+  check('fold lab page: a linked view opens as asked (Flip tabletop, dialog on the top half), drawn on two hinged halves, readout green',
+    fl.shown.device === 'galaxy-flip' && fl.shown.posture === 'tabletop' && fl.shown.fold && fl.shown.dialogInTop
+      && fl.halves === 2 && fl.canvases === 2 && fl.check === 'ok' && pageErrs.length === 0, JSON.stringify({ ...fl, failing: undefined, pageErrs }));
+  // Dragging the hinge flat removes the fold: one continuous screen again.
+  await fp.fill('#angle', '180');
+  await fp.dispatchEvent('#angle', 'input');
+  const flat = await fp.evaluate(() => ({ fold: !!window.foldLabCurrent().fold, url: location.search }));
+  check('fold lab page: opening the hinge flat turns the fold off and the URL keeps the state',
+    !flat.fold && /posture=tabletop/.test(flat.url) && /angle=180/.test(flat.url), JSON.stringify(flat));
+  await fp.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

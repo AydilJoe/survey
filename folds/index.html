@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#e8dfd0">
+<meta name="color-scheme" content="light only">
+<title>Folding phones — Duitful</title>
+<meta name="description" content="Fold an iPhone Duo, Galaxy Z Fold or Flip in 3D and see where Duitful puts the list, the detail and the tab bar on each screen.">
+<link rel="canonical" href="https://duitful.app/folds/">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Duitful">
+<meta property="og:url" content="https://duitful.app/folds/">
+<meta property="og:title" content="Folding phones — Duitful">
+<meta property="og:description" content="Fold the phone, watch the layout move.">
+<meta property="og:image" content="https://duitful.app/og-image.png">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg: #efe6d6; --stage: #e6dccb; --card: #fffaf2; --card-soft: #f6efe3;
+    --ink: #2a2420; --ink2: #4a4038; --muted: #6b5e52;
+    --primary: #c8704b; --primary-ink: #a8542e;
+    --navy: #1c2b38; --sage: #6f9457; --gain: #3d6f45; --loss: #bd3a42;
+    --line: rgba(42,36,32,0.10);
+    --frame: #2b2724; --frame-edge: #1d1a18;
+    --fold: rgba(200,112,75,0.28); --fold-line: #c8704b;
+    --font-serif: "Fraunces", Georgia, serif;
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  ::selection { background: var(--navy); color: #fffaf2; }
+  body {
+    margin: 0;
+    font: 16px/1.6 var(--font-sans);
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--primary-ink); text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--primary-ink); outline-offset: 2px; border-radius: 6px; }
+
+  .top { max-width: 1240px; margin: 0 auto; padding: 40px 24px 8px; }
+  .nav-back {
+    display: inline-flex; align-items: center; gap: 8px;
+    font: 500 13px/1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted); text-decoration: none; margin-bottom: 20px;
+  }
+  .nav-back:hover { color: var(--primary-ink); }
+  h1 { font: 500 clamp(36px, 5.4vw, 56px)/1.08 var(--font-serif); letter-spacing: -0.02em; margin: 0 0 12px; text-wrap: balance; }
+  h1 em { font-style: italic; color: var(--primary-ink); }
+  .lede { max-width: 62ch; margin: 0; color: var(--ink2); font-size: 18px; }
+
+  .lab {
+    max-width: 1240px; margin: 0 auto; padding: 24px 24px 40px;
+    display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start;
+  }
+  @media (max-width: 920px) { .lab { grid-template-columns: 1fr; } }
+
+  /* ---------- the stage ---------- */
+  .stage {
+    position: relative; height: min(76vh, 760px); min-height: 440px;
+    border-radius: 20px; overflow: hidden;
+    background:
+      radial-gradient(60% 38% at 50% 92%, rgba(42,36,32,0.16), transparent 70%),
+      linear-gradient(180deg, #ece3d3, var(--stage));
+    border: 1px solid var(--line);
+    perspective: 2400px; perspective-origin: 50% 40%;
+    cursor: grab; touch-action: none; user-select: none;
+  }
+  .stage:active { cursor: grabbing; }
+  .stage:focus-visible { outline-offset: -4px; }
+  .scene { position: absolute; left: 50%; top: 50%; transform-style: preserve-3d; }
+  .device { position: absolute; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(.16,1,.3,1); }
+  .half { position: absolute; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(.16,1,.3,1); }
+  .face, .edge { position: absolute; backface-visibility: hidden; }
+  .face.front { inset: 0; overflow: hidden; background: #0f0d0c; box-shadow: inset 0 0 0 1.5px rgba(0,0,0,0.55); }
+  .face.back { inset: 0; background: linear-gradient(135deg, #3a3531, var(--frame)); }
+  .edge { background: var(--frame-edge); }
+  .stage.dragging .device, .stage.dragging .half { transition: none; }
+  .hint {
+    position: absolute; left: 16px; bottom: 14px; margin: 0;
+    font: 500 12px/1.3 var(--font-mono); color: var(--muted); letter-spacing: 0.04em;
+    pointer-events: none;
+  }
+  .stage-tools { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 6px; }
+
+  /* ---------- the drawn screen ---------- */
+  .canvas { position: absolute; left: 0; top: 0; background: #f4eee3; color: #241f1a; font-family: var(--font-sans); overflow: hidden; }
+  .b { position: absolute; transition: left .5s cubic-bezier(.16,1,.3,1), top .5s cubic-bezier(.16,1,.3,1), width .5s cubic-bezier(.16,1,.3,1), height .5s cubic-bezier(.16,1,.3,1), opacity .3s; }
+  .b.enter { opacity: 0; }
+  .k-nav { background: rgba(233,225,211,0.92); }
+  .k-nav.bottom { border-top: 1px solid rgba(42,36,32,0.12); }
+  .k-nav.rail { border-left: 1px solid rgba(42,36,32,0.10); border-right: 1px solid rgba(42,36,32,0.10); }
+  .k-nav.sidebar { border-right: 1px solid rgba(42,36,32,0.10); }
+  .k-navitem { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border-radius: 12px; font-size: 11px; font-weight: 500; color: #6b6157; }
+  .k-navitem svg { width: 22px; height: 22px; }
+  .k-navitem.active { color: #1c2b38; background: rgba(28,43,56,0.08); }
+  .k-pane.secondary { background: rgba(255,255,255,0.35); }
+  .k-header { font: 600 19px/36px var(--font-serif); letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .k-row, .k-card, .k-tile, .k-field { background: #fbf8f2; border: 1px solid rgba(42,36,32,0.08); border-radius: 12px; overflow: hidden; }
+  .k-row { display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 0 12px; gap: 8px; }
+  .k-row.selected { border-color: #1c2b38; box-shadow: inset 0 0 0 1px #1c2b38; }
+  .k-row .t, .k-card .t, .k-tile .t, .k-field .t { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .k-row .s, .k-card .s, .k-tile .s { font-size: 11px; color: #6b6157; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .k-row .v { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; }
+  .k-row .v.plus { color: #3d6f45; }
+  .k-card { padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+  .k-card .v { font: 500 22px/1.2 var(--font-serif); letter-spacing: -0.01em; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .k-card.big { background: #1c2b38; color: #f4eee3; border-color: #1c2b38; }
+  .k-card.big .s { color: #c9c2b6; }
+  .k-tile { padding: 10px 12px; display: flex; flex-direction: column; justify-content: space-between; }
+  .k-tile .bar { height: 5px; border-radius: 3px; background: rgba(42,36,32,0.08); overflow: hidden; }
+  .k-tile .bar i { display: block; height: 100%; background: #6f9457; }
+  .k-field { display: flex; justify-content: space-between; align-items: center; padding: 0 12px; gap: 10px; }
+  .k-field .v { font: 500 13px var(--font-mono); color: #241f1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .k-chart { background: #fbf8f2; border: 1px solid rgba(42,36,32,0.08); border-radius: 12px; }
+  .k-chart svg { width: 100%; height: 100%; display: block; }
+  .k-button { background: #1c2b38; color: #f4eee3; border-radius: 12px; font-size: 14px; font-weight: 600; display: grid; place-items: center; }
+  .k-dialog {
+    background: #fffaf2; border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 10px;
+    box-shadow: 0 18px 48px rgba(28,22,18,0.28), 0 2px 6px rgba(28,22,18,0.12);
+  }
+  .k-dialog h3 { margin: 0; font: 500 20px/1.2 var(--font-serif); }
+  .k-dialog .in { height: 42px; border-radius: 10px; border: 1px solid rgba(42,36,32,0.16); padding: 0 12px; display: flex; align-items: center; font-size: 13px; color: #6b6157; }
+  .k-dialog .go { margin-top: auto; height: 44px; border-radius: 12px; background: #1c2b38; color: #f4eee3; display: grid; place-items: center; font-weight: 600; font-size: 14px; }
+  .scrim { position: absolute; inset: 0; background: rgba(28,22,18,0.28); transition: opacity .3s; }
+
+  /* regions overlay */
+  .rg { position: absolute; pointer-events: none; }
+  .rg.fold { background: repeating-linear-gradient(45deg, var(--fold) 0 6px, rgba(200,112,75,0.12) 6px 12px); box-shadow: 0 0 0 1px var(--fold-line) inset; }
+  .rg.hinge { background: rgba(200,112,75,0.55); }
+  .rg.inset { background: repeating-linear-gradient(-45deg, rgba(28,43,56,0.16) 0 5px, rgba(28,43,56,0.05) 5px 10px); }
+  .rg.cam { background: #050505; border-radius: 999px; }
+  .rg.tag { font: 500 11px/1 var(--font-mono); color: #fffaf2; background: var(--primary-ink); padding: 4px 6px; border-radius: 6px; white-space: nowrap; }
+  .regions-off .rg.fold, .regions-off .rg.inset, .regions-off .rg.tag { display: none; }
+
+  /* ---------- the panel ---------- */
+  .panel { display: flex; flex-direction: column; gap: 18px; }
+  .group { border: 0; padding: 0; margin: 0; min-width: 0; }
+  .group > legend, .group > .lbl { font: 600 13px/1.2 var(--font-sans); color: var(--ink2); margin-bottom: 8px; padding: 0; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button, .tool {
+    font: 500 14px/1 var(--font-sans); color: var(--ink); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; cursor: pointer;
+    transition: background .15s, border-color .15s, color .15s;
+  }
+  .seg button:hover, .tool:hover { border-color: rgba(42,36,32,0.28); }
+  .seg button[aria-pressed="true"] { background: var(--navy); color: #fffaf2; border-color: var(--navy); }
+  .tool { padding: 8px 12px; font-size: 13px; background: rgba(255,250,242,0.9); }
+  .angle { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+  .angle output { font: 500 14px var(--font-mono); font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; }
+  input[type="range"] { width: 100%; accent-color: var(--navy); }
+  input[type="range"]:disabled { opacity: 0.4; }
+  .checks { display: flex; flex-direction: column; gap: 8px; }
+  .checks label { display: flex; gap: 10px; align-items: center; font-size: 15px; cursor: pointer; }
+  .checks input { width: 18px; height: 18px; accent-color: var(--navy); }
+  .what { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 16px; }
+  .what h2 { font: 500 20px/1.25 var(--font-serif); margin: 0 0 6px; letter-spacing: -0.01em; }
+  .what p { margin: 0; color: var(--ink2); font-size: 15px; }
+  .what .note { margin-top: 8px; font-size: 13px; color: var(--muted); }
+  .readout { margin: 12px 0 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font: 400 12.5px/1.5 var(--font-mono); font-variant-numeric: tabular-nums; }
+  .readout dt { color: var(--muted); }
+  .readout dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+  .ok { color: var(--gain); }
+  .bad { color: var(--loss); }
+
+  .notes { max-width: 1240px; margin: 0 auto; padding: 8px 24px 80px; }
+  .notes p { max-width: 70ch; color: var(--ink2); margin: 0 0 12px; font-size: 15px; }
+  @media (prefers-reduced-motion: reduce) {
+    .device, .half, .b { transition: none !important; }
+  }
+  @media (max-width: 560px) {
+    .top { padding: 28px 16px 4px; }
+    .lab { padding: 16px 16px 32px; }
+    .notes { padding: 8px 16px 64px; }
+    .stage { height: 62vh; min-height: 380px; }
+    .hint-keys { display: none; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="nav-back" href="/">← Duitful</a>
+  <h1>Duitful on <em>folding</em> phones</h1>
+  <p class="lede">Pick a phone, fold it, and see where everything goes. These are the layouts planned for iPhone Duo, Galaxy Z Fold and Flip; the app doesn't do this yet.</p>
+</header>
+
+<main class="lab">
+  <div class="stage" id="stage" tabindex="0" role="img" aria-label="3D model of the selected phone showing Duitful's layout. Drag or use the arrow keys to turn it.">
+    <div class="scene" id="scene"></div>
+    <p class="hint" id="hint">Drag to turn<span class="hint-keys"> · arrow keys work too</span></p>
+    <div class="stage-tools">
+      <button type="button" class="tool" id="view-front">Face on</button>
+      <button type="button" class="tool" id="view-reset">Angled</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <fieldset class="group">
+      <legend>Phone</legend>
+      <div class="seg" id="pick-device"></div>
+    </fieldset>
+    <fieldset class="group">
+      <legend>Posture</legend>
+      <div class="seg" id="pick-posture"></div>
+    </fieldset>
+    <div class="group">
+      <label class="lbl" for="angle">Hinge</label>
+      <div class="angle">
+        <input type="range" id="angle" min="60" max="180" step="1" value="180">
+        <output id="angle-out" for="angle">180°</output>
+      </div>
+    </div>
+    <fieldset class="group">
+      <legend>Screen</legend>
+      <div class="seg" id="pick-screen"></div>
+    </fieldset>
+    <div class="checks">
+      <label><input type="checkbox" id="opt-dialog"> A dialog is open</label>
+      <label><input type="checkbox" id="opt-regions" checked> Show the fold and safe areas</label>
+    </div>
+    <section class="what" aria-live="polite">
+      <h2 id="what-title">Phone · Portrait</h2>
+      <p id="what-text"></p>
+      <p class="note" id="what-note"></p>
+      <dl class="readout" id="readout"></dl>
+    </section>
+  </div>
+</main>
+
+<section class="notes">
+  <p>The rules follow Apple's <a href="https://developer.apple.com/design/human-interface-guidelines/designing-for-iphone-duo">iPhone Duo guidance</a>: one layout that grows into the space, the tab bar on the side where the screen is short, list and detail side by side when there's room, and nothing you tap on the fold. A half-open fold splits the screen in two; flat, it's one screen.</p>
+  <p>Sizes are approximate. Apple hasn't published iPhone Duo's point sizes and the Samsung figures are converted from pixels, so treat them as a sketch until they're measured in the simulators. The same file drives this page and Duitful's tests: <a href="https://github.com/AydilJoe/survey/blob/main/folds/fold-lab.js">fold-lab.js</a>.</p>
+</section>
+
+<script src="fold-lab.js?v=1"></script>
+<script>
+(function () {
+  "use strict";
+  const FL = window.FoldLab;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  const ICONS = {
+    Home: '<path d="M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z"/>',
+    Monthly: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    Debts: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/>',
+    Savings: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>',
+    Settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+  };
+  const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+
+  // ---------- state, mirrored to the URL so a view can be linked or tested ----------
+  const q = new URLSearchParams(location.search);
+  const st = {
+    device: FL.DEVICES.some((d) => d.id === q.get("device")) ? q.get("device") : "iphone-duo",
+    posture: q.get("posture") || "",
+    screen: FL.SCREENS.some((s) => s.id === q.get("screen")) ? q.get("screen") : "debts",
+    dialog: q.get("dialog") === "1",
+    regions: q.get("regions") !== "0",
+    angle: null,
+    rx: -12, ry: 26,
+  };
+  const dev = () => FL.device(st.device);
+  const pos = () => FL.posture(dev(), st.posture);
+  if (!dev().postures.some((p) => p.id === st.posture)) st.posture = dev().postures[dev().postures.length - 1].id;
+  const qa = Number(q.get("angle"));
+  st.angle = qa >= 60 && qa <= 180 ? qa : (pos().angle || 180);
+
+  // The fold divides the screen once the hinge bends past ~10 degrees.
+  const separating = () => !!pos().hinge && st.angle < 170;
+
+  // ---------- controls ----------
+  function seg(el, items, current, onPick) {
+    el.innerHTML = items.map((it) => `<button type="button" data-id="${esc(it.id)}" aria-pressed="${it.id === current}">${esc(it.label || it.name)}</button>`).join("");
+    el.onclick = (e) => { const b = e.target.closest("button"); if (b) onPick(b.dataset.id); };
+  }
+  function renderControls() {
+    seg($("pick-device"), FL.DEVICES, st.device, (id) => {
+      st.device = id;
+      const ps = dev().postures;
+      st.posture = (ps.find((p) => p.separating) || ps[ps.length - 1]).id;
+      st.angle = pos().angle || 180;
+      cameraFor(true);
+      update();
+    });
+    seg($("pick-posture"), dev().postures, st.posture, (id) => {
+      st.posture = id; st.angle = pos().angle || 180; cameraFor(true); update();
+    });
+    seg($("pick-screen"), FL.SCREENS, st.screen, (id) => { st.screen = id; update(); });
+    const a = $("angle");
+    a.disabled = !pos().hinge;
+    a.value = st.angle;
+    $("angle-out").textContent = pos().hinge ? `${st.angle}°` : "—";
+    $("opt-dialog").checked = st.dialog;
+    $("opt-regions").checked = st.regions;
+  }
+  $("angle").addEventListener("input", (e) => { st.angle = Number(e.target.value); update(); });
+  $("opt-dialog").addEventListener("change", (e) => { st.dialog = e.target.checked; update(); });
+  $("opt-regions").addEventListener("change", (e) => { st.regions = e.target.checked; update(); });
+
+  // ---------- drawing one screen ----------
+  function boxHTML(b) {
+    const style = `left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px`;
+    switch (b.kind) {
+      case "nav": return { cls: `k-nav ${b.role}`, style, html: "" };
+      case "navitem": return { cls: `k-navitem${b.active ? " active" : ""}`, style, html: `${icon(b.label)}<span>${esc(b.label)}</span>` };
+      case "pane": return { cls: `k-pane ${b.role}`, style, html: "" };
+      case "header": return { cls: "k-header", style, html: esc(b.text) };
+      case "row": {
+        const plus = String(b.value).startsWith("+");
+        return { cls: `k-row${b.selected ? " selected" : ""}`, style, html: `<div style="min-width:0"><div class="t">${esc(b.text)}</div><div class="s">${esc(b.sub)}</div></div><div class="v${plus ? " plus" : ""}">${esc(b.value)}</div>` };
+      }
+      case "card": return { cls: `k-card${b.big ? " big" : ""}`, style, html: `<div class="t">${esc(b.text)}</div><div class="v">${esc(b.value)}</div><div class="s">${esc(b.sub)}</div>` };
+      case "tile": {
+        const m = String(b.sub).match(/RM ([\d,]+) of ([\d,]+)/);
+        const pct = m ? Math.min(100, Math.round(100 * Number(m[1].replace(/,/g, "")) / Number(m[2].replace(/,/g, "")))) : 0;
+        return { cls: "k-tile", style, html: `<div><div class="t">${esc(b.text)}</div><div class="s">${esc(b.sub)}</div></div><div class="bar"><i style="width:${pct}%"></i></div>` };
+      }
+      case "field": return { cls: "k-field", style, html: `<span class="t">${esc(b.text)}</span><span class="v">${esc(b.value)}</span>` };
+      case "chart": return { cls: "k-chart", style, html: chartSVG() };
+      case "button": return { cls: "k-button", style, html: esc(b.text) };
+      case "dialog": return { cls: "k-dialog", style, html: `<h3>Add a payment</h3><div class="in">Amount · RM 300.00</div><div class="in">From · Maybank savings</div><div class="go">Save payment</div>` };
+      default: return { cls: "", style, html: "" };
+    }
+  }
+  function chartSVG() {
+    return `<svg viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden="true">
+      <path d="M12 18 C 80 30, 150 60, 288 104" fill="none" stroke="#bd3a42" stroke-width="2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>
+      <path d="M12 18 C 70 40, 120 86, 196 104" fill="none" stroke="#1c2b38" stroke-width="2.5" vector-effect="non-scaling-stroke"/>
+      <path d="M12 104 H288" stroke="rgba(42,36,32,0.14)" vector-effect="non-scaling-stroke"/>
+    </svg>`;
+  }
+
+  // Keyed update so boxes glide to their new place when the fold appears.
+  function paintCanvas(canvas, L) {
+    canvas.style.width = L.W + "px";
+    canvas.style.height = L.H + "px";
+    const seen = new Set();
+    const counts = {};
+    let scrim = canvas.querySelector(".scrim");
+    const hasDialog = L.boxes.some((b) => b.kind === "dialog");
+    if (hasDialog && !scrim) { scrim = document.createElement("div"); scrim.className = "scrim"; canvas.appendChild(scrim); }
+    if (scrim) scrim.style.opacity = hasDialog ? "1" : "0";
+    for (const b of L.boxes) {
+      const n = (counts[b.kind] = (counts[b.kind] || 0) + 1);
+      const key = `${b.kind}-${n}`;
+      seen.add(key);
+      const spec = boxHTML(b);
+      let el = canvas.querySelector(`[data-key="${key}"]`);
+      const fresh = !el;
+      if (fresh) { el = document.createElement("div"); el.dataset.key = key; el.classList.add("enter"); }
+      el.className = `b ${spec.cls}${fresh ? " enter" : ""}`;
+      el.setAttribute("style", spec.style);
+      if (el.dataset.html !== spec.html) { el.innerHTML = spec.html; el.dataset.html = spec.html; }
+      if (b.kind === "dialog" || fresh) canvas.appendChild(el);
+      if (fresh) requestAnimationFrame(() => el.classList.remove("enter"));
+    }
+    canvas.querySelectorAll("[data-key]").forEach((el) => { if (!seen.has(el.dataset.key)) el.remove(); });
+    // Regions: safe-area insets, the camera, the fold.
+    canvas.querySelectorAll(".rg").forEach((el) => el.remove());
+    const d = L.display, ins = d.insets, rg = [];
+    if (ins.t) rg.push(`<div class="rg inset" style="left:0;top:0;width:${L.W}px;height:${ins.t}px"></div>`);
+    if (ins.b) rg.push(`<div class="rg inset" style="left:0;top:${L.H - ins.b}px;width:${L.W}px;height:${ins.b}px"></div>`);
+    if (ins.l) rg.push(`<div class="rg inset" style="left:0;top:0;width:${ins.l}px;height:${L.H}px"></div>`);
+    if (ins.r) rg.push(`<div class="rg inset" style="left:${L.W - ins.r}px;top:0;width:${ins.r}px;height:${L.H}px"></div>`);
+    const cam = d.island === "right" ? { x: L.W - 30, y: 18, w: 14, h: 14 }
+      : d.island === "left" ? { x: 16, y: L.H / 2 - 50, w: 30, h: 100 }
+      : { x: L.W / 2 - 52, y: 12, w: 104, h: 32 };
+    rg.push(`<div class="rg cam" style="left:${cam.x}px;top:${cam.y}px;width:${cam.w}px;height:${cam.h}px"></div>`);
+    if (d.fold) {
+      if (L.fold) {
+        const f = L.fold;
+        rg.push(`<div class="rg fold" style="left:${f.x}px;top:${f.y}px;width:${f.w}px;height:${f.h}px"></div>`);
+        const tx = f.orientation === "vertical" ? f.x + f.w + 6 : 12, ty = f.orientation === "vertical" ? L.H - 40 : f.y + f.h + 6;
+        rg.push(`<div class="rg tag" style="left:${tx}px;top:${ty}px">Fold · keep clear</div>`);
+      }
+    }
+    canvas.insertAdjacentHTML("beforeend", rg.join(""));
+    canvas.classList.toggle("regions-off", !st.regions);
+  }
+
+  // ---------- the 3D device ----------
+  const T = 9; // body thickness, px at display scale
+  function halvesFor(L) {
+    const d = L.display, p = L.posture;
+    if (!p.hinge || !d.fold) return [{ x: 0, y: 0, w: L.W, h: L.H, side: "one" }];
+    const at = d.fold.at;
+    return p.hinge === "vertical"
+      ? [{ x: 0, y: 0, w: at, h: L.H, side: "a" }, { x: at, y: 0, w: L.W - at, h: L.H, side: "b" }]
+      : [{ x: 0, y: 0, w: L.W, h: at, side: "a" }, { x: 0, y: at, w: L.W, h: L.H - at, side: "b" }];
+  }
+  let built = "";
+  function buildDevice(L) {
+    const key = `${L.device.id}/${L.posture.display}/${L.posture.hinge || ""}`;
+    const scene = $("scene");
+    if (built !== key) {
+      built = key;
+      scene.innerHTML = "";
+      const devEl = document.createElement("div");
+      devEl.className = "device"; devEl.id = "device";
+      for (const h of halvesFor(L)) {
+        const half = document.createElement("div");
+        half.className = "half"; half.dataset.side = h.side;
+        Object.assign(half.style, { left: h.x + "px", top: h.y + "px", width: h.w + "px", height: h.h + "px" });
+        const r = L.display.radius;
+        const rad = h.side === "one" ? `${r}px`
+          : L.posture.hinge === "vertical" ? (h.side === "a" ? `${r}px 0 0 ${r}px` : `0 ${r}px ${r}px 0`)
+          : (h.side === "a" ? `${r}px ${r}px 0 0` : `0 0 ${r}px ${r}px`);
+        half.innerHTML = `
+          <div class="face front" style="border-radius:${rad};transform:translateZ(${T / 2}px)"><div class="canvas" style="left:${-h.x}px;top:${-h.y}px"></div></div>
+          <div class="face back" style="border-radius:${rad};transform:rotateY(180deg) translateZ(${T / 2}px)"></div>
+          <div class="edge" style="left:0;top:${-T / 2}px;width:${h.w}px;height:${T}px;transform:rotateX(90deg)"></div>
+          <div class="edge" style="left:0;top:${h.h - T / 2}px;width:${h.w}px;height:${T}px;transform:rotateX(90deg)"></div>
+          <div class="edge" style="left:${-T / 2}px;top:0;width:${T}px;height:${h.h}px;transform:rotateY(90deg)"></div>
+          <div class="edge" style="left:${h.w - T / 2}px;top:0;width:${T}px;height:${h.h}px;transform:rotateY(90deg)"></div>`;
+        devEl.appendChild(half);
+      }
+      scene.appendChild(devEl);
+    }
+    const devEl = $("device");
+    const bend = L.posture.hinge ? 180 - st.angle : 0;
+    devEl.querySelectorAll(".half").forEach((half) => {
+      const side = half.dataset.side;
+      let t = "none", origin = "50% 50%";
+      if (L.posture.hinge === "vertical") {
+        // Opened like a book towards you: each half turns about the hinge.
+        origin = side === "a" ? "100% 50%" : "0% 50%";
+        t = `rotateY(${side === "a" ? bend / 2 : -bend / 2}deg)`;
+      } else if (L.posture.hinge === "horizontal") {
+        // Tabletop: the bottom half lies flat, the top half stands up.
+        origin = "50% 100%";
+        t = side === "a" ? `rotateX(${-bend}deg)` : "none";
+      }
+      half.style.transformOrigin = origin;
+      half.style.transform = t;
+      half.querySelectorAll(".canvas").forEach((c) => paintCanvas(c, L));
+    });
+    // Fit the stage; tabletop sits back so the bottom half reads as the table.
+    const stage = $("stage");
+    const sw = stage.clientWidth, sh = stage.clientHeight;
+    const tabletop = L.posture.hinge === "horizontal" && bend > 10;
+    const s = Math.min((sw * 0.8) / L.W, (sh * (tabletop ? 0.6 : 0.78)) / L.H);
+    const lift = tabletop ? -L.H * 0.04 : 0;
+    devEl.style.left = -L.W / 2 + "px";
+    devEl.style.top = -L.H / 2 + lift + "px";
+    devEl.style.transformOrigin = `${L.W / 2}px ${L.H / 2}px`;
+    devEl.style.transform = `scale(${s}) rotateX(${st.rx}deg) rotateY(${st.ry}deg)`;
+  }
+
+  function cameraFor(animate) {
+    const p = pos();
+    if (p.hinge === "horizontal" && (p.angle || 180) < 170) { st.rx = 70; st.ry = 22; }
+    else if (p.hinge === "vertical" && (p.angle || 180) < 170) { st.rx = -10; st.ry = 0; }
+    else { st.rx = -10; st.ry = 24; }
+    if (!animate) $("stage").classList.add("dragging");
+  }
+
+  // ---------- drag to turn ----------
+  (function drag() {
+    const stage = $("stage");
+    let start = null;
+    stage.addEventListener("pointerdown", (e) => {
+      if (e.target.closest(".stage-tools")) return;
+      start = { x: e.clientX, y: e.clientY, rx: st.rx, ry: st.ry };
+      stage.setPointerCapture(e.pointerId);
+      stage.classList.add("dragging");
+    });
+    stage.addEventListener("pointermove", (e) => {
+      if (!start) return;
+      st.ry = clamp(start.ry + (e.clientX - start.x) * 0.35, -80, 80);
+      st.rx = clamp(start.rx - (e.clientY - start.y) * 0.35, -60, 75);
+      paint();
+    });
+    const end = () => { start = null; stage.classList.remove("dragging"); };
+    stage.addEventListener("pointerup", end);
+    stage.addEventListener("pointercancel", end);
+    stage.addEventListener("keydown", (e) => {
+      const k = { ArrowLeft: [0, -6], ArrowRight: [0, 6], ArrowUp: [6, 0], ArrowDown: [-6, 0] }[e.key];
+      if (!k) return;
+      e.preventDefault();
+      st.rx = clamp(st.rx + k[0], -60, 75); st.ry = clamp(st.ry + k[1], -80, 80);
+      paint();
+    });
+    $("view-front").addEventListener("click", () => { st.rx = 0; st.ry = 0; paint(); });
+    $("view-reset").addEventListener("click", () => { cameraFor(true); paint(); });
+  })();
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  // ---------- readout ----------
+  function describe(L) {
+    const p = L.posture;
+    $("what-title").textContent = `${L.device.name} · ${p.label}`;
+    $("what-text").textContent = L.summary + (st.dialog ? (L.fold ? " The dialog opens on one half, not across the fold." : " The dialog opens in the middle of the content.") : "");
+    $("what-note").textContent = L.device.note;
+    const ins = L.display.insets;
+    const probs = FL.problems(L);
+    const rows = [
+      ["screen", `${L.W} × ${L.H}`],
+      ["safe area", `top ${ins.t} · right ${ins.r} · bottom ${ins.b} · left ${ins.l}`],
+      ["fold", L.fold ? `${L.fold.orientation}, x ${L.fold.x} y ${L.fold.y} · ${L.fold.w} × ${L.fold.h}` : p.hinge ? "flat: one continuous screen" : "none"],
+      ["navigation", L.nav],
+      ["panes", String(L.panes)],
+      ["check", probs.length ? `<span class="bad">${probs.length} problem${probs.length > 1 ? "s" : ""}: ${esc(probs[0].box.kind)} ${esc(probs[0].problem)}</span>` : `<span class="ok">nothing on the fold or under the camera</span>`],
+    ];
+    $("readout").innerHTML = rows.map(([k, v]) => `<dt>${k}</dt><dd>${k === "check" ? v : esc(v)}</dd>`).join("");
+  }
+
+  let current = null;
+  function paint() {
+    current = FL.layout(st.device, st.posture, st.screen, { dialog: st.dialog, separating: separating() });
+    buildDevice(current);
+    describe(current);
+    requestAnimationFrame(() => $("stage").classList.remove("dragging"));
+  }
+  function update() {
+    renderControls();
+    paint();
+    const u = new URLSearchParams({ device: st.device, posture: st.posture, screen: st.screen });
+    if (pos().hinge && st.angle !== (pos().angle || 180)) u.set("angle", st.angle);
+    if (st.dialog) u.set("dialog", "1");
+    if (!st.regions) u.set("regions", "0");
+    try { history.replaceState(null, "", `?${u}`); } catch {}
+  }
+  new ResizeObserver(() => paint()).observe($("stage"));
+  cameraFor(false);
+  update();
+  // For tests: the layout on screen right now.
+  window.foldLabCurrent = () => current;
+})();
+</script>
+</body>
+</html>
