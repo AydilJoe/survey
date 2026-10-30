@@ -74,7 +74,8 @@
       "Auto-selesai di Android apabila pemindahan bank yang padan masuk",
       "Eksport dan import CSV",
       "Penyulitan dalam peranti dari hujung ke hujung",
-      "Penyegerakan tersulit antara peranti melalui Google Drive sendiri (Pro)"
+      "Pencari pelepasan cukai LHDN dan anggaran bayaran balik daripada belanja anda, dengan resit disimpan untuk e-Filing",
+      "Sandaran tersulit ke iCloud atau Google Drive sendiri (Pro)"
     ],
     "offers": [
       {
@@ -1645,7 +1646,8 @@
     .benefits-grid { grid-template-columns: repeat(3, 1fr); }
     .benefits .feature h3 { font-size: 1.2rem; margin-bottom: 4px; }
     .benefits .feature p { font-size: 1rem; margin: 0; }
-    @media (max-width: 960px) { .benefits-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 960px) { .benefits-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .benefits-grid { grid-template-columns: 1fr; } }
     .benefit-tags {
       list-style: none; padding: 0; margin: 28px auto 0;
       display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
@@ -1916,7 +1918,9 @@
   </div>
 
   <!-- ======================= BENEFITS =======================
-       Tiga perkara, beberapa perkataan setiap satu (sama seperti versi EN). -->
+       Six key features, one line each, then tags for the rest. Visitors
+       decide in a screen or two, so detail lives in the app and the guides;
+       the e2e suite keeps the page under 600 words. -->
   <section class="block benefits" id="features">
     <div class="container">
       <div class="features-grid benefits-grid">
@@ -1928,7 +1932,22 @@
         <div class="feature reveal">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div>
           <h3>Tahu bila bebas hutang</h3>
-          <p>Hutang paling mahal dulu. BNPL dan pembiayaan Islamik sekali.</p>
+          <p>Hutang paling mahal dulu. Atome, SPayLater dan pembiayaan Islamik sekali.</p>
+        </div>
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></div>
+          <h3>Cari pelepasan cukai</h3>
+          <p>Belanja yang layak untuk pelepasan LHDN ditanda, dengan anggaran bayaran balik.</p>
+        </div>
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg></div>
+          <h3>Simpanan, pelaburan, zakat</h3>
+          <p>Simpan untuk sasaran, jejak pelaburan, kira zakat anda.</p>
+        </div>
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></div>
+          <h3>Kongsi bil dengan QR</h3>
+          <p>Kawan imbas untuk tahu bahagian mereka. Tiada akaun.</p>
         </div>
         <div class="feature reveal">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div>
@@ -1937,7 +1956,7 @@
         </div>
       </div>
       <ul class="benefit-tags reveal" aria-label="Juga ada">
-        <li>Atome</li><li>SPayLater</li><li>PTPTN</li><li>Kad kredit</li><li>Zakat</li><li>Kongsi bil</li><li>Imbas resit</li><li>Sandaran Drive</li><li>Guna offline</li>
+        <li>PTPTN</li><li>Kad kredit</li><li>Peringatan bil</li><li>Laporan bulanan</li><li>Sandaran iCloud &amp; Drive</li><li>Pool bajet</li><li>Mata wang lain</li><li>Guna offline</li><li>Tablet &amp; telefon lipat</li>
       </ul>
     </div>
   </section>
