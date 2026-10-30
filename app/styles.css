@@ -895,7 +895,7 @@ main {
 }
 
 .tab-panel { display: none; }
-.tab-panel.active { display: block; }
+.tab-panel:is(.active, .is-leaving) { display: block; }
 
 /* ---------- Wide-screen (PC / iPad landscape) layout ----------
    Phone-first design stays as-is below 1000px. On desktop the app
@@ -934,13 +934,13 @@ main {
     margin-left: auto;
     margin-right: auto;
   }
-  .tab-panel.active {
+  .tab-panel:is(.active, .is-leaving) {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1.2rem;
     align-items: start;
   }
-  .tab-panel.active > * {
+  .tab-panel:is(.active, .is-leaving) > * {
     /* gap handles spacing — drop the per-card margin so the grid is tight. */
     margin-bottom: 0;
   }
@@ -948,12 +948,12 @@ main {
      stays a normal column item so the dashboard reads as a dense grid
      (balance beside the log-money form) rather than a sparse full-width
      banner with empty space on a wide monitor. */
-  .tab-panel.active > .trial-banner,
-  .tab-panel.active > .empty-welcome,
-  .tab-panel.active > .pending-card,
-  .tab-panel.active > .month-card,
-  .tab-panel.active > .spend-calendar-card,
-  #tab-daily.tab-panel.active > .card {
+  .tab-panel:is(.active, .is-leaving) > .trial-banner,
+  .tab-panel:is(.active, .is-leaving) > .empty-welcome,
+  .tab-panel:is(.active, .is-leaving) > .pending-card,
+  .tab-panel:is(.active, .is-leaving) > .month-card,
+  .tab-panel:is(.active, .is-leaving) > .spend-calendar-card,
+  #tab-daily.tab-panel:is(.active, .is-leaving) > .card {
     grid-column: 1 / -1;
   }
 }
@@ -1110,17 +1110,17 @@ main {
   /* Debts and Savings: the list card spans the row; the payoff plan,
      payoff order and investments flow beneath it in the normal grid. Their
      add forms open inline in the card, so there's no form sidebar. */
-  #tab-debts.tab-panel.active > .card:first-child,
-  #tab-savings.tab-panel.active > .card:first-child {
+  #tab-debts.tab-panel:is(.active, .is-leaving) > .card:first-child,
+  #tab-savings.tab-panel:is(.active, .is-leaving) > .card:first-child {
     grid-column: 1 / -1;
   }
 
   /* Daily: a single list card — centre it at a comfortable reading width
      so transaction rows don't stretch the full monitor width. */
-  #tab-daily.tab-panel.active {
+  #tab-daily.tab-panel:is(.active, .is-leaving) {
     display: block;
   }
-  #tab-daily.tab-panel.active > .card {
+  #tab-daily.tab-panel:is(.active, .is-leaving) > .card {
     max-width: 760px;
     margin-left: auto;
     margin-right: auto;
@@ -6984,10 +6984,10 @@ html[data-theme="dark"] {
    spanning cards' extra height, so the first row hugs Upcoming. Only when
    no full-width banner occupies the first row. */
 @media (min-width: 1180px) {
-  #tab-dashboard.tab-panel.active { grid-auto-flow: row dense; }
-  #tab-dashboard.tab-panel.active > .hero-card,
-  #tab-dashboard.tab-panel.active > .quick-add { grid-row: span 2; }
-  #tab-dashboard.tab-panel.active:not(:has(> .trial-banner:not([hidden]), > .empty-welcome:not([hidden]), > .pending-card:not([hidden]), > .reminder-ask:not([hidden]))) {
+  #tab-dashboard.tab-panel:is(.active, .is-leaving) { grid-auto-flow: row dense; }
+  #tab-dashboard.tab-panel:is(.active, .is-leaving) > .hero-card,
+  #tab-dashboard.tab-panel:is(.active, .is-leaving) > .quick-add { grid-row: span 2; }
+  #tab-dashboard.tab-panel:is(.active, .is-leaving):not(:has(> .trial-banner:not([hidden]), > .empty-welcome:not([hidden]), > .pending-card:not([hidden]), > .reminder-ask:not([hidden]))) {
     grid-template-rows: auto 1fr;
   }
 }
@@ -7304,8 +7304,8 @@ button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn)
 
 /* Wide screens: the refund leads across the page; tiles get room. */
 @media (min-width: 640px) {
-  #tab-tax.tab-panel.active > .tax-hero-card,
-  #tab-tax.tab-panel.active > .tax-optin { grid-column: 1 / -1; }
+  #tab-tax.tab-panel:is(.active, .is-leaving) > .tax-hero-card,
+  #tab-tax.tab-panel:is(.active, .is-leaving) > .tax-optin { grid-column: 1 / -1; }
   .tax-hero-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 2rem; align-items: start; }
   .tax-hero-card > .label, .tax-hero-figure, .tax-split, .tax-hero-note, .tax-how { grid-column: 1; }
   .tax-status, .tax-review-btn { grid-column: 2; }
@@ -7315,7 +7315,7 @@ button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn)
 
 @media (min-width: 1000px) {
   /* Three columns: the reliefs get two, so tiles sit side by side. */
-  #tab-tax.tab-panel.active > .tax-reliefs-card { grid-column: span 2; }
+  #tab-tax.tab-panel:is(.active, .is-leaving) > .tax-reliefs-card { grid-column: span 2; }
 }
 
 /* File pickers: real buttons driving hidden inputs. */
@@ -7427,7 +7427,7 @@ button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn)
 .tax-welcome-actions .ghost { flex: 0 1 auto; min-height: 2.9rem; }
 
 @media (min-width: 640px) {
-  #tab-tax.tab-panel.active > .tax-welcome { grid-column: 1 / -1; max-width: 640px; justify-self: center; width: 100%; }
+  #tab-tax.tab-panel:is(.active, .is-leaving) > .tax-welcome { grid-column: 1 / -1; max-width: 640px; justify-self: center; width: 100%; }
 }
 @media (pointer: coarse) { .tax-optin { min-height: 44px; } }
 
@@ -7536,3 +7536,22 @@ html::before {
     width: min(32rem, calc(100% - var(--rail-w) - 2rem));
   }
 }
+
+/* ---------- v1.53 Page motion ----------
+   The page you just left stays drawn for the length of the transition
+   (script.js, animatePanels): pinned where it was, laid out exactly like
+   the active page, untouchable. The page on top of a push or pop is opaque
+   with a soft edge, so one page slides over the other as on iOS. */
+.tab-panel.is-leaving {
+  position: fixed;
+  margin: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.tab-panel.is-top {
+  position: relative;
+  z-index: 2;
+  background: var(--bg);
+  box-shadow: -10px 0 24px -12px rgba(42, 36, 32, 0.28), 0 0 0 0.75rem var(--bg);
+}
+.tab-panel.is-leaving.is-top { position: fixed; }
