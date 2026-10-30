@@ -53,15 +53,18 @@ In App Store Connect → Duitful → the version waiting for review:
 4. **App Privacy:** as in the App Privacy section below (Purchase History).
    It publishes separately from the version and takes effect immediately.
 5. **App Review Information → Notes:** Apple asked for the six answers here
-   as well as in the reply. The field caps at **4,000 characters** and the
-   full reply runs to about 5,000, so paste the condensed version — see
-   "App Review information" below.
+   as well as in the reply. **Both this field and the Resolution Center
+   reply cap at 4,000 characters**, and the full reply runs to about 5,200,
+   so neither takes it. Paste "Condensed reply (fits 4,000)" from
+   `APP_REVIEW_REPLY.md` into both.
 6. **Screenshots:** see the Screenshots section. They are **required**, and
    the size Apple requires has changed.
 7. **Reply to the 2.1 message** in App Review (Resolution Center) with the
-   text in `APP_REVIEW_REPLY.md`, and **attach the screen recording** it
-   describes. Apple asked for one; resubmitting without it gets the same
-   reply.
+   condensed text from `APP_REVIEW_REPLY.md`, and **attach the screen
+   recording** it describes. Apple asked for one; resubmitting without it
+   gets the same reply. Attachments accept .zip among other types, but
+   zipping an MP4 saves almost nothing — trim or re-encode the recording,
+   or host it and put the URL in the reply.
 8. **Add the version to the submission.** On the version page, **Add for
    Review** → pick the existing Draft Submission. A draft holding only the
    IAPs reports *"Unable to Submit for Review — to submit your items for
