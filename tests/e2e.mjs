@@ -8581,6 +8581,8 @@ check('the brand catalogue makes no network calls at all',
     fl.cases >= 100 && fl.failing.length === 0, fl.failing.slice(0, 3).join(' | '));
   check('fold lab: on iPhone Duo the rail is flush with the right edge and its tabs start below the camera and status bar (which the checker guards)',
     fl.duoRail.flush && fl.duoRail.below && fl.duoRail.reservedChecked, JSON.stringify(fl.duoRail));
+  check('fold lab: both landing footers link to /folds/',
+    ['index.html', 'ms/index.html'].every((f) => /<footer>[\s\S]*href="\/folds\/"[\s\S]*<\/footer>/.test(readFileSync(path.join(REPO_ROOT, f), 'utf8'))));
   check('fold lab: the checker catches a layout that ignores a half-open fold',
     fl.separatingPostures >= 3 && fl.caught === fl.separatingPostures, JSON.stringify({ caught: fl.caught, of: fl.separatingPostures }));
   check('fold lab page: a linked view opens as asked (Flip tabletop, dialog on the top half), drawn on two hinged halves, readout green',
