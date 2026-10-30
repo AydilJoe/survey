@@ -299,8 +299,23 @@
       return !!(window.google && window.google.accounts && window.google.accounts.oauth2);
     }
 
+    // Google's sign-in script is fetched here, the first time someone signs in
+    // to Drive in a browser, never at page load. The iPhone and Android apps
+    // sign in through native plugins and never run this branch, so the store
+    // builds download and run no remote JavaScript at all (App Review 2.5.2
+    // rejects an app that does: it could change the app after review).
+    const GIS_SRC = "https://accounts.google.com/gsi/client";
+    function loadGis() {
+      if (gisReady() || document.querySelector(`script[src="${GIS_SRC}"]`)) return;
+      const s = document.createElement("script");
+      s.src = GIS_SRC;
+      s.async = true;
+      document.head.appendChild(s);
+    }
+
     function waitForGis(timeoutMs) {
       if (gisReady()) return Promise.resolve();
+      loadGis();
       const deadline = Date.now() + (timeoutMs || 8000);
       return new Promise((resolve, reject) => {
         const tick = () => {

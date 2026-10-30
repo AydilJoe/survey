@@ -315,6 +315,11 @@ if (swift.includes("duitfulHandleShortcut")) {
 // DuitfulKitPlugin.drainQuickAdd hands the queue to the web layer on unlock,
 // where each entry becomes a pending transaction to confirm. Same design,
 // and same privacy cost, as Android's quick-add queue.
+// Every string the intents show (titles, descriptions, dialogs, phrases)
+// must not say "Apple" or "Siri": App Store Connect rejects the build in
+// processing with ITMS-90626, after a successful upload, and only says why by
+// email. 1.53.0 lost two TestFlight uploads to "Apple Pay" in a description.
+// tests/e2e.mjs checks the quoted strings below.
 const INTENTS_MARK = "DuitfulLogSpendIntent";
 const INTENTS_SWIFT = `
 // MARK: - Siri & Shortcuts (injected by scripts/patch-ios.mjs)
@@ -351,7 +356,7 @@ enum DuitfulQuickAddQueue {
 struct ${INTENTS_MARK}: AppIntent {
     static var title: LocalizedStringResource = "Log a spend"
     static var description = IntentDescription(
-        "Adds a spend to Duitful to confirm next time you open it. Add it to a Wallet transaction automation to log every Apple Pay tap.")
+        "Adds a spend to Duitful to confirm next time you open it. Add it to a Wallet transaction automation to log every card tap.")
     static var openAppWhenRun: Bool = false
 
     @Parameter(title: "Amount", requestValueDialog: "How much did you spend?")

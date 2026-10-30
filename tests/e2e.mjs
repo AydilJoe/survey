@@ -8697,6 +8697,30 @@ check('the brand catalogue makes no network calls at all',
     /skip_icloud:/.test(iosYml) && /DUITFUL_IOS_SKIP_ICLOUD: \$\{\{ inputs\.skip_icloud/.test(iosYml)
     && /iCloudContainerEnvironment: "Production"/.test(fastfile));
   check('Swift never parses the record — it moves a string', !/JSONSerialization|JSONDecoder/.test(swift));
+  // App Review 2.5.2: the store apps must not download and run remote code.
+  // Google's sign-in script is loaded on demand by the web Drive flow only;
+  // no page under app/ may carry a remote <script src>.
+  {
+    const pages = readdirSync(path.join(REPO_ROOT, 'app')).filter((f) => f.endsWith('.html'));
+    const remote = pages.filter((f) => /<script[^>]+src=["']https?:\/\//i.test(readFileSync(path.join(REPO_ROOT, 'app', f), 'utf8')));
+    const drive = readFileSync(path.join(REPO_ROOT, 'app', 'drive-sync.js'), 'utf8');
+    const webStart = drive.indexOf('function installWebDriveSync');
+    const webEnd = drive.indexOf('// ---------- native implementation', webStart);
+    const gisAt = drive.indexOf('accounts.google.com/gsi/client');
+    check('the store apps run no remote JavaScript: no remote <script> in app/, and Google sign-in loads only in the web Drive flow (2.5.2)',
+      pages.length > 0 && remote.length === 0 && gisAt > webStart && gisAt < webEnd
+        && drive.indexOf('accounts.google.com/gsi/client', gisAt + 1) === -1,
+      JSON.stringify({ remote, gisAt, webStart, webEnd }));
+  }
+  // ITMS-90626: App Store Connect rejects an App Intent whose user-facing
+  // text says "Apple" or "Siri" (1.53.0 lost two uploads to "Apple Pay").
+  {
+    const start = patchIos.indexOf('const INTENTS_SWIFT = `');
+    const block = start === -1 ? '' : patchIos.slice(start, patchIos.indexOf('`;', start));
+    const shown = [...block.matchAll(/"((?:[^"\\\n]|\\.)*)"/g)].map((m) => m[1]).filter((x) => / /.test(x));
+    check('App Intent text never says "Apple" or "Siri" (ITMS-90626)',
+      shown.length >= 8 && !shown.some((x) => /\bapple\b|\bsiri\b/i.test(x)), JSON.stringify(shown.filter((x) => /apple|siri/i.test(x))));
+  }
 
   // Vercel runs npm install on what .vercelignore leaves, so a file:
   // dependency it strips fails every deployment.
