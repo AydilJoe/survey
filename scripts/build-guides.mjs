@@ -591,12 +591,14 @@ const STATIC_PAGES = [
   { loc: "https://duitful.app/privacy/",   changefreq: "yearly",  priority: "0.6" },
   { loc: "https://duitful.app/terms/",     changefreq: "yearly",  priority: "0.6" },
   { loc: "https://duitful.app/tax-rules/", changefreq: "monthly", priority: "0.5" },
+  { loc: "https://duitful.app/folds/",     changefreq: "monthly", priority: "0.4" },
 ];
 const STATIC_LASTMOD = {
   "https://duitful.app/privacy/": "2026-04-29",
   "https://duitful.app/terms/":   "2026-04-29",
   "https://duitful.app/contact/": "2026-04-29",
   "https://duitful.app/tax-rules/": "2026-10-29",
+  "https://duitful.app/folds/":     "2026-10-30",
 };
 
 function buildSitemap(parsed) {
