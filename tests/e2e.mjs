@@ -8123,6 +8123,17 @@ check('the brand catalogue makes no network calls at all',
     const notes = r.status === 0 && existsSync(notesFile) ? rf(notesFile, 'utf8') : '';
     check(`Play release notes for ${ver} come from RELEASE_NOTES: plain text, within Play's 500 characters`,
       notes.length > 20 && notes.length <= 501 && !/[<>]/.test(notes) && !/Fixes and improvements/.test(notes), notes.slice(0, 120));
+    const msFile = path.join(outDir, 'ms-MY', 'changelogs', '123.txt');
+    const msNotes = existsSync(msFile) ? rf(msFile, 'utf8') : '';
+    check(`the current version (${ver}) has Bahasa Melayu store notes in scripts/release-notes-ms.json, plain and within 500 characters`,
+      msNotes.length > 20 && msNotes.length <= 501 && !/[<>]/.test(msNotes), msNotes.slice(0, 120));
+    check('TestFlight gets "What to test" and the App Store version page is prepared (version, build, What\'s New) without submitting',
+      /changelog: notes\.empty\? \? nil : notes/.test(fl) && /def prepare_app_store_version/.test(fl)
+        && /release_notes: \{ "default" => notes \}/.test(fl) && /submit_for_review: false/.test(fl) && /skip_binary_upload: true/.test(fl)
+        && /rescue StandardError => e/.test(fl));
+    check('release workflow: the keystore is opened with the secrets before the build, with a clear error for each wrong secret',
+      /Check the keystore opens with the secrets/.test(rel) && /ANDROID_KEYSTORE_PASSWORD does not open the keystore/.test(rel)
+        && /PKCS12 keystore, which has one password/.test(rel) && /tr -d '\\r\\n'/.test(rel));
   }
   check('PR CI is unchanged: it only compiles an unsigned bundle and never sees a signing secret',
     /bundleRelease/.test(ci) && !/secrets\./.test(ci) && !/patch-android-signing/.test(ci));

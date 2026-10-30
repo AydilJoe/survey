@@ -144,6 +144,34 @@ jobs:
           test -s "$RUNNER_TEMP/duitful-upload.keystore" || { echo "::error::ANDROID_KEYSTORE_BASE64 decoded to an empty file"; exit 1; }
           echo "DUITFUL_KEYSTORE_FILE=$RUNNER_TEMP/duitful-upload.keystore" >> "$GITHUB_ENV"
 
+      # Open the keystore with the secrets before a 2-minute build finds out
+      # they are wrong. A line break pasted on the end of a secret (common
+      # from Windows) is stripped here and by the signing step below.
+      - name: Check the keystore opens with the secrets
+        env:
+          PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEYPW: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          PW=$(printf '%s' "$PW" | tr -d '\r\n'); ALIAS=$(printf '%s' "$ALIAS" | tr -d '\r\n'); KEYPW=$(printf '%s' "$KEYPW" | tr -d '\r\n')
+          ks="$RUNNER_TEMP/duitful-upload.keystore"
+          if ! keytool -list -keystore "$ks" -storepass "$PW" > /dev/null 2>&1; then
+            echo "::error::ANDROID_KEYSTORE_PASSWORD does not open the keystore. Re-enter it (the password keytool -list -v -keystore asks for)."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$ks" -storepass "$PW" -alias "$ALIAS" > /dev/null 2>&1; then
+            echo "::error::The keystore opens, but has no key called ANDROID_KEY_ALIAS. Aliases in it:"
+            keytool -list -keystore "$ks" -storepass "$PW" | grep -i "PrivateKeyEntry" || true
+            exit 1
+          fi
+          type=$(keytool -list -keystore "$ks" -storepass "$PW" | sed -n 's/^Keystore type: //p')
+          if [ "$type" = "PKCS12" ] && [ "$KEYPW" != "$PW" ]; then
+            echo "::error::This is a PKCS12 keystore, which has one password for everything: set ANDROID_KEY_PASSWORD to the same value as ANDROID_KEYSTORE_PASSWORD."
+            exit 1
+          fi
+          echo "Keystore ($type) opens; key '$ALIAS' found."
+          keytool -list -v -keystore "$ks" -storepass "$PW" -alias "$ALIAS" | grep -E "SHA256:" | head -1
+
       # versionCode must exceed every code Play has already seen. Minutes
       # since 2025-01-01 UTC only ever rise, need no counter anyone has to
       # keep in step, and sit far above any hand-numbered earlier upload
@@ -155,6 +183,7 @@ jobs:
           DUITFUL_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           DUITFUL_VERSION_NAME: ${{ needs.prepare.outputs.version }}
         run: |
+          for v in DUITFUL_KEYSTORE_PASSWORD DUITFUL_KEY_ALIAS DUITFUL_KEY_PASSWORD; do export "$v=$(printf '%s' "${!v}" | tr -d '\r\n')"; done
           export DUITFUL_VERSION_CODE=$(( ($(date -u +%s) - 1735689600) / 60 ))
           echo "DUITFUL_VERSION_CODE=$DUITFUL_VERSION_CODE" >> "$GITHUB_ENV"
           echo "versionCode $DUITFUL_VERSION_CODE, versionName $DUITFUL_VERSION_NAME"
@@ -167,7 +196,10 @@ jobs:
           DUITFUL_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           DUITFUL_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           DUITFUL_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew :app:bundleRelease --no-daemon --console=plain 2>&1 | tee build.log
+        run: |
+          for v in DUITFUL_KEYSTORE_PASSWORD DUITFUL_KEY_ALIAS DUITFUL_KEY_PASSWORD; do export "$v=$(printf '%s' "${!v}" | tr -d '\r\n')"; done
+          set -o pipefail
+          ./gradlew :app:bundleRelease --no-daemon --console=plain 2>&1 | tee build.log
 
       # jarsigner exits 0 even for an unsigned bundle, so read what it says.
       # Printing the SHA-256 lets you compare it with the upload certificate

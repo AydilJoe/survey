@@ -217,18 +217,22 @@ platform :ios do
       next
     end
 
-    # skip_waiting_for_build_processing: Apple's processing takes 5–30 min
-    # and the runner is billed for every minute of it. The build appears in
-    # TestFlight on its own; nothing here needs to watch it happen.
+    # "What to test" comes from the app's release notes for this version.
+    # Apple only takes it once the build has finished processing, so the
+    # lane waits for that (5–30 min; the repo is public, so the macOS
+    # minutes cost nothing).
+    notes = release_notes_for(marketing_version)
     upload_to_testflight(
       api_key: key,
       app_identifier: APP_IDENTIFIER,
-      skip_waiting_for_build_processing: true,
+      changelog: notes.empty? ? nil : notes,
+      skip_waiting_for_build_processing: notes.empty?,
       skip_submission: true,
+      distribute_external: false,
     )
-
     UI.success("Uploaded Duitful #{marketing_version} (#{build_number}) to TestFlight.")
-    UI.important("It takes Apple 5–30 minutes to finish processing before the build is installable.")
+
+    prepare_app_store_version(key, marketing_version, build_number, notes) unless notes.empty?
   end
 
 end
@@ -252,6 +256,42 @@ end
       team = Array(FastlaneCore::ProvisioningProfile.parse(path)["TeamIdentifier"]).first.to_s
     end
     { name: Fastlane::Actions.lane_context[Fastlane::Actions::SharedValues::SIGH_NAME].to_s, path: path, team_id: team }
+  end
+
+  # The store "What's new" for a version (scripts/release-notes.mjs), or ""
+  # when Node or the notes are missing: the upload never fails over notes.
+  def release_notes_for(version)
+    script = File.join(REPO_ROOT, "scripts", "release-notes.mjs")
+    out = `node "#{script}" "#{version}" en 2>/dev/null`.to_s.strip
+    $?.success? ? out : ""
+  rescue StandardError
+    ""
+  end
+
+  # Gets the App Store version page ready to submit: the version number set
+  # to package.json's, this build attached, and "What's New" filled in for
+  # every language the listing has ("default"). Nothing is submitted. Apple
+  # has no "What's New" on an app's very first version, and the page may be
+  # locked while a version is in review; either way this only warns, since
+  # the TestFlight upload above already succeeded.
+  def prepare_app_store_version(key, version, build_number, notes)
+    upload_to_app_store(
+      api_key: key,
+      app_identifier: APP_IDENTIFIER,
+      app_version: version,
+      build_number: build_number,
+      release_notes: { "default" => notes },
+      skip_binary_upload: true,
+      skip_screenshots: true,
+      skip_app_version_update: false,
+      submit_for_review: false,
+      automatic_release: false,
+      force: true,
+      run_precheck_before_submit: false,
+    )
+    UI.success("App Store version #{version} prepared: build #{build_number} attached, What's New filled. Review and submit in App Store Connect.")
+  rescue StandardError => e
+    UI.important("App Store version page not prepared (#{e.message.lines.first.to_s.strip}). Set it up by hand in App Store Connect.")
   end
 
   # Marketing version = package.json "version". One number, bumped in one
