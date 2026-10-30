@@ -8108,6 +8108,22 @@ check('the brand catalogue makes no network calls at all',
   check('ios workflow: the secrets check covers every signed lane, and the build number is a timestamp that cannot run backwards',
     /Check signing secrets are present\n\s+if: inputs\.lane != 'build-only'/.test(ios)
     && /DUITFUL_BUILD_NUMBER=\$\(date -u \+%y%m%d\)/.test(ios) && !/DUITFUL_BUILD_NUMBER: \$\{\{ github\.run_number/.test(ios));
+  check('release workflow: a tag publishes the AAB to Play Production at 100%; by hand the track is a choice that includes none',
+    /TRACK: \$\{\{ github\.event_name == 'push' && 'production' \|\| inputs\.play_track \}\}/.test(rel)
+    && /upload_to_play_store/.test(rel) && /release_status:completed/.test(rel) && /- none/.test(rel)
+    && /package_name:com\.aydiljoe\.duitful/.test(rel));
+  check('release workflow: the Play key only reaches its own step, a missing key warns instead of failing, and the key is deleted',
+    /PLAY_SERVICE_ACCOUNT_JSON: \$\{\{ secrets\.PLAY_SERVICE_ACCOUNT_JSON \}\}/.test(rel) && (rel.match(/secrets\.PLAY_SERVICE_ACCOUNT_JSON/g) || []).length === 1
+    && /::warning::PLAY_SERVICE_ACCOUNT_JSON is not set/.test(rel) && /rm -f "\$RUNNER_TEMP\/duitful-upload\.keystore" "\$RUNNER_TEMP\/play-key\.json"/.test(rel));
+  {
+    const ver = JSON.parse(rf(path.join(REPO_ROOT, 'package.json'), 'utf8')).version;
+    const outDir = path.join(REPO_ROOT, 'node_modules', '.cache', 'duitful-play-notes-' + process.pid);
+    const r = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts/play-release-notes.mjs'), ver, '123', outDir], { encoding: 'utf8' });
+    const notesFile = path.join(outDir, 'en-US', 'changelogs', '123.txt');
+    const notes = r.status === 0 && existsSync(notesFile) ? rf(notesFile, 'utf8') : '';
+    check(`Play release notes for ${ver} come from RELEASE_NOTES: plain text, within Play's 500 characters`,
+      notes.length > 20 && notes.length <= 501 && !/[<>]/.test(notes) && !/Fixes and improvements/.test(notes), notes.slice(0, 120));
+  }
   check('PR CI is unchanged: it only compiles an unsigned bundle and never sees a signing secret',
     /bundleRelease/.test(ci) && !/secrets\./.test(ci) && !/patch-android-signing/.test(ci));
 }
