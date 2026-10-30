@@ -36,9 +36,12 @@
       note: "Outer display is wider and shorter than other iPhones; the status bar and camera sit on the side.",
       railEdge: "right",
       displays: {
-        outer: { w: 476, h: 676, radius: 44, insets: { t: 12, r: 52, b: 12, l: 0 }, island: "right" },
+        // Apple: the Dynamic Island and status bar head the side column and
+        // the app's bars continue below them, aligned with the camera. So
+        // the right edge is not a full-height inset: only its top is taken.
+        outer: { w: 476, h: 676, radius: 44, insets: { t: 12, r: 0, b: 12, l: 0 }, island: "right", reserved: [{ edge: "right", w: 76, h: 136, label: "Camera · status bar" }] },
         inner: {
-          w: 952, h: 676, radius: 36, insets: { t: 12, r: 52, b: 12, l: 0 }, island: "right",
+          w: 952, h: 676, radius: 36, insets: { t: 12, r: 0, b: 12, l: 0 }, island: "right", reserved: [{ edge: "right", w: 76, h: 136, label: "Camera · status bar" }],
           fold: { orientation: "vertical", at: 476, width: 28 },
         },
       },
@@ -179,6 +182,12 @@
   function device(id) { return DEVICES.find((d) => d.id === id) || DEVICES[0]; }
   function posture(dev, id) { return dev.postures.find((p) => p.id === id) || dev.postures[0]; }
 
+  function reservedRects(display) {
+    return (display.reserved || []).map((r) => ({
+      x: r.edge === "right" ? display.w - r.w : 0, y: 0, w: r.w, h: r.h, label: r.label,
+    }));
+  }
+
   function foldRect(display, pos) {
     const f = display.fold;
     if (!f || !pos.separating) return null;
@@ -201,6 +210,7 @@
     const W = disp.w, H = disp.h, ins = disp.insets;
     const safe = { x: ins.l, y: ins.t, w: W - ins.l - ins.r, h: H - ins.t - ins.b };
     const fold = foldRect(disp, pos);
+    const reserved = reservedRects(disp);
     const screen = CONTENT[screenId] ? screenId : "home";
     const c = CONTENT[screen];
     const boxes = [];
@@ -223,13 +233,23 @@
       content = { x: safe.x, y: safe.y, w: safe.w, h: safe.h - BAR_H };
     }
     const navBox = boxes[0];
+    for (const r of reserved) {
+      if (intersects(r, content)) {
+        if (r.x + r.w >= W - 1) content.w = Math.min(content.w, r.x - content.x);
+        else if (r.x <= 1) { const nx = r.x + r.w; content.w -= nx - content.x; content.x = nx; }
+      }
+    }
     NAV.forEach((label, i) => {
       const n = NAV.length;
       let b;
       if (nav === "sidebar") b = { x: navBox.x + 12, y: navBox.y + 64 + i * 46, w: navBox.w - 24, h: 40 };
       else if (nav === "rail") {
-        const step = Math.min(64, (navBox.h - 32) / n);
-        b = { x: navBox.x + 8, y: navBox.y + 16 + i * step, w: navBox.w - 16, h: step - 6 };
+        // Items begin below anything reserved in the rail's column (the
+        // camera and status bar on iPhone Duo).
+        const top = reserved.filter((r) => r.x < navBox.x + navBox.w && r.x + r.w > navBox.x)
+          .reduce((y, r) => Math.max(y, r.y + r.h), navBox.y) + 12;
+        const step = Math.min(64, (navBox.y + navBox.h - top - 12) / n);
+        b = { x: navBox.x + 8, y: top + i * step, w: navBox.w - 16, h: step - 6 };
       } else {
         const iw = navBox.w / n;
         b = { x: navBox.x + i * iw + 4, y: navBox.y + 6, w: iw - 8, h: BAR_H - 12 };
@@ -291,7 +311,7 @@
     }
 
     return {
-      device: dev, posture: pos, screen, display: disp, W, H, safe, fold, nav, panes: panes.length,
+      device: dev, posture: pos, screen, display: disp, W, H, safe, fold, reserved, nav, panes: panes.length,
       boxes,
       summary: summary(dev, pos, nav, panes.length, fold, screen),
     };
@@ -375,10 +395,12 @@
   function problems(result) {
     const out = [];
     const { boxes, fold, safe, W, H } = result;
+    const reserved = result.reserved || [];
     const eps = 0.5;
     for (const b of boxes) {
       if (b.x < -eps || b.y < -eps || b.x + b.w > W + eps || b.y + b.h > H + eps) out.push({ box: b, problem: "outside the display" });
       if (fold && TAPPABLE.has(b.kind) && intersects(b, fold)) out.push({ box: b, problem: "on the fold" });
+      if (TAPPABLE.has(b.kind) && reserved.some((r) => intersects(b, r))) out.push({ box: b, problem: "under the camera or status bar" });
       if (TAPPABLE.has(b.kind) && (b.x < safe.x - eps || b.y < safe.y - eps || b.x + b.w > safe.x + safe.w + eps || b.y + b.h > safe.y + safe.h + eps)) {
         out.push({ box: b, problem: "outside the safe area" });
       }
@@ -396,5 +418,5 @@
     return cases;
   }
 
-  root.FoldLab = { DEVICES, SCREENS, CONTENT, layout, problems, allCases, device, posture, foldRect };
+  root.FoldLab = { DEVICES, SCREENS, CONTENT, layout, problems, allCases, device, posture, foldRect, reservedRects };
 })(typeof window !== "undefined" ? window : globalThis);

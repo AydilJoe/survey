@@ -139,6 +139,9 @@
   .rg.inset { background: repeating-linear-gradient(-45deg, rgba(28,43,56,0.16) 0 5px, rgba(28,43,56,0.05) 5px 10px); }
   .rg.cam { background: #050505; border-radius: 999px; }
   .rg.tag { font: 500 11px/1 var(--font-mono); color: #fffaf2; background: var(--primary-ink); padding: 4px 6px; border-radius: 6px; white-space: nowrap; }
+  .rg.status { display: flex; flex-direction: column; align-items: center; gap: 6px; font: 600 12px/1 var(--font-sans); color: #241f1a; }
+  .rg.status .bat { width: 22px; height: 11px; border-radius: 3px; border: 1.5px solid #241f1a; position: relative; }
+  .rg.status .bat::after { content: ""; position: absolute; inset: 1.5px 5px 1.5px 1.5px; background: #241f1a; border-radius: 1px; }
   .regions-off .rg.fold, .regions-off .rg.inset, .regions-off .rg.tag { display: none; }
 
   /* ---------- the panel ---------- */
@@ -240,7 +243,7 @@
   <p>Sizes are approximate. Apple hasn't published iPhone Duo's point sizes and the Samsung figures are converted from pixels, so treat them as a sketch until they're measured in the simulators. The same file drives this page and Duitful's tests: <a href="https://github.com/AydilJoe/survey/blob/main/folds/fold-lab.js">fold-lab.js</a>.</p>
 </section>
 
-<script src="fold-lab.js?v=1"></script>
+<script src="fold-lab.js?v=2"></script>
 <script>
 (function () {
   "use strict";
@@ -371,10 +374,18 @@
     if (ins.b) rg.push(`<div class="rg inset" style="left:0;top:${L.H - ins.b}px;width:${L.W}px;height:${ins.b}px"></div>`);
     if (ins.l) rg.push(`<div class="rg inset" style="left:0;top:0;width:${ins.l}px;height:${L.H}px"></div>`);
     if (ins.r) rg.push(`<div class="rg inset" style="left:${L.W - ins.r}px;top:0;width:${ins.r}px;height:${L.H}px"></div>`);
-    const cam = d.island === "right" ? { x: L.W - 30, y: 18, w: 14, h: 14 }
-      : d.island === "left" ? { x: 16, y: L.H / 2 - 50, w: 30, h: 100 }
-      : { x: L.W / 2 - 52, y: 12, w: 104, h: 32 };
-    rg.push(`<div class="rg cam" style="left:${cam.x}px;top:${cam.y}px;width:${cam.w}px;height:${cam.h}px"></div>`);
+    // The side column on iPhone Duo: camera, then the status bar, then the
+    // app's own rail continues below in the same column.
+    for (const r of L.reserved || []) {
+      rg.push(`<div class="rg inset" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px"></div>`);
+      rg.push(`<div class="rg cam" style="left:${r.x + r.w / 2 - 8}px;top:18px;width:16px;height:16px"></div>`);
+      rg.push(`<div class="rg status" style="left:${r.x}px;top:46px;width:${r.w}px"><b>9:41</b><span class="bat"></span></div>`);
+      rg.push(`<div class="rg tag" style="left:${r.x - 132}px;top:${r.y + 14}px">${esc(r.label)}</div>`);
+    }
+    if (!(L.reserved || []).length) {
+      const cam = d.island === "left" ? { x: 16, y: L.H / 2 - 50, w: 30, h: 100 } : { x: L.W / 2 - 52, y: 12, w: 104, h: 32 };
+      rg.push(`<div class="rg cam" style="left:${cam.x}px;top:${cam.y}px;width:${cam.w}px;height:${cam.h}px"></div>`);
+    }
     if (d.fold) {
       if (L.fold) {
         const f = L.fold;
@@ -506,6 +517,7 @@
       ["screen", `${L.W} × ${L.H}`],
       ["safe area", `top ${ins.t} · right ${ins.r} · bottom ${ins.b} · left ${ins.l}`],
       ["fold", L.fold ? `${L.fold.orientation}, x ${L.fold.x} y ${L.fold.y} · ${L.fold.w} × ${L.fold.h}` : p.hinge ? "flat: one continuous screen" : "none"],
+      ["reserved", (L.reserved || []).length ? L.reserved.map((r) => `${r.label}, top of the ${r.x > 0 ? "right" : "left"} edge, ${r.w} × ${r.h}`).join("; ") : "none"],
       ["navigation", L.nav],
       ["panes", String(L.panes)],
       ["check", probs.length ? `<span class="bad">${probs.length} problem${probs.length > 1 ? "s" : ""}: ${esc(probs[0].box.kind)} ${esc(probs[0].problem)}</span>` : `<span class="ok">nothing on the fold or under the camera</span>`],

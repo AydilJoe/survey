@@ -8560,9 +8560,16 @@ check('the brand catalogue makes no network calls at all',
       naive.fold = FL.foldRect(naive.display, { ...p, separating: true });
       if (FL.problems(naive).some((x) => x.problem === 'on the fold')) caught++;
     }
+    // iPhone Duo: the rail shares the side column with the camera and
+    // status bar — flush with the right edge, its tabs starting below them.
+    const duo = FL.layout('iphone-duo', 'closed', 'home');
+    const rail = duo.boxes.find((x) => x.kind === 'nav');
+    const firstTab = duo.boxes.find((x) => x.kind === 'navitem');
+    const duoRail = { flush: rail.x + rail.w === duo.W, below: firstTab.y >= duo.reserved[0].y + duo.reserved[0].h,
+      reservedChecked: FL.problems({ ...duo, boxes: [{ kind: 'navitem', x: duo.W - 40, y: 10, w: 30, h: 30 }] }).some((p) => /camera/.test(p.problem)) };
     const cur = window.foldLabCurrent();
     return {
-      cases: cases.length, failing, caught,
+      cases: cases.length, failing, caught, duoRail,
       separatingPostures: FL.DEVICES.reduce((n, d) => n + d.postures.filter((x) => x.separating).length, 0),
       shown: { device: cur.device.id, posture: cur.posture.id, fold: !!cur.fold, dialogInTop: cur.boxes.some((x) => x.kind === 'dialog' && x.y + x.h <= cur.fold.y) },
       halves: document.querySelectorAll('#device .half').length,
@@ -8572,6 +8579,8 @@ check('the brand catalogue makes no network calls at all',
   });
   check(`fold lab: all ${fl.cases} device/posture/screen layouts keep taps off the fold, inside the safe area, on even grids`,
     fl.cases >= 100 && fl.failing.length === 0, fl.failing.slice(0, 3).join(' | '));
+  check('fold lab: on iPhone Duo the rail is flush with the right edge and its tabs start below the camera and status bar (which the checker guards)',
+    fl.duoRail.flush && fl.duoRail.below && fl.duoRail.reservedChecked, JSON.stringify(fl.duoRail));
   check('fold lab: the checker catches a layout that ignores a half-open fold',
     fl.separatingPostures >= 3 && fl.caught === fl.separatingPostures, JSON.stringify({ caught: fl.caught, of: fl.separatingPostures }));
   check('fold lab page: a linked view opens as asked (Flip tabletop, dialog on the top half), drawn on two hinged halves, readout green',
