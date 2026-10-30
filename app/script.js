@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.50.0";
+const APP_VERSION = "1.51.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1085,13 +1085,10 @@ function autoRecurFromLastMonth() {
   // Same month — no-op.
   if (last === cur) return { copied: 0 };
 
-  // Month boundary crossed. Bump pointer BEFORE the isPro() gate, so that
-  // a free user who upgrades later doesn't get a flood of auto-copies
-  // for past transitions they were not Pro for. Intentional — do not move.
+  // Month boundary crossed: bump the pointer first, so a missed month
+  // is never copied twice.
   state.lastOpenedMonth = cur;
-  save();   // persist the pointer regardless of Pro status
-
-  if (!isPro()) return { copied: 0 };
+  save();
 
   const prev = shiftMonth(cur, -1);
 
@@ -3757,7 +3754,7 @@ function renderTrialBanner() {
   }
 }
 document.getElementById("trial-banner-cta")?.addEventListener("click", () => {
-  openPaywall("debts");
+  openPaywall();
 });
 
 /* ---------- zakat ---------- */
@@ -4548,10 +4545,13 @@ if (prefAnnouncements) {
    can try everything. In the native Capacitor build, features are gated and
    unlocked with a one-time IAP (duitful_pro). */
 
-const FREE_DEBT_LIMIT = 3;
-const FREE_SAVING_LIMIT = 2;
-const FREE_INVESTMENT_LIMIT = 2;
-const FREE_OCR_MONTHLY = 3;
+// Free covers what people install Duitful for: every debt and its payoff
+// date, pay-later plans, bill reminders, copying last month. Pro is for
+// doing more of it, effortlessly: automatic cloud backup, unlimited scans,
+// budget pools, other currencies, more goals and holdings.
+const FREE_SAVING_LIMIT = 5;
+const FREE_INVESTMENT_LIMIT = 3;
+const FREE_OCR_MONTHLY = 5;
 const TRIAL_DAYS = 7;
 const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
@@ -4638,13 +4638,10 @@ function gate(feature) {
 
 /* paywall modal */
 const PAYWALL_COPY = {
-  debts: `You've hit the free limit of ${FREE_DEBT_LIMIT} debts. Pro tracks unlimited.`,
   savings: `You've hit the free limit of ${FREE_SAVING_LIMIT} goals. Pro tracks unlimited.`,
   investments: `You've hit the free limit of ${FREE_INVESTMENT_LIMIT} investment holdings. Pro tracks unlimited.`,
-  installment: "Installment plans (Atome, SPayLater) are a Pro feature.",
   ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
-  notifications: "Reminders and notifications are a Pro feature.",
-  copyPrev: "Copy from previous month is a Pro feature.",
+  cloudBackup: "Automatic backup to iCloud or Google Drive is a Pro feature. Export CSV in Settings stays free.",
   multiCurrency: "Multi-currency entry is a Pro feature.",
   budgetPools: "Multi-pool budgeting is a Pro feature.",
   budgetPoolsRollover: "Rollover is a Pro feature — carry unspent budget into the next month.",
@@ -4862,9 +4859,9 @@ function ensureProCelebrateBlock(dlg, paidLabel) {
     <h2>Duitful Pro — yours.</h2>
     <p class="pro-celebrate-sub">Terima kasih. That's the last time we'll ask you for money.</p>
     <ul class="pro-unlocked">
-      <li>Unlimited debts &amp; savings goals</li>
+      <li>Automatic encrypted backup</li>
       <li>Unlimited receipt scans, 46 currencies</li>
-      <li>Budget pools &amp; encrypted Drive sync</li>
+      <li>Budget pools, unlimited goals &amp; holdings</li>
     </ul>
     <p class="pro-receipt">${receipt}</p>
   `;
@@ -5434,7 +5431,7 @@ function renderProControls() {
         ? "Pro unlocked. Thanks for supporting the app!"
         : "Pro unlocked — thanks for supporting Duitful!";
     } else {
-      status.textContent = `Free tier covers up to ${FREE_DEBT_LIMIT} debts, ${FREE_SAVING_LIMIT} savings goals, ${FREE_INVESTMENT_LIMIT} investment holdings and ${FREE_OCR_MONTHLY} receipt scans a month. Unlock Pro for unlimited everything — one-time payment, no subscription.`;
+      status.textContent = `Free covers every debt, pay-later plans and reminders, plus ${FREE_SAVING_LIMIT} savings goals, ${FREE_INVESTMENT_LIMIT} investment holdings and ${FREE_OCR_MONTHLY} receipt scans a month. Pro adds automatic backup, unlimited scans, budget pools and other currencies: one payment, no subscription.`;
     }
   }
 
@@ -5458,9 +5455,6 @@ function renderProControls() {
       : "How Duitful handles your data, and the rules for using it. Both pages also explain how to recover your Pro licence with a Billplz transaction ID.";
   }
 
-  // Show "(Pro: auto-copies...)" hint only for free users on the repeat-toggle.
-  const proHints = document.querySelectorAll("[data-pro-only-hint]");
-  proHints.forEach((el) => { el.hidden = isPro(); });
 }
 
 document.getElementById("btn-pro-unlock")?.addEventListener("click", () => { openPaywall(); });
@@ -6544,7 +6538,6 @@ document.addEventListener("click", (e) => {
 });
 
 $("#btn-copy-prev").addEventListener("click", () => {
-  if (!gate("copyPrev")) return;
   const prev = shiftMonth(selectedMonth, -1);
   const prevIncome = state.income.filter((x) => x.month === prev);
   const prevExpenses = state.expenses.filter((x) => x.month === prev);
@@ -6924,7 +6917,6 @@ function renderIslamicPreview() {
 document.querySelectorAll(".debt-type-pills .pill").forEach((btn) => {
   btn.addEventListener("click", () => {
     const k = btn.dataset.debtKind;
-    if (k === "installment" && !gate("installment")) return;
     setDebtKind(k);
   });
 });
@@ -7058,10 +7050,6 @@ $("#form-debt").addEventListener("submit", (e) => {
   const kind = (f.get("kind") || "standard").toString();
   const dueDay = parseDay(f.get("dueDay"));
   if (!name) return;
-
-  // Pro gates
-  if (state.debts.length >= FREE_DEBT_LIMIT && !gate("debts")) return;
-  if (kind === "installment" && !gate("installment")) return;
 
   if (kind === "islamic") {
     const principal = Number(f.get("principal"));
@@ -7827,7 +7815,6 @@ if (btnNotif) btnNotif.addEventListener("click", async () => {
     renderReminderPrefs();
     return;
   }
-  if (!gate("notifications")) return;
   const res = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
   state.reminders.notifications = (res === "granted");
   save();
@@ -8784,11 +8771,6 @@ $("#file-import").addEventListener("change", async (e) => {
     // ocrUsage and earn fresh free scans. Block before confirm so the
     // paywall is the user's next prompt, not a destructive overwrite.
     if (!isPro()) {
-      if (next.debts.length > FREE_DEBT_LIMIT) {
-        status.textContent = `CSV has ${next.debts.length} debts — free tier covers ${FREE_DEBT_LIMIT}. Unlock Pro to import the full file.`;
-        openPaywall("debts");
-        return;
-      }
       if (next.savings.length > FREE_SAVING_LIMIT) {
         status.textContent = `CSV has ${next.savings.length} savings goals — free tier covers ${FREE_SAVING_LIMIT}. Unlock Pro to import the full file.`;
         openPaywall("savings");
@@ -9938,6 +9920,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.51.0": [
+    "<strong>More free</strong> — every debt, pay-later plans (Atome, SPayLater), bill reminders and Copy last month are now free for everyone, with 5 savings goals and 5 receipt scans a month. Pro is now about automatic backup, unlimited scans, budget pools and other currencies.",
+  ],
   "1.50.0": [
     "<strong>Every debt you clear gets its moment</strong> — the second a debt hits zero, Duitful celebrates it: what you paid, what it frees up each month, and which debt is next. Clear the last one and it says the words: debt-free.",
   ],

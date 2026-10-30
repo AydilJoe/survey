@@ -163,7 +163,7 @@ shows nothing without it.
    prices by tier; choose the Malaysian storefront and find the tier whose
    MYR price is 19.90)
 6. **Localization** (English): Display Name `Duitful Pro`, Description
-   "Unlimited debts, scans and reminders. Pay once." (Apple caps IAP
+   "Auto backup, unlimited scans, budget pools. Pay once." (Apple caps IAP
    descriptions at 55 characters)
 7. **Review information**: screenshot of the paywall (take one in the
    simulator-free way: install a TestFlight build, screenshot the unlock

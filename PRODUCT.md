@@ -36,7 +36,7 @@ A privacy-first personal finance tracker for Malaysia: monthly income and expens
 ## Capabilities and Constraints
 
 - **Stack:** no framework, no build step for the web app; main logic in `app/script.js`. Serverless API on Vercel Hobby (12-function limit) for Billplz payments and license signing only; no database.
-- **Free/Pro:** Free covers 3 debts, 3 savings goals, 3 OCR scans/month, 2 investment holdings. Pro (`duitful_pro`, RM 19.90 lifetime) unlocks unlimited debts/goals/holdings, instalment plans, receipt OCR, reminders, encrypted multi-device sync. Islamic financing and zakat are free on every tier and must never be upsold.
+- **Free/Pro:** Free covers what people install Duitful for: every debt and the debt-free date, pay-later/instalment plans, reminders, copy-last-month, plus 5 savings goals, 3 investment holdings and 5 OCR scans/month. Pro (`duitful_pro`, RM 19.90 lifetime) adds automatic encrypted backup, unlimited scans/goals/holdings, budget pools and multi-currency entries. Islamic financing and zakat are free on every tier and must never be upsold.
 - **Terminology is per contract:** Islamic rows say "profit rate", conventional rows say "APR", in the same list; blended totals read "Total interest + profit". Zakat figures are planning estimates, not religious rulings.
 - **Privacy constraints on design:** no third-party SDKs reading transactions, no analytics on financial data, no price API calls for investments. Privacy mode hides every ringgit figure while keeping percentages.
 - Light and dark themes, chosen before first paint.
