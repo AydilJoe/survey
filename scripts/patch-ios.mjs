@@ -298,6 +298,127 @@ if (swift.includes("duitfulHandleShortcut")) {
   console.log("patch-ios: injected quick-action routing into AppDelegate.swift.");
 }
 
+/* ---------- 3b. Siri & Shortcuts (App Intents) ---------- */
+// "Log a spend" and "Scan a receipt" as App Intents, so they show up in
+// Siri, Spotlight and the Shortcuts app, and "Log a spend" can be the action
+// of a Wallet "Transaction" automation (iOS 17+): tap Apple Pay, and the
+// amount and merchant land in Duitful to confirm.
+//
+// They live in AppDelegate.swift because iOS only discovers App Intents
+// compiled into the app target itself (an intent inside a CocoaPods
+// framework is invisible to Siri), and this file is already ours to patch.
+// Appended after the AppDelegate class, never inside it.
+//
+// The vault is encrypted under a key that only exists while the app is open
+// and unlocked, and "Log a spend" runs without opening the app. So it writes
+// a small plain entry (amount, merchant, time) to a queue in UserDefaults;
+// DuitfulKitPlugin.drainQuickAdd hands the queue to the web layer on unlock,
+// where each entry becomes a pending transaction to confirm. Same design,
+// and same privacy cost, as Android's quick-add queue.
+const INTENTS_MARK = "DuitfulLogSpendIntent";
+const INTENTS_SWIFT = `
+// MARK: - Siri & Shortcuts (injected by scripts/patch-ios.mjs)
+
+/// The queue "Log a spend" writes to. The key is shared with
+/// DuitfulKitPlugin.quickAddKey (native/duitful-kit); rename both or neither.
+enum DuitfulQuickAddQueue {
+    static let key = "duitful.quickAdd.queue"
+    static let cap = 50
+
+    /// "RM12.50", "12.5", "MYR 1,234.00" -> 12.5 / 1234.0. Wallet hands the
+    /// amount over as formatted currency text.
+    static func parseAmount(_ raw: String) -> Double? {
+        let cleaned = raw.replacingOccurrences(of: ",", with: "")
+        guard let range = cleaned.range(of: #"\\d+(?:\\.\\d{1,2})?"#, options: .regularExpression),
+              let value = Double(cleaned[range]), value > 0, value < 1_000_000 else { return nil }
+        return (value * 100).rounded() / 100
+    }
+
+    static func append(amount: Double, merchant: String?) {
+        let defaults = UserDefaults.standard
+        var items = defaults.array(forKey: key) as? [[String: Any]] ?? []
+        var entry: [String: Any] = ["a": amount, "t": Date().timeIntervalSince1970 * 1000, "s": "shortcut"]
+        if let name = merchant?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+            entry["c"] = String(name.prefix(60))
+        }
+        items.append(entry)
+        if items.count > cap { items.removeFirst(items.count - cap) }
+        defaults.set(items, forKey: key)
+    }
+}
+
+@available(iOS 16.0, *)
+struct ${INTENTS_MARK}: AppIntent {
+    static var title: LocalizedStringResource = "Log a spend"
+    static var description = IntentDescription(
+        "Adds a spend to Duitful to confirm next time you open it. Add it to a Wallet transaction automation to log every Apple Pay tap.")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Amount", requestValueDialog: "How much did you spend?")
+    var amount: String
+
+    @Parameter(title: "Merchant")
+    var merchant: String?
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Log \\(\\.$amount) at \\(\\.$merchant) in Duitful")
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let value = DuitfulQuickAddQueue.parseAmount(amount) else {
+            throw $amount.needsValueError("What was the amount? For example 12.50")
+        }
+        DuitfulQuickAddQueue.append(amount: value, merchant: merchant)
+        return .result(dialog: "Added to Duitful. Open it to confirm.")
+    }
+}
+
+@available(iOS 16.0, *)
+struct DuitfulScanReceiptIntent: AppIntent {
+    static var title: LocalizedStringResource = "Scan a receipt"
+    static var description = IntentDescription("Opens Duitful's receipt scanner.")
+    static var openAppWhenRun: Bool = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        // The same door the Home Screen quick action uses.
+        if let url = URL(string: "${APP_SCHEME}://action/scan") {
+            _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url, options: [:])
+        }
+        return .result()
+    }
+}
+
+@available(iOS 17.0, *)
+struct DuitfulAppShortcuts: AppShortcutsProvider {
+    static var appShortcuts: [AppShortcut] {
+        AppShortcut(intent: ${INTENTS_MARK}(), phrases: [
+            "Log a spend in \\(.applicationName)",
+            "Add a spend to \\(.applicationName)",
+        ], shortTitle: "Log a spend", systemImageName: "plus.circle")
+        AppShortcut(intent: DuitfulScanReceiptIntent(), phrases: [
+            "Scan a receipt in \\(.applicationName)",
+        ], shortTitle: "Scan a receipt", systemImageName: "doc.viewfinder")
+    }
+}
+`;
+
+{
+  let swift = readFileSync(APP_DELEGATE, "utf8");
+  if (swift.includes(INTENTS_MARK)) {
+    console.log("patch-ios: AppDelegate already has the Siri & Shortcuts intents, skipping.");
+  } else {
+    if (!/^import UIKit$/m.test(swift)) {
+      console.error("patch-ios: no `import UIKit` in AppDelegate.swift, cannot add App Intents:", APP_DELEGATE);
+      process.exit(1);
+    }
+    if (!/^import AppIntents$/m.test(swift)) swift = swift.replace(/^import UIKit$/m, "import UIKit\nimport AppIntents");
+    swift = swift.replace(/\s*$/, "\n") + INTENTS_SWIFT;
+    writeFileSync(APP_DELEGATE, swift);
+    console.log("patch-ios: added the Siri & Shortcuts App Intents to AppDelegate.swift.");
+  }
+}
+
 /* ---------- 4. Home Screen widget (WidgetKit extension) ---------- */
 // A widget extension is a SEPARATE PROCESS. It cannot decrypt anything:
 // the vault is AES-GCM sealed under a key derived from the user's passcode

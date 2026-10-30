@@ -664,6 +664,33 @@ then — see the long comment at the top of the Fastfile.
 - **Build logs** — every failed run uploads `ios-build-logs` as an
   artifact (Actions → the run → Artifacts). That's your Xcode window.
 
+## DuitfulKit: document scanner, on-device AI, Siri & Shortcuts
+
+`native/duitful-kit` (pod `DuitfulCapacitorKit`) adds, with **no new
+capability, entitlement or permission** (the scanner uses the existing
+camera string):
+
+- **Document scanner** — VisionKit's document camera, or "Choose photo"
+  (PHPicker). Pages come back as JPEG data URLs to the existing OCR.
+- **On-device AI** — Foundation Models (iOS 26 + Apple Intelligence),
+  weak-linked so the app still launches on iOS 15–18. Built with
+  `#if canImport(FoundationModels)`, so it needs the Xcode 26 SDK to be
+  included at all.
+- **ML Kit Entity Extraction** — `GoogleMLKit/EntityExtraction`, same
+  GoogleMLKit range as text recognition. Downloads Google's English model
+  on first use.
+- **Siri & Shortcuts** — "Log a spend" and "Scan a receipt" App Intents,
+  injected into `AppDelegate.swift` by `patch-ios.mjs` (section 3b) because
+  iOS only finds intents compiled into the app target. "Log a spend" runs
+  without opening the app, so it queues `{a, c, t, s}` in
+  `UserDefaults` (`duitful.quickAdd.queue`); the web layer drains it on
+  unlock into pending entries to confirm.
+
+To log every Apple Pay tap (iOS 17+): Shortcuts → Automation → **+** →
+**Transaction** → pick the cards → Run Immediately → add Duitful's **Log a
+spend**, set *Amount* to the Shortcut Input's **Amount** and *Merchant* to
+its **Merchant**.
+
 ## iCloud backup on iOS
 
 On iPhone, Pro backs up to iCloud with nothing to sign into. It stores the

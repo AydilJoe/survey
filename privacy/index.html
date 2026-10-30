@@ -37,7 +37,7 @@
   "url": "https://duitful.app/privacy/",
   "description": "Privacy policy for Duitful — a privacy-first personal finance tracker built in Malaysia.",
   "inLanguage": "en",
-  "dateModified": "2026-10-29",
+  "dateModified": "2026-10-30",
   "publisher": {
     "@type": "Organization",
     "name": "Duitful",
@@ -203,7 +203,7 @@
 
   <h1>Privacy <em>policy</em></h1>
   <p class="lede">Written in plain English, not legalese. The short version lives right below — the rest is the full detail you'll want if you care, or if a regulator asks.</p>
-  <p class="meta">Effective 23 April 2026 · Last updated 29 October 2026</p>
+  <p class="meta">Effective 23 April 2026 · Last updated 30 October 2026</p>
 
   <div class="tldr">
     <h2>The short version</h2>
@@ -256,6 +256,14 @@
     <li><strong>Web app and PWA</strong> — recognition uses <strong>Tesseract.js</strong>, an open-source OCR engine that runs as WebAssembly inside the page. Same stance: the image is processed locally and never sent anywhere, and the engine itself is served from Duitful's own site.</li>
   </ul>
   <p>Either way, the photo is only held in memory while the scan dialog is open, and only the values you choose to apply (amount, merchant, items) are saved into your encrypted local database.</p>
+
+  <h3>Document scanner, entity reader and on-device AI (iPhone and Android apps)</h3>
+  <ul>
+    <li><strong>Document scanner</strong> — on iPhone, Apple's VisionKit document camera; on Android, Google's ML Kit Document Scanner, which runs inside Google Play services. Both find the receipt's edges and straighten it on the device, and hand the page back to Duitful. Nothing is uploaded.</li>
+    <li><strong>Entity reader</strong> — Google's ML Kit Entity Extraction finds amounts and dates in a receipt's text, and in a bank notification whose wording Duitful doesn't recognise. The first time it is used, the phone downloads Google's English language model file; after that it works offline. The text being read is never sent anywhere.</li>
+    <li><strong>On-device AI</strong> — when Duitful isn't sure of a receipt's total, shop or date, it can ask the AI model built into your phone: Apple's on-device foundation model (iOS 26 with Apple Intelligence) or Google's Gemini Nano (on supported Android phones). The model runs on the phone. Duitful never sends a receipt to Apple's Private Cloud Compute, to Google's servers or to us, and keeps the AI's answer only if the receipt itself prints it.</li>
+    <li><strong>Siri &amp; Shortcuts (iPhone)</strong> — "Log a spend" can run without opening Duitful, for example from a Wallet automation when you pay with Apple Pay. Your data is locked at that moment, so the amount and the shop's name wait in a small unencrypted list on your phone until the next time you open Duitful, when they become a pending entry for you to confirm and the list is cleared. It never holds balances or anything else.</li>
+  </ul>
 
   <h3>Biometric unlock (native app, optional)</h3>
   <p>In the Android app you can optionally turn on <strong>Unlock with fingerprint / Face ID</strong> (Settings → Security). When enabled, your passcode is stored in your phone's hardware keystore (Android Keystore / iOS Keychain) and released to the app only after your phone's own fingerprint or face check succeeds. The passcode never leaves the device, is never sent to us, and remains the only key to your data — biometrics just save you typing it. Your biometric data itself (fingerprint or face) is handled entirely by the operating system; Duitful never sees it. The feature turns itself off if your device's biometric enrollment changes, and passcode entry always remains available. The web app does not use biometrics at all.</p>
