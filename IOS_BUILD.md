@@ -172,6 +172,11 @@ shows nothing without it.
 8. Save. Status will sit at **Ready to Submit** until it goes for review
    alongside the first app version.
 
+**An IAP's name and description are read-only once it has been added to a
+submission.** To change them: Draft Submissions → In-App Purchases → delete
+that row, edit the product, then **Add for Review → Draft Submission** to put
+it back. Removing the *last* item in a draft deletes the whole submission.
+
 **Then create a second one, the same way:** Product ID
 **`duitful_pro_launch`**, Non-Consumable, Reference Name `Duitful Pro
 (launch promo)`, priced at the tier that lands on **RM 14.90**, same
@@ -490,7 +495,12 @@ from the iPad.
 
 **Screenshots** (required sizes, upload from your device's Photos app):
 
-- 6.7" / 6.9" iPhone (e.g. iPhone 15 Pro Max, 1290×2796) — **mandatory**
+- **iPhone with Dynamic Island (medium display)**, i.e. 6.1"/6.3" —
+  **mandatory**. Accepted: **1206×2622**, **1179×2556**, or those reversed.
+  A modern iPhone Pro shoots 1206×2622 natively. The old 6.9" 1290×2796
+  bucket ("large display") is now **Optional**
+- Move the files as **files, not photos** — Telegram and WhatsApp recompress
+  to ~1177×2560, which App Store Connect rejects
 - No iPad screenshots: v1.0 ships **iPhone-only**. Capacitor's template
   targets iPhone and iPad (`"1,2"`); `scripts/patch-ios.mjs` sets
   `TARGETED_DEVICE_FAMILY = 1` so App Review doesn't test an iPad layout
@@ -502,13 +512,17 @@ Take them on your own device from a TestFlight build: Dashboard,
 Debt payoff plan, Receipt scan, Bill split, Settings/privacy. Five is
 plenty. No device frames needed — Apple accepts raw screenshots.
 
-**App Privacy** → **Data Not Collected**. Duitful genuinely collects
-nothing: the vault is AES-GCM encrypted in local storage, there is no
-account, no analytics SDK, and Drive backup is the user's own Drive.
-Answer "No" to every collection question, and Apple shows the
-"Data Not Collected" label on the listing. (If Drive sync ever changes,
-revisit — the file goes to *their* Drive, not yours, which is why it
-stays "not collected".)
+**App Privacy** → one data type: **Purchases → Purchase History**, used for
+**App Functionality**, **not linked** to identity, **not** used for tracking.
+Everything else is "No". The vault is AES-GCM encrypted in local storage,
+there is no account and no analytics SDK, and iCloud / Drive backups go to
+the user's own account already encrypted, which Apple does not count as
+collection by the developer. Purchase History is declared because
+`recordNativeAttribution()` in `app/script.js` posts the product ID, store
+transaction ID, app version and any friend/promo code to
+`duitful.app/api/native/record-purchase` after a purchase. The exact answers
+are in `APP_STORE_LISTING.md`. App Privacy is **published separately from the
+version** and takes effect as soon as you publish it.
 
 **Other required fields**:
 
@@ -583,11 +597,17 @@ Before submitting:
 ## Submitting for review
 
 1. TestFlight build processed and smoke-tested on your own device
-2. App Store Connect → your app → **iOS App 1.0** → pick the build
-3. Attach the `duitful_pro` IAP to this version (Monetization → In-App
-   Purchases → tick it in the version's *In-App Purchases* section, or
-   Apple reviews it separately and later)
-4. **Add for Review** → **Submit to App Review**
+2. App Store Connect → your app → the version page → pick the build
+3. Attach **both** IAPs, `duitful_pro` and `duitful_pro_launch` (Monetization
+   → In-App Purchases → **Add for Review** on each, choosing the existing
+   Draft Submission). Both are needed: the shipped build buys
+   `duitful_pro_launch` whenever LAUNCH100 is applied, so a missing product
+   fails the purchase in front of the reviewer
+4. **Add the version itself to the submission** — **Add for Review** on the
+   version page, then pick the Draft Submission. A draft holding only IAPs
+   says *"Unable to Submit for Review — add an app version for the selected
+   platform"* and the Submit button stays greyed out
+5. **Submit for Review**, with "Manually release this version" chosen
 5. First review typically takes 24–48 hours. Rejections arrive in
    **Resolution Center**; you reply there, no resubmission needed for
    metadata-only fixes.
@@ -679,6 +699,11 @@ with it off, the backup could never start. CloudKit's private database only
 needs the user to be signed in to iCloud.
 
 ### One-time: deploy the `Backup` record type (CloudKit Console)
+
+**Already done for this repo's container** (`iCloud.com.aydiljoe.duitful`):
+Production carries `Backup` with the `payload` ASSET field, and Deploy Schema
+Changes reports no pending differences. The steps below are for a fresh
+container, or if you ever add a field.
 
 Production CloudKit refuses record types that aren't in its deployed
 schema, and TestFlight and App Store builds always use Production. Until
