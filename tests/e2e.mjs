@@ -4513,6 +4513,45 @@ check('and what was typed reaches the home screen calculation',
   check('a page arrives animated but is active immediately',
     mo.tabActiveNow && mo.tabAnimated, JSON.stringify(mo));
 
+  // iOS-style page motion on a phone: Reports pushes in over Home, which
+  // stays drawn (pinned, inert, hidden from assistive tech) only while it
+  // slides away; Back pops; another tab only dissolves. Nothing is left
+  // behind once the motion ends, and a second change mid-motion settles
+  // the first at once.
+  const vpMotion = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const pm = await page.evaluate(async () => {
+    const vw = window.innerWidth;
+    const panels = () => [...document.querySelectorAll('.tab-panel')];
+    const settle = () => Promise.all(panels().flatMap((x) => x.getAnimations()).map((a) => a.finished.catch(() => {})));
+    document.getElementById('tabbtn-dashboard').click(); await settle();
+    document.getElementById('tabbtn-reports').click();
+    const home = document.getElementById('tab-dashboard'), rep = document.getElementById('tab-reports');
+    const during = {
+      activeIsReports: rep.classList.contains('active') && !home.classList.contains('active'),
+      homeHeld: home.classList.contains('is-leaving') && home.inert && home.getAttribute('aria-hidden') === 'true'
+        && getComputedStyle(home).position === 'fixed',
+      reportsOnTop: rep.classList.contains('is-top'),
+      slides: rep.getAnimations().some((a) => a.effect.getKeyframes().some((k) => /translateX\(\d/.test(k.transform || ''))),
+    };
+    // Back before the push finishes: the push settles, the pop starts.
+    document.getElementById('tabbtn-dashboard').click();
+    const midPop = { onlyOneLeaving: document.querySelectorAll('.tab-panel.is-leaving').length === 1, reportsLeaving: rep.classList.contains('is-leaving') };
+    await settle();
+    const after = { clean: !document.querySelector('.tab-panel.is-leaving, .tab-panel.is-top, .tab-panel[inert], .tab-panel[aria-hidden]')
+      && !home.style.left && !rep.style.left };
+    document.getElementById('tabbtn-debts').click();
+    const tabSlides = document.getElementById('tab-debts').getAnimations()
+      .some((a) => a.effect.getKeyframes().some((k) => k.transform && k.transform !== 'none'));
+    await settle();
+    document.getElementById('tabbtn-dashboard').click(); await settle();
+    return { vw, during, midPop, after, tabSlides };
+  });
+  await page.setViewportSize(vpMotion);
+  check('page motion: Reports pushes over Home, which is held inert only while it leaves; Back mid-push pops cleanly; tabs only dissolve',
+    pm.vw < 1000 && Object.values(pm.during).every(Boolean) && pm.midPop.onlyOneLeaving && pm.midPop.reportsLeaving
+      && pm.after.clean && !pm.tabSlides, JSON.stringify(pm));
+
   const still = await b.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
   const pStill = await still.newPage();
   await pStill.goto(`${BASE}/app/index.html`);

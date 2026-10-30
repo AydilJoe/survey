@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.52.1";
+const APP_VERSION = "1.52.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -6261,8 +6261,8 @@ function updateCurrencyLabels() {
    Motion here explains, it doesn't decorate. Three jobs:
    - the one authored moment: a logged amount travels into the balance it
      comes off, while the balance counts down to its new value;
-   - continuity: a page arrives from the side it lives on (Material's
-     shared axis — tabs left to right, pages under Home from the right);
+   - continuity: pages under Home push in from the right and pop back,
+     as on iOS; tabs cross-dissolve;
    - feedback: the entry you just logged lands in Today with a brief wash.
    DOM changes stay synchronous — every animation runs on an element that
    is already in its final state, so nothing waits on motion and nothing
@@ -6280,19 +6280,85 @@ function guideIsShowing() {
   return (spot && !spot.hidden) || !!document.getElementById("guide-dialog")?.open;
 }
 
-// The page arriving: from the right when moving forward (a later tab, or a
-// page under Home), from the left when going back. 16px and a fade — enough
-// to say where you went, short enough never to be waited on.
-function animatePanelIn(panel, dir) {
-  if (!canAnimate(panel) || guideIsShowing()) return;
+// Page changes move the way iOS moves them. A page under Home pushes in
+// from the right edge over the page you left, which slides a third of the
+// way left and dims; going back reverses it. Switching tabs is a quick
+// cross-dissolve, as in a tab bar. Wide screens (sidebar) only dissolve:
+// a desktop window doesn't slide its content around.
+// The DOM has already switched when this runs: the page you left keeps its
+// layout for the length of the motion through `.is-leaving` (styled exactly
+// like `.active`), pinned where it was on screen, inert and hidden from
+// assistive tech, then lets go.
+const PUSH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+let _leaving = null;
+function settleLeaving() {
+  if (!_leaving) return;
+  const { panel, anims } = _leaving;
+  _leaving = null;
+  anims.forEach((a) => a.cancel());
+  panel.classList.remove("is-leaving", "is-top");
+  panel.removeAttribute("inert");
+  panel.removeAttribute("aria-hidden");
+  panel.style.removeProperty("left");
+  panel.style.removeProperty("top");
+  panel.style.removeProperty("width");
+}
+function animatePanels(fromPanel, fromRect, toPanel, dir) {
+  settleLeaving();
+  toPanel?.getAnimations().forEach((a) => a.cancel());
+  if (!canAnimate(toPanel) || guideIsShowing()) return;
   const reduce = prefersReducedMotion();
-  panel.getAnimations().forEach((a) => a.cancel());
-  panel.animate(
-    reduce
-      ? [{ opacity: 0 }, { opacity: 1 }]
-      : [{ opacity: 0, transform: `translateX(${dir * 16}px)` }, { opacity: 1, transform: "none" }],
-    { duration: reduce ? 140 : 260, easing: MOTION_EASE },
-  );
+  const slide = !reduce && dir !== 0 && fromPanel && fromRect && fromRect.width > 0
+    && window.innerWidth < 1000 && isHomeDrill(fromPanel, toPanel);
+  if (!fromPanel || !fromRect || !fromRect.width || reduce) {
+    toPanel.animate([{ opacity: 0 }, { opacity: 1 }], { duration: reduce ? 140 : 220, easing: "ease-out" });
+    return;
+  }
+  fromPanel.classList.add("is-leaving");
+  fromPanel.setAttribute("inert", "");
+  fromPanel.setAttribute("aria-hidden", "true");
+  fromPanel.style.left = `${fromRect.left}px`;
+  fromPanel.style.top = `${fromRect.top}px`;
+  fromPanel.style.width = `${fromRect.width}px`;
+  let anims;
+  if (slide) {
+    const d = 420, opts = { duration: d, easing: PUSH_EASE, fill: "both" };
+    const off = `${fromRect.width + 16}px`, under = `${Math.round(fromRect.width * -0.3)}px`;
+    const dim = "brightness(0.94)";
+    if (dir > 0) {
+      // Push: the new page is on top.
+      anims = [
+        toPanel.animate([{ transform: `translateX(${off})` }, { transform: "none" }], opts),
+        fromPanel.animate([{ transform: "none", filter: "none" }, { transform: `translateX(${under})`, filter: dim }], opts),
+      ];
+      toPanel.classList.add("is-top");
+    } else {
+      // Pop: the page you leave is on top and slides off to the right.
+      fromPanel.classList.add("is-top");
+      anims = [
+        fromPanel.animate([{ transform: "none" }, { transform: `translateX(${off})` }], opts),
+        toPanel.animate([{ transform: `translateX(${under})`, filter: dim }, { transform: "none", filter: "none" }], opts),
+      ];
+    }
+  } else {
+    anims = [
+      fromPanel.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, easing: "ease-out", fill: "both" }),
+      toPanel.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "ease-out" }),
+    ];
+  }
+  const entry = { panel: fromPanel, anims };
+  _leaving = entry;
+  Promise.allSettled(anims.map((a) => a.finished)).then(() => {
+    toPanel.classList.remove("is-top");
+    if (_leaving === entry) settleLeaving();
+  });
+}
+// Home and the pages under it form one stack. Another tab is a switch,
+// even from inside that stack.
+function isHomeDrill(a, b) {
+  const under = (p) => ["tab-daily", "tab-reports", "tab-tax"].includes(p?.id);
+  const home = (p) => p?.id === "tab-dashboard";
+  return (home(a) && under(b)) || (under(a) && (home(b) || under(b)));
 }
 
 function tabDirection(from, to) {
@@ -6410,12 +6476,14 @@ document.querySelectorAll(".tab").forEach((btn) => {
       if (isActive) b.removeAttribute("tabindex");
       else b.setAttribute("tabindex", "-1");
     });
+    const from = currentTabName;
+    const fromPanel = from !== name ? document.getElementById(`tab-${from}`) : null;
+    const fromRect = fromPanel?.classList.contains("active") ? fromPanel.getBoundingClientRect() : null;
     document.querySelectorAll(".tab-panel").forEach((p) => {
       p.classList.toggle("active", p.id === `tab-${name}`);
     });
-    const from = currentTabName;
     currentTabName = name;
-    if (from !== name) animatePanelIn(document.getElementById(`tab-${name}`), tabDirection(from, name));
+    if (from !== name) animatePanels(fromPanel, fromRect, document.getElementById(`tab-${name}`), tabDirection(from, name));
     // A page change lands at the top, and on its heading for keyboard and
     // screen-reader users arriving from a link rather than the nav.
     if (btn.dataset.parentTab || btn.hidden) {
@@ -9952,6 +10020,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.52.2": [
+    "<strong>Smoother pages</strong> — Reports, Tax and All entries slide in over Home and slide back out when you go back, and switching tabs fades instead of jumping.",
+  ],
   "1.52.1": [
     "<strong>The Duitful icon is back</strong> — on Android the last two updates showed a placeholder icon on your home screen. It's the Duitful wallet again.",
   ],
