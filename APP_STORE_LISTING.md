@@ -100,9 +100,9 @@ WHAT IT DOES
 
 FREE AND PRO
 
-Free covers up to 3 debts, 2 savings goals, 2 investments and 3 receipt scans a month. Islamic finance and zakat are always free.
+Free covers every debt and your debt-free date, pay-later plans, reminders, 5 savings goals, 3 investments and 5 receipt scans a month. Islamic finance, zakat and tax relief are always free.
 
-Duitful Pro is a one-time in-app purchase — no subscription. It removes the limits and adds instalment plans, reminders and multi-device sync.
+Duitful Pro is a one-time in-app purchase — no subscription. It adds automatic encrypted backup to iCloud or Google Drive, unlimited scans, goals and investments, budget pools and entries in other currencies.
 
 
 I'm Aydil, in Kuala Lumpur. Duitful is not a company — no investors, no ad network, no data partners. If something's broken or wrong, tell me and I'll fix it.
@@ -165,4 +165,4 @@ encrypted, which Apple does not count as collection by the developer.
 | `duitful_pro` | Non-Consumable | tier at RM 19.90 | Duitful Pro |
 | `duitful_pro_launch` | Non-Consumable | tier at RM 14.90 | Duitful Pro |
 
-Description for both (Apple allows 55 characters): `Unlimited debts, scans and reminders. Pay once.` (47)
+Description for both (Apple allows 55 characters): `Auto backup, unlimited scans, budget pools. Pay once.` (52)

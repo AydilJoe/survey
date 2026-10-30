@@ -137,13 +137,14 @@ Optional, and off until you switch it on
 
 
 Free and Pro
-Free: up to 3 debts, 2 savings goals, 2 investments and 3 receipt scans a month. Pro is a one-time in-app purchase — no subscription — that lifts the limits and adds pay-later and instalment plans, reminders and multi-device sync.
+Free: every debt and your debt-free date, pay-later plans, reminders, 5 savings goals, 3 investments and 5 receipt scans a month. Pro is a one-time in-app purchase — no subscription — that adds automatic backup, unlimited scans, goals and investments, budget pools and other currencies.
 
 I'm Aydil, in Kuala Lumpur. Duitful isn't a company: no investors, no ad network, no data partners. If something's broken or wrong, tell me and I'll fix it.
 ```
 
 ~3,200 of 4,000 characters. Facts checked against the code: free limits are
-3 debts, 2 savings goals, 2 investments and 3 receipt scans a month
+5 savings goals, 3 investments and 5 receipt scans a month, with debts
+never limited
 (`FREE_*` constants in `app/script.js`); zakat uses a gold price the user
 types; notification capture and Google Drive backup are both opt-in.
 

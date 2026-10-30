@@ -125,12 +125,16 @@ trial.
 
 | | Free | Pro |
 | --- | --- | --- |
-| Debts | 3 | unlimited |
-| Savings goals | 2 | unlimited |
-| Investment holdings | 2 | unlimited |
-| Receipt scans | 3 per month | unlimited |
-| Instalment / BNPL plans | — | ✓ |
-| Reminders | — | ✓ |
+| Debts | unlimited | unlimited |
+| Instalment / BNPL plans | ✓ | ✓ |
+| Reminders | ✓ | ✓ |
+| Copy last month | ✓ | ✓ |
+| Savings goals | 5 | unlimited |
+| Investment holdings | 3 | unlimited |
+| Receipt scans | 5 per month | unlimited |
+| Automatic iCloud / Drive backup | — | ✓ |
+| Budget pools (rollover, monthly limits) | 1 | ✓ |
+| Entries in other currencies | — | ✓ |
 
 Product ID `duitful_pro` (non-consumable). The price helps cover the Apple
 Developer Program membership (USD $99/year, paid) and the Play console fee

@@ -536,10 +536,13 @@ check('zakatable flag round-trips (EPF stays out)', invRt.epf && invRt.epf.zakat
 check('a pre-investments export still imports',
   invRt.legacy.debts === 2 && invRt.legacy.investments === 0, JSON.stringify(invRt.legacy));
 
-// Free tier: 2 holdings. The fresh profile auto-starts a 7-day Pro trial, so
-// age it out rather than asserting against a trial user.
+const FREE_LIMIT_HOLDINGS = await S(() => FREE_INVESTMENT_LIMIT);
+// Free tier: FREE_INVESTMENT_LIMIT (3) holdings. The fresh profile auto-starts
+// a 7-day Pro trial, so age it out rather than asserting against a trial user.
+// A stand-in third holding fills the free allowance; it goes after the check.
 await S(() => {
   state.investments = state.investments.slice(0, 2);
+  state.investments.push({ ...JSON.parse(JSON.stringify(state.investments[0])), id: 'inv-filler', name: 'Filler holding' });
   state.pro = false;
   state.proTrialStartedAt = Date.now() - 8 * 24 * 60 * 60 * 1000;
   save(); renderAll();
@@ -549,12 +552,12 @@ check('trial aged out → not Pro', (await S(() => isPro())) === false);
 await page.click('#tabbtn-savings');
 await openAdd('form-investment');
 await page.click('.invest-type-pills .pill[data-invest-kind="balance"]');
-await page.fill('#form-investment [name="name"]', 'Third holding');
+await page.fill('#form-investment [name="name"]', 'Fourth holding');
 await page.fill('#form-investment [name="balance"]', '1000');
 await page.click('#form-investment button[type="submit"]');
 await page.waitForTimeout(400);
-check('3rd holding is gated for a non-Pro user',
-  (await S(() => state.investments.length)) === 2
+check('a holding past the free limit is gated for a non-Pro user',
+  (await S(() => state.investments.length)) === FREE_LIMIT_HOLDINGS
   && await page.locator('#paywall-dialog').evaluate(e => e.open),
   String(await S(() => state.investments.length)));
 check('paywall names the holdings limit',
@@ -562,6 +565,7 @@ check('paywall names the holdings limit',
   await page.locator('#paywall-reason').textContent());
 await page.click('#paywall-close');
 await page.waitForTimeout(300);
+await S(() => { state.investments = state.investments.filter((h) => h.id !== 'inv-filler'); save(); renderAll(); });
 
 // Delete removes the holding and its records.
 await page.click(`button[data-action="delete-investment"][data-id="${invId}"]`);
@@ -4962,6 +4966,60 @@ check('the vault is open before the quick-add checks',
     check('debt paid off: no page errors', dErr.length === 0, dErr.join(' | '));
     await dctx.close();
   }
+  {
+    // Free (trial over, never paid) keeps what people install Duitful for:
+    // any number of debts, pay-later plans, reminders and Copy last month.
+    const fctx2 = await b.newContext({ viewport: { width: 390, height: 844 } });
+    const fp2 = await fctx2.newPage();
+    await fp2.goto(`${BASE}/app/index.html`);
+    await fp2.waitForTimeout(800);
+    await fp2.click('#btn-start-open');
+    await fp2.waitForTimeout(1500);
+    const free = await fp2.evaluate(async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      state.pro = false; state.proTrialStartedAt = Date.now() - 8 * 86400000; save(); renderAll();
+      const paywall = () => document.getElementById('paywall-dialog').open;
+      const form = document.getElementById('form-debt');
+      const addStandard = (name) => {
+        openAddForm('form-debt', { focus: false });
+        form.querySelector('.debt-type-pills .pill[data-debt-kind="standard"]').click();
+        form.querySelector('[name="name"]').value = name;
+        const f = form.querySelector('#debt-fields-standard');
+        f.querySelector('[name="balance"]').value = '1000';
+        f.querySelector('[name="apr"]').value = '10';
+        f.querySelector('[name="minPayment"]').value = '50';
+        form.requestSubmit();
+      };
+      for (let i = 1; i <= 4; i++) { addStandard('Debt ' + i); await wait(150); }
+      const afterFour = { n: state.debts.length, paywall: paywall() };
+      openAddForm('form-debt', { focus: false });
+      form.querySelector('.debt-type-pills .pill[data-debt-kind="installment"]').click();
+      const kindPaywall = paywall();
+      form.querySelector('[name="name"]').value = 'Atome';
+      const inst = form.querySelector('#debt-fields-installment');
+      inst.querySelector('[name="installment"]').value = '40';
+      inst.querySelector('[name="monthsLeft"]').value = '3';
+      form.requestSubmit();
+      await wait(200);
+      const bnpl = state.debts.some((d) => d.kind === 'installment' && d.name === 'Atome');
+      // Copy last month: a bill last month, none this month.
+      state.expenses = [{ id: 'cp1', name: 'Rent', amount: 900, month: shiftMonth(currentMonthISO(), -1), day: 1 }];
+      selectedMonth = currentMonthISO(); save(); renderAll();
+      window.confirm = () => true; window.alert = () => {};
+      document.getElementById('btn-copy-prev').click();
+      await wait(200);
+      const copied = state.expenses.some((x) => x.name === 'Rent' && x.month === currentMonthISO());
+      return { pro: isPro(), afterFour, kindPaywall, bnpl, copied, copyPaywall: paywall(),
+        status: document.getElementById('pro-status').textContent };
+    });
+    check('free tier: a 4th debt is added with no paywall (debts are never limited)',
+      !free.pro && free.afterFour.n === 4 && !free.afterFour.paywall, JSON.stringify(free.afterFour));
+    check('free tier: pay-later / instalment plans are free', !free.kindPaywall && free.bnpl, JSON.stringify(free));
+    check('free tier: Copy last month is free', free.copied && !free.copyPaywall, JSON.stringify(free));
+    check('free tier: Settings describes the new split', /every debt/i.test(free.status) && /automatic backup/i.test(free.status), free.status);
+    await fctx2.close();
+  }
   check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
     lockWords <= 35 && steps.every((n) => n <= 30), JSON.stringify({ lockWords, steps }));
 }
@@ -6547,7 +6605,6 @@ check('the brand catalogue makes no network calls at all',
 
   // Every free-tier number in the table is a constant in the app.
   for (const [label, konst] of [
-    ['debts', 'FREE_DEBT_LIMIT'],
     ['savings goals', 'FREE_SAVING_LIMIT'],
     ['investment holdings', 'FREE_INVESTMENT_LIMIT'],
     ['receipt scans', 'FREE_OCR_MONTHLY'],
@@ -6557,6 +6614,8 @@ check('the brand catalogue makes no network calls at all',
     check(`the README's free ${label} limit matches ${konst} (${value})`,
       row.test(readme), `looking for ${value}`);
   }
+  check('the README says debts are free without limit, as the app has no debt limit',
+    /\|\s*Debts\s*\|\s*unlimited\s*\|/i.test(readme) && !/FREE_DEBT_LIMIT/.test(src));
   const trial = num(/const TRIAL_DAYS = (\d+)/);
   check(`the README states the real trial length (${trial} days)`,
     new RegExp(`${trial}-day Pro\\s+trial|${trial}-day Pro trial`).test(readme), `${trial}`);

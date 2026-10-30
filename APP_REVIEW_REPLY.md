@@ -44,7 +44,7 @@ No login credentials or sample files are needed.
 7. **Duitful Pro (In-App Purchase):** Settings → Unlock Duitful Pro. The two non-consumable products are submitted with this version:
    - `duitful_pro` (standard price);
    - `duitful_pro_launch` (a discounted price, used only when the promo code LAUNCH100 is entered under "Have a promo code?" on the purchase screen).
-   Restore purchase is on the same screen. Pro removes the free limits (3 debts, 2 savings goals, 3 receipt scans a month) and adds instalment plans, reminders and cloud backup.
+   Restore purchase is on the same screen. Pro adds automatic cloud backup, unlimited receipt scans (free: 5 a month), unlimited savings goals and investments (free: 5 and 3), budget pools and entries in other currencies. Debts, pay-later plans and reminders are free.
 
 **4. External services**
 
