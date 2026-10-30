@@ -270,6 +270,7 @@
     <li><code>duit-tracker.privacy</code> — whether you have "blur balances" mode turned on.</li>
     <li><code>duitful.biometricUnlock</code> — only in the native app, and only if you turned on biometric unlock: a flag that tells the lock screen to offer the fingerprint / face button. It contains no secret — the passcode itself lives in the phone's hardware keystore, not in local storage.</li>
     <li><code>duitful.noPasscode</code> — only if you started without a passcode: a flag that tells the app to open with the built-in code instead of asking. It contains no secret.</li>
+    <li><code>duitful.updateSeen</code> and <code>duitful.updateSnoozedUntil</code> — only in the native app: when an app update was first noticed and until when you asked to hide the update banner ("Later"), so it waits a week and stays quiet after you dismiss it.</li>
     <li><code>duit-tracker.install-dismissed-at</code> — the timestamp when you dismissed the "install as an app" prompt, so we don't show it again for a while.</li>
     <li><code>duit-tracker.drive</code> — only present if you have connected Google Drive sync (Pro). Holds the OAuth access token Google issued to your browser, the Drive file identifier of your backup, your Google account email (so the in-app status line can show which account is connected), and the timestamp of the last successful sync. Removed when you disconnect Drive sync.</li>
   </ul>

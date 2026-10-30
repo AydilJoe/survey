@@ -262,10 +262,11 @@ The **Release builds** workflow (`.github/workflows/release.yml`) makes the
 signed iOS app and the signed Android bundle in one go. It uses the same
 three App Store Connect secrets as above — nothing new to add for iOS.
 
-- **Automatically:** a merge to `main` that changes the version in
-  `package.json` builds, signs and uploads to **TestFlight** (and prepares
-  the App Store version page without submitting), publishes Android to Play
-  Production, then tags the commit `v<version>`.
+- **Automatically:** a merge to `main` that raises the minor version, or
+  the Tuesday 03:17 UTC run for any untagged version (patch bumps), builds,
+  signs and uploads to **TestFlight** (and prepares the App Store version
+  page without submitting), publishes Android to Play Production, then tags
+  the commit `v<version>`.
 - **By tag:** `git tag v1.46.1 && git push origin v1.46.1`. The tag has to
   match `package.json` (`1.46.1`) or the run stops before building.
 - **By hand:** Actions → **Release builds** → **Run workflow**. Untick

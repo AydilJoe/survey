@@ -378,11 +378,13 @@ The same **Release builds** run also publishes the bundle to Google Play,
 with the release notes taken from the app's "What's new" for that version
 (`scripts/play-release-notes.mjs`) and the R8 mapping file attached:
 
-- **Automatically, on a version bump.** Merge a change to `main` that raises
-  the version in `package.json` (the usual release bump) and the run
-  publishes to **Production, rolled out to 100%** once Google's review
-  passes, uploads the iOS build to TestFlight, then tags the commit
-  `v<version>`. Merges that leave the version alone release nothing.
+- **Automatically, batched.** A merge to `main` that raises the *minor*
+  version (1.52.0 → 1.53.0), or the weekly run every Tuesday at 03:17 UTC
+  for any version not tagged yet (that is how patch bumps like 1.52.1 get
+  there), publishes to **Production, rolled out to 100%** once Google's
+  review passes, uploads the iOS build to TestFlight, then tags the commit
+  `v<version>`. So users see one or two store updates a week, not one per
+  merge.
 - **A version tag** (`git tag v1.51.0 && git push origin v1.51.0`) does the
   same for Play (the iOS build is only kept as an artifact).
 - **Run workflow by hand** lets you pick the track: `production`, `beta`

@@ -2341,6 +2341,36 @@ check('digest throttles to one per 5 days and keeps the backlog',
   !wnThrottle.openNow && wnThrottle.backlogKept && wnThrottle.reopens,
   JSON.stringify(wnThrottle));
 
+/* ── 12c. the store-update banner is quiet too ──────────────────────────
+   Phones auto-update within days: the banner waits a week from the first
+   sighting, a stream of new releases cannot restart that clock, and Later
+   hides it for two weeks. */
+const updQuiet = await S(() => {
+  const D = 86400000, t0 = Date.now();
+  localStorage.removeItem('duitful.updateSeen');
+  localStorage.removeItem('duitful.updateSnoozedUntil');
+  const first = updateBannerDue(t0);
+  const day6 = updateBannerDue(t0 + 6 * D);
+  const day7 = updateBannerDue(t0 + 7 * D);
+  const banner = document.getElementById('update-banner');
+  banner.hidden = false;
+  document.getElementById('update-banner-later').click();
+  const hiddenByLater = banner.hidden;
+  const snoozed = Number(localStorage.getItem('duitful.updateSnoozedUntil'));
+  const inSnooze = updateBannerDue(Date.now() + 13 * D);
+  const afterSnooze = updateBannerDue(Date.now() + 15 * D);
+  // After the user updates (a different APP_VERSION recorded), the clock restarts.
+  localStorage.setItem('duitful.updateSeen', JSON.stringify({ from: '0.0.1', at: t0 - 30 * D }));
+  const afterUpdate = updateBannerDue(t0);
+  localStorage.removeItem('duitful.updateSeen');
+  localStorage.removeItem('duitful.updateSnoozedUntil');
+  return { first, day6, day7, hiddenByLater, snoozeDays: Math.round((snoozed - t0) / D), inSnooze, afterSnooze, afterUpdate };
+});
+check('update banner: silent for the first week, then shown; Later hides it for 14 days; updating restarts the week',
+  !updQuiet.first && !updQuiet.day6 && updQuiet.day7 && updQuiet.hiddenByLater && updQuiet.snoozeDays === 14
+  && !updQuiet.inSnooze && updQuiet.afterSnooze && !updQuiet.afterUpdate,
+  JSON.stringify(updQuiet));
+
 /* ── 13. lending logs the outgoing expense (v1.14.1) ────────────────────
    Money lent genuinely leaves you: default-on checkbox books a "Money
    lent" expense on the lend date, so the eventual repayment income nets
@@ -8100,10 +8130,12 @@ check('the brand catalogue makes no network calls at all',
   check('release workflow: all four Android secrets are checked up front and passed only to the steps that need them',
     ['ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD'].every(k => rel.includes(`secrets.${k}`))
     && !/^env:\n(?:  .*\n)*  .*secrets\./m.test(rel.replace(/\njobs:[\s\S]*/, '')), 'no workflow-level env with secrets');
-  check('release workflow: a version bump merged to main releases by itself (Play Production + TestFlight) and then tags v<version>; nothing else on main releases',
-    /branches: \[main\]\n\s+paths: \[package\.json\]/.test(rel) && /Version unchanged/.test(rel) && /is already tagged, nothing to release/.test(rel)
+  check('release workflow: automatic store releases are batched — a merge ships only a new minor version, a Tuesday run ships any untagged version, both to Play Production + TestFlight, then tag v<version>',
+    /branches: \[main\]\n\s+paths: \[package\.json\]/.test(rel) && /schedule:\n\s+- cron: "17 3 \* \* 2"/.test(rel)
+      && /is already tagged, nothing to release/.test(rel) && /"\$\{before%\.\*\}" = "\$\{version%\.\*\}"/.test(rel)
       && (rel.match(/needs\.prepare\.outputs\.release == 'true'/g) || []).length === 3
-      && /github\.ref_type == 'branch'\) && 'testflight'/.test(rel)
+      && (rel.match(/github\.event_name != 'workflow_dispatch' \|\| inputs\.(android|ios)/g) || []).length === 2
+      && /github\.event_name == 'schedule' \|\| \(github\.event_name == 'push' && github\.ref_type == 'branch'\)\) && 'testflight'/.test(rel)
       && /\n  tag:\n[\s\S]*contents: write[\s\S]*git push origin "v\$VERSION"/.test(rel)
       && !/^permissions:\n  contents: write/m.test(rel));
   check('release workflow: the iOS half calls ios.yml (signed IPA, TestFlight only if ticked) and inherits its secrets',
@@ -8115,7 +8147,7 @@ check('the brand catalogue makes no network calls at all',
     /Check signing secrets are present\n\s+if: inputs\.lane != 'build-only'/.test(ios)
     && /DUITFUL_BUILD_NUMBER=\$\(date -u \+%y%m%d\)/.test(ios) && !/DUITFUL_BUILD_NUMBER: \$\{\{ github\.run_number/.test(ios));
   check('release workflow: a tag publishes the AAB to Play Production at 100%; by hand the track is a choice that includes none',
-    /TRACK: \$\{\{ github\.event_name == 'push' && 'production' \|\| inputs\.play_track \}\}/.test(rel)
+    /TRACK: \$\{\{ github\.event_name != 'workflow_dispatch' && 'production' \|\| inputs\.play_track \}\}/.test(rel)
     && /upload_to_play_store/.test(rel) && /release_status:completed/.test(rel) && /- none/.test(rel)
     && /package_name:com\.aydiljoe\.duitful/.test(rel));
   check('release workflow: the Play key only reaches its own step, a missing key warns instead of failing, and the key is deleted',
