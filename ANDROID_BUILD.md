@@ -382,18 +382,21 @@ with the release notes taken from the app's "What's new" for that version
 - **Run workflow by hand** lets you pick the track: `production`, `beta`
   (open testing), `alpha` (closed testing), `internal`, or `none`.
 
-It needs one more secret, set up once:
+It needs one more secret, set up once. Play Console no longer has an "API
+access" page and no Cloud project has to be linked; the service account is
+simply invited as a user:
 
-1. Play Console → **Setup → API access** → link (or create) a Google Cloud
-   project.
-2. In that Google Cloud project → **IAM & Admin → Service accounts** →
-   **Create service account** (any name, e.g. `duitful-ci`). No roles are
-   needed in Google Cloud. Open it → **Keys → Add key → JSON** and keep the
-   downloaded file safe.
+1. [Google Cloud console](https://console.cloud.google.com): pick or create
+   a project → **APIs & Services → Library** → "Google Play Android
+   Developer API" → **Enable**.
+2. [Service accounts](https://console.cloud.google.com/iam-admin/serviceaccounts)
+   → **Create service account** (e.g. `duitful-ci`; no roles) → open it →
+   **Keys → Add key → Create new key → JSON**. Keep the downloaded file safe.
 3. Play Console → **Users and permissions → Invite new users** → paste the
-   service account's email → **App permissions** → Duitful → tick
-   **Release to production, exclude devices, and use Play App Signing** and
-   **Release apps to testing tracks** → invite.
+   service account's email (`…@….iam.gserviceaccount.com`) → **App
+   permissions** → Duitful → tick **Release to production, exclude devices,
+   and use Play App Signing** and **Release apps to testing tracks** (not
+   Admin) → invite. A new account can take a few hours before Play accepts it.
 4. GitHub → Settings → Secrets and variables → Actions → **New repository
    secret** `PLAY_SERVICE_ACCOUNT_JSON`, value: the whole JSON file.
 
