@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.51.1";
+const APP_VERSION = "1.52.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -9952,6 +9952,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.52.0": [
+    "<strong>Made for wider and folding screens</strong> — on tablets, unfolded phones, the iPhone Duo's outer screen and phones turned sideways, the tabs move to a rail down the side so your money gets the full height.",
+  ],
   "1.51.1": [
     "<strong>Fewer update nags</strong> — the update banner now waits a week (most phones update on their own by then), and Later hides it for two weeks.",
   ],
