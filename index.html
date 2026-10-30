@@ -74,7 +74,8 @@
       "Android auto-settle when a matching bank transfer arrives",
       "CSV export and import",
       "End-to-end on-device encryption",
-      "Encrypted multi-device sync via your own Google Drive (Pro)"
+      "LHDN tax relief finder and refund estimate from your spending, with receipts kept for e-Filing",
+      "Encrypted backup to your own iCloud or Google Drive (Pro)"
     ],
     "offers": [
       {
@@ -1645,7 +1646,8 @@
     .benefits-grid { grid-template-columns: repeat(3, 1fr); }
     .benefits .feature h3 { font-size: 1.2rem; margin-bottom: 4px; }
     .benefits .feature p { font-size: 1rem; margin: 0; }
-    @media (max-width: 960px) { .benefits-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 960px) { .benefits-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 600px) { .benefits-grid { grid-template-columns: 1fr; } }
     .benefit-tags {
       list-style: none; padding: 0; margin: 28px auto 0;
       display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
@@ -1919,9 +1921,9 @@
   </div>
 
   <!-- ======================= BENEFITS =======================
-       Three things, a few words each. The full feature list lived here as
-       eight cards and ~370 words; visitors decide in a screen or two, so the
-       detail moved into the app and the guides. -->
+       Six key features, one line each, then tags for the rest. Visitors
+       decide in a screen or two, so detail lives in the app and the guides;
+       the e2e suite keeps the page under 600 words. -->
   <section class="block benefits" id="features">
     <div class="container">
       <div class="features-grid benefits-grid">
@@ -1933,7 +1935,22 @@
         <div class="feature reveal">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></div>
           <h3>See your debt-free date</h3>
-          <p>Costliest debt first. BNPL and Islamic financing included.</p>
+          <p>Costliest debt first. Atome, SPayLater and Islamic financing included.</p>
+        </div>
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></div>
+          <h3>Find your tax relief</h3>
+          <p>Spending that counts for LHDN relief gets flagged, with your likely refund.</p>
+        </div>
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg></div>
+          <h3>Goals, investments, zakat</h3>
+          <p>Save towards a target, track what you hold, work out what you owe.</p>
+        </div>
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></div>
+          <h3>Split bills with a QR</h3>
+          <p>Friends scan it to see their share. No account needed.</p>
         </div>
         <div class="feature reveal">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div>
@@ -1942,7 +1959,7 @@
         </div>
       </div>
       <ul class="benefit-tags reveal" aria-label="Also inside">
-        <li>Atome</li><li>SPayLater</li><li>PTPTN</li><li>Credit cards</li><li>Zakat</li><li>Split bills</li><li>Receipt scan</li><li>Drive backup</li><li>Works offline</li>
+        <li>PTPTN</li><li>Credit cards</li><li>Bill reminders</li><li>Monthly reports</li><li>iCloud &amp; Drive backup</li><li>Budget pools</li><li>Other currencies</li><li>Works offline</li><li>Tablets &amp; foldables</li>
       </ul>
     </div>
   </section>
