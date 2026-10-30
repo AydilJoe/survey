@@ -8277,7 +8277,9 @@ check('the brand catalogue makes no network calls at all',
     !!body && body.schema === 1 && !!body.record && !!body.record.cipher && !!body.record.salt
     && body.appProperties.lastEditedAt === lastEdited, file && file.slice(0, 120));
   check('nothing readable reaches iCloud — the record is encrypted before the plugin sees it',
-    !!file && !file.includes('Probe Kad Kredit') && !file.includes('1234'));
+    // Look for the plaintext field, not the bare digits: random ciphertext
+    // spells "1234" now and then.
+    !!file && !file.includes('Probe Kad Kredit') && !/"balance":\s*1234/.test(file));
   check('the card reports the backup', /Last backed up/.test(await page.locator('#icloud-last-synced').textContent()));
 
   const gated = await S(async () => {
@@ -8594,6 +8596,31 @@ check('the brand catalogue makes no network calls at all',
   const flat = await fp.evaluate(() => ({ fold: !!window.foldLabCurrent().fold, url: location.search }));
   check('fold lab page: opening the hinge flat turns the fold off and the URL keeps the state',
     !flat.fold && /posture=tabletop/.test(flat.url) && /angle=180/.test(flat.url), JSON.stringify(flat));
+  // The app itself: the navigation each viewport gets must be the one the
+  // fold lab draws (FoldLab.navFor), and nothing scrolls sideways.
+  const sizes = [[390, 844], [375, 667], [360, 640], [412, 940], [476, 676], [852, 393], [832, 748],
+    [768, 1024], [952, 676], [1024, 768], [1280, 860]];
+  const ap = await b.newPage({ viewport: { width: 390, height: 844 } });
+  await ap.goto(`${BASE}/folds/`, { waitUntil: 'load' });
+  const want = await ap.evaluate((sz) => sz.map(([w, h]) => window.FoldLab.navFor(w, h)), sizes);
+  await ap.goto(`${BASE}/app/`, { waitUntil: 'load' });
+  const navMiss = [];
+  for (let i = 0; i < sizes.length; i++) {
+    const [w, h] = sizes[i];
+    await ap.setViewportSize({ width: w, height: h });
+    await ap.waitForTimeout(60);
+    const got = await ap.evaluate(() => {
+      const cs = getComputedStyle(document.querySelector('.tabs'));
+      const width = parseFloat(cs.width) || 0;
+      const nav = cs.flexDirection !== 'column' ? 'bottom' : width < 150 ? 'rail' : 'sidebar';
+      const pad = parseFloat(getComputedStyle(document.body).paddingLeft) || 0;
+      return { nav, inset: nav === 'bottom' || Math.abs(pad - width) < 1, sw: document.documentElement.scrollWidth };
+    });
+    if (got.nav !== want[i] || !got.inset || got.sw > w) navMiss.push(`${w}x${h}: ${JSON.stringify(got)} want ${want[i]}`);
+  }
+  await ap.close();
+  check('app frame: bottom bar on tall phones, side rail on short or mid-width screens (Duo outer, landscape, Fold inner, tablets), sidebar from 1000px — as the fold lab draws it',
+    navMiss.length === 0 && want.filter((n) => n === 'rail').length >= 5 && want.slice(0, 4).every((n) => n === 'bottom'), navMiss.join(' | '));
   await fp.close();
 }
 

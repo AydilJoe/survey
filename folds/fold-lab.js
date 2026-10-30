@@ -176,6 +176,7 @@
   const SIDEBAR_MIN_W = 1000; // tablets and desktop; every folding phone stays below it
   const RAIL_MIN_W = 600;     // Material "medium" width and up: a side rail
   const RAIL_MAX_H = 720;     // shorter than this and a bottom bar costs too much height
+  const RAIL_SHORT_MIN_W = 440; // ...but a small phone upright keeps its bottom bar
   const SIDEBAR_W = 208, RAIL_W = 76, BAR_H = 64, PANE_HEAD = 48, PAD = 16, GAP = 10;
   const SPLIT_MIN_W = 600;    // content this wide shows two panes even without a fold
 
@@ -199,6 +200,15 @@
   // Even column count for a pane: a fold or a centre line never cuts a card.
   function columnsFor(w) { return w < 340 ? 1 : w < 720 ? 2 : 4; }
 
+  // Which navigation a W x H CSS-px viewport gets. Mirrors the media queries
+  // in app/styles.css: sidebar from 1000px, rail from 600px or on a short
+  // screen at least 440px wide, bottom bar otherwise.
+  function navFor(W, H) {
+    if (W >= SIDEBAR_MIN_W) return "sidebar";
+    if (W >= RAIL_MIN_W || (H < RAIL_MAX_H && W >= RAIL_SHORT_MIN_W)) return "rail";
+    return "bottom";
+  }
+
   function layout(deviceId, postureId, screenId, opts) {
     opts = opts || {};
     const dev = device(deviceId);
@@ -216,19 +226,16 @@
     const boxes = [];
     const add = (b) => { boxes.push(b); return b; };
 
-    // 1. Navigation: sidebar when wide, side rail when short, bottom bar otherwise.
-    let nav, content = { ...safe };
-    if (W >= SIDEBAR_MIN_W) {
-      nav = "sidebar";
+    // 1. Navigation: the app's own rule (app/styles.css, "Side rail").
+    let nav = navFor(W, H), content = { ...safe };
+    if (nav === "sidebar") {
       add({ kind: "nav", role: "sidebar", x: safe.x, y: safe.y, w: SIDEBAR_W, h: safe.h });
       content = { x: safe.x + SIDEBAR_W, y: safe.y, w: safe.w - SIDEBAR_W, h: safe.h };
-    } else if (W >= RAIL_MIN_W || H < RAIL_MAX_H) {
-      nav = "rail";
+    } else if (nav === "rail") {
       const rx = dev.railEdge === "right" ? safe.x + safe.w - RAIL_W : safe.x;
       add({ kind: "nav", role: "rail", x: rx, y: safe.y, w: RAIL_W, h: safe.h });
       content = { x: dev.railEdge === "right" ? safe.x : safe.x + RAIL_W, y: safe.y, w: safe.w - RAIL_W, h: safe.h };
     } else {
-      nav = "bottom";
       add({ kind: "nav", role: "bottom", x: 0, y: H - ins.b - BAR_H, w: W, h: BAR_H + ins.b, padB: ins.b });
       content = { x: safe.x, y: safe.y, w: safe.w, h: safe.h - BAR_H };
     }
@@ -418,5 +425,5 @@
     return cases;
   }
 
-  root.FoldLab = { DEVICES, SCREENS, CONTENT, layout, problems, allCases, device, posture, foldRect, reservedRects };
+  root.FoldLab = { DEVICES, SCREENS, CONTENT, navFor, layout, problems, allCases, device, posture, foldRect, reservedRects };
 })(typeof window !== "undefined" ? window : globalThis);

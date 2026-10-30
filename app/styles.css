@@ -655,6 +655,7 @@ html, body {
   font-family: var(--font-sans);
   line-height: 1.5;
   min-height: 100vh;
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.1px;
@@ -679,7 +680,7 @@ h1 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.3px; }
 h2 { font-weight: 600; letter-spacing: -0.2px; }
 
 .app-header {
-  padding: calc(1rem + env(safe-area-inset-top)) 1rem 0.25rem;
+  padding: calc(1rem + env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0.25rem max(1rem, env(safe-area-inset-left));
   background: var(--stage);
 }
 .brand {
@@ -897,7 +898,7 @@ main {
 .tab-panel.active { display: block; }
 
 /* ---------- Wide-screen (PC / iPad landscape) layout ----------
-   Phone-first design stays as-is below 900px. On desktop the app
+   Phone-first design stays as-is below 1000px. On desktop the app
    becomes a real workspace: a wider centered frame, and each tab's
    cards flow into a 2-column masonry (3 columns past 1400px) instead
    of one tall stack — so big screens get an intentional dashboard,
@@ -926,7 +927,7 @@ main {
 @media (min-width: 640px) {
   /* Lift the 640px phone cap so tablets (768px / 820px / iPad portrait)
      use their real width for the columns instead of being boxed into a
-     640px strip. The desktop frame-chrome block (>= 900px) widens this
+     640px strip. The desktop frame-chrome block (>= 1000px) widens this
      further to 1080/1320 with its centered border treatment. */
   .app-header, .tabs, main {
     max-width: 920px;
@@ -959,11 +960,11 @@ main {
 
 /* ---------- Wide-screen layout: left sidebar nav (desktop) ----
    On phones/tablets the horizontal pill tabs above stay the primary nav.
-   At >= 900px we shift to a classic dashboard layout — the .tabs row
+   At >= 1000px we shift to a classic dashboard layout — the .tabs row
    becomes a fixed left sidebar (icon + label per row, active row has a
    terracotta left accent), and the rest of the app shell (header + main)
    sits to the right of it, centered within its own max-width. */
-@media (min-width: 900px) {
+@media (min-width: 1000px) {
   :root { --sidebar-w: 232px; }
   html, body {
     background:
@@ -1085,7 +1086,7 @@ main {
 /* Toast / update banner sit centered within the content area on desktop
    instead of behind the sidebar. They use `left: 50%; transform: translateX(-50%)`
    on mobile; override to shift right by half the sidebar width. */
-@media (min-width: 900px) {
+@media (min-width: 1000px) {
   #toast { left: calc(50% + var(--sidebar-w) / 2); }
   .app-toast,
   .app-update-banner { left: calc(50% + var(--sidebar-w) / 2); }
@@ -1104,8 +1105,8 @@ main {
    reports, monthly) but squeezes the "form + list" workflow tabs. These
    overrides give Debts / Savings a proper 2-pane (form sidebar | list)
    and Daily a centered reading-width feed instead of an edge-to-edge
-   wall. Gated at >= 900px so phone/tablet keep the simple stack. */
-@media (min-width: 900px) {
+   wall. Gated at >= 1000px so phone/tablet keep the simple stack. */
+@media (min-width: 1000px) {
   /* Debts and Savings: the list card spans the row; the payoff plan,
      payoff order and investments flow beneath it in the normal grid. Their
      add forms open inline in the card, so there's no form sidebar. */
@@ -6699,7 +6700,7 @@ body.private .pending-match-sub {
    reach, the way iOS and Android apps do it. Labels stay under the icons.
    Everything else that hugs the bottom edge (toasts, banners) is lifted by
    --tabbar-h, and the bar steps aside while the keyboard is up. */
-@media (max-width: 899px) {
+@media (max-width: 999px) {
   :root { --tabbar-h: calc(4.1rem + env(safe-area-inset-bottom, 0px)); }
   .tabs {
     position: fixed;
@@ -6760,7 +6761,7 @@ body.private .pending-match-sub {
   body.is-typing .tabs { transform: translateY(110%); }
   .tabs { transition: transform 0.2s ease; }
 }
-@media (max-width: 899px) and (prefers-reduced-motion: reduce) {
+@media (max-width: 999px) and (prefers-reduced-motion: reduce) {
   .tabs { transition: none; }
 }
 
@@ -6864,12 +6865,12 @@ html[data-theme="dark"] {
 .debt-list li .day-chip.today { color: var(--gain); }
 
 /* -- terracotta: where you are -- */
-@media (max-width: 899px) {
+@media (max-width: 999px) {
   .tabs .tab.active .tab-icon,
   .tabs .tab.active:hover .tab-icon { background: color-mix(in srgb, var(--brand) 20%, transparent); color: var(--brand-ink); }
   .tabs .tab:hover .tab-icon { background: color-mix(in srgb, var(--brand) 9%, transparent); }
 }
-@media (min-width: 900px) {
+@media (min-width: 1000px) {
   .tab.active::before { background: var(--brand); }
   .tab.active .tab-icon { color: var(--brand-ink); }
 }
@@ -7001,7 +7002,7 @@ html[data-theme="dark"] {
    wash now, full height, and main and the header sit on it. The header's
    brand row spans the same width as the cards instead of a 640px phone
    column centred over them. */
-@media (min-width: 900px) {
+@media (min-width: 1000px) {
   main, .app-header { background: transparent; }
   body::before {
     background:
@@ -7479,3 +7480,59 @@ html::before {
 }
 .restore-actions { justify-content: center; }
 .restore-actions .primary { min-width: 12rem; }
+
+/* ---------- v1.52 Side rail on short or mid-width screens ----------
+   A bottom bar suits a tall phone held upright. On a wide-but-not-desktop
+   screen (tablet portrait, an unfolded Galaxy Z Fold, a phone on its side)
+   or a short one (the iPhone Duo's outer screen) it spends height the
+   content needs, so the tabs move to a rail down the left edge. Width
+   alone picks the rail from 600px; under that only a short screen does,
+   and only from 440px, so a small phone upright keeps its bottom bar and
+   a keyboard shrinking the height never flips the navigation mid-typing.
+   The same rule lives in folds/fold-lab.js (navFor) — change both. */
+@media (min-width: 600px) and (max-width: 999px),
+       (min-width: 440px) and (max-width: 599px) and (max-height: 719px) {
+  :root {
+    --rail-w: calc(5rem + env(safe-area-inset-left, 0px));
+    --tabbar-h: env(safe-area-inset-bottom, 0px);
+  }
+  body { padding-left: var(--rail-w); }
+  /* The brand row spans the cards' width, not a phone column centred over them. */
+  .app-header .brand { max-width: none; }
+  .tabs {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: var(--rail-w);
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 0.35rem;
+    padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0 calc(0.75rem + env(safe-area-inset-bottom, 0px)) env(safe-area-inset-left, 0px);
+    border-top: none;
+    border-right: 1px solid var(--line);
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .tabs .tab {
+    flex: 0 0 auto;
+    max-width: none;
+    width: 100%;
+    min-height: 3.6rem;
+  }
+  /* The rail runs beside the keyboard rather than on top of it. */
+  body.is-typing .tabs { transform: none; }
+  main { padding-bottom: calc(2rem + env(safe-area-inset-bottom, 0px)); }
+  /* Bottom-centred notices centre on the content, not on the rail. */
+  #toast,
+  .app-toast,
+  .app-update-banner,
+  .pwa-install-banner,
+  .save-error { left: calc(50% + var(--rail-w) / 2); }
+  .pwa-install-banner { width: calc(100% - var(--rail-w) - 1.5rem); }
+  .save-error {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    width: min(32rem, calc(100% - var(--rail-w) - 2rem));
+  }
+}
