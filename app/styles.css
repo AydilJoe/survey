@@ -2954,6 +2954,8 @@ button.ghost.icon-btn {
   padding: 0.5rem 0.9rem;
   font-size: 0.85rem;
 }
+.trial-banner-actions { display: flex; gap: 0.5rem; flex: 0 0 auto; }
+.trial-banner-actions button { padding: 0.5rem 0.9rem; font-size: 0.85rem; }
 .trial-banner.trial-banner-expired {
   background: linear-gradient(180deg, rgba(28, 43, 56, 0.12), rgba(28, 43, 56, 0.05));
   border-color: rgba(28, 43, 56, 0.32);
@@ -2965,6 +2967,7 @@ button.ghost.icon-btn {
     align-items: stretch;
   }
   .trial-banner > .primary { align-self: stretch; }
+  .trial-banner-actions .primary { flex: 1; }
 }
 
 /* Pro card in Data tab */

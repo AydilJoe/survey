@@ -14,11 +14,15 @@ name: Release builds (signed AAB + IPA)
 # tick "TestFlight".
 #
 # When it runs:
-#   - automatically, when a merge to main changes the version in
-#     package.json and there is no v<version> tag yet: Play Production at
-#     100% plus TestFlight (the App Store page is prepared, never submitted),
-#     then the run tags the commit v<version>. Any other merge to main, even
-#     one that touches package.json, releases nothing.
+#   - automatically, so users get a store update about once or twice a week
+#     rather than on every merge. Both send Play Production at 100% plus
+#     TestFlight (the App Store page is prepared, never submitted), then tag
+#     the commit v<version>:
+#       * a merge to main that raises the minor version (1.52.0 -> 1.53.0);
+#       * every Tuesday, whatever version is on main if it is not tagged yet,
+#         which is how patch bumps (1.52.1) reach the stores.
+#     A patch bump is live on the web at once and waits for Tuesday in the
+#     stores. Anything else on main releases nothing.
 #   - on a version tag:  git tag v1.46.1 && git push origin v1.46.1
 #     (the tag must match package.json, or the run stops before building)
 #   - by hand: Actions → Release builds → Run workflow
@@ -41,6 +45,8 @@ on:
     tags: ["v*"]
     branches: [main]
     paths: [package.json]
+  schedule:
+    - cron: "17 3 * * 2" # Tuesday 03:17 UTC (11:17 in Malaysia)
   workflow_dispatch:
     inputs:
       android:
@@ -95,21 +101,22 @@ jobs:
             exit 1
           fi
           release=true
-          # A merge to main releases only a new version: package.json's
-          # version must differ from the commit before, and v<version> must
-          # not be tagged yet (so a re-run or a dependency bump ships nothing).
-          if [ "$GITHUB_REF_TYPE" = "branch" ] && [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            before=""
-            if git fetch -q --depth=1 origin "$BEFORE_SHA" 2>/dev/null; then
-              before=$(git show "$BEFORE_SHA:package.json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).version)}catch{}})")
-            fi
-            if [ "$before" = "$version" ]; then
-              echo "Version unchanged ($version), nothing to release."; release=false
-            elif [ -n "$(git ls-remote --tags origin "refs/tags/v$version")" ]; then
+          # Automatic runs ship only a version that is not tagged yet, so a
+          # re-run or a dependency bump ships nothing. A merge additionally
+          # needs a new minor version; patch bumps wait for the weekly run.
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] || { [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$GITHUB_REF_TYPE" = "branch" ]; }; then
+            if [ -n "$(git ls-remote --tags origin "refs/tags/v$version")" ]; then
               echo "v$version is already tagged, nothing to release."; release=false
-            else
-              echo "Version $before -> $version: releasing to Play Production and TestFlight."
+            elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
+              before=""
+              if git fetch -q --depth=1 origin "$BEFORE_SHA" 2>/dev/null; then
+                before=$(git show "$BEFORE_SHA:package.json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).version)}catch{}})")
+              fi
+              if [ "${before%.*}" = "${version%.*}" ]; then
+                echo "Version $before -> $version is not a new minor version: it goes to the stores with Tuesday's release."; release=false
+              fi
             fi
+            if [ "$release" = true ]; then echo "Releasing $version to Play Production and TestFlight."; fi
           fi
           echo "release=$release" >> "$GITHUB_OUTPUT"
         env:
@@ -117,7 +124,7 @@ jobs:
 
   android:
     needs: prepare
-    if: ${{ needs.prepare.outputs.release == 'true' && (github.event_name == 'push' || inputs.android) }}
+    if: ${{ needs.prepare.outputs.release == 'true' && (github.event_name != 'workflow_dispatch' || inputs.android) }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -265,7 +272,7 @@ jobs:
           if-no-files-found: warn
           path: android/app/build/outputs/mapping/release/mapping.txt
 
-      # Google Play. A version bump on main or a tag publishes to Production
+      # Google Play. An automatic release or a tag publishes to Production
       # at 100%; a manual run uses
       # the play_track input ("none" skips). The service-account key exists
       # only on this runner and is removed with the keystore below. Without
@@ -275,7 +282,7 @@ jobs:
         id: play
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
-          TRACK: ${{ github.event_name == 'push' && 'production' || inputs.play_track }}
+          TRACK: ${{ github.event_name != 'workflow_dispatch' && 'production' || inputs.play_track }}
         run: |
           if [ "$TRACK" = "none" ]; then echo "Play upload not requested."; exit 0; fi
           if [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
@@ -324,18 +331,19 @@ jobs:
 
   ios:
     needs: prepare
-    if: ${{ needs.prepare.outputs.release == 'true' && (github.event_name == 'push' || inputs.ios) }}
+    if: ${{ needs.prepare.outputs.release == 'true' && (github.event_name != 'workflow_dispatch' || inputs.ios) }}
     uses: ./.github/workflows/ios.yml
     with:
-      # A version bump on main goes to TestFlight; a pushed tag only builds.
-      lane: ${{ ((github.event_name == 'workflow_dispatch' && inputs.testflight) || github.ref_type == 'branch') && 'testflight' || 'signed-ipa' }}
+      # Automatic releases go to TestFlight; a pushed tag only builds; by
+      # hand, only when ticked.
+      lane: ${{ ((github.event_name == 'workflow_dispatch' && inputs.testflight) || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_type == 'branch')) && 'testflight' || 'signed-ipa' }}
     secrets: inherit
 
   # After an automatic release, mark the commit v<version>. A tag pushed with
   # GITHUB_TOKEN does not start another run, so this cannot release twice.
   tag:
     needs: [prepare, android, ios]
-    if: ${{ github.event_name == 'push' && github.ref_type == 'branch' && needs.prepare.outputs.release == 'true' }}
+    if: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_type == 'branch')) && needs.prepare.outputs.release == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

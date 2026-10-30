@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.51.0";
+const APP_VERSION = "1.51.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4387,6 +4387,32 @@ function nativePlatform() {
 // an "Update now" banner. The CTA runs Play's immediate-update flow (its
 // own full-screen UI), falling back to opening the store listing (also the
 // iOS path, where the immediate flow doesn't exist).
+//
+// Quiet by design: most phones auto-update within days, so the banner only
+// appears once an update has been waiting a week on this install, and
+// "Later" hides it for two weeks. The clock starts when an update is first
+// seen and restarts only after the user updates, so a steady stream of
+// releases cannot keep pushing it back. An urgent fix goes out through
+// announcements.json (maxVersion) instead, which ignores both.
+const UPDATE_SEEN_KEY = "duitful.updateSeen";
+const UPDATE_SNOOZE_KEY = "duitful.updateSnoozedUntil";
+const UPDATE_GRACE_MS = 7 * 86400000;
+const UPDATE_SNOOZE_MS = 14 * 86400000;
+
+function updateBannerDue(now = Date.now()) {
+  let seen = null;
+  let snoozedUntil = 0;
+  try {
+    seen = JSON.parse(localStorage.getItem(UPDATE_SEEN_KEY) || "null");
+    snoozedUntil = Number(localStorage.getItem(UPDATE_SNOOZE_KEY)) || 0;
+  } catch {}
+  if (!seen || seen.from !== APP_VERSION || !Number.isFinite(seen.at)) {
+    try { localStorage.setItem(UPDATE_SEEN_KEY, JSON.stringify({ from: APP_VERSION, at: now })); } catch {}
+    return false;
+  }
+  return now - seen.at >= UPDATE_GRACE_MS && now >= snoozedUntil;
+}
+
 async function checkForAppUpdate() {
   if (!isNative()) return;
   const AppUpdate = window.Capacitor?.Plugins?.AppUpdate;
@@ -4395,6 +4421,7 @@ async function checkForAppUpdate() {
     const info = await AppUpdate.getAppUpdateInfo();
     // 2 === AppUpdateAvailability.UPDATE_AVAILABLE
     if (!info || info.updateAvailability !== 2) return;
+    if (!updateBannerDue()) return;
     // Naming the wrong store inside the wrong shell is both a lie and an
     // App Review flag, and this plugin runs on iOS too (it checks the
     // iTunes lookup API there).
@@ -4407,6 +4434,11 @@ async function checkForAppUpdate() {
     // check again on the next launch.
   }
 }
+document.getElementById("update-banner-later")?.addEventListener("click", () => {
+  try { localStorage.setItem(UPDATE_SNOOZE_KEY, String(Date.now() + UPDATE_SNOOZE_MS)); } catch {}
+  const banner = document.getElementById("update-banner");
+  if (banner) banner.hidden = true;
+});
 document.getElementById("update-banner-cta")?.addEventListener("click", async () => {
   const AppUpdate = window.Capacitor?.Plugins?.AppUpdate;
   if (!AppUpdate) return;
@@ -9920,6 +9952,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.51.1": [
+    "<strong>Fewer update nags</strong> — the update banner now waits a week (most phones update on their own by then), and Later hides it for two weeks.",
+  ],
   "1.51.0": [
     "<strong>More free</strong> — every debt, pay-later plans (Atome, SPayLater), bill reminders and Copy last month are now free for everyone, with 5 savings goals and 5 receipt scans a month. Pro is now about automatic backup, unlimited scans, budget pools and other currencies.",
   ],

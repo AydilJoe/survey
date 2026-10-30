@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=131" />
+    <link rel="stylesheet" href="styles.css?v=132" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
@@ -219,7 +219,7 @@
           </div>
           <button type="button" class="primary" id="trial-banner-cta">Unlock forever</button>
         </div>
-        <!-- Native only: shown when Google Play reports a newer build (see checkForAppUpdate). -->
+        <!-- Native only: shown when the store has had a newer build for a week (see checkForAppUpdate). -->
         <div id="update-banner" class="trial-banner" hidden role="region" aria-label="App update available">
           <div class="trial-banner-body">
             <span class="trial-banner-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg></span>
@@ -228,7 +228,10 @@
               <p class="trial-banner-sub" id="update-banner-sub">A newer version of Duitful is ready on Google Play.</p>
             </div>
           </div>
-          <button type="button" class="primary" id="update-banner-cta">Update now</button>
+          <div class="trial-banner-actions">
+            <button type="button" class="ghost" id="update-banner-later">Later</button>
+            <button type="button" class="primary" id="update-banner-cta">Update now</button>
+          </div>
         </div>
         <!-- Day 3 on the phone app: the first time Duitful asks to notify.
              Asked here, with a reason, instead of by Android on top of the
@@ -2571,6 +2574,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=11"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=173"></script>
+    <script src="script.js?v=174"></script>
   </body>
 </html>
