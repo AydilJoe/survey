@@ -8697,6 +8697,15 @@ check('the brand catalogue makes no network calls at all',
     /skip_icloud:/.test(iosYml) && /DUITFUL_IOS_SKIP_ICLOUD: \$\{\{ inputs\.skip_icloud/.test(iosYml)
     && /iCloudContainerEnvironment: "Production"/.test(fastfile));
   check('Swift never parses the record — it moves a string', !/JSONSerialization|JSONDecoder/.test(swift));
+  // ITMS-90626: App Store Connect rejects an App Intent whose user-facing
+  // text says "Apple" or "Siri" (1.53.0 lost two uploads to "Apple Pay").
+  {
+    const start = patchIos.indexOf('const INTENTS_SWIFT = `');
+    const block = start === -1 ? '' : patchIos.slice(start, patchIos.indexOf('`;', start));
+    const shown = [...block.matchAll(/"((?:[^"\\\n]|\\.)*)"/g)].map((m) => m[1]).filter((x) => / /.test(x));
+    check('App Intent text never says "Apple" or "Siri" (ITMS-90626)',
+      shown.length >= 8 && !shown.some((x) => /\bapple\b|\bsiri\b/i.test(x)), JSON.stringify(shown.filter((x) => /apple|siri/i.test(x))));
+  }
 
   // Vercel runs npm install on what .vercelignore leaves, so a file:
   // dependency it strips fails every deployment.
