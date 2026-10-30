@@ -5518,6 +5518,154 @@ check('the vault is open before the quick-add checks',
   check('a failing native call is swallowed, never thrown at the app',
     drained.threw === false, JSON.stringify(drained));
 
+  // DuitfulKit (native/duitful-kit): the phone's document scanner, entity
+  // reader and on-device AI, plus the iOS Siri & Shortcuts queue. Every piece
+  // is optional, so each check also pins what happens without it.
+  const kit = await S(async () => {
+    const out = {};
+    const prev = { cap: window.Capacitor, run: window.runReceiptOcr, quota: [window.canOcr, window.trackOcrUsage, window.refundOcrUsage] };
+    const tiny = (h, colour) => { const c = document.createElement('canvas'); c.width = 40; c.height = h; const x = c.getContext('2d'); x.fillStyle = colour; x.fillRect(0, 0, 40, h); return c.toDataURL('image/png'); };
+    const ran = [];
+    window.runReceiptOcr = async (input) => { ran.push(input); return true; };
+    window.canOcr = () => true; window.trackOcrUsage = () => {}; window.refundOcrUsage = () => {};
+    let cameraCalls = 0;
+    const shell = (scan) => ({ isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {
+      DuitfulKit: { scanDocument: scan },
+      Camera: { getPhoto: async () => { cameraCalls++; return { dataUrl: tiny(10, '#000') }; } },
+    } });
+    try {
+      // Two pages come back as one tall image, straight into the OCR.
+      window.Capacitor = shell(async () => ({ images: [tiny(30, '#fff'), tiny(50, '#eee')] }));
+      await startReceiptScan();
+      const img = new Image();
+      await new Promise((r) => { img.onload = r; img.onerror = r; img.src = ran[0] || ''; });
+      out.stitched = { calls: ran.length, h: img.naturalHeight, w: img.naturalWidth, camera: cameraCalls };
+      // Backing out of the scanner is a quiet no-op: no OCR, no camera.
+      ran.length = 0;
+      window.Capacitor = shell(async () => { throw Object.assign(new Error('Scan cancelled'), { code: 'CANCELLED' }); });
+      await startReceiptScan();
+      out.cancelled = { ocr: ran.length, camera: cameraCalls };
+      // No scanner on this phone (low RAM, no Play services): the camera
+      // sheet the app always had.
+      window.Capacitor = shell(async () => { throw Object.assign(new Error('UNSUPPORTED'), { code: 'UNAVAILABLE' }); });
+      await startReceiptScan();
+      out.fallback = { ocr: ran.length, camera: cameraCalls };
+    } finally {
+      window.Capacitor = prev.cap; window.runReceiptOcr = prev.run;
+      [window.canOcr, window.trackOcrUsage, window.refundOcrUsage] = prev.quota;
+    }
+
+    // The AI's reply, in both platforms' shapes, and junk.
+    out.reply = {
+      ios: parseAiReceiptReply({ total: 23.4, merchant: 'KEDAI ABC', date: '2026-10-01', currency: 'myr' }),
+      fenced: parseAiReceiptReply({ json: '```json\n{"total": 18.9, "merchant": "Mamak", "date": "", "currency": ""}\n```' }),
+      junk: parseAiReceiptReply({ json: 'I could not read this receipt' }),
+      zero: parseAiReceiptReply({ total: 0, merchant: '', date: 'yesterday', currency: 'ringgit' }),
+    };
+
+    // Merging: the AI fills gaps and replaces a low-confidence guess, but
+    // only with what the receipt actually prints.
+    const text = 'KEDAI MAKAN ABC\nNASI LEMAK 5.50\nTEH TARIK 2.40\nTOTAL DUE 7.90\nCASH 50.00';
+    const low = { amount: 50, amountConfidence: 'low', vendor: '', vendorConfidence: 'none', date: '', dateConfidence: 'none', currency: null };
+    const today = '2026-10-30T12:00:00';
+    out.merge = {
+      grounded: mergeReceiptOpinion(low, { total: 7.9, merchant: 'Kedai Makan ABC', date: '2026-10-29', currency: 'MYR' }, null, text, today),
+      invented: mergeReceiptOpinion(low, { total: 12.34, merchant: 'Starbucks', date: '2020-01-01', currency: '' }, null, text, today),
+      confident: mergeReceiptOpinion({ ...low, amount: 7.9, amountConfidence: 'high', vendor: 'X', date: '2026-10-28' }, { total: 5.5, merchant: '', date: '', currency: '' }, null, text, today),
+      entityDate: mergeReceiptOpinion(low, null, { dates: [
+        { hasDay: false, timestamp: Date.parse('2026-10-01T00:00:00') },
+        { hasDay: true, timestamp: Date.parse('2026-10-27T13:00:00') },
+      ] }, text, today),
+    };
+
+    // The second opinion only asks when the parser is unsure, and survives
+    // a phone that has no AI at all.
+    const askLog = [];
+    const fakeKit = (available, reply) => ({ isNativePlatform: () => true, Plugins: { DuitfulKit: {
+      aiStatus: async () => ({ available }),
+      aiReadReceipt: async () => { askLog.push('ai'); return reply; },
+      extractEntities: async () => { askLog.push('ent'); return { money: [], dates: [] }; },
+    } } });
+    try {
+      window.Capacitor = fakeKit(true, { json: '{"total": 7.90, "merchant": "KEDAI MAKAN ABC", "date": "2026-10-29", "currency": "MYR"}' });
+      out.second = await receiptSecondOpinion({ ...low }, text);
+      askLog.length = 0;
+      out.skipped = await receiptSecondOpinion({ amount: 7.9, amountConfidence: 'high', vendor: 'ABC', date: '2026-10-29' }, text);
+      out.skippedAsks = askLog.length;
+      window.Capacitor = fakeKit(false, null);
+      out.noAi = await receiptSecondOpinion({ ...low }, text);
+      out.noAiAsks = askLog.slice();
+    } finally { window.Capacitor = prev.cap; }
+
+    // Receipt maths: subtotal plus the charges under it, never the tax table.
+    out.sub = {
+      sst: receiptSubtotalTotal('ITEM 10.00\nSUBTOTAL 20.00\nSST 6% 1.20\nSERVICE CHARGE 2.00\nROUNDING -0.02\nTOTAL 23.18\nSST SUMMARY 6% 20.00 1.20'),
+      base: receiptSubtotalTotal('SUBTOTAL RM 73.00\nGST TAX AMT : RM 73.00\nGST (6.0%) AMOUNT : RM 4.38\nROUND ADJ RM 0.02\nTOTAL RM 77.40'),
+      disc: receiptSubtotalTotal('SUB-TOTAL 30.00\nDISCOUNT 5.00\nTOTAL 25.00'),
+      none: receiptSubtotalTotal('TOTAL 9.90'),
+      offers: scanTotalCheck(NaN, 'SUBTOTAL 20.00\nSST 1.20\nTOTAL', null),
+      backs: scanTotalCheck(21.3, 'SUBTOTAL 20.00\nSST 1.30\nTOTAL 21.30\nCASH 30.00\nCHANGE 8.70', null),
+      neverFlags: scanTotalCheck(19.0, 'SUBTOTAL 20.00\nSST 1.20\nTOTAL 19.00', null),
+    };
+
+    // Bank notifications the patterns miss: one amount and debit words only.
+    const mbb = providerForPackage('com.mbb.malaysia.android');
+    out.entity = {
+      one: entityDebitAmount('You paid RM 12.50 via DuitNow QR', mbb, [{ text: 'RM 12.50', currency: 'RM' }]),
+      two: entityDebitAmount('Purchase RM 12.50. Balance RM 1,000.00', mbb, [{ text: 'RM 12.50', currency: 'RM' }, { text: 'RM 1,000.00', currency: 'RM' }]),
+      credit: entityDebitAmount('You received RM 50.00 payment', mbb, [{ text: 'RM 50.00', currency: 'RM' }]),
+      promo: entityDebitAmount('Spend RM 100 and earn 5% cashback reward', mbb, [{ text: 'RM 100', currency: 'RM' }]),
+      foreign: entityDebitAmount('Transaction USD 20.00 at AMAZON', mbb, [{ text: 'USD 20.00', currency: 'USD' }]),
+      noProvider: entityDebitAmount('You paid RM 12.50', null, [{ text: 'RM 12.50', currency: 'RM' }]),
+    };
+
+    // iOS: Siri & Shortcuts entries arrive through DuitfulKit's queue.
+    out.shortcut = quickAddToPending({ a: 12.5, c: 'STARBUCKS KLCC', t: 1754000000000, s: 'shortcut' });
+    window.Capacitor = { isNativePlatform: () => true, Plugins: { DuitfulKit: { drainQuickAdd: async () => ({ items: [{ a: 7.2, c: 'Grab', t: Date.now(), s: 'shortcut' }] }) } } };
+    try {
+      out.iosDrained = await drainQuickAdd();
+      out.iosPending = (state.pendingTxns || []).filter((p) => p.providerName === 'Shortcut · Grab').length;
+    } finally {
+      window.Capacitor = prev.cap;
+      state.pendingTxns = (state.pendingTxns || []).filter((p) => p.providerId !== 'quick-add');
+      save();
+    }
+    return out;
+  });
+  check('document scanner: pages are stitched top to bottom into one image for the OCR, without the old camera sheet',
+    kit.stitched.calls === 1 && kit.stitched.h === 80 && kit.stitched.w === 40 && kit.stitched.camera === 0, JSON.stringify(kit.stitched));
+  check('document scanner: backing out does nothing; no scanner on the phone falls back to the camera',
+    kit.cancelled.ocr === 0 && kit.cancelled.camera === 0 && kit.fallback.camera === 1 && kit.fallback.ocr === 1,
+    JSON.stringify({ c: kit.cancelled, f: kit.fallback }));
+  check('on-device AI reply: both platforms\' shapes parse, junk and empty values become nothing',
+    kit.reply.ios.total === 23.4 && kit.reply.ios.currency === 'MYR' && kit.reply.fenced.total === 18.9 && kit.reply.fenced.merchant === 'Mamak'
+      && kit.reply.junk === null && kit.reply.zero.total === null && kit.reply.zero.date === '' && kit.reply.zero.currency === '',
+    JSON.stringify(kit.reply));
+  check('on-device AI: replaces a low-confidence total only with a figure printed on the receipt, and keeps a confident read',
+    kit.merge.grounded.parsed.amount === 7.9 && kit.merge.grounded.parsed.vendor === 'Kedai Makan ABC' && kit.merge.grounded.parsed.date === '2026-10-29'
+      && kit.merge.invented.parsed.amount === 50 && kit.merge.invented.parsed.vendor === '' && kit.merge.invented.parsed.date === ''
+      && kit.merge.confident.parsed.amount === 7.9 && kit.merge.confident.used.length === 0,
+    JSON.stringify(kit.merge));
+  check('entity reader: a missing date comes from the first day-precise date it finds',
+    kit.merge.entityDate.parsed.date === '2026-10-27' && kit.merge.entityDate.used.includes('date'), JSON.stringify(kit.merge.entityDate));
+  check('second opinion: asked only when the parser is unsure, and a phone without AI still gets the entity reader',
+    kit.second.parsed.amount === 7.9 && kit.second.used.includes('amount') && kit.skippedAsks === 0
+      && kit.noAi.parsed.amount === 50 && kit.noAiAsks.join() === 'ent',
+    JSON.stringify({ second: kit.second, skippedAsks: kit.skippedAsks, noAi: kit.noAi, noAiAsks: kit.noAiAsks }));
+  check('receipt maths: subtotal plus SST, service charge, rounding and discounts, skipping the taxable base and the tax table',
+    kit.sub.sst === 23.18 && kit.sub.base === 77.4 && kit.sub.disc === 25 && kit.sub.none === null
+      && kit.sub.offers.suggest === 21.2 && kit.sub.offers.source === 'subtotal'
+      && kit.sub.backs.off === false && kit.sub.neverFlags.off === false,
+    JSON.stringify(kit.sub));
+  check('bank alerts the patterns miss: the entity reader books exactly one spent amount, never a balance, credit, promo or foreign figure',
+    kit.entity.one === 12.5 && kit.entity.two === null && kit.entity.credit === null && kit.entity.promo === null
+      && kit.entity.foreign === null && kit.entity.noProvider === null,
+    JSON.stringify(kit.entity));
+  check('iOS Siri & Shortcuts: queued spends drain through DuitfulKit into review, labelled with the shop',
+    kit.shortcut.providerName === 'Shortcut · STARBUCKS KLCC' && kit.shortcut.merchant === 'STARBUCKS KLCC'
+      && kit.iosDrained === 1 && kit.iosPending === 1,
+    JSON.stringify({ s: kit.shortcut, d: kit.iosDrained, p: kit.iosPending }));
+
   // Nothing reaches the ledger by itself: quick adds land in the same review
   // card as bank captures and need an explicit Add.
   check('a quick add is queued for review, not written straight to spending',

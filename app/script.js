@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.52.2";
+const APP_VERSION = "1.53.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -10020,6 +10020,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.53.0": [
+    "<strong>Sharper receipt scans</strong> — Scan receipt opens your phone's document scanner, which straightens and cleans up the receipt before reading it.",
+    "<strong>A second opinion</strong> — when a total, shop or date is unclear, phones with built-in AI check it, on the phone. Subtotal, SST and service charge now cross-check the total.",
+    "<strong>Siri and Apple Pay</strong> — on iPhone, \"Log a spend in Duitful\" works with Siri, Shortcuts and Wallet automations.",
+  ],
   "1.52.2": [
     "<strong>Smoother pages</strong> — Reports, Tax and All entries slide in over Home and slide back out when you go back, and switching tabs fades instead of jumping.",
   ],
@@ -11622,6 +11627,172 @@ async function runMlKitOcr(source) {
   } catch { return null; }
 }
 
+/* ---------- DuitfulKit: the phone's own scanner, entity reader and AI ----------
+   native/duitful-kit is one plugin per platform (VisionKit + Foundation
+   Models + ML Kit Entity Extraction on iOS; ML Kit Document Scanner, Entity
+   Extraction and Gemini Nano on Android). Every method can be missing: the
+   web app, an older shell, Android 7, a phone without Apple Intelligence or
+   Gemini Nano. Each caller treats "missing" and "failed" the same way, by
+   carrying on exactly as before, so none of this can make a scan worse. */
+function duitfulKit(method) {
+  try {
+    if (!isNative()) return null;
+    const p = window.Capacitor?.Plugins?.DuitfulKit;
+    return p && typeof p[method] === "function" ? p : null;
+  } catch { return null; }
+}
+
+function withTimeout(promise, ms) {
+  let t;
+  return Promise.race([
+    promise.finally(() => clearTimeout(t)),
+    new Promise((_, reject) => { t = setTimeout(() => reject(new Error("timeout")), ms); }),
+  ]);
+}
+
+/* Several scanned pages (a long receipt shot in parts) become one tall
+   image, top to bottom, at the narrowest page's width. One page passes
+   straight through. Null on any canvas trouble. */
+async function stitchScanPages(dataUrls) {
+  if (!dataUrls || !dataUrls.length) return null;
+  if (dataUrls.length === 1) return dataUrls[0];
+  try {
+    const imgs = await Promise.all(dataUrls.map((src) => new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    })));
+    const width = Math.min(...imgs.map((i) => i.naturalWidth));
+    const heights = imgs.map((i) => Math.round(i.naturalHeight * (width / i.naturalWidth)));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = heights.reduce((a, b) => a + b, 0);
+    const ctx = canvas.getContext("2d");
+    let y = 0;
+    imgs.forEach((img, i) => { ctx.drawImage(img, 0, y, width, heights[i]); y += heights[i]; });
+    return canvas.toDataURL("image/jpeg", 0.9);
+  } catch { return dataUrls[0]; }
+}
+
+/* The phone's document scanner. Resolves a data URL, or null when the user
+   backed out (no quota spent, nothing else shown). Throws when there is no
+   scanner or it failed, so the caller can fall back to the camera it has
+   always used. */
+async function scanWithDocumentScanner() {
+  const kit = duitfulKit("scanDocument");
+  if (!kit) throw new Error("no scanner");
+  try {
+    const res = await kit.scanDocument({ allowGallery: true, pageLimit: 3 });
+    const pages = res && Array.isArray(res.images) ? res.images.filter((s) => typeof s === "string" && s.startsWith("data:image/")) : [];
+    if (!pages.length) return null;
+    return await stitchScanPages(pages);
+  } catch (err) {
+    if (err && err.code === "CANCELLED") return null;
+    throw err;
+  }
+}
+
+/* Pure: the on-device AI's reply in either shape (iOS returns the fields;
+   Gemini Nano returns JSON text, sometimes in a code fence) → normalised
+   fields, or null. */
+function parseAiReceiptReply(reply) {
+  if (!reply || typeof reply !== "object") return null;
+  let f = reply;
+  if (typeof reply.json === "string") {
+    const m = reply.json.replace(/```(?:json)?/gi, "").match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try { f = JSON.parse(m[0]); } catch { return null; }
+  }
+  const total = Number(f.total);
+  const date = typeof f.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(f.date.trim()) ? f.date.trim() : "";
+  const currency = typeof f.currency === "string" && /^[A-Za-z]{3}$/.test(f.currency.trim()) ? f.currency.trim().toUpperCase() : "";
+  return {
+    total: Number.isFinite(total) && total > 0 ? Math.round(total * 100) / 100 : null,
+    merchant: typeof f.merchant === "string" ? f.merchant.trim().slice(0, 80) : "",
+    date,
+    currency,
+  };
+}
+
+/* Pure: fold the AI's answer and the entity reader's dates into the parser's
+   result. The parser wins wherever it is confident; the AI only fills gaps or
+   replaces a low-confidence guess, and only with something the receipt
+   actually says: its total must be a figure printed on the receipt and its
+   shop name must appear in the text, so a model that invents a number or a
+   name changes nothing. Returns a new object plus which fields it changed. */
+function mergeReceiptOpinion(parsed, ai, entities, text, today) {
+  const out = { ...parsed };
+  const used = [];
+  const raw = String(text || "");
+  const printed = new Set();
+  for (const line of raw.split(/\n/)) for (const n of receiptAmountsIn(line)) printed.add(n.value.toFixed(2));
+  const now = today ? new Date(today) : new Date();
+  const plausibleDate = (iso) => {
+    const d = new Date(iso + "T00:00:00");
+    if (Number.isNaN(d.getTime())) return false;
+    const days = (now - d) / 86400000;
+    return days > -1.5 && days < 730;
+  };
+  if (ai) {
+    const grounded = ai.total != null && printed.has(ai.total.toFixed(2));
+    if (grounded && (out.amount == null || out.amountConfidence === "low" || out.amountConfidence === "none")) {
+      if (out.amount !== ai.total) used.push("amount");
+      out.amount = ai.total;
+      out.amountConfidence = "medium";
+    }
+    const norm = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (!out.vendor && ai.merchant && ai.merchant.length >= 3 && norm(raw).includes(norm(ai.merchant))) {
+      out.vendor = ai.merchant;
+      out.vendorConfidence = "medium";
+      used.push("vendor");
+    }
+    if (!out.date && ai.date && plausibleDate(ai.date)) {
+      out.date = ai.date;
+      out.dateConfidence = "medium";
+      used.push("date");
+    }
+    if (!out.currency && ai.currency) { out.currency = ai.currency; used.push("currency"); }
+  }
+  if (!out.date && entities && Array.isArray(entities.dates)) {
+    for (const d of entities.dates) {
+      if (!d || !d.hasDay || !Number.isFinite(Number(d.timestamp))) continue;
+      const iso = fmtISODate(new Date(Number(d.timestamp)));
+      if (!plausibleDate(iso)) continue;
+      out.date = iso;
+      out.dateConfidence = "medium";
+      used.push("date");
+      break;
+    }
+  }
+  return { parsed: out, used };
+}
+
+/* Ask the phone for a second opinion, only when the parser needs one. Never
+   throws and never waits long: on a phone without on-device AI or the entity
+   model this is two instant "no"s. */
+async function receiptSecondOpinion(parsed, text) {
+  const wantAi = parsed.amount == null || parsed.amountConfidence !== "high" || !parsed.vendor || !parsed.date;
+  const wantDate = !parsed.date;
+  if (!wantAi && !wantDate) return { parsed, used: [] };
+  let ai = null, entities = null;
+  const aiKit = wantAi ? duitfulKit("aiReadReceipt") : null;
+  if (aiKit) {
+    try {
+      const st = await withTimeout(aiKit.aiStatus(), 2000);
+      if (st && st.available) {
+        setScanStep("Double-checking with on-device AI…", null);
+        ai = parseAiReceiptReply(await withTimeout(aiKit.aiReadReceipt({ text }), 15000));
+      }
+    } catch { ai = null; }
+  }
+  const entKit = wantDate ? duitfulKit("extractEntities") : null;
+  if (entKit && !(ai && ai.date)) {
+    try { entities = await withTimeout(entKit.extractEntities({ text }), 8000); } catch { entities = null; }
+  }
+  return mergeReceiptOpinion(parsed, ai, entities, text);
+}
+
 /* Whatever the scan pipeline is holding — the preprocessed canvas, a native
    data URL, or the web file input's File — as a data URL. Only ML Kit needs
    this; Tesseract eats all three shapes directly. */
@@ -12251,8 +12422,12 @@ function queuePendingTxn(data) {
 function quickAddPlugin() {
   try {
     if (!isNative()) return null;
+    // Android: the notification-listener plugin owns the queue. iOS: the
+    // Siri & Shortcuts intents write it and DuitfulKit drains it.
     const p = window.Capacitor?.Plugins?.NotificationListener;
-    return p && typeof p.drainQuickAdd === "function" ? p : null;
+    if (p && typeof p.drainQuickAdd === "function") return p;
+    const kit = window.Capacitor?.Plugins?.DuitfulKit;
+    return kit && typeof kit.drainQuickAdd === "function" ? kit : null;
   } catch { return null; }
 }
 
@@ -12272,7 +12447,11 @@ function quickAddToPending(entry) {
     amount: Math.round(amount * 100) / 100,
     merchant: category,
     providerId: "quick-add",
-    providerName: category ? `Quick add · ${category}` : "Quick add",
+    // "s": "shortcut" comes from the iOS Siri & Shortcuts intent, where "c"
+    // is the merchant (a Wallet automation passes the shop's name).
+    providerName: entry.s === "shortcut"
+      ? (category ? `Shortcut · ${category}` : "Siri & Shortcuts")
+      : (category ? `Quick add · ${category}` : "Quick add"),
     country: "MY",
     currency: typeof currentCurrency === "function" ? currentCurrency() : "MYR",
   };
@@ -12321,9 +12500,59 @@ window.duitfulIncoming = (data) => {
     // Credits first: a transfer landing is never also a card spend, and the
     // debit patterns would only ever mis-read it.
     if (queueIncomingTransfer(data || {})) return true;
-    return queuePendingTxn(data || {});
+    if (queuePendingTxn(data || {})) return true;
+    // No bank pattern matched (banks reword their alerts): let ML Kit's
+    // entity reader find the amount. Async, so this call reports false.
+    queuePendingTxnFromEntities(data || {}).catch(() => {});
+    return false;
   } catch (e) { console.warn("duitfulIncoming failed", e); return false; }
 };
+
+/* Fallback for a notification from a known bank or wallet app whose wording
+   none of the patterns above recognise. Narrow on purpose: the app must be on
+   the whitelist, the text must say money went out and nothing about money
+   coming in, and the entity reader must find exactly one amount (a "spent X,
+   balance Y" alert is ambiguous, so it is skipped rather than guessed). Like
+   every capture, it only queues a pending entry to confirm, with no shop
+   name, since none was parsed. */
+const ENTITY_DEBIT_WORDS = /\b(?:paid|spent|charged|debited|deducted|purchase|payment|transaction|dibayar|ditolak|pembelian|pembayaran|transaksi)\b/i;
+const ENTITY_CREDIT_WORDS = /\b(?:received|credited|refund(?:ed)?|reversal|cashback|menerima|diterima|dikreditkan)\b/i;
+function entityDebitAmount(text, provider, money) {
+  if (!provider || !text || isLikelyPromo(text)) return null;
+  if (!ENTITY_DEBIT_WORDS.test(text) || ENTITY_CREDIT_WORDS.test(text)) return null;
+  const amounts = new Set();
+  for (const m of money || []) {
+    const cur = String((m && m.currency) || "").trim();
+    if (cur && !/^(?:rm|myr|s\$|sgd|\$)$/i.test(cur)) continue;
+    const digits = String((m && m.text) || "").replace(/[^\d.,]/g, "");
+    const v = parseAmount(digits, provider.currency);
+    if (Number.isFinite(v) && v > 0 && v < 1e6) amounts.add(Math.round(v * 100) / 100);
+  }
+  return amounts.size === 1 ? [...amounts][0] : null;
+}
+async function queuePendingTxnFromEntities(data) {
+  const text = String(data.text || "");
+  const provider = providerForPackage(String(data.package || ""));
+  if (!provider || !aesKey) return false;
+  if (!ENTITY_DEBIT_WORDS.test(text) || ENTITY_CREDIT_WORDS.test(text) || isLikelyPromo(text)) return false;
+  const kit = duitfulKit("extractEntities");
+  if (!kit) return false;
+  let res;
+  try { res = await withTimeout(kit.extractEntities({ text }), 8000); } catch { return false; }
+  const amount = entityDebitAmount(text, provider, res && res.money);
+  if (amount == null) return false;
+  const now = Date.now();
+  state.pendingTxns = state.pendingTxns || [];
+  if (state.pendingTxns.some((p) => p.providerId === provider.id && p.amount === amount && (now - p.createdAt) < 120000)) return false;
+  state.pendingTxns.push({
+    id: uid(), createdAt: now, raw: text, pkg: String(data.package || ""),
+    amount, merchant: "", providerId: provider.id, providerName: provider.name,
+    country: provider.country, currency: provider.currency,
+  });
+  save();
+  if (typeof renderAll === "function") renderAll();
+  return true;
+}
 
 /* ---------- FX rate lookup for receipt scans ----------
    The same rates as the currency pickers (loadFxRates → /api/fx), so a
@@ -12437,20 +12666,69 @@ function receiptTenderTotal(raw) {
   return Math.round((paid - change) * 100) / 100;
 }
 
+/* The receipt's own bottom block: SUBTOTAL, then the charges and
+   adjustments printed under it (SST, service charge, rounding, a discount),
+   then the TOTAL. Subtotal plus what follows is the bill. Stops at the first
+   total line, so the SST summary table some tills print below the total is
+   never counted. Null without a subtotal line. */
+function receiptSubtotalTotal(raw) {
+  const lines = String(raw || "").split(/\n/).map((l) => l.trim()).filter(Boolean);
+  const amountAtEnd = /(-?)\s*(?:RM\s*)?(\d{1,6}[.,]\d{2})\s*(-?)\s*$/i;
+  const SUB = /\bsub\s*-?\s*total\b|\bjumlah\s+kecil\b/i;
+  const CHARGE = /\b(?:sst|gst|service\s*(?:charge|tax)|svc\.?\s*ch(?:ar)?ge?|s\/?c\b|caj\s+perkhidmatan|cukai|tax|round(?:ing)?|pembulatan)\b/i;
+  const LESS = /\b(?:discount|diskaun|voucher|less)\b/i;
+  const TOTAL = /\b(?:grand\s+)?total\b|\bjumlah\b|\bnett?\b/i;
+  let start = -1;
+  for (let i = 0; i < lines.length; i++) if (SUB.test(lines[i]) && amountAtEnd.test(lines[i])) { start = i; break; }
+  if (start === -1) return null;
+  const read = (line) => {
+    const m = amountAtEnd.exec(line);
+    if (!m) return null;
+    const v = Number(m[2].replace(",", "."));
+    return m[1] === "-" || m[3] === "-" ? -v : v;
+  };
+  const subtotal = read(lines[start]);
+  if (!(subtotal > 0)) return null;
+  let sum = subtotal;
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (TOTAL.test(line) && !SUB.test(line)) break;
+    const v = read(line);
+    if (v == null) continue;
+    // A charge or discount is a slice of the bill. A figure that big is the
+    // taxable base ("GST TAX AMT RM 73.00"), not something to add.
+    if (Math.abs(v) > subtotal * 0.3) continue;
+    if (LESS.test(line)) sum -= Math.abs(v);
+    else if (CHARGE.test(line)) sum += v;
+  }
+  return Math.round(sum * 100) / 100;
+}
+
 /* The receipt can check itself: the items plus charges, and cash minus
    change, should both land on the total. When one disagrees, the total is
-   flagged instead of being shown as "read" — and when the two checks agree
-   with each other, their figure is offered as a one-tap fix. */
+   flagged instead of being shown as "read" — and when two checks agree with
+   each other (the subtotal plus its charges counts as one), their figure is
+   offered as a one-tap fix. */
 function scanTotalCheck(amount, raw, itemsCheck) {
   const near = (a, b) => Math.abs(a - b) <= 0.05;
   const tender = receiptTenderTotal(raw);
+  const sub = receiptSubtotalTotal(raw);
   const has = Number.isFinite(amount) && amount > 0;
   const itemsOff = !!(itemsCheck && has && !itemsCheck.adds);
   const tenderOff = tender != null && has && !near(tender, amount);
   let suggest = null;
   if (tender != null && itemsCheck && near(tender, itemsCheck.expected) && (!has || !near(tender, amount))) suggest = tender;
+  else if (tender != null && sub != null && near(tender, sub) && (!has || !near(tender, amount))) suggest = tender;
   else if (tender != null && !has) suggest = tender;
-  return { off: itemsOff || tenderOff, suggest, source: suggest == null ? null : (itemsCheck && near(suggest, itemsCheck.expected) ? "items" : "cash") };
+  else if (sub != null && sub > 0 && !has) suggest = sub;
+  const source = suggest == null ? null
+    : itemsCheck && near(suggest, itemsCheck.expected) ? "items"
+    : tender != null && near(suggest, tender) ? "cash" : "subtotal";
+  // The subtotal never flags a total on its own: receipts list discounts
+  // already taken off, or round in ways only the till knows (it disagreed
+  // with a correct total on 18 of 31 receipts in tests/fixtures). It only
+  // backs up cash-minus-change, or offers a figure when none was read.
+  return { off: itemsOff || tenderOff, suggest, source };
 }
 
 // One step at a time: words always, a percentage only when the engine gives
@@ -12500,7 +12778,9 @@ function showScanTotalSuggestion(check) {
   const el = document.getElementById("scan-amount-suggest");
   if (!el) return;
   if (!check || check.suggest == null) { el.hidden = true; el.innerHTML = ""; return; }
-  const why = check.source === "items" ? "The items and the cash paid both add up to" : "Cash paid minus change comes to";
+  const why = check.source === "items" ? "The items and the cash paid both add up to"
+    : check.source === "subtotal" ? "The subtotal plus tax and charges comes to"
+    : "Cash paid minus change comes to";
   el.innerHTML = `${escapeHtml(why)} <strong>${escapeHtml(fmtMoney(check.suggest))}</strong>. <button type="button" class="link-btn" data-scan-use="${check.suggest}">Use ${escapeHtml(fmtMoney(check.suggest))}</button>`;
   el.hidden = false;
 }
@@ -12526,6 +12806,8 @@ function openScanDialog() {
   const editBtn = document.getElementById("scan-edit");
   if (editBtn) editBtn.hidden = true;
   showScanTotalSuggestion(null);
+  const aiNoteOpen = document.getElementById("scan-ai-note");
+  if (aiNoteOpen) aiNoteOpen.hidden = true;
   scanPreview.removeAttribute("src");
   setScanType("expense");
   populateScanDebtSelect();
@@ -12670,7 +12952,12 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
       text = receiptTextFromWords(collectOcrWords(data), data.text || "");
     }
     setScanStep("Checking the total…", 100);
-    const parsed = parseReceiptText(text);
+    let parsed = parseReceiptText(text);
+    // The phone's own AI and entity reader, only when the parser is unsure.
+    const second = await receiptSecondOpinion(parsed, text);
+    parsed = second.parsed;
+    const aiNote = document.getElementById("scan-ai-note");
+    if (aiNote) aiNote.hidden = !second.used.length;
     scanOriginalAmount = parsed.amount;
     scanOriginalCurrency = parsed.currency || currentCurrency();
     const scanCurrencyInput = document.getElementById("scan-currency");
@@ -12739,6 +13026,27 @@ window.scanApplyTarget = null;
 // EXACT same capture path — including its Pro gate and monthly quota.
 async function startReceiptScan() {
   if (!canOcr() && !gate("ocr")) return;
+  // The phone's document scanner first: it finds the receipt's edges,
+  // straightens it and cleans it up, which is most of what makes a read go
+  // wrong. Android's offers the gallery inside the scanner; iOS asks "Scan
+  // with camera / Choose photo" first. No scanner (web, low-RAM Android, an
+  // older shell) or a failed one falls through to the camera sheet below.
+  if (duitfulKit("scanDocument")) {
+    let scanned;
+    try {
+      scanned = await scanWithDocumentScanner();
+    } catch (err) {
+      console.warn("Document scanner unavailable, using the camera:", (err && (err.code || err.message)) || err);
+      scanned = undefined;
+    }
+    if (scanned === null) return; // backed out
+    if (scanned) {
+      if (!canOcr()) { gate("ocr"); return; }
+      trackOcrUsage();
+      if (!(await runReceiptOcr(scanned, scanned, null))) refundOcrUsage();
+      return;
+    }
+  }
   // Native: offer the system "Take Photo / Choose from Gallery" sheet via
   // @capacitor/camera. Falls through to the web file input when the plugin
   // isn't available (web build, or an older shell without it).

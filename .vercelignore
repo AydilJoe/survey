@@ -4,9 +4,11 @@
 # POSTing to it. Keep directory patterns root-anchored; tests/e2e.mjs checks
 # that nothing under api/ is excluded.
 /native/*
-# The iCloud plugin is a package.json dependency (file:native/icloud-backup),
-# and Vercel runs npm install, so it has to ship or every deployment fails.
+# The iCloud and DuitfulKit plugins are package.json dependencies
+# (file:native/…), and Vercel runs npm install, so they have to ship or
+# every deployment fails.
 !/native/icloud-backup
+!/native/duitful-kit
 resources/
 scripts/*
 !scripts/fetch-tesseract.mjs

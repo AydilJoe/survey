@@ -1,6 +1,6 @@
 {
   "name": "duitful",
-  "version": "1.52.2",
+  "version": "1.53.0",
   "license": "GPL-3.0-only",
   "private": true,
   "description": "Duitful — Capacitor shell for the PWA.",
@@ -11,6 +11,7 @@
     "build:web": "node scripts/build-web.mjs",
     "assets": "npx @capacitor/assets generate --assetPath resources --iconBackgroundColor \"#e8dfd0\" --iconBackgroundColorDark \"#2a2420\" --splashBackgroundColor \"#e8dfd0\" --splashBackgroundColorDark \"#2a2420\" && node scripts/generate-stat-icon.mjs",
     "native:notification-listener": "node scripts/install-notification-listener.mjs",
+    "native:duitful-kit": "node scripts/install-duitful-kit.mjs",
     "patch:android": "node scripts/patch-android-aapt.mjs",
     "patch:android-plugins-agp9": "node scripts/patch-android-plugins-agp9.mjs",
     "patch:android-play-vitals": "node scripts/patch-android-play-vitals.mjs",
@@ -20,7 +21,7 @@
     "patch:android-shortcuts": "node scripts/patch-android-shortcuts.mjs",
     "patch:android-widget": "node scripts/patch-android-widget.mjs",
     "patch:ios": "node scripts/patch-ios.mjs",
-    "cap:sync": "npm run build:web && npx cap sync && npm run patch:android && npm run patch:android-camera && npm run patch:android-biometric && npm run patch:android-applinks && npm run patch:android-shortcuts && npm run patch:android-widget && npm run patch:ios && npm run native:notification-listener && npm run patch:android-plugins-agp9 && npm run patch:android-play-vitals",
+    "cap:sync": "npm run build:web && npx cap sync && npm run patch:android && npm run patch:android-camera && npm run patch:android-biometric && npm run patch:android-applinks && npm run patch:android-shortcuts && npm run patch:android-widget && npm run patch:ios && npm run native:notification-listener && npm run native:duitful-kit && npm run patch:android-plugins-agp9 && npm run patch:android-play-vitals",
     "cap:ios": "npm run cap:sync && npx cap open ios",
     "cap:android": "npm run cap:sync && npx cap open android",
     "cap:add:ios": "npm run build:web && npx cap add ios --packagemanager CocoaPods",
@@ -51,7 +52,8 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/kv": "^3.0.0",
     "cordova-plugin-purchase": "^13.19.1",
-    "duitful-capacitor-icloud": "file:native/icloud-backup"
+    "duitful-capacitor-icloud": "file:native/icloud-backup",
+    "duitful-capacitor-kit": "file:native/duitful-kit"
   },
   "overrides": {
     "@codetrix-studio/capacitor-google-auth": {

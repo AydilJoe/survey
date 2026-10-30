@@ -195,6 +195,26 @@ emulator's camera can't photograph a receipt):
 - [ ] On a device without Google Play services (or with Play services
       disabled), the same scan still completes via the Tesseract fallback
 
+## DuitfulKit: document scanner, entity reader, Gemini Nano
+
+`scripts/install-duitful-kit.mjs` (part of `cap:sync`) copies
+`native/duitful-kit/android/*.java` into the app, registers
+`DuitfulKitPlugin` and adds three dependencies:
+
+- `play-services-mlkit-document-scanner` — Scan receipt opens Google's
+  document scanner (runs inside Play services, **no camera permission**,
+  gallery import built in). Phones under ~1.7 GB RAM report UNSUPPORTED and
+  the app falls back to the camera sheet.
+- `entity-extraction` — amounts and dates in text; downloads its model from
+  Google on first use (about 3.6 MB of native code per ABI in the bundle).
+- `genai-prompt` (beta) — Gemini Nano through AICore, on supported phones
+  only.
+
+The last two declare minSdk 26 while the app supports 24, so the manifest
+gets `tools:overrideLibrary` for exactly their three packages, and the
+plugin touches them only behind `SDK_INT >= 26`. Nothing to set up in Play
+Console.
+
 ## Android App Links for /split (bill splitting)
 
 A shared request travels as `https://duitful.app/split#<payload>`. With App

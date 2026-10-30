@@ -41,7 +41,8 @@
       "@capgo/capacitor-social-login",
       "@pantrist/capacitor-plugin-ml-kit-text-recognition",
       "cordova-plugin-purchase",
-      "duitful-capacitor-icloud"
+      "duitful-capacitor-icloud",
+      "duitful-capacitor-kit"
     ]
   }
 }
