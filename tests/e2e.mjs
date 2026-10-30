@@ -8100,6 +8100,12 @@ check('the brand catalogue makes no network calls at all',
   check('release workflow: all four Android secrets are checked up front and passed only to the steps that need them',
     ['ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD'].every(k => rel.includes(`secrets.${k}`))
     && !/^env:\n(?:  .*\n)*  .*secrets\./m.test(rel.replace(/\njobs:[\s\S]*/, '')), 'no workflow-level env with secrets');
+  check('release workflow: a version bump merged to main releases by itself (Play Production + TestFlight) and then tags v<version>; nothing else on main releases',
+    /branches: \[main\]\n\s+paths: \[package\.json\]/.test(rel) && /Version unchanged/.test(rel) && /is already tagged, nothing to release/.test(rel)
+      && (rel.match(/needs\.prepare\.outputs\.release == 'true'/g) || []).length === 3
+      && /github\.ref_type == 'branch'\) && 'testflight'/.test(rel)
+      && /\n  tag:\n[\s\S]*contents: write[\s\S]*git push origin "v\$VERSION"/.test(rel)
+      && !/^permissions:\n  contents: write/m.test(rel));
   check('release workflow: the iOS half calls ios.yml (signed IPA, TestFlight only if ticked) and inherits its secrets',
     /uses: \.\/\.github\/workflows\/ios\.yml/.test(rel) && /secrets: inherit/.test(rel) && /'signed-ipa'/.test(rel) && /'testflight'/.test(rel));
   check('ios workflow: callable, has a signed-ipa lane that does not upload, verifies the signature and keeps the IPA',

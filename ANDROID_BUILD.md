@@ -353,7 +353,8 @@ Actions → New repository secret):
 | `ANDROID_KEY_ALIAS` | `duitful` (the alias you chose) |
 | `ANDROID_KEY_PASSWORD` | the key password (often the same as the keystore's) |
 
-**3. Run it.** Either tag a release — `git tag v1.46.1 && git push origin v1.46.1`
+**3. Run it.** Bump the version in `package.json` and merge to `main` (it
+runs by itself), tag a release — `git tag v1.46.1 && git push origin v1.46.1`
 (the tag must match `package.json`) — or Actions → **Release builds** → **Run
 workflow**.
 
@@ -377,8 +378,13 @@ The same **Release builds** run also publishes the bundle to Google Play,
 with the release notes taken from the app's "What's new" for that version
 (`scripts/play-release-notes.mjs`) and the R8 mapping file attached:
 
-- **A version tag** (`git tag v1.51.0 && git push origin v1.51.0`) publishes
-  to **Production, rolled out to 100%** once Google's review passes.
+- **Automatically, on a version bump.** Merge a change to `main` that raises
+  the version in `package.json` (the usual release bump) and the run
+  publishes to **Production, rolled out to 100%** once Google's review
+  passes, uploads the iOS build to TestFlight, then tags the commit
+  `v<version>`. Merges that leave the version alone release nothing.
+- **A version tag** (`git tag v1.51.0 && git push origin v1.51.0`) does the
+  same for Play (the iOS build is only kept as an artifact).
 - **Run workflow by hand** lets you pick the track: `production`, `beta`
   (open testing), `alpha` (closed testing), `internal`, or `none`.
 

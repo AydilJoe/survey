@@ -14,13 +14,18 @@ name: Release builds (signed AAB + IPA)
 # tick "TestFlight".
 #
 # When it runs:
+#   - automatically, when a merge to main changes the version in
+#     package.json and there is no v<version> tag yet: Play Production at
+#     100% plus TestFlight (the App Store page is prepared, never submitted),
+#     then the run tags the commit v<version>. Any other merge to main, even
+#     one that touches package.json, releases nothing.
 #   - on a version tag:  git tag v1.46.1 && git push origin v1.46.1
 #     (the tag must match package.json, or the run stops before building)
 #   - by hand: Actions → Release builds → Run workflow
 #
 # Not on every push to main, on purpose: a signed iOS build needs a macOS
 # runner (~20 min) and mints a distribution certificate (Apple caps them), so
-# it runs when you cut a release, not on every merge.
+# it runs when the version changes, not on every merge.
 #
 # Secrets (Settings → Secrets and variables → Actions), set once — see
 # ANDROID_BUILD.md and IOS_BUILD.md, "Signed builds from CI":
@@ -34,6 +39,8 @@ name: Release builds (signed AAB + IPA)
 on:
   push:
     tags: ["v*"]
+    branches: [main]
+    paths: [package.json]
   workflow_dispatch:
     inputs:
       android:
@@ -72,6 +79,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
     steps:
       - uses: actions/checkout@v7
       # package.json is the one place the version lives; a tag that disagrees
@@ -86,10 +94,30 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME does not match package.json ($version). Retag as v$version, or bump package.json."
             exit 1
           fi
+          release=true
+          # A merge to main releases only a new version: package.json's
+          # version must differ from the commit before, and v<version> must
+          # not be tagged yet (so a re-run or a dependency bump ships nothing).
+          if [ "$GITHUB_REF_TYPE" = "branch" ] && [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            before=""
+            if git fetch -q --depth=1 origin "$BEFORE_SHA" 2>/dev/null; then
+              before=$(git show "$BEFORE_SHA:package.json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{console.log(JSON.parse(s).version)}catch{}})")
+            fi
+            if [ "$before" = "$version" ]; then
+              echo "Version unchanged ($version), nothing to release."; release=false
+            elif [ -n "$(git ls-remote --tags origin "refs/tags/v$version")" ]; then
+              echo "v$version is already tagged, nothing to release."; release=false
+            else
+              echo "Version $before -> $version: releasing to Play Production and TestFlight."
+            fi
+          fi
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
 
   android:
     needs: prepare
-    if: ${{ github.event_name == 'push' || inputs.android }}
+    if: ${{ needs.prepare.outputs.release == 'true' && (github.event_name == 'push' || inputs.android) }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -237,7 +265,8 @@ jobs:
           if-no-files-found: warn
           path: android/app/build/outputs/mapping/release/mapping.txt
 
-      # Google Play. A tag publishes to Production at 100%; a manual run uses
+      # Google Play. A version bump on main or a tag publishes to Production
+      # at 100%; a manual run uses
       # the play_track input ("none" skips). The service-account key exists
       # only on this runner and is removed with the keystore below. Without
       # the secret the step warns and skips, so the .aab artifact above still
@@ -295,8 +324,28 @@ jobs:
 
   ios:
     needs: prepare
-    if: ${{ github.event_name == 'push' || inputs.ios }}
+    if: ${{ needs.prepare.outputs.release == 'true' && (github.event_name == 'push' || inputs.ios) }}
     uses: ./.github/workflows/ios.yml
     with:
-      lane: ${{ (github.event_name == 'workflow_dispatch' && inputs.testflight) && 'testflight' || 'signed-ipa' }}
+      # A version bump on main goes to TestFlight; a pushed tag only builds.
+      lane: ${{ ((github.event_name == 'workflow_dispatch' && inputs.testflight) || github.ref_type == 'branch') && 'testflight' || 'signed-ipa' }}
     secrets: inherit
+
+  # After an automatic release, mark the commit v<version>. A tag pushed with
+  # GITHUB_TOKEN does not start another run, so this cannot release twice.
+  tag:
+    needs: [prepare, android, ios]
+    if: ${{ github.event_name == 'push' && github.ref_type == 'branch' && needs.prepare.outputs.release == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Tag the release
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          git tag "v$VERSION" "$GITHUB_SHA"
+          git push origin "v$VERSION"
+          echo "Tagged $GITHUB_SHA as v$VERSION." >> "$GITHUB_STEP_SUMMARY"
