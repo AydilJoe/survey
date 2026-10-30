@@ -419,6 +419,88 @@ struct DuitfulAppShortcuts: AppShortcutsProvider {
   }
 }
 
+/* ---------- 3c. App privacy manifest (PrivacyInfo.xcprivacy) ---------- */
+// App Store Connect refuses a build whose own binary calls a "required
+// reason" API without declaring why. The pods that ship their own manifest
+// (Capacitor, ML Kit) cover their frameworks, but static pods such as
+// DuitfulCapacitorKit link into the app binary itself, and the Siri &
+// Shortcuts queue above lives in AppDelegate.swift: both use UserDefaults,
+// for this app's own data only (reason CA92.1). The collected-data entry
+// mirrors the App Privacy answers in APP_STORE_LISTING.md (purchase history
+// for referral commissions, not linked, not tracking); keep them in step.
+const PRIVACY_MANIFEST = resolve(IOS_APP, "App/PrivacyInfo.xcprivacy");
+const PRIVACY_MANIFEST_BODY = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+\t<key>NSPrivacyTracking</key>
+\t<false/>
+\t<key>NSPrivacyTrackingDomains</key>
+\t<array/>
+\t<key>NSPrivacyCollectedDataTypes</key>
+\t<array>
+\t\t<dict>
+\t\t\t<key>NSPrivacyCollectedDataType</key>
+\t\t\t<string>NSPrivacyCollectedDataTypePurchaseHistory</string>
+\t\t\t<key>NSPrivacyCollectedDataTypeLinked</key>
+\t\t\t<false/>
+\t\t\t<key>NSPrivacyCollectedDataTypeTracking</key>
+\t\t\t<false/>
+\t\t\t<key>NSPrivacyCollectedDataTypePurposes</key>
+\t\t\t<array>
+\t\t\t\t<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+\t\t\t</array>
+\t\t</dict>
+\t</array>
+\t<key>NSPrivacyAccessedAPITypes</key>
+\t<array>
+\t\t<dict>
+\t\t\t<key>NSPrivacyAccessedAPIType</key>
+\t\t\t<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+\t\t\t<key>NSPrivacyAccessedAPITypeReasons</key>
+\t\t\t<array>
+\t\t\t\t<string>CA92.1</string>
+\t\t\t</array>
+\t\t</dict>
+\t</array>
+</dict>
+</plist>
+`;
+
+if (!existsSync(PRIVACY_MANIFEST) || readFileSync(PRIVACY_MANIFEST, "utf8") !== PRIVACY_MANIFEST_BODY) {
+  writeFileSync(PRIVACY_MANIFEST, PRIVACY_MANIFEST_BODY);
+  console.log("patch-ios: wrote App/PrivacyInfo.xcprivacy.");
+}
+{
+  let proj = readFileSync(PBXPROJ, "utf8");
+  if (proj.includes("PrivacyInfo.xcprivacy in Resources")) {
+    console.log("patch-ios: PrivacyInfo.xcprivacy already in the App target, skipping.");
+  } else {
+    const ref = pbxUuid("privacyManifestRef");
+    const build = pbxUuid("privacyManifestBuildFile");
+    if (proj.includes(ref) || proj.includes(build)) {
+      console.error("patch-ios: privacy manifest UUID collides with an existing object.");
+      process.exit(1);
+    }
+    const appTarget = pbxObjects(proj, "PBXNativeTarget")
+      .find((o) => o.body.includes('productType = "com.apple.product-type.application";'));
+    const resources = appTarget && appTarget.body.match(/([0-9A-F]{24}) \/\* Resources \*\//);
+    const appGroup = pbxObjects(proj, "PBXGroup").find((o) => o.body.includes("/* AppDelegate.swift */"));
+    if (!resources || !appGroup) {
+      console.error("patch-ios: couldn't find the App target's Resources phase or the App group in", PBXPROJ);
+      process.exit(1);
+    }
+    proj = pbxAppend(proj, "PBXBuildFile",
+      `\t\t${build} /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = ${ref} /* PrivacyInfo.xcprivacy */; };\n`);
+    proj = pbxAppend(proj, "PBXFileReference",
+      `\t\t${ref} /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };\n`);
+    proj = pbxAddToList(proj, appGroup.uuid, "children", `${ref} /* PrivacyInfo.xcprivacy */,`);
+    proj = pbxAddToList(proj, resources[1], "files", `${build} /* PrivacyInfo.xcprivacy in Resources */,`);
+    writeFileSync(PBXPROJ, proj);
+    console.log("patch-ios: added PrivacyInfo.xcprivacy to the App target's resources.");
+  }
+}
+
 /* ---------- 4. Home Screen widget (WidgetKit extension) ---------- */
 // A widget extension is a SEPARATE PROCESS. It cannot decrypt anything:
 // the vault is AES-GCM sealed under a key derived from the user's passcode
