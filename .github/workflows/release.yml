@@ -8,7 +8,10 @@ name: Release builds (signed AAB + IPA)
 #             Optionally uploaded to TestFlight too.
 #
 # Both land as workflow ARTIFACTS (Actions run page → Artifacts, kept 30
-# days). Nothing is sent to Google or Apple unless you tick "TestFlight".
+# days). The Android bundle is also published to Google Play: on a version
+# tag, straight to Production at 100% (the owner's choice); by hand, to the
+# track picked below, or not at all. Apple gets the iOS build only when you
+# tick "TestFlight".
 #
 # When it runs:
 #   - on a version tag:  git tag v1.46.1 && git push origin v1.46.1
@@ -26,6 +29,8 @@ name: Release builds (signed AAB + IPA)
 #   ANDROID_KEY_ALIAS          key alias, e.g. duitful
 #   ANDROID_KEY_PASSWORD       key password
 #   ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_P8     App Store Connect API key
+#   PLAY_SERVICE_ACCOUNT_JSON  Google Play service-account key (JSON) — see
+#                              ANDROID_BUILD.md, "Publishing to Google Play"
 on:
   push:
     tags: ["v*"]
@@ -43,6 +48,16 @@ on:
         description: "Also upload the iOS build to TestFlight"
         type: boolean
         default: false
+      play_track:
+        description: "Publish the Android bundle to Google Play"
+        type: choice
+        default: production
+        options:
+          - production
+          - beta
+          - alpha
+          - internal
+          - none
 
 concurrency:
   group: release-${{ github.ref }}
@@ -141,6 +156,7 @@ jobs:
           DUITFUL_VERSION_NAME: ${{ needs.prepare.outputs.version }}
         run: |
           export DUITFUL_VERSION_CODE=$(( ($(date -u +%s) - 1735689600) / 60 ))
+          echo "DUITFUL_VERSION_CODE=$DUITFUL_VERSION_CODE" >> "$GITHUB_ENV"
           echo "versionCode $DUITFUL_VERSION_CODE, versionName $DUITFUL_VERSION_NAME"
           node scripts/patch-android-signing.mjs
 
@@ -189,9 +205,61 @@ jobs:
           if-no-files-found: warn
           path: android/app/build/outputs/mapping/release/mapping.txt
 
-      - name: Delete the keystore
+      # Google Play. A tag publishes to Production at 100%; a manual run uses
+      # the play_track input ("none" skips). The service-account key exists
+      # only on this runner and is removed with the keystore below. Without
+      # the secret the step warns and skips, so the .aab artifact above still
+      # comes out of the run.
+      - name: Publish to Google Play
+        id: play
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          TRACK: ${{ github.event_name == 'push' && 'production' || inputs.play_track }}
+        run: |
+          if [ "$TRACK" = "none" ]; then echo "Play upload not requested."; exit 0; fi
+          if [ -z "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo "::warning::PLAY_SERVICE_ACCOUNT_JSON is not set, so nothing was sent to Google Play. Upload the duitful-aab artifact by hand, or add the secret (ANDROID_BUILD.md, 'Publishing to Google Play')."
+            exit 0
+          fi
+          umask 077
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/play-key.json"
+          node -e "JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'))" "$RUNNER_TEMP/play-key.json" \
+            || { echo "::error::PLAY_SERVICE_ACCOUNT_JSON is not valid JSON."; exit 1; }
+          node scripts/play-release-notes.mjs "${{ needs.prepare.outputs.version }}" "$DUITFUL_VERSION_CODE" "$RUNNER_TEMP/play-metadata"
+          echo "track=$TRACK" >> "$GITHUB_OUTPUT"
+          echo "ready=1" >> "$GITHUB_OUTPUT"
+
+      - uses: ruby/setup-ruby@v1
+        if: steps.play.outputs.ready == '1'
+        with:
+          ruby-version: "3.3"
+
+      - name: Upload the bundle to Google Play
+        if: steps.play.outputs.ready == '1'
+        env:
+          BUNDLE_GEMFILE: fastlane/Gemfile
+          TRACK: ${{ steps.play.outputs.track }}
+        run: |
+          bundle install --jobs 4 --retry 3
+          mapping=android/app/build/outputs/mapping/release/mapping.txt
+          extra=""
+          [ -f "$mapping" ] && extra="mapping:$mapping"
+          bundle exec fastlane run upload_to_play_store \
+            package_name:com.aydiljoe.duitful \
+            json_key:"$RUNNER_TEMP/play-key.json" \
+            aab:android/app/build/outputs/bundle/release/app-release.aab \
+            $extra \
+            track:"$TRACK" \
+            release_status:completed \
+            metadata_path:"$RUNNER_TEMP/play-metadata" \
+            skip_upload_metadata:true \
+            skip_upload_images:true \
+            skip_upload_screenshots:true
+          echo "Published versionCode $DUITFUL_VERSION_CODE to the $TRACK track." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete the keystore and the Play key
         if: always()
-        run: rm -f "$RUNNER_TEMP/duitful-upload.keystore"
+        run: rm -f "$RUNNER_TEMP/duitful-upload.keystore" "$RUNNER_TEMP/play-key.json"
 
   ios:
     needs: prepare

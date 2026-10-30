@@ -371,6 +371,36 @@ manual `versionCode` step further down is for building in Android Studio).
 The PR check (`ci.yml`) is unchanged: it compiles an *unsigned* bundle and
 never sees these secrets.
 
+## Publishing to Google Play (from CI)
+
+The same **Release builds** run also publishes the bundle to Google Play,
+with the release notes taken from the app's "What's new" for that version
+(`scripts/play-release-notes.mjs`) and the R8 mapping file attached:
+
+- **A version tag** (`git tag v1.51.0 && git push origin v1.51.0`) publishes
+  to **Production, rolled out to 100%** once Google's review passes.
+- **Run workflow by hand** lets you pick the track: `production`, `beta`
+  (open testing), `alpha` (closed testing), `internal`, or `none`.
+
+It needs one more secret, set up once:
+
+1. Play Console → **Setup → API access** → link (or create) a Google Cloud
+   project.
+2. In that Google Cloud project → **IAM & Admin → Service accounts** →
+   **Create service account** (any name, e.g. `duitful-ci`). No roles are
+   needed in Google Cloud. Open it → **Keys → Add key → JSON** and keep the
+   downloaded file safe.
+3. Play Console → **Users and permissions → Invite new users** → paste the
+   service account's email → **App permissions** → Duitful → tick
+   **Release to production, exclude devices, and use Play App Signing** and
+   **Release apps to testing tracks** → invite.
+4. GitHub → Settings → Secrets and variables → Actions → **New repository
+   secret** `PLAY_SERVICE_ACCOUNT_JSON`, value: the whole JSON file.
+
+Without the secret the run still builds the `.aab` and says, as a warning,
+that nothing was sent to Google. The key only ever exists on the runner
+and is deleted at the end of the job.
+
 ## Play Console setup (first submission)
 
 1. Play Console -> **Create app** (the form you're on)
