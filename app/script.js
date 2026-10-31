@@ -5198,10 +5198,15 @@ function initIAP() {
     sdk.store.when()
       .approved((tx) => tx.verify())
       .verified((receipt) => {
+        // A purchase started on the App Store product page (a promoted
+        // in-app purchase) arrives here with no paywall waiting on it, so
+        // say so instead of unlocking silently.
+        const unasked = !purchaseSettler && !state.pro;
         state.pro = true;
         save();
         renderAll();
         receipt.finish();
+        if (unasked) showToast("Duitful Pro unlocked. Thanks for supporting Duitful!");
         // Fire-and-forget attribution record so Aydil can pay the
         // referrer manually later. Failure is silent — the purchase
         // itself has already succeeded.
