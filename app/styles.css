@@ -5541,8 +5541,49 @@ body.private #zakat-nisab-line {
   100% { opacity: 0; transform: translateY(320px) rotate(var(--spin, 420deg)); }
 }
 
+/* the developer's thank-you: a letter, not a banner */
+.pro-dev-note {
+  margin: 0.4rem 0 0.2rem;
+  padding: 1rem 1.1rem 1.05rem;
+  border-radius: var(--r-md);
+  background: var(--glass-bg-soft);
+  border: 0.5px solid var(--glass-border-soft);
+  text-align: left;
+}
+.pro-dev-note-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.7rem;
+}
+.pro-dev-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  color: var(--primary);
+  background: linear-gradient(135deg, rgba(28, 43, 56, 0.18), rgba(212, 165, 116, 0.22));
+  border: 0.5px solid var(--glass-border-soft);
+}
+.pro-dev-note h3 { margin: 0; font-size: 1rem; }
+.pro-dev-role { margin: 0.1rem 0 0; color: var(--muted); font-size: 0.8rem; }
+.pro-dev-note p { margin: 0 0 0.6rem; font-size: 0.92rem; line-height: 1.5; }
+.pro-dev-note a { color: var(--primary); }
+.pro-dev-note .pro-dev-sign { margin: 0.8rem 0 0; color: var(--muted); }
+.pro-dev-sign span {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.25rem;
+  color: var(--text);
+}
+
 /* the setup steps arrive after the moment, not during it */
-#pro-welcome-dialog.celebrating .pro-welcome-step {
+#pro-welcome-dialog.celebrating .pro-welcome-step,
+#pro-welcome-dialog.celebrating .pro-dev-note {
   animation: rise 460ms ease-out 900ms both;
 }
 
@@ -5555,7 +5596,8 @@ body.private #zakat-nisab-line {
   .pro-celebrate .pro-celebrate-sub,
   .pro-unlocked li,
   .pro-receipt,
-  #pro-welcome-dialog.celebrating .pro-welcome-step {
+  #pro-welcome-dialog.celebrating .pro-welcome-step,
+  #pro-welcome-dialog.celebrating .pro-dev-note {
     animation: none !important;
   }
   .pro-seal svg path { stroke-dashoffset: 0; }

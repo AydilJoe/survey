@@ -8712,6 +8712,17 @@ check('the brand catalogue makes no network calls at all',
         && drive.indexOf('accounts.google.com/gsi/client', gisAt + 1) === -1,
       JSON.stringify({ remote, gisAt, webStart, webEnd }));
   }
+  // A purchase started on the App Store page (promoted IAP) gets the same
+  // welcome as the paywall, with the developer's thank-you note in it.
+  {
+    const html = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
+    const js = readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8');
+    const dlgAt = html.indexOf('<dialog id="pro-welcome-dialog"');
+    const dlg = html.slice(dlgAt, html.indexOf('</dialog>', dlgAt));
+    check('Pro welcome: carries the thank-you note from Aydil, and a promoted App Store purchase opens it',
+      /class="pro-dev-note"/.test(dlg) && dlg.includes('mailto:hello@duitful.app') && /autofocus/.test(dlg.slice(0, 120))
+        && /if \(unasked\) openProWelcome\(\);/.test(js));
+  }
   // ITMS-90626: App Store Connect rejects an App Intent whose user-facing
   // text says "Apple" or "Siri" (1.53.0 lost two uploads to "Apple Pay").
   {
