@@ -285,6 +285,25 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         #endif
         call.reject("Needs iOS 26 with Apple Intelligence", "UNSUPPORTED")
     }
+
+    /// Ask iOS for the rating sheet. The system shows it at most a few times
+    /// a year per app and never says which, so `asked` reports that the call
+    /// was made, not that anything appeared on screen. Must run on the main
+    /// actor and needs the window scene the app is actually in.
+    @objc func requestReview(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let scene = self.bridge?.viewController?.view.window?.windowScene else {
+                call.resolve(["asked": false])
+                return
+            }
+            if #available(iOS 16.0, *) {
+                AppStore.requestReview(in: scene)
+            } else {
+                SKStoreReviewController.requestReview(in: scene)
+            }
+            call.resolve(["asked": true])
+        }
+    }
 }
 
 enum DuitfulReceiptAI {
@@ -324,25 +343,6 @@ extension DuitfulReceiptAI {
             "date": f.date,
             "currency": f.currency,
         ]
-    }
-
-    /// Ask iOS for the rating sheet. The system shows it at most a few times
-    /// a year per app and never says which, so `asked` reports that the call
-    /// was made, not that anything appeared on screen. Must run on the main
-    /// actor and needs the window scene the app is actually in.
-    @objc func requestReview(_ call: CAPPluginCall) {
-        DispatchQueue.main.async {
-            guard let scene = self.bridge?.viewController?.view.window?.windowScene else {
-                call.resolve(["asked": false])
-                return
-            }
-            if #available(iOS 16.0, *) {
-                AppStore.requestReview(in: scene)
-            } else {
-                SKStoreReviewController.requestReview(in: scene)
-            }
-            call.resolve(["asked": true])
-        }
     }
 
 }
