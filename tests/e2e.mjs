@@ -8720,6 +8720,14 @@ check('the brand catalogue makes no network calls at all',
     const shown = [...block.matchAll(/"((?:[^"\\\n]|\\.)*)"/g)].map((m) => m[1]).filter((x) => / /.test(x));
     check('App Intent text never says "Apple" or "Siri" (ITMS-90626)',
       shown.length >= 8 && !shown.some((x) => /\bapple\b|\bsiri\b/i.test(x)), JSON.stringify(shown.filter((x) => /apple|siri/i.test(x))));
+    // Siri answers "I can't add your spending to Duitful" to anything that
+    // isn't close to a phrase, and a phrase without the app name never builds.
+    const phrases = [...block.matchAll(/^\s*"([^"\n]*\\\\\(\.applicationName\)[^"\n]*)",$/gm)].map((m) => m[1]);
+    const phraseLines = [...block.matchAll(/phrases: \[([\s\S]*?)\]/g)].flatMap((m) => m[1].split('\n').map((l) => l.trim()).filter(Boolean));
+    check('Siri phrases: every phrase names the app, and "spending" and "expense" wordings are covered',
+      phrases.length >= 12 && phrases.length === phraseLines.length
+        && ['Add spending to', 'Log spending in', 'Add an expense to'].every((p) => phrases.some((x) => x.startsWith(p))),
+      JSON.stringify({ phrases: phrases.length, lines: phraseLines.length }));
   }
 
   // Vercel runs npm install on what .vercelignore leaves, so a file:

@@ -394,12 +394,29 @@ struct DuitfulScanReceiptIntent: AppIntent {
     }
 }
 
+// Siri only runs an App Shortcut when what you say is close to one of these
+// phrases; anything else goes to Siri's own answer ("I can't add your
+// spending directly to Duitful"). A phrase can't carry the amount (only an
+// AppEntity or AppEnum can be spoken inline), so each one starts the intent
+// and Siri asks "How much did you spend?". Cover the ways people say it.
 @available(iOS 17.0, *)
 struct DuitfulAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: ${INTENTS_MARK}(), phrases: [
             "Log a spend in \\(.applicationName)",
             "Add a spend to \\(.applicationName)",
+            "Add spending to \\(.applicationName)",
+            "Add my spending to \\(.applicationName)",
+            "Log spending in \\(.applicationName)",
+            "Log my spending in \\(.applicationName)",
+            "Add an expense to \\(.applicationName)",
+            "Log an expense in \\(.applicationName)",
+            "Record a spend in \\(.applicationName)",
+            "Track a spend in \\(.applicationName)",
+            "I spent money in \\(.applicationName)",
+            "New spend in \\(.applicationName)",
+            "\\(.applicationName) spend",
+            "\\(.applicationName) log a spend",
         ], shortTitle: "Log a spend", systemImageName: "plus.circle")
         AppShortcut(intent: DuitfulScanReceiptIntent(), phrases: [
             "Scan a receipt in \\(.applicationName)",
