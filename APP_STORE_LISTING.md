@@ -27,29 +27,51 @@ asks. Adapted from `PLAY_LISTING.md`, with Apple's rules applied:
 | Marketing URL | `https://duitful.app/` |
 | Copyright | `2026 Aydil Johari` |
 
-## Submitting 1.50.0 for review
+## Submitting 1.52.0 for review
 
-The build: TestFlight build **1.50.0** from `main` (ios.yml, lane
-`testflight`). Apple pairs a build with the App Store version of the same
-number, so the version in App Store Connect must read 1.50.0 too.
+The build: TestFlight build **1.52.0 (261030.255)** from `main` (ios.yml,
+lane `testflight`). Apple pairs a build with the App Store version of the
+same number, so the version in App Store Connect must read 1.52.0 too.
 
 In App Store Connect → Duitful → the version waiting for review:
 
-1. **Version number:** change it to `1.50.0` (allowed until the first
-   approval).
-2. **Build:** remove the old one, then add the 1.50.0 build once it says
-   "Ready to Submit" (10–30 minutes after the upload).
-3. **In-App Purchases and Subscriptions:** add `duitful_pro` and
-   `duitful_pro_launch`. Both need their 1024×1024 image
-   (`marketing/app-store/iap/duitful-pro-1024.png`) and a review screenshot.
+1. **Version number and build:** both already read 1.52.0, and the build is
+   attached. Only change these if you want a newer build, and pick one that
+   says "Ready to Submit" in TestFlight.
+2. **Description, keywords, promotional text:** from "Version page" below.
+   The description has to match what the build actually does — the free/Pro
+   split above all. A listing that contradicts the build reads as 2.1 App
+   Completeness, which is what the first submission was rejected for.
+3. **In-App Purchases:** `duitful_pro` and `duitful_pro_launch`. Both need
+   their 1024×1024 image (`marketing/app-store/iap/duitful-pro-1024.png`),
+   a review screenshot of the paywall, the display name `Duitful Pro` and
+   the description below.
+   **An IAP's metadata is read-only while it sits in a submission.** To edit
+   one: Draft Submissions → In-App Purchases → delete that row, edit it,
+   then **Add for Review → Draft Submission** to put it back. Removing the
+   *last* item deletes the whole submission.
 4. **App Privacy:** as in the App Privacy section below (Purchase History).
-5. **App Review Information → Notes:** paste the notes below.
-6. **Reply to the 2.1 message** in App Review (Resolution Center) with the
-   text in `APP_REVIEW_REPLY.md`, and **attach the screen recording** it
-   describes. Apple asked for one; resubmitting without it gets the same
-   reply.
-7. **Add for Review**, then **Submit to App Review**. Release: "Manually
-   release this version", so you choose the day.
+   It publishes separately from the version and takes effect immediately.
+5. **App Review Information → Notes:** Apple asked for the six answers here
+   as well as in the reply. **Both this field and the Resolution Center
+   reply cap at 4,000 characters**, and the full reply runs to about 5,200,
+   so neither takes it. Paste "Condensed reply (fits 4,000)" from
+   `APP_REVIEW_REPLY.md` into both.
+6. **Screenshots:** see the Screenshots section. They are **required**, and
+   the size Apple requires has changed.
+7. **Reply to the 2.1 message** in App Review (Resolution Center) with the
+   condensed text from `APP_REVIEW_REPLY.md`, and **attach the screen
+   recording** it describes. Apple asked for one; resubmitting without it
+   gets the same reply. Attachments accept .zip among other types, but
+   zipping an MP4 saves almost nothing — trim or re-encode the recording,
+   or host it and put the URL in the reply.
+8. **Add the version to the submission.** On the version page, **Add for
+   Review** → pick the existing Draft Submission. A draft holding only the
+   IAPs reports *"Unable to Submit for Review — to submit your items for
+   review, add an app version for the selected platform"*, and the Submit
+   button stays greyed out. Easy to miss.
+9. **Submit for Review.** Release: "Manually release this version", so you
+   pick the day.
 
 ## Version page
 
@@ -114,18 +136,30 @@ I'm Aydil, in Kuala Lumpur. Duitful is not a company — no investors, no ad net
 First release on iPhone.
 ```
 
-### Screenshots (6.9" iPhone, 1290×2796 — mandatory)
+### Screenshots (required size changed — 1206×2622 or 1179×2556)
 
-Take on your own iPhone from the TestFlight build, in this order (the first
-two are all most people see):
+Apple's required bucket is now **iPhone with Dynamic Island (medium display)**,
+i.e. 6.1"/6.3". Accepted sizes there: **1206×2622**, **1179×2556**, 2622×1206
+or 2556×1179. The old 6.9" 1290×2796 bucket ("large display") is now
+**Optional**. A modern iPhone Pro shoots 1206×2622 natively, so screenshots
+straight off the phone are the right size — but **send them to yourself as
+files, not photos**: Telegram and WhatsApp recompress to something like
+1177×2560, which App Store Connect rejects.
 
-1. Home — the balance and Add entry
-2. Debts — "When each debt is cleared" with the debt-free date
-3. Receipt scan — the result with "Add RM …"
-4. Split a bill — "1 of 3 paid"
-5. Settings — the privacy / encryption section
+Uploaded for 1.52.0, in this order:
 
-Use realistic Malaysian sample data, not your real figures.
+1. Welcome — "Your money, private to this phone" (Encrypted / No account / Offline)
+2. Debt-free — "PTPTN is paid off… RM 200.00 a month freed up"
+3. Split a bill — "Request Dollah's share", QR and share link
+4. Receipt scan — the result with "Add RM …"
+5. Settings — Security and Clear all data
+
+Use realistic Malaysian sample data, not your real figures, and avoid
+empty-state screens (a Home card reading RM 0.00 sells nothing) and anything
+showing a failure state — a payoff plan reading "Debt-free in ∞" with a red
+"debt will grow" warning contradicts the description's promise of the month
+you'll be debt-free. The camera viewfinder is not app UI; screenshot the scan
+*result* instead.
 
 ## App Review information
 
@@ -181,4 +215,12 @@ encrypted, which Apple does not count as collection by the developer.
 | `duitful_pro` | Non-Consumable | tier at RM 19.90 | Duitful Pro |
 | `duitful_pro_launch` | Non-Consumable | tier at RM 14.90 | Duitful Pro |
 
-Description for both (Apple allows 55 characters): `Auto backup, unlimited scans, budget pools. Pay once.` (52)
+Both use the display name `Duitful Pro`; `duitful_pro_launch` is only ever
+reached by typing the promo code, so the buyer never sees two products.
+
+Description for both (Apple allows 55 characters):
+`Auto backup, unlimited scans, budget pools. Pay once.` (53)
+
+Each also needs a **review screenshot of the paywall** and a review note
+saying how to reach it — the reviewer has to find Settings → Unlock Duitful
+Pro, and for the promo product, that the code LAUNCH100 switches to it.
