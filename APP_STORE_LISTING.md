@@ -142,7 +142,23 @@ No account is needed. On first launch, tap Get started; a passcode (4 or more di
 Duitful Pro is a non-consumable in-app purchase: Settings → Unlock Pro. "Restore purchase" is on the same screen. Two products are attached: duitful_pro (standard) and duitful_pro_launch (used when a friend code such as LAUNCH100 is entered on the purchase screen).
 
 All data is stored encrypted on the device. Bill-split links carry their details in the URL fragment and are never sent to a server. Backup (Pro) writes an already-encrypted file to the user's own iCloud, or, optionally, to their own Google Drive.
+
+iCloud backup (Pro): unlock Pro first with the sandbox purchase, then Settings → Cloud backup → iCloud → Back up now. It uses the device's own Apple ID; no account from us is needed.
+
+Google Drive backup (Pro, optional): unlock Pro first, then Settings → Cloud backup → Google Drive → Sign in, with this Google account:
+Email: <demo Gmail address>
+Password: <demo password>
+The backup is an already-encrypted file in that account's Drive app-data folder.
+
+The app downloads and runs no code. Everything it executes ships in the app bundle; the only things fetched at runtime are JSON data (exchange rates and in-app notices).
 ```
+
+Fill in the two `<demo …>` placeholders **in App Store Connect only**, never
+here: this file is public on GitHub. Before each submission, check that the
+demo Gmail still signs in, is listed as a Test user on the Google OAuth
+consent screen while that screen is in Testing, and has 2-Step Verification
+off with a recovery email you check. iCloud needs the CloudKit `Backup`
+schema deployed to Production (IOS_BUILD.md, "iCloud backup on iOS").
 
 ## App Privacy
 
