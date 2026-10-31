@@ -189,6 +189,14 @@ writeOnce(resolve(APP_DIR, RULES), `# ${MARK} — written by scripts/patch-andro
 # widget provider and plugins. Manifest-declared classes are kept by AAPT's
 # rules already; this also keeps what the bridge reaches by name.
 -keep class ${APP_ID}.** { *; }
+
+# Room builds every database by reflection: Class.forName(name + "_Impl"),
+# then its no-argument constructor. WorkManager's WorkDatabase arrived with
+# ML Kit Entity Extraction in 1.53.0, and R8 kept WorkDatabase_Impl's name
+# but stripped that constructor, so androidx.startup crashed every launch
+# before any of our code ran ("Failed to create an instance of
+# androidx.work.impl.WorkDatabase"). Keep every Room database's constructor.
+-keep class * extends androidx.room.RoomDatabase { <init>(); }
 `);
 
 function writeOnce(path, content) {
