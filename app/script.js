@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.53.0";
+const APP_VERSION = "1.53.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -10055,6 +10055,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.53.1": [
+    "<strong>Duitful opens again on Android</strong> — 1.53.0 could close as soon as it started on some phones. This update fixes that. On Android, receipt scans use the camera while the document scanner is checked on more phones.",
+  ],
   "1.53.0": [
     "<strong>Sharper receipt scans</strong> — Scan receipt opens your phone's document scanner, which straightens and cleans up the receipt before reading it.",
     "<strong>A second opinion</strong> — when a total, shop or date is unclear, phones with built-in AI check it, on the phone. Subtotal, SST and service charge now cross-check the total.",
