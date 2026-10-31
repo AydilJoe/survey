@@ -8764,6 +8764,27 @@ check('the brand catalogue makes no network calls at all',
         && drive.indexOf('accounts.google.com/gsi/client', gisAt + 1) === -1,
       JSON.stringify({ remote, gisAt, webStart, webEnd }));
   }
+  // DuitfulKit's native methods must live in the plugin class itself. PR CI
+  // builds no iOS, so a method appended after the class's last brace (1.53.0's
+  // requestReview landed in an enum extension) only fails at archive time.
+  {
+    const kitDir = path.join(REPO_ROOT, 'native', 'duitful-kit');
+    const swift = readFileSync(path.join(kitDir, 'ios', 'Sources', 'DuitfulKitPlugin', 'DuitfulKitPlugin.swift'), 'utf8');
+    const java = readFileSync(path.join(kitDir, 'android', 'DuitfulKitPlugin.java'), 'utf8');
+    // The class body: from its declaration to the first closing brace at
+    // column 0 after it.
+    const body = (src, decl) => { const at = src.search(decl); return at === -1 ? '' : src.slice(at, src.indexOf('\n}', at)); };
+    const swiftClass = body(swift, /public class DuitfulKitPlugin\b/);
+    const javaClass = body(java, /public class DuitfulKitPlugin\b/);
+    const registered = [...swift.matchAll(/CAPPluginMethod\(name: "(\w+)"/g)].map((m) => m[1]);
+    const swiftMissing = registered.filter((n) => !new RegExp(`@objc func ${n}\\(_ call: CAPPluginCall\\)`).test(swiftClass));
+    const javaMethods = [...javaClass.matchAll(/@PluginMethod[^\n]*\n\s*public void (\w+)\(PluginCall/g)].map((m) => m[1]);
+    const swiftOnly = new Set(['drainQuickAdd']); // Android drains through NotificationListener
+    const javaMissing = registered.filter((n) => !swiftOnly.has(n) && !javaMethods.includes(n));
+    check('DuitfulKit: every registered method is defined inside the plugin class, on iOS and Android',
+      registered.length >= 6 && swiftMissing.length === 0 && javaMissing.length === 0,
+      JSON.stringify({ registered, swiftMissing, javaMissing }));
+  }
   // A purchase started on the App Store page (promoted IAP) gets the same
   // welcome as the paywall, with the developer's thank-you note in it.
   {
