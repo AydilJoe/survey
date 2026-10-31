@@ -22,7 +22,7 @@ const SHELL = [
   "/app/",
   "/app/index.html",
   "/app/styles.css?v=136",
-  "/app/script.js?v=178",
+  "/app/script.js?v=179",
   "/app/drive-config.js?v=2",
   "/app/drive-sync.js?v=3",
   "/app/icloud-sync.js?v=2",

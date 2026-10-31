@@ -3,6 +3,7 @@ import UIKit
 import Capacitor
 import VisionKit
 import PhotosUI
+import StoreKit
 import MLKitEntityExtraction
 #if canImport(FoundationModels)
 import FoundationModels
@@ -23,6 +24,9 @@ import FoundationModels
 ///                    each entry into a pending transaction to confirm, exactly
 ///                    like Android's quick-add queue.
 ///   extractEntities  ML Kit Entity Extraction: amounts and dates in text.
+///   requestReview    The App Store's own rating sheet, asked once per
+///                    install at the debt-free moment. iOS decides whether to
+///                    show it; resolving says we asked, not that it appeared.
 ///   aiStatus /       Apple's on-device Foundation Models (iOS 26, Apple
 ///   aiReadReceipt    Intelligence phones): a second opinion on a receipt the
 ///                    rule-based parser isn't sure of.
@@ -40,6 +44,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "extractEntities", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "aiStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "aiReadReceipt", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
     ]
 
     /// Shared with the App Intents in AppDelegate.swift. Rename both or neither.
@@ -320,5 +325,25 @@ extension DuitfulReceiptAI {
             "currency": f.currency,
         ]
     }
+
+    /// Ask iOS for the rating sheet. The system shows it at most a few times
+    /// a year per app and never says which, so `asked` reports that the call
+    /// was made, not that anything appeared on screen. Must run on the main
+    /// actor and needs the window scene the app is actually in.
+    @objc func requestReview(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            guard let scene = self.bridge?.viewController?.view.window?.windowScene else {
+                call.resolve(["asked": false])
+                return
+            }
+            if #available(iOS 16.0, *) {
+                AppStore.requestReview(in: scene)
+            } else {
+                SKStoreReviewController.requestReview(in: scene)
+            }
+            call.resolve(["asked": true])
+        }
+    }
+
 }
 #endif

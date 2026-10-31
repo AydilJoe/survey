@@ -9,7 +9,7 @@
 import { chromium } from 'playwright';
 import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import { existsSync, symlinkSync, unlinkSync, lstatSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { readIosClientId, reversedClientId } from '../scripts/google-ios-client.mjs';
 
@@ -4815,6 +4815,23 @@ check('the vault is open before the quick-add checks',
       direct.length === 0 && counted.length >= 10 && counted.every((q) => /utm_source=landing/.test(q) && /utm_content=[a-z-]+/.test(q)),
       JSON.stringify({ direct, n: counted.length }));
   }
+  // Every in-page asset a landing page points at must actually be there.
+  // /ms/index.html shipped for months with src="screenshots/…" copied from
+  // the English page, which from /ms/ resolves to /ms/screenshots/… — the
+  // whole hero, demo video included, was a broken-image icon on the page
+  // that takes a quarter of the site's search clicks.
+  for (const f of ['index.html', 'ms/index.html']) {
+    const html = readFileSync(path.join(REPO_ROOT, f), 'utf8');
+    const dir = path.dirname(path.join(REPO_ROOT, f));
+    // Page-relative only: a root-absolute path like /_vercel/insights/script.js
+    // is served by the host at runtime and has no file in the repo.
+    const refs = [...html.matchAll(/(?:src|poster)="([^"]+)"/g)].map((m) => m[1])
+      .filter((u) => !/^(https?:|data:|\/|#)/.test(u));
+    const missing = refs.filter((u) => !existsSync(path.resolve(dir, u.split('?')[0])));
+    check(`${f}: every page-relative image, video and poster resolves to a real file`,
+      refs.length > 0 && missing.length === 0, JSON.stringify({ checked: refs.length, missing }));
+  }
+
   const guide = readFileSync(path.join(REPO_ROOT, 'guides', readdirSync(path.join(REPO_ROOT, 'guides')).find((d) => existsSync(path.join(REPO_ROOT, 'guides', d, 'index.html')) && d !== 'ms'), 'index.html'), 'utf8');
   check('a generated guide\'s call to action is counted, tagged with its slug',
     /href="https:\/\/duitful\.app\/go\/app\/\?utm_source=guide&amp;utm_medium=en&amp;utm_content=[a-z0-9-]+"/.test(guide));
@@ -5597,6 +5614,34 @@ check('the vault is open before the quick-add checks',
       out.noAiAsks = askLog.slice();
     } finally { window.Capacitor = prev.cap; }
 
+    // The rating ask: once per install, native only, and never thrown at the
+    // app when the store declines to show a sheet.
+    const askedKit = (impl) => ({ isNativePlatform: () => true, Plugins: { DuitfulKit: { requestReview: impl } } });
+    let reviewCalls = 0;
+    try {
+      localStorage.removeItem('duitful-review-asked');
+      window.Capacitor = askedKit(async () => { reviewCalls++; return { asked: true }; });
+      await askForReview();
+      const afterFirst = reviewCalls;
+      await askForReview();
+      const afterSecond = reviewCalls;
+      // A store that refuses must not bubble up, and must not re-arm the ask.
+      localStorage.removeItem('duitful-review-asked');
+      window.Capacitor = askedKit(async () => { reviewCalls++; throw new Error('quota spent'); });
+      let threw = false;
+      try { await askForReview(); } catch { threw = true; }
+      const afterThrow = reviewCalls;
+      await askForReview();
+      // On the web there is no store to ask.
+      localStorage.removeItem('duitful-review-asked');
+      window.Capacitor = undefined;
+      await askForReview();
+      out.review = { afterFirst, afterSecond, threw, afterThrow, afterWeb: reviewCalls };
+    } finally {
+      window.Capacitor = prev.cap;
+      try { localStorage.removeItem('duitful-review-asked'); } catch {}
+    }
+
     // Receipt maths: subtotal plus the charges under it, never the tax table.
     out.sub = {
       sst: receiptSubtotalTotal('ITEM 10.00\nSUBTOTAL 20.00\nSST 6% 1.20\nSERVICE CHARGE 2.00\nROUNDING -0.02\nTOTAL 23.18\nSST SUMMARY 6% 20.00 1.20'),
@@ -5641,6 +5686,10 @@ check('the vault is open before the quick-add checks',
     kit.reply.ios.total === 23.4 && kit.reply.ios.currency === 'MYR' && kit.reply.fenced.total === 18.9 && kit.reply.fenced.merchant === 'Mamak'
       && kit.reply.junk === null && kit.reply.zero.total === null && kit.reply.zero.date === '' && kit.reply.zero.currency === '',
     JSON.stringify(kit.reply));
+  check('the rating sheet is asked for once per install, on native only, and a refusal is swallowed',
+    kit.review.afterFirst === 1 && kit.review.afterSecond === 1 && kit.review.threw === false
+      && kit.review.afterThrow === 2 && kit.review.afterWeb === 2,
+    JSON.stringify(kit.review));
   check('on-device AI: replaces a low-confidence total only with a figure printed on the receipt, and keeps a confident read',
     kit.merge.grounded.parsed.amount === 7.9 && kit.merge.grounded.parsed.vendor === 'Kedai Makan ABC' && kit.merge.grounded.parsed.date === '2026-10-29'
       && kit.merge.invented.parsed.amount === 50 && kit.merge.invented.parsed.vendor === '' && kit.merge.invented.parsed.date === ''
@@ -8642,7 +8691,10 @@ check('the brand catalogue makes no network calls at all',
       !!origin && connect.includes(origin) && /isNative\(\) \? FX_ORIGIN \+ path : path/.test(appSrc), origin);
     check('no third-party exchange-rate host is called from the app',
       !/open\.er-api\.com|currency-api|cdn\.jsdelivr\.net\/npm\/@fawazahmed0/.test(appSrc) && !connect.some((h) => /er-api|currency-api|jsdelivr/.test(h)));
-    const { allowedOrigin } = await import(path.join(REPO_ROOT, 'api', '_lib', 'cors.js'));
+    // pathToFileURL, not the bare path: on Windows an absolute path starts
+    // with a drive letter, which the ESM loader reads as a 'c:' protocol and
+    // refuses. Without this the whole suite dies at this line.
+    const { allowedOrigin } = await import(pathToFileURL(path.join(REPO_ROOT, 'api', '_lib', 'cors.js')).href);
     check('the API answers the native apps\' origins (CORS), and only the site\'s otherwise',
       allowedOrigin('capacitor://localhost', 'https://duitful.app') === 'capacitor://localhost'
       && allowedOrigin('https://localhost', 'https://duitful.app') === 'https://localhost'

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // Installs DuitfulKitPlugin (native/duitful-kit/android) into the
 // cap-generated android/ project: the ML Kit Document Scanner, ML Kit Entity
-// Extraction and Gemini Nano (ML Kit Prompt API). Idempotent, safe to re-run
+// Extraction, Gemini Nano (ML Kit Prompt API) and Play's in-app review. Idempotent, safe to re-run
 // after every `npm run cap:sync`, and a no-op without android/.
 //
 //   1. Copy the .java sources into android/app/src/main/java/<app>/plugins/
 //   2. Register the plugin in MainActivity.onCreate
-//   3. Add the three Gradle dependencies to android/app/build.gradle
+//   3. Add the Gradle dependencies to android/app/build.gradle
 //   4. Add <uses-sdk tools:overrideLibrary=…> for the two libraries that
 //      declare minSdk 26 while the app supports 24. The plugin only touches
 //      them after an SDK_INT >= 26 check (see DuitfulKitPlugin.java), which
@@ -38,6 +38,8 @@ export const DEPENDENCIES = [
   "com.google.android.gms:play-services-mlkit-document-scanner:16.0.0",
   "com.google.mlkit:entity-extraction:16.0.0-beta6",
   "com.google.mlkit:genai-prompt:1.0.0-beta5",
+  // Play's in-app review sheet, asked once at the debt-free moment.
+  "com.google.android.play:review:2.0.2",
 ];
 // Manifest package of every library in the graph above that declares
 // minSdk > 24 (entity-extraction, genai-prompt and its genai-common).

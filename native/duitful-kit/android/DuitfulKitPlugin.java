@@ -19,6 +19,9 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanner;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanning;
+import com.google.android.play.core.review.ReviewInfo;
+import com.google.android.play.core.review.ReviewManager;
+import com.google.android.play.core.review.ReviewManagerFactory;
 import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult;
 
 import java.io.ByteArrayOutputStream;
@@ -37,6 +40,9 @@ import java.util.concurrent.Executors;
  *                    app needs no camera permission for it.
  *   extractEntities  ML Kit Entity Extraction: amounts and dates in a piece
  *                    of text (a receipt read, a bank notification).
+ *   requestReview    Play's own in-app review sheet, asked once per install
+ *                    at the debt-free moment. Play decides whether to show
+ *                    it; resolving says we asked, not that it appeared.
  *   aiStatus /       Gemini Nano through ML Kit's Prompt API: a second
  *   aiReadReceipt    opinion on a receipt the rule-based parser isn't sure of.
  *
@@ -186,5 +192,31 @@ public class DuitfulKitPlugin extends Plugin {
             return;
         }
         DuitfulKitAi.readReceipt(getContext(), text, call);
+    }
+
+    /**
+     * Ask Play for the in-app review sheet. Play enforces its own per-user
+     * quota and shows nothing once it is spent or the user has already
+     * rated, so `asked` reports that the flow completed, not that a sheet
+     * appeared. Both callbacks resolve: a review we could not ask for is a
+     * normal outcome, never an error the app should handle.
+     */
+    @PluginMethod
+    public void requestReview(PluginCall call) {
+        final Activity activity = getActivity();
+        if (activity == null) {
+            call.resolve(new JSObject().put("asked", false));
+            return;
+        }
+        final ReviewManager manager = ReviewManagerFactory.create(activity);
+        manager.requestReviewFlow().addOnCompleteListener(task -> {
+            if (!task.isSuccessful()) {
+                call.resolve(new JSObject().put("asked", false));
+                return;
+            }
+            ReviewInfo info = task.getResult();
+            manager.launchReviewFlow(activity, info)
+                .addOnCompleteListener(flow -> call.resolve(new JSObject().put("asked", flow.isSuccessful())));
+        });
     }
 }
