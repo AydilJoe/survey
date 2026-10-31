@@ -50,10 +50,22 @@ export const OVERRIDE_LIBRARIES = [
 ];
 const MARK = "duitful-kit";
 
+// Off: Android 1.53.0, the first build with this plugin, would not open on a
+// Galaxy S21+ (Android 14) that had run 1.52.1. Until the crash report says
+// which part does it, Android ships without the plugin and the app falls back
+// exactly as on a phone without the kits: the camera sheet, its own parser,
+// no rating ask. Flip back to true once the cause is fixed and tested on a
+// real phone. iOS is unaffected; it installs the plugin through its pod.
+export const ANDROID_ENABLED = false;
+
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) install();
 
 function install() {
+  if (!ANDROID_ENABLED) {
+    console.log("install-duitful-kit: switched off for Android (see ANDROID_ENABLED), skipping.");
+    return;
+  }
   if (!existsSync(ANDROID)) {
     console.log("install-duitful-kit: android/ not present, skipping.");
     return;
