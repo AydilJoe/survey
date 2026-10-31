@@ -4064,6 +4064,30 @@ function checkDebtsPaidOff() {
   if (cleared.length) setTimeout(() => showDebtPaidOff(cleared), 350);
 }
 
+/* ---------- the one time we ask for a rating ----------
+   Both stores rank on ratings and Duitful has none, which costs more reach
+   than any single feature. The ask rides the debt-free celebration — the
+   moment the app exists for — and fires once per install, never again.
+
+   Neither store promises a sheet: Apple caps how often it shows one and
+   Google has a per-user quota, so "nothing happened" is the normal case and
+   not a failure. The flag is set *before* the call for that reason — the one
+   thing worse than no rating is asking twice. localStorage, not the vault:
+   restoring a backup or importing a CSV must not make the app ask again. */
+const REVIEW_ASKED_KEY = "duitful-review-asked";
+
+function reviewAlreadyAsked() {
+  // A locked-down browser that throws on localStorage counts as "asked":
+  // better silent than nagging on every payoff.
+  try { return localStorage.getItem(REVIEW_ASKED_KEY) === "1"; } catch { return true; }
+}
+
+async function askForReview() {
+  if (!isNative() || reviewAlreadyAsked()) return;
+  try { localStorage.setItem(REVIEW_ASKED_KEY, "1"); } catch {}
+  try { await window.Capacitor?.Plugins?.DuitfulKit?.requestReview(); } catch { /* no sheet, no harm */ }
+}
+
 function showDebtPaidOff(cleared) {
   const dlg = document.getElementById("debt-paid-dialog");
   if (!dlg || !aesKey) return;
@@ -4099,6 +4123,10 @@ function showDebtPaidOff(cleared) {
     dlg.showModal();
   }
   proCelebrationConfetti(document.getElementById("debt-paid-celebrate"), left.length ? 26 : 48);
+  // Only the last debt earns the ask, and only once the confetti is done and
+  // the sheet is out of the way — a review prompt over a modal is a fight the
+  // modal wins.
+  if (!left.length) dlg.addEventListener("close", () => setTimeout(askForReview, 700), { once: true });
 }
 
 function renderPending() {
