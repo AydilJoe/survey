@@ -56,7 +56,7 @@ const MARK = "duitful-kit";
 // exactly as on a phone without the kits: the camera sheet, its own parser,
 // no rating ask. Flip back to true once the cause is fixed and tested on a
 // real phone. iOS is unaffected; it installs the plugin through its pod.
-export const ANDROID_ENABLED = false;
+export const ANDROID_ENABLED = true;
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) install();
