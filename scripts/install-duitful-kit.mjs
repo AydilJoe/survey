@@ -50,12 +50,14 @@ export const OVERRIDE_LIBRARIES = [
 ];
 const MARK = "duitful-kit";
 
-// Off: Android 1.53.0, the first build with this plugin, would not open on a
-// Galaxy S21+ (Android 14) that had run 1.52.1. Until the crash report says
-// which part does it, Android ships without the plugin and the app falls back
-// exactly as on a phone without the kits: the camera sheet, its own parser,
-// no rating ask. Flip back to true once the cause is fixed and tested on a
-// real phone. iOS is unaffected; it installs the plugin through its pod.
+// The Android kill switch. 1.53.0, the first build with this plugin, crashed
+// on every launch: Entity Extraction brings in WorkManager, whose Room
+// database R8 had stripped (fixed by the Room keep rule in
+// patch-android-play-vitals.mjs), and 1.53.1 shipped with this set to false.
+// False leaves the plugin out entirely and the app falls back as on a phone
+// without the kits: the camera sheet, its own parser, no rating ask. CI's
+// emulator launch check (tests/android-launch.sh) now guards the build either
+// way. iOS is unaffected; it installs the plugin through its pod.
 export const ANDROID_ENABLED = true;
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

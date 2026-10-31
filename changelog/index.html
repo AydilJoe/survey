@@ -153,6 +153,15 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-53-2">
+    <span class="release-date">October 2026 &middot; v1.53.2</span>
+    <h2 class="release-title">The document scanner is back on Android</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>What went wrong in 1.53.0 (Android):</strong> a library the new text reader needs set up a small database at start-up, and the step that slims the app for the store had removed the piece that creates it, so the app closed before it opened. That piece is now kept, and every build is opened on an Android emulator before it can ship.</li>
+      <li><span class="tag feat">new</span><strong>Scanner and second opinion, Android:</strong> Scan receipt opens your phone's document scanner again, and unclear receipts get the on-phone second opinion.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-53-1">
     <span class="release-date">October 2026 &middot; v1.53.1</span>
     <h2 class="release-title">Duitful opens again on Android</h2>
