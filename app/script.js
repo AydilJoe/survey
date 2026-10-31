@@ -4958,6 +4958,8 @@ function openProWelcome(paidLabel) {
 
   if (typeof dlg.showModal === "function") dlg.showModal();
   else dlg.setAttribute("open", "");
+  // Open on the celebration, not scrolled down to the first link or button.
+  dlg.scrollTop = 0;
 
   proCelebrationConfetti(dlg.querySelector(".pro-celebrate"));
 
@@ -5200,13 +5202,13 @@ function initIAP() {
       .verified((receipt) => {
         // A purchase started on the App Store product page (a promoted
         // in-app purchase) arrives here with no paywall waiting on it, so
-        // say so instead of unlocking silently.
+        // open the same welcome (and thank-you) the paywall would have.
         const unasked = !purchaseSettler && !state.pro;
         state.pro = true;
         save();
         renderAll();
         receipt.finish();
-        if (unasked) showToast("Duitful Pro unlocked. Thanks for supporting Duitful!");
+        if (unasked) openProWelcome();
         // Fire-and-forget attribution record so Aydil can pay the
         // referrer manually later. Failure is silent — the purchase
         // itself has already succeeded.
