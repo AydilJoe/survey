@@ -1574,6 +1574,10 @@
             <span>Track split payments (encrypted relay)</span>
           </label>
           <p class="hint">"I've paid" comes back on its own. Only your links carry the key; Duitful can't read it.</p>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-split-notify" checked />
+            <span>Notify me when someone says they've paid</span>
+          </label>
         </div>
 
         <div class="card">
@@ -2588,11 +2592,11 @@
          demand (see splitEnsureJsQR) — the service worker precaches it, so
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=1"></script>
-    <script src="split.js?v=14"></script>
+    <script src="split.js?v=16"></script>
     <script src="region.js?v=1"></script>
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=11"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=182"></script>
+    <script src="script.js?v=184"></script>
   </body>
 </html>

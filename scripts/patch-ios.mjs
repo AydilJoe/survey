@@ -135,6 +135,21 @@ for (const [key, value] of PLIST_KEYS) {
 // instead of parking on "Missing Compliance" until someone answers the
 // question by hand in App Store Connect. Re-check this if Duitful ever
 // ships its own crypto — see IOS_BUILD.md.
+// "Siti says they paid" while the app is closed: a BGAppRefreshTask
+// (DuitfulRelayWatch in the DuitfulKit pod). iOS crashes a register() whose
+// id isn't listed here, and only runs refresh tasks with the fetch mode.
+if (!plist.includes("<key>BGTaskSchedulerPermittedIdentifiers</key>")) {
+  plist = insertPlistEntry(plist, "\t<key>BGTaskSchedulerPermittedIdentifiers</key>\n\t<array>\n\t\t<string>com.aydiljoe.duitful.relay-watch</string>\n\t</array>\n");
+  plistAdded++;
+}
+if (!plist.includes("<key>UIBackgroundModes</key>")) {
+  plist = insertPlistEntry(plist, "\t<key>UIBackgroundModes</key>\n\t<array>\n\t\t<string>fetch</string>\n\t</array>\n");
+  plistAdded++;
+} else if (!/<key>UIBackgroundModes<\/key>\s*<array>[\s\S]*?<string>fetch<\/string>/.test(plist)) {
+  plist = plist.replace(/(<key>UIBackgroundModes<\/key>\s*<array>)/, "$1\n\t\t<string>fetch</string>");
+  plistAdded++;
+}
+
 if (!plist.includes("<key>ITSAppUsesNonExemptEncryption</key>")) {
   plist = insertPlistEntry(plist, "\t<key>ITSAppUsesNonExemptEncryption</key>\n\t<false/>\n");
   plistAdded++;
@@ -267,6 +282,9 @@ const SHORTCUT_SWIFT = `    // MARK: - Home Screen quick actions (injected by sc
     // the key, we return true and the performActionFor path above delivers
     // it instead — one route or the other, never both.
     func application(_ application: UIApplication, willFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        // The split-payment check (DuitfulKit's DuitfulRelayWatch) has to be
+        // registered before launch ends, or iOS refuses it later.
+        DuitfulRelayWatch.register()
         guard let item = launchOptions?[.shortcutItem] as? UIApplicationShortcutItem else {
             return true
         }
@@ -294,6 +312,8 @@ if (swift.includes("duitfulHandleShortcut")) {
     process.exit(1);
   }
   swift = swift.slice(0, closeIdx + 1) + SHORTCUT_SWIFT + swift.slice(closeIdx + 1);
+  // DuitfulRelayWatch lives in the DuitfulKit pod (a static framework).
+  if (!/^import DuitfulCapacitorKit$/m.test(swift)) swift = swift.replace(/^import UIKit$/m, "import UIKit\nimport DuitfulCapacitorKit");
   writeFileSync(APP_DELEGATE, swift);
   console.log("patch-ios: injected quick-action routing into AppDelegate.swift.");
 }

@@ -90,7 +90,7 @@ const SPLIT_QTY_EXPAND_MAX = 4;
 /* ---------- shape ---------- */
 
 function emptySplit() {
-  return { out: [], in: [], names: [], me: "", payTo: [], payToEnabled: false, relayOff: false };
+  return { out: [], in: [], names: [], me: "", payTo: [], payToEnabled: false, relayOff: false, relayNotifyOff: false };
 }
 
 function splitIsDate(v) {
@@ -238,6 +238,8 @@ function coerceSplit(raw) {
     payToEnabled: !!s.payToEnabled,
     // The relay is on unless the user chose link-only in Settings.
     relayOff: !!s.relayOff,
+    // "Siti says they paid" while Duitful is closed: on unless turned off.
+    relayNotifyOff: !!s.relayNotifyOff,
   };
 }
 
@@ -1587,6 +1589,14 @@ function splitOpenCompose(opts) {
     items: [],
     charges: 0,
     chargesMode: "equal",
+    // A bill you paid is spending — all of it. Unless the split came from an
+    // expense already logged, saving adds the WHOLE bill to your spending;
+    // what the others owe comes back later as income, when they pay.
+    logPaid: true,
+    category: splitText(o.category, 40),
+    // Opened from the Home add form: that form's amount becomes this bill,
+    // so it is cleared on save rather than logged a second time.
+    fromForm: !!o.fromForm,
   };
   splitRenderCompose();
   splitShowDialog(splitComposeDialogEl());
@@ -1631,6 +1641,9 @@ function splitComposeSync() {
   c.dueDate = splitIsDate(due) ? due : "";
   const logEl = body.querySelector("[name=logExpense]");
   if (logEl) c.logExpense = logEl.checked;
+  const paidEl = body.querySelector("[name=logPaid]");
+  if (paidEl) c.logPaid = paidEl.checked;
+  if (body.querySelector("[name=category]")) c.category = splitText(val("[name=category]"), 40);
   // By item the total is DERIVED (items + charges) and the box on screen is
   // read-only, so it must never write back: a bill total prefilled from an
   // expense has to survive a look at the by-item tab and come back intact.
@@ -1710,6 +1723,23 @@ function splitPersonLabel(name, i) {
   return splitText(name, SPLIT_NAME_MAX) || `Person ${i + 1}`;
 }
 
+// "I paid the bill": only when the split isn't already tied to a logged
+// expense. Off is for a bill someone else's card paid, or one already logged.
+function splitPaidBlockHtml(c) {
+  if (c.expenseId) {
+    return `<p class="hint split-paid-linked">Linked to the spending you already logged. It stays at the full amount you paid.</p>`;
+  }
+  return `
+      <label class="field toggle-field">
+        <input type="checkbox" name="logPaid" ${c.logPaid !== false ? "checked" : ""} />
+        <span>I paid the whole bill — add it to my spending</span>
+      </label>
+      <label class="field split-paid-cat"${c.logPaid === false ? " hidden" : ""}>
+        <span>Category</span>
+        <input type="text" name="category" list="category-options" value="${escapeHtml(c.category || "")}" placeholder="Food" />
+      </label>`;
+}
+
 function splitRenderCompose() {
   const c = splitCompose;
   const body = document.getElementById("split-compose-body");
@@ -1753,6 +1783,7 @@ function splitRenderCompose() {
           <input type="date" name="date" value="${escapeHtml(c.date)}" />
         </label>
       </div>
+      ${splitPaidBlockHtml(c)}
       <span class="split-people-label">People</span>
       <div class="split-people">${peopleRows}</div>
       <div class="button-row split-people-actions">
@@ -1953,6 +1984,7 @@ function splitComposeItemBodyHtml(cur, listAttr) {
         </label>
       </div>
       <p class="hint split-total-note" id="split-total-note">Items plus charges — it adds itself up.</p>
+      ${splitPaidBlockHtml(c)}
       <span class="split-people-label">People</span>
       <div class="split-people">${peopleRows}</div>
       <div class="button-row split-people-actions">
@@ -2013,7 +2045,7 @@ function splitComposeHintHtml() {
     const yourShare = calc.people[0] ? calc.people[0].amount : 0;
     const requested = splitRound2(calc.total - yourShare);
     const mode = c.chargesMode === "proportional" ? "in proportion to what each person ate" : "equally";
-    return `Your share: <strong>${fmtMoney(yourShare)}</strong> — stays in your expense. The other ${fmtMoney(requested)} becomes requests. Charges are split ${mode}.`;
+    return `${splitPaidHint(c, calc.total, requested, yourShare)} Charges are split ${mode}.`;
   }
   const { others, yours } = splitComposeShare();
   if (!(Number(c.total) > 0)) {
@@ -2022,7 +2054,16 @@ function splitComposeHintHtml() {
   if (yours < -0.005) {
     return `The shares add up to <strong>${fmtMoney(others)}</strong> — that is ${fmtMoney(-yours)} more than the bill total.`;
   }
-  return `Your share: <strong>${fmtMoney(yours)}</strong> — stays in your expense. The other ${fmtMoney(others)} becomes requests you can send.`;
+  return splitPaidHint(c, Number(c.total) || 0, others, yours);
+}
+
+// Says what happens to the money, in the order it happens: you paid all of
+// it, the others owe their part, and it comes back as income when they pay.
+function splitPaidHint(c, total, owed, yours) {
+  const paid = c.expenseId || c.logPaid !== false
+    ? `You paid <strong>${fmtMoney(total)}</strong> — ${c.expenseId ? "your logged spending stays at that" : "all of it goes into your spending"}.`
+    : `Nothing is added to your spending.`;
+  return `${paid} ${fmtMoney(owed)} becomes requests; when they pay, it comes back as income. Your own share: ${fmtMoney(yours)}.`;
 }
 
 function splitUpdateComposeHint() {
@@ -2099,14 +2140,46 @@ function splitComposeSaveItems() {
     })),
   });
   splitOutList().push(record);
+  splitLogPaidBill(c, record);
   for (const p of record.people) splitRememberName(p.name);
   if (c.photo) splitRelayPendingPhoto.set(record.id, c.photo);
   save();
   if (typeof renderAll === "function") renderAll();
   splitCloseDialog(splitComposeDialogEl());
   splitCompose = null;
-  toast(`${record.people.length} request${record.people.length === 1 ? "" : "s"} created`);
+  toast(splitSavedToast(record, c));
   splitOpenShare(record.id, 0);
+}
+
+function splitSavedToast(record, c) {
+  const n = `${record.people.length} request${record.people.length === 1 ? "" : "s"} created`;
+  return record.kind === "split" && record.expenseId && !c.expenseId
+    ? `${fmtMoney(record.total)} added to your spending · ${n}`
+    : n;
+}
+
+// The bill you paid, logged at its full amount and linked to the split.
+// Never your share: the others' part is a receivable, settled as income.
+function splitLogPaidBill(c, record) {
+  if (c.expenseId || c.logPaid === false || !(record.total > 0)) return null;
+  const expense = {
+    id: uid(),
+    createdAt: Date.now(),
+    kind: "expense",
+    date: record.date,
+    amount: record.total,
+    category: splitText(c.category, 40) || "Food",
+    note: record.title,
+  };
+  state.dailyExpenses.push(expense);
+  record.expenseId = expense.id;
+  // Opened from the Home form: its amount is this bill now, so it must not
+  // be submitted again as a second expense.
+  if (c.fromForm) {
+    const form = document.getElementById("form-daily");
+    if (form) ["amount", "note"].forEach((n) => { const el = form.querySelector(`input[name='${n}']`); if (el) el.value = ""; });
+  }
+  return expense;
 }
 
 function splitComposeSave() {
@@ -2142,6 +2215,7 @@ function splitComposeSave() {
     people: people.map((p) => ({ id: splitShortId(), name: p.name, amount: p.amount, status: "open", repayments: [] })),
   });
   splitOutList().push(record);
+  if (c.mode === "split") splitLogPaidBill(c, record);
   for (const p of record.people) splitRememberName(p.name);
   if (c.photo) splitRelayPendingPhoto.set(record.id, c.photo);
   // Lending is money genuinely leaving you today — without this the monthly
@@ -2172,7 +2246,7 @@ function splitComposeSave() {
       : `Loan recorded: ${record.people[0].name} · ${fmtMoney(record.people[0].amount)}`);
     return;
   }
-  toast(`${record.people.length} request${record.people.length === 1 ? "" : "s"} created`);
+  toast(splitSavedToast(record, c));
   splitOpenShare(record.id, 0);
 }
 
@@ -3037,6 +3111,11 @@ function renderSplit() {
   }
   const relayPref = document.getElementById("pref-split-relay");
   if (relayPref) relayPref.checked = !splitState().relayOff;
+  const notifyPref = document.getElementById("pref-split-notify");
+  if (notifyPref) {
+    notifyPref.checked = !splitState().relayNotifyOff;
+    notifyPref.disabled = !!splitState().relayOff;
+  }
   // Every change to a bill — a repayment, a cancel, a reminder — ends in a
   // render, so this is the one place the mailbox copy is kept current.
   splitRelaySyncSoon();
@@ -3066,6 +3145,8 @@ document.addEventListener("click", (e) => {
         title: splitText(val("input[name='note']"), SPLIT_TITLE_MAX) || splitText(val("input[name='category']"), SPLIT_TITLE_MAX),
         total: Number(val("input[name='amount']")) || 0,
         date: val("input[name='date']"),
+        category: val("input[name='category']"),
+        fromForm: true,
       });
     } else {
       splitOpenCompose({ mode: btn.dataset.splitMode || "split" });
@@ -3599,6 +3680,7 @@ async function splitRelaySync() {
     splitRelaySyncing = false;
   }
   if (changed) save();
+  splitRelayWatchSync().catch(() => {});
 }
 
 let splitRelayLastPoll = 0;
@@ -3744,4 +3826,75 @@ document.addEventListener("change", (e) => {
   splitState().relayOff = !e.target.checked;
   save();
   toast(e.target.checked ? "Split payments will be tracked" : "New splits use links only");
+});
+
+/* ---------- "they've paid" while Duitful is closed ----------
+   The phone's own background check (DuitfulKit.relayWatch: WorkManager on
+   Android, BGAppRefreshTask on iPhone) needs the open bills' mailbox ids and
+   keys, their titles and the names, because it runs without the passcode.
+   That list, and nothing else, leaves the vault: kept encrypted by the
+   Android Keystore or in the iPhone's Keychain, only for bills where someone
+   still owes, and wiped when the switch is off. Duitful's server learns
+   nothing new: it still only sees mailbox ids and ciphertext. */
+
+let splitRelayWatchSent = "";
+let splitRelayAskedPermission = false;
+
+function splitRelayWatchList() {
+  const s = splitState();
+  if (s.relayOff || s.relayNotifyOff) return [];
+  return splitRelayOwned()
+    .map((rec) => ({ rec, open: rec.people.filter((p) => p.status === "open" && splitPersonRemaining(p) > 0) }))
+    .filter((x) => x.open.length)
+    .map(({ rec, open }) => ({
+      id: rec.relay.id,
+      key: rec.relay.key,
+      ti: rec.title,
+      p: Object.fromEntries(open.map((p) => [p.id, p.name])),
+    }));
+}
+
+async function splitRelayWatchSync() {
+  const plugin = typeof duitfulKit === "function" ? duitfulKit("relayWatch") : null;
+  if (!plugin) return false;
+  const boxes = splitRelayWatchList();
+  const seen = splitRelayOwned().flatMap((r) => r.relay.seen).slice(-400);
+  const sig = splitRelayHash(JSON.stringify({ boxes, n: seen.length }));
+  if (sig === splitRelayWatchSent) return false;
+  // The first bill worth watching is the moment "allow notifications?" makes
+  // sense — never on first launch, before anyone has split anything.
+  if (boxes.length && !splitRelayAskedPermission) {
+    splitRelayAskedPermission = true;
+    const LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    try {
+      if (LN && (await LN.checkPermissions()).display !== "granted") await LN.requestPermissions();
+    } catch {}
+  }
+  await plugin.relayWatch({ boxes, seen, on: boxes.length > 0 });
+  splitRelayWatchSent = sig;
+  return true;
+}
+
+// Settings → Preferences.
+document.addEventListener("change", (e) => {
+  if (!(e.target instanceof HTMLInputElement) || e.target.id !== "pref-split-notify") return;
+  splitState().relayNotifyOff = !e.target.checked;
+  save();
+  splitRelayWatchSync().catch(() => {});
+  toast(e.target.checked ? "You'll be told when someone says they've paid" : "No payment notifications");
+});
+
+// Leaving the app is when the background check takes over.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") splitRelayWatchSync().catch(() => {});
+});
+
+// "I paid the whole bill": the category only matters when it's on.
+document.addEventListener("change", (e) => {
+  if (!(e.target instanceof HTMLInputElement) || e.target.name !== "logPaid") return;
+  if (!e.target.closest("#split-compose-body") || !splitCompose) return;
+  splitCompose.logPaid = e.target.checked;
+  const cat = document.querySelector("#split-compose-body .split-paid-cat");
+  if (cat) cat.hidden = !e.target.checked;
+  if (typeof splitUpdateComposeHint === "function") splitUpdateComposeHint();
 });

@@ -1,4 +1,8 @@
 {
+  "1.54.1": [
+    "<strong>Tahu bila mereka dah bayar</strong> — telefon anda menyemak bil berkongsi di latar belakang dan memberitahu bila seseorang tekan Saya dah bayar, walaupun Duitful ditutup. Matikan di Settings → Preferences.",
+    "<strong>Pembaikan:</strong> bil berkongsi kini merekod jumlah penuh yang anda bayar sebagai perbelanjaan; bahagian kawan kembali sebagai pendapatan."
+  ],
   "1.54.0": [
     "<strong>\"Saya dah bayar\" sampai sendiri</strong> — kawan tekan Saya dah bayar pada pautan bil anda dan Duitful minta anda sahkan. Tak perlu kejar resit dalam WhatsApp.",
     "<strong>Semua nampak siapa dah bayar</strong> — pautan bil berkumpulan tunjuk bahagian setiap orang, siapa dah selesai, peringatan dan foto resit.",

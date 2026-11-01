@@ -201,6 +201,21 @@ public class DuitfulKitPlugin extends Plugin {
      * appeared. Both callbacks resolve: a review we could not ask for is a
      * normal outcome, never an error the app should handle.
      */
+    /**
+     * The split bills to watch while Duitful is closed (see DuitfulRelayWatch):
+     * {boxes: [{id, key, ti, p: {personId: name}}], seen: [eventId], on}.
+     * An empty list, or on:false, cancels the background check and wipes it.
+     */
+    @PluginMethod
+    public void relayWatch(PluginCall call) {
+        try {
+            DuitfulRelayWatch.update(getContext(), call.getArray("boxes"), call.getArray("seen"), call.getBoolean("on", true));
+            call.resolve(new JSObject().put("ok", true));
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()), "RELAY");
+        }
+    }
+
     @PluginMethod
     public void requestReview(PluginCall call) {
         final Activity activity = getActivity();
