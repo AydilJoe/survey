@@ -1283,7 +1283,7 @@ check('split equally divides among the people PLUS you (94 ÷ 4 = 23.50)',
   === JSON.stringify(['23.50', '23.50', '23.50']),
   JSON.stringify(await page.locator('#split-compose-body [data-person-amount]').evaluateAll((e) => e.map((x) => x.value))));
 check('your own share is shown as the remainder',
-  /Your share:\s*RM\s*23\.50/.test(await page.locator('#split-compose-hint').innerText()),
+  /Your own share:\s*RM\s*23\.50/.test(await page.locator('#split-compose-hint').innerText()),
   await page.locator('#split-compose-hint').innerText());
 await page.click('[data-action="split-compose-save"]');
 await page.waitForTimeout(600);
@@ -2702,6 +2702,76 @@ check('checkbox renders only in loan mode',
     return !has;
   }));
 
+// v1.54.1: you paid the whole bill, so the whole bill is your spending.
+// RM 2000 dinner, Dollah owes RM 1000: one RM 2000 expense now, RM 1000
+// income when he pays — never just "your portion".
+const fullBill = await S(() => {
+  const expBefore = state.dailyExpenses.length;
+  const incBefore = state.income.length;
+  splitOpenCompose({ mode: 'split', title: 'Team dinner', total: 2000 });
+  const body = document.getElementById('split-compose-body');
+  const hasToggle = !!body.querySelector('[name=logPaid]') && body.querySelector('[name=logPaid]').checked;
+  body.querySelector('[data-person-name]').value = 'Dollah';
+  body.querySelector('[data-person-amount]').value = '1000';
+  splitComposeSync(); splitUpdateComposeHint();
+  const hint = document.getElementById('split-compose-hint').textContent;
+  splitComposeSave();
+  document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+  const rec = splitOutList()[splitOutList().length - 1];
+  const exp = state.dailyExpenses.find((e) => e.id === rec.expenseId);
+  const added = state.dailyExpenses.length - expBefore;
+  splitRecordRepayment(rec.people[0].id, 1000);
+  const inc = state.income[state.income.length - 1];
+  return { hasToggle, hint, added, expAmt: exp && exp.amount, expNote: exp && exp.note,
+    expDate: exp && exp.date, recDate: rec.date, total: rec.total,
+    incAdded: state.income.length - incBefore, incAmt: inc && inc.amount,
+    settled: rec.people[0].status === 'settled' };
+});
+check('a split not tied to a logged spend offers "I paid the whole bill", on by default',
+  fullBill.hasToggle, JSON.stringify(fullBill));
+check('the hint says the whole bill is your spending, not just your share',
+  /You paid RM\s*2,?000\.00/.test(fullBill.hint) && /Your own share:\s*RM\s*1,?000\.00/.test(fullBill.hint),
+  fullBill.hint);
+check('splitting a RM 2000 bill logs ONE RM 2000 expense, linked to the split',
+  fullBill.added === 1 && Math.abs(fullBill.expAmt - 2000) < 0.01 && fullBill.expNote === 'Team dinner'
+  && fullBill.expDate === fullBill.recDate && Math.abs(fullBill.total - 2000) < 0.01,
+  JSON.stringify(fullBill));
+check('Dollah paying his RM 1000 comes back as RM 1000 income',
+  fullBill.incAdded === 1 && Math.abs(fullBill.incAmt - 1000) < 0.01 && fullBill.settled,
+  JSON.stringify(fullBill));
+const paidOff = await S(() => {
+  const expBefore = state.dailyExpenses.length;
+  splitOpenCompose({ mode: 'split', title: 'Paid from savings', total: 300 });
+  const body = document.getElementById('split-compose-body');
+  body.querySelector('[name=logPaid]').checked = false;
+  body.querySelector('[data-person-name]').value = 'Ain';
+  body.querySelector('[data-person-amount]').value = '150';
+  splitComposeSave();
+  document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+  const rec = splitOutList()[splitOutList().length - 1];
+  return { added: state.dailyExpenses.length - expBefore, expenseId: rec.expenseId, title: rec.title };
+});
+check('unticking "I paid the whole bill" records the split and logs nothing',
+  paidOff.added === 0 && paidOff.expenseId === '' && paidOff.title === 'Paid from savings',
+  JSON.stringify(paidOff));
+const linkedNoDup = await S(() => {
+  const exp = { id: uid(), createdAt: Date.now(), kind: 'expense', date: todayISO(), amount: 80, category: 'Food', note: 'Nasi kandar' };
+  state.dailyExpenses.push(exp);
+  const expBefore = state.dailyExpenses.length;
+  splitOpenCompose({ mode: 'split', title: 'Nasi kandar', total: 80, expenseId: exp.id });
+  const body = document.getElementById('split-compose-body');
+  const toggle = !!body.querySelector('[name=logPaid]');
+  body.querySelector('[data-person-name]').value = 'Hafiz';
+  body.querySelector('[data-person-amount]').value = '40';
+  splitComposeSave();
+  document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+  const rec = splitOutList()[splitOutList().length - 1];
+  return { toggle, added: state.dailyExpenses.length - expBefore, linked: rec.expenseId === exp.id, amt: exp.amount };
+});
+check('a split from a spend you already logged never logs it twice',
+  !linkedNoDup.toggle && linkedNoDup.added === 0 && linkedNoDup.linked && linkedNoDup.amt === 80,
+  JSON.stringify(linkedNoDup));
+
 /* ── 14. itemized split (Phase 2.5, v1.15.0) ────────────────────────────
    Tick who ate what. OCR is prefill, never oracle, so the parser is a pure
    function tested directly against real Malaysian receipt shapes; the
@@ -3038,7 +3108,7 @@ check('the bill total auto-syncs to items + charges (49.16) and stays read-only'
   liveTotals.total === '49.16' && /Bill total \| RM\s*49\.16/.test(liveTotals.text),
   JSON.stringify({ total: liveTotals.total }));
 check('your own share is shown as yours and the CTA counts only the others',
-  /Your share:\s*RM\s*25\.18/.test(liveTotals.hint) && liveTotals.cta === 'Create 2 requests',
+  /Your own share:\s*RM\s*25\.18/.test(liveTotals.hint) && liveTotals.cta === 'Create 2 requests',
   JSON.stringify({ hint: liveTotals.hint.slice(0, 90), cta: liveTotals.cta }));
 
 await page.click('#split-compose-body [data-charge-mode="proportional"]');
@@ -3315,6 +3385,27 @@ check('it opens the composer in Split mode with the typed amount and note carrie
   }));
 await page.click('[data-action="split-compose-cancel"]');
 await page.waitForTimeout(200);
+{
+  const expBefore = await S(() => state.dailyExpenses.length);
+  await page.click('#btn-split-quick');
+  await page.waitForTimeout(300);
+  await page.locator('#split-compose-body [data-person-name]').first().fill('Dollah');
+  await page.locator('#split-compose-body [data-person-amount]').first().fill('21.25');
+  await page.click('[data-action="split-compose-save"]');
+  await page.waitForTimeout(500);
+  await page.click('[data-action="split-share-close"]').catch(() => {});
+  await page.waitForTimeout(200);
+  const r = await S((n) => {
+    const rec = splitOutList()[splitOutList().length - 1];
+    const exp = state.dailyExpenses.find((e) => e.id === rec.expenseId);
+    return { added: state.dailyExpenses.length - n, amt: exp && exp.amount, note: exp && exp.note,
+      formAmount: document.querySelector('#form-daily [name="amount"]').value,
+      formNote: document.querySelector('#form-daily [name="note"]').value };
+  }, expBefore);
+  check('splitting from the Home form logs the full RM 42.50 once and clears the form',
+    r.added === 1 && Math.abs(r.amt - 42.5) < 0.01 && r.note === 'Lunch at mamak'
+    && r.formAmount === '' && r.formNote === '', JSON.stringify(r));
+}
 await page.fill('#form-daily [name="amount"]', '');
 
 /* ── 17. OCR engines: selection, the ML Kit mapper, and one REAL read ────

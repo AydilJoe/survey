@@ -10065,6 +10065,7 @@ function maybeOpenGuideAfterSetup() {
 const RELEASE_NOTES = {
   "1.54.1": [
     "<strong>Know when they've paid</strong> — your phone checks your split bills in the background and tells you when someone taps I've paid, even with Duitful closed. Turn it off in Settings → Preferences.",
+    "<strong>Fix:</strong> a split bill now adds the whole amount you paid to your spending; what friends owe comes back as income.",
   ],
   "1.54.0": [
     "<strong>\"I've paid\" comes back on its own</strong> — a friend taps I've paid on your split link and Duitful asks you to confirm. No chasing receipts in WhatsApp.",
