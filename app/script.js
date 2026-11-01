@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.53.2";
+const APP_VERSION = "1.54.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -137,7 +137,7 @@ const INVEST_PLAN_SETTING_KEYS = new Set([
 // the display name, so an older build just skips the ones it can't read.
 const SPLIT_SETTING_KEYS = new Set([
   "splitpayto1", "splitpayto2", "splitpayto3", "splitpayto4",
-  "splitpaytoenabled", "splitme",
+  "splitpaytoenabled", "splitme", "splitrelayoff",
 ]);
 
 const emptyShariah = () => ({
@@ -8169,6 +8169,7 @@ function toCSV() {
     }
     rows.push(blank(["setting", "splitPayToEnabled", sp.payToEnabled ? "Y" : "N"]));
     if (sp.me) rows.push(blank(["setting", "splitMe", sp.me]));
+    if (sp.relayOff) rows.push(blank(["setting", "splitRelayOff", "Y"]));
   }
   rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
   // Shariah / zakat preferences. Each is its own `setting` row so an older
@@ -8318,6 +8319,7 @@ function fromCSV(text) {
   const splitPayLines = [];
   let splitPayEnabled = false;
   let splitMe = "";
+  let splitRelayOff = false;
 
   // Valuation / flow / dividend rows carry the holding NAME, not its id —
   // ids are regenerated on import. Same case-insensitive link as daily-debt.
@@ -8634,6 +8636,7 @@ function fromCSV(text) {
       const key = name.toLowerCase();
       if (key === "splitpaytoenabled") splitPayEnabled = raw.toUpperCase() === "Y";
       else if (key === "splitme") splitMe = raw;
+      else if (key === "splitrelayoff") splitRelayOff = raw.toUpperCase() === "Y";
       else {
         // "label|value" — split on the FIRST pipe only, so a value that
         // somehow contains one survives intact.
@@ -8852,6 +8855,7 @@ function fromCSV(text) {
       .map((r) => [r.label, r.value]);
     next.split.payToEnabled = splitPayEnabled;
     next.split.me = splitMe;
+    next.split.relayOff = splitRelayOff;
     next.split = coerceSplit(next.split);
   }
 
@@ -10055,6 +10059,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.54.0": [
+    "<strong>\"I've paid\" comes back on its own</strong> — a friend taps I've paid on your split link and Duitful asks you to confirm. No chasing receipts in WhatsApp.",
+    "<strong>Everyone sees who has paid</strong> — a group split's link shows each share, who has settled, your reminders and the receipt photo.",
+    "<strong>End-to-end encrypted</strong> — the key lives only in the link, so Duitful can't read it. Deleted after 60 days.",
+  ],
   "1.53.2": [
     "<strong>The document scanner is back on Android</strong> — Scan receipt opens your phone's document scanner again, with the second opinion on unclear receipts. This time it's checked by opening the app before every release.",
   ],
@@ -13172,7 +13181,7 @@ function applyScanResult({ direct }) {
   if (window.scanApplyTarget === "split" && typeof splitApplyScan === "function") {
     window.scanApplyTarget = null;
     closeScanDialog();
-    splitApplyScan({ amount: amt, vendor, raw: scanRaw ? scanRaw.textContent : "" });
+    splitApplyScan({ amount: amt, vendor, raw: scanRaw ? scanRaw.textContent : "", photo: window.scanLastSource || null });
     return;
   }
   // Hand the photo to the tax module for the one expense this scan creates.

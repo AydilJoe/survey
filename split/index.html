@@ -209,6 +209,31 @@
   }
   .paid-form .hint { font-size: 12.5px; color: var(--ink2); margin: 8px 0 0; line-height: 1.5; }
   .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* The bill's encrypted mailbox: everyone in it and who has paid. */
+  .relay-note {
+    margin: 12px 0 0; font-size: 13.5px; color: var(--primary-ink);
+    background: rgba(200,112,75,0.08); border: 0.5px solid rgba(200,112,75,0.3);
+    border-radius: 10px; padding: 8px 12px;
+  }
+  .group { margin: 18px 0 0; padding: 14px 16px; background: var(--card-soft); border: 0.5px solid var(--border); border-radius: 14px; }
+  .group-head { display: flex; justify-content: space-between; gap: 10px; margin: 0; font-size: 14px; font-weight: 600; }
+  .group-count { font-family: var(--font-mono); font-size: 12px; font-weight: 500; color: var(--ink2); }
+  .group-bar { height: 6px; border-radius: 3px; background: var(--border); margin: 10px 0 6px; overflow: hidden; }
+  .group-bar span { display: block; height: 100%; width: 0; background: var(--paid); border-radius: 3px; transition: width 400ms cubic-bezier(0.32,0.72,0,1); }
+  .group-list { list-style: none; margin: 0; padding: 0; }
+  .group-list li { display: flex; align-items: baseline; gap: 10px; padding: 8px 0; border-top: 0.5px solid var(--border); font-size: 14.5px; }
+  .group-list li:first-child { border-top: 0; }
+  .group-list .who { flex: 1; min-width: 0; }
+  .group-list .who small { display: block; color: var(--ink2); font-size: 12.5px; overflow-wrap: anywhere; }
+  .group-list .amt { font-family: var(--font-mono); font-size: 13.5px; }
+  .group-list .state { font-family: var(--font-mono); font-size: 11.5px; color: var(--ink2); min-width: 64px; text-align: right; }
+  .group-list .paid .state { color: var(--paid); font-weight: 600; }
+  .group-list .you-tag { margin-left: 6px; font-size: 11px; color: var(--primary-ink); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
+  .receipt-photo[hidden] { display: none; }
+  .receipt-photo { display: block; width: 100%; margin: 12px 0 0; border-radius: 10px; border: 0.5px solid var(--border); }
+  .paid-done { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: rgba(74,124,89,0.10); border: 0.5px solid rgba(74,124,89,0.35); }
+  .paid-done p { margin: 0 0 6px; font-size: 14.5px; color: var(--ink); }
+  @media (prefers-reduced-motion: reduce) { .group-bar span { transition: none; } }
 </style>
 </head>
 <body>
@@ -236,6 +261,17 @@
       <span class="chip due" id="r-due" hidden></span>
     </div>
     <p class="note" id="r-note" hidden></p>
+    <p class="relay-note" id="r-reminder" hidden></p>
+
+    <!-- Filled from the bill's encrypted mailbox when the link carries one:
+         who else is in the bill and who has paid, and the receipt photo. -->
+    <section class="group" id="r-group" hidden aria-labelledby="g-head">
+      <p class="group-head"><span id="g-head"></span><span class="group-count" id="g-count"></span></p>
+      <div class="group-bar" aria-hidden="true"><span id="g-bar"></span></div>
+      <ul class="group-list" id="g-list"></ul>
+      <button type="button" class="linkish" id="btn-photo" hidden data-t="viewPhoto">View receipt photo</button>
+      <img class="receipt-photo" id="g-photo" hidden alt="" />
+    </section>
 
     <div class="payto" id="r-payto" hidden>
       <p class="label" data-t="transferTo">Transfer to</p>
@@ -253,7 +289,11 @@
         <label for="paid-name" data-t="yourName">Your name</label>
         <input type="text" id="paid-name" maxlength="40" autocomplete="name" placeholder="So they know who paid" data-t-placeholder="namePh" />
         <button type="button" class="btn btn-ink" id="btn-paid-send" style="width:100%" data-t="sendPaid">Send “I’ve paid”</button>
-        <p class="hint" data-t="sendHint">Sends a link back through WhatsApp or any app. It says you paid — it doesn't move money.</p>
+        <p class="hint" id="paid-hint" data-t="sendHint">Sends a link back through WhatsApp or any app. It says you paid — it doesn't move money.</p>
+      </div>
+      <div class="paid-done" id="paid-done" hidden>
+        <p id="paid-done-text"></p>
+        <button type="button" class="linkish" id="btn-paid-chat" data-t="alsoChat">Also tell them in WhatsApp</button>
       </div>
     </div>
 
@@ -322,6 +362,11 @@
       currencyT: "Unsupported currency", currencyB: "This request uses a currency this version doesn't support yet.",
       paid: "Paid", due: "Due", copy: "Copy", copied: "Copied ✓", copiedLive: "copied", details: "Details", nameFirst: "Add your name first",
       paidText: "{name} paid RM {amt} for {title} today.", theBill: "the bill", receipt: "Receipt", title: "Payment request — Duitful",
+      groupHead: "Everyone in this bill", countPaid: "{n} of {m} paid", stPaid: "Paid", stPart: "RM {x} paid", stOpen: "Waiting", you: "you",
+      reminder: "{name} sent a reminder on {date}.", someone: "The sender", viewPhoto: "View receipt photo", photoAlt: "Receipt for {title}",
+      sendHintRelay: "Goes straight to {name}'s Duitful through an encrypted mailbox Duitful can't read. It says you paid — it doesn't move money.",
+      sentRelay: "Sent. {name} will see it next time they open Duitful.", alreadyTold: "You told {name} you paid on {date}.", alsoChat: "Also tell them in WhatsApp",
+      relayPrivacy: "This request was decoded <strong>on your device</strong>. Who has paid is kept in an encrypted mailbox that only people with this link can open — Duitful can't read it, and it's deleted after 60 days. Duitful never moves money. Pay through your own banking app.",
     },
     ms: {
       eyebrow: "Permintaan bayaran", isRequesting: "minta bayaran", gotRequest: "Ada permintaan bayaran untuk anda",
@@ -342,6 +387,11 @@
       currencyT: "Mata wang tidak disokong", currencyB: "Permintaan ini menggunakan mata wang yang belum disokong dalam versi ini.",
       paid: "Dibayar", due: "Tarikh akhir", copy: "Salin", copied: "Disalin ✓", copiedLive: "disalin", details: "Butiran", nameFirst: "Masukkan nama anda dahulu",
       paidText: "{name} dah bayar RM {amt} untuk {title} hari ini.", theBill: "bil ini", receipt: "Resit", title: "Permintaan bayaran — Duitful",
+      groupHead: "Semua orang dalam bil ini", countPaid: "{n} daripada {m} dah bayar", stPaid: "Dah bayar", stPart: "RM {x} dibayar", stOpen: "Menunggu", you: "anda",
+      reminder: "{name} hantar peringatan pada {date}.", someone: "Penghantar", viewPhoto: "Lihat foto resit", photoAlt: "Resit untuk {title}",
+      sendHintRelay: "Terus ke Duitful {name} melalui peti mel bersulit yang Duitful tidak boleh baca. Ia cuma memberitahu anda dah bayar — ia tidak memindahkan wang.",
+      sentRelay: "Dihantar. {name} akan nampak bila buka Duitful nanti.", alreadyTold: "Anda dah beritahu {name} anda bayar pada {date}.", alsoChat: "Beritahu juga dalam WhatsApp",
+      relayPrivacy: "Permintaan ini dibaca <strong>pada peranti anda</strong>. Siapa yang dah bayar disimpan dalam peti mel bersulit yang hanya boleh dibuka oleh orang yang ada pautan ini — Duitful tidak boleh membacanya, dan ia dipadam selepas 60 hari. Duitful tidak memindahkan wang. Bayar melalui aplikasi bank anda sendiri.",
     },
   };
   function T(k) { return (STR[LANG] && STR[LANG][k]) || STR.en[k] || ""; }
@@ -386,6 +436,15 @@
 
   var raw = (location.hash || "").replace(/^#/, "");
   if (!raw) { fallback(); return; }
+  // "~<mailbox id><key>" on the end: the bill's encrypted mailbox (see the
+  // relay section in app/split.js). The request itself is everything before.
+  var relay = null, code = raw;
+  var tildeAt = raw.lastIndexOf("~");
+  if (tildeAt >= 0) {
+    var tail = /^([A-Za-z0-9_-]{16})([A-Za-z0-9_-]{22})$/.exec(raw.slice(tildeAt + 1));
+    code = raw.slice(0, tildeAt);
+    if (tail && window.crypto && crypto.subtle) relay = { id: tail[1], key: tail[2] };
+  }
 
   // Same two formats as app/split.js: DFS2 packed fields (every new link)
   // and DFS1 JSON (older links). Keep the two decoders in step.
@@ -418,7 +477,7 @@
     return o;
   }
 
-  var m = /^DFS(\d+)(u?)\.(.+)$/.exec(raw);
+  var m = /^DFS(\d+)(u?)\.(.+)$/.exec(code);
   if (!m) {
     fallback(T("notDuitfulT"), T("notDuitfulB"));
     return;
@@ -525,6 +584,117 @@
   document.getElementById("r-code").textContent = raw;
   reqCard.hidden = false;
 
+  /* ---- the bill's encrypted mailbox ----
+     Same sealing as app/split.js (keep the two in step): AES-GCM with the
+     key from the link, a fresh IV per message, "duitful-relay/1/<kind>/<id>"
+     as associated data, base64url(iv ‖ ciphertext). The key never leaves
+     this page; /api/relay/ only ever sees the sealed text. */
+  var sender = String(req.fr || "") || T("someone");
+  var box = null;
+  function relayAad(kind) { return new TextEncoder().encode("duitful-relay/1/" + kind + "/" + relay.id); }
+  function relayKey() { return crypto.subtle.importKey("raw", b64urlToBytes(relay.key), "AES-GCM", false, ["encrypt", "decrypt"]); }
+  async function relayOpenBytes(kind, text) {
+    try {
+      var all = b64urlToBytes(text);
+      return new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv: all.slice(0, 12), additionalData: relayAad(kind) }, await relayKey(), all.slice(12)));
+    } catch (e) { return null; }
+  }
+  async function relayOpen(kind, text) {
+    var bytes = await relayOpenBytes(kind, text);
+    if (!bytes) return null;
+    try { return JSON.parse(new TextDecoder().decode(bytes)); } catch (e) { return null; }
+  }
+  async function relaySeal(kind, obj) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv, additionalData: relayAad(kind) }, await relayKey(), new TextEncoder().encode(JSON.stringify(obj))));
+    var out = new Uint8Array(12 + ct.length);
+    out.set(iv); out.set(ct, 12);
+    return bytesToB64url(out);
+  }
+  function money(n) { return Number(n || 0).toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fill(str, map) { return str.replace(/\{(\w+)\}/g, function (_, k) { return map[k] == null ? "" : String(map[k]); }); }
+
+  function renderGroup() {
+    if (box.rem) {
+      var rem = document.getElementById("r-reminder");
+      rem.textContent = fill(T("reminder"), { name: sender, date: dayLabel(box.rem) });
+      rem.hidden = false;
+    }
+    var people = Array.isArray(box.p) ? box.p : [];
+    // One person and no photo: there is no group to show.
+    if (people.length < 2 && !box.ph) return;
+    var paidCount = people.filter(function (x) { return x.st === "settled"; }).length;
+    document.getElementById("g-head").textContent = T("groupHead");
+    document.getElementById("g-count").textContent = people.length > 1 ? fill(T("countPaid"), { n: paidCount, m: people.length }) : "";
+    var bar = document.getElementById("g-bar");
+    bar.parentNode.hidden = people.length < 2;
+    var list = document.getElementById("g-list");
+    list.innerHTML = "";
+    people.forEach(function (x) {
+      var li = document.createElement("li");
+      var settled = x.st === "settled";
+      if (settled) li.className = "paid";
+      if (x.id === req.id) li.className += " you";
+      var who = document.createElement("span");
+      who.className = "who";
+      who.textContent = String(x.n || "");
+      if (x.id === req.id) { var tag = document.createElement("span"); tag.className = "you-tag"; tag.textContent = T("you"); who.appendChild(tag); }
+      if (x.nt) { var small = document.createElement("small"); small.textContent = String(x.nt); who.appendChild(small); }
+      var amt = document.createElement("span");
+      amt.className = "amt";
+      amt.textContent = "RM " + money(x.a);
+      var st = document.createElement("span");
+      st.className = "state";
+      st.textContent = settled ? "✓ " + T("stPaid") : (Number(x.pd) > 0 ? fill(T("stPart"), { x: money(x.pd) }) : T("stOpen"));
+      li.appendChild(who); li.appendChild(amt); li.appendChild(st);
+      list.appendChild(li);
+    });
+    document.getElementById("r-group").hidden = false;
+    requestAnimationFrame(function () { bar.style.width = (people.length ? Math.round(paidCount / people.length * 100) : 0) + "%"; });
+    if (box.ph) {
+      var photoBtn = document.getElementById("btn-photo");
+      photoBtn.hidden = false;
+      photoBtn.addEventListener("click", async function () {
+        photoBtn.disabled = true;
+        try {
+          var r = await fetch("/api/relay/?op=photo&id=" + relay.id, { cache: "no-store" });
+          var j = r.ok ? await r.json() : null;
+          var bytes = j && j.photo ? await relayOpenBytes("photo", j.photo) : null;
+          if (!bytes) { photoBtn.disabled = false; return; }
+          var img = document.getElementById("g-photo");
+          img.alt = fill(T("photoAlt"), { title: String(req.ti || T("theBill")) });
+          img.src = URL.createObjectURL(new Blob([bytes], { type: "image/jpeg" }));
+          img.hidden = false;
+          photoBtn.hidden = true;
+        } catch (e) { photoBtn.disabled = false; }
+      });
+    }
+  }
+
+  if (relay) {
+    document.querySelector("#request-card .privacy").innerHTML = T("relayPrivacy");
+    document.getElementById("paid-hint").textContent = fill(T("sendHintRelay"), { name: sender });
+    try {
+      var told = JSON.parse(localStorage.getItem("duitful.paidTold." + req.id) || "null");
+      if (told && told.d) showPaidDone(fill(T("alreadyTold"), { name: sender, date: dayLabel(told.d) }));
+    } catch (e) {}
+    try {
+      var res = await fetch("/api/relay/?op=get&id=" + relay.id, { cache: "no-store" });
+      if (res.ok) {
+        var j = await res.json();
+        box = j && j.box ? await relayOpen("box", j.box) : null;
+        if (box) renderGroup();
+      }
+    } catch (e) { /* no mailbox reachable: the link alone is the whole request */ }
+  }
+
+  function showPaidDone(text) {
+    document.getElementById("paid-done-text").textContent = text;
+    document.getElementById("paid-done").hidden = false;
+    document.getElementById("paid-form").hidden = true;
+    document.getElementById("btn-paid-open").hidden = true;
+  }
+
   // Same-origin hand-off: stage the payload for the app to ingest on next
   // unlock. Request metadata only — never account data — so plain
   // localStorage is fine. iOS installed-PWA storage is separate from
@@ -564,13 +734,12 @@
     openBtn.setAttribute("aria-expanded", form.hidden ? "false" : "true");
     if (!form.hidden) nameInput.focus();
   });
-  document.getElementById("btn-paid-send").addEventListener("click", async function () {
-    var name = nameInput.value.trim().slice(0, 40);
-    if (!name) { nameInput.focus(); document.getElementById("live").textContent = T("nameFirst"); return; }
-    try { localStorage.setItem("duitful.payerName", name); } catch (e) {}
+  function todayIso() {
     var today = new Date();
-    var iso = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
-    var paid = { v: 1, t: "paid", id: req.id, ti: req.ti, d: iso, a: Number(req.a), fr: name };
+    return today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+  }
+  async function shareReceipt(name) {
+    var paid = { v: 1, t: "paid", id: req.id, ti: req.ti, d: todayIso(), a: Number(req.a), fr: name };
     if (req.c && req.c !== "MYR") paid.c = req.c;
     var link = location.origin + "/split#" + encodePaid(paid);
     // Words first, link last — the same shape as the app's own messages.
@@ -580,6 +749,34 @@
       catch (e) { if (e && e.name === "AbortError") return; }
     }
     location.href = "https://wa.me/?text=" + encodeURIComponent(text);
+  }
+  document.getElementById("btn-paid-chat").addEventListener("click", function () {
+    shareReceipt(nameInput.value.trim().slice(0, 40) || (function () { try { return localStorage.getItem("duitful.payerName") || ""; } catch (e) { return ""; } })());
+  });
+  document.getElementById("btn-paid-send").addEventListener("click", async function () {
+    var name = nameInput.value.trim().slice(0, 40);
+    if (!name) { nameInput.focus(); document.getElementById("live").textContent = T("nameFirst"); return; }
+    try { localStorage.setItem("duitful.payerName", name); } catch (e) {}
+    // With a mailbox, "I've paid" goes straight to the sender's Duitful.
+    // Without one, or if it can't be reached, it travels as a chat link.
+    if (relay) {
+      var btn = this;
+      btn.disabled = true;
+      try {
+        var e = new Uint8Array(9);
+        crypto.getRandomValues(e);
+        var event = await relaySeal("event", { t: "paid", e: bytesToB64url(e), id: req.id, a: Number(req.a), d: todayIso(), fr: name });
+        var r = await fetch("/api/relay/?op=event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: relay.id, event: event }) });
+        if (r.ok) {
+          try { localStorage.setItem("duitful.paidTold." + req.id, JSON.stringify({ d: todayIso() })); } catch (x) {}
+          showPaidDone(fill(T("sentRelay"), { name: sender }));
+          document.getElementById("live").textContent = fill(T("sentRelay"), { name: sender });
+          return;
+        }
+      } catch (x) { /* fall through to the chat link */ }
+      finally { btn.disabled = false; }
+    }
+    await shareReceipt(name);
   });
 })();
 </script>

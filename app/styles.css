@@ -6018,6 +6018,32 @@ body.private .invest-plan-stats .stat .sub {
 .split-actions button { padding: 0.45rem 0.65rem; font-size: 0.82rem; }
 /* Kept apart from the useful actions so "cancel" can't be misclicked. */
 .split-actions .split-cancel { margin-left: auto; }
+/* "I've paid" that arrived through the bill's encrypted mailbox. */
+.split-claim {
+  display: block;
+  width: 100%;
+  margin: 0.45rem 0 0;
+  padding: 0.55rem 0.75rem;
+  text-align: left;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: var(--r-md);
+  cursor: pointer;
+}
+.split-claim:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.split-relay-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  margin: 0.4rem 0 0.2rem;
+}
+.split-relay-row .hint { margin: 0; flex: 1 1 14rem; }
 .split-panel {
   border-top: 0.5px dashed var(--line);
   padding-top: 0.55rem;
