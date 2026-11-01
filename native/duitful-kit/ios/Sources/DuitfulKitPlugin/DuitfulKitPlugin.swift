@@ -45,6 +45,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "aiStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "aiReadReceipt", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "relayWatch", returnType: CAPPluginReturnPromise),
     ]
 
     /// Shared with the App Intents in AppDelegate.swift. Rename both or neither.
@@ -284,6 +285,23 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         }
         #endif
         call.reject("Needs iOS 26 with Apple Intelligence", "UNSUPPORTED")
+    }
+
+    /// The split bills to watch while Duitful is closed (DuitfulRelayWatch):
+    /// {boxes: [{id, key, ti, p: {personId: name}}], seen: [eventId], on}.
+    /// An empty list, or on:false, cancels the background check and wipes it.
+    @objc func relayWatch(_ call: CAPPluginCall) {
+        let raw = call.options["boxes"] as? [[String: Any]] ?? []
+        let seen = (call.options["seen"] as? [Any] ?? []).compactMap { $0 as? String }
+        let on = call.getBool("on") ?? true
+        do {
+            let data = try JSONSerialization.data(withJSONObject: raw)
+            let boxes = try JSONDecoder().decode([DuitfulRelayWatch.Box].self, from: data)
+            DuitfulRelayWatch.update(boxes: boxes, seen: seen, on: on)
+            call.resolve(["ok": true])
+        } catch {
+            call.reject(error.localizedDescription, "RELAY")
+        }
     }
 
     /// Ask iOS for the rating sheet. The system shows it at most a few times

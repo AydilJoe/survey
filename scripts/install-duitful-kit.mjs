@@ -31,7 +31,10 @@ const MAIN_ACTIVITY = resolve(ANDROID, "app/src/main/java", APP_ID_PATH, "MainAc
 const MANIFEST = resolve(ANDROID, "app/src/main/AndroidManifest.xml");
 const APP_GRADLE = resolve(ANDROID, "app/build.gradle");
 
-const SOURCES = ["DuitfulKitPlugin.java", "DuitfulKitEntities.java", "DuitfulKitAi.java"];
+export const SOURCES = [
+  "DuitfulKitPlugin.java", "DuitfulKitEntities.java", "DuitfulKitAi.java",
+  "DuitfulRelayCrypto.java", "DuitfulRelayWatch.java", "DuitfulRelayWorker.java",
+];
 
 // Pinned, and checked by the e2e suite against this list.
 export const DEPENDENCIES = [
@@ -40,6 +43,9 @@ export const DEPENDENCIES = [
   "com.google.mlkit:genai-prompt:1.0.0-beta5",
   // Play's in-app review sheet, asked once at the debt-free moment.
   "com.google.android.play:review:2.0.2",
+  // The background check for "I've paid" on split bills (DuitfulRelayWorker).
+  // Entity Extraction already brings WorkManager; this pins it as ours.
+  "androidx.work:work-runtime:2.9.1",
 ];
 // Manifest package of every library in the graph above that declares
 // minSdk > 24 (entity-extraction, genai-prompt and its genai-common).

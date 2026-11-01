@@ -26,7 +26,7 @@ Pod::Spec.new do |s|
   # MLKEntity* symbols); as a static framework it links into the app with
   # the rest of ML Kit, exactly like the text-recognition plugin.
   s.static_framework = true
-  s.frameworks = 'VisionKit', 'PhotosUI'
+  s.frameworks = 'VisionKit', 'PhotosUI', 'BackgroundTasks', 'CryptoKit', 'UserNotifications', 'Security'
   # iOS 26+. Weak, so the app still launches on iOS 15–18.
   s.weak_frameworks = 'FoundationModels'
   s.swift_version = '5.9'

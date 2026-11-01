@@ -90,7 +90,7 @@ const SPLIT_QTY_EXPAND_MAX = 4;
 /* ---------- shape ---------- */
 
 function emptySplit() {
-  return { out: [], in: [], names: [], me: "", payTo: [], payToEnabled: false, relayOff: false };
+  return { out: [], in: [], names: [], me: "", payTo: [], payToEnabled: false, relayOff: false, relayNotifyOff: false };
 }
 
 function splitIsDate(v) {
@@ -238,6 +238,8 @@ function coerceSplit(raw) {
     payToEnabled: !!s.payToEnabled,
     // The relay is on unless the user chose link-only in Settings.
     relayOff: !!s.relayOff,
+    // "Siti says they paid" while Duitful is closed: on unless turned off.
+    relayNotifyOff: !!s.relayNotifyOff,
   };
 }
 
@@ -3037,6 +3039,11 @@ function renderSplit() {
   }
   const relayPref = document.getElementById("pref-split-relay");
   if (relayPref) relayPref.checked = !splitState().relayOff;
+  const notifyPref = document.getElementById("pref-split-notify");
+  if (notifyPref) {
+    notifyPref.checked = !splitState().relayNotifyOff;
+    notifyPref.disabled = !!splitState().relayOff;
+  }
   // Every change to a bill — a repayment, a cancel, a reminder — ends in a
   // render, so this is the one place the mailbox copy is kept current.
   splitRelaySyncSoon();
@@ -3599,6 +3606,7 @@ async function splitRelaySync() {
     splitRelaySyncing = false;
   }
   if (changed) save();
+  splitRelayWatchSync().catch(() => {});
 }
 
 let splitRelayLastPoll = 0;
@@ -3744,4 +3752,65 @@ document.addEventListener("change", (e) => {
   splitState().relayOff = !e.target.checked;
   save();
   toast(e.target.checked ? "Split payments will be tracked" : "New splits use links only");
+});
+
+/* ---------- "they've paid" while Duitful is closed ----------
+   The phone's own background check (DuitfulKit.relayWatch: WorkManager on
+   Android, BGAppRefreshTask on iPhone) needs the open bills' mailbox ids and
+   keys, their titles and the names, because it runs without the passcode.
+   That list, and nothing else, leaves the vault: kept encrypted by the
+   Android Keystore or in the iPhone's Keychain, only for bills where someone
+   still owes, and wiped when the switch is off. Duitful's server learns
+   nothing new: it still only sees mailbox ids and ciphertext. */
+
+let splitRelayWatchSent = "";
+let splitRelayAskedPermission = false;
+
+function splitRelayWatchList() {
+  const s = splitState();
+  if (s.relayOff || s.relayNotifyOff) return [];
+  return splitRelayOwned()
+    .map((rec) => ({ rec, open: rec.people.filter((p) => p.status === "open" && splitPersonRemaining(p) > 0) }))
+    .filter((x) => x.open.length)
+    .map(({ rec, open }) => ({
+      id: rec.relay.id,
+      key: rec.relay.key,
+      ti: rec.title,
+      p: Object.fromEntries(open.map((p) => [p.id, p.name])),
+    }));
+}
+
+async function splitRelayWatchSync() {
+  const plugin = typeof duitfulKit === "function" ? duitfulKit("relayWatch") : null;
+  if (!plugin) return false;
+  const boxes = splitRelayWatchList();
+  const seen = splitRelayOwned().flatMap((r) => r.relay.seen).slice(-400);
+  const sig = splitRelayHash(JSON.stringify({ boxes, n: seen.length }));
+  if (sig === splitRelayWatchSent) return false;
+  // The first bill worth watching is the moment "allow notifications?" makes
+  // sense — never on first launch, before anyone has split anything.
+  if (boxes.length && !splitRelayAskedPermission) {
+    splitRelayAskedPermission = true;
+    const LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    try {
+      if (LN && (await LN.checkPermissions()).display !== "granted") await LN.requestPermissions();
+    } catch {}
+  }
+  await plugin.relayWatch({ boxes, seen, on: boxes.length > 0 });
+  splitRelayWatchSent = sig;
+  return true;
+}
+
+// Settings → Preferences.
+document.addEventListener("change", (e) => {
+  if (!(e.target instanceof HTMLInputElement) || e.target.id !== "pref-split-notify") return;
+  splitState().relayNotifyOff = !e.target.checked;
+  save();
+  splitRelayWatchSync().catch(() => {});
+  toast(e.target.checked ? "You'll be told when someone says they've paid" : "No payment notifications");
+});
+
+// Leaving the app is when the background check takes over.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") splitRelayWatchSync().catch(() => {});
 });

@@ -2497,6 +2497,60 @@ check('confirming the handed-off receipt settles that person',
     && !!photoPut && !/image\/|jpeg|JFIF/i.test(photoPut.body.slice(0, 200)),
     JSON.stringify({ photo, hadBtn, shown }));
 
+  // While Duitful is closed, the phone's own background check watches the
+  // open bills: the app hands DuitfulKit.relayWatch their mailbox ids, keys,
+  // titles and the names still owing, and nothing for settled people.
+  const watch = await S(async () => {
+    const calls = [];
+    const prev = window.Capacitor;
+    window.Capacitor = {
+      isNativePlatform: () => true, getPlatform: () => 'android',
+      Plugins: {
+        DuitfulKit: { relayWatch: async (o) => { calls.push(JSON.parse(JSON.stringify(o))); return { ok: true }; } },
+        LocalNotifications: { checkPermissions: async () => ({ display: 'granted' }), requestPermissions: async () => ({ display: 'granted' }) },
+      },
+    };
+    try {
+      splitRelayWatchSent = '';
+      const rec = state.split.out.find((r) => r.id === 'relay-bill');
+      await splitRelayWatchSync();
+      const again = await splitRelayWatchSync(); // unchanged: not sent twice
+      state.split.relayNotifyOff = true;
+      await splitRelayWatchSync();
+      state.split.relayNotifyOff = false;
+      splitRelayWatchSent = '';
+      return { calls, again, relay: { id: rec.relay.id, key: rec.relay.key } };
+    } finally {
+      window.Capacitor = prev;
+    }
+  });
+  const first = watch.calls[0] || {};
+  const box = (first.boxes || [])[0] || {};
+  check('notifications: the background check is handed only the open bill\'s mailbox, key, title and the names still owing',
+    watch.calls.length === 2 && first.on === true && first.boxes.length === 1
+    && box.id === watch.relay.id && box.key === watch.relay.key && box.ti === 'Nasi kandar'
+    && JSON.stringify(Object.keys(box.p).sort()) === JSON.stringify(['rlyAli01']) && Array.isArray(first.seen) && first.seen.length >= 2,
+    JSON.stringify(watch));
+  check('notifications: an unchanged list is not sent again, and turning notifications off wipes it',
+    watch.again === false && watch.calls[1].on === false && watch.calls[1].boxes.length === 0, JSON.stringify(watch.calls.map((c) => c.on)));
+  {
+    const kitDir = path.join(REPO_ROOT, 'native', 'duitful-kit');
+    const java = readFileSync(path.join(kitDir, 'android', 'DuitfulRelayCrypto.java'), 'utf8');
+    const swiftWatch = readFileSync(path.join(kitDir, 'ios', 'Sources', 'DuitfulKitPlugin', 'DuitfulRelayWatch.swift'), 'utf8');
+    const splitJs = readFileSync(path.join(REPO_ROOT, 'app', 'split.js'), 'utf8');
+    const patchIos = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-ios.mjs'), 'utf8');
+    const { SOURCES: kitSources, DEPENDENCIES: kitDeps } = await import(pathToFileURL(path.join(REPO_ROOT, 'scripts', 'install-duitful-kit.mjs')).href);
+    check('notifications: Android and iPhone open events with the same associated data the app seals with',
+      /duitful-relay\/1\/\$\{kind\}\/\$\{relay\.id\}/.test(splitJs)
+      && /"duitful-relay\/1\/" \+ kind \+ "\/" \+ mailboxId/.test(java)
+      && /duitful-relay\/1\/event\/\\\(box\.id\)/.test(swiftWatch));
+    check('notifications: iOS registers the background task at launch and lists it in Info.plist; Android ships the worker and WorkManager',
+      /DuitfulRelayWatch\.register\(\)/.test(patchIos) && /BGTaskSchedulerPermittedIdentifiers[\s\S]*com\.aydiljoe\.duitful\.relay-watch/.test(patchIos)
+      && swiftWatch.includes('"com.aydiljoe.duitful.relay-watch"') && /<string>fetch<\/string>/.test(patchIos)
+      && ['DuitfulRelayCrypto.java', 'DuitfulRelayWatch.java', 'DuitfulRelayWorker.java'].every((f) => (kitSources || []).includes(f))
+      && (kitDeps || []).some((d) => d.startsWith('androidx.work:work-runtime:')));
+  }
+
   // Link only: no mailbox, links exactly as before.
   const linkOnly = await S(async () => {
     document.querySelectorAll('dialog[open]').forEach((d) => d.close());

@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.54.0";
+const APP_VERSION = "1.54.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -137,7 +137,7 @@ const INVEST_PLAN_SETTING_KEYS = new Set([
 // the display name, so an older build just skips the ones it can't read.
 const SPLIT_SETTING_KEYS = new Set([
   "splitpayto1", "splitpayto2", "splitpayto3", "splitpayto4",
-  "splitpaytoenabled", "splitme", "splitrelayoff",
+  "splitpaytoenabled", "splitme", "splitrelayoff", "splitrelaynotifyoff",
 ]);
 
 const emptyShariah = () => ({
@@ -8170,6 +8170,7 @@ function toCSV() {
     rows.push(blank(["setting", "splitPayToEnabled", sp.payToEnabled ? "Y" : "N"]));
     if (sp.me) rows.push(blank(["setting", "splitMe", sp.me]));
     if (sp.relayOff) rows.push(blank(["setting", "splitRelayOff", "Y"]));
+    if (sp.relayNotifyOff) rows.push(blank(["setting", "splitRelayNotifyOff", "Y"]));
   }
   rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
   // Shariah / zakat preferences. Each is its own `setting` row so an older
@@ -8320,6 +8321,7 @@ function fromCSV(text) {
   let splitPayEnabled = false;
   let splitMe = "";
   let splitRelayOff = false;
+  let splitRelayNotifyOff = false;
 
   // Valuation / flow / dividend rows carry the holding NAME, not its id —
   // ids are regenerated on import. Same case-insensitive link as daily-debt.
@@ -8637,6 +8639,7 @@ function fromCSV(text) {
       if (key === "splitpaytoenabled") splitPayEnabled = raw.toUpperCase() === "Y";
       else if (key === "splitme") splitMe = raw;
       else if (key === "splitrelayoff") splitRelayOff = raw.toUpperCase() === "Y";
+      else if (key === "splitrelaynotifyoff") splitRelayNotifyOff = raw.toUpperCase() === "Y";
       else {
         // "label|value" — split on the FIRST pipe only, so a value that
         // somehow contains one survives intact.
@@ -8856,6 +8859,7 @@ function fromCSV(text) {
     next.split.payToEnabled = splitPayEnabled;
     next.split.me = splitMe;
     next.split.relayOff = splitRelayOff;
+    next.split.relayNotifyOff = splitRelayNotifyOff;
     next.split = coerceSplit(next.split);
   }
 
@@ -10059,6 +10063,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.54.1": [
+    "<strong>Know when they've paid</strong> — your phone checks your split bills in the background and tells you when someone taps I've paid, even with Duitful closed. Turn it off in Settings → Preferences.",
+  ],
   "1.54.0": [
     "<strong>\"I've paid\" comes back on its own</strong> — a friend taps I've paid on your split link and Duitful asks you to confirm. No chasing receipts in WhatsApp.",
     "<strong>Everyone sees who has paid</strong> — a group split's link shows each share, who has settled, your reminders and the receipt photo.",
