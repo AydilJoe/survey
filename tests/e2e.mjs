@@ -2297,6 +2297,224 @@ check('confirming the handed-off receipt settles that person',
   && Math.abs(paidHandoffDone.repayments[0].amount - 30) < 0.001,
   JSON.stringify(paidHandoffDone));
 
+/* ── 12a. The encrypted split relay ──────────────────────────────────────
+   Each bill gets a mailbox on /api/relay/ that Duitful can't read: the key
+   rides in the link's fragment. The suite's static server has no /api, so
+   the real handler (api/relay.js, in-memory store) answers through
+   Playwright's router, and everything else runs as shipped. */
+{
+  process.env.RELAY_MEMORY = '1';
+  const relayMod = await import(pathToFileURL(path.join(REPO_ROOT, 'api', 'relay.js')).href);
+  const relayHandler = relayMod.default;
+  const relaySeen = [];
+  const relayRoute = async (route) => {
+    const rq = route.request();
+    const url = new URL(rq.url());
+    let body;
+    if (rq.method() === 'POST') { try { body = JSON.parse(rq.postData() || '{}'); } catch { body = null; } }
+    relaySeen.push({ method: rq.method(), op: url.searchParams.get('op'), url: rq.url(), body: rq.postData() || '' });
+    const out = await new Promise((resolve) => {
+      const res = {
+        statusCode: 200, headers: {},
+        setHeader(k, v) { this.headers[k] = v; },
+        status(c) { this.statusCode = c; return this; },
+        json(b) { resolve({ status: this.statusCode, body: JSON.stringify(b), headers: this.headers }); },
+        end() { resolve({ status: this.statusCode, body: '', headers: this.headers }); },
+      };
+      relayHandler({ method: rq.method(), query: Object.fromEntries(url.searchParams), body, headers: { origin: url.origin, 'x-forwarded-for': '127.0.0.1' }, socket: {} }, res);
+    });
+    await route.fulfill({ status: out.status, contentType: 'application/json', body: out.body, headers: out.headers });
+  };
+  await page.route('**/api/relay/**', relayRoute);
+
+  // A three-person bill, shared: every link carries the same mailbox.
+  const made = await S(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.split.relayOff = false;
+    state.split.me = 'Aydil';
+    const rec = coerceSplitOut({
+      id: 'relay-bill', kind: 'split', title: 'Nasi kandar', date: todayISO(), total: 60,
+      people: [
+        { id: 'rlyAli01', name: 'Ali', amount: 15, status: 'open', note: 'Ayam 12.00 · teh 3.00' },
+        { id: 'rlySiti1', name: 'Siti', amount: 15, status: 'open' },
+        { id: 'rlyMei01', name: 'Mei', amount: 15, status: 'open', repayments: [{ date: todayISO(), amount: 15 }] },
+      ],
+    });
+    rec.people[2].status = 'settled';
+    state.split.out.push(rec);
+    save();
+    const codes = [];
+    for (const p of rec.people) codes.push(await splitRequestCode(rec, p));
+    await splitRelaySync();
+    return { codes, relay: rec.relay, h: rec.relay.h };
+  });
+  const tail = (c) => c.slice(c.lastIndexOf('~') + 1);
+  check('relay: every link of a bill carries the same mailbox id and key after "~", and the request before it is untouched',
+    made.codes.length === 3 && made.codes.every((c) => /^DFS2\.[A-Za-z0-9_-]+~[A-Za-z0-9_-]{38}$/.test(c))
+    && new Set(made.codes.map(tail)).size === 1 && tail(made.codes[0]) === made.relay.id + made.relay.key,
+    JSON.stringify(made.codes));
+  check('relay: the bill was stored, and the server only ever got ciphertext: no name, title or amount, and never the key',
+    !!made.h && relaySeen.some((r) => r.op === 'put')
+    && relaySeen.every((r) => !/Nasi|kandar|Ali|Siti|Aydil|15\.00/.test(r.body) && !r.url.includes(made.relay.key) && !r.body.includes(made.relay.key)),
+    JSON.stringify(relaySeen.map((r) => r.op)));
+  check('relay: a link with a mailbox still decodes to the same request, and an old app\'s part (before "~") is the whole request',
+    await S(async (c) => { const o = await splitDecodePayload(c); const bare = await splitDecodePayload(c.slice(0, c.lastIndexOf('~'))); return o.t === 'req' && o.id === 'rlySiti1' && !!o.relay && bare.id === o.id && !bare.relay; }, made.codes[1]));
+
+  // The friend opens Siti's link: the group, then "I've paid" into the mailbox.
+  const fctx = await b.newContext();
+  await fctx.route('**/api/relay/**', relayRoute);
+  const fp = await fctx.newPage();
+  await fp.addInitScript(() => {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async (d) => { window.__shared = d; } });
+  });
+  await fp.goto(`${BASE}/split/#${made.codes[1]}`);
+  await fp.waitForTimeout(900);
+  const group = await fp.evaluate(() => ({
+    shown: !document.getElementById('r-group').hidden,
+    count: document.getElementById('g-count').textContent,
+    rows: [...document.querySelectorAll('#g-list li')].map((li) => ({ text: li.textContent, cls: li.className })),
+    privacy: document.querySelector('#request-card .privacy').textContent,
+  }));
+  check('relay: the friend page shows everyone in the bill, who has paid, and marks which line is theirs',
+    group.shown && /1 of 3 paid/.test(group.count) && group.rows.length === 3
+    && /Mei.*Paid/.test(group.rows[2].text) && group.rows[1].cls.includes('you') && /Ayam 12\.00/.test(group.rows[0].text),
+    JSON.stringify(group));
+  check('relay: the friend page says plainly who can read the mailbox', /only people with this link/.test(group.privacy), group.privacy);
+  await fp.click('#btn-paid-open');
+  await fp.fill('#paid-name', 'Siti');
+  await fp.click('#btn-paid-send');
+  await fp.waitForTimeout(700);
+  const sent = await fp.evaluate(() => ({
+    done: !document.getElementById('paid-done').hidden,
+    text: document.getElementById('paid-done-text').textContent,
+    shared: window.__shared || null,
+  }));
+  check('relay: "I\'ve paid" goes into the mailbox, not through a chat',
+    sent.done && /Aydil will see it/.test(sent.text) && !sent.shared && relaySeen.some((r) => r.op === 'event'), JSON.stringify(sent));
+  await fp.reload();
+  await fp.waitForTimeout(700);
+  check('relay: reopening the link remembers it was already sent',
+    /You told Aydil you paid/.test(await fp.locator('#paid-done-text').innerText()), await fp.locator('#paid-done-text').innerText());
+  await fctx.close();
+
+  // Back on the requester's phone: the claim arrives and asks before booking.
+  const got = await S(async () => {
+    const n = await splitRelayPoll({ force: true });
+    const rec = state.split.out.find((r) => r.id === 'relay-bill');
+    const dlg = document.getElementById('split-paid-dialog');
+    const out = {
+      n, claim: rec.relay.claims.rlySiti1 || null, open: dlg.open,
+      prompt: document.getElementById('split-paid-body').textContent,
+      chip: !!document.querySelector('[data-action="split-relay-claim"][data-id="rlySiti1"]'),
+      statusBefore: rec.people[1].status,
+    };
+    splitConfirmPaid();
+    out.statusAfter = rec.people[1].status;
+    out.claimAfter = rec.relay.claims.rlySiti1 || null;
+    out.again = await splitRelayPoll({ force: true });
+    return out;
+  });
+  check('relay: the requester\'s app picks up "I\'ve paid" and opens confirm & settle, booking nothing until they tap it',
+    got.n === 1 && got.open && /Siti/.test(got.prompt) && /RM\s*15\.00/.test(got.prompt) && got.statusBefore === 'open' && got.chip,
+    JSON.stringify(got));
+  check('relay: confirming settles Siti, clears the claim, and the same event never asks twice',
+    got.statusAfter === 'settled' && !got.claimAfter && got.again === 0, JSON.stringify(got));
+
+  // A stranger who knows only the mailbox id can add noise, not a payment.
+  const noise = await S(async () => {
+    const rec = state.split.out.find((r) => r.id === 'relay-bill');
+    await splitRelayFetch('event', { body: { id: rec.relay.id, event: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' } });
+    const wrong = { id: rec.relay.id, key: 'BBBBBBBBBBBBBBBBBBBBBB' };
+    await splitRelayFetch('event', { body: { id: rec.relay.id, event: await splitRelaySeal(wrong, 'event', { t: 'paid', e: 'x1', id: 'rlyAli01', a: 15, fr: 'Mallory' }) } });
+    return { n: await splitRelayPoll({ force: true }), claim: rec.relay.claims.rlyAli01 || null };
+  });
+  check('relay: an event not sealed with the bill\'s key is ignored', noise.n === 0 && !noise.claim, JSON.stringify(noise));
+
+  // Reminder + updated status reach the friend page; a settle on the other
+  // side, from a Duitful user, drops "I've paid" in on its own.
+  const after = await S(async () => {
+    const rec = state.split.out.find((r) => r.id === 'relay-bill');
+    splitRelayNoteReminder(rec);
+    await splitRelaySync();
+    return rec.relay.rem;
+  });
+  const fctx2 = await b.newContext();
+  await fctx2.route('**/api/relay/**', relayRoute);
+  const fp2 = await fctx2.newPage();
+  await fp2.goto(`${BASE}/split/#${made.codes[0]}`);
+  await fp2.waitForTimeout(900);
+  const view2 = await fp2.evaluate(() => ({ count: document.getElementById('g-count').textContent, rem: document.getElementById('r-reminder').hidden ? '' : document.getElementById('r-reminder').textContent }));
+  await fctx2.close();
+  check('relay: the friend page shows the latest who-has-paid and the reminder the sender just sent',
+    /2 of 3 paid/.test(view2.count) && /Aydil sent a reminder/.test(view2.rem) && !!after, JSON.stringify(view2));
+
+  const incoming = await S(async (code) => {
+    const before = state.split.out.find((r) => r.id === 'relay-bill');
+    // The friend's own Duitful: Ali's request, adopted as an incoming one.
+    // Pretend it is someone else's phone by removing the outgoing bill first.
+    const saved = state.split.out.splice(state.split.out.indexOf(before), 1)[0];
+    let inc;
+    try {
+      inc = splitIngestRequest(await splitDecodePayload(code));
+    } catch (e) { inc = { error: String(e && e.code || e) }; }
+    const rec = state.split.in.find((r) => r.id === 'rlyAli01');
+    const hadRelay = !!(rec && rec.relay);
+    splitSettleIncoming('rlyAli01', { logExpense: false });
+    await new Promise((r) => setTimeout(r, 400));
+    state.split.in = state.split.in.filter((r) => r.id !== 'rlyAli01');
+    state.split.out.push(saved);
+    save();
+    return { hadRelay, inc: inc && inc.kind, claim: await splitRelayPoll({ force: true }), claimFor: saved.relay.claims.rlyAli01 || null };
+  }, made.codes[0]);
+  check('relay: a friend who settles in their own Duitful tells the requester through the mailbox',
+    incoming.hadRelay && incoming.claim === 1 && incoming.claimFor && Math.abs(incoming.claimFor.a - 15) < 0.001, JSON.stringify(incoming));
+
+  // The receipt photo: sealed on the phone, opened on the friend's page.
+  const photo = await S(async () => {
+    const rec = state.split.out.find((r) => r.id === 'relay-bill');
+    const c = document.createElement('canvas');
+    c.width = 2400; c.height = 1200;
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, 2400, 1200);
+    g.fillStyle = '#000'; g.font = '120px sans-serif'; g.fillText('NASI KANDAR 60.00', 200, 600);
+    const ok = await splitRelayAttachPhoto(rec, c.toDataURL('image/png'));
+    await splitRelaySync();
+    return { ok, flag: rec.relay.photo };
+  });
+  const fctx3 = await b.newContext();
+  await fctx3.route('**/api/relay/**', relayRoute);
+  const fp3 = await fctx3.newPage();
+  await fp3.goto(`${BASE}/split/#${made.codes[0]}`);
+  await fp3.waitForTimeout(900);
+  const hadBtn = await fp3.evaluate(() => !document.getElementById('btn-photo').hidden);
+  await fp3.click('#btn-photo');
+  await fp3.waitForTimeout(900);
+  const shown = await fp3.evaluate(() => { const i = document.getElementById('g-photo'); return { shown: !i.hidden, w: i.naturalWidth, h: i.naturalHeight, alt: i.alt }; });
+  await fctx3.close();
+  const photoPut = relaySeen.filter((r) => r.op === 'photo' && r.method === 'POST').pop();
+  check('relay: a receipt photo is shrunk, sealed and shown on the friend page; the server only holds ciphertext',
+    photo.ok && photo.flag && hadBtn && shown.shown && shown.w === 1400 && shown.h === 700 && /Nasi kandar/.test(shown.alt)
+    && !!photoPut && !/image\/|jpeg|JFIF/i.test(photoPut.body.slice(0, 200)),
+    JSON.stringify({ photo, hadBtn, shown }));
+
+  // Link only: no mailbox, links exactly as before.
+  const linkOnly = await S(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.split.relayOff = true;
+    const rec = coerceSplitOut({ id: 'relay-off', kind: 'split', title: 'Kopi', date: todayISO(), total: 10, people: [{ id: 'rlyOff01', name: 'Ali', amount: 5, status: 'open' }] });
+    state.split.out.push(rec);
+    const code = await splitRequestCode(rec, rec.people[0]);
+    const csv = typeof buildCsv === 'function' ? buildCsv() : '';
+    state.split.relayOff = false;
+    state.split.out = state.split.out.filter((r) => r.id !== 'relay-off' && r.id !== 'relay-bill');
+    save();
+    return { code, relay: rec.relay, csvHas: /splitRelayOff,?.*Y/.test(csv) || csv === '' };
+  });
+  check('relay: Settings → link only makes plain links with no mailbox', !linkOnly.relay && !linkOnly.code.includes('~'), JSON.stringify(linkOnly));
+
+  await page.unroute('**/api/relay/**', relayRoute);
+}
+
 /* ── 12b. What's-new digests instead of nagging ─────────────────────────
    Fast shipping must not mean a popup per release: unseen notes merge
    into ONE capped digest, at most one dialog per 5 days per device. */
@@ -4743,7 +4961,8 @@ check('the vault is open before the quick-add checks',
       { id: 'u3', name: 'Study Loan', balance: 8000, apr: 1, minPayment: 120, dueDay: 5, kind: 'standard' },
     ];
     state.dailyExpenses = [
-      { id: 'v1', createdAt: 1, kind: 'expense', date: m + '-02', amount: 142.3, note: 'Mydin groceries', category: 'Food' },
+      // The 1st, so it is never in the future: Reports counts the month up to today.
+      { id: 'v1', createdAt: 1, kind: 'expense', date: m + '-01', amount: 142.3, note: 'Mydin groceries', category: 'Food' },
       { id: 'v2', createdAt: 2, kind: 'debt', date: m + '-03', amount: 120, debtId: 'u3', debtName: 'Study Loan', note: '' },
     ];
     save(); renderAll();

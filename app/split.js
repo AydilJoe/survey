@@ -90,7 +90,7 @@ const SPLIT_QTY_EXPAND_MAX = 4;
 /* ---------- shape ---------- */
 
 function emptySplit() {
-  return { out: [], in: [], names: [], me: "", payTo: [], payToEnabled: false };
+  return { out: [], in: [], names: [], me: "", payTo: [], payToEnabled: false, relayOff: false };
 }
 
 function splitIsDate(v) {
@@ -179,6 +179,9 @@ function coerceSplitOut(raw) {
     dueDate: splitIsDate(r.dueDate) ? r.dueDate : "",
     expenseId: typeof r.expenseId === "string" ? r.expenseId : "",
     people,
+    // The bill's encrypted mailbox (see "the encrypted relay" below). Absent
+    // on link-only bills and on everything made before the relay existed.
+    relay: coerceSplitRelay(r.relay, { own: true }),
   };
 }
 
@@ -200,6 +203,9 @@ function coerceSplitIn(raw) {
     status,
     settledDate: splitIsDate(r.settledDate) ? r.settledDate : "",
     expenseId: typeof r.expenseId === "string" ? r.expenseId : "",
+    // The requester's mailbox, when their link carried one: settling here
+    // drops an encrypted "I've paid" into it, so they see it without a chat.
+    relay: coerceSplitRelay(r.relay, { own: false }),
   };
 }
 
@@ -230,6 +236,8 @@ function coerceSplit(raw) {
     // Opt-in, always. Transfer details never leave the device until the user
     // turns this on, and the share dialog previews them before they do.
     payToEnabled: !!s.payToEnabled,
+    // The relay is on unless the user chose link-only in Settings.
+    relayOff: !!s.relayOff,
   };
 }
 
@@ -438,7 +446,13 @@ async function splitEncodePayload(obj) {
 }
 
 async function splitDecodePayload(raw) {
-  const text = String(raw == null ? "" : raw).trim();
+  const parts = splitRelayParse(String(raw == null ? "" : raw).trim());
+  const obj = await splitDecodeBare(parts.code);
+  if (parts.relay && obj.t === "req") obj.relay = parts.relay;
+  return obj;
+}
+
+async function splitDecodeBare(text) {
   const m = /^DFS(\d+)(u?)\.(.+)$/.exec(text);
   if (!m) throw splitPayloadError("not-duitful");
   // Unknown MAJOR version is refused before any field is read — that is the
@@ -621,6 +635,7 @@ function splitIngestRequest(obj) {
     dueDate: obj.dd,
     pay: obj.pay,
     status: "open",
+    relay: obj.relay,
   });
   splitInList().push(record);
   splitRememberName(record.from);
@@ -679,7 +694,8 @@ async function splitConsumePending() {
     raw = localStorage.getItem(SPLIT_PENDING_KEY);
     if (raw) localStorage.removeItem(SPLIT_PENDING_KEY);
   } catch { return; }
-  if (!raw) return;
+  // Every unlock also collects "I've paid" from the bills' mailboxes.
+  if (!raw) { splitRelayPoll({ force: true }).catch(() => {}); return; }
   try {
     splitIngestToast(await splitIngestCode(raw));
   } catch (err) {
@@ -989,6 +1005,9 @@ function splitSettleIncoming(recordId, { logExpense, category, date } = {}) {
     rec.expenseId = expense.id;
   }
   save();
+  // Their link carried a mailbox: tell them in it. Fire and forget — the
+  // "I've paid — tell them" share still works if this never arrives.
+  if (rec.relay) splitRelayPostPaid(rec.relay, { id: rec.id, a: rec.amount, d: when, fr: splitState().me }).catch(() => {});
   return { record: rec, expense };
 }
 
@@ -2081,6 +2100,7 @@ function splitComposeSaveItems() {
   });
   splitOutList().push(record);
   for (const p of record.people) splitRememberName(p.name);
+  if (c.photo) splitRelayPendingPhoto.set(record.id, c.photo);
   save();
   if (typeof renderAll === "function") renderAll();
   splitCloseDialog(splitComposeDialogEl());
@@ -2123,6 +2143,7 @@ function splitComposeSave() {
   });
   splitOutList().push(record);
   for (const p of record.people) splitRememberName(p.name);
+  if (c.photo) splitRelayPendingPhoto.set(record.id, c.photo);
   // Lending is money genuinely leaving you today — without this the monthly
   // balance never dips and the eventual repayment books as phantom income.
   // Opt-out kept for people lending from savings rather than the budget.
@@ -2206,6 +2227,8 @@ function splitApplyScan(parsed) {
   if (!c) return;
   if (Number.isFinite(Number(p.amount)) && Number(p.amount) > 0) c.total = splitRound2(p.amount);
   if (p.vendor) c.title = splitText(p.vendor, SPLIT_TITLE_MAX);
+  // The scanned photo rides along to the bill's mailbox when it's shared.
+  if (p.photo) c.photo = p.photo;
   const date = splitDateFromReceipt(p.raw);
   if (date) c.date = date;
   if (c.mode !== "split") c.mode = "split";
@@ -2366,7 +2389,10 @@ async function splitRenderRequestShare() {
 
   const s = splitState();
   const payload = splitRequestPayload(rec, person);
-  const code = await splitEncodePayload(payload);
+  // A reminder is also posted to the bill's mailbox, so the friend sees it
+  // the next time they open the link, not only in the chat.
+  if (splitShare.remind) splitRelayNoteReminder(rec);
+  const code = await splitRequestCode(rec, person);
   splitShare.code = code;
   const link = splitShareLink(code);
 
@@ -2392,6 +2418,18 @@ async function splitRenderRequestShare() {
   previewParts.push(payRows.length
     ? `your transfer details (${payRows.map((r) => r.label || r.value).join(", ")})`
     : "no transfer details");
+  if (rec.relay) previewParts.push("a key to this bill's encrypted mailbox");
+
+  splitRelayFlushPhoto(rec);
+  const photoRow = rec.relay
+    ? `<div class="split-relay-row">
+         <p class="hint">${rec.relay.photo || splitRelayPendingPhoto.has(rec.id)
+           ? "Receipt photo attached. Everyone with a link can see it; Duitful can't."
+           : "Everyone with a link sees who has paid. Duitful can't read any of it."}</p>
+         <button type="button" class="hint-link" data-action="split-relay-photo">${rec.relay.photo ? "Replace receipt photo" : "Attach receipt photo"}</button>
+         <input type="file" id="split-relay-photo-input" accept="image/*" hidden data-id="${rec.id}" />
+       </div>`
+    : "";
 
   const nameField = splitText(s.me, SPLIT_NAME_MAX)
     ? ""
@@ -2419,6 +2457,7 @@ async function splitRenderRequestShare() {
       ? `How to pay me — edit (${s.payTo.length} row${s.payTo.length === 1 ? "" : "s"})`
       // Without this the link tells them what they owe but not where to send it.
       : "Add your DuitNow or bank, so they can pay from the link"}</button>
+    ${photoRow}
     <div class="form-actions split-share-actions">
       ${splitShare.remind
         ? `<button type="button" class="primary" data-action="split-share-link">Send reminder</button>`
@@ -2444,7 +2483,7 @@ async function splitGroupShareText(rec) {
   const people = rec.people.filter((p) => p.status !== "cancelled" && splitPersonRemaining(p) > 0);
   const lines = [];
   for (const person of people) {
-    const code = await splitEncodePayload(splitRequestPayload(rec, person));
+    const code = await splitRequestCode(rec, person);
     lines.push({ name: person.name, amount: fmtMoney(splitPersonRemaining(person)), link: splitShareLink(code) });
   }
   // Everyone's line first (the part people read), then the links underneath.
@@ -2543,6 +2582,8 @@ function splitRenderPaidPrompt() {
 function splitConfirmPaid() {
   if (!splitPaidPrompt) return;
   const { personId, amount, date } = splitPaidPrompt;
+  const claimed = splitFindPerson(personId);
+  if (claimed && claimed.rec.relay) delete claimed.rec.relay.claims[personId];
   const res = splitSettleFromPayment(personId, amount, date);
   splitPaidPrompt = null;
   splitCloseDialog(splitPaidDialogEl());
@@ -2831,6 +2872,11 @@ function splitOutRowHtml(rec, person) {
   if (paid > 0) meta.push(`${escapeHtml(fmtMoney(remaining))} of ${escapeHtml(fmtMoney(person.amount))} left`);
   const tag = rec.kind === "loan" ? ` <span class="split-tag">Loan</span>` : "";
   const overdue = rec.dueDate && splitDaysUntil(rec.dueDate) < 0 ? " overdue" : "";
+  // "I've paid" that arrived through the mailbox and hasn't been confirmed.
+  const claim = rec.relay && rec.relay.claims[person.id];
+  const claimHtml = claim
+    ? `<button type="button" class="split-claim" data-action="split-relay-claim" data-id="${person.id}">${escapeHtml(claim.fr || person.name)} says they paid ${escapeHtml(fmtMoney(claim.a))} · Review</button>`
+    : "";
   return `
     <div class="split-row" data-id="${person.id}">
       <div class="top-row">
@@ -2838,6 +2884,7 @@ function splitOutRowHtml(rec, person) {
         <span class="split-amount${overdue}">${fmtMoney(remaining)}</span>
       </div>
       <div class="split-meta">${meta.map((m) => `<span>${m}</span>`).join("")}</div>
+      ${claimHtml}
       <div class="split-actions">
         <button type="button" class="ghost" data-action="split-panel" data-panel="repay" data-id="${person.id}">Record repayment</button>
         <button type="button" class="ghost" data-action="split-remind" data-id="${person.id}">Remind</button>
@@ -2988,6 +3035,11 @@ function renderSplit() {
       oweList.innerHTML = "";
     }
   }
+  const relayPref = document.getElementById("pref-split-relay");
+  if (relayPref) relayPref.checked = !splitState().relayOff;
+  // Every change to a bill — a repayment, a cancel, a reminder — ends in a
+  // render, so this is the one place the mailbox copy is kept current.
+  splitRelaySyncSoon();
 }
 
 /* ---------- action wiring ---------- */
@@ -3183,6 +3235,10 @@ document.addEventListener("click", (e) => {
         ? `${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`
         : `${fmtMoney(res.amount)} recorded · ${fmtMoney(splitPersonRemaining(res.person))} still owed`);
     }
+  } else if (action === "split-relay-claim") {
+    splitRelayReviewClaim(id);
+  } else if (action === "split-relay-photo") {
+    document.getElementById("split-relay-photo-input")?.click();
   } else if (action === "split-remind") {
     const found = splitFindPerson(id);
     if (found) {
@@ -3318,3 +3374,374 @@ function splitFromExpense(source, id) {
     date: `${month}-${String(day).padStart(2, "0")}`,
   });
 }
+
+/* ---------- the encrypted relay ----------
+
+   Each bill gets a mailbox on Duitful's server (api/relay.js) that Duitful
+   cannot read. The app makes a random mailbox id and a random AES-GCM key and
+   adds them to the end of every link for that bill:
+
+     https://duitful.app/split#DFS2.<payload>~<mailbox id><key>
+
+   Everything after "#" stays in the browser — it is never sent to a server —
+   so the key only ever reaches the people the link was shared with. What
+   goes in the mailbox is sealed with it on the phone first:
+
+     box     the bill as everyone in it sees it: who owes what, who has paid,
+             the last reminder, whether a receipt photo is attached. Only the
+             bill's creator can write it (a random write token, kept here).
+     events  "I've paid", dropped in by the friend's /split page or by their
+             own Duitful when they settle. The app asks before booking one,
+             exactly like a receipt link.
+     photo   the receipt photo, if attached.
+
+   The payload before "~" is still the whole request, so a link works with
+   the relay down, offline, or switched off; old links (no "~") are untouched.
+   Settings → "Link only" stops new bills from getting a mailbox. */
+
+const SPLIT_RELAY_SEP = "~";
+const SPLIT_RELAY_PATH = "/api/relay/";
+const SPLIT_RELAY_ORIGIN = "https://duitful.app";
+const SPLIT_RELAY_TAIL = /^([A-Za-z0-9_-]{16})([A-Za-z0-9_-]{22})$/;
+const SPLIT_RELAY_POLL_MS = 60 * 1000;
+const SPLIT_RELAY_SEEN_CAP = 120;
+const SPLIT_RELAY_PHOTO_PX = 1400;
+
+function coerceSplitRelay(raw, { own }) {
+  const r = raw && typeof raw === "object" ? raw : null;
+  if (!r || typeof r.id !== "string" || typeof r.key !== "string") return null;
+  if (!SPLIT_RELAY_TAIL.test(r.id + r.key)) return null;
+  if (!own) return { id: r.id, key: r.key };
+  const claims = {};
+  if (r.claims && typeof r.claims === "object") {
+    for (const [pid, c] of Object.entries(r.claims)) {
+      if (!c || typeof c !== "object") continue;
+      claims[pid] = {
+        a: Math.max(0, splitNum(c.a)),
+        d: splitIsDate(c.d) ? c.d : todayISO(),
+        fr: splitText(c.fr, SPLIT_NAME_MAX),
+      };
+    }
+  }
+  return {
+    id: r.id,
+    key: r.key,
+    token: typeof r.token === "string" && /^[A-Za-z0-9_-]{22}$/.test(r.token) ? r.token : "",
+    // Fingerprint of the last box the server accepted; "" means "send it".
+    h: typeof r.h === "string" ? r.h : "",
+    seen: (Array.isArray(r.seen) ? r.seen : []).filter((x) => typeof x === "string").slice(-SPLIT_RELAY_SEEN_CAP),
+    claims,
+    rem: splitIsDate(r.rem) ? r.rem : "",
+    photo: !!r.photo,
+  };
+}
+
+function splitRelayParse(text) {
+  const at = text.lastIndexOf(SPLIT_RELAY_SEP);
+  if (at < 0) return { code: text, relay: null };
+  const m = SPLIT_RELAY_TAIL.exec(text.slice(at + 1));
+  return { code: text.slice(0, at), relay: m ? { id: m[1], key: m[2] } : null };
+}
+
+function splitRelayRandom(bytes) {
+  return splitBytesToB64Url(crypto.getRandomValues(new Uint8Array(bytes)));
+}
+
+// The mailbox for a bill, created the first time one of its links is built.
+// Link-only (Settings) or no WebCrypto means none, and links stay as before.
+function splitRelayEnsure(rec) {
+  if (rec.relay) return rec.relay;
+  if (splitState().relayOff || !(globalThis.crypto && crypto.subtle)) return null;
+  rec.relay = coerceSplitRelay({
+    id: splitRelayRandom(12),
+    key: splitRelayRandom(16),
+    token: splitRelayRandom(16),
+  }, { own: true });
+  save();
+  return rec.relay;
+}
+
+// The request code for one person, with the bill's mailbox on the end.
+async function splitRequestCode(rec, person) {
+  const code = await splitEncodePayload(splitRequestPayload(rec, person));
+  const relay = splitRelayEnsure(rec);
+  if (relay) splitRelaySyncSoon(0);
+  return relay ? `${code}${SPLIT_RELAY_SEP}${relay.id}${relay.key}` : code;
+}
+
+/* sealing: AES-GCM, a fresh 12-byte IV per message, and the mailbox id and
+   message kind as associated data, so a sealed box can't be replayed as an
+   event or moved to another mailbox. Output: base64url(iv ‖ ciphertext). */
+async function splitRelayCryptoKey(relay) {
+  return crypto.subtle.importKey("raw", splitB64UrlToBytes(relay.key), "AES-GCM", false, ["encrypt", "decrypt"]);
+}
+function splitRelayAad(relay, kind) {
+  return new TextEncoder().encode(`duitful-relay/1/${kind}/${relay.id}`);
+}
+async function splitRelaySealBytes(relay, kind, bytes) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv, additionalData: splitRelayAad(relay, kind) },
+    await splitRelayCryptoKey(relay), bytes,
+  ));
+  const out = new Uint8Array(12 + ct.length);
+  out.set(iv);
+  out.set(ct, 12);
+  return splitBytesToB64Url(out);
+}
+async function splitRelayOpenBytes(relay, kind, text) {
+  try {
+    const all = splitB64UrlToBytes(text);
+    if (all.length < 13) return null;
+    return new Uint8Array(await crypto.subtle.decrypt(
+      { name: "AES-GCM", iv: all.slice(0, 12), additionalData: splitRelayAad(relay, kind) },
+      await splitRelayCryptoKey(relay), all.slice(12),
+    ));
+  } catch {
+    return null; // not sealed with this bill's key: noise, ignored
+  }
+}
+async function splitRelaySeal(relay, kind, obj) {
+  return splitRelaySealBytes(relay, kind, new TextEncoder().encode(JSON.stringify(obj)));
+}
+async function splitRelayOpen(relay, kind, text) {
+  const bytes = await splitRelayOpenBytes(relay, kind, text);
+  if (!bytes) return null;
+  try { return JSON.parse(new TextDecoder().decode(bytes)); } catch { return null; }
+}
+
+// Same origin on the web; the native shells (origin localhost) call
+// duitful.app directly, like /api/fx — the CSP allows both.
+async function splitRelayFetch(op, { id, body } = {}) {
+  const native = typeof isNative === "function" && isNative();
+  const url = `${native ? SPLIT_RELAY_ORIGIN : ""}${SPLIT_RELAY_PATH}?op=${op}${id ? `&id=${encodeURIComponent(id)}` : ""}`;
+  const res = await fetch(url, body
+    ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+    : { cache: "no-store" });
+  let json = null;
+  try { json = await res.json(); } catch {}
+  return { ok: res.ok, status: res.status, json };
+}
+
+// What everyone holding the link sees. Names and shares are already in the
+// group message; nothing here is more than the chat already said, plus who
+// has paid.
+function splitRelayBox(rec) {
+  const r = rec.relay;
+  return {
+    v: 1,
+    k: rec.kind,
+    ti: rec.title,
+    d: rec.date,
+    dd: rec.dueDate || "",
+    fr: splitText(splitState().me, SPLIT_NAME_MAX),
+    tot: rec.total,
+    rem: r.rem || "",
+    ph: !!r.photo,
+    p: rec.people.filter((p) => p.status !== "cancelled").map((p) => ({
+      id: p.id,
+      n: p.name,
+      a: p.amount,
+      pd: splitPersonPaid(p),
+      st: p.status,
+      nt: p.note || "",
+    })),
+  };
+}
+
+function splitRelayHash(text) {
+  let h = 0x811c9dc5;
+  const bytes = new TextEncoder().encode(text);
+  for (let i = 0; i < bytes.length; i++) { h ^= bytes[i]; h = Math.imul(h, 16777619) >>> 0; }
+  return `${h.toString(36)}.${bytes.length.toString(36)}`;
+}
+
+function splitRelayOwned() {
+  return splitOutList().filter((r) => r.relay && r.relay.token);
+}
+
+// Claims are for open people only; anyone confirmed, settled or cancelled
+// since drops theirs.
+function splitRelayPrune(rec) {
+  for (const pid of Object.keys(rec.relay.claims)) {
+    const p = rec.people.find((x) => x.id === pid);
+    if (!p || p.status !== "open" || splitPersonRemaining(p) <= 0) delete rec.relay.claims[pid];
+  }
+}
+
+let splitRelaySyncTimer = null;
+let splitRelaySyncing = false;
+function splitRelaySyncSoon(delay = 800) {
+  if (!splitRelayOwned().length) return;
+  clearTimeout(splitRelaySyncTimer);
+  splitRelaySyncTimer = setTimeout(() => { splitRelaySync().catch(() => {}); }, delay);
+}
+
+async function splitRelaySync() {
+  if (splitRelaySyncing) { splitRelaySyncSoon(); return; }
+  splitRelaySyncing = true;
+  let changed = false;
+  try {
+    for (const rec of splitRelayOwned()) {
+      splitRelayPrune(rec);
+      const box = splitRelayBox(rec);
+      const h = splitRelayHash(JSON.stringify(box));
+      if (rec.relay.h === h) continue;
+      const res = await splitRelayFetch("put", {
+        body: { id: rec.relay.id, token: rec.relay.token, box: await splitRelaySeal(rec.relay, "box", box) },
+      });
+      if (res.ok) { rec.relay.h = h; changed = true; }
+      else if (res.status === 503 || res.status === 404 || res.status === 0) break; // no relay here: try next time
+    }
+  } catch {
+    // Offline, or no relay on this host: the links still carry everything.
+  } finally {
+    splitRelaySyncing = false;
+  }
+  if (changed) save();
+}
+
+let splitRelayLastPoll = 0;
+// Collects "I've paid" from the mailboxes of bills with someone still open.
+// Each one becomes a claim on that person's row, and the first new one opens
+// the same confirm prompt a receipt link does.
+async function splitRelayPoll({ force = false } = {}) {
+  if (!force && Date.now() - splitRelayLastPoll < SPLIT_RELAY_POLL_MS) return 0;
+  splitRelayLastPoll = Date.now();
+  const recs = splitRelayOwned().filter((r) => r.people.some((p) => p.status === "open"));
+  let fresh = null;
+  let changed = false;
+  for (const rec of recs) {
+    let res;
+    try { res = await splitRelayFetch("get", { id: rec.relay.id }); } catch { return 0; }
+    if (res.status === 404 && rec.relay.h) { rec.relay.h = ""; changed = true; continue; } // expired: send it again
+    if (!res.ok || !res.json) { if (res.status === 503) return 0; continue; }
+    for (const ev of Array.isArray(res.json.events) ? res.json.events : []) {
+      const o = await splitRelayOpen(rec.relay, "event", ev);
+      if (!o || o.t !== "paid" || typeof o.e !== "string" || rec.relay.seen.includes(o.e)) continue;
+      rec.relay.seen.push(o.e);
+      rec.relay.seen = rec.relay.seen.slice(-SPLIT_RELAY_SEEN_CAP);
+      changed = true;
+      const person = rec.people.find((p) => p.id === o.id);
+      if (!person || person.status !== "open") continue;
+      rec.relay.claims[person.id] = {
+        a: splitRound2(Math.max(0, splitNum(o.a))) || splitPersonRemaining(person),
+        d: splitIsDate(o.d) ? o.d : todayISO(),
+        fr: splitText(o.fr, SPLIT_NAME_MAX),
+      };
+      if (!fresh) fresh = person.id;
+    }
+  }
+  if (changed) {
+    save();
+    if (typeof renderAll === "function") renderAll();
+  }
+  if (fresh && !document.querySelector("dialog[open]")) splitRelayReviewClaim(fresh);
+  return fresh ? 1 : 0;
+}
+
+function splitRelayReviewClaim(personId) {
+  const found = splitFindPerson(personId);
+  const claim = found && found.rec.relay && found.rec.relay.claims[personId];
+  if (!claim) return;
+  try {
+    const res = splitIngestPaid({ t: "paid", id: personId, a: claim.a, d: claim.d, fr: claim.fr });
+    if (res && res.duplicate) {
+      delete found.rec.relay.claims[personId];
+      save();
+      if (typeof renderAll === "function") renderAll();
+    }
+  } catch (err) {
+    toast(splitErrorMessage(err));
+  }
+}
+
+// The friend side: settling a request that came with a mailbox.
+async function splitRelayPostPaid(relay, { id, a, d, fr }) {
+  const event = await splitRelaySeal(relay, "event", {
+    t: "paid", e: splitRelayRandom(9), id, a: splitRound2(a), d, fr: splitText(fr, SPLIT_NAME_MAX),
+  });
+  const res = await splitRelayFetch("event", { body: { id: relay.id, event } });
+  return res.ok;
+}
+
+function splitRelayNoteReminder(rec) {
+  if (!rec.relay) return;
+  const today = todayISO();
+  if (rec.relay.rem === today) return;
+  rec.relay.rem = today;
+  save();
+  splitRelaySyncSoon(0);
+}
+
+/* the receipt photo: downscaled to SPLIT_RELAY_PHOTO_PX on the long side,
+   JPEG, sealed like everything else. A bill made from a scan carries its
+   photo automatically; any bill can add one from the share sheet. */
+const splitRelayPendingPhoto = new Map(); // bill id → File | data URL, this session only
+
+async function splitRelayJpeg(source) {
+  const url = typeof source === "string" ? source : URL.createObjectURL(source);
+  try {
+    const img = new Image();
+    await new Promise((ok, fail) => { img.onload = ok; img.onerror = fail; img.src = url; });
+    const scale = Math.min(1, SPLIT_RELAY_PHOTO_PX / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((ok) => canvas.toBlob(ok, "image/jpeg", 0.72));
+    return new Uint8Array(await blob.arrayBuffer());
+  } finally {
+    if (typeof source !== "string") URL.revokeObjectURL(url);
+  }
+}
+
+async function splitRelayAttachPhoto(rec, source) {
+  const relay = splitRelayEnsure(rec);
+  if (!relay || !source) return false;
+  const photo = await splitRelaySealBytes(relay, "photo", await splitRelayJpeg(source));
+  // The box has to exist before a photo can hang off it.
+  if (!relay.h) await splitRelaySync();
+  const res = await splitRelayFetch("photo", { body: { id: relay.id, token: relay.token, photo } });
+  if (!res.ok) return false;
+  relay.photo = true;
+  save();
+  splitRelaySyncSoon(0);
+  return true;
+}
+
+// Called by the share sheet: a photo stashed by a scan-to-split goes up once.
+function splitRelayFlushPhoto(rec) {
+  const source = splitRelayPendingPhoto.get(rec.id);
+  if (!source || !rec.relay) return;
+  splitRelayPendingPhoto.delete(rec.id);
+  splitRelayAttachPhoto(rec, source).catch(() => {});
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && typeof aesKey !== "undefined" && aesKey) splitRelayPoll().catch(() => {});
+});
+
+document.addEventListener("change", (e) => {
+  const input = e.target;
+  if (!(input instanceof HTMLInputElement) || input.id !== "split-relay-photo-input") return;
+  const file = input.files && input.files[0];
+  const rec = splitOutList().find((r) => r.id === input.dataset.id);
+  if (!file || !rec) return;
+  toast("Attaching the receipt photo…");
+  splitRelayAttachPhoto(rec, file)
+    .then((ok) => {
+      toast(ok ? "Receipt photo attached" : "Couldn't attach the photo — check your connection");
+      if (ok && document.getElementById("split-share-body") && splitShare) splitRenderShare();
+    })
+    .catch(() => toast("Couldn't attach the photo"));
+});
+
+// Settings → Preferences. Off stops NEW bills from getting a mailbox; bills
+// already shared keep theirs, because their links already carry the key.
+document.addEventListener("change", (e) => {
+  if (!(e.target instanceof HTMLInputElement) || e.target.id !== "pref-split-relay") return;
+  splitState().relayOff = !e.target.checked;
+  save();
+  toast(e.target.checked ? "Split payments will be tracked" : "New splits use links only");
+});

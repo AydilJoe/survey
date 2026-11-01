@@ -128,8 +128,12 @@
 - **Bill splitting, payment requests & IOU/lending** (free on every
   tier): split any expense or request money via QR codes and share
   links — the request travels inside the link fragment or QR itself,
-  decoded on the recipient's device; **no server ever sees who owes
-  whom**. Recipients without the app see a clean request page (amount,
+  decoded on the recipient's device. An optional **end-to-end encrypted
+  relay** (on by default, switchable to link-only) gives each bill a
+  mailbox so "I've paid" comes back on its own, group members see who
+  has paid, and a receipt photo can be attached; it is encrypted with a
+  key that exists only in the link fragment, so **Duitful's server
+  cannot read who owes whom**, and mailboxes expire after 60 days. Recipients without the app see a clean request page (amount,
   purpose, the sender's DuitNow/bank details line-by-line with copy
   buttons) at https://duitful.app/split. Lending is first-class:
   record money lent with a due date and Duitful reminds the LENDER,
