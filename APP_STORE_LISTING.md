@@ -208,6 +208,16 @@ Everything else is "No": there is no account, no analytics SDK in the native
 app, and iCloud / Drive backups go to the user's own account already
 encrypted, which Apple does not count as collection by the developer.
 
+**The split relay (1.54.0) adds nothing to the label.** Each bill's mailbox
+on `/api/relay/` holds only data encrypted on the phone with a key that
+lives in the link fragment, which never reaches the server, so Duitful
+cannot read names, amounts, notes or the receipt photo. Apple counts data as
+collected when the developer can access it; ciphertext it cannot open is
+not. The server keeps no IP address with a mailbox (a hashed IP counts
+requests for ten minutes for rate limiting, then expires). If Apple ever asks, the
+answer is in the privacy policy, section 4.7. Revisit this if the relay ever
+stores anything readable, for example plaintext names for search.
+
 ## In-app purchases (attach both to the version you submit)
 
 | Product ID | Type | Price (Malaysia) | Display name |
