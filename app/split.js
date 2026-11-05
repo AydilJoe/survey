@@ -1085,7 +1085,10 @@ async function splitCopyText(text) {
    out at double. \b alone is not enough there (it is a genuine word), which
    is why NET VALUE / EXCL lines are excluded outright below. */
 const SPLIT_CHARGE_RX = /\b(SERVICE\s*CHARGE|SERVICE|SST|GST|TAX|CUKAI|ROUNDING|PEMBUNDARAN|SRV|SVC)\b/i;
-const SPLIT_SUMMARY_RX = /\b(TOTAL|SUB[-\s]?TOTAL|CASH|CHANGE|TUNAI|JUMLAH|DISCOUNT|DISKAUN|BAKI|NETT?\s*VALUE|AMOUNT\s*DUE|BALANCE)\b/i;
+/* Tender lines ("VISA 104.90", "TNG eWallet 12.00") restate the total as the
+   way it was paid. Without them a card-paid receipt grew a phantom item the
+   size of the whole bill, and the scan flagged a correct total as wrong. */
+const SPLIT_SUMMARY_RX = /\b(TOTAL|SUB[-\s]?TOTAL|CASH|CHANGE|TUNAI|JUMLAH|DISCOUNT|DISKAUN|BAKI|NETT?\s*VALUE|AMOUNT\s*DUE|BALANCE|VISA|MASTER\s?CARD|AMEX|UNIONPAY|MYDEBIT|DEBIT\s*CARD|CREDIT\s*CARD|TNG|TOUCH\s*['’]?\s*N\s*GO|E-?WALLET|GRAB\s?PAY|SHOPEE\s?PAY|DUITNOW|QR\s*PAY|APPROVAL\s*CODE|APPR\s*CODE|TENDERED)\b/i;
 /* A restatement of the bill, not a charge on it. "NET VALUE (EXCLD TAX)" and
    "TOTAL BEFORE TAX" both name TAX while describing money that is already
    accounted for; adding either double-counts the whole receipt. */
@@ -1302,6 +1305,7 @@ function splitParseReceiptItems(rawText) {
   let statedTotal = 0;
   // A name line waiting for the price line beneath it (supermarket layout).
   let pendingName = null;
+  let afterTotal = false;
 
   for (const line of lines) {
     if (SPLIT_HEADER_RX.test(line) && !splitMoneyOnLine(line).length) {
@@ -1313,6 +1317,7 @@ function splitParseReceiptItems(rawText) {
       // Remember the grand total so charges can be sanity-checked against it.
       if (/\bTOTAL\b/i.test(line) && !/\bSUB[-\s]?TOTAL\b/i.test(line)) {
         for (const m of money) if (m.value > statedTotal) statedTotal = m.value;
+        if (money.length) afterTotal = true;
       }
       pendingName = null; drop(line, "summary line"); continue;
     }
@@ -1330,6 +1335,10 @@ function splitParseReceiptItems(rawText) {
     }
 
     if (SPLIT_DATEISH_RX.test(line)) { pendingName = null; drop(line, "looks like a date"); continue; }
+
+    // Below the grand total is how it was paid and what came back, never
+    // something that was eaten: a priced line there is not an item.
+    if (afterTotal && money.length) { pendingName = null; drop(line, "after the total"); continue; }
 
     if (!money.length) {
       // No price here. On a two-line supermarket receipt this is the item's
@@ -1614,10 +1623,23 @@ function splitComposeShare() {
 function splitSetMode(mode) {
   if (!splitCompose) return;
   splitComposeSync();
-  splitCompose.mode = mode;
-  // A request/loan is one person by definition — collapse rather than carry
-  // a half-filled crowd across the mode switch.
-  if (mode !== "split" && splitCompose.people.length > 1) splitCompose.people = [splitCompose.people[0]];
+  const c = splitCompose;
+  const from = c.mode;
+  if (from === mode) return;
+  // A request/loan is one person by definition. The split's crowd and bill
+  // total are parked rather than dropped, so Split → Request → Split comes
+  // back exactly as it was (it used to keep one person, and RM 150 came back
+  // as that person's RM 60).
+  if (from === "split") c.splitKeep = { people: c.people.map((p) => ({ ...p })), total: c.total, items: c.items };
+  c.mode = mode;
+  if (mode === "split" && c.splitKeep) {
+    c.people = c.splitKeep.people;
+    c.total = c.splitKeep.total;
+    c.items = c.splitKeep.items || c.items;
+    c.splitKeep = null;
+  } else if (mode !== "split" && c.people.length > 1) {
+    c.people = [c.people[0]];
+  }
   splitRenderCompose();
 }
 
@@ -1740,10 +1762,28 @@ function splitPaidBlockHtml(c) {
       </label>`;
 }
 
+/* An equal split stays equal by itself: a changed total or one more person
+   re-divides the bill among everyone plus you, until a share is typed by
+   hand (then the shares are the user's). "Split equally" turns it back on.
+   It used to be a one-off button, so a bill saved with names and no tap
+   failed with "Every person needs an amount above zero". */
+function splitAutoEqualApply() {
+  const c = splitCompose;
+  if (!c || c.mode !== "split" || c.method === "item" || c.autoEqual === false) return;
+  const total = Number(c.total) || 0;
+  const n = c.people.length;
+  const each = total > 0 && n ? splitRound2(total / (n + 1)) : 0;
+  for (const p of c.people) p.amount = each;
+  document.querySelectorAll("#split-compose-body [data-person-amount]").forEach((el) => {
+    el.value = each ? each.toFixed(2) : "";
+  });
+}
+
 function splitRenderCompose() {
   const c = splitCompose;
   const body = document.getElementById("split-compose-body");
   if (!c || !body) return;
+  splitAutoEqualApply();
 
   document.querySelectorAll("#split-compose-dialog .split-mode-pills .pill").forEach((btn) => {
     const on = btn.dataset.splitMode === c.mode;
@@ -2097,6 +2137,7 @@ function splitEqually() {
   if (!(total > 0) || n === 0) { splitRenderCompose(); return; }
   // Divided among the people PLUS you — "split equally" on a RM 94 dinner
   // with three friends is RM 23.50 each, not RM 31.33.
+  c.autoEqual = true;
   const each = splitRound2(total / (n + 1));
   for (const p of c.people) p.amount = each;
   splitRenderCompose();
@@ -2261,12 +2302,13 @@ function splitStartScan() {
     return;
   }
   if (typeof startReceiptScan !== "function") return;
-  // Closing the composer clears splitCompose (its `close` handler), so stash
-  // what is typed — coming back from a scan must not wipe the people rows.
+  // The composer stays open under the scan. Closing it first meant a
+  // cancelled camera, a closed result or a failed read left nothing behind:
+  // the draft sat stashed with no way back to it. The stash stays as a
+  // backstop in case something closes the composer meanwhile.
   splitComposeSync();
   splitComposeStash = splitCompose;
   window.scanApplyTarget = "split";
-  splitCloseDialog(splitComposeDialogEl());
   startReceiptScan();
 }
 
@@ -2303,7 +2345,10 @@ function splitApplyScan(parsed) {
   if (p.vendor) c.title = splitText(p.vendor, SPLIT_TITLE_MAX);
   // The scanned photo rides along to the bill's mailbox when it's shared.
   if (p.photo) c.photo = p.photo;
-  const date = splitDateFromReceipt(p.raw);
+  if (p.category && !c.category) c.category = splitText(p.category, 40);
+  // The date as the user left it on the scan screen; the raw text only when
+  // none was passed (older callers).
+  const date = splitIsDate(p.date) ? p.date : splitDateFromReceipt(p.raw);
   if (date) c.date = date;
   if (c.mode !== "split") c.mode = "split";
   // By item, the same scan fills the item rows instead of the total. Every
@@ -3161,12 +3206,15 @@ document.addEventListener("click", (e) => {
   } else if (action === "split-person-add") {
     splitComposeSync();
     if (splitCompose) {
+      const before = splitComposeKeys();
       const added = splitNewPerson();
       splitCompose.people.push(added);
-      // Someone who joins the table is on every dish until told otherwise —
-      // the same "default all ticked" rule a scanned item starts with.
+      // Someone who joins the table shares what the whole table shares. A
+      // dish already narrowed to one person stays theirs; adding the new
+      // name there used to halve it without a word.
       for (const it of splitCompose.items) {
-        if (Array.isArray(it.who) && !it.who.includes(added.key)) it.who.push(added.key);
+        if (!Array.isArray(it.who) || it.who.includes(added.key)) continue;
+        if (before.every((k) => it.who.includes(k))) it.who.push(added.key);
       }
     }
     splitRenderCompose();
@@ -3370,8 +3418,11 @@ document.querySelectorAll("#split-compose-dialog .split-mode-pills .pill").forEa
 });
 
 // Live hint only — a full re-render on every keystroke would steal focus.
-document.getElementById("split-compose-dialog")?.addEventListener("input", () => {
+document.getElementById("split-compose-dialog")?.addEventListener("input", (e) => {
   splitComposeSync();
+  // A share typed by hand ends the automatic equal split for this bill.
+  if (splitCompose && e.target instanceof Element && e.target.matches("[data-person-amount]")) splitCompose.autoEqual = false;
+  else splitAutoEqualApply();
   splitUpdateComposeHint();
 });
 

@@ -2772,6 +2772,79 @@ check('a split from a spend you already logged never logs it twice',
   !linkedNoDup.toggle && linkedNoDup.added === 0 && linkedNoDup.linked && linkedNoDup.amt === 80,
   JSON.stringify(linkedNoDup));
 
+// v1.55: make scan + split just work (Phase 1 fixes).
+{
+  const p1 = await S(async () => {
+    const out = {};
+    // A card-paid receipt: the VISA line restates the total, it is not an item.
+    const card = splitParseReceiptItems('POPULAR BOOKSTORE\nNovel A 30.00\nAtlas B 74.90\nTOTAL 104.90\nVISA 104.90\nAPPROVAL CODE 0412\nTNG eWallet 0.00');
+    out.cardItems = card.items.map((i) => i.name + ':' + i.price);
+    // Split -> Request -> Split keeps everyone and the bill.
+    splitOpenCompose({ mode: 'split', title: 'Steamboat', total: 150 });
+    splitCompose.people = [{ key: 'a', name: 'Ali', amount: 0 }, { key: 'b', name: 'Mei', amount: 0 }, { key: 'c', name: 'Raju', amount: 0 }];
+    splitRenderCompose();
+    splitSetMode('request'); splitSetMode('split');
+    out.afterSwitch = { n: splitCompose.people.length, total: splitCompose.total, names: splitCompose.people.map((p) => p.name).join(',') };
+    // Equal split is automatic: 150 / 4 each, and a new total re-divides.
+    out.autoEach = splitCompose.people.map((p) => p.amount);
+    const totalEl = document.querySelector('#split-compose-body [name=total]');
+    totalEl.value = '200'; totalEl.dispatchEvent(new Event('input', { bubbles: true }));
+    out.autoAfterTotal = [...document.querySelectorAll('#split-compose-body [data-person-amount]')].map((e) => e.value);
+    // Typing a share by hand stops it.
+    const a0 = document.querySelector('#split-compose-body [data-person-amount]');
+    a0.value = '80'; a0.dispatchEvent(new Event('input', { bubbles: true }));
+    totalEl.value = '240'; totalEl.dispatchEvent(new Event('input', { bubbles: true }));
+    out.manualKept = document.querySelector('#split-compose-body [data-person-amount]').value;
+    document.getElementById('split-compose-dialog').close();
+    // A late joiner shares the shared dishes only.
+    splitOpenCompose({ mode: 'split', title: 'Lunch' });
+    splitCompose.method = 'item';
+    splitCompose.people = [{ key: 'a', name: 'Ali', amount: 0 }];
+    splitCompose.items = [{ key: 'i1', name: 'Nasi', price: 10, who: ['a'] }, { key: 'i2', name: 'Teh', price: 6, who: ['you', 'a'] }];
+    splitRenderCompose();
+    document.querySelector('#split-compose-body [data-action="split-person-add"]').click();
+    const newKey = splitCompose.people[1].key;
+    out.lateJoin = splitCompose.items.map((it) => it.who.includes(newKey));
+    document.getElementById('split-compose-dialog').close();
+    // Scanning from the composer leaves it open underneath.
+    const realScan = window.startReceiptScan;
+    window.startReceiptScan = () => {};
+    splitOpenCompose({ mode: 'split', title: 'Kept' });
+    splitStartScan();
+    out.composerStillOpen = document.getElementById('split-compose-dialog').open && splitCompose && splitCompose.title === 'Kept';
+    window.startReceiptScan = realScan;
+    window.scanApplyTarget = null;
+    document.getElementById('split-compose-dialog').close();
+    // A blank read says so and keeps Add off.
+    openScanDialog();
+    scanAmount.value = ''; scanOriginalAmount = null;
+    scanResult.hidden = false; scanApply.hidden = false;
+    await applyScanConversion();
+    out.blank = { status: scanStatus.textContent, disabled: scanApply.disabled };
+    closeScanDialog();
+    out.quota = ocrScansLeftText();
+    return out;
+  });
+  check('a card-paid receipt keeps its items and never books the VISA line as one',
+    JSON.stringify(p1.cardItems) === JSON.stringify(['Novel A:30', 'Atlas B:74.9']), JSON.stringify(p1.cardItems));
+  check('Split → Request → Split keeps all three people and the RM 150 bill',
+    p1.afterSwitch.n === 3 && p1.afterSwitch.total === 150 && p1.afterSwitch.names === 'Ali,Mei,Raju', JSON.stringify(p1.afterSwitch));
+  check('an equal split divides itself among everyone plus you (150 ÷ 4)',
+    p1.autoEach.every((a) => a === 37.5), JSON.stringify(p1.autoEach));
+  check('a new total re-divides the equal split on the spot',
+    p1.autoAfterTotal.every((v) => v === '50.00'), JSON.stringify(p1.autoAfterTotal));
+  check('a share typed by hand is never overwritten',
+    p1.manualKept === '80', p1.manualKept);
+  check('a late joiner shares the shared dishes, not one already narrowed to someone',
+    JSON.stringify(p1.lateJoin) === JSON.stringify([false, true]), JSON.stringify(p1.lateJoin));
+  check('scanning from the split composer leaves the bill open underneath',
+    p1.composerStillOpen === true);
+  check('a blank read asks for the total and keeps Add off',
+    /Couldn't find the total/.test(p1.blank.status) && p1.blank.disabled === true, JSON.stringify(p1.blank));
+  check('free users see how many scans are left; Pro and the trial see nothing',
+    typeof p1.quota === 'string', p1.quota);
+}
+
 /* ── 14. itemized split (Phase 2.5, v1.15.0) ────────────────────────────
    Tick who ate what. OCR is prefill, never oracle, so the parser is a pure
    function tested directly against real Malaysian receipt shapes; the

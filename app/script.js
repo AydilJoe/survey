@@ -4684,11 +4684,19 @@ function trackOcrUsage() {
 }
 // A scan that read nothing usable gives its count back — picking the photo
 // still commits it (that's what stops a double-tap racing two pickers), but a
-// failed read shouldn't cost one of the three free scans.
+// failed read shouldn't cost one of the five free scans.
 function refundOcrUsage() {
   if (isPro() || !state.ocrUsage || state.ocrUsage.month !== currentMonthISO()) return;
   state.ocrUsage.scans = Math.max(0, (state.ocrUsage.scans || 0) - 1);
   save();
+}
+// "3 of 5 free scans left this month", or "" for Pro and the trial.
+function ocrScansLeftText() {
+  if (isPro()) return "";
+  const m = currentMonthISO();
+  const used = state.ocrUsage && state.ocrUsage.month === m ? (state.ocrUsage.scans || 0) : 0;
+  const left = Math.max(0, FREE_OCR_MONTHLY - used);
+  return `${left} of ${FREE_OCR_MONTHLY} free scans left this month`;
 }
 function gate(feature) {
   if (isPro()) return true;
@@ -9242,7 +9250,7 @@ const GUIDE_STEPS = [
     title: "Scan a receipt",
     sub: "Snap it, we read the amount.",
     body: `<p>Tap <strong>Scan receipt</strong> to take a photo (or pick one from your gallery). Duitful reads the total on-device — the image never leaves your phone.</p>
-      <p>Receipt scanning is a Pro feature, and your 7-day trial has it unlocked.</p>`,
+      <p>Free includes 5 scans a month; Pro and your 7-day trial scan without a limit.</p>`,
     tab: "dashboard",
     target: "#btn-scan",
   },
@@ -12867,6 +12875,8 @@ function openScanDialog() {
   const editBtn = document.getElementById("scan-edit");
   if (editBtn) editBtn.hidden = true;
   showScanTotalSuggestion(null);
+  const quotaOpen = document.getElementById("scan-quota");
+  if (quotaOpen) quotaOpen.hidden = true;
   const aiNoteOpen = document.getElementById("scan-ai-note");
   if (aiNoteOpen) aiNoteOpen.hidden = true;
   scanPreview.removeAttribute("src");
@@ -12922,7 +12932,13 @@ let scanOriginalAmount = null;
 let scanOriginalCurrency = null;
 
 async function applyScanConversion() {
-  if (scanOriginalAmount == null) return;
+  if (scanOriginalAmount == null) {
+    // Nothing read: say so and wait for a typed total, rather than leaving
+    // "Checking the total…" up with Add enabled on an empty amount.
+    scanStatus.textContent = "Couldn't find the total. Type it in from the receipt.";
+    updateScanApplyLabel();
+    return;
+  }
   const curInput = document.getElementById("scan-currency");
   const noteEl = document.getElementById("scan-convert-note");
   const raw = (curInput && curInput.value || "").trim().toUpperCase();
@@ -13023,7 +13039,9 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     scanOriginalCurrency = parsed.currency || currentCurrency();
     const scanCurrencyInput = document.getElementById("scan-currency");
     if (scanCurrencyInput) scanCurrencyInput.value = scanOriginalCurrency;
-    scanVendor.value = parsed.vendor || "";
+    // Nothing priced on the page usually means nothing real was read; a
+    // guessed vendor there is OCR noise ("(thumb)"), not a shop.
+    scanVendor.value = parsed.amount == null && parsed.vendorConfidence !== "high" ? "" : (parsed.vendor || "");
     // A receipt from Tuesday used to be logged as today, silently, because
     // nothing ever read the date off it.
     if (scanDate) scanDate.value = parsed.date || todayISO();
@@ -13065,11 +13083,17 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
       scanAmount?.focus();
       scanAmount?.select?.();
     }
+    const quotaEl = document.getElementById("scan-quota");
+    if (quotaEl) { const q = ocrScansLeftText(); quotaEl.textContent = q; quotaEl.hidden = !q; }
     return Number(parsed.amount) > 0 || totalCheck.suggest != null;
   } catch (err) {
     console.warn("Receipt scan failed:", err);
     // Plain words, not the engine's error. This scan isn't counted.
-    scanStatus.textContent = "Couldn't read this receipt. Try a flatter, brighter photo, or type the amount in.";
+    // Offline before the reader was ever downloaded is not a bad photo, and
+    // Retake would only fail the same way.
+    scanStatus.textContent = navigator.onLine === false && !isNative()
+      ? "You're offline, and the receipt reader needs a one-time download. Connect once and scan again, or type the amount in."
+      : "Couldn't read this receipt. Try a flatter, brighter photo, or type the amount in.";
     if (pbEl) pbEl.hidden = true;
     setScanFailed(true);
     return false;
@@ -13192,7 +13216,7 @@ function applyScanResult({ direct }) {
   if (window.scanApplyTarget === "split" && typeof splitApplyScan === "function") {
     window.scanApplyTarget = null;
     closeScanDialog();
-    splitApplyScan({ amount: amt, vendor, raw: scanRaw ? scanRaw.textContent : "", photo: window.scanLastSource || null });
+    splitApplyScan({ amount: amt, vendor, raw: scanRaw ? scanRaw.textContent : "", photo: window.scanLastSource || null, date: scanDate ? scanDate.value : "", category: scanCategory ? (scanCategory.value || "").trim() : "" });
     return;
   }
   // Hand the photo to the tax module for the one expense this scan creates.
@@ -13243,9 +13267,16 @@ function applyScanResult({ direct }) {
       const entry = state.dailyExpenses.find((x) => x.id === added);
       const what = entry && entry.kind === "debt" ? `Paid ${fmtMoney(entry.amount)} to ${entry.debtName}`
         : `Added ${fmtMoney(entry ? entry.amount : amt)}${vendor ? " · " + vendor : ""}`;
-      toast(what, { action: { label: "Undo", run: () => {
-        if (removeDailyEntry(added)) { save(); renderAll(); toast("Removed"); }
-      } } });
+      // The submit just showed its own toast. When that one carries an
+      // action (Split this, or the tax relief tip) it is the better offer,
+      // and overwriting it lost the tip for good; the entry's own row still
+      // deletes it. Otherwise offer Undo.
+      const shown = document.getElementById("toast");
+      if (!(shown && shown.classList.contains("show") && shown.classList.contains("has-action"))) {
+        toast(what, { action: { label: "Undo", run: () => {
+          if (removeDailyEntry(added)) { save(); renderAll(); toast("Removed"); }
+        } } });
+      }
       return;
     }
     // The form refused it (no debt chosen, a currency it can't convert):
