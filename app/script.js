@@ -11604,11 +11604,13 @@ function receiptLoadImage(source) {
 
 // Returns a prepared <canvas> (Tesseract accepts one directly), or null when
 // anything at all goes wrong — the caller then recognizes the original image.
-async function receiptPreprocessImage(source) {
+async function receiptPreprocessImage(source, opts) {
+  const threshold = !!(opts && opts.threshold);
   try {
     const { img, revoke } = await receiptLoadImage(source);
     try {
-      const crop = receiptFindPaper(img) || { x: 0, y: 0, w: img.naturalWidth || img.width, h: img.naturalHeight || img.height };
+      const found = receiptFindPaper(img);
+      const crop = found || { x: 0, y: 0, w: img.naturalWidth || img.width, h: img.naturalHeight || img.height };
       const size = receiptPreprocessSize(crop.w, crop.h);
       if (!size) return null;
       const canvas = document.createElement("canvas");
@@ -11620,11 +11622,15 @@ async function receiptPreprocessImage(source) {
       ctx.imageSmoothingQuality = "high";
       ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, size.width, size.height);
       const data = ctx.getImageData(0, 0, size.width, size.height);
-      // Cropping is what helped on real photos; the local-mean threshold
-      // (receiptThresholdImageData) read no better than this stretch across
-      // repeated runs on the same receipt, so the proven pass stays.
-      receiptEnhanceImageData(data);
+      // Measured on 116 receipts (SROIE scans, the same scans on a tiled
+      // table, CORD phone photos): the contrast stretch reads clean scans
+      // best, the local-mean threshold reads photos far better (CORD 10 → 18
+      // of 38). runReceiptOcr reads with the stretch, and again with the
+      // threshold when the receipt's own sums don't back the first read.
+      if (threshold) receiptThresholdImageData(receiptGrayscaleImageData(data));
+      else receiptEnhanceImageData(data);
       ctx.putImageData(data, 0, 0);
+      canvas.dataset.cropped = found ? "1" : "";
       return canvas;
     } finally {
       if (revoke) URL.revokeObjectURL(revoke);
@@ -13288,6 +13294,29 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
       // reconstructed text, so a two-column receipt stops arriving as two
       // separate lists.
       text = receiptTextFromWords(collectOcrWords(data), data.text || "");
+      // A second look when the receipt's own sums don't back the first one:
+      // the black-and-white pass reads phone photos far better, the first
+      // pass reads clean scans better, so keep whichever the sums agree with.
+      const first = parseReceiptText(text);
+      const cons1 = receiptConsensusTotal(first.raw || text, Number(first.amount), null);
+      const backed = cons1 && cons1.exact.length >= 2 && Math.abs(cons1.value - Number(first.amount)) < 0.005;
+      if (!backed) {
+        try {
+          setScanStep("Taking a closer look…", null);
+          const sharp = await receiptPreprocessImage(recognizeInput, { threshold: true });
+          if (sharp) {
+            let r2;
+            try { r2 = await worker.recognize(sharp, {}, { blocks: true, text: true }); } catch { r2 = await worker.recognize(sharp); }
+            const d2 = (r2 && r2.data) || {};
+            const text2 = receiptTextFromWords(collectOcrWords(d2), d2.text || "");
+            const second2 = parseReceiptText(text2);
+            const cons2 = receiptConsensusTotal(second2.raw || text2, Number(second2.amount), null);
+            const s1 = cons1 ? cons1.score : 0, s2 = cons2 ? cons2.score : 0;
+            const photo = !!(prepared && prepared.dataset && prepared.dataset.cropped);
+            if (s2 > s1 || (s2 === s1 && photo) || (first.amount == null && second2.amount != null)) text = text2;
+          }
+        } catch { /* the first read stands */ }
+      }
     }
     setScanStep("Checking the total…", 100);
     let parsed = parseReceiptText(text);
