@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.54.2";
+const APP_VERSION = "1.55.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7325,6 +7325,7 @@ document.addEventListener("keydown", (e) => {
 function removeDailyEntry(id) {
   const entry = state.dailyExpenses.find((x) => x.id === id);
   if (!entry) return false;
+  if (typeof taxForgetScan === "function") taxForgetScan(id);
   if (entry.kind === "debt" && entry.debtId) {
     const debt = state.debts.find((d) => d.id === entry.debtId);
     if (debt) debt.balance = (Number(debt.balance) || 0) + (Number(entry.amount) || 0);
@@ -10075,6 +10076,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.0": [
+    "<strong>Tick what you had</strong> — scan the receipt, send one link, and everyone ticks their own items. Tap Done and each gets a request for exactly their share.",
+    "<strong>Splitting just works</strong> — shares update as you type, your name and DuitNow go on every link, and one tap marks someone paid.",
+    "<strong>Receipts that remember</strong> — scans guess the category, catch the same receipt twice, and keep every receipt for tax claims.",
+  ],
   "1.54.2": [
     "<strong>Fix:</strong> Scan receipt no longer closes the app on some Android phones. If the phone's document scanner can't start, the camera opens instead.",
   ],
@@ -12882,6 +12888,24 @@ function scanCategoryChoices(guess) {
   }
   return out;
 }
+// "May count as Medical tax relief" under the category, so the tax side of a
+// receipt shows at the moment it is scanned rather than in a toast later.
+function scanUpdateTaxNote() {
+  const el = document.getElementById("scan-tax-note");
+  if (!el) return;
+  let label = "";
+  try {
+    if (typeof taxSuggestRelief === "function" && typeof taxRelief === "function" && window.scanApplyTarget !== "split") {
+      const cat = scanCategory ? (scanCategory.value || "").trim() : "";
+      const vendor = scanVendor ? (scanVendor.value || "").trim() : "";
+      const date = scanDate && scanDate.value ? scanDate.value : todayISO();
+      const id = taxSuggestRelief(cat, vendor, Number(date.slice(0, 4)) || undefined);
+      if (id) label = taxRelief(id).label;
+    }
+  } catch { label = ""; }
+  el.textContent = label ? `May count as ${label} tax relief. The receipt is kept on this phone for it.` : "";
+  el.hidden = !label;
+}
 function renderScanCategoryChips(choices) {
   const box = document.getElementById("scan-cat-chips");
   if (!box) return;
@@ -12898,7 +12922,9 @@ document.addEventListener("click", (e) => {
     b.classList.toggle("active", on);
     b.setAttribute("aria-pressed", on ? "true" : "false");
   });
+  scanUpdateTaxNote();
 });
+scanCategory?.addEventListener("input", scanUpdateTaxNote);
 
 function showScanTotalSuggestion(check) {
   const el = document.getElementById("scan-amount-suggest");
@@ -12936,6 +12962,10 @@ function openScanDialog() {
   showScanTotalSuggestion(null);
   const quotaOpen = document.getElementById("scan-quota");
   if (quotaOpen) quotaOpen.hidden = true;
+  const taxNoteOpen = document.getElementById("scan-tax-note");
+  if (taxNoteOpen) taxNoteOpen.hidden = true;
+  const chipsOpen = document.getElementById("scan-cat-chips");
+  if (chipsOpen) chipsOpen.hidden = true;
   const aiNoteOpen = document.getElementById("scan-ai-note");
   if (aiNoteOpen) aiNoteOpen.hidden = true;
   scanPreview.removeAttribute("src");
@@ -13109,6 +13139,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     const scanGuess = scanGuessCategory(parsed.vendor, parsed.raw);
     if (scanCategory) scanCategory.value = scanCategoryFor(parsed.vendor) || scanGuess || "";
     renderScanCategoryChips(scanCategoryChoices(scanCategory ? scanCategory.value : scanGuess));
+    scanUpdateTaxNote();
     const curPrefix = document.getElementById("scan-cur-prefix");
     if (curPrefix) curPrefix.textContent = currencySymbolFor(scanOriginalCurrency);
     const itemsCheck = renderScanItems(parsed.raw || "", parsed.amount);
@@ -13239,6 +13270,12 @@ async function startReceiptScan() {
 }
 
 document.getElementById("btn-scan")?.addEventListener("click", () => {
+  window.scanApplyTarget = null;
+  startReceiptScan();
+});
+// From the Tax page: the same scan, and the spend it adds goes straight to
+// the tax check (with its photo as the receipt) instead of waiting.
+document.getElementById("btn-tax-scan")?.addEventListener("click", () => {
   window.scanApplyTarget = null;
   startReceiptScan();
 });

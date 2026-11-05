@@ -582,13 +582,33 @@
   if (req.t === "pick") {
     var pickSender = String(req.fr || "") || T("someone");
     if (!relay) { fallback(T("pickNeedsBox"), T("pickNeedsBoxB")); return; }
-    var pbox = null;
+    var pbox = null, pevents = [];
     try {
       var pres = await fetch("/api/relay/?op=get&id=" + relay.id, { cache: "no-store" });
-      if (pres.ok) { var pj = await pres.json(); pbox = pj && pj.box ? await relayOpen("box", pj.box) : null; }
+      if (pres.ok) {
+        var pj = await pres.json();
+        pbox = pj && pj.box ? await relayOpen("box", pj.box) : null;
+        pevents = pj && Array.isArray(pj.events) ? pj.events : [];
+      }
     } catch (e) {}
     if (!pbox || !pbox.pk || !Array.isArray(pbox.pk.it)) { fallback(T("pickNeedsBox"), T("pickNeedsBoxB")); return; }
     var pk = pbox.pk;
+    // Ticks sent since the payer's app last looked are already in the
+    // mailbox as events; read them here too, so the table shows who has
+    // ticked what without waiting for the payer to open Duitful.
+    if (!pk.dn) {
+      var byKey = {};
+      (Array.isArray(pk.by) ? pk.by : []).forEach(function (b) { if (b && b.k) byKey[b.k] = { k: b.k, n: b.n, it: b.it || [], at: 0 }; });
+      for (var ei = 0; ei < pevents.length; ei++) {
+        var ev = await relayOpen("event", pevents[ei]);
+        if (!ev || ev.t !== "pick" || typeof ev.k !== "string" || !Array.isArray(ev.it)) continue;
+        var at = Number(ev.at) || 0;
+        var prev = byKey[ev.k];
+        if (prev && prev.at > at) continue;
+        byKey[ev.k] = { k: ev.k, n: String(ev.fr || "").slice(0, 40), it: ev.it.map(Number), at: at };
+      }
+      pk.by = Object.keys(byKey).map(function (k) { return byKey[k]; }).filter(function (b) { return b.it.length; });
+    }
     var keyName = "duitful.pickKey." + req.id;
     var myKey = "";
     try { myKey = localStorage.getItem(keyName) || ""; } catch (e) {}

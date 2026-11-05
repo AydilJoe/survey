@@ -199,6 +199,9 @@ function taxWhole(n) {
 /* ---------- custom rules: check, store, apply ---------- */
 
 const TAX_RULES_MAX_BYTES = 400 * 1024;
+// Scanned receipts kept for tax (see taxKeepScanReceipt): ~150 KB each, so
+// about 40 MB at most.
+const TAX_SCAN_KEEP_MAX = 250;
 
 // ISO 3166-1 alpha-3 country codes, for a rules file's optional
 // "country_code" (MYS, SGP, GBR).
@@ -513,6 +516,12 @@ function coerceTax(raw) {
     reviews: t.reviews && typeof t.reviews === "object"
       ? Object.fromEntries(Object.entries(t.reviews).filter(([k, v]) => /^\d{4}-(nov|final)$/.test(k) && Number.isFinite(Number(v))))
       : {},
+    // Every scanned receipt, kept encrypted on this phone (the receipt
+    // vault) with the spend it became: {id: vault id, e: expense id, at}.
+    scans: (Array.isArray(t.scans) ? t.scans : [])
+      .filter((x) => x && typeof x.id === "string" && typeof x.e === "string")
+      .map((x) => ({ id: x.id, e: x.e, at: Number(x.at) || 0 }))
+      .slice(-TAX_SCAN_KEEP_MAX),
     rules,
   };
 }
@@ -1125,6 +1134,67 @@ async function taxViewReceipt(claimId) {
   if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
 }
 
+/* ---------- every scanned receipt, kept for tax ----------
+   A receipt scanned today might be claimed in November, or asked for at
+   e-Filing. So each scanned photo is stored (compressed, sealed with the
+   vault key, in the same IndexedDB as claim receipts) against its spend, and
+   any claim on that spend picks it up by itself. Capped: past the cap the
+   oldest goes first; deleting the spend deletes its photo. */
+
+async function taxKeepScanReceipt(entry, source) {
+  if (!entry || !source || typeof indexedDB === "undefined" || !aesKey) return "";
+  const t = taxState();
+  if ((t.scans || []).some((x) => x.e === entry.id)) return "";
+  try {
+    const id = await taxReceiptPut(await taxCompressImage(source));
+    t.scans = (t.scans || []).concat([{ id, e: entry.id, at: Date.now() }]);
+    while (t.scans.length > TAX_SCAN_KEEP_MAX) { const old = t.scans.shift(); taxReceiptDelete(old.id); }
+    save();
+    taxAttachScannedReceipts().catch(() => {});
+    return id;
+  } catch (err) {
+    console.warn("scanned receipt not kept", err);
+    return "";
+  }
+}
+
+function taxScanFor(entryId) {
+  return (taxState().scans || []).find((x) => x.e === entryId) || null;
+}
+
+// The spend is gone, so is its photo (a claim keeps its own copy).
+function taxForgetScan(entryId) {
+  const t = taxState();
+  const gone = (t.scans || []).filter((x) => x.e === entryId);
+  if (!gone.length) return;
+  t.scans = t.scans.filter((x) => x.e !== entryId);
+  gone.forEach((x) => taxReceiptDelete(x.id));
+}
+
+// Claims without a receipt whose spend was scanned get a copy of the photo,
+// so "needs a receipt" shrinks on its own.
+let taxAttaching = false;
+async function taxAttachScannedReceipts() {
+  if (taxAttaching || !aesKey) return 0;
+  taxAttaching = true;
+  let n = 0;
+  try {
+    for (const c of taxState().claims) {
+      if (c.receiptId || !c.entryId) continue;
+      const scan = taxScanFor(c.entryId);
+      if (!scan) continue;
+      const blob = await taxReceiptGet(scan.id);
+      if (!blob) continue;
+      c.receiptId = await taxReceiptPut(blob);
+      n++;
+    }
+    if (n) { save(); if (typeof renderAll === "function") renderAll(); }
+  } catch (err) {
+    console.warn("couldn't attach scanned receipts", err);
+  } finally { taxAttaching = false; }
+  return n;
+}
+
 /* ---------- prompts raised by script.js ---------- */
 
 // Photos from the scanner, keyed by the expense they became, waiting for the
@@ -1137,6 +1207,9 @@ const taxScanReceipts = new Map();
 // when it used the toast slot itself (the one-time introduction).
 function taxAfterExpense(entry, receipt) {
   if (!TAX_OK || !entry || (entry.kind || "expense") !== "expense") return false;
+  // Kept whether or not it looks like a relief today: the rules change every
+  // Budget, and a receipt you still have beats one you threw away.
+  if (receipt) taxKeepScanReceipt(entry, receipt);
   const relief = taxSuggestRelief(entry.category, entry.note, Number(String(entry.date).slice(0, 4)) || undefined);
   if (!relief) return false;
   if (receipt) taxScanReceipts.set(entry.id, receipt);
@@ -1404,6 +1477,14 @@ function taxReviewYes() {
   // The photo from the scan that created this expense is the receipt.
   const scanned = taxScanReceipts.get(e.id);
   if (scanned) { r.staged.receipt = scanned; r.staged.fromScan = true; taxScanReceipts.delete(e.id); }
+  else if (taxScanFor(e.id)) {
+    // Scanned some other day: the kept photo is this claim's receipt.
+    taxReceiptGet(taxScanFor(e.id).id).then((blob) => {
+      if (!blob || taxReview !== r || r.staged.receipt) return;
+      r.staged.receipt = blob; r.staged.fromScan = true;
+      taxReviewRender();
+    }).catch(() => {});
+  }
   taxReviewRender();
   // The Yes button just vanished; land focus on the step's first action.
   const next = r.staged.receipt ? taxEl("tax-review-save") : taxEl("tax-review-receipt-row").querySelector("button");

@@ -8468,6 +8468,35 @@ check('the brand catalogue makes no network calls at all',
     await S(() => !!taxState().claims.find(c => c.relief === 'sports' && c.receiptId)));
   check('tax: the stashed photo is spent after one submit', (await S(() => taxTakeScanReceipt())) === null);
 
+  // v1.55: every scanned receipt is kept for tax, even when nothing claims
+  // it today; a later claim picks it up, and deleting the spend drops it.
+  check('tax scan: the scanned gym receipt is kept in the vault against its spend',
+    await S(() => { const e = state.dailyExpenses.find((x) => x.note === 'Gym membership'); return !!(e && taxScanFor(e.id)); }));
+  await S(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    taxStashScanReceipt(new Blob([bytes], { type: 'image/png' }));
+  }, png.toString('base64'));
+  await addSpend('42', 'Groceries', 'Kedai Runcit Pak Ali');
+  await page.waitForTimeout(500);
+  const kept = await S(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const e = state.dailyExpenses.find((x) => x.note === 'Kedai Runcit Pak Ali');
+    const scan = e && taxScanFor(e.id);
+    const claim = coerceTaxClaim({ entryId: e.id, relief: 'lifestyle', amount: 42, date: e.date, note: e.note });
+    taxState().claims.push(claim);
+    const attached = await taxAttachScannedReceipts();
+    const c = taxState().claims.find((x) => x.entryId === e.id);
+    const out = { scan: !!scan, attached, receipt: !!(c && c.receiptId), separate: !!(c && scan && c.receiptId !== scan.id) };
+    taxState().claims = taxState().claims.filter((x) => x.entryId !== e.id);
+    removeDailyEntry(e.id);
+    out.forgotten = !taxScanFor(e.id);
+    save(); renderAll();
+    return out;
+  });
+  check('tax scan: a receipt scanned with no relief in sight is still kept, and a later claim attaches its own copy',
+    kept.scan && kept.attached === 1 && kept.receipt && kept.separate, JSON.stringify(kept));
+  check('tax scan: deleting the spend deletes its kept photo', kept.forgotten, JSON.stringify(kept));
+
   // 3) "Later" on a delta: no claim, and no second pop-up for the same spend.
   await addSpend('150', 'Health', 'Dental check-up');
   check('tax delta: dental check-up suggests Medical with the dental sub-limit',

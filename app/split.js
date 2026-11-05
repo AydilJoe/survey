@@ -2297,6 +2297,8 @@ function splitLogPaidBill(c, record) {
   };
   state.dailyExpenses.push(expense);
   record.expenseId = expense.id;
+  // A scanned bill keeps its photo for tax, like any other scanned spend.
+  if (c.photo && typeof taxKeepScanReceipt === "function") taxKeepScanReceipt(expense, c.photo);
   // Opened from the Home form: its amount is this bill now, so it must not
   // be submitted again as a second expense.
   if (c.fromForm) {
@@ -2435,6 +2437,9 @@ function splitApplyScan(parsed) {
   const date = splitIsDate(p.date) ? p.date : splitDateFromReceipt(p.raw);
   if (date) c.date = date;
   if (c.mode !== "split") c.mode = "split";
+  // Read the lines either way: an equal split that switches to By item (to
+  // let everyone tick) gets the receipt's items without a second scan.
+  c.scanRaw = String(p.raw == null ? "" : p.raw).slice(0, 8000);
   // By item, the same scan fills the item rows instead of the total. Every
   // line lands editable and nothing is computed until the user has looked at
   // it — an OCR mis-read costs a correction, never a wrong request.
@@ -3334,6 +3339,13 @@ document.addEventListener("click", (e) => {
     if (splitCompose) {
       splitComposeSync();
       splitCompose.method = btn.dataset.splitMethod === "item" ? "item" : "equal";
+      // Scanned while splitting equally: the receipt's lines become the items.
+      if (splitCompose.method === "item" && !splitCompose.items.length && splitCompose.scanRaw) {
+        const read = splitParseReceiptItems(splitCompose.scanRaw);
+        const keys = splitComposeKeys();
+        splitCompose.items = read.items.map((it) => ({ key: splitNewKey("i"), name: it.name, price: it.price, who: keys.slice() }));
+        if (read.items.length) splitCompose.charges = read.charges;
+      }
       splitRenderCompose();
     }
   } else if (action === "split-item-add") {
