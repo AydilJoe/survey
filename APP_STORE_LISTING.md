@@ -175,23 +175,22 @@ No account is needed. On first launch, tap Get started; a passcode (4 or more di
 
 Duitful Pro is a non-consumable in-app purchase: Settings → Unlock Pro. "Restore purchase" is on the same screen. Two products are attached: duitful_pro (standard) and duitful_pro_launch (used when a friend code such as LAUNCH100 is entered on the purchase screen).
 
-All data is stored encrypted on the device. Bill-split links carry their details in the URL fragment and are never sent to a server. Backup (Pro) writes an already-encrypted file to the user's own iCloud, or, optionally, to their own Google Drive.
+All data is stored encrypted on the device. Bill-split links carry their details in the link itself. The optional "I've paid" tracking keeps only data encrypted on the phone on our server, with a key that never leaves the link, so we cannot read it. Backup (Pro) writes an already-encrypted file to the user's own iCloud, or, optionally, to their own Google Drive.
 
-iCloud backup (Pro): unlock Pro first with the sandbox purchase, then Settings → Cloud backup → iCloud → Back up now. It uses the device's own Apple ID; no account from us is needed.
+iCloud backup (Pro): unlock Pro first with the sandbox purchase, then Settings → Cloud backup → iCloud → Back up now. It uses the device's own Apple ID; no account from us is needed. This is the main backup on iPhone and covers the same feature as Google Drive.
 
-Google Drive backup (Pro, optional): unlock Pro first, then Settings → Cloud backup → Google Drive → Sign in, with this Google account:
-Email: <demo Gmail address>
-Password: <demo password>
-The backup is an already-encrypted file in that account's Drive app-data folder.
+Google Drive backup (Pro, optional): Google blocks sign-ins to a new account from an unfamiliar location, so a demo Google account cannot reliably be used from App Review. Instead, the attached zip holds a screen recording of the whole flow on an iPhone running this build: Unlock Pro → Settings → Cloud backup → Google Drive → Sign in → Back up now, then a restore from Drive on a fresh install. The backup is an already-encrypted file in the user's own Drive app-data folder; Duitful's server is not involved. If you would still like to try it yourself, reply here and we will send a Google account and stand by to approve its sign-in.
 
 The app downloads and runs no code. Everything it executes ships in the app bundle; the only things fetched at runtime are JSON data (exchange rates and in-app notices).
 ```
 
-Fill in the two `<demo …>` placeholders **in App Store Connect only**, never
-here: this file is public on GitHub. Before each submission, check that the
-demo Gmail still signs in, is listed as a Test user on the Google OAuth
-consent screen while that screen is in Testing, and has 2-Step Verification
-off with a recovery email you check. iCloud needs the CloudKit `Backup`
+Google sign-in from App Review is usually blocked as a suspicious login (a
+new account, signing in from Cupertino), so the notes point to a **screen
+recording in a zip** attached under App Review Information → Attachment
+(and to the Resolution Center reply). Record it on a real iPhone with the
+review build, and cover sign-in, Back up now, and a restore. If Apple asks
+for an account anyway, send it in the Resolution Center only, never here:
+this file is public on GitHub. iCloud needs the CloudKit `Backup`
 schema deployed to Production (IOS_BUILD.md, "iCloud backup on iOS").
 
 ## App Privacy

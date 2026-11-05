@@ -1,4 +1,7 @@
 {
+  "1.54.2": [
+    "<strong>Pembaikan:</strong> Imbas resit tidak lagi menutup aplikasi pada sesetengah telefon Android. Jika pengimbas dokumen telefon tidak dapat dibuka, kamera dibuka sebagai ganti."
+  ],
   "1.54.1": [
     "<strong>Tahu bila mereka dah bayar</strong> — telefon anda menyemak bil berkongsi di latar belakang dan memberitahu bila seseorang tekan Saya dah bayar, walaupun Duitful ditutup. Matikan di Settings → Preferences.",
     "<strong>Pembaikan:</strong> bil berkongsi kini merekod jumlah penuh yang anda bayar sebagai perbelanjaan; bahagian kawan kembali sebagai pendapatan."

@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.54.1";
+const APP_VERSION = "1.54.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -10063,6 +10063,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.54.2": [
+    "<strong>Fix:</strong> Scan receipt no longer closes the app on some Android phones. If the phone's document scanner can't start, the camera opens instead.",
+  ],
   "1.54.1": [
     "<strong>Know when they've paid</strong> — your phone checks your split bills in the background and tells you when someone taps I've paid, even with Duitful closed. Turn it off in Settings → Preferences.",
     "<strong>Fix:</strong> a split bill now adds the whole amount you paid to your spending; what friends owe comes back as income.",
