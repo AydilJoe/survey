@@ -10077,7 +10077,8 @@ function maybeOpenGuideAfterSetup() {
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
   "1.55.1": [
-    "<strong>Better reads of real photos</strong> — the scanner crops the receipt out of a busy table, checks the total against the receipt's own sums (subtotal, service charge, card) and fixes a misread digit, and stops filing restaurant bills under Bills.",
+    "<strong>Better reads of real photos</strong> — the scanner crops the receipt out of a busy table and checks the total against the receipt's own sums, fixing a misread digit. Restaurant bills go under Food, not Bills.",
+    "<strong>Splitting by item counts plates</strong> — \"2 × laksa\" becomes two to tick, misread prices are fixed from the unit price, and rounding is a charge, not a dish.",
   ],
   "1.55.0": [
     "<strong>Tick what you had</strong> — scan the receipt, send one link, and everyone ticks their own items. Tap Done and each gets a request for exactly their share.",

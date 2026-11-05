@@ -1124,7 +1124,12 @@ async function splitCopyText(text) {
    RM 85 of net value was added on top of RM 90.10 of items and the split came
    out at double. \b alone is not enough there (it is a genuine word), which
    is why NET VALUE / EXCL lines are excluded outright below. */
-const SPLIT_CHARGE_RX = /\b(SERVICE\s*CHARGE|SERVICE|SST|GST|TAX|CUKAI|ROUNDING|PEMBUNDARAN|SRV|SVC)\b/i;
+// "[A-Z]?OUNDING": the reader turns "Bill rounding" into "Eill Tounding" on a
+// real photo, and the rounding then showed up as a dish to tick.
+const SPLIT_CHARGE_RX = /\b(SERVICE\s*CHARGE|SERVICE|SST|GST|TAX|CUKAI|ROUNDING|[A-Z]?OUNDING|ROUNDNG|PEMBUNDARAN|SRV|SVC)\b/i;
+// A unit price printed with the line: "(18.90/ea)", "(18.90/" or "@18.90".
+const SPLIT_UNIT_RX = /(?:\(\s*|@\s*)(\d{1,5}[.,]\d{2})\s*\/?\s*(?:e\s*a\b|ea\)|unit|pc)?/i;
+const SPLIT_UNIT_LINE_RX = /^\(?\s*(\d{1,5}[.,]\d{2})\s*\/\s*[a-z]{0,3}\s*\)?\s*$/i;
 /* Tender lines ("VISA 104.90", "TNG eWallet 12.00") restate the total as the
    way it was paid. Without them a card-paid receipt grew a phantom item the
    size of the whole bill, and the scan flagged a correct total as wrong. */
@@ -1346,6 +1351,12 @@ function splitParseReceiptItems(rawText) {
   // A name line waiting for the price line beneath it (supermarket layout).
   let pendingName = null;
   let afterTotal = false;
+  // The last item row, so a unit-price line under it can confirm or split it.
+  let lastGroup = null;
+  // Rows whose unit price disagrees with their line price by more than one
+  // digit; the printed subtotal settles them below.
+  const disputes = [];
+  let statedSub = 0;
 
   for (const line of lines) {
     if (SPLIT_HEADER_RX.test(line) && !splitMoneyOnLine(line).length) {
@@ -1355,6 +1366,7 @@ function splitParseReceiptItems(rawText) {
 
     if (SPLIT_SUMMARY_RX.test(line)) {
       // Remember the grand total so charges can be sanity-checked against it.
+      if (/\bSUB[-\s]?TOTAL\b/i.test(line) && money.length) statedSub = money[money.length - 1].value;
       if (/\bTOTAL\b/i.test(line) && !/\bSUB[-\s]?TOTAL\b/i.test(line)) {
         for (const m of money) if (m.value > statedTotal) statedTotal = m.value;
         if (money.length) afterTotal = true;
@@ -1374,7 +1386,16 @@ function splitParseReceiptItems(rawText) {
       pendingName = null; continue;
     }
 
-    if (SPLIT_DATEISH_RX.test(line)) { pendingName = null; drop(line, "looks like a date"); continue; }
+    // "(26.90/ea)" under an item: its unit price, read a second time. It
+    // confirms (or repairs) the line above and splits a "2 ×" row into two.
+    const unitLine = SPLIT_UNIT_LINE_RX.exec(line);
+    if (unitLine) {
+      if (lastGroup) splitApplyUnit(items, lastGroup, Number(unitLine[1].replace(",", ".")), drop, disputes);
+      pendingName = null; continue;
+    }
+
+    // A unit price ("(18.90/ 37.80") is not a date, whatever 18.90/37 looks like.
+    if (SPLIT_DATEISH_RX.test(line.replace(/\(\s*\d{1,5}[.,]\d{2}\s*\/?/g, " "))) { pendingName = null; drop(line, "looks like a date"); continue; }
 
     // Below the grand total is how it was paid and what came back, never
     // something that was eaten: a priced line there is not an item.
@@ -1402,7 +1423,11 @@ function splitParseReceiptItems(rawText) {
       continue;
     }
 
-    let name = splitItemName(line.slice(0, price.start));
+    // The unit price and the till's menu code ("LS02") aren't part of the
+    // dish's name: "2 LS02 NYONYA ASAM LAKSA (18.90/" is Nyonya Asam Laksa.
+    let name = splitItemName(line.slice(0, price.start)
+      .replace(/\(\s*\d{1,5}[.,]\d{2}\s*\/?\s*(?:ea\)?)?/gi, " ")
+      .replace(/^(\s*\d{1,2}\s*[xX*@]?\s+)?[A-Z]{1,3}\d{2,4}\s+(?=\S)/i, "$1"));
     // Nothing name-like on the price line (it is a barcode + figures row):
     // take the name held from the line above. This is the whole fix for the
     // supermarket layout, where every item spans two lines and BOTH halves
@@ -1416,14 +1441,33 @@ function splitParseReceiptItems(rawText) {
     // may each want to claim one. Only expand when the arithmetic confirms it
     // and the count is small — nobody wants 24 rows for a tray of eggs.
     const qty = splitLineQuantity(line, price.value);
+    const startAt = items.length;
     if (qty > 1 && items.length + qty <= SPLIT_ITEMS_MAX) {
       const each = splitApportion(Math.round(price.value * 100), new Array(qty).fill(1));
       for (const cents of each) items.push({ name, price: splitRound2(cents / 100) });
     } else {
       items.push({ name, price: splitRound2(price.value) });
     }
+    const lead = /^\s*(\d{1,2})\s*[xX*@]?\s+\D/.exec(line);
+    lastGroup = { start: startAt, count: items.length - startAt, name, price: splitRound2(price.value), qty: lead ? Math.max(1, Number(lead[1])) : 1, line };
+    const inlineUnit = SPLIT_UNIT_RX.exec(line.slice(0, price.start));
+    if (inlineUnit) splitApplyUnit(items, lastGroup, Number(inlineUnit[1].replace(",", ".")), drop, disputes);
   }
   if (pendingName) drop(pendingName.line, "text with no price on the line below");
+
+  // Unit prices against line prices, settled by the subtotal: when using the
+  // unit prices makes the items add up to the printed subtotal and the line
+  // prices don't, the line prices were misread (26.23 for 26.90).
+  if (disputes.length && statedSub > 0) {
+    const now = splitRound2(items.reduce((s2, i) => s2 + i.price, 0));
+    const fixed = splitRound2(now + disputes.reduce((s2, d) => s2 + (d.alt - d.group.price), 0));
+    if (Math.abs(now - statedSub) >= 0.005 && Math.abs(fixed - statedSub) < 0.005) {
+      for (const d of disputes.slice().reverse()) {
+        drop(d.group.line, `price read as ${d.group.price.toFixed(2)}; the unit price and the subtotal make it ${d.alt.toFixed(2)}`);
+        splitApplyUnit(items, d.group, d.unit, null, null, { force: true });
+      }
+    }
+  }
 
   /* Reconcile. When the items already add up to the printed total, the
      "charges" found are a restatement of money that is inside those prices,
@@ -1439,6 +1483,36 @@ function splitParseReceiptItems(rawText) {
     if (without <= 0.05 && without < withCharges) { chargesOut = 0; chargeLines = 0; reconciled = true; }
   }
   return { items, charges: chargesOut, chargeLines, dropped, dropReasons, itemSum, statedTotal, reconciled };
+}
+
+/* A row's unit price, read a second time ("(18.90/ea)"). With the row's
+   leading count it says what the row costs and how many plates it is:
+   - qty × unit agrees with the price: split a "2 ×" row into two plates, so
+     two people can each tick one laksa;
+   - they differ by one misread digit (37.89 for 2 × 18.90): the two readings
+     agree on 37.80, so that is the row;
+   - anything else: the row is left as read. */
+function splitApplyUnit(items, group, unit, drop, disputes, opts) {
+  const force = !!(opts && opts.force);
+  if (!group || (group.applied && !force) || !(unit > 0)) return;
+  const qty = Math.max(1, Math.min(SPLIT_QTY_EXPAND_MAX, group.qty || 1));
+  const product = splitRound2(unit * qty);
+  let price = group.price;
+  if (Math.abs(product - price) >= 0.005) {
+    const near = typeof receiptDigitsNear === "function" ? receiptDigitsNear(product, price) : false;
+    if (!near && !force) {
+      if (disputes) disputes.push({ group, unit, alt: product });
+      return;
+    }
+    if (drop) drop(group.line, `price read as ${price.toFixed(2)}, ${qty} × ${unit.toFixed(2)} on the receipt makes it ${product.toFixed(2)}`);
+    price = product;
+  }
+  const n = qty > 1 && items.length - group.count + qty <= SPLIT_ITEMS_MAX ? qty : 1;
+  const each = splitApportion(Math.round(price * 100), new Array(n).fill(1));
+  items.splice(group.start, group.count, ...each.map((c) => ({ name: group.name, price: splitRound2(c / 100) })));
+  group.count = n;
+  group.price = price;
+  group.applied = true;
 }
 
 /* ---------- itemized split: the maths ----------

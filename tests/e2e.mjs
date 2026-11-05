@@ -2998,6 +2998,20 @@ check('a split from a spend you already logged never logs it twice',
       noCrop: receiptFindPaper(whole),
     };
   });
+  const nyItems = await S(() => {
+    const raw = ['NYONYA VOOK SDN BHD', '2 LS02 NYONYA ASAM LAKSA (18.90/ 37.89', 'ea)', '1 L.EOS NASI KERABJ AYAM PERCIK 26.90', '(26.90/ea)',
+      '1 LS03 CHICKEN HCR FON SOUP 19.90', '(19.90/ea)', '1 Ls05 NASI KERABU AYAM PERCIK 26.23', '(26.90/ea)', '1 LS02 NYCONYA ASAMLAKSA (18.90/ 18.90', 'ea)',
+      '1 LS04 NASI LEMAK AYAM FENYET 20.90', '(20.90/ea)', '7 Qty', 'Subtotal 151.30', 'SERVICE CHARGE (10%) 15.13', 'Eill Tounding 0.02',
+      'Total (MYR) 166.45', 'VISA 166.45', 'Change 0.00'].join('\n');
+    const x = splitParseReceiptItems(raw);
+    return { items: x.items.map((i) => `${i.name}:${i.price}`), sum: x.itemSum, charges: x.charges };
+  });
+  check('a "2 ×" row with its unit price becomes two plates to tick, each at the unit price',
+    nyItems.items.filter((i) => i === 'NYONYA ASAM LAKSA:18.9').length === 2, JSON.stringify(nyItems));
+  check('misread item prices are repaired from the printed unit prices and the subtotal (37.89 → 2 × 18.90, 26.23 → 26.90)',
+    nyItems.items.length === 7 && nyItems.sum === 151.3, JSON.stringify(nyItems));
+  check('"Bill rounding" read as "Eill Tounding" is a charge, not a dish; no menu codes or unit prices in the names',
+    Math.abs(nyItems.charges - 15.15) < 0.001 && !nyItems.items.some((i) => /ounding|LS0|\(/i.test(i)), JSON.stringify(nyItems));
   check('a misread total is put right by the receipt\'s own sums (10% service charge → 151.30 + 15.13 + 0.02 = 166.45)',
     ny.value === 166.45, JSON.stringify(ny));
   check('a total the card line agrees with is left exactly as read', ny.clean === 15, JSON.stringify(ny));

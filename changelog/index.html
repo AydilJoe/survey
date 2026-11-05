@@ -158,6 +158,7 @@
     <h2 class="release-title">Better reads of real photos</h2>
     <ul>
       <li><span class="tag fix">fix</span><strong>A receipt on a patterned table:</strong> the scanner now crops to the paper before reading, so the tiles around it stop turning into text. It also checks the total against the receipt's own sums &mdash; a 10% service charge of RM 15.13 means RM 151.30 of food, plus the charge and rounding is RM 166.45 &mdash; and when the TOTAL line read one digit wrong (RM 166.48, or the card line as RM 196.45), it says so and uses the figure the sums agree on.</li>
+      <li><span class="tag fix">fix</span><strong>Splitting by item counts plates:</strong> "2 &times; Nyonya Asam Laksa (18.90/ea) 37.80" is now two laksas to tick at RM 18.90 each, so two people can each claim one. The unit price printed under each dish is a second reading of it: a line read as RM 37.89 is put right to 2 &times; 18.90, and one read as RM 26.23 to RM 26.90 when that is what makes the items add up to the printed subtotal. Bill rounding counts as a charge even when the reader garbles it, and the till's menu codes (LS02) are left out of the dish names.</li>
       <li><span class="tag fix">fix</span><strong>Restaurant bills filed as Bills:</strong> "Bill rounding" is on almost every restaurant receipt; the category guess now counts what was bought instead, so a plate of nasi kerabu is Food.</li>
     </ul>
   </article>
