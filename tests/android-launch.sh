@@ -44,6 +44,31 @@ echo "Duitful launched and is still running."
 # started cleanly: the plugin logs "scanDocument" on entry and
 # "scanDocument threw" if anything inside it failed, which it now catches
 # and turns into the camera fallback instead of a crash.
+# A fresh install opens on the start screen, which holds quick actions until
+# the vault is open. Tap "Get started" (no passcode) through the WebView's
+# accessibility tree, the way a person would.
+tap_text() {
+  local label="$1" bounds
+  for _ in 1 2 3 4 5 6; do
+    adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+    bounds="$(adb shell cat /sdcard/ui.xml 2>/dev/null | tr '>' '\n' \
+      | grep -E "(text|content-desc)=\"$label\"" | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | head -1)"
+    if [ -n "$bounds" ]; then
+      read -r x1 y1 x2 y2 <<<"$(grep -oE '[0-9]+' <<<"$bounds" | tr '\n' ' ')"
+      adb shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 ))
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+if ! tap_text "Get started"; then
+  echo "::error::Could not find the start screen's Get started button"
+  adb shell cat /sdcard/ui.xml 2>/dev/null | tr '>' '\n' | grep -E 'text="[^"]+"' | head -40 || true
+  exit 1
+fi
+sleep 4
+
 adb logcat -c
 adb shell am start -W -a android.intent.action.VIEW -d "duitful://action/scan" "$PKG" || true
 sleep 12
