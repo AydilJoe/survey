@@ -37,3 +37,32 @@ if ! adb shell pidof "$PKG" >/dev/null; then
 fi
 
 echo "Duitful launched and is still running."
+
+# 1.54.1 crashed on Scan receipt: GmsDocumentScanning.getClient threw an NPE
+# in the R8-minified build. Open the Scan shortcut (duitful://action/scan,
+# the same path as the launcher icon's long-press) and check the scanner
+# started cleanly: the plugin logs "scanDocument" on entry and
+# "scanDocument threw" if anything inside it failed, which it now catches
+# and turns into the camera fallback instead of a crash.
+adb logcat -c
+adb shell am start -W -a android.intent.action.VIEW -d "duitful://action/scan" "$PKG" || true
+sleep 12
+
+crash="$(adb logcat -d -b crash 2>/dev/null || true)"
+if grep -q "$PKG" <<<"$crash"; then
+  echo "::error::Duitful crashed opening Scan receipt"
+  echo "$crash"
+  exit 1
+fi
+kit="$(adb logcat -d -s DuitfulKit:V 2>/dev/null || true)"
+echo "$kit" | tail -40
+if ! grep -q "scanDocument" <<<"$kit"; then
+  echo "::error::The Scan shortcut never reached DuitfulKit.scanDocument"
+  adb logcat -d | grep -E "Capacitor|chromium|$PKG" | tail -80 || true
+  exit 1
+fi
+if grep -q "threw" <<<"$kit"; then
+  echo "::error::DuitfulKit.scanDocument threw (caught, but the scanner is broken in this build)"
+  exit 1
+fi
+echo "Scan receipt reached the document scanner without an error."

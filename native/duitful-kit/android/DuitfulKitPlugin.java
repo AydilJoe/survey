@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.net.Uri;
 import android.os.Build;
 import android.util.Base64;
+import android.util.Log;
 
 import androidx.activity.result.ActivityResult;
 import androidx.activity.result.ActivityResultLauncher;
@@ -61,6 +62,7 @@ import java.util.concurrent.Executors;
 public class DuitfulKitPlugin extends Plugin {
 
     private static final int MIN_SDK_FOR_ML = Build.VERSION_CODES.O; // 26
+    static final String TAG = "DuitfulKit";
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private ActivityResultLauncher<IntentSenderRequest> scanLauncher;
@@ -80,6 +82,22 @@ public class DuitfulKitPlugin extends Plugin {
 
     @PluginMethod
     public void scanDocument(PluginCall call) {
+        Log.i(TAG, "scanDocument");
+        try {
+            startScan(call);
+        } catch (Throwable e) {
+            // 1.54.1 died here on some phones: an NPE inside
+            // GmsDocumentScanning.getClient, thrown on the plugin thread
+            // where nothing catches it. Whatever the scanner library does,
+            // a scan that can't start must fall back to the camera, never
+            // close the app. tests/android-launch.sh fails on this line.
+            Log.e(TAG, "scanDocument threw", e);
+            pendingScan = null;
+            call.reject("Scanner unavailable", "UNAVAILABLE");
+        }
+    }
+
+    private void startScan(PluginCall call) {
         if (pendingScan != null) {
             call.reject("A scan is already open", "BUSY");
             return;
@@ -163,7 +181,12 @@ public class DuitfulKitPlugin extends Plugin {
             call.resolve(empty);
             return;
         }
-        DuitfulKitEntities.extract(text, call);
+        try {
+            DuitfulKitEntities.extract(text, call);
+        } catch (Throwable e) {
+            Log.e(TAG, "DuitfulKitEntities.extract threw", e);
+            call.reject("Unavailable", "UNAVAILABLE");
+        }
     }
 
     /* ---------- Gemini Nano ---------- */
@@ -177,7 +200,12 @@ public class DuitfulKitPlugin extends Plugin {
             call.resolve(ret);
             return;
         }
-        DuitfulKitAi.status(getContext(), call);
+        try {
+            DuitfulKitAi.status(getContext(), call);
+        } catch (Throwable e) {
+            Log.e(TAG, "DuitfulKitAi.status threw", e);
+            call.reject("Unavailable", "UNAVAILABLE");
+        }
     }
 
     @PluginMethod
@@ -191,7 +219,12 @@ public class DuitfulKitPlugin extends Plugin {
             call.reject("No text", "EMPTY");
             return;
         }
-        DuitfulKitAi.readReceipt(getContext(), text, call);
+        try {
+            DuitfulKitAi.readReceipt(getContext(), text, call);
+        } catch (Throwable e) {
+            Log.e(TAG, "DuitfulKitAi.readReceipt threw", e);
+            call.reject("Unavailable", "UNAVAILABLE");
+        }
     }
 
     /**
@@ -223,7 +256,14 @@ public class DuitfulKitPlugin extends Plugin {
             call.resolve(new JSObject().put("asked", false));
             return;
         }
-        final ReviewManager manager = ReviewManagerFactory.create(activity);
+        final ReviewManager manager;
+        try {
+            manager = ReviewManagerFactory.create(activity);
+        } catch (Throwable e) {
+            Log.e(TAG, "requestReview threw", e);
+            call.resolve(new JSObject().put("asked", false));
+            return;
+        }
         manager.requestReviewFlow().addOnCompleteListener(task -> {
             if (!task.isSuccessful()) {
                 call.resolve(new JSObject().put("asked", false));
