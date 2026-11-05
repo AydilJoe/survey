@@ -278,13 +278,10 @@
       <div id="r-pay-rows"></div>
     </div>
 
-    <div class="actions">
-      <button type="button" class="btn btn-primary" id="btn-have-app" data-t="haveApp">I have Duitful — add this request</button>
-      <a class="btn btn-ghost" href="/" data-t="getApp">Get Duitful — free, private, no sign-up</a>
-    </div>
-
+    <!-- Pay, then say so: the one thing almost everyone opening this link
+         came to do. The app buttons follow, smaller. -->
     <div class="paid-back">
-      <button type="button" class="linkish" id="btn-paid-open" aria-expanded="false" aria-controls="paid-form" data-t="alreadyPaid">Already paid? Let them know</button>
+      <button type="button" class="btn btn-primary" id="btn-paid-open" style="width:100%" aria-expanded="false" aria-controls="paid-form" data-t="alreadyPaid">I've paid</button>
       <div class="paid-form" id="paid-form" hidden>
         <label for="paid-name" data-t="yourName">Your name</label>
         <input type="text" id="paid-name" maxlength="40" autocomplete="name" placeholder="So they know who paid" data-t-placeholder="namePh" />
@@ -295,6 +292,11 @@
         <p id="paid-done-text"></p>
         <button type="button" class="linkish" id="btn-paid-chat" data-t="alsoChat">Also tell them in WhatsApp</button>
       </div>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" id="btn-have-app" data-t="haveApp">I have Duitful — add this request</button>
+      <a class="btn btn-ghost" id="btn-get-app" href="/go/app/?utm_source=split&amp;utm_medium=en&amp;utm_content=friend" data-t="getApp">Get Duitful — free, private, no sign-up</a>
     </div>
 
     <details>
@@ -346,7 +348,7 @@
     en: {
       eyebrow: "Payment request", isRequesting: "is requesting", gotRequest: "You've got a payment request",
       transferTo: "Transfer to", haveApp: "I have Duitful — add this request", getApp: "Get Duitful — free, private, no sign-up",
-      alreadyPaid: "Already paid? Let them know", yourName: "Your name", namePh: "So they know who paid",
+      alreadyPaid: "I\u2019ve paid", yourName: "Your name", namePh: "So they know who paid",
       sendPaid: "Send “I’ve paid”", sendHint: "Sends a link back through WhatsApp or any app. It says you paid — it doesn't move money.",
       codeSummary: "Request code — for pasting into Duitful",
       privacy: "This request was decoded <strong>on your device</strong> — it lives in the link itself and was never sent to any server. Duitful is a private money tracker built in Malaysia; it never moves money. Pay through your own banking app.",
@@ -371,7 +373,7 @@
     ms: {
       eyebrow: "Permintaan bayaran", isRequesting: "minta bayaran", gotRequest: "Ada permintaan bayaran untuk anda",
       transferTo: "Pindahkan ke", haveApp: "Saya ada Duitful — tambah permintaan ini", getApp: "Dapatkan Duitful — percuma, peribadi, tanpa daftar",
-      alreadyPaid: "Dah bayar? Beritahu mereka", yourName: "Nama anda", namePh: "Supaya mereka tahu siapa yang bayar",
+      alreadyPaid: "Saya dah bayar", yourName: "Nama anda", namePh: "Supaya mereka tahu siapa yang bayar",
       sendPaid: "Hantar “Saya dah bayar”", sendHint: "Hantar pautan balik melalui WhatsApp atau mana-mana aplikasi. Ia cuma memberitahu anda dah bayar — ia tidak memindahkan wang.",
       codeSummary: "Kod permintaan — untuk ditampal dalam Duitful",
       privacy: "Permintaan ini dibaca <strong>pada peranti anda</strong> — ia ada dalam pautan itu sendiri dan tidak pernah dihantar ke mana-mana pelayan. Duitful ialah penjejak wang peribadi buatan Malaysia; ia tidak memindahkan wang. Bayar melalui aplikasi bank anda sendiri.",
@@ -396,6 +398,14 @@
   };
   function T(k) { return (STR[LANG] && STR[LANG][k]) || STR.en[k] || ""; }
   document.documentElement.lang = LANG;
+  // Counted like every other CTA (/go/ records one view, then forwards):
+  // Android goes to Play, everything else to the web app.
+  (function () {
+    var ga = document.getElementById("btn-get-app");
+    if (!ga) return;
+    var android = /Android/i.test(navigator.userAgent || "");
+    ga.href = (android ? "/go/play/" : "/go/app/") + "?utm_source=split&utm_medium=" + LANG + "&utm_content=friend";
+  })();
   document.title = T("title");
   [].forEach.call(document.querySelectorAll("[data-t]"), function (el) { el.textContent = T(el.dataset.t); });
   [].forEach.call(document.querySelectorAll("[data-t-html]"), function (el) { el.innerHTML = T(el.dataset.tHtml); });
@@ -638,6 +648,11 @@
       var who = document.createElement("span");
       who.className = "who";
       who.textContent = String(x.n || "");
+      if (x.id === req.id) {
+        // The sender already named this line; no need to ask for it again.
+        var nm = document.getElementById("paid-name");
+        if (nm && !nm.value && x.n) nm.value = String(x.n).slice(0, 40);
+      }
       if (x.id === req.id) { var tag = document.createElement("span"); tag.className = "you-tag"; tag.textContent = T("you"); who.appendChild(tag); }
       if (x.nt) { var small = document.createElement("small"); small.textContent = String(x.nt); who.appendChild(small); }
       var amt = document.createElement("span");
@@ -741,7 +756,7 @@
   async function shareReceipt(name) {
     var paid = { v: 1, t: "paid", id: req.id, ti: req.ti, d: todayIso(), a: Number(req.a), fr: name };
     if (req.c && req.c !== "MYR") paid.c = req.c;
-    var link = location.origin + "/split#" + encodePaid(paid);
+    var link = location.origin + "/split/#" + encodePaid(paid);
     // Words first, link last — the same shape as the app's own messages.
     var text = T("paidText").replace("{name}", name).replace("{amt}", fmtAmount).replace("{title}", String(req.ti || T("theBill"))) + "\n" + T("receipt") + ": " + link;
     if (navigator.share) {

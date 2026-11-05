@@ -7627,3 +7627,18 @@ html::before {
 /* v1.53 — a scan field filled in by the phone's own AI or entity reader. */
 .scan-ai-note { margin: 0.35rem 0 0; font-size: 0.78rem; color: var(--muted); }
 .scan-ai-note[hidden] { display: none; }
+
+/* v1.55 — split: send first, the rest under "More"; the once-only name +
+   DuitNow block at the top of a first bill. */
+.split-share-more { margin: 0.75rem 0 0.25rem; border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.split-share-more > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; font-size: 0.92rem; }
+.split-share-more[open] > summary { margin-bottom: 0.4rem; }
+.split-me-once { margin: 0 0 0.75rem; padding: 0.6rem 0.75rem 0.2rem; border-radius: var(--r-card, 14px); background: var(--glass-bg-soft); }
+.split-me-once .hint { margin: 0 0 0.4rem; }
+.scan-cat-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.6rem 0 0.2rem; }
+.scan-cat-chips .chip-btn {
+  min-height: 36px; padding: 0 0.85rem; border-radius: var(--r-pill); border: 1px solid var(--border);
+  background: transparent; color: inherit; font: inherit; font-size: 0.9rem; cursor: pointer;
+}
+.scan-cat-chips .chip-btn.active { background: var(--text); color: var(--card); border-color: var(--text); }
+.scan-cat-chips .chip-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

@@ -1666,6 +1666,8 @@ function splitComposeSync() {
   const paidEl = body.querySelector("[name=logPaid]");
   if (paidEl) c.logPaid = paidEl.checked;
   if (body.querySelector("[name=category]")) c.category = splitText(val("[name=category]"), 40);
+  if (body.querySelector("[name=me]")) c.me = splitText(val("[name=me]"), SPLIT_NAME_MAX);
+  if (body.querySelector("[name=duitnow]")) c.duitnow = splitText(val("[name=duitnow]"), SPLIT_PAY_VALUE_MAX);
   // By item the total is DERIVED (items + charges) and the box on screen is
   // read-only, so it must never write back: a bill total prefilled from an
   // expense has to survive a look at the by-item tab and come back intact.
@@ -1898,6 +1900,43 @@ function splitRenderCompose() {
         <button type="button" class="primary" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
       </div>`;
   }
+  // Asked once, on the first bill: who's asking and where to pay. Every link
+  // after that carries both, so a friend never has to ask "pay to where?".
+  body.insertAdjacentHTML("afterbegin", splitMeBlockHtml(c));
+}
+
+function splitMeBlockHtml(c) {
+  const s = splitState();
+  if (splitText(s.me, SPLIT_NAME_MAX)) return "";
+  return `<div class="split-me-once">
+      <p class="hint">Once only: your name and where to pay you go on every link you send.</p>
+      <div class="grid-2">
+        <label class="field">
+          <span>Your name</span>
+          <input type="text" name="me" value="${escapeHtml(c.me || "")}" maxlength="${SPLIT_NAME_MAX}" placeholder="e.g. Aydil" autocomplete="given-name" />
+        </label>
+        <label class="field">
+          <span>DuitNow (optional)</span>
+          <input type="text" name="duitnow" value="${escapeHtml(c.duitnow || "")}" maxlength="${SPLIT_PAY_VALUE_MAX}" placeholder="012-3456789" inputmode="tel" />
+        </label>
+      </div>
+    </div>`;
+}
+
+// Keeps what the once-only block collected. A DuitNow number typed there
+// switches transfer details on: typing it is the opt-in.
+function splitSaveMeOnce(c) {
+  if (!c) return;
+  const s = splitState();
+  const me = splitText(c.me, SPLIT_NAME_MAX);
+  if (!me || splitText(s.me, SPLIT_NAME_MAX)) return;
+  s.me = me;
+  const duit = splitText(c.duitnow, SPLIT_PAY_VALUE_MAX);
+  if (duit && !coerceSplitPayRows(s.payTo).some((r) => r.value === duit)) {
+    s.payTo = coerceSplitPayRows([{ label: "DuitNow", value: duit }, ...coerceSplitPayRows(s.payTo)]);
+    s.payToEnabled = true;
+  }
+  if (typeof save === "function") save();
 }
 
 /* ---------- by-item composer UI ---------- */
@@ -2227,6 +2266,7 @@ function splitComposeSave() {
   const c = splitCompose;
   if (!c) return;
   splitComposeSync();
+  splitSaveMeOnce(c);
   if (c.mode === "split" && c.method === "item") { splitComposeSaveItems(); return; }
   const people = c.people
     .map((p) => ({ name: splitText(p.name, SPLIT_NAME_MAX), amount: splitRound2(p.amount) }))
@@ -2557,26 +2597,16 @@ async function splitRenderRequestShare() {
          <input type="text" id="split-share-me" placeholder="e.g. Aydil" maxlength="${SPLIT_NAME_MAX}" />
        </label>`;
 
+  // The send button first; the QR, transfer details, photo and code under
+  // "More". Opening a share used to mean scrolling past all of it to find
+  // the one button everyone needs.
+  const payLabel = s.payTo.length
+    ? `How to pay me — edit (${s.payTo.length} row${s.payTo.length === 1 ? "" : "s"})`
+    // Without this the link tells them what they owe but not where to send it.
+    : "Add your DuitNow or bank, so they can pay from the link";
   body.innerHTML = `
     <p class="hint split-share-sub">${escapeHtml(subParts.join(" · "))}</p>
-    ${qrHtml
-      ? `<div class="split-qr-panel">${qrHtml}</div>
-         <p class="hint split-qr-note">${escapeHtml(person.name)} scans this with Duitful — or any camera, it opens the request page.</p>`
-      : `<p class="hint">This request is too long for a QR code — use the link or the code below.</p>`}
     ${nameField}
-    <div class="split-preview">
-      <p class="split-preview-label">What leaves your phone</p>
-      <p class="split-preview-body">${escapeHtml(previewParts.join(" · "))}</p>
-    </div>
-    <label class="field toggle-field">
-      <input type="checkbox" id="split-share-payto"${s.payToEnabled ? " checked" : ""} />
-      <span>Include my transfer details</span>
-    </label>
-    <button type="button" class="hint-link split-payto-link" data-action="split-payto-open">${s.payTo.length
-      ? `How to pay me — edit (${s.payTo.length} row${s.payTo.length === 1 ? "" : "s"})`
-      // Without this the link tells them what they owe but not where to send it.
-      : "Add your DuitNow or bank, so they can pay from the link"}</button>
-    ${photoRow}
     <div class="form-actions split-share-actions">
       ${splitShare.remind
         ? `<button type="button" class="primary" data-action="split-share-link">Send reminder</button>`
@@ -2586,8 +2616,27 @@ async function splitRenderRequestShare() {
         ? `<button type="button" class="primary" data-action="split-share-all">Send all ${people.length} in one message</button>
            <button type="button" class="ghost" data-action="split-share-link">Send ${escapeHtml(person.name)}'s only</button>`
         : `<button type="button" class="primary" data-action="split-share-link">Share link (WhatsApp, anything)</button>`}
+    </div>
+    <div class="split-preview">
+      <p class="split-preview-label">What leaves your phone</p>
+      <p class="split-preview-body">${escapeHtml(previewParts.join(" · "))}</p>
+    </div>
+    <details class="split-share-more"${payRows.length ? "" : " open"}>
+      <summary>QR code, transfer details${rec.relay ? ", receipt photo" : ""}</summary>
+      ${qrHtml
+        ? `<div class="split-qr-panel">${qrHtml}</div>
+           <p class="hint split-qr-note">${escapeHtml(person.name)} scans this with Duitful — or any camera, it opens the request page.</p>`
+        : `<p class="hint">This request is too long for a QR code — use the link or the code below.</p>`}
+      <label class="field toggle-field">
+        <input type="checkbox" id="split-share-payto"${s.payToEnabled ? " checked" : ""} />
+        <span>Include my transfer details</span>
+      </label>
+      <button type="button" class="hint-link split-payto-link" data-action="split-payto-open">${payLabel}</button>
+      ${photoRow}
+      <button type="button" class="ghost" data-action="split-copy-code">Copy code</button>
+    </details>
+    <div class="form-actions">
       <div class="button-row split-share-secondary">
-        <button type="button" class="ghost" data-action="split-copy-code">Copy code</button>
         ${people.length > 1 && !splitShare.remind ? `<button type="button" class="ghost" data-action="split-share-next">Next person →</button>` : ""}
         <button type="button" class="ghost" data-action="split-share-close">Done</button>
       </div>
@@ -3005,7 +3054,8 @@ function splitOutRowHtml(rec, person) {
       <div class="split-meta">${meta.map((m) => `<span>${m}</span>`).join("")}</div>
       ${claimHtml}
       <div class="split-actions">
-        <button type="button" class="ghost" data-action="split-panel" data-panel="repay" data-id="${person.id}">Record repayment</button>
+        <button type="button" class="ghost" data-action="split-mark-paid" data-id="${person.id}">Paid ${escapeHtml(fmtMoney(remaining))}</button>
+        <button type="button" class="ghost" data-action="split-panel" data-panel="repay" data-id="${person.id}">Part</button>
         <button type="button" class="ghost" data-action="split-remind" data-id="${person.id}">Remind</button>
         <button type="button" class="ghost icon-btn split-cancel" data-action="split-cancel" data-id="${person.id}" aria-label="Cancel request from ${escapeHtml(person.name)}" title="Cancel this request">✕</button>
       </div>
@@ -3348,6 +3398,12 @@ document.addEventListener("click", (e) => {
   } else if (action === "split-panel-close") {
     splitOpenPanel = null;
     renderSplit();
+  } else if (action === "split-mark-paid") {
+    // The common case in one tap: they paid what they owed, today.
+    const found = splitFindPerson(id);
+    const res = found ? splitRecordRepayment(id, splitPersonRemaining(found.person), todayISO()) : null;
+    if (typeof renderAll === "function") renderAll();
+    if (res) toast(`${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`);
   } else if (action === "split-repay-save") {
     const input = splitPanelInput(id, "repay");
     const dateEl = splitPanelInput(id, "repay-date");

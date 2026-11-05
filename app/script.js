@@ -500,17 +500,21 @@ function toast(message, opts) {
     document.body.appendChild(el);
   }
   el.textContent = message;
-  const action = opts && opts.action;
+  // One action, or several side by side (a scanned spend offers Undo next to
+  // whatever the save itself offered: Split, or the tax relief tip).
+  const actions = ((opts && opts.actions) || (opts && opts.action ? [opts.action] : [])).filter(Boolean);
+  const action = actions[0] || null;
   el.classList.toggle("has-action", !!action);
-  if (action) {
+  el._toast = { message, actions };
+  for (const a of actions) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "toast-action";
-    btn.textContent = action.label;
+    btn.textContent = a.label;
     btn.addEventListener("click", () => {
       el.classList.remove("show", "has-action");
       if (toastTimer) clearTimeout(toastTimer);
-      action.run();
+      a.run();
     }, { once: true });
     el.appendChild(btn);
   }
@@ -12843,6 +12847,59 @@ function scanCategoryFor(vendor) {
   return "";
 }
 
+/* A first guess at the category from the shop and what was bought, so a
+   scan rarely lands in "Others". The shop's own history (scanCategoryFor)
+   always wins over this. Malaysian names first; word-anchored, so "Shell"
+   is the fuel station and not "Shellout". */
+const SCAN_CATEGORY_SEEDS = [
+  ["Fuel", /\b(petronas|shell|petron|caltex|bhpetrol|bhp|ron\s?9[57]|diesel|primax)\b/i],
+  ["Groceries", /\b(99\s?speed\s?mart|lotus'?s|tesco|giant|mydin|aeon\s?big|jaya\s?grocer|village\s?grocer|econsave|nsk|hero\s?market|kk\s?mart|family\s?mart|7-?eleven|speedmart|mart|grocer(y|ies)?|pasar\s?raya)\b/i],
+  ["Health", /\b(farmasi|pharmacy|guardian|watsons|caring|big\s?pharmacy|aa\s?pharmacy|klinik|clinic|hospital|dental|pergigian|optometr|ubat|panadol|vitamin)\b/i],
+  ["Books", /\b(popular|mph|kinokuniya|bookstore|book\s?store|kedai\s?buku|buku|novel|textbook)\b/i],
+  ["Transport", /\b(grab|touch\s?'?n\s?go|rapid\s?kl|ktm|lrt|mrt|parking|letak\s?kereta|tol|toll|plus\s?malaysia|airasia|mas\b)\b/i],
+  ["Bills", /\b(tnb|tenaga|syabas|air\s?selangor|indah\s?water|unifi|maxis|celcom|digi|u\s?mobile|yes\s?4g|astro|bil\b)\b/i],
+  ["Food", /\b(restoran|restaurant|kopitiam|mamak|nasi|mee|roti|kafe|cafe|coffee|kopi|teh|bakery|kedai\s?makan|mcdonald'?s|kfc|marrybrown|subway|domino'?s|pizza|starbucks|zus|tealive|chagee|secret\s?recipe|sushi|burger|ayam|chicken|food\s?court|medan\s?selera)\b/i],
+  ["Shopping", /\b(uniqlo|h&m|padini|parkson|ikea|mr\s?d\.?i\.?y|daiso|eco-?shop|shopee|lazada|mall)\b/i],
+];
+function scanGuessCategory(vendor, raw) {
+  const text = `${vendor || ""}\n${String(raw || "").slice(0, 1500)}`;
+  // The shop name decides first; the item lines only when it says nothing.
+  for (const [cat, rx] of SCAN_CATEGORY_SEEDS) if (rx.test(String(vendor || ""))) return cat;
+  for (const [cat, rx] of SCAN_CATEGORY_SEEDS) if (rx.test(text)) return cat;
+  return "";
+}
+// Up to four one-tap choices: the guess, then the categories used most.
+function scanCategoryChoices(guess) {
+  const counts = new Map();
+  for (const e of state.dailyExpenses) {
+    if (e.kind === "expense" && e.category && e.category !== "Others") counts.set(e.category, (counts.get(e.category) || 0) + 1);
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
+  const out = [];
+  for (const c of [guess, ...top, "Food", "Groceries", "Shopping"]) {
+    if (c && !out.includes(c)) out.push(c);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+function renderScanCategoryChips(choices) {
+  const box = document.getElementById("scan-cat-chips");
+  if (!box) return;
+  const cur = scanCategory ? (scanCategory.value || "").trim() : "";
+  box.innerHTML = choices.map((c) => `<button type="button" class="chip-btn${c === cur ? " active" : ""}" data-scan-cat="${escapeHtml(c)}" aria-pressed="${c === cur}">${escapeHtml(c)}</button>`).join("");
+  box.hidden = !choices.length;
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target instanceof Element ? e.target.closest("[data-scan-cat]") : null;
+  if (!btn || !scanCategory) return;
+  scanCategory.value = btn.dataset.scanCat;
+  document.querySelectorAll("#scan-cat-chips [data-scan-cat]").forEach((b) => {
+    const on = b === btn;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+});
+
 function showScanTotalSuggestion(check) {
   const el = document.getElementById("scan-amount-suggest");
   if (!el) return;
@@ -12874,6 +12931,8 @@ function openScanDialog() {
   setScanFailed(false);
   const editBtn = document.getElementById("scan-edit");
   if (editBtn) editBtn.hidden = true;
+  const splitBtn = document.getElementById("scan-split");
+  if (splitBtn) splitBtn.hidden = true;
   showScanTotalSuggestion(null);
   const quotaOpen = document.getElementById("scan-quota");
   if (quotaOpen) quotaOpen.hidden = true;
@@ -13047,7 +13106,9 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     if (scanDate) scanDate.value = parsed.date || todayISO();
     // The category this shop got last time ("99 Speed Mart" → Groceries),
     // so a regular shop doesn't need the same choice every scan.
-    if (scanCategory) scanCategory.value = scanCategoryFor(parsed.vendor) || "";
+    const scanGuess = scanGuessCategory(parsed.vendor, parsed.raw);
+    if (scanCategory) scanCategory.value = scanCategoryFor(parsed.vendor) || scanGuess || "";
+    renderScanCategoryChips(scanCategoryChoices(scanCategory ? scanCategory.value : scanGuess));
     const curPrefix = document.getElementById("scan-cur-prefix");
     if (curPrefix) curPrefix.textContent = currencySymbolFor(scanOriginalCurrency);
     const itemsCheck = renderScanItems(parsed.raw || "", parsed.amount);
@@ -13073,6 +13134,9 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     scanApply.hidden = false;
     const editShow = document.getElementById("scan-edit");
     if (editShow) editShow.hidden = window.scanApplyTarget === "split";
+    // Paid for the table? Split it from here, with the bill already logged.
+    const splitShow = document.getElementById("scan-split");
+    if (splitShow) splitShow.hidden = window.scanApplyTarget === "split" || typeof splitApplyScan !== "function";
     await applyScanConversion();
     // A full green bar sitting under a finished result is just noise.
     scanProgress.style.width = "100%";
@@ -13203,6 +13267,19 @@ scanInput?.addEventListener("change", async (e) => {
 // anything the scan screen doesn't cover (a pool, a card, a note).
 scanApply?.addEventListener("click", () => applyScanResult({ direct: true }));
 document.getElementById("scan-edit")?.addEventListener("click", () => applyScanResult({ direct: false }));
+document.getElementById("scan-split")?.addEventListener("click", () => {
+  window.scanApplyTarget = "split";
+  applyScanResult({ direct: false });
+});
+
+// Same amount, same day, same shop: almost always the same receipt twice.
+function scanDuplicateOf(amount, dateISO, vendor) {
+  const v = String(vendor || "").trim().toLowerCase();
+  return state.dailyExpenses.find((e) => e.kind === "expense"
+    && Math.abs((Number(e.amount) || 0) - amount) < 0.005
+    && e.date === dateISO
+    && (!v || String(e.note || "").trim().toLowerCase() === v)) || null;
+}
 document.getElementById("scan-retake")?.addEventListener("click", () => {
   closeScanDialog();
   startReceiptScan();
@@ -13253,6 +13330,10 @@ function applyScanResult({ direct }) {
   const pickedDate = scanDate ? scanDate.value : "";
   if (dateInput && /^\d{4}-\d{2}-\d{2}$/.test(pickedDate)) dateInput.value = pickedDate;
 
+  if (direct && chosenType === "expense" && Number.isFinite(amt) && amt > 0) {
+    const dup = scanDuplicateOf(amt, /^\d{4}-\d{2}-\d{2}$/.test(pickedDate) ? pickedDate : todayISO(), vendor);
+    if (dup && !confirm(`${fmtMoney(amt)}${vendor ? " at " + vendor : ""} is already in your spending for that day. Add it again?`)) return;
+  }
   if (direct) {
     // The form's own submit does the saving (FX, pools, card balances, the
     // spend animation), so a scanned entry is exactly a typed one. Its new
@@ -13271,12 +13352,13 @@ function applyScanResult({ direct }) {
       // action (Split this, or the tax relief tip) it is the better offer,
       // and overwriting it lost the tip for good; the entry's own row still
       // deletes it. Otherwise offer Undo.
+      const undo = { label: "Undo", run: () => {
+        if (removeDailyEntry(added)) { save(); renderAll(); toast("Removed"); }
+      } };
       const shown = document.getElementById("toast");
-      if (!(shown && shown.classList.contains("show") && shown.classList.contains("has-action"))) {
-        toast(what, { action: { label: "Undo", run: () => {
-          if (removeDailyEntry(added)) { save(); renderAll(); toast("Removed"); }
-        } } });
-      }
+      const prev = shown && shown.classList.contains("show") && shown._toast;
+      if (prev && prev.actions && prev.actions.length) toast(prev.message, { actions: [undo, ...prev.actions] });
+      else toast(what, { action: undo });
       return;
     }
     // The form refused it (no debt chosen, a currency it can't convert):

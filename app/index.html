@@ -1936,6 +1936,8 @@
           <p class="scan-amount-suggest" id="scan-amount-suggest" role="status" hidden></p>
           <p class="scan-ai-note hint" id="scan-ai-note" hidden>Some fields were read by your phone's built-in AI. Nothing left your phone.</p>
 
+          <!-- One tap instead of typing: the guess first, then what you use most. -->
+          <div class="scan-cat-chips" id="scan-cat-chips" role="group" aria-label="Category" hidden></div>
           <div class="grid-2 scan-fields">
             <label class="field">
               <span>Date <span class="scan-conf" id="scan-date-conf" hidden></span></span>
@@ -2033,6 +2035,7 @@
           <button type="button" class="ghost" id="scan-cancel">Close</button>
           <button type="button" class="ghost" id="scan-retake" hidden>Retake photo</button>
           <button type="button" class="ghost" id="scan-edit" hidden>Edit first</button>
+          <button type="button" class="ghost" id="scan-split" hidden>Split this</button>
           <button type="button" class="primary" id="scan-apply" hidden>Add</button>
         </div>
       </form>
