@@ -89,7 +89,13 @@ page.on('console', m => { if (m.type() === 'error' && !/Content Security Policy|
 
 const ok = [];
 const bad = [];
-const check = (name, cond, extra = '') => (cond ? ok : bad).push(`${name}${extra ? ' — ' + extra : ''}`);
+// E2E_LIVE=1 prints each failure as it happens, so a run that dies midway
+// still says which checks had already failed.
+const check = (name, cond, extra = '') => {
+  const line = `${name}${extra ? ' — ' + extra : ''}`;
+  (cond ? ok : bad).push(line);
+  if (!cond && process.env.E2E_LIVE) console.log(`  ✗ ${line}`);
+};
 
 await page.goto(`${BASE}/app/index.html`);
 await page.waitForTimeout(500);
