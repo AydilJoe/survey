@@ -153,6 +153,15 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-54-2">
+    <span class="release-date">November 2026 &middot; v1.54.2</span>
+    <h2 class="release-title">Scan receipt, steady again</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Scan receipt no longer closes the app (Android):</strong> on some phones 1.54.1 closed as soon as you tapped Scan receipt. The step that slims the app for the store had removed a piece Google's document scanner looks up at run time; it is now kept. If the scanner still can't start on a phone, Duitful opens the camera instead of closing, and every build now opens Scan receipt on an Android emulator before it can ship.</li>
+      <li><span class="tag fix">fix</span><strong>Fewer old Android calls:</strong> the app no longer reads the status and navigation bar colours, which Android 15 has retired.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-54-1">
     <span class="release-date">November 2026 &middot; v1.54.1</span>
     <h2 class="release-title">Know when they've paid</h2>

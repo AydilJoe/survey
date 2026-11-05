@@ -185,6 +185,15 @@ writeOnce(resolve(APP_DIR, RULES), `# ${MARK} — written by scripts/patch-andro
     public void setNavigationBarColor(int);
 }
 
+# Their getters are deprecated too, and Play lists them by name (Capacitor
+# Camera's image editor reads both to restore the bars it repainted). With
+# the setters gone a read has nothing to restore, so every call site is
+# replaced by 0 (transparent), which is what Android 15 reports anyway.
+-assumenosideeffects class android.view.Window {
+    public int getStatusBarColor() return 0;
+    public int getNavigationBarColor() return 0;
+}
+
 # The app's own native code: the notification listener, quick-add receiver,
 # widget provider and plugins. Manifest-declared classes are kept by AAPT's
 # rules already; this also keeps what the bridge reaches by name.
@@ -197,6 +206,17 @@ writeOnce(resolve(APP_DIR, RULES), `# ${MARK} — written by scripts/patch-andro
 # before any of our code ran ("Failed to create an instance of
 # androidx.work.impl.WorkDatabase"). Keep every Room database's constructor.
 -keep class * extends androidx.room.RoomDatabase { <init>(); }
+
+# The same AGP 9 change, the same shape of crash: R8's strict full mode no
+# longer keeps a constructor just because a library's rules keep the class.
+# ML Kit finds its pieces by reflection (ComponentRegistrar classes listed in
+# MlKitComponentDiscoveryService's manifest entries, created with their
+# no-argument constructor), and 1.54.1 lost one: Scan receipt died with an
+# NPE inside GmsDocumentScanning.getClient. Keep every registrar's
+# constructor, and the document scanner, whose library ships no rules.
+-keep class * implements com.google.firebase.components.ComponentRegistrar { <init>(); }
+-keep class com.google.mlkit.vision.documentscanner.** { *; }
+-keep class com.google.android.gms.internal.mlkit_vision_documentscanner.** { *; }
 `);
 
 function writeOnce(path, content) {
