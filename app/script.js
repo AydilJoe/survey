@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.0";
+const APP_VERSION = "1.55.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -10076,6 +10076,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.1": [
+    "<strong>Better reads of real photos</strong> — the scanner crops the receipt out of a busy table, checks the total against the receipt's own sums (subtotal, service charge, card) and fixes a misread digit, and stops filing restaurant bills under Bills.",
+  ],
   "1.55.0": [
     "<strong>Tick what you had</strong> — scan the receipt, send one link, and everyone ticks their own items. Tap Done and each gets a request for exactly their share.",
     "<strong>Splitting just works</strong> — shares update as you type, your name and DuitNow go on every link, and one tap marks someone paid.",
@@ -11500,6 +11503,79 @@ function receiptEnhanceImageData(img) {
   return receiptContrastStretchImageData(receiptGrayscaleImageData(img));
 }
 
+/* Where the paper is. A receipt photographed on a patterned table (tiles,
+   batik, a placemat) fed the background to the reader as text, and the
+   numbers around it came back garbled. Receipt paper is bright and
+   colourless, so on a small copy we take the columns and rows that are
+   mostly that, and crop to the longest run of them. Null when the paper
+   fills the frame already or can't be told apart (nothing is cropped). */
+function receiptFindPaper(img) {
+  const W = img.naturalWidth || img.width, H = img.naturalHeight || img.height;
+  if (!(W > 0 && H > 0)) return null;
+  const sw = 240, sh = Math.max(1, Math.round(H * sw / W));
+  const c = document.createElement("canvas");
+  c.width = sw; c.height = sh;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(img, 0, 0, sw, sh);
+  const d = ctx.getImageData(0, 0, sw, sh).data;
+  const col = new Array(sw).fill(0), row = new Array(sh).fill(0);
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+    const i = (y * sw + x) * 4;
+    const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+    if (mx > 150 && mx - mn < 35) { col[x]++; row[y]++; }
+  }
+  const run = (arr, n, t) => {
+    let best = null, s0 = -1;
+    for (let i = 0; i <= arr.length; i++) {
+      const on = i < arr.length && arr[i] / n > t;
+      if (on && s0 < 0) s0 = i;
+      if (!on && s0 >= 0) { if (!best || i - s0 > best[1] - best[0] + 1) best = [s0, i - 1]; s0 = -1; }
+    }
+    return best;
+  };
+  const xs = run(col, sh, 0.35), ys = run(row, sw, 0.15);
+  if (!xs || !ys) return null;
+  const pad = 4;
+  const x0 = Math.max(0, xs[0] - pad) * W / sw, x1 = Math.min(sw, xs[1] + 1 + pad) * W / sw;
+  const y0 = Math.max(0, ys[0] - pad) * H / sh, y1 = Math.min(sh, ys[1] + 1 + pad) * H / sh;
+  const area = ((x1 - x0) * (y1 - y0)) / (W * H);
+  // Too small to be the receipt, or the receipt is the whole photo already.
+  if (area < 0.12 || area > 0.92) return null;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+
+/* Local-mean threshold: each pixel is ink if it is darker than the
+   neighbourhood around it. A shadow across half the receipt or thermal
+   print fading at one end stays readable, where one global contrast
+   stretch washes the faint half out. Expects grayscale input. */
+function receiptThresholdImageData(img) {
+  const d = img && img.data;
+  const w = img && img.width, h = img && img.height;
+  if (!d || !(w > 0 && h > 0)) return img;
+  const W1 = w + 1;
+  const integ = new Float64Array(W1 * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let rs = 0;
+    for (let x = 0; x < w; x++) {
+      rs += d[(y * w + x) * 4];
+      integ[(y + 1) * W1 + x + 1] = integ[y * W1 + x + 1] + rs;
+    }
+  }
+  const R = Math.max(8, Math.round(w / 40));
+  const out = new Uint8ClampedArray(w * h);
+  for (let y = 0; y < h; y++) {
+    const ya = Math.max(0, y - R), yb = Math.min(h, y + R + 1);
+    for (let x = 0; x < w; x++) {
+      const xa = Math.max(0, x - R), xb = Math.min(w, x + R + 1);
+      const sum = integ[yb * W1 + xb] - integ[ya * W1 + xb] - integ[yb * W1 + xa] + integ[ya * W1 + xa];
+      out[y * w + x] = d[(y * w + x) * 4] < (sum / ((xb - xa) * (yb - ya))) * 0.88 ? 0 : 255;
+    }
+  }
+  for (let i = 0; i < w * h; i++) d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = out[i];
+  return img;
+}
+
 // Accepts the same two things the OCR pipeline does: a File/Blob (web file
 // input) or a data-URL string (native Camera).
 function receiptLoadImage(source) {
@@ -11531,7 +11607,8 @@ async function receiptPreprocessImage(source) {
   try {
     const { img, revoke } = await receiptLoadImage(source);
     try {
-      const size = receiptPreprocessSize(img.naturalWidth || img.width, img.naturalHeight || img.height);
+      const crop = receiptFindPaper(img) || { x: 0, y: 0, w: img.naturalWidth || img.width, h: img.naturalHeight || img.height };
+      const size = receiptPreprocessSize(crop.w, crop.h);
       if (!size) return null;
       const canvas = document.createElement("canvas");
       canvas.width = size.width;
@@ -11540,8 +11617,11 @@ async function receiptPreprocessImage(source) {
       if (!ctx) return null;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, 0, 0, size.width, size.height);
+      ctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, size.width, size.height);
       const data = ctx.getImageData(0, 0, size.width, size.height);
+      // Cropping is what helped on real photos; the local-mean threshold
+      // (receiptThresholdImageData) read no better than this stretch across
+      // repeated runs on the same receipt, so the proven pass stays.
       receiptEnhanceImageData(data);
       ctx.putImageData(data, 0, 0);
       return canvas;
@@ -12783,6 +12863,90 @@ function receiptSubtotalTotal(raw) {
   return Math.round(sum * 100) / 100;
 }
 
+/* One misread digit is the commonest OCR failure on a real photo: "151.30"
+   comes back as "154.30", "166.45" as "196.45". Two readings of the same
+   number that differ in one digit (or by one dropped digit) are "near". */
+function receiptDigitsNear(a, b) {
+  const x = Number(a).toFixed(2), y = Number(b).toFixed(2);
+  if (x === y) return true;
+  if (x.length === y.length) {
+    let diff = 0;
+    for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) diff++;
+    return diff === 1;
+  }
+  const [long, short] = x.length > y.length ? [x, y] : [y, x];
+  if (long.length !== short.length + 1) return false;
+  for (let i = 0; i < long.length; i++) if (long.slice(0, i) + long.slice(i + 1) === short) return true;
+  return false;
+}
+
+/* Every way the receipt states its own total, each read independently:
+   the TOTAL line, the card / e-wallet line that paid it, cash minus change,
+   the subtotal plus its charges, and the subtotal worked back from a
+   percentage charge ("SERVICE CHARGE (10%) 15.13" means 151.30 of food,
+   whatever the OCR made of the subtotal line). */
+function receiptTotalSources(raw, readTotal, itemsCheck) {
+  const lines = String(raw || "").split(/\n/).map((l) => l.trim()).filter(Boolean);
+  const amountAtEnd = /(-?)\s*(?:RM\s*)?(\d{1,6}[.,]\d{2})\s*(-?)\s*$/i;
+  const read = (line) => {
+    const m = amountAtEnd.exec(line);
+    if (!m) return null;
+    const v = Number(m[2].replace(",", "."));
+    return m[1] === "-" || m[3] === "-" ? -v : v;
+  };
+  const out = [];
+  if (Number.isFinite(readTotal) && readTotal > 0) out.push({ kind: "total", value: readTotal });
+  const TENDER = /\b(visa|master\s?card|amex|unionpay|mydebit|debit\s*card|credit\s*card|tng|touch\s*'?\s*n\s*go|e-?wallet|grab\s?pay|shopee\s?pay|boost|duitnow|qr\s*pay)\b/i;
+  for (const line of lines) {
+    if (!TENDER.test(line)) continue;
+    const v = read(line);
+    if (v > 0) { out.push({ kind: "tender", value: v }); break; }
+  }
+  const cash = receiptTenderTotal(raw);
+  if (cash > 0) out.push({ kind: "cash", value: cash });
+  const sub = receiptSubtotalTotal(raw);
+  if (sub > 0) out.push({ kind: "subtotal", value: sub });
+  // The subtotal behind a percentage charge, then the same charges on top.
+  const SUB = /\bsub\s*-?\s*total\b|\bjumlah\s+kecil\b/i;
+  const start = lines.findIndex((l) => SUB.test(l) && read(l) != null);
+  if (start >= 0 && sub > 0) {
+    const subRead = read(lines[start]);
+    const adjust = Math.round((sub - subRead) * 100) / 100;
+    for (let i = start + 1; i < lines.length && i < start + 6; i++) {
+      const pm = /(\d{1,2})\s*%/.exec(lines[i]);
+      const v = read(lines[i]);
+      if (!pm || !(v > 0)) continue;
+      const pct = Number(pm[1]);
+      // Only rates large enough that a charge pins its base to the sen.
+      if (pct < 10 || pct > 20) continue;
+      const base = Math.round((v * 100 / pct) * 100) / 100;
+      if (base > 0) out.push({ kind: "percent", value: Math.round((base + adjust) * 100) / 100 });
+      break;
+    }
+  }
+  if (itemsCheck && itemsCheck.expected > 0) out.push({ kind: "items", value: itemsCheck.expected });
+  return out;
+}
+
+/* The total the receipt's own numbers agree on, or null. A figure wins when
+   two independent readings land on it exactly, or one exact reconstruction is
+   backed by two readings a single digit away from it. Returns the read total
+   unchanged when nothing contradicts it. */
+function receiptConsensusTotal(raw, readTotal, itemsCheck) {
+  const sources = receiptTotalSources(raw, readTotal, itemsCheck);
+  if (sources.length < 2) return null;
+  let best = null;
+  for (const c of sources) {
+    const V = c.value;
+    const exact = new Set(sources.filter((s) => Math.abs(s.value - V) < 0.005).map((s) => s.kind));
+    const near = sources.filter((s) => Math.abs(s.value - V) >= 0.005 && receiptDigitsNear(s.value, V)).length;
+    const strong = exact.size >= 2 || (exact.size >= 1 && near >= 2);
+    const score = exact.size * 2 + near;
+    if (strong && (!best || score > best.score)) best = { value: V, score, exact: [...exact], near };
+  }
+  return best;
+}
+
 /* The receipt can check itself: the items plus charges, and cash minus
    change, should both land on the total. When one disagrees, the total is
    flagged instead of being shown as "read" — and when two checks agree with
@@ -12863,16 +13027,23 @@ const SCAN_CATEGORY_SEEDS = [
   ["Health", /\b(farmasi|pharmacy|guardian|watsons|caring|big\s?pharmacy|aa\s?pharmacy|klinik|clinic|hospital|dental|pergigian|optometr|ubat|panadol|vitamin)\b/i],
   ["Books", /\b(popular|mph|kinokuniya|bookstore|book\s?store|kedai\s?buku|buku|novel|textbook)\b/i],
   ["Transport", /\b(grab|touch\s?'?n\s?go|rapid\s?kl|ktm|lrt|mrt|parking|letak\s?kereta|tol|toll|plus\s?malaysia|airasia|mas\b)\b/i],
-  ["Bills", /\b(tnb|tenaga|syabas|air\s?selangor|indah\s?water|unifi|maxis|celcom|digi|u\s?mobile|yes\s?4g|astro|bil\b)\b/i],
-  ["Food", /\b(restoran|restaurant|kopitiam|mamak|nasi|mee|roti|kafe|cafe|coffee|kopi|teh|bakery|kedai\s?makan|mcdonald'?s|kfc|marrybrown|subway|domino'?s|pizza|starbucks|zus|tealive|chagee|secret\s?recipe|sushi|burger|ayam|chicken|food\s?court|medan\s?selera)\b/i],
+  // Utilities by name only: "bill" alone is on every restaurant receipt
+  // ("Bill rounding"), and booked a Nyonya lunch as Bills.
+  ["Bills", /\b(tnb|tenaga\s?nasional|syabas|air\s?selangor|indah\s?water|unifi|maxis|celcom|digi\s?telecom|u\s?mobile|yes\s?4g|astro)\b/i],
+  ["Food", /\b(restoran|restaurant|kopitiam|mamak|nyonya|nasi|mee|roti|laksa|kerabu|rendang|satay|sate|soup|sup|rice|noodles?|kuey\s?teow|char\s?kway|hor\s?fun|dim\s?sum|tom\s?yam|tomyam|goreng|lemak|penyet|kafe|cafe|coffee|kopi|teh|tarik|bakery|kedai\s?makan|mcdonald'?s|kfc|marrybrown|subway|domino'?s|pizza|starbucks|zus|tealive|chagee|secret\s?recipe|sushi|burger|ayam|chicken|food\s?court|medan\s?selera|service\s?charge)\b/i],
   ["Shopping", /\b(uniqlo|h&m|padini|parkson|ikea|mr\s?d\.?i\.?y|daiso|eco-?shop|shopee|lazada|mall)\b/i],
 ];
 function scanGuessCategory(vendor, raw) {
   const text = `${vendor || ""}\n${String(raw || "").slice(0, 1500)}`;
-  // The shop name decides first; the item lines only when it says nothing.
+  // The shop name decides first; then the item lines, by which category's
+  // words turn up most (one stray word can't outvote a plate of nasi).
   for (const [cat, rx] of SCAN_CATEGORY_SEEDS) if (rx.test(String(vendor || ""))) return cat;
-  for (const [cat, rx] of SCAN_CATEGORY_SEEDS) if (rx.test(text)) return cat;
-  return "";
+  let best = "", bestN = 0;
+  for (const [cat, rx] of SCAN_CATEGORY_SEEDS) {
+    const n = (text.match(new RegExp(rx.source, "gi")) || []).length;
+    if (n > bestN) { best = cat; bestN = n; }
+  }
+  return best;
 }
 // Up to four one-tap choices: the guess, then the categories used most.
 function scanCategoryChoices(guess) {
@@ -13142,8 +13313,21 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     scanUpdateTaxNote();
     const curPrefix = document.getElementById("scan-cur-prefix");
     if (curPrefix) curPrefix.textContent = currencySymbolFor(scanOriginalCurrency);
-    const itemsCheck = renderScanItems(parsed.raw || "", parsed.amount);
+    let itemsCheck = renderScanItems(parsed.raw || "", parsed.amount);
+    // When the receipt's own sums agree on a total the TOTAL line didn't
+    // read as (one digit off on a real photo), trust the sums.
+    const consensus = receiptConsensusTotal(parsed.raw || "", Number(parsed.amount), itemsCheck);
+    let corrected = null;
+    if (consensus && !(Math.abs(consensus.value - Number(parsed.amount)) < 0.005)) {
+      corrected = { from: Number(parsed.amount), to: consensus.value };
+      parsed.amount = consensus.value;
+      parsed.amountConfidence = "high";
+      scanOriginalAmount = consensus.value;
+      itemsCheck = renderScanItems(parsed.raw || "", parsed.amount);
+    }
     const totalCheck = scanTotalCheck(Number(parsed.amount), parsed.raw || "", itemsCheck);
+    // Sums that agree outrank a list of items with a misread price in it.
+    if (consensus && Math.abs(consensus.value - Number(parsed.amount)) < 0.005) { totalCheck.off = false; totalCheck.suggest = null; }
     setScanConfidence(document.getElementById("scan-amount-conf"),
       totalCheck.off ? "low" : parsed.amountConfidence);
     showScanTotalSuggestion(totalCheck);
@@ -13173,6 +13357,11 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     scanProgress.style.width = "100%";
     const pb = scanProgress.closest(".scan-pb");
     if (pb) pb.hidden = true;
+    if (corrected && !totalCheck.off) {
+      scanStatus.textContent = Number.isFinite(corrected.from) && corrected.from > 0
+        ? `The total line read as ${fmtMoney(corrected.from)}; the receipt's own sums agree on ${fmtMoney(corrected.to)}. Check it, then add it.`
+        : `The receipt's own sums come to ${fmtMoney(corrected.to)}. Check it, then add it.`;
+    }
     if (totalCheck.off) {
       scanStatus.textContent = "The total doesn't match the receipt's own numbers. Check it before adding.";
       scanAmount?.focus();

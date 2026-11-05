@@ -2966,6 +2966,48 @@ check('a split from a spend you already logged never logs it twice',
     typeof p1.quota === 'string', p1.quota);
 }
 
+
+// v1.55.1: a real photo (Nyonya Tingkat, Bangsar) on a tiled table. The
+// browser reader got single digits wrong all over it; the receipt's own sums
+// put the total right.
+{
+  const ny = await S(async () => {
+    const raw = [
+      'NYONYA TINGKAT, BANGSAR UTAMA', 'NYONYA NOOK SDN BHD',
+      '2 LS02 NYONYA ASAM LAKSA (18.90) 37.80', '1 LS05 NASI KERABU AYAM PERCIK 26.90',
+      '1 LS03 CHICKEN HOR FUN SOUP 19.90', '1 LS05 NASI KERABU AYAM PERCIK 26.98',
+      '1 LS02 NYONYA ASAM LAKSA 18.96', '1 LS04 NASI LEMAK AYAM PENYET 20.96',
+      'Subtotal 154.30', 'SERVICE CHARGE (10%) 15.13', 'Bill rounding 0.02',
+      'Total (MYR) 166.48', 'VISA 196.45', 'Change 0.00',
+    ].join('\n');
+    const c = receiptConsensusTotal(raw, 166.48, null);
+    const clean = receiptConsensusTotal('Nasi lemak 12.00\nTeh 3.00\nTOTAL 15.00\nVISA 15.00', 15, null);
+    // The paper on a patterned table is found and cropped to.
+    const cv = document.createElement('canvas'); cv.width = 600; cv.height = 800;
+    const x = cv.getContext('2d');
+    for (let i = 0; i < 600; i += 40) for (let j = 0; j < 800; j += 40) { x.fillStyle = (i + j) % 80 ? '#1d4fa0' : '#e0a030'; x.fillRect(i, j, 40, 40); }
+    x.fillStyle = '#f4f4f2'; x.fillRect(150, 60, 300, 680);
+    const crop = receiptFindPaper(cv);
+    const whole = document.createElement('canvas'); whole.width = 400; whole.height = 600;
+    const wx = whole.getContext('2d'); wx.fillStyle = '#fff'; wx.fillRect(0, 0, 400, 600);
+    return {
+      value: c && c.value, clean: clean && clean.value,
+      near: [receiptDigitsNear(151.3, 154.3), receiptDigitsNear(166.45, 196.45), receiptDigitsNear(166.45, 166.4), receiptDigitsNear(166.45, 177.45)],
+      cat: scanGuessCategory('NYONYA NOOK SDN BHD', raw),
+      crop: crop && [Math.round(crop.x), Math.round(crop.y), Math.round(crop.w), Math.round(crop.h)],
+      noCrop: receiptFindPaper(whole),
+    };
+  });
+  check('a misread total is put right by the receipt\'s own sums (10% service charge → 151.30 + 15.13 + 0.02 = 166.45)',
+    ny.value === 166.45, JSON.stringify(ny));
+  check('a total the card line agrees with is left exactly as read', ny.clean === 15, JSON.stringify(ny));
+  check('"near" means one digit off, or one digit dropped — never two',
+    JSON.stringify(ny.near) === '[true,true,true,false]', JSON.stringify(ny.near));
+  check('a Nyonya lunch guesses Food, not Bills ("Bill rounding" is on every restaurant receipt)', ny.cat === 'Food', ny.cat);
+  check('the receipt is cropped out of a patterned table, and a photo that is all receipt is left whole',
+    ny.crop && Math.abs(ny.crop[0] - 150) < 20 && Math.abs(ny.crop[2] - 300) < 30 && Math.abs(ny.crop[1] - 60) < 20 && ny.noCrop === null, JSON.stringify(ny));
+}
+
 /* ── 14. itemized split (Phase 2.5, v1.15.0) ────────────────────────────
    Tick who ate what. OCR is prefill, never oracle, so the parser is a pure
    function tested directly against real Malaysian receipt shapes; the
