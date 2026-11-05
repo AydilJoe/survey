@@ -1,4 +1,9 @@
 {
+  "1.55.0": [
+    "<strong>Tanda apa yang anda makan</strong> — imbas resit, hantar satu pautan, dan setiap orang tanda item sendiri. Tekan Done, setiap orang dapat permintaan untuk bahagian mereka.",
+    "<strong>Bahagi bil jadi mudah</strong> — bahagian dikemas kini semasa menaip, nama dan DuitNow ada pada setiap pautan, satu tekan tanda dah bayar.",
+    "<strong>Resit yang diingati</strong> — imbasan teka kategori, kesan resit sama dua kali, dan simpan setiap resit untuk tuntutan cukai."
+  ],
   "1.54.2": [
     "<strong>Pembaikan:</strong> Imbas resit tidak lagi menutup aplikasi pada sesetengah telefon Android. Jika pengimbas dokumen telefon tidak dapat dibuka, kamera dibuka sebagai ganti."
   ],

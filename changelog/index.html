@@ -153,6 +153,18 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-55-0">
+    <span class="release-date">November 2026 &middot; v1.55.0</span>
+    <h2 class="release-title">Split and scan, made simple</h2>
+    <ul>
+      <li><span class="tag feat">new</span><strong>Tick what you had:</strong> scan the receipt, tap Split this, then <em>Let everyone tick their own</em>. One link goes to the group chat; each friend ticks what they had and sees their share as they go. Shared dishes split between everyone who ticked them, service charge and SST are shared, and anything nobody ticked is yours or everyone's &mdash; your choice. Tap Done and each friend gets a request for exactly their share, on the same link they ticked on. Everything travels through the bill's encrypted mailbox; Duitful can't read it.</li>
+      <li><span class="tag feat">new</span><strong>Splitting just works:</strong> an equal split divides itself as you change the total or add people, your name and DuitNow are asked once and go on every link, the share sheet leads with Send, and <em>Mark paid</em> settles someone in one tap. Friends opening your link see a big <em>I've paid</em> button with their name already filled in.</li>
+      <li><span class="tag feat">new</span><strong>Scans that do the thinking:</strong> the category is guessed from the shop and what was bought (one-tap choices instead of typing), the same receipt can't sneak in twice, the scan tells you when it may count for tax relief, and you can split a scanned bill straight from the result.</li>
+      <li><span class="tag feat">new</span><strong>Every scanned receipt is kept for tax:</strong> each photo is stored encrypted on your phone with its spend, so a claim made later (or the e-Filing check) picks it up by itself. Deleting the spend deletes the photo. The Tax page has its own Scan button.</li>
+      <li><span class="tag fix">fix</span><strong>Card-paid receipts:</strong> a VISA, TNG, GrabPay or DuitNow line no longer reads as an item, so a correct total isn't flagged and a split doesn't grow a phantom dish. Switching Split &rarr; Request &rarr; Split keeps everyone; adding a late person no longer changes a dish someone had to themselves; cancelling a scan from a split keeps the split; a blank photo asks for the total instead of hanging.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-54-2">
     <span class="release-date">November 2026 &middot; v1.54.2</span>
     <h2 class="release-title">Scan receipt, steady again</h2>

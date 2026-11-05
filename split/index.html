@@ -195,6 +195,21 @@
   /* "Already paid?" — deliberately small: the page's job is still the app,
      this is the way back for someone who will never install it. */
   .paid-back { margin: 14px 0 0; text-align: center; }
+  .pick-items { list-style: none; margin: 14px 0 6px; padding: 0; }
+  .pick-items li { border-top: 0.5px solid var(--border); }
+  .pick-items label { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 0; cursor: pointer; font-size: 15px; }
+  .pick-items input { width: 22px; height: 22px; flex: none; accent-color: currentColor; }
+  .pick-items .k-name { flex: 1; min-width: 0; }
+  .pick-items .k-name small { display: block; font-size: 12.5px; opacity: 0.7; }
+  .pick-items .k-price { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pick-share { font-weight: 700; font-size: 17px; margin: 10px 0 16px; }
+  #pick-card label[for="k-name"] { display: block; font-size: 13px; color: var(--ink2); margin: 0 0 6px; }
+  #pick-card #k-name {
+    width: 100%; box-sizing: border-box; font: 16px var(--font-sans);
+    padding: 12px 14px; border-radius: 12px; border: 0.5px solid var(--border);
+    background: var(--card); color: var(--ink); margin: 0;
+  }
+  #pick-card .hint { font-size: 13px; color: var(--ink2); line-height: 1.5; }
   .linkish {
     background: none; border: 0; padding: 10px 6px; min-height: 44px; cursor: pointer;
     font: 600 14px var(--font-sans); color: var(--ink);
@@ -278,13 +293,10 @@
       <div id="r-pay-rows"></div>
     </div>
 
-    <div class="actions">
-      <button type="button" class="btn btn-primary" id="btn-have-app" data-t="haveApp">I have Duitful — add this request</button>
-      <a class="btn btn-ghost" href="/" data-t="getApp">Get Duitful — free, private, no sign-up</a>
-    </div>
-
+    <!-- Pay, then say so: the one thing almost everyone opening this link
+         came to do. The app buttons follow, smaller. -->
     <div class="paid-back">
-      <button type="button" class="linkish" id="btn-paid-open" aria-expanded="false" aria-controls="paid-form" data-t="alreadyPaid">Already paid? Let them know</button>
+      <button type="button" class="btn btn-primary" id="btn-paid-open" style="width:100%" aria-expanded="false" aria-controls="paid-form" data-t="alreadyPaid">I've paid</button>
       <div class="paid-form" id="paid-form" hidden>
         <label for="paid-name" data-t="yourName">Your name</label>
         <input type="text" id="paid-name" maxlength="40" autocomplete="name" placeholder="So they know who paid" data-t-placeholder="namePh" />
@@ -297,12 +309,31 @@
       </div>
     </div>
 
+    <div class="actions">
+      <button type="button" class="btn btn-ghost" id="btn-have-app" data-t="haveApp">I have Duitful — add this request</button>
+      <a class="btn btn-ghost" id="btn-get-app" href="/go/app/?utm_source=split&amp;utm_medium=en&amp;utm_content=friend" data-t="getApp">Get Duitful — free, private, no sign-up</a>
+    </div>
+
     <details>
       <summary data-t="codeSummary">Request code — for pasting into Duitful</summary>
       <div class="code" id="r-code"></div>
     </details>
 
     <p class="privacy" data-t-html="privacy">This request was decoded <strong>on your device</strong> — it lives in the link itself and was never sent to any server. Duitful is a private money tracker built in Malaysia; it never moves money. Pay through your own banking app.</p>
+  </div>
+
+  <div class="card" id="pick-card" hidden>
+    <p class="eyebrow" data-t="pickEyebrow">Tick what you had</p>
+    <p class="from" id="k-line"></p>
+    <p class="hint" data-t="pickHint">Tick everything you had.</p>
+    <ul class="pick-items" id="k-items"></ul>
+    <p class="pick-share" id="k-share" role="status" aria-live="polite"></p>
+    <label for="k-name" data-t="pickName">Your name</label>
+    <input type="text" id="k-name" maxlength="40" autocomplete="name" />
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="btn-pick-send" data-t="pickSend">That's mine</button>
+    </div>
+    <p class="hint" id="k-sent" hidden></p>
   </div>
 
   <div class="card" id="paid-card" hidden>
@@ -344,9 +375,14 @@
   if (LANG !== "en" && LANG !== "ms") LANG = /^ms|^id/i.test(navigator.language || "") ? "ms" : "en";
   var STR = {
     en: {
+      pickEyebrow: "Tick what you had", pickLine: "{name} paid for {title} · RM {amt}", pickName: "Your name",
+      pickHint: "Tick everything you had. Shared dishes split between everyone who ticks them.", pickShare: "Your share so far: about RM {x}",
+      pickSend: "That's mine", pickSent: "Sent. {name} will send your share when everyone's ticked. You can change your ticks until then.",
+      pickAlso: "also", pickPayer: "payer", pickNone: "Tick at least one item", pickClosed: "This bill is closed", pickClosedB: "{name} has already sent everyone's share. Ask them if yours is missing.",
+      pickNeedsBox: "This bill couldn't be loaded", pickNeedsBoxB: "Ticking needs the bill's mailbox, and it couldn't be reached. Check your connection and open the link again.",
       eyebrow: "Payment request", isRequesting: "is requesting", gotRequest: "You've got a payment request",
       transferTo: "Transfer to", haveApp: "I have Duitful — add this request", getApp: "Get Duitful — free, private, no sign-up",
-      alreadyPaid: "Already paid? Let them know", yourName: "Your name", namePh: "So they know who paid",
+      alreadyPaid: "I\u2019ve paid", yourName: "Your name", namePh: "So they know who paid",
       sendPaid: "Send “I’ve paid”", sendHint: "Sends a link back through WhatsApp or any app. It says you paid — it doesn't move money.",
       codeSummary: "Request code — for pasting into Duitful",
       privacy: "This request was decoded <strong>on your device</strong> — it lives in the link itself and was never sent to any server. Duitful is a private money tracker built in Malaysia; it never moves money. Pay through your own banking app.",
@@ -369,9 +405,14 @@
       relayPrivacy: "This request was decoded <strong>on your device</strong>. Who has paid is kept in an encrypted mailbox that only people with this link can open — Duitful can't read it, and it's deleted after 60 days. Duitful never moves money. Pay through your own banking app.",
     },
     ms: {
+      pickEyebrow: "Tanda apa yang anda makan", pickLine: "{name} bayar {title} · RM {amt}", pickName: "Nama anda",
+      pickHint: "Tanda semua yang anda ambil. Hidangan kongsi dibahagi antara semua yang menandanya.", pickShare: "Bahagian anda setakat ini: lebih kurang RM {x}",
+      pickSend: "Ini saya punya", pickSent: "Dihantar. {name} akan hantar bahagian anda bila semua orang dah tanda. Anda boleh ubah tanda sehingga itu.",
+      pickAlso: "juga", pickPayer: "pembayar", pickNone: "Tanda sekurang-kurangnya satu item", pickClosed: "Bil ini dah ditutup", pickClosedB: "{name} dah hantar bahagian semua orang. Tanya mereka jika bahagian anda tiada.",
+      pickNeedsBox: "Bil ini tidak dapat dimuatkan", pickNeedsBoxB: "Menanda perlukan peti mel bil ini, dan ia tidak dapat dicapai. Semak sambungan anda dan buka pautan semula.",
       eyebrow: "Permintaan bayaran", isRequesting: "minta bayaran", gotRequest: "Ada permintaan bayaran untuk anda",
       transferTo: "Pindahkan ke", haveApp: "Saya ada Duitful — tambah permintaan ini", getApp: "Dapatkan Duitful — percuma, peribadi, tanpa daftar",
-      alreadyPaid: "Dah bayar? Beritahu mereka", yourName: "Nama anda", namePh: "Supaya mereka tahu siapa yang bayar",
+      alreadyPaid: "Saya dah bayar", yourName: "Nama anda", namePh: "Supaya mereka tahu siapa yang bayar",
       sendPaid: "Hantar “Saya dah bayar”", sendHint: "Hantar pautan balik melalui WhatsApp atau mana-mana aplikasi. Ia cuma memberitahu anda dah bayar — ia tidak memindahkan wang.",
       codeSummary: "Kod permintaan — untuk ditampal dalam Duitful",
       privacy: "Permintaan ini dibaca <strong>pada peranti anda</strong> — ia ada dalam pautan itu sendiri dan tidak pernah dihantar ke mana-mana pelayan. Duitful ialah penjejak wang peribadi buatan Malaysia; ia tidak memindahkan wang. Bayar melalui aplikasi bank anda sendiri.",
@@ -396,6 +437,14 @@
   };
   function T(k) { return (STR[LANG] && STR[LANG][k]) || STR.en[k] || ""; }
   document.documentElement.lang = LANG;
+  // Counted like every other CTA (/go/ records one view, then forwards):
+  // Android goes to Play, everything else to the web app.
+  (function () {
+    var ga = document.getElementById("btn-get-app");
+    if (!ga) return;
+    var android = /Android/i.test(navigator.userAgent || "");
+    ga.href = (android ? "/go/play/" : "/go/app/") + "?utm_source=split&utm_medium=" + LANG + "&utm_content=friend";
+  })();
   document.title = T("title");
   [].forEach.call(document.querySelectorAll("[data-t]"), function (el) { el.textContent = T(el.dataset.t); });
   [].forEach.call(document.querySelectorAll("[data-t-html]"), function (el) { el.innerHTML = T(el.dataset.tHtml); });
@@ -466,8 +515,8 @@
     var all = String(text), cut = all.lastIndexOf("\u001f");
     if (cut < 0 || check(all.slice(0, cut)) !== all.slice(cut + 1)) return null;
     var f = all.slice(0, cut).split("\u001f");
-    if (f.length < 6 || (f[0] !== "r" && f[0] !== "p")) return null;
-    var o = { v: 2, t: f[0] === "p" ? "paid" : "req", id: f[1], ti: f[2], d: dayUnpack(f[3]), a: parseInt(f[4], 36) / 100 };
+    if (f.length < 6 || (f[0] !== "r" && f[0] !== "p" && f[0] !== "k")) return null;
+    var o = { v: 2, t: f[0] === "p" ? "paid" : f[0] === "k" ? "pick" : "req", id: f[1], ti: f[2], d: dayUnpack(f[3]), a: parseInt(f[4], 36) / 100 };
     if (f[5]) o.fr = f[5];
     if (f[6]) o.dd = dayUnpack(f[6]);
     if (f[7]) o.n = f[7];
@@ -493,7 +542,7 @@
     if (m[1] === "1" && !m[2]) bytes = await inflate(bytes);
     var text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     req = m[1] === "2" ? unpack(text) : JSON.parse(text);
-    if (!req || (req.t !== "req" && req.t !== "paid") || !Number.isFinite(Number(req.a))) throw new Error("shape");
+    if (!req || (req.t !== "req" && req.t !== "paid" && req.t !== "pick") || !Number.isFinite(Number(req.a))) throw new Error("shape");
   } catch (e) {
     fallback(T("damagedT"), T("damagedB"));
     return;
@@ -523,6 +572,150 @@
       location.href = "/app/";
     });
     return;
+  }
+
+  // Tick what you had: one link for the whole table. The receipt's items and
+  // everyone's ticks live in the bill's encrypted mailbox; this page adds its
+  // own ticks as an event (the same rail "I've paid" uses). Once the payer
+  // closes it, the box carries each person's line, keyed by the random key
+  // this page ticked with, and the page becomes that person's request.
+  if (req.t === "pick") {
+    var pickSender = String(req.fr || "") || T("someone");
+    if (!relay) { fallback(T("pickNeedsBox"), T("pickNeedsBoxB")); return; }
+    var pbox = null, pevents = [];
+    try {
+      var pres = await fetch("/api/relay/?op=get&id=" + relay.id, { cache: "no-store" });
+      if (pres.ok) {
+        var pj = await pres.json();
+        pbox = pj && pj.box ? await relayOpen("box", pj.box) : null;
+        pevents = pj && Array.isArray(pj.events) ? pj.events : [];
+      }
+    } catch (e) {}
+    if (!pbox || !pbox.pk || !Array.isArray(pbox.pk.it)) { fallback(T("pickNeedsBox"), T("pickNeedsBoxB")); return; }
+    var pk = pbox.pk;
+    // Ticks sent since the payer's app last looked are already in the
+    // mailbox as events; read them here too, so the table shows who has
+    // ticked what without waiting for the payer to open Duitful.
+    if (!pk.dn) {
+      var byKey = {};
+      (Array.isArray(pk.by) ? pk.by : []).forEach(function (b) { if (b && b.k) byKey[b.k] = { k: b.k, n: b.n, it: b.it || [], at: 0 }; });
+      for (var ei = 0; ei < pevents.length; ei++) {
+        var ev = await relayOpen("event", pevents[ei]);
+        if (!ev || ev.t !== "pick" || typeof ev.k !== "string" || !Array.isArray(ev.it)) continue;
+        var at = Number(ev.at) || 0;
+        var prev = byKey[ev.k];
+        if (prev && prev.at > at) continue;
+        byKey[ev.k] = { k: ev.k, n: String(ev.fr || "").slice(0, 40), it: ev.it.map(Number), at: at };
+      }
+      pk.by = Object.keys(byKey).map(function (k) { return byKey[k]; }).filter(function (b) { return b.it.length; });
+    }
+    var keyName = "duitful.pickKey." + req.id;
+    var myKey = "";
+    try { myKey = localStorage.getItem(keyName) || ""; } catch (e) {}
+    if (!/^[A-Za-z0-9_-]{6,24}$/.test(myKey)) {
+      myKey = bytesToB64url(crypto.getRandomValues(new Uint8Array(9)));
+      try { localStorage.setItem(keyName, myKey); } catch (e) {}
+    }
+    if (pk.dn) {
+      var mine = (Array.isArray(pbox.p) ? pbox.p : []).filter(function (x) { return x.pk === myKey; })[0];
+      if (!mine) { fallback(T("pickClosed"), fill(T("pickClosedB"), { name: pickSender })); return; }
+      // From here it is an ordinary request for this person's share.
+      req = { v: 2, t: "req", id: mine.id, ti: req.ti, d: req.d, a: Math.max(0, Number(mine.a) - Number(mine.pd || 0)), fr: req.fr, pay: req.pay, n: mine.nt || "" };
+      fmtAmount = Number(req.a).toLocaleString("en-MY", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      try { localStorage.setItem("duitful.payerName", String(mine.n || "")); } catch (e) {}
+    } else {
+      renderPick(pk, pickSender, myKey);
+      return;
+    }
+  }
+
+  function renderPick(pk, pickSender, myKey) {
+    var card = document.getElementById("pick-card");
+    document.getElementById("k-line").textContent = fill(T("pickLine"), { name: pickSender, title: String(req.ti || T("theBill")), amt: fmtAmount });
+    var others = (Array.isArray(pk.by) ? pk.by : []).filter(function (b) { return b && b.k !== myKey; });
+    var me = (Array.isArray(pk.by) ? pk.by : []).filter(function (b) { return b && b.k === myKey; })[0] || null;
+    var payerMine = Array.isArray(pk.me) ? pk.me : [];
+    var nameEl = document.getElementById("k-name");
+    try { nameEl.value = (me && me.n) || localStorage.getItem("duitful.payerName") || ""; } catch (e) { nameEl.value = (me && me.n) || ""; }
+    var list = document.getElementById("k-items");
+    list.innerHTML = "";
+    var picked = {};
+    (me && Array.isArray(me.it) ? me.it : []).forEach(function (i) { picked[i] = true; });
+    pk.it.forEach(function (it, i) {
+      var li = document.createElement("li");
+      var label = document.createElement("label");
+      var box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = !!picked[i];
+      box.dataset.i = i;
+      var name = document.createElement("span");
+      name.className = "k-name";
+      name.textContent = String(it.n || "Item");
+      var who = others.filter(function (b) { return Array.isArray(b.it) && b.it.indexOf(i) >= 0; }).map(function (b) { return String(b.n || ""); });
+      if (payerMine.indexOf(i) >= 0) who.unshift(pickSender + " (" + T("pickPayer") + ")");
+      if (who.length) {
+        var small = document.createElement("small");
+        small.textContent = T("pickAlso") + ": " + who.join(", ");
+        name.appendChild(small);
+      }
+      var price = document.createElement("span");
+      price.className = "k-price";
+      price.textContent = "RM " + money(it.p);
+      label.appendChild(box); label.appendChild(name); label.appendChild(price);
+      li.appendChild(label);
+      list.appendChild(li);
+    });
+    // The running share, worked out the way the payer's app will: each item
+    // split between everyone who ticked it, the charges equally (or in
+    // proportion to items). The payer's own sum is the final word.
+    function share() {
+      var mineIdx = [].map.call(list.querySelectorAll("input:checked"), function (b) { return Number(b.dataset.i); });
+      var people = 1 + others.length + 1; // payer + others + me
+      var myItems = 0, all = [];
+      for (var p = 0; p < people; p++) all.push(0);
+      pk.it.forEach(function (it, i) {
+        var seats = [];
+        if (payerMine.indexOf(i) >= 0) seats.push(0);
+        others.forEach(function (b, j) { if (Array.isArray(b.it) && b.it.indexOf(i) >= 0) seats.push(1 + j); });
+        if (mineIdx.indexOf(i) >= 0) seats.push(people - 1);
+        if (!seats.length) seats.push(0);
+        seats.forEach(function (sx) { all[sx] += Number(it.p) / seats.length; });
+      });
+      myItems = all[people - 1];
+      var ch = Number(pk.ch) || 0;
+      var sumItems = all.reduce(function (a, b) { return a + b; }, 0);
+      var myCh = pk.cm === "proportional" ? (sumItems > 0 ? ch * myItems / sumItems : 0) : ch / people;
+      return { x: myItems + myCh, n: mineIdx.length, idx: mineIdx };
+    }
+    var shareEl = document.getElementById("k-share");
+    function update() { var r = share(); shareEl.textContent = fill(T("pickShare"), { x: money(r.x) }); }
+    list.addEventListener("change", update);
+    update();
+    if (me) document.getElementById("k-sent").textContent = fill(T("pickSent"), { name: pickSender });
+    document.getElementById("k-sent").hidden = !me;
+    document.getElementById("btn-pick-send").addEventListener("click", async function () {
+      var r = share();
+      var nm = nameEl.value.trim().slice(0, 40);
+      if (!nm) { nameEl.focus(); document.getElementById("live").textContent = T("nameFirst"); return; }
+      if (!r.n) { document.getElementById("live").textContent = T("pickNone"); shareEl.textContent = T("pickNone"); return; }
+      try { localStorage.setItem("duitful.payerName", nm); } catch (e) {}
+      var btn = this;
+      btn.disabled = true;
+      try {
+        var ev = await relaySeal("event", { t: "pick", e: bytesToB64url(crypto.getRandomValues(new Uint8Array(9))), k: myKey, fr: nm, it: r.idx, at: Date.now() });
+        var resp = await fetch("/api/relay/?op=event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: relay.id, event: ev }) });
+        if (!resp.ok) throw new Error("relay " + resp.status);
+        var sent = document.getElementById("k-sent");
+        sent.textContent = fill(T("pickSent"), { name: pickSender });
+        sent.hidden = false;
+        document.getElementById("live").textContent = sent.textContent;
+      } catch (e) {
+        document.getElementById("live").textContent = T("pickNeedsBoxB");
+        shareEl.textContent = T("pickNeedsBoxB");
+      } finally { btn.disabled = false; }
+    });
+    card.hidden = false;
+    reqCard.hidden = true;
   }
 
   // No sender name set: say what this is rather than "Someone is requesting".
@@ -638,6 +831,11 @@
       var who = document.createElement("span");
       who.className = "who";
       who.textContent = String(x.n || "");
+      if (x.id === req.id) {
+        // The sender already named this line; no need to ask for it again.
+        var nm = document.getElementById("paid-name");
+        if (nm && !nm.value && x.n) nm.value = String(x.n).slice(0, 40);
+      }
       if (x.id === req.id) { var tag = document.createElement("span"); tag.className = "you-tag"; tag.textContent = T("you"); who.appendChild(tag); }
       if (x.nt) { var small = document.createElement("small"); small.textContent = String(x.nt); who.appendChild(small); }
       var amt = document.createElement("span");
@@ -741,7 +939,7 @@
   async function shareReceipt(name) {
     var paid = { v: 1, t: "paid", id: req.id, ti: req.ti, d: todayIso(), a: Number(req.a), fr: name };
     if (req.c && req.c !== "MYR") paid.c = req.c;
-    var link = location.origin + "/split#" + encodePaid(paid);
+    var link = location.origin + "/split/#" + encodePaid(paid);
     // Words first, link last — the same shape as the app's own messages.
     var text = T("paidText").replace("{name}", name).replace("{amt}", fmtAmount).replace("{title}", String(req.ti || T("theBill"))) + "\n" + T("receipt") + ": " + link;
     if (navigator.share) {

@@ -89,7 +89,13 @@ page.on('console', m => { if (m.type() === 'error' && !/Content Security Policy|
 
 const ok = [];
 const bad = [];
-const check = (name, cond, extra = '') => (cond ? ok : bad).push(`${name}${extra ? ' — ' + extra : ''}`);
+// E2E_LIVE=1 prints each failure as it happens, so a run that dies midway
+// still says which checks had already failed.
+const check = (name, cond, extra = '') => {
+  const line = `${name}${extra ? ' — ' + extra : ''}`;
+  (cond ? ok : bad).push(line);
+  if (!cond && process.env.E2E_LIVE) console.log(`  ✗ ${line}`);
+};
 
 await page.goto(`${BASE}/app/index.html`);
 await page.waitForTimeout(500);
@@ -1349,15 +1355,22 @@ check('"Next person" walks the rest of the bill',
   });
   await fp.goto(`${BASE}/split/#${reqCode}`);
   await fp.waitForTimeout(600);
-  const before = await fp.evaluate(() => ({ formHidden: document.getElementById('paid-form').hidden, primary: document.getElementById('btn-have-app').textContent }));
+  const before = await fp.evaluate(() => ({
+    formHidden: document.getElementById('paid-form').hidden,
+    paidPrimary: document.getElementById('btn-paid-open').classList.contains('btn-primary'),
+    paidFirst: !!(document.getElementById('btn-paid-open').compareDocumentPosition(document.getElementById('btn-have-app')) & Node.DOCUMENT_POSITION_FOLLOWING),
+    getApp: document.getElementById('btn-get-app').getAttribute('href'),
+  }));
   await fp.click('#btn-paid-open');
   await fp.fill('#paid-name', 'Ali');
   await fp.click('#btn-paid-send');
   await fp.waitForTimeout(400);
   const shared = await fp.evaluate(() => window.__shared || null);
   await fctxPaid.close();
-  check('the friend page keeps "I have Duitful" as the main button, "Already paid?" tucked under it',
-    before.formHidden && /I have Duitful/.test(before.primary), JSON.stringify(before));
+  check('the friend page leads with a big "I\'ve paid", the app buttons after it',
+    before.formHidden && before.paidPrimary && before.paidFirst, JSON.stringify(before));
+  check('"Get Duitful" on the friend page is a counted /go/ link tagged as coming from a split',
+    /^\/go\/(app|play)\/\?utm_source=split&utm_medium=(en|ms)&utm_content=friend$/.test(before.getApp), before.getApp);
   const code = shared && (/#(DFS\du?\.[A-Za-z0-9_-]+)/.exec(shared.text) || [])[1];
   check('"I\'ve paid" from the friend page shares a receipt link with their name and the amount',
     !!code && /^Ali paid RM 23\.50 for /.test(shared.text), JSON.stringify(shared));
@@ -2551,6 +2564,114 @@ check('confirming the handed-off receipt settles that person',
       && (kitDeps || []).some((d) => d.startsWith('androidx.work:work-runtime:')));
   }
 
+
+  // v1.55 tick what you had: one link, friends tick their own, Done sends
+  // each their exact share.
+  {
+    const start = await S(async () => {
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      state.split.relayOff = false;
+      state.split.me = 'Aydil';
+      const expBefore = state.dailyExpenses.length;
+      window.__pickShared = null;
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async (d) => { window.__pickShared = d; } });
+      splitOpenCompose({ mode: 'split', title: 'Mamak night' });
+      splitCompose.method = 'item';
+      splitCompose.items = [
+        { key: 'i1', name: 'Nasi goreng', price: 10, who: ['you'] },
+        { key: 'i2', name: 'Roti canai', price: 4, who: ['you'] },
+        { key: 'i3', name: 'Teh tarik jug', price: 12, who: ['you'] },
+        { key: 'i4', name: 'Maggi goreng', price: 8, who: ['you'] },
+      ];
+      splitCompose.charges = 3.4;
+      splitRenderCompose();
+      const offer = !!document.querySelector('#split-compose-body [data-action="split-pick-start"]');
+      const other = splitCompose.people[0].key;
+      splitCompose.items[0].who = ['you', other]; // not "only you": up for grabs
+      splitCompose.items[1].who = ['you', other];
+      splitCompose.items[2].who = ['you', other];
+      splitCompose.items[3].who = ['you'];       // the payer's own maggi
+      document.querySelector('#split-compose-body [data-action="split-pick-start"]').click();
+      await new Promise((r) => setTimeout(r, 400));
+      await splitRelaySync();
+      const rec = state.split.out[state.split.out.length - 1];
+      const link = window.__pickShared && (/(https:\/\/duitful\.app\/split#\S+)/.exec(window.__pickShared.text) || [])[1];
+      return { offer, recId: rec.id, pick: rec.pick, people: rec.people.length, total: rec.total,
+        logged: state.dailyExpenses.length - expBefore, link, card: !!document.querySelector(`.split-pick[data-id="${rec.id}"]`) };
+    });
+    check('tick what you had: the by-item composer offers "Let everyone tick their own"', start.offer, JSON.stringify(start));
+    check('tick what you had: one bill with the receipt\'s items, nobody yet, your maggi kept as yours, the full bill logged',
+      start.people === 0 && start.pick && start.pick.items.length === 4 && JSON.stringify(start.pick.mine) === '[3]'
+      && Math.abs(start.total - 37.4) < 0.01 && start.logged === 1 && start.card, JSON.stringify(start));
+    check('tick what you had: one link goes to the group chat', !!start.link, JSON.stringify(start.link));
+    const code = start.link ? start.link.slice(start.link.indexOf('#') + 1) : '';
+
+    // Two friends tick on their own phones.
+    const tick = async (name, labels) => {
+      const ctx = await b.newContext();
+      await ctx.route('**/api/relay/**', relayRoute);
+      const pg = await ctx.newPage();
+      await pg.goto(`${BASE}/split/#${code}`);
+      await pg.waitForTimeout(900);
+      const view = await pg.evaluate(() => ({
+        shown: !document.getElementById('pick-card').hidden,
+        items: [...document.querySelectorAll('#k-items li')].map((li) => li.textContent),
+      }));
+      for (const l of labels) await pg.locator('#k-items label', { hasText: l }).locator('input').check();
+      await pg.fill('#k-name', name);
+      const shareText = await pg.locator('#k-share').innerText();
+      await pg.click('#btn-pick-send');
+      await pg.waitForTimeout(600);
+      const sent = await pg.evaluate(() => !document.getElementById('k-sent').hidden);
+      return { ctx, pg, view, shareText, sent };
+    };
+    const ali = await tick('Ali', ['Nasi goreng', 'Teh tarik jug']);
+    check('tick what you had: the friend page lists the receipt to tick, with the payer\'s own item marked',
+      ali.view.shown && ali.view.items.length === 4 && /Maggi goreng.*Aydil \(payer\)/.test(ali.view.items[3]), JSON.stringify(ali.view));
+    check('tick what you had: ticking shows a running share and "That\'s mine" sends it',
+      /RM\s*[\d.]+/.test(ali.shareText) && ali.sent, JSON.stringify({ s: ali.shareText, sent: ali.sent }));
+    const mei = await tick('Mei', ['Roti canai', 'Teh tarik jug']);
+    check('tick what you had: the next friend sees who else ticked a shared item',
+      /Teh tarik jug.*also: Ali/.test(mei.view.items[2]), JSON.stringify(mei.view.items));
+
+    // The payer's app adds them up, then Done sends each their exact share.
+    const fin = await S(async (id) => {
+      await splitRelayPoll({ force: true });
+      const rec = state.split.out.find((r) => r.id === id);
+      const live = splitPickCompute(rec);
+      splitPickFinish(id);
+      await splitRelaySync();
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      return {
+        ticked: live.ticked,
+        people: rec.people.map((p) => ({ n: p.name, a: p.amount, pk: !!p.pk })),
+        yours: live.calc.people[0].amount, done: rec.pick.done,
+      };
+    }, start.recId);
+    // Items: Ali 10 + 6 = 16, Mei 4 + 6 = 10, you 8. Charges 3.40 equally over 3.
+    const ali2 = fin.people.find((p) => p.n === 'Ali');
+    const mei2 = fin.people.find((p) => p.n === 'Mei');
+    check('tick what you had: the payer sees both, and Done makes one request each, shared items halved, charges shared',
+      fin.ticked === 2 && fin.done && fin.people.length === 2 && ali2 && mei2
+      && Math.abs(ali2.a - 17.13) < 0.02 && Math.abs(mei2.a - 11.13) < 0.02 && Math.abs(fin.yours - 9.14) < 0.02
+      && Math.abs(ali2.a + mei2.a + fin.yours - 37.4) < 0.001 && ali2.pk && mei2.pk, JSON.stringify(fin));
+
+    // Ali reopens the same link: now it is his request, for his share.
+    await ali.pg.reload();
+    await ali.pg.waitForTimeout(900);
+    const after = await ali.pg.evaluate(() => ({
+      req: !document.getElementById('request-card').hidden,
+      pick: !document.getElementById('pick-card').hidden,
+      amount: document.getElementById('r-amount').textContent,
+      name: document.getElementById('paid-name').value,
+    }));
+    check('tick what you had: after Done the same link becomes the friend\'s own request, with their name ready',
+      after.req && !after.pick && after.amount === '17.13' && after.name === 'Ali', JSON.stringify(after));
+    await ali.ctx.close();
+    await mei.ctx.close();
+    await S((id) => { state.split.out = state.split.out.filter((r) => r.id !== id); save(); renderAll(); }, start.recId);
+  }
+
   // Link only: no mailbox, links exactly as before.
   const linkOnly = await S(async () => {
     document.querySelectorAll('dialog[open]').forEach((d) => d.close());
@@ -2771,6 +2892,79 @@ const linkedNoDup = await S(() => {
 check('a split from a spend you already logged never logs it twice',
   !linkedNoDup.toggle && linkedNoDup.added === 0 && linkedNoDup.linked && linkedNoDup.amt === 80,
   JSON.stringify(linkedNoDup));
+
+// v1.55: make scan + split just work (Phase 1 fixes).
+{
+  const p1 = await S(async () => {
+    const out = {};
+    // A card-paid receipt: the VISA line restates the total, it is not an item.
+    const card = splitParseReceiptItems('POPULAR BOOKSTORE\nNovel A 30.00\nAtlas B 74.90\nTOTAL 104.90\nVISA 104.90\nAPPROVAL CODE 0412\nTNG eWallet 0.00');
+    out.cardItems = card.items.map((i) => i.name + ':' + i.price);
+    // Split -> Request -> Split keeps everyone and the bill.
+    splitOpenCompose({ mode: 'split', title: 'Steamboat', total: 150 });
+    splitCompose.people = [{ key: 'a', name: 'Ali', amount: 0 }, { key: 'b', name: 'Mei', amount: 0 }, { key: 'c', name: 'Raju', amount: 0 }];
+    splitRenderCompose();
+    splitSetMode('request'); splitSetMode('split');
+    out.afterSwitch = { n: splitCompose.people.length, total: splitCompose.total, names: splitCompose.people.map((p) => p.name).join(',') };
+    // Equal split is automatic: 150 / 4 each, and a new total re-divides.
+    out.autoEach = splitCompose.people.map((p) => p.amount);
+    const totalEl = document.querySelector('#split-compose-body [name=total]');
+    totalEl.value = '200'; totalEl.dispatchEvent(new Event('input', { bubbles: true }));
+    out.autoAfterTotal = [...document.querySelectorAll('#split-compose-body [data-person-amount]')].map((e) => e.value);
+    // Typing a share by hand stops it.
+    const a0 = document.querySelector('#split-compose-body [data-person-amount]');
+    a0.value = '80'; a0.dispatchEvent(new Event('input', { bubbles: true }));
+    totalEl.value = '240'; totalEl.dispatchEvent(new Event('input', { bubbles: true }));
+    out.manualKept = document.querySelector('#split-compose-body [data-person-amount]').value;
+    document.getElementById('split-compose-dialog').close();
+    // A late joiner shares the shared dishes only.
+    splitOpenCompose({ mode: 'split', title: 'Lunch' });
+    splitCompose.method = 'item';
+    splitCompose.people = [{ key: 'a', name: 'Ali', amount: 0 }];
+    splitCompose.items = [{ key: 'i1', name: 'Nasi', price: 10, who: ['a'] }, { key: 'i2', name: 'Teh', price: 6, who: ['you', 'a'] }];
+    splitRenderCompose();
+    document.querySelector('#split-compose-body [data-action="split-person-add"]').click();
+    const newKey = splitCompose.people[1].key;
+    out.lateJoin = splitCompose.items.map((it) => it.who.includes(newKey));
+    document.getElementById('split-compose-dialog').close();
+    // Scanning from the composer leaves it open underneath.
+    const realScan = window.startReceiptScan;
+    window.startReceiptScan = () => {};
+    splitOpenCompose({ mode: 'split', title: 'Kept' });
+    splitStartScan();
+    out.composerStillOpen = document.getElementById('split-compose-dialog').open && splitCompose && splitCompose.title === 'Kept';
+    window.startReceiptScan = realScan;
+    window.scanApplyTarget = null;
+    document.getElementById('split-compose-dialog').close();
+    // A blank read says so and keeps Add off.
+    openScanDialog();
+    scanAmount.value = ''; scanOriginalAmount = null;
+    scanResult.hidden = false; scanApply.hidden = false;
+    await applyScanConversion();
+    out.blank = { status: scanStatus.textContent, disabled: scanApply.disabled };
+    closeScanDialog();
+    out.quota = ocrScansLeftText();
+    return out;
+  });
+  check('a card-paid receipt keeps its items and never books the VISA line as one',
+    JSON.stringify(p1.cardItems) === JSON.stringify(['Novel A:30', 'Atlas B:74.9']), JSON.stringify(p1.cardItems));
+  check('Split → Request → Split keeps all three people and the RM 150 bill',
+    p1.afterSwitch.n === 3 && p1.afterSwitch.total === 150 && p1.afterSwitch.names === 'Ali,Mei,Raju', JSON.stringify(p1.afterSwitch));
+  check('an equal split divides itself among everyone plus you (150 ÷ 4)',
+    p1.autoEach.every((a) => a === 37.5), JSON.stringify(p1.autoEach));
+  check('a new total re-divides the equal split on the spot',
+    p1.autoAfterTotal.every((v) => v === '50.00'), JSON.stringify(p1.autoAfterTotal));
+  check('a share typed by hand is never overwritten',
+    p1.manualKept === '80', p1.manualKept);
+  check('a late joiner shares the shared dishes, not one already narrowed to someone',
+    JSON.stringify(p1.lateJoin) === JSON.stringify([false, true]), JSON.stringify(p1.lateJoin));
+  check('scanning from the split composer leaves the bill open underneath',
+    p1.composerStillOpen === true);
+  check('a blank read asks for the total and keeps Add off',
+    /Couldn't find the total/.test(p1.blank.status) && p1.blank.disabled === true, JSON.stringify(p1.blank));
+  check('free users see how many scans are left; Pro and the trial see nothing',
+    typeof p1.quota === 'string', p1.quota);
+}
 
 /* ── 14. itemized split (Phase 2.5, v1.15.0) ────────────────────────────
    Tick who ate what. OCR is prefill, never oracle, so the parser is a pure
@@ -5589,7 +5783,7 @@ check('the vault is open before the quick-add checks',
     haveApp: document.getElementById('btn-have-app').textContent,
     pressed: document.querySelector('.lang [data-lang="ms"]').getAttribute('aria-pressed'),
     bg: getComputedStyle(document.body).backgroundColor,
-    btn: getComputedStyle(document.getElementById('btn-have-app')).backgroundColor,
+    btn: getComputedStyle(document.getElementById('btn-paid-open')).backgroundColor,
   }));
   await ms.close();
   check('the friend page speaks Bahasa Melayu when chosen', bm.lang === 'ms' && bm.eyebrow === 'Permintaan bayaran'
@@ -8273,6 +8467,35 @@ check('the brand catalogue makes no network calls at all',
   check('tax scan: claim saved with the scanned receipt',
     await S(() => !!taxState().claims.find(c => c.relief === 'sports' && c.receiptId)));
   check('tax: the stashed photo is spent after one submit', (await S(() => taxTakeScanReceipt())) === null);
+
+  // v1.55: every scanned receipt is kept for tax, even when nothing claims
+  // it today; a later claim picks it up, and deleting the spend drops it.
+  check('tax scan: the scanned gym receipt is kept in the vault against its spend',
+    await S(() => { const e = state.dailyExpenses.find((x) => x.note === 'Gym membership'); return !!(e && taxScanFor(e.id)); }));
+  await S(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    taxStashScanReceipt(new Blob([bytes], { type: 'image/png' }));
+  }, png.toString('base64'));
+  await addSpend('42', 'Groceries', 'Kedai Runcit Pak Ali');
+  await page.waitForTimeout(500);
+  const kept = await S(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const e = state.dailyExpenses.find((x) => x.note === 'Kedai Runcit Pak Ali');
+    const scan = e && taxScanFor(e.id);
+    const claim = coerceTaxClaim({ entryId: e.id, relief: 'lifestyle', amount: 42, date: e.date, note: e.note });
+    taxState().claims.push(claim);
+    const attached = await taxAttachScannedReceipts();
+    const c = taxState().claims.find((x) => x.entryId === e.id);
+    const out = { scan: !!scan, attached, receipt: !!(c && c.receiptId), separate: !!(c && scan && c.receiptId !== scan.id) };
+    taxState().claims = taxState().claims.filter((x) => x.entryId !== e.id);
+    removeDailyEntry(e.id);
+    out.forgotten = !taxScanFor(e.id);
+    save(); renderAll();
+    return out;
+  });
+  check('tax scan: a receipt scanned with no relief in sight is still kept, and a later claim attaches its own copy',
+    kept.scan && kept.attached === 1 && kept.receipt && kept.separate, JSON.stringify(kept));
+  check('tax scan: deleting the spend deletes its kept photo', kept.forgotten, JSON.stringify(kept));
 
   // 3) "Later" on a delta: no claim, and no second pop-up for the same spend.
   await addSpend('150', 'Health', 'Dental check-up');

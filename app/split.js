@@ -152,6 +152,42 @@ function coerceSplitPerson(raw) {
     status,
     settledDate: splitIsDate(p.settledDate) ? p.settledDate : "",
     repayments,
+    // Tick-what-you-had: the random key the friend's own page picked with,
+    // so their link finds their line once the payer closes the ticking.
+    pk: typeof p.pk === "string" && SPLIT_PICK_KEY_RX.test(p.pk) ? p.pk : "",
+  };
+}
+
+/* ---------- tick what you had (a bill friends split themselves) ----------
+   The payer scans the receipt and sends ONE link. Each friend opens it, picks
+   their name, ticks what they had, and their picks come back through the
+   bill's encrypted mailbox as events (the same append-only rail "I've paid"
+   uses, so the server learns nothing new). The payer's app adds them up live;
+   "Done" turns the picks into ordinary requests, one per person. Items nobody
+   ticks stay with the payer. */
+const SPLIT_PICK_KEY_RX = /^[A-Za-z0-9_-]{6,24}$/;
+const SPLIT_PICK_ITEMS_MAX = 60;
+function coerceSplitPick(raw) {
+  const r = raw && typeof raw === "object" ? raw : null;
+  if (!r) return null;
+  const items = (Array.isArray(r.items) ? r.items : []).slice(0, SPLIT_PICK_ITEMS_MAX)
+    .map((it) => ({ n: splitText(it && it.n, SPLIT_ITEM_NAME_MAX) || "Item", p: Math.max(0, splitRound2(splitNum(it && it.p))) }))
+    .filter((it) => it.p > 0);
+  const idx = (list) => [...new Set((Array.isArray(list) ? list : []).map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < items.length))];
+  const picks = {};
+  if (r.picks && typeof r.picks === "object") {
+    for (const [k, v] of Object.entries(r.picks)) {
+      if (!SPLIT_PICK_KEY_RX.test(k) || !v || typeof v !== "object") continue;
+      picks[k] = { n: splitText(v.n, SPLIT_NAME_MAX) || "Someone", it: idx(v.it), at: Math.max(0, Number(v.at) || 0) };
+    }
+  }
+  return {
+    items,
+    charges: Math.max(0, splitRound2(splitNum(r.charges))),
+    cm: r.cm === "proportional" ? "proportional" : "equal",
+    mine: idx(r.mine),
+    picks,
+    done: !!r.done,
   };
 }
 
@@ -182,6 +218,7 @@ function coerceSplitOut(raw) {
     // The bill's encrypted mailbox (see "the encrypted relay" below). Absent
     // on link-only bills and on everything made before the relay existed.
     relay: coerceSplitRelay(r.relay, { own: true }),
+    pick: coerceSplitPick(r.pick),
   };
 }
 
@@ -403,7 +440,7 @@ function splitDayUnpack(v) {
 function splitPack(obj) {
   const clean = (v) => String(v == null ? "" : v).replace(/[\u001e\u001f]/g, " ");
   const f = [
-    obj.t === "paid" ? "p" : "r",
+    obj.t === "paid" ? "p" : obj.t === "pick" ? "k" : "r",
     clean(obj.id),
     clean(obj.ti),
     splitDayPack(obj.d),
@@ -432,8 +469,8 @@ function splitUnpack(text) {
   const cut = all.lastIndexOf("\u001f");
   if (cut < 0 || splitCheck(all.slice(0, cut)) !== all.slice(cut + 1)) return null;
   const f = all.slice(0, cut).split("\u001f");
-  if (f.length < 6 || (f[0] !== "r" && f[0] !== "p")) return null;
-  const obj = { v: 2, t: f[0] === "p" ? "paid" : "req", id: f[1], ti: f[2], d: splitDayUnpack(f[3]), a: parseInt(f[4], 36) / 100 };
+  if (f.length < 6 || (f[0] !== "r" && f[0] !== "p" && f[0] !== "k")) return null;
+  const obj = { v: 2, t: f[0] === "p" ? "paid" : f[0] === "k" ? "pick" : "req", id: f[1], ti: f[2], d: splitDayUnpack(f[3]), a: parseInt(f[4], 36) / 100 };
   if (f[5]) obj.fr = f[5];
   if (f[6]) obj.dd = splitDayUnpack(f[6]);
   if (f[7]) obj.n = f[7];
@@ -450,7 +487,7 @@ async function splitEncodePayload(obj) {
 async function splitDecodePayload(raw) {
   const parts = splitRelayParse(String(raw == null ? "" : raw).trim());
   const obj = await splitDecodeBare(parts.code);
-  if (parts.relay && obj.t === "req") obj.relay = parts.relay;
+  if (parts.relay && (obj.t === "req" || obj.t === "pick")) obj.relay = parts.relay;
   return obj;
 }
 
@@ -479,7 +516,7 @@ async function splitDecodeBare(text) {
   // Two payload types travel on this rail: a request ("you owe me") and a
   // settlement receipt ("I've paid"). Both decode here; splitIngestCode
   // routes them, because what they DO on arrival is completely different.
-  if (obj.t !== "req" && obj.t !== "paid") throw splitPayloadError("damaged");
+  if (obj.t !== "req" && obj.t !== "paid" && obj.t !== "pick") throw splitPayloadError("damaged");
   if (!Number.isFinite(Number(obj.a))) throw splitPayloadError("damaged");
   if ((obj.c || "MYR") !== "MYR") throw splitPayloadError("currency");
   return obj;
@@ -495,6 +532,7 @@ const SPLIT_ERRORS = {
   "paid-unknown": "That receipt is for a request this device doesn't have. If you cancelled it, there's nothing left to settle.",
   "paid-mine": "That's a receipt for a request you received, not one you sent.",
   own: "That's your own request — you can't add it as one you owe.",
+  pick: "That link is a bill to tick what you had. Open it in your browser, tick your items, and your share comes back as a request.",
 };
 
 function splitErrorMessage(err) {
@@ -616,6 +654,8 @@ function splitShareText(rec, person, code, opts) {
 async function splitIngestCode(raw) {
   const obj = await splitDecodePayload(raw);
   if (obj.t === "paid") return splitIngestPaid(obj);
+  // A tick-what-you-had link is a page to open, not a request to add.
+  if (obj.t === "pick") throw splitPayloadError("pick");
   return splitIngestRequest(obj);
 }
 
@@ -1085,7 +1125,10 @@ async function splitCopyText(text) {
    out at double. \b alone is not enough there (it is a genuine word), which
    is why NET VALUE / EXCL lines are excluded outright below. */
 const SPLIT_CHARGE_RX = /\b(SERVICE\s*CHARGE|SERVICE|SST|GST|TAX|CUKAI|ROUNDING|PEMBUNDARAN|SRV|SVC)\b/i;
-const SPLIT_SUMMARY_RX = /\b(TOTAL|SUB[-\s]?TOTAL|CASH|CHANGE|TUNAI|JUMLAH|DISCOUNT|DISKAUN|BAKI|NETT?\s*VALUE|AMOUNT\s*DUE|BALANCE)\b/i;
+/* Tender lines ("VISA 104.90", "TNG eWallet 12.00") restate the total as the
+   way it was paid. Without them a card-paid receipt grew a phantom item the
+   size of the whole bill, and the scan flagged a correct total as wrong. */
+const SPLIT_SUMMARY_RX = /\b(TOTAL|SUB[-\s]?TOTAL|CASH|CHANGE|TUNAI|JUMLAH|DISCOUNT|DISKAUN|BAKI|NETT?\s*VALUE|AMOUNT\s*DUE|BALANCE|VISA|MASTER\s?CARD|AMEX|UNIONPAY|MYDEBIT|DEBIT\s*CARD|CREDIT\s*CARD|TNG|TOUCH\s*['’]?\s*N\s*GO|E-?WALLET|GRAB\s?PAY|SHOPEE\s?PAY|DUITNOW|QR\s*PAY|APPROVAL\s*CODE|APPR\s*CODE|TENDERED)\b/i;
 /* A restatement of the bill, not a charge on it. "NET VALUE (EXCLD TAX)" and
    "TOTAL BEFORE TAX" both name TAX while describing money that is already
    accounted for; adding either double-counts the whole receipt. */
@@ -1302,6 +1345,7 @@ function splitParseReceiptItems(rawText) {
   let statedTotal = 0;
   // A name line waiting for the price line beneath it (supermarket layout).
   let pendingName = null;
+  let afterTotal = false;
 
   for (const line of lines) {
     if (SPLIT_HEADER_RX.test(line) && !splitMoneyOnLine(line).length) {
@@ -1313,6 +1357,7 @@ function splitParseReceiptItems(rawText) {
       // Remember the grand total so charges can be sanity-checked against it.
       if (/\bTOTAL\b/i.test(line) && !/\bSUB[-\s]?TOTAL\b/i.test(line)) {
         for (const m of money) if (m.value > statedTotal) statedTotal = m.value;
+        if (money.length) afterTotal = true;
       }
       pendingName = null; drop(line, "summary line"); continue;
     }
@@ -1330,6 +1375,10 @@ function splitParseReceiptItems(rawText) {
     }
 
     if (SPLIT_DATEISH_RX.test(line)) { pendingName = null; drop(line, "looks like a date"); continue; }
+
+    // Below the grand total is how it was paid and what came back, never
+    // something that was eaten: a priced line there is not an item.
+    if (afterTotal && money.length) { pendingName = null; drop(line, "after the total"); continue; }
 
     if (!money.length) {
       // No price here. On a two-line supermarket receipt this is the item's
@@ -1614,10 +1663,23 @@ function splitComposeShare() {
 function splitSetMode(mode) {
   if (!splitCompose) return;
   splitComposeSync();
-  splitCompose.mode = mode;
-  // A request/loan is one person by definition — collapse rather than carry
-  // a half-filled crowd across the mode switch.
-  if (mode !== "split" && splitCompose.people.length > 1) splitCompose.people = [splitCompose.people[0]];
+  const c = splitCompose;
+  const from = c.mode;
+  if (from === mode) return;
+  // A request/loan is one person by definition. The split's crowd and bill
+  // total are parked rather than dropped, so Split → Request → Split comes
+  // back exactly as it was (it used to keep one person, and RM 150 came back
+  // as that person's RM 60).
+  if (from === "split") c.splitKeep = { people: c.people.map((p) => ({ ...p })), total: c.total, items: c.items };
+  c.mode = mode;
+  if (mode === "split" && c.splitKeep) {
+    c.people = c.splitKeep.people;
+    c.total = c.splitKeep.total;
+    c.items = c.splitKeep.items || c.items;
+    c.splitKeep = null;
+  } else if (mode !== "split" && c.people.length > 1) {
+    c.people = [c.people[0]];
+  }
   splitRenderCompose();
 }
 
@@ -1644,6 +1706,8 @@ function splitComposeSync() {
   const paidEl = body.querySelector("[name=logPaid]");
   if (paidEl) c.logPaid = paidEl.checked;
   if (body.querySelector("[name=category]")) c.category = splitText(val("[name=category]"), 40);
+  if (body.querySelector("[name=me]")) c.me = splitText(val("[name=me]"), SPLIT_NAME_MAX);
+  if (body.querySelector("[name=duitnow]")) c.duitnow = splitText(val("[name=duitnow]"), SPLIT_PAY_VALUE_MAX);
   // By item the total is DERIVED (items + charges) and the box on screen is
   // read-only, so it must never write back: a bill total prefilled from an
   // expense has to survive a look at the by-item tab and come back intact.
@@ -1740,10 +1804,28 @@ function splitPaidBlockHtml(c) {
       </label>`;
 }
 
+/* An equal split stays equal by itself: a changed total or one more person
+   re-divides the bill among everyone plus you, until a share is typed by
+   hand (then the shares are the user's). "Split equally" turns it back on.
+   It used to be a one-off button, so a bill saved with names and no tap
+   failed with "Every person needs an amount above zero". */
+function splitAutoEqualApply() {
+  const c = splitCompose;
+  if (!c || c.mode !== "split" || c.method === "item" || c.autoEqual === false) return;
+  const total = Number(c.total) || 0;
+  const n = c.people.length;
+  const each = total > 0 && n ? splitRound2(total / (n + 1)) : 0;
+  for (const p of c.people) p.amount = each;
+  document.querySelectorAll("#split-compose-body [data-person-amount]").forEach((el) => {
+    el.value = each ? each.toFixed(2) : "";
+  });
+}
+
 function splitRenderCompose() {
   const c = splitCompose;
   const body = document.getElementById("split-compose-body");
   if (!c || !body) return;
+  splitAutoEqualApply();
 
   document.querySelectorAll("#split-compose-dialog .split-mode-pills .pill").forEach((btn) => {
     const on = btn.dataset.splitMode === c.mode;
@@ -1858,6 +1940,43 @@ function splitRenderCompose() {
         <button type="button" class="primary" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
       </div>`;
   }
+  // Asked once, on the first bill: who's asking and where to pay. Every link
+  // after that carries both, so a friend never has to ask "pay to where?".
+  body.insertAdjacentHTML("afterbegin", splitMeBlockHtml(c));
+}
+
+function splitMeBlockHtml(c) {
+  const s = splitState();
+  if (splitText(s.me, SPLIT_NAME_MAX)) return "";
+  return `<div class="split-me-once">
+      <p class="hint">Once only: your name and where to pay you go on every link you send.</p>
+      <div class="grid-2">
+        <label class="field">
+          <span>Your name</span>
+          <input type="text" name="me" value="${escapeHtml(c.me || "")}" maxlength="${SPLIT_NAME_MAX}" placeholder="e.g. Aydil" autocomplete="given-name" />
+        </label>
+        <label class="field">
+          <span>DuitNow (optional)</span>
+          <input type="text" name="duitnow" value="${escapeHtml(c.duitnow || "")}" maxlength="${SPLIT_PAY_VALUE_MAX}" placeholder="012-3456789" inputmode="tel" />
+        </label>
+      </div>
+    </div>`;
+}
+
+// Keeps what the once-only block collected. A DuitNow number typed there
+// switches transfer details on: typing it is the opt-in.
+function splitSaveMeOnce(c) {
+  if (!c) return;
+  const s = splitState();
+  const me = splitText(c.me, SPLIT_NAME_MAX);
+  if (!me || splitText(s.me, SPLIT_NAME_MAX)) return;
+  s.me = me;
+  const duit = splitText(c.duitnow, SPLIT_PAY_VALUE_MAX);
+  if (duit && !coerceSplitPayRows(s.payTo).some((r) => r.value === duit)) {
+    s.payTo = coerceSplitPayRows([{ label: "DuitNow", value: duit }, ...coerceSplitPayRows(s.payTo)]);
+    s.payToEnabled = true;
+  }
+  if (typeof save === "function") save();
 }
 
 /* ---------- by-item composer UI ---------- */
@@ -2009,9 +2128,13 @@ function splitComposeItemBodyHtml(cur, listAttr) {
       </div>
       <div class="split-totals" id="split-item-totals">${splitItemTotalsHtml(calc)}</div>
       <p class="hint split-share-hint" id="split-compose-hint">${splitComposeHintHtml()}</p>
+      ${splitPickAvailable() && c.items.length ? `<div class="split-pick-offer">
+        <button type="button" class="primary" data-action="split-pick-start">Let everyone tick their own</button>
+        <p class="hint">One link for the group chat. Each person ticks what they had; their share comes back to you, and you send the requests when everyone's in.</p>
+      </div>` : ""}
       <div class="form-actions">
         <button type="button" class="ghost" data-action="split-compose-cancel">Cancel</button>
-        <button type="button" class="primary" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
+        <button type="button" class="${splitPickAvailable() && c.items.length ? "ghost" : "primary"}" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
       </div>`;
 }
 
@@ -2097,6 +2220,7 @@ function splitEqually() {
   if (!(total > 0) || n === 0) { splitRenderCompose(); return; }
   // Divided among the people PLUS you — "split equally" on a RM 94 dinner
   // with three friends is RM 23.50 each, not RM 31.33.
+  c.autoEqual = true;
   const each = splitRound2(total / (n + 1));
   for (const p of c.people) p.amount = each;
   splitRenderCompose();
@@ -2173,6 +2297,8 @@ function splitLogPaidBill(c, record) {
   };
   state.dailyExpenses.push(expense);
   record.expenseId = expense.id;
+  // A scanned bill keeps its photo for tax, like any other scanned spend.
+  if (c.photo && typeof taxKeepScanReceipt === "function") taxKeepScanReceipt(expense, c.photo);
   // Opened from the Home form: its amount is this bill now, so it must not
   // be submitted again as a second expense.
   if (c.fromForm) {
@@ -2186,6 +2312,7 @@ function splitComposeSave() {
   const c = splitCompose;
   if (!c) return;
   splitComposeSync();
+  splitSaveMeOnce(c);
   if (c.mode === "split" && c.method === "item") { splitComposeSaveItems(); return; }
   const people = c.people
     .map((p) => ({ name: splitText(p.name, SPLIT_NAME_MAX), amount: splitRound2(p.amount) }))
@@ -2261,12 +2388,13 @@ function splitStartScan() {
     return;
   }
   if (typeof startReceiptScan !== "function") return;
-  // Closing the composer clears splitCompose (its `close` handler), so stash
-  // what is typed — coming back from a scan must not wipe the people rows.
+  // The composer stays open under the scan. Closing it first meant a
+  // cancelled camera, a closed result or a failed read left nothing behind:
+  // the draft sat stashed with no way back to it. The stash stays as a
+  // backstop in case something closes the composer meanwhile.
   splitComposeSync();
   splitComposeStash = splitCompose;
   window.scanApplyTarget = "split";
-  splitCloseDialog(splitComposeDialogEl());
   startReceiptScan();
 }
 
@@ -2303,9 +2431,15 @@ function splitApplyScan(parsed) {
   if (p.vendor) c.title = splitText(p.vendor, SPLIT_TITLE_MAX);
   // The scanned photo rides along to the bill's mailbox when it's shared.
   if (p.photo) c.photo = p.photo;
-  const date = splitDateFromReceipt(p.raw);
+  if (p.category && !c.category) c.category = splitText(p.category, 40);
+  // The date as the user left it on the scan screen; the raw text only when
+  // none was passed (older callers).
+  const date = splitIsDate(p.date) ? p.date : splitDateFromReceipt(p.raw);
   if (date) c.date = date;
   if (c.mode !== "split") c.mode = "split";
+  // Read the lines either way: an equal split that switches to By item (to
+  // let everyone tick) gets the receipt's items without a second scan.
+  c.scanRaw = String(p.raw == null ? "" : p.raw).slice(0, 8000);
   // By item, the same scan fills the item rows instead of the total. Every
   // line lands editable and nothing is computed until the user has looked at
   // it — an OCR mis-read costs a correction, never a wrong request.
@@ -2512,26 +2646,16 @@ async function splitRenderRequestShare() {
          <input type="text" id="split-share-me" placeholder="e.g. Aydil" maxlength="${SPLIT_NAME_MAX}" />
        </label>`;
 
+  // The send button first; the QR, transfer details, photo and code under
+  // "More". Opening a share used to mean scrolling past all of it to find
+  // the one button everyone needs.
+  const payLabel = s.payTo.length
+    ? `How to pay me — edit (${s.payTo.length} row${s.payTo.length === 1 ? "" : "s"})`
+    // Without this the link tells them what they owe but not where to send it.
+    : "Add your DuitNow or bank, so they can pay from the link";
   body.innerHTML = `
     <p class="hint split-share-sub">${escapeHtml(subParts.join(" · "))}</p>
-    ${qrHtml
-      ? `<div class="split-qr-panel">${qrHtml}</div>
-         <p class="hint split-qr-note">${escapeHtml(person.name)} scans this with Duitful — or any camera, it opens the request page.</p>`
-      : `<p class="hint">This request is too long for a QR code — use the link or the code below.</p>`}
     ${nameField}
-    <div class="split-preview">
-      <p class="split-preview-label">What leaves your phone</p>
-      <p class="split-preview-body">${escapeHtml(previewParts.join(" · "))}</p>
-    </div>
-    <label class="field toggle-field">
-      <input type="checkbox" id="split-share-payto"${s.payToEnabled ? " checked" : ""} />
-      <span>Include my transfer details</span>
-    </label>
-    <button type="button" class="hint-link split-payto-link" data-action="split-payto-open">${s.payTo.length
-      ? `How to pay me — edit (${s.payTo.length} row${s.payTo.length === 1 ? "" : "s"})`
-      // Without this the link tells them what they owe but not where to send it.
-      : "Add your DuitNow or bank, so they can pay from the link"}</button>
-    ${photoRow}
     <div class="form-actions split-share-actions">
       ${splitShare.remind
         ? `<button type="button" class="primary" data-action="split-share-link">Send reminder</button>`
@@ -2541,8 +2665,27 @@ async function splitRenderRequestShare() {
         ? `<button type="button" class="primary" data-action="split-share-all">Send all ${people.length} in one message</button>
            <button type="button" class="ghost" data-action="split-share-link">Send ${escapeHtml(person.name)}'s only</button>`
         : `<button type="button" class="primary" data-action="split-share-link">Share link (WhatsApp, anything)</button>`}
+    </div>
+    <div class="split-preview">
+      <p class="split-preview-label">What leaves your phone</p>
+      <p class="split-preview-body">${escapeHtml(previewParts.join(" · "))}</p>
+    </div>
+    <details class="split-share-more"${payRows.length ? "" : " open"}>
+      <summary>QR code, transfer details${rec.relay ? ", receipt photo" : ""}</summary>
+      ${qrHtml
+        ? `<div class="split-qr-panel">${qrHtml}</div>
+           <p class="hint split-qr-note">${escapeHtml(person.name)} scans this with Duitful — or any camera, it opens the request page.</p>`
+        : `<p class="hint">This request is too long for a QR code — use the link or the code below.</p>`}
+      <label class="field toggle-field">
+        <input type="checkbox" id="split-share-payto"${s.payToEnabled ? " checked" : ""} />
+        <span>Include my transfer details</span>
+      </label>
+      <button type="button" class="hint-link split-payto-link" data-action="split-payto-open">${payLabel}</button>
+      ${photoRow}
+      <button type="button" class="ghost" data-action="split-copy-code">Copy code</button>
+    </details>
+    <div class="form-actions">
       <div class="button-row split-share-secondary">
-        <button type="button" class="ghost" data-action="split-copy-code">Copy code</button>
         ${people.length > 1 && !splitShare.remind ? `<button type="button" class="ghost" data-action="split-share-next">Next person →</button>` : ""}
         <button type="button" class="ghost" data-action="split-share-close">Done</button>
       </div>
@@ -2960,7 +3103,8 @@ function splitOutRowHtml(rec, person) {
       <div class="split-meta">${meta.map((m) => `<span>${m}</span>`).join("")}</div>
       ${claimHtml}
       <div class="split-actions">
-        <button type="button" class="ghost" data-action="split-panel" data-panel="repay" data-id="${person.id}">Record repayment</button>
+        <button type="button" class="ghost" data-action="split-mark-paid" data-id="${person.id}" aria-label="Mark ${escapeHtml(person.name)} as paid in full">Mark paid</button>
+        <button type="button" class="ghost" data-action="split-panel" data-panel="repay" data-id="${person.id}">Part</button>
         <button type="button" class="ghost" data-action="split-remind" data-id="${person.id}">Remind</button>
         <button type="button" class="ghost icon-btn split-cancel" data-action="split-cancel" data-id="${person.id}" aria-label="Cancel request from ${escapeHtml(person.name)}" title="Cancel this request">✕</button>
       </div>
@@ -3064,8 +3208,9 @@ function renderSplit() {
     const open = splitOpenPeople();
     splitNoticeSettledBills();
     const done = splitOutList().filter((r) => splitJustSettled.has(r.id));
-    owedCard.hidden = open.length === 0 && done.length === 0;
-    if (open.length || done.length) {
+    const picking = splitOutList().filter((r) => r.pick && !r.pick.done);
+    owedCard.hidden = open.length === 0 && done.length === 0 && picking.length === 0;
+    if (open.length || done.length || picking.length) {
       if (owedSub) owedSub.textContent = open.length ? fmtMoney(t.owedToYou) : "All paid";
       const sorted = open.slice().sort((a, b) => {
         const da = a.rec.dueDate ? splitDaysUntil(a.rec.dueDate) : 9999;
@@ -3075,7 +3220,7 @@ function renderSplit() {
       // A split of 2+ people is one bill: its rows sit together under a
       // "1 of 3 paid" bar, so settled people count instead of vanishing.
       // Requests and loans (one person) stay plain rows.
-      const html = [];
+      const html = picking.map(splitPickCardHtml);
       const seen = new Set();
       for (const x of sorted) {
         const rec = x.rec;
@@ -3161,12 +3306,15 @@ document.addEventListener("click", (e) => {
   } else if (action === "split-person-add") {
     splitComposeSync();
     if (splitCompose) {
+      const before = splitComposeKeys();
       const added = splitNewPerson();
       splitCompose.people.push(added);
-      // Someone who joins the table is on every dish until told otherwise —
-      // the same "default all ticked" rule a scanned item starts with.
+      // Someone who joins the table shares what the whole table shares. A
+      // dish already narrowed to one person stays theirs; adding the new
+      // name there used to halve it without a word.
       for (const it of splitCompose.items) {
-        if (Array.isArray(it.who) && !it.who.includes(added.key)) it.who.push(added.key);
+        if (!Array.isArray(it.who) || it.who.includes(added.key)) continue;
+        if (before.every((k) => it.who.includes(k))) it.who.push(added.key);
       }
     }
     splitRenderCompose();
@@ -3191,6 +3339,13 @@ document.addEventListener("click", (e) => {
     if (splitCompose) {
       splitComposeSync();
       splitCompose.method = btn.dataset.splitMethod === "item" ? "item" : "equal";
+      // Scanned while splitting equally: the receipt's lines become the items.
+      if (splitCompose.method === "item" && !splitCompose.items.length && splitCompose.scanRaw) {
+        const read = splitParseReceiptItems(splitCompose.scanRaw);
+        const keys = splitComposeKeys();
+        splitCompose.items = read.items.map((it) => ({ key: splitNewKey("i"), name: it.name, price: it.price, who: keys.slice() }));
+        if (read.items.length) splitCompose.charges = read.charges;
+      }
       splitRenderCompose();
     }
   } else if (action === "split-item-add") {
@@ -3300,6 +3455,20 @@ document.addEventListener("click", (e) => {
   } else if (action === "split-panel-close") {
     splitOpenPanel = null;
     renderSplit();
+  } else if (action === "split-pick-start") {
+    splitPickStart();
+  } else if (action === "split-pick-share") {
+    splitPickShare(id);
+  } else if (action === "split-pick-refresh") {
+    splitRelayPoll({ force: true }).then((n) => { if (typeof renderAll === "function") renderAll(); if (!n) toast("Up to date"); }).catch(() => toast("Couldn't reach the bill — check your connection"));
+  } else if (action === "split-pick-done") {
+    splitPickDone(id);
+  } else if (action === "split-mark-paid") {
+    // The common case in one tap: they paid what they owed, today.
+    const found = splitFindPerson(id);
+    const res = found ? splitRecordRepayment(id, splitPersonRemaining(found.person), todayISO()) : null;
+    if (typeof renderAll === "function") renderAll();
+    if (res) toast(`${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`);
   } else if (action === "split-repay-save") {
     const input = splitPanelInput(id, "repay");
     const dateEl = splitPanelInput(id, "repay-date");
@@ -3370,8 +3539,11 @@ document.querySelectorAll("#split-compose-dialog .split-mode-pills .pill").forEa
 });
 
 // Live hint only — a full re-render on every keystroke would steal focus.
-document.getElementById("split-compose-dialog")?.addEventListener("input", () => {
+document.getElementById("split-compose-dialog")?.addEventListener("input", (e) => {
   splitComposeSync();
+  // A share typed by hand ends the automatic equal split for this bill.
+  if (splitCompose && e.target instanceof Element && e.target.matches("[data-person-amount]")) splitCompose.autoEqual = false;
+  else splitAutoEqualApply();
   splitUpdateComposeHint();
 });
 
@@ -3626,7 +3798,20 @@ function splitRelayBox(rec) {
       pd: splitPersonPaid(p),
       st: p.status,
       nt: p.note || "",
+      ...(p.pk ? { pk: p.pk } : {}),
     })),
+    // The receipt to tick, and who has ticked what so far, so every friend's
+    // page shows the shared dishes and its running share.
+    ...(rec.pick ? {
+      pk: {
+        it: rec.pick.items,
+        ch: rec.pick.charges,
+        cm: rec.pick.cm,
+        me: rec.pick.mine,
+        by: Object.entries(rec.pick.picks).map(([k, v]) => ({ k, n: v.n, it: v.it })),
+        dn: rec.pick.done,
+      },
+    } : {}),
   };
 }
 
@@ -3690,9 +3875,10 @@ let splitRelayLastPoll = 0;
 async function splitRelayPoll({ force = false } = {}) {
   if (!force && Date.now() - splitRelayLastPoll < SPLIT_RELAY_POLL_MS) return 0;
   splitRelayLastPoll = Date.now();
-  const recs = splitRelayOwned().filter((r) => r.people.some((p) => p.status === "open"));
+  const recs = splitRelayOwned().filter((r) => r.people.some((p) => p.status === "open") || (r.pick && !r.pick.done));
   let fresh = null;
   let changed = false;
+  let picked = false;
   for (const rec of recs) {
     let res;
     try { res = await splitRelayFetch("get", { id: rec.relay.id }); } catch { return 0; }
@@ -3700,6 +3886,12 @@ async function splitRelayPoll({ force = false } = {}) {
     if (!res.ok || !res.json) { if (res.status === 503) return 0; continue; }
     for (const ev of Array.isArray(res.json.events) ? res.json.events : []) {
       const o = await splitRelayOpen(rec.relay, "event", ev);
+      if (o && o.t === "pick" && rec.pick && !rec.pick.done && typeof o.e === "string" && !rec.relay.seen.includes(o.e)) {
+        rec.relay.seen.push(o.e);
+        rec.relay.seen = rec.relay.seen.slice(-SPLIT_RELAY_SEEN_CAP);
+        if (splitPickApply(rec, o)) { changed = true; picked = true; }
+        continue;
+      }
       if (!o || o.t !== "paid" || typeof o.e !== "string" || rec.relay.seen.includes(o.e)) continue;
       rec.relay.seen.push(o.e);
       rec.relay.seen = rec.relay.seen.slice(-SPLIT_RELAY_SEEN_CAP);
@@ -3718,6 +3910,8 @@ async function splitRelayPoll({ force = false } = {}) {
     save();
     if (typeof renderAll === "function") renderAll();
   }
+  // New ticks go back out in the box, so the next friend sees them.
+  if (picked) splitRelaySyncSoon(0);
   if (fresh && !document.querySelector("dialog[open]")) splitRelayReviewClaim(fresh);
   return fresh ? 1 : 0;
 }
@@ -3898,3 +4092,177 @@ document.addEventListener("change", (e) => {
   if (cat) cat.hidden = !e.target.checked;
   if (typeof splitUpdateComposeHint === "function") splitUpdateComposeHint();
 });
+
+/* ---------- tick what you had: the payer's side ---------- */
+
+// One friend's ticks, from their event. Their latest submission wins; an
+// empty list takes them back out (they opened the wrong bill).
+function splitPickApply(rec, o) {
+  const pick = rec.pick;
+  if (!pick || pick.done) return false;
+  const k = typeof o.k === "string" && SPLIT_PICK_KEY_RX.test(o.k) ? o.k : "";
+  if (!k) return false;
+  const at = Math.max(0, Number(o.at) || Date.now());
+  const prev = pick.picks[k];
+  if (prev && prev.at > at) return false;
+  const it = [...new Set((Array.isArray(o.it) ? o.it : []).map(Number)
+    .filter((i) => Number.isInteger(i) && i >= 0 && i < pick.items.length))];
+  if (!it.length) { delete pick.picks[k]; return true; }
+  pick.picks[k] = { n: splitText(o.fr, SPLIT_NAME_MAX) || "Someone", it, at };
+  return true;
+}
+
+// The live split: everyone who has ticked, plus you. Unclaimed items fall
+// to you (splitComputeItems gives an untouched item to the first person),
+// or, with `shareUnclaimed`, are shared by everyone at the table.
+function splitPickCompute(rec, { shareUnclaimed = false } = {}) {
+  const pick = rec.pick;
+  const entries = Object.entries(pick ? pick.picks : {});
+  const people = [{ key: SPLIT_YOU_KEY, name: "You" }, ...entries.map(([k, v]) => ({ key: k, name: v.n }))];
+  const all = people.map((p) => p.key);
+  const unclaimed = [];
+  const items = (pick ? pick.items : []).map((it, i) => {
+    let who = entries.filter(([, v]) => v.it.includes(i)).map(([k]) => k);
+    if (pick.mine.includes(i)) who.unshift(SPLIT_YOU_KEY);
+    if (!who.length) { unclaimed.push(i); if (shareUnclaimed) who = all.slice(); }
+    return { name: it.n, price: it.p, who };
+  });
+  const calc = splitComputeItems({ people, items, charges: pick ? pick.charges : 0, chargesMode: pick ? pick.cm : "equal" });
+  return { calc, unclaimed, ticked: entries.length };
+}
+
+function splitPickAvailable() {
+  return !splitState().relayOff && !!(globalThis.crypto && crypto.subtle);
+}
+
+// From the by-item composer: the items become the bill, one link goes out.
+function splitPickStart() {
+  const c = splitCompose;
+  if (!c) return;
+  splitComposeSync();
+  splitSaveMeOnce(c);
+  const items = (c.items || []).filter((it) => Number(it.price) > 0)
+    .map((it) => ({ n: splitText(it.name, SPLIT_ITEM_NAME_MAX) || "Item", p: splitRound2(it.price) }));
+  if (!items.length) { toast("Add the items first (or scan the receipt), then send it for ticking."); return; }
+  if (!splitPickAvailable()) { toast("Ticking needs split tracking on (Settings → Preferences)."); return; }
+  // What you ticked only for yourself stays yours; the rest is up for grabs.
+  const mine = (c.items || []).map((it, i) => (Array.isArray(it.who) && it.who.length === 1 && it.who[0] === SPLIT_YOU_KEY ? i : -1)).filter((i) => i >= 0);
+  const total = splitRound2(items.reduce((sum, it) => sum + it.p, 0) + (Number(c.charges) || 0));
+  const record = coerceSplitOut({
+    id: uid(),
+    kind: "split",
+    title: c.title || "Bill",
+    date: c.date,
+    note: c.note,
+    total,
+    expenseId: c.expenseId,
+    people: [],
+    pick: { items, charges: c.charges || 0, cm: c.chargesMode, mine, picks: {}, done: false },
+  });
+  splitOutList().push(record);
+  splitLogPaidBill(c, record);
+  if (c.photo) splitRelayPendingPhoto.set(record.id, c.photo);
+  splitRelayEnsure(record);
+  save();
+  splitCloseDialog(splitComposeDialogEl());
+  splitCompose = null;
+  if (typeof renderAll === "function") renderAll();
+  splitRelaySyncSoon(0);
+  splitPickShare(record.id);
+}
+
+async function splitPickCode(rec) {
+  const s = splitState();
+  const payload = { v: SPLIT_VERSION, t: "pick", id: rec.id, ti: rec.title, d: rec.date, a: rec.total };
+  const me = splitText(s.me, SPLIT_NAME_MAX);
+  if (me) payload.fr = me;
+  if (s.payToEnabled) {
+    const rows = coerceSplitPayRows(s.payTo);
+    if (rows.length) payload.pay = rows.map((r) => [r.label, r.value]);
+  }
+  const code = await splitEncodePayload(payload);
+  const relay = splitRelayEnsure(rec);
+  return relay ? `${code}${SPLIT_RELAY_SEP}${relay.id}${relay.key}` : code;
+}
+
+async function splitPickShare(recId) {
+  const rec = splitOutList().find((r) => r.id === recId);
+  if (!rec || !rec.pick) return;
+  splitRelayFlushPhoto(rec);
+  const link = splitShareLink(await splitPickCode(rec));
+  const me = splitText(splitState().me, SPLIT_NAME_MAX);
+  const text = `${me ? `${me} paid for ` : ""}${rec.title} (${fmtMoney(rec.total)}). Tick what you had and your share works itself out:\n${link}`;
+  if (navigator.share) {
+    try { await navigator.share({ title: `Tick what you had: ${rec.title}`, text }); return; }
+    catch (err) { if (err && err.name === "AbortError") return; }
+  }
+  const ok = await splitCopyText(text);
+  toast(ok ? "Link copied — paste it in the group chat" : "Couldn't copy the link");
+}
+
+// "Done": every ticker becomes an ordinary request for exactly their share.
+function splitPickFinish(recId, { shareUnclaimed = false } = {}) {
+  const rec = splitOutList().find((r) => r.id === recId);
+  if (!rec || !rec.pick || rec.pick.done) return null;
+  const { calc } = splitPickCompute(rec, { shareUnclaimed });
+  const owing = calc.people.slice(1).filter((p) => p.amount > 0);
+  if (!owing.length) { toast("Nobody has ticked anything yet."); return null; }
+  rec.people = owing.map((p) => coerceSplitPerson({
+    id: splitShortId(),
+    name: p.name,
+    amount: p.amount,
+    note: p.note,
+    status: "open",
+    repayments: [],
+    pk: p.key,
+  }));
+  rec.pick.done = true;
+  for (const p of rec.people) splitRememberName(p.name);
+  save();
+  if (typeof renderAll === "function") renderAll();
+  // The box now carries everyone's line; each friend's page finds theirs by
+  // the key it ticked with and turns into a normal "pay me" page.
+  splitRelaySyncSoon(0);
+  toast(`${owing.length} request${owing.length === 1 ? "" : "s"} ready · your share ${fmtMoney(calc.people[0].amount)}`);
+  return rec;
+}
+
+function splitPickCardHtml(rec) {
+  const { calc, unclaimed, ticked } = splitPickCompute(rec);
+  const claimed = splitRound2(calc.people.slice(1).reduce((sum, p) => sum + p.amount, 0));
+  const unclaimedSum = splitRound2(unclaimed.reduce((sum, i) => sum + rec.pick.items[i].p, 0));
+  const rows = calc.people.slice(1).map((p) =>
+    `<li><span>${escapeHtml(p.name)}</span><span>${escapeHtml(fmtMoney(p.amount))}</span></li>`).join("");
+  return `
+    <div class="split-bill split-pick" data-id="${rec.id}">
+      <div class="top-row">
+        <span class="split-name">${escapeHtml(rec.title)}</span>
+        <span class="split-amount">${escapeHtml(fmtMoney(rec.total))}</span>
+      </div>
+      <p class="hint">${ticked
+        ? `${ticked} ${ticked === 1 ? "person has" : "people have"} ticked · ${escapeHtml(fmtMoney(claimed))} claimed`
+        : "Waiting for ticks — send the link to the group"}${unclaimed.length ? ` · ${unclaimed.length} item${unclaimed.length === 1 ? "" : "s"} unclaimed (${escapeHtml(fmtMoney(unclaimedSum))})` : ""}</p>
+      ${rows ? `<ul class="split-pick-list">${rows}</ul>` : ""}
+      <div class="split-actions">
+        <button type="button" class="ghost" data-action="split-pick-share" data-id="${rec.id}">Send link</button>
+        <button type="button" class="ghost" data-action="split-pick-refresh" data-id="${rec.id}">Refresh</button>
+        ${ticked ? `<button type="button" class="primary" data-action="split-pick-done" data-id="${rec.id}">Done — send requests</button>` : ""}
+      </div>
+    </div>`;
+}
+
+// Unclaimed items are the one real choice at the end: they are yours, or
+// everyone shares them.
+async function splitPickDone(recId) {
+  const rec = splitOutList().find((r) => r.id === recId);
+  if (!rec || !rec.pick) return;
+  await splitRelayPoll({ force: true }).catch(() => 0);
+  const { unclaimed } = splitPickCompute(rec);
+  let shareUnclaimed = false;
+  if (unclaimed.length) {
+    const sum = splitRound2(unclaimed.reduce((s2, i) => s2 + rec.pick.items[i].p, 0));
+    shareUnclaimed = !confirm(`${unclaimed.length} item${unclaimed.length === 1 ? "" : "s"} (${fmtMoney(sum)}) nobody ticked.\n\nOK: they're yours.\nCancel: everyone shares them.`);
+  }
+  const done = splitPickFinish(recId, { shareUnclaimed });
+  if (done) splitOpenShare(done.id, 0);
+}

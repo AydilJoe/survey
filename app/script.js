@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.54.2";
+const APP_VERSION = "1.55.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -500,17 +500,21 @@ function toast(message, opts) {
     document.body.appendChild(el);
   }
   el.textContent = message;
-  const action = opts && opts.action;
+  // One action, or several side by side (a scanned spend offers Undo next to
+  // whatever the save itself offered: Split, or the tax relief tip).
+  const actions = ((opts && opts.actions) || (opts && opts.action ? [opts.action] : [])).filter(Boolean);
+  const action = actions[0] || null;
   el.classList.toggle("has-action", !!action);
-  if (action) {
+  el._toast = { message, actions };
+  for (const a of actions) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "toast-action";
-    btn.textContent = action.label;
+    btn.textContent = a.label;
     btn.addEventListener("click", () => {
       el.classList.remove("show", "has-action");
       if (toastTimer) clearTimeout(toastTimer);
-      action.run();
+      a.run();
     }, { once: true });
     el.appendChild(btn);
   }
@@ -4684,11 +4688,19 @@ function trackOcrUsage() {
 }
 // A scan that read nothing usable gives its count back — picking the photo
 // still commits it (that's what stops a double-tap racing two pickers), but a
-// failed read shouldn't cost one of the three free scans.
+// failed read shouldn't cost one of the five free scans.
 function refundOcrUsage() {
   if (isPro() || !state.ocrUsage || state.ocrUsage.month !== currentMonthISO()) return;
   state.ocrUsage.scans = Math.max(0, (state.ocrUsage.scans || 0) - 1);
   save();
+}
+// "3 of 5 free scans left this month", or "" for Pro and the trial.
+function ocrScansLeftText() {
+  if (isPro()) return "";
+  const m = currentMonthISO();
+  const used = state.ocrUsage && state.ocrUsage.month === m ? (state.ocrUsage.scans || 0) : 0;
+  const left = Math.max(0, FREE_OCR_MONTHLY - used);
+  return `${left} of ${FREE_OCR_MONTHLY} free scans left this month`;
 }
 function gate(feature) {
   if (isPro()) return true;
@@ -7313,6 +7325,7 @@ document.addEventListener("keydown", (e) => {
 function removeDailyEntry(id) {
   const entry = state.dailyExpenses.find((x) => x.id === id);
   if (!entry) return false;
+  if (typeof taxForgetScan === "function") taxForgetScan(id);
   if (entry.kind === "debt" && entry.debtId) {
     const debt = state.debts.find((d) => d.id === entry.debtId);
     if (debt) debt.balance = (Number(debt.balance) || 0) + (Number(entry.amount) || 0);
@@ -9242,7 +9255,7 @@ const GUIDE_STEPS = [
     title: "Scan a receipt",
     sub: "Snap it, we read the amount.",
     body: `<p>Tap <strong>Scan receipt</strong> to take a photo (or pick one from your gallery). Duitful reads the total on-device — the image never leaves your phone.</p>
-      <p>Receipt scanning is a Pro feature, and your 7-day trial has it unlocked.</p>`,
+      <p>Free includes 5 scans a month; Pro and your 7-day trial scan without a limit.</p>`,
     tab: "dashboard",
     target: "#btn-scan",
   },
@@ -10063,6 +10076,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.0": [
+    "<strong>Tick what you had</strong> — scan the receipt, send one link, and everyone ticks their own items. Tap Done and each gets a request for exactly their share.",
+    "<strong>Splitting just works</strong> — shares update as you type, your name and DuitNow go on every link, and one tap marks someone paid.",
+    "<strong>Receipts that remember</strong> — scans guess the category, catch the same receipt twice, and keep every receipt for tax claims.",
+  ],
   "1.54.2": [
     "<strong>Fix:</strong> Scan receipt no longer closes the app on some Android phones. If the phone's document scanner can't start, the camera opens instead.",
   ],
@@ -12835,6 +12853,79 @@ function scanCategoryFor(vendor) {
   return "";
 }
 
+/* A first guess at the category from the shop and what was bought, so a
+   scan rarely lands in "Others". The shop's own history (scanCategoryFor)
+   always wins over this. Malaysian names first; word-anchored, so "Shell"
+   is the fuel station and not "Shellout". */
+const SCAN_CATEGORY_SEEDS = [
+  ["Fuel", /\b(petronas|shell|petron|caltex|bhpetrol|bhp|ron\s?9[57]|diesel|primax)\b/i],
+  ["Groceries", /\b(99\s?speed\s?mart|lotus'?s|tesco|giant|mydin|aeon\s?big|jaya\s?grocer|village\s?grocer|econsave|nsk|hero\s?market|kk\s?mart|family\s?mart|7-?eleven|speedmart|mart|grocer(y|ies)?|pasar\s?raya)\b/i],
+  ["Health", /\b(farmasi|pharmacy|guardian|watsons|caring|big\s?pharmacy|aa\s?pharmacy|klinik|clinic|hospital|dental|pergigian|optometr|ubat|panadol|vitamin)\b/i],
+  ["Books", /\b(popular|mph|kinokuniya|bookstore|book\s?store|kedai\s?buku|buku|novel|textbook)\b/i],
+  ["Transport", /\b(grab|touch\s?'?n\s?go|rapid\s?kl|ktm|lrt|mrt|parking|letak\s?kereta|tol|toll|plus\s?malaysia|airasia|mas\b)\b/i],
+  ["Bills", /\b(tnb|tenaga|syabas|air\s?selangor|indah\s?water|unifi|maxis|celcom|digi|u\s?mobile|yes\s?4g|astro|bil\b)\b/i],
+  ["Food", /\b(restoran|restaurant|kopitiam|mamak|nasi|mee|roti|kafe|cafe|coffee|kopi|teh|bakery|kedai\s?makan|mcdonald'?s|kfc|marrybrown|subway|domino'?s|pizza|starbucks|zus|tealive|chagee|secret\s?recipe|sushi|burger|ayam|chicken|food\s?court|medan\s?selera)\b/i],
+  ["Shopping", /\b(uniqlo|h&m|padini|parkson|ikea|mr\s?d\.?i\.?y|daiso|eco-?shop|shopee|lazada|mall)\b/i],
+];
+function scanGuessCategory(vendor, raw) {
+  const text = `${vendor || ""}\n${String(raw || "").slice(0, 1500)}`;
+  // The shop name decides first; the item lines only when it says nothing.
+  for (const [cat, rx] of SCAN_CATEGORY_SEEDS) if (rx.test(String(vendor || ""))) return cat;
+  for (const [cat, rx] of SCAN_CATEGORY_SEEDS) if (rx.test(text)) return cat;
+  return "";
+}
+// Up to four one-tap choices: the guess, then the categories used most.
+function scanCategoryChoices(guess) {
+  const counts = new Map();
+  for (const e of state.dailyExpenses) {
+    if (e.kind === "expense" && e.category && e.category !== "Others") counts.set(e.category, (counts.get(e.category) || 0) + 1);
+  }
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c);
+  const out = [];
+  for (const c of [guess, ...top, "Food", "Groceries", "Shopping"]) {
+    if (c && !out.includes(c)) out.push(c);
+    if (out.length >= 4) break;
+  }
+  return out;
+}
+// "May count as Medical tax relief" under the category, so the tax side of a
+// receipt shows at the moment it is scanned rather than in a toast later.
+function scanUpdateTaxNote() {
+  const el = document.getElementById("scan-tax-note");
+  if (!el) return;
+  let label = "";
+  try {
+    if (typeof taxSuggestRelief === "function" && typeof taxRelief === "function" && window.scanApplyTarget !== "split") {
+      const cat = scanCategory ? (scanCategory.value || "").trim() : "";
+      const vendor = scanVendor ? (scanVendor.value || "").trim() : "";
+      const date = scanDate && scanDate.value ? scanDate.value : todayISO();
+      const id = taxSuggestRelief(cat, vendor, Number(date.slice(0, 4)) || undefined);
+      if (id) label = taxRelief(id).label;
+    }
+  } catch { label = ""; }
+  el.textContent = label ? `May count as ${label} tax relief. The receipt is kept on this phone for it.` : "";
+  el.hidden = !label;
+}
+function renderScanCategoryChips(choices) {
+  const box = document.getElementById("scan-cat-chips");
+  if (!box) return;
+  const cur = scanCategory ? (scanCategory.value || "").trim() : "";
+  box.innerHTML = choices.map((c) => `<button type="button" class="chip-btn${c === cur ? " active" : ""}" data-scan-cat="${escapeHtml(c)}" aria-pressed="${c === cur}">${escapeHtml(c)}</button>`).join("");
+  box.hidden = !choices.length;
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target instanceof Element ? e.target.closest("[data-scan-cat]") : null;
+  if (!btn || !scanCategory) return;
+  scanCategory.value = btn.dataset.scanCat;
+  document.querySelectorAll("#scan-cat-chips [data-scan-cat]").forEach((b) => {
+    const on = b === btn;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  scanUpdateTaxNote();
+});
+scanCategory?.addEventListener("input", scanUpdateTaxNote);
+
 function showScanTotalSuggestion(check) {
   const el = document.getElementById("scan-amount-suggest");
   if (!el) return;
@@ -12866,7 +12957,15 @@ function openScanDialog() {
   setScanFailed(false);
   const editBtn = document.getElementById("scan-edit");
   if (editBtn) editBtn.hidden = true;
+  const splitBtn = document.getElementById("scan-split");
+  if (splitBtn) splitBtn.hidden = true;
   showScanTotalSuggestion(null);
+  const quotaOpen = document.getElementById("scan-quota");
+  if (quotaOpen) quotaOpen.hidden = true;
+  const taxNoteOpen = document.getElementById("scan-tax-note");
+  if (taxNoteOpen) taxNoteOpen.hidden = true;
+  const chipsOpen = document.getElementById("scan-cat-chips");
+  if (chipsOpen) chipsOpen.hidden = true;
   const aiNoteOpen = document.getElementById("scan-ai-note");
   if (aiNoteOpen) aiNoteOpen.hidden = true;
   scanPreview.removeAttribute("src");
@@ -12922,7 +13021,13 @@ let scanOriginalAmount = null;
 let scanOriginalCurrency = null;
 
 async function applyScanConversion() {
-  if (scanOriginalAmount == null) return;
+  if (scanOriginalAmount == null) {
+    // Nothing read: say so and wait for a typed total, rather than leaving
+    // "Checking the total…" up with Add enabled on an empty amount.
+    scanStatus.textContent = "Couldn't find the total. Type it in from the receipt.";
+    updateScanApplyLabel();
+    return;
+  }
   const curInput = document.getElementById("scan-currency");
   const noteEl = document.getElementById("scan-convert-note");
   const raw = (curInput && curInput.value || "").trim().toUpperCase();
@@ -13023,13 +13128,18 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     scanOriginalCurrency = parsed.currency || currentCurrency();
     const scanCurrencyInput = document.getElementById("scan-currency");
     if (scanCurrencyInput) scanCurrencyInput.value = scanOriginalCurrency;
-    scanVendor.value = parsed.vendor || "";
+    // Nothing priced on the page usually means nothing real was read; a
+    // guessed vendor there is OCR noise ("(thumb)"), not a shop.
+    scanVendor.value = parsed.amount == null && parsed.vendorConfidence !== "high" ? "" : (parsed.vendor || "");
     // A receipt from Tuesday used to be logged as today, silently, because
     // nothing ever read the date off it.
     if (scanDate) scanDate.value = parsed.date || todayISO();
     // The category this shop got last time ("99 Speed Mart" → Groceries),
     // so a regular shop doesn't need the same choice every scan.
-    if (scanCategory) scanCategory.value = scanCategoryFor(parsed.vendor) || "";
+    const scanGuess = scanGuessCategory(parsed.vendor, parsed.raw);
+    if (scanCategory) scanCategory.value = scanCategoryFor(parsed.vendor) || scanGuess || "";
+    renderScanCategoryChips(scanCategoryChoices(scanCategory ? scanCategory.value : scanGuess));
+    scanUpdateTaxNote();
     const curPrefix = document.getElementById("scan-cur-prefix");
     if (curPrefix) curPrefix.textContent = currencySymbolFor(scanOriginalCurrency);
     const itemsCheck = renderScanItems(parsed.raw || "", parsed.amount);
@@ -13055,6 +13165,9 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     scanApply.hidden = false;
     const editShow = document.getElementById("scan-edit");
     if (editShow) editShow.hidden = window.scanApplyTarget === "split";
+    // Paid for the table? Split it from here, with the bill already logged.
+    const splitShow = document.getElementById("scan-split");
+    if (splitShow) splitShow.hidden = window.scanApplyTarget === "split" || typeof splitApplyScan !== "function";
     await applyScanConversion();
     // A full green bar sitting under a finished result is just noise.
     scanProgress.style.width = "100%";
@@ -13065,11 +13178,17 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
       scanAmount?.focus();
       scanAmount?.select?.();
     }
+    const quotaEl = document.getElementById("scan-quota");
+    if (quotaEl) { const q = ocrScansLeftText(); quotaEl.textContent = q; quotaEl.hidden = !q; }
     return Number(parsed.amount) > 0 || totalCheck.suggest != null;
   } catch (err) {
     console.warn("Receipt scan failed:", err);
     // Plain words, not the engine's error. This scan isn't counted.
-    scanStatus.textContent = "Couldn't read this receipt. Try a flatter, brighter photo, or type the amount in.";
+    // Offline before the reader was ever downloaded is not a bad photo, and
+    // Retake would only fail the same way.
+    scanStatus.textContent = navigator.onLine === false && !isNative()
+      ? "You're offline, and the receipt reader needs a one-time download. Connect once and scan again, or type the amount in."
+      : "Couldn't read this receipt. Try a flatter, brighter photo, or type the amount in.";
     if (pbEl) pbEl.hidden = true;
     setScanFailed(true);
     return false;
@@ -13154,6 +13273,12 @@ document.getElementById("btn-scan")?.addEventListener("click", () => {
   window.scanApplyTarget = null;
   startReceiptScan();
 });
+// From the Tax page: the same scan, and the spend it adds goes straight to
+// the tax check (with its photo as the receipt) instead of waiting.
+document.getElementById("btn-tax-scan")?.addEventListener("click", () => {
+  window.scanApplyTarget = null;
+  startReceiptScan();
+});
 document.getElementById("scan-cancel")?.addEventListener("click", () => {
   const typeIn = scanCancel?.dataset.typeIn === "1" && window.scanApplyTarget !== "split";
   window.scanApplyTarget = null;
@@ -13179,6 +13304,19 @@ scanInput?.addEventListener("change", async (e) => {
 // anything the scan screen doesn't cover (a pool, a card, a note).
 scanApply?.addEventListener("click", () => applyScanResult({ direct: true }));
 document.getElementById("scan-edit")?.addEventListener("click", () => applyScanResult({ direct: false }));
+document.getElementById("scan-split")?.addEventListener("click", () => {
+  window.scanApplyTarget = "split";
+  applyScanResult({ direct: false });
+});
+
+// Same amount, same day, same shop: almost always the same receipt twice.
+function scanDuplicateOf(amount, dateISO, vendor) {
+  const v = String(vendor || "").trim().toLowerCase();
+  return state.dailyExpenses.find((e) => e.kind === "expense"
+    && Math.abs((Number(e.amount) || 0) - amount) < 0.005
+    && e.date === dateISO
+    && (!v || String(e.note || "").trim().toLowerCase() === v)) || null;
+}
 document.getElementById("scan-retake")?.addEventListener("click", () => {
   closeScanDialog();
   startReceiptScan();
@@ -13192,7 +13330,7 @@ function applyScanResult({ direct }) {
   if (window.scanApplyTarget === "split" && typeof splitApplyScan === "function") {
     window.scanApplyTarget = null;
     closeScanDialog();
-    splitApplyScan({ amount: amt, vendor, raw: scanRaw ? scanRaw.textContent : "", photo: window.scanLastSource || null });
+    splitApplyScan({ amount: amt, vendor, raw: scanRaw ? scanRaw.textContent : "", photo: window.scanLastSource || null, date: scanDate ? scanDate.value : "", category: scanCategory ? (scanCategory.value || "").trim() : "" });
     return;
   }
   // Hand the photo to the tax module for the one expense this scan creates.
@@ -13229,6 +13367,10 @@ function applyScanResult({ direct }) {
   const pickedDate = scanDate ? scanDate.value : "";
   if (dateInput && /^\d{4}-\d{2}-\d{2}$/.test(pickedDate)) dateInput.value = pickedDate;
 
+  if (direct && chosenType === "expense" && Number.isFinite(amt) && amt > 0) {
+    const dup = scanDuplicateOf(amt, /^\d{4}-\d{2}-\d{2}$/.test(pickedDate) ? pickedDate : todayISO(), vendor);
+    if (dup && !confirm(`${fmtMoney(amt)}${vendor ? " at " + vendor : ""} is already in your spending for that day. Add it again?`)) return;
+  }
   if (direct) {
     // The form's own submit does the saving (FX, pools, card balances, the
     // spend animation), so a scanned entry is exactly a typed one. Its new
@@ -13243,9 +13385,17 @@ function applyScanResult({ direct }) {
       const entry = state.dailyExpenses.find((x) => x.id === added);
       const what = entry && entry.kind === "debt" ? `Paid ${fmtMoney(entry.amount)} to ${entry.debtName}`
         : `Added ${fmtMoney(entry ? entry.amount : amt)}${vendor ? " · " + vendor : ""}`;
-      toast(what, { action: { label: "Undo", run: () => {
+      // The submit just showed its own toast. When that one carries an
+      // action (Split this, or the tax relief tip) it is the better offer,
+      // and overwriting it lost the tip for good; the entry's own row still
+      // deletes it. Otherwise offer Undo.
+      const undo = { label: "Undo", run: () => {
         if (removeDailyEntry(added)) { save(); renderAll(); toast("Removed"); }
-      } } });
+      } };
+      const shown = document.getElementById("toast");
+      const prev = shown && shown.classList.contains("show") && shown._toast;
+      if (prev && prev.actions && prev.actions.length) toast(prev.message, { actions: [undo, ...prev.actions] });
+      else toast(what, { action: undo });
       return;
     }
     // The form refused it (no debt chosen, a currency it can't convert):
