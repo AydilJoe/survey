@@ -2564,6 +2564,114 @@ check('confirming the handed-off receipt settles that person',
       && (kitDeps || []).some((d) => d.startsWith('androidx.work:work-runtime:')));
   }
 
+
+  // v1.55 tick what you had: one link, friends tick their own, Done sends
+  // each their exact share.
+  {
+    const start = await S(async () => {
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      state.split.relayOff = false;
+      state.split.me = 'Aydil';
+      const expBefore = state.dailyExpenses.length;
+      window.__pickShared = null;
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async (d) => { window.__pickShared = d; } });
+      splitOpenCompose({ mode: 'split', title: 'Mamak night' });
+      splitCompose.method = 'item';
+      splitCompose.items = [
+        { key: 'i1', name: 'Nasi goreng', price: 10, who: ['you'] },
+        { key: 'i2', name: 'Roti canai', price: 4, who: ['you'] },
+        { key: 'i3', name: 'Teh tarik jug', price: 12, who: ['you'] },
+        { key: 'i4', name: 'Maggi goreng', price: 8, who: ['you'] },
+      ];
+      splitCompose.charges = 3.4;
+      splitRenderCompose();
+      const offer = !!document.querySelector('#split-compose-body [data-action="split-pick-start"]');
+      const other = splitCompose.people[0].key;
+      splitCompose.items[0].who = ['you', other]; // not "only you": up for grabs
+      splitCompose.items[1].who = ['you', other];
+      splitCompose.items[2].who = ['you', other];
+      splitCompose.items[3].who = ['you'];       // the payer's own maggi
+      document.querySelector('#split-compose-body [data-action="split-pick-start"]').click();
+      await new Promise((r) => setTimeout(r, 400));
+      await splitRelaySync();
+      const rec = state.split.out[state.split.out.length - 1];
+      const link = window.__pickShared && (/(https:\/\/duitful\.app\/split#\S+)/.exec(window.__pickShared.text) || [])[1];
+      return { offer, recId: rec.id, pick: rec.pick, people: rec.people.length, total: rec.total,
+        logged: state.dailyExpenses.length - expBefore, link, card: !!document.querySelector(`.split-pick[data-id="${rec.id}"]`) };
+    });
+    check('tick what you had: the by-item composer offers "Let everyone tick their own"', start.offer, JSON.stringify(start));
+    check('tick what you had: one bill with the receipt\'s items, nobody yet, your maggi kept as yours, the full bill logged',
+      start.people === 0 && start.pick && start.pick.items.length === 4 && JSON.stringify(start.pick.mine) === '[3]'
+      && Math.abs(start.total - 37.4) < 0.01 && start.logged === 1 && start.card, JSON.stringify(start));
+    check('tick what you had: one link goes to the group chat', !!start.link, JSON.stringify(start.link));
+    const code = start.link ? start.link.slice(start.link.indexOf('#') + 1) : '';
+
+    // Two friends tick on their own phones.
+    const tick = async (name, labels) => {
+      const ctx = await b.newContext();
+      await ctx.route('**/api/relay/**', relayRoute);
+      const pg = await ctx.newPage();
+      await pg.goto(`${BASE}/split/#${code}`);
+      await pg.waitForTimeout(900);
+      const view = await pg.evaluate(() => ({
+        shown: !document.getElementById('pick-card').hidden,
+        items: [...document.querySelectorAll('#k-items li')].map((li) => li.textContent),
+      }));
+      for (const l of labels) await pg.locator('#k-items label', { hasText: l }).locator('input').check();
+      await pg.fill('#k-name', name);
+      const shareText = await pg.locator('#k-share').innerText();
+      await pg.click('#btn-pick-send');
+      await pg.waitForTimeout(600);
+      const sent = await pg.evaluate(() => !document.getElementById('k-sent').hidden);
+      return { ctx, pg, view, shareText, sent };
+    };
+    const ali = await tick('Ali', ['Nasi goreng', 'Teh tarik jug']);
+    check('tick what you had: the friend page lists the receipt to tick, with the payer\'s own item marked',
+      ali.view.shown && ali.view.items.length === 4 && /Maggi goreng.*Aydil \(payer\)/.test(ali.view.items[3]), JSON.stringify(ali.view));
+    check('tick what you had: ticking shows a running share and "That\'s mine" sends it',
+      /RM\s*[\d.]+/.test(ali.shareText) && ali.sent, JSON.stringify({ s: ali.shareText, sent: ali.sent }));
+    const mei = await tick('Mei', ['Roti canai', 'Teh tarik jug']);
+    check('tick what you had: the next friend sees who else ticked a shared item',
+      /Teh tarik jug.*also: Ali/.test(mei.view.items[2]), JSON.stringify(mei.view.items));
+
+    // The payer's app adds them up, then Done sends each their exact share.
+    const fin = await S(async (id) => {
+      await splitRelayPoll({ force: true });
+      const rec = state.split.out.find((r) => r.id === id);
+      const live = splitPickCompute(rec);
+      splitPickFinish(id);
+      await splitRelaySync();
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      return {
+        ticked: live.ticked,
+        people: rec.people.map((p) => ({ n: p.name, a: p.amount, pk: !!p.pk })),
+        yours: live.calc.people[0].amount, done: rec.pick.done,
+      };
+    }, start.recId);
+    // Items: Ali 10 + 6 = 16, Mei 4 + 6 = 10, you 8. Charges 3.40 equally over 3.
+    const ali2 = fin.people.find((p) => p.n === 'Ali');
+    const mei2 = fin.people.find((p) => p.n === 'Mei');
+    check('tick what you had: the payer sees both, and Done makes one request each, shared items halved, charges shared',
+      fin.ticked === 2 && fin.done && fin.people.length === 2 && ali2 && mei2
+      && Math.abs(ali2.a - 17.13) < 0.02 && Math.abs(mei2.a - 11.13) < 0.02 && Math.abs(fin.yours - 9.14) < 0.02
+      && Math.abs(ali2.a + mei2.a + fin.yours - 37.4) < 0.001 && ali2.pk && mei2.pk, JSON.stringify(fin));
+
+    // Ali reopens the same link: now it is his request, for his share.
+    await ali.pg.reload();
+    await ali.pg.waitForTimeout(900);
+    const after = await ali.pg.evaluate(() => ({
+      req: !document.getElementById('request-card').hidden,
+      pick: !document.getElementById('pick-card').hidden,
+      amount: document.getElementById('r-amount').textContent,
+      name: document.getElementById('paid-name').value,
+    }));
+    check('tick what you had: after Done the same link becomes the friend\'s own request, with their name ready',
+      after.req && !after.pick && after.amount === '17.13' && after.name === 'Ali', JSON.stringify(after));
+    await ali.ctx.close();
+    await mei.ctx.close();
+    await S((id) => { state.split.out = state.split.out.filter((r) => r.id !== id); save(); renderAll(); }, start.recId);
+  }
+
   // Link only: no mailbox, links exactly as before.
   const linkOnly = await S(async () => {
     document.querySelectorAll('dialog[open]').forEach((d) => d.close());

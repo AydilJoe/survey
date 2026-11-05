@@ -7642,3 +7642,8 @@ html::before {
 }
 .scan-cat-chips .chip-btn.active { background: var(--text); color: var(--card); border-color: var(--text); }
 .scan-cat-chips .chip-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.split-pick-offer { margin: 0.75rem 0 0.25rem; }
+.split-pick-offer button { width: 100%; }
+.split-pick-offer .hint { margin-top: 0.4rem; }
+.split-pick-list { list-style: none; margin: 0.4rem 0; padding: 0; }
+.split-pick-list li { display: flex; justify-content: space-between; padding: 0.3rem 0; border-top: 1px solid var(--line); font-size: 0.95rem; }
