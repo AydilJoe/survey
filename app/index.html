@@ -149,7 +149,7 @@
               <small>Used Duitful on an iPhone before? Get your data back</small>
             </span>
           </button>
-          <button type="button" class="lock-google" id="btn-setup-restore">
+          <button type="button" class="lock-google" id="btn-setup-restore" data-drive>
             <svg class="lock-google-g" viewBox="0 0 48 48" aria-hidden="true">
               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
               <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -1451,7 +1451,7 @@
               </div>
             </div>
           </div>
-          <div id="drive-provider" class="cloud-provider">
+          <div id="drive-provider" class="cloud-provider" data-drive>
           <h3 class="cloud-provider-name">Google Drive</h3>
           <p class="hint cloud-provider-why">Lets you restore on Android or on the web, too.</p>
           <div id="drive-signed-out">
@@ -1666,7 +1666,7 @@
           </div>
         </div>
         <ul class="paywall-features">
-          <li>Automatic encrypted backup to iCloud or Google Drive</li>
+          <li data-drive-text="Automatic encrypted backup to iCloud">Automatic encrypted backup to iCloud or Google Drive</li>
           <li>Unlimited receipt scans</li>
           <li>Budget pools with rollover</li>
           <li>Entries in other currencies, converted for you</li>
@@ -1775,9 +1775,9 @@
         </aside>
 
         <section class="pro-welcome-step">
-          <h3>1. Back up to Google Drive</h3>
-          <p class="hint">Sync your encrypted data so you never lose it if you change phones.</p>
-          <div id="pro-welcome-drive-row">
+          <h3 data-drive-text="1. Back up to iCloud">1. Back up to Google Drive</h3>
+          <p class="hint" data-drive-text="On by itself when this iPhone is signed in to iCloud. Check it in Settings → Cloud backup.">Sync your encrypted data so you never lose it if you change phones.</p>
+          <div id="pro-welcome-drive-row" data-drive>
             <button type="button" class="primary" id="pro-welcome-drive">Connect Google Drive</button>
           </div>
           <p class="hint" id="pro-welcome-drive-status" hidden></p>
@@ -2596,8 +2596,8 @@
       </div>
     </dialog>
 
-    <script src="drive-config.js?v=2"></script>
-    <script src="drive-sync.js?v=3"></script>
+    <script src="drive-config.js?v=3"></script>
+    <script src="drive-sync.js?v=4"></script>
     <script src="icloud-sync.js?v=2"></script>
     <script src="investments.js?v=4"></script>
     <!-- QR encoder (MIT, vendored). Needed on every share dialog, so it
@@ -2612,6 +2612,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=12"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=187"></script>
+    <script src="script.js?v=188"></script>
   </body>
 </html>

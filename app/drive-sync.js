@@ -257,8 +257,15 @@
   // iOS signs in with its own OAuth client (Google's iOS SDK rejects a web
   // client ID), so that is the id that decides whether the build is
   // configured there. Web and Android are unchanged: webClientId.
+  // Switched off for the iPhone app in drive-config.js (iosEnabled: false).
+  function isHidden() {
+    const cfg = window.DRIVE_CONFIG || {};
+    return AUTH_MODE === "ios" && cfg.iosEnabled === false;
+  }
+
   function isConfigured() {
     const cfg = window.DRIVE_CONFIG || {};
+    if (isHidden()) return false;
     if (AUTH_MODE === "ios") return !!cfg.iosClientId;
     return !!cfg.webClientId;
   }
@@ -660,6 +667,7 @@
 
   window.DriveSync = {
     isConfigured,
+    isHidden,
     isSignedIn: isSignedInShared,
     getAccountEmail,
     getStatus,
