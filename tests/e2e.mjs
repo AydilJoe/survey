@@ -3022,6 +3022,91 @@ check('a split from a spend you already logged never logs it twice',
     ny.crop && Math.abs(ny.crop[0] - 150) < 20 && Math.abs(ny.crop[2] - 300) < 30 && Math.abs(ny.crop[1] - 60) < 20 && ny.noCrop === null, JSON.stringify(ny));
 }
 
+// iCloud on the web: CloudKit JS against the same private record the
+// iPhone app writes. Off without a web token; with one, Sign in with Apple
+// ID, then back up and restore through a stand-in CloudKit.
+{
+  const ck = await S(async () => {
+    const out = { offWithoutToken: !ICloudSync.isConfigured() && !ICloudSync.isWeb() };
+    const store = {}; const saves = [];
+    let signIn;
+    const db = {
+      async fetchRecords(names) {
+        const r = store[names[0]];
+        if (!r) return { hasErrors: true, errors: [{ ckErrorCode: 'NOT_FOUND' }] };
+        return { records: [{ recordName: names[0], recordChangeTag: r.tag, fields: { payload: { value: { downloadURL: 'https://cvws.icloud-content.com/B/' + r.tag + '/${f}' } } } }] };
+      },
+      async saveRecords(recs) {
+        const rec = recs[0]; saves.push({ tag: rec.recordChangeTag || null, type: rec.recordType });
+        const cur = store[rec.recordName];
+        if (cur && rec.recordChangeTag !== cur.tag) return { hasErrors: true, errors: [{ ckErrorCode: 'CONFLICT' }] };
+        store[rec.recordName] = { tag: 't' + saves.length, text: await rec.fields.payload.value.text() };
+        return { records: [rec] };
+      },
+    };
+    const container = {
+      privateCloudDatabase: db,
+      setUpAuth: async () => null,
+      whenUserSignsIn: () => new Promise((res) => { signIn = res; }),
+      whenUserSignsOut: () => new Promise(() => {}),
+      signOut: async () => {},
+    };
+    let configured = null;
+    const realFetch = window.fetch;
+    out.fetched = [];
+    window.fetch = async (url, o) => {
+      const m = /^https:\/\/cvws\.icloud-content\.com\/B\/(t\d+)\/(.*)$/.exec(String(url));
+      if (!m) return realFetch(url, o);
+      out.fetched.push(m[2]);
+      const r = Object.values(store).find((x) => x.tag === m[1]);
+      return new Response(r ? r.text : '', { status: r ? 200 : 404 });
+    };
+    window.CloudKit = { configure: (c) => { configured = c; }, getDefaultContainer: () => container };
+    window.ICLOUD_WEB_CONFIG = { apiToken: 'test-token' };
+    out.isWeb = ICloudSync.isWeb();
+    out.before = await ICloudSync.prepareSignIn();
+    out.container = configured && configured.containers[0].containerIdentifier;
+    out.buttonsBound = configured && configured.containers[0].apiTokenAuth.signInButton.id;
+    signIn({ userRecordName: '_u' });
+    await new Promise((r) => setTimeout(r, 20));
+    out.signedIn = ICloudSync.isSignedIn();
+    const rec = { iv: 'abc', ct: 'def' };
+    await ICloudSync.uploadEncryptedRecord(rec, { savedBy: 'web' });
+    await ICloudSync.uploadEncryptedRecord({ iv: 'x', ct: 'y' }, { savedBy: 'web' });
+    out.saves = saves;
+    // A fresh sign-in drops the cached read, so the restore really fetches.
+    signIn({ userRecordName: '_u' });
+    await new Promise((r) => setTimeout(r, 20));
+    const meta = await ICloudSync.getRemoteMeta();
+    out.meta = meta && meta.appProperties.savedBy;
+    out.back = await ICloudSync.downloadEncryptedRecord();
+    // The card shows Apple's button on the web, not "sign in from Settings".
+    renderDriveCard();
+    out.card = {
+      block: !document.getElementById('icloud-backup').hidden,
+      signOutBox: !document.getElementById('apple-sign-out-button').hidden,
+    };
+    await ICloudSync.signOut();
+    out.afterSignOut = ICloudSync.isSignedIn();
+    renderDriveCard();
+    out.card.signInBox = !document.getElementById('apple-sign-in-button').hidden;
+    out.card.recheckHidden = document.getElementById('btn-icloud-recheck').hidden;
+    out.card.why = document.getElementById('icloud-off-why').textContent;
+    window.fetch = realFetch;
+    delete window.ICLOUD_WEB_CONFIG; delete window.CloudKit;
+    out.offAgain = !ICloudSync.isConfigured();
+    renderDriveCard();
+    return out;
+  });
+  check('web iCloud is off until a CloudKit web token is set, and the iPhone app\'s container is the one used',
+    ck.offWithoutToken && ck.isWeb && ck.before === false && ck.container === 'iCloud.com.aydiljoe.duitful' && ck.buttonsBound === 'apple-sign-in-button' && ck.offAgain, JSON.stringify(ck));
+  check('web iCloud: after Sign in with Apple ID it backs up (second save carries the change tag) and restores the same encrypted record',
+    ck.signedIn && ck.saves.length === 2 && ck.saves[0].tag === null && ck.saves[1].tag === 't1' && ck.saves[0].type === 'Backup'
+      && ck.back && ck.back.iv === 'x' && ck.meta === 'web' && ck.fetched[0] === 'duitful-backup.json', JSON.stringify(ck));
+  check('web iCloud card: Apple\'s Sign in button (no "Check again"), Sign out once signed in',
+    ck.card.block && ck.card.signOutBox && !ck.afterSignOut && ck.card.signInBox && ck.card.recheckHidden && /Apple ID/.test(ck.card.why), JSON.stringify(ck.card));
+}
+
 // Announcements can target Apple web users ("web-apple"), and the iPhone
 // app is "ios", not "android".
 {

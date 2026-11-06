@@ -7968,3 +7968,7 @@ html::before {
 .scan-dialog .scan-items-foot { border-top: 1px solid var(--line); margin-top: 0.3rem; }
 .scan-dialog .scan-items-foot li { padding: 0.4rem 0.4rem; background: none; }
 .scan-dialog .scan-items .scan-item-name-in { margin-left: -0.4rem; }
+
+/* Web iCloud: CloudKit JS draws Apple's own Sign in / Sign out button here. */
+.apple-ck-button { margin-top: 0.6rem; min-height: 44px; }
+.apple-ck-button[hidden] { display: none; }

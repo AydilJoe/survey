@@ -14304,7 +14304,7 @@ function renderDriveCard() {
   card.hidden = false;
   const pro = isPro();
 
-  // iCloud block: only inside the iPhone app.
+  // iCloud block: the iPhone app, and the web once a CloudKit web token is set.
   const ic = window.ICloudSync;
   const icConfigured = !!(ic && ic.isConfigured());
   const icBlock = document.getElementById("icloud-backup");
@@ -14316,8 +14316,22 @@ function renderDriveCard() {
     const offEl = document.getElementById("icloud-off");
     if (onEl) onEl.hidden = !icOn;
     if (offEl) offEl.hidden = icOn;
+    const onWeb = !!(ic.isWeb && ic.isWeb());
+    const signInBox = document.getElementById("apple-sign-in-button");
+    const signOutBox = document.getElementById("apple-sign-out-button");
+    const recheck = document.getElementById("btn-icloud-recheck");
+    if (signInBox) signInBox.hidden = !onWeb || icOn;
+    if (signOutBox) signOutBox.hidden = !onWeb || !icOn;
+    if (recheck) recheck.hidden = onWeb;
+    // CloudKit JS draws its button into the box, so load it once the box is on screen.
+    if (onWeb && !icOn && ic.prepareSignIn && !renderDriveCard._ckAsked) {
+      renderDriveCard._ckAsked = true;
+      ic.prepareSignIn().then(() => renderDriveCard()).catch(() => {});
+    }
     const why = document.getElementById("icloud-off-why");
-    if (why && !icOn) {
+    if (why && !icOn && onWeb) {
+      why.textContent = "Sign in with your Apple ID to back up to your own iCloud. It's the same backup the Duitful iPhone app uses.";
+    } else if (why && !icOn) {
       // Each reason names the one switch that fixes it. The code in
       // brackets is for a bug report, not for the reader.
       const reason = (ic.unavailableReason && ic.unavailableReason()) || "";

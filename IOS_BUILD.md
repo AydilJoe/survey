@@ -770,6 +770,26 @@ Production can't be removed, only added to.
 - **Drive stays** on iPhone, under the iCloud section. It is what lets
   someone restore on Android or the web.
 
+### iCloud backup on the web (CloudKit JS)
+
+duitful.app can reach the same backup record with Apple's CloudKit JS: the
+user taps **Sign in with Apple ID** on the Cloud backup card. It stays off
+until it has a web token:
+
+1. [CloudKit Console](https://icloud.developer.apple.com/) → container
+   `iCloud.com.aydiljoe.duitful` → **Tokens & Keys** → **API Tokens** → +.
+2. Name it `web`. **Sign in callback**: *Post Message*. **Allowed origins**:
+   `https://duitful.app`.
+3. Copy the token into `apiToken` in `WEB_CONFIG` at the top of
+   `app/icloud-sync.js`, bump `icloud-sync.js?v=` in `app/index.html` and
+   `app/sw.js`, push.
+
+The token is public by design (like the Google client id): it only lets a
+page ask the user to sign in, and what a session opens is that user's own
+private database. The `Backup` record type must already be deployed to
+Production (above), or web saves fail just as the app's would. The web uses
+the Production environment.
+
 ## Google Drive sync on iOS
 
 iOS signs in through a different plugin than Android, for a pod reason:

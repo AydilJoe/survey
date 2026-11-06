@@ -320,6 +320,7 @@
 
   <h3 id="icloud">4.6 iCloud backup in the iPhone app (Pro)</h3>
   <p>In the iPhone app, Pro backs up to the iCloud account your iPhone is already signed in to. There is no separate sign-in, and Duitful receives no Apple ID, email address or other account detail. The backup is the same file as the Google Drive one: your database, encrypted on the phone with your passcode before it is handed to iCloud. It sits in Duitful's own private iCloud container, which only Duitful on your devices can open, and Apple cannot read it without your passcode. It is on by default once Pro is unlocked, and you can switch it off on the in-app <strong>Cloud backup</strong> card. To delete the file, go to Settings &gt; [your name] &gt; iCloud &gt; Manage Account Storage &gt; Duitful on the iPhone. Apple's handling is governed by <a href="https://www.apple.com/legal/privacy/">Apple's Privacy Policy</a>, and the file counts against your iCloud storage.</p>
+  <p>Where duitful.app offers it, you can reach the same backup from the web: tap <strong>Sign in with Apple ID</strong> on the Cloud backup card. You sign in on Apple's own page; Duitful never sees your password, and Apple hands the page a session that opens only Duitful's container in your own iCloud. The file is the same encrypted one, so it is still useless without your passcode. Sign out from the same card; the session is kept in your browser until you do.</p>
 
   <h3 id="split-relay">4.7 Split bills: the encrypted relay</h3>
   <p>A split link carries the whole request inside itself, after the <code>#</code> — the part of a web address that browsers never send to any server. Since version 1.54, a split also gets a <strong>mailbox</strong> on our server, so that "I've paid" can come back to you on its own, everyone in a group split can see who has paid, a reminder you send shows up on the link, and the receipt photo can travel with the bill.</p>
@@ -408,7 +409,7 @@
       </tr>
       <tr>
         <td>Apple iCloud</td>
-        <td>Hosts Pro's encrypted backup in <em>your own</em> iCloud, in the iPhone app only (Duitful's private container).</td>
+        <td>Hosts Pro's encrypted backup in <em>your own</em> iCloud (Duitful's private container), from the iPhone app or, after you sign in with your Apple ID, from the web.</td>
         <td>An encrypted blob Apple cannot read without your passcode. No account details are passed to Duitful.</td>
       </tr>
       <tr>

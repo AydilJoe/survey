@@ -1,39 +1,209 @@
-/* Duitful — iCloud backup transport (iPhone app only).
+/* Duitful — iCloud backup transport (the iPhone app, and the web).
  *
- * Same idea as drive-sync.js, without an account to sign into: the encrypted
- * AES-GCM record from script.js is written as one file in Duitful's private
- * iCloud container by the native DuitfulICloud plugin
- * (native/icloud-backup). The record is encrypted before it reaches Swift
- * and decrypted only after it comes back, so iCloud never holds plaintext.
+ * Same idea as drive-sync.js: the encrypted AES-GCM record from script.js is
+ * stored as ONE record in the user's private CloudKit database, in
+ * Duitful's container (iCloud.com.aydiljoe.duitful): record type `Backup`,
+ * record name `duitful-backup`, the body as an Asset in `payload`. It is
+ * encrypted before it leaves script.js and decrypted only after it comes
+ * back, so iCloud never holds plaintext.
  *
- * Only the iOS shell carries the plugin. Everywhere else, and on an iPhone
- * that is signed out of iCloud or has iCloud turned off for Duitful,
- * isConfigured() or isSignedIn() is false, and script.js leaves the card on
- * Google Drive.
+ * Two ways to reach that record, the same record either way:
+ *   - the iPhone app: the native DuitfulICloud plugin (native/icloud-backup),
+ *     using the phone's own iCloud sign-in;
+ *   - the web: Apple's CloudKit JS, with a "Sign in with Apple ID" button.
+ *     Off until a CloudKit web API token is set in WEB_CONFIG below (or
+ *     window.ICLOUD_WEB_CONFIG): CloudKit Console → the container → Tokens &
+ *     Keys → API token, sign-in callback "Post Message", allowed origin
+ *     https://duitful.app. The token is public by design, like the Google
+ *     client id; what it opens is only ever the signed-in user's own data.
  *
- * File body (what Swift stores, as a UTF-8 string):
+ * Everywhere else (Android, a web build without a token) isConfigured() is
+ * false and script.js leaves the card on Google Drive.
+ *
+ * File body (the Asset's contents, as a UTF-8 string):
  *   { "schema": 1, "savedAt": ISO, "appProperties": {...}, "record": {...} }
  * appProperties mirrors Drive's, so the restore logic compares both providers
  * the same way.
  *
  * Public API, shaped like DriveSync where the idea carries over:
- *   ICloudSync.isConfigured(), .isSignedIn(), .ready(),
+ *   ICloudSync.isConfigured(), .isSignedIn(), .ready(), .isWeb(),
  *   ICloudSync.getStatus(), .subscribe(fn),
  *   ICloudSync.getRemoteMeta(),
  *   ICloudSync.uploadEncryptedRecord(rec, appProperties),
- *   ICloudSync.downloadEncryptedRecord()
+ *   ICloudSync.downloadEncryptedRecord(),
+ *   ICloudSync.signOut()   (web only; the iPhone app signs in through iOS)
  */
 (function () {
   "use strict";
 
   const STATUS_KEY = "duit-tracker.icloud";
 
-  function plugin() {
+  function isNativeShell() {
     const cap = window.Capacitor;
-    if (!cap || typeof cap.isNativePlatform !== "function" || !cap.isNativePlatform()) return null;
+    return !!(cap && typeof cap.isNativePlatform === "function" && cap.isNativePlatform());
+  }
+  function nativePlugin() {
+    const cap = window.Capacitor;
+    if (!isNativeShell()) return null;
     if (typeof cap.getPlatform === "function" && cap.getPlatform() !== "ios") return null;
     return (cap.Plugins && cap.Plugins.DuitfulICloud) || null;
   }
+
+  /* ---------- the web: CloudKit JS ---------- */
+
+  const WEB_CONFIG = {
+    containerIdentifier: "iCloud.com.aydiljoe.duitful",
+    apiToken: "",
+    environment: "production",
+    scriptSrc: "https://cdn.apple-cloudkit.com/ck/2/cloudkit.js",
+  };
+  const RECORD_TYPE = "Backup";
+  const RECORD_NAME = "duitful-backup";
+  const SIGNED_IN_KEY = "duit-tracker.icloud-web";
+  function webConfig() { return Object.assign({}, WEB_CONFIG, window.ICLOUD_WEB_CONFIG || {}); }
+  function webConfigured() { return !isNativeShell() && !!webConfig().apiToken; }
+
+  let ckContainer = null;
+  let ckLoading = null;
+  let webUser = null;
+
+  function loadCloudKit() {
+    if (window.CloudKit) return Promise.resolve(window.CloudKit);
+    if (ckLoading) return ckLoading;
+    ckLoading = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = webConfig().scriptSrc;
+      s.async = true;
+      s.onload = () => (window.CloudKit ? resolve(window.CloudKit) : reject(new Error("CloudKit didn't load")));
+      s.onerror = () => { ckLoading = null; reject(new Error("Couldn't load iCloud sign-in. Check your connection.")); };
+      document.head.appendChild(s);
+    });
+    return ckLoading;
+  }
+
+  // CloudKit renders its own Sign in / Sign out buttons into these elements
+  // (script.js puts them in the iCloud block of the backup card).
+  async function webContainer() {
+    if (ckContainer) return ckContainer;
+    const CK = await loadCloudKit();
+    const cfg = webConfig();
+    CK.configure({
+      containers: [{
+        containerIdentifier: cfg.containerIdentifier,
+        apiTokenAuth: {
+          apiToken: cfg.apiToken,
+          persist: true,
+          signInButton: { id: "apple-sign-in-button", theme: "black" },
+          signOutButton: { id: "apple-sign-out-button", theme: "black" },
+        },
+        environment: cfg.environment,
+      }],
+    });
+    ckContainer = CK.getDefaultContainer();
+    return ckContainer;
+  }
+
+  function rememberWebSignIn(on) {
+    try { if (on) localStorage.setItem(SIGNED_IN_KEY, "1"); else localStorage.removeItem(SIGNED_IN_KEY); } catch {}
+  }
+  function webSignedInBefore() {
+    try { return localStorage.getItem(SIGNED_IN_KEY) === "1"; } catch { return false; }
+  }
+
+  // setUpAuth resolves with the user when a saved session is still good,
+  // or null while the Sign in button waits; whenUserSignsIn / Out keep the
+  // state current after that.
+  function watchWebAuth(c) {
+    c.whenUserSignsIn().then((user) => {
+      webUser = user || { signedIn: true };
+      rememberWebSignIn(true);
+      available = true; reason = "";
+      lastRead = null;
+      setStatus("idle", "");
+      watchWebAuth(c);
+    }).catch(() => {});
+    if (typeof c.whenUserSignsOut === "function") {
+      c.whenUserSignsOut().then(() => {
+        webUser = null; rememberWebSignIn(false);
+        available = false; reason = "signed-out"; lastRead = null;
+        setStatus("idle", "");
+      }).catch(() => {});
+    }
+  }
+  async function webStatus() {
+    const c = await webContainer();
+    const user = await c.setUpAuth();
+    webUser = user || null;
+    if (!user) watchWebAuth(c);
+    else if (typeof c.whenUserSignsOut === "function") {
+      c.whenUserSignsOut().then(() => {
+        webUser = null; rememberWebSignIn(false);
+        available = false; reason = "signed-out"; lastRead = null;
+        setStatus("idle", "");
+        watchWebAuth(c);
+      }).catch(() => {});
+    }
+    rememberWebSignIn(!!user);
+    return user ? { available: true, reason: "" } : { available: false, reason: "signed-out" };
+  }
+
+  function ckErrorText(err, verb) {
+    const code = (err && (err.ckErrorCode || err.serverErrorCode)) || "";
+    if (code === "AUTHENTICATION_REQUIRED" || code === "AUTHENTICATION_FAILED") return "Sign in with your Apple ID again, then retry.";
+    if (code === "QUOTA_EXCEEDED") return "Your iCloud storage is full.";
+    if (code === "NETWORK_ERROR") return `Couldn't ${verb} iCloud. Check your connection.`;
+    return `Couldn't ${verb} iCloud${code ? ` (${code})` : ""}.`;
+  }
+
+  async function webFetchRecord(db) {
+    const res = await db.fetchRecords([RECORD_NAME]);
+    if (res.hasErrors) {
+      const e = res.errors && res.errors[0];
+      if (e && (e.ckErrorCode === "NOT_FOUND" || e.serverErrorCode === "NOT_FOUND")) return null;
+      throw new Error(ckErrorText(e, "read from"));
+    }
+    return (res.records && res.records[0]) || null;
+  }
+
+  const webTransport = {
+    status: webStatus,
+    async read() {
+      const db = (await webContainer()).privateCloudDatabase;
+      const rec = await webFetchRecord(db);
+      const asset = rec && rec.fields && rec.fields.payload && rec.fields.payload.value;
+      if (!asset || !asset.downloadURL) return { data: null };
+      const url = String(asset.downloadURL).replace("${f}", "duitful-backup.json");
+      const r = await fetch(url);
+      if (!r.ok) throw new Error("Couldn't read from iCloud (" + r.status + ").");
+      return { data: await r.text() };
+    },
+    async write({ data }) {
+      const db = (await webContainer()).privateCloudDatabase;
+      const blob = new Blob([data], { type: "application/json" });
+      // Last write wins, as on the iPhone: save over whatever is there,
+      // fetching the change tag first so CloudKit accepts the update.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const current = await webFetchRecord(db);
+        const record = { recordType: RECORD_TYPE, recordName: RECORD_NAME, fields: { payload: { value: blob } } };
+        if (current && current.recordChangeTag) record.recordChangeTag = current.recordChangeTag;
+        const res = await db.saveRecords([record]);
+        if (!res.hasErrors) return { ok: true };
+        const e = res.errors && res.errors[0];
+        const code = e && (e.ckErrorCode || e.serverErrorCode);
+        if (code !== "CONFLICT" || attempt === 1) throw new Error(ckErrorText(e, "save to"));
+      }
+      return { ok: true };
+    },
+  };
+
+  /* ---------- which way in ---------- */
+
+  function transport() {
+    const p = nativePlugin();
+    if (p) return p;
+    return webConfigured() ? webTransport : null;
+  }
+  function plugin() { return transport(); }
 
   let available = false;
   // Why not, when not: "no-account", "no-container", "error" or "" (see the
@@ -60,6 +230,7 @@
   }
 
   function isConfigured() { return !!plugin(); }
+  function isWeb() { return !nativePlugin() && webConfigured(); }
   function isSignedIn() { return isConfigured() && available; }
   function getStatus() { return status; }
   function unavailableReason() { return isConfigured() && !available ? reason : ""; }
@@ -71,6 +242,12 @@
   async function refresh() {
     const p = plugin();
     if (!p) { available = false; return false; }
+    // On the web, CloudKit JS is ~200 KB: fetch it at start only for someone
+    // who has signed in before; otherwise when the backup card asks.
+    if (p === webTransport && !ckContainer && !webSignedInBefore() && !refresh.wanted) {
+      available = false; reason = "signed-out";
+      return false;
+    }
     try {
       const res = await p.status();
       available = !!(res && res.available);
@@ -84,6 +261,21 @@
   }
   const readyPromise = refresh();
   function ready() { return readyPromise; }
+
+  // Web: load CloudKit and show its Sign in button (the backup card calls
+  // this when the iCloud block is on screen).
+  async function prepareSignIn() {
+    if (!isWeb()) return false;
+    refresh.wanted = true;
+    return refresh();
+  }
+  async function signOut() {
+    if (!isWeb() || !ckContainer) return;
+    try { if (typeof ckContainer.signOut === "function") await ckContainer.signOut(); } catch {}
+    webUser = null; rememberWebSignIn(false);
+    available = false; reason = "signed-out"; lastRead = null;
+    setStatus("idle", "");
+  }
 
   async function readBody() {
     if (lastRead && Date.now() - lastRead.at < READ_REUSE_MS) return lastRead.body;
@@ -105,7 +297,7 @@
   }
 
   async function uploadEncryptedRecord(rec, appProperties) {
-    if (!isSignedIn()) throw new Error("iCloud isn't available on this iPhone");
+    if (!isSignedIn()) throw new Error(isWeb() ? "Sign in with your Apple ID first." : "iCloud isn't available on this iPhone");
     setStatus("working", "Backing up…");
     try {
       const savedAt = new Date().toISOString();
@@ -121,7 +313,7 @@
   }
 
   async function downloadEncryptedRecord() {
-    if (!isSignedIn()) throw new Error("iCloud isn't available on this iPhone");
+    if (!isSignedIn()) throw new Error(isWeb() ? "Sign in with your Apple ID first." : "iCloud isn't available on this iPhone");
     setStatus("working", "Downloading backup…");
     try {
       const body = await readBody();
@@ -136,7 +328,7 @@
   // Signing out of iCloud, or switching iCloud off for Duitful in Settings,
   // happens outside the app. Re-ask whenever the app comes back.
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && isConfigured()) {
+    if (document.visibilityState === "visible" && nativePlugin()) {
       lastRead = null;
       refresh();
     }
@@ -145,6 +337,9 @@
   window.ICloudSync = {
     isConfigured,
     isSignedIn,
+    isWeb,
+    prepareSignIn,
+    signOut,
     unavailableReason,
     refresh,
     ready,
