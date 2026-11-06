@@ -9547,6 +9547,35 @@ check('the brand catalogue makes no network calls at all',
     party.open && /Welcome back/.test(party.title) && /iCloud/.test(party.sub) && party.stats.some((t) => /debt/.test(t))
       && !party.tour && party.guideSeen, JSON.stringify(party));
 
+  // Restore from backup → CSV: a fresh first screen takes a CSV export and
+  // opens the app with it, celebration included.
+  {
+    const csvText = await S(() => {
+      const keep = state.debts;
+      state.debts = keep.concat([{ id: 'csv-probe', name: 'CSV Probe Loan', kind: 'standard', balance: 321, apr: 7, minPayment: 20 }]);
+      const out = toCSV();
+      state.debts = keep;
+      return out;
+    });
+    const cctx = await b.newContext();
+    const cp = await cctx.newPage();
+    const cErr = []; cp.on('pageerror', (e) => cErr.push(e.message));
+    await cp.goto(`${BASE}/app/index.html`);
+    await cp.waitForTimeout(600);
+    await cp.click('#btn-setup-restore-cloud');
+    const tiles = await cp.evaluate(() => ({
+      label: document.querySelector('#btn-setup-restore-cloud strong').textContent,
+      csv: !document.getElementById('btn-setup-restore-csv').hidden && !document.getElementById('lock-cloud-pick').hidden,
+    }));
+    await cp.setInputFiles('#lock-csv-file', { name: 'duitful.csv', mimeType: 'text/csv', buffer: Buffer.from(csvText) });
+    await cp.waitForTimeout(2500);
+    const got = await cp.evaluate(() => ({ unlocked: !!aesKey, debt: (state.debts || []).some((d) => d.name === 'CSV Probe Loan'),
+      party: document.getElementById('restore-dialog').open && /CSV/.test(document.getElementById('restore-sub').textContent) }));
+    check('first screen: "Restore from backup" offers a CSV tile, and a CSV export opens straight into the app with its data',
+      tiles.label === 'Restore from backup' && tiles.csv && got.unlocked && got.debt && got.party && !cErr.length, JSON.stringify({ tiles, got, cErr }));
+    await cctx.close();
+  }
+
   const empty = await b.newContext();
   const none = await empty.newPage();
   await none.goto(`${BASE}/app/index.html`);
