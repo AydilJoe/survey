@@ -62,6 +62,7 @@ anything an attacker managed to inject. That is what makes it worth reading:
 | --- | --- |
 | `'self'`, `duitful.app` | the app's own files and the Pro-checkout endpoints |
 | `googleapis.com`, `oauth2.googleapis.com`, `accounts.google.com` | Google Drive backup — **only** if you switch it on, and the file is encrypted before it is uploaded |
+| `api.apple-cloudkit.com`, `*.icloud-content.com`, `*.icloud.com` | iCloud backup on the web — **only** if you sign in with your Apple ID, and the file is encrypted before it is uploaded |
 | `open.er-api.com` | exchange rates for multi-currency entries. Rates come *in*; nothing goes out |
 | `va.vercel-scripts.com` | the install counter in section 4 |
 

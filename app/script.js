@@ -4958,7 +4958,7 @@ function ensureProCelebrateBlock(dlg, paidLabel) {
 function showRestoreCelebration(source) {
   const dlg = document.getElementById("restore-dialog");
   if (!dlg || !state) return;
-  const where = source === "icloud" ? "iCloud" : "Google Drive";
+  const where = source === "icloud" ? "iCloud" : source === "csv" ? "your CSV" : "Google Drive";
   const n = (a) => (Array.isArray(a) ? a.length : 0);
   const plural = (k, one, many) => `${k.toLocaleString()} ${k === 1 ? one : many}`;
   const stats = [];
@@ -8926,10 +8926,11 @@ async function downloadCSV() {
 
 $("#btn-export").addEventListener("click", downloadCSV);
 
-$("#file-import").addEventListener("change", async (e) => {
-  const file = e.target.files && e.target.files[0];
-  const status = $("#import-status");
-  if (!file) return;
+// Replaces everything with a CSV export. Returns true once imported. Used
+// by Settings → Import CSV and by Restore from backup → CSV on the first
+// screen (which skips the "replace?" question: there is nothing to replace).
+async function importCsvFile(file, { ask = true, statusEl = null, onError = null } = {}) {
+  const say = (m) => { if (statusEl) statusEl.textContent = m; else if (onError) onError(m); };
   try {
     const text = await file.text();
     const next = fromCSV(text);
@@ -8941,21 +8942,18 @@ $("#file-import").addEventListener("change", async (e) => {
     // paywall is the user's next prompt, not a destructive overwrite.
     if (!isPro()) {
       if (next.savings.length > FREE_SAVING_LIMIT) {
-        status.textContent = `CSV has ${next.savings.length} savings goals — free tier covers ${FREE_SAVING_LIMIT}. Unlock Pro to import the full file.`;
+        say(`CSV has ${next.savings.length} savings goals — free tier covers ${FREE_SAVING_LIMIT}. Unlock Pro to import the full file.`);
         openPaywall("savings");
-        return;
+        return false;
       }
       if ((next.investments || []).length > FREE_INVESTMENT_LIMIT) {
-        status.textContent = `CSV has ${next.investments.length} investment holdings — free tier covers ${FREE_INVESTMENT_LIMIT}. Unlock Pro to import the full file.`;
+        say(`CSV has ${next.investments.length} investment holdings — free tier covers ${FREE_INVESTMENT_LIMIT}. Unlock Pro to import the full file.`);
         openPaywall("investments");
-        return;
+        return false;
       }
     }
 
-    if (!confirm("Replace all current data with the CSV contents?")) {
-      e.target.value = "";
-      return;
-    }
+    if (ask && !confirm("Replace all current data with the CSV contents?")) return false;
 
     // Entitlements + per-device identity are not part of the CSV payload —
     // preserve them across import so a Pro user doesn't lose their unlock
@@ -8968,12 +8966,19 @@ $("#file-import").addEventListener("change", async (e) => {
     state = next;
     save();
     renderAll();
-    status.textContent = `Imported ${state.income.length} income, ${state.expenses.length} expense, ${state.debts.length} debt, ${state.dailyExpenses.length} daily, ${state.savings.length} savings, ${state.investments.length} investment rows.`;
+    if (statusEl) statusEl.textContent = `Imported ${state.income.length} income, ${state.expenses.length} expense, ${state.debts.length} debt, ${state.dailyExpenses.length} daily, ${state.savings.length} savings, ${state.investments.length} investment rows.`;
+    return true;
   } catch (err) {
-    status.textContent = `Import failed: ${err.message || err}`;
-  } finally {
-    e.target.value = "";
+    say(`Import failed: ${err.message || err}`);
+    return false;
   }
+}
+
+$("#file-import").addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  try { await importCsvFile(file, { statusEl: $("#import-status") }); }
+  finally { e.target.value = ""; }
 });
 
 /* ---------- bulk income import ---------- */
@@ -11250,7 +11255,53 @@ let driveRestorePending = false;
 function renderLockRestore() {
   const btn = document.getElementById("btn-setup-restore-icloud");
   if (!btn) return;
-  btn.hidden = !(window.ICloudSync && ICloudSync.isConfigured() && ICloudSync.isSignedIn());
+  const ic = window.ICloudSync;
+  // The iPhone app: once iCloud answers. The web: always, since signing in
+  // with an Apple ID is part of the restore.
+  const web = !!(ic && ic.isWeb && ic.isWeb());
+  btn.hidden = !(ic && ic.isConfigured() && (web || ic.isSignedIn()));
+  const main = document.getElementById("btn-setup-restore-cloud");
+  // Signed in with Apple from the start screen: carry on with the restore.
+  const lock = document.getElementById("lock");
+  if (lockIcloudSignInPending && ic && ic.isSignedIn() && lock && !lock.hidden) {
+    lockIcloudSignInPending = false;
+    lockAppleSignIn(false);
+    startDriveRestoreFromLock("icloud").catch(() => {});
+  }
+}
+var lockIcloudSignInPending = false; // var: renderLockRestore can run during boot, before this line
+// Which clouds the start screen can restore from, in order.
+function lockCloudChoices() {
+  const out = [];
+  const icBtn = document.getElementById("btn-setup-restore-icloud");
+  if (icBtn && !icBtn.hidden) out.push("icloud");
+  const ds = window.DriveSync;
+  if (ds && ds.isConfigured() && !(ds.isHidden && ds.isHidden())) out.push("drive");
+  out.push("csv");
+  return out;
+}
+// Web: lays CloudKit's real Sign in button over the iCloud tile (or puts it
+// back on the backup card). It keeps its id, so CloudKit keeps drawing into it.
+function lockAppleSignIn(show) {
+  const hit = document.getElementById("apple-sign-in-button");
+  const tile = document.getElementById("lock-icloud-tile");
+  const home = document.getElementById("apple-sign-in-wrap");
+  if (!hit || !tile || !home) return;
+  (show ? tile : home).appendChild(hit);
+}
+function openLockCloudPick() {
+  const choices = lockCloudChoices();
+  const ic = window.ICloudSync;
+  const webSignIn = choices.includes("icloud") && ic && ic.isWeb && ic.isWeb() && !ic.isSignedIn();
+  const pick = document.getElementById("lock-cloud-pick");
+  if (pick) pick.hidden = false;
+  // Load Apple's sign-in now, so it is ready under the iCloud tile by the
+  // time it's tapped (the tap itself has to open Apple's window).
+  if (webSignIn) {
+    lockIcloudSignInPending = true;
+    lockAppleSignIn(true);
+    ic.prepareSignIn().catch(() => {});
+  }
 }
 
 async function startDriveRestoreFromLock(id = "drive") {
@@ -11266,7 +11317,16 @@ async function startDriveRestoreFromLock(id = "drive") {
   const endWork = icloud && btn ? beginWork(btn) : null;
   try {
     if (icloud) {
-      if (!api.isSignedIn()) {
+      if (!api.isSignedIn() && api.isWeb && api.isWeb()) {
+        // Apple's button (laid over the tile) does the sign-in; until it has
+        // loaded, this tap loads it, and renderLockRestore carries on after.
+        lockIcloudSignInPending = true;
+        lockAppleSignIn(true);
+        await api.prepareSignIn();
+        if (!api.isSignedIn()) return;
+        lockIcloudSignInPending = false;
+        lockAppleSignIn(false);
+      } else if (!api.isSignedIn()) {
         lockError("Sign in to iCloud in the Settings app first.");
         return;
       }
@@ -11331,7 +11391,30 @@ async function handleRestoreFromDrive(passcode) {
   if (aesKey) showRestoreCelebration(lockRestoreSource);
 }
 
+document.getElementById("btn-setup-restore-cloud")?.addEventListener("click", openLockCloudPick);
+// Restore from a CSV export: start the app without a passcode (as Get
+// started does), then import the file into it.
+document.getElementById("btn-setup-restore-csv")?.addEventListener("click", () => {
+  lockIcloudSignInPending = false;
+  document.getElementById("lock-csv-file")?.click();
+});
+document.getElementById("lock-csv-file")?.addEventListener("change", async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try { fromCSV(await file.text()); } catch (err) {
+    lockError("That file isn't a Duitful CSV export. " + ((err && err.message) || ""));
+    return;
+  }
+  const btn = document.getElementById("btn-setup-restore-csv");
+  const endWork = btn ? beginWork(btn) : null;
+  try {
+    await handleSetup(OPEN_PASSCODE, OPEN_PASSCODE, freshVaultState(), { open: true });
+    if (aesKey && await importCsvFile(file, { ask: false, onError: (m) => toast(m) })) showRestoreCelebration("csv");
+  } finally { if (endWork) endWork(); }
+});
 document.getElementById("btn-setup-restore")?.addEventListener("click", () => {
+  lockIcloudSignInPending = false;
   startDriveRestoreFromLock("drive").catch(() => {});
 });
 document.getElementById("btn-setup-restore-icloud")?.addEventListener("click", () => {
@@ -14304,7 +14387,7 @@ function renderDriveCard() {
   card.hidden = false;
   const pro = isPro();
 
-  // iCloud block: only inside the iPhone app.
+  // iCloud block: the iPhone app, and the web once a CloudKit web token is set.
   const ic = window.ICloudSync;
   const icConfigured = !!(ic && ic.isConfigured());
   const icBlock = document.getElementById("icloud-backup");
@@ -14316,8 +14399,22 @@ function renderDriveCard() {
     const offEl = document.getElementById("icloud-off");
     if (onEl) onEl.hidden = !icOn;
     if (offEl) offEl.hidden = icOn;
+    const onWeb = !!(ic.isWeb && ic.isWeb());
+    const signInBox = document.getElementById("apple-sign-in-wrap");
+    const signOutBox = document.getElementById("apple-sign-out-wrap");
+    const recheck = document.getElementById("btn-icloud-recheck");
+    if (signInBox) signInBox.hidden = !onWeb || icOn;
+    if (signOutBox) signOutBox.hidden = !onWeb || !icOn;
+    if (recheck) recheck.hidden = onWeb;
+    // CloudKit JS draws its button into the box, so load it once the box is on screen.
+    if (onWeb && !icOn && ic.prepareSignIn && !renderDriveCard._ckAsked) {
+      renderDriveCard._ckAsked = true;
+      ic.prepareSignIn().then(() => renderDriveCard()).catch(() => {});
+    }
     const why = document.getElementById("icloud-off-why");
-    if (why && !icOn) {
+    if (why && !icOn && onWeb) {
+      why.textContent = "Sign in with your Apple ID to back up to your own iCloud. It's the same backup the Duitful iPhone app uses.";
+    } else if (why && !icOn) {
       // Each reason names the one switch that fixes it. The code in
       // brackets is for a bug report, not for the reader.
       const reason = (ic.unavailableReason && ic.unavailableReason()) || "";

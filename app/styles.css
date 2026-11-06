@@ -7968,3 +7968,45 @@ html::before {
 .scan-dialog .scan-items-foot { border-top: 1px solid var(--line); margin-top: 0.3rem; }
 .scan-dialog .scan-items-foot li { padding: 0.4rem 0.4rem; background: none; }
 .scan-dialog .scan-items .scan-item-name-in { margin-left: -0.4rem; }
+
+/* Web iCloud: CloudKit JS draws Apple's own Sign in / Sign out button here. */
+.apple-ck { position: relative; display: inline-flex; margin-top: 0.6rem; }
+.apple-ck[hidden] { display: none; }
+/* What people see: a compact button in the app's own style. */
+.apple-ck-face {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  min-height: 44px; padding: 0 1.1rem; border-radius: var(--r-pill);
+  font: 600 0.92rem/1 var(--font-sans); background: #000; color: #fff;
+  border: 1px solid #000; pointer-events: none;
+}
+.apple-ck-face svg { margin-top: -2px; flex: none; }
+.apple-ck-face.is-ghost { background: transparent; color: var(--text); border-color: var(--line); }
+/* What takes the tap: CloudKit's own button, stretched over ours and
+   transparent, so Apple's sign-in opens from Apple's handler. */
+.apple-ck-hit { position: absolute; inset: 0; opacity: 0.011; overflow: hidden; border-radius: var(--r-pill); }
+.apple-ck-hit .apple-auth-button, .apple-ck-hit > * { width: 100% !important; height: 100% !important; cursor: pointer; }
+.apple-ck:focus-within .apple-ck-face { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Start screen: one "Restore from cloud", then a tile per cloud. */
+.lock-cloud .lock-google-text strong { font-size: 1rem; }
+.lock-cloud-pick { display: flex; gap: 0.6rem; margin-top: 0.6rem; }
+.lock-cloud-pick[hidden] { display: none; }
+.cloud-tile-wrap { position: relative; flex: 1 1 0; display: flex; }
+.cloud-tile-wrap:not(:has(.cloud-tile:not([hidden]))) { display: none; }
+.cloud-tile {
+  flex: 1 1 0; width: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem;
+  min-height: 92px; padding: 0.75rem 0.5rem;
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--card); color: var(--text);
+  font: 600 0.88rem/1.1 var(--font-sans); cursor: pointer;
+}
+.cloud-tile[hidden] { display: none; }
+.cloud-tile:hover { border-color: var(--primary); }
+.cloud-tile:active { transform: scale(0.985); }
+.cloud-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cloud-tile-wrap .apple-ck-hit { border-radius: var(--r-md); }
+.apple-ck-hit:empty { pointer-events: none; }
+/* CloudKit restyles its host element; keep the hit layer invisible regardless. */
+#apple-sign-in-button, #apple-sign-out-button { opacity: 0.011 !important; overflow: hidden !important; }
+#apple-sign-in-button *, #apple-sign-out-button * { color: transparent !important; fill: transparent !important; }

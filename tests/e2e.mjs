@@ -73,6 +73,9 @@ const asMalaysia = () => {
     const o = ro.call(this);
     return { ...o, timeZone: 'Asia/Kuala_Lumpur' };
   };
+  // The suite never signs in to Apple: web iCloud stays off unless a test
+  // turns it on against its own stand-in CloudKit.
+  window.ICLOUD_WEB_CONFIG = { apiToken: '' };
 };
 {
   const newContext = b.newContext.bind(b), newPage = b.newPage.bind(b);
@@ -3022,6 +3025,105 @@ check('a split from a spend you already logged never logs it twice',
     ny.crop && Math.abs(ny.crop[0] - 150) < 20 && Math.abs(ny.crop[2] - 300) < 30 && Math.abs(ny.crop[1] - 60) < 20 && ny.noCrop === null, JSON.stringify(ny));
 }
 
+// iCloud on the web: CloudKit JS against the same private record the
+// iPhone app writes. Off without a web token; with one, Sign in with Apple
+// ID, then back up and restore through a stand-in CloudKit.
+{
+  const ck = await S(async () => {
+    window.ICLOUD_WEB_CONFIG = { apiToken: '' };
+    const out = { offWithoutToken: !ICloudSync.isConfigured() && !ICloudSync.isWeb() };
+    const store = {}; const saves = [];
+    let signIn;
+    const db = {
+      async fetchRecords(names) {
+        const r = store[names[0]];
+        if (!r) return { hasErrors: true, errors: [{ ckErrorCode: 'NOT_FOUND' }] };
+        return { records: [{ recordName: names[0], recordChangeTag: r.tag, fields: { payload: { value: { downloadURL: 'https://cvws.icloud-content.com/B/' + r.tag + '/${f}' } } } }] };
+      },
+      async saveRecords(recs) {
+        const rec = recs[0]; saves.push({ tag: rec.recordChangeTag || null, type: rec.recordType });
+        const cur = store[rec.recordName];
+        if (cur && rec.recordChangeTag !== cur.tag) return { hasErrors: true, errors: [{ ckErrorCode: 'CONFLICT' }] };
+        store[rec.recordName] = { tag: 't' + saves.length, text: await rec.fields.payload.value.text() };
+        return { records: [rec] };
+      },
+    };
+    const container = {
+      privateCloudDatabase: db,
+      setUpAuth: async () => null,
+      whenUserSignsIn: () => new Promise((res) => { signIn = res; }),
+      whenUserSignsOut: () => new Promise(() => {}),
+      signOut: async () => {},
+    };
+    let configured = null;
+    const realFetch = window.fetch;
+    out.fetched = [];
+    window.fetch = async (url, o) => {
+      const m = /^https:\/\/cvws\.icloud-content\.com\/B\/(t\d+)\/(.*)$/.exec(String(url));
+      if (!m) return realFetch(url, o);
+      out.fetched.push(m[2]);
+      const r = Object.values(store).find((x) => x.tag === m[1]);
+      return new Response(r ? r.text : '', { status: r ? 200 : 404 });
+    };
+    window.CloudKit = { configure: (c) => { configured = c; }, getDefaultContainer: () => container };
+    window.ICLOUD_WEB_CONFIG = { apiToken: 'test-token' };
+    out.isWeb = ICloudSync.isWeb();
+    out.before = await ICloudSync.prepareSignIn();
+    out.container = configured && configured.containers[0].containerIdentifier;
+    out.buttonsBound = configured && configured.containers[0].apiTokenAuth.signInButton.id;
+    signIn({ userRecordName: '_u' });
+    await new Promise((r) => setTimeout(r, 20));
+    out.signedIn = ICloudSync.isSignedIn();
+    const rec = { iv: 'abc', ct: 'def' };
+    await ICloudSync.uploadEncryptedRecord(rec, { savedBy: 'web' });
+    await ICloudSync.uploadEncryptedRecord({ iv: 'x', ct: 'y' }, { savedBy: 'web' });
+    out.saves = saves;
+    // A fresh sign-in drops the cached read, so the restore really fetches.
+    signIn({ userRecordName: '_u' });
+    await new Promise((r) => setTimeout(r, 20));
+    const meta = await ICloudSync.getRemoteMeta();
+    out.meta = meta && meta.appProperties.savedBy;
+    out.back = await ICloudSync.downloadEncryptedRecord();
+    // The card shows Apple's button on the web, not "sign in from Settings".
+    renderDriveCard();
+    out.card = {
+      block: !document.getElementById('icloud-backup').hidden,
+      signOutBox: !document.getElementById('apple-sign-out-wrap').hidden,
+    };
+    await ICloudSync.signOut();
+    out.afterSignOut = ICloudSync.isSignedIn();
+    renderDriveCard();
+    out.card.signInBox = !document.getElementById('apple-sign-in-wrap').hidden;
+    out.card.recheckHidden = document.getElementById('btn-icloud-recheck').hidden;
+    out.card.why = document.getElementById('icloud-off-why').textContent;
+    // The start screen offers Restore from iCloud on the web too, and moves
+    // Apple's Sign in button there when it's tapped.
+    renderLockRestore();
+    out.lock = { btn: !document.getElementById('btn-setup-restore-icloud').hidden };
+    lockAppleSignIn(true);
+    out.lock.moved = document.getElementById('apple-sign-in-button').parentElement.id;
+    lockAppleSignIn(false);
+    out.lock.back = document.getElementById('apple-sign-in-button').parentElement.id;
+    window.fetch = realFetch;
+    window.ICLOUD_WEB_CONFIG = { apiToken: '' };
+    out.offAgain = !ICloudSync.isConfigured();
+    delete window.CloudKit;
+    renderDriveCard();
+    return out;
+  });
+  check('the shipped web iCloud config carries a CloudKit web token for the iPhone app\'s container',
+    /apiToken: "[0-9a-f]{64}"/.test(readFileSync(path.join(REPO_ROOT, 'app/icloud-sync.js'), 'utf8')));
+  check('web iCloud is off until a CloudKit web token is set, and the iPhone app\'s container is the one used',
+    ck.offWithoutToken && ck.isWeb && ck.before === false && ck.container === 'iCloud.com.aydiljoe.duitful' && ck.buttonsBound === 'apple-sign-in-button' && ck.offAgain, JSON.stringify(ck));
+  check('web iCloud: after Sign in with Apple ID it backs up (second save carries the change tag) and restores the same encrypted record',
+    ck.signedIn && ck.saves.length === 2 && ck.saves[0].tag === null && ck.saves[1].tag === 't1' && ck.saves[0].type === 'Backup'
+      && ck.back && ck.back.iv === 'x' && ck.meta === 'web' && ck.fetched[0] === 'duitful-backup.json', JSON.stringify(ck));
+  check('web start screen: Restore from iCloud shows, and Apple\'s Sign in button moves there and back',
+    ck.lock && ck.lock.btn && ck.lock.moved === 'lock-icloud-tile' && ck.lock.back === 'apple-sign-in-wrap', JSON.stringify(ck.lock));
+  check('web iCloud card: Apple\'s Sign in button (no "Check again"), Sign out once signed in',
+    ck.card.block && ck.card.signOutBox && !ck.afterSignOut && ck.card.signInBox && ck.card.recheckHidden && /Apple ID/.test(ck.card.why), JSON.stringify(ck.card));
+}
+
 // Announcements can target Apple web users ("web-apple"), and the iPhone
 // app is "ios", not "android".
 {
@@ -5725,7 +5827,7 @@ check('the vault is open before the quick-add checks',
     await np.waitForTimeout(1000);
     const first = await np.evaluate(() => ({
       start: !document.getElementById('btn-start-open').hidden, setPass: !document.getElementById('btn-start-passcode').hidden,
-      form: !document.getElementById('lock-form').hidden, restore: !document.getElementById('btn-setup-restore').hidden }));
+      form: !document.getElementById('lock-form').hidden, restore: !document.getElementById('btn-setup-restore-cloud').hidden }));
     check('first open: Get started, Set a passcode and Restore are offered; no passcode field yet',
       first.start && first.setPass && !first.form && first.restore, JSON.stringify(first));
     // 0000 is refused as a chosen passcode.
@@ -9416,6 +9518,9 @@ check('the brand catalogue makes no network calls at all',
   await fresh.goto(`${BASE}/app/index.html`);
   await fresh.waitForTimeout(500);
   await installFakeICloud(fresh, seed);
+  // One "Restore from cloud" button; with Drive there too, it opens the
+  // choice of logos.
+  await fresh.click('#btn-setup-restore-cloud');
   check('a fresh iPhone offers Restore from iCloud on the first screen',
     await fresh.locator('#btn-setup-restore-icloud').isVisible());
   await fresh.click('#btn-setup-restore-icloud');
@@ -9442,11 +9547,41 @@ check('the brand catalogue makes no network calls at all',
     party.open && /Welcome back/.test(party.title) && /iCloud/.test(party.sub) && party.stats.some((t) => /debt/.test(t))
       && !party.tour && party.guideSeen, JSON.stringify(party));
 
+  // Restore from backup → CSV: a fresh first screen takes a CSV export and
+  // opens the app with it, celebration included.
+  {
+    const csvText = await S(() => {
+      const keep = state.debts;
+      state.debts = keep.concat([{ id: 'csv-probe', name: 'CSV Probe Loan', kind: 'standard', balance: 321, apr: 7, minPayment: 20 }]);
+      const out = toCSV();
+      state.debts = keep;
+      return out;
+    });
+    const cctx = await b.newContext();
+    const cp = await cctx.newPage();
+    const cErr = []; cp.on('pageerror', (e) => cErr.push(e.message));
+    await cp.goto(`${BASE}/app/index.html`);
+    await cp.waitForTimeout(600);
+    await cp.click('#btn-setup-restore-cloud');
+    const tiles = await cp.evaluate(() => ({
+      label: document.querySelector('#btn-setup-restore-cloud strong').textContent,
+      csv: !document.getElementById('btn-setup-restore-csv').hidden && !document.getElementById('lock-cloud-pick').hidden,
+    }));
+    await cp.setInputFiles('#lock-csv-file', { name: 'duitful.csv', mimeType: 'text/csv', buffer: Buffer.from(csvText) });
+    await cp.waitForTimeout(2500);
+    const got = await cp.evaluate(() => ({ unlocked: !!aesKey, debt: (state.debts || []).some((d) => d.name === 'CSV Probe Loan'),
+      party: document.getElementById('restore-dialog').open && /CSV/.test(document.getElementById('restore-sub').textContent) }));
+    check('first screen: "Restore from backup" offers a CSV tile, and a CSV export opens straight into the app with its data',
+      tiles.label === 'Restore from backup' && tiles.csv && got.unlocked && got.debt && got.party && !cErr.length, JSON.stringify({ tiles, got, cErr }));
+    await cctx.close();
+  }
+
   const empty = await b.newContext();
   const none = await empty.newPage();
   await none.goto(`${BASE}/app/index.html`);
   await none.waitForTimeout(500);
   await installFakeICloud(none, null);
+  await none.click('#btn-setup-restore-cloud');
   await none.click('#btn-setup-restore-icloud');
   await none.waitForTimeout(800);
   check('no iCloud backup: says so instead of asking for a passcode',
@@ -9470,6 +9605,7 @@ check('the brand catalogue makes no network calls at all',
       const rec = await encryptWith(await deriveKey('0000', salt), st, b64encode(salt));
       await ICloudSync.uploadEncryptedRecord(rec, {});
     });
+    await op.click('#btn-setup-restore-cloud');
     await op.click('#btn-setup-restore-icloud');
     await op.waitForTimeout(2500);
     const or = await op.evaluate(() => ({ unlocked: !!aesKey, open: vaultIsOpen(), lock: document.getElementById('lock').hidden,
