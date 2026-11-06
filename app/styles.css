@@ -7647,3 +7647,324 @@ html::before {
 .split-pick-offer .hint { margin-top: 0.4rem; }
 .split-pick-list { list-style: none; margin: 0.4rem 0; padding: 0; }
 .split-pick-list li { display: flex; justify-content: space-between; padding: 0.3rem 0; border-top: 1px solid var(--line); font-size: 0.95rem; }
+
+/* v1.55.2 — the scan confirm sheet. One column, top to bottom: the photo,
+   Total, Vendor, Date, Category, Items, and a footer that never scrolls
+   away. Full screen on a phone so the tab bar is under it, not beside it. */
+.scan-dialog {
+  max-width: 480px;
+  max-height: min(860px, calc(100dvh - 2rem));
+  overflow: hidden;
+}
+.scan-dialog[open] { display: flex; flex-direction: column; }
+.scan-dialog form.scan-form {
+  padding: 0;
+  gap: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.scan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: calc(0.5rem + env(safe-area-inset-top, 0px)) 0.5rem 0.25rem 1rem;
+  flex: none;
+}
+.scan-dialog .scan-head h2 { margin: 0; font-size: 1.05rem; }
+.scan-close {
+  width: 44px; height: 44px; flex: none;
+  display: grid; place-items: center;
+  border: 0; border-radius: var(--r-pill);
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.scan-close:hover { background: var(--card-soft); color: var(--text); }
+.scan-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.scan-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.25rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.scan-result { display: flex; flex-direction: column; gap: 0.85rem; }
+.scan-result[hidden] { display: none; }
+.scan-foot {
+  flex: none;
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--line);
+  background: var(--card);
+}
+.scan-foot > button { min-height: 48px; }
+.scan-foot > button[hidden] { display: none; }
+.scan-foot .ghost { flex: 0 0 auto; padding-inline: 1.1rem; }
+.scan-foot .primary { flex: 1 1 auto; font-size: 1rem; }
+.scan-dialog #scan-cancel { margin-right: 0; }
+@media (max-width: 640px) {
+  .scan-dialog {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    inset: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+/* The photo: a small, tappable thumbnail, not half the screen. */
+.scan-dialog .scan-preview-wrap {
+  position: relative;
+  align-self: center;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--card-soft);
+  overflow: hidden;
+  cursor: zoom-in;
+  font: inherit;
+  color: inherit;
+}
+.scan-dialog .scan-preview-wrap:not(:has(img[src])) { display: none; }
+.scan-dialog .scan-preview-wrap img {
+  display: block;
+  height: 160px;
+  width: auto;
+  max-width: 100%;
+  max-height: none;
+  border-radius: 0;
+  object-fit: contain;
+}
+.scan-dialog .scan-preview-wrap:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.scan-preview-zoom {
+  position: absolute; right: 6px; bottom: 6px;
+  width: 26px; height: 26px; display: grid; place-items: center;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+}
+#scan-status[hidden] { display: none; }
+
+/* Labels sit right above their own field, in the same sans as the rest. */
+.scan-field { gap: 0.3rem; margin: 0; }
+.scan-field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 1.3rem;
+  color: var(--ink2);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.scan-field-label label { font: inherit; color: inherit; }
+
+/* Total */
+.scan-dialog .scan-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.9rem 0.75rem;
+}
+.scan-dialog .scan-amount-row { align-items: center; gap: 0.35rem; }
+.scan-dialog .scan-cur {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 40px;
+  padding: 0 0.45rem;
+  margin-left: -0.45rem;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.scan-dialog .scan-cur::after { content: "▾"; font-size: 0.7rem; opacity: 0.8; }
+.scan-dialog .scan-cur:hover { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); }
+.scan-dialog .scan-cur:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.scan-dialog .scan-amount-row input { font-size: 2.1rem; font-variant-numeric: tabular-nums; }
+.scan-amount-match {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--gain);
+}
+.scan-amount-match[hidden] { display: none; }
+.scan-amount-pick { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.25rem; }
+.scan-amount-pick[hidden] { display: none; }
+.scan-pick-lead { font-size: 0.8rem; color: color-mix(in srgb, var(--warn) 78%, var(--text)); font-weight: 500; }
+.scan-pick {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+.scan-pick strong { font-variant-numeric: tabular-nums; }
+.scan-pick-use { margin-left: auto; color: var(--primary); font-weight: 600; white-space: nowrap; }
+.scan-pick:hover { border-color: var(--primary); }
+.scan-pick:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.scan-currency-wrap { margin-top: 0.4rem; }
+.scan-currency-wrap[hidden] { display: none; }
+.scan-currency-wrap .hint { margin: 0.35rem 0 0; }
+
+/* Badges: small, sentence case, the body font. "Check" only when unsure. */
+.scan-dialog .scan-conf {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--r-pill);
+  background: color-mix(in srgb, var(--gain) 13%, transparent);
+  color: color-mix(in srgb, var(--gain) 80%, var(--text));
+}
+.scan-dialog .scan-conf.is-check {
+  background: color-mix(in srgb, var(--warn) 17%, transparent);
+  color: color-mix(in srgb, var(--warn) 80%, var(--text));
+}
+.scan-dialog .scan-conf[hidden] { display: none; }
+
+/* Category: one chip row, the suggestion already chosen. */
+.scan-dialog .scan-cat-chips { margin: 0; }
+.scan-dialog .scan-cat-chips[hidden] { display: none; }
+.scan-dialog .scan-cat-chips .chip-more { color: var(--muted); border-style: dashed; }
+#scan-cat-new { margin-top: 0.45rem; }
+#scan-cat-new[hidden] { display: none; }
+.scan-dialog .scan-tax-note { margin: 0.35rem 0 0; }
+
+/* Items: one quiet row until opened. */
+.scan-dialog .scan-items-details {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 0 0.75rem;
+}
+.scan-dialog .scan-items-details[hidden] { display: none; }
+.scan-dialog .scan-result .scan-items-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 48px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+}
+.scan-dialog .scan-items-details > summary::-webkit-details-marker { display: none; }
+.scan-dialog .scan-items-details > summary::after {
+  content: ""; margin-left: auto; width: 8px; height: 8px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px); opacity: 0.55; transition: transform 0.15s ease;
+}
+.scan-dialog .scan-items-details[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.scan-dialog #scan-items-summary.is-off { color: color-mix(in srgb, var(--warn) 80%, var(--text)); }
+.scan-dialog .scan-items-details[open] { padding-bottom: 0.75rem; }
+.scan-dialog .scan-items { margin-top: 0; }
+.scan-dialog .scan-items li { align-items: center; font-size: 0.88rem; }
+.scan-dialog .scan-items .scan-item-price { font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+.scan-dialog .scan-items input {
+  min-height: 36px; padding: 0.2rem 0.4rem; font: inherit; font-size: 0.88rem;
+  border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; color: inherit;
+}
+.scan-dialog .scan-items input:hover { border-color: var(--line); }
+.scan-dialog .scan-items input:focus { outline: none; border-color: var(--primary); background: var(--card); }
+.scan-dialog .scan-items .scan-item-name-in { flex: 1 1 auto; min-width: 0; }
+.scan-dialog .scan-items .scan-item-price-in { flex: 0 0 6.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+.scan-more-actions { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; }
+.scan-more-actions .link-btn {
+  min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--text);
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line);
+}
+.scan-more-actions .link-btn[hidden] { display: none; }
+.scan-more-actions:not(:has(.link-btn:not([hidden]))) { display: none; }
+.scan-dialog #scan-raw-details[hidden] { display: none; }
+.scan-quota { margin: 0; }
+
+/* Full-screen receipt with the source lines outlined. */
+.scan-viewer {
+  position: fixed; inset: 0; z-index: 10;
+  background: rgba(12, 10, 9, 0.94);
+  display: flex; align-items: center; justify-content: center;
+}
+.scan-viewer[hidden] { display: none; }
+.scan-viewer-stage {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; touch-action: none; cursor: grab;
+  padding: calc(3.5rem + env(safe-area-inset-top, 0px)) 0.75rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
+.scan-viewer-page { position: relative; max-width: 100%; max-height: 100%; transform-origin: center; }
+.scan-viewer-page img { display: block; max-width: 100%; max-height: calc(100dvh - 5rem); object-fit: contain; user-select: none; -webkit-user-drag: none; }
+.scan-viewer-marks { position: absolute; inset: 0; pointer-events: none; }
+.scan-mark {
+  position: absolute;
+  margin: -3px;
+  padding: 3px;
+  border: 2px solid var(--gain);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--gain) 14%, transparent);
+  box-sizing: content-box;
+}
+.scan-mark.is-vendor { border-color: #4a86c5; background: rgba(74, 134, 197, 0.14); }
+.scan-mark.is-date { border-color: #c58a2a; background: rgba(197, 138, 42, 0.14); }
+.scan-mark > span {
+  position: absolute; left: -2px; bottom: 100%; margin-bottom: 2px;
+  padding: 0 0.3rem; border-radius: 3px;
+  font: 600 0.62rem/1.5 var(--font-sans); color: #fff; background: var(--gain); white-space: nowrap;
+}
+.scan-mark.is-vendor > span { background: #4a86c5; }
+.scan-mark.is-date > span { background: #c58a2a; }
+.scan-viewer-close {
+  position: absolute; top: calc(0.5rem + env(safe-area-inset-top, 0px)); right: 0.5rem;
+  width: 44px; height: 44px; display: grid; place-items: center;
+  border: 0; border-radius: var(--r-pill); background: rgba(255, 255, 255, 0.14); color: #fff; cursor: pointer;
+}
+.scan-viewer-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.scan-body > *, .scan-result > * { flex-shrink: 0; }
+.scan-dialog .scan-head .scan-close { border: 0; box-shadow: none; outline: none; min-height: 0; padding: 0; }
+.scan-dialog .scan-head .scan-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.scan-dialog .scan-amount-row input {
+  font-family: var(--font-sans);
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+.scan-dialog .scan-amount-row input::placeholder { color: color-mix(in srgb, var(--muted) 55%, transparent); }
+.scan-dialog .scan-head h2:focus { outline: none; }
+.scan-dialog .scan-items { border: 0; border-radius: 0; }
+.scan-dialog .scan-items li { padding: 0.1rem 0; }
+.scan-dialog .scan-items-foot { border-top: 1px solid var(--line); margin-top: 0.3rem; }
+.scan-dialog .scan-items-foot li { padding: 0.4rem 0.4rem; background: none; }
+.scan-dialog .scan-items .scan-item-name-in { margin-left: -0.4rem; }

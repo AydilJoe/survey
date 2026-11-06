@@ -1297,7 +1297,7 @@ function splitRowText(rowWords) {
   return head.concat(tail, texts[priceIdx]).join(" ").trim();
 }
 
-function splitReconstructRows(words) {
+function splitReconstructRows(words, withBoxes) {
   const list = splitNormalizeWordBoxes(words);
   if (!list.length) return [];
   const heights = list.map((w) => w.y1 - w.y0).filter((h) => h > 0).sort((a, b) => a - b);
@@ -1321,8 +1321,23 @@ function splitReconstructRows(words) {
     }
   }
   return rows
-    .map((r) => splitRowText(r.words.slice().sort((a, b) => a.x0 - b.x0 || a.y0 - b.y0)))
+    .map((r) => {
+      const ws = r.words.slice().sort((a, b) => a.x0 - b.x0 || a.y0 - b.y0);
+      const text = splitRowText(ws);
+      if (!text) return null;
+      const box = {
+        x0: Math.min(...ws.map((w) => w.x0)), y0: Math.min(...ws.map((w) => w.y0)),
+        x1: Math.max(...ws.map((w) => w.x1)), y1: Math.max(...ws.map((w) => w.y1)),
+      };
+      return withBoxes ? { text, box } : text;
+    })
     .filter(Boolean);
+}
+
+// The same rows with where each sits on the image, so the scan sheet can
+// point at the line a total, shop or date was read from.
+function splitReconstructRowBoxes(words) {
+  return splitReconstructRows(words, true);
 }
 
 // Convenience for the OCR pipeline: rows as one text blob, ready to hand to
