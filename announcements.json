@@ -26,7 +26,7 @@
       "_note": "Turn on once the iPhone app is live on the App Store: paste its link into cta_url, set enabled to true, push.",
       "title": "Duitful is on the App Store",
       "body": [
-        "On an iPhone or iPad, the Duitful app backs up to your own iCloud by itself, encrypted so only your passcode opens it.",
+        "On an iPhone or iPad, Duitful Pro backs up to your own iCloud by itself, encrypted so only your passcode opens it.",
         "Moving over: Settings → Export CSV here, then Settings → Import CSV in the app."
       ],
       "cta_label": "Get the iPhone app",
