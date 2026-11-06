@@ -3022,6 +3022,35 @@ check('a split from a spend you already logged never logs it twice',
     ny.crop && Math.abs(ny.crop[0] - 150) < 20 && Math.abs(ny.crop[2] - 300) < 30 && Math.abs(ny.crop[1] - 60) < 20 && ny.noCrop === null, JSON.stringify(ny));
 }
 
+// v1.55.3: Google Drive can be tucked away in the iPhone app (App Review
+// can't sign in to a Google account from abroad); iCloud stays.
+{
+  const dh = await S(() => {
+    const real = window.DriveSync;
+    const shown = () => ({
+      provider: !document.getElementById('drive-provider').hidden,
+      lockGoogle: !document.getElementById('btn-setup-restore').hidden,
+      welcomeRow: !document.getElementById('pro-welcome-drive-row').hidden,
+      paywallLine: document.querySelector('.paywall-features li').textContent,
+    });
+    const before = shown();
+    const saved = [...document.querySelectorAll('[data-drive], [data-drive-text]')].map((el) => [el, el.hidden, el.textContent]);
+    const savedCopy = PAYWALL_COPY.cloudBackup;
+    window.DriveSync = Object.assign({}, real, { isHidden: () => true, isConfigured: () => false });
+    applyDriveVisibility();
+    const after = shown();
+    saved.forEach(([el, h, txt]) => { el.hidden = h; if (el.hasAttribute('data-drive-text')) el.textContent = txt; });
+    const copy = PAYWALL_COPY.cloudBackup;
+    PAYWALL_COPY.cloudBackup = savedCopy;
+    window.DriveSync = real;
+    return { before, after, copy, webHidden: real.isHidden() };
+  });
+  check('Drive tucked away on iPhone: no Drive card, no "Restore with Google", Pro welcome and paywall say iCloud only',
+    !dh.after.provider && !dh.after.lockGoogle && !dh.after.welcomeRow
+      && dh.after.paywallLine === 'Automatic encrypted backup to iCloud' && !/Google/.test(dh.copy), JSON.stringify(dh));
+  check('Drive stays on the web (the switch is iPhone-only)', dh.webHidden === false && dh.before.provider, JSON.stringify(dh));
+}
+
 // v1.55.2: the confirm sheet. The total is filled in only when the receipt
 // backs it (TOTAL line, what was paid, and its own sums); vendor, date,
 // category and the items-vs-subtotal check come from receipt-extract.js.
@@ -4218,7 +4247,7 @@ check('DriveSync exposes the same public API on web, Android and iOS',
   driveIso.surface && driveIso.surface.real === driveIso.surface.web
   && driveIso.surface.web === driveIso.surface.android
   && driveIso.surface.android === driveIso.surface.ios
-  && driveIso.surface.real === 'downloadEncryptedRecord,getAccountEmail,getRemoteMeta,getStatus,isConfigured,isSignedIn,signIn,signOut,subscribe,uploadEncryptedRecord',
+  && driveIso.surface.real === 'downloadEncryptedRecord,getAccountEmail,getRemoteMeta,getStatus,isConfigured,isHidden,isSignedIn,signIn,signOut,subscribe,uploadEncryptedRecord',
   JSON.stringify(driveIso.surface));
 check('platform → auth mode mapping (only ios/android are native; everything else is web)',
   driveIso.pick === 'web:web android:android ios:ios electron:web undefined:web', driveIso.pick);

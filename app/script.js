@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.2";
+const APP_VERSION = "1.55.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4728,6 +4728,7 @@ function paysWithBillplz() {
 }
 
 function openPaywall(feature) {
+  applyDriveVisibility();
   const dlg = document.getElementById("paywall-dialog");
   const reason = document.getElementById("paywall-reason");
   const hint = document.getElementById("paywall-hint");
@@ -10076,6 +10077,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.3": [
+    "<strong>iPhone backup is iCloud</strong> — the iPhone app now backs up to iCloud only; Google Drive is paused there for now. Your Drive backup stays in your Drive, and Android and the web still use it.",
+  ],
   "1.55.2": [
     "<strong>A clearer scan screen</strong> — the total is filled in only when the receipt backs it (the TOTAL line, what you paid and its own sums); otherwise you pick from the figures it prints. Shop names drop the Sdn Bhd, and items are checked against the subtotal.",
   ],
@@ -14269,9 +14273,22 @@ function formatRelative(iso) {
 
 /* ----- Cloud backup UI ----- */
 
+// Google Drive switched off for this build (iPhone, drive-config.js): hide
+// every Drive control and say iCloud where the copy names both.
+function driveHiddenHere() {
+  return !!(window.DriveSync && DriveSync.isHidden && DriveSync.isHidden());
+}
+function applyDriveVisibility() {
+  if (!driveHiddenHere()) return;
+  document.querySelectorAll("[data-drive]").forEach((el) => { el.hidden = true; });
+  document.querySelectorAll("[data-drive-text]").forEach((el) => { el.textContent = el.dataset.driveText; });
+  try { PAYWALL_COPY.cloudBackup = "Automatic backup to iCloud is a Pro feature. Export CSV in Settings stays free."; } catch { /* not defined yet at boot */ }
+}
+
 function renderDriveCard() {
   const card = document.getElementById("drive-card");
   if (!card) return;
+  applyDriveVisibility();
   card.hidden = false;
   const pro = isPro();
 
