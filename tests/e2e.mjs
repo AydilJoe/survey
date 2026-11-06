@@ -3101,9 +3101,9 @@ check('a split from a spend you already logged never logs it twice',
     renderLockRestore();
     out.lock = { btn: !document.getElementById('btn-setup-restore-icloud').hidden };
     lockAppleSignIn(true);
-    out.lock.moved = document.getElementById('apple-sign-in-wrap').parentElement.id;
+    out.lock.moved = document.getElementById('apple-sign-in-button').parentElement.id;
     lockAppleSignIn(false);
-    out.lock.back = document.getElementById('apple-sign-in-wrap').parentElement.id;
+    out.lock.back = document.getElementById('apple-sign-in-button').parentElement.id;
     window.fetch = realFetch;
     window.ICLOUD_WEB_CONFIG = { apiToken: '' };
     out.offAgain = !ICloudSync.isConfigured();
@@ -3119,7 +3119,7 @@ check('a split from a spend you already logged never logs it twice',
     ck.signedIn && ck.saves.length === 2 && ck.saves[0].tag === null && ck.saves[1].tag === 't1' && ck.saves[0].type === 'Backup'
       && ck.back && ck.back.iv === 'x' && ck.meta === 'web' && ck.fetched[0] === 'duitful-backup.json', JSON.stringify(ck));
   check('web start screen: Restore from iCloud shows, and Apple\'s Sign in button moves there and back',
-    ck.lock && ck.lock.btn && ck.lock.moved === 'lock-apple-signin' && ck.lock.back === 'icloud-off', JSON.stringify(ck.lock));
+    ck.lock && ck.lock.btn && ck.lock.moved === 'lock-icloud-tile' && ck.lock.back === 'apple-sign-in-wrap', JSON.stringify(ck.lock));
   check('web iCloud card: Apple\'s Sign in button (no "Check again"), Sign out once signed in',
     ck.card.block && ck.card.signOutBox && !ck.afterSignOut && ck.card.signInBox && ck.card.recheckHidden && /Apple ID/.test(ck.card.why), JSON.stringify(ck.card));
 }
@@ -5827,7 +5827,7 @@ check('the vault is open before the quick-add checks',
     await np.waitForTimeout(1000);
     const first = await np.evaluate(() => ({
       start: !document.getElementById('btn-start-open').hidden, setPass: !document.getElementById('btn-start-passcode').hidden,
-      form: !document.getElementById('lock-form').hidden, restore: !document.getElementById('btn-setup-restore').hidden }));
+      form: !document.getElementById('lock-form').hidden, restore: !document.getElementById('btn-setup-restore-cloud').hidden }));
     check('first open: Get started, Set a passcode and Restore are offered; no passcode field yet',
       first.start && first.setPass && !first.form && first.restore, JSON.stringify(first));
     // 0000 is refused as a chosen passcode.
@@ -9518,6 +9518,9 @@ check('the brand catalogue makes no network calls at all',
   await fresh.goto(`${BASE}/app/index.html`);
   await fresh.waitForTimeout(500);
   await installFakeICloud(fresh, seed);
+  // One "Restore from cloud" button; with Drive there too, it opens the
+  // choice of logos.
+  await fresh.click('#btn-setup-restore-cloud');
   check('a fresh iPhone offers Restore from iCloud on the first screen',
     await fresh.locator('#btn-setup-restore-icloud').isVisible());
   await fresh.click('#btn-setup-restore-icloud');
@@ -9549,6 +9552,7 @@ check('the brand catalogue makes no network calls at all',
   await none.goto(`${BASE}/app/index.html`);
   await none.waitForTimeout(500);
   await installFakeICloud(none, null);
+  await none.click('#btn-setup-restore-cloud');
   await none.click('#btn-setup-restore-icloud');
   await none.waitForTimeout(800);
   check('no iCloud backup: says so instead of asking for a passcode',
@@ -9572,6 +9576,7 @@ check('the brand catalogue makes no network calls at all',
       const rec = await encryptWith(await deriveKey('0000', salt), st, b64encode(salt));
       await ICloudSync.uploadEncryptedRecord(rec, {});
     });
+    await op.click('#btn-setup-restore-cloud');
     await op.click('#btn-setup-restore-icloud');
     await op.waitForTimeout(2500);
     const or = await op.evaluate(() => ({ unlocked: !!aesKey, open: vaultIsOpen(), lock: document.getElementById('lock').hidden,

@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=142" />
+    <link rel="stylesheet" href="styles.css?v=143" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -140,32 +140,27 @@
         </p>
         <div id="lock-restore" class="lock-restore" hidden>
           <div class="lock-or" aria-hidden="true"><span>or</span></div>
-          <button type="button" class="lock-google lock-icloud" id="btn-setup-restore-icloud" hidden>
+          <!-- One button; with more than one cloud it opens the choice. -->
+          <button type="button" class="lock-google lock-cloud" id="btn-setup-restore-cloud">
             <svg class="lock-google-g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M7 18h10.5a4 4 0 00.6-7.96A6 6 0 006.4 9.1 4.5 4.5 0 007 18z"/>
             </svg>
-            <span class="lock-google-text">
-              <strong>Restore from iCloud</strong>
-              <small>Used Duitful on an iPhone before? Get your data back</small>
-            </span>
+            <span class="lock-google-text"><strong>Restore from cloud</strong></span>
           </button>
-          <!-- Web: Apple's own Sign in button moves here when Restore from
-               iCloud is tapped (CloudKit only signs in from its button). -->
-          <div id="lock-apple-signin" class="lock-apple-signin" hidden>
-            <p class="hint">Sign in with the Apple ID your iPhone uses. Your backup opens after that.</p>
+          <div id="lock-cloud-pick" class="lock-cloud-pick" role="group" aria-label="Restore from" hidden>
+            <!-- Web: CloudKit's own Sign in button is laid invisibly over the
+                 iCloud tile (lockAppleSignIn), so the tap signs in with Apple. -->
+            <div class="cloud-tile-wrap" id="lock-icloud-tile">
+              <button type="button" class="cloud-tile" id="btn-setup-restore-icloud" hidden>
+                <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true"><defs><linearGradient id="icg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ac8fa"/><stop offset="1" stop-color="#1a73e8"/></linearGradient></defs><path fill="url(#icg)" d="M14 38h22a9 9 0 001.3-17.9A13 13 0 0012.4 17 10.5 10.5 0 0014 38z"/></svg>
+                <span>iCloud</span>
+              </button>
+            </div>
+            <button type="button" class="cloud-tile" id="btn-setup-restore" data-drive>
+              <svg viewBox="0 0 87.3 78" width="34" height="30" aria-hidden="true"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>
+              <span>Google Drive</span>
+            </button>
           </div>
-          <button type="button" class="lock-google" id="btn-setup-restore" data-drive>
-            <svg class="lock-google-g" viewBox="0 0 48 48" aria-hidden="true">
-              <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-              <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-              <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-              <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            </svg>
-            <span class="lock-google-text">
-              <strong>Restore with Google</strong>
-              <small>Already use Duitful? Get your data from Drive</small>
-            </span>
-          </button>
         </div>
       </div>
     </div>
@@ -2629,6 +2624,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=12"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=192"></script>
+    <script src="script.js?v=193"></script>
   </body>
 </html>

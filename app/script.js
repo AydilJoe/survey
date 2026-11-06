@@ -11255,23 +11255,52 @@ function renderLockRestore() {
   // with an Apple ID is part of the restore.
   const web = !!(ic && ic.isWeb && ic.isWeb());
   btn.hidden = !(ic && ic.isConfigured() && (web || ic.isSignedIn()));
-  // Signed in from the start screen: carry on with the restore by itself.
-  if (lockIcloudSignInPending && ic && ic.isSignedIn()) {
+  const main = document.getElementById("btn-setup-restore-cloud");
+  if (main) main.hidden = lockCloudChoices().length === 0;
+  // Signed in with Apple from the start screen: carry on with the restore.
+  const lock = document.getElementById("lock");
+  if (lockIcloudSignInPending && ic && ic.isSignedIn() && lock && !lock.hidden) {
     lockIcloudSignInPending = false;
     lockAppleSignIn(false);
     startDriveRestoreFromLock("icloud").catch(() => {});
   }
 }
 var lockIcloudSignInPending = false; // var: renderLockRestore can run during boot, before this line
-// Moves CloudKit's Sign in button between the backup card and the start
-// screen. It keeps its id, so CloudKit keeps drawing into it.
+// Which clouds the start screen can restore from, in order.
+function lockCloudChoices() {
+  const out = [];
+  const icBtn = document.getElementById("btn-setup-restore-icloud");
+  if (icBtn && !icBtn.hidden) out.push("icloud");
+  const ds = window.DriveSync;
+  if (ds && ds.isConfigured() && !(ds.isHidden && ds.isHidden())) out.push("drive");
+  return out;
+}
+// Web: lays CloudKit's real Sign in button over the iCloud tile (or puts it
+// back on the backup card). It keeps its id, so CloudKit keeps drawing into it.
 function lockAppleSignIn(show) {
-  const box = document.getElementById("apple-sign-in-wrap");
-  const slot = document.getElementById("lock-apple-signin");
-  const home = document.getElementById("icloud-off");
-  if (!box || !slot || !home) return;
-  if (show) { slot.appendChild(box); box.hidden = false; slot.hidden = false; }
-  else { home.appendChild(box); slot.hidden = true; }
+  const hit = document.getElementById("apple-sign-in-button");
+  const tile = document.getElementById("lock-icloud-tile");
+  const home = document.getElementById("apple-sign-in-wrap");
+  if (!hit || !tile || !home) return;
+  (show ? tile : home).appendChild(hit);
+}
+function openLockCloudPick() {
+  const choices = lockCloudChoices();
+  const ic = window.ICloudSync;
+  const webSignIn = choices.includes("icloud") && ic && ic.isWeb && ic.isWeb() && !ic.isSignedIn();
+  if (choices.length === 1 && !webSignIn) {
+    startDriveRestoreFromLock(choices[0]).catch(() => {});
+    return;
+  }
+  const pick = document.getElementById("lock-cloud-pick");
+  if (pick) pick.hidden = false;
+  // Load Apple's sign-in now, so it is ready under the iCloud tile by the
+  // time it's tapped (the tap itself has to open Apple's window).
+  if (webSignIn) {
+    lockIcloudSignInPending = true;
+    lockAppleSignIn(true);
+    ic.prepareSignIn().catch(() => {});
+  }
 }
 
 async function startDriveRestoreFromLock(id = "drive") {
@@ -11288,8 +11317,8 @@ async function startDriveRestoreFromLock(id = "drive") {
   try {
     if (icloud) {
       if (!api.isSignedIn() && api.isWeb && api.isWeb()) {
-        // Apple's button does the sign-in; renderLockRestore picks the
-        // restore back up once it has.
+        // Apple's button (laid over the tile) does the sign-in; until it has
+        // loaded, this tap loads it, and renderLockRestore carries on after.
         lockIcloudSignInPending = true;
         lockAppleSignIn(true);
         await api.prepareSignIn();
@@ -11361,7 +11390,9 @@ async function handleRestoreFromDrive(passcode) {
   if (aesKey) showRestoreCelebration(lockRestoreSource);
 }
 
+document.getElementById("btn-setup-restore-cloud")?.addEventListener("click", openLockCloudPick);
 document.getElementById("btn-setup-restore")?.addEventListener("click", () => {
+  lockIcloudSignInPending = false;
   startDriveRestoreFromLock("drive").catch(() => {});
 });
 document.getElementById("btn-setup-restore-icloud")?.addEventListener("click", () => {
