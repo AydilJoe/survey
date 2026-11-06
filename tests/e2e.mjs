@@ -3022,6 +3022,38 @@ check('a split from a spend you already logged never logs it twice',
     ny.crop && Math.abs(ny.crop[0] - 150) < 20 && Math.abs(ny.crop[2] - 300) < 30 && Math.abs(ny.crop[1] - 60) < 20 && ny.noCrop === null, JSON.stringify(ny));
 }
 
+// Announcements can target Apple web users ("web-apple"), and the iPhone
+// app is "ios", not "android".
+{
+  const an = await S(() => {
+    const realNative = window.isNative, realPlat = window.nativePlatform;
+    const desc = Object.getOwnPropertyDescriptor(Navigator.prototype, 'userAgent');
+    const ua = (s) => Object.defineProperty(navigator, 'userAgent', { value: s, configurable: true });
+    const msg = (platforms) => ({ id: 'test-' + Math.random(), enabled: true, platforms });
+    const out = {};
+    ua('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1');
+    out.iphoneWeb = [announcePlatforms(), announceApplies(msg(['web-apple'])), announceApplies(msg(['web']))];
+    ua('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36');
+    out.androidWeb = [announcePlatforms(), announceApplies(msg(['web-apple'])), announceApplies(msg(['web']))];
+    window.isNative = () => true; window.nativePlatform = () => 'ios';
+    out.iosApp = [announcePlatforms(), announceApplies(msg(['android'])), announceApplies(msg(['ios']))];
+    window.isNative = realNative; window.nativePlatform = realPlat;
+    delete navigator.userAgent;
+    if (desc) Object.defineProperty(Navigator.prototype, 'userAgent', desc);
+    return out;
+  });
+  check('announcements: "web-apple" reaches a browser on an iPhone but not on Android; the iPhone app is "ios", not "android"',
+    JSON.stringify(an) === JSON.stringify({
+      iphoneWeb: [['web', 'web-apple'], true, true],
+      androidWeb: [['web'], false, true],
+      iosApp: [['ios'], false, true],
+    }), JSON.stringify(an));
+  const feed = JSON.parse(readFileSync(path.join(REPO_ROOT, 'announcements.json'), 'utf8'));
+  const appleMsg = feed.messages.find((m) => m.id === '2026-11-ios-app-icloud');
+  check('the "Duitful is on the App Store" message for Apple web users is ready but off until the App Store link is in',
+    appleMsg && JSON.stringify(appleMsg.platforms) === '["web-apple"]' && (appleMsg.enabled === false || /^https:\/\/apps\.apple\.com\//.test(appleMsg.cta_url)), JSON.stringify(appleMsg));
+}
+
 // v1.55.3: Google Drive can be tucked away in the iPhone app (App Review
 // can't sign in to a Google account from abroad); iCloud stays.
 {

@@ -4534,11 +4534,23 @@ function versionCompare(a, b) {
   }
   return 0;
 }
+/* Who this device is, for an announcement's "platforms": "android" or
+   "ios" in the store apps; "web" in any browser, plus "web-apple" on an
+   iPhone, iPad or Mac (so a message can point Apple users at the App Store
+   and iCloud). The iPhone app used to count as "android". */
+function announcePlatforms() {
+  if (isNative()) {
+    const p = typeof nativePlatform === "function" ? nativePlatform() : "";
+    return [p === "ios" ? "ios" : "android"];
+  }
+  const ua = navigator.userAgent || "";
+  const apple = /iPhone|iPad|iPod|Macintosh/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  return apple ? ["web", "web-apple"] : ["web"];
+}
 function announceApplies(m) {
   if (!m || !m.id || m.enabled !== true) return false;
   if (announceSeenIds().includes(m.id)) return false;
-  const platform = isNative() ? "android" : "web";
-  if (Array.isArray(m.platforms) && m.platforms.length && !m.platforms.includes(platform)) return false;
+  if (Array.isArray(m.platforms) && m.platforms.length && !announcePlatforms().some((p) => m.platforms.includes(p))) return false;
   const now = Date.now();
   if (m.starts && now < Date.parse(m.starts)) return false;
   if (m.ends && now > Date.parse(m.ends)) return false;
