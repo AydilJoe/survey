@@ -3088,12 +3088,12 @@ check('a split from a spend you already logged never logs it twice',
     renderDriveCard();
     out.card = {
       block: !document.getElementById('icloud-backup').hidden,
-      signOutBox: !document.getElementById('apple-sign-out-button').hidden,
+      signOutBox: !document.getElementById('apple-sign-out-wrap').hidden,
     };
     await ICloudSync.signOut();
     out.afterSignOut = ICloudSync.isSignedIn();
     renderDriveCard();
-    out.card.signInBox = !document.getElementById('apple-sign-in-button').hidden;
+    out.card.signInBox = !document.getElementById('apple-sign-in-wrap').hidden;
     out.card.recheckHidden = document.getElementById('btn-icloud-recheck').hidden;
     out.card.why = document.getElementById('icloud-off-why').textContent;
     // The start screen offers Restore from iCloud on the web too, and moves
@@ -3101,9 +3101,9 @@ check('a split from a spend you already logged never logs it twice',
     renderLockRestore();
     out.lock = { btn: !document.getElementById('btn-setup-restore-icloud').hidden };
     lockAppleSignIn(true);
-    out.lock.moved = document.getElementById('apple-sign-in-button').parentElement.id;
+    out.lock.moved = document.getElementById('apple-sign-in-wrap').parentElement.id;
     lockAppleSignIn(false);
-    out.lock.back = document.getElementById('apple-sign-in-button').parentElement.id;
+    out.lock.back = document.getElementById('apple-sign-in-wrap').parentElement.id;
     window.fetch = realFetch;
     window.ICLOUD_WEB_CONFIG = { apiToken: '' };
     out.offAgain = !ICloudSync.isConfigured();

@@ -11266,7 +11266,7 @@ var lockIcloudSignInPending = false; // var: renderLockRestore can run during bo
 // Moves CloudKit's Sign in button between the backup card and the start
 // screen. It keeps its id, so CloudKit keeps drawing into it.
 function lockAppleSignIn(show) {
-  const box = document.getElementById("apple-sign-in-button");
+  const box = document.getElementById("apple-sign-in-wrap");
   const slot = document.getElementById("lock-apple-signin");
   const home = document.getElementById("icloud-off");
   if (!box || !slot || !home) return;
@@ -14347,8 +14347,8 @@ function renderDriveCard() {
     if (onEl) onEl.hidden = !icOn;
     if (offEl) offEl.hidden = icOn;
     const onWeb = !!(ic.isWeb && ic.isWeb());
-    const signInBox = document.getElementById("apple-sign-in-button");
-    const signOutBox = document.getElementById("apple-sign-out-button");
+    const signInBox = document.getElementById("apple-sign-in-wrap");
+    const signOutBox = document.getElementById("apple-sign-out-wrap");
     const recheck = document.getElementById("btn-icloud-recheck");
     if (signInBox) signInBox.hidden = !onWeb || icOn;
     if (signOutBox) signOutBox.hidden = !onWeb || !icOn;

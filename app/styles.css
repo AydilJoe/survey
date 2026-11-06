@@ -7970,9 +7970,24 @@ html::before {
 .scan-dialog .scan-items .scan-item-name-in { margin-left: -0.4rem; }
 
 /* Web iCloud: CloudKit JS draws Apple's own Sign in / Sign out button here. */
-.apple-ck-button { margin-top: 0.6rem; min-height: 44px; }
-.apple-ck-button[hidden] { display: none; }
+.apple-ck { position: relative; display: inline-flex; margin-top: 0.6rem; }
+.apple-ck[hidden] { display: none; }
+/* What people see: a compact button in the app's own style. */
+.apple-ck-face {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  min-height: 44px; padding: 0 1.1rem; border-radius: var(--r-pill);
+  font: 600 0.92rem/1 var(--font-sans); background: #000; color: #fff;
+  border: 1px solid #000; pointer-events: none;
+}
+.apple-ck-face svg { margin-top: -2px; flex: none; }
+.apple-ck-face.is-ghost { background: transparent; color: var(--text); border-color: var(--line); }
+/* What takes the tap: CloudKit's own button, stretched over ours and
+   transparent, so Apple's sign-in opens from Apple's handler. */
+.apple-ck-hit { position: absolute; inset: 0; opacity: 0.011; overflow: hidden; border-radius: var(--r-pill); }
+.apple-ck-hit .apple-auth-button, .apple-ck-hit > * { width: 100% !important; height: 100% !important; cursor: pointer; }
+.apple-ck:focus-within .apple-ck-face { outline: 2px solid var(--primary); outline-offset: 2px; }
 .lock-apple-signin { margin-top: 0.6rem; text-align: center; }
 .lock-apple-signin[hidden] { display: none; }
 .lock-apple-signin .hint { margin: 0 0 0.5rem; }
-.lock-apple-signin .apple-ck-button { display: flex; justify-content: center; }
+.lock-apple-signin .apple-ck { margin-top: 0; }
+.lock-apple-signin { margin-bottom: 0.9rem; }
