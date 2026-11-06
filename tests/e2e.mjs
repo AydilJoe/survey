@@ -3022,6 +3022,128 @@ check('a split from a spend you already logged never logs it twice',
     ny.crop && Math.abs(ny.crop[0] - 150) < 20 && Math.abs(ny.crop[2] - 300) < 30 && Math.abs(ny.crop[1] - 60) < 20 && ny.noCrop === null, JSON.stringify(ny));
 }
 
+// v1.55.2: the confirm sheet. The total is filled in only when the receipt
+// backs it (TOTAL line, what was paid, and its own sums); vendor, date,
+// category and the items-vs-subtotal check come from receipt-extract.js.
+{
+  const NY = [
+    'NYONYA TINGKAT, BANGSAR UTAMA', 'NYONYA NOOK SDN BHD (1234567-X)', 'Lot 12, Jalan Telawi 3, Bangsar Baru',
+    '59100 Kuala Lumpur', 'Tel: 03-2201 1234', 'Date: 03/11/2026 Time: 13:05', 'Table: 12 Pax: 4', 'Order No: 00123',
+    '2 LS02 NYONYA ASAM LAKSA (18.90/ea) 37.80', '1 LS05 NASI KERABU AYAM PERCIK 26.90', '1 LS03 CHICKEN HOR FUN SOUP 19.90',
+    '1 LS05 NASI KERABU AYAM PERCIK 26.90', '1 LS02 NYONYA ASAM LAKSA 18.90', '1 LS04 NASI LEMAK AYAM PENYET 20.90', '7 Qty',
+    'Subtotal 151.30', 'SERVICE CHARGE (10%) 15.13', 'Bill rounding 0.02', 'Total (MYR) 166.45', 'VISA 166.45', 'Change 0.00',
+    'Tax & Charges Summary', 'Service Charge 10% Taxable 151.30 15.13', 'Thank you',
+  ].join('\n');
+  const rx = await S((NY) => {
+    const ex = receiptExtract(NY, { today: '2026-11-06' });
+    const pick = (t) => { const r = receiptChooseTotal(receiptTotalCandidates(t)); return { v: r.value, c: r.confidence, n: r.candidates.length }; };
+    return {
+      total: ex.total.value, conf: ex.total.confidence, agree: ex.total.agree, label: receiptAgreeLabel(ex.total),
+      vendor: ex.vendor.value, date: ex.date.value, cat: ex.category.value,
+      items: { match: ex.items.match, basis: ex.items.basis, sum: ex.items.sum, against: ex.items.against },
+      two: pick(NY.replace('VISA 166.45', 'VISA 196.45')),
+      none: pick(NY.replace('Total (MYR) 166.45', 'Total (MYR) 166.48').replace('VISA 166.45', 'VISA 196.45').replace('Subtotal 151.30', 'Subtotal 154.30')),
+      onlySums: pick('Nasi lemak 12.00\nSubtotal 12.00\nSST 6% 0.72'),
+      onlyTotal: pick('KEDAI\nRoti 3.00\nTOTAL 3.00'),
+      cash: pick('KEDAI\nRoti 3.00\nTOTAL 18.50\nTUNAI 20.00\nBAKI 1.50'),
+      taxBlock: pick('A 10.00\nSubtotal 10.00\nTOTAL 10.00\nCASH 10.00\nTax Summary\nTaxable 10.00 Total 99.00'),
+      itemsOff: receiptItemsCheck('Roti 3.00\nTeh 2.00\nSubtotal 6.00\nTOTAL 6.00', 6),
+      vendors: [
+        receiptVendor('OLD TOWN KOPITIAM SDN BHD (716269-X)\nNo 5 Jalan SS2/24\nTOTAL 12.00').value,
+        receiptVendor('MYDIN MOHAMED HOLDINGS BERHAD\n(3184-H)\nTOTAL 12.00').value,
+        receiptVendor('BANGS: AR UTAMA\nTOTAL 1.00', { vendors: ['Bangsar Utama'] }).value,
+        receiptVendor('NYONYA TINGKAT\nTOTAL 1.00', { vendors: ['Nyonya Tingkat Bangsar'] }).value,
+      ],
+      cats: [
+        receiptCategory('TNB\nBil Elektrik\nJumlah 120.00', {}).value,
+        receiptCategory('99 SPEED MART\nBeras 10kg 32.00\nTOTAL 32.00', { vendor: '99 Speed Mart' }).value,
+        receiptCategory('KEDAI X\nNasi lemak 12.00\nBill rounding 0.02\nTOTAL 12.00', {}).value,
+        receiptCategory('MAXIS BERHAD\nPostpaid 98.00', {}).value,
+        receiptCategory('NYONYA TINGKAT\nTOTAL 1.00', { vendor: 'Nyonya Tingkat', history: (v) => (v === 'Nyonya Tingkat' ? 'Dates' : '') }).value,
+      ],
+    };
+  }, NY);
+  check('confirm sheet: the Nyonya receipt reads RM 166.45 with all three agreeing (Total, VISA, the sums), high confidence',
+    rx.total === 166.45 && rx.conf === 'high' && rx.agree.length === 3 && rx.label === 'Matches Total & VISA', JSON.stringify(rx));
+  check('confirm sheet: vendor "Nyonya Tingkat" (the trading name, not the Sdn Bhd), date 3 Nov 2026, category Food',
+    rx.vendor === 'Nyonya Tingkat' && rx.date === '2026-11-03' && rx.cat === 'Food', JSON.stringify(rx));
+  check('confirm sheet: the items are checked against the printed subtotal (151.30), not the total',
+    rx.items.match === true && rx.items.basis === 'subtotal' && rx.items.sum === 151.3, JSON.stringify(rx.items));
+  check('total selection: two of three agree → that value, medium confidence', rx.two.v === 166.45 && rx.two.c === 'medium', JSON.stringify(rx.two));
+  check('total selection: none agree → no value, every printed figure offered to pick',
+    rx.none.v === null && rx.none.c === 'low' && rx.none.n === 3, JSON.stringify(rx.none));
+  check('total selection: the sums alone never fill in a total', rx.onlySums.v === null, JSON.stringify(rx.onlySums));
+  check('total selection: a lone TOTAL line is used, marked Check', rx.onlyTotal.v === 3 && rx.onlyTotal.c === 'medium', JSON.stringify(rx.onlyTotal));
+  check('total selection: cash minus change counts as the payment (20.00 − 1.50 = 18.50)', rx.cash.v === 18.5 && rx.cash.c === 'medium', JSON.stringify(rx.cash));
+  check('total selection: nothing under a tax summary block is read as a total', rx.taxBlock.v === 10 && rx.taxBlock.c === 'high', JSON.stringify(rx.taxBlock));
+  check('items vs subtotal: a gap is measured (5.00 of items against a 6.00 subtotal)',
+    rx.itemsOff.match === false && rx.itemsOff.off === -1, JSON.stringify(rx.itemsOff));
+  check('vendor cleanup: registration numbers and Sdn Bhd / Berhad go, a near match to a saved shop is used as saved',
+    JSON.stringify(rx.vendors) === JSON.stringify(['Old Town Kopitiam', 'Mydin Mohamed', 'Bangsar Utama', 'Nyonya Tingkat']), JSON.stringify(rx.vendors));
+  check('category rules: Bills only for utilities/telcos, Groceries for a mart, Food despite "Bill rounding", the user\'s past pick wins',
+    JSON.stringify(rx.cats) === JSON.stringify(['Bills', 'Groceries', 'Food', 'Bills', 'Dates']), JSON.stringify(rx.cats));
+
+  // The sheet itself: a receipt that disagrees with itself shows the
+  // figures to pick, never a big wrong number; one control for category;
+  // sentence-case badges; the sheet covers the tab bar on a phone.
+  const vp0 = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const sheet = await S(async (NY) => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const realW = window.getTesseractWorker, realP = window.receiptPreprocessImage, realS = window.receiptSecondOpinion;
+    let text = NY;
+    window.getTesseractWorker = async () => ({ recognize: async () => ({ data: { text } }) });
+    window.receiptPreprocessImage = async () => null;
+    window.receiptSecondOpinion = async (p) => ({ parsed: p, used: [] });
+    const img = 'data:image/gif;base64,R0lGODlhAQABAAAAACw=';
+    const read = () => ({
+      amount: scanAmount.value, vendor: scanVendor.value, date: scanDate.value, cat: scanCategory.value,
+      conf: document.getElementById('scan-amount-conf').hidden ? '' : document.getElementById('scan-amount-conf').textContent,
+      match: document.getElementById('scan-amount-match').hidden ? '' : document.getElementById('scan-amount-match').textContent,
+      picks: [...document.querySelectorAll('#scan-amount-pick [data-scan-use]')].map((b) => b.dataset.scanUse),
+      items: document.getElementById('scan-items-summary').textContent,
+      statusShown: !document.getElementById('scan-status').hidden,
+      apply: scanApply.textContent, disabled: scanApply.disabled,
+    });
+    await runReceiptOcr(img, img, null);
+    const good = read();
+    await new Promise((res) => setTimeout(res, 450)); // the open animation
+    const r = document.getElementById('scan-dialog').getBoundingClientRect();
+    const tab = document.querySelector('.bottom-nav, .tabbar, nav.tabs');
+    const tr = tab ? tab.getBoundingClientRect() : null;
+    good.covers = r.top <= 0 && r.bottom >= innerHeight - 1 && r.left <= 0 && r.right >= innerWidth - 1;
+    good.tabUnder = !tr || (tr.top >= r.top && tr.bottom <= r.bottom);
+    good.catControls = document.querySelectorAll('#scan-dialog select#scan-category, #scan-dialog .scan-cat-chips').length
+      + (document.getElementById('scan-cat-new').hidden ? 0 : 1);
+    const cs = getComputedStyle(document.getElementById('scan-vendor-conf'));
+    good.badge = { text: document.getElementById('scan-vendor-conf').textContent, tt: cs.textTransform, mono: /mono/i.test(cs.fontFamily) };
+    good.rawHidden = document.getElementById('scan-raw-details').hidden;
+    closeScanDialog();
+    text = NY.replace('Total (MYR) 166.45', 'Total (MYR) 166.48').replace('VISA 166.45', 'VISA 196.45').replace('Subtotal 151.30', 'Subtotal 154.30');
+    await runReceiptOcr(img, img, null);
+    const bad = read();
+    document.querySelector('#scan-amount-pick [data-scan-use="166.48"]')?.click();
+    bad.afterPick = { amount: scanAmount.value, apply: scanApply.textContent, pickHidden: document.getElementById('scan-amount-pick').hidden };
+    closeScanDialog();
+    window.getTesseractWorker = realW; window.receiptPreprocessImage = realP; window.receiptSecondOpinion = realS;
+    return { good, bad };
+  }, NY);
+  await page.setViewportSize(vp0);
+  check('sheet: the Nyonya receipt fills RM 166.45 with "✓ Matches Total & VISA" and no Check badge or warning',
+    sheet.good.amount === '166.45' && sheet.good.match === '✓ Matches Total & VISA' && sheet.good.conf === '' && !sheet.good.statusShown
+      && sheet.good.vendor === 'Nyonya Tingkat' && sheet.good.date === '2026-11-03' && sheet.good.cat === 'Food', JSON.stringify(sheet.good));
+  check('sheet: items say they match the subtotal', /✓ match subtotal/.test(sheet.good.items), sheet.good.items);
+  check('sheet: covers the whole phone screen, tab bar included', sheet.good.covers && sheet.good.tabUnder, JSON.stringify(sheet.good));
+  check('sheet: one category control (chips, More… for the rest), no second dropdown', sheet.good.catControls === 1, String(sheet.good.catControls));
+  check('sheet: badges are sentence case in the body font ("✓ From receipt")',
+    sheet.good.badge.text === '✓ From receipt' && sheet.good.badge.tt === 'none' && !sheet.good.badge.mono, JSON.stringify(sheet.good.badge));
+  check('sheet: raw OCR text is only behind the debug flag', sheet.good.rawHidden === true);
+  check('sheet: an unreadable total shows the figures to pick, with no amount filled and Add off',
+    sheet.bad.amount === '' && sheet.bad.disabled && JSON.stringify(sheet.bad.picks) === JSON.stringify(['166.48', '196.45', '169.45']), JSON.stringify(sheet.bad));
+  check('sheet: picking one fills it and Add says so',
+    sheet.bad.afterPick.amount === '166.48' && /166\.48/.test(sheet.bad.afterPick.apply) && sheet.bad.afterPick.pickHidden, JSON.stringify(sheet.bad.afterPick));
+}
+
 /* ── 14. itemized split (Phase 2.5, v1.15.0) ────────────────────────────
    Tick who ate what. OCR is prefill, never oracle, so the parser is a pure
    function tested directly against real Malaysian receipt shapes; the
@@ -7883,7 +8005,7 @@ check('the brand catalogue makes no network calls at all',
     check('and it ends on the total the items reconcile to',
       bd.foot.some((t) => /Total/.test(t) && /151\.65/.test(t)), JSON.stringify(bd.foot));
     check('the summary says so without expanding the panel',
-      /adds up/.test(bd.summary), bd.summary);
+      /✓ match subtotal/.test(bd.summary), bd.summary);
     check('the arithmetic does not scroll out of the capped list',
       bd.footIsOutsideScroller);
 
@@ -7925,7 +8047,7 @@ check('the brand catalogue makes no network calls at all',
     check('a restated tax line is not added on top of prices that already include it',
       inclusive.charges === 0 && inclusive.itemSum === 90.10, JSON.stringify(inclusive));
     check('so a tax-inclusive receipt still reads as adding up',
-      /adds up/.test(inclusive.summary), inclusive.summary);
+      /✓ match subtotal/.test(inclusive.summary), inclusive.summary);
     check('a qty column expands rather than double-counting the row total',
       inclusive.items === 15, String(inclusive.items));
     check('lines ending in the SR tax code stay in ringgit',
@@ -7942,7 +8064,7 @@ check('the brand catalogue makes no network calls at all',
       return document.getElementById('scan-items-summary').textContent;
     });
     check('a gap between the items and the total is named, not hidden',
-      /unaccounted/.test(off), off);
+      /⚠ off by RM\s?94\.49/.test(off), off);
   }
 
   // "Receipt" is a source, not a category. It used to be pre-filled whenever

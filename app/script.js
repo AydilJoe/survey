@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.1";
+const APP_VERSION = "1.55.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -10076,6 +10076,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.2": [
+    "<strong>A clearer scan screen</strong> — the total is filled in only when the receipt backs it (the TOTAL line, what you paid and its own sums); otherwise you pick from the figures it prints. Shop names drop the Sdn Bhd, and items are checked against the subtotal.",
+  ],
   "1.55.1": [
     "<strong>Better reads of real photos</strong> — the scanner crops the receipt out of a busy table and checks the total against the receipt's own sums, fixing a misread digit. Restaurant bills go under Food, not Bills.",
     "<strong>Splitting by item counts plates</strong> — \"2 × laksa\" becomes two to tick, misread prices are fixed from the unit price, and rounding is a charge, not a dish.",
@@ -11631,6 +11634,10 @@ async function receiptPreprocessImage(source, opts) {
       else receiptEnhanceImageData(data);
       ctx.putImageData(data, 0, 0);
       canvas.dataset.cropped = found ? "1" : "";
+      // Where the crop sits in the photo, as fractions, so a line read off
+      // this canvas can be pointed at on the photo the user took.
+      const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+      canvas.dataset.crop = [crop.x / iw, crop.y / ih, crop.w / iw, crop.h / ih].map((n) => n.toFixed(5)).join(",");
       return canvas;
     } finally {
       if (revoke) URL.revokeObjectURL(revoke);
@@ -11679,6 +11686,28 @@ function receiptTextFromWords(words, fallbackText) {
   } catch {
     return fallback;
   }
+}
+
+/* The text plus, line for line, where each line sits on the photo (as
+   fractions of its width and height), when the text is the rebuilt rows.
+   Boxes are only ever a pointer for the user; null costs nothing. */
+function receiptReadWithBoxes(data, canvas) {
+  const words = collectOcrWords(data);
+  const text = receiptTextFromWords(words, (data && data.text) || "");
+  let boxes = null;
+  try {
+    if (canvas && canvas.width && typeof splitReconstructRowBoxes === "function") {
+      const rows = splitReconstructRowBoxes(words);
+      if (rows.map((r) => r.text).join("\n") === text) {
+        const [cx, cy, cw, ch] = String(canvas.dataset.crop || "0,0,1,1").split(",").map(Number);
+        boxes = rows.map((r) => ({
+          x: cx + (r.box.x0 / canvas.width) * cw, y: cy + (r.box.y0 / canvas.height) * ch,
+          w: ((r.box.x1 - r.box.x0) / canvas.width) * cw, h: ((r.box.y1 - r.box.y0) / canvas.height) * ch,
+        }));
+      }
+    }
+  } catch { boxes = null; }
+  return { text, boxes };
 }
 
 /* ---------- ML Kit text recognition (native Android) ----------
@@ -12756,7 +12785,7 @@ function setScanConfidence(el, level) {
   if (!level || level === "none") { el.hidden = true; el.textContent = ""; return; }
   const check = level !== "high";
   el.hidden = false;
-  el.textContent = check ? "check this" : "read";
+  el.textContent = check ? "Check" : "✓ From receipt";
   el.classList.toggle("is-check", check);
 }
 
@@ -12772,6 +12801,12 @@ function setScanConfidence(el, level) {
    splitParseReceiptItems already does this parsing for the itemised-split
    feature, including expanding "3 Ice Water @1.00" into three lines, so this
    reuses it rather than growing a second receipt parser. */
+// Receipts print in capitals; the list reads in ordinary case.
+function scanItemCase(name) {
+  const s = String(name || "");
+  if (!/[A-Z]{3}/.test(s) || /[a-z]/.test(s)) return s;
+  return s.toLowerCase().replace(/(^|[\s(/-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
+}
 function renderScanItems(raw, total) {
   const details = document.getElementById("scan-items-details");
   const list = document.getElementById("scan-items");
@@ -12793,25 +12828,56 @@ function renderScanItems(raw, total) {
 
   details.hidden = false;
   if (summary) {
-    summary.textContent = `${items.length} item${items.length === 1 ? "" : "s"}`
-      + (Number.isFinite(shown) && shown > 0
-        ? (adds ? " · adds up" : ` · ${fmtMoney(Math.abs(gap))} unaccounted`)
-        : "");
-    summary.classList.toggle("is-off", Number.isFinite(shown) && shown > 0 && !adds);
+    // Against the printed subtotal when there is one: service charge and
+    // rounding sit between it and the total, and are not "unaccounted".
+    let vs = null;
+    try { vs = typeof receiptItemsCheck === "function" ? receiptItemsCheck(raw, shown) : null; } catch { vs = null; }
+    const n = `${items.length} item${items.length === 1 ? "" : "s"}`;
+    let tail = "", off = false;
+    if (vs && vs.basis === "subtotal" && vs.match != null) {
+      off = !vs.match;
+      tail = vs.match ? " · ✓ match subtotal" : ` · ⚠ off by ${fmtMoney(Math.abs(vs.off))}`;
+    } else if (Number.isFinite(shown) && shown > 0) {
+      off = !adds;
+      tail = adds ? " · ✓ add up" : ` · ⚠ off by ${fmtMoney(Math.abs(gap))}`;
+    }
+    summary.textContent = n + tail;
+    summary.classList.toggle("is-off", off);
   }
 
   const row = (name, value, cls) =>
     `<li${cls ? ` class="${cls}"` : ""}><span class="scan-item-name">${escapeHtml(name)}</span>` +
     `<span class="scan-item-price">${escapeHtml(fmtMoney(value))}</span></li>`;
 
-  list.innerHTML = items.map((it) => row(it.name || "—", it.price)).join("");
+  // Editable: a misread price is fixed here, and the sum and the check
+  // against the subtotal follow as you type.
+  list.innerHTML = items.map((it, i) =>
+    `<li><input type="text" class="scan-item-name-in" value="${escapeHtml(scanItemCase(it.name || ""))}" aria-label="Item ${i + 1}" />`
+    + `<input type="number" class="scan-item-price-in" step="0.01" min="0" inputmode="decimal" value="${(Number(it.price) || 0).toFixed(2)}" aria-label="Item ${i + 1} price" /></li>`).join("");
   const foot = document.getElementById("scan-items-foot");
-  if (foot) {
+  const drawFoot = (sum) => {
+    if (!foot) return;
     foot.innerHTML =
-      row(`${items.length} item${items.length === 1 ? "" : "s"}`, itemSum, "scan-item-sub")
+      row(`${items.length} item${items.length === 1 ? "" : "s"}`, sum, "scan-item-sub")
       + (charges > 0 ? row("Service charge & tax", charges, "scan-item-sub") : "")
       + (Number.isFinite(shown) && shown > 0 ? row("Total", shown, "scan-item-total") : "");
-  }
+  };
+  drawFoot(itemSum);
+  list.oninput = () => {
+    const sum = Math.round([...list.querySelectorAll(".scan-item-price-in")]
+      .reduce((t, el) => t + (Number(el.value) || 0), 0) * 100) / 100;
+    drawFoot(sum);
+    if (!summary) return;
+    let vs = null;
+    try { vs = typeof receiptItemsCheck === "function" ? receiptItemsCheck(raw, shown) : null; } catch { vs = null; }
+    const against = vs && vs.basis === "subtotal" ? vs.against : (Number.isFinite(shown) && shown > 0 ? Math.round((shown - charges) * 100) / 100 : null);
+    if (against == null) return;
+    const gapNow = Math.round((sum - against) * 100) / 100;
+    const ok = Math.abs(gapNow) <= 0.05;
+    const what = vs && vs.basis === "subtotal" ? "match subtotal" : "add up";
+    summary.textContent = `${items.length} item${items.length === 1 ? "" : "s"}` + (ok ? ` · ✓ ${what}` : ` · ⚠ off by ${fmtMoney(Math.abs(gapNow))}`);
+    summary.classList.toggle("is-off", !ok);
+  };
   return { expected, adds };
 }
 
@@ -13000,7 +13066,7 @@ function updateScanApplyLabel() {
   const amt = Number(scanAmount && scanAmount.value);
   const type = document.querySelector(".scan-type-pills .pill.active")?.dataset.scanType || "expense";
   const money = Number.isFinite(amt) && amt > 0 ? fmtMoney(amt) : "";
-  scanApply.textContent = type === "debt" ? (money ? `Pay ${money}` : "Pay debt") : (money ? `Add ${money}` : "Add");
+  scanApply.textContent = type === "debt" ? (money ? `Pay ${money}` : "Pay debt") : (money ? `Add ${money}` : "Add expense");
   scanApply.disabled = !money;
 }
 scanAmount?.addEventListener("input", updateScanApplyLabel);
@@ -13012,6 +13078,7 @@ function setScanFailed(failed) {
   if (edit) edit.hidden = failed || window.scanApplyTarget === "split";
   if (scanCancel) scanCancel.textContent = failed ? "Type it in" : "Close";
   if (scanCancel) scanCancel.dataset.typeIn = failed ? "1" : "";
+  if (scanCancel) scanCancel.hidden = !failed;
 }
 
 function scanCategoryFor(vendor) {
@@ -13084,13 +13151,42 @@ function scanUpdateTaxNote() {
   el.textContent = label ? `May count as ${label} tax relief. The receipt is kept on this phone for it.` : "";
   el.hidden = !label;
 }
-function renderScanCategoryChips(choices) {
+// Every category the user has, for "More…".
+function scanAllCategories() {
+  const set = new Set();
+  for (const e of state.dailyExpenses) if (e.kind === "expense" && e.category) set.add(e.category);
+  for (const c of ["Food", "Groceries", "Transport", "Fuel", "Bills", "Shopping", "Health", "Books", "Entertainment", "Others"]) set.add(c);
+  return [...set];
+}
+function renderScanCategoryChips(choices, expanded) {
   const box = document.getElementById("scan-cat-chips");
   if (!box) return;
   const cur = scanCategory ? (scanCategory.value || "").trim() : "";
-  box.innerHTML = choices.map((c) => `<button type="button" class="chip-btn${c === cur ? " active" : ""}" data-scan-cat="${escapeHtml(c)}" aria-pressed="${c === cur}">${escapeHtml(c)}</button>`).join("");
-  box.hidden = !choices.length;
+  let list = choices.slice();
+  if (cur && !list.includes(cur)) list.unshift(cur);
+  if (expanded) for (const c of scanAllCategories()) if (!list.includes(c)) list.push(c);
+  box.innerHTML = list.map((c) => `<button type="button" class="chip-btn${c === cur ? " active" : ""}" data-scan-cat="${escapeHtml(c)}" aria-pressed="${c === cur}">${escapeHtml(c)}</button>`).join("")
+    + (expanded
+      ? `<button type="button" class="chip-btn chip-more" data-scan-cat-new>New…</button>`
+      : `<button type="button" class="chip-btn chip-more" data-scan-cat-more aria-expanded="false">More…</button>`);
+  box.hidden = false;
+  box._choices = choices;
 }
+document.addEventListener("click", (e) => {
+  const t = e.target instanceof Element ? e.target : null;
+  if (!t) return;
+  const box = document.getElementById("scan-cat-chips");
+  if (t.closest("[data-scan-cat-more]")) {
+    renderScanCategoryChips((box && box._choices) || [], true);
+    box?.querySelector("[data-scan-cat-new]")?.focus();
+  } else if (t.closest("[data-scan-cat-new]") && scanCategory) {
+    const wrap = document.getElementById("scan-cat-new");
+    if (wrap) wrap.hidden = false;
+    scanCategory.value = "";
+    box?.querySelectorAll("[data-scan-cat]").forEach((b) => { b.classList.remove("active"); b.setAttribute("aria-pressed", "false"); });
+    scanCategory.focus();
+  }
+});
 document.addEventListener("click", (e) => {
   const btn = e.target instanceof Element ? e.target.closest("[data-scan-cat]") : null;
   if (!btn || !scanCategory) return;
@@ -13103,6 +13199,197 @@ document.addEventListener("click", (e) => {
   scanUpdateTaxNote();
 });
 scanCategory?.addEventListener("input", scanUpdateTaxNote);
+
+/* ---------- the confirm sheet (receipt-extract.js does the reading) ---------- */
+
+// Shop names the user has saved before, newest first, for the fuzzy match.
+function scanKnownVendors() {
+  const out = [];
+  const seen = new Set();
+  for (let i = state.dailyExpenses.length - 1; i >= 0 && out.length < 300; i--) {
+    const e = state.dailyExpenses[i];
+    const n = e && e.kind === "expense" ? String(e.note || "").trim() : "";
+    if (n.length < 3 || n.length > 40 || seen.has(n.toLowerCase())) continue;
+    seen.add(n.toLowerCase());
+    out.push(n);
+  }
+  return out;
+}
+
+function scanExtractFrom(text, boxes) {
+  try {
+    if (typeof receiptExtract === "function") {
+      return receiptExtract(text, { boxes, vendors: scanKnownVendors(), history: scanCategoryFor, today: todayISO() });
+    }
+  } catch (err) { console.warn("Receipt extraction failed:", err); }
+  return {
+    total: { value: null, confidence: "low", agree: [], candidates: [], source: null },
+    vendor: { value: "", confidence: "low", box: null }, date: { value: "", confidence: "low", box: null },
+    category: { value: "", confidence: "low" }, items: { items: [], match: null },
+  };
+}
+
+// The figures a user can pick from when the receipt doesn't agree with
+// itself: each one printed (or worked out) on the receipt, never invented.
+function scanTotalPicks(ex, parsed, except) {
+  const out = [];
+  const add = (value, label) => {
+    const v = Math.round(Number(value) * 100) / 100;
+    if (!(v > 0) || out.some((o) => Math.abs(o.value - v) < 0.005)) return;
+    if (except != null && Math.abs(except - v) < 0.005) return;
+    out.push({ value: v, label });
+  };
+  for (const c of (ex && ex.total && ex.total.candidates) || []) {
+    if (c.kind === "total") add(c.value, "Receipt total");
+    else if (c.kind === "payment") add(c.value, /^cash$/i.test(c.label || "") ? "Cash minus change" : `${(c.label || "Card").split(" ")[0]} paid`);
+    else if (c.kind === "computed") add(c.value, "Subtotal + charges");
+  }
+  if (parsed && Number(parsed.amount) > 0) add(parsed.amount, "Read as");
+  return out.slice(0, 3);
+}
+
+// High: the amount, big, with what it matched under it. Medium: the
+// amount with a Check badge, and the receipt's other figures to pick.
+// Low: no amount at all, just the figures to pick from.
+function renderScanTotalState(ex, amount, conf, parsed) {
+  const match = document.getElementById("scan-amount-match");
+  const pick = document.getElementById("scan-amount-pick");
+  const has = Number(amount) > 0;
+  setScanConfidence(document.getElementById("scan-amount-conf"), has ? (conf === "high" ? "none" : "medium") : "none");
+  const label = has && typeof receiptAgreeLabel === "function" ? receiptAgreeLabel(ex.total) : "";
+  if (match) {
+    match.textContent = label ? `✓ ${label}` : "";
+    match.hidden = !label || conf !== "high";
+  }
+  if (!pick) return;
+  const picks = scanTotalPicks(ex, parsed, has ? amount : null);
+  if (has && (conf === "high" || !picks.length)) { pick.hidden = true; pick.innerHTML = ""; return; }
+  const lead = has ? "Also on the receipt" : "Which is the total?";
+  pick.innerHTML = `<span class="scan-pick-lead">${escapeHtml(lead)}</span>`
+    + picks.map((p) => `<button type="button" class="scan-pick" data-scan-use="${p.value}">${escapeHtml(p.label)} <strong>${escapeHtml(fmtMoney(p.value))}</strong> <span class="scan-pick-use">· Use this</span></button>`).join("");
+  pick.hidden = false;
+  if (!has && !picks.length) {
+    pick.innerHTML = `<span class="scan-pick-lead">Couldn't find the total. Type it in from the receipt.</span>`;
+  }
+}
+
+/* The receipt, full screen: pinch or double-tap to zoom, with the lines the
+   total, shop and date were read from outlined. Boxes exist only for the
+   browser reader's rows; without them it is just the photo. */
+function scanSetHighlights(ex) {
+  const marks = [];
+  const box = (b, cls, name) => { if (b && b.w > 0 && b.h > 0) marks.push({ b, cls, name }); };
+  if (ex && ex.total) {
+    const src = ex.total.source;
+    box(src && src.box, "is-total", "Total");
+    if (ex.total.confidence !== "high" || !src) for (const c of ex.total.candidates || []) if (c !== src) box(c.box, "is-total", "Total");
+  }
+  if (ex && ex.vendor) box(ex.vendor.box, "is-vendor", "Shop");
+  if (ex && ex.date) box(ex.date.box, "is-date", "Date");
+  window.scanHighlights = marks;
+}
+
+function openScanViewer() {
+  const src = scanPreview && scanPreview.getAttribute("src");
+  if (!src) return;
+  let v = document.getElementById("scan-viewer");
+  if (!v) {
+    v = document.createElement("div");
+    v.id = "scan-viewer";
+    v.className = "scan-viewer";
+    v.setAttribute("role", "dialog");
+    v.setAttribute("aria-modal", "true");
+    v.setAttribute("aria-label", "Receipt");
+    v.innerHTML = `<div class="scan-viewer-stage"><div class="scan-viewer-page"><img alt="The scanned receipt" /><div class="scan-viewer-marks"></div></div></div>
+      <button type="button" class="scan-viewer-close" aria-label="Close the receipt"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+    // Inside the open dialog, so it sits in the same top layer.
+    (scanDialog || document.body).appendChild(v);
+    v.querySelector(".scan-viewer-close").addEventListener("click", closeScanViewer);
+    scanViewerGestures(v);
+  }
+  v.querySelector("img").src = src;
+  v.querySelector(".scan-viewer-marks").innerHTML = (window.scanHighlights || []).map((m) =>
+    `<span class="scan-mark ${m.cls}" style="left:${(m.b.x * 100).toFixed(2)}%;top:${(m.b.y * 100).toFixed(2)}%;width:${(m.b.w * 100).toFixed(2)}%;height:${(m.b.h * 100).toFixed(2)}%"><span>${escapeHtml(m.name)}</span></span>`).join("");
+  v._zoom = { s: 1, x: 0, y: 0 };
+  scanViewerApply(v);
+  v.hidden = false;
+  v.querySelector(".scan-viewer-close").focus();
+}
+function closeScanViewer() {
+  const v = document.getElementById("scan-viewer");
+  if (v) v.hidden = true;
+  document.getElementById("scan-preview-open")?.focus();
+}
+function scanViewerApply(v) {
+  const z = v._zoom;
+  v.querySelector(".scan-viewer-page").style.transform = `translate(${z.x}px, ${z.y}px) scale(${z.s})`;
+}
+function scanViewerGestures(v) {
+  const stage = v.querySelector(".scan-viewer-stage");
+  const pts = new Map();
+  let start = null;
+  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  stage.addEventListener("pointerdown", (e) => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    stage.setPointerCapture?.(e.pointerId);
+    const z = v._zoom;
+    const p = [...pts.values()];
+    start = { z: { ...z }, p: p.map((q) => ({ ...q })), d: p.length > 1 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0 };
+  });
+  stage.addEventListener("pointermove", (e) => {
+    if (!pts.has(e.pointerId) || !start) return;
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const p = [...pts.values()];
+    const z = v._zoom;
+    if (p.length > 1 && start.d) {
+      z.s = clamp(start.z.s * Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) / start.d, 1, 5);
+    } else if (p.length === 1 && start.p[0] && z.s > 1) {
+      z.x = start.z.x + (p[0].x - start.p[0].x);
+      z.y = start.z.y + (p[0].y - start.p[0].y);
+    }
+    scanViewerApply(v);
+  });
+  const end = (e) => {
+    pts.delete(e.pointerId);
+    const p = [...pts.values()];
+    start = { z: { ...v._zoom }, p: p.map((q) => ({ ...q })), d: 0 };
+    if (v._zoom.s <= 1.01) { v._zoom = { s: 1, x: 0, y: 0 }; scanViewerApply(v); }
+  };
+  stage.addEventListener("pointerup", end);
+  stage.addEventListener("pointercancel", end);
+  stage.addEventListener("dblclick", () => {
+    v._zoom = v._zoom.s > 1 ? { s: 1, x: 0, y: 0 } : { s: 2.5, x: 0, y: 0 };
+    scanViewerApply(v);
+  });
+  stage.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    v._zoom.s = clamp(v._zoom.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15), 1, 5);
+    if (v._zoom.s === 1) { v._zoom.x = 0; v._zoom.y = 0; }
+    scanViewerApply(v);
+  }, { passive: false });
+  v.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); closeScanViewer(); } });
+}
+document.getElementById("scan-preview-open")?.addEventListener("click", openScanViewer);
+document.getElementById("scan-close")?.addEventListener("click", () => {
+  window.scanApplyTarget = null;
+  closeScanDialog();
+});
+// "RM ▾": the currency, changed only when the receipt is in another one.
+document.getElementById("scan-cur-prefix")?.addEventListener("click", () => {
+  const wrap = document.getElementById("scan-currency-wrap");
+  if (!wrap) return;
+  wrap.hidden = !wrap.hidden;
+  if (!wrap.hidden) document.getElementById("scan-currency")?.focus();
+});
+// The raw OCR text is for diagnosing a bad read, so it sits behind a debug
+// flag: ?debug=1 on the page, or localStorage "duitful.debug" = "1" (which
+// remote-inspecting a phone can set).
+function scanDebugOn() {
+  try {
+    if (/[?&]debug=1\b/.test(location.search)) return true;
+    return localStorage.getItem("duitful.debug") === "1";
+  } catch { return false; }
+}
 
 function showScanTotalSuggestion(check) {
   const el = document.getElementById("scan-amount-suggest");
@@ -13117,10 +13404,15 @@ function showScanTotalSuggestion(check) {
 document.addEventListener("click", (e) => {
   const btn = e.target instanceof Element ? e.target.closest("[data-scan-use]") : null;
   if (!btn || !scanAmount) return;
-  scanAmount.value = Number(btn.dataset.scanUse).toFixed(2);
+  const v = Number(btn.dataset.scanUse);
+  scanAmount.value = v.toFixed(2);
+  scanOriginalAmount = v;
   scanAmount.dispatchEvent(new Event("input", { bubbles: true }));
-  setScanConfidence(document.getElementById("scan-amount-conf"), "high");
+  // The user's own pick: no badge, nothing left to choose.
+  setScanConfidence(document.getElementById("scan-amount-conf"), "none");
   showScanTotalSuggestion(null);
+  const pick = document.getElementById("scan-amount-pick");
+  if (pick) pick.hidden = true;
   scanStatus.textContent = "Check it against your receipt, then add it.";
 });
 
@@ -13146,6 +13438,16 @@ function openScanDialog() {
   if (chipsOpen) chipsOpen.hidden = true;
   const aiNoteOpen = document.getElementById("scan-ai-note");
   if (aiNoteOpen) aiNoteOpen.hidden = true;
+  scanStatus.hidden = false;
+  for (const id of ["scan-amount-match", "scan-amount-pick", "scan-cat-new", "scan-currency-wrap"]) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = true;
+  }
+  const rawBox = document.getElementById("scan-raw-details");
+  if (rawBox) rawBox.hidden = !scanDebugOn();
+  window.scanHighlights = [];
+  window.scanExtract = null;
+  closeScanViewer();
   scanPreview.removeAttribute("src");
   setScanType("expense");
   populateScanDebtSelect();
@@ -13203,6 +13505,8 @@ async function applyScanConversion() {
     // Nothing read: say so and wait for a typed total, rather than leaving
     // "Checking the total…" up with Add enabled on an empty amount.
     scanStatus.textContent = "Couldn't find the total. Type it in from the receipt.";
+    // Never the last scan's figure under this one.
+    if (scanAmount) scanAmount.value = "";
     updateScanApplyLabel();
     return;
   }
@@ -13237,12 +13541,6 @@ async function applyScanConversion() {
 }
 
 document.getElementById("scan-currency")?.addEventListener("change", applyScanConversion);
-document.getElementById("scan-currency-toggle")?.addEventListener("click", (e) => {
-  const wrap = document.getElementById("scan-currency-wrap");
-  if (wrap) wrap.hidden = false;
-  e.currentTarget.hidden = true;
-  document.getElementById("scan-currency")?.focus();
-});
 // Shared OCR pipeline — accepts a File (web file-input) or a data-URL
 // (native Camera); both engines handle both shapes. `revokeUrl` is the
 // object URL to release afterward (web only — null for a self-contained
@@ -13264,6 +13562,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     // Android with the plugin); null back from it means "nothing read" and
     // Tesseract picks the job up as if ML Kit had never been tried.
     let text = null;
+    let lineBoxes = null;
     if (pickOcrEngine({ native: isNative(), mlkitAvailable: !!mlkitTextPlugin() }) === "mlkit") {
       setScanStep("Reading the receipt…", null);
       text = await runMlKitOcr(recognizeSource);
@@ -13293,7 +13592,9 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
       // split via splitApplyScan reading scan-raw) then see the same
       // reconstructed text, so a two-column receipt stops arriving as two
       // separate lists.
-      text = receiptTextFromWords(collectOcrWords(data), data.text || "");
+      const read1 = receiptReadWithBoxes(data, prepared);
+      text = read1.text;
+      lineBoxes = read1.boxes;
       // A second look when the receipt's own sums don't back the first one:
       // the black-and-white pass reads phone photos far better, the first
       // pass reads clean scans better, so keep whichever the sums agree with.
@@ -13308,12 +13609,13 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
             let r2;
             try { r2 = await worker.recognize(sharp, {}, { blocks: true, text: true }); } catch { r2 = await worker.recognize(sharp); }
             const d2 = (r2 && r2.data) || {};
-            const text2 = receiptTextFromWords(collectOcrWords(d2), d2.text || "");
+            const read2 = receiptReadWithBoxes(d2, sharp);
+            const text2 = read2.text;
             const second2 = parseReceiptText(text2);
             const cons2 = receiptConsensusTotal(second2.raw || text2, Number(second2.amount), null);
             const s1 = cons1 ? cons1.score : 0, s2 = cons2 ? cons2.score : 0;
             const photo = !!(prepared && prepared.dataset && prepared.dataset.cropped);
-            if (s2 > s1 || (s2 === s1 && photo) || (first.amount == null && second2.amount != null)) text = text2;
+            if (s2 > s1 || (s2 === s1 && photo) || (first.amount == null && second2.amount != null)) { text = text2; lineBoxes = read2.boxes; }
           }
         } catch { /* the first read stands */ }
       }
@@ -13325,56 +13627,58 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     parsed = second.parsed;
     const aiNote = document.getElementById("scan-ai-note");
     if (aiNote) aiNote.hidden = !second.used.length;
-    scanOriginalAmount = parsed.amount;
+    // receipt-extract.js: the total only when the receipt backs it, the
+    // shop, the date, a category, and the items against the subtotal.
+    const ex = scanExtractFrom(text || parsed.raw || "", lineBoxes);
+    window.scanExtract = ex;
+    let amount = ex.total.value;
+    let amountConf = ex.total.confidence;
+    // Nothing on the page shaped like a total line (ML Kit can put a label
+    // and its figure on separate lines): the parser's own labelled read is
+    // still a printed figure, so it is used, marked Check.
+    if (amount == null && !ex.total.candidates.length && Number(parsed.amount) > 0 && parsed.amountConfidence === "high") {
+      amount = Number(parsed.amount);
+      amountConf = "medium";
+    }
+    scanOriginalAmount = amount;
     scanOriginalCurrency = parsed.currency || currentCurrency();
     const scanCurrencyInput = document.getElementById("scan-currency");
     if (scanCurrencyInput) scanCurrencyInput.value = scanOriginalCurrency;
     // Nothing priced on the page usually means nothing real was read; a
     // guessed vendor there is OCR noise ("(thumb)"), not a shop.
-    scanVendor.value = parsed.amount == null && parsed.vendorConfidence !== "high" ? "" : (parsed.vendor || "");
+    const vendor = ex.vendor.value
+      || (parsed.amount == null && parsed.vendorConfidence !== "high" ? "" : (parsed.vendor || ""));
+    scanVendor.value = vendor;
     // A receipt from Tuesday used to be logged as today, silently, because
     // nothing ever read the date off it.
-    if (scanDate) scanDate.value = parsed.date || todayISO();
-    // The category this shop got last time ("99 Speed Mart" → Groceries),
-    // so a regular shop doesn't need the same choice every scan.
-    const scanGuess = scanGuessCategory(parsed.vendor, parsed.raw);
-    if (scanCategory) scanCategory.value = scanCategoryFor(parsed.vendor) || scanGuess || "";
+    const date = ex.date.confidence === "high" ? ex.date.value : (parsed.date || ex.date.value || "");
+    if (scanDate) scanDate.value = date || todayISO();
+    // What this shop got last time wins; then the receipt's own words.
+    const scanGuess = ex.category.value || scanGuessCategory(vendor, parsed.raw);
+    if (scanCategory) scanCategory.value = scanCategoryFor(vendor) || scanGuess || "";
     renderScanCategoryChips(scanCategoryChoices(scanCategory ? scanCategory.value : scanGuess));
     scanUpdateTaxNote();
     const curPrefix = document.getElementById("scan-cur-prefix");
     if (curPrefix) curPrefix.textContent = currencySymbolFor(scanOriginalCurrency);
-    let itemsCheck = renderScanItems(parsed.raw || "", parsed.amount);
-    // When the receipt's own sums agree on a total the TOTAL line didn't
-    // read as (one digit off on a real photo), trust the sums.
-    const consensus = receiptConsensusTotal(parsed.raw || "", Number(parsed.amount), itemsCheck);
-    let corrected = null;
-    if (consensus && !(Math.abs(consensus.value - Number(parsed.amount)) < 0.005)) {
-      corrected = { from: Number(parsed.amount), to: consensus.value };
-      parsed.amount = consensus.value;
-      parsed.amountConfidence = "high";
-      scanOriginalAmount = consensus.value;
-      itemsCheck = renderScanItems(parsed.raw || "", parsed.amount);
-    }
-    const totalCheck = scanTotalCheck(Number(parsed.amount), parsed.raw || "", itemsCheck);
-    // Sums that agree outrank a list of items with a misread price in it.
-    if (consensus && Math.abs(consensus.value - Number(parsed.amount)) < 0.005) { totalCheck.off = false; totalCheck.suggest = null; }
-    setScanConfidence(document.getElementById("scan-amount-conf"),
-      totalCheck.off ? "low" : parsed.amountConfidence);
-    showScanTotalSuggestion(totalCheck);
-    setScanConfidence(document.getElementById("scan-vendor-conf"), parsed.vendorConfidence);
+    renderScanItems(parsed.raw || "", amount);
+    showScanTotalSuggestion(null);
+    renderScanTotalState(ex, amount, amountConf, parsed);
+    setScanConfidence(document.getElementById("scan-vendor-conf"),
+      vendor ? (ex.vendor.value ? ex.vendor.confidence : parsed.vendorConfidence) : "low");
     // No date on the receipt means the field is showing today as an
     // assumption, so it gets flagged rather than left bare — an unmarked
     // field reads as "this came off the receipt".
     setScanConfidence(document.getElementById("scan-date-conf"),
-      parsed.date ? parsed.dateConfidence : "low");
-    // Only surface the currency picker when the receipt disagrees with the
-    // currency the user already works in.
+      date ? (ex.date.value === date ? ex.date.confidence : parsed.dateConfidence) : "low");
+    setScanConfidence(document.getElementById("scan-cat-conf"),
+      scanCategory && scanCategory.value ? (scanCategoryFor(vendor) ? "high" : ex.category.confidence) : "none");
+    // The currency picker opens from the "RM ▾" prefix, and opens itself
+    // only when the receipt is in another currency.
     const curWrap = document.getElementById("scan-currency-wrap");
-    const curToggle = document.getElementById("scan-currency-toggle");
     const differs = scanOriginalCurrency !== currentCurrency();
     if (curWrap) curWrap.hidden = !differs;
-    if (curToggle) curToggle.hidden = differs;
     scanRaw.textContent = parsed.raw || "(no text detected)";
+    scanSetHighlights(ex);
     scanResult.hidden = false;
     scanApply.hidden = false;
     const editShow = document.getElementById("scan-edit");
@@ -13382,24 +13686,21 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     // Paid for the table? Split it from here, with the bill already logged.
     const splitShow = document.getElementById("scan-split");
     if (splitShow) splitShow.hidden = window.scanApplyTarget === "split" || typeof splitApplyScan !== "function";
+    const retakeShow = document.getElementById("scan-retake");
+    if (retakeShow) retakeShow.hidden = false;
     await applyScanConversion();
-    // A full green bar sitting under a finished result is just noise.
+    // A full green bar sitting under a finished result is just noise, and
+    // so is a status line: what needs checking is said by the field itself.
     scanProgress.style.width = "100%";
     const pb = scanProgress.closest(".scan-pb");
     if (pb) pb.hidden = true;
-    if (corrected && !totalCheck.off) {
-      scanStatus.textContent = Number.isFinite(corrected.from) && corrected.from > 0
-        ? `The total line read as ${fmtMoney(corrected.from)}; the receipt's own sums agree on ${fmtMoney(corrected.to)}. Check it, then add it.`
-        : `The receipt's own sums come to ${fmtMoney(corrected.to)}. Check it, then add it.`;
-    }
-    if (totalCheck.off) {
-      scanStatus.textContent = "The total doesn't match the receipt's own numbers. Check it before adding.";
-      scanAmount?.focus();
-      scanAmount?.select?.();
+    scanStatus.hidden = true;
+    if (amount == null) {
+      scanStatus.textContent = "Not sure of the total. Pick the one on the receipt, or type it in.";
     }
     const quotaEl = document.getElementById("scan-quota");
     if (quotaEl) { const q = ocrScansLeftText(); quotaEl.textContent = q; quotaEl.hidden = !q; }
-    return Number(parsed.amount) > 0 || totalCheck.suggest != null;
+    return Number(amount) > 0 || ex.total.candidates.length > 0;
   } catch (err) {
     console.warn("Receipt scan failed:", err);
     // Plain words, not the engine's error. This scan isn't counted.
@@ -13409,6 +13710,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
       ? "You're offline, and the receipt reader needs a one-time download. Connect once and scan again, or type the amount in."
       : "Couldn't read this receipt. Try a flatter, brighter photo, or type the amount in.";
     if (pbEl) pbEl.hidden = true;
+    scanStatus.hidden = false;
     setScanFailed(true);
     return false;
   } finally {

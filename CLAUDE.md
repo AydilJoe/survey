@@ -17,6 +17,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Landing page** (`landing/`): Separate static marketing site.
 - **Fold lab** (`folds/`): public 3D page of the planned folding-phone layouts (iPhone Duo, Galaxy Z Fold/Flip). `folds/fold-lab.js` holds the device profiles (approximate CSS-px sizes — replace with simulator measurements), the layout rules and a geometry checker (`FoldLab.problems`), shared with `npm run test:e2e`. Change the rules there first when building fold support in the app. The app's navigation already follows it: bottom bar on tall phones, a side rail from 600px wide (or 440px+ on a screen shorter than 720px), the sidebar from 1000px — the media queries in `app/styles.css` ("Side rail") and `FoldLab.navFor` must agree, and the e2e suite checks they do.
 
+**Receipt scan confirm sheet**: `app/receipt-extract.js` (loaded after `split.js`, before `script.js`) reads the total, vendor, date, category and items-vs-subtotal from the OCR text as pure functions. The total is filled in only when the receipt backs it: the labelled TOTAL, the payment (card / cash − change) and the computed subtotal + charges − discounts — all three agree → high, two → medium ("Check"), none → no value and the printed figures offered to pick (`renderScanTotalState` in `script.js`). Never auto-fill a figure the receipt doesn't print. Line boxes (`receiptReadWithBoxes`) outline the source lines in the full-screen viewer. Raw OCR text shows only with `?debug=1` or `localStorage["duitful.debug"]="1"`.
+
 The main app logic lives in `app/script.js` (~3.3k lines). This single file handles state management, encryption, CSV import/export, avalanche simulation, OCR, IAP, and all UI rendering.
 
 ## Commands

@@ -1,4 +1,7 @@
 {
+  "1.55.2": [
+    "<strong>Skrin imbasan lebih jelas</strong> — jumlah diisi hanya bila resit menyokongnya (baris TOTAL, apa yang dibayar dan kiraannya sendiri); jika tidak, anda pilih daripada angka yang tercetak. Nama kedai tanpa Sdn Bhd, dan item disemak dengan subjumlah."
+  ],
   "1.55.1": [
     "<strong>Bacaan gambar sebenar lebih tepat</strong> — pengimbas memotong resit daripada latar meja yang sibuk dan menyemak jumlah dengan kiraan resit itu sendiri, membetulkan digit yang salah baca. Bil restoran masuk Food, bukan Bills.",
     "<strong>Bahagi ikut item kira pinggan</strong> — \"2 × laksa\" jadi dua untuk ditanda, harga salah baca dibetulkan daripada harga seunit, dan pembundaran dikira caj, bukan hidangan."
