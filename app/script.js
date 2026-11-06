@@ -11250,7 +11250,28 @@ let driveRestorePending = false;
 function renderLockRestore() {
   const btn = document.getElementById("btn-setup-restore-icloud");
   if (!btn) return;
-  btn.hidden = !(window.ICloudSync && ICloudSync.isConfigured() && ICloudSync.isSignedIn());
+  const ic = window.ICloudSync;
+  // The iPhone app: once iCloud answers. The web: always, since signing in
+  // with an Apple ID is part of the restore.
+  const web = !!(ic && ic.isWeb && ic.isWeb());
+  btn.hidden = !(ic && ic.isConfigured() && (web || ic.isSignedIn()));
+  // Signed in from the start screen: carry on with the restore by itself.
+  if (lockIcloudSignInPending && ic && ic.isSignedIn()) {
+    lockIcloudSignInPending = false;
+    lockAppleSignIn(false);
+    startDriveRestoreFromLock("icloud").catch(() => {});
+  }
+}
+var lockIcloudSignInPending = false; // var: renderLockRestore can run during boot, before this line
+// Moves CloudKit's Sign in button between the backup card and the start
+// screen. It keeps its id, so CloudKit keeps drawing into it.
+function lockAppleSignIn(show) {
+  const box = document.getElementById("apple-sign-in-button");
+  const slot = document.getElementById("lock-apple-signin");
+  const home = document.getElementById("icloud-off");
+  if (!box || !slot || !home) return;
+  if (show) { slot.appendChild(box); box.hidden = false; slot.hidden = false; }
+  else { home.appendChild(box); slot.hidden = true; }
 }
 
 async function startDriveRestoreFromLock(id = "drive") {
@@ -11266,7 +11287,16 @@ async function startDriveRestoreFromLock(id = "drive") {
   const endWork = icloud && btn ? beginWork(btn) : null;
   try {
     if (icloud) {
-      if (!api.isSignedIn()) {
+      if (!api.isSignedIn() && api.isWeb && api.isWeb()) {
+        // Apple's button does the sign-in; renderLockRestore picks the
+        // restore back up once it has.
+        lockIcloudSignInPending = true;
+        lockAppleSignIn(true);
+        await api.prepareSignIn();
+        if (!api.isSignedIn()) return;
+        lockIcloudSignInPending = false;
+        lockAppleSignIn(false);
+      } else if (!api.isSignedIn()) {
         lockError("Sign in to iCloud in the Settings app first.");
         return;
       }

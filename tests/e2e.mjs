@@ -3096,6 +3096,14 @@ check('a split from a spend you already logged never logs it twice',
     out.card.signInBox = !document.getElementById('apple-sign-in-button').hidden;
     out.card.recheckHidden = document.getElementById('btn-icloud-recheck').hidden;
     out.card.why = document.getElementById('icloud-off-why').textContent;
+    // The start screen offers Restore from iCloud on the web too, and moves
+    // Apple's Sign in button there when it's tapped.
+    renderLockRestore();
+    out.lock = { btn: !document.getElementById('btn-setup-restore-icloud').hidden };
+    lockAppleSignIn(true);
+    out.lock.moved = document.getElementById('apple-sign-in-button').parentElement.id;
+    lockAppleSignIn(false);
+    out.lock.back = document.getElementById('apple-sign-in-button').parentElement.id;
     window.fetch = realFetch;
     window.ICLOUD_WEB_CONFIG = { apiToken: '' };
     out.offAgain = !ICloudSync.isConfigured();
@@ -3110,6 +3118,8 @@ check('a split from a spend you already logged never logs it twice',
   check('web iCloud: after Sign in with Apple ID it backs up (second save carries the change tag) and restores the same encrypted record',
     ck.signedIn && ck.saves.length === 2 && ck.saves[0].tag === null && ck.saves[1].tag === 't1' && ck.saves[0].type === 'Backup'
       && ck.back && ck.back.iv === 'x' && ck.meta === 'web' && ck.fetched[0] === 'duitful-backup.json', JSON.stringify(ck));
+  check('web start screen: Restore from iCloud shows, and Apple\'s Sign in button moves there and back',
+    ck.lock && ck.lock.btn && ck.lock.moved === 'lock-apple-signin' && ck.lock.back === 'icloud-off', JSON.stringify(ck.lock));
   check('web iCloud card: Apple\'s Sign in button (no "Check again"), Sign out once signed in',
     ck.card.block && ck.card.signOutBox && !ck.afterSignOut && ck.card.signInBox && ck.card.recheckHidden && /Apple ID/.test(ck.card.why), JSON.stringify(ck.card));
 }

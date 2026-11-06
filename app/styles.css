@@ -7972,3 +7972,7 @@ html::before {
 /* Web iCloud: CloudKit JS draws Apple's own Sign in / Sign out button here. */
 .apple-ck-button { margin-top: 0.6rem; min-height: 44px; }
 .apple-ck-button[hidden] { display: none; }
+.lock-apple-signin { margin-top: 0.6rem; text-align: center; }
+.lock-apple-signin[hidden] { display: none; }
+.lock-apple-signin .hint { margin: 0 0 0.5rem; }
+.lock-apple-signin .apple-ck-button { display: flex; justify-content: center; }
