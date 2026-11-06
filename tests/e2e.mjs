@@ -9134,11 +9134,15 @@ check('the brand catalogue makes no network calls at all',
   check('release workflow: automatic store releases are batched — a merge ships only a new minor version, a Tuesday run ships any untagged version, both to Play Production + TestFlight, then tag v<version>',
     /branches: \[main\]\n\s+paths: \[package\.json\]/.test(rel) && /schedule:\n\s+- cron: "17 3 \* \* 2"/.test(rel)
       && /is already tagged, nothing to release/.test(rel) && /"\$\{before%\.\*\}" = "\$\{version%\.\*\}"/.test(rel)
-      && (rel.match(/needs\.prepare\.outputs\.release == 'true'/g) || []).length === 3
+      && (rel.match(/needs\.prepare\.outputs\.release == 'true'/g) || []).length === 4
       && (rel.match(/github\.event_name != 'workflow_dispatch' \|\| inputs\.(android|ios)/g) || []).length === 2
       && /github\.event_name == 'schedule' \|\| \(github\.event_name == 'push' && github\.ref_type == 'branch'\)\) && 'testflight'/.test(rel)
       && /\n  tag:\n[\s\S]*contents: write[\s\S]*git push origin "v\$VERSION"/.test(rel)
       && !/^permissions:\n  contents: write/m.test(rel));
+  check('release workflow: a full hand-started release from main tags itself, "only mark released" tags without building, and tagging twice is a no-op',
+    /mark_released:/.test(rel) && /MARK_ONLY: \$\{\{ inputs\.mark_released \}\}/.test(rel)
+      && /github\.ref == 'refs\/heads\/main' && \(inputs\.mark_released \|\| \(needs\.prepare\.outputs\.release == 'true' && inputs\.android && inputs\.ios && inputs\.testflight && inputs\.play_track == 'production'\)\)/.test(rel)
+      && /!contains\(needs\.\*\.result, 'failure'\)/.test(rel) && /is already tagged\." >> "\$GITHUB_STEP_SUMMARY"; exit 0/.test(rel));
   check('release workflow: the iOS half calls ios.yml (signed IPA, TestFlight only if ticked) and inherits its secrets',
     /uses: \.\/\.github\/workflows\/ios\.yml/.test(rel) && /secrets: inherit/.test(rel) && /'signed-ipa'/.test(rel) && /'testflight'/.test(rel));
   check('ios workflow: callable, has a signed-ipa lane that does not upload, verifies the signature and keeps the IPA',
