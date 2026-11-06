@@ -25,7 +25,11 @@ name: Release builds (signed AAB + IPA)
 #     stores. Anything else on main releases nothing.
 #   - on a version tag:  git tag v1.46.1 && git push origin v1.46.1
 #     (the tag must match package.json, or the run stops before building)
-#   - by hand: Actions → Release builds → Run workflow
+#   - by hand: Actions → Release builds → Run workflow. A full run from main
+#     (both builds, TestFlight ticked, Play Production) tags v<version> too,
+#     so Tuesday's run doesn't ship it again. "Only mark released" builds
+#     nothing and just tags the version on main, for a release that already
+#     went out another way.
 #
 # Not on every push to main, on purpose: a signed iOS build needs a macOS
 # runner (~20 min) and mints a distribution certificate (Apple caps them), so
@@ -71,6 +75,10 @@ on:
           - alpha
           - internal
           - none
+      mark_released:
+        description: "Only mark the version on main as released (tag it, build nothing)"
+        type: boolean
+        default: false
 
 concurrency:
   group: release-${{ github.ref }}
@@ -118,9 +126,13 @@ jobs:
             fi
             if [ "$release" = true ]; then echo "Releasing $version to Play Production and TestFlight."; fi
           fi
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] && [ "$MARK_ONLY" = "true" ]; then
+            echo "Only marking v$version as released: no builds."; release=false
+          fi
           echo "release=$release" >> "$GITHUB_OUTPUT"
         env:
           BEFORE_SHA: ${{ github.event.before }}
+          MARK_ONLY: ${{ inputs.mark_released }}
 
   android:
     needs: prepare
@@ -352,11 +364,12 @@ jobs:
       lane: ${{ ((github.event_name == 'workflow_dispatch' && inputs.testflight) || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_type == 'branch')) && 'testflight' || 'signed-ipa' }}
     secrets: inherit
 
-  # After an automatic release, mark the commit v<version>. A tag pushed with
-  # GITHUB_TOKEN does not start another run, so this cannot release twice.
+  # After an automatic release, or a full one by hand from main, mark the
+  # commit v<version>. A tag pushed with GITHUB_TOKEN does not start another
+  # run, so this cannot release twice.
   tag:
     needs: [prepare, android, ios]
-    if: ${{ (github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_type == 'branch')) && needs.prepare.outputs.release == 'true' }}
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && (((github.event_name == 'schedule' || (github.event_name == 'push' && github.ref_type == 'branch')) && needs.prepare.outputs.release == 'true') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && (inputs.mark_released || (needs.prepare.outputs.release == 'true' && inputs.android && inputs.ios && inputs.testflight && inputs.play_track == 'production')))) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -367,6 +380,9 @@ jobs:
         env:
           VERSION: ${{ needs.prepare.outputs.version }}
         run: |
+          if [ -n "$(git ls-remote --tags origin "refs/tags/v$VERSION")" ]; then
+            echo "v$VERSION is already tagged." >> "$GITHUB_STEP_SUMMARY"; exit 0
+          fi
           git tag "v$VERSION" "$GITHUB_SHA"
           git push origin "v$VERSION"
           echo "Tagged $GITHUB_SHA as v$VERSION." >> "$GITHUB_STEP_SUMMARY"
