@@ -73,6 +73,9 @@ const asMalaysia = () => {
     const o = ro.call(this);
     return { ...o, timeZone: 'Asia/Kuala_Lumpur' };
   };
+  // The suite never signs in to Apple: web iCloud stays off unless a test
+  // turns it on against its own stand-in CloudKit.
+  window.ICLOUD_WEB_CONFIG = { apiToken: '' };
 };
 {
   const newContext = b.newContext.bind(b), newPage = b.newPage.bind(b);
@@ -3027,6 +3030,7 @@ check('a split from a spend you already logged never logs it twice',
 // ID, then back up and restore through a stand-in CloudKit.
 {
   const ck = await S(async () => {
+    window.ICLOUD_WEB_CONFIG = { apiToken: '' };
     const out = { offWithoutToken: !ICloudSync.isConfigured() && !ICloudSync.isWeb() };
     const store = {}; const saves = [];
     let signIn;
@@ -3093,11 +3097,14 @@ check('a split from a spend you already logged never logs it twice',
     out.card.recheckHidden = document.getElementById('btn-icloud-recheck').hidden;
     out.card.why = document.getElementById('icloud-off-why').textContent;
     window.fetch = realFetch;
-    delete window.ICLOUD_WEB_CONFIG; delete window.CloudKit;
+    window.ICLOUD_WEB_CONFIG = { apiToken: '' };
     out.offAgain = !ICloudSync.isConfigured();
+    delete window.CloudKit;
     renderDriveCard();
     return out;
   });
+  check('the shipped web iCloud config carries a CloudKit web token for the iPhone app\'s container',
+    /apiToken: "[0-9a-f]{64}"/.test(readFileSync(path.join(REPO_ROOT, 'app/icloud-sync.js'), 'utf8')));
   check('web iCloud is off until a CloudKit web token is set, and the iPhone app\'s container is the one used',
     ck.offWithoutToken && ck.isWeb && ck.before === false && ck.container === 'iCloud.com.aydiljoe.duitful' && ck.buttonsBound === 'apple-sign-in-button' && ck.offAgain, JSON.stringify(ck));
   check('web iCloud: after Sign in with Apple ID it backs up (second save carries the change tag) and restores the same encrypted record',

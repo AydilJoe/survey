@@ -53,7 +53,7 @@
 
   const WEB_CONFIG = {
     containerIdentifier: "iCloud.com.aydiljoe.duitful",
-    apiToken: "",
+    apiToken: "c23f8ae37ee725ae6908abe46dc39b61429d0957190865e94e111897775d8686",
     environment: "production",
     scriptSrc: "https://cdn.apple-cloudkit.com/ck/2/cloudkit.js",
   };
@@ -83,8 +83,10 @@
 
   // CloudKit renders its own Sign in / Sign out buttons into these elements
   // (script.js puts them in the iCloud block of the backup card).
+  let ckToken = "";
   async function webContainer() {
-    if (ckContainer) return ckContainer;
+    if (ckContainer && ckToken === webConfig().apiToken) return ckContainer;
+    ckContainer = null;
     const CK = await loadCloudKit();
     const cfg = webConfig();
     CK.configure({
@@ -100,6 +102,7 @@
       }],
     });
     ckContainer = CK.getDefaultContainer();
+    ckToken = cfg.apiToken;
     return ckContainer;
   }
 
