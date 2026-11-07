@@ -1613,12 +1613,12 @@ function taxHomeCopy(card) {
   return f.n
     ? {
         title: `${f.n} of your spends may count as tax relief`,
-        body: `${amt(money)} so far this year (${escapeHtml(what)}). Duitful can claim them for you, keep the receipts, and show your likely ${escapeHtml(TAX_TERMS.authority)} refund — all on this phone.`,
+        body: `${amt(money)} so far this year (${escapeHtml(what)}).`,
         go: "See what I can claim",
       }
     : {
         title: "Find out your likely tax refund",
-        body: `Duitful now spots spending that counts as ${escapeHtml(TAX_TERMS.authority)} tax relief, keeps the receipts, and works out what comes back to you. All on this phone, nothing sent anywhere.`,
+        body: `Spot ${escapeHtml(TAX_TERMS.authority)} tax relief in your spending and keep the receipts.`,
         go: "Take a look",
       };
 }
@@ -1708,7 +1708,7 @@ function taxRenderRules() {
   } else if (cur === "MYR") {
     text = `Malaysia (LHDN), ${TAX_TABLE_LABEL}, built in and updated each Budget. Somewhere else? Add your country's rules.`;
   } else {
-    text = `The built-in rules are Malaysia's, in ringgit, and your money is in ${cur}. Add your country's tax rules and Duitful will spot reliefs and estimate your refund the same way.`;
+    text = `The built-in tax rules are Malaysia's. Add your country's rules to use this in ${cur}.`;
   }
   box.textContent = text;
   taxEl("btn-tax-rules").textContent = own ? "Edit rules" : "Use my country's rules";

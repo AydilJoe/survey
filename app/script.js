@@ -2410,7 +2410,7 @@ function renderDaily() {
     listEl.innerHTML = emptyBlock({
       glyph: "entry",
       title: "No entries yet",
-      body: "Log today's lunch or a Grab ride. A few days of entries is enough for the charts to mean something.",
+      body: "Log a spend to see it here.",
       action: { label: "Add an entry", tab: "dashboard" },
     });
     return;
@@ -5523,7 +5523,7 @@ function renderProControls() {
         ? "Pro unlocked. Thanks for supporting the app!"
         : "Pro unlocked — thanks for supporting Duitful!";
     } else {
-      status.textContent = `Free covers every debt, pay-later plans and reminders, plus ${FREE_SAVING_LIMIT} savings goals, ${FREE_INVESTMENT_LIMIT} investment holdings and ${FREE_OCR_MONTHLY} receipt scans a month. Pro adds automatic backup, unlimited scans, budget pools and other currencies: one payment, no subscription.`;
+      status.textContent = "Pro adds backup, unlimited scans, budget pools and other currencies. One payment, no subscription.";
     }
   }
 
@@ -5542,9 +5542,8 @@ function renderProControls() {
   // any purchase route other than IAP, so it's web-only copy.
   const legalHint = document.getElementById("legal-hint");
   if (legalHint) {
-    legalHint.textContent = native
-      ? "How Duitful handles your data, and the rules for using it."
-      : "How Duitful handles your data, and the rules for using it. Both pages also explain how to recover your Pro licence with a Billplz transaction ID.";
+    legalHint.textContent = native ? "" : "Also how to recover a Pro licence.";
+    legalHint.hidden = native;
   }
 
 }
@@ -9281,7 +9280,7 @@ const GUIDE_STEPS = [
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>`,
     title: "Set a savings goal",
     sub: "Emergency fund, Umrah, a new phone.",
-    body: `<p>Create a goal with a target amount. Log deposits from Home using <strong>Save</strong>, and watch the progress bar fill toward your target.</p>`,
+    body: `<p>Set a target, then log deposits from Home with <strong>Save</strong>.</p>`,
     tab: "savings",
     target: "#form-saving",
   },
@@ -14100,8 +14099,8 @@ function renderSecurityCard() {
   if (remove) remove.hidden = open;
   if (hint) {
     hint.innerHTML = open
-      ? `No passcode: Duitful opens without asking, and your backups are protected only by your Apple or Google account. Set one to lock both with a code only you know. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`
-      : `Encrypted with your passcode. Lose it and nobody can recover your data — keep a backup. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`;
+      ? `No passcode set. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`
+      : `Locked with your passcode. Lose it and nobody can recover your data. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`;
   }
   updateBiometricUI();
 }

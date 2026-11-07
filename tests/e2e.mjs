@@ -6002,7 +6002,7 @@ check('the vault is open before the quick-add checks',
       !free.pro && free.afterFour.n === 4 && !free.afterFour.paywall, JSON.stringify(free.afterFour));
     check('free tier: pay-later / instalment plans are free', !free.kindPaywall && free.bnpl, JSON.stringify(free));
     check('free tier: Copy last month is free', free.copied && !free.copyPaywall, JSON.stringify(free));
-    check('free tier: Settings describes the new split', /every debt/i.test(free.status) && /automatic backup/i.test(free.status), free.status);
+    check('free tier: Settings describes the new split', /Pro adds backup/i.test(free.status) && /no subscription/i.test(free.status), free.status);
     await fctx2.close();
   }
   check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
@@ -8627,7 +8627,7 @@ check('the brand catalogue makes no network calls at all',
   }, exampleRules);
   // 50,000 − 3,000 personal − 1,200 medical = 45,800 chargeable: 30,000 × 20% + 5,800 × 40% = 8,320.
   check('tax rules: built-in Malaysian rules stay off for a EUR vault, and the card says how to add your own',
-    !own.off.ready && /Malaysia's, in ringgit/.test(own.off.summary), JSON.stringify(own.off));
+    !own.off.ready && /Malaysia's/.test(own.off.summary) && /your country's rules/.test(own.off.summary), JSON.stringify(own.off));
   check('tax rules: with your own rules, tax runs in their currency and words (Tax year, Wage tax, Pension, no RM/PCB/LHDN)',
     own.on.ready && own.on.custom && own.on.label === 'Tax year 2026' && /Wage tax/.test(own.on.steps) && /Pension/.test(own.on.facts)
       && !/RM|PCB|LHDN|EPF/.test(own.on.steps + own.on.facts + own.on.tiles) && /€/.test(own.on.tiles), JSON.stringify(own.on));

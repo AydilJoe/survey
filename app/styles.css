@@ -8017,3 +8017,15 @@ html::before {
 .cloud-tile { min-width: 0; height: 100%; }
 .cloud-tile svg { height: 32px; width: auto; flex: none; }
 .cloud-tile span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* ⓘ: the detail behind a one-line hint, for the few places it matters. */
+.info-tip { margin: -0.15rem 0 0.4rem; }
+.info-tip > summary {
+  list-style: none; display: inline-grid; place-items: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  font-size: 0.85rem; color: var(--muted); cursor: pointer;
+}
+.info-tip > summary::-webkit-details-marker { display: none; }
+.info-tip > summary:hover, .info-tip[open] > summary { color: var(--text); background: var(--card-soft); }
+.info-tip > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.info-tip > p { margin: 0.3rem 0 0; font-size: 0.82rem; line-height: 1.45; color: var(--muted); }

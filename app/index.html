@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=144" />
+    <link rel="stylesheet" href="styles.css?v=145" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -247,7 +247,7 @@
             <h2 id="reminder-ask-title">Want a nudge on the day payments are due?</h2>
           </div>
           <div id="reminder-ask-offer">
-            <p class="reminder-ask-body">A reminder at 9am on each due date, so a card minimum or BNPL instalment never slips. Set on this phone — nothing is sent anywhere.</p>
+            <p class="reminder-ask-body">A 9am reminder on each due date.</p>
             <div class="reminder-ask-actions">
               <button type="button" class="primary" id="reminder-ask-yes">Turn on reminders</button>
               <button type="button" class="ghost" id="reminder-ask-no">Not now</button>
@@ -312,9 +312,8 @@
             </svg>
           </div>
           <h2 class="empty-welcome-title">Welcome — let's start small</h2>
-          <p class="empty-welcome-body">Log today's lunch as your first entry. Most people start with a Mamak or Grab ride — anything between RM 5–25 works to see how the app feels.</p>
+          <p class="empty-welcome-body">Start with one spend — a coffee or a Grab ride.</p>
           <button type="button" class="primary empty-welcome-cta" id="empty-welcome-cta">Log my first spend →</button>
-          <p class="empty-welcome-meta">It takes 10 seconds. Your data never leaves this device.</p>
         </div>
 
         <div class="hero-card">
@@ -764,7 +763,7 @@
                     <option value="1">1% — PTPTN (ujrah on the outstanding balance)</option>
                   </optgroup>
                 </select>
-                <span class="hint">Typical 2026 Malaysian figures, filled into the APR box above. Your statement has the exact one.</span>
+                <span class="hint">Typical rate. Your statement has the exact one.</span>
               </label>
             </div>
 
@@ -783,7 +782,7 @@
                   <input type="number" name="termMonths" step="1" min="1" max="120" inputmode="numeric" placeholder="same" />
                 </label>
               </div>
-              <p class="hint">Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left. Set total months to see progress like "4 of 12 paid".</p>
+              <p class="hint">0% plans: balance = monthly × months left.</p>
             </div>
 
             <div id="debt-fields-islamic" class="debt-fields" hidden>
@@ -810,7 +809,8 @@
                 <input type="number" name="monthsPaid" step="1" min="0" max="480" inputmode="numeric" placeholder="0" />
               </label>
               <p class="hint" id="islamic-preview"></p>
-              <p class="hint">Profit is fixed at signing and never compounds. Duitful tracks the <strong>outstanding principal</strong> — what settling today costs after a full ibra' (rebate of unearned profit). Your bank statement shows the higher outstanding sale price.</p>
+              <p class="hint">Tracks what settling today costs, after ibra'.</p>
+              <details class="info-tip"><summary aria-label="More about this">ⓘ</summary><p>Profit is fixed at signing and never compounds. Duitful tracks the <strong>outstanding principal</strong>: what settling today costs after a full ibra' (rebate of unearned profit). Your bank statement shows the higher outstanding sale price.</p></details>
             </div>
 
             <label class="field">
@@ -885,7 +885,7 @@
 
         <div class="card split-start-card">
           <h2>Split a bill</h2>
-          <p class="hint">Share a bill or ask someone to pay you back. They get a link; nobody needs the app.</p>
+          <p class="hint">They get a link — no app needed.</p>
           <div class="button-row split-entry-row">
             <button type="button" class="primary" data-action="split-compose">Split or request money</button>
             <button type="button" class="ghost" data-action="split-ingest">Add a request I received</button>
@@ -988,7 +988,6 @@
           <p class="hint" id="invest-dividend-line" hidden></p>
           <div id="invest-accounts" class="invest-accounts" hidden></div>
           <div id="investments-list" class="investments-list"></div>
-          <p class="hint">Values are typed in from your statements. Duitful never fetches prices — that would tell a server what you own.</p>
         </div>
 
         <div class="card invest-plan-card" id="invest-plan-card" hidden>
@@ -1060,12 +1059,8 @@
             <button type="button" class="ghost" id="btn-invest-plan-disable">Stop planning</button>
           </div>
 
-          <p class="hint">
-            Every figure here is an estimate in today's money. The return you enter is a
-            <em>real</em> return — already after inflation — so the pot you see is what it would buy
-            at today's prices. Contributions are assumed monthly and unchanging, and the 4% rule is a
-            rule of thumb, not a guarantee. Markets don't return a straight line.
-          </p>
+          <p class="hint">Estimates, in today's money.</p>
+          <details class="info-tip"><summary aria-label="More about this">ⓘ</summary><p>The return you enter is a <em>real</em> return, already after inflation, so the pot you see is what it would buy at today's prices. Contributions are assumed monthly and unchanging, and the 4% rule is a rule of thumb, not a guarantee.</p></details>
         </div>
 
         <div class="card invest-plan-optin" id="invest-plan-optin" hidden>
@@ -1121,10 +1116,7 @@
                 <input type="date" id="zakat-haul-start" />
               </label>
             </div>
-            <p class="hint">
-              Nisab weights are fixed by fiqh; only the metal price changes. Check today's price with
-              your state authority (LZS, PPZ-MAIWP, LZNK…) — they publish it, and it moves.
-            </p>
+            <p class="hint">Today's price: your state zakat office (LZS, PPZ-MAIWP, LZNK…).</p>
           </details>
 
           <ul class="zakat-breakdown" id="zakat-breakdown"></ul>
@@ -1143,7 +1135,6 @@
             <input type="checkbox" id="zakat-include-savings" />
             <span>Count my savings-goal balances as zakatable</span>
           </label>
-          <p class="hint">“Other zakatable wealth” means wealth not tracked as a savings goal or an investment holding — cash in hand, gold, property held for trade.</p>
 
           <p class="hint" id="zakat-haul-line"></p>
 
@@ -1152,10 +1143,8 @@
             <button type="button" class="ghost" id="btn-zakat-disable">Stop tracking</button>
           </div>
           <ul class="zakat-history" id="zakat-history"></ul>
-          <p class="hint">
-            An estimate for planning, not a fatwa. Zakat rules vary by state and by asset type —
-            confirm the final figure with your state zakat authority before paying.
-          </p>
+          <p class="hint">An estimate, not a fatwa.</p>
+          <details class="info-tip"><summary aria-label="More about this">ⓘ</summary><p>Zakat rules vary by state and by asset type. Confirm the final figure with your state zakat authority before paying. Nisab weights are fixed by fiqh; only the metal price changes. "Other zakatable wealth" is wealth not tracked as a savings goal or investment: cash in hand, gold, property held for trade.</p></details>
         </div>
 
         <div class="card zakat-optin" id="zakat-optin" hidden>
@@ -1591,7 +1580,6 @@
             <input type="checkbox" id="pref-split-relay" checked />
             <span>Track split payments (encrypted relay)</span>
           </label>
-          <p class="hint">"I've paid" comes back on its own. Only your links carry the key; Duitful can't read it.</p>
           <label class="field toggle-field">
             <input type="checkbox" id="pref-split-notify" checked />
             <span>Notify me when someone says they've paid</span>
@@ -1617,7 +1605,6 @@
             <input type="checkbox" id="pref-split-overdue" checked />
             <span>Chase requests that have gone quiet</span>
           </label>
-          <p class="hint">Nudges you about money owed to you once it's overdue.</p>
           
         </div>
 
@@ -1773,7 +1760,7 @@
           <span class="paywall-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
           <div>
             <h2>You're Pro now</h2>
-            <p class="paywall-sub">Thanks for supporting Duitful. Two quick setup steps so you get the most out of it.</p>
+            <p class="paywall-sub">Two quick steps.</p>
           </div>
         </div>
 
@@ -1869,7 +1856,7 @@
     <dialog id="license-dialog" class="edit-dialog">
       <form id="license-form" method="dialog">
         <h2>Activate Duitful Pro</h2>
-        <p class="hint">Paste the license key you received after payment. It's verified on this device — nothing is sent to a server.</p>
+        <p class="hint">Paste your license key.</p>
         <label class="field">
           <span>License key</span>
           <textarea id="license-input" rows="4" placeholder="eyJzdWIi...Qc8NjA.bGlj..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
@@ -1886,7 +1873,7 @@
     <dialog id="fpx-email-dialog" class="edit-dialog">
       <form id="fpx-email-form" method="dialog">
         <h2>Pay with FPX / e-wallet</h2>
-        <p class="hint">Pick your bank to skip the Billplz selection page and go straight to your bank's login. Your license key will show on the confirmation page right after payment — copy it from there.</p>
+        <p class="hint">Your license key shows right after payment.</p>
         <label class="field">
           <span>Bank / e-wallet</span>
           <select id="fpx-bank" autocomplete="off">
@@ -2074,7 +2061,7 @@
     <dialog id="bio-offer-dialog" class="edit-dialog">
       <form method="dialog">
         <h2>Unlock with your fingerprint?</h2>
-        <p class="hint">Skip typing the passcode next time. It stays the only key to your data — kept in this phone's secure keystore and released only after your fingerprint or face. Passcode entry always remains available, and you can turn this off anytime in Settings → Security.</p>
+        <p class="hint">Skip the passcode next time. Your passcode still works.</p>
         <div class="form-actions">
           <button type="button" class="ghost" id="btn-bio-offer-later">Not now</button>
           <button type="button" class="primary" id="btn-bio-offer-enable">Enable fingerprint unlock</button>
@@ -2104,7 +2091,7 @@
     <dialog id="split-ingest-dialog" class="edit-dialog split-dialog">
       <form method="dialog">
         <h2>Add a request</h2>
-        <p class="hint">Someone sent you a Duitful request — or a confirmation that they've paid you? Paste the code, or scan their QR. It decodes on this device — nothing is sent anywhere.</p>
+        <p class="hint">Paste the code or scan the QR.</p>
         <label class="field">
           <span>Request code</span>
           <textarea id="split-ingest-code" rows="3" placeholder="DFS1.…" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
@@ -2164,7 +2151,7 @@
     <dialog id="bulk-income-dialog" class="edit-dialog">
       <form method="dialog">
         <h2>Bulk import income</h2>
-        <p class="hint">Upload a Duitful CSV. Only the <code>income</code> rows are added — every other row type is ignored. Existing income, expenses, debts, savings, and daily entries are untouched.</p>
+        <p class="hint">Adds only the income rows. Nothing else changes.</p>
         <label class="field">
           <span>CSV file</span>
           <input type="file" id="bulk-income-file" accept=".csv,text/csv" />
@@ -2627,8 +2614,8 @@
     <script src="receipt-extract.js?v=1"></script>
     <script src="region.js?v=1"></script>
     <script src="tax-data.js?v=3"></script>
-    <script src="tax.js?v=12"></script>
+    <script src="tax.js?v=13"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=194"></script>
+    <script src="script.js?v=195"></script>
   </body>
 </html>
