@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.3";
+const APP_VERSION = "1.55.4";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -499,6 +499,10 @@ function toast(message, opts) {
     el.setAttribute("aria-live", "polite");
     document.body.appendChild(el);
   }
+  // A modal dialog sits in the top layer, above anything in <body>: show the
+  // toast inside the open one so it isn't hidden behind it.
+  const host = [...document.querySelectorAll("dialog[open]")].pop() || document.body;
+  if (el.parentElement !== host) host.appendChild(el);
   el.textContent = message;
   // One action, or several side by side (a scanned spend offers Undo next to
   // whatever the save itself offered: Split, or the tax relief tip).
@@ -523,7 +527,24 @@ function toast(message, opts) {
   void el.offsetWidth;
   el.classList.add("show");
   if (toastTimer) clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show", "has-action"), action ? 5000 : 1800);
+  const long = !!(opts && opts.long) || message.length > 60;
+  toastTimer = setTimeout(() => el.classList.remove("show", "has-action"), action ? 5000 : long ? 4500 : 1800);
+}
+// What notify() used to say, as a toast: no box to dismiss.
+function notify(message) { toast(String(message || "")); }
+
+// Nothing to pay or save into yet: one tap to the form that makes one,
+// instead of a message that leaves you stuck.
+function goAddForm(tab, formId) {
+  document.querySelector(`.tab[data-tab="${tab}"]`)?.click();
+  setTimeout(() => openAddForm(formId), 80);
+}
+function needFirst(what) {
+  const debt = what === "debt";
+  toast(debt ? "No debts yet." : "No savings goals yet.", { action: {
+    label: debt ? "Add a debt" : "Add a goal",
+    run: () => goAddForm(debt ? "debts" : "savings", debt ? "form-debt" : "form-saving"),
+  } });
 }
 
 /* ---------- formatting ---------- */
@@ -1171,9 +1192,12 @@ function renderBudgetManager() {
   const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
   const templates = document.getElementById("pool-templates");
   if (templates) templates.hidden = userPoolCount > 0;
+  // Nothing to copy until a pool exists.
+  const copyBtn = document.getElementById("btn-copy-pool-overrides");
+  if (copyBtn) copyBtn.hidden = userPoolCount === 0;
 
   if (pools.length === 0 || (pools.length === 1 && pools[0].system === "debt" && state.debts.length === 0)) {
-    listEl.innerHTML = `<p class="empty">No budget pools yet — pick a template below or tap Add to make your own.</p>`;
+    listEl.innerHTML = "";
     return;
   }
 
@@ -2292,7 +2316,19 @@ function renderEmptyWelcome() {
     (state.dailyExpenses?.length || 0) +
     (state.debts?.length || 0) +
     (state.savings?.length || 0);
-  card.hidden = hasData > 0;
+  // One way in, not two: a new user gets the Add entry card itself at the
+  // top, titled for the first spend, instead of a welcome card above it.
+  card.hidden = true;
+  const fresh = hasData === 0;
+  const quick = document.querySelector("#tab-dashboard .card.quick-add");
+  const hero = document.querySelector("#tab-dashboard .hero-card");
+  if (quick && hero) {
+    if (fresh && hero.previousElementSibling !== quick) hero.before(quick);
+    else if (!fresh && hero.nextElementSibling !== quick) hero.after(quick);
+    const h = quick.querySelector(".card-head h2");
+    if (h) h.textContent = fresh ? "Log your first spend" : "Add entry";
+    quick.classList.toggle("is-first", fresh);
+  }
 }
 
 // Recent-chips row: 3 most-used (category, note, amount) triples from
@@ -2410,7 +2446,7 @@ function renderDaily() {
     listEl.innerHTML = emptyBlock({
       glyph: "entry",
       title: "No entries yet",
-      body: "Log today's lunch or a Grab ride. A few days of entries is enough for the charts to mean something.",
+      body: "Log a spend to see it here.",
       action: { label: "Add an entry", tab: "dashboard" },
     });
     return;
@@ -5297,7 +5333,7 @@ function initIAP() {
 
 async function purchasePro(sku = PRODUCT_ID) {
   if (!isNative()) {
-    alert("Duitful Pro is already unlocked on the web.\nInstall the iOS / Android app to purchase the lifetime Pro tier there.");
+    notify("Duitful Pro is already unlocked on the web.\nInstall the iOS / Android app to purchase the lifetime Pro tier there.");
     return { ok: false, cancelled: true };
   }
   const sdk = window.CdvPurchase;
@@ -5434,10 +5470,10 @@ function initSplitDeepLinks() {
 }
 
 async function restorePurchases() {
-  if (!isNative()) { alert("The web version is fully unlocked — nothing to restore."); return; }
+  if (!isNative()) { notify("The web version is fully unlocked — nothing to restore."); return; }
   const sdk = window.CdvPurchase;
-  if (!sdk || !sdk.store) { alert("Store not available."); return; }
-  if (!iapInitialized) { alert("Store still initialising. Try again in a moment, or restart the app."); return; }
+  if (!sdk || !sdk.store) { notify("Store not available."); return; }
+  if (!iapInitialized) { notify("Store still initialising. Try again in a moment, or restart the app."); return; }
   const wasProBefore = !!(state && state.pro);
   try {
     await sdk.store.restorePurchases();
@@ -5447,14 +5483,14 @@ async function restorePurchases() {
     // so the alert text matches reality.
     await new Promise((r) => setTimeout(r, 1500));
     if (state && state.pro && !wasProBefore) {
-      alert("Pro restored. Welcome back!");
+      notify("Pro restored. Welcome back!");
     } else if (state && state.pro) {
-      alert("Already unlocked — nothing to restore.");
+      notify("Already unlocked — nothing to restore.");
     } else {
-      alert("No previous purchase found for this account. If you bought Pro on a different Google account, sign that account into the Play Store first.");
+      notify("No previous purchase found for this account. If you bought Pro on a different Google account, sign that account into the Play Store first.");
     }
   } catch (e) {
-    alert("Restore failed: " + (e && e.message ? e.message : String(e)));
+    notify("Restore failed: " + (e && e.message ? e.message : String(e)));
   }
 }
 
@@ -5523,7 +5559,7 @@ function renderProControls() {
         ? "Pro unlocked. Thanks for supporting the app!"
         : "Pro unlocked — thanks for supporting Duitful!";
     } else {
-      status.textContent = `Free covers every debt, pay-later plans and reminders, plus ${FREE_SAVING_LIMIT} savings goals, ${FREE_INVESTMENT_LIMIT} investment holdings and ${FREE_OCR_MONTHLY} receipt scans a month. Pro adds automatic backup, unlimited scans, budget pools and other currencies: one payment, no subscription.`;
+      status.textContent = "Pro adds backup, unlimited scans, budget pools and other currencies. One payment, no subscription.";
     }
   }
 
@@ -5542,9 +5578,8 @@ function renderProControls() {
   // any purchase route other than IAP, so it's web-only copy.
   const legalHint = document.getElementById("legal-hint");
   if (legalHint) {
-    legalHint.textContent = native
-      ? "How Duitful handles your data, and the rules for using it."
-      : "How Duitful handles your data, and the rules for using it. Both pages also explain how to recover your Pro licence with a Billplz transaction ID.";
+    legalHint.textContent = native ? "" : "Also how to recover a Pro licence.";
+    legalHint.hidden = native;
   }
 
 }
@@ -6031,7 +6066,9 @@ document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async (
     btn.textContent = "Copied ✓";
     setTimeout(() => { btn.textContent = orig; }, 1500);
   } catch {
-    prompt("Copy your referral link:", url);
+    const el = document.getElementById("pro-refer-url");
+    if (el) { const r = document.createRange(); r.selectNodeContents(el); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+    toast("Copy the selected link.");
   }
 });
 
@@ -6172,7 +6209,7 @@ document.getElementById("fpx-continue")?.addEventListener("click", async () => {
     if (data.comp && data.license) {
       await activateLicenseToken(data.license);
       closeFpxDialog();
-      alert(`Pro unlocked — welcome! (${data.discount?.description || "Discount applied"})`);
+      notify(`Pro unlocked — welcome! (${data.discount?.description || "Discount applied"})`);
       return;
     }
     if (!data.url) throw new Error("Could not start checkout");
@@ -6619,12 +6656,12 @@ $("#form-income").addEventListener("submit", (e) => {
   if (fromCode !== toCode) {
     if (!isPro()) { openPaywall("multiCurrency"); return; }
     if (!fxCurrencySupported(fromCode)) {
-      alert(`Live rate not available for ${fromCode}. Pick a different currency.`);
+      notify(`Live rate not available for ${fromCode}. Pick a different currency.`);
       return;
     }
     const converted = convertFx(amount, fromCode, toCode);
     if (!Number.isFinite(converted)) {
-      alert("Could not convert — try refreshing rates in Settings.");
+      notify("Could not convert — try refreshing rates in Settings.");
       return;
     }
     entry.amount = +converted.toFixed(2);
@@ -6659,12 +6696,12 @@ $("#form-expense").addEventListener("submit", (e) => {
   if (fromCode !== toCode) {
     if (!isPro()) { openPaywall("multiCurrency"); return; }
     if (!fxCurrencySupported(fromCode)) {
-      alert(`Live rate not available for ${fromCode}. Pick a different currency.`);
+      notify(`Live rate not available for ${fromCode}. Pick a different currency.`);
       return;
     }
     const converted = convertFx(amount, fromCode, toCode);
     if (!Number.isFinite(converted)) {
-      alert("Could not convert — try refreshing rates in Settings.");
+      notify("Could not convert — try refreshing rates in Settings.");
       return;
     }
     entry.amount = +converted.toFixed(2);
@@ -6742,12 +6779,12 @@ $("#form-daily").addEventListener("submit", (e) => {
   if (fromCode !== toCode) {
     if (!isPro()) { openPaywall("multiCurrency"); return; }
     if (!fxCurrencySupported(fromCode)) {
-      alert(`Live rate not available for ${fromCode}.`);
+      notify(`Live rate not available for ${fromCode}.`);
       return;
     }
     const converted = convertFx(rawAmount, fromCode, toCode);
     if (!Number.isFinite(converted)) {
-      alert("Could not convert — try refreshing rates in Settings.");
+      notify("Could not convert — try refreshing rates in Settings.");
       return;
     }
     amount = +converted.toFixed(2);
@@ -6765,7 +6802,7 @@ $("#form-daily").addEventListener("submit", (e) => {
 
   if (type === "debt") {
     if (!target.startsWith("debt:")) {
-      alert("Add a debt in the Debts tab first.");
+      needFirst("debt");
       return;
     }
     const debtId = target.slice("debt:".length);
@@ -6779,7 +6816,7 @@ $("#form-daily").addEventListener("submit", (e) => {
     state.dailyExpenses.push(entry);
   } else if (type === "saving") {
     if (!target.startsWith("saving:")) {
-      alert("Create a savings goal in the Savings tab first.");
+      needFirst("saving");
       return;
     }
     const savingId = target.slice("saving:".length);
@@ -7357,6 +7394,27 @@ function removeDailyEntry(id) {
   return true;
 }
 
+/* Delete straight away, with Undo on the toast instead of an "Are you
+   sure?" box. Undo puts the whole state back as it was. Receipt photos the
+   delete would erase are held until the Undo window has passed. */
+function deleteWithUndo(message, mutate) {
+  const snap = JSON.stringify(state);
+  const heldPhotos = [];
+  const realDelete = typeof taxReceiptDelete === "function" ? taxReceiptDelete : null;
+  if (realDelete) window.taxReceiptDelete = (id) => { heldPhotos.push(id); };
+  try { mutate(); } finally { if (realDelete) window.taxReceiptDelete = realDelete; }
+  save();
+  renderAll();
+  let undone = false;
+  toast(message, { action: { label: "Undo", run: () => {
+    undone = true;
+    state = coerceState(JSON.parse(snap));
+    save();
+    renderAll();
+  } } });
+  if (realDelete && heldPhotos.length) setTimeout(() => { if (!undone) heldPhotos.forEach((id) => realDelete(id)); }, 6000);
+}
+
 /* delete handlers (event delegation) */
 document.addEventListener("click", (e) => {
   const target = e.target instanceof HTMLElement ? e.target.closest("button[data-action]") : null;
@@ -7366,33 +7424,28 @@ document.addEventListener("click", (e) => {
   if (action === "delete-income") {
     const it = state.income.find((x) => x.id === id);
     if (!it) return;
-    if (!confirm(`Delete income "${it.name}" (${fmtMoney(it.amount)})?`)) return;
-    state.income = state.income.filter((x) => x.id !== id);
+    deleteWithUndo(`Deleted ${it.name}`, () => { state.income = state.income.filter((x) => x.id !== id); });
+    return;
   } else if (action === "delete-expense") {
     const it = state.expenses.find((x) => x.id === id);
     if (!it) return;
-    if (!confirm(`Delete expense "${it.name}" (${fmtMoney(it.amount)})?`)) return;
-    state.expenses = state.expenses.filter((x) => x.id !== id);
+    deleteWithUndo(`Deleted ${it.name}`, () => { state.expenses = state.expenses.filter((x) => x.id !== id); });
+    return;
   } else if (action === "delete-debt") {
     const it = state.debts.find((x) => x.id === id);
     if (!it) return;
-    if (!confirm(`Delete debt "${it.name}" (balance ${fmtMoney(it.balance)})? Linked daily payment entries will keep their record.`)) return;
-    state.debts = state.debts.filter((x) => x.id !== id);
+    deleteWithUndo(`Deleted ${it.name}`, () => { state.debts = state.debts.filter((x) => x.id !== id); });
+    return;
   } else if (action === "delete-daily") {
     const entry = state.dailyExpenses.find((x) => x.id === id);
     if (!entry) return;
-    const label = entry.kind === "debt"
-      ? `debt payment of ${fmtMoney(entry.amount)} to ${entry.debtName || "debt"}`
-      : entry.kind === "saving"
-      ? `deposit of ${fmtMoney(entry.amount)} to ${entry.savingName || "savings"}`
-      : `expense of ${fmtMoney(entry.amount)}${entry.category ? " (" + entry.category + ")" : ""}`;
-    if (!confirm(`Delete ${label}?\n\nDebt/savings balances will be reversed.`)) return;
-    removeDailyEntry(id);
+    deleteWithUndo(`Deleted ${fmtMoney(entry.amount)}`, () => { removeDailyEntry(id); });
+    return;
   } else if (action === "save-delete") {
     const g = state.savings.find((x) => x.id === id);
     if (!g) return;
-    if (!confirm(`Delete savings goal "${g.name}" (${fmtMoney(g.current)} of ${fmtMoney(g.target)} saved)?`)) return;
-    state.savings = state.savings.filter((x) => x.id !== id);
+    deleteWithUndo(`Deleted ${g.name}`, () => { state.savings = state.savings.filter((x) => x.id !== id); });
+    return;
   } else if (action === "save-deposit") {
     const input = document.querySelector(`input[data-save-input="${id}"]`);
     const amount = Number(input && input.value);
@@ -8902,12 +8955,12 @@ async function downloadCSV() {
   if (isNative()) {
     try {
       await navigator.clipboard.writeText(csv);
-      alert(
+      notify(
         `CSV copied to clipboard.\n\nPaste it into Notes, an email, or a file in Google Drive to save the backup. ` +
         `(Filename: duitful-${ts}.csv)`,
       );
     } catch (err) {
-      alert("Couldn't copy to clipboard. Use Cloud backup (Google Drive) for safe storage on Android.");
+      notify("Couldn't copy to clipboard. Use Cloud backup (Google Drive) for safe storage on Android.");
     }
     return;
   }
@@ -9112,24 +9165,27 @@ bulkIncomeApply?.addEventListener("click", () => {
   save();
   renderAll();
   closeBulkIncomeDialog();
-  alert(`Added ${added} income ${added === 1 ? "entry" : "entries"}.`);
+  notify(`Added ${added} income ${added === 1 ? "entry" : "entries"}.`);
 });
 
 $("#btn-clear").addEventListener("click", async () => {
-  if (!confirm("Erase ALL data — income, recurring expenses, debts, daily entries, savings goals and settings? This cannot be undone.")) return;
-  if (!confirm("Really sure? Export CSV first if you want a backup.")) return;
-  if (!vaultIsOpen()) {
-    const pass = prompt("Enter your passcode to confirm:");
-    if (pass == null) return;
-    if (!(await vaultPasscodeMatches(pass))) {
-      alert("Incorrect passcode. Data was not cleared.");
-      return;
-    }
-  }
+  // One sheet: the passcode, or the word DELETE when there is none.
+  const open = vaultIsOpen();
+  const ok = await askPasscode({
+    title: "Clear all data",
+    note: "Erases everything on this device. This can't be undone.",
+    label: open ? "Type DELETE" : "Passcode",
+    text: open,
+    ok: "Erase everything",
+    danger: true,
+    wrong: open ? "Type DELETE to confirm." : "Wrong passcode.",
+    check: open ? async (v) => v.toUpperCase() === "DELETE" : vaultPasscodeMatches,
+  });
+  if (ok == null) return;
   state = emptyState();
   save();
   renderAll();
-  alert("All data cleared.");
+  toast("All data cleared.");
 });
 
 /* ---------- first-time welcome tour ---------- */
@@ -9281,7 +9337,7 @@ const GUIDE_STEPS = [
     icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg>`,
     title: "Set a savings goal",
     sub: "Emergency fund, Umrah, a new phone.",
-    body: `<p>Create a goal with a target amount. Log deposits from Home using <strong>Save</strong>, and watch the progress bar fill toward your target.</p>`,
+    body: `<p>Set a target, then log deposits from Home with <strong>Save</strong>.</p>`,
     tab: "savings",
     target: "#form-saving",
   },
@@ -10094,6 +10150,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.4": [
+    "<strong>Simpler everywhere</strong> — shorter text across the app, deleting has Undo instead of \"Are you sure?\", passcodes use one clean sheet, and a missing debt or goal is one tap away. Settings is tidier, with About and Clear all data folded at the bottom.",
+  ],
   "1.55.3": [
     "<strong>iPhone backup is iCloud</strong> — the iPhone app now backs up to iCloud only; Google Drive is paused there for now. Your Drive backup stays in your Drive, and Android and the web still use it.",
   ],
@@ -11066,21 +11125,16 @@ document.getElementById("toggle-biometric")?.addEventListener("change", async (e
   const box = e.target;
   if (!box.checked) { await disableBiometric(); return; }
   box.checked = false; // stays off until the whole enable flow succeeds
-  const pass = prompt("Enter your passcode to enable biometric unlock:");
-  if (pass == null) { updateBiometricUI(); return; }
   const raw = localStorage.getItem(ENC_KEY);
   if (!raw) { updateBiometricUI(); return; }
-  try {
+  const pass = await askPasscode({ title: "Unlock with fingerprint or face", label: "Passcode", check: async (p) => {
     const rec = JSON.parse(raw);
-    const checkKey = await deriveKey(pass, b64decode(rec.salt));
-    await decryptRecord(checkKey, rec);
-  } catch {
-    alert("Incorrect passcode.");
-    updateBiometricUI();
-    return;
-  }
+    await decryptRecord(await deriveKey(p, b64decode(rec.salt)), rec);
+    return true;
+  } });
+  if (pass == null) { updateBiometricUI(); return; }
   const ok = await enableBiometric(pass);
-  if (!ok) alert("Couldn't enable biometric unlock — the scan was cancelled or this device refused to store the passcode.");
+  if (!ok) notify("Couldn't enable biometric unlock — the scan was cancelled or this device refused to store the passcode.");
 });
 
 async function handleUnlock(passcode, { silent = false } = {}) {
@@ -13964,7 +14018,7 @@ function applyScanResult({ direct }) {
 
   if (chosenType === "debt") {
     if (state.debts.length === 0) {
-      alert("Add a debt in the Debts tab first.");
+      needFirst("debt");
       return;
     }
     const sel = document.getElementById("scan-debt-select");
@@ -14078,15 +14132,60 @@ async function vaultPasscodeMatches(pass) {
   } catch { return false; }
 }
 
+/* The passcode sheet. Resolves with what was typed, or null on Cancel.
+   isNew: asks twice and checks the rules. check(value): async, false keeps
+   the sheet open with "Wrong passcode". text: a word, not a number (DELETE). */
+function askPasscode({ title = "Passcode", label = "Passcode", note = "", ok = "Continue", isNew = false, check = null, text = false, danger = false, wrong = "Wrong passcode." } = {}) {
+  const dlg = document.getElementById("passcode-dialog");
+  if (!dlg) return Promise.resolve(null);
+  const $id = (x) => document.getElementById(x);
+  const input = $id("passcode-input"), again = $id("passcode-confirm"), err = $id("passcode-error"), okBtn = $id("passcode-ok");
+  $id("passcode-title").textContent = title;
+  $id("passcode-label").textContent = label;
+  const noteEl = $id("passcode-note");
+  noteEl.textContent = note; noteEl.hidden = !note;
+  $id("passcode-confirm-field").hidden = !isNew;
+  input.type = text ? "text" : "password";
+  input.inputMode = text ? "text" : "numeric";
+  input.autocomplete = isNew ? "new-password" : text ? "off" : "current-password";
+  input.value = ""; again.value = "";
+  err.hidden = true; err.textContent = "";
+  okBtn.textContent = ok;
+  okBtn.classList.toggle("danger", danger);
+  okBtn.disabled = false;
+  return new Promise((resolve) => {
+    const fail = (m) => { err.textContent = m; err.hidden = false; input.focus(); input.select(); };
+    const done = (v) => {
+      $id("passcode-form").onsubmit = null; $id("passcode-cancel").onclick = null; dlg.onclose = null;
+      if (dlg.open) dlg.close();
+      resolve(v);
+    };
+    $id("passcode-cancel").onclick = () => done(null);
+    dlg.onclose = () => done(null);
+    $id("passcode-form").onsubmit = async (e) => {
+      e.preventDefault();
+      const v = text ? input.value.trim() : input.value;
+      if (isNew) {
+        if (v === OPEN_PASSCODE) return fail(OPEN_REFUSED);
+        if (!/^\d{4,}$/.test(v)) return fail("At least 4 digits, numbers only.");
+        if (v !== again.value) return fail("The two don't match.");
+      } else if (!v) return fail(text ? "Type it to confirm." : "Enter your passcode.");
+      if (check) {
+        okBtn.disabled = true;
+        let good = false;
+        try { good = await check(v); } catch { good = false; }
+        okBtn.disabled = false;
+        if (!good) return fail(wrong);
+      }
+      done(v);
+    };
+    dlg.showModal();
+    setTimeout(() => input.focus(), 30);
+  });
+}
+
 function askNewPasscode() {
-  const p1 = prompt("New passcode (numbers only, min 4 digits):");
-  if (p1 == null) return null;
-  if (p1 === OPEN_PASSCODE) { alert(OPEN_REFUSED); return null; }
-  if (!/^\d{4,}$/.test(p1)) { alert("Must be at least 4 digits, numbers only."); return null; }
-  const p2 = prompt("Confirm new passcode:");
-  if (p2 == null) return null;
-  if (p1 !== p2) { alert("Passcodes don't match."); return null; }
-  return p1;
+  return askPasscode({ title: "Set a passcode", label: "New passcode", ok: "Save", isNew: true });
 }
 
 // Settings → Security: set a passcode when there is none; change or turn
@@ -14100,8 +14199,8 @@ function renderSecurityCard() {
   if (remove) remove.hidden = open;
   if (hint) {
     hint.innerHTML = open
-      ? `No passcode: Duitful opens without asking, and your backups are protected only by your Apple or Google account. Set one to lock both with a code only you know. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`
-      : `Encrypted with your passcode. Lose it and nobody can recover your data — keep a backup. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`;
+      ? `No passcode set. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`
+      : `Locked with your passcode. Lose it and nobody can recover your data. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`;
   }
   updateBiometricUI();
 }
@@ -14109,30 +14208,27 @@ function renderSecurityCard() {
 document.getElementById("btn-change-passcode")?.addEventListener("click", async () => {
   if (!aesKey) return;
   if (vaultIsOpen()) {
-    const p1 = askNewPasscode();
+    const p1 = await askNewPasscode();
     if (!p1) return;
     await rekeyVault(p1);
-    alert("Passcode set. Duitful will ask for it when you open the app, and your backups now use it too.");
+    toast("Passcode set.");
     maybeOfferBiometric(p1).catch(() => {});
     return;
   }
-  const cur = prompt("Current passcode:");
+  const cur = await askPasscode({ title: "Change passcode", label: "Current passcode", check: vaultPasscodeMatches });
   if (cur == null) return;
-  if (!(await vaultPasscodeMatches(cur))) { alert("Incorrect passcode."); return; }
-  const p1 = askNewPasscode();
+  const p1 = await askPasscode({ title: "Change passcode", label: "New passcode", ok: "Save", isNew: true });
   if (!p1) return;
   await rekeyVault(p1);
-  alert("Passcode changed. Data re-encrypted with new key.");
+  toast("Passcode changed.");
 });
 
 document.getElementById("btn-remove-passcode")?.addEventListener("click", async () => {
   if (!aesKey || vaultIsOpen()) return;
-  if (!confirm("Turn off the passcode? Duitful will open without asking, and your backups will be protected only by your Apple or Google account.")) return;
-  const cur = prompt("Current passcode:");
+  const cur = await askPasscode({ title: "Turn off passcode", label: "Current passcode", note: "Duitful will open without asking.", ok: "Turn off", check: vaultPasscodeMatches });
   if (cur == null) return;
-  if (!(await vaultPasscodeMatches(cur))) { alert("Incorrect passcode."); return; }
   await rekeyVault(OPEN_PASSCODE, { open: true });
-  toast("Passcode off. You can set one again in Settings → Security.");
+  toast("Passcode off.");
 });
 
 /* decide the initial lock mode and show it */
@@ -14317,8 +14413,8 @@ async function restoreFromDrive(id = "drive") {
   const where = cloudProviders()[id].name;
   let rec;
   try { rec = await api.downloadEncryptedRecord(); }
-  catch (err) { alert("Couldn't download backup: " + (err.message || err)); return; }
-  if (!rec) { alert(id === "icloud" ? "No backup found in iCloud." : "No backup found in your Google Drive."); return; }
+  catch (err) { notify("Couldn't download backup: " + (err.message || err)); return; }
+  if (!rec) { notify(id === "icloud" ? "No backup found in iCloud." : "No backup found in your Google Drive."); return; }
 
   // The backup carries its own salt, so even with the same passcode the
   // local AES key won't match. Try the local key first (works only if the
@@ -14334,17 +14430,11 @@ async function restoreFromDrive(id = "drive") {
     try { plain = await decryptRecord(await deriveKey(OPEN_PASSCODE, b64decode(rec.salt)), rec); } catch {}
   }
   if (!plain) {
-    const altPass = prompt(
-      `Enter your passcode to decrypt the backup from ${where}:`,
-    );
-    if (!altPass) return;
-    try {
-      const altKey = await deriveKey(altPass, b64decode(rec.salt));
-      plain = await decryptRecord(altKey, rec);
-    } catch {
-      alert("Wrong passcode — restore cancelled. Your local data is unchanged.");
-      return;
-    }
+    const altPass = await askPasscode({ title: `Restore from ${where}`, label: "Passcode used for that backup", ok: "Restore", check: async (p) => {
+      plain = await decryptRecord(await deriveKey(p, b64decode(rec.salt)), rec);
+      return true;
+    } });
+    if (altPass == null) return;
   }
   state = coerceState(plain);
   // Force a re-encrypt under the local key on the next save tick.
@@ -14529,7 +14619,7 @@ function renderDriveCard() {
       await checkDriveOnBoot();
       renderDriveCard();
     } catch (err) {
-      alert("Sign-in failed: " + (err.message || err));
+      notify("Sign-in failed: " + (err.message || err));
     }
   });
   onClick("btn-drive-signout", async () => {
@@ -14543,7 +14633,7 @@ function renderDriveCard() {
       await runDriveUpload("drive");
       renderDriveCard();
     } catch (err) {
-      alert("Sync failed: " + (err.message || err));
+      notify("Sync failed: " + (err.message || err));
     }
   });
   onClick("btn-drive-restore", async () => {
@@ -14558,7 +14648,7 @@ function renderDriveCard() {
       renderDriveCard();
       toast("Backed up to iCloud.");
     } catch (err) {
-      alert("iCloud backup failed: " + (err.message || err));
+      notify("iCloud backup failed: " + (err.message || err));
     }
   });
   onClick("btn-icloud-recheck", async () => {
@@ -14675,13 +14765,13 @@ document.addEventListener("click", (e) => {
     const m = currentMonthISO();
 
     if (!name || !Number.isFinite(limit) || limit <= 0) {
-      alert("Pool name and a positive limit are required.");
+      notify("Pool name and a positive limit are required.");
       return;
     }
     // Name uniqueness (case-insensitive, excluding self)
     const dup = state.budgetPools.find((p) => p.id !== id && typeof p.name === "string" && p.name.trim().toLowerCase() === name.toLowerCase());
     if (dup) {
-      alert(`A pool named "${dup.name}" already exists.`);
+      notify(`A pool named "${dup.name}" already exists.`);
       return;
     }
 
@@ -14752,10 +14842,7 @@ document.addEventListener("click", (e) => {
     } else if (action === "delete-pool" && id) {
       const pool = state.budgetPools.find((p) => p.id === id);
       if (!pool || pool.system === "debt") return;
-      if (!confirm(`Delete pool "${pool.name}"? Past expenses tagged to it stay tagged (shown as "deleted").`)) return;
-      state.budgetPools = state.budgetPools.filter((p) => p.id !== id);
-      save();
-      renderAll();
+      deleteWithUndo(`Deleted ${pool.name}`, () => { state.budgetPools = state.budgetPools.filter((p) => p.id !== id); });
     }
   });
 
@@ -14800,7 +14887,7 @@ document.addEventListener("click", (e) => {
     }
     save();
     renderAll();
-    alert(copied === 0
+    notify(copied === 0
       ? "No overrides found in last month."
       : `Copied ${copied} override${copied === 1 ? "" : "s"} from last month.`);
   });
@@ -14968,7 +15055,7 @@ document.getElementById("btn-bulk-debt-confirm")?.addEventListener("click", () =
   save();
   closeBulkDebtPayDialog();
   renderAll();
-  if (created === 0) alert("No debts paid (nothing was checked or amounts were 0).");
+  if (created === 0) notify("No debts paid (nothing was checked or amounts were 0).");
 });
 
 // ----------- Daily entry edit dialog -----------
@@ -15033,11 +15120,11 @@ document.getElementById("btn-daily-edit-save")?.addEventListener("click", () => 
   const note = dlg.querySelector("input[name='note']")?.value?.trim() || "";
 
   if (!Number.isFinite(amount) || amount <= 0) {
-    alert("Amount must be a positive number.");
+    notify("Amount must be a positive number.");
     return;
   }
   if (!date) {
-    alert("Date is required.");
+    notify("Date is required.");
     return;
   }
 
@@ -15113,12 +15200,12 @@ document.getElementById("btn-last-month-edit-save")?.addEventListener("click", (
   if (!month || !inputEl) return;
   const raw = (inputEl.value || "").toString().trim();
   if (raw === "") {
-    alert("Enter a value, or use Reset to auto.");
+    notify("Enter a value, or use Reset to auto.");
     return;
   }
   const v = Number(raw);
   if (!Number.isFinite(v) || v < 0) {
-    alert("Enter a positive number.");
+    notify("Enter a positive number.");
     return;
   }
   state.monthlyMinSums[month] = v;

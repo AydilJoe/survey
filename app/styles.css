@@ -8017,3 +8017,37 @@ html::before {
 .cloud-tile { min-width: 0; height: 100%; }
 .cloud-tile svg { height: 32px; width: auto; flex: none; }
 .cloud-tile span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+/* ⓘ: the detail behind a one-line hint, for the few places it matters. */
+.info-tip { margin: -0.15rem 0 0.4rem; }
+.info-tip > summary {
+  list-style: none; display: inline-grid; place-items: center;
+  width: 24px; height: 24px; border-radius: 50%;
+  font-size: 0.85rem; color: var(--muted); cursor: pointer;
+}
+.info-tip > summary::-webkit-details-marker { display: none; }
+.info-tip > summary:hover, .info-tip[open] > summary { color: var(--text); background: var(--card-soft); }
+.info-tip > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.info-tip > p { margin: 0.3rem 0 0; font-size: 0.82rem; line-height: 1.45; color: var(--muted); }
+
+/* Passcode sheet */
+.passcode-dialog input { font-size: 1.15rem; }
+.passcode-dialog input[type="password"] { letter-spacing: 0.15em; }
+.passcode-dialog .primary.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.passcode-dialog .primary.danger:hover { background: var(--danger-hover); }
+.passcode-dialog #passcode-error[hidden], .passcode-dialog #passcode-note[hidden] { display: none; }
+
+/* Settings: About, help, legal and Clear all data, folded at the bottom. */
+.settings-more > summary {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  min-height: 44px; font-weight: 600; font-size: 1rem; color: var(--text);
+}
+.settings-more > summary::-webkit-details-marker { display: none; }
+.settings-more > summary::after {
+  content: ""; width: 8px; height: 8px; margin-right: 4px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px); opacity: 0.55; transition: transform 0.15s ease;
+}
+.settings-more[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
+.settings-more-block { padding-top: 0.9rem; margin-top: 0.9rem; border-top: 1px solid var(--line); }
+.settings-more-block h2 { font-size: 0.95rem; margin: 0 0 0.4rem; }

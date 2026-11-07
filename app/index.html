@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=144" />
+    <link rel="stylesheet" href="styles.css?v=147" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -247,7 +247,7 @@
             <h2 id="reminder-ask-title">Want a nudge on the day payments are due?</h2>
           </div>
           <div id="reminder-ask-offer">
-            <p class="reminder-ask-body">A reminder at 9am on each due date, so a card minimum or BNPL instalment never slips. Set on this phone — nothing is sent anywhere.</p>
+            <p class="reminder-ask-body">A 9am reminder on each due date.</p>
             <div class="reminder-ask-actions">
               <button type="button" class="primary" id="reminder-ask-yes">Turn on reminders</button>
               <button type="button" class="ghost" id="reminder-ask-no">Not now</button>
@@ -312,9 +312,8 @@
             </svg>
           </div>
           <h2 class="empty-welcome-title">Welcome — let's start small</h2>
-          <p class="empty-welcome-body">Log today's lunch as your first entry. Most people start with a Mamak or Grab ride — anything between RM 5–25 works to see how the app feels.</p>
+          <p class="empty-welcome-body">Start with one spend — a coffee or a Grab ride.</p>
           <button type="button" class="primary empty-welcome-cta" id="empty-welcome-cta">Log my first spend →</button>
-          <p class="empty-welcome-meta">It takes 10 seconds. Your data never leaves this device.</p>
         </div>
 
         <div class="hero-card">
@@ -564,7 +563,7 @@
           <p class="hint pool-month-note" id="pool-month-note" hidden></p>
           <div id="budget-pool-list"></div>
           <div id="pool-templates" class="pool-templates" hidden>
-            <p class="hint">Quick start with a template:</p>
+            <p class="hint">Start with:</p>
             <div class="pool-template-row">
               <button type="button" class="pill pool-template" data-template="Shopping">+ Shopping</button>
               <button type="button" class="pill pool-template" data-template="Subscriptions">+ Subscriptions</button>
@@ -764,7 +763,7 @@
                     <option value="1">1% — PTPTN (ujrah on the outstanding balance)</option>
                   </optgroup>
                 </select>
-                <span class="hint">Typical 2026 Malaysian figures, filled into the APR box above. Your statement has the exact one.</span>
+                <span class="hint">Typical rate. Your statement has the exact one.</span>
               </label>
             </div>
 
@@ -783,7 +782,7 @@
                   <input type="number" name="termMonths" step="1" min="1" max="120" inputmode="numeric" placeholder="same" />
                 </label>
               </div>
-              <p class="hint">Assumes 0% interest (typical for Atome, SPayLater). The total balance is monthly × months left. Set total months to see progress like "4 of 12 paid".</p>
+              <p class="hint">0% plans: balance = monthly × months left.</p>
             </div>
 
             <div id="debt-fields-islamic" class="debt-fields" hidden>
@@ -810,7 +809,8 @@
                 <input type="number" name="monthsPaid" step="1" min="0" max="480" inputmode="numeric" placeholder="0" />
               </label>
               <p class="hint" id="islamic-preview"></p>
-              <p class="hint">Profit is fixed at signing and never compounds. Duitful tracks the <strong>outstanding principal</strong> — what settling today costs after a full ibra' (rebate of unearned profit). Your bank statement shows the higher outstanding sale price.</p>
+              <p class="hint">Tracks what settling today costs, after ibra'.</p>
+              <details class="info-tip"><summary aria-label="More about this">ⓘ</summary><p>Profit is fixed at signing and never compounds. Duitful tracks the <strong>outstanding principal</strong>: what settling today costs after a full ibra' (rebate of unearned profit). Your bank statement shows the higher outstanding sale price.</p></details>
             </div>
 
             <label class="field">
@@ -885,7 +885,7 @@
 
         <div class="card split-start-card">
           <h2>Split a bill</h2>
-          <p class="hint">Share a bill or ask someone to pay you back. They get a link; nobody needs the app.</p>
+          <p class="hint">They get a link — no app needed.</p>
           <div class="button-row split-entry-row">
             <button type="button" class="primary" data-action="split-compose">Split or request money</button>
             <button type="button" class="ghost" data-action="split-ingest">Add a request I received</button>
@@ -988,7 +988,6 @@
           <p class="hint" id="invest-dividend-line" hidden></p>
           <div id="invest-accounts" class="invest-accounts" hidden></div>
           <div id="investments-list" class="investments-list"></div>
-          <p class="hint">Values are typed in from your statements. Duitful never fetches prices — that would tell a server what you own.</p>
         </div>
 
         <div class="card invest-plan-card" id="invest-plan-card" hidden>
@@ -1060,12 +1059,8 @@
             <button type="button" class="ghost" id="btn-invest-plan-disable">Stop planning</button>
           </div>
 
-          <p class="hint">
-            Every figure here is an estimate in today's money. The return you enter is a
-            <em>real</em> return — already after inflation — so the pot you see is what it would buy
-            at today's prices. Contributions are assumed monthly and unchanging, and the 4% rule is a
-            rule of thumb, not a guarantee. Markets don't return a straight line.
-          </p>
+          <p class="hint">Estimates, in today's money.</p>
+          <details class="info-tip"><summary aria-label="More about this">ⓘ</summary><p>The return you enter is a <em>real</em> return, already after inflation, so the pot you see is what it would buy at today's prices. Contributions are assumed monthly and unchanging, and the 4% rule is a rule of thumb, not a guarantee.</p></details>
         </div>
 
         <div class="card invest-plan-optin" id="invest-plan-optin" hidden>
@@ -1121,10 +1116,7 @@
                 <input type="date" id="zakat-haul-start" />
               </label>
             </div>
-            <p class="hint">
-              Nisab weights are fixed by fiqh; only the metal price changes. Check today's price with
-              your state authority (LZS, PPZ-MAIWP, LZNK…) — they publish it, and it moves.
-            </p>
+            <p class="hint">Today's price: your state zakat office (LZS, PPZ-MAIWP, LZNK…).</p>
           </details>
 
           <ul class="zakat-breakdown" id="zakat-breakdown"></ul>
@@ -1143,7 +1135,6 @@
             <input type="checkbox" id="zakat-include-savings" />
             <span>Count my savings-goal balances as zakatable</span>
           </label>
-          <p class="hint">“Other zakatable wealth” means wealth not tracked as a savings goal or an investment holding — cash in hand, gold, property held for trade.</p>
 
           <p class="hint" id="zakat-haul-line"></p>
 
@@ -1152,10 +1143,8 @@
             <button type="button" class="ghost" id="btn-zakat-disable">Stop tracking</button>
           </div>
           <ul class="zakat-history" id="zakat-history"></ul>
-          <p class="hint">
-            An estimate for planning, not a fatwa. Zakat rules vary by state and by asset type —
-            confirm the final figure with your state zakat authority before paying.
-          </p>
+          <p class="hint">An estimate, not a fatwa.</p>
+          <details class="info-tip"><summary aria-label="More about this">ⓘ</summary><p>Zakat rules vary by state and by asset type. Confirm the final figure with your state zakat authority before paying. Nisab weights are fixed by fiqh; only the metal price changes. "Other zakatable wealth" is wealth not tracked as a savings goal or investment: cash in hand, gold, property held for trade.</p></details>
         </div>
 
         <div class="card zakat-optin" id="zakat-optin" hidden>
@@ -1407,27 +1396,35 @@
 
       <!-- DATA -->
       <section id="tab-data" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-data">
-        <div class="card">
-          <h2>Appearance</h2>
-          
-          <div class="type-pills theme-pills" role="radiogroup" aria-label="Theme">
-            <button type="button" class="pill" data-theme-choice="system" role="radio" aria-checked="false">System</button>
-            <button type="button" class="pill" data-theme-choice="light" role="radio" aria-checked="false">Light</button>
-            <button type="button" class="pill" data-theme-choice="dark" role="radio" aria-checked="false">Dark</button>
+        <div class="card pro-card" id="pro-card">
+          <div class="card-head">
+            <h2>Duitful Pro</h2>
+            <span class="pro-badge" id="pro-badge" hidden>UNLOCKED</span>
           </div>
-        </div>
-
-        <div class="card">
-          <h2>CSV backup</h2>
-          <p class="hint">A copy you keep. Import it to restore or move devices.</p>
-          <div class="button-row">
-            <button id="btn-export" class="primary">Export CSV</button>
-            <label class="primary as-button">
-              Import CSV
-              <input id="file-import" type="file" accept=".csv,text/csv" hidden />
-            </label>
+          <p class="hint" id="pro-status">Automatic backup, unlimited scans, budget pools. Pay once.</p>
+          <p class="hint pro-watermark" id="pro-watermark" hidden></p>
+          <div class="button-row" id="pro-actions">
+            <button id="btn-pro-unlock" class="primary" type="button">Unlock Duitful Pro</button>
+            <button id="btn-pro-activate" class="ghost" type="button">Activate license</button>
+            <button id="btn-pro-restore" class="ghost" type="button">Restore</button>
           </div>
-          <div id="import-status" class="hint"></div>
+          <div id="pro-refer" class="pro-refer" hidden>
+            <h3>Refer a friend — earn RM 5</h3>
+            <p class="hint">RM 5 to your bank for every Pro bought through your link. Paid monthly.</p>
+            <div class="pro-refer-url-row">
+              <code id="pro-refer-url" class="pro-refer-url" hidden>https://duitful.app/app?ref=...</code>
+              <button type="button" class="primary" id="btn-pro-refer-share" hidden>Share</button>
+              <button type="button" class="ghost" id="btn-pro-refer-copy" hidden>Copy link</button>
+            </div>
+            <div id="pro-refer-claim" class="pro-refer-claim" hidden>
+              <p class="hint">Your email becomes a code on this phone. It's never sent anywhere.</p>
+              <div class="pro-refer-claim-row">
+                <input type="email" id="pro-refer-claim-email" aria-label="Your email address" placeholder="you@example.com" autocomplete="email" inputmode="email" />
+                <button type="button" class="primary" id="btn-pro-refer-claim">Claim code</button>
+              </div>
+              <p class="hint" id="pro-refer-claim-status" hidden></p>
+            </div>
+          </div>
         </div>
 
         <div class="card" id="drive-card" hidden>
@@ -1498,35 +1495,31 @@
           </div>
         </div>
 
-        <div class="card pro-card" id="pro-card">
-          <div class="card-head">
-            <h2>Duitful Pro</h2>
-            <span class="pro-badge" id="pro-badge" hidden>UNLOCKED</span>
+        <div class="card">
+          <h2>CSV backup</h2>
+          <p class="hint">A copy you keep. Import it to restore or move devices.</p>
+          <div class="button-row">
+            <button id="btn-export" class="primary">Export CSV</button>
+            <label class="primary as-button">
+              Import CSV
+              <input id="file-import" type="file" accept=".csv,text/csv" hidden />
+            </label>
           </div>
-          <p class="hint" id="pro-status">Automatic backup, unlimited scans, budget pools. Pay once.</p>
-          <p class="hint pro-watermark" id="pro-watermark" hidden></p>
-          <div class="button-row" id="pro-actions">
-            <button id="btn-pro-unlock" class="primary" type="button">Unlock Duitful Pro</button>
-            <button id="btn-pro-activate" class="ghost" type="button">Activate license</button>
-            <button id="btn-pro-restore" class="ghost" type="button">Restore</button>
+          <div id="import-status" class="hint"></div>
+        </div>
+
+        <div class="card">
+          <h2>Security</h2>
+          <p class="hint" id="security-hint">Encrypted with your passcode. Lose it and nobody can recover your data — keep a backup. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a></p>
+          <div class="button-row">
+            <button id="btn-change-passcode" class="primary" type="button">Change passcode</button>
+            <button id="btn-remove-passcode" class="ghost" type="button">Turn off passcode</button>
           </div>
-          <div id="pro-refer" class="pro-refer" hidden>
-            <h3>Refer a friend — earn RM 5</h3>
-            <p class="hint">RM 5 to your bank for every Pro bought through your link. Paid monthly.</p>
-            <div class="pro-refer-url-row">
-              <code id="pro-refer-url" class="pro-refer-url" hidden>https://duitful.app/app?ref=...</code>
-              <button type="button" class="primary" id="btn-pro-refer-share" hidden>Share</button>
-              <button type="button" class="ghost" id="btn-pro-refer-copy" hidden>Copy link</button>
-            </div>
-            <div id="pro-refer-claim" class="pro-refer-claim" hidden>
-              <p class="hint">Your email becomes a code on this phone. It's never sent anywhere.</p>
-              <div class="pro-refer-claim-row">
-                <input type="email" id="pro-refer-claim-email" aria-label="Your email address" placeholder="you@example.com" autocomplete="email" inputmode="email" />
-                <button type="button" class="primary" id="btn-pro-refer-claim">Claim code</button>
-              </div>
-              <p class="hint" id="pro-refer-claim-status" hidden></p>
-            </div>
-          </div>
+          <label class="field toggle-field" id="biometric-row" hidden>
+            <input type="checkbox" id="toggle-biometric" />
+            <span>Unlock with fingerprint / Face ID</span>
+          </label>
+          <p class="hint" id="biometric-hint" hidden>Your passcode still works. This turns off if your enrolled fingerprints or faces change.</p>
         </div>
 
         <div class="card">
@@ -1591,7 +1584,6 @@
             <input type="checkbox" id="pref-split-relay" checked />
             <span>Track split payments (encrypted relay)</span>
           </label>
-          <p class="hint">"I've paid" comes back on its own. Only your links carry the key; Duitful can't read it.</p>
           <label class="field toggle-field">
             <input type="checkbox" id="pref-split-notify" checked />
             <span>Notify me when someone says they've paid</span>
@@ -1617,59 +1609,58 @@
             <input type="checkbox" id="pref-split-overdue" checked />
             <span>Chase requests that have gone quiet</span>
           </label>
-          <p class="hint">Nudges you about money owed to you once it's overdue.</p>
           
         </div>
 
         <div class="card">
-          <h2>Security</h2>
-          <p class="hint" id="security-hint">Encrypted with your passcode. Lose it and nobody can recover your data — keep a backup. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a></p>
-          <div class="button-row">
-            <button id="btn-change-passcode" class="primary" type="button">Change passcode</button>
-            <button id="btn-remove-passcode" class="ghost" type="button">Turn off passcode</button>
-          </div>
-          <label class="field toggle-field" id="biometric-row" hidden>
-            <input type="checkbox" id="toggle-biometric" />
-            <span>Unlock with fingerprint / Face ID</span>
-          </label>
-          <p class="hint" id="biometric-hint" hidden>Your passcode still works. This turns off if your enrolled fingerprints or faces change.</p>
-        </div>
-
-        <div class="card">
-          <h2>Danger zone</h2>
-          <button id="btn-clear" class="danger">Clear all data</button>
-        </div>
-        <div class="card">
-          <h2>About</h2>
+          <h2>Appearance</h2>
           
-          <p class="hint" id="about-version" aria-live="polite"></p>
-          <div class="button-row">
-            <button id="btn-whats-new" class="ghost" type="button">What's new</button>
-            <button id="btn-show-guide" class="ghost" type="button">Replay welcome tour</button>
+          <div class="type-pills theme-pills" role="radiogroup" aria-label="Theme">
+            <button type="button" class="pill" data-theme-choice="system" role="radio" aria-checked="false">System</button>
+            <button type="button" class="pill" data-theme-choice="light" role="radio" aria-checked="false">Light</button>
+            <button type="button" class="pill" data-theme-choice="dark" role="radio" aria-checked="false">Dark</button>
           </div>
         </div>
 
-        <div class="card">
-          <h2>Contact</h2>
-          <p class="hint">Bugs, ideas, help — I read every one.</p>
-          <div class="button-row">
-            <a class="primary as-button" href="mailto:hello@duitful.app?subject=Duitful%20feedback">Email hello@duitful.app</a>
-            <a class="ghost as-button" href="https://wa.me/60134932131" target="_blank" rel="noopener" aria-label="WhatsApp Duitful at +60 13-493 2131">WhatsApp</a>
+        <!-- About, help, legal and Clear all data: folded, at the bottom. -->
+        <details class="card settings-more" id="settings-more">
+          <summary>About, help &amp; legal</summary>
+          <div class="settings-more-block">
+            <h2>About</h2>
+            
+            <p class="hint" id="about-version" aria-live="polite"></p>
+            <div class="button-row">
+              <button id="btn-whats-new" class="ghost" type="button">What's new</button>
+              <button id="btn-show-guide" class="ghost" type="button">Replay welcome tour</button>
+            </div>
           </div>
-          <p class="hint">Duitful is a product of <a href="https://codyl.dev/" target="_blank" rel="noopener">Codyl Enterprise</a> · +60 13-493 2131</p>
-        </div>
-
-        <div class="card">
-          <h2>Legal</h2>
-          <!-- The licence-recovery sentence is web-only: App Review 3.1.1 bars
-               the native shells from pointing at the web checkout. Rewritten
-               per-platform in renderProControls(). -->
-          <p class="hint" id="legal-hint">Also how to recover a Pro licence.</p>
-          <div class="button-row">
-            <a class="ghost as-button" href="https://duitful.app/privacy/" target="_blank" rel="noopener">Privacy policy</a>
-            <a class="ghost as-button" href="https://duitful.app/terms/" target="_blank" rel="noopener">Terms of service</a>
+  
+          <div class="settings-more-block">
+            <h2>Contact</h2>
+            <p class="hint">Bugs, ideas, help — I read every one.</p>
+            <div class="button-row">
+              <a class="primary as-button" href="mailto:hello@duitful.app?subject=Duitful%20feedback">Email hello@duitful.app</a>
+              <a class="ghost as-button" href="https://wa.me/60134932131" target="_blank" rel="noopener" aria-label="WhatsApp Duitful at +60 13-493 2131">WhatsApp</a>
+            </div>
+            <p class="hint">Duitful is a product of <a href="https://codyl.dev/" target="_blank" rel="noopener">Codyl Enterprise</a> · +60 13-493 2131</p>
           </div>
-        </div>
+  
+          <div class="settings-more-block">
+            <h2>Legal</h2>
+            <!-- The licence-recovery sentence is web-only: App Review 3.1.1 bars
+                 the native shells from pointing at the web checkout. Rewritten
+                 per-platform in renderProControls(). -->
+            <p class="hint" id="legal-hint">Also how to recover a Pro licence.</p>
+            <div class="button-row">
+              <a class="ghost as-button" href="https://duitful.app/privacy/" target="_blank" rel="noopener">Privacy policy</a>
+              <a class="ghost as-button" href="https://duitful.app/terms/" target="_blank" rel="noopener">Terms of service</a>
+            </div>
+          </div>
+          <div class="settings-more-block">
+            <h2>Danger zone</h2>
+            <button id="btn-clear" class="danger">Clear all data</button>
+          </div>
+        </details>
       </section>
     </main>
 
@@ -1773,7 +1764,7 @@
           <span class="paywall-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
           <div>
             <h2>You're Pro now</h2>
-            <p class="paywall-sub">Thanks for supporting Duitful. Two quick setup steps so you get the most out of it.</p>
+            <p class="paywall-sub">Two quick steps.</p>
           </div>
         </div>
 
@@ -1869,7 +1860,7 @@
     <dialog id="license-dialog" class="edit-dialog">
       <form id="license-form" method="dialog">
         <h2>Activate Duitful Pro</h2>
-        <p class="hint">Paste the license key you received after payment. It's verified on this device — nothing is sent to a server.</p>
+        <p class="hint">Paste your license key.</p>
         <label class="field">
           <span>License key</span>
           <textarea id="license-input" rows="4" placeholder="eyJzdWIi...Qc8NjA.bGlj..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
@@ -1886,7 +1877,7 @@
     <dialog id="fpx-email-dialog" class="edit-dialog">
       <form id="fpx-email-form" method="dialog">
         <h2>Pay with FPX / e-wallet</h2>
-        <p class="hint">Pick your bank to skip the Billplz selection page and go straight to your bank's login. Your license key will show on the confirmation page right after payment — copy it from there.</p>
+        <p class="hint">Your license key shows right after payment.</p>
         <label class="field">
           <span>Bank / e-wallet</span>
           <select id="fpx-bank" autocomplete="off">
@@ -2071,10 +2062,32 @@
     <!-- Split &amp; request: compose (three modes), share (QR + link),
          ingest (paste / camera) and the "How to pay me" profile. The bodies
          are rendered by split.js; only the shells live here. -->
+    <!-- One sheet for every passcode question (set, change, turn off,
+         fingerprint, restore, clear data), instead of browser prompts. -->
+    <dialog id="passcode-dialog" class="edit-dialog passcode-dialog" aria-labelledby="passcode-title">
+      <form method="dialog" id="passcode-form" novalidate>
+        <h2 id="passcode-title">Passcode</h2>
+        <p class="hint" id="passcode-note" hidden></p>
+        <label class="field">
+          <span id="passcode-label">Passcode</span>
+          <input type="password" id="passcode-input" inputmode="numeric" autocomplete="current-password" />
+        </label>
+        <label class="field" id="passcode-confirm-field" hidden>
+          <span>Type it again</span>
+          <input type="password" id="passcode-confirm" inputmode="numeric" autocomplete="new-password" />
+        </label>
+        <p class="hint warn" id="passcode-error" role="alert" hidden></p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="passcode-cancel">Cancel</button>
+          <button type="submit" class="primary" id="passcode-ok">Continue</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="bio-offer-dialog" class="edit-dialog">
       <form method="dialog">
         <h2>Unlock with your fingerprint?</h2>
-        <p class="hint">Skip typing the passcode next time. It stays the only key to your data — kept in this phone's secure keystore and released only after your fingerprint or face. Passcode entry always remains available, and you can turn this off anytime in Settings → Security.</p>
+        <p class="hint">Skip the passcode next time. Your passcode still works.</p>
         <div class="form-actions">
           <button type="button" class="ghost" id="btn-bio-offer-later">Not now</button>
           <button type="button" class="primary" id="btn-bio-offer-enable">Enable fingerprint unlock</button>
@@ -2104,7 +2117,7 @@
     <dialog id="split-ingest-dialog" class="edit-dialog split-dialog">
       <form method="dialog">
         <h2>Add a request</h2>
-        <p class="hint">Someone sent you a Duitful request — or a confirmation that they've paid you? Paste the code, or scan their QR. It decodes on this device — nothing is sent anywhere.</p>
+        <p class="hint">Paste the code or scan the QR.</p>
         <label class="field">
           <span>Request code</span>
           <textarea id="split-ingest-code" rows="3" placeholder="DFS1.…" spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
@@ -2164,7 +2177,7 @@
     <dialog id="bulk-income-dialog" class="edit-dialog">
       <form method="dialog">
         <h2>Bulk import income</h2>
-        <p class="hint">Upload a Duitful CSV. Only the <code>income</code> rows are added — every other row type is ignored. Existing income, expenses, debts, savings, and daily entries are untouched.</p>
+        <p class="hint">Adds only the income rows. Nothing else changes.</p>
         <label class="field">
           <span>CSV file</span>
           <input type="file" id="bulk-income-file" accept=".csv,text/csv" />
@@ -2627,8 +2640,8 @@
     <script src="receipt-extract.js?v=1"></script>
     <script src="region.js?v=1"></script>
     <script src="tax-data.js?v=3"></script>
-    <script src="tax.js?v=12"></script>
+    <script src="tax.js?v=14"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=194"></script>
+    <script src="script.js?v=197"></script>
   </body>
 </html>
