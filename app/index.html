@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=146" />
+    <link rel="stylesheet" href="styles.css?v=147" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -563,7 +563,7 @@
           <p class="hint pool-month-note" id="pool-month-note" hidden></p>
           <div id="budget-pool-list"></div>
           <div id="pool-templates" class="pool-templates" hidden>
-            <p class="hint">Quick start with a template:</p>
+            <p class="hint">Start with:</p>
             <div class="pool-template-row">
               <button type="button" class="pill pool-template" data-template="Shopping">+ Shopping</button>
               <button type="button" class="pill pool-template" data-template="Subscriptions">+ Subscriptions</button>
@@ -1396,27 +1396,35 @@
 
       <!-- DATA -->
       <section id="tab-data" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-data">
-        <div class="card">
-          <h2>Appearance</h2>
-          
-          <div class="type-pills theme-pills" role="radiogroup" aria-label="Theme">
-            <button type="button" class="pill" data-theme-choice="system" role="radio" aria-checked="false">System</button>
-            <button type="button" class="pill" data-theme-choice="light" role="radio" aria-checked="false">Light</button>
-            <button type="button" class="pill" data-theme-choice="dark" role="radio" aria-checked="false">Dark</button>
+        <div class="card pro-card" id="pro-card">
+          <div class="card-head">
+            <h2>Duitful Pro</h2>
+            <span class="pro-badge" id="pro-badge" hidden>UNLOCKED</span>
           </div>
-        </div>
-
-        <div class="card">
-          <h2>CSV backup</h2>
-          <p class="hint">A copy you keep. Import it to restore or move devices.</p>
-          <div class="button-row">
-            <button id="btn-export" class="primary">Export CSV</button>
-            <label class="primary as-button">
-              Import CSV
-              <input id="file-import" type="file" accept=".csv,text/csv" hidden />
-            </label>
+          <p class="hint" id="pro-status">Automatic backup, unlimited scans, budget pools. Pay once.</p>
+          <p class="hint pro-watermark" id="pro-watermark" hidden></p>
+          <div class="button-row" id="pro-actions">
+            <button id="btn-pro-unlock" class="primary" type="button">Unlock Duitful Pro</button>
+            <button id="btn-pro-activate" class="ghost" type="button">Activate license</button>
+            <button id="btn-pro-restore" class="ghost" type="button">Restore</button>
           </div>
-          <div id="import-status" class="hint"></div>
+          <div id="pro-refer" class="pro-refer" hidden>
+            <h3>Refer a friend — earn RM 5</h3>
+            <p class="hint">RM 5 to your bank for every Pro bought through your link. Paid monthly.</p>
+            <div class="pro-refer-url-row">
+              <code id="pro-refer-url" class="pro-refer-url" hidden>https://duitful.app/app?ref=...</code>
+              <button type="button" class="primary" id="btn-pro-refer-share" hidden>Share</button>
+              <button type="button" class="ghost" id="btn-pro-refer-copy" hidden>Copy link</button>
+            </div>
+            <div id="pro-refer-claim" class="pro-refer-claim" hidden>
+              <p class="hint">Your email becomes a code on this phone. It's never sent anywhere.</p>
+              <div class="pro-refer-claim-row">
+                <input type="email" id="pro-refer-claim-email" aria-label="Your email address" placeholder="you@example.com" autocomplete="email" inputmode="email" />
+                <button type="button" class="primary" id="btn-pro-refer-claim">Claim code</button>
+              </div>
+              <p class="hint" id="pro-refer-claim-status" hidden></p>
+            </div>
+          </div>
         </div>
 
         <div class="card" id="drive-card" hidden>
@@ -1487,35 +1495,31 @@
           </div>
         </div>
 
-        <div class="card pro-card" id="pro-card">
-          <div class="card-head">
-            <h2>Duitful Pro</h2>
-            <span class="pro-badge" id="pro-badge" hidden>UNLOCKED</span>
+        <div class="card">
+          <h2>CSV backup</h2>
+          <p class="hint">A copy you keep. Import it to restore or move devices.</p>
+          <div class="button-row">
+            <button id="btn-export" class="primary">Export CSV</button>
+            <label class="primary as-button">
+              Import CSV
+              <input id="file-import" type="file" accept=".csv,text/csv" hidden />
+            </label>
           </div>
-          <p class="hint" id="pro-status">Automatic backup, unlimited scans, budget pools. Pay once.</p>
-          <p class="hint pro-watermark" id="pro-watermark" hidden></p>
-          <div class="button-row" id="pro-actions">
-            <button id="btn-pro-unlock" class="primary" type="button">Unlock Duitful Pro</button>
-            <button id="btn-pro-activate" class="ghost" type="button">Activate license</button>
-            <button id="btn-pro-restore" class="ghost" type="button">Restore</button>
+          <div id="import-status" class="hint"></div>
+        </div>
+
+        <div class="card">
+          <h2>Security</h2>
+          <p class="hint" id="security-hint">Encrypted with your passcode. Lose it and nobody can recover your data — keep a backup. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a></p>
+          <div class="button-row">
+            <button id="btn-change-passcode" class="primary" type="button">Change passcode</button>
+            <button id="btn-remove-passcode" class="ghost" type="button">Turn off passcode</button>
           </div>
-          <div id="pro-refer" class="pro-refer" hidden>
-            <h3>Refer a friend — earn RM 5</h3>
-            <p class="hint">RM 5 to your bank for every Pro bought through your link. Paid monthly.</p>
-            <div class="pro-refer-url-row">
-              <code id="pro-refer-url" class="pro-refer-url" hidden>https://duitful.app/app?ref=...</code>
-              <button type="button" class="primary" id="btn-pro-refer-share" hidden>Share</button>
-              <button type="button" class="ghost" id="btn-pro-refer-copy" hidden>Copy link</button>
-            </div>
-            <div id="pro-refer-claim" class="pro-refer-claim" hidden>
-              <p class="hint">Your email becomes a code on this phone. It's never sent anywhere.</p>
-              <div class="pro-refer-claim-row">
-                <input type="email" id="pro-refer-claim-email" aria-label="Your email address" placeholder="you@example.com" autocomplete="email" inputmode="email" />
-                <button type="button" class="primary" id="btn-pro-refer-claim">Claim code</button>
-              </div>
-              <p class="hint" id="pro-refer-claim-status" hidden></p>
-            </div>
-          </div>
+          <label class="field toggle-field" id="biometric-row" hidden>
+            <input type="checkbox" id="toggle-biometric" />
+            <span>Unlock with fingerprint / Face ID</span>
+          </label>
+          <p class="hint" id="biometric-hint" hidden>Your passcode still works. This turns off if your enrolled fingerprints or faces change.</p>
         </div>
 
         <div class="card">
@@ -1609,54 +1613,54 @@
         </div>
 
         <div class="card">
-          <h2>Security</h2>
-          <p class="hint" id="security-hint">Encrypted with your passcode. Lose it and nobody can recover your data — keep a backup. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a></p>
-          <div class="button-row">
-            <button id="btn-change-passcode" class="primary" type="button">Change passcode</button>
-            <button id="btn-remove-passcode" class="ghost" type="button">Turn off passcode</button>
-          </div>
-          <label class="field toggle-field" id="biometric-row" hidden>
-            <input type="checkbox" id="toggle-biometric" />
-            <span>Unlock with fingerprint / Face ID</span>
-          </label>
-          <p class="hint" id="biometric-hint" hidden>Your passcode still works. This turns off if your enrolled fingerprints or faces change.</p>
-        </div>
-
-        <div class="card">
-          <h2>Danger zone</h2>
-          <button id="btn-clear" class="danger">Clear all data</button>
-        </div>
-        <div class="card">
-          <h2>About</h2>
+          <h2>Appearance</h2>
           
-          <p class="hint" id="about-version" aria-live="polite"></p>
-          <div class="button-row">
-            <button id="btn-whats-new" class="ghost" type="button">What's new</button>
-            <button id="btn-show-guide" class="ghost" type="button">Replay welcome tour</button>
+          <div class="type-pills theme-pills" role="radiogroup" aria-label="Theme">
+            <button type="button" class="pill" data-theme-choice="system" role="radio" aria-checked="false">System</button>
+            <button type="button" class="pill" data-theme-choice="light" role="radio" aria-checked="false">Light</button>
+            <button type="button" class="pill" data-theme-choice="dark" role="radio" aria-checked="false">Dark</button>
           </div>
         </div>
 
-        <div class="card">
-          <h2>Contact</h2>
-          <p class="hint">Bugs, ideas, help — I read every one.</p>
-          <div class="button-row">
-            <a class="primary as-button" href="mailto:hello@duitful.app?subject=Duitful%20feedback">Email hello@duitful.app</a>
-            <a class="ghost as-button" href="https://wa.me/60134932131" target="_blank" rel="noopener" aria-label="WhatsApp Duitful at +60 13-493 2131">WhatsApp</a>
+        <!-- About, help, legal and Clear all data: folded, at the bottom. -->
+        <details class="card settings-more" id="settings-more">
+          <summary>About, help &amp; legal</summary>
+          <div class="settings-more-block">
+            <h2>About</h2>
+            
+            <p class="hint" id="about-version" aria-live="polite"></p>
+            <div class="button-row">
+              <button id="btn-whats-new" class="ghost" type="button">What's new</button>
+              <button id="btn-show-guide" class="ghost" type="button">Replay welcome tour</button>
+            </div>
           </div>
-          <p class="hint">Duitful is a product of <a href="https://codyl.dev/" target="_blank" rel="noopener">Codyl Enterprise</a> · +60 13-493 2131</p>
-        </div>
-
-        <div class="card">
-          <h2>Legal</h2>
-          <!-- The licence-recovery sentence is web-only: App Review 3.1.1 bars
-               the native shells from pointing at the web checkout. Rewritten
-               per-platform in renderProControls(). -->
-          <p class="hint" id="legal-hint">Also how to recover a Pro licence.</p>
-          <div class="button-row">
-            <a class="ghost as-button" href="https://duitful.app/privacy/" target="_blank" rel="noopener">Privacy policy</a>
-            <a class="ghost as-button" href="https://duitful.app/terms/" target="_blank" rel="noopener">Terms of service</a>
+  
+          <div class="settings-more-block">
+            <h2>Contact</h2>
+            <p class="hint">Bugs, ideas, help — I read every one.</p>
+            <div class="button-row">
+              <a class="primary as-button" href="mailto:hello@duitful.app?subject=Duitful%20feedback">Email hello@duitful.app</a>
+              <a class="ghost as-button" href="https://wa.me/60134932131" target="_blank" rel="noopener" aria-label="WhatsApp Duitful at +60 13-493 2131">WhatsApp</a>
+            </div>
+            <p class="hint">Duitful is a product of <a href="https://codyl.dev/" target="_blank" rel="noopener">Codyl Enterprise</a> · +60 13-493 2131</p>
           </div>
-        </div>
+  
+          <div class="settings-more-block">
+            <h2>Legal</h2>
+            <!-- The licence-recovery sentence is web-only: App Review 3.1.1 bars
+                 the native shells from pointing at the web checkout. Rewritten
+                 per-platform in renderProControls(). -->
+            <p class="hint" id="legal-hint">Also how to recover a Pro licence.</p>
+            <div class="button-row">
+              <a class="ghost as-button" href="https://duitful.app/privacy/" target="_blank" rel="noopener">Privacy policy</a>
+              <a class="ghost as-button" href="https://duitful.app/terms/" target="_blank" rel="noopener">Terms of service</a>
+            </div>
+          </div>
+          <div class="settings-more-block">
+            <h2>Danger zone</h2>
+            <button id="btn-clear" class="danger">Clear all data</button>
+          </div>
+        </details>
       </section>
     </main>
 
@@ -2638,6 +2642,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=14"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=196"></script>
+    <script src="script.js?v=197"></script>
   </body>
 </html>

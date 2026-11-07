@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.3";
+const APP_VERSION = "1.55.4";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -532,6 +532,20 @@ function toast(message, opts) {
 }
 // What notify() used to say, as a toast: no box to dismiss.
 function notify(message) { toast(String(message || "")); }
+
+// Nothing to pay or save into yet: one tap to the form that makes one,
+// instead of a message that leaves you stuck.
+function goAddForm(tab, formId) {
+  document.querySelector(`.tab[data-tab="${tab}"]`)?.click();
+  setTimeout(() => openAddForm(formId), 80);
+}
+function needFirst(what) {
+  const debt = what === "debt";
+  toast(debt ? "No debts yet." : "No savings goals yet.", { action: {
+    label: debt ? "Add a debt" : "Add a goal",
+    run: () => goAddForm(debt ? "debts" : "savings", debt ? "form-debt" : "form-saving"),
+  } });
+}
 
 /* ---------- formatting ---------- */
 
@@ -1178,9 +1192,12 @@ function renderBudgetManager() {
   const userPoolCount = state.budgetPools.filter((p) => p.system !== "debt").length;
   const templates = document.getElementById("pool-templates");
   if (templates) templates.hidden = userPoolCount > 0;
+  // Nothing to copy until a pool exists.
+  const copyBtn = document.getElementById("btn-copy-pool-overrides");
+  if (copyBtn) copyBtn.hidden = userPoolCount === 0;
 
   if (pools.length === 0 || (pools.length === 1 && pools[0].system === "debt" && state.debts.length === 0)) {
-    listEl.innerHTML = `<p class="empty">No budget pools yet — pick a template below or tap Add to make your own.</p>`;
+    listEl.innerHTML = "";
     return;
   }
 
@@ -2299,7 +2316,19 @@ function renderEmptyWelcome() {
     (state.dailyExpenses?.length || 0) +
     (state.debts?.length || 0) +
     (state.savings?.length || 0);
-  card.hidden = hasData > 0;
+  // One way in, not two: a new user gets the Add entry card itself at the
+  // top, titled for the first spend, instead of a welcome card above it.
+  card.hidden = true;
+  const fresh = hasData === 0;
+  const quick = document.querySelector("#tab-dashboard .card.quick-add");
+  const hero = document.querySelector("#tab-dashboard .hero-card");
+  if (quick && hero) {
+    if (fresh && hero.previousElementSibling !== quick) hero.before(quick);
+    else if (!fresh && hero.nextElementSibling !== quick) hero.after(quick);
+    const h = quick.querySelector(".card-head h2");
+    if (h) h.textContent = fresh ? "Log your first spend" : "Add entry";
+    quick.classList.toggle("is-first", fresh);
+  }
 }
 
 // Recent-chips row: 3 most-used (category, note, amount) triples from
@@ -6773,7 +6802,7 @@ $("#form-daily").addEventListener("submit", (e) => {
 
   if (type === "debt") {
     if (!target.startsWith("debt:")) {
-      notify("Add a debt in the Debts tab first.");
+      needFirst("debt");
       return;
     }
     const debtId = target.slice("debt:".length);
@@ -6787,7 +6816,7 @@ $("#form-daily").addEventListener("submit", (e) => {
     state.dailyExpenses.push(entry);
   } else if (type === "saving") {
     if (!target.startsWith("saving:")) {
-      notify("Create a savings goal in the Savings tab first.");
+      needFirst("saving");
       return;
     }
     const savingId = target.slice("saving:".length);
@@ -10121,6 +10150,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.4": [
+    "<strong>Simpler everywhere</strong> — shorter text across the app, deleting has Undo instead of \"Are you sure?\", passcodes use one clean sheet, and a missing debt or goal is one tap away. Settings is tidier, with About and Clear all data folded at the bottom.",
+  ],
   "1.55.3": [
     "<strong>iPhone backup is iCloud</strong> — the iPhone app now backs up to iCloud only; Google Drive is paused there for now. Your Drive backup stays in your Drive, and Android and the web still use it.",
   ],
@@ -13986,7 +14018,7 @@ function applyScanResult({ direct }) {
 
   if (chosenType === "debt") {
     if (state.debts.length === 0) {
-      notify("Add a debt in the Debts tab first.");
+      needFirst("debt");
       return;
     }
     const sel = document.getElementById("scan-debt-select");
