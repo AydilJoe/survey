@@ -8029,3 +8029,10 @@ html::before {
 .info-tip > summary:hover, .info-tip[open] > summary { color: var(--text); background: var(--card-soft); }
 .info-tip > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .info-tip > p { margin: 0.3rem 0 0; font-size: 0.82rem; line-height: 1.45; color: var(--muted); }
+
+/* Passcode sheet */
+.passcode-dialog input { font-size: 1.15rem; }
+.passcode-dialog input[type="password"] { letter-spacing: 0.15em; }
+.passcode-dialog .primary.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.passcode-dialog .primary.danger:hover { background: var(--danger-hover); }
+.passcode-dialog #passcode-error[hidden], .passcode-dialog #passcode-note[hidden] { display: none; }

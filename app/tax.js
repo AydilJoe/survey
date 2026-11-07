@@ -2131,8 +2131,8 @@ async function taxExportClaims() {
   if (typeof isNative === "function" && isNative()) {
     try {
       await navigator.clipboard.writeText(csv);
-      alert(`Tax claims for ${year} copied to the clipboard. Paste them into Notes or an email.`);
-    } catch { alert("Couldn't copy to the clipboard."); }
+      notify(`Tax claims for ${year} copied to the clipboard. Paste them into Notes or an email.`);
+    } catch { notify("Couldn't copy to the clipboard."); }
     return;
   }
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));

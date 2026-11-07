@@ -3124,6 +3124,35 @@ check('a split from a spend you already logged never logs it twice',
     ck.card.block && ck.card.signOutBox && !ck.afterSignOut && ck.card.signInBox && ck.card.recheckHidden && /Apple ID/.test(ck.card.why), JSON.stringify(ck.card));
 }
 
+// Deleting is instant with Undo on the toast; alerts are toasts now.
+{
+  const un = await S(async () => {
+    const before = state.savings.length;
+    state.savings.push({ id: 'undo-probe', name: 'Undo Probe Goal', target: 1000, current: 100 });
+    save(); renderAll();
+    const btn = document.createElement('button');
+    btn.dataset.action = 'save-delete'; btn.dataset.id = 'undo-probe';
+    document.body.appendChild(btn);
+    let asked = false; const realConfirm = window.confirm; window.confirm = () => { asked = true; return true; };
+    btn.click();
+    window.confirm = realConfirm; btn.remove();
+    const gone = !state.savings.some((g) => g.id === 'undo-probe');
+    const toastEl = document.getElementById('toast');
+    const msg = toastEl.textContent;
+    toastEl.querySelector('.toast-action')?.click();
+    const back = state.savings.some((g) => g.id === 'undo-probe');
+    state.savings = state.savings.filter((g) => g.id !== 'undo-probe'); save(); renderAll();
+    notify('Hello toast');
+    return { asked, gone, msg, back, n: state.savings.length === before, toast: document.getElementById('toast').textContent };
+  });
+  check('delete: no "are you sure", gone at once, Undo on the toast brings it back',
+    !un.asked && un.gone && /Deleted Undo Probe Goal/.test(un.msg) && un.back && un.n, JSON.stringify(un));
+  check('notify() shows a toast instead of an alert box', /Hello toast/.test(un.toast), un.toast);
+  const src = readFileSync(path.join(REPO_ROOT, 'app/script.js'), 'utf8');
+  check('the app no longer uses alert() or prompt() boxes',
+    !/(?<![\w.])alert\(/.test(src) && !/(?<![\w.])prompt\(/.test(src));
+}
+
 // Announcements can target Apple web users ("web-apple"), and the iPhone
 // app is "ios", not "android".
 {
@@ -5858,12 +5887,14 @@ check('the vault is open before the quick-add checks',
     check('no passcode: Settings offers Set a passcode, not Turn off', back.setLabel === 'Set a passcode' && back.removeHidden, JSON.stringify(back));
     // Set a passcode later (0000 refused there too), then it locks.
     const setLater = await np.evaluate(async () => {
-      const answers = ['0000', '2468', '2468']; const alerts = [];
-      window.prompt = () => answers.shift(); window.alert = (m) => alerts.push(m);
+      // The passcode sheet: 0000 is refused inline, then a real one saves.
+      const fill = (a, b) => { document.getElementById('passcode-input').value = a; document.getElementById('passcode-confirm').value = b; document.getElementById('passcode-form').requestSubmit(); };
       document.getElementById('btn-change-passcode').click();
-      await new Promise((r) => setTimeout(r, 300));
-      const refusedLater = /0000 can.t be a passcode/.test(alerts[0] || '') && vaultIsOpen();
-      document.getElementById('btn-change-passcode').click();
+      await new Promise((r) => setTimeout(r, 100));
+      fill('0000', '0000');
+      await new Promise((r) => setTimeout(r, 100));
+      const refusedLater = /0000 can.t be a passcode/.test(document.getElementById('passcode-error').textContent) && document.getElementById('passcode-dialog').open && vaultIsOpen();
+      fill('2468', '2468');
       await new Promise((r) => setTimeout(r, 2500));
       return { refusedLater, open: vaultIsOpen(), label: document.getElementById('btn-change-passcode').textContent,
         matches: await vaultPasscodeMatches('2468'), old: await vaultPasscodeMatches('0000') };
@@ -5879,10 +5910,16 @@ check('the vault is open before the quick-add checks',
     await np.waitForTimeout(1500);
     const off = await np.evaluate(async () => {
       document.querySelectorAll('dialog[open]').forEach((d) => d.close());
-      const answers = ['2468'];
-      window.prompt = () => answers.shift(); window.confirm = () => true;
       document.getElementById('btn-remove-passcode').click();
+      await new Promise((r) => setTimeout(r, 100));
+      document.getElementById('passcode-input').value = '1111';
+      document.getElementById('passcode-form').requestSubmit();
+      await new Promise((r) => setTimeout(r, 1500));
+      const wrongKept = document.getElementById('passcode-dialog').open && /Wrong passcode/.test(document.getElementById('passcode-error').textContent);
+      document.getElementById('passcode-input').value = '2468';
+      document.getElementById('passcode-form').requestSubmit();
       await new Promise((r) => setTimeout(r, 2500));
+      if (!wrongKept) return { wrongKept };
       return { open: vaultIsOpen(), zero: await vaultPasscodeMatches('0000'), probe: state.debts.some((d) => d.name === 'No Pass Probe') };
     });
     check('Turn off passcode: back to opening without asking, data kept', off.open && off.zero && off.probe, JSON.stringify(off));
