@@ -404,6 +404,9 @@
     isConfigured,
     isSignedIn,
     isWeb,
+    // Browsers can't upload to iCloud's file server (cws.icloud-content.com
+    // never answers them), so the web only restores.
+    canBackUp: () => !isWeb(),
     prepareSignIn,
     signOut,
     unavailableReason,

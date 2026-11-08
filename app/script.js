@@ -14310,6 +14310,7 @@ function cloudApi(id) {
 // newer backup is looked for in.
 function cloudActive(id) {
   if (!cloudApi(id)) return false;
+  if (id === "icloud" && window.ICloudSync && ICloudSync.canBackUp && !ICloudSync.canBackUp()) return false;
   return id === "icloud" ? state.icloudBackup !== false : state.driveAutoSync !== false;
 }
 function activeClouds() {
@@ -14503,7 +14504,7 @@ function renderDriveCard() {
     }
     const why = document.getElementById("icloud-off-why");
     if (why && !icOn && onWeb) {
-      why.textContent = "Sign in with your Apple ID to back up to your own iCloud. It's the same backup the Duitful iPhone app uses.";
+      why.textContent = "Sign in with your Apple ID to restore the Duitful iPhone app's backup. To back up here, use Google Drive or CSV.";
     } else if (why && !icOn) {
       // Each reason names the one switch that fixes it. The code in
       // brackets is for a bug report, not for the reader.
@@ -14517,6 +14518,11 @@ function renderDriveCard() {
             : "Couldn't reach iCloud just now. Tap Check again. (" + (reason || "unknown") + ")";
     }
     if (icOn) {
+      const restoreOnly = onWeb;
+      const autoRow = document.getElementById("icloud-auto")?.closest("label");
+      if (autoRow) autoRow.style.display = restoreOnly ? "none" : "";
+      const nowBtn = document.getElementById("btn-icloud-sync-now");
+      if (nowBtn) nowBtn.style.display = restoreOnly ? "none" : "";
       const auto = document.getElementById("icloud-auto");
       if (auto) {
         auto.checked = pro && state.icloudBackup !== false;
@@ -14525,7 +14531,8 @@ function renderDriveCard() {
       const last = ic.getStatus().lastSyncedAt;
       const lastLine = document.getElementById("icloud-last-synced");
       if (lastLine) {
-        lastLine.textContent = !pro ? "Back up to iCloud with Pro. Restoring is free."
+        lastLine.textContent = restoreOnly ? "Restore only on the web. Back up with Google Drive or CSV."
+          : !pro ? "Back up to iCloud with Pro. Restoring is free."
           : last ? `Last backed up ${formatRelative(last)}.`
           : state.icloudBackup === false ? "Automatic backup is off." : "Not backed up yet.";
       }
