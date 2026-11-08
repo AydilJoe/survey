@@ -3126,7 +3126,7 @@ check('a split from a spend you already logged never logs it twice',
     ck.signedIn && ck.saves.length === 2 && ck.saves[0].tag === null && ck.saves[1].tag === 't1' && ck.saves[0].type === 'Backup'
       && ck.back && ck.back.iv === 'x' && ck.meta === 'web' && ck.fetched[0] === 'duitful-backup.json', JSON.stringify(ck));
   check('web iCloud: the upload is an untyped Blob (no CORS preflight), and a thrown CloudKit error reads as one short line',
-    ck.saves.every((x) => x.blobType === '') && /^Couldn't save to iCloud\. Check your connection\.$/.test(ck.thrownMsg), JSON.stringify({ saves: ck.saves, msg: ck.thrownMsg }));
+    ck.saves.every((x) => x.blobType === '') && /^Couldn't save to iCloud\b[^\[]*Check your connection\.$/.test(ck.thrownMsg) && ck.thrownMsg.length < 100, JSON.stringify({ saves: ck.saves, msg: ck.thrownMsg }));
   check('web start screen: Restore from iCloud shows, and Apple\'s Sign in button moves there and back',
     ck.lock && ck.lock.btn && ck.lock.moved === 'lock-icloud-tile' && ck.lock.back === 'apple-sign-in-wrap', JSON.stringify(ck.lock));
   check('web iCloud card: Apple\'s Sign in button (no "Check again"), Sign out once signed in',

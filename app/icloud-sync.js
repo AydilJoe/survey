@@ -169,8 +169,11 @@
     P.open = function (m, u) {
       try {
         const h = new URL(u, location.href).host;
-        this.addEventListener("error", () => failedXhr.push(h));
-        this.addEventListener("load", () => { if (this.status >= 400) failedXhr.push(h + " " + this.status); });
+        // loadend fires on every outcome (error, abort, timeout, status 0).
+        this.addEventListener("loadend", () => {
+          const st = this.status;
+          if (!(st >= 200 && st < 300)) failedXhr.push(h + " " + (st || "no response"));
+        });
       } catch {}
       return open.apply(this, arguments);
     };
@@ -186,6 +189,7 @@
 
   function ckErrorText(err, verb) {
     let code = (err && (err.ckErrorCode || err.serverErrorCode)) || "";
+    const orig = code;
     // CloudKit JS wraps a failed asset upload as UNEXPECTED_SERVER_RESPONSE
     // around a NETWORK_ERROR; treat both as a connection problem.
     if (code === "UNEXPECTED_SERVER_RESPONSE" && /NETWORK_ERROR/.test(String(err && err.message || err))) code = "NETWORK_ERROR";
@@ -195,7 +199,7 @@
     }
     if (code === "AUTHENTICATION_REQUIRED" || code === "AUTHENTICATION_FAILED") return "Sign in with your Apple ID again, then retry.";
     if (code === "QUOTA_EXCEEDED") return "Your iCloud storage is full.";
-    if (code === "NETWORK_ERROR") return `Couldn't ${verb} iCloud. Check your connection.`;
+    if (code === "NETWORK_ERROR") return orig === code ? `Couldn't ${verb} iCloud. Check your connection.` : `Couldn't ${verb} iCloud (${orig}, upload). Check your connection.`;
     return `Couldn't ${verb} iCloud${code ? ` (${code})` : ""}.`;
   }
   // CloudKit JS rejects with a CKError whose message is a long dump; turn
@@ -204,7 +208,10 @@
     try { return await fn(); }
     catch (e) {
       if (e && e.duitful) throw e;
-      const out = new Error(e && (e.ckErrorCode || e.serverErrorCode) ? ckErrorText(e, verb) : `Couldn't ${verb} iCloud. Check your connection.`);
+      let text = e && (e.ckErrorCode || e.serverErrorCode) ? ckErrorText(e, verb) : `Couldn't ${verb} iCloud. Check your connection.`;
+      const d = failureDetail();
+      if (d && !text.includes(d)) text = text.replace(/\.$/, "") + ` (${d}).`;
+      const out = new Error(text);
       out.duitful = true;
       throw out;
     }
