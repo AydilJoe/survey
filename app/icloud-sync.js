@@ -152,12 +152,36 @@
 
   // If the page's security policy ever blocks a CloudKit host, name it in
   // the error so a screenshot says which one.
-  let blockedHost = "";
+  const blocked = new Set();
   if (typeof document !== "undefined") {
     document.addEventListener("securitypolicyviolation", (e) => {
       if (!/^connect-src/.test(e.effectiveDirective || e.violatedDirective || "")) return;
-      try { blockedHost = new URL(e.blockedURI).host; } catch { blockedHost = String(e.blockedURI || ""); }
+      try { blocked.add(new URL(e.blockedURI).host); } catch { blocked.add(String(e.blockedURI || "")); }
     });
+  }
+  // While saving, note which request failed (CloudKit JS uploads the file
+  // with its own XHR to a host the API hands back), so the error can say.
+  let failedXhr = [];
+  function watchXhr() {
+    failedXhr = [];
+    if (typeof XMLHttpRequest === "undefined") return () => {};
+    const P = XMLHttpRequest.prototype; const open = P.open;
+    P.open = function (m, u) {
+      try {
+        const h = new URL(u, location.href).host;
+        this.addEventListener("error", () => failedXhr.push(h));
+        this.addEventListener("load", () => { if (this.status >= 400) failedXhr.push(h + " " + this.status); });
+      } catch {}
+      return open.apply(this, arguments);
+    };
+    return () => { P.open = open; };
+  }
+  function failureDetail() {
+    const parts = [];
+    if (failedXhr.length) parts.push("failed: " + [...new Set(failedXhr)].join(", "));
+    if (blocked.size) parts.push("blocked: " + [...blocked].join(", "));
+    failedXhr = []; blocked.clear();
+    return parts.join("; ");
   }
 
   function ckErrorText(err, verb) {
@@ -165,9 +189,9 @@
     // CloudKit JS wraps a failed asset upload as UNEXPECTED_SERVER_RESPONSE
     // around a NETWORK_ERROR; treat both as a connection problem.
     if (code === "UNEXPECTED_SERVER_RESPONSE" && /NETWORK_ERROR/.test(String(err && err.message || err))) code = "NETWORK_ERROR";
-    if (code === "NETWORK_ERROR" && blockedHost) {
-      const h = blockedHost; blockedHost = "";
-      return `Couldn't ${verb} iCloud (blocked: ${h}).`;
+    if (code === "NETWORK_ERROR") {
+      const d = failureDetail();
+      if (d) return `Couldn't ${verb} iCloud (${d}).`;
     }
     if (code === "AUTHENTICATION_REQUIRED" || code === "AUTHENTICATION_FAILED") return "Sign in with your Apple ID again, then retry.";
     if (code === "QUOTA_EXCEEDED") return "Your iCloud storage is full.";
@@ -219,7 +243,9 @@
         const current = await webFetchRecord(db);
         const record = { recordType: RECORD_TYPE, recordName: RECORD_NAME, fields: { payload: { value: blob } } };
         if (current && current.recordChangeTag) record.recordChangeTag = current.recordChangeTag;
-        const res = await ckTry("save to", () => db.saveRecords([record]));
+        const unwatch = watchXhr();
+        let res;
+        try { res = await ckTry("save to", () => db.saveRecords([record])); } finally { unwatch(); }
         if (!res.hasErrors) return { ok: true };
         const e = res.errors && res.errors[0];
         const code = e && (e.ckErrorCode || e.serverErrorCode);
