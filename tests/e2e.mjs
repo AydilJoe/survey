@@ -3041,7 +3041,8 @@ check('a split from a spend you already logged never logs it twice',
         return { records: [{ recordName: names[0], recordChangeTag: r.tag, fields: { payload: { value: { downloadURL: 'https://cvws.icloud-content.com/B/' + r.tag + '/${f}' } } } }] };
       },
       async saveRecords(recs) {
-        const rec = recs[0]; saves.push({ tag: rec.recordChangeTag || null, type: rec.recordType });
+        if (db.throwNext) { const e = db.throwNext; db.throwNext = null; throw e; }
+        const rec = recs[0]; saves.push({ tag: rec.recordChangeTag || null, type: rec.recordType, blobType: rec.fields.payload.value.type });
         const cur = store[rec.recordName];
         if (cur && rec.recordChangeTag !== cur.tag) return { hasErrors: true, errors: [{ ckErrorCode: 'CONFLICT' }] };
         store[rec.recordName] = { tag: 't' + saves.length, text: await rec.fields.payload.value.text() };
@@ -3078,6 +3079,12 @@ check('a split from a spend you already logged never logs it twice',
     await ICloudSync.uploadEncryptedRecord(rec, { savedBy: 'web' });
     await ICloudSync.uploadEncryptedRecord({ iv: 'x', ct: 'y' }, { savedBy: 'web' });
     out.saves = saves;
+    // A failed asset upload: CloudKit JS throws a CKError whose message is a
+    // long dump. The user sees one short line instead.
+    const inner = { ckErrorCode: 'NETWORK_ERROR', message: 'NETWORK_ERROR' };
+    db.throwNext = Object.assign(new Error('UNEXPECTED_SERVER_RESPONSE: [CKError ckErrorCode: NETWORK_ERROR isCKError: true ...]'), { ckErrorCode: 'UNEXPECTED_SERVER_RESPONSE', isCKError: true, inner });
+    try { await ICloudSync.uploadEncryptedRecord({ iv: 'z', ct: 'z' }, {}); out.thrownMsg = 'no throw'; }
+    catch (e) { out.thrownMsg = e.message; }
     // A fresh sign-in drops the cached read, so the restore really fetches.
     signIn({ userRecordName: '_u' });
     await new Promise((r) => setTimeout(r, 20));
@@ -3118,6 +3125,8 @@ check('a split from a spend you already logged never logs it twice',
   check('web iCloud: after Sign in with Apple ID it backs up (second save carries the change tag) and restores the same encrypted record',
     ck.signedIn && ck.saves.length === 2 && ck.saves[0].tag === null && ck.saves[1].tag === 't1' && ck.saves[0].type === 'Backup'
       && ck.back && ck.back.iv === 'x' && ck.meta === 'web' && ck.fetched[0] === 'duitful-backup.json', JSON.stringify(ck));
+  check('web iCloud: the upload is an untyped Blob (no CORS preflight), and a thrown CloudKit error reads as one short line',
+    ck.saves.every((x) => x.blobType === '') && /^Couldn't save to iCloud\. Check your connection\.$/.test(ck.thrownMsg), JSON.stringify({ saves: ck.saves, msg: ck.thrownMsg }));
   check('web start screen: Restore from iCloud shows, and Apple\'s Sign in button moves there and back',
     ck.lock && ck.lock.btn && ck.lock.moved === 'lock-icloud-tile' && ck.lock.back === 'apple-sign-in-wrap', JSON.stringify(ck.lock));
   check('web iCloud card: Apple\'s Sign in button (no "Check again"), Sign out once signed in',

@@ -150,16 +150,44 @@
     return user ? { available: true, reason: "" } : { available: false, reason: "signed-out" };
   }
 
+  // If the page's security policy ever blocks a CloudKit host, name it in
+  // the error so a screenshot says which one.
+  let blockedHost = "";
+  if (typeof document !== "undefined") {
+    document.addEventListener("securitypolicyviolation", (e) => {
+      if (!/^connect-src/.test(e.effectiveDirective || e.violatedDirective || "")) return;
+      try { blockedHost = new URL(e.blockedURI).host; } catch { blockedHost = String(e.blockedURI || ""); }
+    });
+  }
+
   function ckErrorText(err, verb) {
-    const code = (err && (err.ckErrorCode || err.serverErrorCode)) || "";
+    let code = (err && (err.ckErrorCode || err.serverErrorCode)) || "";
+    // CloudKit JS wraps a failed asset upload as UNEXPECTED_SERVER_RESPONSE
+    // around a NETWORK_ERROR; treat both as a connection problem.
+    if (code === "UNEXPECTED_SERVER_RESPONSE" && /NETWORK_ERROR/.test(String(err && err.message || err))) code = "NETWORK_ERROR";
+    if (code === "NETWORK_ERROR" && blockedHost) {
+      const h = blockedHost; blockedHost = "";
+      return `Couldn't ${verb} iCloud (blocked: ${h}).`;
+    }
     if (code === "AUTHENTICATION_REQUIRED" || code === "AUTHENTICATION_FAILED") return "Sign in with your Apple ID again, then retry.";
     if (code === "QUOTA_EXCEEDED") return "Your iCloud storage is full.";
     if (code === "NETWORK_ERROR") return `Couldn't ${verb} iCloud. Check your connection.`;
     return `Couldn't ${verb} iCloud${code ? ` (${code})` : ""}.`;
   }
+  // CloudKit JS rejects with a CKError whose message is a long dump; turn
+  // any thrown error into one short line.
+  async function ckTry(verb, fn) {
+    try { return await fn(); }
+    catch (e) {
+      if (e && e.duitful) throw e;
+      const out = new Error(e && (e.ckErrorCode || e.serverErrorCode) ? ckErrorText(e, verb) : `Couldn't ${verb} iCloud. Check your connection.`);
+      out.duitful = true;
+      throw out;
+    }
+  }
 
   async function webFetchRecord(db) {
-    const res = await db.fetchRecords([RECORD_NAME]);
+    const res = await ckTry("read from", () => db.fetchRecords([RECORD_NAME]));
     if (res.hasErrors) {
       const e = res.errors && res.errors[0];
       if (e && (e.ckErrorCode === "NOT_FOUND" || e.serverErrorCode === "NOT_FOUND")) return null;
@@ -182,14 +210,16 @@
     },
     async write({ data }) {
       const db = (await webContainer()).privateCloudDatabase;
-      const blob = new Blob([data], { type: "application/json" });
+      // No type: a typed Blob makes the upload a CORS "non-simple" request,
+      // and the asset upload host fails that preflight on Safari.
+      const blob = new Blob([data]);
       // Last write wins, as on the iPhone: save over whatever is there,
       // fetching the change tag first so CloudKit accepts the update.
       for (let attempt = 0; attempt < 2; attempt++) {
         const current = await webFetchRecord(db);
         const record = { recordType: RECORD_TYPE, recordName: RECORD_NAME, fields: { payload: { value: blob } } };
         if (current && current.recordChangeTag) record.recordChangeTag = current.recordChangeTag;
-        const res = await db.saveRecords([record]);
+        const res = await ckTry("save to", () => db.saveRecords([record]));
         if (!res.hasErrors) return { ok: true };
         const e = res.errors && res.errors[0];
         const code = e && (e.ckErrorCode || e.serverErrorCode);
