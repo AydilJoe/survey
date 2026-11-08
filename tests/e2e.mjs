@@ -3096,6 +3096,11 @@ check('a split from a spend you already logged never logs it twice',
     out.card = {
       block: !document.getElementById('icloud-backup').hidden,
       signOutBox: !document.getElementById('apple-sign-out-wrap').hidden,
+      backUpHidden: getComputedStyle(document.getElementById('btn-icloud-sync-now')).display === 'none',
+      autoHidden: getComputedStyle(document.getElementById('icloud-auto').closest('label')).display === 'none',
+      restoreShown: getComputedStyle(document.getElementById('btn-icloud-restore')).display !== 'none',
+      noAutoPush: !cloudActive('icloud'),
+      line: document.getElementById('icloud-last-synced').textContent,
     };
     await ICloudSync.signOut();
     out.afterSignOut = ICloudSync.isSignedIn();
@@ -3127,6 +3132,8 @@ check('a split from a spend you already logged never logs it twice',
       && ck.back && ck.back.iv === 'x' && ck.meta === 'web' && ck.fetched[0] === 'duitful-backup.json', JSON.stringify(ck));
   check('web iCloud: the upload is an untyped Blob (no CORS preflight), and a thrown CloudKit error reads as one short line',
     ck.saves.every((x) => x.blobType === '') && /^Couldn't save to iCloud\b[^\[]*Check your connection\.$/.test(ck.thrownMsg) && ck.thrownMsg.length < 100, JSON.stringify({ saves: ck.saves, msg: ck.thrownMsg }));
+  check('web iCloud is restore-only: no Back up now, no auto-backup switch, no automatic pushes; Restore stays',
+    ck.card.backUpHidden && ck.card.autoHidden && ck.card.restoreShown && ck.card.noAutoPush && /Google Drive or CSV/.test(ck.card.line), JSON.stringify(ck.card));
   check('web start screen: Restore from iCloud shows, and Apple\'s Sign in button moves there and back',
     ck.lock && ck.lock.btn && ck.lock.moved === 'lock-icloud-tile' && ck.lock.back === 'apple-sign-in-wrap', JSON.stringify(ck.lock));
   check('web iCloud card: Apple\'s Sign in button (no "Check again"), Sign out once signed in',
