@@ -629,19 +629,29 @@
     ],
     "motion": [
       {
-        "name": "state",
-        "value": "0.15s ease",
-        "purpose": "Background and colour changes on controls."
+        "name": "ease-out",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "The one curve for presses easing back and things opening."
       },
       {
-        "name": "press",
-        "value": "transform 0.05s ease, scale(0.98)",
-        "purpose": "Every button when pressed."
+        "name": "dur-press",
+        "value": "60ms",
+        "purpose": "A control going down under a finger."
       },
       {
-        "name": "enter",
-        "value": "0.22s cubic-bezier(0.22, 1, 0.36, 1)",
-        "purpose": "Dialogs, sheets and tab panels arriving."
+        "name": "dur-fast",
+        "value": "150ms",
+        "purpose": "Colour, border and shadow changes."
+      },
+      {
+        "name": "dur-open",
+        "value": "200ms",
+        "purpose": "Menus, disclosures and revealed content settling in."
+      },
+      {
+        "name": "dialog-rise",
+        "value": "280ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Dialogs and sheets arriving. Closing is instant."
       }
     ],
     "breakpoints": [
@@ -670,7 +680,7 @@
       "refersTo": "button-primary",
       "description": "The one filled action per card. Ink on light, warm sand on dark.",
       "html": "<button class=\"ds-btn-primary\">Add entry</button>",
-      "css": ".ds-btn-primary{background:var(--text);color:var(--card);border:1px solid transparent;border-radius:var(--r-sm);padding:.7rem 1rem;font:600 .95rem var(--font-sans);letter-spacing:-.2px;cursor:pointer;transition:background .15s ease,transform .05s ease}.ds-btn-primary:hover{opacity:.92}.ds-btn-primary:active{transform:scale(.98)}.ds-btn-primary:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}"
+      "css": ".ds-btn-primary{background:var(--text);color:var(--card);border:1px solid transparent;border-radius:var(--r-sm);padding:.7rem 1rem;font:600 .95rem var(--font-sans);letter-spacing:-.2px;cursor:pointer;transition:background-color .15s ease,color .15s ease,border-color .15s ease,transform .22s cubic-bezier(.22,1,.36,1)}.ds-btn-primary:hover{opacity:.92}.ds-btn-primary:active{transform:scale(.98)}.ds-btn-primary:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}"
     },
     {
       "name": "Ghost Button",
@@ -678,7 +688,7 @@
       "refersTo": "button-ghost",
       "description": "Every secondary action.",
       "html": "<button class=\"ds-btn-ghost\">All entries</button>",
-      "css": ".ds-btn-ghost{background:transparent;color:var(--ink2);border:1px solid var(--line);border-radius:var(--r-sm);padding:.45rem .7rem;font:600 .85rem var(--font-sans);cursor:pointer;transition:background .15s ease,transform .05s ease}.ds-btn-ghost:hover{background:var(--card-soft);color:var(--text)}.ds-btn-ghost:active{transform:scale(.98)}.ds-btn-ghost:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}"
+      "css": ".ds-btn-ghost{background:transparent;color:var(--ink2);border:1px solid var(--line);border-radius:var(--r-sm);padding:.45rem .7rem;font:600 .85rem var(--font-sans);cursor:pointer;transition:background-color .15s ease,color .15s ease,border-color .15s ease,transform .22s cubic-bezier(.22,1,.36,1)}.ds-btn-ghost:hover{background:var(--card-soft);color:var(--text)}.ds-btn-ghost:active{transform:scale(.98)}.ds-btn-ghost:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}"
     },
     {
       "name": "Danger Button",
@@ -781,6 +791,11 @@
         "name": "The Four Radii Rule",
         "body": "Use `--r-xs`, `--r-sm`, `--r-md` or `--r-pill`. A literal pixel radius is a bug.",
         "section": "shapes"
+      },
+      {
+        "name": "The Reduce Motion Rule",
+        "body": "Every movement sits behind `prefers-reduced-motion: no-preference`. Colour changes stay on for everyone, because they do not move.",
+        "section": "components"
       }
     ],
     "dos": [
@@ -799,7 +814,8 @@
       "**Don't** set words in monospace, or a second heading in Fraunces.",
       "**Don't** hard-code a hex or `rgba()` in a component rule, or reference a token that `:root` does not define.",
       "**Don't** add blur or glass to cards; only the bottom bar is frosted.",
-      "**Don't** put a card inside a card."
+      "**Don't** put a card inside a card.",
+      "**Don't** add a looping animation, a delay before a tap registers, or an exit animation on a dialog."
     ]
   }
 }

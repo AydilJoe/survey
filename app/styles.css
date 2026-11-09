@@ -8037,3 +8037,109 @@ html::before {
 .settings-more[open] > summary::after { transform: rotate(-135deg) translateY(-2px); }
 .settings-more-block { padding-top: 0.9rem; margin-top: 0.9rem; border-top: 1px solid var(--line); }
 .settings-more-block h2 { font-size: 0.95rem; margin: 0 0 0.4rem; }
+
+/* ---------- v1.55.6 Interaction motion ----------
+   Every control answers a touch, and every panel that opens arrives rather
+   than appearing in one frame. Three rules, written up in DESIGN.md:
+     - Feedback is fast: colour 150ms, a press 60ms down and 220ms back up.
+     - Things that open settle in over 160-220ms on one ease-out curve.
+     - Nothing loops, nothing delays a tap, and closing stays instant.
+   Movement sits behind prefers-reduced-motion; colour changes do not move,
+   so they stay on for everyone. */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-press: 60ms;
+  --dur-fast: 150ms;
+  --dur-open: 200ms;
+}
+
+/* Colour, border and shadow ease on every control instead of snapping. */
+button, .as-button,
+.chip, .check-chip, .add-toggle, .subpage-back, .recent-chip, .day-chip,
+.tax-tile, .cloud-tile, .hero-stat, .upcoming-list li, .spend-cal-cell,
+.row-menu button, .info-tip > summary, .tab-icon {
+  transition:
+    background-color var(--dur-fast) ease,
+    color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    box-shadow var(--dur-fast) ease,
+    opacity var(--dur-fast) ease,
+    transform 220ms var(--ease-out);
+}
+input[type="text"], input[type="number"], input[type="date"], input[type="month"],
+input[type="email"], input[type="password"], input[type="search"], input[type="tel"],
+input[type="url"], textarea, select {
+  transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+}
+button:disabled, button[aria-disabled="true"] { transition-property: background-color, color, border-color, opacity; }
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Press: down quickly, back up on the ease-out curve. Small controls move
+     further than wide ones so the change reads at any size. */
+  button:active, .as-button:active,
+  .chip:active, .check-chip:active, .add-toggle:active, .subpage-back:active,
+  .recent-chip:active, .tax-tile:active, .cloud-tile:active, .hero-stat:active,
+  .upcoming-list li:active, .spend-cal-cell:active, .tab:active {
+    transition-duration: var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-fast), var(--dur-press);
+  }
+  .chip:active, .check-chip:active, .add-toggle:active, .subpage-back:active,
+  .row-more:active, button.icon-btn:active, .day-chip:active { transform: scale(0.95); }
+  button.primary:active, .as-button.primary:active { transform: scale(0.975); }
+  input[type="checkbox"], input[type="radio"] { transition: transform 220ms var(--ease-out); }
+  input[type="checkbox"]:active, input[type="radio"]:active { transform: scale(0.86); transition-duration: var(--dur-press); }
+
+  /* Pointer devices: tiles you can open lift a hair's width on hover. */
+  @media (hover: hover) {
+    .tax-tile:hover, .cloud-tile:hover, .recent-chip:hover, .hero-stat:hover { transform: translateY(-1px); }
+    .tax-tile:active, .cloud-tile:active, .recent-chip:active, .hero-stat:active { transform: scale(0.98); }
+  }
+
+  /* The tab you land on: its icon pill pops into place. */
+  .tab.active .tab-icon { animation: tab-pop 320ms var(--ease-out); }
+  @keyframes tab-pop {
+    from { transform: scale(0.82); }
+    to { transform: none; }
+  }
+  /* The entry type you pick (Spend / Pay debt / Save): the icon answers. */
+  .quick-add .pill.active .pill-icon,
+  .debt-type-pills .pill.active .pill-icon { animation: pill-pick 300ms var(--ease-out); }
+  @keyframes pill-pick {
+    from { transform: scale(0.7) rotate(-8deg); }
+    to { transform: none; }
+  }
+  /* A chip that becomes selected settles in rather than switching. */
+  .chip.active, .scan-cat-chips .chip-btn.active, .theme-pills .pill.active {
+    animation: chip-on 240ms var(--ease-out);
+  }
+  @keyframes chip-on {
+    from { transform: scale(0.94); }
+    to { transform: none; }
+  }
+
+  /* Row menu (the ⋯ button) and inline add forms drop open from their row. */
+  .row-menu:not([hidden]) { animation: menu-in var(--dur-open) var(--ease-out); transform-origin: top right; }
+  @keyframes menu-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  /* The breakdown under the balance, and anything behind a disclosure
+     triangle: the revealed content fades down into place. */
+  .hero-grid:not([hidden]),
+  details[open] > :not(summary) { animation: reveal-in var(--dur-open) var(--ease-out); }
+  @keyframes reveal-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: none; }
+  }
+  .hero-breakdown-toggle .chev { display: inline-block; transition: transform var(--dur-open) var(--ease-out); }
+
+  /* Savings goals and budget pools: the bar grows to its value when the
+     card is drawn. */
+  .saving-card .progress-fill, .pool-progress > .fill {
+    transform-origin: left center;
+    animation: bar-grow 520ms var(--ease-out) backwards;
+  }
+  @keyframes bar-grow {
+    from { transform: scaleX(0); }
+    to { transform: none; }
+  }
+}

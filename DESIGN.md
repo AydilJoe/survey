@@ -267,7 +267,7 @@ Calm and literal: one filled button per card at most, everything else outlined.
 - **Primary:** ink fill with card-coloured label; warm sand with dark label in dark mode.
 - **Ghost:** transparent with a hairline border and second-ink label, 0.85rem. Hover fills with `card-soft`.
 - **Danger:** outlined in red at rest, fills red on hover or focus. Destructive actions in a row of actions use the ghost-danger variant and are pushed to the far edge.
-- **Pressed:** every button scales to 0.98 for 50ms. Background transitions take 150ms ease.
+- **Pressed:** every button scales down (0.98; small round controls 0.95) in 60ms and eases back over 220ms. Colour, border and shadow changes take 150ms.
 - **Focus:** a 2px terracotta-ink ring, 2px offset, on every focusable control.
 
 ### Chips
@@ -300,6 +300,16 @@ The first thing on Home. A caption, the month, then the balance in Fraunces, gre
 ### List rows
 A name on the left, a tabular figure on the right, a muted meta line under each, hairlines between rows. Row actions are one visible button (Pay, Add) plus a `⋯` menu for Edit and Delete.
 
+### Interaction motion
+Motion here is feedback, not decoration. The tokens are `--ease-out` (`cubic-bezier(0.22, 1, 0.36, 1)`), `--dur-press` (60ms), `--dur-fast` (150ms) and `--dur-open` (200ms) in `app/styles.css`.
+- **Press:** every tappable control scales in quickly and eases back. On pointer devices, tiles that open something lift by 1px on hover.
+- **Select:** the tab you open pops its icon pill into place (320ms); a chosen entry type or chip settles in (240 to 300ms).
+- **Open:** row menus, the balance breakdown and anything behind a disclosure fade down 4px into place (200ms). Dialogs rise 12px over a fading backdrop (280ms).
+- **Arrive:** a new entry lands at the top of Today under a green wash; savings and budget bars grow to their value when drawn.
+- **Close:** instant. The user is done; do not make them watch it leave.
+
+**The Reduce Motion Rule.** Every movement sits behind `prefers-reduced-motion: no-preference`. Colour changes stay on for everyone, because they do not move.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -319,3 +329,4 @@ A name on the left, a tabular figure on the right, a muted meta line under each,
 - **Don't** hard-code a hex or `rgba()` in a component rule, or reference a token that `:root` does not define.
 - **Don't** add blur or glass to cards; only the bottom bar is frosted.
 - **Don't** put a card inside a card.
+- **Don't** add a looping animation, a delay before a tap registers, or an exit animation on a dialog.
