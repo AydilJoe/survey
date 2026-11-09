@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.4";
+const APP_VERSION = "1.55.5";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4078,12 +4078,14 @@ function renderAll() {
   renderFxStatus();
   populateCurrencyPickers();
   renderProControls();
+  renderRateLink();
   renderReports();
   renderBudgetManager();
   renderBudgetSummary();
   populatePoolDropdowns();
   if (typeof renderDriveCard === "function") renderDriveCard();
   checkDebtsPaidOff();
+  checkReviewMoments();
 }
 
 /* ---------- a debt reaches zero ----------
@@ -4126,6 +4128,65 @@ async function askForReview() {
   if (!isNative() || reviewAlreadyAsked()) return;
   try { localStorage.setItem(REVIEW_ASKED_KEY, "1"); } catch {}
   try { await window.Capacitor?.Plugins?.DuitfulKit?.requestReview(); } catch { /* no sheet, no harm */ }
+}
+
+/* Other good moments for the same one-time ask, whichever comes first:
+   a savings goal reached, last month spent within every budget pool, or
+   three weeks in with ten or more days logged. Never mid-task: it waits
+   for the next calm render, and only on Home. */
+const REVIEW_HABIT_DAYS = 21;
+const REVIEW_HABIT_LOGGED_DAYS = 10;
+let goalsSeen = null;
+let goalsSeenFor = null;
+
+function reviewMomentNow() {
+  if (!state) return "";
+  // A goal crossing its target since the last render.
+  const now = new Map(state.savings.map((g) => [g.id, (Number(g.target) || 0) > 0 && (Number(g.current) || 0) >= Number(g.target)]));
+  const first = goalsSeenFor !== state || !goalsSeen;
+  const reached = !first && state.savings.some((g) => now.get(g.id) && goalsSeen.get(g.id) === false);
+  goalsSeen = now; goalsSeenFor = state;
+  if (reached) return "goal";
+  // Last month within every pool that had a limit.
+  const last = shiftMonth(currentMonthISO(), -1);
+  const pools = (state.budgetPools || []).filter((pl) => pl.system !== "debt" && effectiveLimit(pl, last) > 0);
+  const spentLast = state.dailyExpenses.some((e) => monthOf(e.date) === last);
+  if (pools.length && spentLast && pools.every((pl) => poolUsageInMonth(pl.id, last) <= effectiveLimit(pl, last))) return "budget";
+  // A habit: three weeks in, ten days with something logged.
+  if (state.firstRunAt && calendarDaysSince(state.firstRunAt) >= REVIEW_HABIT_DAYS) {
+    const days = new Set(state.dailyExpenses.map((e) => e.date).filter(Boolean));
+    if (days.size >= REVIEW_HABIT_LOGGED_DAYS) return "habit";
+  }
+  return "";
+}
+
+// A moment that lands mid-task (a dialog open, another tab) waits here
+// for the next calm render on Home.
+let reviewPending = "";
+function checkReviewMoments() {
+  if (!isNative() || reviewAlreadyAsked() || typeof aesKey === "undefined" || !aesKey) return;
+  const moment = reviewMomentNow() || reviewPending;
+  if (!moment) return;
+  const tab = document.querySelector(".tab.active")?.dataset.tab;
+  if ((tab && tab !== "dashboard") || document.querySelector("dialog[open]")) { reviewPending = moment; return; }
+  reviewPending = "";
+  setTimeout(() => { if (!document.querySelector("dialog[open]")) askForReview(); }, 1500);
+}
+
+// Settings → About: a link anyone can use, any time.
+const STORE_REVIEW_URL = {
+  android: "https://play.google.com/store/apps/details?id=com.aydiljoe.duitful&showAllReviews=true",
+  // Paste the App Store id once the listing is live: https://apps.apple.com/app/id<ID>?action=write-review
+  ios: "",
+};
+function renderRateLink() {
+  const a = document.getElementById("btn-rate-app");
+  if (!a) return;
+  const plat = nativePlatform();
+  const apple = plat === "ios" || (plat === "web" && /iPhone|iPad|Macintosh/.test(navigator.userAgent || ""));
+  const url = plat === "ios" ? STORE_REVIEW_URL.ios : apple ? "" : STORE_REVIEW_URL.android;
+  a.hidden = !url;
+  if (url) a.href = url;
 }
 
 function showDebtPaidOff(cleared) {
@@ -10150,6 +10211,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.5": [
+    "<strong>Rate Duitful</strong> — a link in Settings → About, help & legal. Ratings help other people find the app. iCloud on the web now restores only; back up there with Google Drive or CSV.",
+  ],
   "1.55.4": [
     "<strong>Simpler everywhere</strong> — shorter text across the app, deleting has Undo instead of \"Are you sure?\", passcodes use one clean sheet, and a missing debt or goal is one tap away. Settings is tidier, with About and Clear all data folded at the bottom.",
   ],
