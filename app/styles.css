@@ -10,9 +10,9 @@
   --card: #f9f5ed;              /* nearly white — proper elevation over bg */
   --card-soft: #f2ece0;
   --text: #241f1a;
-  --ink2: #6b6157;
-  --muted: #8d8376;
-  --primary: #1c2b38;           /* terracotta with more chroma */
+  --ink2: #574e45;              /* 7.6:1 on card */
+  --muted: #6e6458;             /* 5.3:1 on card, 4.8:1 on bg */
+  --primary: #1c2b38;           /* ink navy: the one interactive colour */
   --primary-hover: #101c27;
   --primary-ink: #1c2b38;       /* alias used by a few marketing surfaces */
   --accent: #6f9457;            /* greener sage — no longer reads as olive-grey */
@@ -21,7 +21,7 @@
   --accent-4: #5b7f9e;          /* SHIFTED slate blue — now the trust accent */
   --accent-cool: #5b7f9e;       /* semantic alias for Pro / Drive / license tags */
   --accent-5: #a5805f;          /* caramel */
-  --gain: #4f8657;              /* forest green — distinct from sage */
+  --gain: #3d6f45;              /* forest green, 5.4:1 on card */
   --loss: #bd3a42;              /* true red — clearly NOT a darker primary */
   --danger: #bd3a42;
   --on-danger: #fff;
@@ -84,6 +84,9 @@
      the RM20, warn and RM10 hues, so it can state identity but must never
      state a status or an amount. */
   --brand: #c8704b;
+  /* Terracotta for lines and glyphs. --brand is ~3:1 on the page: right for
+     fills and tints, too faint for an icon or a focus ring. */
+  --brand-ink: #a65533;         /* 4.9:1 on card, 4.1:1 on the tab bar */
   --warn: #a8631a;
   --warn-bg: rgba(168, 99, 26, 0.10);
   --warn-line: rgba(168, 99, 26, 0.32);
@@ -123,9 +126,9 @@
        warm-dark backgrounds. Captions like "Min RM 155.00" were hard to
        read on top of #1a1612. */
     --muted: #a8a097;
-    --primary: #d8dfe5;
-    --primary-hover: #eaeff3;
-    --primary-ink: #d8dfe5;
+    --primary: #e8d5b9;
+    --primary-hover: #f1e3cd;
+    --primary-ink: #e8d5b9;
     --accent: #8fb277;
     --accent-hover: #a3c187;
     --accent-3: #e4c089;
@@ -157,6 +160,7 @@
     --glass-pane-shadow: inset 0 0 0 0 rgba(0,0,0,0);
 
     --brand: #dd8a63;
+    --brand-ink: #dd8a63;
     --warn: #e0a44f;
     --warn-bg: rgba(224, 164, 79, 0.14);
     --warn-line: rgba(224, 164, 79, 0.36);
@@ -180,9 +184,9 @@ html[data-theme="dark"] {
   --ink2: #c4bdb0;
   /* Same bump as the prefers-color-scheme block — keep these in sync. */
   --muted: #a8a097;
-  --primary: #d8dfe5;
-  --primary-hover: #eaeff3;
-  --primary-ink: #d8dfe5;
+  --primary: #e8d5b9;
+  --primary-hover: #f1e3cd;
+  --primary-ink: #e8d5b9;
   --accent: #8fb277;
   --accent-hover: #a3c187;
   --accent-3: #e4c089;
@@ -213,6 +217,7 @@ html[data-theme="dark"] {
   --glass-pane-strong: var(--card);
   --glass-pane-shadow: inset 0 0 0 0 rgba(0,0,0,0);
   --brand: #dd8a63;
+  --brand-ink: #dd8a63;
   --warn: #e0a44f;
   --warn-bg: rgba(224, 164, 79, 0.14);
   --warn-line: rgba(224, 164, 79, 0.36);
@@ -320,7 +325,7 @@ input[type="checkbox"], input[type="radio"] {
 
 /* Upcoming reminders */
 .upcoming-card {
-  background: linear-gradient(180deg, rgba(28, 43, 56, 0.10), var(--glass-bg) 60%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 10%, transparent), var(--glass-bg) 60%);
 }
 .upcoming-list {
   list-style: none;
@@ -359,11 +364,11 @@ input[type="checkbox"], input[type="radio"] {
   font-size: 0.85rem;
   font-variant-numeric: tabular-nums;
 }
-.upcoming-list .up-day.today  { color: var(--loss);   background: rgba(28, 43, 56, 0.12); border-color: rgba(28, 43, 56, 0.35); }
+.upcoming-list .up-day.today  { color: var(--loss);   background: color-mix(in srgb, var(--primary) 12%, transparent); border-color: color-mix(in srgb, var(--primary) 35%, transparent); }
 .upcoming-list .up-day.soon   { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-line); }
 .upcoming-list .up-day.income { color: var(--gain);   background: rgba(106,138,94,0.12); border-color: rgba(106,138,94,0.35); }
 .upcoming-list .up-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
-.upcoming-list .up-sub  { color: var(--muted); font-size: 0.75rem; font-family: var(--font-mono); }
+.upcoming-list .up-sub  { color: var(--muted); font-size: 0.75rem; }
 .upcoming-list .up-amount {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -371,7 +376,7 @@ input[type="checkbox"], input[type="radio"] {
   font-size: 0.95rem;
   color: var(--text);
 }
-.upcoming-list .up-day.late   { color: var(--loss);   background: rgba(28, 43, 56, 0.18); border-color: rgba(28, 43, 56, 0.45); }
+.upcoming-list .up-day.late   { color: var(--loss);   background: color-mix(in srgb, var(--primary) 18%, transparent); border-color: color-mix(in srgb, var(--primary) 45%, transparent); }
 .upcoming-list .up-amount.neg { color: var(--loss); }
 .upcoming-list .up-amount.pos { color: var(--gain); }
 /* Overdue receivables carry a re-share shortcut, so they need a fourth
@@ -407,7 +412,7 @@ body.loaded #splash {
   border: 0.5px solid var(--line);
   border-radius: var(--r-md);
   padding: 1rem;
-  color: var(--primary);
+  color: var(--brand);
   box-shadow: 0 1px 2px rgba(42, 36, 32, 0.04), 0 8px 24px rgba(42, 36, 32, 0.08);
   display: inline-flex;
   animation: splash-pulse 1.8s ease-in-out infinite;
@@ -484,7 +489,7 @@ body.loaded #splash {
   line-height: 1.35;
   letter-spacing: -0.01em;
   text-wrap: balance;
-  color: var(--ink);
+  color: var(--text);
   margin: 0.4rem 0 0.75rem;
 }
 .lock-welcome-body {
@@ -607,7 +612,7 @@ body.loaded #splash {
 .lock-icloud { margin-bottom: 0.6rem; }
 .lock-icloud .lock-google-g { color: var(--primary); }
 .lock-google:active { transform: scale(0.985); }
-.lock-google:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.lock-google:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .lock-google-g {
   flex: none;
   width: 1.4rem;
@@ -741,10 +746,10 @@ h2 { font-weight: 600; letter-spacing: -0.2px; }
 }
 .privacy-toggle:active, .header-search:active { transform: scale(0.94); }
 .header-search { flex: none; }
-.header-search:focus-visible, .privacy-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.header-search:focus-visible, .privacy-toggle:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 body.private .privacy-toggle {
-  background: rgba(28, 43, 56, 0.12);
-  border-color: rgba(28, 43, 56, 0.35);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 35%, transparent);
 }
 
 /* Privacy blur on amounts.
@@ -1381,7 +1386,7 @@ main {
 .hero-stat.expanded {
   grid-column: 1 / -1;
   background: var(--glass-bg-strong);
-  border-color: rgba(28, 43, 56, 0.3);
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
   padding: 0.75rem 0.9rem;
 }
 .hero-stat.expanded strong {
@@ -1451,7 +1456,7 @@ main {
   transition: opacity 0.15s ease, transform 0.05s ease;
 }
 .debt-glance:hover { opacity: 0.85; }
-.debt-glance:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; border-radius: var(--r-sm); }
+.debt-glance:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 3px; border-radius: var(--r-sm); }
 .debt-glance:active {
   transform: scale(0.99);
 }
@@ -1545,7 +1550,7 @@ main {
 }
 .subpage-back svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .subpage-back:hover { background: var(--card-soft); color: var(--text); }
-.subpage-back:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.subpage-back:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .subpage-title { margin: 0; font-size: 1.15rem; }
 
 /* "+ Add" in a card head: opens that card's form. Quiet until touched, but
@@ -1569,7 +1574,7 @@ main {
 .budget-pool-card #btn-copy-pool-overrides { margin-top: 0.75rem; }
 .add-toggle svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .add-toggle:hover { border-color: var(--primary); }
-.add-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.add-toggle:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .add-toggle[hidden] { display: none; }
 form.add-form {
   margin-bottom: 0.9rem;
@@ -1660,15 +1665,15 @@ form.add-form {
 .pill-icon { display: inline-flex; align-items: center; line-height: 1; }
 .pill-icon svg { width: 18px; height: 18px; display: block; }
 .quick-add .pill.active {
-  background: rgba(28, 43, 56, 0.12);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
   color: var(--primary);
-  border-color: rgba(28, 43, 56, 0.4);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
   font-weight: 600;
 }
 .quick-add .pill[data-type="debt"].active {
-  background: rgba(28, 43, 56, 0.12);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
   color: var(--loss);
-  border-color: rgba(28, 43, 56, 0.4);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
 }
 .quick-add .pill[data-type="saving"].active {
   background: rgba(143, 160, 120, 0.14);
@@ -1702,9 +1707,9 @@ form.add-form {
   letter-spacing: -0.1px;
 }
 .debt-type-pills .pill.active {
-  background: rgba(28, 43, 56, 0.12);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
   color: var(--primary);
-  border-color: rgba(28, 43, 56, 0.4);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
   font-weight: 600;
 }
 .debt-type-pills .pill[data-debt-kind="installment"].active {
@@ -1719,7 +1724,7 @@ form.add-form {
   border: 0.5px solid rgba(212, 165, 116, 0.35);
   border-radius: var(--r-pill);
   padding: 0.15rem 0.55rem;
-  font-family: var(--font-mono);
+  font-family: inherit;
   font-size: 0.62rem;
   font-weight: 500;
   white-space: nowrap;
@@ -1729,9 +1734,9 @@ form.add-form {
 /* Half-configured installment debt (monthly or term missing) — warn-toned
    badge so the user sees the row needs attention, not a "broken" zero. */
 .debt-list li .installment-badge.needs-setup {
-  background: rgba(28, 43, 56, 0.14);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
   color: var(--primary);
-  border-color: rgba(28, 43, 56, 0.4);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
 }
 .debt-list li .needs-setup-note {
   color: var(--primary);
@@ -1774,7 +1779,7 @@ button.primary.big {
 .quick-amounts button:hover {
   background: var(--card);
   color: var(--text);
-  border-color: rgba(28, 43, 56, 0.3);
+  border-color: color-mix(in srgb, var(--primary) 30%, transparent);
 }
 .quick-amounts button:active { transform: scale(0.96); }
 
@@ -1817,7 +1822,7 @@ button.primary.big {
   transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.18s ease, background 0.18s ease;
 }
 .recent-chip:hover {
-  border-color: rgba(28, 43, 56, 0.32);
+  border-color: color-mix(in srgb, var(--primary) 32%, transparent);
   background: var(--card);
 }
 .recent-chip:active { transform: scale(0.97); }
@@ -1847,8 +1852,8 @@ button.primary.big {
 .empty-welcome {
   text-align: center;
   padding: 1.5rem 1.25rem 1.6rem;
-  background: linear-gradient(180deg, rgba(28, 43, 56, 0.05), var(--card) 70%);
-  border: 0.5px solid rgba(28, 43, 56, 0.18);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 5%, transparent), var(--card) 70%);
+  border: 0.5px solid color-mix(in srgb, var(--primary) 18%, transparent);
   border-radius: var(--r-md);
   margin-bottom: 0.85rem;
 }
@@ -1860,7 +1865,7 @@ button.primary.big {
   display: grid;
   place-items: center;
   border-radius: var(--r-md);
-  background: rgba(28, 43, 56, 0.08);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 .empty-welcome-glyph svg { width: 32px; height: 32px; }
 .empty-welcome-title {
@@ -2127,7 +2132,7 @@ li.empty-block-host {
 }
 .onboard-chip:hover { border-color: var(--primary); }
 .onboard-chip:active { transform: scale(0.97); }
-.onboard-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.onboard-chip:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .onboard-chip:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 .onboard-debts { display: flex; flex-direction: column; margin-top: 0.4rem; }
 .onboard-debt {
@@ -2168,7 +2173,7 @@ li.empty-block-host {
 }
 .onboard-debt-remove svg { flex: 0 0 auto; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .onboard-debt-remove:hover { color: var(--loss); background: var(--line); }
-.onboard-debt-remove:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.onboard-debt-remove:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: -2px; }
 .onboard-debt-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
 .onboard-debt-field { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
 .onboard-debt-label { font-size: 0.78rem; color: var(--muted); }
@@ -2241,13 +2246,13 @@ li.empty-block-host {
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 .onboard-lever:hover { border-color: var(--gain); }
-.onboard-lever:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.onboard-lever:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .onboard-lever-box {
   flex: 0 0 auto;
   width: 1.3rem; height: 1.3rem; margin-top: 0.1rem;
   display: inline-flex; align-items: center; justify-content: center;
   border: 1.5px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 .onboard-lever-box svg {
@@ -2453,9 +2458,9 @@ select {
 }
 input:focus,
 select:focus {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--brand-ink);
   outline-offset: 1px;
-  border-color: var(--primary);
+  border-color: var(--brand-ink);
 }
 
 .row-form {
@@ -2580,9 +2585,9 @@ select:focus {
   min-width: 0;
 }
 .daily-entry .cat-pill {
-  background: rgba(28, 43, 56, 0.1);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
   color: var(--primary);
-  border: 0.5px solid rgba(28, 43, 56, 0.25);
+  border: 0.5px solid color-mix(in srgb, var(--primary) 25%, transparent);
   font-family: var(--font-mono);
   font-size: 0.68rem;
   padding: 0.2rem 0.55rem;
@@ -2831,8 +2836,8 @@ button.ghost.icon-btn {
   width: 2.8rem;
   height: 2.8rem;
   border-radius: var(--r-md);
-  background: linear-gradient(135deg, rgba(28, 43, 56, 0.2), rgba(212,165,116,0.2));
-  border: 0.5px solid rgba(28, 43, 56, 0.35);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 20%, transparent), rgba(212,165,116,0.2));
+  border: 0.5px solid color-mix(in srgb, var(--primary) 35%, transparent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2918,8 +2923,8 @@ button.ghost.icon-btn {
   display: flex;
   align-items: center;
   gap: 0.9rem;
-  background: linear-gradient(180deg, rgba(28, 43, 56, 0.12), rgba(28, 43, 56, 0.05));
-  border: 0.5px solid rgba(28, 43, 56, 0.32);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 12%, transparent), color-mix(in srgb, var(--primary) 5%, transparent));
+  border: 0.5px solid color-mix(in srgb, var(--primary) 32%, transparent);
   border-radius: var(--r-md);
   padding: 0.85rem 1rem;
   margin-bottom: 0.9rem;
@@ -2958,8 +2963,8 @@ button.ghost.icon-btn {
 .trial-banner-actions { display: flex; gap: 0.5rem; flex: 0 0 auto; }
 .trial-banner-actions button { padding: 0.5rem 0.9rem; font-size: 0.85rem; }
 .trial-banner.trial-banner-expired {
-  background: linear-gradient(180deg, rgba(28, 43, 56, 0.12), rgba(28, 43, 56, 0.05));
-  border-color: rgba(28, 43, 56, 0.32);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 12%, transparent), color-mix(in srgb, var(--primary) 5%, transparent));
+  border-color: color-mix(in srgb, var(--primary) 32%, transparent);
 }
 .trial-banner.trial-banner-expired .trial-banner-mark { background: var(--danger); }
 @media (max-width: 480px) {
@@ -2973,7 +2978,7 @@ button.ghost.icon-btn {
 
 /* Pro card in Data tab */
 .pro-card {
-  background: linear-gradient(180deg, rgba(28, 43, 56, 0.08), var(--card) 70%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 8%, transparent), var(--card) 70%);
 }
 .pro-badge {
   background: rgba(106,138,94,0.15);
@@ -3001,16 +3006,16 @@ button.ghost.icon-btn {
 }
 .cat-pill-card {
   color: var(--primary);
-  border-color: rgba(28, 43, 56, 0.4);
-  background: rgba(28, 43, 56, 0.08);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 /* Debt-payment pill — uses --loss tokens (terracotta-red, on-brand) instead
    of the previous bright red inline styles that were off-palette. */
 .daily-entry .cat-pill-debt,
 .cat-pill-debt {
   color: var(--text);
-  border-color: rgba(28, 43, 56, 0.4);
-  background: rgba(28, 43, 56, 0.08);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 /* Savings-deposit pill — uses --gain tokens (sage-green, on-brand). */
 .daily-entry .cat-pill-saving,
@@ -3173,7 +3178,7 @@ button.ghost.icon-btn {
   border: 0.5px solid var(--line);
   border-radius: var(--r-sm);
   font: 12px/1.4 ui-monospace, SFMono-Regular, monospace;
-  color: var(--ink);
+  color: var(--text);
   word-break: break-all;
   overflow-wrap: anywhere;
 }
@@ -3812,7 +3817,7 @@ button.ghost.icon-btn {
   border: 0;
   text-align: left;
   padding: 0.45rem 0.55rem;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   font-size: 0.88rem;
   color: var(--ink2);
   min-height: 0;
@@ -3911,8 +3916,8 @@ button.ghost.icon-btn {
   width: 2.8rem;
   height: 2.8rem;
   border-radius: var(--r-md);
-  background: linear-gradient(135deg, rgba(28, 43, 56, 0.18), rgba(212,165,116,0.22));
-  border: 0.5px solid rgba(28, 43, 56, 0.3);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, transparent), rgba(212,165,116,0.22));
+  border: 0.5px solid color-mix(in srgb, var(--primary) 30%, transparent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3981,7 +3986,7 @@ button.ghost.icon-btn {
   width: 1.4rem;
   height: 1.4rem;
   border-radius: 50%;
-  background: var(--primary, #c8704b);
+  background: var(--primary);
   /* Tracks --primary: ink button gets paper text, paper button gets ink. */
   color: var(--bg);
   font-family: var(--font-mono);
@@ -3997,7 +4002,7 @@ button.ghost.icon-btn {
   width: 1em;
   height: 1em;
   margin: 0 0.1em;
-  color: var(--primary, #c8704b);
+  color: var(--primary);
 }
 .guide-dots {
   display: flex;
@@ -4059,7 +4064,7 @@ button.ghost.icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--primary, #c8704b);
+  color: var(--primary);
   flex-shrink: 0;
 }
 .pwa-install-icon svg { width: 22px; height: 22px; }
@@ -4072,7 +4077,7 @@ button.ghost.icon-btn {
 .pwa-install-text strong {
   font-size: 1rem;
   font-weight: 500;
-  color: var(--ink);
+  color: var(--text);
 }
 .pwa-install-text span {
   font-size: 0.8rem;
@@ -4095,7 +4100,7 @@ button.ghost.icon-btn {
   padding: 0;
   border-radius: var(--r-md);
   background: var(--card, #fffaf2);
-  color: var(--ink);
+  color: var(--text);
   max-width: 420px;
   width: calc(100% - 1.5rem);
   box-shadow: 0 20px 60px rgba(42, 36, 32, 0.25);
@@ -4131,7 +4136,7 @@ button.ghost.icon-btn {
   border-radius: var(--r-pill);
   background: rgba(42, 36, 32, 0.04);
   border: 0.5px solid var(--glass-border, rgba(42, 36, 32, 0.14));
-  color: var(--ink);
+  color: var(--text);
   font-size: 0.85rem; font-family: inherit;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -4153,9 +4158,9 @@ button.ghost.icon-btn {
 }
 .check-chip input { accent-color: var(--primary); }
 .check-chip:has(input:checked) {
-  background: rgba(28, 43, 56, 0.1);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
   border-color: var(--primary);
-  color: var(--primary-ink, var(--ink));
+  color: var(--primary-ink);
 }
 .reports-custom-range {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -4206,7 +4211,7 @@ button.ghost.icon-btn {
 .reports-trend-bar > .bar {
   width: 100%; max-width: 28px;
   background: var(--primary);
-  border-radius: 4px 4px 0 0;
+  border-radius: var(--r-xs) var(--r-xs) 0 0;
   min-height: 2px;
 }
 .reports-trend-bar > .label {
@@ -4219,7 +4224,7 @@ button.ghost.icon-btn {
   left: 50%;
   transform: translate(-50%, -100%);
   font-size: 10px;
-  color: var(--ink);
+  color: var(--text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   opacity: 0.9;
@@ -4287,9 +4292,9 @@ button.ghost.icon-btn {
   border-color: rgba(138,129,120,0.4);
 }
 .drive-status-pill.error {
-  background: rgba(28, 43, 56, 0.15);
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
   color: var(--loss);
-  border-color: rgba(28, 43, 56, 0.4);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
 }
 
 /* Bulk import income dialog */
@@ -4356,12 +4361,12 @@ button.ghost.icon-btn {
   font-size: 0.85em;
   color: var(--muted, #666);
 }
-.fx-preview--err { color: #b04a2c; }
+.fx-preview--err { color: var(--loss); }
 .fx-upsell {
   display: block;
   margin-top: 4px;
   font-size: 0.85em;
-  color: #b04a2c;
+  color: var(--brand-ink);
 }
 .fx-upsell a { text-decoration: underline; cursor: pointer; }
 
@@ -4429,7 +4434,7 @@ button.ghost.icon-btn {
   border: 2px solid transparent;
   cursor: pointer; display: inline-block; position: relative;
 }
-#pool-color-options label.selected { border-color: var(--ink, #333); transform: scale(1.1); }
+#pool-color-options label.selected { border-color: var(--text); transform: scale(1.1); }
 #pool-color-options input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
 .pool-toggle {
   display: flex; align-items: center; gap: 8px;
@@ -4453,7 +4458,7 @@ button.ghost.icon-btn {
 .pool-banner.calm { background: rgba(0,0,0,0.04); color: var(--muted, #555); }
 .pool-banner.yellow { background: rgba(230, 184, 92, 0.18); color: #946813; }
 .pool-banner.red { background: rgba(224, 122, 95, 0.18); color: #a13d22; }
-.pool-banner.done { background: rgba(129, 178, 154, 0.18); color: #2f6b54; }
+.pool-banner.done { background: rgba(129, 178, 154, 0.18); color: var(--gain); }
 .pool-banner .pool-banner-cta {
   margin-left: auto;
   font-weight: 600;
@@ -4515,7 +4520,7 @@ button.ghost.icon-btn {
   margin-left: 6px;
   cursor: pointer;
   text-decoration: underline;
-  color: var(--accent, #b04a2c);
+  color: var(--accent);
   font-weight: 500;
   background: none;
   border: none;
@@ -4558,9 +4563,9 @@ button.ghost.icon-btn {
   color: var(--text);
 }
 .bulk-debt-row input.row-amount:focus {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--brand-ink);
   outline-offset: 1px;
-  border-color: var(--primary);
+  border-color: var(--brand-ink);
 }
 .bulk-debt-row input.row-amount:disabled {
   background: transparent;
@@ -4588,10 +4593,10 @@ button.ghost.icon-btn {
   font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
-.last-month-line .last-month-value.pos { color: var(--pos, #2f6b54); }
-.last-month-line .last-month-value.neg { color: var(--neg, #b04a2c); }
-.last-month-line .last-month-tone.pos { color: var(--pos, #2f6b54); }
-.last-month-line .last-month-tone.neg { color: var(--neg, #b04a2c); }
+.last-month-line .last-month-value.pos { color: var(--gain); }
+.last-month-line .last-month-value.neg { color: var(--loss); }
+.last-month-line .last-month-tone.pos { color: var(--gain); }
+.last-month-line .last-month-tone.neg { color: var(--loss); }
 .last-month-line .last-month-edit {
   /* Promoted from a tiny ✎ icon to a labeled "Adjust" link — the previous
      icon was unclear as an action affordance. */
@@ -4604,7 +4609,7 @@ button.ghost.icon-btn {
   cursor: pointer;
   color: var(--primary);
   text-decoration: underline;
-  text-decoration-color: rgba(28, 43, 56, 0.4);
+  text-decoration-color: color-mix(in srgb, var(--primary) 40%, transparent);
   text-underline-offset: 2px;
   opacity: 0.85;
 }
@@ -4707,7 +4712,7 @@ button.ghost.icon-btn {
   appearance: none;
 }
 .list-search:focus {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--brand-ink);
   outline-offset: -2px;
   border-color: transparent;
 }
@@ -5031,7 +5036,7 @@ button.ghost.icon-btn {
   min-width: 0;
 }
 .spend-cal-cell:active { transform: scale(0.95); }
-.spend-cal-cell:hover { border-color: rgba(28, 43, 56, 0.35); }
+.spend-cal-cell:hover { border-color: color-mix(in srgb, var(--primary) 35%, transparent); }
 .spend-cal-cell.empty {
   background: transparent;
   cursor: default;
@@ -5055,10 +5060,10 @@ button.ghost.icon-btn {
   font-variant-numeric: tabular-nums;
 }
 /* Heat levels — terracotta wash scaled by spend intensity vs month max. */
-.spend-cal-cell.heat-1 { background: rgba(28, 43, 56, 0.10); }
-.spend-cal-cell.heat-2 { background: rgba(28, 43, 56, 0.22); }
-.spend-cal-cell.heat-3 { background: rgba(28, 43, 56, 0.38); }
-.spend-cal-cell.heat-4 { background: rgba(28, 43, 56, 0.55); }
+.spend-cal-cell.heat-1 { background: color-mix(in srgb, var(--primary) 10%, transparent); }
+.spend-cal-cell.heat-2 { background: color-mix(in srgb, var(--primary) 22%, transparent); }
+.spend-cal-cell.heat-3 { background: color-mix(in srgb, var(--primary) 38%, transparent); }
+.spend-cal-cell.heat-4 { background: color-mix(in srgb, var(--primary) 55%, transparent); }
 .spend-cal-cell.heat-3 .cal-day,
 .spend-cal-cell.heat-4 .cal-day { color: var(--text); font-weight: 600; }
 .spend-cal-cell.heat-3 .cal-amt,
@@ -5157,11 +5162,11 @@ html[data-theme="dark"] .guide-spot-dim,
   animation: guideSpotPulse 2.2s ease-in-out infinite;
 }
 @keyframes guideSpotPulse {
-  0%, 100% { box-shadow: 0 0 0 4px rgba(28, 43, 56, 0.22); }
-  50%      { box-shadow: 0 0 0 12px rgba(28, 43, 56, 0.05); }
+  0%, 100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 22%, transparent); }
+  50%      { box-shadow: 0 0 0 12px color-mix(in srgb, var(--primary) 5%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .guide-spot-ring { animation: none; box-shadow: 0 0 0 4px rgba(28, 43, 56, 0.22); }
+  .guide-spot-ring { animation: none; box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 22%, transparent); }
   .guide-spot-dim { transition: none; }
 }
 
@@ -5421,8 +5426,8 @@ body.private #zakat-nisab-line {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, rgba(28, 43, 56, 0.18), rgba(212, 165, 116, 0.22));
-  border: 0.5px solid rgba(28, 43, 56, 0.4);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, transparent), rgba(212, 165, 116, 0.22));
+  border: 0.5px solid color-mix(in srgb, var(--primary) 40%, transparent);
   box-shadow: var(--glass-highlight), 0 10px 28px rgba(28, 43, 56, 0.18);
   animation: seal-in 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -5445,7 +5450,7 @@ body.private #zakat-nisab-line {
   width: 5.5rem;
   height: 5.5rem;
   border-radius: 50%;
-  border: 2px solid rgba(28, 43, 56, 0.45);
+  border: 2px solid color-mix(in srgb, var(--primary) 45%, transparent);
   animation: ring-out 900ms ease-out 420ms both;
 }
 
@@ -5566,7 +5571,7 @@ body.private #zakat-nisab-line {
   font-family: var(--font-serif);
   font-size: 1.2rem;
   color: var(--primary);
-  background: linear-gradient(135deg, rgba(28, 43, 56, 0.18), rgba(212, 165, 116, 0.22));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 18%, transparent), rgba(212, 165, 116, 0.22));
   border: 0.5px solid var(--glass-border-soft);
 }
 .pro-dev-note h3 { margin: 0; font-size: 1rem; }
@@ -5642,9 +5647,9 @@ body.private #zakat-nisab-line {
   letter-spacing: -0.1px;
 }
 .invest-type-pills .pill.active {
-  background: rgba(28, 43, 56, 0.12);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
   color: var(--primary);
-  border-color: rgba(28, 43, 56, 0.4);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
   font-weight: 600;
 }
 
@@ -6245,9 +6250,9 @@ body.private .invest-plan-stats .stat .sub {
   transition: all 0.15s ease;
 }
 .split-method-pills .pill.active {
-  background: rgba(28, 43, 56, 0.12);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
   color: var(--primary);
-  border-color: rgba(28, 43, 56, 0.4);
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
   font-weight: 600;
 }
 .split-total-note { margin: -0.1rem 0 0.3rem; }
@@ -6379,9 +6384,9 @@ body.private .pending-match-sub {
 }
 .split-dialog .pill.active,
 .split-dialog .pill[aria-checked="true"] {
-  background: rgba(28, 43, 56, 0.14);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
   color: var(--primary);
-  border-color: rgba(28, 43, 56, 0.5);
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
 }
 /* Scan-to-prefill: full-width row instead of floating ragged-right. */
 .split-dialog .split-scan-row { justify-content: stretch; }
@@ -6391,7 +6396,7 @@ body.private .pending-match-sub {
    instead of a ghost row that vanishes into the form. */
 .split-quick-row .ghost {
   width: 100%;
-  border: 0.5px solid rgba(28, 43, 56, 0.45);
+  border: 0.5px solid color-mix(in srgb, var(--primary) 45%, transparent);
   color: var(--primary);
   font-weight: 600;
   padding: 0.68rem 1rem;
@@ -6686,14 +6691,14 @@ body.private .pending-match-sub {
 .search-group .search-opt:first-of-type { border-top-left-radius: var(--r-md); border-top-right-radius: var(--r-md); }
 .search-group .search-opt:last-child { border-bottom: none; border-bottom-left-radius: var(--r-md); border-bottom-right-radius: var(--r-md); }
 .search-opt:hover, .search-opt.is-active { background: color-mix(in srgb, var(--primary) 7%, var(--card)); }
-.search-opt:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.search-opt:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: -2px; }
 .search-opt-main { grid-area: main; font-size: 0.95rem; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .search-opt-sub { grid-area: sub; font-size: 0.78rem; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .search-opt-sub:empty { display: none; }
 .search-opt-amt { grid-area: amt; font-size: 0.92rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.search-opt-amt.is-in { color: var(--gain, var(--pos, #2f6b54)); }
+.search-opt-amt.is-in { color: var(--gain, var(--gain)); }
 .search-opt-more { grid-area: main; font-size: 0.88rem; font-weight: 600; color: var(--primary); }
-.search-opt mark { background: color-mix(in srgb, var(--primary) 16%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
+.search-opt mark { background: color-mix(in srgb, var(--primary) 16%, transparent); color: inherit; border-radius: var(--r-xs); padding: 0 1px; }
 .search-empty { margin: 1.25rem 0.25rem 0.5rem; color: var(--muted); font-size: 0.9rem; line-height: 1.45; }
 
 /* Where a search result lands: the card glows once, so the eye finds it. */
@@ -6904,28 +6909,9 @@ body.private .pending-match-sub {
       warm sand instead of a cold blue-grey slab on warm brown.
    3. Red means trouble. Having debt is not an error; overspending, a late
       payment or a negative balance is. Debt totals are plain ink now. */
-:root {
-  --ink2: #574e45;      /* 7.6:1 on card */
-  --muted: #6e6458;     /* 5.3:1 on card, 4.8:1 on bg (was 3.4 / 3.1) */
-  --gain: #3d6f45;      /* 5.4:1 on card (was 4.0) */
-  /* Terracotta for lines and glyphs. --brand (#c8704b) is ~3:1 on the page:
-     right for fills and tints, too faint for an icon or a focus ring. */
-  --brand-ink: #a65533; /* 4.9:1 on card, 4.1:1 on the tab bar */
-}
-@media (prefers-color-scheme: dark) {
-  html:not([data-theme="light"]) {
-    --primary: #e8d5b9;        /* warm sand; labels on it 11.6:1 */
-    --primary-hover: #f1e3cd;
-    --primary-ink: #e8d5b9;
-    --brand-ink: #dd8a63;
-  }
-}
-html[data-theme="dark"] {
-  --primary: #e8d5b9;
-  --primary-hover: #f1e3cd;
-  --primary-ink: #e8d5b9;
-  --brand-ink: #dd8a63;
-}
+/* The token values this pass settled on (--ink2, --muted, --gain, --brand-ink,
+   the warm-sand dark --primary) live in the :root and dark blocks at the top
+   of this file, with every other token. */
 
 /* Text that used the sage fill colour (3.2:1) uses the readable green. */
 .quick-add .pill[data-type="saving"].active,
@@ -7005,7 +6991,7 @@ html[data-theme="dark"] {
   width: min(32rem, calc(100% - 2rem));
   background: var(--card, #fff); color: var(--text);
   border: 1px solid var(--danger, #b3261e);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
   padding: 0.85rem 1rem;
 }
@@ -7201,7 +7187,7 @@ html[data-theme="dark"] {
 /* v1.43.1 polish */
 /* Long toasts ("Loan recorded: Hakim · RM 500.00 — logged as an expense")
    wrap to a second line instead of ending in "…". */
-#toast { white-space: normal; width: max-content; border-radius: 18px; }
+#toast { white-space: normal; width: max-content; border-radius: var(--r-md); }
 .scan-type-pills[hidden] { display: none; }
 
 /* ---------- tax relief & refund estimate (tax.js) ----------
@@ -7633,7 +7619,7 @@ html::before {
 .split-share-more { margin: 0.75rem 0 0.25rem; border-top: 1px solid var(--line); padding-top: 0.5rem; }
 .split-share-more > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; font-size: 0.92rem; }
 .split-share-more[open] > summary { margin-bottom: 0.4rem; }
-.split-me-once { margin: 0 0 0.75rem; padding: 0.6rem 0.75rem 0.2rem; border-radius: var(--r-card, 14px); background: var(--glass-bg-soft); }
+.split-me-once { margin: 0 0 0.75rem; padding: 0.6rem 0.75rem 0.2rem; border-radius: var(--r-md); background: var(--glass-bg-soft); }
 .split-me-once .hint { margin: 0 0 0.4rem; }
 .scan-cat-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.6rem 0 0.2rem; }
 .scan-cat-chips .chip-btn {
@@ -7641,7 +7627,7 @@ html::before {
   background: transparent; color: inherit; font: inherit; font-size: 0.9rem; cursor: pointer;
 }
 .scan-cat-chips .chip-btn.active { background: var(--text); color: var(--card); border-color: var(--text); }
-.scan-cat-chips .chip-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.scan-cat-chips .chip-btn:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .split-pick-offer { margin: 0.75rem 0 0.25rem; }
 .split-pick-offer button { width: 100%; }
 .split-pick-offer .hint { margin-top: 0.4rem; }
@@ -7681,7 +7667,7 @@ html::before {
   background: transparent; color: var(--muted); cursor: pointer;
 }
 .scan-close:hover { background: var(--card-soft); color: var(--text); }
-.scan-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.scan-close:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 1px; }
 .scan-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -7749,7 +7735,7 @@ html::before {
   border-radius: 0;
   object-fit: contain;
 }
-.scan-dialog .scan-preview-wrap:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.scan-dialog .scan-preview-wrap:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .scan-preview-zoom {
   position: absolute; right: 6px; bottom: 6px;
   width: 26px; height: 26px; display: grid; place-items: center;
@@ -7799,7 +7785,7 @@ html::before {
 }
 .scan-dialog .scan-cur::after { content: "▾"; font-size: 0.7rem; opacity: 0.8; }
 .scan-dialog .scan-cur:hover { background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text); }
-.scan-dialog .scan-cur:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.scan-dialog .scan-cur:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 1px; }
 .scan-dialog .scan-amount-row input { font-size: 2.1rem; font-variant-numeric: tabular-nums; }
 .scan-amount-match {
   margin: 0;
@@ -7828,7 +7814,7 @@ html::before {
 .scan-pick strong { font-variant-numeric: tabular-nums; }
 .scan-pick-use { margin-left: auto; color: var(--primary); font-weight: 600; white-space: nowrap; }
 .scan-pick:hover { border-color: var(--primary); }
-.scan-pick:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.scan-pick:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 1px; }
 .scan-currency-wrap { margin-top: 0.4rem; }
 .scan-currency-wrap[hidden] { display: none; }
 .scan-currency-wrap .hint { margin: 0.35rem 0 0; }
@@ -7934,7 +7920,7 @@ html::before {
   margin: -3px;
   padding: 3px;
   border: 2px solid var(--gain);
-  border-radius: 4px;
+  border-radius: var(--r-xs);
   background: color-mix(in srgb, var(--gain) 14%, transparent);
   box-sizing: content-box;
 }
@@ -7942,7 +7928,7 @@ html::before {
 .scan-mark.is-date { border-color: #c58a2a; background: rgba(197, 138, 42, 0.14); }
 .scan-mark > span {
   position: absolute; left: -2px; bottom: 100%; margin-bottom: 2px;
-  padding: 0 0.3rem; border-radius: 3px;
+  padding: 0 0.3rem; border-radius: var(--r-xs);
   font: 600 0.62rem/1.5 var(--font-sans); color: #fff; background: var(--gain); white-space: nowrap;
 }
 .scan-mark.is-vendor > span { background: #4a86c5; }
@@ -7955,7 +7941,7 @@ html::before {
 .scan-viewer-close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .scan-body > *, .scan-result > * { flex-shrink: 0; }
 .scan-dialog .scan-head .scan-close { border: 0; box-shadow: none; outline: none; min-height: 0; padding: 0; }
-.scan-dialog .scan-head .scan-close:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.scan-dialog .scan-head .scan-close:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 1px; }
 .scan-dialog .scan-amount-row input {
   font-family: var(--font-sans);
   font-weight: 650;
@@ -7985,7 +7971,7 @@ html::before {
    transparent, so Apple's sign-in opens from Apple's handler. */
 .apple-ck-hit { position: absolute; inset: 0; opacity: 0.011; overflow: hidden; border-radius: var(--r-pill); }
 .apple-ck-hit .apple-auth-button, .apple-ck-hit > * { width: 100% !important; height: 100% !important; cursor: pointer; }
-.apple-ck:focus-within .apple-ck-face { outline: 2px solid var(--primary); outline-offset: 2px; }
+.apple-ck:focus-within .apple-ck-face { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 
 /* Start screen: one "Restore from cloud", then a tile per cloud. */
 .lock-cloud .lock-google-text strong { font-size: 1rem; }
@@ -8004,7 +7990,7 @@ html::before {
 .cloud-tile[hidden] { display: none; }
 .cloud-tile:hover { border-color: var(--primary); }
 .cloud-tile:active { transform: scale(0.985); }
-.cloud-tile:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cloud-tile:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .cloud-tile-wrap .apple-ck-hit { border-radius: var(--r-md); }
 .apple-ck-hit:empty { pointer-events: none; }
 /* CloudKit restyles its host element; keep the hit layer invisible regardless. */
@@ -8027,7 +8013,7 @@ html::before {
 }
 .info-tip > summary::-webkit-details-marker { display: none; }
 .info-tip > summary:hover, .info-tip[open] > summary { color: var(--text); background: var(--card-soft); }
-.info-tip > summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.info-tip > summary:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .info-tip > p { margin: 0.3rem 0 0; font-size: 0.82rem; line-height: 1.45; color: var(--muted); }
 
 /* Passcode sheet */

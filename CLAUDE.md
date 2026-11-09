@@ -19,6 +19,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Receipt scan confirm sheet**: `app/receipt-extract.js` (loaded after `split.js`, before `script.js`) reads the total, vendor, date, category and items-vs-subtotal from the OCR text as pure functions. The total is filled in only when the receipt backs it: the labelled TOTAL, the payment (card / cash − change) and the computed subtotal + charges − discounts — all three agree → high, two → medium ("Check"), none → no value and the printed figures offered to pick (`renderScanTotalState` in `script.js`). Never auto-fill a figure the receipt doesn't print. Line boxes (`receiptReadWithBoxes`) outline the source lines in the full-screen viewer. Raw OCR text shows only with `?debug=1` or `localStorage["duitful.debug"]="1"`.
 
+**Design system**: `DESIGN.md` documents the app's visual rules (tokens, type, the four radii, what each colour is allowed to mean); `.impeccable/design.json` is its sidecar. Every token lives in the `:root` and two dark blocks at the top of `app/styles.css`. Write tints as `color-mix()` of a token, never a literal `rgba()` of the light value, and update `DESIGN.md` when a token or rule changes.
+
 The main app logic lives in `app/script.js` (~3.3k lines). This single file handles state management, encryption, CSV import/export, avalanche simulation, OCR, IAP, and all UI rendering.
 
 ## Commands

@@ -1,0 +1,805 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-09T23:44:44+00:00",
+  "title": "Design System: Duitful",
+  "extensions": {
+    "colorMeta": {
+      "stage": {
+        "role": "neutral",
+        "displayName": "Stage",
+        "canonical": "#e9e1d3",
+        "tonalRamp": [
+          "#332a1a",
+          "#58482c",
+          "#816a41",
+          "#aa8b55",
+          "#bea77e",
+          "#d3c3a7",
+          "#e5dccc",
+          "#f6f3ee"
+        ]
+      },
+      "bg": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#efe9dd",
+        "tonalRamp": [
+          "#342b18",
+          "#5a4a2a",
+          "#846d3e",
+          "#ad8f52",
+          "#c1aa7b",
+          "#d5c5a5",
+          "#e7ddcb",
+          "#f7f4ee"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Sheet",
+        "canonical": "#f9f5ed",
+        "tonalRamp": [
+          "#392d13",
+          "#634d21",
+          "#917130",
+          "#bf9540",
+          "#cfae6e",
+          "#dec89c",
+          "#ecdfc6",
+          "#f9f4ec"
+        ]
+      },
+      "card-strong": {
+        "role": "neutral",
+        "displayName": "Bright Sheet",
+        "canonical": "#fbf8f2",
+        "tonalRamp": [
+          "#3a2d12",
+          "#654e1f",
+          "#94722e",
+          "#c3963c",
+          "#d1af6b",
+          "#e0c89a",
+          "#ede0c4",
+          "#f9f4eb"
+        ]
+      },
+      "card-soft": {
+        "role": "neutral",
+        "displayName": "Soft Sheet",
+        "canonical": "#f2ece0",
+        "tonalRamp": [
+          "#362b17",
+          "#5d4b27",
+          "#896e39",
+          "#b4914b",
+          "#c6ab76",
+          "#d8c6a2",
+          "#e8dec9",
+          "#f7f4ed"
+        ]
+      },
+      "text": {
+        "role": "primary",
+        "displayName": "Ledger Ink",
+        "canonical": "#241f1a",
+        "tonalRamp": [
+          "#2c2620",
+          "#4d4238",
+          "#716151",
+          "#94806b",
+          "#ae9e8e",
+          "#c7bdb2",
+          "#dfd9d3",
+          "#f4f2f0"
+        ]
+      },
+      "ink2": {
+        "role": "neutral",
+        "displayName": "Second Ink",
+        "canonical": "#574e45",
+        "tonalRamp": [
+          "#2b2622",
+          "#4a423b",
+          "#6c6156",
+          "#8e8071",
+          "#a99e93",
+          "#c4bdb5",
+          "#ddd9d4",
+          "#f4f2f1"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#6e6458",
+        "tonalRamp": [
+          "#2a2722",
+          "#4a433b",
+          "#6c6256",
+          "#8e8171",
+          "#a99f93",
+          "#c4bdb5",
+          "#ddd9d4",
+          "#f4f2f1"
+        ]
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Ink Navy",
+        "canonical": "#1c2b38",
+        "tonalRamp": [
+          "#1a2733",
+          "#2c4458",
+          "#416381",
+          "#5583aa",
+          "#7ea0be",
+          "#a7bed3",
+          "#ccdae6",
+          "#eef3f6"
+        ]
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Ink Navy (hover)",
+        "canonical": "#101c27",
+        "tonalRamp": [
+          "#162736",
+          "#27445e",
+          "#386389",
+          "#4a82b5",
+          "#76a0c7",
+          "#a1bed8",
+          "#c9d9e9",
+          "#edf2f8"
+        ]
+      },
+      "brand": {
+        "role": "secondary",
+        "displayName": "Terracotta",
+        "canonical": "#c8704b",
+        "tonalRamp": [
+          "#3b1e12",
+          "#66341f",
+          "#944c2d",
+          "#c3643c",
+          "#d2896b",
+          "#e0ae99",
+          "#edd0c4",
+          "#f9efeb"
+        ]
+      },
+      "brand-ink": {
+        "role": "secondary",
+        "displayName": "Terracotta Ink",
+        "canonical": "#a65533",
+        "tonalRamp": [
+          "#3b1e12",
+          "#65341f",
+          "#944c2e",
+          "#c3643c",
+          "#d1896b",
+          "#e0ae9a",
+          "#edd0c4",
+          "#f9efeb"
+        ]
+      },
+      "gain": {
+        "role": "tertiary",
+        "displayName": "Money Green",
+        "canonical": "#3d6f45",
+        "tonalRamp": [
+          "#1b311f",
+          "#2f5635",
+          "#457d4e",
+          "#5aa566",
+          "#82ba8b",
+          "#a9d0b0",
+          "#cee4d1",
+          "#eff6f0"
+        ]
+      },
+      "loss": {
+        "role": "tertiary",
+        "displayName": "Trouble Red",
+        "canonical": "#bd3a42",
+        "tonalRamp": [
+          "#3b1214",
+          "#651f23",
+          "#942e34",
+          "#c33c44",
+          "#d16b71",
+          "#e09a9e",
+          "#edc4c7",
+          "#f9ebec"
+        ]
+      },
+      "danger-hover": {
+        "role": "tertiary",
+        "displayName": "Trouble Red (hover)",
+        "canonical": "#a82e35",
+        "tonalRamp": [
+          "#3c1013",
+          "#681d21",
+          "#982a30",
+          "#c8373f",
+          "#d5676d",
+          "#e2979b",
+          "#efc3c5",
+          "#faebec"
+        ]
+      },
+      "over-neon": {
+        "role": "tertiary",
+        "displayName": "Overspend Alarm",
+        "canonical": "#ff2740",
+        "tonalRamp": [
+          "#4c0009",
+          "#85000f",
+          "#c20016",
+          "#ff001e",
+          "#ff3d54",
+          "#ff7a8a",
+          "#ffb2bb",
+          "#ffe5e8"
+        ]
+      },
+      "warn": {
+        "role": "tertiary",
+        "displayName": "Amber",
+        "canonical": "#a8631a",
+        "tonalRamp": [
+          "#42270a",
+          "#734412",
+          "#a8631a",
+          "#dd8222",
+          "#e5a057",
+          "#edbe8c",
+          "#f5dabd",
+          "#fcf3e9"
+        ]
+      },
+      "accent-sage": {
+        "role": "tertiary",
+        "displayName": "Sage",
+        "canonical": "#6f9457",
+        "tonalRamp": [
+          "#24301c",
+          "#3f5431",
+          "#5c7a48",
+          "#78a15e",
+          "#99b785",
+          "#b9ceab",
+          "#d7e3cf",
+          "#f2f6ef"
+        ]
+      },
+      "accent-cool": {
+        "role": "tertiary",
+        "displayName": "Slate",
+        "canonical": "#5b7f9e",
+        "tonalRamp": [
+          "#1c2731",
+          "#304454",
+          "#47637b",
+          "#5d82a2",
+          "#84a0b8",
+          "#abbecf",
+          "#cedae3",
+          "#eff3f6"
+        ]
+      },
+      "accent-tan": {
+        "role": "tertiary",
+        "displayName": "Tan",
+        "canonical": "#c99a68",
+        "tonalRamp": [
+          "#382714",
+          "#624323",
+          "#8f6233",
+          "#bc8143",
+          "#cca070",
+          "#dcbe9d",
+          "#ebd9c7",
+          "#f8f2ec"
+        ]
+      },
+      "accent-caramel": {
+        "role": "tertiary",
+        "displayName": "Caramel",
+        "canonical": "#a5805f",
+        "tonalRamp": [
+          "#31261c",
+          "#554130",
+          "#7c5f46",
+          "#a37d5c",
+          "#b99d83",
+          "#cfbcaa",
+          "#e3d8ce",
+          "#f6f2ef"
+        ]
+      },
+      "rm1": {
+        "role": "tertiary",
+        "displayName": "RM 1 Blue",
+        "canonical": "#2b5faa",
+        "tonalRamp": [
+          "#0f223d",
+          "#1b3b6a",
+          "#27569b",
+          "#3372cc",
+          "#6494d8",
+          "#95b6e4",
+          "#c2d5f0",
+          "#ebf1fa"
+        ]
+      },
+      "rm5": {
+        "role": "tertiary",
+        "displayName": "RM 5 Green",
+        "canonical": "#2e7d4f",
+        "tonalRamp": [
+          "#153823",
+          "#24613d",
+          "#348e5a",
+          "#45ba76",
+          "#71cb97",
+          "#9edbb8",
+          "#c7ead6",
+          "#ecf8f1"
+        ]
+      },
+      "rm10": {
+        "role": "tertiary",
+        "displayName": "RM 10 Red",
+        "canonical": "#b8362f",
+        "tonalRamp": [
+          "#3d1210",
+          "#6a1f1b",
+          "#9a2d27",
+          "#cb3c34",
+          "#d86b65",
+          "#e49995",
+          "#efc4c2",
+          "#faebeb"
+        ]
+      },
+      "rm20": {
+        "role": "tertiary",
+        "displayName": "RM 20 Orange",
+        "canonical": "#c96a1e",
+        "tonalRamp": [
+          "#43230a",
+          "#733d11",
+          "#a95919",
+          "#de7521",
+          "#e69656",
+          "#eeb78c",
+          "#f5d6bc",
+          "#fcf1e9"
+        ]
+      },
+      "rm50": {
+        "role": "tertiary",
+        "displayName": "RM 50 Teal",
+        "canonical": "#0f7f8c",
+        "tonalRamp": [
+          "#073f45",
+          "#0d6d78",
+          "#139faf",
+          "#19d1e6",
+          "#50dcec",
+          "#87e7f2",
+          "#baf1f8",
+          "#e8fafd"
+        ]
+      },
+      "rm100": {
+        "role": "tertiary",
+        "displayName": "RM 100 Purple",
+        "canonical": "#6a4193",
+        "tonalRamp": [
+          "#261735",
+          "#42295c",
+          "#613b86",
+          "#7f4eb1",
+          "#9e79c4",
+          "#bda3d6",
+          "#d9cae8",
+          "#f2edf7"
+        ]
+      },
+      "stage-dark": {
+        "role": "neutral",
+        "displayName": "Stage Dark",
+        "canonical": "#131110",
+        "tonalRamp": [
+          "#2a2523",
+          "#48403d",
+          "#695e59",
+          "#8a7c75",
+          "#a69b96",
+          "#c2bbb7",
+          "#dcd8d5",
+          "#f3f2f1"
+        ]
+      },
+      "bg-dark": {
+        "role": "neutral",
+        "displayName": "Bg Dark",
+        "canonical": "#191614",
+        "tonalRamp": [
+          "#2a2522",
+          "#4a413b",
+          "#6c5f56",
+          "#8e7d71",
+          "#a99c93",
+          "#c4bbb5",
+          "#ddd8d4",
+          "#f4f2f1"
+        ]
+      },
+      "card-dark": {
+        "role": "neutral",
+        "displayName": "Card Dark",
+        "canonical": "#221e1a",
+        "tonalRamp": [
+          "#2b2621",
+          "#4b4239",
+          "#6e6154",
+          "#90806e",
+          "#ab9e91",
+          "#c6bdb4",
+          "#ded9d4",
+          "#f4f2f1"
+        ]
+      },
+      "card-soft-dark": {
+        "role": "neutral",
+        "displayName": "Card Soft Dark",
+        "canonical": "#2b2622",
+        "tonalRamp": [
+          "#2b2622",
+          "#4a413b",
+          "#6c6056",
+          "#8e7e71",
+          "#a99d93",
+          "#c4bcb5",
+          "#ddd8d4",
+          "#f4f2f1"
+        ]
+      },
+      "text-dark": {
+        "role": "primary",
+        "displayName": "Text Dark",
+        "canonical": "#f3ede1",
+        "tonalRamp": [
+          "#372c16",
+          "#5f4c26",
+          "#8a6f37",
+          "#b69249",
+          "#c8ac75",
+          "#d9c6a0",
+          "#e9dec8",
+          "#f8f4ed"
+        ]
+      },
+      "ink2-dark": {
+        "role": "neutral",
+        "displayName": "Ink2 Dark",
+        "canonical": "#c4bdb0",
+        "tonalRamp": [
+          "#2c2821",
+          "#4c4539",
+          "#6f6553",
+          "#92856d",
+          "#aca290",
+          "#c6c0b3",
+          "#dedad3",
+          "#f4f3f0"
+        ]
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Muted Dark",
+        "canonical": "#a8a097",
+        "tonalRamp": [
+          "#2a2623",
+          "#48433c",
+          "#6a6158",
+          "#8b8074",
+          "#a79f95",
+          "#c3bdb7",
+          "#dcd9d5",
+          "#f3f2f1"
+        ]
+      },
+      "primary-dark": {
+        "role": "primary",
+        "displayName": "Warm Sand",
+        "canonical": "#e8d5b9",
+        "tonalRamp": [
+          "#3a2a13",
+          "#644921",
+          "#926a30",
+          "#c08c3f",
+          "#cfa76d",
+          "#dec39b",
+          "#ecdcc5",
+          "#f9f3ec"
+        ]
+      },
+      "brand-dark": {
+        "role": "secondary",
+        "displayName": "Terracotta (dark)",
+        "canonical": "#dd8a63",
+        "tonalRamp": [
+          "#3f1d0e",
+          "#6d3318",
+          "#9f4a23",
+          "#d1622e",
+          "#dc8860",
+          "#e7ad92",
+          "#f1d0c0",
+          "#faefea"
+        ]
+      },
+      "gain-dark": {
+        "role": "tertiary",
+        "displayName": "Gain Dark",
+        "canonical": "#7eaa7e",
+        "tonalRamp": [
+          "#1e2e1e",
+          "#355035",
+          "#4d754d",
+          "#659a65",
+          "#8ab28a",
+          "#afcaaf",
+          "#d1e1d1",
+          "#f0f5f0"
+        ]
+      },
+      "loss-dark": {
+        "role": "tertiary",
+        "displayName": "Loss Dark",
+        "canonical": "#e07277",
+        "tonalRamp": [
+          "#3f0e10",
+          "#6d181c",
+          "#9f2329",
+          "#d12e35",
+          "#dc6066",
+          "#e79296",
+          "#f1c0c3",
+          "#faeaeb"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The balance on Home only."
+      },
+      "headline": {
+        "displayName": "Wordmark",
+        "purpose": "The Duitful wordmark."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card headings and subpage titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Row names, form values, prose."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Every ringgit amount; tabular digits."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Captions, hints, chips, tab labels."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Currency codes, raw receipt text, licence keys."
+      }
+    },
+    "shadows": [
+      {
+        "name": "contact",
+        "value": "0 1px 2px rgba(0,0,0,.05)",
+        "purpose": "Every card at rest."
+      },
+      {
+        "name": "lift",
+        "value": "0 1px 2px rgba(42,36,32,.04), 0 8px 24px rgba(42,36,32,.05)",
+        "purpose": "The lock screen mark and things that sit above the page."
+      },
+      {
+        "name": "sheet",
+        "value": "0 -10px 40px rgba(42,36,32,.12), 0 1px 3px rgba(42,36,32,.05)",
+        "purpose": "Dialogs and bottom sheets."
+      },
+      {
+        "name": "float",
+        "value": "0 10px 30px rgba(0,0,0,.18)",
+        "purpose": "Toasts and the save-failed banner."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "0.15s ease",
+        "purpose": "Background and colour changes on controls."
+      },
+      {
+        "name": "press",
+        "value": "transform 0.05s ease, scale(0.98)",
+        "purpose": "Every button when pressed."
+      },
+      {
+        "name": "enter",
+        "value": "0.22s cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Dialogs, sheets and tab panels arriving."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "rail-short",
+        "value": "440px wide and under 720px tall"
+      },
+      {
+        "name": "rail",
+        "value": "600px"
+      },
+      {
+        "name": "card-grid",
+        "value": "640px"
+      },
+      {
+        "name": "sidebar",
+        "value": "1000px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled action per card. Ink on light, warm sand on dark.",
+      "html": "<button class=\"ds-btn-primary\">Add entry</button>",
+      "css": ".ds-btn-primary{background:var(--text);color:var(--card);border:1px solid transparent;border-radius:var(--r-sm);padding:.7rem 1rem;font:600 .95rem var(--font-sans);letter-spacing:-.2px;cursor:pointer;transition:background .15s ease,transform .05s ease}.ds-btn-primary:hover{opacity:.92}.ds-btn-primary:active{transform:scale(.98)}.ds-btn-primary:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Every secondary action.",
+      "html": "<button class=\"ds-btn-ghost\">All entries</button>",
+      "css": ".ds-btn-ghost{background:transparent;color:var(--ink2);border:1px solid var(--line);border-radius:var(--r-sm);padding:.45rem .7rem;font:600 .85rem var(--font-sans);cursor:pointer;transition:background .15s ease,transform .05s ease}.ds-btn-ghost:hover{background:var(--card-soft);color:var(--text)}.ds-btn-ghost:active{transform:scale(.98)}.ds-btn-ghost:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Outlined at rest, fills on hover or focus.",
+      "html": "<button class=\"ds-btn-danger\">Erase everything</button>",
+      "css": ".ds-btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);border-radius:var(--r-sm);padding:.7rem 1rem;font:600 .95rem var(--font-sans);cursor:pointer;transition:background .15s ease}.ds-btn-danger:hover,.ds-btn-danger:focus-visible{background:var(--danger);color:var(--on-danger)}.ds-btn-danger:focus-visible{outline:2px solid var(--danger-hover);outline-offset:2px}"
+    },
+    {
+      "name": "Amount Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Soft-sheet fill, tabular digits.",
+      "html": "<input class=\"ds-input\" inputmode=\"decimal\" placeholder=\"0.00\">",
+      "css": ".ds-input{width:100%;padding:.75rem .85rem;font:500 1.5rem var(--font-sans);font-variant-numeric:tabular-nums;color:var(--text);background:var(--card-soft);border:1px solid var(--line);border-radius:var(--r-md)}.ds-input::placeholder{color:var(--muted)}.ds-input:focus{outline:2px solid var(--brand-ink);outline-offset:1px;border-color:var(--brand-ink)}"
+    },
+    {
+      "name": "Filter Chips",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Pills; the selected one fills ink navy.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip\">This week</button><button class=\"ds-chip ds-chip-on\">This month</button></div>",
+      "css": ".ds-chips{display:flex;gap:.4rem}.ds-chip{background:var(--card);color:var(--ink2);border:1px solid var(--line);border-radius:var(--r-pill);padding:.45rem .75rem;font:500 .82rem var(--font-sans);cursor:pointer;transition:background .15s ease}.ds-chip:hover{background:var(--card-soft)}.ds-chip-on,.ds-chip-on:hover{background:var(--primary);color:var(--card);border-color:var(--primary)}.ds-chip:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}"
+    },
+    {
+      "name": "Bottom Tab",
+      "kind": "nav",
+      "refersTo": "tab-active-icon",
+      "description": "Active tab: terracotta-tinted icon pill, full-ink label.",
+      "html": "<nav class=\"ds-tabs\"><button class=\"ds-tab ds-tab-on\"><span class=\"ds-tab-i\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 11l9-7 9 7v9a2 2 0 01-2 2h-4v-6H9v6H5a2 2 0 01-2-2v-9z\"/></svg></span>Home</button><button class=\"ds-tab\"><span class=\"ds-tab-i\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"6\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M3 10h18\"/></svg></span>Debts</button></nav>",
+      "css": ".ds-tabs{display:flex;gap:.25rem;padding:.35rem .25rem;background:color-mix(in srgb,var(--stage) 88%,transparent);border-top:1px solid var(--line)}.ds-tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:.2rem;background:none;border:0;border-radius:var(--r-sm);padding:.3rem .2rem;font:600 .82rem var(--font-sans);color:var(--muted);cursor:pointer}.ds-tab-i{display:grid;place-items:center;width:52px;height:28px;border-radius:var(--r-pill);transition:background .2s ease}.ds-tab:hover .ds-tab-i{background:color-mix(in srgb,var(--brand) 9%,transparent)}.ds-tab-on{color:var(--text)}.ds-tab-on .ds-tab-i,.ds-tab-on:hover .ds-tab-i{background:color-mix(in srgb,var(--brand) 20%,transparent);color:var(--brand-ink)}.ds-tab:focus-visible{outline:2px solid var(--brand-ink);outline-offset:2px}"
+    },
+    {
+      "name": "Balance Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "The signature card: the one serif figure in the app.",
+      "html": "<div class=\"ds-hero\"><div class=\"ds-hero-top\"><span>Balance left this month</span><span>July 2026</span></div><div class=\"ds-hero-amt\"><span class=\"ds-hero-cur\">RM</span>69<span class=\"ds-hero-c\">.81</span></div><div class=\"ds-hero-bar\"><i></i></div><div class=\"ds-hero-meta\">About <b>RM 17.45/day</b> to stay on track</div></div>",
+      "css": ".ds-hero{background:var(--glass-bg-strong);border:1px solid var(--glass-border);border-radius:var(--r-md);padding:1.25rem 1.1rem 1rem;box-shadow:var(--glass-shadow);font-family:var(--font-sans);color:var(--text)}.ds-hero-top{display:flex;justify-content:space-between;font-size:.85rem;color:var(--ink2)}.ds-hero-amt{font:500 2.75rem/1 var(--font-serif);letter-spacing:-.04em;color:var(--gain);margin:.9rem 0 .8rem}.ds-hero-cur{font-size:.5em;margin-right:.3rem}.ds-hero-c{font-size:.38em;color:var(--muted)}.ds-hero-bar{height:5px;border-radius:var(--r-pill);background:var(--line);overflow:hidden}.ds-hero-bar i{display:block;width:72%;height:100%;border-radius:var(--r-pill);background:var(--accent)}.ds-hero-meta{margin-top:.8rem;font-size:.95rem}.ds-hero-meta b{font-weight:600}"
+    },
+    {
+      "name": "Debt Row",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "List row with the banknote rail: the hue states the size of the balance.",
+      "html": "<div class=\"ds-row\" style=\"--denom:var(--rm100)\"><div><div class=\"ds-row-n\">Maybank card</div><div class=\"ds-row-m\">APR 18.00% · due 15th</div></div><div class=\"ds-row-r\"><div class=\"ds-row-a\">RM 3,240.00</div><div class=\"ds-row-m\">Min RM 162.00</div></div></div>",
+      "css": ".ds-row{position:relative;display:flex;justify-content:space-between;gap:1rem;padding:.65rem 0 .65rem .85rem;border-bottom:1px solid var(--line);font-family:var(--font-sans);color:var(--text)}.ds-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--denom,var(--border))}.ds-row-n{font-size:.95rem}.ds-row-m{font-size:.82rem;color:var(--muted)}.ds-row-r{text-align:right}.ds-row-a{font-weight:500;font-variant-numeric:tabular-nums}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Ringgit Ledger",
+    "overview": "Duitful looks like a household ledger kept on warm paper. The page is a cream stock, the writing is near-black ink, and the cards are slightly whiter sheets laid on top. Almost nothing is coloured. That restraint has a purpose: the user is reading their own money, often with some worry, and a calm page lets the few coloured marks mean something.\n\nThe colour that does appear is borrowed from the Malaysian banknote series. A blue mark is an RM 1 sized amount, green RM 5, red RM 10, orange RM 20, teal RM 50, purple RM 100 and above. Every user already reads that scale without a legend, so it carries the size of a number at a glance. Terracotta, the colour of the wallet logo, marks where you are and what has focus. Red is reserved for trouble.\n\nDensity is a phone ledger: one column of cards, rows separated by hairlines, figures right-aligned in tabular digits. On wider screens the same cards flow into columns and navigation moves to the side; the cards themselves do not change.",
+    "keyCharacteristics": [
+      "Warm paper surfaces in three steps (stage, background, card), in light and in dark.",
+      "Ink for text and for every action. No coloured buttons.",
+      "Banknote hues carry amount size and nothing else.",
+      "Terracotta for identity, location and focus only.",
+      "Red only when something is actually wrong.",
+      "One serif moment per screen: the wordmark and the balance.",
+      "Flat cards with hairline borders; shadows are reserved for things that float."
+    ],
+    "rules": [
+      {
+        "name": "The Banknote Rule",
+        "body": "Chroma states the size of a number. If a colour is not telling the user how big an amount is, where they are, or that something is wrong, it should be ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Trouble Rule",
+        "body": "Red means trouble. Having a debt is not an error, so debt totals and upcoming payments are plain ink. Overdue, overspent and negative are red.",
+        "section": "colors"
+      },
+      {
+        "name": "The Token Tint Rule",
+        "body": "Soft washes are written as `color-mix(in srgb, var(--token) N%, transparent)`, never as a literal `rgba()` of the light value. A literal navy tint disappears on a dark card.",
+        "section": "colors"
+      },
+      {
+        "name": "The Scarce Serif Rule",
+        "body": "Fraunces is for the wordmark and the one headline figure. Card titles are Inter.",
+        "section": "typography"
+      },
+      {
+        "name": "The Machine Text Rule",
+        "body": "Monospace is for text a machine produced or will read. Words like \"Min payment\" or \"Instalment\" are Inter, even inside a badge.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Sheet Rule",
+        "body": "If it scrolls with the page it has no drop shadow. Shadows mean \"this is floating above your ledger\": dialogs, menus, toasts.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One Blur Rule",
+        "body": "The only frosted surface is the bottom tab bar (88% stage colour, 14px blur), because content scrolls underneath it. The `--glass-*` tokens are historical names for solid card colours and do not blur.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Four Radii Rule",
+        "body": "Use `--r-xs`, `--r-sm`, `--r-md` or `--r-pill`. A literal pixel radius is a bug.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** read every colour from a token in `:root`, and keep the two dark blocks in `styles.css` identical to each other.",
+      "**Do** write tints as `color-mix()` of a token so they survive the theme switch.",
+      "**Do** use ink for actions. The primary button is `text` on light and warm sand on dark.",
+      "**Do** set amounts in Inter 500 with tabular digits, right-aligned.",
+      "**Do** keep body and caption text at 4.5:1 or better; `ink2` and `muted` are tuned for that on a card.",
+      "**Do** keep touch targets at 44px or more.",
+      "**Do** respect `prefers-reduced-motion`; give every new animation a reduced variant, as the existing ones have."
+    ],
+    "donts": [
+      "**Don't** use a banknote hue, terracotta or red for decoration. Each has one meaning.",
+      "**Don't** colour a debt total or a normal upcoming payment red.",
+      "**Don't** add a radius outside the four, or a drop shadow to anything that scrolls with the page.",
+      "**Don't** set words in monospace, or a second heading in Fraunces.",
+      "**Don't** hard-code a hex or `rgba()` in a component rule, or reference a token that `:root` does not define.",
+      "**Don't** add blur or glass to cards; only the bottom bar is frosted.",
+      "**Don't** put a card inside a card."
+    ]
+  }
+}
