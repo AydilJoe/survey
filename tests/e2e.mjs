@@ -3140,6 +3140,44 @@ check('a split from a spend you already logged never logs it twice',
     ck.card.block && ck.card.signOutBox && !ck.afterSignOut && ck.card.signInBox && ck.card.recheckHidden && /Apple ID/.test(ck.card.why), JSON.stringify(ck.card));
 }
 
+// The one-time rating ask: more good moments than the last debt, and a
+// Rate Duitful link in Settings.
+{
+  const rv = await S(async () => {
+    const snap = JSON.stringify(state);
+    const out = {};
+    goalsSeen = null; reviewMomentNow();
+    state.savings.push({ id: 'rv-goal', name: 'Rv', target: 100, current: 50 });
+    reviewMomentNow();
+    state.savings.find((g) => g.id === 'rv-goal').current = 100;
+    out.goal = reviewMomentNow();
+    out.goalOnce = reviewMomentNow();
+    Object.assign(state, coerceState(JSON.parse(snap)));
+    goalsSeen = null; reviewMomentNow();
+    // Habit: three weeks in, ten logged days.
+    state.firstRunAt = Date.now() - 22 * 86400000;
+    state.budgetPools = (state.budgetPools || []).filter((p) => p.system === 'debt');
+    const base = new Date(); base.setDate(1);
+    for (let i = 0; i < 10; i++) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+      state.dailyExpenses.push({ id: 'rv-d' + i, date: d, amount: 1, name: 'x' });
+    }
+    out.habit = reviewMomentNow();
+    state.firstRunAt = Date.now();
+    out.tooSoon = reviewMomentNow();
+    Object.assign(state, coerceState(JSON.parse(snap)));
+    renderAll();
+    renderRateLink();
+    const a = document.getElementById('btn-rate-app');
+    out.link = { shown: !a.hidden, href: a.getAttribute('href') };
+    return out;
+  });
+  check('rating ask: a goal reaching its target is a moment, once', rv.goal === 'goal' && rv.goalOnce !== 'goal', JSON.stringify(rv));
+  check('rating ask: three weeks in with ten logged days is a moment, not before', rv.habit === 'habit' && rv.tooSoon === '', JSON.stringify(rv));
+  check('Settings has Rate Duitful linking to the Play listing (off Apple devices)',
+    rv.link.shown && /play\.google\.com\/store\/apps\/details\?id=com\.aydiljoe\.duitful/.test(rv.link.href), JSON.stringify(rv.link));
+}
+
 // Deleting is instant with Undo on the toast; alerts are toasts now.
 {
   const un = await S(async () => {
