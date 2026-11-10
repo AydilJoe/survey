@@ -78,9 +78,9 @@ In App Store Connect → Duitful → the version waiting for review:
 ### Promotional text (170 — editable any time, no review)
 
 ```
-Your money, debts and split bills — encrypted on your phone, never uploaded. No account, no bank login. Built in Malaysia.
+Your money, debts and split bills — encrypted on your phone. No account, no bank login. Built in Malaysia.
 ```
-122 characters.
+106 characters.
 
 ### Keywords (100, comma-separated, no spaces after commas)
 
@@ -93,42 +93,43 @@ their words are repeated here.
 ### Description (4,000)
 
 ```
-Every budgeting app I tried wanted my bank login. So I built one that can't have it.
+Know what you can spend today, and the month you'll be debt-free.
 
-Duitful has no server. Your income, your debts, your spending — all of it is encrypted on your phone, behind a passcode only you know if you set one. There is nowhere for it to go. I couldn't read your data if you asked me to.
-
-The code is public at github.com/AydilJoe/survey. Don't trust me — check.
+Duitful tracks your income, bills, spending and debts on your iPhone. No account and no bank login. Everything is encrypted on the phone, and it works offline.
 
 
-BUILT FOR MALAYSIA
-
-• Pay-later plans like Atome and SPayLater show how many payments are left and when each one is due
-• Islamic financing as a real debt type: murabahah, tawarruq, BBA and AITAB, with ibra' worked out properly instead of a conventional rate pretending to fit
-• Zakat on wealth: nisab, haul and the 2.5%, using the gold price you enter
-• LHDN tax relief: Duitful spots spending that counts, keeps the receipt with the claim (encrypted on your phone), estimates your refund and checks in every November and before e-Filing opens. An estimate for planning, not tax advice
-• Ringgit first, with local banks and e-wallets in mind
-
-
-WHAT IT DOES
-
-• Monthly income and bills, and what's actually left this month and per day
-• Debt payoff by the avalanche method — highest rate first — and the month you'll be debt-free
-• Savings goals and investments (values you type in)
-• Split a bill by sending a link. The details travel inside the link itself: no accounts, no server, and your friends don't need the app
-• Scan a receipt and the total, date and shop are read on your phone, then checked against the receipt's own numbers
+TRACK
+• Log a spend in two taps, or scan the receipt: the total, date and shop are read on your phone
+• See what's left this month, and what that is per day
+• Reports by category and month
 • Privacy mode hides every amount
-• Works offline
+
+CLEAR DEBT
+• Cards, car loans, PTPTN and pay-later plans like Atome and SPayLater in one list
+• Avalanche payoff: highest rate first, and the month you'll be debt-free
+• Islamic financing (murabahah, tawarruq, BBA, AITAB) with ibra' on early settlement
+
+TAX AND ZAKAT
+• Flags spending that counts for LHDN tax relief, keeps the receipt with the claim and estimates your refund. An estimate for planning, not tax advice
+• Zakat on wealth: nisab, haul and 2.5%, from the gold price you enter
+
+SPLIT A BILL
+• Send a link or QR code. Friends see their share and tap "I've paid". They don't need the app
 
 
 FREE AND PRO
+Free: every debt and your debt-free date, pay-later plans, reminders, Islamic finance, zakat, tax relief, 5 savings goals, 3 investments and 5 receipt scans a month.
 
-Free covers every debt and your debt-free date, pay-later plans, reminders, 5 savings goals, 3 investments and 5 receipt scans a month. Islamic finance, zakat and tax relief are always free.
+Pro is a one-time in-app purchase, no subscription: automatic encrypted iCloud backup, unlimited scans, goals and investments, budget pools and other currencies.
 
-Duitful Pro is a one-time in-app purchase — no subscription. It adds automatic encrypted backup to iCloud or Google Drive, unlimited scans, goals and investments, budget pools and entries in other currencies.
-
-
-I'm Aydil, in Kuala Lumpur. Duitful is not a company — no investors, no ad network, no data partners. If something's broken or wrong, tell me and I'll fix it.
+Made in Kuala Lumpur by Aydil. Bugs or ideas: hello@duitful.app
 ```
+About 1,450 characters. Plain and feature-first: the founder pitch ("Every
+budgeting app I tried wanted my bank login…") lives on the landing page hero
+instead. Apple's rules still hold: no Google Drive or other platforms, Pro
+only as the in-app purchase, and iCloud is the only backup named because
+Drive is off in the iPhone app. Changing it needs a new version submission
+(only Promotional text is editable without review).
 
 ### What's New in This Version
 
