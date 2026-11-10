@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.5";
+const APP_VERSION = "1.55.6";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -10211,6 +10211,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.6": [
+    "<strong>Smoother to the touch</strong> — buttons, chips and tabs respond when you press them, menus and details open gently, and dark mode shows the highlights it was hiding (like the Today tag on Upcoming).",
+  ],
   "1.55.5": [
     "<strong>Rate Duitful</strong> — a link in Settings → About, help & legal. Ratings help other people find the app. iCloud on the web now restores only; back up there with Google Drive or CSV.",
   ],
