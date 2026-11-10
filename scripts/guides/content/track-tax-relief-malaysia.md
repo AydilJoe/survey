@@ -9,12 +9,12 @@ eyebrow: Guide · Malaysia · LHDN tax
 h1: Your PCB already paid the tax. <em>Claim the refund.</em>
 lede: PCB is taken from your salary before your lifestyle, medical and insurance reliefs are counted. Claim them and the difference comes back. Duitful catches each claimable spend as you log it — and keeps the receipt LHDN will ask for.
 date_published: 2026-04-28
-date_modified: 2026-10-26
+date_modified: 2026-11-10
 breadcrumb_name: LHDN tax-relief tracker
 card_title: LHDN tax relief & refund estimate
 card_blurb: Spots claimable spending as you log it, keeps receipts encrypted, and estimates your refund against PCB.
 cta_title: Turn it on once. Claim all year.
-cta_body: Reports → Tax refund estimate → Set it up. Duitful walks you through this year's spending once, then asks only when something new looks claimable.
+cta_body: Home → Tax → Turn on tax tracking. Duitful shows what it already found in this year's spending, then asks only when something new looks claimable.
 cta_label: Open Duitful
 ---
 
@@ -31,17 +31,17 @@ Unless you file a TP1 with your employer, PCB only counts the basic reliefs. Eve
 ## How Duitful catches it
 
 :::steps
-title: Turn on the tax card
-text: Open **Reports → Tax refund estimate → Set it up**. Type the PCB from your payslips and your gross salary once. Duitful reviews this year's spending straight away.
+title: Turn on tax tracking
+text: On Home, tap **Tax**, then **Turn on tax tracking**. Type your gross salary and the PCB from your payslips once — about a minute. Duitful shows what it already found in this year's spending.
 ---
 title: Log spending as usual
 text: Buy a book, renew the gym, pay the dentist. When an expense matches an LHDN relief, Duitful asks: **use this for your YA 2026 claim?** Tap Yes, Later, or Not tax.
 ---
 title: Keep the receipt — or add it later
-text: After Yes, snap the receipt or attach the doctor's letter. It's optional: Duitful tells you the date to add it by (the e-Filing deadline) and what LHDN may ask for.
+text: Scanned the receipt when you logged it? It's already kept with the claim. Otherwise snap it or attach the doctor's letter later — Duitful tells you the date to add it by and what LHDN may ask for.
 ---
 title: File with the totals ready
-text: Your refund estimate updates with every claim. In March, **Export claims** gives you each relief's total to type into e-Filing.
+text: Your refund estimate on the Tax page updates with every claim. In March, the export button there gives you each relief's total to type into e-Filing.
 :::
 
 ## Three check-ins, so nothing slips

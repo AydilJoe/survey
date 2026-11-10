@@ -1645,6 +1645,9 @@
     /* --------------- Benefits (v2 landing) --------------- */
     .benefits-grid { grid-template-columns: repeat(3, 1fr); }
     .benefits .feature h3 { font-size: 1.2rem; margin-bottom: 4px; }
+    .feature-link { color: inherit; text-decoration: none; }
+    .feature-link span { color: var(--primary); }
+    .feature-link:hover, .feature-link:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
     .benefits .feature p { font-size: 1rem; margin: 0; }
     @media (max-width: 960px) { .benefits-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 600px) { .benefits-grid { grid-template-columns: 1fr; } }
@@ -1936,7 +1939,7 @@
         </div>
         <div class="feature reveal">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></div>
-          <h3>Cari pelepasan cukai</h3>
+          <h3><a class="feature-link" href="/guides/ms/track-tax-relief-malaysia/">Cari pelepasan cukai <span aria-hidden="true">→</span></a></h3>
           <p>Belanja yang layak untuk pelepasan LHDN ditanda, dengan anggaran bayaran balik.</p>
         </div>
         <div class="feature reveal">
@@ -2118,6 +2121,15 @@
 
       <div class="guides-grid reveal">
         <!-- guides:start -->
+        <a class="g-card" href="/guides/ms/track-tax-relief-malaysia/">
+          <span class="g-card-eyebrow">Panduan · Malaysia · Cukai LHDN</span>
+          <h3 class="g-card-title">Pelepasan cukai LHDN &amp; anggaran bayaran balik</h3>
+          <p class="g-card-blurb">Kesan belanja yang boleh dituntut, simpan resit disulitkan, dan anggar bayaran balik berbanding PCB.</p>
+          <div class="g-card-foot">
+            <time class="g-card-date" datetime="2026-11-10">Diterbit 10 Nov 2026</time>
+            <span class="g-card-cta">Baca →</span>
+          </div>
+        </a>
         <a class="g-card" href="/guides/ms/split-bills-without-apps-reading-your-bank-2026/">
           <span class="g-card-eyebrow">Panduan · Malaysia · Kongsi bil</span>
           <h3 class="g-card-title">Kongsi bil tanpa akaun — kod QR, bukan pelayan</h3>
@@ -2133,15 +2145,6 @@
           <p class="g-card-blurb">&quot;RM 500 sampai gaji&quot; layak dapat tarikh. Peringatan masuk telefon korang, bukan dihantar pada peminjam.</p>
           <div class="g-card-foot">
             <time class="g-card-date" datetime="2026-07-30">Diterbit 30 Jul 2026</time>
-            <span class="g-card-cta">Baca →</span>
-          </div>
-        </a>
-        <a class="g-card" href="/guides/ms/coast-fire-malaysia-calculator-2026/">
-          <span class="g-card-eyebrow">Panduan · Malaysia · Persaraan</span>
-          <h3 class="g-card-title">Coast FIRE — bila menabung jadi pilihan</h3>
-          <p class="g-card-blurb">Simpanan yang membesar sendiri ke sasaran persaraan anda jauh lebih kecil daripada sangkaan. Pengiraannya dalam ringgit hari ini, termasuk KWSP dan ASB.</p>
-          <div class="g-card-foot">
-            <time class="g-card-date" datetime="2026-07-29">Diterbit 29 Jul 2026</time>
             <span class="g-card-cta">Baca →</span>
           </div>
         </a>
