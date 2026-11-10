@@ -83,7 +83,7 @@ The tax UI is its own page under Home (`#tab-tax`, like Reports): refund card, T
 
 **Output layout**: English guides → `/guides/<slug>/`; Bahasa Melayu → `/guides/ms/<slug>/`. Hubs at `/guides/` and `/guides/ms/`. The MS landing page spotlight pulls from the MS pool only (no EN fallback once MS guides exist).
 
-**Translation policy** (option 2 from past discussion): translate Budi95 + Labour Day-style mass-market topics to BM. Keep technical/B2B topics (LHDN tax-relief, SME, CCA, e-invoice) in English only — those audiences search in English.
+**Translation policy** (option 2 from past discussion): translate Budi95 + Labour Day-style mass-market topics to BM. Keep technical/B2B topics (SME, CCA, e-invoice) in English only — those audiences search in English. Exception: `track-tax-relief-malaysia` (how Duitful finds LHDN relief) has a Malay version, because it is the landing tile's and the Google Ads campaign's page and people search "pelepasan cukai".
 
 **Chrome strings** (back-link, footer, dateline labels, default CTAs) come from the `CHROME` object in `scripts/build-guides.mjs`, keyed by language. Update there if you add a new language.
 

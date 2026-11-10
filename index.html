@@ -1645,6 +1645,9 @@
     /* --------------- Benefits (v2 landing) --------------- */
     .benefits-grid { grid-template-columns: repeat(3, 1fr); }
     .benefits .feature h3 { font-size: 1.2rem; margin-bottom: 4px; }
+    .feature-link { color: inherit; text-decoration: none; }
+    .feature-link span { color: var(--primary); }
+    .feature-link:hover, .feature-link:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
     .benefits .feature p { font-size: 1rem; margin: 0; }
     @media (max-width: 960px) { .benefits-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 600px) { .benefits-grid { grid-template-columns: 1fr; } }
@@ -1939,7 +1942,7 @@
         </div>
         <div class="feature reveal">
           <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></div>
-          <h3>Find your tax relief</h3>
+          <h3><a class="feature-link" href="/guides/track-tax-relief-malaysia/">Find your tax relief <span aria-hidden="true">→</span></a></h3>
           <p>Spending that counts for LHDN relief gets flagged, with your likely refund.</p>
         </div>
         <div class="feature reveal">
