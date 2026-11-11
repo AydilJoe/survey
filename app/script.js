@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.6";
+const APP_VERSION = "1.55.7";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -79,6 +79,7 @@ const emptyState = () => ({
   // When this device's vault was first set up. Drives the pacing of first-week
   // asks (the trial banner waits a day, the reminders ask waits until day 3).
   firstRunAt: 0,
+  proNudgeUntil: 0,
   reminderAskDone: false,
   nativeReferrer: "",
   proEmail: "",
@@ -332,6 +333,7 @@ function coerceState(parsed) {
       lastSeenVersion: typeof parsed.lastSeenVersion === "string" ? parsed.lastSeenVersion : "",
       proTrialStartedAt: Number.isFinite(Number(parsed.proTrialStartedAt)) ? Number(parsed.proTrialStartedAt) : 0,
       firstRunAt: Number.isFinite(Number(parsed.firstRunAt)) ? Number(parsed.firstRunAt) : 0,
+      proNudgeUntil: Number.isFinite(Number(parsed.proNudgeUntil)) ? Number(parsed.proNudgeUntil) : 0,
       reminderAskDone: !!parsed.reminderAskDone,
       nativeReferrer: typeof parsed.nativeReferrer === "string" && /^[a-f0-9]{8}$/.test(parsed.nativeReferrer) ? parsed.nativeReferrer : "",
       proEmail: typeof parsed.proEmail === "string" ? parsed.proEmail : "",
@@ -3763,38 +3765,111 @@ function renderReports() {
   if (typeof renderInvestmentsChart === "function") renderInvestmentsChart();
 }
 
+/* What the trial did, counted on this device only. Kept in localStorage,
+   not the vault: saving the vault after a backup would schedule another
+   backup, and so on forever. */
+const TRIAL_USAGE_KEY = "duitful-trial-usage";
+function trialUsage() {
+  try { return JSON.parse(localStorage.getItem(TRIAL_USAGE_KEY) || "{}") || {}; } catch { return {}; }
+}
+function bumpTrialUsage(kind) {
+  try {
+    const u = trialUsage();
+    u[kind] = (Number(u[kind]) || 0) + 1;
+    localStorage.setItem(TRIAL_USAGE_KEY, JSON.stringify(u));
+  } catch {}
+}
+
+// "During your trial, Pro made 12 backups and read 8 receipts." Only what
+// actually happened; empty when the trial did nothing worth naming.
+function trialRecapText() {
+  const u = trialUsage();
+  const bits = [];
+  const backups = Number(u.backups) || 0;
+  const scans = Number(u.scans) || 0;
+  if (backups) bits.push(`made ${backups} automatic backup${backups === 1 ? "" : "s"}`);
+  if (scans > FREE_OCR_MONTHLY) bits.push(`read ${scans} receipts`);
+  const goals = state.savings.length - FREE_SAVING_LIMIT;
+  if (goals > 0) bits.push(`kept ${state.savings.length} goals`);
+  const pools = (state.budgetPools || []).filter((p) => p.system !== "debt").length;
+  if (pools > 1) bits.push(`ran ${pools} budget pools`);
+  if (!bits.length) return "";
+  const list = bits.length === 1 ? bits[0] : bits.slice(0, -1).join(", ") + " and " + bits[bits.length - 1];
+  return `During your trial, Pro ${list}.`;
+}
+
+// Entries worth losing: everything logged, across months.
+function proEntryCount() {
+  return (state.dailyExpenses?.length || 0) + (state.expenses?.length || 0)
+    + (state.income?.length || 0) + (state.debts?.length || 0) + (state.savings?.length || 0);
+}
+const BACKUP_NUDGE_AFTER_DAYS = 14;
+const BACKUP_NUDGE_MIN_ENTRIES = 10;
+const PRO_NUDGE_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
+const TRIAL_RECAP_DAYS = 14;
+
+// Which Pro message Home shows, if any: the running trial, the recap of a
+// trial that just ended, or (two weeks in, with real data) the honest
+// reason to back up. Not now quiets the last two for 30 days.
+function proNudgeKind() {
+  if (!state || state.pro) return "";
+  if (isTrialActive()) return calendarDaysSince(state.proTrialStartedAt) < 1 ? "" : "trial";
+  if ((state.proNudgeUntil || 0) > Date.now()) return "";
+  if (trialExpired() && Date.now() - state.proTrialStartedAt < TRIAL_MS + TRIAL_RECAP_DAYS * 86400000) return "recap";
+  if (state.firstRunAt && calendarDaysSince(state.firstRunAt) >= BACKUP_NUDGE_AFTER_DAYS
+      && proEntryCount() >= BACKUP_NUDGE_MIN_ENTRIES) return "backup";
+  return "";
+}
+
+function backupPlaceName() {
+  const p = nativePlatform();
+  if (p === "ios") return "iCloud";
+  if (p === "android") return "Google Drive";
+  return "iCloud or Google Drive";
+}
+
 function renderTrialBanner() {
   const banner = document.getElementById("trial-banner");
   if (!banner) return;
-  if (!state || state.pro) { banner.hidden = true; return; }
+  const kind = proNudgeKind();
+  // One ask at a time: while Home is asking about reminders, the pitch waits.
+  if (!kind || document.getElementById("reminder-ask")?.hidden === false) { banner.hidden = true; return; }
   const title = document.getElementById("trial-banner-title");
   const sub = document.getElementById("trial-banner-sub");
   const cta = document.getElementById("trial-banner-cta");
-  if (isTrialActive()) {
-    // Not on day one. Someone who installed an hour ago has not seen what
-    // they'd be paying for yet; the trial still runs from install, the pitch
-    // just waits until tomorrow.
-    if (calendarDaysSince(state.proTrialStartedAt) < 1) { banner.hidden = true; return; }
-    // One ask at a time: while Home is asking about reminders, the pitch waits.
-    if (document.getElementById("reminder-ask")?.hidden === false) { banner.hidden = true; return; }
+  const later = document.getElementById("trial-banner-later");
+  banner.hidden = false;
+  banner.dataset.kind = kind;
+  banner.classList.remove("trial-banner-expired");
+  if (later) later.hidden = kind === "trial";
+  if (kind === "trial") {
     const left = trialDaysLeft();
-    banner.hidden = false;
-    banner.classList.remove("trial-banner-expired");
     if (title) title.textContent = "Pro trial active";
     if (sub) sub.textContent = `${left} day${left === 1 ? "" : "s"} left of full Pro access — keep it forever for RM 19.90.`;
     if (cta) cta.textContent = "Unlock forever";
-  } else if (trialExpired()) {
-    banner.hidden = false;
-    banner.classList.add("trial-banner-expired");
-    if (title) title.textContent = "Pro trial ended";
-    if (sub) sub.textContent = "Pro features are locked again. Unlock for RM 19.90, one-time.";
-    if (cta) cta.textContent = "Unlock Pro";
+  } else if (kind === "recap") {
+    if (title) title.textContent = "Your Pro trial ended";
+    const recap = trialRecapText();
+    if (sub) sub.textContent = recap
+      ? `${recap} Keep it for RM 19.90, once.`
+      : `Automatic backup is off now. Keep it, and the rest of Pro, for RM 19.90, once.`;
+    if (cta) cta.textContent = "Keep Pro";
   } else {
-    banner.hidden = true;
+    const n = proEntryCount();
+    if (title) title.textContent = "Only on this phone";
+    if (sub) sub.textContent = `Lose the phone and your ${n} entries are gone. Pro backs up to ${backupPlaceName()} automatically, encrypted.`;
+    if (cta) cta.textContent = "Back up with Pro";
   }
 }
 document.getElementById("trial-banner-cta")?.addEventListener("click", () => {
-  openPaywall();
+  const kind = document.getElementById("trial-banner")?.dataset.kind;
+  openPaywall(kind === "backup" || kind === "recap" ? "cloudBackup" : undefined);
+});
+document.getElementById("trial-banner-later")?.addEventListener("click", () => {
+  if (!state) return;
+  state.proNudgeUntil = Date.now() + PRO_NUDGE_SNOOZE_MS;
+  save();
+  renderTrialBanner();
 });
 
 /* ---------- zakat ---------- */
@@ -4787,6 +4862,7 @@ function canOcr() {
   return (state.ocrUsage.scans || 0) < FREE_OCR_MONTHLY;
 }
 function trackOcrUsage() {
+  if (isTrialActive()) bumpTrialUsage("scans");
   if (isPro()) return;
   const m = currentMonthISO();
   if (!state.ocrUsage || state.ocrUsage.month !== m) {
@@ -4846,7 +4922,9 @@ function openPaywall(feature) {
   // Billplz (FPX, Touch 'n Go, GrabPay) is a Malaysian checkout in ringgit.
   // Everyone else on the web buys through the phone app's store.
   const billplz = !native && paysWithBillplz();
-  if (reason) reason.textContent = PAYWALL_COPY[feature] || "Unlock everything. Pay once.";
+  if (reason) reason.textContent = feature === "cloudBackup"
+    ? `Automatic encrypted backup to ${backupPlaceName()} is a Pro feature. Export CSV in Settings stays free.`
+    : PAYWALL_COPY[feature] || "Unlock everything. Pay once.";
   if (hint) hint.textContent = native
     ? ""
     : billplz
@@ -10211,6 +10289,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.7": [
+    "<strong>Know what Pro does for you</strong> — when the free trial ends, Home shows what Pro did during it (backups made, receipts read). Two weeks in, if your data lives only on this phone, Home says so once. Not now quiets both for a month.",
+  ],
   "1.55.6": [
     "<strong>Smoother to the touch</strong> — buttons, chips and tabs respond when you press them, menus and details open gently, and dark mode shows the highlights it was hiding (like the Today tag on Upcoming).",
   ],
@@ -14423,7 +14504,10 @@ async function runDriveUpload(only) {
   let firstError = null;
   for (const id of ids) {
     if (id === "drive" && !navigator.onLine) continue;
-    try { await cloudApi(id).uploadEncryptedRecord(rec, props); }
+    try {
+      await cloudApi(id).uploadEncryptedRecord(rec, props);
+      if (isTrialActive()) bumpTrialUsage("backups");
+    }
     catch (err) { firstError = firstError || err; }
   }
   renderDriveCard();
