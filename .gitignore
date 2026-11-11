@@ -45,3 +45,8 @@ pnpm-lock.yaml
 # npx skills install artifacts — developer-local, not shipped
 .agents/
 skills-lock.json
+
+# Google Trends research pulls (CSV exports + chart screenshots). Working
+# material for marketing/SEO decisions, not part of the site or the app, and
+# the numbers go stale the week after they're pulled. Root-anchored.
+/duitful-trends/
