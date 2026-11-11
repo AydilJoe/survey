@@ -49,8 +49,16 @@ echo "Duitful launched and is still running."
 # accessibility tree, the way a person would.
 tap_text() {
   local label="$1" bounds
-  for _ in 1 2 3 4 5 6; do
+  for _ in 1 2 3 4 5 6 7 8; do
     adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+    # The emulator's launcher sometimes takes the foreground back while the
+    # app keeps running (the dump then shows the home screen). Bring Duitful
+    # to the front again and look once more, rather than fail on the launcher.
+    if ! adb shell cat /sdcard/ui.xml 2>/dev/null | grep -q "package=\"$PKG\""; then
+      adb shell am start -n "$PKG/.MainActivity" >/dev/null 2>&1 || true
+      sleep 3
+      continue
+    fi
     bounds="$(adb shell cat /sdcard/ui.xml 2>/dev/null | tr '>' '\n' \
       | grep -E "(text|content-desc)=\"$label\"" | grep -oE 'bounds="\[[0-9]+,[0-9]+\]\[[0-9]+,[0-9]+\]"' | head -1)"
     if [ -n "$bounds" ]; then
