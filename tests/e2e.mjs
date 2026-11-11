@@ -5217,6 +5217,45 @@ check('and what was typed reaches the home screen calculation',
   await S(() => { state.debts = []; state.extraMonthly = 0; save(); renderAll(); });
 }
 
+/* ── Reasons to keep Pro: the trial recap, then the honest backup nudge ── */
+{
+  const pn = await S(async () => {
+    const snap = JSON.stringify(state);
+    const out = {};
+    const read = () => {
+      const b = document.getElementById('trial-banner');
+      return { shown: !b.hidden, kind: b.dataset.kind, title: document.getElementById('trial-banner-title').textContent,
+        sub: document.getElementById('trial-banner-sub').textContent, later: !document.getElementById('trial-banner-later').hidden };
+    };
+    document.getElementById('reminder-ask').hidden = true;
+    state.pro = false; state.proNudgeUntil = 0;
+    // Trial just ended, with backups and scans counted during it.
+    localStorage.setItem('duitful-trial-usage', JSON.stringify({ backups: 12, scans: 8 }));
+    state.proTrialStartedAt = Date.now() - 8 * 864e5;
+    state.firstRunAt = state.proTrialStartedAt;
+    renderTrialBanner(); out.recap = read();
+    // Not now: quiet for 30 days.
+    document.getElementById('trial-banner-later').click(); out.snoozed = read().shown;
+    // Weeks later, with real data and no Pro: the backup reason.
+    state.proNudgeUntil = 0;
+    state.proTrialStartedAt = Date.now() - 40 * 864e5; state.firstRunAt = state.proTrialStartedAt;
+    state.dailyExpenses = Array.from({ length: 12 }, (_, i) => ({ id: 'pn' + i, date: '2026-10-0' + ((i % 9) + 1), amount: 5, name: 'x' }));
+    renderTrialBanner(); out.backup = read();
+    state.dailyExpenses = [];
+    renderTrialBanner(); out.tooFew = read().shown;
+    // Pro sees none of it.
+    state.pro = true; renderTrialBanner(); out.pro = read().shown;
+    localStorage.removeItem('duitful-trial-usage');
+    Object.assign(state, coerceState(JSON.parse(snap))); save(); renderAll();
+    return out;
+  });
+  check('trial end: the recap names what Pro did (12 backups, 8 receipts) and offers Keep Pro, with Not now',
+    pn.recap.shown && pn.recap.kind === 'recap' && /12 automatic backups/.test(pn.recap.sub) && /read 8 receipts/.test(pn.recap.sub) && pn.recap.later, JSON.stringify(pn.recap));
+  check('Not now quiets the Pro message', pn.snoozed === false, JSON.stringify(pn));
+  check('two weeks in with real data: "Only on this phone" names the entries at risk; not with too little data; never for Pro',
+    pn.backup.shown && pn.backup.kind === 'backup' && /\d+ entries are gone/.test(pn.backup.sub) && pn.tooFew === false && pn.pro === false, JSON.stringify(pn));
+}
+
 /* ── First week pacing: no pitch on day one, no cold permission prompt ──
    The trial banner waits a day. On the phone app, Android's notification
    prompt is only ever raised by a yes — on day 3, from a card that says
