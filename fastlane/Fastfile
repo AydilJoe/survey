@@ -268,13 +268,47 @@ end
     ""
   end
 
+  # States in which Apple has the version (and its build) in hand: the page
+  # is locked, and rewriting its version number would leave it labelled with
+  # a number the attached build doesn't have (1.55.6 over build 1.55.3).
+  APP_STORE_LOCKED_STATES = %w[
+    WAITING_FOR_REVIEW IN_REVIEW PENDING_APPLE_RELEASE PENDING_DEVELOPER_RELEASE
+    PROCESSING_FOR_APP_STORE
+  ].freeze
+
+  # The App Store version that is in review (or waiting to be released), if
+  # any. Returns its "1.55.3 (WAITING_FOR_REVIEW)" label, nil when the page is
+  # free to prepare. If Apple can't be asked, the page is left alone: a
+  # missing "What's New" is a one-minute fix by hand, a wrong version label
+  # over a build in review is the thing this guards against.
+  def app_store_version_in_review(key)
+    app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+    versions = app.get_app_store_versions(filter: { platform: "IOS" }, limit: 10)
+    locked = versions.find do |v|
+      state = (v.respond_to?(:app_version_state) ? v.app_version_state : nil) ||
+              (v.respond_to?(:app_store_state) ? v.app_store_state : nil)
+      APP_STORE_LOCKED_STATES.include?(state.to_s)
+    end
+    return nil unless locked
+    state = locked.respond_to?(:app_version_state) ? locked.app_version_state : locked.app_store_state
+    "#{locked.version_string} (#{state})"
+  rescue StandardError => e
+    "unknown (could not read App Store versions: #{e.message.lines.first.to_s.strip})"
+  end
+
   # Gets the App Store version page ready to submit: the version number set
   # to package.json's, this build attached, and "What's New" filled in for
   # every language the listing has ("default"). Nothing is submitted. Apple
   # has no "What's New" on an app's very first version, and the page may be
   # locked while a version is in review; either way this only warns, since
   # the TestFlight upload above already succeeded.
+  # While a version is with Apple the page is left alone (see above).
   def prepare_app_store_version(key, version, build_number, notes)
+    in_review = app_store_version_in_review(key)
+    if in_review
+      UI.important("App Store version page left alone: #{in_review} is with Apple. Set up #{version} by hand once it is released.")
+      return
+    end
     upload_to_app_store(
       api_key: key,
       app_identifier: APP_IDENTIFIER,
