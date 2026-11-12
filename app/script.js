@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.7";
+const APP_VERSION = "1.55.8";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4946,17 +4946,19 @@ function openPaywall(feature) {
   if (activateBtn) activateBtn.hidden = native;
 
   // Promo-code section: native-only (web checkout already handles discounts via Billplz).
+  // Not on iOS (guideline 3.1.1): the App Store build sells one price.
+  const codes = native && nativePlatform() !== "ios";
   const promo = document.getElementById("paywall-promo");
-  if (promo) promo.hidden = !native;
+  if (promo) promo.hidden = !codes;
   resetPromoState();
 
   // Friend-code section: also native-only (web checkout captures the
   // referrer from the ?ref=… URL parameter the buyer arrived with, no
   // typing required).
   const refSection = document.getElementById("paywall-referrer");
-  if (refSection) refSection.hidden = !native;
+  if (refSection) refSection.hidden = !codes;
   resetReferrerUI();
-  if (native && state && state.nativeReferrer) {
+  if (codes && state && state.nativeReferrer) {
     // Already typed once this install — auto-restore and re-apply LAUNCH100.
     showReferrerApplied(state.nativeReferrer);
     const launch = lookupPromoCode("LAUNCH100");
@@ -5026,6 +5028,9 @@ function showReferrerApplied(code) {
 }
 
 function applyPromoUI(promo) {
+  // App Store 3.1.1: no codes unlock or discount Pro in the iOS app. Apple
+  // Offer Codes are redeemed in the App Store itself, not here.
+  if (nativePlatform() === "ios") { activePromo = null; return; }
   activePromo = promo;
   const form = document.getElementById("paywall-promo-form");
   const status = document.getElementById("paywall-promo-status");
@@ -5675,8 +5680,8 @@ function renderProControls() {
   );
   // Not in the iOS app: the referral link sells Pro on the web (Billplz) and
   // pays cash per sale. Inside an App Store build that is steering buyers to
-  // a non-IAP purchase (guideline 3.1.1). The friend code at the paywall
-  // stays — it buys through Apple. Android and web keep the card.
+  // a non-IAP purchase (guideline 3.1.1). The paywall's friend and promo
+  // codes are off on iOS too. Android and web keep the card.
   if (referCard) referCard.hidden = !purchased || nativePlatform() === "ios";
   if (referClaim) referClaim.hidden = !purchased || !!ref;
   if (referUrlEl) {
@@ -5732,7 +5737,7 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
   if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = "Verifying…"; }
   if (status) { status.textContent = "Confirm the purchase in the store sheet…"; status.hidden = false; }
   try {
-    const sku = activePromo ? activePromo.sku : PRODUCT_ID;
+    const sku = activePromo && nativePlatform() !== "ios" ? activePromo.sku : PRODUCT_ID;
     const outcome = await purchasePro(sku);
     if (outcome.ok) {
       // Read the price before closePaywall() resets the applied promo.
@@ -5793,6 +5798,7 @@ document.getElementById("paywall-referrer-toggle")?.addEventListener("click", ()
   if (form && !form.hidden) setTimeout(() => input?.focus(), 0);
 });
 function tryApplyReferrerCode() {
+  if (nativePlatform() === "ios") return;
   const input = document.getElementById("paywall-referrer-code");
   const status = document.getElementById("paywall-referrer-status");
   const code = (input?.value || "").trim().toLowerCase();
@@ -10289,6 +10295,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.8": [
+    "<strong>One price on iPhone and iPad</strong> — Pro is bought straight through the App Store, with no codes to type.",
+  ],
   "1.55.7": [
     "<strong>Know what Pro does for you</strong> — when the free trial ends, Home shows what Pro did during it (backups made, receipts read). Two weeks in, if your data lives only on this phone, Home says so once. Not now quiets both for a month.",
   ],
