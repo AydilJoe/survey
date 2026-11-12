@@ -181,7 +181,7 @@ if (process.env.STILLS) {
 }
 
 const ff = process.env.FFMPEG || 'ffmpeg';
-const out = OUT + 'split-iphone.mp4';
+const out = OUT + 'split-iphone.mp4'; // re-encoded at crf 26 to split-demo.mp4 for the repo
 const args = ['-y', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-'];
 if (process.env.AUDIO) args.push('-i', process.env.AUDIO);
 args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'medium', '-crf', '18', '-r', String(FPS));
