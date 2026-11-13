@@ -5022,7 +5022,7 @@ function showReferrerApplied(code) {
   const toggle = document.getElementById("paywall-referrer-toggle");
   const form = document.getElementById("paywall-referrer-form");
   const status = document.getElementById("paywall-referrer-status");
-  if (toggle) toggle.textContent = `Friend code ${code} applied — Remove`;
+  if (toggle) toggle.textContent = `Remove friend code ${code}`;
   if (form) form.hidden = true;
   if (status) { status.textContent = "Your friend earns RM 5 — paid manually after the sale clears."; status.hidden = false; }
 }
@@ -5040,7 +5040,7 @@ function applyPromoUI(promo) {
   const buyBtn = document.getElementById("paywall-buy");
   if (status) { status.textContent = `✓ ${promo.code} applied — ${promo.label}`; status.hidden = false; }
   if (form) form.hidden = true;
-  if (toggle) toggle.textContent = `Remove code (${promo.code})`;
+  if (toggle) toggle.textContent = `Remove ${promo.code}`;
   if (priceAmount) priceAmount.textContent = promo.priceLabel;
   if (priceSub) priceSub.textContent = `${promo.label} · one-time`;
   if (buyBtn) buyBtn.textContent = `Unlock Pro — ${promo.priceLabel}`;
