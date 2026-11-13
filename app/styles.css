@@ -2882,6 +2882,7 @@ button.ghost.icon-btn {
   margin-bottom: 0.75rem;
 }
 .paywall-price strong {
+  white-space: nowrap;
   font-size: 1.6rem;
   font-weight: 600;
   color: var(--text);
@@ -2894,18 +2895,61 @@ button.ghost.icon-btn {
   letter-spacing: 0.04em;
 }
 .paywall-hint { margin-top: 0.5rem; }
+.paywall-hint:empty { display: none; }
 
-/* Promo code section in the paywall */
-.paywall-promo { margin-top: 0.6rem; text-align: center; }
-.paywall-promo > .ghost { font-size: 0.82rem; padding: 0.4rem 0.6rem; }
+/* Paywall actions: one column of full-width buttons, all the same height
+   (buy or its web stand-ins, then Maybe later). Everything secondary is a
+   quiet text link in a centred row underneath, wrapping as needed. */
+.paywall-actions { display: grid; gap: 0.5rem; }
+.paywall-actions[hidden] { display: none; }
+.paywall-actions > button,
+.paywall-actions > .as-button {
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  justify-content: center;
+  text-align: center;
+}
+.paywall-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  column-gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+/* Code sections lay their link and form straight into the row. */
+.paywall-links > .paywall-promo:not([hidden]) { display: contents; }
+.paywall-links:not(:has(> :not([hidden]))) { display: none; }
+.paywall-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  margin: 0;
+  min-height: 44px;
+  padding: 0 0.55rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: var(--r-sm);
+}
+.paywall-link:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.paywall-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.paywall-link[hidden] { display: none; }
+/* An opened code form takes the full width under the links. */
+.paywall-promo-form, .paywall-promo-status { order: 1; flex-basis: 100%; }
+.paywall-promo-status { margin: 0.2rem 0 0; text-align: center; }
 .paywall-promo-row {
   display: flex;
   gap: 0.4rem;
-  margin-top: 0.5rem;
+  margin-top: 0.3rem;
 }
 .paywall-promo-row input {
   flex: 1;
   min-width: 0;
+  min-height: 44px;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: var(--r-sm);
@@ -2915,8 +2959,8 @@ button.ghost.icon-btn {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.paywall-promo-row button { flex: 0 0 auto; padding-inline: 1rem; }
-#paywall-promo-status { margin-top: 0.4rem; }
+#paywall-referrer-code { text-transform: none; }
+.paywall-promo-row button { flex: 0 0 auto; padding-inline: 1rem; min-height: 44px; }
 
 /* Pro trial banner on Home */
 .trial-banner {
@@ -7487,8 +7531,7 @@ button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn)
 
 /* Outside Malaysia the web paywall points to the phone apps instead of
    Billplz: the Play link, and a line for iPhone underneath. */
-.paywall-stores { flex-direction: column; align-items: center; }
-.paywall-stores .hint { margin: 0; }
+.paywall-stores .hint { margin: 0; text-align: center; }
 
 /* Tax rules: the card on the Tax page and the JSON editor. */
 .tax-rules-summary { margin: 0 0 0.75rem; color: var(--text); line-height: 1.45; }

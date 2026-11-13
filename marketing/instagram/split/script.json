@@ -1,0 +1,12 @@
+[
+  { "id": "hook",    "text": "You paid for dinner. Now comes the awkward part: getting paid back." },
+  { "id": "compose", "text": "In Duitful, add your friends and split the bill equally, or by what each person had." },
+  { "id": "share",   "text": "Send everyone their share in one message. Each friend gets their own link." },
+  { "id": "friend",  "text": "They don't need the app. The link shows what they owe, and where to transfer." },
+  { "id": "paid",    "text": "When they've sent the money, they tap: I've paid." },
+  { "id": "confirm", "text": "You check your bank, then confirm. Nothing is settled until you say so." },
+  { "id": "owed",    "text": "Duitful shows who has paid, and who still owes you." },
+  { "id": "loan",    "text": "Lent a friend money? Record it the same way, with a date to remind you." },
+  { "id": "all",     "text": "Everything owed to you sits in one list, apart from your own debts." },
+  { "id": "end",     "text": "Duitful. Split bills, and get paid back. Free on the App Store and Google Play." }
+]

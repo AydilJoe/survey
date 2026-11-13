@@ -5723,7 +5723,7 @@ check('the vault is open before the quick-add checks',
 /* ── iOS review: no web-checkout referral card in the App Store build ────
    The referral link sells Pro through Billplz and pays cash per sale, so it
    must never show inside the iOS shell (App Review 3.1.1). Android and web
-   keep it; the paywall's friend code (an Apple IAP) stays everywhere. */
+   keep it. */
 {
   const refer = await S(() => {
     const keep = { cap: window.Capacitor, pro: state.pro };
@@ -5742,6 +5742,36 @@ check('the vault is open before the quick-add checks',
   });
   check('the web-checkout referral card is hidden in the iOS app, kept on Android and web',
     refer.ios === false && refer.android === true && refer.web === true, JSON.stringify(refer));
+}
+
+/* ── iOS review: no codes on the App Store paywall (guideline 3.1.1) ─────
+   Apple rejected 1.55.3 for promo and friend code fields on the iPad
+   paywall. On iOS both stay hidden, nothing is auto-applied (not for a
+   stored friend code, not for the trial cohort) and Pro buys duitful_pro.
+   Android keeps both. */
+{
+  const pw = await S(() => {
+    const keep = { cap: window.Capacitor, ref: state.nativeReferrer, trial: state.proTrialStartedAt, pro: state.pro };
+    const look = (platform) => {
+      window.Capacitor = { isNativePlatform: () => true, getPlatform: () => platform, Plugins: {} };
+      state.pro = false; state.nativeReferrer = '418c33b4'; state.proTrialStartedAt = Date.now() - 86400000;
+      try { openPaywall('debts'); } catch (e) { return 'threw: ' + e.message; }
+      const r = { promo: !document.getElementById('paywall-promo').hidden,
+        friend: !document.getElementById('paywall-referrer').hidden,
+        sku: activePromo ? activePromo.sku : PRODUCT_ID };
+      try { tryApplyReferrerCode(); } catch (e) {}
+      r.after = activePromo ? activePromo.sku : PRODUCT_ID;
+      closePaywall();
+      return r;
+    };
+    const out = { ios: look('ios'), android: look('android') };
+    window.Capacitor = keep.cap;
+    Object.assign(state, { nativeReferrer: keep.ref, proTrialStartedAt: keep.trial, pro: keep.pro });
+    return out;
+  });
+  check('iOS paywall: no promo or friend code fields, nothing auto-applied, buys duitful_pro; Android keeps the codes',
+    pw.ios.promo === false && pw.ios.friend === false && pw.ios.sku === 'duitful_pro' && pw.ios.after === 'duitful_pro'
+    && pw.android.promo === true && pw.android.friend === true && pw.android.sku === 'duitful_pro_launch', JSON.stringify(pw));
 }
 
 /* ── v1.37 UI pass: what the screen claims, and where things sit ─────────
