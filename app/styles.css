@@ -7940,6 +7940,8 @@ html::before {
 .scan-more-actions:not(:has(.link-btn:not([hidden]))) { display: none; }
 .scan-dialog #scan-raw-details[hidden] { display: none; }
 .scan-quota { margin: 0; }
+/* "2 of 3 free debts used": the free limit, said quietly by the add control. */
+.free-count { margin: 0 0 0.6rem; }
 
 /* Full-screen receipt with the source lines outlined. */
 .scan-viewer {

@@ -81,6 +81,14 @@ onto a phone and check the feature it powers:
 A major version (Capacitor 7 → 8) is a migration: read the changelogs, check
 every script in `scripts/patch-android-*.mjs` still matches, and release it
 on its own.
+- **No bait and switch (Free/Pro)** — no trial starts on a fresh profile;
+  the paywall's "Try Pro free for 14 days" starts it once, with a plain
+  toast; the two-days-left banner names what changes for that user; a free
+  user's own CSV (7 goals, 5 holdings, 3 pools with rollover) imports whole
+  and the limit still stops adding; banner, links and paywall quote one
+  price per platform (launch price with its end date; RM 19.90 on iPhone
+  and after expiry); "2 of 3 free debts used" counters; Back up now uploads
+  for a free user while automatic backup stays Pro.
 - **Tax relief & refund estimate** — LHDN band tax and the RM400 rebate against
   hand-worked figures, relief caps, zakat as a rebate, keyword suggestions (and
   the things that must *not* match: car takaful, phone bills), the

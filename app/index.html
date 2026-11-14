@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=151" />
+    <link rel="stylesheet" href="styles.css?v=152" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -406,7 +406,7 @@
               <span class="fx-preview" data-fx-preview hidden></span>
               <span class="fx-upsell" data-fx-upsell hidden>
                 Multi-currency entry is a Pro feature.
-                <a data-action="open-paywall">Unlock for RM 19.90 →</a>
+                <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
               </span>
             </label>
             <div class="quick-amounts" id="quick-amounts">
@@ -532,7 +532,7 @@
                 <span class="fx-preview" data-fx-preview hidden></span>
                 <span class="fx-upsell" data-fx-upsell hidden>
                   Multi-currency entry is a Pro feature.
-                  <a data-action="open-paywall">Unlock for RM 19.90 →</a>
+                  <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
                 </span>
               </label>
             </div>
@@ -630,7 +630,7 @@
                 <span class="fx-preview" data-fx-preview hidden></span>
                 <span class="fx-upsell" data-fx-upsell hidden>
                   Multi-currency entry is a Pro feature.
-                  <a data-action="open-paywall">Unlock for RM 19.90 →</a>
+                  <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
                 </span>
               </label>
             </div>
@@ -707,6 +707,7 @@
             <h2>Outstanding debts</h2>
             <button type="button" class="add-toggle" data-add-toggle="form-debt" aria-expanded="false" aria-controls="form-debt" aria-label="Add a debt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
           </div>
+          <p class="hint free-count" data-free-count="debts" hidden></p>
           <form id="form-debt" class="debt-form add-form" hidden>
             <div class="type-pills debt-type-pills" role="radiogroup" aria-label="Debt type">
               <button type="button" class="pill active" data-debt-kind="standard" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Standard</button>
@@ -903,6 +904,7 @@
             <h2>Goals</h2>
             <button type="button" class="add-toggle" data-add-toggle="form-saving" aria-expanded="false" aria-controls="form-saving" aria-label="Add a savings goal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
           </div>
+          <p class="hint free-count" data-free-count="savings" hidden></p>
           <form id="form-saving" class="saving-form add-form" hidden>
           <label class="field">
             <span>What are you saving for?</span>
@@ -931,6 +933,7 @@
           </div>
 
           <p class="hint invest-networth" id="dash-invest-line" hidden></p>
+          <p class="hint free-count" data-free-count="investments" hidden></p>
           <form id="form-investment" class="invest-form add-form" hidden>
             <div class="type-pills invest-type-pills" role="radiogroup" aria-label="Holding type">
               <button type="button" class="pill active" data-invest-kind="balance" role="radio" aria-checked="true">Balance</button>
@@ -1492,8 +1495,8 @@
           <div id="drive-signed-in" hidden>
             <p class="hint" id="drive-account-line"></p>
             <p class="hint" id="drive-last-synced"></p>
-            <p class="hint warn" id="drive-pro-hint" hidden>
-              Not Pro on this device. <strong>Restore from cloud</strong> brings back a Pro backup.
+            <p class="hint" id="drive-pro-hint" hidden>
+              Automatic sync is off (Pro). <strong>Sync now</strong> and <strong>Restore from cloud</strong> are free.
             </p>
             <label class="field" style="flex-direction:row; align-items:center; gap:.5rem;">
               <input type="checkbox" id="drive-auto-sync" />
@@ -1708,6 +1711,7 @@
             <a class="primary as-button" id="paywall-play" href="https://duitful.app/go/play/?utm_source=app&amp;utm_medium=web&amp;utm_content=paywall" target="_blank" rel="noopener">Get it on Google Play</a>
             <p class="hint">On iPhone, search “Duitful” in the App Store.</p>
           </div>
+          <button type="button" class="ghost" id="paywall-trial" hidden>Try Pro free for 14 days</button>
           <button type="button" class="ghost" id="paywall-close">Maybe later</button>
         </div>
         <div class="paywall-links" id="paywall-codes">
@@ -2675,6 +2679,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=14"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=204"></script>
+    <script src="script.js?v=205"></script>
   </body>
 </html>

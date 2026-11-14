@@ -549,14 +549,20 @@ check('a pre-investments export still imports',
   invRt.legacy.debts === 2 && invRt.legacy.investments === 0, JSON.stringify(invRt.legacy));
 
 const FREE_LIMIT_HOLDINGS = await S(() => FREE_INVESTMENT_LIMIT);
-// Free tier: FREE_INVESTMENT_LIMIT (3) holdings. The fresh profile auto-starts
-// a 7-day Pro trial, so age it out rather than asserting against a trial user.
+// Free tier: FREE_INVESTMENT_LIMIT (3) holdings. The trial is opt-in, so a
+// fresh profile has never had one. From here on the suite runs as someone
+// whose trial is over (started 15 days ago; it lasts 14).
 // A stand-in third holding fills the free allowance; it goes after the check.
 await S(() => {
   state.investments = state.investments.slice(0, 2);
   state.investments.push({ ...JSON.parse(JSON.stringify(state.investments[0])), id: 'inv-filler', name: 'Filler holding' });
   state.pro = false;
-  state.proTrialStartedAt = Date.now() - 8 * 24 * 60 * 60 * 1000;
+});
+check('fresh profile: no trial was started automatically, and it is not Pro',
+  (await S(() => state.proTrialStartedAt === 0 && !isTrialActive() && !isPro() && state.firstRunAt > 0)),
+  JSON.stringify(await S(() => ({ t: state.proTrialStartedAt, f: state.firstRunAt }))));
+await S(() => {
+  state.proTrialStartedAt = Date.now() - 15 * 24 * 60 * 60 * 1000;
   save(); renderAll();
 });
 await page.waitForTimeout(300);
@@ -5234,7 +5240,7 @@ check('and what was typed reaches the home screen calculation',
     state.pro = false; state.proNudgeUntil = 0;
     // Trial just ended, with backups and scans counted during it.
     localStorage.setItem('duitful-trial-usage', JSON.stringify({ backups: 12, scans: 8 }));
-    state.proTrialStartedAt = Date.now() - 8 * 864e5;
+    state.proTrialStartedAt = Date.now() - 15 * 864e5;
     state.firstRunAt = state.proTrialStartedAt;
     renderTrialBanner(); out.recap = read();
     // Not now: quiet for 30 days.
@@ -5257,6 +5263,198 @@ check('and what was typed reaches the home screen calculation',
   check('Not now quiets the Pro message', pn.snoozed === false, JSON.stringify(pn));
   check('two weeks in with real data: "Only on this phone" names the entries at risk; not with too little data; never for Pro',
     pn.backup.shown && pn.backup.kind === 'backup' && /\d+ entries are gone/.test(pn.backup.sub) && pn.tooFew === false && pn.pro === false, JSON.stringify(pn));
+}
+
+/* ── No bait and switch (1.55.12) ─────────────────────────────────────────
+   The trial is opt-in and says what ends before it ends; a person's own
+   data imports whole; one price everywhere; the limit shows before the
+   wall; Back up now is free and only automatic backup is Pro. */
+{
+  const nb = await S(async () => {
+    const snap = JSON.stringify(state);
+    const usage = localStorage.getItem('duitful-trial-usage');
+    const keep = { cap: window.Capacitor, drive: window.DriveSync, exp: PROMO_CODES.LAUNCH100.expires };
+    const out = {};
+    const $id = (id) => document.getElementById(id);
+    const paywall = () => $id('paywall-dialog').open;
+    const banner = () => ({ shown: !$id('trial-banner').hidden, kind: $id('trial-banner').dataset.kind, sub: $id('trial-banner-sub').textContent });
+    $id('reminder-ask').hidden = true;
+    localStorage.removeItem('duitful-trial-usage');
+
+    // 1. Opt-in trial: offered once, started only by the tap.
+    state.pro = false; state.proTrialStartedAt = 0; state.proNudgeUntil = 0;
+    openPaywall('savings');
+    const btn = $id('paywall-trial');
+    out.offer = { shown: !btn.hidden, text: btn.textContent, proBefore: isPro() };
+    btn.click();
+    out.started = { at: state.proTrialStartedAt > 0, pro: isPro(), closed: !paywall(), toast: ($id('toast') || {}).textContent || '',
+      saved: null };
+    openPaywall('savings'); out.offerAgain = !btn.hidden; closePaywall();
+    state.proTrialStartedAt = 0; state.pro = true; openPaywall(); out.offerPro = !btn.hidden; closePaywall();
+    state.pro = false;
+    // A vault from the automatic-trial days keeps its trial, and gets the longer window.
+    state.proTrialStartedAt = Date.now() - 8 * 864e5; out.oldVaultStillTrial = isTrialActive() && TRIAL_DAYS === 14;
+
+    // 2. Two days left: what changes, from what this person uses.
+    const goal = (i) => ({ id: 'nbg' + i, name: 'Goal ' + i, target: 100, current: 0 });
+    state.proTrialStartedAt = Date.now() - (TRIAL_DAYS - 1.5) * 864e5;
+    state.savings = Array.from({ length: 7 }, (_, i) => goal(i));
+    state.budgetPools = state.budgetPools.filter((p) => p.system === 'debt')
+      .concat([{ id: 'nbp1', name: 'Food', limit: 500, active: true }, { id: 'nbp2', name: 'Fun', limit: 200, active: false }]);
+    localStorage.setItem('duitful-trial-usage', JSON.stringify({ scans: 3 }));
+    renderTrialBanner(); out.warn = banner(); out.daysLeft = trialDaysLeft();
+    state.savings = []; state.budgetPools = state.budgetPools.filter((p) => p.id !== 'nbp2');
+    state.debts = []; state.investments = [];
+    localStorage.removeItem('duitful-trial-usage');
+    renderTrialBanner(); out.warnNothing = banner().sub;
+    state.proTrialStartedAt = Date.now() - 3 * 864e5;
+    renderTrialBanner(); out.midTrial = banner().sub;
+
+    // 5. The limit, before the wall.
+    const count = (k) => { const el = document.querySelector(`[data-free-count="${k}"]`); return el.hidden ? null : el.textContent; };
+    const debt = (i, kind) => ({ id: 'nbd' + i, name: 'Debt ' + i, kind, balance: 100, apr: kind === 'islamic' ? 0 : 10, minPayment: 10 });
+    state.proTrialStartedAt = Date.now() - 20 * 864e5;
+    state.debts = [debt(1, 'standard'), debt(2, 'standard'), debt(3, 'islamic')];
+    state.savings = [goal(1)];
+    renderAll();
+    out.counts = { debts: count('debts'), savings: count('savings'), investments: count('investments') };
+    state.savings = Array.from({ length: 7 }, (_, i) => goal(i)); renderAll();
+    out.countOver = count('savings');
+    state.proTrialStartedAt = Date.now() - 864e5; renderAll(); out.countTrial = count('debts');
+    state.proTrialStartedAt = Date.now() - 20 * 864e5; state.pro = true; renderAll(); out.countPro = count('debts');
+    state.pro = false;
+
+    // 4. One price: what the banner says is what the paywall says.
+    const price = () => {
+      state.proNudgeUntil = 0; state.proTrialStartedAt = Date.now() - 15 * 864e5;
+      renderTrialBanner();
+      const r = { label: proPriceLabel(), banner: banner().sub, link: document.querySelector('[data-pro-price]').textContent };
+      state.proTrialStartedAt = 0;   // never had a trial: same price all the same
+      openPaywall('debts');
+      r.paywall = $id('paywall-price-amount').textContent; r.sub = $id('paywall-price-sub').textContent;
+      r.hint = $id('paywall-hint').textContent; r.sku = activePromo ? activePromo.sku : PRODUCT_ID;
+      closePaywall();
+      return r;
+    };
+    out.priceWeb = price();
+    $id('fpx-discount').value = ''; openFpxDialog(); out.fpxCode = $id('fpx-discount').value; closeFpxDialog(); $id('fpx-discount').value = '';
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    out.priceAndroid = price();
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} };
+    out.priceIos = price();
+    window.Capacitor = keep.cap;
+    PROMO_CODES.LAUNCH100.expires = '2020-01-01';
+    out.priceExpired = price();
+    PROMO_CODES.LAUNCH100.expires = keep.exp;
+
+    // 6. Back up now is free; automatic stays Pro.
+    let uploads = 0;
+    window.DriveSync = Object.assign({}, keep.drive, { isConfigured: () => true, isSignedIn: () => true, isHidden: () => false,
+      getStatus: () => ({ state: 'idle' }), getAccountEmail: () => '', uploadEncryptedRecord: async () => { uploads++; } });
+    state.proTrialStartedAt = Date.now() - 20 * 864e5; state.pro = false; state.driveAutoSync = true;
+    save(); await new Promise((r) => setTimeout(r, 50));
+    renderDriveCard();
+    out.backup = { nowDisabled: $id('btn-drive-sync-now').disabled, autoShownOn: $id('drive-auto-sync').checked,
+      hint: $id('drive-pro-hint').hidden ? '' : $id('drive-pro-hint').textContent.replace(/\s+/g, ' ').trim() };
+    $id('btn-drive-sync-now').click();
+    await new Promise((r) => setTimeout(r, 100));
+    out.backup.manualUploads = uploads; out.backup.manualPaywall = paywall();
+    scheduleDriveUpload(); out.backup.autoScheduled = driveUploadTimer != null;
+    await runDriveUpload(); out.backup.autoUploads = uploads - out.backup.manualUploads;
+    $id('drive-auto-sync').checked = true; $id('drive-auto-sync').dispatchEvent(new Event('change'));
+    out.backup.togglePaywall = paywall(); out.backup.toggleReason = $id('paywall-reason').textContent;
+    out.backup.toggleStays = $id('drive-auto-sync').checked;
+    closePaywall();
+    // In the trial's last days, with auto-backup on, the banner says it stops.
+    state.proTrialStartedAt = Date.now() - (TRIAL_DAYS - 0.5) * 864e5;
+    out.backup.warn = trialEndText();
+    if (driveUploadTimer) { clearTimeout(driveUploadTimer); driveUploadTimer = null; }
+    window.DriveSync = keep.drive;
+
+    if (usage == null) localStorage.removeItem('duitful-trial-usage'); else localStorage.setItem('duitful-trial-usage', usage);
+    const t = document.getElementById('toast'); if (t) t.textContent = '';
+    Object.assign(state, coerceState(JSON.parse(snap))); save(); renderAll(); renderDriveCard();
+    return out;
+  });
+  check('opt-in trial: the paywall offers "Try Pro free for 14 days" to someone who never had one, and nothing starts until the tap',
+    nb.offer.shown && nb.offer.text === 'Try Pro free for 14 days' && nb.offer.proBefore === false, JSON.stringify(nb.offer));
+  check('opt-in trial: the tap starts it, closes the paywall and says it ends in 14 days, nothing is charged, nothing is deleted',
+    nb.started.at && nb.started.pro && nb.started.closed && /ends in 14 days/.test(nb.started.toast)
+    && /Nothing is charged/.test(nb.started.toast) && /nothing you add is deleted/.test(nb.started.toast), JSON.stringify(nb.started));
+  check('opt-in trial: offered once — not after a trial, not to Pro; an old 7-day vault keeps its trial with the longer window',
+    nb.offerAgain === false && nb.offerPro === false && nb.oldVaultStillTrial, JSON.stringify(nb));
+  check('two days left: the banner names what changes for this person (goals and pools over the limit stay, scans back to 5) and that nothing is deleted',
+    nb.daysLeft === 2 && nb.warn.shown && nb.warn.kind === 'trial' && /2 days left/.test(nb.warn.sub)
+    && /can't add more goals \(your 7 stay; Free adds up to 5 goals\)/.test(nb.warn.sub) && /budget pools \(your 2 stay/.test(nb.warn.sub)
+    && /scans go back to 5 a month/.test(nb.warn.sub) && /Nothing is deleted/.test(nb.warn.sub) && !/debts|holdings|backup/.test(nb.warn.sub), JSON.stringify(nb.warn));
+  check('two days left with nothing over a limit: it says nothing changes; earlier in the trial there is no warning',
+    /Nothing you use changes/.test(nb.warnNothing) && !/After that/.test(nb.midTrial) && /left of full Pro access/.test(nb.midTrial), JSON.stringify([nb.warnNothing, nb.midTrial]));
+  check('free limit counters: "2 of 3 free debts used" (Islamic financing not counted), goals and holdings by their add buttons',
+    /^2 of 3 free debts used/.test(nb.counts.debts) && nb.counts.savings === '1 of 5 free goals used' && nb.counts.investments === '0 of 3 free holdings used', JSON.stringify(nb.counts));
+  check('free limit counters: over the limit says yours stay; Pro and the trial see no counter',
+    /^7 goals · Free adds up to 5\. Yours stay\./.test(nb.countOver) && nb.countTrial === null && nb.countPro === null, JSON.stringify(nb));
+  const same = (p, want) => p.label === want && p.paywall === want && p.banner.includes(want) && p.link === want;
+  check('one price on the web: banner, links and paywall all say RM 14.90, labelled "Launch price until 14 May 2027", for someone who never had a trial',
+    same(nb.priceWeb, 'RM 14.90') && /^Launch price until 14 May 2027/.test(nb.priceWeb.sub) && !/trial/i.test(nb.priceWeb.hint)
+    && /LAUNCH100/.test(nb.priceWeb.hint) && nb.fpxCode === 'LAUNCH100', JSON.stringify([nb.priceWeb, nb.fpxCode]));
+  check('one price on Android: the launch SKU, RM 14.90 everywhere; on iPhone RM 19.90 everywhere and no code',
+    same(nb.priceAndroid, 'RM 14.90') && nb.priceAndroid.sku === 'duitful_pro_launch' && /^Launch price until 14 May 2027/.test(nb.priceAndroid.sub)
+    && same(nb.priceIos, 'RM 19.90') && nb.priceIos.sku === 'duitful_pro' && !/LAUNCH|Launch/.test(nb.priceIos.sub + nb.priceIos.hint), JSON.stringify([nb.priceAndroid, nb.priceIos]));
+  check('one price after the launch price ends: RM 19.90 everywhere, no code mentioned',
+    same(nb.priceExpired, 'RM 19.90') && !/LAUNCH100/.test(nb.priceExpired.hint), JSON.stringify(nb.priceExpired));
+  check('manual backup is free: Back up now uploads for a free user with no paywall',
+    nb.backup.nowDisabled === false && nb.backup.manualUploads === 1 && nb.backup.manualPaywall === false, JSON.stringify(nb.backup));
+  check('automatic backup is Pro: nothing is scheduled or uploaded on its own, the switch shows off and opens the paywall, which says Back up now stays free',
+    nb.backup.autoScheduled === false && nb.backup.autoUploads === 0 && nb.backup.autoShownOn === false && /Automatic sync is off/.test(nb.backup.hint)
+    && nb.backup.togglePaywall && nb.backup.toggleStays === false && /Back up now and Export CSV in Settings stay free/.test(nb.backup.toggleReason)
+    && /automatic backup stops \(Back up now still works\)/.test(nb.backup.warn), JSON.stringify(nb.backup));
+
+  // 3. A free user's own CSV — more goals, holdings and pools than Free adds — imports whole.
+  const imp = await S(async () => {
+    const snap = JSON.stringify(state);
+    state.pro = true;
+    state.savings = Array.from({ length: 7 }, (_, i) => ({ id: 'ig' + i, name: 'Goal ' + i, target: 100 + i, current: i }));
+    state.investments = Array.from({ length: 5 }, (_, i) => {
+      const h = coerceInvestment({ name: 'Holding ' + i, kind: 'balance', account: 'Other', balance: 1000 + i });
+      h.flows = [{ date: '2026-10-01', amount: h.balance }]; h.valuations = [{ date: '2026-10-01', value: h.balance }];
+      return h;
+    });
+    state.budgetPools = state.budgetPools.filter((p) => p.system === 'debt').concat([
+      { id: 'ip1', name: 'Food', limit: 500, active: true, rollover: true, monthlyLimits: { '2026-11': 650 } },
+      { id: 'ip2', name: 'Fun', limit: 200, active: false, rollover: false, monthlyLimits: {} },
+      { id: 'ip3', name: 'Travel', limit: 900, active: false, rollover: true, monthlyLimits: {} }]);
+    state.dailyExpenses = [{ id: 'ie1', date: '2026-11-03', amount: 12.5, note: 'Lunch', category: 'Food', budgetPoolId: 'ip3', budgetPoolName: 'Travel' }];
+    const csv = toCSV();
+    const holdings = state.investments.length;
+    // Now a free user (trial long over) with an empty vault imports that file.
+    state.pro = false; state.proTrialStartedAt = Date.now() - 30 * 864e5;
+    state.ocrUsage = { month: currentMonthISO(), scans: 4 };
+    state.savings = []; state.investments = []; state.dailyExpenses = [];
+    state.budgetPools = state.budgetPools.filter((p) => p.system === 'debt');
+    const said = [];
+    const done = await importCsvFile(new File([csv], 'mine.csv', { type: 'text/csv' }), { ask: false, onError: (m) => said.push(m) });
+    const pools = state.budgetPools.filter((p) => p.system !== 'debt');
+    const food = pools.find((p) => p.name === 'Food'), travel = pools.find((p) => p.name === 'Travel');
+    const lunch = state.dailyExpenses.find((e) => e.note === 'Lunch');
+    const out = { done, said, pro: isPro(), paywall: document.getElementById('paywall-dialog').open,
+      goals: state.savings.length, holdings: state.investments.length, wantHoldings: holdings, pools: pools.length,
+      rollover: !!(food && food.rollover) && !!(travel && travel.rollover), override: food && food.monthlyLimits && food.monthlyLimits['2026-11'],
+      tagged: !!(lunch && travel && lunch.budgetPoolId === travel.id), scansKept: state.ocrUsage && state.ocrUsage.scans,
+      trialKept: state.proTrialStartedAt > 0 };
+    // …and the limits still stop adding afterwards.
+    document.querySelector('#form-saving [name="name"]').value = 'One more';
+    document.querySelector('#form-saving [name="target"]').value = '50';
+    document.getElementById('form-saving').requestSubmit();
+    out.addBlocked = state.savings.length === out.goals && document.getElementById('paywall-dialog').open;
+    closePaywall(); document.getElementById('form-saving').reset();
+    Object.assign(state, coerceState(JSON.parse(snap))); save(); renderAll();
+    return out;
+  });
+  check('a free user\'s own CSV with 7 goals, 5 holdings and 3 pools imports whole: nothing refused, nothing trimmed, no paywall',
+    imp.done === true && !imp.pro && !imp.paywall && imp.said.length === 0 && imp.goals === 7 && imp.holdings === 5 && imp.wantHoldings === 5 && imp.pools === 3, JSON.stringify(imp));
+  check('the import keeps pool rollover, per-month limits and entry tags, and neither scan usage nor a used trial is reset',
+    imp.rollover && imp.override === 650 && imp.tagged && imp.scansKept === 4 && imp.trialKept, JSON.stringify(imp));
+  check('after the import the limit still stops adding: an 8th goal opens the paywall', imp.addBlocked === true, JSON.stringify(imp));
 }
 
 /* ── First week pacing: no pitch on day one, no cold permission prompt ──
@@ -5444,7 +5642,7 @@ check('and what was typed reaches the home screen calculation',
   const pools = await S(async () => {
     const saved = { pro: state.pro, trial: state.proTrialStartedAt, pools: state.budgetPools };
     const m = currentMonthISO();
-    state.pro = false; state.proTrialStartedAt = Date.now() - 9 * 864e5;
+    state.pro = false; state.proTrialStartedAt = Date.now() - 15 * 864e5;
     state.budgetPools = saved.pools.filter((p) => p.system === 'debt').concat([
       { id: 'pr', name: 'Rolls', limit: 300, color: POOL_COLORS[0], active: false, rollover: true, monthlyLimits: {}, createdAt: 1 },
       { id: 'po', name: 'Overridden', limit: 300, color: POOL_COLORS[0], active: false, rollover: false, monthlyLimits: { [m]: 500 }, createdAt: 2 },
@@ -6175,7 +6373,7 @@ check('the vault is open before the quick-add checks',
     const free = await fp2.evaluate(async () => {
       const wait = (ms) => new Promise((r) => setTimeout(r, ms));
       document.querySelectorAll('dialog[open]').forEach((d) => d.close());
-      state.pro = false; state.proTrialStartedAt = Date.now() - 8 * 86400000; save(); renderAll();
+      state.pro = false; state.proTrialStartedAt = Date.now() - 15 * 86400000; save(); renderAll();
       const paywall = () => document.getElementById('paywall-dialog').open;
       const form = document.getElementById('form-debt');
       const addStandard = (name) => {
@@ -9692,10 +9890,15 @@ check('the brand catalogue makes no network calls at all',
   const gated = await S(async () => {
     const real = window.isPro; window.isPro = () => false;
     const before = window.__fakeICloud.writes;
-    try { await runDriveUpload('icloud'); } finally { window.isPro = real; }
-    return window.__fakeICloud.writes - before;
+    let auto, manual;
+    try {
+      await runDriveUpload(); auto = window.__fakeICloud.writes - before;            // automatic: Pro
+      await runDriveUpload('icloud'); manual = window.__fakeICloud.writes - before - auto;   // Back up now: free
+    } finally { window.isPro = real; }
+    return { auto, manual };
   });
-  check('backing up stays a Pro feature, as with Drive', gated === 0, String(gated));
+  check('automatic backup stays a Pro feature, as with Drive; Back up now is free',
+    gated.auto === 0 && gated.manual === 1, JSON.stringify(gated));
 
   const off = await S(() => { state.icloudBackup = false; const a = activeClouds(); state.icloudBackup = true; return a; });
   check('switching iCloud off stops saves going there', !off.includes('icloud'), JSON.stringify(off));

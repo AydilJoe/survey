@@ -120,8 +120,9 @@ doesn't recognise a key skips it rather than failing the import.
 ## Free and Pro
 
 Pro is a **one-time RM 19.90**, not a subscription, and the same gate applies
-on the web app and inside the native shell. Every new vault gets a 7-day Pro
-trial.
+on the web app and inside the native shell. A 14-day Pro trial is opt-in
+("Try Pro free for 14 days" on the paywall), never automatic. The limits only
+stop adding: your own data always imports and restores whole.
 
 | | Free | Pro |
 | --- | --- | --- |
@@ -132,6 +133,7 @@ trial.
 | Savings goals | 5 | unlimited |
 | Investment holdings | 3 | unlimited |
 | Receipt scans | 5 per month | unlimited |
+| Back up now (manual iCloud / Drive backup), restore | ✓ | ✓ |
 | Automatic iCloud / Drive backup | — | ✓ |
 | Budget pools (rollover, monthly limits) | 1 | ✓ |
 | Entries in other currencies | — | ✓ |

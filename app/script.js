@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.11";
+const APP_VERSION = "1.55.12";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -3834,7 +3834,41 @@ function backupPlaceName() {
   return "iCloud or Google Drive";
 }
 
+// What ends with the trial, for this person only: built from what they use,
+// never a generic list. Limits only stop adding, so what they have stays.
+const TRIAL_WARN_DAYS = 2;
+function trialEndChanges() {
+  const out = [];
+  let autoBackup = false;
+  try { autoBackup = activeClouds().length > 0; } catch { /* cloud code not loaded yet */ }
+  if (autoBackup) out.push("automatic backup stops (Back up now still works)");
+  const over = (have, limit, one, many) => {
+    if (have > limit) out.push(`you can't add more ${many} (your ${have} stay; Free adds up to ${limit} ${limit === 1 ? one : many})`);
+  };
+  over(countedDebts(), FREE_DEBT_LIMIT, "debt", "debts");
+  over(state.savings.length, FREE_SAVING_LIMIT, "goal", "goals");
+  over(typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "holding", "holdings");
+  over(userBudgetPoolCount(), 1, "budget pool", "budget pools");
+  if ((Number(trialUsage().scans) || 0) > 0) out.push(`receipt scans go back to ${FREE_OCR_MONTHLY} a month`);
+  return out;
+}
+function trialEndText() {
+  const c = trialEndChanges();
+  if (!c.length) return "Nothing you use changes when it ends, and nothing is deleted.";
+  const list = c.length === 1 ? c[0] : c.slice(0, -1).join(", ") + " and " + c[c.length - 1];
+  return `After that, ${list}. Nothing is deleted.`;
+}
+
+// Every in-app price mention reads from proPriceLabel(), so a banner never
+// quotes a figure the paywall then contradicts.
+function applyProPriceText() {
+  const label = proPriceLabel();
+  document.querySelectorAll("[data-pro-price]").forEach((el) => { el.textContent = label; });
+}
+
 function renderTrialBanner() {
+  applyProPriceText();
+  renderFreeCounts();
   const banner = document.getElementById("trial-banner");
   if (!banner) return;
   const kind = proNudgeKind();
@@ -3850,21 +3884,25 @@ function renderTrialBanner() {
   if (later) later.hidden = kind === "trial";
   if (kind === "trial") {
     const left = trialDaysLeft();
+    const days = `${left} day${left === 1 ? "" : "s"}`;
     if (title) title.textContent = "Pro trial active";
-    if (sub) sub.textContent = `${left} day${left === 1 ? "" : "s"} left of full Pro access — keep it forever for RM 19.90.`;
+    // In the last two days, say what ends for this person before it ends.
+    if (sub) sub.textContent = left <= TRIAL_WARN_DAYS
+      ? `${days} left. ${trialEndText()} Keep Pro for ${proPriceLabel()}, once.`
+      : `${days} left of full Pro access — keep it forever for ${proPriceLabel()}.`;
     if (cta) cta.textContent = "Unlock forever";
   } else if (kind === "recap") {
     if (title) title.textContent = "Your Pro trial ended";
     const recap = trialRecapText();
     if (sub) sub.textContent = recap
-      ? `${recap} Keep it for RM 19.90, once.`
-      : `Automatic backup is off now. Keep it, and the rest of Pro, for RM 19.90, once.`;
+      ? `${recap} Keep it for ${proPriceLabel()}, once.`
+      : `Automatic backup is off now; Back up now still works. Keep Pro for ${proPriceLabel()}, once.`;
     if (cta) cta.textContent = "Keep Pro";
   } else {
     const n = proEntryCount();
     if (title) title.textContent = "Only on this phone";
-    if (sub) sub.textContent = `Lose the phone and your ${n} entries are gone. Pro backs up to ${backupPlaceName()} automatically, encrypted.`;
-    if (cta) cta.textContent = "Back up with Pro";
+    if (sub) sub.textContent = `Lose the phone and your ${n} entries are gone. Back up now in Settings is free; Pro backs up to ${backupPlaceName()} automatically, encrypted.`;
+    if (cta) cta.textContent = "Back up automatically";
   }
 }
 document.getElementById("trial-banner-cta")?.addEventListener("click", () => {
@@ -5015,28 +5053,42 @@ const installmentCount = () => (state.debts || []).filter((d) => d.kind === "ins
 const FREE_SAVING_LIMIT = 5;
 const FREE_INVESTMENT_LIMIT = 3;
 const FREE_OCR_MONTHLY = 5;
-const TRIAL_DAYS = 7;
+const TRIAL_DAYS = 14;
 const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
-// Auto-starts a 7-day Pro trial the first time a user lands on the app
-// (post-unlock). Re-installing the app resets the trial — that's an
-// accepted abuse window for a privacy-first app where there's no
-// account / no server-side ledger to enforce one-trial-per-user.
+// The 14-day Pro trial (TRIAL_DAYS) is opt-in: nobody is put on it without asking, so
+// nobody has features taken away that they never chose to try. It starts
+// only from the paywall's "Try Pro free for 14 days" (startProTrial). Vaults
+// from when the trial began on first unlock keep their proTrialStartedAt
+// and behave as before, with the longer window (it was 7 days; nobody's
+// trial is ever shortened). Re-installing the app resets the trial — an
+// accepted abuse window for a privacy-first app with no account and no
+// server-side ledger to enforce one trial per person.
+// This function now only records firstRunAt.
 function ensureTrialStarted() {
   if (!state || !aesKey) return;
-  // Vaults from before firstRunAt existed date from their trial, which began
-  // on their first unlock; failing that, from now. Either way they're long
+  // Vaults from before firstRunAt existed date from their trial, which then
+  // began on their first unlock; failing that, from now. Either way they're long
   // past the first-week pacing, so the reminders ask reaches them once too.
   if (!state.firstRunAt) {
     state.firstRunAt = state.proTrialStartedAt || Date.now();
     save();
   }
-  if (state.pro) return;
-  if (!state.proTrialStartedAt) {
-    state.proTrialStartedAt = Date.now();
-    save();
-  }
 }
+// Offered once: to someone who isn't Pro and has never had a trial.
+function canStartTrial() {
+  return !!(state && !state.pro && !state.proTrialStartedAt);
+}
+function startProTrial() {
+  if (!canStartTrial()) return false;
+  state.proTrialStartedAt = Date.now();
+  save();
+  closePaywall();
+  renderAll();
+  toast(`Pro trial started. It ends in ${TRIAL_DAYS} days. Nothing is charged, and nothing you add is deleted afterwards.`);
+  return true;
+}
+document.getElementById("paywall-trial")?.addEventListener("click", startProTrial);
 // Calendar days since a timestamp: 0 on the same day, 1 tomorrow. Counted by
 // date, not 24-hour blocks, so "day 2" starts at midnight the way a person
 // would count it.
@@ -5066,7 +5118,7 @@ function trialExpired() {
 }
 
 function isPro() {
-  // Real Pro (paid) OR within the 7-day trial window. Both surfaces share
+  // Real Pro (paid) OR within the trial window. Both surfaces share
   // this gate. state.pro = true means user has actually paid via IAP / license.
   return !!(state && (state.pro || isTrialActive()));
 }
@@ -5108,6 +5160,69 @@ function gate(feature) {
   return false;
 }
 
+// Debts that count toward the free limit: Islamic financing never does.
+function countedDebts() {
+  return (state.debts || []).filter((d) => d.kind !== "islamic").length;
+}
+// Budget pools the user made (the system Debt pool isn't one).
+function userBudgetPoolCount() {
+  return (state.budgetPools || []).filter((p) => p.system !== "debt").length;
+}
+// "2 of 3 free debts used": the limit, shown by the add control before the
+// wall is hit. "" for Pro and the trial. Someone over the limit (kept from
+// Pro, a trial or an import) reads "7 goals · Free adds up to 5".
+function freeCountText(kind) {
+  if (!state || isPro()) return "";
+  const c = {
+    debts: [countedDebts(), FREE_DEBT_LIMIT, "debts"],
+    savings: [state.savings.length, FREE_SAVING_LIMIT, "goals"],
+    investments: [typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "holdings"],
+  }[kind];
+  if (!c) return "";
+  const [used, limit, noun] = c;
+  if (used > limit) return `${used} ${noun} · Free adds up to ${limit}. Yours stay.`;
+  const text = `${used} of ${limit} free ${noun} used`;
+  return kind === "debts" ? `${text} · Islamic financing doesn't count` : text;
+}
+function renderFreeCounts() {
+  document.querySelectorAll("[data-free-count]").forEach((el) => {
+    const t = freeCountText(el.dataset.freeCount);
+    el.textContent = t;
+    el.hidden = !t;
+  });
+}
+
+/* One honest price. LAUNCH100 is a launch price with a real end date, for
+   everyone who isn't Pro, wherever codes are allowed: the Android app (the
+   launch SKU, applied automatically) and the Malaysian web checkout (the
+   code is filled in for Billplz). The iPhone app sells one price, no codes
+   (App Store 3.1.1). proPriceLabel() is the price this person will see on
+   the paywall here; banners and links quote it and nothing else. */
+const PRO_PRICE_LABEL = "RM 19.90";
+function launchPromo() {
+  try { return lookupPromoCode("LAUNCH100"); } catch { return null; }
+}
+function launchPriceApplies() {
+  if (!launchPromo()) return false;
+  if (isNative()) return nativePlatform() !== "ios";
+  return paysWithBillplz();
+}
+function proPriceLabel() {
+  return launchPriceApplies() ? launchPromo().priceLabel : PRO_PRICE_LABEL;
+}
+// "14 May 2027" from "2027-05-14".
+function promoEndDateText(promo) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((promo && promo.expires) || "");
+  if (!m) return "";
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${Number(m[3])} ${months[Number(m[2]) - 1]} ${m[1]}`;
+}
+// "Launch price until 14 May 2027"
+function promoLabelText(promo) {
+  const end = promoEndDateText(promo);
+  return end ? `${promo.label} until ${end}` : promo.label;
+}
+
 /* paywall modal */
 const PAYWALL_COPY = {
   debts: `Free tracks ${FREE_DEBT_LIMIT} debts. Pro tracks every one.`,
@@ -5115,7 +5230,7 @@ const PAYWALL_COPY = {
   savings: `You've hit the free limit of ${FREE_SAVING_LIMIT} goals. Pro tracks unlimited.`,
   investments: `You've hit the free limit of ${FREE_INVESTMENT_LIMIT} investment holdings. Pro tracks unlimited.`,
   ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
-  cloudBackup: "Automatic backup to iCloud or Google Drive is a Pro feature. Export CSV in Settings stays free.",
+  cloudBackup: "Automatic backup to iCloud or Google Drive is a Pro feature. Back up now and Export CSV in Settings stay free.",
   multiCurrency: "Multi-currency entry is a Pro feature.",
   budgetPools: "Multi-pool budgeting is a Pro feature.",
   budgetPoolsRollover: "Rollover is a Pro feature — carry unspent budget into the next month.",
@@ -5140,7 +5255,7 @@ function openPaywall(feature) {
   // Everyone else on the web buys through the phone app's store.
   const billplz = !native && paysWithBillplz();
   if (reason) reason.textContent = feature === "cloudBackup"
-    ? `Automatic encrypted backup to ${backupPlaceName()} is a Pro feature. Export CSV in Settings stays free.`
+    ? `Automatic encrypted backup to ${backupPlaceName()} is a Pro feature. Back up now and Export CSV in Settings stay free.`
     : PAYWALL_COPY[feature] || "Unlock everything. Pay once.";
   if (hint) hint.textContent = native
     ? ""
@@ -5161,6 +5276,12 @@ function openPaywall(feature) {
   const stores = document.getElementById("paywall-stores");
   if (stores) stores.hidden = native || billplz;
   if (activateBtn) activateBtn.hidden = native;
+  // The opt-in trial: once per vault, on every platform.
+  const trialBtn = document.getElementById("paywall-trial");
+  if (trialBtn) {
+    trialBtn.hidden = !canStartTrial();
+    trialBtn.textContent = `Try Pro free for ${TRIAL_DAYS} days`;
+  }
 
   // Promo-code section: native-only (web checkout already handles discounts via Billplz).
   // Not on iOS (guideline 3.1.1): the App Store build sells one price.
@@ -5182,20 +5303,19 @@ function openPaywall(feature) {
     if (launch) applyPromoUI(launch);
   }
 
-  // Trial / launch-promo nudge: any user who onboarded during the trial
-  // cohort (proTrialStartedAt set) gets LAUNCH100 auto-applied on native
-  // so they hit the discounted SKU at conversion. Web checkout doesn't
-  // use PROMO_CODES (Billplz applies the discount server-side), so we
-  // surface a hint there instead.
-  if (state && state.proTrialStartedAt && !state.pro) {
+  // Launch price: the same for everyone who isn't Pro, trial or not. The
+  // Android app charges the launch SKU; the web checkout gets the code
+  // filled in (Billplz applies it server-side). Never on iOS.
+  if (state && !state.pro && launchPriceApplies()) {
+    const launch = launchPromo();
     if (native) {
-      if (!activePromo) {
-        const launch = lookupPromoCode("LAUNCH100");
-        if (launch) applyPromoUI(launch);
-      }
-    } else if (billplz) {
-      const hint = document.getElementById("paywall-hint");
-      if (hint) hint.textContent = "Use code LAUNCH100 at checkout for RM 5.00 off — trial-period promo.";
+      if (!activePromo) applyPromoUI(launch);
+    } else {
+      const priceAmount = document.getElementById("paywall-price-amount");
+      const priceSub = document.getElementById("paywall-price-sub");
+      if (priceAmount) priceAmount.textContent = launch.priceLabel;
+      if (priceSub) priceSub.textContent = `${promoLabelText(launch)} · one-time`;
+      if (hint) hint.textContent += ` Code ${launch.code} is filled in at checkout: ${launch.priceLabel} instead of ${PRO_PRICE_LABEL}.`;
     }
   }
 
@@ -5219,7 +5339,7 @@ function resetPromoState() {
   if (input) input.value = "";
   if (status) { status.textContent = ""; status.hidden = true; }
   if (toggle) { toggle.textContent = "Have a promo code?"; toggle.hidden = false; }
-  if (priceAmount) priceAmount.textContent = "RM 19.90";
+  if (priceAmount) priceAmount.textContent = PRO_PRICE_LABEL;
   if (priceSub) priceSub.textContent = "one-time · no subscription";
   if (buyBtn) buyBtn.textContent = "Unlock Pro";
 }
@@ -5255,11 +5375,11 @@ function applyPromoUI(promo) {
   const priceAmount = document.getElementById("paywall-price-amount");
   const priceSub = document.getElementById("paywall-price-sub");
   const buyBtn = document.getElementById("paywall-buy");
-  if (status) { status.textContent = `✓ ${promo.code} applied — ${promo.label}`; status.hidden = false; }
+  if (status) { status.textContent = `✓ ${promo.code} applied — ${promoLabelText(promo)}`; status.hidden = false; }
   if (form) form.hidden = true;
   if (toggle) toggle.textContent = `Remove ${promo.code}`;
   if (priceAmount) priceAmount.textContent = promo.priceLabel;
-  if (priceSub) priceSub.textContent = `${promo.label} · one-time`;
+  if (priceSub) priceSub.textContent = `${promoLabelText(promo)} · one-time`;
   if (buyBtn) buyBtn.textContent = `Unlock Pro — ${promo.priceLabel}`;
 }
 function closePaywall() {
@@ -5539,7 +5659,7 @@ const PRODUCT_ID = "duitful_pro";
 const PROMO_CODES = {
   LAUNCH100: {
     sku: "duitful_pro_launch",
-    label: "Launch promo",
+    label: "Launch price",
     priceLabel: "RM 14.90",
     expires: "2027-05-14",
   },
@@ -5959,7 +6079,7 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
     const outcome = await purchasePro(sku);
     if (outcome.ok) {
       // Read the price before closePaywall() resets the applied promo.
-      const paidLabel = activePromo ? activePromo.priceLabel : "RM 19.90";
+      const paidLabel = activePromo ? activePromo.priceLabel : PRO_PRICE_LABEL;
       closePaywall();
       openProWelcome(paidLabel);
     } else if (outcome.cancelled) {
@@ -6453,9 +6573,9 @@ document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async (
         // link itself still rides along as navigator.share's `url`.
         const platform = nativePlatform();
         const text = platform === "android"
-          ? `Try Duitful — privacy-first money tracker for Malaysia. Free 7-day Pro trial, plus RM 5 off if you use my code: ${code}\n\nGet it on Google Play: https://play.google.com/store/apps/details?id=com.aydiljoe.duitful\nOr web: ${url}`
+          ? `Try Duitful — privacy-first money tracker for Malaysia. Free ${TRIAL_DAYS}-day Pro trial, plus RM 5 off if you use my code: ${code}\n\nGet it on Google Play: https://play.google.com/store/apps/details?id=com.aydiljoe.duitful\nOr web: ${url}`
           : platform === "ios"
-            ? `Try Duitful — privacy-first money tracker for Malaysia. Free 7-day Pro trial, plus RM 5 off if you use my code: ${code}`
+            ? `Try Duitful — privacy-first money tracker for Malaysia. Free ${TRIAL_DAYS}-day Pro trial, plus RM 5 off if you use my code: ${code}`
             : "I've been using Duitful to track my spending and pay off debts. Try it:";
         await navigator.share({
           title: "Duitful — privacy-first money tracker",
@@ -6528,6 +6648,8 @@ function openFpxDialog() {
   if (promoInput && !promoInput.value) {
     const stashed = storedPromoCode();
     if (stashed) promoInput.value = stashed;
+    // Otherwise the launch price, which the paywall just quoted.
+    else if (state && !state.pro && launchPriceApplies()) promoInput.value = launchPromo().code;
   }
   if (dlg) { try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); } }
   setTimeout(() => document.getElementById("fpx-email")?.focus(), 50);
@@ -7613,7 +7735,7 @@ $("#form-debt").addEventListener("submit", (e) => {
   if (!name) return;
   // Pro gates. Islamic financing is never gated and never counted.
   if (kind !== "islamic") {
-    const counted = state.debts.filter((d) => d.kind !== "islamic").length;
+    const counted = countedDebts();
     if (kind === "installment" && installmentCount() >= FREE_INSTALLMENT_LIMIT && !gate("installment")) return;
     if (counted >= FREE_DEBT_LIMIT && !gate("debts")) return;
   }
@@ -9213,36 +9335,9 @@ function fromCSV(text) {
     next.budgetPools = next.budgetPools.filter((p) => p === canonical || p.system !== "debt");
   }
 
-  // Enforce free-tier limits for non-Pro users.
-  // Even if the CSV came from a Pro user with multiple pools / rollover / overrides,
-  // a free user importing it should NOT inherit Pro features.
-  if (typeof isPro === "function" && !isPro()) {
-    // Cap user pools to 1 (system Debt pool doesn't count).
-    let userPoolsKept = 0;
-    const droppedPoolIds = [];
-    next.budgetPools = next.budgetPools.filter((p) => {
-      if (p.system === "debt") return true;
-      if (userPoolsKept >= 1) {
-        droppedPoolIds.push(p.id);
-        return false;
-      }
-      userPoolsKept++;
-      return true;
-    });
-    // Soft-delete dropped pools' tagged entries (keep budgetPoolName for display, clear id)
-    for (const e of next.dailyExpenses) {
-      if (droppedPoolIds.includes(e.budgetPoolId)) e.budgetPoolId = "";
-    }
-    for (const x of next.expenses) {
-      if (droppedPoolIds.includes(x.budgetPoolId)) x.budgetPoolId = "";
-    }
-    // Clear Pro-only pool features on remaining pools
-    for (const p of next.budgetPools) {
-      if (p.system === "debt") continue;
-      p.rollover = false;
-      p.monthlyLimits = {};
-    }
-  }
+  // No free-tier trimming here. A person's own data always imports whole:
+  // every pool, its rollover and per-month limits, every goal and holding.
+  // The free limits only stop *adding* afterwards (the form gates).
 
   // Single-active invariant — keep first active, force the rest to false
   let firstActiveSeen = false;
@@ -9358,33 +9453,23 @@ async function importCsvFile(file, { ask = true, statusEl = null, onError = null
     const text = await file.text();
     const next = fromCSV(text);
 
-    // CSV import is a wholesale state replacement. Without these guards a
-    // free user could (a) hand-craft a CSV with N>limit debts/savings to
-    // bypass the form gates, or (b) re-import their own export to reset
-    // ocrUsage and earn fresh free scans. Block before confirm so the
-    // paywall is the user's next prompt, not a destructive overwrite.
-    if (!isPro()) {
-      if (next.savings.length > FREE_SAVING_LIMIT) {
-        say(`CSV has ${next.savings.length} savings goals — free tier covers ${FREE_SAVING_LIMIT}. Unlock Pro to import the full file.`);
-        openPaywall("savings");
-        return false;
-      }
-      if ((next.investments || []).length > FREE_INVESTMENT_LIMIT) {
-        say(`CSV has ${next.investments.length} investment holdings — free tier covers ${FREE_INVESTMENT_LIMIT}. Unlock Pro to import the full file.`);
-        openPaywall("investments");
-        return false;
-      }
-    }
-
+    // CSV import is a wholesale state replacement, and it is never refused
+    // or trimmed for being over a free limit: the file is the person's own
+    // data (kept from Pro, a trial, or another device). Limits only stop
+    // adding afterwards.
     if (ask && !confirm("Replace all current data with the CSV contents?")) return false;
 
     // Entitlements + per-device identity are not part of the CSV payload —
     // preserve them across import so a Pro user doesn't lose their unlock
-    // and so ocrUsage / deviceId can't be reset by re-importing.
+    // and so ocrUsage / deviceId (and a used trial) can't be reset by
+    // re-importing.
     next.pro = state.pro;
     next.license = state.license;
     next.deviceId = state.deviceId;
     next.ocrUsage = state.ocrUsage;
+    next.proTrialStartedAt = state.proTrialStartedAt;
+    next.firstRunAt = state.firstRunAt;
+    next.proNudgeUntil = state.proNudgeUntil;
 
     state = next;
     save();
@@ -9699,7 +9784,7 @@ const GUIDE_STEPS = [
     title: "Scan a receipt",
     sub: "Snap it, we read the amount.",
     body: `<p>Tap <strong>Scan receipt</strong> to take a photo (or pick one from your gallery). Duitful reads the total on-device — the image never leaves your phone.</p>
-      <p>Free includes 5 scans a month; Pro and your 7-day trial scan without a limit.</p>`,
+      <p>Free includes 5 scans a month; Pro scans without a limit, and so does the optional ${TRIAL_DAYS}-day trial.</p>`,
     tab: "dashboard",
     target: "#btn-scan",
   },
@@ -10520,6 +10605,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.12": [
+    "<strong>No surprises with Pro</strong> — the Pro trial now starts only if you choose it, and runs 14 days, and before it ends Home says exactly what changes for you. Back up now is free for everyone (automatic backup stays Pro). Importing your own CSV always brings everything back. You can see how many free debts, goals and holdings you've used before you reach the limit.",
+  ],
   "1.55.11": [
     "<strong>One pay-later plan, free</strong> — track an Atome, SPayLater or Grab PayLater plan on the free tier (it counts as one of your 3 debts). Pro tracks every plan.",
   ],
@@ -14731,7 +14819,11 @@ function scheduleDriveUpload() {
    active provider. One provider failing never stops the other; the first
    error is rethrown after both have been tried. */
 async function runDriveUpload(only) {
-  if (!isPro()) return; // pushes are Pro-only; restore is open to all
+  // Manual is free: `only` is set by a "Back up now" button, and that works
+  // for everyone. Automatic uploads (no `only`: after a save, on reconnect,
+  // on unlock) are Pro. Restore is open to all.
+  const manual = !!only;
+  if (!manual && !isPro()) return;
   const ids = only ? (cloudApi(only) ? [only] : []) : activeClouds();
   if (!ids.length) return;
   // iCloud writes a local file that syncs later, so it doesn't need a
@@ -14749,7 +14841,7 @@ async function runDriveUpload(only) {
     if (id === "drive" && !navigator.onLine) continue;
     try {
       await cloudApi(id).uploadEncryptedRecord(rec, props);
-      if (isTrialActive()) bumpTrialUsage("backups");
+      if (!manual && isTrialActive()) bumpTrialUsage("backups");
     }
     catch (err) { firstError = firstError || err; }
   }
@@ -14778,8 +14870,9 @@ async function checkDriveOnBoot() {
     .filter((id) => cloudApi(id) && (id !== "icloud" || state.icloudBackup !== false));
   if (!ids.length) return;
   // Restore prompt is allowed for anyone connected — that's how Pro itself
-  // flows from device A's backup to device B. Auto-upload is still Pro-only
-  // (gated inside scheduleDriveUpload).
+  // flows from device A's backup to device B. A restore is never trimmed to
+  // the free limits: the backup is the person's own data. Auto-upload is
+  // still Pro-only (gated inside scheduleDriveUpload).
   const local = state.lastEditedAt || "";
   let newest = null;
   let needsPush = false;
@@ -14862,7 +14955,7 @@ function applyDriveVisibility() {
   if (!driveHiddenHere()) return;
   document.querySelectorAll("[data-drive]").forEach((el) => { el.hidden = true; });
   document.querySelectorAll("[data-drive-text]").forEach((el) => { el.textContent = el.dataset.driveText; });
-  try { PAYWALL_COPY.cloudBackup = "Automatic backup to iCloud is a Pro feature. Export CSV in Settings stays free."; } catch { /* not defined yet at boot */ }
+  try { PAYWALL_COPY.cloudBackup = "Automatic backup to iCloud is a Pro feature. Back up now and Export CSV in Settings stay free."; } catch { /* not defined yet at boot */ }
 }
 
 function renderDriveCard() {
@@ -14926,12 +15019,10 @@ function renderDriveCard() {
       const lastLine = document.getElementById("icloud-last-synced");
       if (lastLine) {
         lastLine.textContent = restoreOnly ? "Restore only on the web. Back up with Google Drive or CSV."
-          : !pro ? "Back up to iCloud with Pro. Restoring is free."
+          : !pro ? `Automatic backup is off (Pro). Back up now and restoring are free. ${last ? `Last backed up ${formatRelative(last)}.` : "Not backed up yet."}`
           : last ? `Last backed up ${formatRelative(last)}.`
           : state.icloudBackup === false ? "Automatic backup is off." : "Not backed up yet.";
       }
-      const now = document.getElementById("btn-icloud-sync-now");
-      if (now) now.disabled = !pro;
     }
   }
 
@@ -14968,16 +15059,7 @@ function renderDriveCard() {
       auto.disabled = !pro;
     }
     const syncNow = document.getElementById("btn-drive-sync-now");
-    if (syncNow) {
-      syncNow.disabled = !pro;
-      syncNow.title = pro ? "" : "Pro feature — sign-in lets you restore a Pro backup from another device.";
-    }
-    const restoreBtn = document.getElementById("btn-drive-restore");
-    if (restoreBtn) {
-      // Promote Restore to primary on non-Pro devices since it's their main use case.
-      restoreBtn.classList.toggle("primary", !pro);
-      restoreBtn.classList.toggle("ghost", pro);
-    }
+    if (syncNow) { syncNow.disabled = false; syncNow.title = ""; }
     const proHint = document.getElementById("drive-pro-hint");
     if (proHint) proHint.hidden = pro;
   }
@@ -15013,8 +15095,8 @@ function renderDriveCard() {
     if (el) el.addEventListener("click", fn);
   };
   onClick("btn-drive-signin", async () => {
-    // Sign-in is open to all so non-Pro devices can restore a backup that
-    // contains Pro. Auto-upload and "Sync now" are still Pro-only.
+    // Sign-in is open to all: restoring and "Back up now" are free.
+    // Only automatic upload is Pro.
     try {
       await DriveSync.signIn();
       await checkDriveOnBoot();
@@ -15029,10 +15111,10 @@ function renderDriveCard() {
     renderDriveCard();
   });
   onClick("btn-drive-sync-now", async () => {
-    if (!isPro()) { gate("cloudBackup"); return; }
     try {
       await runDriveUpload("drive");
       renderDriveCard();
+      toast("Backed up to Google Drive.");
     } catch (err) {
       notify("Sync failed: " + (err.message || err));
     }
@@ -15043,7 +15125,6 @@ function renderDriveCard() {
     renderDriveCard();
   });
   onClick("btn-icloud-sync-now", async () => {
-    if (!isPro()) { gate("cloudBackup"); return; }
     try {
       await runDriveUpload("icloud");
       renderDriveCard();
@@ -15080,11 +15161,6 @@ function renderDriveCard() {
   bindToggle("drive-auto-sync", "driveAutoSync");
   bindToggle("icloud-auto", "icloudBackup");
 })();
-
-// Add cloudBackup paywall copy without modifying the const literal above.
-if (typeof PAYWALL_COPY !== "undefined") {
-  PAYWALL_COPY.cloudBackup = "Encrypted cloud backup is a Pro feature.";
-}
 
 if (window.DriveSync) DriveSync.subscribe(() => renderDriveCard());
 if (window.ICloudSync) ICloudSync.subscribe(() => { renderDriveCard(); renderLockRestore(); });
