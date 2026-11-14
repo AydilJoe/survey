@@ -51,7 +51,7 @@
     "@pantrist/capacitor-plugin-ml-kit-text-recognition": "^8.1.1",
     "@vercel/analytics": "^2.0.1",
     "@vercel/kv": "^3.0.0",
-    "cordova-plugin-purchase": "^13.19.1",
+    "cordova-plugin-purchase": "^13.20.0",
     "duitful-capacitor-icloud": "file:native/icloud-backup",
     "duitful-capacitor-kit": "file:native/duitful-kit"
   },
