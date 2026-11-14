@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.8";
+const APP_VERSION = "1.55.9";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4793,10 +4793,13 @@ if (prefAnnouncements) {
    can try everything. In the native Capacitor build, features are gated and
    unlocked with a one-time IAP (duitful_pro). */
 
-// Free covers what people install Duitful for: every debt and its payoff
-// date, pay-later plans, bill reminders, copying last month. Pro is for
-// doing more of it, effortlessly: automatic cloud backup, unlimited scans,
-// budget pools, other currencies, more goals and holdings.
+// Free covers 3 debts with their payoff date, bill reminders and copying
+// last month. Pro adds unlimited debts, pay-later plans (Atome, SPayLater),
+// automatic cloud backup, unlimited scans, budget pools, other currencies,
+// more goals and holdings. Islamic financing never counts toward the debt
+// limit and is never behind the paywall. The limits only stop adding: what
+// someone already has stays.
+const FREE_DEBT_LIMIT = 3;
 const FREE_SAVING_LIMIT = 5;
 const FREE_INVESTMENT_LIMIT = 3;
 const FREE_OCR_MONTHLY = 5;
@@ -4895,6 +4898,8 @@ function gate(feature) {
 
 /* paywall modal */
 const PAYWALL_COPY = {
+  debts: `Free tracks ${FREE_DEBT_LIMIT} debts. Pro tracks every one.`,
+  installment: "Pay-later plans (Atome, SPayLater, Grab PayLater) are a Pro feature.",
   savings: `You've hit the free limit of ${FREE_SAVING_LIMIT} goals. Pro tracks unlimited.`,
   investments: `You've hit the free limit of ${FREE_INVESTMENT_LIMIT} investment holdings. Pro tracks unlimited.`,
   ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
@@ -5124,6 +5129,7 @@ function ensureProCelebrateBlock(dlg, paidLabel) {
     <h2>Duitful Pro — yours.</h2>
     <p class="pro-celebrate-sub">Terima kasih. That's the last time we'll ask you for money.</p>
     <ul class="pro-unlocked">
+      <li>Every debt &amp; pay-later plan</li>
       <li>Automatic encrypted backup</li>
       <li>Unlimited receipt scans, 46 currencies</li>
       <li>Budget pools, unlimited goals &amp; holdings</li>
@@ -5703,7 +5709,7 @@ function renderProControls() {
         ? "Pro unlocked. Thanks for supporting the app!"
         : "Pro unlocked — thanks for supporting Duitful!";
     } else {
-      status.textContent = "Pro adds backup, unlimited scans, budget pools and other currencies. One payment, no subscription.";
+      status.textContent = "Pro adds every debt, pay-later plans, backup, unlimited scans, budget pools and other currencies. One payment, no subscription.";
     }
   }
 
@@ -7259,6 +7265,7 @@ function renderIslamicPreview() {
 document.querySelectorAll(".debt-type-pills .pill").forEach((btn) => {
   btn.addEventListener("click", () => {
     const k = btn.dataset.debtKind;
+    if (k === "installment" && !gate("installment")) return;
     setDebtKind(k);
   });
 });
@@ -7392,6 +7399,12 @@ $("#form-debt").addEventListener("submit", (e) => {
   const kind = (f.get("kind") || "standard").toString();
   const dueDay = parseDay(f.get("dueDay"));
   if (!name) return;
+  // Pro gates. Islamic financing is never gated and never counted.
+  if (kind !== "islamic") {
+    const counted = state.debts.filter((d) => d.kind !== "islamic").length;
+    if (kind === "installment" && !gate("installment")) return;
+    if (counted >= FREE_DEBT_LIMIT && !gate("debts")) return;
+  }
 
   if (kind === "islamic") {
     const principal = Number(f.get("principal"));
@@ -10295,6 +10308,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.9": [
+    "<strong>Free and Pro, clearer</strong> — Free tracks 3 debts with your debt-free date. Pro adds every debt and pay-later plans (Atome, SPayLater). Anything you already track stays, and Islamic financing never counts toward the limit.",
+  ],
   "1.55.8": [
     "<strong>One price on iPhone and iPad</strong> — Pro is bought straight through the App Store, with no codes to type.",
   ],
