@@ -76,6 +76,9 @@ const asMalaysia = () => {
   // The suite never signs in to Apple: web iCloud stays off unless a test
   // turns it on against its own stand-in CloudKit.
   window.ICLOUD_WEB_CONFIG = { apiToken: '' };
+  // Milestone sheets would pop up mid-test as the suite adds data; the
+  // milestone test turns them back on for itself.
+  window.DUITFUL_MILESTONE_SHEETS = false;
 };
 {
   const newContext = b.newContext.bind(b), newPage = b.newPage.bind(b);
@@ -5742,6 +5745,53 @@ check('the vault is open before the quick-add checks',
   });
   check('the web-checkout referral card is hidden in the iOS app, kept on Android and web',
     refer.ios === false && refer.android === true && refer.web === true, JSON.stringify(refer));
+}
+
+/* ── Milestones: quiet badges for real money progress ──────────────────
+   The first check records what is already true without a sheet (an update
+   never floods anyone); a new one gets one celebration sheet; the Reports
+   card lists all with progress; a shared message never carries an amount. */
+{
+  const ms = await S(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const keep = { ms: state.milestones, daily: state.dailyExpenses.slice() };
+    window.DUITFUL_MILESTONE_SHEETS = true;
+    state.milestones = null;
+    renderAll();
+    await wait(1400);
+    const seeded = { obj: !!state.milestones && typeof state.milestones === 'object', sheet: document.getElementById('milestone-dialog').open };
+    // A logged debt payment that crosses RM 1,000 in total.
+    delete state.milestones['paid-1k'];
+    const before = debtPaidTotal();
+    const need = Math.max(0, 1000 - before) + 1;
+    state.dailyExpenses.push({ id: 'ms-pay', createdAt: Date.now(), kind: 'debt', date: todayISO(), amount: need, debtId: 'none', debtName: 'Test', note: '' });
+    renderAll();
+    await wait(1500);
+    const dlg = document.getElementById('milestone-dialog');
+    const shown = { open: dlg.open, title: document.getElementById('milestone-title').textContent, earned: typeof state.milestones['paid-1k'] === 'string' };
+    if (dlg.open) dlg.close();
+    milestonesShowAll = false; renderMilestones();
+    const shortList = document.querySelectorAll('#milestones-list .milestone').length;
+    const moreShown = !document.getElementById('milestones-more').hidden;
+    document.getElementById('milestones-more').click();
+    const card = { shortList, moreShown, count: document.getElementById('milestones-count').textContent,
+      tiles: document.querySelectorAll('#milestones-list .milestone').length,
+      earnedTiles: document.querySelectorAll('#milestones-list .milestone.is-earned').length,
+      share: document.querySelectorAll('#milestones-list [data-milestone-share]').length };
+    const texts = MILESTONES.map((m) => milestoneShareText(m));
+    const noMoney = texts.every((t) => !/RM\s?\d|\d[\d,]*\.\d\d/.test(t));
+    const bilingual = texts.every((t) => t.split('\n').length >= 3);
+    window.DUITFUL_MILESTONE_SHEETS = false;
+    state.dailyExpenses = keep.daily; state.milestones = keep.ms; save(); renderAll();
+    return { seeded, shown, card, noMoney, bilingual, n: MILESTONES.length };
+  });
+  check('milestones: the first check records quietly (no sheet)', ms.seeded.obj && !ms.seeded.sheet, JSON.stringify(ms.seeded));
+  check('milestones: a new one (RM 1,000 paid down) gets one celebration sheet and is kept in the vault',
+    ms.shown.open && /of debt paid down/.test(ms.shown.title) && ms.shown.earned, JSON.stringify(ms.shown));
+  check('milestones: Reports shows earned plus the next two, and Show all lists every one with earned ones shareable',
+    ms.card.moreShown && ms.card.shortList === ms.card.earnedTiles + 2 && ms.card.tiles === ms.n && ms.card.earnedTiles >= 1 && ms.card.share === ms.card.earnedTiles && new RegExp(`of ${ms.n}$`).test(ms.card.count), JSON.stringify(ms.card));
+  check('milestones: shared messages carry no amount and come in English and Bahasa Melayu', ms.noMoney && ms.bilingual);
 }
 
 /* ── iOS review: no codes on the App Store paywall (guideline 3.1.1) ─────

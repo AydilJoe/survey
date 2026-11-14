@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.9";
+const APP_VERSION = "1.55.10";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -80,6 +80,9 @@ const emptyState = () => ({
   // asks (the trial banner waits a day, the reminders ask waits until day 3).
   firstRunAt: 0,
   proNudgeUntil: 0,
+  // Milestones earned: { id: ISO date | "" }. null until first checked, then
+  // what is already true is recorded quietly (see checkMilestones).
+  milestones: null,
   reminderAskDone: false,
   nativeReferrer: "",
   proEmail: "",
@@ -334,6 +337,9 @@ function coerceState(parsed) {
       proTrialStartedAt: Number.isFinite(Number(parsed.proTrialStartedAt)) ? Number(parsed.proTrialStartedAt) : 0,
       firstRunAt: Number.isFinite(Number(parsed.firstRunAt)) ? Number(parsed.firstRunAt) : 0,
       proNudgeUntil: Number.isFinite(Number(parsed.proNudgeUntil)) ? Number(parsed.proNudgeUntil) : 0,
+      milestones: parsed.milestones && typeof parsed.milestones === "object" && !Array.isArray(parsed.milestones)
+        ? Object.fromEntries(Object.entries(parsed.milestones).filter(([k, v]) => typeof k === "string" && typeof v === "string"))
+        : null,
       reminderAskDone: !!parsed.reminderAskDone,
       nativeReferrer: typeof parsed.nativeReferrer === "string" && /^[a-f0-9]{8}$/.test(parsed.nativeReferrer) ? parsed.nativeReferrer : "",
       proEmail: typeof parsed.proEmail === "string" ? parsed.proEmail : "",
@@ -4160,6 +4166,7 @@ function renderAll() {
   populatePoolDropdowns();
   if (typeof renderDriveCard === "function") renderDriveCard();
   checkDebtsPaidOff();
+  checkMilestones();
   checkReviewMoments();
 }
 
@@ -4247,6 +4254,203 @@ function checkReviewMoments() {
   reviewPending = "";
   setTimeout(() => { if (!document.querySelector("dialog[open]")) askForReview(); }, 1500);
 }
+
+/* ---------- milestones ----------
+   A few quiet badges for real money progress, never for opening the app:
+   no streaks, points or levels. Earned ones are kept in the vault
+   (state.milestones). The first check on a vault records what is already
+   true without a word, so an update or a restore never floods anyone with
+   badges; after that, each new one gets one celebration sheet, which waits
+   until no other dialog is open. Paying off a debt already has its own
+   sheet, so those two milestones are recorded without a second one.
+   Sharing never includes an amount. */
+const MILESTONES = [
+  { id: "first-payoff", icon: "check", title: "First debt paid off", sub: "One down. The rest get easier.",
+    share: ["Paid off my first debt.", "Hutang pertama dah langsai."], quiet: true },
+  { id: "debt-free", icon: "flag", title: "Debt-free", sub: "Every debt you tracked is at zero.",
+    share: ["I'm debt-free.", "Saya dah bebas hutang."], quiet: true },
+  { id: "paid-1k", icon: "down", paid: 1000, sub: "Logged one payment at a time.",
+    share: ["Hit a debt payoff milestone.", "Satu lagi pencapaian bayar hutang."] },
+  { id: "paid-5k", icon: "down", paid: 5000, sub: "That is real progress.",
+    share: ["Hit a big debt payoff milestone.", "Satu lagi pencapaian besar bayar hutang."] },
+  { id: "paid-10k", icon: "down", paid: 10000, sub: "Five figures. Keep going.",
+    share: ["Hit a five-figure debt payoff milestone.", "Pencapaian lima angka bayar hutang."] },
+  { id: "budget-3", icon: "calendar", title: "Three months on budget", sub: "Every pool, three months running.",
+    share: ["Three months in a row on budget.", "Tiga bulan berturut-turut ikut bajet."] },
+  { id: "goal-first", icon: "target", title: "First savings goal reached", sub: "Pick the next one while it feels good.",
+    share: ["Reached my first savings goal.", "Capai matlamat simpanan pertama."] },
+  { id: "logged-30", icon: "pen", title: "30 days logged", sub: "That's a habit now.",
+    share: ["30 days of tracking every ringgit.", "30 hari jejak setiap ringgit."] },
+];
+const MILESTONE_ICONS = {
+  check: '<path d="M20 6L9 17l-5-5"/>',
+  flag: '<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+  down: '<path d="M12 4v14"/><path d="M6 12l6 6 6-6"/>',
+  calendar: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
+  target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+};
+function fmtDateShort(iso) {
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" });
+}
+const wholeMoney = (n) => fmtMoney(n).replace(/\.00$/, "");
+function milestoneTitle(m) {
+  return m.paid ? `${wholeMoney(m.paid)} of debt paid down` : m.title;
+}
+function milestoneTitleHtml(m) {
+  return m.paid ? `${amt(wholeMoney(m.paid))} of debt paid down` : escapeHtml(m.title);
+}
+
+function debtPaidTotal() {
+  return (state.dailyExpenses || []).filter((e) => e.kind === "debt").reduce((s, e) => s + (Number(e.amount) || 0), 0);
+}
+function monthWithinBudget(monthISO) {
+  const pools = (state.budgetPools || []).filter((pl) => pl.system !== "debt" && effectiveLimit(pl, monthISO) > 0);
+  if (!pools.length) return false;
+  if (!(state.dailyExpenses || []).some((e) => e.kind !== "debt" && e.kind !== "saving" && monthOf(e.date) === monthISO)) return false;
+  return pools.every((pl) => poolUsageInMonth(pl.id, monthISO) <= effectiveLimit(pl, monthISO));
+}
+function loggedDays() {
+  return new Set((state.dailyExpenses || []).map((e) => e.date).filter(Boolean)).size;
+}
+// Where each milestone stands now: { done, have, need } (have/need for the
+// ones with a count, shown as progress on the faint tiles).
+function milestoneProgress(m) {
+  const debts = state.debts || [];
+  switch (m.id) {
+    case "first-payoff": return { done: debts.some((d) => (Number(d.balance) || 0) <= 0) };
+    case "debt-free": return { done: debts.length > 0 && debts.every((d) => (Number(d.balance) || 0) <= 0) && debtPaidTotal() > 0 };
+    case "paid-1k": case "paid-5k": case "paid-10k": {
+      const have = debtPaidTotal();
+      return { done: have >= m.paid, have, need: m.paid, money: true };
+    }
+    case "budget-3": {
+      let run = 0;
+      for (let i = 1; i <= 3; i++) { if (monthWithinBudget(shiftMonth(currentMonthISO(), -i))) run++; else break; }
+      return { done: run >= 3, have: run, need: 3 };
+    }
+    case "goal-first": return { done: (state.savings || []).some((g) => (Number(g.target) || 0) > 0 && (Number(g.current) || 0) >= Number(g.target)) };
+    case "logged-30": { const have = loggedDays(); return { done: have >= 30, have, need: 30 }; }
+  }
+  return { done: false };
+}
+
+let milestonePending = [];
+function checkMilestones() {
+  if (typeof aesKey === "undefined" || !aesKey || !state) return;
+  const first = !state.milestones || typeof state.milestones !== "object";
+  if (first) state.milestones = {};
+  const fresh = [];
+  for (const m of MILESTONES) {
+    if (state.milestones[m.id] !== undefined) continue;
+    if (!milestoneProgress(m).done) continue;
+    state.milestones[m.id] = first ? "" : todayISO();
+    if (!first && !m.quiet) fresh.push(m.id);
+  }
+  if (first || fresh.length) save();
+  if (fresh.length) {
+    milestonePending.push(...fresh);
+    setTimeout(flushMilestones, 1200);
+  }
+  renderMilestones();
+}
+// One sheet at a time, only when nothing else is open. Several earned
+// together show the last (biggest) one; the rest are on the Reports card.
+function flushMilestones() {
+  if (!milestonePending.length || !aesKey) return;
+  // The e2e suite sets this false so sheets don't pop up mid-test.
+  if (window.DUITFUL_MILESTONE_SHEETS === false) { milestonePending = []; return; }
+  if (document.querySelector("dialog[open]")) return; // retried when it closes
+  const id = milestonePending[milestonePending.length - 1];
+  milestonePending = [];
+  showMilestone(id);
+}
+document.addEventListener("close", (e) => {
+  if (e.target && e.target.id !== "milestone-dialog" && milestonePending.length) setTimeout(flushMilestones, 400);
+}, true);
+
+let milestoneShown = null;
+function showMilestone(id) {
+  const m = MILESTONES.find((x) => x.id === id);
+  const dlg = document.getElementById("milestone-dialog");
+  if (!m || !dlg || typeof dlg.showModal !== "function") return;
+  milestoneShown = m;
+  document.getElementById("milestone-icon").innerHTML = MILESTONE_ICONS[m.icon] || MILESTONE_ICONS.check;
+  document.getElementById("milestone-title").innerHTML = milestoneTitleHtml(m) + ".";
+  document.getElementById("milestone-sub").textContent = m.sub;
+  dlg.showModal();
+}
+function milestoneShareText(m) {
+  const url = `https://duitful.app/?utm_source=app&utm_medium=share&utm_content=milestone-${m.id}`;
+  return `${m.share[0]}\n${m.share[1]}\n\nDuitful — a private money and debt tracker. ${url}`;
+}
+async function shareMilestone(m) {
+  if (!m) return;
+  const text = milestoneShareText(m);
+  try {
+    if (typeof navigator.share === "function") { await navigator.share({ text }); return; }
+  } catch (err) {
+    if (err && err.name === "AbortError") return;
+  }
+  try { await navigator.clipboard.writeText(text); toast("Copied. Paste it anywhere."); }
+  catch { toast("Couldn't share from here."); }
+}
+document.getElementById("milestone-share")?.addEventListener("click", () => shareMilestone(milestoneShown));
+document.getElementById("milestone-dialog")?.addEventListener("close", () => {
+  milestoneShown = null;
+  // A milestone is a good moment for the one-time store rating ask.
+  setTimeout(() => { if (!document.querySelector("dialog[open]")) askForReview(); }, 700);
+});
+
+// The card shows what's earned plus the next two to aim for; the rest wait
+// behind "Show all" so Reports stays short.
+let milestonesShowAll = false;
+const MILESTONES_NEXT = 2;
+function renderMilestones() {
+  const card = document.getElementById("milestones-card");
+  const list = document.getElementById("milestones-list");
+  if (!card || !list || !state) return;
+  const got = state.milestones || {};
+  const earned = MILESTONES.filter((m) => got[m.id] !== undefined).length;
+  const count = document.getElementById("milestones-count");
+  if (count) count.textContent = `${earned} of ${MILESTONES.length}`;
+  let upcoming = 0;
+  const hiddenIds = new Set();
+  MILESTONES.forEach((m) => {
+    if (got[m.id] !== undefined) return;
+    if (++upcoming > MILESTONES_NEXT && !milestonesShowAll) hiddenIds.add(m.id);
+  });
+  const more = document.getElementById("milestones-more");
+  if (more) {
+    more.hidden = upcoming <= MILESTONES_NEXT;
+    more.textContent = milestonesShowAll ? "Show fewer" : `Show all ${MILESTONES.length}`;
+    more.setAttribute("aria-expanded", milestonesShowAll ? "true" : "false");
+  }
+  list.innerHTML = MILESTONES.filter((m) => !hiddenIds.has(m.id)).map((m) => {
+    const on = got[m.id] !== undefined;
+    let note = "";
+    if (on) note = got[m.id] ? `Earned ${escapeHtml(fmtDateShort(got[m.id]))}` : "Earned";
+    else {
+      const p = milestoneProgress(m);
+      if (p.need) note = p.money ? `${amt(Math.min(p.have, p.need))} of ${amt(wholeMoney(p.need))}` : `${Math.min(p.have, p.need)} of ${p.need}`;
+    }
+    const share = on ? `<button type="button" class="milestone-share" data-milestone-share="${m.id}" aria-label="Share: ${escapeHtml(milestoneTitle(m))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 9l5-5 5 5M5 14v5h14v-5"/></svg></button>` : "";
+    return `<li class="milestone${on ? " is-earned" : ""}">
+      <span class="milestone-icon" aria-hidden="true"><svg viewBox="0 0 24 24">${MILESTONE_ICONS[m.icon]}</svg></span>
+      <span class="milestone-text"><strong>${milestoneTitleHtml(m)}</strong>${note ? `<span class="hint">${note}</span>` : ""}</span>
+      ${share}<span class="sr-only">${on ? "Earned" : "Not yet"}</span>
+    </li>`;
+  }).join("");
+}
+document.getElementById("milestones-more")?.addEventListener("click", () => {
+  milestonesShowAll = !milestonesShowAll;
+  renderMilestones();
+});
+document.getElementById("milestones-list")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("[data-milestone-share]");
+  if (btn) shareMilestone(MILESTONES.find((m) => m.id === btn.dataset.milestoneShare));
+});
 
 // Settings → About: a link anyone can use, any time.
 const STORE_REVIEW_URL = {
@@ -10308,6 +10512,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.10": [
+    "<strong>Milestones</strong> — first debt paid off, RM 1,000 paid down, three months on budget, your first savings goal and more. Each one gets a moment when you reach it, and they all live in Reports. Share one if you like; amounts are never included.",
+  ],
   "1.55.9": [
     "<strong>Free and Pro, clearer</strong> — Free tracks 3 debts with your debt-free date. Pro adds every debt and pay-later plans (Atome, SPayLater). Anything you already track stays, and Islamic financing never counts toward the limit.",
   ],
