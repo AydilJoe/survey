@@ -24,12 +24,13 @@
 - **Pro sync** is opt-in and goes through **your own Google Drive**, or
   **your own iCloud** in the iPhone app, as a single encrypted file —
   Duitful never has a key.
-- Pricing: **Free forever**, with every debt and its payoff date,
-  pay-later/instalment plans, reminders and copy-last-month, plus 5
-  savings goals, 3 investment holdings and 5 receipt scans a month.
-  **Pro is RM 19.90 one-time, lifetime**: automatic encrypted iCloud /
-  Google Drive backup, unlimited scans, goals and holdings, budget pools
-  and multi-currency entries.
+- Pricing: **Free forever**, with 3 debts and the payoff date,
+  reminders and copy-last-month, plus 5 savings goals, 3 investment
+  holdings and 5 receipt scans a month. Islamic financing is never
+  counted toward the debt limit. **Pro is RM 19.90 one-time, lifetime**:
+  every debt, pay-later/instalment plans (Atome, SPayLater), automatic
+  encrypted iCloud / Google Drive backup, unlimited scans, goals and
+  holdings, budget pools and multi-currency entries.
 - Built by one person in Malaysia. Source code public and licensed
   **GPL-3.0-only** at https://github.com/AydilJoe/survey, with a GPL
   section 7 additional permission for app store distribution so the
@@ -227,7 +228,8 @@ diffed against the repository. The hosted product is not a subscription
 - Pricing: Free permanent + Pro RM 19.90 one-time (~USD 4.50).
 - Islamic financing tracking and zakat are **free on every tier** — not
   Pro features. The Islamic debt type is always available; zakat is
-  opt-in from the Savings tab. Debts are never limited. Pro gates
+  opt-in from the Savings tab. Free tracks 3 other debts (Islamic
+  financing never counts). Pro gates more debts, pay-later plans,
   automatic encrypted backup, unlimited scans, goals and holdings, budget
   pools and multi-currency entries.
 - Zakat figures are planning estimates, not religious rulings.

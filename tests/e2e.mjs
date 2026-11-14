@@ -3248,7 +3248,7 @@ check('a split from a spend you already logged never logs it twice',
       provider: !document.getElementById('drive-provider').hidden,
       lockGoogle: !document.getElementById('btn-setup-restore').hidden,
       welcomeRow: !document.getElementById('pro-welcome-drive-row').hidden,
-      paywallLine: document.querySelector('.paywall-features li').textContent,
+      paywallLine: document.querySelector('.paywall-features li[data-drive-text]').textContent,
     });
     const before = shown();
     const saved = [...document.querySelectorAll('[data-drive], [data-drive-text]')].map((el) => [el, el.hidden, el.textContent]);
@@ -6112,8 +6112,9 @@ check('the vault is open before the quick-add checks',
     await dctx.close();
   }
   {
-    // Free (trial over, never paid) keeps what people install Duitful for:
-    // any number of debts, pay-later plans, reminders and Copy last month.
+    // Free (trial over, never paid): 3 debts, then the paywall; pay-later
+    // plans are Pro; Islamic financing is never counted or gated; reminders
+    // and Copy last month stay free.
     const fctx2 = await b.newContext({ viewport: { width: 390, height: 844 } });
     const fp2 = await fctx2.newPage();
     await fp2.goto(`${BASE}/app/index.html`);
@@ -6148,6 +6149,19 @@ check('the vault is open before the quick-add checks',
       form.requestSubmit();
       await wait(200);
       const bnpl = state.debts.some((d) => d.kind === 'installment' && d.name === 'Atome');
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      // Islamic financing past the limit: added, no paywall.
+      openAddForm('form-debt', { focus: false });
+      form.querySelector('.debt-type-pills .pill[data-debt-kind="islamic"]').click();
+      form.querySelector('[name="name"]').value = 'Home financing';
+      const isl = form.querySelector('#debt-fields-islamic');
+      isl.querySelector('[name="principal"]').value = '300000';
+      isl.querySelector('[name="totalProfit"]').value = '150000';
+      isl.querySelector('[name="tenureMonths"]').value = '360';
+      form.requestSubmit();
+      await wait(200);
+      const islamic = { added: state.debts.some((d) => d.kind === 'islamic' && d.name === 'Home financing'), paywall: paywall() };
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
       // Copy last month: a bill last month, none this month.
       state.expenses = [{ id: 'cp1', name: 'Rent', amount: 900, month: shiftMonth(currentMonthISO(), -1), day: 1 }];
       selectedMonth = currentMonthISO(); save(); renderAll();
@@ -6155,14 +6169,15 @@ check('the vault is open before the quick-add checks',
       document.getElementById('btn-copy-prev').click();
       await wait(200);
       const copied = state.expenses.some((x) => x.name === 'Rent' && x.month === currentMonthISO());
-      return { pro: isPro(), afterFour, kindPaywall, bnpl, copied, copyPaywall: paywall(),
+      return { pro: isPro(), afterFour, kindPaywall, bnpl, islamic, copied, copyPaywall: paywall(),
         status: document.getElementById('pro-status').textContent };
     });
-    check('free tier: a 4th debt is added with no paywall (debts are never limited)',
-      !free.pro && free.afterFour.n === 4 && !free.afterFour.paywall, JSON.stringify(free.afterFour));
-    check('free tier: pay-later / instalment plans are free', !free.kindPaywall && free.bnpl, JSON.stringify(free));
+    check('free tier: 3 debts, and the 4th opens the paywall instead of saving',
+      !free.pro && free.afterFour.n === 3 && free.afterFour.paywall, JSON.stringify(free.afterFour));
+    check('free tier: pay-later / instalment plans open the paywall and are not added', free.kindPaywall && !free.bnpl, JSON.stringify(free));
+    check('free tier: Islamic financing past the limit is added with no paywall', free.islamic.added && !free.islamic.paywall, JSON.stringify(free.islamic));
     check('free tier: Copy last month is free', free.copied && !free.copyPaywall, JSON.stringify(free));
-    check('free tier: Settings describes the new split', /Pro adds backup/i.test(free.status) && /no subscription/i.test(free.status), free.status);
+    check('free tier: Settings says Pro adds every debt and pay-later plans', /every debt, pay-later plans/i.test(free.status) && /no subscription/i.test(free.status), free.status);
     await fctx2.close();
   }
   check('first-run screens stay short: lock ≤ 35 words, each setup step ≤ 30',
@@ -7939,8 +7954,9 @@ check('the brand catalogue makes no network calls at all',
     check(`the README's free ${label} limit matches ${konst} (${value})`,
       row.test(readme), `looking for ${value}`);
   }
-  check('the README says debts are free without limit, as the app has no debt limit',
-    /\|\s*Debts\s*\|\s*unlimited\s*\|/i.test(readme) && !/FREE_DEBT_LIMIT/.test(src));
+  const debtLimit = num(/const FREE_DEBT_LIMIT = (\d+)/);
+  check(`the README's free debt limit matches FREE_DEBT_LIMIT (${debtLimit})`,
+    new RegExp(`\\|\\s*Debts\\s*\\|\\s*${debtLimit}\\b`).test(readme), `looking for ${debtLimit}`);
   const trial = num(/const TRIAL_DAYS = (\d+)/);
   check(`the README states the real trial length (${trial} days)`,
     new RegExp(`${trial}-day Pro\\s+trial|${trial}-day Pro trial`).test(readme), `${trial}`);

@@ -118,7 +118,7 @@ SPLIT A BILL
 
 
 FREE AND PRO
-Free: every debt and your debt-free date, pay-later plans, reminders, Islamic finance, zakat, tax relief, 5 savings goals, 3 investments and 5 receipt scans a month.
+Free: 3 debts and your debt-free date, reminders, Islamic finance, zakat, tax relief, 5 savings goals, 3 investments and 5 receipt scans a month.
 
 Pro is a one-time in-app purchase, no subscription: automatic encrypted iCloud backup, unlimited scans, goals and investments, budget pools and other currencies.
 
