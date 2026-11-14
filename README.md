@@ -126,7 +126,7 @@ trial.
 | | Free | Pro |
 | --- | --- | --- |
 | Debts | 3 (Islamic financing never counts) | unlimited |
-| Instalment / BNPL plans | — | ✓ |
+| Instalment / BNPL plans | 1 (one of the 3 debts) | unlimited |
 | Reminders | ✓ | ✓ |
 | Copy last month | ✓ | ✓ |
 | Savings goals | 5 | unlimited |

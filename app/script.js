@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.10";
+const APP_VERSION = "1.55.11";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5000,13 +5000,18 @@ if (prefAnnouncements) {
    can try everything. In the native Capacitor build, features are gated and
    unlocked with a one-time IAP (duitful_pro). */
 
-// Free covers 3 debts with their payoff date, bill reminders and copying
-// last month. Pro adds unlimited debts, pay-later plans (Atome, SPayLater),
+// Free covers 3 debts (one of them may be a pay-later plan) with their
+// payoff date, bill reminders and copying last month. Pro adds unlimited
+// debts and pay-later plans (Atome, SPayLater),
 // automatic cloud backup, unlimited scans, budget pools, other currencies,
 // more goals and holdings. Islamic financing never counts toward the debt
 // limit and is never behind the paywall. The limits only stop adding: what
 // someone already has stays.
 const FREE_DEBT_LIMIT = 3;
+// One pay-later plan is free (it counts as one of the 3), so what the
+// Debt & BNPL ads promise works before paying; the second plan is Pro.
+const FREE_INSTALLMENT_LIMIT = 1;
+const installmentCount = () => (state.debts || []).filter((d) => d.kind === "installment").length;
 const FREE_SAVING_LIMIT = 5;
 const FREE_INVESTMENT_LIMIT = 3;
 const FREE_OCR_MONTHLY = 5;
@@ -5106,7 +5111,7 @@ function gate(feature) {
 /* paywall modal */
 const PAYWALL_COPY = {
   debts: `Free tracks ${FREE_DEBT_LIMIT} debts. Pro tracks every one.`,
-  installment: "Pay-later plans (Atome, SPayLater, Grab PayLater) are a Pro feature.",
+  installment: `Free tracks ${FREE_INSTALLMENT_LIMIT} pay-later plan. Pro tracks every Atome, SPayLater and Grab PayLater plan.`,
   savings: `You've hit the free limit of ${FREE_SAVING_LIMIT} goals. Pro tracks unlimited.`,
   investments: `You've hit the free limit of ${FREE_INVESTMENT_LIMIT} investment holdings. Pro tracks unlimited.`,
   ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
@@ -7472,7 +7477,7 @@ function renderIslamicPreview() {
 document.querySelectorAll(".debt-type-pills .pill").forEach((btn) => {
   btn.addEventListener("click", () => {
     const k = btn.dataset.debtKind;
-    if (k === "installment" && !gate("installment")) return;
+    if (k === "installment" && installmentCount() >= FREE_INSTALLMENT_LIMIT && !gate("installment")) return;
     setDebtKind(k);
   });
 });
@@ -7609,7 +7614,7 @@ $("#form-debt").addEventListener("submit", (e) => {
   // Pro gates. Islamic financing is never gated and never counted.
   if (kind !== "islamic") {
     const counted = state.debts.filter((d) => d.kind !== "islamic").length;
-    if (kind === "installment" && !gate("installment")) return;
+    if (kind === "installment" && installmentCount() >= FREE_INSTALLMENT_LIMIT && !gate("installment")) return;
     if (counted >= FREE_DEBT_LIMIT && !gate("debts")) return;
   }
 
@@ -10515,6 +10520,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.11": [
+    "<strong>One pay-later plan, free</strong> — track an Atome, SPayLater or Grab PayLater plan on the free tier (it counts as one of your 3 debts). Pro tracks every plan.",
+  ],
   "1.55.10": [
     "<strong>Milestones</strong> — first debt paid off, RM 1,000 paid down, three months on budget, your first savings goal and more. Each one gets a moment when you reach it, and they all live in Reports. Share one if you like; amounts are never included.",
   ],

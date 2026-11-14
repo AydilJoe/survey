@@ -6163,8 +6163,8 @@ check('the vault is open before the quick-add checks',
     await dctx.close();
   }
   {
-    // Free (trial over, never paid): 3 debts, then the paywall; pay-later
-    // plans are Pro; Islamic financing is never counted or gated; reminders
+    // Free (trial over, never paid): 3 debts, one of which may be a
+    // pay-later plan, then the paywall; Islamic financing is never counted or gated; reminders
     // and Copy last month stay free.
     const fctx2 = await b.newContext({ viewport: { width: 390, height: 844 } });
     const fp2 = await fctx2.newPage();
@@ -6188,18 +6188,29 @@ check('the vault is open before the quick-add checks',
         f.querySelector('[name="minPayment"]').value = '50';
         form.requestSubmit();
       };
-      for (let i = 1; i <= 4; i++) { addStandard('Debt ' + i); await wait(150); }
+      const addPlan = (name) => {
+        openAddForm('form-debt', { focus: false });
+        form.querySelector('.debt-type-pills .pill[data-debt-kind="installment"]').click();
+        const pw = paywall();
+        form.querySelector('[name="name"]').value = name;
+        const inst = form.querySelector('#debt-fields-installment');
+        inst.querySelector('[name="installment"]').value = '40';
+        inst.querySelector('[name="monthsLeft"]').value = '3';
+        form.requestSubmit();
+        return pw;
+      };
+      // Two ordinary debts and one pay-later plan: all free.
+      for (let i = 1; i <= 2; i++) { addStandard('Debt ' + i); await wait(150); }
+      const firstPlanPaywall = addPlan('Atome'); await wait(200);
+      const firstPlan = { added: state.debts.some((d) => d.kind === 'installment' && d.name === 'Atome'), paywall: firstPlanPaywall || paywall() };
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      // A 4th debt: paywall, not saved.
+      addStandard('Debt 4'); await wait(150);
       const afterFour = { n: state.debts.length, paywall: paywall() };
-      openAddForm('form-debt', { focus: false });
-      form.querySelector('.debt-type-pills .pill[data-debt-kind="installment"]').click();
-      const kindPaywall = paywall();
-      form.querySelector('[name="name"]').value = 'Atome';
-      const inst = form.querySelector('#debt-fields-installment');
-      inst.querySelector('[name="installment"]').value = '40';
-      inst.querySelector('[name="monthsLeft"]').value = '3';
-      form.requestSubmit();
-      await wait(200);
-      const bnpl = state.debts.some((d) => d.kind === 'installment' && d.name === 'Atome');
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      // A second pay-later plan: the pill itself opens the paywall.
+      const kindPaywall = addPlan('SPayLater'); await wait(200);
+      const bnpl = state.debts.some((d) => d.kind === 'installment' && d.name === 'SPayLater');
       document.querySelectorAll('dialog[open]').forEach((d) => d.close());
       // Islamic financing past the limit: added, no paywall.
       openAddForm('form-debt', { focus: false });
@@ -6220,12 +6231,13 @@ check('the vault is open before the quick-add checks',
       document.getElementById('btn-copy-prev').click();
       await wait(200);
       const copied = state.expenses.some((x) => x.name === 'Rent' && x.month === currentMonthISO());
-      return { pro: isPro(), afterFour, kindPaywall, bnpl, islamic, copied, copyPaywall: paywall(),
+      return { pro: isPro(), firstPlan, afterFour, kindPaywall, bnpl, islamic, copied, copyPaywall: paywall(),
         status: document.getElementById('pro-status').textContent };
     });
     check('free tier: 3 debts, and the 4th opens the paywall instead of saving',
       !free.pro && free.afterFour.n === 3 && free.afterFour.paywall, JSON.stringify(free.afterFour));
-    check('free tier: pay-later / instalment plans open the paywall and are not added', free.kindPaywall && !free.bnpl, JSON.stringify(free));
+    check('free tier: the first pay-later plan is free and counts as one of the 3 debts', free.firstPlan.added && !free.firstPlan.paywall, JSON.stringify(free.firstPlan));
+    check('free tier: a second pay-later plan opens the paywall and is not added', free.kindPaywall && !free.bnpl, JSON.stringify(free));
     check('free tier: Islamic financing past the limit is added with no paywall', free.islamic.added && !free.islamic.paywall, JSON.stringify(free.islamic));
     check('free tier: Copy last month is free', free.copied && !free.copyPaywall, JSON.stringify(free));
     check('free tier: Settings says Pro adds every debt and pay-later plans', /every debt, pay-later plans/i.test(free.status) && /no subscription/i.test(free.status), free.status);
