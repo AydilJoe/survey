@@ -4380,6 +4380,9 @@ function showMilestone(id) {
   document.getElementById("milestone-title").innerHTML = milestoneTitleHtml(m) + ".";
   document.getElementById("milestone-sub").textContent = m.sub;
   dlg.showModal();
+  // The same brand confetti as a debt payoff, lighter: a milestone is a nod,
+  // not the finish line.
+  proCelebrationConfetti(document.getElementById("milestone-celebrate"), 18);
 }
 function milestoneShareText(m) {
   const url = `https://duitful.app/?utm_source=app&utm_medium=share&utm_content=milestone-${m.id}`;

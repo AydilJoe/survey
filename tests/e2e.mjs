@@ -5769,7 +5769,8 @@ check('the vault is open before the quick-add checks',
     renderAll();
     await wait(1500);
     const dlg = document.getElementById('milestone-dialog');
-    const shown = { open: dlg.open, title: document.getElementById('milestone-title').textContent, earned: typeof state.milestones['paid-1k'] === 'string' };
+    const shown = { open: dlg.open, title: document.getElementById('milestone-title').textContent, earned: typeof state.milestones['paid-1k'] === 'string',
+      confetti: !!document.querySelector('#milestone-celebrate .pro-confetti') };
     if (dlg.open) dlg.close();
     milestonesShowAll = false; renderMilestones();
     const shortList = document.querySelectorAll('#milestones-list .milestone').length;
@@ -5788,7 +5789,7 @@ check('the vault is open before the quick-add checks',
   });
   check('milestones: the first check records quietly (no sheet)', ms.seeded.obj && !ms.seeded.sheet, JSON.stringify(ms.seeded));
   check('milestones: a new one (RM 1,000 paid down) gets one celebration sheet and is kept in the vault',
-    ms.shown.open && /of debt paid down/.test(ms.shown.title) && ms.shown.earned, JSON.stringify(ms.shown));
+    ms.shown.open && /of debt paid down/.test(ms.shown.title) && ms.shown.earned && ms.shown.confetti, JSON.stringify(ms.shown));
   check('milestones: Reports shows earned plus the next two, and Show all lists every one with earned ones shareable',
     ms.card.moreShown && ms.card.shortList === ms.card.earnedTiles + 2 && ms.card.tiles === ms.n && ms.card.earnedTiles >= 1 && ms.card.share === ms.card.earnedTiles && new RegExp(`of ${ms.n}$`).test(ms.card.count), JSON.stringify(ms.card));
   check('milestones: shared messages carry no amount and come in English and Bahasa Melayu', ms.noMoney && ms.bilingual);
