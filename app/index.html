@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=150" />
+    <link rel="stylesheet" href="styles.css?v=151" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1183,6 +1183,16 @@
           <span class="tax-entry-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></span>
         </button>
 
+        <!-- Milestones: real money progress only. renderMilestones in script.js. -->
+        <div class="card milestones-card" id="milestones-card">
+          <div class="milestones-head">
+            <h2>Milestones</h2>
+            <span class="hint" id="milestones-count"></span>
+          </div>
+          <ul class="milestones" id="milestones-list"></ul>
+          <button type="button" class="milestones-more" id="milestones-more" aria-controls="milestones-list" hidden>Show all</button>
+        </div>
+
         <div class="card reports-filters">
           <h2>Filters</h2>
           <div class="reports-presets" role="group" aria-label="Date range">
@@ -1742,6 +1752,24 @@
         </div>
         <div class="form-actions restore-actions">
           <button type="submit" class="primary" id="debt-paid-done">Keep going</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- A milestone earned. checkMilestones in script.js. -->
+    <dialog id="milestone-dialog" class="edit-dialog restore-dialog" aria-labelledby="milestone-title">
+      <form method="dialog">
+        <div class="pro-celebrate" id="milestone-celebrate">
+          <div class="pro-seal" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="milestone-icon"></svg>
+          </div>
+          <p class="milestone-eyebrow">Milestone</p>
+          <h2 id="milestone-title"></h2>
+          <p class="pro-celebrate-sub" id="milestone-sub"></p>
+        </div>
+        <div class="form-actions restore-actions milestone-actions">
+          <button type="button" class="ghost" id="milestone-share">Share</button>
+          <button type="submit" class="primary">Keep going</button>
         </div>
       </form>
     </dialog>
@@ -2647,6 +2675,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=14"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=202"></script>
+    <script src="script.js?v=203"></script>
   </body>
 </html>
