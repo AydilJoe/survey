@@ -322,6 +322,20 @@ input[type="checkbox"], input[type="radio"] {
 /* Ambiguous match: one button per candidate, wrapping rather than shrinking
    names to the point where you can't tell who you're settling. */
 .pending-choices { flex-wrap: wrap; justify-content: flex-start; }
+/* A move between your own accounts: neither a loss nor a gain. */
+.pending-amount.move { color: var(--ink2); }
+/* "This is my account": quiet, pushed to the start of the row. */
+.pending-actions .pending-quiet {
+  appearance: none; background: none; border: 0; margin-right: auto; padding: 0.45rem 0.2rem;
+  font: inherit; font-size: 0.8rem; font-weight: 500; color: var(--muted); cursor: pointer; border-radius: var(--r-sm);
+}
+.pending-actions .pending-quiet:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.pending-actions .pending-quiet:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+/* Settings → Your own accounts */
+.own-accounts-list { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+.own-accounts-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.4rem 0; border-top: 0.5px solid var(--line); }
+.own-accounts-list li:first-child { border-top: 0; }
+.own-accounts-list span { overflow-wrap: anywhere; font-weight: 500; }
 
 /* Upcoming reminders */
 .upcoming-card {

@@ -46,6 +46,8 @@ import java.util.concurrent.Executors;
  *                    it; resolving says we asked, not that it appeared.
  *   aiStatus /       Gemini Nano through ML Kit's Prompt API: a second
  *   aiReadReceipt    opinion on a receipt the rule-based parser isn't sure of.
+ *   aiReadAlert      The same model labelling a bank notification the capture
+ *                    rules couldn't place (direction, counterparty, category).
  *
  * Nothing here talks to a Duitful server. The scanner and Gemini Nano run on
  * the phone; Entity Extraction downloads its language model from Google once,
@@ -223,6 +225,39 @@ public class DuitfulKitPlugin extends Plugin {
             DuitfulKitAi.readReceipt(getContext(), text, call);
         } catch (Throwable e) {
             Log.e(TAG, "DuitfulKitAi.readReceipt threw", e);
+            call.reject("Unavailable", "UNAVAILABLE");
+        }
+    }
+
+    @PluginMethod
+    public void aiReadAlert(PluginCall call) {
+        String text = call.getString("text", "");
+        if (Build.VERSION.SDK_INT < MIN_SDK_FOR_ML) {
+            call.reject("Needs Android 8 or newer", "UNSUPPORTED");
+            return;
+        }
+        if (text == null || text.trim().isEmpty()) {
+            call.reject("No text", "EMPTY");
+            return;
+        }
+        String categories = "";
+        try {
+            JSArray cats = call.getArray("categories");
+            if (cats != null) {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < cats.length() && i < 20; i++) {
+                    String c = cats.optString(i, "");
+                    if (c.isEmpty()) continue;
+                    if (sb.length() > 0) sb.append(", ");
+                    sb.append(c);
+                }
+                categories = sb.toString();
+            }
+        } catch (Exception ignored) {}
+        try {
+            DuitfulKitAi.readAlert(getContext(), text, categories, call);
+        } catch (Throwable e) {
+            Log.e(TAG, "DuitfulKitAi.readAlert threw", e);
             call.reject("Unavailable", "UNAVAILABLE");
         }
     }

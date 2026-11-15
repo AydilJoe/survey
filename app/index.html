@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=153" />
+    <link rel="stylesheet" href="styles.css?v=154" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1639,6 +1639,14 @@
           
         </div>
 
+        <!-- Own accounts: names saved with "This is my account" on a captured
+             transfer. Kept only in the vault; a transfer to one is a move. -->
+        <div class="card own-accounts-card" id="own-accounts-card" hidden>
+          <h2>Your own accounts</h2>
+          <p class="hint">Transfers to these names count as moves, not spending.</p>
+          <ul class="own-accounts-list" id="own-accounts-list"></ul>
+        </div>
+
         <div class="card">
           <h2>Appearance</h2>
           
@@ -2741,6 +2749,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=15"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=206"></script>
+    <script src="script.js?v=208"></script>
   </body>
 </html>

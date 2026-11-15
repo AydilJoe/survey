@@ -18,8 +18,11 @@ import org.json.JSONException;
  * Notification capture:
  *   - NotificationListener.isEnabled()    → { enabled: boolean }
  *   - NotificationListener.openSettings() → opens Android notification-access settings
- * Incoming notifications are pushed to JS as the "notification" event, which
- * in turn calls window.duitfulIncoming({ package, title, text }).
+ *   - NotificationListener.drainCaptured() → { items: [{ p, ti, tx, t }, …] }
+ * Captured notifications are stored first (DuitfulCaptureStore, encrypted) so
+ * one that arrives while the app is closed is not lost. The "notification"
+ * event { package, title, text, queued: true } is a nudge: JS drains the store
+ * and hands each item to window.duitfulIncoming().
  *
  * Quick-add queue (see DuitfulQuickAddStore for why it exists — nothing outside
  * the app can write to the AES-GCM vault, so native leaves entries in a plain
@@ -60,6 +63,23 @@ public class NotificationListenerPlugin extends Plugin {
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(intent);
         call.resolve();
+    }
+
+    /**
+     * Hands over every bank notification stored since the last drain and
+     * empties the store, so each is returned exactly once.
+     */
+    @PluginMethod
+    public void drainCaptured(PluginCall call) {
+        JSONArray items = DuitfulCaptureStore.drain(getContext());
+        JSObject result = new JSObject();
+        try {
+            result.put("items", items);
+        } catch (Exception e) {
+            call.reject("Could not read captured notifications.", e);
+            return;
+        }
+        call.resolve(result);
     }
 
     // --- Quick-add queue --------------------------------------------------
@@ -140,6 +160,7 @@ public class NotificationListenerPlugin extends Plugin {
             payload.put("package", pkg == null ? "" : pkg);
             payload.put("title", title == null ? "" : title);
             payload.put("text", text == null ? "" : text);
+            payload.put("queued", true);
         } catch (Exception e) {
             return;
         }

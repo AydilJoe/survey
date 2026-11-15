@@ -52,6 +52,8 @@ const MANIFEST = resolve(ANDROID, "app/src/main/AndroidManifest.xml");
 const SOURCES = [
   "NotificationListenerPlugin.java",
   "DuitfulNotificationListenerService.java",
+  // Bank notifications caught while the app is closed (Keystore-encrypted).
+  "DuitfulCaptureStore.java",
   // Quick-add queue: the store, the contract receiver, the notification
   // builder, and the boot/update hook that re-posts it.
   "DuitfulQuickAddStore.java",

@@ -48,6 +48,18 @@ final class DuitfulKitAi {
             + "merchant is the shop or company name without its registration number.\n\nReceipt:\n";
     private static final int MAX_CHARS = 3000;
 
+    // A bank / e-wallet notification the rule-based parser couldn't place.
+    // The model only labels it; the app takes the amount from the text itself.
+    private static final String ALERT_INSTRUCTIONS =
+        "You read one notification from a Malaysian bank or e-wallet app. "
+            + "Reply with one JSON object and nothing else: "
+            + "{\"direction\": \"spend\" or \"income\" or \"move\" or \"ignore\", \"counterparty\": string, "
+            + "\"category\": string, \"is_promo_or_security\": true or false}. "
+            + "spend: money left the user's account. income: money arrived. move: the user moved money between their own accounts. "
+            + "ignore: not a completed transaction. is_promo_or_security is true for adverts, surveys, OTPs, codes and login alerts. "
+            + "counterparty is the shop or person exactly as written, or \"\". category is one of: ";
+    private static final int MAX_ALERT_CHARS = 600;
+
     private DuitfulKitAi() {}
 
     private static synchronized GenerativeModelFutures client() {
@@ -113,9 +125,22 @@ final class DuitfulKitAi {
 
     static void readReceipt(Context ctx, String text, PluginCall call) {
         String body = text.length() > MAX_CHARS ? text.substring(0, MAX_CHARS) : text;
-        GenerateContentRequest.Builder builder = new GenerateContentRequest.Builder(new TextPart(INSTRUCTIONS + body));
+        generate(ctx, INSTRUCTIONS + body, 128, call);
+    }
+
+    /** Labels one notification: direction, counterparty, category, promo/security. */
+    static void readAlert(Context ctx, String text, String categories, PluginCall call) {
+        String body = text.length() > MAX_ALERT_CHARS ? text.substring(0, MAX_ALERT_CHARS) : text;
+        String cats = categories == null ? "" : categories;
+        if (cats.length() > 300) cats = cats.substring(0, 300);
+        generate(ctx, ALERT_INSTRUCTIONS + cats + ", or \"\".\n\nNotification:\n" + body, 96, call);
+    }
+
+    /** One prompt in, the model's text out as {json}. Shared by both readers. */
+    private static void generate(Context ctx, String prompt, int maxTokens, PluginCall call) {
+        GenerateContentRequest.Builder builder = new GenerateContentRequest.Builder(new TextPart(prompt));
         builder.setTemperature(0f);
-        builder.setMaxOutputTokens(128);
+        builder.setMaxOutputTokens(maxTokens);
         ListenableFuture<GenerateContentResponse> f;
         try {
             f = client().generateContent(builder.build());
