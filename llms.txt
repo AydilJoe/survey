@@ -73,7 +73,11 @@
 - **Auto-capture (Android)**: opt-in NotificationListenerService reads
   bank/e-wallet notifications (Maybank, CIMB, Public Bank, RHB, Hong
   Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay) and proposes
-  draft entries. iOS does not permit cross-app notification reading.
+  draft spends and income for the user to confirm; a transfer between the
+  user's own accounts is shown as one "moved" item that books nothing.
+  Supported phones can use on-device AI (Gemini Nano) to label alerts the
+  rules can't read; nothing leaves the phone. iOS does not permit
+  cross-app notification reading.
 - **Multi-currency**: MYR, SGD, USD, EUR, GBP, JPY, THB, IDR with daily
   FX from the open-source @fawazahmed0/exchange-api.
 - **CSV import / export**: Monarch, YNAB, Money Lover, generic Malaysian

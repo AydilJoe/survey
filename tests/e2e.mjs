@@ -1908,8 +1908,9 @@ const unmatched = await S(() => ({
   }),
   pending: state.pendingTxns.length,
 }));
-check('a credit matching nothing is dropped without a trace',
-  unmatched.handled === false && unmatched.pending === 0, JSON.stringify(unmatched));
+check('a credit matching no split becomes one pending income entry (1.56.0), not a split action',
+  unmatched.handled === true && unmatched.pending === 1, JSON.stringify(unmatched));
+await S(() => { state.pendingTxns = []; save(); renderAll(); });
 const ambiguousQueue = await S(() => {
   state.pendingTxns = [];
   const rec = state.split.out[0];
@@ -1980,8 +1981,8 @@ check('a notification whose amount is only in the title still queues',
 check('MAE "You’ve just received RM 0.10 in your account ending …" parses as money in (curly and straight apostrophe), never as a spend',
   tngMae.credit.curly && tngMae.credit.curly.amount === 0.1 && tngMae.credit.straight && tngMae.credit.straight.amount === 0.1
   && tngMae.credit.transfer === null && tngMae.bank.credit === null, JSON.stringify(tngMae.credit));
-check('an incoming credit that settles no split is still not queued (credits only settle splits)',
-  tngMae.salary === false && tngMae.salaryPending === 0, JSON.stringify(tngMae));
+check('an incoming credit that settles no split is now offered as income (1.56.0)',
+  tngMae.salary === true && tngMae.salaryPending === 1, JSON.stringify(tngMae));
 
 // Notifications caught while the app was closed: native stores them, JS drains
 // them on unlock / resume / the live nudge, stamped with when they were posted.
@@ -2007,6 +2008,205 @@ const drained = await S(async () => {
 check('captured-while-closed notifications are drained once, deduped, promos dropped, and keep their posted time',
   drained.added === 1 && drained.again === 0 && drained.calls === 2 && drained.pending.length === 1
   && drained.pending[0].amount === 0.1 && drained.pending[0].at === drained.posted, JSON.stringify(drained));
+
+/* ── Money in, moves between your own accounts, "This is my account" (1.56.0) ──
+   Placeholder names, made-up digits. TNG received and DuitNow received wording
+   is assumed (no public sample); MAE's is the tester's, name removed. */
+const TNG_OUT = 'You have successfully transferred RM 0.10 to ALI BIN ABU.';
+const MAE_IN = 'You’ve just received RM 0.10 in your account ending ***1234. REF';
+const moves = await S(async ({ TNG_OUT, MAE_IN }) => {
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const old = Date.now() - 30 * 60 * 1000;   // drained earlier: past the hold
+  const reset = () => { state.pendingTxns = []; state.ownAccounts = []; state.split = emptySplit(); };
+  const shape = () => state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', amount: p.amount, from: p.from && p.from.providerId, to: p.to && p.to.providerId, merchant: p.merchant, sender: p.sender, label: p.label }));
+  const out = {};
+  // MAE → TNG? No: money left TNG, landed in MAE. Debit first, then credit.
+  reset();
+  window.duitfulIncoming({ package: TNG, title: 'DuitNow Transfer is successful', text: TNG_OUT, postedAt: old });
+  window.duitfulIncoming({ package: MAE, title: 'Maybank2u: Funds Received', text: MAE_IN, postedAt: old + 40000 });
+  out.debitFirst = shape();
+  renderAll();
+  const li = document.querySelector('#pending-list li.pending-move');
+  out.card = li ? { name: li.querySelector('.pending-name').textContent, amt: li.querySelector('.pending-amount').textContent, src: li.querySelector('.pending-source').textContent, undo: li.querySelector('[data-action="pending-move-split"]').textContent } : null;
+  // Credit first, then debit.
+  reset();
+  window.duitfulIncoming({ package: MAE, text: MAE_IN, postedAt: old });
+  window.duitfulIncoming({ package: TNG, text: TNG_OUT, postedAt: old + 5 * 60000 });
+  out.creditFirst = shape();
+  // TNG → MAE, both orders: MAE transfer out, TNG "You have received" in.
+  const MAE_OUT = 'You have successfully transferred RM 25.00 to ALI BIN ABU.';
+  const TNG_IN = 'You have received RM 25.00 from ALI BIN ABU.';
+  reset();
+  window.duitfulIncoming({ package: MAE, text: MAE_OUT, postedAt: old });
+  window.duitfulIncoming({ package: TNG, text: TNG_IN, postedAt: old + 1000 });
+  out.backDebitFirst = shape();
+  reset();
+  window.duitfulIncoming({ package: TNG, text: TNG_IN, postedAt: old });
+  window.duitfulIncoming({ package: MAE, text: MAE_OUT, postedAt: old + 1000 });
+  out.backCreditFirst = shape();
+  // Too far apart (11 min): two separate cards.
+  reset();
+  window.duitfulIncoming({ package: TNG, text: TNG_OUT, postedAt: old });
+  window.duitfulIncoming({ package: MAE, text: MAE_IN, postedAt: old + 11 * 60000 });
+  out.farApart = shape();
+  // Both arriving together from the capture store, credit first.
+  reset();
+  const keepCap = window.Capacitor;
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { NotificationListener: { drainCaptured: async () => ({ items: [
+    { p: MAE, ti: 'Maybank2u: Funds Received', tx: MAE_IN, t: old }, { p: TNG, ti: 'DuitNow Transfer is successful', tx: TNG_OUT, t: old + 3000 }] }) } } };
+  try { await drainCaptured(); } finally { window.Capacitor = keepCap; }
+  out.drained = shape();
+  // Confirming books nothing, and says so.
+  const income0 = state.income.length, spend0 = state.dailyExpenses.length;
+  document.querySelector('#pending-list [data-action="pending-move-accept"]')?.click();
+  out.confirmed = { left: state.pendingTxns.length, income: state.income.length - income0, spend: state.dailyExpenses.length - spend0, toast: (document.getElementById('toast') || {}).textContent || '' };
+  // "Not a move" splits it back into a spend and an income that stay apart.
+  reset();
+  window.duitfulIncoming({ package: TNG, text: TNG_OUT, postedAt: old });
+  window.duitfulIncoming({ package: MAE, text: MAE_IN, postedAt: old + 1000 });
+  renderAll();
+  document.querySelector('#pending-list [data-action="pending-move-split"]').click();
+  out.split = shape();
+  // A lone transfer out: held for a minute while fresh, then a spend card.
+  reset();
+  window.duitfulIncoming({ package: TNG, text: TNG_OUT });
+  renderAll();
+  out.freshHidden = document.getElementById('pending-card').hidden && state.pendingTxns.length === 1;
+  state.pendingTxns[0].createdAt = Date.now() - 61000;
+  renderAll();
+  const spendLi = document.querySelector('#pending-list li');
+  out.lone = { kind: state.pendingTxns[0].kind || 'spend', shown: !document.getElementById('pending-card').hidden, own: !!spendLi?.querySelector('[data-action="pending-own"]') };
+  // "This is my account": saved (normalised), the card becomes a move.
+  spendLi.querySelector('[data-action="pending-own"]').click();
+  out.own = { names: [...state.ownAccounts], kind: state.pendingTxns[0].kind, ownFlag: state.pendingTxns[0].own };
+  state.pendingTxns = [];
+  window.duitfulIncoming({ package: TNG, text: 'You have successfully transferred RM 50.00 to ali   bin abu.', postedAt: old });
+  out.ownLater = shape();
+  out.settingsShown = !document.getElementById('own-accounts-card').hidden && /ALI BIN ABU/.test(document.getElementById('own-accounts-list').textContent);
+  // CSV round-trip keeps the names.
+  out.csv = fromCSV(toCSV()).ownAccounts;
+  // Settings removes it.
+  document.querySelector('#own-accounts-list [data-own-remove]').click();
+  out.removed = { names: state.ownAccounts.length, hidden: document.getElementById('own-accounts-card').hidden };
+  // A lone credit becomes income; accepting books one row of income, not repeated.
+  reset();
+  window.duitfulIncoming({ package: MAE, title: 'Maybank2u: Funds Received', text: 'You’ve just received RM 1,250.00 in your account ending ***1234. REF SALARY', postedAt: old });
+  renderAll();
+  const incLi = document.querySelector('#pending-list li.pending-income');
+  out.incomeCard = incLi ? { name: incLi.querySelector('.pending-name').textContent, amt: incLi.querySelector('.pending-amount').textContent, btn: incLi.querySelector('.primary').textContent } : null;
+  const n0 = state.income.length;
+  incLi?.querySelector('[data-action="pending-income-accept"]').click();
+  const row = state.income[state.income.length - 1];
+  out.booked = { added: state.income.length - n0, amount: row.amount, repeat: row.repeatNext, category: row.category, name: row.name };
+  // TNG received and DuitNow received wording (assumed shapes).
+  reset();
+  window.duitfulIncoming({ package: TNG, text: 'You have received RM 12.00 from ALI BIN ABU.', postedAt: old });
+  window.duitfulIncoming({ package: MAE, text: 'You have received a DuitNow Transfer of RM 30.50 from SITI BINTI ALI.', postedAt: old + 1000 });
+  out.received = shape();
+  // A refund is labelled.
+  reset();
+  window.duitfulIncoming({ package: TNG, text: 'Refund of RM 8.90 has been credited to your eWallet.', postedAt: old });
+  out.refund = shape();
+  // Promo and OTP: never.
+  reset();
+  out.promo = window.duitfulIncoming({ package: TNG, title: 'Hi ALI BIN ABU', text: 'Spend 3 minutes to share your feedback with us to help improve' });
+  out.otp = window.duitfulIncoming({ package: MAE, text: 'Your TAC for a transfer of RM 500.00 to ALI BIN ABU is 482913. Do not share it with anyone.' });
+  out.otp2 = window.duitfulIncoming({ package: TNG, text: 'RM 20.00 received. Your OTP is 551203.' });
+  out.ignored = state.pendingTxns.length;
+  // A credit that settles a split is not also offered as income.
+  reset();
+  state.split.out.push(coerceSplitOut({ id: 'pair-rec', kind: 'split', title: 'Nasi kandar', date: todayISO(), total: 47,
+    people: [{ id: 'pair-ali', name: 'Ali', amount: 23.5, status: 'open', repayments: [] }] }));
+  window.duitfulIncoming({ package: MAE, text: 'You have received RM23.50 from ALI BIN ABU' });
+  window.duitfulIncoming({ package: MAE, text: 'You have received RM23.50 from ALI BIN ABU' });
+  out.splitOnce = state.pendingTxns.map((p) => p.kind);
+  reset(); save(); renderAll();
+  return out;
+}, { TNG_OUT, MAE_IN });
+const mv = (a, from, to) => a.length === 1 && a[0].kind === 'move' && a[0].from === from && a[0].to === to && a[0].amount > 0;
+check('pairing: TNG transfer out then Maybank credit, same amount, → one "Moved" card', mv(moves.debitFirst, 'tng', 'maybank-mae'), JSON.stringify(moves.debitFirst));
+check('pairing: the card reads "Moved · RM 0.10 · TNG → Maybank" with "Not a move"',
+  moves.card && moves.card.name === 'Moved' && /0\.10/.test(moves.card.amt) && moves.card.src === 'TNG → Maybank' && moves.card.undo === 'Not a move', JSON.stringify(moves.card));
+check('pairing: credit first, debit 5 minutes later, also pairs', mv(moves.creditFirst, 'tng', 'maybank-mae'), JSON.stringify(moves.creditFirst));
+check('pairing: MAE → TNG back again pairs in both orders',
+  mv(moves.backDebitFirst, 'maybank-mae', 'tng') && mv(moves.backCreditFirst, 'maybank-mae', 'tng'), JSON.stringify([moves.backDebitFirst, moves.backCreditFirst]));
+check('pairing: 11 minutes apart stays a spend and an income', moves.farApart.length === 2 && moves.farApart.some((p) => p.kind === 'spend') && moves.farApart.some((p) => p.kind === 'income'), JSON.stringify(moves.farApart));
+check('pairing: both arriving together from the capture store pair too', mv(moves.drained, 'tng', 'maybank-mae'), JSON.stringify(moves.drained));
+check('a confirmed move books no spending and no income, and the toast says so',
+  moves.confirmed.left === 0 && moves.confirmed.income === 0 && moves.confirmed.spend === 0 && /not counted as spending or income/.test(moves.confirmed.toast), JSON.stringify(moves.confirmed));
+check('"Not a move" gives back a spend and an income that do not pair again',
+  moves.split.length === 2 && moves.split.some((p) => p.kind === 'spend') && moves.split.some((p) => p.kind === 'income'), JSON.stringify(moves.split));
+check('a lone transfer out waits a minute out of sight, then shows as a spend with "This is my account"',
+  moves.freshHidden && moves.lone.kind === 'spend' && moves.lone.shown && moves.lone.own, JSON.stringify(moves.lone));
+check('"This is my account" saves the name and turns the card into a move; later transfers to it (any case/spacing) are moves on their own',
+  moves.own.names.join() === 'ALI BIN ABU' && moves.own.kind === 'move' && moves.own.ownFlag === true
+  && moves.ownLater.length === 1 && moves.ownLater[0].kind === 'move' && moves.ownLater[0].from === 'tng' && !moves.ownLater[0].to, JSON.stringify(moves.own));
+check('Settings lists the saved name, and the CSV round-trip keeps it', moves.settingsShown && JSON.stringify(moves.csv) === '["ALI BIN ABU"]', JSON.stringify(moves.csv));
+check('Settings removes a saved name (and hides the empty list)', moves.removed.names === 0 && moves.removed.hidden, JSON.stringify(moves.removed));
+check('a lone credit is a pending income card ("Money in", "+RM 1,250.00", "Add income")',
+  moves.incomeCard && moves.incomeCard.name === 'Money in' && /\+RM\s?1,250\.00/.test(moves.incomeCard.amt) && moves.incomeCard.btn === 'Add income', JSON.stringify(moves.incomeCard));
+check('accepting books one income row that month, not copied into next month',
+  moves.booked.added === 1 && moves.booked.amount === 1250 && moves.booked.repeat === false && moves.booked.category === 'Money in', JSON.stringify(moves.booked));
+check('TNG "You have received RM x from …" and "DuitNow Transfer of RM x from …" become income with the sender',
+  moves.received.length === 2 && moves.received.every((p) => p.kind === 'income') && moves.received[0].sender === 'ALI BIN ABU' && moves.received[1].amount === 30.5, JSON.stringify(moves.received));
+check('a refund is labelled "Refund", not booked as plain income', moves.refund.length === 1 && moves.refund[0].kind === 'income' && moves.refund[0].label === 'Refund' && moves.refund[0].amount === 8.9, JSON.stringify(moves.refund));
+check('the TNG feedback promo and OTP / TAC texts are never captured', moves.promo === false && moves.otp === false && moves.otp2 === false && moves.ignored === 0, JSON.stringify(moves));
+check('a credit that settles a split is offered once, only as the split', JSON.stringify(moves.splitOnce) === '["split-match"]', JSON.stringify(moves.splitOnce));
+
+/* On-device AI for alerts the rules cannot place (stubbed DuitfulKit, as the
+   receipt tests do). The AI labels; amounts come from the text. */
+const aiCap = await S(async () => {
+  const MBB = 'com.maybank2u.life', TNG = 'my.com.tngdigital.ewallet';
+  const old = Date.now() - 30 * 60 * 1000;
+  const keepCap = window.Capacitor;
+  const run = async (items, reply, opts = {}) => {
+    state.pendingTxns = []; state.ownAccounts = [];
+    const asked = [];
+    const plugins = { NotificationListener: { drainCaptured: async () => ({ items }) } };
+    if (reply !== undefined) plugins.DuitfulKit = {
+      aiStatus: async () => ({ available: opts.available !== false }),
+      aiReadAlert: (o) => { asked.push(o.text); return opts.hang ? new Promise(() => {}) : Promise.resolve(typeof reply === 'function' ? reply(o.text) : reply); },
+    };
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: plugins };
+    try { await drainCaptured(); } finally { window.Capacitor = keepCap; }
+    const out = { asked: asked.length, pending: state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', amount: p.amount, merchant: p.merchant, sender: p.sender, category: p.category, from: p.from && p.from.providerId })) };
+    state.pendingTxns = [];
+    return out;
+  };
+  const odd = (tx) => [{ p: MBB, ti: '', tx, t: old }];
+  const json = (o) => ({ json: '```json\n' + JSON.stringify(o) + '\n```' });
+  const r = {};
+  r.spend = await run(odd('Kad 1234: RM 30.00 @ KEDAI RUNCIT MAJU, 15/11'), json({ direction: 'spend', counterparty: 'KEDAI RUNCIT MAJU', category: 'groceries', is_promo_or_security: false, amount: 999 }));
+  r.income = await run(odd('Akaun ***1234: +RM 40.00 (ALI BIN ABU)'), json({ direction: 'income', counterparty: 'ALI BIN ABU', category: '', is_promo_or_security: false }));
+  r.move = await run(odd('RM 15.00 → TNG eWallet ***5678'), json({ direction: 'move', counterparty: '', category: '', is_promo_or_security: false }));
+  r.invented = await run(odd('Akaun ***1234: +RM 40.00'), json({ direction: 'income', counterparty: 'SOMEONE ELSE', category: 'Lottery', is_promo_or_security: false, total: 4000 }));
+  r.promo = await run(odd('Weekend treat: RM 5.00 back for you, tap now'), json({ direction: 'income', counterparty: '', category: '', is_promo_or_security: true }));
+  r.rule = await run([{ p: TNG, ti: '', tx: 'You have successfully transferred RM 9.00 to KEDAI RUNCIT MAJU.', t: old }], json({ direction: 'income', counterparty: 'ALI BIN ABU', category: 'Food', is_promo_or_security: false }));
+  r.noAi = await run(odd('Kad 1234: RM 30.00 @ KEDAI RUNCIT MAJU, 15/11'), undefined);
+  r.unavailable = await run(odd('Kad 1234: RM 30.00 @ KEDAI RUNCIT MAJU, 15/11'), json({ direction: 'spend' }), { available: false });
+  const t0 = Date.now();
+  r.timeout = await run(odd('Kad 1234: RM 30.00 @ KEDAI RUNCIT MAJU, 15/11'), json({ direction: 'spend' }), { hang: true });
+  r.timeoutMs = Date.now() - t0;
+  r.otp = await run(odd('Your TAC for RM 500.00 is 482913. Do not share.'), json({ direction: 'spend', counterparty: '', category: '', is_promo_or_security: false }));
+  save(); renderAll();
+  return r;
+});
+check('AI: an unknown-format alert becomes a spend, with the name it prints and a category from the app\'s list',
+  aiCap.spend.asked >= 1 && aiCap.spend.pending.length === 1 && aiCap.spend.pending[0].kind === 'spend' && aiCap.spend.pending[0].amount === 30
+  && aiCap.spend.pending[0].merchant === 'KEDAI RUNCIT MAJU' && aiCap.spend.pending[0].category === 'Groceries', JSON.stringify(aiCap.spend));
+check('AI: an unknown-format credit becomes income; an AI "move" becomes a move card',
+  aiCap.income.pending.length === 1 && aiCap.income.pending[0].kind === 'income' && aiCap.income.pending[0].amount === 40 && aiCap.income.pending[0].sender === 'ALI BIN ABU'
+  && aiCap.move.pending.length === 1 && aiCap.move.pending[0].kind === 'move' && aiCap.move.pending[0].amount === 15, JSON.stringify([aiCap.income, aiCap.move]));
+check('AI: its amount (999, 4000) is ignored, and a name or category not in the text / the list is dropped',
+  aiCap.spend.pending[0].amount === 30 && aiCap.invented.pending.length === 1 && aiCap.invented.pending[0].amount === 40
+  && aiCap.invented.pending[0].sender === '', JSON.stringify(aiCap.invented));
+check('AI: "promo or security" drops the alert', aiCap.promo.asked === 1 && aiCap.promo.pending.length === 0, JSON.stringify(aiCap.promo));
+check('AI: a confident rule wins — a TNG transfer stays a spend to its rule-read payee whatever the AI says',
+  aiCap.rule.pending.length === 1 && aiCap.rule.pending[0].kind === 'spend' && aiCap.rule.pending[0].merchant === 'KEDAI RUNCIT MAJU' && aiCap.rule.pending[0].amount === 9, JSON.stringify(aiCap.rule));
+check('AI: with no AI, or AI unavailable, an unknown alert does what it did before (nothing without the entity reader)',
+  aiCap.noAi.pending.length === 0 && aiCap.unavailable.pending.length === 0 && aiCap.unavailable.asked === 0, JSON.stringify([aiCap.noAi, aiCap.unavailable]));
+check('AI: a model that never answers times out and falls back cleanly', aiCap.timeout.asked === 1 && aiCap.timeout.pending.length === 0 && aiCap.timeoutMs < 9000, JSON.stringify(aiCap.timeout) + ' ' + aiCap.timeoutMs);
+check('AI: never asked about an OTP / TAC text', aiCap.otp.asked === 0 && aiCap.otp.pending.length === 0, JSON.stringify(aiCap.otp));
 
 // --- settlement receipts: emit ---
 const paidEmit = await S(async () => {

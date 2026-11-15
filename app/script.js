@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.14";
+const APP_VERSION = "1.56.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -64,6 +64,9 @@ const emptyState = () => ({
   license: null,
   ocrUsage: { month: "", scans: 0 },
   pendingTxns: [],
+  // Names of the user's own accounts ("This is my account" on a transfer):
+  // a transfer to one of them is a move between wallets, not a spend.
+  ownAccounts: [],
   guideSeen: false,
   deviceId: "",
   lastEditedAt: "",
@@ -325,6 +328,7 @@ function coerceState(parsed) {
         ? { month: String(parsed.ocrUsage.month || ""), scans: Number(parsed.ocrUsage.scans) || 0 }
         : { month: "", scans: 0 },
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
+      ownAccounts: coerceOwnAccounts(parsed.ownAccounts),
       guideSeen: !!parsed.guideSeen,
       deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : "",
       lastEditedAt: typeof parsed.lastEditedAt === "string" ? parsed.lastEditedAt : "",
@@ -4193,6 +4197,7 @@ function renderAll() {
   if (typeof renderTax === "function") renderTax();
   renderUpcoming();
   renderPending();
+  renderOwnAccounts();
   renderReminderPrefs();
   renderFxStatus();
   populateCurrencyPickers();
@@ -4555,28 +4560,98 @@ function renderPending() {
   const list = document.getElementById("pending-list");
   const sub = document.getElementById("pending-sub");
   if (!card || !list) return;
-  const items = state.pendingTxns || [];
+  // A lone transfer out waits briefly, out of sight, for the credit that
+  // would make it a move; the card appears when the wait is over.
+  const now = Date.now();
+  const held = (p) => !p.kind && p.transfer && !p.noPair && now - (p.createdAt || 0) < PENDING_HOLD_MS && now - (p.createdAt || 0) >= 0;
+  const items = (state.pendingTxns || []).filter((p) => !held(p));
+  const waiting = (state.pendingTxns || []).filter(held);
+  clearTimeout(renderPending._hold);
+  if (waiting.length) {
+    const next = Math.min(...waiting.map((p) => PENDING_HOLD_MS - (now - p.createdAt)));
+    renderPending._hold = setTimeout(renderPending, Math.max(500, next + 50));
+  }
   if (items.length === 0) { card.hidden = true; return; }
   card.hidden = false;
   if (sub) sub.textContent = `${items.length} to review`;
   list.innerHTML = items
     .slice()
     .sort((a, b) => b.createdAt - a.createdAt)
-    .map((p) => (p.kind === "split-match" ? pendingSplitMatchHtml(p) : `
+    .map((p) => (p.kind === "split-match" ? pendingSplitMatchHtml(p)
+      : p.kind === "income" ? pendingIncomeHtml(p)
+      : p.kind === "move" ? pendingMoveHtml(p) : `
         <li data-id="${p.id}">
           <div class="pending-main">
             <div class="pending-top">
               <span class="pending-name">${p.merchant ? escapeHtml(p.merchant) : "Unknown"}</span>
               <span class="pending-amount">${fmtMoney(p.amount)}</span>
             </div>
-            <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")}</div>
+            <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")}${p.category ? ` · ${escapeHtml(p.category)}` : ""}</div>
           </div>
           <div class="pending-actions">
+            ${p.transfer && p.merchant ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
             <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="Dismiss">✕</button>
             <button class="ghost" data-action="pending-edit" data-id="${p.id}">Edit</button>
             <button class="primary" data-action="pending-accept" data-id="${p.id}">Add</button>
           </div>
         </li>`)).join("");
+}
+
+/* Settings: the own-account names, each removable. Hidden while empty. */
+function renderOwnAccounts() {
+  const card = document.getElementById("own-accounts-card");
+  const list = document.getElementById("own-accounts-list");
+  if (!card || !list) return;
+  const names = state.ownAccounts || [];
+  card.hidden = !names.length;
+  list.innerHTML = names.map((n) => `
+    <li><span>${escapeHtml(n)}</span><button type="button" class="ghost" data-own-remove="${escapeHtml(n)}" aria-label="Remove ${escapeHtml(n)}">Remove</button></li>`).join("");
+}
+document.getElementById("own-accounts-list")?.addEventListener("click", (e) => {
+  const b = e.target instanceof Element ? e.target.closest("[data-own-remove]") : null;
+  if (b) removeOwnAccount(b.dataset.ownRemove);
+});
+
+/* Money in: "+RM 0.10 · From ALI BIN ABU". A refund, reversal or cashback
+   says so in its name. */
+function pendingIncomeHtml(p) {
+  const name = p.label ? `${p.label}${p.sender ? ` · ${p.sender}` : ""}` : (p.sender || "Money in");
+  return `
+    <li data-id="${p.id}" class="pending-income">
+      <div class="pending-main">
+        <div class="pending-top">
+          <span class="pending-name">${escapeHtml(name)}</span>
+          <span class="pending-amount in">+${fmtMoney(p.amount)}</span>
+        </div>
+        <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")} · Income</div>
+      </div>
+      <div class="pending-actions">
+        ${p.sender && !p.label ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
+        <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="Dismiss">✕</button>
+        <button class="primary" data-action="pending-income-accept" data-id="${p.id}">Add income</button>
+      </div>
+    </li>`;
+}
+
+/* "Moved RM 0.10 · TNG → Maybank": the same money changing wallets. */
+function pendingMoveHtml(p) {
+  const fromName = p.from ? providerShort(p.from.providerId, p.from.providerName) : "Your account";
+  const toName = p.to ? providerShort(p.to.providerId, p.to.providerName) : "your account";
+  const undo = p.from && p.to ? "Not a move" : p.from ? "It was a spend" : "It was income";
+  return `
+    <li data-id="${p.id}" class="pending-move">
+      <div class="pending-main">
+        <div class="pending-top">
+          <span class="pending-name">Moved</span>
+          <span class="pending-amount move">${fmtMoney(p.amount)}</span>
+        </div>
+        <div class="pending-source">${escapeHtml(fromName)} → ${escapeHtml(toName)}</div>
+      </div>
+      <div class="pending-actions">
+        <button class="ghost" data-action="pending-move-split" data-id="${p.id}">${undo}</button>
+        <button class="primary" data-action="pending-move-accept" data-id="${p.id}">Confirm</button>
+      </div>
+    </li>`;
 }
 
 /* "RM 23.50 received — settle Ali's share of Dinner @ Naz?"
@@ -4647,7 +4722,7 @@ function acceptPending(id) {
     kind: "expense",
     date: todayISO(),
     amount: p.amount,
-    category: p.providerName || "Card",
+    category: p.category || p.providerName || "Card",
     note: p.merchant || "",
   });
   state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
@@ -5954,11 +6029,47 @@ async function drainCaptured() {
     console.warn("capture drain failed:", err);
   } finally { _captureDraining = false; }
   let added = 0;
+  const unsure = [];
+  const before = new Set((state.pendingTxns || []).map((p) => p.id));
+  // 1. The rules, for everything, at once: cards appear without waiting.
   for (const it of items) {
     if (!it || typeof it !== "object") continue;
     const t = Number(it.t);
-    if (window.duitfulIncoming({ package: String(it.p || ""), title: String(it.ti || ""), text: String(it.tx || ""), postedAt: Number.isFinite(t) && t > 0 ? t : 0 })) added += 1;
+    const data = { package: String(it.p || ""), title: String(it.ti || ""), text: String(it.tx || ""), postedAt: Number.isFinite(t) && t > 0 ? t : 0 };
+    try {
+      if (captureByRules(data)) added += 1;
+      else unsure.push(data);
+    } catch (e) { console.warn("capture failed", e); }
   }
+  // 2. On-device AI, if this phone has it, for what the rules could not
+  //    place and for new spends missing a name or category. Never blocks.
+  const gaps = (state.pendingTxns || []).filter((p) => !before.has(p.id) && !p.kind && (!p.merchant || !p.category));
+  const kit = (unsure.some((d) => captureRuleAmount(captureTexts(d).slice(-1)[0]) != null) || gaps.length) ? await captureAiKit() : null;
+  const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
+  let calls = 0;
+  const leftovers = [];
+  for (const data of unsure) {
+    const text = captureTexts(data).slice(-1)[0];
+    if (!kit || calls >= CAPTURE_AI_MAX || captureRuleAmount(text) == null || CAPTURE_DENY.test(text) || isLikelyPromo(text)) { leftovers.push(data); continue; }
+    calls += 1;
+    const ai = await askAiAboutAlert(kit, text, cats);
+    if (ai && ai.promo) continue;                 // promo or security: dropped
+    if (ai && queueFromAi(data, ai, cats)) { added += 1; continue; }
+    if (!ai) leftovers.push(data);                // timeout / error: as before
+  }
+  for (const p of gaps) {
+    if (!kit || calls >= CAPTURE_AI_MAX) break;
+    calls += 1;
+    const ai = await askAiAboutAlert(kit, p.raw, cats);
+    if (!ai || ai.promo) continue;
+    const cur = (state.pendingTxns || []).find((x) => x.id === p.id);
+    if (!cur) continue;
+    if (!cur.merchant) cur.merchant = aiNameInText(ai.counterparty, cur.raw);
+    if (!cur.category) cur.category = aiCategoryIn(ai.category, cats);
+  }
+  if (calls) commitPending();
+  // 3. Without an AI answer, the entity reader fallback, exactly as before.
+  for (const data of leftovers) queuePendingTxnFromEntities(data).catch(() => {});
   return added;
 }
 
@@ -8027,6 +8138,18 @@ document.addEventListener("click", (e) => {
   } else if (action === "pending-dismiss") {
     dismissPending(id);
     return;
+  } else if (action === "pending-income-accept") {
+    acceptIncomePending(id);
+    return;
+  } else if (action === "pending-move-accept") {
+    acceptMove(id);
+    return;
+  } else if (action === "pending-move-split") {
+    splitMove(id);
+    return;
+  } else if (action === "pending-own") {
+    markOwnAccount(id);
+    return;
   } else {
     return;
   }
@@ -8839,6 +8962,8 @@ function toCSV() {
     settingRow("investPlanMonthlyContribution", pl.monthlyContribution);
     settingRow("investPlanIncludeSavings", pl.includeSavings ? "Y" : "N");
   }
+  // Own-account names ("This is my account"), one setting row each.
+  for (const n of state.ownAccounts || []) rows.push(blank(["setting", "ownAccount", n]));
   // Budget pool rows — name in column 1 ("name"), limit in column 2 ("amount"),
   // remaining pool-specific data in the new pool_* columns at index 22-26.
   for (const p of state.budgetPools) {
@@ -9173,6 +9298,9 @@ function fromCSV(text) {
           && (row[iInvReinvested] || "").trim().toUpperCase() === "Y";
         h.dividends.push({ date, amount, reinvested });
       }
+    } else if (type === "setting" && name.toLowerCase() === "ownaccount") {
+      const raw = iAmount >= 0 ? (row[iAmount] || "").toString() : "";
+      next.ownAccounts = coerceOwnAccounts([...(next.ownAccounts || []), raw]);
     } else if (type === "setting" && /^tax(enabled|spouse|children|childrenpre|childrentertiary|disabledchildren|disabledself|disabledspouse|(pcb|epf|income)\d{4})$/i.test(name)) {
       // Cells, not numbers, for the same reason as the zakat rows. coerceTax
       // below clamps whatever lands here.
@@ -10642,6 +10770,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.0": [
+    "<strong>Money in, too</strong> — on Android, money arriving in your bank or e-wallet now shows up for you to add as income. Refunds and cashback are labelled.",
+    "<strong>Moving your own money</strong> — moving money from Touch 'n Go to your bank (or back) shows as one \"Moved\" item that isn't counted as spending or income. Tap \"This is my account\" on a transfer and Duitful remembers it; manage the list in Settings.",
+    "<strong>Smarter on supported phones</strong> — when an alert's wording is new, the phone's own AI can help sort it. It never sets the amount, and nothing leaves your phone.",
+  ],
   "1.55.14": [
     "<strong>Bank alerts caught while Duitful is closed</strong> — on Android, a Touch 'n Go, MAE or other bank notification that arrives while the app is closed is now kept (encrypted on your phone) and waits for you to review next time you open Duitful. Touch 'n Go DuitNow transfers are now recognised too.",
   ],
@@ -12932,7 +13065,7 @@ function parseReceiptText(text, today) {
 const TXN_TRANSFER_OUT = /\b(?:transferred|sent)\s+(?:RM|MYR)\s*([\d,]+(?:\.\d{1,2})?)\s+to\s+([^\n.…]+?)(?:\s*(?:[.\n…]|\bon\s|\bvia\s)|$)/i;
 
 const TXN_PROVIDERS = [
-  { id: "maybank",   name: "Maybank",       country: "MY", currency: "MYR",
+  { id: "maybank",   name: "Maybank",       short: "Maybank", country: "MY", currency: "MYR",
     packages: ["com.mbb.malaysia.android"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:charged|debited|deducted|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "cimb",      name: "CIMB",          country: "MY", currency: "MYR",
@@ -12947,7 +13080,7 @@ const TXN_PROVIDERS = [
   { id: "publicbank",name: "Public Bank",   country: "MY", currency: "MYR",
     packages: ["com.pbb.mypb", "my.com.publicbank.pbengine"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "tng",       name: "Touch 'n Go",   country: "MY", currency: "MYR",
+  { id: "tng",       name: "Touch 'n Go",   short: "TNG", country: "MY", currency: "MYR",
     packages: ["my.com.tngdigital.ewallet"],
     patterns: [
       /(?:spent|paid|deducted)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i,
@@ -12975,7 +13108,7 @@ const TXN_PROVIDERS = [
   { id: "graypaylater",name: "GrabPay Later",country: "MY", currency: "MYR",
     packages: ["com.grabtaxi.passenger"],
     patterns: [/PayLater[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "maybank-mae", name: "Maybank MAE", country: "MY", currency: "MYR",
+  { id: "maybank-mae", name: "Maybank MAE", short: "Maybank", country: "MY", currency: "MYR",
     packages: ["com.maybank2u.life"],
     patterns: [
       /RM\s*([\d,]+\.?\d*)\s+(?:paid|sent|debited|charged)[^.]*?(?:to|at)\s+(.+?)(?:\s+on|\s*[.]|$)/i,
@@ -13154,6 +13287,9 @@ function parseBankText(text, pkg) {
       providerName: provider.name,
       country: provider.country,
       currency: provider.currency,
+      // A person-to-person transfer can be money moving between your own
+      // wallets; a card spend at a shop never is.
+      transfer: re === TXN_TRANSFER_OUT,
     };
   }
   return null;
@@ -13280,12 +13416,12 @@ function queuePendingTxn(data) {
   // de-dupe: ignore exact (provider, amount, merchant) within 2 minutes of each other
   const now = captureTime(data);
   state.pendingTxns = state.pendingTxns || [];
-  const dupe = state.pendingTxns.find((p) => p.providerId === parsed.providerId
+  const dupe = pendingSpends().find((p) => p.providerId === parsed.providerId
     && p.amount === parsed.amount
     && p.merchant === parsed.merchant
     && Math.abs(now - p.createdAt) < 120000);
   if (dupe) return false;
-  state.pendingTxns.push({
+  queueDebit({
     id: uid(),
     createdAt: now,
     raw: String(data.text || ""),
@@ -13296,10 +13432,198 @@ function queuePendingTxn(data) {
     providerName: parsed.providerName,
     country: parsed.country,
     currency: parsed.currency,
+    transfer: !!parsed.transfer,
   });
+  return true;
+}
+
+/* ---------- Money in, and money moving between your own accounts ----------
+   A credit that settles a split is handled above and goes no further. Any
+   other credit from a listed app becomes a pending income entry. A transfer
+   out in one app and a credit of the same amount in another, within
+   PAIR_WINDOW_MS of each other (either order), is one move: confirming it
+   books nothing. A transfer to a name saved with "This is my account" is a
+   move on its own. */
+const PAIR_WINDOW_MS = 10 * 60 * 1000;
+// A lone transfer out waits this long, out of sight, for its other half.
+const PENDING_HOLD_MS = 60 * 1000;
+// OTPs and security codes are never money, whatever figures they contain.
+const CAPTURE_DENY = /\b(?:OTP|TAC|one[- ]time\s+(?:password|passcode|pin|code)|verification\s+code|security\s+code|do\s+not\s+share)\b/i;
+
+function normOwnName(s) { return String(s || "").replace(/\s+/g, " ").trim().toUpperCase().slice(0, 60); }
+function coerceOwnAccounts(list) {
+  if (!Array.isArray(list)) return [];
+  return [...new Set(list.map(normOwnName).filter(Boolean))].slice(0, 30);
+}
+function isOwnName(name) {
+  const n = normOwnName(name);
+  return !!n && (state.ownAccounts || []).includes(n);
+}
+function providerShort(id, fallback) {
+  const p = TXN_PROVIDERS.find((x) => x.id === id);
+  return (p && (p.short || p.name)) || fallback || "Bank";
+}
+function pendingSource(p) { return (p && (p.providerId || p.pkg)) || ""; }
+function sameAmount(a, b) { return Math.abs(Number(a) - Number(b)) < 0.005; }
+function pendingSpends() {
+  const out = [];
+  for (const p of state.pendingTxns || []) {
+    if (!p.kind) out.push(p);
+    else if (p.kind === "move" && p.from) out.push(p.from);
+  }
+  return out;
+}
+function pendingCredits() {
+  const out = [];
+  for (const p of state.pendingTxns || []) {
+    if (p.kind === "income") out.push(p);
+    else if (p.kind === "move" && p.to) out.push(p.to);
+  }
+  return out;
+}
+function makeMove(from, to, own) {
+  const parts = [from, to].filter(Boolean);
+  return {
+    id: uid(), kind: "move", createdAt: Math.min(...parts.map((x) => x.createdAt)),
+    amount: parts[0].amount, currency: parts[0].currency || "MYR",
+    from: from || null, to: to || null, own: !!own,
+  };
+}
+// The other half of a move: opposite direction, same amount, a different
+// app, close in time, and not split apart by the user before.
+function findPairPartner(item, wantKind) {
+  const list = state.pendingTxns || [];
+  return list.findIndex((p) => !p.noPair
+    && (wantKind === "income" ? (p.kind === "income" && !p.label) : (!p.kind && p.transfer))
+    && sameAmount(p.amount, item.amount)
+    && pendingSource(p) !== pendingSource(item)
+    && Math.abs(p.createdAt - item.createdAt) <= PAIR_WINDOW_MS);
+}
+function commitPending() {
   save();
   if (typeof renderAll === "function") renderAll();
+}
+function queueDebit(item) {
+  state.pendingTxns = state.pendingTxns || [];
+  if (item.transfer && !item.noPair) {
+    if (isOwnName(item.merchant)) { state.pendingTxns.push(makeMove(item, null, true)); commitPending(); return; }
+    const at = findPairPartner(item, "income");
+    if (at >= 0) { state.pendingTxns[at] = makeMove(item, state.pendingTxns[at], false); commitPending(); return; }
+  }
+  state.pendingTxns.push(item);
+  commitPending();
+}
+function queueCredit(item) {
+  state.pendingTxns = state.pendingTxns || [];
+  if (!item.label && !item.noPair) {
+    if (isOwnName(item.sender)) { state.pendingTxns.push(makeMove(null, item, true)); commitPending(); return; }
+    const at = findPairPartner(item, "spend");
+    if (at >= 0) { state.pendingTxns[at] = makeMove(state.pendingTxns[at], item, false); commitPending(); return; }
+  }
+  state.pendingTxns.push(item);
+  commitPending();
+}
+
+// Refunds, reversals and cashback are labelled, so they are never booked as
+// if they were pay.
+function creditLabel(text) {
+  if (/\brefund/i.test(text)) return "Refund";
+  if (/\brevers/i.test(text)) return "Reversal";
+  if (/\bcashback\b/i.test(text)) return "Cashback";
+  return "";
+}
+const CREDIT_REFUND_PAT = /\b(?:refund(?:ed)?|reversal|reversed|cashback)\b[^.]{0,40}?(?:RM|MYR)\s*([\d,]+(?:\.\d{1,2})?)/i;
+function parseIncomingCredit(text, pkg) {
+  const raw = String(text || "");
+  if (!raw || CAPTURE_DENY.test(raw)) return null;
+  const label = creditLabel(raw);
+  let parsed = parseIncomingTransfer(raw, pkg);
+  if (!parsed && label && !isLikelyPromo(raw) && !/\b(?:request(?:ed)?|pending|failed|unsuccessful|declined)\b/i.test(raw)) {
+    const m = raw.match(CREDIT_REFUND_PAT);
+    const amount = m ? parseAmount(m[1], "MYR") : NaN;
+    if (Number.isFinite(amount) && amount > 0) {
+      const provider = providerForPackage(pkg);
+      parsed = { amount, sender: "", currency: "MYR", raw, providerId: provider ? provider.id : "", providerName: provider ? provider.name : "" };
+    }
+  }
+  return parsed ? { ...parsed, label } : null;
+}
+function queueIncomingCredit(data) {
+  const pkg = String(data.package || "");
+  if (!providerForPackage(pkg)) return false;
+  let parsed = null;
+  for (const text of captureTexts(data)) { parsed = parseIncomingCredit(text, pkg); if (parsed) break; }
+  if (!parsed) return false;
+  const now = captureTime(data);
+  const item = {
+    id: uid(), kind: "income", createdAt: now, raw: String(data.text || ""), pkg,
+    amount: parsed.amount, sender: parsed.sender || "", label: parsed.label || "",
+    providerId: parsed.providerId, providerName: parsed.providerName, currency: "MYR",
+  };
+  // The bank firing twice, or the same credit already offered to settle a split.
+  const dup = pendingCredits().some((p) => pendingSource(p) === pendingSource(item) && sameAmount(p.amount, item.amount) && Math.abs(now - p.createdAt) < 120000)
+    || (state.pendingTxns || []).some((p) => p.kind === "split-match" && sameAmount(p.amount, item.amount) && Math.abs(now - p.createdAt) < 120000);
+  if (dup) return false;
+  queueCredit(item);
   return true;
+}
+
+/* "This is my account": remember the name (vault only), and turn this and
+   any other waiting transfer to it into a move. */
+function markOwnAccount(id) {
+  const p = (state.pendingTxns || []).find((x) => x.id === id);
+  const name = p && normOwnName(p.kind === "income" ? p.sender : p.merchant);
+  if (!name) return;
+  state.ownAccounts = coerceOwnAccounts([...(state.ownAccounts || []), name]);
+  state.pendingTxns = state.pendingTxns.map((x) => {
+    if (!x.kind && x.transfer && normOwnName(x.merchant) === name) return makeMove(x, null, true);
+    if (x.kind === "income" && !x.label && normOwnName(x.sender) === name) return makeMove(null, x, true);
+    return x;
+  });
+  commitPending();
+  toast(`Saved. Transfers to ${name} count as moves.`);
+}
+function removeOwnAccount(name) {
+  state.ownAccounts = (state.ownAccounts || []).filter((n) => n !== name);
+  commitPending();
+}
+// Confirm a move: nothing is booked anywhere.
+function acceptMove(id) {
+  state.pendingTxns = (state.pendingTxns || []).filter((x) => x.id !== id);
+  commitPending();
+  toast("Moved between your accounts — not counted as spending or income.");
+}
+// "Not a move": back to the spend and/or income it was made of, kept apart.
+function splitMove(id) {
+  const list = state.pendingTxns || [];
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0 || list[i].kind !== "move") return;
+  const m = list[i];
+  const parts = [m.from, m.to].filter(Boolean).map((x) => ({ ...x, noPair: true }));
+  list.splice(i, 1, ...parts);
+  commitPending();
+}
+function acceptIncomePending(id) {
+  const p = (state.pendingTxns || []).find((x) => x.id === id);
+  if (!p) return;
+  const d = new Date(p.createdAt || Date.now());
+  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const from = providerShort(p.providerId, p.providerName);
+  // Booked like a split repayment: a one-off row in that month's income,
+  // never copied into next month.
+  state.income.push({
+    id: uid(),
+    name: p.label ? `${p.label}${p.sender ? ` — ${p.sender}` : ` · ${from}`}` : (p.sender ? `From ${p.sender}` : `Money in · ${from}`),
+    amount: p.amount,
+    month: iso.slice(0, 7),
+    day: Number(iso.slice(8, 10)),
+    repeatNext: false,
+    category: p.label || "Money in",
+    note: p.providerName || "",
+  });
+  state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
+  commitPending();
+  toast(`${fmtMoney(p.amount)} added to income`);
 }
 
 /* ---------- Quick add: the widget and the shade ----------
@@ -13395,18 +13719,118 @@ async function drainQuickAdd() {
    Also exposed so you can test in the devtools console:
      duitfulIncoming({ package: "com.mbb.malaysia.android", text: "RM50.00 charged to card ending 1234 at STARBUCKS on 19-Apr-26" })
 */
+// The rules: split settling, money in, money out. True when one queued.
+function captureByRules(data) {
+  if (captureTexts(data).some((t) => CAPTURE_DENY.test(t))) return false;
+  // Credits first: a transfer landing is never also a card spend, and the
+  // debit patterns would only ever mis-read it. A credit that settles a
+  // split goes no further.
+  if (queueIncomingTransfer(data)) return true;
+  if (queueIncomingCredit(data)) return true;
+  return queuePendingTxn(data);
+}
 window.duitfulIncoming = (data) => {
   try {
-    // Credits first: a transfer landing is never also a card spend, and the
-    // debit patterns would only ever mis-read it.
-    if (queueIncomingTransfer(data || {})) return true;
-    if (queuePendingTxn(data || {})) return true;
+    if (captureByRules(data || {})) return true;
     // No bank pattern matched (banks reword their alerts): let ML Kit's
     // entity reader find the amount. Async, so this call reports false.
     queuePendingTxnFromEntities(data || {}).catch(() => {});
     return false;
   } catch (e) { console.warn("duitfulIncoming failed", e); return false; }
 };
+
+/* ---------- On-device AI, only where the rules are unsure ----------
+   Same kit as the receipt second opinion (Gemini Nano via ML Kit's Prompt
+   API, DuitfulKit.aiReadAlert; iOS has no capture). Run only from the drain,
+   never in the background service. The AI labels; it never sets an amount:
+   the amount is the one RM figure the alert prints, found by rule. It may
+   say an unknown-format alert is a spend, income or a move, name the other
+   side (only if that name is in the text) and pick a category from the
+   app's list. Promo or security means drop. A confident rule always wins. */
+const CAPTURE_AI_TIMEOUT_MS = 6000;
+const CAPTURE_AI_MAX = 8;
+// Exactly one RM figure in the text, or null: the only amount an AI-labelled
+// alert can ever carry.
+function captureRuleAmount(text) {
+  const set = new Set();
+  for (const m of String(text || "").matchAll(/(?:\bRM|\bMYR)\s*([\d,]+(?:\.\d{1,2})?)/gi)) {
+    const v = parseAmount(m[1], "MYR");
+    if (Number.isFinite(v) && v > 0 && v < 1e7) set.add(Math.round(v * 100) / 100);
+  }
+  return set.size === 1 ? [...set][0] : null;
+}
+// Pure: the model's JSON → { direction, counterparty, category, promo }, or null.
+function parseAiAlertReply(reply) {
+  if (!reply || typeof reply !== "object") return null;
+  let f = reply;
+  if (typeof reply.json === "string") {
+    const m = reply.json.replace(/```(?:json)?/gi, "").match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try { f = JSON.parse(m[0]); } catch { return null; }
+  }
+  const dir = String(f.direction || "").toLowerCase();
+  return {
+    direction: ["spend", "income", "move", "ignore"].includes(dir) ? dir : "",
+    counterparty: typeof f.counterparty === "string" ? f.counterparty.trim().slice(0, 60) : "",
+    category: typeof f.category === "string" ? f.category.trim().slice(0, 40) : "",
+    promo: f.is_promo_or_security === true || f.is_promo_or_security === "true",
+  };
+}
+async function captureAiKit() {
+  const kit = duitfulKit("aiReadAlert");
+  if (!kit || typeof kit.aiStatus !== "function") return null;
+  try {
+    const st = await withTimeout(kit.aiStatus(), 2000);
+    return st && st.available ? kit : null;
+  } catch { return null; }
+}
+async function askAiAboutAlert(kit, text, categories) {
+  try {
+    return parseAiAlertReply(await withTimeout(kit.aiReadAlert({ text: String(text).slice(0, 600), categories }), CAPTURE_AI_TIMEOUT_MS));
+  } catch { return null; }
+}
+// A name or category the model offers counts only if the alert says it /
+// the app already has it.
+function aiNameInText(name, text) {
+  const n = String(name || "").trim();
+  return n.length >= 2 && String(text || "").toLowerCase().includes(n.toLowerCase()) ? n : "";
+}
+function aiCategoryIn(cat, cats) {
+  const c = String(cat || "").trim().toLowerCase();
+  return (cats || []).find((x) => x.toLowerCase() === c) || "";
+}
+/* An alert the rules could not place: a listed app, no OTP / promo words, and
+   exactly one RM figure. The AI decides direction; the rest is rule-made. */
+function queueFromAi(data, ai, cats) {
+  const pkg = String(data.package || "");
+  const provider = providerForPackage(pkg);
+  const text = captureTexts(data).slice(-1)[0];
+  const amount = captureRuleAmount(text);
+  if (!provider || amount == null || !ai || ai.promo || !ai.direction || ai.direction === "ignore") return false;
+  if (CAPTURE_DENY.test(text) || isLikelyPromo(text)) return false;
+  const now = captureTime(data);
+  const who = aiNameInText(ai.counterparty, text);
+  const base = { id: uid(), createdAt: now, raw: String(data.text || ""), pkg, amount, providerId: provider.id, providerName: provider.name, currency: provider.currency, ai: true };
+  if (ai.direction === "income") {
+    if (pendingCredits().some((p) => pendingSource(p) === provider.id && sameAmount(p.amount, amount) && Math.abs(now - p.createdAt) < 120000)) return false;
+    queueCredit({ ...base, kind: "income", sender: who, label: creditLabel(text) });
+    return true;
+  }
+  if (pendingSpends().some((p) => p.providerId === provider.id && sameAmount(p.amount, amount) && Math.abs(now - p.createdAt) < 120000)) return false;
+  const spend = { ...base, merchant: who, country: provider.country, category: aiCategoryIn(ai.category, cats), transfer: ai.direction === "move" };
+  if (ai.direction === "move") {
+    // AI only supplies the direction; pairing stays rule-based. Unpaired, it
+    // is shown as a move to confirm, with "It was a spend" to undo.
+    state.pendingTxns = state.pendingTxns || [];
+    const at = findPairPartner(spend, "income");
+    if (at >= 0) state.pendingTxns[at] = makeMove(spend, state.pendingTxns[at], false);
+    else state.pendingTxns.push(makeMove(spend, null, false));
+    commitPending();
+    return true;
+  }
+  queueDebit({ ...spend, transfer: false });
+  return true;
+}
 
 /* Fallback for a notification from a known bank or wallet app whose wording
    none of the patterns above recognise. Narrow on purpose: the app must be on
@@ -13434,7 +13858,7 @@ async function queuePendingTxnFromEntities(data) {
   const text = String(data.text || "");
   const provider = providerForPackage(String(data.package || ""));
   if (!provider || !aesKey) return false;
-  if (!ENTITY_DEBIT_WORDS.test(text) || ENTITY_CREDIT_WORDS.test(text) || isLikelyPromo(text)) return false;
+  if (!ENTITY_DEBIT_WORDS.test(text) || ENTITY_CREDIT_WORDS.test(text) || isLikelyPromo(text) || CAPTURE_DENY.test(text)) return false;
   const kit = duitfulKit("extractEntities");
   if (!kit) return false;
   let res;

@@ -1,4 +1,9 @@
 {
+  "1.56.0": [
+    "<strong>Duit masuk juga</strong> — di Android, duit yang masuk ke akaun bank atau e-dompet anda kini dipaparkan untuk ditambah sebagai pendapatan. Bayaran balik dan pulangan tunai dilabel.",
+    "<strong>Memindahkan duit sendiri</strong> — pindahan dari Touch 'n Go ke bank anda (atau sebaliknya) dipaparkan sebagai satu item \"Moved\" yang tidak dikira sebagai perbelanjaan atau pendapatan. Ketik \"This is my account\" pada pindahan dan Duitful akan mengingatinya; urus senarai dalam Tetapan.",
+    "<strong>Lebih bijak pada telefon yang disokong</strong> — apabila ayat makluman masih baharu, AI dalam telefon boleh membantu menyusunnya. Ia tidak pernah menetapkan jumlah, dan tiada apa-apa keluar dari telefon anda."
+  ],
   "1.55.14": [
     "<strong>Makluman bank ditangkap walaupun Duitful ditutup</strong> — di Android, notifikasi Touch 'n Go, MAE atau bank lain yang tiba semasa aplikasi ditutup kini disimpan (disulitkan dalam telefon anda) dan menunggu untuk disemak apabila anda membuka Duitful. Pindahan DuitNow Touch 'n Go kini dikenali juga."
   ],
