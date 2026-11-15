@@ -9,6 +9,7 @@ Two features sharing one package and one Capacitor plugin:
 
 - `NotificationListenerPlugin.java` — Capacitor plugin (`NotificationListener`). Exposes `isEnabled()`, `openSettings()`, `drainQuickAdd()`, `enableQuickAddNotification()`, `disableQuickAddNotification()`, `isQuickAddNotificationEnabled()`.
 - `DuitfulNotificationListenerService.java` — the Android service that listens to notifications.
+- `DuitfulCaptureStore.java` — bank / e-wallet notifications caught while the app is closed or locked, kept AES-GCM encrypted under an Android Keystore key (capped at 50, 7 days, emptied on every drain). The service stores first and then nudges JS, which drains with `drainCaptured()` on unlock, on resume and on each nudge — before this, a notification that arrived with the app closed was dropped. Only notifications from whitelisted apps whose title or text holds a currency amount are stored. The service also re-reads the shade in `onListenerConnected()` and calls `requestRebind()` in `onListenerDisconnected()` (OEM battery managers such as Vivo's unbind listeners).
 - `DuitfulQuickAddStore.java` — the quick-add queue: a capped, locked, plaintext outbox in SharedPreferences. **Read the class comment before touching it** — it explains what is deliberately *not* stored there and why.
 - `DuitfulQuickAddReceiver.java` — the `com.aydiljoe.duitful.QUICK_ADD` broadcast contract, plus the notification's reply and undo actions.
 - `DuitfulQuickAddNotifier.java` — builds the "Log a spend" notification (with its `RemoteInput` field) and the "RM 12.50 saved" confirmation.
@@ -33,7 +34,7 @@ npm run cap:android      # opens Android Studio for the build
 ### What the script touches
 
 - Creates `android/app/src/main/java/com/aydiljoe/duitful/plugins/`
-- Copies all six `.java` files listed above
+- Copies all seven `.java` files listed above
 - Adds `import com.aydiljoe.duitful.plugins.NotificationListenerPlugin;` and the `registerPlugin(NotificationListenerPlugin.class);` call to `MainActivity.java`
 - Adds the `<service android:name="…DuitfulNotificationListenerService" …>` block inside `<application>` in `AndroidManifest.xml`
 - Writes `res/drawable/duitful_quickadd_ic.xml` (the notification's small icon)

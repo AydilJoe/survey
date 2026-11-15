@@ -1928,6 +1928,86 @@ check('two people owing RM 41 produce a choice, not a guess',
   ambiguousQueue.text.replace(/\n/g, ' | ').slice(0, 160));
 await S(() => { state.pendingTxns = []; save(); renderAll(); });
 
+/* ── Touch 'n Go / MAE alerts from a Vivo beta tester (1.55.14) ───────────
+   Real wording, names replaced. A DuitNow transfer out must queue a spend;
+   a feedback promo must not; MAE's "You've just received" must parse as a
+   credit (it queues only when it settles a split, like every credit). */
+const tngMae = await S(() => {
+  state.pendingTxns = [];
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const out = {};
+  out.bank = {
+    tng: parseBankText('You have successfully transferred RM 0.10 to ALI BIN ABU.', TNG),
+    tngCut: parseBankText('You have successfully transferred RM 0.10 to ALI BIN ABU…', TNG),
+    tngBig: parseBankText('You have successfully transferred RM1,234.50 to ALI BIN ABU', TNG),
+    tngWhole: parseBankText('You have successfully transferred RM 12 to KEDAI RUNCIT MAJU.', TNG),
+    maeOut: parseBankText('You have successfully transferred RM 25.00 to ALI BIN ABU.', MAE),
+    promo: parseBankText('Hi ALI BIN ABU! Spend 3 minutes to share your feedback with us to help improve', TNG),
+    credit: parseBankText('You’ve just received RM 0.10 in your account ending ***1234. REF', MAE),
+  };
+  out.credit = {
+    curly: parseIncomingTransfer('You’ve just received RM 0.10 in your account ending ***1234. REF', MAE),
+    straight: parseIncomingTransfer("You've just received RM 0.10 in your account ending ***1234. Reference: lunch", MAE),
+    transfer: parseIncomingTransfer('You have successfully transferred RM 0.10 to ALI BIN ABU.', TNG),
+  };
+  out.live = window.duitfulIncoming({ package: TNG, title: 'DuitNow Transfer is successful', text: 'You have successfully transferred RM 0.10 to ALI BIN ABU.' });
+  out.promoLive = window.duitfulIncoming({ package: TNG, title: 'Hi ALI BIN ABU', text: 'Spend 3 minutes to share your feedback with us to help improve' });
+  out.pending = state.pendingTxns.map((p) => ({ amount: p.amount, merchant: p.merchant, provider: p.providerId }));
+  // Title-only wording still parses: the body is generic, the title says it.
+  state.pendingTxns = [];
+  out.titleOnly = window.duitfulIncoming({ package: TNG, title: 'You have successfully transferred RM 7.20 to MAJU ENTERPRISE', text: 'Tap to view details' });
+  out.titlePending = state.pendingTxns.map((p) => p.amount);
+  // An unmatched credit is still dropped, as before (credits only settle splits).
+  state.pendingTxns = [];
+  out.salary = window.duitfulIncoming({ package: MAE, title: 'Maybank2u: Funds Received', text: 'You’ve just received RM 0.10 in your account ending ***1234. REF' });
+  out.salaryPending = state.pendingTxns.length;
+  state.pendingTxns = [];
+  return out;
+});
+check('TNG: "You have successfully transferred RM 0.10 to ALI BIN ABU" queues a RM 0.10 spend to ALI BIN ABU',
+  tngMae.bank.tng && tngMae.bank.tng.amount === 0.1 && tngMae.bank.tng.merchant === 'ALI BIN ABU' && tngMae.bank.tng.providerId === 'tng'
+  && tngMae.live === true && tngMae.pending.length === 1 && tngMae.pending[0].amount === 0.1 && tngMae.pending[0].merchant === 'ALI BIN ABU',
+  JSON.stringify([tngMae.bank.tng, tngMae.pending]));
+check('TNG transfers: a shade-truncated body, RM1,234.50 and a whole RM 12 all parse; MAE transfers out too',
+  tngMae.bank.tngCut && tngMae.bank.tngCut.merchant === 'ALI BIN ABU' && tngMae.bank.tngBig && tngMae.bank.tngBig.amount === 1234.5
+  && tngMae.bank.tngWhole && tngMae.bank.tngWhole.amount === 12 && tngMae.bank.tngWhole.merchant === 'KEDAI RUNCIT MAJU'
+  && tngMae.bank.maeOut && tngMae.bank.maeOut.amount === 25 && tngMae.bank.maeOut.providerId === 'maybank-mae',
+  JSON.stringify(tngMae.bank));
+check('TNG feedback promo ("Spend 3 minutes to share your feedback") is never captured',
+  tngMae.bank.promo === null && tngMae.promoLive === false && tngMae.pending.length === 1, JSON.stringify(tngMae));
+check('a notification whose amount is only in the title still queues',
+  tngMae.titleOnly === true && tngMae.titlePending.length === 1 && tngMae.titlePending[0] === 7.2, JSON.stringify(tngMae.titlePending));
+check('MAE "You’ve just received RM 0.10 in your account ending …" parses as money in (curly and straight apostrophe), never as a spend',
+  tngMae.credit.curly && tngMae.credit.curly.amount === 0.1 && tngMae.credit.straight && tngMae.credit.straight.amount === 0.1
+  && tngMae.credit.transfer === null && tngMae.bank.credit === null, JSON.stringify(tngMae.credit));
+check('an incoming credit that settles no split is still not queued (credits only settle splits)',
+  tngMae.salary === false && tngMae.salaryPending === 0, JSON.stringify(tngMae));
+
+// Notifications caught while the app was closed: native stores them, JS drains
+// them on unlock / resume / the live nudge, stamped with when they were posted.
+const drained = await S(async () => {
+  state.pendingTxns = [];
+  const keepCap = window.Capacitor;
+  const posted = Date.now() - 3 * 3600 * 1000;
+  let calls = 0;
+  const store = [
+    { p: 'my.com.tngdigital.ewallet', ti: 'DuitNow Transfer is successful', tx: 'You have successfully transferred RM 0.10 to ALI BIN ABU.', t: posted },
+    { p: 'my.com.tngdigital.ewallet', ti: 'DuitNow Transfer is successful', tx: 'You have successfully transferred RM 0.10 to ALI BIN ABU.', t: posted + 5000 },
+    { p: 'my.com.tngdigital.ewallet', ti: 'Hi ALI BIN ABU', tx: 'Spend 3 minutes to share your feedback', t: posted },
+    null, 'junk',
+  ];
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { NotificationListener: { drainCaptured: async () => { calls++; return { items: calls === 1 ? store : [] }; } } } };
+  let added, again;
+  try { added = await drainCaptured(); again = await drainCaptured(); }
+  finally { window.Capacitor = keepCap; }
+  const out = { added, again, calls, pending: state.pendingTxns.map((p) => ({ amount: p.amount, at: p.createdAt })), posted };
+  state.pendingTxns = []; save(); renderAll();
+  return out;
+});
+check('captured-while-closed notifications are drained once, deduped, promos dropped, and keep their posted time',
+  drained.added === 1 && drained.again === 0 && drained.calls === 2 && drained.pending.length === 1
+  && drained.pending[0].amount === 0.1 && drained.pending[0].at === drained.posted, JSON.stringify(drained));
+
 // --- settlement receipts: emit ---
 const paidEmit = await S(async () => {
   splitState().me = 'Aydil';
@@ -9702,7 +9782,11 @@ check('the brand catalogue makes no network calls at all',
     ];
     state.firstRunAt = 0;
     state.reminderAskDone = true;
-    state.tax = Object.assign(emptyTax(), t || {});
+    // The intro checks below are about the one-off intro, so the season cards
+    // (from 15 Nov, and before e-Filing) are marked seen unless a test says
+    // otherwise; the season checks set their own dates and nudges.
+    const y0 = new Date().getFullYear();
+    state.tax = Object.assign(emptyTax(), { nudges: { [`${y0}-nov`]: 1, [`${y0 - 1}-final`]: 1 } }, t || {});
     save(); renderAll();
     document.getElementById('tabbtn-dashboard').click();
   }, tax);
@@ -9758,6 +9842,7 @@ check('the brand catalogue makes no network calls at all',
   const season = await S(() => {
     const t = taxState();
     t.introSeen = true;
+    t.nudges = {};
     const at = (...a) => { const d = taxHomeCard(new Date(...a)); return d && d.kind; };
     const y = new Date().getFullYear();
     state.dailyExpenses = [{ id: 's1', kind: 'expense', date: `${y}-03-04`, amount: 900, category: 'Books', note: 'Popular', createdAt: 1 }];

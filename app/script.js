@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.13";
+const APP_VERSION = "1.55.14";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5912,17 +5912,54 @@ function initQuickAddResume() {
   if (!App || typeof App.addListener !== "function") return;
   _quickAddResumeBound = true;
   App.addListener("appStateChange", (st) => {
-    if (st && st.isActive) drainQuickAdd().catch(() => {});
+    if (st && st.isActive) {
+      drainQuickAdd().catch(() => {});
+      drainCaptured().catch(() => {});
+    }
   });
 }
 
+let _captureListenerBound = false;
 function initNotificationListener() {
-  if (!isNative()) return;
+  if (_captureListenerBound || !isNative()) return;
   const NL = window.Capacitor?.Plugins?.NotificationListener;
   if (!NL || typeof NL.addListener !== "function") return;
+  _captureListenerBound = true;
   NL.addListener("notification", (data) => {
-    try { window.duitfulIncoming(data); } catch (e) { console.warn(e); }
+    try {
+      // Native stores every capture first (it survives the app being
+      // closed); the event only says "drain now". An older native build
+      // without the store sends the notification itself.
+      if (data && data.queued && typeof NL.drainCaptured === "function") drainCaptured().catch(() => {});
+      else if (aesKey) window.duitfulIncoming(data);
+    } catch (e) { console.warn(e); }
   });
+}
+
+/* Bank notifications caught while Duitful was closed or locked. Native keeps
+   them encrypted under an Android Keystore key (DuitfulCaptureStore); the
+   moment the vault is open they go through the same parsers as a live one,
+   stamped with when they were posted. */
+let _captureDraining = false;
+async function drainCaptured() {
+  if (!isNative() || !aesKey || _captureDraining) return 0;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  if (!NL || typeof NL.drainCaptured !== "function") return 0;
+  _captureDraining = true;
+  let items = [];
+  try {
+    const res = await NL.drainCaptured();
+    items = (res && Array.isArray(res.items)) ? res.items : [];
+  } catch (err) {
+    console.warn("capture drain failed:", err);
+  } finally { _captureDraining = false; }
+  let added = 0;
+  for (const it of items) {
+    if (!it || typeof it !== "object") continue;
+    const t = Number(it.t);
+    if (window.duitfulIncoming({ package: String(it.p || ""), title: String(it.ti || ""), text: String(it.tx || ""), postedAt: Number.isFinite(t) && t > 0 ? t : 0 })) added += 1;
+  }
+  return added;
 }
 
 /* Android App Links: with /.well-known/assetlinks.json served from
@@ -10605,6 +10642,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.14": [
+    "<strong>Bank alerts caught while Duitful is closed</strong> — on Android, a Touch 'n Go, MAE or other bank notification that arrives while the app is closed is now kept (encrypted on your phone) and waits for you to review next time you open Duitful. Touch 'n Go DuitNow transfers are now recognised too.",
+  ],
   "1.55.13": [
     "<strong>A simpler Tax page</strong> — fewer words, more cards. Your details are now three short steps (salary, PCB and EPF, family), and you can type the monthly amounts straight from your payslip. The page shows your details in one line, and asks for one thing at a time.",
   ],
@@ -11645,6 +11685,7 @@ async function handleUnlock(passcode, { silent = false } = {}) {
   initIAP();
   initNotificationListener();
   drainQuickAdd().catch(() => {});
+  drainCaptured().catch(() => {});
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -11682,6 +11723,7 @@ async function handleSetup(passcode, confirm, initialState, { open = false } = {
   initIAP();
   initNotificationListener();
   drainQuickAdd().catch(() => {});
+  drainCaptured().catch(() => {});
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -12884,25 +12926,34 @@ function parseReceiptText(text, today) {
    whitelist of MY/SG banks and wallets, and queue a pending transaction for
    user review. Nothing is auto-saved — the user always confirms. */
 
+// "You have successfully transferred RM 0.10 to ALI BIN ABU." — a DuitNow /
+// e-wallet transfer out. The payee ends at a full stop, a line break or the
+// end (OEM shades cut long bodies with "…", which is dropped).
+const TXN_TRANSFER_OUT = /\b(?:transferred|sent)\s+(?:RM|MYR)\s*([\d,]+(?:\.\d{1,2})?)\s+to\s+([^\n.…]+?)(?:\s*(?:[.\n…]|\bon\s|\bvia\s)|$)/i;
+
 const TXN_PROVIDERS = [
   { id: "maybank",   name: "Maybank",       country: "MY", currency: "MYR",
     packages: ["com.mbb.malaysia.android"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:charged|debited|deducted|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "cimb",      name: "CIMB",          country: "MY", currency: "MYR",
-    packages: ["com.cimb.mob.my", "com.cimb.octo"],
+    packages: ["com.cimb.cimbocto", "com.cimb.mob.my", "com.cimb.octo"],
     patterns: [/(?:Purchase|Charge)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "hlb",       name: "Hong Leong",    country: "MY", currency: "MYR",
-    packages: ["com.hongleong.cfs.connect"],
+    packages: ["my.com.hongleongconnect.mobileconnect", "com.hongleong.cfs.connect"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:spent|paid|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "rhb",       name: "RHB",           country: "MY", currency: "MYR",
-    packages: ["my.com.rhbgroup.rhbmobilebanking"],
+    packages: ["com.rhbgroup.rhbmobilebanking", "my.com.rhbgroup.rhbmobilebanking"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:has been|was)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "publicbank",name: "Public Bank",   country: "MY", currency: "MYR",
-    packages: ["my.com.publicbank.pbengine"],
+    packages: ["com.pbb.mypb", "my.com.publicbank.pbengine"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "tng",       name: "Touch 'n Go",   country: "MY", currency: "MYR",
     packages: ["my.com.tngdigital.ewallet"],
-    patterns: [/(?:spent|paid|deducted)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+    patterns: [
+      /(?:spent|paid|deducted)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i,
+      // "You have successfully transferred RM 0.10 to ALI BIN ABU" (DuitNow Transfer)
+      TXN_TRANSFER_OUT,
+    ] },
   { id: "grabpay",   name: "GrabPay",       country: "MY", currency: "MYR",
     packages: ["com.grabtaxi.passenger"],
     patterns: [/(?:paid|spent|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
@@ -12910,7 +12961,7 @@ const TXN_PROVIDERS = [
     packages: ["my.com.myboost"],
     patterns: [/(?:paid|spent)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
   { id: "bigpay",    name: "BigPay",        country: "MY", currency: "MYR",
-    packages: ["com.bigpay.wallet"],
+    packages: ["com.tpaay.bigpay", "com.bigpay.wallet"],
     patterns: [/(?:paid|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
   { id: "spaylater", name: "SPayLater",     country: "MY", currency: "MYR",
     packages: ["com.shopee.my"],
@@ -12919,25 +12970,28 @@ const TXN_PROVIDERS = [
       /installment\s+of\s+RM\s*([\d,]+\.?\d*)\s+(?:is )?due/i,
     ] },
   { id: "atome",     name: "Atome",         country: "MY", currency: "MYR",
-    packages: ["com.atomeapp.mobile", "sg.com.apaylater"],
+    packages: ["my.atome.paylater", "com.atomeapp.mobile", "sg.com.apaylater"],
     patterns: [/Atome[^.]*?(?:charged|paid)[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:for|at)\s+(.+?)(?:\s*[.]|$)/i] },
   { id: "graypaylater",name: "GrabPay Later",country: "MY", currency: "MYR",
     packages: ["com.grabtaxi.passenger"],
     patterns: [/PayLater[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
   { id: "maybank-mae", name: "Maybank MAE", country: "MY", currency: "MYR",
     packages: ["com.maybank2u.life"],
-    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|sent|debited|charged)[^.]*?(?:to|at)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+    patterns: [
+      /RM\s*([\d,]+\.?\d*)\s+(?:paid|sent|debited|charged)[^.]*?(?:to|at)\s+(.+?)(?:\s+on|\s*[.]|$)/i,
+      TXN_TRANSFER_OUT,
+    ] },
   { id: "ambank", name: "AmBank", country: "MY", currency: "MYR",
-    packages: ["com.ambank.ambankgroup"],
+    packages: ["com.ambank.ambankonline", "com.ambank.ambankgroup"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "bankislam", name: "Bank Islam", country: "MY", currency: "MYR",
-    packages: ["com.bankislam.android"],
+    packages: ["com.bankislam.bimbmobile", "com.bankislam.android"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "bsn", name: "BSN", country: "MY", currency: "MYR",
     packages: ["com.bsn.mybsn"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|paid|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "setel", name: "Setel", country: "MY", currency: "MYR",
-    packages: ["com.setel.app"],
+    packages: ["com.setel.mobile", "com.setel.app"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|spent|fueled)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
   // ----- Singapore -----
   { id: "dbs-sg", name: "DBS digibank SG", country: "SG", currency: "SGD",
@@ -13166,20 +13220,21 @@ function parseIncomingTransfer(text, pkg) {
    because a bank credit that matches no open request is not Duitful's
    business — the user did not ask for their salary to be commented on. */
 function queueIncomingTransfer(data) {
-  const parsed = parseIncomingTransfer(data.text || "", data.package || "");
+  let parsed = null;
+  for (const text of captureTexts(data)) { parsed = parseIncomingTransfer(text, data.package || ""); if (parsed) break; }
   if (!parsed) return false;
   if (typeof splitMatchIncoming !== "function") return false;
   const res = splitMatchIncoming(parsed);
   if (!res || res.status === "none" || !res.matches.length) return false;
 
-  const now = Date.now();
+  const now = captureTime(data);
   state.pendingTxns = state.pendingTxns || [];
   // Same amount, same first candidate, inside two minutes: the bank fired
   // twice (lock screen + drawer), not two people paying the same sum.
   const dupe = state.pendingTxns.find((p) => p.kind === "split-match"
     && Math.abs(Number(p.amount) - parsed.amount) < 0.005
     && p.matches && p.matches[0] && res.matches[0] && p.matches[0].personId === res.matches[0].personId
-    && (now - p.createdAt) < 120000);
+    && Math.abs(now - p.createdAt) < 120000);
   if (dupe) return false;
 
   state.pendingTxns.push({
@@ -13204,16 +13259,31 @@ function queueIncomingTransfer(data) {
   return true;
 }
 
+// The body says what happened on most banks; a few put it in the title
+// ("DuitNow Transfer is successful"). Try the body, then title + body.
+function captureTexts(data) {
+  const text = String((data && data.text) || "");
+  const title = String((data && data.title) || "").trim();
+  return title && !text.includes(title) ? [text, `${title}. ${text}`] : [text];
+}
+
+// When a captured notification was posted: drained ones carry it, live ones are now.
+function captureTime(data) {
+  const t = Number(data && data.postedAt);
+  return Number.isFinite(t) && t > 0 && t <= Date.now() + 60000 ? t : Date.now();
+}
+
 function queuePendingTxn(data) {
-  const parsed = parseBankText(data.text || "", data.package || "");
+  let parsed = null;
+  for (const text of captureTexts(data)) { parsed = parseBankText(text, data.package || ""); if (parsed) break; }
   if (!parsed) return false;
-  // de-dupe: ignore exact (provider, amount, merchant) within the last 2 minutes
-  const now = Date.now();
+  // de-dupe: ignore exact (provider, amount, merchant) within 2 minutes of each other
+  const now = captureTime(data);
   state.pendingTxns = state.pendingTxns || [];
   const dupe = state.pendingTxns.find((p) => p.providerId === parsed.providerId
     && p.amount === parsed.amount
     && p.merchant === parsed.merchant
-    && (now - p.createdAt) < 120000);
+    && Math.abs(now - p.createdAt) < 120000);
   if (dupe) return false;
   state.pendingTxns.push({
     id: uid(),
@@ -13345,7 +13415,7 @@ window.duitfulIncoming = (data) => {
    balance Y" alert is ambiguous, so it is skipped rather than guessed). Like
    every capture, it only queues a pending entry to confirm, with no shop
    name, since none was parsed. */
-const ENTITY_DEBIT_WORDS = /\b(?:paid|spent|charged|debited|deducted|purchase|payment|transaction|dibayar|ditolak|pembelian|pembayaran|transaksi)\b/i;
+const ENTITY_DEBIT_WORDS = /\b(?:paid|spent|charged|debited|deducted|transferred|purchase|payment|transaction|dibayar|ditolak|pembelian|pembayaran|transaksi)\b/i;
 const ENTITY_CREDIT_WORDS = /\b(?:received|credited|refund(?:ed)?|reversal|cashback|menerima|diterima|dikreditkan)\b/i;
 function entityDebitAmount(text, provider, money) {
   if (!provider || !text || isLikelyPromo(text)) return null;
@@ -13371,9 +13441,9 @@ async function queuePendingTxnFromEntities(data) {
   try { res = await withTimeout(kit.extractEntities({ text }), 8000); } catch { return false; }
   const amount = entityDebitAmount(text, provider, res && res.money);
   if (amount == null) return false;
-  const now = Date.now();
+  const now = captureTime(data);
   state.pendingTxns = state.pendingTxns || [];
-  if (state.pendingTxns.some((p) => p.providerId === provider.id && p.amount === amount && (now - p.createdAt) < 120000)) return false;
+  if (state.pendingTxns.some((p) => p.providerId === provider.id && p.amount === amount && Math.abs(now - p.createdAt) < 120000)) return false;
   state.pendingTxns.push({
     id: uid(), createdAt: now, raw: text, pkg: String(data.package || ""),
     amount, merchant: "", providerId: provider.id, providerName: provider.name,
