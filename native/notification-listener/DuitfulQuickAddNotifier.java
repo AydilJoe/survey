@@ -57,6 +57,7 @@ public final class DuitfulQuickAddNotifier {
     private static final int RC_REPLY = 1;
     private static final int RC_SCAN = 2;
     private static final int RC_OPEN = 3;
+    private static final int RC_REVIEW = 4;
     private static final int RC_UNDO_BASE = 100;
 
     static final String CHANNEL_QUICK_ADD = "duitful_quickadd";
@@ -68,6 +69,9 @@ public final class DuitfulQuickAddNotifier {
     private static final String TITLE = "Log a spend";
     private static final String HINT = "Tap Add and type an amount.";
     private static final String FILED = "Filed when you next open Duitful";
+    private static final String REVIEW_TEXT = "From bank alerts · tap to check";
+    /** Set by the app (NotificationListener.setPendingCount) whenever its pending list changes. */
+    static final String KEY_PENDING_COUNT = "pending_count";
 
     private DuitfulQuickAddNotifier() {}
 
@@ -130,11 +134,16 @@ public final class DuitfulQuickAddNotifier {
         try {
             ensureChannels(app);
             int icon = smallIcon(app);
+            // Bank alerts waiting: the count, and nothing else — no amounts,
+            // names or bank text, because this sits on the lock screen.
+            int waiting = error == null ? pendingCount(app) : 0;
+            String title = waiting > 0 ? waiting + " to review" : TITLE;
+            String text = error != null ? error : waiting > 0 ? REVIEW_TEXT : HINT;
             NotificationCompat.Builder builder = new NotificationCompat.Builder(app, CHANNEL_QUICK_ADD)
                     .setSmallIcon(icon)
-                    .setContentTitle(TITLE)
-                    .setContentText(error != null ? error : HINT)
-                    .setStyle(new NotificationCompat.BigTextStyle().bigText(error != null ? error : HINT))
+                    .setContentTitle(title)
+                    .setContentText(text)
+                    .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
                     .setPriority(NotificationCompat.PRIORITY_LOW)
                     // Carries no figures, so it is safe on a lock screen — that
                     // is the whole point of being able to log without unlocking.
@@ -145,11 +154,48 @@ public final class DuitfulQuickAddNotifier {
                     .setOnlyAlertOnce(true)
                     .setShowWhen(false)
                     .setLocalOnly(true)
-                    .setContentIntent(openApp(app))
+                    .setContentIntent(waiting > 0 ? reviewIntent(app) : openApp(app))
                     .addAction(addAction(app, icon))
                     .addAction(scanAction(app, icon));
+            if (waiting > 0) {
+                builder.addAction(new NotificationCompat.Action.Builder(icon, "Review", reviewIntent(app)).build());
+                builder.setPublicVersion(new NotificationCompat.Builder(app, CHANNEL_QUICK_ADD)
+                        .setSmallIcon(icon)
+                        .setContentTitle(waiting + " to review")
+                        .setSilent(true)
+                        .setShowWhen(false)
+                        .build());
+            }
             notify(app, NOTIFICATION_ID, builder);
         } catch (Throwable ignored) {}
+    }
+
+    /**
+     * What the app last said is waiting for review, plus anything the
+     * listener stored since that the app hasn't drained yet. The app resets
+     * its number after every change (review, dismiss, drain), so this can't
+     * stay stale once everything is reviewed.
+     */
+    static int pendingCount(Context app) {
+        int fromApp = 0;
+        try { fromApp = Math.max(0, DuitfulQuickAddStore.prefs(app).getInt(KEY_PENDING_COUNT, 0)); } catch (Throwable ignored) {}
+        int undrained = 0;
+        try { undrained = DuitfulCaptureStore.size(app); } catch (Throwable ignored) {}
+        return Math.min(99, fromApp + undrained);
+    }
+
+    /** The app's pending-review number; re-posts the notification if it is switched on. */
+    public static void setPendingCount(Context context, int count) {
+        if (context == null) return;
+        try {
+            DuitfulQuickAddStore.prefs(context).edit().putInt(KEY_PENDING_COUNT, Math.max(0, count)).commit();
+        } catch (Throwable ignored) {}
+        refresh(context);
+    }
+
+    private static PendingIntent reviewIntent(Context app) {
+        return PendingIntent.getActivity(
+                app, RC_REVIEW, actionIntent(app, "review"), PendingIntent.FLAG_UPDATE_CURRENT | immutableFlag());
     }
 
     private static NotificationCompat.Action addAction(Context app, int icon) {

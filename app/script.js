@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.56.1";
+const APP_VERSION = "1.56.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -69,6 +69,9 @@ const emptyState = () => ({
   ownAccounts: [],
   // On-device AI (receipts and bank alerts). On by default; off = rules only.
   aiEnabled: true,
+  // Settings → Bank alerts → Check auto-capture: what each drained alert
+  // became. App, time and outcome only — never text or amounts.
+  captureDiag: { lastDrainAt: 0, items: [] },
   aiIntroSeen: false,
   aiIntroShownOn: "",
   guideSeen: false,
@@ -334,6 +337,7 @@ function coerceState(parsed) {
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
       ownAccounts: coerceOwnAccounts(parsed.ownAccounts),
       aiEnabled: parsed.aiEnabled !== false,
+      captureDiag: coerceCaptureDiag(parsed.captureDiag),
       aiIntroSeen: !!parsed.aiIntroSeen,
       aiIntroShownOn: typeof parsed.aiIntroShownOn === "string" ? parsed.aiIntroShownOn : "",
       guideSeen: !!parsed.guideSeen,
@@ -4207,6 +4211,7 @@ function renderAll() {
   renderOwnAccounts();
   renderAiSettings();
   renderAiIntro();
+  renderCaptureShareLinks();
   renderReminderPrefs();
   renderFxStatus();
   populateCurrencyPickers();
@@ -4580,6 +4585,7 @@ function renderPending() {
     const next = Math.min(...waiting.map((p) => PENDING_HOLD_MS - (now - p.createdAt)));
     renderPending._hold = setTimeout(renderPending, Math.max(500, next + 50));
   }
+  syncPendingCount();
   if (items.length === 0) { card.hidden = true; return; }
   card.hidden = false;
   if (sub) sub.textContent = `${items.length} to review`;
@@ -4596,7 +4602,7 @@ function renderPending() {
               <span class="pending-amount">${fmtMoney(p.amount)}</span>
             </div>
             <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")}${p.category ? ` · ${escapeHtml(p.category)}` : ""}</div>
-            ${pendingAiTag(p)}
+            ${pendingAiTag(p)}${pendingWrongBtn(p)}
           </div>
           <div class="pending-actions">
             ${p.transfer && p.merchant ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
@@ -4605,6 +4611,152 @@ function renderPending() {
             <button class="primary" data-action="pending-accept" data-id="${p.id}">Add</button>
           </div>
         </li>`)).join("");
+}
+
+/* ---------- "Not picked up?" — share an alert's wording, redacted ----------
+   Banks reword their alerts. The fastest fix is the real wording, so the
+   user can send one: pasted (missed) or from a card ("Wrong?"). It is
+   redacted on this phone first, shown exactly as it will be sent, and
+   leaves only through the user's own email app or share sheet, to the
+   address the app already uses for feedback. No upload, no endpoint. */
+const SAMPLE_TO = "hello@duitful.app";
+// Words that look like a name in capitals but are bank or payment terms.
+const SAMPLE_KEEP = new Set(["DUITNOW", "TRANSFER", "FPX", "JOMPAY", "QR", "IBG", "GIRO", "IBFT", "ATM", "POS", "ID", "OTP", "TAC",
+  "REF", "RM", "MYR", "SGD", "VISA", "MASTERCARD", "DEBIT", "CREDIT", "CARD", "MAYBANK", "MAYBANK2U", "MAE", "CIMB", "OCTO", "RHB",
+  "HSBC", "OCBC", "UOB", "TMRW", "TNG", "EWALLET", "E-WALLET", "AMBANK", "BSN", "GXBANK", "AEON", "BANK", "BOOST", "RYT", "SHOPEEPAY",
+  "GRABPAY", "SETEL", "BIGPAY", "ATOME", "SPAYLATER", "MYDEBIT", "SUCCESSFUL", "RECEIVED", "FUNDS", "ALERT"]);
+// Pure: the alert text with names, account / card / reference / phone
+// numbers and emails replaced. Amounts and currencies stay.
+function redactAlertSample(text) {
+  let t = String(text || "").slice(0, 2000);
+  const keep = [];
+  const hold = (m) => { keep.push(m); return `\u0000${keep.length - 1}\u0000`; };
+  t = t.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]");
+  // Amounts with their currency are what we need; set them aside.
+  t = t.replace(/(?:\bRM|\bMYR|S\$|\bSGD|\bRp|\bIDR|฿|\bTHB|₱|\bPHP)\s?\d[\d,]*(?:\.\d{1,2})?/gi, hold);
+  t = t.replace(/(?:\+?6?0)1\d[\s-]?\d{3,4}[\s-]?\d{4}\b/g, "[phone]");
+  t = t.replace(/\b(ref(?:erence)?(?:\s*(?:no|number))?|rujukan|no\.?\s*rujukan|transaction\s+id|txn\s*id)(\.?\s*[:#]?\s*)[A-Z0-9][A-Z0-9-]{2,}/gi, "$1$2[ref]");
+  t = t.replace(/[*xX•·]{2,}\s?\d{2,}/g, "[account]");
+  t = t.replace(/\d[\d\s-]{2,}\d/g, (m) => (m.replace(/\D/g, "").length >= 4 ? "[number]" : m));
+  // Names: after to / from / daripada / kepada, a run of capitalised words.
+  t = t.replace(/\b(to|from|daripada|kepada|dari)(\s+)((?:[A-Z][\w'@&/-]*(?:\.[\w'@&/-]+)*)(?:\s+(?:[A-Z][\w'@&/-]*(?:\.[\w'@&/-]+)*|bin|binti|bt|bte|a\/l|a\/p|@))*)/g, (m, w, sp, name) => {
+    const words = name.split(/\s+/);
+    if (words.every((x) => SAMPLE_KEEP.has(x.toUpperCase().replace(/[^A-Z0-9-]/g, "")))) return m;
+    return `${w}${sp}[name]`;
+  });
+  // Any other run of two or more words in capitals.
+  t = t.replace(/\b[A-Z][A-Z'@&/-]+(?:\s+(?:[A-Z][A-Z'@&/-]+|BIN|BINTI|A\/L|A\/P))+\b/g, (m) => {
+    const words = m.split(/\s+/);
+    return words.every((x) => SAMPLE_KEEP.has(x.replace(/[^A-Z0-9-]/g, ""))) ? m : "[name]";
+  });
+  return t.replace(/\u0000(\d+)\u0000/g, (_, i) => keep[Number(i)]).replace(/(\[name\]\s*){2,}/g, "[name] ");
+}
+function captureShareAllowed() { return isNative() && nativePlatform() === "android"; }
+let shareCtx = { pkg: "", kind: "missed" };
+function openCaptureShare(opts) {
+  const o = opts || {};
+  const dlg = document.getElementById("capture-share-dialog");
+  if (!dlg) return;
+  shareCtx = { pkg: o.pkg || "", kind: o.kind || "missed" };
+  const raw = document.getElementById("share-raw");
+  const app = document.getElementById("share-app");
+  if (app) {
+    const mine = TXN_PROVIDERS.filter((x) => x.country === "MY");
+    app.innerHTML = `<option value="">Which app sent it?</option>` + mine.map((x) => `<option value="${escapeHtml(x.packages[0])}">${escapeHtml(x.name)}</option>`).join("");
+    const known = providerForPackage(shareCtx.pkg);
+    app.value = known ? known.packages[0] : "";
+  }
+  if (raw) raw.value = o.text || "";
+  const st = document.getElementById("share-shot-status");
+  if (st) { st.textContent = ""; st.hidden = true; }
+  updateCaptureSharePreview();
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  setTimeout(() => (o.text ? document.getElementById("share-redacted") : raw)?.focus(), 30);
+}
+function updateCaptureSharePreview() {
+  const raw = document.getElementById("share-raw");
+  const out = document.getElementById("share-redacted");
+  if (out) out.value = redactAlertSample(raw ? raw.value : "");
+  const send = document.getElementById("share-send");
+  if (send) send.disabled = !(out && out.value.trim());
+}
+function captureShareBody() {
+  const app = document.getElementById("share-app");
+  const pkg = (app && app.value) || shareCtx.pkg || "";
+  const text = (document.getElementById("share-redacted") || {}).value || "";
+  return {
+    subject: `Bank alert sample (${shareCtx.kind}${pkg ? `, ${pkg}` : ""})`,
+    body: `App: ${pkg || "not chosen"}\nDuitful: ${APP_VERSION} · ${shareCtx.kind === "misread" ? "read wrongly" : "not picked up"}\n\n${text.trim()}\n`,
+  };
+}
+function captureShareMailto() {
+  const b = captureShareBody();
+  return `mailto:${SAMPLE_TO}?subject=${encodeURIComponent(b.subject)}&body=${encodeURIComponent(b.body)}`;
+}
+document.getElementById("share-raw")?.addEventListener("input", updateCaptureSharePreview);
+/* "Use a screenshot": the same on-device OCR as receipts (ML Kit where the
+   phone has it, Tesseract otherwise) reads the text into the box above, and
+   the same redaction runs. Only the cleaned words are ever sent: the image
+   is read in memory and dropped, never stored or attached. */
+async function ocrAlertScreenshot(file) {
+  let text = null;
+  try { if (mlkitTextPlugin()) text = await runMlKitOcr(file); } catch { text = null; }
+  if (text == null) {
+    const worker = await getTesseractWorker(() => {});
+    const res = await worker.recognize(file);
+    text = (res && res.data && res.data.text) || "";
+  }
+  return String(text || "").replace(/[ \t]+\n/g, "\n").trim();
+}
+async function shareFromScreenshot(file) {
+  const status = document.getElementById("share-shot-status");
+  const say = (m) => { if (status) { status.textContent = m; status.hidden = !m; } };
+  if (!file) return;
+  say("Reading the screenshot on your phone…");
+  let text = "";
+  try { text = await ocrAlertScreenshot(file); } catch { text = ""; }
+  if (!text) { say("No text found in that picture. Paste the words instead."); return; }
+  say("");
+  const raw = document.getElementById("share-raw");
+  if (raw) raw.value = text;
+  updateCaptureSharePreview();
+  document.getElementById("share-redacted")?.focus();
+}
+document.getElementById("share-shot")?.addEventListener("click", () => document.getElementById("share-shot-file")?.click());
+document.getElementById("share-shot-file")?.addEventListener("change", async (e) => {
+  const input = e.target;
+  const file = input.files && input.files[0];
+  input.value = "";                      // the picture is not kept
+  await shareFromScreenshot(file);
+});
+document.getElementById("share-send")?.addEventListener("click", () => {
+  window.location.href = captureShareMailto();
+  document.getElementById("capture-share-dialog")?.close();
+});
+document.getElementById("share-sheet")?.addEventListener("click", async () => {
+  const b = captureShareBody();
+  try { await navigator.share({ title: b.subject, text: `To: ${SAMPLE_TO}\n${b.body}` }); document.getElementById("capture-share-dialog")?.close(); } catch {}
+});
+document.getElementById("share-cancel")?.addEventListener("click", () => document.getElementById("capture-share-dialog")?.close());
+document.addEventListener("click", (e) => {
+  const el = e.target instanceof Element ? e.target : null;
+  if (!el) return;
+  if (el.closest("[data-capture-share]")) { openCaptureShare({ kind: "missed" }); return; }
+  const w = el.closest("[data-pending-wrong]");
+  if (w) {
+    const p = (state.pendingTxns || []).find((x) => x.id === w.dataset.pendingWrong);
+    const src = p && (p.kind === "move" ? (p.from || p.to) : p);
+    openCaptureShare({ kind: "misread", pkg: src ? src.pkg : "", text: src ? src.raw : "" });
+  }
+});
+function pendingWrongBtn(p) {
+  return captureShareAllowed() ? `<button type="button" class="pending-wrong" data-pending-wrong="${escapeHtml(p.id)}">Wrong?</button>` : "";
+}
+function renderCaptureShareLinks() {
+  const on = captureShareAllowed();
+  document.querySelectorAll("[data-capture-share-wrap]").forEach((el) => { el.hidden = !on; });
+  const sheet = document.getElementById("share-sheet");
+  if (sheet) sheet.hidden = typeof navigator.share !== "function";
 }
 
 // "Read by your phone's AI": on a card where the AI gave the direction,
@@ -4695,6 +4847,20 @@ document.getElementById("own-accounts-list")?.addEventListener("click", (e) => {
   if (b) removeOwnAccount(b.dataset.ownRemove);
 });
 
+/* The persistent notification's "2 to review": the number of pending cards
+   (held transfers included — they show within the minute), sent whenever it
+   changes and once after each unlock. A count only; nothing else leaves. */
+let _pendingCountSent = null;
+function syncPendingCount(force) {
+  if (!aesKey || !isNative()) return;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  if (!NL || typeof NL.setPendingCount !== "function") return;
+  const n = (state.pendingTxns || []).length;
+  if (!force && n === _pendingCountSent) return;
+  _pendingCountSent = n;
+  try { Promise.resolve(NL.setPendingCount({ count: n })).catch(() => {}); } catch {}
+}
+
 /* Money in: "+RM 0.10 · From ALI BIN ABU". A refund, reversal or cashback
    says so in its name. */
 function pendingIncomeHtml(p) {
@@ -4707,7 +4873,7 @@ function pendingIncomeHtml(p) {
           <span class="pending-amount in">+${fmtMoney(p.amount)}</span>
         </div>
         <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")} · Income</div>
-        ${pendingAiTag(p)}
+        ${pendingAiTag(p)}${pendingWrongBtn(p)}
       </div>
       <div class="pending-actions">
         ${p.sender && !p.label ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
@@ -4730,7 +4896,7 @@ function pendingMoveHtml(p) {
           <span class="pending-amount move">${fmtMoney(p.amount)}</span>
         </div>
         <div class="pending-source">${escapeHtml(fromName)} → ${escapeHtml(toName)}</div>
-        ${pendingAiTag(p)}
+        ${pendingAiTag(p)}${pendingWrongBtn(p)}
       </div>
       <div class="pending-actions">
         <button class="ghost" data-action="pending-move-split" data-id="${p.id}">${undo}</button>
@@ -6102,8 +6268,12 @@ function initNotificationListener() {
    moment the vault is open they go through the same parsers as a live one,
    stamped with when they were posted. */
 let _captureDraining = false;
+let _captureAgain = false;
 async function drainCaptured() {
-  if (!isNative() || !aesKey || _captureDraining) return 0;
+  // A nudge that lands while a drain is running asks for one more pass, so
+  // two alerts seconds apart (TNG out, MAE in) are both picked up.
+  if (_captureDraining) { _captureAgain = true; return 0; }
+  if (!isNative() || !aesKey) return 0;
   const NL = window.Capacitor?.Plugins?.NotificationListener;
   if (!NL || typeof NL.drainCaptured !== "function") return 0;
   _captureDraining = true;
@@ -6116,6 +6286,7 @@ async function drainCaptured() {
   } finally { _captureDraining = false; }
   let added = 0;
   const unsure = [];
+  if (items.length) state.captureDiag = coerceCaptureDiag(state.captureDiag);
   const before = new Set((state.pendingTxns || []).map((p) => p.id));
   // 1. The rules, for everything, at once: cards appear without waiting.
   for (const it of items) {
@@ -6123,9 +6294,10 @@ async function drainCaptured() {
     const t = Number(it.t);
     const data = { package: String(it.p || ""), title: String(it.ti || ""), text: String(it.tx || ""), postedAt: Number.isFinite(t) && t > 0 ? t : 0 };
     try {
-      if (captureByRules(data)) added += 1;
-      else unsure.push(data);
-    } catch (e) { console.warn("capture failed", e); }
+      const before = pendingFingerprint();
+      if (captureByRules(data)) { added += 1; noteCaptureOutcome(data, captureBecame(before)); }
+      else { unsure.push(data); noteCaptureOutcome(data, captureWhyNot(data)); }
+    } catch (e) { console.warn("capture failed", e); noteCaptureOutcome(data, "error"); }
   }
   // 2. On-device AI, if this phone has it, for what the rules could not
   //    place and for new spends missing a name or category. Never blocks.
@@ -6156,8 +6328,115 @@ async function drainCaptured() {
   if (calls) commitPending();
   // 3. Without an AI answer, the entity reader fallback, exactly as before.
   for (const data of leftovers) queuePendingTxnFromEntities(data).catch(() => {});
+  if (items.length) { state.captureDiag.lastDrainAt = Date.now(); save(); }
+  if (_captureAgain) { _captureAgain = false; setTimeout(() => drainCaptured().catch(() => {}), 0); }
   return added;
 }
+
+/* ---------- Check auto-capture: plain facts for a tester to send us ----------
+   Native says whether notification access is granted, when the listener was
+   last connected, the battery setting, what it saw (app, time, outcome) and
+   how many alerts wait in its store. This side adds what each drained alert
+   became. No message text and no amounts anywhere: the outcome is what we
+   need, and leaving amounts out keeps the report safe to paste anywhere. */
+const CAPTURE_DIAG_MAX = 20;
+function coerceCaptureDiag(d) {
+  const items = d && Array.isArray(d.items) ? d.items : [];
+  return {
+    lastDrainAt: Number(d && d.lastDrainAt) || 0,
+    items: items.filter((x) => x && typeof x === "object")
+      .map((x) => ({ p: String(x.p || "").slice(0, 80), t: Number(x.t) || 0, at: Number(x.at) || 0, became: String(x.became || "").slice(0, 40) }))
+      .slice(-CAPTURE_DIAG_MAX),
+  };
+}
+function noteCaptureOutcome(data, became) {
+  state.captureDiag = coerceCaptureDiag(state.captureDiag);
+  state.captureDiag.items.push({ p: String(data.package || ""), t: Number(data.postedAt) || 0, at: Date.now(), became });
+  state.captureDiag.items = state.captureDiag.items.slice(-CAPTURE_DIAG_MAX);
+}
+function pendingFingerprint() {
+  return new Map((state.pendingTxns || []).map((p) => [p.id, p.kind || "spend"]));
+}
+// What the last capture did to the pending list.
+function captureBecame(before) {
+  for (const p of state.pendingTxns || []) {
+    const was = before.get(p.id);
+    if (was === undefined || was !== (p.kind || "spend")) {
+      return p.kind === "move" ? "move" : p.kind === "income" ? "income" : p.kind === "split-match" ? "split repayment" : "spend";
+    }
+  }
+  return "queued";
+}
+function captureWhyNot(data) {
+  const texts = captureTexts(data);
+  if (texts.some((t) => CAPTURE_DENY.test(t))) return "dropped: OTP / security";
+  if (texts.every((t) => isLikelyPromo(t))) return "dropped: promo";
+  if (!providerForPackage(String(data.package || ""))) return "dropped: app not known";
+  return "no rule matched (AI / entity reader next)";
+}
+function captureAppName(pkg) {
+  const pr = providerForPackage(pkg);
+  return pr ? pr.name : pkg || "unknown";
+}
+function fmtDiagTime(ms) {
+  if (!ms) return "never";
+  const d = new Date(ms);
+  return `${d.toLocaleDateString("en-MY", { day: "numeric", month: "short" })} ${d.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}`;
+}
+// Pure: the facts as lines, for the dialog and for "Copy report".
+function captureCheckLines(nat, diag) {
+  const n = nat || {};
+  const lines = [];
+  lines.push(`Duitful ${APP_VERSION} · ${[n.manufacturer, n.model].filter(Boolean).join(" ") || "device unknown"}${n.sdk ? ` · Android API ${n.sdk}` : ""}`);
+  if (n.error) lines.push(`Native check: ${n.error}`);
+  lines.push(`Notification access: ${n.accessGranted === true ? "granted" : n.accessGranted === false ? "NOT granted" : "unknown"}`);
+  lines.push(`Listener: last connected ${fmtDiagTime(n.connectedAt)}${n.disconnectedAt ? `, last disconnected ${fmtDiagTime(n.disconnectedAt)}` : ""}`);
+  lines.push(`Battery: ${n.batteryUnrestricted === true ? "unrestricted" : n.batteryUnrestricted === false ? "optimised (may stop the listener)" : "unknown"}`);
+  lines.push(`Waiting in store: ${Number(n.stored) || 0}`);
+  const seen = Array.isArray(n.log) ? n.log.slice(-10).reverse() : [];
+  lines.push(`Seen by the listener (last ${seen.length}):`);
+  for (const r of seen) lines.push(`  ${captureAppName(r.p)} · ${fmtDiagTime(r.t)} · ${r.r}`);
+  if (!seen.length) lines.push("  nothing yet");
+  const d = coerceCaptureDiag(diag);
+  lines.push(`Last drain: ${fmtDiagTime(d.lastDrainAt)}`);
+  const done = d.items.slice(-10).reverse();
+  lines.push(`Drained (last ${done.length}):`);
+  for (const x of done) lines.push(`  ${captureAppName(x.p)} · ${fmtDiagTime(x.t || x.at)} → ${x.became}`);
+  if (!done.length) lines.push("  nothing yet");
+  return lines;
+}
+async function openCaptureCheck() {
+  const dlg = document.getElementById("capture-check-dialog");
+  const list = document.getElementById("capture-check-list");
+  if (!dlg || !list) return;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  let nat = {};
+  try {
+    nat = NL && typeof NL.captureStatus === "function" ? await withTimeout(NL.captureStatus(), 3000) : { error: "this app version can't report it" };
+  } catch (e) { nat = { error: String((e && e.message) || e).slice(0, 80) }; }
+  const lines = captureCheckLines(nat, state.captureDiag);
+  list.textContent = lines.join("\n");
+  dlg.dataset.report = lines.join("\n");
+  const fix = document.getElementById("capture-check-access");
+  if (fix) fix.hidden = nat.accessGranted !== false;
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+}
+document.getElementById("capture-check-open")?.addEventListener("click", () => openCaptureCheck().catch(() => {}));
+document.getElementById("capture-check-close")?.addEventListener("click", () => document.getElementById("capture-check-dialog")?.close());
+document.getElementById("capture-check-access")?.addEventListener("click", () => {
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  try { NL && NL.openSettings && NL.openSettings(); } catch {}
+});
+document.getElementById("capture-check-copy")?.addEventListener("click", async () => {
+  const text = document.getElementById("capture-check-dialog")?.dataset.report || "";
+  try { await navigator.clipboard.writeText(text); toast("Report copied"); }
+  catch {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast("Report copied"); } catch { toast("Couldn't copy — select the text instead"); }
+    ta.remove();
+  }
+});
 
 /* Android App Links: with /.well-known/assetlinks.json served from
    duitful.app and the autoVerify intent-filter in the manifest (added by
@@ -6550,7 +6829,7 @@ function storedPromoCode() {
    Nothing here is a Pro gate and nothing writes outside the vault: a quick
    action is a launch intent, not data. */
 
-const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving"]);
+const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving", "review"]);
 // Held until the app is genuinely usable. Survives the whole unlock flow.
 let pendingQuickAction = null;
 
@@ -6597,6 +6876,12 @@ function runQuickAction(name) {
     case "scan":
       document.getElementById("tabbtn-dashboard")?.click();
       document.getElementById("btn-scan-receipt")?.click();
+      break;
+    case "review":
+      // "2 to review" on the persistent notification: drain, then the cards.
+      document.getElementById("tabbtn-dashboard")?.click();
+      drainCaptured().catch(() => {});
+      setTimeout(() => document.getElementById("pending-card")?.scrollIntoView({ block: "start" }), 150);
       break;
     case "split":
       document.getElementById("tabbtn-dashboard")?.click();
@@ -10859,6 +11144,12 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.2": [
+    "<strong>More banks</strong> — on Android, alerts from HSBC, OCBC, UOB TMRW, Standard Chartered, Alliance Bank, Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON Bank, Boost Bank, Ryt Bank and ShopeePay are now read too.",
+    "<strong>Check auto-capture</strong> — Settings → Bank alerts shows whether Duitful can see your bank alerts and what it did with each, with a report you can copy to us (no message text or amounts). A repeated transfer with the same wording is no longer skipped, and two alerts arriving seconds apart are both picked up.",
+    "<strong>\"2 to review\"</strong> — on Android, the \"Log a spend\" notification now shows how many bank alerts are waiting, even with Duitful closed, with a Review button. Only the number shows, never amounts or names.",
+    "<strong>Not picked up?</strong> — send us the wording of a bank alert Duitful missed or read wrongly, pasted or from a screenshot (read on your phone; only the cleaned words are sent, never the picture). Names and numbers are removed on your phone first, you see exactly what is sent, and it goes from your own email app.",
+  ],
   "1.56.1": [
     "<strong>On-device AI, in plain sight</strong> — Settings now shows whether your phone's own AI is on, getting ready or not available, with a switch to turn it off (rules only). Cards it helped read say so. It runs on your phone and never sets an amount.",
   ],
@@ -11912,6 +12203,7 @@ async function handleUnlock(passcode, { silent = false } = {}) {
   drainQuickAdd().catch(() => {});
   drainCaptured().catch(() => {});
   refreshAiStatus().catch(() => {});
+  syncPendingCount(true);
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -11951,6 +12243,7 @@ async function handleSetup(passcode, confirm, initialState, { open = false } = {
   drainQuickAdd().catch(() => {});
   drainCaptured().catch(() => {});
   refreshAiStatus().catch(() => {});
+  syncPendingCount(true);
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -13208,6 +13501,54 @@ const TXN_PROVIDERS = [
       /RM\s*([\d,]+\.?\d*)\s+(?:paid|sent|debited|charged)[^.]*?(?:to|at)\s+(.+?)(?:\s+on|\s*[.]|$)/i,
       TXN_TRANSFER_OUT,
     ] },
+  // Banks and wallets added in 1.56.2, ids checked on Google Play (MY). Their
+  // exact alert wording isn't known yet: the generic debit shape, the
+  // transfer-out shape, the credit parser and the on-device AI cover them.
+  { id: "hsbc-my", name: "HSBC", country: "MY", currency: "MYR",
+    packages: ["my.com.hsbc.hsbcmalaysia"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "ocbc-my", name: "OCBC", country: "MY", currency: "MYR",
+    packages: ["com.ocbc.mobilemy"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "uob-my", name: "UOB TMRW", country: "MY", currency: "MYR",
+    packages: ["com.uob.mightymy"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "scb-my", name: "Standard Chartered", country: "MY", currency: "MYR",
+    packages: ["air.app.scb.breeze.android.main.my.prod"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "alliance", name: "Alliance Bank", country: "MY", currency: "MYR",
+    packages: ["com.alliance.AOPMobileApp", "com.aop2023"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "affin", name: "Affin", country: "MY", currency: "MYR",
+    packages: ["com.affin.mobilebanking"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "bankrakyat", name: "Bank Rakyat", country: "MY", currency: "MYR",
+    packages: ["com.irakyatmob.bkrm"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "muamalat", name: "Bank Muamalat", country: "MY", currency: "MYR",
+    packages: ["my.com.muamalat.mobile.rib"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "agrobank", name: "Agrobank", country: "MY", currency: "MYR",
+    packages: ["com.cedarplus.agro"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "mbsb", name: "MBSB Bank", country: "MY", currency: "MYR",
+    packages: ["com.MBSB.Bank.Mobile.Banking"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "gxbank", name: "GXBank", country: "MY", currency: "MYR",
+    packages: ["my.com.gxbank.app"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "aeonbank", name: "AEON Bank", country: "MY", currency: "MYR",
+    packages: ["com.personal.adb"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "boostbank", name: "Boost Bank", country: "MY", currency: "MYR",
+    packages: ["co.myboostbank.boostberhad"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "rytbank", name: "Ryt Bank", country: "MY", currency: "MYR",
+    packages: ["my.rytbank.app"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "shopeepay-my", name: "ShopeePay", country: "MY", currency: "MYR",
+    packages: ["com.shopeepay.my"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
   { id: "ambank", name: "AmBank", country: "MY", currency: "MYR",
     packages: ["com.ambank.ambankonline", "com.ambank.ambankgroup"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },

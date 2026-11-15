@@ -2294,6 +2294,248 @@ check('the on-device AI card shows on Home once, and never after it is dismissed
   aiUi.introFirst && aiUi.introAfter.hidden && aiUi.introAfter.seen && aiUi.introOldDay && aiUi.introNoAi, JSON.stringify(aiUi));
 check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.csvOn === true, JSON.stringify([aiUi.csvOff, aiUi.csvOn]));
 
+/* ── "Not picked up?": share an alert's wording, redacted on the phone (1.56.2) ── */
+const share = await S(() => {
+  const r = (t) => redactAlertSample(t);
+  const out = {
+    tng: r('You have successfully transferred RM 0.10 to ALI BIN ABU.'),
+    mae: r('You’ve just received RM 0.10 in your account ending ***8714. REF 20261115MBB0001'),
+    mixed: r('You have received RM 12.00 from Siti Aminah via DuitNow.'),
+    contact: r('Call 012-345 6789 or email ali.abu@example.com about card 4321 1234 5678 9012'),
+    card: r('RM1,234.50 charged to card ending 1234 at STARBUCKS KLCC on 15-Nov'),
+    malay: r('Anda telah menerima RM50.00 daripada AHMAD BIN ALI. Rujukan: ABC12345'),
+    kepada: r('Pindahan RM 20.00 kepada MOHD AZRI A/L RAMU berjaya.'),
+    keepTerms: r('DuitNow Transfer is successful'),
+    promo: r('Hi ALI BIN ABU, spend 3 minutes to share your feedback'),
+  };
+  const keepCap = window.Capacitor;
+  const look = (cap) => {
+    window.Capacitor = cap;
+    state.pendingTxns = [{ id: 'sh1', createdAt: Date.now() - 3600000, raw: 'You have successfully transferred RM 0.10 to ALI BIN ABU.', pkg: 'my.com.tngdigital.ewallet', amount: 0.1, merchant: 'ALI BIN ABU', providerId: 'tng', providerName: "Touch 'n Go", currency: 'MYR', transfer: true }];
+    renderAll();
+    const wraps = [...document.querySelectorAll('[data-capture-share-wrap]')].map((e) => !e.hidden);
+    return { wraps, wrong: !!document.querySelector('#pending-list [data-pending-wrong]') };
+  };
+  try {
+    out.android = look({ isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} });
+    document.querySelector('#pending-list [data-pending-wrong]').click();
+    out.dialog = { open: document.getElementById('capture-share-dialog').open, raw: document.getElementById('share-raw').value,
+      preview: document.getElementById('share-redacted').value, app: document.getElementById('share-app').value };
+    document.getElementById('share-redacted').value += ' (edited)';
+    out.mailto = captureShareMailto();
+    document.getElementById('capture-share-dialog').close();
+    out.ios = look({ isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} });
+    out.web = look(undefined);
+  } finally { window.Capacitor = keepCap; state.pendingTxns = []; save(); renderAll(); }
+  return out;
+});
+check('redaction: TNG transfer keeps "RM 0.10", drops the payee name',
+  share.tng === 'You have successfully transferred RM 0.10 to [name].', share.tng);
+check('redaction: MAE credit keeps "RM 0.10", drops the masked account (***8714) and the reference',
+  share.mae === 'You’ve just received RM 0.10 in your account ending [account]. REF [ref]', share.mae);
+check('redaction: names after from / daripada / kepada (mixed case, BIN, A/L) and all-caps merchants are removed',
+  share.mixed === 'You have received RM 12.00 from [name] via DuitNow.' && share.malay === 'Anda telah menerima RM50.00 daripada [name]. Rujukan: [ref]'
+  && share.kepada === 'Pindahan RM 20.00 kepada [name] berjaya.' && share.card === 'RM1,234.50 charged to card ending [number] at [name] on 15-Nov' && share.promo.startsWith('Hi [name],'),
+  JSON.stringify([share.mixed, share.malay, share.kepada, share.card, share.promo]));
+check('redaction: phone, email and card numbers go; amounts like RM1,234.50 stay; bank terms stay',
+  share.contact === 'Call [phone] or email [email] about card [number]' && share.keepTerms === 'DuitNow Transfer is successful', JSON.stringify([share.contact, share.keepTerms]));
+check('"Not picked up?" and "Wrong?" appear on Android only (not iPhone, not the web)',
+  share.android.wraps.length >= 2 && share.android.wraps.every(Boolean) && share.android.wrong
+  && share.ios.wraps.every((x) => !x) && !share.ios.wrong && share.web.wraps.every((x) => !x) && !share.web.wrong, JSON.stringify([share.android, share.ios, share.web]));
+check('"Wrong?" opens the share sheet with the alert, its app, and a redacted, editable preview',
+  share.dialog.open && /ALI BIN ABU/.test(share.dialog.raw) && share.dialog.preview === 'You have successfully transferred RM 0.10 to [name].' && share.dialog.app === 'my.com.tngdigital.ewallet', JSON.stringify(share.dialog));
+check('the email goes to hello@duitful.app with the edited redacted text and the app id, never the raw name',
+  share.mailto.startsWith('mailto:hello@duitful.app?') && /my\.com\.tngdigital\.ewallet/.test(decodeURIComponent(share.mailto))
+  && /\(edited\)/.test(decodeURIComponent(share.mailto)) && !/ALI BIN ABU/.test(decodeURIComponent(share.mailto)), share.mailto.slice(0, 200));
+/* ── "2 to review" on the persistent notification: JS keeps the count current (1.56.2) ── */
+const counted = await S(async () => {
+  const keepCap = window.Capacitor;
+  const sent = [];
+  let store = [];
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const t0 = Date.now() - 30 * 60000;
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { NotificationListener: {
+    setPendingCount: async (o) => { sent.push(o.count); },
+    drainCaptured: async () => { const items = store; store = []; return { items }; },
+  } } };
+  const out = {};
+  try {
+    state.pendingTxns = [];
+    syncPendingCount(true);
+    out.start = sent.slice(-1)[0];
+    // A drain: a TNG → MAE move (one card) and a lone credit (another) = 2.
+    store = [
+      { p: TNG, ti: '', tx: 'You have successfully transferred RM 0.10 to ALI BIN ABU.', t: t0 },
+      { p: MAE, ti: '', tx: 'You’ve just received RM 0.10 in your account ending ***1234.', t: t0 + 5000 },
+      { p: MAE, ti: '', tx: 'You’ve just received RM 1,250.00 in your account ending ***1234.', t: t0 - 3600000 },
+    ];
+    await drainCaptured();
+    out.afterDrain = sent.slice(-1)[0];
+    out.cards = state.pendingTxns.length;
+    // Accept the income, then confirm the move: 1, then 0.
+    renderAll();
+    document.querySelector('#pending-list [data-action="pending-income-accept"]').click();
+    out.afterAccept = sent.slice(-1)[0];
+    document.querySelector('#pending-list [data-action="pending-move-accept"]').click();
+    out.afterConfirm = sent.slice(-1)[0];
+    // A dismiss counts too.
+    window.duitfulIncoming({ package: MAE, text: 'You have received RM 12.00 from ALI BIN ABU.', postedAt: t0 });
+    out.afterNew = sent.slice(-1)[0];
+    document.querySelector('#pending-list [data-action="pending-dismiss"]').click();
+    out.afterDismiss = sent.slice(-1)[0];
+    out.onlyNumbers = sent.every((n) => typeof n === 'number');
+    out.review = quickActionFromUrl('duitful://action/review');
+  } finally { window.Capacitor = keepCap; state.pendingTxns = []; save(); renderAll(); }
+  return out;
+});
+check('persistent notification count: JS sends the number of cards to review after a drain (a move counts once)',
+  counted.start === 0 && counted.cards === 2 && counted.afterDrain === 2, JSON.stringify(counted));
+check('persistent notification count: back down after accepting, confirming and dismissing — never stale at 0 cards',
+  counted.afterAccept === 1 && counted.afterConfirm === 0 && counted.afterNew === 1 && counted.afterDismiss === 0 && counted.onlyNumbers, JSON.stringify(counted));
+check('the notification\'s Review action opens the app on the pending cards (duitful://action/review)', counted.review === 'review', String(counted.review));
+{
+  const notifier = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulQuickAddNotifier.java'), 'utf8');
+  check('native: the count notification shows only a number (and a public lock-screen version with only the count), on the same quiet channel',
+    /waiting \+ " to review"/.test(notifier) && /setPublicVersion/.test(notifier) && !/new NotificationChannel\([^)]*review/i.test(notifier) && /REVIEW_TEXT = "From bank alerts · tap to check"/.test(notifier), '');
+}
+
+/* ── "Use a screenshot": OCR on the phone, text only, never the image (1.56.2) ── */
+const shot = await S(async () => {
+  const keepOcr = window.ocrAlertScreenshot, keepShare = navigator.share;
+  const shade = [
+    'MAE · now',
+    'Maybank2u: Funds Received',
+    'You’ve just received RM 0.10 in your account ending ***8714. REF 20261115MBB0001',
+    "Touch 'n Go eWallet · 1m",
+    'DuitNow Transfer is successful',
+    'You have successfully transferred RM 0.10 to MUHAMMAD KHAIRUL ANUAR.',
+    'Duitful',
+    'Log a spend · Add · Scan receipt',
+  ].join('\n');
+  const out = {};
+  let shared = null;
+  try {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async (d) => { shared = d; } });
+    openCaptureShare({ kind: 'missed' });
+    window.ocrAlertScreenshot = async () => shade;
+    const img = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'shade.png', { type: 'image/png' });
+    await shareFromScreenshot(img);
+    out.raw = document.getElementById('share-raw').value;
+    out.preview = document.getElementById('share-redacted').value;
+    out.hint = document.getElementById('share-shot-hint').textContent;
+    out.mailto = decodeURIComponent(captureShareMailto());
+    renderCaptureShareLinks();
+    document.getElementById('share-sheet').click();
+    await new Promise((r) => setTimeout(r, 50));
+    out.shared = shared ? { keys: Object.keys(shared).sort(), text: shared.text } : null;
+    // Nothing read: a short message, and paste still works.
+    openCaptureShare({ kind: 'missed' });
+    window.ocrAlertScreenshot = async () => '';
+    await shareFromScreenshot(img);
+    out.empty = { status: document.getElementById('share-shot-status').textContent, shown: !document.getElementById('share-shot-status').hidden, raw: document.getElementById('share-raw').value };
+    document.getElementById('capture-share-dialog').close();
+  } finally {
+    window.ocrAlertScreenshot = keepOcr;
+    Object.defineProperty(navigator, 'share', { configurable: true, value: keepShare });
+  }
+  return out;
+});
+check('screenshot: the shade text read on the phone fills the box, and the preview is redacted (amounts kept; names, account, reference gone)',
+  /MUHAMMAD/.test(shot.raw) && /RM 0\.10 in your account ending \[account\]\. REF \[ref\]/.test(shot.preview)
+  && /transferred RM 0\.10 to \[name\]\./.test(shot.preview) && !/MUHAMMAD|KHAIRUL|8714|20261115/.test(shot.preview), shot.preview);
+check('screenshot: says it only sends the cleaned words', /only send the cleaned words/.test(shot.hint), shot.hint);
+check('screenshot: the image is never attached — the email and the share sheet carry text only',
+  !/data:|base64|\.png|image\//i.test(shot.mailto) && !/MUHAMMAD/.test(shot.mailto)
+  && shot.shared && JSON.stringify(shot.shared.keys) === '["text","title"]' && !/MUHAMMAD|data:/.test(shot.shared.text), JSON.stringify(shot.shared));
+check('screenshot: no text found says so and leaves paste open', shot.empty.shown && /Paste the words instead/.test(shot.empty.status) && shot.empty.raw === '', JSON.stringify(shot.empty));
+
+/* ── Vivo tester, again: the exact TNG → MAE pair, end to end, and the check (1.56.2) ── */
+const vivo = await S(async () => {
+  const keepCap = window.Capacitor;
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const t0 = Date.now() - 20 * 60000;
+  const tngTx = 'You have successfully transferred RM 0.10 to MUHAMMAD KHAIRUL ANUAR.';
+  const maeTx = 'You’ve just received RM 0.10 in your account ending ***1234. REF 20261115ABC';
+  let store = [];
+  let calls = 0;
+  const listeners = {};
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { NotificationListener: {
+    drainCaptured: async () => { calls++; await new Promise((r) => setTimeout(r, 30)); const items = store; store = []; return { items }; },
+    captureStatus: async () => ({ accessGranted: true, batteryUnrestricted: false, connectedAt: t0, disconnectedAt: 0, stored: 0, manufacturer: 'vivo', model: 'V2405A', sdk: 36,
+      log: [{ p: TNG, t: t0, r: 'stored' }, { p: MAE, t: t0 + 9000, r: 'stored' }, { p: 'com.example.wallet', t: t0 + 10000, r: 'not on the list' }] }),
+    addListener: (ev, fn) => { listeners[ev] = fn; },
+  } } };
+  const out = {};
+  try {
+    state.pendingTxns = []; state.ownAccounts = []; state.captureDiag = { lastDrainAt: 0, items: [] };
+    // Both alerts land seconds apart: two nudges, the second while the first drain runs.
+    store = [{ p: TNG, ti: 'DuitNow Transfer is successful', tx: tngTx, t: t0 }];
+    const first = drainCaptured();
+    store.push({ p: MAE, ti: 'Maybank2u: Funds Received', tx: maeTx, t: t0 + 9000 });
+    await drainCaptured();                       // arrives mid-drain: must not be lost
+    await first;
+    await new Promise((r) => setTimeout(r, 150));
+    out.first = state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', from: p.from && p.from.providerId, to: p.to && p.to.providerId, amount: p.amount }));
+    out.calls = calls;
+    renderAll();
+    out.card = document.querySelector('#pending-list li.pending-move .pending-source')?.textContent || '';
+    // The same test again 15 minutes later: same wording, same amount — a second move, not a duplicate.
+    state.pendingTxns = [];
+    store = [{ p: TNG, ti: 'DuitNow Transfer is successful', tx: tngTx, t: t0 + 15 * 60000 }, { p: MAE, ti: 'Maybank2u: Funds Received', tx: maeTx, t: t0 + 15 * 60000 + 5000 }];
+    await drainCaptured();
+    out.again = state.pendingTxns.map((p) => p.kind || 'spend');
+    // The store failed natively: the event carries the text, and an open app handles it directly.
+    state.pendingTxns = [];
+    initNotificationListener();
+    const direct = { package: TNG, title: 'DuitNow Transfer is successful', text: 'You have successfully transferred RM 5.00 to KEDAI RUNCIT MAJU.', queued: false };
+    if (listeners.notification) listeners.notification(direct); else window.duitfulIncoming(direct);
+    out.bound = !!listeners.notification;
+    out.direct = state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', amount: p.amount }));
+    // What each drained alert became, for the check.
+    out.diagItems = state.captureDiag.items.map((x) => x.became);
+    // The check itself.
+    window.Capacitor.getPlatform = () => 'android';
+    renderAll();
+    out.cardShown = !document.getElementById('bank-alerts-card').hidden;
+    await openCaptureCheck();
+    out.report = document.getElementById('capture-check-dialog').dataset.report;
+    out.dialogOpen = document.getElementById('capture-check-dialog').open;
+    out.accessBtnHidden = document.getElementById('capture-check-access').hidden;
+    document.getElementById('capture-check-dialog').close();
+  } finally {
+    window.Capacitor = keepCap; state.pendingTxns = []; save(); renderAll();
+  }
+  return out;
+});
+check('Vivo pair: TNG "transferred RM 0.10" and MAE "You’ve just received RM 0.10" (no-break spaces), seconds apart, become one "Moved · TNG → Maybank"',
+  vivo.first.length === 1 && vivo.first[0].kind === 'move' && vivo.first[0].from === 'tng' && vivo.first[0].to === 'maybank-mae' && vivo.first[0].amount === 0.1
+  && vivo.card === 'TNG → Maybank' && vivo.calls >= 2, JSON.stringify(vivo.first) + ' calls ' + vivo.calls);
+check('Vivo pair: a nudge that lands mid-drain is drained right after (nothing waits for the next app open)', vivo.calls >= 2, String(vivo.calls));
+check('Vivo pair: the same test repeated later is a second move, not swallowed as a duplicate', JSON.stringify(vivo.again) === '["move"]', JSON.stringify(vivo.again));
+check('if the native store fails, the notification event is handled directly by an open app', vivo.bound && vivo.direct.length === 1 && vivo.direct[0].amount === 5, JSON.stringify(vivo.direct));
+check('the check records what each drained alert became', vivo.diagItems.includes('spend') && vivo.diagItems.includes('move'), JSON.stringify(vivo.diagItems));
+check('Settings → Bank alerts → Check auto-capture shows access, listener, battery, store, what was seen and what it became',
+  vivo.cardShown && vivo.dialogOpen && /Notification access: granted/.test(vivo.report) && /Listener: last connected/.test(vivo.report)
+  && /Battery: optimised/.test(vivo.report) && /Waiting in store: 0/.test(vivo.report) && /Touch 'n Go · .* · stored/.test(vivo.report)
+  && /com\.example\.wallet · .* · not on the list/.test(vivo.report) && /→ move/.test(vivo.report) && /vivo V2405A · Android API 36/.test(vivo.report) && vivo.accessBtnHidden,
+  vivo.report);
+check('the check report carries no message text, names or amounts', !/RM|MUHAMMAD|KHAIRUL|KEDAI|0\.10|5\.00|\*\*\*/.test(vivo.report), vivo.report);
+{
+  const svc = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulNotificationListenerService.java'), 'utf8');
+  const store = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulCaptureStore.java'), 'utf8');
+  const inst = readFileSync(path.join(REPO_ROOT, 'scripts/install-notification-listener.mjs'), 'utf8');
+  check('native: the amount check accepts a no-break space after "RM" (Java \\s does not)', /\\\\u00A0/.test(svc), '');
+  check('native: a repeated posting with identical text is stored again (post time is part of the dedupe id)', /key\) \+ "\|" \+ when \+ "\|"/.test(store), '');
+  check('native: the installer ships the capture store and the diagnostic log', /"DuitfulCaptureStore\.java"/.test(inst) && /"DuitfulCaptureDiag\.java"/.test(inst), '');
+}
+// Every MY bank app id the listener allows has a parser entry, so its credits and transfers are understood.
+{
+  const java = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulNotificationListenerService.java'), 'utf8');
+  const myIds = [...java.slice(java.indexOf('// Malaysia'), java.indexOf('// Singapore')).matchAll(/ALLOWED\.add\("([^"]+)"\);\s*\/\/[^\n]*\(Play\)/g)].map((m) => m[1]);
+  const unparsed = await S((ids) => ids.filter((id) => !providerForPackage(id) || providerForPackage(id).country !== 'MY'), myIds);
+  check('every Play-verified Malaysian app id in the listener has a Malaysian parser entry', myIds.length >= 30 && unparsed.length === 0, JSON.stringify(unparsed) + ' of ' + myIds.length);
+}
+
 // The landing pages sell it, truthfully, in both languages.
 for (const [lang, file, q, h] of [['en', 'index.html', 'Does Duitful use AI?', 'AI that never leaves your'], ['ms', 'ms/index.html', 'Adakah Duitful guna AI?', 'AI yang tak pernah keluar dari']]) {
   const html = readFileSync(path.join(REPO_ROOT, file), 'utf8');

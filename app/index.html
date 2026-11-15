@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=155" />
+    <link rel="stylesheet" href="styles.css?v=156" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -304,6 +304,7 @@
           </div>
           <ul id="pending-list" class="pending-list"></ul>
           <p class="hint">Spotted from bank / e-wallet notifications. Review before they're added.</p>
+          <p class="capture-share" data-capture-share-wrap hidden><button type="button" class="pending-quiet" data-capture-share>Not picked up? Share the wording</button></p>
         </div>
 
         <div id="upcoming-card" class="card upcoming-card" hidden>
@@ -1662,6 +1663,16 @@
           <p class="hint ai-status" id="ai-status" aria-live="polite">Checking…</p>
         </div>
 
+        <!-- Bank alerts (Android): send the wording of one Duitful missed. -->
+        <div class="card" id="bank-alerts-card" data-capture-share-wrap hidden>
+          <h2>Bank alerts</h2>
+          <p class="hint">An alert from your bank app that Duitful didn't pick up?</p>
+          <div class="button-row">
+            <button type="button" class="ghost" id="capture-check-open">Check auto-capture</button>
+            <button type="button" class="ghost" data-capture-share>Share the wording</button>
+          </div>
+        </div>
+
         <div class="card own-accounts-card" id="own-accounts-card" hidden>
           <h2>Your own accounts</h2>
           <p class="hint">Transfers to these names count as moves, not spending.</p>
@@ -2562,6 +2573,52 @@
       </form>
     </dialog>
 
+    <!-- Check auto-capture: plain facts (no message text, no amounts) to paste to us. -->
+    <dialog id="capture-check-dialog" class="edit-dialog" aria-labelledby="capture-check-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="capture-check-title">Auto-capture check</h2>
+        <pre class="capture-check-list" id="capture-check-list" aria-live="polite"></pre>
+        <p class="hint">No message text or amounts are included.</p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="capture-check-access" hidden>Allow access</button>
+          <button type="button" class="ghost" id="capture-check-close">Close</button>
+          <button type="button" class="primary" id="capture-check-copy">Copy report</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Share a bank alert's wording, redacted on this phone first. -->
+    <dialog id="capture-share-dialog" class="edit-dialog" aria-labelledby="capture-share-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="capture-share-title">Share an alert's wording</h2>
+        <label class="field">
+          <span>The notification</span>
+          <textarea id="share-raw" rows="4" spellcheck="false" autocapitalize="off" aria-describedby="share-raw-hint"></textarea>
+          <span class="hint" id="share-raw-hint">Paste it from the notification.</span>
+        </label>
+        <div class="share-shot">
+          <button type="button" class="ghost" id="share-shot">Use a screenshot</button>
+          <input type="file" id="share-shot-file" accept="image/*" hidden />
+          <p class="hint" id="share-shot-hint">We read the text on your phone and only send the cleaned words.</p>
+          <p class="hint" id="share-shot-status" role="status" hidden></p>
+        </div>
+        <label class="field">
+          <span>App</span>
+          <select id="share-app"></select>
+        </label>
+        <label class="field">
+          <span>What we'll get</span>
+          <textarea id="share-redacted" rows="4" spellcheck="false" aria-describedby="share-redacted-hint"></textarea>
+          <span class="hint" id="share-redacted-hint">Names and numbers removed on this phone. Edit anything else.</span>
+        </label>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="share-cancel">Cancel</button>
+          <button type="button" class="ghost" id="share-sheet" hidden>Share…</button>
+          <button type="button" class="primary" id="share-send">Email it</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="tax-claim-dialog" class="edit-dialog" aria-labelledby="tax-claim-title">
       <form method="dialog" id="tax-claim-form">
         <h2 id="tax-claim-title">Claim as tax relief</h2>
@@ -2770,6 +2827,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=15"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=209"></script>
+    <script src="script.js?v=210"></script>
   </body>
 </html>

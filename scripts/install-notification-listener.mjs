@@ -54,6 +54,9 @@ const SOURCES = [
   "DuitfulNotificationListenerService.java",
   // Bank notifications caught while the app is closed (Keystore-encrypted).
   "DuitfulCaptureStore.java",
+  // What the listener saw (package, time, outcome — never content), for
+  // Settings → Bank alerts → "Check auto-capture".
+  "DuitfulCaptureDiag.java",
   // Quick-add queue: the store, the contract receiver, the notification
   // builder, and the boot/update hook that re-posts it.
   "DuitfulQuickAddStore.java",

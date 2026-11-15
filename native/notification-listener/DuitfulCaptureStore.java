@@ -56,9 +56,16 @@ public final class DuitfulCaptureStore {
 
     private DuitfulCaptureStore() {}
 
-    /** Stores one notification. Returns false when it was already stored or could not be. */
-    public static boolean append(Context context, String pkg, String title, String text, String key, long when) {
-        if (context == null || pkg == null) return false;
+    static final int STORED = 1, SEEN = 0, FAILED = -1;
+
+    /**
+     * Stores one notification: STORED, SEEN (this exact posting is already
+     * stored) or FAILED. "This exact posting" includes the post time: banks
+     * reuse one notification id, and the same text ("transferred RM 0.10 to
+     * the same person") a second time is a second transfer, not a repeat.
+     */
+    public static int append(Context context, String pkg, String title, String text, String key, long when) {
+        if (context == null || pkg == null) return FAILED;
         synchronized (LOCK) {
             try {
                 JSONObject state = load(context);
@@ -66,9 +73,9 @@ public final class DuitfulCaptureStore {
                 JSONArray seen = state.optJSONArray("s");
                 if (queue == null) queue = new JSONArray();
                 if (seen == null) seen = new JSONArray();
-                String id = (key == null ? pkg : key) + "|" + clip(text).hashCode();
+                String id = (key == null ? pkg : key) + "|" + when + "|" + clip(text).hashCode();
                 for (int i = 0; i < seen.length(); i++) {
-                    if (id.equals(seen.optString(i))) return false;
+                    if (id.equals(seen.optString(i))) return SEEN;
                 }
                 JSONObject entry = new JSONObject();
                 entry.put("p", pkg);
@@ -80,9 +87,22 @@ public final class DuitfulCaptureStore {
                 state.put("q", trim(fresh(queue), MAX_ENTRIES));
                 state.put("s", trim(seen, SEEN_CAP));
                 save(context, state);
-                return true;
+                return STORED;
             } catch (Throwable ignored) {
-                return false;
+                return FAILED;
+            }
+        }
+    }
+
+    /** How many are waiting, for the auto-capture check. */
+    public static int size(Context context) {
+        if (context == null) return 0;
+        synchronized (LOCK) {
+            try {
+                JSONArray q = load(context).optJSONArray("q");
+                return q == null ? 0 : fresh(q).length();
+            } catch (Throwable ignored) {
+                return 0;
             }
         }
     }

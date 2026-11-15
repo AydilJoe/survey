@@ -48,6 +48,22 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         ALLOWED.add("com.bankislam.bimbmobile");             // BIMB Mobile (Play)
         ALLOWED.add("com.bankislam.android");                // Bank Islam (old id)
         ALLOWED.add("com.bsn.mybsn");                        // myBSN (Play)
+        ALLOWED.add("my.com.hsbc.hsbcmalaysia");             // HSBC Malaysia (Play)
+        ALLOWED.add("com.ocbc.mobilemy");                    // OCBC Malaysia (Play)
+        ALLOWED.add("com.uob.mightymy");                     // UOB TMRW Malaysia (Play)
+        ALLOWED.add("air.app.scb.breeze.android.main.my.prod"); // SC Mobile Malaysia — Standard Chartered (Play)
+        ALLOWED.add("com.alliance.AOPMobileApp");            // allianceonline Mobile (Play)
+        ALLOWED.add("com.aop2023");                          // Alliance+ — Alliance Bank (Play)
+        ALLOWED.add("com.affin.mobilebanking");              // AffinAlwaysX (Play)
+        ALLOWED.add("com.irakyatmob.bkrm");                  // iRakyat Mobile Banking — Bank Rakyat (Play)
+        ALLOWED.add("my.com.muamalat.mobile.rib");           // i-Muamalat Mobile — Bank Muamalat (Play)
+        ALLOWED.add("com.cedarplus.agro");                   // AGRONet Mobile — Agrobank (Play)
+        ALLOWED.add("com.MBSB.Bank.Mobile.Banking");         // MBSB Bank Mobile Banking (Play)
+        // Malaysia — digital banks (Play, Nov 2026)
+        ALLOWED.add("my.com.gxbank.app");                    // GXBank (Play)
+        ALLOWED.add("com.personal.adb");                     // AEON Bank (Play)
+        ALLOWED.add("co.myboostbank.boostberhad");           // Boost Bank (Play)
+        ALLOWED.add("my.rytbank.app");                       // Ryt Bank (Play)
         // Malaysia — e-wallets / fuel / BNPL
         ALLOWED.add("my.com.tngdigital.ewallet");            // Touch 'n Go eWallet (Play)
         ALLOWED.add("my.com.myboost");                       // Boost (Play)
@@ -56,6 +72,7 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         ALLOWED.add("com.setel.mobile");                     // Setel (Play)
         ALLOWED.add("com.setel.app");                        // Setel (old id)
         ALLOWED.add("com.shopee.my");                        // Shopee / SPayLater (Play)
+        ALLOWED.add("com.shopeepay.my");                     // ShopeePay — the standalone MY app (Play)
         ALLOWED.add("my.atome.paylater");                    // Atome MY (Play)
         ALLOWED.add("com.atomeapp.mobile");                  // Atome (old id)
         ALLOWED.add("com.grabtaxi.passenger");               // Grab / GrabPay (also SG)
@@ -101,9 +118,12 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         ALLOWED.add("com.shopee.vn");                        // ShopeePay VN
     }
 
-    /** A currency followed by a figure: "RM 0.10", "RM1,234.50", "S$5", "Rp 10.000", "฿20". Only these are stored. */
+    /**
+     * A currency followed by a figure: "RM 0.10", "RM1,234.50", "S$5", "Rp 10.000", "฿20". Only these are stored.
+     * Java's \\s does not match a no-break space, which some apps put between "RM" and the figure.
+     */
     private static final Pattern AMOUNT = Pattern.compile(
-        "(?i)(?:\\bRM|\\bMYR|S\\$|\\bSGD|\\bRp|\\bIDR|฿|\\bTHB|₱|\\bPHP|\\bPhp|₫|\\bVND)\\s*\\d|\\d\\s*(?:₫|VND|đ)");
+        "(?i)(?:\\bRM|\\bMYR|S\\$|\\bSGD|\\bRp|\\bIDR|฿|\\bTHB|₱|\\bPHP|\\bPhp|₫|\\bVND)[\\s\\u00A0\\u202F]*\\d|\\d[\\s\\u00A0\\u202F]*(?:₫|VND|đ)");
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
@@ -118,6 +138,7 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
      */
     @Override
     public void onListenerConnected() {
+        DuitfulCaptureDiag.connected(getApplicationContext(), true);
         try {
             StatusBarNotification[] active = getActiveNotifications();
             if (active != null) for (StatusBarNotification sbn : active) capture(sbn);
@@ -130,6 +151,7 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
      */
     @Override
     public void onListenerDisconnected() {
+        DuitfulCaptureDiag.connected(getApplicationContext(), false);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 requestRebind(new ComponentName(this, DuitfulNotificationListenerService.class));
@@ -141,7 +163,11 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         try {
             if (sbn == null) return;
             String pkg = sbn.getPackageName();
-            if (pkg == null || !ALLOWED.contains(pkg)) return;
+            if (pkg == null) return;
+            boolean allowed = ALLOWED.contains(pkg);
+            // Not on the list: noted (package only) when it looks like money,
+            // so a bank app with an unexpected id shows up in the check.
+            if (!allowed && !looksLikeMoney(sbn)) return;
             Notification n = sbn.getNotification();
             if (n == null) return;
             Bundle extras = n.extras;
@@ -165,15 +191,36 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
             }
             String title = str(extras.getCharSequence(Notification.EXTRA_TITLE_BIG));
             if (title.isEmpty()) title = str(extras.getCharSequence(Notification.EXTRA_TITLE));
-            if (text.isEmpty() && title.isEmpty()) return;
+            if (!allowed) { DuitfulCaptureDiag.note(getApplicationContext(), pkg, "not on the list"); return; }
+            if ((n.flags & Notification.FLAG_GROUP_SUMMARY) != 0 && !AMOUNT.matcher(title + " " + text).find()) return;
+            if (text.isEmpty() && title.isEmpty()) { DuitfulCaptureDiag.note(getApplicationContext(), pkg, "empty"); return; }
             // No amount, nothing to log: promos and "share your feedback"
             // messages are never stored.
-            if (!AMOUNT.matcher(title + " " + text).find()) return;
+            if (!AMOUNT.matcher(title + " " + text).find()) { DuitfulCaptureDiag.note(getApplicationContext(), pkg, "no amount"); return; }
 
             long when = sbn.getPostTime() > 0 ? sbn.getPostTime() : System.currentTimeMillis();
-            DuitfulCaptureStore.append(getApplicationContext(), pkg, title, text, sbn.getKey(), when);
-            NotificationListenerPlugin.emit(pkg, title, text);
+            int stored = DuitfulCaptureStore.append(getApplicationContext(), pkg, title, text, sbn.getKey(), when);
+            DuitfulCaptureDiag.note(getApplicationContext(), pkg,
+                stored == DuitfulCaptureStore.STORED ? "stored" : stored == DuitfulCaptureStore.SEEN ? "already stored" : "store failed");
+            // If the encrypted store failed, hand the text to an open app
+            // directly rather than nudging it to drain an empty store.
+            NotificationListenerPlugin.emit(pkg, title, text, stored != DuitfulCaptureStore.FAILED);
+            // "1 to review" on the persistent notification, with the app closed.
+            if (stored == DuitfulCaptureStore.STORED) DuitfulQuickAddNotifier.refresh(getApplicationContext());
         } catch (Exception ignored) {}
+    }
+
+    private static boolean looksLikeMoney(StatusBarNotification sbn) {
+        try {
+            Notification n = sbn.getNotification();
+            if (n == null || n.extras == null) return false;
+            Bundle e = n.extras;
+            String all = str(e.getCharSequence(Notification.EXTRA_TITLE)) + " " + str(e.getCharSequence(Notification.EXTRA_TEXT))
+                + " " + str(e.getCharSequence(Notification.EXTRA_BIG_TEXT));
+            return AMOUNT.matcher(all).find();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static String str(CharSequence cs) {

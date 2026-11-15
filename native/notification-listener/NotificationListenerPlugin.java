@@ -1,6 +1,9 @@
 package com.aydiljoe.duitful.plugins;
 
+import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
+import android.os.PowerManager;
 import android.provider.Settings;
 import androidx.core.app.NotificationManagerCompat;
 import com.getcapacitor.JSObject;
@@ -10,6 +13,7 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 /**
  * Capacitor bridge to DuitfulNotificationListenerService and to the quick-add
@@ -152,15 +156,60 @@ public class NotificationListenerPlugin extends Plugin {
         return result;
     }
 
+    /**
+     * Settings → Bank alerts → "Check auto-capture": plain facts, no content.
+     * { accessGranted, batteryUnrestricted, connectedAt, disconnectedAt,
+     *   stored, log: [{ p, t, r }], manufacturer, model, sdk }
+     */
+    @PluginMethod
+    public void captureStatus(PluginCall call) {
+        JSObject ret = new JSObject();
+        try {
+            boolean granted = NotificationManagerCompat.getEnabledListenerPackages(getContext()).contains(getContext().getPackageName());
+            ret.put("accessGranted", granted);
+            boolean unrestricted = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PowerManager pm = (PowerManager) getContext().getSystemService(Context.POWER_SERVICE);
+                unrestricted = pm != null && pm.isIgnoringBatteryOptimizations(getContext().getPackageName());
+            }
+            ret.put("batteryUnrestricted", unrestricted);
+            JSONObject diag = DuitfulCaptureDiag.read(getContext());
+            ret.put("connectedAt", diag.optLong("connectedAt", 0L));
+            ret.put("disconnectedAt", diag.optLong("disconnectedAt", 0L));
+            ret.put("log", diag.optJSONArray("log") == null ? new JSONArray() : diag.optJSONArray("log"));
+            ret.put("stored", DuitfulCaptureStore.size(getContext()));
+            ret.put("manufacturer", Build.MANUFACTURER);
+            ret.put("model", Build.MODEL);
+            ret.put("sdk", Build.VERSION.SDK_INT);
+        } catch (Exception e) {
+            call.reject("Could not read the capture status.", e);
+            return;
+        }
+        call.resolve(ret);
+    }
+
+    /** The app's pending-review count, for the persistent notification ("2 to review"). */
+    @PluginMethod
+    public void setPendingCount(PluginCall call) {
+        Integer n = call.getInt("count", 0);
+        DuitfulQuickAddNotifier.setPendingCount(getContext(), n == null ? 0 : n);
+        call.resolve();
+    }
+
     /** Called by DuitfulNotificationListenerService. */
     public static void emit(String pkg, String title, String text) {
+        emit(pkg, title, text, true);
+    }
+
+    /** queued: true when the notification is in the store (JS drains it); false = handle the text directly. */
+    public static void emit(String pkg, String title, String text, boolean queued) {
         if (instance == null) return;
         JSObject payload = new JSObject();
         try {
             payload.put("package", pkg == null ? "" : pkg);
             payload.put("title", title == null ? "" : title);
             payload.put("text", text == null ? "" : text);
-            payload.put("queued", true);
+            payload.put("queued", queued);
         } catch (Exception e) {
             return;
         }
