@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.56.0";
+const APP_VERSION = "1.56.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -67,6 +67,10 @@ const emptyState = () => ({
   // Names of the user's own accounts ("This is my account" on a transfer):
   // a transfer to one of them is a move between wallets, not a spend.
   ownAccounts: [],
+  // On-device AI (receipts and bank alerts). On by default; off = rules only.
+  aiEnabled: true,
+  aiIntroSeen: false,
+  aiIntroShownOn: "",
   guideSeen: false,
   deviceId: "",
   lastEditedAt: "",
@@ -329,6 +333,9 @@ function coerceState(parsed) {
         : { month: "", scans: 0 },
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
       ownAccounts: coerceOwnAccounts(parsed.ownAccounts),
+      aiEnabled: parsed.aiEnabled !== false,
+      aiIntroSeen: !!parsed.aiIntroSeen,
+      aiIntroShownOn: typeof parsed.aiIntroShownOn === "string" ? parsed.aiIntroShownOn : "",
       guideSeen: !!parsed.guideSeen,
       deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : "",
       lastEditedAt: typeof parsed.lastEditedAt === "string" ? parsed.lastEditedAt : "",
@@ -4198,6 +4205,8 @@ function renderAll() {
   renderUpcoming();
   renderPending();
   renderOwnAccounts();
+  renderAiSettings();
+  renderAiIntro();
   renderReminderPrefs();
   renderFxStatus();
   populateCurrencyPickers();
@@ -4587,6 +4596,7 @@ function renderPending() {
               <span class="pending-amount">${fmtMoney(p.amount)}</span>
             </div>
             <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")}${p.category ? ` · ${escapeHtml(p.category)}` : ""}</div>
+            ${pendingAiTag(p)}
           </div>
           <div class="pending-actions">
             ${p.transfer && p.merchant ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
@@ -4596,6 +4606,79 @@ function renderPending() {
           </div>
         </li>`)).join("");
 }
+
+// "Read by your phone's AI": on a card where the AI gave the direction,
+// payee or category (never the amount).
+function pendingAiTag(p) {
+  const ai = p && (p.ai || (p.from && p.from.ai) || (p.to && p.to.ai));
+  return ai ? `<p class="pending-ai">Read by your phone's AI</p>` : "";
+}
+
+/* ---------- On-device AI: the switch, the status, the one-time hello ----------
+   Android: Gemini Nano via ML Kit GenAI on supported phones. iPhone (iOS 26):
+   Apple's on-device model, for receipts. Both through DuitfulKit.aiStatus().
+   state.aiEnabled off means rules only, for receipts and bank alerts alike. */
+function aiAllowed() { return !state || state.aiEnabled !== false; }
+let aiStatusCache = null;          // { state: "on" | "getting-ready" | "none" }
+async function refreshAiStatus() {
+  let st = "none";
+  const kit = duitfulKit("aiStatus");
+  if (kit) {
+    try {
+      const r = await withTimeout(kit.aiStatus(), 2500);
+      st = r && r.available ? "on" : r && r.reason === "downloading" ? "getting-ready" : "none";
+    } catch { st = "none"; }
+  }
+  aiStatusCache = { state: st };
+  renderAiSettings();
+  renderAiIntro();
+  return st;
+}
+function renderAiSettings() {
+  const card = document.getElementById("ai-card");
+  if (!card) return;
+  card.hidden = !isNative();
+  if (!isNative()) return;
+  const st = aiStatusCache ? aiStatusCache.state : "";
+  const line = document.getElementById("ai-status");
+  const box = document.getElementById("pref-ai");
+  if (box) box.checked = state.aiEnabled !== false;
+  if (line) {
+    line.dataset.state = st;
+    line.textContent = !st ? "Checking…"
+      : st === "none" ? "Not available on this phone; Duitful uses its rules."
+      : state.aiEnabled === false ? "Off · Duitful uses its rules."
+      : st === "getting-ready" ? "Getting ready"
+      : "On · runs on this phone";
+  }
+}
+// One small card on Home the first time AI is found on this phone. Shown on
+// that day until dismissed; never again after.
+function renderAiIntro() {
+  const card = document.getElementById("ai-intro");
+  if (!card || !state) return;
+  const today = todayISO();
+  const can = aiStatusCache && aiStatusCache.state === "on" && aiAllowed() && !state.aiIntroSeen
+    && (!state.aiIntroShownOn || state.aiIntroShownOn === today);
+  card.hidden = !can;
+  // No notification capture on iPhone: there it is receipts only.
+  const body = document.getElementById("ai-intro-body");
+  if (body) body.textContent = `Duitful uses this on-device AI to read tricky receipts${nativePlatform() === "ios" ? "" : " and bank alerts"}, privately. Nothing leaves your phone.`;
+  if (can && !state.aiIntroShownOn) { state.aiIntroShownOn = today; save(); }
+}
+document.getElementById("ai-intro-close")?.addEventListener("click", () => {
+  if (!state) return;
+  state.aiIntroSeen = true;
+  save();
+  renderAiIntro();
+});
+document.getElementById("pref-ai")?.addEventListener("change", (e) => {
+  if (!state) return;
+  state.aiEnabled = !!e.target.checked;
+  save();
+  renderAiSettings();
+  renderAiIntro();
+});
 
 /* Settings: the own-account names, each removable. Hidden while empty. */
 function renderOwnAccounts() {
@@ -4624,6 +4707,7 @@ function pendingIncomeHtml(p) {
           <span class="pending-amount in">+${fmtMoney(p.amount)}</span>
         </div>
         <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")} · Income</div>
+        ${pendingAiTag(p)}
       </div>
       <div class="pending-actions">
         ${p.sender && !p.label ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
@@ -4646,6 +4730,7 @@ function pendingMoveHtml(p) {
           <span class="pending-amount move">${fmtMoney(p.amount)}</span>
         </div>
         <div class="pending-source">${escapeHtml(fromName)} → ${escapeHtml(toName)}</div>
+        ${pendingAiTag(p)}
       </div>
       <div class="pending-actions">
         <button class="ghost" data-action="pending-move-split" data-id="${p.id}">${undo}</button>
@@ -5990,6 +6075,7 @@ function initQuickAddResume() {
     if (st && st.isActive) {
       drainQuickAdd().catch(() => {});
       drainCaptured().catch(() => {});
+      refreshAiStatus().catch(() => {});
     }
   });
 }
@@ -6064,8 +6150,8 @@ async function drainCaptured() {
     if (!ai || ai.promo) continue;
     const cur = (state.pendingTxns || []).find((x) => x.id === p.id);
     if (!cur) continue;
-    if (!cur.merchant) cur.merchant = aiNameInText(ai.counterparty, cur.raw);
-    if (!cur.category) cur.category = aiCategoryIn(ai.category, cats);
+    if (!cur.merchant) { cur.merchant = aiNameInText(ai.counterparty, cur.raw); if (cur.merchant) cur.ai = true; }
+    if (!cur.category) { cur.category = aiCategoryIn(ai.category, cats); if (cur.category) cur.ai = true; }
   }
   if (calls) commitPending();
   // 3. Without an AI answer, the entity reader fallback, exactly as before.
@@ -8964,6 +9050,7 @@ function toCSV() {
   }
   // Own-account names ("This is my account"), one setting row each.
   for (const n of state.ownAccounts || []) rows.push(blank(["setting", "ownAccount", n]));
+  rows.push(blank(["setting", "aiEnabled", state.aiEnabled === false ? "N" : "Y"]));
   // Budget pool rows — name in column 1 ("name"), limit in column 2 ("amount"),
   // remaining pool-specific data in the new pool_* columns at index 22-26.
   for (const p of state.budgetPools) {
@@ -9298,6 +9385,8 @@ function fromCSV(text) {
           && (row[iInvReinvested] || "").trim().toUpperCase() === "Y";
         h.dividends.push({ date, amount, reinvested });
       }
+    } else if (type === "setting" && name.toLowerCase() === "aienabled") {
+      next.aiEnabled = (iAmount >= 0 ? String(row[iAmount] || "") : "").trim().toUpperCase() !== "N";
     } else if (type === "setting" && name.toLowerCase() === "ownaccount") {
       const raw = iAmount >= 0 ? (row[iAmount] || "").toString() : "";
       next.ownAccounts = coerceOwnAccounts([...(next.ownAccounts || []), raw]);
@@ -10770,6 +10859,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.1": [
+    "<strong>On-device AI, in plain sight</strong> — Settings now shows whether your phone's own AI is on, getting ready or not available, with a switch to turn it off (rules only). Cards it helped read say so. It runs on your phone and never sets an amount.",
+  ],
   "1.56.0": [
     "<strong>Money in, too</strong> — on Android, money arriving in your bank or e-wallet now shows up for you to add as income. Refunds and cashback are labelled.",
     "<strong>Moving your own money</strong> — moving money from Touch 'n Go to your bank (or back) shows as one \"Moved\" item that isn't counted as spending or income. Tap \"This is my account\" on a transfer and Duitful remembers it; manage the list in Settings.",
@@ -11819,6 +11911,7 @@ async function handleUnlock(passcode, { silent = false } = {}) {
   initNotificationListener();
   drainQuickAdd().catch(() => {});
   drainCaptured().catch(() => {});
+  refreshAiStatus().catch(() => {});
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -11857,6 +11950,7 @@ async function handleSetup(passcode, confirm, initialState, { open = false } = {
   initNotificationListener();
   drainQuickAdd().catch(() => {});
   drainCaptured().catch(() => {});
+  refreshAiStatus().catch(() => {});
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -12781,7 +12875,7 @@ async function receiptSecondOpinion(parsed, text) {
   const wantDate = !parsed.date;
   if (!wantAi && !wantDate) return { parsed, used: [] };
   let ai = null, entities = null;
-  const aiKit = wantAi ? duitfulKit("aiReadReceipt") : null;
+  const aiKit = wantAi && aiAllowed() ? duitfulKit("aiReadReceipt") : null;
   if (aiKit) {
     try {
       const st = await withTimeout(aiKit.aiStatus(), 2000);
@@ -13777,7 +13871,7 @@ function parseAiAlertReply(reply) {
   };
 }
 async function captureAiKit() {
-  const kit = duitfulKit("aiReadAlert");
+  const kit = aiAllowed() ? duitfulKit("aiReadAlert") : null;
   if (!kit || typeof kit.aiStatus !== "function") return null;
   try {
     const st = await withTimeout(kit.aiStatus(), 2000);
