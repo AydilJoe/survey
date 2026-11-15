@@ -2347,6 +2347,56 @@ check('"Wrong?" opens the share sheet with the alert, its app, and a redacted, e
 check('the email goes to hello@duitful.app with the edited redacted text and the app id, never the raw name',
   share.mailto.startsWith('mailto:hello@duitful.app?') && /my\.com\.tngdigital\.ewallet/.test(decodeURIComponent(share.mailto))
   && /\(edited\)/.test(decodeURIComponent(share.mailto)) && !/ALI BIN ABU/.test(decodeURIComponent(share.mailto)), share.mailto.slice(0, 200));
+/* ── "Use a screenshot": OCR on the phone, text only, never the image (1.56.2) ── */
+const shot = await S(async () => {
+  const keepOcr = window.ocrAlertScreenshot, keepShare = navigator.share;
+  const shade = [
+    'MAE · now',
+    'Maybank2u: Funds Received',
+    'You’ve just received RM 0.10 in your account ending ***8714. REF 20261115MBB0001',
+    "Touch 'n Go eWallet · 1m",
+    'DuitNow Transfer is successful',
+    'You have successfully transferred RM 0.10 to MUHAMMAD KHAIRUL ANUAR.',
+    'Duitful',
+    'Log a spend · Add · Scan receipt',
+  ].join('\n');
+  const out = {};
+  let shared = null;
+  try {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async (d) => { shared = d; } });
+    openCaptureShare({ kind: 'missed' });
+    window.ocrAlertScreenshot = async () => shade;
+    const img = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'shade.png', { type: 'image/png' });
+    await shareFromScreenshot(img);
+    out.raw = document.getElementById('share-raw').value;
+    out.preview = document.getElementById('share-redacted').value;
+    out.hint = document.getElementById('share-shot-hint').textContent;
+    out.mailto = decodeURIComponent(captureShareMailto());
+    renderCaptureShareLinks();
+    document.getElementById('share-sheet').click();
+    await new Promise((r) => setTimeout(r, 50));
+    out.shared = shared ? { keys: Object.keys(shared).sort(), text: shared.text } : null;
+    // Nothing read: a short message, and paste still works.
+    openCaptureShare({ kind: 'missed' });
+    window.ocrAlertScreenshot = async () => '';
+    await shareFromScreenshot(img);
+    out.empty = { status: document.getElementById('share-shot-status').textContent, shown: !document.getElementById('share-shot-status').hidden, raw: document.getElementById('share-raw').value };
+    document.getElementById('capture-share-dialog').close();
+  } finally {
+    window.ocrAlertScreenshot = keepOcr;
+    Object.defineProperty(navigator, 'share', { configurable: true, value: keepShare });
+  }
+  return out;
+});
+check('screenshot: the shade text read on the phone fills the box, and the preview is redacted (amounts kept; names, account, reference gone)',
+  /MUHAMMAD/.test(shot.raw) && /RM 0\.10 in your account ending \[account\]\. REF \[ref\]/.test(shot.preview)
+  && /transferred RM 0\.10 to \[name\]\./.test(shot.preview) && !/MUHAMMAD|KHAIRUL|8714|20261115/.test(shot.preview), shot.preview);
+check('screenshot: says it only sends the cleaned words', /only send the cleaned words/.test(shot.hint), shot.hint);
+check('screenshot: the image is never attached — the email and the share sheet carry text only',
+  !/data:|base64|\.png|image\//i.test(shot.mailto) && !/MUHAMMAD/.test(shot.mailto)
+  && shot.shared && JSON.stringify(shot.shared.keys) === '["text","title"]' && !/MUHAMMAD|data:/.test(shot.shared.text), JSON.stringify(shot.shared));
+check('screenshot: no text found says so and leaves paste open', shot.empty.shown && /Paste the words instead/.test(shot.empty.status) && shot.empty.raw === '', JSON.stringify(shot.empty));
+
 /* ── Vivo tester, again: the exact TNG → MAE pair, end to end, and the check (1.56.2) ── */
 const vivo = await S(async () => {
   const keepCap = window.Capacitor;

@@ -2596,6 +2596,12 @@
           <textarea id="share-raw" rows="4" spellcheck="false" autocapitalize="off" aria-describedby="share-raw-hint"></textarea>
           <span class="hint" id="share-raw-hint">Paste it from the notification.</span>
         </label>
+        <div class="share-shot">
+          <button type="button" class="ghost" id="share-shot">Use a screenshot</button>
+          <input type="file" id="share-shot-file" accept="image/*" hidden />
+          <p class="hint" id="share-shot-hint">We read the text on your phone and only send the cleaned words.</p>
+          <p class="hint" id="share-shot-status" role="status" hidden></p>
+        </div>
         <label class="field">
           <span>App</span>
           <select id="share-app"></select>

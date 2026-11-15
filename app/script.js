@@ -4666,6 +4666,8 @@ function openCaptureShare(opts) {
     app.value = known ? known.packages[0] : "";
   }
   if (raw) raw.value = o.text || "";
+  const st = document.getElementById("share-shot-status");
+  if (st) { st.textContent = ""; st.hidden = true; }
   updateCaptureSharePreview();
   if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
   setTimeout(() => (o.text ? document.getElementById("share-redacted") : raw)?.focus(), 30);
@@ -4691,6 +4693,41 @@ function captureShareMailto() {
   return `mailto:${SAMPLE_TO}?subject=${encodeURIComponent(b.subject)}&body=${encodeURIComponent(b.body)}`;
 }
 document.getElementById("share-raw")?.addEventListener("input", updateCaptureSharePreview);
+/* "Use a screenshot": the same on-device OCR as receipts (ML Kit where the
+   phone has it, Tesseract otherwise) reads the text into the box above, and
+   the same redaction runs. Only the cleaned words are ever sent: the image
+   is read in memory and dropped, never stored or attached. */
+async function ocrAlertScreenshot(file) {
+  let text = null;
+  try { if (mlkitTextPlugin()) text = await runMlKitOcr(file); } catch { text = null; }
+  if (text == null) {
+    const worker = await getTesseractWorker(() => {});
+    const res = await worker.recognize(file);
+    text = (res && res.data && res.data.text) || "";
+  }
+  return String(text || "").replace(/[ \t]+\n/g, "\n").trim();
+}
+async function shareFromScreenshot(file) {
+  const status = document.getElementById("share-shot-status");
+  const say = (m) => { if (status) { status.textContent = m; status.hidden = !m; } };
+  if (!file) return;
+  say("Reading the screenshot on your phone…");
+  let text = "";
+  try { text = await ocrAlertScreenshot(file); } catch { text = ""; }
+  if (!text) { say("No text found in that picture. Paste the words instead."); return; }
+  say("");
+  const raw = document.getElementById("share-raw");
+  if (raw) raw.value = text;
+  updateCaptureSharePreview();
+  document.getElementById("share-redacted")?.focus();
+}
+document.getElementById("share-shot")?.addEventListener("click", () => document.getElementById("share-shot-file")?.click());
+document.getElementById("share-shot-file")?.addEventListener("change", async (e) => {
+  const input = e.target;
+  const file = input.files && input.files[0];
+  input.value = "";                      // the picture is not kept
+  await shareFromScreenshot(file);
+});
 document.getElementById("share-send")?.addEventListener("click", () => {
   window.location.href = captureShareMailto();
   document.getElementById("capture-share-dialog")?.close();
@@ -11089,7 +11126,7 @@ const RELEASE_NOTES = {
   "1.56.2": [
     "<strong>More banks</strong> — on Android, alerts from HSBC, OCBC, UOB TMRW, Standard Chartered, Alliance Bank, Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON Bank, Boost Bank, Ryt Bank and ShopeePay are now read too.",
     "<strong>Check auto-capture</strong> — Settings → Bank alerts shows whether Duitful can see your bank alerts and what it did with each, with a report you can copy to us (no message text or amounts). A repeated transfer with the same wording is no longer skipped, and two alerts arriving seconds apart are both picked up.",
-    "<strong>Not picked up?</strong> — send us the wording of a bank alert Duitful missed or read wrongly. Names and numbers are removed on your phone first, you see exactly what is sent, and it goes from your own email app.",
+    "<strong>Not picked up?</strong> — send us the wording of a bank alert Duitful missed or read wrongly, pasted or from a screenshot (read on your phone; only the cleaned words are sent, never the picture). Names and numbers are removed on your phone first, you see exactly what is sent, and it goes from your own email app.",
   ],
   "1.56.1": [
     "<strong>On-device AI, in plain sight</strong> — Settings now shows whether your phone's own AI is on, getting ready or not available, with a switch to turn it off (rules only). Cards it helped read say so. It runs on your phone and never sets an amount.",

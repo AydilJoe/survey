@@ -341,6 +341,9 @@ input[type="checkbox"], input[type="radio"] {
 .capture-share[hidden] { display: none; }
 .capture-share .pending-quiet { appearance: none; background: none; border: 0; padding: 0.45rem 0; font: inherit; font-size: 0.82rem; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; min-height: 44px; }
 .capture-check-list { margin: 0; padding: 0.75rem; max-height: 55vh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.5; color: var(--text); background: var(--card-soft); border: 0.5px solid var(--line); border-radius: var(--r-sm); }
+.share-shot { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; margin: -0.2rem 0 0.4rem; }
+.share-shot .hint { margin: 0; }
+.share-shot .hint[hidden] { display: none; }
 #capture-share-dialog textarea { width: 100%; box-sizing: border-box; resize: vertical; font-family: var(--font-mono); font-size: 0.85rem; }
 /* Home: the one-time on-device AI card. */
 .ai-intro-head { display: flex; align-items: center; gap: 0.6rem; }
