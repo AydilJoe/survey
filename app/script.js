@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.12";
+const APP_VERSION = "1.55.13";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -10605,6 +10605,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.55.13": [
+    "<strong>A simpler Tax page</strong> — fewer words, more cards. Your details are now three short steps (salary, PCB and EPF, family), and you can type the monthly amounts straight from your payslip. The page shows your details in one line, and asks for one thing at a time.",
+  ],
   "1.55.12": [
     "<strong>No surprises with Pro</strong> — the Pro trial now starts only if you choose it, and runs 14 days, and before it ends Home says exactly what changes for you. Back up now is free for everyone (automatic backup stays Pro). Importing your own CSV always brings everything back. You can see how many free debts, goals and holdings you've used before you reach the limit.",
   ],

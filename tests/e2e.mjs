@@ -9144,10 +9144,10 @@ check('the brand catalogue makes no network calls at all',
     && await page.locator('#tax-page-optin').isVisible() && await page.locator('#tax-card').isHidden()
     && await S(() => !taxState().enabled));
   check('tax welcome: explains the three things it does and what you will need',
-    /Spots claimable spending/.test(await page.locator('#tax-page-optin').innerText())
-    && /Keeps the receipts/.test(await page.locator('#tax-page-optin').innerText())
-    && /Checks in/.test(await page.locator('#tax-page-optin').innerText())
-    && /PCB total/.test(await page.locator('#tax-page-optin').innerText()));
+    /Spots claims/.test(await page.locator('#tax-page-optin').innerText())
+    && /Keeps receipts/.test(await page.locator('#tax-page-optin').innerText())
+    && /Reminds you/.test(await page.locator('#tax-page-optin').innerText())
+    && /payslip/.test(await page.locator('#tax-page-optin').innerText()));
   check('tax welcome: the button is wide enough to read on a phone (not squeezed to a word per line)',
     await page.locator('#tab-tax [data-tax-enable]').evaluate(b => b.getBoundingClientRect().width > 160 && b.getBoundingClientRect().height < 70));
   await page.click('#tab-tax [data-tax-enable]');
@@ -9446,16 +9446,179 @@ check('the brand catalogue makes no network calls at all',
   check('tax claims: "Needs receipt" shows only claims without one',
     missingRows === missingClaims && missingRows < allClaims, `${missingRows}/${missingClaims}/${allClaims}`);
   await page.click('[data-tax-filter="all"]');
-  await page.click('.tax-fact[data-tax-numbers="tax-in-pcb"]');
+  await S(() => taxOpenNumbers('tax-in-pcb'));
   await page.waitForTimeout(200);
-  check('tax details: a fact opens the details dialog at that field',
-    await page.locator('#tax-numbers-dialog').evaluate(d => d.open) && await S(() => document.activeElement && document.activeElement.id === 'tax-in-pcb'));
+  check('tax details: a link that names a field opens the details dialog on its step, at that field',
+    await page.locator('#tax-numbers-dialog').evaluate(d => d.open) && await S(() => document.activeElement && document.activeElement.id === 'tax-in-pcb')
+    && await page.locator('[data-tax-step="1"]').isVisible() && await page.locator('[data-tax-step="0"]').isHidden());
+  await page.click('[data-tax-period="ded:y"]');
   await page.fill('#tax-in-pcb', '2500');
   await page.dispatchEvent('#tax-in-pcb', 'change');
-  await page.click('#tax-numbers-done');
+  await page.click('#tax-numbers-done');   // Next → Family
+  await page.click('#tax-numbers-done');   // Done
   await page.waitForTimeout(200);
+  check('tax details: Done on the last step closes the dialog', !(await page.locator('#tax-numbers-dialog').evaluate(d => d.open)));
   check('tax details: an edit there updates the refund card',
     await S(() => taxFigures(taxYear()).pcb === 2500) && /2,500\.00/.test(await page.locator('#tax-split-paid-val').textContent()));
+
+  /* ── Tax page, simplified (1.55.13): cards instead of paragraphs ──────────
+     The details form is three steps; Monthly amounts are stored as yearly;
+     the details card is one line or one prompt; Malaysia's rules card is a
+     quiet link; Stop tracking sits at the foot of the page. */
+  {
+    const tw = await S(async () => {
+      const snap = JSON.stringify(state.tax), cur = state.currency, realConfirm = window.confirm, realChecks = window.taxRunChecks;
+      window.taxRunChecks = () => {};
+      const out = {};
+      const $id = (id) => document.getElementById(id);
+      const dlg = $id('tax-numbers-dialog');
+      const y = String(taxYear());
+      const type = (id, v) => { $id(id).value = v; $id(id).dispatchEvent(new Event('input', { bubbles: true })); $id(id).dispatchEvent(new Event('change', { bubbles: true })); };
+      const step = () => [...dlg.querySelectorAll('[data-tax-step]')].filter((x) => !x.hidden).map((x) => x.dataset.taxStep).join(',');
+      const mode = (g) => dlg.querySelector(`[data-tax-period="${g}:m"]`).getAttribute('aria-pressed') === 'true' ? 'm' : 'y';
+      const card = () => ({ line: $id('tax-facts').textContent.replace(/\s+/g, ' ').trim(), prompt: $id('tax-details-prompt').hidden ? '' : $id('tax-details-prompt-text').textContent,
+        btn: $id('tax-details-add').textContent, edit: !$id('btn-tax-numbers').hidden, warnTiles: document.querySelectorAll('#tax-details-card .tax-fact').length });
+      state.tax.enabled = true;
+      Object.assign(state.tax, { spouse: false, children: 0, childrenPre: 0, childrenTertiary: 0, disabledChildren: 0, disabledSelf: false, disabledSpouse: false });
+      // No salary anywhere: not typed, and none logged in the Monthly tab.
+      const logged = state.income; state.income = [];
+      state.tax.figures[y] = { income: 0, pcb: 0, epf: 0 };
+      renderAll();
+      out.noIncome = taxIncomeFromEntries(taxYear()).annual === 0; out.cardEmpty = card();
+      out.promptOpensAt = $id('tax-details-add').dataset.taxNumbers;
+
+      // Step 1: Salary, Monthly by default, stored as the yearly figure.
+      $id('tax-details-add').click();
+      out.open = { open: dlg.open, step: step(), mode: mode('pay'), back: $id('tax-wiz-back').hidden, next: $id('tax-numbers-done').textContent,
+        dots: $id('tax-wiz-dots').children.length, placeholders: ['tax-in-income', 'tax-in-pcb', 'tax-in-epf'].filter((id) => $id(id).placeholder).length,
+        hintUnder: !!$id('tax-in-income').parentElement.querySelector('.hint') };
+      type('tax-in-income', '5000');
+      out.salary = { stored: taxFigures(taxYear()).income, total: $id('tax-total-income').textContent };
+      $id('tax-numbers-form').requestSubmit();
+      // Step 2: PCB and EPF, the same switch.
+      out.step2 = { step: step(), mode: mode('ded'), back: !$id('tax-wiz-back').hidden, focus: document.activeElement && document.activeElement.id };
+      type('tax-in-pcb', '300'); type('tax-in-epf', '550');
+      out.deductions = { ...taxFigures(taxYear()), total: $id('tax-total-epf').textContent };
+      $id('tax-wiz-back').click();
+      out.backTo = { step: step(), shown: $id('tax-in-income').value };
+      $id('tax-wiz-skip').click(); $id('tax-wiz-skip').click();
+      // Step 3: Family. "Just me" until asked; steppers, not text boxes.
+      out.family = { step: step(), done: $id('tax-numbers-done').textContent, just: !$id('tax-fam-just').hidden && $id('tax-fam-just-text').textContent,
+        fields: !$id('tax-fam-fields').hidden, more: $id('tax-more').open, textBoxes: dlg.querySelectorAll('[data-tax-step="2"] input[type="number"]').length };
+      $id('tax-fam-add').click();
+      const inc = dlg.querySelector('[data-tax-inc="tax-in-children"]'), dec = dlg.querySelector('[data-tax-dec="tax-in-children"]');
+      out.stepper = { shown: !$id('tax-fam-fields').hidden, decOffAtZero: dec.disabled, labels: [inc.getAttribute('aria-label'), dec.getAttribute('aria-label')] };
+      inc.click(); inc.click(); inc.click(); dec.click();
+      out.stepper.children = state.tax.children; out.stepper.out = $id('tax-in-children').value; out.stepper.decOn = !dec.disabled;
+      $id('tax-in-spouse').click();
+      out.stepper.spouse = state.tax.spouse;
+      $id('tax-numbers-form').requestSubmit();
+      out.closed = !dlg.open;
+      out.cardFull = card();
+      state.income = logged; renderAll();
+
+      // Editing later: opens at step 1 with the stored values. A yearly figure
+      // that isn't a clean monthly amount opens as Yearly and is never rewritten.
+      $id('btn-tax-numbers').click();
+      out.edit = { step: step(), mode: mode('pay'), shown: $id('tax-in-income').value, fam: null, more: $id('tax-more').open };
+      $id('tax-wiz-skip').click(); $id('tax-wiz-skip').click();
+      out.edit.fam = !$id('tax-fam-fields').hidden; out.edit.more = $id('tax-more').open;
+      dlg.close();
+      state.tax.figures[y].income = 50000; renderAll();
+      taxOpenNumbers();
+      out.yearly = { mode: mode('pay'), shown: $id('tax-in-income').value };
+      dlg.querySelector('[data-tax-period="pay:m"]').click();
+      out.yearly.asMonthly = $id('tax-in-income').value;
+      $id('tax-numbers-form').requestSubmit();
+      out.yearly.kept = taxFigures(taxYear()).income;
+      dlg.close();
+
+      // The details card: one prompt at a time.
+      state.tax.figures[y] = { income: 60000, pcb: 0, epf: 0 }; renderAll(); out.cardNoPcb = card();
+      out.footnote = $id('tax-footnote').textContent;
+
+      // Malaysia: the rules card is a quiet link; elsewhere it is the card.
+      taxUi.rulesOpen = false; renderAll();
+      out.rulesMy = { card: !$id('tax-rules-card').hidden, link: !$id('btn-tax-rules-show').hidden };
+      $id('btn-tax-rules-show').click();
+      out.rulesOpened = { card: !$id('tax-rules-card').hidden, link: !$id('btn-tax-rules-show').hidden };
+      taxUi.rulesOpen = false;
+      state.currency = 'EUR'; renderAll();
+      out.rulesAbroad = { card: !$id('tax-rules-card').hidden, link: !$id('btn-tax-rules-show').hidden };
+      state.currency = cur; renderAll();
+
+      // Stop tracking: on the page, not in the dialog, still behind a confirm.
+      const stop = $id('btn-tax-disable');
+      out.stop = { onPage: !!stop.closest('#tab-tax') && !stop.closest('dialog'), shown: !stop.hidden };
+      window.confirm = () => false; stop.click(); out.stop.declined = state.tax.enabled;
+      window.confirm = () => true; stop.click(); out.stop.stopped = !state.tax.enabled;
+      const w = $id('tax-page-optin');
+      out.welcome = { shown: !w.hidden, rulesCard: !$id('tax-rules-card').hidden, stop: !$id('btn-tax-disable').hidden,
+        primaries: w.querySelectorAll('button.primary').length, notNow: [...w.querySelectorAll('button')].find((b) => b.textContent === 'Not now').className,
+        benefits: [...w.querySelectorAll('.tax-benefits li')].map((li) => li.textContent.trim()), words: w.innerText.split(/\s+/).length,
+        title: $id('tax-welcome-title').textContent, found: taxFound(new Date().getFullYear()).total };
+      window.confirm = realConfirm; window.taxRunChecks = realChecks;
+      state.tax = coerceTax(JSON.parse(snap)); state.currency = cur; save(); renderAll();
+      return out;
+    });
+    check('tax details: with no salary the card is one prompt ("Add your salary to see your refund"), not four amber tiles',
+      tw.noIncome && tw.promptOpensAt === 'tax-in-income' && (tw.cardEmpty.line === '' && /Add your salary to see your refund/.test(tw.cardEmpty.prompt) && tw.cardEmpty.btn === 'Add salary' && !tw.cardEmpty.edit && tw.cardEmpty.warnTiles === 0), JSON.stringify(tw.cardEmpty));
+    check('tax details: the form opens as step 1 of 3 (Salary), Monthly by default, hints under the fields and no placeholders to truncate',
+      tw.open.open && tw.open.step === '0' && tw.open.mode === 'm' && tw.open.back && tw.open.next === 'Next' && tw.open.dots === 3 && tw.open.placeholders === 0 && tw.open.hintUnder, JSON.stringify(tw.open));
+    check('tax details: a monthly salary of 5,000 is stored as 60,000 a year, and the yearly total shows under the field',
+      tw.salary.stored === 60000 && /60,000\.00 a year/.test(tw.salary.total), JSON.stringify(tw.salary));
+    check('tax details: Next moves to PCB and EPF (focus on the step heading), monthly PCB 300 and EPF 550 are stored as 3,600 and 6,600',
+      tw.step2.step === '1' && tw.step2.mode === 'm' && tw.step2.back && tw.step2.focus === 'tax-step-1-title'
+      && tw.deductions.pcb === 3600 && tw.deductions.epf === 6600 && tw.deductions.income === 60000 && /6,600\.00 a year/.test(tw.deductions.total), JSON.stringify([tw.step2, tw.deductions]));
+    check('tax details: Back returns to Salary with the amount as typed; Skip moves on',
+      tw.backTo.step === '0' && tw.backTo.shown === '5000' && tw.family.step === '2' && tw.family.done === 'Done', JSON.stringify([tw.backTo, tw.family]));
+    check('tax details: Family starts as "Just me" with children and "More situations" tucked away, and no number boxes',
+      tw.family.just === 'Just me' && tw.family.fields === false && tw.family.more === false && tw.family.textBoxes === 0, JSON.stringify(tw.family));
+    check('tax details: Add family shows − 0 + steppers with spoken labels; they stop at 0 and save each tap',
+      tw.stepper.shown && tw.stepper.decOffAtZero && /One more: children under 18/.test(tw.stepper.labels[0]) && /One fewer: children under 18/.test(tw.stepper.labels[1])
+      && tw.stepper.children === 2 && tw.stepper.out === '2' && tw.stepper.decOn && tw.stepper.spouse === true && tw.closed, JSON.stringify(tw.stepper));
+    check('tax details: once filled the card is one line — income, PCB, EPF, family — with Edit and no prompt',
+      tw.cardFull.line === 'RM 60,000 · PCB RM 3,600 · EPF RM 6,600 · Spouse with no income, 2 children' && tw.cardFull.prompt === '' && tw.cardFull.edit, JSON.stringify(tw.cardFull));
+    check('tax details: editing opens at step 1 with the stored figure shown monthly; children and ticked situations open by themselves',
+      tw.edit.step === '0' && tw.edit.mode === 'm' && tw.edit.shown === '5000' && tw.edit.fam === true && tw.edit.more === true, JSON.stringify(tw.edit));
+    check('tax details: a yearly 50,000 opens as Yearly, and looking at it as Monthly (4166.67) never rewrites what is stored',
+      tw.yearly.mode === 'y' && tw.yearly.shown === '50000' && tw.yearly.asMonthly === '4166.67' && tw.yearly.kept === 50000, JSON.stringify(tw.yearly));
+    check('tax details: salary in but no PCB → the line plus one prompt to add PCB; the schedule note is one short line',
+      /^RM 60,000 · PCB not added/.test(tw.cardNoPcb.line) && /Add your PCB/.test(tw.cardNoPcb.prompt) && tw.cardNoPcb.btn === 'Add PCB' && tw.footnote.length < 110 && /LHDN/.test(tw.footnote), JSON.stringify([tw.cardNoPcb, tw.footnote]));
+    check('tax rules: for Malaysia the card is one quiet link that opens it; outside Malaysia it is the card',
+      !tw.rulesMy.card && tw.rulesMy.link && tw.rulesOpened.card && !tw.rulesOpened.link && tw.rulesAbroad.card && !tw.rulesAbroad.link, JSON.stringify([tw.rulesMy, tw.rulesOpened, tw.rulesAbroad]));
+    check('tax: Stop tracking is a quiet control on the page, outside the dialog, and still asks first',
+      tw.stop.onPage && tw.stop.shown && tw.stop.declined === true && tw.stop.stopped === true, JSON.stringify(tw.stop));
+    check('tax welcome: one primary button, "Not now" as a quiet link, three two-word benefits, no rules card, under 70 words',
+      tw.welcome.shown && tw.welcome.primaries === 1 && tw.welcome.notNow === 'tax-quiet' && !tw.welcome.rulesCard && !tw.welcome.stop
+      && tw.welcome.benefits.join('|') === 'Spots claims|Keeps receipts|Reminds you' && tw.welcome.words < 70, JSON.stringify(tw.welcome));
+    check('tax welcome: the headline is the person\'s own claimable figure when there is one, a short line when not',
+      tw.welcome.found > 0 ? /^RM [\d,]+ of your spending looks claimable$/.test(tw.welcome.title) : tw.welcome.title === 'See your likely tax refund', JSON.stringify(tw.welcome));
+
+    // At phone width: the Claims title keeps one line with its actions beneath, steps fit, nothing scrolls sideways.
+    const vp = page.viewportSize();
+    for (const width of [390, 360]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.waitForTimeout(150);
+      const m = await S(() => {
+        const h = document.getElementById('tax-claims-title'), a = document.querySelector('#tax-claims-card .tax-head-actions');
+        const hr = h.getBoundingClientRect(), ar = a.getBoundingClientRect();
+        const lh = parseFloat(getComputedStyle(h).lineHeight) || hr.height;
+        taxOpenNumbers();
+        const dlg = document.getElementById('tax-numbers-dialog'), inp = document.getElementById('tax-in-income');
+        const dr = dlg.getBoundingClientRect(), ir = inp.getBoundingClientRect();
+        const hint = document.getElementById('tax-income-hint');
+        const r = { oneLine: hr.height < lh * 1.6, below: ar.top >= hr.bottom - 1, sw: document.documentElement.scrollWidth,
+          inputFull: ir.width > dr.width - 60, hintFits: hint.scrollWidth <= hint.clientWidth + 1, dlgFits: dr.right <= innerWidth + 1 && dr.left >= -1 };
+        dlg.close();
+        return r;
+      });
+      check(`tax at ${width}px: "Claims & receipts" stays on one line above its buttons; the Salary field is full width with its hint whole; no sideways scroll`,
+        m.oneLine && m.below && m.sw <= width && m.inputFull && m.hintFits && m.dlgFits, JSON.stringify(m));
+    }
+    await page.setViewportSize(vp);
+    await page.waitForTimeout(150);
+  }
   const inbox = await S(() => {
     state.dailyExpenses.push({ id: 'inbox1', kind: 'expense', date: todayISO(), amount: 60, category: 'Books', note: 'Kinokuniya', createdAt: 1 });
     renderAll();

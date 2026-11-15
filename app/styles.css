@@ -7383,20 +7383,78 @@ button.ghost.tax-chip.is-ok { color: var(--gain); border-color: color-mix(in srg
 button.ghost.tax-chip.is-warn { color: var(--warn); border-color: var(--warn-line); background: var(--warn-bg); }
 button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
 
-/* 5. Your details: each fact opens the form at its field. */
-.tax-facts { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.55rem; }
-.tax-fact {
-  width: 100%; height: 100%; display: flex; flex-direction: column; gap: 0.15rem; align-items: flex-start;
-  padding: 0.7rem 0.8rem; text-align: left; font: inherit; color: inherit; cursor: pointer;
-  background: var(--card-soft); border: 0.5px solid var(--line); border-radius: var(--r-sm);
-  transition: border-color 0.2s ease;
+/* 5. Your details: one line of what was entered, or one prompt to add it. */
+.tax-facts { margin: 0; line-height: 1.55; color: var(--text); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.tax-facts:empty { display: none; }
+.tax-facts .tax-facts-none { color: var(--muted); }
+.tax-facts-bit { white-space: nowrap; }
+.tax-details-prompt { display: flex; flex-direction: column; gap: 0.7rem; align-items: stretch; }
+.tax-details-prompt[hidden] { display: none; }
+.tax-facts:not(:empty) + .tax-details-prompt { margin-top: 0.8rem; }
+.tax-details-prompt p { margin: 0; color: var(--ink2); line-height: 1.45; }
+.tax-details-prompt .primary { min-height: 2.9rem; }
+
+/* Quiet text-style controls: Not now, Skip, Stop tracking tax. */
+.tax-quiet {
+  appearance: none; background: none; border: 0; margin: 0; min-height: 44px; padding: 0 0.6rem;
+  font: inherit; font-size: 0.85rem; font-weight: 500; color: var(--muted); cursor: pointer; border-radius: var(--r-sm);
 }
-.tax-fact:hover { border-color: var(--border); }
-.tax-fact-label { font-size: 0.78rem; color: var(--muted); }
-.tax-fact-value { font-weight: 500; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.tax-fact-sub { font-size: 0.74rem; color: var(--muted); }
-.tax-fact.is-warn { border-color: var(--warn-line); background: var(--warn-bg); }
-.tax-fact.is-warn .tax-fact-value { color: var(--warn); }
+.tax-quiet:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+.tax-quiet:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.tax-quiet[hidden] { display: none; }
+.tax-foot { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 0.5rem; margin: 0.2rem 0 0.6rem; }
+.tax-foot:not(:has(> :not([hidden]))) { display: none; }
+
+/* Claims & receipts: the title keeps its own line; the actions sit under it. */
+.tax-claims-card .card-head { flex-wrap: wrap; row-gap: 0.5rem; }
+.tax-claims-card .card-head h2 { flex: 1 0 100%; white-space: nowrap; }
+.tax-claims-card .tax-head-actions { flex-wrap: wrap; }
+
+/* Your details, as three steps: one question group at a time. */
+.tax-wiz form { gap: 0.6rem; }
+.tax-wiz-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.tax-wiz-head h2 { margin: 0; }
+.tax-wiz-dots { list-style: none; display: flex; gap: 0.4rem; margin: 0; padding: 0; }
+.tax-wiz-dots li { width: 0.5rem; height: 0.5rem; border-radius: var(--r-pill); background: color-mix(in srgb, var(--text) 18%, transparent); transition: width 0.2s ease, background 0.2s ease; }
+.tax-wiz-dots li.is-on { width: 1.25rem; background: var(--primary); }
+.tax-wiz-dots li.is-done { background: color-mix(in srgb, var(--primary) 55%, transparent); }
+.tax-wiz-step { display: flex; flex-direction: column; gap: 0.5rem; min-height: 15.5rem; }
+.tax-wiz-step[hidden] { display: none; }
+.tax-wiz-step h3 { margin: 0.2rem 0 0.1rem; font-size: 1.25rem; font-weight: 600; letter-spacing: -0.015em; outline: none; }
+.tax-wiz-step .field { margin-bottom: 0; }
+.tax-wiz-step .field input[type="number"] { width: 100%; box-sizing: border-box; }
+.tax-wiz-step .hint { margin: 0; }
+.tax-wiz-step .hint:empty { display: none; }
+.tax-period { display: inline-flex; gap: 0.4rem; margin-bottom: 0.2rem; }
+.tax-wiz-total { margin: -0.15rem 0 0.2rem; font-size: 0.86rem; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.tax-wiz-total:empty { display: none; }
+.tax-fam-just { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.75rem 0.9rem; border-radius: var(--r-sm); background: var(--card-soft); border: 0.5px solid var(--line); }
+.tax-fam-just[hidden] { display: none; }
+.tax-fam-just strong { font-weight: 500; }
+.tax-fam-fields { display: flex; flex-direction: column; }
+.tax-fam-fields[hidden] { display: none; }
+.tax-stepper-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.35rem 0; border-top: 0.5px solid var(--line); font-size: 0.92rem; line-height: 1.3; }
+.tax-stepper-row:first-child { border-top: 0; }
+.tax-stepper { display: inline-flex; align-items: center; gap: 0.25rem; flex: none; }
+.tax-stepper output { min-width: 1.6rem; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+.tax-stepper button.ghost.icon-btn { min-width: 44px; min-height: 44px; display: grid; place-items: center; padding: 0; }
+.tax-stepper svg { width: 1rem; height: 1rem; display: block; }
+.tax-stepper button:disabled { opacity: 0.35; cursor: default; }
+.tax-fam-fields > .hint { margin-top: 0.4rem; }
+.tax-more { border-top: 0.5px solid var(--line); margin-top: 0.3rem; }
+.tax-more summary { cursor: pointer; padding: 0.75rem 0; color: var(--ink2); font-size: 0.9rem; font-weight: 500; }
+.tax-more .field.toggle-field { margin-bottom: 0.2rem; min-height: 44px; }
+.tax-wiz-actions { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem; }
+.tax-wiz-actions .primary { margin-left: auto; min-width: 6.5rem; min-height: 2.9rem; }
+.tax-wiz-actions .ghost { min-height: 2.9rem; }
+@media (prefers-reduced-motion: no-preference) {
+  .tax-wiz-step.is-in { animation: tax-wiz-in 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+  .tax-wiz-step.is-in.is-back { animation-name: tax-wiz-in-back; }
+}
+@keyframes tax-wiz-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@keyframes tax-wiz-in-back { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tax-wiz-dots li { transition: none; } }
+
 .tax-footnote { margin: 0.9rem 0 0; max-width: 62ch; }
 .tax-sub-head { margin: 0.9rem 0 0.2rem; font-size: 0.85rem; color: var(--muted); font-weight: 500; }
 
@@ -7429,7 +7487,7 @@ button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn)
 /* Claim dialog */
 .tax-receipt { margin-top: 0.5rem; }
 .tax-receipt img { display: block; max-width: 100%; max-height: 200px; border-radius: var(--r-sm); border: 0.5px solid var(--line); margin: 0.4rem 0; }
-.tax-claim-actions #tax-claim-delete, .tax-claim-actions #btn-tax-disable { margin-right: auto; }
+.tax-claim-actions #tax-claim-delete { margin-right: auto; }
 .tax-claim-info { margin: 0.25rem 0 0.5rem; font-size: 0.85rem; }
 .tax-claim-info summary { cursor: pointer; color: var(--muted); }
 .tax-claim-info ul { margin: 0.4rem 0; padding-left: 1.1rem; }
@@ -7503,29 +7561,30 @@ button.ghost.tax-chip.is-warn:hover { background: color-mix(in srgb, var(--warn)
   background: color-mix(in srgb, var(--accent) 18%, var(--card)); color: var(--accent);
 }
 .tax-welcome-mark svg { width: 1.4rem; height: 1.4rem; }
-.tax-welcome h2 { margin: 0 0 0.4rem; font-size: 1.35rem; letter-spacing: -0.015em; text-wrap: balance; }
-.tax-welcome-lede { margin: 0 0 1rem; line-height: 1.55; color: var(--ink2); max-width: 56ch; }
+.tax-welcome h2 { margin: 0 0 0.3rem; font-size: 1.5rem; line-height: 1.2; letter-spacing: -0.02em; text-wrap: balance; }
+.tax-welcome h2 .amt { font-variant-numeric: tabular-nums; }
+.tax-welcome-lede { margin: 0 0 1rem; line-height: 1.5; color: var(--ink2); max-width: 56ch; }
 
-/* What it already found: the reason to turn it on. */
-.tax-found { margin: 0 0 1.1rem; padding: 0.9rem 1rem; border-radius: var(--r-sm); background: var(--card-soft); border: 0.5px solid var(--line); }
-.tax-found-title { margin: 0 0 0.5rem; line-height: 1.4; }
-.tax-found-title strong { font-weight: 600; }
+/* What it already found in this person's spending. */
+.tax-found { margin: 0 0 1rem; padding: 0.7rem 1rem; border-radius: var(--r-sm); background: var(--card-soft); border: 0.5px solid var(--line); }
+.tax-found-title { margin: 0 0 0.2rem; font-size: 0.8rem; color: var(--muted); }
 .tax-found-list li:first-child { padding-top: 0.3rem; }
 .tax-found-list li:last-child { padding-bottom: 0; }
 .tax-found-more { margin: 0.35rem 0 0; }
 .tax-found-more:empty { display: none; }
 
-.tax-benefits { list-style: none; padding: 0; margin: 0 0 0.9rem; display: flex; flex-direction: column; gap: 0.85rem; }
-.tax-benefits li { display: grid; grid-template-columns: 1.4rem 1fr; gap: 0.75rem; align-items: start; font-size: 0.9rem; line-height: 1.5; color: var(--ink2); }
-.tax-benefits svg { width: 1.3rem; height: 1.3rem; color: var(--accent); margin-top: 0.1rem; }
-.tax-benefits strong { color: var(--text); font-weight: 600; }
-.tax-need { margin: 0 0 1.1rem; }
-.tax-welcome-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.tax-welcome-actions .primary { flex: 1 1 14rem; min-height: 2.9rem; }
-.tax-welcome-actions .ghost { flex: 0 1 auto; min-height: 2.9rem; }
+/* Three things it does: an icon and two words each, side by side. */
+.tax-benefits { list-style: none; padding: 0; margin: 0 0 1.1rem; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.tax-benefits li { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding: 0.75rem 0.3rem; text-align: center; font-size: 0.8rem; font-weight: 500; line-height: 1.25; color: var(--text); border-radius: var(--r-sm); background: var(--card-soft); border: 0.5px solid var(--line); }
+.tax-benefits svg { width: 1.3rem; height: 1.3rem; color: var(--accent); }
+.tax-welcome-actions { display: flex; flex-direction: column; align-items: stretch; gap: 0.3rem; }
+.tax-welcome-actions .primary { min-height: 3rem; }
+.tax-need { margin: 0.3rem 0 0; text-align: center; }
+.tax-welcome-actions .tax-quiet { align-self: center; }
 
 @media (min-width: 640px) {
   #tab-tax.tab-panel:is(.active, .is-leaving) > .tax-welcome { grid-column: 1 / -1; max-width: 640px; justify-self: center; width: 100%; }
+  #tab-tax.tab-panel:is(.active, .is-leaving) > .tax-foot { grid-column: 1 / -1; }
 }
 @media (pointer: coarse) { .tax-optin { min-height: 44px; } }
 
