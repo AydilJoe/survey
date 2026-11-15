@@ -549,14 +549,20 @@ check('a pre-investments export still imports',
   invRt.legacy.debts === 2 && invRt.legacy.investments === 0, JSON.stringify(invRt.legacy));
 
 const FREE_LIMIT_HOLDINGS = await S(() => FREE_INVESTMENT_LIMIT);
-// Free tier: FREE_INVESTMENT_LIMIT (3) holdings. The fresh profile auto-starts
-// a 7-day Pro trial, so age it out rather than asserting against a trial user.
+// Free tier: FREE_INVESTMENT_LIMIT (3) holdings. The trial is opt-in, so a
+// fresh profile has never had one. From here on the suite runs as someone
+// whose trial is over (started 15 days ago; it lasts 14).
 // A stand-in third holding fills the free allowance; it goes after the check.
 await S(() => {
   state.investments = state.investments.slice(0, 2);
   state.investments.push({ ...JSON.parse(JSON.stringify(state.investments[0])), id: 'inv-filler', name: 'Filler holding' });
   state.pro = false;
-  state.proTrialStartedAt = Date.now() - 8 * 24 * 60 * 60 * 1000;
+});
+check('fresh profile: no trial was started automatically, and it is not Pro',
+  (await S(() => state.proTrialStartedAt === 0 && !isTrialActive() && !isPro() && state.firstRunAt > 0)),
+  JSON.stringify(await S(() => ({ t: state.proTrialStartedAt, f: state.firstRunAt }))));
+await S(() => {
+  state.proTrialStartedAt = Date.now() - 15 * 24 * 60 * 60 * 1000;
   save(); renderAll();
 });
 await page.waitForTimeout(300);
@@ -5234,7 +5240,7 @@ check('and what was typed reaches the home screen calculation',
     state.pro = false; state.proNudgeUntil = 0;
     // Trial just ended, with backups and scans counted during it.
     localStorage.setItem('duitful-trial-usage', JSON.stringify({ backups: 12, scans: 8 }));
-    state.proTrialStartedAt = Date.now() - 8 * 864e5;
+    state.proTrialStartedAt = Date.now() - 15 * 864e5;
     state.firstRunAt = state.proTrialStartedAt;
     renderTrialBanner(); out.recap = read();
     // Not now: quiet for 30 days.
@@ -5257,6 +5263,198 @@ check('and what was typed reaches the home screen calculation',
   check('Not now quiets the Pro message', pn.snoozed === false, JSON.stringify(pn));
   check('two weeks in with real data: "Only on this phone" names the entries at risk; not with too little data; never for Pro',
     pn.backup.shown && pn.backup.kind === 'backup' && /\d+ entries are gone/.test(pn.backup.sub) && pn.tooFew === false && pn.pro === false, JSON.stringify(pn));
+}
+
+/* ── No bait and switch (1.55.12) ─────────────────────────────────────────
+   The trial is opt-in and says what ends before it ends; a person's own
+   data imports whole; one price everywhere; the limit shows before the
+   wall; Back up now is free and only automatic backup is Pro. */
+{
+  const nb = await S(async () => {
+    const snap = JSON.stringify(state);
+    const usage = localStorage.getItem('duitful-trial-usage');
+    const keep = { cap: window.Capacitor, drive: window.DriveSync, exp: PROMO_CODES.LAUNCH100.expires };
+    const out = {};
+    const $id = (id) => document.getElementById(id);
+    const paywall = () => $id('paywall-dialog').open;
+    const banner = () => ({ shown: !$id('trial-banner').hidden, kind: $id('trial-banner').dataset.kind, sub: $id('trial-banner-sub').textContent });
+    $id('reminder-ask').hidden = true;
+    localStorage.removeItem('duitful-trial-usage');
+
+    // 1. Opt-in trial: offered once, started only by the tap.
+    state.pro = false; state.proTrialStartedAt = 0; state.proNudgeUntil = 0;
+    openPaywall('savings');
+    const btn = $id('paywall-trial');
+    out.offer = { shown: !btn.hidden, text: btn.textContent, proBefore: isPro() };
+    btn.click();
+    out.started = { at: state.proTrialStartedAt > 0, pro: isPro(), closed: !paywall(), toast: ($id('toast') || {}).textContent || '',
+      saved: null };
+    openPaywall('savings'); out.offerAgain = !btn.hidden; closePaywall();
+    state.proTrialStartedAt = 0; state.pro = true; openPaywall(); out.offerPro = !btn.hidden; closePaywall();
+    state.pro = false;
+    // A vault from the automatic-trial days keeps its trial, and gets the longer window.
+    state.proTrialStartedAt = Date.now() - 8 * 864e5; out.oldVaultStillTrial = isTrialActive() && TRIAL_DAYS === 14;
+
+    // 2. Two days left: what changes, from what this person uses.
+    const goal = (i) => ({ id: 'nbg' + i, name: 'Goal ' + i, target: 100, current: 0 });
+    state.proTrialStartedAt = Date.now() - (TRIAL_DAYS - 1.5) * 864e5;
+    state.savings = Array.from({ length: 7 }, (_, i) => goal(i));
+    state.budgetPools = state.budgetPools.filter((p) => p.system === 'debt')
+      .concat([{ id: 'nbp1', name: 'Food', limit: 500, active: true }, { id: 'nbp2', name: 'Fun', limit: 200, active: false }]);
+    localStorage.setItem('duitful-trial-usage', JSON.stringify({ scans: 3 }));
+    renderTrialBanner(); out.warn = banner(); out.daysLeft = trialDaysLeft();
+    state.savings = []; state.budgetPools = state.budgetPools.filter((p) => p.id !== 'nbp2');
+    state.debts = []; state.investments = [];
+    localStorage.removeItem('duitful-trial-usage');
+    renderTrialBanner(); out.warnNothing = banner().sub;
+    state.proTrialStartedAt = Date.now() - 3 * 864e5;
+    renderTrialBanner(); out.midTrial = banner().sub;
+
+    // 5. The limit, before the wall.
+    const count = (k) => { const el = document.querySelector(`[data-free-count="${k}"]`); return el.hidden ? null : el.textContent; };
+    const debt = (i, kind) => ({ id: 'nbd' + i, name: 'Debt ' + i, kind, balance: 100, apr: kind === 'islamic' ? 0 : 10, minPayment: 10 });
+    state.proTrialStartedAt = Date.now() - 20 * 864e5;
+    state.debts = [debt(1, 'standard'), debt(2, 'standard'), debt(3, 'islamic')];
+    state.savings = [goal(1)];
+    renderAll();
+    out.counts = { debts: count('debts'), savings: count('savings'), investments: count('investments') };
+    state.savings = Array.from({ length: 7 }, (_, i) => goal(i)); renderAll();
+    out.countOver = count('savings');
+    state.proTrialStartedAt = Date.now() - 864e5; renderAll(); out.countTrial = count('debts');
+    state.proTrialStartedAt = Date.now() - 20 * 864e5; state.pro = true; renderAll(); out.countPro = count('debts');
+    state.pro = false;
+
+    // 4. One price: what the banner says is what the paywall says.
+    const price = () => {
+      state.proNudgeUntil = 0; state.proTrialStartedAt = Date.now() - 15 * 864e5;
+      renderTrialBanner();
+      const r = { label: proPriceLabel(), banner: banner().sub, link: document.querySelector('[data-pro-price]').textContent };
+      state.proTrialStartedAt = 0;   // never had a trial: same price all the same
+      openPaywall('debts');
+      r.paywall = $id('paywall-price-amount').textContent; r.sub = $id('paywall-price-sub').textContent;
+      r.hint = $id('paywall-hint').textContent; r.sku = activePromo ? activePromo.sku : PRODUCT_ID;
+      closePaywall();
+      return r;
+    };
+    out.priceWeb = price();
+    $id('fpx-discount').value = ''; openFpxDialog(); out.fpxCode = $id('fpx-discount').value; closeFpxDialog(); $id('fpx-discount').value = '';
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    out.priceAndroid = price();
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} };
+    out.priceIos = price();
+    window.Capacitor = keep.cap;
+    PROMO_CODES.LAUNCH100.expires = '2020-01-01';
+    out.priceExpired = price();
+    PROMO_CODES.LAUNCH100.expires = keep.exp;
+
+    // 6. Back up now is free; automatic stays Pro.
+    let uploads = 0;
+    window.DriveSync = Object.assign({}, keep.drive, { isConfigured: () => true, isSignedIn: () => true, isHidden: () => false,
+      getStatus: () => ({ state: 'idle' }), getAccountEmail: () => '', uploadEncryptedRecord: async () => { uploads++; } });
+    state.proTrialStartedAt = Date.now() - 20 * 864e5; state.pro = false; state.driveAutoSync = true;
+    save(); await new Promise((r) => setTimeout(r, 50));
+    renderDriveCard();
+    out.backup = { nowDisabled: $id('btn-drive-sync-now').disabled, autoShownOn: $id('drive-auto-sync').checked,
+      hint: $id('drive-pro-hint').hidden ? '' : $id('drive-pro-hint').textContent.replace(/\s+/g, ' ').trim() };
+    $id('btn-drive-sync-now').click();
+    await new Promise((r) => setTimeout(r, 100));
+    out.backup.manualUploads = uploads; out.backup.manualPaywall = paywall();
+    scheduleDriveUpload(); out.backup.autoScheduled = driveUploadTimer != null;
+    await runDriveUpload(); out.backup.autoUploads = uploads - out.backup.manualUploads;
+    $id('drive-auto-sync').checked = true; $id('drive-auto-sync').dispatchEvent(new Event('change'));
+    out.backup.togglePaywall = paywall(); out.backup.toggleReason = $id('paywall-reason').textContent;
+    out.backup.toggleStays = $id('drive-auto-sync').checked;
+    closePaywall();
+    // In the trial's last days, with auto-backup on, the banner says it stops.
+    state.proTrialStartedAt = Date.now() - (TRIAL_DAYS - 0.5) * 864e5;
+    out.backup.warn = trialEndText();
+    if (driveUploadTimer) { clearTimeout(driveUploadTimer); driveUploadTimer = null; }
+    window.DriveSync = keep.drive;
+
+    if (usage == null) localStorage.removeItem('duitful-trial-usage'); else localStorage.setItem('duitful-trial-usage', usage);
+    const t = document.getElementById('toast'); if (t) t.textContent = '';
+    Object.assign(state, coerceState(JSON.parse(snap))); save(); renderAll(); renderDriveCard();
+    return out;
+  });
+  check('opt-in trial: the paywall offers "Try Pro free for 14 days" to someone who never had one, and nothing starts until the tap',
+    nb.offer.shown && nb.offer.text === 'Try Pro free for 14 days' && nb.offer.proBefore === false, JSON.stringify(nb.offer));
+  check('opt-in trial: the tap starts it, closes the paywall and says it ends in 14 days, nothing is charged, nothing is deleted',
+    nb.started.at && nb.started.pro && nb.started.closed && /ends in 14 days/.test(nb.started.toast)
+    && /Nothing is charged/.test(nb.started.toast) && /nothing you add is deleted/.test(nb.started.toast), JSON.stringify(nb.started));
+  check('opt-in trial: offered once — not after a trial, not to Pro; an old 7-day vault keeps its trial with the longer window',
+    nb.offerAgain === false && nb.offerPro === false && nb.oldVaultStillTrial, JSON.stringify(nb));
+  check('two days left: the banner names what changes for this person (goals and pools over the limit stay, scans back to 5) and that nothing is deleted',
+    nb.daysLeft === 2 && nb.warn.shown && nb.warn.kind === 'trial' && /2 days left/.test(nb.warn.sub)
+    && /can't add more goals \(your 7 stay; Free adds up to 5 goals\)/.test(nb.warn.sub) && /budget pools \(your 2 stay/.test(nb.warn.sub)
+    && /scans go back to 5 a month/.test(nb.warn.sub) && /Nothing is deleted/.test(nb.warn.sub) && !/debts|holdings|backup/.test(nb.warn.sub), JSON.stringify(nb.warn));
+  check('two days left with nothing over a limit: it says nothing changes; earlier in the trial there is no warning',
+    /Nothing you use changes/.test(nb.warnNothing) && !/After that/.test(nb.midTrial) && /left of full Pro access/.test(nb.midTrial), JSON.stringify([nb.warnNothing, nb.midTrial]));
+  check('free limit counters: "2 of 3 free debts used" (Islamic financing not counted), goals and holdings by their add buttons',
+    /^2 of 3 free debts used/.test(nb.counts.debts) && nb.counts.savings === '1 of 5 free goals used' && nb.counts.investments === '0 of 3 free holdings used', JSON.stringify(nb.counts));
+  check('free limit counters: over the limit says yours stay; Pro and the trial see no counter',
+    /^7 goals · Free adds up to 5\. Yours stay\./.test(nb.countOver) && nb.countTrial === null && nb.countPro === null, JSON.stringify(nb));
+  const same = (p, want) => p.label === want && p.paywall === want && p.banner.includes(want) && p.link === want;
+  check('one price on the web: banner, links and paywall all say RM 14.90, labelled "Launch price until 14 May 2027", for someone who never had a trial',
+    same(nb.priceWeb, 'RM 14.90') && /^Launch price until 14 May 2027/.test(nb.priceWeb.sub) && !/trial/i.test(nb.priceWeb.hint)
+    && /LAUNCH100/.test(nb.priceWeb.hint) && nb.fpxCode === 'LAUNCH100', JSON.stringify([nb.priceWeb, nb.fpxCode]));
+  check('one price on Android: the launch SKU, RM 14.90 everywhere; on iPhone RM 19.90 everywhere and no code',
+    same(nb.priceAndroid, 'RM 14.90') && nb.priceAndroid.sku === 'duitful_pro_launch' && /^Launch price until 14 May 2027/.test(nb.priceAndroid.sub)
+    && same(nb.priceIos, 'RM 19.90') && nb.priceIos.sku === 'duitful_pro' && !/LAUNCH|Launch/.test(nb.priceIos.sub + nb.priceIos.hint), JSON.stringify([nb.priceAndroid, nb.priceIos]));
+  check('one price after the launch price ends: RM 19.90 everywhere, no code mentioned',
+    same(nb.priceExpired, 'RM 19.90') && !/LAUNCH100/.test(nb.priceExpired.hint), JSON.stringify(nb.priceExpired));
+  check('manual backup is free: Back up now uploads for a free user with no paywall',
+    nb.backup.nowDisabled === false && nb.backup.manualUploads === 1 && nb.backup.manualPaywall === false, JSON.stringify(nb.backup));
+  check('automatic backup is Pro: nothing is scheduled or uploaded on its own, the switch shows off and opens the paywall, which says Back up now stays free',
+    nb.backup.autoScheduled === false && nb.backup.autoUploads === 0 && nb.backup.autoShownOn === false && /Automatic sync is off/.test(nb.backup.hint)
+    && nb.backup.togglePaywall && nb.backup.toggleStays === false && /Back up now and Export CSV in Settings stay free/.test(nb.backup.toggleReason)
+    && /automatic backup stops \(Back up now still works\)/.test(nb.backup.warn), JSON.stringify(nb.backup));
+
+  // 3. A free user's own CSV — more goals, holdings and pools than Free adds — imports whole.
+  const imp = await S(async () => {
+    const snap = JSON.stringify(state);
+    state.pro = true;
+    state.savings = Array.from({ length: 7 }, (_, i) => ({ id: 'ig' + i, name: 'Goal ' + i, target: 100 + i, current: i }));
+    state.investments = Array.from({ length: 5 }, (_, i) => {
+      const h = coerceInvestment({ name: 'Holding ' + i, kind: 'balance', account: 'Other', balance: 1000 + i });
+      h.flows = [{ date: '2026-10-01', amount: h.balance }]; h.valuations = [{ date: '2026-10-01', value: h.balance }];
+      return h;
+    });
+    state.budgetPools = state.budgetPools.filter((p) => p.system === 'debt').concat([
+      { id: 'ip1', name: 'Food', limit: 500, active: true, rollover: true, monthlyLimits: { '2026-11': 650 } },
+      { id: 'ip2', name: 'Fun', limit: 200, active: false, rollover: false, monthlyLimits: {} },
+      { id: 'ip3', name: 'Travel', limit: 900, active: false, rollover: true, monthlyLimits: {} }]);
+    state.dailyExpenses = [{ id: 'ie1', date: '2026-11-03', amount: 12.5, note: 'Lunch', category: 'Food', budgetPoolId: 'ip3', budgetPoolName: 'Travel' }];
+    const csv = toCSV();
+    const holdings = state.investments.length;
+    // Now a free user (trial long over) with an empty vault imports that file.
+    state.pro = false; state.proTrialStartedAt = Date.now() - 30 * 864e5;
+    state.ocrUsage = { month: currentMonthISO(), scans: 4 };
+    state.savings = []; state.investments = []; state.dailyExpenses = [];
+    state.budgetPools = state.budgetPools.filter((p) => p.system === 'debt');
+    const said = [];
+    const done = await importCsvFile(new File([csv], 'mine.csv', { type: 'text/csv' }), { ask: false, onError: (m) => said.push(m) });
+    const pools = state.budgetPools.filter((p) => p.system !== 'debt');
+    const food = pools.find((p) => p.name === 'Food'), travel = pools.find((p) => p.name === 'Travel');
+    const lunch = state.dailyExpenses.find((e) => e.note === 'Lunch');
+    const out = { done, said, pro: isPro(), paywall: document.getElementById('paywall-dialog').open,
+      goals: state.savings.length, holdings: state.investments.length, wantHoldings: holdings, pools: pools.length,
+      rollover: !!(food && food.rollover) && !!(travel && travel.rollover), override: food && food.monthlyLimits && food.monthlyLimits['2026-11'],
+      tagged: !!(lunch && travel && lunch.budgetPoolId === travel.id), scansKept: state.ocrUsage && state.ocrUsage.scans,
+      trialKept: state.proTrialStartedAt > 0 };
+    // …and the limits still stop adding afterwards.
+    document.querySelector('#form-saving [name="name"]').value = 'One more';
+    document.querySelector('#form-saving [name="target"]').value = '50';
+    document.getElementById('form-saving').requestSubmit();
+    out.addBlocked = state.savings.length === out.goals && document.getElementById('paywall-dialog').open;
+    closePaywall(); document.getElementById('form-saving').reset();
+    Object.assign(state, coerceState(JSON.parse(snap))); save(); renderAll();
+    return out;
+  });
+  check('a free user\'s own CSV with 7 goals, 5 holdings and 3 pools imports whole: nothing refused, nothing trimmed, no paywall',
+    imp.done === true && !imp.pro && !imp.paywall && imp.said.length === 0 && imp.goals === 7 && imp.holdings === 5 && imp.wantHoldings === 5 && imp.pools === 3, JSON.stringify(imp));
+  check('the import keeps pool rollover, per-month limits and entry tags, and neither scan usage nor a used trial is reset',
+    imp.rollover && imp.override === 650 && imp.tagged && imp.scansKept === 4 && imp.trialKept, JSON.stringify(imp));
+  check('after the import the limit still stops adding: an 8th goal opens the paywall', imp.addBlocked === true, JSON.stringify(imp));
 }
 
 /* ── First week pacing: no pitch on day one, no cold permission prompt ──
@@ -5444,7 +5642,7 @@ check('and what was typed reaches the home screen calculation',
   const pools = await S(async () => {
     const saved = { pro: state.pro, trial: state.proTrialStartedAt, pools: state.budgetPools };
     const m = currentMonthISO();
-    state.pro = false; state.proTrialStartedAt = Date.now() - 9 * 864e5;
+    state.pro = false; state.proTrialStartedAt = Date.now() - 15 * 864e5;
     state.budgetPools = saved.pools.filter((p) => p.system === 'debt').concat([
       { id: 'pr', name: 'Rolls', limit: 300, color: POOL_COLORS[0], active: false, rollover: true, monthlyLimits: {}, createdAt: 1 },
       { id: 'po', name: 'Overridden', limit: 300, color: POOL_COLORS[0], active: false, rollover: false, monthlyLimits: { [m]: 500 }, createdAt: 2 },
@@ -6175,7 +6373,7 @@ check('the vault is open before the quick-add checks',
     const free = await fp2.evaluate(async () => {
       const wait = (ms) => new Promise((r) => setTimeout(r, ms));
       document.querySelectorAll('dialog[open]').forEach((d) => d.close());
-      state.pro = false; state.proTrialStartedAt = Date.now() - 8 * 86400000; save(); renderAll();
+      state.pro = false; state.proTrialStartedAt = Date.now() - 15 * 86400000; save(); renderAll();
       const paywall = () => document.getElementById('paywall-dialog').open;
       const form = document.getElementById('form-debt');
       const addStandard = (name) => {
@@ -8946,10 +9144,10 @@ check('the brand catalogue makes no network calls at all',
     && await page.locator('#tax-page-optin').isVisible() && await page.locator('#tax-card').isHidden()
     && await S(() => !taxState().enabled));
   check('tax welcome: explains the three things it does and what you will need',
-    /Spots claimable spending/.test(await page.locator('#tax-page-optin').innerText())
-    && /Keeps the receipts/.test(await page.locator('#tax-page-optin').innerText())
-    && /Checks in/.test(await page.locator('#tax-page-optin').innerText())
-    && /PCB total/.test(await page.locator('#tax-page-optin').innerText()));
+    /Spots claims/.test(await page.locator('#tax-page-optin').innerText())
+    && /Keeps receipts/.test(await page.locator('#tax-page-optin').innerText())
+    && /Reminds you/.test(await page.locator('#tax-page-optin').innerText())
+    && /payslip/.test(await page.locator('#tax-page-optin').innerText()));
   check('tax welcome: the button is wide enough to read on a phone (not squeezed to a word per line)',
     await page.locator('#tab-tax [data-tax-enable]').evaluate(b => b.getBoundingClientRect().width > 160 && b.getBoundingClientRect().height < 70));
   await page.click('#tab-tax [data-tax-enable]');
@@ -9248,16 +9446,179 @@ check('the brand catalogue makes no network calls at all',
   check('tax claims: "Needs receipt" shows only claims without one',
     missingRows === missingClaims && missingRows < allClaims, `${missingRows}/${missingClaims}/${allClaims}`);
   await page.click('[data-tax-filter="all"]');
-  await page.click('.tax-fact[data-tax-numbers="tax-in-pcb"]');
+  await S(() => taxOpenNumbers('tax-in-pcb'));
   await page.waitForTimeout(200);
-  check('tax details: a fact opens the details dialog at that field',
-    await page.locator('#tax-numbers-dialog').evaluate(d => d.open) && await S(() => document.activeElement && document.activeElement.id === 'tax-in-pcb'));
+  check('tax details: a link that names a field opens the details dialog on its step, at that field',
+    await page.locator('#tax-numbers-dialog').evaluate(d => d.open) && await S(() => document.activeElement && document.activeElement.id === 'tax-in-pcb')
+    && await page.locator('[data-tax-step="1"]').isVisible() && await page.locator('[data-tax-step="0"]').isHidden());
+  await page.click('[data-tax-period="ded:y"]');
   await page.fill('#tax-in-pcb', '2500');
   await page.dispatchEvent('#tax-in-pcb', 'change');
-  await page.click('#tax-numbers-done');
+  await page.click('#tax-numbers-done');   // Next → Family
+  await page.click('#tax-numbers-done');   // Done
   await page.waitForTimeout(200);
+  check('tax details: Done on the last step closes the dialog', !(await page.locator('#tax-numbers-dialog').evaluate(d => d.open)));
   check('tax details: an edit there updates the refund card',
     await S(() => taxFigures(taxYear()).pcb === 2500) && /2,500\.00/.test(await page.locator('#tax-split-paid-val').textContent()));
+
+  /* ── Tax page, simplified (1.55.13): cards instead of paragraphs ──────────
+     The details form is three steps; Monthly amounts are stored as yearly;
+     the details card is one line or one prompt; Malaysia's rules card is a
+     quiet link; Stop tracking sits at the foot of the page. */
+  {
+    const tw = await S(async () => {
+      const snap = JSON.stringify(state.tax), cur = state.currency, realConfirm = window.confirm, realChecks = window.taxRunChecks;
+      window.taxRunChecks = () => {};
+      const out = {};
+      const $id = (id) => document.getElementById(id);
+      const dlg = $id('tax-numbers-dialog');
+      const y = String(taxYear());
+      const type = (id, v) => { $id(id).value = v; $id(id).dispatchEvent(new Event('input', { bubbles: true })); $id(id).dispatchEvent(new Event('change', { bubbles: true })); };
+      const step = () => [...dlg.querySelectorAll('[data-tax-step]')].filter((x) => !x.hidden).map((x) => x.dataset.taxStep).join(',');
+      const mode = (g) => dlg.querySelector(`[data-tax-period="${g}:m"]`).getAttribute('aria-pressed') === 'true' ? 'm' : 'y';
+      const card = () => ({ line: $id('tax-facts').textContent.replace(/\s+/g, ' ').trim(), prompt: $id('tax-details-prompt').hidden ? '' : $id('tax-details-prompt-text').textContent,
+        btn: $id('tax-details-add').textContent, edit: !$id('btn-tax-numbers').hidden, warnTiles: document.querySelectorAll('#tax-details-card .tax-fact').length });
+      state.tax.enabled = true;
+      Object.assign(state.tax, { spouse: false, children: 0, childrenPre: 0, childrenTertiary: 0, disabledChildren: 0, disabledSelf: false, disabledSpouse: false });
+      // No salary anywhere: not typed, and none logged in the Monthly tab.
+      const logged = state.income; state.income = [];
+      state.tax.figures[y] = { income: 0, pcb: 0, epf: 0 };
+      renderAll();
+      out.noIncome = taxIncomeFromEntries(taxYear()).annual === 0; out.cardEmpty = card();
+      out.promptOpensAt = $id('tax-details-add').dataset.taxNumbers;
+
+      // Step 1: Salary, Monthly by default, stored as the yearly figure.
+      $id('tax-details-add').click();
+      out.open = { open: dlg.open, step: step(), mode: mode('pay'), back: $id('tax-wiz-back').hidden, next: $id('tax-numbers-done').textContent,
+        dots: $id('tax-wiz-dots').children.length, placeholders: ['tax-in-income', 'tax-in-pcb', 'tax-in-epf'].filter((id) => $id(id).placeholder).length,
+        hintUnder: !!$id('tax-in-income').parentElement.querySelector('.hint') };
+      type('tax-in-income', '5000');
+      out.salary = { stored: taxFigures(taxYear()).income, total: $id('tax-total-income').textContent };
+      $id('tax-numbers-form').requestSubmit();
+      // Step 2: PCB and EPF, the same switch.
+      out.step2 = { step: step(), mode: mode('ded'), back: !$id('tax-wiz-back').hidden, focus: document.activeElement && document.activeElement.id };
+      type('tax-in-pcb', '300'); type('tax-in-epf', '550');
+      out.deductions = { ...taxFigures(taxYear()), total: $id('tax-total-epf').textContent };
+      $id('tax-wiz-back').click();
+      out.backTo = { step: step(), shown: $id('tax-in-income').value };
+      $id('tax-wiz-skip').click(); $id('tax-wiz-skip').click();
+      // Step 3: Family. "Just me" until asked; steppers, not text boxes.
+      out.family = { step: step(), done: $id('tax-numbers-done').textContent, just: !$id('tax-fam-just').hidden && $id('tax-fam-just-text').textContent,
+        fields: !$id('tax-fam-fields').hidden, more: $id('tax-more').open, textBoxes: dlg.querySelectorAll('[data-tax-step="2"] input[type="number"]').length };
+      $id('tax-fam-add').click();
+      const inc = dlg.querySelector('[data-tax-inc="tax-in-children"]'), dec = dlg.querySelector('[data-tax-dec="tax-in-children"]');
+      out.stepper = { shown: !$id('tax-fam-fields').hidden, decOffAtZero: dec.disabled, labels: [inc.getAttribute('aria-label'), dec.getAttribute('aria-label')] };
+      inc.click(); inc.click(); inc.click(); dec.click();
+      out.stepper.children = state.tax.children; out.stepper.out = $id('tax-in-children').value; out.stepper.decOn = !dec.disabled;
+      $id('tax-in-spouse').click();
+      out.stepper.spouse = state.tax.spouse;
+      $id('tax-numbers-form').requestSubmit();
+      out.closed = !dlg.open;
+      out.cardFull = card();
+      state.income = logged; renderAll();
+
+      // Editing later: opens at step 1 with the stored values. A yearly figure
+      // that isn't a clean monthly amount opens as Yearly and is never rewritten.
+      $id('btn-tax-numbers').click();
+      out.edit = { step: step(), mode: mode('pay'), shown: $id('tax-in-income').value, fam: null, more: $id('tax-more').open };
+      $id('tax-wiz-skip').click(); $id('tax-wiz-skip').click();
+      out.edit.fam = !$id('tax-fam-fields').hidden; out.edit.more = $id('tax-more').open;
+      dlg.close();
+      state.tax.figures[y].income = 50000; renderAll();
+      taxOpenNumbers();
+      out.yearly = { mode: mode('pay'), shown: $id('tax-in-income').value };
+      dlg.querySelector('[data-tax-period="pay:m"]').click();
+      out.yearly.asMonthly = $id('tax-in-income').value;
+      $id('tax-numbers-form').requestSubmit();
+      out.yearly.kept = taxFigures(taxYear()).income;
+      dlg.close();
+
+      // The details card: one prompt at a time.
+      state.tax.figures[y] = { income: 60000, pcb: 0, epf: 0 }; renderAll(); out.cardNoPcb = card();
+      out.footnote = $id('tax-footnote').textContent;
+
+      // Malaysia: the rules card is a quiet link; elsewhere it is the card.
+      taxUi.rulesOpen = false; renderAll();
+      out.rulesMy = { card: !$id('tax-rules-card').hidden, link: !$id('btn-tax-rules-show').hidden };
+      $id('btn-tax-rules-show').click();
+      out.rulesOpened = { card: !$id('tax-rules-card').hidden, link: !$id('btn-tax-rules-show').hidden };
+      taxUi.rulesOpen = false;
+      state.currency = 'EUR'; renderAll();
+      out.rulesAbroad = { card: !$id('tax-rules-card').hidden, link: !$id('btn-tax-rules-show').hidden };
+      state.currency = cur; renderAll();
+
+      // Stop tracking: on the page, not in the dialog, still behind a confirm.
+      const stop = $id('btn-tax-disable');
+      out.stop = { onPage: !!stop.closest('#tab-tax') && !stop.closest('dialog'), shown: !stop.hidden };
+      window.confirm = () => false; stop.click(); out.stop.declined = state.tax.enabled;
+      window.confirm = () => true; stop.click(); out.stop.stopped = !state.tax.enabled;
+      const w = $id('tax-page-optin');
+      out.welcome = { shown: !w.hidden, rulesCard: !$id('tax-rules-card').hidden, stop: !$id('btn-tax-disable').hidden,
+        primaries: w.querySelectorAll('button.primary').length, notNow: [...w.querySelectorAll('button')].find((b) => b.textContent === 'Not now').className,
+        benefits: [...w.querySelectorAll('.tax-benefits li')].map((li) => li.textContent.trim()), words: w.innerText.split(/\s+/).length,
+        title: $id('tax-welcome-title').textContent, found: taxFound(new Date().getFullYear()).total };
+      window.confirm = realConfirm; window.taxRunChecks = realChecks;
+      state.tax = coerceTax(JSON.parse(snap)); state.currency = cur; save(); renderAll();
+      return out;
+    });
+    check('tax details: with no salary the card is one prompt ("Add your salary to see your refund"), not four amber tiles',
+      tw.noIncome && tw.promptOpensAt === 'tax-in-income' && (tw.cardEmpty.line === '' && /Add your salary to see your refund/.test(tw.cardEmpty.prompt) && tw.cardEmpty.btn === 'Add salary' && !tw.cardEmpty.edit && tw.cardEmpty.warnTiles === 0), JSON.stringify(tw.cardEmpty));
+    check('tax details: the form opens as step 1 of 3 (Salary), Monthly by default, hints under the fields and no placeholders to truncate',
+      tw.open.open && tw.open.step === '0' && tw.open.mode === 'm' && tw.open.back && tw.open.next === 'Next' && tw.open.dots === 3 && tw.open.placeholders === 0 && tw.open.hintUnder, JSON.stringify(tw.open));
+    check('tax details: a monthly salary of 5,000 is stored as 60,000 a year, and the yearly total shows under the field',
+      tw.salary.stored === 60000 && /60,000\.00 a year/.test(tw.salary.total), JSON.stringify(tw.salary));
+    check('tax details: Next moves to PCB and EPF (focus on the step heading), monthly PCB 300 and EPF 550 are stored as 3,600 and 6,600',
+      tw.step2.step === '1' && tw.step2.mode === 'm' && tw.step2.back && tw.step2.focus === 'tax-step-1-title'
+      && tw.deductions.pcb === 3600 && tw.deductions.epf === 6600 && tw.deductions.income === 60000 && /6,600\.00 a year/.test(tw.deductions.total), JSON.stringify([tw.step2, tw.deductions]));
+    check('tax details: Back returns to Salary with the amount as typed; Skip moves on',
+      tw.backTo.step === '0' && tw.backTo.shown === '5000' && tw.family.step === '2' && tw.family.done === 'Done', JSON.stringify([tw.backTo, tw.family]));
+    check('tax details: Family starts as "Just me" with children and "More situations" tucked away, and no number boxes',
+      tw.family.just === 'Just me' && tw.family.fields === false && tw.family.more === false && tw.family.textBoxes === 0, JSON.stringify(tw.family));
+    check('tax details: Add family shows − 0 + steppers with spoken labels; they stop at 0 and save each tap',
+      tw.stepper.shown && tw.stepper.decOffAtZero && /One more: children under 18/.test(tw.stepper.labels[0]) && /One fewer: children under 18/.test(tw.stepper.labels[1])
+      && tw.stepper.children === 2 && tw.stepper.out === '2' && tw.stepper.decOn && tw.stepper.spouse === true && tw.closed, JSON.stringify(tw.stepper));
+    check('tax details: once filled the card is one line — income, PCB, EPF, family — with Edit and no prompt',
+      tw.cardFull.line === 'RM 60,000 · PCB RM 3,600 · EPF RM 6,600 · Spouse with no income, 2 children' && tw.cardFull.prompt === '' && tw.cardFull.edit, JSON.stringify(tw.cardFull));
+    check('tax details: editing opens at step 1 with the stored figure shown monthly; children and ticked situations open by themselves',
+      tw.edit.step === '0' && tw.edit.mode === 'm' && tw.edit.shown === '5000' && tw.edit.fam === true && tw.edit.more === true, JSON.stringify(tw.edit));
+    check('tax details: a yearly 50,000 opens as Yearly, and looking at it as Monthly (4166.67) never rewrites what is stored',
+      tw.yearly.mode === 'y' && tw.yearly.shown === '50000' && tw.yearly.asMonthly === '4166.67' && tw.yearly.kept === 50000, JSON.stringify(tw.yearly));
+    check('tax details: salary in but no PCB → the line plus one prompt to add PCB; the schedule note is one short line',
+      /^RM 60,000 · PCB not added/.test(tw.cardNoPcb.line) && /Add your PCB/.test(tw.cardNoPcb.prompt) && tw.cardNoPcb.btn === 'Add PCB' && tw.footnote.length < 110 && /LHDN/.test(tw.footnote), JSON.stringify([tw.cardNoPcb, tw.footnote]));
+    check('tax rules: for Malaysia the card is one quiet link that opens it; outside Malaysia it is the card',
+      !tw.rulesMy.card && tw.rulesMy.link && tw.rulesOpened.card && !tw.rulesOpened.link && tw.rulesAbroad.card && !tw.rulesAbroad.link, JSON.stringify([tw.rulesMy, tw.rulesOpened, tw.rulesAbroad]));
+    check('tax: Stop tracking is a quiet control on the page, outside the dialog, and still asks first',
+      tw.stop.onPage && tw.stop.shown && tw.stop.declined === true && tw.stop.stopped === true, JSON.stringify(tw.stop));
+    check('tax welcome: one primary button, "Not now" as a quiet link, three two-word benefits, no rules card, under 70 words',
+      tw.welcome.shown && tw.welcome.primaries === 1 && tw.welcome.notNow === 'tax-quiet' && !tw.welcome.rulesCard && !tw.welcome.stop
+      && tw.welcome.benefits.join('|') === 'Spots claims|Keeps receipts|Reminds you' && tw.welcome.words < 70, JSON.stringify(tw.welcome));
+    check('tax welcome: the headline is the person\'s own claimable figure when there is one, a short line when not',
+      tw.welcome.found > 0 ? /^RM [\d,]+ of your spending looks claimable$/.test(tw.welcome.title) : tw.welcome.title === 'See your likely tax refund', JSON.stringify(tw.welcome));
+
+    // At phone width: the Claims title keeps one line with its actions beneath, steps fit, nothing scrolls sideways.
+    const vp = page.viewportSize();
+    for (const width of [390, 360]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.waitForTimeout(150);
+      const m = await S(() => {
+        const h = document.getElementById('tax-claims-title'), a = document.querySelector('#tax-claims-card .tax-head-actions');
+        const hr = h.getBoundingClientRect(), ar = a.getBoundingClientRect();
+        const lh = parseFloat(getComputedStyle(h).lineHeight) || hr.height;
+        taxOpenNumbers();
+        const dlg = document.getElementById('tax-numbers-dialog'), inp = document.getElementById('tax-in-income');
+        const dr = dlg.getBoundingClientRect(), ir = inp.getBoundingClientRect();
+        const hint = document.getElementById('tax-income-hint');
+        const r = { oneLine: hr.height < lh * 1.6, below: ar.top >= hr.bottom - 1, sw: document.documentElement.scrollWidth,
+          inputFull: ir.width > dr.width - 60, hintFits: hint.scrollWidth <= hint.clientWidth + 1, dlgFits: dr.right <= innerWidth + 1 && dr.left >= -1 };
+        dlg.close();
+        return r;
+      });
+      check(`tax at ${width}px: "Claims & receipts" stays on one line above its buttons; the Salary field is full width with its hint whole; no sideways scroll`,
+        m.oneLine && m.below && m.sw <= width && m.inputFull && m.hintFits && m.dlgFits, JSON.stringify(m));
+    }
+    await page.setViewportSize(vp);
+    await page.waitForTimeout(150);
+  }
   const inbox = await S(() => {
     state.dailyExpenses.push({ id: 'inbox1', kind: 'expense', date: todayISO(), amount: 60, category: 'Books', note: 'Kinokuniya', createdAt: 1 });
     renderAll();
@@ -9692,10 +10053,15 @@ check('the brand catalogue makes no network calls at all',
   const gated = await S(async () => {
     const real = window.isPro; window.isPro = () => false;
     const before = window.__fakeICloud.writes;
-    try { await runDriveUpload('icloud'); } finally { window.isPro = real; }
-    return window.__fakeICloud.writes - before;
+    let auto, manual;
+    try {
+      await runDriveUpload(); auto = window.__fakeICloud.writes - before;            // automatic: Pro
+      await runDriveUpload('icloud'); manual = window.__fakeICloud.writes - before - auto;   // Back up now: free
+    } finally { window.isPro = real; }
+    return { auto, manual };
   });
-  check('backing up stays a Pro feature, as with Drive', gated === 0, String(gated));
+  check('automatic backup stays a Pro feature, as with Drive; Back up now is free',
+    gated.auto === 0 && gated.manual === 1, JSON.stringify(gated));
 
   const off = await S(() => { state.icloudBackup = false; const a = activeClouds(); state.icloudBackup = true; return a; });
   check('switching iCloud off stops saves going there', !off.includes('icloud'), JSON.stringify(off));

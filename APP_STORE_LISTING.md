@@ -176,9 +176,9 @@ No account is needed. On first launch, tap Get started; a passcode (4 or more di
 
 Duitful Pro is a non-consumable in-app purchase: Settings → Unlock Pro. "Restore purchase" is on the same screen. Two products are attached: duitful_pro (standard) and duitful_pro_launch (used when a friend code such as LAUNCH100 is entered on the purchase screen).
 
-All data is stored encrypted on the device. Bill-split links carry their details in the link itself. The optional "I've paid" tracking keeps only data encrypted on the phone on our server, with a key that never leaves the link, so we cannot read it. Backup (Pro) writes an already-encrypted file to the user's own iCloud.
+All data is stored encrypted on the device. Bill-split links carry their details in the link itself. The optional "I've paid" tracking keeps only data encrypted on the phone on our server, with a key that never leaves the link, so we cannot read it. Backup (manual is free, automatic is Pro) writes an already-encrypted file to the user's own iCloud.
 
-iCloud backup (Pro): unlock Pro first with the sandbox purchase, then Settings → Cloud backup → iCloud → Back up now. It uses the device's own Apple ID; no account from us is needed. It is the only cloud backup in the iPhone app; this build has no Google sign-in.
+iCloud backup: Settings → Cloud backup → iCloud → Back up now works without Pro. The "Back up to iCloud on every change" switch is Pro: unlock Pro first with the sandbox purchase. It uses the device's own Apple ID; no account from us is needed. It is the only cloud backup in the iPhone app; this build has no Google sign-in.
 
 The app downloads and runs no code. Everything it executes ships in the app bundle; the only things fetched at runtime are JSON data (exchange rates and in-app notices).
 ```

@@ -27,8 +27,11 @@
 - Pricing: **Free forever**, with 3 debts (one may be a pay-later
   plan) and the payoff date,
   reminders and copy-last-month, plus 5 savings goals, 3 investment
-  holdings and 5 receipt scans a month. Islamic financing is never
-  counted toward the debt limit. **Pro is RM 19.90 one-time, lifetime**:
+  holdings and 5 receipt scans a month, and manual "Back up now" to
+  iCloud / Google Drive. Islamic financing is never
+  counted toward the debt limit. An optional 14-day Pro trial starts only
+  if the user chooses it; nothing is charged and nothing is deleted when
+  it ends. **Pro is RM 19.90 one-time, lifetime**:
   every debt and pay-later/instalment plan (Atome, SPayLater), automatic
   encrypted iCloud / Google Drive backup, unlimited scans, goals and
   holdings, budget pools and multi-currency entries.
@@ -258,7 +261,8 @@ diffed against the repository. The hosted product is not a subscription
   face check. The passcode stays the only encryption key; biometric data
   never reaches Duitful; the web app has no biometric surface.
 - Lost-passcode policy: data is unrecoverable by design — Duitful
-  cannot reset it. Pro encrypted backup export is the recovery path.
+  cannot reset it. An encrypted backup (manual is free, automatic is Pro)
+  or a CSV export is the recovery path.
 
 ## Contact
 
