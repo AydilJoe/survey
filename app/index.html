@@ -1667,7 +1667,10 @@
         <div class="card" id="bank-alerts-card" data-capture-share-wrap hidden>
           <h2>Bank alerts</h2>
           <p class="hint">An alert from your bank app that Duitful didn't pick up?</p>
-          <div class="button-row"><button type="button" class="ghost" data-capture-share>Share the wording</button></div>
+          <div class="button-row">
+            <button type="button" class="ghost" id="capture-check-open">Check auto-capture</button>
+            <button type="button" class="ghost" data-capture-share>Share the wording</button>
+          </div>
         </div>
 
         <div class="card own-accounts-card" id="own-accounts-card" hidden>
@@ -2566,6 +2569,20 @@
           <button type="button" class="ghost" id="tax-wiz-back" hidden>Back</button>
           <button type="button" class="tax-quiet" id="tax-wiz-skip">Skip</button>
           <button type="submit" class="primary" id="tax-numbers-done">Next</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Check auto-capture: plain facts (no message text, no amounts) to paste to us. -->
+    <dialog id="capture-check-dialog" class="edit-dialog" aria-labelledby="capture-check-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="capture-check-title">Auto-capture check</h2>
+        <pre class="capture-check-list" id="capture-check-list" aria-live="polite"></pre>
+        <p class="hint">No message text or amounts are included.</p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="capture-check-access" hidden>Allow access</button>
+          <button type="button" class="ghost" id="capture-check-close">Close</button>
+          <button type="button" class="primary" id="capture-check-copy">Copy report</button>
         </div>
       </form>
     </dialog>

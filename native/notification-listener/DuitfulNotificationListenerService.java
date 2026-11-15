@@ -118,9 +118,12 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         ALLOWED.add("com.shopee.vn");                        // ShopeePay VN
     }
 
-    /** A currency followed by a figure: "RM 0.10", "RM1,234.50", "S$5", "Rp 10.000", "฿20". Only these are stored. */
+    /**
+     * A currency followed by a figure: "RM 0.10", "RM1,234.50", "S$5", "Rp 10.000", "฿20". Only these are stored.
+     * Java's \\s does not match a no-break space, which some apps put between "RM" and the figure.
+     */
     private static final Pattern AMOUNT = Pattern.compile(
-        "(?i)(?:\\bRM|\\bMYR|S\\$|\\bSGD|\\bRp|\\bIDR|฿|\\bTHB|₱|\\bPHP|\\bPhp|₫|\\bVND)\\s*\\d|\\d\\s*(?:₫|VND|đ)");
+        "(?i)(?:\\bRM|\\bMYR|S\\$|\\bSGD|\\bRp|\\bIDR|฿|\\bTHB|₱|\\bPHP|\\bPhp|₫|\\bVND)[\\s\\u00A0\\u202F]*\\d|\\d[\\s\\u00A0\\u202F]*(?:₫|VND|đ)");
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
@@ -135,6 +138,7 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
      */
     @Override
     public void onListenerConnected() {
+        DuitfulCaptureDiag.connected(getApplicationContext(), true);
         try {
             StatusBarNotification[] active = getActiveNotifications();
             if (active != null) for (StatusBarNotification sbn : active) capture(sbn);
@@ -147,6 +151,7 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
      */
     @Override
     public void onListenerDisconnected() {
+        DuitfulCaptureDiag.connected(getApplicationContext(), false);
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 requestRebind(new ComponentName(this, DuitfulNotificationListenerService.class));
@@ -158,7 +163,11 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
         try {
             if (sbn == null) return;
             String pkg = sbn.getPackageName();
-            if (pkg == null || !ALLOWED.contains(pkg)) return;
+            if (pkg == null) return;
+            boolean allowed = ALLOWED.contains(pkg);
+            // Not on the list: noted (package only) when it looks like money,
+            // so a bank app with an unexpected id shows up in the check.
+            if (!allowed && !looksLikeMoney(sbn)) return;
             Notification n = sbn.getNotification();
             if (n == null) return;
             Bundle extras = n.extras;
@@ -182,15 +191,34 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
             }
             String title = str(extras.getCharSequence(Notification.EXTRA_TITLE_BIG));
             if (title.isEmpty()) title = str(extras.getCharSequence(Notification.EXTRA_TITLE));
-            if (text.isEmpty() && title.isEmpty()) return;
+            if (!allowed) { DuitfulCaptureDiag.note(getApplicationContext(), pkg, "not on the list"); return; }
+            if ((n.flags & Notification.FLAG_GROUP_SUMMARY) != 0 && !AMOUNT.matcher(title + " " + text).find()) return;
+            if (text.isEmpty() && title.isEmpty()) { DuitfulCaptureDiag.note(getApplicationContext(), pkg, "empty"); return; }
             // No amount, nothing to log: promos and "share your feedback"
             // messages are never stored.
-            if (!AMOUNT.matcher(title + " " + text).find()) return;
+            if (!AMOUNT.matcher(title + " " + text).find()) { DuitfulCaptureDiag.note(getApplicationContext(), pkg, "no amount"); return; }
 
             long when = sbn.getPostTime() > 0 ? sbn.getPostTime() : System.currentTimeMillis();
-            DuitfulCaptureStore.append(getApplicationContext(), pkg, title, text, sbn.getKey(), when);
-            NotificationListenerPlugin.emit(pkg, title, text);
+            int stored = DuitfulCaptureStore.append(getApplicationContext(), pkg, title, text, sbn.getKey(), when);
+            DuitfulCaptureDiag.note(getApplicationContext(), pkg,
+                stored == DuitfulCaptureStore.STORED ? "stored" : stored == DuitfulCaptureStore.SEEN ? "already stored" : "store failed");
+            // If the encrypted store failed, hand the text to an open app
+            // directly rather than nudging it to drain an empty store.
+            NotificationListenerPlugin.emit(pkg, title, text, stored != DuitfulCaptureStore.FAILED);
         } catch (Exception ignored) {}
+    }
+
+    private static boolean looksLikeMoney(StatusBarNotification sbn) {
+        try {
+            Notification n = sbn.getNotification();
+            if (n == null || n.extras == null) return false;
+            Bundle e = n.extras;
+            String all = str(e.getCharSequence(Notification.EXTRA_TITLE)) + " " + str(e.getCharSequence(Notification.EXTRA_TEXT))
+                + " " + str(e.getCharSequence(Notification.EXTRA_BIG_TEXT));
+            return AMOUNT.matcher(all).find();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static String str(CharSequence cs) {

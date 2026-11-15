@@ -2347,6 +2347,85 @@ check('"Wrong?" opens the share sheet with the alert, its app, and a redacted, e
 check('the email goes to hello@duitful.app with the edited redacted text and the app id, never the raw name',
   share.mailto.startsWith('mailto:hello@duitful.app?') && /my\.com\.tngdigital\.ewallet/.test(decodeURIComponent(share.mailto))
   && /\(edited\)/.test(decodeURIComponent(share.mailto)) && !/ALI BIN ABU/.test(decodeURIComponent(share.mailto)), share.mailto.slice(0, 200));
+/* ── Vivo tester, again: the exact TNG → MAE pair, end to end, and the check (1.56.2) ── */
+const vivo = await S(async () => {
+  const keepCap = window.Capacitor;
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const t0 = Date.now() - 20 * 60000;
+  const tngTx = 'You have successfully transferred RM 0.10 to MUHAMMAD KHAIRUL ANUAR.';
+  const maeTx = 'You’ve just received RM 0.10 in your account ending ***1234. REF 20261115ABC';
+  let store = [];
+  let calls = 0;
+  const listeners = {};
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { NotificationListener: {
+    drainCaptured: async () => { calls++; await new Promise((r) => setTimeout(r, 30)); const items = store; store = []; return { items }; },
+    captureStatus: async () => ({ accessGranted: true, batteryUnrestricted: false, connectedAt: t0, disconnectedAt: 0, stored: 0, manufacturer: 'vivo', model: 'V2405A', sdk: 36,
+      log: [{ p: TNG, t: t0, r: 'stored' }, { p: MAE, t: t0 + 9000, r: 'stored' }, { p: 'com.example.wallet', t: t0 + 10000, r: 'not on the list' }] }),
+    addListener: (ev, fn) => { listeners[ev] = fn; },
+  } } };
+  const out = {};
+  try {
+    state.pendingTxns = []; state.ownAccounts = []; state.captureDiag = { lastDrainAt: 0, items: [] };
+    // Both alerts land seconds apart: two nudges, the second while the first drain runs.
+    store = [{ p: TNG, ti: 'DuitNow Transfer is successful', tx: tngTx, t: t0 }];
+    const first = drainCaptured();
+    store.push({ p: MAE, ti: 'Maybank2u: Funds Received', tx: maeTx, t: t0 + 9000 });
+    await drainCaptured();                       // arrives mid-drain: must not be lost
+    await first;
+    await new Promise((r) => setTimeout(r, 150));
+    out.first = state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', from: p.from && p.from.providerId, to: p.to && p.to.providerId, amount: p.amount }));
+    out.calls = calls;
+    renderAll();
+    out.card = document.querySelector('#pending-list li.pending-move .pending-source')?.textContent || '';
+    // The same test again 15 minutes later: same wording, same amount — a second move, not a duplicate.
+    state.pendingTxns = [];
+    store = [{ p: TNG, ti: 'DuitNow Transfer is successful', tx: tngTx, t: t0 + 15 * 60000 }, { p: MAE, ti: 'Maybank2u: Funds Received', tx: maeTx, t: t0 + 15 * 60000 + 5000 }];
+    await drainCaptured();
+    out.again = state.pendingTxns.map((p) => p.kind || 'spend');
+    // The store failed natively: the event carries the text, and an open app handles it directly.
+    state.pendingTxns = [];
+    initNotificationListener();
+    const direct = { package: TNG, title: 'DuitNow Transfer is successful', text: 'You have successfully transferred RM 5.00 to KEDAI RUNCIT MAJU.', queued: false };
+    if (listeners.notification) listeners.notification(direct); else window.duitfulIncoming(direct);
+    out.bound = !!listeners.notification;
+    out.direct = state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', amount: p.amount }));
+    // What each drained alert became, for the check.
+    out.diagItems = state.captureDiag.items.map((x) => x.became);
+    // The check itself.
+    window.Capacitor.getPlatform = () => 'android';
+    renderAll();
+    out.cardShown = !document.getElementById('bank-alerts-card').hidden;
+    await openCaptureCheck();
+    out.report = document.getElementById('capture-check-dialog').dataset.report;
+    out.dialogOpen = document.getElementById('capture-check-dialog').open;
+    out.accessBtnHidden = document.getElementById('capture-check-access').hidden;
+    document.getElementById('capture-check-dialog').close();
+  } finally {
+    window.Capacitor = keepCap; state.pendingTxns = []; save(); renderAll();
+  }
+  return out;
+});
+check('Vivo pair: TNG "transferred RM 0.10" and MAE "You’ve just received RM 0.10" (no-break spaces), seconds apart, become one "Moved · TNG → Maybank"',
+  vivo.first.length === 1 && vivo.first[0].kind === 'move' && vivo.first[0].from === 'tng' && vivo.first[0].to === 'maybank-mae' && vivo.first[0].amount === 0.1
+  && vivo.card === 'TNG → Maybank' && vivo.calls >= 2, JSON.stringify(vivo.first) + ' calls ' + vivo.calls);
+check('Vivo pair: a nudge that lands mid-drain is drained right after (nothing waits for the next app open)', vivo.calls >= 2, String(vivo.calls));
+check('Vivo pair: the same test repeated later is a second move, not swallowed as a duplicate', JSON.stringify(vivo.again) === '["move"]', JSON.stringify(vivo.again));
+check('if the native store fails, the notification event is handled directly by an open app', vivo.bound && vivo.direct.length === 1 && vivo.direct[0].amount === 5, JSON.stringify(vivo.direct));
+check('the check records what each drained alert became', vivo.diagItems.includes('spend') && vivo.diagItems.includes('move'), JSON.stringify(vivo.diagItems));
+check('Settings → Bank alerts → Check auto-capture shows access, listener, battery, store, what was seen and what it became',
+  vivo.cardShown && vivo.dialogOpen && /Notification access: granted/.test(vivo.report) && /Listener: last connected/.test(vivo.report)
+  && /Battery: optimised/.test(vivo.report) && /Waiting in store: 0/.test(vivo.report) && /Touch 'n Go · .* · stored/.test(vivo.report)
+  && /com\.example\.wallet · .* · not on the list/.test(vivo.report) && /→ move/.test(vivo.report) && /vivo V2405A · Android API 36/.test(vivo.report) && vivo.accessBtnHidden,
+  vivo.report);
+check('the check report carries no message text, names or amounts', !/RM|MUHAMMAD|KHAIRUL|KEDAI|0\.10|5\.00|\*\*\*/.test(vivo.report), vivo.report);
+{
+  const svc = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulNotificationListenerService.java'), 'utf8');
+  const store = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulCaptureStore.java'), 'utf8');
+  const inst = readFileSync(path.join(REPO_ROOT, 'scripts/install-notification-listener.mjs'), 'utf8');
+  check('native: the amount check accepts a no-break space after "RM" (Java \\s does not)', /\\\\u00A0/.test(svc), '');
+  check('native: a repeated posting with identical text is stored again (post time is part of the dedupe id)', /key\) \+ "\|" \+ when \+ "\|"/.test(store), '');
+  check('native: the installer ships the capture store and the diagnostic log', /"DuitfulCaptureStore\.java"/.test(inst) && /"DuitfulCaptureDiag\.java"/.test(inst), '');
+}
 // Every MY bank app id the listener allows has a parser entry, so its credits and transfers are understood.
 {
   const java = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulNotificationListenerService.java'), 'utf8');

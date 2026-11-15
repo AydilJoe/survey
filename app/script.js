@@ -69,6 +69,9 @@ const emptyState = () => ({
   ownAccounts: [],
   // On-device AI (receipts and bank alerts). On by default; off = rules only.
   aiEnabled: true,
+  // Settings → Bank alerts → Check auto-capture: what each drained alert
+  // became. App, time and outcome only — never text or amounts.
+  captureDiag: { lastDrainAt: 0, items: [] },
   aiIntroSeen: false,
   aiIntroShownOn: "",
   guideSeen: false,
@@ -334,6 +337,7 @@ function coerceState(parsed) {
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
       ownAccounts: coerceOwnAccounts(parsed.ownAccounts),
       aiEnabled: parsed.aiEnabled !== false,
+      captureDiag: coerceCaptureDiag(parsed.captureDiag),
       aiIntroSeen: !!parsed.aiIntroSeen,
       aiIntroShownOn: typeof parsed.aiIntroShownOn === "string" ? parsed.aiIntroShownOn : "",
       guideSeen: !!parsed.guideSeen,
@@ -6212,8 +6216,12 @@ function initNotificationListener() {
    moment the vault is open they go through the same parsers as a live one,
    stamped with when they were posted. */
 let _captureDraining = false;
+let _captureAgain = false;
 async function drainCaptured() {
-  if (!isNative() || !aesKey || _captureDraining) return 0;
+  // A nudge that lands while a drain is running asks for one more pass, so
+  // two alerts seconds apart (TNG out, MAE in) are both picked up.
+  if (_captureDraining) { _captureAgain = true; return 0; }
+  if (!isNative() || !aesKey) return 0;
   const NL = window.Capacitor?.Plugins?.NotificationListener;
   if (!NL || typeof NL.drainCaptured !== "function") return 0;
   _captureDraining = true;
@@ -6226,6 +6234,7 @@ async function drainCaptured() {
   } finally { _captureDraining = false; }
   let added = 0;
   const unsure = [];
+  if (items.length) state.captureDiag = coerceCaptureDiag(state.captureDiag);
   const before = new Set((state.pendingTxns || []).map((p) => p.id));
   // 1. The rules, for everything, at once: cards appear without waiting.
   for (const it of items) {
@@ -6233,9 +6242,10 @@ async function drainCaptured() {
     const t = Number(it.t);
     const data = { package: String(it.p || ""), title: String(it.ti || ""), text: String(it.tx || ""), postedAt: Number.isFinite(t) && t > 0 ? t : 0 };
     try {
-      if (captureByRules(data)) added += 1;
-      else unsure.push(data);
-    } catch (e) { console.warn("capture failed", e); }
+      const before = pendingFingerprint();
+      if (captureByRules(data)) { added += 1; noteCaptureOutcome(data, captureBecame(before)); }
+      else { unsure.push(data); noteCaptureOutcome(data, captureWhyNot(data)); }
+    } catch (e) { console.warn("capture failed", e); noteCaptureOutcome(data, "error"); }
   }
   // 2. On-device AI, if this phone has it, for what the rules could not
   //    place and for new spends missing a name or category. Never blocks.
@@ -6266,8 +6276,115 @@ async function drainCaptured() {
   if (calls) commitPending();
   // 3. Without an AI answer, the entity reader fallback, exactly as before.
   for (const data of leftovers) queuePendingTxnFromEntities(data).catch(() => {});
+  if (items.length) { state.captureDiag.lastDrainAt = Date.now(); save(); }
+  if (_captureAgain) { _captureAgain = false; setTimeout(() => drainCaptured().catch(() => {}), 0); }
   return added;
 }
+
+/* ---------- Check auto-capture: plain facts for a tester to send us ----------
+   Native says whether notification access is granted, when the listener was
+   last connected, the battery setting, what it saw (app, time, outcome) and
+   how many alerts wait in its store. This side adds what each drained alert
+   became. No message text and no amounts anywhere: the outcome is what we
+   need, and leaving amounts out keeps the report safe to paste anywhere. */
+const CAPTURE_DIAG_MAX = 20;
+function coerceCaptureDiag(d) {
+  const items = d && Array.isArray(d.items) ? d.items : [];
+  return {
+    lastDrainAt: Number(d && d.lastDrainAt) || 0,
+    items: items.filter((x) => x && typeof x === "object")
+      .map((x) => ({ p: String(x.p || "").slice(0, 80), t: Number(x.t) || 0, at: Number(x.at) || 0, became: String(x.became || "").slice(0, 40) }))
+      .slice(-CAPTURE_DIAG_MAX),
+  };
+}
+function noteCaptureOutcome(data, became) {
+  state.captureDiag = coerceCaptureDiag(state.captureDiag);
+  state.captureDiag.items.push({ p: String(data.package || ""), t: Number(data.postedAt) || 0, at: Date.now(), became });
+  state.captureDiag.items = state.captureDiag.items.slice(-CAPTURE_DIAG_MAX);
+}
+function pendingFingerprint() {
+  return new Map((state.pendingTxns || []).map((p) => [p.id, p.kind || "spend"]));
+}
+// What the last capture did to the pending list.
+function captureBecame(before) {
+  for (const p of state.pendingTxns || []) {
+    const was = before.get(p.id);
+    if (was === undefined || was !== (p.kind || "spend")) {
+      return p.kind === "move" ? "move" : p.kind === "income" ? "income" : p.kind === "split-match" ? "split repayment" : "spend";
+    }
+  }
+  return "queued";
+}
+function captureWhyNot(data) {
+  const texts = captureTexts(data);
+  if (texts.some((t) => CAPTURE_DENY.test(t))) return "dropped: OTP / security";
+  if (texts.every((t) => isLikelyPromo(t))) return "dropped: promo";
+  if (!providerForPackage(String(data.package || ""))) return "dropped: app not known";
+  return "no rule matched (AI / entity reader next)";
+}
+function captureAppName(pkg) {
+  const pr = providerForPackage(pkg);
+  return pr ? pr.name : pkg || "unknown";
+}
+function fmtDiagTime(ms) {
+  if (!ms) return "never";
+  const d = new Date(ms);
+  return `${d.toLocaleDateString("en-MY", { day: "numeric", month: "short" })} ${d.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}`;
+}
+// Pure: the facts as lines, for the dialog and for "Copy report".
+function captureCheckLines(nat, diag) {
+  const n = nat || {};
+  const lines = [];
+  lines.push(`Duitful ${APP_VERSION} · ${[n.manufacturer, n.model].filter(Boolean).join(" ") || "device unknown"}${n.sdk ? ` · Android API ${n.sdk}` : ""}`);
+  if (n.error) lines.push(`Native check: ${n.error}`);
+  lines.push(`Notification access: ${n.accessGranted === true ? "granted" : n.accessGranted === false ? "NOT granted" : "unknown"}`);
+  lines.push(`Listener: last connected ${fmtDiagTime(n.connectedAt)}${n.disconnectedAt ? `, last disconnected ${fmtDiagTime(n.disconnectedAt)}` : ""}`);
+  lines.push(`Battery: ${n.batteryUnrestricted === true ? "unrestricted" : n.batteryUnrestricted === false ? "optimised (may stop the listener)" : "unknown"}`);
+  lines.push(`Waiting in store: ${Number(n.stored) || 0}`);
+  const seen = Array.isArray(n.log) ? n.log.slice(-10).reverse() : [];
+  lines.push(`Seen by the listener (last ${seen.length}):`);
+  for (const r of seen) lines.push(`  ${captureAppName(r.p)} · ${fmtDiagTime(r.t)} · ${r.r}`);
+  if (!seen.length) lines.push("  nothing yet");
+  const d = coerceCaptureDiag(diag);
+  lines.push(`Last drain: ${fmtDiagTime(d.lastDrainAt)}`);
+  const done = d.items.slice(-10).reverse();
+  lines.push(`Drained (last ${done.length}):`);
+  for (const x of done) lines.push(`  ${captureAppName(x.p)} · ${fmtDiagTime(x.t || x.at)} → ${x.became}`);
+  if (!done.length) lines.push("  nothing yet");
+  return lines;
+}
+async function openCaptureCheck() {
+  const dlg = document.getElementById("capture-check-dialog");
+  const list = document.getElementById("capture-check-list");
+  if (!dlg || !list) return;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  let nat = {};
+  try {
+    nat = NL && typeof NL.captureStatus === "function" ? await withTimeout(NL.captureStatus(), 3000) : { error: "this app version can't report it" };
+  } catch (e) { nat = { error: String((e && e.message) || e).slice(0, 80) }; }
+  const lines = captureCheckLines(nat, state.captureDiag);
+  list.textContent = lines.join("\n");
+  dlg.dataset.report = lines.join("\n");
+  const fix = document.getElementById("capture-check-access");
+  if (fix) fix.hidden = nat.accessGranted !== false;
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+}
+document.getElementById("capture-check-open")?.addEventListener("click", () => openCaptureCheck().catch(() => {}));
+document.getElementById("capture-check-close")?.addEventListener("click", () => document.getElementById("capture-check-dialog")?.close());
+document.getElementById("capture-check-access")?.addEventListener("click", () => {
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  try { NL && NL.openSettings && NL.openSettings(); } catch {}
+});
+document.getElementById("capture-check-copy")?.addEventListener("click", async () => {
+  const text = document.getElementById("capture-check-dialog")?.dataset.report || "";
+  try { await navigator.clipboard.writeText(text); toast("Report copied"); }
+  catch {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast("Report copied"); } catch { toast("Couldn't copy — select the text instead"); }
+    ta.remove();
+  }
+});
 
 /* Android App Links: with /.well-known/assetlinks.json served from
    duitful.app and the autoVerify intent-filter in the manifest (added by
@@ -10971,6 +11088,7 @@ function maybeOpenGuideAfterSetup() {
 const RELEASE_NOTES = {
   "1.56.2": [
     "<strong>More banks</strong> — on Android, alerts from HSBC, OCBC, UOB TMRW, Standard Chartered, Alliance Bank, Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON Bank, Boost Bank, Ryt Bank and ShopeePay are now read too.",
+    "<strong>Check auto-capture</strong> — Settings → Bank alerts shows whether Duitful can see your bank alerts and what it did with each, with a report you can copy to us (no message text or amounts). A repeated transfer with the same wording is no longer skipped, and two alerts arriving seconds apart are both picked up.",
     "<strong>Not picked up?</strong> — send us the wording of a bank alert Duitful missed or read wrongly. Names and numbers are removed on your phone first, you see exactly what is sent, and it goes from your own email app.",
   ],
   "1.56.1": [
