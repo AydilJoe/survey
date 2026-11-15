@@ -78,6 +78,18 @@
   Supported phones can use on-device AI (Gemini Nano) to label alerts the
   rules can't read; nothing leaves the phone. iOS does not permit
   cross-app notification reading.
+- **On-device AI**: optional, on by default, and off with one switch in
+  Settings (rules only). Android: Gemini Nano through Google's ML Kit GenAI
+  (AICore), only on supported phones
+  (https://developers.google.com/ml-kit/genai lists them); it reads
+  hard-to-read receipts and labels bank / e-wallet alerts the rules can't
+  place, including spotting transfers between the user's own accounts.
+  iPhone (iOS 26): Apple's on-device Foundation Models, for receipts only
+  (there is no notification capture on iPhone). Rules run first and win;
+  the AI never sets an amount — totals and amounts must be printed on the
+  receipt or alert. It runs entirely on the phone: no text or image is
+  uploaded, and there is no cloud AI, chat or financial advice. Phones
+  without it work the same with Duitful's rules and ML Kit.
 - **Multi-currency**: MYR, SGD, USD, EUR, GBP, JPY, THB, IDR with daily
   FX from the open-source @fawazahmed0/exchange-api.
 - **CSV import / export**: Monarch, YNAB, Money Lover, generic Malaysian

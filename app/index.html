@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=154" />
+    <link rel="stylesheet" href="styles.css?v=155" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -285,6 +285,16 @@
             <button type="button" class="primary" id="tax-intro-go">See what I can claim</button>
             <button type="button" class="ghost" id="tax-intro-no">Not now</button>
           </div>
+        </section>
+
+        <!-- One-time hello when on-device AI is found. tax-intro styling. -->
+        <section id="ai-intro" class="card ai-intro" hidden aria-labelledby="ai-intro-title">
+          <div class="ai-intro-head">
+            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5L19 9.5l-5.5 1.5L12 16l-1.5-5.5L5 9.5 10.5 8z"/></svg></span>
+            <h2 id="ai-intro-title">Your phone&rsquo;s AI is ready</h2>
+            <button type="button" class="ghost icon-btn" id="ai-intro-close" aria-label="Dismiss">✕</button>
+          </div>
+          <p class="hint" id="ai-intro-body">Duitful uses this on-device AI to read tricky receipts and bank alerts, privately. Nothing leaves your phone.</p>
         </section>
 
         <div id="pending-card" class="card pending-card" hidden>
@@ -1641,6 +1651,17 @@
 
         <!-- Own accounts: names saved with "This is my account" on a captured
              transfer. Kept only in the vault; a transfer to one is a move. -->
+        <!-- On-device AI: the phone's own model for tricky receipts and bank
+             alerts. Phone apps only; the web has none. -->
+        <div class="card ai-card" id="ai-card" hidden>
+          <h2>On-device AI</h2>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-ai" checked />
+            <span>Use this phone's AI for receipts and bank alerts</span>
+          </label>
+          <p class="hint ai-status" id="ai-status" aria-live="polite">Checking…</p>
+        </div>
+
         <div class="card own-accounts-card" id="own-accounts-card" hidden>
           <h2>Your own accounts</h2>
           <p class="hint">Transfers to these names count as moves, not spending.</p>
@@ -2749,6 +2770,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=15"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=208"></script>
+    <script src="script.js?v=209"></script>
   </body>
 </html>

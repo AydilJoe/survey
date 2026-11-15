@@ -332,6 +332,15 @@ input[type="checkbox"], input[type="radio"] {
 .pending-actions .pending-quiet:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 .pending-actions .pending-quiet:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
 /* Settings → Your own accounts */
+/* "Read by your phone's AI" on a capture card, like #scan-ai-note. */
+.pending-ai { margin: 0.3rem 0 0; font-size: 0.78rem; color: var(--muted); }
+/* Home: the one-time on-device AI card. */
+.ai-intro-head { display: flex; align-items: center; gap: 0.6rem; }
+.ai-intro-head h2 { margin: 0; flex: 1; font-size: 1rem; }
+.ai-intro-mark { display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: var(--r-sm); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); flex: none; }
+.ai-intro-mark svg { width: 1.1rem; height: 1.1rem; }
+.ai-intro .hint { margin: 0.5rem 0 0; }
+.ai-status { margin-top: 0.2rem; }
 .own-accounts-list { list-style: none; margin: 0.5rem 0 0; padding: 0; }
 .own-accounts-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.4rem 0; border-top: 0.5px solid var(--line); }
 .own-accounts-list li:first-child { border-top: 0; }

@@ -123,6 +123,9 @@ Send a link. The whole request travels inside the link itself — no accounts, n
 Scan a receipt
 The total, date and shop are read on your phone, then checked against the receipt's own numbers. Nothing is uploaded. Split it by item if you ate different things.
 
+On-device AI, private by design
+On supported phones (Gemini Nano through Google's on-device AI), Duitful asks the phone's own model about a receipt that is hard to read, or a bank alert in a new format, and spots money moved between your own accounts. It never invents an amount: the figure must be printed on the receipt or alert. It runs on your phone, nothing is uploaded, and you can switch it off in Settings. On other phones everything works the same, with Duitful's own rules.
+
 Islamic finance and zakat
 • Murabahah, tawarruq, BBA and AITAB facilities as a real debt type, with ibra' on early settlement worked out properly instead of a conventional rate pretending to fit
 • Zakat on wealth: nisab, haul and the 2.5%, using the gold price you enter
@@ -142,7 +145,7 @@ Free: 3 debts (one can be a pay-later plan) and your debt-free date, reminders, 
 I'm Aydil, in Kuala Lumpur. Duitful isn't a company: no investors, no ad network, no data partners. If something's broken or wrong, tell me and I'll fix it.
 ```
 
-~3,200 of 4,000 characters. Facts checked against the code: free limits are
+~3,700 of 4,000 characters (the on-device AI paragraph added in 1.56.1; paste by hand in Play Console). Facts checked against the code: free limits are
 5 savings goals, 3 investments and 5 receipt scans a month, with debts
 never limited
 (`FREE_*` constants in `app/script.js`); zakat uses a gold price the user

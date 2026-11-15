@@ -2208,6 +2208,111 @@ check('AI: with no AI, or AI unavailable, an unknown alert does what it did befo
 check('AI: a model that never answers times out and falls back cleanly', aiCap.timeout.asked === 1 && aiCap.timeout.pending.length === 0 && aiCap.timeoutMs < 9000, JSON.stringify(aiCap.timeout) + ' ' + aiCap.timeoutMs);
 check('AI: never asked about an OTP / TAC text', aiCap.otp.asked === 0 && aiCap.otp.pending.length === 0, JSON.stringify(aiCap.otp));
 
+/* ── On-device AI: the Settings row, the switch, the one-time card, the tag (1.56.1) ── */
+const aiUi = await S(async () => {
+  const keepCap = window.Capacitor;
+  const snap = { en: state.aiEnabled, seen: state.aiIntroSeen, on: state.aiIntroShownOn };
+  const $ = (id) => document.getElementById(id);
+  const kitWith = (impl, extra = {}) => ({ isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: impl ? { aiStatus: impl, ...extra } : {}, ...(extra.NL ? { NotificationListener: extra.NL } : {}) } });
+  const row = async (cap) => { window.Capacitor = cap; await refreshAiStatus(); return { shown: !$('ai-card').hidden, text: $('ai-status').textContent, checked: $('pref-ai').checked }; };
+  const out = {};
+  state.aiEnabled = true; state.aiIntroSeen = true;
+  try {
+    out.on = await row(kitWith(async () => ({ available: true })));
+    out.ready = await row(kitWith(async () => ({ available: false, reason: 'downloading' })));
+    out.none = await row(kitWith(async () => ({ available: false, reason: 'unsupported' })));
+    out.missing = await row(kitWith(null));
+    out.web = await row(keepCap && keepCap.isNativePlatform && keepCap.isNativePlatform() ? { isNativePlatform: () => false } : keepCap);
+    // The switch: off means no AI call for receipts or alerts.
+    window.Capacitor = kitWith(async () => ({ available: true }));
+    await refreshAiStatus();
+    $('pref-ai').checked = false; $('pref-ai').dispatchEvent(new Event('change'));
+    out.offState = { en: state.aiEnabled, text: $('ai-status').textContent };
+    const asks = [];
+    window.Capacitor = kitWith(async () => ({ available: true }), {
+      aiReadReceipt: async () => { asks.push('receipt'); return { json: '{"total": 7.9}' }; },
+      aiReadAlert: async () => { asks.push('alert'); return { json: '{"direction":"spend"}' }; },
+      NL: { drainCaptured: async () => ({ items: [{ p: 'com.maybank2u.life', ti: '', tx: 'Kad 1234: RM 30.00 @ KEDAI RUNCIT MAJU, 15/11', t: Date.now() - 1800000 }] }) },
+    });
+    state.pendingTxns = [];
+    await receiptSecondOpinion({ amount: null, amountConfidence: 'low', vendor: '', date: '' }, 'KEDAI\nTOTAL 7.90');
+    await drainCaptured();
+    out.offAsks = asks.slice();
+    out.offPending = state.pendingTxns.length;
+    state.aiEnabled = true;
+    state.pendingTxns = [];
+    await receiptSecondOpinion({ amount: null, amountConfidence: 'low', vendor: '', date: '' }, 'KEDAI\nTOTAL 7.90');
+    await drainCaptured();
+    out.onAsks = asks.slice(out.offAsks.length);
+    // The capture-card tag: an AI-read card has it, a rule card doesn't.
+    renderAll();
+    out.tagAi = [...document.querySelectorAll('#pending-list li')].map((li) => li.querySelector('.pending-ai')?.textContent || '');
+    state.pendingTxns = [];
+    window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM 12.00 from ALI BIN ABU.', postedAt: Date.now() - 1800000 });
+    renderAll();
+    out.tagRule = [...document.querySelectorAll('#pending-list li')].map((li) => li.querySelector('.pending-ai')?.textContent || '');
+    state.pendingTxns = [];
+    // The one-time Home card.
+    window.Capacitor = kitWith(async () => ({ available: true }));
+    state.aiIntroSeen = false; state.aiIntroShownOn = '';
+    await refreshAiStatus();
+    out.introFirst = !$('ai-intro').hidden && /on-device AI/.test($('ai-intro').textContent);
+    $('ai-intro-close').click();
+    await refreshAiStatus();
+    out.introAfter = { hidden: $('ai-intro').hidden, seen: state.aiIntroSeen };
+    state.aiIntroSeen = false; state.aiIntroShownOn = '2020-01-01';
+    await refreshAiStatus();
+    out.introOldDay = $('ai-intro').hidden;
+    state.aiIntroSeen = false; state.aiIntroShownOn = '';
+    window.Capacitor = kitWith(async () => ({ available: false, reason: 'unsupported' }));
+    await refreshAiStatus();
+    out.introNoAi = $('ai-intro').hidden;
+    // CSV keeps the switch.
+    state.aiEnabled = false;
+    out.csvOff = fromCSV(toCSV()).aiEnabled;
+    state.aiEnabled = true;
+    out.csvOn = fromCSV(toCSV()).aiEnabled;
+  } finally {
+    window.Capacitor = keepCap;
+    Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: true, aiIntroShownOn: snap.on, pendingTxns: [] });
+    aiStatusCache = null;
+    save(); renderAll();
+  }
+  return out;
+});
+check('AI Settings row: "On · runs on this phone" when the model is there',
+  aiUi.on.shown && aiUi.on.text === 'On · runs on this phone' && aiUi.on.checked, JSON.stringify(aiUi.on));
+check('AI Settings row: "Getting ready" while it downloads; "Not available on this phone; Duitful uses its rules." without it or without the kit',
+  aiUi.ready.text === 'Getting ready' && aiUi.none.text === 'Not available on this phone; Duitful uses its rules.' && aiUi.missing.text === aiUi.none.text, JSON.stringify([aiUi.ready, aiUi.none, aiUi.missing]));
+check('AI Settings row: hidden on the plain web', aiUi.web.shown === false, JSON.stringify(aiUi.web));
+check('AI switch off: saved, says "Off · Duitful uses its rules.", and neither receipts nor bank alerts ask the AI',
+  aiUi.offState.en === false && /^Off/.test(aiUi.offState.text) && aiUi.offAsks.length === 0 && aiUi.offPending === 0, JSON.stringify([aiUi.offState, aiUi.offAsks, aiUi.offPending]));
+check('AI switch on: both paths ask again', aiUi.onAsks.includes('receipt') && aiUi.onAsks.includes('alert'), JSON.stringify(aiUi.onAsks));
+check('a capture card the AI helped read says "Read by your phone\'s AI"; a rule-read card does not',
+  aiUi.tagAi.length === 1 && aiUi.tagAi[0] === "Read by your phone's AI" && aiUi.tagRule.length === 1 && aiUi.tagRule[0] === '', JSON.stringify([aiUi.tagAi, aiUi.tagRule]));
+check('the on-device AI card shows on Home once, and never after it is dismissed (or on a later day, or without AI)',
+  aiUi.introFirst && aiUi.introAfter.hidden && aiUi.introAfter.seen && aiUi.introOldDay && aiUi.introNoAi, JSON.stringify(aiUi));
+check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.csvOn === true, JSON.stringify([aiUi.csvOff, aiUi.csvOn]));
+
+// The landing pages sell it, truthfully, in both languages.
+for (const [lang, file, q, h] of [['en', 'index.html', 'Does Duitful use AI?', 'AI that never leaves your'], ['ms', 'ms/index.html', 'Adakah Duitful guna AI?', 'AI yang tak pernah keluar dari']]) {
+  const html = readFileSync(path.join(REPO_ROOT, file), 'utf8');
+  const section = (html.match(/<section class="block ai-local" id="ai"[\s\S]*?<\/section>/) || [''])[0];
+  const faqs = [...html.matchAll(/<summary>\s*([^<]+?)\s*<span class="plus"/g)].map((m) => m[1].trim());
+  const ld = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+  const faqLd = ld.find((j) => j['@type'] === 'FAQPage');
+  const app = ld.find((j) => j['@type'] === 'WebApplication');
+  const ans = faqLd && faqLd.mainEntity.find((x) => x.name === q);
+  check(`${lang} landing: an on-device AI section sits before the demo, with its headline, three points and the supported-phones link`,
+    section.includes(h) && (section.match(/class="feature reveal"/g) || []).length === 3 && section.includes('https://developers.google.com/ml-kit/genai')
+    && html.indexOf('id="ai"') < html.indexOf('id="demo"') && html.indexOf('id="ai"') > html.indexOf('id="features"'), String(section.length));
+  check(`${lang} landing: FAQ "${q}" is on the page and in the FAQ rich result, next to the built-with-AI one`,
+    faqs.includes(q) && !!ans && /iOS 26/.test(ans.acceptedAnswer.text) && faqs.length >= 5, JSON.stringify(faqs));
+  check(`${lang} landing: the AI claims stay truthful (no cloud, no chat, no "Apple Intelligence")`,
+    !/Apple Intelligence|cloud AI|chatbot|AI advice|nasihat AI/i.test(section + (ans ? ans.acceptedAnswer.text : '')), '');
+  check(`${lang} landing: featureList names on-device AI`, app && app.featureList.some((f) => /Gemini Nano/.test(f)), '');
+}
+
 // --- settlement receipts: emit ---
 const paidEmit = await S(async () => {
   splitState().me = 'Aydil';

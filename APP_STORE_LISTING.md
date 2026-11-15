@@ -99,7 +99,7 @@ Duitful tracks your income, bills, spending and debts on your iPhone. No account
 
 
 TRACK
-• Log a spend in two taps, or scan the receipt: the total, date and shop are read on your phone
+• Log a spend in two taps, or scan the receipt: the total, date and shop are read on your phone. On iOS 26, Apple's on-device model double-checks a hard-to-read receipt; the total must be printed on it, and nothing is uploaded
 • See what's left this month, and what that is per day
 • Reports by category and month
 • Privacy mode hides every amount
@@ -124,7 +124,7 @@ Pro is a one-time in-app purchase, no subscription: automatic encrypted iCloud b
 
 Made in Kuala Lumpur by Aydil. Bugs or ideas: hello@duitful.app
 ```
-About 1,450 characters. Plain and feature-first: the founder pitch ("Every
+About 1,600 characters (on-device model line added in 1.56.1). Plain and feature-first: the founder pitch ("Every
 budgeting app I tried wanted my bank login…") lives on the landing page hero
 instead. Apple's rules still hold: no Google Drive or other platforms, Pro
 only as the in-app purchase, and iCloud is the only backup named because
