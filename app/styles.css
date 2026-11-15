@@ -334,6 +334,13 @@ input[type="checkbox"], input[type="radio"] {
 /* Settings → Your own accounts */
 /* "Read by your phone's AI" on a capture card, like #scan-ai-note. */
 .pending-ai { margin: 0.3rem 0 0; font-size: 0.78rem; color: var(--muted); }
+/* "Wrong?" on a card and "Not picked up?" under the list: quiet text. */
+.pending-wrong { appearance: none; background: none; border: 0; padding: 0.35rem 0; margin-top: 0.1rem; font: inherit; font-size: 0.78rem; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; min-height: 32px; }
+.pending-wrong:hover { color: var(--text); }
+.capture-share { margin: 0.2rem 0 0; }
+.capture-share[hidden] { display: none; }
+.capture-share .pending-quiet { appearance: none; background: none; border: 0; padding: 0.45rem 0; font: inherit; font-size: 0.82rem; color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; min-height: 44px; }
+#capture-share-dialog textarea { width: 100%; box-sizing: border-box; resize: vertical; font-family: var(--font-mono); font-size: 0.85rem; }
 /* Home: the one-time on-device AI card. */
 .ai-intro-head { display: flex; align-items: center; gap: 0.6rem; }
 .ai-intro-head h2 { margin: 0; flex: 1; font-size: 1rem; }

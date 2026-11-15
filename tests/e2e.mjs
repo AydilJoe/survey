@@ -2294,6 +2294,67 @@ check('the on-device AI card shows on Home once, and never after it is dismissed
   aiUi.introFirst && aiUi.introAfter.hidden && aiUi.introAfter.seen && aiUi.introOldDay && aiUi.introNoAi, JSON.stringify(aiUi));
 check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.csvOn === true, JSON.stringify([aiUi.csvOff, aiUi.csvOn]));
 
+/* ── "Not picked up?": share an alert's wording, redacted on the phone (1.56.2) ── */
+const share = await S(() => {
+  const r = (t) => redactAlertSample(t);
+  const out = {
+    tng: r('You have successfully transferred RM 0.10 to ALI BIN ABU.'),
+    mae: r('You’ve just received RM 0.10 in your account ending ***8714. REF 20261115MBB0001'),
+    mixed: r('You have received RM 12.00 from Siti Aminah via DuitNow.'),
+    contact: r('Call 012-345 6789 or email ali.abu@example.com about card 4321 1234 5678 9012'),
+    card: r('RM1,234.50 charged to card ending 1234 at STARBUCKS KLCC on 15-Nov'),
+    malay: r('Anda telah menerima RM50.00 daripada AHMAD BIN ALI. Rujukan: ABC12345'),
+    kepada: r('Pindahan RM 20.00 kepada MOHD AZRI A/L RAMU berjaya.'),
+    keepTerms: r('DuitNow Transfer is successful'),
+    promo: r('Hi ALI BIN ABU, spend 3 minutes to share your feedback'),
+  };
+  const keepCap = window.Capacitor;
+  const look = (cap) => {
+    window.Capacitor = cap;
+    state.pendingTxns = [{ id: 'sh1', createdAt: Date.now() - 3600000, raw: 'You have successfully transferred RM 0.10 to ALI BIN ABU.', pkg: 'my.com.tngdigital.ewallet', amount: 0.1, merchant: 'ALI BIN ABU', providerId: 'tng', providerName: "Touch 'n Go", currency: 'MYR', transfer: true }];
+    renderAll();
+    const wraps = [...document.querySelectorAll('[data-capture-share-wrap]')].map((e) => !e.hidden);
+    return { wraps, wrong: !!document.querySelector('#pending-list [data-pending-wrong]') };
+  };
+  try {
+    out.android = look({ isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} });
+    document.querySelector('#pending-list [data-pending-wrong]').click();
+    out.dialog = { open: document.getElementById('capture-share-dialog').open, raw: document.getElementById('share-raw').value,
+      preview: document.getElementById('share-redacted').value, app: document.getElementById('share-app').value };
+    document.getElementById('share-redacted').value += ' (edited)';
+    out.mailto = captureShareMailto();
+    document.getElementById('capture-share-dialog').close();
+    out.ios = look({ isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} });
+    out.web = look(undefined);
+  } finally { window.Capacitor = keepCap; state.pendingTxns = []; save(); renderAll(); }
+  return out;
+});
+check('redaction: TNG transfer keeps "RM 0.10", drops the payee name',
+  share.tng === 'You have successfully transferred RM 0.10 to [name].', share.tng);
+check('redaction: MAE credit keeps "RM 0.10", drops the masked account (***8714) and the reference',
+  share.mae === 'You’ve just received RM 0.10 in your account ending [account]. REF [ref]', share.mae);
+check('redaction: names after from / daripada / kepada (mixed case, BIN, A/L) and all-caps merchants are removed',
+  share.mixed === 'You have received RM 12.00 from [name] via DuitNow.' && share.malay === 'Anda telah menerima RM50.00 daripada [name]. Rujukan: [ref]'
+  && share.kepada === 'Pindahan RM 20.00 kepada [name] berjaya.' && share.card === 'RM1,234.50 charged to card ending [number] at [name] on 15-Nov' && share.promo.startsWith('Hi [name],'),
+  JSON.stringify([share.mixed, share.malay, share.kepada, share.card, share.promo]));
+check('redaction: phone, email and card numbers go; amounts like RM1,234.50 stay; bank terms stay',
+  share.contact === 'Call [phone] or email [email] about card [number]' && share.keepTerms === 'DuitNow Transfer is successful', JSON.stringify([share.contact, share.keepTerms]));
+check('"Not picked up?" and "Wrong?" appear on Android only (not iPhone, not the web)',
+  share.android.wraps.length >= 2 && share.android.wraps.every(Boolean) && share.android.wrong
+  && share.ios.wraps.every((x) => !x) && !share.ios.wrong && share.web.wraps.every((x) => !x) && !share.web.wrong, JSON.stringify([share.android, share.ios, share.web]));
+check('"Wrong?" opens the share sheet with the alert, its app, and a redacted, editable preview',
+  share.dialog.open && /ALI BIN ABU/.test(share.dialog.raw) && share.dialog.preview === 'You have successfully transferred RM 0.10 to [name].' && share.dialog.app === 'my.com.tngdigital.ewallet', JSON.stringify(share.dialog));
+check('the email goes to hello@duitful.app with the edited redacted text and the app id, never the raw name',
+  share.mailto.startsWith('mailto:hello@duitful.app?') && /my\.com\.tngdigital\.ewallet/.test(decodeURIComponent(share.mailto))
+  && /\(edited\)/.test(decodeURIComponent(share.mailto)) && !/ALI BIN ABU/.test(decodeURIComponent(share.mailto)), share.mailto.slice(0, 200));
+// Every MY bank app id the listener allows has a parser entry, so its credits and transfers are understood.
+{
+  const java = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulNotificationListenerService.java'), 'utf8');
+  const myIds = [...java.slice(java.indexOf('// Malaysia'), java.indexOf('// Singapore')).matchAll(/ALLOWED\.add\("([^"]+)"\);\s*\/\/[^\n]*\(Play\)/g)].map((m) => m[1]);
+  const unparsed = await S((ids) => ids.filter((id) => !providerForPackage(id) || providerForPackage(id).country !== 'MY'), myIds);
+  check('every Play-verified Malaysian app id in the listener has a Malaysian parser entry', myIds.length >= 30 && unparsed.length === 0, JSON.stringify(unparsed) + ' of ' + myIds.length);
+}
+
 // The landing pages sell it, truthfully, in both languages.
 for (const [lang, file, q, h] of [['en', 'index.html', 'Does Duitful use AI?', 'AI that never leaves your'], ['ms', 'ms/index.html', 'Adakah Duitful guna AI?', 'AI yang tak pernah keluar dari']]) {
   const html = readFileSync(path.join(REPO_ROOT, file), 'utf8');

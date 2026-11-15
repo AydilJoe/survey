@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.56.1";
+const APP_VERSION = "1.56.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4207,6 +4207,7 @@ function renderAll() {
   renderOwnAccounts();
   renderAiSettings();
   renderAiIntro();
+  renderCaptureShareLinks();
   renderReminderPrefs();
   renderFxStatus();
   populateCurrencyPickers();
@@ -4596,7 +4597,7 @@ function renderPending() {
               <span class="pending-amount">${fmtMoney(p.amount)}</span>
             </div>
             <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")}${p.category ? ` · ${escapeHtml(p.category)}` : ""}</div>
-            ${pendingAiTag(p)}
+            ${pendingAiTag(p)}${pendingWrongBtn(p)}
           </div>
           <div class="pending-actions">
             ${p.transfer && p.merchant ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
@@ -4605,6 +4606,115 @@ function renderPending() {
             <button class="primary" data-action="pending-accept" data-id="${p.id}">Add</button>
           </div>
         </li>`)).join("");
+}
+
+/* ---------- "Not picked up?" — share an alert's wording, redacted ----------
+   Banks reword their alerts. The fastest fix is the real wording, so the
+   user can send one: pasted (missed) or from a card ("Wrong?"). It is
+   redacted on this phone first, shown exactly as it will be sent, and
+   leaves only through the user's own email app or share sheet, to the
+   address the app already uses for feedback. No upload, no endpoint. */
+const SAMPLE_TO = "hello@duitful.app";
+// Words that look like a name in capitals but are bank or payment terms.
+const SAMPLE_KEEP = new Set(["DUITNOW", "TRANSFER", "FPX", "JOMPAY", "QR", "IBG", "GIRO", "IBFT", "ATM", "POS", "ID", "OTP", "TAC",
+  "REF", "RM", "MYR", "SGD", "VISA", "MASTERCARD", "DEBIT", "CREDIT", "CARD", "MAYBANK", "MAYBANK2U", "MAE", "CIMB", "OCTO", "RHB",
+  "HSBC", "OCBC", "UOB", "TMRW", "TNG", "EWALLET", "E-WALLET", "AMBANK", "BSN", "GXBANK", "AEON", "BANK", "BOOST", "RYT", "SHOPEEPAY",
+  "GRABPAY", "SETEL", "BIGPAY", "ATOME", "SPAYLATER", "MYDEBIT", "SUCCESSFUL", "RECEIVED", "FUNDS", "ALERT"]);
+// Pure: the alert text with names, account / card / reference / phone
+// numbers and emails replaced. Amounts and currencies stay.
+function redactAlertSample(text) {
+  let t = String(text || "").slice(0, 2000);
+  const keep = [];
+  const hold = (m) => { keep.push(m); return `\u0000${keep.length - 1}\u0000`; };
+  t = t.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]");
+  // Amounts with their currency are what we need; set them aside.
+  t = t.replace(/(?:\bRM|\bMYR|S\$|\bSGD|\bRp|\bIDR|฿|\bTHB|₱|\bPHP)\s?\d[\d,]*(?:\.\d{1,2})?/gi, hold);
+  t = t.replace(/(?:\+?6?0)1\d[\s-]?\d{3,4}[\s-]?\d{4}\b/g, "[phone]");
+  t = t.replace(/\b(ref(?:erence)?(?:\s*(?:no|number))?|rujukan|no\.?\s*rujukan|transaction\s+id|txn\s*id)(\.?\s*[:#]?\s*)[A-Z0-9][A-Z0-9-]{2,}/gi, "$1$2[ref]");
+  t = t.replace(/[*xX•·]{2,}\s?\d{2,}/g, "[account]");
+  t = t.replace(/\d[\d\s-]{2,}\d/g, (m) => (m.replace(/\D/g, "").length >= 4 ? "[number]" : m));
+  // Names: after to / from / daripada / kepada, a run of capitalised words.
+  t = t.replace(/\b(to|from|daripada|kepada|dari)(\s+)((?:[A-Z][\w'@&/-]*(?:\.[\w'@&/-]+)*)(?:\s+(?:[A-Z][\w'@&/-]*(?:\.[\w'@&/-]+)*|bin|binti|bt|bte|a\/l|a\/p|@))*)/g, (m, w, sp, name) => {
+    const words = name.split(/\s+/);
+    if (words.every((x) => SAMPLE_KEEP.has(x.toUpperCase().replace(/[^A-Z0-9-]/g, "")))) return m;
+    return `${w}${sp}[name]`;
+  });
+  // Any other run of two or more words in capitals.
+  t = t.replace(/\b[A-Z][A-Z'@&/-]+(?:\s+(?:[A-Z][A-Z'@&/-]+|BIN|BINTI|A\/L|A\/P))+\b/g, (m) => {
+    const words = m.split(/\s+/);
+    return words.every((x) => SAMPLE_KEEP.has(x.replace(/[^A-Z0-9-]/g, ""))) ? m : "[name]";
+  });
+  return t.replace(/\u0000(\d+)\u0000/g, (_, i) => keep[Number(i)]).replace(/(\[name\]\s*){2,}/g, "[name] ");
+}
+function captureShareAllowed() { return isNative() && nativePlatform() === "android"; }
+let shareCtx = { pkg: "", kind: "missed" };
+function openCaptureShare(opts) {
+  const o = opts || {};
+  const dlg = document.getElementById("capture-share-dialog");
+  if (!dlg) return;
+  shareCtx = { pkg: o.pkg || "", kind: o.kind || "missed" };
+  const raw = document.getElementById("share-raw");
+  const app = document.getElementById("share-app");
+  if (app) {
+    const mine = TXN_PROVIDERS.filter((x) => x.country === "MY");
+    app.innerHTML = `<option value="">Which app sent it?</option>` + mine.map((x) => `<option value="${escapeHtml(x.packages[0])}">${escapeHtml(x.name)}</option>`).join("");
+    const known = providerForPackage(shareCtx.pkg);
+    app.value = known ? known.packages[0] : "";
+  }
+  if (raw) raw.value = o.text || "";
+  updateCaptureSharePreview();
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  setTimeout(() => (o.text ? document.getElementById("share-redacted") : raw)?.focus(), 30);
+}
+function updateCaptureSharePreview() {
+  const raw = document.getElementById("share-raw");
+  const out = document.getElementById("share-redacted");
+  if (out) out.value = redactAlertSample(raw ? raw.value : "");
+  const send = document.getElementById("share-send");
+  if (send) send.disabled = !(out && out.value.trim());
+}
+function captureShareBody() {
+  const app = document.getElementById("share-app");
+  const pkg = (app && app.value) || shareCtx.pkg || "";
+  const text = (document.getElementById("share-redacted") || {}).value || "";
+  return {
+    subject: `Bank alert sample (${shareCtx.kind}${pkg ? `, ${pkg}` : ""})`,
+    body: `App: ${pkg || "not chosen"}\nDuitful: ${APP_VERSION} · ${shareCtx.kind === "misread" ? "read wrongly" : "not picked up"}\n\n${text.trim()}\n`,
+  };
+}
+function captureShareMailto() {
+  const b = captureShareBody();
+  return `mailto:${SAMPLE_TO}?subject=${encodeURIComponent(b.subject)}&body=${encodeURIComponent(b.body)}`;
+}
+document.getElementById("share-raw")?.addEventListener("input", updateCaptureSharePreview);
+document.getElementById("share-send")?.addEventListener("click", () => {
+  window.location.href = captureShareMailto();
+  document.getElementById("capture-share-dialog")?.close();
+});
+document.getElementById("share-sheet")?.addEventListener("click", async () => {
+  const b = captureShareBody();
+  try { await navigator.share({ title: b.subject, text: `To: ${SAMPLE_TO}\n${b.body}` }); document.getElementById("capture-share-dialog")?.close(); } catch {}
+});
+document.getElementById("share-cancel")?.addEventListener("click", () => document.getElementById("capture-share-dialog")?.close());
+document.addEventListener("click", (e) => {
+  const el = e.target instanceof Element ? e.target : null;
+  if (!el) return;
+  if (el.closest("[data-capture-share]")) { openCaptureShare({ kind: "missed" }); return; }
+  const w = el.closest("[data-pending-wrong]");
+  if (w) {
+    const p = (state.pendingTxns || []).find((x) => x.id === w.dataset.pendingWrong);
+    const src = p && (p.kind === "move" ? (p.from || p.to) : p);
+    openCaptureShare({ kind: "misread", pkg: src ? src.pkg : "", text: src ? src.raw : "" });
+  }
+});
+function pendingWrongBtn(p) {
+  return captureShareAllowed() ? `<button type="button" class="pending-wrong" data-pending-wrong="${escapeHtml(p.id)}">Wrong?</button>` : "";
+}
+function renderCaptureShareLinks() {
+  const on = captureShareAllowed();
+  document.querySelectorAll("[data-capture-share-wrap]").forEach((el) => { el.hidden = !on; });
+  const sheet = document.getElementById("share-sheet");
+  if (sheet) sheet.hidden = typeof navigator.share !== "function";
 }
 
 // "Read by your phone's AI": on a card where the AI gave the direction,
@@ -4707,7 +4817,7 @@ function pendingIncomeHtml(p) {
           <span class="pending-amount in">+${fmtMoney(p.amount)}</span>
         </div>
         <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")} · Income</div>
-        ${pendingAiTag(p)}
+        ${pendingAiTag(p)}${pendingWrongBtn(p)}
       </div>
       <div class="pending-actions">
         ${p.sender && !p.label ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
@@ -4730,7 +4840,7 @@ function pendingMoveHtml(p) {
           <span class="pending-amount move">${fmtMoney(p.amount)}</span>
         </div>
         <div class="pending-source">${escapeHtml(fromName)} → ${escapeHtml(toName)}</div>
-        ${pendingAiTag(p)}
+        ${pendingAiTag(p)}${pendingWrongBtn(p)}
       </div>
       <div class="pending-actions">
         <button class="ghost" data-action="pending-move-split" data-id="${p.id}">${undo}</button>
@@ -10859,6 +10969,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.2": [
+    "<strong>More banks</strong> — on Android, alerts from HSBC, OCBC, UOB TMRW, Standard Chartered, Alliance Bank, Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON Bank, Boost Bank, Ryt Bank and ShopeePay are now read too.",
+    "<strong>Not picked up?</strong> — send us the wording of a bank alert Duitful missed or read wrongly. Names and numbers are removed on your phone first, you see exactly what is sent, and it goes from your own email app.",
+  ],
   "1.56.1": [
     "<strong>On-device AI, in plain sight</strong> — Settings now shows whether your phone's own AI is on, getting ready or not available, with a switch to turn it off (rules only). Cards it helped read say so. It runs on your phone and never sets an amount.",
   ],
@@ -13208,6 +13322,54 @@ const TXN_PROVIDERS = [
       /RM\s*([\d,]+\.?\d*)\s+(?:paid|sent|debited|charged)[^.]*?(?:to|at)\s+(.+?)(?:\s+on|\s*[.]|$)/i,
       TXN_TRANSFER_OUT,
     ] },
+  // Banks and wallets added in 1.56.2, ids checked on Google Play (MY). Their
+  // exact alert wording isn't known yet: the generic debit shape, the
+  // transfer-out shape, the credit parser and the on-device AI cover them.
+  { id: "hsbc-my", name: "HSBC", country: "MY", currency: "MYR",
+    packages: ["my.com.hsbc.hsbcmalaysia"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "ocbc-my", name: "OCBC", country: "MY", currency: "MYR",
+    packages: ["com.ocbc.mobilemy"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "uob-my", name: "UOB TMRW", country: "MY", currency: "MYR",
+    packages: ["com.uob.mightymy"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "scb-my", name: "Standard Chartered", country: "MY", currency: "MYR",
+    packages: ["air.app.scb.breeze.android.main.my.prod"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "alliance", name: "Alliance Bank", country: "MY", currency: "MYR",
+    packages: ["com.alliance.AOPMobileApp", "com.aop2023"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "affin", name: "Affin", country: "MY", currency: "MYR",
+    packages: ["com.affin.mobilebanking"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "bankrakyat", name: "Bank Rakyat", country: "MY", currency: "MYR",
+    packages: ["com.irakyatmob.bkrm"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "muamalat", name: "Bank Muamalat", country: "MY", currency: "MYR",
+    packages: ["my.com.muamalat.mobile.rib"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "agrobank", name: "Agrobank", country: "MY", currency: "MYR",
+    packages: ["com.cedarplus.agro"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "mbsb", name: "MBSB Bank", country: "MY", currency: "MYR",
+    packages: ["com.MBSB.Bank.Mobile.Banking"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "gxbank", name: "GXBank", country: "MY", currency: "MYR",
+    packages: ["my.com.gxbank.app"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "aeonbank", name: "AEON Bank", country: "MY", currency: "MYR",
+    packages: ["com.personal.adb"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "boostbank", name: "Boost Bank", country: "MY", currency: "MYR",
+    packages: ["co.myboostbank.boostberhad"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "rytbank", name: "Ryt Bank", country: "MY", currency: "MYR",
+    packages: ["my.rytbank.app"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "shopeepay-my", name: "ShopeePay", country: "MY", currency: "MYR",
+    packages: ["com.shopeepay.my"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
   { id: "ambank", name: "AmBank", country: "MY", currency: "MYR",
     packages: ["com.ambank.ambankonline", "com.ambank.ambankgroup"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
