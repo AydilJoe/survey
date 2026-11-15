@@ -2009,6 +2009,53 @@ check('captured-while-closed notifications are drained once, deduped, promos dro
   drained.added === 1 && drained.again === 0 && drained.calls === 2 && drained.pending.length === 1
   && drained.pending[0].amount === 0.1 && drained.pending[0].at === drained.posted, JSON.stringify(drained));
 
+/* ── TNG "You've received money!" is money IN, never a spend to "you" (1.56.3) ── */
+const tngIn = await S(() => {
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const old = Date.now() - 30 * 60000;
+  const out = {};
+  const shape = () => state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', amount: p.amount, merchant: p.merchant, sender: p.sender, from: p.from && p.from.providerId, to: p.to && p.to.providerId, own: p.own }));
+  const run = (title, text, pkg = TNG) => { state.pendingTxns = []; window.duitfulIncoming({ package: pkg, title, text, postedAt: old }); return shape(); };
+  state.ownAccounts = [];
+  out.straight = run("You've received money!", 'ALI BIN ABU has transferred RM 1.00 to you. Tap here to check the…');
+  out.curly = run('You’ve received money!', 'ALI BIN ABU has transferred RM 1.00 to you. Tap here to check the details.');
+  out.bodyOnly = run('', 'ALI BIN ABU has transferred RM 12.50 to you.');
+  out.malay = run('Anda telah menerima wang!', 'ALI BIN ABU telah memindahkan RM 3.00 kepada anda.');
+  out.parse = parseIncomingTransfer("You've received money!. ALI BIN ABU has transferred RM 1.00 to you. Tap here", TNG);
+  // No pattern may ever produce a payee of "you".
+  out.noYou = ['transferred RM 1.00 to you.', 'RM 5.00 paid to you', 'RM 5.00 debited to your account', 'sent RM 2.00 to anda']
+    .map((t) => parseBankText(t, TNG) || parseBankText(t, MAE)).map((r) => r && r.merchant);
+  // The income card offers "This is my account" for the sender…
+  state.pendingTxns = [];
+  window.duitfulIncoming({ package: TNG, title: "You've received money!", text: 'ALI BIN ABU has transferred RM 1.00 to you.', postedAt: old });
+  renderAll();
+  out.ownBtn = !!document.querySelector('#pending-list li.pending-income [data-action="pending-own"]');
+  document.querySelector('#pending-list li.pending-income [data-action="pending-own"]').click();
+  out.afterOwn = shape();
+  // …and with the name saved, the next one is a move on its own, booking nothing.
+  out.saved = run("You've received money!", 'ali bin abu has transferred RM 2.00 to you.');
+  renderAll();
+  out.moveSrc = document.querySelector('#pending-list li.pending-move .pending-source')?.textContent || '';
+  // The existing shapes still work.
+  out.tngOut = run('DuitNow Transfer is successful', 'You have successfully transferred RM 0.10 to MUHAMMAD KHAIRUL.');
+  out.maeIn = run('Maybank2u: Funds Received', 'You’ve just received RM 0.10 in your account ending ***1234. REF');
+  state.pendingTxns = []; state.ownAccounts = []; save(); renderAll();
+  return out;
+});
+const one = (a, kind) => a.length === 1 && a[0].kind === kind;
+check('TNG "You\'ve received money!" / "ALI BIN ABU has transferred RM 1.00 to you" is an income card from ALI BIN ABU (straight and curly apostrophe), not a spend to "you"',
+  one(tngIn.straight, 'income') && tngIn.straight[0].amount === 1 && tngIn.straight[0].sender === 'ALI BIN ABU'
+  && one(tngIn.curly, 'income') && one(tngIn.bodyOnly, 'income') && tngIn.bodyOnly[0].amount === 12.5 && one(tngIn.malay, 'income') && tngIn.malay[0].amount === 3,
+  JSON.stringify([tngIn.straight, tngIn.curly, tngIn.bodyOnly, tngIn.malay]));
+check('the credit parser reads the TNG wording with title + body', tngIn.parse && tngIn.parse.amount === 1 && tngIn.parse.sender === 'ALI BIN ABU', JSON.stringify(tngIn.parse));
+check('no debit or transfer pattern ever produces a payee of "you" / "your account" / "anda"', tngIn.noYou.every((m) => !m), JSON.stringify(tngIn.noYou));
+check('an income card from a named sender offers "This is my account", which turns it into a move',
+  tngIn.ownBtn && one(tngIn.afterOwn, 'move') && !tngIn.afterOwn[0].from && tngIn.afterOwn[0].to === 'tng', JSON.stringify(tngIn.afterOwn));
+check('a credit from a saved own-account name is a move on its own: "Your other account → TNG", booking nothing',
+  one(tngIn.saved, 'move') && tngIn.saved[0].own === true && tngIn.saved[0].amount === 2 && tngIn.moveSrc === 'Your other account → TNG', JSON.stringify([tngIn.saved, tngIn.moveSrc]));
+check('TNG transfer-out and MAE credit still read as before',
+  one(tngIn.tngOut, 'spend') && tngIn.tngOut[0].merchant === 'MUHAMMAD KHAIRUL' && one(tngIn.maeIn, 'income'), JSON.stringify([tngIn.tngOut, tngIn.maeIn]));
+
 /* ── Money in, moves between your own accounts, "This is my account" (1.56.0) ──
    Placeholder names, made-up digits. TNG received and DuitNow received wording
    is assumed (no public sample); MAE's is the tester's, name removed. */

@@ -1,4 +1,7 @@
 {
+  "1.56.3": [
+    "<strong>Duit diterima dalam Touch 'n Go</strong> — makluman \"You've received money!\" kini dipaparkan sebagai pendapatan daripada pengirim, bukan perbelanjaan. Jika pengirimnya anda sendiri (dari akaun anda yang lain), ketik \"This is my account\" dan ia dikira sebagai pindahan."
+  ],
   "1.56.2": [
     "<strong>Lebih banyak bank</strong> — di Android, makluman daripada HSBC, OCBC, UOB TMRW, Standard Chartered, Alliance Bank, Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON Bank, Boost Bank, Ryt Bank dan ShopeePay kini dibaca juga.",
     "<strong>Semak tangkapan automatik</strong> — Settings → Bank alerts menunjukkan sama ada Duitful dapat melihat makluman bank anda dan apa yang dibuat dengan setiap satu, dengan laporan yang boleh disalin kepada kami (tanpa teks mesej atau jumlah). Pindahan berulang dengan ayat yang sama tidak lagi dilangkau, dan dua makluman yang tiba berselang beberapa saat kedua-duanya ditangkap.",

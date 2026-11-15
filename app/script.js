@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.56.2";
+const APP_VERSION = "1.56.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4885,8 +4885,8 @@ function pendingIncomeHtml(p) {
 
 /* "Moved RM 0.10 · TNG → Maybank": the same money changing wallets. */
 function pendingMoveHtml(p) {
-  const fromName = p.from ? providerShort(p.from.providerId, p.from.providerName) : "Your account";
-  const toName = p.to ? providerShort(p.to.providerId, p.to.providerName) : "your account";
+  const fromName = p.from ? providerShort(p.from.providerId, p.from.providerName) : "Your other account";
+  const toName = p.to ? providerShort(p.to.providerId, p.to.providerName) : "your other account";
   const undo = p.from && p.to ? "Not a move" : p.from ? "It was a spend" : "It was income";
   return `
     <li data-id="${p.id}" class="pending-move">
@@ -11144,6 +11144,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.3": [
+    "<strong>Money received in Touch 'n Go</strong> — \"You've received money!\" alerts now show as income from the sender, not as a spend. If the sender is you (from your other account), tap \"This is my account\" and it counts as a move.",
+  ],
   "1.56.2": [
     "<strong>More banks</strong> — on Android, alerts from HSBC, OCBC, UOB TMRW, Standard Chartered, Alliance Bank, Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON Bank, Boost Bank, Ryt Bank and ShopeePay are now read too.",
     "<strong>Check auto-capture</strong> — Settings → Bank alerts shows whether Duitful can see your bank alerts and what it did with each, with a report you can copy to us (no message text or amounts). A repeated transfer with the same wording is no longer skipped, and two alerts arriving seconds apart are both picked up.",
@@ -13449,6 +13452,11 @@ function parseReceiptText(text, today) {
 // "You have successfully transferred RM 0.10 to ALI BIN ABU." — a DuitNow /
 // e-wallet transfer out. The payee ends at a full stop, a line break or the
 // end (OEM shades cut long bodies with "…", which is dropped).
+// A "payee" that is really the reader: the alert is about money coming in.
+const TXN_PAYEE_IS_YOU = /^(?:you|your(?:\s+(?:account|e-?wallet|wallet))?|yourself|me|my\s+account|anda|akaun\s+anda)\b/i;
+// Title or body says money came to the reader ("You've received money!",
+// "... has transferred RM 1.00 to you", "... kepada anda").
+const TXN_CREDIT_CUE = /\b(?:you(?:'|’)ve\s+(?:just\s+)?received|you\s+have\s+(?:just\s+)?received|received\s+money|to\s+you\b|kepada\s+anda|anda\s+(?:telah\s+)?menerima|credited\s+to\s+your)/i;
 const TXN_TRANSFER_OUT = /\b(?:transferred|sent)\s+(?:RM|MYR)\s*([\d,]+(?:\.\d{1,2})?)\s+to\s+([^\n.…]+?)(?:\s*(?:[.\n…]|\bon\s|\bvia\s)|$)/i;
 
 const TXN_PROVIDERS = [
@@ -13715,9 +13723,13 @@ function parseBankText(text, pkg) {
     if (!m) continue;
     const amount = parseAmount(m[1], provider.currency);
     if (!Number.isFinite(amount) || amount <= 0) continue;
+    const merchant = m[2] ? m[2].trim().replace(/\s{2,}/g, " ") : "";
+    // "ALI has transferred RM 1.00 to you" is money IN: a payee of "you" is
+    // the reader, never a shop or a person paid.
+    if (TXN_PAYEE_IS_YOU.test(merchant)) continue;
     return {
       amount,
-      merchant: m[2] ? m[2].trim().replace(/\s{2,}/g, " ") : "",
+      merchant,
       providerId: provider.id,
       providerName: provider.name,
       country: provider.country,
@@ -13739,6 +13751,11 @@ function parseBankText(text, pkg) {
    matcher, which suggests; the user taps; only then does anything change. */
 
 const TXN_INCOMING_PATTERNS = [
+  // TNG eWallet: "ALI BIN ABU has transferred RM 1.00 to you." (title "You've
+  // received money!"). The sender comes first, so these use named groups.
+  /(?:^|[.!\n]\s*)(?:hi[,!]?\s+)?(?<who>[^.!\n]{2,60}?)\s+(?:has\s+|have\s+)?(?:transferred|sent|paid)\s+(?:you\s+)?(?:RM|MYR)\s*(?<amt>[\d,]+(?:\.\d{1,2})?)(?:\s+to\s+(?:you|your\s+(?:account|e-?wallet|wallet)))?(?=[\s.!,]|$)/i,
+  // Bahasa Melayu: "ALI telah memindahkan RM 1.00 kepada anda"
+  /(?:^|[.!\n]\s*)(?<who>[^.!\n]{2,60}?)\s+(?:telah\s+)?(?:memindahkan|menghantar|membayar)\s+(?:RM|MYR)\s*(?<amt>[\d,]+(?:\.\d{1,2})?)\s+kepada\s+anda/i,
   // "You have received RM23.50 from AHMAD ALI"
   /(?:you(?:'ve| have)?\s+)?(?:just\s+)?received\s+(?:RM|MYR)\s*([\d,]+\.?\d*)(?:\s+from\s+([^.,;]+))?/i,
   // "RM23.50 has been credited to your account from ALI"
@@ -13767,16 +13784,21 @@ function parseIncomingTransfer(text, pkg) {
   if (INCOMING_DENY.some((re) => re.test(raw))) return null;
   // A credit verb has to be present somewhere — "RM50 to ALI" is a payment
   // going the other way and must never look like a repayment.
-  if (!/\b(received|credited|incoming|menerima|diterima|masuk)\b/i.test(raw)) return null;
+  if (!/\b(received|credited|incoming|menerima|diterima|masuk)\b/i.test(raw) && !TXN_CREDIT_CUE.test(raw)) return null;
   for (const re of TXN_INCOMING_PATTERNS) {
     const m = raw.match(re);
     if (!m) continue;
-    const amount = parseAmount(m[1], "MYR");
+    const g = m.groups || {};
+    // The sender-first shapes only count when the text says it came TO you.
+    if (g.amt && !TXN_CREDIT_CUE.test(raw)) continue;
+    const amount = parseAmount(g.amt || m[1], "MYR");
     if (!Number.isFinite(amount) || amount <= 0) continue;
+    const who = String(g.who || m[2] || "").trim().replace(/\s{2,}/g, " ");
+    if (g.who && (/^(?:you|i|we)\b/i.test(who) || /\b(?:you|have)$/i.test(who))) continue;
     const provider = providerForPackage(pkg);
     return {
       amount,
-      sender: m[2] ? String(m[2]).trim().replace(/\s{2,}/g, " ").slice(0, 60) : "",
+      sender: who.slice(0, 60),
       currency: "MYR",
       raw,
       providerId: provider ? provider.id : "",
@@ -13845,6 +13867,10 @@ function captureTime(data) {
 }
 
 function queuePendingTxn(data) {
+  // Direction first, on title + body together: money coming to the reader is
+  // never booked as a spend, whatever debit pattern happens to match.
+  const whole = captureTexts(data).join(" ");
+  if (TXN_CREDIT_CUE.test(whole) && !/\byou(?:'|’)?(?:ve| have)?\s+(?:successfully\s+)?(?:transferred|paid|spent|sent)\b/i.test(whole)) return false;
   let parsed = null;
   for (const text of captureTexts(data)) { parsed = parseBankText(text, data.package || ""); if (parsed) break; }
   if (!parsed) return false;
