@@ -188,6 +188,14 @@ public class NotificationListenerPlugin extends Plugin {
         call.resolve(ret);
     }
 
+    /** The app's pending-review count, for the persistent notification ("2 to review"). */
+    @PluginMethod
+    public void setPendingCount(PluginCall call) {
+        Integer n = call.getInt("count", 0);
+        DuitfulQuickAddNotifier.setPendingCount(getContext(), n == null ? 0 : n);
+        call.resolve();
+    }
+
     /** Called by DuitfulNotificationListenerService. */
     public static void emit(String pkg, String title, String text) {
         emit(pkg, title, text, true);

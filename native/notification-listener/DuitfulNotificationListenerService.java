@@ -205,6 +205,8 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
             // If the encrypted store failed, hand the text to an open app
             // directly rather than nudging it to drain an empty store.
             NotificationListenerPlugin.emit(pkg, title, text, stored != DuitfulCaptureStore.FAILED);
+            // "1 to review" on the persistent notification, with the app closed.
+            if (stored == DuitfulCaptureStore.STORED) DuitfulQuickAddNotifier.refresh(getApplicationContext());
         } catch (Exception ignored) {}
     }
 

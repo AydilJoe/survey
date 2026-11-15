@@ -4585,6 +4585,7 @@ function renderPending() {
     const next = Math.min(...waiting.map((p) => PENDING_HOLD_MS - (now - p.createdAt)));
     renderPending._hold = setTimeout(renderPending, Math.max(500, next + 50));
   }
+  syncPendingCount();
   if (items.length === 0) { card.hidden = true; return; }
   card.hidden = false;
   if (sub) sub.textContent = `${items.length} to review`;
@@ -4845,6 +4846,20 @@ document.getElementById("own-accounts-list")?.addEventListener("click", (e) => {
   const b = e.target instanceof Element ? e.target.closest("[data-own-remove]") : null;
   if (b) removeOwnAccount(b.dataset.ownRemove);
 });
+
+/* The persistent notification's "2 to review": the number of pending cards
+   (held transfers included — they show within the minute), sent whenever it
+   changes and once after each unlock. A count only; nothing else leaves. */
+let _pendingCountSent = null;
+function syncPendingCount(force) {
+  if (!aesKey || !isNative()) return;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  if (!NL || typeof NL.setPendingCount !== "function") return;
+  const n = (state.pendingTxns || []).length;
+  if (!force && n === _pendingCountSent) return;
+  _pendingCountSent = n;
+  try { Promise.resolve(NL.setPendingCount({ count: n })).catch(() => {}); } catch {}
+}
 
 /* Money in: "+RM 0.10 · From ALI BIN ABU". A refund, reversal or cashback
    says so in its name. */
@@ -6814,7 +6829,7 @@ function storedPromoCode() {
    Nothing here is a Pro gate and nothing writes outside the vault: a quick
    action is a launch intent, not data. */
 
-const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving"]);
+const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving", "review"]);
 // Held until the app is genuinely usable. Survives the whole unlock flow.
 let pendingQuickAction = null;
 
@@ -6861,6 +6876,12 @@ function runQuickAction(name) {
     case "scan":
       document.getElementById("tabbtn-dashboard")?.click();
       document.getElementById("btn-scan-receipt")?.click();
+      break;
+    case "review":
+      // "2 to review" on the persistent notification: drain, then the cards.
+      document.getElementById("tabbtn-dashboard")?.click();
+      drainCaptured().catch(() => {});
+      setTimeout(() => document.getElementById("pending-card")?.scrollIntoView({ block: "start" }), 150);
       break;
     case "split":
       document.getElementById("tabbtn-dashboard")?.click();
@@ -11126,6 +11147,7 @@ const RELEASE_NOTES = {
   "1.56.2": [
     "<strong>More banks</strong> — on Android, alerts from HSBC, OCBC, UOB TMRW, Standard Chartered, Alliance Bank, Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON Bank, Boost Bank, Ryt Bank and ShopeePay are now read too.",
     "<strong>Check auto-capture</strong> — Settings → Bank alerts shows whether Duitful can see your bank alerts and what it did with each, with a report you can copy to us (no message text or amounts). A repeated transfer with the same wording is no longer skipped, and two alerts arriving seconds apart are both picked up.",
+    "<strong>\"2 to review\"</strong> — on Android, the \"Log a spend\" notification now shows how many bank alerts are waiting, even with Duitful closed, with a Review button. Only the number shows, never amounts or names.",
     "<strong>Not picked up?</strong> — send us the wording of a bank alert Duitful missed or read wrongly, pasted or from a screenshot (read on your phone; only the cleaned words are sent, never the picture). Names and numbers are removed on your phone first, you see exactly what is sent, and it goes from your own email app.",
   ],
   "1.56.1": [
@@ -12181,6 +12203,7 @@ async function handleUnlock(passcode, { silent = false } = {}) {
   drainQuickAdd().catch(() => {});
   drainCaptured().catch(() => {});
   refreshAiStatus().catch(() => {});
+  syncPendingCount(true);
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -12220,6 +12243,7 @@ async function handleSetup(passcode, confirm, initialState, { open = false } = {
   drainQuickAdd().catch(() => {});
   drainCaptured().catch(() => {});
   refreshAiStatus().catch(() => {});
+  syncPendingCount(true);
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});

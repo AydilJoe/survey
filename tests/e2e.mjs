@@ -2347,6 +2347,58 @@ check('"Wrong?" opens the share sheet with the alert, its app, and a redacted, e
 check('the email goes to hello@duitful.app with the edited redacted text and the app id, never the raw name',
   share.mailto.startsWith('mailto:hello@duitful.app?') && /my\.com\.tngdigital\.ewallet/.test(decodeURIComponent(share.mailto))
   && /\(edited\)/.test(decodeURIComponent(share.mailto)) && !/ALI BIN ABU/.test(decodeURIComponent(share.mailto)), share.mailto.slice(0, 200));
+/* ── "2 to review" on the persistent notification: JS keeps the count current (1.56.2) ── */
+const counted = await S(async () => {
+  const keepCap = window.Capacitor;
+  const sent = [];
+  let store = [];
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const t0 = Date.now() - 30 * 60000;
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { NotificationListener: {
+    setPendingCount: async (o) => { sent.push(o.count); },
+    drainCaptured: async () => { const items = store; store = []; return { items }; },
+  } } };
+  const out = {};
+  try {
+    state.pendingTxns = [];
+    syncPendingCount(true);
+    out.start = sent.slice(-1)[0];
+    // A drain: a TNG → MAE move (one card) and a lone credit (another) = 2.
+    store = [
+      { p: TNG, ti: '', tx: 'You have successfully transferred RM 0.10 to ALI BIN ABU.', t: t0 },
+      { p: MAE, ti: '', tx: 'You’ve just received RM 0.10 in your account ending ***1234.', t: t0 + 5000 },
+      { p: MAE, ti: '', tx: 'You’ve just received RM 1,250.00 in your account ending ***1234.', t: t0 - 3600000 },
+    ];
+    await drainCaptured();
+    out.afterDrain = sent.slice(-1)[0];
+    out.cards = state.pendingTxns.length;
+    // Accept the income, then confirm the move: 1, then 0.
+    renderAll();
+    document.querySelector('#pending-list [data-action="pending-income-accept"]').click();
+    out.afterAccept = sent.slice(-1)[0];
+    document.querySelector('#pending-list [data-action="pending-move-accept"]').click();
+    out.afterConfirm = sent.slice(-1)[0];
+    // A dismiss counts too.
+    window.duitfulIncoming({ package: MAE, text: 'You have received RM 12.00 from ALI BIN ABU.', postedAt: t0 });
+    out.afterNew = sent.slice(-1)[0];
+    document.querySelector('#pending-list [data-action="pending-dismiss"]').click();
+    out.afterDismiss = sent.slice(-1)[0];
+    out.onlyNumbers = sent.every((n) => typeof n === 'number');
+    out.review = quickActionFromUrl('duitful://action/review');
+  } finally { window.Capacitor = keepCap; state.pendingTxns = []; save(); renderAll(); }
+  return out;
+});
+check('persistent notification count: JS sends the number of cards to review after a drain (a move counts once)',
+  counted.start === 0 && counted.cards === 2 && counted.afterDrain === 2, JSON.stringify(counted));
+check('persistent notification count: back down after accepting, confirming and dismissing — never stale at 0 cards',
+  counted.afterAccept === 1 && counted.afterConfirm === 0 && counted.afterNew === 1 && counted.afterDismiss === 0 && counted.onlyNumbers, JSON.stringify(counted));
+check('the notification\'s Review action opens the app on the pending cards (duitful://action/review)', counted.review === 'review', String(counted.review));
+{
+  const notifier = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulQuickAddNotifier.java'), 'utf8');
+  check('native: the count notification shows only a number (and a public lock-screen version with only the count), on the same quiet channel',
+    /waiting \+ " to review"/.test(notifier) && /setPublicVersion/.test(notifier) && !/new NotificationChannel\([^)]*review/i.test(notifier) && /REVIEW_TEXT = "From bank alerts · tap to check"/.test(notifier), '');
+}
+
 /* ── "Use a screenshot": OCR on the phone, text only, never the image (1.56.2) ── */
 const shot = await S(async () => {
   const keepOcr = window.ocrAlertScreenshot, keepShare = navigator.share;
