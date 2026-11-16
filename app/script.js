@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.56.5";
+const APP_VERSION = "1.56.6";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -6027,6 +6027,29 @@ function lookupPromoCode(raw) {
 // until the next app launch. Retry through deviceready + short polling
 // for ~5s so the store is ready by the time the user reaches the paywall.
 let iapInitialized = false;
+// What the store said, for the "isn't available" message: init errors, the
+// last store error, and what the Google Play adapter loaded. No personal
+// data, only codes, messages and product ids.
+const iapDiag = { initErrors: [], lastError: null };
+function iapDiagText() {
+  const sdk = window.CdvPurchase;
+  if (!sdk || !sdk.store) return "store plugin missing";
+  const parts = [];
+  try {
+    const plat = nativePlatform() === "ios" ? sdk.Platform.APPLE_APPSTORE : sdk.Platform.GOOGLE_PLAY;
+    const ad = typeof sdk.store.getAdapter === "function" ? sdk.store.getAdapter(plat) : null;
+    if (!ad) parts.push("no adapter");
+    else {
+      parts.push(`ready ${ad.ready ? "yes" : "no"}`, `supported ${ad.isSupported ? "yes" : "no"}`);
+      const ids = (ad.products || []).map((p) => p.id);
+      parts.push(`products ${ids.length ? ids.join("+") : "none"}`);
+    }
+  } catch (e) { parts.push("adapter ?"); }
+  const err = (e) => `${e.code || "?"} ${String(e.message || "").slice(0, 80)}`.trim();
+  if (iapDiag.initErrors.length) parts.push(`init: ${iapDiag.initErrors.map(err).join("; ")}`);
+  if (iapDiag.lastError) parts.push(`error: ${err(iapDiag.lastError)}`);
+  return parts.join(" · ");
+}
 let iapInitTries = 0;
 const IAP_MAX_INIT_TRIES = 25;
 
@@ -6137,6 +6160,7 @@ function initIAP() {
     if (typeof sdk.store.error === "function") {
       sdk.store.error((err) => {
         console.warn("IAP store error", err);
+        iapDiag.lastError = err ? { code: err.code, message: err.message } : null;
         const code = err && err.code;
         const isCancel = code === sdk.ErrorCode?.PAYMENT_CANCELLED
           || code === sdk.ErrorCode?.CANCELED
@@ -6148,10 +6172,15 @@ function initIAP() {
         });
       });
     }
-    sdk.store.initialize([
+    const init = sdk.store.initialize([
       { platform: sdk.Platform.APPLE_APPSTORE },
       { platform: sdk.Platform.GOOGLE_PLAY },
     ]);
+    if (init && typeof init.then === "function") {
+      init.then((errs) => {
+        iapDiag.initErrors = (errs || []).map((e) => ({ code: e && e.code, message: e && e.message }));
+      }).catch((e) => { iapDiag.initErrors = [{ code: "init", message: String(e && e.message || e) }]; });
+    }
     iapInitialized = true;
   } catch (e) { console.warn("IAP init failed", e); }
 }
@@ -6166,16 +6195,21 @@ async function purchasePro(sku = PRODUCT_ID) {
   if (!iapInitialized) return { ok: false, message: "Store still initialising. Try again in a moment, or restart the app." };
   if (purchaseSettler) return { ok: false, message: "A purchase is already in progress." };
 
-  const product = sdk.store.get(sku);
+  let product = sdk.store.get(sku);
+  if (!product && typeof sdk.store.update === "function") {
+    // One fresh ask before giving up: the product list may not have loaded.
+    try { await Promise.race([sdk.store.update(), new Promise((r) => setTimeout(r, 6000))]); } catch {}
+    product = sdk.store.get(sku);
+  }
   if (!product) {
-    if (sku === PRODUCT_ID) return { ok: false, message: "Pro isn't available from the store yet. Restart the app and try again." };
+    if (sku === PRODUCT_ID) return { ok: false, message: `Pro isn't available from the store yet. Restart the app and try again. (Store: ${iapDiagText()})` };
     // A promo price the store doesn't have: go back to the normal price on
     // screen and let them buy that, rather than a dead end.
     resetPromoState();
     return { ok: false, message: `The launch price isn't available right now. Unlock Pro is ${PRO_PRICE_LABEL}. Tap it again to buy.` };
   }
   const offer = product.getOffer();
-  if (!offer) return { ok: false, message: "No offer available." };
+  if (!offer) return { ok: false, message: `Pro has no price from the store yet. (Store: ${iapDiagText()})` };
 
   // offer.order() resolves when the platform sheet closes — that's NOT when
   // Pro unlocks. The verified/error handlers above call settlePurchase()
@@ -11167,6 +11201,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.6": [
+    "<strong>Buying Pro on Android</strong> — Unlock Pro asks Google Play once more before giving up, and says what the store reported if it still can't buy.",
+  ],
   "1.56.5": [
     "<strong>Buying Pro on Android works again</strong> — if Unlock Pro failed for you before, it's fixed. What's new now takes you straight back to it.",
   ],
