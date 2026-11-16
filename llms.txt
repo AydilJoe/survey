@@ -27,8 +27,11 @@
 - Pricing: **Free forever**, with 3 debts (one may be a pay-later
   plan) and the payoff date,
   reminders and copy-last-month, plus 5 savings goals, 3 investment
-  holdings and 5 receipt scans a month. Islamic financing is never
-  counted toward the debt limit. **Pro is RM 19.90 one-time, lifetime**:
+  holdings and 5 receipt scans a month, and manual "Back up now" to
+  iCloud / Google Drive. Islamic financing is never
+  counted toward the debt limit. An optional 14-day Pro trial starts only
+  if the user chooses it; nothing is charged and nothing is deleted when
+  it ends. **Pro is RM 19.90 one-time, lifetime**:
   every debt and pay-later/instalment plan (Atome, SPayLater), automatic
   encrypted iCloud / Google Drive backup, unlimited scans, goals and
   holdings, budget pools and multi-currency entries.
@@ -68,9 +71,30 @@
   Bahasa Melayu keywords. Runs on-device over the unlocked data only;
   nothing is indexed to disk or sent anywhere.
 - **Auto-capture (Android)**: opt-in NotificationListenerService reads
-  bank/e-wallet notifications (Maybank, CIMB, Public Bank, RHB, Hong
-  Leong, HSBC, TNG eWallet, GrabPay, Boost, Shopee Pay) and proposes
-  draft entries. iOS does not permit cross-app notification reading.
+  notifications from a fixed list of Malaysian bank and e-wallet apps
+  (each id checked on Google Play): Maybank MAE, CIMB OCTO, Public Bank
+  (MyPB), RHB, Hong Leong (HLB Connect), AmBank (AmOnline), Bank Islam
+  (BIMB), BSN, HSBC, OCBC, UOB (TMRW), Standard Chartered, Alliance Bank,
+  Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON
+  Bank, Boost Bank, Ryt Bank, Touch 'n Go eWallet, Boost, ShopeePay,
+  GrabPay, BigPay, Setel, Atome and SPayLater; it proposes
+  draft spends and income for the user to confirm; a transfer between the
+  user's own accounts is shown as one "moved" item that books nothing.
+  Supported phones can use on-device AI (Gemini Nano) to label alerts the
+  rules can't read; nothing leaves the phone. iOS does not permit
+  cross-app notification reading.
+- **On-device AI**: optional, on by default, and off with one switch in
+  Settings (rules only). Android: Gemini Nano through Google's ML Kit GenAI
+  (AICore), only on supported phones
+  (https://developers.google.com/ml-kit/genai lists them); it reads
+  hard-to-read receipts and labels bank / e-wallet alerts the rules can't
+  place, including spotting transfers between the user's own accounts.
+  iPhone (iOS 26): Apple's on-device Foundation Models, for receipts only
+  (there is no notification capture on iPhone). Rules run first and win;
+  the AI never sets an amount — totals and amounts must be printed on the
+  receipt or alert. It runs entirely on the phone: no text or image is
+  uploaded, and there is no cloud AI, chat or financial advice. Phones
+  without it work the same with Duitful's rules and ML Kit.
 - **Multi-currency**: MYR, SGD, USD, EUR, GBP, JPY, THB, IDR with daily
   FX from the open-source @fawazahmed0/exchange-api.
 - **CSV import / export**: Monarch, YNAB, Money Lover, generic Malaysian
@@ -258,7 +282,8 @@ diffed against the repository. The hosted product is not a subscription
   face check. The passcode stays the only encryption key; biometric data
   never reaches Duitful; the web app has no biometric surface.
 - Lost-passcode policy: data is unrecoverable by design — Duitful
-  cannot reset it. Pro encrypted backup export is the recovery path.
+  cannot reset it. An encrypted backup (manual is free, automatic is Pro)
+  or a CSV export is the recovery path.
 
 ## Contact
 

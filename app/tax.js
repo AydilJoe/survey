@@ -1767,7 +1767,7 @@ function taxResetRules() {
 }
 
 // Reports filters do.
-const taxUi = { reliefOpen: "", showAll: false, filter: "all", inbox: 0 };
+const taxUi = { reliefOpen: "", showAll: false, filter: "all", inbox: 0, rulesOpen: false };
 
 function renderTax() {
   const t = taxState();
@@ -1783,6 +1783,14 @@ function renderTax() {
   show("today-tax-link", true);
   document.querySelectorAll("[data-tax-term]").forEach((el) => { el.textContent = TAX_TERMS[el.dataset.taxTerm] || el.textContent; });
   taxRenderRules();
+  // Malaysia's rules are built in, so for a ringgit vault with no rules of
+  // its own the "Tax rules" card is one quiet link at the foot of the page.
+  // Anywhere else it is the way in, and stays a card.
+  const cur = typeof currentCurrency === "function" ? currentCurrency() : "MYR";
+  const malaysia = !t.rules && cur === "MYR";
+  show("tax-rules-card", !malaysia || taxUi.rulesOpen);
+  show("btn-tax-rules-show", malaysia && !taxUi.rulesOpen);
+  show("btn-tax-disable", on);
   renderTaxHome();
   if (!t.enabled && myr) taxRenderWelcome();
   for (const id of ["tax-card", "tax-reliefs-card", "tax-claims-card", "tax-details-card"]) show(id, on);
@@ -1811,8 +1819,12 @@ function taxRenderWelcome() {
   const f = taxFound(year);
   const box = taxEl("tax-found");
   box.hidden = !f.n;
+  // Lead with this person's own number when their spending has one.
+  taxEl("tax-welcome-title").innerHTML = f.n
+    ? `${amt(taxWhole(f.total))} of your spending looks claimable`
+    : "See your likely tax refund";
   if (!f.n) { taxEl("tax-found-list").innerHTML = ""; return; }
-  taxEl("tax-found-title").innerHTML = `We found <strong>${f.n} spend${f.n === 1 ? "" : "s"}</strong> in ${year} that may count — ${amt(f.total)}`;
+  taxEl("tax-found-title").textContent = `From ${f.n} spend${f.n === 1 ? "" : "s"} in ${year}`;
   taxEl("tax-found-list").innerHTML = f.items.slice(0, 3).map(({ entry, relief }) => `
     <li>
       <div class="tax-row-main">
@@ -2046,45 +2058,49 @@ function taxRenderClaims(claims) {
 }
 
 /* 5. Your details: a summary that opens the form at the right field. */
-function taxRenderDetails(year, s) {
+function taxFamilyText() {
   const t = taxState();
-  const f = taxFigures(year);
   const fam = [];
   if (t.spouse) fam.push("spouse with no income");
   const kids = t.children + t.childrenPre + t.childrenTertiary;
   if (kids) fam.push(`${kids} child${kids === 1 ? "" : "ren"}`);
   if (t.disabledSelf || t.disabledSpouse || t.disabledChildren) fam.push("disability relief");
-  const fact = (field, label, value, sub, warn) => `<li><button type="button" class="tax-fact${warn ? " is-warn" : ""}" data-tax-numbers="${field}">
-      <span class="tax-fact-label">${label}</span>
-      <span class="tax-fact-value">${value}</span>
-      ${sub ? `<span class="tax-fact-sub">${sub}</span>` : ""}
-    </button></li>`;
-  const incomeSub = s.inputs.incomeSource === "typed" ? "typed by you"
-    : s.inputs.income > 0 ? (s.inputs.projected ? `Monthly tab, ${s.inputs.months} month${s.inputs.months === 1 ? "" : "s"} × 12` : "Monthly tab") : "";
-  taxEl("tax-facts").innerHTML = [
-    fact("tax-in-income", "Gross income", s.inputs.income > 0 ? amt(s.inputs.income) : "Not added", incomeSub, !(s.inputs.income > 0)),
-    fact("tax-in-pcb", `${TAX_TERMS.withholding} paid`, f.pcb ? amt(f.pcb) : "Not added", f.pcb ? "" : "from your payslips", !f.pcb),
-    fact("tax-in-epf", `Your ${TAX_TERMS.pension}`, f.epf ? amt(f.epf) : "Not added", ""),
-    fact("tax-in-children", "Family", fam.length ? escapeHtml(fam.join(", ").replace(/^./, (c) => c.toUpperCase())) : "Just me", ""),
-  ].join("");
-  taxEl("tax-income-source").innerHTML = s.inputs.incomeSource === "typed"
-    ? `Using the yearly income you typed: ${amt(s.inputs.income)}.`
-    : s.inputs.income > 0
-      ? `From your Monthly income: ${amt(s.inputs.income)}${s.inputs.projected ? ` (average of ${s.inputs.months} logged month${s.inputs.months === 1 ? "" : "s"}, times 12)` : ""}. If you log take-home pay, type your gross salary instead.`
-      : "";
-  const setVal = (id, v) => { const el = taxEl(id); if (el && document.activeElement !== el) el.value = v ? v : ""; };
-  setVal("tax-in-income", f.income);
-  setVal("tax-in-pcb", f.pcb);
-  setVal("tax-in-epf", f.epf);
-  for (const [id, key] of TAX_NUM_FIELDS) {
-    const el = taxEl(id);
-    if (el && document.activeElement !== el) el.value = t[key] || 0;
+  return fam.length ? fam.join(", ").replace(/^./, (c) => c.toUpperCase()) : "Just me";
+}
+
+/* 5. Your details: one line when the salary is in, one prompt when it isn't. */
+function taxRenderDetails(year, s) {
+  const f = taxFigures(year);
+  const hasIncome = s.inputs.income > 0;
+  const wh = escapeHtml(TAX_TERMS.withholding), pen = escapeHtml(TAX_TERMS.pension);
+  const bit = (html, cls) => `<span class="tax-facts-bit${cls ? " " + cls : ""}">${html}</span>`;
+  taxEl("tax-facts").innerHTML = hasIncome ? [
+    bit(amt(taxWhole(s.inputs.income))),
+    f.pcb ? bit(`${wh} ${amt(taxWhole(f.pcb))}`) : bit(`${wh} not added`, "tax-facts-none"),
+    f.epf ? bit(`${pen} ${amt(taxWhole(f.epf))}`) : bit(`${pen} not added`, "tax-facts-none"),
+    escapeHtml(taxFamilyText()),
+  ].join(" · ") : "";
+  // One thing to do next, instead of a tile per missing figure.
+  const prompt = taxEl("tax-details-prompt");
+  const need = !hasIncome ? "income" : !f.pcb ? "pcb" : "";
+  prompt.hidden = !need;
+  taxEl("btn-tax-numbers").hidden = !hasIncome;
+  if (need) {
+    const add = taxEl("tax-details-add");
+    taxEl("tax-details-prompt-text").textContent = need === "income"
+      ? "Add your salary to see your refund."
+      : `Add your ${TAX_TERMS.withholding} to see your refund, not just your tax bill.`;
+    add.textContent = need === "income" ? "Add salary" : `Add ${TAX_TERMS.withholding}`;
+    add.dataset.taxNumbers = need === "income" ? "tax-in-income" : "tax-in-pcb";
   }
-  for (const [id, key] of TAX_FLAG_FIELDS) taxEl(id).checked = !!t[key];
-  taxEl("tax-footnote").textContent =
-    (TAX_CUSTOM
-      ? `Relief limits and tax bands come from the ${TAX_TABLE_LABEL} rules you added${TAX_COUNTRY ? ` for ${TAX_COUNTRY}` : ""}. An estimate for planning — check ${TAX_TERMS.authority}'s figures before you file.`
-      : `Relief limits follow the LHDN ${TAX_TABLE_LABEL} schedule; tax bands are the current resident rates. An estimate for planning — check LHDN's figures before you file.`);
+  taxEl("tax-income-source").innerHTML = s.inputs.incomeSource === "typed" ? ""
+    : hasIncome
+      ? `Using ${amt(s.inputs.income)} a year from your Monthly tab${s.inputs.projected ? ` (${s.inputs.months} month${s.inputs.months === 1 ? "" : "s"} × 12)` : ""}. If that is take-home pay, type your gross salary here.`
+      : "";
+  taxWizFill();
+  taxEl("tax-footnote").textContent = TAX_CUSTOM
+    ? `An estimate from the ${TAX_TABLE_LABEL} rules you added${TAX_COUNTRY ? ` for ${TAX_COUNTRY}` : ""}. Check ${TAX_TERMS.authority}'s figures before you file.`
+    : `An estimate from the LHDN ${TAX_TABLE_LABEL} schedule. Check LHDN's figures before you file.`;
 }
 
 /* Reports: the way in, with the number. */
@@ -2102,12 +2118,130 @@ function taxRenderEntry(year, s, pending, claims) {
   taxEl("tax-entry-sub").textContent = bits.join(" · ") || "Claims, receipts and your refund";
 }
 
+/* ---------- Your details: three steps (Salary, PCB and EPF, Family) ----------
+   Presentation only. What is stored never changes shape: income, PCB and EPF
+   are yearly figures in state.tax.figures[year]; a Monthly amount is saved
+   as 12 times itself. */
+const TAX_WIZ_STEPS = 3;
+// Money inputs: element id → figure key and which Monthly / Yearly switch it follows.
+const TAX_MONEY_FIELDS = { "tax-in-income": ["income", "pay"], "tax-in-pcb": ["pcb", "ded"], "tax-in-epf": ["epf", "ded"] };
+const taxWiz = { step: 0, back: false, mode: { pay: "m", ded: "m" }, famOpen: false };
+
+const taxCents = (n) => Math.round((Number(n) || 0) * 100);
+// A yearly figure that is a whole number of sen a month can be shown as Monthly.
+const taxDividesByTwelve = (yearly) => taxCents(yearly) % 12 === 0;
+function taxWizShown(yearly, mode) {
+  return mode === "m" ? Math.round(taxCents(yearly) / 12) / 100 : Math.round(taxCents(yearly)) / 100;
+}
+
+function taxWizStepOf(id) {
+  const el = id && taxEl(id);
+  const step = el && el.closest("[data-tax-step]");
+  return step ? Number(step.dataset.taxStep) : 0;
+}
+
+// The yearly total a Monthly amount comes to, under its field.
+function taxWizTotal(id) {
+  const [, group] = TAX_MONEY_FIELDS[id];
+  const out = taxEl(`tax-total-${id.slice(7)}`);
+  const v = taxNumber(taxEl(id));
+  out.innerHTML = taxWiz.mode[group] === "m" && v > 0 ? `= ${amt(Math.round(v * 1200) / 100)} a year` : "";
+}
+
+// Paints the dialog from what is stored. Safe to call any time; a field
+// being typed in is left alone.
+function taxWizFill() {
+  const dlg = taxEl("tax-numbers-dialog");
+  if (!dlg) return;
+  const t = taxState();
+  const f = taxFigures(taxYear());
+  for (const [id, [key, group]] of Object.entries(TAX_MONEY_FIELDS)) {
+    const el = taxEl(id);
+    if (document.activeElement !== el) {
+      const v = taxWizShown(f[key], taxWiz.mode[group]);
+      el.value = v ? v : "";
+    }
+    taxWizTotal(id);
+  }
+  dlg.querySelectorAll("[data-tax-period]").forEach((b) => {
+    const [group, mode] = b.dataset.taxPeriod.split(":");
+    const on = taxWiz.mode[group] === mode;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  dlg.querySelectorAll("[data-tax-per]").forEach((el) => { el.textContent = taxWiz.mode[el.dataset.taxPer] === "m" ? "a month" : "a year"; });
+  for (const [id, key] of TAX_NUM_FIELDS) {
+    const n = t[key] || 0;
+    taxEl(id).value = n;
+    dlg.querySelector(`[data-tax-dec="${id}"]`).disabled = n <= 0;
+    dlg.querySelector(`[data-tax-inc="${id}"]`).disabled = n >= 20;
+  }
+  for (const [id, key] of TAX_FLAG_FIELDS) taxEl(id).checked = !!t[key];
+  const kids = TAX_NUM_FIELDS.some(([, key]) => t[key] > 0);
+  const flags = TAX_FLAG_FIELDS.some(([, key]) => t[key]);
+  const famOpen = taxWiz.famOpen || kids;
+  taxEl("tax-fam-fields").hidden = !famOpen;
+  taxEl("tax-fam-just").hidden = famOpen;
+  taxEl("tax-fam-add").setAttribute("aria-expanded", famOpen ? "true" : "false");
+  taxEl("tax-fam-just-text").textContent = flags ? "No children" : "Just me";
+  if (flags) taxEl("tax-more").open = true;
+  // Steps, dots and buttons.
+  const last = taxWiz.step === TAX_WIZ_STEPS - 1;
+  dlg.querySelectorAll("[data-tax-step]").forEach((sec) => { sec.hidden = Number(sec.dataset.taxStep) !== taxWiz.step; });
+  [...taxEl("tax-wiz-dots").children].forEach((dot, i) => {
+    dot.classList.toggle("is-on", i === taxWiz.step);
+    dot.classList.toggle("is-done", i < taxWiz.step);
+  });
+  taxEl("tax-wiz-back").hidden = taxWiz.step === 0;
+  taxEl("tax-numbers-done").textContent = last ? "Done" : "Next";
+}
+
+// Saves a money field as its yearly figure. Only a real edit writes: a
+// yearly amount merely looked at in Monthly keeps its exact stored value.
+function taxWizCommit(id) {
+  const [key, group] = TAX_MONEY_FIELDS[id];
+  const mode = taxWiz.mode[group];
+  const typed = Math.round(taxCents(taxNumber(taxEl(id)))) / 100;
+  const stored = taxFigures(taxYear())[key] || 0;
+  if (typed === taxWizShown(stored, mode)) return;
+  taxSetFigure(key, mode === "m" ? Math.round(typed * 1200) / 100 : typed);
+}
+
+function taxWizGo(step) {
+  const dlg = taxEl("tax-numbers-dialog");
+  for (const id of Object.keys(TAX_MONEY_FIELDS)) taxWizCommit(id);
+  if (step >= TAX_WIZ_STEPS) { dlg.close(); return; }
+  taxWiz.back = step < taxWiz.step;
+  taxWiz.step = Math.max(0, step);
+  taxWizFill();
+  const sec = dlg.querySelector(`[data-tax-step="${taxWiz.step}"]`);
+  // Replay the entrance (CSS skips it under reduced motion).
+  sec.classList.remove("is-in", "is-back");
+  void sec.offsetWidth;
+  sec.classList.add("is-in");
+  sec.classList.toggle("is-back", taxWiz.back);
+  sec.querySelector("h3")?.focus();
+}
+
+// Opens at step 1 with what is stored filled in; a caller that names a field
+// (a "type your yearly income" link, the Add PCB prompt) lands on its step.
 function taxOpenNumbers(focusId) {
   const dlg = taxEl("tax-numbers-dialog");
   if (!dlg) return;
+  const t = taxState();
+  const f = taxFigures(taxYear());
+  // Monthly by default; a yearly figure that isn't a clean monthly amount
+  // opens as Yearly so it reads exactly as it was saved.
+  taxWiz.mode.pay = taxDividesByTwelve(f.income) ? "m" : "y";
+  taxWiz.mode.ded = taxDividesByTwelve(f.pcb) && taxDividesByTwelve(f.epf) ? "m" : "y";
+  taxWiz.famOpen = false;
+  taxEl("tax-more").open = TAX_FLAG_FIELDS.some(([, key]) => t[key]);
+  taxWiz.step = taxWizStepOf(focusId);
+  dlg.querySelectorAll(".tax-wiz-step").forEach((sec) => sec.classList.remove("is-in", "is-back"));
+  taxWizFill();
   if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
   const el = focusId && taxEl(focusId);
-  if (el) setTimeout(() => { el.focus(); if (el.select) el.select(); }, 30);
+  if (el && typeof el.focus === "function" && el.tagName === "INPUT") setTimeout(() => { el.focus(); if (el.select) el.select(); }, 30);
 }
 
 /* ---------- export ---------- */
@@ -2218,10 +2352,39 @@ document.addEventListener("click", (e) => {
   else if (hit("#tax-inbox-next")) { taxUi.inbox++; renderTax(); }
   else if ((b = hit("[data-tax-numbers]"))) taxOpenNumbers(b.dataset.taxNumbers);
   else if (hit("#btn-tax-numbers")) taxOpenNumbers();
-  else if (hit("#tax-numbers-done")) taxEl("tax-numbers-dialog").close();
+  else if (hit("#tax-wiz-back")) taxWizGo(taxWiz.step - 1);
+  else if (hit("#tax-wiz-skip")) taxWizGo(taxWiz.step + 1);
+  else if ((b = hit("[data-tax-period]"))) {
+    const [group, mode] = b.dataset.taxPeriod.split(":");
+    // Keep what was typed before the switch, then show it the other way.
+    for (const [id, [, g]] of Object.entries(TAX_MONEY_FIELDS)) if (g === group) taxWizCommit(id);
+    taxWiz.mode[group] = mode;
+    taxWizFill();
+  }
+  else if ((b = hit("[data-tax-dec], [data-tax-inc]"))) {
+    const id = b.dataset.taxDec || b.dataset.taxInc;
+    const key = (TAX_NUM_FIELDS.find(([fid]) => fid === id) || [])[1];
+    if (key) {
+      const t = taxState();
+      t[key] = Math.max(0, Math.min(20, (t[key] || 0) + (b.dataset.taxInc ? 1 : -1)));
+      save(); renderTax();
+      // A button that just reached its limit is disabled: keep focus in the stepper.
+      if (b.disabled) b.parentElement.querySelector("button:not(:disabled)")?.focus();
+    }
+  }
+  else if (hit("#tax-fam-add")) {
+    taxWiz.famOpen = true;
+    taxWizFill();
+    taxEl("tax-fam-fields").querySelector("[data-tax-inc]")?.focus();
+  }
+  else if (hit("#btn-tax-rules-show")) {
+    taxUi.rulesOpen = true;
+    renderTax();
+    taxEl("tax-rules-card").scrollIntoView({ block: "nearest" });
+    taxEl("btn-tax-rules").focus();
+  }
   else if (hit("#btn-tax-disable")) {
     if (confirm("Stop tracking tax relief? Your claims and receipts are kept; the tax page just hides.")) {
-      taxEl("tax-numbers-dialog").close();
       taxState().enabled = false; save(); renderAll();
     }
   }
@@ -2272,14 +2435,10 @@ taxEl("tax-rules-file")?.addEventListener("change", async (e) => {
 });
 taxEl("tax-rules-form")?.addEventListener("submit", (e) => e.preventDefault());
 
-["tax-in-income", "tax-in-pcb", "tax-in-epf"].forEach((id) => {
-  taxEl(id)?.addEventListener("change", (e) => taxSetFigure(id.slice(7), taxNumber(e.target)));
+Object.keys(TAX_MONEY_FIELDS).forEach((id) => {
+  taxEl(id)?.addEventListener("change", () => taxWizCommit(id));
+  taxEl(id)?.addEventListener("input", () => taxWizTotal(id));
 });
-for (const [id, key] of TAX_NUM_FIELDS) {
-  taxEl(id)?.addEventListener("change", (e) => {
-    taxState()[key] = Math.min(20, Math.round(taxNumber(e.target))); save(); renderTax();
-  });
-}
 for (const [id, key] of TAX_FLAG_FIELDS) {
   taxEl(id)?.addEventListener("change", (e) => { taxState()[key] = e.target.checked; save(); renderTax(); });
 }
@@ -2307,7 +2466,8 @@ taxEl("tax-receipt-dialog")?.addEventListener("close", () => {
 // Review modal: Esc / back closes it like "Stop for now".
 taxEl("tax-review-dialog")?.addEventListener("close", () => { if (taxReview) taxFinishReview(); });
 taxEl("tax-review-form")?.addEventListener("submit", (e) => e.preventDefault());
-taxEl("tax-numbers-form")?.addEventListener("submit", (e) => { e.preventDefault(); taxEl("tax-numbers-dialog").close(); });
+// Next, Done and Enter in a field all come through here.
+taxEl("tax-numbers-form")?.addEventListener("submit", (e) => { e.preventDefault(); taxWizGo(taxWiz.step + 1); });
 taxEl("tax-review-relief")?.addEventListener("change", () => {
   const it = taxReview && taxReview.items[taxReview.i];
   const e = it && state.dailyExpenses.find((x) => x.id === it.entryId);

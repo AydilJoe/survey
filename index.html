@@ -75,7 +75,8 @@
       "CSV export and import",
       "End-to-end on-device encryption",
       "LHDN tax relief finder and refund estimate from your spending, with receipts kept for e-Filing",
-      "Encrypted backup to your own iCloud or Google Drive (Pro)"
+      "Encrypted backup to your own iCloud or Google Drive (Pro)",
+      "On-device AI (Gemini Nano on supported Android phones; Apple’s on-device model for receipts on iOS 26) — reads tricky receipts and bank alerts, never invents amounts, nothing uploaded"
     ],
     "offers": [
       {
@@ -181,6 +182,11 @@
         "@type": "Question",
         "name": "What if I forget my passcode?",
         "acceptedAnswer": { "@type": "Answer", "text": "Nobody can recover it, not even us — that’s what keeps it private. Export a backup now and then from Settings." }
+      },
+      {
+        "@type": "Question",
+        "name": "Does Duitful use AI?",
+        "acceptedAnswer": { "@type": "Answer", "text": "Only on your phone, and only to help. On supported Android phones, Google’s on-device AI reads tricky receipts and bank alerts; on iPhone with iOS 26, Apple’s on-device model helps with receipts. It never invents amounts: totals must be printed on the receipt or alert. Nothing is uploaded, and you can switch it off in Settings. Without it, Duitful uses its own rules." }
       },
       {
         "@type": "Question",
@@ -1644,6 +1650,13 @@
 
     /* --------------- Benefits (v2 landing) --------------- */
     .benefits-grid { grid-template-columns: repeat(3, 1fr); }
+    /* On-device AI: three short points and one line on which phones. */
+    .ai-local { padding-top: 0; }
+    .ai-local .section-head { margin-bottom: 24px; }
+    .ai-local .feature h3 { font-size: 1.2rem; margin-bottom: 4px; }
+    .ai-local .feature p { font-size: 1rem; margin: 0; }
+    .ai-note { margin-top: 18px; font-size: 14.5px; color: var(--ink2); max-width: 720px; }
+    .ai-note a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
     .benefits .feature h3 { font-size: 1.2rem; margin-bottom: 4px; }
     .feature-link { color: inherit; text-decoration: none; }
     .feature-link span { color: var(--primary); }
@@ -1914,10 +1927,10 @@
     <div class="works-marquee">
       <div class="works-track">
         <div class="works-list">
-          <span>Maybank</span><span>CIMB</span><span>Public Bank</span><span>RHB</span><span>Hong Leong</span><span>HSBC</span><span>Bank Islam</span><span>TnG eWallet</span><span>GrabPay</span><span>Boost</span><span>BigPay</span><span>ShopeePay</span><span>Atome</span><span>SPayLater</span><span>Grab PayLater</span>
+          <span>Maybank</span><span>CIMB</span><span>Public Bank</span><span>RHB</span><span>Hong Leong</span><span>HSBC</span><span>Bank Islam</span><span>GXBank</span><span>AEON Bank</span><span>TnG eWallet</span><span>GrabPay</span><span>Boost</span><span>BigPay</span><span>ShopeePay</span><span>Atome</span><span>SPayLater</span><span>Grab PayLater</span>
         </div>
         <div class="works-list" aria-hidden="true">
-          <span>Maybank</span><span>CIMB</span><span>Public Bank</span><span>RHB</span><span>Hong Leong</span><span>HSBC</span><span>Bank Islam</span><span>TnG eWallet</span><span>GrabPay</span><span>Boost</span><span>BigPay</span><span>ShopeePay</span><span>Atome</span><span>SPayLater</span><span>Grab PayLater</span>
+          <span>Maybank</span><span>CIMB</span><span>Public Bank</span><span>RHB</span><span>Hong Leong</span><span>HSBC</span><span>Bank Islam</span><span>GXBank</span><span>AEON Bank</span><span>TnG eWallet</span><span>GrabPay</span><span>Boost</span><span>BigPay</span><span>ShopeePay</span><span>Atome</span><span>SPayLater</span><span>Grab PayLater</span>
         </div>
       </div>
     </div>
@@ -1964,6 +1977,34 @@
       <ul class="benefit-tags reveal" aria-label="Also inside">
         <li>PTPTN</li><li>Credit cards</li><li>Bill reminders</li><li>Monthly reports</li><li>iCloud &amp; Drive backup</li><li>Budget pools</li><li>Other currencies</li><li>Works offline</li><li>Tablets &amp; foldables</li>
       </ul>
+    </div>
+  </section>
+
+  <!-- ======================= ON-DEVICE AI ======================= -->
+  <section class="block ai-local" id="ai" aria-label="On-device AI">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">On-device AI</span>
+        <h2>AI that never leaves your <em style="font-style:italic; color:var(--primary)">phone</em>.</h2>
+      </div>
+      <div class="features-grid">
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></div>
+          <h3>Reads tricky receipts</h3>
+          <p>Your phone&rsquo;s own AI double-checks a hard-to-read receipt. Totals must be printed on it.</p>
+        </div>
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/></svg></div>
+          <h3>Understands bank alerts</h3>
+          <p>Sorts bank and e-wallet alerts, and spots money moved between your own accounts. Android.</p>
+        </div>
+        <div class="feature reveal">
+          <div class="feature-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg></div>
+          <h3>Private by design</h3>
+          <p>Runs on your phone. Nothing is uploaded. Switch it off in Settings.</p>
+        </div>
+      </div>
+      <p class="ai-note reveal">Android: <a href="https://developers.google.com/ml-kit/genai" target="_blank" rel="noopener">supported phones</a>. iPhone (iOS&nbsp;26): Apple&rsquo;s on-device model helps with receipts. Without it, everything still works.</p>
     </div>
   </section>
 
@@ -2103,6 +2144,13 @@
             <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
           <p class="answer">Nobody can recover it, not even us &mdash; that&rsquo;s what keeps it private. Export a backup now and then from Settings.</p>
+        </details>
+        <details class="faq-item reveal">
+          <summary>
+            Does Duitful use AI?
+            <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          </summary>
+          <p class="answer">Only on your phone, and only to help. On supported Android phones, Google&rsquo;s on-device AI reads tricky receipts and bank alerts; on iPhone with iOS 26, Apple&rsquo;s on-device model helps with receipts. It never invents amounts: totals must be printed on the receipt or alert. Nothing is uploaded, and you can switch it off in Settings. Without it, Duitful uses its own rules.</p>
         </details>
         <details class="faq-item reveal">
           <summary>

@@ -153,6 +153,73 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-56-3">
+    <span class="release-date">November 2026 &middot; v1.56.3</span>
+    <h2 class="release-title">Touch &rsquo;n Go money-in, read the right way round</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Android auto-capture:</strong> &ldquo;You&rsquo;ve received money! &hellip; has transferred RM&nbsp;x to you&rdquo; was read as a spend to &ldquo;you&rdquo;. It is now income from the sender; no pattern can name &ldquo;you&rdquo; as a payee, and title and body are checked for direction first.</li>
+      <li><span class="tag fix">fix</span><strong>Your other account:</strong> money from a name saved with &ldquo;This is my account&rdquo; is a move (&ldquo;Your other account &rarr; TNG&rdquo;) that books nothing, even without the matching transfer on this phone.</li>
+    </ul>
+  </article>
+
+  <article class="release" id="v1-56-2">
+    <span class="release-date">November 2026 &middot; v1.56.2</span>
+    <h2 class="release-title">More banks, and &ldquo;Not picked up?&rdquo;</h2>
+    <ul>
+      <li><span class="tag feat">feat</span><strong>15 more Malaysian apps</strong> for Android auto-capture: HSBC, OCBC, UOB TMRW, Standard Chartered, Alliance Bank (allianceonline and Alliance+), Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON Bank, Boost Bank, Ryt Bank and ShopeePay. Each app id checked on Google Play.</li>
+      <li><span class="tag feat">feat</span><strong>Share an alert&rsquo;s wording:</strong> &ldquo;Not picked up?&rdquo; and &ldquo;Wrong?&rdquo; open a preview with names, account, card, reference and phone numbers and emails removed on your phone. You can edit it, and it goes from your own email app to hello@duitful.app. Nothing is uploaded.</li>
+    </ul>
+  </article>
+
+  <article class="release" id="v1-56-1">
+    <span class="release-date">November 2026 &middot; v1.56.1</span>
+    <h2 class="release-title">On-device AI, in plain sight</h2>
+    <ul>
+      <li><span class="tag feat">feat</span><strong>Settings &rarr; On-device AI:</strong> shows &ldquo;On &middot; runs on this phone&rdquo;, &ldquo;Getting ready&rdquo; or &ldquo;Not available on this phone&rdquo;, with a switch. Off means rules only, for receipts and bank alerts.</li>
+      <li><span class="tag feat">feat</span><strong>Labelled:</strong> a capture card the AI helped read says &ldquo;Read by your phone&rsquo;s AI&rdquo;, and Home says hello once when AI is found. Android: supported phones (Google&rsquo;s list); iPhone (iOS&nbsp;26): receipts, with Apple&rsquo;s on-device model.</li>
+    </ul>
+  </article>
+
+  <article class="release" id="v1-56-0">
+    <span class="release-date">November 2026 &middot; v1.56.0</span>
+    <h2 class="release-title">Money in, and money moving between your own accounts</h2>
+    <ul>
+      <li><span class="tag feat">feat</span><strong>Money in:</strong> credits from your bank and e-wallet apps show up as pending income to confirm. Refunds, reversals and cashback are labelled. A credit that settles a split still only settles the split.</li>
+      <li><span class="tag feat">feat</span><strong>Moves:</strong> a transfer out of one app and the same amount arriving in another within 10 minutes become one &ldquo;Moved&rdquo; card that books nothing. &ldquo;This is my account&rdquo; remembers a name (encrypted, in your backup and CSV); manage it in Settings.</li>
+      <li><span class="tag feat">feat</span><strong>On-device AI:</strong> on phones with Gemini Nano, alerts the rules can&rsquo;t read are labelled by the phone&rsquo;s own model. The amount always comes from the alert text; promos and security codes are never captured.</li>
+    </ul>
+  </article>
+
+  <article class="release" id="v1-55-14">
+    <span class="release-date">November 2026 &middot; v1.55.14</span>
+    <h2 class="release-title">Bank alerts caught while Duitful is closed</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Android auto-capture:</strong> notifications that arrive while the app is closed are kept, encrypted with a key that never leaves the phone, and wait for review on the next open. Before, they were lost.</li>
+      <li><span class="tag fix">fix</span><strong>Touch &rsquo;n Go transfers:</strong> &ldquo;You have successfully transferred RM&nbsp;x to &hellip;&rdquo; is recognised as a spend; feedback and promo messages are still ignored. Several Malaysian bank app ids were corrected (CIMB OCTO, HLB Connect, RHB, MyPB, AmOnline, BIMB, BigPay, Setel, Atome).</li>
+    </ul>
+  </article>
+
+  <article class="release" id="v1-55-13">
+    <span class="release-date">November 2026 &middot; v1.55.13</span>
+    <h2 class="release-title">A simpler Tax page</h2>
+    <ul>
+      <li><span class="tag feat">feat</span><strong>Your details in three steps:</strong> salary, PCB and EPF, family. Type monthly amounts from your payslip (or switch to yearly); children use &minus; 0 + buttons.</li>
+      <li><span class="tag fix">fix</span><strong>Fewer words:</strong> the welcome page leads with what your spending could claim, the details card is one line or one prompt, and &ldquo;Claims &amp; receipts&rdquo; no longer wraps on a phone.</li>
+      <li><span class="tag fix">fix</span><strong>Tidier page:</strong> the tax-rules card for other countries is a quiet link for Malaysian users, and &ldquo;Stop tracking tax&rdquo; moved to the foot of the page.</li>
+    </ul>
+  </article>
+
+  <article class="release" id="v1-55-12">
+    <span class="release-date">November 2026 &middot; v1.55.12</span>
+    <h2 class="release-title">No surprises with Pro</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Opt-in trial:</strong> the Pro trial, now 14 days, starts only when you tap &ldquo;Try Pro free for 14 days&rdquo;. Before it ends, Home says what changes for you. Nothing you added is deleted.</li>
+      <li><span class="tag fix">fix</span><strong>Back up now is free:</strong> manual backup to iCloud or Google Drive works for everyone. Automatic backup stays Pro.</li>
+      <li><span class="tag fix">fix</span><strong>Your data imports whole:</strong> a CSV with more goals, holdings or budget pools than the free limits is never refused or trimmed. Limits only stop adding.</li>
+      <li><span class="tag fix">fix</span><strong>One price:</strong> the launch price (RM 14.90 until 14 May 2027, Android and web) shows the same everywhere in the app. The limit is shown before you reach it.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-55-11">
     <span class="release-date">November 2026 &middot; v1.55.11</span>
     <h2 class="release-title">One pay-later plan, free</h2>

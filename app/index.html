@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=151" />
+    <link rel="stylesheet" href="styles.css?v=156" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -287,6 +287,16 @@
           </div>
         </section>
 
+        <!-- One-time hello when on-device AI is found. tax-intro styling. -->
+        <section id="ai-intro" class="card ai-intro" hidden aria-labelledby="ai-intro-title">
+          <div class="ai-intro-head">
+            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5L19 9.5l-5.5 1.5L12 16l-1.5-5.5L5 9.5 10.5 8z"/></svg></span>
+            <h2 id="ai-intro-title">Your phone&rsquo;s AI is ready</h2>
+            <button type="button" class="ghost icon-btn" id="ai-intro-close" aria-label="Dismiss">✕</button>
+          </div>
+          <p class="hint" id="ai-intro-body">Duitful uses this on-device AI to read tricky receipts and bank alerts, privately. Nothing leaves your phone.</p>
+        </section>
+
         <div id="pending-card" class="card pending-card" hidden>
           <div class="card-head">
             <h2>Pending transactions</h2>
@@ -294,6 +304,7 @@
           </div>
           <ul id="pending-list" class="pending-list"></ul>
           <p class="hint">Spotted from bank / e-wallet notifications. Review before they're added.</p>
+          <p class="capture-share" data-capture-share-wrap hidden><button type="button" class="pending-quiet" data-capture-share>Not picked up? Share the wording</button></p>
         </div>
 
         <div id="upcoming-card" class="card upcoming-card" hidden>
@@ -406,7 +417,7 @@
               <span class="fx-preview" data-fx-preview hidden></span>
               <span class="fx-upsell" data-fx-upsell hidden>
                 Multi-currency entry is a Pro feature.
-                <a data-action="open-paywall">Unlock for RM 19.90 →</a>
+                <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
               </span>
             </label>
             <div class="quick-amounts" id="quick-amounts">
@@ -532,7 +543,7 @@
                 <span class="fx-preview" data-fx-preview hidden></span>
                 <span class="fx-upsell" data-fx-upsell hidden>
                   Multi-currency entry is a Pro feature.
-                  <a data-action="open-paywall">Unlock for RM 19.90 →</a>
+                  <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
                 </span>
               </label>
             </div>
@@ -630,7 +641,7 @@
                 <span class="fx-preview" data-fx-preview hidden></span>
                 <span class="fx-upsell" data-fx-upsell hidden>
                   Multi-currency entry is a Pro feature.
-                  <a data-action="open-paywall">Unlock for RM 19.90 →</a>
+                  <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
                 </span>
               </label>
             </div>
@@ -707,6 +718,7 @@
             <h2>Outstanding debts</h2>
             <button type="button" class="add-toggle" data-add-toggle="form-debt" aria-expanded="false" aria-controls="form-debt" aria-label="Add a debt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
           </div>
+          <p class="hint free-count" data-free-count="debts" hidden></p>
           <form id="form-debt" class="debt-form add-form" hidden>
             <div class="type-pills debt-type-pills" role="radiogroup" aria-label="Debt type">
               <button type="button" class="pill active" data-debt-kind="standard" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Standard</button>
@@ -903,6 +915,7 @@
             <h2>Goals</h2>
             <button type="button" class="add-toggle" data-add-toggle="form-saving" aria-expanded="false" aria-controls="form-saving" aria-label="Add a savings goal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
           </div>
+          <p class="hint free-count" data-free-count="savings" hidden></p>
           <form id="form-saving" class="saving-form add-form" hidden>
           <label class="field">
             <span>What are you saving for?</span>
@@ -931,6 +944,7 @@
           </div>
 
           <p class="hint invest-networth" id="dash-invest-line" hidden></p>
+          <p class="hint free-count" data-free-count="investments" hidden></p>
           <form id="form-investment" class="invest-form add-form" hidden>
             <div class="type-pills invest-type-pills" role="radiogroup" aria-label="Holding type">
               <button type="button" class="pill active" data-invest-kind="balance" role="radio" aria-checked="true">Balance</button>
@@ -1301,7 +1315,7 @@
         <section class="card tax-welcome" id="tax-page-optin" hidden aria-labelledby="tax-welcome-title">
           <span class="tax-welcome-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></span>
           <h2 id="tax-welcome-title">See your likely tax refund</h2>
-          <p class="tax-welcome-lede">Your employer deducts <span data-tax-term="withholding">PCB</span> from every salary before your lifestyle, medical and insurance reliefs are counted. Claim them and the difference comes back.</p>
+          <p class="tax-welcome-lede">Claim your reliefs and the extra <span data-tax-term="withholding">PCB</span> you paid comes back.</p>
 
           <div class="tax-found" id="tax-found" hidden>
             <p class="tax-found-title" id="tax-found-title"></p>
@@ -1310,15 +1324,15 @@
           </div>
 
           <ul class="tax-benefits">
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span><strong>Spots claimable spending</strong> as you log it — books, gym, medical, insurance, SSPN and more.</span></li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 017 0v2.5"/></svg><span><strong>Keeps the receipts</strong> LHDN may ask for, encrypted on this phone and never uploaded.</span></li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/></svg><span><strong>Checks in</strong> every November and before e-Filing opens, so nothing slips.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span>Spots claims</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8.5 10.5V8a3.5 3.5 0 017 0v2.5"/></svg><span>Keeps receipts</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0112 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 004 0"/></svg><span>Reminds you</span></li>
           </ul>
-          <p class="hint tax-need">You'll need your gross salary and the <span data-tax-term="withholding">PCB</span> total from your payslips — about a minute.</p>
 
           <div class="tax-welcome-actions">
             <button type="button" class="primary" data-tax-enable>Turn on tax tracking</button>
-            <button type="button" class="ghost" data-go-tab="dashboard">Not now</button>
+            <p class="hint tax-need">About a minute. Have a payslip ready.</p>
+            <button type="button" class="tax-quiet" data-go-tab="dashboard">Not now</button>
           </div>
         </section>
 
@@ -1389,12 +1403,16 @@
             <h2 id="tax-details-title">Your details</h2>
             <button type="button" class="ghost" id="btn-tax-numbers">Edit</button>
           </div>
-          <dl class="tax-facts" id="tax-facts"></dl>
+          <p class="tax-facts" id="tax-facts"></p>
+          <div class="tax-details-prompt" id="tax-details-prompt" hidden>
+            <p id="tax-details-prompt-text"></p>
+            <button type="button" class="primary" id="tax-details-add" data-tax-numbers="tax-in-income">Add salary</button>
+          </div>
           <p class="hint tax-footnote" id="tax-footnote"></p>
         </section>
 
         <!-- 6. Whose rules: Malaysia's built in, or the person's own country's -->
-        <section class="card tax-rules-card" id="tax-rules-card" aria-labelledby="tax-rules-title">
+        <section class="card tax-rules-card" id="tax-rules-card" hidden aria-labelledby="tax-rules-title">
           <div class="card-head">
             <h2 id="tax-rules-title">Tax rules</h2>
           </div>
@@ -1405,6 +1423,13 @@
           </div>
           <p class="hint">No rules for your country yet? <a href="https://duitful.app/tax-rules/" target="_blank" rel="noopener" id="tax-rules-guide">Send this page to your AI</a> and it will write them for you.</p>
         </section>
+
+        <!-- Quiet controls at the foot: other countries' rules (a full card
+             only outside Malaysia), and switching tax tracking off. -->
+        <div class="tax-foot" id="tax-foot">
+          <button type="button" class="tax-quiet" id="btn-tax-rules-show" aria-controls="tax-rules-card" hidden>Not in Malaysia? Use your country's rules</button>
+          <button type="button" class="tax-quiet" id="btn-tax-disable" hidden>Stop tracking tax</button>
+        </div>
       </section>
 
       <!-- DATA -->
@@ -1492,8 +1517,8 @@
           <div id="drive-signed-in" hidden>
             <p class="hint" id="drive-account-line"></p>
             <p class="hint" id="drive-last-synced"></p>
-            <p class="hint warn" id="drive-pro-hint" hidden>
-              Not Pro on this device. <strong>Restore from cloud</strong> brings back a Pro backup.
+            <p class="hint" id="drive-pro-hint" hidden>
+              Automatic sync is off (Pro). <strong>Sync now</strong> and <strong>Restore from cloud</strong> are free.
             </p>
             <label class="field" style="flex-direction:row; align-items:center; gap:.5rem;">
               <input type="checkbox" id="drive-auto-sync" />
@@ -1625,6 +1650,35 @@
           
         </div>
 
+        <!-- Own accounts: names saved with "This is my account" on a captured
+             transfer. Kept only in the vault; a transfer to one is a move. -->
+        <!-- On-device AI: the phone's own model for tricky receipts and bank
+             alerts. Phone apps only; the web has none. -->
+        <div class="card ai-card" id="ai-card" hidden>
+          <h2>On-device AI</h2>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-ai" checked />
+            <span>Use this phone's AI for receipts and bank alerts</span>
+          </label>
+          <p class="hint ai-status" id="ai-status" aria-live="polite">Checking…</p>
+        </div>
+
+        <!-- Bank alerts (Android): send the wording of one Duitful missed. -->
+        <div class="card" id="bank-alerts-card" data-capture-share-wrap hidden>
+          <h2>Bank alerts</h2>
+          <p class="hint">An alert from your bank app that Duitful didn't pick up?</p>
+          <div class="button-row">
+            <button type="button" class="ghost" id="capture-check-open">Check auto-capture</button>
+            <button type="button" class="ghost" data-capture-share>Share the wording</button>
+          </div>
+        </div>
+
+        <div class="card own-accounts-card" id="own-accounts-card" hidden>
+          <h2>Your own accounts</h2>
+          <p class="hint">Transfers to these names count as moves, not spending.</p>
+          <ul class="own-accounts-list" id="own-accounts-list"></ul>
+        </div>
+
         <div class="card">
           <h2>Appearance</h2>
           
@@ -1708,6 +1762,7 @@
             <a class="primary as-button" id="paywall-play" href="https://duitful.app/go/play/?utm_source=app&amp;utm_medium=web&amp;utm_content=paywall" target="_blank" rel="noopener">Get it on Google Play</a>
             <p class="hint">On iPhone, search “Duitful” in the App Store.</p>
           </div>
+          <button type="button" class="ghost" id="paywall-trial" hidden>Try Pro free for 14 days</button>
           <button type="button" class="ghost" id="paywall-close">Maybe later</button>
         </div>
         <div class="paywall-links" id="paywall-codes">
@@ -2410,59 +2465,156 @@
       </form>
     </dialog>
 
-    <dialog id="tax-numbers-dialog" class="edit-dialog" aria-labelledby="tax-numbers-title">
-      <form method="dialog" id="tax-numbers-form">
-        <h2 id="tax-numbers-title">Your details</h2>
-        <p class="hint" id="tax-income-source"></p>
-        <div class="grid-2">
-          <label class="field">
-            <span>Gross yearly income (<span class="cur-code">MYR</span>)</span>
-            <input type="number" id="tax-in-income" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="From payslip, before deductions" />
-          </label>
-          <label class="field">
-            <span><span data-tax-term="withholding">PCB</span> paid this year (<span class="cur-code">MYR</span>)</span>
-            <input type="number" id="tax-in-pcb" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="Monthly tax deduction, total" />
-          </label>
-          <label class="field">
-            <span>Your <span data-tax-term="pension">EPF</span> contributions (<span class="cur-code">MYR</span>)</span>
-            <input type="number" id="tax-in-epf" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="Employee share, whole year" />
-          </label>
+    <dialog id="tax-numbers-dialog" class="edit-dialog tax-wiz" aria-labelledby="tax-numbers-title">
+      <form method="dialog" id="tax-numbers-form" novalidate>
+        <div class="tax-wiz-head">
+          <h2 id="tax-numbers-title">Your details</h2>
+          <ol class="tax-wiz-dots" id="tax-wiz-dots" aria-hidden="true"><li></li><li></li><li></li></ol>
         </div>
-        <h3 class="tax-sub-head">Family</h3>
-        <div class="grid-2">
+
+        <section class="tax-wiz-step" data-tax-step="0" aria-labelledby="tax-step-0-title">
+          <h3 id="tax-step-0-title" tabindex="-1"><span class="sr-only">Step 1 of 3: </span>Salary</h3>
+          <div class="tax-period" role="group" aria-label="Amounts are">
+            <button type="button" class="chip active" data-tax-period="pay:m" aria-pressed="true">Monthly</button>
+            <button type="button" class="chip" data-tax-period="pay:y" aria-pressed="false">Yearly</button>
+          </div>
           <label class="field">
-            <span>Children under 18</span>
-            <input type="number" id="tax-in-children" step="1" min="0" max="20" inputmode="numeric" />
+            <span>Gross salary, <span data-tax-per="pay">a month</span> (<span class="cur-code">MYR</span>)</span>
+            <input type="number" id="tax-in-income" step="0.01" min="0" max="100000000" inputmode="decimal" aria-describedby="tax-income-hint tax-total-income" />
+            <span class="hint" id="tax-income-hint">Before deductions, from your payslip.</span>
           </label>
+          <p class="tax-wiz-total" id="tax-total-income" aria-live="polite"></p>
+          <p class="hint" id="tax-income-source"></p>
+        </section>
+
+        <section class="tax-wiz-step" data-tax-step="1" aria-labelledby="tax-step-1-title" hidden>
+          <h3 id="tax-step-1-title" tabindex="-1"><span class="sr-only">Step 2 of 3: </span><span data-tax-term="withholding">PCB</span> and <span data-tax-term="pension">EPF</span></h3>
+          <div class="tax-period" role="group" aria-label="Amounts are">
+            <button type="button" class="chip active" data-tax-period="ded:m" aria-pressed="true">Monthly</button>
+            <button type="button" class="chip" data-tax-period="ded:y" aria-pressed="false">Yearly</button>
+          </div>
           <label class="field">
-            <span>Children 18+, pre-university / diploma</span>
-            <input type="number" id="tax-in-children-pre" step="1" min="0" max="20" inputmode="numeric" />
+            <span><span data-tax-term="withholding">PCB</span>, <span data-tax-per="ded">a month</span> (<span class="cur-code">MYR</span>)</span>
+            <input type="number" id="tax-in-pcb" step="0.01" min="0" max="100000000" inputmode="decimal" aria-describedby="tax-pcb-hint tax-total-pcb" />
+            <span class="hint" id="tax-pcb-hint">Tax deducted on the same payslip.</span>
           </label>
+          <p class="tax-wiz-total" id="tax-total-pcb" aria-live="polite"></p>
           <label class="field">
-            <span>Children 18+, degree or higher</span>
-            <input type="number" id="tax-in-children-tertiary" step="1" min="0" max="20" inputmode="numeric" />
+            <span>Your <span data-tax-term="pension">EPF</span>, <span data-tax-per="ded">a month</span> (<span class="cur-code">MYR</span>)</span>
+            <input type="number" id="tax-in-epf" step="0.01" min="0" max="100000000" inputmode="decimal" aria-describedby="tax-epf-hint tax-total-epf" />
+            <span class="hint" id="tax-epf-hint">Your share only, not your employer's.</span>
           </label>
-          <label class="field">
-            <span>Disabled children (JKM)</span>
-            <input type="number" id="tax-in-disabled-children" step="1" min="0" max="20" inputmode="numeric" />
-          </label>
+          <p class="tax-wiz-total" id="tax-total-epf" aria-live="polite"></p>
+        </section>
+
+        <section class="tax-wiz-step" data-tax-step="2" aria-labelledby="tax-step-2-title" hidden>
+          <h3 id="tax-step-2-title" tabindex="-1"><span class="sr-only">Step 3 of 3: </span>Family</h3>
+          <div class="tax-fam-just" id="tax-fam-just">
+            <strong id="tax-fam-just-text">Just me</strong>
+            <button type="button" class="ghost" id="tax-fam-add" aria-controls="tax-fam-fields" aria-expanded="false">Add family</button>
+          </div>
+          <div class="tax-fam-fields" id="tax-fam-fields" hidden>
+            <div class="tax-stepper-row">
+              <span id="tax-in-children-label">Children under 18</span>
+              <div class="tax-stepper" role="group" aria-labelledby="tax-in-children-label">
+                <button type="button" class="ghost icon-btn" data-tax-dec="tax-in-children" aria-label="One fewer: children under 18"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+                <output id="tax-in-children" aria-live="polite">0</output>
+                <button type="button" class="ghost icon-btn" data-tax-inc="tax-in-children" aria-label="One more: children under 18"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg></button>
+              </div>
+            </div>
+            <div class="tax-stepper-row">
+              <span id="tax-in-children-pre-label">18+, pre-university or diploma</span>
+              <div class="tax-stepper" role="group" aria-labelledby="tax-in-children-pre-label">
+                <button type="button" class="ghost icon-btn" data-tax-dec="tax-in-children-pre" aria-label="One fewer: children 18 or older in pre-university or diploma"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+                <output id="tax-in-children-pre" aria-live="polite">0</output>
+                <button type="button" class="ghost icon-btn" data-tax-inc="tax-in-children-pre" aria-label="One more: children 18 or older in pre-university or diploma"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg></button>
+              </div>
+            </div>
+            <div class="tax-stepper-row">
+              <span id="tax-in-children-tertiary-label">18+, degree or higher</span>
+              <div class="tax-stepper" role="group" aria-labelledby="tax-in-children-tertiary-label">
+                <button type="button" class="ghost icon-btn" data-tax-dec="tax-in-children-tertiary" aria-label="One fewer: children 18 or older in a degree or higher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+                <output id="tax-in-children-tertiary" aria-live="polite">0</output>
+                <button type="button" class="ghost icon-btn" data-tax-inc="tax-in-children-tertiary" aria-label="One more: children 18 or older in a degree or higher"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg></button>
+              </div>
+            </div>
+            <div class="tax-stepper-row">
+              <span id="tax-in-disabled-children-label">Disabled children (JKM)</span>
+              <div class="tax-stepper" role="group" aria-labelledby="tax-in-disabled-children-label">
+                <button type="button" class="ghost icon-btn" data-tax-dec="tax-in-disabled-children" aria-label="One fewer: disabled children"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+                <output id="tax-in-disabled-children" aria-live="polite">0</output>
+                <button type="button" class="ghost icon-btn" data-tax-inc="tax-in-disabled-children" aria-label="One more: disabled children"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg></button>
+              </div>
+            </div>
+            <p class="hint">Count a disabled child in their age group too.</p>
+          </div>
+          <details class="tax-more" id="tax-more">
+            <summary>More situations</summary>
+            <label class="field toggle-field">
+              <input type="checkbox" id="tax-in-spouse" />
+              <span>My spouse has no income</span>
+            </label>
+            <label class="field toggle-field">
+              <input type="checkbox" id="tax-in-disabled-self" />
+              <span>I'm a JKM-registered disabled person</span>
+            </label>
+            <label class="field toggle-field">
+              <input type="checkbox" id="tax-in-disabled-spouse" />
+              <span>My spouse is a JKM-registered disabled person</span>
+            </label>
+          </details>
+        </section>
+
+        <div class="tax-wiz-actions">
+          <button type="button" class="ghost" id="tax-wiz-back" hidden>Back</button>
+          <button type="button" class="tax-quiet" id="tax-wiz-skip">Skip</button>
+          <button type="submit" class="primary" id="tax-numbers-done">Next</button>
         </div>
-        <p class="hint">A disabled child also counts in their age group above — the disabled-child relief is on top of the normal child relief.</p>
-        <label class="field toggle-field">
-          <input type="checkbox" id="tax-in-spouse" />
-          <span>My spouse has no income</span>
+      </form>
+    </dialog>
+
+    <!-- Check auto-capture: plain facts (no message text, no amounts) to paste to us. -->
+    <dialog id="capture-check-dialog" class="edit-dialog" aria-labelledby="capture-check-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="capture-check-title">Auto-capture check</h2>
+        <pre class="capture-check-list" id="capture-check-list" aria-live="polite"></pre>
+        <p class="hint">No message text or amounts are included.</p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="capture-check-access" hidden>Allow access</button>
+          <button type="button" class="ghost" id="capture-check-close">Close</button>
+          <button type="button" class="primary" id="capture-check-copy">Copy report</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Share a bank alert's wording, redacted on this phone first. -->
+    <dialog id="capture-share-dialog" class="edit-dialog" aria-labelledby="capture-share-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="capture-share-title">Share an alert's wording</h2>
+        <label class="field">
+          <span>The notification</span>
+          <textarea id="share-raw" rows="4" spellcheck="false" autocapitalize="off" aria-describedby="share-raw-hint"></textarea>
+          <span class="hint" id="share-raw-hint">Paste it from the notification.</span>
         </label>
-        <label class="field toggle-field">
-          <input type="checkbox" id="tax-in-disabled-self" />
-          <span>I'm a JKM-registered disabled person</span>
+        <div class="share-shot">
+          <button type="button" class="ghost" id="share-shot">Use a screenshot</button>
+          <input type="file" id="share-shot-file" accept="image/*" hidden />
+          <p class="hint" id="share-shot-hint">We read the text on your phone and only send the cleaned words.</p>
+          <p class="hint" id="share-shot-status" role="status" hidden></p>
+        </div>
+        <label class="field">
+          <span>App</span>
+          <select id="share-app"></select>
         </label>
-        <label class="field toggle-field">
-          <input type="checkbox" id="tax-in-disabled-spouse" />
-          <span>My spouse is a JKM-registered disabled person</span>
+        <label class="field">
+          <span>What we'll get</span>
+          <textarea id="share-redacted" rows="4" spellcheck="false" aria-describedby="share-redacted-hint"></textarea>
+          <span class="hint" id="share-redacted-hint">Names and numbers removed on this phone. Edit anything else.</span>
         </label>
-        <div class="form-actions tax-claim-actions">
-          <button type="button" class="ghost ghost-danger" id="btn-tax-disable">Stop tracking tax</button>
-          <button type="button" class="primary" id="tax-numbers-done">Done</button>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="share-cancel">Cancel</button>
+          <button type="button" class="ghost" id="share-sheet" hidden>Share…</button>
+          <button type="button" class="primary" id="share-send">Email it</button>
         </div>
       </form>
     </dialog>
@@ -2673,8 +2825,8 @@
     <script src="receipt-extract.js?v=1"></script>
     <script src="region.js?v=1"></script>
     <script src="tax-data.js?v=3"></script>
-    <script src="tax.js?v=14"></script>
+    <script src="tax.js?v=15"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=204"></script>
+    <script src="script.js?v=211"></script>
   </body>
 </html>

@@ -549,14 +549,20 @@ check('a pre-investments export still imports',
   invRt.legacy.debts === 2 && invRt.legacy.investments === 0, JSON.stringify(invRt.legacy));
 
 const FREE_LIMIT_HOLDINGS = await S(() => FREE_INVESTMENT_LIMIT);
-// Free tier: FREE_INVESTMENT_LIMIT (3) holdings. The fresh profile auto-starts
-// a 7-day Pro trial, so age it out rather than asserting against a trial user.
+// Free tier: FREE_INVESTMENT_LIMIT (3) holdings. The trial is opt-in, so a
+// fresh profile has never had one. From here on the suite runs as someone
+// whose trial is over (started 15 days ago; it lasts 14).
 // A stand-in third holding fills the free allowance; it goes after the check.
 await S(() => {
   state.investments = state.investments.slice(0, 2);
   state.investments.push({ ...JSON.parse(JSON.stringify(state.investments[0])), id: 'inv-filler', name: 'Filler holding' });
   state.pro = false;
-  state.proTrialStartedAt = Date.now() - 8 * 24 * 60 * 60 * 1000;
+});
+check('fresh profile: no trial was started automatically, and it is not Pro',
+  (await S(() => state.proTrialStartedAt === 0 && !isTrialActive() && !isPro() && state.firstRunAt > 0)),
+  JSON.stringify(await S(() => ({ t: state.proTrialStartedAt, f: state.firstRunAt }))));
+await S(() => {
+  state.proTrialStartedAt = Date.now() - 15 * 24 * 60 * 60 * 1000;
   save(); renderAll();
 });
 await page.waitForTimeout(300);
@@ -1902,8 +1908,9 @@ const unmatched = await S(() => ({
   }),
   pending: state.pendingTxns.length,
 }));
-check('a credit matching nothing is dropped without a trace',
-  unmatched.handled === false && unmatched.pending === 0, JSON.stringify(unmatched));
+check('a credit matching no split becomes one pending income entry (1.56.0), not a split action',
+  unmatched.handled === true && unmatched.pending === 1, JSON.stringify(unmatched));
+await S(() => { state.pendingTxns = []; save(); renderAll(); });
 const ambiguousQueue = await S(() => {
   state.pendingTxns = [];
   const rec = state.split.out[0];
@@ -1921,6 +1928,679 @@ check('two people owing RM 41 produce a choice, not a guess',
   && ambiguousQueue.buttons === 2 && /who paid\?/i.test(ambiguousQueue.text),
   ambiguousQueue.text.replace(/\n/g, ' | ').slice(0, 160));
 await S(() => { state.pendingTxns = []; save(); renderAll(); });
+
+/* ── Touch 'n Go / MAE alerts from a Vivo beta tester (1.55.14) ───────────
+   Real wording, names replaced. A DuitNow transfer out must queue a spend;
+   a feedback promo must not; MAE's "You've just received" must parse as a
+   credit (it queues only when it settles a split, like every credit). */
+const tngMae = await S(() => {
+  state.pendingTxns = [];
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const out = {};
+  out.bank = {
+    tng: parseBankText('You have successfully transferred RM 0.10 to ALI BIN ABU.', TNG),
+    tngCut: parseBankText('You have successfully transferred RM 0.10 to ALI BIN ABU…', TNG),
+    tngBig: parseBankText('You have successfully transferred RM1,234.50 to ALI BIN ABU', TNG),
+    tngWhole: parseBankText('You have successfully transferred RM 12 to KEDAI RUNCIT MAJU.', TNG),
+    maeOut: parseBankText('You have successfully transferred RM 25.00 to ALI BIN ABU.', MAE),
+    promo: parseBankText('Hi ALI BIN ABU! Spend 3 minutes to share your feedback with us to help improve', TNG),
+    credit: parseBankText('You’ve just received RM 0.10 in your account ending ***1234. REF', MAE),
+  };
+  out.credit = {
+    curly: parseIncomingTransfer('You’ve just received RM 0.10 in your account ending ***1234. REF', MAE),
+    straight: parseIncomingTransfer("You've just received RM 0.10 in your account ending ***1234. Reference: lunch", MAE),
+    transfer: parseIncomingTransfer('You have successfully transferred RM 0.10 to ALI BIN ABU.', TNG),
+  };
+  out.live = window.duitfulIncoming({ package: TNG, title: 'DuitNow Transfer is successful', text: 'You have successfully transferred RM 0.10 to ALI BIN ABU.' });
+  out.promoLive = window.duitfulIncoming({ package: TNG, title: 'Hi ALI BIN ABU', text: 'Spend 3 minutes to share your feedback with us to help improve' });
+  out.pending = state.pendingTxns.map((p) => ({ amount: p.amount, merchant: p.merchant, provider: p.providerId }));
+  // Title-only wording still parses: the body is generic, the title says it.
+  state.pendingTxns = [];
+  out.titleOnly = window.duitfulIncoming({ package: TNG, title: 'You have successfully transferred RM 7.20 to MAJU ENTERPRISE', text: 'Tap to view details' });
+  out.titlePending = state.pendingTxns.map((p) => p.amount);
+  // An unmatched credit is still dropped, as before (credits only settle splits).
+  state.pendingTxns = [];
+  out.salary = window.duitfulIncoming({ package: MAE, title: 'Maybank2u: Funds Received', text: 'You’ve just received RM 0.10 in your account ending ***1234. REF' });
+  out.salaryPending = state.pendingTxns.length;
+  state.pendingTxns = [];
+  return out;
+});
+check('TNG: "You have successfully transferred RM 0.10 to ALI BIN ABU" queues a RM 0.10 spend to ALI BIN ABU',
+  tngMae.bank.tng && tngMae.bank.tng.amount === 0.1 && tngMae.bank.tng.merchant === 'ALI BIN ABU' && tngMae.bank.tng.providerId === 'tng'
+  && tngMae.live === true && tngMae.pending.length === 1 && tngMae.pending[0].amount === 0.1 && tngMae.pending[0].merchant === 'ALI BIN ABU',
+  JSON.stringify([tngMae.bank.tng, tngMae.pending]));
+check('TNG transfers: a shade-truncated body, RM1,234.50 and a whole RM 12 all parse; MAE transfers out too',
+  tngMae.bank.tngCut && tngMae.bank.tngCut.merchant === 'ALI BIN ABU' && tngMae.bank.tngBig && tngMae.bank.tngBig.amount === 1234.5
+  && tngMae.bank.tngWhole && tngMae.bank.tngWhole.amount === 12 && tngMae.bank.tngWhole.merchant === 'KEDAI RUNCIT MAJU'
+  && tngMae.bank.maeOut && tngMae.bank.maeOut.amount === 25 && tngMae.bank.maeOut.providerId === 'maybank-mae',
+  JSON.stringify(tngMae.bank));
+check('TNG feedback promo ("Spend 3 minutes to share your feedback") is never captured',
+  tngMae.bank.promo === null && tngMae.promoLive === false && tngMae.pending.length === 1, JSON.stringify(tngMae));
+check('a notification whose amount is only in the title still queues',
+  tngMae.titleOnly === true && tngMae.titlePending.length === 1 && tngMae.titlePending[0] === 7.2, JSON.stringify(tngMae.titlePending));
+check('MAE "You’ve just received RM 0.10 in your account ending …" parses as money in (curly and straight apostrophe), never as a spend',
+  tngMae.credit.curly && tngMae.credit.curly.amount === 0.1 && tngMae.credit.straight && tngMae.credit.straight.amount === 0.1
+  && tngMae.credit.transfer === null && tngMae.bank.credit === null, JSON.stringify(tngMae.credit));
+check('an incoming credit that settles no split is now offered as income (1.56.0)',
+  tngMae.salary === true && tngMae.salaryPending === 1, JSON.stringify(tngMae));
+
+// Notifications caught while the app was closed: native stores them, JS drains
+// them on unlock / resume / the live nudge, stamped with when they were posted.
+const drained = await S(async () => {
+  state.pendingTxns = [];
+  const keepCap = window.Capacitor;
+  const posted = Date.now() - 3 * 3600 * 1000;
+  let calls = 0;
+  const store = [
+    { p: 'my.com.tngdigital.ewallet', ti: 'DuitNow Transfer is successful', tx: 'You have successfully transferred RM 0.10 to ALI BIN ABU.', t: posted },
+    { p: 'my.com.tngdigital.ewallet', ti: 'DuitNow Transfer is successful', tx: 'You have successfully transferred RM 0.10 to ALI BIN ABU.', t: posted + 5000 },
+    { p: 'my.com.tngdigital.ewallet', ti: 'Hi ALI BIN ABU', tx: 'Spend 3 minutes to share your feedback', t: posted },
+    null, 'junk',
+  ];
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { NotificationListener: { drainCaptured: async () => { calls++; return { items: calls === 1 ? store : [] }; } } } };
+  let added, again;
+  try { added = await drainCaptured(); again = await drainCaptured(); }
+  finally { window.Capacitor = keepCap; }
+  const out = { added, again, calls, pending: state.pendingTxns.map((p) => ({ amount: p.amount, at: p.createdAt })), posted };
+  state.pendingTxns = []; save(); renderAll();
+  return out;
+});
+check('captured-while-closed notifications are drained once, deduped, promos dropped, and keep their posted time',
+  drained.added === 1 && drained.again === 0 && drained.calls === 2 && drained.pending.length === 1
+  && drained.pending[0].amount === 0.1 && drained.pending[0].at === drained.posted, JSON.stringify(drained));
+
+/* ── TNG "You've received money!" is money IN, never a spend to "you" (1.56.3) ── */
+const tngIn = await S(() => {
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const old = Date.now() - 30 * 60000;
+  const out = {};
+  const shape = () => state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', amount: p.amount, merchant: p.merchant, sender: p.sender, from: p.from && p.from.providerId, to: p.to && p.to.providerId, own: p.own }));
+  const run = (title, text, pkg = TNG) => { state.pendingTxns = []; window.duitfulIncoming({ package: pkg, title, text, postedAt: old }); return shape(); };
+  state.ownAccounts = [];
+  out.straight = run("You've received money!", 'ALI BIN ABU has transferred RM 1.00 to you. Tap here to check the…');
+  out.curly = run('You’ve received money!', 'ALI BIN ABU has transferred RM 1.00 to you. Tap here to check the details.');
+  out.bodyOnly = run('', 'ALI BIN ABU has transferred RM 12.50 to you.');
+  out.malay = run('Anda telah menerima wang!', 'ALI BIN ABU telah memindahkan RM 3.00 kepada anda.');
+  out.parse = parseIncomingTransfer("You've received money!. ALI BIN ABU has transferred RM 1.00 to you. Tap here", TNG);
+  // No pattern may ever produce a payee of "you".
+  out.noYou = ['transferred RM 1.00 to you.', 'RM 5.00 paid to you', 'RM 5.00 debited to your account', 'sent RM 2.00 to anda']
+    .map((t) => parseBankText(t, TNG) || parseBankText(t, MAE)).map((r) => r && r.merchant);
+  // The income card offers "This is my account" for the sender…
+  state.pendingTxns = [];
+  window.duitfulIncoming({ package: TNG, title: "You've received money!", text: 'ALI BIN ABU has transferred RM 1.00 to you.', postedAt: old });
+  renderAll();
+  out.ownBtn = !!document.querySelector('#pending-list li.pending-income [data-action="pending-own"]');
+  document.querySelector('#pending-list li.pending-income [data-action="pending-own"]').click();
+  out.afterOwn = shape();
+  // …and with the name saved, the next one is a move on its own, booking nothing.
+  out.saved = run("You've received money!", 'ali bin abu has transferred RM 2.00 to you.');
+  renderAll();
+  out.moveSrc = document.querySelector('#pending-list li.pending-move .pending-source')?.textContent || '';
+  // The existing shapes still work.
+  out.tngOut = run('DuitNow Transfer is successful', 'You have successfully transferred RM 0.10 to MUHAMMAD KHAIRUL.');
+  out.maeIn = run('Maybank2u: Funds Received', 'You’ve just received RM 0.10 in your account ending ***1234. REF');
+  state.pendingTxns = []; state.ownAccounts = []; save(); renderAll();
+  return out;
+});
+const one = (a, kind) => a.length === 1 && a[0].kind === kind;
+check('TNG "You\'ve received money!" / "ALI BIN ABU has transferred RM 1.00 to you" is an income card from ALI BIN ABU (straight and curly apostrophe), not a spend to "you"',
+  one(tngIn.straight, 'income') && tngIn.straight[0].amount === 1 && tngIn.straight[0].sender === 'ALI BIN ABU'
+  && one(tngIn.curly, 'income') && one(tngIn.bodyOnly, 'income') && tngIn.bodyOnly[0].amount === 12.5 && one(tngIn.malay, 'income') && tngIn.malay[0].amount === 3,
+  JSON.stringify([tngIn.straight, tngIn.curly, tngIn.bodyOnly, tngIn.malay]));
+check('the credit parser reads the TNG wording with title + body', tngIn.parse && tngIn.parse.amount === 1 && tngIn.parse.sender === 'ALI BIN ABU', JSON.stringify(tngIn.parse));
+check('no debit or transfer pattern ever produces a payee of "you" / "your account" / "anda"', tngIn.noYou.every((m) => !m), JSON.stringify(tngIn.noYou));
+check('an income card from a named sender offers "This is my account", which turns it into a move',
+  tngIn.ownBtn && one(tngIn.afterOwn, 'move') && !tngIn.afterOwn[0].from && tngIn.afterOwn[0].to === 'tng', JSON.stringify(tngIn.afterOwn));
+check('a credit from a saved own-account name is a move on its own: "Your other account → TNG", booking nothing',
+  one(tngIn.saved, 'move') && tngIn.saved[0].own === true && tngIn.saved[0].amount === 2 && tngIn.moveSrc === 'Your other account → TNG', JSON.stringify([tngIn.saved, tngIn.moveSrc]));
+check('TNG transfer-out and MAE credit still read as before',
+  one(tngIn.tngOut, 'spend') && tngIn.tngOut[0].merchant === 'MUHAMMAD KHAIRUL' && one(tngIn.maeIn, 'income'), JSON.stringify([tngIn.tngOut, tngIn.maeIn]));
+
+/* ── Money in, moves between your own accounts, "This is my account" (1.56.0) ──
+   Placeholder names, made-up digits. TNG received and DuitNow received wording
+   is assumed (no public sample); MAE's is the tester's, name removed. */
+const TNG_OUT = 'You have successfully transferred RM 0.10 to ALI BIN ABU.';
+const MAE_IN = 'You’ve just received RM 0.10 in your account ending ***1234. REF';
+const moves = await S(async ({ TNG_OUT, MAE_IN }) => {
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const old = Date.now() - 30 * 60 * 1000;   // drained earlier: past the hold
+  const reset = () => { state.pendingTxns = []; state.ownAccounts = []; state.split = emptySplit(); };
+  const shape = () => state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', amount: p.amount, from: p.from && p.from.providerId, to: p.to && p.to.providerId, merchant: p.merchant, sender: p.sender, label: p.label }));
+  const out = {};
+  // MAE → TNG? No: money left TNG, landed in MAE. Debit first, then credit.
+  reset();
+  window.duitfulIncoming({ package: TNG, title: 'DuitNow Transfer is successful', text: TNG_OUT, postedAt: old });
+  window.duitfulIncoming({ package: MAE, title: 'Maybank2u: Funds Received', text: MAE_IN, postedAt: old + 40000 });
+  out.debitFirst = shape();
+  renderAll();
+  const li = document.querySelector('#pending-list li.pending-move');
+  out.card = li ? { name: li.querySelector('.pending-name').textContent, amt: li.querySelector('.pending-amount').textContent, src: li.querySelector('.pending-source').textContent, undo: li.querySelector('[data-action="pending-move-split"]').textContent } : null;
+  // Credit first, then debit.
+  reset();
+  window.duitfulIncoming({ package: MAE, text: MAE_IN, postedAt: old });
+  window.duitfulIncoming({ package: TNG, text: TNG_OUT, postedAt: old + 5 * 60000 });
+  out.creditFirst = shape();
+  // TNG → MAE, both orders: MAE transfer out, TNG "You have received" in.
+  const MAE_OUT = 'You have successfully transferred RM 25.00 to ALI BIN ABU.';
+  const TNG_IN = 'You have received RM 25.00 from ALI BIN ABU.';
+  reset();
+  window.duitfulIncoming({ package: MAE, text: MAE_OUT, postedAt: old });
+  window.duitfulIncoming({ package: TNG, text: TNG_IN, postedAt: old + 1000 });
+  out.backDebitFirst = shape();
+  reset();
+  window.duitfulIncoming({ package: TNG, text: TNG_IN, postedAt: old });
+  window.duitfulIncoming({ package: MAE, text: MAE_OUT, postedAt: old + 1000 });
+  out.backCreditFirst = shape();
+  // Too far apart (11 min): two separate cards.
+  reset();
+  window.duitfulIncoming({ package: TNG, text: TNG_OUT, postedAt: old });
+  window.duitfulIncoming({ package: MAE, text: MAE_IN, postedAt: old + 11 * 60000 });
+  out.farApart = shape();
+  // Both arriving together from the capture store, credit first.
+  reset();
+  const keepCap = window.Capacitor;
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { NotificationListener: { drainCaptured: async () => ({ items: [
+    { p: MAE, ti: 'Maybank2u: Funds Received', tx: MAE_IN, t: old }, { p: TNG, ti: 'DuitNow Transfer is successful', tx: TNG_OUT, t: old + 3000 }] }) } } };
+  try { await drainCaptured(); } finally { window.Capacitor = keepCap; }
+  out.drained = shape();
+  // Confirming books nothing, and says so.
+  const income0 = state.income.length, spend0 = state.dailyExpenses.length;
+  document.querySelector('#pending-list [data-action="pending-move-accept"]')?.click();
+  out.confirmed = { left: state.pendingTxns.length, income: state.income.length - income0, spend: state.dailyExpenses.length - spend0, toast: (document.getElementById('toast') || {}).textContent || '' };
+  // "Not a move" splits it back into a spend and an income that stay apart.
+  reset();
+  window.duitfulIncoming({ package: TNG, text: TNG_OUT, postedAt: old });
+  window.duitfulIncoming({ package: MAE, text: MAE_IN, postedAt: old + 1000 });
+  renderAll();
+  document.querySelector('#pending-list [data-action="pending-move-split"]').click();
+  out.split = shape();
+  // A lone transfer out: held for a minute while fresh, then a spend card.
+  reset();
+  window.duitfulIncoming({ package: TNG, text: TNG_OUT });
+  renderAll();
+  out.freshHidden = document.getElementById('pending-card').hidden && state.pendingTxns.length === 1;
+  state.pendingTxns[0].createdAt = Date.now() - 61000;
+  renderAll();
+  const spendLi = document.querySelector('#pending-list li');
+  out.lone = { kind: state.pendingTxns[0].kind || 'spend', shown: !document.getElementById('pending-card').hidden, own: !!spendLi?.querySelector('[data-action="pending-own"]') };
+  // "This is my account": saved (normalised), the card becomes a move.
+  spendLi.querySelector('[data-action="pending-own"]').click();
+  out.own = { names: [...state.ownAccounts], kind: state.pendingTxns[0].kind, ownFlag: state.pendingTxns[0].own };
+  state.pendingTxns = [];
+  window.duitfulIncoming({ package: TNG, text: 'You have successfully transferred RM 50.00 to ali   bin abu.', postedAt: old });
+  out.ownLater = shape();
+  out.settingsShown = !document.getElementById('own-accounts-card').hidden && /ALI BIN ABU/.test(document.getElementById('own-accounts-list').textContent);
+  // CSV round-trip keeps the names.
+  out.csv = fromCSV(toCSV()).ownAccounts;
+  // Settings removes it.
+  document.querySelector('#own-accounts-list [data-own-remove]').click();
+  out.removed = { names: state.ownAccounts.length, hidden: document.getElementById('own-accounts-card').hidden };
+  // A lone credit becomes income; accepting books one row of income, not repeated.
+  reset();
+  window.duitfulIncoming({ package: MAE, title: 'Maybank2u: Funds Received', text: 'You’ve just received RM 1,250.00 in your account ending ***1234. REF SALARY', postedAt: old });
+  renderAll();
+  const incLi = document.querySelector('#pending-list li.pending-income');
+  out.incomeCard = incLi ? { name: incLi.querySelector('.pending-name').textContent, amt: incLi.querySelector('.pending-amount').textContent, btn: incLi.querySelector('.primary').textContent } : null;
+  const n0 = state.income.length;
+  incLi?.querySelector('[data-action="pending-income-accept"]').click();
+  const row = state.income[state.income.length - 1];
+  out.booked = { added: state.income.length - n0, amount: row.amount, repeat: row.repeatNext, category: row.category, name: row.name };
+  // TNG received and DuitNow received wording (assumed shapes).
+  reset();
+  window.duitfulIncoming({ package: TNG, text: 'You have received RM 12.00 from ALI BIN ABU.', postedAt: old });
+  window.duitfulIncoming({ package: MAE, text: 'You have received a DuitNow Transfer of RM 30.50 from SITI BINTI ALI.', postedAt: old + 1000 });
+  out.received = shape();
+  // A refund is labelled.
+  reset();
+  window.duitfulIncoming({ package: TNG, text: 'Refund of RM 8.90 has been credited to your eWallet.', postedAt: old });
+  out.refund = shape();
+  // Promo and OTP: never.
+  reset();
+  out.promo = window.duitfulIncoming({ package: TNG, title: 'Hi ALI BIN ABU', text: 'Spend 3 minutes to share your feedback with us to help improve' });
+  out.otp = window.duitfulIncoming({ package: MAE, text: 'Your TAC for a transfer of RM 500.00 to ALI BIN ABU is 482913. Do not share it with anyone.' });
+  out.otp2 = window.duitfulIncoming({ package: TNG, text: 'RM 20.00 received. Your OTP is 551203.' });
+  out.ignored = state.pendingTxns.length;
+  // A credit that settles a split is not also offered as income.
+  reset();
+  state.split.out.push(coerceSplitOut({ id: 'pair-rec', kind: 'split', title: 'Nasi kandar', date: todayISO(), total: 47,
+    people: [{ id: 'pair-ali', name: 'Ali', amount: 23.5, status: 'open', repayments: [] }] }));
+  window.duitfulIncoming({ package: MAE, text: 'You have received RM23.50 from ALI BIN ABU' });
+  window.duitfulIncoming({ package: MAE, text: 'You have received RM23.50 from ALI BIN ABU' });
+  out.splitOnce = state.pendingTxns.map((p) => p.kind);
+  reset(); save(); renderAll();
+  return out;
+}, { TNG_OUT, MAE_IN });
+const mv = (a, from, to) => a.length === 1 && a[0].kind === 'move' && a[0].from === from && a[0].to === to && a[0].amount > 0;
+check('pairing: TNG transfer out then Maybank credit, same amount, → one "Moved" card', mv(moves.debitFirst, 'tng', 'maybank-mae'), JSON.stringify(moves.debitFirst));
+check('pairing: the card reads "Moved · RM 0.10 · TNG → Maybank" with "Not a move"',
+  moves.card && moves.card.name === 'Moved' && /0\.10/.test(moves.card.amt) && moves.card.src === 'TNG → Maybank' && moves.card.undo === 'Not a move', JSON.stringify(moves.card));
+check('pairing: credit first, debit 5 minutes later, also pairs', mv(moves.creditFirst, 'tng', 'maybank-mae'), JSON.stringify(moves.creditFirst));
+check('pairing: MAE → TNG back again pairs in both orders',
+  mv(moves.backDebitFirst, 'maybank-mae', 'tng') && mv(moves.backCreditFirst, 'maybank-mae', 'tng'), JSON.stringify([moves.backDebitFirst, moves.backCreditFirst]));
+check('pairing: 11 minutes apart stays a spend and an income', moves.farApart.length === 2 && moves.farApart.some((p) => p.kind === 'spend') && moves.farApart.some((p) => p.kind === 'income'), JSON.stringify(moves.farApart));
+check('pairing: both arriving together from the capture store pair too', mv(moves.drained, 'tng', 'maybank-mae'), JSON.stringify(moves.drained));
+check('a confirmed move books no spending and no income, and the toast says so',
+  moves.confirmed.left === 0 && moves.confirmed.income === 0 && moves.confirmed.spend === 0 && /not counted as spending or income/.test(moves.confirmed.toast), JSON.stringify(moves.confirmed));
+check('"Not a move" gives back a spend and an income that do not pair again',
+  moves.split.length === 2 && moves.split.some((p) => p.kind === 'spend') && moves.split.some((p) => p.kind === 'income'), JSON.stringify(moves.split));
+check('a lone transfer out waits a minute out of sight, then shows as a spend with "This is my account"',
+  moves.freshHidden && moves.lone.kind === 'spend' && moves.lone.shown && moves.lone.own, JSON.stringify(moves.lone));
+check('"This is my account" saves the name and turns the card into a move; later transfers to it (any case/spacing) are moves on their own',
+  moves.own.names.join() === 'ALI BIN ABU' && moves.own.kind === 'move' && moves.own.ownFlag === true
+  && moves.ownLater.length === 1 && moves.ownLater[0].kind === 'move' && moves.ownLater[0].from === 'tng' && !moves.ownLater[0].to, JSON.stringify(moves.own));
+check('Settings lists the saved name, and the CSV round-trip keeps it', moves.settingsShown && JSON.stringify(moves.csv) === '["ALI BIN ABU"]', JSON.stringify(moves.csv));
+check('Settings removes a saved name (and hides the empty list)', moves.removed.names === 0 && moves.removed.hidden, JSON.stringify(moves.removed));
+check('a lone credit is a pending income card ("Money in", "+RM 1,250.00", "Add income")',
+  moves.incomeCard && moves.incomeCard.name === 'Money in' && /\+RM\s?1,250\.00/.test(moves.incomeCard.amt) && moves.incomeCard.btn === 'Add income', JSON.stringify(moves.incomeCard));
+check('accepting books one income row that month, not copied into next month',
+  moves.booked.added === 1 && moves.booked.amount === 1250 && moves.booked.repeat === false && moves.booked.category === 'Money in', JSON.stringify(moves.booked));
+check('TNG "You have received RM x from …" and "DuitNow Transfer of RM x from …" become income with the sender',
+  moves.received.length === 2 && moves.received.every((p) => p.kind === 'income') && moves.received[0].sender === 'ALI BIN ABU' && moves.received[1].amount === 30.5, JSON.stringify(moves.received));
+check('a refund is labelled "Refund", not booked as plain income', moves.refund.length === 1 && moves.refund[0].kind === 'income' && moves.refund[0].label === 'Refund' && moves.refund[0].amount === 8.9, JSON.stringify(moves.refund));
+check('the TNG feedback promo and OTP / TAC texts are never captured', moves.promo === false && moves.otp === false && moves.otp2 === false && moves.ignored === 0, JSON.stringify(moves));
+check('a credit that settles a split is offered once, only as the split', JSON.stringify(moves.splitOnce) === '["split-match"]', JSON.stringify(moves.splitOnce));
+
+/* On-device AI for alerts the rules cannot place (stubbed DuitfulKit, as the
+   receipt tests do). The AI labels; amounts come from the text. */
+const aiCap = await S(async () => {
+  const MBB = 'com.maybank2u.life', TNG = 'my.com.tngdigital.ewallet';
+  const old = Date.now() - 30 * 60 * 1000;
+  const keepCap = window.Capacitor;
+  const run = async (items, reply, opts = {}) => {
+    state.pendingTxns = []; state.ownAccounts = [];
+    const asked = [];
+    const plugins = { NotificationListener: { drainCaptured: async () => ({ items }) } };
+    if (reply !== undefined) plugins.DuitfulKit = {
+      aiStatus: async () => ({ available: opts.available !== false }),
+      aiReadAlert: (o) => { asked.push(o.text); return opts.hang ? new Promise(() => {}) : Promise.resolve(typeof reply === 'function' ? reply(o.text) : reply); },
+    };
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: plugins };
+    try { await drainCaptured(); } finally { window.Capacitor = keepCap; }
+    const out = { asked: asked.length, pending: state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', amount: p.amount, merchant: p.merchant, sender: p.sender, category: p.category, from: p.from && p.from.providerId })) };
+    state.pendingTxns = [];
+    return out;
+  };
+  const odd = (tx) => [{ p: MBB, ti: '', tx, t: old }];
+  const json = (o) => ({ json: '```json\n' + JSON.stringify(o) + '\n```' });
+  const r = {};
+  r.spend = await run(odd('Kad 1234: RM 30.00 @ KEDAI RUNCIT MAJU, 15/11'), json({ direction: 'spend', counterparty: 'KEDAI RUNCIT MAJU', category: 'groceries', is_promo_or_security: false, amount: 999 }));
+  r.income = await run(odd('Akaun ***1234: +RM 40.00 (ALI BIN ABU)'), json({ direction: 'income', counterparty: 'ALI BIN ABU', category: '', is_promo_or_security: false }));
+  r.move = await run(odd('RM 15.00 → TNG eWallet ***5678'), json({ direction: 'move', counterparty: '', category: '', is_promo_or_security: false }));
+  r.invented = await run(odd('Akaun ***1234: +RM 40.00'), json({ direction: 'income', counterparty: 'SOMEONE ELSE', category: 'Lottery', is_promo_or_security: false, total: 4000 }));
+  r.promo = await run(odd('Weekend treat: RM 5.00 back for you, tap now'), json({ direction: 'income', counterparty: '', category: '', is_promo_or_security: true }));
+  r.rule = await run([{ p: TNG, ti: '', tx: 'You have successfully transferred RM 9.00 to KEDAI RUNCIT MAJU.', t: old }], json({ direction: 'income', counterparty: 'ALI BIN ABU', category: 'Food', is_promo_or_security: false }));
+  r.noAi = await run(odd('Kad 1234: RM 30.00 @ KEDAI RUNCIT MAJU, 15/11'), undefined);
+  r.unavailable = await run(odd('Kad 1234: RM 30.00 @ KEDAI RUNCIT MAJU, 15/11'), json({ direction: 'spend' }), { available: false });
+  const t0 = Date.now();
+  r.timeout = await run(odd('Kad 1234: RM 30.00 @ KEDAI RUNCIT MAJU, 15/11'), json({ direction: 'spend' }), { hang: true });
+  r.timeoutMs = Date.now() - t0;
+  r.otp = await run(odd('Your TAC for RM 500.00 is 482913. Do not share.'), json({ direction: 'spend', counterparty: '', category: '', is_promo_or_security: false }));
+  save(); renderAll();
+  return r;
+});
+check('AI: an unknown-format alert becomes a spend, with the name it prints and a category from the app\'s list',
+  aiCap.spend.asked >= 1 && aiCap.spend.pending.length === 1 && aiCap.spend.pending[0].kind === 'spend' && aiCap.spend.pending[0].amount === 30
+  && aiCap.spend.pending[0].merchant === 'KEDAI RUNCIT MAJU' && aiCap.spend.pending[0].category === 'Groceries', JSON.stringify(aiCap.spend));
+check('AI: an unknown-format credit becomes income; an AI "move" becomes a move card',
+  aiCap.income.pending.length === 1 && aiCap.income.pending[0].kind === 'income' && aiCap.income.pending[0].amount === 40 && aiCap.income.pending[0].sender === 'ALI BIN ABU'
+  && aiCap.move.pending.length === 1 && aiCap.move.pending[0].kind === 'move' && aiCap.move.pending[0].amount === 15, JSON.stringify([aiCap.income, aiCap.move]));
+check('AI: its amount (999, 4000) is ignored, and a name or category not in the text / the list is dropped',
+  aiCap.spend.pending[0].amount === 30 && aiCap.invented.pending.length === 1 && aiCap.invented.pending[0].amount === 40
+  && aiCap.invented.pending[0].sender === '', JSON.stringify(aiCap.invented));
+check('AI: "promo or security" drops the alert', aiCap.promo.asked === 1 && aiCap.promo.pending.length === 0, JSON.stringify(aiCap.promo));
+check('AI: a confident rule wins — a TNG transfer stays a spend to its rule-read payee whatever the AI says',
+  aiCap.rule.pending.length === 1 && aiCap.rule.pending[0].kind === 'spend' && aiCap.rule.pending[0].merchant === 'KEDAI RUNCIT MAJU' && aiCap.rule.pending[0].amount === 9, JSON.stringify(aiCap.rule));
+check('AI: with no AI, or AI unavailable, an unknown alert does what it did before (nothing without the entity reader)',
+  aiCap.noAi.pending.length === 0 && aiCap.unavailable.pending.length === 0 && aiCap.unavailable.asked === 0, JSON.stringify([aiCap.noAi, aiCap.unavailable]));
+check('AI: a model that never answers times out and falls back cleanly', aiCap.timeout.asked === 1 && aiCap.timeout.pending.length === 0 && aiCap.timeoutMs < 9000, JSON.stringify(aiCap.timeout) + ' ' + aiCap.timeoutMs);
+check('AI: never asked about an OTP / TAC text', aiCap.otp.asked === 0 && aiCap.otp.pending.length === 0, JSON.stringify(aiCap.otp));
+
+/* ── On-device AI: the Settings row, the switch, the one-time card, the tag (1.56.1) ── */
+const aiUi = await S(async () => {
+  const keepCap = window.Capacitor;
+  const snap = { en: state.aiEnabled, seen: state.aiIntroSeen, on: state.aiIntroShownOn };
+  const $ = (id) => document.getElementById(id);
+  const kitWith = (impl, extra = {}) => ({ isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: impl ? { aiStatus: impl, ...extra } : {}, ...(extra.NL ? { NotificationListener: extra.NL } : {}) } });
+  const row = async (cap) => { window.Capacitor = cap; await refreshAiStatus(); return { shown: !$('ai-card').hidden, text: $('ai-status').textContent, checked: $('pref-ai').checked }; };
+  const out = {};
+  state.aiEnabled = true; state.aiIntroSeen = true;
+  try {
+    out.on = await row(kitWith(async () => ({ available: true })));
+    out.ready = await row(kitWith(async () => ({ available: false, reason: 'downloading' })));
+    out.none = await row(kitWith(async () => ({ available: false, reason: 'unsupported' })));
+    out.missing = await row(kitWith(null));
+    out.web = await row(keepCap && keepCap.isNativePlatform && keepCap.isNativePlatform() ? { isNativePlatform: () => false } : keepCap);
+    // The switch: off means no AI call for receipts or alerts.
+    window.Capacitor = kitWith(async () => ({ available: true }));
+    await refreshAiStatus();
+    $('pref-ai').checked = false; $('pref-ai').dispatchEvent(new Event('change'));
+    out.offState = { en: state.aiEnabled, text: $('ai-status').textContent };
+    const asks = [];
+    window.Capacitor = kitWith(async () => ({ available: true }), {
+      aiReadReceipt: async () => { asks.push('receipt'); return { json: '{"total": 7.9}' }; },
+      aiReadAlert: async () => { asks.push('alert'); return { json: '{"direction":"spend"}' }; },
+      NL: { drainCaptured: async () => ({ items: [{ p: 'com.maybank2u.life', ti: '', tx: 'Kad 1234: RM 30.00 @ KEDAI RUNCIT MAJU, 15/11', t: Date.now() - 1800000 }] }) },
+    });
+    state.pendingTxns = [];
+    await receiptSecondOpinion({ amount: null, amountConfidence: 'low', vendor: '', date: '' }, 'KEDAI\nTOTAL 7.90');
+    await drainCaptured();
+    out.offAsks = asks.slice();
+    out.offPending = state.pendingTxns.length;
+    state.aiEnabled = true;
+    state.pendingTxns = [];
+    await receiptSecondOpinion({ amount: null, amountConfidence: 'low', vendor: '', date: '' }, 'KEDAI\nTOTAL 7.90');
+    await drainCaptured();
+    out.onAsks = asks.slice(out.offAsks.length);
+    // The capture-card tag: an AI-read card has it, a rule card doesn't.
+    renderAll();
+    out.tagAi = [...document.querySelectorAll('#pending-list li')].map((li) => li.querySelector('.pending-ai')?.textContent || '');
+    state.pendingTxns = [];
+    window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM 12.00 from ALI BIN ABU.', postedAt: Date.now() - 1800000 });
+    renderAll();
+    out.tagRule = [...document.querySelectorAll('#pending-list li')].map((li) => li.querySelector('.pending-ai')?.textContent || '');
+    state.pendingTxns = [];
+    // The one-time Home card.
+    window.Capacitor = kitWith(async () => ({ available: true }));
+    state.aiIntroSeen = false; state.aiIntroShownOn = '';
+    await refreshAiStatus();
+    out.introFirst = !$('ai-intro').hidden && /on-device AI/.test($('ai-intro').textContent);
+    $('ai-intro-close').click();
+    await refreshAiStatus();
+    out.introAfter = { hidden: $('ai-intro').hidden, seen: state.aiIntroSeen };
+    state.aiIntroSeen = false; state.aiIntroShownOn = '2020-01-01';
+    await refreshAiStatus();
+    out.introOldDay = $('ai-intro').hidden;
+    state.aiIntroSeen = false; state.aiIntroShownOn = '';
+    window.Capacitor = kitWith(async () => ({ available: false, reason: 'unsupported' }));
+    await refreshAiStatus();
+    out.introNoAi = $('ai-intro').hidden;
+    // CSV keeps the switch.
+    state.aiEnabled = false;
+    out.csvOff = fromCSV(toCSV()).aiEnabled;
+    state.aiEnabled = true;
+    out.csvOn = fromCSV(toCSV()).aiEnabled;
+  } finally {
+    window.Capacitor = keepCap;
+    Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: true, aiIntroShownOn: snap.on, pendingTxns: [] });
+    aiStatusCache = null;
+    save(); renderAll();
+  }
+  return out;
+});
+check('AI Settings row: "On · runs on this phone" when the model is there',
+  aiUi.on.shown && aiUi.on.text === 'On · runs on this phone' && aiUi.on.checked, JSON.stringify(aiUi.on));
+check('AI Settings row: "Getting ready" while it downloads; "Not available on this phone; Duitful uses its rules." without it or without the kit',
+  aiUi.ready.text === 'Getting ready' && aiUi.none.text === 'Not available on this phone; Duitful uses its rules.' && aiUi.missing.text === aiUi.none.text, JSON.stringify([aiUi.ready, aiUi.none, aiUi.missing]));
+check('AI Settings row: hidden on the plain web', aiUi.web.shown === false, JSON.stringify(aiUi.web));
+check('AI switch off: saved, says "Off · Duitful uses its rules.", and neither receipts nor bank alerts ask the AI',
+  aiUi.offState.en === false && /^Off/.test(aiUi.offState.text) && aiUi.offAsks.length === 0 && aiUi.offPending === 0, JSON.stringify([aiUi.offState, aiUi.offAsks, aiUi.offPending]));
+check('AI switch on: both paths ask again', aiUi.onAsks.includes('receipt') && aiUi.onAsks.includes('alert'), JSON.stringify(aiUi.onAsks));
+check('a capture card the AI helped read says "Read by your phone\'s AI"; a rule-read card does not',
+  aiUi.tagAi.length === 1 && aiUi.tagAi[0] === "Read by your phone's AI" && aiUi.tagRule.length === 1 && aiUi.tagRule[0] === '', JSON.stringify([aiUi.tagAi, aiUi.tagRule]));
+check('the on-device AI card shows on Home once, and never after it is dismissed (or on a later day, or without AI)',
+  aiUi.introFirst && aiUi.introAfter.hidden && aiUi.introAfter.seen && aiUi.introOldDay && aiUi.introNoAi, JSON.stringify(aiUi));
+check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.csvOn === true, JSON.stringify([aiUi.csvOff, aiUi.csvOn]));
+
+/* ── "Not picked up?": share an alert's wording, redacted on the phone (1.56.2) ── */
+const share = await S(() => {
+  const r = (t) => redactAlertSample(t);
+  const out = {
+    tng: r('You have successfully transferred RM 0.10 to ALI BIN ABU.'),
+    mae: r('You’ve just received RM 0.10 in your account ending ***8714. REF 20261115MBB0001'),
+    mixed: r('You have received RM 12.00 from Siti Aminah via DuitNow.'),
+    contact: r('Call 012-345 6789 or email ali.abu@example.com about card 4321 1234 5678 9012'),
+    card: r('RM1,234.50 charged to card ending 1234 at STARBUCKS KLCC on 15-Nov'),
+    malay: r('Anda telah menerima RM50.00 daripada AHMAD BIN ALI. Rujukan: ABC12345'),
+    kepada: r('Pindahan RM 20.00 kepada MOHD AZRI A/L RAMU berjaya.'),
+    keepTerms: r('DuitNow Transfer is successful'),
+    promo: r('Hi ALI BIN ABU, spend 3 minutes to share your feedback'),
+  };
+  const keepCap = window.Capacitor;
+  const look = (cap) => {
+    window.Capacitor = cap;
+    state.pendingTxns = [{ id: 'sh1', createdAt: Date.now() - 3600000, raw: 'You have successfully transferred RM 0.10 to ALI BIN ABU.', pkg: 'my.com.tngdigital.ewallet', amount: 0.1, merchant: 'ALI BIN ABU', providerId: 'tng', providerName: "Touch 'n Go", currency: 'MYR', transfer: true }];
+    renderAll();
+    const wraps = [...document.querySelectorAll('[data-capture-share-wrap]')].map((e) => !e.hidden);
+    return { wraps, wrong: !!document.querySelector('#pending-list [data-pending-wrong]') };
+  };
+  try {
+    out.android = look({ isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} });
+    document.querySelector('#pending-list [data-pending-wrong]').click();
+    out.dialog = { open: document.getElementById('capture-share-dialog').open, raw: document.getElementById('share-raw').value,
+      preview: document.getElementById('share-redacted').value, app: document.getElementById('share-app').value };
+    document.getElementById('share-redacted').value += ' (edited)';
+    out.mailto = captureShareMailto();
+    document.getElementById('capture-share-dialog').close();
+    out.ios = look({ isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} });
+    out.web = look(undefined);
+  } finally { window.Capacitor = keepCap; state.pendingTxns = []; save(); renderAll(); }
+  return out;
+});
+check('redaction: TNG transfer keeps "RM 0.10", drops the payee name',
+  share.tng === 'You have successfully transferred RM 0.10 to [name].', share.tng);
+check('redaction: MAE credit keeps "RM 0.10", drops the masked account (***8714) and the reference',
+  share.mae === 'You’ve just received RM 0.10 in your account ending [account]. REF [ref]', share.mae);
+check('redaction: names after from / daripada / kepada (mixed case, BIN, A/L) and all-caps merchants are removed',
+  share.mixed === 'You have received RM 12.00 from [name] via DuitNow.' && share.malay === 'Anda telah menerima RM50.00 daripada [name]. Rujukan: [ref]'
+  && share.kepada === 'Pindahan RM 20.00 kepada [name] berjaya.' && share.card === 'RM1,234.50 charged to card ending [number] at [name] on 15-Nov' && share.promo.startsWith('Hi [name],'),
+  JSON.stringify([share.mixed, share.malay, share.kepada, share.card, share.promo]));
+check('redaction: phone, email and card numbers go; amounts like RM1,234.50 stay; bank terms stay',
+  share.contact === 'Call [phone] or email [email] about card [number]' && share.keepTerms === 'DuitNow Transfer is successful', JSON.stringify([share.contact, share.keepTerms]));
+check('"Not picked up?" and "Wrong?" appear on Android only (not iPhone, not the web)',
+  share.android.wraps.length >= 2 && share.android.wraps.every(Boolean) && share.android.wrong
+  && share.ios.wraps.every((x) => !x) && !share.ios.wrong && share.web.wraps.every((x) => !x) && !share.web.wrong, JSON.stringify([share.android, share.ios, share.web]));
+check('"Wrong?" opens the share sheet with the alert, its app, and a redacted, editable preview',
+  share.dialog.open && /ALI BIN ABU/.test(share.dialog.raw) && share.dialog.preview === 'You have successfully transferred RM 0.10 to [name].' && share.dialog.app === 'my.com.tngdigital.ewallet', JSON.stringify(share.dialog));
+check('the email goes to hello@duitful.app with the edited redacted text and the app id, never the raw name',
+  share.mailto.startsWith('mailto:hello@duitful.app?') && /my\.com\.tngdigital\.ewallet/.test(decodeURIComponent(share.mailto))
+  && /\(edited\)/.test(decodeURIComponent(share.mailto)) && !/ALI BIN ABU/.test(decodeURIComponent(share.mailto)), share.mailto.slice(0, 200));
+/* ── "2 to review" on the persistent notification: JS keeps the count current (1.56.2) ── */
+const counted = await S(async () => {
+  const keepCap = window.Capacitor;
+  const sent = [];
+  let store = [];
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const t0 = Date.now() - 30 * 60000;
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { NotificationListener: {
+    setPendingCount: async (o) => { sent.push(o.count); },
+    drainCaptured: async () => { const items = store; store = []; return { items }; },
+  } } };
+  const out = {};
+  try {
+    state.pendingTxns = [];
+    syncPendingCount(true);
+    out.start = sent.slice(-1)[0];
+    // A drain: a TNG → MAE move (one card) and a lone credit (another) = 2.
+    store = [
+      { p: TNG, ti: '', tx: 'You have successfully transferred RM 0.10 to ALI BIN ABU.', t: t0 },
+      { p: MAE, ti: '', tx: 'You’ve just received RM 0.10 in your account ending ***1234.', t: t0 + 5000 },
+      { p: MAE, ti: '', tx: 'You’ve just received RM 1,250.00 in your account ending ***1234.', t: t0 - 3600000 },
+    ];
+    await drainCaptured();
+    out.afterDrain = sent.slice(-1)[0];
+    out.cards = state.pendingTxns.length;
+    // Accept the income, then confirm the move: 1, then 0.
+    renderAll();
+    document.querySelector('#pending-list [data-action="pending-income-accept"]').click();
+    out.afterAccept = sent.slice(-1)[0];
+    document.querySelector('#pending-list [data-action="pending-move-accept"]').click();
+    out.afterConfirm = sent.slice(-1)[0];
+    // A dismiss counts too.
+    window.duitfulIncoming({ package: MAE, text: 'You have received RM 12.00 from ALI BIN ABU.', postedAt: t0 });
+    out.afterNew = sent.slice(-1)[0];
+    document.querySelector('#pending-list [data-action="pending-dismiss"]').click();
+    out.afterDismiss = sent.slice(-1)[0];
+    out.onlyNumbers = sent.every((n) => typeof n === 'number');
+    out.review = quickActionFromUrl('duitful://action/review');
+  } finally { window.Capacitor = keepCap; state.pendingTxns = []; save(); renderAll(); }
+  return out;
+});
+check('persistent notification count: JS sends the number of cards to review after a drain (a move counts once)',
+  counted.start === 0 && counted.cards === 2 && counted.afterDrain === 2, JSON.stringify(counted));
+check('persistent notification count: back down after accepting, confirming and dismissing — never stale at 0 cards',
+  counted.afterAccept === 1 && counted.afterConfirm === 0 && counted.afterNew === 1 && counted.afterDismiss === 0 && counted.onlyNumbers, JSON.stringify(counted));
+check('the notification\'s Review action opens the app on the pending cards (duitful://action/review)', counted.review === 'review', String(counted.review));
+{
+  const notifier = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulQuickAddNotifier.java'), 'utf8');
+  check('native: the count notification shows only a number (and a public lock-screen version with only the count), on the same quiet channel',
+    /waiting \+ " to review"/.test(notifier) && /setPublicVersion/.test(notifier) && !/new NotificationChannel\([^)]*review/i.test(notifier) && /REVIEW_TEXT = "From bank alerts · tap to check"/.test(notifier), '');
+}
+
+/* ── "Use a screenshot": OCR on the phone, text only, never the image (1.56.2) ── */
+const shot = await S(async () => {
+  const keepOcr = window.ocrAlertScreenshot, keepShare = navigator.share;
+  const shade = [
+    'MAE · now',
+    'Maybank2u: Funds Received',
+    'You’ve just received RM 0.10 in your account ending ***8714. REF 20261115MBB0001',
+    "Touch 'n Go eWallet · 1m",
+    'DuitNow Transfer is successful',
+    'You have successfully transferred RM 0.10 to MUHAMMAD KHAIRUL ANUAR.',
+    'Duitful',
+    'Log a spend · Add · Scan receipt',
+  ].join('\n');
+  const out = {};
+  let shared = null;
+  try {
+    Object.defineProperty(navigator, 'share', { configurable: true, value: async (d) => { shared = d; } });
+    openCaptureShare({ kind: 'missed' });
+    window.ocrAlertScreenshot = async () => shade;
+    const img = new File([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], 'shade.png', { type: 'image/png' });
+    await shareFromScreenshot(img);
+    out.raw = document.getElementById('share-raw').value;
+    out.preview = document.getElementById('share-redacted').value;
+    out.hint = document.getElementById('share-shot-hint').textContent;
+    out.mailto = decodeURIComponent(captureShareMailto());
+    renderCaptureShareLinks();
+    document.getElementById('share-sheet').click();
+    await new Promise((r) => setTimeout(r, 50));
+    out.shared = shared ? { keys: Object.keys(shared).sort(), text: shared.text } : null;
+    // Nothing read: a short message, and paste still works.
+    openCaptureShare({ kind: 'missed' });
+    window.ocrAlertScreenshot = async () => '';
+    await shareFromScreenshot(img);
+    out.empty = { status: document.getElementById('share-shot-status').textContent, shown: !document.getElementById('share-shot-status').hidden, raw: document.getElementById('share-raw').value };
+    document.getElementById('capture-share-dialog').close();
+  } finally {
+    window.ocrAlertScreenshot = keepOcr;
+    Object.defineProperty(navigator, 'share', { configurable: true, value: keepShare });
+  }
+  return out;
+});
+check('screenshot: the shade text read on the phone fills the box, and the preview is redacted (amounts kept; names, account, reference gone)',
+  /MUHAMMAD/.test(shot.raw) && /RM 0\.10 in your account ending \[account\]\. REF \[ref\]/.test(shot.preview)
+  && /transferred RM 0\.10 to \[name\]\./.test(shot.preview) && !/MUHAMMAD|KHAIRUL|8714|20261115/.test(shot.preview), shot.preview);
+check('screenshot: says it only sends the cleaned words', /only send the cleaned words/.test(shot.hint), shot.hint);
+check('screenshot: the image is never attached — the email and the share sheet carry text only',
+  !/data:|base64|\.png|image\//i.test(shot.mailto) && !/MUHAMMAD/.test(shot.mailto)
+  && shot.shared && JSON.stringify(shot.shared.keys) === '["text","title"]' && !/MUHAMMAD|data:/.test(shot.shared.text), JSON.stringify(shot.shared));
+check('screenshot: no text found says so and leaves paste open', shot.empty.shown && /Paste the words instead/.test(shot.empty.status) && shot.empty.raw === '', JSON.stringify(shot.empty));
+
+/* ── Vivo tester, again: the exact TNG → MAE pair, end to end, and the check (1.56.2) ── */
+const vivo = await S(async () => {
+  const keepCap = window.Capacitor;
+  const TNG = 'my.com.tngdigital.ewallet', MAE = 'com.maybank2u.life';
+  const t0 = Date.now() - 20 * 60000;
+  const tngTx = 'You have successfully transferred RM 0.10 to MUHAMMAD KHAIRUL ANUAR.';
+  const maeTx = 'You’ve just received RM 0.10 in your account ending ***1234. REF 20261115ABC';
+  let store = [];
+  let calls = 0;
+  const listeners = {};
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { NotificationListener: {
+    drainCaptured: async () => { calls++; await new Promise((r) => setTimeout(r, 30)); const items = store; store = []; return { items }; },
+    captureStatus: async () => ({ accessGranted: true, batteryUnrestricted: false, connectedAt: t0, disconnectedAt: 0, stored: 0, manufacturer: 'vivo', model: 'V2405A', sdk: 36,
+      log: [{ p: TNG, t: t0, r: 'stored' }, { p: MAE, t: t0 + 9000, r: 'stored' }, { p: 'com.example.wallet', t: t0 + 10000, r: 'not on the list' }] }),
+    addListener: (ev, fn) => { listeners[ev] = fn; },
+  } } };
+  const out = {};
+  try {
+    state.pendingTxns = []; state.ownAccounts = []; state.captureDiag = { lastDrainAt: 0, items: [] };
+    // Both alerts land seconds apart: two nudges, the second while the first drain runs.
+    store = [{ p: TNG, ti: 'DuitNow Transfer is successful', tx: tngTx, t: t0 }];
+    const first = drainCaptured();
+    store.push({ p: MAE, ti: 'Maybank2u: Funds Received', tx: maeTx, t: t0 + 9000 });
+    await drainCaptured();                       // arrives mid-drain: must not be lost
+    await first;
+    await new Promise((r) => setTimeout(r, 150));
+    out.first = state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', from: p.from && p.from.providerId, to: p.to && p.to.providerId, amount: p.amount }));
+    out.calls = calls;
+    renderAll();
+    out.card = document.querySelector('#pending-list li.pending-move .pending-source')?.textContent || '';
+    // The same test again 15 minutes later: same wording, same amount — a second move, not a duplicate.
+    state.pendingTxns = [];
+    store = [{ p: TNG, ti: 'DuitNow Transfer is successful', tx: tngTx, t: t0 + 15 * 60000 }, { p: MAE, ti: 'Maybank2u: Funds Received', tx: maeTx, t: t0 + 15 * 60000 + 5000 }];
+    await drainCaptured();
+    out.again = state.pendingTxns.map((p) => p.kind || 'spend');
+    // The store failed natively: the event carries the text, and an open app handles it directly.
+    state.pendingTxns = [];
+    initNotificationListener();
+    const direct = { package: TNG, title: 'DuitNow Transfer is successful', text: 'You have successfully transferred RM 5.00 to KEDAI RUNCIT MAJU.', queued: false };
+    if (listeners.notification) listeners.notification(direct); else window.duitfulIncoming(direct);
+    out.bound = !!listeners.notification;
+    out.direct = state.pendingTxns.map((p) => ({ kind: p.kind || 'spend', amount: p.amount }));
+    // What each drained alert became, for the check.
+    out.diagItems = state.captureDiag.items.map((x) => x.became);
+    // The check itself.
+    window.Capacitor.getPlatform = () => 'android';
+    renderAll();
+    out.cardShown = !document.getElementById('bank-alerts-card').hidden;
+    await openCaptureCheck();
+    out.report = document.getElementById('capture-check-dialog').dataset.report;
+    out.dialogOpen = document.getElementById('capture-check-dialog').open;
+    out.accessBtnHidden = document.getElementById('capture-check-access').hidden;
+    document.getElementById('capture-check-dialog').close();
+  } finally {
+    window.Capacitor = keepCap; state.pendingTxns = []; save(); renderAll();
+  }
+  return out;
+});
+check('Vivo pair: TNG "transferred RM 0.10" and MAE "You’ve just received RM 0.10" (no-break spaces), seconds apart, become one "Moved · TNG → Maybank"',
+  vivo.first.length === 1 && vivo.first[0].kind === 'move' && vivo.first[0].from === 'tng' && vivo.first[0].to === 'maybank-mae' && vivo.first[0].amount === 0.1
+  && vivo.card === 'TNG → Maybank' && vivo.calls >= 2, JSON.stringify(vivo.first) + ' calls ' + vivo.calls);
+check('Vivo pair: a nudge that lands mid-drain is drained right after (nothing waits for the next app open)', vivo.calls >= 2, String(vivo.calls));
+check('Vivo pair: the same test repeated later is a second move, not swallowed as a duplicate', JSON.stringify(vivo.again) === '["move"]', JSON.stringify(vivo.again));
+check('if the native store fails, the notification event is handled directly by an open app', vivo.bound && vivo.direct.length === 1 && vivo.direct[0].amount === 5, JSON.stringify(vivo.direct));
+check('the check records what each drained alert became', vivo.diagItems.includes('spend') && vivo.diagItems.includes('move'), JSON.stringify(vivo.diagItems));
+check('Settings → Bank alerts → Check auto-capture shows access, listener, battery, store, what was seen and what it became',
+  vivo.cardShown && vivo.dialogOpen && /Notification access: granted/.test(vivo.report) && /Listener: last connected/.test(vivo.report)
+  && /Battery: optimised/.test(vivo.report) && /Waiting in store: 0/.test(vivo.report) && /Touch 'n Go · .* · stored/.test(vivo.report)
+  && /com\.example\.wallet · .* · not on the list/.test(vivo.report) && /→ move/.test(vivo.report) && /vivo V2405A · Android API 36/.test(vivo.report) && vivo.accessBtnHidden,
+  vivo.report);
+check('the check report carries no message text, names or amounts', !/RM|MUHAMMAD|KHAIRUL|KEDAI|0\.10|5\.00|\*\*\*/.test(vivo.report), vivo.report);
+{
+  const svc = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulNotificationListenerService.java'), 'utf8');
+  const store = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulCaptureStore.java'), 'utf8');
+  const inst = readFileSync(path.join(REPO_ROOT, 'scripts/install-notification-listener.mjs'), 'utf8');
+  check('native: the amount check accepts a no-break space after "RM" (Java \\s does not)', /\\\\u00A0/.test(svc), '');
+  check('native: a repeated posting with identical text is stored again (post time is part of the dedupe id)', /key\) \+ "\|" \+ when \+ "\|"/.test(store), '');
+  check('native: the installer ships the capture store and the diagnostic log', /"DuitfulCaptureStore\.java"/.test(inst) && /"DuitfulCaptureDiag\.java"/.test(inst), '');
+}
+// Every MY bank app id the listener allows has a parser entry, so its credits and transfers are understood.
+{
+  const java = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulNotificationListenerService.java'), 'utf8');
+  const myIds = [...java.slice(java.indexOf('// Malaysia'), java.indexOf('// Singapore')).matchAll(/ALLOWED\.add\("([^"]+)"\);\s*\/\/[^\n]*\(Play\)/g)].map((m) => m[1]);
+  const unparsed = await S((ids) => ids.filter((id) => !providerForPackage(id) || providerForPackage(id).country !== 'MY'), myIds);
+  check('every Play-verified Malaysian app id in the listener has a Malaysian parser entry', myIds.length >= 30 && unparsed.length === 0, JSON.stringify(unparsed) + ' of ' + myIds.length);
+}
+
+// The landing pages sell it, truthfully, in both languages.
+for (const [lang, file, q, h] of [['en', 'index.html', 'Does Duitful use AI?', 'AI that never leaves your'], ['ms', 'ms/index.html', 'Adakah Duitful guna AI?', 'AI yang tak pernah keluar dari']]) {
+  const html = readFileSync(path.join(REPO_ROOT, file), 'utf8');
+  const section = (html.match(/<section class="block ai-local" id="ai"[\s\S]*?<\/section>/) || [''])[0];
+  const faqs = [...html.matchAll(/<summary>\s*([^<]+?)\s*<span class="plus"/g)].map((m) => m[1].trim());
+  const ld = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]));
+  const faqLd = ld.find((j) => j['@type'] === 'FAQPage');
+  const app = ld.find((j) => j['@type'] === 'WebApplication');
+  const ans = faqLd && faqLd.mainEntity.find((x) => x.name === q);
+  check(`${lang} landing: an on-device AI section sits before the demo, with its headline, three points and the supported-phones link`,
+    section.includes(h) && (section.match(/class="feature reveal"/g) || []).length === 3 && section.includes('https://developers.google.com/ml-kit/genai')
+    && html.indexOf('id="ai"') < html.indexOf('id="demo"') && html.indexOf('id="ai"') > html.indexOf('id="features"'), String(section.length));
+  check(`${lang} landing: FAQ "${q}" is on the page and in the FAQ rich result, next to the built-with-AI one`,
+    faqs.includes(q) && !!ans && /iOS 26/.test(ans.acceptedAnswer.text) && faqs.length >= 5, JSON.stringify(faqs));
+  check(`${lang} landing: the AI claims stay truthful (no cloud, no chat, no "Apple Intelligence")`,
+    !/Apple Intelligence|cloud AI|chatbot|AI advice|nasihat AI/i.test(section + (ans ? ans.acceptedAnswer.text : '')), '');
+  check(`${lang} landing: featureList names on-device AI`, app && app.featureList.some((f) => /Gemini Nano/.test(f)), '');
+}
 
 // --- settlement receipts: emit ---
 const paidEmit = await S(async () => {
@@ -5234,7 +5914,7 @@ check('and what was typed reaches the home screen calculation',
     state.pro = false; state.proNudgeUntil = 0;
     // Trial just ended, with backups and scans counted during it.
     localStorage.setItem('duitful-trial-usage', JSON.stringify({ backups: 12, scans: 8 }));
-    state.proTrialStartedAt = Date.now() - 8 * 864e5;
+    state.proTrialStartedAt = Date.now() - 15 * 864e5;
     state.firstRunAt = state.proTrialStartedAt;
     renderTrialBanner(); out.recap = read();
     // Not now: quiet for 30 days.
@@ -5257,6 +5937,198 @@ check('and what was typed reaches the home screen calculation',
   check('Not now quiets the Pro message', pn.snoozed === false, JSON.stringify(pn));
   check('two weeks in with real data: "Only on this phone" names the entries at risk; not with too little data; never for Pro',
     pn.backup.shown && pn.backup.kind === 'backup' && /\d+ entries are gone/.test(pn.backup.sub) && pn.tooFew === false && pn.pro === false, JSON.stringify(pn));
+}
+
+/* ── No bait and switch (1.55.12) ─────────────────────────────────────────
+   The trial is opt-in and says what ends before it ends; a person's own
+   data imports whole; one price everywhere; the limit shows before the
+   wall; Back up now is free and only automatic backup is Pro. */
+{
+  const nb = await S(async () => {
+    const snap = JSON.stringify(state);
+    const usage = localStorage.getItem('duitful-trial-usage');
+    const keep = { cap: window.Capacitor, drive: window.DriveSync, exp: PROMO_CODES.LAUNCH100.expires };
+    const out = {};
+    const $id = (id) => document.getElementById(id);
+    const paywall = () => $id('paywall-dialog').open;
+    const banner = () => ({ shown: !$id('trial-banner').hidden, kind: $id('trial-banner').dataset.kind, sub: $id('trial-banner-sub').textContent });
+    $id('reminder-ask').hidden = true;
+    localStorage.removeItem('duitful-trial-usage');
+
+    // 1. Opt-in trial: offered once, started only by the tap.
+    state.pro = false; state.proTrialStartedAt = 0; state.proNudgeUntil = 0;
+    openPaywall('savings');
+    const btn = $id('paywall-trial');
+    out.offer = { shown: !btn.hidden, text: btn.textContent, proBefore: isPro() };
+    btn.click();
+    out.started = { at: state.proTrialStartedAt > 0, pro: isPro(), closed: !paywall(), toast: ($id('toast') || {}).textContent || '',
+      saved: null };
+    openPaywall('savings'); out.offerAgain = !btn.hidden; closePaywall();
+    state.proTrialStartedAt = 0; state.pro = true; openPaywall(); out.offerPro = !btn.hidden; closePaywall();
+    state.pro = false;
+    // A vault from the automatic-trial days keeps its trial, and gets the longer window.
+    state.proTrialStartedAt = Date.now() - 8 * 864e5; out.oldVaultStillTrial = isTrialActive() && TRIAL_DAYS === 14;
+
+    // 2. Two days left: what changes, from what this person uses.
+    const goal = (i) => ({ id: 'nbg' + i, name: 'Goal ' + i, target: 100, current: 0 });
+    state.proTrialStartedAt = Date.now() - (TRIAL_DAYS - 1.5) * 864e5;
+    state.savings = Array.from({ length: 7 }, (_, i) => goal(i));
+    state.budgetPools = state.budgetPools.filter((p) => p.system === 'debt')
+      .concat([{ id: 'nbp1', name: 'Food', limit: 500, active: true }, { id: 'nbp2', name: 'Fun', limit: 200, active: false }]);
+    localStorage.setItem('duitful-trial-usage', JSON.stringify({ scans: 3 }));
+    renderTrialBanner(); out.warn = banner(); out.daysLeft = trialDaysLeft();
+    state.savings = []; state.budgetPools = state.budgetPools.filter((p) => p.id !== 'nbp2');
+    state.debts = []; state.investments = [];
+    localStorage.removeItem('duitful-trial-usage');
+    renderTrialBanner(); out.warnNothing = banner().sub;
+    state.proTrialStartedAt = Date.now() - 3 * 864e5;
+    renderTrialBanner(); out.midTrial = banner().sub;
+
+    // 5. The limit, before the wall.
+    const count = (k) => { const el = document.querySelector(`[data-free-count="${k}"]`); return el.hidden ? null : el.textContent; };
+    const debt = (i, kind) => ({ id: 'nbd' + i, name: 'Debt ' + i, kind, balance: 100, apr: kind === 'islamic' ? 0 : 10, minPayment: 10 });
+    state.proTrialStartedAt = Date.now() - 20 * 864e5;
+    state.debts = [debt(1, 'standard'), debt(2, 'standard'), debt(3, 'islamic')];
+    state.savings = [goal(1)];
+    renderAll();
+    out.counts = { debts: count('debts'), savings: count('savings'), investments: count('investments') };
+    state.savings = Array.from({ length: 7 }, (_, i) => goal(i)); renderAll();
+    out.countOver = count('savings');
+    state.proTrialStartedAt = Date.now() - 864e5; renderAll(); out.countTrial = count('debts');
+    state.proTrialStartedAt = Date.now() - 20 * 864e5; state.pro = true; renderAll(); out.countPro = count('debts');
+    state.pro = false;
+
+    // 4. One price: what the banner says is what the paywall says.
+    const price = () => {
+      state.proNudgeUntil = 0; state.proTrialStartedAt = Date.now() - 15 * 864e5;
+      renderTrialBanner();
+      const r = { label: proPriceLabel(), banner: banner().sub, link: document.querySelector('[data-pro-price]').textContent };
+      state.proTrialStartedAt = 0;   // never had a trial: same price all the same
+      openPaywall('debts');
+      r.paywall = $id('paywall-price-amount').textContent; r.sub = $id('paywall-price-sub').textContent;
+      r.hint = $id('paywall-hint').textContent; r.sku = activePromo ? activePromo.sku : PRODUCT_ID;
+      closePaywall();
+      return r;
+    };
+    out.priceWeb = price();
+    $id('fpx-discount').value = ''; openFpxDialog(); out.fpxCode = $id('fpx-discount').value; closeFpxDialog(); $id('fpx-discount').value = '';
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    out.priceAndroid = price();
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} };
+    out.priceIos = price();
+    window.Capacitor = keep.cap;
+    PROMO_CODES.LAUNCH100.expires = '2020-01-01';
+    out.priceExpired = price();
+    PROMO_CODES.LAUNCH100.expires = keep.exp;
+
+    // 6. Back up now is free; automatic stays Pro.
+    let uploads = 0;
+    window.DriveSync = Object.assign({}, keep.drive, { isConfigured: () => true, isSignedIn: () => true, isHidden: () => false,
+      getStatus: () => ({ state: 'idle' }), getAccountEmail: () => '', uploadEncryptedRecord: async () => { uploads++; } });
+    state.proTrialStartedAt = Date.now() - 20 * 864e5; state.pro = false; state.driveAutoSync = true;
+    save(); await new Promise((r) => setTimeout(r, 50));
+    renderDriveCard();
+    out.backup = { nowDisabled: $id('btn-drive-sync-now').disabled, autoShownOn: $id('drive-auto-sync').checked,
+      hint: $id('drive-pro-hint').hidden ? '' : $id('drive-pro-hint').textContent.replace(/\s+/g, ' ').trim() };
+    $id('btn-drive-sync-now').click();
+    await new Promise((r) => setTimeout(r, 100));
+    out.backup.manualUploads = uploads; out.backup.manualPaywall = paywall();
+    scheduleDriveUpload(); out.backup.autoScheduled = driveUploadTimer != null;
+    await runDriveUpload(); out.backup.autoUploads = uploads - out.backup.manualUploads;
+    $id('drive-auto-sync').checked = true; $id('drive-auto-sync').dispatchEvent(new Event('change'));
+    out.backup.togglePaywall = paywall(); out.backup.toggleReason = $id('paywall-reason').textContent;
+    out.backup.toggleStays = $id('drive-auto-sync').checked;
+    closePaywall();
+    // In the trial's last days, with auto-backup on, the banner says it stops.
+    state.proTrialStartedAt = Date.now() - (TRIAL_DAYS - 0.5) * 864e5;
+    out.backup.warn = trialEndText();
+    if (driveUploadTimer) { clearTimeout(driveUploadTimer); driveUploadTimer = null; }
+    window.DriveSync = keep.drive;
+
+    if (usage == null) localStorage.removeItem('duitful-trial-usage'); else localStorage.setItem('duitful-trial-usage', usage);
+    const t = document.getElementById('toast'); if (t) t.textContent = '';
+    Object.assign(state, coerceState(JSON.parse(snap))); save(); renderAll(); renderDriveCard();
+    return out;
+  });
+  check('opt-in trial: the paywall offers "Try Pro free for 14 days" to someone who never had one, and nothing starts until the tap',
+    nb.offer.shown && nb.offer.text === 'Try Pro free for 14 days' && nb.offer.proBefore === false, JSON.stringify(nb.offer));
+  check('opt-in trial: the tap starts it, closes the paywall and says it ends in 14 days, nothing is charged, nothing is deleted',
+    nb.started.at && nb.started.pro && nb.started.closed && /ends in 14 days/.test(nb.started.toast)
+    && /Nothing is charged/.test(nb.started.toast) && /nothing you add is deleted/.test(nb.started.toast), JSON.stringify(nb.started));
+  check('opt-in trial: offered once — not after a trial, not to Pro; an old 7-day vault keeps its trial with the longer window',
+    nb.offerAgain === false && nb.offerPro === false && nb.oldVaultStillTrial, JSON.stringify(nb));
+  check('two days left: the banner names what changes for this person (goals and pools over the limit stay, scans back to 5) and that nothing is deleted',
+    nb.daysLeft === 2 && nb.warn.shown && nb.warn.kind === 'trial' && /2 days left/.test(nb.warn.sub)
+    && /can't add more goals \(your 7 stay; Free adds up to 5 goals\)/.test(nb.warn.sub) && /budget pools \(your 2 stay/.test(nb.warn.sub)
+    && /scans go back to 5 a month/.test(nb.warn.sub) && /Nothing is deleted/.test(nb.warn.sub) && !/debts|holdings|backup/.test(nb.warn.sub), JSON.stringify(nb.warn));
+  check('two days left with nothing over a limit: it says nothing changes; earlier in the trial there is no warning',
+    /Nothing you use changes/.test(nb.warnNothing) && !/After that/.test(nb.midTrial) && /left of full Pro access/.test(nb.midTrial), JSON.stringify([nb.warnNothing, nb.midTrial]));
+  check('free limit counters: "2 of 3 free debts used" (Islamic financing not counted), goals and holdings by their add buttons',
+    /^2 of 3 free debts used/.test(nb.counts.debts) && nb.counts.savings === '1 of 5 free goals used' && nb.counts.investments === '0 of 3 free holdings used', JSON.stringify(nb.counts));
+  check('free limit counters: over the limit says yours stay; Pro and the trial see no counter',
+    /^7 goals · Free adds up to 5\. Yours stay\./.test(nb.countOver) && nb.countTrial === null && nb.countPro === null, JSON.stringify(nb));
+  const same = (p, want) => p.label === want && p.paywall === want && p.banner.includes(want) && p.link === want;
+  check('one price on the web: banner, links and paywall all say RM 14.90, labelled "Launch price until 14 May 2027", for someone who never had a trial',
+    same(nb.priceWeb, 'RM 14.90') && /^Launch price until 14 May 2027/.test(nb.priceWeb.sub) && !/trial/i.test(nb.priceWeb.hint)
+    && /LAUNCH100/.test(nb.priceWeb.hint) && nb.fpxCode === 'LAUNCH100', JSON.stringify([nb.priceWeb, nb.fpxCode]));
+  check('one price on Android: the launch SKU, RM 14.90 everywhere; on iPhone RM 19.90 everywhere and no code',
+    same(nb.priceAndroid, 'RM 14.90') && nb.priceAndroid.sku === 'duitful_pro_launch' && /^Launch price until 14 May 2027/.test(nb.priceAndroid.sub)
+    && same(nb.priceIos, 'RM 19.90') && nb.priceIos.sku === 'duitful_pro' && !/LAUNCH|Launch/.test(nb.priceIos.sub + nb.priceIos.hint), JSON.stringify([nb.priceAndroid, nb.priceIos]));
+  check('one price after the launch price ends: RM 19.90 everywhere, no code mentioned',
+    same(nb.priceExpired, 'RM 19.90') && !/LAUNCH100/.test(nb.priceExpired.hint), JSON.stringify(nb.priceExpired));
+  check('manual backup is free: Back up now uploads for a free user with no paywall',
+    nb.backup.nowDisabled === false && nb.backup.manualUploads === 1 && nb.backup.manualPaywall === false, JSON.stringify(nb.backup));
+  check('automatic backup is Pro: nothing is scheduled or uploaded on its own, the switch shows off and opens the paywall, which says Back up now stays free',
+    nb.backup.autoScheduled === false && nb.backup.autoUploads === 0 && nb.backup.autoShownOn === false && /Automatic sync is off/.test(nb.backup.hint)
+    && nb.backup.togglePaywall && nb.backup.toggleStays === false && /Back up now and Export CSV in Settings stay free/.test(nb.backup.toggleReason)
+    && /automatic backup stops \(Back up now still works\)/.test(nb.backup.warn), JSON.stringify(nb.backup));
+
+  // 3. A free user's own CSV — more goals, holdings and pools than Free adds — imports whole.
+  const imp = await S(async () => {
+    const snap = JSON.stringify(state);
+    state.pro = true;
+    state.savings = Array.from({ length: 7 }, (_, i) => ({ id: 'ig' + i, name: 'Goal ' + i, target: 100 + i, current: i }));
+    state.investments = Array.from({ length: 5 }, (_, i) => {
+      const h = coerceInvestment({ name: 'Holding ' + i, kind: 'balance', account: 'Other', balance: 1000 + i });
+      h.flows = [{ date: '2026-10-01', amount: h.balance }]; h.valuations = [{ date: '2026-10-01', value: h.balance }];
+      return h;
+    });
+    state.budgetPools = state.budgetPools.filter((p) => p.system === 'debt').concat([
+      { id: 'ip1', name: 'Food', limit: 500, active: true, rollover: true, monthlyLimits: { '2026-11': 650 } },
+      { id: 'ip2', name: 'Fun', limit: 200, active: false, rollover: false, monthlyLimits: {} },
+      { id: 'ip3', name: 'Travel', limit: 900, active: false, rollover: true, monthlyLimits: {} }]);
+    state.dailyExpenses = [{ id: 'ie1', date: '2026-11-03', amount: 12.5, note: 'Lunch', category: 'Food', budgetPoolId: 'ip3', budgetPoolName: 'Travel' }];
+    const csv = toCSV();
+    const holdings = state.investments.length;
+    // Now a free user (trial long over) with an empty vault imports that file.
+    state.pro = false; state.proTrialStartedAt = Date.now() - 30 * 864e5;
+    state.ocrUsage = { month: currentMonthISO(), scans: 4 };
+    state.savings = []; state.investments = []; state.dailyExpenses = [];
+    state.budgetPools = state.budgetPools.filter((p) => p.system === 'debt');
+    const said = [];
+    const done = await importCsvFile(new File([csv], 'mine.csv', { type: 'text/csv' }), { ask: false, onError: (m) => said.push(m) });
+    const pools = state.budgetPools.filter((p) => p.system !== 'debt');
+    const food = pools.find((p) => p.name === 'Food'), travel = pools.find((p) => p.name === 'Travel');
+    const lunch = state.dailyExpenses.find((e) => e.note === 'Lunch');
+    const out = { done, said, pro: isPro(), paywall: document.getElementById('paywall-dialog').open,
+      goals: state.savings.length, holdings: state.investments.length, wantHoldings: holdings, pools: pools.length,
+      rollover: !!(food && food.rollover) && !!(travel && travel.rollover), override: food && food.monthlyLimits && food.monthlyLimits['2026-11'],
+      tagged: !!(lunch && travel && lunch.budgetPoolId === travel.id), scansKept: state.ocrUsage && state.ocrUsage.scans,
+      trialKept: state.proTrialStartedAt > 0 };
+    // …and the limits still stop adding afterwards.
+    document.querySelector('#form-saving [name="name"]').value = 'One more';
+    document.querySelector('#form-saving [name="target"]').value = '50';
+    document.getElementById('form-saving').requestSubmit();
+    out.addBlocked = state.savings.length === out.goals && document.getElementById('paywall-dialog').open;
+    closePaywall(); document.getElementById('form-saving').reset();
+    Object.assign(state, coerceState(JSON.parse(snap))); save(); renderAll();
+    return out;
+  });
+  check('a free user\'s own CSV with 7 goals, 5 holdings and 3 pools imports whole: nothing refused, nothing trimmed, no paywall',
+    imp.done === true && !imp.pro && !imp.paywall && imp.said.length === 0 && imp.goals === 7 && imp.holdings === 5 && imp.wantHoldings === 5 && imp.pools === 3, JSON.stringify(imp));
+  check('the import keeps pool rollover, per-month limits and entry tags, and neither scan usage nor a used trial is reset',
+    imp.rollover && imp.override === 650 && imp.tagged && imp.scansKept === 4 && imp.trialKept, JSON.stringify(imp));
+  check('after the import the limit still stops adding: an 8th goal opens the paywall', imp.addBlocked === true, JSON.stringify(imp));
 }
 
 /* ── First week pacing: no pitch on day one, no cold permission prompt ──
@@ -5444,7 +6316,7 @@ check('and what was typed reaches the home screen calculation',
   const pools = await S(async () => {
     const saved = { pro: state.pro, trial: state.proTrialStartedAt, pools: state.budgetPools };
     const m = currentMonthISO();
-    state.pro = false; state.proTrialStartedAt = Date.now() - 9 * 864e5;
+    state.pro = false; state.proTrialStartedAt = Date.now() - 15 * 864e5;
     state.budgetPools = saved.pools.filter((p) => p.system === 'debt').concat([
       { id: 'pr', name: 'Rolls', limit: 300, color: POOL_COLORS[0], active: false, rollover: true, monthlyLimits: {}, createdAt: 1 },
       { id: 'po', name: 'Overridden', limit: 300, color: POOL_COLORS[0], active: false, rollover: false, monthlyLimits: { [m]: 500 }, createdAt: 2 },
@@ -6175,7 +7047,7 @@ check('the vault is open before the quick-add checks',
     const free = await fp2.evaluate(async () => {
       const wait = (ms) => new Promise((r) => setTimeout(r, ms));
       document.querySelectorAll('dialog[open]').forEach((d) => d.close());
-      state.pro = false; state.proTrialStartedAt = Date.now() - 8 * 86400000; save(); renderAll();
+      state.pro = false; state.proTrialStartedAt = Date.now() - 15 * 86400000; save(); renderAll();
       const paywall = () => document.getElementById('paywall-dialog').open;
       const form = document.getElementById('form-debt');
       const addStandard = (name) => {
@@ -8946,10 +9818,10 @@ check('the brand catalogue makes no network calls at all',
     && await page.locator('#tax-page-optin').isVisible() && await page.locator('#tax-card').isHidden()
     && await S(() => !taxState().enabled));
   check('tax welcome: explains the three things it does and what you will need',
-    /Spots claimable spending/.test(await page.locator('#tax-page-optin').innerText())
-    && /Keeps the receipts/.test(await page.locator('#tax-page-optin').innerText())
-    && /Checks in/.test(await page.locator('#tax-page-optin').innerText())
-    && /PCB total/.test(await page.locator('#tax-page-optin').innerText()));
+    /Spots claims/.test(await page.locator('#tax-page-optin').innerText())
+    && /Keeps receipts/.test(await page.locator('#tax-page-optin').innerText())
+    && /Reminds you/.test(await page.locator('#tax-page-optin').innerText())
+    && /payslip/.test(await page.locator('#tax-page-optin').innerText()));
   check('tax welcome: the button is wide enough to read on a phone (not squeezed to a word per line)',
     await page.locator('#tab-tax [data-tax-enable]').evaluate(b => b.getBoundingClientRect().width > 160 && b.getBoundingClientRect().height < 70));
   await page.click('#tab-tax [data-tax-enable]');
@@ -9248,16 +10120,179 @@ check('the brand catalogue makes no network calls at all',
   check('tax claims: "Needs receipt" shows only claims without one',
     missingRows === missingClaims && missingRows < allClaims, `${missingRows}/${missingClaims}/${allClaims}`);
   await page.click('[data-tax-filter="all"]');
-  await page.click('.tax-fact[data-tax-numbers="tax-in-pcb"]');
+  await S(() => taxOpenNumbers('tax-in-pcb'));
   await page.waitForTimeout(200);
-  check('tax details: a fact opens the details dialog at that field',
-    await page.locator('#tax-numbers-dialog').evaluate(d => d.open) && await S(() => document.activeElement && document.activeElement.id === 'tax-in-pcb'));
+  check('tax details: a link that names a field opens the details dialog on its step, at that field',
+    await page.locator('#tax-numbers-dialog').evaluate(d => d.open) && await S(() => document.activeElement && document.activeElement.id === 'tax-in-pcb')
+    && await page.locator('[data-tax-step="1"]').isVisible() && await page.locator('[data-tax-step="0"]').isHidden());
+  await page.click('[data-tax-period="ded:y"]');
   await page.fill('#tax-in-pcb', '2500');
   await page.dispatchEvent('#tax-in-pcb', 'change');
-  await page.click('#tax-numbers-done');
+  await page.click('#tax-numbers-done');   // Next → Family
+  await page.click('#tax-numbers-done');   // Done
   await page.waitForTimeout(200);
+  check('tax details: Done on the last step closes the dialog', !(await page.locator('#tax-numbers-dialog').evaluate(d => d.open)));
   check('tax details: an edit there updates the refund card',
     await S(() => taxFigures(taxYear()).pcb === 2500) && /2,500\.00/.test(await page.locator('#tax-split-paid-val').textContent()));
+
+  /* ── Tax page, simplified (1.55.13): cards instead of paragraphs ──────────
+     The details form is three steps; Monthly amounts are stored as yearly;
+     the details card is one line or one prompt; Malaysia's rules card is a
+     quiet link; Stop tracking sits at the foot of the page. */
+  {
+    const tw = await S(async () => {
+      const snap = JSON.stringify(state.tax), cur = state.currency, realConfirm = window.confirm, realChecks = window.taxRunChecks;
+      window.taxRunChecks = () => {};
+      const out = {};
+      const $id = (id) => document.getElementById(id);
+      const dlg = $id('tax-numbers-dialog');
+      const y = String(taxYear());
+      const type = (id, v) => { $id(id).value = v; $id(id).dispatchEvent(new Event('input', { bubbles: true })); $id(id).dispatchEvent(new Event('change', { bubbles: true })); };
+      const step = () => [...dlg.querySelectorAll('[data-tax-step]')].filter((x) => !x.hidden).map((x) => x.dataset.taxStep).join(',');
+      const mode = (g) => dlg.querySelector(`[data-tax-period="${g}:m"]`).getAttribute('aria-pressed') === 'true' ? 'm' : 'y';
+      const card = () => ({ line: $id('tax-facts').textContent.replace(/\s+/g, ' ').trim(), prompt: $id('tax-details-prompt').hidden ? '' : $id('tax-details-prompt-text').textContent,
+        btn: $id('tax-details-add').textContent, edit: !$id('btn-tax-numbers').hidden, warnTiles: document.querySelectorAll('#tax-details-card .tax-fact').length });
+      state.tax.enabled = true;
+      Object.assign(state.tax, { spouse: false, children: 0, childrenPre: 0, childrenTertiary: 0, disabledChildren: 0, disabledSelf: false, disabledSpouse: false });
+      // No salary anywhere: not typed, and none logged in the Monthly tab.
+      const logged = state.income; state.income = [];
+      state.tax.figures[y] = { income: 0, pcb: 0, epf: 0 };
+      renderAll();
+      out.noIncome = taxIncomeFromEntries(taxYear()).annual === 0; out.cardEmpty = card();
+      out.promptOpensAt = $id('tax-details-add').dataset.taxNumbers;
+
+      // Step 1: Salary, Monthly by default, stored as the yearly figure.
+      $id('tax-details-add').click();
+      out.open = { open: dlg.open, step: step(), mode: mode('pay'), back: $id('tax-wiz-back').hidden, next: $id('tax-numbers-done').textContent,
+        dots: $id('tax-wiz-dots').children.length, placeholders: ['tax-in-income', 'tax-in-pcb', 'tax-in-epf'].filter((id) => $id(id).placeholder).length,
+        hintUnder: !!$id('tax-in-income').parentElement.querySelector('.hint') };
+      type('tax-in-income', '5000');
+      out.salary = { stored: taxFigures(taxYear()).income, total: $id('tax-total-income').textContent };
+      $id('tax-numbers-form').requestSubmit();
+      // Step 2: PCB and EPF, the same switch.
+      out.step2 = { step: step(), mode: mode('ded'), back: !$id('tax-wiz-back').hidden, focus: document.activeElement && document.activeElement.id };
+      type('tax-in-pcb', '300'); type('tax-in-epf', '550');
+      out.deductions = { ...taxFigures(taxYear()), total: $id('tax-total-epf').textContent };
+      $id('tax-wiz-back').click();
+      out.backTo = { step: step(), shown: $id('tax-in-income').value };
+      $id('tax-wiz-skip').click(); $id('tax-wiz-skip').click();
+      // Step 3: Family. "Just me" until asked; steppers, not text boxes.
+      out.family = { step: step(), done: $id('tax-numbers-done').textContent, just: !$id('tax-fam-just').hidden && $id('tax-fam-just-text').textContent,
+        fields: !$id('tax-fam-fields').hidden, more: $id('tax-more').open, textBoxes: dlg.querySelectorAll('[data-tax-step="2"] input[type="number"]').length };
+      $id('tax-fam-add').click();
+      const inc = dlg.querySelector('[data-tax-inc="tax-in-children"]'), dec = dlg.querySelector('[data-tax-dec="tax-in-children"]');
+      out.stepper = { shown: !$id('tax-fam-fields').hidden, decOffAtZero: dec.disabled, labels: [inc.getAttribute('aria-label'), dec.getAttribute('aria-label')] };
+      inc.click(); inc.click(); inc.click(); dec.click();
+      out.stepper.children = state.tax.children; out.stepper.out = $id('tax-in-children').value; out.stepper.decOn = !dec.disabled;
+      $id('tax-in-spouse').click();
+      out.stepper.spouse = state.tax.spouse;
+      $id('tax-numbers-form').requestSubmit();
+      out.closed = !dlg.open;
+      out.cardFull = card();
+      state.income = logged; renderAll();
+
+      // Editing later: opens at step 1 with the stored values. A yearly figure
+      // that isn't a clean monthly amount opens as Yearly and is never rewritten.
+      $id('btn-tax-numbers').click();
+      out.edit = { step: step(), mode: mode('pay'), shown: $id('tax-in-income').value, fam: null, more: $id('tax-more').open };
+      $id('tax-wiz-skip').click(); $id('tax-wiz-skip').click();
+      out.edit.fam = !$id('tax-fam-fields').hidden; out.edit.more = $id('tax-more').open;
+      dlg.close();
+      state.tax.figures[y].income = 50000; renderAll();
+      taxOpenNumbers();
+      out.yearly = { mode: mode('pay'), shown: $id('tax-in-income').value };
+      dlg.querySelector('[data-tax-period="pay:m"]').click();
+      out.yearly.asMonthly = $id('tax-in-income').value;
+      $id('tax-numbers-form').requestSubmit();
+      out.yearly.kept = taxFigures(taxYear()).income;
+      dlg.close();
+
+      // The details card: one prompt at a time.
+      state.tax.figures[y] = { income: 60000, pcb: 0, epf: 0 }; renderAll(); out.cardNoPcb = card();
+      out.footnote = $id('tax-footnote').textContent;
+
+      // Malaysia: the rules card is a quiet link; elsewhere it is the card.
+      taxUi.rulesOpen = false; renderAll();
+      out.rulesMy = { card: !$id('tax-rules-card').hidden, link: !$id('btn-tax-rules-show').hidden };
+      $id('btn-tax-rules-show').click();
+      out.rulesOpened = { card: !$id('tax-rules-card').hidden, link: !$id('btn-tax-rules-show').hidden };
+      taxUi.rulesOpen = false;
+      state.currency = 'EUR'; renderAll();
+      out.rulesAbroad = { card: !$id('tax-rules-card').hidden, link: !$id('btn-tax-rules-show').hidden };
+      state.currency = cur; renderAll();
+
+      // Stop tracking: on the page, not in the dialog, still behind a confirm.
+      const stop = $id('btn-tax-disable');
+      out.stop = { onPage: !!stop.closest('#tab-tax') && !stop.closest('dialog'), shown: !stop.hidden };
+      window.confirm = () => false; stop.click(); out.stop.declined = state.tax.enabled;
+      window.confirm = () => true; stop.click(); out.stop.stopped = !state.tax.enabled;
+      const w = $id('tax-page-optin');
+      out.welcome = { shown: !w.hidden, rulesCard: !$id('tax-rules-card').hidden, stop: !$id('btn-tax-disable').hidden,
+        primaries: w.querySelectorAll('button.primary').length, notNow: [...w.querySelectorAll('button')].find((b) => b.textContent === 'Not now').className,
+        benefits: [...w.querySelectorAll('.tax-benefits li')].map((li) => li.textContent.trim()), words: w.innerText.split(/\s+/).length,
+        title: $id('tax-welcome-title').textContent, found: taxFound(new Date().getFullYear()).total };
+      window.confirm = realConfirm; window.taxRunChecks = realChecks;
+      state.tax = coerceTax(JSON.parse(snap)); state.currency = cur; save(); renderAll();
+      return out;
+    });
+    check('tax details: with no salary the card is one prompt ("Add your salary to see your refund"), not four amber tiles',
+      tw.noIncome && tw.promptOpensAt === 'tax-in-income' && (tw.cardEmpty.line === '' && /Add your salary to see your refund/.test(tw.cardEmpty.prompt) && tw.cardEmpty.btn === 'Add salary' && !tw.cardEmpty.edit && tw.cardEmpty.warnTiles === 0), JSON.stringify(tw.cardEmpty));
+    check('tax details: the form opens as step 1 of 3 (Salary), Monthly by default, hints under the fields and no placeholders to truncate',
+      tw.open.open && tw.open.step === '0' && tw.open.mode === 'm' && tw.open.back && tw.open.next === 'Next' && tw.open.dots === 3 && tw.open.placeholders === 0 && tw.open.hintUnder, JSON.stringify(tw.open));
+    check('tax details: a monthly salary of 5,000 is stored as 60,000 a year, and the yearly total shows under the field',
+      tw.salary.stored === 60000 && /60,000\.00 a year/.test(tw.salary.total), JSON.stringify(tw.salary));
+    check('tax details: Next moves to PCB and EPF (focus on the step heading), monthly PCB 300 and EPF 550 are stored as 3,600 and 6,600',
+      tw.step2.step === '1' && tw.step2.mode === 'm' && tw.step2.back && tw.step2.focus === 'tax-step-1-title'
+      && tw.deductions.pcb === 3600 && tw.deductions.epf === 6600 && tw.deductions.income === 60000 && /6,600\.00 a year/.test(tw.deductions.total), JSON.stringify([tw.step2, tw.deductions]));
+    check('tax details: Back returns to Salary with the amount as typed; Skip moves on',
+      tw.backTo.step === '0' && tw.backTo.shown === '5000' && tw.family.step === '2' && tw.family.done === 'Done', JSON.stringify([tw.backTo, tw.family]));
+    check('tax details: Family starts as "Just me" with children and "More situations" tucked away, and no number boxes',
+      tw.family.just === 'Just me' && tw.family.fields === false && tw.family.more === false && tw.family.textBoxes === 0, JSON.stringify(tw.family));
+    check('tax details: Add family shows − 0 + steppers with spoken labels; they stop at 0 and save each tap',
+      tw.stepper.shown && tw.stepper.decOffAtZero && /One more: children under 18/.test(tw.stepper.labels[0]) && /One fewer: children under 18/.test(tw.stepper.labels[1])
+      && tw.stepper.children === 2 && tw.stepper.out === '2' && tw.stepper.decOn && tw.stepper.spouse === true && tw.closed, JSON.stringify(tw.stepper));
+    check('tax details: once filled the card is one line — income, PCB, EPF, family — with Edit and no prompt',
+      tw.cardFull.line === 'RM 60,000 · PCB RM 3,600 · EPF RM 6,600 · Spouse with no income, 2 children' && tw.cardFull.prompt === '' && tw.cardFull.edit, JSON.stringify(tw.cardFull));
+    check('tax details: editing opens at step 1 with the stored figure shown monthly; children and ticked situations open by themselves',
+      tw.edit.step === '0' && tw.edit.mode === 'm' && tw.edit.shown === '5000' && tw.edit.fam === true && tw.edit.more === true, JSON.stringify(tw.edit));
+    check('tax details: a yearly 50,000 opens as Yearly, and looking at it as Monthly (4166.67) never rewrites what is stored',
+      tw.yearly.mode === 'y' && tw.yearly.shown === '50000' && tw.yearly.asMonthly === '4166.67' && tw.yearly.kept === 50000, JSON.stringify(tw.yearly));
+    check('tax details: salary in but no PCB → the line plus one prompt to add PCB; the schedule note is one short line',
+      /^RM 60,000 · PCB not added/.test(tw.cardNoPcb.line) && /Add your PCB/.test(tw.cardNoPcb.prompt) && tw.cardNoPcb.btn === 'Add PCB' && tw.footnote.length < 110 && /LHDN/.test(tw.footnote), JSON.stringify([tw.cardNoPcb, tw.footnote]));
+    check('tax rules: for Malaysia the card is one quiet link that opens it; outside Malaysia it is the card',
+      !tw.rulesMy.card && tw.rulesMy.link && tw.rulesOpened.card && !tw.rulesOpened.link && tw.rulesAbroad.card && !tw.rulesAbroad.link, JSON.stringify([tw.rulesMy, tw.rulesOpened, tw.rulesAbroad]));
+    check('tax: Stop tracking is a quiet control on the page, outside the dialog, and still asks first',
+      tw.stop.onPage && tw.stop.shown && tw.stop.declined === true && tw.stop.stopped === true, JSON.stringify(tw.stop));
+    check('tax welcome: one primary button, "Not now" as a quiet link, three two-word benefits, no rules card, under 70 words',
+      tw.welcome.shown && tw.welcome.primaries === 1 && tw.welcome.notNow === 'tax-quiet' && !tw.welcome.rulesCard && !tw.welcome.stop
+      && tw.welcome.benefits.join('|') === 'Spots claims|Keeps receipts|Reminds you' && tw.welcome.words < 70, JSON.stringify(tw.welcome));
+    check('tax welcome: the headline is the person\'s own claimable figure when there is one, a short line when not',
+      tw.welcome.found > 0 ? /^RM [\d,]+ of your spending looks claimable$/.test(tw.welcome.title) : tw.welcome.title === 'See your likely tax refund', JSON.stringify(tw.welcome));
+
+    // At phone width: the Claims title keeps one line with its actions beneath, steps fit, nothing scrolls sideways.
+    const vp = page.viewportSize();
+    for (const width of [390, 360]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.waitForTimeout(150);
+      const m = await S(() => {
+        const h = document.getElementById('tax-claims-title'), a = document.querySelector('#tax-claims-card .tax-head-actions');
+        const hr = h.getBoundingClientRect(), ar = a.getBoundingClientRect();
+        const lh = parseFloat(getComputedStyle(h).lineHeight) || hr.height;
+        taxOpenNumbers();
+        const dlg = document.getElementById('tax-numbers-dialog'), inp = document.getElementById('tax-in-income');
+        const dr = dlg.getBoundingClientRect(), ir = inp.getBoundingClientRect();
+        const hint = document.getElementById('tax-income-hint');
+        const r = { oneLine: hr.height < lh * 1.6, below: ar.top >= hr.bottom - 1, sw: document.documentElement.scrollWidth,
+          inputFull: ir.width > dr.width - 60, hintFits: hint.scrollWidth <= hint.clientWidth + 1, dlgFits: dr.right <= innerWidth + 1 && dr.left >= -1 };
+        dlg.close();
+        return r;
+      });
+      check(`tax at ${width}px: "Claims & receipts" stays on one line above its buttons; the Salary field is full width with its hint whole; no sideways scroll`,
+        m.oneLine && m.below && m.sw <= width && m.inputFull && m.hintFits && m.dlgFits, JSON.stringify(m));
+    }
+    await page.setViewportSize(vp);
+    await page.waitForTimeout(150);
+  }
   const inbox = await S(() => {
     state.dailyExpenses.push({ id: 'inbox1', kind: 'expense', date: todayISO(), amount: 60, category: 'Books', note: 'Kinokuniya', createdAt: 1 });
     renderAll();
@@ -9341,7 +10376,11 @@ check('the brand catalogue makes no network calls at all',
     ];
     state.firstRunAt = 0;
     state.reminderAskDone = true;
-    state.tax = Object.assign(emptyTax(), t || {});
+    // The intro checks below are about the one-off intro, so the season cards
+    // (from 15 Nov, and before e-Filing) are marked seen unless a test says
+    // otherwise; the season checks set their own dates and nudges.
+    const y0 = new Date().getFullYear();
+    state.tax = Object.assign(emptyTax(), { nudges: { [`${y0}-nov`]: 1, [`${y0 - 1}-final`]: 1 } }, t || {});
     save(); renderAll();
     document.getElementById('tabbtn-dashboard').click();
   }, tax);
@@ -9397,6 +10436,7 @@ check('the brand catalogue makes no network calls at all',
   const season = await S(() => {
     const t = taxState();
     t.introSeen = true;
+    t.nudges = {};
     const at = (...a) => { const d = taxHomeCard(new Date(...a)); return d && d.kind; };
     const y = new Date().getFullYear();
     state.dailyExpenses = [{ id: 's1', kind: 'expense', date: `${y}-03-04`, amount: 900, category: 'Books', note: 'Popular', createdAt: 1 }];
@@ -9692,10 +10732,15 @@ check('the brand catalogue makes no network calls at all',
   const gated = await S(async () => {
     const real = window.isPro; window.isPro = () => false;
     const before = window.__fakeICloud.writes;
-    try { await runDriveUpload('icloud'); } finally { window.isPro = real; }
-    return window.__fakeICloud.writes - before;
+    let auto, manual;
+    try {
+      await runDriveUpload(); auto = window.__fakeICloud.writes - before;            // automatic: Pro
+      await runDriveUpload('icloud'); manual = window.__fakeICloud.writes - before - auto;   // Back up now: free
+    } finally { window.isPro = real; }
+    return { auto, manual };
   });
-  check('backing up stays a Pro feature, as with Drive', gated === 0, String(gated));
+  check('automatic backup stays a Pro feature, as with Drive; Back up now is free',
+    gated.auto === 0 && gated.manual === 1, JSON.stringify(gated));
 
   const off = await S(() => { state.icloudBackup = false; const a = activeClouds(); state.icloudBackup = true; return a; });
   check('switching iCloud off stops saves going there', !off.includes('icloud'), JSON.stringify(off));

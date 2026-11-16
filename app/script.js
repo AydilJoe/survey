@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.55.11";
+const APP_VERSION = "1.56.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -64,6 +64,16 @@ const emptyState = () => ({
   license: null,
   ocrUsage: { month: "", scans: 0 },
   pendingTxns: [],
+  // Names of the user's own accounts ("This is my account" on a transfer):
+  // a transfer to one of them is a move between wallets, not a spend.
+  ownAccounts: [],
+  // On-device AI (receipts and bank alerts). On by default; off = rules only.
+  aiEnabled: true,
+  // Settings → Bank alerts → Check auto-capture: what each drained alert
+  // became. App, time and outcome only — never text or amounts.
+  captureDiag: { lastDrainAt: 0, items: [] },
+  aiIntroSeen: false,
+  aiIntroShownOn: "",
   guideSeen: false,
   deviceId: "",
   lastEditedAt: "",
@@ -325,6 +335,11 @@ function coerceState(parsed) {
         ? { month: String(parsed.ocrUsage.month || ""), scans: Number(parsed.ocrUsage.scans) || 0 }
         : { month: "", scans: 0 },
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
+      ownAccounts: coerceOwnAccounts(parsed.ownAccounts),
+      aiEnabled: parsed.aiEnabled !== false,
+      captureDiag: coerceCaptureDiag(parsed.captureDiag),
+      aiIntroSeen: !!parsed.aiIntroSeen,
+      aiIntroShownOn: typeof parsed.aiIntroShownOn === "string" ? parsed.aiIntroShownOn : "",
       guideSeen: !!parsed.guideSeen,
       deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : "",
       lastEditedAt: typeof parsed.lastEditedAt === "string" ? parsed.lastEditedAt : "",
@@ -3834,7 +3849,41 @@ function backupPlaceName() {
   return "iCloud or Google Drive";
 }
 
+// What ends with the trial, for this person only: built from what they use,
+// never a generic list. Limits only stop adding, so what they have stays.
+const TRIAL_WARN_DAYS = 2;
+function trialEndChanges() {
+  const out = [];
+  let autoBackup = false;
+  try { autoBackup = activeClouds().length > 0; } catch { /* cloud code not loaded yet */ }
+  if (autoBackup) out.push("automatic backup stops (Back up now still works)");
+  const over = (have, limit, one, many) => {
+    if (have > limit) out.push(`you can't add more ${many} (your ${have} stay; Free adds up to ${limit} ${limit === 1 ? one : many})`);
+  };
+  over(countedDebts(), FREE_DEBT_LIMIT, "debt", "debts");
+  over(state.savings.length, FREE_SAVING_LIMIT, "goal", "goals");
+  over(typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "holding", "holdings");
+  over(userBudgetPoolCount(), 1, "budget pool", "budget pools");
+  if ((Number(trialUsage().scans) || 0) > 0) out.push(`receipt scans go back to ${FREE_OCR_MONTHLY} a month`);
+  return out;
+}
+function trialEndText() {
+  const c = trialEndChanges();
+  if (!c.length) return "Nothing you use changes when it ends, and nothing is deleted.";
+  const list = c.length === 1 ? c[0] : c.slice(0, -1).join(", ") + " and " + c[c.length - 1];
+  return `After that, ${list}. Nothing is deleted.`;
+}
+
+// Every in-app price mention reads from proPriceLabel(), so a banner never
+// quotes a figure the paywall then contradicts.
+function applyProPriceText() {
+  const label = proPriceLabel();
+  document.querySelectorAll("[data-pro-price]").forEach((el) => { el.textContent = label; });
+}
+
 function renderTrialBanner() {
+  applyProPriceText();
+  renderFreeCounts();
   const banner = document.getElementById("trial-banner");
   if (!banner) return;
   const kind = proNudgeKind();
@@ -3850,21 +3899,25 @@ function renderTrialBanner() {
   if (later) later.hidden = kind === "trial";
   if (kind === "trial") {
     const left = trialDaysLeft();
+    const days = `${left} day${left === 1 ? "" : "s"}`;
     if (title) title.textContent = "Pro trial active";
-    if (sub) sub.textContent = `${left} day${left === 1 ? "" : "s"} left of full Pro access — keep it forever for RM 19.90.`;
+    // In the last two days, say what ends for this person before it ends.
+    if (sub) sub.textContent = left <= TRIAL_WARN_DAYS
+      ? `${days} left. ${trialEndText()} Keep Pro for ${proPriceLabel()}, once.`
+      : `${days} left of full Pro access — keep it forever for ${proPriceLabel()}.`;
     if (cta) cta.textContent = "Unlock forever";
   } else if (kind === "recap") {
     if (title) title.textContent = "Your Pro trial ended";
     const recap = trialRecapText();
     if (sub) sub.textContent = recap
-      ? `${recap} Keep it for RM 19.90, once.`
-      : `Automatic backup is off now. Keep it, and the rest of Pro, for RM 19.90, once.`;
+      ? `${recap} Keep it for ${proPriceLabel()}, once.`
+      : `Automatic backup is off now; Back up now still works. Keep Pro for ${proPriceLabel()}, once.`;
     if (cta) cta.textContent = "Keep Pro";
   } else {
     const n = proEntryCount();
     if (title) title.textContent = "Only on this phone";
-    if (sub) sub.textContent = `Lose the phone and your ${n} entries are gone. Pro backs up to ${backupPlaceName()} automatically, encrypted.`;
-    if (cta) cta.textContent = "Back up with Pro";
+    if (sub) sub.textContent = `Lose the phone and your ${n} entries are gone. Back up now in Settings is free; Pro backs up to ${backupPlaceName()} automatically, encrypted.`;
+    if (cta) cta.textContent = "Back up automatically";
   }
 }
 document.getElementById("trial-banner-cta")?.addEventListener("click", () => {
@@ -4155,6 +4208,10 @@ function renderAll() {
   if (typeof renderTax === "function") renderTax();
   renderUpcoming();
   renderPending();
+  renderOwnAccounts();
+  renderAiSettings();
+  renderAiIntro();
+  renderCaptureShareLinks();
   renderReminderPrefs();
   renderFxStatus();
   populateCurrencyPickers();
@@ -4517,28 +4574,335 @@ function renderPending() {
   const list = document.getElementById("pending-list");
   const sub = document.getElementById("pending-sub");
   if (!card || !list) return;
-  const items = state.pendingTxns || [];
+  // A lone transfer out waits briefly, out of sight, for the credit that
+  // would make it a move; the card appears when the wait is over.
+  const now = Date.now();
+  const held = (p) => !p.kind && p.transfer && !p.noPair && now - (p.createdAt || 0) < PENDING_HOLD_MS && now - (p.createdAt || 0) >= 0;
+  const items = (state.pendingTxns || []).filter((p) => !held(p));
+  const waiting = (state.pendingTxns || []).filter(held);
+  clearTimeout(renderPending._hold);
+  if (waiting.length) {
+    const next = Math.min(...waiting.map((p) => PENDING_HOLD_MS - (now - p.createdAt)));
+    renderPending._hold = setTimeout(renderPending, Math.max(500, next + 50));
+  }
+  syncPendingCount();
   if (items.length === 0) { card.hidden = true; return; }
   card.hidden = false;
   if (sub) sub.textContent = `${items.length} to review`;
   list.innerHTML = items
     .slice()
     .sort((a, b) => b.createdAt - a.createdAt)
-    .map((p) => (p.kind === "split-match" ? pendingSplitMatchHtml(p) : `
+    .map((p) => (p.kind === "split-match" ? pendingSplitMatchHtml(p)
+      : p.kind === "income" ? pendingIncomeHtml(p)
+      : p.kind === "move" ? pendingMoveHtml(p) : `
         <li data-id="${p.id}">
           <div class="pending-main">
             <div class="pending-top">
               <span class="pending-name">${p.merchant ? escapeHtml(p.merchant) : "Unknown"}</span>
               <span class="pending-amount">${fmtMoney(p.amount)}</span>
             </div>
-            <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")}</div>
+            <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")}${p.category ? ` · ${escapeHtml(p.category)}` : ""}</div>
+            ${pendingAiTag(p)}${pendingWrongBtn(p)}
           </div>
           <div class="pending-actions">
+            ${p.transfer && p.merchant ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
             <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="Dismiss">✕</button>
             <button class="ghost" data-action="pending-edit" data-id="${p.id}">Edit</button>
             <button class="primary" data-action="pending-accept" data-id="${p.id}">Add</button>
           </div>
         </li>`)).join("");
+}
+
+/* ---------- "Not picked up?" — share an alert's wording, redacted ----------
+   Banks reword their alerts. The fastest fix is the real wording, so the
+   user can send one: pasted (missed) or from a card ("Wrong?"). It is
+   redacted on this phone first, shown exactly as it will be sent, and
+   leaves only through the user's own email app or share sheet, to the
+   address the app already uses for feedback. No upload, no endpoint. */
+const SAMPLE_TO = "hello@duitful.app";
+// Words that look like a name in capitals but are bank or payment terms.
+const SAMPLE_KEEP = new Set(["DUITNOW", "TRANSFER", "FPX", "JOMPAY", "QR", "IBG", "GIRO", "IBFT", "ATM", "POS", "ID", "OTP", "TAC",
+  "REF", "RM", "MYR", "SGD", "VISA", "MASTERCARD", "DEBIT", "CREDIT", "CARD", "MAYBANK", "MAYBANK2U", "MAE", "CIMB", "OCTO", "RHB",
+  "HSBC", "OCBC", "UOB", "TMRW", "TNG", "EWALLET", "E-WALLET", "AMBANK", "BSN", "GXBANK", "AEON", "BANK", "BOOST", "RYT", "SHOPEEPAY",
+  "GRABPAY", "SETEL", "BIGPAY", "ATOME", "SPAYLATER", "MYDEBIT", "SUCCESSFUL", "RECEIVED", "FUNDS", "ALERT"]);
+// Pure: the alert text with names, account / card / reference / phone
+// numbers and emails replaced. Amounts and currencies stay.
+function redactAlertSample(text) {
+  let t = String(text || "").slice(0, 2000);
+  const keep = [];
+  const hold = (m) => { keep.push(m); return `\u0000${keep.length - 1}\u0000`; };
+  t = t.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]");
+  // Amounts with their currency are what we need; set them aside.
+  t = t.replace(/(?:\bRM|\bMYR|S\$|\bSGD|\bRp|\bIDR|฿|\bTHB|₱|\bPHP)\s?\d[\d,]*(?:\.\d{1,2})?/gi, hold);
+  t = t.replace(/(?:\+?6?0)1\d[\s-]?\d{3,4}[\s-]?\d{4}\b/g, "[phone]");
+  t = t.replace(/\b(ref(?:erence)?(?:\s*(?:no|number))?|rujukan|no\.?\s*rujukan|transaction\s+id|txn\s*id)(\.?\s*[:#]?\s*)[A-Z0-9][A-Z0-9-]{2,}/gi, "$1$2[ref]");
+  t = t.replace(/[*xX•·]{2,}\s?\d{2,}/g, "[account]");
+  t = t.replace(/\d[\d\s-]{2,}\d/g, (m) => (m.replace(/\D/g, "").length >= 4 ? "[number]" : m));
+  // Names: after to / from / daripada / kepada, a run of capitalised words.
+  t = t.replace(/\b(to|from|daripada|kepada|dari)(\s+)((?:[A-Z][\w'@&/-]*(?:\.[\w'@&/-]+)*)(?:\s+(?:[A-Z][\w'@&/-]*(?:\.[\w'@&/-]+)*|bin|binti|bt|bte|a\/l|a\/p|@))*)/g, (m, w, sp, name) => {
+    const words = name.split(/\s+/);
+    if (words.every((x) => SAMPLE_KEEP.has(x.toUpperCase().replace(/[^A-Z0-9-]/g, "")))) return m;
+    return `${w}${sp}[name]`;
+  });
+  // Any other run of two or more words in capitals.
+  t = t.replace(/\b[A-Z][A-Z'@&/-]+(?:\s+(?:[A-Z][A-Z'@&/-]+|BIN|BINTI|A\/L|A\/P))+\b/g, (m) => {
+    const words = m.split(/\s+/);
+    return words.every((x) => SAMPLE_KEEP.has(x.replace(/[^A-Z0-9-]/g, ""))) ? m : "[name]";
+  });
+  return t.replace(/\u0000(\d+)\u0000/g, (_, i) => keep[Number(i)]).replace(/(\[name\]\s*){2,}/g, "[name] ");
+}
+function captureShareAllowed() { return isNative() && nativePlatform() === "android"; }
+let shareCtx = { pkg: "", kind: "missed" };
+function openCaptureShare(opts) {
+  const o = opts || {};
+  const dlg = document.getElementById("capture-share-dialog");
+  if (!dlg) return;
+  shareCtx = { pkg: o.pkg || "", kind: o.kind || "missed" };
+  const raw = document.getElementById("share-raw");
+  const app = document.getElementById("share-app");
+  if (app) {
+    const mine = TXN_PROVIDERS.filter((x) => x.country === "MY");
+    app.innerHTML = `<option value="">Which app sent it?</option>` + mine.map((x) => `<option value="${escapeHtml(x.packages[0])}">${escapeHtml(x.name)}</option>`).join("");
+    const known = providerForPackage(shareCtx.pkg);
+    app.value = known ? known.packages[0] : "";
+  }
+  if (raw) raw.value = o.text || "";
+  const st = document.getElementById("share-shot-status");
+  if (st) { st.textContent = ""; st.hidden = true; }
+  updateCaptureSharePreview();
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  setTimeout(() => (o.text ? document.getElementById("share-redacted") : raw)?.focus(), 30);
+}
+function updateCaptureSharePreview() {
+  const raw = document.getElementById("share-raw");
+  const out = document.getElementById("share-redacted");
+  if (out) out.value = redactAlertSample(raw ? raw.value : "");
+  const send = document.getElementById("share-send");
+  if (send) send.disabled = !(out && out.value.trim());
+}
+function captureShareBody() {
+  const app = document.getElementById("share-app");
+  const pkg = (app && app.value) || shareCtx.pkg || "";
+  const text = (document.getElementById("share-redacted") || {}).value || "";
+  return {
+    subject: `Bank alert sample (${shareCtx.kind}${pkg ? `, ${pkg}` : ""})`,
+    body: `App: ${pkg || "not chosen"}\nDuitful: ${APP_VERSION} · ${shareCtx.kind === "misread" ? "read wrongly" : "not picked up"}\n\n${text.trim()}\n`,
+  };
+}
+function captureShareMailto() {
+  const b = captureShareBody();
+  return `mailto:${SAMPLE_TO}?subject=${encodeURIComponent(b.subject)}&body=${encodeURIComponent(b.body)}`;
+}
+document.getElementById("share-raw")?.addEventListener("input", updateCaptureSharePreview);
+/* "Use a screenshot": the same on-device OCR as receipts (ML Kit where the
+   phone has it, Tesseract otherwise) reads the text into the box above, and
+   the same redaction runs. Only the cleaned words are ever sent: the image
+   is read in memory and dropped, never stored or attached. */
+async function ocrAlertScreenshot(file) {
+  let text = null;
+  try { if (mlkitTextPlugin()) text = await runMlKitOcr(file); } catch { text = null; }
+  if (text == null) {
+    const worker = await getTesseractWorker(() => {});
+    const res = await worker.recognize(file);
+    text = (res && res.data && res.data.text) || "";
+  }
+  return String(text || "").replace(/[ \t]+\n/g, "\n").trim();
+}
+async function shareFromScreenshot(file) {
+  const status = document.getElementById("share-shot-status");
+  const say = (m) => { if (status) { status.textContent = m; status.hidden = !m; } };
+  if (!file) return;
+  say("Reading the screenshot on your phone…");
+  let text = "";
+  try { text = await ocrAlertScreenshot(file); } catch { text = ""; }
+  if (!text) { say("No text found in that picture. Paste the words instead."); return; }
+  say("");
+  const raw = document.getElementById("share-raw");
+  if (raw) raw.value = text;
+  updateCaptureSharePreview();
+  document.getElementById("share-redacted")?.focus();
+}
+document.getElementById("share-shot")?.addEventListener("click", () => document.getElementById("share-shot-file")?.click());
+document.getElementById("share-shot-file")?.addEventListener("change", async (e) => {
+  const input = e.target;
+  const file = input.files && input.files[0];
+  input.value = "";                      // the picture is not kept
+  await shareFromScreenshot(file);
+});
+document.getElementById("share-send")?.addEventListener("click", () => {
+  window.location.href = captureShareMailto();
+  document.getElementById("capture-share-dialog")?.close();
+});
+document.getElementById("share-sheet")?.addEventListener("click", async () => {
+  const b = captureShareBody();
+  try { await navigator.share({ title: b.subject, text: `To: ${SAMPLE_TO}\n${b.body}` }); document.getElementById("capture-share-dialog")?.close(); } catch {}
+});
+document.getElementById("share-cancel")?.addEventListener("click", () => document.getElementById("capture-share-dialog")?.close());
+document.addEventListener("click", (e) => {
+  const el = e.target instanceof Element ? e.target : null;
+  if (!el) return;
+  if (el.closest("[data-capture-share]")) { openCaptureShare({ kind: "missed" }); return; }
+  const w = el.closest("[data-pending-wrong]");
+  if (w) {
+    const p = (state.pendingTxns || []).find((x) => x.id === w.dataset.pendingWrong);
+    const src = p && (p.kind === "move" ? (p.from || p.to) : p);
+    openCaptureShare({ kind: "misread", pkg: src ? src.pkg : "", text: src ? src.raw : "" });
+  }
+});
+function pendingWrongBtn(p) {
+  return captureShareAllowed() ? `<button type="button" class="pending-wrong" data-pending-wrong="${escapeHtml(p.id)}">Wrong?</button>` : "";
+}
+function renderCaptureShareLinks() {
+  const on = captureShareAllowed();
+  document.querySelectorAll("[data-capture-share-wrap]").forEach((el) => { el.hidden = !on; });
+  const sheet = document.getElementById("share-sheet");
+  if (sheet) sheet.hidden = typeof navigator.share !== "function";
+}
+
+// "Read by your phone's AI": on a card where the AI gave the direction,
+// payee or category (never the amount).
+function pendingAiTag(p) {
+  const ai = p && (p.ai || (p.from && p.from.ai) || (p.to && p.to.ai));
+  return ai ? `<p class="pending-ai">Read by your phone's AI</p>` : "";
+}
+
+/* ---------- On-device AI: the switch, the status, the one-time hello ----------
+   Android: Gemini Nano via ML Kit GenAI on supported phones. iPhone (iOS 26):
+   Apple's on-device model, for receipts. Both through DuitfulKit.aiStatus().
+   state.aiEnabled off means rules only, for receipts and bank alerts alike. */
+function aiAllowed() { return !state || state.aiEnabled !== false; }
+let aiStatusCache = null;          // { state: "on" | "getting-ready" | "none" }
+async function refreshAiStatus() {
+  let st = "none";
+  const kit = duitfulKit("aiStatus");
+  if (kit) {
+    try {
+      const r = await withTimeout(kit.aiStatus(), 2500);
+      st = r && r.available ? "on" : r && r.reason === "downloading" ? "getting-ready" : "none";
+    } catch { st = "none"; }
+  }
+  aiStatusCache = { state: st };
+  renderAiSettings();
+  renderAiIntro();
+  return st;
+}
+function renderAiSettings() {
+  const card = document.getElementById("ai-card");
+  if (!card) return;
+  card.hidden = !isNative();
+  if (!isNative()) return;
+  const st = aiStatusCache ? aiStatusCache.state : "";
+  const line = document.getElementById("ai-status");
+  const box = document.getElementById("pref-ai");
+  if (box) box.checked = state.aiEnabled !== false;
+  if (line) {
+    line.dataset.state = st;
+    line.textContent = !st ? "Checking…"
+      : st === "none" ? "Not available on this phone; Duitful uses its rules."
+      : state.aiEnabled === false ? "Off · Duitful uses its rules."
+      : st === "getting-ready" ? "Getting ready"
+      : "On · runs on this phone";
+  }
+}
+// One small card on Home the first time AI is found on this phone. Shown on
+// that day until dismissed; never again after.
+function renderAiIntro() {
+  const card = document.getElementById("ai-intro");
+  if (!card || !state) return;
+  const today = todayISO();
+  const can = aiStatusCache && aiStatusCache.state === "on" && aiAllowed() && !state.aiIntroSeen
+    && (!state.aiIntroShownOn || state.aiIntroShownOn === today);
+  card.hidden = !can;
+  // No notification capture on iPhone: there it is receipts only.
+  const body = document.getElementById("ai-intro-body");
+  if (body) body.textContent = `Duitful uses this on-device AI to read tricky receipts${nativePlatform() === "ios" ? "" : " and bank alerts"}, privately. Nothing leaves your phone.`;
+  if (can && !state.aiIntroShownOn) { state.aiIntroShownOn = today; save(); }
+}
+document.getElementById("ai-intro-close")?.addEventListener("click", () => {
+  if (!state) return;
+  state.aiIntroSeen = true;
+  save();
+  renderAiIntro();
+});
+document.getElementById("pref-ai")?.addEventListener("change", (e) => {
+  if (!state) return;
+  state.aiEnabled = !!e.target.checked;
+  save();
+  renderAiSettings();
+  renderAiIntro();
+});
+
+/* Settings: the own-account names, each removable. Hidden while empty. */
+function renderOwnAccounts() {
+  const card = document.getElementById("own-accounts-card");
+  const list = document.getElementById("own-accounts-list");
+  if (!card || !list) return;
+  const names = state.ownAccounts || [];
+  card.hidden = !names.length;
+  list.innerHTML = names.map((n) => `
+    <li><span>${escapeHtml(n)}</span><button type="button" class="ghost" data-own-remove="${escapeHtml(n)}" aria-label="Remove ${escapeHtml(n)}">Remove</button></li>`).join("");
+}
+document.getElementById("own-accounts-list")?.addEventListener("click", (e) => {
+  const b = e.target instanceof Element ? e.target.closest("[data-own-remove]") : null;
+  if (b) removeOwnAccount(b.dataset.ownRemove);
+});
+
+/* The persistent notification's "2 to review": the number of pending cards
+   (held transfers included — they show within the minute), sent whenever it
+   changes and once after each unlock. A count only; nothing else leaves. */
+let _pendingCountSent = null;
+function syncPendingCount(force) {
+  if (!aesKey || !isNative()) return;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  if (!NL || typeof NL.setPendingCount !== "function") return;
+  const n = (state.pendingTxns || []).length;
+  if (!force && n === _pendingCountSent) return;
+  _pendingCountSent = n;
+  try { Promise.resolve(NL.setPendingCount({ count: n })).catch(() => {}); } catch {}
+}
+
+/* Money in: "+RM 0.10 · From ALI BIN ABU". A refund, reversal or cashback
+   says so in its name. */
+function pendingIncomeHtml(p) {
+  const name = p.label ? `${p.label}${p.sender ? ` · ${p.sender}` : ""}` : (p.sender || "Money in");
+  return `
+    <li data-id="${p.id}" class="pending-income">
+      <div class="pending-main">
+        <div class="pending-top">
+          <span class="pending-name">${escapeHtml(name)}</span>
+          <span class="pending-amount in">+${fmtMoney(p.amount)}</span>
+        </div>
+        <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")} · Income</div>
+        ${pendingAiTag(p)}${pendingWrongBtn(p)}
+      </div>
+      <div class="pending-actions">
+        ${p.sender && !p.label ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
+        <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="Dismiss">✕</button>
+        <button class="primary" data-action="pending-income-accept" data-id="${p.id}">Add income</button>
+      </div>
+    </li>`;
+}
+
+/* "Moved RM 0.10 · TNG → Maybank": the same money changing wallets. */
+function pendingMoveHtml(p) {
+  const fromName = p.from ? providerShort(p.from.providerId, p.from.providerName) : "Your other account";
+  const toName = p.to ? providerShort(p.to.providerId, p.to.providerName) : "your other account";
+  const undo = p.from && p.to ? "Not a move" : p.from ? "It was a spend" : "It was income";
+  return `
+    <li data-id="${p.id}" class="pending-move">
+      <div class="pending-main">
+        <div class="pending-top">
+          <span class="pending-name">Moved</span>
+          <span class="pending-amount move">${fmtMoney(p.amount)}</span>
+        </div>
+        <div class="pending-source">${escapeHtml(fromName)} → ${escapeHtml(toName)}</div>
+        ${pendingAiTag(p)}${pendingWrongBtn(p)}
+      </div>
+      <div class="pending-actions">
+        <button class="ghost" data-action="pending-move-split" data-id="${p.id}">${undo}</button>
+        <button class="primary" data-action="pending-move-accept" data-id="${p.id}">Confirm</button>
+      </div>
+    </li>`;
 }
 
 /* "RM 23.50 received — settle Ali's share of Dinner @ Naz?"
@@ -4609,7 +4973,7 @@ function acceptPending(id) {
     kind: "expense",
     date: todayISO(),
     amount: p.amount,
-    category: p.providerName || "Card",
+    category: p.category || p.providerName || "Card",
     note: p.merchant || "",
   });
   state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
@@ -5015,28 +5379,42 @@ const installmentCount = () => (state.debts || []).filter((d) => d.kind === "ins
 const FREE_SAVING_LIMIT = 5;
 const FREE_INVESTMENT_LIMIT = 3;
 const FREE_OCR_MONTHLY = 5;
-const TRIAL_DAYS = 7;
+const TRIAL_DAYS = 14;
 const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
-// Auto-starts a 7-day Pro trial the first time a user lands on the app
-// (post-unlock). Re-installing the app resets the trial — that's an
-// accepted abuse window for a privacy-first app where there's no
-// account / no server-side ledger to enforce one-trial-per-user.
+// The 14-day Pro trial (TRIAL_DAYS) is opt-in: nobody is put on it without asking, so
+// nobody has features taken away that they never chose to try. It starts
+// only from the paywall's "Try Pro free for 14 days" (startProTrial). Vaults
+// from when the trial began on first unlock keep their proTrialStartedAt
+// and behave as before, with the longer window (it was 7 days; nobody's
+// trial is ever shortened). Re-installing the app resets the trial — an
+// accepted abuse window for a privacy-first app with no account and no
+// server-side ledger to enforce one trial per person.
+// This function now only records firstRunAt.
 function ensureTrialStarted() {
   if (!state || !aesKey) return;
-  // Vaults from before firstRunAt existed date from their trial, which began
-  // on their first unlock; failing that, from now. Either way they're long
+  // Vaults from before firstRunAt existed date from their trial, which then
+  // began on their first unlock; failing that, from now. Either way they're long
   // past the first-week pacing, so the reminders ask reaches them once too.
   if (!state.firstRunAt) {
     state.firstRunAt = state.proTrialStartedAt || Date.now();
     save();
   }
-  if (state.pro) return;
-  if (!state.proTrialStartedAt) {
-    state.proTrialStartedAt = Date.now();
-    save();
-  }
 }
+// Offered once: to someone who isn't Pro and has never had a trial.
+function canStartTrial() {
+  return !!(state && !state.pro && !state.proTrialStartedAt);
+}
+function startProTrial() {
+  if (!canStartTrial()) return false;
+  state.proTrialStartedAt = Date.now();
+  save();
+  closePaywall();
+  renderAll();
+  toast(`Pro trial started. It ends in ${TRIAL_DAYS} days. Nothing is charged, and nothing you add is deleted afterwards.`);
+  return true;
+}
+document.getElementById("paywall-trial")?.addEventListener("click", startProTrial);
 // Calendar days since a timestamp: 0 on the same day, 1 tomorrow. Counted by
 // date, not 24-hour blocks, so "day 2" starts at midnight the way a person
 // would count it.
@@ -5066,7 +5444,7 @@ function trialExpired() {
 }
 
 function isPro() {
-  // Real Pro (paid) OR within the 7-day trial window. Both surfaces share
+  // Real Pro (paid) OR within the trial window. Both surfaces share
   // this gate. state.pro = true means user has actually paid via IAP / license.
   return !!(state && (state.pro || isTrialActive()));
 }
@@ -5108,6 +5486,69 @@ function gate(feature) {
   return false;
 }
 
+// Debts that count toward the free limit: Islamic financing never does.
+function countedDebts() {
+  return (state.debts || []).filter((d) => d.kind !== "islamic").length;
+}
+// Budget pools the user made (the system Debt pool isn't one).
+function userBudgetPoolCount() {
+  return (state.budgetPools || []).filter((p) => p.system !== "debt").length;
+}
+// "2 of 3 free debts used": the limit, shown by the add control before the
+// wall is hit. "" for Pro and the trial. Someone over the limit (kept from
+// Pro, a trial or an import) reads "7 goals · Free adds up to 5".
+function freeCountText(kind) {
+  if (!state || isPro()) return "";
+  const c = {
+    debts: [countedDebts(), FREE_DEBT_LIMIT, "debts"],
+    savings: [state.savings.length, FREE_SAVING_LIMIT, "goals"],
+    investments: [typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "holdings"],
+  }[kind];
+  if (!c) return "";
+  const [used, limit, noun] = c;
+  if (used > limit) return `${used} ${noun} · Free adds up to ${limit}. Yours stay.`;
+  const text = `${used} of ${limit} free ${noun} used`;
+  return kind === "debts" ? `${text} · Islamic financing doesn't count` : text;
+}
+function renderFreeCounts() {
+  document.querySelectorAll("[data-free-count]").forEach((el) => {
+    const t = freeCountText(el.dataset.freeCount);
+    el.textContent = t;
+    el.hidden = !t;
+  });
+}
+
+/* One honest price. LAUNCH100 is a launch price with a real end date, for
+   everyone who isn't Pro, wherever codes are allowed: the Android app (the
+   launch SKU, applied automatically) and the Malaysian web checkout (the
+   code is filled in for Billplz). The iPhone app sells one price, no codes
+   (App Store 3.1.1). proPriceLabel() is the price this person will see on
+   the paywall here; banners and links quote it and nothing else. */
+const PRO_PRICE_LABEL = "RM 19.90";
+function launchPromo() {
+  try { return lookupPromoCode("LAUNCH100"); } catch { return null; }
+}
+function launchPriceApplies() {
+  if (!launchPromo()) return false;
+  if (isNative()) return nativePlatform() !== "ios";
+  return paysWithBillplz();
+}
+function proPriceLabel() {
+  return launchPriceApplies() ? launchPromo().priceLabel : PRO_PRICE_LABEL;
+}
+// "14 May 2027" from "2027-05-14".
+function promoEndDateText(promo) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((promo && promo.expires) || "");
+  if (!m) return "";
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${Number(m[3])} ${months[Number(m[2]) - 1]} ${m[1]}`;
+}
+// "Launch price until 14 May 2027"
+function promoLabelText(promo) {
+  const end = promoEndDateText(promo);
+  return end ? `${promo.label} until ${end}` : promo.label;
+}
+
 /* paywall modal */
 const PAYWALL_COPY = {
   debts: `Free tracks ${FREE_DEBT_LIMIT} debts. Pro tracks every one.`,
@@ -5115,7 +5556,7 @@ const PAYWALL_COPY = {
   savings: `You've hit the free limit of ${FREE_SAVING_LIMIT} goals. Pro tracks unlimited.`,
   investments: `You've hit the free limit of ${FREE_INVESTMENT_LIMIT} investment holdings. Pro tracks unlimited.`,
   ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
-  cloudBackup: "Automatic backup to iCloud or Google Drive is a Pro feature. Export CSV in Settings stays free.",
+  cloudBackup: "Automatic backup to iCloud or Google Drive is a Pro feature. Back up now and Export CSV in Settings stay free.",
   multiCurrency: "Multi-currency entry is a Pro feature.",
   budgetPools: "Multi-pool budgeting is a Pro feature.",
   budgetPoolsRollover: "Rollover is a Pro feature — carry unspent budget into the next month.",
@@ -5140,7 +5581,7 @@ function openPaywall(feature) {
   // Everyone else on the web buys through the phone app's store.
   const billplz = !native && paysWithBillplz();
   if (reason) reason.textContent = feature === "cloudBackup"
-    ? `Automatic encrypted backup to ${backupPlaceName()} is a Pro feature. Export CSV in Settings stays free.`
+    ? `Automatic encrypted backup to ${backupPlaceName()} is a Pro feature. Back up now and Export CSV in Settings stay free.`
     : PAYWALL_COPY[feature] || "Unlock everything. Pay once.";
   if (hint) hint.textContent = native
     ? ""
@@ -5161,6 +5602,12 @@ function openPaywall(feature) {
   const stores = document.getElementById("paywall-stores");
   if (stores) stores.hidden = native || billplz;
   if (activateBtn) activateBtn.hidden = native;
+  // The opt-in trial: once per vault, on every platform.
+  const trialBtn = document.getElementById("paywall-trial");
+  if (trialBtn) {
+    trialBtn.hidden = !canStartTrial();
+    trialBtn.textContent = `Try Pro free for ${TRIAL_DAYS} days`;
+  }
 
   // Promo-code section: native-only (web checkout already handles discounts via Billplz).
   // Not on iOS (guideline 3.1.1): the App Store build sells one price.
@@ -5182,20 +5629,19 @@ function openPaywall(feature) {
     if (launch) applyPromoUI(launch);
   }
 
-  // Trial / launch-promo nudge: any user who onboarded during the trial
-  // cohort (proTrialStartedAt set) gets LAUNCH100 auto-applied on native
-  // so they hit the discounted SKU at conversion. Web checkout doesn't
-  // use PROMO_CODES (Billplz applies the discount server-side), so we
-  // surface a hint there instead.
-  if (state && state.proTrialStartedAt && !state.pro) {
+  // Launch price: the same for everyone who isn't Pro, trial or not. The
+  // Android app charges the launch SKU; the web checkout gets the code
+  // filled in (Billplz applies it server-side). Never on iOS.
+  if (state && !state.pro && launchPriceApplies()) {
+    const launch = launchPromo();
     if (native) {
-      if (!activePromo) {
-        const launch = lookupPromoCode("LAUNCH100");
-        if (launch) applyPromoUI(launch);
-      }
-    } else if (billplz) {
-      const hint = document.getElementById("paywall-hint");
-      if (hint) hint.textContent = "Use code LAUNCH100 at checkout for RM 5.00 off — trial-period promo.";
+      if (!activePromo) applyPromoUI(launch);
+    } else {
+      const priceAmount = document.getElementById("paywall-price-amount");
+      const priceSub = document.getElementById("paywall-price-sub");
+      if (priceAmount) priceAmount.textContent = launch.priceLabel;
+      if (priceSub) priceSub.textContent = `${promoLabelText(launch)} · one-time`;
+      if (hint) hint.textContent += ` Code ${launch.code} is filled in at checkout: ${launch.priceLabel} instead of ${PRO_PRICE_LABEL}.`;
     }
   }
 
@@ -5219,7 +5665,7 @@ function resetPromoState() {
   if (input) input.value = "";
   if (status) { status.textContent = ""; status.hidden = true; }
   if (toggle) { toggle.textContent = "Have a promo code?"; toggle.hidden = false; }
-  if (priceAmount) priceAmount.textContent = "RM 19.90";
+  if (priceAmount) priceAmount.textContent = PRO_PRICE_LABEL;
   if (priceSub) priceSub.textContent = "one-time · no subscription";
   if (buyBtn) buyBtn.textContent = "Unlock Pro";
 }
@@ -5255,11 +5701,11 @@ function applyPromoUI(promo) {
   const priceAmount = document.getElementById("paywall-price-amount");
   const priceSub = document.getElementById("paywall-price-sub");
   const buyBtn = document.getElementById("paywall-buy");
-  if (status) { status.textContent = `✓ ${promo.code} applied — ${promo.label}`; status.hidden = false; }
+  if (status) { status.textContent = `✓ ${promo.code} applied — ${promoLabelText(promo)}`; status.hidden = false; }
   if (form) form.hidden = true;
   if (toggle) toggle.textContent = `Remove ${promo.code}`;
   if (priceAmount) priceAmount.textContent = promo.priceLabel;
-  if (priceSub) priceSub.textContent = `${promo.label} · one-time`;
+  if (priceSub) priceSub.textContent = `${promoLabelText(promo)} · one-time`;
   if (buyBtn) buyBtn.textContent = `Unlock Pro — ${promo.priceLabel}`;
 }
 function closePaywall() {
@@ -5539,7 +5985,7 @@ const PRODUCT_ID = "duitful_pro";
 const PROMO_CODES = {
   LAUNCH100: {
     sku: "duitful_pro_launch",
-    label: "Launch promo",
+    label: "Launch price",
     priceLabel: "RM 14.90",
     expires: "2027-05-14",
   },
@@ -5792,18 +6238,205 @@ function initQuickAddResume() {
   if (!App || typeof App.addListener !== "function") return;
   _quickAddResumeBound = true;
   App.addListener("appStateChange", (st) => {
-    if (st && st.isActive) drainQuickAdd().catch(() => {});
+    if (st && st.isActive) {
+      drainQuickAdd().catch(() => {});
+      drainCaptured().catch(() => {});
+      refreshAiStatus().catch(() => {});
+    }
   });
 }
 
+let _captureListenerBound = false;
 function initNotificationListener() {
-  if (!isNative()) return;
+  if (_captureListenerBound || !isNative()) return;
   const NL = window.Capacitor?.Plugins?.NotificationListener;
   if (!NL || typeof NL.addListener !== "function") return;
+  _captureListenerBound = true;
   NL.addListener("notification", (data) => {
-    try { window.duitfulIncoming(data); } catch (e) { console.warn(e); }
+    try {
+      // Native stores every capture first (it survives the app being
+      // closed); the event only says "drain now". An older native build
+      // without the store sends the notification itself.
+      if (data && data.queued && typeof NL.drainCaptured === "function") drainCaptured().catch(() => {});
+      else if (aesKey) window.duitfulIncoming(data);
+    } catch (e) { console.warn(e); }
   });
 }
+
+/* Bank notifications caught while Duitful was closed or locked. Native keeps
+   them encrypted under an Android Keystore key (DuitfulCaptureStore); the
+   moment the vault is open they go through the same parsers as a live one,
+   stamped with when they were posted. */
+let _captureDraining = false;
+let _captureAgain = false;
+async function drainCaptured() {
+  // A nudge that lands while a drain is running asks for one more pass, so
+  // two alerts seconds apart (TNG out, MAE in) are both picked up.
+  if (_captureDraining) { _captureAgain = true; return 0; }
+  if (!isNative() || !aesKey) return 0;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  if (!NL || typeof NL.drainCaptured !== "function") return 0;
+  _captureDraining = true;
+  let items = [];
+  try {
+    const res = await NL.drainCaptured();
+    items = (res && Array.isArray(res.items)) ? res.items : [];
+  } catch (err) {
+    console.warn("capture drain failed:", err);
+  } finally { _captureDraining = false; }
+  let added = 0;
+  const unsure = [];
+  if (items.length) state.captureDiag = coerceCaptureDiag(state.captureDiag);
+  const before = new Set((state.pendingTxns || []).map((p) => p.id));
+  // 1. The rules, for everything, at once: cards appear without waiting.
+  for (const it of items) {
+    if (!it || typeof it !== "object") continue;
+    const t = Number(it.t);
+    const data = { package: String(it.p || ""), title: String(it.ti || ""), text: String(it.tx || ""), postedAt: Number.isFinite(t) && t > 0 ? t : 0 };
+    try {
+      const before = pendingFingerprint();
+      if (captureByRules(data)) { added += 1; noteCaptureOutcome(data, captureBecame(before)); }
+      else { unsure.push(data); noteCaptureOutcome(data, captureWhyNot(data)); }
+    } catch (e) { console.warn("capture failed", e); noteCaptureOutcome(data, "error"); }
+  }
+  // 2. On-device AI, if this phone has it, for what the rules could not
+  //    place and for new spends missing a name or category. Never blocks.
+  const gaps = (state.pendingTxns || []).filter((p) => !before.has(p.id) && !p.kind && (!p.merchant || !p.category));
+  const kit = (unsure.some((d) => captureRuleAmount(captureTexts(d).slice(-1)[0]) != null) || gaps.length) ? await captureAiKit() : null;
+  const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
+  let calls = 0;
+  const leftovers = [];
+  for (const data of unsure) {
+    const text = captureTexts(data).slice(-1)[0];
+    if (!kit || calls >= CAPTURE_AI_MAX || captureRuleAmount(text) == null || CAPTURE_DENY.test(text) || isLikelyPromo(text)) { leftovers.push(data); continue; }
+    calls += 1;
+    const ai = await askAiAboutAlert(kit, text, cats);
+    if (ai && ai.promo) continue;                 // promo or security: dropped
+    if (ai && queueFromAi(data, ai, cats)) { added += 1; continue; }
+    if (!ai) leftovers.push(data);                // timeout / error: as before
+  }
+  for (const p of gaps) {
+    if (!kit || calls >= CAPTURE_AI_MAX) break;
+    calls += 1;
+    const ai = await askAiAboutAlert(kit, p.raw, cats);
+    if (!ai || ai.promo) continue;
+    const cur = (state.pendingTxns || []).find((x) => x.id === p.id);
+    if (!cur) continue;
+    if (!cur.merchant) { cur.merchant = aiNameInText(ai.counterparty, cur.raw); if (cur.merchant) cur.ai = true; }
+    if (!cur.category) { cur.category = aiCategoryIn(ai.category, cats); if (cur.category) cur.ai = true; }
+  }
+  if (calls) commitPending();
+  // 3. Without an AI answer, the entity reader fallback, exactly as before.
+  for (const data of leftovers) queuePendingTxnFromEntities(data).catch(() => {});
+  if (items.length) { state.captureDiag.lastDrainAt = Date.now(); save(); }
+  if (_captureAgain) { _captureAgain = false; setTimeout(() => drainCaptured().catch(() => {}), 0); }
+  return added;
+}
+
+/* ---------- Check auto-capture: plain facts for a tester to send us ----------
+   Native says whether notification access is granted, when the listener was
+   last connected, the battery setting, what it saw (app, time, outcome) and
+   how many alerts wait in its store. This side adds what each drained alert
+   became. No message text and no amounts anywhere: the outcome is what we
+   need, and leaving amounts out keeps the report safe to paste anywhere. */
+const CAPTURE_DIAG_MAX = 20;
+function coerceCaptureDiag(d) {
+  const items = d && Array.isArray(d.items) ? d.items : [];
+  return {
+    lastDrainAt: Number(d && d.lastDrainAt) || 0,
+    items: items.filter((x) => x && typeof x === "object")
+      .map((x) => ({ p: String(x.p || "").slice(0, 80), t: Number(x.t) || 0, at: Number(x.at) || 0, became: String(x.became || "").slice(0, 40) }))
+      .slice(-CAPTURE_DIAG_MAX),
+  };
+}
+function noteCaptureOutcome(data, became) {
+  state.captureDiag = coerceCaptureDiag(state.captureDiag);
+  state.captureDiag.items.push({ p: String(data.package || ""), t: Number(data.postedAt) || 0, at: Date.now(), became });
+  state.captureDiag.items = state.captureDiag.items.slice(-CAPTURE_DIAG_MAX);
+}
+function pendingFingerprint() {
+  return new Map((state.pendingTxns || []).map((p) => [p.id, p.kind || "spend"]));
+}
+// What the last capture did to the pending list.
+function captureBecame(before) {
+  for (const p of state.pendingTxns || []) {
+    const was = before.get(p.id);
+    if (was === undefined || was !== (p.kind || "spend")) {
+      return p.kind === "move" ? "move" : p.kind === "income" ? "income" : p.kind === "split-match" ? "split repayment" : "spend";
+    }
+  }
+  return "queued";
+}
+function captureWhyNot(data) {
+  const texts = captureTexts(data);
+  if (texts.some((t) => CAPTURE_DENY.test(t))) return "dropped: OTP / security";
+  if (texts.every((t) => isLikelyPromo(t))) return "dropped: promo";
+  if (!providerForPackage(String(data.package || ""))) return "dropped: app not known";
+  return "no rule matched (AI / entity reader next)";
+}
+function captureAppName(pkg) {
+  const pr = providerForPackage(pkg);
+  return pr ? pr.name : pkg || "unknown";
+}
+function fmtDiagTime(ms) {
+  if (!ms) return "never";
+  const d = new Date(ms);
+  return `${d.toLocaleDateString("en-MY", { day: "numeric", month: "short" })} ${d.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}`;
+}
+// Pure: the facts as lines, for the dialog and for "Copy report".
+function captureCheckLines(nat, diag) {
+  const n = nat || {};
+  const lines = [];
+  lines.push(`Duitful ${APP_VERSION} · ${[n.manufacturer, n.model].filter(Boolean).join(" ") || "device unknown"}${n.sdk ? ` · Android API ${n.sdk}` : ""}`);
+  if (n.error) lines.push(`Native check: ${n.error}`);
+  lines.push(`Notification access: ${n.accessGranted === true ? "granted" : n.accessGranted === false ? "NOT granted" : "unknown"}`);
+  lines.push(`Listener: last connected ${fmtDiagTime(n.connectedAt)}${n.disconnectedAt ? `, last disconnected ${fmtDiagTime(n.disconnectedAt)}` : ""}`);
+  lines.push(`Battery: ${n.batteryUnrestricted === true ? "unrestricted" : n.batteryUnrestricted === false ? "optimised (may stop the listener)" : "unknown"}`);
+  lines.push(`Waiting in store: ${Number(n.stored) || 0}`);
+  const seen = Array.isArray(n.log) ? n.log.slice(-10).reverse() : [];
+  lines.push(`Seen by the listener (last ${seen.length}):`);
+  for (const r of seen) lines.push(`  ${captureAppName(r.p)} · ${fmtDiagTime(r.t)} · ${r.r}`);
+  if (!seen.length) lines.push("  nothing yet");
+  const d = coerceCaptureDiag(diag);
+  lines.push(`Last drain: ${fmtDiagTime(d.lastDrainAt)}`);
+  const done = d.items.slice(-10).reverse();
+  lines.push(`Drained (last ${done.length}):`);
+  for (const x of done) lines.push(`  ${captureAppName(x.p)} · ${fmtDiagTime(x.t || x.at)} → ${x.became}`);
+  if (!done.length) lines.push("  nothing yet");
+  return lines;
+}
+async function openCaptureCheck() {
+  const dlg = document.getElementById("capture-check-dialog");
+  const list = document.getElementById("capture-check-list");
+  if (!dlg || !list) return;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  let nat = {};
+  try {
+    nat = NL && typeof NL.captureStatus === "function" ? await withTimeout(NL.captureStatus(), 3000) : { error: "this app version can't report it" };
+  } catch (e) { nat = { error: String((e && e.message) || e).slice(0, 80) }; }
+  const lines = captureCheckLines(nat, state.captureDiag);
+  list.textContent = lines.join("\n");
+  dlg.dataset.report = lines.join("\n");
+  const fix = document.getElementById("capture-check-access");
+  if (fix) fix.hidden = nat.accessGranted !== false;
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+}
+document.getElementById("capture-check-open")?.addEventListener("click", () => openCaptureCheck().catch(() => {}));
+document.getElementById("capture-check-close")?.addEventListener("click", () => document.getElementById("capture-check-dialog")?.close());
+document.getElementById("capture-check-access")?.addEventListener("click", () => {
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  try { NL && NL.openSettings && NL.openSettings(); } catch {}
+});
+document.getElementById("capture-check-copy")?.addEventListener("click", async () => {
+  const text = document.getElementById("capture-check-dialog")?.dataset.report || "";
+  try { await navigator.clipboard.writeText(text); toast("Report copied"); }
+  catch {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast("Report copied"); } catch { toast("Couldn't copy — select the text instead"); }
+    ta.remove();
+  }
+});
 
 /* Android App Links: with /.well-known/assetlinks.json served from
    duitful.app and the autoVerify intent-filter in the manifest (added by
@@ -5959,7 +6592,7 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
     const outcome = await purchasePro(sku);
     if (outcome.ok) {
       // Read the price before closePaywall() resets the applied promo.
-      const paidLabel = activePromo ? activePromo.priceLabel : "RM 19.90";
+      const paidLabel = activePromo ? activePromo.priceLabel : PRO_PRICE_LABEL;
       closePaywall();
       openProWelcome(paidLabel);
     } else if (outcome.cancelled) {
@@ -6196,7 +6829,7 @@ function storedPromoCode() {
    Nothing here is a Pro gate and nothing writes outside the vault: a quick
    action is a launch intent, not data. */
 
-const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving"]);
+const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving", "review"]);
 // Held until the app is genuinely usable. Survives the whole unlock flow.
 let pendingQuickAction = null;
 
@@ -6243,6 +6876,12 @@ function runQuickAction(name) {
     case "scan":
       document.getElementById("tabbtn-dashboard")?.click();
       document.getElementById("btn-scan-receipt")?.click();
+      break;
+    case "review":
+      // "2 to review" on the persistent notification: drain, then the cards.
+      document.getElementById("tabbtn-dashboard")?.click();
+      drainCaptured().catch(() => {});
+      setTimeout(() => document.getElementById("pending-card")?.scrollIntoView({ block: "start" }), 150);
       break;
     case "split":
       document.getElementById("tabbtn-dashboard")?.click();
@@ -6453,9 +7092,9 @@ document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async (
         // link itself still rides along as navigator.share's `url`.
         const platform = nativePlatform();
         const text = platform === "android"
-          ? `Try Duitful — privacy-first money tracker for Malaysia. Free 7-day Pro trial, plus RM 5 off if you use my code: ${code}\n\nGet it on Google Play: https://play.google.com/store/apps/details?id=com.aydiljoe.duitful\nOr web: ${url}`
+          ? `Try Duitful — privacy-first money tracker for Malaysia. Free ${TRIAL_DAYS}-day Pro trial, plus RM 5 off if you use my code: ${code}\n\nGet it on Google Play: https://play.google.com/store/apps/details?id=com.aydiljoe.duitful\nOr web: ${url}`
           : platform === "ios"
-            ? `Try Duitful — privacy-first money tracker for Malaysia. Free 7-day Pro trial, plus RM 5 off if you use my code: ${code}`
+            ? `Try Duitful — privacy-first money tracker for Malaysia. Free ${TRIAL_DAYS}-day Pro trial, plus RM 5 off if you use my code: ${code}`
             : "I've been using Duitful to track my spending and pay off debts. Try it:";
         await navigator.share({
           title: "Duitful — privacy-first money tracker",
@@ -6528,6 +7167,8 @@ function openFpxDialog() {
   if (promoInput && !promoInput.value) {
     const stashed = storedPromoCode();
     if (stashed) promoInput.value = stashed;
+    // Otherwise the launch price, which the paywall just quoted.
+    else if (state && !state.pro && launchPriceApplies()) promoInput.value = launchPromo().code;
   }
   if (dlg) { try { dlg.showModal(); } catch { dlg.setAttribute("open", ""); } }
   setTimeout(() => document.getElementById("fpx-email")?.focus(), 50);
@@ -7613,7 +8254,7 @@ $("#form-debt").addEventListener("submit", (e) => {
   if (!name) return;
   // Pro gates. Islamic financing is never gated and never counted.
   if (kind !== "islamic") {
-    const counted = state.debts.filter((d) => d.kind !== "islamic").length;
+    const counted = countedDebts();
     if (kind === "installment" && installmentCount() >= FREE_INSTALLMENT_LIMIT && !gate("installment")) return;
     if (counted >= FREE_DEBT_LIMIT && !gate("debts")) return;
   }
@@ -7867,6 +8508,18 @@ document.addEventListener("click", (e) => {
     return;
   } else if (action === "pending-dismiss") {
     dismissPending(id);
+    return;
+  } else if (action === "pending-income-accept") {
+    acceptIncomePending(id);
+    return;
+  } else if (action === "pending-move-accept") {
+    acceptMove(id);
+    return;
+  } else if (action === "pending-move-split") {
+    splitMove(id);
+    return;
+  } else if (action === "pending-own") {
+    markOwnAccount(id);
     return;
   } else {
     return;
@@ -8680,6 +9333,9 @@ function toCSV() {
     settingRow("investPlanMonthlyContribution", pl.monthlyContribution);
     settingRow("investPlanIncludeSavings", pl.includeSavings ? "Y" : "N");
   }
+  // Own-account names ("This is my account"), one setting row each.
+  for (const n of state.ownAccounts || []) rows.push(blank(["setting", "ownAccount", n]));
+  rows.push(blank(["setting", "aiEnabled", state.aiEnabled === false ? "N" : "Y"]));
   // Budget pool rows — name in column 1 ("name"), limit in column 2 ("amount"),
   // remaining pool-specific data in the new pool_* columns at index 22-26.
   for (const p of state.budgetPools) {
@@ -9014,6 +9670,11 @@ function fromCSV(text) {
           && (row[iInvReinvested] || "").trim().toUpperCase() === "Y";
         h.dividends.push({ date, amount, reinvested });
       }
+    } else if (type === "setting" && name.toLowerCase() === "aienabled") {
+      next.aiEnabled = (iAmount >= 0 ? String(row[iAmount] || "") : "").trim().toUpperCase() !== "N";
+    } else if (type === "setting" && name.toLowerCase() === "ownaccount") {
+      const raw = iAmount >= 0 ? (row[iAmount] || "").toString() : "";
+      next.ownAccounts = coerceOwnAccounts([...(next.ownAccounts || []), raw]);
     } else if (type === "setting" && /^tax(enabled|spouse|children|childrenpre|childrentertiary|disabledchildren|disabledself|disabledspouse|(pcb|epf|income)\d{4})$/i.test(name)) {
       // Cells, not numbers, for the same reason as the zakat rows. coerceTax
       // below clamps whatever lands here.
@@ -9213,36 +9874,9 @@ function fromCSV(text) {
     next.budgetPools = next.budgetPools.filter((p) => p === canonical || p.system !== "debt");
   }
 
-  // Enforce free-tier limits for non-Pro users.
-  // Even if the CSV came from a Pro user with multiple pools / rollover / overrides,
-  // a free user importing it should NOT inherit Pro features.
-  if (typeof isPro === "function" && !isPro()) {
-    // Cap user pools to 1 (system Debt pool doesn't count).
-    let userPoolsKept = 0;
-    const droppedPoolIds = [];
-    next.budgetPools = next.budgetPools.filter((p) => {
-      if (p.system === "debt") return true;
-      if (userPoolsKept >= 1) {
-        droppedPoolIds.push(p.id);
-        return false;
-      }
-      userPoolsKept++;
-      return true;
-    });
-    // Soft-delete dropped pools' tagged entries (keep budgetPoolName for display, clear id)
-    for (const e of next.dailyExpenses) {
-      if (droppedPoolIds.includes(e.budgetPoolId)) e.budgetPoolId = "";
-    }
-    for (const x of next.expenses) {
-      if (droppedPoolIds.includes(x.budgetPoolId)) x.budgetPoolId = "";
-    }
-    // Clear Pro-only pool features on remaining pools
-    for (const p of next.budgetPools) {
-      if (p.system === "debt") continue;
-      p.rollover = false;
-      p.monthlyLimits = {};
-    }
-  }
+  // No free-tier trimming here. A person's own data always imports whole:
+  // every pool, its rollover and per-month limits, every goal and holding.
+  // The free limits only stop *adding* afterwards (the form gates).
 
   // Single-active invariant — keep first active, force the rest to false
   let firstActiveSeen = false;
@@ -9358,33 +9992,23 @@ async function importCsvFile(file, { ask = true, statusEl = null, onError = null
     const text = await file.text();
     const next = fromCSV(text);
 
-    // CSV import is a wholesale state replacement. Without these guards a
-    // free user could (a) hand-craft a CSV with N>limit debts/savings to
-    // bypass the form gates, or (b) re-import their own export to reset
-    // ocrUsage and earn fresh free scans. Block before confirm so the
-    // paywall is the user's next prompt, not a destructive overwrite.
-    if (!isPro()) {
-      if (next.savings.length > FREE_SAVING_LIMIT) {
-        say(`CSV has ${next.savings.length} savings goals — free tier covers ${FREE_SAVING_LIMIT}. Unlock Pro to import the full file.`);
-        openPaywall("savings");
-        return false;
-      }
-      if ((next.investments || []).length > FREE_INVESTMENT_LIMIT) {
-        say(`CSV has ${next.investments.length} investment holdings — free tier covers ${FREE_INVESTMENT_LIMIT}. Unlock Pro to import the full file.`);
-        openPaywall("investments");
-        return false;
-      }
-    }
-
+    // CSV import is a wholesale state replacement, and it is never refused
+    // or trimmed for being over a free limit: the file is the person's own
+    // data (kept from Pro, a trial, or another device). Limits only stop
+    // adding afterwards.
     if (ask && !confirm("Replace all current data with the CSV contents?")) return false;
 
     // Entitlements + per-device identity are not part of the CSV payload —
     // preserve them across import so a Pro user doesn't lose their unlock
-    // and so ocrUsage / deviceId can't be reset by re-importing.
+    // and so ocrUsage / deviceId (and a used trial) can't be reset by
+    // re-importing.
     next.pro = state.pro;
     next.license = state.license;
     next.deviceId = state.deviceId;
     next.ocrUsage = state.ocrUsage;
+    next.proTrialStartedAt = state.proTrialStartedAt;
+    next.firstRunAt = state.firstRunAt;
+    next.proNudgeUntil = state.proNudgeUntil;
 
     state = next;
     save();
@@ -9699,7 +10323,7 @@ const GUIDE_STEPS = [
     title: "Scan a receipt",
     sub: "Snap it, we read the amount.",
     body: `<p>Tap <strong>Scan receipt</strong> to take a photo (or pick one from your gallery). Duitful reads the total on-device — the image never leaves your phone.</p>
-      <p>Free includes 5 scans a month; Pro and your 7-day trial scan without a limit.</p>`,
+      <p>Free includes 5 scans a month; Pro scans without a limit, and so does the optional ${TRIAL_DAYS}-day trial.</p>`,
     tab: "dashboard",
     target: "#btn-scan",
   },
@@ -10520,6 +11144,32 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.3": [
+    "<strong>Money received in Touch 'n Go</strong> — \"You've received money!\" alerts now show as income from the sender, not as a spend. If the sender is you (from your other account), tap \"This is my account\" and it counts as a move.",
+  ],
+  "1.56.2": [
+    "<strong>More banks</strong> — on Android, alerts from HSBC, OCBC, UOB TMRW, Standard Chartered, Alliance Bank, Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON Bank, Boost Bank, Ryt Bank and ShopeePay are now read too.",
+    "<strong>Check auto-capture</strong> — Settings → Bank alerts shows whether Duitful can see your bank alerts and what it did with each, with a report you can copy to us (no message text or amounts). A repeated transfer with the same wording is no longer skipped, and two alerts arriving seconds apart are both picked up.",
+    "<strong>\"2 to review\"</strong> — on Android, the \"Log a spend\" notification now shows how many bank alerts are waiting, even with Duitful closed, with a Review button. Only the number shows, never amounts or names.",
+    "<strong>Not picked up?</strong> — send us the wording of a bank alert Duitful missed or read wrongly, pasted or from a screenshot (read on your phone; only the cleaned words are sent, never the picture). Names and numbers are removed on your phone first, you see exactly what is sent, and it goes from your own email app.",
+  ],
+  "1.56.1": [
+    "<strong>On-device AI, in plain sight</strong> — Settings now shows whether your phone's own AI is on, getting ready or not available, with a switch to turn it off (rules only). Cards it helped read say so. It runs on your phone and never sets an amount.",
+  ],
+  "1.56.0": [
+    "<strong>Money in, too</strong> — on Android, money arriving in your bank or e-wallet now shows up for you to add as income. Refunds and cashback are labelled.",
+    "<strong>Moving your own money</strong> — moving money from Touch 'n Go to your bank (or back) shows as one \"Moved\" item that isn't counted as spending or income. Tap \"This is my account\" on a transfer and Duitful remembers it; manage the list in Settings.",
+    "<strong>Smarter on supported phones</strong> — when an alert's wording is new, the phone's own AI can help sort it. It never sets the amount, and nothing leaves your phone.",
+  ],
+  "1.55.14": [
+    "<strong>Bank alerts caught while Duitful is closed</strong> — on Android, a Touch 'n Go, MAE or other bank notification that arrives while the app is closed is now kept (encrypted on your phone) and waits for you to review next time you open Duitful. Touch 'n Go DuitNow transfers are now recognised too.",
+  ],
+  "1.55.13": [
+    "<strong>A simpler Tax page</strong> — fewer words, more cards. Your details are now three short steps (salary, PCB and EPF, family), and you can type the monthly amounts straight from your payslip. The page shows your details in one line, and asks for one thing at a time.",
+  ],
+  "1.55.12": [
+    "<strong>No surprises with Pro</strong> — the Pro trial now starts only if you choose it, and runs 14 days, and before it ends Home says exactly what changes for you. Back up now is free for everyone (automatic backup stays Pro). Importing your own CSV always brings everything back. You can see how many free debts, goals and holdings you've used before you reach the limit.",
+  ],
   "1.55.11": [
     "<strong>One pay-later plan, free</strong> — track an Atome, SPayLater or Grab PayLater plan on the free tier (it counts as one of your 3 debts). Pro tracks every plan.",
   ],
@@ -11554,6 +12204,9 @@ async function handleUnlock(passcode, { silent = false } = {}) {
   initIAP();
   initNotificationListener();
   drainQuickAdd().catch(() => {});
+  drainCaptured().catch(() => {});
+  refreshAiStatus().catch(() => {});
+  syncPendingCount(true);
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -11591,6 +12244,9 @@ async function handleSetup(passcode, confirm, initialState, { open = false } = {
   initIAP();
   initNotificationListener();
   drainQuickAdd().catch(() => {});
+  drainCaptured().catch(() => {});
+  refreshAiStatus().catch(() => {});
+  syncPendingCount(true);
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -12515,7 +13171,7 @@ async function receiptSecondOpinion(parsed, text) {
   const wantDate = !parsed.date;
   if (!wantAi && !wantDate) return { parsed, used: [] };
   let ai = null, entities = null;
-  const aiKit = wantAi ? duitfulKit("aiReadReceipt") : null;
+  const aiKit = wantAi && aiAllowed() ? duitfulKit("aiReadReceipt") : null;
   if (aiKit) {
     try {
       const st = await withTimeout(aiKit.aiStatus(), 2000);
@@ -12793,25 +13449,39 @@ function parseReceiptText(text, today) {
    whitelist of MY/SG banks and wallets, and queue a pending transaction for
    user review. Nothing is auto-saved — the user always confirms. */
 
+// "You have successfully transferred RM 0.10 to ALI BIN ABU." — a DuitNow /
+// e-wallet transfer out. The payee ends at a full stop, a line break or the
+// end (OEM shades cut long bodies with "…", which is dropped).
+// A "payee" that is really the reader: the alert is about money coming in.
+const TXN_PAYEE_IS_YOU = /^(?:you|your(?:\s+(?:account|e-?wallet|wallet))?|yourself|me|my\s+account|anda|akaun\s+anda)\b/i;
+// Title or body says money came to the reader ("You've received money!",
+// "... has transferred RM 1.00 to you", "... kepada anda").
+const TXN_CREDIT_CUE = /\b(?:you(?:'|’)ve\s+(?:just\s+)?received|you\s+have\s+(?:just\s+)?received|received\s+money|to\s+you\b|kepada\s+anda|anda\s+(?:telah\s+)?menerima|credited\s+to\s+your)/i;
+const TXN_TRANSFER_OUT = /\b(?:transferred|sent)\s+(?:RM|MYR)\s*([\d,]+(?:\.\d{1,2})?)\s+to\s+([^\n.…]+?)(?:\s*(?:[.\n…]|\bon\s|\bvia\s)|$)/i;
+
 const TXN_PROVIDERS = [
-  { id: "maybank",   name: "Maybank",       country: "MY", currency: "MYR",
+  { id: "maybank",   name: "Maybank",       short: "Maybank", country: "MY", currency: "MYR",
     packages: ["com.mbb.malaysia.android"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:charged|debited|deducted|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "cimb",      name: "CIMB",          country: "MY", currency: "MYR",
-    packages: ["com.cimb.mob.my", "com.cimb.octo"],
+    packages: ["com.cimb.cimbocto", "com.cimb.mob.my", "com.cimb.octo"],
     patterns: [/(?:Purchase|Charge)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "hlb",       name: "Hong Leong",    country: "MY", currency: "MYR",
-    packages: ["com.hongleong.cfs.connect"],
+    packages: ["my.com.hongleongconnect.mobileconnect", "com.hongleong.cfs.connect"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:spent|paid|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "rhb",       name: "RHB",           country: "MY", currency: "MYR",
-    packages: ["my.com.rhbgroup.rhbmobilebanking"],
+    packages: ["com.rhbgroup.rhbmobilebanking", "my.com.rhbgroup.rhbmobilebanking"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:has been|was)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "publicbank",name: "Public Bank",   country: "MY", currency: "MYR",
-    packages: ["my.com.publicbank.pbengine"],
+    packages: ["com.pbb.mypb", "my.com.publicbank.pbengine"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "tng",       name: "Touch 'n Go",   country: "MY", currency: "MYR",
+  { id: "tng",       name: "Touch 'n Go",   short: "TNG", country: "MY", currency: "MYR",
     packages: ["my.com.tngdigital.ewallet"],
-    patterns: [/(?:spent|paid|deducted)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
+    patterns: [
+      /(?:spent|paid|deducted)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i,
+      // "You have successfully transferred RM 0.10 to ALI BIN ABU" (DuitNow Transfer)
+      TXN_TRANSFER_OUT,
+    ] },
   { id: "grabpay",   name: "GrabPay",       country: "MY", currency: "MYR",
     packages: ["com.grabtaxi.passenger"],
     patterns: [/(?:paid|spent|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
@@ -12819,7 +13489,7 @@ const TXN_PROVIDERS = [
     packages: ["my.com.myboost"],
     patterns: [/(?:paid|spent)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
   { id: "bigpay",    name: "BigPay",        country: "MY", currency: "MYR",
-    packages: ["com.bigpay.wallet"],
+    packages: ["com.tpaay.bigpay", "com.bigpay.wallet"],
     patterns: [/(?:paid|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
   { id: "spaylater", name: "SPayLater",     country: "MY", currency: "MYR",
     packages: ["com.shopee.my"],
@@ -12828,25 +13498,76 @@ const TXN_PROVIDERS = [
       /installment\s+of\s+RM\s*([\d,]+\.?\d*)\s+(?:is )?due/i,
     ] },
   { id: "atome",     name: "Atome",         country: "MY", currency: "MYR",
-    packages: ["com.atomeapp.mobile", "sg.com.apaylater"],
+    packages: ["my.atome.paylater", "com.atomeapp.mobile", "sg.com.apaylater"],
     patterns: [/Atome[^.]*?(?:charged|paid)[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:for|at)\s+(.+?)(?:\s*[.]|$)/i] },
   { id: "graypaylater",name: "GrabPay Later",country: "MY", currency: "MYR",
     packages: ["com.grabtaxi.passenger"],
     patterns: [/PayLater[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "maybank-mae", name: "Maybank MAE", country: "MY", currency: "MYR",
+  { id: "maybank-mae", name: "Maybank MAE", short: "Maybank", country: "MY", currency: "MYR",
     packages: ["com.maybank2u.life"],
-    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|sent|debited|charged)[^.]*?(?:to|at)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
+    patterns: [
+      /RM\s*([\d,]+\.?\d*)\s+(?:paid|sent|debited|charged)[^.]*?(?:to|at)\s+(.+?)(?:\s+on|\s*[.]|$)/i,
+      TXN_TRANSFER_OUT,
+    ] },
+  // Banks and wallets added in 1.56.2, ids checked on Google Play (MY). Their
+  // exact alert wording isn't known yet: the generic debit shape, the
+  // transfer-out shape, the credit parser and the on-device AI cover them.
+  { id: "hsbc-my", name: "HSBC", country: "MY", currency: "MYR",
+    packages: ["my.com.hsbc.hsbcmalaysia"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "ocbc-my", name: "OCBC", country: "MY", currency: "MYR",
+    packages: ["com.ocbc.mobilemy"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "uob-my", name: "UOB TMRW", country: "MY", currency: "MYR",
+    packages: ["com.uob.mightymy"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "scb-my", name: "Standard Chartered", country: "MY", currency: "MYR",
+    packages: ["air.app.scb.breeze.android.main.my.prod"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "alliance", name: "Alliance Bank", country: "MY", currency: "MYR",
+    packages: ["com.alliance.AOPMobileApp", "com.aop2023"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "affin", name: "Affin", country: "MY", currency: "MYR",
+    packages: ["com.affin.mobilebanking"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "bankrakyat", name: "Bank Rakyat", country: "MY", currency: "MYR",
+    packages: ["com.irakyatmob.bkrm"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "muamalat", name: "Bank Muamalat", country: "MY", currency: "MYR",
+    packages: ["my.com.muamalat.mobile.rib"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "agrobank", name: "Agrobank", country: "MY", currency: "MYR",
+    packages: ["com.cedarplus.agro"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "mbsb", name: "MBSB Bank", country: "MY", currency: "MYR",
+    packages: ["com.MBSB.Bank.Mobile.Banking"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "gxbank", name: "GXBank", country: "MY", currency: "MYR",
+    packages: ["my.com.gxbank.app"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "aeonbank", name: "AEON Bank", country: "MY", currency: "MYR",
+    packages: ["com.personal.adb"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "boostbank", name: "Boost Bank", country: "MY", currency: "MYR",
+    packages: ["co.myboostbank.boostberhad"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "rytbank", name: "Ryt Bank", country: "MY", currency: "MYR",
+    packages: ["my.rytbank.app"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
+  { id: "shopeepay-my", name: "ShopeePay", country: "MY", currency: "MYR",
+    packages: ["com.shopeepay.my"],
+    patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
   { id: "ambank", name: "AmBank", country: "MY", currency: "MYR",
-    packages: ["com.ambank.ambankgroup"],
+    packages: ["com.ambank.ambankonline", "com.ambank.ambankgroup"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "bankislam", name: "Bank Islam", country: "MY", currency: "MYR",
-    packages: ["com.bankislam.android"],
+    packages: ["com.bankislam.bimbmobile", "com.bankislam.android"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|paid)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "bsn", name: "BSN", country: "MY", currency: "MYR",
     packages: ["com.bsn.mybsn"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|paid|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
   { id: "setel", name: "Setel", country: "MY", currency: "MYR",
-    packages: ["com.setel.app"],
+    packages: ["com.setel.mobile", "com.setel.app"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|spent|fueled)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
   // ----- Singapore -----
   { id: "dbs-sg", name: "DBS digibank SG", country: "SG", currency: "SGD",
@@ -13002,13 +13723,20 @@ function parseBankText(text, pkg) {
     if (!m) continue;
     const amount = parseAmount(m[1], provider.currency);
     if (!Number.isFinite(amount) || amount <= 0) continue;
+    const merchant = m[2] ? m[2].trim().replace(/\s{2,}/g, " ") : "";
+    // "ALI has transferred RM 1.00 to you" is money IN: a payee of "you" is
+    // the reader, never a shop or a person paid.
+    if (TXN_PAYEE_IS_YOU.test(merchant)) continue;
     return {
       amount,
-      merchant: m[2] ? m[2].trim().replace(/\s{2,}/g, " ") : "",
+      merchant,
       providerId: provider.id,
       providerName: provider.name,
       country: provider.country,
       currency: provider.currency,
+      // A person-to-person transfer can be money moving between your own
+      // wallets; a card spend at a shop never is.
+      transfer: re === TXN_TRANSFER_OUT,
     };
   }
   return null;
@@ -13023,6 +13751,11 @@ function parseBankText(text, pkg) {
    matcher, which suggests; the user taps; only then does anything change. */
 
 const TXN_INCOMING_PATTERNS = [
+  // TNG eWallet: "ALI BIN ABU has transferred RM 1.00 to you." (title "You've
+  // received money!"). The sender comes first, so these use named groups.
+  /(?:^|[.!\n]\s*)(?:hi[,!]?\s+)?(?<who>[^.!\n]{2,60}?)\s+(?:has\s+|have\s+)?(?:transferred|sent|paid)\s+(?:you\s+)?(?:RM|MYR)\s*(?<amt>[\d,]+(?:\.\d{1,2})?)(?:\s+to\s+(?:you|your\s+(?:account|e-?wallet|wallet)))?(?=[\s.!,]|$)/i,
+  // Bahasa Melayu: "ALI telah memindahkan RM 1.00 kepada anda"
+  /(?:^|[.!\n]\s*)(?<who>[^.!\n]{2,60}?)\s+(?:telah\s+)?(?:memindahkan|menghantar|membayar)\s+(?:RM|MYR)\s*(?<amt>[\d,]+(?:\.\d{1,2})?)\s+kepada\s+anda/i,
   // "You have received RM23.50 from AHMAD ALI"
   /(?:you(?:'ve| have)?\s+)?(?:just\s+)?received\s+(?:RM|MYR)\s*([\d,]+\.?\d*)(?:\s+from\s+([^.,;]+))?/i,
   // "RM23.50 has been credited to your account from ALI"
@@ -13051,16 +13784,21 @@ function parseIncomingTransfer(text, pkg) {
   if (INCOMING_DENY.some((re) => re.test(raw))) return null;
   // A credit verb has to be present somewhere — "RM50 to ALI" is a payment
   // going the other way and must never look like a repayment.
-  if (!/\b(received|credited|incoming|menerima|diterima|masuk)\b/i.test(raw)) return null;
+  if (!/\b(received|credited|incoming|menerima|diterima|masuk)\b/i.test(raw) && !TXN_CREDIT_CUE.test(raw)) return null;
   for (const re of TXN_INCOMING_PATTERNS) {
     const m = raw.match(re);
     if (!m) continue;
-    const amount = parseAmount(m[1], "MYR");
+    const g = m.groups || {};
+    // The sender-first shapes only count when the text says it came TO you.
+    if (g.amt && !TXN_CREDIT_CUE.test(raw)) continue;
+    const amount = parseAmount(g.amt || m[1], "MYR");
     if (!Number.isFinite(amount) || amount <= 0) continue;
+    const who = String(g.who || m[2] || "").trim().replace(/\s{2,}/g, " ");
+    if (g.who && (/^(?:you|i|we)\b/i.test(who) || /\b(?:you|have)$/i.test(who))) continue;
     const provider = providerForPackage(pkg);
     return {
       amount,
-      sender: m[2] ? String(m[2]).trim().replace(/\s{2,}/g, " ").slice(0, 60) : "",
+      sender: who.slice(0, 60),
       currency: "MYR",
       raw,
       providerId: provider ? provider.id : "",
@@ -13075,20 +13813,21 @@ function parseIncomingTransfer(text, pkg) {
    because a bank credit that matches no open request is not Duitful's
    business — the user did not ask for their salary to be commented on. */
 function queueIncomingTransfer(data) {
-  const parsed = parseIncomingTransfer(data.text || "", data.package || "");
+  let parsed = null;
+  for (const text of captureTexts(data)) { parsed = parseIncomingTransfer(text, data.package || ""); if (parsed) break; }
   if (!parsed) return false;
   if (typeof splitMatchIncoming !== "function") return false;
   const res = splitMatchIncoming(parsed);
   if (!res || res.status === "none" || !res.matches.length) return false;
 
-  const now = Date.now();
+  const now = captureTime(data);
   state.pendingTxns = state.pendingTxns || [];
   // Same amount, same first candidate, inside two minutes: the bank fired
   // twice (lock screen + drawer), not two people paying the same sum.
   const dupe = state.pendingTxns.find((p) => p.kind === "split-match"
     && Math.abs(Number(p.amount) - parsed.amount) < 0.005
     && p.matches && p.matches[0] && res.matches[0] && p.matches[0].personId === res.matches[0].personId
-    && (now - p.createdAt) < 120000);
+    && Math.abs(now - p.createdAt) < 120000);
   if (dupe) return false;
 
   state.pendingTxns.push({
@@ -13113,18 +13852,37 @@ function queueIncomingTransfer(data) {
   return true;
 }
 
+// The body says what happened on most banks; a few put it in the title
+// ("DuitNow Transfer is successful"). Try the body, then title + body.
+function captureTexts(data) {
+  const text = String((data && data.text) || "");
+  const title = String((data && data.title) || "").trim();
+  return title && !text.includes(title) ? [text, `${title}. ${text}`] : [text];
+}
+
+// When a captured notification was posted: drained ones carry it, live ones are now.
+function captureTime(data) {
+  const t = Number(data && data.postedAt);
+  return Number.isFinite(t) && t > 0 && t <= Date.now() + 60000 ? t : Date.now();
+}
+
 function queuePendingTxn(data) {
-  const parsed = parseBankText(data.text || "", data.package || "");
+  // Direction first, on title + body together: money coming to the reader is
+  // never booked as a spend, whatever debit pattern happens to match.
+  const whole = captureTexts(data).join(" ");
+  if (TXN_CREDIT_CUE.test(whole) && !/\byou(?:'|’)?(?:ve| have)?\s+(?:successfully\s+)?(?:transferred|paid|spent|sent)\b/i.test(whole)) return false;
+  let parsed = null;
+  for (const text of captureTexts(data)) { parsed = parseBankText(text, data.package || ""); if (parsed) break; }
   if (!parsed) return false;
-  // de-dupe: ignore exact (provider, amount, merchant) within the last 2 minutes
-  const now = Date.now();
+  // de-dupe: ignore exact (provider, amount, merchant) within 2 minutes of each other
+  const now = captureTime(data);
   state.pendingTxns = state.pendingTxns || [];
-  const dupe = state.pendingTxns.find((p) => p.providerId === parsed.providerId
+  const dupe = pendingSpends().find((p) => p.providerId === parsed.providerId
     && p.amount === parsed.amount
     && p.merchant === parsed.merchant
-    && (now - p.createdAt) < 120000);
+    && Math.abs(now - p.createdAt) < 120000);
   if (dupe) return false;
-  state.pendingTxns.push({
+  queueDebit({
     id: uid(),
     createdAt: now,
     raw: String(data.text || ""),
@@ -13135,10 +13893,198 @@ function queuePendingTxn(data) {
     providerName: parsed.providerName,
     country: parsed.country,
     currency: parsed.currency,
+    transfer: !!parsed.transfer,
   });
+  return true;
+}
+
+/* ---------- Money in, and money moving between your own accounts ----------
+   A credit that settles a split is handled above and goes no further. Any
+   other credit from a listed app becomes a pending income entry. A transfer
+   out in one app and a credit of the same amount in another, within
+   PAIR_WINDOW_MS of each other (either order), is one move: confirming it
+   books nothing. A transfer to a name saved with "This is my account" is a
+   move on its own. */
+const PAIR_WINDOW_MS = 10 * 60 * 1000;
+// A lone transfer out waits this long, out of sight, for its other half.
+const PENDING_HOLD_MS = 60 * 1000;
+// OTPs and security codes are never money, whatever figures they contain.
+const CAPTURE_DENY = /\b(?:OTP|TAC|one[- ]time\s+(?:password|passcode|pin|code)|verification\s+code|security\s+code|do\s+not\s+share)\b/i;
+
+function normOwnName(s) { return String(s || "").replace(/\s+/g, " ").trim().toUpperCase().slice(0, 60); }
+function coerceOwnAccounts(list) {
+  if (!Array.isArray(list)) return [];
+  return [...new Set(list.map(normOwnName).filter(Boolean))].slice(0, 30);
+}
+function isOwnName(name) {
+  const n = normOwnName(name);
+  return !!n && (state.ownAccounts || []).includes(n);
+}
+function providerShort(id, fallback) {
+  const p = TXN_PROVIDERS.find((x) => x.id === id);
+  return (p && (p.short || p.name)) || fallback || "Bank";
+}
+function pendingSource(p) { return (p && (p.providerId || p.pkg)) || ""; }
+function sameAmount(a, b) { return Math.abs(Number(a) - Number(b)) < 0.005; }
+function pendingSpends() {
+  const out = [];
+  for (const p of state.pendingTxns || []) {
+    if (!p.kind) out.push(p);
+    else if (p.kind === "move" && p.from) out.push(p.from);
+  }
+  return out;
+}
+function pendingCredits() {
+  const out = [];
+  for (const p of state.pendingTxns || []) {
+    if (p.kind === "income") out.push(p);
+    else if (p.kind === "move" && p.to) out.push(p.to);
+  }
+  return out;
+}
+function makeMove(from, to, own) {
+  const parts = [from, to].filter(Boolean);
+  return {
+    id: uid(), kind: "move", createdAt: Math.min(...parts.map((x) => x.createdAt)),
+    amount: parts[0].amount, currency: parts[0].currency || "MYR",
+    from: from || null, to: to || null, own: !!own,
+  };
+}
+// The other half of a move: opposite direction, same amount, a different
+// app, close in time, and not split apart by the user before.
+function findPairPartner(item, wantKind) {
+  const list = state.pendingTxns || [];
+  return list.findIndex((p) => !p.noPair
+    && (wantKind === "income" ? (p.kind === "income" && !p.label) : (!p.kind && p.transfer))
+    && sameAmount(p.amount, item.amount)
+    && pendingSource(p) !== pendingSource(item)
+    && Math.abs(p.createdAt - item.createdAt) <= PAIR_WINDOW_MS);
+}
+function commitPending() {
   save();
   if (typeof renderAll === "function") renderAll();
+}
+function queueDebit(item) {
+  state.pendingTxns = state.pendingTxns || [];
+  if (item.transfer && !item.noPair) {
+    if (isOwnName(item.merchant)) { state.pendingTxns.push(makeMove(item, null, true)); commitPending(); return; }
+    const at = findPairPartner(item, "income");
+    if (at >= 0) { state.pendingTxns[at] = makeMove(item, state.pendingTxns[at], false); commitPending(); return; }
+  }
+  state.pendingTxns.push(item);
+  commitPending();
+}
+function queueCredit(item) {
+  state.pendingTxns = state.pendingTxns || [];
+  if (!item.label && !item.noPair) {
+    if (isOwnName(item.sender)) { state.pendingTxns.push(makeMove(null, item, true)); commitPending(); return; }
+    const at = findPairPartner(item, "spend");
+    if (at >= 0) { state.pendingTxns[at] = makeMove(state.pendingTxns[at], item, false); commitPending(); return; }
+  }
+  state.pendingTxns.push(item);
+  commitPending();
+}
+
+// Refunds, reversals and cashback are labelled, so they are never booked as
+// if they were pay.
+function creditLabel(text) {
+  if (/\brefund/i.test(text)) return "Refund";
+  if (/\brevers/i.test(text)) return "Reversal";
+  if (/\bcashback\b/i.test(text)) return "Cashback";
+  return "";
+}
+const CREDIT_REFUND_PAT = /\b(?:refund(?:ed)?|reversal|reversed|cashback)\b[^.]{0,40}?(?:RM|MYR)\s*([\d,]+(?:\.\d{1,2})?)/i;
+function parseIncomingCredit(text, pkg) {
+  const raw = String(text || "");
+  if (!raw || CAPTURE_DENY.test(raw)) return null;
+  const label = creditLabel(raw);
+  let parsed = parseIncomingTransfer(raw, pkg);
+  if (!parsed && label && !isLikelyPromo(raw) && !/\b(?:request(?:ed)?|pending|failed|unsuccessful|declined)\b/i.test(raw)) {
+    const m = raw.match(CREDIT_REFUND_PAT);
+    const amount = m ? parseAmount(m[1], "MYR") : NaN;
+    if (Number.isFinite(amount) && amount > 0) {
+      const provider = providerForPackage(pkg);
+      parsed = { amount, sender: "", currency: "MYR", raw, providerId: provider ? provider.id : "", providerName: provider ? provider.name : "" };
+    }
+  }
+  return parsed ? { ...parsed, label } : null;
+}
+function queueIncomingCredit(data) {
+  const pkg = String(data.package || "");
+  if (!providerForPackage(pkg)) return false;
+  let parsed = null;
+  for (const text of captureTexts(data)) { parsed = parseIncomingCredit(text, pkg); if (parsed) break; }
+  if (!parsed) return false;
+  const now = captureTime(data);
+  const item = {
+    id: uid(), kind: "income", createdAt: now, raw: String(data.text || ""), pkg,
+    amount: parsed.amount, sender: parsed.sender || "", label: parsed.label || "",
+    providerId: parsed.providerId, providerName: parsed.providerName, currency: "MYR",
+  };
+  // The bank firing twice, or the same credit already offered to settle a split.
+  const dup = pendingCredits().some((p) => pendingSource(p) === pendingSource(item) && sameAmount(p.amount, item.amount) && Math.abs(now - p.createdAt) < 120000)
+    || (state.pendingTxns || []).some((p) => p.kind === "split-match" && sameAmount(p.amount, item.amount) && Math.abs(now - p.createdAt) < 120000);
+  if (dup) return false;
+  queueCredit(item);
   return true;
+}
+
+/* "This is my account": remember the name (vault only), and turn this and
+   any other waiting transfer to it into a move. */
+function markOwnAccount(id) {
+  const p = (state.pendingTxns || []).find((x) => x.id === id);
+  const name = p && normOwnName(p.kind === "income" ? p.sender : p.merchant);
+  if (!name) return;
+  state.ownAccounts = coerceOwnAccounts([...(state.ownAccounts || []), name]);
+  state.pendingTxns = state.pendingTxns.map((x) => {
+    if (!x.kind && x.transfer && normOwnName(x.merchant) === name) return makeMove(x, null, true);
+    if (x.kind === "income" && !x.label && normOwnName(x.sender) === name) return makeMove(null, x, true);
+    return x;
+  });
+  commitPending();
+  toast(`Saved. Transfers to ${name} count as moves.`);
+}
+function removeOwnAccount(name) {
+  state.ownAccounts = (state.ownAccounts || []).filter((n) => n !== name);
+  commitPending();
+}
+// Confirm a move: nothing is booked anywhere.
+function acceptMove(id) {
+  state.pendingTxns = (state.pendingTxns || []).filter((x) => x.id !== id);
+  commitPending();
+  toast("Moved between your accounts — not counted as spending or income.");
+}
+// "Not a move": back to the spend and/or income it was made of, kept apart.
+function splitMove(id) {
+  const list = state.pendingTxns || [];
+  const i = list.findIndex((x) => x.id === id);
+  if (i < 0 || list[i].kind !== "move") return;
+  const m = list[i];
+  const parts = [m.from, m.to].filter(Boolean).map((x) => ({ ...x, noPair: true }));
+  list.splice(i, 1, ...parts);
+  commitPending();
+}
+function acceptIncomePending(id) {
+  const p = (state.pendingTxns || []).find((x) => x.id === id);
+  if (!p) return;
+  const d = new Date(p.createdAt || Date.now());
+  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const from = providerShort(p.providerId, p.providerName);
+  // Booked like a split repayment: a one-off row in that month's income,
+  // never copied into next month.
+  state.income.push({
+    id: uid(),
+    name: p.label ? `${p.label}${p.sender ? ` — ${p.sender}` : ` · ${from}`}` : (p.sender ? `From ${p.sender}` : `Money in · ${from}`),
+    amount: p.amount,
+    month: iso.slice(0, 7),
+    day: Number(iso.slice(8, 10)),
+    repeatNext: false,
+    category: p.label || "Money in",
+    note: p.providerName || "",
+  });
+  state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
+  commitPending();
+  toast(`${fmtMoney(p.amount)} added to income`);
 }
 
 /* ---------- Quick add: the widget and the shade ----------
@@ -13234,18 +14180,118 @@ async function drainQuickAdd() {
    Also exposed so you can test in the devtools console:
      duitfulIncoming({ package: "com.mbb.malaysia.android", text: "RM50.00 charged to card ending 1234 at STARBUCKS on 19-Apr-26" })
 */
+// The rules: split settling, money in, money out. True when one queued.
+function captureByRules(data) {
+  if (captureTexts(data).some((t) => CAPTURE_DENY.test(t))) return false;
+  // Credits first: a transfer landing is never also a card spend, and the
+  // debit patterns would only ever mis-read it. A credit that settles a
+  // split goes no further.
+  if (queueIncomingTransfer(data)) return true;
+  if (queueIncomingCredit(data)) return true;
+  return queuePendingTxn(data);
+}
 window.duitfulIncoming = (data) => {
   try {
-    // Credits first: a transfer landing is never also a card spend, and the
-    // debit patterns would only ever mis-read it.
-    if (queueIncomingTransfer(data || {})) return true;
-    if (queuePendingTxn(data || {})) return true;
+    if (captureByRules(data || {})) return true;
     // No bank pattern matched (banks reword their alerts): let ML Kit's
     // entity reader find the amount. Async, so this call reports false.
     queuePendingTxnFromEntities(data || {}).catch(() => {});
     return false;
   } catch (e) { console.warn("duitfulIncoming failed", e); return false; }
 };
+
+/* ---------- On-device AI, only where the rules are unsure ----------
+   Same kit as the receipt second opinion (Gemini Nano via ML Kit's Prompt
+   API, DuitfulKit.aiReadAlert; iOS has no capture). Run only from the drain,
+   never in the background service. The AI labels; it never sets an amount:
+   the amount is the one RM figure the alert prints, found by rule. It may
+   say an unknown-format alert is a spend, income or a move, name the other
+   side (only if that name is in the text) and pick a category from the
+   app's list. Promo or security means drop. A confident rule always wins. */
+const CAPTURE_AI_TIMEOUT_MS = 6000;
+const CAPTURE_AI_MAX = 8;
+// Exactly one RM figure in the text, or null: the only amount an AI-labelled
+// alert can ever carry.
+function captureRuleAmount(text) {
+  const set = new Set();
+  for (const m of String(text || "").matchAll(/(?:\bRM|\bMYR)\s*([\d,]+(?:\.\d{1,2})?)/gi)) {
+    const v = parseAmount(m[1], "MYR");
+    if (Number.isFinite(v) && v > 0 && v < 1e7) set.add(Math.round(v * 100) / 100);
+  }
+  return set.size === 1 ? [...set][0] : null;
+}
+// Pure: the model's JSON → { direction, counterparty, category, promo }, or null.
+function parseAiAlertReply(reply) {
+  if (!reply || typeof reply !== "object") return null;
+  let f = reply;
+  if (typeof reply.json === "string") {
+    const m = reply.json.replace(/```(?:json)?/gi, "").match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    try { f = JSON.parse(m[0]); } catch { return null; }
+  }
+  const dir = String(f.direction || "").toLowerCase();
+  return {
+    direction: ["spend", "income", "move", "ignore"].includes(dir) ? dir : "",
+    counterparty: typeof f.counterparty === "string" ? f.counterparty.trim().slice(0, 60) : "",
+    category: typeof f.category === "string" ? f.category.trim().slice(0, 40) : "",
+    promo: f.is_promo_or_security === true || f.is_promo_or_security === "true",
+  };
+}
+async function captureAiKit() {
+  const kit = aiAllowed() ? duitfulKit("aiReadAlert") : null;
+  if (!kit || typeof kit.aiStatus !== "function") return null;
+  try {
+    const st = await withTimeout(kit.aiStatus(), 2000);
+    return st && st.available ? kit : null;
+  } catch { return null; }
+}
+async function askAiAboutAlert(kit, text, categories) {
+  try {
+    return parseAiAlertReply(await withTimeout(kit.aiReadAlert({ text: String(text).slice(0, 600), categories }), CAPTURE_AI_TIMEOUT_MS));
+  } catch { return null; }
+}
+// A name or category the model offers counts only if the alert says it /
+// the app already has it.
+function aiNameInText(name, text) {
+  const n = String(name || "").trim();
+  return n.length >= 2 && String(text || "").toLowerCase().includes(n.toLowerCase()) ? n : "";
+}
+function aiCategoryIn(cat, cats) {
+  const c = String(cat || "").trim().toLowerCase();
+  return (cats || []).find((x) => x.toLowerCase() === c) || "";
+}
+/* An alert the rules could not place: a listed app, no OTP / promo words, and
+   exactly one RM figure. The AI decides direction; the rest is rule-made. */
+function queueFromAi(data, ai, cats) {
+  const pkg = String(data.package || "");
+  const provider = providerForPackage(pkg);
+  const text = captureTexts(data).slice(-1)[0];
+  const amount = captureRuleAmount(text);
+  if (!provider || amount == null || !ai || ai.promo || !ai.direction || ai.direction === "ignore") return false;
+  if (CAPTURE_DENY.test(text) || isLikelyPromo(text)) return false;
+  const now = captureTime(data);
+  const who = aiNameInText(ai.counterparty, text);
+  const base = { id: uid(), createdAt: now, raw: String(data.text || ""), pkg, amount, providerId: provider.id, providerName: provider.name, currency: provider.currency, ai: true };
+  if (ai.direction === "income") {
+    if (pendingCredits().some((p) => pendingSource(p) === provider.id && sameAmount(p.amount, amount) && Math.abs(now - p.createdAt) < 120000)) return false;
+    queueCredit({ ...base, kind: "income", sender: who, label: creditLabel(text) });
+    return true;
+  }
+  if (pendingSpends().some((p) => p.providerId === provider.id && sameAmount(p.amount, amount) && Math.abs(now - p.createdAt) < 120000)) return false;
+  const spend = { ...base, merchant: who, country: provider.country, category: aiCategoryIn(ai.category, cats), transfer: ai.direction === "move" };
+  if (ai.direction === "move") {
+    // AI only supplies the direction; pairing stays rule-based. Unpaired, it
+    // is shown as a move to confirm, with "It was a spend" to undo.
+    state.pendingTxns = state.pendingTxns || [];
+    const at = findPairPartner(spend, "income");
+    if (at >= 0) state.pendingTxns[at] = makeMove(spend, state.pendingTxns[at], false);
+    else state.pendingTxns.push(makeMove(spend, null, false));
+    commitPending();
+    return true;
+  }
+  queueDebit({ ...spend, transfer: false });
+  return true;
+}
 
 /* Fallback for a notification from a known bank or wallet app whose wording
    none of the patterns above recognise. Narrow on purpose: the app must be on
@@ -13254,7 +14300,7 @@ window.duitfulIncoming = (data) => {
    balance Y" alert is ambiguous, so it is skipped rather than guessed). Like
    every capture, it only queues a pending entry to confirm, with no shop
    name, since none was parsed. */
-const ENTITY_DEBIT_WORDS = /\b(?:paid|spent|charged|debited|deducted|purchase|payment|transaction|dibayar|ditolak|pembelian|pembayaran|transaksi)\b/i;
+const ENTITY_DEBIT_WORDS = /\b(?:paid|spent|charged|debited|deducted|transferred|purchase|payment|transaction|dibayar|ditolak|pembelian|pembayaran|transaksi)\b/i;
 const ENTITY_CREDIT_WORDS = /\b(?:received|credited|refund(?:ed)?|reversal|cashback|menerima|diterima|dikreditkan)\b/i;
 function entityDebitAmount(text, provider, money) {
   if (!provider || !text || isLikelyPromo(text)) return null;
@@ -13273,16 +14319,16 @@ async function queuePendingTxnFromEntities(data) {
   const text = String(data.text || "");
   const provider = providerForPackage(String(data.package || ""));
   if (!provider || !aesKey) return false;
-  if (!ENTITY_DEBIT_WORDS.test(text) || ENTITY_CREDIT_WORDS.test(text) || isLikelyPromo(text)) return false;
+  if (!ENTITY_DEBIT_WORDS.test(text) || ENTITY_CREDIT_WORDS.test(text) || isLikelyPromo(text) || CAPTURE_DENY.test(text)) return false;
   const kit = duitfulKit("extractEntities");
   if (!kit) return false;
   let res;
   try { res = await withTimeout(kit.extractEntities({ text }), 8000); } catch { return false; }
   const amount = entityDebitAmount(text, provider, res && res.money);
   if (amount == null) return false;
-  const now = Date.now();
+  const now = captureTime(data);
   state.pendingTxns = state.pendingTxns || [];
-  if (state.pendingTxns.some((p) => p.providerId === provider.id && p.amount === amount && (now - p.createdAt) < 120000)) return false;
+  if (state.pendingTxns.some((p) => p.providerId === provider.id && p.amount === amount && Math.abs(now - p.createdAt) < 120000)) return false;
   state.pendingTxns.push({
     id: uid(), createdAt: now, raw: text, pkg: String(data.package || ""),
     amount, merchant: "", providerId: provider.id, providerName: provider.name,
@@ -14731,7 +15777,11 @@ function scheduleDriveUpload() {
    active provider. One provider failing never stops the other; the first
    error is rethrown after both have been tried. */
 async function runDriveUpload(only) {
-  if (!isPro()) return; // pushes are Pro-only; restore is open to all
+  // Manual is free: `only` is set by a "Back up now" button, and that works
+  // for everyone. Automatic uploads (no `only`: after a save, on reconnect,
+  // on unlock) are Pro. Restore is open to all.
+  const manual = !!only;
+  if (!manual && !isPro()) return;
   const ids = only ? (cloudApi(only) ? [only] : []) : activeClouds();
   if (!ids.length) return;
   // iCloud writes a local file that syncs later, so it doesn't need a
@@ -14749,7 +15799,7 @@ async function runDriveUpload(only) {
     if (id === "drive" && !navigator.onLine) continue;
     try {
       await cloudApi(id).uploadEncryptedRecord(rec, props);
-      if (isTrialActive()) bumpTrialUsage("backups");
+      if (!manual && isTrialActive()) bumpTrialUsage("backups");
     }
     catch (err) { firstError = firstError || err; }
   }
@@ -14778,8 +15828,9 @@ async function checkDriveOnBoot() {
     .filter((id) => cloudApi(id) && (id !== "icloud" || state.icloudBackup !== false));
   if (!ids.length) return;
   // Restore prompt is allowed for anyone connected — that's how Pro itself
-  // flows from device A's backup to device B. Auto-upload is still Pro-only
-  // (gated inside scheduleDriveUpload).
+  // flows from device A's backup to device B. A restore is never trimmed to
+  // the free limits: the backup is the person's own data. Auto-upload is
+  // still Pro-only (gated inside scheduleDriveUpload).
   const local = state.lastEditedAt || "";
   let newest = null;
   let needsPush = false;
@@ -14862,7 +15913,7 @@ function applyDriveVisibility() {
   if (!driveHiddenHere()) return;
   document.querySelectorAll("[data-drive]").forEach((el) => { el.hidden = true; });
   document.querySelectorAll("[data-drive-text]").forEach((el) => { el.textContent = el.dataset.driveText; });
-  try { PAYWALL_COPY.cloudBackup = "Automatic backup to iCloud is a Pro feature. Export CSV in Settings stays free."; } catch { /* not defined yet at boot */ }
+  try { PAYWALL_COPY.cloudBackup = "Automatic backup to iCloud is a Pro feature. Back up now and Export CSV in Settings stay free."; } catch { /* not defined yet at boot */ }
 }
 
 function renderDriveCard() {
@@ -14926,12 +15977,10 @@ function renderDriveCard() {
       const lastLine = document.getElementById("icloud-last-synced");
       if (lastLine) {
         lastLine.textContent = restoreOnly ? "Restore only on the web. Back up with Google Drive or CSV."
-          : !pro ? "Back up to iCloud with Pro. Restoring is free."
+          : !pro ? `Automatic backup is off (Pro). Back up now and restoring are free. ${last ? `Last backed up ${formatRelative(last)}.` : "Not backed up yet."}`
           : last ? `Last backed up ${formatRelative(last)}.`
           : state.icloudBackup === false ? "Automatic backup is off." : "Not backed up yet.";
       }
-      const now = document.getElementById("btn-icloud-sync-now");
-      if (now) now.disabled = !pro;
     }
   }
 
@@ -14968,16 +16017,7 @@ function renderDriveCard() {
       auto.disabled = !pro;
     }
     const syncNow = document.getElementById("btn-drive-sync-now");
-    if (syncNow) {
-      syncNow.disabled = !pro;
-      syncNow.title = pro ? "" : "Pro feature — sign-in lets you restore a Pro backup from another device.";
-    }
-    const restoreBtn = document.getElementById("btn-drive-restore");
-    if (restoreBtn) {
-      // Promote Restore to primary on non-Pro devices since it's their main use case.
-      restoreBtn.classList.toggle("primary", !pro);
-      restoreBtn.classList.toggle("ghost", pro);
-    }
+    if (syncNow) { syncNow.disabled = false; syncNow.title = ""; }
     const proHint = document.getElementById("drive-pro-hint");
     if (proHint) proHint.hidden = pro;
   }
@@ -15013,8 +16053,8 @@ function renderDriveCard() {
     if (el) el.addEventListener("click", fn);
   };
   onClick("btn-drive-signin", async () => {
-    // Sign-in is open to all so non-Pro devices can restore a backup that
-    // contains Pro. Auto-upload and "Sync now" are still Pro-only.
+    // Sign-in is open to all: restoring and "Back up now" are free.
+    // Only automatic upload is Pro.
     try {
       await DriveSync.signIn();
       await checkDriveOnBoot();
@@ -15029,10 +16069,10 @@ function renderDriveCard() {
     renderDriveCard();
   });
   onClick("btn-drive-sync-now", async () => {
-    if (!isPro()) { gate("cloudBackup"); return; }
     try {
       await runDriveUpload("drive");
       renderDriveCard();
+      toast("Backed up to Google Drive.");
     } catch (err) {
       notify("Sync failed: " + (err.message || err));
     }
@@ -15043,7 +16083,6 @@ function renderDriveCard() {
     renderDriveCard();
   });
   onClick("btn-icloud-sync-now", async () => {
-    if (!isPro()) { gate("cloudBackup"); return; }
     try {
       await runDriveUpload("icloud");
       renderDriveCard();
@@ -15080,11 +16119,6 @@ function renderDriveCard() {
   bindToggle("drive-auto-sync", "driveAutoSync");
   bindToggle("icloud-auto", "icloudBackup");
 })();
-
-// Add cloudBackup paywall copy without modifying the const literal above.
-if (typeof PAYWALL_COPY !== "undefined") {
-  PAYWALL_COPY.cloudBackup = "Encrypted cloud backup is a Pro feature.";
-}
 
 if (window.DriveSync) DriveSync.subscribe(() => renderDriveCard());
 if (window.ICloudSync) ICloudSync.subscribe(() => { renderDriveCard(); renderLockRestore(); });

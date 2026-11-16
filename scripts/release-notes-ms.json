@@ -1,4 +1,30 @@
 {
+  "1.56.3": [
+    "<strong>Duit diterima dalam Touch 'n Go</strong> — makluman \"You've received money!\" kini dipaparkan sebagai pendapatan daripada pengirim, bukan perbelanjaan. Jika pengirimnya anda sendiri (dari akaun anda yang lain), ketik \"This is my account\" dan ia dikira sebagai pindahan."
+  ],
+  "1.56.2": [
+    "<strong>Lebih banyak bank</strong> — di Android, makluman daripada HSBC, OCBC, UOB TMRW, Standard Chartered, Alliance Bank, Affin, Bank Rakyat, Bank Muamalat, Agrobank, MBSB Bank, GXBank, AEON Bank, Boost Bank, Ryt Bank dan ShopeePay kini dibaca juga.",
+    "<strong>Semak tangkapan automatik</strong> — Settings → Bank alerts menunjukkan sama ada Duitful dapat melihat makluman bank anda dan apa yang dibuat dengan setiap satu, dengan laporan yang boleh disalin kepada kami (tanpa teks mesej atau jumlah). Pindahan berulang dengan ayat yang sama tidak lagi dilangkau, dan dua makluman yang tiba berselang beberapa saat kedua-duanya ditangkap.",
+    "<strong>\"2 to review\"</strong> — di Android, notifikasi \"Log a spend\" kini menunjukkan berapa makluman bank yang menunggu, walaupun Duitful ditutup, dengan butang Review. Hanya bilangan dipaparkan, tidak sekali-kali jumlah atau nama.",
+    "<strong>Tak dikesan?</strong> — hantar kepada kami ayat makluman bank yang Duitful terlepas atau salah baca, ditampal atau daripada tangkapan skrin (dibaca dalam telefon anda; hanya perkataan yang telah dibersihkan dihantar, bukan gambarnya). Nama dan nombor dibuang dalam telefon anda dahulu, anda nampak apa yang dihantar, dan ia dihantar dari aplikasi e-mel anda sendiri."
+  ],
+  "1.56.1": [
+    "<strong>AI dalam peranti, lebih jelas</strong> — Settings kini menunjukkan sama ada AI telefon anda aktif, sedang bersedia atau tiada, dengan suis untuk mematikannya (peraturan sahaja). Kad yang dibantu AI ditanda. Ia berjalan dalam telefon anda dan tidak pernah menetapkan jumlah."
+  ],
+  "1.56.0": [
+    "<strong>Duit masuk juga</strong> — di Android, duit yang masuk ke akaun bank atau e-dompet anda kini dipaparkan untuk ditambah sebagai pendapatan. Bayaran balik dan pulangan tunai dilabel.",
+    "<strong>Memindahkan duit sendiri</strong> — pindahan dari Touch 'n Go ke bank anda (atau sebaliknya) dipaparkan sebagai satu item \"Moved\" yang tidak dikira sebagai perbelanjaan atau pendapatan. Ketik \"This is my account\" pada pindahan dan Duitful akan mengingatinya; urus senarai dalam Tetapan.",
+    "<strong>Lebih bijak pada telefon yang disokong</strong> — apabila ayat makluman masih baharu, AI dalam telefon boleh membantu menyusunnya. Ia tidak pernah menetapkan jumlah, dan tiada apa-apa keluar dari telefon anda."
+  ],
+  "1.55.14": [
+    "<strong>Makluman bank ditangkap walaupun Duitful ditutup</strong> — di Android, notifikasi Touch 'n Go, MAE atau bank lain yang tiba semasa aplikasi ditutup kini disimpan (disulitkan dalam telefon anda) dan menunggu untuk disemak apabila anda membuka Duitful. Pindahan DuitNow Touch 'n Go kini dikenali juga."
+  ],
+  "1.55.13": [
+    "<strong>Halaman Cukai yang lebih ringkas</strong> — kurang perkataan, lebih banyak kad. Butiran anda kini tiga langkah pendek (gaji, PCB dan KWSP, keluarga), dan anda boleh taip jumlah bulanan terus dari slip gaji. Halaman menunjukkan butiran anda dalam satu baris, dan meminta satu perkara pada satu masa."
+  ],
+  "1.55.12": [
+    "<strong>Pro tanpa kejutan</strong> — percubaan Pro kini bermula hanya jika anda memilihnya, selama 14 hari, dan sebelum ia tamat, Utama memberitahu dengan tepat apa yang berubah untuk anda. Sandarkan sekarang adalah percuma untuk semua (sandaran automatik kekal Pro). Mengimport CSV anda sendiri sentiasa memulihkan semuanya. Anda boleh lihat berapa hutang, matlamat dan pegangan percuma yang telah digunakan sebelum sampai ke had."
+  ],
   "1.55.11": [
     "<strong>Satu pelan bayar-kemudian, percuma</strong> — jejak satu pelan Atome, SPayLater atau Grab PayLater secara percuma (dikira sebagai salah satu daripada 3 hutang anda). Pro menjejak semua pelan."
   ],
