@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=157" />
+    <link rel="stylesheet" href="styles.css?v=158" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -295,6 +295,21 @@
             <button type="button" class="ghost icon-btn" id="ai-intro-close" aria-label="Dismiss">✕</button>
           </div>
           <p class="hint" id="ai-intro-body">Duitful uses this on-device AI to read tricky receipts and bank alerts, privately. Nothing leaves your phone.</p>
+        </section>
+
+        <!-- Android only: ask for notification access once, with the disclosure
+             Google Play wants before Android's own screen. renderCaptureIntro. -->
+        <section id="capture-intro" class="card ai-intro" hidden aria-labelledby="capture-intro-title">
+          <div class="ai-intro-head">
+            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
+            <h2 id="capture-intro-title">Log spends from bank alerts</h2>
+          </div>
+          <p class="hint">Duitful can read alerts from your bank and e-wallet apps that show an amount, and turn them into entries for you to check. It skips OTPs and other apps. Everything stays on this phone.</p>
+          <p class="hint">Android will ask to let Duitful read notifications.</p>
+          <div class="button-row capture-intro-actions">
+            <button type="button" class="ghost" id="capture-intro-later">Not now</button>
+            <button type="button" class="primary" id="capture-intro-allow">Allow access</button>
+          </div>
         </section>
 
         <div id="pending-card" class="card pending-card" hidden>
@@ -2828,6 +2843,6 @@
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=15"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=215"></script>
+    <script src="script.js?v=216"></script>
   </body>
 </html>

@@ -6628,6 +6628,40 @@ check('the vault is open before the quick-add checks',
     refer.ios === false && refer.android === true && refer.web === true, JSON.stringify(refer));
 }
 
+/* ── Android: one Home card asks for notification access ─────────────── */
+{
+  const ci = await S(async () => {
+    const keep = { cap: window.Capacitor, daily: state.dailyExpenses.slice(), later: localStorage.getItem('duitful-capture-intro-later') };
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    localStorage.removeItem('duitful-capture-intro-later');
+    let opened = 0;
+    const shell = (platform, enabled) => ({ isNativePlatform: () => true, getPlatform: () => platform, Plugins: {
+      NotificationListener: { isEnabled: async () => ({ enabled }), openSettings: () => { opened++; } } } });
+    const shown = () => !document.getElementById('capture-intro').hidden;
+    const out = {};
+    state.dailyExpenses = [];
+    window.Capacitor = shell('android', false); await refreshCaptureAccess(); out.noSpend = shown();
+    state.dailyExpenses = [{ id: 'ci1', createdAt: Date.now(), date: todayISO(), amount: 5, name: 'Kopi' }];
+    await refreshCaptureAccess(); out.android = shown();
+    out.copy = /stays on this phone/.test(document.getElementById('capture-intro').textContent) && /OTP/.test(document.getElementById('capture-intro').textContent);
+    document.getElementById('capture-intro-allow').click(); out.opened = opened;
+    window.Capacitor = shell('android', true); await refreshCaptureAccess(); out.granted = shown();
+    window.Capacitor = shell('ios', false); await refreshCaptureAccess(); renderCaptureIntro(); out.ios = shown();
+    window.Capacitor = keep.cap; captureAccess = null; renderCaptureIntro(); out.web = shown();
+    window.Capacitor = shell('android', false); await refreshCaptureAccess();
+    document.getElementById('capture-intro-later').click(); out.later = shown();
+    await refreshCaptureAccess(); out.laterSticks = shown();
+    window.Capacitor = keep.cap; captureAccess = null;
+    if (keep.later == null) localStorage.removeItem('duitful-capture-intro-later'); else localStorage.setItem('duitful-capture-intro-later', keep.later);
+    state.dailyExpenses = keep.daily; save(); renderAll();
+    return out;
+  });
+  check('Android capture card: shown after the first spend when access is off, says what is read, Allow opens Android settings',
+    !ci.noSpend && ci.android && ci.copy && ci.opened === 1, JSON.stringify(ci));
+  check('Android capture card: hidden once access is on, on iPhone and on the web; Not now sticks',
+    !ci.granted && !ci.ios && !ci.web && !ci.later && !ci.laterSticks, JSON.stringify(ci));
+}
+
 /* ── After the Android purchase fix: What's new offers Unlock Pro again ── */
 {
   const wn = await S(() => {

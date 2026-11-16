@@ -143,8 +143,12 @@ if (isNative() && window.Capacitor?.Plugins?.NotificationListener) {
 ## User flow
 
 1. User installs the app from Play Store.
-2. Settings → Pending transactions → taps "Enable auto-capture".
-3. App calls `NotificationListener.openSettings()` which opens Android's Notification-access screen.
+2. After their first logged spend, Home shows one card, "Log spends from bank
+   alerts" (`renderCaptureIntro` in `script.js`), saying what is read before
+   Android's screen opens; "Allow access" calls `NotificationListener.openSettings()`.
+   It hides once `isEnabled()` is true (re-checked on resume); "Not now" is kept
+   per device. Settings → Bank alerts → Check auto-capture also has "Allow access".
+3. Android's Notification-access screen opens.
 4. User toggles **Duitful** on.
 5. From now on, bank/e-wallet notifications are parsed on-device and queued as pending transactions. Nothing ever leaves the phone.
 
