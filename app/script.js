@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.56.6";
+const APP_VERSION = "1.56.7";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -11201,6 +11201,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.7": [
+    "<strong>Buying Pro on Android works again</strong> — since late October the Android app couldn't reach Google Play's store, so Unlock Pro failed. Fixed. If it failed for you, try again.",
+  ],
   "1.56.6": [
     "<strong>Buying Pro on Android</strong> — Unlock Pro asks Google Play once more before giving up, and says what the store reported if it still can't buy.",
   ],
@@ -11646,7 +11649,7 @@ function whatsNewUnseenVersions() {
 // 1.56.4 fixed buying Pro on Android ("Product not configured"). Anyone on
 // Android who isn't Pro sees that release's notes with a way straight back
 // to the paywall, and the 5-day quiet window doesn't hold it back.
-const PURCHASE_FIX_VERSIONS = ["1.56.4", "1.56.5"];
+const PURCHASE_FIX_VERSIONS = ["1.56.4", "1.56.5", "1.56.6", "1.56.7"];
 function purchaseFixApplies(versions) {
   return isNative() && nativePlatform() === "android" && !hasPurchasedPro()
     && Array.isArray(versions) && versions.some((v) => PURCHASE_FIX_VERSIONS.includes(v));
