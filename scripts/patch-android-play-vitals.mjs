@@ -217,6 +217,18 @@ writeOnce(resolve(APP_DIR, RULES), `# ${MARK} — written by scripts/patch-andro
 -keep class * implements com.google.firebase.components.ComponentRegistrar { <init>(); }
 -keep class com.google.mlkit.vision.documentscanner.** { *; }
 -keep class com.google.android.gms.internal.mlkit_vision_documentscanner.** { *; }
+
+# Cordova plugins are created by name from res/xml/config.xml
+# (PluginManager: Class.forName(...).newInstance()), so nothing references
+# their constructors and R8's full mode drops them. The in-app purchase
+# plugin (cordova-plugin-purchase, cc.fovea.PurchasePlugin) is one: when it
+# can't be created the store loads no products at all and Unlock Pro says
+# "Product not configured". Keep every Cordova plugin, the purchase plugin
+# and Play Billing whole.
+-keep class org.apache.cordova.** { *; }
+-keep class * extends org.apache.cordova.CordovaPlugin { <init>(); public *; }
+-keep class cc.fovea.** { *; }
+-keep class com.android.billingclient.** { *; }
 `);
 
 function writeOnce(path, content) {

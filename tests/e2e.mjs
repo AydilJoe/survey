@@ -6012,8 +6012,15 @@ check('and what was typed reaches the home screen calculation',
     };
     out.priceWeb = price();
     $id('fpx-discount').value = ''; openFpxDialog(); out.fpxCode = $id('fpx-discount').value; closeFpxDialog(); $id('fpx-discount').value = '';
+    // A stand-in store: Play has both products live, then only duitful_pro.
+    const keepIap = window.CdvPurchase;
+    const fakeStore = (skus) => ({ store: { get: (id) => skus.includes(id) ? { getOffer: () => ({ id }) } : null } });
     window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    window.CdvPurchase = fakeStore(['duitful_pro', 'duitful_pro_launch']);
     out.priceAndroid = price();
+    window.CdvPurchase = fakeStore(['duitful_pro']);
+    out.priceAndroidNoLaunch = price();
+    window.CdvPurchase = keepIap;
     window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} };
     out.priceIos = price();
     window.Capacitor = keep.cap;
@@ -6074,6 +6081,8 @@ check('and what was typed reaches the home screen calculation',
   check('one price on Android: the launch SKU, RM 14.90 everywhere; on iPhone RM 19.90 everywhere and no code',
     same(nb.priceAndroid, 'RM 14.90') && nb.priceAndroid.sku === 'duitful_pro_launch' && /^Launch price until 14 May 2027/.test(nb.priceAndroid.sub)
     && same(nb.priceIos, 'RM 19.90') && nb.priceIos.sku === 'duitful_pro' && !/LAUNCH|Launch/.test(nb.priceIos.sub + nb.priceIos.hint), JSON.stringify([nb.priceAndroid, nb.priceIos]));
+  check('Android with the launch SKU not live in Play: RM 19.90 everywhere and it buys duitful_pro (never the "not yet live" dead end)',
+    same(nb.priceAndroidNoLaunch, 'RM 19.90') && nb.priceAndroidNoLaunch.sku === 'duitful_pro', JSON.stringify(nb.priceAndroidNoLaunch));
   check('one price after the launch price ends: RM 19.90 everywhere, no code mentioned',
     same(nb.priceExpired, 'RM 19.90') && !/LAUNCH100/.test(nb.priceExpired.hint), JSON.stringify(nb.priceExpired));
   check('manual backup is free: Back up now uploads for a free user with no paywall',
@@ -6675,6 +6684,8 @@ check('the vault is open before the quick-add checks',
 {
   const pw = await S(() => {
     const keep = { cap: window.Capacitor, ref: state.nativeReferrer, trial: state.proTrialStartedAt, pro: state.pro };
+    const keepIap = window.CdvPurchase;
+    window.CdvPurchase = { store: { get: (id) => ({ getOffer: () => ({ id }) }) } };
     const look = (platform) => {
       window.Capacitor = { isNativePlatform: () => true, getPlatform: () => platform, Plugins: {} };
       state.pro = false; state.nativeReferrer = '418c33b4'; state.proTrialStartedAt = Date.now() - 86400000;
@@ -6688,6 +6699,7 @@ check('the vault is open before the quick-add checks',
       return r;
     };
     const out = { ios: look('ios'), android: look('android') };
+    window.CdvPurchase = keepIap;
     window.Capacitor = keep.cap;
     Object.assign(state, { nativeReferrer: keep.ref, proTrialStartedAt: keep.trial, pro: keep.pro });
     return out;

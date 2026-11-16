@@ -38,6 +38,17 @@ fi
 
 echo "Duitful launched and is still running."
 
+# Cordova plugins are made by name at startup; R8 once stripped the in-app
+# purchase plugin's constructor, so the store loaded no products and Unlock
+# Pro said "Product not configured" on every phone. Cordova logs the failure.
+plugins="$(adb logcat -d 2>/dev/null | grep -E "PluginManager|cc\.fovea|CordovaPlugin" || true)"
+if grep -qiE "Error adding plugin|ClassNotFound|InstantiationException|NoSuchMethod" <<<"$plugins"; then
+  echo "::error::A Cordova plugin could not be created in the release build (in-app purchase would not work)"
+  echo "$plugins" | tail -40
+  exit 1
+fi
+echo "Cordova plugins (in-app purchase) created without an error."
+
 # 1.54.1 crashed on Scan receipt: GmsDocumentScanning.getClient threw an NPE
 # in the R8-minified build. Open the Scan shortcut (duitful://action/scan,
 # the same path as the launcher icon's long-press) and check the scanner
