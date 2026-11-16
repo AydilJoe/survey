@@ -11168,7 +11168,7 @@ function maybeOpenGuideAfterSetup() {
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
   "1.56.4": [
-    "<strong>Fix: buying Pro on Android</strong> — when the launch price wasn't available from Google Play, Unlock Pro could stop with \"not yet live\". It now shows and charges the regular price instead.",
+    "<strong>Fix: buying Pro on Android</strong> — Unlock Pro could stop with \"Product not configured\" or \"not yet live\" because the app couldn't reach Google Play's store. Both are fixed.",
   ],
   "1.56.3": [
     "<strong>Money received in Touch 'n Go</strong> — \"You've received money!\" alerts now show as income from the sender, not as a spend. If the sender is you (from your other account), tap \"This is my account\" and it counts as a move.",

@@ -158,6 +158,7 @@
     <h2 class="release-title">Buying Pro on Android, fixed</h2>
     <ul>
       <li><span class="tag fix">fix</span><strong>Checkout:</strong> the launch price (RM 14.90) is offered only when Google Play actually has it live; otherwise the paywall shows and charges RM 19.90. Before, Unlock Pro could stop with "Promo SKU not yet live".</li>
+      <li><span class="tag fix">fix</span><strong>Store connection:</strong> the Android release build's code shrinker removed the in-app purchase plugin's constructor, so no products loaded and Unlock Pro said "Product not configured". The plugin, Cordova and Play Billing are now kept, and CI checks the plugin starts on an emulator.</li>
     </ul>
   </article>
 
