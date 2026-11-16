@@ -90,6 +90,23 @@ jobs:
             -Pandroid.injected.signing.key.alias=ci \
             -Pandroid.injected.signing.key.password=android
 
+      # Cordova finds its plugin list (res/xml/config.xml) by name, so the
+      # resource shrinker can't see it's used. When it went, every call to the
+      # in-app purchase plugin answered "Class not found" (error 6777001) and
+      # Android couldn't sell Pro from 1.51 to 1.56.6. Fail if it's gone.
+      - name: The release APK keeps Cordova's plugin list
+        shell: bash
+        run: |
+          AAPT2="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt2"
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          if "$AAPT2" dump resources "$APK" | grep -q "xml/config"; then
+            echo "res/xml/config.xml is in the release APK."
+          else
+            echo "::error::res/xml/config.xml was shrunk out of the release APK: Cordova plugins (in-app purchase) cannot load"
+            "$AAPT2" dump resources "$APK" | grep -E "^ *resource .*xml/" | head -20 || true
+            exit 1
+          fi
+
       # Building is not launching: 1.53.0 built cleanly and crashed on every
       # phone at process start. Open the release APK on an emulator.
       - name: Enable KVM for the emulator

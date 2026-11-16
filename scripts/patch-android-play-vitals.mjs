@@ -267,6 +267,23 @@ edit(resolve(ANDROID, "gradle.properties"), (src) => {
   return src;
 }, "gradle.properties: optimized resource shrinking + AGP 9 compatibility");
 
+// Resources found by name at runtime must survive resource shrinking. With
+// optimized resource shrinking on (1.51, 30 Oct 2026), R8 drops anything it
+// can't see referenced, and two things are only ever looked up by name:
+//   - res/xml/config.xml, Cordova's plugin list, read with
+//     getIdentifier("config", "xml", …). Without it Cordova knows no plugins,
+//     so every call to the in-app purchase plugin answered "Class not found"
+//     (CdvPurchase error 6777001) and Android sold nothing until 1.56.7.
+//   - drawable/ic_stat_icon, the reminders' small icon, named in JS.
+// tools:keep pins them; a name that doesn't exist is simply ignored.
+const KEEP_XML = resolve(APP_DIR, "src/main/res/raw/duitful_keep.xml");
+mkdirSync(dirname(KEEP_XML), { recursive: true });
+writeOnce(KEEP_XML, `<?xml version="1.0" encoding="utf-8"?>
+<!-- ${MARK}: kept through resource shrinking; see scripts/patch-android-play-vitals.mjs -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@xml/config,@drawable/ic_stat_icon" />
+`);
+
 // Capacitor's template looks for local .aar/.jar files through flatDir, which
 // AGP warns about (no metadata). Nothing here ships one, so drop it — but only
 // while those folders are empty, in case a Cordova plugin adds a local library.
