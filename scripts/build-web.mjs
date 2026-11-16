@@ -30,6 +30,7 @@ const APP_FILES = [
   "region.js",
   "tax-data.js",
   "tax.js",
+  "statement.js",
   "brands.js",
   "analytics.js",
   "theme-boot.js",
@@ -38,6 +39,10 @@ const APP_FILES = [
   // than replaces, so www/vendor/ ends up with both these and Tesseract.
   "vendor/qr/qrcode.js",
   "vendor/qr/jsQR.js",
+  // pdf.js for statement import (Apache-2.0, pinned 3.11.174 legacy build).
+  "vendor/pdfjs/pdf.min.js",
+  "vendor/pdfjs/pdf.worker.min.js",
+  "vendor/pdfjs/LICENSE",
 ];
 
 function reset(dir) {

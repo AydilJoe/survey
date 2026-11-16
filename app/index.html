@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=158" />
+    <link rel="stylesheet" href="styles.css?v=159" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1559,6 +1559,9 @@
             </label>
           </div>
           <div id="import-status" class="hint"></div>
+          <div class="button-row">
+            <button type="button" class="ghost" id="btn-stmt-import">Import bank statement (PDF)</button>
+          </div>
         </div>
 
         <div class="card">
@@ -2589,6 +2592,39 @@
       </form>
     </dialog>
 
+    <!-- Bank statement import: read on the phone, checked, previewed, then imported. statement.js -->
+    <dialog id="stmt-dialog" class="edit-dialog stmt-dialog" aria-labelledby="stmt-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="stmt-title">Import a statement</h2>
+        <p class="hint stmt-privacy">Read on your phone. Nothing is uploaded.</p>
+        <div id="stmt-pick">
+          <button type="button" class="primary" id="stmt-choose">Choose PDF</button>
+          <input type="file" id="stmt-file" accept="application/pdf,.pdf" hidden />
+        </div>
+        <div id="stmt-password" hidden>
+          <label class="field">
+            <span>This PDF has a password</span>
+            <input type="password" id="stmt-pw" autocomplete="off" />
+          </label>
+          <button type="button" class="primary" id="stmt-pw-open">Open</button>
+        </div>
+        <p class="hint" id="stmt-status" role="status" aria-live="polite"></p>
+        <div id="stmt-review" hidden>
+          <p class="stmt-summary" id="stmt-summary"></p>
+          <div class="stmt-bar">
+            <button type="button" class="stmt-link" id="stmt-all">Select all</button>
+            <span class="hint" id="stmt-count"></span>
+          </div>
+          <ul class="stmt-list" id="stmt-list"></ul>
+          <p class="hint free-count" data-free-count="statements" hidden></p>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="stmt-cancel">Cancel</button>
+          <button type="button" class="primary" id="stmt-import" hidden>Import</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- Check auto-capture: plain facts (no message text, no amounts) to paste to us. -->
     <dialog id="capture-check-dialog" class="edit-dialog" aria-labelledby="capture-check-title">
       <form method="dialog" onsubmit="return false">
@@ -2842,7 +2878,8 @@
     <script src="region.js?v=1"></script>
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=15"></script>
+    <script src="statement.js?v=1"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=216"></script>
+    <script src="script.js?v=217"></script>
   </body>
 </html>
