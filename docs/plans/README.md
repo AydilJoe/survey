@@ -8,6 +8,7 @@ Updated 16 Nov 2026. Start any of these in a fresh session:
 | 1 | Recurring splits (rent, utilities, subscriptions) | `recurring-splits.md` | Large, 1.58.0 | Planned; 3 decisions open |
 | 2 | Scanned / photographed statements | `statement-scans.md` | Small | Planned |
 | 3 | Shorter forms (8 screens from the audit) | `shorter-forms.md` | Small to medium | Planned; batch 4, 6, 7, 8 first |
+| 5 | Languages: Malay, then Chinese (in-app) | `backlog.md` | Large | Requested by a user |
 | 4 | Bank alerts by SMS | `backlog.md` | Medium | Needs owner's privacy decision |
 
 Manual store steps for the owner are at the end of `backlog.md`.

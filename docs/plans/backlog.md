@@ -30,6 +30,23 @@ WebView. Confirmed 16 Nov on a Samsung (Android 16), Tax → Your details step 1
 (resize "native"), a small `focusin` handler that scrolls the field into
 view using `visualViewport`, and hide the bottom nav while typing.
 
+## Languages: Bahasa Melayu and Chinese (requested)
+
+A user asked for Chinese on 16 Nov ("need to pay also can"). The app UI is
+English only today; Malay exists for the landing page, guides and store
+release notes, but not inside the app. Plan:
+
+1. Add a small i18n layer (string table per language, `t("key")`, language
+   picker in Settings, defaults to the phone's language), then move the UI
+   strings out of `app/index.html` and `app/script.js` screen by screen.
+2. Bahasa Melayu first (copy and translation habits already exist), then
+   Simplified Chinese (Malaysian Chinese users).
+3. Keep languages free for everyone, never Pro-gated.
+4. Bank-alert parsing is separate and already handles English + Malay
+   wording; Chinese bank alerts would need their own patterns if they exist.
+
+Large: many strings; do it in stages (Home, add entry, Settings first).
+
 ## Open decisions
 
 - **Bank alerts by SMS**: many MY banks send card alerts by SMS, which
