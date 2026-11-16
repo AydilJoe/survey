@@ -26,7 +26,7 @@ doesn't apply. Nothing in the app handles the keyboard today: no
 Risk spots: inputs in `<dialog>`s (tax steps, share an alert, statement
 review, paywall promo code) and fields near the bottom nav, especially on
 Android 15+ edge-to-edge, where `adjustResize` may no longer shrink the
-WebView. Check on a phone first. Fix if needed: add `@capacitor/keyboard`
+WebView. Confirmed 16 Nov on a Samsung (Android 16), Tax → Your details step 1: the field stays visible, but the dialog is cut off just below it and a large blank area fills the space to the keyboard, so the hint, the yearly total and Skip / Next can't be reached without closing the keyboard. Likely the dialog's height uses vh/dvh and doesn't follow `visualViewport`. Fix if needed: add `@capacitor/keyboard`
 (resize "native"), a small `focusin` handler that scrolls the field into
 view using `visualViewport`, and hide the bottom nav while typing.
 
