@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.56.3";
+const APP_VERSION = "1.56.4";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5528,9 +5528,20 @@ const PRO_PRICE_LABEL = "RM 19.90";
 function launchPromo() {
   try { return lookupPromoCode("LAUNCH100"); } catch { return null; }
 }
+// The store only sells what Play Console has live. A promo SKU that
+// isn't there (not created, inactive, or not yet loaded) must never be
+// offered: the buy would fail with "not yet live" and lose the sale.
+function storeSellsSku(sku) {
+  try {
+    const store = window.CdvPurchase && window.CdvPurchase.store;
+    const product = store && typeof store.get === "function" ? store.get(sku) : null;
+    return !!(product && typeof product.getOffer === "function" && product.getOffer());
+  } catch { return false; }
+}
 function launchPriceApplies() {
-  if (!launchPromo()) return false;
-  if (isNative()) return nativePlatform() !== "ios";
+  const promo = launchPromo();
+  if (!promo) return false;
+  if (isNative()) return nativePlatform() !== "ios" && storeSellsSku(promo.sku);
   return paysWithBillplz();
 }
 function proPriceLabel() {
@@ -5694,6 +5705,12 @@ function applyPromoUI(promo) {
   // App Store 3.1.1: no codes unlock or discount Pro in the iOS app. Apple
   // Offer Codes are redeemed in the App Store itself, not here.
   if (nativePlatform() === "ios") { activePromo = null; return; }
+  if (isNative() && !storeSellsSku(promo.sku)) {
+    activePromo = null;
+    const st = document.getElementById("paywall-promo-status");
+    if (st) { st.textContent = `${promo.code} isn't available in the store right now. Unlock Pro is ${PRO_PRICE_LABEL}.`; st.hidden = false; }
+    return;
+  }
   activePromo = promo;
   const form = document.getElementById("paywall-promo-form");
   const status = document.getElementById("paywall-promo-status");
@@ -6150,7 +6167,13 @@ async function purchasePro(sku = PRODUCT_ID) {
   if (purchaseSettler) return { ok: false, message: "A purchase is already in progress." };
 
   const product = sdk.store.get(sku);
-  if (!product) return { ok: false, message: sku === PRODUCT_ID ? "Product not configured. Contact support." : "Promo SKU not yet live in the store. Try the regular Unlock Pro button." };
+  if (!product) {
+    if (sku === PRODUCT_ID) return { ok: false, message: "Pro isn't available from the store yet. Restart the app and try again." };
+    // A promo price the store doesn't have: go back to the normal price on
+    // screen and let them buy that, rather than a dead end.
+    resetPromoState();
+    return { ok: false, message: `The launch price isn't available right now. Unlock Pro is ${PRO_PRICE_LABEL}. Tap it again to buy.` };
+  }
   const offer = product.getOffer();
   if (!offer) return { ok: false, message: "No offer available." };
 
@@ -11144,6 +11167,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.4": [
+    "<strong>Fix: buying Pro on Android</strong> — when the launch price wasn't available from Google Play, Unlock Pro could stop with \"not yet live\". It now shows and charges the regular price instead.",
+  ],
   "1.56.3": [
     "<strong>Money received in Touch 'n Go</strong> — \"You've received money!\" alerts now show as income from the sender, not as a spend. If the sender is you (from your other account), tap \"This is my account\" and it counts as a move.",
   ],
