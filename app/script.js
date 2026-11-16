@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.56.7";
+const APP_VERSION = "1.56.8";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4211,6 +4211,7 @@ function renderAll() {
   renderOwnAccounts();
   renderAiSettings();
   renderAiIntro();
+  renderCaptureIntro();
   renderCaptureShareLinks();
   renderReminderPrefs();
   renderFxStatus();
@@ -4818,6 +4819,45 @@ function renderAiIntro() {
   if (body) body.textContent = `Duitful uses this on-device AI to read tricky receipts${nativePlatform() === "ios" ? "" : " and bank alerts"}, privately. Nothing leaves your phone.`;
   if (can && !state.aiIntroShownOn) { state.aiIntroShownOn = today; save(); }
 }
+/* Bank-alert capture needs Android's notification access, which used to be
+   reachable only from Settings → Bank alerts → Check auto-capture. One Home
+   card asks for it, Android only, after the first spend is logged (so it
+   doesn't land on a brand-new install), never beside the AI card, and it
+   says what is read before Android's own screen opens. It goes away once
+   access is on (checked again on every resume). "Not now" is kept per phone,
+   not in the vault: a backup restored on a new phone has no access yet. */
+const CAPTURE_INTRO_KEY = "duitful-capture-intro-later";
+let captureAccess = null; // true / false / null (not known yet)
+async function refreshCaptureAccess() {
+  if (!captureShareAllowed()) return null;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  if (!NL || typeof NL.isEnabled !== "function") { captureAccess = null; renderCaptureIntro(); return null; }
+  try {
+    const r = await withTimeout(NL.isEnabled(), 2500);
+    captureAccess = !!(r && r.enabled);
+  } catch { captureAccess = null; }
+  renderCaptureIntro();
+  return captureAccess;
+}
+function captureIntroLater() {
+  try { return localStorage.getItem(CAPTURE_INTRO_KEY) === "1"; } catch { return true; }
+}
+function renderCaptureIntro() {
+  const card = document.getElementById("capture-intro");
+  if (!card) return;
+  const loggedSpend = !!state && (state.dailyExpenses || []).some((e) => e.kind !== "debt" && e.kind !== "saving");
+  const aiCard = document.getElementById("ai-intro");
+  card.hidden = !(state && captureShareAllowed() && captureAccess === false && !captureIntroLater()
+    && loggedSpend && !(aiCard && !aiCard.hidden));
+}
+document.getElementById("capture-intro-allow")?.addEventListener("click", () => {
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  try { if (NL && typeof NL.openSettings === "function") NL.openSettings(); } catch {}
+});
+document.getElementById("capture-intro-later")?.addEventListener("click", () => {
+  try { localStorage.setItem(CAPTURE_INTRO_KEY, "1"); } catch {}
+  renderCaptureIntro();
+});
 document.getElementById("ai-intro-close")?.addEventListener("click", () => {
   if (!state) return;
   state.aiIntroSeen = true;
@@ -6299,6 +6339,7 @@ function initQuickAddResume() {
       drainQuickAdd().catch(() => {});
       drainCaptured().catch(() => {});
       refreshAiStatus().catch(() => {});
+      refreshCaptureAccess().catch(() => {});
     }
   });
 }
@@ -11201,6 +11242,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.8": [
+    "<strong>Log spends from bank alerts</strong> — on Android, Home now offers to turn on bank-alert capture once you've logged a spend. Duitful reads only bank and e-wallet alerts with an amount, skips OTPs, and keeps everything on your phone.",
+  ],
   "1.56.7": [
     "<strong>Buying Pro on Android works again</strong> — since late October the Android app couldn't reach Google Play's store, so Unlock Pro failed. Fixed. If it failed for you, try again.",
   ],
@@ -12295,6 +12339,7 @@ async function handleUnlock(passcode, { silent = false } = {}) {
   drainQuickAdd().catch(() => {});
   drainCaptured().catch(() => {});
   refreshAiStatus().catch(() => {});
+  refreshCaptureAccess().catch(() => {});
   syncPendingCount(true);
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
@@ -12335,6 +12380,7 @@ async function handleSetup(passcode, confirm, initialState, { open = false } = {
   drainQuickAdd().catch(() => {});
   drainCaptured().catch(() => {});
   refreshAiStatus().catch(() => {});
+  refreshCaptureAccess().catch(() => {});
   syncPendingCount(true);
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
