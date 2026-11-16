@@ -23,6 +23,12 @@ updates:
       time: "09:00"
       timezone: Asia/Kuala_Lumpur
     open-pull-requests-limit: 5
+    # Pinned at 13.16.1: 13.19.1 (Play Billing 9), merged on 28 Oct 2026
+    # without a test purchase, coincided with Android loading no products
+    # at all ("Product not configured"). Unpin only after a real purchase
+    # and restore on a phone with the newer version.
+    ignore:
+      - dependency-name: cordova-plugin-purchase
     groups:
       capacitor:
         patterns:
