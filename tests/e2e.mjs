@@ -6628,6 +6628,31 @@ check('the vault is open before the quick-add checks',
     refer.ios === false && refer.android === true && refer.web === true, JSON.stringify(refer));
 }
 
+/* ── After the Android purchase fix: What's new offers Unlock Pro again ── */
+{
+  const wn = await S(() => {
+    const keep = { cap: window.Capacitor, pro: state.pro, lic: state.license, seen: state.lastSeenVersion };
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const look = (platform, pro) => {
+      window.Capacitor = platform === 'web' ? keep.cap : { isNativePlatform: () => true, getPlatform: () => platform, Plugins: {} };
+      state.pro = pro;
+      fillWhatsNew(['1.56.5', '1.56.4'], 'What’s new');
+      return !document.getElementById('whats-new-pro').hidden;
+    };
+    const out = { android: look('android', false), androidPro: look('android', true), ios: look('ios', false), web: look('web', false) };
+    // The button opens the paywall.
+    look('android', false);
+    openWhatsNew();
+    document.getElementById('whats-new-pro').click();
+    out.paywall = document.getElementById('paywall-dialog').open;
+    closePaywall();
+    window.Capacitor = keep.cap; state.pro = keep.pro; state.lastSeenVersion = keep.seen; save();
+    return out;
+  });
+  check("after the purchase fix: What's new offers Try Unlock Pro again on Android to non-Pro only, and it opens the paywall",
+    wn.android && !wn.androidPro && !wn.ios && !wn.web && wn.paywall, JSON.stringify(wn));
+}
+
 /* ── Milestones: quiet badges for real money progress ──────────────────
    The first check records what is already true without a sheet (an update
    never floods anyone); a new one gets one celebration sheet; the Reports
