@@ -27,14 +27,22 @@
 - Pricing: **Free forever**, with 3 debts (one may be a pay-later
   plan) and the payoff date,
   reminders and copy-last-month, plus 5 savings goals, 3 investment
-  holdings and 5 receipt scans a month, and manual "Back up now" to
+  holdings, 5 receipt scans and 1 bank statement import a month, and manual "Back up now" to
   iCloud / Google Drive. Islamic financing is never
   counted toward the debt limit. An optional 14-day Pro trial starts only
   if the user chooses it; nothing is charged and nothing is deleted when
   it ends. **Pro is RM 19.90 one-time, lifetime**:
   every debt and pay-later/instalment plan (Atome, SPayLater), automatic
-  encrypted iCloud / Google Drive backup, unlimited scans, goals and
-  holdings, budget pools and multi-currency entries.
+  encrypted iCloud / Google Drive backup, unlimited scans, statement
+  imports, goals and holdings, budget pools and multi-currency entries.
+- **Bank statement import (PDF)**: read entirely on the device (bundled
+  pdf.js, nothing uploaded). Layouts for Maybank, Public Bank and Alliance
+  Bank credit card statements and CIMB card transaction history, plus a
+  general reader for account statements with a balance column. Rows are
+  checked against the printed opening/closing balances and shown for review
+  before import; duplicates, card payments and own-account transfers are
+  left out. Password-protected PDFs ask once; scanned image-only PDFs are not
+  supported yet.
 - Built by one person in Malaysia. Source code public and licensed
   **GPL-3.0-only** at https://github.com/AydilJoe/survey, with a GPL
   section 7 additional permission for app store distribution so the

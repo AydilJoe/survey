@@ -12,6 +12,7 @@ import { existsSync, symlinkSync, unlinkSync, lstatSync, readFileSync, readdirSy
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { readIosClientId, reversedClientId } from '../scripts/google-ios-client.mjs';
+import { buildPdf, STATEMENT_FIXTURES } from './fixtures/statement-pdfs.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.TEST_PORT || 8899);
@@ -2340,6 +2341,186 @@ check('a capture card the AI helped read says "Read by your phone\'s AI"; a rule
 check('the on-device AI card shows on Home once, and never after it is dismissed (or on a later day, or without AI)',
   aiUi.introFirst && aiUi.introAfter.hidden && aiUi.introAfter.seen && aiUi.introOldDay && aiUi.introNoAi, JSON.stringify(aiUi));
 check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.csvOn === true, JSON.stringify([aiUi.csvOff, aiUi.csvOn]));
+
+/* ── Bank statement import, read on the phone (1.57.0) ─────────────────────
+   Synthetic statements only (tests/fixtures/statement-pdfs.mjs): invented
+   names and numbers in each bank's layout. Real statements never enter the repo. */
+{
+  const b64 = (pages, opts) => buildPdf(pages, opts).toString('base64');
+  const parseIt = (data, pw) => S(async ({ data, pw }) => {
+    const bin = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+    try {
+      const read = await readStatementPdf(bin.buffer, pw);
+      const p = parseStatement(read); const r = reconcileStatement(p);
+      return { layout: p.layout, bank: p.bank, kind: p.kind, status: r.status, problems: r.problems.map((x) => `${x.what}@${x.page}`),
+        rows: p.rows.map((x) => [x.date, x.payee, x.amount, x.dir].join('|')) };
+    } catch (e) { return { error: e.code || e.message }; }
+  }, { data, pw });
+  const F = STATEMENT_FIXTURES;
+  const mb = await parseIt(b64(F.maybankCard()));
+  check('statement: Maybank card layout → 7 rows (dd/mm dates, CR credits, location column dropped), and it checks out',
+    mb.layout === 'maybank-card' && mb.kind === 'card' && mb.status === 'ok' && mb.rows.length === 7
+    && mb.rows[0] === '2026-09-15|KEDAI RUNCIT MAJU|23.4|debit' && mb.rows.includes('2026-09-29|ALI BIN ABU|800|credit') && mb.rows.includes('2026-10-07|CASH REBATE|5.4|credit'), JSON.stringify(mb));
+  const pb = await parseIt(b64(F.publicBankCard()));
+  check('statement: Public Bank card layout → 4 rows (DD MON dates, posting-date-only charges, wrapped lines), and it checks out',
+    pb.layout === 'pbb-card' && pb.status === 'ok' && pb.rows.length === 4 && pb.rows[3] === '2026-10-20|FINANCE CHARGE-18.00%|12.8|debit', JSON.stringify(pb));
+  const al = await parseIt(b64(F.allianceCard()));
+  check('statement: Alliance Bank card layout → 5 rows across two accounts (undated interest on the statement date), and it checks out',
+    al.layout === 'alliance-card' && al.status === 'ok' && al.rows.length === 5 && al.rows.includes('2026-10-18|INTEREST ON RETAIL TRANSACTION|30|debit'), JSON.stringify(al));
+  const cb = await parseIt(b64(F.cimbCard()));
+  check('statement: CIMB card history → 4 rows from multi-line blocks, debit/credit by column; no balances printed, so nothing to check',
+    cb.layout === 'cimb-card' && cb.status === 'none' && cb.rows.length === 4 && cb.rows[1] === '2026-10-03|Ewallet Topup Contoh KUALA LUMPUR MY|7.3|debit'
+    && cb.rows[0].endsWith('|1250|credit') && cb.rows[2].endsWith('|13.05|credit'), JSON.stringify(cb));
+  const gn = await parseIt(b64(F.genericAccount()));
+  check('statement: an unknown bank\'s account statement → rows with direction from the running balance, and the balances chain',
+    gn.layout === 'generic' && gn.kind === 'account' && gn.status === 'ok' && gn.rows.length === 4 && gn.rows[0] === '2026-10-01|SALARY CONTOH SDN BHD|3000|credit', JSON.stringify(gn));
+  // Tampered: one amount changed — the check fails and names the page.
+  const tampered = F.maybankCard();
+  tampered[1] = tampered[1].map((sg) => (sg[2] === '45.00' ? [sg[0], sg[1], '54.00'] : sg));
+  const tp = await parseIt(b64(tampered));
+  check('statement: a tampered amount fails the check (totals and closing), flagged by page — nothing is adjusted',
+    tp.status === 'mismatch' && tp.problems.some((x) => x.startsWith('debits@')) && tp.problems.some((x) => x.startsWith('closing@')) && tp.rows.includes('2026-10-09|STREAMING CONTOH|54|debit'), JSON.stringify(tp));
+  const gnBad = F.genericAccount();
+  gnBad[0] = gnBad[0].map((sg) => (sg[2] === '3,954.80' ? [sg[0], sg[1], '3,950.80'] : sg));
+  const gb = await parseIt(b64(gnBad));
+  check('statement: a running balance that doesn\'t follow is flagged', gb.status === 'mismatch' && gb.problems.some((x) => x.startsWith('balance@')), JSON.stringify(gb));
+  const enc = b64(F.maybankCard(), { password: 'rahsia123' });
+  const e1 = await parseIt(enc), e2 = await parseIt(enc, 'salah'), e3 = await parseIt(enc, 'rahsia123');
+  check('statement: an encrypted PDF asks for its password, says when it is wrong, and opens with the right one',
+    e1.error === 'password' && e2.error === 'wrong-password' && e3.status === 'ok' && e3.rows.length === 7, JSON.stringify([e1, e2, e3.status]));
+
+  // The screen, from the Settings entry point (works on the plain web).
+  const pickFile = async (pages, name = 'statement.pdf') => {
+    await page.setInputFiles('#stmt-file', { name, mimeType: 'application/pdf', buffer: buildPdf(pages) });
+    await page.waitForFunction(() => !document.getElementById('stmt-review').hidden || /PDF|statement/.test(document.getElementById('stmt-status').textContent), null, { timeout: 15000 });
+  };
+  await S(() => {
+    state.pro = false; state.proTrialStartedAt = Date.now() - 30 * 864e5; state.statementUsage = { month: '', imports: 0 };
+    state.ownAccounts = []; state.pendingTxns = [];
+    // Already in Duitful: the Maybank card's first purchase, logged a day later.
+    state.dailyExpenses.push({ id: 'stmt-dupe', kind: 'expense', date: '2026-09-16', amount: 23.4, category: 'Food', note: 'Kedai Runcit Maju', createdAt: 1 });
+    save(); renderAll();
+    document.getElementById('tabbtn-data').click();
+  });
+  const entry = await S(() => !!document.getElementById('btn-stmt-import') && document.getElementById('btn-stmt-import').getBoundingClientRect().height > 0);
+  await page.click('#btn-stmt-import');
+  const opened = await S(() => ({ open: document.getElementById('stmt-dialog').open, privacy: document.querySelector('#stmt-dialog .stmt-privacy').textContent }));
+  await pickFile(F.maybankCard());
+  const rv = await S(() => ({
+    summary: document.getElementById('stmt-summary').textContent,
+    rows: [...document.querySelectorAll('#stmt-list .stmt-row')].map((li) => ({ on: li.querySelector('input[type=checkbox]').checked, payee: li.querySelector('.stmt-payee').value, tag: li.querySelector('.stmt-tag')?.textContent || '', amt: li.querySelector('.stmt-amt').textContent })),
+    count: document.getElementById('stmt-count').textContent,
+    free: document.querySelector('#stmt-dialog [data-free-count="statements"]').textContent,
+  }));
+  check('statement screen: Settings → "Import bank statement (PDF)" opens it on the web, with "Read on your phone. Nothing is uploaded."',
+    entry && opened.open && opened.privacy === 'Read on your phone. Nothing is uploaded.', JSON.stringify(opened));
+  check('statement screen: the summary names the bank and says "Checks out ✓"', /^Maybank card · .* · Checks out ✓$/.test(rv.summary), rv.summary);
+  check('statement screen: the row already in Duitful (± 1 day, same amount, similar name) is shown unticked as "Already in Duitful"',
+    rv.rows[0].payee === 'KEDAI RUNCIT MAJU' && rv.rows[0].on === false && rv.rows[0].tag === 'Already in Duitful', JSON.stringify(rv.rows[0]));
+  check('statement screen: the card payment is not counted (a move), the cash rebate is income, purchases are spends',
+    rv.rows[3].tag === 'Card payment · not counted' && rv.rows[3].on === false && /^\+/.test(rv.rows[4].amt) && /^−/.test(rv.rows[1].amt), JSON.stringify(rv.rows));
+  check('statement screen: the free limit shows before the wall', rv.free === '1 free statement import a month · 1 left' && rv.count === '5 to import', JSON.stringify([rv.free, rv.count]));
+  // Cancel: nothing booked, nothing counted.
+  await page.click('#stmt-cancel');
+  const afterCancel = await S(() => state.statementUsage.imports || 0);
+  // Import as a free user: counted once, rows marked from the statement.
+  await page.click('#btn-stmt-import');
+  await pickFile(F.maybankCard());
+  const before = await S(() => ({ d: state.dailyExpenses.length, i: state.income.length }));
+  await page.click('#stmt-import');
+  const imp1 = await S(() => ({
+    closed: !document.getElementById('stmt-dialog').open,
+    spends: state.dailyExpenses.filter((e) => e.source === 'statement').map((e) => [e.date, e.amount, e.note].join('|')),
+    incomes: state.income.filter((x) => x.source === 'statement').map((x) => [x.month, x.day, x.amount, x.category].join('|')),
+    used: state.statementUsage.imports,
+  }));
+  check('statement import: a cancelled import costs nothing; importing books 4 spends and 1 income marked from the statement, the duplicate and the card payment skipped',
+    afterCancel === 0 && imp1.closed && imp1.spends.length === 4 && imp1.incomes.length === 1 && imp1.incomes[0] === '2026-10|7|5.4|Cashback'
+    && !imp1.spends.some((x) => x.startsWith('2026-09-15')) && imp1.used === 1, JSON.stringify(imp1));
+  // 0 left: the preview still works, Import opens the paywall.
+  await page.click('#btn-stmt-import');
+  await pickFile(F.publicBankCard());
+  const wall = await S(() => {
+    const free = document.querySelector('#stmt-dialog [data-free-count="statements"]').textContent;
+    const rows = document.querySelectorAll('#stmt-list .stmt-row').length;
+    const n = state.dailyExpenses.length;
+    document.getElementById('stmt-import').click();
+    const out = { free, rows, paywall: document.getElementById('paywall-dialog').open, reason: document.getElementById('paywall-reason').textContent, booked: state.dailyExpenses.length - n, used: state.statementUsage.imports };
+    closePaywall();
+    return out;
+  });
+  check('statement import: with 0 left the statement still opens and previews; Import shows the paywall and books nothing',
+    wall.rows === 4 && wall.free === '1 free statement import a month · 0 left' && wall.paywall && wall.reason === 'Free imports 1 statement a month. Pro imports every statement.' && wall.booked === 0 && wall.used === 1, JSON.stringify(wall));
+  // Pro, and the trial, are unlimited.
+  const unlimited = await S(() => {
+    const out = {};
+    state.pro = true; renderAll();
+    out.proOk = canImportStatement(); out.proText = freeCountText('statements');
+    const n = state.dailyExpenses.length;
+    document.getElementById('stmt-import').click();
+    out.proBooked = state.dailyExpenses.length - n; out.usedAfterPro = state.statementUsage.imports;
+    state.pro = false; state.proTrialStartedAt = Date.now() - 864e5;
+    out.trialOk = canImportStatement();
+    state.proTrialStartedAt = Date.now() - 30 * 864e5;
+    return out;
+  });
+  check('statement import: Pro and the trial import without a limit (and Pro\'s imports are not counted)',
+    unlimited.proOk && unlimited.proText === '' && unlimited.proBooked > 0 && unlimited.usedAfterPro === 1 && unlimited.trialOk, JSON.stringify(unlimited));
+  // Own-account transfers on an account statement are moves.
+  const own = await S(async (data) => {
+    state.ownAccounts = ['ALI BIN ABU'];
+    const bin = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+    const p = parseStatement(await readStatementPdf(bin.buffer));
+    const items = statementItems(p, reconcileStatement(p));
+    state.ownAccounts = [];
+    return items.map((it) => `${it.payee}|${it.kind}|${it.on}`);
+  }, b64(F.genericAccount()));
+  check('statement: a transfer to a saved own-account name imports as nothing (a move); salary is income',
+    own.includes('TRANSFER TO ALI BIN ABU|move|false') && own.includes('SALARY CONTOH SDN BHD|income|true'), JSON.stringify(own));
+  // On-device AI: categories and payees only, never amounts or dates.
+  const ai = await S(async (data) => {
+    const keepCap = window.Capacitor;
+    const asked = [];
+    const run = async () => {
+      const bin = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+      const p = parseStatement(await readStatementPdf(bin.buffer));
+      const items = statementItems(p, reconcileStatement(p));
+      for (const it of items) it.category = '';
+      await statementAiSuggest(items);
+      return items.filter((it) => it.kind === 'spend').map((it) => `${it.date}|${it.amount}|${it.category}|${it.payee}`);
+    };
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: {
+      aiStatus: async () => ({ available: true }),
+      aiReadAlert: async (o) => { asked.push(o.text); return { json: JSON.stringify({ direction: 'income', counterparty: 'KEDAI', category: 'groceries', is_promo_or_security: false, amount: 999, date: '2020-01-01' }) }; },
+    } } };
+    try {
+      const on = await run();
+      const n = asked.length;
+      state.aiEnabled = false;
+      const off = await run();
+      state.aiEnabled = true;
+      return { on, asked: n, off, askedOff: asked.length - n };
+    } finally { window.Capacitor = keepCap; }
+  }, b64(F.genericAccount()));
+  check('statement AI: suggests a category from the app\'s list and a payee the description contains; amounts and dates never change',
+    ai.asked >= 1 && ai.on.includes('2026-10-03|45.2|Groceries|KEDAI') && ai.on.every((x) => !/999|2020-01-01/.test(x)), JSON.stringify(ai.on));
+  check('statement AI: off in Settings means it is never asked', ai.askedOff === 0 && ai.off.every((x) => x.split('|')[2] === ''), JSON.stringify(ai.off));
+  // CSV import cannot reset the monthly count.
+  const kept = await S(async () => {
+    state.pro = false; state.statementUsage = { month: currentMonthISO(), imports: 1 };
+    const csv = toCSV();
+    await importCsvFile(new File([csv], 'x.csv', { type: 'text/csv' }), { ask: false });
+    return state.statementUsage.imports;
+  });
+  check('statement import: the monthly count survives a CSV import', kept === 1, String(kept));
+  await S(() => {
+    document.getElementById('stmt-dialog')?.close();
+    state.dailyExpenses = state.dailyExpenses.filter((e) => e.source !== 'statement' && e.id !== 'stmt-dupe');
+    state.income = state.income.filter((x) => x.source !== 'statement');
+    state.statementUsage = { month: '', imports: 0 };
+    save(); renderAll();
+  });
+}
 
 /* ── "Not picked up?": share an alert's wording, redacted on the phone (1.56.2) ── */
 const share = await S(() => {

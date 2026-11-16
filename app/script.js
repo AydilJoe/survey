@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.56.8";
+const APP_VERSION = "1.57.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -63,6 +63,8 @@ const emptyState = () => ({
   pro: false,
   license: null,
   ocrUsage: { month: "", scans: 0 },
+  // Statement imports this month, for the free limit. Kept across CSV import.
+  statementUsage: { month: "", imports: 0 },
   pendingTxns: [],
   // Names of the user's own accounts ("This is my account" on a transfer):
   // a transfer to one of them is a move between wallets, not a spend.
@@ -334,6 +336,9 @@ function coerceState(parsed) {
       ocrUsage: parsed.ocrUsage && typeof parsed.ocrUsage === "object"
         ? { month: String(parsed.ocrUsage.month || ""), scans: Number(parsed.ocrUsage.scans) || 0 }
         : { month: "", scans: 0 },
+      statementUsage: parsed.statementUsage && typeof parsed.statementUsage === "object"
+        ? { month: String(parsed.statementUsage.month || ""), imports: Number(parsed.statementUsage.imports) || 0 }
+        : { month: "", imports: 0 },
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
       ownAccounts: coerceOwnAccounts(parsed.ownAccounts),
       aiEnabled: parsed.aiEnabled !== false,
@@ -5419,6 +5424,9 @@ const installmentCount = () => (state.debts || []).filter((d) => d.kind === "ins
 const FREE_SAVING_LIMIT = 5;
 const FREE_INVESTMENT_LIMIT = 3;
 const FREE_OCR_MONTHLY = 5;
+// Bank statement import (statement.js): reading, checking and previewing a
+// statement is free for everyone; Free imports one a month, Pro every one.
+const FREE_STATEMENT_IMPORTS_MONTHLY = 1;
 const TRIAL_DAYS = 14;
 const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
@@ -5537,8 +5545,26 @@ function userBudgetPoolCount() {
 // "2 of 3 free debts used": the limit, shown by the add control before the
 // wall is hit. "" for Pro and the trial. Someone over the limit (kept from
 // Pro, a trial or an import) reads "7 goals · Free adds up to 5".
+function statementImportsUsed() {
+  const u = state && state.statementUsage;
+  return u && u.month === currentMonthISO() ? (Number(u.imports) || 0) : 0;
+}
+function canImportStatement() {
+  return isPro() || statementImportsUsed() < FREE_STATEMENT_IMPORTS_MONTHLY;
+}
+// Counted only once rows are actually booked: a cancelled or failed import is free.
+function trackStatementImport() {
+  if (isPro()) return;
+  const m = currentMonthISO();
+  if (!state.statementUsage || state.statementUsage.month !== m) state.statementUsage = { month: m, imports: 0 };
+  state.statementUsage.imports = (state.statementUsage.imports || 0) + 1;
+}
 function freeCountText(kind) {
   if (!state || isPro()) return "";
+  if (kind === "statements") {
+    const left = Math.max(0, FREE_STATEMENT_IMPORTS_MONTHLY - statementImportsUsed());
+    return `${FREE_STATEMENT_IMPORTS_MONTHLY} free statement import a month · ${left} left`;
+  }
   const c = {
     debts: [countedDebts(), FREE_DEBT_LIMIT, "debts"],
     savings: [state.savings.length, FREE_SAVING_LIMIT, "goals"],
@@ -5607,6 +5633,7 @@ const PAYWALL_COPY = {
   savings: `You've hit the free limit of ${FREE_SAVING_LIMIT} goals. Pro tracks unlimited.`,
   investments: `You've hit the free limit of ${FREE_INVESTMENT_LIMIT} investment holdings. Pro tracks unlimited.`,
   ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
+  statements: "Free imports 1 statement a month. Pro imports every statement.",
   cloudBackup: "Automatic backup to iCloud or Google Drive is a Pro feature. Back up now and Export CSV in Settings stay free.",
   multiCurrency: "Multi-currency entry is a Pro feature.",
   budgetPools: "Multi-pool budgeting is a Pro feature.",
@@ -10104,6 +10131,7 @@ async function importCsvFile(file, { ask = true, statusEl = null, onError = null
     next.license = state.license;
     next.deviceId = state.deviceId;
     next.ocrUsage = state.ocrUsage;
+    next.statementUsage = state.statementUsage;
     next.proTrialStartedAt = state.proTrialStartedAt;
     next.firstRunAt = state.firstRunAt;
     next.proNudgeUntil = state.proNudgeUntil;
@@ -11242,6 +11270,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.0": [
+    "<strong>Import a bank statement</strong> — pick a PDF statement and Duitful reads it on your phone, checks it adds up to the balances printed, and shows the rows for you to tick before anything is added. Rows already in Duitful and card payments are left out. Works with Maybank, Public Bank, Alliance Bank and CIMB card statements, and most account statements. Nothing is uploaded. Free imports 1 statement a month; Pro imports every statement.",
+  ],
   "1.56.8": [
     "<strong>Log spends from bank alerts</strong> — on Android, Home now offers to turn on bank-alert capture once you've logged a spend. Duitful reads only bank and e-wallet alerts with an amount, skips OTPs, and keeps everything on your phone.",
   ],

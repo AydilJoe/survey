@@ -1,0 +1,717 @@
+/* Duitful — bank statement import (PDF), read on the phone.
+ *
+ * pdf.js (vendor/pdfjs, Apache-2.0, loaded only when a statement is picked)
+ * turns the PDF into positioned text; the per-bank rules below turn that text
+ * into rows; reconcileStatement() checks the rows add up to the balances the
+ * statement prints. Nothing is uploaded, nothing is guessed: a row that
+ * doesn't parse is left out and the check says so.
+ *
+ * Layouts supported (each learnt from a real statement, tested only with
+ * synthetic ones — real statements never enter the repo):
+ *   maybank-card   Maybank credit card ("STATEMENT OF CREDIT CARD ACCOUNT")
+ *   pbb-card       Public Bank credit card ("CARD STATEMENT")
+ *   alliance-card  Alliance Bank credit card (several accounts per statement)
+ *   cimb-card      CIMB credit card transaction history (Clicks / OCTO PDF)
+ *   generic        any statement with dated rows, amounts and a balance column
+ *
+ * Rows come out as { date: "YYYY-MM-DD", desc, payee, amount (> 0),
+ * dir: "debit" | "credit", balance?, page }. On a card, debit = spending
+ * (the balance owed goes up); on a bank account, debit = money out. */
+
+const STMT_MONTHS = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
+const STMT_PDFJS = "vendor/pdfjs/pdf.min.js?v=1";
+const STMT_PDFJS_WORKER = "vendor/pdfjs/pdf.worker.min.js?v=1";
+
+/* ---------- reading the PDF ---------- */
+
+let _stmtPdfjs = null;
+function stmtLoadPdfjs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (_stmtPdfjs) return _stmtPdfjs;
+  _stmtPdfjs = new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = STMT_PDFJS;
+    s.onload = () => {
+      const lib = window.pdfjsLib;
+      if (!lib) { reject(new Error("pdf.js did not load")); return; }
+      lib.GlobalWorkerOptions.workerSrc = STMT_PDFJS_WORKER;
+      resolve(lib);
+    };
+    s.onerror = () => { _stmtPdfjs = null; reject(new Error("pdf.js did not load")); };
+    document.head.appendChild(s);
+  });
+  return _stmtPdfjs;
+}
+
+/* Text items → lines. Items on the same baseline (±2.5pt) form a line; the
+   gaps between them become runs of spaces roughly in proportion to the
+   distance, so columns stay apart ("desc     12.50") while words in a phrase
+   keep single spaces. */
+const STMT_COL = 3;
+function stmtLinesFromItems(items, page) {
+  const pts = items
+    .filter((it) => it && typeof it.str === "string" && it.str.trim() !== "")
+    .map((it) => ({ x: it.transform[4], y: it.transform[5], w: it.width || 0, s: it.str }))
+    .sort((a, b) => b.y - a.y || a.x - b.x);
+  const lines = [];
+  for (const p of pts) {
+    let line = lines.length ? lines[lines.length - 1] : null;
+    if (!line || Math.abs(line.y - p.y) > 2.5) { line = { y: p.y, items: [], page }; lines.push(line); }
+    line.items.push(p);
+  }
+  for (const line of lines) {
+    line.items.sort((a, b) => a.x - b.x);
+    let text = "";
+    let end = null;
+    for (const it of line.items) {
+      if (end != null) {
+        const gap = it.x - end;
+        const col = Math.round(it.x / STMT_COL);
+        if (gap > 4 && text.length < col) text += " ".repeat(Math.max(2, col - text.length));
+        else if (gap > 4) text += "  ";
+        else if (gap > 0.8 && !/\s$/.test(text)) text += " ";
+      } else {
+        text = " ".repeat(Math.round(it.x / STMT_COL));
+      }
+      text += it.s;
+      end = it.x + it.w;
+    }
+    line.text = text.replace(/\s+$/, "");
+  }
+  return lines;
+}
+
+/* Reads a PDF's text. Resolves { pages: [[line…]…], lines: [line…] } or
+   throws an Error with .code: "password" (needs one), "wrong-password",
+   "scanned" (no text layer), "unreadable". The password is used for this one
+   open and never kept. */
+async function readStatementPdf(data, password) {
+  const lib = await stmtLoadPdfjs();
+  let doc;
+  try {
+    doc = await lib.getDocument({ data: new Uint8Array(data), password: password || undefined, isEvalSupported: false, useSystemFonts: true }).promise;
+  } catch (e) {
+    const err = new Error("unreadable");
+    if (e && e.name === "PasswordException") err.code = e.code === 2 ? "wrong-password" : "password";
+    else err.code = "unreadable";
+    throw err;
+  }
+  const pages = [];
+  try {
+    for (let n = 1; n <= doc.numPages; n++) {
+      const page = await doc.getPage(n);
+      const tc = await page.getTextContent();
+      pages.push(stmtLinesFromItems(tc.items, n));
+    }
+  } finally {
+    try { doc.destroy(); } catch {}
+  }
+  const lines = pages.flat();
+  if (!lines.length) { const err = new Error("scanned"); err.code = "scanned"; throw err; }
+  return { pages, lines };
+}
+
+/* ---------- small helpers ---------- */
+
+function stmtMoney(s) {
+  const v = Number(String(s || "").replace(/[,\s]/g, ""));
+  return Number.isFinite(v) ? Math.round(v * 100) / 100 : NaN;
+}
+const stmtRound = (n) => Math.round(n * 100) / 100;
+function stmtIso(y, m, d) {
+  if (!(y > 1990 && m >= 1 && m <= 12 && d >= 1 && d <= 31)) return "";
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+// A row's year when the statement prints only day and month: the statement's
+// year, or the one before for months after the statement month.
+function stmtYearFor(month, stmt) {
+  if (!stmt) return new Date().getFullYear();
+  return month > stmt.m ? stmt.y - 1 : stmt.y;
+}
+function stmtYear2(yy) { const n = Number(yy); return n < 100 ? 2000 + n : n; }
+function stmtClean(desc) { return String(desc || "").replace(/\s+/g, " ").trim(); }
+// The payee: the description up to the first wide gap (where the location
+// column starts), without trailing card-scheme markers.
+function stmtPayee(desc) {
+  const first = String(desc || "").trim().split(/\s{3,}/)[0] || "";
+  return stmtClean(first).replace(/\s+\b(?:AP|EC)$/i, "").slice(0, 60);
+}
+function stmtFindStatementDate(lines) {
+  const text = lines.map((l) => l.text).join("\n");
+  let m = /(?:statement\s+date|tarikh\s+penyata)[^\n]*?(\d{1,2})[\s/-]([A-Z]{3}|\d{1,2})[\s/-](\d{2,4})/i.exec(text);
+  if (!m) m = /\b(\d{1,2}) (JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC) (\d{2,4})\b/.exec(text);
+  if (!m) return null;
+  const mon = /^\d+$/.test(m[2]) ? Number(m[2]) : STMT_MONTHS[m[2].toUpperCase()];
+  const y = stmtYear2(m[3]);
+  return mon ? { y, m: mon, d: Number(m[1]), iso: stmtIso(y, mon, Number(m[1])) } : null;
+}
+const STMT_AMT = "([\\d,]+\\.\\d{2})";
+
+/* ---------- per-bank layouts ---------- */
+
+const STATEMENT_LAYOUTS = [
+  {
+    id: "maybank-card", bank: "Maybank", kind: "card",
+    detect: (t) => /STATEMENT OF CREDIT CARD ACCOUNT/i.test(t) && /Malayan Banking Berhad|maybank\.com\.my|TreatsPoints/i.test(t),
+    parse(lines) {
+      const stmt = stmtFindStatementDate(lines);
+      const rows = [];
+      const sections = [];
+      let cur = null;
+      for (const l of lines) {
+        let m;
+        if ((m = new RegExp(`YOUR PREVIOUS STATEMENT BALANCE\\s+${STMT_AMT}(CR)?`, "i").exec(l.text))) {
+          cur = { opening: stmtMoney(m[1]) * (m[2] ? -1 : 1), rows: [], page: l.page };
+          sections.push(cur);
+          continue;
+        }
+        if ((m = new RegExp(`SUB TOTAL\\s*/\\s*JUMLAH\\s+${STMT_AMT}(CR)?`, "i").exec(l.text)) && cur && cur.closing == null) {
+          cur.closing = stmtMoney(m[1]) * (m[2] ? -1 : 1);
+          continue;
+        }
+        if ((m = new RegExp(`TOTAL CREDIT THIS MONTH\\s+${STMT_AMT}`, "i").exec(l.text)) && cur) { cur.totalCredit = stmtMoney(m[1]); continue; }
+        if ((m = new RegExp(`TOTAL DEBIT THIS MONTH\\s+${STMT_AMT}`, "i").exec(l.text)) && cur) { cur.totalDebit = stmtMoney(m[1]); continue; }
+        m = new RegExp(`^\\s*(\\d{2})/(\\d{2})\\s+(\\d{2})/(\\d{2})\\s+(.+?)\\s+${STMT_AMT}(CR)?\\s*$`).exec(l.text);
+        if (m && cur) {
+          const d = Number(m[3]), mo = Number(m[4]);
+          const row = { date: stmtIso(stmtYearFor(mo, stmt), mo, d), desc: stmtClean(m[5]), payee: stmtPayee(m[5]), amount: stmtMoney(m[6]), dir: m[7] ? "credit" : "debit", page: l.page };
+          rows.push(row); cur.rows.push(row);
+        }
+      }
+      return { stmt, rows, sections };
+    },
+  },
+  {
+    id: "pbb-card", bank: "Public Bank", kind: "card",
+    detect: (t) => /PUBLIC BANK BERHAD/i.test(t) && /CARD STATEMENT/i.test(t),
+    parse(lines) {
+      const stmt = stmtFindStatementDate(lines);
+      const rows = [];
+      const sections = [];
+      let cur = null;
+      let last = null;
+      const mon = (s) => STMT_MONTHS[String(s).toUpperCase()];
+      for (const l of lines) {
+        let m;
+        if ((m = new RegExp(`^\\s*\\d{2} [A-Z]{3}\\s+Previous Balance\\s+${STMT_AMT}(CR)?`, "i").exec(l.text))) {
+          cur = { opening: stmtMoney(m[1]) * (m[2] ? -1 : 1), rows: [], page: l.page };
+          sections.push(cur); last = null;
+          continue;
+        }
+        if (!cur) continue;
+        if ((m = new RegExp(`This month total credit\\s+${STMT_AMT}`, "i").exec(l.text))) { cur.totalCredit = stmtMoney(m[1]); last = null; continue; }
+        if ((m = new RegExp(`This month total debit\\s+${STMT_AMT}`, "i").exec(l.text))) { cur.totalDebit = stmtMoney(m[1]); last = null; continue; }
+        if ((m = new RegExp(`Grand total for this account\\s+${STMT_AMT}(CR)?`, "i").exec(l.text))) { cur.closing = stmtMoney(m[1]) * (m[2] ? -1 : 1); cur = null; last = null; continue; }
+        // Posting date, transaction date, description, amount.
+        m = new RegExp(`^\\s*(\\d{2}) ([A-Z]{3})\\s+(\\d{2}) ([A-Z]{3})\\s+(.+?)\\s+${STMT_AMT}(CR)?\\s*$`).exec(l.text);
+        // Or a posting date only (charges, interest).
+        const m2 = m ? null : new RegExp(`^\\s*(\\d{2}) ([A-Z]{3})\\s{2,}(.+?)\\s+${STMT_AMT}(CR)?\\s*$`).exec(l.text);
+        if (m || m2) {
+          const dd = m ? Number(m[3]) : Number(m2[1]);
+          const mo = m ? mon(m[4]) : mon(m2[2]);
+          if (!mo) continue;
+          const desc = m ? m[5] : m2[3];
+          const row = { date: stmtIso(stmtYearFor(mo, stmt), mo, dd), desc: stmtClean(desc), payee: stmtPayee(desc), amount: stmtMoney(m ? m[6] : m2[4]), dir: (m ? m[7] : m2[5]) ? "credit" : "debit", page: l.page };
+          rows.push(row); cur.rows.push(row); last = row;
+          continue;
+        }
+        // A wrapped second line of the description (indented, no amount).
+        if (last && /^\s{20,}\S/.test(l.text) && !new RegExp(`${STMT_AMT}(CR)?\\s*$`).test(l.text)) {
+          last.desc = stmtClean(`${last.desc} ${l.text}`);
+        }
+      }
+      return { stmt, rows, sections };
+    },
+  },
+  {
+    id: "alliance-card", bank: "Alliance Bank", kind: "card",
+    detect: (t) => /alliance ?bank/i.test(t) && /PREVIOUS STATEMENT BALANCE/i.test(t),
+    parse(lines) {
+      const stmt = stmtFindStatementDate(lines);
+      const rows = [];
+      const sections = [];
+      let cur = null;
+      let closing = null;
+      let inTable = false;
+      // The dates and the description of one row can sit a few points apart,
+      // so they arrive as two lines in either order: hold the dates (and an
+      // amount if it came with them) until the description line.
+      let held = null;
+      const DATES = /^\s*(\d{2})\/(\d{2})\/(\d{2})\s+(\d{2})\/(\d{2})\/(\d{2})/;
+      const push = (d, desc, amt, cr, page) => {
+        const row = { date: stmtIso(stmtYear2(d[3]), Number(d[2]), Number(d[1])), desc: stmtClean(desc), payee: stmtPayee(desc), amount: stmtMoney(amt), dir: cr ? "credit" : "debit", page };
+        rows.push(row); cur.rows.push(row);
+      };
+      for (const l of lines) {
+        let m;
+        if (/Transaction Description/i.test(l.text) && /Amount/i.test(l.text)) { inTable = true; continue; }
+        if (!inTable) continue;
+        if ((m = new RegExp(`PREVIOUS STATEMENT BALANCE\\s+${STMT_AMT}\\s?(CR)?`, "i").exec(l.text))) {
+          cur = { opening: stmtMoney(m[1]) * (m[2] ? -1 : 1), rows: [], page: l.page };
+          sections.push(cur);
+          continue;
+        }
+        if ((m = /CURRENT BALANCE\s+(-?[\d,]+\.\d{2})\s?(CR)?/i.exec(l.text))) { closing = stmtMoney(m[1]) * (m[2] ? -1 : 1); inTable = false; continue; }
+        if (!cur) continue;
+        m = new RegExp(`^\\s*(\\d{2})/(\\d{2})/(\\d{2})\\s+(\\d{2})/(\\d{2})/(\\d{2})\\s+(.+?)\\s+${STMT_AMT}\\s?(CR)?\\s*$`).exec(l.text);
+        if (m) { held = null; push(m, m[7], m[8], m[9], l.page); continue; }
+        const dOnly = DATES.exec(l.text);
+        if (dOnly) {
+          const rest = l.text.slice(dOnly[0].length);
+          const a = new RegExp(`^\\s*${STMT_AMT}\\s?(CR)?\\s*$`).exec(rest);
+          held = { d: dOnly, amt: a ? a[1] : null, cr: a ? a[2] : null, page: l.page };
+          continue;
+        }
+        if (held) {
+          const a = new RegExp(`^(.*?)\\s+${STMT_AMT}\\s?(CR)?\\s*$`).exec(l.text);
+          if (held.amt && !a) { push(held.d, l.text, held.amt, held.cr, held.page); held = null; continue; }
+          if (!held.amt && a) { push(held.d, a[1], a[2], a[3], held.page); held = null; continue; }
+          held = null;
+        }
+        // Undated charges (interest) dated on the statement date. Labels
+        // with a colon ("CHARGES THIS MONTH: …", card headers) are not rows.
+        m = new RegExp(`^\\s{10,}([A-Z][A-Z0-9 .,&'/@%()-]+?)\\s{2,}${STMT_AMT}\\s?(CR)?\\s*$`).exec(l.text);
+        if (m && !/:|MINIMUM PAYMENT|CURRENT BALANCE|PREVIOUS STATEMENT/i.test(m[1])) {
+          const row = { date: stmt ? stmt.iso : "", desc: stmtClean(m[1]), payee: stmtPayee(m[1]), amount: stmtMoney(m[2]), dir: m[3] ? "credit" : "debit", page: l.page };
+          rows.push(row); cur.rows.push(row);
+        }
+      }
+      // One printed closing for the whole statement: check the sum of all accounts.
+      const merged = sections.length ? [{ opening: stmtRound(sections.reduce((a, s) => a + s.opening, 0)), rows, closing, page: sections[0].page }] : [];
+      return { stmt, rows, sections: merged };
+    },
+  },
+  {
+    id: "cimb-card", bank: "CIMB", kind: "card",
+    detect: (t) => /Account Details and Transaction History/i.test(t) && /Transaction Details/i.test(t),
+    parse(lines) {
+      // Columns from the header line; rows are blocks of lines around one
+      // "dd Mon yyyy  dd Mon yyyy" line, separated by wide vertical gaps.
+      let creditX = null, debitX = null;
+      const rows = [];
+      let blocks = [];
+      let block = null;
+      let prevY = null, prevPage = null;
+      for (const l of lines) {
+        const hd = l.items.find((i) => /^Debit$/i.test(i.s.trim()));
+        const hc = l.items.find((i) => /^Credit$/i.test(i.s.trim()));
+        if (hd && hc && /Transaction Details/i.test(l.text)) { debitX = hd.x; creditX = hc.x; block = null; prevY = null; continue; }
+        if (creditX == null) continue;
+        const gap = prevY == null || prevPage !== l.page ? Infinity : prevY - l.y;
+        if (!block || gap > 18) { block = []; blocks.push(block); }
+        block.push(l);
+        prevY = l.y; prevPage = l.page;
+      }
+      const dateRe = /(\d{2}) ([A-Za-z]{3}) (\d{4})\s+(\d{2}) ([A-Za-z]{3}) (\d{4})/;
+      for (const b of blocks) {
+        const dl = b.find((l) => dateRe.test(l.text));
+        if (!dl) continue;
+        const dm = dateRe.exec(dl.text);
+        const mo = STMT_MONTHS[dm[5].toUpperCase()];
+        // The amount: "MYR 1,234. 56", whichever column it sits in.
+        let amount = NaN, x = null;
+        for (const l of b) {
+          const am = /MYR\s*([\d,]+)\.\s*(\d{2})/.exec(l.text);
+          if (!am) continue;
+          amount = stmtMoney(`${am[1]}.${am[2]}`);
+          const it = l.items.find((i) => /MYR/.test(i.s)) || l.items.find((i) => /\d/.test(i.s) && i.x > 200);
+          x = it ? it.x : null;
+          break;
+        }
+        if (!(amount > 0) || !mo) continue;
+        // Description: text in the details column, minus dates, amounts and labels.
+        const desc = stmtClean(b.map((l) => l.items
+          .filter((i) => i.x > 60 && i.x < debitX - 20 && !/^\d{2} [A-Za-z]{3} \d{4}$/.test(i.s.trim()) && !/MYR/.test(i.s))
+          .map((i) => i.s).join(" "))
+          .join(" ")
+          .replace(dateRe, "")
+          .replace(/\bPayment Desc\b/gi, ""));
+        rows.push({ date: stmtIso(Number(dm[6]), mo, Number(dm[4])), desc, payee: stmtPayee(desc), amount, dir: "", x, page: dl.page });
+      }
+      // Debit or credit by column. The header gives the columns on its page;
+      // later pages print no header and may sit at other offsets, so there
+      // the amounts are split into a left (debit) and a right (credit) group.
+      const headerPage = lines.find((l) => l.items.some((i) => /^Credit$/i.test(i.s.trim())))?.page;
+      const byPage = new Map();
+      for (const r of rows) { if (!byPage.has(r.page)) byPage.set(r.page, []); byPage.get(r.page).push(r); }
+      for (const [pg, list] of byPage) {
+        if (pg === headerPage) {
+          for (const r of list) r.dir = r.x != null && Math.abs(r.x - creditX) < Math.abs(r.x - debitX) ? "credit" : "debit";
+          continue;
+        }
+        const xs = list.map((r) => r.x).filter((v) => v != null);
+        const lo = Math.min(...xs), hi = Math.max(...xs);
+        for (const r of list) {
+          if (hi - lo > 30 && r.x != null) r.dir = r.x - lo > (hi - lo) / 2 ? "credit" : "debit";
+          else r.dir = STMT_CARD_PAYMENT.test(r.desc) || STMT_REBATE.test(r.desc) ? "credit" : "debit";
+        }
+      }
+      for (const r of rows) delete r.x;
+      // A transaction history prints no opening or closing balance.
+      return { stmt: null, rows, sections: [] };
+    },
+  },
+];
+
+/* Any other statement: dated rows ending in one or two amounts (amount and
+   balance), DR/CR markers or signed amounts, opening/closing balance labels.
+   Direction comes from the marker, the sign, or the balance moving. */
+function parseGenericStatement(lines) {
+  const stmt = stmtFindStatementDate(lines);
+  const rows = [];
+  let opening = null, closing = null;
+  const DATE = "(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})|(\\d{1,2}) ([A-Za-z]{3})(?: (\\d{2,4}))?";
+  const AMT = "(-?[\\d,]+\\.\\d{2})\\s?(CR|DR|-|\\+)?";
+  const rowRe = new RegExp(`^\\s*(?:${DATE})\\s+(.+?)\\s+${AMT}(?:\\s+${AMT})?\\s*$`, "i");
+  for (const l of lines) {
+    let m;
+    if ((m = new RegExp(`(?:opening|beginning|previous)\\s+balance|balance\\s+b/?f|baki\\s+(?:awal|dibawa|legar)`, "i").exec(l.text))) {
+      const a = new RegExp(`${AMT}\\s*$`, "i").exec(l.text);
+      if (a && opening == null) opening = stmtMoney(a[1]);
+      continue;
+    }
+    if ((m = /(?:closing|ending)\s+balance|balance\s+c\/?f|baki\s+akhir/i.exec(l.text))) {
+      const a = new RegExp(`${AMT}\\s*$`, "i").exec(l.text);
+      if (a) closing = stmtMoney(a[1]);
+      continue;
+    }
+    m = rowRe.exec(l.text);
+    if (!m) continue;
+    let y, mo, d;
+    if (m[1]) { d = Number(m[1]); mo = Number(m[2]); y = stmtYear2(m[3]); }
+    else { d = Number(m[4]); mo = STMT_MONTHS[String(m[5]).toUpperCase()]; y = m[6] ? stmtYear2(m[6]) : stmtYearFor(mo, stmt); }
+    if (!mo) continue;
+    const desc = m[7];
+    const a1 = stmtMoney(m[8]), mk1 = (m[9] || "").toUpperCase();
+    const hasBal = m[10] != null;
+    const bal = hasBal ? stmtMoney(m[10]) : null;
+    let dir = mk1 === "CR" || mk1 === "+" ? "credit" : mk1 === "DR" || mk1 === "-" || a1 < 0 ? "debit" : "";
+    rows.push({ date: stmtIso(y, mo, d), desc: stmtClean(desc), payee: stmtPayee(desc), amount: Math.abs(a1), dir, balance: bal, page: l.page });
+  }
+  // Direction from the balance where no marker said it.
+  let prev = opening;
+  for (const r of rows) {
+    if (!r.dir && r.balance != null && prev != null) r.dir = r.balance >= prev ? "credit" : "debit";
+    if (r.balance != null) prev = r.balance;
+  }
+  for (const r of rows) if (!r.dir) r.dir = "debit";
+  const kind = rows.some((r) => r.balance != null) ? "account" : "card";
+  return { stmt, rows, sections: opening != null ? [{ opening, closing, rows, page: rows[0] ? rows[0].page : 1 }] : [], kind };
+}
+
+/* Text → { layout, bank, kind, stmt, rows, sections }. */
+function parseStatement(read) {
+  const text = read.lines.map((l) => l.text).join("\n");
+  const layout = STATEMENT_LAYOUTS.find((L) => L.detect(text));
+  if (layout) {
+    const out = layout.parse(read.lines);
+    return { layout: layout.id, bank: layout.bank, kind: layout.kind, ...out };
+  }
+  const out = parseGenericStatement(read.lines);
+  return { layout: "generic", bank: "", ...out };
+}
+
+/* ---------- reconciliation ---------- */
+
+/* Opening ± rows must equal the printed closing (card: + debits − credits;
+   account: + credits − debits), totals must match where printed, and each
+   running balance must follow from the one before. Never adjusts a figure:
+   it reports what doesn't add up, by row and page.
+   → { status: "ok" | "mismatch" | "none", problems: [..], badRows: Set<row> } */
+function reconcileStatement(parsed) {
+  const problems = [];
+  const badRows = new Set();
+  const sign = (r) => (parsed.kind === "account" ? (r.dir === "credit" ? 1 : -1) : (r.dir === "debit" ? 1 : -1));
+  let checked = 0;
+  for (const s of parsed.sections || []) {
+    const debit = stmtRound(s.rows.filter((r) => r.dir === "debit").reduce((a, r) => a + r.amount, 0));
+    const credit = stmtRound(s.rows.filter((r) => r.dir === "credit").reduce((a, r) => a + r.amount, 0));
+    if (s.totalDebit != null) { checked++; if (Math.abs(s.totalDebit - debit) > 0.005) problems.push({ page: s.page, what: "debits", printed: s.totalDebit, found: debit }); }
+    if (s.totalCredit != null) { checked++; if (Math.abs(s.totalCredit - credit) > 0.005) problems.push({ page: s.page, what: "credits", printed: s.totalCredit, found: credit }); }
+    if (s.opening != null && s.closing != null) {
+      checked++;
+      const end = stmtRound(s.rows.reduce((a, r) => a + sign(r) * r.amount, s.opening));
+      if (Math.abs(end - s.closing) > 0.005) problems.push({ page: s.page, what: "closing", printed: s.closing, found: end });
+    }
+  }
+  // Running balances (accounts).
+  let prev = (parsed.sections && parsed.sections[0] && parsed.sections[0].opening != null) ? parsed.sections[0].opening : null;
+  for (const r of parsed.rows) {
+    if (r.balance == null) continue;
+    if (prev != null) {
+      checked++;
+      if (Math.abs(stmtRound(prev + sign(r) * r.amount) - r.balance) > 0.005) { badRows.add(r); problems.push({ page: r.page, what: "balance", row: r }); }
+    }
+    prev = r.balance;
+  }
+  if (!parsed.rows.length) return { status: "mismatch", problems: [{ what: "no rows" }], badRows };
+  if (!checked) return { status: "none", problems, badRows };
+  return { status: problems.length ? "mismatch" : "ok", problems, badRows };
+}
+
+/* ---------- rows → things to import ---------- */
+
+const STMT_CARD_PAYMENT = /\b(?:PAYMENT\s*-?\s*THANK YOU|THANK YOU|PAYMENT RECEIVED|FUNDS TRANSFER|IBFT|IBG|TOP-?UP|RPP|AUTO\s*DEBIT|BAYARAN)\b/i;
+const STMT_REBATE = /\b(?:CASH ?REBATE|REBATE|CASHBACK|CASH BACK|REFUND|REVERSAL)\b/i;
+function stmtNorm(s) { return String(s || "").toUpperCase().replace(/[^A-Z0-9 ]+/g, " ").replace(/\s+/g, " ").trim(); }
+function stmtSimilar(a, b) {
+  const A = stmtNorm(a), B = stmtNorm(b);
+  if (!A || !B) return false;
+  if (A.includes(B) || B.includes(A)) return true;
+  const tb = new Set(B.split(" ").filter((w) => w.length >= 4));
+  return A.split(" ").some((w) => w.length >= 4 && tb.has(w));
+}
+function stmtDayDiff(a, b) { return Math.abs((Date.parse(a) - Date.parse(b)) / 86400000); }
+
+/* Each parsed row → a review item: { kind: "spend" | "income" | "move",
+   on (ticked), note }. Card payments are money moving from your own account,
+   so they import as nothing; a row naming a saved own-account name is a move
+   too. Rows already in Duitful (± 1 day, same amount, similar name — typed,
+   captured from an alert, or waiting as a pending card) start unticked. */
+function statementItems(parsed, recon) {
+  const own = (typeof state !== "undefined" && state.ownAccounts) || [];
+  const isOwn = (desc) => own.some((n) => n && stmtNorm(desc).includes(stmtNorm(n)));
+  const spends = (state.dailyExpenses || []).filter((e) => e.kind === "expense");
+  const pend = (state.pendingTxns || []);
+  const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
+  return parsed.rows.map((r, i) => {
+    let kind = "spend", note = "", label = "";
+    if (parsed.kind === "card") {
+      if (r.dir === "credit") {
+        if (STMT_CARD_PAYMENT.test(r.desc) && !STMT_REBATE.test(r.desc)) { kind = "move"; note = "Card payment · not counted"; }
+        else { kind = "income"; label = STMT_REBATE.test(r.desc) ? (/REFUND|REVERSAL/i.test(r.desc) ? "Refund" : "Cashback") : ""; }
+      }
+    } else if (r.dir === "credit") kind = "income";
+    if (kind !== "move" && isOwn(r.desc)) { kind = "move"; note = "Between your accounts"; }
+    let dup = false;
+    if (kind === "spend") {
+      dup = spends.some((e) => Math.abs(Number(e.amount) - r.amount) < 0.005 && e.date && stmtDayDiff(e.date, r.date) <= 1 && (stmtSimilar(e.note, r.payee) || stmtSimilar(e.category, r.payee) || stmtDayDiff(e.date, r.date) === 0))
+        || pend.some((p) => !p.kind && Math.abs(Number(p.amount) - r.amount) < 0.005 && stmtDayDiff(new Date(p.createdAt).toISOString().slice(0, 10), r.date) <= 1);
+    } else if (kind === "income") {
+      dup = (state.income || []).some((x) => Math.abs(Number(x.amount) - r.amount) < 0.005 && x.month === r.date.slice(0, 7) && Math.abs(Number(x.day || 0) - Number(r.date.slice(8, 10))) <= 1)
+        || pend.some((p) => p.kind === "income" && Math.abs(Number(p.amount) - r.amount) < 0.005 && stmtDayDiff(new Date(p.createdAt).toISOString().slice(0, 10), r.date) <= 1);
+    }
+    if (dup) note = "Already in Duitful";
+    let category = "";
+    if (kind === "spend") {
+      try { category = (typeof scanGuessCategory === "function" ? scanGuessCategory(r.payee, r.desc) : "") || ""; } catch { category = ""; }
+      if (category && cats.length && !cats.includes(category)) category = "";
+    }
+    return {
+      id: `stmt-${i}`, row: r, date: r.date, payee: r.payee || r.desc.slice(0, 40), amount: r.amount,
+      kind, label, category, note, dup, flagged: !!(recon && recon.badRows && recon.badRows.has(r)),
+      on: kind !== "move" && !dup && !!r.date,
+    };
+  });
+}
+
+/* On-device AI (only if allowed and present): suggests a category from the
+   app's own list and a cleaner payee (only words the description contains),
+   for spends that have no category yet. Never reads or writes an amount or a
+   date. Small batches, short timeouts; failure changes nothing. */
+async function statementAiSuggest(items, opts) {
+  if (typeof aiAllowed === "function" && !aiAllowed()) return 0;
+  const kit = typeof duitfulKit === "function" ? duitfulKit("aiReadAlert") : null;
+  if (!kit || typeof kit.aiStatus !== "function") return 0;
+  try { const st = await withTimeout(kit.aiStatus(), 2000); if (!st || !st.available) return 0; } catch { return 0; }
+  const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
+  const max = (opts && opts.max) || 20;
+  let n = 0;
+  for (const it of items) {
+    if (n >= max) break;
+    if (it.kind !== "spend" || it.category) continue;
+    n++;
+    let reply = null;
+    try { reply = parseAiAlertReply(await withTimeout(kit.aiReadAlert({ text: it.row.desc.slice(0, 300), categories: cats }), 5000)); } catch { reply = null; }
+    if (!reply || reply.promo) continue;
+    const cat = typeof aiCategoryIn === "function" ? aiCategoryIn(reply.category, cats) : "";
+    const who = typeof aiNameInText === "function" ? aiNameInText(reply.counterparty, it.row.desc) : "";
+    if (cat) { it.category = cat; it.ai = true; }
+    if (who) { it.payee = who; it.ai = true; }
+  }
+  return n;
+}
+
+/* Books the ticked items. Spends go where daily spending goes; income goes to
+   state.income like captured income (one-off, not copied into next month);
+   moves book nothing. Every row is marked as from a statement. */
+function importStatementItems(items, bankName) {
+  let spends = 0, incomes = 0;
+  for (const it of items) {
+    if (!it.on || it.kind === "move" || !it.date || !(it.amount > 0)) continue;
+    if (it.kind === "spend") {
+      state.dailyExpenses.push({ id: uid(), createdAt: Date.now(), kind: "expense", date: it.date, amount: it.amount,
+        category: it.category || "Others", note: it.payee || "", source: "statement" });
+      spends++;
+    } else if (it.kind === "income") {
+      state.income.push({ id: uid(), name: it.label ? `${it.label} · ${it.payee}` : (it.payee || "Money in"), amount: it.amount,
+        month: it.date.slice(0, 7), day: Number(it.date.slice(8, 10)), repeatNext: false, category: it.label || "Money in",
+        note: bankName ? `${bankName} statement` : "Statement", source: "statement" });
+      incomes++;
+    }
+  }
+  return { spends, incomes };
+}
+
+/* ---------- the screen ---------- */
+
+const stmtUi = { items: [], parsed: null, recon: null, file: null };
+const stmtEl = (id) => document.getElementById(id);
+
+function stmtFmtDate(iso) {
+  const d = new Date(`${iso}T00:00:00`);
+  return Number.isFinite(d.getTime()) ? d.toLocaleDateString("en-MY", { day: "numeric", month: "short" }) : "—";
+}
+function stmtSay(msg) { const el = stmtEl("stmt-status"); if (el) { el.textContent = msg || ""; el.hidden = !msg; } }
+
+function openStatementImport() {
+  const dlg = stmtEl("stmt-dialog");
+  if (!dlg) return;
+  stmtUi.items = []; stmtUi.parsed = null; stmtUi.recon = null; stmtUi.file = null;
+  stmtEl("stmt-pick").hidden = false;
+  stmtEl("stmt-password").hidden = true;
+  stmtEl("stmt-review").hidden = true;
+  stmtEl("stmt-import").hidden = true;
+  stmtSay("");
+  if (typeof renderFreeCounts === "function") renderFreeCounts();
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+}
+
+// File → text → rows → check → review. The password, if any, lives only in
+// this call.
+async function statementFromFile(file, password) {
+  stmtUi.file = file;
+  stmtSay("Reading on your phone…");
+  let read;
+  try {
+    read = await readStatementPdf(await file.arrayBuffer(), password);
+  } catch (e) {
+    const code = e && e.code;
+    if (code === "password" || code === "wrong-password") {
+      stmtEl("stmt-pick").hidden = true;
+      stmtEl("stmt-password").hidden = false;
+      stmtSay(code === "wrong-password" ? "That password didn't open it." : "");
+      setTimeout(() => stmtEl("stmt-pw")?.focus(), 30);
+      return null;
+    }
+    stmtSay(code === "scanned"
+      ? "This PDF is a scanned image. Download the statement as a PDF from your bank's app or website instead."
+      : "Couldn't read this PDF.");
+    return null;
+  }
+  return showStatementReview(read);
+}
+
+function showStatementReview(read) {
+  const parsed = parseStatement(read);
+  const recon = reconcileStatement(parsed);
+  stmtUi.parsed = parsed; stmtUi.recon = recon;
+  stmtUi.items = statementItems(parsed, recon);
+  stmtEl("stmt-pick").hidden = true;
+  stmtEl("stmt-password").hidden = true;
+  if (!parsed.rows.length) { stmtSay("No transactions found in this statement."); return parsed; }
+  stmtSay("");
+  stmtEl("stmt-review").hidden = false;
+  stmtEl("stmt-import").hidden = false;
+  renderStatementReview();
+  statementAiSuggest(stmtUi.items).then((n) => { if (n) renderStatementReview(); }).catch(() => {});
+  return parsed;
+}
+
+function stmtSummaryText(parsed, recon) {
+  const dates = parsed.rows.map((r) => r.date).filter(Boolean).sort();
+  const span = dates.length ? `${stmtFmtDate(dates[0])} – ${stmtFmtDate(dates[dates.length - 1])}` : "";
+  const what = parsed.bank ? `${parsed.bank} ${parsed.kind === "card" ? "card" : "account"}` : "Statement";
+  const check = recon.status === "ok" ? "Checks out ✓"
+    : recon.status === "none" ? "No balances printed to check"
+    : `Doesn't add up${recon.problems[0] && recon.problems[0].page ? ` on page ${recon.problems[0].page}` : ""} — check the rows`;
+  return [what, span, check].filter(Boolean).join(" · ");
+}
+
+function renderStatementReview() {
+  const list = stmtEl("stmt-list");
+  if (!list || !stmtUi.parsed) return;
+  const sum = stmtEl("stmt-summary");
+  sum.textContent = stmtSummaryText(stmtUi.parsed, stmtUi.recon);
+  sum.dataset.status = stmtUi.recon.status;
+  const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
+  list.innerHTML = stmtUi.items.map((it, i) => {
+    const sign = it.kind === "income" ? "+" : it.kind === "spend" ? "−" : "";
+    const tag = it.note ? `<span class="stmt-tag">${escapeHtml(it.note)}</span>` : it.flagged ? `<span class="stmt-tag is-warn">Check this row</span>` : "";
+    const catSel = it.kind === "spend"
+      ? `<select data-stmt-cat="${i}" aria-label="Category">${["", ...cats].map((c) => `<option value="${escapeHtml(c)}"${c === it.category ? " selected" : ""}>${c ? escapeHtml(c) : "Category"}</option>`).join("")}</select>` : "";
+    return `<li class="stmt-row${it.on ? "" : " is-off"}${it.flagged ? " is-flagged" : ""}">
+      <input type="checkbox" data-stmt-on="${i}" aria-label="Import ${escapeHtml(it.payee)}"${it.on ? " checked" : ""}${it.kind === "move" ? " disabled" : ""} />
+      <div class="stmt-main">
+        <div class="stmt-top">
+          <input class="stmt-payee" data-stmt-payee="${i}" value="${escapeHtml(it.payee)}" aria-label="Payee" />
+          <span class="stmt-amt ${it.kind}">${sign}${escapeHtml(fmtMoney(it.amount))}</span>
+        </div>
+        <div class="stmt-meta">
+          <span>${escapeHtml(stmtFmtDate(it.date))}</span>
+          <select data-stmt-kind="${i}" aria-label="Type">
+            <option value="spend"${it.kind === "spend" ? " selected" : ""}>Spend</option>
+            <option value="income"${it.kind === "income" ? " selected" : ""}>Income</option>
+            <option value="move"${it.kind === "move" ? " selected" : ""}>Not counted</option>
+          </select>
+          ${catSel}${tag}
+        </div>
+      </div>
+    </li>`;
+  }).join("");
+  const on = stmtUi.items.filter((x) => x.on && x.kind !== "move").length;
+  stmtEl("stmt-count").textContent = `${on} to import`;
+  const btn = stmtEl("stmt-import");
+  btn.disabled = !on;
+  btn.textContent = on ? `Import ${on}` : "Import";
+  stmtEl("stmt-all").textContent = stmtUi.items.every((x) => x.on || x.kind === "move") ? "Untick all" : "Select all";
+  if (typeof renderFreeCounts === "function") renderFreeCounts();
+}
+
+function statementImportNow() {
+  if (!stmtUi.parsed) return false;
+  if (typeof canImportStatement === "function" && !canImportStatement()) { openPaywall("statements"); return false; }
+  const res = importStatementItems(stmtUi.items, stmtUi.parsed.bank);
+  if (!res.spends && !res.incomes) return false;          // nothing booked: not counted
+  if (typeof trackStatementImport === "function") trackStatementImport();
+  save();
+  renderAll();
+  stmtEl("stmt-dialog")?.close();
+  const n = res.spends + res.incomes;
+  toast(`${n} row${n === 1 ? "" : "s"} imported from the statement`);
+  return true;
+}
+
+stmtEl("btn-stmt-import")?.addEventListener("click", openStatementImport);
+stmtEl("stmt-choose")?.addEventListener("click", () => stmtEl("stmt-file")?.click());
+stmtEl("stmt-file")?.addEventListener("change", (e) => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (f) statementFromFile(f).catch(() => stmtSay("Couldn't read this PDF."));
+});
+stmtEl("stmt-pw-open")?.addEventListener("click", () => {
+  const pw = stmtEl("stmt-pw");
+  const value = pw ? pw.value : "";
+  if (pw) pw.value = "";                       // never kept
+  if (stmtUi.file && value) statementFromFile(stmtUi.file, value).catch(() => stmtSay("Couldn't read this PDF."));
+});
+stmtEl("stmt-pw")?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); stmtEl("stmt-pw-open")?.click(); } });
+stmtEl("stmt-cancel")?.addEventListener("click", () => { stmtUi.file = null; stmtEl("stmt-dialog")?.close(); });
+stmtEl("stmt-import")?.addEventListener("click", statementImportNow);
+stmtEl("stmt-all")?.addEventListener("click", () => {
+  const all = stmtUi.items.every((x) => x.on || x.kind === "move");
+  for (const it of stmtUi.items) if (it.kind !== "move" && it.date) it.on = !all;
+  renderStatementReview();
+});
+stmtEl("stmt-list")?.addEventListener("change", (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLElement)) return;
+  const i = Number(t.dataset.stmtOn ?? t.dataset.stmtKind ?? t.dataset.stmtCat ?? t.dataset.stmtPayee);
+  const it = stmtUi.items[i];
+  if (!it) return;
+  if (t.dataset.stmtOn != null) it.on = t.checked;
+  else if (t.dataset.stmtKind != null) { it.kind = t.value; if (it.kind === "move") it.on = false; else if (!it.dup) it.on = true; }
+  else if (t.dataset.stmtCat != null) it.category = t.value;
+  else if (t.dataset.stmtPayee != null) it.payee = t.value.trim().slice(0, 60);
+  renderStatementReview();
+});

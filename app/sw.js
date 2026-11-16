@@ -15,14 +15,14 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-11-16-6";
+const VERSION = "2026-11-16-7";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=158",
-  "/app/script.js?v=216",
+  "/app/styles.css?v=159",
+  "/app/script.js?v=217",
   "/app/drive-config.js?v=3",
   "/app/drive-sync.js?v=4",
   "/app/icloud-sync.js?v=8",
@@ -32,6 +32,11 @@ const SHELL = [
   "/app/region.js?v=1",
   "/app/tax-data.js?v=3",
   "/app/tax.js?v=15",
+  "/app/statement.js?v=1",
+  // pdf.js (Apache-2.0) for statement import: injected only when a PDF is
+  // picked, precached so it works offline like jsQR.
+  "/app/vendor/pdfjs/pdf.min.js?v=1",
+  "/app/vendor/pdfjs/pdf.worker.min.js?v=1",
   "/app/brands.js?v=3",
   "/app/analytics.js?v=1",
   "/app/theme-boot.js?v=1",
