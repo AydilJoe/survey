@@ -4,8 +4,14 @@ Bigger plans have their own file in this folder.
 
 ## Planned features
 
-- **Recurring splits**: see `recurring-splits.md`.
-- **Scanned statements**: see `statement-scans.md`.
+1. **Recurring splits** (`recurring-splits.md`). Rent, utilities and
+   subscriptions split every month: set up once, a monthly card to send
+   requests, a who-paid grid, auto-tick from bank alerts, reminders, and only
+   your share counted as spending. Target 1.58.0. Three decisions are waiting
+   (free limit, version 1 scope, rounding).
+2. **Scanned statements** (`statement-scans.md`). Scanned or photographed
+   statements, read with on-device OCR, imported only when the balance check
+   passes. Small follow-up to 1.57.0.
 
 ## Shorter forms (from the 15 Nov form audit)
 
