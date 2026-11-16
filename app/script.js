@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.56.4";
+const APP_VERSION = "1.56.5";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -11167,6 +11167,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.56.5": [
+    "<strong>Buying Pro on Android works again</strong> — if Unlock Pro failed for you before, it's fixed. What's new now takes you straight back to it.",
+  ],
   "1.56.4": [
     "<strong>Fix: buying Pro on Android</strong> — Unlock Pro could stop with \"Product not configured\" or \"not yet live\" because the app couldn't reach Google Play's store. Both are fixed.",
   ],
@@ -11603,6 +11606,15 @@ function whatsNewUnseenVersions() {
     .sort((a, b) => versionCompare(b, a)); // newest first
 }
 
+// 1.56.4 fixed buying Pro on Android ("Product not configured"). Anyone on
+// Android who isn't Pro sees that release's notes with a way straight back
+// to the paywall, and the 5-day quiet window doesn't hold it back.
+const PURCHASE_FIX_VERSIONS = ["1.56.4", "1.56.5"];
+function purchaseFixApplies(versions) {
+  return isNative() && nativePlatform() === "android" && !hasPurchasedPro()
+    && Array.isArray(versions) && versions.some((v) => PURCHASE_FIX_VERSIONS.includes(v));
+}
+
 function maybeShowWhatsNew() {
   if (!state || !aesKey) return;
   if (state.lastSeenVersion === APP_VERSION) return;
@@ -11631,7 +11643,7 @@ function maybeShowWhatsNew() {
   // Throttle: inside the quiet window, say nothing and DON'T mark seen —
   // the backlog simply waits for the next digest.
   const shownAt = Number(localStorage.getItem(WHATS_NEW_SHOWN_KEY)) || 0;
-  if (Date.now() - shownAt < WHATS_NEW_GAP_MS) return;
+  if (Date.now() - shownAt < WHATS_NEW_GAP_MS && !purchaseFixApplies(unseen)) return;
 
   fillWhatsNew(unseen, unseen.length === 1 ? `What's new in v${APP_VERSION}` : "What's new since you last looked");
   try { localStorage.setItem(WHATS_NEW_SHOWN_KEY, String(Date.now())); } catch {}
@@ -11650,6 +11662,12 @@ function fillWhatsNew(versions, title) {
   }
   const listEl = document.getElementById("whats-new-list");
   if (listEl) listEl.innerHTML = bullets.join("");
+  // The purchase fix: offer the paywall again right here.
+  const pro = document.getElementById("whats-new-pro");
+  const done = document.getElementById("whats-new-done");
+  const offer = purchaseFixApplies(versions);
+  if (pro) pro.hidden = !offer;
+  if (done) done.className = offer ? "ghost" : "primary";
 }
 
 // On demand, from Settings → About or search: never throttled. Shows what
@@ -11676,6 +11694,11 @@ function closeWhatsNew() {
   if (dlg && typeof dlg.close === "function") dlg.close();
   else if (dlg) dlg.removeAttribute("open");
 }
+document.getElementById("whats-new-pro")?.addEventListener("click", () => {
+  if (state) { state.lastSeenVersion = APP_VERSION; save(); }
+  closeWhatsNew();
+  openPaywall();
+});
 document.getElementById("whats-new-done")?.addEventListener("click", () => {
   if (state) {
     state.lastSeenVersion = APP_VERSION;

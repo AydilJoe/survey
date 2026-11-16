@@ -6793,6 +6793,8 @@ body.private .pending-match-sub {
 .whats-new-actions { display: flex; gap: 0.6rem; }
 .whats-new-actions > * { flex: 1; justify-content: center; text-align: center; }
 @media (max-width: 360px) { .whats-new-actions { flex-direction: column-reverse; } }
+/* Three buttons (the purchase-fix offer) stack, the offer on top. */
+.whats-new-actions:has(#whats-new-pro:not([hidden])) { flex-direction: column-reverse; }
 
 /* The avalanche target, stated above the clearing order. */
 .payoff-target {
