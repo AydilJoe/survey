@@ -1,6 +1,6 @@
 {
   "name": "duitful",
-  "version": "1.56.8",
+  "version": "1.57.0",
   "license": "GPL-3.0-only",
   "private": true,
   "description": "Duitful — Capacitor shell for the PWA.",
