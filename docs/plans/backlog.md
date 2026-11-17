@@ -58,11 +58,14 @@ Today (`scripts/patch-android-widget.mjs`, iOS WidgetKit in
 
 Ideas for the redesign (to confirm with the owner):
 - Match the app's current look (DESIGN.md tokens, light/dark, the app icon).
-- Show something useful at a glance, not only buttons: today's or this
-  month's spend vs budget, "N to review" from bank alerts, next bill due.
-  Respect the eye (hide amounts) setting: no figures on the widget when
-  amounts are hidden or the vault is locked; counts only, like the
-  persistent notification.
+- At a glance, **never balances or amounts** (owner, 17 Nov). Show only:
+  - "3 to review" (bank alerts waiting)
+  - budget status as a word and a bar with no figures: "On track",
+    "Careful", "Over", plus "12 days left"
+  - next thing due by name and days: "Rent due in 3 days", "PTPTN Friday"
+  - optional: savings goal ring as a percentage, logging streak
+  ("Logged 5 days in a row"). Nothing shown at all while the vault is
+  locked beyond the count.
 - Keep the one-tap log-without-opening chips (the `QUICK_ADD` broadcast
   contract in the script header must stay as it is).
 - iPhone: consider a small at-a-glance widget and Lock Screen widgets.
