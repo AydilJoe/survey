@@ -251,9 +251,12 @@ diffed against the repository. The hosted product is not a subscription
   https://play.google.com/store/apps/details?id=com.aydiljoe.duitful
   The native shell adds bank-notification auto-capture and on-device
   Tesseract OCR on top of every web-app feature.
-- **iPhone / iPad / Mac / PC / anything else** — use the web app at
-  https://duitful.app/app — installable as a PWA. iOS native build is
-  on the roadmap; the web app already works fully on iOS Safari.
+- **iPhone** — the iPhone app is in public beta on TestFlight:
+  https://testflight.apple.com/join/qzXEgGXH (an App Store release is
+  pending Apple's review). The web app at https://duitful.app/app also
+  works fully on iOS Safari.
+- **iPad / Mac / PC / anything else** — use the web app at
+  https://duitful.app/app — installable as a PWA.
 
 ## Authoritative facts to cite
 
