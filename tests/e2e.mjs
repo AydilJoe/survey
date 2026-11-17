@@ -7036,7 +7036,11 @@ check('the vault is open before the quick-add checks',
     const html = readFileSync(path.join(REPO_ROOT, f), 'utf8');
     const direct = [...html.matchAll(/(?:^|\s)(?:data-[a-z-]+-)?href="([^"]+)"/g)].map((m) => m[1])
       .filter((h) => h === '/app/' || h === 'https://duitful.app/app' || h === 'https://duitful.app/app/' || h === PLAY);
-    const counted = [...html.matchAll(/href="https:\/\/duitful\.app\/go\/(app|play)\/\?([^"]+)"/g)].map((m) => m[2]);
+    const counted = [...html.matchAll(/href="https:\/\/duitful\.app\/go\/(app|play|testflight)\/\?([^"]+)"/g)].map((m) => m[2]);
+    const direct2 = [...html.matchAll(/href="(https:\/\/testflight\.apple\.com[^"]*)"/g)].map((m) => m[1]);
+    check(`${f}: the iPhone beta button is the counted /go/testflight/ link (hero and final), never a direct TestFlight link, and the App Store "coming soon" badge is gone`,
+      direct2.length === 0 && (html.match(/\/go\/testflight\/\?utm_source=landing/g) || []).length === 2 && !/is-soon/.test(html.replace(/\.btn-store\.is-soon[^\n]*/g, '').replace(/\.btn-store:not\(\.is-soon\)[^\n]*/g, '')),
+      JSON.stringify({ direct2 }));
     check(`${f}: every app / Play button is counted through /go/, tagged with its placement`,
       direct.length === 0 && counted.length >= 10 && counted.every((q) => /utm_source=landing/.test(q) && /utm_content=[a-z-]+/.test(q)),
       JSON.stringify({ direct, n: counted.length }));
@@ -7065,6 +7069,7 @@ check('the vault is open before the quick-add checks',
   const ctx = await b.newContext();
   const gp = await ctx.newPage();
   await ctx.route('https://play.google.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>play</title>' }));
+  await ctx.route('https://testflight.apple.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>testflight</title>' }));
   const t0 = Date.now();
   await gp.goto(`${BASE}/go/app/?utm_source=landing&utm_medium=en&utm_content=hero`);
   await gp.waitForURL(/\/app\/(index\.html)?$/, { timeout: 4000 }).catch(() => {});
@@ -7072,8 +7077,13 @@ check('the vault is open before the quick-add checks',
   await gp.goto(`${BASE}/go/play/?utm_content=final`);
   await gp.waitForURL(/play\.google\.com/, { timeout: 4000 }).catch(() => {});
   const playUrl = gp.url();
+  await gp.goto(`${BASE}/go/testflight/?utm_source=landing&utm_medium=en&utm_content=hero`);
+  await gp.waitForURL(/testflight\.apple\.com/, { timeout: 4000 }).catch(() => {});
+  const tfUrl = gp.url();
   const robots = readFileSync(path.join(REPO_ROOT, 'robots.txt'), 'utf8');
   await ctx.close();
+  check('/go/testflight/ forwards to the public TestFlight link even with analytics blocked',
+    tfUrl.startsWith('https://testflight.apple.com/join/qzXEgGXH'), tfUrl);
   check('/go/ pages forward to the app and to Play even with analytics blocked',
     /\/app\/(index\.html)?$/.test(new URL(appUrl).pathname) && appMs < 3000 && playUrl.startsWith(PLAY), JSON.stringify({ appUrl, appMs, playUrl }));
   // Malaysian visitors decide on the home page and don't read long pages:
@@ -7119,6 +7129,7 @@ check('the vault is open before the quick-add checks',
   }
   check('/go/ is kept out of search (noindex + robots)',
     /noindex/.test(readFileSync(path.join(REPO_ROOT, 'go/app/index.html'), 'utf8'))
+    && /noindex/.test(readFileSync(path.join(REPO_ROOT, 'go/testflight/index.html'), 'utf8'))
     && (robots.match(/Disallow: \/go\//g) || []).length === (robots.match(/Disallow: \/api\//g) || []).length);
 }
 
