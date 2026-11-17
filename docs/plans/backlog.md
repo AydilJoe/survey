@@ -47,6 +47,31 @@ release notes, but not inside the app. Plan:
 
 Large: many strings; do it in stages (Home, add entry, Settings first).
 
+## Redesign home-screen widgets (requested)
+
+Today (`scripts/patch-android-widget.mjs`, iOS WidgetKit in
+`scripts/patch-ios.mjs`):
+- Android: three widgets. ~2x2 four quick actions (Spend, Scan, Split, Pay
+  debt); ~4x2 amount chips (+5 +10 +20 +50) that log a spend without opening
+  the app, plus Scan and Split; ~4x4 the chips plus sticky category chips.
+- iPhone: an actions-only WidgetKit widget.
+
+Ideas for the redesign (to confirm with the owner):
+- Match the app's current look (DESIGN.md tokens, light/dark, the app icon).
+- Show something useful at a glance, not only buttons: today's or this
+  month's spend vs budget, "N to review" from bank alerts, next bill due.
+  Respect the eye (hide amounts) setting: no figures on the widget when
+  amounts are hidden or the vault is locked; counts only, like the
+  persistent notification.
+- Keep the one-tap log-without-opening chips (the `QUICK_ADD` broadcast
+  contract in the script header must stay as it is).
+- iPhone: consider a small at-a-glance widget and Lock Screen widgets.
+- Screenshots of each size, light and dark, before shipping.
+
+Privacy: the vault is encrypted, so any figure shown needs a small
+plain summary the app writes on purpose (and clears when locked), never the
+vault itself.
+
 ## Open decisions
 
 - **Bank alerts by SMS**: many MY banks send card alerts by SMS, which
