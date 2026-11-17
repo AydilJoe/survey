@@ -49,7 +49,8 @@ ${body}
   const file = join(root, 'app', `i18n-${code}.js`);
   let cur = '';
   try { cur = readFileSync(file, 'utf8'); } catch {}
-  if (cur === out) continue;
+  // A Windows checkout may hold CRLF; the content is what counts.
+  if (cur.replace(/\r\n/g, '\n') === out) continue;
   if (process.argv.includes('--check')) { console.error(`app/i18n-${code}.js is stale: run node scripts/build-i18n.mjs`); stale = true; continue; }
   writeFileSync(file, out);
   console.log(`wrote app/i18n-${code}.js (${ROWS.filter((r) => r[col]).length} strings)`);
