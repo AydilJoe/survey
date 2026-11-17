@@ -363,7 +363,7 @@ function taxFilingFor(year) {
 }
 
 function taxDateLabel(d) {
-  return d.toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" });
+  return d.toLocaleDateString((window.I18N && window.I18N.locale()) || "en-MY", { day: "numeric", month: "short", year: "numeric" });
 }
 
 // Most specific first: "parents' clinic" must reach `medparents` before the
@@ -1675,7 +1675,7 @@ const TAX_ICON = {
 function taxDay(iso) {
   const [y, m, d] = String(iso).split("-").map(Number);
   if (!y || !m || !d) return String(iso || "");
-  return new Date(y, m - 1, d).toLocaleDateString("en-MY", { day: "numeric", month: "short" });
+  return new Date(y, m - 1, d).toLocaleDateString((window.I18N && window.I18N.locale()) || "en-MY", { day: "numeric", month: "short" });
 }
 
 // LHDN limits are whole ringgit and public: "RM 10,000", not hidden in privacy mode.

@@ -560,7 +560,7 @@ const stmtEl = (id) => document.getElementById(id);
 
 function stmtFmtDate(iso) {
   const d = new Date(`${iso}T00:00:00`);
-  return Number.isFinite(d.getTime()) ? d.toLocaleDateString("en-MY", { day: "numeric", month: "short" }) : "—";
+  return Number.isFinite(d.getTime()) ? d.toLocaleDateString((window.I18N && window.I18N.locale()) || "en-MY", { day: "numeric", month: "short" }) : "—";
 }
 function stmtSay(msg) { const el = stmtEl("stmt-status"); if (el) { el.textContent = msg || ""; el.hidden = !msg; } }
 

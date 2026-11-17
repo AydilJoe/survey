@@ -385,7 +385,7 @@
               <span class="debt-glance-label">Total debt</span>
               <strong class="debt-glance-amount neg" id="hero-debt-glance-total">RM 0.00</strong>
             </span>
-            <span class="debt-glance-meta" id="hero-debt-glance-meta">— debts · debt-free —</span>
+            <span class="debt-glance-meta" id="hero-debt-glance-meta" translate="no">— debts · debt-free —</span>
           </button>
           <!-- One line, and only while open requests exist. Receivables are
                deliberately kept out of the debt maths above — no APR, no
@@ -1580,9 +1580,21 @@
 
         <div class="card">
           <h2>Preferences</h2>
+          <!-- Stored outside the vault (i18n.js), so the passcode screen
+               follows it too. Each language names itself. -->
+          <label class="field">
+            <span>Language</span>
+            <select id="pref-language">
+              <option value="auto">Phone's language</option>
+              <option value="en" translate="no">English</option>
+              <option value="ms" translate="no">Bahasa Melayu</option>
+              <option value="zh" translate="no">中文（简体）</option>
+            </select>
+          </label>
+          <p class="hint" id="pref-language-hint" hidden>Some screens are still in English while we translate them.</p>
           <label class="field">
             <span>Currency</span>
-            <select id="pref-currency">
+            <select id="pref-currency" translate="no">
               <option value="MYR">MYR — Malaysian Ringgit</option>
               <option value="SGD">SGD — Singapore Dollar</option>
               <option value="USD">USD — US Dollar</option>
@@ -2863,6 +2875,10 @@
       </div>
     </dialog>
 
+    <!-- Languages first, so the page is translated before script.js renders. -->
+    <script src="i18n-ms.js?v=1"></script>
+    <script src="i18n-zh.js?v=1"></script>
+    <script src="i18n.js?v=1"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
     <script src="icloud-sync.js?v=8"></script>
@@ -2877,9 +2893,9 @@
     <script src="receipt-extract.js?v=1"></script>
     <script src="region.js?v=1"></script>
     <script src="tax-data.js?v=3"></script>
-    <script src="tax.js?v=15"></script>
-    <script src="statement.js?v=1"></script>
+    <script src="tax.js?v=16"></script>
+    <script src="statement.js?v=2"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=217"></script>
+    <script src="script.js?v=218"></script>
   </body>
 </html>
