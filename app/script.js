@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.13";
+const APP_VERSION = "1.57.14";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5243,6 +5243,60 @@ async function fireDueNotifications() {
    On a plain web/PWA context window.Capacitor is undefined, so this
    block is effectively a no-op and the in-app / browser-notification
    path above is used instead. */
+
+/* The on-screen keyboard. Nothing tells a web page it is up, but the visual
+   viewport shrinks (and on Android edge-to-edge the WebView too), so: while a
+   text field has focus and the visible height is well under the tallest seen
+   at this width, mark html.kb-open and publish the visible box as --kb-top /
+   --kb-vh for the dialog rules in styles.css, then bring the field (and what
+   sits just under it) into view. Touch screens only: a desktop window being
+   resized with a field focused is not a keyboard. */
+(function trackKeyboard() {
+  const vv = window.visualViewport;
+  const touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  if (!vv || !touch) return;
+  const root = document.documentElement;
+  const tallest = new Map(); // width → tallest visible height seen
+  const typing = () => {
+    const el = document.activeElement;
+    if (!el || el.disabled || el.readOnly) return null;
+    if (el.isContentEditable || el.tagName === "TEXTAREA") return el;
+    if (el.tagName !== "INPUT") return null;
+    return /^(text|number|email|tel|password|search|url|date|month|time|datetime-local)$/.test(el.type || "text") ? el : null;
+  };
+  let open = false;
+  let settle = 0;
+  const reveal = () => {
+    const el = typing();
+    if (!el || !open) return;
+    const r = el.getBoundingClientRect();
+    const top = vv.offsetTop, bottom = vv.offsetTop + vv.height;
+    // Room for the hint or button row under the field, not just the field.
+    if (r.top < top + 8 || r.bottom + 72 > bottom) el.scrollIntoView({ block: "center", inline: "nearest" });
+  };
+  const update = () => {
+    const w = Math.round(vv.width);
+    const h = Math.max(vv.height, 0);
+    const layout = window.innerHeight;
+    const most = Math.max(tallest.get(w) || 0, layout, h);
+    tallest.set(w, most);
+    const now = !!typing() && Math.min(h, layout) < most - 120;
+    root.style.setProperty("--kb-top", `${Math.round(vv.offsetTop)}px`);
+    root.style.setProperty("--kb-vh", `${Math.round(h)}px`);
+    if (now !== open) {
+      open = now;
+      root.classList.toggle("kb-open", open);
+    }
+    clearTimeout(settle);
+    if (open) settle = setTimeout(reveal, 120);
+  };
+  vv.addEventListener("resize", update);
+  vv.addEventListener("scroll", update);
+  window.addEventListener("resize", update);
+  document.addEventListener("focusin", () => { update(); setTimeout(update, 350); });
+  document.addEventListener("focusout", () => setTimeout(update, 50));
+  update();
+})();
 
 function isNative() {
   return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
@@ -11336,6 +11390,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.14": [
+    "<strong>Typing no longer hides the buttons</strong> — with the keyboard up, forms in a pop-up (like your tax details) move above it, so the hint and Next stay within reach.",
+  ],
   "1.57.13": [
     "<strong>Phone notifications in your language</strong> — the Log a spend notification, \u201csays they paid\u201d alerts and the iPhone scan sheet now follow the language you picked in Duitful.",
   ],
