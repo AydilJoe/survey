@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.7";
+const APP_VERSION = "1.57.8";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -3826,15 +3826,15 @@ function trialRecapText() {
   const bits = [];
   const backups = Number(u.backups) || 0;
   const scans = Number(u.scans) || 0;
-  if (backups) bits.push(`made ${backups} automatic backup${backups === 1 ? "" : "s"}`);
+  if (backups) bits.push(trn(backups, "made {n} automatic backup", "made {n} automatic backups"));
   if (scans > FREE_OCR_MONTHLY) bits.push(`read ${scans} receipts`);
   const goals = state.savings.length - FREE_SAVING_LIMIT;
   if (goals > 0) bits.push(`kept ${state.savings.length} goals`);
   const pools = (state.budgetPools || []).filter((p) => p.system !== "debt").length;
-  if (pools > 1) bits.push(`ran ${pools} budget pools`);
+  if (pools > 1) bits.push(tr("ran {n} budget pools", { n: pools }));
   if (!bits.length) return "";
   const list = bits.length === 1 ? bits[0] : bits.slice(0, -1).join(", ") + " and " + bits[bits.length - 1];
-  return `During your trial, Pro ${list}.`;
+  return tr("During your trial, Pro {list}.", { list });
 }
 
 // Entries worth losing: everything logged, across months.
@@ -3874,22 +3874,22 @@ function trialEndChanges() {
   const out = [];
   let autoBackup = false;
   try { autoBackup = activeClouds().length > 0; } catch { /* cloud code not loaded yet */ }
-  if (autoBackup) out.push("automatic backup stops (Back up now still works)");
+  if (autoBackup) out.push(tr("automatic backup stops (Back up now still works)"));
   const over = (have, limit, one, many) => {
-    if (have > limit) out.push(`you can't add more ${many} (your ${have} stay; Free adds up to ${limit} ${limit === 1 ? one : many})`);
+    if (have > limit) out.push(tr("you can't add more {many} (your {have} stay; Free adds up to {limit} {noun})", { many: tr(many), have, limit, noun: tr(limit === 1 ? one : many) }));
   };
   over(countedDebts(), FREE_DEBT_LIMIT, "debt", "debts");
   over(state.savings.length, FREE_SAVING_LIMIT, "goal", "goals");
   over(typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "holding", "holdings");
   over(userBudgetPoolCount(), 1, "budget pool", "budget pools");
-  if ((Number(trialUsage().scans) || 0) > 0) out.push(`receipt scans go back to ${FREE_OCR_MONTHLY} a month`);
+  if ((Number(trialUsage().scans) || 0) > 0) out.push(tr("receipt scans go back to {n} a month", { n: FREE_OCR_MONTHLY }));
   return out;
 }
 function trialEndText() {
   const c = trialEndChanges();
-  if (!c.length) return "Nothing you use changes when it ends, and nothing is deleted.";
+  if (!c.length) return tr("Nothing you use changes when it ends, and nothing is deleted.");
   const list = c.length === 1 ? c[0] : c.slice(0, -1).join(", ") + " and " + c[c.length - 1];
-  return `After that, ${list}. Nothing is deleted.`;
+  return tr("After that, {list}. Nothing is deleted.", { list });
 }
 
 // Every in-app price mention reads from proPriceLabel(), so a banner never
@@ -4374,10 +4374,10 @@ function fmtDateShort(iso) {
 }
 const wholeMoney = (n) => fmtMoney(n).replace(/\.00$/, "");
 function milestoneTitle(m) {
-  return m.paid ? `${wholeMoney(m.paid)} of debt paid down` : m.title;
+  return m.paid ? tr("{a} of debt paid down", { a: wholeMoney(m.paid) }) : tr(m.title);
 }
 function milestoneTitleHtml(m) {
-  return m.paid ? `${amt(wholeMoney(m.paid))} of debt paid down` : escapeHtml(m.title);
+  return m.paid ? tr("{a} of debt paid down", { a: amt(wholeMoney(m.paid)) }) : escapeHtml(tr(m.title));
 }
 
 function debtPaidTotal() {
@@ -4456,7 +4456,7 @@ function showMilestone(id) {
   milestoneShown = m;
   document.getElementById("milestone-icon").innerHTML = MILESTONE_ICONS[m.icon] || MILESTONE_ICONS.check;
   document.getElementById("milestone-title").innerHTML = milestoneTitleHtml(m) + ".";
-  document.getElementById("milestone-sub").textContent = m.sub;
+  document.getElementById("milestone-sub").textContent = tr(m.sub);
   dlg.showModal();
   // The same brand confetti as a debt payoff, lighter: a milestone is a nod,
   // not the finish line.
@@ -4474,8 +4474,8 @@ async function shareMilestone(m) {
   } catch (err) {
     if (err && err.name === "AbortError") return;
   }
-  try { await navigator.clipboard.writeText(text); toast("Copied. Paste it anywhere."); }
-  catch { toast("Couldn't share from here."); }
+  try { await navigator.clipboard.writeText(text); toast(tr("Copied. Paste it anywhere.")); }
+  catch { toast(tr("Couldn't share from here.")); }
 }
 document.getElementById("milestone-share")?.addEventListener("click", () => shareMilestone(milestoneShown));
 document.getElementById("milestone-dialog")?.addEventListener("close", () => {
@@ -4495,7 +4495,7 @@ function renderMilestones() {
   const got = state.milestones || {};
   const earned = MILESTONES.filter((m) => got[m.id] !== undefined).length;
   const count = document.getElementById("milestones-count");
-  if (count) count.textContent = `${earned} of ${MILESTONES.length}`;
+  if (count) count.textContent = tr("{a} of {b}", { a: earned, b: MILESTONES.length });
   let upcoming = 0;
   const hiddenIds = new Set();
   MILESTONES.forEach((m) => {
@@ -4505,7 +4505,7 @@ function renderMilestones() {
   const more = document.getElementById("milestones-more");
   if (more) {
     more.hidden = upcoming <= MILESTONES_NEXT;
-    more.textContent = milestonesShowAll ? "Show fewer" : `Show all ${MILESTONES.length}`;
+    more.textContent = milestonesShowAll ? tr("Show fewer") : tr("Show all {n}", { n: MILESTONES.length });
     more.setAttribute("aria-expanded", milestonesShowAll ? "true" : "false");
   }
   list.innerHTML = MILESTONES.filter((m) => !hiddenIds.has(m.id)).map((m) => {
@@ -4516,11 +4516,11 @@ function renderMilestones() {
       const p = milestoneProgress(m);
       if (p.need) note = p.money ? `${amt(Math.min(p.have, p.need))} of ${amt(wholeMoney(p.need))}` : `${Math.min(p.have, p.need)} of ${p.need}`;
     }
-    const share = on ? `<button type="button" class="milestone-share" data-milestone-share="${m.id}" aria-label="Share: ${escapeHtml(milestoneTitle(m))}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 9l5-5 5 5M5 14v5h14v-5"/></svg></button>` : "";
+    const share = on ? `<button type="button" class="milestone-share" data-milestone-share="${m.id}" aria-label="${tr("Share: {name}", { name: escapeHtml(milestoneTitle(m)) })}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 9l5-5 5 5M5 14v5h14v-5"/></svg></button>` : "";
     return `<li class="milestone${on ? " is-earned" : ""}">
       <span class="milestone-icon" aria-hidden="true"><svg viewBox="0 0 24 24">${MILESTONE_ICONS[m.icon]}</svg></span>
       <span class="milestone-text"><strong>${milestoneTitleHtml(m)}</strong>${note ? `<span class="hint">${note}</span>` : ""}</span>
-      ${share}<span class="sr-only">${on ? "Earned" : "Not yet"}</span>
+      ${share}<span class="sr-only">${tr(on ? "Earned" : "Not yet")}</span>
     </li>`;
   }).join("");
 }
@@ -4554,12 +4554,12 @@ function showDebtPaidOff(cleared) {
   if (!dlg || !aesKey) return;
   const left = state.debts.filter((d) => (Number(d.balance) || 0) > 0);
   const names = cleared.map((d) => d.name || "A debt");
-  const title = cleared.length === 1 ? `${names[0]} is paid off.` : `${cleared.length} debts paid off.`;
+  const title = cleared.length === 1 ? tr("{name} is paid off.", { name: names[0] }) : tr("{n} debts paid off.", { n: cleared.length });
   let sub;
-  if (!left.length) sub = cleared.length === 1 ? "That was the last one. You're debt-free." : "Those were the last ones. You're debt-free.";
+  if (!left.length) sub = tr(cleared.length === 1 ? "That was the last one. You're debt-free." : "Those were the last ones. You're debt-free.");
   else {
     const next = left.slice().sort((a, b) => costRate(b) - costRate(a) || (Number(a.balance) || 0) - (Number(b.balance) || 0))[0];
-    sub = `${left.length} to go. Next up: ${next.name}.`;
+    sub = tr("{n} to go. Next up: {name}.", { n: left.length, name: next.name });
   }
   const ids = new Set(cleared.map((d) => d.id));
   const paid = (state.dailyExpenses || [])
@@ -4569,15 +4569,15 @@ function showDebtPaidOff(cleared) {
   // the figures and keeps the words.
   const stats = [];
   if (cleared.length > 1) stats.push(escapeHtml(names.join(", ")));
-  if (paid > 0) stats.push(`${amt(paid)} paid with Duitful`);
+  if (paid > 0) stats.push(tr("{a} paid with Duitful", { a: amt(paid) }));
   const freed = cleared.reduce((s, d) => s + (Number(d.minPayment) || Number(d.installment) || 0), 0);
-  if (freed > 0) stats.push(`${amt(freed)} a month freed up`);
-  document.getElementById("debt-paid-title").textContent = left.length ? title : "Debt-free.";
+  if (freed > 0) stats.push(tr("{a} a month freed up", { a: amt(freed) }));
+  document.getElementById("debt-paid-title").textContent = left.length ? title : tr("Debt-free.");
   document.getElementById("debt-paid-sub").textContent = left.length ? sub : `${title.replace(/\.$/, "")}. ${sub}`;
   // One span per line: the list item is a flex row, which would push the
   // amount and its words apart.
   document.getElementById("debt-paid-stats").innerHTML = stats.slice(0, 3).map((t) => `<li><span>${t}</span></li>`).join("");
-  document.getElementById("debt-paid-done").textContent = left.length ? "Keep going" : "Celebrate";
+  document.getElementById("debt-paid-done").textContent = left.length ? tr("Keep going") : tr("Celebrate");
   if (!dlg.open) {
     // Another sheet (Pay debts, the entry editor) steps aside for this.
     document.querySelectorAll("dialog[open]").forEach((d) => { if (d !== dlg) d.close(); });
@@ -5372,7 +5372,7 @@ function showAnnouncement(m) {
   const titleEl = document.getElementById("announce-title");
   const bodyEl = document.getElementById("announce-body");
   const ctaEl = document.getElementById("announce-cta");
-  if (titleEl) titleEl.textContent = m.title || "A note from Duitful";
+  if (titleEl) titleEl.textContent = m.title || tr("A note from Duitful");
   if (bodyEl) {
     bodyEl.innerHTML = "";
     const paras = Array.isArray(m.body) ? m.body : [String(m.body || "")];
@@ -5646,11 +5646,12 @@ function promoLabelText(promo) {
 
 /* paywall modal */
 const PAYWALL_COPY = {
-  debts: `Free tracks ${FREE_DEBT_LIMIT} debts. Pro tracks every one.`,
-  installment: `Free tracks ${FREE_INSTALLMENT_LIMIT} pay-later plan. Pro tracks every Atome, SPayLater and Grab PayLater plan.`,
-  savings: `You've hit the free limit of ${FREE_SAVING_LIMIT} goals. Pro tracks unlimited.`,
-  investments: `You've hit the free limit of ${FREE_INVESTMENT_LIMIT} investment holdings. Pro tracks unlimited.`,
-  ocr: `You've used ${FREE_OCR_MONTHLY} free receipt scans this month. Pro unlocks unlimited.`,
+  // Templates: {n} is the free limit, filled in (and translated) when shown.
+  debts: ["Free tracks {n} debts. Pro tracks every one.", FREE_DEBT_LIMIT],
+  installment: ["Free tracks {n} pay-later plan. Pro tracks every Atome, SPayLater and Grab PayLater plan.", FREE_INSTALLMENT_LIMIT],
+  savings: ["You've hit the free limit of {n} goals. Pro tracks unlimited.", FREE_SAVING_LIMIT],
+  investments: ["You've hit the free limit of {n} investment holdings. Pro tracks unlimited.", FREE_INVESTMENT_LIMIT],
+  ocr: ["You've used {n} free receipt scans this month. Pro unlocks unlimited.", FREE_OCR_MONTHLY],
   statements: "Free imports 1 statement a month. Pro imports every statement.",
   cloudBackup: "Automatic backup to iCloud or Google Drive is a Pro feature. Back up now and Export CSV in Settings stay free.",
   multiCurrency: "Multi-currency entry is a Pro feature.",
@@ -5666,6 +5667,12 @@ function paysWithBillplz() {
   return cc === "MY" || currentCurrency() === "MYR";
 }
 
+function paywallCopy(feature) {
+  const c = PAYWALL_COPY[feature];
+  if (Array.isArray(c)) return tr(c[0], { n: c[1] });
+  return tr(c || "Unlock everything. Pay once.");
+}
+
 function openPaywall(feature) {
   applyDriveVisibility();
   const dlg = document.getElementById("paywall-dialog");
@@ -5677,13 +5684,13 @@ function openPaywall(feature) {
   // Everyone else on the web buys through the phone app's store.
   const billplz = !native && paysWithBillplz();
   if (reason) reason.textContent = feature === "cloudBackup"
-    ? `Automatic encrypted backup to ${backupPlaceName()} is a Pro feature. Back up now and Export CSV in Settings stay free.`
-    : PAYWALL_COPY[feature] || "Unlock everything. Pay once.";
+    ? tr("Automatic encrypted backup to {place} is a Pro feature. Back up now and Export CSV in Settings stay free.", { place: backupPlaceName() })
+    : paywallCopy(feature);
   if (hint) hint.textContent = native
     ? ""
     : billplz
-      ? "Pay with FPX, Touch 'n Go, GrabPay, Boost or any card. You get a license key you can paste on any device."
-      : "Outside Malaysia, Duitful Pro is bought in the phone app, through Google Play or the App Store. Your data moves across with a backup.";
+      ? tr("Pay with FPX, Touch 'n Go, GrabPay, Boost or any card. You get a license key you can paste on any device.")
+      : tr("Outside Malaysia, Duitful Pro is bought in the phone app, through Google Play or the App Store. Your data moves across with a backup.");
   // Clear any lingering "Verifying…" / error text from a previous attempt.
   if (status) { status.textContent = ""; status.hidden = true; }
 
@@ -5702,7 +5709,7 @@ function openPaywall(feature) {
   const trialBtn = document.getElementById("paywall-trial");
   if (trialBtn) {
     trialBtn.hidden = !canStartTrial();
-    trialBtn.textContent = `Try Pro free for ${TRIAL_DAYS} days`;
+    trialBtn.textContent = tr("Try Pro free for {n} days", { n: TRIAL_DAYS });
   }
 
   // Promo-code section: native-only (web checkout already handles discounts via Billplz).
@@ -5736,8 +5743,8 @@ function openPaywall(feature) {
       const priceAmount = document.getElementById("paywall-price-amount");
       const priceSub = document.getElementById("paywall-price-sub");
       if (priceAmount) priceAmount.textContent = launch.priceLabel;
-      if (priceSub) priceSub.textContent = `${promoLabelText(launch)} · one-time`;
-      if (hint) hint.textContent += ` Code ${launch.code} is filled in at checkout: ${launch.priceLabel} instead of ${PRO_PRICE_LABEL}.`;
+      if (priceSub) priceSub.textContent = `${promoLabelText(launch)} · ${tr("one-time")}`;
+      if (hint) hint.textContent += ` ${tr("Code {code} is filled in at checkout: {price} instead of {full}.", { code: launch.code, price: launch.priceLabel, full: PRO_PRICE_LABEL })}`;
     }
   }
 
@@ -5760,10 +5767,10 @@ function resetPromoState() {
   if (form) form.hidden = true;
   if (input) input.value = "";
   if (status) { status.textContent = ""; status.hidden = true; }
-  if (toggle) { toggle.textContent = "Have a promo code?"; toggle.hidden = false; }
+  if (toggle) { toggle.textContent = tr("Have a promo code?"); toggle.hidden = false; }
   if (priceAmount) priceAmount.textContent = PRO_PRICE_LABEL;
-  if (priceSub) priceSub.textContent = "one-time · no subscription";
-  if (buyBtn) buyBtn.textContent = "Unlock Pro";
+  if (priceSub) priceSub.textContent = tr("one-time · no subscription");
+  if (buyBtn) buyBtn.textContent = tr("Unlock Pro");
 }
 
 function resetReferrerUI() {
@@ -5774,16 +5781,16 @@ function resetReferrerUI() {
   if (form) form.hidden = true;
   if (input) input.value = "";
   if (status) { status.textContent = ""; status.hidden = true; }
-  if (toggle) toggle.textContent = "Got a friend code?";
+  if (toggle) toggle.textContent = tr("Got a friend code?");
 }
 
 function showReferrerApplied(code) {
   const toggle = document.getElementById("paywall-referrer-toggle");
   const form = document.getElementById("paywall-referrer-form");
   const status = document.getElementById("paywall-referrer-status");
-  if (toggle) toggle.textContent = `Remove friend code ${code}`;
+  if (toggle) toggle.textContent = tr("Remove friend code {code}", { code });
   if (form) form.hidden = true;
-  if (status) { status.textContent = "Your friend earns RM 5 — paid manually after the sale clears."; status.hidden = false; }
+  if (status) { status.textContent = tr("Your friend earns RM 5 — paid manually after the sale clears."); status.hidden = false; }
 }
 
 function applyPromoUI(promo) {
@@ -5793,7 +5800,7 @@ function applyPromoUI(promo) {
   if (isNative() && !storeSellsSku(promo.sku)) {
     activePromo = null;
     const st = document.getElementById("paywall-promo-status");
-    if (st) { st.textContent = `${promo.code} isn't available in the store right now. Unlock Pro is ${PRO_PRICE_LABEL}.`; st.hidden = false; }
+    if (st) { st.textContent = tr("{code} isn't available in the store right now. Unlock Pro is {price}.", { code: promo.code, price: PRO_PRICE_LABEL }); st.hidden = false; }
     return;
   }
   activePromo = promo;
@@ -5904,7 +5911,7 @@ function ensureProCelebrateBlock(dlg, paidLabel) {
 function showRestoreCelebration(source) {
   const dlg = document.getElementById("restore-dialog");
   if (!dlg || !state) return;
-  const where = source === "icloud" ? "iCloud" : source === "csv" ? "your CSV" : "Google Drive";
+  const where = source === "icloud" ? "iCloud" : source === "csv" ? tr("your CSV") : "Google Drive";
   const n = (a) => (Array.isArray(a) ? a.length : 0);
   const plural = (k, one, many) => `${k.toLocaleString()} ${k === 1 ? one : many}`;
   const stats = [];
@@ -5914,9 +5921,9 @@ function showRestoreCelebration(source) {
   if (monthly) stats.push(plural(monthly, "monthly item", "monthly items"));
   if (n(state.debts)) stats.push(plural(n(state.debts), "debt", "debts"));
   if (n(state.savings)) stats.push(plural(n(state.savings), "savings goal", "savings goals"));
-  if (!stats.length) stats.push("Your settings");
+  if (!stats.length) stats.push(tr("Your settings"));
   if (!state.guideSeen) { state.guideSeen = true; save(); }
-  document.getElementById("restore-sub").textContent = `Everything is back from ${where}.`;
+  document.getElementById("restore-sub").textContent = tr("Everything is back from {where}.", { where });
   document.getElementById("restore-stats").innerHTML = stats.slice(0, 3).map((t) => `<li>${escapeHtml(t)}</li>`).join("");
   // Another dialog (the tour, What's new) waits its turn rather than stacking.
   document.querySelectorAll("dialog[open]").forEach((d) => { if (d !== dlg) d.close(); });
@@ -5947,7 +5954,7 @@ function openProWelcome(paidLabel) {
   const driveBtn = document.getElementById("pro-welcome-drive");
   if (driveBtn && window.DriveSync && DriveSync.isConfigured && DriveSync.isConfigured() && DriveSync.isSignedIn && DriveSync.isSignedIn()) {
     driveBtn.disabled = true;
-    driveBtn.textContent = "✓ Already connected";
+    driveBtn.textContent = tr("✓ Already connected");
   } else if (driveBtn) {
     driveBtn.disabled = false;
     driveBtn.textContent = tr("Connect Google Drive");
@@ -6000,8 +6007,8 @@ document.getElementById("pro-welcome-drive")?.addEventListener("click", async ()
         }
       } catch (_) { /* refCode is optional UX; never block Drive flow */ }
     }
-    if (btn) btn.textContent = "✓ Connected";
-    if (status) { status.textContent = email ? `Signed in as ${email}` : "Connected"; status.hidden = false; }
+    if (btn) btn.textContent = tr("✓ Connected");
+    if (status) { status.textContent = email ? tr("Signed in as {email}", { email }) : tr("Connected"); status.hidden = false; }
   } catch (err) {
     if (btn) { btn.disabled = false; btn.textContent = tr("Connect Google Drive"); }
     if (status) { status.textContent = tr("Sign-in failed:") + " " + (err && err.message ? err.message : String(err)); status.hidden = false; }
@@ -6014,7 +6021,7 @@ function showPoolLimitForm(name) {
   const wrap = document.getElementById("pro-welcome-pool-form");
   const label = document.getElementById("pro-welcome-pool-label");
   const input = document.getElementById("pro-welcome-pool-limit");
-  if (label) label.textContent = `Monthly limit for ${name}`;
+  if (label) label.textContent = tr("Monthly limit for {name}", { name });
   if (input) input.value = "";
   if (wrap) wrap.hidden = false;
   setTimeout(() => input?.focus(), 0);
@@ -6057,8 +6064,8 @@ function commitPendingPool() {
   const status = document.getElementById("pro-welcome-pools-status");
   if (status) {
     status.textContent = limit > 0
-      ? "Pool added. Tap another or hit Done."
-      : "Pool added. Set a limit later in Monthly → Budget Pools.";
+      ? tr("Pool added. Tap another or hit Done.")
+      : tr("Pool added. Set a limit later in Monthly → Budget Pools.");
     status.hidden = false;
   }
   hidePoolLimitForm();
@@ -6608,10 +6615,10 @@ function initSplitDeepLinks() {
 }
 
 async function restorePurchases() {
-  if (!isNative()) { notify("The web version is fully unlocked — nothing to restore."); return; }
+  if (!isNative()) { notify(tr("The web version is fully unlocked — nothing to restore.")); return; }
   const sdk = window.CdvPurchase;
-  if (!sdk || !sdk.store) { notify("Store not available."); return; }
-  if (!iapInitialized) { notify("Store still initialising. Try again in a moment, or restart the app."); return; }
+  if (!sdk || !sdk.store) { notify(tr("Store not available.")); return; }
+  if (!iapInitialized) { notify(tr("Store still initialising. Try again in a moment, or restart the app.")); return; }
   const wasProBefore = !!(state && state.pro);
   try {
     await sdk.store.restorePurchases();
@@ -6621,14 +6628,14 @@ async function restorePurchases() {
     // so the alert text matches reality.
     await new Promise((r) => setTimeout(r, 1500));
     if (state && state.pro && !wasProBefore) {
-      notify("Pro restored. Welcome back!");
+      notify(tr("Pro restored. Welcome back!"));
     } else if (state && state.pro) {
-      notify("Already unlocked — nothing to restore.");
+      notify(tr("Already unlocked — nothing to restore."));
     } else {
-      notify("No previous purchase found for this account. If you bought Pro on a different Google account, sign that account into the Play Store first.");
+      notify(tr("No previous purchase found for this account. If you bought Pro on a different Google account, sign that account into the Play Store first."));
     }
   } catch (e) {
-    notify("Restore failed: " + (e && e.message ? e.message : String(e)));
+    notify(tr("Restore failed:") + " " + (e && e.message ? e.message : String(e)));
   }
 }
 
@@ -6716,7 +6723,7 @@ function renderProControls() {
   // any purchase route other than IAP, so it's web-only copy.
   const legalHint = document.getElementById("legal-hint");
   if (legalHint) {
-    legalHint.textContent = native ? "" : "Also how to recover a Pro licence.";
+    legalHint.textContent = native ? "" : tr("Also how to recover a Pro licence.");
     legalHint.hidden = native;
   }
 
@@ -6728,8 +6735,8 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
   const buyBtn = document.getElementById("paywall-buy");
   const status = document.getElementById("paywall-status");
   const originalLabel = buyBtn ? buyBtn.textContent : "Unlock Pro";
-  if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = "Verifying…"; }
-  if (status) { status.textContent = "Confirm the purchase in the store sheet…"; status.hidden = false; }
+  if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = tr("Verifying…"); }
+  if (status) { status.textContent = tr("Confirm the purchase in the store sheet…"); status.hidden = false; }
   try {
     const sku = activePromo && nativePlatform() !== "ios" ? activePromo.sku : PRODUCT_ID;
     const outcome = await purchasePro(sku);
@@ -6743,7 +6750,7 @@ document.getElementById("paywall-buy")?.addEventListener("click", async () => {
       // they can try again or dismiss it themselves.
       if (status) { status.textContent = ""; status.hidden = true; }
     } else if (status) {
-      status.textContent = outcome.message || "Purchase failed. Try again.";
+      status.textContent = outcome.message || tr("Purchase failed. Try again.");
       status.hidden = false;
     }
   } finally {
@@ -6766,7 +6773,7 @@ function tryApplyPromoCode() {
   const raw = input?.value || "";
   const promo = lookupPromoCode(raw);
   if (!promo) {
-    if (status) { status.textContent = "Code not recognised, or it has expired."; status.hidden = false; }
+    if (status) { status.textContent = tr("Code not recognised, or it has expired."); status.hidden = false; }
     return;
   }
   applyPromoUI(promo);
@@ -6797,7 +6804,7 @@ function tryApplyReferrerCode() {
   const status = document.getElementById("paywall-referrer-status");
   const code = (input?.value || "").trim().toLowerCase();
   if (!/^[a-f0-9]{8}$/.test(code)) {
-    if (status) { status.textContent = "Friend codes are exactly 8 characters (a–f, 0–9). Ask your friend for theirs."; status.hidden = false; }
+    if (status) { status.textContent = tr("Friend codes are exactly 8 characters (a–f, 0–9). Ask your friend for theirs."); status.hidden = false; }
     return;
   }
   if (!state) return;
@@ -7213,7 +7220,7 @@ document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async (
   } catch {
     const el = document.getElementById("pro-refer-url");
     if (el) { const r = document.createRange(); r.selectNodeContents(el); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); }
-    toast("Copy the selected link.");
+    toast(tr("Copy the selected link."));
   }
 });
 
@@ -7274,7 +7281,7 @@ document.getElementById("btn-pro-refer-claim")?.addEventListener("click", async 
       save();
       renderAll();
     }
-    if (status) { status.textContent = `✓ Your code is ${code}. Tap Share to send your link.`; status.hidden = false; }
+    if (status) { status.textContent = `✓ ${tr("Your code is {code}. Tap Share to send your link.", { code })}`; status.hidden = false; }
   } catch (e) {
     if (status) { status.textContent = tr("Couldn't generate a code:") + " " + (e?.message || e); status.hidden = false; }
   }
@@ -7295,7 +7302,7 @@ document.getElementById("license-verify")?.addEventListener("click", async () =>
     setTimeout(() => { closeLicenseDialog(); openProWelcome(); }, 900);
   } catch (e) {
     if (ok) ok.hidden = true;
-    if (err) { err.textContent = e.message || "Invalid license"; err.hidden = false; }
+    if (err) { err.textContent = e.message || tr("Invalid license"); err.hidden = false; }
   }
 });
 
@@ -7332,12 +7339,12 @@ document.getElementById("fpx-continue")?.addEventListener("click", async () => {
   const bankCode = (bankSel?.value || "").trim();
   const discountCode = (discountInput?.value || "").trim().toUpperCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    if (err) { err.textContent = "Enter a valid email address."; err.hidden = false; }
+    if (err) { err.textContent = tr("Enter a valid email address."); err.hidden = false; }
     return;
   }
   if (err) err.hidden = true;
   const btn = document.getElementById("fpx-continue");
-  if (btn) { btn.disabled = true; btn.textContent = "Redirecting…"; }
+  if (btn) { btn.disabled = true; btn.textContent = tr("Redirecting…"); }
   try {
     const referrerCode = storedReferralCode();
     const r = await fetch("/api/billplz/create-bill", {
@@ -7356,14 +7363,14 @@ document.getElementById("fpx-continue")?.addEventListener("click", async () => {
     if (data.comp && data.license) {
       await activateLicenseToken(data.license);
       closeFpxDialog();
-      notify(`Pro unlocked — welcome! (${data.discount?.description || "Discount applied"})`);
+      notify(`${tr("Pro unlocked — welcome!")} (${data.discount?.description || tr("Discount applied")})`);
       return;
     }
     if (!data.url) throw new Error("Could not start checkout");
     window.location.href = data.url;
   } catch (e) {
-    if (err) { err.textContent = e.message || "Something went wrong"; err.hidden = false; }
-    if (btn) { btn.disabled = false; btn.textContent = "Continue to payment"; }
+    if (err) { err.textContent = e.message || tr("Something went wrong"); err.hidden = false; }
+    if (btn) { btn.disabled = false; btn.textContent = tr("Continue to payment"); }
   }
 });
 
@@ -11288,6 +11295,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.8": [
+    "<strong>Pro, passcode and milestones in Bahasa Melayu and 中文</strong> — the Pro screen and checkout, your passcode prompts, milestones and other small sheets now follow your language.",
+  ],
   "1.57.7": [
     "<strong>Reports in Bahasa Melayu and 中文</strong> — filters, totals, the spending chart, trends and your portfolio chart now follow your language.",
   ],
@@ -11832,7 +11842,7 @@ function showWhatsNewNow() {
     : Object.keys(RELEASE_NOTES).filter((v) => versionCompare(v, APP_VERSION) <= 0 && RELEASE_NOTES[v].length)
       .sort((a, b) => versionCompare(b, a)).slice(0, 1);
   if (!versions.length) return;
-  fillWhatsNew(versions, unseen.length > 1 ? "What's new since you last looked" : `What's new in v${versions[0]}`);
+  fillWhatsNew(versions, unseen.length > 1 ? tr("What's new since you last looked") : tr("What's new in v{v}", { v: versions[0] }));
   openWhatsNew();
 }
 document.getElementById("btn-whats-new")?.addEventListener("click", showWhatsNewNow);
@@ -15817,17 +15827,17 @@ function askPasscode({ title = "Passcode", label = "Passcode", note = "", ok = "
   if (!dlg) return Promise.resolve(null);
   const $id = (x) => document.getElementById(x);
   const input = $id("passcode-input"), again = $id("passcode-confirm"), err = $id("passcode-error"), okBtn = $id("passcode-ok");
-  $id("passcode-title").textContent = title;
-  $id("passcode-label").textContent = label;
+  $id("passcode-title").textContent = tr(title);
+  $id("passcode-label").textContent = tr(label);
   const noteEl = $id("passcode-note");
-  noteEl.textContent = note; noteEl.hidden = !note;
+  noteEl.textContent = tr(note); noteEl.hidden = !note;
   $id("passcode-confirm-field").hidden = !isNew;
   input.type = text ? "text" : "password";
   input.inputMode = text ? "text" : "numeric";
   input.autocomplete = isNew ? "new-password" : text ? "off" : "current-password";
   input.value = ""; again.value = "";
   err.hidden = true; err.textContent = "";
-  okBtn.textContent = ok;
+  okBtn.textContent = tr(ok);
   okBtn.classList.toggle("danger", danger);
   okBtn.disabled = false;
   return new Promise((resolve) => {
@@ -15843,16 +15853,16 @@ function askPasscode({ title = "Passcode", label = "Passcode", note = "", ok = "
       e.preventDefault();
       const v = text ? input.value.trim() : input.value;
       if (isNew) {
-        if (v === OPEN_PASSCODE) return fail(OPEN_REFUSED);
-        if (!/^\d{4,}$/.test(v)) return fail("At least 4 digits, numbers only.");
-        if (v !== again.value) return fail("The two don't match.");
-      } else if (!v) return fail(text ? "Type it to confirm." : "Enter your passcode.");
+        if (v === OPEN_PASSCODE) return fail(tr(OPEN_REFUSED));
+        if (!/^\d{4,}$/.test(v)) return fail(tr("At least 4 digits, numbers only."));
+        if (v !== again.value) return fail(tr("The two don't match."));
+      } else if (!v) return fail(tr(text ? "Type it to confirm." : "Enter your passcode."));
       if (check) {
         okBtn.disabled = true;
         let good = false;
         try { good = await check(v); } catch { good = false; }
         okBtn.disabled = false;
-        if (!good) return fail(wrong);
+        if (!good) return fail(tr(wrong));
       }
       done(v);
     };
@@ -15888,7 +15898,7 @@ document.getElementById("btn-change-passcode")?.addEventListener("click", async 
     const p1 = await askNewPasscode();
     if (!p1) return;
     await rekeyVault(p1);
-    toast("Passcode set.");
+    toast(tr("Passcode set."));
     maybeOfferBiometric(p1).catch(() => {});
     return;
   }
@@ -15897,7 +15907,7 @@ document.getElementById("btn-change-passcode")?.addEventListener("click", async 
   const p1 = await askPasscode({ title: "Change passcode", label: "New passcode", ok: "Save", isNew: true });
   if (!p1) return;
   await rekeyVault(p1);
-  toast("Passcode changed.");
+  toast(tr("Passcode changed."));
 });
 
 document.getElementById("btn-remove-passcode")?.addEventListener("click", async () => {

@@ -411,7 +411,7 @@
           <div class="type-pills" role="radiogroup" aria-label="Spend type">
             <button type="button" class="pill active" data-type="expense" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="8" cy="8" r="1.5"/></svg></span>Spend</button>
             <button type="button" class="pill" data-type="debt" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Pay debt</button>
-            <button type="button" class="pill" data-type="saving" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4C12 4 4 10 4 20c6-2 10-6 12-10"/><path d="M4 20c6 0 12-4 16-12"/></svg></span>Save</button>
+            <button type="button" class="pill" data-type="saving" role="radio" aria-checked="false" data-i18n="Save (money)"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4C12 4 4 10 4 20c6-2 10-6 12-10"/><path d="M4 20c6 0 12-4 16-12"/></svg></span>Save</button>
           </div>
 
           <div class="scan-row">
@@ -2002,24 +2002,24 @@
           <select id="fpx-bank" autocomplete="off">
             <option value="">Let me choose on the next page</option>
             <optgroup label="FPX — Online banking">
-              <option value="MB2U0227">Maybank2U</option>
-              <option value="BCBB0235">CIMB Clicks</option>
-              <option value="PBB0233">Public Bank</option>
-              <option value="HLB0224">Hong Leong Connect</option>
-              <option value="RHB0218">RHB Now</option>
-              <option value="BIMB0340">Bank Islam</option>
-              <option value="AMBB0209">AmOnline</option>
-              <option value="UOB0226">UOB</option>
-              <option value="OCBC0229">OCBC</option>
-              <option value="HSBC0223">HSBC</option>
-              <option value="BSN0601">BSN</option>
-              <option value="BKRM0602">Bank Rakyat</option>
-              <option value="ABB0233">Affin Bank</option>
-              <option value="ABMB0212">Alliance Bank</option>
-              <option value="BMMB0341">Bank Muamalat</option>
-              <option value="CIT0219">CitiBank</option>
-              <option value="SCB0216">Standard Chartered</option>
-              <option value="KFH0346">KFH</option>
+              <option value="MB2U0227" translate="no">Maybank2U</option>
+              <option value="BCBB0235" translate="no">CIMB Clicks</option>
+              <option value="PBB0233" translate="no">Public Bank</option>
+              <option value="HLB0224" translate="no">Hong Leong Connect</option>
+              <option value="RHB0218" translate="no">RHB Now</option>
+              <option value="BIMB0340" translate="no">Bank Islam</option>
+              <option value="AMBB0209" translate="no">AmOnline</option>
+              <option value="UOB0226" translate="no">UOB</option>
+              <option value="OCBC0229" translate="no">OCBC</option>
+              <option value="HSBC0223" translate="no">HSBC</option>
+              <option value="BSN0601" translate="no">BSN</option>
+              <option value="BKRM0602" translate="no">Bank Rakyat</option>
+              <option value="ABB0233" translate="no">Affin Bank</option>
+              <option value="ABMB0212" translate="no">Alliance Bank</option>
+              <option value="BMMB0341" translate="no">Bank Muamalat</option>
+              <option value="CIT0219" translate="no">CitiBank</option>
+              <option value="SCB0216" translate="no">Standard Chartered</option>
+              <option value="KFH0346" translate="no">KFH</option>
             </optgroup>
           </select>
         </label>
@@ -2876,9 +2876,9 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=7"></script>
-    <script src="i18n-zh.js?v=7"></script>
-    <script src="i18n.js?v=1"></script>
+    <script src="i18n-ms.js?v=8"></script>
+    <script src="i18n-zh.js?v=8"></script>
+    <script src="i18n.js?v=2"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
     <script src="icloud-sync.js?v=8"></script>
@@ -2896,6 +2896,6 @@
     <script src="tax.js?v=17"></script>
     <script src="statement.js?v=2"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=223"></script>
+    <script src="script.js?v=224"></script>
   </body>
 </html>
