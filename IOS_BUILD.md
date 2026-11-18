@@ -545,8 +545,10 @@ a 7.6" inner display (regular width and height, nearly square).
 - **Which SDK decides how it looks inside.** Built with an SDK older than
   iOS 27, the app opens on the inner display at a familiar iPhone size, not
   full screen. Built with the **iOS 27.1 SDK**, it goes edge to edge with
-  system vertical bars. The workflow picks the newest stable Xcode on a
-  `macos-26` runner; once Xcode 27.1 is stable there, rebuilds pick it up.
+  system vertical bars. The workflow runs on GitHub's `xcode-27` image and
+  picks its newest stable Xcode (27.2 in November 2026), so builds use the
+  iOS 27 SDK. The `macos-26` image stopped at Xcode 26.6, which earned an
+  ITMS-90725 warning on the 1.58.0 upload.
 - **The web layout already adapts.** Duitful is one responsive page: the
   inner display gets the same width breakpoints a small tablet would, and
   `viewport-fit=cover` + `env(safe-area-inset-left/right)` on the tab bar
