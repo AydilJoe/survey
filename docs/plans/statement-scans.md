@@ -1,6 +1,9 @@
 # Scanned / photographed bank statements: plan (not started)
 
-Status: planned 16 Nov 2026, **not built**. Follows statement import (1.57.0).
+Status: **built in 1.57.15** (19 Nov 2026). Follows statement import (1.57.0).
+Still to do: check real OCR quality on a phone (the e2e OCR is a stand-in
+fed from the synthetic layouts), and skew/rotation if photos come out
+crooked — rows are grouped by baseline, so a tilted photo can merge rows.
 
 ## Today
 

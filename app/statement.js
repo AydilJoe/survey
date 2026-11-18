@@ -51,12 +51,17 @@ const STMT_COL = 3;
 function stmtLinesFromItems(items, page) {
   const pts = items
     .filter((it) => it && typeof it.str === "string" && it.str.trim() !== "")
-    .map((it) => ({ x: it.transform[4], y: it.transform[5], w: it.width || 0, s: it.str }))
-    .sort((a, b) => b.y - a.y || a.x - b.x);
+    .map((it) => ({ x: it.transform[4], y: it.transform[5], w: it.width || 0, s: it.str }));
+  return stmtLinesFromPoints(pts, page, 2.5);
+}
+/* Points {x, y (up), w, s} in A4 points → lines; tol is how far apart two
+   baselines can be and still be one line. */
+function stmtLinesFromPoints(points, page, tol) {
+  const pts = points.slice().sort((a, b) => b.y - a.y || a.x - b.x);
   const lines = [];
   for (const p of pts) {
     let line = lines.length ? lines[lines.length - 1] : null;
-    if (!line || Math.abs(line.y - p.y) > 2.5) { line = { y: p.y, items: [], page }; lines.push(line); }
+    if (!line || Math.abs(line.y - p.y) > tol) { line = { y: p.y, items: [], page }; lines.push(line); }
     line.items.push(p);
   }
   for (const line of lines) {
@@ -89,7 +94,7 @@ async function readStatementPdf(data, password) {
   const lib = await stmtLoadPdfjs();
   let doc;
   try {
-    doc = await lib.getDocument({ data: new Uint8Array(data), password: password || undefined, isEvalSupported: false, useSystemFonts: true }).promise;
+    doc = await lib.getDocument({ data: new Uint8Array(data.slice(0)), password: password || undefined, isEvalSupported: false, useSystemFonts: true }).promise;
   } catch (e) {
     const err = new Error("unreadable");
     if (e && e.name === "PasswordException") err.code = e.code === 2 ? "wrong-password" : "password";
@@ -109,6 +114,126 @@ async function readStatementPdf(data, password) {
   const lines = pages.flat();
   if (!lines.length) { const err = new Error("scanned"); err.code = "scanned"; throw err; }
   return { pages, lines };
+}
+
+/* ---------- scanned statements: OCR on the phone ----------
+   A PDF with no text layer, or photos of the pages, are read with the same
+   on-device OCR as receipts (ML Kit in the phone shells, Tesseract
+   otherwise). Each word's box becomes a point on an A4-wide page, so the
+   lines come out spaced like a text PDF's and the same layout rules parse
+   them. OCR misreads digits, so such a statement only imports when its
+   figures add up (statementImportNow). Every picture is read in memory and
+   dropped. */
+const STMT_SCAN_MAX_PAGES = 12;
+const STMT_SCAN_SCALE = 2.5;     // PDF points → pixels for OCR (~180 dpi)
+const STMT_SCAN_MAX_SIDE = 2600; // photos are scaled down to this
+
+/* OCR words ({text, x0, y0, x1, y1} or Tesseract's {text, bbox}) in image
+   pixels → lines, as if the page were 595pt wide. */
+function stmtLinesFromWords(words, page, width) {
+  const k = 595 / (width > 0 ? width : 595);
+  const pts = [];
+  const hs = [];
+  for (const w of words || []) {
+    const s = w && String(w.text == null ? "" : w.text).trim();
+    if (!s) continue;
+    const b = w.bbox && typeof w.bbox === "object" ? w.bbox : w;
+    const x0 = Number(b.x0), x1 = Number(b.x1), y0 = Number(b.y0), y1 = Number(b.y1);
+    if (![x0, x1, y0, y1].every(Number.isFinite)) continue;
+    pts.push({ x: x0 * k, y: -((y0 + y1) / 2) * k, w: Math.max(0, x1 - x0) * k, s });
+    hs.push(Math.max(0, y1 - y0) * k);
+  }
+  if (!pts.length) return [];
+  hs.sort((a, b) => a - b);
+  return stmtLinesFromPoints(pts, page, Math.max(1.5, hs[hs.length >> 1] * 0.5));
+}
+
+/* One picture → its words. ML Kit first where the phone has it, Tesseract
+   otherwise; the receipts' adapters turn either into word boxes. */
+async function stmtOcrImage(canvas) {
+  let words = null;
+  const plugin = typeof mlkitTextPlugin === "function" ? mlkitTextPlugin() : null;
+  if (plugin) {
+    try {
+      const b64 = mlkitBase64FromDataUrl(canvas.toDataURL("image/jpeg", 0.92));
+      const res = b64 ? await plugin.detectText({ base64Image: b64, rotation: 0 }) : null;
+      if (res) words = mlkitWordsFromResult(res);
+    } catch { words = null; }
+  }
+  if (!words || !words.length) {
+    const worker = await getTesseractWorker(() => {});
+    const res = await worker.recognize(canvas);
+    words = collectOcrWords(res && res.data);
+  }
+  return { words: words || [], width: canvas.width };
+}
+
+async function stmtCanvasFromImage(src) {
+  const url = typeof src === "string" ? src : URL.createObjectURL(src);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("image"));
+      i.src = url;
+    });
+    const k = Math.min(1, STMT_SCAN_MAX_SIDE / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(img.naturalWidth * k));
+    c.height = Math.max(1, Math.round(img.naturalHeight * k));
+    const g = c.getContext("2d");
+    g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(img, 0, 0, c.width, c.height);
+    return c;
+  } finally {
+    if (typeof src !== "string") URL.revokeObjectURL(url);
+  }
+}
+
+/* Pages one at a time: get the picture, read it, drop it. say(n, of) shows
+   progress. Resolves { pages, lines, scanned: true } or throws "no-text". */
+async function stmtReadScanPages(count, canvasFor, say) {
+  const pages = [];
+  for (let n = 1; n <= count; n++) {
+    if (say) say(n, count);
+    const canvas = await canvasFor(n);
+    if (!canvas) continue;
+    try {
+      const { words, width } = await stmtOcrImage(canvas);
+      pages.push(stmtLinesFromWords(words, n, width));
+    } finally {
+      canvas.width = 0; canvas.height = 0;       // the picture is not kept
+    }
+  }
+  const lines = pages.flat();
+  if (!lines.length) { const err = new Error("no-text"); err.code = "no-text"; throw err; }
+  return { pages, lines, scanned: true };
+}
+
+/* A PDF with no text layer: render each page and read it. */
+async function readStatementScanPdf(data, password, say) {
+  const lib = await stmtLoadPdfjs();
+  const doc = await lib.getDocument({ data: new Uint8Array(data.slice(0)), password: password || undefined, isEvalSupported: false, useSystemFonts: true }).promise;
+  try {
+    return await stmtReadScanPages(Math.min(doc.numPages, STMT_SCAN_MAX_PAGES), async (n) => {
+      const page = await doc.getPage(n);
+      const vp = page.getViewport({ scale: STMT_SCAN_SCALE });
+      const c = document.createElement("canvas");
+      c.width = Math.ceil(vp.width); c.height = Math.ceil(vp.height);
+      const g = c.getContext("2d");
+      g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+      await page.render({ canvasContext: g, viewport: vp }).promise;
+      return c;
+    }, say);
+  } finally {
+    try { doc.destroy(); } catch {}
+  }
+}
+
+/* Photos of the pages (or the phone's document scanner), in order. */
+function readStatementPhotos(sources, say) {
+  const list = Array.from(sources || []).slice(0, STMT_SCAN_MAX_PAGES);
+  return stmtReadScanPages(list.length, (n) => stmtCanvasFromImage(list[n - 1]), say);
 }
 
 /* ---------- small helpers ---------- */
@@ -403,12 +528,13 @@ function parseGenericStatement(lines) {
 function parseStatement(read) {
   const text = read.lines.map((l) => l.text).join("\n");
   const layout = STATEMENT_LAYOUTS.find((L) => L.detect(text));
+  const scanned = !!read.scanned;
   if (layout) {
     const out = layout.parse(read.lines);
-    return { layout: layout.id, bank: layout.bank, kind: layout.kind, ...out };
+    return { layout: layout.id, bank: layout.bank, kind: layout.kind, ...out, scanned };
   }
   const out = parseGenericStatement(read.lines);
-  return { layout: "generic", bank: "", ...out };
+  return { layout: "generic", bank: "", ...out, scanned };
 }
 
 /* ---------- reconciliation ---------- */
@@ -569,6 +695,8 @@ function openStatementImport() {
   if (!dlg) return;
   stmtUi.items = []; stmtUi.parsed = null; stmtUi.recon = null; stmtUi.file = null;
   stmtEl("stmt-pick").hidden = false;
+  const scan = stmtEl("stmt-scan");
+  if (scan) scan.hidden = !(typeof duitfulKit === "function" && duitfulKit("scanDocument"));
   stmtEl("stmt-password").hidden = true;
   stmtEl("stmt-review").hidden = true;
   stmtEl("stmt-import").hidden = true;
@@ -578,13 +706,17 @@ function openStatementImport() {
 }
 
 // File → text → rows → check → review. The password, if any, lives only in
-// this call.
+// this call. A PDF with no text layer is read with OCR instead.
+const stmtPageSay = (n, of) => stmtSay(tr("Reading page {n} of {m} on your phone…", { n, m: of }));
+const STMT_NO_TEXT = "Couldn't read any text on these pages. Try a sharper photo, or download the statement as a PDF from your bank's app.";
 async function statementFromFile(file, password) {
   stmtUi.file = file;
   stmtSay(tr("Reading on your phone…"));
   let read;
+  let data = null;
   try {
-    read = await readStatementPdf(await file.arrayBuffer(), password);
+    data = await file.arrayBuffer();
+    read = await readStatementPdf(data, password);
   } catch (e) {
     const code = e && e.code;
     if (code === "password" || code === "wrong-password") {
@@ -594,9 +726,25 @@ async function statementFromFile(file, password) {
       setTimeout(() => stmtEl("stmt-pw")?.focus(), 30);
       return null;
     }
-    stmtSay(code === "scanned"
-      ? tr("This PDF is a scanned image. Download the statement as a PDF from your bank's app or website instead.")
-      : "Couldn't read this PDF.");
+    if (code !== "scanned" || !data) { stmtSay(tr("Couldn't read this PDF.")); return null; }
+    try {
+      read = await readStatementScanPdf(data, password, stmtPageSay);
+    } catch (e2) {
+      stmtSay(tr(e2 && e2.code === "no-text" ? STMT_NO_TEXT : "Couldn't read this PDF."));
+      return null;
+    }
+  }
+  return showStatementReview(read);
+}
+
+// Photos of the pages, or the phone's document scanner: OCR, then the same review.
+async function statementFromPhotos(sources) {
+  stmtUi.file = null;
+  let read;
+  try {
+    read = await readStatementPhotos(sources, stmtPageSay);
+  } catch (e) {
+    stmtSay(tr(e && e.code === "no-text" ? STMT_NO_TEXT : "Couldn't read these photos."));
     return null;
   }
   return showStatementReview(read);
@@ -624,9 +772,9 @@ function stmtSummaryText(parsed, recon) {
   const what = parsed.bank ? tr(parsed.kind === "card" ? "{bank} card" : "{bank} account", { bank: parsed.bank }) : tr("Statement");
   const page = recon.problems[0] && recon.problems[0].page;
   const check = recon.status === "ok" ? tr("Checks out ✓")
-    : recon.status === "none" ? tr("No balances printed to check")
+    : recon.status === "none" ? tr(parsed.scanned ? "No balances printed to check, so a scan can't be imported" : "No balances printed to check")
     : page ? tr("Doesn't add up on page {n} — check the rows", { n: page }) : tr("Doesn't add up — check the rows");
-  return [what, span, check].filter(Boolean).join(" · ");
+  return [what, span, parsed.scanned ? tr("Read from a scan") : "", check].filter(Boolean).join(" · ");
 }
 
 function renderStatementReview() {
@@ -646,7 +794,9 @@ function renderStatementReview() {
       <div class="stmt-main">
         <div class="stmt-top">
           <input class="stmt-payee" data-stmt-payee="${i}" value="${escapeHtml(it.payee)}" aria-label="${tr("Payee")}" />
-          <span class="stmt-amt ${it.kind}">${sign}${escapeHtml(fmtMoney(it.amount))}</span>
+          ${stmtUi.parsed.scanned
+            ? `<input class="stmt-amt-in ${it.kind}" data-stmt-amt="${i}" inputmode="decimal" value="${it.amount.toFixed(2)}" aria-label="${tr("Amount")}" />`
+            : `<span class="stmt-amt ${it.kind}">${sign}${escapeHtml(fmtMoney(it.amount))}</span>`}
         </div>
         <div class="stmt-meta">
           <span>${escapeHtml(stmtFmtDate(it.date))}</span>
@@ -656,21 +806,35 @@ function renderStatementReview() {
             <option value="move"${it.kind === "move" ? " selected" : ""}>${tr("Not counted")}</option>
           </select>
           ${catSel}${tag}
+          ${stmtUi.parsed.scanned && it.flagged && it.row.balance != null
+            ? `<label class="stmt-bal">${tr("Balance")} <input data-stmt-bal="${i}" inputmode="decimal" value="${it.row.balance.toFixed(2)}" /></label>` : ""}
         </div>
       </div>
     </li>`;
   }).join("");
   const on = stmtUi.items.filter((x) => x.on && x.kind !== "move").length;
-  stmtEl("stmt-count").textContent = tr("{n} to import", { n: on });
+  const blocked = stmtScanBlocked();
+  stmtEl("stmt-count").textContent = blocked ? tr("Fix the figures that don't match the scan to import") : tr("{n} to import", { n: on });
   const btn = stmtEl("stmt-import");
-  btn.disabled = !on;
+  btn.disabled = !on || blocked;
   btn.textContent = on ? tr("Import {n}", { n: on }) : tr("Import");
   stmtEl("stmt-all").textContent = stmtUi.items.every((x) => x.on || x.kind === "move") ? tr("Untick all") : tr("Select all");
   if (typeof renderFreeCounts === "function") renderFreeCounts();
 }
 
+/* A scan imports only when its figures add up: OCR can misread a digit and
+   nothing else would catch it. */
+function stmtScanBlocked() {
+  return !!(stmtUi.parsed && stmtUi.parsed.scanned && (!stmtUi.recon || stmtUi.recon.status !== "ok"));
+}
+function stmtRecheck() {
+  stmtUi.recon = reconcileStatement(stmtUi.parsed);
+  for (const it of stmtUi.items) it.flagged = stmtUi.recon.badRows.has(it.row);
+}
+
 function statementImportNow() {
   if (!stmtUi.parsed) return false;
+  if (stmtScanBlocked()) return false;
   if (typeof canImportStatement === "function" && !canImportStatement()) { openPaywall("statements"); return false; }
   const res = importStatementItems(stmtUi.items, stmtUi.parsed.bank);
   if (!res.spends && !res.incomes) return false;          // nothing booked: not counted
@@ -686,9 +850,26 @@ function statementImportNow() {
 stmtEl("btn-stmt-import")?.addEventListener("click", openStatementImport);
 stmtEl("stmt-choose")?.addEventListener("click", () => stmtEl("stmt-file")?.click());
 stmtEl("stmt-file")?.addEventListener("change", (e) => {
-  const f = e.target.files && e.target.files[0];
+  const files = Array.from(e.target.files || []);
   e.target.value = "";
-  if (f) statementFromFile(f).catch(() => stmtSay("Couldn't read this PDF."));
+  const photos = files.filter((f) => /^image\//.test(f.type || ""));
+  const pdf = files.find((f) => !/^image\//.test(f.type || ""));
+  if (pdf) statementFromFile(pdf).catch(() => stmtSay(tr("Couldn't read this PDF.")));
+  else if (photos.length) statementFromPhotos(photos).catch(() => stmtSay(tr("Couldn't read these photos.")));
+});
+stmtEl("stmt-scan")?.addEventListener("click", async () => {
+  const kit = typeof duitfulKit === "function" ? duitfulKit("scanDocument") : null;
+  if (!kit) { stmtEl("stmt-file")?.click(); return; }
+  try {
+    const res = await kit.scanDocument({
+      allowGallery: true, pageLimit: STMT_SCAN_MAX_PAGES,
+      labels: { title: tr("Scan pages"), camera: tr("Scan with camera"), photo: tr("Choose photo"), cancel: tr("Cancel") },
+    });
+    const pages = res && Array.isArray(res.images) ? res.images.filter((s) => typeof s === "string" && s.startsWith("data:image/")) : [];
+    if (pages.length) await statementFromPhotos(pages);
+  } catch (err) {
+    if (!(err && err.code === "CANCELLED")) stmtSay(tr("Couldn't read these photos."));
+  }
 });
 stmtEl("stmt-pw-open")?.addEventListener("click", () => {
   const pw = stmtEl("stmt-pw");
@@ -707,12 +888,20 @@ stmtEl("stmt-all")?.addEventListener("click", () => {
 stmtEl("stmt-list")?.addEventListener("change", (e) => {
   const t = e.target;
   if (!(t instanceof HTMLElement)) return;
-  const i = Number(t.dataset.stmtOn ?? t.dataset.stmtKind ?? t.dataset.stmtCat ?? t.dataset.stmtPayee);
+  const i = Number(t.dataset.stmtOn ?? t.dataset.stmtKind ?? t.dataset.stmtCat ?? t.dataset.stmtPayee ?? t.dataset.stmtAmt ?? t.dataset.stmtBal);
   const it = stmtUi.items[i];
   if (!it) return;
   if (t.dataset.stmtOn != null) it.on = t.checked;
   else if (t.dataset.stmtKind != null) { it.kind = t.value; if (it.kind === "move") it.on = false; else if (!it.dup) it.on = true; }
   else if (t.dataset.stmtCat != null) it.category = t.value;
   else if (t.dataset.stmtPayee != null) it.payee = t.value.trim().slice(0, 60);
+  else if (t.dataset.stmtAmt != null || t.dataset.stmtBal != null) {
+    // Corrections on a scan: the user's figure, then the same check again.
+    const v = t.value.trim() ? stmtMoney(t.value) : NaN;
+    if (Number.isFinite(v) && v >= 0) {
+      if (t.dataset.stmtAmt != null) { it.amount = v; it.row.amount = v; } else it.row.balance = v;
+      stmtRecheck();
+    }
+  }
   renderStatementReview();
 });

@@ -41,8 +41,9 @@
   general reader for account statements with a balance column. Rows are
   checked against the printed opening/closing balances and shown for review
   before import; duplicates, card payments and own-account transfers are
-  left out. Password-protected PDFs ask once; scanned image-only PDFs are not
-  supported yet.
+  left out. Password-protected PDFs ask once. Scanned PDFs and photos of the
+  pages are read with on-device OCR and import only when the figures add up
+  (the user can correct a misread figure; nothing is guessed).
 - Built by one person in Malaysia. Source code public and licensed
   **GPL-3.0-only** at https://github.com/AydilJoe/survey, with a GPL
   section 7 additional permission for app store distribution so the

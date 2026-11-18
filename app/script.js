@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.14";
+const APP_VERSION = "1.57.15";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -11390,6 +11390,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.15": [
+    "<strong>Scanned statements and photos</strong> — import a scanned PDF or photos of your statement pages. Duitful reads them on your phone and imports only when the figures add up; fix a misread figure and it checks again.",
+  ],
   "1.57.14": [
     "<strong>Typing no longer hides the buttons</strong> — with the keyboard up, forms in a pop-up (like your tax details) move above it, so the hint and Next stay within reach.",
   ],

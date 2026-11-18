@@ -8413,3 +8413,12 @@ html.kb-open dialog:modal[open] { animation: none; }
 @media (max-width: 439px) {
   html.kb-open .tabs { display: none; }
 }
+
+/* Scanned statements: figures read by OCR can be corrected in place. */
+.stmt-amt-in { width: 6.2rem; flex: none; box-sizing: border-box; padding: 0.3rem 0.4rem; text-align: right; font-size: 0.9rem; font-weight: 500; font-variant-numeric: tabular-nums; border-radius: var(--r-sm); }
+.stmt-amt-in.spend { color: var(--loss); }
+.stmt-amt-in.income { color: var(--gain); }
+.stmt-amt-in.move { color: var(--muted); }
+.stmt-bal { display: inline-flex; align-items: center; gap: 0.3rem; }
+.stmt-bal input { width: 6.2rem; padding: 0.2rem 0.4rem; text-align: right; font-size: 0.8rem; font-variant-numeric: tabular-nums; border-radius: var(--r-sm); min-height: 32px; }
+#stmt-pick { display: flex; flex-wrap: wrap; gap: 0.5rem; }

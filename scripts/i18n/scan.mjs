@@ -116,4 +116,14 @@ export const ROWS = [
   ["No text found in that picture. Paste the words instead.", "Tiada teks dalam gambar itu. Tampal ayatnya sahaja.", "这张图片里没有文字，请改为粘贴内容。"],
   ["Email it", "Hantar melalui e-mel", "用电邮发送"],
   ["Share…", "Kongsi…", "分享…"],
+  // ── Scanned statements and photos of pages ──────────────────────
+  ["Choose PDF or photos", "Pilih PDF atau foto", "选择 PDF 或照片"],
+  ["Scan pages", "Imbas halaman", "扫描页面"],
+  ["Reading page {n} of {m} on your phone…", "Membaca halaman {n} daripada {m} di telefon anda…", "正在手机上读取第 {n} 页，共 {m} 页…"],
+  ["Couldn't read this PDF.", "PDF ini tak dapat dibaca.", "无法读取这个 PDF。"],
+  ["Couldn't read these photos.", "Foto ini tak dapat dibaca.", "无法读取这些照片。"],
+  ["Couldn't read any text on these pages. Try a sharper photo, or download the statement as a PDF from your bank's app.", "Tiada teks yang dapat dibaca pada halaman ini. Cuba foto yang lebih jelas, atau muat turun penyata sebagai PDF dari apl bank anda.", "这些页面上读不到文字。试试拍得更清楚一点，或从银行应用下载 PDF 格式的对账单。"],
+  ["Read from a scan", "Dibaca daripada imbasan", "从扫描件读取"],
+  ["No balances printed to check, so a scan can't be imported", "Tiada baki tercetak untuk disemak, jadi imbasan tak boleh diimport", "没有印出余额可以核对，所以扫描件无法导入"],
+  ["Fix the figures that don't match the scan to import", "Betulkan angka yang tak sama dengan imbasan untuk import", "改正与扫描件不符的数字后才能导入"],
 ];
