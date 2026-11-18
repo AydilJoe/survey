@@ -1,4 +1,7 @@
 {
+  "1.57.1": [
+    "<strong>Bahasa Melayu dan 中文</strong> — Duitful kini boleh digunakan dalam Bahasa Melayu dan Bahasa Cina (ringkas). Ia ikut bahasa telefon anda, atau pilih sendiri di Tetapan → Pilihan → Bahasa. Laman Utama, tambah catatan dan Tetapan sudah siap; skrin lain menyusul."
+  ],
   "1.57.0": [
     "<strong>Import penyata bank</strong> — pilih penyata PDF dan Duitful membacanya dalam telefon anda, menyemak ia sepadan dengan baki yang dicetak, dan menunjukkan setiap baris untuk anda tanda sebelum apa-apa ditambah. Baris yang sudah ada dalam Duitful dan bayaran kad tidak diambil. Berfungsi dengan penyata kad Maybank, Public Bank, Alliance Bank dan CIMB, serta kebanyakan penyata akaun. Tiada apa dimuat naik. Percuma: 1 penyata sebulan; Pro: semua penyata."
   ],

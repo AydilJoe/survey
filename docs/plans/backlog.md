@@ -47,6 +47,13 @@ release notes, but not inside the app. Plan:
 
 Large: many strings; do it in stages (Home, add entry, Settings first).
 
+**Stage 1 done (18 Nov 2026, v1.57.1)**: engine (`app/i18n.js`), picker in
+Settings → Preferences, Malay + Chinese for the passcode screen, header, tab
+bar, Home, Add entry and Settings, e2e coverage. See CLAUDE.md "Languages".
+Next stages, in order: Monthly, Debts, Savings, Daily list, then the dialogs
+(paywall, scan, split, tax), then native notification text. Category
+suggestions stay English for now: tax-relief matching reads category words.
+
 ## Redesign home-screen widgets (requested)
 
 Today (`scripts/patch-android-widget.mjs`, iOS WidgetKit in

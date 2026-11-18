@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.0";
+const APP_VERSION = "1.57.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1699,7 +1699,7 @@ function rowTerm(debt, key) {
 function applyTerminology() {
   document.querySelectorAll("[data-term]").forEach((el) => {
     const val = T(el.dataset.term);
-    if (val) el.textContent = val;
+    if (val) el.textContent = tr(val);
   });
 }
 
@@ -1809,15 +1809,18 @@ function shiftMonth(iso, delta) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// Dates read in the app's language (i18n.js); numbers and money stay en-MY.
+function dateLocale() { return (window.I18N && window.I18N.locale()) || "en-MY"; }
+
 function formatMonthLabel(iso) {
   const [y, m] = iso.split("-").map(Number);
   const date = new Date(y, m - 1, 1);
-  return date.toLocaleDateString("en-MY", { month: "long", year: "numeric" });
+  return date.toLocaleDateString(dateLocale(), { month: "long", year: "numeric" });
 }
 function formatMonthLabelShort(iso) {
   const [y, m] = iso.split("-").map(Number);
   const date = new Date(y, m - 1, 1);
-  return date.toLocaleDateString("en-MY", { month: "short", year: "numeric" });
+  return date.toLocaleDateString(dateLocale(), { month: "short", year: "numeric" });
 }
 
 let selectedMonth = currentMonthISO();
@@ -1841,11 +1844,11 @@ function daysAgo(iso, ref = new Date()) {
 function formatDayLabel(iso) {
   if (!iso) return "";
   const diff = daysAgo(iso);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
+  if (diff === 0) return tr("Today");
+  if (diff === 1) return tr("Yesterday");
   const [y, m, d] = iso.split("-").map(Number);
   const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short" });
+  return date.toLocaleDateString(dateLocale(), { weekday: "short", day: "numeric", month: "short" });
 }
 
 function formatMonths(months) {
@@ -2220,7 +2223,7 @@ function setDailyMoreOpen(open) {
   wrap.hidden = !open;
   btn.setAttribute("aria-expanded", open ? "true" : "false");
   const label = document.getElementById("daily-more-toggle-label");
-  if (label) label.textContent = open ? "Hide details" : "More details";
+  if (label) label.textContent = open ? tr("Hide details") : tr("More details");
 }
 
 function setDailyType(type) {
@@ -2269,7 +2272,7 @@ function updateDailyTargetSelect() {
     const current = cardSel.value;
     const chargeable = state.debts.filter((d) => d.kind !== "installment");
     cardSel.innerHTML =
-      `<option value="">Cash / debit</option>` +
+      `<option value="">${tr("Cash / debit")}</option>` +
       chargeable
         .map((d) => `<option value="${d.id}">${escapeHtml(d.name)} · ${fmtMoney(d.balance)}</option>`)
         .join("");
@@ -2281,13 +2284,13 @@ function updateDailyTargetSelect() {
   if (type === "expense") {
     field.hidden = true;
     catField.hidden = false;
-    sel.innerHTML = `<option value="expense">Others / general</option>`;
+    sel.innerHTML = `<option value="expense">${tr("Others / general")}</option>`;
   } else if (type === "debt") {
     catField.hidden = true;
-    if (label) label.textContent = "Pay which debt";
+    if (label) label.textContent = tr("Pay which debt");
     if (state.debts.length === 0) {
       field.hidden = false;
-      sel.innerHTML = `<option value="">Add a debt first →</option>`;
+      sel.innerHTML = `<option value="">${tr("Add a debt first →")}</option>`;
     } else {
       field.hidden = false;
       sel.innerHTML = state.debts
@@ -2296,7 +2299,7 @@ function updateDailyTargetSelect() {
     }
   } else if (type === "saving") {
     catField.hidden = true;
-    if (label) label.textContent = "Save to which goal";
+    if (label) label.textContent = tr("Save to which goal");
     if (state.savings.length === 0) {
       field.hidden = false;
       sel.innerHTML = `<option value="">Add a goal first →</option>`;
@@ -2354,7 +2357,7 @@ function renderEmptyWelcome() {
     if (fresh && hero.previousElementSibling !== quick) hero.before(quick);
     else if (!fresh && hero.nextElementSibling !== quick) hero.after(quick);
     const h = quick.querySelector(".card-head h2");
-    if (h) h.textContent = fresh ? "Log your first spend" : "Add entry";
+    if (h) h.textContent = fresh ? tr("Log your first spend") : tr("Add entry");
     quick.classList.toggle("is-first", fresh);
   }
 }
@@ -2441,16 +2444,16 @@ function renderTodayCard() {
   const shown = entries.slice(0, TODAY_CARD_MAX);
   list.innerHTML = shown.map((e) => {
     let label;
-    if (e.kind === "debt") label = `Paid ${debtNameById(e.debtId) || e.debtName || "a debt"}`;
-    else if (e.kind === "saving") label = `Saved to ${state.savings.find((g) => g.id === e.savingId)?.name || e.savingName || "savings"}`;
-    else label = e.note || e.category || "Spending";
+    if (e.kind === "debt") label = tr("Paid {name}", { name: debtNameById(e.debtId) || e.debtName || tr("a debt") });
+    else if (e.kind === "saving") label = tr("Saved to {name}", { name: state.savings.find((g) => g.id === e.savingId)?.name || e.savingName || tr("savings") });
+    else label = e.note || e.category || tr("Spending");
     const meta = (e.kind || "expense") === "expense" && e.note && e.category ? e.category : "";
     return `<li class="today-row${e.id === lastLoggedEntryId ? " is-new" : ""}" data-id="${escapeHtml(e.id)}">
       <span class="today-label"><span class="today-name">${escapeHtml(label)}</span>${meta ? `<span class="today-meta">${escapeHtml(meta)}</span>` : ""}</span>
       <span class="today-amount${e.kind === "saving" ? " is-saving" : ""}">${amt(fmtMoney(Number(e.amount) || 0))}</span>
     </li>`;
   }).join("") + (entries.length > TODAY_CARD_MAX
-    ? `<li class="today-more">+${entries.length - TODAY_CARD_MAX} more today</li>`
+    ? `<li class="today-more">${tr("+{n} more today", { n: entries.length - TODAY_CARD_MAX })}</li>`
     : "");
   // Land it once — renderAll runs again for rates, sync and the rest, and a
   // row that re-plays its arrival on each of those is noise.
@@ -2880,10 +2883,10 @@ function renderGreeting() {
   const h = now.getHours();
   // Avoid "Late night" — reads slightly accusatory at 1am. Prefer "Evening"
   // for late hours so the greeting stays neutral.
-  const part = h < 5 ? "Evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  const part = tr(h < 5 ? "Evening" : h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening");
   // Short weekday: "Good afternoon · Saturday, 24 Oct" wrapped to two lines
   // beside the search and privacy buttons on a phone.
-  const date = now.toLocaleDateString("en-MY", { weekday: "short", day: "numeric", month: "short" });
+  const date = now.toLocaleDateString(dateLocale(), { weekday: "short", day: "numeric", month: "short" });
   // No money context here on purpose — the hero card's "About RM X/day"
   // line already says it, and computing it again risks drift from the
   // hero's totalOut formula (which includes minimum debt payments etc).
@@ -2951,12 +2954,12 @@ function renderDashboard() {
       const isOver = totalOut > incomeTotal;
       fill.style.width = cappedPct + "%";
       fill.classList.toggle("over", isOver);
-      const overSuffix = isOver ? ` · over by ${fmtMoney(totalOut - incomeTotal)}` : "";
-      progText.innerHTML = `<span>Spent ${fmtMoney(totalOut)} of ${fmtMoney(incomeTotal)} · ${realPct.toFixed(0)}%${overSuffix}</span><span>Day ${prog.day}/${prog.daysInMonth}</span>`;
+      const overSuffix = isOver ? ` · ${tr("over by {a}", { a: fmtMoney(totalOut - incomeTotal) })}` : "";
+      progText.innerHTML = `<span>${tr("Spent {a} of {b}", { a: fmtMoney(totalOut), b: fmtMoney(incomeTotal) })} · ${realPct.toFixed(0)}%${overSuffix}</span><span>${tr("Day {d}/{n}", { d: prog.day, n: prog.daysInMonth })}</span>`;
     } else {
       fill.style.width = prog.pct.toFixed(1) + "%";
       fill.classList.remove("over");
-      progText.innerHTML = `<span>Add income this month to see your spend-vs-budget</span><span>Day ${prog.day}/${prog.daysInMonth}</span>`;
+      progText.innerHTML = `<span>${tr("Add income this month to see your spend-vs-budget")}</span><span>${tr("Day {d}/{n}", { d: prog.day, n: prog.daysInMonth })}</span>`;
     }
   }
 
@@ -2975,11 +2978,11 @@ function renderDashboard() {
     } else if (balance <= 0) {
       targetEl.hidden = false;
       const over = Math.abs(balance);
-      targetText.innerHTML = `<strong>${fmtMoney(over)} over</strong> this month <span class="hero-target-meta">${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`;
+      targetText.innerHTML = `${tr("<strong>{a} over</strong> this month", { a: fmtMoney(over) })} <span class="hero-target-meta">${trn(daysLeft, "{n} day left", "{n} days left")}</span>`;
     } else {
       targetEl.hidden = false;
       const perDay = balance / daysLeft;
-      targetText.innerHTML = `About <strong>${amt(fmtMoney(perDay) + "/day")}</strong> to stay on track <span class="hero-target-meta">${daysLeft} day${daysLeft === 1 ? "" : "s"} left</span>`;
+      targetText.innerHTML = `${tr("About <strong>{a}</strong> to stay on track", { a: amt(fmtMoney(perDay) + tr("/day")) })} <span class="hero-target-meta">${trn(daysLeft, "{n} day left", "{n} days left")}</span>`;
     }
   }
 
@@ -2990,15 +2993,15 @@ function renderDashboard() {
     const parts = [];
     if (carryOver !== 0) {
       const sign = carryOver < 0 ? "−" : "+";
-      parts.push(`${sign} ${fmtMoney(Math.abs(carryOver))} carried over from last month`);
+      parts.push(`${sign} ${tr("{a} carried over from last month", { a: fmtMoney(Math.abs(carryOver)) })}`);
     }
-    parts.push(`+ ${fmtMoney(incomeTotal)} income`);
-    if (expenseTotal > 0) parts.push(`− ${fmtMoney(expenseTotal)} recurring`);
-    if (debtCharge > 0) parts.push(`− ${fmtMoney(debtCharge)} debt payments`);
-    if (cashDailyExpenses > 0) parts.push(`− ${fmtMoney(cashDailyExpenses)} daily spending`);
-    if (cashDailySavings > 0) parts.push(`− ${fmtMoney(cashDailySavings)} into savings`);
+    parts.push(`+ ${tr("{a} income", { a: fmtMoney(incomeTotal) })}`);
+    if (expenseTotal > 0) parts.push(`− ${tr("{a} recurring", { a: fmtMoney(expenseTotal) })}`);
+    if (debtCharge > 0) parts.push(`− ${tr("{a} debt payments", { a: fmtMoney(debtCharge) })}`);
+    if (cashDailyExpenses > 0) parts.push(`− ${tr("{a} daily spending", { a: fmtMoney(cashDailyExpenses) })}`);
+    if (cashDailySavings > 0) parts.push(`− ${tr("{a} into savings", { a: fmtMoney(cashDailySavings) })}`);
     const cardNote = cardChargedThisMonth > 0
-      ? ` ${fmtMoney(cardChargedThisMonth)} was charged to a card and added to debt.`
+      ? ` ${tr("{a} was charged to a card and added to debt.", { a: fmtMoney(cardChargedThisMonth) })}`
       : "";
     formulaEl.textContent = `${parts.join(" ")} = ${fmtMoney(net)}.${cardNote}`;
   }
@@ -3028,11 +3031,11 @@ function renderDashboard() {
           etaPart = T("belowRate");
         } else if (sim.months > 0) {
           const targetMonth = shiftMonth(currentMonthISO(), sim.months - 1);
-          etaPart = `debt-free by ${formatMonthLabel(targetMonth)}`;
+          etaPart = tr("debt-free by {m}", { m: formatMonthLabel(targetMonth) });
         } else {
-          etaPart = "all paid off";
+          etaPart = tr("all paid off");
         }
-        metaEl.textContent = `${n} debt${n === 1 ? "" : "s"} · ${etaPart}`;
+        metaEl.textContent = `${trn(n, "{n} debt", "{n} debts")} · ${etaPart}`;
       }
     }
   }
@@ -3904,25 +3907,25 @@ function renderTrialBanner() {
   if (later) later.hidden = kind === "trial";
   if (kind === "trial") {
     const left = trialDaysLeft();
-    const days = `${left} day${left === 1 ? "" : "s"}`;
-    if (title) title.textContent = "Pro trial active";
+    const days = trn(left, "{n} day", "{n} days");
+    if (title) title.textContent = tr("Pro trial active");
     // In the last two days, say what ends for this person before it ends.
     if (sub) sub.textContent = left <= TRIAL_WARN_DAYS
-      ? `${days} left. ${trialEndText()} Keep Pro for ${proPriceLabel()}, once.`
-      : `${days} left of full Pro access — keep it forever for ${proPriceLabel()}.`;
-    if (cta) cta.textContent = "Unlock forever";
+      ? `${tr("{days} left.", { days })} ${trialEndText()} ${tr("Keep Pro for {price}, once.", { price: proPriceLabel() })}`
+      : tr("{days} left of full Pro access — keep it forever for {price}.", { days, price: proPriceLabel() });
+    if (cta) cta.textContent = tr("Unlock forever");
   } else if (kind === "recap") {
-    if (title) title.textContent = "Your Pro trial ended";
+    if (title) title.textContent = tr("Your Pro trial ended");
     const recap = trialRecapText();
     if (sub) sub.textContent = recap
-      ? `${recap} Keep it for ${proPriceLabel()}, once.`
-      : `Automatic backup is off now; Back up now still works. Keep Pro for ${proPriceLabel()}, once.`;
-    if (cta) cta.textContent = "Keep Pro";
+      ? `${recap} ${tr("Keep it for {price}, once.", { price: proPriceLabel() })}`
+      : tr("Automatic backup is off now; Back up now still works. Keep Pro for {price}, once.", { price: proPriceLabel() });
+    if (cta) cta.textContent = tr("Keep Pro");
   } else {
     const n = proEntryCount();
-    if (title) title.textContent = "Only on this phone";
-    if (sub) sub.textContent = `Lose the phone and your ${n} entries are gone. Back up now in Settings is free; Pro backs up to ${backupPlaceName()} automatically, encrypted.`;
-    if (cta) cta.textContent = "Back up automatically";
+    if (title) title.textContent = tr("Only on this phone");
+    if (sub) sub.textContent = tr("Lose the phone and your {n} entries are gone. Back up now in Settings is free; Pro backs up to {place} automatically, encrypted.", { n, place: backupPlaceName() });
+    if (cta) cta.textContent = tr("Back up automatically");
   }
 }
 document.getElementById("trial-banner-cta")?.addEventListener("click", () => {
@@ -4074,9 +4077,9 @@ function renderZakat() {
     if (!z.haul) {
       haulLine.textContent = "Set a haul start date under “Nisab & haul settings” above to track the lunar year.";
     } else if (z.haul.complete) {
-      haulLine.textContent = `Haul complete since ${z.haul.due.toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })}.`;
+      haulLine.textContent = `Haul complete since ${z.haul.due.toLocaleDateString(dateLocale(), { day: "numeric", month: "long", year: "numeric" })}.`;
     } else {
-      haulLine.textContent = `Haul completes ${z.haul.due.toLocaleDateString("en-MY", { day: "numeric", month: "long", year: "numeric" })} — ${z.haul.daysLeft} day${z.haul.daysLeft === 1 ? "" : "s"} to go (354-day lunar year).`;
+      haulLine.textContent = `Haul completes ${z.haul.due.toLocaleDateString(dateLocale(), { day: "numeric", month: "long", year: "numeric" })} — ${z.haul.daysLeft} day${z.haul.daysLeft === 1 ? "" : "s"} to go (354-day lunar year).`;
     }
   }
 
@@ -4355,7 +4358,7 @@ const MILESTONE_ICONS = {
 };
 function fmtDateShort(iso) {
   const d = new Date(`${iso}T00:00:00`);
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-MY", { day: "numeric", month: "short", year: "numeric" });
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(dateLocale(), { day: "numeric", month: "short", year: "numeric" });
 }
 const wholeMoney = (n) => fmtMoney(n).replace(/\.00$/, "");
 function milestoneTitle(m) {
@@ -4594,7 +4597,7 @@ function renderPending() {
   syncPendingCount();
   if (items.length === 0) { card.hidden = true; return; }
   card.hidden = false;
-  if (sub) sub.textContent = `${items.length} to review`;
+  if (sub) sub.textContent = tr("{n} to review", { n: items.length });
   list.innerHTML = items
     .slice()
     .sort((a, b) => b.createdAt - a.createdAt)
@@ -4604,17 +4607,17 @@ function renderPending() {
         <li data-id="${p.id}">
           <div class="pending-main">
             <div class="pending-top">
-              <span class="pending-name">${p.merchant ? escapeHtml(p.merchant) : "Unknown"}</span>
+              <span class="pending-name">${p.merchant ? escapeHtml(p.merchant) : tr("Unknown")}</span>
               <span class="pending-amount">${fmtMoney(p.amount)}</span>
             </div>
-            <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")}${p.category ? ` · ${escapeHtml(p.category)}` : ""}</div>
+            <div class="pending-source">${escapeHtml(p.providerName || p.pkg || tr("Notification"))}${p.category ? ` · ${escapeHtml(p.category)}` : ""}</div>
             ${pendingAiTag(p)}${pendingWrongBtn(p)}
           </div>
           <div class="pending-actions">
-            ${p.transfer && p.merchant ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
-            <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="Dismiss">✕</button>
-            <button class="ghost" data-action="pending-edit" data-id="${p.id}">Edit</button>
-            <button class="primary" data-action="pending-accept" data-id="${p.id}">Add</button>
+            ${p.transfer && p.merchant ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">${tr("This is my account")}</button>` : ""}
+            <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="${tr("Dismiss")}">✕</button>
+            <button class="ghost" data-action="pending-edit" data-id="${p.id}">${tr("Edit")}</button>
+            <button class="primary" data-action="pending-accept" data-id="${p.id}">${tr("Add")}</button>
           </div>
         </li>`)).join("");
 }
@@ -4803,11 +4806,11 @@ function renderAiSettings() {
   if (box) box.checked = state.aiEnabled !== false;
   if (line) {
     line.dataset.state = st;
-    line.textContent = !st ? "Checking…"
+    line.textContent = tr(!st ? "Checking…"
       : st === "none" ? "Not available on this phone; Duitful uses its rules."
       : state.aiEnabled === false ? "Off · Duitful uses its rules."
       : st === "getting-ready" ? "Getting ready"
-      : "On · runs on this phone";
+      : "On · runs on this phone");
   }
 }
 // One small card on Home the first time AI is found on this phone. Shown on
@@ -4821,7 +4824,9 @@ function renderAiIntro() {
   card.hidden = !can;
   // No notification capture on iPhone: there it is receipts only.
   const body = document.getElementById("ai-intro-body");
-  if (body) body.textContent = `Duitful uses this on-device AI to read tricky receipts${nativePlatform() === "ios" ? "" : " and bank alerts"}, privately. Nothing leaves your phone.`;
+  if (body) body.textContent = tr(nativePlatform() === "ios"
+    ? "Duitful uses this on-device AI to read tricky receipts, privately. Nothing leaves your phone."
+    : "Duitful uses this on-device AI to read tricky receipts and bank alerts, privately. Nothing leaves your phone.");
   if (can && !state.aiIntroShownOn) { state.aiIntroShownOn = today; save(); }
 }
 /* Bank-alert capture needs Android's notification access, which used to be
@@ -4885,7 +4890,7 @@ function renderOwnAccounts() {
   const names = state.ownAccounts || [];
   card.hidden = !names.length;
   list.innerHTML = names.map((n) => `
-    <li><span>${escapeHtml(n)}</span><button type="button" class="ghost" data-own-remove="${escapeHtml(n)}" aria-label="Remove ${escapeHtml(n)}">Remove</button></li>`).join("");
+    <li><span>${escapeHtml(n)}</span><button type="button" class="ghost" data-own-remove="${escapeHtml(n)}" aria-label="${tr("Remove {name}", { name: escapeHtml(n) })}">${tr("Remove")}</button></li>`).join("");
 }
 document.getElementById("own-accounts-list")?.addEventListener("click", (e) => {
   const b = e.target instanceof Element ? e.target.closest("[data-own-remove]") : null;
@@ -5116,25 +5121,25 @@ function renderUpcoming() {
   const items = upcomingReminders(prefs.daysAhead || 3);
   if (items.length === 0) { card.hidden = true; return; }
   card.hidden = false;
-  if (sub) sub.textContent = `Next ${prefs.daysAhead || 3} days`;
+  if (sub) sub.textContent = trn(prefs.daysAhead || 3, "Next {n} day", "Next {n} days");
 
-  const labelFor = (it) => it.delta < 0 ? "Late" : it.delta === 0 ? "Today" : it.delta === 1 ? "Tmrw" : `${it.delta}d`;
+  const labelFor = (it) => it.delta < 0 ? tr("Late") : it.delta === 0 ? tr("Today") : it.delta === 1 ? tr("Tmrw") : tr("{n}d", { n: it.delta });
   const dayClassFor = (it) => it.delta < 0 ? "late" : (it.direction === "in" ? "income" : (it.delta === 0 ? "today" : "soon"));
   const tabFor = (kind) => kind === "debt" || kind === "split" ? "debts" : "flow";
   const overdueSub = (it) => {
     const days = Number(it.overdueDays) || 0;
-    const age = days === 1 ? "1 day" : `${days} days`;
+    const age = trn(days, "{n} day", "{n} days");
     // A request with no due date was never late by agreement — it has just
     // gone quiet, and saying so is fairer than calling it overdue.
-    return `${it.stale ? `Unpaid ${age}` : `Overdue ${age}`}${it.title ? ` · ${escapeHtml(it.title)}` : ""}`;
+    return `${it.stale ? tr("Unpaid {age}", { age }) : tr("Overdue {age}", { age })}${it.title ? ` · ${escapeHtml(it.title)}` : ""}`;
   };
   const subFor = (it) => it.kind === "debt"
-    ? "Min payment"
+    ? tr("Min payment")
     : it.kind === "income"
-      ? "Expected pay"
+      ? tr("Expected pay")
       : it.kind === "split"
-        ? (it.overdue ? overdueSub(it) : `Owed to you${it.title ? ` · ${escapeHtml(it.title)}` : ""}`)
-        : "Bill due";
+        ? (it.overdue ? overdueSub(it) : `${tr("Owed to you")}${it.title ? ` · ${escapeHtml(it.title)}` : ""}`)
+        : tr("Bill due");
 
   listEl.innerHTML = items.map((it) => `
     <li data-go-tab="${tabFor(it.kind)}"${it.kind === "split" && it.overdue ? ' class="up-overdue"' : ""}>
@@ -5145,7 +5150,7 @@ function renderUpcoming() {
       </span>
       <span class="up-amount ${it.direction === "in" ? "pos" : "neg"}">${fmtMoney(it.amount)}</span>
       ${it.kind === "split" && it.overdue
-        ? `<button type="button" class="ghost up-remind" data-action="split-remind" data-id="${escapeHtml(it.id)}">Remind</button>`
+        ? `<button type="button" class="ghost up-remind" data-action="split-remind" data-id="${escapeHtml(it.id)}">${tr("Remind")}</button>`
         : ""}
     </li>
   `).join("");
@@ -5246,7 +5251,7 @@ async function checkForAppUpdate() {
     // App Review flag, and this plugin runs on iOS too (it checks the
     // iTunes lookup API there).
     const sub = document.getElementById("update-banner-sub");
-    if (sub && nativePlatform() === "ios") sub.textContent = "A newer version of Duitful is ready on the App Store.";
+    if (sub && nativePlatform() === "ios") sub.textContent = tr("A newer version of Duitful is ready on the App Store.");
     const banner = document.getElementById("update-banner");
     if (banner) banner.hidden = false;
   } catch {
@@ -5932,7 +5937,7 @@ function openProWelcome(paidLabel) {
     driveBtn.textContent = "✓ Already connected";
   } else if (driveBtn) {
     driveBtn.disabled = false;
-    driveBtn.textContent = "Connect Google Drive";
+    driveBtn.textContent = tr("Connect Google Drive");
   }
   ensureProCelebrateBlock(dlg, paidLabel);
   dlg.classList.add("celebrating");
@@ -5958,10 +5963,10 @@ document.getElementById("pro-welcome-drive")?.addEventListener("click", async ()
   const btn = document.getElementById("pro-welcome-drive");
   const status = document.getElementById("pro-welcome-drive-status");
   if (!window.DriveSync || !DriveSync.isConfigured()) {
-    if (status) { status.textContent = "Cloud backup isn't configured for this build."; status.hidden = false; }
+    if (status) { status.textContent = tr("Cloud backup isn't configured for this build."); status.hidden = false; }
     return;
   }
-  if (btn) { btn.disabled = true; btn.textContent = "Connecting…"; }
+  if (btn) { btn.disabled = true; btn.textContent = tr("Connecting…"); }
   try {
     await DriveSync.signIn();
     if (typeof checkDriveOnBoot === "function") await checkDriveOnBoot();
@@ -5985,8 +5990,8 @@ document.getElementById("pro-welcome-drive")?.addEventListener("click", async ()
     if (btn) btn.textContent = "✓ Connected";
     if (status) { status.textContent = email ? `Signed in as ${email}` : "Connected"; status.hidden = false; }
   } catch (err) {
-    if (btn) { btn.disabled = false; btn.textContent = "Connect Google Drive"; }
-    if (status) { status.textContent = "Sign-in failed: " + (err && err.message ? err.message : String(err)); status.hidden = false; }
+    if (btn) { btn.disabled = false; btn.textContent = tr("Connect Google Drive"); }
+    if (status) { status.textContent = tr("Sign-in failed:") + " " + (err && err.message ? err.message : String(err)); status.hidden = false; }
   }
 });
 
@@ -6506,7 +6511,7 @@ function captureAppName(pkg) {
 function fmtDiagTime(ms) {
   if (!ms) return "never";
   const d = new Date(ms);
-  return `${d.toLocaleDateString("en-MY", { day: "numeric", month: "short" })} ${d.toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" })}`;
+  return `${d.toLocaleDateString(dateLocale(), { day: "numeric", month: "short" })} ${d.toLocaleTimeString(dateLocale(), { hour: "2-digit", minute: "2-digit" })}`;
 }
 // Pure: the facts as lines, for the dialog and for "Copy report".
 function captureCheckLines(nat, diag) {
@@ -6634,7 +6639,7 @@ function renderProControls() {
   if (watermark) {
     const email = state && state.license && state.license.email;
     if (purchased && email) {
-      watermark.textContent = `Licensed to ${email}`;
+      watermark.textContent = tr("Licensed to {email}", { email });
       watermark.hidden = false;
     } else {
       watermark.textContent = "";
@@ -6676,10 +6681,10 @@ function renderProControls() {
   if (status) {
     if (purchased) {
       status.textContent = native
-        ? "Pro unlocked. Thanks for supporting the app!"
-        : "Pro unlocked — thanks for supporting Duitful!";
+        ? tr("Pro unlocked. Thanks for supporting the app!")
+        : tr("Pro unlocked — thanks for supporting Duitful!");
     } else {
-      status.textContent = "Pro adds every debt, pay-later plans, backup, unlimited scans, budget pools and other currencies. One payment, no subscription.";
+      status.textContent = tr("Pro adds every debt, pay-later plans, backup, unlimited scans, budget pools and other currencies. One payment, no subscription.");
     }
   }
 
@@ -6819,10 +6824,10 @@ function showUpdateBanner(waitingWorker) {
     banner.className = "app-update-banner";
     banner.setAttribute("role", "status");
     const msg = document.createElement("span");
-    msg.textContent = "A new version is ready.";
+    msg.textContent = tr("A new version is ready.");
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.textContent = "Refresh";
+    btn.textContent = tr("Refresh");
     btn.addEventListener("click", () => {
       btn.disabled = true;
       try { waitingWorker.postMessage({ type: "SKIP_WAITING" }); } catch {}
@@ -7190,7 +7195,7 @@ document.getElementById("btn-pro-refer-copy")?.addEventListener("click", async (
   try {
     await navigator.clipboard.writeText(url);
     const orig = btn.textContent;
-    btn.textContent = "Copied ✓";
+    btn.textContent = tr("Copied ✓");
     setTimeout(() => { btn.textContent = orig; }, 1500);
   } catch {
     const el = document.getElementById("pro-refer-url");
@@ -7241,13 +7246,13 @@ document.getElementById("btn-pro-refer-claim")?.addEventListener("click", async 
   const status = document.getElementById("pro-refer-claim-status");
   const email = (input?.value || "").trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    if (status) { status.textContent = "That doesn't look like a valid email."; status.hidden = false; }
+    if (status) { status.textContent = tr("That doesn't look like a valid email."); status.hidden = false; }
     return;
   }
   try {
     const code = await refCodeForEmail(email);
     if (!code) {
-      if (status) { status.textContent = "Couldn't generate a code — try again."; status.hidden = false; }
+      if (status) { status.textContent = tr("Couldn't generate a code — try again."); status.hidden = false; }
       return;
     }
     if (state) {
@@ -7258,7 +7263,7 @@ document.getElementById("btn-pro-refer-claim")?.addEventListener("click", async 
     }
     if (status) { status.textContent = `✓ Your code is ${code}. Tap Share to send your link.`; status.hidden = false; }
   } catch (e) {
-    if (status) { status.textContent = "Couldn't generate a code: " + (e?.message || e); status.hidden = false; }
+    if (status) { status.textContent = tr("Couldn't generate a code:") + " " + (e?.message || e); status.hidden = false; }
   }
 });
 
@@ -7908,12 +7913,12 @@ $("#form-daily").addEventListener("submit", (e) => {
   if (fromCode !== toCode) {
     if (!isPro()) { openPaywall("multiCurrency"); return; }
     if (!fxCurrencySupported(fromCode)) {
-      notify(`Live rate not available for ${fromCode}.`);
+      notify(tr("Live rate not available for {code}.", { code: fromCode }));
       return;
     }
     const converted = convertFx(rawAmount, fromCode, toCode);
     if (!Number.isFinite(converted)) {
-      notify("Could not convert — try refreshing rates in Settings.");
+      notify(tr("Could not convert — try refreshing rates in Settings."));
       return;
     }
     amount = +converted.toFixed(2);
@@ -7989,16 +7994,16 @@ $("#form-daily").addEventListener("submit", (e) => {
   // A scanned photo is held for exactly one submit; whatever type this was,
   // it is spent now so it can't attach to a later, unrelated expense.
   const scanReceipt = typeof taxTakeScanReceipt === "function" ? taxTakeScanReceipt() : null;
-  if (type === "debt") toast(`Payment recorded · ${amountLabel}`);
-  else if (type === "saving") toast(`Savings added · ${amountLabel}`);
+  if (type === "debt") toast(`${tr("Payment recorded")} · ${amountLabel}`);
+  else if (type === "saving") toast(`${tr("Savings added")} · ${amountLabel}`);
   // Looks like a tax relief: the tax prompt shares the toast slot.
   else if (typeof taxAfterExpense === "function" && taxAfterExpense(state.dailyExpenses.find((x) => x.id === id), scanReceipt)) { /* prompted */ }
   // The moment someone just paid for the table is the moment they think
   // "split this" — offer it right there, not three taps deep.
   else if (typeof splitFromExpense === "function") {
     const loggedId = id;
-    toast(`Spending added · ${amountLabel}`, { action: { label: "Split", run: () => splitFromExpense("daily", loggedId) } });
-  } else toast(`Spending added · ${amountLabel}`);
+    toast(`${tr("Spending added")} · ${amountLabel}`, { action: { label: tr("Split"), run: () => splitFromExpense("daily", loggedId) } });
+  } else toast(`${tr("Spending added")} · ${amountLabel}`);
 });
 
 /* pill buttons + quick amount chips */
@@ -8130,7 +8135,7 @@ document.querySelectorAll("form.add-form").forEach((form) => {
   cancel.type = "button";
   cancel.className = "ghost";
   cancel.dataset.addCancel = "";
-  cancel.textContent = "Cancel";
+  cancel.textContent = tr("Cancel");
   row.appendChild(cancel);
 });
 document.addEventListener("click", (e) => {
@@ -8689,8 +8694,8 @@ function currencyPickerOptions(selected) {
     const codeLabel = symbol && symbol !== code ? `${code} (${symbol})` : code;
     let tail = "";
     if (!isBase) {
-      if (!haveRates) tail = " (offline)";
-      else if (!fxCurrencySupported(code)) tail = " (no live rate)";
+      if (!haveRates) tail = ` (${tr("offline")})`;
+      else if (!fxCurrencySupported(code)) tail = ` (${tr("no live rate")})`;
     }
     return `<option value="${code}"${sel}${dis}>${codeLabel}${tail}</option>`;
   }).join("");
@@ -9096,31 +9101,31 @@ function renderReminderPrefs() {
   // notifications scheduled on the device. Before the day-3 ask existed the
   // only way to grant them was the prompt at setup — this is the other door.
   if (isNative()) {
-    if (btnNotif) { btnNotif.disabled = false; btnNotif.textContent = "Allow notifications"; }
+    if (btnNotif) { btnNotif.disabled = false; btnNotif.textContent = tr("Allow notifications"); }
     nativeNotificationsGranted().then((granted) => {
       if (btnNotif) btnNotif.hidden = granted;
       if (notifStatus) {
         notifStatus.textContent = granted
-          ? "Notifications: on. Reminders arrive at 9am on each due date."
-          : "Notifications: off.";
+          ? tr("Notifications: on. Reminders arrive at 9am on each due date.")
+          : tr("Notifications: off.");
       }
     });
     return;
   }
   if (!("Notification" in window)) {
-    if (notifStatus) notifStatus.textContent = "This browser doesn't support notifications.";
+    if (notifStatus) notifStatus.textContent = tr("This browser doesn't support notifications.");
     if (btnNotif) btnNotif.disabled = true;
     return;
   }
   if (notifStatus) {
     // The one caveat worth keeping from the old paragraph: a browser can only
     // remind you while Duitful is open in it.
-    if (Notification.permission === "granted" && prefs.notifications) notifStatus.textContent = "On — while Duitful is open in this browser.";
-    else if (Notification.permission === "denied") notifStatus.textContent = "Blocked in your browser's site settings.";
-    else notifStatus.textContent = "Off. Browser reminders arrive only while Duitful is open.";
+    if (Notification.permission === "granted" && prefs.notifications) notifStatus.textContent = tr("On — while Duitful is open in this browser.");
+    else if (Notification.permission === "denied") notifStatus.textContent = tr("Blocked in your browser's site settings.");
+    else notifStatus.textContent = tr("Off. Browser reminders arrive only while Duitful is open.");
   }
   if (btnNotif) {
-    btnNotif.textContent = (Notification.permission === "granted" && prefs.notifications) ? "Disable notifications" : "Enable browser notifications";
+    btnNotif.textContent = tr((Notification.permission === "granted" && prefs.notifications) ? "Disable notifications" : "Enable browser notifications");
   }
 }
 
@@ -10809,11 +10814,11 @@ function renderReminderAsk() {
   document.getElementById("reminder-ask-blocked").hidden = reminderAskPhase !== "blocked";
   const title = document.getElementById("reminder-ask-title");
   if (title) {
-    title.textContent = reminderAskPhase === "dates"
+    title.textContent = tr(reminderAskPhase === "dates"
       ? "Reminders are on. When is each one due?"
       : reminderAskPhase === "blocked"
         ? "Reminders can't reach you yet"
-        : "Want a nudge on the day payments are due?";
+        : "Want a nudge on the day payments are due?");
   }
 }
 
@@ -10823,8 +10828,8 @@ function reminderAskShowDates(rows) {
   host.innerHTML = rows.map((r, i) => `
     <label class="reminder-ask-row">
       <span class="reminder-ask-name">${escapeHtml(r.name)}</span>
-      <input type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="Day"
-        data-kind="${r.kind}" data-id="${escapeHtml(r.id)}" aria-label="Day of the month ${escapeHtml(r.name)} is due" />
+      <input type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="${tr("Day")}"
+        data-kind="${r.kind}" data-id="${escapeHtml(r.id)}" aria-label="${tr("Day of the month {name} is due", { name: escapeHtml(r.name) })}" />
     </label>`).join("");
   reminderAskPhase = "dates";
   renderReminderAsk();
@@ -11270,6 +11275,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.1": [
+    "<strong>Bahasa Melayu and 中文</strong> — Duitful now speaks Malay and Simplified Chinese. It follows your phone's language, or pick one in Settings → Preferences → Language. Home, adding an entry and Settings come first; the other screens follow.",
+  ],
   "1.57.0": [
     "<strong>Import a bank statement</strong> — pick a PDF statement and Duitful reads it on your phone, checks it adds up to the balances printed, and shows the rows for you to tick before anything is added. Rows already in Duitful and card payments are left out. Works with Maybank, Public Bank, Alliance Bank and CIMB card statements, and most account statements. Nothing is uploaded. Free imports 1 statement a month; Pro imports every statement.",
   ],
@@ -11944,7 +11952,7 @@ function applyHeroBreakdownState() {
   try { open = localStorage.getItem(HERO_BREAKDOWN_KEY) === "1"; } catch (_) { /* private mode */ }
   grid.hidden = !open;
   toggle.setAttribute("aria-expanded", open ? "true" : "false");
-  if (label) label.textContent = open ? "Hide breakdown" : "Show breakdown";
+  if (label) label.textContent = open ? tr("Hide breakdown") : tr("Show breakdown");
 }
 document.getElementById("hero-breakdown-toggle")?.addEventListener("click", () => {
   let current = "0";
@@ -11954,6 +11962,31 @@ document.getElementById("hero-breakdown-toggle")?.addEventListener("click", () =
   applyHeroBreakdownState();
 });
 applyHeroBreakdownState();
+
+/* ---------- Language (i18n.js) ----------
+   Static text is repainted by i18n.js itself; this redraws what script.js
+   writes. Free for everyone. */
+function renderLanguagePref() {
+  const sel = document.getElementById("pref-language");
+  if (sel) sel.value = I18N.choice;
+  const hint = document.getElementById("pref-language-hint");
+  if (hint) hint.hidden = I18N.lang === "en";
+}
+document.getElementById("pref-language")?.addEventListener("change", (e) => {
+  I18N.set(e.target.value);
+  renderLanguagePref();
+});
+window.addEventListener("duitful:lang", () => {
+  applyHeroBreakdownState();
+  setDailyMoreOpen(document.getElementById("daily-more")?.hidden === false);
+  renderAboutVersion();
+  if (state && aesKey) {
+    updateDailyTargetSelect();
+    populateCurrencyPickers();
+    renderAll();
+  }
+});
+renderLanguagePref();
 
 /* ---------- Appearance picker handlers ---------- */
 document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
@@ -11967,11 +12000,20 @@ document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
   });
 });
 
+// Native: the version baked into the APK / IPA, once @capacitor/app answers.
+let nativeVersion = null;
+function renderAboutVersion() {
+  const versionEl = document.getElementById("about-version");
+  if (!versionEl) return;
+  versionEl.textContent = nativeVersion
+    ? tr("Version {v} · Native build", { v: nativeVersion })
+    : tr("Version {v}", { v: APP_VERSION });
+}
 {
   const versionEl = document.getElementById("about-version");
   if (versionEl) {
     // Web fallback: hardcoded APP_VERSION constant.
-    versionEl.textContent = `Version ${APP_VERSION}`;
+    renderAboutVersion();
     // Native: read the version baked into the APK / IPA at build time
     // via @capacitor/app. This means bumping versionName in build.gradle
     // (or Info.plist on iOS) is enough — no need to also touch APP_VERSION
@@ -11979,12 +12021,13 @@ document.querySelectorAll("[data-theme-choice]").forEach((btn) => {
     if (isNative() && window.Capacitor?.Plugins?.App) {
       window.Capacitor.Plugins.App.getInfo()
         .then((info) => {
-          const v = info?.version || APP_VERSION;
-          versionEl.textContent = `Version ${v} · Native build`;
+          nativeVersion = info?.version || APP_VERSION;
+          renderAboutVersion();
         })
         .catch(() => {
           // Plugin call failed for some reason — fall back to the JS constant.
-          versionEl.textContent = `Version ${APP_VERSION} · Native build`;
+          nativeVersion = APP_VERSION;
+          renderAboutVersion();
         });
     }
   }
@@ -12090,7 +12133,7 @@ function setLockMode(mode) {
   const input = document.getElementById("lock-input");
   const welcome = document.getElementById("lock-welcome");
   if (err) { err.hidden = true; err.textContent = ""; }
-  if (input) { input.placeholder = "Passcode"; input.value = ""; }
+  if (input) { input.placeholder = tr("Passcode"); input.value = ""; }
   if (confirmEl) confirmEl.value = "";
   if (welcome) welcome.hidden = !(mode === "setup" || mode === "migrate");
   const choosing = mode === "setup" && !setupWantsPasscode;
@@ -12103,35 +12146,35 @@ function setLockMode(mode) {
   if (sub) sub.hidden = choosing;
   if (startPass) startPass.hidden = !choosing;
   if (startOpen) {
-    startOpen.textContent = choosing ? "Get started" : "Skip, no passcode";
+    startOpen.textContent = choosing ? tr("Get started") : tr("Skip, no passcode");
     startOpen.className = choosing ? "primary" : "ghost";
   }
   // Restore-from-Drive link only makes sense on a fresh / migrating device.
   if (restoreLink) restoreLink.hidden = !(mode === "setup" || mode === "migrate");
   if (typeof renderLockRestore === "function") renderLockRestore();
   if (mode === "unlock") {
-    if (sub) sub.textContent = "Enter your passcode";
-    if (submit) submit.textContent = "Unlock";
+    if (sub) sub.textContent = tr("Enter your passcode");
+    if (submit) submit.textContent = tr("Unlock");
     if (confirmEl) confirmEl.hidden = true;
     if (help) help.hidden = false;
   } else if (mode === "setup") {
-    if (sub) sub.textContent = "Pick a passcode.";
-    if (submit) submit.textContent = "Create passcode";
+    if (sub) sub.textContent = tr("Pick a passcode.");
+    if (submit) submit.textContent = tr("Create passcode");
     if (confirmEl) { confirmEl.hidden = false; confirmEl.value = ""; }
     if (help) help.hidden = true;
-    if (input) input.placeholder = "New passcode (min 4 digits)";
+    if (input) input.placeholder = tr("New passcode (min 4 digits)");
   } else if (mode === "migrate") {
-    if (sub) sub.textContent = "Set a passcode to encrypt your existing data.";
-    if (submit) submit.textContent = "Encrypt data";
+    if (sub) sub.textContent = tr("Set a passcode to encrypt your existing data.");
+    if (submit) submit.textContent = tr("Encrypt data");
     if (confirmEl) { confirmEl.hidden = false; confirmEl.value = ""; }
     if (help) help.hidden = true;
-    if (input) input.placeholder = "New passcode (min 4 digits)";
+    if (input) input.placeholder = tr("New passcode (min 4 digits)");
   } else if (mode === "restore") {
-    if (sub) sub.textContent = "Enter the passcode you used on the other device.";
-    if (submit) submit.textContent = lockRestoreSource === "icloud" ? "Restore from iCloud" : "Restore from Google Drive";
+    if (sub) sub.textContent = tr("Enter the passcode you used on the other device.");
+    if (submit) submit.textContent = lockRestoreSource === "icloud" ? tr("Restore from iCloud") : tr("Restore from Google Drive");
     if (confirmEl) confirmEl.hidden = true;
     if (help) help.hidden = true;
-    if (input) input.placeholder = "Passcode used on other device";
+    if (input) input.placeholder = tr("Passcode used on other device");
   }
   updateBiometricUI(); // fingerprint button only ever shows in "unlock" mode
 }
@@ -12249,7 +12292,7 @@ async function biometricUnlock() {
     // Keystore entry gone — the OS invalidated it (biometric enrollment
     // changed, device credentials reset) or it was never stored.
     await disableBiometric();
-    lockError("Biometric unlock was reset — enter your passcode, then re-enable it in Settings.");
+    lockError(tr("Biometric unlock was reset — enter your passcode, then re-enable it in Settings."));
     return;
   }
   await handleUnlock(creds.password);
@@ -15798,12 +15841,12 @@ function renderSecurityCard() {
   const change = document.getElementById("btn-change-passcode");
   const remove = document.getElementById("btn-remove-passcode");
   const hint = document.getElementById("security-hint");
-  if (change) change.textContent = open ? "Set a passcode" : "Change passcode";
+  if (change) change.textContent = open ? tr("Set a passcode") : tr("Change passcode");
   if (remove) remove.hidden = open;
   if (hint) {
     hint.innerHTML = open
-      ? `No passcode set. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`
-      : `Locked with your passcode. Lose it and nobody can recover your data. <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">How it's protected</a>`;
+      ? `${tr("No passcode set.")} <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">${tr("How it's protected")}</a>`
+      : `${tr("Locked with your passcode. Lose it and nobody can recover your data.")} <a href="https://duitful.app/privacy/" target="_blank" rel="noopener">${tr("How it's protected")}</a>`;
   }
   updateBiometricUI();
 }
@@ -16058,14 +16101,14 @@ async function restoreFromDrive(id = "drive") {
 }
 
 function formatRelative(iso) {
-  if (!iso) return "unknown";
+  if (!iso) return tr("unknown");
   const t = Date.parse(iso);
-  if (!t) return "unknown";
+  if (!t) return tr("unknown");
   const diff = Date.now() - t;
-  if (diff < 60000) return "moments ago";
-  if (diff < 3600000) return Math.floor(diff / 60000) + "m ago";
-  if (diff < 86400000) return Math.floor(diff / 3600000) + "h ago";
-  return Math.floor(diff / 86400000) + "d ago";
+  if (diff < 60000) return tr("moments ago");
+  if (diff < 3600000) return tr("{n}m ago", { n: Math.floor(diff / 60000) });
+  if (diff < 86400000) return tr("{n}h ago", { n: Math.floor(diff / 3600000) });
+  return tr("{n}d ago", { n: Math.floor(diff / 86400000) });
 }
 
 /* ----- Cloud backup UI ----- */
@@ -16115,18 +16158,18 @@ function renderDriveCard() {
     }
     const why = document.getElementById("icloud-off-why");
     if (why && !icOn && onWeb) {
-      why.textContent = "Sign in with your Apple ID to restore the Duitful iPhone app's backup. To back up here, use Google Drive or CSV.";
+      why.textContent = tr("Sign in with your Apple ID to restore the Duitful iPhone app's backup. To back up here, use Google Drive or CSV.");
     } else if (why && !icOn) {
       // Each reason names the one switch that fixes it. The code in
       // brackets is for a bug report, not for the reader.
       const reason = (ic.unavailableReason && ic.unavailableReason()) || "";
       why.textContent = reason === "no-account"
-        ? "You're not signed in to iCloud on this iPhone. Sign in from the Settings app, then tap Check again."
+        ? tr("You're not signed in to iCloud on this iPhone. Sign in from the Settings app, then tap Check again.")
         : reason === "restricted"
-          ? "iCloud is restricted on this iPhone (Screen Time or a work profile). Lift the restriction, then tap Check again. (restricted)"
+          ? tr("iCloud is restricted on this iPhone (Screen Time or a work profile). Lift the restriction, then tap Check again.") + " (restricted)"
           : reason === "temporarily-unavailable"
-            ? "iCloud needs your attention in the Settings app, often to re-enter your password. Then tap Check again. (temporarily-unavailable)"
-            : "Couldn't reach iCloud just now. Tap Check again. (" + (reason || "unknown") + ")";
+            ? tr("iCloud needs your attention in the Settings app, often to re-enter your password. Then tap Check again.") + " (temporarily-unavailable)"
+            : tr("Couldn't reach iCloud just now. Tap Check again.") + " (" + (reason || "unknown") + ")";
     }
     if (icOn) {
       const restoreOnly = onWeb;
@@ -16142,10 +16185,11 @@ function renderDriveCard() {
       const last = ic.getStatus().lastSyncedAt;
       const lastLine = document.getElementById("icloud-last-synced");
       if (lastLine) {
-        lastLine.textContent = restoreOnly ? "Restore only on the web. Back up with Google Drive or CSV."
-          : !pro ? `Automatic backup is off (Pro). Back up now and restoring are free. ${last ? `Last backed up ${formatRelative(last)}.` : "Not backed up yet."}`
-          : last ? `Last backed up ${formatRelative(last)}.`
-          : state.icloudBackup === false ? "Automatic backup is off." : "Not backed up yet.";
+        const lastText = last ? tr("Last backed up {when}.", { when: formatRelative(last) }) : tr("Not backed up yet.");
+        lastLine.textContent = restoreOnly ? tr("Restore only on the web. Back up with Google Drive or CSV.")
+          : !pro ? `${tr("Automatic backup is off (Pro). Back up now and restoring are free.")} ${lastText}`
+          : last ? lastText
+          : state.icloudBackup === false ? tr("Automatic backup is off.") : lastText;
       }
     }
   }
@@ -16171,11 +16215,11 @@ function renderDriveCard() {
   if (signedIn) {
     const email = DriveSync.getAccountEmail();
     const accountLine = document.getElementById("drive-account-line");
-    if (accountLine) accountLine.textContent = email ? `Connected as ${email}.` : "Connected to Google Drive.";
+    if (accountLine) accountLine.textContent = email ? tr("Connected as {email}.", { email }) : tr("Connected to Google Drive.");
 
     const last = (DriveSync.getStatus().lastSyncedAt) || null;
     const lastLine = document.getElementById("drive-last-synced");
-    if (lastLine) lastLine.textContent = last ? `Last synced ${formatRelative(last)}.` : "Not synced yet.";
+    if (lastLine) lastLine.textContent = last ? tr("Last synced {when}.", { when: formatRelative(last) }) : tr("Not synced yet.");
 
     const auto = document.getElementById("drive-auto-sync");
     if (auto) {
@@ -16199,15 +16243,15 @@ function renderDriveCard() {
     const prefix = (x) => (statuses.length > 1 ? cloudProviders()[x.id].name + ": " : "");
     if (busy) {
       pill.hidden = false;
-      pill.textContent = prefix(busy) + (busy.s.message || "Syncing…");
+      pill.textContent = prefix(busy) + (busy.s.message || tr("Syncing…"));
       pill.className = "drive-status-pill working";
     } else if (failed) {
       pill.hidden = false;
-      pill.textContent = prefix(failed) + (failed.s.message || "Error");
+      pill.textContent = prefix(failed) + (failed.s.message || tr("Error"));
       pill.className = "drive-status-pill error";
     } else {
       pill.hidden = statuses.length === 0;
-      pill.textContent = statuses.length ? "Synced" : "";
+      pill.textContent = statuses.length ? tr("Synced") : "";
       pill.className = "drive-status-pill ok";
     }
   }
@@ -16907,6 +16951,7 @@ const SEARCH_FEATURES = [
   { title: "Cloud backup", where: "Settings", kw: "cloud backup google drive sync restore sandaran awan segerak pulih", go: ["data", "#drive-card"] },
   { title: "Duitful Pro", where: "Settings", kw: "pro upgrade premium unlock licence license naik taraf lesen", go: ["data", "#pro-card"] },
   { title: "Currency", where: "Settings", kw: "currency myr usd sgd money mata wang", go: ["data", "#pref-currency"] },
+  { title: "Language", where: "Settings", kw: "language bahasa melayu malay chinese mandarin 中文 华语 english bm", go: ["data", "#pref-language"] },
   { title: "Reminders", where: "Settings", kw: "reminders notifications alerts due peringatan notifikasi makluman", go: ["data", "#pref-reminders-days"] },
   { title: "Change passcode", where: "Settings", kw: "passcode password pin security lock set turn off remove kata laluan kod keselamatan kunci", go: ["data", "#btn-change-passcode"] },
   { title: "Fingerprint / face unlock", where: "Settings", kw: "fingerprint face id biometric unlock cap jari muka biometrik", go: ["data", "#biometric-row"] },
@@ -16952,7 +16997,9 @@ function searchMonthWordsUncached(iso) {
   const dt = new Date(y, m - 1, d || 1);
   const short = dt.toLocaleDateString("en-MY", { month: "short" });
   const long = dt.toLocaleDateString("en-MY", { month: "long" });
-  return `${d || ""} ${short} ${long} ${y} ${d ? `${d}/${m}` : ""}`;
+  // English month words always match; the chosen language's too.
+  const local = dateLocale() === "en-MY" ? "" : ` ${dt.toLocaleDateString(dateLocale(), { month: "short" })} ${dt.toLocaleDateString(dateLocale(), { month: "long" })}`;
+  return `${d || ""} ${short} ${long}${local} ${y} ${d ? `${d}/${m}` : ""}`;
 }
 
 function runSearch(query, scope) {

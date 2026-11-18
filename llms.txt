@@ -270,6 +270,10 @@ diffed against the repository. The hosted product is not a subscription
   automatic encrypted backup, unlimited scans, goals and holdings, budget
   pools and multi-currency entries.
 - Zakat figures are planning estimates, not religious rulings.
+- App languages: English, Bahasa Melayu and Simplified Chinese (since
+  v1.57.1), free on every tier. The app follows the phone's language or
+  a choice in Settings. Home, adding an entry and Settings are translated
+  first; other screens are being translated and show English meanwhile.
 - No advertising, no analytics on financial data, no third-party SDKs
   reading transactions. The only measurement anywhere is a cookieless
   count of installed-app launches (one per launch, no page paths, no

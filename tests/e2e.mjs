@@ -11440,6 +11440,113 @@ check('the brand catalogue makes no network calls at all',
   await fp.close();
 }
 
+/* ── In-app languages: Bahasa Melayu and Simplified Chinese (stage 1) ──────
+   English is the key (app/i18n.js); the tables are generated from
+   scripts/i18n/strings.mjs. Stage 1 covers the passcode screen, header, tab
+   bar, Home and Settings. */
+{
+  const built = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'build-i18n.mjs'), '--check'], { encoding: 'utf8' });
+  check('languages: app/i18n-ms.js and app/i18n-zh.js are built from scripts/i18n/strings.mjs (no stale table, no placeholder mismatch)',
+    built.status === 0, (built.stderr || '').trim());
+
+  const lp = await b.newPage({ viewport: { width: 390, height: 844 } });
+  const lerr = [];
+  lp.on('pageerror', (e) => lerr.push(e.message));
+  await lp.goto(`${BASE}/app/index.html`);
+  await lp.waitForTimeout(500);
+
+  // Coverage, on the page's own markup (parsed, never run), so nothing the
+  // user typed or the app rendered can count. Names, codes and the
+  // developer-only Drive note stay English on purpose.
+  const KEEP = /^([A-Z]{3}|Duitful|Duitful Pro|iCloud|Google Drive|CSV|WhatsApp|Codyl Enterprise|Apple ID|RM [\d.,]+|you@example\.com|https?:\/\/\S+|Cloud backup isn't configured for this build\. Set|\(or|on iOS\) in)$/;
+  const gaps = await lp.evaluate(async () => {
+    const html = await (await fetch('index.html', { cache: 'no-store' })).text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const scopes = ['#lock', 'header.app-header', 'nav.tabs', '#tab-dashboard', '#tab-data'];
+    const out = {};
+    for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
+    return out;
+  });
+  for (const l of ['ms', 'zh']) {
+    const left = [...new Set(gaps[l])].filter((s) => !KEEP.test(s));
+    check(`languages: every English line on the passcode screen, header, tab bar, Home and Settings has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
+      left.length === 0, left.join(' | '));
+  }
+
+  // The phone here is English; English is what a new install shows.
+  await lp.click('#btn-start-open');
+  await lp.waitForTimeout(1200);
+  await lp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const pick = (v) => lp.evaluate((v) => {
+    const sel = document.getElementById('pref-language');
+    sel.value = v;
+    sel.dispatchEvent(new Event('change'));
+  }, v);
+  const look = () => lp.evaluate(() => ({
+    tab: document.querySelector('#tabbtn-dashboard').textContent.trim(),
+    lang: document.documentElement.lang,
+    add: document.querySelector('#form-daily button[type="submit"]').textContent.trim(),
+    progress: document.getElementById('hero-progress-text').textContent,
+    hint: !document.getElementById('pref-language-hint').hidden,
+    stored: localStorage.getItem('duitful.lang'),
+  }));
+  const en0 = await look();
+  check('languages: a phone set to English opens in English, choice left on "Phone\'s language"',
+    en0.tab === 'Home' && en0.lang === 'en' && en0.add === 'Add entry' && en0.stored === null && !en0.hint, JSON.stringify(en0));
+
+  await pick('ms');
+  const ms = await look();
+  check('languages: picking Bahasa Melayu repaints the page and what script.js draws, with no reload (tab, button, balance line, <html lang>)',
+    ms.tab === 'Utama' && ms.lang === 'ms' && ms.add === 'Tambah catatan' && /^.*Hari \d+\/\d+/.test(ms.progress) && ms.hint && ms.stored === 'ms', JSON.stringify(ms));
+  const fills = await lp.evaluate(() => [tr('Day {d}/{n}', { d: 3, n: 30 }), trn(1, '{n} day left', '{n} days left'), trn(4, '{n} day left', '{n} days left'), tr('Not a key {x}', { x: 1 })]);
+  check('languages: placeholders fill by name, plurals pick the English form first, an unknown line stays English',
+    fills[0] === 'Hari 3/30' && fills[1] === '1 hari lagi' && fills[2] === '4 hari lagi' && fills[3] === 'Not a key 1', JSON.stringify(fills));
+
+  // A note that happens to match a key is still the user's own words.
+  await lp.evaluate(() => {
+    const f = document.getElementById('form-daily');
+    f.querySelector('input[name="amount"]').value = '7';
+    f.querySelector('input[name="note"]').value = 'Home';
+    f.requestSubmit();
+  });
+  await lp.waitForTimeout(500);
+  const todayRow = await lp.evaluate(() => document.querySelector('#today-list .today-name')?.textContent);
+  const toastText = await lp.evaluate(() => document.getElementById('toast')?.textContent || '');
+  check('languages: a note the user typed is never translated, even when it matches a table key ("Home" stays "Home")',
+    todayRow === 'Home', String(todayRow));
+  check('languages: the toast after adding an entry speaks Malay', /Perbelanjaan ditambah/.test(toastText), toastText);
+
+  // Kept outside the vault: the next open, passcode screen included, is in Malay.
+  await lp.reload();
+  await lp.waitForTimeout(1500);
+  const again = await look();
+  check('languages: the choice survives a reload (stored outside the vault, like the theme)', again.tab === 'Utama' && again.lang === 'ms', JSON.stringify(again));
+
+  await pick('zh');
+  const zh = await look();
+  const zhDate = await lp.evaluate(() => document.getElementById('greeting').textContent);
+  check('languages: 中文 repaints too, and dates follow it (月 in the greeting)',
+    zh.tab === '首页' && zh.lang === 'zh-Hans' && zh.add === '添加记录' && /月/.test(zhDate), JSON.stringify({ ...zh, zhDate }));
+
+  await pick('auto');
+  const back = await look();
+  check('languages: back to "Phone\'s language" returns to English here and forgets the stored choice',
+    back.tab === 'Home' && back.lang === 'en' && back.stored === null && !back.hint, JSON.stringify(back));
+
+  // The phone's own language decides when nothing is stored.
+  const mctx = await b.newContext({ locale: 'ms-MY' });
+  const mp = await mctx.newPage();
+  await mp.goto(`${BASE}/app/index.html`);
+  await mp.waitForTimeout(600);
+  const first = await mp.evaluate(() => ({ start: document.getElementById('btn-start-open').textContent.trim(), lang: I18N.lang, choice: I18N.choice }));
+  check('languages: a phone in Bahasa Melayu gets the first screen in Malay without being asked',
+    first.lang === 'ms' && first.choice === 'auto' && first.start === 'Mulakan', JSON.stringify(first));
+  await mctx.close();
+
+  check('languages: no page errors while switching', lerr.length === 0, lerr.join(' | '));
+  await lp.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();
