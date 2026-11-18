@@ -11458,19 +11458,21 @@ check('the brand catalogue makes no network calls at all',
   // Coverage, on the page's own markup (parsed, never run), so nothing the
   // user typed or the app rendered can count. Names, codes and the
   // developer-only Drive note stay English on purpose.
-  const KEEP = /^([A-Z]{3}|YA \d{4}|PCB|LHDN|Duitful|Duitful Pro|iCloud|Google Drive|CSV|WhatsApp|Codyl Enterprise|Apple ID|RM [\d.,]+|you@example\.com|https?:\/\/\S+|Cloud backup isn't configured for this build\. Set|\(or|on iOS\) in)$/;
+  const KEEP = /^([A-Z]{3}|YA \d{4}|PCB|LHDN|hello@duitful\.app|Terima kasih,|Aydil|Duitful|Duitful Pro|iCloud|Google Drive|CSV|WhatsApp|Codyl Enterprise|Apple ID|RM [\d.,]+|you@example\.com|https?:\/\/\S+|Cloud backup isn't configured for this build\. Set|\(or|on iOS\) in)$/;
   const gaps = await lp.evaluate(async () => {
     const html = await (await fetch('index.html', { cache: 'no-store' })).text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const scopes = ['#lock', 'header.app-header', 'nav.tabs', '#tab-dashboard', '#tab-data',
-      '#tab-flow', '#tab-debts', '#tab-savings', '#tab-daily', '#tab-reports', '#tab-tax', '#tax-numbers-dialog', '#tax-claim-dialog', '#tax-rules-dialog', '#tax-review-dialog', '#tax-receipt-dialog'];
+      '#tab-flow', '#tab-debts', '#tab-savings', '#tab-daily', '#tab-reports', '#tab-tax', '#tax-numbers-dialog', '#tax-claim-dialog', '#tax-rules-dialog', '#tax-review-dialog', '#tax-receipt-dialog',
+      '#paywall-dialog', '#debt-paid-dialog', '#milestone-dialog', '#restore-dialog', '#pro-welcome-dialog', '#announce-dialog',
+      '#whats-new-dialog', '#license-dialog', '#fpx-email-dialog', '#passcode-dialog', '#bio-offer-dialog', '#pwa-install-ios'];
     const out = {};
     for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
   });
   for (const l of ['ms', 'zh']) {
     const left = [...new Set(gaps[l])].filter((s) => !KEEP.test(s));
-    check(`languages: every English line on the passcode screen, header, tab bar, Home, Monthly, Debts, Savings, All entries, Reports, Settings and Tax (page and dialogs) has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
+    check(`languages: every English line on the passcode screen, header, tab bar, Home, Monthly, Debts, Savings, All entries, Reports, Settings, Tax (page and dialogs) and the Pro / passcode / milestone sheets has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
       left.length === 0, left.join(' | '));
   }
 
@@ -11642,7 +11644,8 @@ check('the brand catalogue makes no network calls at all',
       (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${tab}: ${x}`));
     }
     for (const [label, open] of [['details', () => taxOpenNumbers()], ['claim', () => taxOpenClaim({ relief: 'medical' })],
-      ['review', () => taxOpenReview(taxReviewItems(new Date().getFullYear()), 'year', new Date().getFullYear())]]) {
+      ['review', () => taxOpenReview(taxReviewItems(new Date().getFullYear()), 'year', new Date().getFullYear())],
+      ['paywall', () => openPaywall('installment')], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
       (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${label} dialog: ${x}`));
@@ -11650,7 +11653,7 @@ check('the brand catalogue makes no network calls at all',
     }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 

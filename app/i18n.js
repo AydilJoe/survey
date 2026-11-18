@@ -19,6 +19,9 @@
  *   translate="no"   on an element: leave it and everything inside alone
  *   data-i18n-html   on an element: its whole innerHTML is one key, for
  *                    sentences with <strong>/<a> inside them
+ *   data-i18n="key"  on an element: its text uses this key instead of its
+ *                    English, for a word with two meanings ("Save" money
+ *                    vs "Save" a form)
  *
  * The choice is stored OUTSIDE the encrypted vault, like the theme, so the
  * passcode screen can be painted in it. "auto" (the default) follows the
@@ -105,11 +108,13 @@
     let n;
     while ((n = walker.nextNode())) {
       const raw = n.nodeValue;
-      const en = norm(raw);
+      const own = n.parentElement && n.parentElement.getAttribute("data-i18n");
+      const en = own && norm(raw) ? own : norm(raw);
       if (!en || !known(en)) continue;
       const lead = raw.match(/^\s*/)[0];
       const trail = raw.match(/\s*$/)[0];
-      texts.push({ node: n, en, lead: lead ? " " : "", trail: trail ? " " : "" });
+      // A named key falls back to the element's own English, not the key.
+      texts.push({ node: n, en, orig: norm(raw), lead: lead ? " " : "", trail: trail ? " " : "" });
     }
   }
 
@@ -121,7 +126,7 @@
   }
 
   function paint() {
-    for (const t of texts) t.node.nodeValue = t.lead + tr(t.en) + t.trail;
+    for (const t of texts) t.node.nodeValue = t.lead + (lookup(t.en, lang) ?? t.orig) + t.trail;
     for (const t of attrs) t.el.setAttribute(t.a, tr(t.en));
     for (const t of htmls) t.el.innerHTML = tr(t.en);
     document.documentElement.setAttribute("lang", HTML_LANG[lang] || "en");
@@ -155,7 +160,8 @@
     });
     let n;
     while ((n = walker.nextNode())) {
-      const en = norm(n.nodeValue);
+      const own = n.parentElement && n.parentElement.getAttribute("data-i18n");
+      const en = own && norm(n.nodeValue) ? own : norm(n.nodeValue);
       if (en && /[a-z]{2}/i.test(en) && lookup(en, l) === null) out.add(en);
     }
     return [...out];
