@@ -299,6 +299,18 @@
 
         <!-- Android only: ask for notification access once, with the disclosure
              Google Play wants before Android's own screen. renderCaptureIntro. -->
+        <section id="stmt-nudge" class="card ai-intro" hidden aria-labelledby="stmt-nudge-title">
+          <div class="ai-intro-head">
+            <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span>
+            <h2 id="stmt-nudge-title" translate="no"></h2>
+          </div>
+          <p class="hint" id="stmt-nudge-body" translate="no"></p>
+          <div class="button-row capture-intro-actions">
+            <button type="button" class="ghost" id="stmt-nudge-later">Not now</button>
+            <button type="button" class="primary" id="stmt-nudge-import">Import</button>
+          </div>
+        </section>
+
         <section id="capture-intro" class="card ai-intro" hidden aria-labelledby="capture-intro-title">
           <div class="ai-intro-head">
             <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
@@ -698,6 +710,9 @@
           <div class="stat-row">
             <div class="stat"><span class="label">This month</span><strong id="daily-month-total">RM 0.00</strong></div>
             <div class="stat"><span class="label">Entries</span><strong id="daily-month-count">0</strong></div>
+          </div>
+          <div class="button-row daily-stmt-row">
+            <button type="button" class="ghost" id="btn-stmt-import-daily">Import bank statement</button>
           </div>
           <details class="daily-legend-details">
             <summary>What do the pill colors mean?</summary>
@@ -1559,8 +1574,13 @@
             </label>
           </div>
           <div id="import-status" class="hint"></div>
+        </div>
+
+        <div class="card">
+          <h2>Bank statements</h2>
+          <p class="hint">A PDF from your bank, a scan or photos of the pages. Read on your phone, checked, then imported.</p>
           <div class="button-row">
-            <button type="button" class="ghost" id="btn-stmt-import">Import bank statement (PDF)</button>
+            <button type="button" class="primary" id="btn-stmt-import">Import bank statement</button>
           </div>
         </div>
 
@@ -2877,8 +2897,8 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=14"></script>
-    <script src="i18n-zh.js?v=14"></script>
+    <script src="i18n-ms.js?v=15"></script>
+    <script src="i18n-zh.js?v=15"></script>
     <script src="i18n.js?v=4"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
@@ -2895,8 +2915,8 @@
     <script src="region.js?v=1"></script>
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=17"></script>
-    <script src="statement.js?v=4"></script>
+    <script src="statement.js?v=5"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=231"></script>
+    <script src="script.js?v=232"></script>
   </body>
 </html>

@@ -273,7 +273,7 @@ export const ROWS = [
   ["A copy you keep. Import it to restore or move devices.", "Salinan yang anda simpan sendiri. Import untuk pulihkan data atau tukar telefon.", "自己保管的一份副本。导入就能恢复资料或换手机。"],
   ["Export CSV", "Eksport CSV", "导出 CSV"],
   ["Import CSV", "Import CSV", "导入 CSV"],
-  ["Import bank statement (PDF)", "Import penyata bank (PDF)", "导入银行对账单（PDF）"],
+  ["Import bank statement", "Import penyata bank", "导入银行对账单"],
   // ── Settings: security ──────────────────────────────────────────
   ["Security", "Keselamatan", "安全"],
   ["No passcode set.", "Tiada kod laluan ditetapkan.", "尚未设置密码。"],
