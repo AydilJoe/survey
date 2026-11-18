@@ -5978,7 +5978,8 @@ body.private .invest-plan-hero .hint,
 body.private #invest-plan-pill,
 body.private .invest-plan-stats .stat strong,
 body.private .invest-plan-stats .stat .sub,
-body.private .invest-plan-summary {
+body.private .invest-plan-summary,
+body.private .recap-text {
   filter: blur(7px);
   user-select: none;
   pointer-events: none;
@@ -8449,3 +8450,8 @@ html.kb-open dialog:modal[open] { animation: none; }
 .split-step-dots { margin: 0.2rem 0 0.4rem; }
 .split-recap { margin: 0.2rem 0 0.6rem; font-weight: 500; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem; }
 .split-recap .tax-quiet { margin-left: auto; }
+
+/* Monthly recap on Reports: a few sentences, figures from code. */
+.recap-card h2 { margin: 0 0 0.4rem; font-size: 1rem; }
+.recap-text { margin: 0; font-size: 0.98rem; line-height: 1.55; color: var(--text); }
+.recap-tag { margin-top: 0.5rem; font-size: 0.78rem; }

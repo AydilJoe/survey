@@ -34,6 +34,7 @@ const APP_FILES = [
   "tax-data.js",
   "tax.js",
   "statement.js",
+  "recap.js",
   "brands.js",
   "analytics.js",
   "theme-boot.js",

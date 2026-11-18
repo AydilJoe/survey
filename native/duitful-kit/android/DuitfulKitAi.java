@@ -60,6 +60,16 @@ final class DuitfulKitAi {
             + "counterparty is the shop or person exactly as written, or \"\". category is one of: ";
     private static final int MAX_ALERT_CHARS = 600;
 
+    // The monthly recap: the app computes every figure and sends them as
+    // lines; the model only rewords. The app throws the answer away if it
+    // carries a number the facts don't (recapTextOk in recap.js).
+    private static final String RECAP_INSTRUCTIONS =
+        "You write a short monthly spending recap for a personal finance app. "
+            + "Use only the facts below. Write two or three short sentences in plain, friendly English, not formal. "
+            + "Copy every number exactly as written in the facts. Do not calculate, round, or add any number or percentage. "
+            + "Describe only; do not give advice or suggestions. No greeting, no emoji, no lists.\n\nFacts:\n";
+    private static final int MAX_RECAP_CHARS = 1200;
+
     private DuitfulKitAi() {}
 
     private static synchronized GenerativeModelFutures client() {
@@ -134,6 +144,12 @@ final class DuitfulKitAi {
         String cats = categories == null ? "" : categories;
         if (cats.length() > 300) cats = cats.substring(0, 300);
         generate(ctx, ALERT_INSTRUCTIONS + cats + ", or \"\".\n\nNotification:\n" + body, 96, call);
+    }
+
+    /** The monthly recap reworded from the app's own fact lines. */
+    static void writeRecap(Context ctx, String facts, PluginCall call) {
+        String body = facts.length() > MAX_RECAP_CHARS ? facts.substring(0, MAX_RECAP_CHARS) : facts;
+        generate(ctx, RECAP_INSTRUCTIONS + body, 160, call);
     }
 
     /** One prompt in, the model's text out as {json}. Shared by both readers. */
