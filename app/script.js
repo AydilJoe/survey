@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.18";
+const APP_VERSION = "1.57.19";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4011,7 +4011,12 @@ function zakatSummary() {
   };
 }
 
-let zakatDetailsAutoOpened = false;
+// Zakat settings live in a dialog: opened by "Set it up" while no nisab
+// price is set (the one-time setup), and by Edit after that.
+function openZakatSettings() {
+  const dlg = document.getElementById("zakat-dialog");
+  if (dlg && !dlg.open && typeof dlg.showModal === "function") dlg.showModal();
+}
 
 function renderZakat() {
   const card = document.getElementById("zakat-card");
@@ -4031,11 +4036,6 @@ function renderZakat() {
   const fill = document.getElementById("zakat-bar-fill");
   const nisabLine = document.getElementById("zakat-nisab-line");
 
-  const det = document.getElementById("zakat-nisab-details");
-  if (det && z.nisab <= 0 && !zakatDetailsAutoOpened) {
-    det.open = true;
-    zakatDetailsAutoOpened = true;
-  }
 
   if (dueEl) dueEl.textContent = fmtMoney(z.due);
   if (fill) fill.style.width = `${z.pctOfNisab.toFixed(1)}%`;
@@ -4056,10 +4056,10 @@ function renderZakat() {
     if (z.nisab <= 0) {
       nisabLine.textContent =
         s.nisabBasis === "custom"
-          ? tr("Enter your state authority's nisab amount under “Nisab & haul settings” above.")
+          ? tr("Tap Edit and enter your state authority's nisab amount.")
           : tr(s.nisabBasis === "silver"
-            ? "Enter today's silver price under “Nisab & haul settings” above to compute your nisab."
-            : "Enter today's gold price under “Nisab & haul settings” above to compute your nisab.");
+            ? "Tap Edit and enter today's silver price to work out your nisab."
+            : "Tap Edit and enter today's gold price to work out your nisab.");
     } else {
       const basisLabel = s.nisabBasis === "custom"
         ? tr("custom nisab")
@@ -4092,7 +4092,7 @@ function renderZakat() {
   const haulLine = document.getElementById("zakat-haul-line");
   if (haulLine) {
     if (!z.haul) {
-      haulLine.textContent = tr("Set a haul start date under “Nisab & haul settings” above to track the lunar year.");
+      haulLine.textContent = tr("Tap Edit and set when your haul started to track the lunar year.");
     } else if (z.haul.complete) {
       haulLine.textContent = tr("Haul complete since {date}.", { date: z.haul.due.toLocaleDateString(dateLocale(), { day: "numeric", month: "long", year: "numeric" }) });
     } else {
@@ -4122,7 +4122,7 @@ function renderZakat() {
 
 /* ---------- Shariah settings wiring ---------- */
 
-// Syncs the "Nisab & haul settings" block inside the zakat card.
+// Syncs the zakat settings dialog with state.
 function renderZakatSettings(s) {
   const basis = document.getElementById("zakat-nisab-basis");
   if (basis && document.activeElement !== basis) basis.value = s.nisabBasis;
@@ -4156,7 +4156,11 @@ function bindShariahControls() {
     const el = document.getElementById(id);
     if (el) el.addEventListener(evt, fn);
   };
-  on("btn-zakat-enable", "click", () => updateShariah({ zakatEnabled: true }));
+  on("btn-zakat-enable", "click", () => {
+    updateShariah({ zakatEnabled: true });
+    if (zakatSummary().nisab <= 0) openZakatSettings();
+  });
+  on("btn-zakat-edit", "click", openZakatSettings);
   // Disabling hides the card but keeps every number, so coming back is free.
   on("btn-zakat-disable", "click", () => updateShariah({ zakatEnabled: false }));
   on("zakat-nisab-basis", "change", (e) => updateShariah({ nisabBasis: e.target.value }));
@@ -11434,6 +11438,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.19": [
+    "<strong>Tidier retirement and zakat cards</strong> — each card now shows its figures and one Edit button; the settings open in their own sheet with a hint under every field. The Pro welcome puts its two setup steps first.",
+  ],
   "1.57.18": [
     "<strong>Shorter forms</strong> — adding income, a bill, a budget pool, a holding or an Islamic financing now shows the fields you need, full width, with hints under them. The rest waits under More.",
   ],

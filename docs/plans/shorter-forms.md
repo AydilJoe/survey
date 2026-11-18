@@ -1,6 +1,6 @@
 # Shorter forms: plan (not started)
 
-Status: **batch A built in 1.57.18** (19 Nov 2026); batch B not started. Comes from the 15 Nov form audit
+Status: **batch A built in 1.57.18**; batch B: zakat, retirement and Pro welcome in 1.57.19, split compose next (1.58.0). Comes from the 15 Nov form audit
 (390px, dark). The Tax page (1.55.13) is the model to follow.
 
 ## Rules (what made the Tax page work)

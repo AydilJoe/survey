@@ -224,8 +224,8 @@ await page.click('#btn-zakat-enable');
 await page.waitForTimeout(400);
 check('zakat card appears after one tap', await page.locator('#zakat-card').evaluate(e => !e.hidden));
 check('opt-in hides once enabled', await page.locator('#zakat-optin').evaluate(e => e.hidden));
-check('nisab settings auto-open while unset',
-  await page.locator('#zakat-nisab-details').evaluate(e => e.open));
+check('zakat setup opens by itself while no nisab price is set',
+  await page.locator('#zakat-dialog').evaluate(e => e.open));
 await page.fill('#zakat-gold-price', '480');
 await page.dispatchEvent('#zakat-gold-price', 'change');
 await page.waitForTimeout(300);
@@ -234,7 +234,6 @@ const z1 = await S(() => zakatSummary());
 check('nisab = 85g x 480 = 40800', Math.abs(z1.nisab - 40800) < 0.01, String(z1.nisab));
 check('below nisab with no assets', z1.liable === false && z1.due === 0);
 
-await page.click('#tabbtn-savings');
 await page.fill('#zakat-other-assets', '50000');
 await page.dispatchEvent('#zakat-other-assets', 'change');
 await page.waitForTimeout(300);
@@ -264,6 +263,11 @@ const haul = await S(() => zakatSummary().haul);
 check('haul countdown ≈254 days after a 100-day-old start',
   haul && haul.complete === false && Math.abs(haul.daysLeft - 254) <= 1, JSON.stringify(haul));
 
+// Done closes the settings; the card keeps the figures.
+await page.click('#zakat-done');
+check('zakat settings close on Done, and Edit opens them again',
+  !(await page.locator('#zakat-dialog').evaluate(e => e.open))
+  && await S(() => { document.getElementById('btn-zakat-edit').click(); const o = document.getElementById('zakat-dialog').open; document.getElementById('zakat-dialog').close(); return o; }));
 // Mark paid
 await page.click('#btn-zakat-paid');
 await page.waitForTimeout(500);
@@ -1049,13 +1053,20 @@ check('re-enabling restores the card with the same numbers',
   && Math.abs((await S(() => investPlanSummary().targetPot)) - 950000) < 0.01);
 
 // The form itself must reach the same state the fixtures set directly.
+// The inputs live in the Edit plan dialog (shorter forms, batch B).
+await page.click('#btn-invest-plan-edit');
 await page.fill('#invest-plan-target-monthly', '3000');
 await page.dispatchEvent('#invest-plan-target-monthly', 'change');
 await page.waitForTimeout(300);
 await page.fill('#invest-plan-target-pot', '');
 await page.dispatchEvent('#invest-plan-target-pot', 'change');
 await page.waitForTimeout(300);
+await page.click('#invest-plan-done');
 const fromForm = await S(() => investPlanSummary());
+check('retirement card: one summary line and Edit plan; the inputs sit in the dialog, which closes on Done',
+  await S(() => /^Age \d+ → \d+ · [\d.]+% real return/.test(document.getElementById('invest-plan-summary').textContent)
+    && !document.getElementById('invest-plan-dialog').open
+    && !!document.querySelector('#invest-plan-dialog #invest-plan-current-age')));
 check('typing into the form drives the same maths (3,000 × 12 ÷ 4% = 900,000)',
   Math.abs(fromForm.targetPot - 900000) < 0.01, String(fromForm.targetPot));
 

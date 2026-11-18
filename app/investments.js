@@ -703,6 +703,13 @@ function renderInvestPlan() {
   setVal("invest-plan-contribution", p.monthlyContribution || "");
   const inc = document.getElementById("invest-plan-include-savings");
   if (inc && document.activeElement !== inc) inc.checked = p.includeSavings !== false;
+  // The card shows the plan in one line; Edit plan opens the inputs.
+  const summary = document.getElementById("invest-plan-summary");
+  if (summary) {
+    const parts = [tr("Age {a} → {b}", { a: p.currentAge, b: p.retireAge }), tr("{r}% real return", { r: p.realReturn })];
+    if (p.monthlyContribution) parts.push(tr("saving {a}/month", { a: fmtMoney(p.monthlyContribution) }));
+    summary.textContent = parts.join(" · ");
+  }
 
   const s = investPlanSummary();
   const text = (id, value) => {
@@ -787,6 +794,14 @@ function bindInvestPlanControls() {
   // Disabling hides the whole surface but keeps every input, so coming back
   // costs one tap and no retyping — same contract as "Stop tracking" on zakat.
   on("btn-invest-plan-disable", "click", () => updateInvestPlan({ enabled: false }));
+  on("btn-invest-plan-edit", "click", () => {
+    const dlg = document.getElementById("invest-plan-dialog");
+    if (!dlg) return;
+    const p = investPlanState();
+    const more = document.getElementById("invest-plan-more");
+    if (more) more.open = !!p.targetPot;           // opened by itself when set
+    if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+  });
   const numeric = [
     ["invest-plan-current-age", "currentAge"],
     ["invest-plan-retire-age", "retireAge"],

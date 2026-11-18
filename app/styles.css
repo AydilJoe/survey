@@ -5977,7 +5977,8 @@ body.private .invest-plan-hero strong,
 body.private .invest-plan-hero .hint,
 body.private #invest-plan-pill,
 body.private .invest-plan-stats .stat strong,
-body.private .invest-plan-stats .stat .sub {
+body.private .invest-plan-stats .stat .sub,
+body.private .invest-plan-summary {
   filter: blur(7px);
   user-select: none;
   pointer-events: none;
@@ -8435,3 +8436,11 @@ html.kb-open dialog:modal[open] { animation: none; }
 /* A hint under a field belongs to that field: snug under it, clear of the next label. */
 .field > .hint { margin: 0; font-weight: 400; color: var(--muted); font-size: 0.8rem; }
 .field:has(> .hint) { margin-bottom: 0.95rem; }
+
+/* Pro welcome: steps first, the letter one tap away. */
+.pro-dev-more { margin: 0.6rem 0 0.2rem; }
+.pro-dev-more > summary { cursor: pointer; padding: 0.6rem 0; min-height: 44px; box-sizing: border-box; color: var(--ink2); font-size: 0.9rem; font-weight: 500; }
+
+/* Retirement: the plan in one line, inputs in a dialog; Stop planning kept apart. */
+.invest-plan-summary { margin: 0.6rem 0 0.2rem; font-size: 0.9rem; color: var(--ink2); }
+.invest-plan-foot { display: flex; justify-content: flex-end; margin-top: 0.4rem; }
