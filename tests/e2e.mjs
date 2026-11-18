@@ -2795,6 +2795,83 @@ check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.c
       && /CAPPluginMethod\(name: "readSharedFile"/.test(swift) && /hasPrefix\(home \+ "\/"\)/.test(swift) && /removeItem\(at: url\)/.test(swift), '');
 }
 
+/* ── Monthly recap on Reports: figures from code, AI may only reword (1.58.1) ── */
+{
+  const r = await S(async () => {
+    const out = {};
+    const keep = { d: state.dailyExpenses, x: state.expenses, p: state.budgetPools, cap: window.Capacitor, ai: state.aiEnabled };
+    const e = (date, amount, category) => ({ id: uid(), kind: 'expense', date, amount, category, note: '' });
+    try {
+      state.dailyExpenses = [
+        e('2026-10-02', 300, 'Food'), e('2026-10-05', 100, 'Groceries'), e('2026-10-20', 999, 'Travel'),
+        e('2026-11-02', 280, 'Food'), e('2026-11-06', 220, 'Groceries'), e('2026-11-09', 40, 'Transport'),
+      ];
+      state.expenses = [{ id: 'b1', name: 'Internet', amount: 129, month: '2026-11', day: 25 }];
+      state.budgetPools = [];
+      // Mid-month: this month so far against the same days last month (the 20 Oct trip is outside them).
+      const f = recapFacts('2026-11-10');
+      out.mid = { spent: f.spent, prev: f.prevSpent, top: f.top && f.top.name, rise: f.rise && [f.rise.name, f.rise.delta], bills: f.billsLeft, full: f.full };
+      out.midText = recapTemplate(f);
+      // The 1st–3rd: last month in full.
+      const g = recapFacts('2026-11-02');
+      out.early = { month: g.month, full: g.full, spent: g.spent };
+      out.none = recapFacts('2026-08-15') === null;
+      // The guard: only the facts' numbers, no advice, short.
+      const lines = recapFactLines(f);
+      out.okGood = recapTextOk('You have spent RM 540 so far this month, RM 140.00 more than last time. Groceries rose the most.', lines);
+      out.okInvented = recapTextOk('You spent RM 540.00, about 35% more than last month.', lines);
+      out.okAdvice = recapTextOk('You spent RM 540.00. You should cut back on Groceries.', lines);
+      // On the card, with a stand-in phone model.
+      state.aiEnabled = true;
+      let asked = 0;
+      const make = (reply) => ({ isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: {
+        aiStatus: async () => ({ available: true }),
+        aiWriteRecap: async () => { asked++; return { json: reply }; },
+      } } });
+      const today = todayISO();
+      const thisM = today.slice(0, 7), lastM = shiftMonth(thisM, -1);
+      state.dailyExpenses = [e(`${lastM}-01`, 50, 'Food'), e(`${thisM}-01`, 80, 'Food')];
+      const facts = recapFacts();
+      const allowedNum = recapFactLines(facts).match(/RM\s?[\d,.]+/)[0];
+      window.Capacitor = make(`A calm month: ${allowedNum} on Food.`);
+      recapAiCache.clear();
+      renderRecap();
+      await new Promise((res) => setTimeout(res, 300));
+      out.aiText = document.getElementById('recap-text').textContent;
+      out.aiTag = !document.getElementById('recap-tag').hidden;
+      out.template = recapTemplate(facts);
+      window.Capacitor = make('You spent RM 12,345.67 and should save more.');
+      recapAiCache.clear();
+      renderRecap();
+      await new Promise((res) => setTimeout(res, 300));
+      out.badFallsBack = document.getElementById('recap-text').textContent === out.template && document.getElementById('recap-tag').hidden;
+      state.aiEnabled = false;
+      recapAiCache.clear();
+      const before = asked;
+      renderRecap();
+      await new Promise((res) => setTimeout(res, 200));
+      out.offNotAsked = asked === before;
+      out.cardShown = !document.getElementById('recap-card').hidden;
+    } finally {
+      window.Capacitor = keep.cap;
+      Object.assign(state, { dailyExpenses: keep.d, expenses: keep.x, budgetPools: keep.p, aiEnabled: keep.ai });
+      recapAiCache.clear();
+      save(); renderAll();
+    }
+    return out;
+  });
+  check('recap: mid-month compares the same days of last month, names the top category and the biggest rise, and counts bills still due',
+    r.mid.spent === 540 && r.mid.prev === 400 && r.mid.top === 'Food' && JSON.stringify(r.mid.rise) === '["Groceries",120]' && r.mid.bills === 1 && !r.mid.full
+      && /spent .*540\.00 so far/.test(r.midText) && /140\.00 more than the same days of October 2026/.test(r.midText) && /Groceries rose the most, up .*120\.00/.test(r.midText) && /1 recurring bill is still due/.test(r.midText),
+    JSON.stringify(r));
+  check('recap: on the 1st–3rd it recaps last month in full; a month with no spending gets no card',
+    r.early.month === '2026-10' && r.early.full && r.early.spent === 1399 && r.none, JSON.stringify(r.early));
+  check('recap guard: the phone\'s AI text is kept only if every number is one of the facts\' and it gives no advice',
+    r.okGood && !r.okInvented && !r.okAdvice, JSON.stringify([r.okGood, r.okInvented, r.okAdvice]));
+  check('recap on Reports: a good AI rewording shows with "Written by your phone\'s AI"; an invented figure or advice falls back to the template; AI off never asks',
+    r.cardShown && /^A calm month: /.test(r.aiText) && r.aiTag && r.badFallsBack && r.offNotAsked, JSON.stringify(r));
+}
+
 /* ── "Not picked up?": share an alert's wording, redacted on the phone (1.56.2) ── */
 const share = await S(() => {
   const r = (t) => redactAlertSample(t);

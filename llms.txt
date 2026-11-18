@@ -98,8 +98,11 @@
   (https://developers.google.com/ml-kit/genai lists them); it reads
   hard-to-read receipts and labels bank / e-wallet alerts the rules can't
   place, including spotting transfers between the user's own accounts.
-  iPhone (iOS 26): Apple's on-device Foundation Models, for receipts only
-  (there is no notification capture on iPhone). Rules run first and win;
+  iPhone (iOS 26): Apple's on-device Foundation Models, for receipts
+  (there is no notification capture on iPhone). From 1.58.1 both may also
+  reword the monthly recap on Reports (English only): the app computes
+  every figure, and any text with a number not among them, or with advice,
+  is discarded for the plain template. Rules run first and win;
   the AI never sets an amount — totals and amounts must be printed on the
   receipt or alert. It runs entirely on the phone: no text or image is
   uploaded, and there is no cloud AI, chat or financial advice. Phones

@@ -319,6 +319,21 @@ public class DuitfulKitPlugin extends Plugin {
         }
     }
 
+    /** The monthly recap in plain sentences, from the app's own fact lines. → {json: text} */
+    @PluginMethod
+    public void aiWriteRecap(PluginCall call) {
+        String facts = call.getString("facts", "");
+        if (Build.VERSION.SDK_INT < MIN_SDK_FOR_ML) {
+            call.reject("Needs Android 8 or newer", "UNSUPPORTED");
+            return;
+        }
+        if (facts == null || facts.trim().isEmpty()) {
+            call.reject("No facts", "EMPTY");
+            return;
+        }
+        DuitfulKitAi.writeRecap(getContext(), facts, call);
+    }
+
     @PluginMethod
     public void aiReadAlert(PluginCall call) {
         String text = call.getString("text", "");

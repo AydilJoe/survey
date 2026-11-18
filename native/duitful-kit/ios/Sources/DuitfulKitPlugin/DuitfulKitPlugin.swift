@@ -44,6 +44,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "extractEntities", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "aiStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "aiReadReceipt", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "aiWriteRecap", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "relayWatch", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readSharedFile", returnType: CAPPluginReturnPromise),
@@ -294,6 +295,31 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         call.reject("Needs iOS 26 with Apple Intelligence", "UNSUPPORTED")
     }
 
+    /// The monthly recap reworded from the app's own fact lines. The app keeps
+    /// the answer only if every number in it is one of the facts'.
+    @objc func aiWriteRecap(_ call: CAPPluginCall) {
+        let facts = String((call.getString("facts") ?? "").prefix(1200))
+        guard !facts.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            call.reject("No facts", "EMPTY")
+            return
+        }
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            Task {
+                do {
+                    let session = LanguageModelSession(instructions: DuitfulRecapAI.instructions)
+                    let response = try await session.respond(to: "Facts:\n" + facts)
+                    call.resolve(["text": response.content])
+                } catch {
+                    call.reject(error.localizedDescription, "AI")
+                }
+            }
+            return
+        }
+        #endif
+        call.reject("Needs iOS 26 with Apple Intelligence", "UNSUPPORTED")
+    }
+
     /// A PDF or photo opened in Duitful from Mail, Files or a bank app. iOS
     /// copies it into the app's own Inbox and hands over a file URL
     /// (appUrlOpen); this reads it once and deletes the copy. Only files
@@ -362,6 +388,15 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
             call.resolve(["asked": true])
         }
     }
+}
+
+enum DuitfulRecapAI {
+    static let instructions = """
+        You write a short monthly spending recap for a personal finance app. \
+        Use only the facts you are given. Write two or three short sentences in plain, friendly English, not formal. \
+        Copy every number exactly as written in the facts. Do not calculate, round, or add any number or percentage. \
+        Describe only; do not give advice or suggestions. No greeting, no emoji, no lists.
+        """
 }
 
 enum DuitfulReceiptAI {
