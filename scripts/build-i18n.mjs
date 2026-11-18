@@ -12,9 +12,10 @@ import { dirname, join } from 'node:path';
 import { ROWS as BASE } from './i18n/strings.mjs';
 import { ROWS as TAX } from './i18n/tax.mjs';
 import { ROWS as MONTHLY } from './i18n/monthly.mjs';
+import { ROWS as DEBTS } from './i18n/debts.mjs';
 
 // One file per screen; the order only matters for reading the tables.
-const ROWS = [...BASE, ...TAX, ...MONTHLY];
+const ROWS = [...BASE, ...TAX, ...MONTHLY, ...DEBTS];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANGS = [

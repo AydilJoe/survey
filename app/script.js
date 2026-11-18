@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.3";
+const APP_VERSION = "1.57.4";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1693,13 +1693,13 @@ function portfolioVoice() {
 // Portfolio-level label (totals, weighted rate, stall warnings).
 function T(key) {
   const set = TERMS[portfolioVoice()];
-  return set[key] ?? TERMS.conventional[key] ?? "";
+  return tr(set[key] ?? TERMS.conventional[key] ?? "");
 }
 
 // Per-row label — driven by the row's own contract, never by the mode.
 function rowTerm(debt, key) {
   const set = isIslamic(debt) ? TERMS.islamic : TERMS.conventional;
-  return set[key] ?? TERMS.conventional[key] ?? "";
+  return tr(set[key] ?? TERMS.conventional[key] ?? "");
 }
 
 // Static markup opts in with data-term="<key>"; this re-labels it on every
@@ -1707,7 +1707,7 @@ function rowTerm(debt, key) {
 function applyTerminology() {
   document.querySelectorAll("[data-term]").forEach((el) => {
     const val = T(el.dataset.term);
-    if (val) el.textContent = tr(val);
+    if (val) el.textContent = val;
   });
 }
 
@@ -1770,7 +1770,7 @@ function costRate(d) {
 
 function contractLabel(id) {
   const c = ISLAMIC_CONTRACTS.find((x) => x.id === id);
-  return c ? c.label : "Islamic";
+  return c ? c.label : tr("Islamic");
 }
 
 function escapeHtml(str) {
@@ -1863,9 +1863,9 @@ function formatMonths(months) {
   if (!Number.isFinite(months) || months <= 0) return "—";
   const years = Math.floor(months / 12);
   const rem = months % 12;
-  if (years === 0) return `${months} mo`;
-  if (rem === 0) return `${years} yr`;
-  return `${years} yr ${rem} mo`;
+  if (years === 0) return tr("{n} mo", { n: months });
+  if (rem === 0) return tr("{n} yr", { n: years });
+  return tr("{y} yr {m} mo", { y: years, m: rem });
 }
 
 /* ---------- avalanche simulation ---------- */
@@ -2656,9 +2656,9 @@ function renderDebts() {
   if (!state.debts.length) {
     ul.innerHTML = emptyBlock({
       glyph: "debt", host: "li",
-      title: "No debts yet",
-      body: "Add one to see your debt-free date.",
-      action: { label: "Add a debt", open: "form-debt" },
+      title: tr("No debts yet"),
+      body: tr("Add one to see your debt-free date."),
+      action: { label: tr("Add a debt"), open: "form-debt" },
     });
     return;
   }
@@ -2677,7 +2677,7 @@ function renderDebts() {
     if (!key || (nameCounts.get(key) || 0) <= 1) return "";
     const idx = (seenSoFar.get(key) || 0) + 1;
     seenSoFar.set(key, idx);
-    return ` <span class="dup-suffix" title="Duplicate name — auto-numbered for clarity">(${idx})</span>`;
+    return ` <span class="dup-suffix" title="${tr("Duplicate name — auto-numbered for clarity")}">(${idx})</span>`;
   };
 
   ul.innerHTML = state.debts
@@ -2690,9 +2690,9 @@ function renderDebts() {
       // name gets the chip's width back.
       const daysToDue = d.dueDay ? d.dueDay - new Date().getDate() : null;
       const dueText = !d.dueDay ? ""
-        : cls === "today" ? "due today"
-        : cls === "soon" ? `due in ${daysToDue} day${daysToDue === 1 ? "" : "s"}`
-        : `due ${d.dueDay}${ordinalSuffix(d.dueDay)}`;
+        : cls === "today" ? tr("due today")
+        : cls === "soon" ? trn(daysToDue, "due in {n} day", "due in {n} days")
+        : tr("due {day}", { day: dayOrdinal(d.dueDay) });
       const due = dueText ? `<span class="debt-due ${cls}">${dueText}</span>` : "";
       const isInstallment = d.kind === "installment";
       const islamic = isIslamic(d);
@@ -2712,12 +2712,12 @@ function renderDebts() {
       const islamicNeedsSetup = islamic && (!(Number(d.principal) > 0) || !(Number(d.tenureMonths) > 0));
       const badge = islamic
         ? (islamicNeedsSetup
-            ? ` <span class="installment-badge needs-setup">Needs setup</span>`
+            ? ` <span class="installment-badge needs-setup">${tr("Needs setup")}</span>`
             : ` <span class="installment-badge islamic-badge">${escapeHtml(contractLabel(d.contract))}</span>`)
         : isInstallment
           ? (needsSetup
-              ? ` <span class="installment-badge needs-setup">Needs setup</span>`
-              : ` <span class="installment-badge">Installment</span>`)
+              ? ` <span class="installment-badge needs-setup">${tr("Needs setup")}</span>`
+              : ` <span class="installment-badge">${tr("Installment")}</span>`)
           : "";
       const brandTile = isInstallment ? debtBrandTile(d) : "";
       // The badge moves to the meta line: with the name and the balance now
@@ -2727,31 +2727,31 @@ function renderDebts() {
       // Rows that don't keep the old "N months left" meta row untouched.
       const prog = isInstallment && !needsSetup ? installmentProgress(d) : null;
       const progRow = prog && prog.known && prog.term > 0
-        ? `<div class="inst-progress" title="${prog.paid} of ${prog.term} payments made"><i style="width:${((prog.paid / prog.term) * 100).toFixed(1)}%"></i></div>`
+        ? `<div class="inst-progress" title="${tr("{a} of {b} payments made", { a: prog.paid, b: prog.term })}"><i style="width:${((prog.paid / prog.term) * 100).toFixed(1)}%"></i></div>`
         : "";
       const metaRow = islamic
         ? (islamicNeedsSetup
-            ? `<div class="meta-row"><button type="button" class="link-btn needs-setup-note" data-action="edit-debt" data-id="${d.id}">Finish setup: principal, profit and tenure →</button></div>`
-            : `<div class="meta-row"><span>${badge}${islamicMonthsLeft(d)} of ${d.tenureMonths} months left${due ? " · " + due : ""}</span><span>${amt(fmtMoney(islamicInstalment(d)) + "/mo")}</span></div>`)
+            ? `<div class="meta-row"><button type="button" class="link-btn needs-setup-note" data-action="edit-debt" data-id="${d.id}">${tr("Finish setup: principal, profit and tenure →")}</button></div>`
+            : `<div class="meta-row"><span>${badge}${tr("{a} of {b} months left", { a: islamicMonthsLeft(d), b: d.tenureMonths })}${due ? " · " + due : ""}</span><span>${amt(fmtMoney(islamicInstalment(d)) + tr("/mo"))}</span></div>`)
         : isInstallment
           ? (needsSetup
-              ? `<div class="meta-row"><button type="button" class="link-btn needs-setup-note" data-action="edit-debt" data-id="${d.id}">Finish setup: monthly amount and months →</button></div>`
+              ? `<div class="meta-row"><button type="button" class="link-btn needs-setup-note" data-action="edit-debt" data-id="${d.id}">${tr("Finish setup: monthly amount and months →")}</button></div>`
               // "4 of 12 paid" wherever the tenure is known — progress reads
               // as ground covered, where "8 months left" reads as a sentence.
               : `<div class="meta-row"><span>${badge}${prog && prog.known
-                    ? `${prog.paid} of ${prog.term} paid`
-                    : `${remMonths} month${remMonths === 1 ? "" : "s"} left`}${due ? " · " + due : ""}</span><span>${amt(fmtMoney(installment) + "/mo")}</span></div>`)
-          : `<div class="meta-row"><span>${badge}${rowTerm(d, "rateShort")} ${fmtPct(d.apr)}${due ? " · " + due : ""}</span><span>Min ${amt(d.minPayment)}</span></div>`;
+                    ? tr("{a} of {b} paid", { a: prog.paid, b: prog.term })
+                    : trn(remMonths, "{n} month left", "{n} months left")}${due ? " · " + due : ""}</span><span>${amt(fmtMoney(installment) + tr("/mo"))}</span></div>`)
+          : `<div class="meta-row"><span>${badge}${rowTerm(d, "rateShort")} ${fmtPct(d.apr)}${due ? " · " + due : ""}</span><span>${tr("Min {a}", { a: amt(d.minPayment) })}</span></div>`;
       // The headline figure for an Islamic row is the outstanding principal —
       // i.e. what settling today actually costs. Spell out the ibra' so the
       // number reconciles against the bank statement, which shows the higher
       // outstanding sale price.
       const ibra = islamic && !islamicNeedsSetup ? ibraRebate(d) : 0;
       const ibraRow = ibra > 0.005
-        ? `<div class="meta-row ibra-row"><span>Settle today ≈ ${amt(d.balance)}</span><span>ibra' ≈ ${amt(ibra)} saved</span></div>`
+        ? `<div class="meta-row ibra-row"><span>${tr("Settle today ≈ {a}", { a: amt(d.balance) })}</span><span>${tr("ibra' ≈ {a} saved", { a: amt(ibra) })}</span></div>`
         : "";
       const balanceTitle = islamic && !islamicNeedsSetup
-        ? ` title="Outstanding principal. Bank statement shows ${fmtMoney(Number(d.balance) + ibra)} (sale price incl. unearned profit)."`
+        ? ` title="${tr("Outstanding principal. Bank statement shows {a} (sale price incl. unearned profit).", { a: fmtMoney(Number(d.balance) + ibra) })}"`
         : "";
       return `
       <li data-id="${d.id}" style="--denom:${denomVar(d.balance)}">
@@ -2760,16 +2760,16 @@ function renderDebts() {
         <!-- Reads "Pay", not an arrow. This is the most frequent action in the
              row and ↗ said "opens elsewhere", with the only explanation in a
              title attribute that never appears on a phone. -->
-        <button class="ghost quick-pay" data-action="quick-pay-debt" data-id="${d.id}" aria-label="Record a payment for ${escapeHtml(d.name)}" title="Record a payment — opens Home with this debt and its minimum filled in">Pay</button>
+        <button class="ghost quick-pay" data-action="quick-pay-debt" data-id="${d.id}" aria-label="${tr("Record a payment for {name}", { name: escapeHtml(d.name) })}" title="${tr("Record a payment — opens Home with this debt and its minimum filled in")}">${tr("Pay")}</button>
         <!-- Edit and delete live behind the overflow so the name and the
              balance can share one line. Paying is the frequent action and
              stays inline; editing a debt is a once-per-debt job. Delete
              gaining a deliberate second tap is a bonus — it used to sit one
              thumb-slip from a row that cannot be recovered. -->
-        <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${d.id}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(d.name)}" title="More">⋯</button>
+        <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${d.id}" aria-expanded="false" aria-haspopup="true" aria-label="${tr("More actions for {name}", { name: escapeHtml(d.name) })}" title="${tr("More")}">⋯</button>
         <div class="row-menu" hidden>
-          <button data-action="edit-debt" data-id="${d.id}">Edit</button>
-          <button class="danger" data-action="delete-debt" data-id="${d.id}">Delete</button>
+          <button data-action="edit-debt" data-id="${d.id}">${tr("Edit")}</button>
+          <button class="danger" data-action="delete-debt" data-id="${d.id}">${tr("Delete")}</button>
         </div>
         ${metaRow}
         ${progRow}
@@ -2871,7 +2871,7 @@ function renderDebtsMini() {
       </div>`;
   }).join("")
     + (hidden > 0
-        ? `<button type="button" class="ghost debt-mini-more" data-go-tab="debts">${hidden} more plan${hidden === 1 ? "" : "s"} →</button>`
+        ? `<button type="button" class="ghost debt-mini-more" data-go-tab="debts">${trn(hidden, "{n} more plan →", "{n} more plans →")}</button>`
         : "");
 }
 
@@ -3055,10 +3055,10 @@ function renderDashboard() {
   if (banner) banner.textContent = fmtMoney(total);
   if (bannerSub) {
     if (state.debts.length === 0) {
-      bannerSub.textContent = "No debts yet";
+      bannerSub.textContent = tr("No debts yet");
     } else {
       const n = state.debts.length;
-      bannerSub.textContent = `${n} debt${n === 1 ? "" : "s"} · ${T("weightedRate")} ${fmtPct(weighted)}`;
+      bannerSub.textContent = `${trn(n, "{n} debt", "{n} debts")} · ${T("weightedRate")} ${fmtPct(weighted)}`;
     }
   }
 
@@ -3089,7 +3089,7 @@ function renderDashboard() {
     investLine.hidden = inv.count === 0;
     if (inv.count > 0) {
       const netWorth = savingsTotals().current + inv.total - total;
-      investLine.textContent = `Invested ${fmtMoney(inv.total)} · Net worth ${fmtMoney(netWorth)}`;
+      investLine.textContent = tr("Invested {a} · Net worth {b}", { a: fmtMoney(inv.total), b: fmtMoney(netWorth) });
     }
   }
   const payoffCard = $("#payoff-card");
@@ -3129,7 +3129,7 @@ function renderDashboard() {
     const pool = minSum + (Number(state.extraMonthly) || 0);
     if (state.debts.length > 0 && pool < firstMonthInterest) {
       stallEl.hidden = false;
-      stallEl.textContent = `⚠︎ Your minimums + extra (${fmtMoney(pool)}/mo) don't cover the current monthly ${T("stallNoun")} (${fmtMoney(firstMonthInterest)}/mo). Debt will grow — add more to the extra payment.`;
+      stallEl.textContent = `⚠︎ ${tr("Your minimums + extra ({a}/mo) don't cover the current monthly {what} ({b}/mo). Debt will grow — add more to the extra payment.", { a: fmtMoney(pool), what: T("stallNoun"), b: fmtMoney(firstMonthInterest) })}`;
     } else {
       stallEl.hidden = true;
       stallEl.textContent = "";
@@ -3142,7 +3142,7 @@ function renderDashboard() {
     // no debts, and the dashboard's #debt-empty carries the real call to
     // action. Kept as a defensive placeholder, deliberately not an
     // empty-block: a panel nobody can see is just a thing to maintain.
-    orderEl.innerHTML = `<li class="empty">No debts yet.</li>`;
+    orderEl.innerHTML = `<li class="empty">${tr("No debts yet.")}</li>`;
   } else {
     // This list runs in the order debts get CLEARED, which is not the order
     // to attack them: a short 0% instalment plan ends first on its own. Say
@@ -3156,7 +3156,7 @@ function renderDashboard() {
     if (targetEl) {
       targetEl.hidden = !target || state.debts.filter((d) => (Number(d.balance) || 0) > 0).length < 2;
       if (target) {
-        targetEl.innerHTML = `Anything extra goes to <strong>${escapeHtml(target.name)}</strong> first (${fmtPct(costRate(target))}${isIslamic(target) ? " eff." : ""}) — the highest rate. Everything else gets its minimum.`;
+        targetEl.innerHTML = tr("Anything extra goes to <strong>{name}</strong> first ({rate}) — the highest rate. Everything else gets its minimum.", { name: escapeHtml(target.name), rate: `${fmtPct(costRate(target))}${isIslamic(target) ? ` ${tr("eff.")}` : ""}` });
       }
     }
     // Convert "Month N" to "Cleared by <Month YYYY>" so the label reads as a
@@ -3169,7 +3169,7 @@ function renderDashboard() {
           const targetMonth = shiftMonth(baseMonth, d.paidAtMonth - 1);
           // Short month ("Aug 2030") so the eta label doesn't wrap in
           // narrow payoff cards.
-          etaLabel = `Cleared ${formatMonthLabelShort(targetMonth)}`;
+          etaLabel = tr("Cleared {m}", { m: formatMonthLabelShort(targetMonth) });
         }
         // 3 grid children to match `grid-template-columns: auto 1fr auto`:
         // counter (::before), name+detail, eta. A leading empty <span>
@@ -3178,7 +3178,7 @@ function renderDashboard() {
         <li>
           <span class="debt-info">
             <div class="debt-name">${escapeHtml(d.name)}</div>
-            <div class="debt-detail">${d.islamic ? TERMS.islamic.rateShort : TERMS.conventional.rateShort} ${fmtPct(d.rate)}${d.islamic ? " eff." : ""}</div>
+            <div class="debt-detail">${tr(d.islamic ? TERMS.islamic.rateShort : TERMS.conventional.rateShort)} ${fmtPct(d.rate)}${d.islamic ? ` ${tr("eff.")}` : ""}</div>
           </span>
           <span class="payoff-eta">${etaLabel}</span>
         </li>`;
@@ -5576,18 +5576,19 @@ function freeCountText(kind) {
   if (!state || isPro()) return "";
   if (kind === "statements") {
     const left = Math.max(0, FREE_STATEMENT_IMPORTS_MONTHLY - statementImportsUsed());
-    return `${FREE_STATEMENT_IMPORTS_MONTHLY} free statement import a month · ${left} left`;
+    return tr("{n} free statement import a month · {left} left", { n: FREE_STATEMENT_IMPORTS_MONTHLY, left });
   }
+  // Whole sentences per kind: the noun changes form in Malay and Chinese.
   const c = {
-    debts: [countedDebts(), FREE_DEBT_LIMIT, "debts"],
-    savings: [state.savings.length, FREE_SAVING_LIMIT, "goals"],
-    investments: [typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "holdings"],
+    debts: [countedDebts(), FREE_DEBT_LIMIT, "{u} debts · Free adds up to {l}. Yours stay.", "{u} of {l} free debts used"],
+    savings: [state.savings.length, FREE_SAVING_LIMIT, "{u} goals · Free adds up to {l}. Yours stay.", "{u} of {l} free goals used"],
+    investments: [typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "{u} holdings · Free adds up to {l}. Yours stay.", "{u} of {l} free holdings used"],
   }[kind];
   if (!c) return "";
-  const [used, limit, noun] = c;
-  if (used > limit) return `${used} ${noun} · Free adds up to ${limit}. Yours stay.`;
-  const text = `${used} of ${limit} free ${noun} used`;
-  return kind === "debts" ? `${text} · Islamic financing doesn't count` : text;
+  const [used, limit, over, within] = c;
+  if (used > limit) return tr(over, { u: used, l: limit });
+  const text = tr(within, { u: used, l: limit });
+  return kind === "debts" ? `${text} · ${tr("Islamic financing doesn't count")}` : text;
 }
 function renderFreeCounts() {
   document.querySelectorAll("[data-free-count]").forEach((el) => {
@@ -8219,7 +8220,7 @@ function populateIslamicContracts() {
   const sel = document.getElementById("debt-contract");
   if (sel && !sel.options.length) {
     sel.innerHTML = ISLAMIC_CONTRACTS
-      .map((c) => `<option value="${c.id}">${escapeHtml(c.label)} — ${escapeHtml(c.note)}</option>`)
+      .map((c) => `<option value="${c.id}">${escapeHtml(c.label)} — ${escapeHtml(tr(c.note))}</option>`)
       .join("");
   }
 }
@@ -8244,8 +8245,8 @@ function renderIslamicPreview() {
   const monthly = islamicInstalment(draft);
   const eff = effectiveProfitRate(draft);
   el.textContent =
-    `Instalment ${fmtMoney(monthly)}/mo · total payable ${fmtMoney(draft.principal + draft.totalProfit)} · ` +
-    `effective rate ≈ ${fmtPct(eff)} p.a. (comparable to a conventional APR).`;
+    tr("Instalment {a}/mo · total payable {b} · effective rate ≈ {r} p.a. (comparable to a conventional APR).",
+      { a: fmtMoney(monthly), b: fmtMoney(draft.principal + draft.totalProfit), r: fmtPct(eff) });
 }
 
 ["principal", "totalProfit", "tenureMonths"].forEach((name) => {
@@ -8461,7 +8462,7 @@ $("#form-debt").addEventListener("submit", (e) => {
   e.target.reset();
   setDebtKind("standard");
   renderAll();
-  toast(`Debt added: ${name}`);
+  toast(tr("Debt added: {name}", { name }));
 });
 
 $("#form-saving").addEventListener("submit", (e) => {
@@ -11283,6 +11284,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.4": [
+    "<strong>Debts in Bahasa Melayu and 中文</strong> — your debts, the payoff plan and Islamic financing (profit rate, ibra') now follow your language.",
+  ],
   "1.57.3": [
     "<strong>Monthly in Bahasa Melayu and 中文</strong> — income, monthly bills, the spending calendar and budget pools now follow your language, and so does the budget summary on Home.",
   ],

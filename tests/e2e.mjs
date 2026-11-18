@@ -11463,14 +11463,14 @@ check('the brand catalogue makes no network calls at all',
     const html = await (await fetch('index.html', { cache: 'no-store' })).text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const scopes = ['#lock', 'header.app-header', 'nav.tabs', '#tab-dashboard', '#tab-data',
-      '#tab-flow', '#tab-tax', '#tax-numbers-dialog', '#tax-claim-dialog', '#tax-rules-dialog', '#tax-review-dialog', '#tax-receipt-dialog'];
+      '#tab-flow', '#tab-debts', '#tab-tax', '#tax-numbers-dialog', '#tax-claim-dialog', '#tax-rules-dialog', '#tax-review-dialog', '#tax-receipt-dialog'];
     const out = {};
     for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
   });
   for (const l of ['ms', 'zh']) {
     const left = [...new Set(gaps[l])].filter((s) => !KEEP.test(s));
-    check(`languages: every English line on the passcode screen, header, tab bar, Home, Monthly, Settings and Tax (page and dialogs) has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
+    check(`languages: every English line on the passcode screen, header, tab bar, Home, Monthly, Debts, Settings and Tax (page and dialogs) has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
       left.length === 0, left.join(' | '));
   }
 
@@ -11579,6 +11579,9 @@ check('the brand catalogue makes no network calls at all',
     add(180, 'Sports', 'Badminton court rental', d(7, 9));
     state.income.push({ id: uid(), name: 'Salary', amount: 6800, month: currentMonthISO(), day: 25 });
     state.expenses.push({ id: uid(), name: 'Rent for the apartment in Petaling Jaya', amount: 1450, month: currentMonthISO(), day: 1 });
+    state.debts.push({ id: uid(), name: 'Maybank Visa Platinum credit card', kind: 'standard', balance: 8240.55, apr: 18, minPayment: 412, dueDay: 12 });
+    state.debts.push({ id: uid(), name: 'Bank Islam personal financing-i', kind: 'islamic', contract: 'tawarruq', principal: 30000, totalProfit: 7200, tenureMonths: 60, monthsPaid: 14, balance: 23000, apr: 0, minPayment: 620, dueDay: 3 });
+    state.debts.push({ id: uid(), name: 'Atome — Samsung Galaxy phone', kind: 'installment', installment: 210, monthsLeft: 4, termMonths: 6, balance: 840, apr: 0, minPayment: 210, dueDay: 20 });
     state.budgetPools.push({ id: uid(), name: 'Groceries and household', limit: 600, color: '#81B29A', active: true, rollover: true, monthlyLimits: {}, createdAt: Date.now() });
     const t = taxState();
     t.enabled = true; t.introSeen = true; t.deltaSince = Date.now() + 1e9;
@@ -11616,7 +11619,7 @@ check('the brand catalogue makes no network calls at all',
     await p.evaluate(fillForLayout);
     await p.waitForTimeout(300);
     await p.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
-    for (const tab of ['dashboard', 'flow', 'tax', 'data']) {
+    for (const tab of ['dashboard', 'flow', 'debts', 'tax', 'data']) {
       await p.evaluate((t) => { const btn = document.getElementById('tabbtn-' + t); btn.hidden = false; btn.click(); }, tab);
       await p.waitForTimeout(250);
       if (tab === 'tax') { await p.evaluate(() => document.querySelector('.tax-tile')?.click()); await p.waitForTimeout(200); }
@@ -11631,7 +11634,7 @@ check('the brand catalogue makes no network calls at all',
     }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Tax with a relief open, Settings, the details / claim / review dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Tax with a relief open, Settings, the details / claim / review dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 
