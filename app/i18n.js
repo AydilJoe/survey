@@ -167,6 +167,35 @@
     return [...out];
   }
 
+  // HTML that script.js builds with English inside (edit dialogs, onboarding
+  // rows): translate it once, after building. Text the user typed must be
+  // marked translate="no" by the caller; input values are never touched.
+  function translate(root) {
+    if (!root || lang === "en") return root;
+    const walker = (root.ownerDocument || document).createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (node.nodeType === 1) {
+          if (SKIP.has(node.nodeName.toUpperCase())) return NodeFilter.FILTER_REJECT;
+          if (node.getAttribute("translate") === "no") return NodeFilter.FILTER_REJECT;
+          ATTRS.forEach((a) => {
+            const v = node.getAttribute(a);
+            const hit = v && lookup(norm(v), lang);
+            if (hit) node.setAttribute(a, hit);
+          });
+          return NodeFilter.FILTER_SKIP;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    let n;
+    while ((n = walker.nextNode())) {
+      const raw = n.nodeValue;
+      const hit = lookup(norm(raw), lang);
+      if (hit) n.nodeValue = (/^\s/.test(raw) ? " " : "") + hit + (/\s$/.test(raw) ? " " : "");
+    }
+    return root;
+  }
+
   function set(next) {
     const c = next === "en" || next === "ms" || next === "zh" ? next : "auto";
     try {
@@ -186,6 +215,7 @@
     locale: () => LOCALES[lang] || "en-MY",
     set,
     missing,
+    translate,
     tables: TABLES,
   };
   window.tr = tr;

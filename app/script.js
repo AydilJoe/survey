@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.8";
+const APP_VERSION = "1.57.9";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5476,7 +5476,7 @@ function startProTrial() {
   save();
   closePaywall();
   renderAll();
-  toast(`Pro trial started. It ends in ${TRIAL_DAYS} days. Nothing is charged, and nothing you add is deleted afterwards.`);
+  toast(tr("Pro trial started. It ends in {n} days. Nothing is charged, and nothing you add is deleted afterwards.", { n: TRIAL_DAYS }));
   return true;
 }
 document.getElementById("paywall-trial")?.addEventListener("click", startProTrial);
@@ -8786,7 +8786,7 @@ function attachFxPreviewToForm(formEl) {
       if (preview) {
         preview.hidden = false;
         preview.classList.add("fx-preview--err");
-        preview.textContent = "Foreign currency unavailable — connect to refresh rates in Settings.";
+        preview.textContent = tr("Foreign currency unavailable — connect to refresh rates in Settings.");
       }
       return;
     }
@@ -8835,14 +8835,14 @@ function openEditDialog(kind, id) {
 
   editContext = { kind, id };
   const titleMap = { income: "Edit income", expense: "Edit expense", debt: "Edit debt", saving: "Edit savings goal", investment: "Edit holding" };
-  editTitle.textContent = titleMap[kind] || "Edit";
+  editTitle.textContent = tr(titleMap[kind] || "Edit");
 
   if (kind === "income" || kind === "expense") {
     const fx = entity.fx;
     const baseCode = currentCurrency();
     const amountLabel = `Amount (${baseCode})`;
     const fxHint = fx
-      ? `<p class="hint">Originally <strong>${escapeHtml(fx.code)} ${Number(fx.amount).toFixed(2)}</strong> @ rate ${Number(fx.rate).toFixed(4)} on ${fx.fetched_at ? escapeHtml(fx.fetched_at.slice(0,10)) : "entry day"}. Editing the amount overrides the converted value but does not change the original.</p>`
+      ? `<p class="hint">${tr("Originally <strong>{orig}</strong> @ rate {rate} on {date}. Editing the amount overrides the converted value but does not change the original.", { orig: `${escapeHtml(fx.code)} ${Number(fx.amount).toFixed(2)}`, rate: Number(fx.rate).toFixed(4), date: fx.fetched_at ? escapeHtml(fx.fetched_at.slice(0, 10)) : tr("entry day") })}</p>`
       : "";
 
     // Pool block — only meaningful for expense (income doesn't tag to pools)
@@ -8852,10 +8852,10 @@ function openEditDialog(kind, id) {
         ? state.budgetPools.find((p) => p.id === entity.budgetPoolId)
         : null;
       if (entity.budgetPoolId) {
-        const displayName = pool ? pool.name : `${entity.budgetPoolName || "(unknown)"} (deleted)`;
+        const displayName = pool ? pool.name : `${entity.budgetPoolName || tr("(unknown)")} (${tr("deleted")})`;
         poolBlock = `
           <p class="hint" id="edit-pool-line">
-            Budget pool: <strong>${escapeHtml(displayName)}</strong>
+            Budget pool: <strong translate="no">${escapeHtml(displayName)}</strong>
             <button type="button" class="hint-link" data-action="edit-toggle-pool">Change…</button>
           </p>
           <label class="field" id="edit-pool-field" hidden>
@@ -8980,6 +8980,7 @@ function openEditDialog(kind, id) {
     editFields.innerHTML = typeof investmentEditFields === "function" ? investmentEditFields(entity) : "";
   }
 
+  I18N.translate(editFields);
   if (typeof editDialog.showModal === "function") editDialog.showModal();
   else editDialog.setAttribute("open", "");
 }
@@ -10256,7 +10257,7 @@ bulkIncomeFile?.addEventListener("change", async (e) => {
   bulkIncomeApply.disabled = true;
   bulkIncomeQueued = [];
   bulkIncomeStatus.hidden = false;
-  bulkIncomeStatus.textContent = "Reading file…";
+  bulkIncomeStatus.textContent = tr("Reading file…");
 
   if (!file) {
     bulkIncomeStatus.textContent = "";
@@ -10279,9 +10280,9 @@ bulkIncomeFile?.addEventListener("change", async (e) => {
       const total = valid.reduce((s, r) => s + r.amount, 0);
       const months = Array.from(new Set(valid.map((r) => r.month))).sort();
       bulkIncomeTotals.textContent =
-        `${fmtMoney(total)} total across ${months.length} month${months.length === 1 ? "" : "s"}: ${months.join(", ")}`;
+        `${trn(months.length, "{a} total across {n} month:", "{a} total across {n} months:", { a: fmtMoney(total) })} ${months.join(", ")}`;
     } else {
-      bulkIncomeTotals.textContent = "Nothing to add.";
+      bulkIncomeTotals.textContent = tr("Nothing to add.");
     }
 
     if (skipped.length > 0) {
@@ -10330,7 +10331,7 @@ $("#btn-clear").addEventListener("click", async () => {
   state = emptyState();
   save();
   renderAll();
-  toast("All data cleared.");
+  toast(tr("All data cleared."));
 });
 
 /* ---------- first-time welcome tour ---------- */
@@ -10521,6 +10522,8 @@ let _guideInternalClose = false;
 let guideFirstRun = false;
 
 function guideDialog() { return document.getElementById("guide-dialog"); }
+// A tour step's HTML, whitespace collapsed, is its key.
+function guideTr(html) { return html ? tr(String(html).replace(/\s+/g, " ").trim()) : ""; }
 
 function renderGuideStep() {
   const step = GUIDE_STEPS[guideStep];
@@ -10575,15 +10578,15 @@ function renderGuideStep() {
     const next = document.getElementById("guide-next");
     const skip = document.getElementById("guide-skip");
     if (mark) mark.innerHTML = step.icon;
-    if (title) title.innerHTML = step.title;
-    if (sub) sub.textContent = step.sub || "";
-    if (body) body.innerHTML = step.install ? installInstructionsBody() : step.body;
+    if (title) title.innerHTML = guideTr(step.title);
+    if (sub) sub.textContent = guideTr(step.sub || "");
+    if (body) body.innerHTML = step.install ? installInstructionsBody() : guideTr(step.body);
     if (dots) {
       dots.innerHTML = GUIDE_STEPS.map((_, i) => `<span class="${i === guideStep ? "active" : ""}" role="tab" aria-selected="${i === guideStep ? "true" : "false"}"></span>`).join("");
     }
     const isLast = guideStep === GUIDE_STEPS.length - 1;
     if (prev) prev.hidden = guideStep === 0;
-    if (next) next.textContent = isLast ? "Got it" : "Next";
+    if (next) next.textContent = isLast ? tr("Got it") : tr("Next");
     if (skip) skip.hidden = isLast || guideFirstRun;
     const dlg = guideDialog();
     if (dlg && !dlg.open) {
@@ -10606,8 +10609,8 @@ function showGuideSpotlight(targetEl, step) {
   const title = document.getElementById("guide-tooltip-title");
   const body = document.getElementById("guide-tooltip-body");
   const dots = document.getElementById("guide-spot-dots");
-  if (title) title.innerHTML = step.title || "";
-  if (body) body.innerHTML = step.body || "";
+  if (title) title.innerHTML = guideTr(step.title || "");
+  if (body) body.innerHTML = guideTr(step.body || "");
   if (dots) {
     dots.innerHTML = GUIDE_STEPS.map((_, i) => `<span class="${i === guideStep ? "active" : ""}"></span>`).join("");
   }
@@ -10616,7 +10619,7 @@ function showGuideSpotlight(targetEl, step) {
   const nextBtn = root.querySelector(".guide-action-next");
   const prevBtn = root.querySelector(".guide-action-prev");
   const skipBtn = root.querySelector(".guide-action-skip");
-  if (nextBtn) nextBtn.textContent = isLast ? "Got it" : "Next";
+  if (nextBtn) nextBtn.textContent = isLast ? tr("Got it") : tr("Next");
   if (prevBtn) prevBtn.hidden = guideStep === 0;
   if (skipBtn) skipBtn.hidden = isLast || guideFirstRun;
   root.hidden = false;
@@ -10874,7 +10877,7 @@ document.getElementById("reminder-ask-yes")?.addEventListener("click", async (e)
   const rows = reminderAskUndated();
   if (!rows.length) {
     reminderAskFinish();
-    toast("Reminders are on — 9am on each due date.");
+    toast(tr("Reminders are on — 9am on each due date."));
     return;
   }
   reminderAskShowDates(rows);
@@ -10882,7 +10885,7 @@ document.getElementById("reminder-ask-yes")?.addEventListener("click", async (e)
 
 document.getElementById("reminder-ask-no")?.addEventListener("click", () => {
   reminderAskFinish();
-  toast("No reminders. You can turn them on in Settings → Reminders.");
+  toast(tr("No reminders. You can turn them on in Settings → Reminders."));
 });
 document.getElementById("reminder-ask-later")?.addEventListener("click", reminderAskFinish);
 document.getElementById("reminder-ask-ok")?.addEventListener("click", reminderAskFinish);
@@ -10903,8 +10906,8 @@ document.getElementById("reminder-ask-dates")?.addEventListener("submit", (e) =>
   reminderAskFinish(); // saves, which reschedules with the new dates
   renderAll();
   toast(set
-    ? `${set} reminder${set === 1 ? "" : "s"} set — 9am on the day.`
-    : "Reminders are on. Add a due day to a bill or debt any time.");
+    ? trn(set, "{n} reminder set — 9am on the day.", "{n} reminders set — 9am on the day.")
+    : tr("Reminders are on. Add a due day to a bill or debt any time."));
 });
 
 /* ---------- First run: three questions, then the answer ----------
@@ -11000,9 +11003,9 @@ function onboardAddDebtRow(type) {
   // 30-year answer.
   row.innerHTML = `
     <div class="onboard-debt-head">
-      <input type="text" class="onboard-debt-name" aria-label="Debt name" value="${escapeHtml(spec.name)}" autocomplete="off" />
+      <input type="text" class="onboard-debt-name" aria-label="Debt name" value="${escapeHtml(tr(spec.name))}" autocomplete="off" />
       <span class="onboard-debt-rate">${escapeHtml(spec.note)}</span>
-      <button type="button" class="onboard-debt-remove" data-onboard="remove-debt" aria-label="Remove ${escapeHtml(spec.name)}">
+      <button type="button" class="onboard-debt-remove" data-onboard="remove-debt" aria-label="${tr("Remove {name}", { name: escapeHtml(tr(spec.name)) })}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </div>
@@ -11022,6 +11025,7 @@ function onboardAddDebtRow(type) {
         </span>
       </label>
     </div>`;
+  I18N.translate(row);
   wrap.appendChild(row);
   setTimeout(() => row.querySelector(".onboard-debt-balance")?.focus(), 60);
   onboardSyncDebtStep();
@@ -11033,7 +11037,7 @@ function onboardSyncDebtStep() {
   const wrap = document.getElementById("onboard-debt-rows");
   const count = wrap ? wrap.children.length : 0;
   const next = document.getElementById("onboard-debt-next");
-  if (next) next.textContent = count ? "Show my debt-free date" : "I don't owe anything";
+  if (next) next.textContent = count ? tr("Show my debt-free date") : tr("I don't owe anything");
   const note = document.getElementById("onboard-debt-note");
   if (note) note.hidden = !wrap || !wrap.querySelector('[data-type="card"], [data-type="ptptn"], [data-type="personal"]');
   const full = count >= ONBOARD_DEBT_MAX;
@@ -11126,7 +11130,7 @@ function onboardRenderResult() {
   const minSum = r.debts.reduce((s, d) => s + (Number(d.minPayment) || 0), 0);
   const left = Math.max(0, r.income - r.bills - minSum - extra);
   const daysLeft = daysRemainingInMonth();
-  const perDay = left > 0 ? `about ${fmtMoney(left / daysLeft)} a day` : "";
+  const perDay = left > 0 ? tr("about {a} a day", { a: fmtMoney(left / daysLeft) }) : "";
 
   const freeWrap = document.getElementById("onboard-free");
   const leftWrap = document.getElementById("onboard-left-wrap");
@@ -11144,16 +11148,16 @@ function onboardRenderResult() {
     const leverText = document.getElementById("onboard-lever-text");
     const spendEl = document.getElementById("onboard-spend");
     const n = r.debts.length;
-    const across = `${fmtMoney(owed)} across ${n} debt${n === 1 ? "" : "s"}`;
+    const across = trn(n, "{a} across {n} debt", "{a} across {n} debts", { a: fmtMoney(owed) });
     if (sim.infeasible) {
       freeWrap.classList.add("is-stuck");
-      if (dateEl) dateEl.textContent = "Not at these payments";
-      if (metaEl) metaEl.textContent = `${across}. The monthly payments don't outpace the ${minSum > 0 ? "interest" : "balance — add what you pay each month"}. The Debts tab shows what it takes.`;
+      if (dateEl) dateEl.textContent = tr("Not at these payments");
+      if (metaEl) metaEl.textContent = `${across}. ${tr(minSum > 0 ? "The monthly payments don't outpace the interest. The Debts tab shows what it takes." : "The monthly payments don't outpace the balance — add what you pay each month. The Debts tab shows what it takes.")}`;
     } else {
       freeWrap.classList.remove("is-stuck");
       if (dateEl) dateEl.textContent = onboardDebtFreeLabel(sim.months);
       if (metaEl) {
-        metaEl.textContent = `${formatMonths(sim.months)} from now. ${across}${sim.totalInterest > 0.5 ? `, plus ${fmtMoney(sim.totalInterest)} interest` : ""}.`;
+        metaEl.textContent = `${tr("{t} from now.", { t: formatMonths(sim.months) })} ${across}${sim.totalInterest > 0.5 ? `, ${tr("plus {a} interest", { a: fmtMoney(sim.totalInterest) })}` : ""}.`;
       }
     }
     // The lever is the point of the screen: the date is not fixed, and here
@@ -11169,33 +11173,33 @@ function onboardRenderResult() {
       if (show) {
         const when = onboardDebtFreeLabel(boosted.months);
         const gain = base.infeasible
-          ? "and it clears"
-          : `${saved} month${saved === 1 ? "" : "s"} sooner${base.totalInterest - boosted.totalInterest > 0.5 ? `, ${fmtMoney(base.totalInterest - boosted.totalInterest)} less interest` : ""}`;
+          ? tr("and it clears")
+          : `${trn(saved, "{n} month sooner", "{n} months sooner")}${base.totalInterest - boosted.totalInterest > 0.5 ? `, ${tr("{a} less interest", { a: fmtMoney(base.totalInterest - boosted.totalInterest) })}` : ""}`;
         leverText.innerHTML = r.extraOn
-          ? `<strong>Paying ${fmtMoney(r.extra)} extra a month</strong><span>Moved from ${escapeHtml(base.infeasible ? "never" : onboardDebtFreeLabel(base.months))} — ${escapeHtml(gain)}</span>`
-          : `<strong>Pay ${fmtMoney(r.extra)} extra a month?</strong><span>Debt-free by ${escapeHtml(when)} — ${escapeHtml(gain)}</span>`;
+          ? `<strong>${tr("Paying {a} extra a month", { a: fmtMoney(r.extra) })}</strong><span>${tr("Moved from {from} — {gain}", { from: escapeHtml(base.infeasible ? tr("never") : onboardDebtFreeLabel(base.months)), gain: escapeHtml(gain) })}</span>`
+          : `<strong>${tr("Pay {a} extra a month?", { a: fmtMoney(r.extra) })}</strong><span>${tr("Debt-free by {when} — {gain}", { when: escapeHtml(when), gain: escapeHtml(gain) })}</span>`;
       }
     }
     if (spendEl) {
       spendEl.innerHTML = r.income > 0
-        ? `<span>Left to spend this month</span><strong>${escapeHtml(fmtMoney(left))}</strong>${perDay ? `<em>${escapeHtml(perDay)}</em>` : ""}`
+        ? `<span>${tr("Left to spend this month")}</span><strong>${escapeHtml(fmtMoney(left))}</strong>${perDay ? `<em>${escapeHtml(perDay)}</em>` : ""}`
         : "";
       spendEl.hidden = !(r.income > 0);
     }
     if (explainEl) {
-      explainEl.textContent = r.income > 0
+      explainEl.textContent = tr(r.income > 0
         ? "Highest rate gets paid first."
-        : "Add your income on the Monthly tab to see this.";
+        : "Add your income on the Monthly tab to see this.");
     }
   } else {
     const leftEl = document.getElementById("onboard-left");
     const perDayEl = document.getElementById("onboard-perday");
     if (leftEl) leftEl.textContent = fmtMoney(left);
-    if (perDayEl) perDayEl.textContent = perDay ? `${perDay[0].toUpperCase()}${perDay.slice(1)} for the rest of the month.` : "";
+    if (perDayEl) perDayEl.textContent = perDay ? tr("{perDay} for the rest of the month.", { perDay: perDay[0].toUpperCase() + perDay.slice(1) }) : "";
     if (explainEl) {
-      explainEl.textContent = r.income > 0
+      explainEl.textContent = tr(r.income > 0
         ? "Every spend you log comes off this."
-        : "Add your income on the Monthly tab to see this.";
+        : "Add your income on the Monthly tab to see this.");
     }
   }
 }
@@ -11295,6 +11299,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.9": [
+    "<strong>Setup, the welcome tour, editing and search in Bahasa Melayu and 中文</strong> — first-run setup, the tour, every edit dialog and search now follow your language. Search finds settings in your language too.",
+  ],
   "1.57.8": [
     "<strong>Pro, passcode and milestones in Bahasa Melayu and 中文</strong> — the Pro screen and checkout, your passcode prompts, milestones and other small sheets now follow your language.",
   ],
@@ -16607,8 +16614,8 @@ function openBulkDebtPayDialog() {
   if (state.debts.length === 0) {
     rowsEl.innerHTML = emptyBlock({
       glyph: "debt",
-      title: "Nothing to pay",
-      body: "This is where your debts' monthly minimums get paid in one go, once you've added some.",
+      title: tr("Nothing to pay"),
+      body: tr("This is where your debts' monthly minimums get paid in one go, once you've added some."),
     });
     document.getElementById("bulk-debt-total").textContent = "";
   } else {
@@ -16627,9 +16634,9 @@ function openBulkDebtPayDialog() {
         amount = 0;
         label = "✓ already paid this month";
       } else if (paid > 0) {
-        label = `RM ${remaining.toFixed(2)} still due (you've paid ${fmtMoney(paid)} this month)`;
+        label = tr("{a} still due (you've paid {b} this month)", { a: fmtMoney(remaining), b: fmtMoney(paid) });
       } else {
-        label = `Balance after: ${fmtMoney(balanceAfter)}`;
+        label = tr("Balance after: {a}", { a: fmtMoney(balanceAfter) });
       }
       // Editable amount — defaults to remaining minimum but the user can
       // change it (pay more to attack principal, or less if cash-strapped).
@@ -16638,10 +16645,10 @@ function openBulkDebtPayDialog() {
         <label class="${rowClass}" data-debt-id="${escapeHtml(d.id)}">
           <input type="checkbox" name="row-checked" ${checked}${paid >= min ? " disabled" : ""} />
           <div>
-            <div>${escapeHtml(d.name)}</div>
+            <div translate="no">${escapeHtml(d.name)}</div>
             <div class="row-meta">${escapeHtml(label)}</div>
           </div>
-          <input type="number" class="row-amount" data-row-amount step="0.01" min="0" inputmode="decimal" value="${amount.toFixed(2)}" ${amountAttrs} aria-label="Payment for ${escapeHtml(d.name)}" />
+          <input type="number" class="row-amount" data-row-amount step="0.01" min="0" inputmode="decimal" value="${amount.toFixed(2)}" ${amountAttrs} aria-label="${tr("Payment for {name}", { name: escapeHtml(d.name) })}" />
           <input type="date" data-row-date value="${todayISO()}"${paid >= min ? " disabled" : ""} />
         </label>
       `;
@@ -16649,6 +16656,7 @@ function openBulkDebtPayDialog() {
     updateBulkDebtTotal();
   }
 
+  I18N.translate(dlg);
   if (typeof dlg.showModal === "function") dlg.showModal();
   else dlg.setAttribute("open", "");
 }
@@ -16670,7 +16678,7 @@ function updateBulkDebtTotal() {
     total += amount;
     count++;
   });
-  totalEl.innerHTML = `Total: ${amt(total)} in ${count} ${count === 1 ? "entry" : "entries"}`;
+  totalEl.innerHTML = trn(count, "Total: {a} in {n} entry", "Total: {a} in {n} entries", { a: amt(total) });
 }
 
 document.addEventListener("change", (e) => {
@@ -16742,7 +16750,7 @@ document.getElementById("btn-bulk-debt-confirm")?.addEventListener("click", () =
   save();
   closeBulkDebtPayDialog();
   renderAll();
-  if (created === 0) notify("No debts paid (nothing was checked or amounts were 0).");
+  if (created === 0) notify(tr("No debts paid (nothing was checked or amounts were 0)."));
 });
 
 // ----------- Daily entry edit dialog -----------
@@ -16759,8 +16767,8 @@ function openDailyEditDialog(id) {
   dlg.dataset.entryId = id;
   const kindHint = document.getElementById("daily-edit-kind-hint");
   const kind = entry.kind || "expense";
-  const kindLabels = { expense: "Spending entry", debt: "Debt payment", saving: "Savings deposit" };
-  if (kindHint) kindHint.textContent = kindLabels[kind] || "Entry";
+  const kindLabels = { expense: tr("Spending entry"), debt: tr("Debt payment"), saving: tr("Savings deposit") };
+  if (kindHint) kindHint.textContent = kindLabels[kind] || tr("Entry");
 
   const amountInput = dlg.querySelector("input[name='amount']");
   const dateInput = dlg.querySelector("input[name='date']");
@@ -16777,6 +16785,7 @@ function openDailyEditDialog(id) {
   // get their label from the linked debt/goal name.
   if (categoryField) categoryField.hidden = kind !== "expense";
 
+  I18N.translate(dlg);
   if (typeof dlg.showModal === "function") dlg.showModal();
   else dlg.setAttribute("open", "");
 }
@@ -16807,11 +16816,11 @@ document.getElementById("btn-daily-edit-save")?.addEventListener("click", () => 
   const note = dlg.querySelector("input[name='note']")?.value?.trim() || "";
 
   if (!Number.isFinite(amount) || amount <= 0) {
-    notify("Amount must be a positive number.");
+    notify(tr("Amount must be a positive number."));
     return;
   }
   if (!date) {
-    notify("Date is required.");
+    notify(tr("Date is required."));
     return;
   }
 
@@ -16860,6 +16869,7 @@ function openLastMonthEditDialog() {
   if (inputEl) inputEl.value = stored != null ? stored : computed;
   if (currentEl) currentEl.textContent = fmtMoney(computed);
   dlg.dataset.targetMonth = lastM;
+  I18N.translate(dlg);
   if (typeof dlg.showModal === "function") dlg.showModal();
   else dlg.setAttribute("open", "");
 }
@@ -16887,12 +16897,12 @@ document.getElementById("btn-last-month-edit-save")?.addEventListener("click", (
   if (!month || !inputEl) return;
   const raw = (inputEl.value || "").toString().trim();
   if (raw === "") {
-    notify("Enter a value, or use Reset to auto.");
+    notify(tr("Enter a value, or use Reset to auto."));
     return;
   }
   const v = Number(raw);
   if (!Number.isFinite(v) || v < 0) {
-    notify("Enter a positive number.");
+    notify(tr("Enter a positive number."));
     return;
   }
   state.monthlyMinSums[month] = v;
@@ -17088,7 +17098,8 @@ function runSearch(query, scope) {
     for (const inv of state.investments || []) if (searchMatches(words, [inv.name, inv.type, "investment"], [])) out.goals.push({ type: "investment", g: inv });
   }
   if (want("app")) {
-    out.app = SEARCH_FEATURES.filter((f) => searchMatches(words, [f.title, f.where, f.kw], []))
+    // English and the app's language both find a setting.
+    out.app = SEARCH_FEATURES.filter((f) => searchMatches(words, [f.title, f.where, f.kw, tr(f.title), tr(f.where)], []))
       // A word in the title beats one only in the keywords; at its start, more so.
       .map((f) => { const t = searchNorm(f.title); return { f, rank: words.some((w) => t.startsWith(w)) ? 0 : words.some((w) => t.includes(w)) ? 1 : 2 }; })
       .sort((a, b) => a.rank - b.rank)
@@ -17142,12 +17153,12 @@ function renderSearch() {
 
   if (!words.length) {
     const recent = state.recentSearches || [];
-    const sugg = [["This month's spending", () => searchGoTab("reports")], ["Back up now", () => searchReveal("data", "#drive-card")], ["Currency", () => searchReveal("data", "#pref-currency")], ["Export CSV", () => searchReveal("data", "#btn-export")]];
+    const sugg = [[tr("This month's spending"), () => searchGoTab("reports")], [tr("Back up now"), () => searchReveal("data", "#drive-card")], [tr("Currency"), () => searchReveal("data", "#pref-currency")], [tr("Export CSV"), () => searchReveal("data", "#btn-export")]];
     box.innerHTML = (recent.length
-      ? group("Recent", recent.map((q) => opt(`<span class="search-opt-main">${escapeHtml(q)}</span>`, () => { input.value = q; renderSearch(); })),
-        `<button type="button" class="search-group-action" data-search-forget>Clear</button>`)
+      ? group(tr("Recent"), recent.map((q) => opt(`<span class="search-opt-main">${escapeHtml(q)}</span>`, () => { input.value = q; renderSearch(); })),
+        `<button type="button" class="search-group-action" data-search-forget>${tr("Clear")}</button>`)
       : "")
-      + group("Try", sugg.map(([t, fn]) => opt(`<span class="search-opt-main">${escapeHtml(t)}</span>`, fn)));
+      + group(tr("Try"), sugg.map(([t, fn]) => opt(`<span class="search-opt-main">${escapeHtml(t)}</span>`, fn)));
     input.setAttribute("aria-expanded", "true");
     if (status) status.textContent = "";
     return;
@@ -17158,27 +17169,27 @@ function renderSearch() {
   if (r.entries.length) {
     // Spent and saved are different money — sum them apart, never together.
     const sum = (k) => r.entries.filter((x) => (x.e.kind || "expense") === k).reduce((t, x) => t + (Number(x.e.amount) || 0), 0);
-    const totals = [["expense", "spent"], ["debt", "paid off"], ["saving", "saved"]]
-      .map(([k, label]) => { const v = sum(k); return v ? `${amt(v)} ${label}` : ""; }).filter(Boolean).join(" · ");
+    const totals = [["expense", "{a} spent"], ["debt", "{a} paid off"], ["saving", "{a} saved"]]
+      .map(([k, label]) => { const v = sum(k); return v ? tr(label, { a: amt(v) }) : ""; }).filter(Boolean).join(" · ");
     const rows = r.entries.slice(0, SEARCH_GROUP_CAP).map(({ e, label, sub }) => opt(
       `<span class="search-opt-main">${searchMark(label, words)}</span><span class="search-opt-sub">${escapeHtml(formatDayLabel(e.date))}${sub ? " · " + searchMark(sub, words) : ""}</span><span class="search-opt-amt ${e.kind === "saving" ? "is-in" : ""}">${e.kind === "saving" ? "+" : "−"}${amt(Number(e.amount) || 0)}</span>`,
       () => { closeSearch(); openDailyEditDialog(e.id); }));
-    if (r.entries.length > SEARCH_GROUP_CAP) rows.push(opt(`<span class="search-opt-more">Show all ${r.entries.length} in All entries</span>`, () => searchShowAll(query)));
-    html += group(`Entries · ${r.entries.length}`, rows, totals ? `<span class="search-group-total">${totals}</span>` : "");
+    if (r.entries.length > SEARCH_GROUP_CAP) rows.push(opt(`<span class="search-opt-more">${tr("Show all {n} in All entries", { n: r.entries.length })}</span>`, () => searchShowAll(query)));
+    html += group(`${tr("Entries")} · ${r.entries.length}`, rows, totals ? `<span class="search-group-total">${totals}</span>` : "");
   }
   if (r.recurring.length) {
-    html += group("Monthly", r.recurring.slice(0, SEARCH_GROUP_CAP).map(({ kind, r: it }) => opt(
-      `<span class="search-opt-main">${searchMark(it.name, words)}</span><span class="search-opt-sub">${kind === "income" ? "Income" : "Recurring expense"} · ${escapeHtml(formatMonthLabelShort(it.month))}</span><span class="search-opt-amt ${kind === "income" ? "is-in" : ""}">${amt(Number(it.amount) || 0)}</span>`,
+    html += group(tr("Monthly"), r.recurring.slice(0, SEARCH_GROUP_CAP).map(({ kind, r: it }) => opt(
+      `<span class="search-opt-main">${searchMark(it.name, words)}</span><span class="search-opt-sub">${tr(kind === "income" ? "Income" : "Recurring expense")} · ${escapeHtml(formatMonthLabelShort(it.month))}</span><span class="search-opt-amt ${kind === "income" ? "is-in" : ""}">${amt(Number(it.amount) || 0)}</span>`,
       () => { closeSearch(); openEditDialog(kind, it.id); })));
   }
   if (r.debts.length) {
-    html += group("Debts", r.debts.slice(0, SEARCH_GROUP_CAP).map((d) => opt(
-      `<span class="search-opt-main">${searchMark(d.name, words)}</span><span class="search-opt-sub">${Number(d.balance) > 0 ? "left to pay" : "paid off"}</span><span class="search-opt-amt">${amt(Number(d.balance) || 0)}</span>`,
+    html += group(tr("Debts"), r.debts.slice(0, SEARCH_GROUP_CAP).map((d) => opt(
+      `<span class="search-opt-main">${searchMark(d.name, words)}</span><span class="search-opt-sub">${tr(Number(d.balance) > 0 ? "left to pay" : "paid off")}</span><span class="search-opt-amt">${amt(Number(d.balance) || 0)}</span>`,
       () => { closeSearch(); searchGoTab("debts", () => openEditDialog("debt", d.id)); })));
   }
   if (r.goals.length) {
-    html += group("Goals & pools", r.goals.slice(0, SEARCH_GROUP_CAP).map(({ type, g }) => opt(
-      `<span class="search-opt-main">${searchMark(g.name, words)}</span><span class="search-opt-sub">${type === "saving" ? "Savings goal" : type === "pool" ? "Budget pool" : "Investment"}</span>${type === "saving" ? `<span class="search-opt-amt">${amt(Number(g.current) || 0)}</span>` : type === "pool" ? `<span class="search-opt-amt">${amt(effectiveLimit(g, currentMonthISO()))}</span>` : ""}`,
+    html += group(tr("Goals & pools"), r.goals.slice(0, SEARCH_GROUP_CAP).map(({ type, g }) => opt(
+      `<span class="search-opt-main">${searchMark(g.name, words)}</span><span class="search-opt-sub">${tr(type === "saving" ? "Savings goal" : type === "pool" ? "Budget pool" : "Investment")}</span>${type === "saving" ? `<span class="search-opt-amt">${amt(Number(g.current) || 0)}</span>` : type === "pool" ? `<span class="search-opt-amt">${amt(effectiveLimit(g, currentMonthISO()))}</span>` : ""}`,
       () => {
         closeSearch();
         if (type === "saving") searchGoTab("savings", () => openEditDialog("saving", g.id));
@@ -17187,21 +17198,21 @@ function renderSearch() {
       })));
   }
   if (r.app.length) {
-    html += group("In the app", r.app.slice(0, SEARCH_GROUP_CAP).map((f) => opt(
-      `<span class="search-opt-main">${searchMark(f.title, words)}</span><span class="search-opt-sub">${escapeHtml(f.where)}</span>`,
+    html += group(tr("In the app"), r.app.slice(0, SEARCH_GROUP_CAP).map((f) => opt(
+      `<span class="search-opt-main">${searchMark(tr(f.title), words)}</span><span class="search-opt-sub">${escapeHtml(tr(f.where))}</span>`,
       () => (f.run ? f.run() : searchReveal(f.go[0], f.go[1])), "is-feature")));
   }
   if (!html) {
     const num = Number(query.trim().replace(/^rm\s*/i, "").replace(/,/g, ""));
     const quick = Number.isFinite(num) && num > 0
-      ? group("", [opt(`<span class="search-opt-main">Add ${amt(num)} as a spend</span><span class="search-opt-sub">Opens Add entry with the amount filled in</span>`, () => searchStartEntry("expense", num))])
+      ? group("", [opt(`<span class="search-opt-main">${tr("Add {a} as a spend", { a: amt(num) })}</span><span class="search-opt-sub">${tr("Opens Add entry with the amount filled in")}</span>`, () => searchStartEntry("expense", num))])
       : "";
-    html = `<p class="search-empty">Nothing for “${escapeHtml(query.trim())}”. Search looks through your entries, monthly items, debts, goals, pools and app settings.</p>${quick}`;
+    html = `<p class="search-empty">${tr("Nothing for “{q}”. Search looks through your entries, monthly items, debts, goals, pools and app settings.", { q: escapeHtml(query.trim()) })}</p>${quick}`;
   }
   box.innerHTML = html;
   input.setAttribute("aria-expanded", "true");
   const total = r.entries.length + r.recurring.length + r.debts.length + r.goals.length + r.app.length;
-  if (status) status.textContent = total ? `${total} result${total === 1 ? "" : "s"}` : "No results";
+  if (status) status.textContent = total ? trn(total, "{n} result", "{n} results") : tr("No results");
 }
 
 function searchSetActive(i) {
