@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.12";
+const APP_VERSION = "1.57.13";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4921,6 +4921,41 @@ function syncPendingCount(force) {
   if (!force && n === _pendingCountSent) return;
   _pendingCountSent = n;
   try { Promise.resolve(NL.setPendingCount({ count: n })).catch(() => {}); } catch {}
+}
+
+/* The quick-add notification lives outside the app, so it can't call tr():
+   hand it its words in the app's language after each unlock and on a
+   language change. English until then; an older native build ignores it. */
+let _nativeStringsSent = null;
+function nativeQuickAddStrings() {
+  return {
+    title: tr("Log a spend"),
+    hint: tr("Tap Add and type an amount."),
+    filed: tr("Filed when you next open Duitful"),
+    reviewText: tr("From bank alerts · tap to check"),
+    toReview: tr("{n} to review"),
+    review: tr("Review"),
+    amount: tr("Amount"),
+    add: tr("Add"),
+    scan: tr("Scan receipt"),
+    saved: tr("{a} added"),
+    undo: tr("Undo"),
+    notAmount: tr("That did not look like an amount: \"{x}\". Try 12.50"),
+    typeAmount: tr("Type an amount, like 12.50"),
+    channel: tr("Quick add"),
+    channelText: tr("The always-there \"Log a spend\" notification you can type an amount into."),
+    confirmChannel: tr("Quick add confirmations"),
+    confirmChannelText: tr("Brief \"saved\" receipts with an Undo, after a quick add."),
+  };
+}
+function syncNativeStrings(force) {
+  if (!isNative()) return;
+  const NL = window.Capacitor?.Plugins?.NotificationListener;
+  if (!NL || typeof NL.setStrings !== "function") return;
+  const lang = window.I18N ? I18N.lang : "en";
+  if (!force && lang === _nativeStringsSent) return;
+  _nativeStringsSent = lang;
+  try { Promise.resolve(NL.setStrings({ strings: nativeQuickAddStrings() })).catch(() => {}); } catch {}
 }
 
 /* Money in: "+RM 0.10 · From ALI BIN ABU". A refund, reversal or cashback
@@ -11301,6 +11336,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.13": [
+    "<strong>Phone notifications in your language</strong> — the Log a spend notification, \u201csays they paid\u201d alerts and the iPhone scan sheet now follow the language you picked in Duitful.",
+  ],
   "1.57.12": [
     "<strong>Reminders in Bahasa Melayu and 中文</strong> — debt, bill and pay-day reminders now arrive in your language, and switching language updates the ones already scheduled. That finishes the whole app in all three languages.",
   ],
@@ -12038,6 +12076,7 @@ document.getElementById("pref-language")?.addEventListener("change", (e) => {
 window.addEventListener("duitful:lang", () => {
   // Reminders are scheduled ahead in the language of the moment: reschedule.
   if (typeof requestReschedule === "function") requestReschedule();
+  syncNativeStrings();
   applyHeroBreakdownState();
   setDailyMoreOpen(document.getElementById("daily-more")?.hidden === false);
   renderAboutVersion();
@@ -12476,6 +12515,7 @@ async function handleUnlock(passcode, { silent = false } = {}) {
   refreshAiStatus().catch(() => {});
   refreshCaptureAccess().catch(() => {});
   syncPendingCount(true);
+  syncNativeStrings(true);
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -12517,6 +12557,7 @@ async function handleSetup(passcode, confirm, initialState, { open = false } = {
   refreshAiStatus().catch(() => {});
   refreshCaptureAccess().catch(() => {});
   syncPendingCount(true);
+  syncNativeStrings(true);
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -13348,7 +13389,10 @@ async function scanWithDocumentScanner() {
   const kit = duitfulKit("scanDocument");
   if (!kit) throw new Error("no scanner");
   try {
-    const res = await kit.scanDocument({ allowGallery: true, pageLimit: 3 });
+    const res = await kit.scanDocument({
+      allowGallery: true, pageLimit: 3,
+      labels: { title: tr("Scan receipt"), camera: tr("Scan with camera"), photo: tr("Choose photo"), cancel: tr("Cancel") },
+    });
     const pages = res && Array.isArray(res.images) ? res.images.filter((s) => typeof s === "string" && s.startsWith("data:image/")) : [];
     if (!pages.length) return null;
     return await stitchScanPages(pages);

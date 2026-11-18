@@ -37,6 +37,8 @@ public enum DuitfulRelayWatch {
     struct State: Codable {
         var boxes: [Box]
         var seen: [String]
+        /// The app's words in its chosen language; nil (an older list) = English.
+        var s: [String: String]?
     }
 
     /// Before the end of launch, or iOS refuses the task later.
@@ -51,7 +53,7 @@ public enum DuitfulRelayWatch {
     }
 
     /// Replaces the watch list; empty or off cancels and deletes it.
-    static func update(boxes: [Box], seen: [String], on: Bool) {
+    static func update(boxes: [Box], seen: [String], on: Bool, strings: [String: String]? = nil) {
         guard on, !boxes.isEmpty else {
             BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskId)
             deleteState()
@@ -59,7 +61,7 @@ public enum DuitfulRelayWatch {
         }
         var merged = load()?.seen ?? []
         for e in seen where !merged.contains(e) { merged.append(e) }
-        save(State(boxes: boxes, seen: Array(merged.suffix(seenCap))))
+        save(State(boxes: boxes, seen: Array(merged.suffix(seenCap)), s: strings))
         schedule()
     }
 
@@ -99,7 +101,12 @@ public enum DuitfulRelayWatch {
                 guard let personId = ev["id"] as? String, let name = box.p[personId] else { continue }
                 let from = (ev["fr"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? name
                 let amount = (ev["a"] as? NSNumber)?.doubleValue ?? 0
-                fresh.append((id: eventId, text: String(format: "%@ says they paid RM %.2f", from, amount), title: box.ti))
+                let text = word(state.s, "paid", "{who} says they paid {a}")
+                    .replacingOccurrences(of: "{who}", with: from)
+                    .replacingOccurrences(of: "{a}", with: String(format: "RM %.2f", amount))
+                let bill = box.ti.isEmpty ? word(state.s, "bill", "Split bill") : box.ti
+                fresh.append((id: eventId, text: text,
+                              title: word(state.s, "confirm", "{title} · Open Duitful to confirm").replacingOccurrences(of: "{title}", with: bill)))
             }
         }
         state.seen = Array(seen.suffix(seenCap))
@@ -121,10 +128,15 @@ public enum DuitfulRelayWatch {
         return (try? JSONSerialization.jsonObject(with: plain)) as? [String: Any]
     }
 
+    static func word(_ words: [String: String]?, _ key: String, _ english: String) -> String {
+        guard let v = words?[key], !v.isEmpty else { return english }
+        return v
+    }
+
     static func post(id: String, text: String, title: String) async {
         let content = UNMutableNotificationContent()
         content.title = text
-        content.body = "\(title) · Open Duitful to confirm"
+        content.body = title
         content.sound = .default
         let request = UNNotificationRequest(identifier: "duitful-split-\(id)", content: content, trigger: nil)
         try? await UNUserNotificationCenter.current().add(request)

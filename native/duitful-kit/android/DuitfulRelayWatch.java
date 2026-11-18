@@ -70,7 +70,7 @@ final class DuitfulRelayWatch {
     private DuitfulRelayWatch() {}
 
     /** Replaces the watch list; empty or off cancels the background check. */
-    static void update(Context context, JSONArray boxes, JSONArray seen, boolean on) throws Exception {
+    static void update(Context context, JSONArray boxes, JSONArray seen, boolean on, JSONObject strings) throws Exception {
         Context app = context.getApplicationContext();
         if (!on || boxes == null || boxes.length() == 0) {
             WorkManager.getInstance(app).cancelUniqueWork(WORK_NAME);
@@ -83,6 +83,8 @@ final class DuitfulRelayWatch {
         JSONObject state = new JSONObject();
         state.put("boxes", boxes);
         state.put("seen", new JSONArray(trim(merged)));
+        // The app's words in its chosen language; English until it sends them.
+        if (strings != null) state.put("s", strings);
         save(app, state);
 
         Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build();
@@ -100,6 +102,7 @@ final class DuitfulRelayWatch {
         JSONArray boxes = state.optJSONArray("boxes");
         if (boxes == null) return;
         Set<String> seen = new LinkedHashSet<>(seenOf(state));
+        JSONObject words = state.optJSONObject("s");
         List<String[]> fresh = new ArrayList<>();
         for (int i = 0; i < boxes.length(); i++) {
             JSONObject box = boxes.optJSONObject(i);
@@ -120,9 +123,13 @@ final class DuitfulRelayWatch {
                     seen.add(eventId);
                     if (!people.has(personId)) continue;
                     String who = ev.optString("fr");
-                    if (who.isEmpty()) who = people.optString(personId, "Someone");
-                    String text = String.format(Locale.US, "%s says they paid RM %.2f", who, ev.optDouble("a", 0));
-                    fresh.add(new String[] { eventId, text, box.optString("ti", "Split bill") });
+                    if (who.isEmpty()) who = people.optString(personId, word(words, "someone", "Someone"));
+                    String text = word(words, "paid", "{who} says they paid {a}")
+                        .replace("{who}", who)
+                        .replace("{a}", String.format(Locale.US, "RM %.2f", ev.optDouble("a", 0)));
+                    String title = box.optString("ti", "");
+                    if (title.isEmpty()) title = word(words, "bill", "Split bill");
+                    fresh.add(new String[] { eventId, text, word(words, "confirm", "{title} · Open Duitful to confirm").replace("{title}", title) });
                 } catch (Exception ignored) {}
             }
         }
@@ -130,7 +137,12 @@ final class DuitfulRelayWatch {
             state.put("seen", new JSONArray(trim(seen)));
             save(app, state);
         } catch (Exception ignored) {}
-        for (String[] f : fresh) notifyPaid(app, f[0], f[1], f[2]);
+        for (String[] f : fresh) notifyPaid(app, f[0], f[1], f[2], words);
+    }
+
+    private static String word(JSONObject words, String key, String english) {
+        String v = words == null ? "" : words.optString(key, "");
+        return v.isEmpty() ? english : v;
     }
 
     private static JSONArray fetchEvents(String id) {
@@ -156,15 +168,15 @@ final class DuitfulRelayWatch {
         }
     }
 
-    private static void notifyPaid(Context app, String eventId, String text, String title) {
-        ensureChannel(app);
+    private static void notifyPaid(Context app, String eventId, String text, String body, JSONObject words) {
+        ensureChannel(app, words);
         Intent launch = app.getPackageManager().getLaunchIntentForPackage(app.getPackageName());
         PendingIntent open = launch == null ? null : PendingIntent.getActivity(
             app, 0, launch, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         NotificationCompat.Builder b = new NotificationCompat.Builder(app, CHANNEL)
             .setSmallIcon(smallIcon(app))
             .setContentTitle(text)
-            .setContentText(title + " · Open Duitful to confirm")
+            .setContentText(body)
             .setAutoCancel(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT);
@@ -176,13 +188,13 @@ final class DuitfulRelayWatch {
         }
     }
 
-    private static void ensureChannel(Context app) {
+    private static void ensureChannel(Context app, JSONObject words) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         try {
             NotificationManager manager = (NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager == null) return;
-            NotificationChannel ch = new NotificationChannel(CHANNEL, "Split payments", NotificationManager.IMPORTANCE_DEFAULT);
-            ch.setDescription("When someone says they've paid a bill you split.");
+            NotificationChannel ch = new NotificationChannel(CHANNEL, word(words, "channel", "Split payments"), NotificationManager.IMPORTANCE_DEFAULT);
+            ch.setDescription(word(words, "channelText", "When someone says they've paid a bill you split."));
             manager.createNotificationChannel(ch);
         } catch (Throwable ignored) {}
     }

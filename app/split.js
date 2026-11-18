@@ -4182,7 +4182,8 @@ async function splitRelayWatchSync() {
   if (!plugin) return false;
   const boxes = splitRelayWatchList();
   const seen = splitRelayOwned().flatMap((r) => r.relay.seen).slice(-400);
-  const sig = splitRelayHash(JSON.stringify({ boxes, n: seen.length }));
+  const lang = window.I18N ? I18N.lang : "en";
+  const sig = splitRelayHash(JSON.stringify({ boxes, n: seen.length, lang }));
   if (sig === splitRelayWatchSent) return false;
   // The first bill worth watching is the moment "allow notifications?" makes
   // sense — never on first launch, before anyone has split anything.
@@ -4193,7 +4194,17 @@ async function splitRelayWatchSync() {
       if (LN && (await LN.checkPermissions()).display !== "granted") await LN.requestPermissions();
     } catch {}
   }
-  await plugin.relayWatch({ boxes, seen, on: boxes.length > 0 });
+  // The background check posts "says they paid" without the app, so it
+  // carries the words in the app's language.
+  const strings = {
+    paid: tr("{who} says they paid {a}"),
+    someone: tr("Someone"),
+    bill: tr("Split bill"),
+    confirm: tr("{title} · Open Duitful to confirm"),
+    channel: tr("Split payments"),
+    channelText: tr("When someone says they've paid a bill you split."),
+  };
+  await plugin.relayWatch({ boxes, seen, on: boxes.length > 0, strings });
   splitRelayWatchSent = sig;
   return true;
 }
@@ -4395,3 +4406,6 @@ async function splitPickDone(recId) {
   const done = splitPickFinish(recId, { shareUnclaimed });
   if (done) splitOpenShare(done.id, 0);
 }
+
+// "Says they paid" is posted in the words last sent: send them again in the new language.
+window.addEventListener("duitful:lang", () => { splitRelayWatchSync().catch(() => {}); });

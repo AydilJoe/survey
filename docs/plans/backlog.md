@@ -52,9 +52,11 @@ Settings → Preferences, Malay + Chinese for the passcode screen, header, tab
 bar, Home, Add entry and Settings, e2e coverage. See CLAUDE.md "Languages".
 **Tax done (18 Nov 2026, v1.57.2)**: page, dialogs, Home tax card, reminders, every relief (Malay per LHDN wording). **Monthly done (v1.57.3)**: income, recurring, calendar, budget pools, Home budget summary. **Debts done (v1.57.4)**: list, add form, payoff plan, Home debt card, Islamic terms, free-limit lines. **Savings done (v1.57.5)**: goals, investments, retirement plan, zakat. **All entries done (v1.57.6)**. **Reports done (v1.57.7)**. **Pro / passcode / milestone sheets done (v1.57.8)**. Next stages, in order:
 **Setup / tour / edit / search done (v1.57.9)**. **Scan / statement / bank-alert sheets done (v1.57.10)**. **Split done (v1.57.11)**. **Reminders done (v1.57.12)** — every screen,
-sheet and reminder is now in all three languages. Left in English: the
-Java / Swift strings inside the native plugins (Android quick-add
-notification, iOS Siri intents). Category
+sheet and reminder is now in all three languages. **Native notifications done
+(v1.57.13)**: the app sends the Android quick-add notification, "says they
+paid" (Android + iPhone) and the iPhone scan sheet their words. Left in
+English: Siri phrases, intent titles and widget labels (compiled into the
+app; would need a string catalog and follow the phone's language). Category
 suggestions stay English for now: tax-relief matching reads category words.
 
 ## Redesign home-screen widgets (requested)

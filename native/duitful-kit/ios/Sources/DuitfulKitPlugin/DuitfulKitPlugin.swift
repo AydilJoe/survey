@@ -69,6 +69,12 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
                 return
             }
             let allowGallery = call.getBool("allowGallery") ?? true
+            // The sheet's words in the language picked in Duitful; English if not sent.
+            let labels = (call.options["labels"] as? [String: Any])?.compactMapValues { $0 as? String } ?? [:]
+            let L = { (key: String, english: String) -> String in
+                guard let v = labels[key], !v.isEmpty else { return english }
+                return v
+            }
             let canScan = VNDocumentCameraViewController.isSupported
             if !canScan && !allowGallery {
                 call.reject("Document scanning isn't supported on this device", "UNAVAILABLE")
@@ -79,16 +85,16 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
                 self.presentScanner(from: vc)
                 return
             }
-            let sheet = UIAlertController(title: "Scan receipt", message: nil, preferredStyle: .actionSheet)
+            let sheet = UIAlertController(title: L("title", "Scan receipt"), message: nil, preferredStyle: .actionSheet)
             if canScan {
-                sheet.addAction(UIAlertAction(title: "Scan with camera", style: .default) { _ in
+                sheet.addAction(UIAlertAction(title: L("camera", "Scan with camera"), style: .default) { _ in
                     self.presentScanner(from: vc)
                 })
             }
-            sheet.addAction(UIAlertAction(title: "Choose photo", style: .default) { _ in
+            sheet.addAction(UIAlertAction(title: L("photo", "Choose photo"), style: .default) { _ in
                 self.presentPicker(from: vc)
             })
-            sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in
+            sheet.addAction(UIAlertAction(title: L("cancel", "Cancel"), style: .cancel) { _ in
                 self.finishScan(error: ("Scan cancelled", "CANCELLED"))
             })
             if let pop = sheet.popoverPresentationController {
@@ -294,10 +300,11 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         let raw = call.options["boxes"] as? [[String: Any]] ?? []
         let seen = (call.options["seen"] as? [Any] ?? []).compactMap { $0 as? String }
         let on = call.getBool("on") ?? true
+        let strings = (call.options["strings"] as? [String: Any])?.compactMapValues { $0 as? String }
         do {
             let data = try JSONSerialization.data(withJSONObject: raw)
             let boxes = try JSONDecoder().decode([DuitfulRelayWatch.Box].self, from: data)
-            DuitfulRelayWatch.update(boxes: boxes, seen: seen, on: on)
+            DuitfulRelayWatch.update(boxes: boxes, seen: seen, on: on, strings: strings)
             call.resolve(["ok": true])
         } catch {
             call.reject(error.localizedDescription, "RELAY")
