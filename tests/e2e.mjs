@@ -11677,6 +11677,15 @@ check('the brand catalogue makes no network calls at all',
         return { rent: els.includes('Rent'), translated: els.some((t) => t === 'Sewa' || t === '房租'), n: (state.split.out || []).length, stillOpen };
       });
       if (!kept.rent || kept.translated) layoutMiss.push(`${lang}: a split titled "Rent" was translated or lost ${JSON.stringify(kept)}`);
+      // Reminders the phone shows later follow the language; names stay as typed.
+      const rem = await p.evaluate(() => buildReminders({
+        debts: [{ name: 'Maybank card', dueDay: 5, installment: 0, minPayment: 160 }],
+        expenses: [{ month: new Date().toISOString().slice(0, 7), name: 'TNB', amount: 100, day: 12 }],
+        income: [{ month: new Date().toISOString().slice(0, 7), name: 'Salary', amount: 5000, day: 25 }],
+      }).filter((n) => /Maybank card|TNB|Salary/.test(n.title)).map((n) => `${n.title} | ${n.body}`));
+      const remWant = lang === 'ms' ? /Bayaran minimum/ : /最低还款/;
+      if (!rem.some((t) => remWant.test(t)) || rem.some((t) => /due today|bill due|Pay day|expected|Min payment/.test(t)) || !rem.some((t) => t.includes('Maybank card')))
+        layoutMiss.push(`${lang}: reminders not translated ${JSON.stringify(rem)}`);
     }
     await p.close();
   }

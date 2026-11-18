@@ -20,9 +20,10 @@ import { ROWS as PRO } from './i18n/pro.mjs';
 import { ROWS as SETUP } from './i18n/setup.mjs';
 import { ROWS as SCAN } from './i18n/scan.mjs';
 import { ROWS as SPLIT } from './i18n/split.mjs';
+import { ROWS as NOTIFY } from './i18n/notifications.mjs';
 
 // One file per screen; the order only matters for reading the tables.
-const ROWS = [...BASE, ...TAX, ...MONTHLY, ...DEBTS, ...SAVINGS, ...DAILY, ...REPORTS, ...PRO, ...SETUP, ...SCAN, ...SPLIT];
+const ROWS = [...BASE, ...TAX, ...MONTHLY, ...DEBTS, ...SAVINGS, ...DAILY, ...REPORTS, ...PRO, ...SETUP, ...SCAN, ...SPLIT, ...NOTIFY];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANGS = [

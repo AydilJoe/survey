@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.11";
+const APP_VERSION = "1.57.12";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5183,11 +5183,13 @@ async function fireDueNotifications() {
     if (last[key] === today) continue;
     const body = it.kind === "split"
       ? (it.overdue
-        ? `Owes you ${fmtMoney(it.amount)} — ${it.stale ? "unpaid" : "overdue"} ${Number(it.overdueDays) || 0} day${(Number(it.overdueDays) || 0) === 1 ? "" : "s"}${it.title ? ` · ${it.title}` : ""}`
-        : `Owes you ${fmtMoney(it.amount)} — due today${it.title ? ` · ${it.title}` : ""}`)
+        ? `${it.stale
+            ? trn(Number(it.overdueDays) || 0, "Owes you {a} — unpaid {n} day", "Owes you {a} — unpaid {n} days", { a: fmtMoney(it.amount) })
+            : trn(Number(it.overdueDays) || 0, "Owes you {a} — overdue {n} day", "Owes you {a} — overdue {n} days", { a: fmtMoney(it.amount) })}${it.title ? ` · ${it.title}` : ""}`
+        : `${tr("Owes you {a} — due today", { a: fmtMoney(it.amount) })}${it.title ? ` · ${it.title}` : ""}`)
       : it.direction === "in"
-        ? `Pay day today — ${fmtMoney(it.amount)} expected`
-        : `Due today — ${fmtMoney(it.amount)}`;
+        ? tr("Pay day today — {a} expected", { a: fmtMoney(it.amount) })
+        : tr("Due today — {a}", { a: fmtMoney(it.amount) });
     try {
       new Notification(`${it.name}`, { body, tag: key });
     } catch {}
@@ -7415,17 +7417,17 @@ function buildReminders(src) {
     // instalment where there is one, and drop the figure entirely when there
     // is none worth showing.
     const due = Number(d.installment) || Number(d.minPayment) || 0;
-    const body = due > 0 ? `Min payment ${fmtMoney(due)}` : "Payment due today";
-    push(`${d.name} — due today`, body, d.dueDay);
+    const body = due > 0 ? tr("Min payment {a}", { a: fmtMoney(due) }) : tr("Payment due today");
+    push(tr("{name} — due today", { name: d.name }), body, d.dueDay);
   }
   // Newest month first, so the amount shown is the most recent one on record
   // rather than whichever month happened to be stored first.
   const byMonthDesc = (a, b) => String(b.month || "").localeCompare(String(a.month || ""));
   for (const ex of [...expenses].sort(byMonthDesc)) {
-    if (ex.day) push(`${ex.name} — bill due`, `${fmtMoney(ex.amount)}`, ex.day);
+    if (ex.day) push(tr("{name} — bill due", { name: ex.name }), `${fmtMoney(ex.amount)}`, ex.day);
   }
   for (const inc of [...income].sort(byMonthDesc)) {
-    if (inc.day) push(`Pay day — ${inc.name}`, `${fmtMoney(inc.amount)} expected`, inc.day);
+    if (inc.day) push(tr("Pay day — {name}", { name: inc.name }), tr("{a} expected", { a: fmtMoney(inc.amount) }), inc.day);
   }
   // A loan comes due ONCE, so it is scheduled at an absolute time rather than
   // on the monthly-repeating day-of-month rail used above.
@@ -11299,6 +11301,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.12": [
+    "<strong>Reminders in Bahasa Melayu and 中文</strong> — debt, bill and pay-day reminders now arrive in your language, and switching language updates the ones already scheduled. That finishes the whole app in all three languages.",
+  ],
   "1.57.11": [
     "<strong>Split a bill in Bahasa Melayu and 中文</strong> — splitting, requesting and lending money now follow your language, and so do the messages your friends get. Names and titles you type stay exactly as you typed them.",
   ],
@@ -12031,6 +12036,8 @@ document.getElementById("pref-language")?.addEventListener("change", (e) => {
   renderLanguagePref();
 });
 window.addEventListener("duitful:lang", () => {
+  // Reminders are scheduled ahead in the language of the moment: reschedule.
+  if (typeof requestReschedule === "function") requestReschedule();
   applyHeroBreakdownState();
   setDailyMoreOpen(document.getElementById("daily-more")?.hidden === false);
   renderAboutVersion();
@@ -14398,8 +14405,8 @@ function quickAddToPending(entry) {
     // "s": "shortcut" comes from the iOS Siri & Shortcuts intent, where "c"
     // is the merchant (a Wallet automation passes the shop's name).
     providerName: entry.s === "shortcut"
-      ? (category ? `Shortcut · ${category}` : "Siri & Shortcuts")
-      : (category ? `Quick add · ${category}` : "Quick add"),
+      ? (category ? `${tr("Shortcut")} · ${category}` : "Siri & Shortcuts")
+      : (category ? `${tr("Quick add")} · ${category}` : tr("Quick add")),
     country: "MY",
     currency: typeof currentCurrency === "function" ? currentCurrency() : "MYR",
   };
