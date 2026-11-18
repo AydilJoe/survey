@@ -51,7 +51,8 @@ Large: many strings; do it in stages (Home, add entry, Settings first).
 Settings → Preferences, Malay + Chinese for the passcode screen, header, tab
 bar, Home, Add entry and Settings, e2e coverage. See CLAUDE.md "Languages".
 **Tax done (18 Nov 2026, v1.57.2)**: page, dialogs, Home tax card, reminders, every relief (Malay per LHDN wording). **Monthly done (v1.57.3)**: income, recurring, calendar, budget pools, Home budget summary. **Debts done (v1.57.4)**: list, add form, payoff plan, Home debt card, Islamic terms, free-limit lines. **Savings done (v1.57.5)**: goals, investments, retirement plan, zakat. **All entries done (v1.57.6)**. **Reports done (v1.57.7)**. **Pro / passcode / milestone sheets done (v1.57.8)**. Next stages, in order:
-the remaining dialogs (scan, split, onboarding, edit), then native
+**Setup / tour / edit / search done (v1.57.9)**. Then: the scan and
+statement dialogs, split, then native
 notification text. Category
 suggestions stay English for now: tax-relief matching reads category words.
 
