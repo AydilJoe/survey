@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=165" />
+    <link rel="stylesheet" href="styles.css?v=166" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1076,47 +1076,62 @@
             </div>
           </div>
 
-          <div class="grid-3">
-            <label class="field">
-              <span>Age now</span>
-              <input type="number" id="invest-plan-current-age" step="1" min="10" max="100" inputmode="numeric" placeholder="30" />
-            </label>
-            <label class="field">
-              <span>Retire at</span>
-              <input type="number" id="invest-plan-retire-age" step="1" min="10" max="100" inputmode="numeric" placeholder="60" />
-            </label>
-            <label class="field">
-              <span>Real return (%/yr)</span>
-              <input type="number" id="invest-plan-return" step="0.1" min="-10" max="20" inputmode="decimal" placeholder="4" />
-            </label>
-          </div>
-
-          <div class="grid-3">
-            <label class="field">
-              <span>Spend/month then (<span class="cur-code">MYR</span>)</span>
-              <input type="number" id="invest-plan-target-monthly" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 4000" />
-            </label>
-            <label class="field">
-              <span>Target pot (optional)</span>
-              <input type="number" id="invest-plan-target-pot" step="0.01" min="0" inputmode="decimal" placeholder="overrides the 4% rule" />
-            </label>
-            <label class="field">
-              <span>Saving/month now (<span class="cur-code">MYR</span>)</span>
-              <input type="number" id="invest-plan-contribution" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 1000" />
-            </label>
-          </div>
-
-          <label class="field toggle-field">
-            <input type="checkbox" id="invest-plan-include-savings" />
-            <span>Count my savings-goal balances towards the pot</span>
-          </label>
-
+          <p class="invest-plan-summary" id="invest-plan-summary"></p>
           <div class="button-row">
-            <button type="button" class="ghost" id="btn-invest-plan-disable">Stop planning</button>
+            <button type="button" class="primary" id="btn-invest-plan-edit">Edit plan</button>
           </div>
 
           <p class="hint">Estimates, in today's money.</p>
           <details class="info-tip"><summary aria-label="More about this">ⓘ</summary><p>The return you enter is a <em>real</em> return, already after inflation, so the pot you see is what it would buy at today's prices. Contributions are assumed monthly and unchanging, and the 4% rule is a rule of thumb, not a guarantee.</p></details>
+          <div class="invest-plan-foot">
+            <button type="button" class="tax-quiet" id="btn-invest-plan-disable">Stop planning</button>
+          </div>
+
+          <!-- The plan's inputs: one dialog, saved as you type (investments.js). -->
+          <dialog id="invest-plan-dialog" class="edit-dialog" aria-labelledby="invest-plan-dialog-title">
+            <form method="dialog">
+              <h2 id="invest-plan-dialog-title">Your retirement plan</h2>
+              <div class="grid-2">
+                <label class="field">
+                  <span>Age now</span>
+                  <input type="number" id="invest-plan-current-age" step="1" min="10" max="100" inputmode="numeric" />
+                </label>
+                <label class="field">
+                  <span>Retire at</span>
+                  <input type="number" id="invest-plan-retire-age" step="1" min="10" max="100" inputmode="numeric" />
+                </label>
+              </div>
+              <label class="field">
+                <span>Spend/month then (<span class="cur-code">MYR</span>)</span>
+                <input type="number" id="invest-plan-target-monthly" step="0.01" min="0" inputmode="decimal" />
+                <span class="hint">In today's money.</span>
+              </label>
+              <label class="field">
+                <span>Saving/month now (<span class="cur-code">MYR</span>)</span>
+                <input type="number" id="invest-plan-contribution" step="0.01" min="0" inputmode="decimal" />
+              </label>
+              <label class="field">
+                <span>Real return (%/yr)</span>
+                <input type="number" id="invest-plan-return" step="0.1" min="-10" max="20" inputmode="decimal" />
+                <span class="hint">After inflation. 4% is a common long-run guess.</span>
+              </label>
+              <label class="field toggle-field">
+                <input type="checkbox" id="invest-plan-include-savings" />
+                <span>Count my savings-goal balances towards the pot</span>
+              </label>
+              <details class="form-more" id="invest-plan-more" data-form-more>
+                <summary>More</summary>
+                <label class="field">
+                  <span>Target pot (<span class="cur-code">MYR</span>)</span>
+                  <input type="number" id="invest-plan-target-pot" step="0.01" min="0" inputmode="decimal" />
+                  <span class="hint">Leave empty to use the 4% rule: 25 × a year's spending.</span>
+                </label>
+              </details>
+              <div class="form-actions">
+                <button type="submit" class="primary" id="invest-plan-done">Done</button>
+              </div>
+            </form>
+          </dialog>
         </div>
 
         <div class="card invest-plan-optin" id="invest-plan-optin" hidden>
@@ -1143,64 +1158,70 @@
             <div class="zakat-bar-fill" id="zakat-bar-fill" style="width:0%"></div>
           </div>
           <p class="hint" id="zakat-nisab-line"></p>
+          <ul class="zakat-breakdown" id="zakat-breakdown"></ul>
+          <p class="hint" id="zakat-haul-line"></p>
 
-          <details id="zakat-nisab-details" class="zakat-nisab-details">
-            <summary>Nisab &amp; haul settings</summary>
-            <label class="field">
+          <div class="button-row">
+            <button type="button" class="primary" id="btn-zakat-paid">Mark zakat paid</button>
+            <button type="button" class="ghost" id="btn-zakat-edit">Edit</button>
+          </div>
+          <ul class="zakat-history" id="zakat-history"></ul>
+          <p class="hint">An estimate, not a fatwa.</p>
+          <details class="info-tip zakat-info"><summary aria-label="More about this">ⓘ</summary><p>Zakat rules vary by state and by asset type. Confirm the final figure with your state zakat authority before paying. Nisab weights are fixed by fiqh; only the metal price changes. "Other zakatable wealth" is wealth not tracked as a savings goal or investment: cash in hand, gold, property held for trade.</p></details>
+          <div class="invest-plan-foot">
+            <button type="button" class="tax-quiet" id="btn-zakat-disable">Stop tracking</button>
+          </div>
+
+          <!-- Zakat settings: set once (nisab price, haul), then Edit. Saved as you type. -->
+          <dialog id="zakat-dialog" class="edit-dialog" aria-labelledby="zakat-dialog-title">
+            <form method="dialog">
+              <h2 id="zakat-dialog-title">Zakat settings</h2>
+              <label class="field">
               <span>Nisab basis</span>
               <select id="zakat-nisab-basis">
                 <option value="gold">Gold — 85 g</option>
                 <option value="silver">Silver — 595 g</option>
                 <option value="custom">Custom amount (from your state zakat authority)</option>
               </select>
-            </label>
-            <div class="grid-2">
+              </label>
               <label class="field" id="zakat-gold-field">
                 <span>Gold price (<span class="cur-code">MYR</span>/gram)</span>
-                <input type="number" id="zakat-gold-price" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 480" />
+                <input type="number" id="zakat-gold-price" step="0.01" min="0" inputmode="decimal" />
+                <span class="hint">Today's price: your state zakat office (LZS, PPZ-MAIWP, LZNK…).</span>
               </label>
               <label class="field" id="zakat-silver-field" hidden>
                 <span>Silver price (<span class="cur-code">MYR</span>/gram)</span>
-                <input type="number" id="zakat-silver-price" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 5.20" />
+                <input type="number" id="zakat-silver-price" step="0.01" min="0" inputmode="decimal" />
+                <span class="hint">Today's price: your state zakat office (LZS, PPZ-MAIWP, LZNK…).</span>
               </label>
               <label class="field" id="zakat-custom-field" hidden>
                 <span>Nisab (<span class="cur-code">MYR</span>)</span>
-                <input type="number" id="zakat-custom-nisab" step="0.01" min="0" inputmode="decimal" placeholder="e.g. 32000" />
+                <input type="number" id="zakat-custom-nisab" step="0.01" min="0" inputmode="decimal" />
               </label>
               <label class="field">
                 <span>Haul started</span>
                 <input type="date" id="zakat-haul-start" />
+                <span class="hint">The day your wealth first reached nisab.</span>
               </label>
-            </div>
-            <p class="hint">Today's price: your state zakat office (LZS, PPZ-MAIWP, LZNK…).</p>
-          </details>
-
-          <ul class="zakat-breakdown" id="zakat-breakdown"></ul>
-
-          <div class="grid-2">
-            <label class="field">
+              <label class="field">
               <span>Other zakatable wealth (<span class="cur-code">MYR</span>)</span>
-              <input type="number" id="zakat-other-assets" step="0.01" min="0" inputmode="decimal" placeholder="Cash in hand, gold, property…" />
-            </label>
-            <label class="field">
+              <input type="number" id="zakat-other-assets" step="0.01" min="0" inputmode="decimal" />
+              <span class="hint">Cash in hand, gold, property held for trade. Not savings goals or holdings.</span>
+              </label>
+              <label class="field">
               <span>Deduct immediate debts (<span class="cur-code">MYR</span>)</span>
-              <input type="number" id="zakat-deductibles" step="0.01" min="0" inputmode="decimal" placeholder="0" />
-            </label>
-          </div>
-          <label class="field toggle-field">
-            <input type="checkbox" id="zakat-include-savings" />
-            <span>Count my savings-goal balances as zakatable</span>
-          </label>
-
-          <p class="hint" id="zakat-haul-line"></p>
-
-          <div class="button-row">
-            <button type="button" class="primary" id="btn-zakat-paid">Mark zakat paid</button>
-            <button type="button" class="ghost" id="btn-zakat-disable">Stop tracking</button>
-          </div>
-          <ul class="zakat-history" id="zakat-history"></ul>
-          <p class="hint">An estimate, not a fatwa.</p>
-          <details class="info-tip"><summary aria-label="More about this">ⓘ</summary><p>Zakat rules vary by state and by asset type. Confirm the final figure with your state zakat authority before paying. Nisab weights are fixed by fiqh; only the metal price changes. "Other zakatable wealth" is wealth not tracked as a savings goal or investment: cash in hand, gold, property held for trade.</p></details>
+              <input type="number" id="zakat-deductibles" step="0.01" min="0" inputmode="decimal" />
+              <span class="hint">Debts due now, not the whole loan.</span>
+              </label>
+              <label class="field toggle-field">
+              <input type="checkbox" id="zakat-include-savings" />
+              <span>Count my savings-goal balances as zakatable</span>
+              </label>
+              <div class="form-actions">
+              <button type="submit" class="primary" id="zakat-done">Done</button>
+              </div>
+            </form>
+          </dialog>
         </div>
 
         <div class="card zakat-optin" id="zakat-optin" hidden>
@@ -1915,20 +1936,6 @@
           </div>
         </div>
 
-        <aside class="pro-dev-note" aria-labelledby="pro-dev-note-title">
-          <div class="pro-dev-note-head">
-            <span class="pro-dev-avatar" aria-hidden="true">A</span>
-            <div>
-              <h3 id="pro-dev-note-title">A note from Aydil</h3>
-              <p class="pro-dev-role">Maker of Duitful · Kuala Lumpur</p>
-            </div>
-          </div>
-          <p>Thank you, truly. Duitful is one person's work, and you just made it a little more possible. Your purchase keeps it in the App Store and Play Store, and it tells me the work is worth doing.</p>
-          <p>My promise back: no ads, no selling your data, no subscription. Your money stays yours, and so does everything you write here.</p>
-          <p>Something missing, or not quite right? Write to <a href="mailto:hello@duitful.app">hello@duitful.app</a>. I read every message myself.</p>
-          <p class="pro-dev-sign">Terima kasih,<br /><span>Aydil</span></p>
-        </aside>
-
         <section class="pro-welcome-step">
           <h3 data-drive-text="1. Back up to iCloud">1. Back up to Google Drive</h3>
           <p class="hint" data-drive-text="On by itself when this iPhone is signed in to iCloud. Check it in Settings → Cloud backup.">Sync your encrypted data so you never lose it if you change phones.</p>
@@ -1958,6 +1965,24 @@
           </div>
           <p class="hint" id="pro-welcome-pools-status" hidden></p>
         </section>
+
+        <!-- The steps come first; the thank-you letter waits one tap away. -->
+        <details class="pro-dev-more">
+          <summary>Why Duitful · a note from Aydil</summary>
+          <aside class="pro-dev-note" aria-labelledby="pro-dev-note-title">
+            <div class="pro-dev-note-head">
+              <span class="pro-dev-avatar" aria-hidden="true">A</span>
+              <div>
+                <h3 id="pro-dev-note-title">A note from Aydil</h3>
+                <p class="pro-dev-role">Maker of Duitful · Kuala Lumpur</p>
+              </div>
+            </div>
+            <p>Thank you, truly. Duitful is one person's work, and you just made it a little more possible. Your purchase keeps it in the App Store and Play Store, and it tells me the work is worth doing.</p>
+            <p>My promise back: no ads, no selling your data, no subscription. Your money stays yours, and so does everything you write here.</p>
+            <p>Something missing, or not quite right? Write to <a href="mailto:hello@duitful.app">hello@duitful.app</a>. I read every message myself.</p>
+            <p class="pro-dev-sign">Terima kasih,<br /><span>Aydil</span></p>
+          </aside>
+        </details>
 
         <div class="button-row">
           <button type="button" class="primary" id="pro-welcome-done" style="width: 100%;">Done</button>
@@ -2922,13 +2947,13 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=17"></script>
-    <script src="i18n-zh.js?v=17"></script>
+    <script src="i18n-ms.js?v=18"></script>
+    <script src="i18n-zh.js?v=18"></script>
     <script src="i18n.js?v=4"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
     <script src="icloud-sync.js?v=8"></script>
-    <script src="investments.js?v=6"></script>
+    <script src="investments.js?v=7"></script>
     <!-- QR encoder (MIT, vendored). Needed on every share dialog, so it
          loads with the shell. The jsQR DECODER is ~250 KB and only used
          when a camera or an image is involved, so split.js injects it on
@@ -2942,6 +2967,6 @@
     <script src="tax.js?v=17"></script>
     <script src="statement.js?v=5"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=234"></script>
+    <script src="script.js?v=235"></script>
   </body>
 </html>

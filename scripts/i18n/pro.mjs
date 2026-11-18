@@ -207,4 +207,5 @@ export const ROWS = [
   ["Scroll and tap", "Tatal dan ketik", "往下滑，点击"],
   ["Add to Home Screen", "Tambah ke Skrin Utama", "添加到主屏幕"],
   ["Tap", "Ketik", "点击"],
+  ["Why Duitful · a note from Aydil", "Kenapa Duitful · nota daripada Aydil", "为什么做 Duitful · Aydil 的一封信"],
 ];
