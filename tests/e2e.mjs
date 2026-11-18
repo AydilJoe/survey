@@ -11467,14 +11467,15 @@ check('the brand catalogue makes no network calls at all',
       '#paywall-dialog', '#debt-paid-dialog', '#milestone-dialog', '#restore-dialog', '#pro-welcome-dialog', '#announce-dialog',
       '#whats-new-dialog', '#license-dialog', '#fpx-email-dialog', '#passcode-dialog', '#bio-offer-dialog', '#pwa-install-ios',
       '#onboard-dialog', '#guide-dialog', '#edit-dialog', '#daily-edit-dialog', '#bulk-income-dialog', '#bulk-debt-pay-dialog', '#last-month-edit-dialog', '#search-dialog',
-      '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog'];
+      '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
+      '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog'];
     const out = {};
     for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
   });
   for (const l of ['ms', 'zh']) {
     const left = [...new Set(gaps[l])].filter((s) => !KEEP.test(s));
-    check(`languages: every English line on the passcode screen, header, tab bar, Home, Monthly, Debts, Savings, All entries, Reports, Settings, Tax (page and dialogs), the Pro / passcode / milestone sheets, first-run setup, the tour, edit dialogs, search, receipt scan, statement import and bank-alert sheets has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
+    check(`languages: every English line on the passcode screen, header, tab bar, Home, Monthly, Debts, Savings, All entries, Reports, Settings, Tax (page and dialogs), the Pro / passcode / milestone sheets, first-run setup, the tour, edit dialogs, search, receipt scan, statement import, bank-alert and split sheets has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
       left.length === 0, left.join(' | '));
   }
 
@@ -11652,15 +11653,34 @@ check('the brand catalogue makes no network calls at all',
     for (const [label, open] of [['details', () => taxOpenNumbers()], ['claim', () => taxOpenClaim({ relief: 'medical' })],
       ['review', () => taxOpenReview(taxReviewItems(new Date().getFullYear()), 'year', new Date().getFullYear())],
       ['paywall', () => openPaywall('installment')], ['tour', () => openGuide()], ['edit debt', () => openEditDialog('debt', state.debts.find((d) => d.kind === 'islamic').id)],
-      ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }]]) {
+      ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
       (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${label} dialog: ${x}`));
       await p.evaluate(() => { if (typeof taxCloseAll === 'function') taxCloseAll(); document.querySelectorAll('dialog[open]').forEach((d) => d.close()); });
     }
+    if (lang !== 'en') {
+      // Split blocks are translated whole; what the user typed must survive,
+      // even a title that is also a table key ("Rent").
+      const kept = await p.evaluate(() => {
+        splitOpenCompose({ mode: 'request' });
+        const body = document.getElementById('split-compose-body');
+        body.querySelector('[name=title]').value = 'Rent';
+        body.querySelector('[name=person]').value = 'Ali';
+        body.querySelector('[name=amount]').value = '25';
+        splitComposeSave();
+        const stillOpen = [...document.querySelectorAll('dialog[open]')].map((d) => d.id);
+        document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+        renderAll();
+        // Element by element: textContent runs labels together ("Renthari ini").
+        const els = [...document.querySelectorAll('#split-owed-list *')].filter((n) => n.children.length === 0).map((n) => n.textContent.trim());
+        return { rent: els.includes('Rent'), translated: els.some((t) => t === 'Sewa' || t === '房租'), n: (state.split.out || []).length, stillOpen };
+      });
+      if (!kept.rent || kept.translated) layoutMiss.push(`${lang}: a split titled "Rent" was translated or lost ${JSON.stringify(kept)}`);
+    }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement / split dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 

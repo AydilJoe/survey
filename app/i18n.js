@@ -169,8 +169,10 @@
 
   // HTML that script.js builds with English inside (edit dialogs, onboarding
   // rows): translate it once, after building. Text the user typed must be
-  // marked translate="no" by the caller; input values are never touched.
-  function translate(root) {
+  // marked translate="no" by the caller, or listed in `keep` (a Set of the
+  // exact strings, e.g. every name in the split records); input values are
+  // never touched.
+  function translate(root, keep) {
     if (!root || lang === "en") return root;
     const walker = (root.ownerDocument || document).createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
@@ -190,6 +192,7 @@
     let n;
     while ((n = walker.nextNode())) {
       const raw = n.nodeValue;
+      if (keep && keep.has(norm(raw))) continue;
       const hit = lookup(norm(raw), lang);
       if (hit) n.nodeValue = (/^\s/.test(raw) ? " " : "") + hit + (/\s$/.test(raw) ? " " : "");
     }
