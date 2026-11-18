@@ -7,8 +7,8 @@ Bigger plans have their own file in this folder.
 1. **Recurring splits** (`recurring-splits.md`). Rent, utilities and
    subscriptions split every month: set up once, a monthly card to send
    requests, a who-paid grid, auto-tick from bank alerts, reminders, and only
-   your share counted as spending. Target 1.58.0. Three decisions are waiting
-   (free limit, version 1 scope, rounding).
+   your share counted as spending. Target 1.59.0. Decisions confirmed 19 Nov:
+   1 free / Pro unlimited, version 1 only, leftover sen to the organiser.
 2. ~~**Scanned statements**~~ — **done in 1.57.15** (`statement-scans.md`):
    scanned PDFs, photos and the phone's document scanner, imported only when
    the balance check passes. Check OCR quality on a real phone.
