@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=163" />
+    <link rel="stylesheet" href="styles.css?v=164" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -2658,6 +2658,22 @@
       </form>
     </dialog>
 
+    <!-- Photos shared to Duitful from another app: a receipt, or statement pages? script.js -->
+    <dialog id="shared-in-dialog" class="edit-dialog" aria-labelledby="shared-in-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="shared-in-title">What are these?</h2>
+        <p class="hint" id="shared-in-what"></p>
+        <div class="shared-in-choices">
+          <button type="button" class="primary" id="shared-in-receipt">A receipt</button>
+          <button type="button" class="primary" id="shared-in-statement">Bank statement pages</button>
+        </div>
+        <p class="hint">Read on your phone. Nothing is uploaded.</p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="shared-in-cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- Check auto-capture: plain facts (no message text, no amounts) to paste to us. -->
     <dialog id="capture-check-dialog" class="edit-dialog" aria-labelledby="capture-check-title">
       <form method="dialog" onsubmit="return false">
@@ -2897,8 +2913,8 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=15"></script>
-    <script src="i18n-zh.js?v=15"></script>
+    <script src="i18n-ms.js?v=16"></script>
+    <script src="i18n-zh.js?v=16"></script>
     <script src="i18n.js?v=4"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
@@ -2917,6 +2933,6 @@
     <script src="tax.js?v=17"></script>
     <script src="statement.js?v=5"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=232"></script>
+    <script src="script.js?v=233"></script>
   </body>
 </html>

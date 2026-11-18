@@ -46,6 +46,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "aiReadReceipt", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "relayWatch", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readSharedFile", returnType: CAPPluginReturnPromise),
     ]
 
     /// Shared with the App Intents in AppDelegate.swift. Rename both or neither.
@@ -291,6 +292,38 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         }
         #endif
         call.reject("Needs iOS 26 with Apple Intelligence", "UNSUPPORTED")
+    }
+
+    /// A PDF or photo opened in Duitful from Mail, Files or a bank app. iOS
+    /// copies it into the app's own Inbox and hands over a file URL
+    /// (appUrlOpen); this reads it once and deletes the copy. Only files
+    /// inside the app's container, only PDFs and images, at most 25 MB.
+    /// → {files: [{name, mime, base64}]}
+    @objc func readSharedFile(_ call: CAPPluginCall) {
+        guard let raw = call.getString("url"), let url = URL(string: raw), url.isFileURL else {
+            call.reject("Not a file", "BAD_URL")
+            return
+        }
+        let home = URL(fileURLWithPath: NSHomeDirectory()).standardizedFileURL.resolvingSymlinksInPath().path
+        let path = url.standardizedFileURL.resolvingSymlinksInPath().path
+        guard path.hasPrefix(home + "/") else {
+            call.reject("Not in the app's files", "BAD_URL")
+            return
+        }
+        let ext = url.pathExtension.lowercased()
+        let mimes = ["pdf": "application/pdf", "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "heic": "image/heic", "heif": "image/heif", "webp": "image/webp"]
+        guard let mime = mimes[ext] else {
+            call.reject("Not a PDF or photo", "TYPE")
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async {
+            defer { try? FileManager.default.removeItem(at: url) } // the copy is not kept
+            guard let data = try? Data(contentsOf: url), data.count <= 25 * 1024 * 1024 else {
+                call.reject("Couldn't read the file", "READ_FAILED")
+                return
+            }
+            call.resolve(["files": [["name": url.lastPathComponent, "mime": mime, "base64": data.base64EncodedString()]]])
+        }
     }
 
     /// The split bills to watch while Duitful is closed (DuitfulRelayWatch):

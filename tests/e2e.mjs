@@ -2698,6 +2698,87 @@ check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.c
     r.notYet && r.remind.length === 1 && r.remind[0][0] === 'Your bank statement should be out' && r.remind[0][1] >= 22 && r.remind[0][1] <= 24 && r.inBuild && r.coerced === 1, JSON.stringify(r));
 }
 
+/* ── Open with Duitful: a PDF or photos shared from another app (1.57.17) ── */
+{
+  const pdf64 = buildPdf(STATEMENT_FIXTURES.maybankCard()).toString('base64');
+  const r = await S(async (pdf64) => {
+    const out = {};
+    const keepCap = window.Capacitor;
+    const keepOcr = window.stmtOcrImage;
+    const c = document.createElement('canvas'); c.width = 40; c.height = 40;
+    const png64 = c.toDataURL('image/png').split(',')[1];
+    let queue = [];
+    const readCalls = [];
+    let takeCalls = 0;
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: {
+      takeSharedFiles: async () => { takeCalls++; const files = queue; queue = []; return { files }; },
+      readSharedFile: async ({ url }) => { readCalls.push(url); return { files: [{ name: 'IMG_1.jpg', mime: 'image/png', base64: png64 }] }; },
+    } } };
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+    try {
+      // A statement PDF from the bank app goes straight to the statement review.
+      queue = [{ name: 'Statement Oct.pdf', mime: 'application/pdf', base64: pdf64 }];
+      await drainSharedFiles();
+      for (let i = 0; i < 40 && document.getElementById('stmt-review').hidden; i++) await wait(100);
+      out.pdfOpen = document.getElementById('stmt-dialog').open;
+      out.pdfSummary = document.getElementById('stmt-summary').textContent;
+      document.getElementById('stmt-dialog').close();
+      // Nothing waiting: nothing opens.
+      await drainSharedFiles();
+      out.emptyQuiet = !document.querySelector('dialog[open]');
+      // Photos ask: a receipt, or statement pages?
+      queue = [{ name: 'a.png', mime: 'image/png', base64: png64 }, { name: 'b.png', mime: 'image/png', base64: png64 }];
+      await drainSharedFiles();
+      const ask = document.getElementById('shared-in-dialog');
+      out.askOpen = ask.open;
+      out.askText = document.getElementById('shared-in-what').textContent;
+      window.stmtOcrImage = async (cv) => ({ words: [], width: cv.width });
+      document.getElementById('shared-in-statement').click();
+      for (let i = 0; i < 40 && !/Couldn't read any text/.test(document.getElementById('stmt-status').textContent); i++) await wait(100);
+      out.photosToStatement = document.getElementById('stmt-dialog').open && /Couldn't read any text/.test(document.getElementById('stmt-status').textContent);
+      document.getElementById('stmt-dialog').close();
+      // Cancel forgets them.
+      queue = [{ name: 'a.png', mime: 'image/png', base64: png64 }];
+      await drainSharedFiles();
+      document.getElementById('shared-in-cancel').click();
+      out.cancelled = !ask.open && sharedIn.files.length === 0;
+      // Anything else is refused with a word.
+      queue = [{ name: 'x.txt', mime: 'text/plain', base64: btoa('hi') }];
+      await drainSharedFiles();
+      out.otherQuiet = !document.querySelector('dialog[open]');
+      // iPhone: a file URL from appUrlOpen is read once by DuitfulKit.readSharedFile.
+      sharedIn.urls.push('file:///var/mobile/Containers/Data/Application/X/Documents/Inbox/IMG_1.jpg');
+      await drainSharedFiles();
+      out.iosRead = readCalls.length === 1 && ask.open && sharedIn.urls.length === 0;
+      document.getElementById('shared-in-cancel').click();
+      out.notFile = sharedUrlIsFile('https://duitful.app/split/#DFS2.x') === false && sharedUrlIsFile('file:///a.pdf') === true;
+      out.takeCalls = takeCalls;
+    } finally {
+      window.Capacitor = keepCap;
+      window.stmtOcrImage = keepOcr;
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    }
+    return out;
+  }, pdf64);
+  check('open with Duitful: a statement PDF shared from another app opens the statement review',
+    r.pdfOpen && /^Maybank card · /.test(r.pdfSummary) && r.emptyQuiet, JSON.stringify(r));
+  check('open with Duitful: shared photos ask "receipt or statement pages?"; statement pages go to the import (read with OCR); Cancel forgets them',
+    r.askOpen && r.askText === '2 photos shared to Duitful.' && r.photosToStatement && r.cancelled && r.otherQuiet, JSON.stringify(r));
+  check('open with Duitful: on iPhone a file URL is read once through DuitfulKit.readSharedFile; split links are not files',
+    r.iosRead && r.notFile, JSON.stringify(r));
+  const kitSrc = readFileSync(path.join(REPO_ROOT, 'native/duitful-kit/android/DuitfulKitPlugin.java'), 'utf8');
+  const swift = readFileSync(path.join(REPO_ROOT, 'native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulKitPlugin.swift'), 'utf8');
+  const iosPatch = readFileSync(path.join(REPO_ROOT, 'scripts/patch-ios.mjs'), 'utf8');
+  const { SHARE_FILTERS } = await import(pathToFileURL(path.join(REPO_ROOT, 'scripts/install-duitful-kit.mjs')).href);
+  check('open with Duitful (native): Android accepts SEND of a PDF or image, SEND_MULTIPLE images and VIEW of a PDF, and the plugin hands files over once',
+    /action\.SEND"[\s\S]*mimeType="application\/pdf"[\s\S]*mimeType="image\/\*"/.test(SHARE_FILTERS) && /SEND_MULTIPLE[\s\S]*image\/\*/.test(SHARE_FILTERS)
+      && /action\.VIEW[\s\S]*scheme="content"[\s\S]*application\/pdf/.test(SHARE_FILTERS)
+      && /handleOnNewIntent/.test(kitSrc) && /public void takeSharedFiles/.test(kitSrc) && /shared\.clear\(\)/.test(kitSrc), '');
+  check('open with Duitful (native): iPhone declares PDF and image document types (copied, not opened in place) and reads only files inside the app, then deletes them',
+    /CFBundleDocumentTypes[\s\S]*com\.adobe\.pdf[\s\S]*public\.image[\s\S]*LSSupportsOpeningDocumentsInPlace[\s\S]*<false\/>/.test(iosPatch)
+      && /CAPPluginMethod\(name: "readSharedFile"/.test(swift) && /hasPrefix\(home \+ "\/"\)/.test(swift) && /removeItem\(at: url\)/.test(swift), '');
+}
+
 /* ── "Not picked up?": share an alert's wording, redacted on the phone (1.56.2) ── */
 const share = await S(() => {
   const r = (t) => redactAlertSample(t);
@@ -11492,7 +11573,7 @@ check('the brand catalogue makes no network calls at all',
     const registered = [...swift.matchAll(/CAPPluginMethod\(name: "(\w+)"/g)].map((m) => m[1]);
     const swiftMissing = registered.filter((n) => !new RegExp(`@objc func ${n}\\(_ call: CAPPluginCall\\)`).test(swiftClass));
     const javaMethods = [...javaClass.matchAll(/@PluginMethod[^\n]*\n\s*public void (\w+)\(PluginCall/g)].map((m) => m[1]);
-    const swiftOnly = new Set(['drainQuickAdd']); // Android drains through NotificationListener
+    const swiftOnly = new Set(['drainQuickAdd', 'readSharedFile']); // Android drains through NotificationListener; shared files through takeSharedFiles
     const javaMissing = registered.filter((n) => !swiftOnly.has(n) && !javaMethods.includes(n));
     check('DuitfulKit: every registered method is defined inside the plugin class, on iOS and Android',
       registered.length >= 6 && swiftMissing.length === 0 && javaMissing.length === 0,
@@ -11900,6 +11981,8 @@ check('the brand catalogue makes no network calls at all',
 /* ── On-screen keyboard: a dialog stays usable above it (Samsung, Android 16) ── */
 {
   const kctx = await b.newContext({ viewport: { width: 360, height: 780 }, hasTouch: true, isMobile: true });
+  // Playwright's touch emulation doesn't always reach the page; say it plainly.
+  await kctx.addInitScript(() => { try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5 }); } catch {} });
   const p = await kctx.newPage();
   await p.goto(`${BASE}/app/index.html`);
   await p.waitForTimeout(500);

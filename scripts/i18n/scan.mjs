@@ -133,4 +133,11 @@ export const ROWS = [
   ["Your {name} statement should be out", "Penyata {name} anda sepatutnya sudah keluar", "你的{name}对账单应该出了"],
   ["The last one you imported ran to {date}. Import the next to catch every spend.", "Penyata terakhir yang anda import sampai {date}. Import yang seterusnya supaya tiada belanja tertinggal.", "你上次导入的对账单到 {date} 为止。导入下一份，一笔开销都不漏。"],
   ["Import it in Duitful to catch every spend.", "Import dalam Duitful supaya tiada belanja tertinggal.", "在 Duitful 导入，一笔开销都不漏。"],
+  // ── Shared to Duitful (Share / Open with) ───────────────────────
+  ["What are these?", "Apa ini?", "这些是什么？"],
+  ["A receipt", "Resit", "收据"],
+  ["Bank statement pages", "Halaman penyata bank", "银行对账单页面"],
+  ["{n} photo shared to Duitful.", "{n} foto dikongsi ke Duitful.", "{n} 张照片分享到 Duitful。"],
+  ["{n} photos shared to Duitful.", "{n} foto dikongsi ke Duitful.", "{n} 张照片分享到 Duitful。"],
+  ["Duitful opens PDFs and photos only.", "Duitful hanya buka PDF dan foto.", "Duitful 只能打开 PDF 和照片。"],
 ];

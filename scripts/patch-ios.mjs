@@ -138,6 +138,32 @@ for (const [key, value] of PLIST_KEYS) {
 // "Siti says they paid" while the app is closed: a BGAppRefreshTask
 // (DuitfulRelayWatch in the DuitfulKit pod). iOS crashes a register() whose
 // id isn't listed here, and only runs refresh tasks with the fetch mode.
+// Share / Open in: a statement PDF or photos from Mail, Files or a bank app.
+// iOS copies the file into the app's Inbox and opens Duitful with its URL
+// (appUrlOpen); DuitfulKit.readSharedFile reads it once and deletes it.
+if (!plist.includes("<key>CFBundleDocumentTypes</key>")) {
+  plist = insertPlistEntry(plist, [
+    "\t<key>CFBundleDocumentTypes</key>",
+    "\t<array>",
+    "\t\t<dict>",
+    "\t\t\t<key>CFBundleTypeName</key>\n\t\t\t<string>Bank statement (PDF)</string>",
+    "\t\t\t<key>CFBundleTypeRole</key>\n\t\t\t<string>Viewer</string>",
+    "\t\t\t<key>LSHandlerRank</key>\n\t\t\t<string>Alternate</string>",
+    "\t\t\t<key>LSItemContentTypes</key>\n\t\t\t<array>\n\t\t\t\t<string>com.adobe.pdf</string>\n\t\t\t</array>",
+    "\t\t</dict>",
+    "\t\t<dict>",
+    "\t\t\t<key>CFBundleTypeName</key>\n\t\t\t<string>Receipt or statement photo</string>",
+    "\t\t\t<key>CFBundleTypeRole</key>\n\t\t\t<string>Viewer</string>",
+    "\t\t\t<key>LSHandlerRank</key>\n\t\t\t<string>Alternate</string>",
+    "\t\t\t<key>LSItemContentTypes</key>\n\t\t\t<array>\n\t\t\t\t<string>public.image</string>\n\t\t\t</array>",
+    "\t\t</dict>",
+    "\t</array>",
+    "\t<key>LSSupportsOpeningDocumentsInPlace</key>",
+    "\t<false/>",
+    "",
+  ].join("\n"));
+  plistAdded++;
+}
 if (!plist.includes("<key>BGTaskSchedulerPermittedIdentifiers</key>")) {
   plist = insertPlistEntry(plist, "\t<key>BGTaskSchedulerPermittedIdentifiers</key>\n\t<array>\n\t\t<string>com.aydiljoe.duitful.relay-watch</string>\n\t</array>\n");
   plistAdded++;
