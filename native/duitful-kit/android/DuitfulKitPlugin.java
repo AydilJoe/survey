@@ -277,7 +277,7 @@ public class DuitfulKitPlugin extends Plugin {
     @PluginMethod
     public void relayWatch(PluginCall call) {
         try {
-            DuitfulRelayWatch.update(getContext(), call.getArray("boxes"), call.getArray("seen"), call.getBoolean("on", true));
+            DuitfulRelayWatch.update(getContext(), call.getArray("boxes"), call.getArray("seen"), call.getBoolean("on", true), call.getObject("strings"));
             call.resolve(new JSObject().put("ok", true));
         } catch (Exception e) {
             call.reject(String.valueOf(e.getMessage()), "RELAY");

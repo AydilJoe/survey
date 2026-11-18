@@ -2624,7 +2624,31 @@ check('the notification\'s Review action opens the app on the pending cards (dui
 {
   const notifier = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulQuickAddNotifier.java'), 'utf8');
   check('native: the count notification shows only a number (and a public lock-screen version with only the count), on the same quiet channel',
-    /waiting \+ " to review"/.test(notifier) && /setPublicVersion/.test(notifier) && !/new NotificationChannel\([^)]*review/i.test(notifier) && /REVIEW_TEXT = "From bank alerts · tap to check"/.test(notifier), '');
+    /"\{n\} to review"\)\.replace\("\{n\}", String\.valueOf\(waiting\)\)/.test(notifier) && /setPublicVersion/.test(notifier) && !/new NotificationChannel\([^)]*review/i.test(notifier) && /REVIEW_TEXT = "From bank alerts · tap to check"/.test(notifier), '');
+}
+
+{
+  // The native notifications can't call tr(): the app sends their words. Every
+  // key the Java / Swift reads must be one the app sends, or it stays English.
+  const read = (f) => readFileSync(path.join(REPO_ROOT, f), 'utf8');
+  const keysOf = (src, re) => [...src.matchAll(re)].map((m) => m[1]);
+  const script = read('app/script.js'), split = read('app/split.js');
+  const block = (src, start) => src.slice(src.indexOf(start), src.indexOf('};', src.indexOf(start)));
+  const sentQuick = keysOf(block(script, 'function nativeQuickAddStrings'), /^\s+(\w+): tr\(/gm);
+  const sentRelay = keysOf(block(split, 'const strings = {'), /^\s+(\w+): tr\(/gm);
+  const sentScan = keysOf(block(script, 'labels: {'), /(\w+): tr\(/g);
+  const usedQuick = [...keysOf(read('native/notification-listener/DuitfulQuickAddNotifier.java'), /\bs\(app, "(\w+)"/g),
+    ...keysOf(read('native/notification-listener/DuitfulQuickAddReceiver.java'), /Notifier\.s\(context, "(\w+)"/g)];
+  const usedRelay = [...keysOf(read('native/duitful-kit/android/DuitfulRelayWatch.java'), /word\(words, "(\w+)"/g),
+    ...keysOf(read('native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulRelayWatch.swift'), /word\(state\.s, "(\w+)"/g)];
+  const usedScan = keysOf(read('native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulKitPlugin.swift'), /\bL\("(\w+)"/g);
+  const gaps = [
+    ...usedQuick.filter((k) => !sentQuick.includes(k)).map((k) => `quick-add:${k}`),
+    ...usedRelay.filter((k) => !sentRelay.includes(k)).map((k) => `relay:${k}`),
+    ...usedScan.filter((k) => !sentScan.includes(k)).map((k) => `scan:${k}`),
+  ];
+  check('native: every word the quick-add notification, "says they paid" and the iPhone scan sheet show is sent by the app in its language (English until then)',
+    gaps.length === 0 && usedQuick.length >= 15 && usedRelay.length >= 8 && usedScan.length === 4, JSON.stringify({ gaps, quick: usedQuick.length, relay: usedRelay.length, scan: usedScan.length }));
 }
 
 /* ── "Use a screenshot": OCR on the phone, text only, never the image (1.56.2) ── */
@@ -11683,6 +11707,10 @@ check('the brand catalogue makes no network calls at all',
         expenses: [{ month: new Date().toISOString().slice(0, 7), name: 'TNB', amount: 100, day: 12 }],
         income: [{ month: new Date().toISOString().slice(0, 7), name: 'Salary', amount: 5000, day: 25 }],
       }).filter((n) => /Maybank card|TNB|Salary/.test(n.title)).map((n) => `${n.title} | ${n.body}`));
+      const native = await p.evaluate(() => nativeQuickAddStrings());
+      const nativeWant = lang === 'ms' ? 'Catat belanja' : '记一笔开销';
+      if (native.title !== nativeWant || !native.toReview.includes('{n}') || !native.notAmount.includes('{x}'))
+        layoutMiss.push(`${lang}: quick-add notification words not translated ${JSON.stringify(native)}`);
       const remWant = lang === 'ms' ? /Bayaran minimum/ : /最低还款/;
       if (!rem.some((t) => remWant.test(t)) || rem.some((t) => /due today|bill due|Pay day|expected|Min payment/.test(t)) || !rem.some((t) => t.includes('Maybank card')))
         layoutMiss.push(`${lang}: reminders not translated ${JSON.stringify(rem)}`);

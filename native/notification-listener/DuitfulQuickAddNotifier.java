@@ -13,6 +13,8 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.RemoteInput;
 
+import org.json.JSONObject;
+
 import java.util.Locale;
 
 /**
@@ -26,7 +28,7 @@ import java.util.Locale;
  *    RemoteViews has no EditText — so the notification is the only surface on
  *    Android where a number can be entered without opening the app.
  *
- * 2. THE CONFIRMATION — a short-lived "RM 12.50 saved · filed when you next
+ * 2. THE CONFIRMATION — a short-lived "RM 12.50 added · filed when you next
  *    open Duitful" with an Undo action that deletes that one queued entry by
  *    its timestamp.
  *
@@ -72,6 +74,8 @@ public final class DuitfulQuickAddNotifier {
     private static final String REVIEW_TEXT = "From bank alerts · tap to check";
     /** Set by the app (NotificationListener.setPendingCount) whenever its pending list changes. */
     static final String KEY_PENDING_COUNT = "pending_count";
+    /** The app's words in its chosen language (NotificationListener.setStrings), as JSON. */
+    static final String KEY_STRINGS = "strings";
 
     private DuitfulQuickAddNotifier() {}
 
@@ -121,6 +125,33 @@ public final class DuitfulQuickAddNotifier {
         if (isEnabled(context)) post(context, null);
     }
 
+    // --- Words --------------------------------------------------------------
+
+    /**
+     * The app's own wording for key, in the language picked in Duitful, or
+     * the English given here until the app has sent it (a fresh install that
+     * was never opened, or an app build from before setStrings).
+     */
+    static String s(Context context, String key, String english) {
+        try {
+            String raw = DuitfulQuickAddStore.prefs(context).getString(KEY_STRINGS, null);
+            if (raw != null) {
+                String v = new JSONObject(raw).optString(key, "");
+                if (v.length() > 0) return v;
+            }
+        } catch (Throwable ignored) {}
+        return english;
+    }
+
+    /** Stores the app's words and repaints the notification in them. */
+    public static void setStrings(Context context, String json) {
+        if (context == null) return;
+        try {
+            DuitfulQuickAddStore.prefs(context).edit().putString(KEY_STRINGS, json).commit();
+        } catch (Throwable ignored) {}
+        refresh(context);
+    }
+
     // --- The persistent notification --------------------------------------
 
     /**
@@ -137,8 +168,9 @@ public final class DuitfulQuickAddNotifier {
             // Bank alerts waiting: the count, and nothing else — no amounts,
             // names or bank text, because this sits on the lock screen.
             int waiting = error == null ? pendingCount(app) : 0;
-            String title = waiting > 0 ? waiting + " to review" : TITLE;
-            String text = error != null ? error : waiting > 0 ? REVIEW_TEXT : HINT;
+            String toReview = s(app, "toReview", "{n} to review").replace("{n}", String.valueOf(waiting));
+            String title = waiting > 0 ? toReview : s(app, "title", TITLE);
+            String text = error != null ? error : waiting > 0 ? s(app, "reviewText", REVIEW_TEXT) : s(app, "hint", HINT);
             NotificationCompat.Builder builder = new NotificationCompat.Builder(app, CHANNEL_QUICK_ADD)
                     .setSmallIcon(icon)
                     .setContentTitle(title)
@@ -158,10 +190,10 @@ public final class DuitfulQuickAddNotifier {
                     .addAction(addAction(app, icon))
                     .addAction(scanAction(app, icon));
             if (waiting > 0) {
-                builder.addAction(new NotificationCompat.Action.Builder(icon, "Review", reviewIntent(app)).build());
+                builder.addAction(new NotificationCompat.Action.Builder(icon, s(app, "review", "Review"), reviewIntent(app)).build());
                 builder.setPublicVersion(new NotificationCompat.Builder(app, CHANNEL_QUICK_ADD)
                         .setSmallIcon(icon)
-                        .setContentTitle(waiting + " to review")
+                        .setContentTitle(toReview)
                         .setSilent(true)
                         .setShowWhen(false)
                         .build());
@@ -203,7 +235,7 @@ public final class DuitfulQuickAddNotifier {
                 // RemoteInput has no inputType/keyboard hint on any API level —
                 // the label is the only steer the IME gets, hence the very
                 // forgiving parser in DuitfulQuickAddStore.parseAmount().
-                .setLabel("Amount")
+                .setLabel(s(app, "amount", "Amount"))
                 .setAllowFreeFormInput(true)
                 .build();
         Intent intent = new Intent(DuitfulQuickAddReceiver.ACTION_REPLY);
@@ -212,7 +244,7 @@ public final class DuitfulQuickAddNotifier {
         intent.setClass(app, DuitfulQuickAddReceiver.class);
         PendingIntent pending = PendingIntent.getBroadcast(
                 app, RC_REPLY, intent, PendingIntent.FLAG_UPDATE_CURRENT | mutableFlag());
-        return new NotificationCompat.Action.Builder(icon, "Add", pending)
+        return new NotificationCompat.Action.Builder(icon, s(app, "add", "Add"), pending)
                 .addRemoteInput(input)
                 .setAllowGeneratedReplies(false)
                 // No activity is launched, so the shade must not dismiss itself
@@ -224,12 +256,12 @@ public final class DuitfulQuickAddNotifier {
     private static NotificationCompat.Action scanAction(Context app, int icon) {
         PendingIntent pending = PendingIntent.getActivity(
                 app, RC_SCAN, actionIntent(app, "scan"), PendingIntent.FLAG_UPDATE_CURRENT | immutableFlag());
-        return new NotificationCompat.Action.Builder(icon, "Scan receipt", pending).build();
+        return new NotificationCompat.Action.Builder(icon, s(app, "scan", "Scan receipt"), pending).build();
     }
 
     // --- The confirmation -------------------------------------------------
 
-    /** "RM 12.50 saved · filed when you next open Duitful", plus Undo. */
+    /** "RM 12.50 added · filed when you next open Duitful", plus Undo. */
     public static void postConfirmation(Context context, double amount, String category, long timestamp) {
         if (context == null || timestamp <= 0) return;
         Context app = context.getApplicationContext();
@@ -239,7 +271,9 @@ public final class DuitfulQuickAddNotifier {
             int id = confirmationId(timestamp);
             String money = formatAmount(amount);
             String clean = DuitfulQuickAddStore.cleanCategory(category);
-            String detail = clean.length() > 0 ? clean + " · " + FILED : FILED;
+            String filed = s(app, "filed", FILED);
+            String saved = s(app, "saved", "{a} added").replace("{a}", money);
+            String detail = clean.length() > 0 ? clean + " · " + filed : filed;
 
             Intent undo = new Intent(DuitfulQuickAddReceiver.ACTION_UNDO);
             undo.setClass(app, DuitfulQuickAddReceiver.class);
@@ -253,9 +287,9 @@ public final class DuitfulQuickAddNotifier {
 
             NotificationCompat.Builder builder = new NotificationCompat.Builder(app, CHANNEL_CONFIRM)
                     .setSmallIcon(icon)
-                    .setContentTitle(money + " saved")
+                    .setContentTitle(saved)
                     .setContentText(detail)
-                    .setTicker(money + " saved · " + FILED.toLowerCase(Locale.US))
+                    .setTicker(saved + " · " + filed)
                     .setPriority(NotificationCompat.PRIORITY_LOW)
                     // A figure — keep it off the lock screen.
                     .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
@@ -268,7 +302,7 @@ public final class DuitfulQuickAddNotifier {
                     // become clutter. No-op below API 26.
                     .setTimeoutAfter(60000L)
                     .setContentIntent(openApp(app))
-                    .addAction(new NotificationCompat.Action.Builder(icon, "Undo", undoPending).build());
+                    .addAction(new NotificationCompat.Action.Builder(icon, s(app, "undo", "Undo"), undoPending).build());
             notify(app, id, builder);
         } catch (Throwable ignored) {}
     }
@@ -311,16 +345,16 @@ public final class DuitfulQuickAddNotifier {
                     (NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE);
             if (manager == null) return;
             NotificationChannel quickAdd = new NotificationChannel(
-                    CHANNEL_QUICK_ADD, "Quick add", NotificationManager.IMPORTANCE_LOW);
-            quickAdd.setDescription("The always-there \"Log a spend\" notification you can type an amount into.");
+                    CHANNEL_QUICK_ADD, s(app, "channel", "Quick add"), NotificationManager.IMPORTANCE_LOW);
+            quickAdd.setDescription(s(app, "channelText", "The always-there \"Log a spend\" notification you can type an amount into."));
             quickAdd.setShowBadge(false);
             quickAdd.enableVibration(false);
             quickAdd.setSound(null, null);
             manager.createNotificationChannel(quickAdd);
 
             NotificationChannel confirm = new NotificationChannel(
-                    CHANNEL_CONFIRM, "Quick add confirmations", NotificationManager.IMPORTANCE_LOW);
-            confirm.setDescription("Brief \"saved\" receipts with an Undo, after a quick add.");
+                    CHANNEL_CONFIRM, s(app, "confirmChannel", "Quick add confirmations"), NotificationManager.IMPORTANCE_LOW);
+            confirm.setDescription(s(app, "confirmChannelText", "Brief \"saved\" receipts with an Undo, after a quick add."));
             confirm.setShowBadge(false);
             confirm.enableVibration(false);
             confirm.setSound(null, null);

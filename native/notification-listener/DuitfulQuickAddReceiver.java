@@ -54,8 +54,8 @@ public class DuitfulQuickAddReceiver extends BroadcastReceiver {
     public static final String REMOTE_INPUT_KEY = "duitful_quickadd_amount";
 
     /** Shown on the persistent notification when a reply did not parse. */
-    private static final String ERROR_PREFIX = "That did not look like an amount: ";
-    private static final String ERROR_HINT = ". Try 12.50";
+    private static final String ERROR = "That did not look like an amount: \"{x}\". Try 12.50";
+    private static final String ERROR_EMPTY = "Type an amount, like 12.50";
     private static final int ERROR_ECHO_CHARS = 24;
 
     @Override
@@ -84,7 +84,7 @@ public class DuitfulQuickAddReceiver extends BroadcastReceiver {
             double amount = DuitfulQuickAddStore.parseAmount(typed);
             if (Double.isNaN(amount)) {
                 // Re-post with the reason rather than swallowing the input.
-                DuitfulQuickAddNotifier.post(context, errorLabel(typed));
+                DuitfulQuickAddNotifier.post(context, errorLabel(context, typed));
                 return;
             }
             save(context, amount, readCategory(intent));
@@ -162,12 +162,13 @@ public class DuitfulQuickAddReceiver extends BroadcastReceiver {
         }
     }
 
-    private static String errorLabel(String typed) {
+    private static String errorLabel(Context context, String typed) {
         String echo = typed == null ? "" : typed.trim();
-        if (echo.length() == 0) return "Type an amount, like 12.50";
+        if (echo.length() == 0) return DuitfulQuickAddNotifier.s(context, "typeAmount", ERROR_EMPTY);
         if (echo.length() > ERROR_ECHO_CHARS) echo = echo.substring(0, ERROR_ECHO_CHARS) + "…";
         // cleanCategory() doubles as the control-character stripper: whatever
         // the IME produced is about to be echoed back into a notification.
-        return ERROR_PREFIX + "\"" + DuitfulQuickAddStore.cleanCategory(echo) + "\"" + ERROR_HINT;
+        return DuitfulQuickAddNotifier.s(context, "notAmount", ERROR)
+                .replace("{x}", DuitfulQuickAddStore.cleanCategory(echo));
     }
 }

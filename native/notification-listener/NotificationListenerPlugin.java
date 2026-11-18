@@ -196,6 +196,17 @@ public class NotificationListenerPlugin extends Plugin {
         call.resolve();
     }
 
+    /**
+     * The words the quick-add notification shows, in the language picked in
+     * Duitful: {strings: {title, hint, add, ...}}. Missing keys stay English.
+     */
+    @PluginMethod
+    public void setStrings(PluginCall call) {
+        JSObject strings = call.getObject("strings");
+        DuitfulQuickAddNotifier.setStrings(getContext(), strings == null ? "{}" : strings.toString());
+        call.resolve();
+    }
+
     /** Called by DuitfulNotificationListenerService. */
     public static void emit(String pkg, String title, String text) {
         emit(pkg, title, text, true);
