@@ -13,7 +13,7 @@ one link per bill, encrypted relay, "Tick what you had", "I've paid").
 | Netflix / Spotify / Astro family | Fixed | Small, often forgotten |
 | You owe someone | Fixed | You pay the master tenant your share monthly |
 
-## Version 1 (target 1.58.0, minor bump → auto-release)
+## Version 1 (target 1.59.0, minor bump → auto-release; 1.58.0 went to shorter forms)
 
 1. **Set up once**: name, total, people, shares (equal / fixed RM / weighted,
    e.g. master room ×1.5), due day of month, optional end date (lease end),
@@ -46,9 +46,7 @@ one link per bill, encrypted relay, "Tick what you had", "I've paid").
   transfer.
 - Part-month splits for mid-month joiners.
 
-## Decisions — awaiting the owner's confirmation
-
-Recommended defaults (not yet confirmed):
+## Decisions — confirmed by the owner (19 Nov 2026)
 
 1. **Free/Pro**: free = 1 active recurring split; Pro = unlimited. Making
    and opening split links stays free. Follow the CLAUDE.md "No bait and
