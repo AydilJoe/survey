@@ -240,4 +240,11 @@ export const ROWS = [
   ["Part", "Sebahagian", "部分"],
   ["I've paid — tell them", "Saya dah bayar — beritahu mereka", "我已付款——告诉对方"],
   ["Decline this request", "Tolak permintaan ini", "拒绝这个请求"],
+  // ── Two steps: the bill, then who owes (1.58.0) ─────────────────
+  ["This bill", "Bil ini", "这张账单"],
+  ["Change", "Tukar", "修改"],
+  ["Next: who owes", "Seterusnya: siapa berhutang", "下一步：谁要付"],
+  ["Next: items and people", "Seterusnya: barang dan orang", "下一步：商品和人"],
+  ["e.g. Dinner at Naz Kitchen", "cth. Makan malam di Naz Kitchen", "例如：Naz Kitchen 晚餐"],
+  ["Phone number or ID. Change it later under How to pay me.", "Nombor telefon atau ID. Boleh tukar kemudian di Cara bayar saya.", "手机号或身份证号。之后可在“怎么付我钱”里修改。"],
 ];

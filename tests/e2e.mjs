@@ -1301,6 +1301,9 @@ check('the composer opens with the bill total prefilled from the expense',
   await page.locator('#split-compose-dialog').evaluate((e) => e.open)
   && (await page.locator('#split-compose-body [name="total"]').inputValue()) === '94.00',
   await page.locator('#split-compose-body [name="total"]').inputValue());
+// Step 1 is the bill; Next goes to the people (shorter forms, batch B).
+await page.click('#split-compose-body [data-action="split-next"]');
+await page.waitForTimeout(150);
 await page.click('[data-action="split-person-add"]');
 await page.click('[data-action="split-person-add"]');
 await page.waitForTimeout(200);
@@ -4856,6 +4859,8 @@ await S((raw) => {
   splitRenderCompose();
 }, chainReceipt);
 await page.waitForTimeout(200);
+await page.click('#split-compose-body [data-action="split-next"]');
+await page.waitForTimeout(150);
 check('scanned items arrive with every person ticked by default',
   await page.locator('#split-compose-body .split-item').count() === 4
   && await page.locator('#split-compose-body .split-item[data-key="i1"] .chip.active').count() === 3
@@ -5165,6 +5170,8 @@ await page.waitForTimeout(200);
   const expBefore = await S(() => state.dailyExpenses.length);
   await page.click('#btn-split-quick');
   await page.waitForTimeout(300);
+  await page.click('#split-compose-body [data-action="split-next"]');
+  await page.waitForTimeout(150);
   await page.locator('#split-compose-body [data-person-name]').first().fill('Dollah');
   await page.locator('#split-compose-body [data-person-amount]').first().fill('21.25');
   await page.click('[data-action="split-compose-save"]');
