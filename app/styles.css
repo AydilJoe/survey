@@ -3641,6 +3641,10 @@ button.ghost.icon-btn {
   color: var(--muted);
   font-size: 0.82rem;
 }
+/* The figure on the right ("Min RM 412.00", "RM 620.00/月") stays on one line;
+   the description beside it wraps instead. Chinese can break before 月 and
+   Malay at "Min. RM", which split the amount in two. */
+.debt-list .meta-row > span:last-child { white-space: nowrap; }
 
 /* ── Brand recognition ──────────────────────────────────────────────────────
    The colour is the identifier — see app/brands.js for why it is a colour and
