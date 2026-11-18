@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.4";
+const APP_VERSION = "1.57.5";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -2608,17 +2608,17 @@ function renderSavingCard(goal, { mini } = { mini: false }) {
       </div>
       <div class="progress-bar"><div class="progress-fill" style="width:${pct.toFixed(1)}%"></div></div>
       <div class="saving-meta">
-        <span>${fmtMoney(current)} of ${fmtMoney(target)}</span>
-        <span>${remaining > 0 ? fmtMoney(remaining) + " to go" : "reached"}</span>
+        <span>${tr("{a} of {b}", { a: fmtMoney(current), b: fmtMoney(target) })}</span>
+        <span>${remaining > 0 ? tr("{a} to go", { a: fmtMoney(remaining) }) : tr("reached")}</span>
       </div>
       ${mini ? "" : `
       <div class="saving-actions">
-        <input type="number" step="0.01" min="0" inputmode="decimal" max="100000000" placeholder="Amount" data-save-input="${goal.id}" aria-label="Deposit amount for ${escapeHtml(goal.name)}" />
-        <button class="primary" data-action="save-deposit" data-id="${goal.id}">Add</button>
-        <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${goal.id}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(goal.name)}" title="More">⋯</button>
+        <input type="number" step="0.01" min="0" inputmode="decimal" max="100000000" placeholder="${tr("Amount")}" data-save-input="${goal.id}" aria-label="${tr("Deposit amount for {name}", { name: escapeHtml(goal.name) })}" />
+        <button class="primary" data-action="save-deposit" data-id="${goal.id}">${tr("Add")}</button>
+        <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${goal.id}" aria-expanded="false" aria-haspopup="true" aria-label="${tr("More actions for {name}", { name: escapeHtml(goal.name) })}" title="${tr("More")}">⋯</button>
         <div class="row-menu" hidden>
-          <button data-action="edit-saving" data-id="${goal.id}">Edit</button>
-          <button class="danger" data-action="save-delete" data-id="${goal.id}">Delete</button>
+          <button data-action="edit-saving" data-id="${goal.id}">${tr("Edit")}</button>
+          <button class="danger" data-action="save-delete" data-id="${goal.id}">${tr("Delete")}</button>
         </div>
       </div>
       `}
@@ -2630,9 +2630,9 @@ function renderSavings() {
   if (state.savings.length === 0) {
     listEl.innerHTML = emptyBlock({
       glyph: "saving",
-      title: "No savings goals yet",
-      body: "Even RM 50 a month adds up.",
-      action: { label: "Add a goal", open: "form-saving" },
+      title: tr("No savings goals yet"),
+      body: tr("Even RM 50 a month adds up."),
+      action: { label: tr("Add a goal"), open: "form-saving" },
     });
   } else {
     listEl.innerHTML = state.savings.map((g) => renderSavingCard(g, { mini: false })).join("");
@@ -4037,11 +4037,11 @@ function renderZakat() {
     if (z.nisab <= 0) {
       pill.hidden = false;
       pill.className = "zakat-pill warn";
-      pill.textContent = "Set nisab";
+      pill.textContent = tr("Set nisab");
     } else {
       pill.hidden = false;
       pill.className = `zakat-pill ${z.liable ? "due" : "below"}`;
-      pill.textContent = z.liable ? "Above nisab" : "Below nisab";
+      pill.textContent = tr(z.liable ? "Above nisab" : "Below nisab");
     }
   }
 
@@ -4049,45 +4049,47 @@ function renderZakat() {
     if (z.nisab <= 0) {
       nisabLine.textContent =
         s.nisabBasis === "custom"
-          ? "Enter your state authority's nisab amount under “Nisab & haul settings” above."
-          : `Enter today's ${s.nisabBasis} price under “Nisab & haul settings” above to compute your nisab.`;
+          ? tr("Enter your state authority's nisab amount under “Nisab & haul settings” above.")
+          : tr(s.nisabBasis === "silver"
+            ? "Enter today's silver price under “Nisab & haul settings” above to compute your nisab."
+            : "Enter today's gold price under “Nisab & haul settings” above to compute your nisab.");
     } else {
       const basisLabel = s.nisabBasis === "custom"
-        ? "custom nisab"
-        : `${s.nisabBasis === "silver" ? `${NISAB_SILVER_G} g silver` : `${NISAB_GOLD_G} g gold`}`;
-      nisabLine.textContent = `Nisab ${fmtMoney(z.nisab)} (${basisLabel}) · your zakatable wealth ${fmtMoney(z.net)}.`;
+        ? tr("custom nisab")
+        : s.nisabBasis === "silver" ? tr("{g} g silver", { g: NISAB_SILVER_G }) : tr("{g} g gold", { g: NISAB_GOLD_G });
+      nisabLine.textContent = tr("Nisab {a} ({basis}) · your zakatable wealth {b}.", { a: fmtMoney(z.nisab), basis: basisLabel, b: fmtMoney(z.net) });
     }
   }
 
   if (noteEl) {
-    if (z.nisab <= 0) noteEl.textContent = "Nisab not set yet.";
-    else if (!z.liable) noteEl.textContent = `${fmtMoney(z.nisab - z.net)} below nisab — nothing owed.`;
-    else if (z.haul && !z.haul.complete) noteEl.textContent = `Payable when your haul completes in ${z.haul.daysLeft} day${z.haul.daysLeft === 1 ? "" : "s"}.`;
-    else noteEl.textContent = "2.5% of your zakatable wealth.";
+    if (z.nisab <= 0) noteEl.textContent = tr("Nisab not set yet.");
+    else if (!z.liable) noteEl.textContent = tr("{a} below nisab — nothing owed.", { a: fmtMoney(z.nisab - z.net) });
+    else if (z.haul && !z.haul.complete) noteEl.textContent = trn(z.haul.daysLeft, "Payable when your haul completes in {n} day.", "Payable when your haul completes in {n} days.");
+    else noteEl.textContent = tr("2.5% of your zakatable wealth.");
   }
 
   const breakdown = document.getElementById("zakat-breakdown");
   if (breakdown) {
     const rows = [
-      s.includeSavings ? ["Savings goals", z.savings] : null,
-      z.investments > 0 ? ["Investments", z.investments] : null,
-      ["Other zakatable wealth", z.other],
-      z.deductibles > 0 ? ["Immediate debts", -z.deductibles] : null,
+      s.includeSavings ? [tr("Savings goals"), z.savings] : null,
+      z.investments > 0 ? [tr("Investments"), z.investments] : null,
+      [tr("Other zakatable wealth"), z.other],
+      z.deductibles > 0 ? [tr("Immediate debts"), -z.deductibles] : null,
     ].filter(Boolean);
     breakdown.innerHTML = rows
       .map(([label, amount]) =>
         `<li><span>${escapeHtml(label)}</span><span>${amount < 0 ? "− " : ""}${fmtMoney(Math.abs(amount))}</span></li>`)
-      .join("") + `<li class="total"><span>Zakatable wealth</span><span>${fmtMoney(z.net)}</span></li>`;
+      .join("") + `<li class="total"><span>${tr("Zakatable wealth")}</span><span>${fmtMoney(z.net)}</span></li>`;
   }
 
   const haulLine = document.getElementById("zakat-haul-line");
   if (haulLine) {
     if (!z.haul) {
-      haulLine.textContent = "Set a haul start date under “Nisab & haul settings” above to track the lunar year.";
+      haulLine.textContent = tr("Set a haul start date under “Nisab & haul settings” above to track the lunar year.");
     } else if (z.haul.complete) {
-      haulLine.textContent = `Haul complete since ${z.haul.due.toLocaleDateString(dateLocale(), { day: "numeric", month: "long", year: "numeric" })}.`;
+      haulLine.textContent = tr("Haul complete since {date}.", { date: z.haul.due.toLocaleDateString(dateLocale(), { day: "numeric", month: "long", year: "numeric" }) });
     } else {
-      haulLine.textContent = `Haul completes ${z.haul.due.toLocaleDateString(dateLocale(), { day: "numeric", month: "long", year: "numeric" })} — ${z.haul.daysLeft} day${z.haul.daysLeft === 1 ? "" : "s"} to go (354-day lunar year).`;
+      haulLine.textContent = trn(z.haul.daysLeft, "Haul completes {date} — {n} day to go (354-day lunar year).", "Haul completes {date} — {n} days to go (354-day lunar year).", { date: z.haul.due.toLocaleDateString(dateLocale(), { day: "numeric", month: "long", year: "numeric" }) });
     }
   }
 
@@ -4106,7 +4108,7 @@ function renderZakat() {
       .slice()
       .sort((a, b) => (a.date < b.date ? 1 : -1))
       .slice(0, 5)
-      .map((h) => `<li><span>Paid ${escapeHtml(h.date)}</span><span>${fmtMoney(h.amount)}</span></li>`)
+      .map((h) => `<li><span>${tr("Paid {date}", { date: escapeHtml(h.date) })}</span><span>${fmtMoney(h.amount)}</span></li>`)
       .join("");
   }
 }
@@ -11284,6 +11286,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.5": [
+    "<strong>Savings in Bahasa Melayu and 中文</strong> — goals, investments, the retirement plan and zakat now follow your language.",
+  ],
   "1.57.4": [
     "<strong>Debts in Bahasa Melayu and 中文</strong> — your debts, the payoff plan and Islamic financing (profit rate, ibra') now follow your language.",
   ],
