@@ -4246,10 +4246,13 @@ button.ghost.icon-btn {
   color: var(--primary-ink);
 }
 .reports-custom-range {
-  display: grid; grid-template-columns: 1fr 1fr;
+  /* minmax(0, 1fr): a plain 1fr column can't shrink below a date input's
+     intrinsic width, which pushed "To" past the card on a 360px phone. */
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem; margin-top: 0.6rem;
 }
-.reports-custom-range .field { margin-top: 0; }
+.reports-custom-range .field { margin-top: 0; min-width: 0; }
+.reports-custom-range input[type="date"] { min-width: 0; width: 100%; }
 
 /* Auto-fit, NOT a viewport breakpoint: this card lives in a masonry
    column that's ~300px wide on desktop regardless of viewport size, so

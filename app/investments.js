@@ -839,8 +839,8 @@ function renderInvestmentsChart() {
   if (retLine) {
     const ret = list.length ? investmentsPortfolioReturn() : null;
     retLine.textContent = ret === null
-      ? "Return (money-weighted) — · needs 90+ days since your first contribution."
-      : `Return (money-weighted) ${fmtReturnPct(ret)} · annualised, your cash flows plus today's value.`;
+      ? tr("Return (money-weighted) — · needs 90+ days since your first contribution.")
+      : tr("Return (money-weighted) {r} · annualised, your cash flows plus today's value.", { r: fmtReturnPct(ret) });
   }
 
   const series = list.length ? investmentValuationSeries(list) : [];
@@ -853,10 +853,10 @@ function renderInvestmentsChart() {
     if (svgWrap) svgWrap.hidden = true;
     empty.hidden = false;
     empty.textContent = series.length === 0
-      ? "No valuations recorded yet."
-      : "One snapshot so far — record another value to start the line.";
+      ? tr("No valuations recorded yet.")
+      : tr("One snapshot so far — record another value to start the line.");
     if (range) { range.hidden = true; range.innerHTML = ""; }
-    if (hint) hint.textContent = series.length === 1 ? "1 snapshot" : "";
+    if (hint) hint.textContent = series.length === 1 ? tr("1 snapshot") : "";
     return;
   }
 
@@ -895,7 +895,7 @@ function renderInvestmentsChart() {
   svg.removeAttribute("aria-hidden");
   svg.innerHTML = inner;
   empty.hidden = true;
-  if (hint) hint.textContent = `${series.length} snapshots · all time`;
+  if (hint) hint.textContent = tr("{n} snapshots · all time", { n: series.length });
   if (range) {
     range.hidden = false;
     range.innerHTML =

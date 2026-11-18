@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.6";
+const APP_VERSION = "1.57.7";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -3288,12 +3288,12 @@ function shiftDaysISO(iso, delta) {
 
 function reportsCategoryLabel(entry) {
   const kind = entry.kind || "expense";
-  if (kind === "debt") return debtNameById(entry.debtId) || entry.debtName || "Debt payment";
+  if (kind === "debt") return debtNameById(entry.debtId) || entry.debtName || tr("Debt payment");
   if (kind === "saving") {
     const goal = state.savings.find((g) => g.id === entry.savingId);
-    return (goal ? goal.name : entry.savingName) || "Saving";
+    return (goal ? goal.name : entry.savingName) || tr("Saving");
   }
-  return entry.category || "Others";
+  return entry.category || tr("Others");
 }
 
 // Pie chart palette — first 6 colors are byte-identical to POOL_COLORS
@@ -3340,7 +3340,7 @@ function renderSpendingLegend(slices, total) {
         <span class="spending-legend-name">${escapeHtml(s.name)}</span>
         <span class="spending-legend-amount">${fmtMoney(s.amount)}</span>
         <span class="spending-legend-pct">${pct.toFixed(0)}%</span>
-        <span class="spending-legend-count">${s.count} ${s.count === 1 ? "entry" : "entries"}</span>
+        <span class="spending-legend-count">${trn(s.count, "{n} entry", "{n} entries")}</span>
       </li>
     `;
   }).join("");
@@ -3421,7 +3421,7 @@ function renderReportsSpending() {
   const slices = rest.length === 0
     ? top6
     : [...top6, {
-        name: "Other",
+        name: tr("Other"),
         amount: rest.reduce((s, b) => s + b.amount, 0),
         count: rest.reduce((s, b) => s + b.count, 0),
         isOther: true,
@@ -3447,7 +3447,7 @@ function renderReportsSpending() {
     // Spending only: debt payments and savings deposits are in the period
     // total above but are not spending, so the pie leaves them out — say so,
     // or RM 512 above and RM 392 here look like an error.
-    totalEl.innerHTML = `${amt(total)} spent · ${catCount} ${catCount === 1 ? "category" : "categories"} <span class="reports-pie-note">(debt payments and savings aren't spending)</span>`;
+    totalEl.innerHTML = `${tr("{a} spent", { a: amt(total) })} · ${trn(catCount, "{n} category", "{n} categories")} <span class="reports-pie-note">(${tr("debt payments and savings aren't spending")})</span>`;
     totalEl.hidden = false;
   }
 
@@ -3510,7 +3510,7 @@ function renderDashboardSpending() {
   const top6 = sorted.slice(0, 6);
   const rest = sorted.slice(6);
   const slices = rest.length === 0 ? top6 : [...top6, {
-    name: "Other",
+    name: tr("Other"),
     amount: rest.reduce((s, b) => s + b.amount, 0),
     count: rest.reduce((s, b) => s + b.count, 0),
     isOther: true,
@@ -3522,7 +3522,7 @@ function renderDashboardSpending() {
   card.hidden = false;
   empty.hidden = true;
   svg.removeAttribute("aria-hidden");
-  if (totalEl) { totalEl.innerHTML = `${amt(total)} this month`; totalEl.hidden = false; }
+  if (totalEl) { totalEl.innerHTML = tr("{a} this month", { a: amt(total) }); totalEl.hidden = false; }
 
   let svgInner = "";
   if (visible.length === 1) {
@@ -3565,7 +3565,7 @@ function refreshReportsCategoryOptions() {
   ).sort();
   const current = reportsState.category;
   sel.innerHTML =
-    `<option value="__all__">All categories</option>` +
+    `<option value="__all__">${tr("All categories")}</option>` +
     cats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
   if (cats.includes(current)) sel.value = current;
   else { sel.value = "__all__"; reportsState.category = "__all__"; }
@@ -3617,10 +3617,10 @@ function renderReports() {
   const countSubEl = $("#reports-count-sub");
   if (countSubEl) {
     if (entries.length === 0) {
-      countSubEl.textContent = "nothing logged";
+      countSubEl.textContent = tr("nothing logged");
     } else {
       const uniqueDays = dayTotals.size;
-      countSubEl.textContent = `across ${uniqueDays} day${uniqueDays === 1 ? "" : "s"}`;
+      countSubEl.textContent = trn(uniqueDays, "across {n} day", "across {n} days");
     }
   }
   $("#reports-biggest-day").textContent = biggestDay
@@ -3645,7 +3645,7 @@ function renderReports() {
       .reduce((s, e) => s + (Number(e.amount) || 0), 0);
     if (priorTotal === 0 && total > 0) {
       // Nothing to compare against reads as a fact, not as "RM 0.00 · ▲ —".
-      momEl.textContent = `Nothing logged in the prior period (${formatDayLabel(priorStart)} – ${formatDayLabel(priorEnd)}) to compare with.`;
+      momEl.textContent = tr("Nothing logged in the prior period ({from} – {to}) to compare with.", { from: formatDayLabel(priorStart), to: formatDayLabel(priorEnd) });
       momEl.hidden = false;
     } else if (priorTotal > 0 || total > 0) {
       const delta = total - priorTotal;
@@ -3661,7 +3661,7 @@ function renderReports() {
           // Switch to "Nx" form. The multiplier is total/prior (not delta/prior).
           const mult = total / priorTotal;
           pctText = `${mult.toFixed(0)}×`;
-          pctTitle = `${ratioPct.toFixed(0)}% increase from prior period`;
+          pctTitle = tr("{p}% increase from prior period", { p: ratioPct.toFixed(0) });
         } else {
           pctText = `${absPct.toFixed(0)}%`;
         }
@@ -3670,7 +3670,7 @@ function renderReports() {
       const cls = delta > 0 ? "delta-up" : delta < 0 ? "delta-down" : "";
       const titleAttr = pctTitle ? ` title="${escapeHtml(pctTitle)}"` : "";
       momEl.innerHTML =
-        `vs prior period (${formatDayLabel(priorStart)} – ${formatDayLabel(priorEnd)}): ` +
+        `${tr("vs prior period ({from} – {to}):", { from: formatDayLabel(priorStart), to: formatDayLabel(priorEnd) })} ` +
         `${amt(priorTotal)} · ` +
         `<span class="${cls}"${titleAttr}>${arrow} ${pctText}</span>`;
       momEl.hidden = false;
@@ -3695,7 +3695,7 @@ function renderReports() {
         const iso = shiftDaysISO(start, i);
         buckets.push({ key: iso, label: String(parseInt(iso.slice(8), 10)), sub: iso.slice(5, 7), total: dayTotals.get(iso) || 0 });
       }
-      if (trendHint) trendHint.textContent = `Daily · ${days} day${days === 1 ? "" : "s"}`;
+      if (trendHint) trendHint.textContent = `${tr("Daily")} · ${trn(days, "{n} day", "{n} days")}`;
     } else {
       // Monthly
       const monthTotals = new Map();
@@ -3710,20 +3710,22 @@ function renderReports() {
       while (cur <= endYM) {
         buckets.push({
           key: cur,
-          label: formatMonthLabel(cur).split(" ")[0].slice(0, 3),
+          // Straight from the locale: "Nov", "Nov", "11月" — splitting the
+          // long label broke in Chinese ("2026年11月" → "202").
+          label: new Date(Number(cur.slice(0, 4)), Number(cur.slice(5, 7)) - 1, 1).toLocaleDateString(dateLocale(), { month: "short" }),
           sub: cur.slice(0, 4),
           total: monthTotals.get(cur) || 0,
         });
         cur = shiftMonth(cur, 1);
       }
-      if (trendHint) trendHint.textContent = `Monthly · ${buckets.length} months`;
+      if (trendHint) trendHint.textContent = `${tr("Monthly")} · ${trn(buckets.length, "{n} month", "{n} months")}`;
     }
     trendEl.classList.toggle("dense", buckets.length > 14);
     if (!buckets.length) {
       trendEl.innerHTML = emptyBlock({
         glyph: "chart",
-        title: "Nothing to chart yet",
-        body: "Pick a wider date range, or log a few entries and the trend line fills in.",
+        title: tr("Nothing to chart yet"),
+        body: tr("Pick a wider date range, or log a few entries and the trend line fills in."),
       });
     } else {
       const max = Math.max(...buckets.map((b) => b.total), 1);
@@ -3761,7 +3763,7 @@ function renderReports() {
             const baseHint = trendHint.textContent;
             // Use the bucket key (ISO date or YYYY-MM) for a friendly label.
             const peakLabel = days <= 62 ? formatDayLabel(peakBucket.key) : formatMonthLabel(peakBucket.key);
-            trendHint.innerHTML = `${escapeHtml(baseHint)} · peak on ${escapeHtml(peakLabel)} (${amt(peakBucket.total)})`;
+            trendHint.innerHTML = `${escapeHtml(baseHint)} · ${tr("peak on {when} ({a})", { when: escapeHtml(peakLabel), a: amt(peakBucket.total) })}`;
           }
         }
       }
@@ -3775,8 +3777,8 @@ function renderReports() {
     if (!top.length) {
       topEl.innerHTML = emptyBlock({
         glyph: "entry",
-        title: "No entries in this period",
-        body: "Widen the range above, or clear the category filter.",
+        title: tr("No entries in this period"),
+        body: tr("Widen the range above, or clear the category filter."),
       });
     } else {
       topEl.innerHTML = top.map((e) => {
@@ -11286,6 +11288,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.7": [
+    "<strong>Reports in Bahasa Melayu and 中文</strong> — filters, totals, the spending chart, trends and your portfolio chart now follow your language.",
+  ],
   "1.57.6": [
     "<strong>All entries in Bahasa Melayu and 中文</strong> — the full list of what you've logged now follows your language.",
   ],

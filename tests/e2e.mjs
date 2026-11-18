@@ -11463,14 +11463,14 @@ check('the brand catalogue makes no network calls at all',
     const html = await (await fetch('index.html', { cache: 'no-store' })).text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const scopes = ['#lock', 'header.app-header', 'nav.tabs', '#tab-dashboard', '#tab-data',
-      '#tab-flow', '#tab-debts', '#tab-savings', '#tab-daily', '#tab-tax', '#tax-numbers-dialog', '#tax-claim-dialog', '#tax-rules-dialog', '#tax-review-dialog', '#tax-receipt-dialog'];
+      '#tab-flow', '#tab-debts', '#tab-savings', '#tab-daily', '#tab-reports', '#tab-tax', '#tax-numbers-dialog', '#tax-claim-dialog', '#tax-rules-dialog', '#tax-review-dialog', '#tax-receipt-dialog'];
     const out = {};
     for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
   });
   for (const l of ['ms', 'zh']) {
     const left = [...new Set(gaps[l])].filter((s) => !KEEP.test(s));
-    check(`languages: every English line on the passcode screen, header, tab bar, Home, Monthly, Debts, Savings, All entries, Settings and Tax (page and dialogs) has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
+    check(`languages: every English line on the passcode screen, header, tab bar, Home, Monthly, Debts, Savings, All entries, Reports, Settings and Tax (page and dialogs) has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
       left.length === 0, left.join(' | '));
   }
 
@@ -11623,10 +11623,22 @@ check('the brand catalogue makes no network calls at all',
     await p.evaluate(fillForLayout);
     await p.waitForTimeout(300);
     await p.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
-    for (const tab of ['dashboard', 'flow', 'debts', 'savings', 'daily', 'tax', 'data']) {
+    for (const tab of ['dashboard', 'flow', 'debts', 'savings', 'daily', 'reports', 'tax', 'data']) {
       await p.evaluate((t) => { const btn = document.getElementById('tabbtn-' + t); btn.hidden = false; btn.click(); }, tab);
       await p.waitForTimeout(250);
       if (tab === 'tax') { await p.evaluate(() => document.querySelector('.tax-tile')?.click()); await p.waitForTimeout(200); }
+      if (tab === 'reports') {
+        // A long range draws monthly bars: their labels come from the locale
+        // ("Nov" / "11月"), never a slice of the long month name.
+        const labels = await p.evaluate(() => {
+          const y = new Date().getFullYear();
+          reportsState.preset = 'custom'; reportsState.customStart = `${y}-01-01`; reportsState.customEnd = todayISO();
+          renderReports();
+          return [...document.querySelectorAll('#reports-trend .label')].map((el) => el.textContent);
+        });
+        if (lang === 'zh' && !(labels.length && labels.every((l) => /月$/.test(l)))) layoutMiss.push(`zh monthly trend labels ${JSON.stringify(labels.slice(0, 4))}`);
+        if (lang === 'en' && !labels.includes('Jan')) layoutMiss.push(`en monthly trend labels ${JSON.stringify(labels.slice(0, 4))}`);
+      }
       (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${tab}: ${x}`));
     }
     for (const [label, open] of [['details', () => taxOpenNumbers()], ['claim', () => taxOpenClaim({ relief: 'medical' })],
@@ -11638,7 +11650,7 @@ check('the brand catalogue makes no network calls at all',
     }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Tax with a relief open, Settings, the details / claim / review dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 
