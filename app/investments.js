@@ -493,18 +493,18 @@ function investmentPanelHtml(h) {
     return `
       <div class="invest-panel">
         <label class="field">
-          <span>Top up (${escapeHtml(currentCurrency())}) — negative to withdraw</span>
-          <input type="number" step="0.01" inputmode="decimal" data-invest-input="topup" data-id="${h.id}" placeholder="e.g. 200 or −200" />
+          <span>${tr("Top up ({cur}) — negative to withdraw", { cur: escapeHtml(currentCurrency()) })}</span>
+          <input type="number" step="0.01" inputmode="decimal" data-invest-input="topup" data-id="${h.id}" placeholder="${tr("e.g. 200 or −200")}" />
         </label>
         <div class="button-row">
-          <button type="button" class="primary" data-action="invest-topup" data-id="${h.id}">Record</button>
-          <button type="button" class="ghost" data-action="invest-panel-close" data-id="${h.id}">Cancel</button>
+          <button type="button" class="primary" data-action="invest-topup" data-id="${h.id}">${tr("Record")}</button>
+          <button type="button" class="ghost" data-action="invest-panel-close" data-id="${h.id}">${tr("Cancel")}</button>
         </div>
       </div>`;
   }
   if (panel === "value") {
     const isUnits = h.kind === "units";
-    const label = isUnits ? "New unit price" : "New value";
+    const label = tr(isUnits ? "New unit price" : "New value");
     const current = isUnits ? (Number(h.unitPrice) || 0) : (Number(h.balance) || 0);
     return `
       <div class="invest-panel">
@@ -513,10 +513,10 @@ function investmentPanelHtml(h) {
           <input type="number" step="0.0001" min="0" inputmode="decimal" data-invest-input="value" data-id="${h.id}" value="${current}" />
         </label>
         <div class="button-row">
-          <button type="button" class="primary" data-action="invest-revalue" data-id="${h.id}">Update</button>
-          <button type="button" class="ghost" data-action="invest-panel-close" data-id="${h.id}">Cancel</button>
+          <button type="button" class="primary" data-action="invest-revalue" data-id="${h.id}">${tr("Update")}</button>
+          <button type="button" class="ghost" data-action="invest-panel-close" data-id="${h.id}">${tr("Cancel")}</button>
         </div>
-        <p class="hint">Revaluation only — no money moved in or out.</p>
+        <p class="hint">${tr("Revaluation only — no money moved in or out.")}</p>
       </div>`;
   }
   if (panel === "dividend") {
@@ -524,21 +524,21 @@ function investmentPanelHtml(h) {
       <div class="invest-panel">
         <div class="grid-2">
           <label class="field">
-            <span>Dividend (${escapeHtml(currentCurrency())})</span>
-            <input type="number" step="0.01" min="0" inputmode="decimal" data-invest-input="dividend" data-id="${h.id}" placeholder="e.g. 320" />
+            <span>${tr("Dividend ({cur})", { cur: escapeHtml(currentCurrency()) })}</span>
+            <input type="number" step="0.01" min="0" inputmode="decimal" data-invest-input="dividend" data-id="${h.id}" placeholder="${tr("e.g. 320")}" />
           </label>
           <label class="field">
-            <span>Date</span>
+            <span>${tr("Date")}</span>
             <input type="date" data-invest-input="dividend-date" data-id="${h.id}" value="${todayISO()}" />
           </label>
         </div>
         <label class="field toggle-field">
           <input type="checkbox" data-invest-input="dividend-reinvested" data-id="${h.id}" />
-          <span>Reinvested (added back to this holding)</span>
+          <span>${tr("Reinvested (added back to this holding)")}</span>
         </label>
         <div class="button-row">
-          <button type="button" class="primary" data-action="invest-dividend" data-id="${h.id}">Record</button>
-          <button type="button" class="ghost" data-action="invest-panel-close" data-id="${h.id}">Cancel</button>
+          <button type="button" class="primary" data-action="invest-dividend" data-id="${h.id}">${tr("Record")}</button>
+          <button type="button" class="ghost" data-action="invest-panel-close" data-id="${h.id}">${tr("Cancel")}</button>
         </div>
       </div>`;
   }
@@ -548,37 +548,37 @@ function investmentPanelHtml(h) {
 function investmentRowHtml(h) {
   const value = investmentValue(h);
   const zakatDot = zakatSurfaceOn() && h.zakatable
-    ? ` <span class="invest-zakat-dot" title="Counted in your zakat base" aria-label="Counted in your zakat base">●</span>`
+    ? ` <span class="invest-zakat-dot" title="${tr("Counted in your zakat base")}" aria-label="${tr("Counted in your zakat base")}">●</span>`
     : "";
   const meta = [];
   if (h.kind === "units") {
-    meta.push(`${fmtUnits(h.units)} units × ${fmtMoney(h.unitPrice)}`);
-    meta.push(`Cost ${fmtMoney(h.costBasis)}`);
+    meta.push(tr("{u} units × {p}", { u: fmtUnits(h.units), p: fmtMoney(h.unitPrice) }));
+    meta.push(tr("Cost {a}", { a: fmtMoney(h.costBasis) }));
   } else {
     const contributed = (h.flows || []).reduce((s, f) => s + (Number(f.amount) || 0), 0);
-    meta.push(`Contributed ${fmtMoney(contributed)}`);
+    meta.push(tr("Contributed {a}", { a: fmtMoney(contributed) }));
     const last = (h.valuations || [])[h.valuations.length - 1];
-    if (last) meta.push(`Valued ${escapeHtml(last.date)}`);
+    if (last) meta.push(tr("Valued {date}", { date: escapeHtml(last.date) }));
   }
   const ret = investmentReturn(h);
   const retClass = ret === null ? "" : ret < 0 ? " neg" : " pos";
   const retTitle = ret === null
-    ? "Not enough history yet — a money-weighted return needs 90+ days"
-    : "Money-weighted return since inception, annualised";
-  const retHtml = `<span class="invest-return${retClass}" title="${escapeHtml(retTitle)}">Return ${fmtReturnPct(ret)}</span>`;
+    ? tr("Not enough history yet — a money-weighted return needs 90+ days")
+    : tr("Money-weighted return since inception, annualised");
+  const retHtml = `<span class="invest-return${retClass}" title="${escapeHtml(retTitle)}">${tr("Return {r}", { r: fmtReturnPct(ret) })}</span>`;
   return `
     <div class="invest-row" data-id="${h.id}">
       <div class="top-row">
-        <span class="invest-name">${escapeHtml(h.name)} <span class="invest-account">${escapeHtml(h.account)}</span>${zakatDot}</span>
+        <span class="invest-name">${escapeHtml(h.name)} <span class="invest-account">${escapeHtml(tr(h.account))}</span>${zakatDot}</span>
         <span class="invest-value">${fmtMoney(value)}</span>
       </div>
       <div class="invest-meta">${meta.map((m) => `<span>${m}</span>`).join("")}${retHtml}</div>
       <div class="invest-actions">
-        <button type="button" class="ghost" data-action="invest-panel" data-panel="topup" data-id="${h.id}">Top up</button>
-        <button type="button" class="ghost" data-action="invest-panel" data-panel="value" data-id="${h.id}">Update value</button>
-        <button type="button" class="ghost" data-action="invest-panel" data-panel="dividend" data-id="${h.id}">Dividend</button>
-        <button type="button" class="ghost icon-btn" data-action="edit-investment" data-id="${h.id}" aria-label="Edit ${escapeHtml(h.name)}" title="Edit this holding">✎</button>
-        <button type="button" class="ghost icon-btn invest-delete" data-action="delete-investment" data-id="${h.id}" aria-label="Delete ${escapeHtml(h.name)}" title="Delete this holding">✕</button>
+        <button type="button" class="ghost" data-action="invest-panel" data-panel="topup" data-id="${h.id}">${tr("Top up")}</button>
+        <button type="button" class="ghost" data-action="invest-panel" data-panel="value" data-id="${h.id}">${tr("Update value")}</button>
+        <button type="button" class="ghost" data-action="invest-panel" data-panel="dividend" data-id="${h.id}">${tr("Dividend")}</button>
+        <button type="button" class="ghost icon-btn" data-action="edit-investment" data-id="${h.id}" aria-label="${tr("Edit {name}", { name: escapeHtml(h.name) })}" title="${tr("Edit this holding")}">✎</button>
+        <button type="button" class="ghost icon-btn invest-delete" data-action="delete-investment" data-id="${h.id}" aria-label="${tr("Delete {name}", { name: escapeHtml(h.name) })}" title="${tr("Delete this holding")}">✕</button>
       </div>
       ${investmentPanelHtml(h)}
     </div>`;
@@ -589,10 +589,14 @@ function renderInvestments() {
   if (!card) return;
 
   const accountSel = document.getElementById("invest-account");
-  if (accountSel && !accountSel.options.length) {
+  // Rebuilt each render so the labels follow the language; the value (stored
+  // on the holding) stays the English key.
+  if (accountSel) {
+    const keep = accountSel.value;
     accountSel.innerHTML = INVESTMENT_ACCOUNTS
-      .map((a) => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`)
+      .map((a) => `<option value="${escapeHtml(a)}">${escapeHtml(tr(a))}</option>`)
       .join("");
+    if (keep) accountSel.value = keep;
   }
 
   const list = investmentsList();
@@ -605,7 +609,7 @@ function renderInvestments() {
   if (listEl) {
     listEl.innerHTML = list.length
       ? list.map((h) => investmentRowHtml(h)).join("")
-      : `<div class="empty">No holdings yet — ASB, EPF, unit trusts or shares.</div>`;
+      : `<div class="empty">${tr("No holdings yet — ASB, EPF, unit trusts or shares.")}</div>`;
   }
 
   // Portfolio performance. Both figures earn a "—" rather than a guess:
@@ -625,16 +629,16 @@ function renderInvestments() {
       }
       if (mwrSub) {
         mwrSub.textContent = ret === null
-          ? "needs 90+ days of history"
-          : "annualised, since inception";
+          ? tr("needs 90+ days of history")
+          : tr("annualised, since inception");
       }
       const yocEl = document.getElementById("invest-yoc");
       const yocSub = document.getElementById("invest-yoc-sub");
       if (yocEl) yocEl.textContent = t.yieldOnCost === null ? "—" : `${t.yieldOnCost.toFixed(2)}%`;
       if (yocSub) {
         yocSub.textContent = t.yieldOnCost === null
-          ? "no contributions recorded"
-          : `${fmtMoney(t.dividends12)} on ${fmtMoney(t.contributed)}`;
+          ? tr("no contributions recorded")
+          : tr("{a} on {b}", { a: fmtMoney(t.dividends12), b: fmtMoney(t.contributed) });
       }
     }
   }
@@ -647,8 +651,8 @@ function renderInvestments() {
     accountsEl.hidden = rows.length < 2;
     accountsEl.innerHTML = rows.length < 2 ? "" : rows.map((a) => `
       <div class="invest-account-row">
-        <span class="invest-account">${escapeHtml(a.account)}</span>
-        <span class="invest-account-count">${a.count} holding${a.count === 1 ? "" : "s"}</span>
+        <span class="invest-account">${escapeHtml(tr(a.account))}</span>
+        <span class="invest-account-count">${trn(a.count, "{n} holding", "{n} holdings")}</span>
         <span class="invest-account-total">${fmtMoney(a.total)}</span>
       </div>`).join("");
   }
@@ -661,8 +665,8 @@ function renderInvestments() {
     } else {
       divLine.hidden = false;
       divLine.textContent = t.total > 0
-        ? `Dividends last 12 months ${fmtMoney(t.dividends12)} · yield ${t.yield12.toFixed(2)}% on current value.`
-        : `Dividends last 12 months ${fmtMoney(t.dividends12)}.`;
+        ? tr("Dividends last 12 months {a} · yield {y}% on current value.", { a: fmtMoney(t.dividends12), y: t.yield12.toFixed(2) })
+        : tr("Dividends last 12 months {a}.", { a: fmtMoney(t.dividends12) });
     }
   }
 }
@@ -717,21 +721,21 @@ function renderInvestPlan() {
     } else {
       pill.hidden = false;
       pill.className = `invest-plan-pill ${s.coasting ? "ok" : "warn"}`;
-      pill.textContent = s.coasting ? "Coasting ✓" : `${fmtMoney(s.shortfall)} to go`;
+      pill.textContent = s.coasting ? tr("Coasting ✓") : tr("{a} to go", { a: fmtMoney(s.shortfall) });
     }
   }
 
   const coastNote = document.getElementById("invest-plan-coast-note");
   if (coastNote) {
     if (!s.horizonValid) {
-      coastNote.textContent = "Set a retirement age later than your current age to see the maths.";
+      coastNote.textContent = tr("Set a retirement age later than your current age to see the maths.");
     } else if (s.coastNumber === null) {
-      coastNote.textContent = "Enter what you'd want to spend each month in retirement (or a target pot) to see your coast number.";
+      coastNote.textContent = tr("Enter what you'd want to spend each month in retirement (or a target pot) to see your coast number.");
     } else {
-      const yrs = `${s.years} year${s.years === 1 ? "" : "s"}`;
+      const yrs = trn(s.years, "{n} year", "{n} years");
       coastNote.textContent = s.coasting
-        ? `Estimate: even with no further contributions, today's pot compounds to your target in ${yrs} at ${s.realReturn}% real.`
-        : `Estimate: the amount that, left alone at ${s.realReturn}% real for ${yrs}, would reach your target on its own.`;
+        ? tr("Estimate: even with no further contributions, today's pot compounds to your target in {yrs} at {r}% real.", { yrs, r: s.realReturn })
+        : tr("Estimate: the amount that, left alone at {r}% real for {yrs}, would reach your target on its own.", { yrs, r: s.realReturn });
     }
   }
 
@@ -739,31 +743,31 @@ function renderInvestPlan() {
   const targetSub = document.getElementById("invest-plan-target-sub");
   if (targetSub) {
     targetSub.textContent = s.targetSource === "override"
-      ? "your own target, overriding the 4% rule"
+      ? tr("your own target, overriding the 4% rule")
       : s.targetSource === "spending"
-        ? `${fmtMoney((s.targetPot || 0) * (COAST_SAFE_WITHDRAWAL / 100) / 12)}/month at ${COAST_SAFE_WITHDRAWAL}%`
-        : "no target set yet";
+        ? tr("{a}/month at {p}%", { a: fmtMoney((s.targetPot || 0) * (COAST_SAFE_WITHDRAWAL / 100) / 12), p: COAST_SAFE_WITHDRAWAL })
+        : tr("no target set yet");
   }
 
   text("invest-plan-current", fmtMoney(s.currentPot));
   const currentSub = document.getElementById("invest-plan-current-sub");
   if (currentSub) {
     currentSub.textContent = s.includeSavings
-      ? `${fmtMoney(s.investments)} invested + ${fmtMoney(s.savings)} in goals`
-      : `${fmtMoney(s.investments)} invested · goals excluded`;
+      ? tr("{a} invested + {b} in goals", { a: fmtMoney(s.investments), b: fmtMoney(s.savings) })
+      : tr("{a} invested · goals excluded", { a: fmtMoney(s.investments) });
   }
 
   text("invest-plan-projected", fmtPlanMoney(s.projected));
   const projSub = document.getElementById("invest-plan-projected-sub");
   if (projSub) {
     if (s.projected === null) {
-      projSub.textContent = "needs a retirement age above your current age";
+      projSub.textContent = tr("needs a retirement age above your current age");
     } else if (s.gap === null) {
-      projSub.textContent = `estimate — about ${fmtMoney(s.projectedMonthly)}/month at ${COAST_SAFE_WITHDRAWAL}%`;
+      projSub.textContent = tr("estimate — about {a}/month at {p}%", { a: fmtMoney(s.projectedMonthly), p: COAST_SAFE_WITHDRAWAL });
     } else if (s.gap >= 0) {
-      projSub.textContent = `estimate — ${fmtMoney(s.gap)} past your target`;
+      projSub.textContent = tr("estimate — {a} past your target", { a: fmtMoney(s.gap) });
     } else {
-      projSub.textContent = `estimate — ${fmtMoney(-s.gap)} short of your target`;
+      projSub.textContent = tr("estimate — {a} short of your target", { a: fmtMoney(-s.gap) });
     }
   }
 }
@@ -962,7 +966,7 @@ if (investForm) {
     investForm.reset();
     setInvestKind("balance");
     renderAll();
-    toast(`Holding added: ${name}`);
+    toast(tr("Holding added: {name}", { name }));
   });
 }
 
@@ -1003,7 +1007,7 @@ document.addEventListener("click", (e) => {
   }
   if (action === "delete-investment") {
     if (!h) return;
-    if (!confirm(`Delete holding "${h.name}" (${fmtMoney(investmentValue(h))})? Its valuations, top-ups and dividends go with it.`)) return;
+    if (!confirm(tr("Delete holding \"{name}\" ({a})? Its valuations, top-ups and dividends go with it.", { name: h.name, a: fmtMoney(investmentValue(h)) }))) return;
     state.investments = investmentsList().filter((x) => x.id !== id);
     openInvestPanel = null;
     save();
@@ -1016,14 +1020,14 @@ document.addEventListener("click", (e) => {
     const input = investPanelInput(id, "topup");
     const amount = Number(input && input.value);
     if (!input || !input.value.trim() || !Number.isFinite(amount) || amount === 0) {
-      if (input) { input.value = ""; input.placeholder = "Enter an amount (negative to withdraw)"; input.focus(); }
+      if (input) { input.value = ""; input.placeholder = tr("Enter an amount (negative to withdraw)"); input.focus(); }
       return;
     }
     applyInvestmentTopUp(h, amount, todayISO());
     openInvestPanel = null;
     save();
     renderAll();
-    toast(amount >= 0 ? `Top-up recorded: ${fmtMoney(amount)}` : `Withdrawal recorded: ${fmtMoney(-amount)}`);
+    toast(amount >= 0 ? tr("Top-up recorded: {a}", { a: fmtMoney(amount) }) : tr("Withdrawal recorded: {a}", { a: fmtMoney(-amount) }));
     return;
   }
 
@@ -1040,7 +1044,7 @@ document.addEventListener("click", (e) => {
     openInvestPanel = null;
     save();
     renderAll();
-    toast(`${h.name} revalued: ${fmtMoney(investmentValue(h))}`);
+    toast(tr("{name} revalued: {a}", { name: h.name, a: fmtMoney(investmentValue(h)) }));
     return;
   }
 
@@ -1048,7 +1052,7 @@ document.addEventListener("click", (e) => {
     const input = investPanelInput(id, "dividend");
     const amount = Number(input && input.value);
     if (!input || !input.value.trim() || !Number.isFinite(amount) || amount <= 0) {
-      if (input) { input.value = ""; input.placeholder = "Enter a positive amount"; input.focus(); }
+      if (input) { input.value = ""; input.placeholder = tr("Enter a positive amount"); input.focus(); }
       return;
     }
     const dateEl = investPanelInput(id, "dividend-date");
@@ -1073,7 +1077,7 @@ document.addEventListener("click", (e) => {
     openInvestPanel = null;
     save();
     renderAll();
-    toast(reinvested ? `Dividend reinvested: ${fmtMoney(amount)}` : `Dividend recorded: ${fmtMoney(amount)}`);
+    toast(reinvested ? tr("Dividend reinvested: {a}", { a: fmtMoney(amount) }) : tr("Dividend recorded: {a}", { a: fmtMoney(amount) }));
   }
 });
 
@@ -1082,32 +1086,32 @@ document.addEventListener("click", (e) => {
 function investmentEditFields(h) {
   const cur = currentCurrency();
   const accountOptions = INVESTMENT_ACCOUNTS
-    .map((a) => `<option value="${escapeHtml(a)}"${a === h.account ? " selected" : ""}>${escapeHtml(a)}</option>`)
+    .map((a) => `<option value="${escapeHtml(a)}"${a === h.account ? " selected" : ""}>${escapeHtml(tr(a))}</option>`)
     .join("");
   const amounts = h.kind === "units"
     ? `<div class="grid-3">
-        ${numberField("Units", "units", h.units, { step: "0.0001", min: "0" })}
-        ${numberField(`Unit price (${cur})`, "unitPrice", h.unitPrice, { step: "0.0001", min: "0" })}
-        ${numberField(`Cost basis (${cur})`, "costBasis", h.costBasis)}
+        ${numberField(tr("Units"), "units", h.units, { step: "0.0001", min: "0" })}
+        ${numberField(tr("Unit price ({cur})", { cur }), "unitPrice", h.unitPrice, { step: "0.0001", min: "0" })}
+        ${numberField(tr("Cost basis ({cur})", { cur }), "costBasis", h.costBasis)}
       </div>`
-    : numberField(`Current value (${cur})`, "balance", h.balance);
+    : numberField(tr("Current value ({cur})", { cur }), "balance", h.balance);
   // Zakat has been opt-in since v1.9 — a user who never enabled it sees no
   // zakat wording anywhere. The stored flag stays as-is either way.
   const zakatToggle = zakatSurfaceOn()
     ? `<label class="field toggle-field">
         <input type="checkbox" name="zakatable"${h.zakatable ? " checked" : ""} />
-        <span>Counts towards my zakat base</span>
+        <span>${tr("Counts towards my zakat base")}</span>
       </label>`
     : "";
   return `
-    ${textField("Name", "name", h.name)}
+    ${textField(tr("Name"), "name", h.name)}
     <label class="field">
-      <span>Account</span>
+      <span>${tr("Account")}</span>
       <select name="account">${accountOptions}</select>
     </label>
     ${amounts}
     ${zakatToggle}
-    <p class="hint">Editing these numbers re-snapshots today's value. It records no top-up — use “Top up” when money actually moved.</p>
+    <p class="hint">${tr("Editing these numbers re-snapshots today's value. It records no top-up — use “Top up” when money actually moved.")}</p>
   `;
 }
 
