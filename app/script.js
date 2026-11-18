@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.17";
+const APP_VERSION = "1.57.18";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1618,6 +1618,9 @@ function openPoolForm(poolId, opts) {
   form.querySelector("input[name='thisMonthOverride']").value = (editing && editing.monthlyLimits && editing.monthlyLimits[m] != null)
     ? editing.monthlyLimits[m] : "";
   form.querySelector("input[name='id']").value = editing ? editing.id : "";
+  // "More" opens by itself when it holds something set.
+  const more = document.getElementById("pool-more");
+  if (more) more.open = !!(editing && (editing.rollover || (editing.monthlyLimits && editing.monthlyLimits[m] != null)));
   renderPoolColorOptions(editing ? editing.color : POOL_COLORS[0]);
 }
 
@@ -8333,7 +8336,9 @@ function setDebtKind(kind) {
   if (stdFields) stdFields.hidden = kind !== "standard";
   if (instFields) instFields.hidden = kind !== "installment";
   if (islamicFields) islamicFields.hidden = kind !== "islamic";
-  if (kind === "islamic") renderIslamicPreview();
+  const paid = document.getElementById("debt-months-paid-field");
+  if (paid) paid.hidden = kind !== "islamic";
+  if (kind === "islamic") { renderIslamicPreview(); renderDebtContractNote(); }
 }
 
 // The Islamic debt type is a product type, not a preference — plenty of
@@ -8344,9 +8349,19 @@ function populateIslamicContracts() {
   const sel = document.getElementById("debt-contract");
   if (sel && !sel.options.length) {
     sel.innerHTML = ISLAMIC_CONTRACTS
-      .map((c) => `<option value="${c.id}">${escapeHtml(c.label)} — ${escapeHtml(tr(c.note))}</option>`)
+      .map((c) => `<option value="${c.id}">${escapeHtml(c.label)}</option>`)
       .join("");
+    sel.addEventListener("change", renderDebtContractNote);
   }
+  renderDebtContractNote();
+}
+// The picker shows the short name; what the contract is goes underneath.
+function renderDebtContractNote() {
+  const sel = document.getElementById("debt-contract");
+  const note = document.getElementById("debt-contract-note");
+  if (!sel || !note) return;
+  const c = ISLAMIC_CONTRACTS.find((x) => x.id === sel.value) || ISLAMIC_CONTRACTS[0];
+  note.textContent = tr(c.note);
 }
 
 // Live echo of what the contract actually costs, so a user comparing a bank
@@ -8868,6 +8883,12 @@ function renderFxPreview({ amount, fromCode, toCode, supported }) {
   }
   return `<span class="fx-preview">${fmtMoneyIn(converted, toCode)} · rate 1 ${escapeHtml(fromCode)} = ${rate.toFixed(4)} ${escapeHtml(toCode)}</span>`;
 }
+
+// Every "More" in an add form folds again once the form is reset.
+document.addEventListener("reset", (e) => {
+  const f = e.target;
+  if (f instanceof HTMLFormElement) f.querySelectorAll("details[data-form-more]").forEach((d) => { d.open = false; });
+}, true);
 
 function populateCurrencyPickers() {
   document.querySelectorAll("select[data-currency-picker]").forEach((sel) => {
@@ -11413,6 +11434,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.18": [
+    "<strong>Shorter forms</strong> — adding income, a bill, a budget pool, a holding or an Islamic financing now shows the fields you need, full width, with hints under them. The rest waits under More.",
+  ],
   "1.57.17": [
     "<strong>Open with Duitful</strong> — share a statement PDF or photos from your bank app, Mail or Files straight to Duitful. A PDF opens the statement import; photos ask whether they are a receipt or statement pages.",
   ],

@@ -1,6 +1,6 @@
 # Shorter forms: plan (not started)
 
-Status: planned 16 Nov 2026, **not built**. Comes from the 15 Nov form audit
+Status: **batch A built in 1.57.18** (19 Nov 2026); batch B not started. Comes from the 15 Nov form audit
 (390px, dark). The Tax page (1.55.13) is the model to follow.
 
 ## Rules (what made the Tax page work)
@@ -16,7 +16,12 @@ Status: planned 16 Nov 2026, **not built**. Comes from the 15 Nov form audit
 - Destructive actions are never next to the primary button.
 - Follow DESIGN.md tokens; e2e and 390px screenshots for every screen changed.
 
-## Batch A (small, do first)
+## Batch A (small, do first) — done in 1.57.18
+
+Shared pieces: `details.form-more[data-form-more]` ("More", folds again on
+form reset), `.field > .hint` sits snug under its field. Income / expense:
+month and currency under More (month falls back to the month being viewed).
+Pool: More opens by itself when rollover or the one-month limit is set.
 
 | # | Screen | Where (as of 15 Nov) | Problem | Fix |
 |---|---|---|---|---|

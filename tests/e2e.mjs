@@ -359,6 +359,8 @@ await page.fill('#form-investment [name="name"]', 'ASM fund');
 await page.selectOption('#invest-account', 'Unit trust');
 await page.fill('#form-investment [name="units"]', '1000');
 await page.fill('#form-investment [name="unitPrice"]', '1.05');
+// Cost basis sits under "More" (shorter forms, 1.57.18).
+await page.click('#invest-fields-units .form-more > summary');
 await page.fill('#form-investment [name="costBasis"]', '900');
 await page.click('#form-investment button[type="submit"]');
 await page.waitForTimeout(400);
