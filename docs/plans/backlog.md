@@ -16,8 +16,8 @@ Bigger plans have their own file in this folder.
 ## Shorter forms
 
 The 8 heavy screens from the 15 Nov form audit, in two batches: see
-`shorter-forms.md`. **Batch A done (1.57.18).** Batch B (split compose,
-zakat, retirement, Pro welcome) is next, as a minor release.
+`shorter-forms.md`. **Done**: batch A in 1.57.18, batch B in 1.57.19 and
+1.58.0.
 
 ## Keyboard covering fields (fixed in 1.57.14, check on the Samsung)
 

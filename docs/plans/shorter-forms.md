@@ -1,6 +1,6 @@
 # Shorter forms: plan (not started)
 
-Status: **batch A built in 1.57.18**; batch B: zakat, retirement and Pro welcome in 1.57.19, split compose next (1.58.0). Comes from the 15 Nov form audit
+Status: **done.** Batch A in 1.57.18; batch B: zakat, retirement and Pro welcome in 1.57.19, split compose (two steps, `c.step`, both steps in the DOM so `splitComposeSync` reads every field; name / DuitNow asked once via `state.split.meAsked`) in 1.58.0. Comes from the 15 Nov form audit
 (390px, dark). The Tax page (1.55.13) is the model to follow.
 
 ## Rules (what made the Tax page work)

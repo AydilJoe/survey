@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.19";
+const APP_VERSION = "1.58.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -11438,6 +11438,12 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.58.0": [
+    "<strong>Bahasa Melayu and 中文</strong> — every screen, sheet and reminder. Pick a language in Settings.",
+    "<strong>Bank statements, easier</strong> — import scans and photos too, share a PDF straight to Duitful, and get a nudge when the next one is out.",
+    "<strong>Shorter forms</strong> — split a bill in two steps, and tidier income, budget, debt, retirement and zakat forms.",
+    "<strong>Fix</strong> — forms stay above the keyboard while you type.",
+  ],
   "1.57.19": [
     "<strong>Tidier retirement and zakat cards</strong> — each card now shows its figures and one Edit button; the settings open in their own sheet with a hint under every field. The Pro welcome puts its two setup steps first.",
   ],

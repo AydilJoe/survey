@@ -90,7 +90,7 @@ const SPLIT_QTY_EXPAND_MAX = 4;
 /* ---------- shape ---------- */
 
 function emptySplit() {
-  return { out: [], in: [], names: [], me: "", payTo: [], payToEnabled: false, relayOff: false, relayNotifyOff: false };
+  return { out: [], in: [], names: [], me: "", payTo: [], payToEnabled: false, relayOff: false, relayNotifyOff: false, meAsked: false };
 }
 
 function splitIsDate(v) {
@@ -277,6 +277,9 @@ function coerceSplit(raw) {
     relayOff: !!s.relayOff,
     // "Siti says they paid" while Duitful is closed: on unless turned off.
     relayNotifyOff: !!s.relayNotifyOff,
+    // The once-only "your name / DuitNow" box has been shown (it never comes
+    // back; the pay-to sheet edits both after that).
+    meAsked: !!s.meAsked,
   };
 }
 
@@ -1761,6 +1764,8 @@ function splitOpenCompose(opts) {
     // Opened from the Home add form: that form's amount becomes this bill,
     // so it is cleared on save rather than logged a second time.
     fromForm: !!o.fromForm,
+    // A split is two steps: the bill, then who owes. Requests and loans are one.
+    step: 1,
   };
   splitRenderCompose();
   splitShowDialog(splitComposeDialogEl());
@@ -1826,7 +1831,7 @@ function splitComposeSync() {
   // By item the total is DERIVED (items + charges) and the box on screen is
   // read-only, so it must never write back: a bill total prefilled from an
   // expense has to survive a look at the by-item tab and come back intact.
-  if (!(c.mode === "split" && c.method === "item")) {
+  if (!(c.mode === "split" && c.method === "item") && body.querySelector("[name=total]")) {
     const total = Number(val("[name=total]"));
     if (Number.isFinite(total)) c.total = splitRound2(total);
   }
@@ -1963,35 +1968,44 @@ function splitRenderCompose() {
       </div>`).join("");
     body.innerHTML = `
       ${splitNameDatalist()}
-      <div class="button-row split-scan-row">
-        <button type="button" class="ghost" data-action="split-scan">Scan receipt to prefill</button>
-      </div>
-      ${splitMethodPillsHtml(c.method)}
-      <label class="field">
-        <span>What for</span>
-        <input type="text" name="title" value="${escapeHtml(c.title)}" placeholder="Dinner @ Naz Kitchen" />
-      </label>
-      <div class="grid-2">
+      <div class="split-step" data-split-step="1"${c.step === 2 ? " hidden" : ""}>
+        ${splitStepDotsHtml(1)}
+        <div class="button-row split-scan-row">
+          <button type="button" class="ghost" data-action="split-scan">Scan receipt to prefill</button>
+        </div>
+        ${splitMethodPillsHtml(c.method)}
+        <label class="field">
+          <span>What for</span>
+          <input type="text" name="title" value="${escapeHtml(c.title)}" placeholder="e.g. Dinner at Naz Kitchen" />
+        </label>
         <label class="field">
           <span>Bill total (${escapeHtml(cur)})</span>
-          <input type="number" name="total" step="0.01" min="0" max="100000000" inputmode="decimal" value="${c.total ? c.total.toFixed(2) : ""}" placeholder="0.00" />
+          <input type="number" name="total" step="0.01" min="0" max="100000000" inputmode="decimal" value="${c.total ? c.total.toFixed(2) : ""}" />
         </label>
         <label class="field">
           <span>Date</span>
           <input type="date" name="date" value="${escapeHtml(c.date)}" />
         </label>
+        ${splitPaidBlockHtml(c)}
+        <div class="form-actions">
+          <button type="button" class="ghost" data-action="split-compose-cancel">Cancel</button>
+          <button type="button" class="primary" data-action="split-next">Next: who owes</button>
+        </div>
       </div>
-      ${splitPaidBlockHtml(c)}
-      <span class="split-people-label">People</span>
-      <div class="split-people">${peopleRows}</div>
-      <div class="button-row split-people-actions">
-        <button type="button" class="ghost" data-action="split-person-add">+ Add person</button>
-        <button type="button" class="ghost" data-action="split-equally">Split equally</button>
-      </div>
-      <p class="hint split-share-hint" id="split-compose-hint">${splitComposeHintHtml()}</p>
-      <div class="form-actions">
-        <button type="button" class="ghost" data-action="split-compose-cancel">Cancel</button>
-        <button type="button" class="primary" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
+      <div class="split-step" data-split-step="2"${c.step === 2 ? "" : " hidden"}>
+        ${splitStepDotsHtml(2)}
+        ${splitRecapHtml(c, Number(c.total) || 0)}
+        <span class="split-people-label">People</span>
+        <div class="split-people">${peopleRows}</div>
+        <div class="button-row split-people-actions">
+          <button type="button" class="ghost" data-action="split-person-add">+ Add person</button>
+          <button type="button" class="ghost" data-action="split-equally">Split equally</button>
+        </div>
+        <p class="hint split-share-hint" id="split-compose-hint">${splitComposeHintHtml()}</p>
+        <div class="form-actions">
+          <button type="button" class="ghost" data-action="split-back">Back</button>
+          <button type="button" class="primary" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
+        </div>
       </div>`;
     splitTr(body);
   } else if (c.mode === "request") {
@@ -2061,25 +2075,60 @@ function splitRenderCompose() {
   }
   // Asked once, on the first bill: who's asking and where to pay. Every link
   // after that carries both, so a friend never has to ask "pay to where?".
-  body.insertAdjacentHTML("afterbegin", splitMeBlockHtml(c));
-  splitTr(body);
+  // A split asks on its people step; a request or loan at the top.
+  const me = splitMeBlockHtml(c);
+  if (me) {
+    const recap = body.querySelector('[data-split-step="2"] .split-recap');
+    if (recap) recap.insertAdjacentHTML("afterend", me);
+    else body.insertAdjacentHTML("afterbegin", me);
+    splitTr(body);
+  }
+}
+
+// Two dots over each step of a split, like the tax details.
+function splitStepDotsHtml(n) {
+  return `<ol class="tax-wiz-dots split-step-dots" aria-hidden="true"><li class="${n === 1 ? "is-on" : "is-done"}"></li><li class="${n === 2 ? "is-on" : ""}"></li></ol>`;
+}
+// Step 2 opens with what step 1 said, and a way back to change it.
+function splitRecapHtml(c, total) {
+  const title = splitText(c.title, SPLIT_TITLE_MAX) || tr("This bill");
+  const money = total > 0 ? ` · ${escapeHtml(fmtMoney(total))}` : "";
+  return `<p class="split-recap"><span translate="no">${escapeHtml(title)}</span>${money} <button type="button" class="tax-quiet" data-action="split-back">Change</button></p>`;
+}
+function splitGoStep(n) {
+  const c = splitCompose;
+  if (!c) return;
+  splitComposeSync();
+  if (n === 2 && c.mode === "split" && c.method !== "item" && !(Number(c.total) > 0)) {
+    const t = document.querySelector("#split-compose-body [name=total]");
+    if (t) { t.focus(); t.reportValidity?.(); }
+    return;
+  }
+  c.step = n;
+  splitRenderCompose();
+  const dlg = splitComposeDialogEl();
+  if (dlg) dlg.scrollTop = 0;
+  const first = document.querySelector(`#split-compose-body [data-split-step="${n}"] input:not([type=hidden]):not([readonly])`);
+  if (first) setTimeout(() => first.focus({ preventScroll: true }), 30);
 }
 
 function splitMeBlockHtml(c) {
   const s = splitState();
   if (splitText(s.me, SPLIT_NAME_MAX)) return "";
+  // Once: the composer that first showed it keeps it until it closes.
+  if (s.meAsked && !c.meShown) return "";
+  if (!c.meShown) { c.meShown = true; s.meAsked = true; if (typeof save === "function") save(); }
   return `<div class="split-me-once">
       <p class="hint">Once only: your name and where to pay you go on every link you send.</p>
-      <div class="grid-2">
-        <label class="field">
-          <span>Your name</span>
-          <input type="text" name="me" value="${escapeHtml(c.me || "")}" maxlength="${SPLIT_NAME_MAX}" placeholder="e.g. Aydil" autocomplete="given-name" />
-        </label>
-        <label class="field">
-          <span>DuitNow (optional)</span>
-          <input type="text" name="duitnow" value="${escapeHtml(c.duitnow || "")}" maxlength="${SPLIT_PAY_VALUE_MAX}" placeholder="012-3456789" inputmode="tel" />
-        </label>
-      </div>
+      <label class="field">
+        <span>Your name</span>
+        <input type="text" name="me" value="${escapeHtml(c.me || "")}" maxlength="${SPLIT_NAME_MAX}" placeholder="e.g. Aydil" autocomplete="given-name" />
+      </label>
+      <label class="field">
+        <span>DuitNow (optional)</span>
+        <input type="text" name="duitnow" value="${escapeHtml(c.duitnow || "")}" maxlength="${SPLIT_PAY_VALUE_MAX}" inputmode="tel" />
+        <span class="hint">Phone number or ID. Change it later under How to pay me.</span>
+      </label>
     </div>`;
 }
 
@@ -2204,26 +2253,29 @@ function splitComposeItemBodyHtml(cur, listAttr) {
 
   return `
       ${splitNameDatalist()}
-      <div class="button-row split-scan-row">
-        <button type="button" class="ghost" data-action="split-scan">Scan receipt to prefill</button>
-      </div>
-      ${splitMethodPillsHtml(c.method)}
-      <label class="field">
-        <span>What for</span>
-        <input type="text" name="title" value="${escapeHtml(c.title)}" placeholder="Dinner @ Naz Kitchen" />
-      </label>
-      <div class="grid-2">
+      <div class="split-step" data-split-step="1"${c.step === 2 ? " hidden" : ""}>
+        ${splitStepDotsHtml(1)}
+        <div class="button-row split-scan-row">
+          <button type="button" class="ghost" data-action="split-scan">Scan receipt to prefill</button>
+        </div>
+        ${splitMethodPillsHtml(c.method)}
         <label class="field">
-          <span>Bill total (${escapeHtml(cur)})</span>
-          <input type="number" name="total" step="0.01" readonly value="${calc.total ? calc.total.toFixed(2) : ""}" placeholder="0.00" aria-describedby="split-total-note" />
+          <span>What for</span>
+          <input type="text" name="title" value="${escapeHtml(c.title)}" placeholder="e.g. Dinner at Naz Kitchen" />
         </label>
         <label class="field">
           <span>Date</span>
           <input type="date" name="date" value="${escapeHtml(c.date)}" />
         </label>
+        ${splitPaidBlockHtml(c)}
+        <div class="form-actions">
+          <button type="button" class="ghost" data-action="split-compose-cancel">Cancel</button>
+          <button type="button" class="primary" data-action="split-next">Next: items and people</button>
+        </div>
       </div>
-      <p class="hint split-total-note" id="split-total-note">Items plus charges — it adds itself up.</p>
-      ${splitPaidBlockHtml(c)}
+      <div class="split-step" data-split-step="2"${c.step === 2 ? "" : " hidden"}>
+      ${splitStepDotsHtml(2)}
+      ${splitRecapHtml(c, 0)}
       <span class="split-people-label">People</span>
       <div class="split-people">${peopleRows}</div>
       <div class="button-row split-people-actions">
@@ -2247,14 +2299,20 @@ function splitComposeItemBodyHtml(cur, listAttr) {
         </div>
       </div>
       <div class="split-totals" id="split-item-totals">${splitItemTotalsHtml(calc)}</div>
+      <label class="field">
+        <span>Bill total (${escapeHtml(cur)})</span>
+        <input type="number" name="total" step="0.01" readonly value="${calc.total ? calc.total.toFixed(2) : ""}" aria-describedby="split-total-note" />
+        <span class="hint split-total-note" id="split-total-note">Items plus charges — it adds itself up.</span>
+      </label>
       <p class="hint split-share-hint" id="split-compose-hint">${splitComposeHintHtml()}</p>
       ${splitPickAvailable() && c.items.length ? `<div class="split-pick-offer">
         <button type="button" class="primary" data-action="split-pick-start">Let everyone tick their own</button>
         <p class="hint">One link for the group chat. Each person ticks what they had; their share comes back to you, and you send the requests when everyone's in.</p>
       </div>` : ""}
       <div class="form-actions">
-        <button type="button" class="ghost" data-action="split-compose-cancel">Cancel</button>
+        <button type="button" class="ghost" data-action="split-back">Back</button>
         <button type="button" class="${splitPickAvailable() && c.items.length ? "ghost" : "primary"}" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
+      </div>
       </div>`;
 }
 
@@ -3504,6 +3562,10 @@ document.addEventListener("click", (e) => {
     splitRenderCompose();
   } else if (action === "split-equally") {
     splitEqually();
+  } else if (action === "split-next") {
+    splitGoStep(2);
+  } else if (action === "split-back") {
+    splitGoStep(1);
   } else if (action === "split-scan") {
     splitStartScan();
   } else if (action === "split-expense") {
