@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.10";
+const APP_VERSION = "1.57.11";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -11299,6 +11299,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.11": [
+    "<strong>Split a bill in Bahasa Melayu and 中文</strong> — splitting, requesting and lending money now follow your language, and so do the messages your friends get. Names and titles you type stay exactly as you typed them.",
+  ],
   "1.57.10": [
     "<strong>Receipt scan and statement import in Bahasa Melayu and 中文</strong> — scanning a receipt, importing a bank statement and the bank-alert tools now follow your language.",
   ],

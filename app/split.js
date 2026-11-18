@@ -367,21 +367,21 @@ function splitDayLabel(iso) {
 function splitDueLabel(iso) {
   const delta = splitDaysUntil(iso);
   if (!Number.isFinite(delta)) return "";
-  if (delta === 0) return "due today";
-  if (delta === 1) return "due tomorrow";
-  if (delta < 0) return `${-delta} day${delta === -1 ? "" : "s"} overdue`;
-  return `due ${splitDayLabel(iso)}`;
+  if (delta === 0) return tr("due today");
+  if (delta === 1) return tr("due tomorrow");
+  if (delta < 0) return trn(-delta, "{n} day overdue", "{n} days overdue");
+  return tr("due {date}", { date: splitDayLabel(iso) });
 }
 
 function splitAgeLabel(iso) {
   const delta = splitDaysUntil(iso);
   if (!Number.isFinite(delta)) return "";
   const days = -delta;
-  if (days <= 0) return "today";
-  if (days === 1) return "1 day ago";
-  if (days < 30) return `${days} days ago`;
+  if (days <= 0) return tr("today");
+  if (days === 1) return tr("1 day ago");
+  if (days < 30) return tr("{n} days ago", { n: days });
   const months = Math.round(days / 30);
-  return `${months} month${months === 1 ? "" : "s"} ago`;
+  return trn(months, "{n} month ago", "{n} months ago");
 }
 
 /* ---------- encode / decode ---------- */
@@ -605,28 +605,30 @@ function splitShareLink(code) {
 // first and the link goes last on its own line: a message that OPENS with
 // 300 characters of code is what a phishing link looks like.
 function splitWhenPhrase(iso) {
-  if (!splitIsDate(iso) || iso === todayISO()) return "today";
-  return `on ${splitDayLabel(iso)}`;
+  if (!splitIsDate(iso) || iso === todayISO()) return tr("today");
+  return tr("on {date}", { date: splitDayLabel(iso) });
 }
 function splitForPhrase(rec) {
   // The default loan title is the lender's word for it; to the borrower
   // "for Money lent" reads like a form field.
-  if (rec.kind === "loan" && (!rec.title || rec.title === "Money lent")) return "the money I lent you";
+  if (rec.kind === "loan" && (!rec.title || rec.title === "Money lent")) return tr("the money I lent you");
   return rec.title;
 }
 function splitPayLine() {
   const s = splitState();
   if (!s.payToEnabled) return "";
   const rows = coerceSplitPayRows(s.payTo);
-  return rows.length ? `Pay to ${rows.map((r) => (r.label ? `${r.label} ${r.value}` : r.value)).join(" · ")}` : "";
+  return rows.length ? tr("Pay to {rows}", { rows: rows.map((r) => (r.label ? `${r.label} ${r.value}` : r.value)).join(" · ") }) : "";
 }
 
 function splitPaidShareText(rec, code, date) {
   const s = splitState();
   const who = splitText(s.me, SPLIT_NAME_MAX) || "I";
   const amount = typeof fmtMoney === "function" ? fmtMoney(rec.amount) : String(rec.amount);
-  const paid = who === "I" ? "I've paid" : `${who} paid`;
-  return `${paid} ${amount} for ${rec.title} ${splitWhenPhrase(date)}.\nReceipt: ${splitShareLink(code)}`;
+  const line = who === "I"
+    ? tr("I've paid {a} for {what} {when}.", { a: amount, what: rec.title, when: splitWhenPhrase(date) })
+    : tr("{who} paid {a} for {what} {when}.", { who, a: amount, what: rec.title, when: splitWhenPhrase(date) });
+  return `${line}\n${tr("Receipt:")} ${splitShareLink(code)}`;
 }
 
 function splitShareText(rec, person, code, opts) {
@@ -636,14 +638,14 @@ function splitShareText(rec, person, code, opts) {
     ? fmtMoney(splitPersonRemaining(person))
     : String(splitPersonRemaining(person));
   const what = splitForPhrase(rec);
-  const due = rec.dueDate ? `, due ${splitDayLabel(rec.dueDate)}` : "";
+  const due = rec.dueDate ? tr(", due {date}", { date: splitDayLabel(rec.dueDate) }) : "";
   // Remind used to resend the original request word for word. A nudge reads
   // as a nudge — and it is the amount still LEFT, after any part-payments.
   const head = opts && opts.remind
-    ? `Friendly reminder: ${amount} still to go for ${what}${due}.`
-    : `${who ? `${who}: ` : ""}${amount} for ${what}${due}.`;
+    ? tr("Friendly reminder: {a} still to go for {what}{due}.", { a: amount, what, due })
+    : `${who ? `${who}: ` : ""}${tr("{a} for {what}{due}.", { a: amount, what, due })}`;
   const pay = splitPayLine();
-  return `${head}${pay ? `\n${pay}` : ""}\nDetails: ${splitShareLink(code)}`;
+  return `${head}${pay ? `\n${pay}` : ""}\n${tr("Details:")} ${splitShareLink(code)}`;
 }
 
 /* ---------- ingest ---------- */
@@ -751,10 +753,10 @@ async function splitConsumePending() {
 function splitIngestToast(res) {
   if (!res || typeof toast !== "function") return;
   if (res.kind === "paid") {
-    if (res.duplicate) toast(`${res.person.name} is already settled`);
+    if (res.duplicate) toast(tr("{name} is already settled", { name: res.person.name }));
     return;
   }
-  toast(res.duplicate ? "Already added" : `Request added: ${res.record.from} · ${fmtMoney(res.record.amount)}`);
+  toast(res.duplicate ? tr("Already added") : tr("Request added: {name} · {a}", { name: res.record.from, a: fmtMoney(res.record.amount) }));
 }
 
 // Android App Link: a duitful.app/split link tapped in WhatsApp opens the
@@ -859,8 +861,8 @@ function splitNativeReminders() {
       if (remaining <= 0) continue;
       const parts = rec.dueDate.split("-").map(Number);
       out.push({
-        title: `${p.name} — due today`,
-        body: `${fmtMoney(remaining)} owed to you · ${rec.title}`,
+        title: tr("{name} — due today", { name: p.name }),
+        body: tr("{a} owed to you · {what}", { a: fmtMoney(remaining), what: rec.title }),
         at: new Date(parts[0], parts[1] - 1, parts[2], 9, 0, 0),
       });
     }
@@ -1672,6 +1674,30 @@ function splitIngestDialogEl() { return document.getElementById("split-ingest-di
 function splitPayToDialogEl() { return document.getElementById("split-payto-dialog"); }
 function splitPaidDialogEl() { return document.getElementById("split-paid-dialog"); }
 
+// Translate a block split.js just built, leaving every name, title and item
+// the user typed alone (they are data, not interface).
+function splitKeepWords() {
+  const keep = new Set();
+  const seen = new Set();
+  // Plain data only: the composer can hold a photo Blob or a DOM node, and
+  // walking those (or a cycle) ran away and took the page down.
+  const walk = (v, depth) => {
+    if (typeof v === "string") { const t = v.replace(/\s+/g, " ").trim(); if (t && t.length < 200) keep.add(t); return; }
+    if (!v || typeof v !== "object" || depth > 6 || seen.has(v)) return;
+    const plain = Array.isArray(v) || Object.getPrototypeOf(v) === Object.prototype;
+    if (!plain) return;
+    seen.add(v);
+    (Array.isArray(v) ? v : Object.values(v)).forEach((x) => walk(x, depth + 1));
+  };
+  walk(state && state.split, 0);
+  walk(typeof splitCompose !== "undefined" ? splitCompose : null, 0);
+  return keep;
+}
+function splitTr(el) {
+  if (!el || !window.I18N || I18N.lang === "en") return;
+  I18N.translate(el, splitKeepWords());
+}
+
 function splitShowDialog(dlg) {
   if (!dlg) return;
   if (typeof dlg.showModal === "function") { if (!dlg.open) dlg.showModal(); }
@@ -1873,7 +1899,7 @@ function splitComposeItemsInput() {
 // Names are optional while you are still typing, so the chips and the totals
 // need something to say in the meantime.
 function splitPersonLabel(name, i) {
-  return splitText(name, SPLIT_NAME_MAX) || `Person ${i + 1}`;
+  return splitText(name, SPLIT_NAME_MAX) || tr("Person {n}", { n: i + 1 });
 }
 
 // "I paid the bill": only when the split isn't already tied to a logged
@@ -1927,11 +1953,12 @@ function splitRenderCompose() {
 
   if (c.mode === "split" && c.method === "item") {
     body.innerHTML = splitComposeItemBodyHtml(cur, listAttr);
+    splitTr(body);
   } else if (c.mode === "split") {
     const peopleRows = c.people.map((p, i) => `
       <div class="split-person-row" data-split-person data-index="${i}" data-pkey="${escapeHtml(p.key || "")}">
-        <input type="text" data-person-name value="${escapeHtml(p.name)}" aria-label="Person ${i + 1} name" placeholder="Name"${listAttr} />
-        <input type="number" data-person-amount step="0.01" min="0" max="100000000" inputmode="decimal" value="${p.amount ? p.amount.toFixed(2) : ""}" aria-label="Person ${i + 1} amount" placeholder="0.00" />
+        <input type="text" data-person-name value="${escapeHtml(p.name)}" aria-label="${tr("Person {n} name", { n: i + 1 })}" placeholder="Name"${listAttr} />
+        <input type="number" data-person-amount step="0.01" min="0" max="100000000" inputmode="decimal" value="${p.amount ? p.amount.toFixed(2) : ""}" aria-label="${tr("Person {n} amount", { n: i + 1 })}" placeholder="0.00" />
         <button type="button" class="ghost icon-btn" data-action="split-person-remove" data-index="${i}" aria-label="Remove person">✕</button>
       </div>`).join("");
     body.innerHTML = `
@@ -1966,6 +1993,7 @@ function splitRenderCompose() {
         <button type="button" class="ghost" data-action="split-compose-cancel">Cancel</button>
         <button type="button" class="primary" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
       </div>`;
+    splitTr(body);
   } else if (c.mode === "request") {
     const p = c.people[0] || { name: "", amount: 0 };
     body.innerHTML = `
@@ -1993,6 +2021,7 @@ function splitRenderCompose() {
         <button type="button" class="ghost" data-action="split-compose-cancel">Cancel</button>
         <button type="button" class="primary" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
       </div>`;
+    splitTr(body);
   } else {
     const p = c.people[0] || { name: "", amount: 0 };
     body.innerHTML = `
@@ -2028,10 +2057,12 @@ function splitRenderCompose() {
         <button type="button" class="ghost" data-action="split-compose-cancel">Cancel</button>
         <button type="button" class="primary" data-action="split-compose-save">${escapeHtml(splitComposeCtaLabel())}</button>
       </div>`;
+    splitTr(body);
   }
   // Asked once, on the first bill: who's asking and where to pay. Every link
   // after that carries both, so a friend never has to ask "pay to where?".
   body.insertAdjacentHTML("afterbegin", splitMeBlockHtml(c));
+  splitTr(body);
 }
 
 function splitMeBlockHtml(c) {
@@ -2108,9 +2139,9 @@ function splitScanReportHtml(report) {
   const money = (v) => `RM ${Number(v || 0).toFixed(2)}`;
   const mismatch = r.statedTotal > 0 && Math.abs(splitRound2(r.itemSum + r.charges) - r.statedTotal) > 0.05;
   const lines = [
-    `Items read: ${r.itemCount} — ${money(r.itemSum)}`,
-    r.charges ? `Charges added: ${money(r.charges)}` : `Charges added: none`,
-    r.statedTotal > 0 ? `Total printed on the receipt: ${money(r.statedTotal)}` : `No total found on the receipt`,
+    tr("Items read: {n} — {a}", { n: r.itemCount, a: money(r.itemSum) }),
+    r.charges ? tr("Charges added: {a}", { a: money(r.charges) }) : tr("Charges added: none"),
+    r.statedTotal > 0 ? tr("Total printed on the receipt: {a}", { a: money(r.statedTotal) }) : tr("No total found on the receipt"),
   ];
   if (r.reconciled) {
     lines.push(`The items already add up to the printed total, so no tax or service charge was added on top.`);
@@ -2146,7 +2177,7 @@ function splitComposeItemBodyHtml(cur, listAttr) {
 
   const peopleRows = c.people.map((p, i) => `
         <div class="split-person-row" data-split-person data-index="${i}" data-pkey="${escapeHtml(p.key || "")}">
-          <input type="text" data-person-name value="${escapeHtml(p.name)}" aria-label="Person ${i + 1} name" placeholder="Name"${listAttr} />
+          <input type="text" data-person-name value="${escapeHtml(p.name)}" aria-label="${tr("Person {n} name", { n: i + 1 })}" placeholder="Name"${listAttr} />
           <button type="button" class="ghost icon-btn" data-action="split-person-remove" data-index="${i}" aria-label="Remove person">✕</button>
         </div>`).join("");
 
@@ -2229,42 +2260,41 @@ function splitComposeItemBodyHtml(cur, listAttr) {
 
 function splitComposeCtaLabel() {
   const c = splitCompose;
-  if (!c) return "Save";
-  if (c.mode === "loan") return "Record loan";
-  if (c.mode === "request") return "Create request";
+  if (!c) return tr("Save");
+  if (c.mode === "loan") return tr("Record loan");
+  if (c.mode === "request") return tr("Create request");
   if (c.method === "item") {
     const owing = splitComputeItems(splitComposeItemsInput()).people.slice(1).filter((p) => p.amount > 0).length;
-    return owing ? `Create ${owing} request${owing === 1 ? "" : "s"}` : "Create requests";
+    return owing ? trn(owing, "Create {n} request", "Create {n} requests") : tr("Create requests");
   }
   const n = c.people.filter((p) => p.name || p.amount > 0).length || c.people.length;
-  return `Create ${n} request${n === 1 ? "" : "s"}`;
+  return trn(n, "Create {n} request", "Create {n} requests");
 }
 
 function splitComposeHintHtml() {
   const c = splitCompose;
   if (!c) return "";
   if (c.mode === "loan") {
-    return "This records the loan and reminds <strong>you</strong> near the due date. Sending them a request link is optional — the record works either way.";
+    return tr("This records the loan and reminds <strong>you</strong> near the due date. Sending them a request link is optional — the record works either way.");
   }
   if (c.mode === "request") {
-    return "Creates a request you can send as a link or QR. Nothing is charged and no money moves — Duitful just records the IOU.";
+    return tr("Creates a request you can send as a link or QR. Nothing is charged and no money moves — Duitful just records the IOU.");
   }
   if (c.method === "item") {
     const calc = splitComputeItems(splitComposeItemsInput());
     if (!(calc.total > 0)) {
-      return "Add the items and their prices, then tick who shared each one. Anything nobody ticks stays on you.";
+      return tr("Add the items and their prices, then tick who shared each one. Anything nobody ticks stays on you.");
     }
     const yourShare = calc.people[0] ? calc.people[0].amount : 0;
     const requested = splitRound2(calc.total - yourShare);
-    const mode = c.chargesMode === "proportional" ? "in proportion to what each person ate" : "equally";
-    return `${splitPaidHint(c, calc.total, requested, yourShare)} Charges are split ${mode}.`;
+    return `${splitPaidHint(c, calc.total, requested, yourShare)} ${tr(c.chargesMode === "proportional" ? "Charges are split in proportion to what each person ate." : "Charges are split equally.")}`;
   }
   const { others, yours } = splitComposeShare();
   if (!(Number(c.total) > 0)) {
-    return "Enter the bill total, then add who owes you. Your own share is whatever is left over.";
+    return tr("Enter the bill total, then add who owes you. Your own share is whatever is left over.");
   }
   if (yours < -0.005) {
-    return `The shares add up to <strong>${fmtMoney(others)}</strong> — that is ${fmtMoney(-yours)} more than the bill total.`;
+    return tr("The shares add up to <strong>{a}</strong> — that is {b} more than the bill total.", { a: fmtMoney(others), b: fmtMoney(-yours) });
   }
   return splitPaidHint(c, Number(c.total) || 0, others, yours);
 }
@@ -2273,14 +2303,15 @@ function splitComposeHintHtml() {
 // it, the others owe their part, and it comes back as income when they pay.
 function splitPaidHint(c, total, owed, yours) {
   const paid = c.expenseId || c.logPaid !== false
-    ? `You paid <strong>${fmtMoney(total)}</strong> — ${c.expenseId ? "your logged spending stays at that" : "all of it goes into your spending"}.`
-    : `Nothing is added to your spending.`;
-  return `${paid} ${fmtMoney(owed)} becomes requests; when they pay, it comes back as income. Your own share: ${fmtMoney(yours)}.`;
+    ? tr(c.expenseId ? "You paid <strong>{a}</strong> — your logged spending stays at that." : "You paid <strong>{a}</strong> — all of it goes into your spending.", { a: fmtMoney(total) })
+    : tr("Nothing is added to your spending.");
+  return `${paid} ${tr("{a} becomes requests; when they pay, it comes back as income. Your own share: {b}.", { a: fmtMoney(owed), b: fmtMoney(yours) })}`;
 }
 
 function splitUpdateComposeHint() {
   const el = document.getElementById("split-compose-hint");
   if (el) el.innerHTML = splitComposeHintHtml();
+  splitTr(el);
   splitUpdateItemTotals();
   const cta = document.querySelector("#split-compose-dialog [data-action='split-compose-save']");
   if (cta) cta.textContent = splitComposeCtaLabel();
@@ -2294,6 +2325,7 @@ function splitUpdateItemTotals() {
   if (!c || !box || c.mode !== "split" || c.method !== "item") return;
   const calc = splitComputeItems(splitComposeItemsInput());
   box.innerHTML = splitItemTotalsHtml(calc);
+  splitTr(box);
   // The bill total shown here is derived, never typed: items + charges. It is
   // not written back into the composer — see splitComposeSync().
   const totalInput = document.querySelector("#split-compose-body [name=total]");
@@ -2326,11 +2358,11 @@ function splitComposeSaveItems() {
   // calc.people[0] is You — your own share never becomes a request.
   const owing = calc.people.slice(1).filter((p) => p.amount > 0);
   if (!owing.length) {
-    toast("Nobody owes anything yet — add items and tick who shared them.");
+    toast(tr("Nobody owes anything yet — add items and tick who shared them."));
     return;
   }
   if (owing.some((p) => !splitText(p.name, SPLIT_NAME_MAX))) {
-    toast("Add a name for everyone you're requesting from.");
+    toast(tr("Add a name for everyone you're requesting from."));
     return;
   }
   const record = coerceSplitOut({
@@ -2365,9 +2397,9 @@ function splitComposeSaveItems() {
 }
 
 function splitSavedToast(record, c) {
-  const n = `${record.people.length} request${record.people.length === 1 ? "" : "s"} created`;
+  const n = trn(record.people.length, "{n} request created", "{n} requests created");
   return record.kind === "split" && record.expenseId && !c.expenseId
-    ? `${fmtMoney(record.total)} added to your spending · ${n}`
+    ? tr("{a} added to your spending · {n}", { a: fmtMoney(record.total), n })
     : n;
 }
 
@@ -2407,11 +2439,11 @@ function splitComposeSave() {
     .map((p) => ({ name: splitText(p.name, SPLIT_NAME_MAX), amount: splitRound2(p.amount) }))
     .filter((p) => p.amount > 0 || p.name);
   if (!people.length || people.some((p) => !p.name)) {
-    toast("Add a name for everyone you're requesting from.");
+    toast(tr("Add a name for everyone you're requesting from."));
     return;
   }
   if (people.some((p) => !(p.amount > 0))) {
-    toast("Every person needs an amount above zero.");
+    toast(tr("Every person needs an amount above zero."));
     return;
   }
   const othersTotal = splitRound2(people.reduce((s, p) => s + p.amount, 0));
@@ -2458,8 +2490,8 @@ function splitComposeSave() {
   splitCompose = null;
   if (record.kind === "loan") {
     toast(lentExpense
-      ? `Loan recorded: ${record.people[0].name} · ${fmtMoney(record.people[0].amount)} — logged as an expense`
-      : `Loan recorded: ${record.people[0].name} · ${fmtMoney(record.people[0].amount)}`);
+      ? tr("Loan recorded: {name} · {a} — logged as an expense", { name: record.people[0].name, a: fmtMoney(record.people[0].amount) })
+      : tr("Loan recorded: {name} · {a}", { name: record.people[0].name, a: fmtMoney(record.people[0].amount) }));
     return;
   }
   toast(splitSavedToast(record, c));
@@ -2544,9 +2576,9 @@ function splitApplyScan(parsed) {
         who: keys.slice(),
       }));
       c.charges = read.charges;
-      toast(`${read.items.length} item${read.items.length === 1 ? "" : "s"} read — check them before you split`);
+      toast(trn(read.items.length, "{n} item read — check them before you split", "{n} items read — check them before you split"));
     } else {
-      toast("Couldn't read the item lines — type them in, or split equally instead.");
+      toast(tr("Couldn't read the item lines — type them in, or split equally instead."));
     }
     // Kept for the "What did it read?" panel. Held on the compose object so
     // it dies with the draft and never reaches a payload — the receipt text
@@ -2636,14 +2668,14 @@ async function splitRenderPaidShare() {
   splitShare.code = code;
   const qrHtml = splitQrHtml(splitShareLink(code));
 
-  if (titleEl) titleEl.textContent = `Confirm you paid ${rec.from}`;
+  if (titleEl) titleEl.textContent = tr("Confirm you paid {name}", { name: rec.from });
 
   const previewParts = [
-    splitText(s.me, SPLIT_NAME_MAX) || "your name (not set)",
+    splitText(s.me, SPLIT_NAME_MAX) || tr("your name (not set)"),
     fmtMoney(rec.amount),
     `"${rec.title}"`,
-    `paid ${splitDayLabel(payload.d)}`,
-    "no transfer details",
+    tr("paid {date}", { date: splitDayLabel(payload.d) }),
+    tr("no transfer details"),
   ];
 
   const nameField = splitText(s.me, SPLIT_NAME_MAX)
@@ -2672,6 +2704,7 @@ async function splitRenderPaidShare() {
         <button type="button" class="ghost" data-action="split-share-close">Done</button>
       </div>
     </div>`;
+  splitTr(body);
 }
 
 async function splitRenderRequestShare() {
@@ -2695,10 +2728,10 @@ async function splitRenderRequestShare() {
 
   // "1 of 3": sharing one by one used to give no sense of how many were left.
   if (titleEl) titleEl.textContent = splitShare.remind
-    ? `Remind ${person.name}`
+    ? tr("Remind {name}", { name: person.name })
     : people.length > 1
-      ? `${person.name}'s share · ${splitShare.index + 1} of ${people.length}`
-      : `Request ${person.name}'s share`;
+      ? tr("{name}'s share · {i} of {n}", { name: person.name, i: splitShare.index + 1, n: people.length })
+      : tr("Request {name}'s share", { name: person.name });
 
   const subParts = [fmtMoney(splitPersonRemaining(person)), rec.title];
   if (rec.dueDate) subParts.push(splitDueLabel(rec.dueDate));
@@ -2707,15 +2740,15 @@ async function splitRenderRequestShare() {
 
   const payRows = s.payToEnabled ? coerceSplitPayRows(s.payTo) : [];
   const previewParts = [
-    splitText(s.me, SPLIT_NAME_MAX) || "your name (not set)",
+    splitText(s.me, SPLIT_NAME_MAX) || tr("your name (not set)"),
     fmtMoney(splitPersonRemaining(person)),
     `"${rec.title}"`,
   ];
-  if (rec.dueDate) previewParts.push(`due ${splitDayLabel(rec.dueDate)}`);
+  if (rec.dueDate) previewParts.push(tr("due {date}", { date: splitDayLabel(rec.dueDate) }));
   previewParts.push(payRows.length
-    ? `your transfer details (${payRows.map((r) => r.label || r.value).join(", ")})`
-    : "no transfer details");
-  if (rec.relay) previewParts.push("a key to this bill's encrypted mailbox");
+    ? tr("your transfer details ({rows})", { rows: payRows.map((r) => r.label || r.value).join(", ") })
+    : tr("no transfer details"));
+  if (rec.relay) previewParts.push(tr("a key to this bill's encrypted mailbox"));
 
   splitRelayFlushPhoto(rec);
   const photoRow = rec.relay
@@ -2739,7 +2772,7 @@ async function splitRenderRequestShare() {
   // "More". Opening a share used to mean scrolling past all of it to find
   // the one button everyone needs.
   const payLabel = s.payTo.length
-    ? `How to pay me — edit (${s.payTo.length} row${s.payTo.length === 1 ? "" : "s"})`
+    ? trn(s.payTo.length, "How to pay me — edit ({n} row)", "How to pay me — edit ({n} rows)")
     // Without this the link tells them what they owe but not where to send it.
     : "Add your DuitNow or bank, so they can pay from the link";
   body.innerHTML = `
@@ -2752,7 +2785,7 @@ async function splitRenderRequestShare() {
         // A bill split at the mamak table goes to the group chat: one
         // message, everyone's line and link, instead of N trips out and back.
         ? `<button type="button" class="primary" data-action="split-share-all">Send all ${people.length} in one message</button>
-           <button type="button" class="ghost" data-action="split-share-link">Send ${escapeHtml(person.name)}'s only</button>`
+           <button type="button" class="ghost" data-action="split-share-link">${tr("Send {name}'s only", { name: escapeHtml(person.name) })}</button>`
         : `<button type="button" class="primary" data-action="split-share-link">Share link (WhatsApp, anything)</button>`}
     </div>
     <div class="split-preview">
@@ -2760,10 +2793,10 @@ async function splitRenderRequestShare() {
       <p class="split-preview-body">${escapeHtml(previewParts.join(" · "))}</p>
     </div>
     <details class="split-share-more"${payRows.length ? "" : " open"}>
-      <summary>QR code, transfer details${rec.relay ? ", receipt photo" : ""}</summary>
+      <summary>${tr(rec.relay ? "QR code, transfer details, receipt photo" : "QR code, transfer details")}</summary>
       ${qrHtml
         ? `<div class="split-qr-panel">${qrHtml}</div>
-           <p class="hint split-qr-note">${escapeHtml(person.name)} scans this with Duitful — or any camera, it opens the request page.</p>`
+           <p class="hint split-qr-note">${tr("{name} scans this with Duitful — or any camera, it opens the request page.", { name: escapeHtml(person.name) })}</p>`
         : `<p class="hint">This request is too long for a QR code — use the link or the code below.</p>`}
       <label class="field toggle-field">
         <input type="checkbox" id="split-share-payto"${s.payToEnabled ? " checked" : ""} />
@@ -2779,6 +2812,7 @@ async function splitRenderRequestShare() {
         <button type="button" class="ghost" data-action="split-share-close">Done</button>
       </div>
     </div>`;
+  splitTr(body);
 }
 
 // Everyone's request in one message for a group chat. Each person keeps their
@@ -2808,14 +2842,14 @@ async function splitDoShareAll() {
   const text = await splitGroupShareText(rec);
   if (navigator.share) {
     try {
-      await navigator.share({ title: `Split: ${rec.title}`, text });
+      await navigator.share({ title: tr("Split: {what}", { what: rec.title }), text });
       return;
     } catch (err) {
       if (err && err.name === "AbortError") return;
     }
   }
   const ok = await splitCopyText(text);
-  toast(ok ? "Copied — paste it in the group chat" : "Couldn't copy — send them one by one instead");
+  toast(ok ? tr("Copied — paste it in the group chat") : tr("Couldn't copy — send them one by one instead"));
 }
 
 async function splitDoShare() {
@@ -2827,14 +2861,14 @@ async function splitDoShare() {
     const rec = splitInList().find((r) => r.id === splitShare.recordId);
     if (!rec) return;
     text = splitPaidShareText(rec, splitShare.code, splitShare.date);
-    title = `Payment for ${rec.title}`;
+    title = tr("Payment for {name}", { name: rec.title });
   } else {
     const rec = splitOutList().find((r) => r.id === splitShare.recordId);
     if (!rec) return;
     const person = rec.people.filter((p) => p.status !== "cancelled")[splitShare.index];
     if (!person) return;
     text = splitShareText(rec, person, splitShare.code, { remind: splitShare.remind });
-    title = `Request for ${rec.title}`;
+    title = tr("Request for {what}", { what: rec.title });
   }
   if (navigator.share) {
     try {
@@ -2847,8 +2881,8 @@ async function splitDoShare() {
     }
   }
   const ok = await splitCopyText(text);
-  if (ok) toast(paid ? "Confirmation copied — paste it to them" : "Request copied — paste it to them");
-  else toast("Couldn't copy — use “Copy code” instead");
+  if (ok) toast(paid ? tr("Confirmation copied — paste it to them") : tr("Request copied — paste it to them"));
+  else toast(tr("Couldn't copy — use “Copy code” instead"));
 }
 
 /* ---------- settlement receipt: the confirm prompt ---------- */
@@ -2867,8 +2901,8 @@ function splitRenderPaidPrompt() {
   const amount = splitPaidPrompt.amount;
   const short = splitRound2(remaining - amount);
 
-  const meta = [rec.title, `paid ${splitDayLabel(splitPaidPrompt.date)}`];
-  if (short > 0) meta.push(`${fmtMoney(short)} of ${fmtMoney(remaining)} would still be owed`);
+  const meta = [rec.title, tr("paid {date}", { date: splitDayLabel(splitPaidPrompt.date) })];
+  if (short > 0) meta.push(tr("{a} of {b} would still be owed", { a: fmtMoney(short), b: fmtMoney(remaining) }));
 
   body.innerHTML = `
     <div class="split-paid-summary">
@@ -2881,6 +2915,7 @@ function splitRenderPaidPrompt() {
       <button type="button" class="ghost" data-action="split-paid-dismiss">Not yet</button>
       <button type="button" class="primary" data-action="split-paid-confirm">Confirm &amp; settle</button>
     </div>`;
+  splitTr(body);
 }
 
 // The tap that ends the receipt flow. Books the repayment exactly like a
@@ -2894,10 +2929,10 @@ function splitConfirmPaid() {
   splitPaidPrompt = null;
   splitCloseDialog(splitPaidDialogEl());
   if (typeof renderAll === "function") renderAll();
-  if (!res) { toast("That request is no longer open."); return; }
+  if (!res) { toast(tr("That request is no longer open.")); return; }
   toast(res.settled
-    ? `${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`
-    : `${fmtMoney(res.amount)} recorded · ${fmtMoney(res.remaining)} still owed`);
+    ? tr("{name} settled — {a} logged as income", { name: res.person.name, a: fmtMoney(res.amount) })
+    : tr("{a} recorded · {b} still owed", { a: fmtMoney(res.amount), b: fmtMoney(res.remaining) }));
 }
 
 /* ---------- "How to pay me" ---------- */
@@ -2931,6 +2966,7 @@ function splitRenderPayTo() {
       <button type="button" class="ghost" data-action="split-payto-cancel">Cancel</button>
       <button type="button" class="primary" data-action="split-payto-save">Save</button>
     </div>`;
+  splitTr(body);
 }
 
 function splitSavePayTo() {
@@ -2950,7 +2986,7 @@ function splitSavePayTo() {
   // Coming back from the editor must re-encode: the payload that was on
   // screen a moment ago no longer matches what would leave the device.
   if (splitShare && splitShareDialogEl()?.open) splitRenderShare();
-  toast("Transfer details saved");
+  toast(tr("Transfer details saved"));
 }
 
 /* ---------- ingest dialog ---------- */
@@ -3181,7 +3217,7 @@ function splitOutRowHtml(rec, person) {
   // "I've paid" that arrived through the mailbox and hasn't been confirmed.
   const claim = rec.relay && rec.relay.claims[person.id];
   const claimHtml = claim
-    ? `<button type="button" class="split-claim" data-action="split-relay-claim" data-id="${person.id}">${escapeHtml(claim.fr || person.name)} says they paid ${escapeHtml(fmtMoney(claim.a))} · Review</button>`
+    ? `<button type="button" class="split-claim" data-action="split-relay-claim" data-id="${person.id}">${tr("{name} says they paid {a} · Review", { name: escapeHtml(claim.fr || person.name), a: escapeHtml(fmtMoney(claim.a)) })}</button>`
     : "";
   return `
     <div class="split-row" data-id="${person.id}">
@@ -3192,10 +3228,10 @@ function splitOutRowHtml(rec, person) {
       <div class="split-meta">${meta.map((m) => `<span>${m}</span>`).join("")}</div>
       ${claimHtml}
       <div class="split-actions">
-        <button type="button" class="ghost" data-action="split-mark-paid" data-id="${person.id}" aria-label="Mark ${escapeHtml(person.name)} as paid in full">Mark paid</button>
+        <button type="button" class="ghost" data-action="split-mark-paid" data-id="${person.id}" aria-label="${tr("Mark {name} as paid in full", { name: escapeHtml(person.name) })}">${tr("Mark paid")}</button>
         <button type="button" class="ghost" data-action="split-panel" data-panel="repay" data-id="${person.id}">Part</button>
         <button type="button" class="ghost" data-action="split-remind" data-id="${person.id}">Remind</button>
-        <button type="button" class="ghost icon-btn split-cancel" data-action="split-cancel" data-id="${person.id}" aria-label="Cancel request from ${escapeHtml(person.name)}" title="Cancel this request">✕</button>
+        <button type="button" class="ghost icon-btn split-cancel" data-action="split-cancel" data-id="${person.id}" aria-label="${tr("Cancel request from {name}", { name: escapeHtml(person.name) })}" title="${tr("Cancel this request")}">✕</button>
       </div>
       ${splitPanelHtml("out", person.id, person, rec)}
     </div>`;
@@ -3243,7 +3279,7 @@ function splitBillHtml(rec, rowsHtml) {
       </div>
       <div class="split-bill-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${people.length}" aria-valuenow="${paid.length}" aria-label="${paid.length} of ${people.length} paid"><i style="width:${pct}%"></i></div>
       ${paid.length ? `<p class="split-bill-paid"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>${paidNames}</p>` : ""}
-      ${all ? `<p class="split-bill-done-line">${escapeHtml(fmtMoney(back))} back from ${people.length} ${people.length === 1 ? "person" : "people"}.
+      ${all ? `<p class="split-bill-done-line">${trn(people.length, "{a} back from {n} person.", "{a} back from {n} people.", { a: escapeHtml(fmtMoney(back)) })}
         <button type="button" class="link-btn" data-action="split-bill-dismiss" data-id="${escapeHtml(rec.id)}">Done</button></p>` : rowsHtml}
     </section>`;
 }
@@ -3266,7 +3302,7 @@ function splitNoticeSettledBills() {
       if (before > 0 && openNow === 0) {
         splitJustSettled.add(id);
         const rec = splitOutList().find((r) => r.id === id);
-        if (rec && typeof toast === "function") toast(`Everyone's paid for ${rec.title}`);
+        if (rec && typeof toast === "function") toast(tr("Everyone's paid for {what}", { what: rec.title }));
       }
     }
   }
@@ -3284,8 +3320,8 @@ function renderSplit() {
     dashLine.hidden = !show;
     if (show) {
       const parts = [];
-      if (t.openOut > 0) parts.push(`Owed to you ${fmtMoney(t.owedToYou)}`);
-      if (t.openIn > 0) parts.push(`you owe ${fmtMoney(t.youOwe)}`);
+      if (t.openOut > 0) parts.push(tr("Owed to you {a}", { a: fmtMoney(t.owedToYou) }));
+      if (t.openIn > 0) parts.push(tr("you owe {a}", { a: fmtMoney(t.youOwe) }));
       dashLine.textContent = parts.join(" · ");
     }
   }
@@ -3300,7 +3336,7 @@ function renderSplit() {
     const picking = splitOutList().filter((r) => r.pick && !r.pick.done);
     owedCard.hidden = open.length === 0 && done.length === 0 && picking.length === 0;
     if (open.length || done.length || picking.length) {
-      if (owedSub) owedSub.textContent = open.length ? fmtMoney(t.owedToYou) : "All paid";
+      if (owedSub) owedSub.textContent = open.length ? fmtMoney(t.owedToYou) : tr("All paid");
       const sorted = open.slice().sort((a, b) => {
         const da = a.rec.dueDate ? splitDaysUntil(a.rec.dueDate) : 9999;
         const db = b.rec.dueDate ? splitDaysUntil(b.rec.dueDate) : 9999;
@@ -3321,8 +3357,10 @@ function renderSplit() {
       }
       for (const rec of done) html.push(splitBillHtml(rec, ""));
       owedList.innerHTML = html.join("");
+      splitTr(owedList);
     } else {
       owedList.innerHTML = "";
+      splitTr(owedList);
     }
   }
 
@@ -3339,8 +3377,10 @@ function renderSplit() {
         .sort((a, b) => (a.date < b.date ? 1 : -1))
         .map((r) => splitInRowHtml(r))
         .join("");
+      splitTr(oweList);
     } else {
       oweList.innerHTML = "";
+      splitTr(oweList);
     }
   }
   const relayPref = document.getElementById("pref-split-relay");
@@ -3477,7 +3517,7 @@ document.addEventListener("click", (e) => {
     splitDoShareAll();
   } else if (action === "split-copy-code") {
     if (splitShare && splitShare.code) {
-      splitCopyText(splitShare.code).then((ok) => toast(ok ? "Request code copied" : "Couldn't copy the code"));
+      splitCopyText(splitShare.code).then((ok) => toast(ok ? tr("Request code copied") : tr("Couldn't copy the code")));
     }
   } else if (action === "split-share-next") {
     if (splitShare) {
@@ -3510,9 +3550,9 @@ document.addEventListener("click", (e) => {
     // pasting into a banking app needs no trimming.
     const value = btn.dataset.value || "";
     splitCopyText(value).then((ok) => {
-      if (!ok) { toast("Couldn't copy"); return; }
+      if (!ok) { toast(tr("Couldn't copy")); return; }
       const original = btn.textContent;
-      btn.textContent = "Copied ✓";
+      btn.textContent = tr("Copied ✓");
       btn.classList.add("copied");
       setTimeout(() => { btn.textContent = original; btn.classList.remove("copied"); }, 1600);
     });
@@ -3549,7 +3589,7 @@ document.addEventListener("click", (e) => {
   } else if (action === "split-pick-share") {
     splitPickShare(id);
   } else if (action === "split-pick-refresh") {
-    splitRelayPoll({ force: true }).then((n) => { if (typeof renderAll === "function") renderAll(); if (!n) toast("Up to date"); }).catch(() => toast("Couldn't reach the bill — check your connection"));
+    splitRelayPoll({ force: true }).then((n) => { if (typeof renderAll === "function") renderAll(); if (!n) toast(tr("Up to date")); }).catch(() => toast(tr("Couldn't reach the bill — check your connection")));
   } else if (action === "split-pick-done") {
     splitPickDone(id);
   } else if (action === "split-mark-paid") {
@@ -3557,13 +3597,13 @@ document.addEventListener("click", (e) => {
     const found = splitFindPerson(id);
     const res = found ? splitRecordRepayment(id, splitPersonRemaining(found.person), todayISO()) : null;
     if (typeof renderAll === "function") renderAll();
-    if (res) toast(`${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`);
+    if (res) toast(tr("{name} settled — {a} logged as income", { name: res.person.name, a: fmtMoney(res.amount) }));
   } else if (action === "split-repay-save") {
     const input = splitPanelInput(id, "repay");
     const dateEl = splitPanelInput(id, "repay-date");
     const amount = Number(input && input.value);
     if (!input || !Number.isFinite(amount) || amount <= 0) {
-      if (input) { input.value = ""; input.placeholder = "Enter a positive amount"; input.focus(); }
+      if (input) { input.value = ""; input.placeholder = tr("Enter a positive amount"); input.focus(); }
       return;
     }
     const res = splitRecordRepayment(id, amount, dateEl && dateEl.value);
@@ -3571,8 +3611,8 @@ document.addEventListener("click", (e) => {
     if (typeof renderAll === "function") renderAll();
     if (res) {
       toast(res.settled
-        ? `${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`
-        : `${fmtMoney(res.amount)} recorded · ${fmtMoney(splitPersonRemaining(res.person))} still owed`);
+        ? tr("{name} settled — {a} logged as income", { name: res.person.name, a: fmtMoney(res.amount) })
+        : tr("{a} recorded · {b} still owed", { a: fmtMoney(res.amount), b: fmtMoney(splitPersonRemaining(res.person)) }));
     }
   } else if (action === "split-relay-claim") {
     splitRelayReviewClaim(id);
@@ -3587,7 +3627,7 @@ document.addEventListener("click", (e) => {
   } else if (action === "split-cancel") {
     const found = splitFindPerson(id);
     if (!found) return;
-    if (!confirm(`Cancel the request to ${found.person.name} for ${fmtMoney(splitPersonRemaining(found.person))}? Repayments already recorded stay in your income.`)) return;
+    if (!confirm(tr("Cancel the request to {name} for {a}? Repayments already recorded stay in your income.", { name: found.person.name, a: fmtMoney(splitPersonRemaining(found.person)) }))) return;
     splitCancelPerson(id);
     splitOpenPanel = null;
     if (typeof renderAll === "function") renderAll();
@@ -3610,11 +3650,11 @@ document.addEventListener("click", (e) => {
       splitOpenPaidShare(id, res.record.settledDate);
       return;
     }
-    if (res) toast(res.expense ? "Settled and logged as spending" : "Settled");
+    if (res) toast(res.expense ? tr("Settled and logged as spending") : tr("Settled"));
   } else if (action === "split-decline") {
     const rec = splitInList().find((r) => r.id === id);
     if (!rec) return;
-    if (!confirm(`Decline ${rec.from}'s request for ${fmtMoney(rec.amount)}?`)) return;
+    if (!confirm(tr("Decline {name}'s request for {a}?", { name: rec.from, a: fmtMoney(rec.amount) }))) return;
     splitDeclineIncoming(id);
     splitOpenPanel = null;
     if (typeof renderAll === "function") renderAll();
@@ -4093,13 +4133,13 @@ document.addEventListener("change", (e) => {
   const file = input.files && input.files[0];
   const rec = splitOutList().find((r) => r.id === input.dataset.id);
   if (!file || !rec) return;
-  toast("Attaching the receipt photo…");
+  toast(tr("Attaching the receipt photo…"));
   splitRelayAttachPhoto(rec, file)
     .then((ok) => {
-      toast(ok ? "Receipt photo attached" : "Couldn't attach the photo — check your connection");
+      toast(ok ? tr("Receipt photo attached") : tr("Couldn't attach the photo — check your connection"));
       if (ok && document.getElementById("split-share-body") && splitShare) splitRenderShare();
     })
-    .catch(() => toast("Couldn't attach the photo"));
+    .catch(() => toast(tr("Couldn't attach the photo")));
 });
 
 // Settings → Preferences. Off stops NEW bills from getting a mailbox; bills
@@ -4108,7 +4148,7 @@ document.addEventListener("change", (e) => {
   if (!(e.target instanceof HTMLInputElement) || e.target.id !== "pref-split-relay") return;
   splitState().relayOff = !e.target.checked;
   save();
-  toast(e.target.checked ? "Split payments will be tracked" : "New splits use links only");
+  toast(e.target.checked ? tr("Split payments will be tracked") : tr("New splits use links only"));
 });
 
 /* ---------- "they've paid" while Duitful is closed ----------
@@ -4164,7 +4204,7 @@ document.addEventListener("change", (e) => {
   splitState().relayNotifyOff = !e.target.checked;
   save();
   splitRelayWatchSync().catch(() => {});
-  toast(e.target.checked ? "You'll be told when someone says they've paid" : "No payment notifications");
+  toast(e.target.checked ? tr("You'll be told when someone says they've paid") : tr("No payment notifications"));
 });
 
 // Leaving the app is when the background check takes over.
@@ -4232,8 +4272,8 @@ function splitPickStart() {
   splitSaveMeOnce(c);
   const items = (c.items || []).filter((it) => Number(it.price) > 0)
     .map((it) => ({ n: splitText(it.name, SPLIT_ITEM_NAME_MAX) || "Item", p: splitRound2(it.price) }));
-  if (!items.length) { toast("Add the items first (or scan the receipt), then send it for ticking."); return; }
-  if (!splitPickAvailable()) { toast("Ticking needs split tracking on (Settings → Preferences)."); return; }
+  if (!items.length) { toast(tr("Add the items first (or scan the receipt), then send it for ticking.")); return; }
+  if (!splitPickAvailable()) { toast(tr("Ticking needs split tracking on (Settings → Preferences).")); return; }
   // What you ticked only for yourself stays yours; the rest is up for grabs.
   const mine = (c.items || []).map((it, i) => (Array.isArray(it.who) && it.who.length === 1 && it.who[0] === SPLIT_YOU_KEY ? i : -1)).filter((i) => i >= 0);
   const total = splitRound2(items.reduce((sum, it) => sum + it.p, 0) + (Number(c.charges) || 0));
@@ -4280,13 +4320,13 @@ async function splitPickShare(recId) {
   splitRelayFlushPhoto(rec);
   const link = splitShareLink(await splitPickCode(rec));
   const me = splitText(splitState().me, SPLIT_NAME_MAX);
-  const text = `${me ? `${me} paid for ` : ""}${rec.title} (${fmtMoney(rec.total)}). Tick what you had and your share works itself out:\n${link}`;
+  const text = `${me ? tr("{who} paid for {what} ({a}).", { who: me, what: rec.title, a: fmtMoney(rec.total) }) : `${rec.title} (${fmtMoney(rec.total)}).`} ${tr("Tick what you had and your share works itself out:")}\n${link}`;
   if (navigator.share) {
-    try { await navigator.share({ title: `Tick what you had: ${rec.title}`, text }); return; }
+    try { await navigator.share({ title: tr("Tick what you had: {what}", { what: rec.title }), text }); return; }
     catch (err) { if (err && err.name === "AbortError") return; }
   }
   const ok = await splitCopyText(text);
-  toast(ok ? "Link copied — paste it in the group chat" : "Couldn't copy the link");
+  toast(ok ? tr("Link copied — paste it in the group chat") : tr("Couldn't copy the link"));
 }
 
 // "Done": every ticker becomes an ordinary request for exactly their share.
@@ -4295,7 +4335,7 @@ function splitPickFinish(recId, { shareUnclaimed = false } = {}) {
   if (!rec || !rec.pick || rec.pick.done) return null;
   const { calc } = splitPickCompute(rec, { shareUnclaimed });
   const owing = calc.people.slice(1).filter((p) => p.amount > 0);
-  if (!owing.length) { toast("Nobody has ticked anything yet."); return null; }
+  if (!owing.length) { toast(tr("Nobody has ticked anything yet.")); return null; }
   rec.people = owing.map((p) => coerceSplitPerson({
     id: splitShortId(),
     name: p.name,
@@ -4312,7 +4352,7 @@ function splitPickFinish(recId, { shareUnclaimed = false } = {}) {
   // The box now carries everyone's line; each friend's page finds theirs by
   // the key it ticked with and turns into a normal "pay me" page.
   splitRelaySyncSoon(0);
-  toast(`${owing.length} request${owing.length === 1 ? "" : "s"} ready · your share ${fmtMoney(calc.people[0].amount)}`);
+  toast(`${trn(owing.length, "{n} request ready", "{n} requests ready")} · ${tr("your share {a}", { a: fmtMoney(calc.people[0].amount) })}`);
   return rec;
 }
 
@@ -4329,8 +4369,8 @@ function splitPickCardHtml(rec) {
         <span class="split-amount">${escapeHtml(fmtMoney(rec.total))}</span>
       </div>
       <p class="hint">${ticked
-        ? `${ticked} ${ticked === 1 ? "person has" : "people have"} ticked · ${escapeHtml(fmtMoney(claimed))} claimed`
-        : "Waiting for ticks — send the link to the group"}${unclaimed.length ? ` · ${unclaimed.length} item${unclaimed.length === 1 ? "" : "s"} unclaimed (${escapeHtml(fmtMoney(unclaimedSum))})` : ""}</p>
+        ? `${trn(ticked, "{n} person has ticked", "{n} people have ticked")} · ${tr("{a} claimed", { a: escapeHtml(fmtMoney(claimed)) })}`
+        : tr("Waiting for ticks — send the link to the group")}${unclaimed.length ? ` · ${trn(unclaimed.length, "{n} item unclaimed ({a})", "{n} items unclaimed ({a})", { a: escapeHtml(fmtMoney(unclaimedSum)) })}` : ""}</p>
       ${rows ? `<ul class="split-pick-list">${rows}</ul>` : ""}
       <div class="split-actions">
         <button type="button" class="ghost" data-action="split-pick-share" data-id="${rec.id}">Send link</button>
@@ -4350,7 +4390,7 @@ async function splitPickDone(recId) {
   let shareUnclaimed = false;
   if (unclaimed.length) {
     const sum = splitRound2(unclaimed.reduce((s2, i) => s2 + rec.pick.items[i].p, 0));
-    shareUnclaimed = !confirm(`${unclaimed.length} item${unclaimed.length === 1 ? "" : "s"} (${fmtMoney(sum)}) nobody ticked.\n\nOK: they're yours.\nCancel: everyone shares them.`);
+    shareUnclaimed = !confirm(`${trn(unclaimed.length, "{n} item ({a}) nobody ticked.", "{n} items ({a}) nobody ticked.", { a: fmtMoney(sum) })}\n\n${tr("OK: they're yours.")}\n${tr("Cancel: everyone shares them.")}`);
   }
   const done = splitPickFinish(recId, { shareUnclaimed });
   if (done) splitOpenShare(done.id, 0);
