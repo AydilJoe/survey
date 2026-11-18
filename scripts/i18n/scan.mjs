@@ -126,4 +126,11 @@ export const ROWS = [
   ["Read from a scan", "Dibaca daripada imbasan", "从扫描件读取"],
   ["No balances printed to check, so a scan can't be imported", "Tiada baki tercetak untuk disemak, jadi imbasan tak boleh diimport", "没有印出余额可以核对，所以扫描件无法导入"],
   ["Fix the figures that don't match the scan to import", "Betulkan angka yang tak sama dengan imbasan untuk import", "改正与扫描件不符的数字后才能导入"],
+  // ── Statements every month ──────────────────────────────────────
+  ["Bank statements", "Penyata bank", "银行对账单"],
+  ["A PDF from your bank, a scan or photos of the pages. Read on your phone, checked, then imported.", "PDF dari bank anda, imbasan atau foto halaman. Dibaca di telefon, disemak, kemudian diimport.", "银行的 PDF、扫描件或页面照片。在手机上读取、核对后再导入。"],
+  ["bank", "bank", "银行"],
+  ["Your {name} statement should be out", "Penyata {name} anda sepatutnya sudah keluar", "你的{name}对账单应该出了"],
+  ["The last one you imported ran to {date}. Import the next to catch every spend.", "Penyata terakhir yang anda import sampai {date}. Import yang seterusnya supaya tiada belanja tertinggal.", "你上次导入的对账单到 {date} 为止。导入下一份，一笔开销都不漏。"],
+  ["Import it in Duitful to catch every spend.", "Import dalam Duitful supaya tiada belanja tertinggal.", "在 Duitful 导入，一笔开销都不漏。"],
 ];

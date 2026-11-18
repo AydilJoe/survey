@@ -679,6 +679,75 @@ function importStatementItems(items, bankName) {
   return { spends, incomes };
 }
 
+/* ---------- every month ----------
+   After an import, the bank and the last date the statement covered are kept
+   (state.statementLast, one per bank layout, in the vault). About a month on
+   (STMT_NEXT_DAYS), Home shows one quiet card, "Your Maybank card statement
+   should be out", with Import and Not now, asked once per statement; phones
+   also get a one-off reminder that morning. A new import moves it on. */
+const STMT_NEXT_DAYS = 33;
+const STMT_LAST_MAX = 6;
+function coerceStatementLast(v) {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x) => x && typeof x === "object" && /^\d{4}-\d{2}-\d{2}$/.test(String(x.end || "")))
+    .slice(-STMT_LAST_MAX)
+    .map((x) => ({ key: String(x.key || "generic").slice(0, 40), bank: String(x.bank || "").slice(0, 40),
+      kind: x.kind === "card" ? "card" : x.kind === "account" ? "account" : "", end: String(x.end),
+      skipped: /^\d{4}-\d{2}-\d{2}$/.test(String(x.skipped || "")) ? String(x.skipped) : "" }));
+}
+function stmtKeyOf(parsed) { return parsed.layout && parsed.layout !== "generic" ? parsed.layout : `generic${parsed.bank ? ":" + parsed.bank : ""}`; }
+function stmtNameOf(rec) {
+  return rec.bank ? tr(rec.kind === "card" ? "{bank} card" : "{bank} account", { bank: rec.bank }) : tr("bank");
+}
+function stmtAddDays(iso, n) {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function rememberStatement(parsed) {
+  if (!parsed || !parsed.rows || typeof state === "undefined" || !state) return;
+  const end = parsed.rows.map((r) => r.date).filter(Boolean).sort().pop();
+  if (!end) return;
+  const key = stmtKeyOf(parsed);
+  const list = (state.statementLast || []).filter((x) => x.key !== key);
+  const prev = (state.statementLast || []).find((x) => x.key === key);
+  // An older statement imported late never winds the clock back.
+  const latest = prev && prev.end > end ? prev.end : end;
+  list.push({ key, bank: parsed.bank || "", kind: parsed.kind || "", end: latest, skipped: "" });
+  state.statementLast = list.slice(-STMT_LAST_MAX);
+}
+// The statement that is due soonest and not skipped, or null.
+function statementDue(today) {
+  const t = today || (typeof todayISO === "function" ? todayISO() : new Date().toISOString().slice(0, 10));
+  const due = ((typeof state !== "undefined" && state && state.statementLast) || [])
+    .filter((x) => x.skipped !== x.end && stmtAddDays(x.end, STMT_NEXT_DAYS) <= t)
+    .sort((a, b) => a.end.localeCompare(b.end));
+  return due[0] || null;
+}
+function renderStatementNudge() {
+  const card = stmtEl("stmt-nudge");
+  if (!card) return;
+  const aiCard = stmtEl("ai-intro");
+  const rec = typeof state !== "undefined" && state ? statementDue() : null;
+  card.hidden = !rec || !!(aiCard && !aiCard.hidden);
+  if (card.hidden) return;
+  stmtEl("stmt-nudge-title").textContent = tr("Your {name} statement should be out", { name: stmtNameOf(rec) });
+  stmtEl("stmt-nudge-body").textContent = tr("The last one you imported ran to {date}. Import the next to catch every spend.", { date: stmtFmtDate(rec.end) });
+  card.dataset.key = rec.key;
+}
+function statementNativeReminders() {
+  const out = [];
+  if (typeof state === "undefined" || !state) return out;
+  const now = Date.now();
+  for (const rec of state.statementLast || []) {
+    if (rec.skipped === rec.end) continue;
+    const at = new Date(`${stmtAddDays(rec.end, STMT_NEXT_DAYS)}T09:00:00`);
+    if (!(at.getTime() > now)) continue;
+    out.push({ at, title: tr("Your {name} statement should be out", { name: stmtNameOf(rec) }), body: tr("Import it in Duitful to catch every spend.") });
+  }
+  return out;
+}
+
 /* ---------- the screen ---------- */
 
 const stmtUi = { items: [], parsed: null, recon: null, file: null };
@@ -839,6 +908,8 @@ function statementImportNow() {
   const res = importStatementItems(stmtUi.items, stmtUi.parsed.bank);
   if (!res.spends && !res.incomes) return false;          // nothing booked: not counted
   if (typeof trackStatementImport === "function") trackStatementImport();
+  rememberStatement(stmtUi.parsed);
+  if (typeof requestReschedule === "function") requestReschedule();
   save();
   renderAll();
   stmtEl("stmt-dialog")?.close();
@@ -848,6 +919,16 @@ function statementImportNow() {
 }
 
 stmtEl("btn-stmt-import")?.addEventListener("click", openStatementImport);
+stmtEl("btn-stmt-import-daily")?.addEventListener("click", openStatementImport);
+stmtEl("stmt-nudge-later")?.addEventListener("click", () => {
+  const key = stmtEl("stmt-nudge")?.dataset.key;
+  const rec = state && (state.statementLast || []).find((x) => x.key === key);
+  if (rec) { rec.skipped = rec.end; save(); }
+  renderStatementNudge();
+  if (typeof renderCaptureIntro === "function") renderCaptureIntro();
+  if (typeof requestReschedule === "function") requestReschedule();
+});
+stmtEl("stmt-nudge-import")?.addEventListener("click", () => openStatementImport());
 stmtEl("stmt-choose")?.addEventListener("click", () => stmtEl("stmt-file")?.click());
 stmtEl("stmt-file")?.addEventListener("change", (e) => {
   const files = Array.from(e.target.files || []);

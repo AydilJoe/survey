@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.15";
+const APP_VERSION = "1.57.16";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -65,6 +65,7 @@ const emptyState = () => ({
   ocrUsage: { month: "", scans: 0 },
   // Statement imports this month, for the free limit. Kept across CSV import.
   statementUsage: { month: "", imports: 0 },
+  statementLast: [],
   pendingTxns: [],
   // Names of the user's own accounts ("This is my account" on a transfer):
   // a transfer to one of them is a move between wallets, not a spend.
@@ -339,6 +340,7 @@ function coerceState(parsed) {
       statementUsage: parsed.statementUsage && typeof parsed.statementUsage === "object"
         ? { month: String(parsed.statementUsage.month || ""), imports: Number(parsed.statementUsage.imports) || 0 }
         : { month: "", imports: 0 },
+      statementLast: typeof coerceStatementLast === "function" ? coerceStatementLast(parsed.statementLast) : [],
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
       ownAccounts: coerceOwnAccounts(parsed.ownAccounts),
       aiEnabled: parsed.aiEnabled !== false,
@@ -4231,6 +4233,7 @@ function renderAll() {
   renderOwnAccounts();
   renderAiSettings();
   renderAiIntro();
+  if (typeof renderStatementNudge === "function") renderStatementNudge();
   renderCaptureIntro();
   renderCaptureShareLinks();
   renderReminderPrefs();
@@ -4869,8 +4872,9 @@ function renderCaptureIntro() {
   if (!card) return;
   const loggedSpend = !!state && (state.dailyExpenses || []).some((e) => e.kind !== "debt" && e.kind !== "saving");
   const aiCard = document.getElementById("ai-intro");
+  const stmtCard = document.getElementById("stmt-nudge");
   card.hidden = !(state && captureShareAllowed() && captureAccess === false && !captureIntroLater()
-    && loggedSpend && !(aiCard && !aiCard.hidden));
+    && loggedSpend && !(aiCard && !aiCard.hidden) && !(stmtCard && !stmtCard.hidden));
 }
 document.getElementById("capture-intro-allow")?.addEventListener("click", () => {
   const NL = window.Capacitor?.Plugins?.NotificationListener;
@@ -7531,6 +7535,15 @@ function buildReminders(src) {
           schedule: { at: n.at, allowWhileIdle: true },
           smallIcon: "ic_stat_icon",
         });
+      }
+    } catch {}
+  }
+  // "Your statement should be out": one-off, a month after the last one imported.
+  if (typeof statementNativeReminders === "function") {
+    try {
+      for (const n of statementNativeReminders()) {
+        if (notifs.length >= 60) break;
+        notifs.push({ id: nextId++, title: n.title, body: n.body, schedule: { at: n.at, allowWhileIdle: true }, smallIcon: "ic_stat_icon" });
       }
     } catch {}
   }
@@ -10249,6 +10262,7 @@ async function importCsvFile(file, { ask = true, statusEl = null, onError = null
     next.deviceId = state.deviceId;
     next.ocrUsage = state.ocrUsage;
     next.statementUsage = state.statementUsage;
+    next.statementLast = state.statementLast;
     next.proTrialStartedAt = state.proTrialStartedAt;
     next.firstRunAt = state.firstRunAt;
     next.proNudgeUntil = state.proNudgeUntil;
@@ -11390,6 +11404,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.16": [
+    "<strong>Statements every month</strong> — Import bank statement is now on All entries and in search, and about a month after each import Duitful reminds you the next one should be out.",
+  ],
   "1.57.15": [
     "<strong>Scanned statements and photos</strong> — import a scanned PDF or photos of your statement pages. Duitful reads them on your phone and imports only when the figures add up; fix a misread figure and it checks again.",
   ],
@@ -17104,6 +17121,7 @@ const SEARCH_FEATURES = [
   { title: "Tax refund estimate", where: "Home", kw: "tax lhdn relief refund pcb e-filing claim receipt cukai pelepasan bayaran balik resit", go: ["tax", "#tab-tax"] },
   { title: "Spending calendar", where: "Monthly", kw: "calendar day daily kalendar hari", go: ["flow", "#spend-cal"] },
   { title: "Income", where: "Monthly", kw: "income salary pay gaji pendapatan elaun", go: ["flow", '[aria-controls="form-income"]'] },
+  { title: "Import bank statement", where: "All entries", kw: "import bank statement pdf scan photo card account import penyata bank imbas foto kad akaun 对账单 导入", run: () => openStatementImport() },
   { title: "Import income from CSV", where: "Monthly", kw: "import income csv bulk import pendapatan", go: ["flow", "#btn-bulk-import-income"] },
   { title: "Budget pools", where: "Monthly", kw: "budget pool limit category envelope bajet had kategori", go: ["flow", "#btn-add-pool"] },
   { title: "Recurring expenses", where: "Monthly", kw: "recurring expenses bills rent subscription perbelanjaan bulanan bil sewa langganan", go: ["flow", '[aria-controls="form-expense"]'] },

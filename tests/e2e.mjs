@@ -2412,7 +2412,7 @@ check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.c
     count: document.getElementById('stmt-count').textContent,
     free: document.querySelector('#stmt-dialog [data-free-count="statements"]').textContent,
   }));
-  check('statement screen: Settings → "Import bank statement (PDF)" opens it on the web, with "Read on your phone. Nothing is uploaded."',
+  check('statement screen: Settings → "Import bank statement" opens it on the web, with "Read on your phone. Nothing is uploaded."',
     entry && opened.open && opened.privacy === 'Read on your phone. Nothing is uploaded.', JSON.stringify(opened));
   check('statement screen: the summary names the bank and says "Checks out ✓"', /^Maybank card · .* · Checks out ✓$/.test(rv.summary), rv.summary);
   check('statement screen: the row already in Duitful (± 1 day, same amount, similar name) is shown unticked as "Already in Duitful"',
@@ -2518,6 +2518,7 @@ check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.c
     state.dailyExpenses = state.dailyExpenses.filter((e) => e.source !== 'statement' && e.id !== 'stmt-dupe');
     state.income = state.income.filter((x) => x.source !== 'statement');
     state.statementUsage = { month: '', imports: 0 };
+    state.statementLast = [];
     save(); renderAll();
   });
 }
@@ -2629,7 +2630,7 @@ check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.c
       document.getElementById('stmt-dialog')?.close();
       state.dailyExpenses = state.dailyExpenses.filter((e) => e.source !== 'statement');
       state.income = state.income.filter((x) => x.source !== 'statement');
-      Object.assign(state, { pro: snap.pro, statementUsage: snap.usage });
+      Object.assign(state, { pro: snap.pro, statementUsage: snap.usage, statementLast: [] });
       save(); renderAll();
     }
     return out;
@@ -2639,6 +2640,62 @@ check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.c
   check('statement scan review: correcting the flagged amount re-runs the check, then it imports the user\'s figure',
     ui.after === false && ui.status === 'ok' && ui.imported === true && JSON.stringify(ui.booked) === '[45.2,120,500]', JSON.stringify(ui));
   check('statement scan: a photo with no readable text says so instead of importing anything', ui.photo === 'no-text', JSON.stringify(ui.photo));
+}
+
+/* ── Statements every month: easy to find, and a nudge when the next is due (1.57.16) ── */
+{
+  const r = await S(() => {
+    const out = {};
+    const keep = { last: state.statementLast };
+    try {
+      const dlg = document.getElementById('stmt-dialog');
+      document.getElementById('btn-stmt-import-daily').click();
+      out.fromDaily = dlg.open; dlg.close();
+      const f = SEARCH_FEATURES.find((x) => x.title === 'Import bank statement');
+      if (f) f.run();
+      out.fromSearch = !!f && dlg.open; dlg.close();
+      out.settingsLabel = document.getElementById('btn-stmt-import').textContent.trim();
+      out.inBackupCard = !!document.getElementById('btn-stmt-import').closest('.card').querySelector('#btn-export');
+      // An import is remembered by bank, at the last date it covered; an older one never winds it back.
+      state.statementLast = [];
+      const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+      rememberStatement({ layout: 'maybank-card', bank: 'Maybank', kind: 'card', rows: [{ date: day(-50) }, { date: day(-40) }] });
+      rememberStatement({ layout: 'maybank-card', bank: 'Maybank', kind: 'card', rows: [{ date: day(-80) }] });
+      out.kept = state.statementLast.map((x) => `${x.key}|${x.end === day(-40)}`);
+      renderAll();
+      const card = document.getElementById('stmt-nudge');
+      out.shown = !card.hidden;
+      out.title = document.getElementById('stmt-nudge-title').textContent;
+      document.getElementById('stmt-nudge-import').click();
+      out.importOpens = dlg.open; dlg.close();
+      document.getElementById('stmt-nudge-later').click();
+      out.afterLater = card.hidden;
+      renderAll();
+      out.staysHidden = card.hidden;
+      // Not due yet: no card, but the phone is told for that morning.
+      state.statementLast = [];
+      rememberStatement({ layout: 'generic', bank: '', kind: 'account', rows: [{ date: day(-10) }] });
+      renderAll();
+      out.notYet = card.hidden;
+      const rem = statementNativeReminders();
+      out.remind = rem.map((n) => [n.title, Math.round((n.at - Date.now()) / 86400000)]);
+      out.inBuild = buildReminders(state).some((n) => n.title === 'Your bank statement should be out');
+      // Survives a reload of the vault shape.
+      out.coerced = coerceStatementLast([{ key: 'x', end: '2026-01-31', bank: 'B', kind: 'card' }, { key: 'bad', end: 'nope' }, null]).length;
+    } finally {
+      state.statementLast = keep.last || [];
+      save(); renderAll();
+    }
+    return out;
+  });
+  check('statement import is on All entries and in search, and Settings has it in its own card ("Import bank statement")',
+    r.fromDaily && r.fromSearch && r.settingsLabel === 'Import bank statement' && !r.inBackupCard, JSON.stringify(r));
+  check('statements every month: an import is remembered per bank at its last date, and an older one never winds it back',
+    JSON.stringify(r.kept) === '["maybank-card|true"]', JSON.stringify(r.kept));
+  check('statements every month: about a month on, Home asks "Your Maybank card statement should be out"; Import opens the import; Not now asks no more for that statement',
+    r.shown && r.title === 'Your Maybank card statement should be out' && r.importOpens && r.afterLater && r.staysHidden, JSON.stringify(r));
+  check('statements every month: not due yet means no card, and one reminder for the morning it is due (in the phone\'s reminder list)',
+    r.notYet && r.remind.length === 1 && r.remind[0][0] === 'Your bank statement should be out' && r.remind[0][1] >= 22 && r.remind[0][1] <= 24 && r.inBuild && r.coerced === 1, JSON.stringify(r));
 }
 
 /* ── "Not picked up?": share an alert's wording, redacted on the phone (1.56.2) ── */
@@ -11858,7 +11915,8 @@ check('the brand catalogue makes no network calls at all',
   const before = await p.evaluate(() => document.documentElement.classList.contains('kb-open'));
   // The keyboard takes the bottom ~45% of the screen.
   await p.setViewportSize({ width: 360, height: 430 });
-  await p.waitForTimeout(700);
+  await p.waitForFunction(() => document.documentElement.classList.contains('kb-open'), null, { timeout: 3000 }).catch(() => {});
+  await p.waitForTimeout(300);
   const up = await p.evaluate(() => {
     const vv = window.visualViewport;
     const top = vv.offsetTop, bottom = vv.offsetTop + vv.height;
@@ -11875,6 +11933,7 @@ check('the brand catalogue makes no network calls at all',
       fieldVisible: f.top >= top && f.bottom <= bottom,
       nextReachable: nr.top >= top - 1 && nr.bottom <= bottom + 1,
       tabsHidden: !tabs || getComputedStyle(tabs).display === 'none',
+      active: document.activeElement && (document.activeElement.id || document.activeElement.tagName),
     };
   });
   await p.evaluate(() => document.activeElement.blur());
