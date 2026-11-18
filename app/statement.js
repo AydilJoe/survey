@@ -478,11 +478,11 @@ function statementItems(parsed, recon) {
     let kind = "spend", note = "", label = "";
     if (parsed.kind === "card") {
       if (r.dir === "credit") {
-        if (STMT_CARD_PAYMENT.test(r.desc) && !STMT_REBATE.test(r.desc)) { kind = "move"; note = "Card payment · not counted"; }
+        if (STMT_CARD_PAYMENT.test(r.desc) && !STMT_REBATE.test(r.desc)) { kind = "move"; note = tr("Card payment · not counted"); }
         else { kind = "income"; label = STMT_REBATE.test(r.desc) ? (/REFUND|REVERSAL/i.test(r.desc) ? "Refund" : "Cashback") : ""; }
       }
     } else if (r.dir === "credit") kind = "income";
-    if (kind !== "move" && isOwn(r.desc)) { kind = "move"; note = "Between your accounts"; }
+    if (kind !== "move" && isOwn(r.desc)) { kind = "move"; note = tr("Between your accounts"); }
     let dup = false;
     if (kind === "spend") {
       dup = spends.some((e) => Math.abs(Number(e.amount) - r.amount) < 0.005 && e.date && stmtDayDiff(e.date, r.date) <= 1 && (stmtSimilar(e.note, r.payee) || stmtSimilar(e.category, r.payee) || stmtDayDiff(e.date, r.date) === 0))
@@ -491,7 +491,7 @@ function statementItems(parsed, recon) {
       dup = (state.income || []).some((x) => Math.abs(Number(x.amount) - r.amount) < 0.005 && x.month === r.date.slice(0, 7) && Math.abs(Number(x.day || 0) - Number(r.date.slice(8, 10))) <= 1)
         || pend.some((p) => p.kind === "income" && Math.abs(Number(p.amount) - r.amount) < 0.005 && stmtDayDiff(new Date(p.createdAt).toISOString().slice(0, 10), r.date) <= 1);
     }
-    if (dup) note = "Already in Duitful";
+    if (dup) note = tr("Already in Duitful");
     let category = "";
     if (kind === "spend") {
       try { category = (typeof scanGuessCategory === "function" ? scanGuessCategory(r.payee, r.desc) : "") || ""; } catch { category = ""; }
@@ -581,7 +581,7 @@ function openStatementImport() {
 // this call.
 async function statementFromFile(file, password) {
   stmtUi.file = file;
-  stmtSay("Reading on your phone…");
+  stmtSay(tr("Reading on your phone…"));
   let read;
   try {
     read = await readStatementPdf(await file.arrayBuffer(), password);
@@ -590,12 +590,12 @@ async function statementFromFile(file, password) {
     if (code === "password" || code === "wrong-password") {
       stmtEl("stmt-pick").hidden = true;
       stmtEl("stmt-password").hidden = false;
-      stmtSay(code === "wrong-password" ? "That password didn't open it." : "");
+      stmtSay(code === "wrong-password" ? tr("That password didn't open it.") : "");
       setTimeout(() => stmtEl("stmt-pw")?.focus(), 30);
       return null;
     }
     stmtSay(code === "scanned"
-      ? "This PDF is a scanned image. Download the statement as a PDF from your bank's app or website instead."
+      ? tr("This PDF is a scanned image. Download the statement as a PDF from your bank's app or website instead.")
       : "Couldn't read this PDF.");
     return null;
   }
@@ -609,7 +609,7 @@ function showStatementReview(read) {
   stmtUi.items = statementItems(parsed, recon);
   stmtEl("stmt-pick").hidden = true;
   stmtEl("stmt-password").hidden = true;
-  if (!parsed.rows.length) { stmtSay("No transactions found in this statement."); return parsed; }
+  if (!parsed.rows.length) { stmtSay(tr("No transactions found in this statement.")); return parsed; }
   stmtSay("");
   stmtEl("stmt-review").hidden = false;
   stmtEl("stmt-import").hidden = false;
@@ -621,10 +621,11 @@ function showStatementReview(read) {
 function stmtSummaryText(parsed, recon) {
   const dates = parsed.rows.map((r) => r.date).filter(Boolean).sort();
   const span = dates.length ? `${stmtFmtDate(dates[0])} – ${stmtFmtDate(dates[dates.length - 1])}` : "";
-  const what = parsed.bank ? `${parsed.bank} ${parsed.kind === "card" ? "card" : "account"}` : "Statement";
-  const check = recon.status === "ok" ? "Checks out ✓"
-    : recon.status === "none" ? "No balances printed to check"
-    : `Doesn't add up${recon.problems[0] && recon.problems[0].page ? ` on page ${recon.problems[0].page}` : ""} — check the rows`;
+  const what = parsed.bank ? tr(parsed.kind === "card" ? "{bank} card" : "{bank} account", { bank: parsed.bank }) : tr("Statement");
+  const page = recon.problems[0] && recon.problems[0].page;
+  const check = recon.status === "ok" ? tr("Checks out ✓")
+    : recon.status === "none" ? tr("No balances printed to check")
+    : page ? tr("Doesn't add up on page {n} — check the rows", { n: page }) : tr("Doesn't add up — check the rows");
   return [what, span, check].filter(Boolean).join(" · ");
 }
 
@@ -637,22 +638,22 @@ function renderStatementReview() {
   const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
   list.innerHTML = stmtUi.items.map((it, i) => {
     const sign = it.kind === "income" ? "+" : it.kind === "spend" ? "−" : "";
-    const tag = it.note ? `<span class="stmt-tag">${escapeHtml(it.note)}</span>` : it.flagged ? `<span class="stmt-tag is-warn">Check this row</span>` : "";
+    const tag = it.note ? `<span class="stmt-tag">${escapeHtml(it.note)}</span>` : it.flagged ? `<span class="stmt-tag is-warn">${tr("Check this row")}</span>` : "";
     const catSel = it.kind === "spend"
-      ? `<select data-stmt-cat="${i}" aria-label="Category">${["", ...cats].map((c) => `<option value="${escapeHtml(c)}"${c === it.category ? " selected" : ""}>${c ? escapeHtml(c) : "Category"}</option>`).join("")}</select>` : "";
+      ? `<select data-stmt-cat="${i}" aria-label="${tr("Category")}" translate="no">${["", ...cats].map((c) => `<option value="${escapeHtml(c)}"${c === it.category ? " selected" : ""}>${c ? escapeHtml(c) : tr("Category")}</option>`).join("")}</select>` : "";
     return `<li class="stmt-row${it.on ? "" : " is-off"}${it.flagged ? " is-flagged" : ""}">
-      <input type="checkbox" data-stmt-on="${i}" aria-label="Import ${escapeHtml(it.payee)}"${it.on ? " checked" : ""}${it.kind === "move" ? " disabled" : ""} />
+      <input type="checkbox" data-stmt-on="${i}" aria-label="${tr("Import {name}", { name: escapeHtml(it.payee) })}"${it.on ? " checked" : ""}${it.kind === "move" ? " disabled" : ""} />
       <div class="stmt-main">
         <div class="stmt-top">
-          <input class="stmt-payee" data-stmt-payee="${i}" value="${escapeHtml(it.payee)}" aria-label="Payee" />
+          <input class="stmt-payee" data-stmt-payee="${i}" value="${escapeHtml(it.payee)}" aria-label="${tr("Payee")}" />
           <span class="stmt-amt ${it.kind}">${sign}${escapeHtml(fmtMoney(it.amount))}</span>
         </div>
         <div class="stmt-meta">
           <span>${escapeHtml(stmtFmtDate(it.date))}</span>
-          <select data-stmt-kind="${i}" aria-label="Type">
-            <option value="spend"${it.kind === "spend" ? " selected" : ""}>Spend</option>
-            <option value="income"${it.kind === "income" ? " selected" : ""}>Income</option>
-            <option value="move"${it.kind === "move" ? " selected" : ""}>Not counted</option>
+          <select data-stmt-kind="${i}" aria-label="${tr("Type")}">
+            <option value="spend"${it.kind === "spend" ? " selected" : ""}>${tr("Spend")}</option>
+            <option value="income"${it.kind === "income" ? " selected" : ""}>${tr("Income")}</option>
+            <option value="move"${it.kind === "move" ? " selected" : ""}>${tr("Not counted")}</option>
           </select>
           ${catSel}${tag}
         </div>
@@ -660,11 +661,11 @@ function renderStatementReview() {
     </li>`;
   }).join("");
   const on = stmtUi.items.filter((x) => x.on && x.kind !== "move").length;
-  stmtEl("stmt-count").textContent = `${on} to import`;
+  stmtEl("stmt-count").textContent = tr("{n} to import", { n: on });
   const btn = stmtEl("stmt-import");
   btn.disabled = !on;
-  btn.textContent = on ? `Import ${on}` : "Import";
-  stmtEl("stmt-all").textContent = stmtUi.items.every((x) => x.on || x.kind === "move") ? "Untick all" : "Select all";
+  btn.textContent = on ? tr("Import {n}", { n: on }) : tr("Import");
+  stmtEl("stmt-all").textContent = stmtUi.items.every((x) => x.on || x.kind === "move") ? tr("Untick all") : tr("Select all");
   if (typeof renderFreeCounts === "function") renderFreeCounts();
 }
 
@@ -678,7 +679,7 @@ function statementImportNow() {
   renderAll();
   stmtEl("stmt-dialog")?.close();
   const n = res.spends + res.incomes;
-  toast(`${n} row${n === 1 ? "" : "s"} imported from the statement`);
+  toast(trn(n, "{n} row imported from the statement", "{n} rows imported from the statement"));
   return true;
 }
 

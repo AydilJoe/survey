@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.9";
+const APP_VERSION = "1.57.10";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4683,7 +4683,7 @@ function openCaptureShare(opts) {
   const app = document.getElementById("share-app");
   if (app) {
     const mine = TXN_PROVIDERS.filter((x) => x.country === "MY");
-    app.innerHTML = `<option value="">Which app sent it?</option>` + mine.map((x) => `<option value="${escapeHtml(x.packages[0])}">${escapeHtml(x.name)}</option>`).join("");
+    app.innerHTML = `<option value="">${tr("Which app sent it?")}</option>` + mine.map((x) => `<option value="${escapeHtml(x.packages[0])}">${escapeHtml(x.name)}</option>`).join("");
     const known = providerForPackage(shareCtx.pkg);
     app.value = known ? known.packages[0] : "";
   }
@@ -4733,10 +4733,10 @@ async function shareFromScreenshot(file) {
   const status = document.getElementById("share-shot-status");
   const say = (m) => { if (status) { status.textContent = m; status.hidden = !m; } };
   if (!file) return;
-  say("Reading the screenshot on your phone…");
+  say(tr("Reading the screenshot on your phone…"));
   let text = "";
   try { text = await ocrAlertScreenshot(file); } catch { text = ""; }
-  if (!text) { say("No text found in that picture. Paste the words instead."); return; }
+  if (!text) { say(tr("No text found in that picture. Paste the words instead.")); return; }
   say("");
   const raw = document.getElementById("share-raw");
   if (raw) raw.value = text;
@@ -6579,11 +6579,11 @@ document.getElementById("capture-check-access")?.addEventListener("click", () =>
 });
 document.getElementById("capture-check-copy")?.addEventListener("click", async () => {
   const text = document.getElementById("capture-check-dialog")?.dataset.report || "";
-  try { await navigator.clipboard.writeText(text); toast("Report copied"); }
+  try { await navigator.clipboard.writeText(text); toast(tr("Report copied")); }
   catch {
     const ta = document.createElement("textarea");
     ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand("copy"); toast("Report copied"); } catch { toast("Couldn't copy — select the text instead"); }
+    try { document.execCommand("copy"); toast(tr("Report copied")); } catch { toast(tr("Couldn't copy — select the text instead")); }
     ta.remove();
   }
 });
@@ -11299,6 +11299,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.10": [
+    "<strong>Receipt scan and statement import in Bahasa Melayu and 中文</strong> — scanning a receipt, importing a bank statement and the bank-alert tools now follow your language.",
+  ],
   "1.57.9": [
     "<strong>Setup, the welcome tour, editing and search in Bahasa Melayu and 中文</strong> — first-run setup, the tour, every edit dialog and search now follow your language. Search finds settings in your language too.",
   ],
@@ -14632,7 +14635,7 @@ function setScanConfidence(el, level) {
   if (!level || level === "none") { el.hidden = true; el.textContent = ""; return; }
   const check = level !== "high";
   el.hidden = false;
-  el.textContent = check ? "Check" : "✓ From receipt";
+  el.textContent = check ? tr("Check") : tr("✓ From receipt");
   el.classList.toggle("is-check", check);
 }
 
@@ -14683,10 +14686,10 @@ function renderScanItems(raw, total) {
     let tail = "", off = false;
     if (vs && vs.basis === "subtotal" && vs.match != null) {
       off = !vs.match;
-      tail = vs.match ? " · ✓ match subtotal" : ` · ⚠ off by ${fmtMoney(Math.abs(vs.off))}`;
+      tail = vs.match ? ` · ✓ ${tr("match subtotal")}` : ` · ⚠ ${tr("off by {a}", { a: fmtMoney(Math.abs(vs.off)) })}`;
     } else if (Number.isFinite(shown) && shown > 0) {
       off = !adds;
-      tail = adds ? " · ✓ add up" : ` · ⚠ off by ${fmtMoney(Math.abs(gap))}`;
+      tail = adds ? ` · ✓ ${tr("add up")}` : ` · ⚠ ${tr("off by {a}", { a: fmtMoney(Math.abs(gap)) })}`;
     }
     summary.textContent = n + tail;
     summary.classList.toggle("is-off", off);
@@ -14699,14 +14702,14 @@ function renderScanItems(raw, total) {
   // Editable: a misread price is fixed here, and the sum and the check
   // against the subtotal follow as you type.
   list.innerHTML = items.map((it, i) =>
-    `<li><input type="text" class="scan-item-name-in" value="${escapeHtml(scanItemCase(it.name || ""))}" aria-label="Item ${i + 1}" />`
-    + `<input type="number" class="scan-item-price-in" step="0.01" min="0" inputmode="decimal" value="${(Number(it.price) || 0).toFixed(2)}" aria-label="Item ${i + 1} price" /></li>`).join("");
+    `<li><input type="text" class="scan-item-name-in" value="${escapeHtml(scanItemCase(it.name || ""))}" aria-label="${tr("Item {n}", { n: i + 1 })}" />`
+    + `<input type="number" class="scan-item-price-in" step="0.01" min="0" inputmode="decimal" value="${(Number(it.price) || 0).toFixed(2)}" aria-label="${tr("Item {n} price", { n: i + 1 })}" /></li>`).join("");
   const foot = document.getElementById("scan-items-foot");
   const drawFoot = (sum) => {
     if (!foot) return;
     foot.innerHTML =
       row(`${items.length} item${items.length === 1 ? "" : "s"}`, sum, "scan-item-sub")
-      + (charges > 0 ? row("Service charge & tax", charges, "scan-item-sub") : "")
+      + (charges > 0 ? row(tr("Service charge & tax"), charges, "scan-item-sub") : "")
       + (Number.isFinite(shown) && shown > 0 ? row("Total", shown, "scan-item-total") : "");
   };
   drawFoot(itemSum);
@@ -14722,7 +14725,7 @@ function renderScanItems(raw, total) {
     const gapNow = Math.round((sum - against) * 100) / 100;
     const ok = Math.abs(gapNow) <= 0.05;
     const what = vs && vs.basis === "subtotal" ? "match subtotal" : "add up";
-    summary.textContent = `${items.length} item${items.length === 1 ? "" : "s"}` + (ok ? ` · ✓ ${what}` : ` · ⚠ off by ${fmtMoney(Math.abs(gapNow))}`);
+    summary.textContent = trn(items.length, "{n} item", "{n} items") + (ok ? ` · ✓ ${what}` : ` · ⚠ ${tr("off by {a}", { a: fmtMoney(Math.abs(gapNow)) })}`);
     summary.classList.toggle("is-off", !ok);
   };
   return { expected, adds };
@@ -14909,11 +14912,11 @@ function setScanStep(text, pct) {
 // The primary button says what it will do: "Add RM 23.40", "Pay RM 120.00".
 function updateScanApplyLabel() {
   if (!scanApply) return;
-  if (window.scanApplyTarget === "split") { scanApply.textContent = "Use in split"; return; }
+  if (window.scanApplyTarget === "split") { scanApply.textContent = tr("Use in split"); return; }
   const amt = Number(scanAmount && scanAmount.value);
   const type = document.querySelector(".scan-type-pills .pill.active")?.dataset.scanType || "expense";
   const money = Number.isFinite(amt) && amt > 0 ? fmtMoney(amt) : "";
-  scanApply.textContent = type === "debt" ? (money ? `Pay ${money}` : "Pay debt") : (money ? `Add ${money}` : "Add expense");
+  scanApply.textContent = type === "debt" ? (money ? `Pay ${money}` : tr("Pay debt")) : (money ? `Add ${money}` : tr("Add expense"));
   scanApply.disabled = !money;
 }
 scanAmount?.addEventListener("input", updateScanApplyLabel);
@@ -14923,7 +14926,7 @@ function setScanFailed(failed) {
   const edit = document.getElementById("scan-edit");
   if (retake) retake.hidden = !failed;
   if (edit) edit.hidden = failed || window.scanApplyTarget === "split";
-  if (scanCancel) scanCancel.textContent = failed ? "Type it in" : "Close";
+  if (scanCancel) scanCancel.textContent = failed ? tr("Type it in") : tr("Close");
   if (scanCancel) scanCancel.dataset.typeIn = failed ? "1" : "";
   if (scanCancel) scanCancel.hidden = !failed;
 }
@@ -14995,7 +14998,7 @@ function scanUpdateTaxNote() {
       if (id) label = taxRelief(id).label;
     }
   } catch { label = ""; }
-  el.textContent = label ? `May count as ${label} tax relief. The receipt is kept on this phone for it.` : "";
+  el.textContent = label ? tr("May count as {label} tax relief. The receipt is kept on this phone for it.", { label }) : "";
   el.hidden = !label;
 }
 // Every category the user has, for "More…".
@@ -15014,8 +15017,8 @@ function renderScanCategoryChips(choices, expanded) {
   if (expanded) for (const c of scanAllCategories()) if (!list.includes(c)) list.push(c);
   box.innerHTML = list.map((c) => `<button type="button" class="chip-btn${c === cur ? " active" : ""}" data-scan-cat="${escapeHtml(c)}" aria-pressed="${c === cur}">${escapeHtml(c)}</button>`).join("")
     + (expanded
-      ? `<button type="button" class="chip-btn chip-more" data-scan-cat-new>New…</button>`
-      : `<button type="button" class="chip-btn chip-more" data-scan-cat-more aria-expanded="false">More…</button>`);
+      ? `<button type="button" class="chip-btn chip-more" data-scan-cat-new>${tr("New…")}</button>`
+      : `<button type="button" class="chip-btn chip-more" data-scan-cat-more aria-expanded="false">${tr("More…")}</button>`);
   box.hidden = false;
   box._choices = choices;
 }
@@ -15087,11 +15090,11 @@ function scanTotalPicks(ex, parsed, except) {
     out.push({ value: v, label });
   };
   for (const c of (ex && ex.total && ex.total.candidates) || []) {
-    if (c.kind === "total") add(c.value, "Receipt total");
-    else if (c.kind === "payment") add(c.value, /^cash$/i.test(c.label || "") ? "Cash minus change" : `${(c.label || "Card").split(" ")[0]} paid`);
-    else if (c.kind === "computed") add(c.value, "Subtotal + charges");
+    if (c.kind === "total") add(c.value, tr("Receipt total"));
+    else if (c.kind === "payment") add(c.value, /^cash$/i.test(c.label || "") ? tr("Cash minus change") : tr("{method} paid", { method: (c.label || tr("Card")).split(" ")[0] }));
+    else if (c.kind === "computed") add(c.value, tr("Subtotal + charges"));
   }
-  if (parsed && Number(parsed.amount) > 0) add(parsed.amount, "Read as");
+  if (parsed && Number(parsed.amount) > 0) add(parsed.amount, tr("Read as"));
   return out.slice(0, 3);
 }
 
@@ -15111,12 +15114,12 @@ function renderScanTotalState(ex, amount, conf, parsed) {
   if (!pick) return;
   const picks = scanTotalPicks(ex, parsed, has ? amount : null);
   if (has && (conf === "high" || !picks.length)) { pick.hidden = true; pick.innerHTML = ""; return; }
-  const lead = has ? "Also on the receipt" : "Which is the total?";
+  const lead = tr(has ? "Also on the receipt" : "Which is the total?");
   pick.innerHTML = `<span class="scan-pick-lead">${escapeHtml(lead)}</span>`
-    + picks.map((p) => `<button type="button" class="scan-pick" data-scan-use="${p.value}">${escapeHtml(p.label)} <strong>${escapeHtml(fmtMoney(p.value))}</strong> <span class="scan-pick-use">· Use this</span></button>`).join("");
+    + picks.map((p) => `<button type="button" class="scan-pick" data-scan-use="${p.value}">${escapeHtml(p.label)} <strong>${escapeHtml(fmtMoney(p.value))}</strong> <span class="scan-pick-use">· ${tr("Use this")}</span></button>`).join("");
   pick.hidden = false;
   if (!has && !picks.length) {
-    pick.innerHTML = `<span class="scan-pick-lead">Couldn't find the total. Type it in from the receipt.</span>`;
+    pick.innerHTML = `<span class="scan-pick-lead">${tr("Couldn't find the total. Type it in from the receipt.")}</span>`;
   }
 }
 
@@ -15147,8 +15150,8 @@ function openScanViewer() {
     v.setAttribute("role", "dialog");
     v.setAttribute("aria-modal", "true");
     v.setAttribute("aria-label", "Receipt");
-    v.innerHTML = `<div class="scan-viewer-stage"><div class="scan-viewer-page"><img alt="The scanned receipt" /><div class="scan-viewer-marks"></div></div></div>
-      <button type="button" class="scan-viewer-close" aria-label="Close the receipt"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
+    v.innerHTML = `<div class="scan-viewer-stage"><div class="scan-viewer-page"><img alt="${tr("The scanned receipt")}" /><div class="scan-viewer-marks"></div></div></div>
+      <button type="button" class="scan-viewer-close" aria-label="${tr("Close the receipt")}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
     // Inside the open dialog, so it sits in the same top layer.
     (scanDialog || document.body).appendChild(v);
     v.querySelector(".scan-viewer-close").addEventListener("click", closeScanViewer);
@@ -15242,10 +15245,10 @@ function showScanTotalSuggestion(check) {
   const el = document.getElementById("scan-amount-suggest");
   if (!el) return;
   if (!check || check.suggest == null) { el.hidden = true; el.innerHTML = ""; return; }
-  const why = check.source === "items" ? "The items and the cash paid both add up to"
+  const why = tr(check.source === "items" ? "The items and the cash paid both add up to"
     : check.source === "subtotal" ? "The subtotal plus tax and charges comes to"
-    : "Cash paid minus change comes to";
-  el.innerHTML = `${escapeHtml(why)} <strong>${escapeHtml(fmtMoney(check.suggest))}</strong>. <button type="button" class="link-btn" data-scan-use="${check.suggest}">Use ${escapeHtml(fmtMoney(check.suggest))}</button>`;
+    : "Cash paid minus change comes to");
+  el.innerHTML = `${escapeHtml(why)} <strong>${escapeHtml(fmtMoney(check.suggest))}</strong>. <button type="button" class="link-btn" data-scan-use="${check.suggest}">${tr("Use {a}", { a: escapeHtml(fmtMoney(check.suggest)) })}</button>`;
   el.hidden = false;
 }
 document.addEventListener("click", (e) => {
@@ -15260,12 +15263,12 @@ document.addEventListener("click", (e) => {
   showScanTotalSuggestion(null);
   const pick = document.getElementById("scan-amount-pick");
   if (pick) pick.hidden = true;
-  scanStatus.textContent = "Check it against your receipt, then add it.";
+  scanStatus.textContent = tr("Check it against your receipt, then add it.");
 });
 
 function openScanDialog() {
   if (!scanDialog) return;
-  setScanStep("Opening the photo…", null);
+  setScanStep(tr("Opening the photo…"), null);
   scanProgress.style.width = "0%";
   const pbOpen = scanProgress.closest(".scan-pb");
   if (pbOpen) pbOpen.hidden = false;
@@ -15304,7 +15307,7 @@ function openScanDialog() {
   const scanPills = document.querySelector(".scan-type-pills");
   if (scanPills) scanPills.hidden = forSplit || state.debts.length === 0;
   const scanTitle = document.getElementById("scan-title");
-  if (scanTitle) scanTitle.textContent = forSplit ? "Scan receipt to split" : "Scan receipt";
+  if (scanTitle) scanTitle.textContent = forSplit ? tr("Scan receipt to split") : tr("Scan receipt");
   if (typeof scanDialog.showModal === "function") scanDialog.showModal();
   else scanDialog.setAttribute("open", "");
 }
@@ -15327,7 +15330,7 @@ function populateScanDebtSelect() {
   if (pills && window.scanApplyTarget !== "split") pills.hidden = state.debts.length === 0;
   if (!sel) return;
   if (state.debts.length === 0) {
-    sel.innerHTML = `<option value="">No debts — add one in the Debts tab</option>`;
+    sel.innerHTML = `<option value="">${tr("No debts — add one in the Debts tab")}</option>`;
   } else {
     sel.innerHTML = state.debts
       .map((d) => `<option value="debt:${d.id}">${escapeHtml(d.name)} · ${fmtMoney(d.balance)}</option>`)
@@ -15351,7 +15354,7 @@ async function applyScanConversion() {
   if (scanOriginalAmount == null) {
     // Nothing read: say so and wait for a typed total, rather than leaving
     // "Checking the total…" up with Add enabled on an empty amount.
-    scanStatus.textContent = "Couldn't find the total. Type it in from the receipt.";
+    scanStatus.textContent = tr("Couldn't find the total. Type it in from the receipt.");
     // Never the last scan's figure under this one.
     if (scanAmount) scanAmount.value = "";
     updateScanApplyLabel();
@@ -15371,7 +15374,7 @@ async function applyScanConversion() {
       applied = scanOriginalAmount * rate;
       note = `Converted ${fmtMoneyIn(scanOriginalAmount, source)} at 1 ${source} = ${rate.toFixed(4)} ${target}.`;
     } else {
-      note = `Couldn't fetch ${source} → ${target} rate. Amount not converted.`;
+      note = tr("Couldn't fetch {from} → {to} rate. Amount not converted.", { from: source, to: target });
     }
   } else {
     note = "";
@@ -15382,7 +15385,7 @@ async function applyScanConversion() {
   }
   scanAmount.value = applied != null ? applied.toFixed(2) : "";
   scanStatus.textContent = applied != null
-    ? "Check it against your receipt, then add it."
+    ? tr("Check it against your receipt, then add it.")
     : "Couldn't find the total. Type it in from the receipt.";
   updateScanApplyLabel();
 }
@@ -15400,7 +15403,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
   const pbEl = scanProgress.closest(".scan-pb");
   if (pbEl) pbEl.hidden = false;
   try {
-    setScanStep("Preparing the photo…", null);
+    setScanStep(tr("Preparing the photo…"), null);
     // Upscale + grayscale + contrast stretch. Null on any canvas trouble, in
     // which case the original image is recognized exactly as before.
     const prepared = await receiptPreprocessImage(recognizeInput);
@@ -15411,17 +15414,17 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     let text = null;
     let lineBoxes = null;
     if (pickOcrEngine({ native: isNative(), mlkitAvailable: !!mlkitTextPlugin() }) === "mlkit") {
-      setScanStep("Reading the receipt…", null);
+      setScanStep(tr("Reading the receipt…"), null);
       text = await runMlKitOcr(recognizeSource);
       if (text) scanProgress.style.width = "90%";
     }
     if (text == null) {
       // Three steps in plain words. The engine's own messages ("Initializing
       // api", "Loading tesseract core") read as a hang to everyone but us.
-      setScanStep("Getting the reader ready (one-time download, about 10 MB)…", null);
+      setScanStep(tr("Getting the reader ready (one-time download, about 10 MB)…"), null);
       const worker = await getTesseractWorker((m) => {
         if (m.status === "recognizing text") {
-          setScanStep("Reading the receipt…", Math.round((m.progress || 0) * 100));
+          setScanStep(tr("Reading the receipt…"), Math.round((m.progress || 0) * 100));
         }
       });
       // v5+ needs the block tree requested explicitly to hand back word
@@ -15450,7 +15453,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
       const backed = cons1 && cons1.exact.length >= 2 && Math.abs(cons1.value - Number(first.amount)) < 0.005;
       if (!backed) {
         try {
-          setScanStep("Taking a closer look…", null);
+          setScanStep(tr("Taking a closer look…"), null);
           const sharp = await receiptPreprocessImage(recognizeInput, { threshold: true });
           if (sharp) {
             let r2;
@@ -15467,7 +15470,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
         } catch { /* the first read stands */ }
       }
     }
-    setScanStep("Checking the total…", 100);
+    setScanStep(tr("Checking the total…"), 100);
     let parsed = parseReceiptText(text);
     // The phone's own AI and entity reader, only when the parser is unsure.
     const second = await receiptSecondOpinion(parsed, text);
@@ -15524,7 +15527,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     const curWrap = document.getElementById("scan-currency-wrap");
     const differs = scanOriginalCurrency !== currentCurrency();
     if (curWrap) curWrap.hidden = !differs;
-    scanRaw.textContent = parsed.raw || "(no text detected)";
+    scanRaw.textContent = parsed.raw || tr("(no text detected)");
     scanSetHighlights(ex);
     scanResult.hidden = false;
     scanApply.hidden = false;
@@ -15543,7 +15546,7 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     if (pb) pb.hidden = true;
     scanStatus.hidden = true;
     if (amount == null) {
-      scanStatus.textContent = "Not sure of the total. Pick the one on the receipt, or type it in.";
+      scanStatus.textContent = tr("Not sure of the total. Pick the one on the receipt, or type it in.");
     }
     const quotaEl = document.getElementById("scan-quota");
     if (quotaEl) { const q = ocrScansLeftText(); quotaEl.textContent = q; quotaEl.hidden = !q; }
@@ -15609,9 +15612,9 @@ async function startReceiptScan() {
         resultType: "dataUrl",
         quality: 80,
         correctOrientation: true,
-        promptLabelHeader: "Scan receipt",
-        promptLabelPhoto: "Choose from gallery",
-        promptLabelPicture: "Take photo",
+        promptLabelHeader: tr("Scan receipt"),
+        promptLabelPhoto: tr("Choose from gallery"),
+        promptLabelPicture: tr("Take photo"),
       });
     } catch (err) {
       // Only a genuine user cancellation is a silent no-op (no quota spent).
@@ -15737,7 +15740,7 @@ function applyScanResult({ direct }) {
 
   if (direct && chosenType === "expense" && Number.isFinite(amt) && amt > 0) {
     const dup = scanDuplicateOf(amt, /^\d{4}-\d{2}-\d{2}$/.test(pickedDate) ? pickedDate : todayISO(), vendor);
-    if (dup && !confirm(`${fmtMoney(amt)}${vendor ? " at " + vendor : ""} is already in your spending for that day. Add it again?`)) return;
+    if (dup && !confirm(vendor ? tr("{a} at {vendor} is already in your spending for that day. Add it again?", { a: fmtMoney(amt), vendor }) : tr("{a} is already in your spending for that day. Add it again?", { a: fmtMoney(amt) }))) return;
   }
   if (direct) {
     // The form's own submit does the saving (FX, pools, card balances, the
@@ -15758,7 +15761,7 @@ function applyScanResult({ direct }) {
       // and overwriting it lost the tip for good; the entry's own row still
       // deletes it. Otherwise offer Undo.
       const undo = { label: "Undo", run: () => {
-        if (removeDailyEntry(added)) { save(); renderAll(); toast("Removed"); }
+        if (removeDailyEntry(added)) { save(); renderAll(); toast(tr("Removed")); }
       } };
       const shown = document.getElementById("toast");
       const prev = shown && shown.classList.contains("show") && shown._toast;
@@ -15780,8 +15783,8 @@ function applyScanResult({ direct }) {
 }
 
 document.getElementById("btn-forgot")?.addEventListener("click", () => {
-  if (!confirm("Reset will permanently delete all encrypted data. Continue?")) return;
-  if (!confirm("Really sure? This cannot be undone.")) return;
+  if (!confirm(tr("Reset will permanently delete all encrypted data. Continue?"))) return;
+  if (!confirm(tr("Really sure? This cannot be undone."))) return;
   localStorage.removeItem(ENC_KEY);
   localStorage.removeItem(STORAGE_KEY);
   if (typeof taxReceiptsWipe === "function") taxReceiptsWipe(); // receipt photos go with the data
