@@ -11458,18 +11458,19 @@ check('the brand catalogue makes no network calls at all',
   // Coverage, on the page's own markup (parsed, never run), so nothing the
   // user typed or the app rendered can count. Names, codes and the
   // developer-only Drive note stay English on purpose.
-  const KEEP = /^([A-Z]{3}|Duitful|Duitful Pro|iCloud|Google Drive|CSV|WhatsApp|Codyl Enterprise|Apple ID|RM [\d.,]+|you@example\.com|https?:\/\/\S+|Cloud backup isn't configured for this build\. Set|\(or|on iOS\) in)$/;
+  const KEEP = /^([A-Z]{3}|YA \d{4}|PCB|LHDN|Duitful|Duitful Pro|iCloud|Google Drive|CSV|WhatsApp|Codyl Enterprise|Apple ID|RM [\d.,]+|you@example\.com|https?:\/\/\S+|Cloud backup isn't configured for this build\. Set|\(or|on iOS\) in)$/;
   const gaps = await lp.evaluate(async () => {
     const html = await (await fetch('index.html', { cache: 'no-store' })).text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const scopes = ['#lock', 'header.app-header', 'nav.tabs', '#tab-dashboard', '#tab-data'];
+    const scopes = ['#lock', 'header.app-header', 'nav.tabs', '#tab-dashboard', '#tab-data',
+      '#tab-tax', '#tax-numbers-dialog', '#tax-claim-dialog', '#tax-rules-dialog', '#tax-review-dialog', '#tax-receipt-dialog'];
     const out = {};
     for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
   });
   for (const l of ['ms', 'zh']) {
     const left = [...new Set(gaps[l])].filter((s) => !KEEP.test(s));
-    check(`languages: every English line on the passcode screen, header, tab bar, Home and Settings has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
+    check(`languages: every English line on the passcode screen, header, tab bar, Home, Settings and Tax (page and dialogs) has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
       left.length === 0, left.join(' | '));
   }
 
@@ -11543,8 +11544,93 @@ check('the brand catalogue makes no network calls at all',
     first.lang === 'ms' && first.choice === 'auto' && first.start === 'Mulakan', JSON.stringify(first));
   await mctx.close();
 
+  // Text script.js and tax.js draw: every literal given to tr()/trn() has a row.
+  const scan = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'build-i18n.mjs'), '--missing'], { encoding: 'utf8' });
+  check('languages: every string the code passes to tr()/trn() has Malay and Chinese rows', scan.status === 0, (scan.stdout || '').trim().split('\n').slice(0, 12).join(' | '));
+
+  // The relief text in tax-data.js. After a Budget paste this names exactly
+  // which lines need a row in scripts/i18n/tax.mjs.
+  const reliefGaps = await lp.evaluate(() => {
+    const out = new Set();
+    const need = (v) => { if (typeof v !== 'string' || !v.trim()) return; const en = v.replace(/\s+/g, ' ').trim(); for (const l of ['ms', 'zh']) if (!I18N.tables[l][en]) out.add(en); };
+    for (const c of TAX_BUILTIN.tax_relief_categories) for (const it of c.items) {
+      const app = it.app || {};
+      need(app.label || it.name); need(app.hint || (it.claimable_items || [])[0]);
+      (it.claimable_items || []).forEach(need); need(it.eligibility_criteria); need(it.required_documentation);
+      (it.sub_limits || []).forEach((x) => need(x.label || String(x.sub_category).replace(/\s*\((new in|integrated in|ya \d{4})[^)]*\)\s*$/i, '')));
+    }
+    return [...out];
+  });
+  check('languages: every relief name, hint and "what counts" line in tax-data.js has Malay and Chinese rows (add them to scripts/i18n/tax.mjs after a Budget)',
+    reliefGaps.length === 0, reliefGaps.slice(0, 8).join(' | '));
+
   check('languages: no page errors while switching', lerr.length === 0, lerr.join(' | '));
   await lp.close();
+
+  // Longer Malay, wider Chinese: nothing may stick out of its card or make the
+  // page scroll sideways, on a 360px phone, with a full Tax page on screen.
+  const fillForLayout = () => {
+    const y = new Date().getFullYear();
+    const d = (m, day) => `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const add = (amount, category, note, date) => state.dailyExpenses.push({ id: uid(), kind: 'expense', amount, category, note, date, createdAt: Date.now() });
+    add(129.9, 'Books', 'Popular bookstore textbooks', d(3, 4));
+    add(4299, 'Electronics', 'Laptop for work and study', d(5, 12));
+    add(350, 'Medical', 'Dental scaling and filling', d(6, 2));
+    add(180, 'Sports', 'Badminton court rental', d(7, 9));
+    state.income.push({ id: uid(), name: 'Salary', amount: 6800, month: currentMonthISO() });
+    const t = taxState();
+    t.enabled = true; t.introSeen = true; t.deltaSince = Date.now() + 1e9;
+    t.figures[String(y)] = { income: 81600, pcb: 3600, epf: 8976 };
+    t.children = 2; t.spouse = true;
+    t.claims.push(coerceTaxClaim({ relief: 'lifestyle', amount: 129.9, date: d(3, 4), note: 'Popular bookstore textbooks' }));
+    save(); renderAll();
+  };
+  const sticksOut = () => {
+    const out = [];
+    const vw = document.documentElement.clientWidth;
+    if (document.documentElement.scrollWidth > vw + 1) out.push(`page scrolls sideways (${document.documentElement.scrollWidth} > ${vw})`);
+    const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden'; };
+    const name = (el) => `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''} "${(el.textContent || '').trim().slice(0, 30)}"`;
+    for (const card of document.querySelectorAll('.tab-panel.active .card, .tab-panel.active .hero-card, dialog[open]')) {
+      if (!vis(card)) continue;
+      const cr = card.getBoundingClientRect();
+      for (const el of card.querySelectorAll('*')) {
+        if (!vis(el) || el.closest('select, svg, .sr-only, [aria-hidden="true"]')) continue;
+        const r = el.getBoundingClientRect();
+        if (r.right > cr.right + 1.5 || r.left < cr.left - 1.5) out.push(`${name(el)} outside ${name(card)}`);
+      }
+    }
+    return [...new Set(out)];
+  };
+  const layoutMiss = [];
+  for (const lang of ['en', 'ms', 'zh']) {
+    const p = await b.newPage({ viewport: { width: 360, height: 780 } });
+    await p.addInitScript((l) => localStorage.setItem('duitful.lang', l), lang);
+    await p.goto(`${BASE}/app/index.html`);
+    await p.waitForTimeout(500);
+    await p.click('#btn-start-open');
+    await p.waitForTimeout(1000);
+    await p.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+    await p.evaluate(fillForLayout);
+    await p.waitForTimeout(300);
+    await p.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+    for (const tab of ['dashboard', 'tax', 'data']) {
+      await p.evaluate((t) => { const btn = document.getElementById('tabbtn-' + t); btn.hidden = false; btn.click(); }, tab);
+      await p.waitForTimeout(250);
+      if (tab === 'tax') { await p.evaluate(() => document.querySelector('.tax-tile')?.click()); await p.waitForTimeout(200); }
+      (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${tab}: ${x}`));
+    }
+    for (const [label, open] of [['details', () => taxOpenNumbers()], ['claim', () => taxOpenClaim({ relief: 'medical' })],
+      ['review', () => taxOpenReview(taxReviewItems(new Date().getFullYear()), 'year', new Date().getFullYear())]]) {
+      await p.evaluate(open);
+      await p.waitForTimeout(250);
+      (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${label} dialog: ${x}`));
+      await p.evaluate(() => { if (typeof taxCloseAll === 'function') taxCloseAll(); document.querySelectorAll('dialog[open]').forEach((d) => d.close()); });
+    }
+    await p.close();
+  }
+  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Tax with a relief open, Settings, the details / claim / review dialogs)',
+    layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 
 await b.close();

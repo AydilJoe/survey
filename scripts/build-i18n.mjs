@@ -1,4 +1,4 @@
-// Writes app/i18n-ms.js and app/i18n-zh.js from scripts/i18n/strings.mjs.
+// Writes app/i18n-ms.js and app/i18n-zh.js from scripts/i18n/*.mjs.
 //
 //   node scripts/build-i18n.mjs          write both tables
 //   node scripts/build-i18n.mjs --check  exit 1 if they are stale (e2e runs this)
@@ -9,7 +9,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { ROWS } from './i18n/strings.mjs';
+import { ROWS as BASE } from './i18n/strings.mjs';
+import { ROWS as TAX } from './i18n/tax.mjs';
+
+// One file per screen; the order only matters for reading the tables.
+const ROWS = [...BASE, ...TAX];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANGS = [
@@ -34,6 +38,46 @@ for (const row of ROWS) {
 if (problems.length) {
   console.error(problems.join('\n'));
   process.exit(1);
+}
+
+// Every literal string given to tr() / trn() in app/*.js, for --missing and
+// the e2e check. Reads each call's text arguments, stopping at the {vars}
+// object; tr(x) with no literal (relief data, notes) is not counted.
+export function scanKeys(src) {
+  const keys = new Set();
+  const re = /\btrn?\(/g;
+  let m;
+  while ((m = re.exec(src))) {
+    const isN = src[m.index + 2] === 'n';
+    let i = m.index + m[0].length, depth = 1, arg = 0, inVars = false;
+    while (i < src.length && depth > 0) {
+      const ch = src[i];
+      if (ch === '"' || ch === "'" || ch === '`') {
+        let j = i + 1, s = '';
+        while (j < src.length && src[j] !== ch) { if (src[j] === '\\') { s += src[j + 1]; j += 2; continue; } s += src[j]; j++; }
+        // `x === "ios" ? …`: a value being compared, not text to show.
+        const compared = /[!=]==?\s*$/.test(src.slice(Math.max(0, i - 6), i));
+        if (depth === 1 && !inVars && !compared && ch !== '`' && (!isN || arg > 0)) keys.add(s);
+        i = j + 1; continue;
+      }
+      if (ch === '(' || ch === '[') depth++;
+      else if (ch === ')' || ch === ']') depth--;
+      else if (ch === '{' && depth === 1) inVars = true;
+      else if (ch === ',' && depth === 1) arg++;
+      i++;
+    }
+  }
+  return keys;
+}
+if (process.argv.includes('--missing')) {
+  const { readdirSync } = await import('node:fs');
+  const have = new Set(ROWS.map((r) => r[0]));
+  const out = [];
+  for (const f of readdirSync(join(root, 'app')).filter((n) => n.endsWith('.js') && !n.startsWith('i18n'))) {
+    for (const k of scanKeys(readFileSync(join(root, 'app', f), 'utf8'))) if (k && !have.has(k)) out.push(`${f}: ${k}`);
+  }
+  console.log(out.join('\n'));
+  process.exit(out.length ? 1 : 0);
 }
 
 let stale = false;

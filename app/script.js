@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.1";
+const APP_VERSION = "1.57.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -11275,6 +11275,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.2": [
+    "<strong>Tax in Bahasa Melayu and 中文</strong> — the Tax page, its check-ins and every relief now follow your language. Malay uses LHDN's own names for the reliefs.",
+  ],
   "1.57.1": [
     "<strong>Bahasa Melayu and 中文</strong> — Duitful now speaks Malay and Simplified Chinese. It follows your phone's language, or pick one in Settings → Preferences → Language. Home, adding an entry and Settings come first; the other screens follow.",
   ],
