@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.5";
+const APP_VERSION = "1.57.6";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -2484,9 +2484,9 @@ function renderDaily() {
   if (state.dailyExpenses.length === 0) {
     listEl.innerHTML = emptyBlock({
       glyph: "entry",
-      title: "No entries yet",
-      body: "Log a spend to see it here.",
-      action: { label: "Add an entry", tab: "dashboard" },
+      title: tr("No entries yet"),
+      body: tr("Log a spend to see it here."),
+      action: { label: tr("Add an entry"), tab: "dashboard" },
     });
     return;
   }
@@ -2510,7 +2510,7 @@ function renderDaily() {
     : sorted;
 
   if (filteredSorted.length === 0 && dailyQuery) {
-    listEl.innerHTML = `<div class="empty">No matches for "<strong>${escapeHtml(dailyQuery.trim())}</strong>" — <a class="empty-clear" data-search-clear="daily">clear search</a>?</div>`;
+    listEl.innerHTML = `<div class="empty">${tr("No matches for \"<strong>{q}</strong>\" — {clear}?", { q: escapeHtml(dailyQuery.trim()), clear: `<a class="empty-clear" data-search-clear="daily">${tr("clear search")}</a>` })}</div>`;
     return;
   }
 
@@ -2536,17 +2536,17 @@ function renderDaily() {
       let pill = "";
       let note = "";
       if (e.kind === "debt") {
-        const name = debtNameById(e.debtId) || e.debtName || "debt";
-        pill = `<span class="cat-pill cat-pill-debt" title="Debt payment">↓ ${escapeHtml(name)}</span>`;
+        const name = debtNameById(e.debtId) || e.debtName || tr("debt");
+        pill = `<span class="cat-pill cat-pill-debt" title="${tr("Debt payment")}">↓ ${escapeHtml(name)}</span>`;
       } else if (e.kind === "saving") {
         const goal = state.savings.find((g) => g.id === e.savingId);
-        const name = goal ? goal.name : (e.savingName || "savings");
-        pill = `<span class="cat-pill cat-pill-saving" title="Savings deposit">↑ ${escapeHtml(name)}</span>`;
+        const name = goal ? goal.name : (e.savingName || tr("savings"));
+        pill = `<span class="cat-pill cat-pill-saving" title="${tr("Savings deposit")}">↑ ${escapeHtml(name)}</span>`;
       } else {
-        pill = `<span class="cat-pill">${escapeHtml(e.category || "Others")}</span>`;
+        pill = `<span class="cat-pill">${escapeHtml(e.category || tr("Others"))}</span>`;
         if (e.cardDebtId) {
-          const cardName = debtNameById(e.cardDebtId) || e.cardDebtName || "card";
-          pill += ` <span class="cat-pill cat-pill-card" title="Charged to this card">◈ ${escapeHtml(cardName)}</span>`;
+          const cardName = debtNameById(e.cardDebtId) || e.cardDebtName || tr("card");
+          pill += ` <span class="cat-pill cat-pill-card" title="${tr("Charged to this card")}">◈ ${escapeHtml(cardName)}</span>`;
         }
       }
       // Empty notes render as nothing rather than a "—" placeholder — placeholder
@@ -2556,22 +2556,22 @@ function renderDaily() {
       // deposit is not a bill anyone else owes a share of.
       const canSplit = (e.kind || "expense") === "expense";
       const splitBtn = canSplit
-        ? `<button data-action="split-expense" data-split-source="daily" data-id="${e.id}">Split this bill</button>`
+        ? `<button data-action="split-expense" data-split-source="daily" data-id="${e.id}">${tr("Split this bill")}</button>`
         : "";
       // One line per entry with Edit/Split/Delete behind ⋯, like every other
       // list since v1.37. Colour follows meaning: a savings deposit is a gain,
       // spending and debt payments are plain text — red is for trouble.
       const amtCls = e.kind === "saving" ? " is-saving" : "";
-      const label = e.note || e.category || "entry";
+      const label = e.note || e.category || tr("entry");
       html.push(`
         <div class="daily-entry" data-id="${e.id}">
           <div class="primary-line">${pill}${note}</div>
           <span class="amount${amtCls}">${fmtMoney(e.amount)}${renderFxBadge(e.fx)}</span>
-          <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${e.id}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(label)}" title="More">⋯</button>
+          <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${e.id}" aria-expanded="false" aria-haspopup="true" aria-label="${tr("More actions for {name}", { name: escapeHtml(label) })}" title="${tr("More")}">⋯</button>
           <div class="row-menu" hidden>
-            <button data-action="edit-daily" data-id="${e.id}">Edit</button>
+            <button data-action="edit-daily" data-id="${e.id}">${tr("Edit")}</button>
             ${splitBtn}
-            <button class="danger" data-action="delete-daily" data-id="${e.id}">Delete</button>
+            <button class="danger" data-action="delete-daily" data-id="${e.id}">${tr("Delete")}</button>
           </div>
         </div>
       `);
@@ -2579,7 +2579,7 @@ function renderDaily() {
   }
   const rest = filteredSorted.length - shown.length;
   if (rest > 0) {
-    html.push(`<button type="button" class="ghost daily-more" data-daily-more>Show ${Math.min(rest, DAILY_PAGE)} more <span class="muted">(${rest} older)</span></button>`);
+    html.push(`<button type="button" class="ghost daily-more" data-daily-more>${tr("Show {n} more", { n: Math.min(rest, DAILY_PAGE) })} <span class="muted">(${tr("{n} older", { n: rest })})</span></button>`);
   }
   listEl.innerHTML = html.join("");
 }
@@ -11286,6 +11286,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.6": [
+    "<strong>All entries in Bahasa Melayu and 中文</strong> — the full list of what you've logged now follows your language.",
+  ],
   "1.57.5": [
     "<strong>Savings in Bahasa Melayu and 中文</strong> — goals, investments, the retirement plan and zakat now follow your language.",
   ],
