@@ -1,7 +1,10 @@
 package com.aydiljoe.duitful.plugins;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
+import android.provider.OpenableColumns;
 import android.os.Build;
 import android.util.Base64;
 import android.util.Log;
@@ -27,6 +30,7 @@ import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -70,6 +74,11 @@ public class DuitfulKitPlugin extends Plugin {
     private ActivityResultLauncher<IntentSenderRequest> scanLauncher;
     private PluginCall pendingScan;
 
+    /** Files shared to Duitful, waiting for the app (unlocked) to take them. */
+    private final List<Uri> shared = new ArrayList<>();
+    static final int SHARED_MAX_FILES = 12;
+    static final int SHARED_MAX_BYTES = 25 * 1024 * 1024;
+
     @Override
     public void load() {
         // Must be registered before the activity is STARTED; plugins load
@@ -78,6 +87,87 @@ public class DuitfulKitPlugin extends Plugin {
             new ActivityResultContracts.StartIntentSenderForResult(),
             this::onScanResult
         );
+        // Launched by Share / Open with.
+        keepShared(getActivity().getIntent());
+    }
+
+    /* ---------- Share / Open with ----------
+       A statement PDF or photos shared from a bank app, Mail or Files. The
+       intent only carries content:// pointers; they are kept here until the
+       app is unlocked and asks (takeSharedFiles), then read and forgotten.
+       Nothing is copied to storage. */
+
+    @Override
+    protected void handleOnNewIntent(Intent intent) {
+        super.handleOnNewIntent(intent);
+        if (keepShared(intent)) notifyListeners("sharedFiles", new JSObject(), true);
+    }
+
+    @SuppressWarnings("deprecation")
+    private boolean keepShared(Intent intent) {
+        if (intent == null || intent.getAction() == null) return false;
+        List<Uri> found = new ArrayList<>();
+        try {
+            String action = intent.getAction();
+            if (Intent.ACTION_SEND.equals(action)) {
+                Uri u = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (u != null) found.add(u);
+            } else if (Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+                ArrayList<Uri> us = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+                if (us != null) for (Uri u : us) if (u != null) found.add(u);
+            } else if (Intent.ACTION_VIEW.equals(action) && intent.getData() != null
+                    && "content".equals(intent.getData().getScheme())) {
+                found.add(intent.getData());
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        if (found.isEmpty()) return false;
+        synchronized (shared) {
+            shared.clear();
+            shared.addAll(found.subList(0, Math.min(found.size(), SHARED_MAX_FILES)));
+        }
+        return true;
+    }
+
+    /** {files: [{name, mime, base64}]}; empty when nothing was shared. Each file is handed over once. */
+    @PluginMethod
+    public void takeSharedFiles(PluginCall call) {
+        final List<Uri> list;
+        synchronized (shared) {
+            list = new ArrayList<>(shared);
+            shared.clear();
+        }
+        io.execute(() -> {
+            JSArray files = new JSArray();
+            for (Uri u : list) {
+                try {
+                    String mime = getContext().getContentResolver().getType(u);
+                    if (mime == null || !(mime.equals("application/pdf") || mime.startsWith("image/"))) continue;
+                    String name = "shared";
+                    try (Cursor c = getContext().getContentResolver().query(u, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+                        if (c != null && c.moveToFirst() && !c.isNull(0)) name = c.getString(0);
+                    } catch (Exception ignored) {}
+                    byte[] bytes;
+                    try (InputStream in = getContext().getContentResolver().openInputStream(u)) {
+                        if (in == null) continue;
+                        ByteArrayOutputStream out = new ByteArrayOutputStream();
+                        byte[] buf = new byte[65536];
+                        int n;
+                        while ((n = in.read(buf)) > 0) {
+                            out.write(buf, 0, n);
+                            if (out.size() > SHARED_MAX_BYTES) break;
+                        }
+                        if (out.size() > SHARED_MAX_BYTES) continue;
+                        bytes = out.toByteArray();
+                    }
+                    files.put(new JSObject().put("name", name).put("mime", mime).put("base64", Base64.encodeToString(bytes, Base64.NO_WRAP)));
+                } catch (Exception e) {
+                    Log.w(TAG, "shared file unreadable", e);
+                }
+            }
+            call.resolve(new JSObject().put("files", files));
+        });
     }
 
     /* ---------- Document scanner ---------- */

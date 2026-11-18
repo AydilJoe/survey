@@ -7,6 +7,9 @@
 //   1. Copy the .java sources into android/app/src/main/java/<app>/plugins/
 //   2. Register the plugin in MainActivity.onCreate
 //   3. Add the Gradle dependencies to android/app/build.gradle
+//   5. Add share / open-with intent filters to MainActivity: a PDF or
+//      photos shared from a bank app, Mail or Files land in Duitful
+//      (DuitfulKitPlugin.takeSharedFiles). PDFs and images only.
 //   4. Add <uses-sdk tools:overrideLibrary=…> for the two libraries that
 //      declare minSdk 26 while the app supports 24. The plugin only touches
 //      them after an SDK_INT >= 26 check (see DuitfulKitPlugin.java), which
@@ -55,6 +58,28 @@ export const OVERRIDE_LIBRARIES = [
   "com.google.mlkit.genai.common",
 ];
 const MARK = "duitful-kit";
+const SHARE_MARK = "duitful:share-in";
+export const SHARE_FILTERS = `
+            <!-- ${SHARE_MARK}: a statement PDF or photos shared to Duitful
+                 (Share → Duitful, or Open with). Read by DuitfulKitPlugin. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>`;
+
 
 // The Android kill switch. 1.53.0, the first build with this plugin, crashed
 // on every launch: Entity Extraction brings in WorkManager, whose Room
@@ -165,6 +190,21 @@ function install() {
       console.log("✓ added the minSdk override for DuitfulKit's API-26 libraries");
     } else {
       console.log("• AndroidManifest.xml already carries the DuitfulKit override");
+    }
+  }
+
+  // 5. Share / open with: a statement PDF or photos, from any app.
+  {
+    let m = readFileSync(MANIFEST, "utf8");
+    const activity = /<activity\b[^>]*android:name="[^"]*MainActivity"[\s\S]*?<\/activity>/.exec(m);
+    if (!activity) fail("MainActivity <activity> block not found in AndroidManifest.xml");
+    if (activity[0].includes(SHARE_MARK)) {
+      console.log("• MainActivity already accepts shared PDFs and photos");
+    } else {
+      const patched = activity[0].replace(/(\s*)<\/activity>/, `${SHARE_FILTERS}$1</activity>`);
+      m = m.slice(0, activity.index) + patched + m.slice(activity.index + activity[0].length);
+      writeFileSync(MANIFEST, m);
+      console.log("✓ MainActivity accepts shared PDFs and photos (Share / Open with)");
     }
   }
 }

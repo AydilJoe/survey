@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.16";
+const APP_VERSION = "1.57.17";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5257,8 +5257,17 @@ async function fireDueNotifications() {
    resized with a field focused is not a keyboard. */
 (function trackKeyboard() {
   const vv = window.visualViewport;
-  const touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-  if (!vv || !touch) return;
+  if (!vv) return;
+  // Asked every time, not once at load: "(pointer: coarse)" alone can read
+  // false early on a touch screen, and that left the tracker off for good.
+  const touch = () => {
+    try {
+      if (typeof isNative === "function" && isNative()) return true;
+      if (navigator.maxTouchPoints > 0 || "ontouchstart" in window) return true;
+      const mq = (q) => !!(window.matchMedia && window.matchMedia(q).matches);
+      return mq("(pointer: coarse)") || mq("(any-pointer: coarse)");
+    } catch { return false; }
+  };
   const root = document.documentElement;
   const tallest = new Map(); // width → tallest visible height seen
   const typing = () => {
@@ -5284,7 +5293,7 @@ async function fireDueNotifications() {
     const layout = window.innerHeight;
     const most = Math.max(tallest.get(w) || 0, layout, h);
     tallest.set(w, most);
-    const now = !!typing() && Math.min(h, layout) < most - 120;
+    const now = touch() && !!typing() && Math.min(h, layout) < most - 120;
     root.style.setProperty("--kb-top", `${Math.round(vv.offsetTop)}px`);
     root.style.setProperty("--kb-vh", `${Math.round(h)}px`);
     if (now !== open) {
@@ -11404,6 +11413,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.17": [
+    "<strong>Open with Duitful</strong> — share a statement PDF or photos from your bank app, Mail or Files straight to Duitful. A PDF opens the statement import; photos ask whether they are a receipt or statement pages.",
+  ],
   "1.57.16": [
     "<strong>Statements every month</strong> — Import bank statement is now on All entries and in search, and about a month after each import Duitful reminds you the next one should be out.",
   ],
@@ -12593,6 +12605,7 @@ async function handleUnlock(passcode, { silent = false } = {}) {
   refreshCaptureAccess().catch(() => {});
   syncPendingCount(true);
   syncNativeStrings(true);
+  drainSharedFiles().catch(() => {});
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -12635,6 +12648,7 @@ async function handleSetup(passcode, confirm, initialState, { open = false } = {
   refreshCaptureAccess().catch(() => {});
   syncPendingCount(true);
   syncNativeStrings(true);
+  drainSharedFiles().catch(() => {});
   initQuickAddResume();
   initQuickAddNotificationPref().catch(() => {});
   fireDueNotifications().catch(() => {});
@@ -15792,15 +15806,106 @@ scanInput?.addEventListener("change", async (e) => {
   const file = e.target.files && e.target.files[0];
   e.target.value = "";
   if (!file) return;
-
+  await scanReceiptFromFile(file);
+});
+// A receipt photo from the picker, or shared to Duitful from another app.
+async function scanReceiptFromFile(file) {
   // Re-check the quota at file-pick time — the btn-scan click gate can be
   // raced (double-tap → two pickers → two change events before trackOcrUsage
   // commits). Picking is the commitment point; count it before recognizing.
-  if (!canOcr()) { gate("ocr"); return; }
+  if (!canOcr()) { gate("ocr"); return false; }
   trackOcrUsage();
   const objectUrl = URL.createObjectURL(file);
-  if (!(await runReceiptOcr(file, objectUrl, objectUrl))) refundOcrUsage();
+  const ok = await runReceiptOcr(file, objectUrl, objectUrl);
+  if (!ok) refundOcrUsage();
+  return ok;
+}
+
+/* ---------- Share / Open with Duitful ----------
+   A statement PDF or photos shared from a bank app, Mail or Files. Android
+   keeps the pointers in DuitfulKit (takeSharedFiles, "sharedFiles" event);
+   iPhone opens Duitful with a file URL in its Inbox (appUrlOpen), read once by
+   DuitfulKit.readSharedFile. Nothing is taken until the vault is unlocked: a
+   PDF goes to statement import, photos ask whether they are a receipt or
+   statement pages. Files are read in memory, never stored. */
+const sharedIn = { urls: [], files: [], busy: false };
+function sharedFileFromB64(f) {
+  const bin = atob(String(f.base64 || ""));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new File([bytes], String(f.name || "shared").slice(0, 120), { type: String(f.mime || "") });
+}
+function sharedUrlIsFile(url) { return /^file:\/\//i.test(String(url || "")); }
+async function drainSharedFiles() {
+  if (!state || !aesKey || sharedIn.busy) return;
+  sharedIn.busy = true;
+  try {
+    const got = [];
+    const take = duitfulKit("takeSharedFiles");
+    if (take) {
+      try { const r = await take.takeSharedFiles(); if (r && Array.isArray(r.files)) got.push(...r.files); } catch {}
+    }
+    const read = duitfulKit("readSharedFile");
+    const urls = sharedIn.urls.splice(0);
+    if (read) {
+      for (const url of urls) {
+        try { const r = await read.readSharedFile({ url }); if (r && Array.isArray(r.files)) got.push(...r.files); } catch {}
+      }
+    }
+    const files = got.map(sharedFileFromB64).filter((f) => f.size > 0);
+    if (files.length) handleSharedFiles(files);
+  } finally {
+    sharedIn.busy = false;
+  }
+}
+function handleSharedFiles(files) {
+  const pdf = files.find((f) => f.type === "application/pdf" || /\.pdf$/i.test(f.name));
+  document.querySelectorAll("dialog[open]").forEach((d) => { if (d.id !== "stmt-dialog") d.close(); });
+  if (pdf) {
+    openStatementImport();
+    statementFromFile(pdf).catch(() => {});
+    return "statement";
+  }
+  const photos = files.filter((f) => /^image\//.test(f.type));
+  if (!photos.length) { toast(tr("Duitful opens PDFs and photos only.")); return null; }
+  sharedIn.files = photos;
+  const dlg = document.getElementById("shared-in-dialog");
+  const n = document.getElementById("shared-in-what");
+  if (n) n.textContent = trn(photos.length, "{n} photo shared to Duitful.", "{n} photos shared to Duitful.");
+  if (dlg && typeof dlg.showModal === "function") dlg.showModal();
+  return "ask";
+}
+document.getElementById("shared-in-receipt")?.addEventListener("click", async () => {
+  document.getElementById("shared-in-dialog")?.close();
+  const [first] = sharedIn.files.splice(0);
+  if (first) { window.scanApplyTarget = null; await scanReceiptFromFile(first); }
 });
+document.getElementById("shared-in-statement")?.addEventListener("click", () => {
+  document.getElementById("shared-in-dialog")?.close();
+  const photos = sharedIn.files.splice(0);
+  if (!photos.length) return;
+  openStatementImport();
+  statementFromPhotos(photos).catch(() => {});
+});
+document.getElementById("shared-in-cancel")?.addEventListener("click", () => {
+  sharedIn.files = [];
+  document.getElementById("shared-in-dialog")?.close();
+});
+function initSharedFiles() {
+  if (!isNative()) return;
+  const kit = window.Capacitor?.Plugins?.DuitfulKit;
+  try { if (kit && typeof kit.addListener === "function") kit.addListener("sharedFiles", () => { drainSharedFiles().catch(() => {}); }); } catch {}
+  const App = window.Capacitor?.Plugins?.App;
+  if (!App || typeof App.addListener !== "function") return;
+  const keep = (url) => {
+    if (!sharedUrlIsFile(url) || sharedIn.urls.includes(url)) return;
+    sharedIn.urls.push(url);
+    drainSharedFiles().catch(() => {});
+  };
+  App.addListener("appUrlOpen", (event) => keep(event && event.url));
+  if (typeof App.getLaunchUrl === "function") App.getLaunchUrl().then((res) => keep(res && res.url)).catch(() => {});
+}
+initSharedFiles();
 
 // "Add RM 23.40" saves it; "Edit first" keeps the old fill-the-form path for
 // anything the scan screen doesn't cover (a pool, a card, a note).

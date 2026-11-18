@@ -8422,3 +8422,7 @@ html.kb-open dialog:modal[open] { animation: none; }
 .stmt-bal { display: inline-flex; align-items: center; gap: 0.3rem; }
 .stmt-bal input { width: 6.2rem; padding: 0.2rem 0.4rem; text-align: right; font-size: 0.8rem; font-variant-numeric: tabular-nums; border-radius: var(--r-sm); min-height: 32px; }
 #stmt-pick { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+/* Shared to Duitful: two plain choices, full width. */
+.shared-in-choices { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.25rem 0; }
+.shared-in-choices .primary { width: 100%; }
