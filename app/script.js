@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.57.2";
+const APP_VERSION = "1.57.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1212,7 +1212,7 @@ function renderBudgetManager() {
   const note = document.getElementById("pool-month-note");
   if (note) {
     note.hidden = !isPast;
-    if (isPast) note.textContent = `Showing ${formatMonthLabel(m)} — a finished month. Use the arrows above to come back to ${formatMonthLabel(currentMonthISO())}.`;
+    if (isPast) note.textContent = tr("Showing {m} — a finished month. Use the arrows above to come back to {now}.", { m: formatMonthLabel(m), now: formatMonthLabel(currentMonthISO()) });
   }
 
   // Show quick-start templates only when the user has no user-created pools
@@ -1240,9 +1240,9 @@ function renderBudgetManager() {
     // the monthly minimums, which is the opposite of an overspend.
     const overspent = isOver && !isSystem;
     const overrideTag = (!isSystem && pool.monthlyLimits && pool.monthlyLimits[m] != null)
-      ? `<span class="system-tag">override</span>` : "";
+      ? `<span class="system-tag">${tr("override")}</span>` : "";
     const rolloverTag = (!isSystem && pool.rollover)
-      ? `<span class="system-tag">rollover</span>` : "";
+      ? `<span class="system-tag">${tr("rollover")}</span>` : "";
     // The "Active" checkbox already says whether a pool is active, and
     // "system" said nothing the meta line doesn't — badges are kept for what
     // isn't visible elsewhere (override, rollover).
@@ -1251,13 +1251,13 @@ function renderBudgetManager() {
     // when the figures beside them are hidden. The base limit is only worth
     // a mention when this month overrides it; otherwise it is the "of" below.
     const meta = isSystem
-      ? `From your debt minimums · `
-      : (overrideTag ? `Base ${amt(pool.limit)} · ` : "");
+      ? `${tr("From your debt minimums")} · `
+      : (overrideTag ? `${tr("Base {a}", { a: amt(pool.limit) })} · ` : "");
 
     const activeToggle = isSystem ? "" : `
-      <label class="pool-toggle pool-toggle-active" title="When on, pool is pre-selected on the daily form">
+      <label class="pool-toggle pool-toggle-active" title="${tr("When on, pool is pre-selected on the daily form")}">
         <input type="checkbox" data-action="toggle-active" data-id="${escapeHtml(pool.id)}" ${pool.active ? "checked" : ""} />
-        <span>Active</span>
+        <span>${tr("Active")}</span>
       </label>
     `;
 
@@ -1266,10 +1266,10 @@ function renderBudgetManager() {
       : `
         <div class="pool-row-actions">
           ${activeToggle}
-          <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${escapeHtml(pool.id)}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(pool.name)}" title="More">⋯</button>
+          <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${escapeHtml(pool.id)}" aria-expanded="false" aria-haspopup="true" aria-label="${tr("More actions for {name}", { name: escapeHtml(pool.name) })}" title="${tr("More")}">⋯</button>
           <div class="row-menu" hidden>
-            <button data-action="edit-pool" data-id="${escapeHtml(pool.id)}">Edit</button>
-            <button class="danger" data-action="delete-pool" data-id="${escapeHtml(pool.id)}">Delete</button>
+            <button data-action="edit-pool" data-id="${escapeHtml(pool.id)}">${tr("Edit")}</button>
+            <button class="danger" data-action="delete-pool" data-id="${escapeHtml(pool.id)}">${tr("Delete")}</button>
           </div>
         </div>
       `;
@@ -1278,8 +1278,8 @@ function renderBudgetManager() {
       <div class="pool-row${isSystem ? " system" : ""}" data-id="${escapeHtml(pool.id)}">
         <span class="swatch" style="background:${escapeHtml(pool.color)}"></span>
         <div>
-          <div class="pool-name">${escapeHtml(pool.name)}${overrideTag}${rolloverTag}</div>
-          <div class="pool-meta">${meta}${amt(usage)} of ${amt(limit)}${isOver ? ` <strong>(over by ${amt(usage - limit)})</strong>` : ""}</div>
+          <div class="pool-name">${escapeHtml(isSystem ? tr(pool.name) : pool.name)}${overrideTag}${rolloverTag}</div>
+          <div class="pool-meta">${meta}${tr("{a} of {b}", { a: amt(usage), b: amt(limit) })}${isOver ? ` <strong>(${tr("over by {a}", { a: amt(usage - limit) })})</strong>` : ""}</div>
           <div class="pool-progress"><div class="fill${overspent ? " over" : ""}" style="width:${usedPct.toFixed(1)}%${overspent ? "" : `;background:${escapeHtml(pool.color)}`}"></div></div>
         </div>
         ${actions}
@@ -1323,26 +1323,26 @@ function renderBudgetSummary() {
     if (isSystem) {
       const tier = debtPoolEscalation();
       if (tier === "done") {
-        banner = `<div class="pool-banner done">✓ All debts paid this month.</div>`;
+        banner = `<div class="pool-banner done">✓ ${tr("All debts paid this month.")}</div>`;
       } else {
-        const ctaBtn = `<button type="button" class="pool-banner-cta" data-action="open-bulk-debt-pay">Pay monthly debts →</button>`;
+        const ctaBtn = `<button type="button" class="pool-banner-cta" data-action="open-bulk-debt-pay">${tr("Pay monthly debts →")}</button>`;
         if (tier === "calm") {
-          banner = `<div class="pool-banner calm">${amt(stillDue)} due this month.${ctaBtn}</div>`;
+          banner = `<div class="pool-banner calm">${tr("{a} due this month.", { a: amt(stillDue) })}${ctaBtn}</div>`;
         } else if (tier === "yellow") {
           const earliest = state.debts
             .map((d) => Number(d.dueDay)).filter((n) => Number.isFinite(n) && n >= 1 && n <= 31)
             .reduce((min, n) => Math.min(min, n), 32);
-          banner = `<div class="pool-banner yellow">${amt(stillDue)} due — earliest due day is the ${earliest}${ordinalSuffix(earliest)}.${ctaBtn}</div>`;
+          banner = `<div class="pool-banner yellow">${tr("{a} due — earliest due day is the {day}.", { a: amt(stillDue), day: dayOrdinal(earliest) })}${ctaBtn}</div>`;
         } else { // red
           const overdue = state.debts.find((d) => {
             return Number.isFinite(d.dueDay) && d.dueDay < new Date().getDate() && paidThisMonth(d.id) < (Number(d.minPayment) || 0);
           });
-          banner = `<div class="pool-banner red">${overdue ? escapeHtml(overdue.name) + " is overdue (was due day " + overdue.dueDay + ")" : "Past due"}.${ctaBtn}</div>`;
+          banner = `<div class="pool-banner red">${overdue ? tr("{name} is overdue (was due day {day}).", { name: escapeHtml(overdue.name), day: overdue.dueDay }) : tr("Past due.")}${ctaBtn}</div>`;
         }
       }
     } else {
       // User pool: yellow at 80-99, red at >=100 (skipped for system debt above)
-      if (isOver) chip = `<span class="pool-warn-red">over by ${fmtMoney(usage - limit)}</span>`;
+      if (isOver) chip = `<span class="pool-warn-red">${tr("over by {a}", { a: fmtMoney(usage - limit) })}</span>`;
       else if (usedPct >= 80) chip = `<span class="pool-warn-yellow">${usedPct.toFixed(0)}%</span>`;
     }
 
@@ -1351,14 +1351,14 @@ function renderBudgetSummary() {
     // Built as HTML, not text: the "ahead of schedule" half is worth keeping
     // visible in privacy mode even when the figures are not.
     const meta = isSystem && isOver
-      ? `Ahead of schedule — paid ${amt(usage)}, ${amt(usage - limit)} over minimums`
-      : `${amt(usage)} of ${amt(limit)}`;
+      ? tr("Ahead of schedule — paid {a}, {b} over minimums", { a: amt(usage), b: amt(usage - limit) })
+      : tr("{a} of {b}", { a: amt(usage), b: amt(limit) });
 
     return `
       <div class="summary-pool-row${isSystem ? " system" : ""}" data-id="${escapeHtml(pool.id)}">
         <div class="summary-pool-head">
           <span class="swatch" style="background:${escapeHtml(pool.color)}"></span>
-          <span class="pool-name">${escapeHtml(pool.name)}${isSystem ? ` <span class="system-tag">system</span>` : ""}${pool.active ? ` <span class="system-tag">active</span>` : ""}</span>
+          <span class="pool-name">${escapeHtml(isSystem ? tr(pool.name) : pool.name)}${isSystem ? ` <span class="system-tag">${tr("system")}</span>` : ""}${pool.active ? ` <span class="system-tag">${tr("active")}</span>` : ""}</span>
           <span class="pool-meta-right">${meta} ${chip}</span>
         </div>
         <div class="pool-progress"><div class="fill${overspent ? " over" : ""}" style="width:${usedPct.toFixed(1)}%${overspent ? "" : `;background:${escapeHtml(fillColor)}`}"></div></div>
@@ -1442,6 +1442,14 @@ function resetAllSearchQueries() {
   });
 }
 
+// "the 5th" / "hari ke-5" / "5 号": a day of the month, in the app's language.
+function dayOrdinal(n) {
+  const lang = window.I18N ? I18N.lang : "en";
+  if (lang === "ms") return `ke-${n}`;
+  if (lang === "zh") return `${n} 号`;
+  return `${n}${ordinalSuffix(n)}`;
+}
+
 function ordinalSuffix(n) {
   const v = n % 100;
   if (v >= 11 && v <= 13) return "th";
@@ -1453,7 +1461,7 @@ function ordinalSuffix(n) {
 function populatePoolDropdowns() {
   document.querySelectorAll("select[data-budget-pool]").forEach((sel) => {
     const desired = sel.value;
-    sel.innerHTML = `<option value="">(none)</option>` + state.budgetPools
+    sel.innerHTML = `<option value="">${tr("(none)")}</option>` + state.budgetPools
       .filter((p) => p.system !== "debt") // user can't manually pick the system pool
       .map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("");
     if (desired) sel.value = desired;
@@ -1523,15 +1531,15 @@ function attachPoolDropdownToForm(formEl) {
     preview.hidden = false;
     preview.classList.remove("pool-warn-yellow", "pool-warn-red");
     if (limit <= 0) {
-      preview.textContent = `${pool.name}: ${fmtMoney(projected)} (no limit set)`;
+      preview.textContent = `${pool.name}: ${fmtMoney(projected)} (${tr("no limit set")})`;
     } else if (projected > limit) {
       preview.classList.add("pool-warn-red");
-      preview.textContent = `This will put ${pool.name} at ${fmtMoney(projected)} / ${fmtMoney(limit)} — over by ${fmtMoney(projected - limit)}.`;
+      preview.textContent = tr("This will put {name} at {a} / {b} — over by {c}.", { name: pool.name, a: fmtMoney(projected), b: fmtMoney(limit), c: fmtMoney(projected - limit) });
     } else if (projected / limit >= 0.8) {
       preview.classList.add("pool-warn-yellow");
-      preview.textContent = `${pool.name}: ${fmtMoney(projected)} of ${fmtMoney(limit)} (${((projected / limit) * 100).toFixed(0)}%).`;
+      preview.textContent = `${pool.name}: ${tr("{a} of {b}", { a: fmtMoney(projected), b: fmtMoney(limit) })} (${((projected / limit) * 100).toFixed(0)}%).`;
     } else {
-      preview.textContent = `${pool.name}: ${fmtMoney(projected)} of ${fmtMoney(limit)} — ${fmtMoney(remaining)} left.`;
+      preview.textContent = `${pool.name}: ${tr("{a} of {b} — {c} left.", { a: fmtMoney(projected), b: fmtMoney(limit), c: fmtMoney(remaining) })}`;
     }
   }
 
@@ -1573,7 +1581,7 @@ function renderPoolColorOptions(selectedColor) {
   // colour picker is unusable.
   container.innerHTML = POOL_COLORS.map((color, i) => `
     <label style="background:${color}" class="${color === selectedColor ? "selected" : ""}">
-      <input type="radio" name="color" value="${color}" aria-label="Colour ${i + 1}"${color === selectedColor ? " checked" : ""} />
+      <input type="radio" name="color" value="${color}" aria-label="${tr("Colour {n}", { n: i + 1 })}"${color === selectedColor ? " checked" : ""} />
     </label>
   `).join("");
 }
@@ -1587,7 +1595,7 @@ function openPoolForm(poolId, opts) {
   // opened below the fold under the Add button with nothing saying what it was
   // for, so an edit tap looked like it did nothing.
   const title = document.getElementById("pool-form-title");
-  if (title) title.textContent = editing ? `Edit ${editing.name}` : "New pool";
+  if (title) title.textContent = editing ? tr("Edit {name}", { name: editing.name }) : tr("New pool");
   document.getElementById("btn-add-pool")?.setAttribute("hidden", "");
   document.getElementById("btn-copy-pool-overrides")?.setAttribute("hidden", "");
   setTimeout(() => {
@@ -2050,7 +2058,7 @@ function renderSpendCalendar() {
   }
   const monthTotal = Array.from(byDay.values()).reduce((s, v) => s + v, 0);
   const maxDay = Math.max(0, ...byDay.values());
-  if (totalEl) totalEl.innerHTML = monthTotal > 0 ? `${amt(monthTotal)} this month` : "";
+  if (totalEl) totalEl.innerHTML = monthTotal > 0 ? tr("{a} this month", { a: amt(monthTotal) }) : "";
 
   const cells = [];
   for (let i = 0; i < firstOffset; i++) {
@@ -2074,7 +2082,7 @@ function renderSpendCalendar() {
     const compact = amt >= 1000 ? `${(amt / 1000).toFixed(amt >= 10000 ? 0 : 1).replace(/\.0$/, "")}k` : String(Math.round(amt));
     const amtLabel = amt > 0 ? `<span class="cal-amt">${compact}</span>` : "";
     cells.push(
-      `<button type="button" class="spend-cal-cell${heat}${today}${selected}" data-cal-date="${iso}" aria-label="${iso}${amt > 0 ? `, spent ${fmtMoney(amt)}` : ", no spending"}">` +
+      `<button type="button" class="spend-cal-cell${heat}${today}${selected}" data-cal-date="${iso}" aria-label="${iso}, ${amt > 0 ? tr("spent {a}", { a: fmtMoney(amt) }) : tr("no spending")}">` +
       `<span class="cal-day">${d}</span>${amtLabel}</button>`,
     );
   }
@@ -2090,13 +2098,13 @@ function renderSpendCalendar() {
   const rows = entries.length
     ? entries.map((e) => {
         let label;
-        if (e.kind === "debt") label = `↓ ${debtNameById(e.debtId) || e.debtName || "Debt payment"}`;
-        else if (e.kind === "saving") label = `↑ ${state.savings.find((g) => g.id === e.savingId)?.name || e.savingName || "Savings"}`;
-        else label = e.category || "Others";
+        if (e.kind === "debt") label = `↓ ${debtNameById(e.debtId) || e.debtName || tr("Debt payment")}`;
+        else if (e.kind === "saving") label = `↑ ${state.savings.find((g) => g.id === e.savingId)?.name || e.savingName || tr("Savings")}`;
+        else label = e.category || tr("Others");
         if (e.note) label += ` · ${e.note}`;
         return `<div class="cal-panel-row"><span class="cal-row-label">${escapeHtml(label)}</span><span class="cal-row-amt">${fmtMoney(e.amount)}</span></div>`;
       }).join("")
-    : `<div class="cal-panel-empty">No entries on this day.</div>`;
+    : `<div class="cal-panel-empty">${tr("No entries on this day.")}</div>`;
   panel.hidden = false;
   panel.innerHTML =
     `<div class="cal-panel-head"><strong>${escapeHtml(formatDayLabel(calSelectedDate))}</strong><span>${entries.length ? fmtMoney(dayTotal) : ""}</span></div>` + rows;
@@ -2126,7 +2134,7 @@ function renderFlow() {
 
   const renderList = (ul, items, kind) => {
     if (!items.length) {
-      ul.innerHTML = `<li class="empty">No ${kind} entries for this month.</li>`;
+      ul.innerHTML = `<li class="empty">${tr(kind === "income" ? "No income entries for this month." : "No expense entries for this month.")}</li>`;
       return;
     }
     ul.innerHTML = items
@@ -2136,12 +2144,12 @@ function renderFlow() {
         // No day → render an empty placeholder span so grid alignment is
         // preserved without showing a "–" that reads as broken UI.
         const chip = day
-          ? `<span class="day-chip ${cls}" title="${kind === "income" ? "Pay day" : "Due day"}">${day}</span>`
+          ? `<span class="day-chip ${cls}" title="${tr(kind === "income" ? "Pay day" : "Due day")}">${day}</span>`
           : `<span class="day-chip day-chip-empty" aria-hidden="true"></span>`;
         // Splitting an expense never rewrites it — the action only opens the
         // composer with the total prefilled and the expense linked.
         const splitBtn = kind === "expense"
-          ? `<button data-action="split-expense" data-split-source="expense" data-id="${it.id}">Split this bill</button>`
+          ? `<button data-action="split-expense" data-split-source="expense" data-id="${it.id}">${tr("Split this bill")}</button>`
           : "";
         // Edit, Split and Delete sit behind one ⋯, as on the debt list: three
         // icon buttons pushed the amount onto its own line on a phone, and
@@ -2151,11 +2159,11 @@ function renderFlow() {
             ${chip}
             <span class="name" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
             <span class="amount ${kind === "income" ? "pos" : "neg"}">${fmtMoney(it.amount)}${renderFxBadge(it.fx)}</span>
-            <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${it.id}" aria-expanded="false" aria-haspopup="true" aria-label="More actions for ${escapeHtml(it.name)}" title="More">⋯</button>
+            <button class="ghost icon-btn row-more" data-action="row-menu" data-id="${it.id}" aria-expanded="false" aria-haspopup="true" aria-label="${tr("More actions for {name}", { name: escapeHtml(it.name) })}" title="${tr("More")}">⋯</button>
             <div class="row-menu" hidden>
-              <button data-action="edit-${kind}" data-id="${it.id}">Edit</button>
+              <button data-action="edit-${kind}" data-id="${it.id}">${tr("Edit")}</button>
               ${splitBtn}
-              <button class="danger" data-action="delete-${kind}" data-id="${it.id}">Delete</button>
+              <button class="danger" data-action="delete-${kind}" data-id="${it.id}">${tr("Delete")}</button>
             </div>
           </li>`;
       })
@@ -2184,7 +2192,7 @@ function renderFlow() {
   if (btnCopy) btnCopy.style.display = prevHas ? "" : "none";
   if (hint) {
     if (prevHas) {
-      hint.textContent = `Copies entries from ${formatMonthLabel(prev)} that aren't already in ${formatMonthLabel(selectedMonth)}.`;
+      hint.textContent = tr("Copies entries from {from} that aren't already in {to}.", { from: formatMonthLabel(prev), to: formatMonthLabel(selectedMonth) });
       hint.hidden = false;
     } else {
       // Nothing to copy — hide the line entirely rather than leaving a
@@ -7790,7 +7798,7 @@ $("#form-income").addEventListener("submit", (e) => {
   if (fromCode !== toCode) {
     if (!isPro()) { openPaywall("multiCurrency"); return; }
     if (!fxCurrencySupported(fromCode)) {
-      notify(`Live rate not available for ${fromCode}. Pick a different currency.`);
+      notify(tr("Live rate not available for {code}. Pick a different currency.", { code: fromCode }));
       return;
     }
     const converted = convertFx(amount, fromCode, toCode);
@@ -7811,7 +7819,7 @@ $("#form-income").addEventListener("submit", (e) => {
   save();
   e.target.reset();
   renderAll();
-  toast(`Income added: ${name}`);
+  toast(tr("Income added: {name}", { name }));
 });
 
 $("#form-expense").addEventListener("submit", (e) => {
@@ -7830,7 +7838,7 @@ $("#form-expense").addEventListener("submit", (e) => {
   if (fromCode !== toCode) {
     if (!isPro()) { openPaywall("multiCurrency"); return; }
     if (!fxCurrencySupported(fromCode)) {
-      notify(`Live rate not available for ${fromCode}. Pick a different currency.`);
+      notify(tr("Live rate not available for {code}. Pick a different currency.", { code: fromCode }));
       return;
     }
     const converted = convertFx(amount, fromCode, toCode);
@@ -7852,7 +7860,7 @@ $("#form-expense").addEventListener("submit", (e) => {
   save();
   e.target.reset();
   renderAll();
-  toast(`Expense added: ${name}`);
+  toast(tr("Expense added: {name}", { name }));
 });
 
 document.addEventListener("click", (e) => {
@@ -7892,7 +7900,7 @@ $("#btn-copy-prev").addEventListener("click", () => {
   save();
   renderAll();
   const hint = $("#copy-prev-hint");
-  if (hint && added === 0) hint.textContent = `Nothing to copy — ${formatMonthLabel(selectedMonth)} already has those entries.`;
+  if (hint && added === 0) hint.textContent = tr("Nothing to copy — {m} already has those entries.", { m: formatMonthLabel(selectedMonth) });
 });
 
 
@@ -8547,7 +8555,7 @@ function deleteWithUndo(message, mutate) {
   save();
   renderAll();
   let undone = false;
-  toast(message, { action: { label: "Undo", run: () => {
+  toast(message, { action: { label: tr("Undo"), run: () => {
     undone = true;
     state = coerceState(JSON.parse(snap));
     save();
@@ -8565,27 +8573,27 @@ document.addEventListener("click", (e) => {
   if (action === "delete-income") {
     const it = state.income.find((x) => x.id === id);
     if (!it) return;
-    deleteWithUndo(`Deleted ${it.name}`, () => { state.income = state.income.filter((x) => x.id !== id); });
+    deleteWithUndo(tr("Deleted {name}", { name: it.name }), () => { state.income = state.income.filter((x) => x.id !== id); });
     return;
   } else if (action === "delete-expense") {
     const it = state.expenses.find((x) => x.id === id);
     if (!it) return;
-    deleteWithUndo(`Deleted ${it.name}`, () => { state.expenses = state.expenses.filter((x) => x.id !== id); });
+    deleteWithUndo(tr("Deleted {name}", { name: it.name }), () => { state.expenses = state.expenses.filter((x) => x.id !== id); });
     return;
   } else if (action === "delete-debt") {
     const it = state.debts.find((x) => x.id === id);
     if (!it) return;
-    deleteWithUndo(`Deleted ${it.name}`, () => { state.debts = state.debts.filter((x) => x.id !== id); });
+    deleteWithUndo(tr("Deleted {name}", { name: it.name }), () => { state.debts = state.debts.filter((x) => x.id !== id); });
     return;
   } else if (action === "delete-daily") {
     const entry = state.dailyExpenses.find((x) => x.id === id);
     if (!entry) return;
-    deleteWithUndo(`Deleted ${fmtMoney(entry.amount)}`, () => { removeDailyEntry(id); });
+    deleteWithUndo(tr("Deleted {name}", { name: fmtMoney(entry.amount) }), () => { removeDailyEntry(id); });
     return;
   } else if (action === "save-delete") {
     const g = state.savings.find((x) => x.id === id);
     if (!g) return;
-    deleteWithUndo(`Deleted ${g.name}`, () => { state.savings = state.savings.filter((x) => x.id !== id); });
+    deleteWithUndo(tr("Deleted {name}", { name: g.name }), () => { state.savings = state.savings.filter((x) => x.id !== id); });
     return;
   } else if (action === "save-deposit") {
     const input = document.querySelector(`input[data-save-input="${id}"]`);
@@ -11275,6 +11283,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.57.3": [
+    "<strong>Monthly in Bahasa Melayu and 中文</strong> — income, monthly bills, the spending calendar and budget pools now follow your language, and so does the budget summary on Home.",
+  ],
   "1.57.2": [
     "<strong>Tax in Bahasa Melayu and 中文</strong> — the Tax page, its check-ins and every relief now follow your language. Malay uses LHDN's own names for the reliefs.",
   ],
@@ -16395,7 +16406,8 @@ document.addEventListener("click", (e) => {
     openPoolForm(null, { focus: "limit" });
     const form = document.getElementById("form-budget-pool");
     const nameInput = form?.querySelector("input[name='name']");
-    if (nameInput) nameInput.value = name;
+    // A template is a suggestion: name it in the app's language.
+    if (nameInput) nameInput.value = tr(name);
   });
 
   document.getElementById("btn-cancel-pool")?.addEventListener("click", () => closePoolForm());
@@ -16413,13 +16425,13 @@ document.addEventListener("click", (e) => {
     const m = currentMonthISO();
 
     if (!name || !Number.isFinite(limit) || limit <= 0) {
-      notify("Pool name and a positive limit are required.");
+      notify(tr("Pool name and a positive limit are required."));
       return;
     }
     // Name uniqueness (case-insensitive, excluding self)
     const dup = state.budgetPools.find((p) => p.id !== id && typeof p.name === "string" && p.name.trim().toLowerCase() === name.toLowerCase());
     if (dup) {
-      notify(`A pool named "${dup.name}" already exists.`);
+      notify(tr("A pool named \"{name}\" already exists.", { name: dup.name }));
       return;
     }
 
@@ -16490,7 +16502,7 @@ document.addEventListener("click", (e) => {
     } else if (action === "delete-pool" && id) {
       const pool = state.budgetPools.find((p) => p.id === id);
       if (!pool || pool.system === "debt") return;
-      deleteWithUndo(`Deleted ${pool.name}`, () => { state.budgetPools = state.budgetPools.filter((p) => p.id !== id); });
+      deleteWithUndo(tr("Deleted {name}", { name: pool.name }), () => { state.budgetPools = state.budgetPools.filter((p) => p.id !== id); });
     }
   });
 
@@ -16536,8 +16548,8 @@ document.addEventListener("click", (e) => {
     save();
     renderAll();
     notify(copied === 0
-      ? "No overrides found in last month."
-      : `Copied ${copied} override${copied === 1 ? "" : "s"} from last month.`);
+      ? tr("No overrides found in last month.")
+      : trn(copied, "Copied {n} override from last month.", "Copied {n} overrides from last month."));
   });
 }
 
