@@ -9,9 +9,9 @@ Bigger plans have their own file in this folder.
    requests, a who-paid grid, auto-tick from bank alerts, reminders, and only
    your share counted as spending. Target 1.58.0. Three decisions are waiting
    (free limit, version 1 scope, rounding).
-2. **Scanned statements** (`statement-scans.md`). Scanned or photographed
-   statements, read with on-device OCR, imported only when the balance check
-   passes. Small follow-up to 1.57.0.
+2. ~~**Scanned statements**~~ — **done in 1.57.15** (`statement-scans.md`):
+   scanned PDFs, photos and the phone's document scanner, imported only when
+   the balance check passes. Check OCR quality on a real phone.
 
 ## Shorter forms
 

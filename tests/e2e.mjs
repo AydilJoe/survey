@@ -2522,6 +2522,125 @@ check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.c
   });
 }
 
+/* ── Scanned statements and photos of pages, read with OCR (1.57.15) ───────
+   A PDF with no text layer goes through OCR. The OCR here is a stand-in that
+   returns word boxes where the synthetic statement prints its text (one box
+   per word, ~Helvetica widths), so the test covers rendering, rebuilding
+   rows from boxes, the same layout rules, and the rule that a scan only
+   imports when its figures add up. */
+{
+  const F = STATEMENT_FIXTURES;
+  const segsOf = (pages) => pages.map((segs) => segs.map(([x, y, t, size]) => [x, y, t, size || 8]));
+  const scanCase = (fixture, edit) => S(async ({ blank, pages, edit }) => {
+    const bin = Uint8Array.from(atob(blank), (c) => c.charCodeAt(0));
+    const keep = window.stmtOcrImage;
+    let page = 0;
+    const calls = [];
+    // Word boxes in the rendered picture's pixels, from where the PDF would print them.
+    window.stmtOcrImage = async (canvas) => {
+      const segs = pages[page++] || [];
+      calls.push([canvas.width, canvas.height]);
+      const k = canvas.width / 595;
+      const words = [];
+      for (const [x, y, t, size] of segs) {
+        let at = x;
+        for (const w0 of String(t).split(/ +/)) {
+          const w = edit && edit[w0] ? edit[w0] : w0;
+          const wpt = w0.length * size * 0.52;
+          const cy = 842 - y - size * 0.35;
+          words.push({ text: w, x0: at * k, x1: (at + wpt) * k, y0: (cy - size * 0.5) * k, y1: (cy + size * 0.5) * k });
+          at += wpt + size * 0.28;
+        }
+      }
+      return { words, width: canvas.width };
+    };
+    try {
+      let noText = null;
+      try { await readStatementPdf(bin.buffer); } catch (e) { noText = e.code; }
+      const read = await readStatementScanPdf(bin.buffer);
+      const parsed = parseStatement(read);
+      const recon = reconcileStatement(parsed);
+      return { noText, calls, scanned: parsed.scanned, layout: parsed.layout, status: recon.status,
+        rows: parsed.rows.map((x) => [x.date, x.amount, x.dir].join('|')),
+        bad: [...recon.badRows].map((x) => x.amount) };
+    } finally {
+      window.stmtOcrImage = keep;
+    }
+  }, { blank: buildPdf(fixture().map(() => [])).toString('base64'), pages: segsOf(fixture()), edit });
+  const text = await S(async (data) => {
+    const bin = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+    const p = parseStatement(await readStatementPdf(bin.buffer));
+    return p.rows.map((x) => [x.date, x.amount, x.dir].join('|'));
+  }, buildPdf(F.genericAccount()).toString('base64'));
+  const gen = await scanCase(F.genericAccount);
+  check('statement scan: a PDF with no text layer is rendered page by page and read with OCR into the same rows as the text PDF, and it checks out',
+    gen.noText === 'scanned' && gen.calls.length === 1 && gen.calls[0][0] > 1400 && gen.scanned && gen.layout === 'generic'
+      && gen.status === 'ok' && JSON.stringify(gen.rows) === JSON.stringify(text) && text.length === 4, JSON.stringify({ gen, text }));
+  const mb = await scanCase(F.maybankCard);
+  check('statement scan: a two-page Maybank card scan finds its layout and checks out',
+    mb.calls.length === 2 && mb.layout === 'maybank-card' && mb.status === 'ok' && mb.rows.length === 7, JSON.stringify(mb));
+  const miss = await scanCase(F.genericAccount, { '45.20': '46.20' });
+  check('statement scan: a misread digit breaks the running balance and flags that row, never a guessed fix',
+    miss.status === 'mismatch' && JSON.stringify(miss.bad) === '[46.2]', JSON.stringify(miss));
+
+  // Through the dialog: blocked while it doesn't add up, imports once corrected.
+  const ui = await S(async ({ blank, pages }) => {
+    const keep = window.stmtOcrImage;
+    const snap = { pro: state.pro, usage: state.statementUsage, d: state.dailyExpenses.length, i: state.income.length };
+    state.pro = false; state.statementUsage = { month: '', imports: 0 };
+    window.stmtOcrImage = async (canvas) => {
+      const k = canvas.width / 595;
+      const words = [];
+      for (const [x, y, t, size] of pages[0]) {
+        let at = x;
+        for (const w0 of String(t).split(/ +/)) {
+          const w = w0 === '45.20' ? '46.20' : w0;
+          const wpt = w0.length * size * 0.52, cy = 842 - y - size * 0.35;
+          words.push({ text: w, x0: at * k, x1: (at + wpt) * k, y0: (cy - size * 0.5) * k, y1: (cy + size * 0.5) * k });
+          at += wpt + size * 0.28;
+        }
+      }
+      return { words, width: canvas.width };
+    };
+    const out = {};
+    try {
+      openStatementImport();
+      const bin = Uint8Array.from(atob(blank), (c) => c.charCodeAt(0));
+      await statementFromFile(new File([bin], 'scan.pdf', { type: 'application/pdf' }));
+      const btn = document.getElementById('stmt-import');
+      out.summary = document.getElementById('stmt-summary').textContent;
+      out.blocked = btn.disabled;
+      out.count = document.getElementById('stmt-count').textContent;
+      out.refused = statementImportNow();
+      const flagged = document.querySelector('.stmt-row.is-flagged [data-stmt-amt]');
+      out.flaggedValue = flagged && flagged.value;
+      if (flagged) { flagged.value = '45.20'; flagged.dispatchEvent(new Event('change', { bubbles: true })); }
+      out.after = document.getElementById('stmt-import').disabled;
+      out.status = stmtUi.recon.status;
+      out.imported = statementImportNow();
+      out.booked = state.dailyExpenses.filter((e) => e.source === 'statement').map((e) => e.amount).sort((a, b) => a - b);
+      // Photos of the pages take the same road.
+      const c = document.createElement('canvas'); c.width = 1240; c.height = 1754;
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      window.stmtOcrImage = async (canvas) => ({ words: [], width: canvas.width });
+      try { await readStatementPhotos([c.toDataURL('image/png')]); out.photo = 'read'; } catch (e) { out.photo = e.code; }
+    } finally {
+      window.stmtOcrImage = keep;
+      document.getElementById('stmt-dialog')?.close();
+      state.dailyExpenses = state.dailyExpenses.filter((e) => e.source !== 'statement');
+      state.income = state.income.filter((x) => x.source !== 'statement');
+      Object.assign(state, { pro: snap.pro, statementUsage: snap.usage });
+      save(); renderAll();
+    }
+    return out;
+  }, { blank: buildPdf([[]]).toString('base64'), pages: segsOf(F.genericAccount()) });
+  check('statement scan review: says "Read from a scan" and refuses to import while the figures don\'t add up',
+    /Read from a scan/.test(ui.summary) && ui.blocked && ui.refused === false && /Fix the figures/.test(ui.count) && ui.flaggedValue === '46.20', JSON.stringify(ui));
+  check('statement scan review: correcting the flagged amount re-runs the check, then it imports the user\'s figure',
+    ui.after === false && ui.status === 'ok' && ui.imported === true && JSON.stringify(ui.booked) === '[45.2,120,500]', JSON.stringify(ui));
+  check('statement scan: a photo with no readable text says so instead of importing anything', ui.photo === 'no-text', JSON.stringify(ui.photo));
+}
+
 /* ── "Not picked up?": share an alert's wording, redacted on the phone (1.56.2) ── */
 const share = await S(() => {
   const r = (t) => redactAlertSample(t);
@@ -11731,12 +11850,11 @@ check('the brand catalogue makes no network calls at all',
   await p.waitForTimeout(1000);
   await p.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
   await p.evaluate(() => { document.getElementById('tabbtn-tax').hidden = false; taxOpenNumbers(); });
-  await p.waitForTimeout(400);
-  const field = await p.evaluate(() => {
-    const el = [...document.querySelectorAll('#tax-numbers-dialog input[type=number]')].find((i) => i.offsetParent);
-    el.focus();
-    return el.id;
-  });
+  await p.waitForTimeout(800);
+  // The wizard focuses its step heading as it opens; tap the field after that, as a person would.
+  const field = await p.evaluate(() => [...document.querySelectorAll('#tax-numbers-dialog input[type=number]')].find((i) => i.offsetParent)?.id);
+  if (field) await p.focus('#' + field);
+  await p.waitForFunction((id) => document.activeElement && document.activeElement.id === id, field, { timeout: 2000 }).catch(() => {});
   const before = await p.evaluate(() => document.documentElement.classList.contains('kb-open'));
   // The keyboard takes the bottom ~45% of the screen.
   await p.setViewportSize({ width: 360, height: 430 });
