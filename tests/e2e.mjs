@@ -11721,6 +11721,53 @@ check('the brand catalogue makes no network calls at all',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 
+/* ── On-screen keyboard: a dialog stays usable above it (Samsung, Android 16) ── */
+{
+  const kctx = await b.newContext({ viewport: { width: 360, height: 780 }, hasTouch: true, isMobile: true });
+  const p = await kctx.newPage();
+  await p.goto(`${BASE}/app/index.html`);
+  await p.waitForTimeout(500);
+  await p.click('#btn-start-open');
+  await p.waitForTimeout(1000);
+  await p.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  await p.evaluate(() => { document.getElementById('tabbtn-tax').hidden = false; taxOpenNumbers(); });
+  await p.waitForTimeout(400);
+  const field = await p.evaluate(() => {
+    const el = [...document.querySelectorAll('#tax-numbers-dialog input[type=number]')].find((i) => i.offsetParent);
+    el.focus();
+    return el.id;
+  });
+  const before = await p.evaluate(() => document.documentElement.classList.contains('kb-open'));
+  // The keyboard takes the bottom ~45% of the screen.
+  await p.setViewportSize({ width: 360, height: 430 });
+  await p.waitForTimeout(700);
+  const up = await p.evaluate(() => {
+    const vv = window.visualViewport;
+    const top = vv.offsetTop, bottom = vv.offsetTop + vv.height;
+    const d = document.getElementById('tax-numbers-dialog');
+    const dr = d.getBoundingClientRect();
+    const next = [...d.querySelectorAll('.tax-wiz-actions button')].find((x) => !x.hidden && x.offsetParent);
+    next.scrollIntoView({ block: 'nearest' });
+    const nr = next.getBoundingClientRect();
+    const f = document.activeElement.getBoundingClientRect();
+    const tabs = document.querySelector('.tabs');
+    return {
+      kb: document.documentElement.classList.contains('kb-open'),
+      dialogInside: dr.top >= top - 1 && dr.bottom <= bottom + 1,
+      fieldVisible: f.top >= top && f.bottom <= bottom,
+      nextReachable: nr.top >= top - 1 && nr.bottom <= bottom + 1,
+      tabsHidden: !tabs || getComputedStyle(tabs).display === 'none',
+    };
+  });
+  await p.evaluate(() => document.activeElement.blur());
+  await p.setViewportSize({ width: 360, height: 780 });
+  await p.waitForTimeout(400);
+  const down = await p.evaluate(() => document.documentElement.classList.contains('kb-open'));
+  check('keyboard: with a field focused and the keyboard up, the tax details dialog fits above it, the field and Next are reachable, the bottom bar steps aside; all back when it closes',
+    field && !before && up.kb && up.dialogInside && up.fieldVisible && up.nextReachable && up.tabsHidden && !down, JSON.stringify({ field, before, up, down }));
+  await kctx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

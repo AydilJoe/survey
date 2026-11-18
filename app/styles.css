@@ -8388,3 +8388,28 @@ button:disabled, button[aria-disabled="true"] { transition-property: background-
 .stmt-amt.spend { color: var(--loss); }
 .stmt-amt.income { color: var(--gain); }
 .stmt-amt.move { color: var(--muted); }
+
+/* ---------- On-screen keyboard ----------
+   While a field has the keyboard up (html.kb-open, set by trackKeyboard in
+   script.js from visualViewport), an open dialog sits at the top of what is
+   still visible and is never taller than it, so the hint and the buttons
+   under a field scroll into reach instead of hiding behind the keyboard.
+   Works whether or not the WebView itself shrinks (Android edge-to-edge
+   shrinks it by a margin; iOS and browsers only shrink the visual viewport). */
+html.kb-open dialog:modal {
+  top: var(--kb-top, 0px);
+  bottom: auto;
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+  max-height: calc(var(--kb-vh, 100dvh) - 1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+html.kb-open .search-dialog:modal { margin-top: 0; height: var(--kb-vh, 100%); max-height: var(--kb-vh, 100%); }
+/* A step padded to a steady height while browsing doesn't need it while typing. */
+html.kb-open .tax-wiz-step { min-height: 0; }
+html.kb-open dialog:modal[open] { animation: none; }
+/* The bottom bar would ride up on the keyboard and cover the field's neighbours. */
+@media (max-width: 439px) {
+  html.kb-open .tabs { display: none; }
+}

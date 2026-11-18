@@ -18,17 +18,20 @@ Bigger plans have their own file in this folder.
 The 8 heavy screens from the 15 Nov form audit, in two batches: see
 `shorter-forms.md`.
 
-## Keyboard covering fields (to check)
+## Keyboard covering fields (fixed in 1.57.14, check on the Samsung)
 
-Duitful is Capacitor, not React Native, so `react-native-keyboard-controller`
-doesn't apply. Nothing in the app handles the keyboard today: no
-`@capacitor/keyboard`, no `windowSoftInputMode`, no `visualViewport` code.
-Risk spots: inputs in `<dialog>`s (tax steps, share an alert, statement
-review, paywall promo code) and fields near the bottom nav, especially on
-Android 15+ edge-to-edge, where `adjustResize` may no longer shrink the
-WebView. Confirmed 16 Nov on a Samsung (Android 16), Tax → Your details step 1: the field stays visible, but the dialog is cut off just below it and a large blank area fills the space to the keyboard, so the hint, the yearly total and Skip / Next can't be reached without closing the keyboard. Likely the dialog's height uses vh/dvh and doesn't follow `visualViewport`. Fix if needed: add `@capacitor/keyboard`
-(resize "native"), a small `focusin` handler that scrolls the field into
-view using `visualViewport`, and hide the bottom nav while typing.
+Web-side fix, no new plugin: `trackKeyboard` in `script.js` watches
+`visualViewport` and, while a text field is focused and the visible height
+is well under the tallest seen at that width (touch screens only), sets
+`html.kb-open` plus `--kb-top` / `--kb-vh`. `styles.css` ("On-screen
+keyboard") then pins open dialogs to the visible area and caps their height
+so they scroll, drops the tax step's min-height, and hides the bottom bar
+under 440px. e2e simulates the keyboard by shrinking the viewport. Still to
+do: confirm on the Android 16 Samsung (Tax → Your details step 1). If the
+WebView there shrinks by its bottom margin *and* Chromium shrinks the visual
+viewport again, the blank strip would remain; then the native fix is to stop
+adding the IME inset to the WebView margin in `patch-android-play-vitals.mjs`
+or add `@capacitor/keyboard`.
 
 ## Languages: Bahasa Melayu and Chinese (requested)
 
