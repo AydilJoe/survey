@@ -106,4 +106,18 @@ export const ROWS = [
   ["{name} is overdue (was due day {day}).", "{name} sudah lewat (tarikh akhir hari {day}).", "{name} 已逾期 (原定每月 {day} 号)。"],
   ["Past due.", "Sudah lewat.", "已逾期。"],
   ["Ahead of schedule — paid {a}, {b} over minimums", "Lebih awal daripada jadual — dibayar {a}, {b} melebihi minimum", "进度超前——已还 {a}，比最低还款多 {b}"],
+  // ── Shorter forms (1.57.18): hints under fields, not in them ────
+  ["e.g. Salary", "cth. Gaji", "例如：薪水"],
+  ["e.g. Rent", "cth. Sewa", "例如：房租"],
+  ["e.g. Shopping", "cth. Membeli-belah", "例如：购物"],
+  ["e.g. ASB or EPF", "cth. ASB atau KWSP", "例如：ASB 或公积金"],
+  ["Optional. A reminder on the day.", "Pilihan. Peringatan pada hari itu.", "可不填。当天会提醒你。"],
+  ["A reminder on the day.", "Peringatan pada hari itu.", "当天会提醒你。"],
+  ["Limit for <span id=\"pool-override-month\">this month</span> only", "Had untuk <span id=\"pool-override-month\">bulan ini</span> sahaja", "仅限<span id=\"pool-override-month\">本月</span>的额度"],
+  ["Leave empty to use the monthly limit.", "Biarkan kosong untuk guna had bulanan.", "留空就用每月额度。"],
+  ["On your offer letter.", "Ada dalam surat tawaran anda.", "见你的贷款批准信。"],
+  ["For the whole tenure, on your offer letter.", "Untuk seluruh tempoh, ada dalam surat tawaran anda.", "整个期限的总额，见你的贷款批准信。"],
+  ["Leave empty if it just started.", "Biarkan kosong jika baru bermula.", "刚开始的话留空。"],
+  ["From the fund's latest price.", "Ikut harga terkini dana.", "按基金最新价格。"],
+  ["What you paid in total. Shows your yield on cost.", "Jumlah yang anda bayar. Untuk kira pulangan atas kos.", "你总共付了多少，用来算成本收益率。"],
 ];

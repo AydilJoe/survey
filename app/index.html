@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=164" />
+    <link rel="stylesheet" href="styles.css?v=165" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -556,38 +556,39 @@
             <button type="button" class="add-toggle" data-add-toggle="form-income" aria-expanded="false" aria-controls="form-income" aria-label="Add income"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
           </div>
           <form id="form-income" class="flow-form add-form" hidden>
-            <div class="grid-2">
-              <label class="field">
-                <span>Source</span>
-                <input type="text" name="name" placeholder="Salary" required />
-              </label>
-              <label class="field">
-                <span>Amount (<span class="cur-code">MYR</span>)</span>
-                <div class="fx-row">
-                  <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" required />
-                  <select class="currency-picker" name="currency" data-currency-picker></select>
-                </div>
-                <span class="fx-preview" data-fx-preview hidden></span>
-                <span class="fx-upsell" data-fx-upsell hidden>
-                  Multi-currency entry is a Pro feature.
-                  <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
-                </span>
-              </label>
-            </div>
-            <div class="grid-2">
-              <label class="field">
-                <span>Month</span>
-                <input type="month" name="month" required />
-              </label>
-              <label class="field">
-                <span>Pay day (1–31)</span>
-                <input type="number" name="day" min="1" max="31" step="1" inputmode="numeric" placeholder="25" />
-              </label>
-            </div>
+            <label class="field">
+              <span>Source</span>
+              <input type="text" name="name" placeholder="e.g. Salary" required />
+            </label>
+            <label class="field">
+              <span>Amount (<span class="cur-code">MYR</span>)</span>
+              <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" required />
+              <span class="fx-preview" data-fx-preview hidden></span>
+              <span class="fx-upsell" data-fx-upsell hidden>
+                Multi-currency entry is a Pro feature.
+                <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
+              </span>
+            </label>
+            <label class="field">
+              <span>Pay day (1–31)</span>
+              <input type="number" name="day" min="1" max="31" step="1" inputmode="numeric" />
+              <span class="hint">Optional. A reminder on the day.</span>
+            </label>
             <label class="repeat-toggle">
               <input type="checkbox" name="repeatNext" checked />
               <span>Repeat next month</span>
             </label>
+            <details class="form-more" data-form-more>
+              <summary>More</summary>
+              <label class="field">
+                <span>Month</span>
+                <input type="month" name="month" />
+              </label>
+              <label class="field">
+                <span>Currency</span>
+                <select class="currency-picker" name="currency" data-currency-picker></select>
+              </label>
+            </details>
             <button type="submit" class="primary">Add income</button>
             <button type="button" class="ghost bulk-import-trigger" id="btn-bulk-import-income">Import from CSV instead</button>
           </form>
@@ -616,30 +617,30 @@
 
           <form id="form-budget-pool" hidden>
             <h3 class="pool-form-title" id="pool-form-title">New pool</h3>
-            <div class="grid-2">
-              <label class="field">
-                <span>Pool name</span>
-                <input type="text" name="name" placeholder="Shopping" required />
-              </label>
-              <label class="field">
-                <span>Monthly limit (<span class="cur-code">MYR</span>)</span>
-                <input type="number" name="limit" step="0.01" min="0.01" inputmode="decimal" required />
-              </label>
-            </div>
+            <label class="field">
+              <span>Pool name</span>
+              <input type="text" name="name" placeholder="e.g. Shopping" required />
+            </label>
+            <label class="field">
+              <span>Monthly limit (<span class="cur-code">MYR</span>)</span>
+              <input type="number" name="limit" step="0.01" min="0.01" inputmode="decimal" required />
+            </label>
             <fieldset class="palette-picker">
               <legend>Color</legend>
               <div id="pool-color-options"></div>
             </fieldset>
-            <div class="grid-2">
+            <details class="form-more" id="pool-more" data-form-more>
+              <summary>More</summary>
               <label class="pool-toggle">
                 <input type="checkbox" name="rollover" />
                 <span>Roll over unspent next month</span>
               </label>
               <label class="field">
-                <span>Override limit for <span id="pool-override-month">this month</span> (optional)</span>
+                <span data-i18n-html>Limit for <span id="pool-override-month">this month</span> only</span>
                 <input type="number" name="thisMonthOverride" step="0.01" min="0" inputmode="decimal" />
+                <span class="hint">Leave empty to use the monthly limit.</span>
               </label>
-            </div>
+            </details>
             <div class="form-actions">
               <button type="submit" class="primary">Save pool</button>
               <button type="button" class="ghost" id="btn-cancel-pool">Cancel</button>
@@ -654,34 +655,24 @@
             <button type="button" class="add-toggle" data-add-toggle="form-expense" aria-expanded="false" aria-controls="form-expense" aria-label="Add a recurring expense"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
           </div>
           <form id="form-expense" class="flow-form add-form" hidden>
-            <div class="grid-2">
-              <label class="field">
-                <span>Item</span>
-                <input type="text" name="name" placeholder="Rent" required />
-              </label>
-              <label class="field">
-                <span>Amount (<span class="cur-code">MYR</span>)</span>
-                <div class="fx-row">
-                  <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" required />
-                  <select class="currency-picker" name="currency" data-currency-picker></select>
-                </div>
-                <span class="fx-preview" data-fx-preview hidden></span>
-                <span class="fx-upsell" data-fx-upsell hidden>
-                  Multi-currency entry is a Pro feature.
-                  <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
-                </span>
-              </label>
-            </div>
-            <div class="grid-2">
-              <label class="field">
-                <span>Month</span>
-                <input type="month" name="month" required />
-              </label>
-              <label class="field">
-                <span>Due day (1–31)</span>
-                <input type="number" name="day" min="1" max="31" step="1" inputmode="numeric" placeholder="1" />
-              </label>
-            </div>
+            <label class="field">
+              <span>Item</span>
+              <input type="text" name="name" placeholder="e.g. Rent" required />
+            </label>
+            <label class="field">
+              <span>Amount (<span class="cur-code">MYR</span>)</span>
+              <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" required />
+              <span class="fx-preview" data-fx-preview hidden></span>
+              <span class="fx-upsell" data-fx-upsell hidden>
+                Multi-currency entry is a Pro feature.
+                <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
+              </span>
+            </label>
+            <label class="field">
+              <span>Due day (1–31)</span>
+              <input type="number" name="day" min="1" max="31" step="1" inputmode="numeric" />
+              <span class="hint">Optional. A reminder on the day.</span>
+            </label>
             <label class="field" id="expense-pool-field" hidden>
               <span>Budget pool</span>
               <select name="budgetPool" data-budget-pool>
@@ -693,6 +684,17 @@
               <input type="checkbox" name="repeatNext" checked />
               <span>Repeat next month</span>
             </label>
+            <details class="form-more" data-form-more>
+              <summary>More</summary>
+              <label class="field">
+                <span>Month</span>
+                <input type="month" name="month" />
+              </label>
+              <label class="field">
+                <span>Currency</span>
+                <select class="currency-picker" name="currency" data-currency-picker></select>
+              </label>
+            </details>
             <button type="submit" class="primary">Add expense</button>
           </form>
           <ul id="list-expense" class="item-list"></ul>
@@ -820,7 +822,7 @@
                 </label>
                 <label class="field">
                   <span>Months left</span>
-                  <input type="number" name="monthsLeft" step="1" min="1" max="120" inputmode="numeric" placeholder="3" />
+                  <input type="number" name="monthsLeft" step="1" min="1" max="120" inputmode="numeric" />
                 </label>
                 <label class="field">
                   <span>Total months</span>
@@ -834,34 +836,40 @@
               <label class="field">
                 <span>Contract</span>
                 <select name="contract" id="debt-contract"></select>
+                <span class="hint" id="debt-contract-note"></span>
               </label>
-              <div class="grid-3">
-                <label class="field">
-                  <span>Financed amount (<span class="cur-code">MYR</span>)</span>
-                  <input type="number" name="principal" step="0.01" min="0" inputmode="decimal" placeholder="20000" />
-                </label>
-                <label class="field">
-                  <span>Total profit (<span class="cur-code">MYR</span>)</span>
-                  <input type="number" name="totalProfit" step="0.01" min="0" inputmode="decimal" placeholder="4800" />
-                </label>
-                <label class="field">
-                  <span>Tenure (months)</span>
-                  <input type="number" name="tenureMonths" step="1" min="1" max="480" inputmode="numeric" placeholder="60" />
-                </label>
-              </div>
               <label class="field">
-                <span>Months already paid</span>
-                <input type="number" name="monthsPaid" step="1" min="0" max="480" inputmode="numeric" placeholder="0" />
+                <span>Financed amount (<span class="cur-code">MYR</span>)</span>
+                <input type="number" name="principal" step="0.01" min="0" inputmode="decimal" />
+                <span class="hint">On your offer letter.</span>
+              </label>
+              <label class="field">
+                <span>Total profit (<span class="cur-code">MYR</span>)</span>
+                <input type="number" name="totalProfit" step="0.01" min="0" inputmode="decimal" />
+                <span class="hint">For the whole tenure, on your offer letter.</span>
+              </label>
+              <label class="field">
+                <span>Tenure (months)</span>
+                <input type="number" name="tenureMonths" step="1" min="1" max="480" inputmode="numeric" />
               </label>
               <p class="hint" id="islamic-preview"></p>
               <p class="hint">Tracks what settling today costs, after ibra'.</p>
               <details class="info-tip"><summary aria-label="More about this">ⓘ</summary><p>Profit is fixed at signing and never compounds. Duitful tracks the <strong>outstanding principal</strong>: what settling today costs after a full ibra' (rebate of unearned profit). Your bank statement shows the higher outstanding sale price.</p></details>
             </div>
 
-            <label class="field">
-              <span>Due day (1–31, optional)</span>
-              <input type="number" name="dueDay" min="1" max="31" step="1" inputmode="numeric" placeholder="15" />
-            </label>
+            <details class="form-more" id="debt-more" data-form-more>
+              <summary>More</summary>
+              <label class="field" id="debt-months-paid-field" hidden>
+                <span>Months already paid</span>
+                <input type="number" name="monthsPaid" step="1" min="0" max="480" inputmode="numeric" />
+                <span class="hint">Leave empty if it just started.</span>
+              </label>
+              <label class="field">
+                <span>Due day (1–31)</span>
+                <input type="number" name="dueDay" min="1" max="31" step="1" inputmode="numeric" />
+                <span class="hint">A reminder on the day.</span>
+              </label>
+            </details>
             <button type="submit" class="primary">Add debt</button>
           </form>
           <ul id="list-debt" class="debt-list"></ul>
@@ -981,16 +989,14 @@
               <button type="button" class="pill" data-invest-kind="units" role="radio" aria-checked="false">Units</button>
             </div>
             <input type="hidden" id="invest-kind" name="kind" value="balance" />
-            <div class="grid-2">
-              <label class="field">
-                <span>Name</span>
-                <input type="text" name="name" placeholder="ASB, EPF, Amanah Saham…" required />
-              </label>
-              <label class="field">
-                <span>Account type</span>
-                <select name="account" id="invest-account"></select>
-              </label>
-            </div>
+            <label class="field">
+              <span>Name</span>
+              <input type="text" name="name" placeholder="e.g. ASB or EPF" required />
+            </label>
+            <label class="field">
+              <span>Account type</span>
+              <select name="account" id="invest-account"></select>
+            </label>
 
             <div id="invest-fields-balance" class="invest-fields">
               <label class="field">
@@ -1000,20 +1006,23 @@
             </div>
 
             <div id="invest-fields-units" class="invest-fields" hidden>
-              <div class="grid-3">
-                <label class="field">
-                  <span>Units</span>
-                  <input type="number" name="units" step="0.0001" min="0" inputmode="decimal" placeholder="1000" />
-                </label>
-                <label class="field">
-                  <span>Unit price (<span class="cur-code">MYR</span>)</span>
-                  <input type="number" name="unitPrice" step="0.0001" min="0" inputmode="decimal" placeholder="1.05" />
-                </label>
+              <label class="field">
+                <span>Units</span>
+                <input type="number" name="units" step="0.0001" min="0" inputmode="decimal" />
+              </label>
+              <label class="field">
+                <span>Unit price (<span class="cur-code">MYR</span>)</span>
+                <input type="number" name="unitPrice" step="0.0001" min="0" inputmode="decimal" />
+                <span class="hint">From the fund's latest price.</span>
+              </label>
+              <details class="form-more" data-form-more>
+                <summary>More</summary>
                 <label class="field">
                   <span>Cost basis (<span class="cur-code">MYR</span>)</span>
-                  <input type="number" name="costBasis" step="0.01" min="0" inputmode="decimal" placeholder="optional" />
+                  <input type="number" name="costBasis" step="0.01" min="0" inputmode="decimal" />
+                  <span class="hint">What you paid in total. Shows your yield on cost.</span>
                 </label>
-              </div>
+              </details>
             </div>
 
             <button type="submit" class="primary">Add holding</button>
@@ -2913,8 +2922,8 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=16"></script>
-    <script src="i18n-zh.js?v=16"></script>
+    <script src="i18n-ms.js?v=17"></script>
+    <script src="i18n-zh.js?v=17"></script>
     <script src="i18n.js?v=4"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
@@ -2933,6 +2942,6 @@
     <script src="tax.js?v=17"></script>
     <script src="statement.js?v=5"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=233"></script>
+    <script src="script.js?v=234"></script>
   </body>
 </html>
