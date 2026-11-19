@@ -91,6 +91,25 @@ Privacy: the vault is encrypted, so any figure shown needs a small
 plain summary the app writes on purpose (and clears when locked), never the
 vault itself.
 
+## Wallets / accounts (user request, 19 Nov 2026)
+
+A Pro-trial user asked for separate balances per place money sits: TNG
+eWallet, MAE, bank accounts, cash. Not built; no wallet model exists today
+(budget pools are spending envelopes, not where money sits).
+
+Idea:
+- Wallets with an opening balance (Cash, TNG, MAE, Maybank…); every entry
+  can name its wallet; balance = opening + in − out, with "Adjust to actual"
+  to fix drift (books a visible adjustment, never silently).
+- Auto-capture fills the wallet from the alert's app (TNG alert → TNG
+  wallet); "Moved" cards become transfers between two wallets; statement
+  import picks the wallet once per statement. `state.ownAccounts` names can
+  map to wallets.
+- Free: up to 3 wallets; Pro: unlimited (follow the no-bait-and-switch
+  rules; wallets made during the trial keep working, only adding stops).
+- Privacy: balances only in the vault; never on widgets or notifications.
+- All three languages; CSV and backup carry wallets.
+
 ## Open decisions
 
 - **Bank alerts by SMS**: many MY banks send card alerts by SMS, which
