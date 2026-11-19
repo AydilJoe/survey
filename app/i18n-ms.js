@@ -1658,6 +1658,8 @@
   "Fingerprint / face unlock": "Buka dengan cap jari / wajah",
   "Contact & WhatsApp": "Hubungi & WhatsApp",
   "Zakat": "Zakat",
+  "That's your current passcode. Choose a new one.": "Itu kod laluan semasa anda. Pilih yang baharu.",
+  "Passcode off.": "Kod laluan dimatikan.",
   "Reading the receipt": "Membaca resit",
   "Reading the receipt…": "Membaca resit…",
   "Opening the photo…": "Membuka foto…",

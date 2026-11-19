@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.58.1";
+const APP_VERSION = "1.58.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -11439,6 +11439,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.58.2": [
+    "<strong>Fix: Change passcode</strong> — after you entered your current passcode, the new-passcode step closed by itself and nothing changed. It now stays open, and refuses a new passcode that is the same as the old one.",
+  ],
   "1.58.1": [
     "<strong>Your month in a few sentences</strong> — Reports now opens with a short recap: what you spent, how it compares with last month, what rose the most and which bills are still due. On phones with on-device AI it can be worded more naturally, from your own figures only; nothing leaves your phone.",
   ],
@@ -16109,7 +16112,7 @@ async function vaultPasscodeMatches(pass) {
 /* The passcode sheet. Resolves with what was typed, or null on Cancel.
    isNew: asks twice and checks the rules. check(value): async, false keeps
    the sheet open with "Wrong passcode". text: a word, not a number (DELETE). */
-function askPasscode({ title = "Passcode", label = "Passcode", note = "", ok = "Continue", isNew = false, check = null, text = false, danger = false, wrong = "Wrong passcode." } = {}) {
+function askPasscode({ title = "Passcode", label = "Passcode", note = "", ok = "Continue", isNew = false, check = null, text = false, danger = false, wrong = "Wrong passcode.", notSameAs = null } = {}) {
   const dlg = document.getElementById("passcode-dialog");
   if (!dlg) return Promise.resolve(null);
   const $id = (x) => document.getElementById(x);
@@ -16135,7 +16138,11 @@ function askPasscode({ title = "Passcode", label = "Passcode", note = "", ok = "
       resolve(v);
     };
     $id("passcode-cancel").onclick = () => done(null);
-    dlg.onclose = () => done(null);
+    // A dialog's "close" event arrives a moment after close(). When one ask
+    // follows another (current passcode, then the new one) the first ask's
+    // close landed on the second and cancelled it, so a change of passcode
+    // silently did nothing. Only a close while this ask is showing counts.
+    dlg.onclose = () => { if (!dlg.open) done(null); };
     $id("passcode-form").onsubmit = async (e) => {
       e.preventDefault();
       const v = text ? input.value.trim() : input.value;
@@ -16143,6 +16150,7 @@ function askPasscode({ title = "Passcode", label = "Passcode", note = "", ok = "
         if (v === OPEN_PASSCODE) return fail(tr(OPEN_REFUSED));
         if (!/^\d{4,}$/.test(v)) return fail(tr("At least 4 digits, numbers only."));
         if (v !== again.value) return fail(tr("The two don't match."));
+        if (notSameAs != null && v === notSameAs) return fail(tr("That's your current passcode. Choose a new one."));
       } else if (!v) return fail(tr(text ? "Type it to confirm." : "Enter your passcode."));
       if (check) {
         okBtn.disabled = true;
@@ -16191,7 +16199,7 @@ document.getElementById("btn-change-passcode")?.addEventListener("click", async 
   }
   const cur = await askPasscode({ title: "Change passcode", label: "Current passcode", check: vaultPasscodeMatches });
   if (cur == null) return;
-  const p1 = await askPasscode({ title: "Change passcode", label: "New passcode", ok: "Save", isNew: true });
+  const p1 = await askPasscode({ title: "Change passcode", label: "New passcode", ok: "Save", isNew: true, notSameAs: cur });
   if (!p1) return;
   await rekeyVault(p1);
   toast(tr("Passcode changed."));
@@ -16202,7 +16210,7 @@ document.getElementById("btn-remove-passcode")?.addEventListener("click", async 
   const cur = await askPasscode({ title: "Turn off passcode", label: "Current passcode", note: "Duitful will open without asking.", ok: "Turn off", check: vaultPasscodeMatches });
   if (cur == null) return;
   await rekeyVault(OPEN_PASSCODE, { open: true });
-  toast("Passcode off.");
+  toast(tr("Passcode off."));
 });
 
 /* decide the initial lock mode and show it */
