@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.58.4";
+const APP_VERSION = "1.59.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -154,7 +154,7 @@ const INVEST_PLAN_SETTING_KEYS = new Set([
 // the display name, so an older build just skips the ones it can't read.
 const SPLIT_SETTING_KEYS = new Set([
   "splitpayto1", "splitpayto2", "splitpayto3", "splitpayto4",
-  "splitpaytoenabled", "splitme", "splitrelayoff", "splitrelaynotifyoff",
+  "splitpaytoenabled", "splitme", "splitrelayoff", "splitrelaynotifyoff", "splitrecurring",
 ]);
 
 const emptyShariah = () => ({
@@ -3889,6 +3889,7 @@ function trialEndChanges() {
   over(state.savings.length, FREE_SAVING_LIMIT, "goal", "goals");
   over(typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "holding", "holdings");
   over(userBudgetPoolCount(), 1, "budget pool", "budget pools");
+  over(recurringSplitCount(), FREE_RECURRING_SPLIT_LIMIT, "recurring split", "recurring splits");
   if ((Number(trialUsage().scans) || 0) > 0) out.push(tr("receipt scans go back to {n} a month", { n: FREE_OCR_MONTHLY }));
   return out;
 }
@@ -5070,7 +5071,9 @@ function acceptSplitMatch(pendingId, personId) {
   renderAll();
   if (!res) { toast("That request is no longer open."); return; }
   toast(res.settled
-    ? `${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`
+    ? res.recurring
+      ? tr("{name} paid {a} · settled", { name: res.person.name, a: fmtMoney(res.amount) })
+      : `${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`
     : `${fmtMoney(res.amount)} recorded · ${fmtMoney(res.remaining)} still owed`);
 }
 
@@ -5565,6 +5568,10 @@ const FREE_OCR_MONTHLY = 5;
 // Bank statement import (statement.js): reading, checking and previewing a
 // statement is free for everyone; Free imports one a month, Pro every one.
 const FREE_STATEMENT_IMPORTS_MONTHLY = 1;
+// Recurring splits (split-recurring.js): Free runs one at a time, Pro any
+// number. One-off splits and every split link stay free for everyone.
+const FREE_RECURRING_SPLIT_LIMIT = 1;
+const recurringSplitCount = () => (typeof rsActiveCount === "function" ? rsActiveCount() : 0);
 const TRIAL_DAYS = 14;
 const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
@@ -5708,6 +5715,7 @@ function freeCountText(kind) {
     debts: [countedDebts(), FREE_DEBT_LIMIT, "{u} debts · Free adds up to {l}. Yours stay.", "{u} of {l} free debts used"],
     savings: [state.savings.length, FREE_SAVING_LIMIT, "{u} goals · Free adds up to {l}. Yours stay.", "{u} of {l} free goals used"],
     investments: [typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "{u} holdings · Free adds up to {l}. Yours stay.", "{u} of {l} free holdings used"],
+    recurring: [recurringSplitCount(), FREE_RECURRING_SPLIT_LIMIT, "{u} recurring splits · Free starts up to {l}. Yours keep running.", "{u} of {l} free recurring split used"],
   }[kind];
   if (!c) return "";
   const [used, limit, over, within] = c;
@@ -5774,6 +5782,7 @@ const PAYWALL_COPY = {
   investments: ["You've hit the free limit of {n} investment holdings. Pro tracks unlimited.", FREE_INVESTMENT_LIMIT],
   ocr: ["You've used {n} free receipt scans this month. Pro unlocks unlimited.", FREE_OCR_MONTHLY],
   statements: "Free imports 1 statement a month. Pro imports every statement.",
+  recurringSplits: ["Free runs {n} recurring split at a time. Pro runs as many as you share. One-off splits stay free.", FREE_RECURRING_SPLIT_LIMIT],
   cloudBackup: "Automatic backup to iCloud or Google Drive is a Pro feature. Back up now and Export CSV in Settings stay free.",
   multiCurrency: "Multi-currency entry is a Pro feature.",
   budgetPools: "Multi-pool budgeting is a Pro feature.",
@@ -7543,7 +7552,8 @@ function buildReminders(src) {
   // rather than whichever month happened to be stored first.
   const byMonthDesc = (a, b) => String(b.month || "").localeCompare(String(a.month || ""));
   for (const ex of [...expenses].sort(byMonthDesc)) {
-    if (ex.day) push(tr("{name} — bill due", { name: ex.name }), `${fmtMoney(ex.amount)}`, ex.day);
+    // Your share of a recurring split has its own reminder (rsNativeReminders).
+    if (ex.day && !ex.splitRecurringId) push(tr("{name} — bill due", { name: ex.name }), `${fmtMoney(ex.amount)}`, ex.day);
   }
   for (const inc of [...income].sort(byMonthDesc)) {
     if (inc.day) push(tr("Pay day — {name}", { name: inc.name }), tr("{a} expected", { a: fmtMoney(inc.amount) }), inc.day);
@@ -7561,6 +7571,15 @@ function buildReminders(src) {
           schedule: { at: n.at, allowWhileIdle: true },
           smallIcon: "ic_stat_icon",
         });
+      }
+    } catch {}
+  }
+  // A recurring split not sent yet: 9am on its due day.
+  if (typeof rsNativeReminders === "function") {
+    try {
+      for (const n of rsNativeReminders()) {
+        if (notifs.length >= 60) break;
+        notifs.push({ id: nextId++, title: n.title, body: n.body, schedule: { at: n.at, allowWhileIdle: true }, smallIcon: "ic_stat_icon" });
       }
     } catch {}
   }
@@ -9588,6 +9607,9 @@ function toCSV() {
     if (sp.me) rows.push(blank(["setting", "splitMe", sp.me]));
     if (sp.relayOff) rows.push(blank(["setting", "splitRelayOff", "Y"]));
     if (sp.relayNotifyOff) rows.push(blank(["setting", "splitRelayNotifyOff", "Y"]));
+    // One row per recurring split, the whole plan as JSON (an older build
+    // skips the key). Its months point at split-out ids, which survive.
+    for (const rs of sp.recurring || []) rows.push(blank(["setting", "splitRecurring", JSON.stringify(rs)]));
   }
   rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
   // Shariah / zakat preferences. Each is its own `setting` row so an older
@@ -9742,6 +9764,7 @@ function fromCSV(text) {
   let splitMe = "";
   let splitRelayOff = false;
   let splitRelayNotifyOff = false;
+  const splitRecurringRows = [];
 
   // Valuation / flow / dividend rows carry the holding NAME, not its id —
   // ids are regenerated on import. Same case-insensitive link as daily-debt.
@@ -10065,6 +10088,7 @@ function fromCSV(text) {
       else if (key === "splitme") splitMe = raw;
       else if (key === "splitrelayoff") splitRelayOff = raw.toUpperCase() === "Y";
       else if (key === "splitrelaynotifyoff") splitRelayNotifyOff = raw.toUpperCase() === "Y";
+      else if (key === "splitrecurring") { try { splitRecurringRows.push(JSON.parse(raw)); } catch {} }
       else {
         // "label|value" — split on the FIRST pipe only, so a value that
         // somehow contains one survives intact.
@@ -10258,7 +10282,9 @@ function fromCSV(text) {
     next.split.me = splitMe;
     next.split.relayOff = splitRelayOff;
     next.split.relayNotifyOff = splitRelayNotifyOff;
+    next.split.recurring = splitRecurringRows;
     next.split = coerceSplit(next.split);
+    if (typeof rsRelinkExpenses === "function") rsRelinkExpenses(next);
   }
 
   return next;
@@ -11464,6 +11490,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.59.0": [
+    "<strong>Recurring splits</strong> — set up rent, TNB, internet or a shared subscription once: who pays what (equal, fixed or weighted), the due day and an end month. Each month Home asks you to send the requests, a grid shows who has paid, and bank alerts tick people off. Only your share counts as spending. One is free; Pro runs as many as you share.",
+  ],
   "1.58.4": [
     "<strong>Fix: buttons needing several taps</strong> — after typing in a pop-up, the first tap on Save or Next could miss because the pop-up moved as the keyboard closed. It now stays put until it closes.",
   ],

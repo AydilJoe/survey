@@ -90,7 +90,7 @@ const SPLIT_QTY_EXPAND_MAX = 4;
 /* ---------- shape ---------- */
 
 function emptySplit() {
-  return { out: [], in: [], names: [], me: "", payTo: [], payToEnabled: false, relayOff: false, relayNotifyOff: false, meAsked: false };
+  return { out: [], in: [], names: [], me: "", payTo: [], payToEnabled: false, relayOff: false, relayNotifyOff: false, meAsked: false, recurring: [] };
 }
 
 function splitIsDate(v) {
@@ -280,6 +280,10 @@ function coerceSplit(raw) {
     // The once-only "your name / DuitNow" box has been shown (it never comes
     // back; the pay-to sheet edits both after that).
     meAsked: !!s.meAsked,
+    // Recurring splits (split-recurring.js): rent, utilities, subscriptions.
+    recurring: typeof coerceRecurring === "function"
+      ? safeMap(s.recurring, coerceRecurring)
+      : (Array.isArray(s.recurring) ? s.recurring : []),
   };
 }
 
@@ -294,6 +298,7 @@ function splitState() {
   if (!Array.isArray(s.names)) s.names = [];
   if (!Array.isArray(s.payTo)) s.payTo = [];
   if (typeof s.me !== "string") s.me = "";
+  if (!Array.isArray(s.recurring)) s.recurring = [];
   return s;
 }
 
@@ -891,6 +896,7 @@ function splitMatchCandidates() {
     title: rec.title,
     kind: rec.kind,
     remaining: splitPersonRemaining(person),
+    month: typeof rsMonthOfRecord === "function" ? ((rsMonthOfRecord(rec.id) || {}).month || "") : "",
   }));
 }
 
@@ -940,6 +946,13 @@ function splitMatchIncoming(parsed, candidates) {
 
   const named = splitMatchByName(matches, `${p.sender || ""} ${p.raw || ""}`);
   if (named.length === 1) return { status, amount, matches: named, via: "name" };
+  // The same housemate owing the same rent for two months: their transfer
+  // pays the oldest month first. Only when every candidate is that one name
+  // on a recurring split — two different people still get asked.
+  if (named.length > 1 && named.every((c) => c.month && String(c.name).toLowerCase() === String(named[0].name).toLowerCase())) {
+    const oldest = named.slice().sort((a, b) => (a.month < b.month ? -1 : a.month > b.month ? 1 : 0))[0];
+    return { status, amount, matches: [oldest], via: "name" };
+  }
   // Several people owe the same amount and the text doesn't say who paid.
   // Guessing here would settle the wrong person's debt, so the surface asks.
   return {
@@ -968,8 +981,11 @@ function splitRecordRepayment(personId, amount, dateISO) {
   person.repayments.push({ date, amount: paid });
   person.repayments.sort((a, b) => (a.date < b.date ? -1 : 1));
 
+  // A month of a recurring split booked only your share, so their payment
+  // settles what they owe and is not income (split-recurring.js).
+  const recurring = typeof rsMonthOfRecord === "function" ? rsMonthOfRecord(rec.id) : null;
   const month = date.slice(0, 7);
-  const entry = {
+  const entry = recurring ? null : {
     id: uid(),
     name: `Split repayment — ${person.name} · ${rec.title}`,
     amount: paid,
@@ -982,14 +998,14 @@ function splitRecordRepayment(personId, amount, dateISO) {
     note: `${person.name} · ${rec.title}`,
     splitPersonId: person.id,
   };
-  state.income.push(entry);
+  if (entry) state.income.push(entry);
 
   if (splitPersonRemaining(person) <= 0) {
     person.status = "settled";
     person.settledDate = date;
   }
   save();
-  return { record: rec, person, amount: paid, income: entry, settled: person.status === "settled" };
+  return { record: rec, person, amount: paid, income: entry, recurring: !!recurring, settled: person.status === "settled" };
 }
 
 /* Settling from a payment that actually landed — a matched bank notification
@@ -3234,7 +3250,9 @@ function splitPanelHtml(kind, id, person, rec) {
           <button type="button" class="primary" data-action="split-repay-save" data-id="${id}">Record</button>
           <button type="button" class="ghost" data-action="split-panel-close" data-id="${id}">Cancel</button>
         </div>
-        <p class="hint">Logs an income row (“Split repayment”) on that date. Your original expense is left exactly as you paid it.</p>
+        <p class="hint">${typeof rsMonthOfRecord === "function" && rsMonthOfRecord(rec.id)
+          ? tr("Settles their share of a recurring split. Not counted as income.")
+          : "Logs an income row (“Split repayment”) on that date. Your original expense is left exactly as you paid it."}</p>
       </div>`;
   }
   if (kind === "in" && panel === "settle") {
@@ -3448,6 +3466,7 @@ function renderSplit() {
     notifyPref.checked = !splitState().relayNotifyOff;
     notifyPref.disabled = !!splitState().relayOff;
   }
+  if (typeof renderSplitRecurring === "function") renderSplitRecurring();
   // Every change to a bill — a repayment, a cancel, a reminder — ends in a
   // render, so this is the one place the mailbox copy is kept current.
   splitRelaySyncSoon();
@@ -3673,7 +3692,9 @@ document.addEventListener("click", (e) => {
     if (typeof renderAll === "function") renderAll();
     if (res) {
       toast(res.settled
-        ? tr("{name} settled — {a} logged as income", { name: res.person.name, a: fmtMoney(res.amount) })
+        ? res.recurring
+          ? tr("{name} paid {a} · settled", { name: res.person.name, a: fmtMoney(res.amount) })
+          : tr("{name} settled — {a} logged as income", { name: res.person.name, a: fmtMoney(res.amount) })
         : tr("{a} recorded · {b} still owed", { a: fmtMoney(res.amount), b: fmtMoney(splitPersonRemaining(res.person)) }));
     }
   } else if (action === "split-relay-claim") {

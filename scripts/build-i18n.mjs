@@ -21,9 +21,10 @@ import { ROWS as SETUP } from './i18n/setup.mjs';
 import { ROWS as SCAN } from './i18n/scan.mjs';
 import { ROWS as SPLIT } from './i18n/split.mjs';
 import { ROWS as NOTIFY } from './i18n/notifications.mjs';
+import { ROWS as RECURRING } from './i18n/recurring.mjs';
 
 // One file per screen; the order only matters for reading the tables.
-const ROWS = [...BASE, ...TAX, ...MONTHLY, ...DEBTS, ...SAVINGS, ...DAILY, ...REPORTS, ...PRO, ...SETUP, ...SCAN, ...SPLIT, ...NOTIFY];
+const ROWS = [...BASE, ...TAX, ...MONTHLY, ...DEBTS, ...SAVINGS, ...DAILY, ...REPORTS, ...PRO, ...SETUP, ...SCAN, ...SPLIT, ...NOTIFY, ...RECURRING];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANGS = [

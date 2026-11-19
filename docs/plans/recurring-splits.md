@@ -1,8 +1,7 @@
-# Recurring splits — plan (not started)
+# Recurring splits — plan
 
-Status: planned 16 Nov 2026, **not built**. Start in a fresh session after the
-weekly usage reset. Build on `app/split.js` (today every split is one-off:
-one link per bill, encrypted relay, "Tick what you had", "I've paid").
+Status: **version 1 built as 1.59.0** (19 Nov 2026, `app/split-recurring.js`),
+pending merge. Version 2 below is still planned.
 
 ## Who it's for
 
@@ -13,7 +12,7 @@ one link per bill, encrypted relay, "Tick what you had", "I've paid").
 | Netflix / Spotify / Astro family | Fixed | Small, often forgotten |
 | You owe someone | Fixed | You pay the master tenant your share monthly |
 
-## Version 1 (target 1.59.0, minor bump → auto-release; 1.58.0 went to shorter forms)
+## Version 1 (1.59.0)
 
 1. **Set up once**: name, total, people, shares (equal / fixed RM / weighted,
    e.g. master room ×1.5), due day of month, optional end date (lease end),

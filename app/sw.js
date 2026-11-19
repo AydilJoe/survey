@@ -15,23 +15,24 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-11-19-14";
+const VERSION = "2026-11-19-15";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=169",
-  "/app/script.js?v=240",
+  "/app/styles.css?v=170",
+  "/app/script.js?v=241",
   // Languages: the two tables load before the engine (index.html).
-  "/app/i18n-ms.js?v=22",
-  "/app/i18n-zh.js?v=22",
+  "/app/i18n-ms.js?v=23",
+  "/app/i18n-zh.js?v=23",
   "/app/i18n.js?v=4",
   "/app/drive-config.js?v=3",
   "/app/drive-sync.js?v=4",
   "/app/icloud-sync.js?v=8",
   "/app/investments.js?v=7",
-  "/app/split.js?v=22",
+  "/app/split.js?v=23",
+  "/app/split-recurring.js?v=1",
   "/app/receipt-extract.js?v=1",
   "/app/region.js?v=1",
   "/app/tax-data.js?v=3",
