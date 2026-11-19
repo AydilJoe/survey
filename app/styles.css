@@ -8468,3 +8468,52 @@ html:not(.kb-open) .search-dialog:modal[data-kb-pinned] { margin-top: 0; max-hei
 .recap-card h2 { margin: 0 0 0.4rem; font-size: 1rem; }
 .recap-text { margin: 0; font-size: 0.98rem; line-height: 1.55; color: var(--text); }
 .recap-tag { margin-top: 0.5rem; font-size: 0.78rem; }
+
+/* ── Recurring splits (split-recurring.js) ──────────────────────────────────
+   Home: one row per bill due. Debts: one block per bill with a who-paid grid,
+   a row per month. Cells are short words; a late cell is the Remind button. */
+.rs-home-list { display: flex; flex-direction: column; margin-top: 0.4rem; }
+.rs-due { padding: 0.6rem 0; border-top: 0.5px solid var(--line); display: flex; flex-direction: column; gap: 0.4rem; }
+.rs-due:first-child { border-top: 0; padding-top: 0.2rem; }
+.rs-due p { margin: 0; }
+.rs-due-title { overflow-wrap: anywhere; }
+.rs-due .field { margin: 0; }
+.rs-list { display: flex; flex-direction: column; }
+.rs-item { padding: 0.75rem 0; border-top: 0.5px solid var(--line); display: flex; flex-direction: column; gap: 0.45rem; min-width: 0; }
+.rs-item:first-child { border-top: 0; padding-top: 0.2rem; }
+.rs-item-head { display: flex; align-items: baseline; gap: 0.5rem; min-width: 0; }
+.rs-title { overflow-wrap: anywhere; }
+.rs-status { margin: 0; }
+.rs-grid-wrap { min-width: 0; }
+.rs-grid { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.rs-grid th, .rs-grid td { padding: 0.35rem 0.2rem; text-align: left; border-top: 0.5px solid var(--line); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-grid thead th { border-top: 0; color: var(--muted); font-weight: 500; }
+.rs-grid .rs-month { width: 4.2rem; color: var(--ink2); font-weight: 500; }
+.rs-cell.is-paid { color: var(--gain); font-weight: 600; }
+.rs-cell.is-waiting { color: var(--ink2); }
+.rs-cell.is-none { color: var(--muted); }
+.rs-cell.is-late { color: var(--loss); }
+.rs-late {
+  max-width: 100%;
+  min-height: 0;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--r-pill);
+  border: 0.5px solid color-mix(in srgb, var(--loss) 35%, transparent);
+  background: color-mix(in srgb, var(--loss) 9%, transparent);
+  color: var(--loss);
+  font: inherit;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rs-actions button { flex: 1 1 auto; }
+.rs-person-row input[data-rs-pw], .rs-person-row input[name=rs-me-w], .rs-person-row input[data-rs-pa] { flex: 1; min-width: 0; }
+.rs-person-row input[data-rs-pname] { flex: 2; min-width: 0; }
+.rs-me-label { flex: 2; min-width: 0; color: var(--ink2); font-weight: 500; padding-left: 0.2rem; }
+.rs-me-pad { width: 44px; flex: none; }
+.rs-preview { margin: 0.2rem 0 0; overflow-wrap: anywhere; }
+#rs-body { display: flex; flex-direction: column; gap: 0.75rem; }
+#rs-body .field, #rs-body .type-pills, #rs-body .grid-2, #rs-body .hint { margin: 0; }
+#rs-body .split-people { gap: 0.5rem; }
+#rs-body .form-actions { margin-top: 0.25rem; }

@@ -27,14 +27,14 @@
 - Pricing: **Free forever**, with 3 debts (one may be a pay-later
   plan) and the payoff date,
   reminders and copy-last-month, plus 5 savings goals, 3 investment
-  holdings, 5 receipt scans and 1 bank statement import a month, and manual "Back up now" to
+  holdings, 5 receipt scans and 1 bank statement import a month, 1 recurring split, and manual "Back up now" to
   iCloud / Google Drive. Islamic financing is never
   counted toward the debt limit. An optional 14-day Pro trial starts only
   if the user chooses it; nothing is charged and nothing is deleted when
   it ends. **Pro is RM 19.90 one-time, lifetime**:
   every debt and pay-later/instalment plan (Atome, SPayLater), automatic
   encrypted iCloud / Google Drive backup, unlimited scans, statement
-  imports, goals and holdings, budget pools and multi-currency entries.
+  imports, goals and holdings, recurring splits, budget pools and multi-currency entries.
 - **Bank statement import (PDF)**: read entirely on the device (bundled
   pdf.js, nothing uploaded). Layouts for Maybank, Public Bank and Alliance
   Bank credit card statements and CIMB card transaction history, plus a
@@ -183,6 +183,14 @@
   open request offers one-tap settlement (never automatic); payers can
   send back serverless "paid" confirmation links; overdue loans and
   stale requests join reminders with re-share.
+- **Recurring splits** (since v1.59.0; 1 free, unlimited on Pro): rent,
+  utilities or a shared subscription set up once (equal, fixed RM or
+  weighted shares, due day, optional end month, fixed or changing
+  amount). Each month Home offers to send everyone their usual split
+  link, a grid shows who has paid or is late, and Android bank alerts
+  offer to tick payers off. Only the user's own share counts as
+  spending; housemates' payments settle what they owe and are not
+  counted as income. One-off splits stay free on every tier.
 - **Zakat on wealth** (free, opt-in with one tap from the Savings tab —
   invisible until enabled): nisab from 85 g gold, 595 g
   silver, or a custom state-authority figure; zakatable base built from
@@ -271,8 +279,8 @@ diffed against the repository. The hosted product is not a subscription
   opt-in from the Savings tab. Free tracks 3 other debts, one of
   them may be a pay-later plan (Islamic financing never counts). Pro gates
   more debts and pay-later plans,
-  automatic encrypted backup, unlimited scans, goals and holdings, budget
-  pools and multi-currency entries.
+  automatic encrypted backup, unlimited scans, goals and holdings, more
+  than one recurring split, budget pools and multi-currency entries.
 - Zakat figures are planning estimates, not religious rulings.
 - App languages: English, Bahasa Melayu and Simplified Chinese (since
   v1.57.1), free on every tier. The app follows the phone's language or

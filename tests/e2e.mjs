@@ -11862,6 +11862,274 @@ check('the brand catalogue makes no network calls at all',
   await fp.close();
 }
 
+/* ── Recurring splits (split-recurring.js, 1.59.0) ─────────────────────────
+   Set up once, one request a month through the ordinary split flow, a
+   who-paid grid, bank alerts tick people off. Only your share is spending;
+   repayments settle, they are not income. Free runs one at a time. */
+{
+  const rsSnap = await S(() => JSON.stringify({ split: state.split, expenses: state.expenses, income: state.income, pendingTxns: state.pendingTxns, pro: state.pro, trial: state.proTrialStartedAt, currency: state.currency, reminders: state.reminders }));
+  await S(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.split.recurring = []; state.split.out = []; state.pendingTxns = [];
+    state.pro = false; state.proTrialStartedAt = 0; state.currency = 'MYR';
+    save(); renderAll();
+  });
+
+  // 1) Shares and rounding: leftover sen stay with the organiser.
+  const sh = await S(() => {
+    const plan = (o) => coerceRsPlan({ from: currentMonthISO(), ...o });
+    const ppl = (...xs) => xs.map((x, i) => ({ id: 'p' + i, name: x[0], w: x[1] || 1, a: x[2] || 0 }));
+    const sum = (r) => Math.round((r.mine + r.others.reduce((s, o) => s + o.a, 0)) * 100) / 100;
+    const eq = rsShares(plan({ total: 100, mode: 'equal', people: ppl(['Ali'], ['Siti']) }), 100);
+    const w = rsShares(plan({ total: 2400, mode: 'weight', me: { w: 1.5 }, people: ppl(['Ali', 1], ['Siti', 1], ['Kumar', 1.5]) }), 2400);
+    const w2 = rsShares(plan({ total: 100, mode: 'weight', people: ppl(['Ali', 1], ['Siti', 1.5]) }), 100);
+    const fx = rsShares(plan({ total: 2400, mode: 'fixed', people: ppl(['Ali', 1, 700], ['Siti', 1, 600]) }), 2400);
+    const over = rsShares(plan({ total: 1000, mode: 'fixed', people: ppl(['Ali', 1, 700], ['Siti', 1, 600]) }), 1000);
+    return { eq: [eq.mine, ...eq.others.map((o) => o.a), sum(eq)], w: [w.mine, ...w.others.map((o) => o.a), sum(w)], w2: [w2.mine, ...w2.others.map((o) => o.a), sum(w2)], fx: [fx.mine, ...fx.others.map((o) => o.a)], over: over.over };
+  });
+  check('recurring split shares: RM 100 ÷ 3 is 33.33 each and the leftover sen (33.34) stays with you',
+    JSON.stringify(sh.eq) === JSON.stringify([33.34, 33.33, 33.33, 100]), JSON.stringify(sh.eq));
+  check('recurring split shares: weighted (master room ×1.5) and fixed RM add up to the bill; fixed shares over the bill are refused',
+    JSON.stringify(sh.w) === JSON.stringify([720, 480, 480, 720, 2400]) && JSON.stringify(sh.w2) === JSON.stringify([28.58, 28.57, 42.85, 100])
+    && JSON.stringify(sh.fx) === JSON.stringify([1100, 700, 600]) && sh.over === true, JSON.stringify(sh));
+
+  // 2) Setup through the sheet.
+  const setup = await S(() => {
+    rsOpenNew();
+    const body = document.getElementById('rs-body');
+    const out = { open: document.getElementById('rs-dialog').open, free: (body.querySelector('.free-count') || {}).textContent || '' };
+    body.querySelector('[name=rs-name]').value = 'Rent';
+    body.querySelector('[name=rs-total]').value = '100';
+    body.querySelector('[name=rs-due]').value = '1';
+    body.querySelector('[data-rs-pname]').value = 'Ali';
+    body.querySelector('[data-action=rs-person-add]').click();
+    const names = body.querySelectorAll('[data-rs-pname]');
+    names[1].value = 'Siti';
+    names[1].dispatchEvent(new Event('input', { bubbles: true }));
+    out.preview = document.getElementById('rs-preview').textContent.replace(/\s+/g, ' ');
+    body.querySelector('[name=rs-from]').value = currentMonthISO();
+    body.querySelector('[data-action=rs-save]').click();
+    out.closed = !document.getElementById('rs-dialog').open;
+    const rs = state.split.recurring[0];
+    out.rs = rs && { name: rs.name, variable: rs.variable, dueDay: rs.dueDay, start: rs.startMonth, plans: rs.plans.length, total: rs.plans[0].total, mode: rs.plans[0].mode, people: rs.plans[0].people.map((p) => p.name) };
+    out.cur = currentMonthISO();
+    return out;
+  });
+  check('recurring split setup: the sheet shows the free limit before the wall, previews each share, and saves name, total, due day, people and first month',
+    setup.open && setup.closed && /0 of 1 free recurring split used/.test(setup.free) && setup.preview === 'You RM 33.34 · Ali RM 33.33 · Siti RM 33.33'
+    && setup.rs && setup.rs.name === 'Rent' && !setup.rs.variable && setup.rs.dueDay === 1 && setup.rs.start === setup.cur && setup.rs.total === 100 && setup.rs.mode === 'equal'
+    && setup.rs.people.join() === 'Ali,Siti', JSON.stringify(setup));
+
+  // 3) Monthly generation: the Home card, one tap, the ordinary request.
+  const home = await S(() => {
+    renderAll();
+    const card = document.getElementById('rs-home');
+    return { shown: !card.hidden, text: card.innerText, btn: (card.querySelector('[data-action=rs-send]') || {}).textContent };
+  });
+  check('recurring split: Home shows "Rent · <month> — send 2 requests" with one Send button',
+    home.shown && /Rent · \w+ — send 2 requests/.test(home.text) && home.btn === 'Send 2 requests', JSON.stringify(home));
+  await S(() => document.querySelector('#rs-home [data-action=rs-send]').click());
+  await page.waitForTimeout(400);
+  const sent = await S(() => {
+    const rs = state.split.recurring[0];
+    const m = currentMonthISO();
+    const mr = rs.months[m];
+    const rec = state.split.out.find((r) => r.id === mr.recId);
+    const ex = state.expenses.find((e) => e.splitRecurringId === rs.id && e.month === m);
+    const out = {
+      share: document.getElementById('split-share-dialog').open,
+      rec: rec && { kind: rec.kind, title: rec.title, total: rec.total, due: rec.dueDate, people: rec.people.map((p) => [p.name, p.amount]) , expenseId: rec.expenseId },
+      ex: ex && { amount: ex.amount, day: ex.day, repeat: ex.repeatNext, id: ex.id },
+      mr: { s: mr.s, total: mr.total, mine: mr.mine },
+      cardGone: (renderAll(), document.getElementById('rs-home').hidden),
+      again: rsSend(rs.id, m).error,
+      owed: splitTotals().owedToYou,
+      m,
+    };
+    document.getElementById('split-share-dialog').close();
+    return out;
+  });
+  check('recurring split: Send makes one ordinary split request (both people, due on the due day) and opens the usual share sheet; the card goes; sending twice does nothing',
+    sent.share && sent.rec && sent.rec.kind === 'split' && /^Rent · /.test(sent.rec.title) && sent.rec.total === 100 && sent.rec.due === `${sent.m}-01`
+    && JSON.stringify(sent.rec.people) === JSON.stringify([['Ali', 33.33], ['Siti', 33.33]]) && sent.cardGone && sent.again === 'done', JSON.stringify(sent));
+  check('recurring split accounting: only your share (33.34) is booked, as this month\'s bill in the budget; the rest (66.66) is owed to you',
+    sent.ex && sent.ex.amount === 33.34 && sent.ex.day === 1 && sent.ex.repeat === false && sent.rec.expenseId === sent.ex.id
+    && sent.mr.s === 'sent' && sent.mr.total === 100 && sent.mr.mine === 33.34 && sent.owed === 66.66, JSON.stringify(sent));
+
+  // 4) Repayments settle; they are not income. A captured credit ticks Siti.
+  const repay = await S(() => {
+    const incomeBefore = state.income.length;
+    const rs = state.split.recurring[0];
+    const rec = state.split.out.find((r) => r.id === rs.months[currentMonthISO()].recId);
+    const ali = rec.people.find((p) => p.name === 'Ali');
+    const res = splitRecordRepayment(ali.id, 33.33, todayISO());
+    renderAll();
+    const panelHint = (() => { splitOpenPanel = { id: rec.people[1].id, panel: 'repay' }; const h = splitPanelHtml('out', rec.people[1].id, rec.people[1], rec); splitOpenPanel = null; return h; })();
+    const queued = queueIncomingTransfer({ text: 'You have received RM33.33 from SITI BINTI ALI', package: 'com.maybank2u.life' });
+    const pend = state.pendingTxns.find((p) => p.kind === 'split-match');
+    const siti = rec.people.find((p) => p.name === 'Siti');
+    const matchedSiti = pend && pend.matches.length === 1 && pend.matches[0].personId === siti.id;
+    acceptSplitMatch(pend.id, siti.id);
+    const cells = [...document.querySelectorAll('#rs-list tbody tr:first-child .rs-cell')].map((c) => c.textContent.trim());
+    return { res: { income: res.income, recurring: res.recurring, settled: res.settled }, incomeAfter: state.income.length - incomeBefore,
+      panelHint: /Not counted as income/.test(panelHint), queued, matchedSiti, sitiStatus: siti.status, owed: splitTotals().owedToYou, cells };
+  });
+  check('recurring split: a repayment settles that person and books no income row (the repay sheet says so)',
+    repay.res.recurring && repay.res.settled && repay.res.income === null && repay.panelHint, JSON.stringify(repay));
+  check('recurring split auto-tick: "You have received RM33.33 from SITI BINTI ALI" queues a match for Siti; accepting it settles her with no income row',
+    repay.queued && repay.matchedSiti && repay.sitiStatus === 'settled' && repay.incomeAfter === 0 && repay.owed === 0, JSON.stringify(repay));
+  check('recurring split grid: this month\'s row reads Paid for both', repay.cells.join() === 'Paid,Paid', JSON.stringify(repay.cells));
+
+  // The same housemate owing two months: their transfer pays the oldest one first;
+  // two different people with the same amount are still asked.
+  const tie = await S(() => {
+    const c = [{ personId: 'a', name: 'Ali', remaining: 600, month: '2026-10' }, { personId: 'b', name: 'Ali', remaining: 600, month: '2026-09' }];
+    const one = splitMatchIncoming({ amount: 600, sender: 'ALI BIN ABU' }, c);
+    const two = splitMatchIncoming({ amount: 600, sender: 'ALI BIN ABU' }, [{ personId: 'a', name: 'Ali', remaining: 600, month: '2026-10' }, { personId: 'c', name: 'Ali Hassan', remaining: 600, month: '' }]);
+    return { one: [one.status, one.matches.map((m) => m.personId).join()], two: two.status };
+  });
+  check('recurring split auto-tick: one person owing two months is matched to the oldest month; different people stay a choice',
+    tie.one[0] === 'exact' && tie.one[1] === 'b' && tie.two === 'ambiguous', JSON.stringify(tie));
+
+  // Late: a past month left unpaid shows "Nd late" as a Remind button.
+  const late = await S(() => {
+    const rs = state.split.recurring[0];
+    const prev = shiftMonth(currentMonthISO(), -1);
+    rs.startMonth = prev;
+    rsSend(rs.id, prev);
+    renderAll();
+    const row = [...document.querySelectorAll('#rs-list tbody tr')][1];
+    const btn = row && row.querySelector('button[data-action=split-remind]');
+    const days = -splitDaysUntil(`${prev}-01`);
+    return { text: btn && btn.textContent, days, cells: row ? row.querySelectorAll('.rs-cell').length : 0 };
+  });
+  check('recurring split grid: one row per month; last month unpaid reads "<n>d late" as a Remind button',
+    late.cells === 2 && late.text === `${late.days}d late`, JSON.stringify(late));
+
+  // 5) Free limit and paywall; nothing stops when Pro ends.
+  const lim = await S(() => {
+    renderAll();
+    const out = { count: freeCountText('recurring'), canAdd: rsCanAdd(), save: rsSave({ name: 'Wifi', total: 100, people: [{ name: 'Ali' }] }).error };
+    document.querySelector('.split-start-card [data-action=rs-new]').click();
+    out.paywall = document.getElementById('paywall-dialog').open;
+    out.reason = document.getElementById('paywall-reason').textContent;
+    out.rsOpen = document.getElementById('rs-dialog').open;
+    document.getElementById('paywall-dialog').close();
+    state.pro = true;
+    out.proAdd = rsCanAdd();
+    rsSave({ name: 'TNB', variable: true, dueDay: 28, mode: 'equal', people: [{ name: 'Ali' }, { name: 'Siti' }], from: currentMonthISO() });
+    state.pro = false;
+    renderAll();
+    out.over = freeCountText('recurring');
+    const tnb = state.split.recurring.find((r) => r.name === 'TNB');
+    out.tnbDue = rsDueMonth(tnb);
+    out.trialEnd = trialEndChanges().join(' | ');
+    out.cur = currentMonthISO();
+    return out;
+  });
+  check('recurring split free limit: "1 of 1 free recurring split used"; a second one opens the paywall with its own reason, never the setup sheet',
+    lim.count === '1 of 1 free recurring split used' && !lim.canAdd && lim.save === 'limit' && lim.paywall && !lim.rsOpen
+    && lim.reason === 'Free runs 1 recurring split at a time. Pro runs as many as you share. One-off splits stay free.', JSON.stringify(lim));
+  check('recurring split free limit: Pro adds more; when Pro ends both keep running and the count says so',
+    lim.proAdd && lim.over === '2 recurring splits · Free starts up to 1. Yours keep running.' && lim.tnbDue === lim.cur
+    && /recurring splits/.test(lim.trialEnd), JSON.stringify(lim));
+
+  // 6) A bill whose amount changes asks for it first.
+  const vary = await S(() => {
+    const tnb = state.split.recurring.find((r) => r.name === 'TNB');
+    const m = currentMonthISO();
+    renderAll();
+    const input = document.querySelector(`[data-rs-amount="${tnb.id}"]`);
+    const noAmount = rsSend(tnb.id, m, 0).error;
+    const res = rsSend(tnb.id, m, 90.10);
+    return { input: !!input, noAmount, people: res.rec.people.map((p) => p.amount), mine: res.expense.amount, total: tnb.months[m].total };
+  });
+  check('recurring split, amount changes: Home asks for this month\'s amount; RM 90.10 → 30.03 each, 30.04 yours',
+    vary.input && vary.noAmount === 'amount' && vary.people.join() === '30.03,30.03' && vary.mine === 30.04 && vary.total === 90.1, JSON.stringify(vary));
+
+  // 7) Changes over time: a new amount and a new housemate from next month; this month keeps its figures.
+  const change = await S(() => {
+    const rs = state.split.recurring.find((r) => r.name === 'Rent');
+    const m = currentMonthISO(), next = shiftMonth(m, 1);
+    rsOpenEdit(rs.id);
+    const body = document.getElementById('rs-body');
+    const fromOpts = [...body.querySelectorAll('[name=rs-from] option')].map((o) => o.value);
+    body.querySelector('[name=rs-from]').value = next;
+    body.querySelector('[name=rs-total]').value = '150';
+    body.querySelector('[data-action=rs-person-add]').click();
+    const names = body.querySelectorAll('[data-rs-pname]');
+    names[names.length - 1].value = 'Kumar';
+    body.querySelector('[data-action=rs-save]').click();
+    const planNext = rsPlanFor(rs, next), planNow = rsPlanFor(rs, m);
+    const nextShares = rsShares(planNext, planNext.total);
+    return { fromOpts: fromOpts.includes(m), plans: rs.plans.map((p) => [p.from, p.total, p.people.length]), now: rs.months[m].total, nowPlan: planNow.total,
+      next: [nextShares.mine, ...nextShares.others.map((o) => o.a)], ids: planNext.people[0].id === planNow.people[0].id, m, next1: next };
+  });
+  check('recurring split change: "Changes start" skips months already sent; RM 150 with Kumar from next month → 37.50 each, while this month keeps RM 100',
+    !change.fromOpts && change.plans.length === 2 && change.plans[1][0] === change.next1 && change.plans[1][1] === 150 && change.plans[1][2] === 3
+    && change.now === 100 && change.nowPlan === 100 && change.next.join() === '37.5,37.5,37.5,37.5' && change.ids, JSON.stringify(change));
+
+  // 8) Skip, pause, end.
+  const life = await S(() => {
+    const rs = state.split.recurring.find((r) => r.name === 'Rent');
+    const next = shiftMonth(currentMonthISO(), 1);
+    const out = {};
+    out.skip = rsSkip(rs.id, next);
+    out.dueAfterSkip = rsDueMonth(rs);
+    renderAll();
+    out.skippedRow = [...document.querySelectorAll('#rs-list .rs-item')][0].querySelector('tbody tr').textContent;
+    out.reminderSkipped = rsNativeReminders().some((n) => n.title.startsWith('Rent'));
+    rsUnskip(rs.id, next);
+    out.reminderBack = rsNativeReminders().some((n) => n.title.startsWith('Rent'));
+    rsSetPaused(rs.id, true);
+    out.pausedDue = rsDueMonth(rs);
+    out.pausedReminder = rsNativeReminders().some((n) => n.title.startsWith('Rent'));
+    out.pausedCounts = rsActiveCount();
+    rsSetPaused(rs.id, false);
+    out.bills = buildReminders({ debts: [], expenses: state.expenses, income: [] }).filter((n) => /Rent — bill due|TNB — bill due/.test(n.title)).length;
+    const before = rsActiveCount();
+    rsEnd(rs.id);
+    renderAll();
+    out.ended = rsEnded(rs);
+    out.endMonth = rs.endMonth;
+    out.active = [before, rsActiveCount()];
+    out.endedDue = rsDueMonth(rs);
+    out.history = Object.keys(rs.months).length;
+    out.endedItem = [...document.querySelectorAll('#rs-list .rs-item')].find((x) => /Rent/.test(x.textContent)).innerText;
+    out.cur = currentMonthISO();
+    return out;
+  });
+  check('recurring split skip: skipping next month shows "Skipped" in the grid and drops its reminder; undo brings it back',
+    life.skip && /Skipped/.test(life.skippedRow) && !life.reminderSkipped && life.reminderBack, JSON.stringify(life));
+  check('recurring split pause: no Home card and no reminder while paused (it still counts toward the free limit)',
+    life.pausedDue === '' && !life.pausedReminder && life.pausedCounts === 2, JSON.stringify(life));
+  check('recurring split end: ends after this month, frees the free slot, keeps its months and the grid (with Delete)',
+    life.ended && life.endMonth === life.cur && life.active[0] - life.active[1] === 1 && life.endedDue === '' && life.history >= 2 && /Ended/.test(life.endedItem) && /Delete/.test(life.endedItem), JSON.stringify(life));
+  check('recurring split reminders: your share never also rings as a monthly "bill due"', life.bills === 0, JSON.stringify(life));
+
+  // 9) CSV round trip keeps the plans and months; your share is linked again.
+  const csvRt = await S(() => {
+    const csv = toCSV();
+    const back = fromCSV(csv);
+    const r = back.split.recurring.find((x) => x.name === 'Rent');
+    const m = currentMonthISO();
+    const ex = back.expenses.find((e) => e.month === m && e.name === 'Rent');
+    return { rows: (csv.match(/(^|\n)setting,splitRecurring,/g) || []).length, n: back.split.recurring.length, plans: r.plans.length, months: Object.keys(r.months).length,
+      ended: r.ended, recLinked: back.split.out.some((o) => o.id === r.months[m].recId), exLinked: ex && ex.splitRecurringId === r.id && r.months[m].expenseId === ex.id,
+      orig: Object.keys(state.split.recurring.find((x) => x.name === 'Rent').months).length };
+  });
+  check('recurring split CSV: a setting row each; plans, months, the requests and your share all come back linked',
+    csvRt.rows === 2 && csvRt.n === 2 && csvRt.plans === 2 && csvRt.months === csvRt.orig && csvRt.ended && csvRt.recLinked && csvRt.exLinked, JSON.stringify(csvRt));
+
+  await S((snap) => {
+    const o = JSON.parse(snap);
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.split = coerceSplit(o.split); state.expenses = o.expenses; state.income = o.income; state.pendingTxns = o.pendingTxns;
+    state.pro = o.pro; state.proTrialStartedAt = o.trial; state.currency = o.currency; state.reminders = o.reminders;
+    save(); renderAll();
+  }, rsSnap);
+}
+
 /* ── In-app languages: Bahasa Melayu and Simplified Chinese (stage 1) ──────
    English is the key (app/i18n.js); the tables are generated from
    scripts/i18n/strings.mjs. Stage 1 covers the passcode screen, header, tab
@@ -11890,7 +12158,7 @@ check('the brand catalogue makes no network calls at all',
       '#whats-new-dialog', '#license-dialog', '#fpx-email-dialog', '#passcode-dialog', '#bio-offer-dialog', '#pwa-install-ios',
       '#onboard-dialog', '#guide-dialog', '#edit-dialog', '#daily-edit-dialog', '#bulk-income-dialog', '#bulk-debt-pay-dialog', '#last-month-edit-dialog', '#search-dialog',
       '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
-      '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog'];
+      '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog', '#rs-dialog'];
     const out = {};
     for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
@@ -12019,6 +12287,11 @@ check('the brand catalogue makes no network calls at all',
     t.figures[String(y)] = { income: 81600, pcb: 3600, epf: 8976 };
     t.children = 2; t.spouse = true;
     t.claims.push(coerceTaxClaim({ relief: 'lifestyle', amount: 129.9, date: d(3, 4), note: 'Popular bookstore textbooks' }));
+    // Recurring splits: a sent month in the grid on Debts, and two Home cards (one asks for the amount).
+    const prev = shiftMonth(currentMonthISO(), -1);
+    const rent = rsSave({ name: 'Rent for the master bedroom', total: 2400, dueDay: 1, mode: 'weight', meWeight: 1.5, people: [{ name: 'Muhammad Hafiz', w: 1 }, { name: 'Siti Nurhaliza', w: 1 }, { name: 'Kumaravelu', w: 1.5 }], from: prev }).rs;
+    rsSend(rent.id, prev);
+    state.split.recurring.push(coerceRecurring({ name: 'TNB and Air Selangor', variable: true, dueDay: 1, startMonth: currentMonthISO(), plans: [{ from: currentMonthISO(), mode: 'equal', people: [{ name: 'Muhammad Hafiz' }] }] }));
     save(); renderAll();
   };
   const sticksOut = () => {
@@ -12075,7 +12348,7 @@ check('the brand catalogue makes no network calls at all',
     for (const [label, open] of [['details', () => taxOpenNumbers()], ['claim', () => taxOpenClaim({ relief: 'medical' })],
       ['review', () => taxOpenReview(taxReviewItems(new Date().getFullYear()), 'year', new Date().getFullYear())],
       ['paywall', () => openPaywall('installment')], ['tour', () => openGuide()], ['edit debt', () => openEditDialog('debt', state.debts.find((d) => d.kind === 'islamic').id)],
-      ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }]]) {
+      ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['recurring split', () => rsOpenEdit(state.split.recurring[0].id)], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
       (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${label} dialog: ${x}`));

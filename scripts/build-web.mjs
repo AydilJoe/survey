@@ -29,6 +29,7 @@ const APP_FILES = [
   "icloud-sync.js",
   "investments.js",
   "split.js",
+  "split-recurring.js",
   "receipt-extract.js",
   "region.js",
   "tax-data.js",
