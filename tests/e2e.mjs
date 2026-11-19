@@ -12160,10 +12160,22 @@ check('the brand catalogue makes no network calls at all',
       active: document.activeElement && (document.activeElement.id || document.activeElement.tagName),
     };
   });
+  const nextAt = await p.evaluate(() => {
+    const d = document.getElementById('tax-numbers-dialog');
+    return { dialogTop: Math.round(d.getBoundingClientRect().top) };
+  });
   await p.evaluate(() => document.activeElement.blur());
   await p.setViewportSize({ width: 360, height: 780 });
   await p.waitForTimeout(400);
   const down = await p.evaluate(() => document.documentElement.classList.contains('kb-open'));
+  // The keyboard going down must not move the dialog (a tap on Next was lost).
+  const after = await p.evaluate(() => {
+    const d = document.getElementById('tax-numbers-dialog');
+    return { open: d.open, dialogTop: Math.round(d.getBoundingClientRect().top), pinned: d.hasAttribute('data-kb-pinned') };
+  });
+  const closedUnpins = await p.evaluate(() => { const d = document.getElementById('tax-numbers-dialog'); d.close(); return new Promise((r) => setTimeout(() => r(!d.hasAttribute('data-kb-pinned')), 50)); });
+  check('keyboard down: the dialog stays where the keyboard put it (no jump under a tapping finger), and lets go when it closes',
+    after.open && after.pinned && Math.abs(after.dialogTop - nextAt.dialogTop) <= 2 && closedUnpins, JSON.stringify({ nextAt, after, closedUnpins }));
   check('keyboard: with a field focused and the keyboard up, the tax details dialog fits above it, the field and Next are reachable, the bottom bar steps aside; all back when it closes',
     field && !before && up.kb && up.dialogInside && up.fieldVisible && up.nextReachable && up.tabsHidden && !down, JSON.stringify({ field, before, up, down }));
   await kctx.close();
