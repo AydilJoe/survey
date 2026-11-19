@@ -893,6 +893,8 @@
   "Leave empty if it just started.": "刚开始的话留空。",
   "From the fund's latest price.": "按基金最新价格。",
   "What you paid in total. Shows your yield on cost.": "你总共付了多少，用来算成本收益率。",
+  "Add income to {month}": "添加收入到{month}",
+  "Add expense to {month}": "添加开销到{month}",
   "APR (%)": "年利率 (%)",
   "APR": "年利率",
   "weighted APR": "加权年利率",

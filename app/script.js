@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.58.2";
+const APP_VERSION = "1.58.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -2188,6 +2188,7 @@ function renderFlow() {
   const expMonth = document.querySelector("#form-expense input[name='month']");
   if (incMonth && document.activeElement !== incMonth && incMonth.value !== selectedMonth) incMonth.value = selectedMonth;
   if (expMonth && document.activeElement !== expMonth && expMonth.value !== selectedMonth) expMonth.value = selectedMonth;
+  syncFlowSubmitLabels();
 
   // Copy-prev button visibility + hint
   const prev = shiftMonth(selectedMonth, -1);
@@ -7915,6 +7916,22 @@ function parseDay(raw) {
   return d;
 }
 
+/* The month sits under "More" in these two forms, so when it isn't this
+   month the button says where the entry goes ("Add to Oct 2026"). */
+function syncFlowSubmitLabels() {
+  for (const [id, plain, other] of [["form-income", "Add income", "Add income to {month}"], ["form-expense", "Add expense", "Add expense to {month}"]]) {
+    const form = document.getElementById(id);
+    const btn = form && form.querySelector("button[type=submit]");
+    const month = form && form.querySelector("input[name='month']");
+    if (!btn) continue;
+    const m = month && /^\d{4}-\d{2}$/.test(month.value) ? month.value : selectedMonth;
+    btn.textContent = m === currentMonthISO() ? tr(plain) : tr(other, { month: formatMonthLabelShort(m) });
+  }
+}
+["form-income", "form-expense"].forEach((id) => {
+  document.querySelector(`#${id} input[name='month']`)?.addEventListener("change", syncFlowSubmitLabels);
+});
+
 $("#form-income").addEventListener("submit", (e) => {
   e.preventDefault();
   const f = new FormData(e.target);
@@ -11439,6 +11456,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.58.3": [
+    "<strong>Clearer month on Add income and Add bill</strong> — when you are looking at another month, the button says where the entry goes, like “Add income to Oct 2026”.",
+  ],
   "1.58.2": [
     "<strong>Fix: Change passcode</strong> — after you entered your current passcode, the new-passcode step closed by itself and nothing changed. It now stays open, and refuses a new passcode that is the same as the old one.",
   ],

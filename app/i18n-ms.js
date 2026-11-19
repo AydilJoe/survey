@@ -893,6 +893,8 @@
   "Leave empty if it just started.": "Biarkan kosong jika baru bermula.",
   "From the fund's latest price.": "Ikut harga terkini dana.",
   "What you paid in total. Shows your yield on cost.": "Jumlah yang anda bayar. Untuk kira pulangan atas kos.",
+  "Add income to {month}": "Tambah pendapatan ke {month}",
+  "Add expense to {month}": "Tambah perbelanjaan ke {month}",
   "APR (%)": "APR (%)",
   "APR": "APR",
   "weighted APR": "APR berwajaran",

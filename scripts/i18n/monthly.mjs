@@ -120,4 +120,6 @@ export const ROWS = [
   ["Leave empty if it just started.", "Biarkan kosong jika baru bermula.", "刚开始的话留空。"],
   ["From the fund's latest price.", "Ikut harga terkini dana.", "按基金最新价格。"],
   ["What you paid in total. Shows your yield on cost.", "Jumlah yang anda bayar. Untuk kira pulangan atas kos.", "你总共付了多少，用来算成本收益率。"],
+  ["Add income to {month}", "Tambah pendapatan ke {month}", "添加收入到{month}"],
+  ["Add expense to {month}", "Tambah perbelanjaan ke {month}", "添加开销到{month}"],
 ];
