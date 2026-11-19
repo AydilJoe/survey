@@ -1,4 +1,7 @@
 {
+  "1.58.2": [
+    "<strong>Pembaikan: Tukar kod laluan</strong> — selepas anda masukkan kod laluan semasa, langkah kod laluan baharu tertutup sendiri dan tiada apa yang berubah. Kini ia kekal terbuka, dan menolak kod laluan baharu yang sama dengan yang lama."
+  ],
   "1.58.1": [
     "<strong>Bulan anda dalam beberapa ayat</strong> — Laporan kini dibuka dengan ringkasan pendek: berapa anda belanja, perbandingan dengan bulan lepas, apa yang paling naik dan bil yang masih perlu dibayar. Semuanya dikira di telefon anda; tiada apa yang keluar."
   ],

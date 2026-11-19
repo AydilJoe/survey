@@ -153,6 +153,15 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-58-2">
+    <span class="release-date">November 2026 &middot; v1.58.2</span>
+    <h2 class="release-title">Fix: Change passcode</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Change passcode:</strong> after the current passcode was accepted, the new-passcode step closed by itself (the first step&rsquo;s close arrived late and cancelled it), so the passcode never changed. It now stays open; Cancel and Escape still cancel.</li>
+      <li><span class="tag fix">fix</span><strong>Same code refused:</strong> a new passcode identical to the current one is refused with a short note. &ldquo;Passcode off.&rdquo; is now translated.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-58-1">
     <span class="release-date">November 2026 &middot; v1.58.1</span>
     <h2 class="release-title">Your month in a few sentences</h2>

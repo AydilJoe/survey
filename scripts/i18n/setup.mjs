@@ -218,4 +218,7 @@ export const ROWS = [
   ["Fingerprint / face unlock", "Buka dengan cap jari / wajah", "指纹 / 面容解锁"],
   ["Contact & WhatsApp", "Hubungi & WhatsApp", "联系与 WhatsApp"],
   ["Zakat", "Zakat", "天课"],
+  // ── Passcode (change flow fix, 1.58.2) ─────────────────────────
+  ["That's your current passcode. Choose a new one.", "Itu kod laluan semasa anda. Pilih yang baharu.", "这是你现在的密码，请换一个新的。"],
+  ["Passcode off.", "Kod laluan dimatikan.", "已关闭密码。"],
 ];

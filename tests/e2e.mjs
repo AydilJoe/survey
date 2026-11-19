@@ -7595,6 +7595,34 @@ check('the vault is open before the quick-add checks',
     check('with a passcode set, the app asks for it on open', locked.lock && !locked.key && /passcode/i.test(locked.sub), JSON.stringify(locked));
     await np.fill('#lock-input', '2468'); await np.click('#lock-submit');
     await np.waitForTimeout(1500);
+    // Change passcode: current, then the new one. The second ask used to be
+    // cancelled by the first one's late "close" event, so nothing changed.
+    const changed = await np.evaluate(async () => {
+      const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+      const dlg = document.getElementById('passcode-dialog');
+      const fill = (a, b) => { document.getElementById('passcode-input').value = a; document.getElementById('passcode-confirm').value = b ?? ''; document.getElementById('passcode-form').requestSubmit(); };
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      await wait(100);
+      // Cancel at the first step changes nothing.
+      document.getElementById('btn-change-passcode').click();
+      await wait(100);
+      document.getElementById('passcode-cancel').click();
+      await wait(200);
+      const cancelled = !dlg.open && await vaultPasscodeMatches('2468');
+      document.getElementById('btn-change-passcode').click();
+      await wait(100);
+      fill('2468');
+      await wait(1200);
+      const step2 = dlg.open && document.getElementById('passcode-label').textContent === 'New passcode' && !document.getElementById('passcode-confirm-field').hidden;
+      fill('2468', '2468');
+      await wait(200);
+      const sameRefused = dlg.open && /current passcode/.test(document.getElementById('passcode-error').textContent);
+      fill('1357', '1357');
+      await wait(2500);
+      return { cancelled, step2, sameRefused, closed: !dlg.open, now: await vaultPasscodeMatches('1357'), old: await vaultPasscodeMatches('2468') };
+    });
+    check('Change passcode: Cancel changes nothing; after the current one, the new-passcode step stays open, refuses the same code, and the new code replaces the old',
+      changed.cancelled && changed.step2 && changed.sameRefused && changed.closed && changed.now && !changed.old, JSON.stringify(changed));
     const off = await np.evaluate(async () => {
       document.querySelectorAll('dialog[open]').forEach((d) => d.close());
       document.getElementById('btn-remove-passcode').click();
@@ -7603,7 +7631,7 @@ check('the vault is open before the quick-add checks',
       document.getElementById('passcode-form').requestSubmit();
       await new Promise((r) => setTimeout(r, 1500));
       const wrongKept = document.getElementById('passcode-dialog').open && /Wrong passcode/.test(document.getElementById('passcode-error').textContent);
-      document.getElementById('passcode-input').value = '2468';
+      document.getElementById('passcode-input').value = '1357';
       document.getElementById('passcode-form').requestSubmit();
       await new Promise((r) => setTimeout(r, 2500));
       if (!wrongKept) return { wrongKept };

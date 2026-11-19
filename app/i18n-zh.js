@@ -1658,6 +1658,8 @@
   "Fingerprint / face unlock": "指纹 / 面容解锁",
   "Contact & WhatsApp": "联系与 WhatsApp",
   "Zakat": "天课",
+  "That's your current passcode. Choose a new one.": "这是你现在的密码，请换一个新的。",
+  "Passcode off.": "已关闭密码。",
   "Reading the receipt": "读取收据",
   "Reading the receipt…": "读取收据中…",
   "Opening the photo…": "打开照片中…",
