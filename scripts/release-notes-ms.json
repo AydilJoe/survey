@@ -1,4 +1,7 @@
 {
+  "1.58.4": [
+    "<strong>Pembaikan: butang perlu ditekan beberapa kali</strong> — selepas menaip dalam tetingkap timbul, tekanan pertama pada Simpan atau Seterusnya boleh terlepas kerana tetingkap bergerak semasa papan kekunci tertutup. Kini ia kekal di tempatnya sehingga ditutup."
+  ],
   "1.58.3": [
     "<strong>Bulan lebih jelas pada Tambah pendapatan dan Tambah bil</strong> — bila anda melihat bulan lain, butang menyebut ke mana catatan itu pergi, seperti “Tambah pendapatan ke Okt 2026”."
   ],

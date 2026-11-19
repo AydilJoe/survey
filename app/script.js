@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.58.3";
+const APP_VERSION = "1.58.4";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5308,6 +5308,11 @@ async function fireDueNotifications() {
     if (now !== open) {
       open = now;
       root.classList.toggle("kb-open", open);
+      // A dialog the keyboard moved up stays up until it closes. Putting it
+      // back in the middle as the keyboard went down moved the Save / Next
+      // button out from under the finger that was tapping it, and the tap
+      // was lost (it took several taps to get through a form).
+      if (open) document.querySelectorAll("dialog[open]").forEach((d) => d.setAttribute("data-kb-pinned", ""));
     }
     clearTimeout(settle);
     if (open) settle = setTimeout(reveal, 120);
@@ -5317,6 +5322,9 @@ async function fireDueNotifications() {
   window.addEventListener("resize", update);
   document.addEventListener("focusin", () => { update(); setTimeout(update, 350); });
   document.addEventListener("focusout", () => setTimeout(update, 50));
+  document.addEventListener("close", (e) => {
+    if (e.target instanceof HTMLDialogElement) e.target.removeAttribute("data-kb-pinned");
+  }, true);
   update();
 })();
 
@@ -11456,6 +11464,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.58.4": [
+    "<strong>Fix: buttons needing several taps</strong> — after typing in a pop-up, the first tap on Save or Next could miss because the pop-up moved as the keyboard closed. It now stays put until it closes.",
+  ],
   "1.58.3": [
     "<strong>Clearer month on Add income and Add bill</strong> — when you are looking at another month, the button says where the entry goes, like “Add income to Oct 2026”.",
   ],
