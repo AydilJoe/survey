@@ -1,4 +1,7 @@
 {
+  "1.58.3": [
+    "<strong>Bulan lebih jelas pada Tambah pendapatan dan Tambah bil</strong> — bila anda melihat bulan lain, butang menyebut ke mana catatan itu pergi, seperti “Tambah pendapatan ke Okt 2026”."
+  ],
   "1.58.2": [
     "<strong>Pembaikan: Tukar kod laluan</strong> — selepas anda masukkan kod laluan semasa, langkah kod laluan baharu tertutup sendiri dan tiada apa yang berubah. Kini ia kekal terbuka, dan menolak kod laluan baharu yang sama dengan yang lama."
   ],

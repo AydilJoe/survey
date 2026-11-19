@@ -2872,6 +2872,22 @@ check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.c
     r.cardShown && /^A calm month: /.test(r.aiText) && r.aiTag && r.badFallsBack && r.offNotAsked, JSON.stringify(r));
 }
 
+/* ── Add income / bill: the month under "More" is named on the button when it isn't this month (1.58.3) ── */
+{
+  const r = await S(() => {
+    const btn = (id) => document.querySelector(`#${id} button[type=submit]`).textContent.trim();
+    const now = { inc: btn('form-income'), exp: btn('form-expense') };
+    document.querySelector('[data-action="month-prev"]').click();
+    const prev = { inc: btn('form-income'), exp: btn('form-expense'), label: formatMonthLabelShort(selectedMonth) };
+    document.querySelector('[data-action="month-next"]').click();
+    const back = btn('form-income');
+    return { now, prev, back };
+  });
+  check('Add income / Add expense say "to Oct 2026" when the entry would go into another month, and plain "Add income" this month',
+    r.now.inc === 'Add income' && r.now.exp === 'Add expense' && r.prev.inc === `Add income to ${r.prev.label}` && r.prev.exp === `Add expense to ${r.prev.label}` && r.back === 'Add income',
+    JSON.stringify(r));
+}
+
 /* ── "Not picked up?": share an alert's wording, redacted on the phone (1.56.2) ── */
 const share = await S(() => {
   const r = (t) => redactAlertSample(t);
