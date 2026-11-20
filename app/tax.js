@@ -491,7 +491,7 @@ function taxAiCandidates(now) {
 }
 
 // One batch; resolves how many new matches it found. Failures change nothing.
-async function taxAiMatchRun(now) {
+async function taxAiMatchRun(now, opts) {
   if (taxAiBusy || !taxAiOn() || !taxReady()) return 0;
   const list = taxAiCandidates(now || new Date());
   if (!list.length) return 0;
@@ -510,7 +510,11 @@ async function taxAiMatchRun(now) {
       if (!names.length) continue;
       const text = `Spending: ${String(e.note || "").slice(0, 120)}${e.category ? ` (category: ${String(e.category).slice(0, 40)})` : ""}. Which Malaysian tax relief group is this shop or spend most likely in? Use "" if none.`;
       let reply = null;
-      try { reply = parseAiAlertReply(await withTimeout(kit.aiReadAlert({ text, categories: names }), TAX_AI_TIMEOUT_MS)); } catch { reply = null; }
+      // Automatic runs only move the header badge; "Review my year" (opts.overlay) shows the sheet.
+      const ask = () => withTimeout(kit.aiReadAlert({ text, categories: names }), TAX_AI_TIMEOUT_MS);
+      const think = typeof withAiThinking === "function"
+        ? (fn) => withAiThinking(fn, opts && opts.overlay ? { overlay: true, label: "Checking tax relief" } : undefined) : (fn) => fn();
+      try { reply = parseAiAlertReply(await think(ask)); } catch { reply = null; }
       if (!reply) continue;                       // not cached: may be asked again another day
       const name = aiCategoryIn(reply.category, names);
       const r = name && !reply.promo ? choices[name] : "";
@@ -2706,9 +2710,16 @@ document.addEventListener("click", (e) => {
   } else if ((b = hit("[data-tax-docs]"))) {
     taxOpenReview([{ kind: "claim", claimId: b.dataset.taxDocs, year: taxYear() }], "year", taxYear());
   } else if (hit("#btn-tax-review")) {
-    const items = taxReviewItems(taxYear());
-    if (items.length) taxOpenReview(items, "year", taxYear());
-    else toast(tr("All sorted — nothing left to review for {ya}", { ya: taxYearLabel(taxYear()) }));
+    // Spends the keywords miss get one look from the phone's AI first (you
+    // see it think), then the review opens with whatever it found.
+    const open = () => {
+      const items = taxReviewItems(taxYear());
+      if (items.length) taxOpenReview(items, "year", taxYear());
+      else toast(tr("All sorted — nothing left to review for {ya}", { ya: taxYearLabel(taxYear()) }));
+    };
+    if (taxAiOn() && !taxAiBusy && taxAiCandidates(new Date()).length) {
+      taxAiMatchRun(new Date(), { overlay: true }).catch(() => 0).then(() => { renderTax(); open(); });
+    } else open();
   } else if (hit("#tax-review-yes")) taxReviewYes();
   else if (hit("#tax-review-no")) taxReviewNo();
   else if (hit("#tax-review-later")) { if (taxReview) taxReviewGo(taxReview.i + 1); }

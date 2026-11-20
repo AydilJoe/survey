@@ -312,6 +312,12 @@ export const ROWS = [
   // ── Settings: AI, bank alerts, own accounts ─────────────────────
   ["On-device AI", "AI dalam peranti", "手机端 AI"],
   ["On-device AI is on", "AI dalam peranti dihidupkan", "手机端 AI 已开启"],
+  ["AI is reading…", "AI sedang membaca…", "AI 正在读取…"],
+  ["Your phone's AI is reading…", "AI telefon anda sedang membaca…", "手机的 AI 正在读…"],
+  ["Reading your receipt", "Membaca resit anda", "正在读你的收据"],
+  ["Sorting your statement", "Menyusun penyata anda", "正在整理你的账单"],
+  ["Checking tax relief", "Menyemak pelepasan cukai", "正在核对扣税项目"],
+  ["Hide", "Sembunyi", "隐藏"],
   ["Use this phone's AI for receipts and bank alerts", "Guna AI telefon ini untuk resit dan makluman bank", "用手机自带的 AI 读收据和银行通知"],
   ["Checking…", "Menyemak…", "检查中…"],
   ["Not available on this phone; Duitful uses its rules.", "Tiada pada telefon ini. Duitful guna peraturannya sendiri.", "这部手机没有，Duitful 会用自己的规则。"],

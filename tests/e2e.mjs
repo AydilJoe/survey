@@ -2491,6 +2491,249 @@ check('AI sheet: on a phone without the model it still opens and says "Not avail
 check('AI sheet: never opens on the web (no card, no badge, openAiInfo refuses)', aiInfo.webOpened === false && !aiInfo.webOpen && !aiInfo.webCard, JSON.stringify(aiInfo));
 check('AI sheet: its words have Malay and Chinese rows', aiInfo.ms);
 
+/* ── On-device AI thinking state & sempoa mark (1.62.1) ── */
+{
+  const aiThink = await S(async () => {
+    const keepCap = window.Capacitor;
+    const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+    const $ = (id) => document.getElementById(id);
+    const resolvers = [];
+    const deferred = () => new Promise((r) => resolvers.push(r));
+    state.aiIntroSeen = true;
+    state.aiEnabled = true;
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'android',
+      Plugins: {
+        DuitfulKit: {
+          aiStatus: async () => ({ available: true }),
+          aiReadReceipt: () => deferred(),
+          aiReadAlert: () => deferred(),
+        },
+      },
+    };
+    const out = {};
+    try {
+      await refreshAiStatus();
+      const badge = $('ai-badge');
+      const live = $('ai-live');
+      out.idle = !badge.classList.contains('is-thinking') && live.textContent === '';
+      out.liveRole = live.getAttribute('aria-live');
+      out.beads = badge.querySelectorAll('svg.sempoa .ai-bead').length;
+
+      // Single AI call: adds .is-thinking and announces "AI is reading…", then clears on finish.
+      const p1 = receiptSecondOpinion({ amount: null, amountConfidence: 'low', vendor: '', date: '' }, 'KEDAI KOPI RM 8.50');
+      await new Promise((r) => setTimeout(r, 30));
+      out.duringSingle = badge.classList.contains('is-thinking');
+      out.liveDuring = live.textContent;
+      out.motionAnim = getComputedStyle(badge.querySelector('.sp-el1')).animationName;
+      resolvers.shift()({ json: '{"total": 8.5}' });
+      await p1;
+      out.afterSingle = !badge.classList.contains('is-thinking') && live.textContent === '';
+
+      // Overlapping calls: stays active until the last call finishes (even when one rejects).
+      const kit = duitfulKit('aiReadAlert');
+      const o1 = askAiAboutAlert(kit, 'Paid RM 12.00 at KEDAI A', ['Food']);
+      const o2 = askAiAboutAlert(kit, 'Paid RM 15.00 at KEDAI B', ['Food']);
+      await new Promise((r) => setTimeout(r, 30));
+      out.overlapBoth = badge.classList.contains('is-thinking');
+      resolvers.shift()({ json: '{"direction":"spend"}' });
+      await o1;
+      out.overlapAfterFirst = badge.classList.contains('is-thinking');
+      resolvers.shift()(Promise.reject(new Error('boom')));
+      await o2;
+      out.overlapAfterLast = !badge.classList.contains('is-thinking') && live.textContent === '';
+
+      // Hard timeout clears a hung call so the badge never spins forever.
+      out.timeoutConst = AI_THINK_TIMEOUT_MS;
+      aiThinkStart(120);
+      out.beforeTimeout = badge.classList.contains('is-thinking');
+      await new Promise((r) => setTimeout(r, 180));
+      out.afterTimeout = !badge.classList.contains('is-thinking') && live.textContent === '';
+
+      // i18n rows for screen reader announcement.
+      for (let i = 0; i < 40 && $('ai-think').open; i++) await new Promise((r) => setTimeout(r, 50));
+      out.overlayClosedAfter = !$('ai-think').open;
+      out.msLive = I18N.tables.ms['AI is reading…'] || '';
+      out.zhLive = I18N.tables.zh['AI is reading…'] || '';
+    } finally {
+      window.Capacitor = keepCap;
+      Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+      aiStatusCache = null;
+      save(); renderAll(); renderAiBadge();
+    }
+    return out;
+  });
+  check('AI thinking: the sempoa mark has six beads on two rods, is static at idle, and uses an aria-live="polite" region',
+    aiThink.beads === 6 && aiThink.idle && aiThink.liveRole === 'polite', JSON.stringify(aiThink));
+  check('AI thinking: gets .is-thinking and announces "AI is reading…" during a call, clears after finish',
+    aiThink.duringSingle && aiThink.liveDuring === 'AI is reading…' && aiThink.motionAnim === 'ai-sp-el1' && aiThink.afterSingle, JSON.stringify(aiThink));
+  check('AI thinking: overlapping calls keep .is-thinking on until the last one ends (including failures)',
+    aiThink.overlapBoth && aiThink.overlapAfterFirst && aiThink.overlapAfterLast, JSON.stringify(aiThink));
+  check('AI thinking: hard safety timeout (~8s default) clears a hung call',
+    aiThink.timeoutConst === 8000 && aiThink.beforeTimeout && aiThink.afterTimeout, JSON.stringify(aiThink));
+  check('AI thinking: "AI is reading…" has Malay and Chinese translations',
+    !!aiThink.msLive && !!aiThink.zhLive, JSON.stringify({ ms: aiThink.msLive, zh: aiThink.zhLive }));
+
+  // Reduced motion: uses soft opacity breathe on the badge, no bead movement.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const rmCheck = await S(async () => {
+    const keepCap = window.Capacitor;
+    const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+    state.aiIntroSeen = true; state.aiEnabled = true;
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: { aiStatus: async () => ({ available: true }) } } };
+    let out = {};
+    try {
+      await refreshAiStatus();
+      const tok = aiThinkStart(5000);
+      const badge = document.getElementById('ai-badge');
+      out = {
+        badgeAnim: getComputedStyle(badge).animationName,
+        beadAnim: getComputedStyle(badge.querySelector('.sp-el1')).animationName,
+      };
+      aiThinkEnd(tok);
+    } finally {
+      window.Capacitor = keepCap;
+      Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+      aiStatusCache = null;
+      renderAiBadge();
+    }
+    return out;
+  });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  check('AI thinking: prefers-reduced-motion uses opacity breathe on the badge and keeps beads still',
+    rmCheck.badgeAnim === 'ai-badge-breathe' && rmCheck.beadAnim === 'none', JSON.stringify(rmCheck));
+
+  // Header layout at 360px with the AI badge visible in English, Malay and Chinese.
+  const keepVp = page.viewportSize();
+  await page.setViewportSize({ width: 360, height: 740 });
+  const header360 = await S(async () => {
+    const keepCap = window.Capacitor;
+    const keepLang = I18N.lang;
+    const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+    state.aiIntroSeen = true; state.aiEnabled = true;
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: { aiStatus: async () => ({ available: true }) } } };
+    const results = {};
+    try {
+      await refreshAiStatus();
+      for (const lang of ['en', 'ms', 'zh']) {
+        I18N.set(lang);
+        renderAll();
+        renderAiBadge();
+        const hdr = document.querySelector('.app-header .brand').getBoundingClientRect();
+        const badge = document.getElementById('ai-badge').getBoundingClientRect();
+        const docOverflow = document.documentElement.scrollWidth > window.innerWidth + 1;
+        results[lang] = {
+          shown: badge.width > 0,
+          inside: badge.right <= hdr.right + 1 && badge.right <= window.innerWidth + 1,
+          docOverflow,
+        };
+      }
+    } finally {
+      I18N.set(keepLang);
+      window.Capacitor = keepCap;
+      Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+      aiStatusCache = null;
+      renderAll(); renderAiBadge();
+    }
+    return results;
+  });
+  if (keepVp) await page.setViewportSize(keepVp);
+  check('AI badge: header fits without overflow at 360px in English, Malay and Chinese',
+    ['en', 'ms', 'zh'].every((l) => header360[l].shown && header360[l].inside && !header360[l].docOverflow),
+    JSON.stringify(header360));
+
+  /* The thinking sheet (1.62.1): a call you wait on floats the mark into
+     #ai-think; background calls only move the badge. */
+  const sheet = async (reduced) => S(async (reduced) => {
+    const keepCap = window.Capacitor;
+    const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+    const $ = (id) => document.getElementById(id);
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const closed = async () => { for (let i = 0; i < 60 && $('ai-think').open; i++) await wait(50); return !$('ai-think').open; };
+    const resolvers = [];
+    const deferred = () => new Promise((r) => resolvers.push(r));
+    state.aiIntroSeen = true; state.aiEnabled = true;
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: {
+      aiStatus: async () => ({ available: true }), aiReadReceipt: () => deferred(), aiReadAlert: () => deferred() } } };
+    const out = {};
+    try {
+      await refreshAiStatus();
+      document.getElementById('tabbtn-dashboard').click();
+      // Foreground: opens, says what it is doing, the badge glyph lifts out.
+      window.scrollTo(0, 0);
+      out.fromBadge = !!aiThinkHome().badge;   // else it starts at the top centre (side layouts, scrolled away)
+      const t0 = Date.now();
+      const p1 = receiptSecondOpinion({ amount: null, amountConfidence: 'low', vendor: '', date: '' }, 'KEDAI KOPI RM 8.50');
+      await wait(60);
+      out.fgOpen = $('ai-think').open;
+      out.busy = $('ai-think').getAttribute('aria-busy');
+      out.task = $('ai-think-task').textContent;
+      out.title = $('ai-think-title').textContent;
+      out.lifted = $('ai-badge').classList.contains('is-lifted');
+      out.flying = $('ai-think').querySelector('.ai-think-mark').getAnimations().some((a) => !(a instanceof CSSAnimation));
+      out.bigBead = getComputedStyle($('ai-think').querySelector('.sp-el1')).animationName;
+      out.markAnim = getComputedStyle($('ai-think').querySelector('.ai-think-mark')).animationName;
+      resolvers.shift()({ json: '{"total": 8.5}' });   // ends fast …
+      await p1;
+      await wait(250);
+      out.stillOpenAtMin = $('ai-think').open;          // … but the sheet stays its minimum
+      out.closedAfter = await closed();
+      out.shownFor = Date.now() - t0;
+      out.landed = !$('ai-badge').classList.contains('is-lifted');
+      // Background: badge only, no sheet.
+      const kit = duitfulKit('aiReadAlert');
+      const b1 = askAiAboutAlert(kit, 'Paid RM 12.00 at KEDAI A', ['Food']);
+      await wait(60);
+      out.bgThinking = $('ai-badge').classList.contains('is-thinking');
+      out.bgOpen = $('ai-think').open;
+      resolvers.shift()({ json: '{"direction":"spend"}' });
+      await b1;
+      // The hard timeout closes it too.
+      aiThinkStart(150, { overlay: true, label: 'Reading your receipt' });
+      await wait(40);
+      out.toOpen = $('ai-think').open;
+      out.toClosed = await closed();
+      out.toBadge = !$('ai-badge').classList.contains('is-thinking');
+      // Escape hides it; the call carries on and its result still lands.
+      const p2 = receiptSecondOpinion({ amount: null, amountConfidence: 'low', vendor: '', date: '' }, 'KEDAI KOPI RM 9.90');
+      await wait(60);
+      out.escOpen = $('ai-think').open;
+      $('ai-think').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      $('ai-think').dispatchEvent(new Event('cancel', { cancelable: true }));
+      out.escClosed = await closed();
+      out.escStillThinking = $('ai-badge').classList.contains('is-thinking');
+      resolvers.shift()({ json: '{"total": 9.9}' });
+      const r2 = await p2;
+      out.escResult = r2 && r2.parsed ? r2.parsed.amount : null;
+      out.escStaysShut = !$('ai-think').open && !$('ai-badge').classList.contains('is-thinking');
+      out.words = ["Your phone's AI is reading…", 'Reading your receipt', 'Sorting your statement', 'Checking tax relief', 'Hide'].every((k) => !!I18N.tables.ms[k] && !!I18N.tables.zh[k]);
+    } finally {
+      await closed();
+      window.Capacitor = keepCap;
+      Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+      aiStatusCache = null;
+      save(); renderAll(); renderAiBadge();
+    }
+    return out;
+  }, reduced);
+  const th = await sheet(false);
+  check('AI sheet: a call you wait on (receipt) opens #ai-think, aria-busy, "Reading your receipt", the mark flies out of the badge and counts',
+    th.fgOpen && th.busy === 'true' && th.task === 'Reading your receipt' && th.title === "Your phone's AI is reading…" && th.lifted === th.fromBadge && th.flying && th.bigBead === 'ai-sp-el1', JSON.stringify(th));
+  check('AI sheet: a fast call still shows it for its minimum, then it floats back and the badge glyph returns',
+    th.stillOpenAtMin && th.closedAfter && th.shownFor >= 700 && th.landed, JSON.stringify(th));
+  check('AI sheet: a background call (bank alert) only moves the badge, never opens the sheet', th.bgThinking && !th.bgOpen, JSON.stringify(th));
+  check('AI sheet: the hard timeout closes it and stops the badge', th.toOpen && th.toClosed && th.toBadge, JSON.stringify(th));
+  check('AI sheet: Escape hides it while the call carries on; the result still lands and it does not come back',
+    th.escOpen && th.escClosed && th.escStillThinking && th.escResult === 9.9 && th.escStaysShut, JSON.stringify(th));
+  check('AI sheet: its words have Malay and Chinese rows', th.words);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const thr = await sheet(true);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  check('AI sheet: reduced motion opens it with no flight (the mark breathes, beads still) and still closes',
+    thr.fgOpen && !thr.flying && thr.markAnim === 'ai-badge-breathe' && thr.bigBead === 'none' && thr.closedAfter, JSON.stringify(thr));
+}
+
 /* ── Bank statement import, read on the phone (1.57.0) ─────────────────────
    Synthetic statements only (tests/fixtures/statement-pdfs.mjs): invented
    names and numbers in each bank's layout. Real statements never enter the repo. */
@@ -13042,7 +13285,8 @@ check('the brand catalogue makes no network calls at all',
     save();
     const calls = [];
     const kit = { aiStatus: async () => ({ available: true }), aiReadAlert: async ({ text, categories }) => {
-      calls.push({ text, categories });
+      const badge = document.getElementById('ai-badge');
+      calls.push({ text, categories, thinking: badge.classList.contains('is-thinking'), sheet: document.getElementById('ai-think').open });
       const cat = /Watson|Guardian/.test(text) ? 'Medical, clinic, pharmacy, dental' : /Ilmu/.test(text) ? 'Rocket science' : '';
       return { json: JSON.stringify({ direction: 'spend', counterparty: '', category: cat, is_promo_or_security: false }) };
     } };
@@ -13051,7 +13295,11 @@ check('the brand catalogue makes no network calls at all',
     window.Capacitor = android;
     const r = {};
     try {
+      await refreshAiStatus();
       r.found = await taxAiMatchRun(new Date());
+      r.badgeThinking = calls.length > 0 && calls.every((c) => c.thinking);
+      r.badgeSheet = calls.some((c) => c.sheet);
+      r.badgeAfter = !document.getElementById('ai-badge').classList.contains('is-thinking');
       r.asked = calls.map((c) => c.text);
       r.cats = calls[0] ? calls[0].categories : [];
       r.names = Object.values(TAX_AI_NAMES);
@@ -13096,7 +13344,7 @@ check('the brand catalogue makes no network calls at all',
       openAiInfo('badge');
       r.infoIos = !document.getElementById('ai-info-tax').hidden;
       document.getElementById('ai-info-dialog').close();
-    } finally { window.Capacitor = keep; }
+    } finally { window.Capacitor = keep; aiStatusCache = null; renderAiBadge(); }
     return r;
   });
   check('tax AI: a spend the keywords already match is never sent to the AI; the ones they miss are, with only reliefs tax-data.js has this year to pick from',
@@ -13111,6 +13359,8 @@ check('the brand catalogue makes no network calls at all',
   check('tax AI: with on-device AI off it is keywords only — nothing asked, no AI suggestions shown',
     ai.offRun === 0 && ai.offCalls === 0 && !ai.offPending.some((id) => /ai-old|ai-new/.test(id)), JSON.stringify(ai.offPending));
   check('tax AI: on the web there is no AI — nothing asked, keyword matches only', ai.webRun === 0 && ai.webCalls === 0 && !ai.webPending.includes('ai-old') && ai.webPending.includes('ai-kw'), JSON.stringify(ai.webPending));
+  check('tax AI: each automatic relief question runs inside withAiThinking — the header badge counts (.is-thinking), no sheet, and stops after',
+    ai.badgeThinking && !ai.badgeSheet && ai.badgeAfter, JSON.stringify([ai.badgeThinking, ai.badgeSheet, ai.badgeAfter]));
   check('tax AI: "What it does" lists Tax relief on Android only (iPhone\'s kit has no aiReadAlert)', ai.infoAndroid && !ai.infoIos, JSON.stringify([ai.infoAndroid, ai.infoIos]));
   check('EA scanner and tax AI: no page errors', eerr.length === 0, eerr.join(' | '));
   await ep.close();
@@ -13145,7 +13395,7 @@ check('the brand catalogue makes no network calls at all',
       '#onboard-dialog', '#guide-dialog', '#edit-dialog', '#daily-edit-dialog', '#bulk-income-dialog', '#bulk-debt-pay-dialog', '#last-month-edit-dialog', '#search-dialog',
       '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
       '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog', '#rs-dialog',
-      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog', '#ai-info-dialog', '#ea-dialog'];
+      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog', '#ai-info-dialog', '#ai-think', '#ea-dialog'];
     const out = {};
     for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
@@ -13355,7 +13605,8 @@ check('the brand catalogue makes no network calls at all',
           'E  CARUMAN YANG DIBAYAR OLEH PEKERJA KEPADA KUMPULAN WANG SIMPANAN / PENCEN YANG DILULUSKAN DAN PERKESO',
           '1. Nama Kumpulan Wang: KWSP   6,996.00', '2. PERKESO: Amaun caruman yang wajib dibayar (nyatakan bahagian pekerja sahaja)   296.25', 'SIP   59.40'] });
       }],
-      ['on-device AI', () => { const keep = window.Capacitor; window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} }; try { openAiInfo('badge'); } finally { window.Capacitor = keep; } }]]) {
+      ['on-device AI', () => { const keep = window.Capacitor; window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} }; try { openAiInfo('badge'); } finally { window.Capacitor = keep; } }],
+      ['AI thinking', () => { aiThinkStart(1500, { overlay: true, label: 'Sorting your statement' }); }]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
       (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang}${theme ? '/' + theme : ''} ${label} dialog: ${x}`));
@@ -13395,7 +13646,7 @@ check('the brand catalogue makes no network calls at all',
     }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / EA form / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money / on-device AI dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / EA form / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money / on-device AI / AI thinking dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 

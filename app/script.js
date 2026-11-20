@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.62.0";
+const APP_VERSION = "1.62.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4852,18 +4852,197 @@ async function refreshAiStatus() {
 // the web, on a phone without it, while it downloads, or when it's off.
 // It shimmers once, the first time it ever appears (motion-safe only).
 const AI_BADGE_SEEN_KEY = "duitful.aiBadgeSeen";
+/* The phone's AI at work. Every on-device AI call runs inside withAiThinking:
+   the header badge's sempoa counts (.is-thinking) and #ai-live says "AI is
+   reading…" until the last call ends, or AI_THINK_TIMEOUT_MS passes.
+   A call you are waiting on passes { overlay: true, label }: the mark then
+   floats out of the badge into the #ai-think sheet, grows and counts there,
+   and floats back when the last such call ends (never sooner than
+   AI_THINK_MIN_MS, so it never flashes). Escape, Back or Hide put the sheet
+   away; the call carries on and its result still lands. Background calls
+   (bank alerts on unlock, automatic tax matching, the recap) never open it. */
+const AI_THINK_TIMEOUT_MS = 8000;
+const AI_THINK_MIN_MS = 700;
+const aiThinkTokens = new Map(); // token -> { timer, overlay, label }
+let aiThinkSeq = 0;
+const aiThinkUi = { open: false, closing: false, openedAt: 0, closeTimer: null, hidden: false };
+
+function syncAiThinkingUi() {
+  const badge = document.getElementById("ai-badge");
+  const live = document.getElementById("ai-live");
+  const busy = aiThinkTokens.size > 0;
+  const active = busy && !!badge && !badge.hidden;
+  if (badge) badge.classList.toggle("is-thinking", active);
+  if (live) {
+    const next = busy && (active || aiThinkUi.open) ? tr("AI is reading…") : "";
+    if (live.textContent !== next) live.textContent = next;
+  }
+  aiThinkOverlaySync();
+}
+
+function aiThinkStart(timeoutMs = AI_THINK_TIMEOUT_MS, opts) {
+  const token = ++aiThinkSeq;
+  const timer = setTimeout(() => aiThinkEnd(token), timeoutMs);
+  aiThinkTokens.set(token, { timer, overlay: !!(opts && opts.overlay), label: (opts && opts.label) || "" });
+  syncAiThinkingUi();
+  return token;
+}
+
+function aiThinkEnd(token) {
+  const t = aiThinkTokens.get(token);
+  if (!t) return;
+  clearTimeout(t.timer);
+  aiThinkTokens.delete(token);
+  syncAiThinkingUi();
+}
+
+// withAiThinking(fn) for background calls; withAiThinking(fn, { overlay: true,
+// label: "Reading your receipt" }) for one the person is waiting on. A number
+// as the second argument is the timeout (ms).
+async function withAiThinking(fn, opts) {
+  const o = typeof opts === "number" ? { timeoutMs: opts } : (opts || {});
+  const token = aiThinkStart(o.timeoutMs || AI_THINK_TIMEOUT_MS, o);
+  try {
+    return await fn();
+  } finally {
+    aiThinkEnd(token);
+  }
+}
+
+const aiThinkReduced = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_) { return false; } };
+// Where the mark lives in the header: the badge's own glyph when it is on
+// screen, else a 14px spot at the top centre (badge hidden, scrolled away,
+// or a layout that puts the header elsewhere).
+function aiThinkHome() {
+  const badge = document.getElementById("ai-badge");
+  const svg = badge && !badge.hidden ? badge.querySelector("svg") : null;
+  const r = svg ? svg.getBoundingClientRect() : null;
+  const onScreen = r && r.width > 0 && r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth;
+  return onScreen ? { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, badge }
+    : { x: innerWidth / 2, y: 18, w: 14, badge: null };
+}
+function aiThinkFlight(mark, home) {
+  const r = mark.getBoundingClientRect();
+  const dx = home.x - (r.left + r.width / 2);
+  const dy = home.y - (r.top + r.height / 2);
+  const s = r.width ? home.w / r.width : 0.15;
+  return `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${s.toFixed(3)})`;
+}
+
+function aiThinkOverlaySync() {
+  const fg = [...aiThinkTokens.values()].filter((t) => t.overlay);
+  if (!fg.length) {
+    aiThinkUi.hidden = false;
+    if (aiThinkUi.open && !aiThinkUi.closing && !aiThinkUi.closeTimer) {
+      const wait = Math.max(120, AI_THINK_MIN_MS - (Date.now() - aiThinkUi.openedAt));
+      aiThinkUi.closeTimer = setTimeout(() => { aiThinkUi.closeTimer = null; aiThinkOverlayClose(); }, wait);
+    }
+    return;
+  }
+  if (aiThinkUi.closeTimer) { clearTimeout(aiThinkUi.closeTimer); aiThinkUi.closeTimer = null; }
+  const task = document.getElementById("ai-think-task");
+  const label = fg[fg.length - 1].label;
+  if (task) task.textContent = label ? tr(label) : "";
+  if (aiThinkUi.hidden || aiThinkUi.open || aiThinkUi.closing) return;
+  aiThinkOverlayOpen();
+}
+
+function aiThinkOverlayOpen() {
+  const dlg = document.getElementById("ai-think");
+  if (!dlg || typeof dlg.showModal !== "function") return;
+  const home = aiThinkHome();
+  try { dlg.showModal(); } catch (_) { return; }
+  aiThinkUi.open = true;
+  aiThinkUi.openedAt = Date.now();
+  dlg.classList.remove("is-out");
+  dlg.classList.add("is-in");
+  if (home.badge) home.badge.classList.add("is-lifted");
+  const mark = dlg.querySelector(".ai-think-mark");
+  if (mark && !aiThinkReduced() && typeof mark.animate === "function") {
+    mark.getAnimations().forEach((a) => a.cancel());
+    // FLIP: start where the badge glyph is, at its size, and grow into place
+    // with a little spring past full size.
+    mark.animate([
+      { transform: aiThinkFlight(mark, home), opacity: home.badge ? 1 : 0 },
+      { opacity: 1, offset: 0.25 },
+      { transform: "translate(0, 0) scale(1.06)", offset: 0.78 },
+      { transform: "none", opacity: 1 },
+    ], { duration: 640, easing: "cubic-bezier(0.3, 0.7, 0.2, 1)" });
+  }
+}
+
+function aiThinkOverlayClose() {
+  const dlg = document.getElementById("ai-think");
+  if (!dlg || !aiThinkUi.open || aiThinkUi.closing) return;
+  aiThinkUi.closing = true;
+  dlg.classList.remove("is-in");
+  dlg.classList.add("is-out");
+  const home = aiThinkHome();
+  const mark = dlg.querySelector(".ai-think-mark");
+  let done = false;
+  const finish = () => {
+    if (done) return;
+    done = true;
+    try { dlg.close(); } catch (_) {}
+    dlg.classList.remove("is-out");
+    if (mark) mark.getAnimations().forEach((a) => a.cancel());
+    const badge = document.getElementById("ai-badge");
+    if (badge && badge.classList.contains("is-lifted")) {
+      badge.classList.remove("is-lifted");
+      badge.classList.add("is-landed");
+      setTimeout(() => badge.classList.remove("is-landed"), 360);
+    }
+    aiThinkUi.open = false;
+    aiThinkUi.closing = false;
+    syncAiThinkingUi(); // a call that started meanwhile opens it again
+  };
+  if (mark && !aiThinkReduced() && typeof mark.animate === "function") {
+    mark.getAnimations().forEach((a) => a.cancel());
+    const a = mark.animate([
+      { transform: "none", opacity: 1 },
+      { transform: "scale(1.06)", offset: 0.18 },
+      { opacity: 1, offset: 0.8 },
+      { transform: aiThinkFlight(mark, home), opacity: home.badge ? 1 : 0 },
+    ], { duration: 560, easing: "cubic-bezier(0.45, 0, 0.25, 1)", fill: "forwards" });
+    a.finished.then(finish, finish);
+  } else {
+    setTimeout(finish, aiThinkReduced() ? 250 : 0);
+  }
+  setTimeout(finish, 4000); // never stuck half-way
+}
+
+// Escape, Back (the dialog's cancel) and Hide put the sheet away; the call
+// carries on, and the badge keeps counting until it ends.
+function aiThinkHide() {
+  if (!aiThinkUi.open) return;
+  aiThinkUi.hidden = true;
+  if (aiThinkUi.closeTimer) { clearTimeout(aiThinkUi.closeTimer); aiThinkUi.closeTimer = null; }
+  aiThinkOverlayClose();
+}
+document.getElementById("ai-think")?.addEventListener("cancel", (e) => { e.preventDefault(); aiThinkHide(); });
+document.getElementById("ai-think-hide")?.addEventListener("click", aiThinkHide);
+// Closed some other way (the browser's own close request): keep the books straight.
+document.getElementById("ai-think")?.addEventListener("close", () => {
+  if (!aiThinkUi.open || aiThinkUi.closing) return;
+  aiThinkUi.open = false;
+  aiThinkUi.hidden = [...aiThinkTokens.values()].some((t) => t.overlay);
+  document.getElementById("ai-badge")?.classList.remove("is-lifted");
+});
+
 function renderAiBadge() {
   const badge = document.getElementById("ai-badge");
   if (!badge) return;
   const show = isNative() && !!aiStatusCache && aiStatusCache.state === "on" && !!state && aiAllowed();
   const was = !badge.hidden;
   badge.hidden = !show;
+  syncAiThinkingUi();
   if (!show || was) return;
   let seen = true;
   try { seen = localStorage.getItem(AI_BADGE_SEEN_KEY) === "1"; localStorage.setItem(AI_BADGE_SEEN_KEY, "1"); } catch (_) {}
   if (!seen) {
     badge.classList.add("is-new");
-    badge.addEventListener("animationend", () => badge.classList.remove("is-new"), { once: true });
+    const off = (e) => { if (e.animationName !== "ai-badge-shimmer") return; badge.classList.remove("is-new"); badge.removeEventListener("animationend", off); };
+    badge.addEventListener("animationend", off);
   }
 }
 document.getElementById("ai-badge")?.addEventListener("click", () => openAiInfo("badge"));
@@ -11685,6 +11864,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.62.1": [
+    "<strong>A sempoa for your phone's AI</strong> — the AI badge is now a little abacus, and its beads count while your phone's own AI works. When you're waiting on it (a receipt, a statement, Review my year), it floats into the page, counts there, and floats back when done. Nothing is uploaded.",
+  ],
   "1.62.0": [
     "<strong>EA form scanner</strong> — on the Tax page, scan or pick your Borang EA (PDF or photo) and your salary, PCB, EPF and SOCSO for that year fill in at once. Each figure shows its EA line to check, a total that doesn't add up is marked, and nothing is uploaded.",
     "<strong>Tax relief from shop names</strong> — on Android, when a spend's words don't match a relief, your phone's own AI may suggest one (a clinic, a bookshop) for you to check in To check. It never claims for you.",
@@ -13896,7 +14078,7 @@ async function receiptSecondOpinion(parsed, text) {
       const st = await withTimeout(aiKit.aiStatus(), 2000);
       if (st && st.available) {
         setScanStep("Double-checking with on-device AI…", null);
-        ai = parseAiReceiptReply(await withTimeout(aiKit.aiReadReceipt({ text }), 15000));
+        ai = parseAiReceiptReply(await withAiThinking(() => withTimeout(aiKit.aiReadReceipt({ text }), 15000), { overlay: true, label: "Reading your receipt", timeoutMs: 16000 }));
       }
     } catch { ai = null; }
   }
@@ -14975,7 +15157,7 @@ async function captureAiKit() {
 }
 async function askAiAboutAlert(kit, text, categories) {
   try {
-    return parseAiAlertReply(await withTimeout(kit.aiReadAlert({ text: String(text).slice(0, 600), categories }), CAPTURE_AI_TIMEOUT_MS));
+    return parseAiAlertReply(await withAiThinking(() => withTimeout(kit.aiReadAlert({ text: String(text).slice(0, 600), categories }), CAPTURE_AI_TIMEOUT_MS)));
   } catch { return null; }
 }
 // A name or category the model offers counts only if the alert says it /
