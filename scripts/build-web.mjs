@@ -49,6 +49,9 @@ const APP_FILES = [
   "vendor/pdfjs/pdf.min.js",
   "vendor/pdfjs/pdf.worker.min.js",
   "vendor/pdfjs/LICENSE",
+  // Pastel theme font (Nunito, SIL OFL 1.1) and its licence.
+  "vendor/fonts/nunito-latin.woff2",
+  "vendor/fonts/OFL.txt",
 ];
 
 function reset(dir) {

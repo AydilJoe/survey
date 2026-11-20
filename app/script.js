@@ -2,27 +2,30 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.60.0";
+const APP_VERSION = "1.61.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
 
-/* ---------- theme (System / Light / Dark) ---------- */
+/* ---------- theme (System / Light / Dark / Pastel) ---------- */
 // Applied immediately at script start (before first paint of the unlock
 // screen) so a forced theme never flashes the wrong surface. Lives in
 // plain localStorage — pre-unlock UI needs it, so it can't sit in the
 // encrypted state.
 const THEME_KEY = "duit-tracker.theme";
-const THEME_SURFACES = { light: "#e8dfd0", dark: "#14110e" };
+// Pastel is a light theme with its own palette and rounded font (Nunito,
+// self-hosted; the @font-face is only fetched once a Pastel page uses it).
+const THEME_SURFACES = { light: "#e8dfd0", dark: "#14110e", pastel: "#fbe6d3" };
+const THEME_FORCED = ["light", "dark", "pastel"];
 function currentThemeChoice() {
   try {
     const t = localStorage.getItem(THEME_KEY);
-    return t === "light" || t === "dark" ? t : "system";
+    return THEME_FORCED.includes(t) ? t : "system";
   } catch (_) { return "system"; }
 }
 function applyTheme(choice) {
   const root = document.documentElement;
-  if (choice === "light" || choice === "dark") root.dataset.theme = choice;
+  if (THEME_FORCED.includes(choice)) root.dataset.theme = choice;
   else delete root.dataset.theme;
   // Keep the OS status-bar tint in sync. When the user forces a theme we
   // pin both meta tags to that surface; on "system" we restore the
@@ -30,7 +33,7 @@ function applyTheme(choice) {
   const metas = document.querySelectorAll('meta[name="theme-color"]');
   metas.forEach((m) => {
     const media = m.getAttribute("media") || "";
-    if (choice === "light" || choice === "dark") {
+    if (THEME_FORCED.includes(choice)) {
       m.setAttribute("content", THEME_SURFACES[choice]);
     } else {
       m.setAttribute("content", media.includes("dark") ? THEME_SURFACES.dark : THEME_SURFACES.light);
@@ -11591,6 +11594,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.61.0": [
+    "<strong>Pastel</strong> — a new look in Settings → Appearance: cream-peach pages, soft puffy cards, a coral button and a sage tab bar, in a rounded font that works offline. Free for everyone, like Light and Dark.",
+  ],
   "1.60.0": [
     "<strong>Wallets</strong> — a balance for cash, Touch 'n Go eWallet, MAE and each bank account. Spends, income, debt payments and savings can name a wallet (it remembers the last one), “Adjust to actual” fixes drift with one visible entry, and “Move money” moves between wallets without counting as spending. On Android, bank alerts go to the wallet linked to their app, and statements import straight into a wallet. Free keeps 3 wallets; Pro keeps every one.",
   ],
@@ -17470,7 +17476,7 @@ const SEARCH_FEATURES = [
   { title: "Investments", where: "Savings", kw: "investments asb stocks unit trust portfolio pelaburan saham amanah", go: ["savings", "#investments-card"] },
   { title: "Retirement", where: "Savings", kw: "retirement epf kwsp pension persaraan pencen", go: ["savings", "#invest-plan-card"] },
   { title: "Zakat", where: "Savings", kw: "zakat nisab haul wealth harta", go: ["savings", "#zakat-card"] },
-  { title: "Theme", where: "Settings", kw: "theme dark mode light appearance tema gelap cerah paparan", go: ["data", "[data-theme-choice]"] },
+  { title: "Theme", where: "Settings", kw: "theme dark mode light pastel appearance tema gelap cerah paparan", go: ["data", "[data-theme-choice]"] },
   { title: "Export or import CSV", where: "Settings", kw: "export import csv spreadsheet excel backup file eksport import fail sandaran", go: ["data", "#btn-export"] },
   { title: "Cloud backup", where: "Settings", kw: "cloud backup google drive sync restore sandaran awan segerak pulih", go: ["data", "#drive-card"] },
   { title: "Duitful Pro", where: "Settings", kw: "pro upgrade premium unlock licence license naik taraf lesen", go: ["data", "#pro-card"] },

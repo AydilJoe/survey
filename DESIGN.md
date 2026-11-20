@@ -42,6 +42,22 @@ colors:
   brand-dark: "#dd8a63"
   gain-dark: "#7eaa7e"
   loss-dark: "#e07277"
+  stage-pastel: "#f8e3cf"
+  bg-pastel: "#fcecdc"
+  card-pastel: "#fde3d1"
+  card-strong-pastel: "#fcd7bf"
+  card-soft-pastel: "#fff2e7"
+  text-pastel: "#3d2b1f"
+  ink2-pastel: "#634636"
+  muted-pastel: "#77553f"
+  primary-pastel: "#9c4325"
+  action-pastel: "#f08b61"
+  brand-pastel: "#ec8a5e"
+  brand-ink-pastel: "#a3461f"
+  accent-sage-pastel: "#7c9f6d"
+  gain-pastel: "#2c6a3c"
+  loss-pastel: "#b02e3a"
+  warn-pastel: "#8f500c"
 typography:
   display:
     fontFamily: "Fraunces, Georgia, serif"
@@ -148,7 +164,7 @@ components:
 
 # Design System: Duitful
 
-This file describes the app in `app/` (web, PWA and the Capacitor shell). `app/styles.css` is the implementation; the `:root` block at its top holds every token, with the dark values in the two blocks under it. The landing page, guides and `/split` page have their own stylesheets and are not covered here.
+This file describes the app in `app/` (web, PWA and the Capacitor shell). `app/styles.css` is the implementation; the `:root` block at its top holds every token, with the dark values in the two blocks under it and the Pastel values in `html[data-theme="pastel"]` near the end of the file. The landing page, guides and `/split` page have their own stylesheets and are not covered here.
 
 ## Overview
 
@@ -309,6 +325,39 @@ Motion here is feedback, not decoration. The tokens are `--ease-out` (`cubic-bez
 - **Close:** instant. The user is done; do not make them watch it leave.
 
 **The Reduce Motion Rule.** Every movement sits behind `prefers-reduced-motion: no-preference`. Colour changes stay on for everyone, because they do not move.
+
+## Pastel theme
+
+Settings → Appearance offers System, Light, Dark and **Pastel**. The choice lives in `localStorage` (`duit-tracker.theme`, outside the vault, applied before first paint by `theme-boot.js`). Pastel is free, like every theme, and it is a light theme: `color-scheme: light`, and every dark media block is guarded with `:not([data-theme="light"]):not([data-theme="pastel"])` so a phone in dark mode never leaks dark tokens into it.
+
+Pastel is bubbly, soft and warm: cream-peach paper, deep cocoa ink, peach cards that look slightly puffed up, a coral pill for the main action and a sage tab bar. It changes values, not meanings. Ink is still text, green is still money in, red is still trouble, amber is still attention, and the banknote scale is untouched.
+
+| Token | Pastel | On the card |
+|---|---|---|
+| `stage` / `bg` / `bg-elev` | `#f8e3cf` / `#fcecdc` / `#fae5d2` | |
+| `card` (peach sheet) | `#fde3d1` | |
+| `glass-bg-strong` (balance card) | `#fcd7bf` | |
+| `card-soft` (cream well: inputs, inner tiles, ghost buttons) | `#fff2e7` | |
+| `text` (cocoa ink) | `#3d2b1f` | 10.9:1 |
+| `ink2` | `#634636` | 7.0:1 |
+| `muted` | `#77553f` | 5.4:1 (4.9:1 on the balance card) |
+| `primary` (deep coral: links, selected chips, checkboxes) | `#9c4325` | 5.3:1; cream label on it 5.6:1 |
+| `pastel-action` / hover (the primary button fill, cocoa label) | `#f08b61` / `#ea7c4f` | label 5.4:1 / 4.7:1 |
+| `brand` / `brand-ink` (coral) | `#ec8a5e` / `#a3461f` | ink 5.0:1 |
+| `accent` (sage: the wallet tile, the tab bar tint) | `#7c9f6d` | |
+| `gain` / `loss` / `warn` | `#2c6a3c` / `#b02e3a` / `#8f500c` | 5.3 / 5.2 / 5.1:1 |
+| `warn-red-ink` / `warn-yellow-ink` | `#9a3a1f` / `#7f5a0e` | 5.7 / 5.1:1 |
+| `pastel-shine` / `pastel-shade` (shadow tints only) | `#fffaf5` / `#96623c` | |
+| `r-sm` / `r-md` | 12px / 22px | |
+
+Every text pair is AA on the card, the cream well and the page, and the e2e suite measures them.
+
+- **Puffy cards.** Cards and dialogs carry `inset 0 2px 0` shine (55%), `inset 0 -3px 6px` shade (8%) and a low `0 10px 22px -14px` shade drop (50%), each a `color-mix()` of `--pastel-shine` / `--pastel-shade`. This is the one place the Flat Sheet Rule bends, and only in Pastel.
+- **Pills.** Primary, ghost and danger buttons are pills. The primary button is the coral pill with a cocoa label (weight 800), not ink. Chips take a 14% coral wash over the cream well. Tiles and tabs keep their own corners.
+- **Navigation.** The bottom bar is sage-tinted stage (34% sage), labels in `ink2`; the tab you are on sits in a cream pill.
+- **Type.** Nunito (SIL OFL 1.1, `app/vendor/fonts/`, one variable woff2, latin subset, 38 KB) replaces Inter and Fraunces in Pastel, body at 500, headings and the balance at 800. The wordmark gets a coral highlighter swash. The `@font-face` is fetched only when an element uses the family, and only Pastel rules name it, so Light and Dark never download it; `sw.js` precaches it and `build-web.mjs` bundles it so Pastel works offline. Chinese falls through to the system font.
+
+**The Pastel Rule.** Pastel may change a value, a radius, a shadow or the font. It may not change what a colour means.
 
 ## Do's and Don'ts
 

@@ -8793,7 +8793,7 @@ check('a real Malaysian lender name fits without an ellipsis',
     return (a + 0.05) / (b + 0.05);
   };
   const results = [];
-  for (const [scheme, forced] of [['light', null], ['dark', null], ['light', 'dark'], ['dark', 'light']]) {
+  for (const [scheme, forced] of [['light', null], ['dark', null], ['light', 'dark'], ['dark', 'light'], ['light', 'pastel'], ['dark', 'pastel']]) {
     const pg = await b.newPage({ viewport: { width: 420, height: 900 }, colorScheme: scheme });
     await pg.goto(`${BASE}/app/index.html`, { waitUntil: 'networkidle' });
     await pg.waitForTimeout(400);
@@ -8814,9 +8814,112 @@ check('a real Malaysian lender name fits without an ellipsis',
   const measured = results.filter(r => !r.skipped);
   // 4.5:1 is the WCAG AA floor for body-sized text.
   const bad = measured.filter(r => r.ratio < 4.5);
-  check('the primary button stays legible in all four theme paths',
-    measured.length === 4 && bad.length === 0,
+  check('the primary button stays legible in every theme path (system light / dark, forced light / dark, Pastel on a light or dark phone)',
+    measured.length === 6 && bad.length === 0,
     JSON.stringify(bad.length ? bad : measured.map(r => `${r.scheme}/${r.forced || '-'}:${r.ratio}`)));
+}
+
+// -- Pastel theme: picked in Settings, kept outside the vault, its own font --
+// The rounded font is the one cost a theme adds, so it must be paid only by
+// people who chose Pastel; and Pastel is a light theme, so a phone in dark
+// mode must not leak the dark tokens into it.
+{
+  const luminance = (rgb) => {
+    const [r, g, bl] = rgb.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number)
+      .map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const ratio = (fg, bg) => { const [a, c] = [luminance(fg), luminance(bg)].sort((x, y) => y - x); return (a + 0.05) / (c + 0.05); };
+  const fontHits = (pg) => pg.evaluate(() => performance.getEntriesByType('resource').filter(e => /nunito/i.test(e.name)).length);
+
+  // Light: the font is never requested.
+  const lp = await b.newPage({ viewport: { width: 390, height: 844 } });
+  await lp.addInitScript(() => localStorage.setItem('duit-tracker.theme', 'light'));
+  await lp.goto(`${BASE}/app/index.html`, { waitUntil: 'networkidle' });
+  await lp.click('#btn-start-open');
+  await lp.waitForTimeout(900);
+  await lp.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d => d.close()));
+  await lp.waitForTimeout(300);
+  const lightFont = { hits: await fontHits(lp), family: await lp.evaluate(() => getComputedStyle(document.body).fontFamily) };
+  check('Pastel font: Light never downloads it', lightFont.hits === 0 && !/Nunito/.test(lightFont.family), JSON.stringify(lightFont));
+
+  // Pick Pastel the way a person does, in Settings → Appearance.
+  await lp.evaluate(() => document.getElementById('tabbtn-data').click());
+  await lp.waitForTimeout(300);
+  await lp.click('[data-theme-choice="pastel"]');
+  await lp.waitForTimeout(600);
+  const picked = await lp.evaluate(() => ({
+    theme: document.documentElement.dataset.theme,
+    stored: localStorage.getItem(THEME_KEY),
+    checked: document.querySelector('[data-theme-choice="pastel"]').getAttribute('aria-checked'),
+    label: document.querySelector('[data-theme-choice="pastel"]').textContent.trim(),
+  }));
+  check('Pastel: picking it sets data-theme="pastel", stores it outside the vault and checks its pill',
+    picked.theme === 'pastel' && picked.stored === 'pastel' && picked.checked === 'true' && picked.label === 'Pastel', JSON.stringify(picked));
+  await lp.close();
+
+  // A fresh load with Pastel stored, on a phone set to dark mode.
+  const pp = await b.newPage({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
+  await pp.addInitScript(() => localStorage.setItem('duit-tracker.theme', 'pastel'));
+  await pp.goto(`${BASE}/app/index.html`, { waitUntil: 'networkidle' });
+  const boot = await pp.evaluate(() => document.documentElement.dataset.theme);
+  await pp.click('#btn-start-open');
+  await pp.waitForTimeout(900);
+  await pp.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d => d.close()));
+  await pp.evaluate(async () => { await document.fonts.ready; });
+  await pp.waitForTimeout(300);
+  const after = await pp.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const tok = (n) => { const d = document.createElement('i'); d.style.color = cs.getPropertyValue(n).trim(); document.body.appendChild(d); const c = getComputedStyle(d).color; d.remove(); return c; };
+    return {
+      theme: document.documentElement.dataset.theme,
+      scheme: cs.colorScheme,
+      family: getComputedStyle(document.body).fontFamily,
+      loaded: [...document.fonts].some(f => f.family.replace(/"/g, '') === 'Duitful Nunito' && f.status === 'loaded'),
+      pressed: document.querySelector('[data-theme-choice="pastel"]').getAttribute('aria-checked'),
+      meta: [...document.querySelectorAll('meta[name="theme-color"]')].map(m => m.content),
+      colors: Object.fromEntries(['--card', '--card-soft', '--bg', '--text', '--ink2', '--muted', '--primary', '--brand-ink', '--gain', '--loss', '--warn', '--warn-red-ink', '--warn-yellow-ink', '--pastel-action'].map(n => [n, tok(n)])),
+    };
+  });
+  check('Pastel: survives a reload, painted before the first frame by theme-boot.js',
+    boot === 'pastel' && after.theme === 'pastel' && after.pressed === 'true', JSON.stringify({ boot, theme: after.theme, pressed: after.pressed }));
+  check('Pastel: a light theme even on a dark-mode phone (color-scheme light, cream page, status bar tint)',
+    after.scheme === 'light' && luminance(after.colors['--bg']) > 0.7 && after.meta.every(m => m === '#fbe6d3'), JSON.stringify({ scheme: after.scheme, bg: after.colors['--bg'], meta: after.meta }));
+  check('Pastel font: Pastel loads the self-hosted Nunito and uses it',
+    after.loaded && /Duitful Nunito/.test(after.family) && (await fontHits(pp)) >= 1, JSON.stringify({ loaded: after.loaded, family: after.family }));
+  // Every text token that carries meaning must stay AA on the Pastel card,
+  // the cream well and the page; good / bad / warn must stay distinct hues.
+  const c = after.colors;
+  const lows = [];
+  for (const fg of ['--text', '--ink2', '--muted', '--primary', '--brand-ink', '--gain', '--loss', '--warn', '--warn-red-ink', '--warn-yellow-ink'])
+    for (const bg of ['--card', '--card-soft', '--bg']) { const r = ratio(c[fg], c[bg]); if (r < 4.5) lows.push(`${fg} on ${bg}: ${r.toFixed(2)}`); }
+  const coral = ratio(c['--text'], c['--pastel-action']);
+  const hue = (rgb) => { const [r, g, bl] = rgb.match(/\d+/g).slice(0, 3).map(Number); return { r, g, b: bl }; };
+  const gain = hue(c['--gain']), loss = hue(c['--loss']);
+  check('Pastel: every text colour is AA (4.5:1) on its card, inputs and page, and the coral pill label too',
+    lows.length === 0 && coral >= 4.5, JSON.stringify({ lows, coral: +coral.toFixed(2) }));
+  check('Pastel: gain is green and loss is red, never two shades of one colour',
+    gain.g > gain.r && loss.r > loss.g * 2, JSON.stringify({ gain: c['--gain'], loss: c['--loss'] }));
+  await pp.close();
+
+  // Shipping: precached for offline, bundled into the native app, licence beside it.
+  const swSrc = readFileSync(path.join(REPO_ROOT, 'app/sw.js'), 'utf8');
+  const buildWeb = readFileSync(path.join(REPO_ROOT, 'scripts/build-web.mjs'), 'utf8');
+  const css = readFileSync(path.join(REPO_ROOT, 'app/styles.css'), 'utf8');
+  const face = /@font-face\s*\{[^}]*Duitful Nunito[^}]*url\("([^"]+)"/.exec(css);
+  const fontFile = path.join(REPO_ROOT, 'app/vendor/fonts/nunito-latin.woff2');
+  check('Pastel font: self-hosted woff2 under 60 KB with the OFL beside it, precached by sw.js and copied by build-web',
+    !!face && swSrc.includes(`"/app/${face[1]}"`) && buildWeb.includes('"vendor/fonts/nunito-latin.woff2"') && buildWeb.includes('"vendor/fonts/OFL.txt"')
+    && existsSync(fontFile) && statSync(fontFile).size < 60000 && /SIL OPEN FONT LICENSE/i.test(readFileSync(path.join(REPO_ROOT, 'app/vendor/fonts/OFL.txt'), 'utf8')),
+    face && face[1]);
+  // Only the Pastel block names the family, so no other theme pays for it.
+  const outside = css.replace(/@font-face\s*\{[^}]*\}/g, '').replace(/html\[data-theme="pastel"\][^{]*\{[^}]*\}/g, '');
+  check('Pastel font: only Pastel rules name it', !/Duitful Nunito/.test(outside));
+  const themeBoot = readFileSync(path.join(REPO_ROOT, 'app/theme-boot.js'), 'utf8');
+  const html = readFileSync(path.join(REPO_ROOT, 'app/index.html'), 'utf8');
+  check('Pastel: every dark media block in styles.css and the boot paint skips it',
+    /"pastel"/.test(themeBoot)
+    && !/html:not\(\[data-theme="light"\]\)(?!:not\(\[data-theme="pastel"\]\))/.test(css + html));
 }
 
 // -- logos only ship where the catalogue says so, and only where a file exists --
@@ -12698,9 +12801,11 @@ check('the brand catalogue makes no network calls at all',
     return [...new Set(out)];
   };
   const layoutMiss = [];
-  for (const lang of ['en', 'ms', 'zh']) {
+  // Pastel swaps in a rounded font (Nunito) with different widths, so every
+  // language runs again in Pastel.
+  for (const [lang, theme] of [['en', ''], ['ms', ''], ['zh', ''], ['en', 'pastel'], ['ms', 'pastel'], ['zh', 'pastel']]) {
     const p = await b.newPage({ viewport: { width: 360, height: 780 } });
-    await p.addInitScript((l) => localStorage.setItem('duitful.lang', l), lang);
+    await p.addInitScript(([l, t]) => { localStorage.setItem('duitful.lang', l); if (t) localStorage.setItem('duit-tracker.theme', t); }, [lang, theme]);
     await p.goto(`${BASE}/app/index.html`);
     await p.waitForTimeout(500);
     await p.click('#btn-start-open');
@@ -12725,7 +12830,7 @@ check('the brand catalogue makes no network calls at all',
         if (lang === 'zh' && !(labels.length && labels.every((l) => /月$/.test(l)))) layoutMiss.push(`zh monthly trend labels ${JSON.stringify(labels.slice(0, 4))}`);
         if (lang === 'en' && !labels.includes('Jan')) layoutMiss.push(`en monthly trend labels ${JSON.stringify(labels.slice(0, 4))}`);
       }
-      (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${tab}: ${x}`));
+      (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang}${theme ? '/' + theme : ''} ${tab}: ${x}`));
     }
     for (const [label, open] of [['details', () => taxOpenNumbers()], ['claim', () => taxOpenClaim({ relief: 'medical' })],
       ['review', () => taxOpenReview(taxReviewItems(new Date().getFullYear()), 'year', new Date().getFullYear())],
@@ -12733,10 +12838,10 @@ check('the brand catalogue makes no network calls at all',
       ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['recurring split', () => rsOpenEdit(state.split.recurring[0].id)], ['wallet', () => openWalletEdit(state.wallets[0].id)], ['wallet detail', () => openWalletDetail(state.wallets[0].id)], ['move money', () => openWalletMove(state.wallets[0].id)], ['adjust wallet', () => openWalletAdjust(state.wallets[0].id)], ['statement into a wallet', () => openStatementImport({ walletId: state.wallets[0].id })], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
-      (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${label} dialog: ${x}`));
+      (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang}${theme ? '/' + theme : ''} ${label} dialog: ${x}`));
       await p.evaluate(() => { if (typeof taxCloseAll === 'function') taxCloseAll(); document.querySelectorAll('dialog[open]').forEach((d) => d.close()); });
     }
-    if (lang !== 'en') {
+    if (lang !== 'en' && !theme) {
       // Split blocks are translated whole; what the user typed must survive,
       // even a title that is also a table key ("Rent").
       const kept = await p.evaluate(() => {
@@ -12770,7 +12875,7 @@ check('the brand catalogue makes no network calls at all',
     }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 

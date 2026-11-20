@@ -343,6 +343,7 @@ export const ROWS = [
   ["System", "Sistem", "跟随系统"],
   ["Light", "Cerah", "浅色"],
   ["Dark", "Gelap", "深色"],
+  ["Pastel", "Pastel", "粉彩"],
   ["About, help & legal", "Perihal, bantuan & undang-undang", "关于、帮助与法律"],
   ["About", "Perihal", "关于"],
   ["Version {v}", "Versi {v}", "版本 {v}"],

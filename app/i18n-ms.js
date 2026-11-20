@@ -318,6 +318,7 @@
   "System": "Sistem",
   "Light": "Cerah",
   "Dark": "Gelap",
+  "Pastel": "Pastel",
   "About, help & legal": "Perihal, bantuan & undang-undang",
   "About": "Perihal",
   "Version {v}": "Versi {v}",

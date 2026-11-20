@@ -318,6 +318,7 @@
   "System": "跟随系统",
   "Light": "浅色",
   "Dark": "深色",
+  "Pastel": "粉彩",
   "About, help & legal": "关于、帮助与法律",
   "About": "关于",
   "Version {v}": "版本 {v}",

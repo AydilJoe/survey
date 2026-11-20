@@ -48,15 +48,15 @@
       #splash .splash-dots { display: inline-flex; gap: 0.35rem; margin-top: 0.15rem; }
       #splash .splash-dots span { width: 6px; height: 6px; border-radius: 50%; background: #8a8178; }
       @media (prefers-color-scheme: dark) {
-        html:not([data-theme="light"]), html:not([data-theme="light"]) body { background: #14110e; }
-        html:not([data-theme="light"]) #splash { background: #14110e; }
-        html:not([data-theme="light"]) #splash .splash-mark {
+        html:not([data-theme="light"]):not([data-theme="pastel"]), html:not([data-theme="light"]):not([data-theme="pastel"]) body { background: #14110e; }
+        html:not([data-theme="light"]):not([data-theme="pastel"]) #splash { background: #14110e; }
+        html:not([data-theme="light"]):not([data-theme="pastel"]) #splash .splash-mark {
           background: #241e18; border-color: rgba(255, 255, 255, 0.08);
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 8px 24px rgba(0, 0, 0, 0.3);
           color: #dd8a63;
         }
-        html:not([data-theme="light"]) #splash .splash-title { color: #f3ede1; }
-        html:not([data-theme="light"]) #splash .splash-dots span { background: #a8a097; }
+        html:not([data-theme="light"]):not([data-theme="pastel"]) #splash .splash-title { color: #f3ede1; }
+        html:not([data-theme="light"]):not([data-theme="pastel"]) #splash .splash-dots span { background: #a8a097; }
       }
       html[data-theme="dark"], html[data-theme="dark"] body { background: #14110e; }
       html[data-theme="dark"] #splash { background: #14110e; }
@@ -67,6 +67,9 @@
       }
       html[data-theme="dark"] #splash .splash-title { color: #f3ede1; }
       html[data-theme="dark"] #splash .splash-dots span { background: #a8a097; }
+      html[data-theme="pastel"], html[data-theme="pastel"] body, html[data-theme="pastel"] #splash { background: #f8e3cf; }
+      html[data-theme="pastel"] #splash .splash-mark { background: #fde3d1; color: #ec8a5e; }
+      html[data-theme="pastel"] #splash .splash-title { color: #3d2b1f; }
     </style>
     <!-- Applies the saved theme before the first paint. Deliberately BLOCKING
          and deliberately above every stylesheet link: it has to finish before
@@ -74,7 +77,7 @@
          waits on that sheet. External because the CSP has no 'unsafe-inline'
          — the inline version this replaced was refused on every load, so
          dark-mode users had been getting a cream flash all along. -->
-    <script src="theme-boot.js?v=1"></script>
+    <script src="theme-boot.js?v=2"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -84,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=171" />
+    <link rel="stylesheet" href="styles.css?v=172" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1827,6 +1830,7 @@
             <button type="button" class="pill" data-theme-choice="system" role="radio" aria-checked="false">System</button>
             <button type="button" class="pill" data-theme-choice="light" role="radio" aria-checked="false">Light</button>
             <button type="button" class="pill" data-theme-choice="dark" role="radio" aria-checked="false">Dark</button>
+            <button type="button" class="pill" data-theme-choice="pastel" role="radio" aria-checked="false">Pastel</button>
           </div>
         </div>
 
@@ -3146,8 +3150,8 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=24"></script>
-    <script src="i18n-zh.js?v=24"></script>
+    <script src="i18n-ms.js?v=25"></script>
+    <script src="i18n-zh.js?v=25"></script>
     <script src="i18n.js?v=4"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
@@ -3169,6 +3173,6 @@
     <script src="wallets.js?v=1"></script>
     <script src="recap.js?v=1"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=242"></script>
+    <script src="script.js?v=243"></script>
   </body>
 </html>
