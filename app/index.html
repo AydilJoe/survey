@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=174" />
+    <link rel="stylesheet" href="styles.css?v=175" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -192,8 +192,8 @@
         <div>
           <!-- The phone's own AI is on: shown only in the phone app, when
                DuitfulKit.aiStatus() says the model is there and the user
-               hasn't switched it off (renderAiBadge). Opens Settings →
-               On-device AI. Nothing is uploaded; it means this phone. -->
+               hasn't switched it off (renderAiBadge). Opens the "What
+               on-device AI does" sheet (#ai-info-dialog). Nothing is uploaded; it means this phone. -->
           <div class="brand-name">
             <h1>Duitful</h1>
             <button type="button" class="ai-badge" id="ai-badge" aria-label="On-device AI is on" title="On-device AI is on" hidden>
@@ -1604,11 +1604,16 @@
              the header's AI badge has somewhere obvious to land. -->
         <div class="card ai-card" id="ai-card" hidden>
           <h2>On-device AI</h2>
+          <p class="hint ai-summary" id="ai-summary">Helps with receipts, bank alerts, statements and your monthly recap.</p>
           <label class="field toggle-field">
             <input type="checkbox" id="pref-ai" checked />
-            <span>Use this phone's AI for receipts and bank alerts</span>
+            <span id="pref-ai-label">Use this phone's AI for receipts and bank alerts</span>
           </label>
           <p class="hint ai-status" id="ai-status" aria-live="polite">Checking…</p>
+          <button type="button" class="ai-info-open" id="ai-info-open" aria-haspopup="dialog">
+            <span>What it does</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
         </div>
 
         <div class="card" id="drive-card" hidden>
@@ -2945,6 +2950,52 @@
       </form>
     </dialog>
 
+    <!-- On-device AI, item by item: what it does on this platform (rows carry
+         data-ai-on) and what it never does. Phone apps only; the header badge
+         and Settings → On-device AI open it (openAiInfo in script.js). -->
+    <dialog id="ai-info-dialog" class="edit-dialog ai-info-dialog" aria-labelledby="ai-info-title">
+      <form method="dialog" onsubmit="return false">
+        <div class="ai-intro-head">
+          <span class="ai-intro-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5L19 9.5l-5.5 1.5L12 16l-1.5-5.5L5 9.5 10.5 8z"/></svg></span>
+          <h2 id="ai-info-title">What on-device AI does</h2>
+        </div>
+        <h3 class="ai-info-group">When the rules aren't sure</h3>
+        <ul class="ai-info-list" id="ai-info-list">
+          <li data-ai-on="android ios">
+            <span class="ai-info-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span>
+            <div><strong>Receipts</strong><span>A second look when a receipt is hard to read. It keeps a total only if the receipt prints it.</span></div>
+          </li>
+          <li data-ai-on="android" id="ai-info-alerts">
+            <span class="ai-info-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></span>
+            <div><strong>Bank alerts</strong><span>Places alerts the rules can't read: money in or out, who and category. Never the amount.</span></div>
+          </li>
+          <li data-ai-on="android" id="ai-info-statements">
+            <span class="ai-info-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span>
+            <div><strong>Bank statements</strong><span>Suggests a category and a cleaner payee name, from the line's own words.</span></div>
+          </li>
+          <li data-ai-on="android ios">
+            <span class="ai-info-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 16v-5M11 16V7M16 16v-3"/></svg></span>
+            <div><strong>Monthly recap</strong><span>Rewords the recap in English. Every number must match your own.</span></div>
+          </li>
+        </ul>
+        <h3 class="ai-info-group">What it never does</h3>
+        <ul class="ai-info-never">
+          <li>Nothing is uploaded. It runs on this phone.</li>
+          <li>It never makes up an amount.</li>
+          <li>No chat, no advice.</li>
+          <li>Nothing is saved until you OK it.</li>
+        </ul>
+        <div class="ai-info-foot">
+          <p class="ai-info-model" id="ai-info-model">Model: Gemini Nano</p>
+          <p class="hint ai-status" id="ai-info-status" aria-live="polite">Checking…</p>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="ai-info-settings">AI settings</button>
+          <button type="button" class="primary" id="ai-info-close">Done</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- Share a bank alert's wording, redacted on this phone first. -->
     <dialog id="capture-share-dialog" class="edit-dialog" aria-labelledby="capture-share-title">
       <form method="dialog" onsubmit="return false">
@@ -3170,8 +3221,8 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=27"></script>
-    <script src="i18n-zh.js?v=27"></script>
+    <script src="i18n-ms.js?v=28"></script>
+    <script src="i18n-zh.js?v=28"></script>
     <script src="i18n.js?v=4"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
@@ -3193,6 +3244,6 @@
     <script src="wallets.js?v=2"></script>
     <script src="recap.js?v=1"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=245"></script>
+    <script src="script.js?v=246"></script>
   </body>
 </html>
