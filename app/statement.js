@@ -661,18 +661,20 @@ async function statementAiSuggest(items, opts) {
 /* Books the ticked items. Spends go where daily spending goes; income goes to
    state.income like captured income (one-off, not copied into next month);
    moves book nothing. Every row is marked as from a statement. */
-function importStatementItems(items, bankName) {
+function importStatementItems(items, bankName, walletId) {
   let spends = 0, incomes = 0;
+  // One wallet for the whole statement (picked once, or none).
+  const w = walletId && typeof walletById === "function" && walletById(walletId) ? { walletId } : {};
   for (const it of items) {
     if (!it.on || it.kind === "move" || !it.date || !(it.amount > 0)) continue;
     if (it.kind === "spend") {
       state.dailyExpenses.push({ id: uid(), createdAt: Date.now(), kind: "expense", date: it.date, amount: it.amount,
-        category: it.category || "Others", note: it.payee || "", source: "statement" });
+        category: it.category || "Others", note: it.payee || "", source: "statement", ...w });
       spends++;
     } else if (it.kind === "income") {
       state.income.push({ id: uid(), name: it.label ? `${it.label} · ${it.payee}` : (it.payee || "Money in"), amount: it.amount,
         month: it.date.slice(0, 7), day: Number(it.date.slice(8, 10)), repeatNext: false, category: it.label || "Money in",
-        note: bankName ? `${bankName} statement` : "Statement", source: "statement" });
+        note: bankName ? `${bankName} statement` : "Statement", source: "statement", ...w });
       incomes++;
     }
   }
@@ -693,7 +695,9 @@ function coerceStatementLast(v) {
     .slice(-STMT_LAST_MAX)
     .map((x) => ({ key: String(x.key || "generic").slice(0, 40), bank: String(x.bank || "").slice(0, 40),
       kind: x.kind === "card" ? "card" : x.kind === "account" ? "account" : "", end: String(x.end),
-      skipped: /^\d{4}-\d{2}-\d{2}$/.test(String(x.skipped || "")) ? String(x.skipped) : "" }));
+      skipped: /^\d{4}-\d{2}-\d{2}$/.test(String(x.skipped || "")) ? String(x.skipped) : "",
+      // The wallet this bank layout's statements go into (wallets.js).
+      wallet: typeof x.wallet === "string" ? x.wallet.slice(0, 40) : "" }));
 }
 function stmtKeyOf(parsed) { return parsed.layout && parsed.layout !== "generic" ? parsed.layout : `generic${parsed.bank ? ":" + parsed.bank : ""}`; }
 function stmtNameOf(rec) {
@@ -704,7 +708,7 @@ function stmtAddDays(iso, n) {
   d.setDate(d.getDate() + n);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-function rememberStatement(parsed) {
+function rememberStatement(parsed, walletId) {
   if (!parsed || !parsed.rows || typeof state === "undefined" || !state) return;
   const end = parsed.rows.map((r) => r.date).filter(Boolean).sort().pop();
   if (!end) return;
@@ -713,7 +717,7 @@ function rememberStatement(parsed) {
   const prev = (state.statementLast || []).find((x) => x.key === key);
   // An older statement imported late never winds the clock back.
   const latest = prev && prev.end > end ? prev.end : end;
-  list.push({ key, bank: parsed.bank || "", kind: parsed.kind || "", end: latest, skipped: "" });
+  list.push({ key, bank: parsed.bank || "", kind: parsed.kind || "", end: latest, skipped: "", wallet: walletId || "" });
   state.statementLast = list.slice(-STMT_LAST_MAX);
 }
 // The statement that is due soonest and not skipped, or null.
@@ -750,7 +754,9 @@ function statementNativeReminders() {
 
 /* ---------- the screen ---------- */
 
-const stmtUi = { items: [], parsed: null, recon: null, file: null };
+// wallet: the wallet the rows go into; fixed: chosen by opening the import
+// from that wallet, so the question isn't asked.
+const stmtUi = { items: [], parsed: null, recon: null, file: null, wallet: "", fixed: false };
 const stmtEl = (id) => document.getElementById(id);
 
 function stmtFmtDate(iso) {
@@ -759,10 +765,14 @@ function stmtFmtDate(iso) {
 }
 function stmtSay(msg) { const el = stmtEl("stmt-status"); if (el) { el.textContent = msg || ""; el.hidden = !msg; } }
 
-function openStatementImport() {
+function openStatementImport(opts) {
   const dlg = stmtEl("stmt-dialog");
   if (!dlg) return;
   stmtUi.items = []; stmtUi.parsed = null; stmtUi.recon = null; stmtUi.file = null;
+  // A click handler passes its event; only { walletId } means "from a wallet".
+  const wid = opts && typeof opts.walletId === "string" ? opts.walletId : "";
+  stmtUi.fixed = !!(wid && typeof walletById === "function" && walletById(wid));
+  stmtUi.wallet = stmtUi.fixed ? wid : "";
   stmtEl("stmt-pick").hidden = false;
   const scan = stmtEl("stmt-scan");
   if (scan) scan.hidden = !(typeof duitfulKit === "function" && duitfulKit("scanDocument"));
@@ -824,6 +834,12 @@ function showStatementReview(read) {
   const recon = reconcileStatement(parsed);
   stmtUi.parsed = parsed; stmtUi.recon = recon;
   stmtUi.items = statementItems(parsed, recon);
+  // Not opened from a wallet: the one this bank layout went into last time.
+  if (!stmtUi.fixed) {
+    const rec = (state.statementLast || []).find((x) => x.key === stmtKeyOf(parsed));
+    const w = rec && rec.wallet && typeof walletById === "function" ? walletById(rec.wallet) : null;
+    stmtUi.wallet = w && !w.archived ? w.id : "";
+  }
   stmtEl("stmt-pick").hidden = true;
   stmtEl("stmt-password").hidden = true;
   if (!parsed.rows.length) { stmtSay(tr("No transactions found in this statement.")); return parsed; }
@@ -852,6 +868,7 @@ function renderStatementReview() {
   const sum = stmtEl("stmt-summary");
   sum.textContent = stmtSummaryText(stmtUi.parsed, stmtUi.recon);
   sum.dataset.status = stmtUi.recon.status;
+  stmtRenderWallet();
   const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
   list.innerHTML = stmtUi.items.map((it, i) => {
     const sign = it.kind === "income" ? "+" : it.kind === "spend" ? "−" : "";
@@ -891,6 +908,24 @@ function renderStatementReview() {
   if (typeof renderFreeCounts === "function") renderFreeCounts();
 }
 
+// One wallet question per import: a picker, or a line naming the wallet the
+// import was opened from. No wallets: neither.
+function stmtRenderWallet() {
+  const field = stmtEl("stmt-wallet-field");
+  const fixed = stmtEl("stmt-wallet-fixed");
+  if (!field || !fixed) return;
+  const has = typeof activeWallets === "function" && activeWallets().length > 0;
+  const w = stmtUi.wallet && typeof walletById === "function" ? walletById(stmtUi.wallet) : null;
+  fixed.hidden = !(stmtUi.fixed && w);
+  if (!fixed.hidden) fixed.textContent = tr("Into {name}", { name: w.name });
+  field.hidden = !has || !fixed.hidden;
+  if (!field.hidden) {
+    const sel = stmtEl("stmt-wallet");
+    sel.innerHTML = walletOptions(stmtUi.wallet);
+    sel.value = w ? w.id : "";
+  }
+}
+
 /* A scan imports only when its figures add up: OCR can misread a digit and
    nothing else would catch it. */
 function stmtScanBlocked() {
@@ -905,10 +940,10 @@ function statementImportNow() {
   if (!stmtUi.parsed) return false;
   if (stmtScanBlocked()) return false;
   if (typeof canImportStatement === "function" && !canImportStatement()) { openPaywall("statements"); return false; }
-  const res = importStatementItems(stmtUi.items, stmtUi.parsed.bank);
+  const res = importStatementItems(stmtUi.items, stmtUi.parsed.bank, stmtUi.wallet);
   if (!res.spends && !res.incomes) return false;          // nothing booked: not counted
   if (typeof trackStatementImport === "function") trackStatementImport();
-  rememberStatement(stmtUi.parsed);
+  rememberStatement(stmtUi.parsed, stmtUi.wallet);
   if (typeof requestReschedule === "function") requestReschedule();
   save();
   renderAll();
@@ -961,6 +996,7 @@ stmtEl("stmt-pw-open")?.addEventListener("click", () => {
 stmtEl("stmt-pw")?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); stmtEl("stmt-pw-open")?.click(); } });
 stmtEl("stmt-cancel")?.addEventListener("click", () => { stmtUi.file = null; stmtEl("stmt-dialog")?.close(); });
 stmtEl("stmt-import")?.addEventListener("click", statementImportNow);
+stmtEl("stmt-wallet")?.addEventListener("change", (e) => { stmtUi.wallet = e.target.value; });
 stmtEl("stmt-all")?.addEventListener("click", () => {
   const all = stmtUi.items.every((x) => x.on || x.kind === "move");
   for (const it of stmtUi.items) if (it.kind !== "move" && it.date) it.on = !all;

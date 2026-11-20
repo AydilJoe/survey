@@ -1,4 +1,7 @@
 {
+  "1.60.0": [
+    "<strong>Dompet</strong> — baki untuk tunai, Touch 'n Go eWallet, MAE dan setiap akaun bank. Perbelanjaan, pendapatan, bayaran hutang dan simpanan boleh dikaitkan dengan dompet (ia ingat dompet terakhir anda), “Laras ikut baki sebenar” membetulkan perbezaan dengan satu catatan yang jelas, dan “Pindah duit” memindahkan wang antara dompet tanpa dikira sebagai perbelanjaan. Di Android, notifikasi bank masuk ke dompet yang dipautkan dengan aplikasinya, dan penyata boleh diimport terus ke dalam dompet. Percuma simpan 3 dompet; Pro simpan semuanya."
+  ],
   "1.59.0": [
     "<strong>Bahagi bil bulanan</strong> — tetapkan sewa, TNB, internet atau langganan bersama sekali sahaja: siapa bayar berapa (sama rata, jumlah tetap atau ikut nisbah), hari akhir bayar dan bulan tamat. Setiap bulan Utama mengingatkan anda untuk menghantar permintaan, jadual menunjukkan siapa dah bayar, dan notifikasi bank menandakannya. Hanya bahagian anda dikira sebagai perbelanjaan. Satu percuma; Pro untuk lebih banyak."
   ],

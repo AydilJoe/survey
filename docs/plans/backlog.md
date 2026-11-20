@@ -91,11 +91,13 @@ Privacy: the vault is encrypted, so any figure shown needs a small
 plain summary the app writes on purpose (and clears when locked), never the
 vault itself.
 
-## Wallets / accounts (user request, 19 Nov 2026)
+## Wallets / accounts (user request, 19 Nov 2026) — shipped in 1.60.0
+
+Version 1 built: see `wallets.md` (plan, data model, open questions).
 
 A Pro-trial user asked for separate balances per place money sits: TNG
-eWallet, MAE, bank accounts, cash. Not built; no wallet model exists today
-(budget pools are spending envelopes, not where money sits).
+eWallet, MAE, bank accounts, cash. (Budget pools are spending envelopes,
+not where money sits.)
 
 Idea:
 - Wallets with an opening balance (Cash, TNG, MAE, Maybank…); every entry

@@ -84,7 +84,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=170" />
+    <link rel="stylesheet" href="styles.css?v=171" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -494,6 +494,10 @@
                 </select>
               </label>
             </div>
+            <label class="field" data-wallet-field hidden>
+              <span>Wallet</span>
+              <select name="wallet" data-wallet-picker id="daily-wallet"></select>
+            </label>
             <label class="field" id="daily-pool-field" hidden>
               <span>Budget pool</span>
               <select name="budgetPool" data-budget-pool>
@@ -530,6 +534,7 @@
           <div class="today-links">
             <button type="button" class="ghost" data-go-tab="daily">All entries</button>
             <button type="button" class="ghost" data-go-tab="reports">Reports</button>
+            <button type="button" class="ghost" data-go-tab="savings" id="today-wallets-link" hidden>Wallets</button>
             <button type="button" class="ghost" data-go-tab="tax" id="today-tax-link">Tax</button>
           </div>
         </section>
@@ -597,6 +602,10 @@
               <label class="field">
                 <span>Currency</span>
                 <select class="currency-picker" name="currency" data-currency-picker></select>
+              </label>
+              <label class="field" data-wallet-field hidden>
+                <span>Wallet</span>
+                <select name="wallet" data-wallet-picker id="income-wallet"></select>
               </label>
             </details>
             <button type="submit" class="primary">Add income</button>
@@ -704,6 +713,10 @@
                 <span>Currency</span>
                 <select class="currency-picker" name="currency" data-currency-picker></select>
               </label>
+              <label class="field" data-wallet-field hidden>
+                <span>Wallet</span>
+                <select name="wallet" data-wallet-picker id="expense-wallet"></select>
+              </label>
             </details>
             <button type="submit" class="primary">Add expense</button>
           </form>
@@ -735,6 +748,10 @@
               <span class="cat-pill cat-pill-card">◈ Card</span> = charged to card
             </p>
           </details>
+          <label class="field wallet-filter" data-wallet-filter-wrap hidden>
+            <span>Wallet</span>
+            <select id="daily-wallet-filter" aria-label="Show entries from"></select>
+          </label>
           <div class="list-search-row">
             <input
               type="search"
@@ -968,6 +985,22 @@
 
       <!-- SAVINGS -->
       <section id="tab-savings" class="tab-panel" role="tabpanel" aria-labelledby="tabbtn-savings">
+        <!-- Wallets: where money sits. wallets.js; balances only through amt(). -->
+        <div class="card wallets-card" id="wallets-card">
+          <div class="card-head">
+            <h2>Wallets</h2>
+            <button type="button" class="add-toggle" data-action="wallet-add" aria-label="Add a wallet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Add</span></button>
+          </div>
+          <p class="hint free-count" data-free-count="wallets" hidden></p>
+          <ul class="wallets-list" id="wallets-list"></ul>
+          <p class="wallets-total" id="wallets-total" hidden></p>
+          <div class="button-row wallets-tools" id="wallets-tools" hidden>
+            <button type="button" class="ghost" id="btn-wallet-move" data-action="wallet-move">Move money</button>
+            <button type="button" class="ghost" id="btn-wallet-import" data-action="wallet-import">Import statement</button>
+          </div>
+          <button type="button" class="stmt-link wallets-archived" id="wallets-archived-toggle" hidden>Show archived</button>
+        </div>
+
         <div class="card">
           <div class="card-head">
             <h2>Goals</h2>
@@ -1856,6 +1889,7 @@
           <li>Budget pools with rollover</li>
           <li>Entries in other currencies, converted for you</li>
           <li>Unlimited savings goals &amp; investment holdings</li>
+          <li>Unlimited wallets</li>
         </ul>
         <div class="paywall-price">
           <strong id="paywall-price-amount">RM 19.90</strong>
@@ -2575,6 +2609,10 @@
           <span>Category</span>
           <input type="text" name="category" placeholder="Food, Transport..." />
         </label>
+        <label class="field" data-wallet-field hidden>
+          <span>Wallet</span>
+          <select name="wallet" id="daily-edit-wallet" data-wallet-edit></select>
+        </label>
         <label class="field">
           <span>Note (optional)</span>
           <input type="text" name="note" />
@@ -2714,6 +2752,11 @@
         <p class="hint" id="stmt-status" role="status" aria-live="polite"></p>
         <div id="stmt-review" hidden>
           <p class="stmt-summary" id="stmt-summary"></p>
+          <label class="field stmt-wallet" id="stmt-wallet-field" hidden>
+            <span>Into which wallet?</span>
+            <select id="stmt-wallet"></select>
+          </label>
+          <p class="hint stmt-wallet-fixed" id="stmt-wallet-fixed" hidden></p>
           <div class="stmt-bar">
             <button type="button" class="stmt-link" id="stmt-all">Select all</button>
             <span class="hint" id="stmt-count"></span>
@@ -2724,6 +2767,126 @@
         <div class="form-actions">
           <button type="button" class="ghost" id="stmt-cancel">Cancel</button>
           <button type="button" class="primary" id="stmt-import" hidden>Import</button>
+        </div>
+      </form>
+    </dialog>
+
+
+    <!-- Wallets (wallets.js): add / edit, detail, adjust to actual, move money -->
+    <dialog id="wallet-dialog" class="edit-dialog" aria-labelledby="wallet-dialog-title">
+      <form method="dialog" id="wallet-form" novalidate>
+        <h2 id="wallet-dialog-title">Add a wallet</h2>
+        <label class="field">
+          <span>Name</span>
+          <input type="text" name="wallet-name" maxlength="40" autocomplete="off" required />
+          <span class="hint">TNG eWallet, MAE, Maybank savings, Cash…</span>
+        </label>
+        <label class="field">
+          <span>Type</span>
+          <select name="wallet-type">
+            <option value="cash">Cash</option>
+            <option value="bank">Bank</option>
+            <option value="ewallet">E-wallet</option>
+            <option value="card">Card</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>What's in it now (<span class="cur-code">MYR</span>)</span>
+          <input type="number" name="wallet-opening" step="0.01" min="-100000000" max="100000000" inputmode="decimal" />
+          <span class="hint">Entries from today on add to it or take from it.</span>
+        </label>
+        <details class="form-more" id="wallet-more" data-form-more>
+          <summary>More</summary>
+          <label class="field">
+            <span>Balance on</span>
+            <input type="date" name="wallet-date" />
+            <span class="hint">Pick an earlier date to count entries since then.</span>
+          </label>
+          <label class="field">
+            <span>Bank alerts from</span>
+            <select id="wallet-app"></select>
+            <span class="hint">Captured alerts from this app go to this wallet.</span>
+          </label>
+        </details>
+        <p class="hint free-count" data-free-count="wallets" hidden></p>
+        <p class="hint" id="wallet-error" role="alert" hidden></p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="wallet-archive" hidden>Archive</button>
+          <button type="button" class="ghost" id="wallet-cancel">Cancel</button>
+          <button type="button" class="primary" id="wallet-save">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="wallet-detail-dialog" class="edit-dialog wallet-detail" aria-labelledby="wallet-detail-title">
+      <form method="dialog" onsubmit="return false">
+        <div class="wallet-detail-head">
+          <div>
+            <h2 id="wallet-detail-title">Wallet</h2>
+            <p class="hint" id="wallet-detail-sub"></p>
+          </div>
+          <strong class="wallet-detail-bal" id="wallet-detail-bal"></strong>
+        </div>
+        <div class="wallet-detail-actions" id="wallet-detail-actions">
+          <button type="button" class="ghost" data-action="wallet-detail-move">Move money</button>
+          <button type="button" class="ghost" data-action="wallet-detail-adjust">Adjust to actual</button>
+          <button type="button" class="ghost" data-action="wallet-detail-import">Import statement</button>
+        </div>
+        <ul class="wallet-flows" id="wallet-detail-list"></ul>
+        <div class="form-actions">
+          <button type="button" class="ghost" data-action="wallet-detail-edit">Edit</button>
+          <button type="button" class="primary" id="wallet-detail-close">Done</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="wallet-adjust-dialog" class="edit-dialog" aria-labelledby="wallet-adjust-title">
+      <form method="dialog" id="wallet-adjust-form" novalidate>
+        <h2 id="wallet-adjust-title">What's in it now?</h2>
+        <p class="hint" id="wallet-adjust-now"></p>
+        <label class="field">
+          <span>Actual balance (<span class="cur-code">MYR</span>)</span>
+          <input type="number" id="wallet-adjust-amount" step="0.01" min="-100000000" max="100000000" inputmode="decimal" />
+        </label>
+        <p class="hint" id="wallet-adjust-preview" hidden></p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="wallet-adjust-cancel">Cancel</button>
+          <button type="button" class="primary" id="wallet-adjust-save">Adjust</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="wallet-move-dialog" class="edit-dialog" aria-labelledby="wallet-move-title">
+      <form method="dialog" id="wallet-move-form" novalidate>
+        <h2 id="wallet-move-title">Move money</h2>
+        <p class="hint">Not counted as spending or income.</p>
+        <label class="field">
+          <span data-i18n="From (wallet)">From</span>
+          <select id="wallet-move-from"></select>
+        </label>
+        <label class="field">
+          <span data-i18n="To (wallet)">To</span>
+          <select id="wallet-move-to"></select>
+        </label>
+        <label class="field">
+          <span>Amount (<span class="cur-code">MYR</span>)</span>
+          <input type="number" name="wallet-move-amount" step="0.01" min="0" max="100000000" inputmode="decimal" />
+        </label>
+        <details class="form-more" data-form-more>
+          <summary>More</summary>
+          <label class="field">
+            <span>Date</span>
+            <input type="date" name="wallet-move-date" />
+          </label>
+          <label class="field">
+            <span>Note (optional)</span>
+            <input type="text" name="wallet-move-note" maxlength="80" />
+          </label>
+        </details>
+        <p class="hint" id="wallet-move-error" role="alert" hidden></p>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="wallet-move-cancel">Cancel</button>
+          <button type="button" class="primary" id="wallet-move-save">Move</button>
         </div>
       </form>
     </dialog>
@@ -2983,8 +3146,8 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=23"></script>
-    <script src="i18n-zh.js?v=23"></script>
+    <script src="i18n-ms.js?v=24"></script>
+    <script src="i18n-zh.js?v=24"></script>
     <script src="i18n.js?v=4"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
@@ -3002,9 +3165,10 @@
     <script src="region.js?v=1"></script>
     <script src="tax-data.js?v=3"></script>
     <script src="tax.js?v=17"></script>
-    <script src="statement.js?v=5"></script>
+    <script src="statement.js?v=6"></script>
+    <script src="wallets.js?v=1"></script>
     <script src="recap.js?v=1"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=241"></script>
+    <script src="script.js?v=242"></script>
   </body>
 </html>

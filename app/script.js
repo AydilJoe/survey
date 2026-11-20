@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.59.0";
+const APP_VERSION = "1.60.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -66,6 +66,11 @@ const emptyState = () => ({
   // Statement imports this month, for the free limit. Kept across CSV import.
   statementUsage: { month: "", imports: 0 },
   statementLast: [],
+  // Wallets (wallets.js): where money sits, the moves and adjustments
+  // between them, and the add forms' default wallet.
+  wallets: [],
+  walletMoves: [],
+  walletLast: "",
   pendingTxns: [],
   // Names of the user's own accounts ("This is my account" on a transfer):
   // a transfer to one of them is a move between wallets, not a spend.
@@ -341,6 +346,9 @@ function coerceState(parsed) {
         ? { month: String(parsed.statementUsage.month || ""), imports: Number(parsed.statementUsage.imports) || 0 }
         : { month: "", imports: 0 },
       statementLast: typeof coerceStatementLast === "function" ? coerceStatementLast(parsed.statementLast) : [],
+      wallets: typeof coerceWallets === "function" ? safe(() => coerceWallets(parsed.wallets), []) : [],
+      walletMoves: typeof coerceWalletMoves === "function" ? safe(() => coerceWalletMoves(parsed.walletMoves), []) : [],
+      walletLast: typeof parsed.walletLast === "string" ? parsed.walletLast : "",
       pendingTxns: Array.isArray(parsed.pendingTxns) ? parsed.pendingTxns : [],
       ownAccounts: coerceOwnAccounts(parsed.ownAccounts),
       aiEnabled: parsed.aiEnabled !== false,
@@ -2237,7 +2245,8 @@ function setDailyMoreOpen(open) {
   wrap.hidden = !open;
   btn.setAttribute("aria-expanded", open ? "true" : "false");
   const label = document.getElementById("daily-more-toggle-label");
-  if (label) label.textContent = open ? tr("Hide details") : tr("More details");
+  const wallet = !open && typeof walletDailyLabel === "function" ? walletDailyLabel() : "";
+  if (label) label.textContent = open ? tr("Hide details") : wallet ? `${tr("More details")} · ${wallet}` : tr("More details");
 }
 
 function setDailyType(type) {
@@ -2502,8 +2511,9 @@ function renderDaily() {
     .sort((a, b) => (b.date || "").localeCompare(a.date || "") || (b.createdAt || 0) - (a.createdAt || 0));
 
   const dailyQuery = searchQueries.daily;
+  const byWallet = typeof walletFilterMatch === "function" ? sorted.filter(walletFilterMatch) : sorted;
   const filteredSorted = dailyQuery
-    ? sorted.filter((e) => {
+    ? byWallet.filter((e) => {
         const debtNameResolved = e.debtId ? (debtNameById(e.debtId) || e.debtName) : e.debtName;
         const savingNameResolved = e.savingId
           ? (state.savings.find((g) => g.id === e.savingId)?.name || e.savingName)
@@ -2513,8 +2523,12 @@ function renderDaily() {
           e.category, e.note, debtNameResolved, savingNameResolved, cardDebtNameResolved,
         ]);
       })
-    : sorted;
+    : byWallet;
 
+  if (filteredSorted.length === 0 && !dailyQuery) {
+    listEl.innerHTML = `<div class="empty">${tr("No entries from this wallet yet.")}</div>`;
+    return;
+  }
   if (filteredSorted.length === 0 && dailyQuery) {
     listEl.innerHTML = `<div class="empty">${tr("No matches for \"<strong>{q}</strong>\" — {clear}?", { q: escapeHtml(dailyQuery.trim()), clear: `<a class="empty-clear" data-search-clear="daily">${tr("clear search")}</a>` })}</div>`;
     return;
@@ -2557,6 +2571,7 @@ function renderDaily() {
       }
       // Empty notes render as nothing rather than a "—" placeholder — placeholder
       // dashes read as broken UI per the design review.
+      if (typeof walletPill === "function") pill += walletPill(e);
       note = e.note ? `<span class="daily-note">${escapeHtml(e.note)}</span>` : "";
       // Only plain spending can be split — a debt payment or a savings
       // deposit is not a bill anyone else owes a share of.
@@ -3890,6 +3905,7 @@ function trialEndChanges() {
   over(typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "holding", "holdings");
   over(userBudgetPoolCount(), 1, "budget pool", "budget pools");
   over(recurringSplitCount(), FREE_RECURRING_SPLIT_LIMIT, "recurring split", "recurring splits");
+  over(walletCountNow(), FREE_WALLET_LIMIT, "wallet", "wallets");
   if ((Number(trialUsage().scans) || 0) > 0) out.push(tr("receipt scans go back to {n} a month", { n: FREE_OCR_MONTHLY }));
   return out;
 }
@@ -4233,6 +4249,7 @@ function renderAll() {
   syncSearchRows();
   renderDaily();
   renderSavings();
+  if (typeof renderWallets === "function") renderWallets();
   if (typeof renderInvestments === "function") renderInvestments();
   if (typeof renderInvestPlan === "function") renderInvestPlan();
   if (typeof renderSplit === "function") renderSplit();
@@ -5080,7 +5097,7 @@ function acceptSplitMatch(pendingId, personId) {
 function acceptPending(id) {
   const p = (state.pendingTxns || []).find((x) => x.id === id);
   if (!p) return;
-  state.dailyExpenses.push({
+  const entry = {
     id: uid(),
     createdAt: Date.now(),
     kind: "expense",
@@ -5088,7 +5105,10 @@ function acceptPending(id) {
     amount: p.amount,
     category: p.category || p.providerName || "Card",
     note: p.merchant || "",
-  });
+  };
+  // The alert's app picks the wallet linked to it; no link, no wallet.
+  if (typeof walletTagFromPkg === "function") walletTagFromPkg(entry, p.pkg);
+  state.dailyExpenses.push(entry);
   state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
   save();
   renderAll();
@@ -5103,6 +5123,9 @@ function editPending(id) {
   if (amountInput) amountInput.value = p.amount.toFixed(2);
   if (noteInput) noteInput.value = p.merchant || "";
   if (catInput) catInput.value = p.providerName || "Card";
+  const wSel = document.getElementById("daily-wallet");
+  const w = typeof walletForPkg === "function" ? walletForPkg(p.pkg) : null;
+  if (wSel && w) { wSel.innerHTML = walletOptions(w.id); wSel.value = w.id; wSel.dataset.touched = "1"; }
   // Captured merchant/category land in the collapsed details section —
   // open it so the user can review what was pre-filled before adding.
   setDailyMoreOpen(true);
@@ -5572,6 +5595,10 @@ const FREE_STATEMENT_IMPORTS_MONTHLY = 1;
 // number. One-off splits and every split link stay free for everyone.
 const FREE_RECURRING_SPLIT_LIMIT = 1;
 const recurringSplitCount = () => (typeof rsActiveCount === "function" ? rsActiveCount() : 0);
+// Wallets (wallets.js): Free keeps 3 active wallets, Pro any number. Archived
+// ones don't count; nothing already made ever stops working.
+const FREE_WALLET_LIMIT = 3;
+const walletCountNow = () => (typeof walletCount === "function" ? walletCount() : 0);
 const TRIAL_DAYS = 14;
 const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
 
@@ -5716,6 +5743,7 @@ function freeCountText(kind) {
     savings: [state.savings.length, FREE_SAVING_LIMIT, "{u} goals · Free adds up to {l}. Yours stay.", "{u} of {l} free goals used"],
     investments: [typeof investmentsList === "function" ? investmentsList().length : 0, FREE_INVESTMENT_LIMIT, "{u} holdings · Free adds up to {l}. Yours stay.", "{u} of {l} free holdings used"],
     recurring: [recurringSplitCount(), FREE_RECURRING_SPLIT_LIMIT, "{u} recurring splits · Free starts up to {l}. Yours keep running.", "{u} of {l} free recurring split used"],
+    wallets: [walletCountNow(), FREE_WALLET_LIMIT, "{u} wallets · Free adds up to {l}. Yours stay.", "{u} of {l} free wallets used"],
   }[kind];
   if (!c) return "";
   const [used, limit, over, within] = c;
@@ -5782,6 +5810,7 @@ const PAYWALL_COPY = {
   investments: ["You've hit the free limit of {n} investment holdings. Pro tracks unlimited.", FREE_INVESTMENT_LIMIT],
   ocr: ["You've used {n} free receipt scans this month. Pro unlocks unlimited.", FREE_OCR_MONTHLY],
   statements: "Free imports 1 statement a month. Pro imports every statement.",
+  wallets: ["Free keeps {n} wallets. Pro keeps every one. Archived wallets don't count.", FREE_WALLET_LIMIT],
   recurringSplits: ["Free runs {n} recurring split at a time. Pro runs as many as you share. One-off splits stay free.", FREE_RECURRING_SPLIT_LIMIT],
   cloudBackup: "Automatic backup to iCloud or Google Drive is a Pro feature. Back up now and Export CSV in Settings stay free.",
   multiCurrency: "Multi-currency entry is a Pro feature.",
@@ -7992,6 +8021,7 @@ $("#form-income").addEventListener("submit", (e) => {
       fetched_at: state.fx.fetched_at || null,
     };
   }
+  if (typeof walletTagEntry === "function") walletTagEntry(entry, e.target);
   state.income.push(entry);
   save();
   e.target.reset();
@@ -8033,6 +8063,7 @@ $("#form-expense").addEventListener("submit", (e) => {
     };
   }
   tagEntryWithPool(entry, "expense", e.target);
+  if (typeof walletTagEntry === "function") walletTagEntry(entry, e.target);
   state.expenses.push(entry);
   save();
   e.target.reset();
@@ -8132,6 +8163,7 @@ $("#form-daily").addEventListener("submit", (e) => {
     const entry = { id, createdAt, kind: "debt", date, amount, debtId: debt.id, debtName: debt.name, note };
     if (fxBlock) entry.fx = fxBlock;
     tagEntryWithPool(entry, "debt", e.target);
+    if (typeof walletTagEntry === "function") walletTagEntry(entry, e.target);
     state.dailyExpenses.push(entry);
   } else if (type === "saving") {
     if (!target.startsWith("saving:")) {
@@ -8145,6 +8177,7 @@ $("#form-daily").addEventListener("submit", (e) => {
     const entry = { id, createdAt, kind: "saving", date, amount, savingId: goal.id, savingName: goal.name, note };
     if (fxBlock) entry.fx = fxBlock;
     tagEntryWithPool(entry, "saving", e.target);
+    if (typeof walletTagEntry === "function") walletTagEntry(entry, e.target);
     state.dailyExpenses.push(entry);
   } else {
     const category = (f.get("category") || "").toString().trim() || "Others";
@@ -8160,6 +8193,7 @@ $("#form-daily").addEventListener("submit", (e) => {
     }
     if (fxBlock) entry.fx = fxBlock;
     tagEntryWithPool(entry, "expense", e.target);
+    if (typeof walletTagEntry === "function") walletTagEntry(entry, e.target);
     state.dailyExpenses.push(entry);
   }
 
@@ -9455,6 +9489,7 @@ function toCSV() {
     "split_id", "split_kind", "split_title", "split_status", "split_due_date",
     "split_settled_date", "split_role",
     "term_months", "brand", "brand_color",
+    "wallet_id", "wallet", "wallet_to",
   ];
   const rows = [HEADER];
   const W = HEADER.length;
@@ -9463,12 +9498,23 @@ function toCSV() {
     ? [fx.code || "", fx.amount ?? "", fx.rate ?? "", fx.base || "", fx.fetched_at || ""]
     : ["", "", "", "", ""];
   const poolTagCols = (entry) => [entry.budgetPoolId || "", entry.budgetPoolName || ""];
+  // Wallet columns by header name: the id (kept on import, so links survive)
+  // and the name, for a person reading the file.
+  const IW = HEADER.indexOf("wallet_id"), IWN = HEADER.indexOf("wallet"), IWT = HEADER.indexOf("wallet_to");
+  const withWallet = (row, entry) => {
+    if (entry && entry.walletId) {
+      row[IW] = entry.walletId;
+      const w = (state.wallets || []).find((x) => x.id === entry.walletId);
+      row[IWN] = w ? w.name : "";
+    }
+    return row;
+  };
 
   for (const i of state.income) {
-    rows.push(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? "", "", "", "", ...fxCols(i.fx), "", "", "", "", "", "", "", i.repeatNext === false ? "N" : "Y"]));
+    rows.push(withWallet(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? "", "", "", "", ...fxCols(i.fx), "", "", "", "", "", "", "", i.repeatNext === false ? "N" : "Y"]), i));
   }
   for (const ex of state.expenses) {
-    rows.push(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx), "", "", "", "", "", ...poolTagCols(ex), ex.repeatNext === false ? "N" : "Y"]));
+    rows.push(withWallet(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx), "", "", "", "", "", ...poolTagCols(ex), ex.repeatNext === false ? "N" : "Y"]), ex));
   }
   for (const d of state.debts) {
     const isInst = d.kind === "installment";
@@ -9504,11 +9550,11 @@ function toCSV() {
   }
   for (const e of state.dailyExpenses) {
     if (e.kind === "debt") {
-      rows.push(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]));
+      rows.push(withWallet(blank(["daily-debt", "", e.amount, "", "", "", e.date || "", "", e.note || "", e.debtName || "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]), e));
     } else if (e.kind === "saving") {
-      rows.push(blank(["daily-saving", e.savingName || "", e.amount, "", "", "", e.date || "", "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]));
+      rows.push(withWallet(blank(["daily-saving", e.savingName || "", e.amount, "", "", "", e.date || "", "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]), e));
     } else {
-      rows.push(blank(["daily", "", e.amount, "", "", "", e.date || "", e.category || "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]));
+      rows.push(withWallet(blank(["daily", "", e.amount, "", "", "", e.date || "", e.category || "", e.note || "", "", "", "", "", "", "", "", "", ...fxCols(e.fx), "", "", "", "", "", ...poolTagCols(e)]), e));
     }
   }
   for (const g of state.savings) {
@@ -9611,6 +9657,20 @@ function toCSV() {
     // skips the key). Its months point at split-out ids, which survive.
     for (const rs of sp.recurring || []) rows.push(blank(["setting", "splitRecurring", JSON.stringify(rs)]));
   }
+  // Wallets: one row each, then moves and adjustments. Type in `kind`, app
+  // link in `note`, "archived" in `category`.
+  for (const w of state.wallets || []) {
+    const row = blank(["wallet", w.name, w.opening, "", "", "", w.openingDate, w.archived ? "archived" : "", w.app || "", "", "", "", "", "", "", w.type]);
+    row[IW] = w.id;
+    rows.push(row);
+  }
+  for (const m of state.walletMoves || []) {
+    const row = blank([m.kind === "adjust" ? "wallet-adjust" : "wallet-move", "", m.amount, "", "", "", m.date, "", m.note || ""]);
+    if (m.kind === "adjust") row[IW] = m.to;
+    else { row[IW] = m.from || ""; row[IWT] = m.to || ""; }
+    rows.push(row);
+  }
+  if (state.walletLast) rows.push(blank(["setting", "walletLast", state.walletLast]));
   rows.push(blank(["setting", "extraMonthly", state.extraMonthly || 0]));
   // Shariah / zakat preferences. Each is its own `setting` row so an older
   // build that doesn't know these keys just skips them.
@@ -9754,6 +9814,12 @@ function fromCSV(text) {
   const iSplitId = idx("split_id"), iSplitKind = idx("split_kind"), iSplitTitle = idx("split_title");
   const iSplitStatus = idx("split_status"), iSplitDue = idx("split_due_date");
   const iSplitSettled = idx("split_settled_date");
+  const iWalletId = idx("wallet_id"), iWalletTo = idx("wallet_to");
+  const walletRows = [];
+  const walletMoveRows = [];
+  let walletLastRow = "";
+  const cellWallet = (row) => (iWalletId >= 0 ? (row[iWalletId] || "").trim() : "");
+  const withWallet = (entry, row) => { const id = cellWallet(row); if (id) entry.walletId = id; return entry; };
   // Rebuilt after the row loop: people are grouped back into their parent
   // record by the "<recordId>|<personId>" key, and repayments are attached
   // once every person exists (a hand-edited file can order them freely).
@@ -9836,7 +9902,7 @@ function fromCSV(text) {
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
-      next.income.push(entry);
+      next.income.push(withWallet(entry, row));
     } else if (type === "expense" && name && Number.isFinite(amount)) {
       const repeatNext = iRepeatNext >= 0
         ? (row[iRepeatNext] || "").trim().toUpperCase() !== "N"
@@ -9846,7 +9912,7 @@ function fromCSV(text) {
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
-      next.expenses.push(entry);
+      next.expenses.push(withWallet(entry, row));
     } else if (type === "debt" && name) {
       const rowDueDay = iDueDay >= 0 ? parseDay(row[iDueDay]) : null;
       const rowKind = iKind >= 0 ? (row[iKind] || "").trim().toLowerCase() : "";
@@ -9919,7 +9985,7 @@ function fromCSV(text) {
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
-      next.dailyExpenses.push(entry);
+      next.dailyExpenses.push(withWallet(entry, row));
     } else if (type === "daily-debt") {
       if (!Number.isFinite(amount)) continue;
       const debtName = iDebtName >= 0 ? (row[iDebtName] || "").trim() : "";
@@ -9941,7 +10007,7 @@ function fromCSV(text) {
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
-      next.dailyExpenses.push(entry);
+      next.dailyExpenses.push(withWallet(entry, row));
     } else if (type === "daily-saving") {
       if (!Number.isFinite(amount)) continue;
       const savingName = name;
@@ -9963,7 +10029,7 @@ function fromCSV(text) {
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
-      next.dailyExpenses.push(entry);
+      next.dailyExpenses.push(withWallet(entry, row));
     } else if (type === "saving") {
       const target = iTarget >= 0 ? Number(row[iTarget]) : NaN;
       const current = iCurrent >= 0 ? Number(row[iCurrent]) : NaN;
@@ -10008,6 +10074,26 @@ function fromCSV(text) {
           && (row[iInvReinvested] || "").trim().toUpperCase() === "Y";
         h.dividends.push({ date, amount, reinvested });
       }
+    } else if (type === "wallet" && name) {
+      walletRows.push({
+        id: cellWallet(row) || uid(), name,
+        type: iKind >= 0 ? (row[iKind] || "").trim().toLowerCase() : "cash",
+        app: iNote >= 0 ? (row[iNote] || "").trim() : "",
+        opening: Number.isFinite(amount) ? amount : 0,
+        openingDate: iDate >= 0 ? (row[iDate] || "").trim() : "",
+        archived: iCat >= 0 && (row[iCat] || "").trim().toLowerCase() === "archived",
+      });
+    } else if (type === "wallet-move" || type === "wallet-adjust") {
+      const adj = type === "wallet-adjust";
+      walletMoveRows.push({
+        kind: adj ? "adjust" : "move", amount,
+        date: iDate >= 0 ? (row[iDate] || "").trim() : "",
+        note: iNote >= 0 ? (row[iNote] || "").trim() : "",
+        from: adj ? "" : cellWallet(row),
+        to: adj ? cellWallet(row) : (iWalletTo >= 0 ? (row[iWalletTo] || "").trim() : ""),
+      });
+    } else if (type === "setting" && name.toLowerCase() === "walletlast") {
+      walletLastRow = iAmount >= 0 ? (row[iAmount] || "").toString().trim() : "";
     } else if (type === "setting" && name.toLowerCase() === "aienabled") {
       next.aiEnabled = (iAmount >= 0 ? String(row[iAmount] || "") : "").trim().toUpperCase() !== "N";
     } else if (type === "setting" && name.toLowerCase() === "ownaccount") {
@@ -10287,6 +10373,21 @@ function fromCSV(text) {
     if (typeof rsRelinkExpenses === "function") rsRelinkExpenses(next);
   }
 
+
+  // Wallets last: every wallet in the file comes back (never trimmed for a
+  // free limit); an entry or move naming a wallet the file doesn't have
+  // stays unassigned rather than inventing one.
+  if (typeof coerceWallets === "function") {
+    next.wallets = coerceWallets(walletRows);
+    const ids = new Set(next.wallets.map((w) => w.id));
+    for (const list of [next.income, next.expenses, next.dailyExpenses]) {
+      for (const e of list) if (e.walletId && !ids.has(e.walletId)) delete e.walletId;
+    }
+    next.walletMoves = coerceWalletMoves(walletMoveRows.map((m) => ({
+      ...m, from: ids.has(m.from) ? m.from : "", to: ids.has(m.to) ? m.to : "",
+    })));
+    next.walletLast = ids.has(walletLastRow) ? walletLastRow : "";
+  }
   return next;
 }
 
@@ -11490,6 +11591,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.60.0": [
+    "<strong>Wallets</strong> — a balance for cash, Touch 'n Go eWallet, MAE and each bank account. Spends, income, debt payments and savings can name a wallet (it remembers the last one), “Adjust to actual” fixes drift with one visible entry, and “Move money” moves between wallets without counting as spending. On Android, bank alerts go to the wallet linked to their app, and statements import straight into a wallet. Free keeps 3 wallets; Pro keeps every one.",
+  ],
   "1.59.0": [
     "<strong>Recurring splits</strong> — set up rent, TNB, internet or a shared subscription once: who pays what (equal, fixed or weighted), the due day and an end month. Each month Home asks you to send the requests, a grid shows who has paid, and bank alerts tick people off. Only your share counts as spending. One is free; Pro runs as many as you share.",
   ],
@@ -14559,6 +14663,10 @@ function removeOwnAccount(name) {
 }
 // Confirm a move: nothing is booked anywhere.
 function acceptMove(id) {
+  // Between two wallets (from the apps its halves came from): a wallet move,
+  // still neither spending nor income.
+  const p = (state.pendingTxns || []).find((x) => x.id === id);
+  if (p && typeof walletBookCaptureMove === "function") walletBookCaptureMove(p);
   state.pendingTxns = (state.pendingTxns || []).filter((x) => x.id !== id);
   commitPending();
   toast("Moved between your accounts — not counted as spending or income.");
@@ -14590,6 +14698,7 @@ function acceptIncomePending(id) {
     repeatNext: false,
     category: p.label || "Money in",
     note: p.providerName || "",
+    ...(typeof walletForPkg === "function" && walletForPkg(p.pkg) ? { walletId: walletForPkg(p.pkg).id } : {}),
   });
   state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
   commitPending();
@@ -17132,6 +17241,13 @@ function openDailyEditDialog(id) {
   // Category field is only relevant for plain expenses — debt/saving entries
   // get their label from the linked debt/goal name.
   if (categoryField) categoryField.hidden = kind !== "expense";
+  // Wallet: optional, never forced; an older entry starts as "No wallet".
+  const walletSel = document.getElementById("daily-edit-wallet");
+  if (walletSel && typeof walletOptions === "function") {
+    walletSel.innerHTML = walletOptions(entry.walletId || "");
+    walletSel.value = walletById(entry.walletId) ? entry.walletId : "";
+    walletSel.closest("[data-wallet-field]").hidden = !(state.wallets || []).length;
+  }
 
   I18N.translate(dlg);
   if (typeof dlg.showModal === "function") dlg.showModal();
@@ -17198,6 +17314,11 @@ document.getElementById("btn-daily-edit-save")?.addEventListener("click", () => 
   entry.date = date;
   if (kind === "expense") entry.category = category;
   entry.note = note;
+  const walletSel = document.getElementById("daily-edit-wallet");
+  if (walletSel && !walletSel.closest("[data-wallet-field]").hidden) {
+    if (walletSel.value && walletById(walletSel.value)) entry.walletId = walletSel.value;
+    else delete entry.walletId;
+  }
 
   save();
   closeDailyEditDialog();
@@ -17335,6 +17456,8 @@ const SEARCH_FEATURES = [
   { title: "Tax refund estimate", where: "Home", kw: "tax lhdn relief refund pcb e-filing claim receipt cukai pelepasan bayaran balik resit", go: ["tax", "#tab-tax"] },
   { title: "Spending calendar", where: "Monthly", kw: "calendar day daily kalendar hari", go: ["flow", "#spend-cal"] },
   { title: "Income", where: "Monthly", kw: "income salary pay gaji pendapatan elaun", go: ["flow", '[aria-controls="form-income"]'] },
+  { title: "Wallets", where: "Savings", kw: "wallets accounts balance cash tng ewallet mae bank dompet akaun baki tunai 钱包 账户 余额", go: ["savings", "#wallets-card"] },
+  { title: "Move money", where: "Savings", kw: "move money transfer between wallets accounts pindah duit antara dompet 转账 钱包", run: () => { closeSearch(); openWalletMove(""); } },
   { title: "Import bank statement", where: "All entries", kw: "import bank statement pdf scan photo card account import penyata bank imbas foto kad akaun 对账单 导入", run: () => openStatementImport() },
   { title: "Import income from CSV", where: "Monthly", kw: "import income csv bulk import pendapatan", go: ["flow", "#btn-bulk-import-income"] },
   { title: "Budget pools", where: "Monthly", kw: "budget pool limit category envelope bajet had kategori", go: ["flow", "#btn-add-pool"] },
