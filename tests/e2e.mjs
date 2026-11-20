@@ -2381,13 +2381,16 @@ const aiBadge = await S(async () => {
     out.none = await look(kitWith(async () => ({ available: false, reason: 'unsupported' })));
     out.missing = await look(kitWith(null));
     out.web = await look({ isNativePlatform: () => false });
-    // A tap opens Settings at the AI card.
+    // A tap opens the "What on-device AI does" sheet; its AI settings button
+    // lands on Settings at the AI card.
     await look(kitWith(async () => ({ available: true })));
     document.getElementById('tabbtn-dashboard').click();
     $('ai-badge').click();
+    out.sheet = { open: $('ai-info-dialog').open, settings: !$('ai-info-settings').hidden, tab: document.querySelector('.tab.active')?.dataset.tab };
+    $('ai-info-settings').click();
     await new Promise((r) => setTimeout(r, 400));
     const card = $('ai-card').getBoundingClientRect();
-    out.tap = { tab: document.querySelector('.tab.active')?.dataset.tab, cardShown: !$('ai-card').hidden, inView: card.top < innerHeight && card.bottom > 0 };
+    out.tap = { closed: !$('ai-info-dialog').open, tab: document.querySelector('.tab.active')?.dataset.tab, cardShown: !$('ai-card').hidden, inView: card.top < innerHeight && card.bottom > 0 };
     // Order in Settings: the AI card comes straight after the Pro card.
     let prev = $('ai-card').previousElementSibling;
     out.after = prev && prev.id;
@@ -2408,14 +2411,84 @@ check('AI badge: hidden when switched off, back when switched on again',
   !aiBadge.off && aiBadge.backOn, JSON.stringify(aiBadge));
 check('AI badge: hidden while the model downloads, on a phone without it, without the kit, and on the web',
   !aiBadge.ready && !aiBadge.none && !aiBadge.missing && !aiBadge.web, JSON.stringify(aiBadge));
-check('AI badge: a tap opens Settings at the On-device AI card',
-  aiBadge.tap.tab === 'data' && aiBadge.tap.cardShown && aiBadge.tap.inView, JSON.stringify(aiBadge.tap));
+check('AI badge: a tap opens the "What on-device AI does" sheet (with an AI settings button), not Settings',
+  aiBadge.sheet.open && aiBadge.sheet.settings && aiBadge.sheet.tab === 'dashboard', JSON.stringify(aiBadge.sheet));
+check('AI sheet: "AI settings" closes it and opens Settings at the On-device AI card',
+  aiBadge.tap.closed && aiBadge.tap.tab === 'data' && aiBadge.tap.cardShown && aiBadge.tap.inView, JSON.stringify(aiBadge.tap));
 check('Settings: the On-device AI card sits directly below the Pro card', aiBadge.after === 'pro-card', aiBadge.after);
 {
   const idx = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
   check('AI badge: on the web it is hidden in the markup and the page never shows it unasked',
     /<button[^>]*id="ai-badge"[^>]*\shidden>/.test(idx) && !(await S(() => !document.getElementById('ai-badge').hidden)));
 }
+
+/* ── On-device AI: "What it does" sheet (1.61.1) ──
+   One item per AI path that really runs on the platform: receipts and the
+   English recap on both; bank alerts and statement suggestions Android only
+   (iPhone's DuitfulKit has no aiReadAlert). Never reachable on the web. */
+const aiInfo = await S(async () => {
+  const keepCap = window.Capacitor;
+  const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+  const $ = (id) => document.getElementById(id);
+  const kitWith = (platform, impl) => ({ isNativePlatform: () => true, getPlatform: () => platform, Plugins: { DuitfulKit: impl ? { aiStatus: impl } : {} } });
+  const items = () => [...document.querySelectorAll('#ai-info-list li')].filter((li) => !li.hidden).map((li) => li.querySelector('strong').textContent);
+  const look = () => ({ open: $('ai-info-dialog').open, items: items(), model: $('ai-info-model').textContent, status: $('ai-info-status').textContent,
+    never: [...document.querySelectorAll('.ai-info-never li')].map((li) => li.textContent.trim()), settings: !$('ai-info-settings').hidden,
+    summary: $('ai-summary').textContent, label: $('pref-ai-label').textContent, row: !$('ai-card').hidden && !!$('ai-info-open').offsetParent });
+  const out = {};
+  state.aiIntroSeen = true; state.aiEnabled = true;
+  try {
+    window.Capacitor = kitWith('android', async () => ({ available: true }));
+    await refreshAiStatus();
+    document.getElementById('tabbtn-data').click();
+    await new Promise((r) => setTimeout(r, 100));
+    $('ai-info-open').click();
+    out.android = look();
+    $('pref-ai').checked = false; $('pref-ai').dispatchEvent(new Event('change'));
+    out.androidOff = $('ai-info-status').textContent;
+    $('pref-ai').checked = true; $('pref-ai').dispatchEvent(new Event('change'));
+    $('ai-info-close').click();
+    out.closed = !$('ai-info-dialog').open;
+    window.Capacitor = kitWith('ios', async () => ({ available: true }));
+    await refreshAiStatus();
+    $('ai-info-open').click();
+    out.ios = look();
+    $('ai-info-dialog').close();
+    window.Capacitor = kitWith('android', async () => ({ available: false, reason: 'unsupported' }));
+    await refreshAiStatus();
+    out.noneOpened = openAiInfo('card');
+    out.none = look();
+    $('ai-info-dialog').close();
+    window.Capacitor = { isNativePlatform: () => false };
+    await refreshAiStatus();
+    out.webOpened = openAiInfo('badge');
+    out.webOpen = $('ai-info-dialog').open;
+    out.webCard = !$('ai-card').hidden;
+    out.ms = ['What it does', 'What on-device AI does', 'What it never does', 'Model: {m}'].every((k) => !!I18N.tables.ms[k] && !!I18N.tables.zh[k]);
+  } finally {
+    window.Capacitor = keepCap;
+    if ($('ai-info-dialog').open) $('ai-info-dialog').close();
+    Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+    aiStatusCache = null;
+    save(); renderAll(); renderAiBadge();
+    document.getElementById('tabbtn-dashboard').click();
+  }
+  return out;
+});
+check('AI card: a summary line and a "What it does" row that opens the sheet (no AI settings button from the card itself)',
+  aiInfo.android.row && /receipts, bank alerts, statements and your monthly recap/.test(aiInfo.android.summary) && aiInfo.android.open && !aiInfo.android.settings && aiInfo.closed, JSON.stringify(aiInfo.android));
+check('AI sheet on Android: receipts, bank alerts, bank statements, monthly recap; Gemini Nano; the live status (and "Off" when switched off)',
+  JSON.stringify(aiInfo.android.items) === JSON.stringify(['Receipts', 'Bank alerts', 'Bank statements', 'Monthly recap'])
+  && aiInfo.android.model === 'Model: Gemini Nano' && aiInfo.android.status === 'On · runs on this phone' && /^Off/.test(aiInfo.androidOff), JSON.stringify([aiInfo.android, aiInfo.androidOff]));
+check('AI sheet on iPhone: receipts and monthly recap only (no bank alerts or statements); Apple\'s on-device model; summary and switch label say so',
+  JSON.stringify(aiInfo.ios.items) === JSON.stringify(['Receipts', 'Monthly recap']) && aiInfo.ios.model === "Model: Apple's on-device model"
+  && aiInfo.ios.summary === 'Helps with receipts and your monthly recap.' && aiInfo.ios.label === "Use this phone's AI for receipts and your recap" && aiInfo.android.label === "Use this phone's AI for receipts and bank alerts", JSON.stringify(aiInfo.ios));
+check('AI sheet: "What it never does" lists no upload, no made-up amounts, no chat or advice, nothing saved without your OK',
+  aiInfo.android.never.length === 4 && /uploaded/.test(aiInfo.android.never[0]) && /amount/.test(aiInfo.android.never[1]) && /chat.*advice/.test(aiInfo.android.never[2]) && /OK/.test(aiInfo.android.never[3]), JSON.stringify(aiInfo.android.never));
+check('AI sheet: on a phone without the model it still opens and says "Not available on this phone; Duitful uses its rules."',
+  aiInfo.noneOpened && aiInfo.none.status === 'Not available on this phone; Duitful uses its rules.', JSON.stringify(aiInfo.none));
+check('AI sheet: never opens on the web (no card, no badge, openAiInfo refuses)', aiInfo.webOpened === false && !aiInfo.webOpen && !aiInfo.webCard, JSON.stringify(aiInfo));
+check('AI sheet: its words have Malay and Chinese rows', aiInfo.ms);
 
 /* ── Bank statement import, read on the phone (1.57.0) ─────────────────────
    Synthetic statements only (tests/fixtures/statement-pdfs.mjs): invented
@@ -12836,7 +12909,7 @@ check('the brand catalogue makes no network calls at all',
       '#onboard-dialog', '#guide-dialog', '#edit-dialog', '#daily-edit-dialog', '#bulk-income-dialog', '#bulk-debt-pay-dialog', '#last-month-edit-dialog', '#search-dialog',
       '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
       '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog', '#rs-dialog',
-      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog'];
+      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog', '#ai-info-dialog'];
     const out = {};
     for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
@@ -13035,7 +13108,8 @@ check('the brand catalogue makes no network calls at all',
     for (const [label, open] of [['details', () => taxOpenNumbers()], ['claim', () => taxOpenClaim({ relief: 'medical' })],
       ['review', () => taxOpenReview(taxReviewItems(new Date().getFullYear()), 'year', new Date().getFullYear())],
       ['paywall', () => openPaywall('installment')], ['tour', () => openGuide()], ['edit debt', () => openEditDialog('debt', state.debts.find((d) => d.kind === 'islamic').id)],
-      ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['recurring split', () => rsOpenEdit(state.split.recurring[0].id)], ['wallet', () => openWalletEdit(state.wallets[0].id)], ['wallet detail', () => openWalletDetail(state.wallets[0].id)], ['move money', () => openWalletMove(state.wallets[0].id)], ['adjust wallet', () => openWalletAdjust(state.wallets[0].id)], ['statement into a wallet', () => openStatementImport({ walletId: state.wallets[0].id })], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }]]) {
+      ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['recurring split', () => rsOpenEdit(state.split.recurring[0].id)], ['wallet', () => openWalletEdit(state.wallets[0].id)], ['wallet detail', () => openWalletDetail(state.wallets[0].id)], ['move money', () => openWalletMove(state.wallets[0].id)], ['adjust wallet', () => openWalletAdjust(state.wallets[0].id)], ['statement into a wallet', () => openStatementImport({ walletId: state.wallets[0].id })], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }],
+      ['on-device AI', () => { const keep = window.Capacitor; window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} }; try { openAiInfo('badge'); } finally { window.Capacitor = keep; } }]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
       (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang}${theme ? '/' + theme : ''} ${label} dialog: ${x}`));
@@ -13075,7 +13149,7 @@ check('the brand catalogue makes no network calls at all',
     }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money / on-device AI dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 

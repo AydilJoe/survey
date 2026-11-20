@@ -1,7 +1,7 @@
 # Recurring splits — plan
 
-Status: **version 1 built as 1.59.0** (19 Nov 2026, `app/split-recurring.js`),
-pending merge. Version 2 below is still planned.
+Status: **version 1 shipped in 1.59.0** (19 Nov 2026, `app/split-recurring.js`).
+Version 2 below is still planned.
 
 ## Who it's for
 

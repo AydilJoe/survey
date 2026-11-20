@@ -1,6 +1,6 @@
 # Wallets / accounts: plan
 
-Status: **version 1 built as 1.60.0.** From the user request in `backlog.md`
+Status: **version 1 built as 1.60.0.** From the user request in `done/backlog-done.md`
 (19 Nov 2026): separate balances for where money sits (TNG eWallet, MAE, bank
 accounts, cash), paired with auto-capture.
 

@@ -353,6 +353,41 @@ input[type="checkbox"], input[type="radio"] {
 .ai-intro .hint { margin: 0.5rem 0 0; }
 .capture-intro-actions { margin-top: 0.75rem; justify-content: flex-end; }
 .ai-status { margin-top: 0.2rem; }
+/* Settings → On-device AI: one summary line and the row that opens the sheet. */
+.ai-summary { margin: 0.1rem 0 0.5rem; }
+.ai-info-open {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  width: 100%; min-height: 44px; margin-top: 0.6rem; padding: 0.55rem 0.75rem;
+  border: 0.5px solid var(--line); border-radius: var(--r-sm);
+  background: var(--card-soft); color: var(--text);
+  font: inherit; font-weight: 600; text-align: start; cursor: pointer;
+}
+.ai-info-open svg { width: 1rem; height: 1rem; flex: none; color: var(--muted); }
+.ai-info-open:hover { background: color-mix(in srgb, var(--text) 6%, var(--card-soft)); }
+.ai-info-open:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* The "What on-device AI does" sheet: one icon, title and line per item. */
+.ai-info-dialog .ai-intro-head h2 { font-size: 1.1rem; overflow-wrap: anywhere; }
+.ai-info-group { margin: 0.6rem 0 0; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); }
+.ai-info-list, .ai-info-never { list-style: none; margin: 0; padding: 0; }
+.ai-info-list { display: flex; flex-direction: column; gap: 0.4rem; }
+.ai-info-list li { display: flex; align-items: flex-start; gap: 0.65rem; padding: 0.6rem 0.7rem; border-radius: var(--r-sm); background: var(--card-soft); border: 0.5px solid var(--line); }
+.ai-info-list li[hidden] { display: none; }
+.ai-info-list li > div { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.ai-info-list strong { font-size: 0.92rem; overflow-wrap: anywhere; }
+.ai-info-list li span:not(.ai-info-icon) { font-size: 0.82rem; line-height: 1.4; color: var(--ink2); overflow-wrap: anywhere; }
+.ai-info-icon { display: grid; place-items: center; width: 1.9rem; height: 1.9rem; flex: none; border-radius: var(--r-sm); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.ai-info-icon svg { width: 1.05rem; height: 1.05rem; }
+.ai-info-never li { position: relative; padding: 0.3rem 0 0.3rem 1.5rem; font-size: 0.85rem; line-height: 1.4; color: var(--ink2); overflow-wrap: anywhere; }
+.ai-info-never li::before {
+  content: ""; position: absolute; left: 0.15rem; top: 0.5rem; width: 0.8rem; height: 0.8rem;
+  border-radius: 50%; border: 1.5px solid var(--muted); box-sizing: border-box;
+  background: linear-gradient(135deg, transparent calc(50% - 0.75px), var(--muted) calc(50% - 0.75px), var(--muted) calc(50% + 0.75px), transparent calc(50% + 0.75px));
+}
+.ai-info-foot { margin-top: 0.5rem; padding-top: 0.6rem; border-top: 0.5px solid var(--line); }
+.ai-info-model { margin: 0; font-size: 0.85rem; font-weight: 600; overflow-wrap: anywhere; }
+.ai-info-foot .ai-status { margin: 0.15rem 0 0; }
+.ai-info-dialog .form-actions { justify-content: flex-end; flex-wrap: wrap; }
+.ai-info-dialog .form-actions [hidden] { display: none; }
 .own-accounts-list { list-style: none; margin: 0.5rem 0 0; padding: 0; }
 .own-accounts-list li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.4rem 0; border-top: 0.5px solid var(--line); }
 .own-accounts-list li:first-child { border-top: 0; }

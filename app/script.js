@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.61.0";
+const APP_VERSION = "1.61.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4866,7 +4866,51 @@ function renderAiBadge() {
     badge.addEventListener("animationend", () => badge.classList.remove("is-new"), { once: true });
   }
 }
-document.getElementById("ai-badge")?.addEventListener("click", () => searchReveal("data", "#ai-card"));
+document.getElementById("ai-badge")?.addEventListener("click", () => openAiInfo("badge"));
+// The status line, shared by the Settings card and the "What it does" sheet.
+function aiStatusText() {
+  const st = aiStatusCache ? aiStatusCache.state : "";
+  return tr(!st ? "Checking…"
+    : st === "none" ? "Not available on this phone; Duitful uses its rules."
+    : state && state.aiEnabled === false ? "Off · Duitful uses its rules."
+    : st === "getting-ready" ? "Getting ready"
+    : "On · runs on this phone");
+}
+// What runs where, from the kits themselves: iPhone's DuitfulKit has
+// aiReadReceipt and aiWriteRecap but no aiReadAlert, so bank alerts (no
+// capture on iOS) and statement suggestions (statementAiSuggest asks
+// aiReadAlert) are Android only.
+function aiInfoPlatform() { return nativePlatform() === "ios" ? "ios" : "android"; }
+function renderAiInfo() {
+  const dlg = document.getElementById("ai-info-dialog");
+  if (!dlg || !isNative()) return;
+  const plat = aiInfoPlatform();
+  dlg.dataset.platform = plat;
+  dlg.querySelectorAll("[data-ai-on]").forEach((li) => { li.hidden = !li.dataset.aiOn.split(/\s+/).includes(plat); });
+  const model = document.getElementById("ai-info-model");
+  if (model) model.textContent = tr("Model: {m}", { m: plat === "ios" ? tr("Apple's on-device model") : "Gemini Nano" });
+  const line = document.getElementById("ai-info-status");
+  if (line) { line.dataset.state = aiStatusCache ? aiStatusCache.state : ""; line.textContent = aiStatusText(); }
+  const go = document.getElementById("ai-info-settings");
+  if (go) go.hidden = dlg.dataset.from === "card";
+}
+// Phone apps only: the web has no on-device AI, so nothing opens there.
+function openAiInfo(from) {
+  const dlg = document.getElementById("ai-info-dialog");
+  if (!dlg || !isNative() || !state) return false;
+  dlg.dataset.from = from || "";
+  renderAiInfo();
+  if (!dlg.open) { if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", ""); }
+  dlg.scrollTop = 0;   // showModal focuses a bottom button; start at the title
+  if (!aiStatusCache) refreshAiStatus().catch(() => {});
+  return true;
+}
+document.getElementById("ai-info-open")?.addEventListener("click", () => openAiInfo("card"));
+document.getElementById("ai-info-close")?.addEventListener("click", () => document.getElementById("ai-info-dialog")?.close());
+document.getElementById("ai-info-settings")?.addEventListener("click", () => {
+  document.getElementById("ai-info-dialog")?.close();
+  searchReveal("data", "#ai-card");
+});
 function renderAiSettings() {
   renderAiBadge();
   const card = document.getElementById("ai-card");
@@ -4879,12 +4923,15 @@ function renderAiSettings() {
   if (box) box.checked = state.aiEnabled !== false;
   if (line) {
     line.dataset.state = st;
-    line.textContent = tr(!st ? "Checking…"
-      : st === "none" ? "Not available on this phone; Duitful uses its rules."
-      : state.aiEnabled === false ? "Off · Duitful uses its rules."
-      : st === "getting-ready" ? "Getting ready"
-      : "On · runs on this phone");
+    line.textContent = aiStatusText();
   }
+  const ios = aiInfoPlatform() === "ios";
+  const sum = document.getElementById("ai-summary");
+  if (sum) sum.textContent = tr(ios ? "Helps with receipts and your monthly recap." : "Helps with receipts, bank alerts, statements and your monthly recap.");
+  // iPhone has no bank-alert capture: its switch covers receipts and the recap.
+  const label = document.getElementById("pref-ai-label");
+  if (label) label.textContent = tr(ios ? "Use this phone's AI for receipts and your recap" : "Use this phone's AI for receipts and bank alerts");
+  if (document.getElementById("ai-info-dialog")?.open) renderAiInfo();
 }
 // One small card on Home the first time AI is found on this phone. Shown on
 // that day until dismissed; never again after.
@@ -11638,6 +11685,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.61.1": [
+    "<strong>What on-device AI does</strong> — Settings → On-device AI and the AI badge now open a short list of what your phone's AI helps with, and what it never does. Nothing is uploaded.",
+  ],
   "1.61.0": [
     "<strong>Pastel</strong> — a new look in Settings → Appearance: cream-peach pages, puffy cards, a coral button and a rounded font that works offline. Free, like every theme.",
     "<strong>On-device AI badge</strong> — beside the Duitful name when your phone's own AI is on; tap it for its settings, now under Pro. Nothing is uploaded.",
