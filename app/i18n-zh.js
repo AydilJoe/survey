@@ -289,6 +289,7 @@
   "Type an amount from the notification shade. You review it before it's added.": "直接在通知栏输入金额，添加前会让你先核对。",
   "Chase requests that have gone quiet": "催一催没回音的收款请求",
   "On-device AI": "手机端 AI",
+  "On-device AI is on": "手机端 AI 已开启",
   "Use this phone's AI for receipts and bank alerts": "用手机自带的 AI 读收据和银行通知",
   "Checking…": "检查中…",
   "Not available on this phone; Duitful uses its rules.": "这部手机没有，Duitful 会用自己的规则。",

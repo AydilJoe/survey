@@ -309,6 +309,7 @@ Calm and literal: one filled button per card at most, everything else outlined.
 - **Bottom bar:** frosted stage colour, icon over label. The active tab's icon sits in a terracotta-tinted pill and its label turns full ink; inactive tabs are muted.
 - **Rail and sidebar:** same icons; in the sidebar the active row gets a terracotta bar on its leading edge.
 - **Header:** the wallet mark in a small card tile, the serif wordmark, a one-line greeting and date, then round search and privacy buttons.
+- **On-device AI badge:** in the phone app, when the phone's own AI is ready and switched on, a 22px terracotta-tinted pill beside the wordmark: a coin ring with a sparkle (inline SVG, `currentColor`, 14px) and "AI". Terracotta because it states identity, not an amount. It shimmers once, the first time it ever appears, only with motion allowed. Nothing on the web, while the model downloads, or when switched off.
 
 ### Balance card (signature)
 The first thing on Home. A caption, the month, then the balance in Fraunces, green when positive and red when negative. Under it a thin progress bar of spend against income, the per-day figure to stay on track, and a hairline-separated debt total with the debt-free date. It is the only place the serif figure appears.

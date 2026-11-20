@@ -8739,3 +8739,46 @@ html[data-theme="pastel"] .tab.active {
   }
   html[data-theme="pastel"] .tabs .tab:hover .tab-icon { background: color-mix(in srgb, var(--card-soft) 55%, transparent); }
 }
+
+/* ---------- On-device AI badge (header, phone apps only) ----------
+   A coin with a sparkle in it: Duitful's money, read by this phone. Brand
+   terracotta because it states identity ("this is your phone's AI"), never a
+   status of an amount. 22px tall; the hit area reaches 44px. */
+.brand-name { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
+.brand-name h1 { min-width: 0; }
+.ai-badge {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  height: 1.4rem;
+  padding: 0 0.45rem 0 0.32rem;
+  border-radius: var(--r-pill);
+  border: 0.5px solid color-mix(in srgb, var(--brand-ink) 30%, transparent);
+  background: color-mix(in srgb, var(--brand) 14%, transparent);
+  color: var(--brand-ink);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  cursor: pointer;
+}
+.ai-badge[hidden] { display: none; }
+.ai-badge::after { content: ""; position: absolute; inset: -0.6rem -0.25rem; }
+.ai-badge svg { width: 14px; height: 14px; display: block; flex: none; }
+.ai-badge:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
+.ai-badge:active { transform: scale(0.95); }
+@media (prefers-reduced-motion: no-preference) {
+  .ai-badge.is-new {
+    background-image: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--card) 70%, transparent) 50%, transparent 70%);
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    animation: ai-badge-shimmer 1.1s var(--ease-out, ease-out) 0.3s 1 both;
+  }
+}
+@keyframes ai-badge-shimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -40% 0; }
+}

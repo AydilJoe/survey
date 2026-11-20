@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=172" />
+    <link rel="stylesheet" href="styles.css?v=173" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -190,7 +190,17 @@
       <div class="brand">
         <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/><circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/></svg></span>
         <div>
-          <h1>Duitful</h1>
+          <!-- The phone's own AI is on: shown only in the phone app, when
+               DuitfulKit.aiStatus() says the model is there and the user
+               hasn't switched it off (renderAiBadge). Opens Settings →
+               On-device AI. Nothing is uploaded; it means this phone. -->
+          <div class="brand-name">
+            <h1>Duitful</h1>
+            <button type="button" class="ai-badge" id="ai-badge" aria-label="On-device AI is on" title="On-device AI is on" hidden>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M17 8.1A7.25 7.25 0 1 1 12.5 3.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M16 1.9c.2 1.3.8 1.9 2.1 2.1-1.3.2-1.9.8-2.1 2.1-.2-1.3-.8-1.9-2.1-2.1 1.3-.2 1.9-.8 2.1-2.1z" fill="currentColor"/><path d="M10 6.2c.35 2.4 1.4 3.45 3.8 3.8-2.4.35-3.45 1.4-3.8 3.8-.35-2.4-1.4-3.45-3.8-3.8 2.4-.35 3.45-1.4 3.8-3.8z" fill="currentColor"/></svg>
+              <span aria-hidden="true" translate="no">AI</span>
+            </button>
+          </div>
           <p class="subtitle" id="greeting">Loading…</p>
         </div>
         <button id="btn-search" class="header-search" type="button" aria-label="Search" aria-haspopup="dialog" aria-keyshortcuts="/ Control+K Meta+K" title="Search (/)">
@@ -1589,6 +1599,18 @@
           </div>
         </div>
 
+        <!-- On-device AI: the phone's own model for tricky receipts and bank
+             alerts. Phone apps only; the web has none. Sits right under Pro so
+             the header's AI badge has somewhere obvious to land. -->
+        <div class="card ai-card" id="ai-card" hidden>
+          <h2>On-device AI</h2>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-ai" checked />
+            <span>Use this phone's AI for receipts and bank alerts</span>
+          </label>
+          <p class="hint ai-status" id="ai-status" aria-live="polite">Checking…</p>
+        </div>
+
         <div class="card" id="drive-card" hidden>
           <div class="card-head">
             <h2>Cloud backup</h2>
@@ -1796,17 +1818,6 @@
 
         <!-- Own accounts: names saved with "This is my account" on a captured
              transfer. Kept only in the vault; a transfer to one is a move. -->
-        <!-- On-device AI: the phone's own model for tricky receipts and bank
-             alerts. Phone apps only; the web has none. -->
-        <div class="card ai-card" id="ai-card" hidden>
-          <h2>On-device AI</h2>
-          <label class="field toggle-field">
-            <input type="checkbox" id="pref-ai" checked />
-            <span>Use this phone's AI for receipts and bank alerts</span>
-          </label>
-          <p class="hint ai-status" id="ai-status" aria-live="polite">Checking…</p>
-        </div>
-
         <!-- Bank alerts (Android): send the wording of one Duitful missed. -->
         <div class="card" id="bank-alerts-card" data-capture-share-wrap hidden>
           <h2>Bank alerts</h2>
@@ -3150,8 +3161,8 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=25"></script>
-    <script src="i18n-zh.js?v=25"></script>
+    <script src="i18n-ms.js?v=26"></script>
+    <script src="i18n-zh.js?v=26"></script>
     <script src="i18n.js?v=4"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
@@ -3173,6 +3184,6 @@
     <script src="wallets.js?v=1"></script>
     <script src="recap.js?v=1"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=243"></script>
+    <script src="script.js?v=244"></script>
   </body>
 </html>

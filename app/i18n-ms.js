@@ -289,6 +289,7 @@
   "Type an amount from the notification shade. You review it before it's added.": "Taip jumlah terus dari bar pemberitahuan. Anda semak dulu sebelum ia ditambah.",
   "Chase requests that have gone quiet": "Ingatkan semula permintaan bayaran yang belum berbalas",
   "On-device AI": "AI dalam peranti",
+  "On-device AI is on": "AI dalam peranti dihidupkan",
   "Use this phone's AI for receipts and bank alerts": "Guna AI telefon ini untuk resit dan makluman bank",
   "Checking…": "Menyemak…",
   "Not available on this phone; Duitful uses its rules.": "Tiada pada telefon ini. Duitful guna peraturannya sendiri.",

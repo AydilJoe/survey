@@ -2358,6 +2358,65 @@ check('the on-device AI card shows on Home once, and never after it is dismissed
   aiUi.introFirst && aiUi.introAfter.hidden && aiUi.introAfter.seen && aiUi.introOldDay && aiUi.introNoAi, JSON.stringify(aiUi));
 check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.csvOn === true, JSON.stringify([aiUi.csvOff, aiUi.csvOn]));
 
+/* ── On-device AI badge in the header (1.61.0) ──
+   Shown only when the phone's own model is ready AND the switch is on; a tap
+   lands on Settings → On-device AI, which sits right under the Pro card. */
+const aiBadge = await S(async () => {
+  const keepCap = window.Capacitor;
+  const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+  const $ = (id) => document.getElementById(id);
+  const kitWith = (impl) => ({ isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: impl ? { aiStatus: impl } : {} } });
+  const look = async (cap) => { window.Capacitor = cap; await refreshAiStatus(); return !$('ai-badge').hidden; };
+  const out = {};
+  state.aiIntroSeen = true; state.aiEnabled = true;
+  try {
+    out.on = await look(kitWith(async () => ({ available: true })));
+    out.label = $('ai-badge').getAttribute('aria-label');
+    out.svg = !!$('ai-badge').querySelector('svg path[stroke="currentColor"]');
+    $('pref-ai').checked = false; $('pref-ai').dispatchEvent(new Event('change'));
+    out.off = !$('ai-badge').hidden;
+    $('pref-ai').checked = true; $('pref-ai').dispatchEvent(new Event('change'));
+    out.backOn = !$('ai-badge').hidden;
+    out.ready = await look(kitWith(async () => ({ available: false, reason: 'downloading' })));
+    out.none = await look(kitWith(async () => ({ available: false, reason: 'unsupported' })));
+    out.missing = await look(kitWith(null));
+    out.web = await look({ isNativePlatform: () => false });
+    // A tap opens Settings at the AI card.
+    await look(kitWith(async () => ({ available: true })));
+    document.getElementById('tabbtn-dashboard').click();
+    $('ai-badge').click();
+    await new Promise((r) => setTimeout(r, 400));
+    const card = $('ai-card').getBoundingClientRect();
+    out.tap = { tab: document.querySelector('.tab.active')?.dataset.tab, cardShown: !$('ai-card').hidden, inView: card.top < innerHeight && card.bottom > 0 };
+    // Order in Settings: the AI card comes straight after the Pro card.
+    let prev = $('ai-card').previousElementSibling;
+    out.after = prev && prev.id;
+    out.ms = I18N.tables.ms['On-device AI is on'] || '';
+    out.zh = I18N.tables.zh['On-device AI is on'] || '';
+  } finally {
+    window.Capacitor = keepCap;
+    Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+    aiStatusCache = null;
+    save(); renderAll(); renderAiBadge();
+    document.getElementById('tabbtn-dashboard').click();
+  }
+  return out;
+});
+check('AI badge: shown in the header when the phone\'s AI is ready and switched on, labelled "On-device AI is on" (Malay and Chinese rows too), drawn with currentColor',
+  aiBadge.on && aiBadge.label === 'On-device AI is on' && aiBadge.svg && !!aiBadge.ms && !!aiBadge.zh, JSON.stringify(aiBadge));
+check('AI badge: hidden when switched off, back when switched on again',
+  !aiBadge.off && aiBadge.backOn, JSON.stringify(aiBadge));
+check('AI badge: hidden while the model downloads, on a phone without it, without the kit, and on the web',
+  !aiBadge.ready && !aiBadge.none && !aiBadge.missing && !aiBadge.web, JSON.stringify(aiBadge));
+check('AI badge: a tap opens Settings at the On-device AI card',
+  aiBadge.tap.tab === 'data' && aiBadge.tap.cardShown && aiBadge.tap.inView, JSON.stringify(aiBadge.tap));
+check('Settings: the On-device AI card sits directly below the Pro card', aiBadge.after === 'pro-card', aiBadge.after);
+{
+  const idx = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
+  check('AI badge: on the web it is hidden in the markup and the page never shows it unasked',
+    /<button[^>]*id="ai-badge"[^>]*\shidden>/.test(idx) && !(await S(() => !document.getElementById('ai-badge').hidden)));
+}
+
 /* ── Bank statement import, read on the phone (1.57.0) ─────────────────────
    Synthetic statements only (tests/fixtures/statement-pdfs.mjs): invented
    names and numbers in each bank's layout. Real statements never enter the repo. */

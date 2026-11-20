@@ -4840,7 +4840,27 @@ async function refreshAiStatus() {
   renderAiIntro();
   return st;
 }
+// The header badge: the phone's own AI is ready AND switched on. Nothing on
+// the web, on a phone without it, while it downloads, or when it's off.
+// It shimmers once, the first time it ever appears (motion-safe only).
+const AI_BADGE_SEEN_KEY = "duitful.aiBadgeSeen";
+function renderAiBadge() {
+  const badge = document.getElementById("ai-badge");
+  if (!badge) return;
+  const show = isNative() && !!aiStatusCache && aiStatusCache.state === "on" && !!state && aiAllowed();
+  const was = !badge.hidden;
+  badge.hidden = !show;
+  if (!show || was) return;
+  let seen = true;
+  try { seen = localStorage.getItem(AI_BADGE_SEEN_KEY) === "1"; localStorage.setItem(AI_BADGE_SEEN_KEY, "1"); } catch (_) {}
+  if (!seen) {
+    badge.classList.add("is-new");
+    badge.addEventListener("animationend", () => badge.classList.remove("is-new"), { once: true });
+  }
+}
+document.getElementById("ai-badge")?.addEventListener("click", () => searchReveal("data", "#ai-card"));
 function renderAiSettings() {
+  renderAiBadge();
   const card = document.getElementById("ai-card");
   if (!card) return;
   card.hidden = !isNative();
@@ -11596,6 +11616,7 @@ function maybeOpenGuideAfterSetup() {
 const RELEASE_NOTES = {
   "1.61.0": [
     "<strong>Pastel</strong> — a new look in Settings → Appearance: cream-peach pages, soft puffy cards, a coral button and a sage tab bar, in a rounded font that works offline. Free for everyone, like Light and Dark.",
+    "<strong>On-device AI badge</strong> — when your phone's own AI is on, a small badge beside the Duitful name says so; tap it for its settings, now right under Pro. It means this phone's model: nothing is uploaded.",
   ],
   "1.60.0": [
     "<strong>Wallets</strong> — a balance for cash, Touch 'n Go eWallet, MAE and each bank account. Spends, income, debt payments and savings can name a wallet (it remembers the last one), “Adjust to actual” fixes drift with one visible entry, and “Move money” moves between wallets without counting as spending. On Android, bank alerts go to the wallet linked to their app, and statements import straight into a wallet. Free keeps 3 wallets; Pro keeps every one.",
