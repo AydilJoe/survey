@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=175" />
+    <link rel="stylesheet" href="styles.css?v=176" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1541,7 +1541,9 @@
           <div class="tax-details-prompt" id="tax-details-prompt" hidden>
             <p id="tax-details-prompt-text"></p>
             <button type="button" class="primary" id="tax-details-add" data-tax-numbers="tax-in-income">Add salary</button>
+            <button type="button" class="ghost" id="tax-details-ea" data-tax-ea>Scan EA form</button>
           </div>
+          <button type="button" class="tax-quiet tax-ea-quiet" id="btn-tax-ea" data-tax-ea>Scan EA form</button>
           <p class="hint tax-footnote" id="tax-footnote"></p>
         </section>
 
@@ -1604,7 +1606,7 @@
              the header's AI badge has somewhere obvious to land. -->
         <div class="card ai-card" id="ai-card" hidden>
           <h2>On-device AI</h2>
-          <p class="hint ai-summary" id="ai-summary">Helps with receipts, bank alerts, statements and your monthly recap.</p>
+          <p class="hint ai-summary" id="ai-summary">Helps with receipts, bank alerts, statements, tax relief and your monthly recap.</p>
           <label class="field toggle-field">
             <input type="checkbox" id="pref-ai" checked />
             <span id="pref-ai-label">Use this phone's AI for receipts and bank alerts</span>
@@ -2664,6 +2666,7 @@
           </label>
           <p class="tax-wiz-total" id="tax-total-income" aria-live="polite"></p>
           <p class="hint" id="tax-income-source"></p>
+          <button type="button" class="ghost tax-ea-btn" id="tax-wiz-ea" data-tax-ea>Scan EA form</button>
         </section>
 
         <section class="tax-wiz-step" data-tax-step="1" aria-labelledby="tax-step-1-title" hidden>
@@ -2748,6 +2751,49 @@
           <button type="button" class="ghost" id="tax-wiz-back" hidden>Back</button>
           <button type="button" class="tax-quiet" id="tax-wiz-skip">Skip</button>
           <button type="submit" class="primary" id="tax-numbers-done">Next</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Borang EA (C.P.8A): read on the phone, each figure shown with its
+         label, then saved as that year's details. ea-extract.js reads it;
+         tax.js / taxOpenEa draws and saves it. -->
+    <dialog id="ea-dialog" class="edit-dialog ea-dialog" aria-labelledby="ea-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="ea-title">EA form</h2>
+        <p class="hint stmt-privacy">Read on your phone. Nothing is uploaded.</p>
+        <div id="ea-pick" class="ea-pick">
+          <button type="button" class="primary" id="ea-choose">Choose PDF or photo</button>
+          <button type="button" class="ghost" id="ea-scan" hidden>Scan pages</button>
+          <input type="file" id="ea-file" accept="application/pdf,.pdf,image/*" multiple hidden />
+        </div>
+        <div id="ea-password" hidden>
+          <label class="field">
+            <span>This PDF has a password</span>
+            <input type="password" id="ea-pw" autocomplete="off" />
+          </label>
+          <button type="button" class="primary" id="ea-pw-open">Open</button>
+        </div>
+        <p class="hint" id="ea-status" role="status" aria-live="polite"></p>
+        <div id="ea-review" hidden>
+          <label class="field ea-year-field">
+            <span>Year of income</span>
+            <select id="ea-year"></select>
+          </label>
+          <p class="hint ea-year-note" id="ea-year-note" hidden></p>
+          <h3 class="ea-group">Income</h3>
+          <ul class="ea-list" id="ea-income"></ul>
+          <h3 class="ea-group">Deductions</h3>
+          <ul class="ea-list" id="ea-deduct"></ul>
+          <div id="ea-unused-wrap" hidden>
+            <h3 class="ea-group">Not used yet</h3>
+            <ul class="ea-list ea-unused" id="ea-unused"></ul>
+          </div>
+          <p class="hint">Check each figure against your form.</p>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="ghost" id="ea-cancel">Cancel</button>
+          <button type="button" class="primary" id="ea-save" hidden>Save</button>
         </div>
       </form>
     </dialog>
@@ -2973,6 +3019,10 @@
             <span class="ai-info-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg></span>
             <div><strong>Bank statements</strong><span>Suggests a category and a cleaner payee name, from the line's own words.</span></div>
           </li>
+          <li data-ai-on="android" id="ai-info-tax">
+            <span class="ai-info-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14l6-6"/><circle cx="9.5" cy="8.5" r="1.2"/><circle cx="14.5" cy="13.5" r="1.2"/><path d="M5 3h14v18l-3.5-2-3.5 2-3.5-2L5 21z"/></svg></span>
+            <div><strong>Tax relief</strong><span>Suggests which relief a shop name may fit, for you to check. It never claims for you.</span></div>
+          </li>
           <li data-ai-on="android ios">
             <span class="ai-info-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 16v-5M11 16V7M16 16v-3"/></svg></span>
             <div><strong>Monthly recap</strong><span>Rewords the recap in English. Every number must match your own.</span></div>
@@ -3120,6 +3170,7 @@
           <span class="tax-row-amt" id="tax-review-amt"></span>
           <p class="tax-review-claimed" id="tax-review-claimed" hidden></p>
         </div>
+        <p class="pending-ai tax-review-ai" id="tax-review-ai" hidden>Suggested by your phone's AI</p>
         <div id="tax-review-ask">
           <label class="field">
             <span>Relief</span>
@@ -3221,8 +3272,8 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=28"></script>
-    <script src="i18n-zh.js?v=28"></script>
+    <script src="i18n-ms.js?v=29"></script>
+    <script src="i18n-zh.js?v=29"></script>
     <script src="i18n.js?v=4"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
@@ -3238,12 +3289,13 @@
     <script src="split-recurring.js?v=1"></script>
     <script src="receipt-extract.js?v=1"></script>
     <script src="region.js?v=1"></script>
+    <script src="ea-extract.js?v=1"></script>
     <script src="tax-data.js?v=3"></script>
-    <script src="tax.js?v=17"></script>
+    <script src="tax.js?v=18"></script>
     <script src="statement.js?v=6"></script>
     <script src="wallets.js?v=2"></script>
     <script src="recap.js?v=1"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=246"></script>
+    <script src="script.js?v=247"></script>
   </body>
 </html>

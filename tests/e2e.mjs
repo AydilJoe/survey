@@ -13,6 +13,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 import { readIosClientId, reversedClientId } from '../scripts/google-ios-client.mjs';
 import { buildPdf, STATEMENT_FIXTURES } from './fixtures/statement-pdfs.mjs';
+import { EA_FIXTURES, eaOcrWords } from './fixtures/ea-forms.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.TEST_PORT || 8899);
@@ -2476,11 +2477,11 @@ const aiInfo = await S(async () => {
   return out;
 });
 check('AI card: a summary line and a "What it does" row that opens the sheet (no AI settings button from the card itself)',
-  aiInfo.android.row && /receipts, bank alerts, statements and your monthly recap/.test(aiInfo.android.summary) && aiInfo.android.open && !aiInfo.android.settings && aiInfo.closed, JSON.stringify(aiInfo.android));
-check('AI sheet on Android: receipts, bank alerts, bank statements, monthly recap; Gemini Nano; the live status (and "Off" when switched off)',
-  JSON.stringify(aiInfo.android.items) === JSON.stringify(['Receipts', 'Bank alerts', 'Bank statements', 'Monthly recap'])
+  aiInfo.android.row && /receipts, bank alerts, statements, tax relief and your monthly recap/.test(aiInfo.android.summary) && aiInfo.android.open && !aiInfo.android.settings && aiInfo.closed, JSON.stringify(aiInfo.android));
+check('AI sheet on Android: receipts, bank alerts, bank statements, tax relief, monthly recap; Gemini Nano; the live status (and "Off" when switched off)',
+  JSON.stringify(aiInfo.android.items) === JSON.stringify(['Receipts', 'Bank alerts', 'Bank statements', 'Tax relief', 'Monthly recap'])
   && aiInfo.android.model === 'Model: Gemini Nano' && aiInfo.android.status === 'On · runs on this phone' && /^Off/.test(aiInfo.androidOff), JSON.stringify([aiInfo.android, aiInfo.androidOff]));
-check('AI sheet on iPhone: receipts and monthly recap only (no bank alerts or statements); Apple\'s on-device model; summary and switch label say so',
+check('AI sheet on iPhone: receipts and monthly recap only (no bank alerts, statements or tax relief); Apple\'s on-device model; summary and switch label say so',
   JSON.stringify(aiInfo.ios.items) === JSON.stringify(['Receipts', 'Monthly recap']) && aiInfo.ios.model === "Model: Apple's on-device model"
   && aiInfo.ios.summary === 'Helps with receipts and your monthly recap.' && aiInfo.ios.label === "Use this phone's AI for receipts and your recap" && aiInfo.android.label === "Use this phone's AI for receipts and bank alerts", JSON.stringify(aiInfo.ios));
 check('AI sheet: "What it never does" lists no upload, no made-up amounts, no chat or advice, nothing saved without your OK',
@@ -12880,6 +12881,241 @@ check('the brand catalogue makes no network calls at all',
   }, wSnap);
 }
 
+/* ── EA form scanner and on-device AI relief matching (1.62.0) ─────────────
+   Synthetic Borang EA forms only (tests/fixtures/ea-forms.mjs): invented
+   employers, employees, IC numbers and amounts. Real EA forms never enter the repo. */
+{
+  const ep = await b.newPage({ viewport: { width: 390, height: 844 } });
+  const eerr = [];
+  ep.on('pageerror', (e) => eerr.push(e.message));
+  await ep.goto(`${BASE}/app/index.html`);
+  await ep.waitForTimeout(500);
+  await ep.click('#btn-start-open');
+  await ep.waitForTimeout(1200);
+  await ep.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const E = (fn, arg) => ep.evaluate(fn, arg);
+  const vals = (res) => Object.fromEntries(Object.entries(res.fields).map(([k, v]) => [k, v.value]));
+  const parseEa = (pages, pw) => E(async ({ data, pw }) => {
+    const bin = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+    try { return eaExtract((await readStatementPdf(bin.buffer)).lines); } catch (e) { return { error: e.code || e.message }; }
+  }, { data: buildPdf(pages, pw ? { password: pw } : {}).toString('base64'), pw });
+  const my = await parseEa(EA_FIXTURES.malay());
+  const myV = vals(my);
+  check('EA: a Malay text-layer PDF → year 2025, B1(a)–(c), benefits in kind, the JUMLAH total, PCB, zakat, KWSP and PERKESO, and the items add up to the total',
+    my.year === 2025 && my.totalCheck === 'ok' && myV.b1a === 54000 && myV.b1b === 6000 && myV.b1c === 2400 && myV.b2 === 1200 && myV.bTotal === 63600
+    && myV.d1 === 3180 && myV.d3 === 240 && myV.e1 === 6996 && myV.e2 === 296.25 && myV.d4 === 0 && !('d5' in myV), JSON.stringify(my));
+  const en = await parseEa(EA_FIXTURES.english());
+  const enV = vals(en);
+  check('EA: an English PDF → year 2026, salary, fees, TOTAL, EPF and SOCSO; a TOTAL that is not its items is a mismatch, never adjusted; a missing PCB line is not filled',
+    en.year === 2026 && en.totalCheck === 'mismatch' && enV.bTotal === 48500 && en.sumB === 48000 && enV.b1a === 45000 && enV.e1 === 5280 && enV.e2 === 237.5 && !('d1' in enV), JSON.stringify(en));
+  check('EA: every figure is traceable to a printed line (its value appears in that line)',
+    Object.values(my.fields).concat(Object.values(en.fields)).every((f) => f.line.replace(/,/g, '').includes(f.value.toFixed(2))), '');
+
+  // The page: tax on, nothing typed yet, viewing this year.
+  const thisYear = new Date().getFullYear();
+  await E(() => {
+    const t = taxState(); t.enabled = true; t.introSeen = true; t.deltaSince = Date.now() + 1e9; t.year = 0;
+    state.pro = false; state.proTrialStartedAt = 0;
+    save(); renderAll();
+    const tab = document.getElementById('tabbtn-tax'); tab.hidden = false; tab.click();
+  });
+  await ep.waitForTimeout(300);
+  const entry = await E(() => ({ prompt: !document.getElementById('tax-details-ea').closest('[hidden]') && document.getElementById('tax-details-ea').getBoundingClientRect().height > 0,
+    quiet: document.getElementById('btn-tax-ea').hidden, ocr: JSON.stringify(state.ocrUsage) }));
+  await ep.click('#tax-details-ea');
+  const open1 = await E(() => ({ open: document.getElementById('ea-dialog').open, scan: document.getElementById('ea-scan').hidden }));
+  check('EA: "Scan EA form" sits under "Add salary" in the details card (the quiet one hides), opens the sheet; on the web there is no "Scan pages"',
+    entry.prompt && entry.quiet && open1.open && open1.scan, JSON.stringify([entry, open1]));
+
+  // A password-protected PDF: asked once, wrong one said, right one opens; never kept.
+  await ep.setInputFiles('#ea-file', { name: 'ea.pdf', mimeType: 'application/pdf', buffer: buildPdf(EA_FIXTURES.malay(), { password: 'rahsia9' }) });
+  await ep.waitForFunction(() => !document.getElementById('ea-password').hidden, null, { timeout: 15000 });
+  await ep.fill('#ea-pw', 'salah');
+  await ep.click('#ea-pw-open');
+  await ep.waitForFunction(() => /password/.test(document.getElementById('ea-status').textContent), null, { timeout: 15000 });
+  const wrongPw = await E(() => ({ status: document.getElementById('ea-status').textContent, box: document.getElementById('ea-pw').value }));
+  await ep.fill('#ea-pw', 'rahsia9');
+  await ep.click('#ea-pw-open');
+  await ep.waitForFunction(() => !document.getElementById('ea-review').hidden, null, { timeout: 15000 });
+  const sheet = await E(() => ({
+    year: document.getElementById('ea-year').value, note: document.getElementById('ea-year-note').textContent,
+    rows: [...document.querySelectorAll('#ea-income .ea-row, #ea-deduct .ea-row')].map((li) => `${li.querySelector('.ea-label').textContent}=${li.querySelector('input').value}|${li.querySelector('.ea-tags').textContent}`),
+    unused: document.getElementById('ea-unused').innerText.replace(/\u00a0/g, ' '), checks: document.querySelectorAll('#ea-dialog .ea-tag.is-check').length,
+    pwKept: document.getElementById('ea-pw').value, file: eaUi.file,
+  }));
+  check('EA: a password-protected PDF asks once, says when the password is wrong, opens with the right one, and keeps neither the password nor the file',
+    wrongPw.status === "That password didn't open it." && wrongPw.box === '' && sheet.pwKept === '' && sheet.file === null, JSON.stringify([wrongPw, sheet.pwKept]));
+  check('EA sheet: each figure with its EA label ("B1(a) Salary"), the year found, "Saves to YA 2025" because YA ' + thisYear + ' is on screen, zakat under "Not used yet", no Check when the total agrees',
+    sheet.year === '2025' && sheet.note === `Saves to YA 2025, not YA ${thisYear} on screen.` && sheet.rows.includes('B1(a) Salary=54000|') && sheet.rows.includes('B2 Benefits in kind=1200|')
+    && sheet.rows.includes('Total income=63600|') && sheet.rows.includes('D1 PCB=3180|') && sheet.rows.includes('E1 EPF=6996|') && sheet.rows.some((r) => r.startsWith('E2 SOCSO=296.25|Adds a SOCSO / EIS claim'))
+    && /D3 Zakat via salary\s*RM 240\.00/.test(sheet.unused) && !/CP38/.test(sheet.unused) && sheet.checks === 0, JSON.stringify(sheet));
+  // Hide amounts: the boxes blur like every other figure.
+  const blur = await E(() => { document.body.classList.add('private'); const f = getComputedStyle(document.getElementById('ea-in-b1a')).filter; document.body.classList.remove('private'); return f; });
+  check('EA sheet: the hide-amounts eye blurs its figures', /blur/.test(blur), blur);
+  const before25 = await E(() => taxSummary(2025));
+  await ep.click('#ea-save');
+  await ep.waitForTimeout(300);
+  const saved = await E(() => ({ f: taxFigures(2025), year: taxYear(), open: document.getElementById('ea-dialog').open,
+    socso: taxState().claims.filter((c) => c.relief === 'socso').map((c) => [c.amount, c.note, c.date]), s: taxSummary(2025),
+    facts: document.getElementById('tax-facts').textContent, ocr: JSON.stringify(state.ocrUsage), paywall: document.getElementById('paywall-dialog')?.open || false,
+    toast: document.querySelector('.toast')?.textContent || '' }));
+  check('EA save: YA 2025 gets income 63,600, PCB 3,180 and EPF 6,996 (yearly), plus one SOCSO / EIS claim of 296.25; the page moves to YA 2025 and says so',
+    saved.f.income === 63600 && saved.f.pcb === 3180 && saved.f.epf === 6996 && JSON.stringify(saved.socso) === '[[296.25,"Borang EA","2025-12-31"]]' && saved.year === 2025 && !saved.open
+    && /RM 63,600/.test(saved.facts), JSON.stringify(saved));
+  check('EA save: the refund estimate updates from the EA figures (PCB paid, EPF and SOCSO relief)',
+    before25.inputs.income !== 63600 && saved.s.inputs.income === 63600 && saved.s.pcb === 3180 && saved.s.used.epf > 0 && saved.s.used.socso === 296.25 && saved.s.balance !== before25.balance, JSON.stringify([before25.balance, saved.s.balance, saved.s.used]));
+  check('EA: free for everyone — no paywall, and the receipt scan quota is untouched', !saved.paywall && saved.ocr === entry.ocr, JSON.stringify([saved.ocr, entry.ocr]));
+
+  // Figures already there: "Replaces", a mismatching total says Check, a missing PCB stays as it was.
+  await E((y) => { const t = taxState(); t.year = y; t.figures[String(y)] = { income: 50000, pcb: 2000, epf: 5000 }; save(); renderTax(); taxOpenEa(); }, 2026);
+  await ep.setInputFiles('#ea-file', { name: 'ea-en.pdf', mimeType: 'application/pdf', buffer: buildPdf(EA_FIXTURES.english()) });
+  await ep.waitForFunction(() => !document.getElementById('ea-review').hidden, null, { timeout: 15000 });
+  const rep = await E(() => ({
+    total: document.getElementById('ea-tags-bTotal').textContent.replace(/\u00a0/g, ' '), pcb: document.getElementById('ea-tags-d1').textContent, pcbVal: document.getElementById('ea-in-d1').value,
+    epf: document.getElementById('ea-tags-e1').textContent.replace(/\u00a0/g, ' '), note: document.getElementById('ea-year-note').hidden,
+  }));
+  check('EA sheet: with figures already saved it says "Replaces RM x"; a total that is not its items is marked Check with what they add up to; a PCB the form lacks is "Not found" and left empty',
+    /^Check/.test(rep.total) && /items add up to RM 48,000\.00/.test(rep.total) && /Replaces RM 50,000\.00/.test(rep.total) && rep.pcb === 'Not found' && rep.pcbVal === '' && rep.epf === 'Replaces RM 5,000.00' && rep.note, JSON.stringify(rep));
+  await ep.click('#ea-save');
+  await ep.waitForTimeout(300);
+  const rep2 = await E(() => taxFigures(2026));
+  check('EA save: the printed total is saved as it is (never adjusted), EPF is replaced, and the PCB the form did not print keeps its old value',
+    rep2.income === 48500 && rep2.epf === 5280 && rep2.pcb === 2000, JSON.stringify(rep2));
+
+  // Photos (or a scanned PDF) on the web: OCR with Tesseract (stubbed), the same labels.
+  const photo = await E(async (words) => {
+    const real = window.getTesseractWorker;
+    window.getTesseractWorker = async () => ({ recognize: async () => ({ data: { words } }) });
+    try {
+      taxOpenEa();
+      const c = document.createElement('canvas'); c.width = 1190; c.height = 1684;
+      const res = await eaFromPhotos([c.toDataURL('image/png')]);
+      return { year: res.year, chk: res.totalCheck, b1a: res.fields.b1a?.value, e1: res.fields.e1?.value, review: !document.getElementById('ea-review').hidden };
+    } finally { window.getTesseractWorker = real; document.getElementById('ea-dialog').close(); }
+  }, eaOcrWords(EA_FIXTURES.english()));
+  check('EA: a photo on the web is read with on-device OCR (Tesseract, stubbed here) into the same figures and the same sheet',
+    photo.year === 2026 && photo.chk === 'mismatch' && photo.b1a === 45000 && photo.e1 === 5280 && photo.review, JSON.stringify(photo));
+  // The phone's document scanner, when the kit has one.
+  const scanned = await E(async (words) => {
+    const real = window.getTesseractWorker, keep = window.Capacitor;
+    window.getTesseractWorker = async () => ({ recognize: async () => ({ data: { words } }) });
+    const c = document.createElement('canvas'); c.width = 1190; c.height = 1684;
+    const img = c.toDataURL('image/jpeg');
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: { scanDocument: async () => ({ images: [img] }) } } };
+    try {
+      taxOpenEa();
+      const shown = !document.getElementById('ea-scan').hidden;
+      document.getElementById('ea-scan').click();
+      for (let i = 0; i < 50 && document.getElementById('ea-review').hidden; i++) await new Promise((r) => setTimeout(r, 100));
+      return { shown, review: !document.getElementById('ea-review').hidden, salary: document.getElementById('ea-in-b1a')?.value };
+    } finally { window.getTesseractWorker = real; window.Capacitor = keep; document.getElementById('ea-dialog').close(); }
+  }, eaOcrWords(EA_FIXTURES.english()));
+  check('EA: in the phone app "Scan pages" opens the document scanner and its pages go through the same reader',
+    scanned.shown && scanned.review && scanned.salary === '45000', JSON.stringify(scanned));
+  // Inside the details dialog, step 1.
+  const wiz = await E(() => {
+    taxOpenNumbers();
+    const btn = document.getElementById('tax-wiz-ea');
+    const shown = btn.getBoundingClientRect().height > 0;
+    btn.click();
+    const r = { shown, ea: document.getElementById('ea-dialog').open, wizard: document.getElementById('tax-numbers-dialog').open };
+    document.getElementById('ea-dialog').close(); document.getElementById('tax-numbers-dialog').close();
+    return r;
+  });
+  check('EA: the details dialog has "Scan EA form" on step 1, opening the sheet over it', wiz.shown && wiz.ea && wiz.wizard, JSON.stringify(wiz));
+  const notEa = await E(() => eaExtract(['Kedai Contoh', 'Jumlah 12.50', 'Tunai 20.00']));
+  check('EA: a page that is not an EA fills nothing it cannot label', !notEa.fields.d1 && !notEa.fields.e1 && !notEa.fields.b1a && notEa.year === 0, JSON.stringify(notEa));
+
+  /* On-device AI relief matching: only for spends the keywords miss, only a
+     relief tax-data.js has, only behind aiAllowed() in the phone app. */
+  const ai = await E(async () => {
+    const y = new Date().getFullYear();
+    const d = `${y}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
+    const t = taxState(); t.year = 0; t.aiMatch = {}; t.claims = []; t.skipped = []; t.prompted = []; t.deltaSince = Date.now() - 60000;
+    state.aiEnabled = true;
+    const add = (id, note, category, amount, createdAt) => state.dailyExpenses.push({ id, kind: 'expense', date: d, amount, category, note, createdAt });
+    add('ai-kw', 'Kinokuniya', 'Books', 60, Date.now());
+    add('ai-pharm', "Watson's Sunway", 'Shopping', 42.5, Date.now());
+    add('ai-odd', 'Kedai Ilmu', 'Shopping', 30, Date.now());
+    add('ai-none', 'Toko Serba', 'Shopping', 12, Date.now());
+    add('ai-old', 'Guardian Pharmacy', 'Shopping', 25, 1);     // imported long ago
+    save();
+    const calls = [];
+    const kit = { aiStatus: async () => ({ available: true }), aiReadAlert: async ({ text, categories }) => {
+      calls.push({ text, categories });
+      const cat = /Watson|Guardian/.test(text) ? 'Medical, clinic, pharmacy, dental' : /Ilmu/.test(text) ? 'Rocket science' : '';
+      return { json: JSON.stringify({ direction: 'spend', counterparty: '', category: cat, is_promo_or_security: false }) };
+    } };
+    const keep = window.Capacitor;
+    const android = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: kit } };
+    window.Capacitor = android;
+    const r = {};
+    try {
+      r.found = await taxAiMatchRun(new Date());
+      r.asked = calls.map((c) => c.text);
+      r.cats = calls[0] ? calls[0].categories : [];
+      r.names = Object.values(TAX_AI_NAMES);
+      r.match = JSON.parse(JSON.stringify(t.aiMatch));
+      const pend = taxPendingExpenses(y);
+      r.pending = pend.map((p) => `${p.entry.id}:${p.relief}:${p.ai ? 'ai' : 'kw'}`).sort();
+      r.delta = taxDeltaItems(new Date()).map((x) => x.entryId).sort();
+      const n = calls.length;
+      r.again = await taxAiMatchRun(new Date());
+      r.cached = calls.length === n;
+      // The review: the AI one is tagged, the keyword one is not; yes claims the entry's own amount.
+      taxUi.inbox = taxPendingExpenses(y).findIndex((p) => p.entry.id === 'ai-pharm');
+      renderTax();
+      r.inboxTag = document.getElementById('tax-pending').innerHTML.includes('tax-ai-tag');
+      taxOpenReview([{ kind: 'entry', entryId: 'ai-kw', relief: 'lifestyle', year: y }, { kind: 'entry', entryId: 'ai-pharm', relief: 'medical', year: y }], 'year', y);
+      r.tagKw = !document.getElementById('tax-review-ai').hidden;
+      taxReviewGo(1);
+      r.tagAi = !document.getElementById('tax-review-ai').hidden;
+      r.tagText = document.getElementById('tax-review-ai').textContent;
+      r.relief = document.getElementById('tax-review-relief').value;
+      taxReviewYes();
+      r.claim = t.claims.filter((c) => c.entryId === 'ai-pharm').map((c) => [c.relief, c.amount]);
+      taxFinishReview();
+      // AI off: keywords only, nothing asked.
+      state.aiEnabled = false;
+      add('ai-new', 'Caring Pharmacy', 'Shopping', 18, Date.now());
+      calls.length = 0;
+      r.offRun = await taxAiMatchRun(new Date());
+      r.offCalls = calls.length;
+      r.offPending = taxPendingExpenses(y).map((p) => p.entry.id).sort();
+      state.aiEnabled = true;
+      // The web: no kit, no AI.
+      window.Capacitor = undefined;
+      r.webRun = await taxAiMatchRun(new Date());
+      r.webCalls = calls.length;
+      r.webPending = taxPendingExpenses(y).map((p) => p.entry.id).sort();
+      // "What it does": Android lists tax relief, iPhone does not.
+      window.Capacitor = android; openAiInfo('badge');
+      r.infoAndroid = !document.getElementById('ai-info-tax').hidden;
+      document.getElementById('ai-info-dialog').close();
+      window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: { DuitfulKit: { aiStatus: kit.aiStatus } } };
+      openAiInfo('badge');
+      r.infoIos = !document.getElementById('ai-info-tax').hidden;
+      document.getElementById('ai-info-dialog').close();
+    } finally { window.Capacitor = keep; }
+    return r;
+  });
+  check('tax AI: a spend the keywords already match is never sent to the AI; the ones they miss are, with only reliefs tax-data.js has this year to pick from',
+    !ai.asked.some((t) => /Kinokuniya/.test(t)) && ai.asked.some((t) => /Watson/.test(t)) && ai.cats.includes('Medical, clinic, pharmacy, dental') && ai.cats.every((c) => ai.names.includes(c)), JSON.stringify(ai.asked.concat(ai.cats)));
+  check('tax AI: an answer that is not one of the reliefs is dropped; a blank answer suggests nothing; each spend is asked once (kept per entry)',
+    ai.match['ai-odd'] && ai.match['ai-odd'].r === '' && ai.match['ai-none'].r === '' && ai.match['ai-pharm'].r === 'medical' && ai.again === 0 && ai.cached, JSON.stringify([ai.match, ai.again]));
+  check('tax AI: the matches join To check as AI suggestions; only spending added since the last look reaches the "new spending" pop-up (an old import does not)',
+    ai.pending.includes('ai-pharm:medical:ai') && ai.pending.includes('ai-old:medical:ai') && ai.pending.includes('ai-kw:lifestyle:kw') && !ai.pending.some((p) => /ai-odd|ai-none/.test(p))
+    && ai.delta.includes('ai-pharm') && !ai.delta.includes('ai-old'), JSON.stringify([ai.pending, ai.delta]));
+  check('tax AI: the review tags an AI suggestion "Suggested by your phone\'s AI" (not a keyword one), and Yes claims it with the entry\'s own amount',
+    ai.inboxTag && !ai.tagKw && ai.tagAi && ai.tagText === "Suggested by your phone's AI" && ai.relief === 'medical' && JSON.stringify(ai.claim) === '[["medical",42.5]]', JSON.stringify(ai));
+  check('tax AI: with on-device AI off it is keywords only — nothing asked, no AI suggestions shown',
+    ai.offRun === 0 && ai.offCalls === 0 && !ai.offPending.some((id) => /ai-old|ai-new/.test(id)), JSON.stringify(ai.offPending));
+  check('tax AI: on the web there is no AI — nothing asked, keyword matches only', ai.webRun === 0 && ai.webCalls === 0 && !ai.webPending.includes('ai-old') && ai.webPending.includes('ai-kw'), JSON.stringify(ai.webPending));
+  check('tax AI: "What it does" lists Tax relief on Android only (iPhone\'s kit has no aiReadAlert)', ai.infoAndroid && !ai.infoIos, JSON.stringify([ai.infoAndroid, ai.infoIos]));
+  check('EA scanner and tax AI: no page errors', eerr.length === 0, eerr.join(' | '));
+  await ep.close();
+}
+
 /* ── In-app languages: Bahasa Melayu and Simplified Chinese (stage 1) ──────
    English is the key (app/i18n.js); the tables are generated from
    scripts/i18n/strings.mjs. Stage 1 covers the passcode screen, header, tab
@@ -12909,7 +13145,7 @@ check('the brand catalogue makes no network calls at all',
       '#onboard-dialog', '#guide-dialog', '#edit-dialog', '#daily-edit-dialog', '#bulk-income-dialog', '#bulk-debt-pay-dialog', '#last-month-edit-dialog', '#search-dialog',
       '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
       '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog', '#rs-dialog',
-      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog', '#ai-info-dialog'];
+      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog', '#ai-info-dialog', '#ea-dialog'];
     const out = {};
     for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
@@ -13109,6 +13345,16 @@ check('the brand catalogue makes no network calls at all',
       ['review', () => taxOpenReview(taxReviewItems(new Date().getFullYear()), 'year', new Date().getFullYear())],
       ['paywall', () => openPaywall('installment')], ['tour', () => openGuide()], ['edit debt', () => openEditDialog('debt', state.debts.find((d) => d.kind === 'islamic').id)],
       ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['recurring split', () => rsOpenEdit(state.split.recurring[0].id)], ['wallet', () => openWalletEdit(state.wallets[0].id)], ['wallet detail', () => openWalletDetail(state.wallets[0].id)], ['move money', () => openWalletMove(state.wallets[0].id)], ['adjust wallet', () => openWalletAdjust(state.wallets[0].id)], ['statement into a wallet', () => openStatementImport({ walletId: state.wallets[0].id })], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }],
+      ['EA form', () => {
+        taxOpenEa();
+        eaShow({ lines: ['PENYATA SARAAN DARIPADA PENGGAJIAN BAGI TAHUN BERAKHIR 31 DISEMBER 2025', 'B  PENDAPATAN PENGGAJIAN, MANFAAT DAN TEMPAT KEDIAMAN',
+          '1. (a) Gaji kasar, upah atau gaji cuti (termasuk gaji lebih masa)   54,000.00', '(b) Fi (termasuk fi pengarah), komisen atau bonus   6,000.00',
+          '(c) Tip kasar, perkuisit, penerimaan sagu hati atau elaun-elaun lain   2,400.00', '6. Pampasan kerana kehilangan pekerjaan   1,000.00',
+          '3. Manfaat berupa barangan (Nyatakan: Telefon)   1,200.00', 'JUMLAH   61,700.00', 'D  JUMLAH POTONGAN',
+          '2. Arahan Potongan CP 38   150.00', '3. Zakat yang dibayar melalui potongan gaji   240.00', '4. Jumlah tuntutan potongan oleh pekerja melalui Borang TP1 berkaitan: (a) Pelepasan   1,500.00',
+          'E  CARUMAN YANG DIBAYAR OLEH PEKERJA KEPADA KUMPULAN WANG SIMPANAN / PENCEN YANG DILULUSKAN DAN PERKESO',
+          '1. Nama Kumpulan Wang: KWSP   6,996.00', '2. PERKESO: Amaun caruman yang wajib dibayar (nyatakan bahagian pekerja sahaja)   296.25', 'SIP   59.40'] });
+      }],
       ['on-device AI', () => { const keep = window.Capacitor; window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} }; try { openAiInfo('badge'); } finally { window.Capacitor = keep; } }]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
@@ -13149,7 +13395,7 @@ check('the brand catalogue makes no network calls at all',
     }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money / on-device AI dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / EA form / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money / on-device AI dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 

@@ -2,6 +2,21 @@
 
 Moved out of `../backlog.md` on 20 Nov 2026. Completed plan files are in this folder too (`shorter-forms.md`, `statement-scans.md`).
 
+## Tax: EA form scanner and AI relief matching
+
+1. **EA form scanner — shipped 1.62.0.** Scan or pick the employer's Borang EA
+   (PDF, photo or document scanner, read on the phone) on the Tax page; the
+   year's salary (Section B total), PCB, EPF and SOCSO / EIS fill in one go,
+   each figure shown with its EA line, a total that doesn't match its lines
+   tagged Check. `app/ea-extract.js`, `taxOpenEa` in `tax.js`. Not done: no AI
+   fallback (DuitfulKit has no generic prompt call to label figures), the EA is
+   not kept in the receipt vault (there is no per-year document store), and
+   zakat via salary (D3) is shown but not yet used.
+2. **Tax AI relief matching — shipped 1.62.0.** Android only (Gemini Nano via
+   `aiReadAlert`): spends the keywords miss get a suggested relief from that
+   year's schedule only, cached per entry, tagged "Suggested by your phone's
+   AI" in To check and the review; nothing is claimed without Yes.
+
 ## Recurring splits and scanned statements
 
 1. **Recurring splits** (`recurring-splits.md`). Rent, utilities and

@@ -40,14 +40,6 @@ Privacy: the vault is encrypted, so any figure shown needs a small
 plain summary the app writes on purpose (and clears when locked), never the
 vault itself.
 
-## Tax: on-device AI for relief matching (building in 1.62.0, with the EA form scanner)
-
-Today spend → relief matching is keyword-only (`app.keywords` in `app/tax-data.js`, `tax.js`). Add on-device AI as a fallback only for spends the keywords miss (e.g. "Popular" → lifestyle/books, "Dr Tan & Partners" → medical, Malay/Chinese wording):
-- AI may only pick a relief code that already exists in `tax-data.js` for that year, never a new one. The amount always comes from the entry.
-- Suggestions go into the existing "To check" / review flow (`taxOpenReview`) with a "Suggested by your phone's AI" tag. Nothing is claimed without the user's yes.
-- Behind `aiAllowed()`; phones without the model keep keywords only. Nothing uploaded. Descriptive, not tax advice: it suggests a match, it doesn't say whether the user qualifies.
-- Tests with a stubbed `DuitfulKit` (as for alerts and receipts). All three languages.
-
 ## "New" feature spotlight with motion (requested 20 Nov 2026)
 
 When a release adds a feature (e.g. wallets, recurring splits, statement import, Pastel), show a small "New" button or chip (Home, or the relevant tab) that, when tapped, animates the user to the feature: smooth-scroll and/or tab switch, then a gentle pulse/highlight ring on the target card or button.

@@ -97,8 +97,10 @@
   (AICore), only on supported phones
   (https://developers.google.com/ml-kit/genai lists them); it reads
   hard-to-read receipts and labels bank / e-wallet alerts the rules can't
-  place, including spotting transfers between the user's own accounts.
-  iPhone (iOS 26): Apple's on-device Foundation Models, for receipts
+  place, including spotting transfers between the user's own accounts,
+  and, from 1.62.0, suggests which tax relief a spend may fit when the
+  keyword rules miss it (only reliefs in the schedule; the user confirms
+  every claim). iPhone (iOS 26): Apple's on-device Foundation Models, for receipts
   (there is no notification capture on iPhone). From 1.58.1 both may also
   reword the monthly recap on Reports (English only): the app computes
   every figure, and any text with a number not among them, or with advice,
@@ -133,7 +135,10 @@
   uploaded — with the e-Filing deadline as the date to add them by.
   Check-ins: on new spending, on demand ("Review my year"), in
   November, and before e-Filing opens. Claims export as CSV for
-  e-Filing. Duitful does not file tax or contact LHDN.
+  e-Filing. From 1.62.0 the employer's Borang EA (PDF, photo or the
+  phone's document scanner, read on-device) fills the year's salary, PCB,
+  EPF and SOCSO in one go; only figures the form prints are used, and a
+  total that doesn't match its lines is flagged for checking. Duitful does not file tax or contact LHDN.
 - **Tax rules for other countries**: Malaysia's LHDN schedule is built
   in. Anyone else can add their own country's rules as JSON (paste or
   upload on the Tax page); they are validated, kept only in the

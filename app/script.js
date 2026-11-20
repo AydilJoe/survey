@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.61.1";
+const APP_VERSION = "1.62.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4927,7 +4927,7 @@ function renderAiSettings() {
   }
   const ios = aiInfoPlatform() === "ios";
   const sum = document.getElementById("ai-summary");
-  if (sum) sum.textContent = tr(ios ? "Helps with receipts and your monthly recap." : "Helps with receipts, bank alerts, statements and your monthly recap.");
+  if (sum) sum.textContent = tr(ios ? "Helps with receipts and your monthly recap." : "Helps with receipts, bank alerts, statements, tax relief and your monthly recap.");
   // iPhone has no bank-alert capture: its switch covers receipts and the recap.
   const label = document.getElementById("pref-ai-label");
   if (label) label.textContent = tr(ios ? "Use this phone's AI for receipts and your recap" : "Use this phone's AI for receipts and bank alerts");
@@ -11685,6 +11685,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.62.0": [
+    "<strong>EA form scanner</strong> — on the Tax page, scan or pick your Borang EA (PDF or photo) and your salary, PCB, EPF and SOCSO for that year fill in at once. Each figure shows its EA line to check, a total that doesn't add up is marked, and nothing is uploaded.",
+    "<strong>Tax relief from shop names</strong> — on Android, when a spend's words don't match a relief, your phone's own AI may suggest one (a clinic, a bookshop) for you to check in To check. It never claims for you.",
+  ],
   "1.61.1": [
     "<strong>What on-device AI does</strong> — Settings → On-device AI and the AI badge now open a short list of what your phone's AI helps with, and what it never does. Nothing is uploaded.",
   ],

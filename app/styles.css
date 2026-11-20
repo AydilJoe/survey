@@ -8428,6 +8428,31 @@ button:disabled, button[aria-disabled="true"] { transition-property: background-
 .stmt-amt.income { color: var(--gain); }
 .stmt-amt.move { color: var(--muted); }
 
+/* EA form scanner (tax.js / taxOpenEa): each figure with its EA label. */
+.tax-ea-quiet { display: block; margin: 0.35rem auto 0; }
+.tax-ea-btn { margin-top: 0.4rem; align-self: flex-start; }
+.ea-pick { display: flex; flex-direction: column; gap: 0.6rem; }
+.ea-pick[hidden] { display: none; }
+.ea-year-field select { width: 100%; }
+.ea-year-note { margin: -0.2rem 0 0.2rem; color: var(--warn); }
+.ea-group { margin: 0.9rem 0 0.2rem; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.ea-list { list-style: none; margin: 0; padding: 0; border-top: 0.5px solid var(--line); }
+.ea-row { display: grid; grid-template-columns: minmax(0, 1fr) 8.5rem; gap: 0.25rem 0.6rem; align-items: center; padding: 0.45rem 0; border-bottom: 0.5px solid var(--line); }
+.ea-row.is-total .ea-label { font-weight: 600; }
+.ea-label { min-width: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
+.ea-in { width: 100%; box-sizing: border-box; text-align: right; font-variant-numeric: tabular-nums; }
+.ea-fixed { text-align: right; font-variant-numeric: tabular-nums; }
+.ea-tags { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 0.3rem 0.45rem; align-items: center; font-size: 0.76rem; color: var(--muted); }
+.ea-tags:empty { display: none; }
+.ea-tag.is-check, .ea-tag.is-missing {
+  font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; padding: 0.15rem 0.4rem; border-radius: var(--r-pill); white-space: nowrap;
+}
+.ea-tag.is-check { background: color-mix(in srgb, var(--warn) 18%, transparent); color: color-mix(in srgb, var(--warn) 72%, var(--text)); }
+.ea-tag.is-missing { background: color-mix(in srgb, var(--muted) 14%, transparent); color: var(--muted); }
+.ea-use-sum { appearance: none; background: none; border: 0; padding: 0.3rem 0; min-height: 36px; font: inherit; font-size: 0.8rem; color: var(--text); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+body.private #ea-dialog .ea-in:not(:focus),
+body.private #ea-dialog .ea-fixed { filter: blur(7px); user-select: none; transition: filter 0.2s ease; }
+
 /* ---------- On-screen keyboard ----------
    While a field has the keyboard up (html.kb-open, set by trackKeyboard in
    script.js from visualViewport), an open dialog sits at the top of what is
