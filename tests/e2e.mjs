@@ -2650,7 +2650,7 @@ check('AI sheet: its words have Malay and Chinese rows', aiInfo.ms);
     const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
     const $ = (id) => document.getElementById(id);
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-    const closed = async () => { for (let i = 0; i < 60 && $('ai-think').open; i++) await wait(50); return !$('ai-think').open; };
+    const closed = async () => { for (let i = 0; i < 120 && $('ai-think').open; i++) await wait(50); return !$('ai-think').open; };
     const resolvers = [];
     const deferred = () => new Promise((r) => resolvers.push(r));
     state.aiIntroSeen = true; state.aiEnabled = true;
@@ -2897,6 +2897,174 @@ check('AI sheet: its words have Malay and Chinese rows', aiInfo.ms);
   check('statement AI: suggests a category from the app\'s list and a payee the description contains; amounts and dates never change',
     ai.asked >= 1 && ai.on.includes('2026-10-03|45.2|Groceries|KEDAI') && ai.on.every((x) => !/999|2020-01-01/.test(x)), JSON.stringify(ai.on));
   check('statement AI: off in Settings means it is never asked', ai.askedOff === 0 && ai.off.every((x) => x.split('|')[2] === ''), JSON.stringify(ai.off));
+  // AI in the background (1.62.1): the sheet shows, tucks into the badge, the
+  // badge fills as answers land, the review stays usable, it pauses while the
+  // app is away, and Import never waits for it.
+  const bg = await S(async (data) => {
+    const keepCap = window.Capacitor;
+    const snap = { pro: state.pro, en: state.aiEnabled, seen: state.aiIntroSeen, usage: state.statementUsage,
+      daily: state.dailyExpenses.slice(), income: state.income.slice(), last: (state.statementLast || []).slice() };
+    const $ = (id) => document.getElementById(id);
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const resolvers = [];
+    let avail = false;
+    const asked = [];
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: {
+      aiStatus: async () => ({ available: avail }),
+      aiReadAlert: (o) => { asked.push(o.text); return new Promise((r) => resolvers.push(r)); } } } };
+    const answer = (cat, who) => resolvers.shift()({ json: JSON.stringify({ direction: 'spend', counterparty: who || '', category: cat || '', is_promo_or_security: false }) });
+    const hiddenDoc = (on) => {
+      if (on) Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+      else delete document.visibilityState;
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+    const out = {};
+    state.pro = true; state.aiEnabled = true; state.aiIntroSeen = true;
+    try {
+      openStatementImport();
+      const bin = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+      await statementFromFile(new File([bin], 'bank.pdf', { type: 'application/pdf' }));   // AI not ready yet: rules only
+      avail = true;
+      await refreshAiStatus();
+      // Six spends with no category, as a long statement would have.
+      const base = stmtUi.items.filter((it) => it.kind === 'spend');
+      for (let i = 0; base.length + i < 6; i++) stmtUi.items.push({ ...base[i % base.length], row: { ...base[i % base.length].row }, payee: base[i % base.length].payee });
+      for (const it of stmtUi.items) if (it.kind === 'spend') { it.category = ''; it.ai = false; it.aiAsked = false; }
+      renderStatementReview();
+      const spends = stmtUi.items.filter((it) => it.kind === 'spend');
+      const items = stmtUi.items;
+      const run = statementAiSuggest(items, { alive: () => stmtUi.items === items && !!$('stmt-dialog').open, onAnswer: stmtShowAiRow });
+      await wait(80);
+      out.sheetFirst = $('ai-think').open && !$('ai-think-progress').hidden && $('ai-think-count').textContent === '0 of 6';
+      const tucking = () => !$('ai-think').open || $('ai-think').classList.contains('is-out');
+      for (let i = 0; i < 160 && !tucking(); i++) await wait(50);   // tucks away after ~1.2s
+      const badge = $('ai-badge');
+      out.minimised = tucking() && badge.classList.contains('is-thinking') && badge.classList.contains('has-progress');
+      for (let i = 0; i < 160 && $('ai-think').open; i++) await wait(50);
+      out.stmtOpen = $('stmt-dialog').open;
+      // First answer lands in its row, in place.
+      const i0 = stmtUi.items.indexOf(spends[0]);
+      const li0 = $('stmt-list').querySelector(`[data-stmt-on="${i0}"]`).closest('.stmt-row');
+      answer('groceries', 'KEDAI');
+      await wait(60);
+      out.inPlace = li0.isConnected && li0.querySelector('[data-stmt-cat]').value === 'Groceries' && !!li0.querySelector('.stmt-ai');
+      out.progress = badge.style.getPropertyValue('--ai-progress');
+      out.label = badge.getAttribute('aria-label');
+      out.live = $('ai-live').textContent;
+      out.fillOn = getComputedStyle(badge.querySelector('.ai-badge-fill')).opacity;
+      // The review stays usable: change a later row yourself; the AI won't overwrite it.
+      const i3 = stmtUi.items.indexOf(spends[3]);
+      const sel3 = $('stmt-list').querySelector(`[data-stmt-cat="${i3}"]`);
+      sel3.value = 'Transport'; sel3.dispatchEvent(new Event('change', { bubbles: true }));
+      out.userKept0 = $('stmt-list').querySelector(`[data-stmt-cat="${i3}"]`).value === 'Transport';
+      // Tap the busy badge: the sheet comes back with the same progress.
+      badge.click();
+      await wait(80);
+      out.reopened = $('ai-think').open && $('ai-think-count').textContent === '1 of 6' && $('ai-think-progress').style.getPropertyValue('--ai-progress') !== '';
+      $('ai-think-hide').click();
+      for (let i = 0; i < 40 && $('ai-think').open; i++) await wait(50);
+      out.hiddenAgain = !$('ai-think').open;
+      // App to the background: the call in flight lands, nothing new starts.
+      hiddenDoc(true);
+      answer('', '');
+      await wait(80);
+      out.pausedAsks = asked.length;
+      out.pausedPending = resolvers.length;
+      hiddenDoc(false);
+      await wait(80);
+      out.resumedAsks = asked.length;
+      answer('groceries', '');                       // spends[2]
+      await wait(60);
+      // spends[3] was set by hand, so it is skipped; spends[4] is asked next.
+      out.skippedUser = asked.length === 4;
+      // Import mid-run: never waits for the AI.
+      const before = state.dailyExpenses.filter((e) => e.source === 'statement').length;
+      out.imported = statementImportNow();
+      out.bookedNow = state.dailyExpenses.filter((e) => e.source === 'statement').length - before;
+      out.user3 = state.dailyExpenses.filter((e) => e.source === 'statement' && e.category === 'Transport').length;
+      while (resolvers.length) answer('groceries', '');
+      await run;
+      out.done = badge.classList.contains('is-done') && badge.style.getPropertyValue('--ai-progress') === '1';
+      out.askedTotal = asked.length;
+      await wait(900);
+      out.idle = !badge.classList.contains('is-done') && !badge.classList.contains('is-thinking') && !badge.classList.contains('has-progress') && badge.getAttribute('aria-label') === 'On-device AI is on' && $('ai-live').textContent === '';
+      for (let i = 0; i < 40 && $('ai-think').open; i++) await wait(50);
+      out.sheetShut = !$('ai-think').open;
+    } finally {
+      if ($('stmt-dialog').open) $('stmt-dialog').close();
+      delete document.visibilityState;
+      window.Capacitor = keepCap;
+      Object.assign(state, { pro: snap.pro, aiEnabled: snap.en, aiIntroSeen: snap.seen, statementUsage: snap.usage,
+        dailyExpenses: snap.daily, income: snap.income, statementLast: snap.last });
+      aiStatusCache = null;
+      save(); renderAll(); renderAiBadge();
+    }
+    return out;
+  }, b64(F.genericAccount()));
+  check('statement AI in the background: the sheet shows "0 of 6", then tucks into the header badge, which keeps counting with a progress fill; the review stays open',
+    bg.sheetFirst && bg.minimised && bg.stmtOpen, JSON.stringify(bg));
+  check('statement AI in the background: an answer fills its row in place (same element, category set, AI tag); the badge fills to 1/6 and says "AI is sorting your statement · 1 of 6" (announcements throttled)',
+    bg.inPlace && Math.abs(Number(bg.progress) - 1 / 6) < 0.001 && bg.label === 'AI is sorting your statement · 1 of 6' && /^AI is sorting your statement · [01] of 6$/.test(bg.live) && bg.fillOn === '1', JSON.stringify(bg));
+  check('statement AI in the background: tapping the busy badge reopens the sheet with "1 of 6" and a bar; Hide tucks it away again',
+    bg.reopened && bg.hiddenAgain, JSON.stringify(bg));
+  check('statement AI in the background: the app going to the background pauses it (the call in flight lands, nothing new starts) and it resumes when the app is back',
+    bg.pausedAsks === 2 && bg.pausedPending === 0 && bg.resumedAsks === 3, JSON.stringify(bg));
+  check('statement AI in the background: a row you changed yourself is kept and never asked about; Import works mid-run and books your choice',
+    bg.userKept0 && bg.skippedUser && bg.imported && bg.bookedNow > 0 && bg.user3 === 1, JSON.stringify(bg));
+  check('statement AI in the background: after Import it stops asking; the badge plays one "done" (tint full) and goes idle',
+    bg.askedTotal <= 4 && bg.done && bg.idle && bg.sheetShut, JSON.stringify(bg));
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const bgRm = await S(async () => {
+    const keepCap = window.Capacitor;
+    const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+    state.aiEnabled = true; state.aiIntroSeen = true;
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: { aiStatus: async () => ({ available: true }) } } };
+    const out = {};
+    try {
+      await refreshAiStatus();
+      const b = aiBatchStart({ label: 'Checking tax relief', say: 'AI is checking tax relief', total: 4 });
+      aiBatchStep(b, 2);
+      const badge = document.getElementById('ai-badge');
+      out.fill = getComputedStyle(badge.querySelector('.ai-badge-fill')).display;
+      out.label = badge.getAttribute('aria-label');
+      out.anim = getComputedStyle(badge).animationName;
+      aiBatchEnd(b);
+      out.doneAnim = getComputedStyle(badge.querySelector('.ai-badge-fill')).animationName;
+      await new Promise((r) => setTimeout(r, 900));
+      out.idle = !badge.classList.contains('is-thinking');
+    } finally {
+      window.Capacitor = keepCap;
+      Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+      aiStatusCache = null; renderAiBadge();
+    }
+    return out;
+  });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  check('AI progress, reduced motion: no fill and no fill animation, the progress is in words ("AI is checking tax relief · 2 of 4"), the badge breathes',
+    bgRm.fill === 'none' && bgRm.label === 'AI is checking tax relief · 2 of 4' && bgRm.anim === 'ai-badge-breathe' && bgRm.doneAnim === 'none' && bgRm.idle, JSON.stringify(bgRm));
+  // Words built in script (not markup) go through tr() too: capture cards,
+  // the scan sheet's button, the "Matches …" line and the item count.
+  const msWords = await S(() => {
+    const keepCap = window.Capacitor, keepLang = I18N.lang;
+    const out = {};
+    try {
+      window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+      I18N.set('ms');
+      out.ai = pendingAiTag({ ai: true });
+      out.wrong = pendingWrongBtn({ id: 'x' });
+      out.match = receiptAgreeLabel({ agree: ['total', 'payment'], candidates: [{ kind: 'payment', label: 'CASH' }] });
+      out.visa = receiptAgreeLabel({ agree: ['total', 'payment'], candidates: [{ kind: 'payment', label: 'VISA 1234' }] });
+      out.items = trn(3, '{n} item', '{n} items');
+      const keepVal = scanAmount.value; window.scanApplyTarget = '';
+      scanAmount.value = '23.40'; updateScanApplyLabel();
+      out.apply = scanApply.textContent;
+      scanAmount.value = keepVal; updateScanApplyLabel();
+    } finally { I18N.set(keepLang); window.Capacitor = keepCap; }
+    return out;
+  });
+  check('Malay: words built in script are translated — "Dibaca oleh AI telefon anda", "Salah?", "Sama dengan Jumlah & tunai" (a card name stays as printed), "3 barang", "Tambah RM 23.40"',
+    /Dibaca oleh AI telefon anda/.test(msWords.ai) && /Salah\?/.test(msWords.wrong) && msWords.match === 'Sama dengan Jumlah & tunai'
+    && msWords.visa === 'Sama dengan Jumlah & VISA' && msWords.items === '3 barang' && /^Tambah RM\s?23\.40$/.test(msWords.apply), JSON.stringify(msWords));
   // CSV import cannot reset the monthly count.
   const kept = await S(async () => {
     state.pro = false; state.statementUsage = { month: currentMonthISO(), imports: 1 };

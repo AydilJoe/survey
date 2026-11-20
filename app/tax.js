@@ -497,12 +497,22 @@ async function taxAiMatchRun(now, opts) {
   if (!list.length) return 0;
   taxAiBusy = true;
   let found = 0;
+  let batch = null;
   try {
     const kit = typeof captureAiKit === "function" ? await captureAiKit() : null;
     if (!kit) return 0;
     const t = taxState();
     if (!t.aiMatch) t.aiMatch = {};
+    // More than one spend is a batch: the badge fills as answers land (and,
+    // for "Review my year", the sheet shows the bar). In the background it
+    // waits for the app to come back; spends already answered are cached.
+    batch = list.length > 1 && typeof aiBatchStart === "function"
+      ? aiBatchStart({ label: "Checking tax relief", say: "AI is checking tax relief", total: list.length, overlay: !!(opts && opts.overlay), minimise: false }) : null;
+    let k = 0;
     for (const e of list) {
+      if (batch) aiBatchStep(batch, k);
+      k++;
+      if (typeof aiUntilForeground === "function") await aiUntilForeground();
       taxAiTried.add(e.id);
       const year = Number(String(e.date).slice(0, 4));
       const choices = taxAiChoices(year);
@@ -513,7 +523,7 @@ async function taxAiMatchRun(now, opts) {
       // Automatic runs only move the header badge; "Review my year" (opts.overlay) shows the sheet.
       const ask = () => withTimeout(kit.aiReadAlert({ text, categories: names }), TAX_AI_TIMEOUT_MS);
       const think = typeof withAiThinking === "function"
-        ? (fn) => withAiThinking(fn, opts && opts.overlay ? { overlay: true, label: "Checking tax relief" } : undefined) : (fn) => fn();
+        ? (fn) => withAiThinking(fn, opts && opts.overlay && !batch ? { overlay: true, label: "Checking tax relief" } : undefined) : (fn) => fn();
       try { reply = parseAiAlertReply(await think(ask)); } catch { reply = null; }
       if (!reply) continue;                       // not cached: may be asked again another day
       const name = aiCategoryIn(reply.category, names);
@@ -524,7 +534,10 @@ async function taxAiMatchRun(now, opts) {
     const ids = Object.keys(t.aiMatch);
     if (ids.length > TAX_AI_KEEP) for (const id of ids.slice(0, ids.length - TAX_AI_KEEP)) delete t.aiMatch[id];
     save();
-  } finally { taxAiBusy = false; }
+  } finally {
+    taxAiBusy = false;
+    if (batch) { aiBatchStep(batch, batch.total); aiBatchEnd(batch); }
+  }
   return found;
 }
 

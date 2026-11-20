@@ -197,6 +197,7 @@
           <div class="brand-name">
             <h1>Duitful</h1>
             <button type="button" class="ai-badge" id="ai-badge" aria-label="On-device AI is on" title="On-device AI is on" hidden>
+              <span class="ai-badge-fill" aria-hidden="true"></span>
               <svg class="sempoa" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.2" y="2.2" width="15.6" height="15.6" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.75"/><path d="M7 3v14M13 3v14" fill="none" stroke="currentColor" stroke-width="1" opacity="0.45"/><path d="M2.9 8h14.2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect class="ai-bead sp-hl" x="4.7" y="3.4" width="4.6" height="2.3" rx="1.15" fill="currentColor"/><rect class="ai-bead sp-hr" x="10.7" y="3.4" width="4.6" height="2.3" rx="1.15" fill="currentColor"/><rect class="ai-bead sp-el1" x="4.7" y="11.95" width="4.6" height="2.3" rx="1.15" fill="currentColor"/><rect class="ai-bead sp-el2" x="4.7" y="14.4" width="4.6" height="2.3" rx="1.15" fill="currentColor"/><rect class="ai-bead sp-er1" x="10.7" y="11.95" width="4.6" height="2.3" rx="1.15" fill="currentColor"/><rect class="ai-bead sp-er2" x="10.7" y="14.4" width="4.6" height="2.3" rx="1.15" fill="currentColor"/></svg>
               <span aria-hidden="true" translate="no">AI</span>
             </button>
@@ -3006,6 +3007,10 @@
         <span class="ai-think-mark" aria-hidden="true"><span class="ai-think-glow"></span><svg class="sempoa" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.2" y="2.2" width="15.6" height="15.6" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.75"/><path d="M7 3v14M13 3v14" fill="none" stroke="currentColor" stroke-width="1" opacity="0.45"/><path d="M2.9 8h14.2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect class="ai-bead sp-hl" x="4.7" y="3.4" width="4.6" height="2.3" rx="1.15" fill="currentColor"/><rect class="ai-bead sp-hr" x="10.7" y="3.4" width="4.6" height="2.3" rx="1.15" fill="currentColor"/><rect class="ai-bead sp-el1" x="4.7" y="11.95" width="4.6" height="2.3" rx="1.15" fill="currentColor"/><rect class="ai-bead sp-el2" x="4.7" y="14.4" width="4.6" height="2.3" rx="1.15" fill="currentColor"/><rect class="ai-bead sp-er1" x="10.7" y="11.95" width="4.6" height="2.3" rx="1.15" fill="currentColor"/><rect class="ai-bead sp-er2" x="10.7" y="14.4" width="4.6" height="2.3" rx="1.15" fill="currentColor"/></svg></span>
         <h2 class="ai-think-title" id="ai-think-title">Your phone's AI is reading…</h2>
         <p class="ai-think-task" id="ai-think-task"></p>
+        <div class="ai-think-progress" id="ai-think-progress" hidden>
+          <span class="ai-think-bar" aria-hidden="true"><span class="ai-think-bar-fill"></span></span>
+          <span class="ai-think-count" id="ai-think-count" translate="no"></span>
+        </div>
         <button type="button" class="ai-think-hide" id="ai-think-hide">Hide</button>
       </div>
     </dialog>

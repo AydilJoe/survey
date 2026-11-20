@@ -634,7 +634,15 @@ function statementItems(parsed, recon) {
 /* On-device AI (only if allowed and present): suggests a category from the
    app's own list and a cleaner payee (only words the description contains),
    for spends that have no category yet. Never reads or writes an amount or a
-   date. Small batches, short timeouts; failure changes nothing. */
+   date. Short timeouts; failure changes nothing.
+   It runs as a background batch (aiBatchStart in script.js): the sheet shows
+   briefly, tucks into the header badge, and the badge fills as answers land.
+   The review stays usable throughout — each answer fills its row in place
+   (opts.onAnswer), what you changed yourself is never overwritten, and Import
+   never waits. The phone's AI runs inside the app, so the batch pauses while
+   the app is in the background and picks up the rows left when it returns,
+   if the review is still open (opts.alive). Rows never asked keep the rules'
+   guess. */
 async function statementAiSuggest(items, opts) {
   if (typeof aiAllowed === "function" && !aiAllowed()) return 0;
   const kit = typeof duitfulKit === "function" ? duitfulKit("aiReadAlert") : null;
@@ -642,21 +650,59 @@ async function statementAiSuggest(items, opts) {
   try { const st = await withTimeout(kit.aiStatus(), 2000); if (!st || !st.available) return 0; } catch { return 0; }
   const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
   const max = (opts && opts.max) || 20;
+  const alive = (opts && opts.alive) || (() => true);
+  const todo = items.filter((it) => it.kind === "spend" && !it.category && !it.aiAsked).slice(0, max);
+  if (!todo.length) return 0;
+  const runAi = typeof withAiThinking === "function" ? withAiThinking : (fn) => fn();
+  const batch = typeof aiBatchStart === "function"
+    ? aiBatchStart({ label: "Sorting your statement", say: "AI is sorting your statement", total: todo.length, overlay: !(opts && opts.quiet) }) : null;
   let n = 0;
-  for (const it of items) {
-    if (n >= max) break;
-    if (it.kind !== "spend" || it.category) continue;
-    n++;
-    let reply = null;
-    const runAi = typeof withAiThinking === "function" ? withAiThinking : (fn) => fn();
-    try { reply = parseAiAlertReply(await runAi(() => withTimeout(kit.aiReadAlert({ text: it.row.desc.slice(0, 300), categories: cats }), 5000), { overlay: true, label: "Sorting your statement" })); } catch { reply = null; }
-    if (!reply || reply.promo) continue;
-    const cat = typeof aiCategoryIn === "function" ? aiCategoryIn(reply.category, cats) : "";
-    const who = typeof aiNameInText === "function" ? aiNameInText(reply.counterparty, it.row.desc) : "";
-    if (cat) { it.category = cat; it.ai = true; }
-    if (who) { it.payee = who; it.ai = true; }
+  try {
+    for (let k = 0; k < todo.length; k++) {
+      if (typeof aiUntilForeground === "function") await aiUntilForeground();
+      if (!alive()) break;
+      const it = todo[k];
+      if (it.kind === "spend" && !it.category && !it.userCat) {
+        n++;
+        let reply = null;
+        try { reply = parseAiAlertReply(await runAi(() => withTimeout(kit.aiReadAlert({ text: it.row.desc.slice(0, 300), categories: cats }), 5000))); } catch { reply = null; }
+        it.aiAsked = true;
+        if (reply && !reply.promo && alive()) {
+          const cat = typeof aiCategoryIn === "function" ? aiCategoryIn(reply.category, cats) : "";
+          const who = typeof aiNameInText === "function" ? aiNameInText(reply.counterparty, it.row.desc) : "";
+          let changed = false;
+          if (cat && !it.category && !it.userCat) { it.category = cat; it.ai = true; changed = true; }
+          if (who && !it.userPayee) { it.payee = who; it.ai = true; changed = true; }
+          if (changed && opts && typeof opts.onAnswer === "function") opts.onAnswer(it);
+        }
+      }
+      if (typeof aiBatchStep === "function") aiBatchStep(batch, k + 1);
+    }
+  } finally {
+    if (typeof aiBatchEnd === "function") aiBatchEnd(batch);
   }
   return n;
+}
+
+// A row the AI just filled: change it where it stands (never re-render the
+// list under someone's thumb), and tag it.
+function stmtShowAiRow(it) {
+  const i = stmtUi.items.indexOf(it);
+  const li = i < 0 ? null : stmtEl("stmt-list")?.querySelector(`[data-stmt-on="${i}"]`)?.closest(".stmt-row");
+  if (!li) return;
+  const sel = li.querySelector("[data-stmt-cat]");
+  if (sel && document.activeElement !== sel) sel.value = it.category || "";
+  const pay = li.querySelector("[data-stmt-payee]");
+  if (pay && document.activeElement !== pay) pay.value = it.payee;
+  // Beside the payee, so nothing below moves when it lands.
+  if (!li.querySelector(".stmt-ai")) pay?.insertAdjacentHTML("afterend", stmtAiTag());
+  li.classList.remove("is-ai-new");
+  void li.offsetWidth;
+  li.classList.add("is-ai-new");
+}
+function stmtAiTag() {
+  const t = escapeHtml(tr("Suggested by your phone's AI"));
+  return `<span class="stmt-tag stmt-ai" title="${t}" aria-label="${t}" translate="no">AI</span>`;
 }
 
 /* Books the ticked items. Spends go where daily spending goes; income goes to
@@ -848,7 +894,11 @@ function showStatementReview(read) {
   stmtEl("stmt-review").hidden = false;
   stmtEl("stmt-import").hidden = false;
   renderStatementReview();
-  statementAiSuggest(stmtUi.items).then((n) => { if (n) renderStatementReview(); }).catch(() => {});
+  const items = stmtUi.items;
+  statementAiSuggest(items, {
+    alive: () => stmtUi.items === items && !!stmtEl("stmt-dialog")?.open,
+    onAnswer: stmtShowAiRow,
+  }).catch(() => {});
   return parsed;
 }
 
@@ -880,7 +930,7 @@ function renderStatementReview() {
       <input type="checkbox" data-stmt-on="${i}" aria-label="${tr("Import {name}", { name: escapeHtml(it.payee) })}"${it.on ? " checked" : ""}${it.kind === "move" ? " disabled" : ""} />
       <div class="stmt-main">
         <div class="stmt-top">
-          <input class="stmt-payee" data-stmt-payee="${i}" value="${escapeHtml(it.payee)}" aria-label="${tr("Payee")}" />
+          <input class="stmt-payee" data-stmt-payee="${i}" value="${escapeHtml(it.payee)}" aria-label="${tr("Payee")}" />${it.ai ? stmtAiTag() : ""}
           ${stmtUi.parsed.scanned
             ? `<input class="stmt-amt-in ${it.kind}" data-stmt-amt="${i}" inputmode="decimal" value="${it.amount.toFixed(2)}" aria-label="${tr("Amount")}" />`
             : `<span class="stmt-amt ${it.kind}">${sign}${escapeHtml(fmtMoney(it.amount))}</span>`}
@@ -1011,8 +1061,8 @@ stmtEl("stmt-list")?.addEventListener("change", (e) => {
   if (!it) return;
   if (t.dataset.stmtOn != null) it.on = t.checked;
   else if (t.dataset.stmtKind != null) { it.kind = t.value; if (it.kind === "move") it.on = false; else if (!it.dup) it.on = true; }
-  else if (t.dataset.stmtCat != null) it.category = t.value;
-  else if (t.dataset.stmtPayee != null) it.payee = t.value.trim().slice(0, 60);
+  else if (t.dataset.stmtCat != null) { it.category = t.value; it.userCat = true; }
+  else if (t.dataset.stmtPayee != null) { it.payee = t.value.trim().slice(0, 60); it.userPayee = true; }
   else if (t.dataset.stmtAmt != null || t.dataset.stmtBal != null) {
     // Corrections on a scan: the user's figure, then the same check again.
     const v = t.value.trim() ? stmtMoney(t.value) : NaN;

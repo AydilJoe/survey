@@ -8422,6 +8422,16 @@ button:disabled, button[aria-disabled="true"] { transition-property: background-
 .stmt-meta select { width: auto; max-width: 9.5rem; padding: 0.2rem 1.4rem 0.2rem 0.5rem; font-size: 0.8rem; border-radius: var(--r-sm); min-height: 32px; background-position: right 0.35rem center; background-size: 0.9rem 0.9rem; }
 .stmt-tag { font-size: 0.72rem; color: var(--muted); }
 .stmt-tag.is-warn { color: var(--warn); }
+/* A row the phone's AI filled: the same terracotta as the AI badge (identity,
+   not a status), and one soft flash when the answer lands mid-review. */
+.stmt-tag.stmt-ai { flex: none; color: var(--brand-ink); font-weight: 700; letter-spacing: 0.02em; padding: 0 0.3rem; border-radius: var(--r-pill); background: color-mix(in srgb, var(--brand) 14%, transparent); }
+@media (prefers-reduced-motion: no-preference) {
+  .stmt-row.is-ai-new { animation: stmt-ai-land 0.9s ease-out 1; }
+}
+@keyframes stmt-ai-land {
+  from { background-color: color-mix(in srgb, var(--brand) 14%, transparent); }
+  to { background-color: transparent; }
+}
 .stmt-amt { font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
 #stmt-review .free-count { margin-top: 0.5rem; }
 .stmt-amt.spend { color: var(--loss); }
@@ -8846,10 +8856,23 @@ html[data-theme="pastel"] .tab.active {
   pointer-events: none;
 }
 .ai-badge svg { position: relative; width: 14px; height: 14px; display: block; flex: none; overflow: visible; }
-.ai-badge > span { position: relative; }
+.ai-badge > span:not(.ai-badge-fill) { position: relative; }
 .ai-badge:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .ai-badge:active { transform: scale(0.95); }
 .ai-badge.is-thinking { border-color: color-mix(in srgb, var(--brand-ink) 50%, transparent); }
+/* Progress of a long batch (aiBatchStart): the chip's tint fills left to
+   right as answers land; on "done" it fills, then fades. Clipped, not
+   scaled, so the pill's round ends stay round. */
+.ai-badge-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--brand) 34%, transparent);
+  clip-path: inset(0 calc((1 - var(--ai-progress, 0)) * 100%) 0 0 round var(--r-pill));
+  opacity: 0;
+  pointer-events: none;
+}
+.ai-badge.has-progress .ai-badge-fill { opacity: 1; }
 /* While the mark is out in the thinking sheet, the badge keeps its chip. */
 .ai-badge.is-lifted svg { opacity: 0; }
 .sempoa .ai-bead { transform-box: view-box; }
@@ -8866,9 +8889,15 @@ html[data-theme="pastel"] .tab.active {
   :is(.ai-badge.is-thinking, .ai-think[open]) .sp-el2 { animation: ai-sp-el2 2.2s infinite; }
   :is(.ai-badge.is-thinking, .ai-think[open]) .sp-hr  { animation: ai-sp-hr 2.2s infinite; }
   .ai-badge.is-landed svg { animation: ai-sp-land 0.32s var(--ease-out, ease-out) 1; }
+  .ai-badge-fill { transition: clip-path 0.42s cubic-bezier(0.3, 0.7, 0.2, 1), opacity 0.2s ease; }
+  .ai-badge.is-done .ai-badge-fill { animation: ai-fill-done 0.8s ease-out 1 both; }
+  .ai-badge.is-done svg { animation: ai-sp-land 0.36s var(--ease-out, ease-out) 1; }
+  .ai-think-bar-fill { transition: transform 0.42s cubic-bezier(0.3, 0.7, 0.2, 1); }
 }
 @media (prefers-reduced-motion: reduce) {
   .ai-badge.is-thinking { animation: ai-badge-breathe 2s ease-in-out infinite; }
+  /* No moving fill: the progress is in words (aria-label, #ai-live, the sheet). */
+  .ai-badge-fill { display: none; }
 }
 @keyframes ai-badge-shimmer {
   from { background-position: 120% 0; }
@@ -8910,6 +8939,10 @@ html[data-theme="pastel"] .tab.active {
   0% { transform: scale(1.35); }
   60% { transform: scale(0.92); }
   100% { transform: scale(1); }
+}
+@keyframes ai-fill-done {
+  0%, 45% { opacity: 1; }
+  100% { opacity: 0; }
 }
 @keyframes ai-badge-breathe {
   0%, 100% { opacity: 1; }
@@ -8981,6 +9014,11 @@ html[data-theme="pastel"] .tab.active {
 }
 .ai-think-title { margin: 0; font-size: 1rem; font-weight: 650; }
 .ai-think-task { margin: 0; color: var(--muted); font-size: 0.85rem; min-height: 1.2em; }
+.ai-think-progress { display: flex; align-items: center; gap: 0.6rem; width: 100%; max-width: 13rem; margin-top: 0.2rem; }
+.ai-think-progress[hidden] { display: none; }
+.ai-think-bar { flex: 1; height: 6px; border-radius: var(--r-pill); background: color-mix(in srgb, var(--brand) 16%, transparent); overflow: hidden; }
+.ai-think-bar-fill { display: block; height: 100%; border-radius: inherit; background: var(--brand); transform-origin: 0 50%; transform: scaleX(var(--ai-progress, 0)); }
+.ai-think-count { font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ai-think-hide {
   margin-top: 0.4rem;
   background: none;

@@ -4812,7 +4812,7 @@ document.addEventListener("click", (e) => {
   }
 });
 function pendingWrongBtn(p) {
-  return captureShareAllowed() ? `<button type="button" class="pending-wrong" data-pending-wrong="${escapeHtml(p.id)}">Wrong?</button>` : "";
+  return captureShareAllowed() ? `<button type="button" class="pending-wrong" data-pending-wrong="${escapeHtml(p.id)}">${tr("Wrong?")}</button>` : "";
 }
 function renderCaptureShareLinks() {
   const on = captureShareAllowed();
@@ -4825,7 +4825,7 @@ function renderCaptureShareLinks() {
 // payee or category (never the amount).
 function pendingAiTag(p) {
   const ai = p && (p.ai || (p.from && p.from.ai) || (p.to && p.to.ai));
-  return ai ? `<p class="pending-ai">Read by your phone's AI</p>` : "";
+  return ai ? `<p class="pending-ai">${tr("Read by your phone's AI")}</p>` : "";
 }
 
 /* ---------- On-device AI: the switch, the status, the one-time hello ----------
@@ -4867,15 +4867,104 @@ const aiThinkTokens = new Map(); // token -> { timer, overlay, label }
 let aiThinkSeq = 0;
 const aiThinkUi = { open: false, closing: false, openedAt: 0, closeTimer: null, hidden: false };
 
+/* A long batch (statement suggestions, a pile of tax spends) reports progress:
+   aiBatchStart({ label, say, total, overlay, minimise }) → aiBatchStep(b, done)
+   → aiBatchEnd(b). The chip's tint fills left to right as answers land, the
+   badge's aria-label and #ai-live say "AI is sorting your statement · 4 of 20"
+   (announced at most every AI_BATCH_SAY_MS), and the sheet shows a bar. With
+   overlay it opens the sheet, then after AI_BATCH_MINIMISE_MS tucks it back
+   into the badge so the screen underneath stays usable; a tap on the busy
+   badge brings it back. One batch at a time; a new one replaces the old.
+   On-device AI runs inside the app: callers wait on aiUntilForeground()
+   between calls, so a batch pauses while the app is in the background and
+   carries on when it comes back. Nothing native runs meanwhile. */
+const AI_BATCH_MINIMISE_MS = 1200;
+const AI_BATCH_SAY_MS = 4000;
+let aiBatch = null;
+
+function aiBatchStart(o) {
+  if (aiBatch) aiBatchEnd(aiBatch, { quiet: true });
+  const b = { id: ++aiThinkSeq, label: o.label || "", say: o.say || "", total: Math.max(1, o.total | 0), done: 0,
+    overlay: !!o.overlay, minTimer: null, said: "", saidAt: 0 };
+  aiBatch = b;
+  if (b.overlay) {
+    aiThinkUi.hidden = false;
+    if (o.minimise !== false) b.minTimer = setTimeout(() => aiBatchMinimise(b), AI_BATCH_MINIMISE_MS);
+  }
+  syncAiThinkingUi();
+  return b;
+}
+function aiBatchStep(b, done) {
+  if (!b || b !== aiBatch) return;
+  b.done = Math.max(0, Math.min(b.total, done | 0));
+  syncAiThinkingUi();
+}
+// Tuck the sheet back into the badge; the batch carries on.
+function aiBatchMinimise(b) {
+  if (!b || b !== aiBatch) return;
+  clearTimeout(b.minTimer); b.minTimer = null;
+  if (aiThinkUi.open && !aiThinkUi.closing) aiThinkHide();
+  else aiThinkUi.hidden = true;
+}
+function aiBatchEnd(b, opts) {
+  if (!b || b !== aiBatch) return;
+  clearTimeout(b.minTimer);
+  aiBatch = null;
+  const badge = document.getElementById("ai-badge");
+  if (badge && !badge.hidden && !(opts && opts.quiet)) {
+    // One short "done": the tint fills, the beads land home, the tint fades.
+    badge.style.setProperty("--ai-progress", "1");
+    badge.classList.add("is-done");
+    setTimeout(() => { badge.classList.remove("is-done"); if (!aiBatch) badge.style.removeProperty("--ai-progress"); }, 800);
+  }
+  syncAiThinkingUi();
+}
+function aiBatchText(b) {
+  return `${tr(b.say || "AI is reading…")} · ${tr("{done} of {total}", { done: b.done, total: b.total })}`;
+}
+
+let aiAppActive = true;
+const aiForegroundWaiters = [];
+function aiInForeground() { return aiAppActive && document.visibilityState !== "hidden"; }
+function aiForegroundNotify() { if (aiInForeground()) aiForegroundWaiters.splice(0).forEach((r) => r()); }
+document.addEventListener("visibilitychange", aiForegroundNotify);
+// Resolves at once with the app in front, else when it comes back.
+function aiUntilForeground() {
+  return aiInForeground() ? Promise.resolve() : new Promise((r) => aiForegroundWaiters.push(r));
+}
+
 function syncAiThinkingUi() {
   const badge = document.getElementById("ai-badge");
   const live = document.getElementById("ai-live");
-  const busy = aiThinkTokens.size > 0;
+  const b = aiBatch;
+  const busy = aiThinkTokens.size > 0 || !!b;
   const active = busy && !!badge && !badge.hidden;
-  if (badge) badge.classList.toggle("is-thinking", active);
+  if (badge) {
+    badge.classList.toggle("is-thinking", active);
+    badge.classList.toggle("has-progress", active && !!b);
+    if (b) badge.style.setProperty("--ai-progress", String(b.done / b.total));
+    else if (!badge.classList.contains("is-done")) badge.style.removeProperty("--ai-progress");
+    const label = b ? aiBatchText(b) : busy ? tr("AI is reading…") : tr("On-device AI is on");
+    if (badge.getAttribute("aria-label") !== label) { badge.setAttribute("aria-label", label); badge.title = label; }
+  }
   if (live) {
-    const next = busy && (active || aiThinkUi.open) ? tr("AI is reading…") : "";
+    let next = busy && (active || aiThinkUi.open) ? tr("AI is reading…") : "";
+    if (b && next) {
+      // Progress, but not a running commentary: the start, every few seconds, the end.
+      const now = Date.now();
+      if (!b.said || b.done === b.total || now - b.saidAt >= AI_BATCH_SAY_MS) { b.said = aiBatchText(b); b.saidAt = now; }
+      next = b.said;
+    }
     if (live.textContent !== next) live.textContent = next;
+  }
+  const prog = document.getElementById("ai-think-progress");
+  if (prog) {
+    prog.hidden = !b;
+    if (b) {
+      prog.style.setProperty("--ai-progress", String(b.done / b.total));
+      const n = document.getElementById("ai-think-count");
+      if (n) n.textContent = tr("{done} of {total}", { done: b.done, total: b.total });
+    }
   }
   aiThinkOverlaySync();
 }
@@ -4931,6 +5020,7 @@ function aiThinkFlight(mark, home) {
 
 function aiThinkOverlaySync() {
   const fg = [...aiThinkTokens.values()].filter((t) => t.overlay);
+  if (aiBatch && aiBatch.overlay) fg.push({ label: aiBatch.label });
   if (!fg.length) {
     aiThinkUi.hidden = false;
     if (aiThinkUi.open && !aiThinkUi.closing && !aiThinkUi.closeTimer) {
@@ -5021,6 +5111,8 @@ function aiThinkHide() {
 }
 document.getElementById("ai-think")?.addEventListener("cancel", (e) => { e.preventDefault(); aiThinkHide(); });
 document.getElementById("ai-think-hide")?.addEventListener("click", aiThinkHide);
+// A tap outside the card (on the backdrop) puts it away too: the page needs the screen.
+document.getElementById("ai-think")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) aiThinkHide(); });
 // Closed some other way (the browser's own close request): keep the books straight.
 document.getElementById("ai-think")?.addEventListener("close", () => {
   if (!aiThinkUi.open || aiThinkUi.closing) return;
@@ -5045,7 +5137,16 @@ function renderAiBadge() {
     badge.addEventListener("animationend", off);
   }
 }
-document.getElementById("ai-badge")?.addEventListener("click", () => openAiInfo("badge"));
+// While a batch runs (or a sheet was put away), the badge brings the sheet back.
+document.getElementById("ai-badge")?.addEventListener("click", () => {
+  if (aiBatch || [...aiThinkTokens.values()].some((t) => t.overlay)) {
+    if (aiBatch) { aiBatch.overlay = true; clearTimeout(aiBatch.minTimer); aiBatch.minTimer = null; }
+    aiThinkUi.hidden = false;
+    syncAiThinkingUi();
+    return;
+  }
+  openAiInfo("badge");
+});
 // The status line, shared by the Settings card and the "What it does" sheet.
 function aiStatusText() {
   const st = aiStatusCache ? aiStatusCache.state : "";
@@ -6803,6 +6904,8 @@ function initQuickAddResume() {
   if (!App || typeof App.addListener !== "function") return;
   _quickAddResumeBound = true;
   App.addListener("appStateChange", (st) => {
+    aiAppActive = !!(st && st.isActive);   // on-device AI batches pause in the background
+    aiForegroundNotify();
     if (st && st.isActive) {
       drainQuickAdd().catch(() => {});
       drainCaptured().catch(() => {});
@@ -11865,7 +11968,7 @@ function maybeOpenGuideAfterSetup() {
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
   "1.62.1": [
-    "<strong>A sempoa for your phone's AI</strong> — the AI badge is now a little abacus, and its beads count while your phone's own AI works. When you're waiting on it (a receipt, a statement, Review my year), it floats into the page, counts there, and floats back when done. Nothing is uploaded.",
+    "<strong>A sempoa for your phone's AI</strong> — the AI badge is now a little abacus, and its beads count while your phone's own AI works. When you're waiting on it (a receipt, Review my year), it floats into the page, counts there, and floats back when done. A bank statement's suggestions run in the background: the badge fills as they land in your review, which you can keep editing and import any time. Nothing is uploaded.",
   ],
   "1.62.0": [
     "<strong>EA form scanner</strong> — on the Tax page, scan or pick your Borang EA (PDF or photo) and your salary, PCB, EPF and SOCSO for that year fill in at once. Each figure shows its EA line to check, a total that doesn't add up is marked, and nothing is uploaded.",
@@ -15332,7 +15435,7 @@ function renderScanItems(raw, total) {
     // rounding sit between it and the total, and are not "unaccounted".
     let vs = null;
     try { vs = typeof receiptItemsCheck === "function" ? receiptItemsCheck(raw, shown) : null; } catch { vs = null; }
-    const n = `${items.length} item${items.length === 1 ? "" : "s"}`;
+    const n = trn(items.length, "{n} item", "{n} items");
     let tail = "", off = false;
     if (vs && vs.basis === "subtotal" && vs.match != null) {
       off = !vs.match;
@@ -15358,9 +15461,9 @@ function renderScanItems(raw, total) {
   const drawFoot = (sum) => {
     if (!foot) return;
     foot.innerHTML =
-      row(`${items.length} item${items.length === 1 ? "" : "s"}`, sum, "scan-item-sub")
+      row(trn(items.length, "{n} item", "{n} items"), sum, "scan-item-sub")
       + (charges > 0 ? row(tr("Service charge & tax"), charges, "scan-item-sub") : "")
-      + (Number.isFinite(shown) && shown > 0 ? row("Total", shown, "scan-item-total") : "");
+      + (Number.isFinite(shown) && shown > 0 ? row(tr("Total"), shown, "scan-item-total") : "");
   };
   drawFoot(itemSum);
   list.oninput = () => {
@@ -15374,7 +15477,7 @@ function renderScanItems(raw, total) {
     if (against == null) return;
     const gapNow = Math.round((sum - against) * 100) / 100;
     const ok = Math.abs(gapNow) <= 0.05;
-    const what = vs && vs.basis === "subtotal" ? "match subtotal" : "add up";
+    const what = vs && vs.basis === "subtotal" ? tr("match subtotal") : tr("add up");
     summary.textContent = trn(items.length, "{n} item", "{n} items") + (ok ? ` · ✓ ${what}` : ` · ⚠ ${tr("off by {a}", { a: fmtMoney(Math.abs(gapNow)) })}`);
     summary.classList.toggle("is-off", !ok);
   };
@@ -15566,7 +15669,7 @@ function updateScanApplyLabel() {
   const amt = Number(scanAmount && scanAmount.value);
   const type = document.querySelector(".scan-type-pills .pill.active")?.dataset.scanType || "expense";
   const money = Number.isFinite(amt) && amt > 0 ? fmtMoney(amt) : "";
-  scanApply.textContent = type === "debt" ? (money ? `Pay ${money}` : tr("Pay debt")) : (money ? `Add ${money}` : tr("Add expense"));
+  scanApply.textContent = type === "debt" ? (money ? tr("Pay {amount}", { amount: money }) : tr("Pay debt")) : (money ? tr("Add {amount}", { amount: money }) : tr("Add expense"));
   scanApply.disabled = !money;
 }
 scanAmount?.addEventListener("input", updateScanApplyLabel);

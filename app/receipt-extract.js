@@ -301,17 +301,22 @@ function receiptExtract(text, opts) {
 }
 
 // The words of "✓ Matches Total & VISA": which printed lines agreed. The
-// arithmetic is named only when it is one of just two that agreed.
+// arithmetic is named only when it is one of just two that agreed. In the
+// person's language (tr() from i18n.js, loaded first); a card name such as
+// VISA stays as printed.
 function receiptAgreeLabel(total) {
+  const tr = typeof window !== "undefined" && typeof window.tr === "function" ? window.tr
+    : (s, v) => String(s).replace(/\{(\w+)\}/g, (m, k) => (v && k in v ? v[k] : m));
   if (!total || !total.agree || total.agree.length < 2) return "";
   const p = (total.candidates || []).find((c) => c.kind === "payment");
   const payName = () => {
     const w = p && p.label ? p.label.split(" ")[0] : "";
-    if (!/^[a-z]+$/i.test(w)) return "payment";
+    if (!/^[a-z]+$/i.test(w)) return tr("payment");
+    if (/^(cash|tunai)$/i.test(w)) return tr("cash");
     return w.length <= 4 ? w.toUpperCase() : rxTitle(w);
   };
   const printed = total.agree.filter((k) => k !== "computed");
-  const names = printed.map((k) => (k === "total" ? "Total" : payName()));
-  if (names.length < 2) names.push("the receipt's sums");
-  return `Matches ${names.join(" & ")}`;
+  const names = printed.map((k) => (k === "total" ? tr("Total") : payName()));
+  if (names.length < 2) names.push(tr("the receipt's sums"));
+  return tr("Matches {what}", { what: names.join(" & ") });
 }
