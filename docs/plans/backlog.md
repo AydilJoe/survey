@@ -40,7 +40,7 @@ Privacy: the vault is encrypted, so any figure shown needs a small
 plain summary the app writes on purpose (and clears when locked), never the
 vault itself.
 
-## Tax: on-device AI for relief matching (requested 20 Nov 2026)
+## Tax: on-device AI for relief matching (building in 1.62.0, with the EA form scanner)
 
 Today spend → relief matching is keyword-only (`app.keywords` in `app/tax-data.js`, `tax.js`). Add on-device AI as a fallback only for spends the keywords miss (e.g. "Popular" → lifestyle/books, "Dr Tan & Partners" → medical, Malay/Chinese wording):
 - AI may only pick a relief code that already exists in `tax-data.js` for that year, never a new one. The amount always comes from the entry.
@@ -56,21 +56,35 @@ When a release adds a feature (e.g. wallets, recurring splits, statement import,
 - Respect reduced motion (jump plus a static highlight, no animation) and the hide-amounts eye. All three languages. Never covers content or blocks taps; it doesn't show while a dialog is open.
 - Could reuse or extend the existing tour/milestones code if suitable.
 
-## Tax: on-device AI for relief matching (requested 20 Nov 2026)
+## More on-device AI ideas (20 Nov 2026)
 
-Today spend → relief matching is keyword-only (`app.keywords` in `app/tax-data.js`, `tax.js`). Add on-device AI as a fallback only for spends the keywords miss (e.g. "Popular" → lifestyle/books, "Dr Tan & Partners" → medical, Malay/Chinese wording):
-- AI may only pick a relief code that already exists in `tax-data.js` for that year, never a new one. The amount always comes from the entry.
-- Suggestions go into the existing "To check" / review flow (`taxOpenReview`) with a "Suggested by your phone's AI" tag. Nothing is claimed without the user's yes.
-- Behind `aiAllowed()`; phones without the model keep keywords only. Nothing uploaded. Descriptive, not tax advice: it suggests a match, it doesn't say whether the user qualifies.
-- Tests with a stubbed `DuitfulKit` (as for alerts and receipts). All three languages.
+Same rules as every AI path: runs on the phone behind `aiAllowed()`, never sets
+or guesses an amount (every figure must be printed or typed), no chat, no
+advice, nothing saved without the user's yes. Order is the suggested priority.
 
-## "New" feature spotlight with motion (requested 20 Nov 2026)
+1. **Cleaner payee names**: "PYMT*GRAB 8812 KL" → "Grab". Helps Reports,
+   tax matching and duplicate checks. Keep the original text.
+2. **Voice entry**: "dua belas ringgit nasi lemak" → RM12, Food, "Nasi lemak".
+   Amount only from the user's own words; mixed Malay/English.
+3. **Subscription spotting**: repeating charges (Netflix, Spotify, Astro) offered
+   as Monthly bills.
+4. **Loan / PTPTN letter scan**: fills Add debt (balance, rate, instalment, due
+   day) only from printed figures.
+5. **Category for quick entries**: "grab ali" → Transport.
+6. **Search by sentence**: "food in Penang last month" → filters; the app finds
+   and sums, the AI only writes the filter.
+7. **Split by item tidy-up**: "2X TEH O AIS" → "Teh O Ais ×2"; prices as printed.
+8. **Wallet and budget pool guess** for new entries (from the user's own habits).
+9. **Unknown statement layouts**: help read banks without a layout; import still
+   needs `reconcileStatement` "ok".
+10. **iPhone catch-up**: statement suggestions (and alerts if ever possible) on
+    Apple's on-device model; today iPhone does receipts and the recap only.
+11. **Sharper redaction** for "Share the wording" samples (names the rules miss).
+12. **TNB / water bill scan** for recurring splits — already in
+    `recurring-splits.md` version 2.
 
-When a release adds a feature (e.g. wallets, recurring splits, statement import, Pastel), show a small "New" button or chip (Home, or the relevant tab) that, when tapped, animates the user to the feature: smooth-scroll and/or tab switch, then a gentle pulse/highlight ring on the target card or button.
-- One spotlight per feature, dismissed once seen or tapped (state outside the vault or in it; never nags).
-- A list in code, e.g. `NEW_FEATURES = [{id, version, target selector, tab, label}]`, so each release adds a row; it shows only to users who updated past that version, not to brand-new installs (who get the tour).
-- Respect reduced motion (jump plus a static highlight, no animation) and the hide-amounts eye. All three languages. Never covers content or blocks taps; it doesn't show while a dialog is open.
-- Could reuse or extend the existing tour/milestones code if suitable.
+Not doing: spending tips or "you should save" (advice), a chat assistant,
+predicted bill amounts (guessing).
 
 ## Open decisions
 
