@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.61.0";
+const APP_VERSION = "1.61.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4852,12 +4852,53 @@ async function refreshAiStatus() {
 // the web, on a phone without it, while it downloads, or when it's off.
 // It shimmers once, the first time it ever appears (motion-safe only).
 const AI_BADGE_SEEN_KEY = "duitful.aiBadgeSeen";
+const AI_THINK_TIMEOUT_MS = 8000;
+const aiThinkTokens = new Map(); // token -> timeoutId
+let aiThinkSeq = 0;
+
+function syncAiThinkingUi() {
+  const badge = document.getElementById("ai-badge");
+  const live = document.getElementById("ai-live");
+  const active = aiThinkTokens.size > 0 && !!badge && !badge.hidden;
+  if (badge) badge.classList.toggle("is-thinking", active);
+  if (live) {
+    const next = active ? tr("AI is reading…") : "";
+    if (live.textContent !== next) live.textContent = next;
+  }
+}
+
+function aiThinkStart(timeoutMs = AI_THINK_TIMEOUT_MS) {
+  const token = ++aiThinkSeq;
+  const timer = setTimeout(() => aiThinkEnd(token), timeoutMs);
+  aiThinkTokens.set(token, timer);
+  syncAiThinkingUi();
+  return token;
+}
+
+function aiThinkEnd(token) {
+  const timer = aiThinkTokens.get(token);
+  if (timer === undefined) return;
+  clearTimeout(timer);
+  aiThinkTokens.delete(token);
+  syncAiThinkingUi();
+}
+
+async function withAiThinking(fn, timeoutMs = AI_THINK_TIMEOUT_MS) {
+  const token = aiThinkStart(timeoutMs);
+  try {
+    return await fn();
+  } finally {
+    aiThinkEnd(token);
+  }
+}
+
 function renderAiBadge() {
   const badge = document.getElementById("ai-badge");
   if (!badge) return;
   const show = isNative() && !!aiStatusCache && aiStatusCache.state === "on" && !!state && aiAllowed();
   const was = !badge.hidden;
   badge.hidden = !show;
+  syncAiThinkingUi();
   if (!show || was) return;
   let seen = true;
   try { seen = localStorage.getItem(AI_BADGE_SEEN_KEY) === "1"; localStorage.setItem(AI_BADGE_SEEN_KEY, "1"); } catch (_) {}
@@ -11638,6 +11679,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.61.1": [
+    "<strong>Sempoa mark for on-device AI</strong> — the header badge now uses Duitful's own two-rail abacus mark, and its beads slide gently while your phone's AI reads a receipt, bank alert, statement or recap.",
+  ],
   "1.61.0": [
     "<strong>Pastel</strong> — a new look in Settings → Appearance: cream-peach pages, puffy cards, a coral button and a rounded font that works offline. Free, like every theme.",
     "<strong>On-device AI badge</strong> — beside the Duitful name when your phone's own AI is on; tap it for its settings, now under Pro. Nothing is uploaded.",
@@ -13842,7 +13886,7 @@ async function receiptSecondOpinion(parsed, text) {
       const st = await withTimeout(aiKit.aiStatus(), 2000);
       if (st && st.available) {
         setScanStep("Double-checking with on-device AI…", null);
-        ai = parseAiReceiptReply(await withTimeout(aiKit.aiReadReceipt({ text }), 15000));
+        ai = parseAiReceiptReply(await withAiThinking(() => withTimeout(aiKit.aiReadReceipt({ text }), 15000)));
       }
     } catch { ai = null; }
   }
@@ -14921,7 +14965,7 @@ async function captureAiKit() {
 }
 async function askAiAboutAlert(kit, text, categories) {
   try {
-    return parseAiAlertReply(await withTimeout(kit.aiReadAlert({ text: String(text).slice(0, 600), categories }), CAPTURE_AI_TIMEOUT_MS));
+    return parseAiAlertReply(await withAiThinking(() => withTimeout(kit.aiReadAlert({ text: String(text).slice(0, 600), categories }), CAPTURE_AI_TIMEOUT_MS)));
   } catch { return null; }
 }
 // A name or category the model offers counts only if the alert says it /

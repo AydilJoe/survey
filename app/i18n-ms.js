@@ -290,6 +290,7 @@
   "Chase requests that have gone quiet": "Ingatkan semula permintaan bayaran yang belum berbalas",
   "On-device AI": "AI dalam peranti",
   "On-device AI is on": "AI dalam peranti dihidupkan",
+  "AI is reading…": "AI sedang membaca…",
   "Use this phone's AI for receipts and bank alerts": "Guna AI telefon ini untuk resit dan makluman bank",
   "Checking…": "Menyemak…",
   "Not available on this phone; Duitful uses its rules.": "Tiada pada telefon ini. Duitful guna peraturannya sendiri.",

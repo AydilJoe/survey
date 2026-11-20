@@ -2417,6 +2417,157 @@ check('Settings: the On-device AI card sits directly below the Pro card', aiBadg
     /<button[^>]*id="ai-badge"[^>]*\shidden>/.test(idx) && !(await S(() => !document.getElementById('ai-badge').hidden)));
 }
 
+/* ── On-device AI thinking state & Sempoa mark (1.61.1) ── */
+{
+  const aiThink = await S(async () => {
+    const keepCap = window.Capacitor;
+    const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+    const $ = (id) => document.getElementById(id);
+    const resolvers = [];
+    const deferred = () => new Promise((r) => resolvers.push(r));
+    state.aiIntroSeen = true;
+    state.aiEnabled = true;
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'android',
+      Plugins: {
+        DuitfulKit: {
+          aiStatus: async () => ({ available: true }),
+          aiReadReceipt: () => deferred(),
+          aiReadAlert: () => deferred(),
+        },
+      },
+    };
+    const out = {};
+    try {
+      await refreshAiStatus();
+      const badge = $('ai-badge');
+      const live = $('ai-live');
+      out.idle = !badge.classList.contains('is-thinking') && live.textContent === '';
+      out.liveRole = live.getAttribute('aria-live');
+      out.beads = badge.querySelectorAll('svg .ai-bead-top, svg .ai-bead-bot-l, svg .ai-bead-bot-r').length;
+
+      // Single AI call: adds .is-thinking and announces "AI is reading…", then clears on finish.
+      const p1 = receiptSecondOpinion({ amount: null, amountConfidence: 'low', vendor: '', date: '' }, 'KEDAI KOPI RM 8.50');
+      await new Promise((r) => setTimeout(r, 30));
+      out.duringSingle = badge.classList.contains('is-thinking');
+      out.liveDuring = live.textContent;
+      out.motionAnim = getComputedStyle(badge.querySelector('.ai-bead-top')).animationName;
+      resolvers.shift()({ json: '{"total": 8.5}' });
+      await p1;
+      out.afterSingle = !badge.classList.contains('is-thinking') && live.textContent === '';
+
+      // Overlapping calls: stays active until the last call finishes (even when one rejects).
+      const kit = duitfulKit('aiReadAlert');
+      const o1 = askAiAboutAlert(kit, 'Paid RM 12.00 at KEDAI A', ['Food']);
+      const o2 = askAiAboutAlert(kit, 'Paid RM 15.00 at KEDAI B', ['Food']);
+      await new Promise((r) => setTimeout(r, 30));
+      out.overlapBoth = badge.classList.contains('is-thinking');
+      resolvers.shift()({ json: '{"direction":"spend"}' });
+      await o1;
+      out.overlapAfterFirst = badge.classList.contains('is-thinking');
+      resolvers.shift()(Promise.reject(new Error('boom')));
+      await o2;
+      out.overlapAfterLast = !badge.classList.contains('is-thinking') && live.textContent === '';
+
+      // Hard timeout clears a hung call so the badge never spins forever.
+      out.timeoutConst = AI_THINK_TIMEOUT_MS;
+      aiThinkStart(120);
+      out.beforeTimeout = badge.classList.contains('is-thinking');
+      await new Promise((r) => setTimeout(r, 180));
+      out.afterTimeout = !badge.classList.contains('is-thinking') && live.textContent === '';
+
+      // i18n rows for screen reader announcement.
+      out.msLive = I18N.tables.ms['AI is reading…'] || '';
+      out.zhLive = I18N.tables.zh['AI is reading…'] || '';
+    } finally {
+      window.Capacitor = keepCap;
+      Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+      aiStatusCache = null;
+      save(); renderAll(); renderAiBadge();
+    }
+    return out;
+  });
+  check('AI thinking: Sempoa mark has 3 beads, is static at idle, and uses an aria-live="polite" region',
+    aiThink.beads === 3 && aiThink.idle && aiThink.liveRole === 'polite', JSON.stringify(aiThink));
+  check('AI thinking: gets .is-thinking and announces "AI is reading…" during a call, clears after finish',
+    aiThink.duringSingle && aiThink.liveDuring === 'AI is reading…' && aiThink.motionAnim === 'ai-sempoa-top' && aiThink.afterSingle, JSON.stringify(aiThink));
+  check('AI thinking: overlapping calls keep .is-thinking on until the last one ends (including failures)',
+    aiThink.overlapBoth && aiThink.overlapAfterFirst && aiThink.overlapAfterLast, JSON.stringify(aiThink));
+  check('AI thinking: hard safety timeout (~8s default) clears a hung call',
+    aiThink.timeoutConst === 8000 && aiThink.beforeTimeout && aiThink.afterTimeout, JSON.stringify(aiThink));
+  check('AI thinking: "AI is reading…" has Malay and Chinese translations',
+    !!aiThink.msLive && !!aiThink.zhLive, JSON.stringify({ ms: aiThink.msLive, zh: aiThink.zhLive }));
+
+  // Reduced motion: uses soft opacity breathe on the badge, no bead movement.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const rmCheck = await S(async () => {
+    const keepCap = window.Capacitor;
+    const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+    state.aiIntroSeen = true; state.aiEnabled = true;
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: { aiStatus: async () => ({ available: true }) } } };
+    let out = {};
+    try {
+      await refreshAiStatus();
+      const tok = aiThinkStart(5000);
+      const badge = document.getElementById('ai-badge');
+      out = {
+        badgeAnim: getComputedStyle(badge).animationName,
+        beadAnim: getComputedStyle(badge.querySelector('.ai-bead-top')).animationName,
+      };
+      aiThinkEnd(tok);
+    } finally {
+      window.Capacitor = keepCap;
+      Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+      aiStatusCache = null;
+      renderAiBadge();
+    }
+    return out;
+  });
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  check('AI thinking: prefers-reduced-motion uses opacity breathe on the badge and keeps beads still',
+    rmCheck.badgeAnim === 'ai-badge-breathe' && rmCheck.beadAnim === 'none', JSON.stringify(rmCheck));
+
+  // Header layout at 360px with the AI badge visible in English, Malay and Chinese.
+  const keepVp = page.viewportSize();
+  await page.setViewportSize({ width: 360, height: 740 });
+  const header360 = await S(async () => {
+    const keepCap = window.Capacitor;
+    const keepLang = I18N.lang;
+    const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+    state.aiIntroSeen = true; state.aiEnabled = true;
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: { aiStatus: async () => ({ available: true }) } } };
+    const results = {};
+    try {
+      await refreshAiStatus();
+      for (const lang of ['en', 'ms', 'zh']) {
+        I18N.set(lang);
+        renderAll();
+        renderAiBadge();
+        const hdr = document.querySelector('.app-header .brand').getBoundingClientRect();
+        const badge = document.getElementById('ai-badge').getBoundingClientRect();
+        const docOverflow = document.documentElement.scrollWidth > window.innerWidth + 1;
+        results[lang] = {
+          shown: badge.width > 0,
+          inside: badge.right <= hdr.right + 1 && badge.right <= window.innerWidth + 1,
+          docOverflow,
+        };
+      }
+    } finally {
+      I18N.set(keepLang);
+      window.Capacitor = keepCap;
+      Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+      aiStatusCache = null;
+      renderAll(); renderAiBadge();
+    }
+    return results;
+  });
+  if (keepVp) await page.setViewportSize(keepVp);
+  check('AI badge: header fits without overflow at 360px in English, Malay and Chinese',
+    ['en', 'ms', 'zh'].every((l) => header360[l].shown && header360[l].inside && !header360[l].docOverflow),
+    JSON.stringify(header360));
+}
+
 /* ── Bank statement import, read on the phone (1.57.0) ─────────────────────
    Synthetic statements only (tests/fixtures/statement-pdfs.mjs): invented
    names and numbers in each bank's layout. Real statements never enter the repo. */

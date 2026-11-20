@@ -142,8 +142,9 @@ async function recapAskAi(f, key) {
   try { const st = await withTimeout(kit.aiStatus(), 2000); if (!st || !st.available) return ""; } catch { return ""; }
   const lines = recapFactLines(f);
   let text = "";
+  const runAi = typeof withAiThinking === "function" ? withAiThinking : (fn) => fn();
   try {
-    const r = await withTimeout(kit.aiWriteRecap({ facts: lines, lang }), 8000);
+    const r = await runAi(() => withTimeout(kit.aiWriteRecap({ facts: lines, lang }), 8000));
     text = String((r && (r.text || r.json)) || "").replace(/\s+/g, " ").trim();
   } catch { text = ""; }
   return recapTextOk(text, lines) ? text : "";

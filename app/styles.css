@@ -8741,9 +8741,11 @@ html[data-theme="pastel"] .tab.active {
 }
 
 /* ---------- On-device AI badge (header, phone apps only) ----------
-   A coin with a sparkle in it: Duitful's money, read by this phone. Brand
-   terracotta because it states identity ("this is your phone's AI"), never a
-   status of an amount. 22px tall; the hit area reaches 44px. */
+   A sempoa (two-rail abacus): Duitful's ledger, calculated on this phone.
+   Brand terracotta because it states identity ("this is your phone's AI"),
+   never a status of an amount. 22px tall; the hit area reaches 44px.
+   Idle is static; .is-thinking runs a 2.1s GPU-only bead-sliding loop while
+   any on-device AI call is in flight (opacity breathe under reduced motion). */
 .brand-name { display: flex; align-items: center; gap: 0.4rem; min-width: 0; }
 .brand-name h1 { min-width: 0; }
 .ai-badge {
@@ -8764,12 +8766,17 @@ html[data-theme="pastel"] .tab.active {
   letter-spacing: 0.02em;
   line-height: 1;
   cursor: pointer;
+  transition: background-color var(--dur-fast, 150ms) ease, border-color var(--dur-fast, 150ms) ease;
 }
 .ai-badge[hidden] { display: none; }
 .ai-badge::after { content: ""; position: absolute; inset: -0.6rem -0.25rem; }
 .ai-badge svg { width: 14px; height: 14px; display: block; flex: none; }
 .ai-badge:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
 .ai-badge:active { transform: scale(0.95); }
+.ai-badge.is-thinking {
+  background: color-mix(in srgb, var(--brand) 20%, transparent);
+  border-color: color-mix(in srgb, var(--brand-ink) 45%, transparent);
+}
 @media (prefers-reduced-motion: no-preference) {
   .ai-badge.is-new {
     background-image: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--card) 70%, transparent) 50%, transparent 70%);
@@ -8777,10 +8784,51 @@ html[data-theme="pastel"] .tab.active {
     background-repeat: no-repeat;
     animation: ai-badge-shimmer 1.1s var(--ease-out, ease-out) 0.3s 1 both;
   }
+  .ai-badge.is-thinking .ai-bead-top {
+    animation: ai-sempoa-top 2.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  .ai-badge.is-thinking .ai-bead-bot-l {
+    animation: ai-sempoa-bot-l 2.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  .ai-badge.is-thinking .ai-bead-bot-r {
+    animation: ai-sempoa-bot-r 2.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-badge.is-thinking {
+    animation: ai-badge-breathe 2.0s ease-in-out infinite;
+  }
 }
 @keyframes ai-badge-shimmer {
   from { background-position: 120% 0; }
   to { background-position: -40% 0; }
+}
+@keyframes ai-sempoa-top {
+  0%        { transform: translateX(0); }
+  8%        { transform: translateX(-0.55px); }
+  28%       { transform: translateX(6.1px); }
+  36%, 54%  { transform: translateX(5.5px); }
+  62%       { transform: translateX(5.9px); }
+  82%       { transform: translateX(-0.45px); }
+  90%, 100% { transform: translateX(0); }
+}
+@keyframes ai-sempoa-bot-r {
+  0%, 14%   { transform: translateX(0); }
+  21%       { transform: translateX(0.45px); }
+  40%       { transform: translateX(-3.1px); }
+  48%, 66%  { transform: translateX(-2.6px); }
+  84%       { transform: translateX(0.35px); }
+  92%, 100% { transform: translateX(0); }
+}
+@keyframes ai-sempoa-bot-l {
+  0%, 18%   { transform: translateX(0); }
+  42%       { transform: translateX(1.3px); }
+  50%, 66%  { transform: translateX(1.0px); }
+  86%, 100% { transform: translateX(0); }
+}
+@keyframes ai-badge-breathe {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.52; }
 }
 
 /* Wallet sheet: the quiet "Ask us to add your bank" link and the alert line. */

@@ -648,7 +648,8 @@ async function statementAiSuggest(items, opts) {
     if (it.kind !== "spend" || it.category) continue;
     n++;
     let reply = null;
-    try { reply = parseAiAlertReply(await withTimeout(kit.aiReadAlert({ text: it.row.desc.slice(0, 300), categories: cats }), 5000)); } catch { reply = null; }
+    const runAi = typeof withAiThinking === "function" ? withAiThinking : (fn) => fn();
+    try { reply = parseAiAlertReply(await runAi(() => withTimeout(kit.aiReadAlert({ text: it.row.desc.slice(0, 300), categories: cats }), 5000))); } catch { reply = null; }
     if (!reply || reply.promo) continue;
     const cat = typeof aiCategoryIn === "function" ? aiCategoryIn(reply.category, cats) : "";
     const who = typeof aiNameInText === "function" ? aiNameInText(reply.counterparty, it.row.desc) : "";
