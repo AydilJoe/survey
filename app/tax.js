@@ -417,6 +417,113 @@ function taxSuggestRelief(category, note, year) {
   return null;
 }
 
+/* ---------- on-device AI for relief matching ----------
+   The keyword rules above miss shop names ("MPH", "Klinik Dr Tan", Malay and
+   Chinese names). For a spend they miss, the phone's own model (Android:
+   Gemini Nano through DuitfulKit.aiReadAlert, the same call statement
+   suggestions use; iPhone's kit has no such method, the web none at all) may
+   pick one relief from the list sent with it. The answer counts only if it
+   is exactly one of those names, which are reliefs tax-data.js has for that
+   year; anything else is dropped. The amount is always the entry's own, and
+   nothing is claimed without a yes in the review. Results are kept per entry
+   (state.tax.aiMatch, with the words they were asked about) so the same
+   spend is never asked twice. Behind aiAllowed(); Malaysian rules only. */
+const TAX_AI_NAMES = {
+  medical: "Medical, clinic, pharmacy, dental",
+  medparents: "Parents' medical care",
+  lifestyle: "Books, gadgets, internet",
+  sports: "Sports and gym",
+  education: "Own education fees",
+  childcare: "Childcare, kindergarten",
+  ev: "EV charging",
+  tourism: "Tourist attractions",
+  insurance: "Medical insurance",
+  lifeins: "Life insurance, takaful",
+  supporting: "Disability equipment",
+  breastfeeding: "Breastfeeding equipment",
+};
+const TAX_AI_BATCH = 8;
+const TAX_AI_KEEP = 600;
+const TAX_AI_TIMEOUT_MS = 5000;
+let taxAiBusy = false;
+const taxAiTried = new Set();
+
+const taxAiWords = (e) => `${String(e.note || "").trim()}|${String(e.category || "").trim()}`.toLowerCase().slice(0, 200);
+function taxAiOn() {
+  return !TAX_CUSTOM && typeof aiAllowed === "function" && aiAllowed() && typeof isNative === "function" && isNative();
+}
+// The reliefs the model may choose from in `year`, as name → id.
+function taxAiChoices(year) {
+  const live = new Set(taxReliefsFor(year).map((r) => r.id));
+  return Object.fromEntries(Object.entries(TAX_AI_NAMES).filter(([id]) => live.has(id)).map(([id, n]) => [n, id]));
+}
+// A kept AI match for this spend, if it still stands: same words, a relief
+// that exists that year, AI still allowed.
+function taxAiRelief(e, year) {
+  if (!taxAiOn()) return null;
+  const hit = (taxState().aiMatch || {})[e.id];
+  if (!hit || !hit.r || hit.k !== taxAiWords(e)) return null;
+  return taxReliefsFor(year).some((r) => r.id === hit.r) ? hit.r : null;
+}
+function taxAiSuggested(e, relief, year) {
+  return !!e && !taxSuggestRelief(e.category, e.note, year) && taxAiRelief(e, year) === relief;
+}
+
+// Spends the keywords miss and nobody has decided about or asked the model
+// about. New spending (since deltaSince) first, so an import never floods.
+function taxAiCandidates(now) {
+  const t = taxState();
+  const years = new Set([...taxOpenYears(now), taxYear()]);
+  const decided = new Set(t.claims.map((c) => c.entryId).filter(Boolean).concat(t.skipped));
+  const asked = t.aiMatch || {};
+  const since = t.deltaSince || 0;
+  const out = [];
+  for (const e of state.dailyExpenses || []) {
+    const year = Number(String(e.date).slice(0, 4));
+    if ((e.kind || "expense") !== "expense" || !years.has(year) || decided.has(e.id) || taxAiTried.has(e.id)) continue;
+    if (!String(e.note || "").trim() && !String(e.category || "").trim()) continue;
+    if (asked[e.id] && asked[e.id].k === taxAiWords(e)) continue;
+    if (taxSuggestRelief(e.category, e.note, year)) continue;
+    out.push(e);
+  }
+  const fresh = (e) => (Number(e.createdAt) >= since ? 1 : 0);
+  return out.sort((a, b) => fresh(b) - fresh(a) || (a.date < b.date ? 1 : -1)).slice(0, TAX_AI_BATCH);
+}
+
+// One batch; resolves how many new matches it found. Failures change nothing.
+async function taxAiMatchRun(now) {
+  if (taxAiBusy || !taxAiOn() || !taxReady()) return 0;
+  const list = taxAiCandidates(now || new Date());
+  if (!list.length) return 0;
+  taxAiBusy = true;
+  let found = 0;
+  try {
+    const kit = typeof captureAiKit === "function" ? await captureAiKit() : null;
+    if (!kit) return 0;
+    const t = taxState();
+    if (!t.aiMatch) t.aiMatch = {};
+    for (const e of list) {
+      taxAiTried.add(e.id);
+      const year = Number(String(e.date).slice(0, 4));
+      const choices = taxAiChoices(year);
+      const names = Object.keys(choices);
+      if (!names.length) continue;
+      const text = `Spending: ${String(e.note || "").slice(0, 120)}${e.category ? ` (category: ${String(e.category).slice(0, 40)})` : ""}. Which Malaysian tax relief group is this shop or spend most likely in? Use "" if none.`;
+      let reply = null;
+      try { reply = parseAiAlertReply(await withTimeout(kit.aiReadAlert({ text, categories: names }), TAX_AI_TIMEOUT_MS)); } catch { reply = null; }
+      if (!reply) continue;                       // not cached: may be asked again another day
+      const name = aiCategoryIn(reply.category, names);
+      const r = name && !reply.promo ? choices[name] : "";
+      t.aiMatch[e.id] = { r, k: taxAiWords(e) };
+      if (r) found++;
+    }
+    const ids = Object.keys(t.aiMatch);
+    if (ids.length > TAX_AI_KEEP) for (const id of ids.slice(0, ids.length - TAX_AI_KEEP)) delete t.aiMatch[id];
+    save();
+  } finally { taxAiBusy = false; }
+  return found;
+}
+
 // Within a relief, which sub-limit does the wording point at? "" = none / unsure.
 const TAX_SUB_RULES = {
   medical: [
@@ -460,6 +567,7 @@ const emptyTax = () => ({
   nudges: {},            // { "2026-nov": ms, "2026-final": ms } — season cards done, for people not tracking
   deltaSince: 0,         // ms: spending created after this is "new" (0 = set on first check)
   prompted: [],          // expense ids already asked about as new spending
+  aiMatch: {},           // on-device AI relief matches per expense id (taxAiMatchRun)
   reviews: {},           // { "2026-nov": ms, "2026-final": ms } — seasonal checks done
   rules: null,           // the person's own country's rules (tax-data.js format), or null = built-in
 });
@@ -531,6 +639,10 @@ function coerceTax(raw) {
       .filter((x) => x && typeof x.id === "string" && typeof x.e === "string")
       .map((x) => ({ id: x.id, e: x.e, at: Number(x.at) || 0 }))
       .slice(-TAX_SCAN_KEEP_MAX),
+    // On-device AI relief matches: { entryId: { r: relief id or "", k: the words asked about } }.
+    aiMatch: t.aiMatch && typeof t.aiMatch === "object"
+      ? Object.fromEntries(Object.entries(t.aiMatch).filter(([k, v]) => typeof k === "string" && v && typeof v.r === "string" && typeof v.k === "string").slice(-TAX_AI_KEEP).map(([k, v]) => [k, { r: v.r, k: v.k }]))
+      : {},
     rules,
   };
 }
@@ -731,8 +843,9 @@ function taxPendingExpenses(year) {
   for (const e of state.dailyExpenses || []) {
     if ((e.kind || "expense") !== "expense" || !String(e.date).startsWith(`${year}-`)) continue;
     if (claimed.has(e.id) || skipped.has(e.id)) continue;
-    const relief = taxSuggestRelief(e.category, e.note, year);
-    if (relief) out.push({ entry: e, relief });
+    const kw = taxSuggestRelief(e.category, e.note, year);
+    const relief = kw || taxAiRelief(e, year);
+    if (relief) out.push(kw ? { entry: e, relief } : { entry: e, relief, ai: true });
   }
   return out.sort((a, b) => Number(b.entry.amount) - Number(a.entry.amount));
 }
@@ -1279,6 +1392,8 @@ function taxRunChecks(now) {
   const t = taxState();
   const when = now || new Date();
   if (!t.deltaSince) { t.deltaSince = Date.now(); save(); }
+  // Spends the keywords missed: ask the phone's AI in the background, then look again.
+  taxAiMatchRun(when).then((n) => { if (n) { renderTax(); taxScheduleChecks(); } }).catch(() => {});
   const fresh = taxDeltaItems(when);
   if (fresh.length) {
     // Asked once: "Later" leaves them for the full-year review, not another pop-up.
@@ -1351,7 +1466,7 @@ function taxFinishReview() {
 function taxCloseAll() {
   taxReview = null;
   taxCtx = null;
-  for (const id of ["tax-review-dialog", "tax-claim-dialog", "tax-receipt-dialog", "tax-numbers-dialog"]) {
+  for (const id of ["tax-review-dialog", "tax-claim-dialog", "tax-receipt-dialog", "tax-numbers-dialog", "ea-dialog"]) {
     const d = taxEl(id);
     if (d && d.open) { if (typeof d.close === "function") d.close(); else d.removeAttribute("open"); }
   }
@@ -1392,11 +1507,13 @@ function taxReviewRender() {
     const sel = taxEl("tax-review-relief");
     sel.innerHTML = list.map((x) => `<option value="${x.id}">${escapeHtml(x.label)}</option>`).join("");
     sel.value = list.some((x) => x.id === it.relief) ? it.relief : list[0].id;
+    taxEl("tax-review-ai").hidden = !taxAiSuggested(e, sel.value, year);
     taxReviewFillSubs(year, taxSuggestSub(sel.value, e.category, e.note, year));
     return;
   }
 
   // docs step — same entry block, now confirmed as a claim
+  taxEl("tax-review-ai").hidden = true;
   const c = taxReviewCurrentClaim();
   const year = Number(c.date.slice(0, 4));
   const f = taxFilingFor(year);
@@ -1934,7 +2051,7 @@ function taxRenderInbox(year, s, pending) {
   if (!pending.length) { taxUi.inbox = 0; taxEl("tax-pending").innerHTML = ""; return; }
   const i = Math.min(Math.max(0, taxUi.inbox), pending.length - 1);
   taxUi.inbox = i;
-  const { entry, relief } = pending[i];
+  const { entry, relief, ai } = pending[i];
   const r = taxReliefFor(year, relief);
   const left = r ? Math.max(0, r.cap - (s.used[r.id] || 0)) : 0;
   // What claiming this one spend would be worth, at today's figures.
@@ -1960,7 +2077,8 @@ function taxRenderInbox(year, s, pending) {
     <p class="tax-inbox-why">
       <span class="tax-pill">${escapeHtml(r ? taxShort(r.label) : relief)}</span>
       <span class="hint">${r ? tr("{left} of {cap} left", { left: amt(left), cap: escapeHtml(taxCap(r.cap)) }) : ""}${gain > 0 ? ` · ${tr("saves about {a}", { a: amt(gain) })}` : ""}</span>
-    </p>
+    </p>${ai ? `
+    <p class="pending-ai tax-ai-tag">${escapeHtml(tr("Suggested by your phone's AI"))}</p>` : ""}
     <div class="tax-inbox-actions">
       <button type="button" class="ghost" data-tax-skip="${escapeHtml(entry.id)}">${tr("Not tax")}</button>
       <button type="button" class="primary" data-tax-claim="${escapeHtml(entry.id)}" data-tax-relief="${relief}">${tr("Claim it")}</button>
@@ -2102,6 +2220,8 @@ function taxRenderDetails(year, s) {
   const need = !hasIncome ? "income" : !f.pcb ? "pcb" : "";
   prompt.hidden = !need;
   taxEl("btn-tax-numbers").hidden = !hasIncome;
+  // One "Scan EA form": beside the prompt when there is one, else quietly under the line.
+  if (taxEl("btn-tax-ea")) taxEl("btn-tax-ea").hidden = !!need;
   if (need) {
     const add = taxEl("tax-details-add");
     taxEl("tax-details-prompt-text").textContent = need === "income"
@@ -2261,6 +2381,264 @@ function taxOpenNumbers(focusId) {
   if (el && typeof el.focus === "function" && el.tagName === "INPUT") setTimeout(() => { el.focus(); if (el.select) el.select(); }, 30);
 }
 
+/* ---------- Borang EA (C.P.8A) scanner ----------
+   The employer's yearly EA form, read on the phone (a PDF's text layer with
+   pdf.js, or OCR of a scanned PDF / photo, the same readers as statements in
+   statement.js), labelled by ea-extract.js, confirmed here, then saved as
+   that year's details through taxSetFigure — the same yearly figures the
+   details dialog writes. Only figures the form prints are filled; a total
+   that doesn't match its items is flagged "Check", never adjusted. Free, no
+   scan quota. The file and pictures are dropped after reading. */
+const EA_TO_FIGURE = { bTotal: "income", d1: "pcb", e1: "epf" };
+const EA_UNUSED = ["d2", "d3", "d4", "d5"];
+const eaUi = { file: null, res: null, values: {}, printedYear: 0 };
+const eaEl = (id) => document.getElementById(id);
+function eaSay(msg) { const el = eaEl("ea-status"); if (el) { el.textContent = msg || ""; el.hidden = !msg; } }
+const eaField = (id) => (typeof EA_FIELDS !== "undefined" ? EA_FIELDS : []).find((f) => f.id === id);
+const eaLabel = (id) => { const f = eaField(id); return f ? `${f.code} ${tr(f.label)}`.trim() : id; };
+
+// Years an EA can be saved to: the ones tax-data.js has figures for, from
+// the year before its first (last year's EA arrives in the new year, and the
+// schedule's nearest-year rule covers it) to this year, plus the year on screen.
+function taxEaYears() {
+  const ys = new Set(Object.keys(TAX_SCHEDULE.income_tax_by_ya || {}).map(Number).filter(Boolean));
+  for (const cat of TAX_SCHEDULE.tax_relief_categories || []) for (const it of cat.items || []) taxLimitYears(it).forEach((y) => ys.add(y));
+  const now = new Date().getFullYear();
+  const known = [...ys].sort((a, b) => a - b);
+  const out = new Set([taxYear()]);
+  if (known.length) for (let y = known[0] - 1; y <= Math.min(now, known[known.length - 1]); y++) out.add(y);
+  return [...out].sort((a, b) => b - a);
+}
+
+function taxOpenEa() {
+  const dlg = eaEl("ea-dialog");
+  if (!dlg) return;
+  eaUi.file = null; eaUi.res = null; eaUi.values = {}; eaUi.printedYear = 0;
+  eaEl("ea-pick").hidden = false;
+  eaEl("ea-scan").hidden = !(typeof duitfulKit === "function" && duitfulKit("scanDocument"));
+  eaEl("ea-password").hidden = true;
+  eaEl("ea-review").hidden = true;
+  eaEl("ea-save").hidden = true;
+  eaSay("");
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+}
+
+const eaPageSay = (n, of) => eaSay(tr("Reading page {n} of {m} on your phone…", { n, m: of }));
+// The password lives only in this call and is never kept.
+async function eaFromFile(file, password) {
+  eaUi.file = file;
+  eaSay(tr("Reading on your phone…"));
+  let read, data = null;
+  try {
+    data = await file.arrayBuffer();
+    read = await readStatementPdf(data, password);
+  } catch (e) {
+    const code = e && e.code;
+    if (code === "password" || code === "wrong-password") {
+      eaEl("ea-pick").hidden = true;
+      eaEl("ea-password").hidden = false;
+      eaSay(code === "wrong-password" ? tr("That password didn't open it.") : "");
+      setTimeout(() => eaEl("ea-pw")?.focus(), 30);
+      return null;
+    }
+    if (code !== "scanned" || !data) { eaSay(tr("Couldn't read this PDF.")); return null; }
+    try { read = await readStatementScanPdf(data, password, eaPageSay); }
+    catch { eaSay(tr("Couldn't read any text on this. Try a sharper photo.")); return null; }
+  }
+  eaUi.file = null;
+  return eaShow(read);
+}
+
+async function eaFromPhotos(sources) {
+  eaUi.file = null;
+  let read;
+  try { read = await readStatementPhotos(sources, eaPageSay); }
+  catch { eaSay(tr("Couldn't read any text on this. Try a sharper photo.")); return null; }
+  return eaShow(read);
+}
+
+function eaShow(read) {
+  const res = eaExtract(read.lines);
+  eaEl("ea-password").hidden = true;
+  if (!Object.keys(res.fields).length) {
+    eaEl("ea-pick").hidden = false;
+    eaSay(tr("No EA figures found. Is this a Borang EA?"));
+    return res;
+  }
+  eaUi.res = res;
+  eaUi.printedYear = res.year;
+  eaUi.values = Object.fromEntries(Object.entries(res.fields).map(([id, f]) => [id, f.value]));
+  eaEl("ea-pick").hidden = true;
+  eaSay("");
+  const years = taxEaYears();
+  const sel = eaEl("ea-year");
+  const has = years.includes(res.year);
+  sel.innerHTML = (has ? "" : `<option value="">${escapeHtml(tr("Pick a year"))}</option>`)
+    + years.map((y) => `<option value="${y}">${escapeHtml(taxYearLabel(y))}</option>`).join("");
+  sel.value = has ? String(res.year) : "";
+  eaEl("ea-review").hidden = false;
+  eaEl("ea-save").hidden = false;
+  eaRender();
+  return res;
+}
+
+const eaYear = () => Number(eaEl("ea-year").value) || 0;
+const eaNum = (v) => (v == null || v === "" ? "" : String(v));
+
+function eaRow(id, { tagId } = {}) {
+  const v = eaUi.values[id];
+  return `<li class="ea-row" data-ea-row="${id}">
+      <label class="ea-label" for="ea-in-${id}">${escapeHtml(eaLabel(id))}</label>
+      <input type="number" class="ea-in" id="ea-in-${id}" data-ea-in="${id}" step="0.01" min="0" inputmode="decimal" value="${eaNum(v)}" placeholder="—" />
+      <span class="ea-tags" id="ea-tags-${tagId || id}"></span>
+    </li>`;
+}
+
+function eaRender() {
+  const res = eaUi.res;
+  if (!res) return;
+  // Lines printed as 0.00 still count in the check, but take no room.
+  const parts = EA_INCOME_PARTS.filter((id) => res.fields[id] && res.fields[id].value > 0);
+  eaEl("ea-income").innerHTML = parts.map((id) => eaRow(id)).join("") + eaRow("bTotal").replace('class="ea-row"', 'class="ea-row is-total"');
+  eaEl("ea-deduct").innerHTML = ["d1", "e1", "e2"].concat(res.fields.eis ? ["eis"] : []).map((id) => eaRow(id)).join("");
+  const unused = EA_UNUSED.filter((id) => res.fields[id] && res.fields[id].value > 0);
+  eaEl("ea-unused-wrap").hidden = !unused.length;
+  eaEl("ea-unused").innerHTML = unused.map((id) => `<li class="ea-row">
+      <span class="ea-label">${escapeHtml(eaLabel(id))}</span><span class="ea-fixed">${amt(res.fields[id].value)}</span>
+    </li>`).join("");
+  eaPaint();
+}
+
+// Tags and the year note, from what is in the boxes now.
+function eaPaint() {
+  const res = eaUi.res;
+  if (!res) return;
+  const y = eaYear();
+  const v = eaUi.values;
+  const before = y ? taxFigures(y) : { income: 0, pcb: 0, epf: 0 };
+  const tag = (cls, html) => `<span class="ea-tag${cls ? " " + cls : ""}">${html}</span>`;
+  const set = (id, html) => { const el = eaEl(`ea-tags-${id}`); if (el) el.innerHTML = html; };
+  const parts = EA_INCOME_PARTS.filter((id) => res.fields[id]);
+  const sum = Math.round(parts.reduce((s, id) => s + (Number(v[id]) || 0) * 100, 0)) / 100;
+  for (const id of parts) set(id, "");  // (rows only exist for figures above 0)
+  // Total income: printed, or offered as the items added up — never filled unasked.
+  const tot = [];
+  if (v.bTotal == null) {
+    tot.push(tag("is-missing", escapeHtml(tr("Not printed"))));
+    if (sum > 0) tot.push(`<button type="button" class="ea-use-sum" data-ea-sum>${tr("Use the items: {a}", { a: amt(sum) })}</button>`);
+  } else if (parts.length && Math.abs(v.bTotal - sum) >= 0.005) {
+    tot.push(tag("is-check", escapeHtml(tr("Check"))), tag("", tr("items add up to {a}", { a: amt(sum) })));
+  }
+  for (const [id, key] of Object.entries(EA_TO_FIGURE)) {
+    const out = id === "bTotal" ? tot : [];
+    if (id !== "bTotal" && v[id] == null) out.push(tag("is-missing", escapeHtml(tr("Not found"))));
+    if (v[id] != null && before[key] > 0 && Math.abs(before[key] - v[id]) >= 0.005) out.push(tag("", tr("Replaces {a}", { a: amt(before[key]) })));
+    set(id, out.join(""));
+  }
+  // SOCSO and EIS become one SOCSO / EIS claim.
+  const socso = Math.round(((Number(v.e2) || 0) + (Number(v.eis) || 0)) * 100) / 100;
+  const old = y ? taxEaSocsoClaim(y) : null;
+  const so = [];
+  if (v.e2 == null) so.push(tag("is-missing", escapeHtml(tr("Not found"))));
+  if (socso > 0 && y && taxReliefFor(y, "socso")) {
+    so.push(old && Math.abs(old.amount - socso) >= 0.005 ? tag("", tr("Replaces {a}", { a: amt(old.amount) })) : old ? "" : tag("", escapeHtml(tr("Adds a SOCSO / EIS claim"))));
+  }
+  set("e2", so.join(""));
+  // Which year it saves to.
+  const note = eaEl("ea-year-note");
+  const msg = !y ? tr("The form says {year}. Pick the year it is for.", { year: eaUi.printedYear || "—" })
+    : y !== taxYear() ? tr("Saves to {ya}, not {now} on screen.", { ya: taxYearLabel(y), now: taxYearLabel(taxYear()) })
+    : eaUi.printedYear && y !== eaUi.printedYear ? tr("The form says {year}.", { year: eaUi.printedYear }) : "";
+  note.textContent = msg;
+  note.hidden = !msg;
+  eaEl("ea-save").disabled = !y;
+}
+
+// The SOCSO / EIS claim an earlier EA made for that year.
+function taxEaSocsoClaim(year) {
+  return taxState().claims.find((c) => c.relief === "socso" && !c.entryId && c.note === "Borang EA" && c.date.startsWith(`${year}-`)) || null;
+}
+
+function eaSave() {
+  const y = eaYear();
+  if (!y || !eaUi.res) return;
+  const v = eaUi.values;
+  for (const [id, key] of Object.entries(EA_TO_FIGURE)) if (v[id] != null) taxSetFigure(key, v[id], y);
+  const socso = Math.round(((Number(v.e2) || 0) + (Number(v.eis) || 0)) * 100) / 100;
+  if (socso > 0 && taxReliefFor(y, "socso")) {
+    const old = taxEaSocsoClaim(y);
+    if (old) old.amount = socso;
+    else { const c = coerceTaxClaim({ relief: "socso", amount: socso, date: `${y}-12-31`, note: "Borang EA" }); if (c) taxState().claims.push(c); }
+  }
+  const moved = y !== taxYear();
+  if (moved) taxState().year = y;
+  save();
+  eaUi.res = null; eaUi.values = {};
+  eaEl("ea-dialog").close();
+  renderTax();
+  toast(moved ? tr("EA form saved to {ya}", { ya: taxYearLabel(y) }) : tr("EA form saved"));
+}
+
+document.addEventListener("click", (e) => {
+  const el = e.target instanceof Element ? e.target : null;
+  if (!el) return;
+  if (el.closest("[data-tax-ea]")) {
+    // From the details dialog: keep what was typed, then open on top of it.
+    if (taxEl("tax-numbers-dialog")?.open) for (const id of Object.keys(TAX_MONEY_FIELDS)) taxWizCommit(id);
+    taxOpenEa();
+  } else if (el.closest("[data-ea-sum]") && eaUi.res) {
+    const parts = EA_INCOME_PARTS.filter((id) => eaUi.res.fields[id]);
+    eaUi.values.bTotal = Math.round(parts.reduce((s, id) => s + (Number(eaUi.values[id]) || 0) * 100, 0)) / 100;
+    eaEl("ea-in-bTotal").value = eaUi.values.bTotal;
+    eaPaint();
+  }
+});
+eaEl("ea-choose")?.addEventListener("click", () => eaEl("ea-file")?.click());
+eaEl("ea-file")?.addEventListener("change", (e) => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = "";
+  const photos = files.filter((f) => /^image\//.test(f.type || ""));
+  const pdf = files.find((f) => !/^image\//.test(f.type || ""));
+  if (pdf) eaFromFile(pdf).catch(() => eaSay(tr("Couldn't read this PDF.")));
+  else if (photos.length) eaFromPhotos(photos).catch(() => eaSay(tr("Couldn't read any text on this. Try a sharper photo.")));
+});
+eaEl("ea-scan")?.addEventListener("click", async () => {
+  const kit = typeof duitfulKit === "function" ? duitfulKit("scanDocument") : null;
+  if (!kit) { eaEl("ea-file")?.click(); return; }
+  try {
+    const res = await kit.scanDocument({
+      allowGallery: true, pageLimit: 2,
+      labels: { title: tr("Scan pages"), camera: tr("Scan with camera"), photo: tr("Choose photo"), cancel: tr("Cancel") },
+    });
+    const pages = res && Array.isArray(res.images) ? res.images.filter((s) => typeof s === "string" && s.startsWith("data:image/")) : [];
+    if (pages.length) await eaFromPhotos(pages);
+  } catch (err) {
+    if (!(err && err.code === "CANCELLED")) eaSay(tr("Couldn't read any text on this. Try a sharper photo."));
+  }
+});
+eaEl("ea-pw-open")?.addEventListener("click", () => {
+  const pw = eaEl("ea-pw");
+  const value = pw ? pw.value : "";
+  if (pw) pw.value = "";                       // never kept
+  if (eaUi.file && value) eaFromFile(eaUi.file, value).catch(() => eaSay(tr("Couldn't read this PDF.")));
+});
+eaEl("ea-pw")?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); eaEl("ea-pw-open")?.click(); } });
+eaEl("ea-cancel")?.addEventListener("click", () => { eaUi.file = null; eaUi.res = null; eaEl("ea-dialog")?.close(); });
+eaEl("ea-save")?.addEventListener("click", eaSave);
+eaEl("ea-year")?.addEventListener("change", eaPaint);
+eaEl("ea-review")?.addEventListener("input", (e) => {
+  const t = e.target;
+  if (!(t instanceof HTMLInputElement) || !t.dataset.eaIn) return;
+  const n = t.value.trim() === "" ? null : Number(t.value);
+  eaUi.values[t.dataset.eaIn] = n != null && Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+  eaPaint();
+});
+// Nothing read stays around once the sheet closes (also on auto-lock).
+eaEl("ea-dialog")?.addEventListener("close", () => {
+  eaUi.file = null; eaUi.res = null; eaUi.values = {};
+  if (eaEl("ea-income")) { eaEl("ea-income").innerHTML = ""; eaEl("ea-deduct").innerHTML = ""; eaEl("ea-unused").innerHTML = ""; }
+});
+
 /* ---------- export ---------- */
 
 function taxClaimsCSV(year) {
@@ -2309,10 +2687,11 @@ const TAX_FLAG_FIELDS = [
 
 function taxNumber(el) { const n = Number(el.value); return Number.isFinite(n) && n >= 0 ? n : 0; }
 
-function taxSetFigure(key, value) {
+// `year` defaults to the one on screen; the EA scanner names the form's own.
+function taxSetFigure(key, value, year) {
   const t = taxState();
-  const y = String(taxYear());
-  t.figures[y] = { ...taxFigures(taxYear()), [key]: value };
+  const yr = year || taxYear();
+  t.figures[String(yr)] = { ...taxFigures(yr), [key]: value };
   save();
   renderTax();
 }
@@ -2488,7 +2867,11 @@ taxEl("tax-numbers-form")?.addEventListener("submit", (e) => { e.preventDefault(
 taxEl("tax-review-relief")?.addEventListener("change", () => {
   const it = taxReview && taxReview.items[taxReview.i];
   const e = it && state.dailyExpenses.find((x) => x.id === it.entryId);
-  if (e) taxReviewFillSubs(Number(e.date.slice(0, 4)), "");
+  if (e) {
+    const year = Number(e.date.slice(0, 4));
+    taxEl("tax-review-ai").hidden = !taxAiSuggested(e, taxEl("tax-review-relief").value, year);
+    taxReviewFillSubs(year, "");
+  }
 });
 taxEl("tax-review-sub")?.addEventListener("change", () => {
   const it = taxReview && taxReview.items[taxReview.i];

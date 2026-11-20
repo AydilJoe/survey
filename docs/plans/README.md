@@ -7,7 +7,6 @@ Updated 20 Nov 2026. Start any of these in a fresh session:
 |---|---|---|---|
 | Redesign home-screen widgets | `backlog.md` | Medium | Requested; scope to confirm |
 | Bank alerts by SMS | `backlog.md` | Medium | Needs owner's privacy decision |
-| Tax: on-device AI for relief matching | `backlog.md` | Medium | Requested 20 Nov 2026 |
 | "New" feature spotlight with motion | `backlog.md` | Small to medium | Requested 20 Nov 2026 |
 | Recurring splits, version 2 | `recurring-splits.md` | Medium | Planned (version 1 shipped in 1.59.0) |
 | Wallets, version 2 | `wallets.md` | Medium | Ideas only (version 1 shipped in 1.60.0) |
@@ -17,7 +16,8 @@ Manual store steps for the owner are at the end of `backlog.md`.
 ## Done
 
 Completed backlog items and plans are in `done/`: `backlog-done.md`
-(recurring splits v1, scanned statements, shorter forms, keyboard, languages,
+(EA form scanner and tax AI relief matching, recurring splits v1, scanned
+statements, shorter forms, keyboard, languages,
 wallets v1), `shorter-forms.md`, `statement-scans.md`.
 
 Shipped 15–20 Nov 2026: honest Free/Pro (1.55.12), simpler Tax page

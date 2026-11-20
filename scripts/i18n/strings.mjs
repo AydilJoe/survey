@@ -319,7 +319,7 @@ export const ROWS = [
   ["Getting ready", "Sedang bersedia", "准备中"],
   ["On · runs on this phone", "Hidup · berjalan dalam telefon ini", "已开启 · 在手机上运行"],
   // The "What it does" row and sheet (1.61.1).
-  ["Helps with receipts, bank alerts, statements and your monthly recap.", "Membantu dengan resit, makluman bank, penyata dan ringkasan bulanan anda.", "帮你处理收据、银行通知、对账单和月度回顾。"],
+  ["Helps with receipts, bank alerts, statements, tax relief and your monthly recap.", "Membantu dengan resit, makluman bank, penyata, pelepasan cukai dan ringkasan bulanan anda.", "帮你处理收据、银行通知、对账单、扣税和月度回顾。"],
   ["Helps with receipts and your monthly recap.", "Membantu dengan resit dan ringkasan bulanan anda.", "帮你处理收据和月度回顾。"],
   ["Use this phone's AI for receipts and your recap", "Guna AI telefon ini untuk resit dan ringkasan bulanan", "用手机自带的 AI 读收据、写月度回顾"],
   ["What it does", "Apa yang ia buat", "它能做什么"],

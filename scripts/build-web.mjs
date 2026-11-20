@@ -32,6 +32,7 @@ const APP_FILES = [
   "split-recurring.js",
   "receipt-extract.js",
   "region.js",
+  "ea-extract.js",
   "tax-data.js",
   "tax.js",
   "statement.js",
