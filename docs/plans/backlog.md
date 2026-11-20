@@ -48,6 +48,29 @@ When a release adds a feature (e.g. wallets, recurring splits, statement import,
 - Respect reduced motion (jump plus a static highlight, no animation) and the hide-amounts eye. All three languages. Never covers content or blocks taps; it doesn't show while a dialog is open.
 - Could reuse or extend the existing tour/milestones code if suitable.
 
+## Translation clean-up: English built in script (queued 20 Nov 2026)
+
+Found while recording the Malay promo: English written straight into JS
+template strings (e.g. `>Moved<`, "This is my account", "Add income" on capture
+cards, install-guide steps) never reaches `tr()`, so neither
+`build-i18n.mjs --missing` (only literals passed to `tr()`/`trn()`) nor the
+markup check (static HTML only) sees it. About 250 such literals in
+`app/script.js`, plus some in `split.js`, `statement.js`, `wallets.js`,
+`split-recurring.js`, `recap.js`, `tax.js`.
+
+Plan:
+1. Audit: list every user-visible English literal built in script (template
+   strings, `textContent =`, `innerHTML` pieces, `aria-label`s, toasts).
+2. Route each through `tr()`/`trn()` and add [EN, MS, ZH] rows in the right
+   `scripts/i18n/*.mjs` file; natural Malaysian Malay and Chinese.
+3. Close the gap: extend the e2e check so a Malay (and Chinese) render of each
+   screen fails on English text that has a row-less English twin (e.g. walk the
+   rendered DOM in `ms` and flag text nodes that are exact English keys or
+   match a list of known English UI words), or a lint in `build-i18n.mjs` that
+   flags `>Capitalised English<` in JS template strings without `tr(`.
+4. Keep stored data (categories, notes, payee names) untranslated.
+5. Patch release; 360px check in all languages.
+
 ## More on-device AI ideas (20 Nov 2026)
 
 Same rules as every AI path: runs on the phone behind `aiAllowed()`, never sets
