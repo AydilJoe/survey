@@ -12310,19 +12310,25 @@ check('the brand catalogue makes no network calls at all',
   const made = await S(() => {
     const card = document.getElementById('wallets-card');
     const out = { cardShown: card.getBoundingClientRect().height > 0, empty: document.getElementById('wallets-list').textContent.trim(), free: card.querySelector('[data-free-count]').textContent };
-    const mk = (name, type, opening, app, date) => {
+    // The sheet asks for the bank or e-wallet first; the pick fills the
+    // name, type and alert link, and the name stays editable.
+    const mk = (name, type, opening, provider, date) => {
       document.querySelector('#wallets-card [data-action=wallet-add]').click();
       const f = document.getElementById('wallet-form');
+      const sel = document.getElementById('wallet-provider');
+      sel.value = provider; sel.dispatchEvent(new Event('change'));
+      out.filled = out.filled || [];
+      out.filled.push(`${f.elements['wallet-name'].value}|${f.elements['wallet-type'].value}`);
       f.elements['wallet-name'].value = name; f.elements['wallet-type'].value = type; f.elements['wallet-opening'].value = String(opening);
-      f.elements['wallet-date'].value = date; document.getElementById('wallet-app').value = app;
+      f.elements['wallet-date'].value = date;
       document.getElementById('wallet-save').click();
     };
     const past = new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10);
     out.past = past;
-    mk('TNG eWallet', 'ewallet', 200, 'my.com.tngdigital.ewallet', past);
-    mk('Maybank savings', 'bank', 5000, 'com.mbb.malaysia.android', past);
+    mk('TNG eWallet', 'ewallet', 200, 'tng', past);
+    mk('Maybank savings', 'bank', 5000, 'maybank', past);
     out.closed = !document.getElementById('wallet-dialog').open;
-    out.wallets = state.wallets.map((w) => [w.name, w.type, w.opening, w.app, w.openingDate === past, w.archived].join('|'));
+    out.wallets = state.wallets.map((w) => [w.name, w.type, w.opening, w.apps.join('+'), w.openingDate === past, w.archived].join('|'));
     out.rows = [...document.querySelectorAll('#wallets-list .wallet-row')].map((r) => r.querySelector('.wallet-name').textContent + '=' + r.querySelector('.wallet-bal').textContent.replace(/\s+/g, ' '));
     out.free2 = card.querySelector('[data-free-count]').textContent;
     out.total = document.getElementById('wallets-total').textContent.replace(/\s+/g, ' ');
@@ -12331,7 +12337,8 @@ check('the brand catalogue makes no network calls at all',
   check('wallets: the card sits on Savings, starts empty with a one-line prompt, and shows "0 of 3 free wallets used" before any wall',
     made.cardShown && /Cash, TNG eWallet, MAE/.test(made.empty) && made.free === '0 of 3 free wallets used', JSON.stringify(made));
   check('wallets create: name, type, opening balance and date, app link saved; the card lists each balance and a total; "2 of 3" used',
-    made.closed && made.wallets.join() === `TNG eWallet|ewallet|200|my.com.tngdigital.ewallet|true|false,Maybank savings|bank|5000|com.mbb.malaysia.android|true|false`
+    made.closed && made.wallets.join() === `TNG eWallet|ewallet|200|my.com.tngdigital.ewallet|true|false,Maybank savings|bank|5000|com.mbb.malaysia.android+com.maybank2u.life|true|false`
+    && made.filled.join() === 'TNG eWallet|ewallet,Maybank|bank'
     && made.rows.join() === 'TNG eWallet=RM 200.00,Maybank savings=RM 5,000.00' && made.free2 === '2 of 3 free wallets used' && /RM 5,200\.00/.test(made.total), JSON.stringify(made));
 
   // 2) Entry assignment: the picker defaults to the last wallet; older entries stay unassigned.
@@ -12657,6 +12664,140 @@ check('the brand catalogue makes no network calls at all',
     return { inRem: rem.includes(bal) || /wallet/i.test(rem), bal };
   });
   check('wallets privacy: no reminder names a wallet or its balance', !priv.inRem, JSON.stringify(priv));
+
+  // The sheet: one row per bank / e-wallet, built from TXN_PROVIDERS.
+  const pick = await S(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const keepCap = window.Capacitor;
+    const keepPro = state.pro;
+    state.pro = true;   // the sheet, not the paywall
+    const out = {};
+    const brands = walletBrands();
+    out.names = brands.map((b) => b.name);
+    out.dupes = out.names.filter((n, i) => out.names.indexOf(n) !== i);
+    // Every MY package in the capture list belongs to exactly one brand.
+    const myPkgs = TXN_PROVIDERS.filter((p) => p.country === 'MY').flatMap((p) => p.packages);
+    out.unowned = myPkgs.filter((q) => !brands.some((b) => b.packages.includes(q)));
+    const mbb = brands.find((b) => b.id === 'maybank');
+    out.maybank = mbb && mbb.packages.slice().sort().join('+');
+    out.types = Object.fromEntries(['tng', 'grabpay', 'atome', 'cimb'].map((id) => [id, (brands.find((b) => b.id === id) || {}).type]));
+    openWalletEdit();
+    const sel = document.getElementById('wallet-provider');
+    out.optNames = [...sel.options].map((o) => o.textContent);
+    out.optDupes = out.optNames.filter((n, i) => out.optNames.indexOf(n) !== i);
+    out.first = sel.closest('label') === document.querySelector('#wallet-form .field');
+    out.hasCashOther = out.optNames.includes('Cash') && out.optNames.includes('Other (not listed)');
+    // Web: the pick fills name and type, no alert line.
+    sel.value = 'maybank'; sel.dispatchEvent(new Event('change'));
+    out.web = { name: document.querySelector('#wallet-form [name=wallet-name]').value, alerts: !document.getElementById('wallet-alerts').hidden };
+    // iPhone: the same, no alert line either.
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} };
+    sel.dispatchEvent(new Event('change'));
+    out.ios = !document.getElementById('wallet-alerts').hidden;
+    // Android: one short line names the bank.
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    sel.dispatchEvent(new Event('change'));
+    out.android = { shown: !document.getElementById('wallet-alerts').hidden, line: document.getElementById('wallet-alert-line').textContent };
+    // Other: a typed name and a quiet request link; Cash fills "Cash".
+    sel.value = 'other'; sel.dispatchEvent(new Event('change'));
+    out.other = { ask: !document.getElementById('wallet-ask-wrap').hidden, alerts: !document.getElementById('wallet-alerts').hidden };
+    sel.value = 'cash'; sel.dispatchEvent(new Event('change'));
+    out.cash = { name: document.querySelector('#wallet-form [name=wallet-name]').value, type: document.querySelector('#wallet-form [name=wallet-type]').value, ask: !document.getElementById('wallet-ask-wrap').hidden };
+    window.Capacitor = keepCap;
+    state.pro = keepPro;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    return out;
+  });
+  check('wallets sheet: the bank / e-wallet list has one row per brand (no duplicate Maybank), owns every MY capture package, with Cash and Other, asked first',
+    pick.dupes.length === 0 && pick.optDupes.length === 0 && pick.unowned.length === 0 && pick.hasCashOther && pick.first
+    && pick.types.tng === 'ewallet' && pick.types.grabpay === 'ewallet' && pick.types.atome === 'card' && pick.types.cimb === 'bank', JSON.stringify(pick));
+  check('wallets sheet: Maybank links every Maybank package (the Maybank app and MAE)',
+    pick.maybank === 'com.maybank2u.life+com.mbb.malaysia.android', pick.maybank);
+  check('wallets sheet: a pick fills the name; the alert line shows on Android only ("Alerts from Maybank apps go here."), never on iPhone or the web',
+    pick.web.name === 'Maybank' && !pick.web.alerts && !pick.ios && pick.android.shown && pick.android.line === 'Alerts from Maybank apps go here.', JSON.stringify(pick));
+  check('wallets sheet: Other offers "Ask us to add your bank" and no alert link; Cash fills Cash',
+    pick.other.ask && !pick.other.alerts && pick.cash.name === 'Cash' && pick.cash.type === 'cash' && !pick.cash.ask, JSON.stringify(pick));
+
+  // Matching: either Maybank package lands in the Maybank wallet; two wallets
+  // of one bank follow "Default for Maybank alerts".
+  const route = await S(() => {
+    const keep = JSON.stringify({ w: state.wallets, pro: state.pro });
+    const out = {};
+    state.pro = true;
+    state.wallets = [];
+    const sav = walletSave({ name: 'Maybank savings', provider: 'maybank', type: 'bank', opening: 100 }).wallet;
+    out.old = walletForPkg('com.mbb.malaysia.android')?.name;
+    out.mae = walletForPkg('com.maybank2u.life')?.name;
+    out.tng = walletForPkg('my.com.tngdigital.ewallet') === null;
+    out.firstDefault = sav.alertDefault;
+    const card = walletSave({ name: 'Maybank card', provider: 'maybank', type: 'card', opening: 0 }).wallet;
+    out.secondNotDefault = !card.alertDefault && walletForPkg('com.maybank2u.life').id === sav.id;
+    walletSave({ name: 'Maybank card', provider: 'maybank', type: 'card', opening: 0, alertDefault: true }, card.id);
+    out.switched = walletForPkg('com.maybank2u.life').id === card.id && !sav.alertDefault;
+    // An accepted capture is tagged with that wallet.
+    const e = walletTagFromPkg({ amount: 5 }, 'com.mbb.malaysia.android');
+    out.tagged = e.walletId === card.id;
+    // The sheet shows the toggle only when two wallets share the bank.
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    openWalletEdit(sav.id);
+    out.toggle = { shown: !document.getElementById('wallet-default-wrap').hidden, label: document.getElementById('wallet-default-label').textContent, checked: document.getElementById('wallet-default').checked };
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    delete window.Capacitor;
+    // Old wallets: a single `app` becomes the brand's list; the CSV keeps it all.
+    const old = coerceWallets([{ id: 'legacy', name: 'MAE', type: 'ewallet', app: 'com.maybank2u.life', opening: 3, openingDate: '2026-01-02' }])[0];
+    out.migrated = { provider: old.provider, apps: old.apps.slice().sort().join('+'), noApp: !('app' in old) };
+    state.wallets.push(old);
+    const before = JSON.stringify(state.wallets.map((w) => [w.id, w.name, w.provider, w.apps, w.alertDefault]));
+    const back = fromCSV(toCSV());
+    out.csv = JSON.stringify(back.wallets.map((w) => [w.id, w.name, w.provider, w.apps, w.alertDefault])) === before;
+    // A CSV from 1.60 (one app in `note`, no link row) still links the brand.
+    const legacyCsv = toCSV().split('\n').filter((l) => !/walletLink/.test(l)).join('\n');
+    const lw = fromCSV(legacyCsv).wallets.find((w) => w.id === 'legacy');
+    out.legacyCsv = lw && lw.apps.includes('com.mbb.malaysia.android') && lw.provider === 'maybank';
+    const k = JSON.parse(keep); state.wallets = k.w; state.pro = k.pro;
+    save(); renderAll();
+    return out;
+  });
+  check('wallets alerts: a Maybank wallet catches alerts from the Maybank app and MAE, nothing else; the first is the default',
+    route.old === 'Maybank savings' && route.mae === 'Maybank savings' && route.tng && route.firstDefault, JSON.stringify(route));
+  check('wallets alerts: two Maybank wallets: the first wins until "Default for Maybank alerts" moves to the other, and a capture follows it',
+    route.secondNotDefault && route.switched && route.tagged && route.toggle.shown && route.toggle.label === 'Default for Maybank alerts' && !route.toggle.checked, JSON.stringify(route));
+  check('wallets migrate: an old single-app wallet becomes its brand with every package; CSV round-trips bank, apps and default, and a 1.60 CSV still links',
+    route.migrated.provider === 'maybank' && route.migrated.apps === 'com.maybank2u.life+com.mbb.malaysia.android' && route.migrated.noApp && route.csv && route.legacyCsv, JSON.stringify(route));
+
+  // "Ask us to add your bank": only the typed bank name and the app version.
+  const ask = await S(() => {
+    const out = {};
+    const keepPro = state.pro;
+    state.pro = true;
+    state.wallets.push({ id: 'secret-w', name: 'Secret stash ZZQ', type: 'cash', provider: 'cash', apps: [], opening: 98765.43, openingDate: todayISO(), archived: false, createdAt: 1 });
+    openWalletEdit();
+    const sel = document.getElementById('wallet-provider');
+    sel.value = 'other'; sel.dispatchEvent(new Event('change'));
+    document.querySelector('#wallet-form [name=wallet-name]').value = 'Bank Kerjasama 1234 me@x.my';
+    const mail = walletAskBankMail(walletAskBankName());
+    out.mail = mail;
+    // Web: the button goes to the mailto (navigation stubbed by reading the href).
+    out.webAction = walletAlertsShown() ? 'share' : 'mailto';
+    // Android: the redacted sample sheet, prefilled with the bank.
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    out.android = walletAskBank();
+    const b = captureShareBody();
+    out.share = { open: document.getElementById('capture-share-dialog').open, subject: b.subject, body: b.body };
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    delete window.Capacitor;
+    state.wallets = state.wallets.filter((w) => w.id !== 'secret-w');
+    state.pro = keepPro;
+    out.dialogs = [...document.querySelectorAll('dialog[open]')].map((d) => d.id);
+    save(); renderAll();
+    return out;
+  });
+  const askAll = JSON.stringify([ask.mail.subject, ask.mail.body, ask.mail.href, ask.share.subject, ask.share.body]);
+  check('wallets Other: "Ask us to add your bank" is a mailto to hello@duitful.app on iPhone / web and the redacted sample sheet on Android, both naming the bank',
+    ask.webAction === 'mailto' && /^mailto:hello@duitful\.app\?/.test(ask.mail.href) && /Bank Kerjasama/.test(ask.mail.subject)
+    && ask.android === 'share' && ask.share.open && /Please add my bank: Bank Kerjasama/.test(ask.share.subject), JSON.stringify(ask));
+  check('wallets Other: the request carries no personal data (no digits or email typed in the name, no other wallet, no balance)',
+    !/1234|me@x|mex|x\.my|Secret stash|98765|98,765/.test(askAll), askAll);
 
   await S((snap) => {
     const o = JSON.parse(snap);

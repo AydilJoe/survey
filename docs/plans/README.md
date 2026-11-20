@@ -13,6 +13,8 @@ Updated 20 Nov 2026. Start any of these in a fresh session:
 | 4 | Bank alerts by SMS | `backlog.md` | Medium | Needs owner's privacy decision |
 | 7 | Keyboard: dialogs above the on-screen keyboard | — | Small | Shipped (1.57.14, fixed in 1.58.4) |
 | 8 | Wallets / accounts (cash, TNG, MAE, bank) | `wallets.md` | Large, 1.60.0 | Shipped (1.60.0): version 1 |
+| 9 | Tax: on-device AI for relief matching | `backlog.md` | Medium | Requested 20 Nov 2026 |
+| 10 | "New" feature spotlight with motion | `backlog.md` | Small to medium | Requested 20 Nov 2026 |
 
 Manual store steps for the owner are at the end of `backlog.md`.
 

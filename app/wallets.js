@@ -21,6 +21,29 @@
 const WALLET_TYPES = ["cash", "bank", "ewallet", "card"];
 const WALLET_NAME_MAX = 40;
 const WALLET_HISTORY_MAX = 40;
+const WALLET_APPS_MAX = 12;
+
+/* ---------- banks and e-wallets ----------
+   One row per brand, built from TXN_PROVIDERS (script.js): a brand owns every
+   package of its apps (Maybank = the old Maybank app and MAE), so a wallet
+   linked to Maybank catches alerts from either. Cash and "Other (not listed)"
+   sit at the ends. Never a second hand-kept list. */
+function walletBrands() {
+  const by = new Map();
+  for (const p of (typeof TXN_PROVIDERS !== "undefined" ? TXN_PROVIDERS : [])) {
+    if (p.country !== "MY") continue;
+    const id = p.walletBrand || p.id;
+    let b = by.get(id);
+    if (!b) { b = { id, name: p.walletName || p.name, type: p.walletType || "bank", packages: [] }; by.set(id, b); }
+    for (const q of p.packages) if (!b.packages.includes(q)) b.packages.push(q);
+  }
+  return [...by.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+function walletBrandById(id) { return id ? walletBrands().find((b) => b.id === id) || null : null; }
+function walletBrandForPkg(pkg) {
+  if (!pkg) return null;
+  return walletBrands().find((b) => b.packages.some((q) => pkg === q || pkg.startsWith(q))) || null;
+}
 
 function walletTypeLabel(t) {
   return tr({ cash: "Cash", bank: "Bank", ewallet: "E-wallet", card: "Card" }[t] || "Cash");
@@ -42,10 +65,21 @@ function coerceWallets(list) {
     const name = String(raw.name || "").replace(/\s+/g, " ").trim().slice(0, WALLET_NAME_MAX);
     if (!name) continue;
     const opening = Number(raw.opening);
+    // The alert link is a list of packages. Old wallets kept one `app`: it
+    // becomes its brand's whole list (Maybank → the Maybank app and MAE).
+    let apps = Array.isArray(raw.apps) ? raw.apps : (typeof raw.app === "string" && raw.app.trim() ? [raw.app] : []);
+    apps = [...new Set(apps.filter((a) => typeof a === "string" && a.trim()).map((a) => a.trim().slice(0, 120)))].slice(0, WALLET_APPS_MAX);
+    let provider = typeof raw.provider === "string" ? raw.provider.trim().slice(0, 40) : "";
+    if (!provider && apps.length) {
+      const b = walletBrandForPkg(apps[0]);
+      if (b) { provider = b.id; apps = [...new Set([...apps, ...b.packages])].slice(0, WALLET_APPS_MAX); }
+    }
     out.push({
       id, name,
       type: WALLET_TYPES.includes(raw.type) ? raw.type : "cash",
-      app: typeof raw.app === "string" ? raw.app.trim().slice(0, 120) : "",
+      provider,
+      apps,
+      alertDefault: !!raw.alertDefault,
       opening: Number.isFinite(opening) ? walletRound(opening) : 0,
       openingDate: walletIsDate(raw.openingDate) ? raw.openingDate : todayISO(),
       archived: !!raw.archived,
@@ -82,13 +116,27 @@ function walletCount() { return activeWallets().length; }
 function walletById(id) { return id ? walletsList().find((w) => w.id === id) || null : null; }
 function canAddWallet() { return isPro() || walletCount() < FREE_WALLET_LIMIT; }
 
-// The wallet an alert's app belongs to: its app link is that package, or a
-// package of the same bank / e-wallet. No link, no wallet.
-function walletForPkg(pkg) {
-  if (!pkg) return null;
+// The wallets an alert's app could belong to: any package in their link list
+// (or another package of the same app). No link, no wallet.
+function walletsForPkg(pkg) {
+  if (!pkg) return [];
   const prov = typeof providerForPackage === "function" ? providerForPackage(pkg) : null;
-  return activeWallets().find((w) => w.app && (w.app === pkg || pkg.startsWith(w.app)
-    || (prov && prov.packages.includes(w.app)))) || null;
+  return activeWallets().filter((w) => (w.apps || []).some((a) => a === pkg || pkg.startsWith(a)
+    || (prov && prov.packages.includes(a))));
+}
+// Two wallets of one bank (Maybank savings, Maybank card): the one marked
+// "Default for Maybank alerts", else the first one added.
+function walletForPkg(pkg) {
+  const hits = walletsForPkg(pkg);
+  return hits.find((w) => w.alertDefault) || hits[0] || null;
+}
+// Other active wallets that would compete with these packages for alerts.
+function walletSharers(apps, exceptId) {
+  const set = new Set(apps || []);
+  return activeWallets().filter((w) => w.id !== exceptId && (w.apps || []).some((a) => set.has(a)));
+}
+function walletIsAlertDefault(w) {
+  return !!w && !!(w.apps && w.apps.length) && walletForPkg(w.apps[0]) === w;
 }
 
 /* ---------- maths ---------- */
@@ -156,23 +204,48 @@ function walletSave(data, id) {
   const name = String(data.name || "").replace(/\s+/g, " ").trim().slice(0, WALLET_NAME_MAX);
   if (!name) return { error: "name" };
   const opening = Number(data.opening);
+  // The link: an explicit list, else the picked brand's packages, else a
+  // single legacy `app`.
+  const brand = walletBrandById(data.provider);
+  let apps = Array.isArray(data.apps) ? data.apps
+    : brand ? brand.packages
+    : (data.app ? [String(data.app)] : []);
+  apps = [...new Set(apps.map((a) => String(a).trim()).filter(Boolean))].slice(0, WALLET_APPS_MAX);
+  let provider = String(data.provider || "").trim().slice(0, 40);
+  if (!provider && apps.length) {
+    const b = walletBrandForPkg(apps[0]);
+    if (b) { provider = b.id; apps = [...new Set([...apps, ...b.packages])].slice(0, WALLET_APPS_MAX); }
+  }
+  const prior = id ? walletById(id) : null;
+  // Same key order as coerceWallets, so a CSV round trip compares equal.
   const patch = {
     name,
     type: WALLET_TYPES.includes(data.type) ? data.type : "cash",
-    app: String(data.app || "").trim(),
+    provider,
+    apps,
+    alertDefault: !!(prior && prior.alertDefault),
     opening: Number.isFinite(opening) ? walletRound(opening) : 0,
     openingDate: walletIsDate(data.openingDate) ? data.openingDate : todayISO(),
   };
   state.wallets = walletsList();
+  // Default for this bank's alerts: asked only when another wallet shares
+  // the link; the first one is the default without asking.
+  const sharers = walletSharers(apps, id);
+  const wantDefault = !sharers.length ? !!apps.length : data.alertDefault === true;
+  let w;
   if (id) {
-    const w = walletById(id);
+    w = walletById(id);
     if (!w) return { error: "missing" };
     Object.assign(w, patch);
-    return { wallet: w };
+  } else {
+    if (!canAddWallet()) return { error: "limit" };
+    w = { id: uid(), ...patch, archived: false, createdAt: Date.now() };
+    state.wallets.push(w);
   }
-  if (!canAddWallet()) return { error: "limit" };
-  const w = { id: uid(), ...patch, archived: false, createdAt: Date.now() };
-  state.wallets.push(w);
+  if (sharers.length && data.alertDefault === undefined) w.alertDefault = !!w.alertDefault;
+  else w.alertDefault = wantDefault;
+  if (w.alertDefault) sharers.forEach((o) => { o.alertDefault = false; });
+  delete w.app;
   return { wallet: w };
 }
 // Archiving frees a free slot; bringing one back is adding, so it is gated.
@@ -251,13 +324,17 @@ function walletFmtDate(iso) {
   const d = new Date(`${iso}T00:00:00`);
   return Number.isFinite(d.getTime()) ? d.toLocaleDateString(dateLocale(), { day: "numeric", month: "short" }) : "";
 }
-function walletAppName(pkg) {
-  const p = pkg && typeof providerForPackage === "function" ? providerForPackage(pkg) : null;
-  return p ? (p.short || p.name) : "";
+function walletAppName(w) {
+  const b = w && (walletBrandById(w.provider) || walletBrandForPkg((w.apps || [])[0]));
+  return b && w.apps && w.apps.length ? b.name : "";
 }
 function walletSubText(w) {
-  return [walletTypeLabel(w.type), walletAppName(w.app) ? tr("{app} alerts", { app: walletAppName(w.app) }) : ""].filter(Boolean).join(" · ");
+  // Alerts are Android-only: elsewhere the link is kept but not mentioned.
+  const app = walletAlertsShown() ? walletAppName(w) : "";
+  return [walletTypeLabel(w.type), app ? tr("{app} alerts", { app }) : ""].filter(Boolean).join(" · ");
 }
+// Bank alerts are read on Android only; iPhone and the web never show them.
+function walletAlertsShown() { return typeof captureShareAllowed === "function" && captureShareAllowed(); }
 function walletOptions(selected, opts) {
   const o = opts || {};
   const list = activeWallets();
@@ -365,11 +442,57 @@ function walletShow(dlg) {
 }
 function walletClose(id) { const d = walletEl(id); if (d && d.open) d.close(); }
 
-/* Add / edit sheet */
-function walletAppOptions(selected) {
-  const mine = (typeof TXN_PROVIDERS !== "undefined" ? TXN_PROVIDERS : []).filter((x) => x.country === "MY");
-  return `<option value="">${tr("None")}</option>`
-    + mine.map((x) => `<option value="${escapeHtml(x.packages[0])}"${x.packages.includes(selected) ? " selected" : ""}>${escapeHtml(x.name)}</option>`).join("");
+/* Add / edit sheet: pick the bank or e-wallet first; it fills the name, the
+   type and (on Android) the alert link. "Other (not listed)" takes a typed
+   name and offers "Ask us to add your bank". */
+function walletProviderOptions(selected) {
+  const brands = walletBrands();
+  const group = (type, label) => {
+    const rows = brands.filter((b) => b.type === type);
+    return rows.length ? `<optgroup label="${escapeHtml(tr(label))}">`
+      + rows.map((b) => `<option value="${escapeHtml(b.id)}"${b.id === selected ? " selected" : ""}>${escapeHtml(b.name)}</option>`).join("")
+      + "</optgroup>" : "";
+  };
+  const opt = (v, label) => `<option value="${v}"${v === selected ? " selected" : ""}>${escapeHtml(tr(label))}</option>`;
+  return opt("", "Choose your bank or e-wallet") + opt("cash", "Cash")
+    + group("bank", "Banks") + group("ewallet", "E-wallets") + group("card", "Pay later")
+    + opt("other", "Other (not listed)");
+}
+// What a pick fills in: name, type and the alert link.
+function walletProviderPick(id) {
+  if (id === "cash") return { name: tr("Cash"), type: "cash", apps: [] };
+  if (id === "other" || !id) return { name: "", type: "bank", apps: [] };
+  const b = walletBrandById(id);
+  return b ? { name: b.name, type: b.type, apps: b.packages.slice() } : { name: "", type: "bank", apps: [] };
+}
+let walletAutoName = "";
+function walletProviderChanged(fromUser) {
+  const f = walletEl("wallet-form");
+  const dlg = walletEl("wallet-dialog");
+  if (!f || !dlg) return;
+  const id = walletEl("wallet-provider").value;
+  const pick = walletProviderPick(id);
+  const nameEl = f.elements["wallet-name"];
+  if (fromUser) {
+    // A name the user typed stays; one we filled follows the pick.
+    if (!nameEl.value.trim() || nameEl.value === walletAutoName) { nameEl.value = pick.name; walletAutoName = pick.name; }
+    f.elements["wallet-type"].value = pick.type;
+  }
+  walletEl("wallet-ask-wrap").hidden = id !== "other";
+  const brand = walletBrandById(id);
+  const alerts = walletEl("wallet-alerts");
+  const show = !!brand && walletAlertsShown();
+  alerts.hidden = !show;
+  if (show) {
+    walletEl("wallet-alert-line").textContent = tr("Alerts from {name} apps go here.", { name: brand.name });
+    const sharers = walletSharers(brand.packages, dlg.dataset.id || "");
+    const wrap = walletEl("wallet-default-wrap");
+    wrap.hidden = !sharers.length;
+    walletEl("wallet-default-label").textContent = tr("Default for {name} alerts", { name: brand.name });
+    const w = walletById(dlg.dataset.id);
+    walletEl("wallet-default").checked = sharers.length ? !!(w && walletIsAlertDefault(w) && (w.apps || []).some((a) => brand.packages.includes(a))) : true;
+  }
+  if (fromUser && id && !nameEl.value.trim()) setTimeout(() => nameEl.focus(), 30);
 }
 function openWalletEdit(id) {
   const dlg = walletEl("wallet-dialog");
@@ -384,27 +507,40 @@ function openWalletEdit(id) {
   f.elements["wallet-type"].value = w ? w.type : "cash";
   f.elements["wallet-opening"].value = w ? String(w.opening) : "";
   f.elements["wallet-date"].value = w ? w.openingDate : todayISO();
-  walletEl("wallet-app").innerHTML = walletAppOptions(w ? w.app : "");
+  const prov = !w ? "" : w.provider && (walletBrandById(w.provider) || w.provider === "cash" || w.provider === "other") ? w.provider
+    : w.type === "cash" && !(w.apps || []).length ? "cash" : "";
+  walletEl("wallet-provider").innerHTML = walletProviderOptions(prov);
+  walletAutoName = w ? walletProviderPick(prov).name : "";
+  walletProviderChanged(false);
   const more = walletEl("wallet-more");
-  if (more) more.open = !!(w && (w.app || w.openingDate !== todayISO()));
+  if (more) more.open = !!(w && w.openingDate !== todayISO());
   const arch = walletEl("wallet-archive");
   if (arch) { arch.hidden = !w; arch.textContent = w && w.archived ? tr("Bring back") : tr("Archive"); }
   walletEl("wallet-error").hidden = true;
   if (typeof renderFreeCounts === "function") renderFreeCounts();
   walletShow(dlg);
-  setTimeout(() => { if (!w) f.elements["wallet-name"].focus(); }, 30);
+  setTimeout(() => { if (!w) walletEl("wallet-provider").focus(); }, 30);
 }
 function walletFormSubmit() {
   const dlg = walletEl("wallet-dialog");
   const f = walletEl("wallet-form");
   const id = dlg.dataset.id || "";
-  const res = walletSave({
+  const provider = walletEl("wallet-provider").value;
+  const brand = walletBrandById(provider);
+  const old = walletById(id);
+  const data = {
     name: f.elements["wallet-name"].value,
     type: f.elements["wallet-type"].value,
-    app: walletEl("wallet-app").value,
+    provider,
+    // A brand links all its apps; Cash / Other / "choose" link nothing, but
+    // an old wallet edited without touching the pick keeps its link.
+    apps: brand ? brand.packages.slice() : (!provider && old ? (old.apps || []) : []),
     opening: f.elements["wallet-opening"].value,
     openingDate: f.elements["wallet-date"].value,
-  }, id);
+  };
+  const wrap = walletEl("wallet-default-wrap");
+  if (brand && wrap && !wrap.hidden && walletAlertsShown()) data.alertDefault = walletEl("wallet-default").checked;
+  const res = walletSave(data, id);
   if (res.error === "limit") { dlg.close(); openPaywall("wallets"); return false; }
   if (res.error) {
     const err = walletEl("wallet-error");
@@ -418,6 +554,29 @@ function walletFormSubmit() {
   toast(id ? tr("Wallet saved") : tr("{name} added", { name: res.wallet.name }));
   if (walletEl("wallet-detail-dialog")?.open) openWalletDetail(res.wallet.id);
   return true;
+}
+// "Ask us to add your bank": only the bank's name the user typed and the app
+// version, never a balance, a wallet list or anything from the vault. On
+// Android it opens the redacted alert-sample sheet; elsewhere a mailto.
+function walletAskBankName() {
+  const f = walletEl("wallet-form");
+  return String((f && f.elements["wallet-name"].value) || "").replace(/\S+@\S*/g, "").replace(/\d/g, "").replace(/\s+/g, " ").trim().slice(0, WALLET_NAME_MAX);
+}
+function walletAskBankMail(bank) {
+  const name = bank || "";
+  const subject = `Please add my bank${name ? `: ${name}` : ""}`;
+  const body = `Bank or e-wallet: ${name || "(not typed)"}\nDuitful: ${typeof APP_VERSION !== "undefined" ? APP_VERSION : ""}\n\n`
+    + "If you can, paste one alert or statement line below, with names, account numbers and references removed.\n";
+  return { subject, body, href: `mailto:${typeof SAMPLE_TO !== "undefined" ? SAMPLE_TO : "hello@duitful.app"}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` };
+}
+function walletAskBank() {
+  const bank = walletAskBankName();
+  if (walletAlertsShown() && typeof openCaptureShare === "function") {
+    openCaptureShare({ kind: "add-bank", bank });
+    return "share";
+  }
+  window.location.href = walletAskBankMail(bank).href;
+  return "mailto";
 }
 
 /* Detail sheet: balance, what moved it, and what to do next */
@@ -538,6 +697,8 @@ document.addEventListener("click", (e) => {
 });
 walletEl("wallets-archived-toggle")?.addEventListener("click", () => { walletShowArchived = !walletShowArchived; renderWallets(); });
 walletEl("wallet-save")?.addEventListener("click", walletFormSubmit);
+walletEl("wallet-provider")?.addEventListener("change", () => walletProviderChanged(true));
+walletEl("wallet-ask-bank")?.addEventListener("click", walletAskBank);
 walletEl("wallet-cancel")?.addEventListener("click", () => walletClose("wallet-dialog"));
 walletEl("wallet-form")?.addEventListener("submit", (e) => { e.preventDefault(); walletFormSubmit(); });
 walletEl("wallet-archive")?.addEventListener("click", () => {
