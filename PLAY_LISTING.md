@@ -140,7 +140,7 @@ Optional, and off until you switch it on
 
 
 Free and Pro
-Free: 3 debts (one can be a pay-later plan) and your debt-free date, reminders, 5 savings goals, 3 investments, 5 receipt scans and 1 bank statement import a month. Pro is a one-time in-app purchase — no subscription — that adds every debt, pay-later plans, automatic backup, unlimited scans, statement imports, goals and investments, budget pools and other currencies.
+Free: 3 debts (one can be a pay-later plan) and your debt-free date, reminders, 5 savings goals, 3 investments, 5 receipt scans and 1 bank statement import a month, 3 wallets (cash, TNG, MAE, bank). Pro is a one-time in-app purchase — no subscription — that adds every debt, pay-later plans, automatic backup, unlimited scans, statement imports, goals and investments, wallets, budget pools and other currencies.
 
 I'm Aydil, in Kuala Lumpur. Duitful isn't a company: no investors, no ad network, no data partners. If something's broken or wrong, tell me and I'll fix it.
 ```

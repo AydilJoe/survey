@@ -12130,6 +12130,380 @@ check('the brand catalogue makes no network calls at all',
   }, rsSnap);
 }
 
+/* ── Wallets (wallets.js, 1.60.0) ──────────────────────────────────────────
+   Where money sits: opening + in − out, Adjust to actual books a visible row,
+   entries name a wallet (default: the last used), moves book nothing, auto-
+   capture fills the wallet from the alert's app, statement import picks one
+   wallet per import. Free keeps 3 active wallets; Pro any number. */
+{
+  const wSnap = await S(() => JSON.stringify({ wallets: state.wallets, walletMoves: state.walletMoves, walletLast: state.walletLast, dailyExpenses: state.dailyExpenses, income: state.income, expenses: state.expenses, pendingTxns: state.pendingTxns, pro: state.pro, trial: state.proTrialStartedAt, statementUsage: state.statementUsage, statementLast: state.statementLast, currency: state.currency }));
+  await S(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.wallets = []; state.walletMoves = []; state.walletLast = ''; state.pendingTxns = [];
+    state.pro = false; state.proTrialStartedAt = 0; state.currency = 'MYR';
+    save(); renderAll();
+    document.getElementById('tabbtn-savings').click();
+  });
+  // 1) Create through the sheet: the free count shows before the wall.
+  const made = await S(() => {
+    const card = document.getElementById('wallets-card');
+    const out = { cardShown: card.getBoundingClientRect().height > 0, empty: document.getElementById('wallets-list').textContent.trim(), free: card.querySelector('[data-free-count]').textContent };
+    const mk = (name, type, opening, app, date) => {
+      document.querySelector('#wallets-card [data-action=wallet-add]').click();
+      const f = document.getElementById('wallet-form');
+      f.elements['wallet-name'].value = name; f.elements['wallet-type'].value = type; f.elements['wallet-opening'].value = String(opening);
+      f.elements['wallet-date'].value = date; document.getElementById('wallet-app').value = app;
+      document.getElementById('wallet-save').click();
+    };
+    const past = new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10);
+    out.past = past;
+    mk('TNG eWallet', 'ewallet', 200, 'my.com.tngdigital.ewallet', past);
+    mk('Maybank savings', 'bank', 5000, 'com.mbb.malaysia.android', past);
+    out.closed = !document.getElementById('wallet-dialog').open;
+    out.wallets = state.wallets.map((w) => [w.name, w.type, w.opening, w.app, w.openingDate === past, w.archived].join('|'));
+    out.rows = [...document.querySelectorAll('#wallets-list .wallet-row')].map((r) => r.querySelector('.wallet-name').textContent + '=' + r.querySelector('.wallet-bal').textContent.replace(/\s+/g, ' '));
+    out.free2 = card.querySelector('[data-free-count]').textContent;
+    out.total = document.getElementById('wallets-total').textContent.replace(/\s+/g, ' ');
+    return out;
+  });
+  check('wallets: the card sits on Savings, starts empty with a one-line prompt, and shows "0 of 3 free wallets used" before any wall',
+    made.cardShown && /Cash, TNG eWallet, MAE/.test(made.empty) && made.free === '0 of 3 free wallets used', JSON.stringify(made));
+  check('wallets create: name, type, opening balance and date, app link saved; the card lists each balance and a total; "2 of 3" used',
+    made.closed && made.wallets.join() === `TNG eWallet|ewallet|200|my.com.tngdigital.ewallet|true|false,Maybank savings|bank|5000|com.mbb.malaysia.android|true|false`
+    && made.rows.join() === 'TNG eWallet=RM 200.00,Maybank savings=RM 5,000.00' && made.free2 === '2 of 3 free wallets used' && /RM 5,200\.00/.test(made.total), JSON.stringify(made));
+
+  // 2) Entry assignment: the picker defaults to the last wallet; older entries stay unassigned.
+  const assign = await S(() => {
+    const tng = state.wallets[0].id, mbb = state.wallets[1].id;
+    state.dailyExpenses.push({ id: 'w-old', kind: 'expense', date: todayISO(), amount: 9, category: 'Food', note: 'old', createdAt: 1 });
+    renderAll();
+    document.getElementById('tabbtn-dashboard').click();
+    const form = document.getElementById('form-daily');
+    const sel = document.getElementById('daily-wallet');
+    const out = { fieldShown: !sel.closest('[data-wallet-field]').hidden, start: sel.value, opts: [...sel.options].map((o) => o.textContent) };
+    setDailyMoreOpen(false);
+    sel.value = tng; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    out.label = document.getElementById('daily-more-toggle-label').textContent;
+    form.querySelector('[name=amount]').value = '12.50';
+    form.querySelector('[name=category]').value = 'Food';
+    form.requestSubmit();
+    const e1 = state.dailyExpenses[state.dailyExpenses.length - 1];
+    out.e1 = [e1.amount, e1.walletId === tng].join('|');
+    out.last = state.walletLast === tng;
+    out.after = sel.value === tng;
+    out.labelAfter = document.getElementById('daily-more-toggle-label').textContent;
+    // Pay debt from the bank, Save from the bank: both money out.
+    setDailyType('saving');
+    const g = state.savings[0];
+    if (g) {
+      document.getElementById('daily-target').value = 'saving:' + g.id;
+      sel.value = mbb; sel.dispatchEvent(new Event('change', { bubbles: true }));
+      form.querySelector('[name=amount]').value = '100';
+      form.requestSubmit();
+    }
+    setDailyType('expense');
+    // Monthly income into the bank, from its "More".
+    openAddForm('form-income', { focus: false });
+    const fi = document.getElementById('form-income');
+    fi.querySelector('[name=name]').value = 'Freelance';
+    fi.querySelector('[name=amount]').value = '300';
+    fi.querySelector('[name=day]').value = String(new Date().getDate());
+    fi.querySelector('[name=month]').value = currentMonthISO();
+    fi.querySelector('[name=repeatNext]').checked = false;
+    const isel = document.getElementById('income-wallet');
+    isel.value = mbb; isel.dispatchEvent(new Event('change', { bubbles: true }));
+    out.incSummary = fi.querySelector('details.form-more summary').textContent;
+    fi.requestSubmit();
+    const inc = state.income[state.income.length - 1];
+    out.inc = [inc.name, inc.walletId === mbb].join('|');
+    out.old = state.dailyExpenses.find((e) => e.id === 'w-old').walletId === undefined;
+    out.saved = !!g;
+    out.tng = walletBalance(state.wallets[0]); out.mbb = walletBalance(state.wallets[1]);
+    return out;
+  });
+  check('wallets entries: the add form\'s picker lists "No wallet" + each wallet; a spend names the wallet picked, which becomes the next default ("More details · TNG eWallet")',
+    assign.fieldShown && assign.start === '' && assign.opts.join() === 'No wallet,TNG eWallet,Maybank savings' && assign.e1 === '12.5|true'
+    && assign.last && assign.after && assign.labelAfter === 'More details · TNG eWallet', JSON.stringify(assign));
+  check('wallets entries: income from Monthly names the wallet from its More ("More · Maybank savings"); an entry made before wallets stays unassigned',
+    assign.inc === 'Freelance|true' && assign.incSummary === 'More · Maybank savings' && assign.old, JSON.stringify(assign));
+  check('wallets balance: opening + in − out — TNG 200 − 12.50 = 187.50; Maybank 5,000 − 100 saved + 300 income = 5,200',
+    assign.tng === 187.5 && assign.mbb === (assign.saved ? 5200 : 5300), JSON.stringify(assign));
+
+  // 3) Balance maths edge cases: before the opening date, future, negative.
+  const maths = await S(() => {
+    const w = state.wallets[0];
+    const before = new Date(new Date(w.openingDate).getTime() - 3 * 864e5).toISOString().slice(0, 10);
+    const future = new Date(Date.now() + 5 * 864e5).toISOString().slice(0, 10);
+    state.dailyExpenses.push({ id: 'w-before', kind: 'expense', date: before, amount: 50, category: 'Food', walletId: w.id, createdAt: 2 });
+    state.dailyExpenses.push({ id: 'w-future', kind: 'expense', date: future, amount: 70, category: 'Food', walletId: w.id, createdAt: 3 });
+    state.dailyExpenses.push({ id: 'w-debt', kind: 'debt', date: todayISO(), amount: 7.5, debtName: 'Card', walletId: w.id, createdAt: 4 });
+    const b = walletBalance(w);
+    state.dailyExpenses = state.dailyExpenses.filter((e) => !['w-before', 'w-future', 'w-debt'].includes(e.id));
+    return { b, after: walletBalance(w) };
+  });
+  check('wallets balance: entries before the opening date are inside it, future entries don\'t count yet, a debt payment is money out',
+    maths.b === 180 && maths.after === 187.5, JSON.stringify(maths));
+
+  // 4) Adjust to actual: a visible row, history untouched; spending totals untouched.
+  const adj = await S(() => {
+    const w = state.wallets[0];
+    const spendBefore = dailySpendSum(state.dailyExpenses.filter((e) => isSameMonth(e.date)));
+    const entriesBefore = JSON.stringify(state.dailyExpenses);
+    openWalletDetail(w.id);
+    const out = { detailOpen: document.getElementById('wallet-detail-dialog').open, bal: document.getElementById('wallet-detail-bal').textContent.replace(/\s+/g, ' ') };
+    document.querySelector('[data-action=wallet-detail-adjust]').click();
+    out.adjOpen = document.getElementById('wallet-adjust-dialog').open;
+    out.now = document.getElementById('wallet-adjust-now').textContent.replace(/\s+/g, ' ');
+    const inp = document.getElementById('wallet-adjust-amount');
+    inp.value = '180'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+    out.preview = document.getElementById('wallet-adjust-preview').textContent.replace(/\s+/g, ' ');
+    document.getElementById('wallet-adjust-save').click();
+    out.moves = state.walletMoves.map((m) => [m.kind, m.to === w.id, m.amount].join('|'));
+    out.bal2 = walletBalance(w);
+    out.history = [...document.querySelectorAll('#wallet-detail-list .wallet-flow')].map((li) => (li.querySelector('.wallet-flow-main span').textContent + ' ' + li.querySelector('.wallet-flow-amt').textContent).replace(/\s+/g, ' '));
+    out.same = JSON.stringify(state.dailyExpenses) === entriesBefore;
+    out.spendSame = dailySpendSum(state.dailyExpenses.filter((e) => isSameMonth(e.date))) === spendBefore;
+    return out;
+  });
+  check('wallets adjust to actual: "What\'s in it now" previews "Books an adjustment of −RM 7.50"; saving books one visible "Adjusted to actual" row, balance 180',
+    adj.detailOpen && adj.bal === 'RM 187.50' && adj.adjOpen && adj.now === 'Duitful has RM 187.50.' && adj.preview === 'Books an adjustment of −RM 7.50. Your entries stay as they are.'
+    && adj.moves.join() === 'adjust|true|-7.5' && adj.bal2 === 180 && adj.history[0] === 'Adjusted to actual −RM 7.50' && /Opening balance RM 200\.00$/.test(adj.history[adj.history.length - 1]), JSON.stringify(adj));
+  check('wallets adjust to actual: no entry is rewritten and spending totals don\'t move', adj.same && adj.spendSame, JSON.stringify(adj));
+
+  // 5) Manual Move money: between wallets, neither spending nor income.
+  const mv = await S(() => {
+    const [tng, mbb] = state.wallets;
+    const spend = dailySpendSum(state.dailyExpenses); const inc = state.income.length;
+    document.querySelector('[data-action=wallet-detail-move]').click();
+    const out = { open: document.getElementById('wallet-move-dialog').open, from: document.getElementById('wallet-move-from').value === tng.id, to: document.getElementById('wallet-move-to').value === mbb.id };
+    const f = document.getElementById('wallet-move-form');
+    // From Maybank to TNG: a top-up.
+    document.getElementById('wallet-move-from').value = mbb.id; document.getElementById('wallet-move-to').value = tng.id;
+    f.elements['wallet-move-amount'].value = '50';
+    document.getElementById('wallet-move-save').click();
+    out.closed = !document.getElementById('wallet-move-dialog').open;
+    out.tng = walletBalance(tng); out.mbb = walletBalance(mbb);
+    out.spendSame = dailySpendSum(state.dailyExpenses) === spend; out.incSame = state.income.length === inc;
+    out.hist = document.querySelector('#wallet-detail-list .wallet-flow-main span').textContent;
+    // Same wallet twice is refused.
+    openWalletMove(tng.id);
+    document.getElementById('wallet-move-to').value = tng.id;
+    f.elements['wallet-move-amount'].value = '5';
+    document.getElementById('wallet-move-save').click();
+    out.refused = document.getElementById('wallet-move-error').textContent;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    return out;
+  });
+  check('wallets move money: Maybank → TNG RM 50 makes TNG 230 and Maybank 50 less; no spend, no income; the same wallet twice is refused',
+    mv.open && mv.from && mv.to && mv.closed && mv.tng === 230 && mv.mbb === (assign.saved ? 5150 : 5250) && mv.spendSame && mv.incSame
+    && mv.hist === 'Moved from Maybank savings' && mv.refused === 'Pick two different wallets.', JSON.stringify(mv));
+
+  // 6) Auto-capture: the alert's app picks the wallet; no match stays unassigned.
+  const cap = await S(() => {
+    const [tng, mbb] = state.wallets;
+    const now = Date.now();
+    state.pendingTxns = [
+      { id: 'cw1', createdAt: now, raw: '', pkg: 'my.com.tngdigital.ewallet', amount: 8.9, merchant: 'MYNEWS', providerId: 'tng', providerName: "Touch 'n Go", currency: 'MYR' },
+      { id: 'cw2', createdAt: now, raw: '', pkg: 'com.grabtaxi.passenger', amount: 15, merchant: 'GRAB', providerId: 'grab', providerName: 'Grab', currency: 'MYR' },
+      { id: 'cw3', kind: 'income', createdAt: now, raw: '', pkg: 'com.mbb.malaysia.android', amount: 40, sender: 'ALI', label: '', providerId: 'maybank', providerName: 'Maybank', currency: 'MYR' },
+    ];
+    acceptPending('cw1'); acceptPending('cw2'); acceptIncomePending('cw3');
+    const d = state.dailyExpenses;
+    const a = d.find((e) => e.note === 'MYNEWS'), b = d.find((e) => e.note === 'GRAB');
+    const inc = state.income[state.income.length - 1];
+    return { a: a && a.walletId === tng.id, b: b && !b.walletId, inc: inc.walletId === mbb.id, tng: walletBalance(tng) };
+  });
+  check('wallets capture: a TNG alert lands in the TNG wallet, a Maybank credit in Maybank, an app with no wallet stays unassigned',
+    cap.a && cap.b && cap.inc && Math.abs(cap.tng - 221.1) < 0.001, JSON.stringify(cap));
+
+  // 7) A "Moved" card is a transfer between the two wallets, still neither spending nor income.
+  const mc = await S(() => {
+    const [tng, mbb] = state.wallets;
+    const t0 = Date.now();
+    const spendN = state.dailyExpenses.length, incN = state.income.length, movesN = state.walletMoves.length;
+    const b0 = [walletBalance(tng), walletBalance(mbb)];
+    state.pendingTxns = [{ id: 'mv1', kind: 'move', createdAt: t0, amount: 100, currency: 'MYR', own: false,
+      from: { id: 'f', createdAt: t0, pkg: 'com.mbb.malaysia.android', amount: 100, merchant: 'TNG', transfer: true },
+      to: { id: 't', kind: 'income', createdAt: t0 + 1000, pkg: 'my.com.tngdigital.ewallet', amount: 100, sender: '' } }];
+    renderAll();
+    document.querySelector('[data-action=pending-move-accept][data-id=mv1]').click();
+    const m = state.walletMoves[state.walletMoves.length - 1];
+    return { booked: state.walletMoves.length === movesN + 1, dir: m.from === mbb.id && m.to === tng.id && m.amount === 100,
+      noSpend: state.dailyExpenses.length === spendN, noInc: state.income.length === incN,
+      tng: Math.round((walletBalance(tng) - b0[0]) * 100) / 100, mbb: Math.round((walletBalance(mbb) - b0[1]) * 100) / 100, pending: state.pendingTxns.length };
+  });
+  check('wallets capture: confirming a "Moved" card (Maybank → TNG) books one wallet move, +100 / −100, and no spend or income',
+    mc.booked && mc.dir && mc.noSpend && mc.noInc && mc.tng === 100 && mc.mbb === -100 && mc.pending === 0, JSON.stringify(mc));
+
+  // 8) All entries: the wallet filter.
+  const flt = await S(() => {
+    const tng = state.wallets[0];
+    document.getElementById('tabbtn-daily').hidden = false; document.getElementById('tabbtn-daily').click();
+    const sel = document.getElementById('daily-wallet-filter');
+    const out = { shown: !sel.closest('[data-wallet-filter-wrap]').hidden, opts: [...sel.options].map((o) => o.textContent).join() };
+    sel.value = tng.id; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    const ids = [...document.querySelectorAll('#daily-list .daily-entry')].map((x) => x.dataset.id);
+    out.onlyTng = ids.length === state.dailyExpenses.filter((e) => e.walletId === tng.id).length && ids.every((id) => state.dailyExpenses.find((e) => e.id === id).walletId === tng.id);
+    out.pill = document.querySelector('#daily-list .cat-pill-wallet')?.textContent;
+    sel.value = 'none'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    out.noneHasOld = !!document.querySelector('#daily-list .daily-entry[data-id="w-old"]');
+    sel.value = ''; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    return out;
+  });
+  check('wallets All entries: a wallet filter (All wallets / No wallet / each wallet) shows only that wallet\'s entries, each with its wallet pill',
+    flt.shown && flt.opts === 'All wallets,No wallet,TNG eWallet,Maybank savings' && flt.onlyTng && flt.pill === 'TNG eWallet' && flt.noneHasOld, JSON.stringify(flt));
+
+  // 9) Statement import: from a wallet (no question) and the general button (asks, then remembers per layout).
+  const pickW = async () => {
+    await page.setInputFiles('#stmt-file', { name: 'statement.pdf', mimeType: 'application/pdf', buffer: buildPdf(STATEMENT_FIXTURES.maybankCard()) });
+    await page.waitForFunction(() => !document.getElementById('stmt-review').hidden, null, { timeout: 15000 });
+  };
+  await S(() => {
+    state.pro = true; state.statementUsage = { month: '', imports: 0 }; state.statementLast = [];
+    state.wallets[1].openingDate = '2026-01-01';
+    state.dailyExpenses = state.dailyExpenses.filter((e) => e.source !== 'statement');
+    state.income = state.income.filter((x) => x.source !== 'statement');
+    save(); renderAll();
+    document.getElementById('tabbtn-savings').click();
+    openWalletDetail(state.wallets[1].id);
+    document.querySelector('[data-action=wallet-detail-import]').click();
+  });
+  await pickW();
+  const st1 = await S(() => ({
+    fixed: document.getElementById('stmt-wallet-fixed').hidden ? '' : document.getElementById('stmt-wallet-fixed').textContent,
+    pickerHidden: document.getElementById('stmt-wallet-field').hidden,
+    detailClosed: !document.getElementById('wallet-detail-dialog').open,
+  }));
+  await page.click('#stmt-import');
+  const st1b = await S(() => {
+    const mbb = state.wallets[1].id;
+    const rows = [...state.dailyExpenses.filter((e) => e.source === 'statement'), ...state.income.filter((x) => x.source === 'statement')];
+    return { n: rows.length, all: rows.every((r) => r.walletId === mbb), remembered: (state.statementLast[0] || {}).wallet === mbb };
+  });
+  check('wallets statement: "Import statement" on a wallet opens the same import with that wallet chosen ("Into Maybank savings", no question), and every imported row lands in it',
+    st1.fixed === 'Into Maybank savings' && st1.pickerHidden && st1.detailClosed && st1b.n >= 4 && st1b.all, JSON.stringify([st1, st1b]));
+  await S(() => {
+    state.dailyExpenses = state.dailyExpenses.filter((e) => e.source !== 'statement');
+    state.income = state.income.filter((x) => x.source !== 'statement');
+    save(); renderAll();
+    document.getElementById('btn-wallet-import').click();
+  });
+  await pickW();
+  const st2 = await S(() => {
+    const sel = document.getElementById('stmt-wallet');
+    return { shown: !document.getElementById('stmt-wallet-field').hidden, pre: sel.value === state.wallets[1].id, fixedHidden: document.getElementById('stmt-wallet-fixed').hidden,
+      opts: [...sel.options].map((o) => o.textContent).join() };
+  });
+  await S(() => { const sel = document.getElementById('stmt-wallet'); sel.value = state.wallets[0].id; sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  await page.click('#stmt-import');
+  const st2b = await S(() => {
+    const tng = state.wallets[0].id;
+    const rows = state.dailyExpenses.filter((e) => e.source === 'statement');
+    return { all: rows.length >= 3 && rows.every((r) => r.walletId === tng), remembered: (state.statementLast[0] || {}).wallet === tng };
+  });
+  check('wallets statement: the Wallets card\'s "Import statement" asks once ("Into which wallet?"), preselects the wallet this bank layout went into last time, and remembers the new pick',
+    st1b.remembered && st2.shown && st2.pre && st2.fixedHidden && st2.opts === 'No wallet,TNG eWallet,Maybank savings' && st2b.all && st2b.remembered, JSON.stringify([st2, st2b]));
+
+  // 10) Free limit and paywall; archive frees a slot; Pro unlimited; trial end keeps wallets.
+  const lim = await S(() => {
+    state.dailyExpenses = state.dailyExpenses.filter((e) => e.source !== 'statement');
+    state.pro = false; state.proTrialStartedAt = 0; save(); renderAll();
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const out = {};
+    walletSave({ name: 'Cash', type: 'cash', opening: 50 });
+    renderAll();
+    out.count = document.querySelector('#wallets-card [data-free-count]').textContent;
+    document.querySelector('#wallets-card [data-action=wallet-add]').click();
+    out.paywall = document.getElementById('paywall-dialog').open;
+    out.reason = document.getElementById('paywall-reason').textContent;
+    out.sheet = document.getElementById('wallet-dialog').open;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    out.direct = walletSave({ name: 'MAE' }).error;
+    // Archive one: it no longer counts, so one can be added; bringing it back is adding.
+    walletSetArchived(state.wallets[2].id, true);
+    out.afterArchive = freeCountText('wallets');
+    out.canAdd = canAddWallet();
+    walletSave({ name: 'MAE', type: 'ewallet', opening: 10 });
+    out.unarchive = walletSetArchived(state.wallets[2].id, false);
+    // Pro (the trial): any number. When it ends, all stay and keep their balances.
+    state.proTrialStartedAt = Date.now();
+    out.proAdd = !walletSave({ name: 'BigPay', type: 'card', opening: 0 }).error && !walletSave({ name: 'GXBank', type: 'bank', opening: 0 }).error;
+    out.proUnarch = walletSetArchived(state.wallets[2].id, false) === true;
+    const bal = walletBalance(state.wallets[0]);
+    state.proTrialStartedAt = Date.now() - 30 * 864e5; save(); renderAll();
+    out.after = walletCount();
+    out.balSame = walletBalance(state.wallets[0]) === bal;
+    out.over = freeCountText('wallets');
+    out.trialEnd = trialEndChanges().join(' ');
+    out.rows = document.querySelectorAll('#wallets-list .wallet-row').length;
+    return out;
+  });
+  check('wallets free limit: "3 of 3 free wallets used"; Add opens the paywall with its own reason, never the sheet',
+    lim.count === '3 of 3 free wallets used' && lim.paywall && !lim.sheet && lim.direct === 'limit'
+    && lim.reason === "Free keeps 3 wallets. Pro keeps every one. Archived wallets don't count.", JSON.stringify(lim));
+  check('wallets free limit: archiving frees a slot ("2 of 3"); bringing it back while full is adding, so it waits for Pro',
+    lim.afterArchive === '2 of 3 free wallets used' && lim.canAdd && lim.unarchive === 'limit', JSON.stringify(lim));
+  check('wallets trial: Pro adds any number; when the trial ends all 6 keep working with the same balances, and the count says so',
+    lim.proAdd && lim.proUnarch && lim.after === 6 && lim.balSame && lim.rows === 6 && lim.over === '6 wallets · Free adds up to 3. Yours stay.'
+    && /wallets/.test(lim.trialEnd), JSON.stringify(lim));
+
+  // 11) CSV round trip: wallets, links, moves, adjustments, archive, the default — lossless.
+  const csv = await S(() => {
+    walletSetArchived(state.wallets[5].id, true);
+    const pick = (s) => JSON.stringify({
+      w: s.wallets.map(({ createdAt, ...w }) => w),
+      m: s.walletMoves.map(({ id, createdAt, ...m }) => m),
+      last: s.walletLast,
+      d: s.dailyExpenses.filter((e) => e.walletId).map((e) => [e.amount, e.date, e.walletId]).sort(),
+      i: s.income.filter((e) => e.walletId).map((e) => [e.name, e.walletId]).sort(),
+      bal: s.wallets.map((w) => { const keep = state; state = s; const b = walletBalance(w); state = keep; return b; }),
+    });
+    const before = pick(state);
+    const text = toCSV();
+    const next = fromCSV(text);
+    const after = pick(next);
+    // An older file (no wallet columns) still imports, with no wallets.
+    const lines = text.split('\n');
+    const head = lines[0].split(',');
+    const cut = head.indexOf('wallet_id');
+    const old = lines.filter((l) => !/^wallet/.test(l)).map((l) => l.split(',').slice(0, cut).join(',')).join('\n');
+    let oldOk = false;
+    try { const o = fromCSV(old); oldOk = o.wallets.length === 0 && o.dailyExpenses.every((e) => !e.walletId); } catch (e) { oldOk = String(e); }
+    return { same: before === after, before, after, rows: lines.filter((l) => /^wallet,/.test(l)).length, moves: lines.filter((l) => /^wallet-(move|adjust),/.test(l)).length, oldOk, nW: next.wallets.length };
+  });
+  check('wallets CSV: wallet / wallet-move / wallet-adjust rows and wallet columns on entries round-trip losslessly (ids, links, archive, default, balances); all 6 come back, none trimmed',
+    csv.same && csv.rows === 6 && csv.nW === 6 && csv.moves >= 3 && csv.oldOk === true, JSON.stringify(csv).slice(0, 600));
+
+  // 12) Hide amounts: every balance on the card and the detail is masked.
+  const eye = await S(() => {
+    document.getElementById('tabbtn-savings').click();
+    document.body.classList.add('private');
+    openWalletDetail(state.wallets[0].id);
+    const els = [...document.querySelectorAll('#wallets-list .wallet-bal .amt, #wallets-total .amt, #wallet-detail-bal .amt, #wallet-detail-list .amt')];
+    const masked = els.length > 0 && els.every((el) => getComputedStyle(el).filter.includes('blur'));
+    const sample = els[0] ? getComputedStyle(els[0]) : null;
+    document.body.classList.remove('private');
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    return { n: els.length, masked, filter: sample && sample.filter, color: sample && sample.color };
+  });
+  check('wallets privacy: with the hide-amounts eye on, every wallet balance on the card and in the detail is masked (amt())', eye.masked && eye.n >= 4, JSON.stringify(eye));
+
+  // 13) Balances never reach a reminder or the native strings.
+  const priv = await S(() => {
+    const rem = JSON.stringify(buildReminders({ debts: state.debts, expenses: state.expenses, income: state.income }));
+    const bal = fmtMoney(walletBalance(state.wallets[0]));
+    return { inRem: rem.includes(bal) || /wallet/i.test(rem), bal };
+  });
+  check('wallets privacy: no reminder names a wallet or its balance', !priv.inRem, JSON.stringify(priv));
+
+  await S((snap) => {
+    const o = JSON.parse(snap);
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    Object.assign(state, { wallets: o.wallets, walletMoves: o.walletMoves, walletLast: o.walletLast, dailyExpenses: o.dailyExpenses, income: o.income, expenses: o.expenses, pendingTxns: o.pendingTxns, pro: o.pro, proTrialStartedAt: o.trial, statementUsage: o.statementUsage, statementLast: o.statementLast, currency: o.currency });
+    save(); renderAll();
+  }, wSnap);
+}
+
 /* ── In-app languages: Bahasa Melayu and Simplified Chinese (stage 1) ──────
    English is the key (app/i18n.js); the tables are generated from
    scripts/i18n/strings.mjs. Stage 1 covers the passcode screen, header, tab
@@ -12158,7 +12532,8 @@ check('the brand catalogue makes no network calls at all',
       '#whats-new-dialog', '#license-dialog', '#fpx-email-dialog', '#passcode-dialog', '#bio-offer-dialog', '#pwa-install-ios',
       '#onboard-dialog', '#guide-dialog', '#edit-dialog', '#daily-edit-dialog', '#bulk-income-dialog', '#bulk-debt-pay-dialog', '#last-month-edit-dialog', '#search-dialog',
       '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
-      '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog', '#rs-dialog'];
+      '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog', '#rs-dialog',
+      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog'];
     const out = {};
     for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
     return out;
@@ -12292,6 +12667,13 @@ check('the brand catalogue makes no network calls at all',
     const rent = rsSave({ name: 'Rent for the master bedroom', total: 2400, dueDay: 1, mode: 'weight', meWeight: 1.5, people: [{ name: 'Muhammad Hafiz', w: 1 }, { name: 'Siti Nurhaliza', w: 1 }, { name: 'Kumaravelu', w: 1.5 }], from: prev }).rs;
     rsSend(rent.id, prev);
     state.split.recurring.push(coerceRecurring({ name: 'TNB and Air Selangor', variable: true, dueDay: 1, startMonth: currentMonthISO(), plans: [{ from: currentMonthISO(), mode: 'equal', people: [{ name: 'Muhammad Hafiz' }] }] }));
+    // Wallets: long names, a move and an adjustment in the detail.
+    const tngW = walletSave({ name: "Touch 'n Go eWallet (main)", type: 'ewallet', opening: 236.4, app: 'my.com.tngdigital.ewallet', openingDate: d(1, 2) }).wallet;
+    const mbbW = walletSave({ name: 'Maybank Savings Account-i', type: 'bank', opening: 12850.75, app: 'com.mbb.malaysia.android', openingDate: d(1, 2) }).wallet;
+    walletMove(mbbW.id, tngW.id, 150, d(3, 5), 'Top up for the month');
+    walletAdjust(tngW.id, 120);
+    state.dailyExpenses[0].walletId = tngW.id;
+    state.walletLast = tngW.id;
     save(); renderAll();
   };
   const sticksOut = () => {
@@ -12348,7 +12730,7 @@ check('the brand catalogue makes no network calls at all',
     for (const [label, open] of [['details', () => taxOpenNumbers()], ['claim', () => taxOpenClaim({ relief: 'medical' })],
       ['review', () => taxOpenReview(taxReviewItems(new Date().getFullYear()), 'year', new Date().getFullYear())],
       ['paywall', () => openPaywall('installment')], ['tour', () => openGuide()], ['edit debt', () => openEditDialog('debt', state.debts.find((d) => d.kind === 'islamic').id)],
-      ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['recurring split', () => rsOpenEdit(state.split.recurring[0].id)], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }]]) {
+      ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['recurring split', () => rsOpenEdit(state.split.recurring[0].id)], ['wallet', () => openWalletEdit(state.wallets[0].id)], ['wallet detail', () => openWalletDetail(state.wallets[0].id)], ['move money', () => openWalletMove(state.wallets[0].id)], ['adjust wallet', () => openWalletAdjust(state.wallets[0].id)], ['statement into a wallet', () => openStatementImport({ walletId: state.wallets[0].id })], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
       (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${label} dialog: ${x}`));
@@ -12388,7 +12770,7 @@ check('the brand catalogue makes no network calls at all',
     }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement / split dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 

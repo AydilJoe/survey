@@ -118,9 +118,9 @@ SPLIT A BILL
 
 
 FREE AND PRO
-Free: 3 debts (one can be a pay-later plan) and your debt-free date, reminders, Islamic finance, zakat, tax relief, 5 savings goals, 3 investments, 5 receipt scans and 1 bank statement import a month.
+Free: 3 debts (one can be a pay-later plan) and your debt-free date, reminders, Islamic finance, zakat, tax relief, 5 savings goals, 3 investments, 5 receipt scans and 1 bank statement import a month, 3 wallets.
 
-Pro is a one-time in-app purchase, no subscription: automatic encrypted iCloud backup, unlimited scans and statement imports, goals and investments, budget pools and other currencies.
+Pro is a one-time in-app purchase, no subscription: automatic encrypted iCloud backup, unlimited scans and statement imports, goals and investments, wallets, budget pools and other currencies.
 
 Made in Kuala Lumpur by Aydil. Bugs or ideas: hello@duitful.app
 ```
