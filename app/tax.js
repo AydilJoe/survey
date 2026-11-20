@@ -491,18 +491,28 @@ function taxAiCandidates(now) {
 }
 
 // One batch; resolves how many new matches it found. Failures change nothing.
-async function taxAiMatchRun(now) {
+async function taxAiMatchRun(now, opts) {
   if (taxAiBusy || !taxAiOn() || !taxReady()) return 0;
   const list = taxAiCandidates(now || new Date());
   if (!list.length) return 0;
   taxAiBusy = true;
   let found = 0;
+  let batch = null;
   try {
     const kit = typeof captureAiKit === "function" ? await captureAiKit() : null;
     if (!kit) return 0;
     const t = taxState();
     if (!t.aiMatch) t.aiMatch = {};
+    // More than one spend is a batch: the badge fills as answers land (and,
+    // for "Review my year", the sheet shows the bar). In the background it
+    // waits for the app to come back; spends already answered are cached.
+    batch = list.length > 1 && typeof aiBatchStart === "function"
+      ? aiBatchStart({ label: "Checking tax relief", say: "AI is checking tax relief", total: list.length, overlay: !!(opts && opts.overlay), minimise: false }) : null;
+    let k = 0;
     for (const e of list) {
+      if (batch) aiBatchStep(batch, k);
+      k++;
+      if (typeof aiUntilForeground === "function") await aiUntilForeground();
       taxAiTried.add(e.id);
       const year = Number(String(e.date).slice(0, 4));
       const choices = taxAiChoices(year);
@@ -510,7 +520,11 @@ async function taxAiMatchRun(now) {
       if (!names.length) continue;
       const text = `Spending: ${String(e.note || "").slice(0, 120)}${e.category ? ` (category: ${String(e.category).slice(0, 40)})` : ""}. Which Malaysian tax relief group is this shop or spend most likely in? Use "" if none.`;
       let reply = null;
-      try { reply = parseAiAlertReply(await withTimeout(kit.aiReadAlert({ text, categories: names }), TAX_AI_TIMEOUT_MS)); } catch { reply = null; }
+      // Automatic runs only move the header badge; "Review my year" (opts.overlay) shows the sheet.
+      const ask = () => withTimeout(kit.aiReadAlert({ text, categories: names }), TAX_AI_TIMEOUT_MS);
+      const think = typeof withAiThinking === "function"
+        ? (fn) => withAiThinking(fn, opts && opts.overlay && !batch ? { overlay: true, label: "Checking tax relief" } : undefined) : (fn) => fn();
+      try { reply = parseAiAlertReply(await think(ask)); } catch { reply = null; }
       if (!reply) continue;                       // not cached: may be asked again another day
       const name = aiCategoryIn(reply.category, names);
       const r = name && !reply.promo ? choices[name] : "";
@@ -520,7 +534,10 @@ async function taxAiMatchRun(now) {
     const ids = Object.keys(t.aiMatch);
     if (ids.length > TAX_AI_KEEP) for (const id of ids.slice(0, ids.length - TAX_AI_KEEP)) delete t.aiMatch[id];
     save();
-  } finally { taxAiBusy = false; }
+  } finally {
+    taxAiBusy = false;
+    if (batch) { aiBatchStep(batch, batch.total); aiBatchEnd(batch); }
+  }
   return found;
 }
 
@@ -2706,9 +2723,16 @@ document.addEventListener("click", (e) => {
   } else if ((b = hit("[data-tax-docs]"))) {
     taxOpenReview([{ kind: "claim", claimId: b.dataset.taxDocs, year: taxYear() }], "year", taxYear());
   } else if (hit("#btn-tax-review")) {
-    const items = taxReviewItems(taxYear());
-    if (items.length) taxOpenReview(items, "year", taxYear());
-    else toast(tr("All sorted — nothing left to review for {ya}", { ya: taxYearLabel(taxYear()) }));
+    // Spends the keywords miss get one look from the phone's AI first (you
+    // see it think), then the review opens with whatever it found.
+    const open = () => {
+      const items = taxReviewItems(taxYear());
+      if (items.length) taxOpenReview(items, "year", taxYear());
+      else toast(tr("All sorted — nothing left to review for {ya}", { ya: taxYearLabel(taxYear()) }));
+    };
+    if (taxAiOn() && !taxAiBusy && taxAiCandidates(new Date()).length) {
+      taxAiMatchRun(new Date(), { overlay: true }).catch(() => 0).then(() => { renderTax(); open(); });
+    } else open();
   } else if (hit("#tax-review-yes")) taxReviewYes();
   else if (hit("#tax-review-no")) taxReviewNo();
   else if (hit("#tax-review-later")) { if (taxReview) taxReviewGo(taxReview.i + 1); }
