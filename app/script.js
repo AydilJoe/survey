@@ -2,27 +2,30 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.60.0";
+const APP_VERSION = "1.61.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
 
-/* ---------- theme (System / Light / Dark) ---------- */
+/* ---------- theme (System / Light / Dark / Pastel) ---------- */
 // Applied immediately at script start (before first paint of the unlock
 // screen) so a forced theme never flashes the wrong surface. Lives in
 // plain localStorage — pre-unlock UI needs it, so it can't sit in the
 // encrypted state.
 const THEME_KEY = "duit-tracker.theme";
-const THEME_SURFACES = { light: "#e8dfd0", dark: "#14110e" };
+// Pastel is a light theme with its own palette and rounded font (Nunito,
+// self-hosted; the @font-face is only fetched once a Pastel page uses it).
+const THEME_SURFACES = { light: "#e8dfd0", dark: "#14110e", pastel: "#fbe6d3" };
+const THEME_FORCED = ["light", "dark", "pastel"];
 function currentThemeChoice() {
   try {
     const t = localStorage.getItem(THEME_KEY);
-    return t === "light" || t === "dark" ? t : "system";
+    return THEME_FORCED.includes(t) ? t : "system";
   } catch (_) { return "system"; }
 }
 function applyTheme(choice) {
   const root = document.documentElement;
-  if (choice === "light" || choice === "dark") root.dataset.theme = choice;
+  if (THEME_FORCED.includes(choice)) root.dataset.theme = choice;
   else delete root.dataset.theme;
   // Keep the OS status-bar tint in sync. When the user forces a theme we
   // pin both meta tags to that surface; on "system" we restore the
@@ -30,7 +33,7 @@ function applyTheme(choice) {
   const metas = document.querySelectorAll('meta[name="theme-color"]');
   metas.forEach((m) => {
     const media = m.getAttribute("media") || "";
-    if (choice === "light" || choice === "dark") {
+    if (THEME_FORCED.includes(choice)) {
       m.setAttribute("content", THEME_SURFACES[choice]);
     } else {
       m.setAttribute("content", media.includes("dark") ? THEME_SURFACES.dark : THEME_SURFACES.light);
@@ -4708,7 +4711,9 @@ function openCaptureShare(opts) {
   const o = opts || {};
   const dlg = document.getElementById("capture-share-dialog");
   if (!dlg) return;
-  shareCtx = { pkg: o.pkg || "", kind: o.kind || "missed" };
+  // kind "add-bank": from a wallet's "Ask us to add your bank", with only
+  // the bank name the user typed.
+  shareCtx = { pkg: o.pkg || "", kind: o.kind || "missed", bank: String(o.bank || "").replace(/\S+@\S*/g, "").replace(/\d/g, "").replace(/\s+/g, " ").trim().slice(0, 40) };
   const raw = document.getElementById("share-raw");
   const app = document.getElementById("share-app");
   if (app) {
@@ -4735,6 +4740,12 @@ function captureShareBody() {
   const app = document.getElementById("share-app");
   const pkg = (app && app.value) || shareCtx.pkg || "";
   const text = (document.getElementById("share-redacted") || {}).value || "";
+  if (shareCtx.kind === "add-bank") {
+    return {
+      subject: `Please add my bank${shareCtx.bank ? `: ${shareCtx.bank}` : ""}`,
+      body: `Bank or e-wallet: ${shareCtx.bank || "(not typed)"}\nApp: ${pkg || "not chosen"}\nDuitful: ${APP_VERSION} · add a bank\n\n${text.trim()}\n`,
+    };
+  }
   return {
     subject: `Bank alert sample (${shareCtx.kind}${pkg ? `, ${pkg}` : ""})`,
     body: `App: ${pkg || "not chosen"}\nDuitful: ${APP_VERSION} · ${shareCtx.kind === "misread" ? "read wrongly" : "not picked up"}\n\n${text.trim()}\n`,
@@ -4837,7 +4848,27 @@ async function refreshAiStatus() {
   renderAiIntro();
   return st;
 }
+// The header badge: the phone's own AI is ready AND switched on. Nothing on
+// the web, on a phone without it, while it downloads, or when it's off.
+// It shimmers once, the first time it ever appears (motion-safe only).
+const AI_BADGE_SEEN_KEY = "duitful.aiBadgeSeen";
+function renderAiBadge() {
+  const badge = document.getElementById("ai-badge");
+  if (!badge) return;
+  const show = isNative() && !!aiStatusCache && aiStatusCache.state === "on" && !!state && aiAllowed();
+  const was = !badge.hidden;
+  badge.hidden = !show;
+  if (!show || was) return;
+  let seen = true;
+  try { seen = localStorage.getItem(AI_BADGE_SEEN_KEY) === "1"; localStorage.setItem(AI_BADGE_SEEN_KEY, "1"); } catch (_) {}
+  if (!seen) {
+    badge.classList.add("is-new");
+    badge.addEventListener("animationend", () => badge.classList.remove("is-new"), { once: true });
+  }
+}
+document.getElementById("ai-badge")?.addEventListener("click", () => searchReveal("data", "#ai-card"));
 function renderAiSettings() {
+  renderAiBadge();
   const card = document.getElementById("ai-card");
   if (!card) return;
   card.hidden = !isNative();
@@ -9657,12 +9688,19 @@ function toCSV() {
     // skips the key). Its months point at split-out ids, which survive.
     for (const rs of sp.recurring || []) rows.push(blank(["setting", "splitRecurring", JSON.stringify(rs)]));
   }
-  // Wallets: one row each, then moves and adjustments. Type in `kind`, app
-  // link in `note`, "archived" in `category`.
+  // Wallets: one row each, then moves and adjustments. Type in `kind`, the
+  // first app in `note` (what older versions read), "archived" in
+  // `category`; the bank, the whole app list and the alert default ride in a
+  // `setting,walletLink,<json>` row per wallet, which older versions skip.
   for (const w of state.wallets || []) {
-    const row = blank(["wallet", w.name, w.opening, "", "", "", w.openingDate, w.archived ? "archived" : "", w.app || "", "", "", "", "", "", "", w.type]);
+    const row = blank(["wallet", w.name, w.opening, "", "", "", w.openingDate, w.archived ? "archived" : "", (w.apps || [])[0] || "", "", "", "", "", "", "", w.type]);
     row[IW] = w.id;
     rows.push(row);
+  }
+  for (const w of state.wallets || []) {
+    if (w.provider || (w.apps || []).length > 1 || w.alertDefault) {
+      rows.push(blank(["setting", "walletLink", JSON.stringify({ id: w.id, provider: w.provider || "", apps: w.apps || [], alertDefault: !!w.alertDefault })]));
+    }
   }
   for (const m of state.walletMoves || []) {
     const row = blank([m.kind === "adjust" ? "wallet-adjust" : "wallet-move", "", m.amount, "", "", "", m.date, "", m.note || ""]);
@@ -9818,6 +9856,7 @@ function fromCSV(text) {
   const walletRows = [];
   const walletMoveRows = [];
   let walletLastRow = "";
+  const walletLinkRows = new Map();
   const cellWallet = (row) => (iWalletId >= 0 ? (row[iWalletId] || "").trim() : "");
   const withWallet = (entry, row) => { const id = cellWallet(row); if (id) entry.walletId = id; return entry; };
   // Rebuilt after the row loop: people are grouped back into their parent
@@ -10092,6 +10131,11 @@ function fromCSV(text) {
         from: adj ? "" : cellWallet(row),
         to: adj ? cellWallet(row) : (iWalletTo >= 0 ? (row[iWalletTo] || "").trim() : ""),
       });
+    } else if (type === "setting" && name.toLowerCase() === "walletlink") {
+      try {
+        const j = JSON.parse(iAmount >= 0 ? String(row[iAmount] || "") : "");
+        if (j && typeof j.id === "string") walletLinkRows.set(j.id, j);
+      } catch { /* a damaged link row: the wallet keeps its first app */ }
     } else if (type === "setting" && name.toLowerCase() === "walletlast") {
       walletLastRow = iAmount >= 0 ? (row[iAmount] || "").toString().trim() : "";
     } else if (type === "setting" && name.toLowerCase() === "aienabled") {
@@ -10378,7 +10422,10 @@ function fromCSV(text) {
   // free limit); an entry or move naming a wallet the file doesn't have
   // stays unassigned rather than inventing one.
   if (typeof coerceWallets === "function") {
-    next.wallets = coerceWallets(walletRows);
+    next.wallets = coerceWallets(walletRows.map((w) => {
+      const l = walletLinkRows.get(w.id);
+      return l ? { ...w, provider: l.provider, apps: Array.isArray(l.apps) ? l.apps : undefined, alertDefault: !!l.alertDefault } : w;
+    }));
     const ids = new Set(next.wallets.map((w) => w.id));
     for (const list of [next.income, next.expenses, next.dailyExpenses]) {
       for (const e of list) if (e.walletId && !ids.has(e.walletId)) delete e.walletId;
@@ -11591,6 +11638,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.61.0": [
+    "<strong>Pastel</strong> — a new look in Settings → Appearance: cream-peach pages, puffy cards, a coral button and a rounded font that works offline. Free, like every theme.",
+    "<strong>On-device AI badge</strong> — beside the Duitful name when your phone's own AI is on; tap it for its settings, now under Pro. Nothing is uploaded.",
+    "<strong>Simpler wallet form</strong> — pick your bank or e-wallet first (Maybank appears once) and the name and type fill in. On Android, alerts from all its apps go to that wallet.",
+  ],
   "1.60.0": [
     "<strong>Wallets</strong> — a balance for cash, Touch 'n Go eWallet, MAE and each bank account. Spends, income, debt payments and savings can name a wallet (it remembers the last one), “Adjust to actual” fixes drift with one visible entry, and “Move money” moves between wallets without counting as spending. On Android, bank alerts go to the wallet linked to their app, and statements import straight into a wallet. Free keeps 3 wallets; Pro keeps every one.",
   ],
@@ -14072,6 +14124,10 @@ const TXN_PAYEE_IS_YOU = /^(?:you|your(?:\s+(?:account|e-?wallet|wallet))?|yours
 const TXN_CREDIT_CUE = /\b(?:you(?:'|’)ve\s+(?:just\s+)?received|you\s+have\s+(?:just\s+)?received|received\s+money|to\s+you\b|kepada\s+anda|anda\s+(?:telah\s+)?menerima|credited\s+to\s+your)/i;
 const TXN_TRANSFER_OUT = /\b(?:transferred|sent)\s+(?:RM|MYR)\s*([\d,]+(?:\.\d{1,2})?)\s+to\s+([^\n.…]+?)(?:\s*(?:[.\n…]|\bon\s|\bvia\s)|$)/i;
 
+// Wallets read this list too (walletBrands in wallets.js): one row per brand,
+// so `walletBrand` folds an app into its bank (MAE → Maybank), `walletName`
+// is the name a new wallet gets, `walletType` is "ewallet" / "card" (pay
+// later); a provider without one is a bank.
 const TXN_PROVIDERS = [
   { id: "maybank",   name: "Maybank",       short: "Maybank", country: "MY", currency: "MYR",
     packages: ["com.mbb.malaysia.android"],
@@ -14088,35 +14144,35 @@ const TXN_PROVIDERS = [
   { id: "publicbank",name: "Public Bank",   country: "MY", currency: "MYR",
     packages: ["com.pbb.mypb", "my.com.publicbank.pbengine"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|debited)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "tng",       name: "Touch 'n Go",   short: "TNG", country: "MY", currency: "MYR",
+  { id: "tng",       name: "Touch 'n Go", walletName: "TNG eWallet", walletType: "ewallet",   short: "TNG", country: "MY", currency: "MYR",
     packages: ["my.com.tngdigital.ewallet"],
     patterns: [
       /(?:spent|paid|deducted)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i,
       // "You have successfully transferred RM 0.10 to ALI BIN ABU" (DuitNow Transfer)
       TXN_TRANSFER_OUT,
     ] },
-  { id: "grabpay",   name: "GrabPay",       country: "MY", currency: "MYR",
+  { id: "grabpay",   name: "GrabPay", walletType: "ewallet",       country: "MY", currency: "MYR",
     packages: ["com.grabtaxi.passenger"],
     patterns: [/(?:paid|spent|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "boost",     name: "Boost",         country: "MY", currency: "MYR",
+  { id: "boost",     name: "Boost", walletType: "ewallet",         country: "MY", currency: "MYR",
     packages: ["my.com.myboost"],
     patterns: [/(?:paid|spent)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "bigpay",    name: "BigPay",        country: "MY", currency: "MYR",
+  { id: "bigpay",    name: "BigPay", walletType: "ewallet",        country: "MY", currency: "MYR",
     packages: ["com.tpaay.bigpay", "com.bigpay.wallet"],
     patterns: [/(?:paid|charged)\s+RM\s*([\d,]+\.?\d*)\s+(?:at|to)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "spaylater", name: "SPayLater",     country: "MY", currency: "MYR",
+  { id: "spaylater", name: "SPayLater", walletType: "card",     country: "MY", currency: "MYR",
     packages: ["com.shopee.my"],
     patterns: [
       /SPayLater[^.]*?(?:charged|installment)[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i,
       /installment\s+of\s+RM\s*([\d,]+\.?\d*)\s+(?:is )?due/i,
     ] },
-  { id: "atome",     name: "Atome",         country: "MY", currency: "MYR",
+  { id: "atome",     name: "Atome", walletType: "card",         country: "MY", currency: "MYR",
     packages: ["my.atome.paylater", "com.atomeapp.mobile", "sg.com.apaylater"],
     patterns: [/Atome[^.]*?(?:charged|paid)[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:for|at)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "graypaylater",name: "GrabPay Later",country: "MY", currency: "MYR",
+  { id: "graypaylater",name: "GrabPay Later", walletName: "Grab PayLater", walletType: "card",country: "MY", currency: "MYR",
     packages: ["com.grabtaxi.passenger"],
     patterns: [/PayLater[^.]*?RM\s*([\d,]+\.?\d*)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
-  { id: "maybank-mae", name: "Maybank MAE", short: "Maybank", country: "MY", currency: "MYR",
+  { id: "maybank-mae", name: "Maybank MAE", walletBrand: "maybank", short: "Maybank", country: "MY", currency: "MYR",
     packages: ["com.maybank2u.life"],
     patterns: [
       /RM\s*([\d,]+\.?\d*)\s+(?:paid|sent|debited|charged)[^.]*?(?:to|at)\s+(.+?)(?:\s+on|\s*[.]|$)/i,
@@ -14131,7 +14187,7 @@ const TXN_PROVIDERS = [
   { id: "ocbc-my", name: "OCBC", country: "MY", currency: "MYR",
     packages: ["com.ocbc.mobilemy"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
-  { id: "uob-my", name: "UOB TMRW", country: "MY", currency: "MYR",
+  { id: "uob-my", name: "UOB TMRW", walletName: "UOB", country: "MY", currency: "MYR",
     packages: ["com.uob.mightymy"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
   { id: "scb-my", name: "Standard Chartered", country: "MY", currency: "MYR",
@@ -14167,7 +14223,7 @@ const TXN_PROVIDERS = [
   { id: "rytbank", name: "Ryt Bank", country: "MY", currency: "MYR",
     packages: ["my.rytbank.app"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
-  { id: "shopeepay-my", name: "ShopeePay", country: "MY", currency: "MYR",
+  { id: "shopeepay-my", name: "ShopeePay", walletType: "ewallet", country: "MY", currency: "MYR",
     packages: ["com.shopeepay.my"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|charged|spent|paid|deducted)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i, TXN_TRANSFER_OUT] },
   { id: "ambank", name: "AmBank", country: "MY", currency: "MYR",
@@ -14179,7 +14235,7 @@ const TXN_PROVIDERS = [
   { id: "bsn", name: "BSN", country: "MY", currency: "MYR",
     packages: ["com.bsn.mybsn"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:debited|paid|charged)[^.]*?(?:at|to)\s+(.+?)(?:\s+on|\s*[.]|$)/i] },
-  { id: "setel", name: "Setel", country: "MY", currency: "MYR",
+  { id: "setel", name: "Setel", walletType: "ewallet", country: "MY", currency: "MYR",
     packages: ["com.setel.mobile", "com.setel.app"],
     patterns: [/RM\s*([\d,]+\.?\d*)\s+(?:paid|spent|fueled)[^.]*?(?:at|for)\s+(.+?)(?:\s*[.]|$)/i] },
   // ----- Singapore -----
@@ -17470,7 +17526,7 @@ const SEARCH_FEATURES = [
   { title: "Investments", where: "Savings", kw: "investments asb stocks unit trust portfolio pelaburan saham amanah", go: ["savings", "#investments-card"] },
   { title: "Retirement", where: "Savings", kw: "retirement epf kwsp pension persaraan pencen", go: ["savings", "#invest-plan-card"] },
   { title: "Zakat", where: "Savings", kw: "zakat nisab haul wealth harta", go: ["savings", "#zakat-card"] },
-  { title: "Theme", where: "Settings", kw: "theme dark mode light appearance tema gelap cerah paparan", go: ["data", "[data-theme-choice]"] },
+  { title: "Theme", where: "Settings", kw: "theme dark mode light pastel appearance tema gelap cerah paparan", go: ["data", "[data-theme-choice]"] },
   { title: "Export or import CSV", where: "Settings", kw: "export import csv spreadsheet excel backup file eksport import fail sandaran", go: ["data", "#btn-export"] },
   { title: "Cloud backup", where: "Settings", kw: "cloud backup google drive sync restore sandaran awan segerak pulih", go: ["data", "#drive-card"] },
   { title: "Duitful Pro", where: "Settings", kw: "pro upgrade premium unlock licence license naik taraf lesen", go: ["data", "#pro-card"] },

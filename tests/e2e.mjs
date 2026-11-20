@@ -2358,6 +2358,65 @@ check('the on-device AI card shows on Home once, and never after it is dismissed
   aiUi.introFirst && aiUi.introAfter.hidden && aiUi.introAfter.seen && aiUi.introOldDay && aiUi.introNoAi, JSON.stringify(aiUi));
 check('the AI switch survives a CSV round-trip', aiUi.csvOff === false && aiUi.csvOn === true, JSON.stringify([aiUi.csvOff, aiUi.csvOn]));
 
+/* ── On-device AI badge in the header (1.61.0) ──
+   Shown only when the phone's own model is ready AND the switch is on; a tap
+   lands on Settings → On-device AI, which sits right under the Pro card. */
+const aiBadge = await S(async () => {
+  const keepCap = window.Capacitor;
+  const snap = { en: state.aiEnabled, seen: state.aiIntroSeen };
+  const $ = (id) => document.getElementById(id);
+  const kitWith = (impl) => ({ isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { DuitfulKit: impl ? { aiStatus: impl } : {} } });
+  const look = async (cap) => { window.Capacitor = cap; await refreshAiStatus(); return !$('ai-badge').hidden; };
+  const out = {};
+  state.aiIntroSeen = true; state.aiEnabled = true;
+  try {
+    out.on = await look(kitWith(async () => ({ available: true })));
+    out.label = $('ai-badge').getAttribute('aria-label');
+    out.svg = !!$('ai-badge').querySelector('svg path[stroke="currentColor"]');
+    $('pref-ai').checked = false; $('pref-ai').dispatchEvent(new Event('change'));
+    out.off = !$('ai-badge').hidden;
+    $('pref-ai').checked = true; $('pref-ai').dispatchEvent(new Event('change'));
+    out.backOn = !$('ai-badge').hidden;
+    out.ready = await look(kitWith(async () => ({ available: false, reason: 'downloading' })));
+    out.none = await look(kitWith(async () => ({ available: false, reason: 'unsupported' })));
+    out.missing = await look(kitWith(null));
+    out.web = await look({ isNativePlatform: () => false });
+    // A tap opens Settings at the AI card.
+    await look(kitWith(async () => ({ available: true })));
+    document.getElementById('tabbtn-dashboard').click();
+    $('ai-badge').click();
+    await new Promise((r) => setTimeout(r, 400));
+    const card = $('ai-card').getBoundingClientRect();
+    out.tap = { tab: document.querySelector('.tab.active')?.dataset.tab, cardShown: !$('ai-card').hidden, inView: card.top < innerHeight && card.bottom > 0 };
+    // Order in Settings: the AI card comes straight after the Pro card.
+    let prev = $('ai-card').previousElementSibling;
+    out.after = prev && prev.id;
+    out.ms = I18N.tables.ms['On-device AI is on'] || '';
+    out.zh = I18N.tables.zh['On-device AI is on'] || '';
+  } finally {
+    window.Capacitor = keepCap;
+    Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
+    aiStatusCache = null;
+    save(); renderAll(); renderAiBadge();
+    document.getElementById('tabbtn-dashboard').click();
+  }
+  return out;
+});
+check('AI badge: shown in the header when the phone\'s AI is ready and switched on, labelled "On-device AI is on" (Malay and Chinese rows too), drawn with currentColor',
+  aiBadge.on && aiBadge.label === 'On-device AI is on' && aiBadge.svg && !!aiBadge.ms && !!aiBadge.zh, JSON.stringify(aiBadge));
+check('AI badge: hidden when switched off, back when switched on again',
+  !aiBadge.off && aiBadge.backOn, JSON.stringify(aiBadge));
+check('AI badge: hidden while the model downloads, on a phone without it, without the kit, and on the web',
+  !aiBadge.ready && !aiBadge.none && !aiBadge.missing && !aiBadge.web, JSON.stringify(aiBadge));
+check('AI badge: a tap opens Settings at the On-device AI card',
+  aiBadge.tap.tab === 'data' && aiBadge.tap.cardShown && aiBadge.tap.inView, JSON.stringify(aiBadge.tap));
+check('Settings: the On-device AI card sits directly below the Pro card', aiBadge.after === 'pro-card', aiBadge.after);
+{
+  const idx = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
+  check('AI badge: on the web it is hidden in the markup and the page never shows it unasked',
+    /<button[^>]*id="ai-badge"[^>]*\shidden>/.test(idx) && !(await S(() => !document.getElementById('ai-badge').hidden)));
+}
+
 /* ── Bank statement import, read on the phone (1.57.0) ─────────────────────
    Synthetic statements only (tests/fixtures/statement-pdfs.mjs): invented
    names and numbers in each bank's layout. Real statements never enter the repo. */
@@ -8793,7 +8852,7 @@ check('a real Malaysian lender name fits without an ellipsis',
     return (a + 0.05) / (b + 0.05);
   };
   const results = [];
-  for (const [scheme, forced] of [['light', null], ['dark', null], ['light', 'dark'], ['dark', 'light']]) {
+  for (const [scheme, forced] of [['light', null], ['dark', null], ['light', 'dark'], ['dark', 'light'], ['light', 'pastel'], ['dark', 'pastel']]) {
     const pg = await b.newPage({ viewport: { width: 420, height: 900 }, colorScheme: scheme });
     await pg.goto(`${BASE}/app/index.html`, { waitUntil: 'networkidle' });
     await pg.waitForTimeout(400);
@@ -8814,9 +8873,112 @@ check('a real Malaysian lender name fits without an ellipsis',
   const measured = results.filter(r => !r.skipped);
   // 4.5:1 is the WCAG AA floor for body-sized text.
   const bad = measured.filter(r => r.ratio < 4.5);
-  check('the primary button stays legible in all four theme paths',
-    measured.length === 4 && bad.length === 0,
+  check('the primary button stays legible in every theme path (system light / dark, forced light / dark, Pastel on a light or dark phone)',
+    measured.length === 6 && bad.length === 0,
     JSON.stringify(bad.length ? bad : measured.map(r => `${r.scheme}/${r.forced || '-'}:${r.ratio}`)));
+}
+
+// -- Pastel theme: picked in Settings, kept outside the vault, its own font --
+// The rounded font is the one cost a theme adds, so it must be paid only by
+// people who chose Pastel; and Pastel is a light theme, so a phone in dark
+// mode must not leak the dark tokens into it.
+{
+  const luminance = (rgb) => {
+    const [r, g, bl] = rgb.match(/\d+(\.\d+)?/g).slice(0, 3).map(Number)
+      .map(v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const ratio = (fg, bg) => { const [a, c] = [luminance(fg), luminance(bg)].sort((x, y) => y - x); return (a + 0.05) / (c + 0.05); };
+  const fontHits = (pg) => pg.evaluate(() => performance.getEntriesByType('resource').filter(e => /nunito/i.test(e.name)).length);
+
+  // Light: the font is never requested.
+  const lp = await b.newPage({ viewport: { width: 390, height: 844 } });
+  await lp.addInitScript(() => localStorage.setItem('duit-tracker.theme', 'light'));
+  await lp.goto(`${BASE}/app/index.html`, { waitUntil: 'networkidle' });
+  await lp.click('#btn-start-open');
+  await lp.waitForTimeout(900);
+  await lp.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d => d.close()));
+  await lp.waitForTimeout(300);
+  const lightFont = { hits: await fontHits(lp), family: await lp.evaluate(() => getComputedStyle(document.body).fontFamily) };
+  check('Pastel font: Light never downloads it', lightFont.hits === 0 && !/Nunito/.test(lightFont.family), JSON.stringify(lightFont));
+
+  // Pick Pastel the way a person does, in Settings → Appearance.
+  await lp.evaluate(() => document.getElementById('tabbtn-data').click());
+  await lp.waitForTimeout(300);
+  await lp.click('[data-theme-choice="pastel"]');
+  await lp.waitForTimeout(600);
+  const picked = await lp.evaluate(() => ({
+    theme: document.documentElement.dataset.theme,
+    stored: localStorage.getItem(THEME_KEY),
+    checked: document.querySelector('[data-theme-choice="pastel"]').getAttribute('aria-checked'),
+    label: document.querySelector('[data-theme-choice="pastel"]').textContent.trim(),
+  }));
+  check('Pastel: picking it sets data-theme="pastel", stores it outside the vault and checks its pill',
+    picked.theme === 'pastel' && picked.stored === 'pastel' && picked.checked === 'true' && picked.label === 'Pastel', JSON.stringify(picked));
+  await lp.close();
+
+  // A fresh load with Pastel stored, on a phone set to dark mode.
+  const pp = await b.newPage({ viewport: { width: 390, height: 844 }, colorScheme: 'dark' });
+  await pp.addInitScript(() => localStorage.setItem('duit-tracker.theme', 'pastel'));
+  await pp.goto(`${BASE}/app/index.html`, { waitUntil: 'networkidle' });
+  const boot = await pp.evaluate(() => document.documentElement.dataset.theme);
+  await pp.click('#btn-start-open');
+  await pp.waitForTimeout(900);
+  await pp.evaluate(() => document.querySelectorAll('dialog[open]').forEach(d => d.close()));
+  await pp.evaluate(async () => { await document.fonts.ready; });
+  await pp.waitForTimeout(300);
+  const after = await pp.evaluate(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const tok = (n) => { const d = document.createElement('i'); d.style.color = cs.getPropertyValue(n).trim(); document.body.appendChild(d); const c = getComputedStyle(d).color; d.remove(); return c; };
+    return {
+      theme: document.documentElement.dataset.theme,
+      scheme: cs.colorScheme,
+      family: getComputedStyle(document.body).fontFamily,
+      loaded: [...document.fonts].some(f => f.family.replace(/"/g, '') === 'Duitful Nunito' && f.status === 'loaded'),
+      pressed: document.querySelector('[data-theme-choice="pastel"]').getAttribute('aria-checked'),
+      meta: [...document.querySelectorAll('meta[name="theme-color"]')].map(m => m.content),
+      colors: Object.fromEntries(['--card', '--card-soft', '--bg', '--text', '--ink2', '--muted', '--primary', '--brand-ink', '--gain', '--loss', '--warn', '--warn-red-ink', '--warn-yellow-ink', '--pastel-action'].map(n => [n, tok(n)])),
+    };
+  });
+  check('Pastel: survives a reload, painted before the first frame by theme-boot.js',
+    boot === 'pastel' && after.theme === 'pastel' && after.pressed === 'true', JSON.stringify({ boot, theme: after.theme, pressed: after.pressed }));
+  check('Pastel: a light theme even on a dark-mode phone (color-scheme light, cream page, status bar tint)',
+    after.scheme === 'light' && luminance(after.colors['--bg']) > 0.7 && after.meta.every(m => m === '#fbe6d3'), JSON.stringify({ scheme: after.scheme, bg: after.colors['--bg'], meta: after.meta }));
+  check('Pastel font: Pastel loads the self-hosted Nunito and uses it',
+    after.loaded && /Duitful Nunito/.test(after.family) && (await fontHits(pp)) >= 1, JSON.stringify({ loaded: after.loaded, family: after.family }));
+  // Every text token that carries meaning must stay AA on the Pastel card,
+  // the cream well and the page; good / bad / warn must stay distinct hues.
+  const c = after.colors;
+  const lows = [];
+  for (const fg of ['--text', '--ink2', '--muted', '--primary', '--brand-ink', '--gain', '--loss', '--warn', '--warn-red-ink', '--warn-yellow-ink'])
+    for (const bg of ['--card', '--card-soft', '--bg']) { const r = ratio(c[fg], c[bg]); if (r < 4.5) lows.push(`${fg} on ${bg}: ${r.toFixed(2)}`); }
+  const coral = ratio(c['--text'], c['--pastel-action']);
+  const hue = (rgb) => { const [r, g, bl] = rgb.match(/\d+/g).slice(0, 3).map(Number); return { r, g, b: bl }; };
+  const gain = hue(c['--gain']), loss = hue(c['--loss']);
+  check('Pastel: every text colour is AA (4.5:1) on its card, inputs and page, and the coral pill label too',
+    lows.length === 0 && coral >= 4.5, JSON.stringify({ lows, coral: +coral.toFixed(2) }));
+  check('Pastel: gain is green and loss is red, never two shades of one colour',
+    gain.g > gain.r && loss.r > loss.g * 2, JSON.stringify({ gain: c['--gain'], loss: c['--loss'] }));
+  await pp.close();
+
+  // Shipping: precached for offline, bundled into the native app, licence beside it.
+  const swSrc = readFileSync(path.join(REPO_ROOT, 'app/sw.js'), 'utf8');
+  const buildWeb = readFileSync(path.join(REPO_ROOT, 'scripts/build-web.mjs'), 'utf8');
+  const css = readFileSync(path.join(REPO_ROOT, 'app/styles.css'), 'utf8');
+  const face = /@font-face\s*\{[^}]*Duitful Nunito[^}]*url\("([^"]+)"/.exec(css);
+  const fontFile = path.join(REPO_ROOT, 'app/vendor/fonts/nunito-latin.woff2');
+  check('Pastel font: self-hosted woff2 under 60 KB with the OFL beside it, precached by sw.js and copied by build-web',
+    !!face && swSrc.includes(`"/app/${face[1]}"`) && buildWeb.includes('"vendor/fonts/nunito-latin.woff2"') && buildWeb.includes('"vendor/fonts/OFL.txt"')
+    && existsSync(fontFile) && statSync(fontFile).size < 60000 && /SIL OPEN FONT LICENSE/i.test(readFileSync(path.join(REPO_ROOT, 'app/vendor/fonts/OFL.txt'), 'utf8')),
+    face && face[1]);
+  // Only the Pastel block names the family, so no other theme pays for it.
+  const outside = css.replace(/@font-face\s*\{[^}]*\}/g, '').replace(/html\[data-theme="pastel"\][^{]*\{[^}]*\}/g, '');
+  check('Pastel font: only Pastel rules name it', !/Duitful Nunito/.test(outside));
+  const themeBoot = readFileSync(path.join(REPO_ROOT, 'app/theme-boot.js'), 'utf8');
+  const html = readFileSync(path.join(REPO_ROOT, 'app/index.html'), 'utf8');
+  check('Pastel: every dark media block in styles.css and the boot paint skips it',
+    /"pastel"/.test(themeBoot)
+    && !/html:not\(\[data-theme="light"\]\)(?!:not\(\[data-theme="pastel"\]\))/.test(css + html));
 }
 
 // -- logos only ship where the catalogue says so, and only where a file exists --
@@ -12148,19 +12310,25 @@ check('the brand catalogue makes no network calls at all',
   const made = await S(() => {
     const card = document.getElementById('wallets-card');
     const out = { cardShown: card.getBoundingClientRect().height > 0, empty: document.getElementById('wallets-list').textContent.trim(), free: card.querySelector('[data-free-count]').textContent };
-    const mk = (name, type, opening, app, date) => {
+    // The sheet asks for the bank or e-wallet first; the pick fills the
+    // name, type and alert link, and the name stays editable.
+    const mk = (name, type, opening, provider, date) => {
       document.querySelector('#wallets-card [data-action=wallet-add]').click();
       const f = document.getElementById('wallet-form');
+      const sel = document.getElementById('wallet-provider');
+      sel.value = provider; sel.dispatchEvent(new Event('change'));
+      out.filled = out.filled || [];
+      out.filled.push(`${f.elements['wallet-name'].value}|${f.elements['wallet-type'].value}`);
       f.elements['wallet-name'].value = name; f.elements['wallet-type'].value = type; f.elements['wallet-opening'].value = String(opening);
-      f.elements['wallet-date'].value = date; document.getElementById('wallet-app').value = app;
+      f.elements['wallet-date'].value = date;
       document.getElementById('wallet-save').click();
     };
     const past = new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10);
     out.past = past;
-    mk('TNG eWallet', 'ewallet', 200, 'my.com.tngdigital.ewallet', past);
-    mk('Maybank savings', 'bank', 5000, 'com.mbb.malaysia.android', past);
+    mk('TNG eWallet', 'ewallet', 200, 'tng', past);
+    mk('Maybank savings', 'bank', 5000, 'maybank', past);
     out.closed = !document.getElementById('wallet-dialog').open;
-    out.wallets = state.wallets.map((w) => [w.name, w.type, w.opening, w.app, w.openingDate === past, w.archived].join('|'));
+    out.wallets = state.wallets.map((w) => [w.name, w.type, w.opening, w.apps.join('+'), w.openingDate === past, w.archived].join('|'));
     out.rows = [...document.querySelectorAll('#wallets-list .wallet-row')].map((r) => r.querySelector('.wallet-name').textContent + '=' + r.querySelector('.wallet-bal').textContent.replace(/\s+/g, ' '));
     out.free2 = card.querySelector('[data-free-count]').textContent;
     out.total = document.getElementById('wallets-total').textContent.replace(/\s+/g, ' ');
@@ -12169,7 +12337,8 @@ check('the brand catalogue makes no network calls at all',
   check('wallets: the card sits on Savings, starts empty with a one-line prompt, and shows "0 of 3 free wallets used" before any wall',
     made.cardShown && /Cash, TNG eWallet, MAE/.test(made.empty) && made.free === '0 of 3 free wallets used', JSON.stringify(made));
   check('wallets create: name, type, opening balance and date, app link saved; the card lists each balance and a total; "2 of 3" used',
-    made.closed && made.wallets.join() === `TNG eWallet|ewallet|200|my.com.tngdigital.ewallet|true|false,Maybank savings|bank|5000|com.mbb.malaysia.android|true|false`
+    made.closed && made.wallets.join() === `TNG eWallet|ewallet|200|my.com.tngdigital.ewallet|true|false,Maybank savings|bank|5000|com.mbb.malaysia.android+com.maybank2u.life|true|false`
+    && made.filled.join() === 'TNG eWallet|ewallet,Maybank|bank'
     && made.rows.join() === 'TNG eWallet=RM 200.00,Maybank savings=RM 5,000.00' && made.free2 === '2 of 3 free wallets used' && /RM 5,200\.00/.test(made.total), JSON.stringify(made));
 
   // 2) Entry assignment: the picker defaults to the last wallet; older entries stay unassigned.
@@ -12496,6 +12665,140 @@ check('the brand catalogue makes no network calls at all',
   });
   check('wallets privacy: no reminder names a wallet or its balance', !priv.inRem, JSON.stringify(priv));
 
+  // The sheet: one row per bank / e-wallet, built from TXN_PROVIDERS.
+  const pick = await S(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const keepCap = window.Capacitor;
+    const keepPro = state.pro;
+    state.pro = true;   // the sheet, not the paywall
+    const out = {};
+    const brands = walletBrands();
+    out.names = brands.map((b) => b.name);
+    out.dupes = out.names.filter((n, i) => out.names.indexOf(n) !== i);
+    // Every MY package in the capture list belongs to exactly one brand.
+    const myPkgs = TXN_PROVIDERS.filter((p) => p.country === 'MY').flatMap((p) => p.packages);
+    out.unowned = myPkgs.filter((q) => !brands.some((b) => b.packages.includes(q)));
+    const mbb = brands.find((b) => b.id === 'maybank');
+    out.maybank = mbb && mbb.packages.slice().sort().join('+');
+    out.types = Object.fromEntries(['tng', 'grabpay', 'atome', 'cimb'].map((id) => [id, (brands.find((b) => b.id === id) || {}).type]));
+    openWalletEdit();
+    const sel = document.getElementById('wallet-provider');
+    out.optNames = [...sel.options].map((o) => o.textContent);
+    out.optDupes = out.optNames.filter((n, i) => out.optNames.indexOf(n) !== i);
+    out.first = sel.closest('label') === document.querySelector('#wallet-form .field');
+    out.hasCashOther = out.optNames.includes('Cash') && out.optNames.includes('Other (not listed)');
+    // Web: the pick fills name and type, no alert line.
+    sel.value = 'maybank'; sel.dispatchEvent(new Event('change'));
+    out.web = { name: document.querySelector('#wallet-form [name=wallet-name]').value, alerts: !document.getElementById('wallet-alerts').hidden };
+    // iPhone: the same, no alert line either.
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} };
+    sel.dispatchEvent(new Event('change'));
+    out.ios = !document.getElementById('wallet-alerts').hidden;
+    // Android: one short line names the bank.
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    sel.dispatchEvent(new Event('change'));
+    out.android = { shown: !document.getElementById('wallet-alerts').hidden, line: document.getElementById('wallet-alert-line').textContent };
+    // Other: a typed name and a quiet request link; Cash fills "Cash".
+    sel.value = 'other'; sel.dispatchEvent(new Event('change'));
+    out.other = { ask: !document.getElementById('wallet-ask-wrap').hidden, alerts: !document.getElementById('wallet-alerts').hidden };
+    sel.value = 'cash'; sel.dispatchEvent(new Event('change'));
+    out.cash = { name: document.querySelector('#wallet-form [name=wallet-name]').value, type: document.querySelector('#wallet-form [name=wallet-type]').value, ask: !document.getElementById('wallet-ask-wrap').hidden };
+    window.Capacitor = keepCap;
+    state.pro = keepPro;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    return out;
+  });
+  check('wallets sheet: the bank / e-wallet list has one row per brand (no duplicate Maybank), owns every MY capture package, with Cash and Other, asked first',
+    pick.dupes.length === 0 && pick.optDupes.length === 0 && pick.unowned.length === 0 && pick.hasCashOther && pick.first
+    && pick.types.tng === 'ewallet' && pick.types.grabpay === 'ewallet' && pick.types.atome === 'card' && pick.types.cimb === 'bank', JSON.stringify(pick));
+  check('wallets sheet: Maybank links every Maybank package (the Maybank app and MAE)',
+    pick.maybank === 'com.maybank2u.life+com.mbb.malaysia.android', pick.maybank);
+  check('wallets sheet: a pick fills the name; the alert line shows on Android only ("Alerts from Maybank apps go here."), never on iPhone or the web',
+    pick.web.name === 'Maybank' && !pick.web.alerts && !pick.ios && pick.android.shown && pick.android.line === 'Alerts from Maybank apps go here.', JSON.stringify(pick));
+  check('wallets sheet: Other offers "Ask us to add your bank" and no alert link; Cash fills Cash',
+    pick.other.ask && !pick.other.alerts && pick.cash.name === 'Cash' && pick.cash.type === 'cash' && !pick.cash.ask, JSON.stringify(pick));
+
+  // Matching: either Maybank package lands in the Maybank wallet; two wallets
+  // of one bank follow "Default for Maybank alerts".
+  const route = await S(() => {
+    const keep = JSON.stringify({ w: state.wallets, pro: state.pro });
+    const out = {};
+    state.pro = true;
+    state.wallets = [];
+    const sav = walletSave({ name: 'Maybank savings', provider: 'maybank', type: 'bank', opening: 100 }).wallet;
+    out.old = walletForPkg('com.mbb.malaysia.android')?.name;
+    out.mae = walletForPkg('com.maybank2u.life')?.name;
+    out.tng = walletForPkg('my.com.tngdigital.ewallet') === null;
+    out.firstDefault = sav.alertDefault;
+    const card = walletSave({ name: 'Maybank card', provider: 'maybank', type: 'card', opening: 0 }).wallet;
+    out.secondNotDefault = !card.alertDefault && walletForPkg('com.maybank2u.life').id === sav.id;
+    walletSave({ name: 'Maybank card', provider: 'maybank', type: 'card', opening: 0, alertDefault: true }, card.id);
+    out.switched = walletForPkg('com.maybank2u.life').id === card.id && !sav.alertDefault;
+    // An accepted capture is tagged with that wallet.
+    const e = walletTagFromPkg({ amount: 5 }, 'com.mbb.malaysia.android');
+    out.tagged = e.walletId === card.id;
+    // The sheet shows the toggle only when two wallets share the bank.
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    openWalletEdit(sav.id);
+    out.toggle = { shown: !document.getElementById('wallet-default-wrap').hidden, label: document.getElementById('wallet-default-label').textContent, checked: document.getElementById('wallet-default').checked };
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    delete window.Capacitor;
+    // Old wallets: a single `app` becomes the brand's list; the CSV keeps it all.
+    const old = coerceWallets([{ id: 'legacy', name: 'MAE', type: 'ewallet', app: 'com.maybank2u.life', opening: 3, openingDate: '2026-01-02' }])[0];
+    out.migrated = { provider: old.provider, apps: old.apps.slice().sort().join('+'), noApp: !('app' in old) };
+    state.wallets.push(old);
+    const before = JSON.stringify(state.wallets.map((w) => [w.id, w.name, w.provider, w.apps, w.alertDefault]));
+    const back = fromCSV(toCSV());
+    out.csv = JSON.stringify(back.wallets.map((w) => [w.id, w.name, w.provider, w.apps, w.alertDefault])) === before;
+    // A CSV from 1.60 (one app in `note`, no link row) still links the brand.
+    const legacyCsv = toCSV().split('\n').filter((l) => !/walletLink/.test(l)).join('\n');
+    const lw = fromCSV(legacyCsv).wallets.find((w) => w.id === 'legacy');
+    out.legacyCsv = lw && lw.apps.includes('com.mbb.malaysia.android') && lw.provider === 'maybank';
+    const k = JSON.parse(keep); state.wallets = k.w; state.pro = k.pro;
+    save(); renderAll();
+    return out;
+  });
+  check('wallets alerts: a Maybank wallet catches alerts from the Maybank app and MAE, nothing else; the first is the default',
+    route.old === 'Maybank savings' && route.mae === 'Maybank savings' && route.tng && route.firstDefault, JSON.stringify(route));
+  check('wallets alerts: two Maybank wallets: the first wins until "Default for Maybank alerts" moves to the other, and a capture follows it',
+    route.secondNotDefault && route.switched && route.tagged && route.toggle.shown && route.toggle.label === 'Default for Maybank alerts' && !route.toggle.checked, JSON.stringify(route));
+  check('wallets migrate: an old single-app wallet becomes its brand with every package; CSV round-trips bank, apps and default, and a 1.60 CSV still links',
+    route.migrated.provider === 'maybank' && route.migrated.apps === 'com.maybank2u.life+com.mbb.malaysia.android' && route.migrated.noApp && route.csv && route.legacyCsv, JSON.stringify(route));
+
+  // "Ask us to add your bank": only the typed bank name and the app version.
+  const ask = await S(() => {
+    const out = {};
+    const keepPro = state.pro;
+    state.pro = true;
+    state.wallets.push({ id: 'secret-w', name: 'Secret stash ZZQ', type: 'cash', provider: 'cash', apps: [], opening: 98765.43, openingDate: todayISO(), archived: false, createdAt: 1 });
+    openWalletEdit();
+    const sel = document.getElementById('wallet-provider');
+    sel.value = 'other'; sel.dispatchEvent(new Event('change'));
+    document.querySelector('#wallet-form [name=wallet-name]').value = 'Bank Kerjasama 1234 me@x.my';
+    const mail = walletAskBankMail(walletAskBankName());
+    out.mail = mail;
+    // Web: the button goes to the mailto (navigation stubbed by reading the href).
+    out.webAction = walletAlertsShown() ? 'share' : 'mailto';
+    // Android: the redacted sample sheet, prefilled with the bank.
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    out.android = walletAskBank();
+    const b = captureShareBody();
+    out.share = { open: document.getElementById('capture-share-dialog').open, subject: b.subject, body: b.body };
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    delete window.Capacitor;
+    state.wallets = state.wallets.filter((w) => w.id !== 'secret-w');
+    state.pro = keepPro;
+    out.dialogs = [...document.querySelectorAll('dialog[open]')].map((d) => d.id);
+    save(); renderAll();
+    return out;
+  });
+  const askAll = JSON.stringify([ask.mail.subject, ask.mail.body, ask.mail.href, ask.share.subject, ask.share.body]);
+  check('wallets Other: "Ask us to add your bank" is a mailto to hello@duitful.app on iPhone / web and the redacted sample sheet on Android, both naming the bank',
+    ask.webAction === 'mailto' && /^mailto:hello@duitful\.app\?/.test(ask.mail.href) && /Bank Kerjasama/.test(ask.mail.subject)
+    && ask.android === 'share' && ask.share.open && /Please add my bank: Bank Kerjasama/.test(ask.share.subject), JSON.stringify(ask));
+  check('wallets Other: the request carries no personal data (no digits or email typed in the name, no other wallet, no balance)',
+    !/1234|me@x|mex|x\.my|Secret stash|98765|98,765/.test(askAll), askAll);
+
   await S((snap) => {
     const o = JSON.parse(snap);
     document.querySelectorAll('dialog[open]').forEach((d) => d.close());
@@ -12698,9 +13001,11 @@ check('the brand catalogue makes no network calls at all',
     return [...new Set(out)];
   };
   const layoutMiss = [];
-  for (const lang of ['en', 'ms', 'zh']) {
+  // Pastel swaps in a rounded font (Nunito) with different widths, so every
+  // language runs again in Pastel.
+  for (const [lang, theme] of [['en', ''], ['ms', ''], ['zh', ''], ['en', 'pastel'], ['ms', 'pastel'], ['zh', 'pastel']]) {
     const p = await b.newPage({ viewport: { width: 360, height: 780 } });
-    await p.addInitScript((l) => localStorage.setItem('duitful.lang', l), lang);
+    await p.addInitScript(([l, t]) => { localStorage.setItem('duitful.lang', l); if (t) localStorage.setItem('duit-tracker.theme', t); }, [lang, theme]);
     await p.goto(`${BASE}/app/index.html`);
     await p.waitForTimeout(500);
     await p.click('#btn-start-open');
@@ -12725,7 +13030,7 @@ check('the brand catalogue makes no network calls at all',
         if (lang === 'zh' && !(labels.length && labels.every((l) => /月$/.test(l)))) layoutMiss.push(`zh monthly trend labels ${JSON.stringify(labels.slice(0, 4))}`);
         if (lang === 'en' && !labels.includes('Jan')) layoutMiss.push(`en monthly trend labels ${JSON.stringify(labels.slice(0, 4))}`);
       }
-      (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${tab}: ${x}`));
+      (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang}${theme ? '/' + theme : ''} ${tab}: ${x}`));
     }
     for (const [label, open] of [['details', () => taxOpenNumbers()], ['claim', () => taxOpenClaim({ relief: 'medical' })],
       ['review', () => taxOpenReview(taxReviewItems(new Date().getFullYear()), 'year', new Date().getFullYear())],
@@ -12733,10 +13038,10 @@ check('the brand catalogue makes no network calls at all',
       ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()], ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['recurring split', () => rsOpenEdit(state.split.recurring[0].id)], ['wallet', () => openWalletEdit(state.wallets[0].id)], ['wallet detail', () => openWalletDetail(state.wallets[0].id)], ['move money', () => openWalletMove(state.wallets[0].id)], ['adjust wallet', () => openWalletAdjust(state.wallets[0].id)], ['statement into a wallet', () => openStatementImport({ walletId: state.wallets[0].id })], ['passcode', () => { askPasscode({ title: 'Change passcode', label: 'Current passcode', note: 'Duitful will open without asking.' }); }]]) {
       await p.evaluate(open);
       await p.waitForTimeout(250);
-      (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang} ${label} dialog: ${x}`));
+      (await p.evaluate(sticksOut)).forEach((x) => layoutMiss.push(`${lang}${theme ? '/' + theme : ''} ${label} dialog: ${x}`));
       await p.evaluate(() => { if (typeof taxCloseAll === 'function') taxCloseAll(); document.querySelectorAll('dialog[open]').forEach((d) => d.close()); });
     }
-    if (lang !== 'en') {
+    if (lang !== 'en' && !theme) {
       // Split blocks are translated whole; what the user typed must survive,
       // even a title that is also a table key ("Rent").
       const kept = await p.evaluate(() => {
@@ -12770,7 +13075,7 @@ check('the brand catalogue makes no network calls at all',
     }
     await p.close();
   }
-  check('languages: at 360px, in English, Malay and Chinese, nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money dialogs)',
+  check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
 }
 

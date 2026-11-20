@@ -15,17 +15,17 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-11-19-16";
+const VERSION = "2026-11-20-3";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=171",
-  "/app/script.js?v=242",
+  "/app/styles.css?v=174",
+  "/app/script.js?v=245",
   // Languages: the two tables load before the engine (index.html).
-  "/app/i18n-ms.js?v=24",
-  "/app/i18n-zh.js?v=24",
+  "/app/i18n-ms.js?v=27",
+  "/app/i18n-zh.js?v=27",
   "/app/i18n.js?v=4",
   "/app/drive-config.js?v=3",
   "/app/drive-sync.js?v=4",
@@ -38,7 +38,7 @@ const SHELL = [
   "/app/tax-data.js?v=3",
   "/app/tax.js?v=17",
   "/app/statement.js?v=6",
-  "/app/wallets.js?v=1",
+  "/app/wallets.js?v=2",
   "/app/recap.js?v=1",
   // pdf.js (Apache-2.0) for statement import: injected only when a PDF is
   // picked, precached so it works offline like jsQR.
@@ -46,7 +46,7 @@ const SHELL = [
   "/app/vendor/pdfjs/pdf.worker.min.js?v=1",
   "/app/brands.js?v=3",
   "/app/analytics.js?v=1",
-  "/app/theme-boot.js?v=1",
+  "/app/theme-boot.js?v=2",
   // Brand marks: tiny (0.3–3 KB each) and drawn on the Debts tab, so they are
   // precached rather than fetched on first paint. Add a line when a new logo
   // ships — an unlisted one still works online, it just pops in offline.
@@ -57,6 +57,9 @@ const SHELL = [
   // Precached even though split.js injects it on demand — that is what
   // keeps QR scanning working offline without paying 250 KB on every boot.
   "/app/vendor/qr/jsQR.js?v=1",
+  // Pastel theme's rounded font (Nunito, OFL). styles.css only fetches it
+  // while Pastel is on; precached so Pastel looks the same offline.
+  "/app/vendor/fonts/nunito-latin.woff2?v=1",
   "/app/icon.svg",
 ];
 

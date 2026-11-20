@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-09T23:44:44+00:00",
+  "generatedAt": "2026-11-20T00:00:00Z",
   "title": "Design System: Duitful",
   "extensions": {
     "colorMeta": {
@@ -573,6 +573,201 @@
           "#f1c0c3",
           "#faeaeb"
         ]
+      },
+      "stage-pastel": {
+        "role": "neutral",
+        "displayName": "Stage (Pastel)",
+        "canonical": "#f8e3cf",
+        "tonalRamp": [
+          "#351e08",
+          "#62370e",
+          "#935315",
+          "#c8711d",
+          "#e5974d",
+          "#edb987",
+          "#f5d8bc",
+          "#fcf2e9"
+        ]
+      },
+      "bg-pastel": {
+        "role": "neutral",
+        "displayName": "Paper (Pastel)",
+        "canonical": "#fcecdc",
+        "tonalRamp": [
+          "#381f05",
+          "#673809",
+          "#9b540d",
+          "#d37312",
+          "#ef9943",
+          "#f4ba80",
+          "#f9d9b9",
+          "#fdf2e8"
+        ]
+      },
+      "card-pastel": {
+        "role": "neutral",
+        "displayName": "Peach Sheet (Pastel)",
+        "canonical": "#fde3d1",
+        "tonalRamp": [
+          "#3b1903",
+          "#6c2f05",
+          "#a14607",
+          "#dc600a",
+          "#f7883b",
+          "#f9af7b",
+          "#fcd2b6",
+          "#fef0e7"
+        ]
+      },
+      "card-soft-pastel": {
+        "role": "neutral",
+        "displayName": "Cream Well (Pastel)",
+        "canonical": "#fff2e7",
+        "tonalRamp": [
+          "#3d1c00",
+          "#703300",
+          "#a84d00",
+          "#e66900",
+          "#ff9033",
+          "#ffb475",
+          "#ffd6b2",
+          "#fff1e5"
+        ]
+      },
+      "text-pastel": {
+        "role": "primary",
+        "displayName": "Cocoa Ink (Pastel)",
+        "canonical": "#3d2b1f",
+        "tonalRamp": [
+          "#291d15",
+          "#4a3426",
+          "#704f39",
+          "#986b4d",
+          "#ba9278",
+          "#d1b6a4",
+          "#e5d6cc",
+          "#f6f1ee"
+        ]
+      },
+      "muted-pastel": {
+        "role": "neutral",
+        "displayName": "Muted (Pastel)",
+        "canonical": "#77553f",
+        "tonalRamp": [
+          "#281d15",
+          "#493427",
+          "#6e4f3a",
+          "#966b4f",
+          "#b8927a",
+          "#cfb6a5",
+          "#e5d6cd",
+          "#f6f1ee"
+        ]
+      },
+      "primary-pastel": {
+        "role": "primary",
+        "displayName": "Deep Coral (Pastel)",
+        "canonical": "#9c4325",
+        "tonalRamp": [
+          "#31150c",
+          "#5b2716",
+          "#883a20",
+          "#ba502c",
+          "#d87a5a",
+          "#e5a590",
+          "#f0cdc1",
+          "#faeeea"
+        ]
+      },
+      "action-pastel": {
+        "role": "primary",
+        "displayName": "Coral Pill (Pastel)",
+        "canonical": "#f08b61",
+        "tonalRamp": [
+          "#381405",
+          "#66250a",
+          "#9a370f",
+          "#d24c14",
+          "#ed7645",
+          "#f3a381",
+          "#f8ccb9",
+          "#fdeee8"
+        ]
+      },
+      "brand-pastel": {
+        "role": "secondary",
+        "displayName": "Coral (Pastel)",
+        "canonical": "#ec8a5e",
+        "tonalRamp": [
+          "#371506",
+          "#64270c",
+          "#973b12",
+          "#cd5018",
+          "#e97a49",
+          "#f0a584",
+          "#f7cdbb",
+          "#fceee8"
+        ]
+      },
+      "accent-sage-pastel": {
+        "role": "tertiary",
+        "displayName": "Sage (Pastel)",
+        "canonical": "#7c9f6d",
+        "tonalRamp": [
+          "#1c2518",
+          "#33442d",
+          "#4d6643",
+          "#698a5b",
+          "#91ae84",
+          "#b4c8ac",
+          "#d6e1d1",
+          "#f1f5f0"
+        ]
+      },
+      "gain-pastel": {
+        "role": "tertiary",
+        "displayName": "Gain (Pastel)",
+        "canonical": "#2c6a3c",
+        "tonalRamp": [
+          "#122b18",
+          "#214f2d",
+          "#317743",
+          "#43a25c",
+          "#6fc385",
+          "#9ed7ac",
+          "#c9e9d1",
+          "#edf8f0"
+        ]
+      },
+      "loss-pastel": {
+        "role": "tertiary",
+        "displayName": "Loss (Pastel)",
+        "canonical": "#b02e3a",
+        "tonalRamp": [
+          "#310d10",
+          "#59171d",
+          "#85232c",
+          "#b6303c",
+          "#d55d68",
+          "#e29299",
+          "#efc2c6",
+          "#faebec"
+        ]
+      },
+      "warn-pastel": {
+        "role": "tertiary",
+        "displayName": "Amber (Pastel)",
+        "canonical": "#8f500c",
+        "tonalRamp": [
+          "#382005",
+          "#683a09",
+          "#9b570d",
+          "#d47612",
+          "#ef9c43",
+          "#f4bc80",
+          "#f9dab8",
+          "#fdf3e7"
+        ]
       }
     },
     "typographyMeta": {
@@ -625,6 +820,11 @@
         "name": "float",
         "value": "0 10px 30px rgba(0,0,0,.18)",
         "purpose": "Toasts and the save-failed banner."
+      },
+      {
+        "name": "puffy (Pastel)",
+        "value": "inset 0 2px 0 shine 55%, inset 0 -3px 6px shade 8%, 0 10px 22px -14px shade 50% (shine #fffaf5, shade #96623c, as color-mix of --pastel-shine / --pastel-shade)",
+        "purpose": "Every card and dialog in the Pastel theme; replaces contact and sheet there."
       }
     ],
     "motion": [
@@ -796,6 +996,11 @@
         "name": "The Reduce Motion Rule",
         "body": "Every movement sits behind `prefers-reduced-motion: no-preference`. Colour changes stay on for everyone, because they do not move.",
         "section": "components"
+      },
+      {
+        "name": "The Pastel Rule",
+        "body": "Pastel is a third, light theme under html[data-theme=\"pastel\"]. It changes values, not meanings: ink, gain, loss, warn and the banknote scale keep their jobs and every text colour stays AA on the peach card. Only Pastel cards carry the puffy shadow, only Pastel uses the 12 / 22px radii and the coral pill, and only Pastel names the self-hosted Nunito font, so other themes never download it.",
+        "section": "colors"
       }
     ],
     "dos": [

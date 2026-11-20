@@ -16,5 +16,5 @@
  */
 try {
   var t = localStorage.getItem("duit-tracker.theme");
-  if (t === "dark" || t === "light") document.documentElement.setAttribute("data-theme", t);
+  if (t === "dark" || t === "light" || t === "pastel") document.documentElement.setAttribute("data-theme", t);
 } catch (e) {}
