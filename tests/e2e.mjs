@@ -9043,6 +9043,10 @@ check('the vault is open before the quick-add checks',
     && /case \.pastel:/.test(iosWidget)
     && /\.accessoryCircular/.test(iosWidget)
     && /\.accessoryRectangular/.test(iosWidget));
+  check('iOS build targets Universal (iPhone + iPad, TARGETED_DEVICE_FAMILY = "1,2") for both the app and widget extension',
+    /const IOS_DEVICE_FAMILY = "1,2";/.test(iosWidget)
+    && /TARGETED_DEVICE_FAMILY = "1,2";/.test(iosWidget)
+    && !/TARGETED_DEVICE_FAMILY = 1;/.test(iosWidget));
 
   const wSum = await S(async () => {
     const keepCap = window.Capacitor;

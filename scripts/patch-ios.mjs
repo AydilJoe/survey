@@ -1325,7 +1325,7 @@ if (widgetFilesWritten) {
         ? "\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;"
         : '\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = "";',
       "\t\t\t\tSWIFT_VERSION = 5.0;",
-      '\t\t\t\tTARGETED_DEVICE_FAMILY = 1;', // iPhone only, like the app (see below)
+      '\t\t\t\tTARGETED_DEVICE_FAMILY = "1,2";', // Universal: iPhone + iPad (see below)
     ].join("\n");
 
     // --- new objects, appended to their sections in Xcode's own order ---
@@ -1782,23 +1782,23 @@ function pbxAddTargetAttributes(src, projectObject, targetId) {
   }
 }
 
-/* ---------- iPhone only, for now ----------
-   Capacitor's template targets iPhone AND iPad ("1,2"). Shipping on iPad
-   means App Review exercises the iPad layout and App Store Connect demands
-   13" iPad screenshots — two ways to fail a first review for a layout
-   nobody has designed. v1.0 ships iPhone-only (family 1); iPhone apps still
-   run on iPad in compatibility mode. Flip IOS_DEVICE_FAMILY to "1,2" once
-   the iPad layout is designed and screenshotted. */
+/* ---------- Universal: iPhone + iPad ("1,2") ----------
+   Capacitor's template targets iPhone AND iPad ("1,2"), and our responsive
+   CSS already adapts across tablet portrait (>= 600px left nav rail + 2-column
+   cards) and landscape (>= 1000px full sidebar dashboard). Pin both the App
+   and WidgetKit extension targets to "1,2" so iPad runs natively in full
+   resolution, Stage Manager, and Split View / Slide Over, with Home Screen
+   and Lock Screen widgets available on iPadOS. */
 {
   const PBXPROJ_FAM = resolve(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
-  const IOS_DEVICE_FAMILY = "1";
+  const IOS_DEVICE_FAMILY = "1,2";
   if (existsSync(PBXPROJ_FAM)) {
     const proj = readFileSync(PBXPROJ_FAM, "utf8");
     const value = IOS_DEVICE_FAMILY.includes(",") ? `"${IOS_DEVICE_FAMILY}"` : IOS_DEVICE_FAMILY;
     const patched = proj.replace(/TARGETED_DEVICE_FAMILY = (?:"[\d,]+"|\d+);/g, `TARGETED_DEVICE_FAMILY = ${value};`);
     if (patched !== proj) {
       writeFileSync(PBXPROJ_FAM, patched);
-      console.log(`patch-ios: device family set to ${IOS_DEVICE_FAMILY === "1" ? "iPhone only" : IOS_DEVICE_FAMILY}.`);
+      console.log(`patch-ios: device family set to ${IOS_DEVICE_FAMILY === "1" ? "iPhone only" : "Universal (iPhone + iPad)"}.`);
     } else {
       console.log("patch-ios: device family already set, skipping.");
     }
