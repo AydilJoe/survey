@@ -9161,7 +9161,8 @@ check('the vault is open before the quick-add checks',
     && /renderRingBitmap/.test(widget)
     && /case \.pastel:/.test(iosWidget)
     && /\.accessoryCircular/.test(iosWidget)
-    && /\.accessoryRectangular/.test(iosWidget));
+    && /\.accessoryRectangular/.test(iosWidget)
+    && !/\.frame\([^)]*\b(?:width|height)\s*:[^)]*\b(?:minWidth|idealWidth|maxWidth|minHeight|idealHeight|maxHeight)\s*:/.test(iosWidget));
 
   const wSum = await S(async () => {
     const keepCap = window.Capacitor;

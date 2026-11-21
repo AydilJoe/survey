@@ -1054,7 +1054,8 @@ private struct DuitfulLargeView: View {
                             .lineLimit(1)
                     }
                     .padding(12)
-                    .frame(width: 92, maxHeight: .infinity, alignment: .leading)
+                    .frame(width: 92)
+                    .frame(maxHeight: .infinity, alignment: .leading)
                     .background(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
                             .fill(DuitfulPalette.butter(mode))
