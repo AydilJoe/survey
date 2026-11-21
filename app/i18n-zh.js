@@ -370,6 +370,7 @@
   "Version {v}": "版本 {v}",
   "Version {v} · Native build": "版本 {v} · 原生版",
   "What's new": "新功能",
+  "Bug fixes and performance improvements.": "修复错误并提升性能。",
   "Replay welcome tour": "重看入门导览",
   "Rate Duitful": "给 Duitful 评分",
   "Contact": "联系",
