@@ -1430,6 +1430,40 @@ main {
 .announce-body p { margin: 0 0 0.6rem; color: var(--ink2); line-height: 1.5; }
 .announce-body p:last-child { margin-bottom: 0; }
 .announce-mute { margin: 0 0 0.9rem; }
+
+/* Move to the iPhone app (#move-dialog): two numbered steps; step 2 stays
+   greyed until step 1 is done. Done is a sage tick (progress), never green
+   (money in). */
+.move-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.move-step {
+  display: flex; gap: 0.7rem; align-items: flex-start;
+  padding: 0.8rem; border-radius: var(--r-md);
+  background: var(--card-soft); border: 0.5px solid var(--line);
+  transition: opacity 0.2s ease;
+}
+.move-step[aria-disabled="true"] { opacity: 0.5; }
+.move-step-body { flex: 1; min-width: 0; }
+.move-step h3 { margin: 0.15rem 0 0.25rem; font-size: 1rem; }
+.move-why { margin: 0 0 0.6rem; color: var(--ink2); font-size: 0.9rem; line-height: 1.45; }
+.move-num {
+  flex-shrink: 0; width: 1.75rem; height: 1.75rem; border-radius: var(--r-pill);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.9rem; font-variant-numeric: tabular-nums;
+  color: var(--text); border: 1.5px solid var(--border); background: var(--card);
+}
+.move-num-tick { width: 15px; height: 15px; display: none; }
+.move-step.is-done .move-num { background: var(--accent); border-color: var(--accent); color: var(--card); }
+.move-step.is-done .move-num-n { display: none; }
+.move-step.is-done .move-num-tick { display: block; }
+.move-step.is-done #move-export { display: none; }
+.move-saved { margin: 0; color: var(--ink2); font-size: 0.9rem; font-weight: 600; }
+.move-how { margin: 0 0 0.7rem; padding-left: 1.2rem; color: var(--ink2); font-size: 0.9rem; line-height: 1.45; }
+.move-how li + li { margin-top: 0.3rem; }
+.move-how li[hidden] { display: none; }
+.move-step button.primary { width: 100%; }
+.move-skip-wrap { margin: 0.2rem 0 0; text-align: center; }
+.move-skip-wrap[hidden] { display: none; }
+.move-skip-wrap .link-btn { min-height: 44px; padding: 0 0.5rem; font: inherit; font-size: 0.9rem; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; cursor: pointer; }
 /* On mobile, 4 tiles in one row truncates labels ("RECURRI...", "DAILY S...")
    and values ("RM 8,..."). Switch to a 2×2 grid below 480px so both label and
    amount fit cleanly. */
@@ -7163,8 +7197,9 @@ body.private .pending-match-sub {
    balance and the Add entry form, instead of Today waiting below the
    tallest card with a 330px hole above it. The 1fr second row takes the
    spanning cards' extra height, so the first row hugs Upcoming. Only when
-   no full-width banner occupies the first row. */
-@media (min-width: 1180px) {
+   no full-width banner occupies the first row. From 1280px: below that the
+   content area holds two columns (see "iPad" at the end of this file). */
+@media (min-width: 1280px) {
   #tab-dashboard.tab-panel:is(.active, .is-leaving) { grid-auto-flow: row dense; }
   #tab-dashboard.tab-panel:is(.active, .is-leaving) > .hero-card,
   #tab-dashboard.tab-panel:is(.active, .is-leaving) > .quick-add { grid-row: span 2; }
@@ -9066,3 +9101,52 @@ html[data-theme="pastel"] .tab.active {
 }
 .wallet-alerts { display: flex; flex-direction: column; gap: 0.25rem; }
 .wallet-alerts .hint { margin: 0; }
+
+/* ---------- v1.63 iPad (and any tablet-sized window) ----------
+   Full screen on iPad in every orientation: iPad mini 744 x 1133, Air 11"
+   820 x 1180, Pro 13" 1024 x 1366, and those on their side. The navigation
+   follows the fold lab's rule (rail from 600px, sidebar from 1000px), so
+   these rules only shape the content beside it. */
+/* Two columns while the content area is under ~1050px wide (iPad landscape,
+   iPad Pro portrait, a desktop window of that size). Three 280px columns
+   squeezed the Add entry pills out of their card and wrapped every title. */
+@media (min-width: 1000px) and (max-width: 1279px) {
+  .tab-panel:is(.active, .is-leaving) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* In two columns a one-off note (your phone's AI is ready, tax, reminders,
+   a statement due) beside the balance left a hole under itself as tall as
+   the balance card. It takes the row instead; at three columns it sits in
+   the first one, above Today (the 1280px rule above). The Add entry form
+   spans two rows, so Today sits under the balance instead of waiting below
+   the taller form. */
+@media (min-width: 640px) and (max-width: 1279px) {
+  #tab-dashboard.tab-panel:is(.active, .is-leaving) > :is(.ai-intro, .tax-intro, .reminder-ask, .upcoming-card) {
+    grid-column: 1 / -1;
+  }
+  #tab-dashboard.tab-panel:is(.active, .is-leaving) > .quick-add { grid-row: span 2; }
+}
+/* The debt and goal lists take the row from tablet width, not only on a
+   desktop: half a 744px screen cut names to "Mayban…". */
+@media (min-width: 640px) {
+  #tab-debts.tab-panel:is(.active, .is-leaving) > .card:first-child,
+  #tab-savings.tab-panel:is(.active, .is-leaving) > .card:first-child {
+    grid-column: 1 / -1;
+  }
+}
+/* Beside a rail, a short page ended in a band of the stage colour under the
+   content: the page itself is the workspace colour, top to bottom. */
+@media (min-width: 600px) and (max-width: 999px) {
+  html, body { background: var(--bg); }
+}
+/* Sidebar rows are fingers on an iPad, not only a mouse pointer: 44px. */
+@media (min-width: 1000px) {
+  .tab { min-height: 44px; }
+}
+
+/* The balance breakdown's four tiles key off the card's own width, not the
+   screen's: half an iPad is a phone-width card on a wide screen, and four
+   tiles there cut every figure to "RM 6,…". */
+.hero-card { container-type: inline-size; }
+@container (max-width: 520px) {
+  .hero-grid { grid-template-columns: repeat(2, 1fr); }
+}

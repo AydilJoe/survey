@@ -219,6 +219,20 @@ Uploaded for 1.52.0, in this order:
 4. Receipt scan — the result with "Add RM …"
 5. Settings — Security and Clear all data
 
+**iPad (since 1.63.0, required once the app supports iPad):** 13" iPad
+display, **2064×2752** portrait. Five, in this order, in
+`marketing/app-store/ipad/` (rendered from the real app with sample data by
+`marketing/app-store/scripts/capture-ipad.mjs`, no device frame):
+
+1. `01-home.png` — Home with the AI badge, balance and Add entry
+2. `02-payoff.png` — Debts: payoff plan and "When each debt is cleared"
+3. `03-scan.png` — Receipt scan result, total checked, read with the phone's AI
+4. `04-tax.png` — Tax details filled from an EA form
+5. `05-split.png` — Split a bill: "Send all 3 in one message"
+
+App Store Connect scales the 13" set down for the smaller iPads. The app runs
+full screen only (`UIRequiresFullScreen`), so no Split View screenshots.
+
 Use realistic Malaysian sample data, not your real figures, and avoid
 empty-state screens (a Home card reading RM 0.00 sells nothing) and anything
 showing a failure state — a payoff plan reading "Debt-free in ∞" with a red
@@ -245,6 +259,8 @@ All data is stored encrypted on the device. Bill-split links carry their details
 iCloud backup: Settings → Cloud backup → iCloud → Back up now works without Pro. The "Back up to iCloud on every change" switch is Pro: unlock Pro first with the sandbox purchase. It uses the device's own Apple ID; no account from us is needed. It is the only cloud backup in the iPhone app; this build has no Google sign-in.
 
 The app downloads and runs no code. Everything it executes ships in the app bundle; the only things fetched at runtime are JSON data (exchange rates and in-app notices).
+
+Runs full screen on iPad (no Split View or Slide Over), in every orientation, with a side rail or sidebar on the larger screen.
 ```
 
 **Since 1.55.3 the iPhone app has no Google Drive** (`iosEnabled: false` in
