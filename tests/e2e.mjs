@@ -5033,8 +5033,9 @@ check('a split from a spend you already logged never logs it twice',
     }), JSON.stringify(an));
   const feed = JSON.parse(readFileSync(path.join(REPO_ROOT, 'announcements.json'), 'utf8'));
   const appleMsg = feed.messages.find((m) => m.id === '2026-11-ios-app-icloud');
-  check('the "Duitful is on the App Store" message for Apple web users is ready but off until the App Store link is in',
-    appleMsg && JSON.stringify(appleMsg.platforms) === '["web-apple"]' && (appleMsg.enabled === false || /^https:\/\/apps\.apple\.com\//.test(appleMsg.cta_url)), JSON.stringify(appleMsg));
+  check('the "Duitful is on the App Store" message is on for Apple web users only, its button counted through /go/appstore/',
+    appleMsg && appleMsg.enabled === true && JSON.stringify(appleMsg.platforms) === '["web-apple"]'
+      && /^https:\/\/duitful\.app\/go\/appstore\/\?utm_source=webapp&/.test(appleMsg.cta_url) && appleMsg.cta_label, JSON.stringify(appleMsg));
 }
 
 // v1.55.3: Google Drive can be tucked away in the iPhone app (App Review
@@ -7974,11 +7975,16 @@ check('the vault is open before the quick-add checks',
     const html = readFileSync(path.join(REPO_ROOT, f), 'utf8');
     const direct = [...html.matchAll(/(?:^|\s)(?:data-[a-z-]+-)?href="([^"]+)"/g)].map((m) => m[1])
       .filter((h) => h === '/app/' || h === 'https://duitful.app/app' || h === 'https://duitful.app/app/' || h === PLAY);
-    const counted = [...html.matchAll(/href="https:\/\/duitful\.app\/go\/(app|play|testflight)\/\?([^"]+)"/g)].map((m) => m[2]);
-    const direct2 = [...html.matchAll(/href="(https:\/\/testflight\.apple\.com[^"]*)"/g)].map((m) => m[1]);
-    check(`${f}: the iPhone beta button is the counted /go/testflight/ link (hero and final), never a direct TestFlight link, and the App Store "coming soon" badge is gone`,
-      direct2.length === 0 && (html.match(/\/go\/testflight\/\?utm_source=landing/g) || []).length === 2 && !/is-soon/.test(html.replace(/\.btn-store\.is-soon[^\n]*/g, '').replace(/\.btn-store:not\(\.is-soon\)[^\n]*/g, '')),
-      JSON.stringify({ direct2 }));
+    const counted = [...html.matchAll(/href="https:\/\/duitful\.app\/go\/(app|play|appstore)\/\?([^"]+)"/g)].map((m) => m[2]);
+    const direct2 = [...html.matchAll(/href="(https:\/\/(?:testflight|apps)\.apple\.com[^"]*)"/g)].map((m) => m[1]);
+    // The iPhone app is on the App Store (TestFlight was the beta): the
+    // official "Download on the App Store" badge, Apple's first, beside the
+    // official Google Play badge, both counted through /go/.
+    const badgeA = [...html.matchAll(/<a class="store-badge badge-apple" href="https:\/\/duitful\.app\/go\/appstore\/\?utm_source=landing&amp;utm_medium=(en|ms)&amp;utm_content=(hero|final)"[^>]*><img src="[^"]*assets\/badges\/app-store-download\.svg"/g)];
+    const badgeP = [...html.matchAll(/<a class="store-badge badge-play-(en|ms) cta-play-store" href="https:\/\/duitful\.app\/go\/play\/\?[^"]+"[^>]*><img src="[^"]*assets\/badges\/google-play-\1\.png"/g)];
+    check(`${f}: the iPhone button is the official App Store badge through the counted /go/appstore/ link (hero and final), next to the Play badge; no direct Apple link, no TestFlight beta left`,
+      direct2.length === 0 && badgeA.length === 2 && badgeP.length === 2 && !/go\/testflight|TestFlight|is-soon/.test(html),
+      JSON.stringify({ direct2, apple: badgeA.length, play: badgeP.length }));
     check(`${f}: every app / Play button is counted through /go/, tagged with its placement`,
       direct.length === 0 && counted.length >= 10 && counted.every((q) => /utm_source=landing/.test(q) && /utm_content=[a-z-]+/.test(q)),
       JSON.stringify({ direct, n: counted.length }));
@@ -8008,6 +8014,7 @@ check('the vault is open before the quick-add checks',
   const gp = await ctx.newPage();
   await ctx.route('https://play.google.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>play</title>' }));
   await ctx.route('https://testflight.apple.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>testflight</title>' }));
+  await ctx.route('https://apps.apple.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>app store</title>' }));
   const t0 = Date.now();
   await gp.goto(`${BASE}/go/app/?utm_source=landing&utm_medium=en&utm_content=hero`);
   await gp.waitForURL(/\/app\/(index\.html)?$/, { timeout: 4000 }).catch(() => {});
@@ -8018,10 +8025,15 @@ check('the vault is open before the quick-add checks',
   await gp.goto(`${BASE}/go/testflight/?utm_source=landing&utm_medium=en&utm_content=hero`);
   await gp.waitForURL(/testflight\.apple\.com/, { timeout: 4000 }).catch(() => {});
   const tfUrl = gp.url();
+  await gp.goto(`${BASE}/go/appstore/?utm_source=landing&utm_medium=en&utm_content=hero`);
+  await gp.waitForURL(/apps\.apple\.com/, { timeout: 4000 }).catch(() => {});
+  const asUrl = gp.url();
   const robots = readFileSync(path.join(REPO_ROOT, 'robots.txt'), 'utf8');
   await ctx.close();
   check('/go/testflight/ forwards to the public TestFlight link even with analytics blocked',
     tfUrl.startsWith('https://testflight.apple.com/join/qzXEgGXH'), tfUrl);
+  check('/go/appstore/ forwards to the App Store listing even with analytics blocked',
+    /^https:\/\/apps\.apple\.com\/app\/[a-z0-9-]+\/id\d+/.test(asUrl), asUrl);
   check('/go/ pages forward to the app and to Play even with analytics blocked',
     /\/app\/(index\.html)?$/.test(new URL(appUrl).pathname) && appMs < 3000 && playUrl.startsWith(PLAY), JSON.stringify({ appUrl, appMs, playUrl }));
   // Malaysian visitors decide on the home page and don't read long pages:
@@ -8068,6 +8080,7 @@ check('the vault is open before the quick-add checks',
   check('/go/ is kept out of search (noindex + robots)',
     /noindex/.test(readFileSync(path.join(REPO_ROOT, 'go/app/index.html'), 'utf8'))
     && /noindex/.test(readFileSync(path.join(REPO_ROOT, 'go/testflight/index.html'), 'utf8'))
+    && /noindex/.test(readFileSync(path.join(REPO_ROOT, 'go/appstore/index.html'), 'utf8'))
     && (robots.match(/Disallow: \/go\//g) || []).length === (robots.match(/Disallow: \/api\//g) || []).length);
 }
 

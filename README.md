@@ -8,7 +8,7 @@ including me can read your vault or recover it for you.
 
 **Live:** <https://duitful.app> · **App:** <https://duitful.app/app> ·
 **Android:** [Google Play](https://play.google.com/store/apps/details?id=com.aydiljoe.duitful)
-· iOS coming soon
+· **iPhone:** [App Store](https://duitful.app/go/appstore/)
 
 Plain HTML/CSS/JS. No framework, no build step for the web app.
 

@@ -22,15 +22,15 @@
     },
     {
       "id": "2026-11-ios-app-icloud",
-      "enabled": false,
-      "_note": "Turn on once the iPhone app is live on the App Store: paste its link into cta_url, set enabled to true, push.",
+      "enabled": true,
+      "_note": "Live since the App Store release (2026-11). Browsers on an iPhone, iPad or Mac only; never inside the store apps. Each device sees it once.",
       "title": "Duitful is on the App Store",
       "body": [
-        "On an iPhone or iPad, Duitful Pro backs up to your own iCloud by itself, encrypted so only your passcode opens it.",
-        "Moving over: Settings → Export CSV here, then Settings → Import CSV in the app."
+        "The iPhone app backs up to your own iCloud, encrypted first. Back up now is free; Pro does it automatically.",
+        "To move over: Settings → Export CSV here, then Settings → Import CSV in the app."
       ],
       "cta_label": "Get the iPhone app",
-      "cta_url": "",
+      "cta_url": "https://duitful.app/go/appstore/?utm_source=webapp&utm_medium=en&utm_content=announce-ios",
       "platforms": [
         "web-apple"
       ],
