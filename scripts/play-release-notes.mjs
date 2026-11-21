@@ -18,6 +18,6 @@ const write = (locale, text) => {
   writeFileSync(join(dir, `${code}.txt`), text + '\n');
   console.log(`Play release notes, ${locale} (${text.length} chars):\n${text}\n`);
 };
-write('en-US', releaseNotes(version, 'en') || 'Fixes and improvements.');
-const ms = releaseNotes(version, 'ms');
+write('en-US', releaseNotes(version, 'en', 'android') || 'Fixes and improvements.');
+const ms = releaseNotes(version, 'ms', 'android');
 if (ms) write('ms-MY', ms);
