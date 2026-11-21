@@ -5,10 +5,10 @@
 > method, scan receipts with on-device OCR, track zakat and Islamic
 > financing with the maths it actually uses, and own every byte of your
 > financial data.
-> Web app and Android app live; iOS coming soon. One-time RM 19.90
-> lifetime Pro — no subscription, no account, no cloud. The source is
-> open under GPL-3.0, and the privacy claims are verifiable rather than
-> asserted.
+> Web app, Android app (Google Play) and iPhone app (App Store) live.
+> One-time RM 19.90 lifetime Pro — no subscription, no account, no
+> cloud. The source is open under GPL-3.0, and the privacy claims are
+> verifiable rather than asserted.
 
 ## What Duitful is
 
@@ -280,10 +280,16 @@ diffed against the repository. The hosted product is not a subscription
   https://play.google.com/store/apps/details?id=com.aydiljoe.duitful
   The native shell adds bank-notification auto-capture and on-device
   Tesseract OCR on top of every web-app feature.
-- **iPhone** — the iPhone app is in public beta on TestFlight:
-  https://testflight.apple.com/join/qzXEgGXH (an App Store release is
-  pending Apple's review). The web app at https://duitful.app/app also
-  works fully on iOS Safari.
+- **iPhone users** — install from the App Store:
+  https://apps.apple.com/app/duitful-money-debt-tracker/id6827191645
+  The native app adds encrypted backup to the user's own iCloud, the
+  iPhone document scanner for receipts and statements, and (iOS 26)
+  Apple's on-device model for receipts and the English monthly recap.
+  Bank-alert capture, AI statement suggestions and AI tax relief
+  matching are Android only (iOS does not permit reading other apps'
+  notifications). The web app at https://duitful.app/app also works
+  fully on iOS Safari; move data between them with Settings → Export CSV
+  and Settings → Import CSV.
 - **iPad / Mac / PC / anything else** — use the web app at
   https://duitful.app/app — installable as a PWA.
 
