@@ -27,6 +27,21 @@ asks. Adapted from `PLAY_LISTING.md`, with Apple's rules applied:
 | Marketing URL | `https://duitful.app/` |
 | Copyright | `2026 Aydil Johari` |
 
+**Live on the App Store:** <https://apps.apple.com/app/duitful-money-debt-tracker/id6827191645> (no country segment, so Apple sends each
+visitor to their own storefront). The website links to it through
+`/go/appstore/`.
+
+## Submitting 1.62.1
+
+1. In App Store Connect, open the 1.62.1 version and pick build **1.62.1**
+   from TestFlight.
+2. Paste the Promotional text, Description and What's New from "Version
+   page" below (counts are under each block).
+3. **Add for Review**, then **Submit for Review**.
+
+The App Store link is above. The rules at the top still hold: no other
+platforms, and Pro only as the in-app purchase.
+
 ## Submitting 1.52.0 for review
 
 The build: TestFlight build **1.52.0 (261030.255)** from `main` (ios.yml,
@@ -78,9 +93,9 @@ In App Store Connect → Duitful → the version waiting for review:
 ### Promotional text (170 — editable any time, no review)
 
 ```
-Your money, debts and split bills — encrypted on your phone. No account, no bank login. Built in Malaysia.
+Now with built-in AI that runs on your iPhone — nothing uploaded. Budget, debts, tax relief and split bills, encrypted on your phone. Built in Malaysia.
 ```
-106 characters.
+152 characters.
 
 ### Keywords (100, comma-separated, no spaces after commas)
 
@@ -95,36 +110,49 @@ their words are repeated here.
 ```
 Know what you can spend today, and the month you'll be debt-free.
 
-Duitful tracks your income, bills, spending and debts on your iPhone. No account and no bank login. Everything is encrypted on the phone, and it works offline.
+Duitful tracks your income, bills, spending, debts and tax relief on your iPhone. No account and no bank login. Everything is encrypted on the phone, it works offline, and it speaks English, Bahasa Melayu and 中文.
 
+
+BUILT-IN AI, ON YOUR IPHONE
+Duitful uses Apple's on-device Foundation Models (iOS 26 with Apple Intelligence on a supported iPhone).
+• A hard-to-read receipt gets a second look from your iPhone's own AI. The total must be printed on the receipt; the AI never makes up an amount
+• Your monthly recap can be worded more naturally (English), from your own figures only
+• It runs on your iPhone. Nothing is uploaded, there is no chat and no advice, and you can switch it off any time
+• A small sempoa badge shows when it's on, and its beads count while it works
+On other iPhones Duitful works the same with its own rules.
 
 TRACK
-• Log a spend in two taps, or scan the receipt: the total, date and shop are read on your phone. On iOS 26, Apple's on-device model double-checks a hard-to-read receipt; the total must be printed on it, and nothing is uploaded
+• Log a spend in two taps, or scan the receipt: total, date and shop are read on your phone
+• Import your bank statement: PDF, scan or photos, read on your iPhone and checked against the printed balances before anything is added
+• Wallets: a balance for cash, Touch 'n Go eWallet, MAE and each bank account
 • See what's left this month, and what that is per day
-• Reports by category and month
+• Reports by category and month, with your month summed up in a few sentences
 • Privacy mode hides every amount
 
 CLEAR DEBT
 • Cards, car loans, PTPTN and pay-later plans like Atome and SPayLater in one list
 • Avalanche payoff: highest rate first, and the month you'll be debt-free
 • Islamic financing (murabahah, tawarruq, BBA, AITAB) with ibra' on early settlement
+• Milestones as you go, from your first debt paid off
 
 TAX AND ZAKAT
+• Scan your EA form and your salary, PCB, EPF and SOCSO fill in at once
 • Flags spending that counts for LHDN tax relief, keeps the receipt with the claim and estimates your refund. An estimate for planning, not tax advice
 • Zakat on wealth: nisab, haul and 2.5%, from the gold price you enter
 
 SPLIT A BILL
-• Send a link or QR code. Friends see their share and tap "I've paid". They don't need the app
+• Send a link or QR code. Friends see their share, tick what they had and tap "I've paid". They don't need the app
+• Recurring splits for rent, TNB, internet or subscriptions: set up once, request each month, see who has paid. Only your share counts as spending
 
 
 FREE AND PRO
-Free: 3 debts (one can be a pay-later plan) and your debt-free date, reminders, Islamic finance, zakat, tax relief, 5 savings goals, 3 investments, 5 receipt scans and 1 bank statement import a month, 3 wallets.
+Free: 3 debts (one can be a pay-later plan) and your debt-free date, reminders, Islamic finance, zakat, tax relief and the EA scanner, 5 savings goals, 3 investments, 3 wallets, 1 recurring split, 5 receipt scans and 1 bank statement import a month, and Back up now to iCloud.
 
-Pro is a one-time in-app purchase, no subscription: automatic encrypted iCloud backup, unlimited scans and statement imports, goals and investments, wallets, budget pools and other currencies.
+Pro is a one-time in-app purchase, no subscription: automatic encrypted iCloud backup, unlimited scans, statement imports, goals, investments, wallets and recurring splits, budget pools and other currencies. Try it free for 14 days, only if you choose to.
 
 Made in Kuala Lumpur by Aydil. Bugs or ideas: hello@duitful.app
 ```
-About 1,600 characters (on-device model line added in 1.56.1). Plain and feature-first: the founder pitch ("Every
+2,887 characters (1.62.1). Plain and feature-first: the founder pitch ("Every
 budgeting app I tried wanted my bank login…") lives on the landing page hero
 instead. Apple's rules still hold: no Google Drive or other platforms, Pro
 only as the in-app purchase, and iCloud is the only backup named because
@@ -134,8 +162,44 @@ Drive is off in the iPhone app. Changing it needs a new version submission
 ### What's New in This Version
 
 ```
-First release on iPhone.
+The biggest update since launch: built-in AI that runs on your iPhone, tax made easy, wallets and Bahasa Melayu & 中文.
+
+ON-DEVICE AI
+• Built-in AI using Apple's on-device Foundation Models (iOS 26 with Apple Intelligence). A hard-to-read receipt gets a second look, and your monthly recap can be worded more naturally. It runs on your iPhone, nothing is uploaded, and it never makes up an amount.
+• A little sempoa (abacus) badge shows when it's on. Its beads count while the AI works. Tap it to see what it does and what it never does. Switch it off any time.
+
+TAX
+• Scan your EA form (PDF or photo): salary, PCB, EPF and SOCSO for the year fill in at once, each shown against its EA line.
+• A simpler Tax page: cards instead of paragraphs, and your details in three short steps you can type monthly from your payslip.
+
+BANK STATEMENTS
+• Import a PDF statement, a scanned PDF or photos of the pages. Duitful reads it on your iPhone, checks it adds up to the printed balances, and lets you tick rows before anything is added.
+• Share a statement or receipt from Mail, Files or your bank app straight to Duitful, and get a reminder when next month's statement is out.
+
+WALLETS
+• A balance for cash, Touch 'n Go eWallet, MAE and each bank account. Pick the bank from a list, move money between wallets, and "Adjust to actual" fixes drift with one visible entry.
+
+SPLIT BILLS
+• Recurring splits for rent, TNB, internet or a shared subscription: set it up once (equal, fixed or weighted shares), send the requests each month, and see who has paid. Only your share counts as your spending.
+• Splitting a bill is now two short steps.
+
+YOUR LANGUAGE
+• Every screen, sheet and reminder in Bahasa Melayu and 中文. Pick a language in Settings.
+
+MORE
+• Your month in a few sentences at the top of Reports.
+• Milestones: first debt paid off, RM 1,000 paid down, three months on budget and more. Share one if you like; amounts are never included.
+• Pastel: a new soft theme with rounded cards. Free, like every theme.
+• Shorter forms: only the fields you need, with hints under them.
+• Free tracks one pay-later plan (Atome, SPayLater) within your 3 debts.
+• Clearer Free and Pro: the 14-day Pro trial starts only if you choose it, Back up now to iCloud is free for everyone, and importing your own data always brings everything back.
+
+FIXES
+• Forms in pop-ups now move above the keyboard, and Save or Next works on the first tap.
+• Change passcode works again.
+• Add income and Add bill say which month the entry goes to.
 ```
+2,506 characters (1.62.1). For later versions the Fastfile fills this from `scripts/release-notes.mjs`.
 
 ### Screenshots (required size changed — 1206×2622 or 1179×2556)
 

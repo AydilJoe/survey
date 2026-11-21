@@ -54,7 +54,7 @@
     "description": "Privacy-first money, debt, loan, and savings tracker for Malaysia. Track every ringgit, plan debt payoff with the avalanche method, scan receipts with OCR, and keep everything encrypted on-device. One-time purchase, no subscription.",
     "applicationCategory": "FinanceApplication",
     "applicationSubCategory": "PersonalFinance",
-    "operatingSystem": "Web (any modern browser); Android (Google Play); iOS coming soon",
+    "operatingSystem": "Web (any modern browser); Android (Google Play); iOS (App Store, iPhone)",
     "inLanguage": "en",
     "browserRequirements": "Requires JavaScript. Requires HTML5.",
     "isAccessibleForFree": true,
@@ -77,7 +77,7 @@
       "End-to-end on-device encryption",
       "LHDN tax relief finder and refund estimate from your spending, with receipts kept for e-Filing",
       "Encrypted backup to your own iCloud or Google Drive (Pro)",
-      "On-device AI (Gemini Nano on supported Android phones; Apple’s on-device model for receipts on iOS 26) — reads tricky receipts and bank alerts, never invents amounts, nothing uploaded"
+      "On-device AI (Gemini Nano on supported Android phones; Apple’s on-device model on iOS 26, for receipts and the English monthly recap) — reads tricky receipts and, on Android, bank alerts; never invents amounts, nothing uploaded"
     ],
     "offers": [
       {
@@ -92,6 +92,14 @@
         "price": "19.90",
         "priceCurrency": "MYR",
         "description": "One-time purchase — automatic encrypted backup, unlimited receipt scans, budget pools, multi-currency, and future Pro features."
+      },
+      {
+        "@type": "Offer",
+        "name": "Duitful for iPhone (App Store)",
+        "price": "0",
+        "priceCurrency": "MYR",
+        "url": "https://apps.apple.com/app/duitful-money-debt-tracker/id6827191645",
+        "description": "Free download on the App Store; Pro is the same RM 19.90 one-time in-app purchase."
       }
     ]
   }
@@ -123,6 +131,30 @@
   }
   </script>
 
+  <!-- Native iPhone app entity — links the App Store listing to this domain. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "MobileApplication",
+    "name": "Duitful",
+    "alternateName": "Duitful — Money & Debt Tracker",
+    "operatingSystem": "iOS",
+    "applicationCategory": "FinanceApplication",
+    "applicationSubCategory": "PersonalFinance",
+    "url": "https://duitful.app/",
+    "downloadUrl": "https://apps.apple.com/app/duitful-money-debt-tracker/id6827191645",
+    "installUrl": "https://apps.apple.com/app/duitful-money-debt-tracker/id6827191645",
+    "publisher": { "@type": "Organization", "name": "Duitful", "url": "https://duitful.app/" },
+    "image": "https://duitful.app/og-image.png",
+    "description": "Native iPhone app of Duitful — adds encrypted backup to your own iCloud, the iPhone document scanner for receipts and statements, and Apple’s on-device model for receipts and the English monthly recap (iOS 26) on top of the web app.",
+    "isAccessibleForFree": true,
+    "offers": [
+      { "@type": "Offer", "name": "Duitful Free", "price": "0", "priceCurrency": "MYR" },
+      { "@type": "Offer", "name": "Duitful Pro", "price": "19.90", "priceCurrency": "MYR", "description": "One-time purchase — automatic encrypted backup, unlimited receipt scans, budget pools, multi-currency, and future Pro features." }
+    ]
+  }
+  </script>
+
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -135,7 +167,8 @@
     "description": "Privacy-first personal finance tracker built in Malaysia. Track monthly income, expenses, debts, loans, and savings goals with debt avalanche payoff, BNPL tracking, receipt OCR, and on-device encryption.",
     "sameAs": [
       "https://github.com/AydilJoe/survey",
-      "https://play.google.com/store/apps/details?id=com.aydiljoe.duitful"
+      "https://play.google.com/store/apps/details?id=com.aydiljoe.duitful",
+      "https://apps.apple.com/app/duitful-money-debt-tracker/id6827191645"
     ],
     "foundingLocation": {
       "@type": "Place",
@@ -177,7 +210,7 @@
       {
         "@type": "Question",
         "name": "Does my data really never leave my phone?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Yes. It’s encrypted on your phone with your passcode. There’s no account and no server copy. Backup goes to your own Google Drive, encrypted first." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Yes. It’s encrypted on your phone with your passcode. There’s no account and no server copy. Backup goes to your own iCloud or Google Drive, encrypted first." }
       },
       {
         "@type": "Question",
@@ -187,7 +220,7 @@
       {
         "@type": "Question",
         "name": "Does Duitful use AI?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Only on your phone, and only to help. On supported Android phones, Google’s on-device AI reads tricky receipts and bank alerts; on iPhone with iOS 26, Apple’s on-device model helps with receipts. It never invents amounts: totals must be printed on the receipt or alert. Nothing is uploaded, and you can switch it off in Settings. Without it, Duitful uses its own rules." }
+        "acceptedAnswer": { "@type": "Answer", "text": "Only on your phone, and only to help. On supported Android phones, Google’s on-device AI reads tricky receipts and bank alerts, and suggests statement categories and tax relief; on iPhone with iOS 26, Apple’s on-device model helps with receipts. Both can reword the English monthly recap. It never invents amounts: totals must be printed on the receipt or alert. Nothing is uploaded, and you can switch it off in Settings. Without it, Duitful uses its own rules." }
       },
       {
         "@type": "Question",
@@ -348,25 +381,6 @@
     }
     .btn-ghost:hover { background: var(--card); }
 
-    .btn-store {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 18px;
-      border-radius: 14px;
-      background: var(--ink);
-      color: #fffaf2;
-      border: 0.5px solid var(--ink);
-      font-size: 13px;
-      line-height: 1.1;
-      transition: opacity 0.2s;
-    }
-    .btn-store:hover { opacity: 0.88; }
-    .btn-store.is-soon { cursor: default; opacity: 0.72; }
-    .btn-store.is-soon:hover { opacity: 0.72; }
-    .btn-store .small { font-size: 10px; opacity: 0.75; font-family: var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; display: block; }
-    .btn-store .big { font-family: var(--font-serif); font-size: 18px; font-weight: 500; letter-spacing: -0.01em; }
-    .btn-store svg { flex-shrink: 0; }
 
     /* --------------- Nav --------------- */
     .nav {
@@ -617,6 +631,24 @@
       margin-top: 36px;
       align-items: center;
     }
+
+
+    /* Official store badges, unmodified (marketing/badges/README.md). Same
+       visible height; Apple's first; clear space of at least a quarter of
+       the height around each. The Play PNGs carry transparent padding, so a
+       negative margin trims it to the visible badge: English 168 of 250 px
+       tall with 41 px all round, Malay 192 of 250 with 29 px top and bottom. */
+    .badge-row { --badge-h: 44px; display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 18px; }
+    .cta-final .badge-row { justify-content: center; margin-top: 18px; }
+    .store-badge { display: inline-block; line-height: 0; border-radius: 8px; overflow: hidden; transition: opacity 0.2s; }
+    .store-badge:hover { opacity: 0.88; }
+    .store-badge img { display: block; width: auto; max-width: none; }
+    .badge-apple img { height: var(--badge-h); }
+    .badge-play-en img { height: calc(var(--badge-h) * 250 / 168); margin: calc(var(--badge-h) * -41 / 168); }
+    .badge-play-ms img { height: calc(var(--badge-h) * 250 / 192); margin: calc(var(--badge-h) * -29 / 192) 0; }
+    .store-new { display: inline-flex; align-items: flex-start; gap: 8px; margin-top: 22px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .store-new::before { content: ""; width: 7px; height: 7px; margin-top: 0.45em; border-radius: 50%; background: var(--primary); flex-shrink: 0; }
+    .store-new + .badge-row { margin-top: 10px; }
 
     .store-row {
       display: flex;
@@ -1733,9 +1765,6 @@
 
     /* --------------- Springy hover on store buttons --------------- */
     @media (hover: hover) and (pointer: fine) {
-      .btn-store { transition: opacity 0.2s ease, transform 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
-      .btn-store:not(.is-soon):hover { transform: translateY(-2px); }
-      .btn-store:not(.is-soon):active { transform: translateY(0) scale(0.97); }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -1851,21 +1880,10 @@
             </a>
           </div>
           <p class="cta-fallback"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" target="_blank" rel="noopener">or use the web app &rarr;</a></p>
-          <div class="store-row" aria-label="App stores">
-            <a class="btn-store" href="https://duitful.app/go/testflight/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" target="_blank" rel="noopener" aria-label="Duitful iPhone beta on TestFlight">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.04c0-2.9 2.37-4.28 2.47-4.34-1.34-1.96-3.43-2.23-4.17-2.26-1.77-.18-3.45 1.04-4.35 1.04-.9 0-2.28-1.02-3.74-.99-1.93.03-3.7 1.12-4.7 2.84-2 3.46-.51 8.59 1.44 11.4.95 1.37 2.09 2.92 3.58 2.86 1.44-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.4 3.5-2.78 1.1-1.6 1.56-3.14 1.58-3.22-.03-.01-3.02-1.16-3.05-4.62zM14.23 3.7c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.37 1.73-.74.85-1.38 2.22-1.21 3.53 1.29.1 2.6-.65 3.4-1.6z"/></svg>
-              <div>
-                <span class="small">Join the beta on</span>
-                <span class="big">TestFlight</span>
-              </div>
-            </a>
-            <a class="btn-store cta-play-store" href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" target="_blank" rel="noopener" aria-label="Google Play — Duitful">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.3c-.38.4-.6 1.03-.6 1.84v15.72c0 .81.22 1.44.6 1.84l.08.07 8.81-8.81v-.2L3.68 2.23l-.08.07zm11.72 8.74L13.47 9.2l2.66-1.51 3.65 2.08c1.04.59 1.04 1.56 0 2.16l-3.65 2.08-2.66-1.51 1.85-1.46zm-2.4.97l-8.82 8.81c.34.36.9.4 1.54.05l10.41-5.92-3.13-2.94zm0-1.92l3.13-2.94L5.64 1.22C5 .87 4.44.92 4.1 1.27l8.82 8.82z"/></svg>
-              <div>
-                <span class="small">Get it on</span>
-                <span class="big">Google Play</span>
-              </div>
-            </a>
+          <p class="store-new">New · Duitful for iPhone is on the App Store</p>
+          <div class="badge-row" aria-label="App stores">
+          <a class="store-badge badge-apple" href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" target="_blank" rel="noopener" aria-label="Download Duitful on the App Store"><img src="assets/badges/app-store-download.svg" width="120" height="40" alt="Download on the App Store" decoding="async"></a>
+          <a class="store-badge badge-play-en cta-play-store" href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" target="_blank" rel="noopener" aria-label="Get Duitful on Google Play"><img src="assets/badges/google-play-en.png" width="646" height="250" alt="Get it on Google Play" decoding="async"></a>
           </div>
         </div>
 
@@ -2005,7 +2023,7 @@
           <p>Runs on your phone. Nothing is uploaded. Switch it off in Settings.</p>
         </div>
       </div>
-      <p class="ai-note reveal">Android: <a href="https://developers.google.com/ml-kit/genai" target="_blank" rel="noopener">supported phones</a>. iPhone (iOS&nbsp;26): Apple&rsquo;s on-device model helps with receipts. Without it, everything still works.</p>
+      <p class="ai-note reveal">Android: <a href="https://developers.google.com/ml-kit/genai" target="_blank" rel="noopener">supported phones</a>. iPhone (iOS&nbsp;26): Apple&rsquo;s on-device model, for receipts and the English recap. Bank alerts, statements and tax relief: Android only. Without it, everything still works.</p>
     </div>
   </section>
 
@@ -2137,7 +2155,7 @@
             Does my data really never leave my phone?
             <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Yes. It&rsquo;s encrypted on your phone with your passcode. There&rsquo;s no account and no server copy. Backup goes to your own Google Drive, encrypted first.</p>
+          <p class="answer">Yes. It&rsquo;s encrypted on your phone with your passcode. There&rsquo;s no account and no server copy. Backup goes to your own iCloud or Google Drive, encrypted first.</p>
         </details>
         <details class="faq-item reveal">
           <summary>
@@ -2151,7 +2169,7 @@
             Does Duitful use AI?
             <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Only on your phone, and only to help. On supported Android phones, Google&rsquo;s on-device AI reads tricky receipts and bank alerts; on iPhone with iOS 26, Apple&rsquo;s on-device model helps with receipts. It never invents amounts: totals must be printed on the receipt or alert. Nothing is uploaded, and you can switch it off in Settings. Without it, Duitful uses its own rules.</p>
+          <p class="answer">Only on your phone, and only to help. On supported Android phones, Google&rsquo;s on-device AI reads tricky receipts and bank alerts, and suggests statement categories and tax relief; on iPhone with iOS 26, Apple&rsquo;s on-device model helps with receipts. Both can reword the English monthly recap. It never invents amounts: totals must be printed on the receipt or alert. Nothing is uploaded, and you can switch it off in Settings. Without it, Duitful uses its own rules.</p>
         </details>
         <details class="faq-item reveal">
           <summary>
@@ -2222,14 +2240,10 @@
              data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" data-android-label="Get on Google Play">
             <span class="lbl-web">Open the app</span><span class="lbl-android">Get on Google Play</span>
           </a>
-          <a class="btn-store" href="https://duitful.app/go/testflight/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" target="_blank" rel="noopener" aria-label="Duitful iPhone beta on TestFlight">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.05 12.04c0-2.9 2.37-4.28 2.47-4.34-1.34-1.96-3.43-2.23-4.17-2.26-1.77-.18-3.45 1.04-4.35 1.04-.9 0-2.28-1.02-3.74-.99-1.93.03-3.7 1.12-4.7 2.84-2 3.46-.51 8.59 1.44 11.4.95 1.37 2.09 2.92 3.58 2.86 1.44-.06 1.99-.93 3.74-.93s2.24.93 3.77.9c1.56-.03 2.54-1.4 3.5-2.78 1.1-1.6 1.56-3.14 1.58-3.22-.03-.01-3.02-1.16-3.05-4.62zM14.23 3.7c.8-.97 1.34-2.31 1.19-3.66-1.15.05-2.55.77-3.37 1.73-.74.85-1.38 2.22-1.21 3.53 1.29.1 2.6-.65 3.4-1.6z"/></svg>
-            <div><span class="small">Join the beta on</span><span class="big">TestFlight</span></div>
-          </a>
-          <a class="btn-store cta-play-store" href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" target="_blank" rel="noopener" aria-label="Google Play — Duitful">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.6 2.3c-.38.4-.6 1.03-.6 1.84v15.72c0 .81.22 1.44.6 1.84l.08.07 8.81-8.81v-.2L3.68 2.23l-.08.07zm11.72 8.74L13.47 9.2l2.66-1.51 3.65 2.08c1.04.59 1.04 1.56 0 2.16l-3.65 2.08-2.66-1.51 1.85-1.46zm-2.4.97l-8.82 8.81c.34.36.9.4 1.54.05l10.41-5.92-3.13-2.94zm0-1.92l3.13-2.94L5.64 1.22C5 .87 4.44.92 4.1 1.27l8.82 8.82z"/></svg>
-            <div><span class="small">Get it on</span><span class="big">Google Play</span></div>
-          </a>
+        </div>
+        <div class="badge-row" aria-label="App stores">
+          <a class="store-badge badge-apple" href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" target="_blank" rel="noopener" aria-label="Download Duitful on the App Store"><img src="assets/badges/app-store-download.svg" width="120" height="40" alt="Download on the App Store" decoding="async"></a>
+          <a class="store-badge badge-play-en cta-play-store" href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" target="_blank" rel="noopener" aria-label="Get Duitful on Google Play"><img src="assets/badges/google-play-en.png" width="646" height="250" alt="Get it on Google Play" decoding="async"></a>
         </div>
       </div>
     </div>
