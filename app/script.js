@@ -12193,8 +12193,9 @@ function maybeOpenGuideAfterSetup() {
 const RELEASE_NOTES = {
   "1.63.0": [
     "<strong>Duitful on iPad</strong> — full screen, every orientation, with the sidebar on bigger screens.",
-    "<strong>Roomier on big screens</strong> — on a tablet or wide window, Today sits under your balance, your debts and goals span the page, the balance breakdown shows whole figures, and iPad landscape gets two roomy columns instead of three cramped ones.",
-    "<strong>Rate Duitful on iPhone and iPad</strong> — Settings → About now opens the App Store's review page. On the web, the paywall links straight to the iPhone app.",
+    "<strong>Roomier on big screens</strong> — tidier two-column layouts on tablets and wide windows, with whole figures in the balance breakdown.",
+    "<strong>Rate Duitful</strong> on iPhone and iPad from Settings → About.",
+    "<strong>Moving to the iPhone app?</strong> On the web, Get the iPhone app now saves your data as a CSV first, then shows how to import it.",
   ],
   "1.62.2": [
     "<strong>Redesigned home-screen widgets</strong> — a month countdown ring, your pace as a word (On track, Careful, Over), what is due next by name and days, and one-tap spend logging, in the Light, Dark or Pastel theme you picked in Duitful. Never shows balances or amounts.",
