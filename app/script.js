@@ -44,6 +44,7 @@ function applyTheme(choice) {
     btn.classList.toggle("active", on);
     btn.setAttribute("aria-checked", on ? "true" : "false");
   });
+  if (typeof syncWidgetSummary === "function") syncWidgetSummary(true);
 }
 applyTheme(currentThemeChoice());
 
@@ -4279,6 +4280,7 @@ function renderAll() {
   checkDebtsPaidOff();
   checkMilestones();
   checkReviewMoments();
+  syncWidgetSummary();
 }
 
 /* ---------- a debt reaches zero ----------
@@ -5115,8 +5117,8 @@ document.getElementById("ai-think-hide")?.addEventListener("click", aiThinkHide)
 // A tap outside the card (on the backdrop) puts it away too: the page needs the screen.
 document.getElementById("ai-think")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) aiThinkHide(); });
 // Closed some other way (the browser's own close request): keep the books straight.
-document.getElementById("ai-think")?.addEventListener("close", () => {
-  if (!aiThinkUi.open || aiThinkUi.closing) return;
+document.getElementById("ai-think")?.addEventListener("close", (e) => {
+  if (e.currentTarget?.open || !aiThinkUi.open || aiThinkUi.closing) return;
   aiThinkUi.open = false;
   aiThinkUi.hidden = [...aiThinkTokens.values()].some((t) => t.overlay);
   document.getElementById("ai-badge")?.classList.remove("is-lifted");
@@ -5306,11 +5308,148 @@ let _pendingCountSent = null;
 function syncPendingCount(force) {
   if (!aesKey || !isNative()) return;
   const NL = window.Capacitor?.Plugins?.NotificationListener;
-  if (!NL || typeof NL.setPendingCount !== "function") return;
-  const n = (state.pendingTxns || []).length;
-  if (!force && n === _pendingCountSent) return;
-  _pendingCountSent = n;
-  try { Promise.resolve(NL.setPendingCount({ count: n })).catch(() => {}); } catch {}
+  if (NL && typeof NL.setPendingCount === "function") {
+    const n = (state.pendingTxns || []).length;
+    if (force || n !== _pendingCountSent) {
+      _pendingCountSent = n;
+      try { Promise.resolve(NL.setPendingCount({ count: n })).catch(() => {}); } catch {}
+    }
+  }
+  syncWidgetSummary();
+}
+
+/* Home-screen widget summary (Option D): never balances or amounts.
+   Pushes the user's chosen theme (system / light / dark / pastel), the month
+   countdown ring (daysLeft, dayPct, month name), the non-numeric budget
+   status word (On track / Careful / Over), the review count, and up to two
+   upcoming bill names with relative day labels. Cleared on lock so a locked
+   phone shows only the calendar ring and the review count. */
+var _widgetSummaryReady = false;
+var _widgetSummarySent = "";
+_widgetSummaryReady = true;
+function widgetWhenLabel(delta) {
+  if (delta < 0) return tr("Late");
+  if (delta === 0) return tr("Today");
+  if (delta === 1) return tr("Tomorrow");
+  if (delta <= 6) {
+    const d = new Date();
+    d.setDate(d.getDate() + delta);
+    return d.toLocaleDateString(dateLocale(), { weekday: "long" });
+  }
+  return trn(delta, "in {n} day", "in {n} days");
+}
+function buildWidgetSummary(opts) {
+  const theme = currentThemeChoice();
+  const prog = monthProgress();
+  const daysLeft = daysRemainingInMonth();
+  const dayPct = Math.max(0, Math.min(100, Math.round(prog.pct)));
+  const month = new Date().toLocaleDateString(dateLocale(), { month: "long" });
+  const locked = !!(opts && opts.locked) || !aesKey || !state;
+  const reviewCount = !locked && state && Array.isArray(state.pendingTxns) ? state.pendingTxns.length : 0;
+  const base = {
+    theme,
+    locked,
+    month,
+    daysLeft,
+    dayPct,
+    daysLeftShort: tr("{n}d", { n: daysLeft }),
+    daysLeftLines: tr("days left").replace(" ", "\n"),
+    daysLeftLong: trn(daysLeft, "{n} day left", "{n} days left"),
+    reviewCount,
+    reviewWord: tr("to review"),
+    reviewLine: tr("{n} to review", { n: reviewCount }),
+    comingUp: tr("Coming up"),
+    noUpcoming: tr("Nothing due soon"),
+    lockedTitle: tr("Duitful · locked"),
+    lockedHint: tr("Open to see more"),
+    scanLabel: tr("Scan receipt"),
+    splitLabel: tr("Split"),
+    logSpendLabel: `+ ${tr("Log a spend")}`,
+    catFood: tr("Food"),
+    catTransport: tr("Transport"),
+    catGroceries: tr("Groceries"),
+    catOther: tr("Other"),
+  };
+  if (locked) {
+    return {
+      ...base,
+      status: "",
+      tone: "ok",
+      due1Name: "",
+      due1When: "",
+      due2Name: "",
+      due2When: "",
+      dueSub: "",
+    };
+  }
+  const thisMonth = currentMonthISO();
+  const incomeTotal = totalOf((state.income || []).filter((x) => x.month === thisMonth));
+  const expenseTotal = totalOf((state.expenses || []).filter((x) => x.month === thisMonth));
+  const { minSum } = debtTotals(state.debts || []);
+  const dailyMonth = dailyStats().month;
+  const cardCharged = (state.dailyExpenses || [])
+    .filter((e) => e.kind === "expense" && e.cardDebtId && isSameMonth(e.date))
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const actualDebtPaid = (state.dailyExpenses || [])
+    .filter((e) => e.kind === "debt" && isSameMonth(e.date))
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const cashSavings = (state.dailyExpenses || [])
+    .filter((e) => e.kind === "saving" && isSameMonth(e.date))
+    .reduce((s, e) => s + (Number(e.amount) || 0), 0);
+  const cashDaily = Math.max(0, dailyMonth - cardCharged - actualDebtPaid - cashSavings);
+  const extra = Number(state.extraMonthly) || 0;
+  const debtCharge = Math.max(minSum + extra, actualDebtPaid);
+  const totalOut = expenseTotal + debtCharge + cashDaily + cashSavings;
+
+  let tone = "ok";
+  let status = tr("On track");
+  if (incomeTotal > 0) {
+    if (totalOut > incomeTotal) {
+      tone = "over";
+      status = tr("Over");
+    } else {
+      const ratio = totalOut / incomeTotal;
+      if (ratio >= 0.85 || ratio > (prog.pct / 100) + 0.15) {
+        tone = "warn";
+        status = tr("Careful");
+      }
+    }
+  }
+
+  const upcoming = (typeof upcomingReminders === "function" ? upcomingReminders(14) : [])
+    .filter((it) => it && it.direction !== "in" && it.name);
+  const d1 = upcoming[0] || null;
+  const d2 = upcoming[1] || null;
+  const due1Name = d1 ? String(d1.name).trim() : "";
+  const due1When = d1 ? widgetWhenLabel(d1.delta) : "";
+  const due2Name = d2 ? String(d2.name).trim() : "";
+  const due2When = d2 ? widgetWhenLabel(d2.delta) : "";
+  const dueSub = d1
+    ? (d2 ? `${due1When} · ${due2Name} ${due2When}` : due1When)
+    : tr("Nothing due soon");
+
+  return {
+    ...base,
+    status,
+    tone,
+    due1Name,
+    due1When,
+    due2Name,
+    due2When,
+    dueSub,
+  };
+}
+function syncWidgetSummary(force) {
+  if (!_widgetSummaryReady || !isNative()) return;
+  try {
+    const kit = duitfulKit("syncWidget");
+    if (!kit) return;
+    const summary = buildWidgetSummary();
+    const key = JSON.stringify(summary);
+    if (!force && key === _widgetSummarySent) return;
+    _widgetSummarySent = key;
+    Promise.resolve(kit.syncWidget(summary)).catch(() => {});
+  } catch {}
 }
 
 /* The quick-add notification lives outside the app, so it can't call tr():
@@ -5340,6 +5479,7 @@ function nativeQuickAddStrings() {
 }
 function syncNativeStrings(force) {
   if (!isNative()) return;
+  syncWidgetSummary(force);
   const NL = window.Capacitor?.Plugins?.NotificationListener;
   if (!NL || typeof NL.setStrings !== "function") return;
   const lang = window.I18N ? I18N.lang : "en";
@@ -11972,6 +12112,9 @@ const RELEASE_NOTES = {
     "<strong>Duitful on iPad</strong> — full screen, every orientation, with the sidebar on bigger screens.",
     "<strong>Roomier on big screens</strong> — on a tablet or wide window, Today sits under your balance, your debts and goals span the page, the balance breakdown shows whole figures, and iPad landscape gets two roomy columns instead of three cramped ones.",
     "<strong>Rate Duitful on iPhone and iPad</strong> — Settings → About now opens the App Store's review page. On the web, the paywall links straight to the iPhone app.",
+  ],
+  "1.62.2": [
+    "<strong>Redesigned home-screen widgets</strong> — a month countdown ring, your pace as a word (On track, Careful, Over), what is due next by name and days, and one-tap spend logging, in the Light, Dark or Pastel theme you picked in Duitful. Never shows balances or amounts.",
   ],
   "1.62.1": [
     "<strong>A sempoa for your phone's AI</strong> — the AI badge is now a little abacus, and its beads count while your phone's own AI works. When you're waiting on it (a receipt, Review my year), it floats into the page, counts there, and floats back when done. A bank statement's suggestions run in the background: the badge fills as they land in your review, which you can keep editing and import any time. Nothing is uploaded.",

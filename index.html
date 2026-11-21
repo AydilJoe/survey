@@ -663,6 +663,15 @@
        gives Android users the web app, which the button no longer offers
        them; the Play badge hides because the button became it. */
     [data-platform="android"] .cta-play-store { display: none; }
+    /* iPhone / iPad: the button is the App Store, so the official Apple badge
+       and its "New" line would repeat it; the Play badge stays, as Android
+       keeps the Apple one. */
+    [data-platform="ios"] .badge-apple,
+    [data-platform="ios"] .store-new { display: none; }
+    [data-platform="ios"] .store-new + .badge-row { margin-top: 18px; }
+    .lbl-ios { display: none; }
+    [data-platform="ios"] .lbl-web { display: none; }
+    [data-platform="ios"] .lbl-ios { display: inline; }
     .lbl-android { display: none; }
     [data-platform="android"] .lbl-web { display: none; }
     [data-platform="android"] .lbl-android { display: inline; }
@@ -681,7 +690,8 @@
       border-bottom: 1px dotted currentColor;
     }
     .cta-fallback a:hover { color: var(--primary-ink); }
-    [data-platform="android"] .cta-fallback { display: block; }
+    [data-platform="android"] .cta-fallback-android,
+    [data-platform="ios"] .cta-fallback-ios { display: block; }
     .cta-final .cta-fallback { text-align: center; }
 
 
@@ -1819,25 +1829,30 @@
       <a href="/guides/">Guides</a>
     </div>
     <a href="/ms/" class="lang-toggle" aria-label="Tukar ke Bahasa Melayu" title="Bahasa Melayu">BM</a>
-    <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=nav" target="_blank" rel="noopener" class="btn btn-primary nav-cta" id="nav-cta" data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=nav" data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=nav" data-web-label="Open the web app" data-android-label="Get on Google Play">Get the app</a>
+    <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=nav" target="_blank" rel="noopener" class="btn btn-primary nav-cta" id="nav-cta" data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=nav" data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=nav" data-ios-href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=en&amp;utm_content=nav" data-web-label="Open the web app" data-android-label="Get on Google Play" data-ios-label="Get on the App Store">Get the app</a>
   </div>
 </nav>
 <script>
   // Route the nav CTA + tag <html> with the current platform, so the
   // hero & final-CTA primary buttons can flip via CSS:
   //   Android   → Play Store listing primary; web app demoted
-  //   iOS + PC  → web app primary (no native iOS build yet)
+  //   iPhone/iPad → App Store listing primary; web app demoted
+  //   PC        → web app primary
   // Runs inline (not deferred) so the swap happens before paint.
   (function () {
     var ua = navigator.userAgent || '';
     var isAndroid = /Android/i.test(ua);
-    if (isAndroid) document.documentElement.dataset.platform = 'android';
+    // iPadOS reports itself as a Mac; a touch screen gives it away.
+    var isIOS = !isAndroid && (/iPhone|iPad|iPod/i.test(ua)
+      || (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1));
+    var platform = isAndroid ? 'android' : isIOS ? 'ios' : '';
+    if (platform) document.documentElement.dataset.platform = platform;
     var nav = document.getElementById('nav-cta');
     if (nav) {
-      nav.href = isAndroid ? nav.dataset.androidHref : nav.dataset.webHref;
+      nav.href = isAndroid ? nav.dataset.androidHref : isIOS ? nav.dataset.iosHref : nav.dataset.webHref;
       // Under 360px the long label pushed the nav past the screen edge; the
       // short default ("Get the app") fits and still goes to the same place.
-      if (window.innerWidth > 360) nav.textContent = isAndroid ? nav.dataset.androidLabel : nav.dataset.webLabel;
+      if (window.innerWidth > 360) nav.textContent = isAndroid ? nav.dataset.androidLabel : isIOS ? nav.dataset.iosLabel : nav.dataset.webLabel;
     }
     // The hero and closing buttons sit BELOW this script, so it cannot touch
     // them yet — an earlier version tried and silently did nothing, leaving
@@ -1845,10 +1860,10 @@
     // by CSS off the <html> attribute set above, so there is no flash, and
     // only the href waits for the DOM. Nobody can click an element that does
     // not exist.
-    if (isAndroid) {
+    if (platform) {
       document.addEventListener('DOMContentLoaded', function () {
         [].forEach.call(document.querySelectorAll('.platform-cta'), function (a) {
-          a.href = a.dataset.androidHref;
+          a.href = isAndroid ? a.dataset.androidHref : a.dataset.iosHref;
         });
       });
     }
@@ -1874,12 +1889,14 @@
           <div class="hero-ctas">
             <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" target="_blank" rel="noopener" class="btn btn-primary platform-cta"
                data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" data-web-label="Open the app"
-               data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" data-android-label="Get on Google Play">
-              <span class="lbl-web">Open the app</span><span class="lbl-android">Get on Google Play</span>
+               data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" data-android-label="Get on Google Play"
+               data-ios-href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero-main">
+              <span class="lbl-web">Open the app</span><span class="lbl-android">Get on Google Play</span><span class="lbl-ios">Download on the App Store</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
             </a>
           </div>
-          <p class="cta-fallback"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" target="_blank" rel="noopener">or use the web app &rarr;</a></p>
+          <p class="cta-fallback cta-fallback-android"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" target="_blank" rel="noopener">or use the web app &rarr;</a></p>
+          <p class="cta-fallback cta-fallback-ios"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero-web" target="_blank" rel="noopener">or use it in your browser &rarr;</a></p>
           <p class="store-new">New · Duitful for iPhone is on the App Store</p>
           <div class="badge-row" aria-label="App stores">
           <a class="store-badge badge-apple" href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=en&amp;utm_content=hero" target="_blank" rel="noopener" aria-label="Download Duitful on the App Store"><img src="assets/badges/app-store-download.svg" width="120" height="40" alt="Download on the App Store" decoding="async"></a>
@@ -2237,10 +2254,12 @@
         <div class="store-row">
           <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" target="_blank" rel="noopener" class="btn btn-primary platform-cta"
              data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" data-web-label="Open the app"
-             data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" data-android-label="Get on Google Play">
-            <span class="lbl-web">Open the app</span><span class="lbl-android">Get on Google Play</span>
+             data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" data-android-label="Get on Google Play"
+             data-ios-href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final-main">
+            <span class="lbl-web">Open the app</span><span class="lbl-android">Get on Google Play</span><span class="lbl-ios">Download on the App Store</span>
           </a>
         </div>
+        <p class="cta-fallback cta-fallback-ios"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final-web" target="_blank" rel="noopener">or use it in your browser &rarr;</a></p>
         <div class="badge-row" aria-label="App stores">
           <a class="store-badge badge-apple" href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" target="_blank" rel="noopener" aria-label="Download Duitful on the App Store"><img src="assets/badges/app-store-download.svg" width="120" height="40" alt="Download on the App Store" decoding="async"></a>
           <a class="store-badge badge-play-en cta-play-store" href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=en&amp;utm_content=final" target="_blank" rel="noopener" aria-label="Get Duitful on Google Play"><img src="assets/badges/google-play-en.png" width="646" height="250" alt="Get it on Google Play" decoding="async"></a>

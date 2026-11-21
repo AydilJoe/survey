@@ -389,6 +389,52 @@ public class DuitfulKitPlugin extends Plugin {
         }
     }
 
+    /**
+     * Pushes the non-amount Option D widget summary (theme, locked state,
+     * status word, month countdown ring, review count and upcoming bill names)
+     * to DuitfulWidgetProvider via an explicit in-app broadcast.
+     */
+    @PluginMethod
+    public void syncWidget(PluginCall call) {
+        try {
+            String pkg = getContext().getPackageName();
+            Intent sync = new Intent(pkg + ".WIDGET_SYNC");
+            sync.setClassName(pkg, pkg + ".DuitfulWidgetProvider");
+            sync.putExtra("theme", call.getString("theme", "system"));
+            sync.putExtra("locked", Boolean.TRUE.equals(call.getBoolean("locked", false)));
+            sync.putExtra("status", call.getString("status", ""));
+            sync.putExtra("tone", call.getString("tone", "ok"));
+            sync.putExtra("month", call.getString("month", ""));
+            sync.putExtra("daysLeft", call.getInt("daysLeft", 0));
+            sync.putExtra("dayPct", call.getInt("dayPct", 0));
+            sync.putExtra("daysLeftShort", call.getString("daysLeftShort", ""));
+            sync.putExtra("daysLeftLines", call.getString("daysLeftLines", ""));
+            sync.putExtra("daysLeftLong", call.getString("daysLeftLong", ""));
+            sync.putExtra("reviewCount", call.getInt("reviewCount", 0));
+            sync.putExtra("reviewWord", call.getString("reviewWord", ""));
+            sync.putExtra("reviewLine", call.getString("reviewLine", ""));
+            sync.putExtra("comingUp", call.getString("comingUp", ""));
+            sync.putExtra("noUpcoming", call.getString("noUpcoming", ""));
+            sync.putExtra("lockedTitle", call.getString("lockedTitle", ""));
+            sync.putExtra("lockedHint", call.getString("lockedHint", ""));
+            sync.putExtra("scanLabel", call.getString("scanLabel", ""));
+            sync.putExtra("splitLabel", call.getString("splitLabel", ""));
+            sync.putExtra("catFood", call.getString("catFood", ""));
+            sync.putExtra("catTransport", call.getString("catTransport", ""));
+            sync.putExtra("catGroceries", call.getString("catGroceries", ""));
+            sync.putExtra("catOther", call.getString("catOther", ""));
+            sync.putExtra("due1Name", call.getString("due1Name", ""));
+            sync.putExtra("due1When", call.getString("due1When", ""));
+            sync.putExtra("due2Name", call.getString("due2Name", ""));
+            sync.putExtra("due2When", call.getString("due2When", ""));
+            sync.putExtra("dueSub", call.getString("dueSub", ""));
+            getContext().sendBroadcast(sync);
+            call.resolve(new JSObject().put("ok", true));
+        } catch (Exception e) {
+            call.reject(String.valueOf(e.getMessage()), "WIDGET");
+        }
+    }
+
     @PluginMethod
     public void requestReview(PluginCall call) {
         final Activity activity = getActivity();
