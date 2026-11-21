@@ -5323,7 +5323,9 @@ function syncPendingCount(force) {
    status word (On track / Careful / Over), the review count, and up to two
    upcoming bill names with relative day labels. Cleared on lock so a locked
    phone shows only the calendar ring and the review count. */
-let _widgetSummarySent = "";
+var _widgetSummaryReady = false;
+var _widgetSummarySent = "";
+_widgetSummaryReady = true;
 function widgetWhenLabel(delta) {
   if (delta < 0) return tr("Late");
   if (delta === 0) return tr("Today");
@@ -5437,14 +5439,16 @@ function buildWidgetSummary(opts) {
   };
 }
 function syncWidgetSummary(force) {
-  if (!isNative()) return;
-  const kit = duitfulKit("syncWidget");
-  if (!kit) return;
-  const summary = buildWidgetSummary();
-  const key = JSON.stringify(summary);
-  if (!force && key === _widgetSummarySent) return;
-  _widgetSummarySent = key;
-  try { Promise.resolve(kit.syncWidget(summary)).catch(() => {}); } catch {}
+  if (!_widgetSummaryReady || !isNative()) return;
+  try {
+    const kit = duitfulKit("syncWidget");
+    if (!kit) return;
+    const summary = buildWidgetSummary();
+    const key = JSON.stringify(summary);
+    if (!force && key === _widgetSummarySent) return;
+    _widgetSummarySent = key;
+    Promise.resolve(kit.syncWidget(summary)).catch(() => {});
+  } catch {}
 }
 
 /* The quick-add notification lives outside the app, so it can't call tr():
