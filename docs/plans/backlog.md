@@ -48,6 +48,32 @@ When a release adds a feature (e.g. wallets, recurring splits, statement import,
 - Respect reduced motion (jump plus a static highlight, no animation) and the hide-amounts eye. All three languages. Never covers content or blocks taps; it doesn't show while a dialog is open.
 - Could reuse or extend the existing tour/milestones code if suitable.
 
+## Split bills: on-device AI help (requested 21 Nov 2026)
+
+Same AI rules as everywhere: behind `aiAllowed()`, runs on the phone, never
+sets or changes an amount, never decides who owes what, nothing marked paid
+without the user's OK.
+
+1. **Match who paid (Android).** When a money-in alert's sender name doesn't
+   match a split person by the rules (e.g. "MUHAMMAD ALI BIN ABU" vs "Ali"),
+   ask AI (`aiReadAlert`, same call as bank alerts) which open split / person it
+   belongs to, from the open `state.split.out` names only. The amount must
+   equal what that person owes exactly (or the oldest month for recurring
+   splits). Show it as a suggestion on the money-in card ("Looks like Ali's
+   share of Dinner — Yes / No"); Yes settles via the existing
+   `splitRecordRepayment`, No keeps it as income. Optionally remember the
+   alias (sender name → person) so the rules catch it next time.
+2. **Read messy receipt lines (Android + iPhone).** In split-by-item, when the
+   receipt rules can't group lines (add-ons like "+ telur", combo lines, qty on
+   its own line, prices on the next row), ask the receipt AI to group them into
+   items with clean names ("2X TEH O AIS" → "Teh O Ais ×2"). Every price must be
+   printed on the receipt; items must still add up to the printed subtotal
+   (else fall back to the rules' list and say "Check"). Split "×2" into two
+   tickable units so two friends can each tick one.
+
+Later: split by sentence ("Ali nasi lemak + teh, rest shared" → pre-ticks for
+review) and the TNB / water bill scan (already in `recurring-splits.md` v2).
+
 ## Translation clean-up: English built in script (queued 20 Nov 2026)
 
 Found while recording the Malay promo: English written straight into JS
