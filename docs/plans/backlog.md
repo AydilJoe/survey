@@ -12,33 +12,16 @@ Bigger plans have their own file in this folder. Completed items are in
 - Recurring splits version 2 (`recurring-splits.md`) and wallets version 2
   (`wallets.md`).
 
-## Redesign home-screen widgets (requested)
+## Redesign home-screen widgets (done in 1.62.2)
 
-Today (`scripts/patch-android-widget.mjs`, iOS WidgetKit in
-`scripts/patch-ios.mjs`):
-- Android: three widgets. ~2x2 four quick actions (Spend, Scan, Split, Pay
-  debt); ~4x2 amount chips (+5 +10 +20 +50) that log a spend without opening
-  the app, plus Scan and Split; ~4x4 the chips plus sticky category chips.
-- iPhone: an actions-only WidgetKit widget.
-
-Ideas for the redesign (to confirm with the owner):
-- Match the app's current look (DESIGN.md tokens, light/dark, the app icon).
-- At a glance, **never balances or amounts** (owner, 17 Nov). Show only:
-  - "3 to review" (bank alerts waiting)
-  - budget status as a word and a bar with no figures: "On track",
-    "Careful", "Over", plus "12 days left"
-  - next thing due by name and days: "Rent due in 3 days", "PTPTN Friday"
-  - optional: savings goal ring as a percentage, logging streak
-  ("Logged 5 days in a row"). Nothing shown at all while the vault is
-  locked beyond the count.
-- Keep the one-tap log-without-opening chips (the `QUICK_ADD` broadcast
-  contract in the script header must stay as it is).
-- iPhone: consider a small at-a-glance widget and Lock Screen widgets.
-- Screenshots of each size, light and dark, before shipping.
-
-Privacy: the vault is encrypted, so any figure shown needs a small
-plain summary the app writes on purpose (and clears when locked), never the
-vault itself.
+Option D (`docs/plans/widget-options.html`): month countdown ring (`12d`),
+sage / peach / butter inner tiles, budget status as a word (`On track`,
+`Careful`, `Over`), review count (`3 to review`), upcoming bills by name and
+relative day (`Rent · in 3 days`), plus sticky category pills and one-tap
+`+5 / +10 / +20 / +50` quick-log chips on Android `4×4` and Lock Screen
+circular/rectangular widgets on iPhone. Follows the user's in-app theme choice
+(`System`, `Light`, `Dark` or `Pastel`) and clears status + upcoming names
+when the vault locks. Never shows balances or amounts.
 
 ## "New" feature spotlight with motion (requested 20 Nov 2026)
 

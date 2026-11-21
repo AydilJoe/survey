@@ -5,6 +5,9 @@ import VisionKit
 import PhotosUI
 import StoreKit
 import MLKitEntityExtraction
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -48,6 +51,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "relayWatch", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readSharedFile", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "syncWidget", returnType: CAPPluginReturnPromise),
     ]
 
     /// Shared with the App Intents in AppDelegate.swift. Rename both or neither.
@@ -368,6 +372,34 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         } catch {
             call.reject(error.localizedDescription, "RELAY")
         }
+    }
+
+    /// Pushes the non-amount Option D widget summary (theme, locked state,
+    /// status word, month countdown ring, review count and upcoming bill names)
+    /// and asks WidgetKit to reload timelines.
+    @objc func syncWidget(_ call: CAPPluginCall) {
+        let keys = [
+            "theme", "status", "tone", "month", "daysLeftShort", "daysLeftLines",
+            "daysLeftLong", "reviewWord", "reviewLine", "comingUp", "noUpcoming",
+            "lockedTitle", "lockedHint", "logSpendLabel", "scanLabel", "splitLabel",
+            "due1Name", "due1When", "due2Name", "due2When", "dueSub"
+        ]
+        var dict: [String: Any] = [
+            "locked": call.getBool("locked") ?? false,
+            "daysLeft": call.getInt("daysLeft") ?? 0,
+            "dayPct": call.getInt("dayPct") ?? 0,
+            "reviewCount": call.getInt("reviewCount") ?? 0,
+        ]
+        for k in keys {
+            if let v = call.getString(k) { dict[k] = v }
+        }
+        UserDefaults.standard.set(dict, forKey: "duitful.widget.summary")
+        #if canImport(WidgetKit)
+        if #available(iOS 14.0, *) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+        #endif
+        call.resolve(["ok": true])
     }
 
     /// Ask iOS for the rating sheet. The system shows it at most a few times
