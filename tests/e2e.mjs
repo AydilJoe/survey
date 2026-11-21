@@ -9980,15 +9980,24 @@ check('the brand catalogue makes no network calls at all',
 // thing on Android — which the first attempt did NOT, because the script that
 // relabels it runs above the markup it was trying to relabel.
 {
-  for (const [lang, pagePath, webLabel, androidLabel] of [
-    ['en', '/', 'Open the app', 'Get on Google Play'],
-    ['ms', '/ms/', 'Buka aplikasi', 'Dapatkan di Google Play'],
+  // The iPhone app is on the App Store, so an iPhone or iPad (iPadOS asks
+  // for the desktop site and says "Macintosh"; only touch gives it away)
+  // gets the App Store as its button, and a quiet link to the browser app.
+  const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+  const IPAD_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15';
+  for (const [lang, pagePath, webLabel, androidLabel, iosLabel, iosWeb] of [
+    ['en', '/', 'Open the app', 'Get on Google Play', 'Download on the App Store', 'or use it in your browser'],
+    ['ms', '/ms/', 'Buka aplikasi', 'Dapatkan di Google Play', 'Muat turun di App Store', 'atau guna dalam pelayar'],
   ]) {
-    for (const [platform, ua] of [
+    for (const [platform, ua, touch] of [
       ['desktop', null],
       ['android', 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Mobile Safari/537.36'],
+      ['iphone', IPHONE_UA],
+      ['ipad', IPAD_UA, true],
     ]) {
-      const ctx = await b.newContext(ua ? { userAgent: ua } : {});
+      const ios = platform === 'iphone' || platform === 'ipad';
+      const ctx = await b.newContext(ua ? { userAgent: ua, ...(touch ? { hasTouch: true } : {}) } : {});
+      if (touch) await ctx.addInitScript(() => Object.defineProperty(Navigator.prototype, 'maxTouchPoints', { get: () => 5, configurable: true }));
       const page2 = await ctx.newPage();
       await page2.goto(BASE + pagePath, { waitUntil: 'domcontentloaded' });
       const hero = page2.locator('.hero').first();
@@ -10000,23 +10009,43 @@ check('the brand catalogue makes no network calls at all',
 
       const label = (await primary.first().innerText()).trim();
       const href = await primary.first().getAttribute('href');
-      const wantLabel = platform === 'android' ? androidLabel : webLabel;
+      const wantLabel = platform === 'android' ? androidLabel : ios ? iosLabel : webLabel;
       check(`${lang} ${platform}: it is labelled "${wantLabel}"`, label === wantLabel, label);
       check(`${lang} ${platform}: and points where that label promises`,
-        // Direct, or through the /go/ click counter that forwards there.
-        platform === 'android' ? /play\.google\.com|duitful\.app\/go\/play\//.test(href) : /duitful\.app\/(app|go\/app\/)/.test(href),
+        // Through the /go/ click counter that forwards there (Play may be direct).
+        platform === 'android' ? /play\.google\.com|duitful\.app\/go\/play\//.test(href)
+          : ios ? href === `https://duitful.app/go/appstore/?utm_source=landing&utm_medium=${lang}&utm_content=hero-main`
+          : /duitful\.app\/(app|go\/app\/)/.test(href),
         String(href));
 
-      // Android loses the web app from the button, so it keeps the small link
-      // back to it. Every other platform must not show a third route.
-      const fallback = await hero.locator('.cta-fallback').isVisible().catch(() => false);
+      // Android and iPhone lose the web app from the button, so they keep the
+      // small link back to it. Desktop must not show a third route.
+      const shown = await hero.locator('.cta-fallback').evaluateAll((els) => els
+        .filter((e) => e.offsetParent !== null)
+        .map((e) => ({ text: e.innerText.replace(/\s*→\s*$/, '').trim(), href: e.querySelector('a').getAttribute('href') })));
       check(`${lang} ${platform}: the web-app escape hatch shows only where it is needed`,
-        fallback === (platform === 'android'), String(fallback));
+        shown.length === (platform === 'desktop' ? 0 : 1), JSON.stringify(shown));
+      if (ios) {
+        check(`${lang} ${platform}: it reads "${iosWeb}" and goes to the web app through /go/app/`,
+          shown[0]?.text === iosWeb
+            && shown[0]?.href === `https://duitful.app/go/app/?utm_source=landing&utm_medium=${lang}&utm_content=hero-web`,
+          JSON.stringify(shown[0]));
+      }
 
-      // The Play badge would otherwise repeat the button beside it.
+      // A store badge would otherwise repeat the button beside it.
       const badge = await hero.locator('.cta-play-store').isVisible().catch(() => false);
       check(`${lang} ${platform}: the Play badge never duplicates the primary button`,
         badge === (platform !== 'android'), String(badge));
+      const apple = await hero.locator('.badge-apple').isVisible().catch(() => false);
+      check(`${lang} ${platform}: nor does the App Store badge`, apple === !ios, String(apple));
+      if (ios) {
+        const fin = page2.locator('.cta-final .btn-primary');
+        const finHref = await fin.getAttribute('href');
+        check(`${lang} ${platform}: the closing button is the App Store too`,
+          (await fin.innerText()).trim() === iosLabel
+            && finHref === `https://duitful.app/go/appstore/?utm_source=landing&utm_medium=${lang}&utm_content=final-main`,
+          String(finHref));
+      }
 
       if (platform === 'desktop') {
         const words = (await hero.locator('.hero-copy').innerText()).trim().split(/\s+/).length;
