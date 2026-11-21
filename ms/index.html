@@ -662,6 +662,15 @@
        satu mengikut platform semasa. Pautan sandaran beri pengguna Android
        jalan ringkas ke aplikasi web. */
     [data-platform="android"] .cta-play-store { display: none; }
+    /* iPhone / iPad: the button is the App Store, so the official Apple badge
+       and its "New" line would repeat it; the Play badge stays, as Android
+       keeps the Apple one. */
+    [data-platform="ios"] .badge-apple,
+    [data-platform="ios"] .store-new { display: none; }
+    [data-platform="ios"] .store-new + .badge-row { margin-top: 18px; }
+    .lbl-ios { display: none; }
+    [data-platform="ios"] .lbl-web { display: none; }
+    [data-platform="ios"] .lbl-ios { display: inline; }
     .lbl-android { display: none; }
     [data-platform="android"] .lbl-web { display: none; }
     [data-platform="android"] .lbl-android { display: inline; }
@@ -680,7 +689,8 @@
       border-bottom: 1px dotted currentColor;
     }
     .cta-fallback a:hover { color: var(--primary-ink); }
-    [data-platform="android"] .cta-fallback { display: block; }
+    [data-platform="android"] .cta-fallback-android,
+    [data-platform="ios"] .cta-fallback-ios { display: block; }
     .cta-final .cta-fallback { text-align: center; }
 
 
@@ -1819,25 +1829,30 @@
       <a href="/guides/ms/">Panduan</a>
     </div>
     <a href="/" class="lang-toggle" aria-label="Switch to English" title="English">EN</a>
-    <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" target="_blank" rel="noopener" class="btn btn-primary nav-cta" id="nav-cta" data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-web-label="Buka aplikasi web" data-android-label="Dapatkan di Google Play">Buka app</a>
+    <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" target="_blank" rel="noopener" class="btn btn-primary nav-cta" id="nav-cta" data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-ios-href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=nav" data-web-label="Buka aplikasi web" data-android-label="Dapatkan di Google Play" data-ios-label="Dapatkan di App Store">Buka app</a>
   </div>
 </nav>
 <script>
   // Hala CTA navigasi + tag <html> dengan platform semasa supaya butang
   // utama hero & CTA akhir boleh bertukar melalui CSS:
   //   Android   → utama Play Store; aplikasi web dikecilkan
-  //   iOS + PC  → aplikasi web utama (belum ada binaan iOS asli)
+  //   iPhone/iPad → utama App Store; aplikasi web dikecilkan
+  //   PC        → aplikasi web utama
   // Skrip inline supaya tukar berlaku sebelum paint.
   (function () {
     var ua = navigator.userAgent || '';
     var isAndroid = /Android/i.test(ua);
-    if (isAndroid) document.documentElement.dataset.platform = 'android';
+    // iPadOS reports itself as a Mac; a touch screen gives it away.
+    var isIOS = !isAndroid && (/iPhone|iPad|iPod/i.test(ua)
+      || (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1));
+    var platform = isAndroid ? 'android' : isIOS ? 'ios' : '';
+    if (platform) document.documentElement.dataset.platform = platform;
     var nav = document.getElementById('nav-cta');
     if (nav) {
-      nav.href = isAndroid ? nav.dataset.androidHref : nav.dataset.webHref;
+      nav.href = isAndroid ? nav.dataset.androidHref : isIOS ? nav.dataset.iosHref : nav.dataset.webHref;
       // Under 360px the long label pushed the nav past the screen edge; the
       // short default ("Get the app") fits and still goes to the same place.
-      if (window.innerWidth > 360) nav.textContent = isAndroid ? nav.dataset.androidLabel : nav.dataset.webLabel;
+      if (window.innerWidth > 360) nav.textContent = isAndroid ? nav.dataset.androidLabel : isIOS ? nav.dataset.iosLabel : nav.dataset.webLabel;
     }
     // The hero and closing buttons sit BELOW this script, so it cannot touch
     // them yet — an earlier version tried and silently did nothing, leaving
@@ -1845,10 +1860,10 @@
     // by CSS off the <html> attribute set above, so there is no flash, and
     // only the href waits for the DOM. Nobody can click an element that does
     // not exist.
-    if (isAndroid) {
+    if (platform) {
       document.addEventListener('DOMContentLoaded', function () {
         [].forEach.call(document.querySelectorAll('.platform-cta'), function (a) {
-          a.href = a.dataset.androidHref;
+          a.href = isAndroid ? a.dataset.androidHref : a.dataset.iosHref;
         });
       });
     }
@@ -1871,12 +1886,14 @@
           <div class="hero-ctas">
             <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=hero" target="_blank" rel="noopener" class="btn btn-primary platform-cta"
                data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=hero" data-web-label="Buka aplikasi"
-               data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=hero" data-android-label="Dapatkan di Google Play">
-              <span class="lbl-web">Buka aplikasi</span><span class="lbl-android">Dapatkan di Google Play</span>
+               data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=hero" data-android-label="Dapatkan di Google Play"
+               data-ios-href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=hero-main">
+              <span class="lbl-web">Buka aplikasi</span><span class="lbl-android">Dapatkan di Google Play</span><span class="lbl-ios">Muat turun di App Store</span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M8 7h9v9"/></svg>
             </a>
           </div>
-          <p class="cta-fallback"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=hero" target="_blank" rel="noopener">atau guna aplikasi web &rarr;</a></p>
+          <p class="cta-fallback cta-fallback-android"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=hero" target="_blank" rel="noopener">atau guna aplikasi web &rarr;</a></p>
+          <p class="cta-fallback cta-fallback-ios"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=hero-web" target="_blank" rel="noopener">atau guna dalam pelayar &rarr;</a></p>
           <p class="store-new">Baharu · Duitful iPhone kini di App Store</p>
           <div class="badge-row" aria-label="Gedung aplikasi">
           <a class="store-badge badge-apple" href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=hero" target="_blank" rel="noopener" aria-label="Muat turun Duitful di App Store"><img src="../assets/badges/app-store-download.svg" width="120" height="40" alt="Muat turun di App Store" decoding="async"></a>
@@ -2255,10 +2272,12 @@
         <div class="store-row">
           <a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final" target="_blank" rel="noopener" class="btn btn-primary platform-cta"
              data-web-href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final" data-web-label="Buka aplikasi"
-             data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final" data-android-label="Dapatkan di Google Play">
-            <span class="lbl-web">Buka aplikasi</span><span class="lbl-android">Dapatkan di Google Play</span>
+             data-android-href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final" data-android-label="Dapatkan di Google Play"
+             data-ios-href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final-main">
+            <span class="lbl-web">Buka aplikasi</span><span class="lbl-android">Dapatkan di Google Play</span><span class="lbl-ios">Muat turun di App Store</span>
           </a>
         </div>
+        <p class="cta-fallback cta-fallback-ios"><a href="https://duitful.app/go/app/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final-web" target="_blank" rel="noopener">atau guna dalam pelayar &rarr;</a></p>
         <div class="badge-row" aria-label="Gedung aplikasi">
           <a class="store-badge badge-apple" href="https://duitful.app/go/appstore/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final" target="_blank" rel="noopener" aria-label="Muat turun Duitful di App Store"><img src="../assets/badges/app-store-download.svg" width="120" height="40" alt="Muat turun di App Store" decoding="async"></a>
           <a class="store-badge badge-play-ms cta-play-store" href="https://duitful.app/go/play/?utm_source=landing&amp;utm_medium=ms&amp;utm_content=final" target="_blank" rel="noopener" aria-label="Dapatkan Duitful di Google Play"><img src="../assets/badges/google-play-ms.png" width="646" height="250" alt="Dapatkannya di Google Play" decoding="async"></a>
