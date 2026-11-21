@@ -7163,8 +7163,9 @@ body.private .pending-match-sub {
    balance and the Add entry form, instead of Today waiting below the
    tallest card with a 330px hole above it. The 1fr second row takes the
    spanning cards' extra height, so the first row hugs Upcoming. Only when
-   no full-width banner occupies the first row. */
-@media (min-width: 1180px) {
+   no full-width banner occupies the first row. From 1280px: below that the
+   content area holds two columns (see "iPad" at the end of this file). */
+@media (min-width: 1280px) {
   #tab-dashboard.tab-panel:is(.active, .is-leaving) { grid-auto-flow: row dense; }
   #tab-dashboard.tab-panel:is(.active, .is-leaving) > .hero-card,
   #tab-dashboard.tab-panel:is(.active, .is-leaving) > .quick-add { grid-row: span 2; }
@@ -9066,3 +9067,52 @@ html[data-theme="pastel"] .tab.active {
 }
 .wallet-alerts { display: flex; flex-direction: column; gap: 0.25rem; }
 .wallet-alerts .hint { margin: 0; }
+
+/* ---------- v1.63 iPad (and any tablet-sized window) ----------
+   Full screen on iPad in every orientation: iPad mini 744 x 1133, Air 11"
+   820 x 1180, Pro 13" 1024 x 1366, and those on their side. The navigation
+   follows the fold lab's rule (rail from 600px, sidebar from 1000px), so
+   these rules only shape the content beside it. */
+/* Two columns while the content area is under ~1050px wide (iPad landscape,
+   iPad Pro portrait, a desktop window of that size). Three 280px columns
+   squeezed the Add entry pills out of their card and wrapped every title. */
+@media (min-width: 1000px) and (max-width: 1279px) {
+  .tab-panel:is(.active, .is-leaving) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* In two columns a one-off note (your phone's AI is ready, tax, reminders,
+   a statement due) beside the balance left a hole under itself as tall as
+   the balance card. It takes the row instead; at three columns it sits in
+   the first one, above Today (the 1280px rule above). The Add entry form
+   spans two rows, so Today sits under the balance instead of waiting below
+   the taller form. */
+@media (min-width: 640px) and (max-width: 1279px) {
+  #tab-dashboard.tab-panel:is(.active, .is-leaving) > :is(.ai-intro, .tax-intro, .reminder-ask, .upcoming-card) {
+    grid-column: 1 / -1;
+  }
+  #tab-dashboard.tab-panel:is(.active, .is-leaving) > .quick-add { grid-row: span 2; }
+}
+/* The debt and goal lists take the row from tablet width, not only on a
+   desktop: half a 744px screen cut names to "Mayban…". */
+@media (min-width: 640px) {
+  #tab-debts.tab-panel:is(.active, .is-leaving) > .card:first-child,
+  #tab-savings.tab-panel:is(.active, .is-leaving) > .card:first-child {
+    grid-column: 1 / -1;
+  }
+}
+/* Beside a rail, a short page ended in a band of the stage colour under the
+   content: the page itself is the workspace colour, top to bottom. */
+@media (min-width: 600px) and (max-width: 999px) {
+  html, body { background: var(--bg); }
+}
+/* Sidebar rows are fingers on an iPad, not only a mouse pointer: 44px. */
+@media (min-width: 1000px) {
+  .tab { min-height: 44px; }
+}
+
+/* The balance breakdown's four tiles key off the card's own width, not the
+   screen's: half an iPad is a phone-width card on a wide screen, and four
+   tiles there cut every figure to "RM 6,…". */
+.hero-card { container-type: inline-size; }
+@container (max-width: 520px) {
+  .hero-grid { grid-template-columns: repeat(2, 1fr); }
+}

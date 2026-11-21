@@ -99,9 +99,13 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
             sheet.addAction(UIAlertAction(title: L("cancel", "Cancel"), style: .cancel) { _ in
                 self.finishScan(error: ("Scan cancelled", "CANCELLED"))
             })
+            // iPad shows an action sheet as a popover, and UIKit throws if it
+            // has no anchor. Centred with no arrow: the Scan button lives in
+            // the web view, so there is no native view to point at.
             if let pop = sheet.popoverPresentationController {
                 pop.sourceView = vc.view
-                pop.sourceRect = CGRect(x: vc.view.bounds.midX, y: vc.view.bounds.maxY - 1, width: 1, height: 1)
+                pop.sourceRect = CGRect(x: vc.view.bounds.midX, y: vc.view.bounds.midY, width: 1, height: 1)
+                pop.permittedArrowDirections = []
             }
             vc.present(sheet, animated: true)
         }

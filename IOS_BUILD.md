@@ -501,12 +501,16 @@ from the iPad.
   bucket ("large display") is now **Optional**
 - Move the files as **files, not photos** — Telegram and WhatsApp recompress
   to ~1177×2560, which App Store Connect rejects
-- No iPad screenshots: v1.0 ships **iPhone-only**. Capacitor's template
-  targets iPhone and iPad (`"1,2"`); `scripts/patch-ios.mjs` sets
-  `TARGETED_DEVICE_FAMILY = 1` so App Review doesn't test an iPad layout
-  nobody designed. The app still runs on iPad in iPhone compatibility mode.
-  To ship on iPad later, change `IOS_DEVICE_FAMILY` in that script to
-  `"1,2"` and add 13" iPad (2064×2752) screenshots
+- **iPad (since 1.63.0):** the app ships on iPhone and iPad
+  (`IOS_DEVICE_FAMILY = "1,2"` in `scripts/patch-ios.mjs`). It runs **full
+  screen only** (`UIRequiresFullScreen = true`: no Split View or Slide Over)
+  in all four orientations (`UISupportedInterfaceOrientations~ipad`; the
+  iPhone orientations are untouched). App Store Connect then needs **13" iPad
+  screenshots, 2064×2752** portrait: the set is in
+  `marketing/app-store/ipad/` (see `APP_STORE_LISTING.md`). The single 1024px
+  app icon from `npm run assets` covers the iPad sizes too (Xcode's
+  single-size icon). v1.0 to 1.62 shipped iPhone-only (family 1), running on
+  iPad in compatibility mode; set the family back to `"1"` to return to that
 
 Take them on your own device from a TestFlight build: Dashboard,
 Debt payoff plan, Receipt scan, Bill split, Settings/privacy. Five is

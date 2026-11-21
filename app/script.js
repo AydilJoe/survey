@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.62.1";
+const APP_VERSION = "1.63.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4569,8 +4569,9 @@ document.getElementById("milestones-list")?.addEventListener("click", (e) => {
 // Settings → About: a link anyone can use, any time.
 const STORE_REVIEW_URL = {
   android: "https://play.google.com/store/apps/details?id=com.aydiljoe.duitful&showAllReviews=true",
-  // Paste the App Store id once the listing is live: https://apps.apple.com/app/id<ID>?action=write-review
-  ios: "",
+  // An <a target="_blank"> to a host outside the app: Capacitor's iOS web view
+  // hands it to the system, which opens the App Store's review sheet.
+  ios: "https://apps.apple.com/app/id6827191645?action=write-review",
 };
 function renderRateLink() {
   const a = document.getElementById("btn-rate-app");
@@ -11967,6 +11968,11 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.63.0": [
+    "<strong>Duitful on iPad</strong> — full screen, every orientation, with the sidebar on bigger screens.",
+    "<strong>Roomier on big screens</strong> — on a tablet or wide window, Today sits under your balance, your debts and goals span the page, the balance breakdown shows whole figures, and iPad landscape gets two roomy columns instead of three cramped ones.",
+    "<strong>Rate Duitful on iPhone and iPad</strong> — Settings → About now opens the App Store's review page. On the web, the paywall links straight to the iPhone app.",
+  ],
   "1.62.1": [
     "<strong>A sempoa for your phone's AI</strong> — the AI badge is now a little abacus, and its beads count while your phone's own AI works. When you're waiting on it (a receipt, Review my year), it floats into the page, counts there, and floats back when done. A bank statement's suggestions run in the background: the badge fills as they land in your review, which you can keep editing and import any time. Nothing is uploaded.",
   ],

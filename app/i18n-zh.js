@@ -1379,7 +1379,7 @@
   "Unlock Pro": "解锁 Pro",
   "Pay with FPX / TNG / GrabPay": "用 FPX / TNG / GrabPay 付款",
   "Get it on Google Play": "在 Google Play 下载",
-  "On iPhone, search “Duitful” in the App Store.": "iPhone 用户请在 App Store 搜索“Duitful”。",
+  "On iPhone, get Duitful on the App Store": "iPhone 用户可在 App Store 下载 Duitful",
   "Try Pro free for 14 days": "免费试用 Pro 14 天",
   "Try Pro free for {n} days": "免费试用 Pro {n} 天",
   "Maybe later": "以后再说",

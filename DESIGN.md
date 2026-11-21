@@ -241,7 +241,7 @@ A near-monochrome warm palette, with three small sets of chroma that each have o
 
 One column of cards on a phone: `main` is capped at 640px with a 0.75rem gutter, cards are 0.85rem apart with 1rem of padding. Inside a card, related controls sit 0.35 to 0.5rem apart and groups 0.75 to 1rem apart.
 
-From 640px the cards flow into a grid (`auto-fill`, 280px minimum column, 1.2rem gap), and the frame widens to 1320px on desktop. Headline cards span the full width.
+From 640px the cards flow into a grid (`auto-fill`, 280px minimum column, 1.2rem gap), and the frame widens to 1320px on desktop. Headline cards span the full width. Between 1000 and 1280px wide (iPad landscape, iPad Pro upright) the grid is held at two columns, since three 280px columns squeeze a card's controls; on Home the Add entry form spans two rows so Today sits under the balance, and one-off notes take the row. Debt and goal lists span the row from 640px. A card whose inside depends on its own width (the balance breakdown's four tiles) uses a container query, not a viewport one: half an iPad is a phone-width card.
 
 Navigation follows the screen, not the device:
 - **Bottom bar** on a tall phone: five tabs (Home, Monthly, Debts, Savings, Settings).
@@ -250,7 +250,7 @@ Navigation follows the screen, not the device:
 
 The same rule lives in `FoldLab.navFor` in `folds/fold-lab.js`, and the e2e suite checks the two agree. Daily, Reports and Tax are subpages of Home, reached from Home and left with a pill-shaped back button.
 
-Touch targets are at least 44px. Safe-area insets pad the header, the bottom bar and the rail.
+Touch targets are at least 44px, sidebar rows included (an iPad is fingers). Safe-area insets pad the header, the bottom bar and the rail. On iPad the app runs full screen in every orientation (no Split View), so these sizes are the whole screen.
 
 ## Elevation & Depth
 

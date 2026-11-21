@@ -4968,12 +4968,19 @@ check('a split from a spend you already logged never logs it twice',
     renderRateLink();
     const a = document.getElementById('btn-rate-app');
     out.link = { shown: !a.hidden, href: a.getAttribute('href') };
+    // In the iPhone / iPad app the same link opens the App Store's review sheet.
+    const keep = window.Capacitor;
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} };
+    try { renderRateLink(); out.iosLink = { shown: !a.hidden, href: a.getAttribute('href'), target: a.getAttribute('target') }; }
+    finally { window.Capacitor = keep; renderRateLink(); }
     return out;
   });
   check('rating ask: a goal reaching its target is a moment, once', rv.goal === 'goal' && rv.goalOnce !== 'goal', JSON.stringify(rv));
   check('rating ask: three weeks in with ten logged days is a moment, not before', rv.habit === 'habit' && rv.tooSoon === '', JSON.stringify(rv));
   check('Settings has Rate Duitful linking to the Play listing (off Apple devices)',
     rv.link.shown && /play\.google\.com\/store\/apps\/details\?id=com\.aydiljoe\.duitful/.test(rv.link.href), JSON.stringify(rv.link));
+  check('Rate Duitful in the iPhone / iPad app opens the App Store review page (a new-window link, which the iOS shell hands to the App Store)',
+    rv.iosLink.shown && rv.iosLink.href === 'https://apps.apple.com/app/id6827191645?action=write-review' && rv.iosLink.target === '_blank', JSON.stringify(rv.iosLink));
 }
 
 // Deleting is instant with Undo on the toast; alerts are toasts now.
@@ -10977,10 +10984,22 @@ check('the brand catalogue makes no network calls at all',
       const r = { currency: state.currency, fpx: !document.getElementById('paywall-web-actions').hidden,
         stores: !document.getElementById('paywall-stores').hidden,
         play: document.getElementById('paywall-play').getAttribute('href') };
+      const as = document.getElementById('paywall-appstore');
+      r.appstore = { href: as.getAttribute('href'), visible: as.getBoundingClientRect().width > 0, text: as.textContent.trim() };
       document.getElementById('paywall-dialog').close();
+      // Inside the store apps the store links never show.
+      const keep = window.Capacitor;
+      for (const plat of ['ios', 'android']) {
+        window.Capacitor = { isNativePlatform: () => true, getPlatform: () => plat, Plugins: {} };
+        try { openPaywall('debts'); r[plat] = { stores: !document.getElementById('paywall-stores').hidden, appstoreShown: as.getBoundingClientRect().width > 0 }; document.getElementById('paywall-dialog').close(); }
+        finally { window.Capacitor = keep; }
+      }
       return r;
     });
     await lctx.close();
+    check('web paywall: "On iPhone, get Duitful on the App Store" is a tappable link through /go/appstore/ (counted, utm webapp / paywall), and neither store app shows it',
+      uk.appstore.visible && uk.appstore.href === 'https://duitful.app/go/appstore/?utm_source=webapp&utm_medium=en&utm_content=paywall'
+        && /App Store/.test(uk.appstore.text) && !uk.ios.stores && !uk.ios.appstoreShown && !uk.android.stores && !uk.android.appstoreShown, JSON.stringify(uk));
     check('worldwide: a new vault in London starts in GBP, and the web paywall sends them to the app stores, not Billplz',
       uk.currency === 'GBP' && !uk.fpx && uk.stores && /\/go\/play\/\?utm_source=app/.test(uk.play), JSON.stringify(uk));
   }
@@ -12497,7 +12516,9 @@ check('the brand catalogue makes no network calls at all',
   // The app itself: the navigation each viewport gets must be the one the
   // fold lab draws (FoldLab.navFor), and nothing scrolls sideways.
   const sizes = [[390, 844], [375, 667], [360, 640], [412, 940], [476, 676], [852, 393], [832, 748],
-    [768, 1024], [952, 676], [1024, 768], [1280, 860]];
+    [768, 1024], [952, 676], [1024, 768], [1280, 860],
+    // iPad (1.63.0): mini, Air 11", Pro 13", upright and on its side.
+    [744, 1133], [1133, 744], [820, 1180], [1180, 820], [1024, 1366], [1366, 1024], [1032, 1376], [1376, 1032]];
   const ap = await b.newPage({ viewport: { width: 390, height: 844 } });
   await ap.goto(`${BASE}/folds/`, { waitUntil: 'load' });
   const want = await ap.evaluate((sz) => sz.map(([w, h]) => window.FoldLab.navFor(w, h)), sizes);
@@ -13829,6 +13850,126 @@ check('the brand catalogue makes no network calls at all',
   }
   check('languages: at 360px, in English, Malay and Chinese (and again in Pastel), nothing sticks out of its card and nothing scrolls sideways (Home, Monthly with a pool, Debts with card / Islamic / BNPL rows, Savings with a goal, a holding, retirement and zakat, All entries, Reports over a long range (month labels from the locale), Tax with a relief open, Settings, the details / EA form / claim / review / paywall / passcode / tour / edit / search / scan / statement / split / wallet / move money / on-device AI / AI thinking dialogs)',
     layoutMiss.length === 0, layoutMiss.slice(0, 10).join(' | '));
+
+  /* ── iPad (1.63.0): full screen in every orientation ─────────────────────
+     The iOS shell at iPad mini, Air 11" and Pro 13" sizes, upright and on its
+     side: the navigation the fold lab draws (rail upright on mini and Air,
+     sidebar from 1000px), nothing outside its card or the screen on the main
+     pages and sheets, every sheet a centred card, Home in two columns under
+     1280px with Today under the balance, and the AI thinking sheet floating
+     in to the middle. Light in English everywhere; Dark, Pastel, Malay and
+     Chinese on an Air both ways. */
+  {
+    const iosShell = () => {
+      window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios',
+        Plugins: { DuitfulKit: { aiStatus: async () => ({ available: true }) } } };
+    };
+    const IPAD = [[744, 1133, 'rail'], [1133, 744, 'sidebar'], [820, 1180, 'rail'], [1180, 820, 'sidebar'],
+      [1024, 1366, 'sidebar'], [1366, 1024, 'sidebar'], [1032, 1376, 'sidebar']];
+    const runs = [
+      ...IPAD.map(([w, h, nav]) => ({ w, h, nav, lang: 'en', theme: '', scheme: 'light', full: true })),
+      ...[[820, 1180, 'rail'], [1180, 820, 'sidebar']].flatMap(([w, h, nav]) => [
+        { w, h, nav, lang: 'en', theme: '', scheme: 'dark' }, { w, h, nav, lang: 'en', theme: 'pastel', scheme: 'light' },
+        { w, h, nav, lang: 'ms', theme: '', scheme: 'light' }, { w, h, nav, lang: 'zh', theme: 'pastel', scheme: 'light' }]),
+    ];
+    const ipadMiss = [];
+    const ipadInfo = {};
+    for (const run of runs) {
+      const tag = `${run.w}x${run.h}${run.lang !== 'en' ? '/' + run.lang : ''}${run.theme ? '/' + run.theme : ''}${run.scheme === 'dark' ? '/dark' : ''}`;
+      const ctx = await b.newContext({ viewport: { width: run.w, height: run.h }, colorScheme: run.scheme, hasTouch: true });
+      await ctx.addInitScript(iosShell);
+      await ctx.addInitScript(([l, t]) => { localStorage.setItem('duitful.lang', l); if (t) localStorage.setItem('duit-tracker.theme', t); }, [run.lang, run.theme]);
+      const p = await ctx.newPage();
+      p.on('pageerror', (e) => ipadMiss.push(`${tag}: JS error ${e.message}`));
+      await p.goto(`${BASE}/app/index.html`);
+      await p.waitForTimeout(500);
+      await p.click('#btn-start-open');
+      await p.waitForTimeout(1000);
+      await p.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+      await p.evaluate(fillForLayout);
+      await p.waitForTimeout(300);
+      await p.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+      // Navigation: the same reading as the fold-lab check above.
+      const nav = await p.evaluate(() => {
+        const t = document.querySelector('.tabs'); const cs = getComputedStyle(t); const r = t.getBoundingClientRect();
+        const kind = cs.flexDirection !== 'column' ? 'bottom' : r.width < 150 ? 'rail' : 'sidebar';
+        const tabs = [...t.querySelectorAll('.tab')].filter((x) => x.offsetParent);
+        return { kind, minTab: Math.min(...tabs.map((x) => x.getBoundingClientRect().height)) };
+      });
+      if (nav.kind !== run.nav) ipadMiss.push(`${tag}: ${nav.kind} navigation, want ${run.nav}`);
+      if (nav.minTab < 44) ipadMiss.push(`${tag}: a ${nav.kind} tab is ${Math.round(nav.minTab)}px tall (< 44)`);
+      for (const tab of ['dashboard', 'flow', 'debts', 'savings', 'daily', 'reports', 'tax', 'data']) {
+        await p.evaluate((t) => { const btn = document.getElementById('tabbtn-' + t); btn.hidden = false; btn.click(); scrollTo(0, 0); }, tab);
+        await p.waitForTimeout(220);
+        (await p.evaluate(sticksOut)).forEach((x) => ipadMiss.push(`${tag} ${tab}: ${x}`));
+        if (tab === 'dashboard' && run.full) {
+          const home = await p.evaluate(() => {
+            const panel = document.getElementById('tab-dashboard');
+            const cols = getComputedStyle(panel).gridTemplateColumns.split(' ').length;
+            const hero = document.querySelector('#tab-dashboard > .hero-card').getBoundingClientRect();
+            const today = document.getElementById('today-card').getBoundingClientRect();
+            // The breakdown tiles follow the card's width: no figure cut to "RM 6,…".
+            const tog = document.getElementById('hero-breakdown-toggle');
+            if (tog && tog.getAttribute('aria-expanded') !== 'true') tog.click();
+            const cut = [...document.querySelectorAll('#hero-grid strong')].filter((x) => x.scrollWidth > x.clientWidth + 1).map((x) => x.textContent);
+            if (tog) tog.click();
+            const form = document.querySelector('#tab-dashboard > .quick-add').getBoundingClientRect();
+            return { cols, cut, todayUnderHero: Math.abs(today.left - hero.left) < 2 && today.top >= hero.bottom - 1 && today.top < form.bottom };
+          });
+          ipadInfo[tag] = home;
+          if (home.cut.length) ipadMiss.push(`${tag} Home: breakdown figures cut off ${JSON.stringify(home.cut)}`);
+          if (run.w < 1280 && (home.cols !== 2 || !home.todayUnderHero)) ipadMiss.push(`${tag} Home: ${JSON.stringify(home)} (want two columns, Today under the balance, beside the form)`);
+        }
+      }
+      if (!run.full) { await ctx.close(); continue; }
+      await p.evaluate(() => { const btn = document.getElementById('tabbtn-dashboard'); btn.click(); scrollTo(0, 0); });
+      await p.waitForTimeout(200);
+      for (const [label, open] of [['details', () => taxOpenNumbers()], ['claim', () => taxOpenClaim({ relief: 'medical' })],
+        ['paywall', () => openPaywall('installment')], ['search', () => { openSearch('rent'); }], ['scan', () => openScanDialog()],
+        ['statement', () => openStatementImport()], ['split', () => splitOpenCompose({ mode: 'split' })], ['recurring split', () => rsOpenEdit(state.split.recurring[0].id)],
+        ['wallet', () => openWalletEdit(state.wallets[0].id)], ['move money', () => openWalletMove(state.wallets[0].id)], ['EA form', () => taxOpenEa()],
+        ['on-device AI', () => openAiInfo('badge')]]) {
+        await p.evaluate(open);
+        await p.waitForTimeout(250);
+        const d = await p.evaluate(() => {
+          const dlg = [...document.querySelectorAll('dialog[open]')].pop();
+          if (!dlg) return null;
+          const r = dlg.getBoundingClientRect();
+          return { id: dlg.id, cx: Math.round(r.left + r.width / 2 - innerWidth / 2), w: Math.round(r.width), inside: r.left >= 0 && r.right <= innerWidth && r.top >= -1 && r.bottom <= innerHeight + 1 };
+        });
+        if (!d) ipadMiss.push(`${tag} ${label}: no dialog opened`);
+        else if (Math.abs(d.cx) > 2 || !d.inside || d.w > 720 || d.w >= run.w - 40) ipadMiss.push(`${tag} ${label} dialog not a centred card: ${JSON.stringify(d)}`);
+        (await p.evaluate(sticksOut)).forEach((x) => ipadMiss.push(`${tag} ${label} dialog: ${x}`));
+        await p.evaluate(() => { if (typeof taxCloseAll === 'function') taxCloseAll(); document.querySelectorAll('dialog[open]').forEach((d) => d.close()); });
+      }
+      // The thinking sheet: lifted out of the header badge, settled in the middle.
+      const think = await p.evaluate(async () => {
+        const badge = document.getElementById('ai-badge');
+        const shown = !!badge && !badge.hidden && badge.getBoundingClientRect().width > 0;
+        aiThinkStart(3000, { overlay: true, label: 'Reading your receipt' });
+        await new Promise((r) => setTimeout(r, 900));
+        const dlg = document.getElementById('ai-think');
+        const c = dlg.querySelector('.ai-think-card').getBoundingClientRect();
+        const m = dlg.querySelector('.ai-think-mark').getBoundingClientRect();
+        const out = { shown, open: dlg.open, lifted: badge.classList.contains('is-lifted'),
+          cx: Math.round(c.left + c.width / 2 - innerWidth / 2), cy: Math.round(c.top + c.height / 2 - innerHeight / 2),
+          markInCard: m.left >= c.left && m.right <= c.right && m.top >= c.top && m.bottom <= c.bottom };
+        aiThinkHide();
+        return out;
+      });
+      if (!(think.shown && think.open && think.lifted && Math.abs(think.cx) <= 2 && Math.abs(think.cy) <= 4 && think.markInCard))
+        ipadMiss.push(`${tag} AI thinking sheet: ${JSON.stringify(think)}`);
+      await ctx.close();
+    }
+    check('iPad: mini, Air 11" and Pro 13" (13" at both 1024 and 1032 wide), upright and on its side, get the fold lab\'s navigation (rail upright on mini and Air, sidebar from 1000px) with 44px tabs, and nothing sticks out of its card or the screen on any page (Light English; Dark, Pastel, Malay, Chinese on an Air both ways)',
+      ipadMiss.filter((x) => !/dialog|AI thinking|Home:/.test(x)).length === 0, ipadMiss.filter((x) => !/dialog|AI thinking|Home:/.test(x)).slice(0, 8).join(' | '));
+    check('iPad: Home has two columns under 1280px wide with Today under the balance, beside the Add entry form (not below it), and the balance breakdown shows whole figures',
+      Object.keys(ipadInfo).length >= 5 && !ipadMiss.some((x) => /Home:/.test(x)), ipadMiss.filter((x) => /Home:/.test(x)).join(' | ') || JSON.stringify(ipadInfo));
+    check('iPad: every sheet (details, claim, paywall, search, scan, statement, split, recurring split, wallet, move money, EA form, on-device AI) opens as a centred card that fits the screen, nothing outside it',
+      !ipadMiss.some((x) => /dialog/.test(x)), ipadMiss.filter((x) => /dialog/.test(x)).slice(0, 8).join(' | '));
+    check('iPad: the AI thinking sheet floats out of the header badge and settles centred on the screen, in every size and orientation',
+      !ipadMiss.some((x) => /AI thinking/.test(x)), ipadMiss.filter((x) => /AI thinking/.test(x)).slice(0, 4).join(' | '));
+  }
 }
 
 /* ── On-screen keyboard: a dialog stays usable above it (Samsung, Android 16) ── */
@@ -13890,6 +14031,57 @@ check('the brand catalogue makes no network calls at all',
     after.open && after.pinned && Math.abs(after.dialogTop - nextAt.dialogTop) <= 2 && closedUnpins, JSON.stringify({ nextAt, after, closedUnpins }));
   check('keyboard: with a field focused and the keyboard up, the tax details dialog fits above it, the field and Next are reachable, the bottom bar steps aside; all back when it closes',
     field && !before && up.kb && up.dialogInside && up.fieldVisible && up.nextReachable && up.tabsHidden && !down, JSON.stringify({ field, before, up, down }));
+  await kctx.close();
+}
+
+/* ── On-screen keyboard on iPad (1.63.0) ──────────────────────────────────
+   An iPad's keyboard is docked (the visible height drops by ~400px), floating
+   or undocked (the visible height doesn't change), or a hardware keyboard
+   with only its ~70px shortcut bar. Only the docked one is a keyboard to make
+   room for; the rail stays beside it, and a lifted dialog stays centred
+   across the screen. */
+{
+  const kctx = await b.newContext({ viewport: { width: 820, height: 1180 }, hasTouch: true });
+  await kctx.addInitScript(() => {
+    try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5 }); } catch {}
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: {} };
+  });
+  const p = await kctx.newPage();
+  await p.goto(`${BASE}/app/index.html`);
+  await p.waitForTimeout(500);
+  await p.click('#btn-start-open');
+  await p.waitForTimeout(1000);
+  await p.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  await p.evaluate(() => { document.getElementById('tabbtn-tax').hidden = false; taxOpenNumbers(); });
+  await p.waitForTimeout(800);
+  const field = await p.evaluate(() => [...document.querySelectorAll('#tax-numbers-dialog input[type=number]')].find((i) => i.offsetParent)?.id);
+  if (field) await p.focus('#' + field);
+  await p.waitForFunction((id) => document.activeElement && document.activeElement.id === id, field, { timeout: 2000 }).catch(() => {});
+  const kb = () => document.documentElement.classList.contains('kb-open');
+  // Hardware keyboard: only the shortcut bar.
+  await p.setViewportSize({ width: 820, height: 1110 });
+  await p.waitForTimeout(400);
+  const bar = await p.evaluate(kb);
+  // Docked keyboard.
+  await p.setViewportSize({ width: 820, height: 780 });
+  await p.waitForFunction(() => document.documentElement.classList.contains('kb-open'), null, { timeout: 3000 }).catch(() => {});
+  await p.waitForTimeout(300);
+  const docked = await p.evaluate(() => {
+    const vv = window.visualViewport;
+    const d = document.getElementById('tax-numbers-dialog').getBoundingClientRect();
+    const f = document.activeElement.getBoundingClientRect();
+    const tabs = document.querySelector('.tabs');
+    return { kb: document.documentElement.classList.contains('kb-open'),
+      cx: Math.round(d.left + d.width / 2 - innerWidth / 2), inside: d.top >= vv.offsetTop - 1 && d.bottom <= vv.offsetTop + vv.height + 1,
+      fieldVisible: f.top >= vv.offsetTop && f.bottom <= vv.offsetTop + vv.height,
+      rail: getComputedStyle(tabs).display !== 'none' && getComputedStyle(tabs).flexDirection === 'column' && tabs.getBoundingClientRect().left === 0 };
+  });
+  await p.evaluate(() => document.activeElement.blur());
+  await p.setViewportSize({ width: 820, height: 1180 });
+  await p.waitForTimeout(400);
+  const down = await p.evaluate(kb);
+  check('iPad keyboard: a hardware keyboard\'s shortcut bar is not a keyboard; a docked one lifts the details dialog (still centred across the screen, field in view) with the rail beside it, and lets go when it goes down',
+    field && !bar && docked.kb && Math.abs(docked.cx) <= 2 && docked.inside && docked.fieldVisible && docked.rail && !down, JSON.stringify({ field, bar, docked, down }));
   await kctx.close();
 }
 

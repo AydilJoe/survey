@@ -1379,7 +1379,7 @@
   "Unlock Pro": "Buka Pro",
   "Pay with FPX / TNG / GrabPay": "Bayar dengan FPX / TNG / GrabPay",
   "Get it on Google Play": "Dapatkan di Google Play",
-  "On iPhone, search “Duitful” in the App Store.": "Di iPhone, cari “Duitful” di App Store.",
+  "On iPhone, get Duitful on the App Store": "Di iPhone, dapatkan Duitful di App Store",
   "Try Pro free for 14 days": "Cuba Pro percuma selama 14 hari",
   "Try Pro free for {n} days": "Cuba Pro percuma selama {n} hari",
   "Maybe later": "Mungkin nanti",
