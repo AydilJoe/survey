@@ -397,6 +397,7 @@ export const ROWS = [
   ["Version {v}", "Versi {v}", "版本 {v}"],
   ["Version {v} · Native build", "Versi {v} · Binaan asli", "版本 {v} · 原生版"],
   ["What's new", "Apa yang baharu", "新功能"],
+  ["Bug fixes and performance improvements.", "Pembaikan pepijat dan penambahbaikan prestasi.", "修复错误并提升性能。"],
   ["Replay welcome tour", "Tonton semula pengenalan", "重看入门导览"],
   ["Rate Duitful", "Nilai Duitful", "给 Duitful 评分"],
   ["Contact", "Hubungi", "联系"],

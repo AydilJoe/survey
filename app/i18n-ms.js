@@ -370,6 +370,7 @@
   "Version {v}": "Versi {v}",
   "Version {v} · Native build": "Versi {v} · Binaan asli",
   "What's new": "Apa yang baharu",
+  "Bug fixes and performance improvements.": "Pembaikan pepijat dan penambahbaikan prestasi.",
   "Replay welcome tour": "Tonton semula pengenalan",
   "Rate Duitful": "Nilai Duitful",
   "Contact": "Hubungi",
