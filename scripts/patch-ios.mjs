@@ -248,6 +248,32 @@ if (!APP_ID) {
   console.log(`patch-ios: added ${SHORTCUTS.length} Home Screen quick action(s).`);
 }
 
+/* ---------- 2b. iPad: full screen, every orientation (Info.plist) ----------
+   Since 1.63 the app ships on iPad too (TARGETED_DEVICE_FAMILY "1,2", the
+   last block in this file). UIRequiresFullScreen opts out of iPad
+   multitasking: no Split View or Slide Over, so the app never has to lay out
+   in a third of the screen, and iPadOS does not demand that it support every
+   orientation for multitasking. The web layer handles any size anyway (rail
+   from 600px, sidebar from 1000px, see folds/fold-lab.js). The iPad gets all
+   four orientations; the iPhone list (UISupportedInterfaceOrientations) is
+   left exactly as Capacitor's template writes it. */
+const IPAD_ORIENTATIONS = [
+  "UIInterfaceOrientationPortrait",
+  "UIInterfaceOrientationPortraitUpsideDown",
+  "UIInterfaceOrientationLandscapeLeft",
+  "UIInterfaceOrientationLandscapeRight",
+];
+{
+  const r = ensureIpadPlist(plist);
+  if (r.changes.length) {
+    plist = r.plist;
+    plistAdded += r.changes.length;
+    for (const c of r.changes) console.log(`patch-ios: iPad: ${c}.`);
+  } else {
+    console.log("patch-ios: iPad full screen and orientations already set, skipping.");
+  }
+}
+
 if (plistAdded) {
   writeFileSync(INFO_PLIST, plist);
   console.log(`patch-ios: added ${plistAdded} key(s) to Info.plist.`);
@@ -1325,7 +1351,7 @@ if (widgetFilesWritten) {
         ? "\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;"
         : '\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = "";',
       "\t\t\t\tSWIFT_VERSION = 5.0;",
-      '\t\t\t\tTARGETED_DEVICE_FAMILY = 1;', // iPhone only, like the app (see below)
+      '\t\t\t\tTARGETED_DEVICE_FAMILY = "1,2";', // iPhone and iPad, like the app (see the last block)
     ].join("\n");
 
     // --- new objects, appended to their sections in Xcode's own order ---
@@ -1593,6 +1619,36 @@ ${parts.join("\n")}
 }
 
 /* ---------- helpers ---------- */
+// iPad keys (section 2b). Returns { plist, changes[] }; no change when the
+// keys already say what we want, so a second run logs "skipping".
+function ensureIpadPlist(src) {
+  const changes = [];
+  // UIRequiresFullScreen: <true/>, flipping a <false/> the template or a
+  // plugin may have written.
+  const fs = /(<key>UIRequiresFullScreen<\/key>\s*)<(true|false)\s*\/>/;
+  const m = src.match(fs);
+  if (!m) {
+    src = insertPlistEntry(src, "\t<key>UIRequiresFullScreen</key>\n\t<true/>\n");
+    changes.push("added UIRequiresFullScreen (no Split View / Slide Over)");
+  } else if (m[2] === "false") {
+    src = src.replace(fs, "$1<true/>");
+    changes.push("UIRequiresFullScreen set to true");
+  }
+  // UISupportedInterfaceOrientations~ipad: all four, in Apple's order.
+  const block = "\t<key>UISupportedInterfaceOrientations~ipad</key>\n\t<array>\n" +
+    IPAD_ORIENTATIONS.map((o) => `\t\t<string>${o}</string>\n`).join("") + "\t</array>\n";
+  const ipad = /\t?<key>UISupportedInterfaceOrientations~ipad<\/key>\s*<array>([\s\S]*?)<\/array>\n?/;
+  const im = src.match(ipad);
+  if (!im) {
+    src = insertPlistEntry(src, block);
+    changes.push("added UISupportedInterfaceOrientations~ipad (all four)");
+  } else if (!IPAD_ORIENTATIONS.every((o) => im[1].includes(`<string>${o}</string>`))) {
+    src = src.replace(ipad, block);
+    changes.push("UISupportedInterfaceOrientations~ipad set to all four");
+  }
+  return { plist: src, changes };
+}
+
 // Inserts a <key>/<value> pair just before the plist's closing </dict>.
 // Text-level on purpose: no plist parser in the dependency tree, and the
 // generated file is always Xcode-formatted with tab indentation.
@@ -1782,23 +1838,26 @@ function pbxAddTargetAttributes(src, projectObject, targetId) {
   }
 }
 
-/* ---------- iPhone only, for now ----------
-   Capacitor's template targets iPhone AND iPad ("1,2"). Shipping on iPad
-   means App Review exercises the iPad layout and App Store Connect demands
-   13" iPad screenshots — two ways to fail a first review for a layout
-   nobody has designed. v1.0 ships iPhone-only (family 1); iPhone apps still
-   run on iPad in compatibility mode. Flip IOS_DEVICE_FAMILY to "1,2" once
-   the iPad layout is designed and screenshotted. */
+/* ---------- iPhone and iPad (since 1.63) ----------
+   Capacitor's template targets iPhone AND iPad ("1,2"). v1.0 to 1.62 shipped
+   iPhone-only (family 1) because nobody had designed or screenshotted an
+   iPad layout, and App Review tests whatever the family claims. 1.63 ships
+   on iPad: full screen only (UIRequiresFullScreen, section 2b), every
+   orientation, the web layout's rail / sidebar at tablet sizes, and 13" iPad
+   screenshots (2064 x 2752, marketing/app-store/ipad/). The replace below is
+   global on purpose, so the widget extension (section 4) gets the same
+   family as its host app. Set IOS_DEVICE_FAMILY back to "1" to go
+   iPhone-only again (and remove the iPad screenshots in App Store Connect). */
 {
   const PBXPROJ_FAM = resolve(ROOT, "ios/App/App.xcodeproj/project.pbxproj");
-  const IOS_DEVICE_FAMILY = "1";
+  const IOS_DEVICE_FAMILY = "1,2";
   if (existsSync(PBXPROJ_FAM)) {
     const proj = readFileSync(PBXPROJ_FAM, "utf8");
     const value = IOS_DEVICE_FAMILY.includes(",") ? `"${IOS_DEVICE_FAMILY}"` : IOS_DEVICE_FAMILY;
     const patched = proj.replace(/TARGETED_DEVICE_FAMILY = (?:"[\d,]+"|\d+);/g, `TARGETED_DEVICE_FAMILY = ${value};`);
     if (patched !== proj) {
       writeFileSync(PBXPROJ_FAM, patched);
-      console.log(`patch-ios: device family set to ${IOS_DEVICE_FAMILY === "1" ? "iPhone only" : IOS_DEVICE_FAMILY}.`);
+      console.log(`patch-ios: device family set to ${IOS_DEVICE_FAMILY === "1" ? "iPhone only" : IOS_DEVICE_FAMILY === "1,2" ? "iPhone and iPad (1,2)" : IOS_DEVICE_FAMILY}.`);
     } else {
       console.log("patch-ios: device family already set, skipping.");
     }

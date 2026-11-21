@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=177" />
+    <link rel="stylesheet" href="styles.css?v=178" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1926,7 +1926,7 @@
           </div>
           <div class="paywall-actions paywall-stores" id="paywall-stores" hidden>
             <a class="primary as-button" id="paywall-play" href="https://duitful.app/go/play/?utm_source=app&amp;utm_medium=web&amp;utm_content=paywall" target="_blank" rel="noopener">Get it on Google Play</a>
-            <p class="hint">On iPhone, search “Duitful” in the App Store.</p>
+            <p class="hint"><a id="paywall-appstore" href="https://duitful.app/go/appstore/?utm_source=webapp&amp;utm_medium=en&amp;utm_content=paywall" target="_blank" rel="noopener">On iPhone, get Duitful on the App Store</a></p>
           </div>
           <button type="button" class="ghost" id="paywall-trial" hidden>Try Pro free for 14 days</button>
           <button type="button" class="ghost" id="paywall-close">Maybe later</button>
@@ -2094,6 +2094,52 @@
         <div class="button-row">
           <button type="button" class="primary" id="announce-cta" hidden></button>
           <button value="ok" class="ghost">Got it</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Moving from the web app to the iPhone app (an announcement with
+         "cta_action": "backup-first", browsers only; openMoveSheet). The
+         web app's data lives only in this browser and the iPhone app starts
+         empty, so step 2 waits until the CSV is saved (or the person says
+         they already moved it). -->
+    <dialog id="move-dialog" class="edit-dialog paywall-dialog move-dialog" aria-labelledby="move-title">
+      <form method="dialog">
+        <div class="paywall-head">
+          <span class="paywall-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
+          <div>
+            <h2 id="move-title">Move to the iPhone app</h2>
+            <p class="paywall-sub">Bring your data with you. It takes two steps.</p>
+          </div>
+        </div>
+        <ol class="move-steps">
+          <li class="move-step" id="move-step-save">
+            <span class="move-num" aria-hidden="true"><span class="move-num-n">1</span><svg class="move-num-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+            <div class="move-step-body">
+              <h3>Save your data first</h3>
+              <p class="move-why" id="move-why">Your entries live only in this browser. The iPhone app starts empty.</p>
+              <p class="move-why" id="move-empty" hidden>Nothing to save: this browser has no entries yet.</p>
+              <button type="button" class="primary" id="move-export">Download my data (CSV)</button>
+              <p class="move-saved" id="move-saved" role="status" hidden>Saved to Downloads.</p>
+            </div>
+          </li>
+          <li class="move-step" id="move-step-app" aria-disabled="true">
+            <span class="move-num" aria-hidden="true">2</span>
+            <div class="move-step-body">
+              <h3>Get the iPhone app</h3>
+              <ol class="move-how">
+                <li>Install Duitful from the App Store.</li>
+                <li>In the app, tap Restore from backup → CSV (or Settings → Import CSV) and pick the file you saved (Files → Downloads).</li>
+                <li id="move-how-mac" hidden>On a Mac? AirDrop the file to your iPhone first.</li>
+                <li>Delete the CSV file afterwards. It isn't encrypted.</li>
+              </ol>
+              <button type="button" class="primary" id="move-open" disabled>Get the iPhone app</button>
+            </div>
+          </li>
+        </ol>
+        <p class="move-skip-wrap" id="move-skip-wrap"><button type="button" class="link-btn" id="move-skip">I've already moved my data</button></p>
+        <div class="button-row">
+          <button value="close" class="ghost">Not now</button>
         </div>
       </form>
     </dialog>
@@ -3291,8 +3337,8 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=31"></script>
-    <script src="i18n-zh.js?v=31"></script>
+    <script src="i18n-ms.js?v=32"></script>
+    <script src="i18n-zh.js?v=32"></script>
     <script src="i18n.js?v=4"></script>
     <script src="drive-config.js?v=3"></script>
     <script src="drive-sync.js?v=4"></script>
@@ -3315,6 +3361,6 @@
     <script src="wallets.js?v=2"></script>
     <script src="recap.js?v=2"></script>
     <script src="brands.js?v=3"></script>
-    <script src="script.js?v=249"></script>
+    <script src="script.js?v=250"></script>
   </body>
 </html>

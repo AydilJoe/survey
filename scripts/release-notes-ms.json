@@ -1,4 +1,10 @@
 {
+  "1.63.0": [
+    "<strong>Duitful di iPad</strong> — skrin penuh, semua orientasi, dengan bar sisi pada skrin yang lebih besar.",
+    "<strong>Lebih lapang di skrin besar</strong> — susun atur dua lajur yang kemas di tablet dan tetingkap lebar, dengan angka penuh dalam pecahan baki.",
+    "<strong>Nilai Duitful</strong> di iPhone dan iPad dari Tetapan → Perihal.",
+    "<strong>Nak pindah ke app iPhone?</strong> Di web, Dapatkan app iPhone kini simpan data anda sebagai CSV dulu, kemudian tunjuk cara mengimportnya."
+  ],
   "1.62.2": [
     "<strong>Widget skrin utama baharu</strong> — gelang kiraan hari bulan ini, status bajet (Ikut bajet, Hati-hati, Lebih bajet), bil terdekat mengikut nama dan hari, serta butang catat belanja sekali ketik, mengikut tema Cerah, Gelap atau Pastel pilihan anda. Tiada baki atau jumlah wang dipaparkan."
   ],
@@ -60,7 +66,7 @@
     "<strong>Papan kekunci tak lagi tutup butang</strong> — bila papan kekunci keluar, borang dalam tetingkap timbul (seperti butiran cukai anda) naik ke atasnya, jadi petunjuk dan butang Seterusnya mudah dicapai."
   ],
   "1.57.13": [
-    "<strong>Notifikasi telefon dalam bahasa anda</strong> — notifikasi Catat belanja, makluman \u201ckata sudah bayar\u201d dan helaian imbas iPhone kini ikut bahasa yang anda pilih dalam Duitful."
+    "<strong>Notifikasi telefon dalam bahasa anda</strong> — notifikasi Catat belanja, makluman “kata sudah bayar” dan helaian imbas iPhone kini ikut bahasa yang anda pilih dalam Duitful."
   ],
   "1.57.12": [
     "<strong>Peringatan dalam Bahasa Melayu dan 中文</strong> — peringatan hutang, bil dan hari gaji kini sampai dalam bahasa anda, dan tukar bahasa akan kemas kini peringatan yang sudah dijadualkan. Kini seluruh aplikasi ada dalam tiga bahasa."

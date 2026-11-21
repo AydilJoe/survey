@@ -82,3 +82,19 @@ Upload: App Store Connect → the app version → Product Page Information →
 **Header and Search Results** (or Asset Library). Use either the
 header + search pair, or the universal asset for both, then check
 **Preview** on iPhone and iPad before submitting.
+
+## iPad (13" display), since 1.63.0
+
+Five 2064 × 2752 portrait screenshots in `ipad/`, upload order: `01-home`
+(Home with the AI badge), `02-payoff` (Debts and the payoff plan),
+`03-scan` (receipt scan result read with the phone's AI), `04-tax` (Tax with
+the EA form's figures), `05-split` (Split a bill). No captions and no device
+frame: the real app at 1032 × 1376 CSS px, DPR 2, in the iOS shell (a
+Capacitor stub reporting "ios"; the receipt runs through the app's own read
+with stubbed ML Kit text and Apple's model). Sample data only.
+`landscape-home.png` is for reference, not upload.
+
+```sh
+python3 -m http.server 8765 &                     # from the repo root
+node marketing/app-store/scripts/capture-ipad.mjs   # LANDSCAPE=1 adds the landscape shot
+```

@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.62.2";
+const APP_VERSION = "1.63.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4571,8 +4571,9 @@ document.getElementById("milestones-list")?.addEventListener("click", (e) => {
 // Settings → About: a link anyone can use, any time.
 const STORE_REVIEW_URL = {
   android: "https://play.google.com/store/apps/details?id=com.aydiljoe.duitful&showAllReviews=true",
-  // Paste the App Store id once the listing is live: https://apps.apple.com/app/id<ID>?action=write-review
-  ios: "",
+  // An <a target="_blank"> to a host outside the app: Capacitor's iOS web view
+  // hands it to the system, which opens the App Store's review sheet.
+  ios: "https://apps.apple.com/app/id6827191645?action=write-review",
 };
 function renderRateLink() {
   const a = document.getElementById("btn-rate-app");
@@ -6033,7 +6034,13 @@ function showAnnouncement(m) {
     const hasCta = !!(url && m.cta_label);
     ctaEl.hidden = !hasCta;
     ctaEl.textContent = hasCta ? String(m.cta_label) : "";
-    ctaEl.onclick = hasCta ? () => { window.open(url, "_blank", "noopener"); dlg.close(); } : null;
+    // "cta_action": "backup-first" (browsers only): the button opens the
+    // move sheet, which asks for a CSV before the App Store link. Older
+    // builds ignore the field and open the link, as before.
+    const backupFirst = m.cta_action === "backup-first" && !isNative();
+    ctaEl.onclick = !hasCta ? null : backupFirst
+      ? () => { dlg.close(); openMoveSheet(url); }
+      : () => { window.open(url, "_blank", "noopener"); dlg.close(); };
   }
   const muteEl = document.getElementById("announce-mute");
   if (muteEl) muteEl.checked = false;
@@ -6044,6 +6051,79 @@ function showAnnouncement(m) {
   }, { once: true });
   dlg.showModal();
 }
+/* ---------- move to the iPhone app (backup first) ----------
+   The web app's data lives only in this browser and the iPhone app starts
+   empty, so the App Store button waits until the person has saved a CSV
+   (the same downloadCSV as Settings → Export CSV) — or says they already
+   moved it. The CSV is the only way over: the iPhone app restores iCloud
+   (which the web can't write) and has no Google Drive. Remembered per
+   device in plain localStorage: it says a file was saved, nothing more. */
+const MOVE_SAVED_KEY = "duitful.moveSaved";
+// "1" = the CSV was downloaded here; "moved" = they said they already moved.
+function moveSavedHere() {
+  try { return !!localStorage.getItem(MOVE_SAVED_KEY); } catch { return false; }
+}
+function moveDownloadedHere() {
+  try { return localStorage.getItem(MOVE_SAVED_KEY) === "1"; } catch { return false; }
+}
+function moveRememberSaved(how = "1") {
+  try { localStorage.setItem(MOVE_SAVED_KEY, how); } catch {}
+}
+// Anything the person typed or imported; settings alone don't count.
+function vaultHasData() {
+  const s = state || {};
+  const lists = [s.income, s.expenses, s.debts, s.dailyExpenses, s.savings, s.investments, s.wallets, s.walletMoves];
+  if (lists.some((l) => Array.isArray(l) && l.length)) return true;
+  if (s.split && ((s.split.out || []).length || (s.split.in || []).length || (s.split.recurring || []).length)) return true;
+  if (s.tax && ((s.tax.claims || []).length || Object.keys(s.tax.figures || {}).length)) return true;
+  if (s.shariah && (s.shariah.history || []).length) return true;
+  return false;
+}
+let moveUrl = "";
+function moveRender() {
+  const empty = !vaultHasData();
+  const saved = empty || moveSavedHere();
+  const step1 = document.getElementById("move-step-save");
+  const step2 = document.getElementById("move-step-app");
+  if (!step1 || !step2) return;
+  step1.classList.toggle("is-done", saved);
+  document.getElementById("move-why").hidden = empty;
+  document.getElementById("move-empty").hidden = !empty;
+  document.getElementById("move-saved").hidden = empty || !moveDownloadedHere();
+  document.getElementById("move-skip-wrap").hidden = saved;
+  step2.setAttribute("aria-disabled", saved ? "false" : "true");
+  document.getElementById("move-open").disabled = !saved;
+}
+function openMoveSheet(url) {
+  const dlg = document.getElementById("move-dialog");
+  if (!dlg || typeof dlg.showModal !== "function" || isNative()) return;
+  moveUrl = url;
+  // A Mac browser (not an iPad, which also says "Macintosh"): the file has
+  // to reach the iPhone first.
+  const ua = navigator.userAgent || "";
+  const mac = /Macintosh/.test(ua) && !(navigator.maxTouchPoints > 1);
+  document.getElementById("move-how-mac").hidden = !mac;
+  moveRender();
+  if (!dlg.open) dlg.showModal();
+}
+document.getElementById("move-export")?.addEventListener("click", async () => {
+  if (await downloadCSV()) {
+    moveRememberSaved();
+    moveRender();
+    document.getElementById("move-open")?.focus();
+  }
+});
+document.getElementById("move-skip")?.addEventListener("click", () => {
+  moveRememberSaved("moved");
+  moveRender();
+  document.getElementById("move-open")?.focus();
+});
+document.getElementById("move-open")?.addEventListener("click", () => {
+  if (!moveUrl) return;
+  window.open(moveUrl, "_blank", "noopener");
+  document.getElementById("move-dialog")?.close();
+});
+
 async function checkAnnouncements() {
   if (announcementsMuted()) return;
   try {
@@ -10923,8 +11003,9 @@ async function downloadCSV() {
       );
     } catch (err) {
       notify("Couldn't copy to clipboard. Use Cloud backup (Google Drive) for safe storage on Android.");
+      return false;
     }
-    return;
+    return true;
   }
 
   // Web: standard download via blob URL.
@@ -10937,6 +11018,9 @@ async function downloadCSV() {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // The download was handed to the browser (the move sheet's step 1 waits
+  // for this).
+  return true;
 }
 
 $("#btn-export").addEventListener("click", downloadCSV);
@@ -12107,6 +12191,12 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.63.0": [
+    "<strong>Duitful on iPad</strong> — full screen, every orientation, with the sidebar on bigger screens.",
+    "<strong>Roomier on big screens</strong> — tidier two-column layouts on tablets and wide windows, with whole figures in the balance breakdown.",
+    "<strong>Rate Duitful</strong> on iPhone and iPad from Settings → About.",
+    "<strong>Moving to the iPhone app?</strong> On the web, Get the iPhone app now saves your data as a CSV first, then shows how to import it.",
+  ],
   "1.62.2": [
     "<strong>Redesigned home-screen widgets</strong> — a month countdown ring, your pace as a word (On track, Careful, Over), what is due next by name and days, and one-tap spend logging, in the Light, Dark or Pastel theme you picked in Duitful. Never shows balances or amounts.",
   ],

@@ -192,7 +192,7 @@
 <header class="top">
   <a class="nav-back" href="/">← Duitful</a>
   <h1>Duitful on <em>folding</em> phones</h1>
-  <p class="lede">Pick a phone, fold it, and see where everything goes. These are the layouts planned for iPhone Duo, Galaxy Z Fold and Flip; the app doesn't do this yet.</p>
+  <p class="lede">Pick a phone, fold it, and see where everything goes. These are the layouts planned for iPhone Duo, Galaxy Z Fold and Flip; the app doesn't do this yet. iPad is there for comparison: Duitful runs on it full screen, with this navigation, since 1.63.</p>
 </header>
 
 <main class="lab">
@@ -382,7 +382,7 @@
       rg.push(`<div class="rg status" style="left:${r.x}px;top:46px;width:${r.w}px"><b>9:41</b><span class="bat"></span></div>`);
       rg.push(`<div class="rg tag" style="left:${r.x - 132}px;top:${r.y + 14}px">${esc(r.label)}</div>`);
     }
-    if (!(L.reserved || []).length) {
+    if (!(L.reserved || []).length && d.island !== "none") {
       const cam = d.island === "left" ? { x: 16, y: L.H / 2 - 50, w: 30, h: 100 } : { x: L.W / 2 - 52, y: 12, w: 104, h: 32 };
       rg.push(`<div class="rg cam" style="left:${cam.x}px;top:${cam.y}px;width:${cam.w}px;height:${cam.h}px"></div>`);
     }

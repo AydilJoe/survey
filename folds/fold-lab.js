@@ -85,6 +85,32 @@
         { id: "tabletop", label: "Tabletop", display: "inner", hinge: "horizontal", angle: 100, separating: true },
       ],
     },
+    {
+      // Not a fold: the iPad runs Duitful full screen (no Split View or Slide
+      // Over) since 1.63, in every orientation. Here so the same navigation
+      // rule is checked at tablet sizes. Apple's point sizes, which are CSS px
+      // in the app's web view; the camera sits in the bezel, so no island.
+      id: "ipad",
+      name: "iPad",
+      note: "Full screen in every orientation: a rail upright on iPad mini and Air, the sidebar from 1000px wide.",
+      railEdge: "left",
+      displays: {
+        mini: { w: 744, h: 1133, radius: 22, insets: { t: 24, r: 0, b: 20, l: 0 }, island: "none" },
+        miniLand: { w: 1133, h: 744, radius: 22, insets: { t: 24, r: 0, b: 20, l: 0 }, island: "none" },
+        air: { w: 820, h: 1180, radius: 18, insets: { t: 24, r: 0, b: 20, l: 0 }, island: "none" },
+        airLand: { w: 1180, h: 820, radius: 18, insets: { t: 24, r: 0, b: 20, l: 0 }, island: "none" },
+        pro: { w: 1032, h: 1376, radius: 18, insets: { t: 24, r: 0, b: 20, l: 0 }, island: "none" },
+        proLand: { w: 1376, h: 1032, radius: 18, insets: { t: 24, r: 0, b: 20, l: 0 }, island: "none" },
+      },
+      postures: [
+        { id: "mini", label: "mini", display: "mini" },
+        { id: "mini-landscape", label: "mini on its side", display: "miniLand" },
+        { id: "air", label: "Air 11\u2033", display: "air" },
+        { id: "air-landscape", label: "Air on its side", display: "airLand" },
+        { id: "pro", label: "Pro 13\u2033", display: "pro" },
+        { id: "pro-landscape", label: "Pro on its side", display: "proLand" },
+      ],
+    },
   ];
 
   const SCREENS = [

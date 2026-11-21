@@ -1,5 +1,5 @@
 {
-  "_howto": "Owner-editable announcement feed. The app fetches this fresh on every cold start (web + native) — edit, commit, push; NO Play rollout needed. Each message shows once per device (tracked by id). Fields: id (required, unique, never reuse), enabled (set true to go live), title, body (array of plain-text paragraphs — HTML is NOT rendered), cta_label + cta_url (optional button, https only), platforms (optional, any of: \"android\" and \"ios\" for the store apps, \"web\" for any browser, \"web-apple\" for a browser on an iPhone, iPad or Mac), minVersion/maxVersion (optional APP_VERSION range, e.g. only nudge old builds), starts/ends (optional ISO dates for a time window).",
+  "_howto": "Owner-editable announcement feed. The app fetches this fresh on every cold start (web + native) — edit, commit, push; NO Play rollout needed. Each message shows once per device (tracked by id). Fields: id (required, unique, never reuse), enabled (set true to go live), title, body (array of plain-text paragraphs — HTML is NOT rendered), cta_label + cta_url (optional button, https only), cta_action (optional: \"backup-first\" makes the button open the Move to the iPhone app sheet in a browser, which asks for a CSV download before the link; older builds and the store apps just open the link), platforms (optional, any of: \"android\" and \"ios\" for the store apps, \"web\" for any browser, \"web-apple\" for a browser on an iPhone, iPad or Mac), minVersion/maxVersion (optional APP_VERSION range, e.g. only nudge old builds), starts/ends (optional ISO dates for a time window).",
   "messages": [
     {
       "id": "2026-07-29-sample",
@@ -27,10 +27,11 @@
       "title": "Duitful is on the App Store",
       "body": [
         "The iPhone app backs up to your own iCloud, encrypted first. Back up now is free; Pro does it automatically.",
-        "To move over: Settings → Export CSV here, then Settings → Import CSV in the app."
+        "Your data here lives only in this browser and the app starts empty, so save a copy first. The button walks you through it."
       ],
       "cta_label": "Get the iPhone app",
       "cta_url": "https://duitful.app/go/appstore/?utm_source=webapp&utm_medium=en&utm_content=announce-ios",
+      "cta_action": "backup-first",
       "platforms": [
         "web-apple"
       ],
