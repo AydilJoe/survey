@@ -12737,13 +12737,57 @@ const WHATS_NEW_GAP_MS = 5 * 86400000; // at most one digest per 5 days
 const WHATS_NEW_SHOWN_KEY = "duitful.whatsNewShownAt";
 const WHATS_NEW_MAX_BULLETS = 3; // the rest is one tap away: "Read the full changelog"
 
+// Filters a release-note bullet for the active native platform ("android" |
+// "ios") so Android never shows iPhone/iPad/iCloud/App Store notes and iOS
+// never shows Android/Google Play notes. Web shows everything.
+function whatsNewNotesForVersion(v) {
+  const raw = RELEASE_NOTES[v] || [];
+  const plat = isNative() ? nativePlatform() : "";
+  if (plat !== "android" && plat !== "ios") return raw;
+  const appleRe = /\b(?:iPhone|iPad|iPadOS|iOS|iCloud|App Store|TestFlight|Apple Pay|Siri)\b/i;
+  const androidRe = /\b(?:Android|Google Play|Play Store)\b/i;
+  const out = [];
+  for (const line of raw) {
+    const text = line.replace(/<[^>]+>/g, "");
+    const hasApple = appleRe.test(text);
+    const hasAndroid = androidRe.test(text);
+    if (plat === "android") {
+      if (!hasApple) { out.push(line); continue; }
+      if (!hasAndroid) continue;
+      const cleaned = line
+        .replace(/\s*\(Android now,\s*iPhone soon\)/gi, "")
+        .replace(/\bon Android and iPhone\b/gi, "on Android")
+        .replace(/\biPhone and Android\b/gi, "Android")
+        .replace(/,?\s*and the iPhone scan sheet\b/gi, "");
+      if (!appleRe.test(cleaned.replace(/<[^>]+>/g, ""))) out.push(cleaned);
+    } else {
+      if (!hasAndroid) { out.push(line); continue; }
+      if (!hasApple) {
+        const stripped = line.replace(/(\.)\s+On Android,[^.]*\./g, "$1").trim();
+        if (stripped && stripped !== line && !androidRe.test(stripped.replace(/<[^>]+>/g, ""))) {
+          out.push(stripped);
+        }
+        continue;
+      }
+      const cleaned = line
+        .replace(/\s*\(Android now,\s*iPhone soon\)/gi, "")
+        .replace(/\bon Android and iPhone\b/gi, "on iPhone")
+        .replace(/\biPhone and Android\b/gi, "iPhone")
+        .replace(/(?:,|;)\s*and Android and the web still use it\./gi, ".")
+        .replace(/\blike Android does,?\s*/gi, "");
+      if (!androidRe.test(cleaned.replace(/<[^>]+>/g, ""))) out.push(cleaned);
+    }
+  }
+  return out;
+}
+
 function whatsNewUnseenVersions() {
   const seen = state.lastSeenVersion || "";
   return Object.keys(RELEASE_NOTES)
     .filter((v) =>
       versionCompare(v, APP_VERSION) <= 0 &&
       (!seen || versionCompare(v, seen) > 0) &&
-      (RELEASE_NOTES[v] || []).length)
+      whatsNewNotesForVersion(v).length)
     .sort((a, b) => versionCompare(b, a)); // newest first
 }
 
@@ -12797,7 +12841,9 @@ function fillWhatsNew(versions, title) {
   // Newest release first, capped so a long absence never becomes a wall.
   const bullets = [];
   for (const v of versions) {
-    for (const n of RELEASE_NOTES[v]) {
+    const notes = whatsNewNotesForVersion(v);
+    const list = notes.length ? notes : [tr("Bug fixes and performance improvements.")];
+    for (const n of list) {
       if (bullets.length < WHATS_NEW_MAX_BULLETS) bullets.push(`<li>${n}</li>`);
     }
   }
@@ -12816,7 +12862,7 @@ function fillWhatsNew(versions, title) {
 function showWhatsNewNow() {
   const unseen = whatsNewUnseenVersions();
   const versions = unseen.length ? unseen
-    : Object.keys(RELEASE_NOTES).filter((v) => versionCompare(v, APP_VERSION) <= 0 && RELEASE_NOTES[v].length)
+    : Object.keys(RELEASE_NOTES).filter((v) => versionCompare(v, APP_VERSION) <= 0 && whatsNewNotesForVersion(v).length)
       .sort((a, b) => versionCompare(b, a)).slice(0, 1);
   if (!versions.length) return;
   fillWhatsNew(versions, unseen.length > 1 ? tr("What's new since you last looked") : tr("What's new in v{v}", { v: versions[0] }));

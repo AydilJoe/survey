@@ -262,7 +262,7 @@ end
   # when Node or the notes are missing: the upload never fails over notes.
   def release_notes_for(version)
     script = File.join(REPO_ROOT, "scripts", "release-notes.mjs")
-    out = `node "#{script}" "#{version}" en 2>/dev/null`.to_s.strip
+    out = `node "#{script}" "#{version}" en ios 2>/dev/null`.to_s.strip
     $?.success? ? out : ""
   rescue StandardError
     ""
