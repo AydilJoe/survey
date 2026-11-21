@@ -221,4 +221,18 @@ export const ROWS = [
   // ── Passcode (change flow fix, 1.58.2) ─────────────────────────
   ["That's your current passcode. Choose a new one.", "Itu kod laluan semasa anda. Pilih yang baharu.", "这是你现在的密码，请换一个新的。"],
   ["Passcode off.", "Kod laluan dimatikan.", "已关闭密码。"],
+  // ── Move to the iPhone app (backup-first announcement) ─────────
+  ["Move to the iPhone app", "Pindah ke app iPhone", "换到 iPhone 应用"],
+  ["Bring your data with you. It takes two steps.", "Bawa data anda bersama. Hanya dua langkah.", "把数据一起带过去，只需两步。"],
+  ["Save your data first", "Simpan data anda dulu", "先保存你的数据"],
+  ["Your entries live only in this browser. The iPhone app starts empty.", "Catatan anda hanya ada dalam pelayar ini. App iPhone bermula kosong.", "你的记录只存在这个浏览器里。iPhone 应用打开时是空的。"],
+  ["Nothing to save: this browser has no entries yet.", "Tiada apa untuk disimpan: pelayar ini belum ada catatan.", "没有需要保存的：这个浏览器里还没有记录。"],
+  ["Download my data (CSV)", "Muat turun data saya (CSV)", "下载我的数据（CSV）"],
+  ["Saved to Downloads.", "Disimpan dalam Muat Turun.", "已保存到“下载”。"],
+  ["Get the iPhone app", "Dapatkan app iPhone", "获取 iPhone 应用"],
+  ["Install Duitful from the App Store.", "Pasang Duitful dari App Store.", "从 App Store 安装 Duitful。"],
+  ["In the app, tap Restore from backup → CSV (or Settings → Import CSV) and pick the file you saved (Files → Downloads).", "Dalam app, ketik Pulihkan daripada sandaran → CSV (atau Tetapan → Import CSV) dan pilih fail yang anda simpan (Fail → Muat Turun).", "在应用里点“从备份恢复”→ CSV（或“设置”→“导入 CSV”），选你刚保存的文件（文件 → 下载）。"],
+  ["On a Mac? AirDrop the file to your iPhone first.", "Guna Mac? AirDrop fail itu ke iPhone anda dulu.", "用的是 Mac？先用隔空投送把文件传到 iPhone。"],
+  ["Delete the CSV file afterwards. It isn't encrypted.", "Padam fail CSV itu selepas siap. Ia tidak disulitkan.", "完成后删除这个 CSV 文件，它没有加密。"],
+  ["I've already moved my data", "Saya sudah pindahkan data saya", "我已经迁移了数据"],
 ];

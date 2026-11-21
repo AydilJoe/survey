@@ -2098,6 +2098,52 @@
       </form>
     </dialog>
 
+    <!-- Moving from the web app to the iPhone app (an announcement with
+         "cta_action": "backup-first", browsers only; openMoveSheet). The
+         web app's data lives only in this browser and the iPhone app starts
+         empty, so step 2 waits until the CSV is saved (or the person says
+         they already moved it). -->
+    <dialog id="move-dialog" class="edit-dialog paywall-dialog move-dialog" aria-labelledby="move-title">
+      <form method="dialog">
+        <div class="paywall-head">
+          <span class="paywall-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></span>
+          <div>
+            <h2 id="move-title">Move to the iPhone app</h2>
+            <p class="paywall-sub">Bring your data with you. It takes two steps.</p>
+          </div>
+        </div>
+        <ol class="move-steps">
+          <li class="move-step" id="move-step-save">
+            <span class="move-num" aria-hidden="true"><span class="move-num-n">1</span><svg class="move-num-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+            <div class="move-step-body">
+              <h3>Save your data first</h3>
+              <p class="move-why" id="move-why">Your entries live only in this browser. The iPhone app starts empty.</p>
+              <p class="move-why" id="move-empty" hidden>Nothing to save: this browser has no entries yet.</p>
+              <button type="button" class="primary" id="move-export">Download my data (CSV)</button>
+              <p class="move-saved" id="move-saved" role="status" hidden>Saved to Downloads.</p>
+            </div>
+          </li>
+          <li class="move-step" id="move-step-app" aria-disabled="true">
+            <span class="move-num" aria-hidden="true">2</span>
+            <div class="move-step-body">
+              <h3>Get the iPhone app</h3>
+              <ol class="move-how">
+                <li>Install Duitful from the App Store.</li>
+                <li>In the app, tap Restore from backup → CSV (or Settings → Import CSV) and pick the file you saved (Files → Downloads).</li>
+                <li id="move-how-mac" hidden>On a Mac? AirDrop the file to your iPhone first.</li>
+                <li>Delete the CSV file afterwards. It isn't encrypted.</li>
+              </ol>
+              <button type="button" class="primary" id="move-open" disabled>Get the iPhone app</button>
+            </div>
+          </li>
+        </ol>
+        <p class="move-skip-wrap" id="move-skip-wrap"><button type="button" class="link-btn" id="move-skip">I've already moved my data</button></p>
+        <div class="button-row">
+          <button value="close" class="ghost">Not now</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="whats-new-dialog" class="edit-dialog paywall-dialog">
       <form method="dialog">
         <div class="paywall-head">

@@ -1430,6 +1430,40 @@ main {
 .announce-body p { margin: 0 0 0.6rem; color: var(--ink2); line-height: 1.5; }
 .announce-body p:last-child { margin-bottom: 0; }
 .announce-mute { margin: 0 0 0.9rem; }
+
+/* Move to the iPhone app (#move-dialog): two numbered steps; step 2 stays
+   greyed until step 1 is done. Done is a sage tick (progress), never green
+   (money in). */
+.move-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.move-step {
+  display: flex; gap: 0.7rem; align-items: flex-start;
+  padding: 0.8rem; border-radius: var(--r-md);
+  background: var(--card-soft); border: 0.5px solid var(--line);
+  transition: opacity 0.2s ease;
+}
+.move-step[aria-disabled="true"] { opacity: 0.5; }
+.move-step-body { flex: 1; min-width: 0; }
+.move-step h3 { margin: 0.15rem 0 0.25rem; font-size: 1rem; }
+.move-why { margin: 0 0 0.6rem; color: var(--ink2); font-size: 0.9rem; line-height: 1.45; }
+.move-num {
+  flex-shrink: 0; width: 1.75rem; height: 1.75rem; border-radius: var(--r-pill);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.9rem; font-variant-numeric: tabular-nums;
+  color: var(--text); border: 1.5px solid var(--border); background: var(--card);
+}
+.move-num-tick { width: 15px; height: 15px; display: none; }
+.move-step.is-done .move-num { background: var(--accent); border-color: var(--accent); color: var(--card); }
+.move-step.is-done .move-num-n { display: none; }
+.move-step.is-done .move-num-tick { display: block; }
+.move-step.is-done #move-export { display: none; }
+.move-saved { margin: 0; color: var(--ink2); font-size: 0.9rem; font-weight: 600; }
+.move-how { margin: 0 0 0.7rem; padding-left: 1.2rem; color: var(--ink2); font-size: 0.9rem; line-height: 1.45; }
+.move-how li + li { margin-top: 0.3rem; }
+.move-how li[hidden] { display: none; }
+.move-step button.primary { width: 100%; }
+.move-skip-wrap { margin: 0.2rem 0 0; text-align: center; }
+.move-skip-wrap[hidden] { display: none; }
+.move-skip-wrap .link-btn { min-height: 44px; padding: 0 0.5rem; font: inherit; font-size: 0.9rem; color: var(--muted); text-decoration: underline; text-underline-offset: 2px; background: none; border: 0; cursor: pointer; }
 /* On mobile, 4 tiles in one row truncates labels ("RECURRI...", "DAILY S...")
    and values ("RM 8,..."). Switch to a 2×2 grid below 480px so both label and
    amount fit cleanly. */

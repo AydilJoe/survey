@@ -5038,6 +5038,118 @@ check('a split from a spend you already logged never logs it twice',
       && /^https:\/\/duitful\.app\/go\/appstore\/\?utm_source=webapp&/.test(appleMsg.cta_url) && appleMsg.cta_label, JSON.stringify(appleMsg));
 }
 
+// The App Store message ("cta_action": "backup-first"): in a browser the
+// button opens the move sheet, and the App Store link waits until the CSV
+// is saved (or the person says they already moved). Old-style messages and
+// the store apps still open the link directly.
+{
+  const feed = JSON.parse(readFileSync(path.join(REPO_ROOT, 'announcements.json'), 'utf8'));
+  const appleMsg = feed.messages.find((m) => m.id === '2026-11-ios-app-icloud');
+  check('the App Store message asks for a backup first', appleMsg && appleMsg.cta_action === 'backup-first', JSON.stringify(appleMsg));
+  const IPHONE_UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+  const start = async (seed) => {
+    const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, userAgent: IPHONE_UA, acceptDownloads: true });
+    const p = await ctx.newPage();
+    await p.goto(`${BASE}/app/index.html`);
+    await p.waitForTimeout(400);
+    await p.click('#btn-start-open');
+    await p.waitForTimeout(1200);
+    await p.evaluate((seed) => {
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      window.__opened = [];
+      window.open = (u) => { window.__opened.push(String(u)); return null; };
+      if (seed) { state.dailyExpenses.push({ id: 'move-probe', kind: 'expense', date: '2026-11-20', amount: 12.5, category: 'Food', note: 'Probe', createdAt: 1 }); save(); }
+    }, seed);
+    return { ctx, p };
+  };
+  const look = (p) => p.evaluate(() => ({
+    open: !!document.getElementById('move-dialog').open,
+    announce: !!document.getElementById('announce-dialog').open,
+    step2Disabled: document.getElementById('move-open').disabled,
+    step2Aria: document.getElementById('move-step-app').getAttribute('aria-disabled'),
+    step1Done: document.getElementById('move-step-save').classList.contains('is-done'),
+    exportShown: getComputedStyle(document.getElementById('move-export')).display !== 'none',
+    emptyShown: !document.getElementById('move-empty').hidden,
+    skipShown: !document.getElementById('move-skip-wrap').hidden,
+    saved: localStorage.getItem('duitful.moveSaved'),
+    opened: window.__opened.slice(),
+    overflow: (() => { const f = document.querySelector('#move-dialog form'); return f && f.scrollWidth > f.clientWidth + 1; })(),
+  }));
+
+  // With data: the button opens the sheet, not the App Store.
+  const { ctx, p } = await start(true);
+  await p.evaluate((m) => showAnnouncement({ ...m, id: 'move-test-' + Date.now() }), appleMsg);
+  await p.click('#announce-cta');
+  await p.waitForTimeout(200);
+  const a = await look(p);
+  check('move sheet: "Get the iPhone app" in the announcement opens the sheet, not the App Store',
+    a.open && !a.announce && a.opened.length === 0, JSON.stringify(a));
+  check('move sheet: step 2 is disabled until the data is saved, step 1 offers the download and "already moved"',
+    a.step2Disabled && a.step2Aria === 'true' && !a.step1Done && a.exportShown && a.skipShown && !a.overflow, JSON.stringify(a));
+  await p.click('#move-open', { force: true }).catch(() => {});
+  const stillShut = await look(p);
+  check('move sheet: tapping the greyed step 2 opens nothing', stillShut.opened.length === 0 && stillShut.open, JSON.stringify(stillShut));
+  const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 5000 }), p.click('#move-export')]);
+  const csv = await (async () => { const f = await dl.path(); return f ? readFileSync(f, 'utf8') : ''; })();
+  await p.waitForTimeout(100);
+  const b2 = await look(p);
+  check('move sheet: "Download my data (CSV)" downloads the same CSV as Export CSV, with the data in it',
+    /^duitful-\d{4}-\d{2}-\d{2}\.csv$/.test(dl.suggestedFilename()) && /^type,name,amount/.test(csv) && /Probe/.test(csv), dl.suggestedFilename());
+  check('move sheet: once saved, step 1 is ticked, step 2 is enabled and the device remembers it',
+    b2.step1Done && !b2.step2Disabled && b2.step2Aria === 'false' && !b2.skipShown && b2.saved === '1', JSON.stringify(b2));
+  await p.click('#move-open');
+  await p.waitForTimeout(100);
+  const c = await look(p);
+  check('move sheet: step 2 opens the App Store link and closes the sheet',
+    !c.open && c.opened.length === 1 && c.opened[0] === appleMsg.cta_url, JSON.stringify(c));
+  await p.evaluate((u) => openMoveSheet(u), appleMsg.cta_url);
+  const d = await look(p);
+  check('move sheet: reopening remembers the download (step 2 ready at once)', d.open && !d.step2Disabled && d.step1Done, JSON.stringify(d));
+
+  // "I've already moved my data" unlocks step 2 without a download.
+  await p.evaluate(() => { document.getElementById('move-dialog').close(); localStorage.removeItem('duitful.moveSaved'); });
+  await p.evaluate((u) => openMoveSheet(u), appleMsg.cta_url);
+  const e1 = await look(p);
+  await p.click('#move-skip');
+  const e2 = await look(p);
+  check('move sheet: "I\'ve already moved my data" unlocks step 2 without exporting',
+    e1.step2Disabled && !e2.step2Disabled && e2.saved === 'moved', JSON.stringify([e1, e2]));
+
+  // Old-style message (no cta_action): the button opens its link directly.
+  await p.evaluate(() => document.getElementById('move-dialog').close());
+  await p.evaluate(() => { window.__opened = []; showAnnouncement({ id: 'old-style-' + Date.now(), enabled: true, title: 'Old', body: ['x'], cta_label: 'Go', cta_url: 'https://duitful.app/changelog/' }); });
+  await p.click('#announce-cta');
+  await p.waitForTimeout(100);
+  const f = await look(p);
+  check('announcements without cta_action still open their link directly',
+    !f.open && f.opened.length === 1 && f.opened[0] === 'https://duitful.app/changelog/', JSON.stringify(f));
+
+  // Inside the store apps: never the sheet, the button is a plain link.
+  const n = await p.evaluate((m) => {
+    const real = window.isNative;
+    window.isNative = () => true;
+    window.__opened = [];
+    showAnnouncement({ ...m, id: 'native-' + Date.now() });
+    document.getElementById('announce-cta').click();
+    const sheetAfterCta = document.getElementById('move-dialog').open;
+    openMoveSheet(m.cta_url);
+    const sheetDirect = document.getElementById('move-dialog').open;
+    window.isNative = real;
+    return { sheetAfterCta, sheetDirect, opened: window.__opened.slice() };
+  }, appleMsg);
+  check('move sheet: never inside the native apps (the button just opens the App Store)',
+    !n.sheetAfterCta && !n.sheetDirect && n.opened.length === 1, JSON.stringify(n));
+  await ctx.close();
+
+  // An empty vault skips step 1.
+  const fresh = await start(false);
+  await fresh.p.evaluate((u) => openMoveSheet(u), appleMsg.cta_url);
+  const g = await look(fresh.p);
+  check('move sheet: with nothing in the vault, step 1 is skipped and step 2 is ready',
+    g.open && g.step1Done && g.emptyShown && !g.exportShown && !g.step2Disabled && !g.skipShown && g.saved === null, JSON.stringify(g));
+  await fresh.ctx.close();
+}
+
 // v1.55.3: Google Drive can be tucked away in the iPhone app (App Review
 // can't sign in to a Google account from abroad); iCloud stays.
 {
@@ -13571,7 +13683,7 @@ check('the brand catalogue makes no network calls at all',
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const scopes = ['#lock', 'header.app-header', 'nav.tabs', '#tab-dashboard', '#tab-data',
       '#tab-flow', '#tab-debts', '#tab-savings', '#tab-daily', '#tab-reports', '#tab-tax', '#tax-numbers-dialog', '#tax-claim-dialog', '#tax-rules-dialog', '#tax-review-dialog', '#tax-receipt-dialog',
-      '#paywall-dialog', '#debt-paid-dialog', '#milestone-dialog', '#restore-dialog', '#pro-welcome-dialog', '#announce-dialog',
+      '#paywall-dialog', '#debt-paid-dialog', '#milestone-dialog', '#restore-dialog', '#pro-welcome-dialog', '#announce-dialog', '#move-dialog',
       '#whats-new-dialog', '#license-dialog', '#fpx-email-dialog', '#passcode-dialog', '#bio-offer-dialog', '#pwa-install-ios',
       '#onboard-dialog', '#guide-dialog', '#edit-dialog', '#daily-edit-dialog', '#bulk-income-dialog', '#bulk-debt-pay-dialog', '#last-month-edit-dialog', '#search-dialog',
       '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
