@@ -22,8 +22,8 @@
     },
     {
       "id": "2026-11-ios-app-icloud",
-      "enabled": true,
-      "_note": "Live since the App Store release (2026-11). Browsers on an iPhone, iPad or Mac only; never inside the store apps. Each device sees it once.",
+      "enabled": false,
+      "_note": "PAUSED 2026-11-22 until 1.63.1 (CSV export dropped the card link on card-charged spends, so moving by CSV changed balances); turn back on once 1.63.1 is on the App Store. Live since the App Store release (2026-11). Browsers on an iPhone, iPad or Mac only; never inside the store apps. Each device sees it once.",
       "title": "Duitful is on the App Store",
       "body": [
         "The iPhone app backs up to your own iCloud, encrypted first. Back up now is free; Pro does it automatically.",
