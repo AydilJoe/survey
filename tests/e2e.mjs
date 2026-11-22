@@ -9154,6 +9154,7 @@ check('the vault is open before the quick-add checks',
   // tiles, status words, upcoming bills by name and relative day, theme sync
   // (system / light / dark / pastel), locked-vault clearing, and zero amounts.
   const iosWidget = read('scripts', 'patch-ios.mjs');
+  const iosKitPlugin = readFileSync(path.join(REPO_ROOT, 'native/duitful-kit/ios/Sources/DuitfulKitPlugin/DuitfulKitPlugin.swift'), 'utf8');
   check('widget Option D: Android and iOS define Light, Dark and Pastel palettes, month ring and Lock Screen families',
     /duitful_widget_tile_sage_pastel/.test(widget)
     && /duitful_widget_tile_peach_pastel/.test(widget)
@@ -9161,7 +9162,9 @@ check('the vault is open before the quick-add checks',
     && /renderRingBitmap/.test(widget)
     && /case \.pastel:/.test(iosWidget)
     && /\.accessoryCircular/.test(iosWidget)
-    && /\.accessoryRectangular/.test(iosWidget));
+    && /\.accessoryRectangular/.test(iosWidget)
+    && !/\.frame\([^)]*\b(?:width|height)\s*:[^)]*\b(?:minWidth|idealWidth|maxWidth|minHeight|idealHeight|maxHeight)\s*:/.test(iosWidget)
+    && !/import\s+WidgetKit/.test(iosKitPlugin));
 
   const wSum = await S(async () => {
     const keepCap = window.Capacitor;

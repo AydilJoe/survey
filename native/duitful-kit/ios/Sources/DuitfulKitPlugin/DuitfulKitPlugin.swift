@@ -5,9 +5,6 @@ import VisionKit
 import PhotosUI
 import StoreKit
 import MLKitEntityExtraction
-#if canImport(WidgetKit)
-import WidgetKit
-#endif
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -398,11 +395,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
             if let v = call.getString(k) { dict[k] = v }
         }
         UserDefaults.standard.set(dict, forKey: "duitful.widget.summary")
-        #if canImport(WidgetKit)
-        if #available(iOS 14.0, *) {
-            WidgetCenter.shared.reloadAllTimelines()
-        }
-        #endif
+        DuitfulWidgetReload.reloadAll()
         call.resolve(["ok": true])
     }
 
