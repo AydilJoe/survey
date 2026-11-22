@@ -9388,8 +9388,9 @@ const bnplCsv = await S(() => {
     atome,
     kop,
     // Column count must match the header on every row, or a later block shifts.
-    ragged: csv.split('\n').filter(Boolean)
-      .some(l => (l.match(/,/g) || []).length !== (csv.split('\n')[0].match(/,/g) || []).length),
+    // Counted on parsed rows: a JSON setting value (milestones, splitMeta)
+    // is quoted and may hold commas of its own.
+    ragged: parseCSV(csv).some((r, _, all) => r.length !== all[0].length),
   };
 });
 check('csv carries the new debt columns', /term_months,brand,brand_color/.test(bnplCsv.header));
@@ -14329,6 +14330,234 @@ check('the brand catalogue makes no network calls at all',
   check('iPad keyboard: a hardware keyboard\'s shortcut bar is not a keyboard; a docked one lifts the details dialog (still centred across the screen, field in view) with the rail beside it, and lets go when it goes down',
     field && !bar && docked.kb && Math.abs(docked.cx) <= 2 && docked.inside && docked.fieldVisible && docked.rail && !down, JSON.stringify({ field, bar, docked, down }));
   await kctx.close();
+}
+
+/* ── CSV round trip is lossless (1.63.1) ──────────────────────────────────
+   A web user moved to the iPhone app through CSV and their balance dropped
+   by every spend they had charged to a credit card: the `daily` rows had no
+   card link, so on import those spends counted as cash. Rule since then:
+   every field that moves a balance, a total or a link survives export →
+   import. This builds a rich vault (card spends on two cards, Islamic
+   financing, a pay-later plan, fx, pools, wallets with a move and an
+   adjustment, a split bill with repayments, a recurring split, a received
+   request, a statement import, a tax claim, investments, zakat), exports it,
+   imports the file into a FRESH profile through Settings → Import CSV, and
+   compares the money on every screen and the data itself. */
+{
+  const RICH = () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    const m0 = currentMonthISO(), m1 = shiftMonth(m0, -1), m2 = shiftMonth(m0, -2), m3 = shiftMonth(m0, -3);
+    const d = (m, day) => `${m}-${String(day).padStart(2, '0')}`;
+    state.pro = true;
+    const card = { id: uid(), name: 'Visa Platinum', balance: 5000, apr: 18, minPayment: 250, dueDay: 20, kind: 'standard' };
+    const card2 = { id: uid(), name: 'Mastercard Gold', balance: 1200, apr: 15, minPayment: 60, dueDay: 5, kind: 'standard' };
+    const isl = coerceDebt({ id: uid(), name: 'Car financing', balance: 30000, apr: 0, minPayment: 700, dueDay: 1, kind: 'islamic', contract: 'murabahah', principal: 40000, totalProfit: 8000, tenureMonths: 72 });
+    const bnpl = coerceDebt({ id: uid(), name: 'Atome phone', balance: 900, apr: 0, minPayment: 150, dueDay: 12, kind: 'installment', installment: 150, monthsLeft: 6, termMonths: 12, brand: 'atome' });
+    state.debts.push(card, card2, isl, bnpl);
+    state.savings.push({ id: uid(), createdAt: Date.now(), name: 'Emergency fund', target: 10000, current: 1500 });
+    const goal = state.savings[0];
+    const pool = { id: uid(), name: 'Makan', limit: 800, color: POOL_COLORS[1], active: true, rollover: true, monthlyLimits: { [m1]: 900 }, createdAt: Date.now() };
+    state.budgetPools.push(pool);
+    const w1 = walletSave({ name: 'Maybank', type: 'bank', provider: 'maybank', opening: 2000, openingDate: d(m3, 1) }).wallet;
+    const w2 = walletSave({ name: 'Cash', type: 'cash', opening: 300, openingDate: d(m3, 1) }).wallet;
+    for (const m of [m3, m2, m1, m0]) {
+      state.income.push({ id: uid(), name: 'Salary', amount: 6000, month: m, day: 25, repeatNext: true, walletId: w1.id });
+      state.expenses.push({ id: uid(), name: 'Rent', amount: 1500, month: m, day: 1, repeatNext: true, budgetPoolId: pool.id, budgetPoolName: pool.name });
+    }
+    state.income.push({ id: uid(), name: 'Refund · Shopee', amount: 45.5, month: m1, day: 3, repeatNext: false, category: 'Refund', note: 'Maybank statement', source: 'statement' });
+    state.income.push({ id: uid(), name: 'From Ali', amount: 120, month: m0, day: 2, repeatNext: false, category: 'Money in', note: 'Maybank2u' });
+    state.expenses.push({ id: uid(), name: 'Netflix', amount: 54.9, month: m0, day: 7, repeatNext: true, fx: { code: 'USD', amount: 12.99, rate: 4.2263, base: 'MYR', fetched_at: '2026-01-01T00:00:00Z' } });
+    const ent = (o) => { const e = { id: uid(), createdAt: Date.now(), note: '', ...o }; state.dailyExpenses.push(e); return e; };
+    ent({ kind: 'expense', date: d(m2, 4), amount: 35, category: 'Food', note: 'nasi lemak', walletId: w2.id, budgetPoolId: pool.id, budgetPoolName: pool.name });
+    ent({ kind: 'expense', date: d(m2, 10), amount: 2500, category: 'Shopping', note: 'laptop', cardDebtId: card.id, cardDebtName: card.name });
+    ent({ kind: 'expense', date: d(m1, 11), amount: 380.4, category: 'Travel', note: 'flight', cardDebtId: card2.id, cardDebtName: card2.name });
+    ent({ kind: 'expense', date: d(m0, 2), amount: 99, category: 'Health', note: 'clinic', cardDebtId: card.id, cardDebtName: card.name });
+    ent({ kind: 'expense', date: d(m1, 15), amount: 62.3, category: 'Groceries', note: 'TESCO', source: 'statement', walletId: w1.id });
+    const dental = ent({ kind: 'expense', date: d(m1, 18), amount: 210, category: 'Medical', note: 'dental' });
+    ent({ kind: 'expense', date: d(m0, 3), amount: 42.26, category: 'Subscriptions', note: 'chatgpt', fx: { code: 'USD', amount: 10, rate: 4.226, base: 'MYR', fetched_at: null } });
+    ent({ kind: 'debt', date: d(m1, 20), amount: 400, debtId: card.id, debtName: card.name, budgetPoolId: SYSTEM_DEBT_POOL_ID, budgetPoolName: 'Debt' });
+    ent({ kind: 'debt', date: d(m0, 1), amount: 700, debtId: isl.id, debtName: isl.name });
+    ent({ kind: 'saving', date: d(m1, 26), amount: 500, savingId: goal.id, savingName: goal.name, walletId: w1.id });
+    state.monthlyMinSums[m2] = 1160; state.monthlyMinSums[m1] = 1160;
+    walletMove(w1.id, w2.id, 200, d(m1, 5), 'ATM');
+    walletAdjust(w2.id, 50, d(m0, 1));
+    state.ownAccounts = ['AHMAD BIN ALI'];
+    const bill = ent({ kind: 'expense', date: d(m1, 12), amount: 180, category: 'Food', note: 'Dinner' });
+    const rec = coerceSplitOut({ id: uid(), kind: 'split', title: 'Dinner', date: d(m1, 12), total: 180, expenseId: bill.id, note: 'Birthday',
+      people: [{ id: splitShortId(), name: 'Siti', amount: 60, note: 'Ayam 50 · charges 10', status: 'open', repayments: [] },
+               { id: splitShortId(), name: 'Ali', amount: 60, status: 'open', repayments: [] }] });
+    splitOutList().push(rec);
+    splitRecordRepayment(rec.people[0].id, 60, d(m0, 1));
+    splitRecordRepayment(rec.people[1].id, 20, d(m1, 16));
+    const rs = rsSave({ name: 'Rumah sewa', total: 2400, mode: 'equal', meWeight: 1, dueDay: 5, from: m1, people: [{ name: 'Siti' }, { name: 'Ali' }] }).rs;
+    rsSend(rs.id, m1);
+    rsSend(rs.id, m0);
+    splitRecordRepayment(splitOutList().find((x) => x.id === rs.months[m1].recId).people[0].id, 800, d(m1, 6));
+    const owe = ent({ kind: 'expense', date: d(m1, 3), amount: 25, category: 'Split', note: 'Paid Abu · Movie' });
+    splitInList().push(coerceSplitIn({ id: 'in' + uid(), from: 'Abu', title: 'Movie', date: d(m1, 2), amount: 25, status: 'settled', settledDate: d(m1, 3), expenseId: owe.id }));
+    state.investments.push(coerceInvestment({ name: 'ASB', kind: 'balance', account: 'ASB', balance: 5000, valuations: [{ date: d(m2, 28), value: 4800 }, { date: d(m1, 28), value: 5000 }], flows: [{ date: d(m2, 1), amount: 4800 }] }));
+    state.shariah = coerceShariah({ ...state.shariah, zakatEnabled: true, goldPrice: 420, history: [{ id: uid(), date: d(m2, 15), amount: 100 }] });
+    const t = taxState(); t.enabled = true; t.year = new Date().getFullYear();
+    t.claims.push({ id: uid(), relief: 'medical', sub: 'dental', amount: 210, date: dental.date, entryId: dental.id, note: '', receiptId: '', docIds: [] });
+    t.figures[String(t.year)] = { pcb: 3000, epf: 7920, income: 72000 };
+    t.skipped = [bill.id];
+    state.tax = coerceTax(t);
+    state.milestones = { 'paid-1k': todayISO() };
+    save(); renderAll();
+  };
+  // Every figure a person reads (Home, Debts, Reports, Savings), each month's
+  // ending balance, and the data minus fields that are per device.
+  const SNAP = () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    resetEndingBalanceCache();
+    // Snap every figure to its value (no count-up tween mid-read).
+    _isHydrated = false;
+    renderAll();
+    _isHydrated = true;
+    const m0 = currentMonthISO();
+    const months = {};
+    for (let m = getEarliestDataMonth(); m && m <= m0; m = shiftMonth(m, 1)) {
+      months[m] = {
+        end: endingBalanceFor(m).toFixed(2),
+        income: totalOf(state.income.filter((x) => x.month === m)).toFixed(2),
+        bills: totalOf(state.expenses.filter((x) => x.month === m)).toFixed(2),
+        ...Object.fromEntries(['expense', 'debt', 'saving'].map((k) => [k, state.dailyExpenses.filter((e) => e.kind === k && monthOf(e.date) === m).reduce((s, e) => s + Number(e.amount), 0).toFixed(2)])),
+        card: state.dailyExpenses.filter((e) => e.cardDebtId && monthOf(e.date) === m).reduce((s, e) => s + Number(e.amount), 0).toFixed(2),
+      };
+    }
+    // Whitespace dropped: layout state (an open breakdown, a wrapped line) is per device.
+    const txt = (sel) => (document.querySelector(sel)?.innerText || '').replace(/\s+/g, '');
+    const drop = new Set(['createdAt', 'lastEditedAt', 'deviceId', 'firstRunAt', 'proTrialStartedAt', 'license', 'pro', 'ocrUsage', 'statementUsage']);
+    const data = JSON.parse(JSON.stringify({
+      income: state.income, expenses: state.expenses, debts: state.debts, dailyExpenses: state.dailyExpenses,
+      savings: state.savings, investments: state.investments, budgetPools: state.budgetPools,
+      wallets: state.wallets, walletMoves: state.walletMoves.map(({ id, ...m }) => m), walletLast: state.walletLast,
+      monthlyMinSums: state.monthlyMinSums, extraMonthly: state.extraMonthly, ownAccounts: state.ownAccounts,
+      aiEnabled: state.aiEnabled, currency: state.currency, shariah: { ...state.shariah, history: state.shariah.history.map(({ id, ...h }) => h) },
+      investPlan: state.investPlan, milestones: state.milestones,
+      split: { ...state.split, names: undefined, meAsked: undefined },
+      tax: { ...state.tax, deltaSince: undefined, prompted: undefined, claims: state.tax.claims.map(({ id, ...c }) => c) },
+    }, (k, v) => (drop.has(k) ? undefined : v)));
+    return {
+      hero: lastHeroNet.toFixed(2), carry: endingBalanceFor(shiftMonth(m0, -1)).toFixed(2), months,
+      debts: state.debts.map((x) => `${x.name}:${x.balance}`).join('|'),
+      wallets: state.wallets.map((w) => `${w.name}:${walletBalance(w)}`).join('|'),
+      home: ['#upcoming-card', '#stat-net', '#hero-progress-text', '#last-month-line', '#hero-debt-glance', '#today-card'].map(txt).join('·'), debtsTab: txt('#tab-debts'), reports: txt('#tab-reports'), savingsTab: txt('#tab-savings'),
+      data,
+    };
+  };
+  const open = async () => {
+    const ctx = await b.newContext({ acceptDownloads: true });
+    const p = await ctx.newPage();
+    p.on('pageerror', (e) => errors.push('pageerror (csv round trip): ' + e.message));
+    p.on('dialog', (dlg) => dlg.accept());
+    await p.goto(`${BASE}/app/index.html`);
+    await p.waitForTimeout(500);
+    await p.click('#btn-start-open');
+    await p.waitForTimeout(1000);
+    return { ctx, p };
+  };
+  const A = await open();
+  await A.p.evaluate(RICH);
+  const before = await A.p.evaluate(SNAP);
+  // Export through the real button, as the move sheet's step 1 does.
+  await A.p.evaluate(() => { document.querySelectorAll('dialog[open]').forEach((d) => d.close()); document.getElementById('tabbtn-data').click(); });
+  const [dl] = await Promise.all([A.p.waitForEvent('download'), A.p.evaluate(() => document.getElementById('btn-export').click())]);
+  const csvPath = await dl.path();
+  const csvText = readFileSync(csvPath, 'utf8');
+  // Import into a fresh profile through Settings → Import CSV (Pro carries
+  // over on the importing device, so it is set there first, like a buyer's).
+  const B = await open();
+  await B.p.evaluate(() => { state.pro = true; save(); document.getElementById('tabbtn-data').click(); });
+  await B.p.setInputFiles('#file-import', { name: 'duitful.csv', mimeType: 'text/csv', buffer: Buffer.from(csvText) });
+  await B.p.waitForTimeout(800);
+  const status = await B.p.evaluate(() => document.getElementById('import-status').textContent);
+  const after = await B.p.evaluate(SNAP);
+  const diffs = Object.keys(before).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
+  const deep = [];
+  const walk = (a, z, path) => {
+    if (JSON.stringify(a) === JSON.stringify(z)) return;
+    if (a && z && typeof a === 'object' && typeof z === 'object') {
+      for (const k of new Set([...Object.keys(a), ...Object.keys(z)])) walk(a[k], z[k], `${path}.${k}`);
+    } else deep.push(`${path}: ${JSON.stringify(a)} → ${JSON.stringify(z)}`);
+  };
+  walk(before.data, after.data, 'state');
+  check('CSV round trip (1.63.1): Home balance, carry-over, every month\'s ending balance, monthly totals, debt and wallet balances are identical after export → import into a fresh profile',
+    before.hero === after.hero && before.carry === after.carry && JSON.stringify(before.months) === JSON.stringify(after.months)
+    && before.debts === after.debts && before.wallets === after.wallets,
+    JSON.stringify({ hero: [before.hero, after.hero], carry: [before.carry, after.carry], months: [before.months, after.months] }).slice(0, 900));
+  check('CSV round trip: Home, Debts, Reports and Savings read the same, word for word',
+    !diffs.some((k) => ['home', 'debtsTab', 'reports', 'savingsTab'].includes(k)), diffs.join(','));
+  check('CSV round trip: the data deep-compares equal (ids kept; card links, payment and goal links, statement source, income category / note, split repayment person, recurring split link, bill totals and notes, tax year / skipped / claim link, milestones)',
+    deep.length === 0 && /Imported/.test(status) && !/older version/.test(status), deep.slice(0, 12).join(' | ') + ' · ' + status);
+  check('CSV round trip: the file carries the card columns on card spends',
+    /(^|,)card_debt_id,card_debt(,|$)/m.test(csvText.split('\n')[0]) && csvText.split('\n').filter((l) => /^daily,/.test(l) && /Visa Platinum|Mastercard Gold/.test(l)).length === 3,
+    csvText.split('\n')[0]);
+
+  // The card link specifically, the way it hit people: balance before = after,
+  // the card spend stays a card spend, and a card missing from the file (a
+  // hand-trimmed file) keeps the spend on a card instead of turning it to cash.
+  const card = await B.p.evaluate((text) => {
+    const bal = (s) => { const keep = state; state = s; resetEndingBalanceCache(); renderAll(); const out = { hero: lastHeroNet.toFixed(2), carry: endingBalanceFor(shiftMonth(currentMonthISO(), -1)).toFixed(2) }; state = keep; resetEndingBalanceCache(); renderAll(); return out; };
+    const now = bal(state);
+    const back = fromCSV(text);
+    const lines = text.split('\n');
+    const noCards = lines.filter((l) => !/^debt,(Visa Platinum|Mastercard Gold),/.test(l)).join('\n');
+    const orphan = fromCSV(noCards);
+    const orphanCard = orphan.dailyExpenses.filter((e) => e.cardDebtId);
+    // An older file: the same rows without the 1.63.1 columns.
+    const head = lines[0].split(',');
+    const cut = head.indexOf('entry_id');
+    const old = lines.map((l) => parseCSV(l + '\n')[0] || []).filter((r) => r.length).map((r) => r.slice(0, cut).map(csvEscape).join(',')).join('\n');
+    const legacy = fromCSV(old);
+    const legacyNote = lastCsvImportInfo.legacyCards;
+    fromCSV(text);
+    const freshNote = lastCsvImportInfo.legacyCards;
+    return {
+      now, back: bal(back), cards: back.dailyExpenses.filter((e) => e.cardDebtId).map((e) => `${e.note}:${e.cardDebtName}:${back.debts.some((x) => x.id === e.cardDebtId)}`).sort(),
+      orphan: orphanCard.map((e) => `${e.note}:${e.cardDebtName}:${!!e.cardDebtId}`).sort(),
+      legacyImports: legacy.dailyExpenses.length === back.dailyExpenses.length, legacyCash: legacy.dailyExpenses.filter((e) => e.cardDebtId).length,
+      legacyNote, freshNote,
+      legacySaving: legacy.dailyExpenses.filter((e) => e.kind === 'saving').every((e) => e.savingId === legacy.savings[0].id),
+    };
+  }, csvText);
+  check('CSV card link: a spend charged to a credit card is still charged to that card after export → import, and the balance before = the balance after',
+    card.now.hero === card.back.hero && card.now.carry === card.back.carry && card.now.hero === before.hero
+    && JSON.stringify(card.cards) === JSON.stringify(['clinic:Visa Platinum:true', 'flight:Mastercard Gold:true', 'laptop:Visa Platinum:true']), JSON.stringify(card));
+  check('CSV card link: a card the file no longer has keeps its spends on a card (by name), never cash',
+    JSON.stringify(card.orphan) === JSON.stringify(['clinic:Visa Platinum:true', 'flight:Mastercard Gold:true', 'laptop:Visa Platinum:true']), JSON.stringify(card.orphan));
+  check('CSV card link: a file from before 1.63.1 still imports whole (its spends land as cash, as that file says), and only then the import mentions it; a deposit row before its goal row still finds the goal',
+    card.legacyImports && card.legacyCash === 0 && card.legacyNote === true && card.freshNote === false && card.legacySaving, JSON.stringify(card));
+
+  // Old file through the real Import: the note shows, honestly worded.
+  const oldNote = await B.p.evaluate(async (text) => {
+    const lines = text.split('\n');
+    const cut = lines[0].split(',').indexOf('entry_id');
+    const old = lines.map((l) => parseCSV(l + '\n')[0] || []).filter((r) => r.length).map((r) => r.slice(0, cut).map(csvEscape).join(',')).join('\n');
+    const el = document.getElementById('import-status');
+    await importCsvFile(new File([old], 'old.csv'), { ask: false, statusEl: el });
+    return el.textContent;
+  }, csvText);
+  check('CSV import of an older file with spends and a card-type debt says once that it can\'t know which spends went on a card, and how to fix it',
+    /older version of Duitful, which didn't save which spends went on a credit card/.test(oldNote) && /export again/.test(oldNote), oldNote);
+
+  // Settings that change every figure's meaning: the vault currency and own tax rules.
+  const cur = await B.p.evaluate(() => {
+    const keep = state.currency;
+    state.currency = 'SGD';
+    const out = fromCSV(toCSV()).currency;
+    state.currency = keep;
+    const myr = fromCSV(toCSV()).currency;
+    const t = state.tax, keepRules = t.rules;
+    t.rules = { ...JSON.parse(JSON.stringify(TAX_BUILTIN)), currency: 'MYR' };
+    const rules = JSON.stringify(fromCSV(toCSV()).tax.rules) === JSON.stringify(t.rules);
+    t.rules = keepRules;
+    taxSyncRules();
+    return { out, myr, rules };
+  });
+  check('CSV: the vault currency and your own tax rules round-trip (a file without the currency row stays MYR)', cur.out === 'SGD' && cur.myr === 'MYR' && cur.rules, JSON.stringify(cur));
+  await A.ctx.close();
+  await B.ctx.close();
 }
 
 await b.close();

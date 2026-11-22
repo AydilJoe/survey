@@ -1763,6 +1763,7 @@
   "Saved to Downloads.": "Disimpan dalam Muat Turun.",
   "Get the iPhone app": "Dapatkan app iPhone",
   "Install Duitful from the App Store.": "Pasang Duitful dari App Store.",
+  "This file is from an older version of Duitful, which didn't save which spends went on a credit card, so they count as cash here. If you charged spends to a card, update Duitful where you made this file, export again and import the new file.": "Fail ini daripada versi Duitful yang lebih lama, yang tidak menyimpan belanja mana dibuat dengan kad kredit, jadi semuanya dikira sebagai tunai di sini. Jika anda pernah caj belanja ke kad, kemas kini Duitful di tempat fail ini dibuat, eksport semula dan import fail yang baharu.",
   "In the app, tap Restore from backup → CSV (or Settings → Import CSV) and pick the file you saved (Files → Downloads).": "Dalam app, ketik Pulihkan daripada sandaran → CSV (atau Tetapan → Import CSV) dan pilih fail yang anda simpan (Fail → Muat Turun).",
   "On a Mac? AirDrop the file to your iPhone first.": "Guna Mac? AirDrop fail itu ke iPhone anda dulu.",
   "Delete the CSV file afterwards. It isn't encrypted.": "Padam fail CSV itu selepas siap. Ia tidak disulitkan.",

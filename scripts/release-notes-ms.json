@@ -1,4 +1,7 @@
 {
+  "1.63.1": [
+    "<strong>CSV kekalkan belanja kad anda</strong> — belanja yang dicaj ke kad kredit kini kekal pada kad itu bila anda eksport CSV dan importnya di peranti lain. Sebelum ini ia kembali sebagai tunai dan baki bawaan jatuh. Pautan bayaran, bil kongsi dan butiran cukai turut kembali. Pindah dengan fail lama? Eksport semula dan import fail yang baharu."
+  ],
   "1.63.0": [
     "<strong>Duitful di iPad</strong> — skrin penuh, semua orientasi, dengan bar sisi pada skrin yang lebih besar.",
     "<strong>Lebih lapang di skrin besar</strong> — susun atur dua lajur yang kemas di tablet dan tetingkap lebar, dengan angka penuh dalam pecahan baki.",

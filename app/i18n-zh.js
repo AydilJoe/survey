@@ -1763,6 +1763,7 @@
   "Saved to Downloads.": "已保存到“下载”。",
   "Get the iPhone app": "获取 iPhone 应用",
   "Install Duitful from the App Store.": "从 App Store 安装 Duitful。",
+  "This file is from an older version of Duitful, which didn't save which spends went on a credit card, so they count as cash here. If you charged spends to a card, update Duitful where you made this file, export again and import the new file.": "这个文件来自旧版 Duitful，旧版没有记下哪些消费是刷信用卡的，所以这里都算作现金。如果你有消费记在卡上，请先更新生成这个文件的 Duitful，重新导出，再导入新文件。",
   "In the app, tap Restore from backup → CSV (or Settings → Import CSV) and pick the file you saved (Files → Downloads).": "在应用里点“从备份恢复”→ CSV（或“设置”→“导入 CSV”），选你刚保存的文件（文件 → 下载）。",
   "On a Mac? AirDrop the file to your iPhone first.": "用的是 Mac？先用隔空投送把文件传到 iPhone。",
   "Delete the CSV file afterwards. It isn't encrypted.": "完成后删除这个 CSV 文件，它没有加密。",
