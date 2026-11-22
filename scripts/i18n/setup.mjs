@@ -231,6 +231,7 @@ export const ROWS = [
   ["Saved to Downloads.", "Disimpan dalam Muat Turun.", "已保存到“下载”。"],
   ["Get the iPhone app", "Dapatkan app iPhone", "获取 iPhone 应用"],
   ["Install Duitful from the App Store.", "Pasang Duitful dari App Store.", "从 App Store 安装 Duitful。"],
+  ["This file is from an older version of Duitful, which didn't save which spends went on a credit card, so they count as cash here. If you charged spends to a card, update Duitful where you made this file, export again and import the new file.", "Fail ini daripada versi Duitful yang lebih lama, yang tidak menyimpan belanja mana dibuat dengan kad kredit, jadi semuanya dikira sebagai tunai di sini. Jika anda pernah caj belanja ke kad, kemas kini Duitful di tempat fail ini dibuat, eksport semula dan import fail yang baharu.", "这个文件来自旧版 Duitful，旧版没有记下哪些消费是刷信用卡的，所以这里都算作现金。如果你有消费记在卡上，请先更新生成这个文件的 Duitful，重新导出，再导入新文件。"],
   ["In the app, tap Restore from backup → CSV (or Settings → Import CSV) and pick the file you saved (Files → Downloads).", "Dalam app, ketik Pulihkan daripada sandaran → CSV (atau Tetapan → Import CSV) dan pilih fail yang anda simpan (Fail → Muat Turun).", "在应用里点“从备份恢复”→ CSV（或“设置”→“导入 CSV”），选你刚保存的文件（文件 → 下载）。"],
   ["On a Mac? AirDrop the file to your iPhone first.", "Guna Mac? AirDrop fail itu ke iPhone anda dulu.", "用的是 Mac？先用隔空投送把文件传到 iPhone。"],
   ["Delete the CSV file afterwards. It isn't encrypted.", "Padam fail CSV itu selepas siap. Ia tidak disulitkan.", "完成后删除这个 CSV 文件，它没有加密。"],

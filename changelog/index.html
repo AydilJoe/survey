@@ -153,6 +153,16 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-63-1">
+    <span class="release-date">November 2026 &middot; v1.63.1</span>
+    <h2 class="release-title">CSV keeps your card spends</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Card spends in CSV:</strong> a spend charged to a credit card was exported without its card, so importing the file (for example to move from the web to the iPhone app) counted it as cash and lowered the carried-over balance. The CSV now carries the card, and a spend on a card the file doesn&rsquo;t have stays on a card.</li>
+      <li><span class="tag fix">fix</span><strong>Lossless CSV:</strong> entries keep their ids, so payments, goal deposits, split bills, recurring splits and tax claims stay linked; split repayments no longer show as expected pay; statement imports, bill totals, people&rsquo;s notes, the vault currency, your own tax rules and the tax year come back too. Older files still import.</li>
+      <li><span class="tag fix">fix</span><strong>Older files:</strong> importing a CSV from before this version says once that it can&rsquo;t know which spends went on a card. Export again from the updated app and import that file; Import CSV replaces everything, so nothing is doubled.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-63-0">
     <span class="release-date">November 2026 &middot; v1.63.0</span>
     <h2 class="release-title">Duitful on iPad</h2>

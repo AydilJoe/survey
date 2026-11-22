@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.63.0";
+const APP_VERSION = "1.63.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -10070,6 +10070,13 @@ function toCSV() {
     "split_settled_date", "split_role",
     "term_months", "brand", "brand_color",
     "wallet_id", "wallet", "wallet_to",
+    // 1.63.1: everything that moves a balance or holds a link must survive
+    // export → import (e2e "round trip is lossless" checks it). entry_id is
+    // the row's own id (entries, debts, goals, pools), kept on import so
+    // links between rows survive; card_debt_id / card_debt mark a spend
+    // charged to a card (it is not cash); debt_id / saving_id are a payment's
+    // debt / goal; source is "statement" for statement imports.
+    "entry_id", "card_debt_id", "card_debt", "debt_id", "saving_id", "source",
   ];
   const rows = [HEADER];
   const W = HEADER.length;
@@ -10087,14 +10094,38 @@ function toCSV() {
       const w = (state.wallets || []).find((x) => x.id === entry.walletId);
       row[IWN] = w ? w.name : "";
     }
-    return row;
+    return withLinks(row, entry);
   };
+  // The 1.63.1 columns, by header name. Older builds ignore them.
+  const IE = HEADER.indexOf("entry_id"), ICD = HEADER.indexOf("card_debt_id"), ICN = HEADER.indexOf("card_debt");
+  const IDI = HEADER.indexOf("debt_id"), ISI = HEADER.indexOf("saving_id"), ISRC = HEADER.indexOf("source");
+  const ISP = HEADER.indexOf("split_id");
+  function withLinks(row, entry) {
+    if (!entry) return row;
+    if (entry.id) row[IE] = entry.id;
+    if (entry.kind === "expense" && entry.cardDebtId) {
+      const c = state.debts.find((x) => x.id === entry.cardDebtId);
+      row[ICD] = entry.cardDebtId;
+      row[ICN] = (c && c.name) || entry.cardDebtName || "";
+    }
+    if (entry.kind === "debt" && entry.debtId) row[IDI] = entry.debtId;
+    if (entry.kind === "saving" && entry.savingId) row[ISI] = entry.savingId;
+    if (entry.source) row[ISRC] = entry.source;
+    return row;
+  }
 
+  // Income rows carry their category / note (a split repayment or a captured
+  // credit is told apart by them) and, in split_id, the split person a
+  // repayment settled; a Monthly bill carries its recurring split there.
   for (const i of state.income) {
-    rows.push(withWallet(blank(["income", i.name, i.amount, "", "", "", "", "", "", "", "", "", i.month || "", i.day ?? "", "", "", "", ...fxCols(i.fx), "", "", "", "", "", "", "", i.repeatNext === false ? "N" : "Y"]), i));
+    const row = withWallet(blank(["income", i.name, i.amount, "", "", "", "", i.category || "", i.note || "", "", "", "", i.month || "", i.day ?? "", "", "", "", ...fxCols(i.fx), "", "", "", "", "", "", "", i.repeatNext === false ? "N" : "Y"]), i);
+    if (i.splitPersonId) row[ISP] = i.splitPersonId;
+    rows.push(row);
   }
   for (const ex of state.expenses) {
-    rows.push(withWallet(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx), "", "", "", "", "", ...poolTagCols(ex), ex.repeatNext === false ? "N" : "Y"]), ex));
+    const row = withWallet(blank(["expense", ex.name, ex.amount, "", "", "", "", "", "", "", "", "", ex.month || "", ex.day ?? "", "", "", "", ...fxCols(ex.fx), "", "", "", "", "", ...poolTagCols(ex), ex.repeatNext === false ? "N" : "Y"]), ex);
+    if (ex.splitRecurringId) row[ISP] = ex.splitRecurringId;
+    rows.push(row);
   }
   for (const d of state.debts) {
     const isInst = d.kind === "installment";
@@ -10126,6 +10157,7 @@ function toCSV() {
     row[HEADER.indexOf("term_months")] = isInst ? (d.termMonths ?? "") : "";
     row[HEADER.indexOf("brand")] = d.brand || "";
     row[HEADER.indexOf("brand_color")] = d.color || "";
+    row[IE] = d.id || "";
     rows.push(row);
   }
   for (const e of state.dailyExpenses) {
@@ -10138,7 +10170,9 @@ function toCSV() {
     }
   }
   for (const g of state.savings) {
-    rows.push(blank(["saving", g.name, "", "", "", "", "", "", "", "", g.target, g.current]));
+    const row = blank(["saving", g.name, "", "", "", "", "", "", "", "", g.target, g.current]);
+    row[IE] = g.id || "";
+    rows.push(row);
   }
   // Investment rows only ever fill type/name/amount/balance/date plus the
   // trailing inv_* block, so build them by column index instead of counting
@@ -10153,13 +10187,13 @@ function toCSV() {
       return row;
     };
     for (const h of state.investments || []) {
-      rows.push(invRow("investment", h.name, {
+      rows.push(withLinks(invRow("investment", h.name, {
         balance: h.balance ?? "",
         inv: [
           h.kind, h.account, h.units ?? "", h.unitPrice ?? "", h.costBasis ?? "",
           h.zakatable ? "Y" : "N", h.expectedReturn ?? "", "",
         ],
-      }));
+      }), { id: h.id }));
       for (const v of h.valuations || []) rows.push(invRow("valuation", h.name, { amount: v.value, date: v.date }));
       for (const f of h.flows || []) rows.push(invRow("inv-flow", h.name, { amount: f.amount, date: f.date }));
       for (const d of h.dividends || []) {
@@ -10236,6 +10270,19 @@ function toCSV() {
     // One row per recurring split, the whole plan as JSON (an older build
     // skips the key). Its months point at split-out ids, which survive.
     for (const rs of sp.recurring || []) rows.push(blank(["setting", "splitRecurring", JSON.stringify(rs)]));
+    // What the per-person rows have no room for (1.63.1): the whole bill
+    // (your share = total − theirs), the spend it is linked to, and each
+    // person's own note. Older builds skip the key.
+    for (const rec of sp.out || []) {
+      const notes = {};
+      for (const p of rec.people || []) if (p.note) notes[p.id] = p.note;
+      if (rec.total || rec.expenseId || Object.keys(notes).length) {
+        rows.push(blank(["setting", "splitMeta", JSON.stringify({ id: rec.id, total: rec.total, expenseId: rec.expenseId || "", notes })]));
+      }
+    }
+    for (const rec of sp.in || []) {
+      if (rec.expenseId) rows.push(blank(["setting", "splitMeta", JSON.stringify({ in: true, id: rec.id, expenseId: rec.expenseId })]));
+    }
   }
   // Wallets: one row each, then moves and adjustments. Type in `kind`, the
   // first app in `note` (what older versions read), "archived" in
@@ -10301,6 +10348,13 @@ function toCSV() {
     for (const c of tx.claims) {
       rows.push(blank(["tax-claim", c.sub ? `${c.relief}:${c.sub}` : c.relief, c.amount, "", "", "", c.date, c.entryId, c.note]));
     }
+    // 1.63.1: the tracked year, your own country's rules (they decide every
+    // relief and the estimate), the spends you said "not tax" to, and the
+    // on-device AI's cached matches (both keyed by entry ids, which survive).
+    if (tx.year) settingRow("taxYear", tx.year);
+    if (tx.rules) settingRow("taxRules", JSON.stringify(tx.rules));
+    if (tx.skipped.length) settingRow("taxSkipped", JSON.stringify(tx.skipped));
+    if (Object.keys(tx.aiMatch || {}).length) settingRow("taxAiMatch", JSON.stringify(tx.aiMatch));
   }
   // Retirement plan — same one-setting-row-per-key shape as the zakat block.
   // `enabled` rides along so a disabled plan round-trips as disabled rather
@@ -10320,16 +10374,21 @@ function toCSV() {
   // Own-account names ("This is my account"), one setting row each.
   for (const n of state.ownAccounts || []) rows.push(blank(["setting", "ownAccount", n]));
   rows.push(blank(["setting", "aiEnabled", state.aiEnabled === false ? "N" : "Y"]));
+  // The vault's currency: every amount in the file is in it (1.63.1; older
+  // files mean MYR, which is what an import without the row keeps).
+  if (state.currency && state.currency !== "MYR") rows.push(blank(["setting", "currency", state.currency]));
+  // Milestones already earned, with their dates, so a move doesn't re-earn them.
+  if (state.milestones && Object.keys(state.milestones).length) rows.push(blank(["setting", "milestones", JSON.stringify(state.milestones)]));
   // Budget pool rows — name in column 1 ("name"), limit in column 2 ("amount"),
   // remaining pool-specific data in the new pool_* columns at index 22-26.
   for (const p of state.budgetPools) {
-    rows.push(blank([
+    rows.push(withLinks(blank([
       "budget-pool", p.name, p.limit, "", "", "", "", "", "", "", "", "", "", "", "", "", "",
       "", "", "", "", "",
       p.color || "", p.active ? "Y" : "N", p.rollover ? "Y" : "N",
       JSON.stringify(p.monthlyLimits || {}) === "{}" ? "" : JSON.stringify(p.monthlyLimits || {}),
       p.system || "",
-    ]));
+    ]), { id: p.id }));
   }
   // monthly-minsum rows — round-trip the per-month debt-min snapshots
   for (const [month, value] of Object.entries(state.monthlyMinSums || {})) {
@@ -10365,6 +10424,9 @@ function parseCSV(text) {
   if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
   return rows.filter((r) => r.length > 0 && !(r.length === 1 && r[0] === ""));
 }
+
+// What the last fromCSV() found that the import result should mention.
+let lastCsvImportInfo = { legacyCards: false };
 
 function fromCSV(text) {
   const rows = parseCSV(text);
@@ -10402,6 +10464,29 @@ function fromCSV(text) {
   const iSplitStatus = idx("split_status"), iSplitDue = idx("split_due_date");
   const iSplitSettled = idx("split_settled_date");
   const iWalletId = idx("wallet_id"), iWalletTo = idx("wallet_to");
+  // 1.63.1 columns; absent from older files, which import as before.
+  const iEntryId = idx("entry_id"), iCardDebtId = idx("card_debt_id"), iCardDebt = idx("card_debt");
+  const iDebtId = idx("debt_id"), iSavingId = idx("saving_id"), iSource = idx("source");
+  const cellAt = (row, i) => (i >= 0 ? String(row[i] ?? "").trim() : "");
+  // A row's own id is kept when it looks like one and is not taken yet in
+  // its list, so links between rows (card charges, payments, split bills,
+  // tax claims) survive; anything else gets a fresh id, as before.
+  const idsTaken = { income: new Set(), expenses: new Set(), debts: new Set(), daily: new Set(), savings: new Set(), pools: new Set(), investments: new Set() };
+  const rowId = (row, list) => {
+    const raw = cellAt(row, iEntryId);
+    if (raw && raw.length <= 80 && /^[A-Za-z0-9_.:-]+$/.test(raw) && !idsTaken[list].has(raw)) { idsTaken[list].add(raw); return raw; }
+    const fresh = uid();
+    idsTaken[list].add(fresh);
+    return fresh;
+  };
+  const withSource = (entry, row) => { const src = cellAt(row, iSource); if (src === "statement") entry.source = src; return entry; };
+  // Payments and card charges are resolved after every row is read (a goal's
+  // row comes after its deposits in the file): id first, then the name.
+  const dailyLinks = [];
+  const splitMetaRows = [];
+  // Set when the file predates the card columns but has spends and a
+  // conventional debt: the import can't tell which spends went on a card.
+  lastCsvImportInfo = { legacyCards: false };
   const walletRows = [];
   const walletMoveRows = [];
   let walletLastRow = "";
@@ -10485,22 +10570,30 @@ function fromCSV(text) {
       const repeatNext = iRepeatNext >= 0
         ? (row[iRepeatNext] || "").trim().toUpperCase() !== "N"
         : true;
-      const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay, repeatNext };
+      const entry = { id: rowId(row, "income"), name, amount, month: monthOrNow, day: rowDay, repeatNext };
       const fx = readFx(row);
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
-      next.income.push(withWallet(entry, row));
+      // Category / note tell a split repayment or a captured credit apart
+      // from pay ("Expected pay" skips them); split_id is the person it settled.
+      const cat = cellAt(row, iCat), note = cellAt(row, iNote), sp = cellAt(row, iSplitId);
+      if (cat) entry.category = cat;
+      if (note) entry.note = note;
+      if (sp) entry.splitPersonId = sp;
+      next.income.push(withSource(withWallet(entry, row), row));
     } else if (type === "expense" && name && Number.isFinite(amount)) {
       const repeatNext = iRepeatNext >= 0
         ? (row[iRepeatNext] || "").trim().toUpperCase() !== "N"
         : true;
-      const entry = { id: uid(), name, amount, month: monthOrNow, day: rowDay, repeatNext };
+      const entry = { id: rowId(row, "expenses"), name, amount, month: monthOrNow, day: rowDay, repeatNext };
       const fx = readFx(row);
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
-      next.expenses.push(withWallet(entry, row));
+      const rsId = cellAt(row, iSplitId);
+      if (rsId) entry.splitRecurringId = rsId;
+      next.expenses.push(withSource(withWallet(entry, row), row));
     } else if (type === "debt" && name) {
       const rowDueDay = iDueDay >= 0 ? parseDay(row[iDueDay]) : null;
       const rowKind = iKind >= 0 ? (row[iKind] || "").trim().toLowerCase() : "";
@@ -10510,7 +10603,7 @@ function fromCSV(text) {
         const totalProfit = iTotalProfit >= 0 ? Number(row[iTotalProfit]) : NaN;
         const tenureMonths = iTenureMonths >= 0 ? Math.round(Number(row[iTenureMonths])) : NaN;
         next.debts.push(coerceDebt({
-          id: uid(),
+          id: rowId(row, "debts"),
           name,
           balance: Number.isFinite(balance) ? balance : 0,
           apr: 0,
@@ -10529,7 +10622,7 @@ function fromCSV(text) {
           : (inst > 0 && Number.isFinite(balance) ? Math.max(1, Math.ceil(balance / inst)) : 1);
         const rowTerm = iTermMonths >= 0 ? Math.round(Number(row[iTermMonths])) : NaN;
         next.debts.push(coerceDebt({
-          id: uid(),
+          id: rowId(row, "debts"),
           name,
           balance: Number.isFinite(balance) ? balance : +(inst * months).toFixed(2),
           apr: 0,
@@ -10546,7 +10639,7 @@ function fromCSV(text) {
         }));
       } else {
         next.debts.push({
-          id: uid(),
+          id: rowId(row, "debts"),
           name,
           balance: Number.isFinite(balance) ? balance : 0,
           apr: Number.isFinite(apr) ? apr : 0,
@@ -10569,17 +10662,19 @@ function fromCSV(text) {
         category: iCat >= 0 ? (row[iCat] || "").trim() || "Others" : "Others",
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
       };
+      entry.id = rowId(row, "daily");
       const fx = readFx(row);
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
-      next.dailyExpenses.push(withWallet(entry, row));
+      const cardId = cellAt(row, iCardDebtId), cardName = cellAt(row, iCardDebt);
+      if (cardId || cardName) dailyLinks.push({ entry, card: true, id: cardId, name: cardName });
+      next.dailyExpenses.push(withSource(withWallet(entry, row), row));
     } else if (type === "daily-debt") {
       if (!Number.isFinite(amount)) continue;
       const debtName = iDebtName >= 0 ? (row[iDebtName] || "").trim() : "";
-      const debt = next.debts.find((d) => d.name.toLowerCase() === debtName.toLowerCase());
       const entry = {
-        id: uid(),
+        id: rowId(row, "daily"),
         createdAt: Date.now(),
         kind: "debt",
         date: (() => {
@@ -10587,21 +10682,21 @@ function fromCSV(text) {
           return isValidDate(raw) ? raw : todayISO();
         })(),
         amount,
-        debtId: debt ? debt.id : null,
+        debtId: null,
         debtName,
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
       };
+      dailyLinks.push({ entry, debt: true, id: cellAt(row, iDebtId), name: debtName });
       const fx = readFx(row);
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
-      next.dailyExpenses.push(withWallet(entry, row));
+      next.dailyExpenses.push(withSource(withWallet(entry, row), row));
     } else if (type === "daily-saving") {
       if (!Number.isFinite(amount)) continue;
       const savingName = name;
-      const goal = next.savings.find((g) => g.name.toLowerCase() === savingName.toLowerCase());
       const entry = {
-        id: uid(),
+        id: rowId(row, "daily"),
         createdAt: Date.now(),
         kind: "saving",
         date: (() => {
@@ -10609,22 +10704,23 @@ function fromCSV(text) {
           return isValidDate(raw) ? raw : todayISO();
         })(),
         amount,
-        savingId: goal ? goal.id : null,
+        savingId: null,
         savingName,
         note: iNote >= 0 ? (row[iNote] || "").trim() : "",
       };
+      dailyLinks.push({ entry, saving: true, id: cellAt(row, iSavingId), name: savingName });
       const fx = readFx(row);
       if (fx) entry.fx = fx;
       const tag = readPoolTag(row);
       if (tag) { entry.budgetPoolId = tag.id; entry.budgetPoolName = tag.name; }
-      next.dailyExpenses.push(withWallet(entry, row));
+      next.dailyExpenses.push(withSource(withWallet(entry, row), row));
     } else if (type === "saving") {
       const target = iTarget >= 0 ? Number(row[iTarget]) : NaN;
       const current = iCurrent >= 0 ? Number(row[iCurrent]) : NaN;
       if (!name) continue;
       if (!Number.isFinite(target) || target <= 0) continue;
       next.savings.push({
-        id: uid(),
+        id: rowId(row, "savings"),
         createdAt: Date.now(),
         name,
         target,
@@ -10637,6 +10733,7 @@ function fromCSV(text) {
       const cell = (i) => (i >= 0 ? (row[i] || "").toString().trim() : "");
       const zakRaw = cell(iInvZakatable).toUpperCase();
       next.investments.push(coerceInvestment({
+        id: rowId(row, "investments"),
         name,
         kind: cell(iInvKind) || "balance",
         account: cell(iInvAccount) || "Other",
@@ -10692,6 +10789,23 @@ function fromCSV(text) {
     } else if (type === "setting" && name.toLowerCase() === "ownaccount") {
       const raw = iAmount >= 0 ? (row[iAmount] || "").toString() : "";
       next.ownAccounts = coerceOwnAccounts([...(next.ownAccounts || []), raw]);
+    } else if (type === "setting" && /^(currency|milestones|splitmeta|taxyear|taxrules|taxskipped|taxaimatch)$/i.test(name)) {
+      // 1.63.1 settings. JSON values that don't parse are skipped alone.
+      const raw = cellAt(row, iAmount);
+      const json = () => { try { return JSON.parse(raw); } catch { return null; } };
+      const key = name.toLowerCase();
+      if (key === "currency") { if (/^[A-Z]{3}$/i.test(raw)) next.currency = raw.toUpperCase(); }
+      else if (key === "milestones") {
+        const j = json();
+        if (j && typeof j === "object" && !Array.isArray(j)) next.milestones = Object.fromEntries(Object.entries(j).filter(([, v]) => typeof v === "string"));
+      } else if (key === "splitmeta") { const j = json(); if (j && typeof j.id === "string") splitMetaRows.push(j); }
+      else {
+        const tx = next.tax || (next.tax = emptyTax());
+        if (key === "taxyear") tx.year = Number(raw) || 0;
+        else if (key === "taxrules") { const j = json(); if (j && typeof j === "object") tx.rules = j; }
+        else if (key === "taxskipped") { const j = json(); if (Array.isArray(j)) tx.skipped = j; }
+        else { const j = json(); if (j && typeof j === "object") tx.aiMatch = j; }
+      }
     } else if (type === "setting" && /^tax(enabled|spouse|children|childrenpre|childrentertiary|disabledchildren|disabledself|disabledspouse|(pcb|epf|income)\d{4})$/i.test(name)) {
       // Cells, not numbers, for the same reason as the zakat rows. coerceTax
       // below clamps whatever lands here.
@@ -10857,7 +10971,7 @@ function fromCSV(text) {
       const validColor = isSystem ? SYSTEM_DEBT_POOL_COLOR : (POOL_COLORS.includes(color) ? color : POOL_COLORS[0]);
 
       next.budgetPools.push({
-        id: isSystem ? SYSTEM_DEBT_POOL_ID : uid(),
+        id: isSystem ? SYSTEM_DEBT_POOL_ID : rowId(row, "pools"),
         name: isSystem ? "Debt" : name,
         limit: poolLimit,
         color: validColor,
@@ -10870,6 +10984,32 @@ function fromCSV(text) {
     } else if (type === "monthly-minsum" && /^\d{4}-\d{2}$/.test(name) && Number.isFinite(amount) && amount >= 0) {
       next.monthlyMinSums[name] = amount;
     }
+  }
+
+  // Payments and card charges find their debt / goal: the id the file kept,
+  // else the name (case-insensitive, like every older file).
+  {
+    const byIdOrName = (list, id, name) => (id && list.find((x) => x.id === id))
+      || (name && list.find((x) => (x.name || "").toLowerCase() === name.toLowerCase())) || null;
+    for (const l of dailyLinks) {
+      if (l.card) {
+        const card = byIdOrName(next.debts, l.id, l.name);
+        // A card the file doesn't have keeps the file's id and name, the way
+        // a spend on a card you later deleted does: still charged to a card,
+        // never turned into cash (that moved the balance, 1.63.1).
+        l.entry.cardDebtId = card ? card.id : (l.id || `card-${uid()}`);
+        l.entry.cardDebtName = card ? card.name : l.name;
+      } else if (l.debt) {
+        const d = byIdOrName(next.debts, l.id, l.name);
+        l.entry.debtId = d ? d.id : null;
+      } else if (l.saving) {
+        const g = byIdOrName(next.savings, l.id, l.name);
+        l.entry.savingId = g ? g.id : null;
+      }
+    }
+    lastCsvImportInfo.legacyCards = iCardDebtId < 0
+      && next.debts.some((d) => (d.kind || "standard") === "standard")
+      && next.dailyExpenses.some((e) => e.kind === "expense");
   }
 
   // Dedupe system Debt pools — keep first, drop the rest. Rewrite tagged entries.
@@ -10935,9 +11075,13 @@ function fromCSV(text) {
     // Every imported row is stamped "created now"; none of it is new spending
     // to ask about. The full-year review is where old entries get looked at.
     next.tax.deltaSince = Date.now() + 1;
+    // Since 1.63.1 the expense keeps its id, so the claim's own entryId is
+    // tried first; older files fall back to date and amount.
     const taken = new Set();
+    const isSpend = (e) => (e.kind || "expense") === "expense";
     for (const c of next.tax.claims) {
-      const hit = next.dailyExpenses.find((e) => (e.kind || "expense") === "expense" && !taken.has(e.id)
+      const same = c.entryId && next.dailyExpenses.find((e) => e.id === c.entryId && isSpend(e) && !taken.has(e.id));
+      const hit = same || next.dailyExpenses.find((e) => isSpend(e) && !taken.has(e.id)
         && e.date === c.date && Math.abs(Number(e.amount) - c.amount) < 0.005);
       c.entryId = hit ? hit.id : "";
       if (hit) taken.add(hit.id);
@@ -10953,6 +11097,16 @@ function fromCSV(text) {
         if (repays) p.repayments = repays;
       }
       next.split.out.push(rec);
+    }
+    // The bill total, the linked spend and each person's note (1.63.1).
+    for (const m of splitMetaRows) {
+      const rec = (m.in ? next.split.in : next.split.out).find((r) => r.id === m.id);
+      if (!rec) continue;
+      if (typeof m.expenseId === "string") rec.expenseId = m.expenseId;
+      if (!m.in && Number(m.total) > 0) rec.total = Number(m.total);
+      if (!m.in && m.notes && typeof m.notes === "object") {
+        for (const p of rec.people) if (typeof m.notes[p.id] === "string") p.note = m.notes[p.id];
+      }
     }
     next.split.payTo = splitPayLines
       .sort((a, b) => a.slot - b.slot)
@@ -11058,6 +11212,14 @@ async function importCsvFile(file, { ask = true, statusEl = null, onError = null
     save();
     renderAll();
     if (statusEl) statusEl.textContent = `Imported ${state.income.length} income, ${state.expenses.length} expense, ${state.debts.length} debt, ${state.dailyExpenses.length} daily, ${state.savings.length} savings, ${state.investments.length} investment rows.`;
+    // A file from before 1.63.1 doesn't say which spends were charged to a
+    // card, so they all count as cash. We can't tell which ones were; say so
+    // once, only when the file has spends and a card-type debt.
+    if (lastCsvImportInfo.legacyCards) {
+      const note = tr("This file is from an older version of Duitful, which didn't save which spends went on a credit card, so they count as cash here. If you charged spends to a card, update Duitful where you made this file, export again and import the new file.");
+      if (statusEl) statusEl.textContent += " " + note;
+      else notify(note);
+    }
     return true;
   } catch (err) {
     say(`Import failed: ${err.message || err}`);
@@ -12191,6 +12353,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.63.1": [
+    "<strong>CSV keeps your card spends</strong> — a spend charged to a credit card now stays on that card when you export a CSV and import it on another device. Before, it came back as cash and the carried-over balance dropped. Payment links, split bills and tax details come back too. Moved with an older file? Export again and import the new one.",
+  ],
   "1.63.0": [
     "<strong>Duitful on iPad</strong> — full screen, every orientation, with the sidebar on bigger screens.",
     "<strong>Roomier on big screens</strong> — tidier two-column layouts on tablets and wide windows, with whole figures in the balance breakdown.",
