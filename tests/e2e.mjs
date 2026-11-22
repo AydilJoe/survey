@@ -12209,6 +12209,19 @@ check('the brand catalogue makes no network calls at all',
     const msNotes = existsSync(msFile) ? rf(msFile, 'utf8') : '';
     check(`the current version (${ver}) has Bahasa Melayu store notes in scripts/release-notes-ms.json, plain and within 500 characters`,
       msNotes.length > 20 && msNotes.length <= 501 && !/[<>]/.test(msNotes), msNotes.slice(0, 120));
+    const { releaseNotes } = await import(pathToFileURL(path.join(REPO_ROOT, 'scripts/release-notes.mjs')).href);
+    const ios163 = releaseNotes('1.63.0', 'en', 'ios');
+    const and163 = releaseNotes('1.63.0', 'en', 'android');
+    const ios1567 = releaseNotes('1.56.7', 'en', 'ios');
+    check('store release notes stay in their own lane: Play Store omits iPhone/iPad/iCloud notes, App Store omits Android/Google Play notes, and platform-only releases fall back to bug fixes on the other store',
+      !/\b(?:iPhone|iPad|iCloud|App Store)\b/i.test(notes)
+        && !/\b(?:iPhone|iPad|iCloud|App Store)\b/i.test(msNotes)
+        && /Duitful on iPad/.test(ios163)
+        && !/Duitful on iPad/.test(and163)
+        && /Roomier on big screens/.test(and163)
+        && /Bug fixes and performance improvements/.test(ios1567)
+        && /node "#{script}" "#{version}" en ios/.test(fl),
+      JSON.stringify({ and163, ios163, ios1567 }));
     check('TestFlight gets "What to test" and the App Store version page is prepared (version, build, What\'s New) without submitting',
       /changelog: notes\.empty\? \? nil : notes/.test(fl) && /def prepare_app_store_version/.test(fl)
         && /release_notes: \{ "default" => notes \}/.test(fl) && /submit_for_review: false/.test(fl) && /skip_binary_upload: true/.test(fl)
