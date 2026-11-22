@@ -5040,8 +5040,8 @@ check('a split from a spend you already logged never logs it twice',
     }), JSON.stringify(an));
   const feed = JSON.parse(readFileSync(path.join(REPO_ROOT, 'announcements.json'), 'utf8'));
   const appleMsg = feed.messages.find((m) => m.id === '2026-11-ios-app-icloud');
-  check('the "Duitful is on the App Store" message is on for Apple web users only, its button counted through /go/appstore/',
-    appleMsg && appleMsg.enabled === true && JSON.stringify(appleMsg.platforms) === '["web-apple"]'
+  check('the "Duitful is on the App Store" message targets Apple web users only (on, or paused until the CSV fix ships), its button counted through /go/appstore/',
+    appleMsg && typeof appleMsg.enabled === 'boolean' && JSON.stringify(appleMsg.platforms) === '["web-apple"]'
       && /^https:\/\/duitful\.app\/go\/appstore\/\?utm_source=webapp&/.test(appleMsg.cta_url) && appleMsg.cta_label, JSON.stringify(appleMsg));
 }
 
