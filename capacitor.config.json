@@ -32,6 +32,7 @@
     ]
   },
   "ios": {
+    "//": "No ML Kit on iOS since 1.64: DuitfulKit.recognizeText reads text with Apple Vision (native/duitful-kit), and the capacitor:copy:after hook (scripts/trim-native-web.mjs) leaves Tesseract out of the iOS web bundle. Android keeps the ML Kit plugin, with Tesseract as its fallback.",
     "includePlugins": [
       "@capacitor/app",
       "@capacitor/camera",
@@ -39,7 +40,6 @@
       "@capawesome/capacitor-app-update",
       "@capgo/capacitor-native-biometric",
       "@capgo/capacitor-social-login",
-      "@pantrist/capacitor-plugin-ml-kit-text-recognition",
       "cordova-plugin-purchase",
       "duitful-capacitor-icloud",
       "duitful-capacitor-kit"

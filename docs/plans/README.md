@@ -10,7 +10,7 @@ Updated 24 Nov 2026. Start any of these in a fresh session:
 | "New" feature spotlight with motion | `backlog.md` | Small to medium | Requested 20 Nov 2026 |
 | Recurring splits, version 2 | `recurring-splits.md` | Medium | Planned (version 1 shipped in 1.59.0) |
 | Wallets, version 2 | `wallets.md` | Medium | Ideas only (version 1 shipped in 1.60.0) |
-| iPhone size cut: Apple Vision OCR, drop ML Kit + Tesseract on iOS (1.64.0) | `backlog.md` | Medium | Proposed 24 Nov 2026; awaiting go-ahead |
+| iPhone size cut: Apple Vision OCR, drop ML Kit + Tesseract on iOS (1.64.0) | `backlog.md` | Medium | Built on `slim-1640`; pending iPhone device test |
 | Self-improving rules: AI shadow check, 3-button feedback, community rules on server | `self-improving-rules.md` | Large | Planned 24 Nov 2026 (after the size cut) |
 
 Manual store steps for the owner are at the end of `backlog.md`.

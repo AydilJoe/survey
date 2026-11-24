@@ -153,6 +153,15 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-64-0">
+    <span class="release-date">November 2026 &middot; v1.64.0</span>
+    <h2 class="release-title">A smaller app</h2>
+    <ul>
+      <li><span class="tag perf">perf</span><strong>Apple Vision OCR on iPhone and iPad:</strong> receipt, bank statement and EA form scanning now uses Apple&rsquo;s built-in Vision text reader (and Foundation&rsquo;s date reader) on your device, so the iOS app drops Google ML Kit and Tesseract completely &mdash; making the download much smaller while keeping everything on your device.</li>
+      <li><span class="tag perf">perf</span><strong>Lighter Android app and web scans:</strong> trimmed unused Tesseract core builds and duplicate bare <code>.wasm</code> files, cutting the bundled OCR assets from 22 MB to under 10 MB on Android and bringing the web&rsquo;s one-time receipt reader download down to about 6 MB.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-63-1">
     <span class="release-date">November 2026 &middot; v1.63.1</span>
     <h2 class="release-title">CSV keeps your card spends</h2>

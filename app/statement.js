@@ -152,7 +152,8 @@ function stmtLinesFromWords(words, page, width) {
    otherwise; the receipts' adapters turn either into word boxes. */
 async function stmtOcrImage(canvas) {
   let words = null;
-  const plugin = typeof mlkitTextPlugin === "function" ? mlkitTextPlugin() : null;
+  // ML Kit on Android, Vision on iOS (same result shape); null on the web.
+  const plugin = typeof nativeTextReader === "function" ? nativeTextReader() : null;
   if (plugin) {
     try {
       const b64 = mlkitBase64FromDataUrl(canvas.toDataURL("image/jpeg", 0.92));
@@ -160,7 +161,8 @@ async function stmtOcrImage(canvas) {
       if (res) words = mlkitWordsFromResult(res);
     } catch { words = null; }
   }
-  if (!words || !words.length) {
+  const tessOk = typeof tesseractAllowed !== "function" || tesseractAllowed();
+  if ((!words || !words.length) && tessOk) {
     const worker = await getTesseractWorker(() => {});
     const res = await worker.recognize(canvas);
     words = collectOcrWords(res && res.data);

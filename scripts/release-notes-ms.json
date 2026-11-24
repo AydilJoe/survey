@@ -1,4 +1,8 @@
 {
+  "1.64.0": [
+    "<strong>Aplikasi iPhone dan iPad jauh lebih kecil</strong> — imbasan resit, penyata dan Borang EA kini guna pembaca teks terbina dalam Apple pada peranti anda, jadi aplikasi tidak lagi membawa pembaca kedua. Semuanya kekal di telefon anda.",
+    "<strong>Aplikasi Android lebih kecil dan imbasan web lebih ringan</strong> — fail OCR yang tidak digunakan dibuang supaya aplikasi Android lebih ringan dan muat turun sekali pembaca resit di web turun ke sekitar 6 MB. Semuanya kekal di peranti anda."
+  ],
   "1.63.1": [
     "<strong>CSV kekalkan belanja kad anda</strong> — belanja yang dicaj ke kad kredit kini kekal pada kad itu bila anda eksport CSV dan importnya di peranti lain. Sebelum ini ia kembali sebagai tunai dan baki bawaan jatuh. Pautan bayaran, bil kongsi dan butiran cukai turut kembali. Pindah dengan fail lama? Eksport semula dan import fail yang baharu."
   ],

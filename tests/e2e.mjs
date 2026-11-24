@@ -5958,15 +5958,21 @@ await page.fill('#form-daily [name="amount"]', '');
 
 // --- the selection rule ---
 const engines = await S(() => ({
-  web:            pickOcrEngine({ native: false, mlkitAvailable: false }),
-  webWithPlugin:  pickOcrEngine({ native: false, mlkitAvailable: true }),
-  nativeNoPlugin: pickOcrEngine({ native: true, mlkitAvailable: false }),
-  nativePlugin:   pickOcrEngine({ native: true, mlkitAvailable: true }),
+  web:               pickOcrEngine({ native: false, mlkitAvailable: false }),
+  webWithPlugin:     pickOcrEngine({ native: false, mlkitAvailable: true }),
+  webWithVision:     pickOcrEngine({ native: false, visionAvailable: true }),
+  nativeNoPlugin:    pickOcrEngine({ native: true, mlkitAvailable: false }),
+  nativePlugin:      pickOcrEngine({ native: true, mlkitAvailable: true }),
+  iosVision:         pickOcrEngine({ native: true, visionAvailable: true, tesseractAllowed: false }),
+  iosNoVision:       pickOcrEngine({ native: true, visionAvailable: false, mlkitAvailable: false, tesseractAllowed: false }),
+  androidNoMlkit:    pickOcrEngine({ native: true, visionAvailable: false, mlkitAvailable: false, tesseractAllowed: true }),
   junk: [pickOcrEngine(), pickOcrEngine(null), pickOcrEngine('yes'), pickOcrEngine({})],
 }));
-check('ML Kit only when BOTH native and the plugin are there; Tesseract otherwise',
-  engines.nativePlugin === 'mlkit' && engines.web === 'tesseract'
-  && engines.webWithPlugin === 'tesseract' && engines.nativeNoPlugin === 'tesseract',
+check('Vision on iOS, ML Kit on Android when native + plugin; Tesseract fallback where allowed, none on iOS without Vision',
+  engines.iosVision === 'vision' && engines.iosNoVision === 'none'
+  && engines.nativePlugin === 'mlkit' && engines.androidNoMlkit === 'tesseract'
+  && engines.web === 'tesseract' && engines.webWithPlugin === 'tesseract'
+  && engines.webWithVision === 'tesseract' && engines.nativeNoPlugin === 'tesseract',
   JSON.stringify(engines));
 check('a missing or malformed environment picks Tesseract, never a crash',
   engines.junk.join('|') === 'tesseract|tesseract|tesseract|tesseract', JSON.stringify(engines.junk));
@@ -6110,8 +6116,15 @@ check('the mapped words feed the EXISTING parsers unchanged (same items, TOTAL d
    own runReceiptOcr (preprocessing, worker, word boxes, row reconstruction,
    parseReceiptText, #scan-raw), then reads the word boxes once more directly
    so the layout data is visibly there, not assumed. Slow by nature: the
-   worker downloads ~7 MB of wasm and 2 MB of traineddata from the test
-   server on first use. */
+   worker downloads ~4 MB of wasm.js and 2 MB of traineddata from the test
+   server on first use. Also verifies no request goes to bare *.wasm or
+   relaxedsimd (since 1.64 only simd-lstm and scalar lstm .wasm.js ship). */
+const webTessRequests = [];
+const onWebTessReq = (req) => {
+  const u = req.url();
+  if (/vendor\/tesseract|\btesseract\b/i.test(u)) webTessRequests.push(u);
+};
+page.on('request', onWebTessReq);
 const realOcr = await S(async (timeoutMs) => {
   const canvas = document.createElement('canvas');
   canvas.width = 1000; canvas.height = 520;
@@ -6157,6 +6170,7 @@ const realOcr = await S(async (timeoutMs) => {
     return { error: String((err && err.message) || err) };
   }
 }, 180000);
+page.off('request', onWebTessReq);
 await S(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
 check('the vendored Tesseract engine actually reads rendered text end-to-end',
   !realOcr.error && /NASI/i.test(realOcr.raw) && /GORENG/i.test(realOcr.raw)
@@ -6173,6 +6187,242 @@ check('word boxes came back and flowed into row reconstruction (name and price o
 check('the reconstructed rows still parse as one item plus a dropped TOTAL',
   JSON.stringify(realOcr.items) === JSON.stringify([{ name: 'NASI GORENG', price: 12.5 }]),
   JSON.stringify(realOcr.items));
+check('web Tesseract requests only the shipped .wasm.js core (never bare *.wasm or relaxedsimd)',
+  webTessRequests.some((u) => /tesseract-core-(?:simd-)?lstm\.wasm\.js/.test(u))
+  && webTessRequests.every((u) => !/\.wasm(?:\?|$)/i.test(u) && !/relaxedsimd/i.test(u)),
+  JSON.stringify(webTessRequests));
+
+/* --- iOS Vision OCR parity, zero Tesseract on iOS, Android fallback ---
+   iOS (1.64+) reads text through DuitfulKit.recognizeText (Apple Vision) in
+   the exact same blocks/lines/elements shape as Android ML Kit, and never
+   ships or requests vendor/tesseract. Every OCR entry point (receipt,
+   statement scan, EA form, alert screenshot) must yield the same parsed
+   result on iOS Vision as on Android ML Kit, and Android with ML Kit absent
+   must still fall back to Tesseract. */
+const iosTessRequests = [];
+const onIosTessReq = (req) => {
+  if (/vendor\/tesseract/i.test(req.url())) iosTessRequests.push(req.url());
+};
+page.on('request', onIosTessReq);
+const visionAndFallback = await S(async (receiptFixture) => {
+  const prevCap = window.Capacitor;
+  const prevTessLocal = tesseractLocal;
+  const prevGetWorker = getTesseractWorker;
+  let tessCalls = 0;
+
+  // Tiny 1x1 white PNG data URL so canvas preprocessing / image loading works cleanly.
+  const c = document.createElement('canvas');
+  c.width = 800; c.height = 400;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+  const tinyPng = c.toDataURL('image/png');
+
+  // Helper to turn simple rows [{ y, cols: [[text, x0, x1], ...] }] into ML Kit / Vision blocks.
+  const mkBlocks = (rows) => ({
+    text: rows.map((r) => r.cols.map((k) => k[0]).join(' ')).join('\n'),
+    blocks: rows.map((r) => {
+      const x0 = Math.min(...r.cols.map((k) => k[1]));
+      const x1 = Math.max(...r.cols.map((k) => k[2]));
+      const lineText = r.cols.map((k) => k[0]).join(' ');
+      return {
+        text: lineText,
+        boundingBox: { left: x0, top: r.y, right: x1, bottom: r.y + 18 },
+        lines: [{
+          text: lineText,
+          boundingBox: { left: x0, top: r.y, right: x1, bottom: r.y + 18 },
+          elements: r.cols.map(([text, l, ri]) => ({
+            text, boundingBox: { left: l, top: r.y, right: ri, bottom: r.y + 18 },
+          })),
+        }],
+      };
+    }),
+  });
+
+  const stmtFixture = mkBlocks([
+    { y: 40, cols: [['DATE', 40, 100], ['DESCRIPTION', 140, 320], ['AMOUNT', 460, 560], ['BALANCE', 620, 720]] },
+    { y: 80, cols: [['01/11/2026', 40, 130], ['OPENING BALANCE', 140, 340], ['1,000.00', 620, 720]] },
+    { y: 120, cols: [['05/11/2026', 40, 130], ['GRAB', 140, 210], ['TRANSPORT', 220, 340], ['25.00', 480, 550], ['975.00', 630, 720]] },
+    { y: 160, cols: [['10/11/2026', 40, 130], ['KEDAI', 140, 210], ['KOPI', 220, 280], ['12.50', 480, 550], ['962.50', 630, 720]] },
+    { y: 200, cols: [['30/11/2026', 40, 130], ['CLOSING BALANCE', 140, 340], ['962.50', 630, 720]] },
+  ]);
+
+  const eaFixture = mkBlocks([
+    { y: 40, cols: [['PENYATA SARAAN DARIPADA PENGGAJIAN BAGI TAHUN BERAKHIR 31 DISEMBER 2025', 40, 700]] },
+    { y: 80, cols: [['B', 40, 55], ['PENDAPATAN PENGGAJIAN', 70, 340]] },
+    { y: 120, cols: [['1.', 40, 55], ['(a)', 65, 90], ['Gaji kasar, upah atau gaji cuti', 100, 420], ['60,000.00', 600, 720]] },
+    { y: 160, cols: [['JUMLAH', 100, 200], ['60,000.00', 600, 720]] },
+    { y: 200, cols: [['D', 40, 55], ['JUMLAH POTONGAN', 70, 280]] },
+    { y: 240, cols: [['1.', 40, 55], ['Potongan Cukai Bulanan (PCB)', 70, 420], ['2,400.00', 610, 720]] },
+    { y: 280, cols: [['E', 40, 55], ['CARUMAN YANG DIBAYAR OLEH PEKERJA', 70, 460]] },
+    { y: 320, cols: [['1.', 40, 55], ['Nama Kumpulan Wang: KWSP', 70, 420], ['6,600.00', 610, 720]] },
+  ]);
+
+  const runFourPaths = async (plat, handler) => {
+    window.Capacitor = plat === 'ios'
+      ? { isNativePlatform: () => true, getPlatform: () => 'ios', Plugins: { DuitfulKit: { recognizeText: handler } } }
+      : { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: { CapacitorPluginMlKitTextRecognition: { detectText: handler } } };
+
+    // 1. Receipt
+    currentFixture = receiptFixture;
+    await runReceiptOcr(tinyPng, tinyPng, null);
+    const receipt = {
+      raw: document.getElementById('scan-raw').textContent || '',
+      amount: document.getElementById('scan-amount').value,
+      vendor: document.getElementById('scan-vendor').value,
+    };
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+
+    // 2. Statement photos
+    currentFixture = stmtFixture;
+    const stmtRead = await readStatementPhotos([tinyPng]);
+    const stmtParsed = parseStatement(stmtRead);
+
+    // 3. EA form (taxOpenEa + eaFromPhotos)
+    currentFixture = eaFixture;
+    taxOpenEa();
+    const eaRes = await eaFromPhotos([tinyPng]);
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+
+    // 4. Alert screenshot
+    currentFixture = receiptFixture;
+    const alertText = await ocrAlertScreenshot(tinyPng);
+
+    return {
+      env: ocrEnv(),
+      engine: pickOcrEngine(ocrEnv()),
+      receipt,
+      stmtLines: stmtRead.lines,
+      stmtRows: stmtParsed.rows.map((r) => ({ date: r.date, amount: r.amount, dir: r.dir })),
+      ea: eaRes ? { year: eaRes.year, bTotal: eaRes.fields.bTotal?.value, d1: eaRes.fields.d1?.value, e1: eaRes.fields.e1?.value, totalCheck: eaRes.totalCheck } : null,
+      alertText,
+    };
+  };
+
+  let currentFixture = receiptFixture;
+  const spyHandler = async () => currentFixture;
+
+  try {
+    // Guard against any Tesseract worker call during the iOS checks.
+    tesseractLocal = null;
+    getTesseractWorker = async () => { tessCalls++; throw new Error('Tesseract must not be called on iOS'); };
+
+    const ios = await runFourPaths('ios', spyHandler);
+
+    // Empty and rejecting Vision reads on iOS must NEVER fall back to Tesseract.
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'ios',
+      Plugins: { DuitfulKit: { recognizeText: async () => ({ text: '', blocks: [] }) } },
+    };
+    await runReceiptOcr(tinyPng, tinyPng, null);
+    const iosEmptyAmount = document.getElementById('scan-amount').value;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    let iosStmtEmptyCode = '';
+    try { await readStatementPhotos([tinyPng]); } catch (e) { iosStmtEmptyCode = e.code || e.message; }
+    const iosAlertEmpty = await ocrAlertScreenshot(tinyPng);
+    const iosDetectLocal = await detectLocalTesseract();
+    let iosLoadRejected = false;
+    try { await loadTesseract(); } catch { iosLoadRejected = true; }
+
+    const iosTessCalls = tessCalls;
+
+    // Android ML Kit parity check with the exact same fixtures.
+    const android = await runFourPaths('android', spyHandler);
+
+    // Android with ML Kit absent must still fall back to Tesseract.
+    window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
+    const androidNoMlkitEnv = ocrEnv();
+    const androidNoMlkitEngine = pickOcrEngine(androidNoMlkitEnv);
+    let fallbackHitTess = false;
+    getTesseractWorker = async () => {
+      fallbackHitTess = true;
+      return {
+        recognize: async () => ({
+          data: {
+            text: 'TEST SHOP\nTOTAL 9.90',
+            blocks: [{ paragraphs: [{ lines: [{ words: [
+              { text: 'TOTAL', bbox: { x0: 40, y0: 100, x1: 120, y1: 120 } },
+              { text: '9.90', bbox: { x0: 400, y0: 100, x1: 480, y1: 120 } },
+            ] }] }] }],
+          },
+        }),
+      };
+    };
+    await runReceiptOcr(tinyPng, tinyPng, null);
+    const fallbackAmount = document.getElementById('scan-amount').value;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+
+    return {
+      ios,
+      android,
+      iosEmptyAmount,
+      iosStmtEmptyCode,
+      iosAlertEmpty,
+      iosDetectLocal,
+      iosLoadRejected,
+      iosTessCalls,
+      androidNoMlkitEnv,
+      androidNoMlkitEngine,
+      fallbackHitTess,
+      fallbackAmount,
+    };
+  } finally {
+    window.Capacitor = prevCap;
+    tesseractLocal = prevTessLocal;
+    getTesseractWorker = prevGetWorker;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+  }
+}, mlkitResult);
+page.off('request', onIosTessReq);
+
+check('iOS Vision OCR matches Android ML Kit across receipt, statement, EA form and alert screenshot',
+  visionAndFallback.ios.engine === 'vision'
+  && visionAndFallback.android.engine === 'mlkit'
+  && visionAndFallback.ios.receipt.amount === '20.24'
+  && JSON.stringify(visionAndFallback.ios.receipt) === JSON.stringify(visionAndFallback.android.receipt)
+  && visionAndFallback.ios.stmtRows.length >= 2
+  && JSON.stringify(visionAndFallback.ios.stmtRows) === JSON.stringify(visionAndFallback.android.stmtRows)
+  && visionAndFallback.ios.ea?.year === 2025
+  && visionAndFallback.ios.ea?.bTotal === 60000
+  && visionAndFallback.ios.ea?.d1 === 2400
+  && visionAndFallback.ios.ea?.e1 === 6600
+  && visionAndFallback.ios.ea?.totalCheck === 'ok'
+  && JSON.stringify(visionAndFallback.ios.ea) === JSON.stringify(visionAndFallback.android.ea)
+  && visionAndFallback.ios.alertText === visionAndFallback.android.alertText
+  && /RESTORAN MAKAN SEDAP/.test(visionAndFallback.ios.alertText),
+  JSON.stringify({ ios: visionAndFallback.ios, android: visionAndFallback.android }));
+
+check('iOS never calls Tesseract or fetches vendor/tesseract, even on an empty Vision read',
+  visionAndFallback.iosTessCalls === 0
+  && iosTessRequests.length === 0
+  && visionAndFallback.iosEmptyAmount === ''
+  && visionAndFallback.iosStmtEmptyCode === 'no-text'
+  && visionAndFallback.iosAlertEmpty === ''
+  && visionAndFallback.iosDetectLocal === false
+  && visionAndFallback.iosLoadRejected === true,
+  JSON.stringify({
+    iosTessCalls: visionAndFallback.iosTessCalls,
+    iosTessRequests,
+    iosEmptyAmount: visionAndFallback.iosEmptyAmount,
+    iosStmtEmptyCode: visionAndFallback.iosStmtEmptyCode,
+    iosAlertEmpty: visionAndFallback.iosAlertEmpty,
+    iosDetectLocal: visionAndFallback.iosDetectLocal,
+    iosLoadRejected: visionAndFallback.iosLoadRejected,
+  }));
+
+check('Android with ML Kit missing still falls back to Tesseract',
+  visionAndFallback.androidNoMlkitEnv.tesseractAllowed === true
+  && visionAndFallback.androidNoMlkitEnv.mlkitAvailable === false
+  && visionAndFallback.androidNoMlkitEngine === 'tesseract'
+  && visionAndFallback.fallbackHitTess === true
+  && visionAndFallback.fallbackAmount === '9.90',
+  JSON.stringify({
+    env: visionAndFallback.androidNoMlkitEnv,
+    engine: visionAndFallback.androidNoMlkitEngine,
+    fallbackHitTess: visionAndFallback.fallbackHitTess,
+    fallbackAmount: visionAndFallback.fallbackAmount,
+  }));
+
 
 /* ── 15. auto-biometric attempt is a no-op on web ───────────────────────
    showLock schedules one automatic biometric attempt per presentation
@@ -9269,13 +9519,21 @@ check('the vault is open before the quick-add checks',
   check('the iOS-only auth plugin is excluded from Android',
     ios.includes('@capgo/capacitor-social-login')
     && !android.includes('@capgo/capacitor-social-login'));
-  check('the Android auth plugin is excluded from iOS (its GoogleSignIn pin clashes with ML Kit)',
+  check('the Android auth plugin is excluded from iOS',
     android.includes('@codetrix-studio/capacitor-google-auth')
     && !ios.includes('@codetrix-studio/capacitor-google-auth'));
-  check('both platforms still get camera, biometrics, OCR and purchases',
-    ['@capacitor/camera', '@capgo/capacitor-native-biometric',
-     '@pantrist/capacitor-plugin-ml-kit-text-recognition', 'cordova-plugin-purchase']
+  check('ML Kit text recognition is Android-only (iOS uses Apple Vision via DuitfulKit)',
+    android.includes('@pantrist/capacitor-plugin-ml-kit-text-recognition')
+    && !ios.includes('@pantrist/capacitor-plugin-ml-kit-text-recognition')
+    && ios.includes('duitful-capacitor-kit'));
+  check('both platforms still get camera, biometrics and purchases',
+    ['@capacitor/camera', '@capgo/capacitor-native-biometric', 'cordova-plugin-purchase']
       .every(p => ios.includes(p) && android.includes(p)));
+  const { NATIVE_WEB_EXCLUDE } = await import(pathToFileURL(path.join(REPO_ROOT, 'scripts/trim-native-web.mjs')).href);
+  check('Capacitor copy hook trims vendor/tesseract from iOS while keeping it on Android',
+    pkg.scripts?.['capacitor:copy:after'] === 'node scripts/trim-native-web.mjs'
+    && Array.isArray(NATIVE_WEB_EXCLUDE.ios) && NATIVE_WEB_EXCLUDE.ios.includes('vendor/tesseract')
+    && Array.isArray(NATIVE_WEB_EXCLUDE.android) && NATIVE_WEB_EXCLUDE.android.length === 0);
 }
 
 // ---------- 17. Loans & BNPL: brand recognition + instalment progress ----------
@@ -12640,7 +12898,7 @@ check('the brand catalogue makes no network calls at all',
     const registered = [...swift.matchAll(/CAPPluginMethod\(name: "(\w+)"/g)].map((m) => m[1]);
     const swiftMissing = registered.filter((n) => !new RegExp(`@objc func ${n}\\(_ call: CAPPluginCall\\)`).test(swiftClass));
     const javaMethods = [...javaClass.matchAll(/@PluginMethod[^\n]*\n\s*public void (\w+)\(PluginCall/g)].map((m) => m[1]);
-    const swiftOnly = new Set(['drainQuickAdd', 'readSharedFile']); // Android drains through NotificationListener; shared files through takeSharedFiles
+    const swiftOnly = new Set(['drainQuickAdd', 'readSharedFile', 'recognizeText']); // Android drains through NotificationListener, shared files through takeSharedFiles, and OCR through the ML Kit plugin
     const javaMissing = registered.filter((n) => !swiftOnly.has(n) && !javaMethods.includes(n));
     check('DuitfulKit: every registered method is defined inside the plugin class, on iOS and Android',
       registered.length >= 6 && swiftMissing.length === 0 && javaMissing.length === 0,

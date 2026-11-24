@@ -1772,7 +1772,7 @@
   "Reading the receipt…": "读取收据中…",
   "Opening the photo…": "打开照片中…",
   "Preparing the photo…": "准备照片中…",
-  "Getting the reader ready (one-time download, about 10 MB)…": "准备读取工具中 (只需下载一次，约 10 MB)…",
+  "Getting the reader ready (one-time download, about 6 MB)…": "准备读取工具中 (只需下载一次，约 6 MB)…",
   "Taking a closer look…": "仔细看看…",
   "Checking the total…": "核对总额中…",
   "Retake": "重拍",

@@ -2,7 +2,7 @@
   "name": "duitful-capacitor-kit",
   "version": "1.0.0",
   "private": true,
-  "description": "Duitful's on-device kits: document scanner, entity extraction, on-device AI and the Siri & Shortcuts queue.",
+  "description": "Duitful's on-device kits: document scanner, text recognition, date reading, on-device AI and the Siri & Shortcuts queue.",
   "license": "MIT",
   "author": "Aydil Johari",
   "capacitor": {

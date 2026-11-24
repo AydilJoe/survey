@@ -15,17 +15,17 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-11-22-1";
+const VERSION = "2026-11-24-1";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
   "/app/styles.css?v=178",
-  "/app/script.js?v=251",
+  "/app/script.js?v=252",
   // Languages: the two tables load before the engine (index.html).
-  "/app/i18n-ms.js?v=33",
-  "/app/i18n-zh.js?v=33",
+  "/app/i18n-ms.js?v=34",
+  "/app/i18n-zh.js?v=34",
   "/app/i18n.js?v=4",
   "/app/drive-config.js?v=3",
   "/app/drive-sync.js?v=4",
@@ -38,7 +38,7 @@ const SHELL = [
   "/app/ea-extract.js?v=1",
   "/app/tax-data.js?v=3",
   "/app/tax.js?v=19",
-  "/app/statement.js?v=7",
+  "/app/statement.js?v=8",
   "/app/wallets.js?v=2",
   "/app/recap.js?v=2",
   // pdf.js (Apache-2.0) for statement import: injected only when a PDF is

@@ -63,9 +63,10 @@
   months remaining. The provider list is bundled in the app — matching
   happens on-device, so the set of lenders someone owes is never sent
   anywhere.
-- **Receipt OCR**: fully on-device — Google ML Kit inside the Android
-  app (on-device model; Google receives nothing), Tesseract.js on the
-  web. Receipts never leave the phone. Extracts total, merchant, date
+- **Receipt OCR**: fully on-device — Apple Vision inside the iPhone and
+  iPad app, Google ML Kit inside the Android app (on-device model; Google
+  receives nothing), and Tesseract.js on the web. Receipts never leave the
+  phone. Extracts total, merchant, date
   and line items, and is tuned for Malaysian receipts specifically:
   Malay keywords (JUMLAH, TUNAI, BAKI), the 5-sen cash-rounding line,
   SST/GST breakdowns, and cash-tendered lines that must not be mistaken
@@ -108,7 +109,8 @@
   the AI never sets an amount — totals and amounts must be printed on the
   receipt or alert. It runs entirely on the phone: no text or image is
   uploaded, and there is no cloud AI, chat or financial advice. Phones
-  without it work the same with Duitful's rules and ML Kit.
+  without it work the same with Duitful's rules and on-device OCR (Apple
+  Vision on iOS, ML Kit on Android).
 - **Multi-currency**: MYR, SGD, USD, EUR, GBP, JPY, THB, IDR with daily
   FX from the open-source @fawazahmed0/exchange-api.
 - **CSV import / export**: Monarch, YNAB, Money Lover, generic Malaysian
@@ -279,12 +281,12 @@ diffed against the repository. The hosted product is not a subscription
 - **Android users** — install from Google Play:
   https://play.google.com/store/apps/details?id=com.aydiljoe.duitful
   The native shell adds bank-notification auto-capture and on-device
-  Tesseract OCR on top of every web-app feature.
+  ML Kit OCR (with Tesseract fallback) on top of every web-app feature.
 - **iPhone users** — install from the App Store:
   https://apps.apple.com/app/duitful-money-debt-tracker/id6827191645
   The native app adds encrypted backup to the user's own iCloud, the
-  iPhone document scanner for receipts and statements, and (iOS 26)
-  Apple's on-device model for receipts and the English monthly recap.
+  iPhone document scanner and Apple Vision OCR for receipts and statements,
+  and (iOS 26) Apple's on-device model for receipts and the English monthly recap.
   Bank-alert capture, AI statement suggestions and AI tax relief
   matching are Android only (iOS does not permit reading other apps'
   notifications). The web app at https://duitful.app/app also works

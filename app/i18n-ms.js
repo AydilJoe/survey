@@ -1772,7 +1772,7 @@
   "Reading the receipt…": "Membaca resit…",
   "Opening the photo…": "Membuka foto…",
   "Preparing the photo…": "Menyediakan foto…",
-  "Getting the reader ready (one-time download, about 10 MB)…": "Menyediakan pembaca (muat turun sekali sahaja, kira-kira 10 MB)…",
+  "Getting the reader ready (one-time download, about 6 MB)…": "Menyediakan pembaca (muat turun sekali sahaja, kira-kira 6 MB)…",
   "Taking a closer look…": "Melihat dengan lebih teliti…",
   "Checking the total…": "Menyemak jumlah…",
   "Retake": "Ambil semula",
