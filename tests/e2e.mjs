@@ -12869,7 +12869,9 @@ check('the brand catalogue makes no network calls at all',
       rec: rec && { kind: rec.kind, title: rec.title, total: rec.total, due: rec.dueDate, people: rec.people.map((p) => [p.name, p.amount]) , expenseId: rec.expenseId },
       ex: ex && { amount: ex.amount, day: ex.day, repeat: ex.repeatNext, id: ex.id },
       mr: { s: mr.s, total: mr.total, mine: mr.mine },
-      cardGone: (renderAll(), document.getElementById('rs-home').hidden),
+      // This month's card goes. In the week before the next due date the
+      // next month's card may already show, which is correct.
+      cardGone: (renderAll(), rsDueMonth(rs) !== m),
       again: rsSend(rs.id, m).error,
       owed: splitTotals().owedToYou,
       m,
