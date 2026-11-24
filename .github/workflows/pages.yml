@@ -14,11 +14,13 @@ concurrency:
   group: pages
   cancel-in-progress: true
 
+# Two jobs, as in GitHub's own Pages starter: build uploads the site,
+# deploy runs after it. In one job, deploy-pages asked for the artifact
+# ~0.3 s after upload-artifact finalized it and sometimes got "Found 0
+# artifact(s)" (22 and 24 Nov 2026), failing the deploy while the site
+# kept serving the previous version.
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -53,5 +55,13 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: .
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v5
