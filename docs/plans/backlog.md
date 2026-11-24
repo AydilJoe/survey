@@ -31,6 +31,20 @@ When a release adds a feature (e.g. wallets, recurring splits, statement import,
 - Respect reduced motion (jump plus a static highlight, no animation) and the hide-amounts eye. All three languages. Never covers content or blocks taps; it doesn't show while a dialog is open.
 - Could reuse or extend the existing tour/milestones code if suitable.
 
+## iPhone size cut (proposed 24 Nov 2026)
+
+The iOS app is 86 MB. It bundles Google ML Kit text recognition, ML Kit entity
+extraction and Tesseract, none of which an iPhone needs: Apple **Vision**
+(`VNRecognizeTextRequest`, built into iOS 13+, works on every supported
+iPhone, no AI needed) reads text with word boxes; entity extraction mostly
+serves bank alerts, which iPhones can't read; Tesseract is the web's reader.
+Plan: a DuitfulKit `recognizeText` on iOS returning the same lines / words /
+frames shape as ML Kit; drop the ML Kit plugins and Tesseract from the iOS
+build only (Android keeps ML Kit, web keeps Tesseract). Expect ~20–30 MB.
+Test receipts, statement scans and the EA form on a real iPhone via
+TestFlight. Release 1.64.0. Rules (`receipt-extract.js`) are unchanged; the
+AI stays a second opinion.
+
 ## Split bills: on-device AI help (requested 21 Nov 2026)
 
 Same AI rules as everywhere: behind `aiAllowed()`, runs on the phone, never
