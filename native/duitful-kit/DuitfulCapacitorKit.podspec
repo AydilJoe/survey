@@ -15,18 +15,19 @@ Pod::Spec.new do |s|
   s.author = package['author']
   s.source = { :git => 'https://github.com/AydilJoe/survey.git', :tag => "v#{package['version']}" }
   s.source_files = 'ios/Sources/**/*.swift'
-  # 15.5 is the app's own floor (GoogleMLKit sets it; see patch-ios.mjs).
+  # 15.5 is the app's own floor (set in patch-ios.mjs). GoogleMLKit used to
+  # force it; since 1.64 nothing on iOS pulls ML Kit, but the floor stays put.
   s.ios.deployment_target = '15.5'
   s.dependency 'Capacitor'
-  # Same GoogleMLKit range as the text-recognition plugin, so CocoaPods
-  # resolves both subspecs from one GoogleMLKit release.
-  s.dependency 'GoogleMLKit/EntityExtraction', '>= 8.0.0', '< 10.0.0'
-  # ML Kit ships static frameworks. Under the Podfile's use_frameworks! a
-  # dynamic pod would have to link them itself and doesn't (undefined
-  # MLKEntity* symbols); as a static framework it links into the app with
-  # the rest of ML Kit, exactly like the text-recognition plugin.
+  # No GoogleMLKit since 1.64: text recognition is Apple's Vision and dates
+  # come from NSDataDetector, both part of iOS. That (with the ML Kit text
+  # plugin left out of ios.includePlugins and Tesseract left out of the iOS
+  # web bundle) is what took the iPhone app from 86 MB down.
+  # Still a static framework, as it was beside ML Kit: it links into the app
+  # binary, so the app's own PrivacyInfo.xcprivacy (patch-ios.mjs, 3c) keeps
+  # covering its UserDefaults use, and DuitfulRelayWatch links as before.
   s.static_framework = true
-  s.frameworks = 'VisionKit', 'PhotosUI', 'BackgroundTasks', 'CryptoKit', 'UserNotifications', 'Security'
+  s.frameworks = 'Vision', 'VisionKit', 'PhotosUI', 'BackgroundTasks', 'CryptoKit', 'UserNotifications', 'Security'
   # iOS 26+. Weak, so the app still launches on iOS 15–18.
   s.weak_frameworks = 'FoundationModels'
   s.swift_version = '5.9'

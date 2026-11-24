@@ -4,7 +4,6 @@ import Capacitor
 import VisionKit
 import PhotosUI
 import StoreKit
-import MLKitEntityExtraction
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -23,7 +22,13 @@ import FoundationModels
 ///                    UserDefaults. The web layer drains it on unlock and turns
 ///                    each entry into a pending transaction to confirm, exactly
 ///                    like Android's quick-add queue.
-///   extractEntities  ML Kit Entity Extraction: amounts and dates in text.
+///   recognizeText    Apple Vision text recognition (DuitfulTextReader.swift):
+///                    receipts, statement pages, EA forms and alert
+///                    screenshots, answered in ML Kit's blocks / lines /
+///                    elements shape so the JS parsers don't change.
+///   extractEntities  Dates in text (NSDataDetector), for a receipt the
+///                    parser found no date on. No money: iPhones get no bank
+///                    alerts, which is what money entities were for.
 ///   requestReview    The App Store's own rating sheet, asked once per
 ///                    install at the debt-free moment. iOS decides whether to
 ///                    show it; resolving says we asked, not that it appeared.
@@ -31,8 +36,8 @@ import FoundationModels
 ///   aiReadReceipt    Intelligence phones): a second opinion on a receipt the
 ///                    rule-based parser isn't sure of.
 ///
-/// Nothing here talks to a Duitful server. Entity Extraction downloads its
-/// language model from Google once, then runs offline.
+/// Nothing here talks to a server, and nothing downloads a model: Vision,
+/// NSDataDetector and Foundation Models are all part of iOS.
 @objc(DuitfulKitPlugin)
 public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
     VNDocumentCameraViewControllerDelegate, PHPickerViewControllerDelegate {
@@ -41,6 +46,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "scanDocument", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "drainQuickAdd", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "recognizeText", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "extractEntities", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "aiStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "aiReadReceipt", returnType: CAPPluginReturnPromise),
@@ -208,10 +214,24 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         call.resolve(["items": items])
     }
 
-    // MARK: - Entity Extraction
+    // MARK: - Text recognition (Vision)
 
-    private lazy var extractor: EntityExtractor = EntityExtractor.entityExtractor(
-        options: EntityExtractorOptions(modelIdentifier: EntityExtractionModelIdentifier.english))
+    @objc func recognizeText(_ call: CAPPluginCall) {
+        guard let image = call.getString("base64Image"), !image.isEmpty else {
+            call.reject("No image is given", "EMPTY")
+            return
+        }
+        DuitfulTextReader.recognize(base64: image,
+                                    rotation: call.getInt("rotation") ?? 0,
+                                    languageCorrection: call.getBool("languageCorrection") ?? false) { result in
+            switch result {
+            case .success(let payload): call.resolve(payload)
+            case .failure(let failure): call.reject(failure.message, failure.code)
+            }
+        }
+    }
+
+    // MARK: - Dates in text (NSDataDetector)
 
     @objc func extractEntities(_ call: CAPPluginCall) {
         let text = call.getString("text") ?? ""
@@ -219,46 +239,8 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
             call.resolve(["money": [], "dates": []])
             return
         }
-        let extractor = self.extractor
-        extractor.downloadModelIfNeeded { error in
-            if let error = error {
-                call.reject("Model download failed: \(error.localizedDescription)", "MODEL")
-                return
-            }
-            let params = EntityExtractionParams()
-            params.referenceTime = Date()
-            params.referenceTimeZone = TimeZone.current
-            params.typesFilter = Set([EntityType.money, EntityType.dateTime])
-            extractor.annotateText(text, params: params) { annotations, error in
-                if let error = error {
-                    call.reject(error.localizedDescription, "ANNOTATE")
-                    return
-                }
-                let ns = text as NSString
-                var money: [[String: Any]] = []
-                var dates: [[String: Any]] = []
-                for annotation in annotations ?? [] {
-                    let range = annotation.range
-                    let snippet = range.location != NSNotFound && NSMaxRange(range) <= ns.length
-                        ? ns.substring(with: range) : ""
-                    for entity in annotation.entities {
-                        if let m = entity.moneyEntity {
-                            money.append([
-                                "text": snippet, "start": range.location, "end": NSMaxRange(range),
-                                "currency": m.unnormalizedCurrency,
-                                "integer": m.integerPart, "fraction": m.fractionalPart,
-                            ])
-                        } else if let d = entity.dateTimeEntity {
-                            dates.append([
-                                "text": snippet, "start": range.location, "end": NSMaxRange(range),
-                                "timestamp": Int64(d.dateTime.timeIntervalSince1970 * 1000),
-                                "hasDay": d.dateTimeGranularity.rawValue >= DateTimeGranularity.day.rawValue,
-                            ])
-                        }
-                    }
-                }
-                call.resolve(["money": money, "dates": dates])
-            }
+        DispatchQueue.global(qos: .userInitiated).async {
+            call.resolve(["money": [], "dates": DuitfulDateReader.dates(in: text)])
         }
     }
 

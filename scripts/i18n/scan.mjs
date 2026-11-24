@@ -7,7 +7,7 @@ export const ROWS = [
   ["Reading the receipt…", "Membaca resit…", "读取收据中…"],
   ["Opening the photo…", "Membuka foto…", "打开照片中…"],
   ["Preparing the photo…", "Menyediakan foto…", "准备照片中…"],
-  ["Getting the reader ready (one-time download, about 10 MB)…", "Menyediakan pembaca (muat turun sekali sahaja, kira-kira 10 MB)…", "准备读取工具中 (只需下载一次，约 10 MB)…"],
+  ["Getting the reader ready (one-time download, about 6 MB)…", "Menyediakan pembaca (muat turun sekali sahaja, kira-kira 6 MB)…", "准备读取工具中 (只需下载一次，约 6 MB)…"],
   ["Taking a closer look…", "Melihat dengan lebih teliti…", "仔细看看…"],
   ["Checking the total…", "Menyemak jumlah…", "核对总额中…"],
   ["Retake", "Ambil semula", "重拍"],

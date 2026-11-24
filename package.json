@@ -1,6 +1,6 @@
 {
   "name": "duitful",
-  "version": "1.63.1",
+  "version": "1.64.0",
   "license": "GPL-3.0-only",
   "private": true,
   "description": "Duitful — Capacitor shell for the PWA.",
@@ -29,6 +29,7 @@
     "cap:add:android": "npm run build:web && npx cap add android",
     "cap:migrate": "npx cap migrate",
     "test:e2e": "node tests/e2e.mjs",
+    "capacitor:copy:after": "node scripts/trim-native-web.mjs",
     "check:applinks": "node scripts/check-applinks.mjs",
     "render:site-images": "node scripts/render-site-images.mjs"
   },

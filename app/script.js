@@ -4761,12 +4761,13 @@ function captureShareMailto() {
 document.getElementById("share-raw")?.addEventListener("input", updateCaptureSharePreview);
 /* "Use a screenshot": the same on-device OCR as receipts (ML Kit where the
    phone has it, Tesseract otherwise) reads the text into the box above, and
-   the same redaction runs. Only the cleaned words are ever sent: the image
+   the same redaction runs (Vision on iPhone, but alert sharing is Android
+   only today). Only the cleaned words are ever sent: the image
    is read in memory and dropped, never stored or attached. */
 async function ocrAlertScreenshot(file) {
   let text = null;
-  try { if (mlkitTextPlugin()) text = await runMlKitOcr(file); } catch { text = null; }
-  if (text == null) {
+  try { if (nativeTextReader()) text = await runMlKitOcr(file); } catch { text = null; }
+  if (text == null && tesseractAllowed()) {
     const worker = await getTesseractWorker(() => {});
     const res = await worker.recognize(file);
     text = (res && res.data && res.data.text) || "";
@@ -13969,17 +13970,41 @@ document.getElementById("btn-setup-restore-icloud")?.addEventListener("click", (
 
 /* ---------- receipt scanning (on-device OCR) ----------
 
-   Two engines, one pipeline. Both native shells read the photo with Google's
-   ML Kit text recognition (on-device, no network, no image ever leaves the
-   phone) — the plugin is in android.includePlugins AND ios.includePlugins in
-   capacitor.config.json, pinned by an e2e check. Web and the installed PWA
-   use the vendored Tesseract.js wasm build. Whichever engine runs, the SAME
-   downstream applies: canvas preprocessing before it, word boxes →
-   splitReconstructRows → parseReceiptText after it. Any ML Kit trouble at all
-   falls silently back to Tesseract.
+   Three engines, one pipeline, all on the device (no image ever leaves it):
+     iPhone / iPad  Apple Vision, through DuitfulKit.recognizeText (1.64+).
+                    No ML Kit and no Tesseract in the iOS build at all.
+     Android        Google's ML Kit text recognition (the plugin is in
+                    android.includePlugins only), Tesseract as the fallback
+                    for phones where ML Kit can't run (no Play services).
+     Web / PWA      the vendored Tesseract.js wasm build.
+   Vision answers in ML Kit's own blocks / lines / elements shape, so
+   whichever engine runs, the SAME downstream applies: canvas preprocessing
+   before it, word boxes → splitReconstructRows → parseReceiptText after it.
+   Any native trouble falls back to Tesseract where Tesseract exists; on iOS
+   it means "nothing read", exactly like an unreadable photo.
 
-   Selection is by capability, not platform: mlkitTextPlugin() returns the
-   bridge if the shell carries it. Nothing here branches on getPlatform(). */
+   Selection is by capability: nativeTextReader() returns whichever native
+   reader the shell carries. The one platform rule is tesseractAllowed(). */
+
+/* Tesseract is never shipped in the iOS app (scripts/trim-native-web.mjs)
+   and never asked for there, not even a HEAD request. */
+function tesseractAllowed() {
+  return nativePlatform() !== "ios";
+}
+
+/* The two core builds fetch-tesseract.mjs ships. tesseract.js would pick
+   between relaxed-SIMD, SIMD and scalar by itself, but naming the file lets
+   only two of them ship. Each .wasm.js embeds its wasm, so nothing else is
+   fetched. */
+const TESSERACT_CORES = { simd: "tesseract-core-simd-lstm.wasm.js", scalar: "tesseract-core-lstm.wasm.js" };
+// The same probe tesseract.js runs (wasm-feature-detect's SIMD module).
+const WASM_SIMD_PROBE = [0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11];
+function tesseractCoreFile() {
+  try {
+    if (typeof WebAssembly === "object" && WebAssembly.validate(new Uint8Array(WASM_SIMD_PROBE))) return TESSERACT_CORES.simd;
+  } catch {}
+  return TESSERACT_CORES.scalar;
+}
 
 let tesseractWorker = null;
 
@@ -13989,6 +14014,7 @@ let tesseractWorker = null;
    the CDN path works. */
 let tesseractLocal = null;
 async function detectLocalTesseract() {
+  if (!tesseractAllowed()) return false;
   if (tesseractLocal !== null) return tesseractLocal;
   try {
     const resp = await fetch("vendor/tesseract/tesseract.min.js", { method: "HEAD" });
@@ -13998,6 +14024,7 @@ async function detectLocalTesseract() {
 }
 
 async function loadTesseract() {
+  if (!tesseractAllowed()) throw new Error("Tesseract isn't part of the iOS app.");
   if (window.Tesseract) return window.Tesseract;
   const useLocal = await detectLocalTesseract();
   if (!useLocal) {
@@ -14022,7 +14049,9 @@ async function getTesseractWorker(logger) {
     const opts = {
       logger,
       workerPath: base + "worker.min.js",
-      corePath: base,
+      // A file, not the folder: the worker then loads exactly this core
+      // instead of probing for a relaxed-SIMD build that isn't shipped.
+      corePath: base + tesseractCoreFile(),
       langPath: base,
     };
     if (isNative()) {
@@ -14355,32 +14384,73 @@ function receiptReadWithBoxes(data, canvas) {
   return { text, boxes };
 }
 
-/* ---------- ML Kit text recognition (native Android) ----------
+/* ---------- native text readers: ML Kit (Android), Vision (iOS) ----------
 
    @pantrist/capacitor-plugin-ml-kit-text-recognition wraps Google's ML Kit
-   Latin text recognizer. It is on-device: the bitmap is handed to a local
-   model, nothing is uploaded, and Google receives nothing. It reads a phone
-   photo of a thermal receipt far better than a wasm Tesseract does, so on
-   Android it goes first — but it is only ever an accelerator. Every failure
-   path here returns null and the caller runs Tesseract instead. */
+   Latin text recognizer on Android; DuitfulKit.recognizeText wraps Apple's
+   Vision on iPhone and iPad and answers in the same shape. Both are on-device:
+   the bitmap is handed to a local model, nothing is uploaded. They read a
+   phone photo of a thermal receipt far better than a wasm Tesseract does, so
+   they go first — but every failure path here returns null, and the caller
+   runs Tesseract instead where it ships (not on iOS). */
 
 // Pure: which engine SHOULD run, given what the device offers. Keeping this
 // a plain function (rather than reading globals) is what makes the rule
-// testable, and it is the single place the choice is made.
+// testable, and it is the single place the choice is made. "none" only when
+// there is no native reader and Tesseract isn't allowed (iOS without
+// recognizeText): the scan then reads as an unreadable photo.
 function pickOcrEngine(env) {
   const o = env && typeof env === "object" ? env : {};
-  return o.native && o.mlkitAvailable ? "mlkit" : "tesseract";
+  if (o.native && o.visionAvailable) return "vision";
+  if (o.native && o.mlkitAvailable) return "mlkit";
+  return o.tesseractAllowed === false ? "none" : "tesseract";
 }
 
-// The bridge object, or null when this build doesn't carry the plugin — web,
-// the installed PWA, or an older shell. Both native platforms do carry it.
-// Never throws.
+// What pickOcrEngine is asked on this device.
+function ocrEnv() {
+  const reader = nativeTextReader();
+  return {
+    native: isNative(),
+    visionAvailable: !!reader && reader.engine === "vision",
+    mlkitAvailable: !!reader && reader.engine === "mlkit",
+    tesseractAllowed: tesseractAllowed(),
+  };
+}
+
+// The ML Kit bridge object, or null when this build doesn't carry the plugin
+// — web, the installed PWA, the iOS app (1.64+), or an older shell. Never
+// throws.
 function mlkitTextPlugin() {
   try {
     if (!isNative()) return null;
     const plugins = window.Capacitor && window.Capacitor.Plugins;
     const p = plugins && plugins.CapacitorPluginMlKitTextRecognition;
     return p && typeof p.detectText === "function" ? p : null;
+  } catch { return null; }
+}
+
+/* The native reader this shell carries, as { engine, detectText(opts) } with
+   ML Kit's call and result shape, or null. iOS: Vision through DuitfulKit
+   (a missing method means "carry on as before": ML Kit if an older shell
+   still has it, else nothing). Android: the ML Kit plugin. Never throws. */
+const VISION_TIMEOUT_MS = 45000;
+function nativeTextReader() {
+  try {
+    if (!isNative()) return null;
+    if (nativePlatform() === "ios") {
+      const kit = duitfulKit("recognizeText");
+      if (kit) {
+        return {
+          engine: "vision",
+          detectText: (opts) => withTimeout(kit.recognizeText({
+            base64Image: (opts && opts.base64Image) || "",
+            rotation: (opts && opts.rotation) || 0,
+          }), VISION_TIMEOUT_MS),
+        };
+      }
+    }
+    const p = mlkitTextPlugin();
+    return p ? { engine: "mlkit", detectText: (opts) => p.detectText(opts) } : null;
   } catch { return null; }
 }
 
@@ -14396,7 +14466,7 @@ function mlkitBase64FromDataUrl(src) {
   return /^[A-Za-z0-9+/]+={0,2}$/.test(clean) ? clean : "";
 }
 
-/* Pure: ML Kit's blocks → the {text, x0, y0, x1, y1} word shape
+/* Pure: ML Kit's blocks (also what Vision sends on iOS) → the {text, x0, y0, x1, y1} word shape
    splitReconstructRows already consumes. ML Kit nests block → line →
    element, with a `boundingBox` of {left, top, right, bottom} in image
    pixels; elements are word-level, which is exactly the granularity the row
@@ -14449,17 +14519,18 @@ function mlkitWordsFromResult(result) {
   return out;
 }
 
-/* Run the native recognizer on the preprocessed image. Returns the layout-
-   aware text, or null on ANY problem — a missing plugin, an image we can't
-   turn into base64, a rejected bridge call, or an empty read. The caller
-   treats null as "use Tesseract", so a bad ML Kit day is invisible. */
+/* Run the native recognizer (ML Kit or Vision) on the preprocessed image.
+   Returns the layout-aware text, or null on ANY problem — no native reader,
+   an image we can't turn into base64, a rejected bridge call, or an empty
+   read. The caller treats null as "use Tesseract" (or, on iOS, "nothing
+   read"), so a bad day for the native reader is invisible. */
 async function runMlKitOcr(source) {
-  const plugin = mlkitTextPlugin();
-  if (!plugin) return null;
+  const reader = nativeTextReader();
+  if (!reader) return null;
   try {
     const base64 = mlkitBase64FromDataUrl(await ocrSourceToDataUrl(source));
     if (!base64) return null;
-    const res = await plugin.detectText({ base64Image: base64, rotation: 0 });
+    const res = await reader.detectText({ base64Image: base64, rotation: 0 });
     if (!res) return null;
     const words = mlkitWordsFromResult(res);
     const text = receiptTextFromWords(words, res.text || "");
@@ -14468,9 +14539,9 @@ async function runMlKitOcr(source) {
 }
 
 /* ---------- DuitfulKit: the phone's own scanner, entity reader and AI ----------
-   native/duitful-kit is one plugin per platform (VisionKit + Foundation
-   Models + ML Kit Entity Extraction on iOS; ML Kit Document Scanner, Entity
-   Extraction and Gemini Nano on Android). Every method can be missing: the
+   native/duitful-kit is one plugin per platform (VisionKit, Vision text
+   recognition, NSDataDetector dates and Foundation Models on iOS; ML Kit
+   Document Scanner, Entity Extraction and Gemini Nano on Android). Every method can be missing: the
    web app, an older shell, Android 7, a phone without Apple Intelligence or
    Gemini Nano. Each caller treats "missing" and "failed" the same way, by
    carrying on exactly as before, so none of this can make a scan worse. */
@@ -16605,20 +16676,24 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     // which case the original image is recognized exactly as before.
     const prepared = await receiptPreprocessImage(recognizeInput);
     const recognizeSource = prepared || recognizeInput;
-    // ONE path, two possible engines. ML Kit only where it exists (native
-    // Android with the plugin); null back from it means "nothing read" and
-    // Tesseract picks the job up as if ML Kit had never been tried.
+    // ONE path, three possible engines. A native reader where it exists
+    // (ML Kit on Android, Vision on iOS); null back from it means "nothing
+    // read" and Tesseract picks the job up as if it had never been tried —
+    // except on iOS, which has no Tesseract: there an empty read goes on to
+    // the confirm sheet like any unreadable photo (pick a figure / type it).
     let text = null;
     let lineBoxes = null;
-    if (pickOcrEngine({ native: isNative(), mlkitAvailable: !!mlkitTextPlugin() }) === "mlkit") {
+    const engine = pickOcrEngine(ocrEnv());
+    if (engine === "mlkit" || engine === "vision") {
       setScanStep(tr("Reading the receipt…"), null);
       text = await runMlKitOcr(recognizeSource);
       if (text) scanProgress.style.width = "90%";
     }
+    if (text == null && !tesseractAllowed()) text = "";
     if (text == null) {
       // Three steps in plain words. The engine's own messages ("Initializing
       // api", "Loading tesseract core") read as a hang to everyone but us.
-      setScanStep(tr("Getting the reader ready (one-time download, about 10 MB)…"), null);
+      setScanStep(tr("Getting the reader ready (one-time download, about 6 MB)…"), null);
       const worker = await getTesseractWorker((m) => {
         if (m.status === "recognizing text") {
           setScanStep(tr("Reading the receipt…"), Math.round((m.progress || 0) * 100));
