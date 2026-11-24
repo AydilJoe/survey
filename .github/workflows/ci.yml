@@ -89,6 +89,9 @@ jobs:
             -Pandroid.injected.signing.store.password=android \
             -Pandroid.injected.signing.key.alias=ci \
             -Pandroid.injected.signing.key.password=android
+          echo "Android AAB size: $(du -sh app/build/outputs/bundle/release/app-release.aab | cut -f1)"
+          echo "Android APK size: $(du -sh app/build/outputs/apk/release/app-release.apk | cut -f1)"
+          echo "Android assets/public size: $(du -sh app/src/main/assets/public | cut -f1)"
 
       # Cordova finds its plugin list (res/xml/config.xml) by name, so the
       # resource shrinker can't see it's used. When it went, every call to the

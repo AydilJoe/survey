@@ -176,8 +176,8 @@ Full details + manual fallback steps live in
 ## Receipt OCR: ML Kit on Android (v1.17+)
 
 Receipt scanning reads the photo with Google's **ML Kit** text recognition
-on Android, and falls back to the bundled Tesseract build everywhere else
-(web, PWA, iOS) — and on any Android device where ML Kit fails.
+on Android, Apple **Vision** on iOS (since 1.64.0), and the bundled Tesseract
+build on the web/PWA — and as a fallback on any Android device where ML Kit fails.
 
 Nothing to install by hand: `@pantrist/capacitor-plugin-ml-kit-text-recognition`
 is a normal dependency, so `npm install` + `npm run cap:sync` picks it up

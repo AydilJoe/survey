@@ -53,12 +53,12 @@ const WIDGET_NAME = "DuitfulWidget";
 const WIDGET_DIR = resolve(IOS_APP, WIDGET_NAME);
 const WIDGET_SWIFT = resolve(WIDGET_DIR, `${WIDGET_NAME}.swift`);
 const WIDGET_PLIST = resolve(WIDGET_DIR, "Info.plist");
-// Widgets are a much younger API than the app itself: the app floor is
-// dragged down to 15.5 by GoogleMLKit (see the last block in this file),
-// but nothing forces the extension that low, and 16.0 keeps the SwiftUI
-// used below on well-trodden ground. An extension may require a newer iOS
-// than its host app — iOS simply doesn't offer the widget on older
-// devices, which is the correct behaviour here.
+// Widgets are a much younger API than the app itself: the app floor stays
+// at 15.5 (originally set for GoogleMLKit before 1.64.0 dropped it; see the
+// last block in this file), but nothing forces the extension that low, and
+// 16.0 keeps the SwiftUI used below on well-trodden ground. An extension may
+// require a newer iOS than its host app — iOS simply doesn't offer the widget
+// on older devices, which is the correct behaviour here.
 const WIDGET_DEPLOYMENT_TARGET = "16.0";
 
 const HOSTS = ["duitful.app", "www.duitful.app"];
@@ -516,7 +516,7 @@ struct DuitfulAppShortcuts: AppShortcutsProvider {
 /* ---------- 3c. App privacy manifest (PrivacyInfo.xcprivacy) ---------- */
 // App Store Connect refuses a build whose own binary calls a "required
 // reason" API without declaring why. The pods that ship their own manifest
-// (Capacitor, ML Kit) cover their frameworks, but static pods such as
+// (Capacitor) cover their frameworks, but static pods such as
 // DuitfulCapacitorKit link into the app binary itself, and the Siri &
 // Shortcuts queue above lives in AppDelegate.swift: both use UserDefaults,
 // for this app's own data only (reason CA92.1). The collected-data entry
@@ -1803,11 +1803,12 @@ function pbxAddTargetAttributes(src, projectObject, targetId) {
 }
 
 /* ---------- iOS deployment target: 14.0 → 15.5 ----------
-   GoogleMLKit/TextRecognition 7.0.0 (pulled by the ML Kit plugin)
-   requires iOS 15.5+, but Capacitor's template generates the project at
-   14.0 — so `pod install` fails during `cap add ios` before this script
-   even runs. The workflow tolerates that first pod failure; this patch
-   then raises the target in BOTH the Podfile (the resolver's input) and
+   GoogleMLKit/TextRecognition originally forced iOS 15.5+. Since 1.64.0
+   iOS uses Apple Vision and drops ML Kit completely, but the app and
+   DuitfulCapacitorKit.podspec keep 15.5 as the floor, while Capacitor's
+   template still starts at 14.0 — so `pod install` fails during `cap add ios`
+   before this script runs. The workflow tolerates that first pod failure;
+   this patch raises the target in BOTH the Podfile (the resolver's input) and
    the pbxproj (the compiler's), and the subsequent `cap sync ios` re-runs
    pod install successfully. iOS 15.5 covers effectively every device in
    use (every iPhone since the 6s can run it). */

@@ -161,23 +161,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Also fetches Tesseract into vendor/ and copies it into www/ — the
-      # OCR engine is bundled in the IPA, never downloaded at runtime.
+      # Builds www/ (with Tesseract for Android/web); `cap sync ios` runs
+      # scripts/trim-native-web.mjs via capacitor:copy:after to drop
+      # vendor/tesseract/ from the iOS bundle since iOS uses Apple Vision.
       - name: Build web assets
         run: npm run build:web
 
       # ios/ is git-ignored and generated fresh on every run, so the build
       # can never drift from a stale committed Xcode project.
       - name: Generate the iOS project
-        # GoogleMLKit needs iOS 15.5+ but the template starts at 14.0, so the
-        # pod install inside `cap add` fails on the first pass by design.
-        # patch:ios raises the deployment target right after this step, and
-        # `cap sync ios` re-runs pod install against the fixed Podfile — so a
-        # pod failure HERE is tolerated; any real problem still fails loudly
-        # at the sync step.
+        # DuitfulCapacitorKit sets iOS 15.5+ but Capacitor's template starts
+        # at 14.0, so the pod install inside `cap add` fails on the first pass
+        # by design. patch:ios raises the deployment target right after this
+        # step, and `cap sync ios` re-runs pod install against the fixed
+        # Podfile — so a pod failure HERE is tolerated; any real problem still
+        # fails loudly at the sync step.
         # Capacitor 8 makes Swift Package Manager the default for new iOS
         # projects. Everything here (Podfile patches, App.xcworkspace in the
-        # Fastfile, the iCloud plugin's podspec, ML Kit) is CocoaPods: pin it.
+        # Fastfile, the local plugin podspecs) is CocoaPods: pin it.
         run: npx cap add ios --packagemanager CocoaPods || echo "::notice::pod install deferred — patch:ios raises the deployment target and cap sync retries"
 
 
@@ -230,9 +231,19 @@ jobs:
         if: inputs.lane == 'build-only'
         run: |
           set -euo pipefail
+          ipa="build/ios-unsigned/Duitful-unsigned.ipa"
           work="$(mktemp -d)"
-          unzip -q build/ios-unsigned/Duitful-unsigned.ipa -d "$work"
+          unzip -q "$ipa" -d "$work"
           app="$work/Payload/App.app"
+          echo "IPA size: $(du -sh "$ipa" | cut -f1)"
+          echo "App.app size: $(du -sh "$app" | cut -f1)"
+          [ -d "$app/Frameworks" ] && echo "Frameworks size: $(du -sh "$app/Frameworks" | cut -f1)" || echo "Frameworks: none"
+          [ -d "$app/public" ] && echo "public size: $(du -sh "$app/public" | cut -f1)" || echo "public: none"
+          if [ -d "$app/public/vendor/tesseract" ]; then
+            echo "::error::vendor/tesseract is still inside the iOS IPA — trim-native-web.mjs did not remove it."
+            exit 1
+          fi
+          echo "Confirmed: vendor/tesseract is absent from the iOS IPA."
           echo "::group::Bundle structure"
           find "$app" -maxdepth 2 -name '*.appex' -o -maxdepth 1 -type d | sed "s|$work/||"
           echo "::endgroup::"

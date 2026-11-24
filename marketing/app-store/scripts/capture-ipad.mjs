@@ -1,7 +1,7 @@
 // 13" iPad App Store screenshots (2064 x 2752, portrait), from the real app.
 //
 // The page runs as the iOS app would: a Capacitor stub reporting "ios", with
-// the phone's AI on (the header badge) and ML Kit / Apple's model answering
+// the phone's AI on (the header badge) and Apple Vision / Apple's model answering
 // the receipt read, so the scan sheet below is the app's own flow from OCR
 // text to "Add RM …". Sample data only: invented names and amounts.
 //
@@ -45,6 +45,7 @@ const iosShell = (receiptText) => {
     getPlatform: () => 'ios',
     Plugins: {
       DuitfulKit: {
+        recognizeText: async () => ({ text: receiptText, blocks: [] }),
         aiStatus: async () => ({ available: true }),
         // Apple's on-device model reading the receipt text: it may only fill
         // what the receipt prints (mergeReceiptOpinion checks).
@@ -53,7 +54,6 @@ const iosShell = (receiptText) => {
           return { total: 23.4, merchant: '99 Speed Mart', date: iso, currency: 'MYR' };
         },
       },
-      CapacitorPluginMlKitTextRecognition: { detectText: async () => ({ text: receiptText, blocks: [] }) },
     },
   };
 };

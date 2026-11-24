@@ -242,13 +242,14 @@ script, the Xcode build — without touching an account.
 What the run does:
 
 1. Installs dependencies and builds the web assets into `www/`
-   (Tesseract included — OCR is bundled, never downloaded at runtime)
 2. `npx cap add ios` — generates the Xcode project from scratch. `ios/` is
    git-ignored, so it can never drift from a stale committed copy
 3. `npm run assets` — real Duitful icon and splash, not Capacitor's logo
 4. `npm run patch:ios` — Info.plist usage strings, export-compliance flag,
    Associated Domains entitlement (see below)
-5. `npx cap sync ios` — copies the web bundle in, installs Pods
+5. `npx cap sync ios` — copies the web bundle in (running
+   `scripts/trim-native-web.mjs` via `capacitor:copy:after` to drop
+   `vendor/tesseract/`, since iOS uses Apple Vision), installs Pods
 6. fastlane: creates the distribution certificate and App Store profile
    from your API key, archives, exports an `app-store` IPA, uploads to
    TestFlight
@@ -396,7 +397,7 @@ Apple's rules for free accounts, not bugs in the build:
   without an App Store Connect app record, so the paywall's Unlock button
   will error. Nothing you can do about it short of enrolling.
 - ✅ **Everything else is real**: passcode + Face ID / Touch ID unlock,
-  receipt scanning with the bundled Tesseract OCR, bill splitting, debt
+  receipt scanning with Apple Vision OCR, bill splitting, debt
   payoff simulation, CSV import/export, local notification reminders,
   encrypted storage. That's the whole app apart from the till.
 
@@ -451,8 +452,8 @@ build.
       Security) — the prompt should quote "Unlock Duitful with Face ID"
 - [ ] **Receipt scan**: camera permission prompt appears with the receipt
       wording; a real paper receipt prefills amount and merchant
-      (iOS uses the bundled Tesseract engine — expect a slower first scan
-      while it loads)
+      (iOS uses Apple Vision on-device — fast, no model download; also check
+      Malay/Chinese text, a scanned bank statement and an EA form)
 - [ ] **Paywall**: shows Unlock Pro / Restore, no FPX or license-key copy
 - [ ] **Sandbox purchase** of `duitful_pro` with a Sandbox Apple ID
       (App Store Connect → Users and Access → Sandbox Testers), then
@@ -657,8 +658,9 @@ then — see the long comment at the top of the Fastfile.
 
 - **Notification auto-capture** is Android-only by design — iOS has no
   equivalent to a notification listener service. Nothing to declare.
-- **ML Kit OCR** is Android-only; iOS falls back to the bundled Tesseract
-  engine, which is slower on the first scan. Both are fully on-device.
+- **Text recognition** uses Apple's built-in **Vision** (`DuitfulKit.recognizeText`)
+  on iOS (since 1.64.0) instead of Google ML Kit or Tesseract — smaller app,
+  fast on-device reads, nothing uploaded.
 - **In-app update banner** uses the iTunes lookup API on iOS and links to
   the App Store listing.
 
@@ -690,7 +692,7 @@ then — see the long comment at the top of the Fastfile.
 - **Build logs** — every failed run uploads `ios-build-logs` as an
   artifact (Actions → the run → Artifacts). That's your Xcode window.
 
-## DuitfulKit: document scanner, on-device AI, Siri & Shortcuts
+## DuitfulKit: document scanner, Vision OCR, on-device AI, Siri & Shortcuts
 
 `native/duitful-kit` (pod `DuitfulCapacitorKit`) adds, with **no new
 capability, entitlement or permission** (the scanner uses the existing
@@ -698,13 +700,16 @@ camera string):
 
 - **Document scanner** — VisionKit's document camera, or "Choose photo"
   (PHPicker). Pages come back as JPEG data URLs to the existing OCR.
+- **Text recognition & date reading** — Apple **Vision**
+  (`VNRecognizeTextRequest` in `DuitfulTextReader.swift`) reads receipts,
+  scanned statements and EA forms in ML Kit's blocks / lines / elements
+  pixel-box shape; Foundation's `NSDataDetector` (`DuitfulDateReader`) finds
+  receipt dates when the parser misses them. No GoogleMLKit pod and no model
+  download.
 - **On-device AI** — Foundation Models (iOS 26 + Apple Intelligence),
   weak-linked so the app still launches on iOS 15–18. Built with
   `#if canImport(FoundationModels)`, so it needs the Xcode 26 SDK to be
   included at all.
-- **ML Kit Entity Extraction** — `GoogleMLKit/EntityExtraction`, same
-  GoogleMLKit range as text recognition. Downloads Google's English model
-  on first use.
 - **Siri & Shortcuts** — "Log a spend" and "Scan a receipt" App Intents,
   injected into `AppDelegate.swift` by `patch-ios.mjs` (section 3b) because
   iOS only finds intents compiled into the app target. "Log a spend" runs
@@ -800,14 +805,13 @@ the Production environment.
 
 ## Google Drive sync on iOS
 
-iOS signs in through a different plugin than Android, for a pod reason:
-`@codetrix-studio/capacitor-google-auth` pins GoogleSignIn 6.2.4, which
-wants `GTMSessionFetcher/Core < 3.0`, while ML Kit's `MLKitCommon` wants
-`>= 3.3.2`. CocoaPods cannot satisfy both, so that plugin stays excluded
-from iOS via `ios.includePlugins` in `capacitor.config.json`, and iOS uses
-**`@capgo/capacitor-social-login`** (GoogleSignIn 9.x, GTMSessionFetcher
-3.3+ — compatible with ML Kit) instead. Android is untouched: it still
-uses the codetrix plugin and the web client ID.
+iOS signs in through a different plugin than Android, originally for a pod
+reason: `@codetrix-studio/capacitor-google-auth` pins GoogleSignIn 6.2.4,
+which clashed with ML Kit's `GTMSessionFetcher` requirement. iOS dropped ML Kit
+in 1.64.0, but stays on **`@capgo/capacitor-social-login`** (modern
+GoogleSignIn 9.x) while `@codetrix-studio/capacitor-google-auth` remains
+excluded from `ios.includePlugins` in `capacitor.config.json`. Android is
+untouched: it still uses the codetrix plugin and the web client ID.
 
 `app/drive-sync.js` picks the implementation at load time from
 `Capacitor.getPlatform()`: `ios` → SocialLogin, `android` → GoogleAuth,

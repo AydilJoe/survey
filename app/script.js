@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.63.1";
+const APP_VERSION = "1.64.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -12354,6 +12354,10 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.64.0": [
+    "<strong>A much smaller iPhone and iPad app</strong> — receipt, statement and EA form scanning now uses Apple's built-in text reader on your device, so the app no longer carries a second reader. Everything still stays on your phone.",
+    "<strong>A smaller Android app and lighter web scans</strong> — trimmed unused OCR files so the Android app is lighter and the web's one-time receipt reader download drops to about 6 MB. Everything still runs on your device.",
+  ],
   "1.63.1": [
     "<strong>CSV keeps your card spends</strong> — a spend charged to a credit card now stays on that card when you export a CSV and import it on another device. Before, it came back as cash and the carried-over balance dropped. Payment links, split bills and tax details come back too. Moved with an older file? Export again and import the new one.",
   ],
