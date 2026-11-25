@@ -102,6 +102,67 @@ advice, nothing saved without the user's yes. Order is the suggested priority.
 Not doing: spending tips or "you should save" (advice), a chat assistant,
 predicted bill amounts (guessing).
 
+## Modularity: scalable i18n, splitting `app/script.js`, and a single asset manifest (proposed 25 Nov 2026 — pending review)
+
+Goal: keep Duitful's zero-bundler vanilla-JS + Capacitor PWA setup (no Webpack/Vite rewrite), while removing the three bottlenecks that now hurt startup weight, language expansion, and maintainability.
+
+### 1. Modular i18n (scales from 3 → 10+ UI languages at 0 KB extra boot cost)
+
+**Current bottlenecks:**
+- `app/i18n-ms.js` (192 KB) and `app/i18n-zh.js` (181 KB) load synchronously on every boot in `app/index.html` — **373 KB** even for English users. Adding 5+ languages (e.g. `ta`, `id`, `th`, `vi`, `fil`, `zh-Hant`) would push >1 MB synchronously onto initial page load.
+- Supported languages are hardcoded across 6 places: `app/i18n.js` (`LANGS`, `LOCALES`, `HTML_LANG`, `fromPhone()`, `saved()`, `set()`), `app/index.html`, `app/sw.js`, `scripts/build-i18n.mjs`, `scripts/build-web.mjs`, and `tests/e2e.mjs`.
+- `scripts/i18n/*.mjs` stores multi-column `[en, ms, zh]` tuples. Past 3 columns, rows become hard to read/review and create merge conflicts whenever multiple languages are edited.
+- In `app/i18n.js`, `collect(document.body)` currently filters nodes via `known(en)` against preloaded `I18N_TABLES` — which forces at least one translation table to load before `i18n.js` runs.
+
+**Proposed architecture:**
+1. **Single language registry (`scripts/i18n/langs.mjs` → generated `app/i18n-langs.js`):**
+   One source of truth per language: `{ code, nativeName, htmlLang, locale, dir, phonePrefixes, file, version }`. Consumed by `app/i18n.js`, the Settings language picker, `scripts/build-i18n.mjs`, `scripts/build-web.mjs`, and `tests/e2e.mjs`.
+2. **Per-language source folders (`scripts/i18n/locales/<code>/<screen>.json` or `.mjs`):**
+   - Keep English strings canonical (enforced by `build-i18n.mjs --missing` and `--lint`).
+   - Store each language in its own directory (`locales/ms/split.json`, `locales/zh/split.json`, `locales/id/split.json`, …) mapping English key → translation.
+   - Adding a new language becomes: add one folder + one entry in `langs.mjs`, run `npm run build:i18n`. Add `build-i18n.mjs --status` to print per-language coverage and missing keys.
+   - Migration can be scripted cleanly from the existing 14 `scripts/i18n/*.mjs` tuple files with byte-for-byte output verification on `app/i18n-ms.js` and `app/i18n-zh.js`.
+3. **On-demand language loading in `app/i18n.js`:**
+   - Decouple `collect(document.body)` from `known(en)`: walk static HTML once before `script.js` renders (skipping `SKIP` tags and `translate="no"`) and record every static text node / translatable attribute. Because this still runs once before `script.js` inserts user data, user-typed strings remain untouched.
+   - Resolve `lang` from `localStorage["duitful.lang"]` / `fromPhone()` before loading packs:
+     - If `lang === "en"`, load **0 KB** of translation files.
+     - If `lang !== "en"`, load only `i18n-<code>.js` (or `i18n/<code>.json`) for the active language before first paint (small boot loader or `document.write`/pre-script tag, or `await I18N.ready` before `boot()` in `script.js` — **review point:** verify zero English flash on first paint and Capacitor `file://` / `capacitor://` compatibility).
+     - When switching languages via `I18N.set(next)`, dynamically load the requested pack (if not yet in `I18N_TABLES`), cache it in the Service Worker on first use, paint, and dispatch `duitful:lang`.
+   - Service worker (`app/sw.js`): stop precaching every unused language in `SHELL`; cache language packs on first fetch (plus precache the currently selected pack if offline-first guarantees need it — **review point:** offline switching to a never-used language vs keeping SW install payload tiny; Capacitor native builds still bundle all `i18n-*.js` in `www/`).
+4. **Pluralization & RTL readiness:**
+   - Support `Intl.PluralRules(locale)` in `trn()` for languages with non-English plural categories while staying backward-compatible with existing `(n, one, many, vars)` calls.
+   - Set `document.documentElement.dir = meta.dir` from the registry (defaults to `"ltr"`).
+
+### 2. Splitting `app/script.js` along existing module boundaries
+
+`app/script.js` has grown to **19,119 lines (~909 KB)** — nearly half the entire JS codebase. Meanwhile, `wallets.js`, `statement.js`, `tax.js`, `split.js`, `investments.js`, and `recap.js` already establish a clean zero-bundler pattern (plain `<script>` modules sharing `state`, `save()`, `renderAll()`, `tr()`, `escapeHtml()`, `fmtMoney()`).
+
+**Candidate extractions (small, independent PRs — roughly halves `script.js`):**
+- `app/ocr.js` (~2,700 L): canvas receipt preprocessing, ML Kit / Vision / Tesseract pipeline, FX rate lookup for scans, confirm sheet (`receipt-extract.js` stays pure parsing).
+- `app/pro.js` (~1,900 L): Pro gating, promos, paywall dialog, celebration block, native IAP (`CdvPurchase`), Billplz FPX web checkout, license activation.
+- `app/csv.js` (~1,350 L): `toCSV`, `fromCSV`, bulk income import.
+- `app/capture.js` (~1,200 L): Android notification parser (`parseBankNotification`, layered EN/MS/ZH/ID/TH/FIL/VI rules), transfer/move/income/split-match logic, capture cards, and "Check auto-capture" / "Not picked up?" diagnostics.
+- `app/onboarding.js` (~1,000 L): first-run 3-question setup, guided welcome tour, spotlight overlay, PWA install guide (`installInstructionsBody`).
+- `app/reports.js` (~760 L): Reports tab filters, trend bars, and charts.
+- `app/cloud.js` (~500 L): Drive/iCloud orchestration (`checkDriveOnBoot`, `restoreFromDrive`, backup UI card) — sitting cleanly above `drive-sync.js` and `icloud-sync.js`.
+- `app/search.js` (~450 L): universal search dialog and indexing.
+
+**Review points for `script.js` split:**
+- Load order & hoisting: functions moved to separate `<script>` files must be loaded before callers or invoked only after `boot()`. Keep globals clean and avoid circular init-time references (`var` traps like `lockIcloudSignInPending`).
+- Lazy-loading opportunity: heavy non-boot modules (`ocr.js`, `csv.js`) could optionally use the same on-demand injection + SW precache pattern already used for `jsQR.js` and `pdf.js`.
+- Update `scripts/build-i18n.mjs` (`JS_FILES` / `LINT_JS_FILES`) automatically or from the manifest below so `--missing` and `--lint` always cover newly extracted files.
+
+### 3. Single asset manifest (`scripts/app-manifest.mjs`)
+
+**Current bottleneck:** adding or bumping any JS module or language pack requires editing 3–4 places by hand: `app/index.html`, `app/sw.js` (`SHELL`), `scripts/build-web.mjs` (`APP_FILES`), and `scripts/build-i18n.mjs` (`JS_FILES`). Drift silently breaks offline PWA caching or Capacitor `www/` builds.
+
+**Proposed design:**
+- Define one manifest (`scripts/app-manifest.mjs`) listing app shell scripts (with `?v=` or content-hash), lazy-loaded scripts/vendor assets, and language packs (read from `scripts/i18n/langs.mjs`).
+- Either:
+  - **Option A (validator first — lowest churn):** a fast check script (`npm run check:manifest`, run in CI & `tests/e2e.mjs`) asserting `app/index.html`, `app/sw.js`, `scripts/build-web.mjs`, and `scripts/build-i18n.mjs` all match the manifest and have identical `?v=` query strings; or
+  - **Option B (generator):** `scripts/build-web.mjs` imports the manifest directly, and a small sync script updates the `SHELL` block in `app/sw.js` and `<script>` block in `app/index.html` between marker comments.
+- **Review point for Claude Code:** prefer Option A or B, and confirm whether modular i18n (Phase 1) should land before adding the next UI language (e.g. Indonesian / Tamil / Traditional Chinese) and before splitting `script.js` (Phase 2).
+
 ## Open decisions
 
 - **Bank alerts by SMS**: many MY banks send card alerts by SMS, which
