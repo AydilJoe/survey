@@ -9152,9 +9152,9 @@ html[data-theme="pastel"] .tab.active {
 }
 
 /* ---------- v1.64.3 Welcome horizon (#lock) ----------
-   Full-screen dawn horizon backdrop in pure CSS, clean inline brand lockup,
-   bottom-anchored full-width pill stack, and quiet legal footer. Works across
-   Light, Dark, and Pastel themes without external images or SVG filters. */
+   Full-screen dawn horizon painted flat on #lock's own background (zero extra
+   compositor layers, zero SVG filters, zero rotated transforms), clean inline
+   brand lockup, bottom-anchored full-width pill stack, and quiet legal footer. */
 #lock {
   --lock-sky: #cfc7ba;
   --lock-sky-mid: #ddd5c7;
@@ -9172,8 +9172,25 @@ html[data-theme="pastel"] .tab.active {
   justify-content: flex-start;
   padding: 0;
   overflow-y: auto;
-  overflow-x: hidden;
-  background: var(--stage);
+  background-color: var(--stage);
+  background-image:
+    radial-gradient(circle 4px at 68% 185px, var(--lock-flare) 0%, var(--lock-flare) 55%, transparent 100%),
+    radial-gradient(ellipse 52px 2.5px at 68% 185px, var(--lock-flare) 0%, var(--lock-flare-mid) 35%, transparent 75%),
+    radial-gradient(circle 54px at 68% 185px, var(--lock-flare) 0%, var(--lock-flare-mid) 22%, transparent 68%),
+    linear-gradient(180deg, transparent 250px, var(--stage) 400px),
+    radial-gradient(ellipse 132% 700px at 50% 836px,
+      var(--stage) 0%,
+      var(--stage) 76%,
+      var(--lock-body) 88%,
+      var(--lock-body-lit) 93.3%,
+      var(--lock-rim) 93.85%,
+      var(--lock-rim) 94.1%,
+      var(--lock-rim-glow) 95.2%,
+      transparent 100%),
+    radial-gradient(ellipse 75% 240px at 68% 176px, var(--lock-flare-mid) 0%, var(--lock-haze) 26%, var(--lock-haze-soft) 56%, transparent 78%),
+    linear-gradient(180deg, var(--lock-sky) 0%, var(--lock-sky-mid) 230px, var(--stage) 400px);
+  background-repeat: no-repeat;
+  background-size: 100% 420px;
 }
 #lock[hidden] { display: none; }
 html[data-theme="dark"] #lock {
@@ -9215,64 +9232,7 @@ html[data-theme="pastel"] #lock {
   --lock-body: #fae7d6;
 }
 
-.lock-backdrop {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: min(420px, 52dvh);
-  min-height: 270px;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-  background:
-    linear-gradient(180deg, transparent 62%, var(--stage) 100%),
-    radial-gradient(ellipse 132% 175% at 50% 209%,
-      var(--stage) 0%,
-      var(--stage) 76%,
-      var(--lock-body) 88%,
-      var(--lock-body-lit) 93.3%,
-      var(--lock-rim) 93.85%,
-      var(--lock-rim) 94.1%,
-      var(--lock-rim-glow) 95.2%,
-      transparent 100%),
-    radial-gradient(ellipse 75% 60% at 68% 44%, var(--lock-flare-mid) 0%, var(--lock-haze) 26%, var(--lock-haze-soft) 56%, transparent 78%),
-    linear-gradient(180deg, var(--lock-sky) 0%, var(--lock-sky-mid) 58%, var(--stage) 100%);
-}
-.lock-flare {
-  position: absolute;
-  left: 68%;
-  top: 46.2%;
-  width: 108px;
-  height: 108px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--lock-flare) 0%, var(--lock-flare-mid) 20%, transparent 66%);
-}
-.lock-flare::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 104px;
-  height: 4px;
-  transform: translate(-50%, -50%) rotate(7deg);
-  border-radius: 999px;
-  background: radial-gradient(ellipse at center, var(--lock-flare) 0%, var(--lock-flare-mid) 35%, transparent 75%);
-}
-.lock-flare::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: var(--lock-flare);
-}
-
 #lock > .splash-inner {
-  position: relative;
-  z-index: 1;
   width: 100%;
   max-width: 400px;
   min-height: 100%;
@@ -9280,7 +9240,7 @@ html[data-theme="pastel"] #lock {
   gap: 0;
   justify-content: flex-start;
   padding:
-    calc(env(safe-area-inset-top, 0px) + clamp(13.5rem, 33dvh, 18.5rem))
+    calc(env(safe-area-inset-top, 0px) + clamp(12.5rem, 30vh, 17.5rem))
     1.5rem
     calc(env(safe-area-inset-bottom, 0px) + 1.25rem);
 }
@@ -9348,7 +9308,7 @@ html[data-theme="pastel"] #lock {
   width: 100%;
   max-width: 344px;
   margin-top: auto;
-  padding-top: 2.25rem;
+  padding-top: 2rem;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -9398,20 +9358,20 @@ html[data-theme="pastel"] #lock {
   background: var(--text);
   color: var(--card);
   border: 1px solid transparent;
-  box-shadow: 0 8px 22px -12px color-mix(in srgb, var(--text) 45%, transparent);
+  box-shadow: 0 2px 8px rgba(36, 31, 26, 0.14);
 }
 #lock button.primary:hover { background: var(--primary-hover); }
 html[data-theme="dark"] #lock button.primary {
   background: var(--text);
   color: var(--stage);
-  box-shadow: 0 10px 26px -12px rgba(0, 0, 0, 0.72);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 html[data-theme="dark"] #lock button.primary:hover { background: var(--primary-hover); }
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]):not([data-theme="pastel"]) #lock button.primary {
     background: var(--text);
     color: var(--stage);
-    box-shadow: 0 10px 26px -12px rgba(0, 0, 0, 0.72);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
   }
   html:not([data-theme="light"]):not([data-theme="pastel"]) #lock button.primary:hover {
     background: var(--primary-hover);
@@ -9428,7 +9388,7 @@ html[data-theme="pastel"] #lock button.primary:hover { background: var(--pastel-
   background: var(--card);
   color: var(--text);
   border: 1px solid var(--border);
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 6%, transparent);
+  box-shadow: none;
 }
 #lock button.ghost:hover {
   background: var(--card-soft);
