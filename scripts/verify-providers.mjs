@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Diffs the TXN_PROVIDERS package list in app/script.js against the
+// Diffs the TXN_PROVIDERS package list in app/capture.js against the
 // ALLOWED set in native/notification-listener/DuitfulNotificationListenerService.java.
 // Exits non-zero on drift. Wired into the pre-flight checklist.
 
@@ -9,13 +9,13 @@ import { dirname, resolve } from "node:path";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const JS_PATH = resolve(repoRoot, "app/script.js");
+const JS_PATH = resolve(repoRoot, "app/capture.js");
 const JAVA_CANONICAL = resolve(repoRoot, "native/notification-listener/DuitfulNotificationListenerService.java");
 const JAVA_DEPLOYED = resolve(repoRoot, "android/app/src/main/java/com/aydiljoe/duitful/plugins/DuitfulNotificationListenerService.java");
 
 function extractJsPackages(src) {
   const start = src.indexOf("const TXN_PROVIDERS");
-  if (start < 0) throw new Error("TXN_PROVIDERS not found in app/script.js");
+  if (start < 0) throw new Error("TXN_PROVIDERS not found in app/capture.js");
   const end = src.indexOf("];", start);
   if (end < 0) throw new Error("Could not find end of TXN_PROVIDERS");
   const block = src.slice(start, end);
