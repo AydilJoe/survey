@@ -66,6 +66,7 @@ export const APP_MANIFEST = {
     "onboarding.js",
     "cloud.js",
     "capture.js",
+    "pro.js",
     "script.js",
   ],
   // Not loaded in app/index.html at boot — fetched on demand (or by CSS /

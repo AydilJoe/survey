@@ -10515,8 +10515,8 @@ check('the brand catalogue makes no network calls at all',
 
     check('the native IAP endpoint is part of the deployment',
       existsSync(path.join(REPO_ROOT, 'api/native/record-purchase.js'))
-      && /\/api\/native\/record-purchase/.test(readFileSync(path.join(REPO_ROOT, 'app/script.js'), 'utf8')),
-      'app/script.js POSTs to it, so it has to ship');
+      && /\/api\/native\/record-purchase/.test(readFileSync(path.join(REPO_ROOT, 'app/pro.js'), 'utf8')),
+      'app/pro.js POSTs to it, so it has to ship');
   }
 
   // Vercel runs `npm install` (so postinstall) and vercel.json's buildCommand
@@ -10871,7 +10871,7 @@ check('the brand catalogue makes no network calls at all',
 // that quietly becomes fiction.
 {
   const readme = readFileSync(path.join(REPO_ROOT, 'README.md'), 'utf8');
-  const src = readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8');
+  const src = readFileSync(path.join(REPO_ROOT, 'app', 'pro.js'), 'utf8');
   const num = (re) => Number((re.exec(src) || [])[1]);
 
   // Every free-tier number in the table is a constant in the app.
@@ -13061,7 +13061,7 @@ check('the brand catalogue makes no network calls at all',
   // welcome as the paywall, with the developer's thank-you note in it.
   {
     const html = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
-    const js = readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8');
+    const js = readFileSync(path.join(REPO_ROOT, 'app', 'pro.js'), 'utf8');
     const dlgAt = html.indexOf('<dialog id="pro-welcome-dialog"');
     const dlg = html.slice(dlgAt, html.indexOf('</dialog>', dlgAt));
     check('Pro welcome: carries the thank-you note from Aydil, and a promoted App Store purchase opens it',
