@@ -45,6 +45,7 @@ const APP_FILES = [
   "csv.js",
   "reports.js",
   "onboarding.js",
+  "cloud.js",
   "analytics.js",
   "theme-boot.js",
   // Self-hosted single-file QR libraries. cpSync creates the nested
