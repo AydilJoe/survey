@@ -9171,7 +9171,6 @@ html[data-theme="pastel"] .tab.active {
   align-items: stretch;
   justify-content: flex-start;
   padding: 0;
-  overflow-y: auto;
   background-color: var(--stage);
   background-image:
     radial-gradient(circle 4px at 68% 185px, var(--lock-flare) 0%, var(--lock-flare) 55%, transparent 100%),
@@ -9240,9 +9239,12 @@ html[data-theme="pastel"] #lock {
   gap: 0;
   justify-content: flex-start;
   padding:
-    calc(env(safe-area-inset-top, 0px) + clamp(12.5rem, 30vh, 17.5rem))
+    calc(env(safe-area-inset-top, 0px) + clamp(8.5rem, 28vh, 17.5rem))
     1.5rem
     calc(env(safe-area-inset-bottom, 0px) + 1.25rem);
+}
+@media (max-height: 700px) {
+  #lock { background-position: 0 -45px; }
 }
 .lock-hero {
   display: flex;
