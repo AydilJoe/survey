@@ -229,7 +229,7 @@ on main: `i18n-ms.js` 196 KB, `i18n-zh.js` 185 KB (2,558 lines each),
 check aside), boot time measured before/after with `performance.mark` on a
 mid Android phone, no user-visible change, CLAUDE.md updated.
 
-## Daily check-in streaks — Duolingo style (requested 25 Nov 2026)
+## Daily check-in streaks — Duolingo style *(done in 1.66.0)*
 
 A calm, Duitful-friendly take on Duolingo-style daily habit streaks to keep
 people logging consistently — free for everyone, never Pro-gated, and no

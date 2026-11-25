@@ -15,20 +15,20 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-95845746";
+const VERSION = "h-dc6f5220";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=8790d696",
-  "/app/script.js?v=96e10366",
+  "/app/styles.css?v=c2b54aa7",
+  "/app/script.js?v=13177cf5",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
-  "/app/i18n-langs.js?v=7cb4bc68",
+  "/app/i18n-langs.js?v=cbc03733",
   "/app/i18n-boot.js?v=e8f35f1d",
-  "/app/i18n-ms.js?v=ed647ed8",
-  "/app/i18n-zh.js?v=77d93386",
+  "/app/i18n-ms.js?v=20074133",
+  "/app/i18n-zh.js?v=214e6f63",
   "/app/i18n.js?v=e94f1821",
   "/app/drive-config.js?v=f1888886",
   "/app/drive-sync.js?v=08041907",
@@ -50,11 +50,12 @@ const SHELL = [
   "/app/vendor/pdfjs/pdf.worker.min.js?v=38cde531",
   "/app/brands.js?v=73d9f7dc",
   "/app/search.js?v=f1248d18",
-  "/app/csv.js?v=9e019343",
+  "/app/csv.js?v=82d51210",
   "/app/reports.js?v=98cf0851",
-  "/app/onboarding.js?v=f53f7059",
+  "/app/onboarding.js?v=04f0a510",
+  "/app/streak.js?v=3e91c6ed",
   "/app/cloud.js?v=fcd02ad8",
-  "/app/capture.js?v=45aa251d",
+  "/app/capture.js?v=05cd90c6",
   "/app/pro.js?v=a354d151",
   "/app/ocr.js?v=a548a7ee",
   "/app/analytics.js?v=01a6bc4a",

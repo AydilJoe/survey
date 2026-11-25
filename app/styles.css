@@ -9558,5 +9558,295 @@ html[data-theme="pastel"] .feature-spot-badge {
   }
 }
 
+/* ---------- Daily check-in streaks (v1.66.0) ----------
+   Calm flame pill beside "Today" on Home, one-tap "No spend today" check-in,
+   and a compact Monday–Sunday strip sheet. Unaffected by hide-amounts mode. */
+.today-head {
+  gap: 0.5rem;
+}
+.today-head-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.streak-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.22rem 0.6rem 0.22rem 0.45rem;
+  min-height: 28px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--card-soft);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  flex: none;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.14s ease;
+}
+.streak-pill[hidden] { display: none; }
+.streak-pill:hover {
+  border-color: color-mix(in srgb, var(--brand-ink) 40%, var(--border));
+  color: var(--text);
+}
+.streak-pill:active { transform: scale(0.96); }
+.streak-pill:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
+.streak-pill .streak-flame {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.streak-pill.is-lit {
+  background: color-mix(in srgb, var(--brand) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--brand) 38%, transparent);
+  color: var(--brand-ink);
+}
+.streak-pill.is-lit .streak-flame {
+  fill: var(--brand);
+  stroke: var(--brand-ink);
+  stroke-width: 1.4;
+}
+.streak-pill.is-spark {
+  animation: streakSpark 0.55s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+.streak-pill.is-spark .streak-flame {
+  animation: streakFlamePop 0.55s cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+@keyframes streakSpark {
+  0%   { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 38%, transparent); }
+  45%  { transform: scale(1.09); box-shadow: 0 0 0 7px color-mix(in srgb, var(--brand) 0%, transparent); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent); }
+}
+@keyframes streakFlamePop {
+  0%   { transform: scale(1) rotate(0deg); }
+  40%  { transform: scale(1.24) rotate(-6deg); }
+  70%  { transform: scale(0.95) rotate(4deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.today-nospend-row {
+  margin: 0.45rem 0 0.15rem;
+}
+.today-nospend-row[hidden] { display: none; }
+.streak-nospend-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: var(--r-pill);
+  border-color: color-mix(in srgb, var(--brand) 32%, var(--border));
+  color: var(--text);
+}
+.streak-nospend-btn svg {
+  width: 15px;
+  height: 15px;
+  color: var(--brand-ink);
+  flex: none;
+}
+.today-nospend-done {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+  color: var(--gain);
+  font-weight: 500;
+}
+.today-nospend-done[hidden] { display: none; }
+
+/* Streak detail sheet */
+.streak-dialog {
+  max-width: 400px;
+}
+.streak-hero {
+  text-align: center;
+  padding: 0.35rem 0 1rem;
+}
+.streak-hero-seal {
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 0.65rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--card-soft);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.streak-hero-seal .streak-flame {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.streak-hero.is-lit .streak-hero-seal {
+  background: color-mix(in srgb, var(--brand) 16%, var(--card));
+  border-color: color-mix(in srgb, var(--brand) 38%, transparent);
+  color: var(--brand-ink);
+}
+.streak-hero.is-lit .streak-hero-seal .streak-flame {
+  fill: var(--brand);
+  stroke: var(--brand-ink);
+  stroke-width: 1.4;
+}
+.streak-eyebrow {
+  margin: 0 0 0.15rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.streak-hero-count {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.streak-hero-sub {
+  margin: 0.35rem auto 0;
+  max-width: 30ch;
+  font-size: 0.88rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.streak-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.3rem;
+  padding: 0.85rem 0.5rem;
+  margin: 0 0 0.85rem;
+  border-radius: var(--r-md);
+  background: var(--card-soft);
+  border: 1px solid var(--line);
+}
+.streak-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.streak-day-dot {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+}
+.streak-day-dot svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
+.streak-day.is-done .streak-day-dot {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+html[data-theme="dark"] .streak-day.is-done .streak-day-dot { color: var(--stage); }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="pastel"]) .streak-day.is-done .streak-day-dot { color: var(--stage); }
+}
+.streak-day.is-frozen .streak-day-dot {
+  background: color-mix(in srgb, var(--accent-4) 16%, var(--card));
+  border-color: color-mix(in srgb, var(--accent-4) 48%, transparent);
+  color: var(--accent-4);
+}
+.streak-day.is-today .streak-day-dot {
+  border-style: dashed;
+  border-color: var(--brand-ink);
+  background: transparent;
+}
+.streak-day.is-future .streak-day-dot {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  width: 10px;
+  height: 10px;
+  margin: 11px 0;
+}
+.streak-day-lbl {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.streak-day.is-current .streak-day-lbl {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.streak-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.5rem;
+}
+.streak-meta-tile {
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--r-sm);
+  background: var(--card-soft);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.streak-meta-lbl {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+.streak-meta-val {
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.streak-freeze-note {
+  margin: 0 0 0.85rem;
+  font-size: 0.8rem;
+}
+.streak-dialog-nospend {
+  width: 100%;
+  margin-bottom: 0.75rem;
+}
+.streak-dialog-nospend[hidden] { display: none; }
+.streak-dialog-toggle {
+  margin-bottom: 0.5rem;
+}
+.streak-dialog .form-actions {
+  margin-top: 0.75rem;
+}
+.streak-dialog .form-actions button {
+  width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streak-pill:active { transform: none; }
+  .streak-pill.is-spark,
+  .streak-pill.is-spark .streak-flame { animation: none; }
+}
+
 
 

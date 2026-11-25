@@ -329,6 +329,10 @@ function toCSV() {
   if (state.currency && state.currency !== "MYR") rows.push(blank(["setting", "currency", state.currency]));
   // Milestones already earned, with their dates, so a move doesn't re-earn them.
   if (state.milestones && Object.keys(state.milestones).length) rows.push(blank(["setting", "milestones", JSON.stringify(state.milestones)]));
+  // Daily check-in streak (1.66.0). Older builds skip the key.
+  if (typeof coerceStreak === "function") {
+    rows.push(blank(["setting", "streak", JSON.stringify(coerceStreak(state.streak))]));
+  }
   // Budget pool rows — name in column 1 ("name"), limit in column 2 ("amount"),
   // remaining pool-specific data in the new pool_* columns at index 22-26.
   for (const p of state.budgetPools) {
@@ -739,8 +743,8 @@ function fromCSV(text) {
     } else if (type === "setting" && name.toLowerCase() === "ownaccount") {
       const raw = iAmount >= 0 ? (row[iAmount] || "").toString() : "";
       next.ownAccounts = coerceOwnAccounts([...(next.ownAccounts || []), raw]);
-    } else if (type === "setting" && /^(currency|milestones|splitmeta|taxyear|taxrules|taxskipped|taxaimatch)$/i.test(name)) {
-      // 1.63.1 settings. JSON values that don't parse are skipped alone.
+    } else if (type === "setting" && /^(currency|milestones|streak|splitmeta|taxyear|taxrules|taxskipped|taxaimatch)$/i.test(name)) {
+      // 1.63.1+ settings. JSON values that don't parse are skipped alone.
       const raw = cellAt(row, iAmount);
       const json = () => { try { return JSON.parse(raw); } catch { return null; } };
       const key = name.toLowerCase();
@@ -748,6 +752,11 @@ function fromCSV(text) {
       else if (key === "milestones") {
         const j = json();
         if (j && typeof j === "object" && !Array.isArray(j)) next.milestones = Object.fromEntries(Object.entries(j).filter(([, v]) => typeof v === "string"));
+      } else if (key === "streak") {
+        const j = json();
+        if (j && typeof j === "object" && !Array.isArray(j)) {
+          next.streak = typeof coerceStreak === "function" ? coerceStreak(j) : j;
+        }
       } else if (key === "splitmeta") { const j = json(); if (j && typeof j.id === "string") splitMetaRows.push(j); }
       else {
         const tx = next.tax || (next.tax = emptyTax());

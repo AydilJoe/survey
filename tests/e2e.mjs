@@ -15080,35 +15080,171 @@ check('the brand catalogue makes no network calls at all',
     return { visible: !bar.hidden, id: bar.getAttribute('data-feature-id'), lbl, overflow, hiddenWithDialog, visibleAfterClose };
   });
   check('feature spotlight: returning user updating past a feature sees the "New" chip on Home, hidden while a dialog is open, zero overflow at 360px',
-    updated.visible && updated.id === 'pastel-theme' && updated.lbl === 'Pastel theme' && !updated.overflow && updated.hiddenWithDialog && updated.visibleAfterClose,
+    updated.visible && updated.id === 'daily-streaks' && updated.lbl === 'Daily check-in streak' && !updated.overflow && updated.hiddenWithDialog && updated.visibleAfterClose,
     JSON.stringify(updated));
 
   // Tapping the chip switches to the target tab, highlights the target, and dismisses the feature.
   await sp.click('#btn-feature-spot');
   await sp.waitForTimeout(250);
   const tapped = await sp.evaluate(() => ({
-    tabActive: document.getElementById('tab-data').classList.contains('active'),
-    highlighted: !!document.querySelector('.theme-pills.feature-spot-highlight'),
-    seen: !!readNewFeaturesSeen()['pastel-theme'],
+    tabActive: document.getElementById('tab-dashboard').classList.contains('active'),
+    highlighted: !!document.querySelector('#streak-pill.feature-spot-highlight, #today-card.feature-spot-highlight'),
+    seen: !!readNewFeaturesSeen()['daily-streaks'],
     nextId: activeNewFeature()?.id || '',
   }));
   check('feature spotlight: tapping switches to the target tab, highlights the feature, and marks it seen',
-    tapped.tabActive && tapped.highlighted && tapped.seen && tapped.nextId === 'wallets', JSON.stringify(tapped));
+    tapped.tabActive && tapped.highlighted && tapped.seen && tapped.nextId === 'pastel-theme', JSON.stringify(tapped));
 
   // Dismiss button marks the next spotlight seen without switching tabs.
-  await sp.click('#tabbtn-dashboard');
-  await sp.waitForTimeout(150);
   await sp.click('#btn-feature-spot-dismiss');
   await sp.waitForTimeout(100);
   const dismissed = await sp.evaluate(() => ({
     tabHome: document.getElementById('tab-dashboard').classList.contains('active'),
-    walletsSeen: !!readNewFeaturesSeen()['wallets'],
-    barHidden: document.getElementById('feature-spot-bar').hidden,
+    pastelSeen: !!readNewFeaturesSeen()['pastel-theme'],
     errs: 0,
   }));
   check('feature spotlight: dismiss marks the current spotlight seen without navigating',
-    dismissed.tabHome && dismissed.walletsSeen && sErr.length === 0, JSON.stringify({ ...dismissed, sErr }));
+    dismissed.tabHome && dismissed.pastelSeen && sErr.length === 0, JSON.stringify({ ...dismissed, sErr }));
   await sctx.close();
+}
+
+// ── Daily check-in streaks (v1.66.0) ──────────────────────────────────────
+{
+  const stctx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  const stp = await stctx.newPage();
+  const stErr = [];
+  stp.on('pageerror', (e) => stErr.push(e.message));
+  await stp.goto(`${BASE}/app/index.html`);
+  await stp.waitForTimeout(800);
+  await stp.click('#btn-start-open');
+  await stp.waitForTimeout(1400);
+  await stp.evaluate(() => {
+    window.DUITFUL_MILESTONE_SHEETS = false;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+  });
+  await stp.waitForTimeout(150);
+
+  // 1. Seed 4 days with a 1-day missed gap (auto-frozen) and check pending Home state.
+  const pending = await stp.evaluate(() => {
+    const t = todayISO();
+    const sh = (n) => streakShiftDate(t, n);
+    state.dailyExpenses = [
+      { id: 'sk1', date: sh(-1), amount: 12, category: 'Food', note: 'Lunch', kind: 'expense', createdAt: Date.now() - 86400000 },
+      { id: 'sk2', date: sh(-2), amount: 8, category: 'Food', note: 'Kopi', kind: 'expense', createdAt: Date.now() - 172800000 },
+      { id: 'sk4', date: sh(-4), amount: 15, category: 'Transport', note: 'Grab', kind: 'expense', createdAt: Date.now() - 345600000 },
+    ];
+    state.streak = emptyStreak();
+    save();
+    renderAll();
+    const info = computeStreak(state);
+    return {
+      pillHidden: document.getElementById('streak-pill').hidden,
+      pillLit: document.getElementById('streak-pill').classList.contains('is-lit'),
+      pillText: document.getElementById('streak-pill-count').textContent.trim(),
+      noSpendVisible: !document.getElementById('today-nospend-row').hidden,
+      current: info.current,
+      freezesLeft: info.freezesLeftThisMonth,
+    };
+  });
+  check('daily streaks: bridges a single missed day with an automatic free freeze and shows pending pill + No spend today button',
+    !pending.pillHidden && !pending.pillLit && pending.pillText === '3d' && pending.noSpendVisible && pending.current === 3 && pending.freezesLeft === 1,
+    JSON.stringify(pending));
+
+  // 2. Tap "No spend today" -> increments streak, lights pill, hides button, shows "No spend day logged."
+  await stp.click('#btn-no-spend-today');
+  await stp.waitForTimeout(200);
+  const afterNoSpend = await stp.evaluate(() => ({
+    pillLit: document.getElementById('streak-pill').classList.contains('is-lit'),
+    pillText: document.getElementById('streak-pill-count').textContent.trim(),
+    noSpendRowHidden: document.getElementById('today-nospend-row').hidden,
+    noSpendDoneVisible: !document.getElementById('today-nospend-done').hidden,
+    todayEmptyHidden: document.getElementById('today-empty').hidden,
+    pillHasAmt: !!document.getElementById('streak-pill').querySelector('.amt'),
+  }));
+  check('daily streaks: No spend today checks in, lights the pill, and is unaffected by hide-amounts mode',
+    afterNoSpend.pillLit && afterNoSpend.pillText === '4d' && afterNoSpend.noSpendRowHidden && afterNoSpend.noSpendDoneVisible && afterNoSpend.todayEmptyHidden && !afterNoSpend.pillHasAmt,
+    JSON.stringify(afterNoSpend));
+
+  // 3. Logging a spend later the same day upgrades today without double-counting the streak.
+  const afterLaterSpend = await stp.evaluate(() => {
+    state.dailyExpenses.push({ id: 'sk0', date: todayISO(), amount: 5, category: 'Food', note: 'Teh', kind: 'expense', createdAt: Date.now() });
+    save();
+    renderAll();
+    return {
+      pillText: document.getElementById('streak-pill-count').textContent.trim(),
+      noSpendDoneHidden: document.getElementById('today-nospend-done').hidden,
+    };
+  });
+  check('daily streaks: logging an entry after No spend today keeps the same count without double-counting',
+    afterLaterSpend.pillText === '4d' && afterLaterSpend.noSpendDoneHidden,
+    JSON.stringify(afterLaterSpend));
+
+  // 4. Open streak sheet -> 7-day strip, longest streak, freezes left, zero overflow at 360px.
+  await stp.click('#streak-pill');
+  await stp.waitForTimeout(150);
+  const dlgInfo = await stp.evaluate(() => {
+    const dlg = document.getElementById('streak-dialog');
+    const days = dlg.querySelectorAll('.streak-day').length;
+    const count = document.getElementById('streak-dialog-count').textContent.trim();
+    const best = document.getElementById('streak-dialog-best').textContent.trim();
+    const freezes = document.getElementById('streak-dialog-freezes').textContent.trim();
+    const overflow = dlg.scrollWidth > dlg.clientWidth || document.documentElement.scrollWidth > document.documentElement.clientWidth;
+    dlg.close();
+    return { open: true, days, count, best, freezes, overflow };
+  });
+  check('daily streaks: sheet renders 7-day strip, stats, and freezes with zero overflow at 360px',
+    dlgInfo.days === 7 && dlgInfo.count === '4 days' && dlgInfo.best === '4 days' && dlgInfo.freezes === '1 of 2 left' && !dlgInfo.overflow,
+    JSON.stringify(dlgInfo));
+
+  // 5. Pure engine freeze boundaries, CSV round-trip, evening reminder, and Settings hide toggle.
+  const coreChecks = await stp.evaluate(() => {
+    const t = '2026-11-25';
+    const gap2 = computeStreak({ dailyExpenses: [{ date: '2026-11-22' }, { date: '2026-11-21' }], streak: emptyStreak() }, t);
+    const gap3 = computeStreak({ dailyExpenses: [{ date: '2026-11-21' }], streak: emptyStreak() }, t);
+
+    // Evening reminder off by default, opt-in skips today when already checked in and contains no amounts.
+    const remOff = buildReminders(state).filter((n) => n.title === 'Quick check-in');
+    setStreakReminder(true);
+    const remOnChecked = streakNativeReminders(state, new Date(2026, 10, 25, 14, 0, 0));
+    const remOnUnchecked = streakNativeReminders(
+      { dailyExpenses: [], streak: { ...emptyStreak(), reminder: true } },
+      new Date(2026, 10, 25, 14, 0, 0)
+    );
+    const remInBuild = buildReminders(state).some((n) => n.title === 'Quick check-in');
+    const remNoDigits = remOnUnchecked.every((n) => !/\d/.test(n.title) && !/\d/.test(n.body));
+
+    // CSV round-trip preserves streak preferences & noSpendDates.
+    const csv = toCSV();
+    const parsed = fromCSV(csv);
+    const csvOk = !!(parsed.streak && parsed.streak.reminder === true && parsed.streak.noSpendDates.includes(todayISO()));
+
+    // Turning streaks off in Settings hides all streak UI.
+    setStreakEnabled(false);
+    const hiddenOff = document.getElementById('streak-pill').hidden
+      && document.getElementById('today-nospend-row').hidden
+      && document.getElementById('today-nospend-done').hidden;
+
+    return {
+      gap2Current: gap2.current,
+      gap2Left: gap2.freezesLeftThisMonth,
+      gap3Current: gap3.current,
+      gap3Freezes: gap3.freezes.length,
+      remOffCount: remOff.length,
+      remOnCheckedCount: remOnChecked.length,
+      remOnUncheckedCount: remOnUnchecked.length,
+      remInBuild,
+      remNoDigits,
+      csvOk,
+      hiddenOff,
+    };
+  });
+  check('daily streaks: 2-day freeze cap, CSV round-trip, optional evening reminder (no amounts), and Settings hide toggle all work',
+    coreChecks.gap2Current === 2 && coreChecks.gap2Left === 0
+    && coreChecks.gap3Current === 0 && coreChecks.gap3Freezes === 0
+    && coreChecks.remOffCount === 0 && coreChecks.remOnCheckedCount === 1 && coreChecks.remOnUncheckedCount === 2
+    && coreChecks.remInBuild && coreChecks.remNoDigits && coreChecks.csvOk && coreChecks.hiddenOff && stErr.length === 0,
+    JSON.stringify({ ...coreChecks, stErr }));
+  await stctx.close();
 }
 
 await b.close();
