@@ -9172,24 +9172,9 @@ html[data-theme="pastel"] .tab.active {
   justify-content: flex-start;
   padding: 0;
   background-color: var(--stage);
-  background-image:
-    radial-gradient(circle 4px at 68% 185px, var(--lock-flare) 0%, var(--lock-flare) 55%, transparent 100%),
-    radial-gradient(ellipse 52px 2.5px at 68% 185px, var(--lock-flare) 0%, var(--lock-flare-mid) 35%, transparent 75%),
-    radial-gradient(circle 54px at 68% 185px, var(--lock-flare) 0%, var(--lock-flare-mid) 22%, transparent 68%),
-    linear-gradient(180deg, transparent 250px, var(--stage) 400px),
-    radial-gradient(ellipse 132% 700px at 50% 836px,
-      var(--stage) 0%,
-      var(--stage) 76%,
-      var(--lock-body) 88%,
-      var(--lock-body-lit) 93.3%,
-      var(--lock-rim) 93.85%,
-      var(--lock-rim) 94.1%,
-      var(--lock-rim-glow) 95.2%,
-      transparent 100%),
-    radial-gradient(ellipse 75% 240px at 68% 176px, var(--lock-flare-mid) 0%, var(--lock-haze) 26%, var(--lock-haze-soft) 56%, transparent 78%),
-    linear-gradient(180deg, var(--lock-sky) 0%, var(--lock-sky-mid) 230px, var(--stage) 400px);
+  background-image: linear-gradient(180deg, var(--lock-sky) 0%, var(--stage) 380px);
   background-repeat: no-repeat;
-  background-size: 100% 420px;
+  background-size: 100% 380px;
 }
 #lock[hidden] { display: none; }
 html[data-theme="dark"] #lock {
