@@ -48,6 +48,7 @@ const APP_FILES = [
   "csv.js",
   "reports.js",
   "onboarding.js",
+  "streak.js",
   "cloud.js",
   "capture.js",
   "pro.js",

@@ -1090,6 +1090,7 @@ guideDialog()?.addEventListener("cancel", (e) => {
 const NEW_FEATURES_SEEN_KEY = "duitful.newFeaturesSeen";
 const NEW_FEATURES_FROM_KEY = "duitful.newFeaturesFrom";
 const NEW_FEATURES = [
+  { id: "daily-streaks", version: "1.66.0", tab: "dashboard", target: ["#streak-pill", "#today-card"], label: () => tr("Daily check-in streak") },
   { id: "pastel-theme", version: "1.62.0", tab: "data", target: [".theme-pills"], label: () => tr("Pastel theme") },
   { id: "wallets", version: "1.61.0", tab: "savings", target: ["#wallets-card"], label: () => tr("Wallets") },
   { id: "recurring-splits", version: "1.59.0", tab: "debts", target: ["#rs-card", "[data-action='rs-new']", ".split-start-card"], label: () => tr("Recurring splits") },

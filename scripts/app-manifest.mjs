@@ -64,6 +64,7 @@ export const APP_MANIFEST = {
     "csv.js",
     "reports.js",
     "onboarding.js",
+    "streak.js",
     "cloud.js",
     "capture.js",
     "pro.js",

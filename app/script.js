@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.65.0";
+const APP_VERSION = "1.66.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -118,6 +118,8 @@ const emptyState = () => ({
   split: typeof emptySplit === "function" ? emptySplit() : null,
   // Tax relief claims and refund inputs. Guarded on tax.js like the rest.
   tax: typeof emptyTax === "function" ? emptyTax() : null,
+  // Daily check-in streaks (v1.66.0). Guarded on streak.js like the rest.
+  streak: typeof emptyStreak === "function" ? emptyStreak() : null,
 });
 
 /* ---------- Shariah / Islamic finance ---------- */
@@ -392,6 +394,10 @@ function coerceState(parsed) {
       tax: typeof coerceTax === "function"
         ? safe(() => coerceTax(parsed.tax), emptyTax())
         : (parsed.tax && typeof parsed.tax === "object" ? parsed.tax : null),
+      // A broken streak blob costs only the streak counters, never the rest of the state.
+      streak: typeof coerceStreak === "function"
+        ? safe(() => coerceStreak(parsed.streak), emptyStreak())
+        : (parsed.streak && typeof parsed.streak === "object" ? parsed.streak : null),
   };
 }
 
@@ -3492,6 +3498,7 @@ function renderAll() {
   renderRecentChips();
   renderEmptyWelcome();
   renderTodayCard();
+  if (typeof renderStreak === "function") renderStreak();
   syncSearchRows();
   renderDaily();
   renderSavings();
@@ -3644,6 +3651,7 @@ const MILESTONE_ICONS = {
   calendar: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>',
   target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/>',
   pen: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  flame: '<path d="M12 2.5c.4 3.4-2.2 5.4-2.2 8.2 0 1.4.9 2.5 2.2 2.5 1.8 0 2.8-1.7 2.4-3.7 2.5 1.7 3.8 4.2 3.8 6.9a6.2 6.2 0 0 1-12.4 0c0-3.7 2.5-6.9 6.2-13.9Z"/>',
 };
 function fmtDateShort(iso) {
   const d = new Date(`${iso}T00:00:00`);
@@ -3725,9 +3733,17 @@ document.addEventListener("close", (e) => {
   if (e.target && e.target.id !== "milestone-dialog" && milestonePending.length) setTimeout(flushMilestones, 400);
 }, true);
 
+function queueCustomMilestone(m) {
+  if (!m || typeof m !== "object" || !aesKey) return;
+  if (window.DUITFUL_MILESTONE_SHEETS === false) return;
+  milestonePending.push(m);
+  setTimeout(flushMilestones, 900);
+}
 let milestoneShown = null;
-function showMilestone(id) {
-  const m = MILESTONES.find((x) => x.id === id);
+function showMilestone(idOrObj) {
+  const m = (idOrObj && typeof idOrObj === "object")
+    ? idOrObj
+    : MILESTONES.find((x) => x.id === idOrObj);
   const dlg = document.getElementById("milestone-dialog");
   if (!m || !dlg || typeof dlg.showModal !== "function") return;
   milestoneShown = m;
@@ -5641,6 +5657,21 @@ function buildReminders(src) {
       }
     } catch {}
   }
+  // Optional gentle evening check-in reminder (8:30pm, off by default, no amounts).
+  if (typeof streakNativeReminders === "function") {
+    try {
+      for (const n of streakNativeReminders(src)) {
+        if (notifs.length >= 60) break;
+        notifs.push({
+          id: nextId++,
+          title: n.title,
+          body: n.body,
+          schedule: { at: n.at, allowWhileIdle: true },
+          smallIcon: "ic_stat_icon",
+        });
+      }
+    } catch {}
+  }
   return notifs;
 }
 
@@ -5989,6 +6020,7 @@ $("#form-income").addEventListener("submit", (e) => {
   }
   if (typeof walletTagEntry === "function") walletTagEntry(entry, e.target);
   state.income.push(entry);
+  if (typeof streakTouchToday === "function") streakTouchToday();
   save();
   e.target.reset();
   renderAll();
@@ -6031,6 +6063,7 @@ $("#form-expense").addEventListener("submit", (e) => {
   tagEntryWithPool(entry, "expense", e.target);
   if (typeof walletTagEntry === "function") walletTagEntry(entry, e.target);
   state.expenses.push(entry);
+  if (typeof streakTouchToday === "function") streakTouchToday();
   save();
   e.target.reset();
   renderAll();
@@ -7459,6 +7492,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.66.0": [
+    "<strong>Daily check-in streaks</strong> — keep a gentle daily money habit with a compact flame pill on Home, a Monday–Sunday check-in strip, one-tap <strong>No spend today</strong> check-in, 2 free automatic streak freezes a month, and an optional 8:30pm evening reminder. Hideable anytime in Settings.",
+  ],
   "1.65.0": [
     "<strong>New feature spotlight</strong> — when an update adds a feature, a quiet \"New\" chip appears on Home. Tap it to jump straight to that tab with a gentle highlight ring (dismissed once tapped or closed, never shown on fresh installs).",
   ],

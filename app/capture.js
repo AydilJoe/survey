@@ -1198,6 +1198,7 @@ function acceptIncomePending(id) {
     ...(typeof walletForPkg === "function" && walletForPkg(p.pkg) ? { walletId: walletForPkg(p.pkg).id } : {}),
   });
   state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
+  if (typeof streakTouchToday === "function") streakTouchToday();
   commitPending();
   toast(tr("{a} added to income", { a: fmtMoney(p.amount) }));
 }

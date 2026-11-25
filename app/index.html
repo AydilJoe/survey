@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=8790d696" />
+    <link rel="stylesheet" href="styles.css?v=c2b54aa7" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -560,12 +560,27 @@
              away; Home keeps only what's needed to log and to know where you
              stand. -->
         <section class="card today-card" id="today-card" aria-labelledby="today-title">
-          <div class="card-head">
-            <h2 id="today-title">Today</h2>
+          <div class="card-head today-head">
+            <div class="today-head-left">
+              <h2 id="today-title">Today</h2>
+              <button type="button" class="streak-pill" id="streak-pill" hidden aria-label="Daily check-in streak">
+                <svg class="streak-flame" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 2.5c.4 3.4-2.2 5.4-2.2 8.2 0 1.4.9 2.5 2.2 2.5 1.8 0 2.8-1.7 2.4-3.7 2.5 1.7 3.8 4.2 3.8 6.9a6.2 6.2 0 0 1-12.4 0c0-3.7 2.5-6.9 6.2-13.9Z"/>
+                </svg>
+                <span class="streak-pill-count" id="streak-pill-count">0d</span>
+              </button>
+            </div>
             <span class="today-total" id="today-total"></span>
           </div>
           <ul class="today-list" id="today-list"></ul>
           <p class="today-empty" id="today-empty">Nothing logged today.</p>
+          <p class="today-nospend-done" id="today-nospend-done" hidden>No spend day logged.</p>
+          <div class="today-nospend-row" id="today-nospend-row" hidden>
+            <button type="button" class="ghost streak-nospend-btn" id="btn-no-spend-today">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+              <span>No spend today</span>
+            </button>
+          </div>
           <div class="today-links">
             <button type="button" class="ghost" data-go-tab="daily">All entries</button>
             <button type="button" class="ghost" data-go-tab="reports">Reports</button>
@@ -1821,6 +1836,10 @@
             <input type="checkbox" id="pref-split-notify" checked />
             <span>Notify me when someone says they've paid</span>
           </label>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-streak-enabled" checked />
+            <span>Show daily check-in streak</span>
+          </label>
         </div>
 
         <div class="card">
@@ -1841,6 +1860,10 @@
           <label class="field toggle-field">
             <input type="checkbox" id="pref-split-overdue" checked />
             <span>Chase requests that have gone quiet</span>
+          </label>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-streak-reminder" />
+            <span>Evening check-in reminder (8:30pm)</span>
           </label>
           
         </div>
@@ -2011,6 +2034,42 @@
         <div class="form-actions restore-actions milestone-actions">
           <button type="button" class="ghost" id="milestone-share">Share</button>
           <button type="submit" class="primary">Keep going</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Daily check-in streak sheet (streak.js). -->
+    <dialog id="streak-dialog" class="edit-dialog streak-dialog" aria-labelledby="streak-dialog-title">
+      <form method="dialog">
+        <div class="streak-hero" id="streak-hero">
+          <div class="streak-hero-seal" aria-hidden="true">
+            <svg class="streak-flame" viewBox="0 0 24 24">
+              <path d="M12 2.5c.4 3.4-2.2 5.4-2.2 8.2 0 1.4.9 2.5 2.2 2.5 1.8 0 2.8-1.7 2.4-3.7 2.5 1.7 3.8 4.2 3.8 6.9a6.2 6.2 0 0 1-12.4 0c0-3.7 2.5-6.9 6.2-13.9Z"/>
+            </svg>
+          </div>
+          <p class="streak-eyebrow" id="streak-dialog-title">Daily check-in streak</p>
+          <p class="streak-hero-count" id="streak-dialog-count">0 days</p>
+          <p class="streak-hero-sub" id="streak-dialog-sub"></p>
+        </div>
+        <div class="streak-week" id="streak-week" role="group" aria-label="This week"></div>
+        <div class="streak-meta-grid">
+          <div class="streak-meta-tile">
+            <span class="streak-meta-lbl">Longest streak</span>
+            <strong class="streak-meta-val" id="streak-dialog-best">0 days</strong>
+          </div>
+          <div class="streak-meta-tile">
+            <span class="streak-meta-lbl">Free freezes</span>
+            <strong class="streak-meta-val" id="streak-dialog-freezes">2 of 2 left</strong>
+          </div>
+        </div>
+        <p class="hint streak-freeze-note">Up to 2 missed days a month are forgiven automatically.</p>
+        <button type="button" class="primary streak-dialog-nospend" id="streak-dialog-nospend" hidden>No spend today</button>
+        <label class="field toggle-field streak-dialog-toggle">
+          <input type="checkbox" id="streak-dialog-reminder" />
+          <span>Evening check-in reminder (8:30pm)</span>
+        </label>
+        <div class="form-actions">
+          <button type="submit" class="ghost" autofocus>Done</button>
         </div>
       </form>
     </dialog>
@@ -3358,7 +3417,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=7cb4bc68"></script>
+    <script src="i18n-langs.js?v=cbc03733"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=f1888886"></script>
@@ -3383,13 +3442,14 @@
     <script src="recap.js?v=e4c2c931"></script>
     <script src="brands.js?v=73d9f7dc"></script>
     <script src="search.js?v=f1248d18"></script>
-    <script src="csv.js?v=9e019343"></script>
+    <script src="csv.js?v=82d51210"></script>
     <script src="reports.js?v=98cf0851"></script>
-    <script src="onboarding.js?v=f53f7059"></script>
+    <script src="onboarding.js?v=04f0a510"></script>
+    <script src="streak.js?v=5f1109b1"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
-    <script src="capture.js?v=45aa251d"></script>
+    <script src="capture.js?v=05cd90c6"></script>
     <script src="pro.js?v=a354d151"></script>
     <script src="ocr.js?v=a548a7ee"></script>
-    <script src="script.js?v=96e10366"></script>
+    <script src="script.js?v=13177cf5"></script>
   </body>
 </html>
