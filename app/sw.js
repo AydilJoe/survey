@@ -15,13 +15,13 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-8058f412";
+const VERSION = "h-aa07560b";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=78a4cf96",
+  "/app/styles.css?v=2ec31cac",
   "/app/script.js?v=d42326b6",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
@@ -72,6 +72,9 @@ const SHELL = [
   // Pastel theme's rounded font (Nunito, OFL). styles.css only fetches it
   // while Pastel is on; precached so Pastel looks the same offline.
   "/app/vendor/fonts/nunito-latin.woff2?v=ba344451",
+  "/app/horizon-light.webp?v=98dc3c9f",
+  "/app/horizon-dark.webp?v=56def057",
+  "/app/horizon-pastel.webp?v=5db55906",
   "/app/icon.svg",
 ];
 
