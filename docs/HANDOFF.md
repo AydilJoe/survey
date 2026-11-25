@@ -5,8 +5,11 @@ Read this first, then `CLAUDE.md` (the project rules; keep following them) and
 
 ## Where things stand
 
-- **Live:** 1.63.1 on Google Play, TestFlight and the App Store (iPhone + iPad);
-  the web app (duitful.app, GitHub Pages) is on 1.63.1 too.
+- **Live:** 1.64.2 (1.64.0 Apple Vision OCR size cut, 1.64.1 multilingual bank
+  notification parser, 1.64.2 translation clean-up + lint guard). Modularity
+  Phase 0 (`scripts/app-manifest.mjs` + SHA-256 content-hash cache busting) and
+  Phase 1 (`scripts/i18n/langs.mjs`, per-language JSON locales, on-demand
+  `i18n-boot.js`) are merged on `main`.
 - **Web message on:** `announcements.json` `2026-11-ios-app-icloud` — Apple web
   users get the "Move to the iPhone app" sheet (download CSV first).
 - **Deploy:** `.github/workflows/pages.yml` is now two jobs (build → deploy);
@@ -16,7 +19,8 @@ Read this first, then `CLAUDE.md` (the project rules; keep following them) and
 
 | Work | Branch | Notes |
 |---|---|---|
-| **1.64.0 "a smaller app"** | `slim-1640` | iOS: Apple Vision OCR (`recognizeText` in DuitfulKit Swift), drop ML Kit text recognition + entity extraction + Tesseract from the iOS build. Web/Android: Tesseract trimmed to the files actually loaded; Android keeps it as the fallback for phones without Google Play services. May be WIP — see `docs/plans/slim-1640-handoff.md` on that branch. Swift can't be compiled outside CI/Xcode: build on a Mac or via the iOS workflow before merging, then test real receipts, a statement scan and an EA form on an iPhone. |
+| **Modularity Phase 2 — splitting `app/script.js`** | `modularity-phase-2-*` | **FREEZE on concurrent `app/script.js` edits** while cohesive modules (`search.js`, `csv.js`, `reports.js`, `onboarding.js`, `cloud.js`, `capture.js`, `pro.js`, `ocr.js`) are extracted one PR at a time. Each PR passes `check:manifest`, `build-i18n`, `e2e`, and Android emulator cold boot before the next starts. |
+| **1.64.0 iPhone size cut verification** | merged (`v1.64.0`) | Pending real iPhone TestFlight verification of Apple Vision OCR on receipts, statement scans, and EA form. |
 
 ## Next (agreed, not started)
 

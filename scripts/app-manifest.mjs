@@ -60,6 +60,7 @@ export const APP_MANIFEST = {
     "wallets.js",
     "recap.js",
     "brands.js",
+    "search.js",
     "script.js",
   ],
   // Not loaded in app/index.html at boot — fetched on demand (or by CSS /
