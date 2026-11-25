@@ -16,8 +16,8 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Duitful" />
-    <link rel="apple-touch-icon" href="icon.svg?v=2" />
-    <link rel="icon" href="icon.svg?v=2" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="icon.svg?v=62935eb8" />
+    <link rel="icon" href="icon.svg?v=62935eb8" type="image/svg+xml" />
     <link rel="manifest" href="manifest.webmanifest" />
 
     <!-- Boot paint. Duplicated from styles.css on purpose: this is the ONLY
@@ -77,7 +77,7 @@
          waits on that sheet. External because the CSP has no 'unsafe-inline'
          — the inline version this replaced was refused on every load, so
          dark-mode users had been getting a cream flash all along. -->
-    <script src="theme-boot.js?v=2"></script>
+    <script src="theme-boot.js?v=68fa9ffd"></script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=178" />
+    <link rel="stylesheet" href="styles.css?v=200a0cd8" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -95,7 +95,7 @@
          stylesheet cannot run until that sheet arrives, so on a cold start
          with the CDN stalled the parser stops here and the splash never
          paints. Counting launches must never cost a frame. -->
-    <script src="analytics.js?v=1" defer></script>
+    <script src="analytics.js?v=01a6bc4a" defer></script>
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
@@ -3337,30 +3337,30 @@
     </dialog>
 
     <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=35"></script>
-    <script src="i18n-zh.js?v=35"></script>
-    <script src="i18n.js?v=4"></script>
-    <script src="drive-config.js?v=3"></script>
-    <script src="drive-sync.js?v=5"></script>
-    <script src="icloud-sync.js?v=9"></script>
-    <script src="investments.js?v=7"></script>
+    <script src="i18n-ms.js?v=3db466fe"></script>
+    <script src="i18n-zh.js?v=8abc0a23"></script>
+    <script src="i18n.js?v=91527468"></script>
+    <script src="drive-config.js?v=f1888886"></script>
+    <script src="drive-sync.js?v=08041907"></script>
+    <script src="icloud-sync.js?v=90136797"></script>
+    <script src="investments.js?v=39cf34a0"></script>
     <!-- QR encoder (MIT, vendored). Needed on every share dialog, so it
          loads with the shell. The jsQR DECODER is ~250 KB and only used
          when a camera or an image is involved, so split.js injects it on
          demand (see splitEnsureJsQR) — the service worker precaches it, so
          scanning still works offline. -->
-    <script src="vendor/qr/qrcode.js?v=1"></script>
-    <script src="split.js?v=24"></script>
-    <script src="split-recurring.js?v=1"></script>
-    <script src="receipt-extract.js?v=1"></script>
-    <script src="region.js?v=1"></script>
-    <script src="ea-extract.js?v=1"></script>
-    <script src="tax-data.js?v=3"></script>
-    <script src="tax.js?v=20"></script>
-    <script src="statement.js?v=8"></script>
-    <script src="wallets.js?v=2"></script>
-    <script src="recap.js?v=2"></script>
-    <script src="brands.js?v=3"></script>
-    <script src="script.js?v=254"></script>
+    <script src="vendor/qr/qrcode.js?v=79ec86f8"></script>
+    <script src="split.js?v=556eb5d9"></script>
+    <script src="split-recurring.js?v=3d2d4d95"></script>
+    <script src="receipt-extract.js?v=20e13371"></script>
+    <script src="region.js?v=a54b250e"></script>
+    <script src="ea-extract.js?v=0036c413"></script>
+    <script src="tax-data.js?v=a4c433a4"></script>
+    <script src="tax.js?v=160e7c7a"></script>
+    <script src="statement.js?v=746ab802"></script>
+    <script src="wallets.js?v=39628be9"></script>
+    <script src="recap.js?v=e4c2c931"></script>
+    <script src="brands.js?v=73d9f7dc"></script>
+    <script src="script.js?v=d9066587"></script>
   </body>
 </html>

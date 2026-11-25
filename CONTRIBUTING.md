@@ -93,9 +93,10 @@ that assert an implementation detail.
 These are not style preferences. Each one has broken something here before.
 
 - **Cache-busting.** Touching `app/script.js`, `app/styles.css`, `app/split.js`
-  or any other asset means bumping its `?v=` in `app/index.html` *and* in the
-  `SHELL` list in `app/sw.js`, plus the service worker's own `VERSION`. Miss
-  one and installed users keep the old file forever. A test pins this.
+  or any other asset means running `npm run stamp:assets` so its `?v=<hash>`
+  in `app/index.html` and the `SHELL` list in `app/sw.js` (plus `sw.js`'s
+  `VERSION`) match the file's content hash. Miss it and installed users keep
+  the old file forever. `npm run check:manifest` and e2e pin this.
 - **Inline scripts.** The app's CSP is `script-src 'self'` with no
   `'unsafe-inline'`. An inline `<script>` is silently refused by the browser —
   it will look like your code simply does nothing. Put it in a file.

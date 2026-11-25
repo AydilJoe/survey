@@ -19,8 +19,8 @@
  * (the balance owed goes up); on a bank account, debit = money out. */
 
 const STMT_MONTHS = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
-const STMT_PDFJS = "vendor/pdfjs/pdf.min.js?v=1";
-const STMT_PDFJS_WORKER = "vendor/pdfjs/pdf.worker.min.js?v=1";
+const STMT_PDFJS = "vendor/pdfjs/pdf.min.js?v=978fd1b2";
+const STMT_PDFJS_WORKER = "vendor/pdfjs/pdf.worker.min.js?v=38cde531";
 
 /* ---------- reading the PDF ---------- */
 

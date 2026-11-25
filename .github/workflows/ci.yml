@@ -34,6 +34,8 @@ jobs:
 
       - run: npm ci
 
+      - run: npm run check:manifest
+
       - run: npx playwright install --with-deps chromium
 
       # One retry: tests/e2e.mjs:4450 occasionally dies with Playwright's

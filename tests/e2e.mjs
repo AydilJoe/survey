@@ -6875,7 +6875,7 @@ check('an empty or malformed iosClientId yields no URL scheme (patch-ios skips i
   const idx = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
   const sw = readFileSync(path.join(REPO_ROOT, 'app', 'sw.js'), 'utf8');
   const agree = ['drive-sync.js', 'drive-config.js'].every((f) => {
-    const m = new RegExp(`src="${f.replace('.', '\\.')}\\?v=(\\d+)"`).exec(idx);
+    const m = new RegExp(`src="${f.replace('.', '\\.')}\\?v=([0-9a-f]+)"`).exec(idx);
     return !!m && sw.includes(`"/app/${f}?v=${m[1]}"`);
   });
   check('index.html and the service-worker shell agree on the drive script versions', agree);
@@ -9869,11 +9869,14 @@ check('and the rest of the Home debt card still renders',
     missingFromShell.length === 0, JSON.stringify(missingFromShell));
   // Cache-busting only works if the ?v= in the page matches the ?v= in SHELL;
   // a mismatch means the SW precaches a URL the page never requests.
-  const versioned = [...html.matchAll(/(?:src|href)="((?:[\w./-]+)\.(?:js|css)\?v=\d+)"/g)].map(m => m[1]);
+  const versioned = [...html.matchAll(/(?:src|href)="((?:[\w./-]+)\.(?:js|css)\?v=[0-9a-f]+)"/g)].map(m => m[1]);
   const shellMismatch = versioned.filter(v => !swSrc.includes(`/app/${v}`));
   check('the ?v= query on every asset matches the service worker SHELL entry',
     versioned.length >= 6 && shellMismatch.length === 0,
     JSON.stringify({ checked: versioned.length, mismatched: shellMismatch }));
+  const manifest = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'app-manifest.mjs'), '--check'], { encoding: 'utf8' });
+  check('app-manifest: index.html, sw.js, build-web.mjs and lazy asset refs agree with fresh content hashes',
+    manifest.status === 0, (manifest.stderr || manifest.stdout || '').trim().split('\n').slice(0, 8).join(' | '));
 }
 
 // -- monograms have to be readable as the brand, or the tile is just noise --
@@ -12658,7 +12661,7 @@ check('the brand catalogue makes no network calls at all',
     !/va\(\s*["']event["']/.test(analytics) && !/state\./.test(analytics));
   const appHtml = readFileSync(path.join(REPO_ROOT, 'app/index.html'), 'utf8');
   check('the loader is an external file — an inline one is refused by the CSP',
-    /<script src="analytics\.js\?v=\d+" defer><\/script>/.test(appHtml)
+    /<script src="analytics\.js\?v=[0-9a-f]+" defer><\/script>/.test(appHtml)
     && !/insights\/script\.js/.test(appHtml.split('</head>')[0].replace(/<script src="analytics[^>]*><\/script>/, '')));
   // A blocking <script> placed AFTER a <link rel=stylesheet> cannot run until
   // that sheet arrives — so on a cold start with the font CDN or styles.css
@@ -12674,7 +12677,7 @@ check('the brand catalogue makes no network calls at all',
     blockingHead.length === 0, JSON.stringify(blockingHead));
   check('the pre-paint theme script runs before any stylesheet, and blocks on purpose',
     headTags.indexOf('theme-boot.js') < headTags.indexOf('<link rel="stylesheet"')
-    && /<script src="theme-boot\.js\?v=\d+"><\/script>/.test(headTags));
+    && /<script src="theme-boot\.js\?v=[0-9a-f]+"><\/script>/.test(headTags));
   // It was inline for months and silently refused every time. Nothing in this
   // page may rely on an inline script again.
   check('no inline script survives in the app shell — the CSP refuses them all',
@@ -13098,7 +13101,7 @@ check('the brand catalogue makes no network calls at all',
 
   const idx = readFileSync(path.join(REPO_ROOT, 'app', 'index.html'), 'utf8');
   const sw = readFileSync(path.join(REPO_ROOT, 'app', 'sw.js'), 'utf8');
-  const v = (/src="icloud-sync\.js\?v=(\d+)"/.exec(idx) || [])[1];
+  const v = (/src="icloud-sync\.js\?v=([0-9a-f]+)"/.exec(idx) || [])[1];
   check('icloud-sync.js is cached by the service worker at the version the page loads, and bundled natively',
     !!v && sw.includes(`"/app/icloud-sync.js?v=${v}"`)
     && readFileSync(path.join(REPO_ROOT, 'scripts/build-web.mjs'), 'utf8').includes('"icloud-sync.js"'));

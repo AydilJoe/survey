@@ -3075,7 +3075,7 @@ function splitEnsureJsQR() {
   if (splitJsQrPromise) return splitJsQrPromise;
   splitJsQrPromise = new Promise((resolve, reject) => {
     const el = document.createElement("script");
-    el.src = "vendor/qr/jsQR.js?v=1";
+    el.src = "vendor/qr/jsQR.js?v=aa04ddc2";
     el.onload = () => (typeof window.jsQR === "function" ? resolve(window.jsQR) : reject(new Error("jsQR missing")));
     el.onerror = () => reject(new Error("jsQR failed to load"));
     document.head.appendChild(el);
