@@ -185,10 +185,12 @@ on main: `i18n-ms.js` 196 KB, `i18n-zh.js` 185 KB (2,558 lines each),
    for offline switching), `Intl.PluralRules` + `dir`, and manifest integration.
    Adding a 4th language (e.g. Indonesian — remembering to remove `"id"` from
    Malay's `phonePrefixes` — or Tamil) is now one folder + one registry entry.
-3. **Phase 2 — split `script.js` last**, one module per PR, **only while a
-   single AI session works on the repo** (announce a freeze in
-   `docs/HANDOFF.md`). It's maintainability, not speed — unless a module is
-   also lazy-loaded.
+3. **Phase 2 — split `script.js` (DONE).** Extracted 8 cohesive modules in
+   separate PRs (`search.js`, `csv.js`, `reports.js`, `onboarding.js`,
+   `cloud.js`, `capture.js`, `pro.js`, `ocr.js`), cutting `app/script.js` from
+   19,131 → ~9,790 lines (49% smaller), each verified with `check:manifest`,
+   `build-i18n`, full `e2e`, and Android emulator cold boot. Verify on iOS
+   TestFlight alongside the 1.64.0 Apple Vision OCR test.
 
 **Corrections / risks the proposal misses**
 - **First-paint language flash:** `i18n.js` walks the static HTML once,

@@ -3688,11 +3688,11 @@ check('the notification\'s Review action opens the app on the pending cards (dui
   // key the Java / Swift reads must be one the app sends, or it stays English.
   const read = (f) => readFileSync(path.join(REPO_ROOT, f), 'utf8');
   const keysOf = (src, re) => [...src.matchAll(re)].map((m) => m[1]);
-  const script = read('app/script.js'), split = read('app/split.js');
+  const script = read('app/script.js'), split = read('app/split.js'), ocr = read('app/ocr.js');
   const block = (src, start) => src.slice(src.indexOf(start), src.indexOf('};', src.indexOf(start)));
   const sentQuick = keysOf(block(script, 'function nativeQuickAddStrings'), /^\s+(\w+): tr\(/gm);
   const sentRelay = keysOf(block(split, 'const strings = {'), /^\s+(\w+): tr\(/gm);
-  const sentScan = keysOf(block(script, 'labels: {'), /(\w+): tr\(/g);
+  const sentScan = keysOf(block(ocr, 'labels: {'), /(\w+): tr\(/g);
   const usedQuick = [...keysOf(read('native/notification-listener/DuitfulQuickAddNotifier.java'), /\bs\(app, "(\w+)"/g),
     ...keysOf(read('native/notification-listener/DuitfulQuickAddReceiver.java'), /Notifier\.s\(context, "(\w+)"/g)];
   const usedRelay = [...keysOf(read('native/duitful-kit/android/DuitfulRelayWatch.java'), /word\(words, "(\w+)"/g),
@@ -10907,12 +10907,12 @@ check('the brand catalogue makes no network calls at all',
     script: app('script.js'), split: app('split.js'),
     investments: app('investments.js'), drive: app('drive-sync.js'),
     brands: app('brands.js'), theme: app('theme-boot.js'),
-    reports: app('reports.js'),
+    reports: app('reports.js'), ocr: app('ocr.js'),
   };
   const claims = [
     ['privacy mode', /Privacy mode/i, () => /function amt\(/.test(modules.script)],
     ['prior-period comparison', /prior-period comparison/i, () => /vs prior period/.test(modules.reports)],
-    ['receipt reconciliation', /reconcile to the printed total/i, () => /parseReceiptText/.test(modules.script)],
+    ['receipt reconciliation', /reconcile to the printed total/i, () => /parseReceiptText/.test(modules.ocr)],
     ['cached FX', /cached FX rates/i, () => existsSync(path.join(REPO_ROOT, 'api/fx.js'))],
     ['ibra\'', /ibra'/, () => /ibra/i.test(modules.script)],
     ['instalment plans', /Instalment and BNPL/i, () => /kind === "installment"/.test(modules.script)],
@@ -11343,7 +11343,7 @@ check('the brand catalogue makes no network calls at all',
   // category of its own and quietly distorted every report.
   check('a scan never invents a "Receipt" category',
     !/catInput\.value = "Receipt"/.test(
-      readFileSync(path.join(REPO_ROOT, 'app/script.js'), 'utf8')));
+      readFileSync(path.join(REPO_ROOT, 'app/ocr.js'), 'utf8') + '\n' + readFileSync(path.join(REPO_ROOT, 'app/script.js'), 'utf8')));
 }
 
 // -- privacy mode: hide the ringgit, keep everything else --
