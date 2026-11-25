@@ -222,6 +222,39 @@ on main: `i18n-ms.js` 196 KB, `i18n-zh.js` 185 KB (2,558 lines each),
 check aside), boot time measured before/after with `performance.mark` on a
 mid Android phone, no user-visible change, CLAUDE.md updated.
 
+## Daily check-in streaks — Duolingo style (requested 25 Nov 2026)
+
+A calm, Duitful-friendly take on Duolingo-style daily habit streaks to keep
+people logging consistently — free for everyone, never Pro-gated, and no
+guilt-tripping dark patterns. (Note: `app/script.js` `MILESTONES` currently says
+"no streaks, points or levels" — this deliberately adds streaks as a quiet,
+hideable habit tool alongside milestones.)
+
+- **What counts as a day:** any logged entry (daily spend, income, debt payment,
+  saving deposit, confirmed bank-alert capture) **or** a one-tap **"No spend
+  today"** check-in so frugal zero-spend days keep the streak alive instead of
+  encouraging spending just to log something.
+- **UI & motion:** compact flame/spark pill on Home (e.g. `12d`) plus a 7-day
+  Mon–Sun check-in strip inside the streak sheet/card — outline/muted before
+  today's check-in, warm filled state once today is logged, with a subtle spark
+  animation on first check-in of the day (respects `prefers-reduced-motion`).
+  Milestone celebrations at 7, 14, 30, 60, 100, 365 days reusing the existing
+  milestone sheet pattern.
+- **Streak freeze / forgiveness:** 1–2 free automatic grace days ("streak
+  freeze") per month (never sold, never Pro) so missing a day while sick or
+  travelling doesn't wipe a long streak.
+- **Reminders & widgets:** optional, off-by-default gentle evening check-in
+  reminder via `buildReminders` (only fires if today isn't logged yet; plain
+  copy, never guilt-tripping, never shows amounts). Optional streak count tile
+  on the home-screen widget (count only, no balances).
+- **State, privacy & i18n:** stored inside the encrypted vault (`state.streak`:
+  check-in dates, freezes used, longest streak, `enabled` toggle so users who
+  dislike gamification can hide it completely) and round-tripped in CSV
+  (`setting,streak,...`). All UI languages, fits 360px, unaffected by hide-amounts
+  eye.
+- **Open design questions:** default on vs opt-in in Settings, and where the
+  one-tap "No spend today" chip lives (Home's Today card vs streak sheet).
+
 ## Open decisions
 
 - **Bank alerts by SMS**: many MY banks send card alerts by SMS, which
