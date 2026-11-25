@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=2ec31cac" />
+    <link rel="stylesheet" href="styles.css?v=8790d696" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -238,6 +238,16 @@
     <main>
       <!-- DASHBOARD -->
       <section id="tab-dashboard" class="tab-panel active" role="tabpanel" aria-labelledby="tabbtn-dashboard">
+        <div id="feature-spot-bar" class="feature-spot-bar" role="region" aria-label="New feature" hidden>
+          <button type="button" class="feature-spot-btn" id="btn-feature-spot">
+            <span class="feature-spot-badge">New</span>
+            <span class="feature-spot-label" id="feature-spot-label"></span>
+            <svg class="feature-spot-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+          <button type="button" class="feature-spot-dismiss" id="btn-feature-spot-dismiss" aria-label="Dismiss">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
         <div id="trial-banner" class="trial-banner" hidden>
           <div class="trial-banner-body">
             <span class="trial-banner-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 5L19 9.5l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5z"/></svg></span>
@@ -3348,7 +3358,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=810c8e12"></script>
+    <script src="i18n-langs.js?v=7cb4bc68"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=f1888886"></script>
@@ -3375,11 +3385,11 @@
     <script src="search.js?v=f1248d18"></script>
     <script src="csv.js?v=9e019343"></script>
     <script src="reports.js?v=98cf0851"></script>
-    <script src="onboarding.js?v=7a5d71c7"></script>
+    <script src="onboarding.js?v=f53f7059"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=45aa251d"></script>
     <script src="pro.js?v=a354d151"></script>
     <script src="ocr.js?v=a548a7ee"></script>
-    <script src="script.js?v=d42326b6"></script>
+    <script src="script.js?v=96e10366"></script>
   </body>
 </html>

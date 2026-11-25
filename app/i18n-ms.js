@@ -2,6 +2,9 @@
  * scripts/i18n/locales/ms/*.json — edit there, not here. Key = the English text
  * exactly as the app shows it; missing keys show in English. */
 (window.I18N_TABLES = window.I18N_TABLES || {}).ms = {
+  "New": "Baharu",
+  "New feature": "Ciri baharu",
+  "Pastel theme": "Tema Pastel",
   "Your money, private to this phone.": "Duit anda, kekal peribadi dalam telefon ini.",
   "Encrypted": "Disulitkan",
   "No account": "Tanpa akaun",

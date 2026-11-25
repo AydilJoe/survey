@@ -2,6 +2,9 @@
  * scripts/i18n/locales/zh/*.json — edit there, not here. Key = the English text
  * exactly as the app shows it; missing keys show in English. */
 (window.I18N_TABLES = window.I18N_TABLES || {}).zh = {
+  "New": "新功能",
+  "New feature": "新功能",
+  "Pastel theme": "柔和主题",
   "Your money, private to this phone.": "你的钱，只留在这部手机里。",
   "Encrypted": "已加密",
   "No account": "免注册",

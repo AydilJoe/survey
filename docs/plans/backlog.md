@@ -23,7 +23,7 @@ circular/rectangular widgets on iPhone. Follows the user's in-app theme choice
 (`System`, `Light`, `Dark` or `Pastel`) and clears status + upcoming names
 when the vault locks. Never shows balances or amounts.
 
-## "New" feature spotlight with motion (requested 20 Nov 2026)
+## "New" feature spotlight with motion (done in 1.65.0)
 
 When a release adds a feature (e.g. wallets, recurring splits, statement import, Pastel), show a small "New" button or chip (Home, or the relevant tab) that, when tapped, animates the user to the feature: smooth-scroll and/or tab switch, then a gentle pulse/highlight ring on the target card or button.
 - One spotlight per feature, dismissed once seen or tapped (state outside the vault or in it; never nags).

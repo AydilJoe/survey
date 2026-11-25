@@ -9457,4 +9457,106 @@ html[data-theme="pastel"] #lock .lock-google:hover {
 #lock .lock-start button[hidden],
 #lock .lock-form input[hidden] { display: none; }
 
+/* ---------- v1.65.0 "New" feature spotlight chip & pulse ring ---------- */
+.feature-spot-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  margin: 0 0 0.75rem;
+  grid-column: 1 / -1;
+}
+.feature-spot-bar[hidden] { display: none; }
+.feature-spot-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  min-height: 36px;
+  max-width: calc(100% - 40px);
+  padding: 0.3rem 0.7rem 0.3rem 0.4rem;
+  border-radius: var(--r-pill);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--line));
+  background: color-mix(in srgb, var(--brand) 9%, var(--card));
+  color: var(--text);
+  font: 600 0.84rem/1.2 var(--font-sans);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+.feature-spot-btn:hover {
+  background: color-mix(in srgb, var(--brand) 15%, var(--card));
+  border-color: color-mix(in srgb, var(--brand) 48%, var(--line));
+}
+.feature-spot-btn:active { transform: scale(0.985); }
+.feature-spot-btn:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
+.feature-spot-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.16rem 0.48rem;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  color: #fffaf4;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  flex: none;
+}
+html[data-theme="dark"] .feature-spot-badge { color: var(--stage); }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="pastel"]) .feature-spot-badge { color: var(--stage); }
+}
+html[data-theme="pastel"] .feature-spot-badge {
+  background: var(--pastel-action);
+  color: var(--text);
+}
+.feature-spot-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.feature-spot-arrow {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  flex: none;
+}
+.feature-spot-dismiss {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  flex: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.feature-spot-dismiss:hover { background: var(--card-soft); color: var(--text); }
+.feature-spot-dismiss:focus-visible { outline: 2px solid var(--brand-ink); outline-offset: 2px; }
+.feature-spot-dismiss svg { width: 15px; height: 15px; display: block; }
+
+.feature-spot-highlight {
+  outline: 2px solid var(--brand-ink);
+  outline-offset: 4px;
+  border-radius: var(--r-md);
+  animation: featureSpotPulse 1.3s ease-in-out 2;
+}
+@keyframes featureSpotPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--brand) 0%, transparent); }
+  50%      { box-shadow: 0 0 0 8px color-mix(in srgb, var(--brand) 22%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .feature-spot-btn:active { transform: none; }
+  .feature-spot-highlight {
+    animation: none;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 20%, transparent);
+  }
+}
+
+
 
