@@ -119,11 +119,12 @@ public class DuitfulNotificationListenerService extends NotificationListenerServ
     }
 
     /**
-     * A currency followed by a figure: "RM 0.10", "RM1,234.50", "S$5", "Rp 10.000", "฿20". Only these are stored.
-     * Java's \\s does not match a no-break space, which some apps put between "RM" and the figure.
+     * A currency beside a figure: "RM 0.10", "RM1,234.50", "S$5", "Rp. 10.000", "50.00 บาท", "100.000đ", "马币12.50".
+     * Only these are stored. Java's \\s does not match a no-break space, which some apps put between "RM" and the figure.
      */
     private static final Pattern AMOUNT = Pattern.compile(
-        "(?i)(?:\\bRM|\\bMYR|S\\$|\\bSGD|\\bRp|\\bIDR|฿|\\bTHB|₱|\\bPHP|\\bPhp|₫|\\bVND)[\\s\\u00A0\\u202F]*\\d|\\d[\\s\\u00A0\\u202F]*(?:₫|VND|đ)");
+        "(?i)(?:\\bRM|\\bMYR|S\\$|\\bSGD|\\bRp\\.?|\\bIDR|฿|\\bTHB|₱|\\bPHP|\\bPhp|₫|\\bVND|马币|馬幣|令吉|新币|新幣|新元)[\\s\\u00A0\\u202F]*\\d"
+        + "|\\d[\\s\\u00A0\\u202F]*(?:₫|\\bVND\\b|đ|บาท|令吉|新元|\\bMYR\\b|\\bRM\\b|\\bSGD\\b|\\bTHB\\b|\\bPHP\\b|\\bIDR\\b)");
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
