@@ -9152,18 +9152,20 @@ html[data-theme="pastel"] .tab.active {
 }
 
 /* ---------- v1.64.3 Welcome horizon (#lock) ----------
-   Full-screen dawn horizon backdrop, clean inline brand lockup, bottom-anchored
-   full-width pill stack, and quiet legal footer. Works across Light, Dark, and
-   Pastel themes without shipping any external image files. */
+   Full-screen dawn horizon backdrop in pure CSS, clean inline brand lockup,
+   bottom-anchored full-width pill stack, and quiet legal footer. Works across
+   Light, Dark, and Pastel themes without external images or SVG filters. */
 #lock {
-  --lock-sky: color-mix(in srgb, var(--primary) 18%, var(--stage));
-  --lock-sky-mid: color-mix(in srgb, var(--primary) 10%, var(--stage));
-  --lock-haze: color-mix(in srgb, var(--brand) 48%, #fff8ee);
-  --lock-rim: #fffdf8;
+  --lock-sky: #cfc7ba;
+  --lock-sky-mid: #ddd5c7;
+  --lock-haze: rgba(200, 112, 75, 0.34);
+  --lock-haze-soft: rgba(200, 112, 75, 0.11);
+  --lock-rim: rgba(255, 253, 248, 0.92);
+  --lock-rim-glow: rgba(255, 248, 236, 0.45);
   --lock-flare: #ffffff;
-  --lock-body-lit: color-mix(in srgb, var(--card) 78%, var(--stage));
-  --lock-body: color-mix(in srgb, var(--bg) 72%, var(--stage));
-  --lock-star-opacity: 0;
+  --lock-flare-mid: rgba(255, 252, 246, 0.55);
+  --lock-body-lit: #f3ede2;
+  --lock-body: #ece4d7;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -9175,54 +9177,112 @@ html[data-theme="pastel"] .tab.active {
 }
 #lock[hidden] { display: none; }
 html[data-theme="dark"] #lock {
-  --lock-sky: #0a0908;
+  --lock-sky: #090807;
   --lock-sky-mid: #120f0d;
-  --lock-haze: color-mix(in srgb, var(--primary) 62%, var(--brand));
-  --lock-rim: #f3e4cf;
+  --lock-haze: rgba(218, 174, 128, 0.36);
+  --lock-haze-soft: rgba(205, 148, 98, 0.12);
+  --lock-rim: rgba(247, 234, 214, 0.92);
+  --lock-rim-glow: rgba(232, 198, 158, 0.36);
   --lock-flare: #fffaf2;
-  --lock-body-lit: #2a211a;
-  --lock-body: #181412;
-  --lock-star-opacity: 0.72;
+  --lock-flare-mid: rgba(255, 244, 226, 0.52);
+  --lock-body-lit: #292019;
+  --lock-body: #171412;
 }
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]):not([data-theme="pastel"]) #lock {
-    --lock-sky: #0a0908;
+    --lock-sky: #090807;
     --lock-sky-mid: #120f0d;
-    --lock-haze: color-mix(in srgb, var(--primary) 62%, var(--brand));
-    --lock-rim: #f3e4cf;
+    --lock-haze: rgba(218, 174, 128, 0.36);
+    --lock-haze-soft: rgba(205, 148, 98, 0.12);
+    --lock-rim: rgba(247, 234, 214, 0.92);
+    --lock-rim-glow: rgba(232, 198, 158, 0.36);
     --lock-flare: #fffaf2;
-    --lock-body-lit: #2a211a;
-    --lock-body: #181412;
-    --lock-star-opacity: 0.72;
+    --lock-flare-mid: rgba(255, 244, 226, 0.52);
+    --lock-body-lit: #292019;
+    --lock-body: #171412;
   }
 }
 html[data-theme="pastel"] #lock {
-  --lock-sky: color-mix(in srgb, var(--brand) 30%, var(--stage));
-  --lock-sky-mid: color-mix(in srgb, var(--brand) 14%, var(--stage));
-  --lock-haze: #fff3e2;
-  --lock-rim: #fffaf3;
+  --lock-sky: #f2c4a6;
+  --lock-sky-mid: #f6d5be;
+  --lock-haze: rgba(255, 244, 228, 0.65);
+  --lock-haze-soft: rgba(255, 244, 228, 0.22);
+  --lock-rim: rgba(255, 252, 247, 0.95);
+  --lock-rim-glow: rgba(255, 248, 238, 0.5);
   --lock-flare: #ffffff;
-  --lock-body-lit: color-mix(in srgb, var(--card-soft) 80%, var(--stage));
-  --lock-body: color-mix(in srgb, var(--bg) 70%, var(--stage));
-  --lock-star-opacity: 0;
+  --lock-flare-mid: rgba(255, 252, 246, 0.62);
+  --lock-body-lit: #fdefe3;
+  --lock-body: #fae7d6;
 }
 
 .lock-backdrop {
   position: absolute;
   inset: 0 0 auto 0;
-  height: min(460px, 56dvh);
-  min-height: 290px;
+  height: min(440px, 54dvh);
+  min-height: 280px;
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
+  background:
+    radial-gradient(ellipse 72% 58% at 68% 46%, var(--lock-flare-mid) 0%, var(--lock-haze) 26%, var(--lock-haze-soft) 56%, transparent 78%),
+    linear-gradient(180deg, var(--lock-sky) 0%, var(--lock-sky-mid) 62%, var(--stage) 100%);
 }
-.lock-horizon {
-  display: block;
-  width: 100%;
-  height: 100%;
-  color: var(--lock-flare);
+.lock-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 36%;
+  background: linear-gradient(180deg, transparent 0%, var(--stage) 100%);
+  z-index: 3;
 }
-.lock-stars { opacity: var(--lock-star-opacity); }
+.lock-planet {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: clamp(820px, 235vw, 1500px);
+  height: clamp(820px, 235vw, 1500px);
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(circle at 56% 5%, var(--lock-body-lit) 0%, var(--lock-body) 18%, var(--stage) 34%);
+  border-top: 1.5px solid var(--lock-rim);
+  box-shadow:
+    0 -3px 16px 0 var(--lock-rim-glow),
+    0 -14px 44px -6px var(--lock-haze);
+  z-index: 1;
+}
+.lock-flare {
+  position: absolute;
+  left: 68%;
+  top: 46%;
+  width: 112px;
+  height: 112px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--lock-flare) 0%, var(--lock-flare-mid) 20%, transparent 66%);
+  z-index: 2;
+}
+.lock-flare::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 110px;
+  height: 5px;
+  transform: translate(-50%, -50%) rotate(6deg);
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, var(--lock-flare) 0%, var(--lock-flare-mid) 35%, transparent 75%);
+}
+.lock-flare::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--lock-flare);
+}
 
 #lock > .splash-inner {
   position: relative;
