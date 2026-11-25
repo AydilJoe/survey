@@ -10906,10 +10906,11 @@ check('the brand catalogue makes no network calls at all',
     script: app('script.js'), split: app('split.js'),
     investments: app('investments.js'), drive: app('drive-sync.js'),
     brands: app('brands.js'), theme: app('theme-boot.js'),
+    reports: app('reports.js'),
   };
   const claims = [
     ['privacy mode', /Privacy mode/i, () => /function amt\(/.test(modules.script)],
-    ['prior-period comparison', /prior-period comparison/i, () => /vs prior period/.test(modules.script)],
+    ['prior-period comparison', /prior-period comparison/i, () => /vs prior period/.test(modules.reports)],
     ['receipt reconciliation', /reconcile to the printed total/i, () => /parseReceiptText/.test(modules.script)],
     ['cached FX', /cached FX rates/i, () => existsSync(path.join(REPO_ROOT, 'api/fx.js'))],
     ['ibra\'', /ibra'/, () => /ibra/i.test(modules.script)],
