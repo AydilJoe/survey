@@ -163,6 +163,64 @@ Goal: keep Duitful's zero-bundler vanilla-JS + Capacitor PWA setup (no Webpack/V
   - **Option B (generator):** `scripts/build-web.mjs` imports the manifest directly, and a small sync script updates the `SHELL` block in `app/sw.js` and `<script>` block in `app/index.html` between marker comments.
 - **Review point for Claude Code:** prefer Option A or B, and confirm whether modular i18n (Phase 1) should land before adding the next UI language (e.g. Indonesian / Tamil / Traditional Chinese) and before splitting `script.js` (Phase 2).
 
+### Review (Claude Code, 25 Nov 2026) — decisions for whoever builds this
+
+Verdict: **yes, in this order: 3 → 1 → 2**, each as small PRs. Figures checked
+on main: `i18n-ms.js` 196 KB, `i18n-zh.js` 185 KB (2,558 lines each),
+`script.js` 19,118 lines / 931 KB.
+
+**Order and why**
+1. **Phase 0 — asset manifest, Option A (validator) first.** Cheapest, zero
+   runtime risk, and it protects the other two phases from drift. Add
+   content hashes (or one generated build id) instead of hand-bumped `?v=N`:
+   two AI sessions bumping the same `?v=` numbers caused merge conflicts on
+   20–22 Nov. Option B (generator between marker comments) can follow later.
+2. **Phase 1 — i18n registry + per-language loading,** done **together with
+   the 4th language** (Tamil or Indonesian), not before: the boot saving for
+   today's 3 languages is small (both packs are cached by the service worker,
+   so the cost is parse time, ~380 KB, not network). The value is scaling.
+3. **Phase 2 — split `script.js` last**, one module per PR, **only while a
+   single AI session works on the repo** (announce a freeze in
+   `docs/HANDOFF.md`). It's maintainability, not speed — unless a module is
+   also lazy-loaded.
+
+**Corrections / risks the proposal misses**
+- **First-paint language flash:** `i18n.js` walks the static HTML once,
+  synchronously, at the end of `<body>` (`index.html` ~line 3340). An async
+  `fetch` of the pack would paint English first and could break the
+  "first walk only" rule. Keep it blocking: a tiny inline loader that picks
+  the language (`duitful.lang` / `fromPhone()`) and writes one parser-blocking
+  `<script src="i18n-<code>.js?v=…">` before `i18n.js`. Language *switching*
+  can load the next pack async, then re-render.
+- **Offline switching:** if the SW stops precaching unused packs, switching
+  language offline breaks. Precache all packs (they're small); just don't
+  *parse* them at boot. Native (Capacitor) loads files locally anyway.
+- **`fromPhone()` maps `id` (Indonesian) to Malay today.** Adding Indonesian
+  must change this, or Indonesian phones keep getting Malay.
+- **Keep the tuple guarantee:** today a row can't exist without all three
+  languages. With per-language folders, `build-i18n.mjs --missing` must fail
+  per language (and e2e must still run the 360px overflow check per language).
+- **Plurals:** `trn()` with `Intl.PluralRules` is fine (iOS 13+/Chrome 63+),
+  keep the `(n, one, other)` signature working.
+- **Splitting `script.js` — hidden dependents:** `scripts/release-notes.mjs`,
+  `scripts/play-release-notes.mjs`, `scripts/verify-providers.mjs`,
+  `scripts/patch-ios.mjs`, `scripts/patch-android-shortcuts.mjs`,
+  `scripts/build-i18n.mjs` (`JS_FILES`/`LINT_JS_FILES`), `tests/e2e.mjs` and
+  CLAUDE.md read `app/script.js` by name (e.g. `RELEASE_NOTES` must stay where
+  the release-notes scripts find it, or move to its own file first).
+- **Load order / TDZ:** classic `<script>`s share one global scope, but a
+  top-level `const`/`let` used before its file runs throws — the 1.62.2
+  cold-boot crash (`applyTheme → syncWidgetSummary`) was exactly this. Each
+  extraction PR must pass e2e **and** a native cold boot (Android + iOS
+  TestFlight) before the next one.
+- **Lazy loading `ocr.js` / `csv.js`:** only with SW precache (offline) and
+  without breaking App Review's "downloads and runs no code" (local files are
+  fine; never fetch code from a server).
+
+**Acceptance per phase:** e2e green (the known local-only Malay 360px
+check aside), boot time measured before/after with `performance.mark` on a
+mid Android phone, no user-visible change, CLAUDE.md updated.
+
 ## Open decisions
 
 - **Bank alerts by SMS**: many MY banks send card alerts by SMS, which
