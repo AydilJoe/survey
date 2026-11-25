@@ -9218,57 +9218,43 @@ html[data-theme="pastel"] #lock {
 .lock-backdrop {
   position: absolute;
   inset: 0 0 auto 0;
-  height: min(440px, 54dvh);
-  min-height: 280px;
+  height: min(420px, 52dvh);
+  min-height: 270px;
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(ellipse 72% 58% at 68% 46%, var(--lock-flare-mid) 0%, var(--lock-haze) 26%, var(--lock-haze-soft) 56%, transparent 78%),
-    linear-gradient(180deg, var(--lock-sky) 0%, var(--lock-sky-mid) 62%, var(--stage) 100%);
-}
-.lock-backdrop::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 36%;
-  background: linear-gradient(180deg, transparent 0%, var(--stage) 100%);
-  z-index: 3;
-}
-.lock-planet {
-  position: absolute;
-  left: 50%;
-  top: 45%;
-  width: clamp(820px, 235vw, 1500px);
-  height: clamp(820px, 235vw, 1500px);
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: radial-gradient(circle at 56% 5%, var(--lock-body-lit) 0%, var(--lock-body) 18%, var(--stage) 34%);
-  border-top: 1.5px solid var(--lock-rim);
-  box-shadow:
-    0 -3px 16px 0 var(--lock-rim-glow),
-    0 -14px 44px -6px var(--lock-haze);
-  z-index: 1;
+    linear-gradient(180deg, transparent 62%, var(--stage) 100%),
+    radial-gradient(ellipse 132% 175% at 50% 209%,
+      var(--stage) 0%,
+      var(--stage) 76%,
+      var(--lock-body) 88%,
+      var(--lock-body-lit) 93.3%,
+      var(--lock-rim) 93.85%,
+      var(--lock-rim) 94.1%,
+      var(--lock-rim-glow) 95.2%,
+      transparent 100%),
+    radial-gradient(ellipse 75% 60% at 68% 44%, var(--lock-flare-mid) 0%, var(--lock-haze) 26%, var(--lock-haze-soft) 56%, transparent 78%),
+    linear-gradient(180deg, var(--lock-sky) 0%, var(--lock-sky-mid) 58%, var(--stage) 100%);
 }
 .lock-flare {
   position: absolute;
   left: 68%;
-  top: 46%;
-  width: 112px;
-  height: 112px;
+  top: 46.2%;
+  width: 108px;
+  height: 108px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: radial-gradient(circle, var(--lock-flare) 0%, var(--lock-flare-mid) 20%, transparent 66%);
-  z-index: 2;
 }
 .lock-flare::before {
   content: "";
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 110px;
-  height: 5px;
-  transform: translate(-50%, -50%) rotate(6deg);
+  width: 104px;
+  height: 4px;
+  transform: translate(-50%, -50%) rotate(7deg);
   border-radius: 999px;
   background: radial-gradient(ellipse at center, var(--lock-flare) 0%, var(--lock-flare-mid) 35%, transparent 75%);
 }
@@ -9277,8 +9263,8 @@ html[data-theme="pastel"] #lock {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   background: var(--lock-flare);
