@@ -15,9 +15,14 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { LANGS } from "./i18n/langs.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const APP_DIR = join(ROOT, "app");
+
+const I18N_PACK_ASSETS = LANGS
+  .filter((l) => l.file)
+  .map((l) => ({ path: l.file, refIn: "app/i18n-langs.js" }));
 
 // Canonical manifest of Duitful's web/native app shell.
 // When adding or splitting a module, update this list first, then add it to
@@ -36,8 +41,8 @@ export const APP_MANIFEST = {
   // Loaded at the bottom of <body> in app/index.html — ORDER MATTERS (classic
   // global scripts; languages first, then feature modules, then script.js).
   bodyScripts: [
-    "i18n-ms.js",
-    "i18n-zh.js",
+    "i18n-langs.js",
+    "i18n-boot.js",
     "i18n.js",
     "drive-config.js",
     "drive-sync.js",
@@ -57,9 +62,10 @@ export const APP_MANIFEST = {
     "brands.js",
     "script.js",
   ],
-  // Not loaded in app/index.html at boot — fetched on demand (or by CSS) and
-  // precached in app/sw.js + copied by scripts/build-web.mjs.
+  // Not loaded in app/index.html at boot — fetched on demand (or by CSS /
+  // i18n-boot.js) and precached in app/sw.js + copied by scripts/build-web.mjs.
   lazyAssets: [
+    ...I18N_PACK_ASSETS,
     { path: "vendor/qr/jsQR.js", refIn: "app/split.js" },
     { path: "vendor/pdfjs/pdf.min.js", refIn: "app/statement.js" },
     { path: "vendor/pdfjs/pdf.worker.min.js", refIn: "app/statement.js" },
@@ -240,6 +246,7 @@ export function validateManifest() {
     ...APP_MANIFEST.headScripts,
     ...APP_MANIFEST.bodyScripts,
     ...APP_MANIFEST.headStyles,
+    ...APP_MANIFEST.lazyAssets.map((a) => a.path),
   ]);
   for (const name of readdirSync(APP_DIR)) {
     if (name === "sw.js") continue;

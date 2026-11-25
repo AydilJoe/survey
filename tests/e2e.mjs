@@ -2540,6 +2540,7 @@ const aiBadge = await S(async () => {
     // Order in Settings: the AI card comes straight after the Pro card.
     let prev = $('ai-card').previousElementSibling;
     out.after = prev && prev.id;
+    await I18N.loadAll();
     out.ms = I18N.tables.ms['On-device AI is on'] || '';
     out.zh = I18N.tables.zh['On-device AI is on'] || '';
   } finally {
@@ -2762,7 +2763,7 @@ check('AI sheet: its words have Malay and Chinese rows', aiInfo.ms);
     try {
       await refreshAiStatus();
       for (const lang of ['en', 'ms', 'zh']) {
-        I18N.set(lang);
+        await I18N.set(lang);
         renderAll();
         renderAiBadge();
         const hdr = document.querySelector('.app-header .brand').getBoundingClientRect();
@@ -2775,7 +2776,7 @@ check('AI sheet: its words have Malay and Chinese rows', aiInfo.ms);
         };
       }
     } finally {
-      I18N.set(keepLang);
+      await I18N.set(keepLang);
       window.Capacitor = keepCap;
       Object.assign(state, { aiEnabled: snap.en, aiIntroSeen: snap.seen });
       aiStatusCache = null;
@@ -3189,12 +3190,12 @@ check('AI sheet: its words have Malay and Chinese rows', aiInfo.ms);
     bgRm.fill === 'none' && bgRm.label === 'AI is checking tax relief · 2 of 4' && bgRm.anim === 'ai-badge-breathe' && bgRm.doneAnim === 'none' && bgRm.idle, JSON.stringify(bgRm));
   // Words built in script (not markup) go through tr() too: capture cards,
   // the scan sheet's button, the "Matches …" line and the item count.
-  const msWords = await S(() => {
+  const msWords = await S(async () => {
     const keepCap = window.Capacitor, keepLang = I18N.lang;
     const out = {};
     try {
       window.Capacitor = { isNativePlatform: () => true, getPlatform: () => 'android', Plugins: {} };
-      I18N.set('ms');
+      await I18N.set('ms');
       out.ai = pendingAiTag({ ai: true });
       out.wrong = pendingWrongBtn({ id: 'x' });
       out.match = receiptAgreeLabel({ agree: ['total', 'payment'], candidates: [{ kind: 'payment', label: 'CASH' }] });
@@ -3204,7 +3205,7 @@ check('AI sheet: its words have Malay and Chinese rows', aiInfo.ms);
       scanAmount.value = '23.40'; updateScanApplyLabel();
       out.apply = scanApply.textContent;
       scanAmount.value = keepVal; updateScanApplyLabel();
-    } finally { I18N.set(keepLang); window.Capacitor = keepCap; }
+    } finally { await I18N.set(keepLang); window.Capacitor = keepCap; }
     return out;
   });
   check('Malay: words built in script are translated — "Dibaca oleh AI telefon anda", "Salah?", "Sama dengan Jumlah & tunai" (a card name stays as printed), "3 barang", "Tambah RM 23.40"',
@@ -14231,8 +14232,11 @@ check('the brand catalogue makes no network calls at all',
    bar, Home and Settings. */
 {
   const built = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'build-i18n.mjs'), '--check'], { encoding: 'utf8' });
-  check('languages: app/i18n-ms.js and app/i18n-zh.js are built from scripts/i18n/strings.mjs (no stale table, no placeholder mismatch)',
+  check('languages: app/i18n-<code>.js and app/i18n-langs.js are built from scripts/i18n/langs.mjs + locales/ (no stale table, no placeholder mismatch)',
     built.status === 0, (built.stderr || '').trim());
+  const status = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'build-i18n.mjs'), '--status'], { encoding: 'utf8' });
+  check('languages: build-i18n.mjs --status reports 100% coverage across every registered language',
+    status.status === 0 && /100\.0%/.test(status.stdout || ''), (status.stdout || status.stderr || '').trim());
 
   const lp = await b.newPage({ viewport: { width: 390, height: 844 } });
   const lerr = [];
@@ -14240,47 +14244,37 @@ check('the brand catalogue makes no network calls at all',
   await lp.goto(`${BASE}/app/index.html`);
   await lp.waitForTimeout(500);
 
-  // Coverage, on the page's own markup (parsed, never run), so nothing the
-  // user typed or the app rendered can count. Names, codes and the
-  // developer-only Drive note stay English on purpose.
-  const KEEP = /^([A-Z]{3}|RM|YA \d{4}|PCB|LHDN|hello@duitful\.app|Terima kasih,|Aydil|Duitful|Duitful Pro|iCloud|Google Drive|CSV|WhatsApp|Codyl Enterprise|Apple ID|RM [\d.,]+|you@example\.com|https?:\/\/\S+|Cloud backup isn't configured for this build\. Set|\(or|on iOS\) in)$/;
-  const gaps = await lp.evaluate(async () => {
-    const html = await (await fetch('index.html', { cache: 'no-store' })).text();
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const scopes = ['#lock', 'header.app-header', 'nav.tabs', '#tab-dashboard', '#tab-data',
-      '#tab-flow', '#tab-debts', '#tab-savings', '#tab-daily', '#tab-reports', '#tab-tax', '#tax-numbers-dialog', '#tax-claim-dialog', '#tax-rules-dialog', '#tax-review-dialog', '#tax-receipt-dialog',
-      '#paywall-dialog', '#debt-paid-dialog', '#milestone-dialog', '#restore-dialog', '#pro-welcome-dialog', '#announce-dialog', '#move-dialog',
-      '#whats-new-dialog', '#license-dialog', '#fpx-email-dialog', '#passcode-dialog', '#bio-offer-dialog', '#pwa-install-ios',
-      '#onboard-dialog', '#guide-dialog', '#edit-dialog', '#daily-edit-dialog', '#bulk-income-dialog', '#bulk-debt-pay-dialog', '#last-month-edit-dialog', '#search-dialog',
-      '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
-      '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog', '#rs-dialog',
-      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog', '#ai-info-dialog', '#ai-think', '#ea-dialog'];
-    const out = {};
-    for (const l of ['ms', 'zh']) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
-    return out;
-  });
-  for (const l of ['ms', 'zh']) {
-    const left = [...new Set(gaps[l])].filter((s) => !KEEP.test(s));
-    check(`languages: every English line on the passcode screen, header, tab bar, Home, Monthly, Debts, Savings, All entries, Reports, Settings, Tax (page and dialogs), the Pro / passcode / milestone sheets, first-run setup, the tour, edit dialogs, search, receipt scan, statement import, bank-alert and split sheets has a ${l === 'ms' ? 'Malay' : 'Chinese'} row`,
-      left.length === 0, left.join(' | '));
-  }
+  // On-demand boot: an English phone parses 0 KB of translation tables at boot.
+  const enBoot = await lp.evaluate(() => ({
+    loaded: Object.keys(I18N.tables),
+    dir: document.documentElement.dir,
+    langs: I18N.langs.map((l) => l.code),
+  }));
+  check('languages: an English boot loads zero translation tables (i18n-boot.js skips all packs) and sets dir="ltr"',
+    enBoot.loaded.length === 0 && enBoot.dir === 'ltr' && enBoot.langs.includes('en') && enBoot.langs.includes('ms') && enBoot.langs.includes('zh'),
+    JSON.stringify(enBoot));
 
   // The phone here is English; English is what a new install shows.
   await lp.click('#btn-start-open');
   await lp.waitForTimeout(1200);
   await lp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
-  const pick = (v) => lp.evaluate((v) => {
-    const sel = document.getElementById('pref-language');
-    sel.value = v;
-    sel.dispatchEvent(new Event('change'));
-  }, v);
+  const pick = async (v) => {
+    await lp.evaluate((v) => {
+      const sel = document.getElementById('pref-language');
+      sel.value = v;
+      sel.dispatchEvent(new Event('change'));
+    }, v);
+    await lp.waitForFunction((want) => (want === 'auto' ? I18N.choice === 'auto' && I18N.lang === 'en' : I18N.lang === want), v, { timeout: 5000 });
+  };
   const look = () => lp.evaluate(() => ({
     tab: document.querySelector('#tabbtn-dashboard').textContent.trim(),
     lang: document.documentElement.lang,
+    dir: document.documentElement.dir,
     add: document.querySelector('#form-daily button[type="submit"]').textContent.trim(),
     progress: document.getElementById('hero-progress-text').textContent,
     hint: !document.getElementById('pref-language-hint').hidden,
     stored: localStorage.getItem('duitful.lang'),
+    loaded: Object.keys(I18N.tables).sort(),
   }));
   const en0 = await look();
   check('languages: a phone set to English opens in English, choice left on "Phone\'s language"',
@@ -14288,11 +14282,18 @@ check('the brand catalogue makes no network calls at all',
 
   await pick('ms');
   const ms = await look();
-  check('languages: picking Bahasa Melayu repaints the page and what script.js draws, with no reload (tab, button, balance line, <html lang>)',
-    ms.tab === 'Utama' && ms.lang === 'ms' && ms.add === 'Tambah catatan' && /^.*Hari \d+\/\d+/.test(ms.progress) && ms.hint && ms.stored === 'ms', JSON.stringify(ms));
-  const fills = await lp.evaluate(() => [tr('Day {d}/{n}', { d: 3, n: 30 }), trn(1, '{n} day left', '{n} days left'), trn(4, '{n} day left', '{n} days left'), tr('Not a key {x}', { x: 1 })]);
-  check('languages: placeholders fill by name, plurals pick the English form first, an unknown line stays English',
-    fills[0] === 'Hari 3/30' && fills[1] === '1 hari lagi' && fills[2] === '4 hari lagi' && fills[3] === 'Not a key 1', JSON.stringify(fills));
+  check('languages: picking Bahasa Melayu loads only ms on demand and repaints the page and what script.js draws, with no reload (tab, button, balance line, <html lang>)',
+    ms.tab === 'Utama' && ms.lang === 'ms' && ms.dir === 'ltr' && ms.add === 'Tambah catatan' && /^.*Hari \d+\/\d+/.test(ms.progress) && ms.hint && ms.stored === 'ms' && JSON.stringify(ms.loaded) === '["ms"]', JSON.stringify(ms));
+  const fills = await lp.evaluate(() => [
+    tr('Day {d}/{n}', { d: 3, n: 30 }),
+    trn(1, '{n} day left', '{n} days left'),
+    trn(4, '{n} day left', '{n} days left'),
+    trn(1, { one: '{n} day left', other: '{n} days left' }),
+    trn(4, { one: '{n} day left', other: '{n} days left' }),
+    tr('Not a key {x}', { x: 1 }),
+  ]);
+  check('languages: placeholders fill by name, plurals pick the form (both (one,many) and CLDR object), an unknown line stays English',
+    fills[0] === 'Hari 3/30' && fills[1] === '1 hari lagi' && fills[2] === '4 hari lagi' && fills[3] === '1 hari lagi' && fills[4] === '4 hari lagi' && fills[5] === 'Not a key 1', JSON.stringify(fills));
 
   // A note that happens to match a key is still the user's own words.
   await lp.evaluate(() => {
@@ -14308,46 +14309,83 @@ check('the brand catalogue makes no network calls at all',
     todayRow === 'Home', String(todayRow));
   check('languages: the toast after adding an entry speaks Malay', /Perbelanjaan ditambah/.test(toastText), toastText);
 
-  // Kept outside the vault: the next open, passcode screen included, is in Malay.
+  // Kept outside the vault: the next open, passcode screen included, is in Malay,
+  // and i18n-boot.js loads only the Malay pack before first paint.
   await lp.reload();
   await lp.waitForTimeout(1500);
   const again = await look();
-  check('languages: the choice survives a reload (stored outside the vault, like the theme)', again.tab === 'Utama' && again.lang === 'ms', JSON.stringify(again));
+  check('languages: the choice survives a reload (stored outside the vault, like the theme) and loads only ms at boot',
+    again.tab === 'Utama' && again.lang === 'ms' && JSON.stringify(again.loaded) === '["ms"]', JSON.stringify(again));
 
   await pick('zh');
   const zh = await look();
   const zhDate = await lp.evaluate(() => document.getElementById('greeting').textContent);
-  check('languages: 中文 repaints too, and dates follow it (月 in the greeting)',
-    zh.tab === '首页' && zh.lang === 'zh-Hans' && zh.add === '添加记录' && /月/.test(zhDate), JSON.stringify({ ...zh, zhDate }));
+  check('languages: 中文 loads on demand and repaints too, and dates follow it (月 in the greeting)',
+    zh.tab === '首页' && zh.lang === 'zh-Hans' && zh.add === '添加记录' && /月/.test(zhDate) && zh.loaded.includes('zh'), JSON.stringify({ ...zh, zhDate }));
 
   await pick('auto');
   const back = await look();
   check('languages: back to "Phone\'s language" returns to English here and forgets the stored choice',
     back.tab === 'Home' && back.lang === 'en' && back.stored === null && !back.hint, JSON.stringify(back));
 
-  // The phone's own language decides when nothing is stored.
-  const mctx = await b.newContext({ locale: 'ms-MY' });
-  const mp = await mctx.newPage();
-  await mp.goto(`${BASE}/app/index.html`);
-  await mp.waitForTimeout(600);
-  const first = await mp.evaluate(() => ({ start: document.getElementById('btn-start-open').textContent.trim(), lang: I18N.lang, choice: I18N.choice }));
-  check('languages: a phone in Bahasa Melayu gets the first screen in Malay without being asked',
-    first.lang === 'ms' && first.choice === 'auto' && first.start === 'Mulakan', JSON.stringify(first));
-  await mctx.close();
+  // The phone's own language decides when nothing is stored — and only that
+  // language's pack is parsed at boot (zero English flash).
+  for (const [loc, wantCode, wantStart] of [['ms-MY', 'ms', 'Mulakan'], ['zh-CN', 'zh', '开始使用']]) {
+    const cctx = await b.newContext({ locale: loc });
+    const cp = await cctx.newPage();
+    await cp.goto(`${BASE}/app/index.html`, { waitUntil: 'domcontentloaded' });
+    const first = await cp.evaluate(() => ({
+      start: document.getElementById('btn-start-open').textContent.trim(),
+      lang: I18N.lang,
+      choice: I18N.choice,
+      loaded: Object.keys(I18N.tables),
+    }));
+    check(`languages: a phone in ${loc} gets the first screen in ${wantCode} at DOMContentLoaded (no flash) and loads only ${wantCode}`,
+      first.lang === wantCode && first.choice === 'auto' && first.start === wantStart && JSON.stringify(first.loaded) === JSON.stringify([wantCode]),
+      JSON.stringify(first));
+    await cctx.close();
+  }
+
+  // Coverage, on the page's own markup (parsed, never run), so nothing the
+  // user typed or the app rendered can count. Names, codes and the
+  // developer-only Drive note stay English on purpose.
+  await lp.evaluate(() => I18N.loadAll());
+  const KEEP = /^([A-Z]{3}|RM|YA \d{4}|PCB|LHDN|hello@duitful\.app|Terima kasih,|Aydil|Duitful|Duitful Pro|iCloud|Google Drive|CSV|WhatsApp|Codyl Enterprise|Apple ID|RM [\d.,]+|you@example\.com|https?:\/\/\S+|Cloud backup isn't configured for this build\. Set|\(or|on iOS\) in)$/;
+  const gaps = await lp.evaluate(async () => {
+    const html = await (await fetch('index.html', { cache: 'no-store' })).text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const scopes = ['#lock', 'header.app-header', 'nav.tabs', '#tab-dashboard', '#tab-data',
+      '#tab-flow', '#tab-debts', '#tab-savings', '#tab-daily', '#tab-reports', '#tab-tax', '#tax-numbers-dialog', '#tax-claim-dialog', '#tax-rules-dialog', '#tax-review-dialog', '#tax-receipt-dialog',
+      '#paywall-dialog', '#debt-paid-dialog', '#milestone-dialog', '#restore-dialog', '#pro-welcome-dialog', '#announce-dialog', '#move-dialog',
+      '#whats-new-dialog', '#license-dialog', '#fpx-email-dialog', '#passcode-dialog', '#bio-offer-dialog', '#pwa-install-ios',
+      '#onboard-dialog', '#guide-dialog', '#edit-dialog', '#daily-edit-dialog', '#bulk-income-dialog', '#bulk-debt-pay-dialog', '#last-month-edit-dialog', '#search-dialog',
+      '#scan-dialog', '#stmt-dialog', '#capture-check-dialog', '#capture-share-dialog',
+      '#split-compose-dialog', '#split-share-dialog', '#split-ingest-dialog', '#split-payto-dialog', '#split-paid-dialog', '#rs-dialog',
+      '#wallet-dialog', '#wallet-detail-dialog', '#wallet-adjust-dialog', '#wallet-move-dialog', '#ai-info-dialog', '#ai-think', '#ea-dialog'];
+    const out = {};
+    for (const l of I18N.langs.filter((x) => x.pack).map((x) => x.code)) out[l] = scopes.flatMap((s) => I18N.missing(l, doc.querySelector(s)));
+    return out;
+  });
+  for (const l of Object.keys(gaps)) {
+    const left = [...new Set(gaps[l])].filter((s) => !KEEP.test(s));
+    check(`languages: every English line on the passcode screen, header, tab bar, Home, Monthly, Debts, Savings, All entries, Reports, Settings, Tax (page and dialogs), the Pro / passcode / milestone sheets, first-run setup, the tour, edit dialogs, search, receipt scan, statement import, bank-alert and split sheets has a ${l} row`,
+      left.length === 0, left.join(' | '));
+  }
 
   // Text script.js and tax.js draw: every literal given to tr()/trn() has a row,
   // and JS templates / toasts / confirms don't ship raw English without tr().
   const scan = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'build-i18n.mjs'), '--missing'], { encoding: 'utf8' });
-  check('languages: every string the code passes to tr()/trn() has Malay and Chinese rows', scan.status === 0, (scan.stdout || '').trim().split('\n').slice(0, 12).join(' | '));
+  check('languages: every string the code passes to tr()/trn() has rows for every registered language', scan.status === 0, (scan.stdout || '').trim().split('\n').slice(0, 12).join(' | '));
   const lint = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'build-i18n.mjs'), '--lint'], { encoding: 'utf8' });
   check('languages: no untranslated English UI strings built directly in JS (toast/confirm/HTML without tr())',
     lint.status === 0, (lint.stdout || '').trim().split('\n').slice(0, 12).join(' | '));
 
   // The relief text in tax-data.js. After a Budget paste this names exactly
-  // which lines need a row in scripts/i18n/tax.mjs.
+  // which lines need rows in scripts/i18n/locales/<code>/tax.json.
   const reliefGaps = await lp.evaluate(() => {
     const out = new Set();
-    const need = (v) => { if (typeof v !== 'string' || !v.trim()) return; const en = v.replace(/\s+/g, ' ').trim(); for (const l of ['ms', 'zh']) if (!I18N.tables[l][en]) out.add(en); };
+    const packCodes = I18N.langs.filter((x) => x.pack).map((x) => x.code);
+    const need = (v) => { if (typeof v !== 'string' || !v.trim()) return; const en = v.replace(/\s+/g, ' ').trim(); for (const l of packCodes) if (!I18N.tables[l]?.[en]) out.add(`${l}:${en}`); };
     for (const c of TAX_BUILTIN.tax_relief_categories) for (const it of c.items) {
       const app = it.app || {};
       need(app.label || it.name); need(app.hint || (it.claimable_items || [])[0]);
@@ -14356,7 +14394,7 @@ check('the brand catalogue makes no network calls at all',
     }
     return [...out];
   });
-  check('languages: every relief name, hint and "what counts" line in tax-data.js has Malay and Chinese rows (add them to scripts/i18n/tax.mjs after a Budget)',
+  check('languages: every relief name, hint and "what counts" line in tax-data.js has rows for every registered language (add them to scripts/i18n/locales/<code>/tax.json after a Budget)',
     reliefGaps.length === 0, reliefGaps.slice(0, 8).join(' | '));
 
   check('languages: no page errors while switching', lerr.length === 0, lerr.join(' | '));

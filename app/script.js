@@ -13229,6 +13229,17 @@ applyHeroBreakdownState();
    writes. Free for everyone. */
 function renderLanguagePref() {
   const sel = document.getElementById("pref-language");
+  if (sel && window.I18N && Array.isArray(I18N.langs)) {
+    const have = new Set([...sel.options].map((o) => o.value));
+    for (const l of I18N.langs) {
+      if (have.has(l.code)) continue;
+      const opt = document.createElement("option");
+      opt.value = l.code;
+      opt.setAttribute("translate", "no");
+      opt.textContent = l.nativeName;
+      sel.appendChild(opt);
+    }
+  }
   if (sel) sel.value = I18N.choice;
   const hint = document.getElementById("pref-language-hint");
   if (hint) hint.hidden = I18N.lang === "en";
@@ -13238,6 +13249,7 @@ document.getElementById("pref-language")?.addEventListener("change", (e) => {
   renderLanguagePref();
 });
 window.addEventListener("duitful:lang", () => {
+  renderLanguagePref();
   // Reminders are scheduled ahead in the language of the moment: reschedule.
   if (typeof requestReschedule === "function") requestReschedule();
   syncNativeStrings();

@@ -176,10 +176,15 @@ on main: `i18n-ms.js` 196 KB, `i18n-zh.js` 185 KB (2,558 lines each),
    content hashes and a derived `sw.js` `VERSION = "h-<hash>"` replacing
    hand-bumped `?v=N` numbers. Option B (generator between marker comments) can
    follow later.
-2. **Phase 1 — i18n registry + per-language loading,** done **together with
-   the 4th language** (Tamil or Indonesian), not before: the boot saving for
-   today's 3 languages is small (both packs are cached by the service worker,
-   so the cost is parse time, ~380 KB, not network). The value is scaling.
+2. **Phase 1 — i18n registry + per-language loading (DONE).** Shipped
+   `scripts/i18n/langs.mjs` → generated `app/i18n-langs.js`, per-language
+   `scripts/i18n/locales/<code>/<screen>.json` (preserving full cross-language
+   parity + `--status`), CSP-safe external parser-blocking `app/i18n-boot.js`
+   (0 KB for English, single active pack for non-English, zero flash), on-demand
+   async switching in `app/i18n.js` (with all packs still precached in `sw.js`
+   for offline switching), `Intl.PluralRules` + `dir`, and manifest integration.
+   Adding a 4th language (e.g. Indonesian — remembering to remove `"id"` from
+   Malay's `phonePrefixes` — or Tamil) is now one folder + one registry entry.
 3. **Phase 2 — split `script.js` last**, one module per PR, **only while a
    single AI session works on the repo** (announce a freeze in
    `docs/HANDOFF.md`). It's maintainability, not speed — unless a module is
