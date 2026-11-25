@@ -21,18 +21,21 @@ adb logcat -c
 adb logcat -b crash -c || true
 
 adb shell am start -W -n "$PKG/.MainActivity" || true
+echo "Waiting 20s after launch..."
 sleep 20
 
-crash="$(adb logcat -d -b crash 2>/dev/null || true)"
+echo "Checking crash buffer..."
+crash="$(timeout 25 adb logcat -d -b crash 2>/dev/null || true)"
 if grep -q "$PKG" <<<"$crash"; then
   echo "::error::Duitful crashed on launch"
   echo "$crash"
   exit 1
 fi
 
-if ! adb shell pidof "$PKG" >/dev/null; then
+echo "Checking process..."
+if ! timeout 25 adb shell pidof "$PKG" >/dev/null; then
   echo "::error::Duitful is not running 20 seconds after launch"
-  adb logcat -d | grep -E "AndroidRuntime|$PKG|FATAL" | tail -200 || true
+  timeout 25 adb logcat -d | grep -E "AndroidRuntime|$PKG|FATAL" | tail -200 || true
   exit 1
 fi
 
@@ -41,7 +44,7 @@ echo "Duitful launched and is still running."
 # Cordova plugins are made by name at startup; R8 once stripped the in-app
 # purchase plugin's constructor, so the store loaded no products and Unlock
 # Pro said "Product not configured" on every phone. Cordova logs the failure.
-plugins="$(adb logcat -d 2>/dev/null | grep -E "PluginManager|cc\.fovea|CordovaPlugin" || true)"
+plugins="$(timeout 25 adb logcat -d 2>/dev/null | grep -E "PluginManager|cc\.fovea|CordovaPlugin" || true)"
 if grep -qiE "Error adding plugin|ClassNotFound|InstantiationException|NoSuchMethod" <<<"$plugins"; then
   echo "::error::A Cordova plugin could not be created in the release build (in-app purchase would not work)"
   echo "$plugins" | tail -40
@@ -61,7 +64,7 @@ echo "Cordova plugins (in-app purchase) created without an error."
 tap_text() {
   local label="$1" bounds
   for _ in 1 2 3 4 5 6 7 8; do
-    adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
+    timeout 25 adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
     # The emulator's launcher sometimes takes the foreground back while the
     # app keeps running (the dump then shows the home screen). Bring Duitful
     # to the front again and look once more, rather than fail on the launcher.
@@ -88,24 +91,24 @@ if ! tap_text "Get started"; then
 fi
 sleep 4
 
-adb logcat -c
-adb shell am start -W -a android.intent.action.VIEW -d "duitful://action/scan" "$PKG" || true
+timeout 25 adb logcat -c || true
+timeout 25 adb shell am start -W -a android.intent.action.VIEW -d "duitful://action/scan" "$PKG" || true
 sleep 12
 
-crash="$(adb logcat -d -b crash 2>/dev/null || true)"
+crash="$(timeout 25 adb logcat -d -b crash 2>/dev/null || true)"
 if grep -q "$PKG" <<<"$crash"; then
   echo "::error::Duitful crashed opening Scan receipt"
   echo "$crash"
   exit 1
 fi
-kit="$(adb logcat -d -s DuitfulKit:V 2>/dev/null || true)"
+kit="$(timeout 25 adb logcat -d -s DuitfulKit:V 2>/dev/null || true)"
 echo "$kit" | tail -40
 if ! grep -q "scanDocument" <<<"$kit"; then
   # Not fatal yet: on a fresh emulator profile the first-run screens can
   # still be up, and the shortcut waits behind them. The crash check above
   # still holds either way.
   echo "::warning::The Scan shortcut did not reach DuitfulKit.scanDocument on this run"
-  adb shell cat /sdcard/ui.xml 2>/dev/null | tr '>' '\n' | grep -oE 'text="[^"]+"' | head -30 || true
+  timeout 25 adb shell cat /sdcard/ui.xml 2>/dev/null | tr '>' '\n' | grep -oE 'text="[^"]+"' | head -30 || true
   exit 0
 fi
 if grep -q "threw" <<<"$kit"; then

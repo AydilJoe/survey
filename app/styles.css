@@ -9150,3 +9150,400 @@ html[data-theme="pastel"] .tab.active {
 @container (max-width: 520px) {
   .hero-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ---------- v1.64.3 Welcome horizon (#lock) ----------
+   Full-screen dawn horizon backdrop in pure CSS, clean inline brand lockup,
+   bottom-anchored full-width pill stack, and quiet legal footer. Works across
+   Light, Dark, and Pastel themes without external images or SVG filters. */
+#lock {
+  --lock-sky: #cfc7ba;
+  --lock-sky-mid: #ddd5c7;
+  --lock-haze: rgba(200, 112, 75, 0.34);
+  --lock-haze-soft: rgba(200, 112, 75, 0.11);
+  --lock-rim: rgba(255, 253, 248, 0.92);
+  --lock-rim-glow: rgba(255, 248, 236, 0.45);
+  --lock-flare: #ffffff;
+  --lock-flare-mid: rgba(255, 252, 246, 0.55);
+  --lock-body-lit: #f3ede2;
+  --lock-body: #ece4d7;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--stage);
+}
+#lock[hidden] { display: none; }
+html[data-theme="dark"] #lock {
+  --lock-sky: #090807;
+  --lock-sky-mid: #120f0d;
+  --lock-haze: rgba(218, 174, 128, 0.36);
+  --lock-haze-soft: rgba(205, 148, 98, 0.12);
+  --lock-rim: rgba(247, 234, 214, 0.92);
+  --lock-rim-glow: rgba(232, 198, 158, 0.36);
+  --lock-flare: #fffaf2;
+  --lock-flare-mid: rgba(255, 244, 226, 0.52);
+  --lock-body-lit: #292019;
+  --lock-body: #171412;
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="pastel"]) #lock {
+    --lock-sky: #090807;
+    --lock-sky-mid: #120f0d;
+    --lock-haze: rgba(218, 174, 128, 0.36);
+    --lock-haze-soft: rgba(205, 148, 98, 0.12);
+    --lock-rim: rgba(247, 234, 214, 0.92);
+    --lock-rim-glow: rgba(232, 198, 158, 0.36);
+    --lock-flare: #fffaf2;
+    --lock-flare-mid: rgba(255, 244, 226, 0.52);
+    --lock-body-lit: #292019;
+    --lock-body: #171412;
+  }
+}
+html[data-theme="pastel"] #lock {
+  --lock-sky: #f2c4a6;
+  --lock-sky-mid: #f6d5be;
+  --lock-haze: rgba(255, 244, 228, 0.65);
+  --lock-haze-soft: rgba(255, 244, 228, 0.22);
+  --lock-rim: rgba(255, 252, 247, 0.95);
+  --lock-rim-glow: rgba(255, 248, 238, 0.5);
+  --lock-flare: #ffffff;
+  --lock-flare-mid: rgba(255, 252, 246, 0.62);
+  --lock-body-lit: #fdefe3;
+  --lock-body: #fae7d6;
+}
+
+.lock-backdrop {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: min(420px, 52dvh);
+  min-height: 270px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    linear-gradient(180deg, transparent 62%, var(--stage) 100%),
+    radial-gradient(ellipse 132% 175% at 50% 209%,
+      var(--stage) 0%,
+      var(--stage) 76%,
+      var(--lock-body) 88%,
+      var(--lock-body-lit) 93.3%,
+      var(--lock-rim) 93.85%,
+      var(--lock-rim) 94.1%,
+      var(--lock-rim-glow) 95.2%,
+      transparent 100%),
+    radial-gradient(ellipse 75% 60% at 68% 44%, var(--lock-flare-mid) 0%, var(--lock-haze) 26%, var(--lock-haze-soft) 56%, transparent 78%),
+    linear-gradient(180deg, var(--lock-sky) 0%, var(--lock-sky-mid) 58%, var(--stage) 100%);
+}
+.lock-flare {
+  position: absolute;
+  left: 68%;
+  top: 46.2%;
+  width: 108px;
+  height: 108px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--lock-flare) 0%, var(--lock-flare-mid) 20%, transparent 66%);
+}
+.lock-flare::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 104px;
+  height: 4px;
+  transform: translate(-50%, -50%) rotate(7deg);
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, var(--lock-flare) 0%, var(--lock-flare-mid) 35%, transparent 75%);
+}
+.lock-flare::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--lock-flare);
+}
+
+#lock > .splash-inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  min-height: 100%;
+  margin: 0 auto;
+  gap: 0;
+  justify-content: flex-start;
+  padding:
+    calc(env(safe-area-inset-top, 0px) + clamp(13.5rem, 33dvh, 18.5rem))
+    1.5rem
+    calc(env(safe-area-inset-bottom, 0px) + 1.25rem);
+}
+.lock-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+.lock-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+}
+#lock .splash-mark {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  color: var(--brand);
+  animation: none;
+}
+#lock .splash-mark svg { width: 29px; height: 29px; }
+#lock .splash-title {
+  font-family: var(--font-serif);
+  font-size: 1.85rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--text);
+}
+#lock .lock-welcome {
+  max-width: 310px;
+  margin: 0.55rem auto 0;
+}
+#lock .lock-welcome-lead {
+  font-size: 0.96rem;
+  font-weight: 450;
+  line-height: 1.4;
+  color: var(--ink2);
+  margin: 0 0 0.8rem;
+}
+#lock .lock-welcome-chips {
+  gap: 0.38rem;
+  margin: 0;
+}
+#lock .lock-welcome-chips li {
+  padding: 0.28rem 0.62rem;
+  font-size: 0.74rem;
+  font-weight: 550;
+  color: var(--ink2);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+}
+#lock .lock-welcome-chips svg {
+  width: 13px;
+  height: 13px;
+  color: var(--muted);
+}
+
+.lock-actions {
+  width: 100%;
+  max-width: 344px;
+  margin-top: auto;
+  padding-top: 2.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.65rem;
+}
+#lock .lock-sub {
+  text-align: center;
+  margin: 0 0 0.2rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+#lock .lock-form,
+#lock .lock-start {
+  max-width: none;
+  margin: 0;
+  gap: 0.65rem;
+}
+#lock .lock-form input {
+  width: 100%;
+  min-height: 50px;
+  padding: 0.75rem 1.15rem;
+  border-radius: var(--r-pill);
+  font-size: 1.15rem;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--card) 92%, var(--stage));
+}
+#lock .lock-start button,
+#lock .lock-form button.primary,
+#lock .lock-biometric,
+#lock .lock-google {
+  width: 100%;
+  min-height: 50px;
+  padding: 0.8rem 1.25rem;
+  margin: 0;
+  border-radius: var(--r-pill);
+  font-size: 0.96rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  text-align: center;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+#lock button.primary {
+  background: var(--text);
+  color: var(--card);
+  border: 1px solid transparent;
+  box-shadow: 0 8px 22px -12px color-mix(in srgb, var(--text) 45%, transparent);
+}
+#lock button.primary:hover { background: var(--primary-hover); }
+html[data-theme="dark"] #lock button.primary {
+  background: var(--text);
+  color: var(--stage);
+  box-shadow: 0 10px 26px -12px rgba(0, 0, 0, 0.72);
+}
+html[data-theme="dark"] #lock button.primary:hover { background: var(--primary-hover); }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="pastel"]) #lock button.primary {
+    background: var(--text);
+    color: var(--stage);
+    box-shadow: 0 10px 26px -12px rgba(0, 0, 0, 0.72);
+  }
+  html:not([data-theme="light"]):not([data-theme="pastel"]) #lock button.primary:hover {
+    background: var(--primary-hover);
+  }
+}
+html[data-theme="pastel"] #lock button.primary {
+  background: var(--pastel-action);
+  color: var(--text);
+  font-weight: 800;
+}
+html[data-theme="pastel"] #lock button.primary:hover { background: var(--pastel-action-hover); }
+
+#lock button.ghost {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 6%, transparent);
+}
+#lock button.ghost:hover {
+  background: var(--card-soft);
+  border-color: color-mix(in srgb, var(--text) 24%, transparent);
+}
+html[data-theme="dark"] #lock button.ghost {
+  background: color-mix(in srgb, var(--text) 13%, var(--card));
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--text) 15%, transparent);
+}
+html[data-theme="dark"] #lock button.ghost:hover {
+  background: color-mix(in srgb, var(--text) 18%, var(--card));
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="pastel"]) #lock button.ghost {
+    background: color-mix(in srgb, var(--text) 13%, var(--card));
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--text) 15%, transparent);
+  }
+  html:not([data-theme="light"]):not([data-theme="pastel"]) #lock button.ghost:hover {
+    background: color-mix(in srgb, var(--text) 18%, var(--card));
+  }
+}
+html[data-theme="pastel"] #lock button.ghost {
+  background: var(--card-soft);
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--pastel-shade) 18%, transparent);
+}
+
+#lock .lock-restore { margin-top: 0; }
+#lock .lock-or { display: none; }
+#lock .lock-google {
+  background: color-mix(in srgb, var(--text) 6%, var(--stage));
+  color: var(--ink2);
+  border: 1px solid var(--line);
+}
+#lock .lock-google:hover {
+  background: color-mix(in srgb, var(--text) 10%, var(--stage));
+  border-color: var(--border);
+  color: var(--text);
+}
+html[data-theme="dark"] #lock .lock-google {
+  background: color-mix(in srgb, var(--text) 7%, var(--stage));
+  color: var(--ink2);
+  border-color: color-mix(in srgb, var(--text) 10%, transparent);
+}
+html[data-theme="dark"] #lock .lock-google:hover {
+  background: color-mix(in srgb, var(--text) 12%, var(--stage));
+  color: var(--text);
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="pastel"]) #lock .lock-google {
+    background: color-mix(in srgb, var(--text) 7%, var(--stage));
+    color: var(--ink2);
+    border-color: color-mix(in srgb, var(--text) 10%, transparent);
+  }
+  html:not([data-theme="light"]):not([data-theme="pastel"]) #lock .lock-google:hover {
+    background: color-mix(in srgb, var(--text) 12%, var(--stage));
+    color: var(--text);
+  }
+}
+html[data-theme="pastel"] #lock .lock-google {
+  background: color-mix(in srgb, var(--brand) 12%, var(--stage));
+  color: var(--ink2);
+  border-color: color-mix(in srgb, var(--brand) 22%, transparent);
+}
+html[data-theme="pastel"] #lock .lock-google:hover {
+  background: color-mix(in srgb, var(--brand) 18%, var(--stage));
+  color: var(--text);
+}
+#lock .lock-google-g {
+  width: 1.15rem;
+  height: 1.15rem;
+  opacity: 0.85;
+}
+#lock .lock-google-text strong {
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+#lock .lock-cloud-pick { margin-top: 0.7rem; }
+#lock .lock-help { margin: 0.15rem 0 0; }
+#lock #lock-error { margin: 0; text-align: center; }
+
+.lock-legal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.4rem;
+  margin-top: 1.3rem;
+  font-size: 0.78rem;
+}
+.lock-legal a {
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.35rem 0.25rem;
+  transition: color 0.15s ease;
+}
+.lock-legal a:hover,
+.lock-legal a:focus-visible {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+#lock.is-opening .lock-legal { visibility: hidden; }
+#lock .lock-start[hidden],
+#lock .lock-form[hidden],
+#lock .lock-restore[hidden],
+#lock .lock-welcome[hidden],
+#lock .lock-biometric[hidden],
+#lock .lock-sub[hidden],
+#lock .lock-help[hidden],
+#lock #lock-error[hidden],
+#lock .lock-start button[hidden],
+#lock .lock-form input[hidden] { display: none; }
+
+

@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=200a0cd8" />
+    <link rel="stylesheet" href="styles.css?v=78a4cf96" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -99,77 +99,90 @@
   </head>
   <body>
     <div id="lock" aria-hidden="true" hidden>
+      <div class="lock-backdrop" aria-hidden="true">
+        <div class="lock-flare"></div>
+      </div>
       <div class="splash-inner">
-        <div class="splash-mark">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/>
-            <circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/>
-          </svg>
-        </div>
-        <div class="splash-title">Duitful</div>
-        <div id="lock-welcome" class="lock-welcome" hidden>
-          <p class="lock-welcome-lead">Your money, private to this phone.</p>
-          <ul class="lock-welcome-points lock-welcome-chips">
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>Encrypted</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/><path d="M3 3l18 18"/></svg>No account</li>
-            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h3M19 12h3M12 2v3M12 19v3"/><circle cx="12" cy="12" r="5"/></svg>Offline</li>
-          </ul>
-        </div>
-        <div class="lock-sub" id="lock-sub">Enter your passcode</div>
-        <form id="lock-form" class="lock-form" autocomplete="off">
-          <input type="password" id="lock-input" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Passcode" placeholder="Passcode" />
-          <input type="password" id="lock-confirm" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Confirm passcode" placeholder="Confirm" hidden />
-          <button type="submit" class="primary" id="lock-submit">Unlock</button>
-        </form>
-        <!-- First open: start straight away, or set a passcode first. Without
-             one the vault is still encrypted, under a fixed code (script.js,
-             OPEN_PASSCODE), and opens without asking. -->
-        <div id="lock-start" class="lock-start" hidden>
-          <button type="button" class="primary" id="btn-start-open">Get started</button>
-          <button type="button" class="ghost" id="btn-start-passcode">Set a passcode</button>
-        </div>
-        <button type="button" class="ghost lock-biometric" id="lock-biometric" hidden>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 11a3 3 0 013 3c0 1.5-.5 3.5-1.5 5"/>
-            <path d="M9 17c.6-1 1-2 1-3a2 2 0 014 0"/>
-            <path d="M6.6 15.5A7 7 0 0112 7a7 7 0 016.3 4"/>
-            <path d="M4.5 11.5A9.5 9.5 0 0112 4.5c2.6 0 4.9 1 6.6 2.7"/>
-          </svg>
-          Unlock with fingerprint / face
-        </button>
-        <p id="lock-error" class="hint warn" hidden></p>
-        <p id="lock-help" class="lock-help" hidden>
-          <button type="button" id="btn-forgot">Forgot passcode? Reset and wipe data</button>
-        </p>
-        <div id="lock-restore" class="lock-restore" hidden>
-          <div class="lock-or" aria-hidden="true"><span>or</span></div>
-          <!-- One button; with more than one cloud it opens the choice. -->
-          <button type="button" class="lock-google lock-cloud" id="btn-setup-restore-cloud">
-            <svg class="lock-google-g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M7 18h10.5a4 4 0 00.6-7.96A6 6 0 006.4 9.1 4.5 4.5 0 007 18z"/>
-            </svg>
-            <span class="lock-google-text"><strong>Restore from backup</strong></span>
-          </button>
-          <div id="lock-cloud-pick" class="lock-cloud-pick" role="group" aria-label="Restore from" hidden>
-            <!-- Web: CloudKit's own Sign in button is laid invisibly over the
-                 iCloud tile (lockAppleSignIn), so the tap signs in with Apple. -->
-            <div class="cloud-tile-wrap" id="lock-icloud-tile">
-              <button type="button" class="cloud-tile" id="btn-setup-restore-icloud" hidden>
-                <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true"><defs><linearGradient id="icg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ac8fa"/><stop offset="1" stop-color="#1a73e8"/></linearGradient></defs><path fill="url(#icg)" d="M14 38h22a9 9 0 001.3-17.9A13 13 0 0012.4 17 10.5 10.5 0 0014 38z"/></svg>
-                <span>iCloud</span>
-              </button>
+        <div class="lock-hero">
+          <div class="lock-brand">
+            <div class="splash-mark">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7a2 2 0 012-2h13v4H5a2 2 0 00-2 2v6a2 2 0 002 2h14V9"/>
+                <circle cx="17" cy="13" r="1.5" fill="currentColor" stroke="none"/>
+              </svg>
             </div>
-            <button type="button" class="cloud-tile" id="btn-setup-restore" data-drive>
-              <svg viewBox="0 0 87.3 78" width="34" height="30" aria-hidden="true"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>
-              <span>Google Drive</span>
-            </button>
-            <button type="button" class="cloud-tile" id="btn-setup-restore-csv">
-              <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h8M12 11v8"/></svg>
-              <span>CSV</span>
-            </button>
-            <input type="file" id="lock-csv-file" accept=".csv,text/csv" hidden />
+            <div class="splash-title">Duitful</div>
+          </div>
+          <div id="lock-welcome" class="lock-welcome" hidden>
+            <p class="lock-welcome-lead">Your money, private to this phone.</p>
+            <ul class="lock-welcome-points lock-welcome-chips">
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>Encrypted</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/><path d="M3 3l18 18"/></svg>No account</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h3M19 12h3M12 2v3M12 19v3"/><circle cx="12" cy="12" r="5"/></svg>Offline</li>
+            </ul>
           </div>
         </div>
+        <div class="lock-actions">
+          <div class="lock-sub" id="lock-sub">Enter your passcode</div>
+          <form id="lock-form" class="lock-form" autocomplete="off">
+            <input type="password" id="lock-input" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Passcode" placeholder="Passcode" />
+            <input type="password" id="lock-confirm" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off" autocapitalize="off" aria-label="Confirm passcode" placeholder="Confirm" hidden />
+            <button type="submit" class="primary" id="lock-submit">Unlock</button>
+          </form>
+          <!-- First open: start straight away, or set a passcode first. Without
+               one the vault is still encrypted, under a fixed code (script.js,
+               OPEN_PASSCODE), and opens without asking. -->
+          <div id="lock-start" class="lock-start" hidden>
+            <button type="button" class="primary" id="btn-start-open">Get started</button>
+            <button type="button" class="ghost" id="btn-start-passcode">Set a passcode</button>
+          </div>
+          <button type="button" class="ghost lock-biometric" id="lock-biometric" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 11a3 3 0 013 3c0 1.5-.5 3.5-1.5 5"/>
+              <path d="M9 17c.6-1 1-2 1-3a2 2 0 014 0"/>
+              <path d="M6.6 15.5A7 7 0 0112 7a7 7 0 016.3 4"/>
+              <path d="M4.5 11.5A9.5 9.5 0 0112 4.5c2.6 0 4.9 1 6.6 2.7"/>
+            </svg>
+            Unlock with fingerprint / face
+          </button>
+          <p id="lock-error" class="hint warn" hidden></p>
+          <p id="lock-help" class="lock-help" hidden>
+            <button type="button" id="btn-forgot">Forgot passcode? Reset and wipe data</button>
+          </p>
+          <div id="lock-restore" class="lock-restore" hidden>
+            <div class="lock-or" aria-hidden="true"><span>or</span></div>
+            <!-- One button; with more than one cloud it opens the choice. -->
+            <button type="button" class="lock-google lock-cloud" id="btn-setup-restore-cloud">
+              <svg class="lock-google-g" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 18h10.5a4 4 0 00.6-7.96A6 6 0 006.4 9.1 4.5 4.5 0 007 18z"/>
+              </svg>
+              <span class="lock-google-text"><strong>Restore from backup</strong></span>
+            </button>
+            <div id="lock-cloud-pick" class="lock-cloud-pick" role="group" aria-label="Restore from" hidden>
+              <!-- Web: CloudKit's own Sign in button is laid invisibly over the
+                   iCloud tile (lockAppleSignIn), so the tap signs in with Apple. -->
+              <div class="cloud-tile-wrap" id="lock-icloud-tile">
+                <button type="button" class="cloud-tile" id="btn-setup-restore-icloud" hidden>
+                  <svg viewBox="0 0 48 48" width="34" height="34" aria-hidden="true"><defs><linearGradient id="icg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5ac8fa"/><stop offset="1" stop-color="#1a73e8"/></linearGradient></defs><path fill="url(#icg)" d="M14 38h22a9 9 0 001.3-17.9A13 13 0 0012.4 17 10.5 10.5 0 0014 38z"/></svg>
+                  <span>iCloud</span>
+                </button>
+              </div>
+              <button type="button" class="cloud-tile" id="btn-setup-restore" data-drive>
+                <svg viewBox="0 0 87.3 78" width="34" height="30" aria-hidden="true"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg>
+                <span>Google Drive</span>
+              </button>
+              <button type="button" class="cloud-tile" id="btn-setup-restore-csv">
+                <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h8M12 11v8"/></svg>
+                <span>CSV</span>
+              </button>
+              <input type="file" id="lock-csv-file" accept=".csv,text/csv" hidden />
+            </div>
+          </div>
+        </div>
+        <footer class="lock-legal">
+          <a href="/privacy/" target="_blank" rel="noopener">Privacy policy</a>
+          <a href="/terms/" target="_blank" rel="noopener">Terms of service</a>
+        </footer>
       </div>
     </div>
 
@@ -3370,6 +3383,6 @@
     <script src="capture.js?v=45aa251d"></script>
     <script src="pro.js?v=a354d151"></script>
     <script src="ocr.js?v=a548a7ee"></script>
-    <script src="script.js?v=dae15017"></script>
+    <script src="script.js?v=d42326b6"></script>
   </body>
 </html>
