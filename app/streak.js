@@ -416,7 +416,10 @@ function renderStreak() {
     noSpendRow.hidden = !info.enabled || info.checkedInToday || info.hasDailyEntryToday;
   }
   const showNoSpendDone = info.enabled && info.todayKind === "no-spend" && !info.hasDailyEntryToday;
-  if (noSpendDone) noSpendDone.hidden = !showNoSpendDone;
+  if (noSpendDone) {
+    noSpendDone.hidden = !showNoSpendDone;
+    noSpendDone.textContent = showNoSpendDone ? tr("No spend day logged.") : "";
+  }
   if (todayEmpty && showNoSpendDone) todayEmpty.hidden = true;
 
   renderStreakDialog(info);
