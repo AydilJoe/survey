@@ -26,6 +26,9 @@
  */
 (function () {
   "use strict";
+  const tr = (s, v) => (typeof window !== "undefined" && typeof window.tr === "function"
+    ? window.tr(s, v)
+    : (v ? s.replace(/\{(\w+)\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(v, k) ? String(v[k]) : m)) : s));
 
   const TOKEN_KEY = "duit-tracker.drive";
   const IS_NATIVE = !!(
@@ -179,7 +182,7 @@
 
     async function uploadEncryptedRecord(rec, appProperties) {
       if (!isSignedInShared()) throw new Error("Not signed in to Google Drive");
-      setStatus("working", "Backing up…");
+      setStatus("working", tr("Backing up…"));
       try {
         const cfg = window.DRIVE_CONFIG || {};
         const bytes = new TextEncoder().encode(JSON.stringify(rec));
@@ -207,20 +210,20 @@
         c.fileId = data.id;
         c.lastSyncedAt = new Date().toISOString();
         saveCache();
-        setStatus("idle", "Backed up");
+        setStatus("idle", tr("Backed up"));
       } catch (e) {
-        setStatus("error", e.message || "Backup failed");
+        setStatus("error", e.message || tr("Backup failed"));
         throw e;
       }
     }
 
     async function downloadEncryptedRecord() {
       if (!isSignedInShared()) throw new Error("Not signed in to Google Drive");
-      setStatus("working", "Downloading backup…");
+      setStatus("working", tr("Downloading backup…"));
       try {
         const fileId = await findBackupFileId();
         if (!fileId) {
-          setStatus("idle", "No remote backup");
+          setStatus("idle", tr("No remote backup"));
           return null;
         }
         const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
@@ -229,16 +232,16 @@
           const c = loadCache();
           c.fileId = null;
           saveCache();
-          setStatus("idle", "No remote backup");
+          setStatus("idle", tr("No remote backup"));
           return null;
         }
         if (!resp.ok) throw new Error("Drive download failed: " + resp.status);
         const text = await resp.text();
         const rec = JSON.parse(text);
-        setStatus("idle", "Downloaded");
+        setStatus("idle", tr("Downloaded"));
         return rec;
       } catch (e) {
-        setStatus("error", e.message || "Download failed");
+        setStatus("error", e.message || tr("Download failed"));
         throw e;
       }
     }
@@ -393,13 +396,13 @@
 
     async function signIn() {
       if (!isConfigured()) throw new Error("Drive backup is not configured for this build.");
-      setStatus("working", "Signing in…");
+      setStatus("working", tr("Signing in…"));
       try {
         await requestToken(true);  // requestToken awaits waitForGis() internally
         await helpers.fetchUserEmail();
-        setStatus("idle", "Signed in");
+        setStatus("idle", tr("Signed in"));
       } catch (e) {
-        setStatus("error", e.message || "Sign-in failed");
+        setStatus("error", e.message || tr("Sign-in failed"));
         throw e;
       }
     }
@@ -408,7 +411,7 @@
       const c = loadCache();
       const token = c.token && c.token.access_token;
       clearCache();
-      setStatus("idle", "Signed out");
+      setStatus("idle", tr("Signed out"));
       if (token && gisReady()) {
         try { google.accounts.oauth2.revoke(token, () => {}); } catch {}
       }
@@ -487,28 +490,28 @@
 
     // Map plugin error codes (Android) to user-friendly messages.
     function humanizeError(err) {
-      if (!err) return "Sign-in failed";
+      if (!err) return { msg: tr("Sign-in failed"), cancelled: false };
       const code = String(err.code || err.error || "");
-      if (code === "12501" || /cancel/i.test(err.message || "")) return "Sign-in cancelled";
-      if (code === "12500") return "Sign-in failed (SHA-1 mismatch — see PRODUCTION_DEPLOYMENT.md §3.2.1)";
-      if (code === "7") return "Sign-in failed — no internet connection";
-      return err.message || "Sign-in failed";
+      if (code === "12501" || /cancel/i.test(err.message || "")) return { msg: tr("Sign-in cancelled"), cancelled: true };
+      if (code === "12500") return { msg: "Sign-in failed (SHA-1 mismatch — see PRODUCTION_DEPLOYMENT.md §3.2.1)", cancelled: false };
+      if (code === "7") return { msg: tr("Sign-in failed — no internet connection"), cancelled: false };
+      return { msg: err.message || tr("Sign-in failed"), cancelled: false };
     }
 
     async function signIn() {
       if (!isConfigured()) throw new Error("Drive backup is not configured for this build.");
-      setStatus("working", "Signing in…");
+      setStatus("working", tr("Signing in…"));
       try {
         await ensureInitialized();
         const result = await getPlugin().signIn();
         persistToken(extractToken(result));
         // fetchUserEmail also confirms the access token is usable.
         await helpers.fetchUserEmail();
-        setStatus("idle", "Signed in");
+        setStatus("idle", tr("Signed in"));
       } catch (e) {
-        const msg = humanizeError(e);
-        setStatus(msg === "Sign-in cancelled" ? "idle" : "error", msg);
-        if (msg !== "Sign-in cancelled") throw new Error(msg);
+        const { msg, cancelled } = humanizeError(e);
+        setStatus(cancelled ? "idle" : "error", msg);
+        if (!cancelled) throw new Error(msg);
       }
     }
 
@@ -518,7 +521,7 @@
         await getPlugin().signOut();
       } catch {} // best-effort revoke; we still clear local cache below
       clearCache();
-      setStatus("idle", "Signed out");
+      setStatus("idle", tr("Signed out"));
     }
 
     return Object.assign({ signIn, signOut }, helpers);
@@ -623,26 +626,26 @@
     // GIDSignIn surfaces its errors as localized strings, so match on text
     // as well as on the canonical cancel code (-5, kGIDSignInErrorCodeCanceled).
     function humanizeError(err) {
-      if (!err) return "Sign-in failed";
+      if (!err) return { msg: tr("Sign-in failed"), cancelled: false };
       const code = String((err && (err.code || err.error)) || "");
       const msg = (err && err.message) || "";
-      if (code === "-5" || /cancel/i.test(msg)) return "Sign-in cancelled";
-      if (/not available/i.test(msg)) return "Sign-in failed — Google sign-in isn't in this build";
-      return msg || "Sign-in failed";
+      if (code === "-5" || /cancel/i.test(msg)) return { msg: tr("Sign-in cancelled"), cancelled: true };
+      if (/not available/i.test(msg)) return { msg: tr("Sign-in failed — Google sign-in isn't in this build"), cancelled: false };
+      return { msg: msg || tr("Sign-in failed"), cancelled: false };
     }
 
     async function signIn() {
       if (!isConfigured()) throw new Error("Drive backup is not configured for this build.");
-      setStatus("working", "Signing in…");
+      setStatus("working", tr("Signing in…"));
       try {
         await interactiveLogin();
         // fetchUserEmail also confirms the access token is usable.
         await helpers.fetchUserEmail();
-        setStatus("idle", "Signed in");
+        setStatus("idle", tr("Signed in"));
       } catch (e) {
-        const msg = humanizeError(e);
-        setStatus(msg === "Sign-in cancelled" ? "idle" : "error", msg);
-        if (msg !== "Sign-in cancelled") throw new Error(msg);
+        const { msg, cancelled } = humanizeError(e);
+        setStatus(cancelled ? "idle" : "error", msg);
+        if (!cancelled) throw new Error(msg);
       }
     }
 
@@ -652,7 +655,7 @@
         await getPlugin().logout({ provider: "google" });
       } catch {} // best-effort; we still clear local cache below
       clearCache();
-      setStatus("idle", "Signed out");
+      setStatus("idle", tr("Signed out"));
     }
 
     return Object.assign({ signIn, signOut }, helpers);

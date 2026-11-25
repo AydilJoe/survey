@@ -530,21 +530,19 @@ async function splitDecodeBare(text) {
   return obj;
 }
 
-const SPLIT_ERRORS = {
-  "not-duitful": "That doesn't look like a Duitful request code. Ask the sender to re-share it.",
-  version: "This request was made with a newer Duitful. Update the app and try again.",
-  damaged: "That request code looks damaged — messaging apps sometimes trim long links. Ask for it again.",
-  currency: "Only Malaysian Ringgit requests are supported in this version.",
-  // A receipt whose request never landed here — most often the payer scanned
-  // someone else's code, or the request was already cancelled and deleted.
-  "paid-unknown": "That receipt is for a request this device doesn't have. If you cancelled it, there's nothing left to settle.",
-  "paid-mine": "That's a receipt for a request you received, not one you sent.",
-  own: "That's your own request — you can't add it as one you owe.",
-  pick: "That link is a bill to tick what you had. Open it in your browser, tick your items, and your share comes back as a request.",
-};
-
 function splitErrorMessage(err) {
-  return SPLIT_ERRORS[err && err.code] || SPLIT_ERRORS.damaged;
+  switch (err && err.code) {
+    case "not-duitful": return tr("That doesn't look like a Duitful request code. Ask the sender to re-share it.");
+    case "version": return tr("This request was made with a newer Duitful. Update the app and try again.");
+    case "currency": return tr("Only Malaysian Ringgit requests are supported in this version.");
+    // A receipt whose request never landed here — most often the payer scanned
+    // someone else's code, or the request was already cancelled and deleted.
+    case "paid-unknown": return tr("That receipt is for a request this device doesn't have. If you cancelled it, there's nothing left to settle.");
+    case "paid-mine": return tr("That's a receipt for a request you received, not one you sent.");
+    case "own": return tr("That's your own request — you can't add it as one you owe.");
+    case "pick": return tr("That link is a bill to tick what you had. Open it in your browser, tick your items, and your share comes back as a request.");
+    default: return tr("That request code looks damaged — messaging apps sometimes trim long links. Ask for it again.");
+  }
 }
 
 // Builds the outgoing request for one person. `a` is always the CURRENT
@@ -1089,9 +1087,9 @@ function splitPayRowsHtml(rows, { compact } = {}) {
   if (!list.length) return "";
   return `<div class="split-pay-rows${compact ? " compact" : ""}">${list.map((r, i) => `
     <div class="split-pay-row">
-      <span class="split-pay-label">${escapeHtml(r.label || "Pay to")}</span>
+      <span class="split-pay-label">${escapeHtml(r.label || tr("Pay to"))}</span>
       <span class="split-pay-value">${escapeHtml(r.value)}</span>
-      <button type="button" class="ghost split-pay-copy" data-action="split-copy-value" data-value="${escapeHtml(r.value)}" data-index="${i}" aria-label="Copy ${escapeHtml(r.label || "details")}">Copy</button>
+      <button type="button" class="ghost split-pay-copy" data-action="split-copy-value" data-value="${escapeHtml(r.value)}" data-index="${i}" aria-label="${escapeHtml(tr("Copy {label}", { label: r.label || tr("details") }))}">Copy</button>
     </div>`).join("")}</div>`;
 }
 
@@ -1995,7 +1993,7 @@ function splitRenderCompose() {
           <input type="text" name="title" value="${escapeHtml(c.title)}" placeholder="e.g. Dinner at Naz Kitchen" />
         </label>
         <label class="field">
-          <span>Bill total (${escapeHtml(cur)})</span>
+          <span>${tr("Bill total ({cur})", { cur: escapeHtml(cur) })}</span>
           <input type="number" name="total" step="0.01" min="0" max="100000000" inputmode="decimal" value="${c.total ? c.total.toFixed(2) : ""}" />
         </label>
         <label class="field">
@@ -2038,7 +2036,7 @@ function splitRenderCompose() {
       </label>
       <div class="grid-2">
         <label class="field">
-          <span>Amount (${escapeHtml(cur)})</span>
+          <span>${tr("Amount ({cur})", { cur: escapeHtml(cur) })}</span>
           <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" value="${p.amount ? Number(p.amount).toFixed(2) : ""}" placeholder="0.00" />
         </label>
         <label class="field">
@@ -2062,7 +2060,7 @@ function splitRenderCompose() {
       </label>
       <div class="grid-2">
         <label class="field">
-          <span>Amount (${escapeHtml(cur)})</span>
+          <span>${tr("Amount ({cur})", { cur: escapeHtml(cur) })}</span>
           <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" value="${p.amount ? Number(p.amount).toFixed(2) : ""}" placeholder="0.00" />
         </label>
         <label class="field">
@@ -2248,15 +2246,15 @@ function splitComposeItemBodyHtml(cur, listAttr) {
 
   const itemRows = c.items.map((it) => {
     const who = Array.isArray(it.who) ? it.who : [];
-    const label = it.name || "this item";
+    const label = it.name || tr("this item");
     return `
         <div class="split-item" data-split-item data-key="${escapeHtml(it.key)}">
           <div class="split-item-row">
             <input type="text" data-item-name value="${escapeHtml(it.name)}" placeholder="Item" />
             <input type="number" data-item-price step="0.01" min="0" max="100000000" inputmode="decimal" value="${it.price ? Number(it.price).toFixed(2) : ""}" placeholder="0.00" />
-            <button type="button" class="ghost icon-btn" data-action="split-item-remove" data-key="${escapeHtml(it.key)}" aria-label="Remove ${escapeHtml(label)}">✕</button>
+            <button type="button" class="ghost icon-btn" data-action="split-item-remove" data-key="${escapeHtml(it.key)}" aria-label="${escapeHtml(tr("Remove {name}", { name: label }))}">✕</button>
           </div>
-          <div class="split-item-eaters" role="group" aria-label="Who shared ${escapeHtml(label)}">
+          <div class="split-item-eaters" role="group" aria-label="${escapeHtml(tr("Who shared {name}", { name: label }))}">
             ${chips.map((ch) => {
               const on = who.includes(ch.key);
               return `<button type="button" class="chip split-eater${on ? " active" : ""}" data-action="split-item-who" data-key="${escapeHtml(it.key)}" data-who="${escapeHtml(ch.key)}" aria-pressed="${on ? "true" : "false"}">${escapeHtml(ch.label)}</button>`;
@@ -2307,7 +2305,7 @@ function splitComposeItemBodyHtml(cur, listAttr) {
       <span class="split-people-label">Service charge, tax &amp; rounding</span>
       <div class="split-charges">
         <label class="field">
-          <span>Charges (${escapeHtml(cur)})</span>
+          <span>${tr("Charges ({cur})", { cur: escapeHtml(cur) })}</span>
           <input type="number" name="charges" step="0.01" inputmode="decimal" value="${c.charges ? Number(c.charges).toFixed(2) : ""}" placeholder="0.00" />
         </label>
         <div class="split-charge-modes" role="group" aria-label="How to split the charges">
@@ -2316,14 +2314,14 @@ function splitComposeItemBodyHtml(cur, listAttr) {
       </div>
       <div class="split-totals" id="split-item-totals">${splitItemTotalsHtml(calc)}</div>
       <label class="field">
-        <span>Bill total (${escapeHtml(cur)})</span>
+        <span>${tr("Bill total ({cur})", { cur: escapeHtml(cur) })}</span>
         <input type="number" name="total" step="0.01" readonly value="${calc.total ? calc.total.toFixed(2) : ""}" aria-describedby="split-total-note" />
         <span class="hint split-total-note" id="split-total-note">Items plus charges — it adds itself up.</span>
       </label>
       <p class="hint split-share-hint" id="split-compose-hint">${splitComposeHintHtml()}</p>
       ${splitPickAvailable() && c.items.length ? `<div class="split-pick-offer">
         <button type="button" class="primary" data-action="split-pick-start">Let everyone tick their own</button>
-        <p class="hint">One link for the group chat. Each person ticks what they had; their share comes back to you, and you send the requests when everyone's in.</p>
+        <p class="hint">${tr("One link for the group chat. Each person ticks what they had; their share comes back to you, and you send the requests when everyone's in.")}</p>
       </div>` : ""}
       <div class="form-actions">
         <button type="button" class="ghost" data-action="split-back">Back</button>
@@ -2760,17 +2758,17 @@ async function splitRenderPaidShare() {
        </label>`;
 
   body.innerHTML = `
-    <p class="hint split-share-sub">${escapeHtml([fmtMoney(rec.amount), rec.title, `paid ${splitDayLabel(payload.d)}`].join(" · "))}</p>
+    <p class="hint split-share-sub">${escapeHtml([fmtMoney(rec.amount), rec.title, tr("paid {date}", { date: splitDayLabel(payload.d) })].join(" · "))}</p>
     ${qrHtml
       ? `<div class="split-qr-panel">${qrHtml}</div>
-         <p class="hint split-qr-note">${escapeHtml(rec.from)} scans this — Duitful asks them to confirm before anything is settled.</p>`
+         <p class="hint split-qr-note">${tr("{name} scans this — Duitful asks them to confirm before anything is settled.", { name: escapeHtml(rec.from) })}</p>`
       : `<p class="hint">This receipt is too long for a QR code — use the link or the code below.</p>`}
     ${nameField}
     <div class="split-preview">
       <p class="split-preview-label">What leaves your phone</p>
       <p class="split-preview-body">${escapeHtml(previewParts.join(" · "))}</p>
     </div>
-    <p class="hint">Duitful didn't move this money and can't prove it arrived — you paid ${escapeHtml(rec.from)} in your own banking app. This just tells them so.</p>
+    <p class="hint">${tr("Duitful didn't move this money and can't prove it arrived — you paid {name} in your own banking app. This just tells them so.", { name: escapeHtml(rec.from) })}</p>
     <div class="form-actions split-share-actions">
       <button type="button" class="primary" data-action="split-share-link">Send confirmation</button>
       <div class="button-row split-share-secondary">
@@ -2858,7 +2856,7 @@ async function splitRenderRequestShare() {
         : people.length > 1
         // A bill split at the mamak table goes to the group chat: one
         // message, everyone's line and link, instead of N trips out and back.
-        ? `<button type="button" class="primary" data-action="split-share-all">Send all ${people.length} in one message</button>
+        ? `<button type="button" class="primary" data-action="split-share-all">${tr("Send all {n} in one message", { n: people.length })}</button>
            <button type="button" class="ghost" data-action="split-share-link">${tr("Send {name}'s only", { name: escapeHtml(person.name) })}</button>`
         : `<button type="button" class="primary" data-action="split-share-link">Share link (WhatsApp, anything)</button>`}
     </div>
@@ -2984,10 +2982,10 @@ function splitRenderPaidPrompt() {
       <span class="split-paid-amount">${fmtMoney(amount)}</span>
     </div>
     <p class="split-paid-meta">${escapeHtml(meta.join(" · "))}</p>
-    <p class="hint">This is ${escapeHtml(splitPaidPrompt.from)}'s word, not a bank confirmation. Check the money actually landed before you settle — nothing is recorded until you do.</p>
+    <p class="hint">${tr("This is {name}'s word, not a bank confirmation. Check the money actually landed before you settle — nothing is recorded until you do.", { name: escapeHtml(splitPaidPrompt.from) })}</p>
     <div class="form-actions">
       <button type="button" class="ghost" data-action="split-paid-dismiss">Not yet</button>
-      <button type="button" class="primary" data-action="split-paid-confirm">Confirm &amp; settle</button>
+      <button type="button" class="primary" data-action="split-paid-confirm">${escapeHtml(tr("Confirm & settle"))}</button>
     </div>`;
   splitTr(body);
 }
@@ -3020,7 +3018,7 @@ function splitRenderPayTo() {
   body.innerHTML = `
     <p class="hint">Shown to whoever you send a request to, so they can pay you in their own banking app. Duitful never moves money and never generates a DuitNow QR — this is text, nothing more.</p>
     <label class="field">
-      <span>Your name (shown on the request)</span>
+      <span>${tr("Your name (shown on the request)")}</span>
       <input type="text" data-payto-me value="${escapeHtml(s.me)}" maxlength="${SPLIT_NAME_MAX}" placeholder="e.g. Aydil" />
     </label>
     <span class="split-people-label">Where to pay you</span>
@@ -3137,21 +3135,21 @@ async function splitStartCamera() {
       const jsQRfn = await splitEnsureJsQR();
       const photo = await window.Capacitor.Plugins.Camera.getPhoto({
         source: "CAMERA", resultType: "dataUrl", quality: 80, correctOrientation: true,
-        promptLabelHeader: "Scan request QR",
+        promptLabelHeader: tr("Scan request QR"),
       });
       if (!photo || !photo.dataUrl) return;
       const code = await splitDecodeImageSource(photo.dataUrl, jsQRfn);
       if (code) await splitHandleScanned(code);
-      else splitIngestStatus("No QR code found in that photo. Try again, or paste the request code.", true);
+      else splitIngestStatus(tr("No QR code found in that photo. Try again, or paste the request code."), true);
     } catch {
-      splitIngestStatus("Couldn't open the camera. Paste the request code instead.", true);
+      splitIngestStatus(tr("Couldn't open the camera. Paste the request code instead."), true);
     }
     return;
   }
 
   let jsQRfn;
   try { jsQRfn = await splitEnsureJsQR(); }
-  catch { splitIngestStatus("Scanner couldn't load. Paste the request code instead.", true); return; }
+  catch { splitIngestStatus(tr("Scanner couldn't load. Paste the request code instead."), true); return; }
 
   const video = document.getElementById("split-camera");
   const wrap = document.getElementById("split-camera-wrap");
@@ -3164,7 +3162,7 @@ async function splitStartCamera() {
   } catch {
     // No camera, or permission refused — the file picker still works and
     // covers "someone WhatsApped me a screenshot of the QR".
-    splitIngestStatus("Camera unavailable — pick a photo of the QR instead.", true);
+    splitIngestStatus(tr("Camera unavailable — pick a photo of the QR instead."), true);
     document.getElementById("split-image-input")?.click();
     return;
   }
@@ -3172,7 +3170,7 @@ async function splitStartCamera() {
   video.srcObject = splitCameraStream;
   video.setAttribute("playsinline", "");
   try { await video.play(); } catch {}
-  splitIngestStatus("Point the camera at the request QR…");
+  splitIngestStatus(tr("Point the camera at the request QR…"));
 
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
@@ -3238,7 +3236,7 @@ function splitPanelHtml(kind, id, person, rec) {
       <div class="split-panel">
         <div class="grid-2">
           <label class="field">
-            <span>Repaid (${escapeHtml(currentCurrency())})</span>
+            <span>${tr("Repaid ({cur})", { cur: escapeHtml(currentCurrency()) })}</span>
             <input type="number" step="0.01" min="0" max="${remaining}" inputmode="decimal" data-split-input="repay" data-id="${id}" value="${remaining.toFixed(2)}" />
           </label>
           <label class="field">
@@ -3252,7 +3250,7 @@ function splitPanelHtml(kind, id, person, rec) {
         </div>
         <p class="hint">${typeof rsMonthOfRecord === "function" && rsMonthOfRecord(rec.id)
           ? tr("Settles their share of a recurring split. Not counted as income.")
-          : "Logs an income row (“Split repayment”) on that date. Your original expense is left exactly as you paid it."}</p>
+          : tr("Logs an income row (“Split repayment”) on that date. Your original expense is left exactly as you paid it.")}</p>
       </div>`;
   }
   if (kind === "in" && panel === "settle") {
@@ -3270,11 +3268,11 @@ function splitPanelHtml(kind, id, person, rec) {
           </label>
         </div>
         <div class="button-row">
-          <button type="button" class="primary" data-action="split-settle-log" data-id="${id}">Settle &amp; log expense</button>
+          <button type="button" class="primary" data-action="split-settle-log" data-id="${id}">${escapeHtml(tr("Settle & log expense"))}</button>
           <button type="button" class="ghost" data-action="split-settle-plain" data-id="${id}">Settle only</button>
-          <button type="button" class="ghost" data-action="split-settle-receipt" data-id="${id}">Settle &amp; send receipt</button>
+          <button type="button" class="ghost" data-action="split-settle-receipt" data-id="${id}">${escapeHtml(tr("Settle & send receipt"))}</button>
         </div>
-        <p class="hint">Duitful never moved this money — you paid ${escapeHtml(rec.from)} in your own banking app. This just records it.</p>
+        <p class="hint">${tr("Duitful never moved this money — you paid {name} in your own banking app. This just records it.", { name: escapeHtml(rec.from) })}</p>
       </div>`;
   }
   return "";
@@ -3287,7 +3285,7 @@ function splitOutRowHtml(rec, person) {
   meta.push(escapeHtml(rec.title));
   if (rec.dueDate) meta.push(escapeHtml(splitDueLabel(rec.dueDate)));
   else meta.push(escapeHtml(splitAgeLabel(rec.date)));
-  if (paid > 0) meta.push(`${escapeHtml(fmtMoney(remaining))} of ${escapeHtml(fmtMoney(person.amount))} left`);
+  if (paid > 0) meta.push(tr("{a} of {b} left", { a: escapeHtml(fmtMoney(remaining)), b: escapeHtml(fmtMoney(person.amount)) }));
   const tag = rec.kind === "loan" ? ` <span class="split-tag">Loan</span>` : "";
   const overdue = rec.dueDate && splitDaysUntil(rec.dueDate) < 0 ? " overdue" : "";
   // "I've paid" that arrived through the mailbox and hasn't been confirmed.
@@ -3329,7 +3327,7 @@ function splitInRowHtml(rec) {
       <div class="split-actions">
         <button type="button" class="ghost" data-action="split-panel" data-panel="settle" data-id="${rec.id}">Settle</button>
         <button type="button" class="ghost" data-action="split-paid-share" data-id="${rec.id}">I've paid — tell them</button>
-        <button type="button" class="ghost icon-btn split-cancel" data-action="split-decline" data-id="${rec.id}" aria-label="Decline request from ${escapeHtml(rec.from)}" title="Decline this request">✕</button>
+        <button type="button" class="ghost icon-btn split-cancel" data-action="split-decline" data-id="${rec.id}" aria-label="${escapeHtml(tr("Decline request from {name}", { name: rec.from }))}" title="Decline this request">✕</button>
       </div>
       ${splitPanelHtml("in", rec.id, null, rec)}
     </div>`;
@@ -3347,13 +3345,14 @@ function splitBillHtml(rec, rowsHtml) {
   const pct = people.length ? Math.round((paid.length / people.length) * 100) : 0;
   const back = splitRound2(people.reduce((sum, p) => sum + splitPersonPaid(p), 0));
   const paidNames = paid.map((p) => `<span class="split-bill-paid-name">${escapeHtml(p.name)}</span>`).join("");
+  const paidLabel = tr("{paid} of {total} paid", { paid: paid.length, total: people.length });
   return `
     <section class="split-bill${all ? " is-done" : ""}" data-bill="${escapeHtml(rec.id)}" aria-label="${escapeHtml(rec.title)}">
       <div class="split-bill-head">
         <span class="split-bill-title">${escapeHtml(rec.title)}</span>
-        <span class="split-bill-count">${all ? "Everyone's paid" : `${paid.length} of ${people.length} paid`}</span>
+        <span class="split-bill-count">${all ? tr("Everyone's paid") : paidLabel}</span>
       </div>
-      <div class="split-bill-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${people.length}" aria-valuenow="${paid.length}" aria-label="${paid.length} of ${people.length} paid"><i style="width:${pct}%"></i></div>
+      <div class="split-bill-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${people.length}" aria-valuenow="${paid.length}" aria-label="${escapeHtml(paidLabel)}"><i style="width:${pct}%"></i></div>
       ${paid.length ? `<p class="split-bill-paid"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>${paidNames}</p>` : ""}
       ${all ? `<p class="split-bill-done-line">${trn(people.length, "{a} back from {n} person.", "{a} back from {n} people.", { a: escapeHtml(fmtMoney(back)) })}
         <button type="button" class="link-btn" data-action="split-bill-dismiss" data-id="${escapeHtml(rec.id)}">Done</button></p>` : rowsHtml}
@@ -3645,7 +3644,7 @@ document.addEventListener("click", (e) => {
   } else if (action === "split-ingest-paste") {
     const input = document.getElementById("split-ingest-code");
     const raw = (input && input.value) || "";
-    if (!raw.trim()) { splitIngestStatus("Paste the request code first.", true); return; }
+    if (!raw.trim()) { splitIngestStatus(tr("Paste the request code first."), true); return; }
     splitHandleScanned(splitCodeFromScanned(raw));
   } else if (action === "split-ingest-camera") {
     splitStartCamera();
@@ -3785,14 +3784,14 @@ document.getElementById("split-image-input")?.addEventListener("change", async (
   if (!file) return;
   let jsQRfn;
   try { jsQRfn = await splitEnsureJsQR(); }
-  catch { splitIngestStatus("Scanner couldn't load. Paste the request code instead.", true); return; }
+  catch { splitIngestStatus(tr("Scanner couldn't load. Paste the request code instead."), true); return; }
   const url = URL.createObjectURL(file);
   try {
     const code = await splitDecodeImageSource(url, jsQRfn);
     if (code) await splitHandleScanned(code);
-    else splitIngestStatus("No QR code found in that image.", true);
+    else splitIngestStatus(tr("No QR code found in that image."), true);
   } catch {
-    splitIngestStatus("Couldn't read that image.", true);
+    splitIngestStatus(tr("Couldn't read that image."), true);
   } finally {
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }

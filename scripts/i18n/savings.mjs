@@ -189,4 +189,16 @@ export const ROWS = [
   ["The day your wealth first reached nisab.", "Hari harta anda mula mencapai nisab.", "你的财富首次达到 nisab 的那天。"],
   ["Cash in hand, gold, property held for trade. Not savings goals or holdings.", "Wang tunai, emas, harta untuk dagangan. Bukan matlamat simpanan atau pegangan.", "手头现金、黄金、用于买卖的产业。不包括储蓄目标和投资。"],
   ["Debts due now, not the whole loan.", "Hutang yang perlu dibayar sekarang, bukan seluruh pinjaman.", "现在要还的债务，不是整笔贷款。"],
+
+  // ── Savings, zakat & milestones (JS-built) ──────────────────────
+  ["No savings goals yet.", "Belum ada matlamat simpanan.", "还没有储蓄目标。"],
+  ["Add a goal first →", "Tambah matlamat dulu →", "先添加一个目标 →"],
+  ["Savings goal added: {name}", "Matlamat simpanan ditambah: {name}", "已添加储蓄目标：{name}"],
+  ["Enter an amount first", "Masukkan jumlah dulu", "请先输入金额"],
+  ["Max RM 100,000,000", "Maks. RM 100,000,000", "最高 RM 100,000,000"],
+  ["Must be a positive number", "Mesti nombor positif", "必须是正数"],
+  ["No zakat due yet — you're below nisab.", "Belum wajib zakat — harta masih bawah nisab.", "暂无需缴天课——尚未达到 nisab。"],
+  ["Zakat recorded: {a}", "Zakat direkodkan: {a}", "已记录天课：{a}"],
+  ["Earned {date}", "Dicapai {date}", "达成于 {date}"],
+  ["{have} of {need}", "{have} daripada {need}", "{have} / {need}"],
 ];

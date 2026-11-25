@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.64.1";
+const APP_VERSION = "1.64.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -479,7 +479,7 @@ const MAX_AMOUNT = 100000000;
 document.addEventListener("input", (e) => {
   const el = e.target;
   if (!(el instanceof HTMLInputElement) || el.type !== "number" || el.max !== String(MAX_AMOUNT)) return;
-  el.setCustomValidity(Number(el.value) > MAX_AMOUNT ? "That's more than RM 100 million — check for an extra zero." : "");
+  el.setCustomValidity(Number(el.value) > MAX_AMOUNT ? tr("That's more than RM 100 million — check for an extra zero.") : "");
 });
 
 // A failed write (storage full, private mode, quota) used to be silent: the
@@ -493,16 +493,19 @@ function showSaveError(on, err) {
     el.id = "save-error";
     el.className = "save-error";
     el.setAttribute("role", "alert");
-    el.innerHTML = `<p><strong>Couldn't save on this device.</strong> <span class="save-error-why"></span></p>
-      <div class="save-error-actions"><button type="button" class="primary" data-save-retry>Try again</button><button type="button" class="ghost" data-save-export>Export CSV</button></div>`;
+    el.innerHTML = `<p><strong class="save-error-title"></strong> <span class="save-error-why"></span></p>
+      <div class="save-error-actions"><button type="button" class="primary" data-save-retry></button><button type="button" class="ghost" data-save-export></button></div>`;
     el.querySelector("[data-save-retry]").addEventListener("click", () => save());
     el.querySelector("[data-save-export]").addEventListener("click", () => document.getElementById("btn-export")?.click());
     document.body.appendChild(el);
   }
+  el.querySelector(".save-error-title").textContent = tr("Couldn't save on this device.");
+  el.querySelector("[data-save-retry]").textContent = tr("Try again");
+  el.querySelector("[data-save-export]").textContent = tr("Export CSV");
   const full = err && (err.name === "QuotaExceededError" || /quota/i.test(String(err.message || err)));
   el.querySelector(".save-error-why").textContent = full
-    ? "Storage is full. Your latest change is only in memory — export a CSV before closing."
-    : "Your latest change is only in memory — export a CSV before closing.";
+    ? tr("Storage is full. Your latest change is only in memory — export a CSV before closing.")
+    : tr("Your latest change is only in memory — export a CSV before closing.");
   el.hidden = false;
 }
 
@@ -583,8 +586,8 @@ function goAddForm(tab, formId) {
 }
 function needFirst(what) {
   const debt = what === "debt";
-  toast(debt ? "No debts yet." : "No savings goals yet.", { action: {
-    label: debt ? "Add a debt" : "Add a goal",
+  toast(debt ? tr("No debts yet.") : tr("No savings goals yet."), { action: {
+    label: debt ? tr("Add a debt") : tr("Add a goal"),
     run: () => goAddForm(debt ? "debts" : "savings", debt ? "form-debt" : "form-saving"),
   } });
 }
@@ -2329,7 +2332,7 @@ function updateDailyTargetSelect() {
     if (label) label.textContent = tr("Save to which goal");
     if (state.savings.length === 0) {
       field.hidden = false;
-      sel.innerHTML = `<option value="">Add a goal first →</option>`;
+      sel.innerHTML = `<option value="">${escapeHtml(tr("Add a goal first →"))}</option>`;
     } else {
       field.hidden = false;
       sel.innerHTML = state.savings
@@ -2436,7 +2439,8 @@ function renderRecentChips() {
   row.innerHTML = top.map((s) => {
     const amt = median(s.amounts);
     const label = s.note || s.category;
-    return `<button type="button" class="recent-chip" data-recent-amount="${amt.toFixed(2)}" data-recent-category="${escapeHtml(s.category)}" data-recent-note="${escapeHtml(s.note)}" title="Used ${s.count} time${s.count === 1 ? "" : "s"} recently"><span class="recent-chip-label">${escapeHtml(label)}</span><span class="recent-chip-amount">${escapeHtml(fmtMoney(amt))}</span></button>`;
+    const tip = trn(s.count, "Used {n} time recently", "Used {n} times recently");
+    return `<button type="button" class="recent-chip" data-recent-amount="${amt.toFixed(2)}" data-recent-category="${escapeHtml(s.category)}" data-recent-note="${escapeHtml(s.note)}" title="${escapeHtml(tip)}"><span class="recent-chip-label">${escapeHtml(label)}</span><span class="recent-chip-amount">${escapeHtml(fmtMoney(amt))}</span></button>`;
   }).join("");
   wrap.hidden = false;
 }
@@ -3853,13 +3857,13 @@ function trialRecapText() {
   const backups = Number(u.backups) || 0;
   const scans = Number(u.scans) || 0;
   if (backups) bits.push(trn(backups, "made {n} automatic backup", "made {n} automatic backups"));
-  if (scans > FREE_OCR_MONTHLY) bits.push(`read ${scans} receipts`);
+  if (scans > FREE_OCR_MONTHLY) bits.push(tr("read {n} receipts", { n: scans }));
   const goals = state.savings.length - FREE_SAVING_LIMIT;
-  if (goals > 0) bits.push(`kept ${state.savings.length} goals`);
+  if (goals > 0) bits.push(tr("kept {n} goals", { n: state.savings.length }));
   const pools = (state.budgetPools || []).filter((p) => p.system !== "debt").length;
   if (pools > 1) bits.push(tr("ran {n} budget pools", { n: pools }));
   if (!bits.length) return "";
-  const list = bits.length === 1 ? bits[0] : bits.slice(0, -1).join(", ") + " and " + bits[bits.length - 1];
+  const list = bits.length === 1 ? bits[0] : tr("{a} and {b}", { a: bits.slice(0, -1).join(", "), b: bits[bits.length - 1] });
   return tr("During your trial, Pro {list}.", { list });
 }
 
@@ -4198,7 +4202,7 @@ function bindShariahControls() {
   on("btn-zakat-paid", "click", () => {
     const z = zakatSummary();
     if (z.due <= 0) {
-      toast("No zakat due yet — you're below nisab.");
+      toast(tr("No zakat due yet — you're below nisab."));
       return;
     }
     const date = todayISO();
@@ -4221,7 +4225,7 @@ function bindShariahControls() {
     });
     save();
     renderAll();
-    toast(`Zakat recorded: ${fmtMoney(z.due)}`);
+    toast(tr("Zakat recorded: {a}", { a: fmtMoney(z.due) }));
   });
 }
 
@@ -4232,7 +4236,7 @@ function renderAll() {
   resetEffectiveLimitCache();
   const recurResult = autoRecurFromLastMonth();
   if (recurResult.copied > 0) {
-    showToast(`Copied ${recurResult.copied} entr${recurResult.copied === 1 ? "y" : "ies"} from ${formatMonthLabel(recurResult.fromMonth)}.`);
+    showToast(trn(recurResult.copied, "Copied {n} entry from {month}.", "Copied {n} entries from {month}.", { month: formatMonthLabel(recurResult.fromMonth) }));
   }
   ensureDebtPool();
   snapshotCurrentMinSum();
@@ -4546,10 +4550,12 @@ function renderMilestones() {
   list.innerHTML = MILESTONES.filter((m) => !hiddenIds.has(m.id)).map((m) => {
     const on = got[m.id] !== undefined;
     let note = "";
-    if (on) note = got[m.id] ? `Earned ${escapeHtml(fmtDateShort(got[m.id]))}` : "Earned";
+    if (on) note = got[m.id] ? tr("Earned {date}", { date: escapeHtml(fmtDateShort(got[m.id])) }) : tr("Earned");
     else {
       const p = milestoneProgress(m);
-      if (p.need) note = p.money ? `${amt(Math.min(p.have, p.need))} of ${amt(wholeMoney(p.need))}` : `${Math.min(p.have, p.need)} of ${p.need}`;
+      if (p.need) note = p.money
+        ? tr("{have} of {need}", { have: amt(Math.min(p.have, p.need)), need: amt(wholeMoney(p.need)) })
+        : tr("{have} of {need}", { have: Math.min(p.have, p.need), need: p.need });
     }
     const share = on ? `<button type="button" class="milestone-share" data-milestone-share="${m.id}" aria-label="${tr("Share: {name}", { name: escapeHtml(milestoneTitle(m)) })}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 9l5-5 5 5M5 14v5h14v-5"/></svg></button>` : "";
     return `<li class="milestone${on ? " is-earned" : ""}">
@@ -5492,7 +5498,8 @@ function syncNativeStrings(force) {
 /* Money in: "+RM 0.10 · From ALI BIN ABU". A refund, reversal or cashback
    says so in its name. */
 function pendingIncomeHtml(p) {
-  const name = p.label ? `${p.label}${p.sender ? ` · ${p.sender}` : ""}` : (p.sender || "Money in");
+  const name = p.label ? `${p.label}${p.sender ? ` · ${p.sender}` : ""}` : (p.sender || tr("Money in"));
+  const src = p.providerName || p.pkg || tr("Notification");
   return `
     <li data-id="${p.id}" class="pending-income">
       <div class="pending-main">
@@ -5500,35 +5507,35 @@ function pendingIncomeHtml(p) {
           <span class="pending-name">${escapeHtml(name)}</span>
           <span class="pending-amount in">+${fmtMoney(p.amount)}</span>
         </div>
-        <div class="pending-source">${escapeHtml(p.providerName || p.pkg || "Notification")} · Income</div>
+        <div class="pending-source">${tr("{source} · Income", { source: escapeHtml(src) })}</div>
         ${pendingAiTag(p)}${pendingWrongBtn(p)}
       </div>
       <div class="pending-actions">
-        ${p.sender && !p.label ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">This is my account</button>` : ""}
-        <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="Dismiss">✕</button>
-        <button class="primary" data-action="pending-income-accept" data-id="${p.id}">Add income</button>
+        ${p.sender && !p.label ? `<button class="pending-quiet" data-action="pending-own" data-id="${p.id}">${tr("This is my account")}</button>` : ""}
+        <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="${escapeHtml(tr("Dismiss"))}">✕</button>
+        <button class="primary" data-action="pending-income-accept" data-id="${p.id}">${tr("Add income")}</button>
       </div>
     </li>`;
 }
 
 /* "Moved RM 0.10 · TNG → Maybank": the same money changing wallets. */
 function pendingMoveHtml(p) {
-  const fromName = p.from ? providerShort(p.from.providerId, p.from.providerName) : "Your other account";
-  const toName = p.to ? providerShort(p.to.providerId, p.to.providerName) : "your other account";
-  const undo = p.from && p.to ? "Not a move" : p.from ? "It was a spend" : "It was income";
+  const fromName = p.from ? providerShort(p.from.providerId, p.from.providerName) : tr("Your other account");
+  const toName = p.to ? providerShort(p.to.providerId, p.to.providerName) : tr("your other account");
+  const undo = p.from && p.to ? tr("Not a move") : p.from ? tr("It was a spend") : tr("It was income");
   return `
     <li data-id="${p.id}" class="pending-move">
       <div class="pending-main">
         <div class="pending-top">
-          <span class="pending-name">Moved</span>
+          <span class="pending-name">${tr("Moved")}</span>
           <span class="pending-amount move">${fmtMoney(p.amount)}</span>
         </div>
         <div class="pending-source">${escapeHtml(fromName)} → ${escapeHtml(toName)}</div>
         ${pendingAiTag(p)}${pendingWrongBtn(p)}
       </div>
       <div class="pending-actions">
-        <button class="ghost" data-action="pending-move-split" data-id="${p.id}">${undo}</button>
-        <button class="primary" data-action="pending-move-accept" data-id="${p.id}">Confirm</button>
+        <button class="ghost" data-action="pending-move-split" data-id="${p.id}">${escapeHtml(undo)}</button>
+        <button class="primary" data-action="pending-move-accept" data-id="${p.id}">${tr("Confirm")}</button>
       </div>
     </li>`;
 }
@@ -5541,34 +5548,36 @@ function pendingMoveHtml(p) {
 function pendingSplitMatchHtml(p) {
   const matches = Array.isArray(p.matches) ? p.matches : [];
   if (!matches.length) return "";
-  const source = p.providerName || p.sender || p.pkg || "Notification";
+  const source = p.providerName || p.sender || p.pkg || tr("Notification");
   const ambiguous = p.match === "ambiguous";
   const m = matches[0];
   const gap = Math.round((Number(m.remaining) - Number(p.amount)) * 100) / 100;
 
   const sub = ambiguous
-    ? `Matches ${matches.length} open requests — who paid?`
-    : `Settle ${escapeHtml(m.name)}'s share of ${escapeHtml(m.title)}?`
+    ? tr("Matches {n} open requests — who paid?", { n: matches.length })
+    : tr("Settle {name}'s share of {title}?", { name: escapeHtml(m.name), title: escapeHtml(m.title) })
       + (Math.abs(gap) > 0.005
-        ? ` <span class="pending-match-gap">${escapeHtml(fmtMoney(m.remaining))} owed — ${gap > 0 ? `${escapeHtml(fmtMoney(gap))} short` : `${escapeHtml(fmtMoney(-gap))} over`}</span>`
+        ? ` <span class="pending-match-gap">${gap > 0
+          ? tr("{a} owed — {b} short", { a: escapeHtml(fmtMoney(m.remaining)), b: escapeHtml(fmtMoney(gap)) })
+          : tr("{a} owed — {b} over", { a: escapeHtml(fmtMoney(m.remaining)), b: escapeHtml(fmtMoney(-gap)) })}</span>`
         : "");
 
   const buttons = ambiguous
     ? matches.map((x) => `<button class="ghost" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(x.personId)}">${escapeHtml(x.name)}</button>`).join("")
-    : `<button class="primary" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(m.personId)}">Settle ${escapeHtml(m.name)}</button>`;
+    : `<button class="primary" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(m.personId)}">${tr("Settle {name}", { name: escapeHtml(m.name) })}</button>`;
 
   return `
     <li data-id="${p.id}" class="pending-split">
       <div class="pending-main">
         <div class="pending-top">
-          <span class="pending-name">${fmtMoney(p.amount)} received</span>
+          <span class="pending-name">${tr("{a} received", { a: fmtMoney(p.amount) })}</span>
           <span class="pending-amount in">${fmtMoney(p.amount)}</span>
         </div>
         <div class="pending-source">${escapeHtml(source)}</div>
         <div class="pending-match-sub">${sub}</div>
       </div>
       <div class="pending-actions${ambiguous ? " pending-choices" : ""}">
-        <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="Dismiss">✕</button>
+        <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="${escapeHtml(tr("Dismiss"))}">✕</button>
         ${buttons}
       </div>
     </li>`;
@@ -5586,12 +5595,12 @@ function acceptSplitMatch(pendingId, personId) {
   state.pendingTxns = state.pendingTxns.filter((x) => x.id !== pendingId);
   save();
   renderAll();
-  if (!res) { toast("That request is no longer open."); return; }
+  if (!res) { toast(tr("That request is no longer open.")); return; }
   toast(res.settled
     ? res.recurring
       ? tr("{name} paid {a} · settled", { name: res.person.name, a: fmtMoney(res.amount) })
-      : `${res.person.name} settled — ${fmtMoney(res.amount)} logged as income`
-    : `${fmtMoney(res.amount)} recorded · ${fmtMoney(res.remaining)} still owed`);
+      : tr("{name} settled — {a} logged as income", { name: res.person.name, a: fmtMoney(res.amount) })
+    : tr("{a} recorded · {b} still owed", { a: fmtMoney(res.amount), b: fmtMoney(res.remaining) }));
 }
 
 function acceptPending(id) {
@@ -6277,7 +6286,7 @@ function ocrScansLeftText() {
   const m = currentMonthISO();
   const used = state.ocrUsage && state.ocrUsage.month === m ? (state.ocrUsage.scans || 0) : 0;
   const left = Math.max(0, FREE_OCR_MONTHLY - used);
-  return `${left} of ${FREE_OCR_MONTHLY} free scans left this month`;
+  return tr("{left} of {limit} free scans left this month", { left, limit: FREE_OCR_MONTHLY });
 }
 function gate(feature) {
   if (isPro()) return true;
@@ -6377,7 +6386,8 @@ function promoEndDateText(promo) {
 // "Launch price until 14 May 2027"
 function promoLabelText(promo) {
   const end = promoEndDateText(promo);
-  return end ? `${promo.label} until ${end}` : promo.label;
+  const label = tr(promo.label);
+  return end ? tr("{label} until {date}", { label, date: end }) : label;
 }
 
 /* paywall modal */
@@ -6548,12 +6558,12 @@ function applyPromoUI(promo) {
   const priceAmount = document.getElementById("paywall-price-amount");
   const priceSub = document.getElementById("paywall-price-sub");
   const buyBtn = document.getElementById("paywall-buy");
-  if (status) { status.textContent = `✓ ${promo.code} applied — ${promoLabelText(promo)}`; status.hidden = false; }
+  if (status) { status.textContent = tr("✓ {code} applied — {label}", { code: promo.code, label: promoLabelText(promo) }); status.hidden = false; }
   if (form) form.hidden = true;
-  if (toggle) toggle.textContent = `Remove ${promo.code}`;
+  if (toggle) toggle.textContent = tr("Remove {code}", { code: promo.code });
   if (priceAmount) priceAmount.textContent = promo.priceLabel;
-  if (priceSub) priceSub.textContent = `${promoLabelText(promo)} · one-time`;
-  if (buyBtn) buyBtn.textContent = `Unlock Pro — ${promo.priceLabel}`;
+  if (priceSub) priceSub.textContent = tr("{label} · one-time", { label: promoLabelText(promo) });
+  if (buyBtn) buyBtn.textContent = tr("Unlock Pro — {price}", { price: promo.priceLabel });
 }
 function closePaywall() {
   const dlg = document.getElementById("paywall-dialog");
@@ -6610,8 +6620,8 @@ function proCelebrationConfetti(host, count = 26) {
 // asserting RM 19.90 at someone who paid a promo price.
 function ensureProCelebrateBlock(dlg, paidLabel) {
   const receipt = paidLabel
-    ? `PAID ONCE · <strong>${escapeHtml(paidLabel)}</strong> · NO SUBSCRIPTION, EVER`
-    : `PAID ONCE · <strong>NO SUBSCRIPTION, EVER</strong>`;
+    ? tr("PAID ONCE · <strong>{price}</strong> · NO SUBSCRIPTION, EVER", { price: escapeHtml(paidLabel) })
+    : tr("PAID ONCE · <strong>NO SUBSCRIPTION, EVER</strong>");
   const existing = dlg.querySelector(".pro-celebrate");
   if (existing) {
     // Built on an earlier open without a known price; fill it in if we have
@@ -6631,13 +6641,13 @@ function ensureProCelebrateBlock(dlg, paidLabel) {
         <path d="M20 6L9 17l-5-5"/>
       </svg>
     </div>
-    <h2>Duitful Pro — yours.</h2>
-    <p class="pro-celebrate-sub">Terima kasih. That's the last time we'll ask you for money.</p>
+    <h2>${escapeHtml(tr("Duitful Pro — yours."))}</h2>
+    <p class="pro-celebrate-sub">${escapeHtml(tr("Terima kasih. That's the last time we'll ask you for money."))}</p>
     <ul class="pro-unlocked">
-      <li>Every debt &amp; pay-later plan</li>
-      <li>Automatic encrypted backup</li>
-      <li>Unlimited receipt scans, 46 currencies</li>
-      <li>Budget pools, unlimited goals &amp; holdings</li>
+      <li>${escapeHtml(tr("Every debt & pay-later plan"))}</li>
+      <li>${escapeHtml(tr("Automatic encrypted backup"))}</li>
+      <li>${escapeHtml(tr("Unlimited receipt scans, 46 currencies"))}</li>
+      <li>${escapeHtml(tr("Budget pools, unlimited goals & holdings"))}</li>
     </ul>
     <p class="pro-receipt">${receipt}</p>
   `;
@@ -6651,14 +6661,13 @@ function showRestoreCelebration(source) {
   if (!dlg || !state) return;
   const where = source === "icloud" ? "iCloud" : source === "csv" ? tr("your CSV") : "Google Drive";
   const n = (a) => (Array.isArray(a) ? a.length : 0);
-  const plural = (k, one, many) => `${k.toLocaleString()} ${k === 1 ? one : many}`;
   const stats = [];
   const entries = n(state.dailyExpenses);
   const monthly = n(state.income) + n(state.expenses);
-  if (entries) stats.push(plural(entries, "entry", "entries"));
-  if (monthly) stats.push(plural(monthly, "monthly item", "monthly items"));
-  if (n(state.debts)) stats.push(plural(n(state.debts), "debt", "debts"));
-  if (n(state.savings)) stats.push(plural(n(state.savings), "savings goal", "savings goals"));
+  if (entries) stats.push(trn(entries, "{n} entry", "{n} entries", { n: entries.toLocaleString() }));
+  if (monthly) stats.push(trn(monthly, "{n} monthly item", "{n} monthly items", { n: monthly.toLocaleString() }));
+  if (n(state.debts)) stats.push(trn(n(state.debts), "{n} debt", "{n} debts", { n: n(state.debts).toLocaleString() }));
+  if (n(state.savings)) stats.push(trn(n(state.savings), "{n} savings goal", "{n} savings goals", { n: n(state.savings).toLocaleString() }));
   if (!stats.length) stats.push(tr("Your settings"));
   if (!state.guideSeen) { state.guideSeen = true; save(); }
   document.getElementById("restore-sub").textContent = tr("Everything is back from {where}.", { where });
@@ -6984,7 +6993,7 @@ function initIAP() {
       })
       .unverified((tx) => {
         console.warn("IAP unverified", tx);
-        settlePurchase({ ok: false, message: "Receipt couldn't be verified. Tap Restore if you completed payment." });
+        settlePurchase({ ok: false, message: tr("Receipt couldn't be verified. Tap Restore if you completed payment.") });
       });
     // Store-wide error handler — catches SDK errors and user cancellations.
     if (typeof sdk.store.error === "function") {
@@ -6998,7 +7007,7 @@ function initIAP() {
         settlePurchase({
           ok: false,
           cancelled: isCancel,
-          message: isCancel ? null : ((err && err.message) || "Store error — try again."),
+          message: isCancel ? null : ((err && err.message) || tr("Store error — try again.")),
         });
       });
     }
@@ -7017,13 +7026,13 @@ function initIAP() {
 
 async function purchasePro(sku = PRODUCT_ID) {
   if (!isNative()) {
-    notify("Duitful Pro is already unlocked on the web.\nInstall the iOS / Android app to purchase the lifetime Pro tier there.");
+    notify(tr("Duitful Pro is already unlocked on the web.") + "\n" + tr("Install the iOS / Android app to purchase the lifetime Pro tier there."));
     return { ok: false, cancelled: true };
   }
   const sdk = window.CdvPurchase;
-  if (!sdk || !sdk.store) return { ok: false, message: "Store not available. Make sure the app is installed from the App Store / Play Store." };
-  if (!iapInitialized) return { ok: false, message: "Store still initialising. Try again in a moment, or restart the app." };
-  if (purchaseSettler) return { ok: false, message: "A purchase is already in progress." };
+  if (!sdk || !sdk.store) return { ok: false, message: tr("Store not available. Make sure the app is installed from the App Store / Play Store.") };
+  if (!iapInitialized) return { ok: false, message: tr("Store still initialising. Try again in a moment, or restart the app.") };
+  if (purchaseSettler) return { ok: false, message: tr("A purchase is already in progress.") };
 
   let product = sdk.store.get(sku);
   if (!product && typeof sdk.store.update === "function") {
@@ -7032,14 +7041,14 @@ async function purchasePro(sku = PRODUCT_ID) {
     product = sdk.store.get(sku);
   }
   if (!product) {
-    if (sku === PRODUCT_ID) return { ok: false, message: `Pro isn't available from the store yet. Restart the app and try again. (Store: ${iapDiagText()})` };
+    if (sku === PRODUCT_ID) return { ok: false, message: tr("Pro isn't available from the store yet. Restart the app and try again. (Store: {info})", { info: iapDiagText() }) };
     // A promo price the store doesn't have: go back to the normal price on
     // screen and let them buy that, rather than a dead end.
     resetPromoState();
-    return { ok: false, message: `The launch price isn't available right now. Unlock Pro is ${PRO_PRICE_LABEL}. Tap it again to buy.` };
+    return { ok: false, message: tr("The launch price isn't available right now. Unlock Pro is {price}. Tap it again to buy.", { price: PRO_PRICE_LABEL }) };
   }
   const offer = product.getOffer();
-  if (!offer) return { ok: false, message: `Pro has no price from the store yet. (Store: ${iapDiagText()})` };
+  if (!offer) return { ok: false, message: tr("Pro has no price from the store yet. (Store: {info})", { info: iapDiagText() }) };
 
   // offer.order() resolves when the platform sheet closes — that's NOT when
   // Pro unlocks. The verified/error handlers above call settlePurchase()
@@ -7047,7 +7056,7 @@ async function purchasePro(sku = PRODUCT_ID) {
   const settlement = new Promise((resolve) => { purchaseSettler = resolve; });
   const TIMEOUT_MS = 30_000;
   const timeout = new Promise((resolve) =>
-    setTimeout(() => resolve({ ok: false, message: "Verification timed out. Tap Restore if you completed the payment." }), TIMEOUT_MS),
+    setTimeout(() => resolve({ ok: false, message: tr("Verification timed out. Tap Restore if you completed the payment.") }), TIMEOUT_MS),
   );
 
   try {
@@ -7098,19 +7107,19 @@ async function initQuickAddNotificationPref() {
           const perm = await LN.requestPermissions();
           if (perm && perm.display && perm.display !== "granted") {
             box.checked = false;
-            toast("Notifications are off for Duitful — turn them on in Android settings first.");
+            toast(tr("Notifications are off for Duitful — turn them on in Android settings first."));
             return;
           }
         }
         await plugin.enableQuickAddNotification();
-        toast("Quick add is in your notification shade");
+        toast(tr("Quick add is in your notification shade"));
       } else {
         await plugin.disableQuickAddNotification();
       }
     } catch (err) {
       console.warn("quick-add notification toggle failed:", err);
       box.checked = !want;
-      toast("Couldn't change that — try again.");
+      toast(tr("Couldn't change that — try again."));
     }
   });
 }
@@ -8103,7 +8112,7 @@ document.getElementById("fpx-continue")?.addEventListener("click", async () => {
       }),
     });
     const data = await r.json();
-    if (!r.ok) throw new Error(data.error || "Could not start checkout");
+    if (!r.ok) throw new Error(data.error || tr("Could not start checkout"));
     // 100%-off discount: server returned a signed license directly.
     if (data.comp && data.license) {
       await activateLicenseToken(data.license);
@@ -8419,7 +8428,7 @@ function flyAmountToBalance(fromEl, amountText, netBefore, netAfter) {
     peek.className = "balance-peek";
     peek.setAttribute("aria-hidden", "true");
     peek.style.top = `calc(env(safe-area-inset-top, 0px) + ${Math.round(coverTop + 10)}px)`;
-    peek.innerHTML = `<span>Balance left</span><strong class="amt">${escapeHtml(fmtMoney(netBefore))}</strong>`;
+    peek.innerHTML = `<span>${escapeHtml(tr("Balance left"))}</span><strong class="amt">${escapeHtml(fmtMoney(netBefore))}</strong>`;
     document.body.appendChild(peek);
     peek.animate(
       [{ opacity: 0, transform: "translate(-50%, -8px) scale(0.96)" }, { opacity: 1, transform: "translate(-50%, 0) scale(1)" }],
@@ -9292,7 +9301,7 @@ $("#form-saving").addEventListener("submit", (e) => {
   save();
   e.target.reset();
   renderAll();
-  toast(`Savings goal added: ${name}`);
+  toast(tr("Savings goal added: {name}", { name }));
 });
 
 // Row overflow menus. Delegated because the debt list is re-rendered whole on
@@ -9410,12 +9419,12 @@ document.addEventListener("click", (e) => {
     const goal = state.savings.find((g) => g.id === id);
     if (!goal) return;
     if (!input || !input.value) {
-      if (input) { input.focus(); input.placeholder = "Enter an amount first"; }
+      if (input) { input.focus(); input.placeholder = tr("Enter an amount first"); }
       return;
     }
     if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_AMOUNT) {
       input.value = "";
-      input.placeholder = amount > MAX_AMOUNT ? "Max RM 100,000,000" : "Must be a positive number";
+      input.placeholder = amount > MAX_AMOUNT ? tr("Max RM 100,000,000") : tr("Must be a positive number");
       input.focus();
       return;
     }
@@ -9534,23 +9543,23 @@ function renderFxBadge(fx) {
   if (!fx || !fx.code) return "";
   const amt = Number(fx.amount).toFixed(2).replace(/\.00$/, "");
   const rate = Number(fx.rate).toFixed(4);
-  return `<span class="fx-badge" title="Original currency · sticky rate at entry">${escapeHtml(fx.code)} ${amt} @ ${rate}</span>`;
+  return `<span class="fx-badge" title="${escapeHtml(tr("Original currency · sticky rate at entry"))}">${escapeHtml(fx.code)} ${amt} @ ${rate}</span>`;
 }
 
 function renderFxPreview({ amount, fromCode, toCode, supported }) {
   // Live preview text shown under amount input when foreign currency selected.
   if (!supported) {
-    return `<span class="fx-preview fx-preview--err">Live rate not available for ${escapeHtml(fromCode)}.</span>`;
+    return `<span class="fx-preview fx-preview--err">${escapeHtml(tr("Live rate not available for {code}.", { code: fromCode }))}</span>`;
   }
   if (!Number.isFinite(amount) || amount <= 0) {
-    return `<span class="fx-preview">Will convert to ${escapeHtml(toCode)} at save time.</span>`;
+    return `<span class="fx-preview">${escapeHtml(tr("Will convert to {code} at save time.", { code: toCode }))}</span>`;
   }
   const converted = convertFx(amount, fromCode, toCode);
   const rate = pairRate(fromCode, toCode);
   if (!Number.isFinite(converted)) {
-    return `<span class="fx-preview fx-preview--err">Cannot convert ${escapeHtml(fromCode)} → ${escapeHtml(toCode)}.</span>`;
+    return `<span class="fx-preview fx-preview--err">${escapeHtml(tr("Cannot convert {from} → {to}.", { from: fromCode, to: toCode }))}</span>`;
   }
-  return `<span class="fx-preview">${fmtMoneyIn(converted, toCode)} · rate 1 ${escapeHtml(fromCode)} = ${rate.toFixed(4)} ${escapeHtml(toCode)}</span>`;
+  return `<span class="fx-preview">${escapeHtml(tr("{a} · rate 1 {from} = {rate} {to}", { a: fmtMoneyIn(converted, toCode), from: fromCode, rate: rate.toFixed(4), to: toCode }))}</span>`;
 }
 
 // Every "More" in an add form folds again once the form is reset.
@@ -9604,16 +9613,16 @@ function attachFxPreviewToForm(formEl) {
       preview.hidden = false;
       preview.classList.toggle("fx-preview--err", !supported || !Number.isFinite(convertFx(amount, fromCode, toCode)));
       if (!supported) {
-        preview.textContent = `Live rate not available for ${fromCode}.`;
+        preview.textContent = tr("Live rate not available for {code}.", { code: fromCode });
       } else if (!Number.isFinite(amount) || amount <= 0) {
-        preview.textContent = `Will convert to ${toCode} at save time.`;
+        preview.textContent = tr("Will convert to {code} at save time.", { code: toCode });
       } else {
         const converted = convertFx(amount, fromCode, toCode);
         const rate = pairRate(fromCode, toCode);
         if (!Number.isFinite(converted)) {
-          preview.textContent = `Cannot convert ${fromCode} → ${toCode}.`;
+          preview.textContent = tr("Cannot convert {from} → {to}.", { from: fromCode, to: toCode });
         } else {
-          preview.textContent = `${fmtMoneyIn(converted, toCode)} · rate 1 ${fromCode} = ${rate.toFixed(4)} ${toCode}`;
+          preview.textContent = tr("{a} · rate 1 {from} = {rate} {to}", { a: fmtMoneyIn(converted, toCode), from: fromCode, rate: rate.toFixed(4), to: toCode });
         }
       }
     }
@@ -9643,7 +9652,7 @@ function openEditDialog(kind, id) {
   if (kind === "income" || kind === "expense") {
     const fx = entity.fx;
     const baseCode = currentCurrency();
-    const amountLabel = `Amount (${baseCode})`;
+    const amountLabel = tr("Amount ({cur})", { cur: baseCode });
     const fxHint = fx
       ? `<p class="hint">${tr("Originally <strong>{orig}</strong> @ rate {rate} on {date}. Editing the amount overrides the converted value but does not change the original.", { orig: `${escapeHtml(fx.code)} ${Number(fx.amount).toFixed(2)}`, rate: Number(fx.rate).toFixed(4), date: fx.fetched_at ? escapeHtml(fx.fetched_at.slice(0, 10)) : tr("entry day") })}</p>`
       : "";
@@ -9754,10 +9763,10 @@ function openEditDialog(kind, id) {
           ${numberField("Total months", "termMonths", entity.termMonths ?? "", { step: "1", min: "1", max: "120" })}
         </div>
         ${numberField("Due day (1–31)", "dueDay", entity.dueDay ?? "", { step: "1", min: "1", max: "31" })}
-        <p class="hint">Interest-free installment (Atome / SPayLater style). Balance = monthly × months left.${
+        <p class="hint">${tr("Interest-free installment (Atome / SPayLater style). Balance = monthly × months left.")}${
           prog && prog.known
             ? ""
-            : " Set total months to show progress — how many payments you've already made can't be worked out from the balance alone."
+            : " " + tr("Set total months to show progress — how many payments you've already made can't be worked out from the balance alone.")
         }</p>
       `;
     } else {
@@ -9961,19 +9970,19 @@ function renderFxStatus() {
   if (hint) hint.hidden = !["AED", "SAR", "VND"].includes(baseCode);
 
   if (!fxRatesAreUsable()) {
-    line.textContent = "Rates not loaded — check your connection and tap Refresh.";
+    line.textContent = tr("Rates not loaded — check your connection and tap Refresh.");
     return;
   }
   const at = new Date(state.fx.fetched_at);
   const ageMs = Date.now() - at.getTime();
   const ageMins = Math.floor(ageMs / 60000);
   const human =
-    ageMins < 2 ? "just now" :
-    ageMins < 60 ? `${ageMins} minutes ago` :
-    ageMins < 24 * 60 ? `${Math.floor(ageMins / 60)} hours ago` :
-    `${Math.floor(ageMins / (60 * 24))} days ago`;
-  const staleNote = state.fx.stale ? " · using cached value (live source unavailable)" : "";
-  line.textContent = `Last refreshed ${human}${staleNote} · via Currency-API (open-source, by @fawazahmed0)`;
+    ageMins < 2 ? tr("just now") :
+    ageMins < 60 ? trn(ageMins, "{n} minute ago", "{n} minutes ago") :
+    ageMins < 24 * 60 ? trn(Math.floor(ageMins / 60), "{n} hour ago", "{n} hours ago") :
+    trn(Math.floor(ageMins / (60 * 24)), "{n} day ago", "{n} days ago");
+  const staleNote = state.fx.stale ? ` · ${tr("using cached value (live source unavailable)")}` : "";
+  line.textContent = tr("Last refreshed {when}{stale} · via Currency-API (open-source, by @fawazahmed0)", { when: human, stale: staleNote });
 }
 // Opt-out for the "chase what's gone quiet" half of the split reminders.
 // Due dates the user set themselves keep reminding either way.
@@ -9993,7 +10002,7 @@ if (prefDays) prefDays.addEventListener("change", () => {
 if (btnNotif) btnNotif.addEventListener("click", async () => {
   if (isNative()) {
     const ok = await scheduleNativeReminders({ ask: true });
-    if (!ok) toast("Notifications are off for Duitful — turn them on in your phone's settings first.");
+    if (!ok) toast(tr("Notifications are off for Duitful — turn them on in your phone's settings first."));
     reminderAskGranted = ok;
     renderReminderPrefs();
     return;
@@ -11158,11 +11167,11 @@ async function downloadCSV() {
     try {
       await navigator.clipboard.writeText(csv);
       notify(
-        `CSV copied to clipboard.\n\nPaste it into Notes, an email, or a file in Google Drive to save the backup. ` +
-        `(Filename: duitful-${ts}.csv)`,
+        tr("CSV copied to clipboard.") + "\n\n" +
+        tr("Paste it into Notes, an email, or a file in Google Drive to save the backup. (Filename: {file})", { file: `duitful-${ts}.csv` }),
       );
     } catch (err) {
-      notify("Couldn't copy to clipboard. Use Cloud backup (Google Drive) for safe storage on Android.");
+      notify(tr("Couldn't copy to clipboard. Use Cloud backup (Google Drive) for safe storage on Android."));
       return false;
     }
     return true;
@@ -11198,7 +11207,7 @@ async function importCsvFile(file, { ask = true, statusEl = null, onError = null
     // or trimmed for being over a free limit: the file is the person's own
     // data (kept from Pro, a trial, or another device). Limits only stop
     // adding afterwards.
-    if (ask && !confirm("Replace all current data with the CSV contents?")) return false;
+    if (ask && !confirm(tr("Replace all current data with the CSV contents?"))) return false;
 
     // Entitlements + per-device identity are not part of the CSV payload —
     // preserve them across import so a Pro user doesn't lose their unlock
@@ -11217,7 +11226,14 @@ async function importCsvFile(file, { ask = true, statusEl = null, onError = null
     state = next;
     save();
     renderAll();
-    if (statusEl) statusEl.textContent = `Imported ${state.income.length} income, ${state.expenses.length} expense, ${state.debts.length} debt, ${state.dailyExpenses.length} daily, ${state.savings.length} savings, ${state.investments.length} investment rows.`;
+    if (statusEl) statusEl.textContent = tr("Imported {income} income, {expense} expense, {debt} debt, {daily} daily, {savings} savings, {inv} investment rows.", {
+      income: state.income.length,
+      expense: state.expenses.length,
+      debt: state.debts.length,
+      daily: state.dailyExpenses.length,
+      savings: state.savings.length,
+      inv: state.investments.length,
+    });
     // A file from before 1.63.1 doesn't say which spends were charged to a
     // card, so they all count as cash. We can't tell which ones were; say so
     // once, only when the file has spends and a card-type debt.
@@ -11228,7 +11244,7 @@ async function importCsvFile(file, { ask = true, statusEl = null, onError = null
     }
     return true;
   } catch (err) {
-    say(`Import failed: ${err.message || err}`);
+    say(tr("Import failed: {err}", { err: err.message || err }));
     return false;
   }
 }
@@ -11249,12 +11265,12 @@ $("#file-import").addEventListener("change", async (e) => {
    silently — not counted as skipped. The user may drop a full export in
    and only the income lines land. */
 function parseIncomeRows(rows) {
-  if (rows.length === 0) throw new Error("That file looks empty.");
+  if (rows.length === 0) throw new Error(tr("That file looks empty."));
   const header = rows[0].map((h) => h.trim().toLowerCase());
   const idx = (n) => header.indexOf(n);
   const iType = idx("type"), iName = idx("name"), iAmount = idx("amount");
   const iNote = idx("note"), iMonth = idx("month"), iDay = idx("day");
-  if (iType === -1) throw new Error("This doesn't look like a Duitful CSV (no 'type' column).");
+  if (iType === -1) throw new Error(tr("This doesn't look like a Duitful CSV (no 'type' column)."));
 
   const valid = [];
   const skipped = [];
@@ -11266,8 +11282,8 @@ function parseIncomeRows(rows) {
     const rawAmount = iAmount >= 0 ? row[iAmount] : "";
     const note = iNote >= 0 ? (row[iNote] || "").trim() : "";
     const amount = Number(rawAmount);
-    if (!rawName) { skipped.push({ rowNum: r + 1, reason: "missing name" }); continue; }
-    if (!Number.isFinite(amount) || amount <= 0) { skipped.push({ rowNum: r + 1, reason: "missing or invalid amount" }); continue; }
+    if (!rawName) { skipped.push({ rowNum: r + 1, reason: tr("missing name") }); continue; }
+    if (!Number.isFinite(amount) || amount <= 0) { skipped.push({ rowNum: r + 1, reason: tr("missing or invalid amount") }); continue; }
     const rowMonth = iMonth >= 0 ? (row[iMonth] || "").trim() : "";
     const month = /^\d{4}-\d{2}$/.test(rowMonth) ? rowMonth : currentMonthISO();
     const day = iDay >= 0 ? parseDay(row[iDay]) : null;
@@ -11348,7 +11364,7 @@ bulkIncomeFile?.addEventListener("change", async (e) => {
     if (skipped.length > 0) {
       bulkIncomeSkippedCount.textContent = String(skipped.length);
       bulkIncomeSkippedList.innerHTML = skipped
-        .map((s) => `<li>Row ${s.rowNum}: ${escapeHtml(s.reason)}</li>`)
+        .map((s) => `<li>${escapeHtml(tr("Row {n}: {reason}", { n: s.rowNum, reason: s.reason }))}</li>`)
         .join("");
       bulkIncomeSkippedWrap.hidden = false;
     } else {
@@ -11371,7 +11387,7 @@ bulkIncomeApply?.addEventListener("click", () => {
   save();
   renderAll();
   closeBulkIncomeDialog();
-  notify(`Added ${added} income ${added === 1 ? "entry" : "entries"}.`);
+  notify(trn(added, "Added {n} income entry.", "Added {n} income entries."));
 });
 
 $("#btn-clear").addEventListener("click", async () => {
@@ -11384,7 +11400,7 @@ $("#btn-clear").addEventListener("click", async () => {
     text: open,
     ok: "Erase everything",
     danger: true,
-    wrong: open ? "Type DELETE to confirm." : "Wrong passcode.",
+    wrong: open ? tr("Type DELETE to confirm.") : tr("Wrong passcode."),
     check: open ? async (v) => v.toUpperCase() === "DELETE" : vaultPasscodeMatches,
   });
   if (ok == null) return;
@@ -11418,8 +11434,8 @@ function detectInstallPlatform() {
 
 function installInstructionsBody() {
   if (isStandalonePWA()) {
-    return `<p>You're already using Duitful as an installed app — nice.</p>
-      <p class="hint">Everything works offline from here on. Tap Next to continue the tour.</p>`;
+    return `<p>${tr("You're already using Duitful as an installed app — nice.")}</p>
+      <p class="hint">${tr("Everything works offline from here on. Tap Next to continue the tour.")}</p>`;
   }
   const platform = detectInstallPlatform();
   const shareIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-ico"><path d="M12 16V4M8 8l4-4 4 4"/><rect x="4" y="10" width="16" height="11" rx="2"/></svg>`;
@@ -11427,38 +11443,38 @@ function installInstructionsBody() {
   const plusIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="inline-ico"><path d="M12 5v14M5 12h14"/></svg>`;
 
   if (platform === "ios-safari") {
-    return `<p>Install Duitful on your home screen — it opens fullscreen, runs offline, and feels like a native app.</p>
+    return `<p>${tr("Install Duitful on your home screen — it opens fullscreen, runs offline, and feels like a native app.")}</p>
       <ol class="guide-steps">
-        <li>Tap the <strong>Share</strong> button ${shareIcon} at the bottom of Safari.</li>
-        <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
-        <li>Tap <strong>Add</strong> in the top-right.</li>
+        <li>${tr("Tap the <strong>Share</strong> button {icon} at the bottom of Safari.", { icon: shareIcon })}</li>
+        <li>${tr("Scroll down and tap <strong>Add to Home Screen</strong>.")}</li>
+        <li>${tr("Tap <strong>Add</strong> in the top-right.")}</li>
       </ol>
-      <p class="hint">The Duitful wallet icon will appear on your home screen. Tap it to open.</p>`;
+      <p class="hint">${tr("The Duitful wallet icon will appear on your home screen. Tap it to open.")}</p>`;
   }
   if (platform === "ios-chrome" || platform === "ios-other") {
-    return `<p>iPhone installs need Safari. Open Duitful in Safari first, then follow the steps below.</p>
+    return `<p>${tr("iPhone installs need Safari. Open Duitful in Safari first, then follow the steps below.")}</p>
       <ol class="guide-steps">
-        <li>Copy this URL: <strong>duitful.app</strong></li>
-        <li>Open <strong>Safari</strong> and paste the URL.</li>
-        <li>Tap the <strong>Share</strong> button ${shareIcon} → <strong>Add to Home Screen</strong> → <strong>Add</strong>.</li>
+        <li>${tr("Copy this URL: <strong>duitful.app</strong>")}</li>
+        <li>${tr("Open <strong>Safari</strong> and paste the URL.")}</li>
+        <li>${tr("Tap the <strong>Share</strong> button {icon} → <strong>Add to Home Screen</strong> → <strong>Add</strong>.", { icon: shareIcon })}</li>
       </ol>
-      <p class="hint">iOS only lets Safari install web apps — other browsers can't.</p>`;
+      <p class="hint">${tr("iOS only lets Safari install web apps — other browsers can't.")}</p>`;
   }
   if (platform === "android") {
-    return `<p>Install Duitful on your home screen — it opens fullscreen, runs offline, and feels like a native app.</p>
+    return `<p>${tr("Install Duitful on your home screen — it opens fullscreen, runs offline, and feels like a native app.")}</p>
       <ol class="guide-steps">
-        <li>Tap the <strong>menu</strong> ${menuIcon} in the top-right of Chrome.</li>
-        <li>Tap <strong>Install app</strong> (or <strong>Add to Home screen</strong>).</li>
-        <li>Tap <strong>Install</strong> to confirm.</li>
+        <li>${tr("Tap the <strong>menu</strong> {icon} in the top-right of Chrome.", { icon: menuIcon })}</li>
+        <li>${tr("Tap <strong>Install app</strong> (or <strong>Add to Home screen</strong>).")}</li>
+        <li>${tr("Tap <strong>Install</strong> to confirm.")}</li>
       </ol>
-      <p class="hint">If you see an <strong>Install</strong> button in the address bar, you can tap that directly.</p>`;
+      <p class="hint">${tr("If you see an <strong>Install</strong> button in the address bar, you can tap that directly.")}</p>`;
   }
-  return `<p>Install Duitful as a desktop app — runs in its own window, works offline.</p>
+  return `<p>${tr("Install Duitful as a desktop app — runs in its own window, works offline.")}</p>
     <ol class="guide-steps">
-      <li>Look for the <strong>install</strong> icon ${plusIcon} in the address bar.</li>
-      <li>Click <strong>Install</strong>.</li>
+      <li>${tr("Look for the <strong>install</strong> icon {icon} in the address bar.", { icon: plusIcon })}</li>
+      <li>${tr("Click <strong>Install</strong>.")}</li>
     </ol>
-    <p class="hint">Not seeing it? Use the browser menu → <strong>Install Duitful</strong> / <strong>Apps → Install this site</strong>.</p>`;
+    <p class="hint">${tr("Not seeing it? Use the browser menu → <strong>Install Duitful</strong> / <strong>Apps → Install this site</strong>.")}</p>`;
 }
 
 const GUIDE_STEPS = [
@@ -12036,10 +12052,10 @@ function onboardAddBillRow(focus) {
   // leaves the field anonymous to a screen reader and to anyone who looks
   // away mid-entry.
   row.innerHTML = `
-    <input type="text" class="onboard-bill-name" aria-label="Bill name" placeholder="Rent, Astro, TNB…" autocomplete="off" />
+    <input type="text" class="onboard-bill-name" aria-label="${escapeHtml(tr("Bill name"))}" placeholder="${escapeHtml(tr("Rent, Astro, TNB…"))}" autocomplete="off" />
     <label class="onboard-field onboard-field-sm">
       <span class="onboard-cur">RM</span>
-      <input type="number" class="onboard-bill-amount" aria-label="Monthly amount" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off" />
+      <input type="number" class="onboard-bill-amount" aria-label="${escapeHtml(tr("Monthly amount"))}" inputmode="decimal" step="0.01" min="0" placeholder="0.00" autocomplete="off" />
     </label>`;
   wrap.appendChild(row);
   if (focus) setTimeout(() => row.querySelector(".onboard-bill-name")?.focus(), 60);
@@ -12359,6 +12375,9 @@ function maybeOpenGuideAfterSetup() {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.64.2": [
+    "<strong>More complete Bahasa Melayu and 中文 translations</strong> — bank-alert cards, install steps, Pro sheets, cloud backup statuses, split-bill prompts, and toasts built in script now follow your chosen language.",
+  ],
   "1.64.1": [
     "<strong>Broader bank alert capture on Android</strong> — reads more alert wordings across English, Bahasa Melayu, Chinese, Indonesian, Thai, Filipino and Vietnamese (including DuitNow QR, verb-first, MYR and labelled alerts), and skips failed or declined transactions.",
   ],
@@ -13008,7 +13027,7 @@ function maybeShowWhatsNew() {
   const shownAt = Number(localStorage.getItem(WHATS_NEW_SHOWN_KEY)) || 0;
   if (Date.now() - shownAt < WHATS_NEW_GAP_MS && !purchaseFixApplies(unseen)) return;
 
-  fillWhatsNew(unseen, unseen.length === 1 ? `What's new in v${APP_VERSION}` : "What's new since you last looked");
+  fillWhatsNew(unseen, unseen.length === 1 ? tr("What's new in v{v}", { v: APP_VERSION }) : tr("What's new since you last looked"));
   try { localStorage.setItem(WHATS_NEW_SHOWN_KEY, String(Date.now())); } catch {}
   openWhatsNew();
 }
@@ -13223,6 +13242,7 @@ window.addEventListener("duitful:lang", () => {
   if (typeof requestReschedule === "function") requestReschedule();
   syncNativeStrings();
   applyHeroBreakdownState();
+  applyPrivacy(document.body.classList.contains("private"));
   setDailyMoreOpen(document.getElementById("daily-more")?.hidden === false);
   renderAboutVersion();
   if (state && aesKey) {
@@ -13314,10 +13334,10 @@ function applyPrivacy(on) {
   const icon = document.getElementById("privacy-icon");
   if (btn) {
     btn.setAttribute("aria-pressed", on ? "true" : "false");
-    btn.setAttribute("aria-label", on ? "Show amounts" : "Hide amounts");
+    btn.setAttribute("aria-label", on ? tr("Show amounts") : tr("Hide amounts"));
     btn.setAttribute("title", on
-      ? "Amounts hidden — percentages and progress are still visible. Tap to show."
-      : "Hide amounts — percentages and progress stay visible, so a screenshot is still shareable");
+      ? tr("Amounts hidden — percentages and progress are still visible. Tap to show.")
+      : tr("Hide amounts — percentages and progress stay visible, so a screenshot is still shareable"));
   }
   if (icon) icon.innerHTML = on ? ICON_EYE_OFF : ICON_EYE;
   localStorage.setItem(PRIVACY_KEY, on ? "1" : "0");
@@ -13517,7 +13537,7 @@ async function enableBiometric(passcode) {
   const nb = biometricPlugin();
   if (!nb) return false;
   try {
-    await nb.verifyIdentity({ reason: "Enable biometric unlock", title: "Duitful" });
+    await nb.verifyIdentity({ reason: tr("Enable biometric unlock"), title: "Duitful" });
   } catch { return false; } // cancelled or scan failed
   if (!(await storeBiometricPasscode(passcode))) return false;
   localStorage.setItem(BIOMETRIC_FLAG, "1");
@@ -13529,7 +13549,7 @@ async function biometricUnlock() {
   const nb = biometricPlugin();
   if (!nb || !biometricEnabled() || lockMode !== "unlock") return;
   try {
-    await nb.verifyIdentity({ reason: "Unlock Duitful", title: "Duitful" });
+    await nb.verifyIdentity({ reason: tr("Unlock Duitful"), title: "Duitful" });
   } catch { return; } // cancelled or scan failed — passcode entry still there
   let creds = null;
   try { creds = await nb.getCredentials({ server: BIOMETRIC_SERVER }); } catch {}
@@ -13586,8 +13606,8 @@ async function maybeOfferBiometric(passcode) {
       const ok = pass && await enableBiometric(pass);
       pass = null;
       toast(ok
-        ? "Fingerprint unlock is on. Turn it off anytime in Settings → Security."
-        : "Couldn't enable it — you can try again in Settings → Security.");
+        ? tr("Fingerprint unlock is on. Turn it off anytime in Settings → Security.")
+        : tr("Couldn't enable it — you can try again in Settings → Security."));
     };
     document.getElementById("btn-bio-offer-later").onclick = () => { pass = null; dlg.close(); };
     dlg.showModal();
@@ -13627,12 +13647,12 @@ document.getElementById("toggle-biometric")?.addEventListener("change", async (e
   } });
   if (pass == null) { updateBiometricUI(); return; }
   const ok = await enableBiometric(pass);
-  if (!ok) notify("Couldn't enable biometric unlock — the scan was cancelled or this device refused to store the passcode.");
+  if (!ok) notify(tr("Couldn't enable biometric unlock — the scan was cancelled or this device refused to store the passcode."));
 });
 
 async function handleUnlock(passcode, { silent = false } = {}) {
   const raw = localStorage.getItem(ENC_KEY);
-  if (!raw) { if (!silent) lockError("No encrypted data."); return false; }
+  if (!raw) { if (!silent) lockError(tr("No encrypted data.")); return false; }
   try {
     const rec = JSON.parse(raw);
     const key = await deriveKey(passcode, b64decode(rec.salt));
@@ -13640,7 +13660,7 @@ async function handleUnlock(passcode, { silent = false } = {}) {
     aesKey = key;
     state = coerceState(plain);
   } catch {
-    if (!silent) lockError("Incorrect passcode");
+    if (!silent) lockError(tr("Incorrect passcode"));
     return false;
   }
   hideLock();
@@ -13677,10 +13697,10 @@ async function handleUnlock(passcode, { silent = false } = {}) {
 }
 
 async function handleSetup(passcode, confirm, initialState, { open = false } = {}) {
-  if (!open && passcode === OPEN_PASSCODE) { lockError(OPEN_REFUSED); return; }
-  if (!/^\d+$/.test(passcode)) { lockError("Numbers only"); return; }
-  if (passcode.length < 4) { lockError("Min 4 digits"); return; }
-  if (passcode !== confirm) { lockError("Passcodes don't match"); return; }
+  if (!open && passcode === OPEN_PASSCODE) { lockError(tr(OPEN_REFUSED)); return; }
+  if (!/^\d+$/.test(passcode)) { lockError(tr("Numbers only")); return; }
+  if (passcode.length < 4) { lockError(tr("Min 4 digits")); return; }
+  if (passcode !== confirm) { lockError(tr("Passcodes don't match")); return; }
   const saltBytes = crypto.getRandomValues(new Uint8Array(16));
   const saltB64 = b64encode(saltBytes);
   const key = await deriveKey(passcode, saltBytes);
@@ -13761,7 +13781,7 @@ if (lockForm) {
       // it became an unhandled rejection and the user just saw the button
       // come back with no explanation.
       console.warn("Unlock flow failed:", err);
-      lockError("Something went wrong. Please try again.");
+      lockError(tr("Something went wrong. Please try again."));
     } finally {
       endWork();
     }
@@ -13868,7 +13888,7 @@ async function startDriveRestoreFromLock(id = "drive") {
   const icloud = id === "icloud";
   const api = icloud ? window.ICloudSync : window.DriveSync;
   if (!api || !api.isConfigured()) {
-    lockError("Cloud backup isn't configured for this build.");
+    lockError(tr("Cloud backup isn't configured for this build."));
     return;
   }
   driveRestorePending = true;
@@ -13886,7 +13906,7 @@ async function startDriveRestoreFromLock(id = "drive") {
         lockIcloudSignInPending = false;
         lockAppleSignIn(false);
       } else if (!api.isSignedIn()) {
-        lockError("Sign in to iCloud in the Settings app first.");
+        lockError(tr("Sign in to iCloud in the Settings app first."));
         return;
       }
     } else if (!api.isSignedIn()) {
@@ -13895,7 +13915,7 @@ async function startDriveRestoreFromLock(id = "drive") {
     // Probe so we surface "no backup found" before asking for a passcode.
     const meta = await api.getRemoteMeta();
     if (!meta) {
-      lockError(icloud ? "No Duitful backup found in this iCloud account." : "No backup found in this Google account.");
+      lockError(icloud ? tr("No Duitful backup found in this iCloud account.") : tr("No backup found in this Google account."));
       return;
     }
     lockRestoreSource = id;
@@ -13914,7 +13934,7 @@ async function startDriveRestoreFromLock(id = "drive") {
     setLockMode("restore");
     setTimeout(() => document.getElementById("lock-input")?.focus(), 50);
   } catch (err) {
-    lockError((icloud ? "Couldn't reach iCloud: " : "Google sign-in failed: ") + (err.message || err));
+    lockError((icloud ? tr("Couldn't reach iCloud:") : tr("Google sign-in failed:")) + " " + (err.message || err));
   } finally {
     if (endWork) endWork();
     driveRestorePending = false;
@@ -13925,23 +13945,23 @@ async function handleRestoreFromDrive(passcode) {
   const icloud = lockRestoreSource === "icloud";
   const api = icloud ? window.ICloudSync : window.DriveSync;
   if (!api || !api.isSignedIn()) {
-    lockError(icloud ? "Sign in to iCloud in the Settings app first." : "Sign in to Google first.");
+    lockError(icloud ? tr("Sign in to iCloud in the Settings app first.") : tr("Sign in to Google first."));
     return;
   }
   if (!/^\d+$/.test(passcode) || passcode.length < 4) {
-    lockError("Passcode must be at least 4 digits.");
+    lockError(tr("Passcode must be at least 4 digits."));
     return;
   }
   let rec;
   try { rec = await api.downloadEncryptedRecord(); }
-  catch (err) { lockError("Couldn't download: " + (err.message || err)); return; }
-  if (!rec) { lockError(icloud ? "No Duitful backup found in this iCloud account." : "No backup found in this Google account."); return; }
+  catch (err) { lockError(tr("Couldn't download:") + " " + (err.message || err)); return; }
+  if (!rec) { lockError(icloud ? tr("No Duitful backup found in this iCloud account.") : tr("No backup found in this Google account.")); return; }
   let plain;
   try {
     const altKey = await deriveKey(passcode, b64decode(rec.salt));
     plain = await decryptRecord(altKey, rec);
   } catch {
-    lockError("Wrong passcode for that backup.");
+    lockError(tr("Wrong passcode for that backup."));
     return;
   }
   // Re-encrypt locally with a fresh salt under the same passcode and the
@@ -13962,7 +13982,7 @@ document.getElementById("lock-csv-file")?.addEventListener("change", async (e) =
   e.target.value = "";
   if (!file) return;
   try { fromCSV(await file.text()); } catch (err) {
-    lockError("That file isn't a Duitful CSV export. " + ((err && err.message) || ""));
+    lockError(tr("That file isn't a Duitful CSV export.") + (err && err.message ? " " + err.message : ""));
     return;
   }
   const btn = document.getElementById("btn-setup-restore-csv");
@@ -14707,7 +14727,7 @@ async function receiptSecondOpinion(parsed, text) {
     try {
       const st = await withTimeout(aiKit.aiStatus(), 2000);
       if (st && st.available) {
-        setScanStep("Double-checking with on-device AI…", null);
+        setScanStep(tr("Double-checking with on-device AI…"), null);
         ai = parseAiReceiptReply(await withAiThinking(() => withTimeout(aiKit.aiReadReceipt({ text }), 15000), { overlay: true, label: "Reading your receipt", timeoutMs: 16000 }));
       }
     } catch { ai = null; }
@@ -15860,7 +15880,7 @@ function markOwnAccount(id) {
     return x;
   });
   commitPending();
-  toast(`Saved. Transfers to ${name} count as moves.`);
+  toast(tr("Saved. Transfers to {name} count as moves.", { name }));
 }
 function removeOwnAccount(name) {
   state.ownAccounts = (state.ownAccounts || []).filter((n) => n !== name);
@@ -15874,7 +15894,7 @@ function acceptMove(id) {
   if (p && typeof walletBookCaptureMove === "function") walletBookCaptureMove(p);
   state.pendingTxns = (state.pendingTxns || []).filter((x) => x.id !== id);
   commitPending();
-  toast("Moved between your accounts — not counted as spending or income.");
+  toast(tr("Moved between your accounts — not counted as spending or income."));
 }
 // "Not a move": back to the spend and/or income it was made of, kept apart.
 function splitMove(id) {
@@ -15907,7 +15927,7 @@ function acceptIncomePending(id) {
   });
   state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
   commitPending();
-  toast(`${fmtMoney(p.amount)} added to income`);
+  toast(tr("{a} added to income", { a: fmtMoney(p.amount) }));
 }
 
 /* ---------- Quick add: the widget and the shade ----------
@@ -15995,7 +16015,7 @@ async function drainQuickAdd() {
   if (!added) return 0;
   save();
   renderAll();
-  toast(added === 1 ? "1 quick entry to review" : `${added} quick entries to review`);
+  toast(trn(added, "{n} quick entry to review", "{n} quick entries to review"));
   return added;
 }
 
@@ -16711,7 +16731,7 @@ function openScanViewer() {
     v.className = "scan-viewer";
     v.setAttribute("role", "dialog");
     v.setAttribute("aria-modal", "true");
-    v.setAttribute("aria-label", "Receipt");
+    v.setAttribute("aria-label", tr("Receipt"));
     v.innerHTML = `<div class="scan-viewer-stage"><div class="scan-viewer-page"><img alt="${tr("The scanned receipt")}" /><div class="scan-viewer-marks"></div></div></div>
       <button type="button" class="scan-viewer-close" aria-label="${tr("Close the receipt")}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>`;
     // Inside the open dialog, so it sits in the same top layer.
@@ -16930,11 +16950,11 @@ async function applyScanConversion() {
   let applied = scanOriginalAmount;
   let note = "";
   if (source && source !== target) {
-    scanStatus.textContent = `Converting ${source} → ${target}…`;
+    scanStatus.textContent = tr("Converting {from} → {to}…", { from: source, to: target });
     const rate = await getFxRate(source, target);
     if (rate) {
       applied = scanOriginalAmount * rate;
-      note = `Converted ${fmtMoneyIn(scanOriginalAmount, source)} at 1 ${source} = ${rate.toFixed(4)} ${target}.`;
+      note = tr("Converted {a} at 1 {from} = {rate} {to}.", { a: fmtMoneyIn(scanOriginalAmount, source), from: source, rate: rate.toFixed(4), to: target });
     } else {
       note = tr("Couldn't fetch {from} → {to} rate. Amount not converted.", { from: source, to: target });
     }
@@ -16948,7 +16968,7 @@ async function applyScanConversion() {
   scanAmount.value = applied != null ? applied.toFixed(2) : "";
   scanStatus.textContent = applied != null
     ? tr("Check it against your receipt, then add it.")
-    : "Couldn't find the total. Type it in from the receipt.";
+    : tr("Couldn't find the total. Type it in from the receipt.");
   updateScanApplyLabel();
 }
 
@@ -17123,8 +17143,8 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     // Offline before the reader was ever downloaded is not a bad photo, and
     // Retake would only fail the same way.
     scanStatus.textContent = navigator.onLine === false && !isNative()
-      ? "You're offline, and the receipt reader needs a one-time download. Connect once and scan again, or type the amount in."
-      : "Couldn't read this receipt. Try a flatter, brighter photo, or type the amount in.";
+      ? tr("You're offline, and the receipt reader needs a one-time download. Connect once and scan again, or type the amount in.")
+      : tr("Couldn't read this receipt. Try a flatter, brighter photo, or type the amount in.");
     if (pbEl) pbEl.hidden = true;
     scanStatus.hidden = false;
     setScanFailed(true);
@@ -17411,13 +17431,14 @@ function applyScanResult({ direct }) {
     if (added) {
       closeScanDialog();
       const entry = state.dailyExpenses.find((x) => x.id === added);
-      const what = entry && entry.kind === "debt" ? `Paid ${fmtMoney(entry.amount)} to ${entry.debtName}`
-        : `Added ${fmtMoney(entry ? entry.amount : amt)}${vendor ? " · " + vendor : ""}`;
+      const what = entry && entry.kind === "debt"
+        ? tr("Paid {a} to {name}", { a: fmtMoney(entry.amount), name: entry.debtName })
+        : `${tr("Added {a}", { a: fmtMoney(entry ? entry.amount : amt) })}${vendor ? " · " + vendor : ""}`;
       // The submit just showed its own toast. When that one carries an
       // action (Split this, or the tax relief tip) it is the better offer,
       // and overwriting it lost the tip for good; the entry's own row still
       // deletes it. Otherwise offer Undo.
-      const undo = { label: "Undo", run: () => {
+      const undo = { label: tr("Undo"), run: () => {
         if (removeDailyEntry(added)) { save(); renderAll(); toast(tr("Removed")); }
       } };
       const shown = document.getElementById("toast");
@@ -17766,8 +17787,8 @@ async function checkDriveOnBoot() {
   }
   if (newest && newest.remote > local) {
     const ok = confirm(
-      `A newer backup exists in ${cloudProviders()[newest.id].name} (last edited ${formatRelative(newest.remote)}).\n\n` +
-      `Restore it now? Your current data on this device will be replaced.`,
+      tr("A newer backup exists in {where} (last edited {when}).", { where: cloudProviders()[newest.id].name, when: formatRelative(newest.remote) }) + "\n\n" +
+      tr("Restore it now? Your current data on this device will be replaced."),
     );
     if (ok) await restoreFromDrive(newest.id);
   } else if (needsPush) {
@@ -17781,8 +17802,8 @@ async function restoreFromDrive(id = "drive") {
   const where = cloudProviders()[id].name;
   let rec;
   try { rec = await api.downloadEncryptedRecord(); }
-  catch (err) { notify("Couldn't download backup: " + (err.message || err)); return; }
-  if (!rec) { notify(id === "icloud" ? "No backup found in iCloud." : "No backup found in your Google Drive."); return; }
+  catch (err) { notify(tr("Couldn't download backup:") + " " + (err.message || err)); return; }
+  if (!rec) { notify(id === "icloud" ? tr("No backup found in iCloud.") : tr("No backup found in your Google Drive.")); return; }
 
   // The backup carries its own salt, so even with the same passcode the
   // local AES key won't match. Try the local key first (works only if the
@@ -17798,7 +17819,7 @@ async function restoreFromDrive(id = "drive") {
     try { plain = await decryptRecord(await deriveKey(OPEN_PASSCODE, b64decode(rec.salt)), rec); } catch {}
   }
   if (!plain) {
-    const altPass = await askPasscode({ title: `Restore from ${where}`, label: "Passcode used for that backup", ok: "Restore", check: async (p) => {
+    const altPass = await askPasscode({ title: tr("Restore from {where}", { where }), label: "Passcode used for that backup", ok: "Restore", check: async (p) => {
       plain = await decryptRecord(await deriveKey(p, b64decode(rec.salt)), rec);
       return true;
     } });
@@ -17834,8 +17855,8 @@ function driveHiddenHere() {
 function applyDriveVisibility() {
   if (!driveHiddenHere()) return;
   document.querySelectorAll("[data-drive]").forEach((el) => { el.hidden = true; });
-  document.querySelectorAll("[data-drive-text]").forEach((el) => { el.textContent = el.dataset.driveText; });
-  try { PAYWALL_COPY.cloudBackup = "Automatic backup to iCloud is a Pro feature. Back up now and Export CSV in Settings stay free."; } catch { /* not defined yet at boot */ }
+  document.querySelectorAll("[data-drive-text]").forEach((el) => { el.textContent = tr(el.dataset.driveText); });
+  try { PAYWALL_COPY.cloudBackup = tr("Automatic backup to iCloud is a Pro feature. Back up now and Export CSV in Settings stay free."); } catch { /* not defined yet at boot */ }
 }
 
 function renderDriveCard() {
@@ -17983,11 +18004,11 @@ function renderDriveCard() {
       await checkDriveOnBoot();
       renderDriveCard();
     } catch (err) {
-      notify("Sign-in failed: " + (err.message || err));
+      notify(tr("Sign-in failed:") + " " + (err.message || err));
     }
   });
   onClick("btn-drive-signout", async () => {
-    if (!confirm("Disconnect Google Drive? Your local data is unchanged; the encrypted backup stays in your Drive.")) return;
+    if (!confirm(tr("Disconnect Google Drive? Your local data is unchanged; the encrypted backup stays in your Drive."))) return;
     await DriveSync.signOut();
     renderDriveCard();
   });
@@ -17995,13 +18016,13 @@ function renderDriveCard() {
     try {
       await runDriveUpload("drive");
       renderDriveCard();
-      toast("Backed up to Google Drive.");
+      toast(tr("Backed up to Google Drive."));
     } catch (err) {
-      notify("Sync failed: " + (err.message || err));
+      notify(tr("Sync failed:") + " " + (err.message || err));
     }
   });
   onClick("btn-drive-restore", async () => {
-    if (!confirm("Restore from Google Drive will replace the data on this device. Continue?")) return;
+    if (!confirm(tr("Restore from Google Drive will replace the data on this device. Continue?"))) return;
     await restoreFromDrive("drive");
     renderDriveCard();
   });
@@ -18009,9 +18030,9 @@ function renderDriveCard() {
     try {
       await runDriveUpload("icloud");
       renderDriveCard();
-      toast("Backed up to iCloud.");
+      toast(tr("Backed up to iCloud."));
     } catch (err) {
-      notify("iCloud backup failed: " + (err.message || err));
+      notify(tr("iCloud backup failed:") + " " + (err.message || err));
     }
   });
   onClick("btn-icloud-recheck", async () => {
@@ -18021,7 +18042,7 @@ function renderDriveCard() {
     finally { endWork(); renderDriveCard(); }
   });
   onClick("btn-icloud-restore", async () => {
-    if (!confirm("Restore from iCloud will replace the data on this device. Continue?")) return;
+    if (!confirm(tr("Restore from iCloud will replace the data on this device. Continue?"))) return;
     await restoreFromDrive("icloud");
     renderDriveCard();
   });
@@ -18053,7 +18074,7 @@ if (window.ICloudSync) ICloudSync.subscribe(() => { renderDriveCard(); renderLoc
       btnFxRefresh.disabled = true;
       btnFxRefresh.setAttribute("aria-busy", "true");
       const old = btnFxRefresh.textContent;
-      btnFxRefresh.textContent = "Refreshing…";
+      btnFxRefresh.textContent = tr("Refreshing…");
       try {
         await refreshFxRates();
         renderAll();
@@ -18297,7 +18318,7 @@ function openBulkDebtPayDialog() {
         rowClass += " greyed";
         checked = "";
         amount = 0;
-        label = "✓ already paid this month";
+        label = tr("✓ already paid this month");
       } else if (paid > 0) {
         label = tr("{a} still due (you've paid {b} this month)", { a: fmtMoney(remaining), b: fmtMoney(paid) });
       } else {

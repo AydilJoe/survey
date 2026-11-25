@@ -164,12 +164,12 @@ function taxCustomTerms(data) {
   const t = (data && data.terms && typeof data.terms === "object") ? data.terms : {};
   const pick = (k, d) => (typeof t[k] === "string" && t[k].trim() ? t[k].trim().slice(0, 40) : d);
   return {
-    authority: pick("authority", (typeof data.tax_authority === "string" && data.tax_authority.trim()) ? data.tax_authority.trim().slice(0, 60) : "the tax office"),
-    year: pick("year", "Tax year"),
-    withholding: pick("withholding", "Tax withheld"),
-    pension: pick("pension", "Pension"),
-    filing: pick("filing", "filing"),
-    rebate: pick("rebate", "rebate"),
+    authority: pick("authority", (typeof data.tax_authority === "string" && data.tax_authority.trim()) ? data.tax_authority.trim().slice(0, 60) : tr("the tax office")),
+    year: pick("year", tr("Tax year")),
+    withholding: pick("withholding", tr("Tax withheld")),
+    pension: pick("pension", tr("Pension")),
+    filing: pick("filing", tr("filing")),
+    rebate: pick("rebate", tr("rebate")),
   };
 }
 

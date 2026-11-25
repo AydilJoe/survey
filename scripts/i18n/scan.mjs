@@ -146,4 +146,14 @@ export const ROWS = [
   ["{n} photo shared to Duitful.", "{n} foto dikongsi ke Duitful.", "{n} 张照片分享到 Duitful。"],
   ["{n} photos shared to Duitful.", "{n} foto dikongsi ke Duitful.", "{n} 张照片分享到 Duitful。"],
   ["Duitful opens PDFs and photos only.", "Duitful hanya buka PDF dan foto.", "Duitful 只能打开 PDF 和照片。"],
+
+  // ── Receipt scan status, FX & toasts ────────────────────────────
+  ["{left} of {limit} free scans left this month", "{left} daripada {limit} imbasan percuma berbaki bulan ini", "本月还剩 {left}/{limit} 次免费扫描"],
+  ["Double-checking with on-device AI…", "Menyemak semula dengan AI pada peranti…", "正在用设备上的 AI 复核…"],
+  ["Converting {from} → {to}…", "Menukar {from} → {to}…", "正在换算 {from} → {to}…"],
+  ["Converted {a} at 1 {from} = {rate} {to}.", "Ditukar daripada {a} pada kadar 1 {from} = {rate} {to}.", "已将 {a} 按 1 {from} = {rate} {to} 换算。"],
+  ["You're offline, and the receipt reader needs a one-time download. Connect once and scan again, or type the amount in.", "Anda sedang luar talian, dan pembaca resit perlukan muat turun sekali sahaja. Sambung sekali dan imbas semula, atau taip jumlahnya.", "你目前离线，收据识别需要一次性下载。连网一次后再扫描，或直接输入金额。"],
+  ["Couldn't read this receipt. Try a flatter, brighter photo, or type the amount in.", "Tidak dapat baca resit ini. Cuba foto yang lebih rata dan terang, atau taip jumlahnya.", "无法读取这张收据。试试拍得更平整明亮些，或直接输入金额。"],
+  ["Paid {a} to {name}", "Dibayar {a} kepada {name}", "已向 {name} 支付 {a}"],
+  ["Added {a}", "Ditambah {a}", "已添加 {a}"],
 ];
