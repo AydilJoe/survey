@@ -1,52 +1,108 @@
-// Writes app/i18n-ms.js and app/i18n-zh.js from scripts/i18n/*.mjs.
+// Builds app/i18n-<code>.js and app/i18n-langs.js from scripts/i18n/langs.mjs
+// and scripts/i18n/locales/<code>/<screen>.json.
 //
-//   node scripts/build-i18n.mjs          write both tables
-//   node scripts/build-i18n.mjs --check  exit 1 if they are stale (e2e runs this)
+//   node scripts/build-i18n.mjs           write all language packs + i18n-langs.js
+//   node scripts/build-i18n.mjs --check   exit 1 if any generated file is stale
+//   node scripts/build-i18n.mjs --missing exit 1 if any tr()/trn() key lacks a row
+//   node scripts/build-i18n.mjs --lint    exit 1 if JS builds raw English UI
+//   node scripts/build-i18n.mjs --status  print per-language translation coverage
 //
-// Refuses a duplicate English key, or a translation whose {placeholders}
-// differ from the English: either would show the wrong words or a raw
-// "{name}" on screen.
-import { readFileSync, writeFileSync } from 'node:fs';
+// Refuses duplicate keys within a language, stray whitespace in English keys,
+// missing keys across languages (preserving the old tuple guarantee), or
+// {placeholder} mismatches.
+import { createHash } from 'node:crypto';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { ROWS as BASE } from './i18n/strings.mjs';
-import { ROWS as TAX } from './i18n/tax.mjs';
-import { ROWS as MONTHLY } from './i18n/monthly.mjs';
-import { ROWS as DEBTS } from './i18n/debts.mjs';
-import { ROWS as SAVINGS } from './i18n/savings.mjs';
-import { ROWS as DAILY } from './i18n/daily.mjs';
-import { ROWS as REPORTS } from './i18n/reports.mjs';
-import { ROWS as PRO } from './i18n/pro.mjs';
-import { ROWS as SETUP } from './i18n/setup.mjs';
-import { ROWS as SCAN } from './i18n/scan.mjs';
-import { ROWS as SPLIT } from './i18n/split.mjs';
-import { ROWS as NOTIFY } from './i18n/notifications.mjs';
-import { ROWS as RECURRING } from './i18n/recurring.mjs';
-import { ROWS as WALLETS } from './i18n/wallets.mjs';
-
-// One file per screen; the order only matters for reading the tables.
-const ROWS = [...BASE, ...TAX, ...MONTHLY, ...DEBTS, ...SAVINGS, ...DAILY, ...REPORTS, ...PRO, ...SETUP, ...SCAN, ...SPLIT, ...NOTIFY, ...RECURRING, ...WALLETS];
+import { LANGS, SCREENS } from './i18n/langs.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const LANGS = [
-  { code: 'ms', col: 1, name: 'Bahasa Melayu' },
-  { code: 'zh', col: 2, name: 'Simplified Chinese (简体中文)' },
-];
+const LOCALES_DIR = join(root, 'scripts', 'i18n', 'locales');
+const PACK_LANGS = LANGS.filter((l) => l.file);
 
 const holes = (s) => (s.match(/\{\w+\}/g) || []).sort().join(',');
+
+// Load every language's locale JSON files in canonical screen order.
+const tables = {}; // { [code]: Map<en, translated> }
+const keyOrder = [];
+const allKeys = new Set();
 const problems = [];
-const seen = new Set();
-for (const row of ROWS) {
-  const en = row[0];
-  if (seen.has(en)) problems.push(`duplicate key: ${en}`);
-  seen.add(en);
-  if (en !== en.replace(/\s+/g, ' ').trim()) problems.push(`key has stray whitespace: ${JSON.stringify(en)}`);
-  for (const { code, col } of LANGS) {
-    const t = row[col];
-    if (typeof t !== 'string') { problems.push(`${code} missing column: ${en}`); continue; }
-    if (t && holes(t) !== holes(en)) problems.push(`${code} placeholders differ: ${en} → ${t}`);
+
+for (const { code } of PACK_LANGS) {
+  const map = new Map();
+  tables[code] = map;
+  const langDir = join(LOCALES_DIR, code);
+  if (!existsSync(langDir)) {
+    problems.push(`${code}: missing locale directory scripts/i18n/locales/${code}/`);
+    continue;
+  }
+  const extraFiles = readdirSync(langDir)
+    .filter((f) => f.endsWith('.json'))
+    .map((f) => f.slice(0, -5))
+    .filter((s) => !SCREENS.includes(s));
+  for (const extra of extraFiles) {
+    problems.push(`${code}: locale file ${extra}.json is not listed in SCREENS (scripts/i18n/langs.mjs)`);
+  }
+  for (const screen of SCREENS) {
+    const file = join(langDir, `${screen}.json`);
+    if (!existsSync(file)) {
+      problems.push(`${code}: missing scripts/i18n/locales/${code}/${screen}.json`);
+      continue;
+    }
+    let data;
+    try {
+      data = JSON.parse(readFileSync(file, 'utf8'));
+    } catch (err) {
+      problems.push(`${code}/${screen}.json: invalid JSON (${err.message})`);
+      continue;
+    }
+    for (const [en, t] of Object.entries(data)) {
+      if (map.has(en)) problems.push(`${code}: duplicate key: ${en}`);
+      if (en !== en.replace(/\s+/g, ' ').trim()) problems.push(`${code}/${screen}.json: key has stray whitespace: ${JSON.stringify(en)}`);
+      if (typeof t !== 'string') { problems.push(`${code}/${screen}.json: non-string translation for ${en}`); continue; }
+      if (t && holes(t) !== holes(en)) problems.push(`${code}/${screen}.json: placeholders differ: ${en} → ${t}`);
+      map.set(en, t);
+      if (!allKeys.has(en)) {
+        allKeys.add(en);
+        keyOrder.push(en);
+      }
+    }
   }
 }
+
+// --status reports coverage without aborting on incomplete packs.
+if (process.argv.includes('--status')) {
+  let incomplete = false;
+  for (const { code, name } of PACK_LANGS) {
+    const map = tables[code] || new Map();
+    let translated = 0;
+    const missing = [];
+    for (const en of keyOrder) {
+      const t = map.get(en);
+      if (typeof t === 'string' && t.length > 0) translated++;
+      else missing.push(en);
+    }
+    const pct = keyOrder.length ? ((translated / keyOrder.length) * 100).toFixed(1) : '100.0';
+    console.log(`${code} (${name}): ${translated}/${keyOrder.length} (${pct}%)`);
+    if (missing.length) {
+      incomplete = true;
+      console.log(`  missing (${missing.length}): ${missing.slice(0, 8).join(' | ')}`);
+    }
+  }
+  process.exit(incomplete || problems.length ? 1 : 0);
+}
+
+// Tuple parity guarantee: every non-English language must have a non-empty
+// translation for every canonical English key.
+for (const { code } of PACK_LANGS) {
+  const map = tables[code];
+  if (!map) continue;
+  for (const en of keyOrder) {
+    const t = map.get(en);
+    if (typeof t !== 'string' || !t) problems.push(`${code}: missing translation for ${en}`);
+  }
+}
+
 if (problems.length) {
   console.error(problems.join('\n'));
   process.exit(1);
@@ -81,14 +137,17 @@ export function scanKeys(src) {
   }
   return keys;
 }
+
 if (process.argv.includes('--missing')) {
-  const { readdirSync } = await import('node:fs');
-  const have = new Set(ROWS.map((r) => r[0]));
   const out = [];
   for (const f of readdirSync(join(root, 'app')).filter((n) => n.endsWith('.js') && !n.startsWith('i18n'))) {
-    for (const k of scanKeys(readFileSync(join(root, 'app', f), 'utf8'))) if (k && !have.has(k)) out.push(`${f}: ${k}`);
+    for (const k of scanKeys(readFileSync(join(root, 'app', f), 'utf8'))) {
+      if (!k) continue;
+      const missingIn = PACK_LANGS.filter(({ code }) => !tables[code]?.get(k)).map(({ code }) => code);
+      if (missingIn.length) out.push(`${f} [${missingIn.join(',')}]: ${k}`);
+    }
   }
-  console.log(out.join('\n'));
+  if (out.length) console.log(out.join('\n'));
   process.exit(out.length ? 1 : 0);
 }
 
@@ -201,33 +260,70 @@ export function scanUntranslated(src, file, have) {
 }
 
 if (process.argv.includes('--lint')) {
-  const { readdirSync } = await import('node:fs');
-  const have = new Set(ROWS.map((r) => r[0]));
   const out = [];
   for (const f of readdirSync(join(root, 'app')).filter((n) => n.endsWith('.js') && !n.startsWith('i18n') && !LINT_SKIP_FILES.has(n))) {
-    out.push(...scanUntranslated(readFileSync(join(root, 'app', f), 'utf8'), f, have));
+    out.push(...scanUntranslated(readFileSync(join(root, 'app', f), 'utf8'), f, allKeys));
   }
   if (out.length) console.log(out.join('\n'));
   process.exit(out.length ? 1 : 0);
 }
 
+const isCheck = process.argv.includes('--check');
 let stale = false;
-for (const { code, col, name } of LANGS) {
-  const body = ROWS.filter((r) => r[col]).map((r) => `  ${JSON.stringify(r[0])}: ${JSON.stringify(r[col])},`).join('\n');
+const packHashes = {};
+
+for (const { code, name, file: packFile } of PACK_LANGS) {
+  const map = tables[code];
+  const entries = keyOrder.filter((en) => map.get(en));
+  const body = entries.map((en) => `  ${JSON.stringify(en)}: ${JSON.stringify(map.get(en))},`).join('\n');
   const out = `/* ${name} strings for i18n.js. GENERATED by scripts/build-i18n.mjs from
- * scripts/i18n/strings.mjs — edit there, not here. Key = the English text
+ * scripts/i18n/locales/${code}/*.json — edit there, not here. Key = the English text
  * exactly as the app shows it; missing keys show in English. */
 (window.I18N_TABLES = window.I18N_TABLES || {}).${code} = {
 ${body}
 };
 `;
-  const file = join(root, 'app', `i18n-${code}.js`);
+  packHashes[code] = createHash('sha256').update(out).digest('hex').slice(0, 8);
+  const target = join(root, 'app', packFile);
   let cur = '';
-  try { cur = readFileSync(file, 'utf8'); } catch {}
+  try { cur = readFileSync(target, 'utf8'); } catch {}
   // A Windows checkout may hold CRLF; the content is what counts.
   if (cur.replace(/\r\n/g, '\n') === out) continue;
-  if (process.argv.includes('--check')) { console.error(`app/i18n-${code}.js is stale: run node scripts/build-i18n.mjs`); stale = true; continue; }
-  writeFileSync(file, out);
-  console.log(`wrote app/i18n-${code}.js (${ROWS.filter((r) => r[col]).length} strings)`);
+  if (isCheck) { console.error(`app/${packFile} is stale: run npm run build:i18n`); stale = true; continue; }
+  writeFileSync(target, out);
+  console.log(`wrote app/${packFile} (${entries.length} strings)`);
 }
+
+// Generate app/i18n-langs.js from scripts/i18n/langs.mjs + each pack's SHA-256
+// content hash, so i18n-boot.js, i18n.js and Settings read one registry and
+// app-manifest.mjs --stamp agrees byte-for-byte.
+const browserLangs = LANGS.map((l) => {
+  const entry = {
+    code: l.code,
+    nativeName: l.nativeName,
+    htmlLang: l.htmlLang,
+    locale: l.locale,
+    dir: l.dir || 'ltr',
+    phonePrefixes: l.phonePrefixes,
+  };
+  if (l.file) entry.pack = `${l.file}?v=${packHashes[l.code]}`;
+  return entry;
+});
+const langsOut = `/* Supported UI languages for i18n-boot.js and i18n.js. GENERATED by
+ * scripts/build-i18n.mjs from scripts/i18n/langs.mjs — edit there, not here. */
+window.I18N_LANGS = ${JSON.stringify(browserLangs, null, 2)};
+`;
+const langsFile = join(root, 'app', 'i18n-langs.js');
+let curLangs = '';
+try { curLangs = readFileSync(langsFile, 'utf8'); } catch {}
+if (curLangs.replace(/\r\n/g, '\n') !== langsOut) {
+  if (isCheck) {
+    console.error('app/i18n-langs.js is stale: run npm run build:i18n');
+    stale = true;
+  } else {
+    writeFileSync(langsFile, langsOut);
+    console.log(`wrote app/i18n-langs.js (${browserLangs.length} languages)`);
+  }
+}
+
 process.exit(stale ? 1 : 0);

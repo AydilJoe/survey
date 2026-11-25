@@ -21,6 +21,8 @@ const APP_FILES = [
   "styles.css",
   "icon.svg",
   "manifest.webmanifest",
+  "i18n-langs.js",
+  "i18n-boot.js",
   "i18n-ms.js",
   "i18n-zh.js",
   "i18n.js",

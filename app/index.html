@@ -3336,10 +3336,11 @@
       </div>
     </dialog>
 
-    <!-- Languages first, so the page is translated before script.js renders. -->
-    <script src="i18n-ms.js?v=3db466fe"></script>
-    <script src="i18n-zh.js?v=8abc0a23"></script>
-    <script src="i18n.js?v=91527468"></script>
+    <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
+         synchronously before i18n.js walks the static markup. -->
+    <script src="i18n-langs.js?v=810c8e12"></script>
+    <script src="i18n-boot.js?v=e8f35f1d"></script>
+    <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=f1888886"></script>
     <script src="drive-sync.js?v=08041907"></script>
     <script src="icloud-sync.js?v=90136797"></script>
@@ -3361,6 +3362,6 @@
     <script src="wallets.js?v=39628be9"></script>
     <script src="recap.js?v=e4c2c931"></script>
     <script src="brands.js?v=73d9f7dc"></script>
-    <script src="script.js?v=d9066587"></script>
+    <script src="script.js?v=17ce505e"></script>
   </body>
 </html>
