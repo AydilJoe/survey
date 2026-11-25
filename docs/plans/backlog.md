@@ -262,6 +262,55 @@ hideable habit tool alongside milestones.)
 - **Open design questions:** default on vs opt-in in Settings, and where the
   one-tap "No spend today" chip lives (Home's Today card vs streak sheet).
 
+## Native Apple & Google frameworks (requested 25 Nov 2026)
+
+Platform kits worth adding next (all privacy-first, on-device, zero cloud
+lock-in). For reference, Duitful already ships Apple Vision, VisionKit,
+FoundationModels, WidgetKit, CloudKit, StoreKit, CryptoKit, and basic Siri &
+Shortcuts App Intents (`Log a spend` / `Scan a receipt` in `scripts/patch-ios.mjs`),
+plus Android ML Kit Document Scanner, bundled ML Kit Text Recognition, ML Kit
+GenAI (Gemini Nano in `DuitfulKitAi.java`), Play In-App Review, Play In-App
+Updates, WorkManager, Notification Listener, and Home Screen widgets.
+
+### Apple (iOS / iPadOS)
+1. **Control Center & Lock Screen Controls (`WidgetKit` `ControlWidget`, iOS 18+):**
+   one-tap **Log a spend** and **Scan a receipt** controls right in Control Center
+   and on the Lock Screen (reusing the existing `AppIntents` and
+   `duitful://action/scan` deep link).
+2. **App Intents expansion (Siri, Shortcuts, Spotlight & Interactive Widgets):**
+   - **Actions (`AppIntent`):** extend the existing `Log a spend` intent with
+     optional **Category** and **Card / Wallet** parameters (so Apple Pay Wallet
+     transaction automations carry which card was tapped), plus a one-tap
+     `No spend today` / quick-log intent usable from interactive widgets without
+     opening the app.
+   - **Entities (`AppEnum` / `AppEntity`):** expose Duitful's spending
+     categories (Food, Groceries, Transport, Bills, etc.) as an `AppEnum` and
+     wallet names (names only, never balances, cleared when locked) as an
+     `AppEntity` so Siri understands inline category phrases (*"Log a Food spend
+     in Duitful"*) and Shortcuts/Spotlight can pick them natively.
+   - **Assistant Schemas & localization:** adopt Apple's predefined Assistant
+     Schema for personal finance once Apple publishes a finance domain (so Siri
+     handles free-form phrasing without fixed trigger phrases), and add
+     localized Bahasa Melayu and Chinese Siri phrases (`AppShortcuts.strings`).
+3. **iOS Share Extension:** share a PDF bank statement, Borang EA, or receipt
+   image straight from WhatsApp, Files, or banking apps into Duitful without
+   saving to Photos first (matching Android's share-intent receiver).
+4. *(Not doing for now)* **FinanceKit:** US/UK-only and does not cover Malaysian
+   banks.
+
+### Google (Android)
+1. **Unbundled ML Kit Text Recognition v2 (Play Services, inside `DuitfulKit`):**
+   move Android text reading off the bundled `@pantrist/capacitor-plugin-ml-kit-text-recognition`
+   plugin + Tesseract fallback onto Play Services' unbundled ML Kit Text
+   Recognition v2 (Latin + Chinese script support), matching iOS Vision's
+   accuracy/speed while shrinking the Android APK/AAB further.
+2. **Quick Settings Tile (`TileService`) & App Actions (`shortcuts.xml`):**
+   swipe-down 1-tap **Scan receipt** / **Log spend** tile in the Android Quick
+   Settings shade, plus Google Assistant / Gemini voice actions matching iOS
+   Siri Shortcuts.
+3. **Jetpack Glance widgets (optional):** modernize Android's `RemoteViews`
+   home-screen widget if richer interactive layouts are added later.
+
 ## Open decisions
 
 - **Bank alerts by SMS**: many MY banks send card alerts by SMS, which
