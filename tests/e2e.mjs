@@ -7364,7 +7364,8 @@ check('a failure never strands the button, and says something happened',
 {
   // The lockout must never come back. It is the single change most likely to
   // be undone by someone "restoring" the tour.
-  const src = readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8');
+  const src = readFileSync(path.join(REPO_ROOT, 'app', 'script.js'), 'utf8')
+    + '\n' + readFileSync(path.join(REPO_ROOT, 'app', 'onboarding.js'), 'utf8');
   check('nothing turns the first-run tour lockout back on',
     !/openGuide\(\s*\{\s*firstRun:\s*true/.test(src),
     (/openGuide\([^)]*\)/.exec(src) || ['none'])[0]);
