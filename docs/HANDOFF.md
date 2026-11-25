@@ -6,10 +6,11 @@ Read this first, then `CLAUDE.md` (the project rules; keep following them) and
 ## Where things stand
 
 - **Live:** 1.64.2 (1.64.0 Apple Vision OCR size cut, 1.64.1 multilingual bank
-  notification parser, 1.64.2 translation clean-up + lint guard). Modularity
-  Phase 0 (`scripts/app-manifest.mjs` + SHA-256 content-hash cache busting) and
-  Phase 1 (`scripts/i18n/langs.mjs`, per-language JSON locales, on-demand
-  `i18n-boot.js`) are merged on `main`.
+  notification parser, 1.64.2 translation clean-up + lint guard).
+- **Modularity complete (Phases 0, 1 & 2 merged on `main`):**
+  - Phase 0: `scripts/app-manifest.mjs` + SHA-256 content-hash cache busting (`npm run stamp:assets`, `npm run check:manifest`).
+  - Phase 1: `scripts/i18n/langs.mjs`, per-language JSON locales (`scripts/i18n/locales/<code>/*.json`), CSP-safe `app/i18n-boot.js` (0 KB for English, single active pack for non-English), on-demand switching.
+  - Phase 2: extracted 8 cohesive modules from `app/script.js` (`search.js`, `csv.js`, `reports.js`, `onboarding.js`, `cloud.js`, `capture.js`, `pro.js`, `ocr.js`), cutting `app/script.js` from 19,131 → ~9,790 lines (freeze lifted).
 - **Web message on:** `announcements.json` `2026-11-ios-app-icloud` — Apple web
   users get the "Move to the iPhone app" sheet (download CSV first).
 - **Deploy:** `.github/workflows/pages.yml` is now two jobs (build → deploy);
@@ -19,8 +20,7 @@ Read this first, then `CLAUDE.md` (the project rules; keep following them) and
 
 | Work | Branch | Notes |
 |---|---|---|
-| **Modularity Phase 2 — splitting `app/script.js`** | `modularity-phase-2-*` | **FREEZE on concurrent `app/script.js` edits** while cohesive modules (`search.js`, `csv.js`, `reports.js`, `onboarding.js`, `cloud.js`, `capture.js`, `pro.js`, `ocr.js`) are extracted one PR at a time. Each PR passes `check:manifest`, `build-i18n`, `e2e`, and Android emulator cold boot before the next starts. |
-| **1.64.0 iPhone size cut verification** | merged (`v1.64.0`) | Pending real iPhone TestFlight verification of Apple Vision OCR on receipts, statement scans, and EA form. |
+| **1.64.0 iPhone size cut verification** | merged (`v1.64.0`) | Pending real iPhone TestFlight verification of Apple Vision OCR on receipts, statement scans, and EA form (also verifies Phase 2 cold boot on iOS). |
 
 ## Next (agreed, not started)
 
