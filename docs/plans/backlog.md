@@ -277,10 +277,21 @@ Updates, WorkManager, Notification Listener, and Home Screen widgets.
    one-tap **Log a spend** and **Scan a receipt** controls right in Control Center
    and on the Lock Screen (reusing the existing `AppIntents` and
    `duitful://action/scan` deep link).
-2. **App Intents expansion (Siri, Shortcuts & Apple Pay):** extend the existing
-   `Log a spend` intent with an optional **Card / Wallet** parameter (so Apple Pay
-   Wallet transaction automations carry which card was tapped), plus localized
-   Bahasa Melayu and Chinese Siri phrases (`AppShortcuts.strings`).
+2. **App Intents expansion (Siri, Shortcuts, Spotlight & Interactive Widgets):**
+   - **Actions (`AppIntent`):** extend the existing `Log a spend` intent with
+     optional **Category** and **Card / Wallet** parameters (so Apple Pay Wallet
+     transaction automations carry which card was tapped), plus a one-tap
+     `No spend today` / quick-log intent usable from interactive widgets without
+     opening the app.
+   - **Entities (`AppEnum` / `AppEntity`):** expose Duitful's spending
+     categories (Food, Groceries, Transport, Bills, etc.) as an `AppEnum` and
+     wallet names (names only, never balances, cleared when locked) as an
+     `AppEntity` so Siri understands inline category phrases (*"Log a Food spend
+     in Duitful"*) and Shortcuts/Spotlight can pick them natively.
+   - **Assistant Schemas & localization:** adopt Apple's predefined Assistant
+     Schema for personal finance once Apple publishes a finance domain (so Siri
+     handles free-form phrasing without fixed trigger phrases), and add
+     localized Bahasa Melayu and Chinese Siri phrases (`AppShortcuts.strings`).
 3. **iOS Share Extension:** share a PDF bank statement, Borang EA, or receipt
    image straight from WhatsApp, Files, or banking apps into Duitful without
    saving to Photos first (matching Android's share-intent receiver).
