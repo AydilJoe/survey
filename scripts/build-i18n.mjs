@@ -172,7 +172,7 @@ export function scanUntranslated(src, file, have) {
   const usesDomTranslate = (lineNo) => {
     if (file === 'split.js') return true;
     // openEditDialog & onboardAddDebtRow call I18N.translate() on their container
-    if (file === 'script.js') {
+    if (file === 'script.js' || file === 'onboarding.js') {
       const ctx = lines.slice(Math.max(0, lineNo - 160), Math.min(lines.length, lineNo + 160)).join('\n');
       return /\bI18N\.translate\s*\(/.test(ctx);
     }

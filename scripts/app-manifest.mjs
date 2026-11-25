@@ -63,6 +63,7 @@ export const APP_MANIFEST = {
     "search.js",
     "csv.js",
     "reports.js",
+    "onboarding.js",
     "script.js",
   ],
   // Not loaded in app/index.html at boot — fetched on demand (or by CSS /
