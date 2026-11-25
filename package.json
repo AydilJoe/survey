@@ -31,6 +31,8 @@
     "test:e2e": "node tests/e2e.mjs",
     "capacitor:copy:after": "node scripts/trim-native-web.mjs",
     "check:applinks": "node scripts/check-applinks.mjs",
+    "check:manifest": "node scripts/app-manifest.mjs --check",
+    "stamp:assets": "node scripts/app-manifest.mjs --stamp",
     "render:site-images": "node scripts/render-site-images.mjs"
   },
   "devDependencies": {

@@ -170,11 +170,12 @@ on main: `i18n-ms.js` 196 KB, `i18n-zh.js` 185 KB (2,558 lines each),
 `script.js` 19,118 lines / 931 KB.
 
 **Order and why**
-1. **Phase 0 — asset manifest, Option A (validator) first.** Cheapest, zero
-   runtime risk, and it protects the other two phases from drift. Add
-   content hashes (or one generated build id) instead of hand-bumped `?v=N`:
-   two AI sessions bumping the same `?v=` numbers caused merge conflicts on
-   20–22 Nov. Option B (generator between marker comments) can follow later.
+1. **Phase 0 — asset manifest, Option A (validator) first (DONE).** Shipped in
+   `scripts/app-manifest.mjs` (`npm run check:manifest`, `npm run stamp:assets`,
+   wired into CI and `tests/e2e.mjs`) with deterministic 8-char SHA-256 `?v=`
+   content hashes and a derived `sw.js` `VERSION = "h-<hash>"` replacing
+   hand-bumped `?v=N` numbers. Option B (generator between marker comments) can
+   follow later.
 2. **Phase 1 — i18n registry + per-language loading,** done **together with
    the 4th language** (Tamil or Indonesian), not before: the boot saving for
    today's 3 languages is small (both packs are cached by the service worker,

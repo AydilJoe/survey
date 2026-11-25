@@ -15,52 +15,52 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "2026-11-24-3";
+const VERSION = "h-66825d75";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=178",
-  "/app/script.js?v=254",
+  "/app/styles.css?v=200a0cd8",
+  "/app/script.js?v=d9066587",
   // Languages: the two tables load before the engine (index.html).
-  "/app/i18n-ms.js?v=35",
-  "/app/i18n-zh.js?v=35",
-  "/app/i18n.js?v=4",
-  "/app/drive-config.js?v=3",
-  "/app/drive-sync.js?v=5",
-  "/app/icloud-sync.js?v=9",
-  "/app/investments.js?v=7",
-  "/app/split.js?v=24",
-  "/app/split-recurring.js?v=1",
-  "/app/receipt-extract.js?v=1",
-  "/app/region.js?v=1",
-  "/app/ea-extract.js?v=1",
-  "/app/tax-data.js?v=3",
-  "/app/tax.js?v=20",
-  "/app/statement.js?v=8",
-  "/app/wallets.js?v=2",
-  "/app/recap.js?v=2",
+  "/app/i18n-ms.js?v=3db466fe",
+  "/app/i18n-zh.js?v=8abc0a23",
+  "/app/i18n.js?v=91527468",
+  "/app/drive-config.js?v=f1888886",
+  "/app/drive-sync.js?v=08041907",
+  "/app/icloud-sync.js?v=90136797",
+  "/app/investments.js?v=39cf34a0",
+  "/app/split.js?v=556eb5d9",
+  "/app/split-recurring.js?v=3d2d4d95",
+  "/app/receipt-extract.js?v=20e13371",
+  "/app/region.js?v=a54b250e",
+  "/app/ea-extract.js?v=0036c413",
+  "/app/tax-data.js?v=a4c433a4",
+  "/app/tax.js?v=160e7c7a",
+  "/app/statement.js?v=746ab802",
+  "/app/wallets.js?v=39628be9",
+  "/app/recap.js?v=e4c2c931",
   // pdf.js (Apache-2.0) for statement import: injected only when a PDF is
   // picked, precached so it works offline like jsQR.
-  "/app/vendor/pdfjs/pdf.min.js?v=1",
-  "/app/vendor/pdfjs/pdf.worker.min.js?v=1",
-  "/app/brands.js?v=3",
-  "/app/analytics.js?v=1",
-  "/app/theme-boot.js?v=2",
+  "/app/vendor/pdfjs/pdf.min.js?v=978fd1b2",
+  "/app/vendor/pdfjs/pdf.worker.min.js?v=38cde531",
+  "/app/brands.js?v=73d9f7dc",
+  "/app/analytics.js?v=01a6bc4a",
+  "/app/theme-boot.js?v=68fa9ffd",
   // Brand marks: tiny (0.3–3 KB each) and drawn on the Debts tab, so they are
   // precached rather than fetched on first paint. Add a line when a new logo
   // ships — an unlisted one still works online, it just pops in offline.
   "/app/brand-logos/spaylater.svg",
   "/app/brand-logos/grabpay.svg",
   "/app/brand-logos/hsbc.svg",
-  "/app/vendor/qr/qrcode.js?v=1",
+  "/app/vendor/qr/qrcode.js?v=79ec86f8",
   // Precached even though split.js injects it on demand — that is what
   // keeps QR scanning working offline without paying 250 KB on every boot.
-  "/app/vendor/qr/jsQR.js?v=1",
+  "/app/vendor/qr/jsQR.js?v=aa04ddc2",
   // Pastel theme's rounded font (Nunito, OFL). styles.css only fetches it
   // while Pastel is on; precached so Pastel looks the same offline.
-  "/app/vendor/fonts/nunito-latin.woff2?v=1",
+  "/app/vendor/fonts/nunito-latin.woff2?v=ba344451",
   "/app/icon.svg",
 ];
 
