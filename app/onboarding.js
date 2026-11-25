@@ -1080,3 +1080,155 @@ guideDialog()?.addEventListener("close", () => {
 guideDialog()?.addEventListener("cancel", (e) => {
   if (guideFirstRun) e.preventDefault();
 });
+
+/* ---------- "New" feature spotlight with motion (v1.65.0) ----------
+   When a release adds a feature, returning users who updated past that
+   version see a single calm "New" chip on Home. Tapping it switches to the
+   relevant tab, smooth-scrolls to the target, and pulses a highlight ring
+   (or jumps with a static ring when prefers-reduced-motion is set). Brand-new
+   installs never see it (they have the tour); dismissed once seen or tapped. */
+const NEW_FEATURES_SEEN_KEY = "duitful.newFeaturesSeen";
+const NEW_FEATURES_FROM_KEY = "duitful.newFeaturesFrom";
+const NEW_FEATURES = [
+  { id: "pastel-theme", version: "1.62.0", tab: "data", target: [".theme-pills"], label: () => tr("Pastel theme") },
+  { id: "wallets", version: "1.61.0", tab: "savings", target: ["#wallets-card"], label: () => tr("Wallets") },
+  { id: "recurring-splits", version: "1.59.0", tab: "debts", target: ["#rs-card", "[data-action='rs-new']", ".split-start-card"], label: () => tr("Recurring splits") },
+  { id: "statement-import", version: "1.57.0", tab: "data", target: ["#btn-stmt-import"], label: () => tr("Import bank statement") },
+];
+
+let _featureSpotTimer = null;
+let _featureSpotEl = null;
+
+function readNewFeaturesSeen() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(NEW_FEATURES_SEEN_KEY) || "{}");
+    return raw && typeof raw === "object" ? raw : {};
+  } catch { return {}; }
+}
+function markNewFeatureSeen(id) {
+  if (!id) return;
+  const seen = readNewFeaturesSeen();
+  seen[id] = true;
+  try { localStorage.setItem(NEW_FEATURES_SEEN_KEY, JSON.stringify(seen)); } catch {}
+}
+function markAllNewFeaturesSeen() {
+  const seen = readNewFeaturesSeen();
+  for (const f of NEW_FEATURES) seen[f.id] = true;
+  try { localStorage.setItem(NEW_FEATURES_SEEN_KEY, JSON.stringify(seen)); } catch {}
+}
+function initFeatureSpotlights() {
+  if (typeof state === "undefined" || !state) return;
+  const hasData =
+    (state.income?.length || 0) +
+    (state.expenses?.length || 0) +
+    (state.dailyExpenses?.length || 0) +
+    (state.debts?.length || 0) +
+    (state.savings?.length || 0) +
+    (state.investments?.length || 0);
+  const prev = state.lastSeenVersion || "";
+  if (!hasData && !prev) {
+    // Brand-new install: never show "New" update chips (the tour handles them).
+    markAllNewFeaturesSeen();
+    try { localStorage.setItem(NEW_FEATURES_FROM_KEY, APP_VERSION); } catch {}
+    renderFeatureSpotlight();
+    return;
+  }
+  if (prev && versionCompare(prev, APP_VERSION) < 0) {
+    let storedFrom = "";
+    try { storedFrom = localStorage.getItem(NEW_FEATURES_FROM_KEY) || ""; } catch {}
+    // Keep the older baseline if an earlier update spotlight is still pending.
+    if (!storedFrom || versionCompare(prev, storedFrom) < 0 || !activeNewFeature()) {
+      try { localStorage.setItem(NEW_FEATURES_FROM_KEY, prev); } catch {}
+    }
+  }
+  renderFeatureSpotlight();
+}
+function activeNewFeature() {
+  let fromVer = "";
+  try { fromVer = localStorage.getItem(NEW_FEATURES_FROM_KEY) || ""; } catch {}
+  if (!fromVer || versionCompare(fromVer, APP_VERSION) >= 0) return null;
+  const seen = readNewFeaturesSeen();
+  const eligible = NEW_FEATURES
+    .filter((f) =>
+      !seen[f.id] &&
+      versionCompare(f.version, fromVer) > 0 &&
+      versionCompare(f.version, APP_VERSION) <= 0)
+    .sort((a, b) => versionCompare(b.version, a.version));
+  return eligible[0] || null;
+}
+function clearFeatureSpotHighlight() {
+  if (_featureSpotTimer) { clearTimeout(_featureSpotTimer); _featureSpotTimer = null; }
+  if (_featureSpotEl) {
+    _featureSpotEl.classList.remove("feature-spot-highlight");
+    _featureSpotEl = null;
+  }
+}
+function renderFeatureSpotlight() {
+  const bar = document.getElementById("feature-spot-bar");
+  const labelEl = document.getElementById("feature-spot-label");
+  if (!bar || !labelEl) return;
+  const lock = document.getElementById("lock");
+  const guideSpot = document.getElementById("guide-spotlight");
+  const openDialog = document.querySelector("dialog[open]");
+  const feat = activeNewFeature();
+  const blocked = !feat || (lock && !lock.hidden) || !!openDialog || (guideSpot && !guideSpot.hidden);
+  if (blocked) {
+    bar.hidden = true;
+    bar.removeAttribute("data-feature-id");
+    return;
+  }
+  labelEl.textContent = typeof feat.label === "function" ? feat.label() : tr(feat.label);
+  bar.setAttribute("data-feature-id", feat.id);
+  bar.hidden = false;
+}
+function triggerFeatureSpotlight(feat) {
+  if (!feat) return;
+  markNewFeatureSeen(feat.id);
+  renderFeatureSpotlight();
+  clearFeatureSpotHighlight();
+  if (feat.tab) {
+    const tabBtn = document.querySelector(`.tab[data-tab="${feat.tab}"]`);
+    if (tabBtn && !tabBtn.classList.contains("active")) tabBtn.click();
+  }
+  const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  requestAnimationFrame(() => {
+    const list = Array.isArray(feat.target) ? feat.target : [feat.target];
+    let el = null;
+    for (const sel of list) {
+      const cand = document.querySelector(sel);
+      if (!cand) continue;
+      const det = cand.closest("details");
+      if (det && !det.open) det.open = true;
+      if (cand.offsetParent !== null) { el = cand; break; }
+    }
+    if (!el) return;
+    try { el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" }); } catch {}
+    el.classList.add("feature-spot-highlight");
+    _featureSpotEl = el;
+    const clearOnce = () => { clearFeatureSpotHighlight(); };
+    el.addEventListener("pointerdown", clearOnce, { once: true });
+    _featureSpotTimer = setTimeout(clearFeatureSpotHighlight, 2800);
+  });
+}
+function dismissFeatureSpotlight() {
+  const feat = activeNewFeature();
+  if (feat) markNewFeatureSeen(feat.id);
+  renderFeatureSpotlight();
+}
+
+document.getElementById("btn-feature-spot")?.addEventListener("click", () => {
+  const feat = activeNewFeature();
+  if (feat) triggerFeatureSpotlight(feat);
+});
+document.getElementById("btn-feature-spot-dismiss")?.addEventListener("click", dismissFeatureSpotlight);
+// Re-check whenever any dialog opens or closes so the chip never competes with a sheet.
+document.querySelectorAll("dialog").forEach((d) => {
+  d.addEventListener("close", () => { renderFeatureSpotlight(); });
+});
+if (typeof MutationObserver !== "undefined") {
+  const _fsObs = new MutationObserver(() => { renderFeatureSpotlight(); });
+  document.querySelectorAll("dialog").forEach((d) => {
+    _fsObs.observe(d, { attributes: true, attributeFilter: ["open"] });
+  });
+}
+

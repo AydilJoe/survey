@@ -15042,6 +15042,75 @@ check('the brand catalogue makes no network calls at all',
   await B.ctx.close();
 }
 
+// ── "New" feature spotlight with motion (v1.65.0) ─────────────────────────
+{
+  const sctx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  const sp = await sctx.newPage();
+  const sErr = [];
+  sp.on('pageerror', (e) => sErr.push(e.message));
+  await sp.goto(`${BASE}/app/index.html`);
+  await sp.waitForTimeout(800);
+  await sp.click('#btn-start-open');
+  await sp.waitForTimeout(1400);
+  await sp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  await sp.waitForTimeout(150);
+
+  // Brand-new install: never shows "New" update spotlight chip.
+  const freshHidden = await sp.evaluate(() => document.getElementById('feature-spot-bar').hidden);
+  check('feature spotlight: hidden on brand-new installs', freshHidden === true, String(freshHidden));
+
+  // Simulate returning user who updated from 1.60.0 with existing data.
+  const updated = await sp.evaluate(() => {
+    localStorage.removeItem(NEW_FEATURES_SEEN_KEY);
+    localStorage.removeItem(NEW_FEATURES_FROM_KEY);
+    state.income.push({ id: 'fs1', name: 'Salary', amount: 4000, month: '2026-11' });
+    state.lastSeenVersion = '1.60.0';
+    initFeatureSpotlights();
+    const bar = document.getElementById('feature-spot-bar');
+    const lbl = document.getElementById('feature-spot-label').textContent.trim();
+    const overflow = document.documentElement.scrollWidth > document.documentElement.clientWidth;
+    // Opening any dialog hides the chip; closing brings it back.
+    const dlg = document.getElementById('search-dialog');
+    dlg.showModal();
+    renderFeatureSpotlight();
+    const hiddenWithDialog = bar.hidden;
+    dlg.close();
+    renderFeatureSpotlight();
+    const visibleAfterClose = !bar.hidden;
+    return { visible: !bar.hidden, id: bar.getAttribute('data-feature-id'), lbl, overflow, hiddenWithDialog, visibleAfterClose };
+  });
+  check('feature spotlight: returning user updating past a feature sees the "New" chip on Home, hidden while a dialog is open, zero overflow at 360px',
+    updated.visible && updated.id === 'pastel-theme' && updated.lbl === 'Pastel theme' && !updated.overflow && updated.hiddenWithDialog && updated.visibleAfterClose,
+    JSON.stringify(updated));
+
+  // Tapping the chip switches to the target tab, highlights the target, and dismisses the feature.
+  await sp.click('#btn-feature-spot');
+  await sp.waitForTimeout(250);
+  const tapped = await sp.evaluate(() => ({
+    tabActive: document.getElementById('tab-data').classList.contains('active'),
+    highlighted: !!document.querySelector('.theme-pills.feature-spot-highlight'),
+    seen: !!readNewFeaturesSeen()['pastel-theme'],
+    nextId: activeNewFeature()?.id || '',
+  }));
+  check('feature spotlight: tapping switches to the target tab, highlights the feature, and marks it seen',
+    tapped.tabActive && tapped.highlighted && tapped.seen && tapped.nextId === 'wallets', JSON.stringify(tapped));
+
+  // Dismiss button marks the next spotlight seen without switching tabs.
+  await sp.click('#tabbtn-dashboard');
+  await sp.waitForTimeout(150);
+  await sp.click('#btn-feature-spot-dismiss');
+  await sp.waitForTimeout(100);
+  const dismissed = await sp.evaluate(() => ({
+    tabHome: document.getElementById('tab-dashboard').classList.contains('active'),
+    walletsSeen: !!readNewFeaturesSeen()['wallets'],
+    barHidden: document.getElementById('feature-spot-bar').hidden,
+    errs: 0,
+  }));
+  check('feature spotlight: dismiss marks the current spotlight seen without navigating',
+    dismissed.tabHome && dismissed.walletsSeen && sErr.length === 0, JSON.stringify({ ...dismissed, sErr }));
+  await sctx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

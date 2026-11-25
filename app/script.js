@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.64.3";
+const APP_VERSION = "1.65.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -3481,6 +3481,7 @@ function renderAll() {
   applyTerminology();
   populateIslamicContracts();
   renderGreeting();
+  if (typeof renderFeatureSpotlight === "function") renderFeatureSpotlight();
   renderTrialBanner();
   renderReminderAsk();
   renderDashboard();
@@ -7458,6 +7459,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.65.0": [
+    "<strong>New feature spotlight</strong> — when an update adds a feature, a quiet \"New\" chip appears on Home. Tap it to jump straight to that tab with a gentle highlight ring (dismissed once tapped or closed, never shown on fresh installs).",
+  ],
   "1.64.3": [
     "<strong>A calmer welcome screen</strong> — the first-open and passcode screen now opens over a dawn horizon with full-width pill buttons and quick links to the privacy policy and terms of service across Light, Dark, and Pastel themes.",
   ],
@@ -8642,6 +8646,7 @@ async function handleUnlock(passcode, { silent = false } = {}) {
   ensureTrialStarted();
   renderAll(); // first render: tweens snap because _isHydrated is still false
   _isHydrated = true;
+  if (typeof initFeatureSpotlights === "function") initFeatureSpotlights();
   maybeShowWhatsNew();
   if (passcode !== OPEN_PASSCODE) maybeOfferBiometric(passcode).catch(() => {});
   // Delayed so a What's-new dialog (or the first-run tour) claims the modal
