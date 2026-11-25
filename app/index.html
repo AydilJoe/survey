@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=b0bacd32" />
+    <link rel="stylesheet" href="styles.css?v=bcbf65e2" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -139,12 +139,6 @@
               <stop offset="56%" style="stop-color: var(--stage); stop-opacity: 0.72"/>
               <stop offset="100%" style="stop-color: var(--stage); stop-opacity: 1"/>
             </linearGradient>
-            <filter id="lock-blur-rim" x="-20%" y="-60%" width="140%" height="220%">
-              <feGaussianBlur stdDeviation="5.5"/>
-            </filter>
-            <filter id="lock-blur-streak" x="-40%" y="-200%" width="180%" height="500%">
-              <feGaussianBlur stdDeviation="2.4"/>
-            </filter>
           </defs>
           <rect width="430" height="430" fill="url(#lock-sky-g)"/>
           <g class="lock-stars" fill="currentColor">
@@ -163,11 +157,12 @@
           </g>
           <rect width="430" height="360" fill="url(#lock-haze-g)"/>
           <circle cx="215" cy="725" r="540" fill="url(#lock-planet-g)"/>
-          <path d="M -12 233 A 540 540 0 0 1 442 233" fill="none" stroke="url(#lock-rim-g)" stroke-width="9" opacity="0.48" filter="url(#lock-blur-rim)"/>
+          <path d="M -12 233 A 540 540 0 0 1 442 233" fill="none" stroke="url(#lock-rim-g)" stroke-width="14" opacity="0.14"/>
+          <path d="M -12 233 A 540 540 0 0 1 442 233" fill="none" stroke="url(#lock-rim-g)" stroke-width="5.5" opacity="0.28"/>
           <path d="M -12 233 A 540 540 0 0 1 442 233" fill="none" stroke="url(#lock-rim-g)" stroke-width="1.5"/>
           <g class="lock-flare-group">
             <circle cx="295" cy="191" r="64" fill="url(#lock-flare-g)"/>
-            <ellipse cx="295" cy="191" rx="64" ry="2.2" transform="rotate(8.5 295 191)" fill="url(#lock-flare-g)" filter="url(#lock-blur-streak)"/>
+            <ellipse cx="295" cy="191" rx="64" ry="3.2" transform="rotate(8.5 295 191)" fill="url(#lock-flare-g)" opacity="0.85"/>
             <circle cx="295" cy="191" r="3.4" style="fill: var(--lock-flare)" opacity="0.98"/>
           </g>
           <rect x="0" y="280" width="430" height="150" fill="url(#lock-fade-g)"/>

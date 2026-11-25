@@ -9223,14 +9223,6 @@ html[data-theme="pastel"] #lock {
   color: var(--lock-flare);
 }
 .lock-stars { opacity: var(--lock-star-opacity); }
-.lock-flare-group {
-  transform-origin: 295px 191px;
-  animation: lock-flare-breathe 6.5s ease-in-out infinite;
-}
-@keyframes lock-flare-breathe {
-  0%, 100% { opacity: 0.92; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.045); }
-}
 
 #lock > .splash-inner {
   position: relative;
@@ -9508,7 +9500,4 @@ html[data-theme="pastel"] #lock .lock-google:hover {
 #lock .lock-start button[hidden],
 #lock .lock-form input[hidden] { display: none; }
 
-@media (prefers-reduced-motion: reduce) {
-  .lock-flare-group { animation: none; }
-}
 
