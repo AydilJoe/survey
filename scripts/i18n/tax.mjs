@@ -536,4 +536,9 @@ export const ROWS = [
   ["Suggested by your phone's AI", "Dicadangkan oleh AI telefon anda", "由你手机的 AI 建议"],
   ["Tax relief", "Pelepasan cukai", "扣税"],
   ["Suggests which relief a shop name may fit, for you to check. It never claims for you.", "Mencadangkan pelepasan yang mungkin sesuai dengan nama kedai, untuk anda semak. Ia tak pernah membuat tuntutan untuk anda.", "根据店名建议可能符合的扣税项目，由你核对。它从不替你申报。"],
+
+  // ── Fallback terms for custom tax rules ─────────────────────────
+  ["the tax office", "pihak cukai", "税务局"],
+  ["Tax withheld", "Cukai dipotong", "已预扣税款"],
+  ["filing", "pemfailan", "报税"],
 ];

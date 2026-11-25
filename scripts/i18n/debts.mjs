@@ -139,4 +139,6 @@ export const ROWS = [
   ["They get a link — no app needed.", "Mereka dapat pautan — tidak perlu apl.", "对方收到一个链接——不需要下载应用。"],
   ["Split or request money", "Bahagi atau minta wang", "分账或收款"],
   ["Add a request I received", "Tambah permintaan yang saya terima", "添加我收到的收款请求"],
+  ["Set total months to show progress — how many payments you've already made can't be worked out from the balance alone.", "Tetapkan jumlah bulan untuk tunjuk kemajuan — berapa bayaran yang sudah dibuat tidak boleh dikira daripada baki sahaja.", "填上总月数就能显示进度——光看余额算不出你已经还了几期。"],
+  ["✓ already paid this month", "✓ sudah dibayar bulan ini", "✓ 本月已还"],
 ];

@@ -2,6 +2,10 @@
 
 Moved out of `../backlog.md` on 20 Nov 2026. Completed plan files are in this folder too (`shorter-forms.md`, `statement-scans.md`).
 
+## Translation clean-up: English built in script — shipped 1.64.2
+
+Audited every UI script (`script.js`, `split.js`, `drive-sync.js`, `icloud-sync.js`, `tax.js`, plus verified `split-recurring.js`, `statement.js`, `wallets.js`, `recap.js`, `investments.js`), routed ~250 remaining JS-built English UI strings (capture cards, install guide, Pro celebration & store errors, FX preview/status, CSV import/export, biometric/lock/restore errors, split errors/QR/panels/progress, Drive & iCloud statuses) through `tr()`/`trn()` with natural Malaysian Bahasa Melayu and Simplified Chinese rows, and closed the regression gap with `scripts/build-i18n.mjs --lint` + runtime Malay/Chinese DOM assertions in `tests/e2e.mjs`.
+
 ## Tax: EA form scanner and AI relief matching
 
 1. **EA form scanner — shipped 1.62.0.** Scan or pick the employer's Borang EA

@@ -35,6 +35,9 @@
  */
 (function () {
   "use strict";
+  const tr = (s, v) => (typeof window !== "undefined" && typeof window.tr === "function"
+    ? window.tr(s, v)
+    : (v ? s.replace(/\{(\w+)\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(v, k) ? String(v[k]) : m)) : s));
 
   const STATUS_KEY = "duit-tracker.icloud";
 
@@ -190,17 +193,24 @@
   function ckErrorText(err, verb) {
     let code = (err && (err.ckErrorCode || err.serverErrorCode)) || "";
     const orig = code;
+    const isSave = verb === "save";
     // CloudKit JS wraps a failed asset upload as UNEXPECTED_SERVER_RESPONSE
     // around a NETWORK_ERROR; treat both as a connection problem.
     if (code === "UNEXPECTED_SERVER_RESPONSE" && /NETWORK_ERROR/.test(String(err && err.message || err))) code = "NETWORK_ERROR";
     if (code === "NETWORK_ERROR") {
       const d = failureDetail();
-      if (d) return `Couldn't ${verb} iCloud (${d}).`;
+      if (d) return isSave ? tr("Couldn't save to iCloud ({d}).", { d }) : tr("Couldn't read from iCloud ({d}).", { d });
     }
-    if (code === "AUTHENTICATION_REQUIRED" || code === "AUTHENTICATION_FAILED") return "Sign in with your Apple ID again, then retry.";
-    if (code === "QUOTA_EXCEEDED") return "Your iCloud storage is full.";
-    if (code === "NETWORK_ERROR") return orig === code ? `Couldn't ${verb} iCloud. Check your connection.` : `Couldn't ${verb} iCloud (${orig}, upload). Check your connection.`;
-    return `Couldn't ${verb} iCloud${code ? ` (${code})` : ""}.`;
+    if (code === "AUTHENTICATION_REQUIRED" || code === "AUTHENTICATION_FAILED") return tr("Sign in with your Apple ID again, then retry.");
+    if (code === "QUOTA_EXCEEDED") return tr("Your iCloud storage is full.");
+    if (code === "NETWORK_ERROR") {
+      if (orig === code) return isSave ? tr("Couldn't save to iCloud. Check your connection.") : tr("Couldn't read from iCloud. Check your connection.");
+      return isSave
+        ? tr("Couldn't save to iCloud ({code}, upload). Check your connection.", { code: orig })
+        : tr("Couldn't read from iCloud ({code}, upload). Check your connection.", { code: orig });
+    }
+    if (code) return isSave ? tr("Couldn't save to iCloud ({d}).", { d: code }) : tr("Couldn't read from iCloud ({d}).", { d: code });
+    return isSave ? tr("Couldn't save to iCloud.") : tr("Couldn't read from iCloud.");
   }
   // CloudKit JS rejects with a CKError whose message is a long dump; turn
   // any thrown error into one short line.
@@ -208,7 +218,9 @@
     try { return await fn(); }
     catch (e) {
       if (e && e.duitful) throw e;
-      let text = e && (e.ckErrorCode || e.serverErrorCode) ? ckErrorText(e, verb) : `Couldn't ${verb} iCloud. Check your connection.`;
+      let text = e && (e.ckErrorCode || e.serverErrorCode)
+        ? ckErrorText(e, verb)
+        : (verb === "save" ? tr("Couldn't save to iCloud. Check your connection.") : tr("Couldn't read from iCloud. Check your connection."));
       const d = failureDetail();
       if (d && !text.includes(d)) text = text.replace(/\.$/, "") + ` (${d}).`;
       const out = new Error(text);
@@ -218,11 +230,11 @@
   }
 
   async function webFetchRecord(db) {
-    const res = await ckTry("read from", () => db.fetchRecords([RECORD_NAME]));
+    const res = await ckTry("read", () => db.fetchRecords([RECORD_NAME]));
     if (res.hasErrors) {
       const e = res.errors && res.errors[0];
       if (e && (e.ckErrorCode === "NOT_FOUND" || e.serverErrorCode === "NOT_FOUND")) return null;
-      throw new Error(ckErrorText(e, "read from"));
+      throw new Error(ckErrorText(e, "read"));
     }
     return (res.records && res.records[0]) || null;
   }
@@ -236,7 +248,7 @@
       if (!asset || !asset.downloadURL) return { data: null };
       const url = String(asset.downloadURL).replace("${f}", "duitful-backup.json");
       const r = await fetch(url);
-      if (!r.ok) throw new Error("Couldn't read from iCloud (" + r.status + ").");
+      if (!r.ok) throw new Error(tr("Couldn't read from iCloud ({d}).", { d: r.status }));
       return { data: await r.text() };
     },
     async write({ data }) {
@@ -252,11 +264,11 @@
         if (current && current.recordChangeTag) record.recordChangeTag = current.recordChangeTag;
         const unwatch = watchXhr();
         let res;
-        try { res = await ckTry("save to", () => db.saveRecords([record])); } finally { unwatch(); }
+        try { res = await ckTry("save", () => db.saveRecords([record])); } finally { unwatch(); }
         if (!res.hasErrors) return { ok: true };
         const e = res.errors && res.errors[0];
         const code = e && (e.ckErrorCode || e.serverErrorCode);
-        if (code !== "CONFLICT" || attempt === 1) throw new Error(ckErrorText(e, "save to"));
+        if (code !== "CONFLICT" || attempt === 1) throw new Error(ckErrorText(e, "save"));
       }
       return { ok: true };
     },
@@ -348,8 +360,8 @@
     const res = await plugin().read();
     let body = null;
     if (res && typeof res.data === "string" && res.data) {
-      try { body = JSON.parse(res.data); } catch { throw new Error("The iCloud backup is damaged."); }
-      if (!body || typeof body !== "object" || !body.record) throw new Error("The iCloud backup is damaged.");
+      try { body = JSON.parse(res.data); } catch { throw new Error(tr("The iCloud backup is damaged.")); }
+      if (!body || typeof body !== "object" || !body.record) throw new Error(tr("The iCloud backup is damaged."));
     }
     lastRead = { at: Date.now(), body };
     return body;
@@ -363,30 +375,30 @@
   }
 
   async function uploadEncryptedRecord(rec, appProperties) {
-    if (!isSignedIn()) throw new Error(isWeb() ? "Sign in with your Apple ID first." : "iCloud isn't available on this iPhone");
-    setStatus("working", "Backing up…");
+    if (!isSignedIn()) throw new Error(isWeb() ? tr("Sign in with your Apple ID first.") : tr("iCloud isn't available on this iPhone"));
+    setStatus("working", tr("Backing up…"));
     try {
       const savedAt = new Date().toISOString();
       const body = { schema: 1, savedAt, appProperties: appProperties || {}, record: rec };
       await plugin().write({ data: JSON.stringify(body) });
       lastRead = { at: Date.now(), body };
       writeLastSynced(savedAt);
-      setStatus("idle", "Backed up");
+      setStatus("idle", tr("Backed up"));
     } catch (e) {
-      setStatus("error", (e && e.message) || "Backup failed");
+      setStatus("error", (e && e.message) || tr("Backup failed"));
       throw e;
     }
   }
 
   async function downloadEncryptedRecord() {
-    if (!isSignedIn()) throw new Error(isWeb() ? "Sign in with your Apple ID first." : "iCloud isn't available on this iPhone");
-    setStatus("working", "Downloading backup…");
+    if (!isSignedIn()) throw new Error(isWeb() ? tr("Sign in with your Apple ID first.") : tr("iCloud isn't available on this iPhone"));
+    setStatus("working", tr("Downloading backup…"));
     try {
       const body = await readBody();
-      setStatus("idle", body ? "Downloaded" : "No backup in iCloud");
+      setStatus("idle", body ? tr("Downloaded") : tr("No backup in iCloud"));
       return body ? body.record : null;
     } catch (e) {
-      setStatus("error", (e && e.message) || "Download failed");
+      setStatus("error", (e && e.message) || tr("Download failed"));
       throw e;
     }
   }

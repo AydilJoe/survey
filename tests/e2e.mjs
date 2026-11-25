@@ -14332,9 +14332,13 @@ check('the brand catalogue makes no network calls at all',
     first.lang === 'ms' && first.choice === 'auto' && first.start === 'Mulakan', JSON.stringify(first));
   await mctx.close();
 
-  // Text script.js and tax.js draw: every literal given to tr()/trn() has a row.
+  // Text script.js and tax.js draw: every literal given to tr()/trn() has a row,
+  // and JS templates / toasts / confirms don't ship raw English without tr().
   const scan = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'build-i18n.mjs'), '--missing'], { encoding: 'utf8' });
   check('languages: every string the code passes to tr()/trn() has Malay and Chinese rows', scan.status === 0, (scan.stdout || '').trim().split('\n').slice(0, 12).join(' | '));
+  const lint = spawnSync(process.execPath, [path.join(REPO_ROOT, 'scripts', 'build-i18n.mjs'), '--lint'], { encoding: 'utf8' });
+  check('languages: no untranslated English UI strings built directly in JS (toast/confirm/HTML without tr())',
+    lint.status === 0, (lint.stdout || '').trim().split('\n').slice(0, 12).join(' | '));
 
   // The relief text in tax-data.js. After a Budget paste this names exactly
   // which lines need a row in scripts/i18n/tax.mjs.
@@ -14499,6 +14503,34 @@ check('the brand catalogue makes no network calls at all',
       const remWant = lang === 'ms' ? /Bayaran minimum/ : /最低还款/;
       if (!rem.some((t) => remWant.test(t)) || rem.some((t) => /due today|bill due|Pay day|expected|Min payment/.test(t)) || !rem.some((t) => t.includes('Maybank card')))
         layoutMiss.push(`${lang}: reminders not translated ${JSON.stringify(rem)}`);
+
+      // JS-built UI (capture cards, install guide, Pro celebration, split progress)
+      // must render in Malay / Chinese with no leaked English chrome and fit 360px.
+      const jsBuilt = await p.evaluate(() => {
+        const tmp = document.createElement('div');
+        const capHtml = [
+          pendingIncomeHtml({ id: 'p-in', amount: 50, sender: 'Ali', providerName: 'Maybank' }),
+          pendingMoveHtml({ id: 'p-mv', amount: 100, from: { providerId: 'tng', providerName: 'TNG' }, to: { providerId: 'maybank', providerName: 'Maybank' } }),
+          pendingSplitMatchHtml({ id: 'p-sp', amount: 25, providerName: 'Maybank', match: 'single', matches: [{ personId: 'x1', name: 'Ali', title: 'Dinner', remaining: 25 }] }),
+        ].join('');
+        tmp.innerHTML = `<ul>${capHtml}</ul><div class="inst">${installInstructionsBody()}</div>`;
+        const capText = tmp.querySelector('ul').textContent;
+        const instText = tmp.querySelector('.inst').textContent;
+        const proBox = document.createElement('div');
+        proBox.innerHTML = '<div class="paywall-head"></div>';
+        ensureProCelebrateBlock(proBox, 'RM 19.90');
+        const proText = proBox.textContent;
+        const splitHtml = splitBillHtml({ id: 'b1', title: 'Dinner', people: [{ id: 'a', name: 'Ali', status: 'settled', amount: 20, repayments: [{ amount: 20 }] }, { id: 'b', name: 'Siti', status: 'open', amount: 20 }] }, '');
+        tmp.innerHTML = splitHtml;
+        const splitText = tmp.textContent;
+        return { capText, instText, proText, splitText };
+      });
+      const leaks = [];
+      if (/\b(This is my account|Add income|Moved|Not a move|Confirm|Settle Ali|received)\b/.test(jsBuilt.capText)) leaks.push(`capture: ${jsBuilt.capText.replace(/\s+/g, ' ').slice(0, 120)}`);
+      if (/\b(Install Duitful|Tap the|Click Install|already using Duitful)\b/.test(jsBuilt.instText)) leaks.push(`install: ${jsBuilt.instText.replace(/\s+/g, ' ').slice(0, 120)}`);
+      if (/\b(Duitful Pro — yours|Automatic encrypted backup|NO SUBSCRIPTION)\b/.test(jsBuilt.proText)) leaks.push(`pro: ${jsBuilt.proText.replace(/\s+/g, ' ').slice(0, 120)}`);
+      if (/\b(1 of 2 paid|Everyone's paid)\b/.test(jsBuilt.splitText)) leaks.push(`split: ${jsBuilt.splitText.replace(/\s+/g, ' ').slice(0, 120)}`);
+      if (leaks.length) layoutMiss.push(`${lang}: JS-built UI leaked English: ${leaks.join('; ')}`);
     }
     await p.close();
   }
