@@ -2074,6 +2074,151 @@ check('a credit from a saved own-account name is a move on its own: "Your other 
 check('TNG transfer-out and MAE credit still read as before',
   one(tngIn.tngOut, 'spend') && tngIn.tngOut[0].merchant === 'MUHAMMAD KHAIRUL' && one(tngIn.maeIn, 'income'), JSON.stringify([tngIn.tngOut, tngIn.maeIn]));
 
+/* ── Layered multilingual notification parser (1.64.1) ────────────────────
+   Synthetic alerts (placeholder names/amounts only) across EN, MS, ZH, ID,
+   TH, FIL and VI: verb-first, DuitNow QR, MYR/Rp./บาท/đ/令吉, title+body,
+   labelled multi-line, credits/refunds, and failed/OTP/promo/credit guards. */
+const mlNotif = await S(() => {
+  const P = {
+    mae: 'com.maybank2u.life',
+    cimb: 'com.cimb.cimbocto',
+    gxb: 'my.com.gxbank.app',
+    tng: 'my.com.tngdigital.ewallet',
+    dbs: 'com.dbs.sg.dbsmbanking',
+    bca: 'com.bca',
+    kplus: 'com.kasikorn.retail.mbanking.wap',
+    gcash: 'com.globe.gcash.android',
+    vcb: 'com.VCB',
+  };
+  const old = Date.now() - 30 * 60000;
+  const run = (pkg, title, text) => {
+    state.pendingTxns = [];
+    const ok = window.duitfulIncoming({ package: pkg, title, text, postedAt: old });
+    const items = state.pendingTxns.map((p) => ({
+      kind: p.kind || 'spend', amount: p.amount, currency: p.currency,
+      merchant: p.merchant || '', sender: p.sender || '', label: p.label || '', transfer: !!p.transfer,
+    }));
+    state.pendingTxns = [];
+    return { ok, items };
+  };
+  const out = {
+    // EN broader shapes (verb-first, DuitNow QR, MYR, balance skipped, title+body, labelled, SG)
+    enQr: run(P.gxb, 'Payment Successful', 'DuitNow QR payment of RM 8.50 to KEDAI KOPI MAJU via MAE.'),
+    enMyrBal: run(P.cimb, 'Card Spend', 'Payment of MYR 45.20 at PASAR RAYA on 24 Nov 2026. Available balance: MYR 820.00'),
+    enTitleBody: run(P.mae, 'Payment Successful', 'RM 15.00 at WARUNG PAK MAT'),
+    enLabel: run(P.cimb, 'Card Transaction', 'Amount: RM 32.90\nMerchant: KEDAI BUKU\nBalance: RM 500.00'),
+    sgOut: run(P.dbs, 'PayNow', 'Transfer of SGD 18.00 to TAN WEI MING.'),
+    sgIn: run(P.dbs, 'PayNow', 'You have received S$25.00 from LIM MEI LING.'),
+    // Bahasa Melayu
+    msDitolak: run(P.mae, 'Transaksi Akaun', 'RM 12.50 telah ditolak daripada akaun anda di KEDAI MAKAN SEDAP pada 24 Nov 2026.'),
+    msVerb: run(P.gxb, 'Pembayaran Berjaya', 'Pembayaran sebanyak RM 19.90 kepada KEDAI RUNCIT JAYA. Baki tersedia: RM 340.00'),
+    msOut: run(P.tng, 'Pindahan DuitNow', 'Anda telah berjaya memindahkan RM 50.00 kepada SITI BINTI AHMAD.'),
+    msIn: run(P.mae, 'Wang Diterima', 'RM 30.00 telah dikreditkan ke akaun anda daripada AHMAD BIN ALI.'),
+    msRefund: run(P.tng, 'Bayaran Balik', 'Bayaran balik RM 14.00 untuk pesanan anda telah diproses.'),
+    // Chinese (Simplified / Traditional, MY & SG)
+    zhSpend: run(P.tng, '消费通知', '您已在快乐茶室消费RM 12.80，余额RM 200.00'),
+    zhLabel: run(P.mae, '付款成功', '付款成功，支付 25.00令吉，商户：好运书店'),
+    zhOut: run(P.tng, '转账成功', '您已向陈大文转账RM 80.00'),
+    zhInSender: run(P.tng, '收款通知', '陈大文已向您转账RM 35.00'),
+    zhInRecv: run(P.dbs, '收款成功', '您已收到来自林美玲的S$40.00'),
+    zhRefund: run(P.tng, '退款通知', '已退款RM 15.50至您的账户'),
+    // Bahasa Indonesia (dot-thousands & comma-thousands)
+    idQris: run(P.bca, 'Pembayaran Berhasil', 'Pembayaran QRIS sebesar Rp. 45.000 di WARUNG NUSANTARA. Saldo Rp 1.500.000'),
+    idOut: run(P.bca, 'Transfer Berhasil', 'Transfer berhasil sebesar Rp 150,000 ke BUDI SANTOSO.'),
+    idIn: run(P.bca, 'Dana Masuk', 'Dana masuk sebesar Rp 250.000 dari SARI DEWI.'),
+    // Thai (บาท suffix + remaining balance)
+    thSpend: run(P.kplus, 'ชำระเงินสำเร็จ', 'ชำระเงินสำเร็จ จำนวน 125.50 บาท ที่ ร้านกาแฟสุขใจ ยอดคงเหลือ 4,200.00 บาท'),
+    thOut: run(P.kplus, 'โอนเงินสำเร็จ', 'โอนเงินสำเร็จ 500.00 บาท ไปยัง SOMCHAI'),
+    thIn: run(P.kplus, 'เงินเข้าบัญชี', 'คุณได้รับเงินโอน 350.00 บาท จาก NATTAPONG'),
+    // Filipino / Tagalog
+    filSpend: run(P.gcash, 'Bayad', 'Nagbayad ka ng PHP 249.50 sa TINDAHAN NI JUAN.'),
+    filOut: run(P.gcash, 'Padala', 'Nagpadala ka ng ₱1,000.00 kay MARIA CLARA.'),
+    filIn: run(P.gcash, 'Nakatanggap', 'Nakatanggap ka ng PHP 500.00 mula kay PEDRO SANTOS.'),
+    // Vietnamese (đ suffix, -/+ balance-change alerts)
+    viSpend: run(P.vcb, 'Thanh toán', 'Thanh toán thành công 65.000đ tại QUAN PHO HA NOI. Số dư: 2.000.000đ'),
+    viMinus: run(P.vcb, 'Biến động số dư', 'Biến động số dư: -120,000 VND tại CUA HANG TIEN LOI. Số dư: 3,000,000 VND'),
+    viOut: run(P.vcb, 'Chuyển tiền', 'Chuyển tiền thành công 200.000 VND đến NGUYEN VAN A'),
+    viPlus: run(P.vcb, 'Biến động số dư', 'Biến động số dư: +300.000đ từ TRAN THI B. Số dư: 3.300.000đ'),
+    // Safety guards — every one must drop (ok: false, 0 items)
+    blocked: [
+      run(P.mae, 'Declined', 'Your payment of RM 50.00 at KEDAI X was declined.'),
+      run(P.mae, 'Ditolak', 'Transaksi anda ditolak: RM 50.00 di KEDAI X.'),
+      run(P.cimb, 'Gagal', 'Pembayaran RM 50.00 gagal kerana baki tidak mencukupi.'),
+      run(P.tng, '付款失败', '付款失败：RM 50.00 余额不足'),
+      run(P.kplus, 'ไม่สำเร็จ', 'ชำระเงิน 100.00 บาท ไม่สำเร็จ'),
+      run(P.vcb, 'Thất bại', 'Thanh toán 50.000đ không thành công'),
+      run(P.mae, 'Keselamatan', 'Kod pengesahan anda ialah 123456 untuk RM 50.00. Jangan kongsi.'),
+      run(P.tng, '验证码', '您的验证码是 654321，付款RM 50.00，请勿泄露'),
+      run(P.kplus, 'OTP', 'รหัสยืนยัน 123456 สำหรับรายการ 100.00 บาท ห้ามบอกใคร'),
+      run(P.vcb, 'OTP', 'Mã xác thực 123456 cho giao dịch 50.000đ. Không chia sẻ.'),
+      run(P.tng, 'Promosi', 'Promosi! Dapatkan pulangan tunai sehingga RM 50 bila anda belanja RM 100.'),
+      run(P.tng, '优惠', '限时优惠！消费RM 100立享折扣优惠券'),
+      run(P.kplus, 'โปรโมชั่น', 'โปรโมชั่นพิเศษ รับเครดิตเงินคืนสูงสุด 100 บาท'),
+      run(P.vcb, 'Khuyến mãi', 'Khuyến mãi hoàn tiền lên đến 50.000đ khi thanh toán'),
+    ],
+    // Credit strings must never parse as debits even if parseBankText is called directly.
+    creditsNotDebit: [
+      parseBankText('陈大文已向您转账RM 35.00', P.tng),
+      parseBankText('คุณได้รับเงินโอน 350.00 บาท จาก NATTAPONG', P.kplus),
+      parseBankText('Dana masuk sebesar Rp 250.000 dari SARI DEWI.', P.bca),
+      parseBankText('Biến động số dư: +300.000đ từ TRAN THI B.', P.vcb),
+      parseBankText('向您转账RM 10.00', P.tng),
+      parseBankText('chuyển tiền 50.000đ cho bạn', P.vcb),
+    ],
+    // Unknown package with no provider pattern never fabricates a provider.
+    unknownPkg: parseBankText('Payment of RM 15.00 to KEDAI KOPI', 'com.example.unknown'),
+  };
+  save(); renderAll();
+  return out;
+});
+const got = (r, kind, amt, cur, who) =>
+  r && r.ok === true && r.items.length === 1 && r.items[0].kind === kind
+  && r.items[0].amount === amt && r.items[0].currency === cur
+  && (who == null || (kind === 'income' ? r.items[0].sender : r.items[0].merchant) === who);
+check('EN parser: verb-first DuitNow QR, MYR + balance ignored, title+body split, labelled multi-line and SG PayNow',
+  got(mlNotif.enQr, 'spend', 8.5, 'MYR', 'KEDAI KOPI MAJU')
+  && got(mlNotif.enMyrBal, 'spend', 45.2, 'MYR', 'PASAR RAYA')
+  && got(mlNotif.enTitleBody, 'spend', 15, 'MYR', 'WARUNG PAK MAT')
+  && got(mlNotif.enLabel, 'spend', 32.9, 'MYR', 'KEDAI BUKU')
+  && got(mlNotif.sgOut, 'spend', 18, 'SGD', 'TAN WEI MING') && mlNotif.sgOut.items[0].transfer === true
+  && got(mlNotif.sgIn, 'income', 25, 'SGD', 'LIM MEI LING'),
+  JSON.stringify({ enQr: mlNotif.enQr, enMyrBal: mlNotif.enMyrBal, enTitleBody: mlNotif.enTitleBody, enLabel: mlNotif.enLabel, sgOut: mlNotif.sgOut, sgIn: mlNotif.sgIn }));
+check('Bahasa Melayu parser: ditolak (deducted), verb-first, transfer out, incoming credit and bayaran balik refund',
+  got(mlNotif.msDitolak, 'spend', 12.5, 'MYR', 'KEDAI MAKAN SEDAP')
+  && got(mlNotif.msVerb, 'spend', 19.9, 'MYR', 'KEDAI RUNCIT JAYA')
+  && got(mlNotif.msOut, 'spend', 50, 'MYR', 'SITI BINTI AHMAD') && mlNotif.msOut.items[0].transfer === true
+  && got(mlNotif.msIn, 'income', 30, 'MYR', 'AHMAD BIN ALI')
+  && got(mlNotif.msRefund, 'income', 14, 'MYR', '') && mlNotif.msRefund.items[0].label === 'Refund',
+  JSON.stringify({ msDitolak: mlNotif.msDitolak, msVerb: mlNotif.msVerb, msOut: mlNotif.msOut, msIn: mlNotif.msIn, msRefund: mlNotif.msRefund }));
+check('Chinese parser: spend with 在/商户/令吉, transfer out, sender-first & receiver-first credits and 退款 refund',
+  got(mlNotif.zhSpend, 'spend', 12.8, 'MYR', '快乐茶室')
+  && got(mlNotif.zhLabel, 'spend', 25, 'MYR', '好运书店')
+  && got(mlNotif.zhOut, 'spend', 80, 'MYR', '陈大文') && mlNotif.zhOut.items[0].transfer === true
+  && got(mlNotif.zhInSender, 'income', 35, 'MYR', '陈大文')
+  && got(mlNotif.zhInRecv, 'income', 40, 'SGD', '林美玲')
+  && got(mlNotif.zhRefund, 'income', 15.5, 'MYR', '') && mlNotif.zhRefund.items[0].label === 'Refund',
+  JSON.stringify({ zhSpend: mlNotif.zhSpend, zhLabel: mlNotif.zhLabel, zhOut: mlNotif.zhOut, zhInSender: mlNotif.zhInSender, zhInRecv: mlNotif.zhInRecv, zhRefund: mlNotif.zhRefund }));
+check('Indonesia, Thailand, Philippines & Vietnam parsers: Rp./บาท/₱/đ, dot/comma thousands, -/+ balance-change alerts',
+  got(mlNotif.idQris, 'spend', 45000, 'IDR', 'WARUNG NUSANTARA')
+  && got(mlNotif.idOut, 'spend', 150000, 'IDR', 'BUDI SANTOSO') && mlNotif.idOut.items[0].transfer === true
+  && got(mlNotif.idIn, 'income', 250000, 'IDR', 'SARI DEWI')
+  && got(mlNotif.thSpend, 'spend', 125.5, 'THB', 'ร้านกาแฟสุขใจ')
+  && got(mlNotif.thOut, 'spend', 500, 'THB', 'SOMCHAI') && mlNotif.thOut.items[0].transfer === true
+  && got(mlNotif.thIn, 'income', 350, 'THB', 'NATTAPONG')
+  && got(mlNotif.filSpend, 'spend', 249.5, 'PHP', 'TINDAHAN NI JUAN')
+  && got(mlNotif.filOut, 'spend', 1000, 'PHP', 'MARIA CLARA') && mlNotif.filOut.items[0].transfer === true
+  && got(mlNotif.filIn, 'income', 500, 'PHP', 'PEDRO SANTOS')
+  && got(mlNotif.viSpend, 'spend', 65000, 'VND', 'QUAN PHO HA NOI')
+  && got(mlNotif.viMinus, 'spend', 120000, 'VND', 'CUA HANG TIEN LOI')
+  && got(mlNotif.viOut, 'spend', 200000, 'VND', 'NGUYEN VAN A') && mlNotif.viOut.items[0].transfer === true
+  && got(mlNotif.viPlus, 'income', 300000, 'VND', 'TRAN THI B'),
+  JSON.stringify({ id: [mlNotif.idQris, mlNotif.idOut, mlNotif.idIn], th: [mlNotif.thSpend, mlNotif.thOut, mlNotif.thIn], fil: [mlNotif.filSpend, mlNotif.filOut, mlNotif.filIn], vi: [mlNotif.viSpend, mlNotif.viMinus, mlNotif.viOut, mlNotif.viPlus] }));
+check('multilingual guards drop failed/declined, OTP/verification codes, promos, incoming credits as debits and unknown packages',
+  mlNotif.blocked.every((r) => r.ok === false && r.items.length === 0)
+  && mlNotif.creditsNotDebit.every((r) => r === null)
+  && mlNotif.unknownPkg === null,
+  JSON.stringify({ blocked: mlNotif.blocked.map((r, i) => r.ok ? i : null).filter((x) => x !== null), creditsNotDebit: mlNotif.creditsNotDebit, unknownPkg: mlNotif.unknownPkg }));
+
 /* ── Money in, moves between your own accounts, "This is my account" (1.56.0) ──
    Placeholder names, made-up digits. TNG received and DuitNow received wording
    is assumed (no public sample); MAE's is the tester's, name removed. */
@@ -3687,6 +3832,8 @@ check('the check report carries no message text, names or amounts', !/RM|MUHAMMA
   const store = readFileSync(path.join(REPO_ROOT, 'native/notification-listener/DuitfulCaptureStore.java'), 'utf8');
   const inst = readFileSync(path.join(REPO_ROOT, 'scripts/install-notification-listener.mjs'), 'utf8');
   check('native: the amount check accepts a no-break space after "RM" (Java \\s does not)', /\\\\u00A0/.test(svc), '');
+  check('native: the amount check covers Rp., Thai baht, Chinese RM/SGD words and suffix currency forms',
+    svc.includes('Rp\\\\.?') && svc.includes('บาท') && svc.includes('令吉') && svc.includes('đ'), '');
   check('native: a repeated posting with identical text is stored again (post time is part of the dedupe id)', /key\) \+ "\|" \+ when \+ "\|"/.test(store), '');
   check('native: the installer ships the capture store and the diagnostic log', /"DuitfulCaptureStore\.java"/.test(inst) && /"DuitfulCaptureDiag\.java"/.test(inst), '');
 }
