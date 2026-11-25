@@ -78,6 +78,9 @@ export const APP_MANIFEST = {
     { path: "vendor/pdfjs/pdf.min.js", refIn: "app/statement.js" },
     { path: "vendor/pdfjs/pdf.worker.min.js", refIn: "app/statement.js" },
     { path: "vendor/fonts/nunito-latin.woff2", refIn: "app/styles.css" },
+    { path: "horizon-light.webp", refIn: "app/styles.css" },
+    { path: "horizon-dark.webp", refIn: "app/styles.css" },
+    { path: "horizon-pastel.webp", refIn: "app/styles.css" },
   ],
   // Unversioned files copied into www/ by scripts/build-web.mjs.
   staticFiles: [

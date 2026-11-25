@@ -9152,68 +9152,32 @@ html[data-theme="pastel"] .tab.active {
 }
 
 /* ---------- v1.64.3 Welcome horizon (#lock) ----------
-   Full-screen dawn horizon painted flat on #lock's own background (zero extra
-   compositor layers, zero SVG filters, zero rotated transforms), clean inline
+   Full-screen dawn horizon via pre-rendered 5–7 KB WebP backdrops (zero complex
+   radial-gradient shaders or SVG filters on Android WebView), clean inline
    brand lockup, bottom-anchored full-width pill stack, and quiet legal footer. */
 #lock {
-  --lock-sky: #cfc7ba;
-  --lock-sky-mid: #ddd5c7;
-  --lock-haze: rgba(200, 112, 75, 0.34);
-  --lock-haze-soft: rgba(200, 112, 75, 0.11);
-  --lock-rim: rgba(255, 253, 248, 0.92);
-  --lock-rim-glow: rgba(255, 248, 236, 0.45);
-  --lock-flare: #ffffff;
-  --lock-flare-mid: rgba(255, 252, 246, 0.55);
-  --lock-body-lit: #f3ede2;
-  --lock-body: #ece4d7;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
   padding: 0;
   background-color: var(--stage);
-  background-image: linear-gradient(180deg, var(--lock-sky) 0%, var(--stage) 380px);
+  background-image: url("horizon-light.webp?v=98dc3c9f");
   background-repeat: no-repeat;
+  background-position: center top;
   background-size: 100% 380px;
 }
 #lock[hidden] { display: none; }
 html[data-theme="dark"] #lock {
-  --lock-sky: #090807;
-  --lock-sky-mid: #120f0d;
-  --lock-haze: rgba(218, 174, 128, 0.36);
-  --lock-haze-soft: rgba(205, 148, 98, 0.12);
-  --lock-rim: rgba(247, 234, 214, 0.92);
-  --lock-rim-glow: rgba(232, 198, 158, 0.36);
-  --lock-flare: #fffaf2;
-  --lock-flare-mid: rgba(255, 244, 226, 0.52);
-  --lock-body-lit: #292019;
-  --lock-body: #171412;
+  background-image: url("horizon-dark.webp?v=56def057");
 }
 @media (prefers-color-scheme: dark) {
   html:not([data-theme="light"]):not([data-theme="pastel"]) #lock {
-    --lock-sky: #090807;
-    --lock-sky-mid: #120f0d;
-    --lock-haze: rgba(218, 174, 128, 0.36);
-    --lock-haze-soft: rgba(205, 148, 98, 0.12);
-    --lock-rim: rgba(247, 234, 214, 0.92);
-    --lock-rim-glow: rgba(232, 198, 158, 0.36);
-    --lock-flare: #fffaf2;
-    --lock-flare-mid: rgba(255, 244, 226, 0.52);
-    --lock-body-lit: #292019;
-    --lock-body: #171412;
+    background-image: url("horizon-dark.webp?v=56def057");
   }
 }
 html[data-theme="pastel"] #lock {
-  --lock-sky: #f2c4a6;
-  --lock-sky-mid: #f6d5be;
-  --lock-haze: rgba(255, 244, 228, 0.65);
-  --lock-haze-soft: rgba(255, 244, 228, 0.22);
-  --lock-rim: rgba(255, 252, 247, 0.95);
-  --lock-rim-glow: rgba(255, 248, 238, 0.5);
-  --lock-flare: #ffffff;
-  --lock-flare-mid: rgba(255, 252, 246, 0.62);
-  --lock-body-lit: #fdefe3;
-  --lock-body: #fae7d6;
+  background-image: url("horizon-pastel.webp?v=5db55906");
 }
 
 #lock > .splash-inner {
