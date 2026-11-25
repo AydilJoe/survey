@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.64.2";
+const APP_VERSION = "1.64.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7458,6 +7458,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.64.3": [
+    "<strong>A calmer welcome screen</strong> — the first-open and passcode screen now opens over a dawn horizon with full-width pill buttons and quick links to the privacy policy and terms of service across Light, Dark, and Pastel themes.",
+  ],
   "1.64.2": [
     "<strong>More complete Bahasa Melayu and 中文 translations</strong> — bank-alert cards, install steps, Pro sheets, cloud backup statuses, split-bill prompts, and toasts built in script now follow your chosen language.",
   ],
