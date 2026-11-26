@@ -1957,6 +1957,78 @@ check('two people owing RM 41 produce a choice, not a guess',
   ambiguousQueue.text.replace(/\n/g, ' | ').slice(0, 160));
 await S(() => { state.pendingTxns = []; save(); renderAll(); });
 
+// --- AI+ (cloud) wiring: split-match and split-items. Off = today's behaviour;
+//     on = a suggestion the person still confirms, and bad answers are dropped.
+const aiSplit = await S(async () => {
+  const out = {};
+  const saved = { sub: state.aiSub, en: state.aiPlusEnabled, prev: state.aiPlusPreviewedKinds, split: state.split, fetch: window.fetch };
+  const raw = 'NASI LEMAK AYAM 12.00\nTEH TARIK 3.50\nSUBTOTAL 15.50';
+  const read = splitParseReceiptItems(raw);
+  out.rowsOk = splitTidyRows(read, { items: [{ name: 'Nasi lemak ayam', qty: 1, amount: 12 }, { name: 'Teh tarik', qty: 1, amount: 3.5 }] }, raw);
+  out.rowsBadPrice = splitTidyRows(read, { items: [{ name: 'Nasi lemak ayam', qty: 1, amount: 12 }, { name: 'Teh tarik', qty: 1, amount: 4 }] }, raw);
+  out.rowsBadSum = splitTidyRows(read, { items: [{ name: 'Nasi lemak ayam', qty: 1, amount: 12 }] }, raw);
+  out.rowsCheck = splitTidyRows(read, { status: 'Check', items: [{ name: 'x', qty: 1, amount: 12 }] }, raw);
+  out.messy = splitItemsLookMessy({ items: [{ name: 'AB#1', price: 5 }], itemSum: 5, dropped: [], statedTotal: 0, charges: 0 });
+  out.clean = splitItemsLookMessy({ items: [{ name: 'Teh tarik', price: 5 }], itemSum: 5, dropped: [], statedTotal: 0, charges: 0 });
+  // Off: no offer, no call.
+  state.aiPlusEnabled = false;
+  out.offOffer = splitTidyOfferHtml({ method: 'item', scanRaw: 'AB#1 5.00', items: [{ name: 'AB#1', price: 5 }] });
+  let calls = 0;
+  window.fetch = async (u, o) => { if (String(u).includes('/api/ai')) calls += 1; return saved.fetch(u, o); };
+  state.pendingTxns = []; state.split = emptySplit();
+  state.split.out.push(coerceSplitOut({ id: 'aip-rec', kind: 'split', title: 'Rent', date: todayISO(), total: 100, people: [
+    { id: 'aip-a', name: 'Abang Long', amount: 50, status: 'open', repayments: [] },
+    { id: 'aip-b', name: 'Kak Ros', amount: 50, status: 'open', repayments: [] } ] }));
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 200));
+  const p0 = state.pendingTxns[0];
+  out.offPending = p0 && { match: p0.match, n: p0.matches.length, ai: !!p0.aiPlus };
+  out.offCalls = calls;
+  // On: AI+ narrows the ambiguous card to one person, still unsettled.
+  state.aiPlusEnabled = true;
+  state.aiSub = { active: true, expiresAt: Date.now() + 864e5, subToken: 'tok' };
+  state.aiPlusPreviewedKinds = { split: true };
+  const sent = [];
+  window.fetch = async (u, o) => {
+    if (!String(u).includes('/api/ai')) return saved.fetch(u, o);
+    sent.push(JSON.parse(o.body));
+    return new Response(JSON.stringify({ ok: true, result: { splitId: 'aip-b' } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  state.pendingTxns = [];
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 600));
+  const p = state.pendingTxns[0];
+  out.onPending = p && { match: p.match, ids: p.matches.map((m) => m.personId), ai: !!p.aiPlus };
+  out.sentIds = sent[0] ? sent[0].input.openSplits.map((s) => s.id) : [];
+  out.settled = state.split.out[0].people.every((x) => x.status === 'open' && !x.repayments.length);
+  renderAll();
+  out.tag = /AI\+/.test(document.getElementById('pending-list').innerText);
+  // An answer naming someone who is not a candidate is ignored.
+  window.fetch = async (u, o) => String(u).includes('/api/ai')
+    ? new Response(JSON.stringify({ ok: true, result: { splitId: 'nobody' } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    : saved.fetch(u, o);
+  state.pendingTxns = [];
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 600));
+  out.badAnswer = state.pendingTxns[0] && state.pendingTxns[0].match;
+  Object.assign(state, { aiSub: saved.sub, aiPlusEnabled: saved.en, aiPlusPreviewedKinds: saved.prev, pendingTxns: [], split: saved.split });
+  window.fetch = saved.fetch;
+  save(); renderAll();
+  return out;
+});
+check('AI+ off: no offer to tidy items, no AI call, the credit stays a "who paid?" card',
+  aiSplit.offOffer === '' && aiSplit.offCalls === 0 && aiSplit.offPending && aiSplit.offPending.match === 'ambiguous'
+  && aiSplit.offPending.n === 2 && !aiSplit.offPending.ai, JSON.stringify([aiSplit.offOffer, aiSplit.offCalls, aiSplit.offPending]));
+check('AI+ split-match: only splits equal to the credit are offered, the card narrows to one person and nothing is settled',
+  aiSplit.onPending && aiSplit.onPending.match === 'exact' && aiSplit.onPending.ids.join() === 'aip-b' && aiSplit.onPending.ai
+  && aiSplit.sentIds.join() === 'aip-a,aip-b' && aiSplit.settled && aiSplit.tag,
+  JSON.stringify(aiSplit));
+check('AI+ split-match: an answer outside the choices is ignored',
+  aiSplit.badAnswer === 'ambiguous', String(aiSplit.badAnswer));
+check('AI+ split-items: tidy rows are used only when prices are printed and the total still matches',
+  aiSplit.rowsOk && aiSplit.rowsOk.length === 2 && aiSplit.rowsBadPrice === null && aiSplit.rowsBadSum === null && aiSplit.rowsCheck === null
+  && aiSplit.messy === true && aiSplit.clean === false, JSON.stringify([aiSplit.rowsOk, aiSplit.rowsBadPrice, aiSplit.rowsBadSum, aiSplit.rowsCheck]));
+
 /* ── Touch 'n Go / MAE alerts from a Vivo beta tester (1.55.14) ───────────
    Real wording, names replaced. A DuitNow transfer out must queue a spend;
    a feedback promo must not; MAE's "You've just received" must parse as a

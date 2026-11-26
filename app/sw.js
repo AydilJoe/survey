@@ -15,26 +15,26 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-5b751e1f";
+const VERSION = "h-51579528";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
   "/app/styles.css?v=7d237756",
-  "/app/script.js?v=15fd66c4",
+  "/app/script.js?v=8dee80c1",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
-  "/app/i18n-langs.js?v=2c9547d5",
+  "/app/i18n-langs.js?v=ed438596",
   "/app/i18n-boot.js?v=e8f35f1d",
-  "/app/i18n-ms.js?v=2032c852",
-  "/app/i18n-zh.js?v=c036c053",
+  "/app/i18n-ms.js?v=b3b9a6c1",
+  "/app/i18n-zh.js?v=7a823e99",
   "/app/i18n.js?v=e94f1821",
   "/app/drive-config.js?v=9aaf242d",
   "/app/drive-sync.js?v=08041907",
   "/app/icloud-sync.js?v=90136797",
   "/app/investments.js?v=39cf34a0",
-  "/app/split.js?v=556eb5d9",
+  "/app/split.js?v=419e8444",
   "/app/split-recurring.js?v=05bbaca7",
   "/app/receipt-extract.js?v=20e13371",
   "/app/region.js?v=a54b250e",
@@ -57,7 +57,7 @@ const SHELL = [
   "/app/streak.js?v=ce95b7ab",
   "/app/voice.js?v=7b834a3c",
   "/app/cloud.js?v=fcd02ad8",
-  "/app/capture.js?v=dad0b98c",
+  "/app/capture.js?v=880d4e16",
   "/app/ai-redact.js?v=e6257012",
   "/app/ai-cloud.js?v=92dd79d1",
   "/app/pro.js?v=834eaf24",
