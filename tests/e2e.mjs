@@ -15608,6 +15608,65 @@ check('the brand catalogue makes no network calls at all',
   await iosShareCtx.close();
 }
 
+// ── Assistant Update Phase 1 (v1.69.0): Siri, Google Assistant & Quick Controls ─
+{
+  const patchIos = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-ios.mjs'), 'utf8');
+  const patchAnd = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-android-shortcuts.mjs'), 'utf8');
+  const swiftPlug = readFileSync(path.join(REPO_ROOT, 'native', 'duitful-kit', 'ios', 'Sources', 'DuitfulKitPlugin', 'DuitfulKitPlugin.swift'), 'utf8');
+  check('v1.69.0: iOS App Intents (Category enum, Wallet entity, NoSpendToday, EN/BM/ZH phrases, iOS 18 ControlWidget) and Android Assistant Actions + Quick Settings Tile are wired',
+    patchIos.includes('enum DuitfulCategoryEnum')
+    && patchIos.includes('struct DuitfulWalletEntity')
+    && patchIos.includes('struct DuitfulNoSpendTodayIntent')
+    && patchIos.includes('Rekod belanja dalam')
+    && patchIos.includes('今日无消费在')
+    && patchIos.includes('struct DuitfulLogSpendControl: ControlWidget')
+    && patchIos.includes('struct DuitfulScanReceiptControl: ControlWidget')
+    && swiftPlug.includes('duitful.assistant.wallets')
+    && patchAnd.includes('actions.intent.OPEN_APP_FEATURE')
+    && patchAnd.includes('DuitfulQuickTileService')
+    && patchAnd.includes('BIND_QUICK_SETTINGS_TILE'));
+
+  const asstCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const ap = await asstCtx.newPage();
+  const aErr = [];
+  ap.on('pageerror', (e) => aErr.push(e.message));
+  await ap.goto(`${BASE}/app/index.html`);
+  await ap.waitForTimeout(400);
+  await ap.click('#btn-start-open');
+  await ap.waitForTimeout(400);
+  const aRes = await ap.evaluate(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    // 1. duitful://action/no-spend checks in today's streak.
+    const parsedAction = quickActionFromUrl('duitful://action/no-spend');
+    state.streak = { enabled: true, reminderEnabled: true, reminderHour: 21, noSpendDates: [], freezes: [] };
+    runQuickAction('no-spend');
+    const markedToday = state.streak.noSpendDates.includes(todayISO());
+
+    // 2. quickAddToPending preserves category (cat) and resolves wallet name (w).
+    state.wallets = [{ id: 'w-mae', name: 'MAE', type: 'ewallet', initial: 500 }];
+    const pending = quickAddToPending({ a: 18.5, c: 'Village Park', cat: 'Food', w: 'mae', s: 'shortcut', t: Date.now() });
+
+    // 3. buildWidgetSummary exposes wallet names ONLY when unlocked, cleared to [] when locked.
+    const wUnl = buildWidgetSummary({ locked: false });
+    const wLck = buildWidgetSummary({ locked: true });
+    return {
+      parsedAction,
+      markedToday,
+      pending: pending && { amount: pending.amount, merchant: pending.merchant, category: pending.category, walletId: pending.walletId, providerName: pending.providerName },
+      wUnlNames: wUnl.walletNames,
+      wLckNames: wLck.walletNames,
+    };
+  });
+  check('v1.69.0: no-spend deep link checks in streak, quickAddToPending keeps category & wallet, and walletNames clear on lock',
+    aRes.parsedAction === 'no-spend' && aRes.markedToday
+    && aRes.pending && aRes.pending.amount === 18.5 && aRes.pending.category === 'Food' && aRes.pending.walletId === 'w-mae'
+    && Array.isArray(aRes.wUnlNames) && aRes.wUnlNames.length === 1 && aRes.wUnlNames[0] === 'MAE'
+    && Array.isArray(aRes.wLckNames) && aRes.wLckNames.length === 0
+    && aErr.length === 0,
+    JSON.stringify({ ...aRes, aErr }));
+  await asstCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

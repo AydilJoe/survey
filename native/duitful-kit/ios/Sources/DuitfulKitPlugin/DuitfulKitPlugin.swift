@@ -415,6 +415,9 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
             if let v = call.getString(k) { dict[k] = v }
         }
         UserDefaults.standard.set(dict, forKey: "duitful.widget.summary")
+        let locked = call.getBool("locked") ?? false
+        let walletNames = locked ? [] : ((call.options["walletNames"] as? [Any])?.compactMap { ($0 as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty } ?? [])
+        UserDefaults.standard.set(Array(walletNames.prefix(12)), forKey: "duitful.assistant.wallets")
         DuitfulWidgetReload.reloadAll()
         call.resolve(["ok": true])
     }

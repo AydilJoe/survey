@@ -44,11 +44,11 @@ nothing saved without the user's tap.
 
 Full plan: [`assistant-update.md`](assistant-update.md).
 
-- **Phase 1 — Core Voice Actions & Quick Controls (iOS + Android, Offline):**
-  iOS `AppIntents` (`Category` `AppEnum`, `Wallet` `AppEntity` names only,
-  `NoSpendTodayIntent`, iOS 18+ Control Center `ControlWidget`, EN/BM/ZH Siri
-  phrases) + Android `shortcuts.xml` App Actions, dynamic search shortcuts, and
-  Quick Settings `TileService`.
+- ~~**Phase 1 — Core Voice Actions & Quick Controls (iOS + Android, Offline):**~~
+  **Shipped in `1.69.0`** (`Category` `AppEnum`, `Wallet` `AppEntity` names
+  only, `NoSpendTodayIntent`, iOS 18+ Control Center `ControlWidget`, EN/BM/ZH
+  Siri phrases, Android `shortcuts.xml` `OPEN_APP_FEATURE` App Actions, and
+  Android Quick Settings `TileService`).
 - **Phase 2 — Natural Voice & Sentence Entry (On-Device + Cloud AI+):**
   shared `duitful://action/voice?text=...` contract + Home mic button for EN /
   BM / Manglish / 中文.
