@@ -16301,19 +16301,21 @@ check('the brand catalogue makes no network calls at all',
   const previewEsc = await aip.evaluate(async () => {
     const hitsBefore = performance.getEntriesByType('resource').filter((e) => e.name.includes('/api/ai')).length;
     state.aiPlusPreviewedKinds = { payee: true };
-    const s = state.aiSub || {};
-    const why = { allowed: aiCloudAllowed(), flag: aiPlusFlagOn(), enabled: !!state.aiPlusEnabled, online: navigator.onLine,
-      active: s.active, expiresAt: s.expiresAt, now: Date.now(), token: !!s.subToken, dlg: !!document.getElementById('ai-preview-dialog') };
     const p = aiCloudRun('split-items', { lines: 'TEH TARIK 3.50', subtotal: 3.5 });
     await new Promise((r) => setTimeout(r, 50));
     const opened = document.getElementById('ai-preview-dialog').open === true;
+    // The previous preview's close event can arrive after this one opened
+    // (close events fire a task later); it must not cancel this one.
+    document.getElementById('ai-preview-dialog').dispatchEvent(new Event('close'));
+    await new Promise((r) => setTimeout(r, 30));
+    const staleIgnored = document.getElementById('ai-preview-dialog').open === true;
     document.getElementById('ai-preview-dialog').close();
     const res = await Promise.race([p, new Promise((r) => setTimeout(() => r('hung'), 1500))]);
     const hitsAfter = performance.getEntriesByType('resource').filter((e) => e.name.includes('/api/ai')).length;
-    return { opened, res, kept: !!(state.aiPlusPreviewedKinds && state.aiPlusPreviewedKinds.split), sent: hitsAfter - hitsBefore, why };
+    return { opened, res, kept: !!(state.aiPlusPreviewedKinds && state.aiPlusPreviewedKinds.split), sent: hitsAfter - hitsBefore, staleIgnored };
   });
-  check('ai+ preview: closing it with Escape or Back resolves as Cancel (null), sends nothing and asks again next time',
-    previewEsc.opened && previewEsc.res === null && !previewEsc.kept && previewEsc.sent === 0, JSON.stringify(previewEsc));
+  check('ai+ preview: a late close event from the previous preview does not cancel this one; closing it with Escape or Back resolves as Cancel (null), sends nothing and asks again next time',
+    previewEsc.opened && previewEsc.staleIgnored && previewEsc.res === null && !previewEsc.kept && previewEsc.sent === 0, JSON.stringify(previewEsc));
 
   // Privacy & store-label surfaces updated in the same release
   const privFiles = [

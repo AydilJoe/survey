@@ -217,7 +217,10 @@ function aiConfirmFirstSend(task, redacted) {
     };
     // Escape, Back or anything else that closes the sheet counts as "don't send",
     // so a caller waiting on this never hangs.
-    const onClose = () => finish(false);
+    // The close event arrives a task after close(), so the previous preview's
+    // event can land after this one has opened; only a close that leaves the
+    // sheet shut is this preview's own.
+    const onClose = () => { if (!dlg.open) finish(false); };
     dlg.addEventListener("close", onClose);
     if (okBtn) okBtn.onclick = () => finish(true);
     if (cancelBtn) cancelBtn.onclick = () => finish(false);
