@@ -53,6 +53,8 @@ const APP_FILES = [
   "voice.js",
   "cloud.js",
   "capture.js",
+  "ai-redact.js",
+  "ai-cloud.js",
   "pro.js",
   "ocr.js",
   "analytics.js",

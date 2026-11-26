@@ -594,5 +594,12 @@
   "Save & send to {name}": "Simpan & hantar kepada {name}",
   "Save & send split": "Simpan & hantar bahagi",
   "Saved {a}": "Disimpan {a}",
-  "Sentence": "Ayat"
+  "Sentence": "Ayat",
+  "Duitful AI+ (cloud)": "Duitful AI+ (awan)",
+  "Enable Duitful AI+ (cloud)": "Aktifkan Duitful AI+ (awan)",
+  "Pair another device": "Padankan peranti lain",
+  "6-digit pair code": "Kod padanan 6 digit",
+  "Pair with code": "Padankan dengan kod",
+  "Monthly Cloud AI limit reached — using on-device fallback.": "Had bulanan AI Awan telah dicapai — menggunakan mod peranti.",
+  "3 devices are already connected — replace the oldest device?": "3 peranti telah disambungkan — gantikan peranti paling lama?"
 }

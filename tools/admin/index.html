@@ -258,7 +258,7 @@ async function verifyAndUnlock(key) {
   loginBtn.disabled = true;
   loginBtn.textContent = "Verifying…";
   try {
-    const r = await fetch("/api/admin/verify", {
+    const r = await fetch("/api/admin/ops?op=verify", {
       method: "POST",
       headers: { "x-admin-key": key },
     });
@@ -298,7 +298,7 @@ async function loadCoupons() {
   const body = document.getElementById("coupons-body");
   body.innerHTML = `<p class="hint">Loading…</p>`;
   try {
-    const r = await fetch("/api/admin/coupons", { headers: { "x-admin-key": key } });
+    const r = await fetch("/api/admin/ops?op=coupons", { headers: { "x-admin-key": key } });
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
     const rows = data.codes || [];
@@ -471,7 +471,7 @@ showDashboard = function() { _origShowDashboard(); loadCoupons(); loadConfig(); 
   const cached = sessionStorage.getItem(K);
   if (!cached) return;
   try {
-    const r = await fetch("/api/admin/verify", {
+    const r = await fetch("/api/admin/ops?op=verify", {
       method: "POST",
       headers: { "x-admin-key": cached },
     });

@@ -4,8 +4,8 @@
 // tools tab. Billplz v3 has no "list bills" endpoint; this wraps getBill.
 
 const crypto = require("crypto");
-const { getBill, billplzEnv } = require("../_lib/billplz");
-const { getBillRecord } = require("../_lib/bills-store");
+const { getBill, billplzEnv } = require("../billplz");
+const { getBillRecord } = require("../bills-store");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
