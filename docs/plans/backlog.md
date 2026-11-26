@@ -89,6 +89,34 @@ Full plan: [`assistant-update.md`](assistant-update.md).
 - **Real-device checks:** test iPhone `1.64.0` Apple Vision scanning (receipts,
   statements, EA) on TestFlight; confirm keyboard fix on Android 16 Samsung;
   check crooked-photo OCR on scanned statements.
+- **Refresh store screenshots and descriptions (after Kira phase 3, before
+  AI+):**
+  - **Screenshots.** Re-capture App Store iPhone + iPad (`marketing/app-store/`,
+    `capture-ipad.mjs`) and Google Play (`marketing/google-play/`) in EN and BM,
+    showing what shipped since the last set:
+    - Kira (empty states, celebrations, the AI counting sheet)
+    - voice entry and "Log & Split" in one sentence
+    - streaks
+    - home-screen and lock-screen widgets
+    - Siri / Control Center / Quick Settings
+    - the iOS Share Extension
+    - the redesigned split page
+    - Google Drive backup on iPhone
+
+    Keep amounts synthetic. No real bank names, merchants or people.
+  - **Descriptions.** Update `APP_STORE_LISTING.md` and `PLAY_LISTING.md`
+    (EN + BM: short description, full description, keywords, What's New), plus
+    `llms.txt` and the landing page features list. Every claim must stay true:
+    - on-device AI only until AI+ ships
+    - iPhone AI = receipts + recap
+    - bank alerts = Android only
+
+    Drop anything outdated (for example "Drive off on iPhone").
+  - **Promo text and feature graphic.** Refresh the Play feature graphic and
+    the App Store promotional text, with Kira and the festive look if it's
+    in season.
+  - **After AI+ ships:** repeat for AI+ (cloud wording, privacy labels,
+    subscription screenshots per App Store rules).
 - **Manual store steps (owner):**
   - Paste updated Play description from `PLAY_LISTING.md` into Play Console.
   - Paste updated App Store description from `APP_STORE_LISTING.md` on the next
