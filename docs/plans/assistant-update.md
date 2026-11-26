@@ -32,7 +32,7 @@ Brings hands-free voice and system-shortcut control to **both iPhone/iPad (Apple
 
 ---
 
-## Phase 2 — Natural Voice & Sentence Entry (On-Device + Cloud AI+)
+## Phase 2 — Natural Voice & Sentence Entry (On-Device + Cloud AI+) — **Shipped in `1.70.0`**
 
 **Goal:** Speak naturally in English, Bahasa Melayu, Manglish, or 中文 without memorizing fixed command templates.
 
@@ -47,7 +47,7 @@ Brings hands-free voice and system-shortcut control to **both iPhone/iPad (Apple
 
 ---
 
-## Phase 3 — Multi-Step Assistant Flows: "Log & Split with Ali" (Cloud AI+)
+## Phase 3 — Multi-Step Assistant Flows: "Log & Split with Ali" (Cloud AI+) — **Shipped in `1.70.0`**
 
 **Goal:** One spoken sentence triggers a compound workflow — e.g., *"Log my RM 40 food spending and request half from Ali."*
 

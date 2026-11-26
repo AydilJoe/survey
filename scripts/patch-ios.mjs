@@ -556,6 +556,65 @@ struct DuitfulNoSpendTodayIntent: AppIntent {
     }
 }
 
+@available(iOS 16.0, *)
+struct DuitfulLogBySentenceIntent: AppIntent {
+    static var title: LocalizedStringResource = "Tell Duitful"
+    static var description = IntentDescription("Say a sentence like 'RM 40 nasi lemak, split half with Ali' and Duitful pre-fills the spend or split for 1-tap confirmation.")
+    static var openAppWhenRun: Bool = true
+
+    @Parameter(title: "Sentence", requestValueDialog: "What did you spend?")
+    var text: String
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Tell Duitful \\(\\.$text)")
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        let q = text.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let url = URL(string: "${APP_SCHEME}://action/voice?text=\\(q)") {
+            _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url, options: [:])
+        }
+        return .result()
+    }
+}
+
+@available(iOS 16.0, *)
+struct DuitfulCreateSplitRequestIntent: AppIntent {
+    static var title: LocalizedStringResource = "Draft a split request"
+    static var description = IntentDescription("Builds a ready-to-send split request message you can chain into Send Message or WhatsApp in Shortcuts, and queues the spend in Duitful.")
+    static var openAppWhenRun: Bool = false
+
+    @Parameter(title: "Total amount", requestValueDialog: "What was the total bill?")
+    var totalAmount: String
+
+    @Parameter(title: "Person", requestValueDialog: "Who are you splitting with?")
+    var person: String
+
+    @Parameter(title: "Item", default: "Shared bill")
+    var item: String
+
+    @Parameter(title: "Share percent", default: 50)
+    var sharePercent: Int
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Split \\(\\.$totalAmount) for \\(\\.$item) (\\(\\.$sharePercent)%) with \\(\\.$person)")
+    }
+
+    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        guard let total = DuitfulQuickAddQueue.parseAmount(totalAmount) else {
+            throw $totalAmount.needsValueError("What was the total amount? For example 40")
+        }
+        let pct = max(1, min(100, sharePercent))
+        let share = ((total * Double(pct) / 100.0) * 100).rounded() / 100
+        let cleanPerson = person.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanItem = item.trimmingCharacters(in: .whitespacesAndNewlines)
+        DuitfulQuickAddQueue.append(amount: total, merchant: cleanItem.isEmpty ? "Shared bill" : cleanItem)
+        let msg = String(format: "Hi %@, your share for %@ is RM %.2f (from RM %.2f total).", cleanPerson, cleanItem.isEmpty ? "our bill" : cleanItem, share, total)
+        return .result(value: msg, dialog: "Drafted split request for \\(cleanPerson).")
+    }
+}
+
 // Siri only runs an App Shortcut when what you say is close to one of these
 // phrases; anything else goes to Siri's own answer ("I can't add your
 // spending directly to Duitful"). A phrase can't carry the amount (only an
@@ -594,6 +653,12 @@ struct DuitfulAppShortcuts: AppShortcutsProvider {
             "Tiada belanja hari ini dalam \\(.applicationName)",
             "今日无消费在 \\(.applicationName)",
         ], shortTitle: "No spend today", systemImageName: "flame")
+        AppShortcut(intent: DuitfulLogBySentenceIntent(), phrases: [
+            "Tell \\(.applicationName)",
+            "Voice log in \\(.applicationName)",
+            "Beritahu \\(.applicationName)",
+            "告诉 \\(.applicationName)",
+        ], shortTitle: "Tell Duitful", systemImageName: "mic")
     }
 }
 `;
@@ -875,6 +940,7 @@ struct DuitfulAction: Identifiable {
     static var scan: DuitfulAction { all[1] }
     static var split: DuitfulAction { all[2] }
     static var debt: DuitfulAction { all[3] }
+    static let noSpend = DuitfulAction(id: "no-spend", title: "No spend", symbol: "flame.fill")
 }
 
 // MARK: - Timeline & Summary
@@ -1352,7 +1418,7 @@ struct DuitfulLogSpendControl: ControlWidget {
 
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: kind) {
-            ControlWidgetButton(action: OpenURLIntent(DuitfulAction.spend.url)) {
+            ControlWidgetButton(action: OpenURLIntent(DuitfulAction.primary.url)) {
                 Label("Log a spend", systemImage: "plus.circle")
             }
         }
@@ -1376,6 +1442,21 @@ struct DuitfulScanReceiptControl: ControlWidget {
     }
 }
 
+@available(iOS 18.0, *)
+struct DuitfulNoSpendControl: ControlWidget {
+    let kind = "DuitfulNoSpendControl"
+
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: kind) {
+            ControlWidgetButton(action: OpenURLIntent(DuitfulAction.noSpend.url)) {
+                Label("No spend today", systemImage: "flame")
+            }
+        }
+        .displayName("No spend today")
+        .description("Check in a no-spend day to keep your Duitful streak alive.")
+    }
+}
+
 @main
 struct DuitfulWidgetBundle: WidgetBundle {
     var body: some Widget {
@@ -1383,6 +1464,7 @@ struct DuitfulWidgetBundle: WidgetBundle {
         if #available(iOS 18.0, *) {
             DuitfulLogSpendControl()
             DuitfulScanReceiptControl()
+            DuitfulNoSpendControl()
         }
     }
 }
