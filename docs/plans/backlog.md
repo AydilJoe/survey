@@ -69,9 +69,10 @@ Full plan: [`assistant-update.md`](assistant-update.md).
    `1.68.0`** (`DRIVE_CONFIG.iosEnabled: true` in `app/drive-config.js`,
    offering Google Drive alongside iCloud for cross-platform sync; verify on
    TestFlight / App Review).
-2. **iOS Share Extension:** share PDF statements, Borang EA, or receipt images
-   straight from WhatsApp, Files, or banking apps into Duitful (matching
-   Android).
+2. ~~**iOS Share Extension:**~~ **Shipped in `1.68.2`** (`DuitfulShare` Share
+   Extension target + App Group `group.com.aydiljoe.duitful` in
+   `scripts/patch-ios.mjs`, `DuitfulKitPlugin.takeSharedFiles`, and
+   `fastlane/Fastfile`).
 3. ~~**Android unbundled ML Kit Text Recognition v2 (Play Services):**~~
    **Shipped in `1.68.1`** (`DuitfulKitTextReader.java` via Play Services Latin
    + Chinese models; removed `@pantrist/capacitor-plugin-ml-kit-text-recognition`

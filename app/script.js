@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.68.1";
+const APP_VERSION = "1.68.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7546,6 +7546,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.68.2": [
+    "<strong>Share straight into Duitful on iPhone and iPad</strong> — share PDF bank statements, Borang EA, or receipt photos directly from WhatsApp, Files, Mail, or banking apps via the iOS Share sheet.",
+  ],
   "1.68.1": [
     "<strong>Smaller Android app and Chinese receipt scanning</strong> — Android text reading now uses Google Play Services ML Kit v2 (Latin and Chinese), shrinking the app download while reading English, Malay, and Chinese receipts on-device.",
   ],

@@ -7344,12 +7344,17 @@ check('a failure never strands the button, and says something happened',
 
   // Actions-only, by the owner's explicit choice: a widget or shortcut must
   // never write figures where they can be read without the passcode. Guard
-  // the native patches against an App Group / shared-prefs creeping in.
+  // the widget/shortcut patches against UserDefaults(suiteName:) / shared-prefs
+  // creeping in (the iOS App Group is used exclusively by DuitfulShare's
+  // SharedInbox file handoff — DuitfulWidget has no entitlements and never
+  // reads the App Group).
   const widgetSrcs = ['patch-android-shortcuts.mjs', 'patch-ios.mjs', 'patch-android-widget.mjs']
     .filter((f) => existsSync(path.join(REPO_ROOT, 'scripts', f)))
     .map((f) => readFile('scripts', f)).join('\n');
-  check('no native patch opens a shared container for app data',
-    !/com\.apple\.security\.application-groups|group\.com\.aydiljoe|getSharedPreferences|UserDefaults\(suiteName/i.test(widgetSrcs));
+  const iosWidgetOnly = iosSrc.slice(iosSrc.indexOf('const WIDGET_SWIFT_BODY'), iosSrc.indexOf('/* ---------- 4c. Share Extension'));
+  check('no widget or shortcut opens a shared container for app data (App Group is DuitfulShare SharedInbox only)',
+    !/getSharedPreferences|UserDefaults\(suiteName/i.test(widgetSrcs)
+    && !/application-groups|group\.com\.aydiljoe/i.test(iosWidgetOnly));
 }
 
 /* ── 16i. first run asks two questions instead of giving a lecture ──────
@@ -15536,6 +15541,71 @@ check('the brand catalogue makes no network calls at all',
     && aoErr.length === 0,
     JSON.stringify({ ...aoRes, aoErr }));
   await andOcrCtx.close();
+}
+
+// ── Track 3b (v1.68.2): iOS Share Extension (DuitfulShare + App Group + duitful://share) ─
+{
+  const patchIos = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-ios.mjs'), 'utf8');
+  const swiftPlug = readFileSync(path.join(REPO_ROOT, 'native', 'duitful-kit', 'ios', 'Sources', 'DuitfulKitPlugin', 'DuitfulKitPlugin.swift'), 'utf8');
+  const fastfile = readFileSync(path.join(REPO_ROOT, 'fastlane', 'Fastfile'), 'utf8');
+  const iosYml = readFileSync(path.join(REPO_ROOT, '.github', 'workflows', 'ios.yml'), 'utf8');
+  check('v1.68.2: iOS Share Extension target, App Group, takeSharedFiles, Fastfile signing and IPA check are all wired',
+    patchIos.includes('const SHARE_NAME = "DuitfulShare"')
+    && patchIos.includes('group.com.aydiljoe.duitful')
+    && patchIos.includes('com.apple.share-services')
+    && swiftPlug.includes('func takeSharedFiles(')
+    && swiftPlug.includes('group.com.aydiljoe.duitful')
+    && fastfile.includes('com.aydiljoe.duitful.DuitfulShare')
+    && iosYml.includes('DuitfulShare.appex'));
+
+  const iosShareCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  await iosShareCtx.addInitScript(() => {
+    window.__urlListeners = [];
+    window.__takeCalls = 0;
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'ios',
+      Plugins: {
+        App: {
+          addListener: (ev, fn) => { if (ev === 'appUrlOpen') window.__urlListeners.push(fn); return { remove: () => {} }; },
+          getLaunchUrl: async () => ({ url: '' }),
+          getInfo: async () => ({ version: '1.68.2', build: '1' }),
+        },
+        DuitfulKit: {
+          takeSharedFiles: async () => {
+            window.__takeCalls++;
+            if (window.__takeCalls === 1) {
+              return { files: [{ name: 'receipt.jpg', mime: 'image/jpeg', base64: 'aGVsbG8=' }] };
+            }
+            return { files: [] };
+          },
+        },
+      },
+    };
+  });
+  const isp = await iosShareCtx.newPage();
+  const isErr = [];
+  isp.on('pageerror', (e) => isErr.push(e.message));
+  await isp.goto(`${BASE}/app/index.html`);
+  await isp.waitForTimeout(400);
+  await isp.click('#btn-start-open');
+  await isp.waitForTimeout(500);
+  const shRes = await isp.evaluate(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    window.__takeCalls = 0;
+    for (const fn of window.__urlListeners) fn({ url: 'duitful://share' });
+    await new Promise((r) => setTimeout(r, 150));
+    const dlg = document.getElementById('shared-in-dialog');
+    return {
+      takeCalls: window.__takeCalls,
+      dlgOpen: !!(dlg && dlg.open),
+      what: document.getElementById('shared-in-what')?.textContent || '',
+    };
+  });
+  check('v1.68.2: duitful://share deep link drains DuitfulKit.takeSharedFiles and opens the shared-in sheet',
+    shRes.takeCalls >= 1 && shRes.dlgOpen && /1 photo shared to Duitful/.test(shRes.what) && isErr.length === 0,
+    JSON.stringify({ ...shRes, isErr }));
+  await iosShareCtx.close();
 }
 
 await b.close();

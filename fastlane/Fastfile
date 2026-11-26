@@ -54,6 +54,8 @@ APP_IDENTIFIER = "com.aydiljoe.duitful"
 # com.aydiljoe.duitful.DuitfulWidget" — long after the 20 minutes of build.
 WIDGET_IDENTIFIER = "com.aydiljoe.duitful.DuitfulWidget"
 WIDGET_TARGET = "DuitfulWidget"
+SHARE_IDENTIFIER = "com.aydiljoe.duitful.DuitfulShare"
+SHARE_TARGET = "DuitfulShare"
 WORKSPACE = "ios/App/App.xcworkspace"
 XCODEPROJ = "ios/App/App.xcodeproj"
 SCHEME = "App"
@@ -144,7 +146,23 @@ platform :ios do
         "developer.apple.com (Identifiers → + → App IDs → App) and run again.",
       )
     end
-    UI.message("Signing as team #{team_id} with '#{profile_name}' + '#{widget_profile_name}'")
+
+    # Third profile, for the Share Extension (PDF statements / receipts from WhatsApp, Files, etc.).
+    get_provisioning_profile(
+      api_key: key,
+      app_identifier: SHARE_IDENTIFIER,
+      readonly: false,
+      output_path: SIGNING_DIR,
+    )
+    share_profile_name = sigh_result[:name]
+    if share_profile_name.to_s.empty?
+      UI.user_error!(
+        "No App Store profile for #{SHARE_IDENTIFIER}. Register that App ID at " \
+        "developer.apple.com (Identifiers → + → App IDs → App) with App Group " \
+        "group.com.aydiljoe.duitful and run again.",
+      )
+    end
+    UI.message("Signing as team #{team_id} with '#{profile_name}' + '#{widget_profile_name}' + '#{share_profile_name}'")
 
     # Capacitor's template ships CODE_SIGN_STYLE = Automatic, which on a
     # headless runner means "ask Xcode to guess". Pin it to the profile we
@@ -158,7 +176,7 @@ platform :ios do
       code_sign_identity: "Apple Distribution",
       profile_name: profile_name,
     )
-    # Same again for the extension: it is a separate target and inherits none
+    # Same again for the extensions: each is a separate target and inherits none
     # of the above.
     update_code_signing_settings(
       path: XCODEPROJ,
@@ -168,6 +186,15 @@ platform :ios do
       bundle_identifier: WIDGET_IDENTIFIER,
       code_sign_identity: "Apple Distribution",
       profile_name: widget_profile_name,
+    )
+    update_code_signing_settings(
+      path: XCODEPROJ,
+      use_automatic_signing: false,
+      team_id: team_id,
+      targets: [SHARE_TARGET],
+      bundle_identifier: SHARE_IDENTIFIER,
+      code_sign_identity: "Apple Distribution",
+      profile_name: share_profile_name,
     )
 
     marketing_version = package_version
@@ -196,6 +223,7 @@ platform :ios do
         provisioningProfiles: {
           APP_IDENTIFIER => profile_name,
           WIDGET_IDENTIFIER => widget_profile_name,
+          SHARE_IDENTIFIER => share_profile_name,
         },
         uploadSymbols: true,
       }.merge(

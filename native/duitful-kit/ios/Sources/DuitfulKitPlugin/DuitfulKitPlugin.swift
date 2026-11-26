@@ -54,6 +54,7 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
         CAPPluginMethod(name: "requestReview", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "relayWatch", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readSharedFile", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "takeSharedFiles", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "syncWidget", returnType: CAPPluginReturnPromise),
     ]
 
@@ -336,6 +337,42 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
                 return
             }
             call.resolve(["files": [["name": url.lastPathComponent, "mime": mime, "base64": data.base64EncodedString()]]])
+        }
+    }
+
+    /// Files staged by the DuitfulShare Share Extension in the shared App Group
+    /// container (group.com.aydiljoe.duitful/SharedInbox). Each file is read
+    /// once and deleted immediately; capped at 12 files and 25 MB each.
+    /// → {files: [{name, mime, base64}]}
+    @objc func takeSharedFiles(_ call: CAPPluginCall) {
+        let appGroup = "group.com.aydiljoe.duitful"
+        let mimes = ["pdf": "application/pdf", "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "heic": "image/heic", "heif": "image/heif", "webp": "image/webp"]
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let base = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else {
+                call.resolve(["files": []])
+                return
+            }
+            let inbox = base.appendingPathComponent("SharedInbox", isDirectory: true)
+            guard let urls = try? FileManager.default.contentsOfDirectory(at: inbox, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else {
+                call.resolve(["files": []])
+                return
+            }
+            let sorted = urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+            var out: [[String: String]] = []
+            for url in sorted.prefix(12) {
+                defer { try? FileManager.default.removeItem(at: url) }
+                let ext = url.pathExtension.lowercased()
+                guard let mime = mimes[ext],
+                      let data = try? Data(contentsOf: url),
+                      !data.isEmpty,
+                      data.count <= 25 * 1024 * 1024 else { continue }
+                out.append([
+                    "name": url.lastPathComponent,
+                    "mime": mime,
+                    "base64": data.base64EncodedString(),
+                ])
+            }
+            call.resolve(["files": out])
         }
     }
 

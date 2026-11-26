@@ -263,6 +263,17 @@ jobs:
           }
           minos=$(plutil -extract MinimumOSVersion raw "$appex/Info.plist")
           echo "Widget MinimumOSVersion: $minos — it will not appear on a device older than this."
+          shareex="$app/PlugIns/DuitfulShare.appex"
+          if [ ! -d "$shareex" ]; then
+            echo "::error::No DuitfulShare.appex in the IPA — the Share Extension will not appear on any device."
+            exit 1
+          fi
+          echo "Share extension present: $(du -sh "$shareex" | cut -f1)"
+          sharepoint=$(plutil -extract NSExtension.NSExtensionPointIdentifier raw "$shareex/Info.plist")
+          [ "$sharepoint" = "com.apple.share-services" ] || {
+            echo "::error::Share extension declares extension point '$sharepoint', expected com.apple.share-services."
+            exit 1
+          }
           rm -rf "$work"
 
       - name: Upload the unsigned IPA (AltStore sideloading)
