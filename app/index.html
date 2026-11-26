@@ -845,6 +845,13 @@
               <button type="button" class="pill" data-debt-kind="islamic" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 5.5a7 7 0 100 13 8 8 0 110-13z"/><path d="M19.5 9l.6 1.7 1.8.1-1.4 1.2.5 1.7-1.5-1-1.5 1 .5-1.7-1.4-1.2 1.8-.1z"/></svg></span>Islamic</button>
             </div>
             <input type="hidden" id="debt-kind" name="kind" value="standard" />
+            <!-- Duitful AI+ only (hidden until aiCloudAllowed()): a loan letter or
+                 statement is read on the phone, then its printed figures fill the
+                 empty boxes below for you to check. -->
+            <div class="debt-letter" id="debt-letter" hidden>
+              <button type="button" class="ghost" id="debt-letter-btn">Read a loan letter</button>
+              <p class="hint" id="debt-letter-status" role="status" aria-live="polite" hidden></p>
+            </div>
             <!-- Combobox, not a <datalist>: the suggestion rows carry a colour
                  swatch, and the point of the control is recognising a brand by
                  colour. Matching is local — see brands.js on why there is no
@@ -959,6 +966,7 @@
             </details>
             <button type="submit" class="primary">Add debt</button>
           </form>
+          <input type="file" id="debt-letter-file" accept="application/pdf,.pdf,image/*" multiple hidden />
           <ul id="list-debt" class="debt-list"></ul>
         </div>
 
@@ -3621,6 +3629,6 @@
     <script src="ai-cloud.js?v=92dd79d1"></script>
     <script src="pro.js?v=834eaf24"></script>
     <script src="ocr.js?v=0fe4028c"></script>
-    <script src="script.js?v=8dee80c1"></script>
+    <script src="script.js?v=812e9a34"></script>
   </body>
 </html>
