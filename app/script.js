@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.74.0";
+const APP_VERSION = "1.74.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7600,6 +7600,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.74.1": [
+    "<strong>Polished Duitful AI+ sheet with Kira</strong> — redesigned the Duitful AI+ subscription sheet and Settings card with Kira, a clearer feature checklist, and side-by-side Annual and Monthly plan cards.",
+  ],
   "1.74.0": [
     "<strong>Introducing Duitful AI+ (optional cloud subscription)</strong> — smarter reading for receipts, bank statements, Borang EA, loan letters, voice entry, and splits across up to 3 paired devices, with Duitful Pro included. Off by default, redacted on your device first, and your vault is never sent.",
   ],
