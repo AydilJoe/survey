@@ -15923,7 +15923,7 @@ check('the brand catalogue makes no network calls at all',
 }
 
 // =========================================================================
-// Duitful AI+ Phase 1 (v1.72.0): full admin trim, api/ai.js in-memory
+// Duitful AI+ Phase 1: full admin trim, api/ai.js in-memory
 // handler with stubbed Gemini, 8 v1 task checks, 3-device pairing +
 // 4th-device replace, quota fallback, on-device redaction, dual entitlement,
 // and "nothing sent when AI+ is off".

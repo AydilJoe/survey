@@ -1,7 +1,7 @@
 /* ---------- Duitful AI+ (cloud Gemini subscription) client ----------
-   Phase 1 (v1.72.0): Backend client, dual entitlement, single price source,
+   Phase 1: Backend client, dual entitlement, single price source,
    client-side response checks, 3-device pairing, and Settings card — all
-   gated behind aiPlusFlagOn() (off by default until v1.74.0 launch).
+   gated behind aiPlusFlagOn() (off by default until the launch release).
 
    Rules:
    - Never sends a prompt; sends only { task, input } to /api/ai?op=run.
