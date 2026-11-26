@@ -186,7 +186,11 @@ async function aiCloudRun(task, input) {
     const data = await r.json().catch(() => null);
     if (data && data.status) aiMergeStatusSnapshot(data.status);
     if (r.status === 429 && data && data.error === "quota") {
-      if (typeof showToast === "function") showToast("Monthly Cloud AI limit reached — using on-device fallback.");
+      if (typeof showToast === "function") {
+        showToast(typeof tr === "function"
+          ? tr("Monthly Cloud AI limit reached — using on-device fallback.")
+          : "Monthly Cloud AI limit reached — using on-device fallback.");
+      }
       return null;
     }
     if (!r.ok || !data || !data.ok || !data.result) return null;
@@ -343,9 +347,10 @@ function wireAiCloudSettings() {
       claimBtn.disabled = true;
       let res = await aiPairClaim(code);
       if (res && res.error === "device-limit") {
-        const ok = typeof window !== "undefined" && window.confirm
-          ? window.confirm("3 devices are already connected — replace the oldest device?")
-          : false;
+        const msg = typeof tr === "function"
+          ? tr("3 devices are already connected — replace the oldest device?")
+          : "3 devices are already connected — replace the oldest device?";
+        const ok = typeof window !== "undefined" && window.confirm ? window.confirm(msg) : false;
         if (ok) res = await aiPairClaim(code, { replaceOldest: true });
       }
       claimBtn.disabled = false;
