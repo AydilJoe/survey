@@ -7574,6 +7574,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.70.1": [
+    "<strong>Siri works on iPhone again</strong> — \"Log a spend in Duitful\", \"Scan a receipt in Duitful\", \"No spend today in Duitful\" and \"Tell Duitful\" now register with Siri and Spotlight when you open the app. Say \"Tell Duitful\" or \"Log it in Duitful\", then say what you spent."
+  ],
   "1.70.0": [
     "<strong>Voice entry and one-sentence Log and Split</strong> — tap <strong>Voice</strong> on Home or say \"Tell Duitful\" via Siri / Google Assistant (e.g. \"dua belas ringgit nasi lemak pakai MAE\" or \"RM 40 nasi lemak, split half with Ali\") to preview and send a split request in one tap. Works offline in English, Malay, and Chinese.",
   ],
