@@ -356,6 +356,10 @@ function renderAiCloudSettings() {
     return;
   }
   card.hidden = false;
+  const kiraSlot = document.getElementById("ai-cloud-kira");
+  if (kiraSlot && !kiraSlot.firstChild && typeof kiraSvg === "function") {
+    kiraSlot.innerHTML = kiraSvg("happy", { idle: true });
+  }
 
   const sub = (typeof state !== "undefined" && state && state.aiSub) || null;
   const active = aiSubIsActive(sub);
@@ -669,14 +673,18 @@ function renderAiPaywall() {
   const proOwner = !!(typeof state !== "undefined" && state && state.pro);
   const nativeWrap = document.getElementById("ai-plus-native-plans");
   const webWrap = document.getElementById("ai-plus-web-pair");
-  const moBtn = document.getElementById("ai-plus-buy-monthly");
-  const yrBtn = document.getElementById("ai-plus-buy-yearly");
+  const moPrice = document.getElementById("ai-plus-monthly-price");
+  const yrPrice = document.getElementById("ai-plus-yearly-price");
   const loyaltyNote = document.getElementById("ai-plus-loyalty-note");
+  const kiraSlot = document.getElementById("ai-plus-kira");
 
+  if (kiraSlot && !kiraSlot.firstChild && typeof kiraSvg === "function") {
+    kiraSlot.innerHTML = kiraSvg("proud", { idle: true });
+  }
   if (nativeWrap) nativeWrap.hidden = !native;
   if (webWrap) webWrap.hidden = native;
-  if (moBtn) moBtn.textContent = aiPriceLabel("monthly", { proOwner });
-  if (yrBtn) yrBtn.textContent = aiPriceLabel("yearly", { proOwner });
+  if (moPrice) moPrice.textContent = aiPriceLabel("monthly", { proOwner });
+  if (yrPrice) yrPrice.textContent = aiPriceLabel("yearly", { proOwner });
   if (loyaltyNote) loyaltyNote.hidden = !(native && proOwner);
 }
 
