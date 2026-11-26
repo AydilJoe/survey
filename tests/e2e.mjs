@@ -15667,6 +15667,94 @@ check('the brand catalogue makes no network calls at all',
   await asstCtx.close();
 }
 
+// ── Assistant Update Phases 2–4 (v1.70.0): Voice & Compound Log & Split ───
+{
+  const patchIos = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-ios.mjs'), 'utf8');
+  const patchAnd = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-android-shortcuts.mjs'), 'utf8');
+  check('v1.70.0: iOS Tell Duitful, Draft split request, NoSpend ControlWidget and Android voice action are wired',
+    patchIos.includes('struct DuitfulLogBySentenceIntent')
+    && patchIos.includes('struct DuitfulCreateSplitRequestIntent')
+    && patchIos.includes('struct DuitfulNoSpendControl: ControlWidget')
+    && patchAnd.includes('name: "voice"'));
+
+  const vCtx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  const vp = await vCtx.newPage();
+  const vErr = [];
+  vp.on('pageerror', (e) => vErr.push(e.message));
+  await vp.goto(`${BASE}/app/index.html`);
+  await vp.waitForTimeout(400);
+  await vp.click('#btn-start-open');
+  await vp.waitForTimeout(400);
+
+  const vRes = await vp.evaluate(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    state.wallets = [{ id: 'w-mae', name: 'MAE', type: 'ewallet', initial: 500 }];
+    state.split.people = ['Ali', 'Siti'];
+    renderAll();
+
+    // 1. 360px layout check for Scan receipt + Voice row in EN / MS / ZH.
+    const layout = {};
+    for (const lang of ['en', 'ms', 'zh']) {
+      await I18N.set(lang);
+      renderAll();
+      const scanR = document.getElementById('btn-scan').getBoundingClientRect();
+      const voiceR = document.getElementById('btn-voice').getBoundingClientRect();
+      layout[lang] = {
+        overflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+        fits: voiceR.width > 0 && voiceR.right <= window.innerWidth + 1 && Math.abs(scanR.top - voiceR.top) < 4,
+      };
+    }
+    await I18N.set('en');
+    renderAll();
+
+    // 2. Spoken Malay + wallet: "dua belas ringgit lima puluh sen nasi lemak pakai MAE"
+    const pBm = parseVoiceSentence('dua belas ringgit lima puluh sen nasi lemak pakai MAE');
+    // 3. Chinese spoken number: "十二块五 鸡饭"
+    const pZh = parseVoiceSentence('十二块五 鸡饭');
+    // 4. Compound Log & Split: "Log my RM 40 food spending and half of the amount request from Ali"
+    const pComp = parseVoiceSentence('Log my RM 40 food spending and half of the amount request from Ali');
+    // 5. Deep link duitful://action/voice?text=... opens #voice-dialog with preview & saves linked spend + split.
+    const parsedAction = quickActionFromUrl('duitful://action/voice?text=RM%2040%20nasi%20lemak%20split%20half%20with%20Ali');
+    const parsedText = quickActionTextFromUrl('duitful://action/voice?text=RM%2040%20nasi%20lemak%20split%20half%20with%20Ali');
+    runQuickAction(parsedAction, parsedText);
+    const dlgOpen = document.getElementById('voice-dialog').open;
+    const saveBtnText = document.getElementById('voice-save').textContent.trim();
+    const expBefore = state.dailyExpenses.length;
+    const outBefore = state.split.out.length;
+    const saved = voiceSaveConfirmed();
+    const expAfter = state.dailyExpenses.length;
+    const outAfter = state.split.out.length;
+    const shareOpen = !!document.getElementById('split-share-dialog')?.open;
+
+    return {
+      layout,
+      pBm: { a: pBm.amount, c: pBm.category, w: pBm.walletId },
+      pZh: { a: pZh.amount, c: pZh.category },
+      pComp: { a: pComp.amount, c: pComp.category, people: pComp.split && pComp.split.people },
+      parsedAction,
+      dlgOpen,
+      saveBtnText,
+      expAdded: expAfter - expBefore,
+      outAdded: outAfter - outBefore,
+      linkedId: saved && saved.splitRec && saved.splitRec.expenseId === saved.expense.id,
+      shareOpen,
+    };
+  });
+
+  check('v1.70.0: Voice parser handles Malay/Chinese spoken numbers, wallet matching, compound Log & Split with local math, deep link, and 360px EN/MS/ZH layout',
+    ['en', 'ms', 'zh'].every((l) => !vRes.layout[l].overflow && vRes.layout[l].fits)
+    && vRes.pBm.a === 12.5 && vRes.pBm.c === 'Food' && vRes.pBm.w === 'w-mae'
+    && vRes.pZh.a === 12.5 && vRes.pZh.c === 'Food'
+    && vRes.pComp.a === 40 && vRes.pComp.c === 'Food'
+    && Array.isArray(vRes.pComp.people) && vRes.pComp.people.length === 1 && vRes.pComp.people[0].name === 'Ali' && vRes.pComp.people[0].amount === 20
+    && vRes.parsedAction === 'voice' && vRes.dlgOpen && /Save & send to Ali/.test(vRes.saveBtnText)
+    && vRes.expAdded === 1 && vRes.outAdded === 1 && vRes.linkedId && vRes.shareOpen
+    && vErr.length === 0,
+    JSON.stringify({ ...vRes, vErr }));
+
+  await vCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

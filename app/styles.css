@@ -9919,5 +9919,80 @@ html[data-theme="dark"] .streak-day.is-done .streak-day-dot { color: var(--stage
   flex: none;
 }
 
+/* Assistant Update Phases 2 & 3: Voice / sentence entry button & sheet */
+.scan-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.scan-row .scan-btn {
+  flex: 1 1 auto;
+  width: auto !important;
+  min-width: 0;
+}
+.voice-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0 0.85rem;
+  min-height: 44px;
+  border-radius: var(--r-md);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.voice-btn .pill-icon svg {
+  width: 17px;
+  height: 17px;
+}
+.voice-input-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.45rem;
+  margin: 0.65rem 0 0.5rem;
+}
+.voice-input-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.voice-mic-btn {
+  flex: 0 0 auto;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.voice-mic-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.voice-mic-btn.is-listening {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--card));
+}
+.voice-preview {
+  margin: 0.55rem 0 0.85rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--r-md);
+  background: var(--card-soft);
+  border: 0.5px solid var(--line);
+}
+.voice-preview[hidden] { display: none; }
+.voice-preview-spend {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.96rem;
+  color: var(--text);
+}
+.voice-preview-split {
+  margin: 0.35rem 0 0;
+  font-size: 0.86rem;
+  color: var(--ink2);
+}
+.voice-preview-split[hidden] { display: none; }
+
 
 

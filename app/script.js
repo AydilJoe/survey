@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.69.0";
+const APP_VERSION = "1.70.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -5494,9 +5494,10 @@ function storedPromoCode() {
    Nothing here is a Pro gate and nothing writes outside the vault: a quick
    action is a launch intent, not data. */
 
-const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving", "review", "no-spend"]);
+const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving", "review", "no-spend", "voice"]);
 // Held until the app is genuinely usable. Survives the whole unlock flow.
 let pendingQuickAction = null;
+let pendingQuickActionText = "";
 
 // Pure: pull the action name out of any of the three launch shapes. Returns
 // null for anything unrecognised, so a stray URL can never drive the UI.
@@ -5517,13 +5518,21 @@ function quickActionFromUrl(url) {
   return QUICK_ACTIONS.has(name) ? name : null;
 }
 
+function quickActionTextFromUrl(url) {
+  const raw = String(url == null ? "" : url);
+  if (!raw.includes("?")) return "";
+  try {
+    return String(new URLSearchParams(raw.slice(raw.indexOf("?"))).get("text") || "").trim().slice(0, 300);
+  } catch { return ""; }
+}
+
 function isLockedNow() {
   const lock = document.getElementById("lock");
   return !!lock && !lock.hidden;
 }
 
 // Do the thing. Only ever called with a vetted name, and only once unlocked.
-function runQuickAction(name) {
+function runQuickAction(name, text) {
   switch (name) {
     case "spend":
     case "debt":
@@ -5560,6 +5569,10 @@ function runQuickAction(name) {
       document.getElementById("tabbtn-dashboard")?.click();
       if (typeof checkInNoSpendToday === "function") checkInNoSpendToday();
       break;
+    case "voice":
+      document.getElementById("tabbtn-dashboard")?.click();
+      if (typeof openVoiceEntry === "function") openVoiceEntry(text || "");
+      break;
     default:
       break;
   }
@@ -5568,9 +5581,10 @@ function runQuickAction(name) {
 /* Queue an action, or run it now if there is nothing in the way. Called from
    the launch URL, from appUrlOpen while the app is already running, and again
    from the unlock path. */
-function requestQuickAction(name) {
+function requestQuickAction(name, text) {
   if (!QUICK_ACTIONS.has(name)) return;
   pendingQuickAction = name;
+  pendingQuickActionText = String(text || "");
   flushQuickAction();
 }
 
@@ -5585,35 +5599,38 @@ function flushQuickAction() {
   if (!pendingQuickAction) return;
   if (isLockedNow()) return; // try again after unlock
   const name = pendingQuickAction;
+  const text = pendingQuickActionText;
   pendingQuickAction = null;
+  pendingQuickActionText = "";
   const now = Date.now();
   if (lastQuickAction.name === name && now - lastQuickAction.at < QUICK_ACTION_DEDUPE_MS) return;
   lastQuickAction = { name, at: now };
   // One frame of slack so a render triggered by unlocking has settled and
   // the elements the action reaches for actually exist.
-  setTimeout(() => { try { runQuickAction(name); } catch {} }, 120);
+  setTimeout(() => { try { runQuickAction(name, text); } catch {} }, 120);
 }
 
 function initQuickActions() {
   // Browser / PWA: the action rides on the launch URL.
   const fromUrl = quickActionFromUrl(location.search);
+  const fromText = quickActionTextFromUrl(location.search);
   if (fromUrl) {
     // Clean the URL immediately — a refresh must not re-fire the action — but
     // keep the intent in memory, which is the whole point.
     try { history.replaceState({}, "", location.pathname); } catch {}
-    requestQuickAction(fromUrl);
+    requestQuickAction(fromUrl, fromText);
   }
   if (!isNative()) return;
   const App = window.Capacitor?.Plugins?.App;
   if (!App || typeof App.addListener !== "function") return;
   App.addListener("appUrlOpen", (event) => {
     const name = quickActionFromUrl(event && event.url);
-    if (name) requestQuickAction(name);
+    if (name) requestQuickAction(name, quickActionTextFromUrl(event && event.url));
   });
   if (typeof App.getLaunchUrl === "function") {
     App.getLaunchUrl().then((res) => {
       const name = quickActionFromUrl(res && res.url);
-      if (name) requestQuickAction(name);
+      if (name) requestQuickAction(name, quickActionTextFromUrl(res && res.url));
     }).catch(() => {});
   }
 }
@@ -7557,6 +7574,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.70.0": [
+    "<strong>Voice entry and one-sentence Log and Split</strong> — tap <strong>Voice</strong> on Home or say \"Tell Duitful\" via Siri / Google Assistant (e.g. \"dua belas ringgit nasi lemak pakai MAE\" or \"RM 40 nasi lemak, split half with Ali\") to preview and send a split request in one tap. Works offline in English, Malay, and Chinese.",
+  ],
   "1.69.0": [
     "<strong>Assistant Update Phase 1 (Siri, Google Assistant, and Quick Controls)</strong> — Siri now supports Category, Wallet name, and <strong>No spend today</strong> check-ins (in English, Malay, and Chinese), iOS 18+ gets Control Center buttons, and Android gets Google Assistant App Actions plus a 1-tap <strong>Log spend</strong> Quick Settings tile. Zero balances are ever exposed to the OS.",
   ],

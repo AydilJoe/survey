@@ -57,6 +57,7 @@ const SHORTCUTS = [
 ];
 const ASSISTANT_EXTRA_FEATURES = [
   { name: "no-spend", feature: "No spend today" },
+  { name: "voice", feature: "Voice log" },
 ];
 
 if (!existsSync(MANIFEST)) {

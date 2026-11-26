@@ -584,5 +584,14 @@
   "Use {amount}": "Guna {amount}",
   "Use amount": "Guna jumlah",
   "Scan bill": "Imbas bil",
-  "Filled {name}: {a}": "Diisi {name}: {a}"
+  "Filled {name}: {a}": "Diisi {name}: {a}",
+  "Voice": "Suara",
+  "Voice or quick sentence": "Suara atau ayat ringkas",
+  "Say or type a spend — even a split. Example: \"RM 40 nasi lemak, split half with Ali\".": "Sebut atau taip belanja — termasuk bahagi bil. Contoh: \"RM 40 nasi lemak, bahagi dua dengan Ali\".",
+  "Include an amount to preview. Nothing is saved until you tap Save.": "Masukkan jumlah untuk pratonton. Tiada apa disimpan sehingga anda ketik Simpan.",
+  "Save spend": "Simpan belanja",
+  "Split request: {list}": "Permintaan bahagi: {list}",
+  "Save & send to {name}": "Simpan & hantar kepada {name}",
+  "Save & send split": "Simpan & hantar bahagi",
+  "Saved {a}": "Disimpan {a}"
 }

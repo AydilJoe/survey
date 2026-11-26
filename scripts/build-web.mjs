@@ -49,6 +49,7 @@ const APP_FILES = [
   "reports.js",
   "onboarding.js",
   "streak.js",
+  "voice.js",
   "cloud.js",
   "capture.js",
   "pro.js",

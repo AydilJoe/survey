@@ -49,17 +49,18 @@ Full plan: [`assistant-update.md`](assistant-update.md).
   only, `NoSpendTodayIntent`, iOS 18+ Control Center `ControlWidget`, EN/BM/ZH
   Siri phrases, Android `shortcuts.xml` `OPEN_APP_FEATURE` App Actions, and
   Android Quick Settings `TileService`).
-- **Phase 2 — Natural Voice & Sentence Entry (On-Device + Cloud AI+):**
-  shared `duitful://action/voice?text=...` contract + Home mic button for EN /
-  BM / Manglish / 中文.
-- **Phase 3 — Multi-Step "Log & Split with Ali" (Cloud AI+):**
-  one sentence logs the spend, computes & creates the linked split locally, and
-  opens WhatsApp / Share pre-filled to send (plus iOS Shortcuts output chaining;
-  respects OS rule against silent background messaging).
+- ~~**Phase 2 — Natural Voice & Sentence Entry (On-Device + Cloud AI+):**~~
+  **Shipped in `1.70.0`** (`app/voice.js`, `duitful://action/voice?text=...`,
+  Home **Voice** button, offline EN / BM / Manglish / 中文 + spoken-number
+  parser, and `aiCloudRun("voice-compound")` hook ready for AI+).
+- ~~**Phase 3 — Multi-Step "Log & Split with Ali" (Cloud AI+):**~~
+  **Shipped in `1.70.0`** (local math verification, linked spend + split
+  creation, 1-tap **Save & send to Ali** opening WhatsApp / Share, and iOS
+  Shortcuts `DuitfulCreateSplitRequestIntent` output chaining).
 - **Phase 4 — Deep OS Integration:**
-  Apple Assistant Schemas (once finance domain ships), Android Jetpack
-  `@AppFunction` for Gemini, and interactive home-screen widget *"No spend
-  today"* check-in.
+  iOS 18+ **No spend today** Control Center button shipped in `1.70.0`.
+  Apple Assistant Schemas (once Apple ships the personal-finance domain) and
+  Android Jetpack `@AppFunction` for Gemini wait for OS SDK availability.
 
 ---
 
