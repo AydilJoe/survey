@@ -15295,6 +15295,63 @@ check('the brand catalogue makes no network calls at all',
   await stctx.close();
 }
 
+// ── Welcome / lock screen passcode form stays above keyboard (v1.66.3) ───
+{
+  const lkctx = await b.newContext({ viewport: { width: 360, height: 780 }, hasTouch: true, isMobile: true });
+  await lkctx.addInitScript(() => { try { Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 5 }); } catch {} });
+  const lkp = await lkctx.newPage();
+  const lkErr = [];
+  lkp.on('pageerror', (e) => lkErr.push(e.message));
+  await lkp.goto(`${BASE}/app/index.html`);
+  await lkp.waitForTimeout(500);
+
+  const welcomeState = await lkp.evaluate(() => ({
+    isPasscode: document.getElementById('lock').classList.contains('is-passcode'),
+    welcomeShown: !document.getElementById('lock-welcome').hidden,
+    actionsBottom: Math.round(document.querySelector('.lock-actions').getBoundingClientRect().bottom),
+  }));
+  await lkp.click('#btn-start-passcode');
+  await lkp.waitForTimeout(150);
+  await lkp.focus('#lock-input');
+  // Simulate mobile keyboard covering bottom ~45% of screen (visible height 430px).
+  await lkp.setViewportSize({ width: 360, height: 430 });
+  await lkp.waitForFunction(() => document.documentElement.classList.contains('kb-open'), null, { timeout: 3000 }).catch(() => {});
+  await lkp.waitForTimeout(250);
+
+  const kbUp = await lkp.evaluate(() => {
+    const vv = window.visualViewport;
+    const top = vv.offsetTop, bottom = vv.offsetTop + vv.height;
+    const inRect = document.getElementById('lock-input').getBoundingClientRect();
+    const cfRect = document.getElementById('lock-confirm').getBoundingClientRect();
+    const sbRect = document.getElementById('lock-submit').getBoundingClientRect();
+    return {
+      kb: document.documentElement.classList.contains('kb-open'),
+      isPasscode: document.getElementById('lock').classList.contains('is-passcode'),
+      welcomeHidden: document.getElementById('lock-welcome').hidden,
+      inputVisible: inRect.top >= top && inRect.bottom <= bottom,
+      confirmVisible: cfRect.top >= top && cfRect.bottom <= bottom,
+      submitVisible: sbRect.top >= top && sbRect.bottom <= bottom + 2,
+      submitTop: Math.round(sbRect.top),
+    };
+  });
+
+  // Dismiss keyboard: Create passcode button stays pinned (no jump under finger).
+  await lkp.evaluate(() => document.activeElement.blur());
+  await lkp.setViewportSize({ width: 360, height: 780 });
+  await lkp.waitForTimeout(300);
+  const kbDown = await lkp.evaluate(() => ({
+    kb: document.documentElement.classList.contains('kb-open'),
+    pinned: document.getElementById('lock').hasAttribute('data-kb-pinned'),
+    submitTop: Math.round(document.getElementById('lock-submit').getBoundingClientRect().top),
+  }));
+  check('lock keyboard (1.66.3): tapping Set a passcode lifts the passcode fields and Create passcode button above the keyboard and keeps the button steady when the keyboard closes',
+    !welcomeState.isPasscode && welcomeState.welcomeShown
+    && kbUp.kb && kbUp.isPasscode && kbUp.welcomeHidden && kbUp.inputVisible && kbUp.confirmVisible && kbUp.submitVisible
+    && !kbDown.kb && kbDown.pinned && Math.abs(kbDown.submitTop - kbUp.submitTop) <= 2 && lkErr.length === 0,
+    JSON.stringify({ welcomeState, kbUp, kbDown, lkErr }));
+  await lkctx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

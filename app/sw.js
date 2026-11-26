@@ -15,14 +15,14 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-150ec07d";
+const VERSION = "h-6ffeeea8";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=c2b54aa7",
-  "/app/script.js?v=4443e4e1",
+  "/app/styles.css?v=57500d83",
+  "/app/script.js?v=e1f2d13c",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
   "/app/i18n-langs.js?v=88beda52",
