@@ -1,0 +1,574 @@
+{
+ "2026": {
+  "newyear": {
+   "date": "2026-01-01",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "State holiday only in some states"
+  },
+  "thaipusam": {
+   "date": "2026-02-01",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "State holiday only in some states"
+  },
+  "cny": {
+   "date": "2026-02-17",
+   "days": 2,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "nuzul": {
+   "date": "2026-03-07",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "State holiday only in some states"
+  },
+  "ramadan_start": {
+   "date": "2026-02-19",
+   "days": 0,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Not a federal holiday (state holiday in Johor/Kedah, Melaka 2026)"
+  },
+  "raya_aidilfitri": {
+   "date": "2026-03-21",
+   "days": 2,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Government also declared Fri 20 Mar a holiday; 23 Mar replacement (exc. Kedah)"
+  },
+  "labour": {
+   "date": "2026-05-01",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "wesak": {
+   "date": "2026-05-31",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Falls on Sunday; replacement 2 Jun (3 Jun Sarawak)"
+  },
+  "kaamatan": {
+   "date": "2026-05-30",
+   "days": 2,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "gawai": {
+   "date": "2026-06-01",
+   "days": 2,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "agong": {
+   "date": "2026-06-01",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "raya_haji": {
+   "date": "2026-05-27",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "awal_muharram": {
+   "date": "2026-06-17",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "merdeka": {
+   "date": "2026-08-31",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "malaysia_day": {
+   "date": "2026-09-16",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "maulidur_rasul": {
+   "date": "2026-08-25",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "deepavali": {
+   "date": "2026-11-08",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Sunday; replacement 9 Nov"
+  },
+  "christmas": {
+   "date": "2026-12-25",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2026-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2026",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  }
+ },
+ "2027": {
+  "newyear": {
+   "date": "2027-01-01",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "State holiday only in some states"
+  },
+  "thaipusam": {
+   "date": "2027-01-22",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "State holiday only in some states"
+  },
+  "cny": {
+   "date": "2027-02-06",
+   "days": 2,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Sat/Sun; replacement Mon 8 Feb (exc. Kedah)"
+  },
+  "nuzul": {
+   "date": "2027-02-24",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day; State holiday only in some states"
+  },
+  "ramadan_start": {
+   "date": "2027-02-08",
+   "days": 0,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day; Not a federal holiday (state holiday in Johor/Kedah, Melaka 2026)"
+  },
+  "raya_aidilfitri": {
+   "date": "2027-03-10",
+   "days": 2,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day"
+  },
+  "labour": {
+   "date": "2027-05-01",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "wesak": {
+   "date": "2027-05-20",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "kaamatan": {
+   "date": "2027-05-30",
+   "days": 2,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "gawai": {
+   "date": "2027-06-01",
+   "days": 2,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "agong": {
+   "date": "2027-06-07",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "raya_haji": {
+   "date": "2027-05-17",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day"
+  },
+  "awal_muharram": {
+   "date": "2027-06-06",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day"
+  },
+  "merdeka": {
+   "date": "2027-08-31",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "malaysia_day": {
+   "date": "2027-09-16",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "maulidur_rasul": {
+   "date": "2027-08-15",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day"
+  },
+  "deepavali": {
+   "date": "2027-10-28",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  },
+  "christmas": {
+   "date": "2027-12-25",
+   "days": 1,
+   "status": "gazetted",
+   "sources": [
+    "https://publicholidays.com.my/2027-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2027",
+    "https://www.humanresourcesonline.net/malaysia-s-2027-public-holidays-full-list-of-federal-and-state-holidays",
+    "https://www.kabinet.gov.my/hari-kelepasan-am/"
+   ]
+  }
+ },
+ "2028": {
+  "newyear": {
+   "date": "2028-01-01",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ],
+   "note": "State holiday only in some states"
+  },
+  "thaipusam": {
+   "date": "2028-02-09",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.drikpanchang.com/festivals/thaipusam/tamil-thaipusam-date.html?year=2028"
+   ],
+   "note": "DISPUTED: Drik Panchang (Pusam nakshatra) gives 9 Feb; publicholidays.com.my gives 13 Feb (likely copied from Nuzul row); State holiday only in some states"
+  },
+  "cny": {
+   "date": "2028-01-26",
+   "days": 2,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ]
+  },
+  "nuzul": {
+   "date": "2028-02-13",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day; State holiday only in some states"
+  },
+  "ramadan_start": {
+   "date": "2028-01-28",
+   "days": 0,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day; Not a federal holiday (state holiday in Johor/Kedah, Melaka 2026)"
+  },
+  "raya_aidilfitri": {
+   "date": "2028-02-27",
+   "days": 2,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day"
+  },
+  "labour": {
+   "date": "2028-05-01",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ]
+  },
+  "wesak": {
+   "date": "2028-05-09",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/"
+   ],
+   "note": "single source (publicholidays.com.my); timeanddate does not list it yet"
+  },
+  "kaamatan": {
+   "date": "2028-05-30",
+   "days": 2,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ]
+  },
+  "gawai": {
+   "date": "2028-06-01",
+   "days": 2,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ]
+  },
+  "agong": {
+   "date": "2028-06-05",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ],
+   "note": "first Monday of June, current Agong convention"
+  },
+  "raya_haji": {
+   "date": "2028-05-05",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day"
+  },
+  "awal_muharram": {
+   "date": "2028-05-25",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day"
+  },
+  "merdeka": {
+   "date": "2028-08-31",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ]
+  },
+  "malaysia_day": {
+   "date": "2028-09-16",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ]
+  },
+  "maulidur_rasul": {
+   "date": "2028-08-03",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ],
+   "note": "Islamic date subject to moon sighting (rukyah); may shift by a day"
+  },
+  "deepavali": {
+   "date": "2028-10-17",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.drikpanchang.com/tamil/festivals/tamil-deepavali/tamil-deepavali-date-time.html?year=2028"
+   ],
+   "note": "publicholidays.com.my + Drik Panchang; timeanddate not yet listed"
+  },
+  "christmas": {
+   "date": "2028-12-25",
+   "days": 1,
+   "status": "expected",
+   "sources": [
+    "https://publicholidays.com.my/2028-dates/",
+    "https://www.timeanddate.com/holidays/malaysia/2028"
+   ]
+  }
+ }
+}
