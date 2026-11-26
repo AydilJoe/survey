@@ -15564,6 +15564,7 @@ check('the brand catalogue makes no network calls at all',
         App: {
           addListener: (ev, fn) => { if (ev === 'appUrlOpen') window.__urlListeners.push(fn); return { remove: () => {} }; },
           getLaunchUrl: async () => ({ url: '' }),
+          getInfo: async () => ({ version: '1.68.2', build: '1' }),
         },
         DuitfulKit: {
           takeSharedFiles: async () => {
