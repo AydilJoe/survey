@@ -799,6 +799,8 @@ struct DuitfulEntry: TimelineEntry {
     let logSpendLabel: String
     let scanLabel: String
     let splitLabel: String
+    let streakDays: Int
+    let streakLabel: String
 
     static func current(at now: Date = Date()) -> DuitfulEntry {
         let cal = Calendar.current
@@ -830,6 +832,8 @@ struct DuitfulEntry: TimelineEntry {
         let logLbl = (raw["logSpendLabel"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "+ Log a spend"
         let scanLbl = (raw["scanLabel"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Scan receipt"
         let splitLbl = (raw["splitLabel"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Split"
+        let sDays = !locked ? max(0, (raw["streakDays"] as? Int) ?? 0) : 0
+        let sLbl = (!locked && sDays > 0) ? ((raw["streakLabel"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "🔥 \(sDays)d") : ""
 
         return DuitfulEntry(
             date: now,
@@ -852,8 +856,14 @@ struct DuitfulEntry: TimelineEntry {
             dueSub: dSub,
             logSpendLabel: logLbl,
             scanLabel: scanLbl,
-            splitLabel: splitLbl
+            splitLabel: splitLbl,
+            streakDays: sDays,
+            streakLabel: sLbl
         )
+    }
+
+    var monthWithStreak: String {
+        streakLabel.isEmpty ? month : "\(month) · \(streakLabel)"
     }
 }
 
@@ -919,7 +929,7 @@ private struct DuitfulSmallView: View {
                         .font(.system(size: 15, weight: .heavy, design: .rounded))
                         .foregroundColor(DuitfulPalette.ink(mode))
                         .lineLimit(1)
-                    Text(entry.reviewCount > 0 ? "\(entry.reviewCount) \(entry.reviewWord)" : entry.month)
+                    Text(entry.reviewCount > 0 ? "\(entry.reviewCount) \(entry.reviewWord)" : (!entry.streakLabel.isEmpty ? entry.streakLabel : entry.month))
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundColor(DuitfulPalette.ink2(mode))
                         .lineLimit(1)
@@ -963,7 +973,7 @@ private struct DuitfulMediumView: View {
                             .foregroundColor(DuitfulPalette.ink(mode))
                             .lineLimit(2)
                             .minimumScaleFactor(0.85)
-                        Text(entry.month)
+                        Text(entry.monthWithStreak)
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundColor(DuitfulPalette.ink2(mode))
                             .lineLimit(1)
@@ -1029,7 +1039,7 @@ private struct DuitfulLargeView: View {
                                 .font(.system(size: 19, weight: .heavy, design: .rounded))
                                 .foregroundColor(DuitfulPalette.ink(mode))
                                 .lineLimit(1)
-                            Text(entry.month)
+                            Text(entry.monthWithStreak)
                                 .font(.system(size: 12, weight: .medium, design: .rounded))
                                 .foregroundColor(DuitfulPalette.ink2(mode))
                                 .lineLimit(1)

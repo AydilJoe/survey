@@ -428,6 +428,8 @@ public class DuitfulKitPlugin extends Plugin {
             sync.putExtra("due2Name", call.getString("due2Name", ""));
             sync.putExtra("due2When", call.getString("due2When", ""));
             sync.putExtra("dueSub", call.getString("dueSub", ""));
+            sync.putExtra("streakDays", call.getInt("streakDays", 0));
+            sync.putExtra("streakLabel", call.getString("streakLabel", ""));
             getContext().sendBroadcast(sync);
             call.resolve(new JSObject().put("ok", true));
         } catch (Exception e) {

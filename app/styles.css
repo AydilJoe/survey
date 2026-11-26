@@ -9892,5 +9892,32 @@ html[data-theme="dark"] .streak-day.is-done .streak-day-dot { color: var(--stage
   .streak-pill.is-spark .streak-flame { animation: none; }
 }
 
+/* Recurring splits v2: variable monthly bill scan row */
+.rs-amount-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+.rs-amount-row .rs-amount {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.rs-scan-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 0 0.75rem;
+  white-space: nowrap;
+}
+.rs-scan-btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
 
 

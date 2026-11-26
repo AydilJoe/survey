@@ -1037,6 +1037,8 @@ ${CATEGORIES.map((c) => `            R.id.${categoryViewId(c.key)},`).join("\n")
     private static String sDue2Name = "";
     private static String sDue2When = "";
     private static String sDueSub = "";
+    private static int sStreakDays = 0;
+    private static String sStreakLabel = "";
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] appWidgetIds) {
@@ -1096,6 +1098,8 @@ ${CATEGORIES.map((c) => `            R.id.${categoryViewId(c.key)},`).join("\n")
             sDue2Name = strExtra(intent, "due2Name", "");
             sDue2When = strExtra(intent, "due2When", "");
             sDueSub = strExtra(intent, "dueSub", "");
+            sStreakDays = intent.getIntExtra("streakDays", 0);
+            sStreakLabel = strExtra(intent, "streakLabel", "");
 
             AppWidgetManager manager = AppWidgetManager.getInstance(context);
             int[] ids = manager.getAppWidgetIds(new ComponentName(context, ${CLASS_NAME}.class));
@@ -1267,6 +1271,17 @@ ${CATEGORIES.map((c) => `            R.id.${categoryViewId(c.key)},`).join("\n")
         return new SimpleDateFormat("MMMM", Locale.getDefault()).format(Calendar.getInstance().getTime());
     }
 
+    private static String liveStreak() {
+        if (sLocked || sStreakDays <= 0) return "";
+        return (sStreakLabel != null && !sStreakLabel.isEmpty()) ? sStreakLabel : ("🔥 " + sStreakDays + "d");
+    }
+
+    private static String liveMonthWithStreak() {
+        String m = liveMonth();
+        String sk = liveStreak();
+        return sk.isEmpty() ? m : (m + " · " + sk);
+    }
+
     private static RemoteViews build(Context context, AppWidgetManager manager, int appWidgetId) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             Map<SizeF, RemoteViews> presentations = new HashMap<SizeF, RemoteViews>();
@@ -1316,9 +1331,10 @@ ${CATEGORIES.map((c) => `            R.id.${categoryViewId(c.key)},`).join("\n")
         } else {
             views.setInt(R.id.duitful_widget_tile_status, "setBackgroundResource", sageRes(mode));
             String word = !sStatus.isEmpty() ? sStatus : "On track";
+            String sk = liveStreak();
             String sub = sReviewCount > 0
                     ? (!sReviewLine.isEmpty() ? sReviewLine : (sReviewCount + " to review"))
-                    : liveMonth();
+                    : (!sk.isEmpty() ? sk : liveMonth());
             views.setTextViewText(R.id.duitful_widget_status_word, word);
             views.setTextColor(R.id.duitful_widget_status_word, statusWordColor(mode));
             views.setTextViewText(R.id.duitful_widget_status_sub, sub);
@@ -1340,7 +1356,7 @@ ${CATEGORIES.map((c) => `            R.id.${categoryViewId(c.key)},`).join("\n")
         views.setInt(R.id.duitful_widget_tile_status, "setBackgroundResource", sageRes(mode));
         views.setInt(R.id.duitful_widget_tile_upcoming, "setBackgroundResource", peachRes(mode));
 
-        String month = liveMonth();
+        String month = liveMonthWithStreak();
         String word = sLocked
                 ? (!sReviewLine.isEmpty() ? sReviewLine : (sReviewCount + " to review"))
                 : (!sStatus.isEmpty() ? sStatus : "On track");
@@ -1399,7 +1415,7 @@ ${CATEGORIES.map((c) => `            R.id.${categoryViewId(c.key)},`).join("\n")
                 : (!sStatus.isEmpty() ? sStatus : "On track");
         views.setTextViewText(R.id.duitful_widget_status_word, word);
         views.setTextColor(R.id.duitful_widget_status_word, sLocked ? textColor(mode) : statusWordColor(mode));
-        views.setTextViewText(R.id.duitful_widget_month_label, liveMonth());
+        views.setTextViewText(R.id.duitful_widget_month_label, liveMonthWithStreak());
         views.setTextColor(R.id.duitful_widget_month_label, ink2Color(mode));
 
         views.setTextViewText(R.id.duitful_widget_review_count, String.valueOf(Math.max(0, sReviewCount)));

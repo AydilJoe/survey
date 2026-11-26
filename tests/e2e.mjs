@@ -15352,6 +15352,116 @@ check('the brand catalogue makes no network calls at all',
   await lkctx.close();
 }
 
+// ── Track 4 (v1.67.0): Recurring splits bill scan + widget streak count ───
+{
+  const t4ctx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  const t4p = await t4ctx.newPage();
+  const t4Err = [];
+  t4p.on('pageerror', (e) => t4Err.push(e.message));
+  await t4p.goto(`${BASE}/app/index.html`);
+  await t4p.waitForTimeout(400);
+  await t4p.click('#btn-start-open');
+  await t4p.waitForTimeout(300);
+
+  const res = await t4p.evaluate(async () => {
+    const curM = currentMonthISO();
+    const tnb = coerceRecurring({
+      id: 'rs-tnb-167',
+      name: 'TNB Electricity',
+      variable: true,
+      dueDay: 1,
+      startMonth: curM,
+      plans: [{ from: curM, total: 0, mode: 'equal', me: { w: 1 }, people: [{ id: 'p1', name: 'Ali', a: 0, w: 1 }] }],
+      months: {},
+    });
+    const rent = coerceRecurring({
+      id: 'rs-rent-167',
+      name: 'House Rent',
+      variable: false,
+      dueDay: 1,
+      startMonth: curM,
+      plans: [{ from: curM, total: 1200, mode: 'equal', me: { w: 1 }, people: [{ id: 'p2', name: 'Siti', a: 0, w: 1 }] }],
+      months: {},
+    });
+    state.split.recurring = [tnb, rent];
+    renderAll();
+
+    const tnbRow = document.querySelector('#rs-home-list [data-rs-due="rs-tnb-167"]');
+    const rentRow = document.querySelector('#rs-home-list [data-rs-due="rs-rent-167"]');
+    const tnbHasScan = !!tnbRow?.querySelector('[data-action="rs-scan"]');
+    const rentHasScan = !!rentRow?.querySelector('[data-action="rs-scan"]');
+
+    // Layout check at 360px across EN / MS / ZH.
+    const keepLang = I18N.lang;
+    const layout = {};
+    for (const lang of ['en', 'ms', 'zh']) {
+      await I18N.set(lang);
+      renderAll();
+      const row = document.querySelector('#rs-home-list [data-rs-due="rs-tnb-167"] .rs-amount-row');
+      const btn = row?.querySelector('[data-action="rs-scan"]');
+      const rect = btn ? btn.getBoundingClientRect() : null;
+      layout[lang] = {
+        overflow: document.documentElement.scrollWidth > window.innerWidth + 1,
+        btnFits: !!rect && rect.width > 0 && rect.right <= window.innerWidth + 1,
+        label: btn ? btn.textContent.trim() : '',
+      };
+    }
+    await I18N.set(keepLang);
+    renderAll();
+
+    // Wire scan target directly (avoid opening native file picker in headless Chrome).
+    window.scanApplyTarget = { type: 'recurring-split', id: 'rs-tnb-167' };
+    const isCustom = isScanCustomTarget();
+    const dlg = document.getElementById('scan-dialog');
+    if (dlg && !dlg.open) dlg.showModal();
+    document.getElementById('scan-amount').value = '';
+    updateScanApplyLabel();
+    const emptyLabel = document.getElementById('scan-apply').textContent.trim();
+    document.getElementById('scan-amount').value = '142.50';
+    updateScanApplyLabel();
+    const filledLabel = document.getElementById('scan-apply').textContent.trim();
+    document.getElementById('scan-edit').hidden = isCustom;
+    document.getElementById('scan-split').hidden = isCustom;
+    const editHidden = document.getElementById('scan-edit').hidden && document.getElementById('scan-split').hidden;
+
+    applyScanResult({ direct: true });
+    const filledVal = document.querySelector('#rs-home-list [data-rs-due="rs-tnb-167"] [data-rs-amount]')?.value || '';
+    const targetCleared = window.scanApplyTarget === null;
+
+    // Widget streak summary: unlocked vs locked vs disabled.
+    const t0 = todayISO();
+    state.streak = { enabled: true, reminderEnabled: true, reminderHour: 21, noSpendDates: [t0, streakShiftDate(t0, -1), streakShiftDate(t0, -2)], freezes: [] };
+    const wUnlocked = buildWidgetSummary({ locked: false });
+    const wLocked = buildWidgetSummary({ locked: true });
+    state.streak.enabled = false;
+    const wDisabled = buildWidgetSummary({ locked: false });
+
+    return {
+      tnbHasScan, rentHasScan, layout, isCustom, emptyLabel, filledLabel, editHidden,
+      filledVal, targetCleared,
+      wUnlocked: { days: wUnlocked.streakDays, label: wUnlocked.streakLabel },
+      wLocked: { days: wLocked.streakDays, label: wLocked.streakLabel },
+      wDisabled: { days: wDisabled.streakDays, label: wDisabled.streakLabel },
+    };
+  });
+
+  check('v1.67.0: variable recurring split shows Scan bill (fixed does not), OCR fills amount, and 360px EN/MS/ZH fit cleanly',
+    res.tnbHasScan && !res.rentHasScan && res.isCustom
+    && res.emptyLabel === 'Use amount' && /Use .*142\.50/.test(res.filledLabel)
+    && res.editHidden && res.filledVal === '142.50' && res.targetCleared
+    && ['en', 'ms', 'zh'].every((l) => !res.layout[l].overflow && res.layout[l].btnFits && res.layout[l].label.length > 0)
+    && t4Err.length === 0,
+    JSON.stringify({ ...res, t4Err }));
+
+  check('v1.67.0: widget summary includes streak count when unlocked, and clears it when locked or disabled',
+    res.wUnlocked.days === 3 && /🔥\s*3d/.test(res.wUnlocked.label) && !/RM|\$|MYR/.test(res.wUnlocked.label)
+    && res.wLocked.days === 0 && res.wLocked.label === ''
+    && res.wDisabled.days === 0 && res.wDisabled.label === '',
+    JSON.stringify({ wUnlocked: res.wUnlocked, wLocked: res.wLocked, wDisabled: res.wDisabled }));
+
+  await t4ctx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();
