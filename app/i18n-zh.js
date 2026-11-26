@@ -597,6 +597,7 @@
   "Save & send to {name}": "保存并发送给 {name}",
   "Save & send split": "保存并发送分摊",
   "Saved {a}": "已保存 {a}",
+  "Sentence": "句子",
   "YA": "课税年",
   "EPF": "公积金",
   "rebate": "回扣",

@@ -15675,7 +15675,7 @@ check('the brand catalogue makes no network calls at all',
     patchIos.includes('struct DuitfulLogBySentenceIntent')
     && patchIos.includes('struct DuitfulCreateSplitRequestIntent')
     && patchIos.includes('struct DuitfulNoSpendControl: ControlWidget')
-    && patchAnd.includes('name: "voice"'));
+    && patchAnd.includes('action: "voice"'));
 
   const vCtx = await b.newContext({ viewport: { width: 360, height: 780 } });
   const vp = await vCtx.newPage();

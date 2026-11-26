@@ -597,6 +597,7 @@
   "Save & send to {name}": "Simpan & hantar kepada {name}",
   "Save & send split": "Simpan & hantar bahagi",
   "Saved {a}": "Disimpan {a}",
+  "Sentence": "Ayat",
   "YA": "TT",
   "EPF": "KWSP",
   "rebate": "rebat",
