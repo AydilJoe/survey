@@ -7344,12 +7344,17 @@ check('a failure never strands the button, and says something happened',
 
   // Actions-only, by the owner's explicit choice: a widget or shortcut must
   // never write figures where they can be read without the passcode. Guard
-  // the native patches against an App Group / shared-prefs creeping in.
+  // the widget/shortcut patches against UserDefaults(suiteName:) / shared-prefs
+  // creeping in (the iOS App Group is used exclusively by DuitfulShare's
+  // SharedInbox file handoff — DuitfulWidget has no entitlements and never
+  // reads the App Group).
   const widgetSrcs = ['patch-android-shortcuts.mjs', 'patch-ios.mjs', 'patch-android-widget.mjs']
     .filter((f) => existsSync(path.join(REPO_ROOT, 'scripts', f)))
     .map((f) => readFile('scripts', f)).join('\n');
-  check('no native patch opens a shared container for app data',
-    !/com\.apple\.security\.application-groups|group\.com\.aydiljoe|getSharedPreferences|UserDefaults\(suiteName/i.test(widgetSrcs));
+  const iosWidgetOnly = iosSrc.slice(iosSrc.indexOf('const WIDGET_SWIFT_BODY'), iosSrc.indexOf('/* ---------- 4c. Share Extension'));
+  check('no widget or shortcut opens a shared container for app data (App Group is DuitfulShare SharedInbox only)',
+    !/getSharedPreferences|UserDefaults\(suiteName/i.test(widgetSrcs)
+    && !/application-groups|group\.com\.aydiljoe/i.test(iosWidgetOnly));
 }
 
 /* ── 16i. first run asks two questions instead of giving a lecture ──────
