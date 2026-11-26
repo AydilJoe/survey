@@ -289,6 +289,31 @@ devices without on-device AI) while automatically unlocking **Duitful Pro**:
   language entry (*"dua belas ringgit nasi lemak"*), and (3) Smart split-payer
   matching, Split-by-item line grouping & cleaner bank payee names.
 
+## Assistant Update — Siri, Google Assistant & Gemini (planned 25 Nov 2026)
+
+Full 4-phase plan in [`docs/plans/assistant-update.md`](assistant-update.md)
+(shipped in phases like modularity, covering both Apple App Intents and Android
+App Actions / Gemini App Functions):
+
+- **Phase 1 — Core Voice Actions & Quick Controls (iOS + Android, Offline):**
+  upgrade iOS `AppIntents` (`Category` `AppEnum`, `Wallet` `AppEntity` names
+  only, `NoSpendTodayIntent`, iOS 18+ Control Center `ControlWidget`, EN/BM/ZH
+  Siri phrases) + Android `shortcuts.xml` App Actions, dynamic shortcuts, and
+  Quick Settings `TileService`.
+- **Phase 2 — Natural Voice & Sentence Entry (On-Device + Cloud AI+):**
+  shared `duitful://action/voice?text=...` contract + Home mic button so Siri,
+  Google Assistant/Gemini, and Web all parse natural Malay/English/Chinese
+  sentences (*"dua belas ringgit nasi lemak pakai MAE"*) for 1-tap confirmation.
+- **Phase 3 — Multi-Step Assistant Flows: "Log & Split with Ali" (Cloud AI+):**
+  compound voice commands (*"log my RM 40 food spending and request half from
+  Ali"*) parsed via Gemini 2.5 Flash-Lite with local math verification, creating
+  a linked spend + split request in 1 tap and opening WhatsApp / Share pre-filled
+  to send (plus returning the formatted request from iOS Shortcuts for power-user
+  chaining — respecting iOS/Android's rule against silent background messaging).
+- **Phase 4 — Deep OS Integration:** Apple Assistant Schemas (once finance
+  domain ships), Android Jetpack `@AppFunction` for Gemini, and interactive
+  home-screen widget *"No spend today"* streak check-in.
+
 ## Native Apple & Google frameworks (requested 25 Nov 2026)
 
 Platform kits worth adding next (all privacy-first, on-device, zero cloud
