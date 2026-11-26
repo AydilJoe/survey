@@ -362,7 +362,254 @@ function wireAiCloudSettings() {
     });
   }
 
+  const manageBtn = document.getElementById("ai-plus-open-btn");
+  if (manageBtn && !manageBtn.dataset.wired) {
+    manageBtn.dataset.wired = "1";
+    manageBtn.addEventListener("click", () => openAiPaywall());
+  }
+
+  const closeBtn = document.getElementById("ai-plus-close");
+  if (closeBtn && !closeBtn.dataset.wired) {
+    closeBtn.dataset.wired = "1";
+    closeBtn.addEventListener("click", () => closeAiPaywall());
+  }
+
+  const moBtn = document.getElementById("ai-plus-buy-monthly");
+  if (moBtn && !moBtn.dataset.wired) {
+    moBtn.dataset.wired = "1";
+    moBtn.addEventListener("click", () => runAiPaywallPurchase("monthly", moBtn));
+  }
+
+  const yrBtn = document.getElementById("ai-plus-buy-yearly");
+  if (yrBtn && !yrBtn.dataset.wired) {
+    yrBtn.dataset.wired = "1";
+    yrBtn.addEventListener("click", () => runAiPaywallPurchase("yearly", yrBtn));
+  }
+
+  const restoreBtn = document.getElementById("ai-plus-restore");
+  if (restoreBtn && !restoreBtn.dataset.wired) {
+    restoreBtn.dataset.wired = "1";
+    restoreBtn.addEventListener("click", async () => {
+      if (typeof restorePurchases === "function") await restorePurchases();
+      renderAiPaywall();
+    });
+  }
+
   renderAiCloudSettings();
+}
+
+/* ---------- Native Store Subscriptions (StoreKit 2 + Play Billing) ---------- */
+const AI_IOS_SKUS = Object.freeze({
+  monthly: "duitful_ai_monthly",
+  yearly: "duitful_ai_yearly",
+});
+const AI_ANDROID_SKU = "duitful_ai";
+const AI_ALL_SKUS = new Set([AI_IOS_SKUS.monthly, AI_IOS_SKUS.yearly, AI_ANDROID_SKU]);
+
+let aiPurchaseSettler = null;
+function settleAiPurchase(result) {
+  if (!aiPurchaseSettler) return;
+  const fn = aiPurchaseSettler;
+  aiPurchaseSettler = null;
+  fn(result);
+}
+
+function aiReceiptProductIds(receipt) {
+  const ids = [];
+  if (!receipt || typeof receipt !== "object") return ids;
+  if (typeof receipt.id === "string") ids.push(receipt.id);
+  if (Array.isArray(receipt.products)) {
+    for (const p of receipt.products) {
+      if (p && typeof p.id === "string") ids.push(p.id);
+    }
+  }
+  const txs = (receipt.sourceReceipt && Array.isArray(receipt.sourceReceipt.transactions))
+    ? receipt.sourceReceipt.transactions
+    : (Array.isArray(receipt.transactions) ? receipt.transactions : []);
+  for (const tx of txs) {
+    if (tx && Array.isArray(tx.products)) {
+      for (const p of tx.products) {
+        if (p && typeof p.id === "string") ids.push(p.id);
+      }
+    }
+  }
+  return ids;
+}
+
+function isAiSubscriptionReceipt(receipt) {
+  return aiReceiptProductIds(receipt).some((id) => AI_ALL_SKUS.has(id));
+}
+
+async function aiVerifyStoreReceipt(payload) {
+  try {
+    const r = await fetch(`${aiCloudApiBase()}?op=verify-sub`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json().catch(() => null);
+    if (!r.ok || !data || !data.ok || !data.subToken) {
+      return { ok: false, error: (data && data.error) || `http-${r.status}` };
+    }
+    if (typeof state !== "undefined" && state) {
+      // Strictly keep state.aiSub separate from state.pro.
+      state.aiSub = {
+        ...(state.aiSub || {}),
+        subToken: data.subToken,
+        slotId: data.slotId,
+      };
+      aiMergeStatusSnapshot(data.status);
+    }
+    if (typeof renderAll === "function") renderAll();
+    return data;
+  } catch (_) {
+    return { ok: false, error: "offline" };
+  }
+}
+
+async function handleAiSubscriptionReceipt(receipt) {
+  const ids = aiReceiptProductIds(receipt);
+  const plan = ids.find((id) => AI_ALL_SKUS.has(id)) || AI_ANDROID_SKU;
+  const plat = (typeof nativePlatform === "function" && nativePlatform()) || (plan === AI_ANDROID_SKU ? "android" : "ios");
+  const txs = (receipt.sourceReceipt && Array.isArray(receipt.sourceReceipt.transactions))
+    ? receipt.sourceReceipt.transactions
+    : (Array.isArray(receipt.transactions) ? receipt.transactions : []);
+  const tx = txs[0] || receipt || {};
+  const payload = {
+    platform: plat,
+    plan,
+    signedTransactionInfo: tx.jwsRepresentation || tx.signedTransactionInfo || receipt.signedTransactionInfo || "",
+    purchaseToken: tx.purchaseToken || receipt.purchaseToken || "",
+    transactionId: tx.transactionId || tx.id || receipt.transactionId || receipt.id || "",
+    expiresAt: tx.expiryDate || receipt.expiryDate || undefined,
+    slotId: (typeof state !== "undefined" && state && state.aiSub && state.aiSub.slotId) || "",
+    deviceLabel: plat === "ios" ? "iPhone" : "Android",
+  };
+  const res = await aiVerifyStoreReceipt(payload);
+  if (typeof receipt.finish === "function") receipt.finish();
+  if (res && res.ok) {
+    settleAiPurchase({ ok: true, status: res.status });
+  } else {
+    settleAiPurchase({ ok: false, message: (res && res.error) || "verify-failed" });
+  }
+  return res;
+}
+
+function pickPlayOffer(product, plan, proOwner) {
+  if (!product) return null;
+  const offers = Array.isArray(product.offers) ? product.offers : [];
+  if (!offers.length) return typeof product.getOffer === "function" ? product.getOffer() : null;
+  const want = plan === "yearly" ? "yearly" : "monthly";
+  const loyaltyTag = proOwner ? `pro-${want}` : want;
+  const byId = (tag) => offers.find((o) => String((o && o.id) || "").toLowerCase().includes(tag));
+  return byId(loyaltyTag) || byId(want) || offers[0];
+}
+
+async function purchaseAiSubscription(plan) {
+  if (typeof isNative !== "function" || !isNative()) {
+    return { ok: false, webOnly: true };
+  }
+  const sdk = window.CdvPurchase;
+  if (!sdk || !sdk.store) {
+    return { ok: false, message: typeof tr === "function" ? tr("Store not available.") : "Store not available." };
+  }
+  if (aiPurchaseSettler) {
+    return { ok: false, message: typeof tr === "function" ? tr("A purchase is already in progress.") : "A purchase is already in progress." };
+  }
+
+  const plat = typeof nativePlatform === "function" ? nativePlatform() : "android";
+  const proOwner = !!(typeof state !== "undefined" && state && state.pro);
+  const sku = plat === "ios"
+    ? (plan === "yearly" ? AI_IOS_SKUS.yearly : AI_IOS_SKUS.monthly)
+    : AI_ANDROID_SKU;
+
+  let product = sdk.store.get(sku);
+  if (!product && typeof sdk.store.update === "function") {
+    try { await Promise.race([sdk.store.update(), new Promise((r) => setTimeout(r, 6000))]); } catch (_) {}
+    product = sdk.store.get(sku);
+  }
+  if (!product) {
+    return { ok: false, message: typeof tr === "function" ? tr("Subscription isn't available from the store yet.") : "Subscription isn't available from the store yet." };
+  }
+
+  const offer = plat === "ios"
+    ? (typeof product.getOffer === "function" ? product.getOffer() : null)
+    : pickPlayOffer(product, plan, proOwner);
+  if (!offer || typeof offer.order !== "function") {
+    return { ok: false, message: typeof tr === "function" ? tr("Subscription has no price from the store yet.") : "Subscription has no price from the store yet." };
+  }
+
+  const settlement = new Promise((resolve) => { aiPurchaseSettler = resolve; });
+  try {
+    const err = await offer.order();
+    if (err && err.isError) {
+      const cancelled = err.code === sdk.ErrorCode?.PAYMENT_CANCELLED || err.code === sdk.ErrorCode?.CANCELED;
+      settleAiPurchase({ ok: false, cancelled, message: cancelled ? null : (err.message || "order-failed") });
+    }
+  } catch (e) {
+    settleAiPurchase({ ok: false, message: String((e && e.message) || e) });
+  }
+  return settlement;
+}
+
+// Called after encrypted iCloud / Google Drive backup restore so a replacement
+// phone automatically reconnects its synced state.aiSub token.
+async function aiReconnectAfterBackupRestore() {
+  if (typeof state === "undefined" || !state || !state.aiSub || !state.aiSub.subToken) return null;
+  return aiFetchStatus();
+}
+
+/* ---------- Duitful AI+ Paywall / Pair Sheet (flagged) ---------- */
+function renderAiPaywall() {
+  if (typeof document === "undefined") return;
+  const native = typeof isNative === "function" && isNative();
+  const proOwner = !!(typeof state !== "undefined" && state && state.pro);
+  const nativeWrap = document.getElementById("ai-plus-native-plans");
+  const webWrap = document.getElementById("ai-plus-web-pair");
+  const moBtn = document.getElementById("ai-plus-buy-monthly");
+  const yrBtn = document.getElementById("ai-plus-buy-yearly");
+  const loyaltyNote = document.getElementById("ai-plus-loyalty-note");
+
+  if (nativeWrap) nativeWrap.hidden = !native;
+  if (webWrap) webWrap.hidden = native;
+  if (moBtn) moBtn.textContent = aiPriceLabel("monthly", { proOwner });
+  if (yrBtn) yrBtn.textContent = aiPriceLabel("yearly", { proOwner });
+  if (loyaltyNote) loyaltyNote.hidden = !(native && proOwner);
+}
+
+async function runAiPaywallPurchase(plan, btn) {
+  const errEl = document.getElementById("ai-plus-err");
+  if (errEl) { errEl.textContent = ""; errEl.hidden = true; }
+  if (btn) btn.disabled = true;
+  const res = await purchaseAiSubscription(plan);
+  if (btn) btn.disabled = false;
+  if (res && res.ok) {
+    closeAiPaywall();
+    renderAiCloudSettings();
+    return;
+  }
+  if (res && !res.cancelled && errEl && res.message) {
+    errEl.textContent = res.message;
+    errEl.hidden = false;
+  }
+}
+
+function openAiPaywall() {
+  if (!aiPlusFlagOn() || typeof document === "undefined") return;
+  const dlg = document.getElementById("ai-plus-dialog");
+  if (!dlg) return;
+  renderAiPaywall();
+  if (typeof dlg.showModal === "function") {
+    if (!dlg.open) dlg.showModal();
+  } else {
+    dlg.setAttribute("open", "");
+  }
+}
+
+function closeAiPaywall() {
+  if (typeof document === "undefined") return;
+  const dlg = document.getElementById("ai-plus-dialog");
+  if (dlg && dlg.open && typeof dlg.close === "function") dlg.close();
 }
 
 if (typeof document !== "undefined") {
@@ -384,4 +631,13 @@ if (typeof window !== "undefined") {
   window.aiPairClaim = aiPairClaim;
   window.aiFetchStatus = aiFetchStatus;
   window.renderAiCloudSettings = renderAiCloudSettings;
+  window.isAiSubscriptionReceipt = isAiSubscriptionReceipt;
+  window.aiVerifyStoreReceipt = aiVerifyStoreReceipt;
+  window.handleAiSubscriptionReceipt = handleAiSubscriptionReceipt;
+  window.settleAiPurchase = settleAiPurchase;
+  window.purchaseAiSubscription = purchaseAiSubscription;
+  window.aiReconnectAfterBackupRestore = aiReconnectAfterBackupRestore;
+  window.openAiPaywall = openAiPaywall;
+  window.closeAiPaywall = closeAiPaywall;
 }
+

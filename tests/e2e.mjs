@@ -16197,6 +16197,39 @@ check('the brand catalogue makes no network calls at all',
   check('ai+ quota fallback: reaching 1,000 text cap returns null cleanly without blocking',
     quotaFallback === null, JSON.stringify(quotaFallback));
 
+  // Phase 2: StoreKit 2 / Play Billing subscription receipt keeps state.pro separate,
+  // encrypted backup reconnect syncs status, Web paywall is pair-only, and no LAUNCH100 on iOS.
+  const subChecks = await aip.evaluate(async () => {
+    state.pro = false;
+    state.proTrialStartedAt = 0;
+    state.aiSub = null;
+    const isAi = isAiSubscriptionReceipt({ products: [{ id: 'duitful_ai_monthly' }] });
+    const isNotAi = isAiSubscriptionReceipt({ products: [{ id: 'duitful_pro' }] });
+    let finished = false;
+    const res = await handleAiSubscriptionReceipt({
+      products: [{ id: 'duitful_ai_monthly' }],
+      transactionId: 'tx-phase2-ios-001',
+      finish() { finished = true; },
+    });
+    const proUntouched = state.pro === false && isPro() === true && aiSubIsActive(state.aiSub);
+    const reconnected = await aiReconnectAfterBackupRestore();
+
+    // Web paywall: pair-only (native plans hidden, web pair shown, no LAUNCH100)
+    openAiPaywall();
+    const dlg = document.getElementById('ai-plus-dialog');
+    const webPairOnly = dlg.open
+      && document.getElementById('ai-plus-native-plans').hidden === true
+      && document.getElementById('ai-plus-web-pair').hidden === false
+      && !/LAUNCH100/i.test(dlg.textContent || '');
+    closeAiPaywall();
+
+    return { isAi, isNotAi, finished, ok: !!(res && res.ok), proUntouched, reconnected: !!(reconnected && reconnected.active), webPairOnly };
+  });
+  check('ai+ Phase 2: store subscription verifies via api/ai.js, keeps state.pro separate, reconnects after backup restore, and Web paywall is pair-only',
+    subChecks.isAi && !subChecks.isNotAi && subChecks.finished && subChecks.ok
+    && subChecks.proUntouched && subChecks.reconnected && subChecks.webPairOnly,
+    JSON.stringify(subChecks));
+
   delete global.__DUITFUL_AI_GEMINI_STUB__;
   await aiCtx.close();
 }

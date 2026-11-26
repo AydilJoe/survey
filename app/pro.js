@@ -665,6 +665,9 @@ function showRestoreCelebration(source) {
   document.querySelectorAll("dialog[open]").forEach((d) => { if (d !== dlg) d.close(); });
   if (!dlg.open) dlg.showModal();
   proCelebrationConfetti(document.getElementById("restore-celebrate"));
+  if (typeof aiReconnectAfterBackupRestore === "function") {
+    aiReconnectAfterBackupRestore().catch(() => {});
+  }
 }
 
 function openProWelcome(paidLabel) {
@@ -961,10 +964,25 @@ function initIAP() {
       registrations.push({ id: sku, type: sdk.ProductType.NON_CONSUMABLE, platform: sdk.Platform.APPLE_APPSTORE });
       registrations.push({ id: sku, type: sdk.ProductType.NON_CONSUMABLE, platform: sdk.Platform.GOOGLE_PLAY });
     }
+    if (sdk.ProductType && sdk.ProductType.PAID_SUBSCRIPTION) {
+      registrations.push({ id: "duitful_ai_monthly", type: sdk.ProductType.PAID_SUBSCRIPTION, platform: sdk.Platform.APPLE_APPSTORE });
+      registrations.push({ id: "duitful_ai_yearly", type: sdk.ProductType.PAID_SUBSCRIPTION, platform: sdk.Platform.APPLE_APPSTORE });
+      registrations.push({ id: "duitful_ai", type: sdk.ProductType.PAID_SUBSCRIPTION, platform: sdk.Platform.GOOGLE_PLAY });
+    }
     sdk.store.register(registrations);
     sdk.store.when()
       .approved((tx) => tx.verify())
       .verified((receipt) => {
+        // Duitful AI+ subscription receipts stay strictly separate from
+        // state.pro (Lifetime Pro). Cancelling AI+ never removes Lifetime Pro.
+        if (typeof isAiSubscriptionReceipt === "function" && isAiSubscriptionReceipt(receipt)) {
+          if (typeof handleAiSubscriptionReceipt === "function") {
+            handleAiSubscriptionReceipt(receipt).catch((e) => console.warn("AI+ verify failed:", e));
+          } else {
+            receipt.finish();
+          }
+          return;
+        }
         // A purchase started on the App Store product page (a promoted
         // in-app purchase) arrives here with no paywall waiting on it, so
         // open the same welcome (and thank-you) the paywall would have.
@@ -982,6 +1000,9 @@ function initIAP() {
       })
       .unverified((tx) => {
         console.warn("IAP unverified", tx);
+        if (typeof settleAiPurchase === "function") {
+          settleAiPurchase({ ok: false, message: tr("Receipt couldn't be verified. Tap Restore if you completed payment.") });
+        }
         settlePurchase({ ok: false, message: tr("Receipt couldn't be verified. Tap Restore if you completed payment.") });
       });
     // Store-wide error handler — catches SDK errors and user cancellations.
@@ -993,11 +1014,13 @@ function initIAP() {
         const isCancel = code === sdk.ErrorCode?.PAYMENT_CANCELLED
           || code === sdk.ErrorCode?.CANCELED
           || /cancel/i.test(String(err && err.message || ""));
-        settlePurchase({
+        const errRes = {
           ok: false,
           cancelled: isCancel,
           message: isCancel ? null : ((err && err.message) || tr("Store error — try again.")),
-        });
+        };
+        if (typeof settleAiPurchase === "function") settleAiPurchase(errRes);
+        settlePurchase(errRes);
       });
     }
     const init = sdk.store.initialize([
@@ -1231,16 +1254,20 @@ async function restorePurchases() {
   if (!sdk || !sdk.store) { notify(tr("Store not available.")); return; }
   if (!iapInitialized) { notify(tr("Store still initialising. Try again in a moment, or restart the app.")); return; }
   const wasProBefore = !!(state && state.pro);
+  const wasAiBefore = !!(typeof aiSubIsActive === "function" && aiSubIsActive(state && state.aiSub));
   try {
     await sdk.store.restorePurchases();
     // restorePurchases() returns when the platform finishes its query;
     // any restored receipts then flow through approved → verify → verified
     // asynchronously. Give the verified handler a beat to commit state.pro
-    // so the alert text matches reality.
+    // / state.aiSub so the alert text matches reality.
     await new Promise((r) => setTimeout(r, 1500));
-    if (state && state.pro && !wasProBefore) {
+    const hasAiNow = !!(typeof aiSubIsActive === "function" && aiSubIsActive(state && state.aiSub));
+    if (hasAiNow && !wasAiBefore) {
+      notify(tr("Duitful AI+ restored. Welcome back!"));
+    } else if (state && state.pro && !wasProBefore) {
       notify(tr("Pro restored. Welcome back!"));
-    } else if (state && state.pro) {
+    } else if ((state && state.pro) || hasAiNow) {
       notify(tr("Already unlocked — nothing to restore."));
     } else {
       notify(tr("No previous purchase found for this account. If you bought Pro on a different Google account, sign that account into the Play Store first."));

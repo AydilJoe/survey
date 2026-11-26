@@ -1897,6 +1897,7 @@
             <span>Enable Duitful AI+ (cloud)</span>
           </label>
           <div class="button-row">
+            <button type="button" class="ghost" id="ai-plus-open-btn">Manage Duitful AI+</button>
             <button type="button" class="ghost" id="ai-pair-start-btn" hidden>Pair another device</button>
           </div>
           <p class="hint" id="ai-pair-code-out" hidden></p>
@@ -3196,6 +3197,33 @@
       </div>
     </dialog>
 
+    <!-- Duitful AI+ subscription sheet (native) / pair-only sheet (web).
+         Gated behind aiPlusFlagOn() until launch; no promo codes or external
+         purchase links on iOS. -->
+    <dialog id="ai-plus-dialog" class="edit-dialog" aria-labelledby="ai-plus-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="ai-plus-title">Duitful AI+ (cloud)</h2>
+        <p class="hint">Includes Duitful Pro while active, up to 3 paired devices, and 100 scans + 1,000 smart actions a month.</p>
+        <p class="hint" id="ai-plus-loyalty-note" hidden>Lifetime Pro loyalty rate applied. Cancelling AI+ never removes your Lifetime Pro.</p>
+        <div id="ai-plus-native-plans" hidden>
+          <div class="button-row">
+            <button type="button" id="ai-plus-buy-monthly">RM 4.90/month</button>
+            <button type="button" class="ghost" id="ai-plus-buy-yearly">RM 45/year</button>
+          </div>
+          <div class="button-row">
+            <button type="button" class="ghost" id="ai-plus-restore">Restore purchases</button>
+          </div>
+        </div>
+        <div id="ai-plus-web-pair" hidden>
+          <p class="hint">Subscribe in the Duitful iPhone or Android app, then tap Pair with code in Settings.</p>
+        </div>
+        <p class="hint" id="ai-plus-err" hidden></p>
+        <div class="button-row">
+          <button type="button" class="ghost" id="ai-plus-close">Close</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- On-device AI, item by item: what it does on this platform (rows carry
          data-ai-on) and what it never does. Phone apps only; the header badge
          and Settings → On-device AI open it (openAiInfo in script.js). -->
@@ -3473,7 +3501,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=7b0a980e"></script>
+    <script src="i18n-langs.js?v=555a048d"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3507,9 +3535,9 @@
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=4be2c804"></script>
     <script src="ai-redact.js?v=e6257012"></script>
-    <script src="ai-cloud.js?v=8bb344d4"></script>
-    <script src="pro.js?v=19e9a81b"></script>
+    <script src="ai-cloud.js?v=45cade86"></script>
+    <script src="pro.js?v=9b7cc3e0"></script>
     <script src="ocr.js?v=a1c4264c"></script>
-    <script src="script.js?v=cd841cdf"></script>
+    <script src="script.js?v=9e010262"></script>
   </body>
 </html>

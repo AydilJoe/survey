@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.72.0";
+const APP_VERSION = "1.73.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7594,6 +7594,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.73.0": [
+    "<strong>Duitful AI+ subscription plumbing (behind flag)</strong> — wired store subscriptions, Restore Purchases, encrypted-backup reconnect, and the web pair-only sheet ahead of launch. Still hidden until launch.",
+  ],
   "1.72.0": [
     "<strong>Duitful AI+ foundation and leaner backend</strong> — behind-the-scenes server cleanup and early foundation for Duitful AI+ (still hidden until launch). Nothing changes in your daily flow yet.",
   ],
