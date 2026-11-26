@@ -52,17 +52,54 @@ async function verifyStoreReceipt(body) {
     return { subId, platform: "ios", plan, expiresAt, active: expiresAt > Date.now() };
   }
 
+async function googlePlayAccessToken(sa) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = Buffer.from(JSON.stringify({ alg: "RS256", typ: "JWT" })).toString("base64url");
+  const claims = Buffer.from(JSON.stringify({
+    iss: sa.client_email,
+    scope: "https://www.googleapis.com/auth/androidpublisher",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600,
+  })).toString("base64url");
+  const sig = crypto.sign("RSA-SHA256", Buffer.from(`${header}.${claims}`), sa.private_key).toString("base64url");
+  const r = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${header}.${claims}.${sig}`,
+  });
+  if (!r.ok) throw new Error(`play-oauth-${r.status}`);
+  const d = await r.json();
+  if (!d || !d.access_token) throw new Error("play-oauth-empty");
+  return d.access_token;
+}
+
+async function verifyAndroidPlaySubscription(purchaseToken) {
+  const rawSa = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON || "";
+  if (!rawSa) return { error: "play-verifier-not-configured" };
+  let sa;
+  try { sa = JSON.parse(rawSa); } catch (_) { return { error: "play-sa-invalid-json" }; }
+  if (!sa || !sa.client_email || !sa.private_key) return { error: "play-sa-incomplete" };
+
+  const accessToken = await googlePlayAccessToken(sa);
+  const pkg = "com.aydiljoe.duitful";
+  const url = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${pkg}/purchases/subscriptionsv2/tokens/${encodeURIComponent(purchaseToken)}`;
+  const r = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  if (!r.ok) return { error: `play-verify-http-${r.status}` };
+  const data = await r.json();
+  const state = String(data && data.subscriptionState || "");
+  const active = state === "SUBSCRIPTION_STATE_ACTIVE" || state === "SUBSCRIPTION_STATE_IN_GRACE_PERIOD";
+  const line = Array.isArray(data && data.lineItems) ? data.lineItems[0] : null;
+  const expiryMs = line && line.expiryTime ? Date.parse(line.expiryTime) : 0;
+  const expiresAt = Number.isFinite(expiryMs) && expiryMs > 0 ? expiryMs : 0;
+  const subId = `and_${crypto.createHash("sha256").update(purchaseToken).digest("hex").slice(0, 20)}`;
+  return { subId, platform: "android", plan: (line && line.productId) || "duitful_ai", expiresAt, active: active && expiresAt > Date.now() };
+}
+
   if (platform === "android") {
     const token = String(body.purchaseToken || "").trim();
     if (!token || token.length < 16) return { error: "invalid-play-token" };
-    // Play Developer API verification is wired in Phase 2 when service-account
-    // credentials (GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) are configured.
-    if (!process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON) {
-      return { error: "play-verifier-not-configured" };
-    }
-    const subId = `and_${crypto.createHash("sha256").update(token).digest("hex").slice(0, 20)}`;
-    const expiresAt = Number(body.expiresAt) || (Date.now() + 30 * 24 * 60 * 60 * 1000);
-    return { subId, platform: "android", plan, expiresAt, active: expiresAt > Date.now() };
+    return await verifyAndroidPlaySubscription(token);
   }
 
   return { error: "unsupported-platform" };

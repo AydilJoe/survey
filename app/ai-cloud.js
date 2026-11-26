@@ -606,10 +606,51 @@ function pickPlayOffer(product, plan, proOwner) {
   if (!product) return null;
   const offers = Array.isArray(product.offers) ? product.offers : [];
   if (!offers.length) return typeof product.getOffer === "function" ? product.getOffer() : null;
-  const want = plan === "yearly" ? "yearly" : "monthly";
-  const loyaltyTag = proOwner ? `pro-${want}` : want;
-  const byId = (tag) => offers.find((o) => String((o && o.id) || "").toLowerCase().includes(tag));
-  return byId(loyaltyTag) || byId(want) || offers[0];
+  const base = plan === "yearly" ? "yearly" : "monthly";
+  const loyalty = `pro-${base}`;
+  const offerIdOf = (o) => {
+    if (!o || typeof o !== "object") return "";
+    if (typeof o.offerId === "string" && o.offerId) return o.offerId.toLowerCase();
+    const id = String(o.id || "").toLowerCase();
+    return id.includes("@") ? id.split("@").slice(1).join("@") : "";
+  };
+  const baseIdOf = (o) => {
+    if (!o || typeof o !== "object") return "";
+    if (typeof o.basePlanId === "string" && o.basePlanId) return o.basePlanId.toLowerCase();
+    const id = String(o.id || "").toLowerCase();
+    return id.includes("@") ? id.split("@")[0] : id;
+  };
+  const baseMatch = offers.find((o) => baseIdOf(o) === base && !offerIdOf(o))
+    || offers.find((o) => baseIdOf(o).includes(base) && !offerIdOf(o));
+  if (proOwner) {
+    const loyaltyMatch = offers.find((o) => offerIdOf(o) === loyalty)
+      || offers.find((o) => String((o && o.id) || "").toLowerCase().includes(loyalty));
+    if (loyaltyMatch) return loyaltyMatch;
+  }
+  return baseMatch || offers.find((o) => !offerIdOf(o)) || offers[0];
+}
+
+function aiStoreLocalizedPrice(plan, proOwner) {
+  try {
+    if (typeof isNative !== "function" || !isNative()) return "";
+    const sdk = window.CdvPurchase;
+    if (!sdk || !sdk.store) return "";
+    const plat = typeof nativePlatform === "function" ? nativePlatform() : "android";
+    const sku = plat === "ios"
+      ? (plan === "yearly" ? AI_IOS_SKUS.yearly : AI_IOS_SKUS.monthly)
+      : AI_ANDROID_SKU;
+    const product = sdk.store.get(sku);
+    if (!product) return "";
+    const offer = plat === "ios"
+      ? (typeof product.getOffer === "function" ? product.getOffer() : null)
+      : pickPlayOffer(product, plan, proOwner);
+    const phase = offer && Array.isArray(offer.pricingPhases) ? offer.pricingPhases[0] : null;
+    const formatted = (phase && (phase.price || phase.formattedPrice)) || (offer && offer.pricing && offer.pricing.price) || "";
+    if (!formatted) return "";
+    return plan === "yearly" ? `${formatted}/year` : `${formatted}/month`;
+  } catch (_) {
+    return "";
+  }
 }
 
 async function purchaseAiSubscription(plan) {
@@ -683,8 +724,8 @@ function renderAiPaywall() {
   }
   if (nativeWrap) nativeWrap.hidden = !native;
   if (webWrap) webWrap.hidden = native;
-  if (moPrice) moPrice.textContent = aiPriceLabel("monthly", { proOwner });
-  if (yrPrice) yrPrice.textContent = aiPriceLabel("yearly", { proOwner });
+  if (moPrice) moPrice.textContent = aiStoreLocalizedPrice("monthly", proOwner) || aiPriceLabel("monthly", { proOwner });
+  if (yrPrice) yrPrice.textContent = aiStoreLocalizedPrice("yearly", proOwner) || aiPriceLabel("yearly", { proOwner });
   if (loyaltyNote) loyaltyNote.hidden = !(native && proOwner);
 }
 
@@ -757,5 +798,6 @@ if (typeof window !== "undefined") {
   window.aiCloudMatchSplit = aiCloudMatchSplit;
   window.aiCloudTidySplitItems = aiCloudTidySplitItems;
   window.aiCloudCleanPayee = aiCloudCleanPayee;
+  window.pickPlayOffer = pickPlayOffer;
 }
 

@@ -16246,11 +16246,25 @@ check('the brand catalogue makes no network calls at all',
       && !/LAUNCH100/i.test(dlg.textContent || '');
     closeAiPaywall();
 
-    return { isAi, isNotAi, finished, ok: !!(res && res.ok), proUntouched, reconnected: !!(reconnected && reconnected.active), webPairOnly };
+    // Play Billing offer selection: Pro owners get pro-monthly/pro-yearly, regular users get base monthly/yearly ONLY
+    const mockPlayProduct = {
+      offers: [
+        { id: 'monthly@pro-monthly', basePlanId: 'monthly', offerId: 'pro-monthly' },
+        { id: 'monthly', basePlanId: 'monthly', offerId: null },
+        { id: 'yearly@pro-yearly', basePlanId: 'yearly', offerId: 'pro-yearly' },
+        { id: 'yearly', basePlanId: 'yearly', offerId: null },
+      ],
+    };
+    const playOffersOk = pickPlayOffer(mockPlayProduct, 'monthly', false)?.id === 'monthly'
+      && pickPlayOffer(mockPlayProduct, 'yearly', false)?.id === 'yearly'
+      && pickPlayOffer(mockPlayProduct, 'monthly', true)?.id === 'monthly@pro-monthly'
+      && pickPlayOffer(mockPlayProduct, 'yearly', true)?.id === 'yearly@pro-yearly';
+
+    return { isAi, isNotAi, finished, ok: !!(res && res.ok), proUntouched, reconnected: !!(reconnected && reconnected.active), webPairOnly, playOffersOk };
   });
-  check('ai+ Phase 2: store subscription verifies via api/ai.js, keeps state.pro separate, reconnects after backup restore, and Web paywall is pair-only',
+  check('ai+ Phase 2: store subscription verifies via api/ai.js, keeps state.pro separate, reconnects after backup restore, Play offers match Pro/base strictly, and Web paywall is pair-only',
     subChecks.isAi && !subChecks.isNotAi && subChecks.finished && subChecks.ok
-    && subChecks.proUntouched && subChecks.reconnected && subChecks.webPairOnly,
+    && subChecks.proUntouched && subChecks.reconnected && subChecks.webPairOnly && subChecks.playOffersOk,
     JSON.stringify(subChecks));
 
   delete global.__DUITFUL_AI_GEMINI_STUB__;
