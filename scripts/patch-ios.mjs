@@ -649,6 +649,8 @@ struct DuitfulAppShortcuts: AppShortcutsProvider {
             "Tell \\(.applicationName)",
             "Tell \\(.applicationName) what I spent",
             "Log by voice in \\(.applicationName)",
+            "Help me log in \\(.applicationName)",
+            "Log it in \\(.applicationName)",
         ], shortTitle: "Tell Duitful", systemImageName: "mic")
     }
 }
