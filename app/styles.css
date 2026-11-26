@@ -10420,3 +10420,153 @@ svg.kira .kira-body { pointer-events: visiblePainted; }
 .debt-letter[hidden] { display: none; }
 .debt-letter .hint { margin: 0; overflow-wrap: anywhere; }
 .debt-form .field > span > .ai-plus-badge { margin-left: 0.4rem; vertical-align: middle; }
+
+/* ---------- Kira festive (kira-seasons.js, 1.76.0) ----------
+   Kira's outfits for Malaysian holidays (docs/plans/kira-festive.md). The
+   props sit on the head, in the hand or beside the feet — never on the face
+   or the paper. Most colours are fixed on purpose (the Jalur Gemilang's own
+   red, white, blue and yellow; ang pao red; gold), so they are named custom
+   properties here with dark and Pastel variants, not brand tokens. The
+   bunting and the kolam use tokens. Decorative only: no prop means money. */
+:root {
+  --kf-red: #c8322b;
+  --kf-gold: #d9a43a;
+  --kf-gold-deep: #a17722;
+  --kf-orange: #ef8a22;
+  --kf-orange-hi: #f8c27c;
+  --kf-green: #2f7d4f;
+  --kf-leaf: #4e8a3c;
+  --kf-songkok: #23201d;
+  --kf-songkok-hi: #5d564e;
+  --kf-songkok-edge: #23201d;
+  --kf-fur: #fbf8f2;
+  --kf-fur-edge: #d8d0c3;
+  --kf-hardhat: #f0be2c;
+  --kf-hardhat-ridge: #b88912;
+  --kf-flame: #f4a42b;
+  --kf-pelita: #b98c47;
+  --kf-diya: #c0703a;
+  --kf-diya-hi: #e8a874;
+  --kf-lotus: #e2859f;
+  --kf-lotus-2: #f2b6c6;
+  --kf-ketupat: #d9c37c;
+  --kf-ketupat-line: #8e7830;
+  --kf-saffron: #ee8c1a;
+  --kf-marigold: #f2c03a;
+  --kf-teal: #1f7a8c;
+  --kf-magenta: #b8336a;
+  --kf-bead-r: #b8322b;
+  --kf-bead-y: #e7b630;
+  --kf-bead-k: #2a2622;
+  --kf-bead-w: #f6f1e7;
+  /* The Jalur Gemilang: never tinted. */
+  --kf-flag-red: #cc0001;
+  --kf-flag-white: #ffffff;
+  --kf-flag-blue: #010066;
+  --kf-flag-yellow: #ffcc00;
+  --kf-flag-edge: color-mix(in srgb, var(--text) 18%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]):not([data-theme="pastel"]) {
+    --kf-red: #d8483f;
+    --kf-songkok: #2a2622;
+    --kf-songkok-hi: #8b8279;
+    --kf-songkok-edge: #776e64;
+    --kf-fur: #ece6dc;
+    --kf-fur-edge: #b9b0a3;
+    --kf-bead-k: #4a443e;
+    --kf-flag-edge: color-mix(in srgb, var(--text) 45%, transparent);
+  }
+}
+html[data-theme="dark"] {
+  --kf-red: #d8483f;
+  --kf-songkok: #2a2622;
+  --kf-songkok-hi: #8b8279;
+  --kf-songkok-edge: #776e64;
+  --kf-fur: #ece6dc;
+  --kf-fur-edge: #b9b0a3;
+  --kf-bead-k: #4a443e;
+  --kf-flag-edge: color-mix(in srgb, var(--text) 45%, transparent);
+}
+html[data-theme="pastel"] {
+  --kf-red: #e0625a;
+  --kf-gold: #e9b85c;
+  --kf-gold-deep: #b88a3c;
+  --kf-orange: #f49a4e;
+  --kf-green: #4f9d6d;
+  --kf-leaf: #6aa95a;
+  --kf-songkok: #3d2b1f;
+  --kf-songkok-hi: #7a6250;
+  --kf-songkok-edge: #3d2b1f;
+  --kf-hardhat: #f6c95a;
+  --kf-lotus: #f09ab6;
+  --kf-ketupat: #e8d293;
+  --kf-bead-r: #df5f57;
+  --kf-bead-y: #f3c95c;
+  --kf-bead-k: #4a3a30;
+}
+.kira .kf-red, .kira .kf-santa { fill: var(--kf-red); }
+.kira .kf-red-line { stroke: var(--kf-red); stroke-width: 1.4; stroke-linecap: round; fill: none; }
+.kira .kf-gold { fill: var(--kf-gold); }
+.kira .kf-gold-line { stroke: var(--kf-gold); stroke-width: 0.9; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.kira .kf-hat .kf-gold { stroke: var(--kf-gold-deep); stroke-width: 0.7; stroke-linejoin: round; }
+.kira .kf-white { fill: #fff; }
+.kira .kf-jewel { fill: var(--kf-red); }
+.kira .kf-green { fill: var(--kf-green); }
+.kira .kf-leaf { fill: var(--kf-leaf); }
+.kira .kf-leaf-line { stroke: var(--kf-leaf); stroke-width: 1.3; stroke-linecap: round; fill: none; }
+.kira .kf-orange { fill: var(--kf-orange); }
+.kira .kf-orange-hi { fill: var(--kf-orange-hi); opacity: 0.8; }
+.kira .kf-songkok { fill: var(--kf-songkok); stroke: var(--kf-songkok-edge); stroke-width: 0.8; stroke-linejoin: round; }
+.kira .kf-songkok-hi { stroke: var(--kf-songkok-hi); stroke-width: 0.9; stroke-linecap: round; fill: none; }
+.kira .kf-fur { fill: var(--kf-fur); stroke: var(--kf-fur-edge); stroke-width: 0.7; }
+.kira .kf-hardhat { fill: var(--kf-hardhat); stroke: var(--kf-hardhat-ridge); stroke-width: 0.7; stroke-linejoin: round; }
+.kira .kf-hardhat-ridge { stroke: var(--kf-hardhat-ridge); stroke-width: 1; stroke-linecap: round; fill: none; }
+.kira .kf-flame { fill: var(--kf-flame); }
+.kira .kf-wick { stroke: var(--text); stroke-width: 0.9; stroke-linecap: round; }
+.kira .kf-pelita { fill: var(--kf-pelita); }
+.kira .kf-pelita-ring { stroke: color-mix(in srgb, var(--kf-pelita) 60%, var(--text)); stroke-width: 0.9; fill: none; }
+.kira .kf-diya { fill: var(--kf-diya); }
+.kira .kf-diya-hi { stroke: var(--kf-diya-hi); stroke-width: 0.9; stroke-linecap: round; fill: none; }
+.kira .kf-lotus { fill: var(--kf-lotus); }
+.kira .kf-lotus-2 { fill: var(--kf-lotus-2); }
+.kira .kf-ketupat { fill: var(--kf-ketupat); stroke: var(--kf-ketupat-line); stroke-width: 0.7; stroke-linejoin: round; }
+.kira .kf-ketupat-line { stroke: var(--kf-ketupat-line); stroke-width: 0.7; fill: none; }
+.kira .kf-string { stroke: var(--muted); stroke-width: 0.6; fill: none; }
+.kira .kf-tassel { stroke: var(--kf-red); stroke-width: 1.2; stroke-linecap: round; }
+.kira .kf-saffron { fill: var(--kf-saffron); }
+.kira .kf-marigold { fill: var(--kf-marigold); }
+.kira .kf-teal { fill: var(--kf-teal); }
+.kira .kf-magenta { fill: var(--kf-magenta); }
+.kira .kf-bead-r { fill: var(--kf-bead-r); }
+.kira .kf-bead-y { fill: var(--kf-bead-y); }
+.kira .kf-bead-k { fill: var(--kf-bead-k); }
+.kira .kf-bead-w { fill: var(--kf-bead-w); stroke: color-mix(in srgb, var(--text) 30%, transparent); stroke-width: 0.4; }
+.kira .kf-b1 { fill: var(--brand); }
+.kira .kf-b2 { fill: var(--accent-3); }
+.kira .kf-b3 { fill: var(--accent); }
+.kira .kf-b4 { fill: var(--accent-4); }
+.kira .kf-kolam { fill: var(--kf-gold); }
+.kira .kf-kolam-2 { fill: var(--kf-lotus); }
+.kira .kf-kolam-line { stroke: color-mix(in srgb, var(--brand) 45%, transparent); stroke-width: 0.7; stroke-linecap: round; fill: none; }
+.kira .kf-flag-red { fill: var(--kf-flag-red); stroke: var(--kf-flag-edge); stroke-width: 0.4; }
+.kira .kf-flag-white { fill: var(--kf-flag-white); }
+.kira .kf-flag-blue { fill: var(--kf-flag-blue); }
+.kira .kf-flag-yellow { fill: var(--kf-flag-yellow); }
+.kira .kf-pole { stroke: color-mix(in srgb, var(--text) 55%, transparent); stroke-width: 1; stroke-linecap: round; }
+@media (prefers-reduced-motion: no-preference) {
+  .kira .kf-flicker { transform-box: fill-box; transform-origin: 50% 100%; animation: kf-flicker 1.6s ease-in-out infinite; }
+  .kira.is-moment .kf-flicker { animation-iteration-count: 3; }
+  .kira .kf-twinkle { transform-box: fill-box; transform-origin: center; animation: kira-twinkle 2.4s ease-in-out 2; }
+}
+@keyframes kf-flicker { 0%, 100% { transform: scale(1, 1); } 40% { transform: scale(0.92, 1.08); } 70% { transform: scale(1.05, 0.95); } }
+
+/* The season's greeting on Home (renderKiraGreet): one line, dismissible. */
+.kira-greet { display: flex; align-items: center; gap: 0.65rem; padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.kira-greet[hidden] { display: none; }
+.kira-greet-kira { flex: none; display: block; }
+.kira-greet-kira:empty { display: none; }
+.kira-greet-kira .kira { width: 46px; height: 64px; }
+.kira-greet-text { margin: 0; flex: 1; min-width: 0; font-weight: 600; font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
+.kira-greet-close { flex: none; align-self: flex-start; }
+.festive-field { margin-top: 0.75rem; }

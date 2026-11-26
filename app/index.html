@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=7d237756" />
+    <link rel="stylesheet" href="styles.css?v=727cad4c" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -306,6 +306,14 @@
               <button type="button" class="ghost" id="reminder-ask-ok">OK</button>
             </div>
           </div>
+        </section>
+
+        <!-- Festive Kira (kira.js): one greeting line per season, once per
+             device, dismissible. Its own card, never on the figures. -->
+        <section id="kira-greet" class="card kira-greet" hidden aria-label="Greeting">
+          <span class="kira-greet-kira" id="kira-greet-kira" aria-hidden="true"></span>
+          <p class="kira-greet-text" id="kira-greet-text" translate="no"></p>
+          <button type="button" class="ghost icon-btn kira-greet-close" id="kira-greet-close" aria-label="Dismiss">✕</button>
         </section>
 
         <!-- Tax discovery: one quiet card for people not tracking tax yet —
@@ -1938,6 +1946,11 @@
             <button type="button" class="pill" data-theme-choice="dark" role="radio" aria-checked="false">Dark</button>
             <button type="button" class="pill" data-theme-choice="pastel" role="radio" aria-checked="false">Pastel</button>
           </div>
+          <label class="field toggle-field festive-field">
+            <input type="checkbox" id="pref-festive-kira" checked />
+            <span>Festive Kira</span>
+          </label>
+          <p class="hint">Kira dresses up for Malaysian holidays.</p>
         </div>
 
         <!-- About, help, legal and Clear all data: folded, at the bottom. -->
@@ -3592,7 +3605,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=19078fa9"></script>
+    <script src="i18n-langs.js?v=1a9aa0b0"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3620,7 +3633,8 @@
     <script src="csv.js?v=82d51210"></script>
     <script src="reports.js?v=6b3b772b"></script>
     <script src="onboarding.js?v=15cab168"></script>
-    <script src="kira.js?v=5723febf"></script>
+    <script src="kira-seasons.js?v=84d7b80b"></script>
+    <script src="kira.js?v=f2a9de04"></script>
     <script src="streak.js?v=ce95b7ab"></script>
     <script src="voice.js?v=7b834a3c"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
@@ -3629,6 +3643,6 @@
     <script src="ai-cloud.js?v=bff0735d"></script>
     <script src="pro.js?v=834eaf24"></script>
     <script src="ocr.js?v=0fe4028c"></script>
-    <script src="script.js?v=6b558a53"></script>
+    <script src="script.js?v=917393af"></script>
   </body>
 </html>

@@ -3542,6 +3542,7 @@ function renderAll() {
   renderOwnAccounts();
   renderAiSettings();
   renderAiIntro();
+  if (typeof renderKiraGreet === "function") { renderKiraGreet(); kiraSyncToday(); renderFestiveSetting(); }
   if (typeof renderStatementNudge === "function") renderStatementNudge();
   renderCaptureIntro();
   renderCaptureShareLinks();
@@ -7789,6 +7790,9 @@ $("#btn-clear").addEventListener("click", async () => {
 const RELEASE_NOTES = {
   "1.77.0": [
     "<strong>Duitful AI+ helps in more places</strong> — with AI+ on, it can read a bank statement your phone couldn't balance, tidy payee names, fill empty boxes from a Borang EA or a loan letter, work out who paid when a split credit matches several people, and tidy messy items on a by-item split. It only uses figures printed on the page, and you check everything before it's saved.",
+  ],
+  "1.76.0": [
+    "<strong>Festive Kira</strong> — Kira dresses up for Malaysian holidays: a songkok and ketupat for Raya, an ang pao for Chinese New Year, a diya for Deepavali, the Jalur Gemilang for Merdeka, a Santa hat for Christmas and more, with one greeting on Home each season. Calm for Ramadan. Turn it off in Settings → Appearance.",
   ],
   "1.75.0": [
     "<strong>Kira joins the party</strong> — Kira's eyes now follow your taps (tap Kira for a giggle), cheers with confetti when you pay off a debt or reach a goal, says a kind word when a month runs over, and hops when you save a voice entry, a receipt or a bank alert. Kira also says hi through first-run setup and the tour, and sits on your home-screen widget.",

@@ -81,6 +81,10 @@ const asMalaysia = () => {
   // Milestone sheets would pop up mid-test as the suite adds data; the
   // milestone test turns them back on for itself.
   window.DUITFUL_MILESTONE_SHEETS = false;
+  // Festive Kira (1.76.0) follows the calendar. The suite pins Kira's date to
+  // an ordinary day (no season) so the older Kira checks never meet a party
+  // hat or a calm Ramadan; the festive checks pin their own dates.
+  window.DUITFUL_KIRA_DATE = '2026-11-26';
 };
 {
   const newContext = b.newContext.bind(b), newPage = b.newPage.bind(b);
@@ -16944,6 +16948,240 @@ check('the brand catalogue makes no network calls at all',
     }
     await kCtx.close();
   }
+}
+
+// ── Kira phase 3 (v1.76.0): Festive Kira ─────────────────────────────────
+{
+  await import(pathToFileURL(path.join(REPO_ROOT, 'app', 'kira-seasons.js')).href);
+  const K = globalThis.KiraSeasons;
+  const S = (d, o) => K.seasonFor(d, o);
+  const brief = (s) => (s ? { id: s.id, look: s.look, calm: s.calm, flag: s.flag, names: s.names } : null);
+
+  // The table is the verified list, row for row.
+  const verified = JSON.parse(readFileSync(path.join(REPO_ROOT, 'docs/plans/kira-holidays-2026-2028.json'), 'utf8'));
+  const keyMap = { ramadan_start: 'ramadan', raya_aidilfitri: 'raya', raya_haji: 'haji', awal_muharram: 'muharram', maulidur_rasul: 'maulid' };
+  const tableDiff = [];
+  for (const [y, rows] of Object.entries(verified)) for (const [k, v] of Object.entries(rows)) {
+    const row = K.TABLE[y] && K.TABLE[y][keyMap[k] || k];
+    if (!row || row[0] !== v.date || row[1] !== v.days || row[2] !== (v.status === 'gazetted' ? 'g' : 'e')) tableDiff.push(`${y}.${k}`);
+  }
+  check('Festive Kira (1.76.0): the holiday table matches docs/plans/kira-holidays-2026-2028.json (dates, days, gazetted vs expected)',
+    tableDiff.length === 0 && Object.keys(K.TABLE).length === 3, JSON.stringify(tableDiff));
+  const thisYear = new Date().getFullYear();
+  check('Festive Kira (1.76.0): the holiday table runs at least to next year — add the next year\'s dates to app/kira-seasons.js before this fails',
+    K.lastTableYear() >= thisYear + 1, `last ${K.lastTableYear()}, now ${thisYear}`);
+
+  const cases = {
+    ordinary: S('2026-11-26'), july: S('2026-07-15'),
+    newyearEve: S('2026-12-31'), xmas: S('2026-12-25'), xmasFirst: S('2026-12-20'), xmasBefore: S('2026-12-19'),
+    cny2027: S('2027-02-06'), cnyInRamadan: S('2027-02-08'), ramadan: S('2027-02-21'), nuzul: S('2027-02-24'),
+    rayaEve: S('2027-03-09'), raya: S('2027-03-10'), rayaLast: S('2026-04-04'), rayaAfter: S('2026-04-05'),
+    kaamatan: S('2026-05-30'), wesakKaamatan: S('2026-05-31'), agongGawai: S('2026-06-01'), gawai: S('2026-06-02'),
+    merdekaMonth: S('2026-08-10'), maulidMerdeka: S('2026-08-25'), merdeka: S('2026-08-31'), mDay: S('2026-09-16'), mDayLead: S('2026-09-03'),
+    deepavali: S('2026-11-05'), thaipusamInRamadan: S('2028-02-09'), haji: S('2027-05-18'),
+  };
+  const c = cases;
+  check('Festive Kira (1.76.0): an ordinary day has no outfit; windows open and close on the spec\'s days (Christmas 20–26 Dec, Raya to day +14, New Year from 31 Dec)',
+    !c.ordinary && !c.july && !c.xmasBefore && !c.rayaAfter && c.xmas.id === 'christmas' && c.xmasFirst.id === 'christmas'
+    && c.newyearEve.id === 'newyear' && c.rayaLast.id === 'raya' && c.deepavali.id === 'deepavali' && c.haji.look === 'haji' && c.haji.calm,
+    JSON.stringify({ ordinary: brief(c.ordinary), xmasBefore: brief(c.xmasBefore), rayaAfter: brief(c.rayaAfter), haji: brief(c.haji) }));
+  check('Festive Kira (1.76.0): 2027-02-08 — CNY lingering into the first day of Ramadan keeps CNY\'s calm props (no party), and the greeting names both',
+    c.cnyInRamadan.id === 'cny' && c.cnyInRamadan.calm === true && JSON.stringify(c.cnyInRamadan.names) === '["cny","ramadan"]'
+    && !/kf-orange/.test(K.props(c.cnyInRamadan).front + K.props(c.cnyInRamadan).inner) && /kf-red/.test(K.props(c.cnyInRamadan).inner)
+    && c.cny2027.calm === false && c.cny2027.strong && /kf-orange/.test(K.props(c.cny2027).front),
+    JSON.stringify({ inRamadan: brief(c.cnyInRamadan), cny: brief(c.cny2027) }));
+  check('Festive Kira (1.76.0): Ramadan is calm with a crescent and pelita; Nuzul is Ramadan\'s look with a star, under Ramadan\'s greeting; Raya\'s eve is calm Raya (no ketupat) with Raya\'s greeting alone; Raya day is strong',
+    c.ramadan.look === 'ramadan' && c.ramadan.calm && c.nuzul.look === 'nuzul' && c.nuzul.id === 'ramadan' && c.nuzul.key === c.ramadan.key
+    && c.rayaEve.id === 'raya' && c.rayaEve.calm && JSON.stringify(c.rayaEve.names) === '["raya"]' && !/kf-ketupat/.test(K.props(c.rayaEve).front)
+    && c.raya.calm === false && c.raya.strong && /kf-songkok/.test(K.props(c.raya).inner) && /kf-ketupat/.test(K.props(c.raya).front)
+    && c.thaipusamInRamadan.id === 'thaipusam' && c.thaipusamInRamadan.calm,
+    JSON.stringify({ ramadan: brief(c.ramadan), nuzul: brief(c.nuzul), eve: brief(c.rayaEve), raya: brief(c.raya) }));
+  check('Festive Kira (1.76.0): national beats state — 2026-05-31 is Wesak (Kaamatan\'s 2nd day), 2026-06-01 (Agong + Gawai\'s first day) is the neutral festive look naming both, 2026-05-30 and 06-02 are Kaamatan and Gawai',
+    c.wesakKaamatan.id === 'wesak' && c.agongGawai.id === 'shared' && c.agongGawai.look === 'festive'
+    && JSON.stringify(c.agongGawai.names) === '["agong","gawai"]' && c.kaamatan.id === 'kaamatan' && c.gawai.id === 'gawai',
+    JSON.stringify({ w: brief(c.wesakKaamatan), shared: brief(c.agongGawai), k: brief(c.kaamatan), g: brief(c.gawai) }));
+  check('Festive Kira (1.76.0): Merdeka month flies the flag (big on 31 Aug and 16 Sep); another holiday inside it keeps its own look plus a small flag (Maulidur Rasul 2026-08-25)',
+    c.merdekaMonth.look === 'merdeka' && c.merdekaMonth.flag === 'normal' && c.merdeka.flag === 'big' && c.mDay.id === 'malaysia_day' && c.mDay.flag === 'big'
+    && c.mDayLead.id === 'malaysia_day' && c.maulidMerdeka.look === 'maulid' && c.maulidMerdeka.flag === 'small' && c.maulidMerdeka.calm
+    && /kf-flag-blue/.test(K.props(c.maulidMerdeka).front) && (K.props(c.merdeka).inner.match(/kf-flag-white/g) || []).length === 1
+    && (/<path class="kf-flag-white" d="([^"]+)"/.exec(K.props(c.merdeka).inner)[1].match(/M/g) || []).length === 7
+    && (/kf-flag-yellow" d="(M[^"]+)"/g.test(K.props(c.merdeka).inner)),
+    JSON.stringify({ month: brief(c.merdekaMonth), maulid: brief(c.maulidMerdeka), day: brief(c.merdeka), mday: brief(c.mDay) }));
+  // After the table: Intl calendars (Raya 2029 from islamic-umalqura, CNY from chinese).
+  const h29 = K.holidaysOf(2029);
+  const near = (iso, want, d) => Math.abs((Date.parse(iso) - Date.parse(want)) / 864e5) <= d;
+  const k29 = S('2029-02-14');
+  check('Festive Kira (1.76.0): after 2028 the dates come from Intl (Raya 2029 ≈ 14 Feb, CNY 2029 = 13 Feb, Merdeka fixed); Thaipusam, Wesak and Deepavali are skipped; Raya meeting CNY is Kongsi Raya',
+    !!h29.raya && near(h29.raya[0][0], '2029-02-14', 1) && h29.cny && h29.cny[0][0] === '2029-02-13' && h29.merdeka[0][0] === '2029-08-31'
+    && !h29.thaipusam && !h29.wesak && !h29.deepavali && k29 && k29.id === 'kongsi_raya' && JSON.stringify(k29.names) === '["raya","cny"]'
+    && /kf-songkok/.test(K.props(k29).inner) && /kf-red/.test(K.props(k29).inner),
+    JSON.stringify({ raya: h29.raya, cny: h29.cny, k29: brief(k29) }));
+  // Deepa Raya, from a table where the two meet.
+  const t = JSON.parse(JSON.stringify(K.TABLE));
+  t[2026].deepavali = ['2026-03-22', 1, 'g'];
+  const dr = S('2026-03-22', { table: t });
+  check('Festive Kira (1.76.0): Raya meeting Deepavali is Deepa Raya (songkok, diya, kolam); the nearest first day wins otherwise',
+    dr && dr.id === 'deepa_raya' && /kf-diya/.test(K.props(dr).front) && /kf-kolam/.test(K.props(dr).under), JSON.stringify(brief(dr)));
+
+  // In the app.
+  for (const reduced of [false, true]) {
+    const fctx = await b.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: reduced ? 'reduce' : 'no-preference' });
+    await fctx.addInitScript(() => { window.DUITFUL_KIRA_DATE = '2027-03-10'; });
+    const fp = await fctx.newPage();
+    const fErr = [];
+    fp.on('pageerror', (e) => fErr.push(e.message));
+    await fp.goto(`${BASE}/app/index.html`);
+    await fp.waitForTimeout(500);
+    await fp.click('#btn-start-open');
+    await fp.waitForTimeout(1500);
+    await fp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+    const r = await fp.evaluate(async () => {
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const out = {};
+      const greet = document.getElementById('kira-greet');
+      out.greet = !greet.hidden && document.getElementById('kira-greet-text').textContent;
+      const gk = greet.querySelector('svg.kira');
+      out.greetKira = !!gk && gk.classList.contains('kira--festive') && gk.classList.contains('kira-look-raya') && !!gk.querySelector('.kf-songkok');
+      out.oneKiraHome = document.getElementById('today-kira').innerHTML === '';
+      out.greetNotOnFigures = greet.getBoundingClientRect().bottom <= document.getElementById('stat-net').getBoundingClientRect().top;
+      out.debtsKira = !!document.querySelector('#list-debt .empty-block-kira svg.kira--festive .kf-songkok');
+      // Counting keeps the sempoa; a hat at most.
+      const ai = document.createElement('div');
+      ai.innerHTML = kiraSvg('counting', { ai: true });
+      out.countingHat = !!ai.querySelector('.sempoa') && !!ai.querySelector('.kf-songkok') && !ai.querySelector('.kf-hand, .kf-ground, .kf-under, .kf-flag, .kf-moon');
+      // Flicker on the Deepavali diya, motion-safe.
+      window.DUITFUL_KIRA_DATE = '2026-11-08';
+      kiraRefreshAll();
+      const diya = document.querySelector('#list-debt svg.kira .kf-flicker');
+      out.flicker = diya ? getComputedStyle(diya).animationName : 'missing';
+      // Christmas: a new season greets again; dismiss keeps it away.
+      window.DUITFUL_KIRA_DATE = '2027-12-25';
+      renderAll();
+      out.xmas = !greet.hidden && document.getElementById('kira-greet-text').textContent;
+      document.getElementById('kira-greet-close').click();
+      await wait(50);
+      renderAll();
+      out.xmasDismissed = greet.hidden && JSON.parse(localStorage.getItem('duitful.kiraGreet'))['christmas-2027-12-25'] === 'x';
+      out.todayBack = document.getElementById('today-kira').innerHTML !== '';
+      // Raya again on its next day: already greeted this season.
+      window.DUITFUL_KIRA_DATE = '2027-03-11';
+      renderAll();
+      out.rayaOnce = greet.hidden;
+      // Ramadan: calm — no party, no confetti, no food; the greeting is Salam Ramadan.
+      window.DUITFUL_KIRA_DATE = '2027-02-21';
+      kiraRefreshAll(); renderAll();
+      out.ramadanGreet = document.getElementById('kira-greet-text').textContent;
+      const slot = document.createElement('span');
+      slot.className = 'celebrate-kira';
+      document.body.appendChild(slot);
+      kiraCelebrate(slot);
+      out.ramadanNoParty = !!slot.querySelector('svg.kira--proud') && !slot.querySelector('.kira--party, .kira-confetti, .kira-burst');
+      out.ramadanNoFood = !document.querySelector('svg.kira .kf-orange, svg.kira .kf-ketupat');
+      slot.remove();
+      // CNY lingering into Ramadan: calm CNY props.
+      window.DUITFUL_KIRA_DATE = '2027-02-08';
+      kiraRefreshAll();
+      const cny = document.querySelector('#list-debt svg.kira');
+      out.cnyCalm = cny.classList.contains('kira-look-cny') && !!cny.querySelector('.kf-hand ellipse.kf-red') && !cny.querySelector('.kf-orange');
+      // Merdeka day: the flag.
+      window.DUITFUL_KIRA_DATE = '2026-08-31';
+      kiraRefreshAll(); renderAll();
+      out.flag = !!document.querySelector('#list-debt svg.kira .kf-flag .kf-flag-blue') && document.getElementById('kira-greet-text').textContent;
+      // Switch off: plain Kira everywhere, no greeting; on again: back.
+      const box = document.getElementById('pref-festive-kira');
+      out.switchDefaultOn = box.checked;
+      box.checked = false;
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+      renderAll();
+      out.offPlain = document.querySelectorAll('svg.kira.kira--festive').length === 0 && document.querySelectorAll('svg.kira').length > 0
+        && greet.hidden && localStorage.getItem('duitful.festiveKira') === 'off';
+      box.checked = true;
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+      out.onAgain = document.querySelectorAll('svg.kira.kira--festive').length > 0;
+      return out;
+    });
+    if (!reduced) {
+      check('Festive Kira (1.76.0): on Raya the Home greeting says "Selamat Hari Raya Aidilfitri, Maaf Zahir Batin" with Kira in a songkok, above the figures; the Today row leaves Kira out; the Debts empty state wears it too',
+        r.greet === 'Selamat Hari Raya Aidilfitri, Maaf Zahir Batin' && r.greetKira && r.oneKiraHome && r.greetNotOnFigures && r.debtsKira, JSON.stringify(r));
+      check('Festive Kira (1.76.0): counting Kira keeps the sempoa and may only add a hat',
+        r.countingHat, JSON.stringify(r));
+      check('Festive Kira (1.76.0): one greeting per season per device — a new season greets, Dismiss keeps it away, the same season the next day stays quiet',
+        r.xmas === 'Merry Christmas' && r.xmasDismissed && r.todayBack && r.rayaOnce, JSON.stringify(r));
+      check('Festive Kira (1.76.0): Ramadan is calm (party becomes proud, no confetti, no food props, "Salam Ramadan"); CNY inside Ramadan keeps a lantern, not mandarins; Merdeka flies the flag',
+        r.ramadanGreet === 'Salam Ramadan' && r.ramadanNoParty && r.ramadanNoFood && r.cnyCalm && r.flag === 'Happy Merdeka', JSON.stringify(r));
+      check('Festive Kira (1.76.0): Settings → Festive Kira is on by default; off draws plain Kira everywhere and hides the greeting (this device only); on brings the outfits back',
+        r.switchDefaultOn && r.offPlain && r.onAgain && fErr.length === 0, JSON.stringify({ r, fErr }));
+      check('Festive Kira (1.76.0): the Deepavali diya flickers (motion-safe)', r.flicker === 'kf-flicker', r.flicker);
+    } else {
+      check('Festive Kira (1.76.0): reduce motion — outfits and the greeting still show, nothing flickers',
+        r.greetKira && r.flicker === 'none' && fErr.length === 0, JSON.stringify({ flicker: r.flicker, fErr }));
+    }
+    await fctx.close();
+  }
+
+  // 360px in English, Malay and Chinese, on the longest greeting (Kongsi Raya).
+  const nctx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  await nctx.addInitScript(() => { window.DUITFUL_KIRA_DATE = '2029-02-14'; });
+  const np = await nctx.newPage();
+  await np.goto(`${BASE}/app/index.html`);
+  await np.waitForTimeout(500);
+  await np.click('#btn-start-open');
+  await np.waitForTimeout(1500);
+  await np.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const fit = {};
+  for (const lang of ['en', 'ms', 'zh']) {
+    await np.evaluate((l) => { localStorage.setItem('duitful.lang', l); }, lang);
+    await np.reload();
+    await np.waitForTimeout(1500);
+    await np.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+    fit[lang] = await np.evaluate(() => {
+      const out = [];
+      const card = document.getElementById('kira-greet');
+      if (card.hidden) out.push('greeting hidden');
+      const c = card.getBoundingClientRect();
+      for (const el of card.querySelectorAll(':scope > *')) {
+        const r = el.getBoundingClientRect();
+        if (r.width && (r.left < c.left - 1 || r.right > c.right + 1)) out.push(el.id || el.className);
+      }
+      if (document.documentElement.scrollWidth > 360) out.push('page scrolls sideways');
+      out.push('text:' + document.getElementById('kira-greet-text').textContent);
+      return out;
+    });
+  }
+  check('Festive Kira (1.76.0): at 360px the Kongsi Raya greeting fits its card in English, Malay and Chinese (greeting rows translated)',
+    Object.values(fit).every((v) => v.length === 1 && v[0].startsWith('text:Selamat Hari Raya Aidilfitri, Maaf Zahir Batin · '))
+    && /Happy Chinese New Year$/.test(fit.en[0]) && /Selamat Tahun Baru Cina$/.test(fit.ms[0]) && /新年快乐，恭喜发财$/.test(fit.zh[0]),
+    JSON.stringify(fit));
+  await nctx.close();
+
+  // The split friend page and the landing pages wear the same outfit.
+  const sctx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  await sctx.addInitScript(() => { window.DUITFUL_KIRA_DATE = '2027-03-10'; });
+  const sp = await sctx.newPage();
+  await sp.goto(`${BASE}/split/#DFS1.x`);
+  await sp.waitForTimeout(800);
+  const split = await sp.evaluate(() => ({
+    n: document.querySelectorAll('svg.mascot.is-festive').length,
+    all: document.querySelectorAll('svg.mascot').length,
+    songkok: document.querySelectorAll('svg.mascot .kf-songkok').length,
+    key: document.querySelector('svg.mascot')?.getAttribute('data-season'),
+  }));
+  await sp.evaluate(() => localStorage.setItem('duitful.festiveKira', 'off'));
+  await sp.reload();
+  await sp.waitForTimeout(600);
+  const splitOff = await sp.evaluate(() => document.querySelectorAll('svg.mascot.is-festive').length);
+  await sp.evaluate(() => localStorage.removeItem('duitful.festiveKira'));
+  await sp.goto(`${BASE}/index.html`);
+  await sp.waitForTimeout(600);
+  const landing = await sp.evaluate(() => {
+    const k = document.querySelector('.hero-kira');
+    return { aria: k && k.getAttribute('aria-hidden'), key: k && k.querySelector('svg').getAttribute('data-season'), songkok: !!(k && k.querySelector('.kf-songkok')), pos: k && getComputedStyle(k).position };
+  });
+  check('Festive Kira (1.76.0): the split friend page\'s receipt friends wear the season (songkok on Raya) and stay plain when Festive Kira is off',
+    split.n === split.all && split.all >= 3 && split.songkok === split.all && split.key === 'raya-2027-03-10' && splitOff === 0, JSON.stringify({ split, splitOff }));
+  check('Festive Kira (1.76.0): the landing hero has a small decorative Kira (aria-hidden, absolutely placed) in the season\'s outfit',
+    landing.aria === 'true' && landing.key === 'raya-2027-03-10' && landing.songkok && landing.pos === 'absolute', JSON.stringify(landing));
+  await sctx.close();
 }
 
 await b.close();
