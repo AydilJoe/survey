@@ -10,7 +10,7 @@
    - Returns null (never throws, never blocks) when off, offline, or at cap.
    - Keeps state.pro (Lifetime Pro) and state.aiSub (AI+ subscription) separate. */
 
-const AI_CLOUD_ENDPOINT = "/api/ai";
+const AI_CLOUD_ENDPOINT = "/api/ai/";
 const AI_PLUS_DEFAULT_FLAG = true;
 
 const AI_PLUS_PRICES = Object.freeze({

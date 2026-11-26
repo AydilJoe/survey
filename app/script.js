@@ -869,8 +869,10 @@ async function loadFxRates({ force = false } = {}) {
   try {
     // Every shell asks Duitful's own /api/fx (server-cached, one upstream).
     // The native WebView's origin is localhost, so it needs the absolute URL;
-    // api/_lib/cors.js lets those origins through.
-    const path = force ? "/api/fx?refresh=1" : "/api/fx";
+    // api/_lib/cors.js lets those origins through. Keep the trailing slash:
+    // with trailingSlash on, /api/fx is a 308 that carries no CORS headers,
+    // which the WebView refuses, so every currency read "(offline)".
+    const path = force ? "/api/fx/?refresh=1" : "/api/fx/";
     const r = await fetch(isNative() ? FX_ORIGIN + path : path);
     if (!r.ok) throw new Error(`fx ${r.status}`);
     const data = await r.json();
@@ -7644,6 +7646,9 @@ $("#btn-clear").addEventListener("click", async () => {
 const RELEASE_NOTES = {
   "1.75.0": [
     "<strong>Kira joins the party</strong> — Kira's eyes now follow your taps (tap Kira for a giggle), cheers with confetti when you pay off a debt or reach a goal, says a kind word when a month runs over, and hops when you save a voice entry, a receipt or a bank alert. Kira also says hi through first-run setup and the tour, and sits on your home-screen widget.",
+  ],
+  "1.74.3": [
+    "<strong>Exchange rates work in the phone app again</strong> — other currencies no longer show \"(offline)\" on iPhone and Android.",
   ],
   "1.74.2": [
     "<strong>Duitful AI+ subscription pricing &amp; verification</strong> — strictly matches base plans vs Lifetime Pro loyalty offers, shows localized store pricing when available, and verifies subscription renewals and grace periods server-side.",
