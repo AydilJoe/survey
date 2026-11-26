@@ -43,8 +43,7 @@ window.DRIVE_CONFIG = {
     "https://www.googleapis.com/auth/userinfo.email",
   ].join(" "),
   fileName: "duitful-backup.enc",
-  // false hides Google Drive in the iPhone app (iCloud stays), e.g. while
-  // App Review can't sign in to a Google account from abroad. Android and
-  // the web are unaffected. Flip to true and ship a build to bring it back.
-  iosEnabled: false,
+  // Enabled on iPhone & iPad alongside iCloud so users can sync across Apple,
+  // Android, and Web. Flip to false if Google Drive ever needs to be hidden on iOS.
+  iosEnabled: true,
 };
