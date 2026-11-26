@@ -82,6 +82,52 @@ Rules:
 - **Answers are checked by code, not trusted.** A category must be in `scanAllCategories()`, a payee must appear in the text, and a relief must be in `TAX_AI_NAMES`.
 - **e2e:** run the real handler in memory, the way the relay does (`RELAY_MEMORY=1`), with a stubbed Gemini. Add tests for redaction, quota fallback, pairing (including the 4th-device replace), entitlement (`state.pro || aiSubIsActive()`) and "nothing sent when AI+ is off".
 
+## 6b. Task contract: every AI+ call is a fixed, named task
+
+The app never sends a prompt. It sends `{ task, input }` to `/api/ai?op=run`. The server holds that task's prompt, model, input limits and output schema, and returns **JSON only**. This stops the proxy from being used as free Gemini on Duitful's key, keeps each call's data to what that task needs, keeps cost predictable, and lets prompts change without an app release.
+
+### Layout
+
+- `api/_lib/ai/tasks/<name>.js`, one file per task, exporting:
+  - `input`: allowed fields, types and maximum sizes. Unknown fields or oversize input are rejected with 400 and not counted.
+  - `model`: a key into `api/_lib/ai/models.js` (`lite` or `vision`). Never a model id inside a task file.
+  - `bucket`: `text` or `scan` (the quota meter it counts against).
+  - `prompt(input)`: server-side only.
+  - `schema`: the JSON schema passed to Gemini's structured-output mode.
+  - `check(input, output)`: server-side validation. It drops any field that fails and returns `null` when nothing survives.
+- `api/_lib/ai/tasks/index.js` lists the tasks. A name that isn't listed returns 400 (`unknown task`).
+- `app/ai-cloud.js`: `aiCloudRun(task, input)` redacts the input with `app/ai-redact.js`, calls the server, runs the **same check again on the phone**, and returns `null` on any failure. A `null` result falls back to on-device AI (`aiAllowed()`) and then to rules and OCR.
+- Each result shown to the user carries an "AI+" tag and is a suggestion until the user taps.
+
+### Rules for all tasks
+
+1. **Amounts.** An amount comes only from the input text or image (printed or spoken). The check confirms that the number appears in the input, or in the OCR text the phone sends alongside an image.
+2. **Closed lists.** A category, wallet, relief, person or month must come from the list sent in the input. Anything else is dropped.
+3. **Names.** A payee or vendor name must appear in the input text (case- and space-insensitive).
+4. **Storage.** The server never stores input or output. It increments the bucket counter only after a valid result.
+5. **Timeouts.** Each task has a timeout. A timeout or a schema failure counts as `null` and uses no quota.
+6. **Tests.** e2e runs every task through the real handler with a stubbed Gemini: valid output, invalid output (dropped), unknown task (400), oversize input (400), and quota fallback.
+
+### Tasks
+
+| Task | Phase | Input (after redaction) | Output | Checks | Bucket |
+|---|---|---|---|---|---|
+| `receipt-read` | v1 | image ≤1280px + phone OCR text + category list | `{ total?, date?, vendor?, category?, items?[{name, qty?, amount}] }` | total and item amounts appear in the OCR text; total kept only if printed (same as `mergeReceiptOpinion`); items vs subtotal → "Check" if they don't add up | scan |
+| `statement-read` | v1 | one page image or text chunk + bank name if known | `{ opening?, closing?, rows[{date, desc, amount, dir, balance?}] }` | every amount appears on the page; the import needs `reconcileStatement() === "ok"`, otherwise review only | scan |
+| `ea-read` | v1 | image or text of a Borang EA | `{ year?, b1a..b5?, c?, sectionB?, d1..d5?, e1?, e2? }` | each figure is printed; a total that doesn't equal its lines is tagged Check (same rules as `app/ea-extract.js`) | scan |
+| `loan-read` | v1 | image or text of a loan, PTPTN or card statement | `{ lender?, kind?, islamic?, contract?, balance?, monthly?, rate?, endDate? }` | figures are printed; `kind` and `contract` come from the app's lists; fills the Add debt form only | scan |
+| `voice-entry` | v1 | sentence ≤200 chars + category list + wallet names + open-split first names | `{ amount?, category?, wallet?, note?, split?{people[{name, share?}], mode} }` | amount said in the sentence; names from the lists; split maths done on the phone by `app/voice.js` | text |
+| `split-match` | v1 | alert sender name + alert amount + open splits `[{id, first name, amount}]` | `{ splitId \| null }` | the amount equals that split's amount exactly; shown as "Looks like Ali's share — Yes / No" | text |
+| `split-items` | v1 | receipt item lines (text) + printed subtotal | `{ items[{name, qty, amount}] }` | amounts sum to the printed subtotal, otherwise Check and keep the raw lines | text |
+| `payee-clean` | v1 | one raw payee or description ≤120 chars | `{ payee }` | words of `payee` appear in the input | text |
+| `ask-filter` | later | question ≤200 chars + category, wallet, payee-group and month lists | `{ filter{ kind, categories?, wallets?, payeeContains?, from?, to? }, measure: "sum" \| "count" \| "list" }` | every value from the lists or a date range; **the phone runs the filter on the vault and does the maths**; the answer screen shows the filter used | text |
+| `bills-spot` | later | statement rows (desc + amount + date only, no balances) | `{ bills[{payee, amount, day, rowIds[]}] }` | rows exist and repeat month to month in the input; offered as Monthly bills to tick | text |
+| `relief-match` | later | one receipt (OCR text) + that year's `TAX_AI_NAMES` | `{ relief \| null }` | relief from the list; amount is the entry's, never the AI's (same as `taxAiMatchRun`) | text |
+| `alert-read` | later | one redacted alert ≤300 chars + category list | `{ dir, counterparty?, category?, promo }` | same as `aiReadAlert` on Android today: never the amount; counterparty in the text; a rule always wins | text |
+| `group-bill` | later | receipt item lines + subtotal + people first names (≤10) | `{ ticks[{item, people[]}] }` | items and names from the input; shares worked out on the phone by the existing split-by-item flow; the user adjusts before sending | text |
+
+New tasks get added to this table and the plan before any code.
+
 ## 7. Where AI+ makes the app better
 
 The pattern that keeps privacy intact: **the cloud turns a picture or words into structured input, and the phone does all the maths on the vault.**
@@ -94,7 +140,7 @@ The pattern that keeps privacy intact: **the cloud turns a picture or words into
    - Tidy split-by-item receipts ("2X TEH O AIS" becomes 2 × "Teh O Ais").
    - Clean payee names ("PYMT*GRAB 8812 KL" becomes "Grab").
 
-**After v1 (propose in the plan, don't build yet):**
+**After v1 (tasks `ask-filter`, `bills-spot`, `relief-match`, `alert-read`, `group-bill` in section 6b; build in this order after v1 ships):**
 4. **Ask your money in plain words.** For example, "How much on Grab in October?" The cloud sees only the question plus the category, wallet and month lists, and returns a *filter* (`{payee:"Grab", month:"2026-10"}`). The phone runs it on the vault and shows the answer. No figures leave the phone. This is the one "chat-like" feature that keeps the no-advice, no-vault rule.
 5. **Bills and subscriptions from a statement.** It spots Netflix, Astro, TNB and insurance as monthly bills and offers to add them as Monthly bills (the user ticks).
 6. **Debt setup from a letter.** A loan, PTPTN or credit-card statement photo pre-fills Add debt, including Islamic contract type and profit rate when printed. Avalanche and ibra' maths stay local.
@@ -108,4 +154,4 @@ The pattern that keeps privacy intact: **the cloud turns a picture or words into
 2. Backend in `api/ai.js` (free the slot first), KV ledger, pairing, `run` proxy, redaction, Settings card with meters, entitlement. Behind a flag, so nothing is user-visible.
 3. Store subscriptions: StoreKit and Play Billing, paywall, restore.
 4. Privacy text plus the v1 features (scanner, voice, splits) in one minor release.
-5. Post-v1 ideas one at a time, each with its own small plan.
+5. Post-v1 tasks one release each: `ask-filter`, `bills-spot`, `relief-match` (iPhone + web), `alert-read`, `group-bill`.
