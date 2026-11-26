@@ -16800,6 +16800,43 @@ check('the brand catalogue makes no network calls at all',
   await sctx.close();
 }
 
+// Maybank / Maybank Islamic Current & Savings account statements (DD/MM dates,
+// trailing +/-, leading-dot ".01+", overdrawn "DR" balances, multi-line payees).
+{
+  const vm = await import('node:vm');
+  const ctx = { window: {}, document: { getElementById: () => null }, console };
+  vm.runInNewContext(readFileSync(path.join(REPO_ROOT, 'app/statement.js'), 'utf8'), ctx);
+  const lines = [
+    'Maybank Islamic',
+    'TARIKH PENYATA',
+    'STATEMENT DATE : 31/10/26',
+    'PREMIER MUDHARABAH ACCOUNT',
+    'URUSNIAGA AKAUN / ACCOUNT TRANSACTIONS',
+    'BEGINNING BALANCE 50.00',
+    '07/10 TRANSFER TO A/C 400.00+ 450.00',
+    'SAMPLE SENDER*',
+    '10/10 DUITNOW PAYMENT 10.50- 439.50',
+    'Kedai Air Contoh*',
+    '22/10 TRANSFER FR A/C 1,000.00- 560.50DR',
+    'SAMPLE RECIPIENT*',
+    '22/10 PAYMENT CREDIT - APS/OTHERS 2,000.00+ 1,439.50',
+    'SAMPLE EMPLOYER*',
+    '24/10 PAYMENT FR A/C 25.00- 1,414.50',
+    'Kedai Makan Contoh*',
+    '31/10 DIVIDEND PAID .01+ 1,414.51',
+    'ENDING BALANCE : 1,414.51',
+    'TOTAL DEBIT : 1,035.50',
+    'TOTAL CREDIT : 2,400.01',
+  ].map((text, i) => ({ page: 1, y: 100 + i * 10, text, items: [] }));
+  const parsed = ctx.parseStatement({ lines, scanned: false });
+  const rec = ctx.reconcileStatement(parsed);
+  check('statement (maybank-account): parses DD/MM dates, .01+ cents, overdrawn DR balances, multi-line payees, and reconciles ok',
+    parsed.layout === 'maybank-account' && parsed.bank === 'Maybank' && parsed.rows.length === 6
+    && parsed.rows[2].balance === -560.5 && parsed.rows[5].amount === 0.01 && parsed.rows[4].payee === 'Kedai Makan Contoh'
+    && rec.status === 'ok',
+    JSON.stringify({ layout: parsed.layout, count: parsed.rows.length, rec }));
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();
