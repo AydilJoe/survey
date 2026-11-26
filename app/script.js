@@ -7646,7 +7646,7 @@ $("#btn-clear").addEventListener("click", async () => {
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
   "1.76.1": [
-    "<strong>Maybank &amp; Maybank Islamic account statement import</strong> — now reads Current and Savings account PDFs (including Premier Mudharabah) with DD/MM dates, leading-dot cents (.01+), overdrawn DR balances, and multi-line payee names.",
+    "<strong>Maybank and Maybank Islamic account statement import</strong> — now reads Current and Savings account PDFs (including Premier Mudharabah) with DD/MM dates, leading-dot cents (.01+), overdrawn DR balances, and multi-line payee names.",
   ],
   "1.76.0": [
     "<strong>Festive Kira</strong> — Kira dresses up for Malaysian holidays: a songkok and ketupat for Raya, an ang pao for Chinese New Year, a diya for Deepavali, the Jalur Gemilang for Merdeka, a Santa hat for Christmas and more, with one greeting on Home each season. Calm for Ramadan. Turn it off in Settings → Appearance.",
