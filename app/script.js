@@ -4789,7 +4789,7 @@ function pendingSplitMatchHtml(p) {
           <span class="pending-amount in">${fmtMoney(p.amount)}</span>
         </div>
         <div class="pending-source">${escapeHtml(source)}</div>
-        <div class="pending-match-sub">${sub}</div>
+        <div class="pending-match-sub">${p.aiPlus ? `<span class="ai-plus-badge">AI+</span> ` : ""}${sub}</div>
       </div>
       <div class="pending-actions${ambiguous ? " pending-choices" : ""}">
         <button class="ghost icon-btn" data-action="pending-dismiss" data-id="${p.id}" aria-label="${escapeHtml(tr("Dismiss"))}">✕</button>

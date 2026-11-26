@@ -951,6 +951,43 @@ function queueIncomingTransfer(data) {
   });
   save();
   if (typeof renderAll === "function") renderAll();
+  // Several people owe exactly this much and the text doesn't settle who:
+  // Duitful AI+ may narrow it to one, the card still waits for the tap.
+  if (res.status === "ambiguous") captureSplitAiPlus(state.pendingTxns[state.pendingTxns.length - 1].id, parsed, res).catch(() => {});
+  return true;
+}
+
+/* Duitful AI+ (cloud) task split-match, only when aiCloudAllowed(). The
+   choices are the open splits whose balance is exactly the credit (the check
+   in ai-cloud.js and on the server drops any other answer), the sender is
+   redacted before it leaves, and the answer only reorders the card: it never
+   settles anything. A failure leaves the "who paid?" card as it was. */
+async function captureSplitAiPlus(pendingId, parsed, res) {
+  if (typeof aiCloudAllowed !== "function" || !aiCloudAllowed() || typeof aiCloudMatchSplit !== "function") return false;
+  const sender = String((parsed && parsed.sender) || "").trim();
+  if (!sender) return false;
+  const exact = (res.matches || []).filter((m) => Math.abs(Number(m.remaining) - parsed.amount) < 0.005);
+  if (exact.length < 2) return false;
+  const ans = await aiCloudMatchSplit({
+    sender: sender.slice(0, 120),
+    amount: parsed.amount,
+    openSplits: exact.slice(0, 30).map((m) => ({
+      id: String(m.personId),
+      name: String(m.name || "").trim().split(/\s+/)[0].slice(0, 40),
+      amount: Math.round(Number(m.remaining) * 100) / 100,
+    })),
+  });
+  if (!ans || ans.splitId == null) return false;
+  const cur = (state.pendingTxns || []).find((x) => x.id === pendingId);
+  if (!cur || cur.kind !== "split-match" || cur.match !== "ambiguous") return false;
+  const hit = (cur.matches || []).find((m) => String(m.personId) === String(ans.splitId));
+  if (!hit) return false;
+  cur.matches = [hit];
+  cur.match = "exact";
+  cur.via = "ai";
+  cur.aiPlus = true;
+  save();
+  if (typeof renderAll === "function") renderAll();
   return true;
 }
 
