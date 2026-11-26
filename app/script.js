@@ -7645,6 +7645,9 @@ const RELEASE_NOTES = {
   "1.75.0": [
     "<strong>Kira joins the party</strong> — Kira's eyes now follow your taps (tap Kira for a giggle), cheers with confetti when you pay off a debt or reach a goal, says a kind word when a month runs over, and hops when you save a voice entry, a receipt or a bank alert. Kira also says hi through first-run setup and the tour, and sits on your home-screen widget.",
   ],
+  "1.74.2": [
+    "<strong>Duitful AI+ subscription pricing &amp; verification</strong> — strictly matches base plans vs Lifetime Pro loyalty offers, shows localized store pricing when available, and verifies subscription renewals and grace periods server-side.",
+  ],
   "1.74.1": [
     "<strong>Polished Duitful AI+ sheet with Kira</strong> — redesigned the Duitful AI+ subscription sheet and Settings card with Kira, a clearer feature checklist, and side-by-side Annual and Monthly plan cards.",
   ],
