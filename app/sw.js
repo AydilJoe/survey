@@ -15,14 +15,14 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-391b19dd";
+const VERSION = "h-0dd80151";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
   "/app/styles.css?v=727cad4c",
-  "/app/script.js?v=917393af",
+  "/app/script.js?v=675072e6",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
   "/app/i18n-langs.js?v=1a9aa0b0",
@@ -41,7 +41,7 @@ const SHELL = [
   "/app/ea-extract.js?v=0036c413",
   "/app/tax-data.js?v=a4c433a4",
   "/app/tax.js?v=01b9d531",
-  "/app/statement.js?v=3fd0a56b",
+  "/app/statement.js?v=16d6bff6",
   "/app/wallets.js?v=39628be9",
   "/app/recap.js?v=e4c2c931",
   // pdf.js (Apache-2.0) for statement import: injected only when a PDF is

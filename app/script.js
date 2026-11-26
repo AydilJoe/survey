@@ -7791,6 +7791,9 @@ const RELEASE_NOTES = {
   "1.77.0": [
     "<strong>Duitful AI+ helps in more places</strong> — with AI+ on, it can read a bank statement your phone couldn't balance, tidy payee names, fill empty boxes from a Borang EA or a loan letter, work out who paid when a split credit matches several people, and tidy messy items on a by-item split. It only uses figures printed on the page, and you check everything before it's saved.",
   ],
+  "1.76.1": [
+    "<strong>Maybank and Maybank Islamic account statement import</strong> — now reads Current and Savings account PDFs (including Premier Mudharabah) with DD/MM dates, leading-dot cents (.01+), overdrawn DR balances, and multi-line payee names.",
+  ],
   "1.76.0": [
     "<strong>Festive Kira</strong> — Kira dresses up for Malaysian holidays: a songkok and ketupat for Raya, an ang pao for Chinese New Year, a diya for Deepavali, the Jalur Gemilang for Merdeka, a Santa hat for Christmas and more, with one greeting on Home each season. Calm for Ramadan. Turn it off in Settings → Appearance.",
   ],
