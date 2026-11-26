@@ -341,10 +341,28 @@ jobs:
           meta="$app/Metadata.appintents"
           [ -d "$meta" ] || { echo "::error::No Metadata.appintents in App.app: Siri and Shortcuts will not see any intent."; exit 1; }
           echo "::group::Metadata.appintents"; ls -la "$meta"; echo "::endgroup::"
-          for want in DuitfulLogSpendIntent DuitfulAppShortcuts "Log a spend in"; do
-            grep -rqa "$want" "$meta" || { echo "::error::Metadata.appintents has no '$want': the App Shortcuts were dropped."; exit 1; }
-          done
-          echo "App Shortcuts present in Metadata.appintents."
+          # Print what Xcode extracted, so a dropped provider can be diagnosed
+          # from the log alone (the IPA itself is not kept for TestFlight runs).
+          echo "::group::App Shortcuts in extract.actionsdata"
+          cat "$meta/version.json" || true
+          find "$meta" -type f | sed "s|$work/||"
+          python3 - "$meta/extract.actionsdata" <<'PY' || true
+          import json, sys
+          d = json.load(open(sys.argv[1]))
+          print("top-level keys:", sorted(d.keys()))
+          print("actions:", sorted((d.get("actions") or {}).keys()))
+          print("autoShortcutProviderMangledName:", d.get("autoShortcutProviderMangledName"))
+          for sc in d.get("autoShortcuts") or []:
+              print("shortcut:", sc.get("actionIdentifier"), [p.get("key", p) if isinstance(p, dict) else p for p in (sc.get("phraseTemplates") or [])][:5])
+          PY
+          echo "::endgroup::"
+          grep -rqa DuitfulLogSpendIntent "$meta" || { echo "::error::Metadata.appintents has no DuitfulLogSpendIntent: the intents were dropped."; exit 1; }
+          if grep -rqa "Log a spend in" "$meta"; then
+            echo "App Shortcut phrases present in Metadata.appintents."
+          else
+            echo "::error::Metadata.appintents has the intents but no App Shortcut phrases: Siri will not offer them."
+            exit 1
+          fi
           ls -la "$ipa"
           rm -rf "$work"
 
