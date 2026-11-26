@@ -1201,6 +1201,7 @@ function acceptIncomePending(id) {
   if (typeof streakTouchToday === "function") streakTouchToday();
   commitPending();
   toast(tr("{a} added to income", { a: fmtMoney(p.amount) }));
+  if (typeof kiraHop === "function") kiraHop();
 }
 
 /* ---------- Quick add: the widget and the shade ----------

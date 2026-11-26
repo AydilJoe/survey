@@ -527,6 +527,8 @@
     } else if (typeof toast === "function") {
       const m = typeof fmtMoney === "function" ? fmtMoney(p.amount) : `RM ${p.amount.toFixed(2)}`;
       toast(tr("Saved {a}", { a: m }));
+      // Kira hops on the toast, like a typed spend (kira.js).
+      if (typeof kiraHop === "function") kiraHop();
     }
     return { expense, splitRec };
   }

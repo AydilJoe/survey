@@ -10122,3 +10122,104 @@ html[data-theme="dark"] .streak-day.is-done .streak-day-dot { color: var(--stage
   85% { transform: translateY(0); opacity: 1; }
   100% { transform: translateY(0); opacity: 0; }
 }
+
+/* 1.72.0: eyes follow taps, a tap on Kira, celebrations, kind notes.
+   Only the receipt's own paper takes the pointer, so Kira never steals a
+   tap from the buttons around it and is never focusable; the hop, the AI
+   sheet's counting Kira and the tour's peeking Kira take none at all. */
+svg.kira { pointer-events: none; -webkit-tap-highlight-color: transparent; }
+svg.kira .kira-body { pointer-events: visiblePainted; }
+:is(.kira-hop, .ai-think-mark, .guide-tooltip-kira) svg.kira .kira-body { pointer-events: none; }
+.kira-hehe .kira-spark { opacity: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .kira .kira-eyes { transition: transform 0.28s cubic-bezier(0.3, 0.7, 0.4, 1); }
+  svg.kira.is-tapped { transform-origin: 50% 100%; animation: kira-squish 0.5s cubic-bezier(0.3, 0.7, 0.4, 1) 1; }
+  svg.kira.is-tapped .kira-blink { animation: kira-blink-once 0.5s ease-in-out 1; }
+  .kira-hehe .kira-spark { transform-box: fill-box; transform-origin: center; animation: kira-hehe 0.5s ease-out 1 both; }
+  .kira-hehe .kira-spark + .kira-spark { animation-delay: 0.08s; }
+}
+@keyframes kira-squish {
+  0% { transform: scale(1, 1); }
+  22% { transform: scale(1.12, 0.84); }
+  48% { transform: scale(0.94, 1.1) translateY(-3px); }
+  72% { transform: scale(1.03, 0.97); }
+  100% { transform: scale(1, 1); }
+}
+@keyframes kira-blink-once { 0%, 30%, 100% { transform: scaleY(1); } 45% { transform: scaleY(0.1); } }
+@keyframes kira-hehe { 0% { transform: scale(0) rotate(0); opacity: 0; } 40% { transform: scale(1.2) rotate(25deg); opacity: 1; } 100% { transform: scale(0.8) rotate(45deg); opacity: 0; } }
+
+/* The confetti burst (kiraBurst): pieces fly out from the slot's middle. */
+.kira-burst { position: absolute; left: 50%; top: 45%; width: 0; height: 0; pointer-events: none; }
+.kira-burst i {
+  position: absolute; left: -3px; top: -4px;
+  width: 6px; height: 9px; border-radius: 2px; opacity: 0;
+}
+.kira-burst i.is-dot { width: 7px; height: 7px; border-radius: 50%; }
+@media (prefers-reduced-motion: no-preference) {
+  .kira-burst i { animation: kira-burst 1.1s cubic-bezier(0.2, 0.7, 0.4, 1) both; }
+}
+@media (prefers-reduced-motion: reduce) { .kira-burst { display: none; } }
+@keyframes kira-burst {
+  0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
+}
+
+/* Celebration sheets (debt paid off, a milestone): party Kira beside the seal. */
+.celebrate-marks { display: flex; align-items: flex-end; justify-content: center; gap: 0.6rem; margin: 0 auto 1rem; }
+.celebrate-marks .pro-seal { margin: 0; }
+.celebrate-kira { position: relative; display: block; }
+.celebrate-kira .kira { width: 52px; height: 78px; }
+.celebrate-kira:empty { display: none; }
+
+/* Toast-level party (a savings goal reached). */
+.kira-hop--party .kira { width: 32px; height: 48px; }
+@media (prefers-reduced-motion: no-preference) {
+  .kira-hop--party .kira { animation: kira-hop-party 1.4s cubic-bezier(0.3, 0.7, 0.4, 1) both; }
+}
+@keyframes kira-hop-party {
+  0% { transform: translateY(12px) scale(0.6); opacity: 0; }
+  18% { transform: translateY(-8px) scale(1.05); opacity: 1; }
+  32% { transform: translateY(0) scale(1); }
+  85% { opacity: 1; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+
+/* Kind notes (kiraSyncNote): worried Kira beside one short line, under the
+   figures (never on them). */
+.kira-note { display: flex; align-items: center; gap: 0.5rem; margin: 0.1rem 0 0.45rem; color: var(--ink2); font-size: 0.86rem; line-height: 1.4; }
+.kira-note[hidden] { display: none; }
+.kira-note-mark { flex: none; display: block; }
+.kira-note-mark .kira { width: 22px; height: 31px; }
+
+/* First run (#onboard-dialog): a small Kira beside each question, and above
+   the answer. Beside, not above, on the questions so the field never moves
+   down under the keyboard. */
+.onboard-head { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.35rem; }
+.onboard-head .onboard-h { margin: 0; }
+.onboard-kira { position: relative; flex: none; display: block; }
+.onboard-kira .kira { width: 26px; height: 37px; }
+.onboard-kira:empty { display: none; }
+.onboard-head--result { justify-content: center; margin-bottom: 0.4rem; }
+.onboard-head--result .onboard-kira .kira { width: 40px; height: 58px; }
+
+/* Welcome tour: Kira in the dialog's mark, and peeking over the spotlight
+   tooltip's top edge (clipped, so only the face shows), looking at the
+   highlighted element. */
+.guide-mark.has-kira { position: relative; background: none; border: 0; width: auto; height: auto; min-width: 2.8rem; overflow: visible; }
+.guide-mark.has-kira .kira { width: 36px; height: 52px; }
+.guide-tooltip-kira {
+  position: absolute;
+  top: -27px;
+  right: 20px;
+  width: 30px;
+  height: 27px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.guide-tooltip.kira-peek-left .guide-tooltip-kira { right: auto; left: 20px; }
+.guide-tooltip-kira .kira { width: 30px; height: 42px; }
+.guide-tooltip.kira-peek-inside .guide-tooltip-kira { top: 10px; right: 12px; width: 22px; height: 31px; overflow: visible; }
+.guide-tooltip.kira-peek-inside.kira-peek-left .guide-tooltip-kira { right: 12px; left: auto; }
+.guide-tooltip.kira-peek-inside .guide-tooltip-kira .kira { width: 22px; height: 31px; }
+.guide-tooltip.kira-peek-inside .guide-tooltip-title { padding-right: 28px; }

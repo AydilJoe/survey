@@ -15922,6 +15922,290 @@ check('the brand catalogue makes no network calls at all',
   await lCtx.close();
 }
 
+// ── Kira phase 2 (v1.72.0): eyes, taps, celebrations, kind notes, hops,
+// first run, the tour and the widgets ─────────────────────────────────────
+{
+  // Widgets: both platforms draw Kira (static), proud while a streak runs.
+  const aWidget = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-android-widget.mjs'), 'utf8');
+  const iWidget = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-ios.mjs'), 'utf8');
+  const iWidgetBody = iWidget.slice(iWidget.indexOf('const WIDGET_SWIFT_BODY'));
+  check('Kira (1.72.0): the Android widget draws Kira as a VectorDrawable per mood and theme, proud while a streak runs',
+    /duitful_widget_kira_\$\{mood\}_\$\{mode\}\.xml/.test(aWidget)
+    && /<vector xmlns:android/.test(aWidget.slice(aWidget.indexOf('const kiraVector')))
+    && /R\.drawable\.duitful_widget_kira_proud_pastel/.test(aWidget)
+    && /R\.drawable\.duitful_widget_kira_happy_dark/.test(aWidget)
+    && (aWidget.match(/setImageViewResource\(R\.id\.duitful_widget_kira, kiraRes\(mode\)\)/g) || []).length === 2
+    && /boolean proud = !sLocked && sStreakDays > 0/.test(aWidget));
+  check('Kira (1.72.0): the iOS widget draws Kira with SwiftUI Shapes on the medium and large status tiles',
+    /private struct DuitfulKiraBody: Shape/.test(iWidgetBody)
+    && /private struct DuitfulKiraFace: Shape/.test(iWidgetBody)
+    && /\.accessibilityHidden\(true\)/.test(iWidgetBody.slice(iWidgetBody.indexOf('struct DuitfulKiraView')))
+    && (iWidgetBody.match(/DuitfulKiraView\(mode: mode, proud: entry\.streakDays > 0\)/g) || []).length === 2);
+
+  // The extra hops: voice, accepted alerts (spend and income), a scanned receipt.
+  const src = (f) => readFileSync(path.join(REPO_ROOT, 'app', f), 'utf8');
+  const fnBody = (s, name) => { const i = s.indexOf(name); return i < 0 ? '' : s.slice(i, s.indexOf('\n}', i)); };
+  check('Kira (1.72.0): Kira hops after a voice entry, an accepted alert (spend and income) and a saved receipt scan — not on statement import',
+    /kiraHop\(\)/.test(fnBody(src('voice.js'), 'function voiceSaveConfirmed'))
+    && /kiraHop\(\)/.test(fnBody(src('script.js'), 'function acceptPending('))
+    && /kiraHop\(\)/.test(fnBody(src('capture.js'), 'function acceptIncomePending('))
+    && /kiraHop\(\)/.test(fnBody(src('ocr.js'), 'function applyScanResult('))
+    && !/kiraHop/.test(src('statement.js')));
+
+  for (const reduced of [false, true]) {
+    const kCtx = await b.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: reduced ? 'reduce' : 'no-preference' });
+    const kp = await kCtx.newPage();
+    const kErr = [];
+    kp.on('pageerror', (e) => kErr.push(e.message));
+    await kp.goto(`${BASE}/app/index.html`);
+    await kp.waitForTimeout(600);
+    await kp.click('#btn-start-open');
+    await kp.waitForTimeout(1500);
+
+    // First run: Kira beside each question, the answer celebrates a date.
+    const ob = await kp.evaluate(async () => {
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const out = {};
+      if (!document.getElementById('onboard-dialog').open) openOnboard();
+      await wait(150);
+      const k = (n) => document.querySelector(`#onboard-dialog [data-onboard-step="${n}"] .onboard-kira svg.kira`);
+      const head1 = document.querySelector('[data-onboard-step="1"] .onboard-head');
+      out.s1 = !!k(1) && k(1).classList.contains('kira--happy') && k(1).classList.contains('is-waving') && !!head1.querySelector('#onboard-title');
+      const inp = document.getElementById('onboard-income').getBoundingClientRect();
+      const kr = k(1).getBoundingClientRect();
+      out.inputAboveKeyboard = inp.bottom <= innerHeight - 336;
+      out.kiraNotOverInput = kr.bottom <= inp.top || kr.top >= inp.bottom;
+      document.getElementById('onboard-income').value = '4500';
+      document.querySelector('[data-onboard-step="1"] [data-onboard="next"]').click();
+      await wait(100);
+      out.s2 = !!k(2) && k(2).classList.contains('kira--proud');
+      document.querySelector('[data-onboard-step="2"] [data-onboard="next"]').click();
+      await wait(100);
+      out.s3 = !!k(3) && k(3).classList.contains('kira--happy');
+      out.neverWorried = !document.querySelector('#onboard-dialog svg.kira--worried');
+      out.onePerStep = [1, 2, 3, 4].every((n) => document.querySelectorAll(`#onboard-dialog [data-onboard-step="${n}"] svg.kira`).length <= 1);
+      document.querySelector('[data-onboard-debt="card"]').click();
+      await wait(50);
+      document.querySelector('#onboard-debt-rows .onboard-debt-balance').value = '6000';
+      document.querySelector('#onboard-debt-rows .onboard-debt-monthly').value = '400';
+      document.querySelector('#onboard-debt-rows .onboard-debt-monthly').dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('onboard-debt-next').click();
+      await wait(150);
+      out.answerParty = !!k(4) && k(4).classList.contains('kira--party');
+      out.answerBurst = document.querySelectorAll('[data-onboard-step="4"] .onboard-kira .kira-burst i').length;
+      // Back to step 3, drop the debt: the answer is left-to-spend, proud Kira.
+      document.querySelector('[data-onboard-step="4"]').hidden = true;
+      onboardShowStep(3);
+      document.getElementById('onboard-debt-rows').innerHTML = '';
+      onboardSyncDebtStep();
+      document.getElementById('onboard-debt-next').click();
+      await wait(150);
+      out.answerProud = !!k(4) && k(4).classList.contains('kira--proud');
+      closeOnboard();
+      return out;
+    });
+    await kp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+    await kp.evaluate(() => { state.debts = []; state.expenses = []; state.income = []; state.extraMonthly = 0; save(); renderAll(); });
+
+    // Eyes follow a real pointerdown and come back; a tap on Kira squishes
+    // without reaching anything around it.
+    await kp.evaluate(() => document.querySelector('.tab[data-tab="savings"]').click());
+    await kp.waitForTimeout(300);
+    const kb = await kp.evaluate(() => { const r = document.querySelector('#savings-list .empty-block-kira svg.kira').getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+    await kp.mouse.click(6, kb.y + kb.h / 2);
+    await kp.waitForTimeout(200);
+    const eyesLeft = await kp.evaluate(() => document.querySelector('#savings-list .kira-eyes').style.transform);
+    await kp.mouse.click(384, kb.y + kb.h / 2);
+    await kp.waitForTimeout(200);
+    const eyesRight = await kp.evaluate(() => document.querySelector('#savings-list .kira-eyes').style.transform);
+    await kp.waitForTimeout(1500);
+    const eyesRest = await kp.evaluate(() => document.querySelector('#savings-list .kira-eyes').style.transform);
+    const tap = await kp.evaluate(() => {
+      window.__kiraClicks = 0;
+      const block = document.querySelector('#savings-list .empty-block');
+      block.querySelectorAll('button').forEach((btn) => btn.addEventListener('click', () => { window.__kiraClicks++; }));
+      const svg = block.querySelector('svg.kira');
+      const r = svg.getBoundingClientRect();
+      // Outside the receipt's own paper (the SVG's empty corner) the pointer
+      // passes through; on the paper it is Kira.
+      const corner = document.elementFromPoint(r.left + 1, r.top + 1);
+      return {
+        cornerNotKira: !corner || !corner.closest('svg.kira'),
+        paperIsKira: !!document.elementFromPoint(r.left + r.width / 2, r.top + r.height * 0.55)?.closest('svg.kira'),
+        notFocusable: svg.getAttribute('focusable') === 'false' && !svg.hasAttribute('tabindex') && svg.getAttribute('aria-hidden') === 'true',
+      };
+    });
+    await kp.mouse.click(kb.x + kb.w / 2, kb.y + kb.h * 0.55);
+    await kp.waitForTimeout(120);
+    const tapped = await kp.evaluate(() => {
+      const svg = document.querySelector('#savings-list svg.kira');
+      return { cls: svg.classList.contains('is-tapped'), anim: getComputedStyle(svg).animationName, hehe: !!svg.querySelector('.kira-hehe'), clicks: window.__kiraClicks, dialog: !!document.querySelector('dialog[open]') };
+    });
+    await kp.waitForTimeout(600);
+    const tapDone = await kp.evaluate(() => !document.querySelector('#savings-list svg.kira').classList.contains('is-tapped') && !document.querySelector('.kira-hehe'));
+    // The AI sheet's counting Kira is never poked.
+    const aiLeftAlone = await kp.evaluate(() => { const s = document.querySelector('#ai-think svg.kira--counting'); kiraTap(s); return !s.classList.contains('is-tapped'); });
+
+    const r = await kp.evaluate(async () => {
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const out = {};
+      document.querySelector('.tab[data-tab="dashboard"]').click();
+      // A debt paid off: party Kira beside the seal, a burst, once.
+      state.debts.push({ id: 'kd1', name: 'Kad', type: 'card', balance: 500, apr: 18, minPayment: 50 });
+      state.debts.push({ id: 'kd2', name: 'Pinjaman', type: 'personal', balance: 9000, apr: 6, minPayment: 100 });
+      save(); renderAll();
+      await wait(50);
+      state.debts[0].balance = 0; save(); renderAll();
+      await wait(600);
+      const dlg = document.getElementById('debt-paid-dialog');
+      out.debtSheet = dlg.open;
+      out.debtKira = !!document.querySelector('#debt-paid-kira svg.kira--party');
+      out.debtBurst = document.querySelectorAll('#debt-paid-kira .kira-burst i').length;
+      out.kiraNotOnTitle = !document.getElementById('debt-paid-title').contains(document.querySelector('#debt-paid-kira'));
+      await wait(1500);
+      out.debtBurstGone = !document.querySelector('#debt-paid-kira .kira-burst');
+      dlg.close();
+      renderAll();
+      await wait(500);
+      out.debtOnce = !dlg.open;
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      // The first goal reached: the milestone sheet with party Kira. (The
+      // suite turns milestone sheets off by default; this check needs one.)
+      window.DUITFUL_MILESTONE_SHEETS = true;
+      state.savings.push({ id: 'kg1', name: 'Umrah', target: 1000, current: 100 });
+      save(); renderAll();
+      await wait(50);
+      state.savings[0].current = 1000; save(); renderAll();
+      await wait(1500);
+      const ms = document.getElementById('milestone-dialog');
+      out.goalSheet = ms.open && !!document.querySelector('#milestone-kira svg.kira--party');
+      out.goalSheetBurst = document.querySelectorAll('#milestone-kira .kira-burst i').length;
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      await wait(1200);
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      window.DUITFUL_MILESTONE_SHEETS = false;
+      // A later goal: a toast and party Kira with a burst on it, once.
+      state.savings.push({ id: 'kg2', name: 'Telefon', target: 2000, current: 10 });
+      save(); renderAll();
+      await wait(50);
+      state.savings[1].current = 2500; save(); renderAll();
+      await wait(550);
+      const hop = document.querySelector('.kira-hop--party');
+      out.goalToast = /Telefon/.test(document.getElementById('toast').textContent);
+      out.goalHop = !!hop && !!hop.querySelector('svg.kira--party');
+      out.goalBurst = hop ? hop.querySelectorAll('.kira-burst i').length : 0;
+      await wait(1600);
+      out.goalHopGone = !document.querySelector('.kira-hop');
+      renderAll();
+      await wait(700);
+      out.goalOnce = !document.querySelector('.kira-hop');
+      // Over budget: worried Kira beside one kind line, under the figures.
+      const m = currentMonthISO();
+      state.income.push({ id: 'ki1', name: 'Gaji', amount: 1000, month: m, repeatNext: true });
+      state.budgetPools.push({ id: 'kp1', name: 'Makan', limit: 100, color: '#c8704b', createdAt: Date.now(), active: false });
+      state.dailyExpenses.push({ id: 'kx1', createdAt: Date.now(), kind: 'expense', date: todayISO(), amount: 1500, category: 'Food', note: '', budgetPoolId: 'kp1', budgetPoolName: 'Makan' });
+      save(); renderAll();
+      await wait(150);
+      const note = document.getElementById('hero-kira-note');
+      out.heroNote = !note.hidden && !!note.querySelector('.kira-note-mark svg.kira--worried') && /bit over/i.test(note.textContent);
+      const overlaps = (a, b2) => { const x = a.getBoundingClientRect(), y = b2.getBoundingClientRect(); return x.width && y.width && x.left < y.right && x.right > y.left && x.top < y.bottom && x.bottom > y.top; };
+      const figures = ['stat-net', 'hero-progress-text', 'hero-target'].map((id) => document.getElementById(id));
+      const heroKira = note.querySelector('svg.kira');
+      out.heroNotOnFigures = figures.every((f) => !f.contains(note) && !note.contains(f) && !overlaps(heroKira, f) && !overlaps(note, f));
+      out.oneKiraHome = [...document.querySelectorAll('#tab-dashboard svg.kira')].filter((s) => s.getBoundingClientRect().width > 0).length === 1;
+      const pnote = document.getElementById('pool-kira-note');
+      out.poolNote = !pnote.hidden && !!pnote.querySelector('svg.kira--worried') && !document.getElementById('budget-pool-list').contains(pnote);
+      // Back under: the notes go away.
+      state.dailyExpenses = state.dailyExpenses.filter((e) => e.id !== 'kx1');
+      save(); renderAll();
+      out.notesGone = note.hidden && pnote.hidden && !note.querySelector('svg');
+      // More hops: an accepted alert (spend and income) and a voice entry.
+      document.querySelectorAll('.kira-hop').forEach((n) => n.remove());
+      state.pendingTxns = [{ id: 'kpt1', amount: 12, merchant: 'Kedai', createdAt: Date.now() - 120000 }];
+      acceptPending('kpt1');
+      await wait(60);
+      out.hopAlert = !!document.querySelector('.kira-hop svg.kira--proud');
+      await wait(1000);
+      state.pendingTxns = [{ id: 'kpt2', kind: 'income', amount: 30, providerName: 'Bank', createdAt: Date.now() - 120000 }];
+      acceptIncomePending('kpt2');
+      await wait(60);
+      out.hopIncome = !!document.querySelector('.kira-hop svg.kira--proud');
+      await wait(1000);
+      openVoiceEntry('RM 9 nasi lemak');
+      await wait(200);
+      voiceSaveConfirmed();
+      await wait(60);
+      out.hopVoice = !!document.querySelector('.kira-hop svg.kira--proud');
+      document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+      return out;
+    });
+
+    // The tour: Kira in the mark, a peeking Kira looking at the spotlight.
+    const tour = await kp.evaluate(async () => {
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const out = {};
+      openGuide({ firstRun: false });
+      await wait(300);
+      out.mark = !!document.querySelector('#guide-mark.has-kira svg.kira--happy');
+      for (let i = 0; i < 6 && document.getElementById('guide-spotlight').hidden; i++) {
+        document.getElementById('guide-next').click();
+        await wait(700);
+      }
+      await wait(500);
+      const eyes = document.querySelector('#guide-tooltip-kira svg.kira .kira-eyes');
+      out.peek = !!eyes;
+      out.peekLooks = !!eyes && eyes.dataset.hold === '1' && /translate\(/.test(eyes.style.transform);
+      // Ring centre vs. Kira's eyes: the gaze points toward it.
+      const ring = document.getElementById('guide-spot-ring').getBoundingClientRect();
+      const svg = document.querySelector('#guide-tooltip-kira svg.kira').getBoundingClientRect();
+      const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(eyes ? eyes.style.transform : '') || [];
+      const dx = (ring.left + ring.width / 2) - (svg.left + svg.width / 2);
+      const dy = (ring.top + ring.height / 2) - (svg.top + svg.height * 0.5);
+      out.peekTowardRing = m.length === 3 && (Number(m[1]) * dx + Number(m[2]) * dy) > 0;
+      // Last step: party.
+      for (let i = 0; i < 20 && guideStep < GUIDE_STEPS.length - 1; i++) {
+        (document.getElementById('guide-spotlight').hidden ? document.getElementById('guide-next') : document.querySelector('.guide-action-next')).click();
+        await wait(250);
+      }
+      await wait(400);
+      out.lastParty = !!document.querySelector('#guide-tooltip-kira svg.kira--party, #guide-mark svg.kira--party');
+      closeGuide();
+      return out;
+    });
+
+    const tag = reduced ? 'reduced motion' : 'motion';
+    if (!reduced) {
+      check('Kira (1.72.0): first run — happy waving Kira beside the income question (field above a 336px keyboard), proud on bills, happy on debts (never worried), party with a burst for a debt-free date, proud for left-to-spend',
+        ob.s1 && ob.inputAboveKeyboard && ob.kiraNotOverInput && ob.s2 && ob.s3 && ob.neverWorried && ob.onePerStep
+        && ob.answerParty && ob.answerBurst >= 20 && ob.answerProud, JSON.stringify(ob));
+      const lx = Number((/translate\(([-\d.]+)px/.exec(eyesLeft) || [])[1]);
+      const rx = Number((/translate\(([-\d.]+)px/.exec(eyesRight) || [])[1]);
+      check('Kira (1.72.0): the eyes follow a tap (left, then right, at most 1.6 units) and ease back to centre',
+        lx < -0.5 && lx >= -1.6 && rx > 0.5 && rx <= 1.6 && eyesRest === '', JSON.stringify({ eyesLeft, eyesRight, eyesRest }));
+      check('Kira (1.72.0): tapping Kira squishes, blinks and sparkles once; only the paper takes the pointer; no neighbouring button fires; never focusable; the AI sheet\'s Kira is left alone',
+        tap.cornerNotKira && tap.paperIsKira && tap.notFocusable && tapped.cls && tapped.anim === 'kira-squish' && tapped.hehe
+        && tapped.clicks === 0 && !tapped.dialog && tapDone && aiLeftAlone, JSON.stringify({ tap, tapped, tapDone, aiLeftAlone }));
+      check('Kira (1.72.0): a debt paid off shows party Kira and a confetti burst in the paid-off sheet, once',
+        r.debtSheet && r.debtKira && r.debtBurst >= 20 && r.kiraNotOnTitle && r.debtBurstGone && r.debtOnce, JSON.stringify(r));
+      check('Kira (1.72.0): the first goal gets the milestone sheet with party Kira; a later goal gets a toast with party Kira and a burst, once',
+        r.goalSheet && r.goalSheetBurst >= 15 && r.goalToast && r.goalHop && r.goalBurst >= 20 && r.goalHopGone && r.goalOnce, JSON.stringify(r));
+      check('Kira (1.72.0): over budget shows worried Kira beside one kind line under the hero figures (never on them) and under Budget Pools; both go when back under',
+        r.heroNote && r.heroNotOnFigures && r.oneKiraHome && r.poolNote && r.notesGone, JSON.stringify(r));
+      check('Kira (1.72.0): Kira hops after an accepted alert (spend and income) and a voice entry',
+        r.hopAlert && r.hopIncome && r.hopVoice && kErr.length === 0, JSON.stringify({ ...r, kErr }));
+      check('Kira (1.72.0): the tour shows Kira in the mark, a peeking Kira looking toward the spotlight, and party Kira on the last step',
+        tour.mark && tour.peek && tour.peekLooks && tour.peekTowardRing && tour.lastParty, JSON.stringify(tour));
+    } else {
+      check('Kira (1.72.0): reduce motion — no eye tracking, no tap squish, no confetti; celebrations and kind notes still show Kira standing still',
+        eyesLeft === '' && eyesRight === '' && !tapped.cls && !tapped.hehe
+        && r.debtKira && r.debtBurst === 0 && r.goalSheet && r.goalSheetBurst === 0 && !r.goalHop
+        && ob.answerParty && ob.answerBurst === 0 && r.heroNote && !r.hopAlert && !r.hopVoice && kErr.length === 0,
+        JSON.stringify({ eyesLeft, eyesRight, tapped, r, ob, kErr, tag }));
+    }
+    await kCtx.close();
+  }
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

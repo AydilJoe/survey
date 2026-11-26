@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.71.0";
+const APP_VERSION = "1.72.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1246,6 +1246,11 @@ function renderBudgetManager() {
   // Nothing to copy until a pool exists.
   const copyBtn = document.getElementById("btn-copy-pool-overrides");
   if (copyBtn) copyBtn.hidden = userPoolCount === 0;
+
+  // A pool over its limit this month: worried Kira and one kind line under
+  // the list (the bars keep their own "over by"). This month only.
+  const anyOver = !isPast && pools.some((pl) => pl.system !== "debt" && effectiveLimit(pl, m) > 0 && poolUsageInMonth(pl.id, m) > effectiveLimit(pl, m));
+  if (typeof kiraSyncNote === "function") kiraSyncNote(document.getElementById("pool-kira-note"), anyOver);
 
   if (pools.length === 0 || (pools.length === 1 && pools[0].system === "debt" && state.debts.length === 0)) {
     listEl.innerHTML = "";
@@ -3021,6 +3026,12 @@ function renderDashboard() {
     // the first-run result screen divides by the same number.
     const daysLeft = daysRemainingInMonth();
     const balance = (Number(incomeTotal) || 0) + (Number(carryOver) || 0) - (Number(totalOut) || 0);
+    // Over for the month: worried Kira and one kind line under the target
+    // line — its own row, never on the figures (kira.js).
+    if (typeof kiraSyncNote === "function") {
+      kiraSyncNote(document.getElementById("hero-kira-note"), incomeTotal > 0 && balance < 0);
+      if (typeof kiraSyncToday === "function") kiraSyncToday();
+    }
     if (incomeTotal <= 0) {
       targetEl.hidden = true;
     } else if (balance <= 0) {
@@ -3532,6 +3543,7 @@ function renderAll() {
   populatePoolDropdowns();
   if (typeof renderDriveCard === "function") renderDriveCard();
   checkDebtsPaidOff();
+  checkGoalsReached();
   checkMilestones();
   checkReviewMoments();
   syncWidgetSummary();
@@ -3553,6 +3565,31 @@ function checkDebtsPaidOff() {
   debtsSeen = now;
   debtsSeenFor = state;
   if (cleared.length) setTimeout(() => showDebtPaidOff(cleared), 350);
+}
+
+/* ---------- a savings goal reaches its target (1.72.0) ----------
+   The same snapshot idea as debts: only a goal that was short of its target
+   at the last render and is at or past it now cheers, once — unlocking,
+   restoring or importing takes a fresh snapshot. The very first goal ever
+   gets the milestone sheet (party Kira and confetti there), so it skips this
+   toast-level moment; every later one gets a toast with party Kira. */
+let goalsDone = null;
+let goalsDoneFor = null;
+function checkGoalsReached() {
+  if (typeof aesKey === "undefined" || !aesKey || !state || !Array.isArray(state.savings)) { goalsDone = null; return; }
+  const now = new Map(state.savings.map((g) => [g.id, (Number(g.target) || 0) > 0 && (Number(g.current) || 0) >= Number(g.target)]));
+  const first = goalsDoneFor !== state || !goalsDone;
+  const reached = first ? [] : state.savings.filter((g) => now.get(g.id) && goalsDone.get(g.id) === false);
+  goalsDone = now;
+  goalsDoneFor = state;
+  if (!reached.length) return;
+  const sheet = !!state.milestones && state.milestones["goal-first"] === undefined && window.DUITFUL_MILESTONE_SHEETS !== false;
+  if (sheet) return;
+  const g = reached[reached.length - 1];
+  setTimeout(() => {
+    toast(tr("{name} reached. Well done.", { name: g.name || tr("Your goal") }));
+    if (typeof kiraHop === "function") kiraHop("party");
+  }, 400);
 }
 
 /* ---------- the one time we ask for a rating ----------
@@ -3799,6 +3836,7 @@ function showMilestone(idOrObj) {
   // The same brand confetti as a debt payoff, lighter: a milestone is a nod,
   // not the finish line.
   proCelebrationConfetti(document.getElementById("milestone-celebrate"), 18);
+  if (typeof kiraCelebrate === "function") kiraCelebrate(document.getElementById("milestone-kira"));
 }
 function milestoneShareText(m) {
   const url = `https://duitful.app/?utm_source=app&utm_medium=share&utm_content=milestone-${m.id}`;
@@ -3926,6 +3964,8 @@ function showDebtPaidOff(cleared) {
     dlg.showModal();
   }
   proCelebrationConfetti(document.getElementById("debt-paid-celebrate"), left.length ? 26 : 48);
+  // Party Kira beside the seal, with a burst of her own (kira.js).
+  if (typeof kiraCelebrate === "function") kiraCelebrate(document.getElementById("debt-paid-kira"));
   // Only the last debt earns the ask, and only once the confetti is done and
   // the sheet is out of the way — a review prompt over a modal is a fight the
   // modal wins.
@@ -4784,6 +4824,8 @@ function acceptPending(id) {
   state.pendingTxns = state.pendingTxns.filter((x) => x.id !== id);
   save();
   renderAll();
+  toast(`${tr("Spending added")} · ${fmtMoney(p.amount)}`);
+  if (typeof kiraHop === "function") kiraHop();
 }
 function editPending(id) {
   const p = (state.pendingTxns || []).find((x) => x.id === id);
@@ -7590,6 +7632,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.72.0": [
+    "<strong>Kira joins the party</strong> — Kira's eyes now follow your taps (tap Kira for a giggle), cheers with confetti when you pay off a debt or reach a goal, says a kind word when a month runs over, and hops when you save a voice entry, a receipt or a bank alert. Kira also says hi through first-run setup and the tour, and sits on your home-screen widget.",
+  ],
   "1.71.0": [
     "<strong>Meet Kira</strong> — a small receipt friend now waves hello when you start, keeps empty lists company, hops when you log a spend and naps on a no-spend day. When Kira holds the sempoa, your phone's own AI is working. Kira never sits on your numbers.",
   ],
