@@ -7547,7 +7547,7 @@ $("#btn-clear").addEventListener("click", async () => {
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
   "1.68.0": [
-    "<strong>Google Drive backup &amp; sync on iPhone &amp; iPad</strong> — Google Drive encrypted backup and restore are now available alongside iCloud in Settings and on the restore screen, making it easy to sync across iPhone, iPad, Android, and Web.",
+    "<strong>Google Drive backup and sync on iPhone and iPad</strong> — Google Drive encrypted backup and restore are now available alongside iCloud in Settings and on the restore screen, making it easy to sync across iPhone, iPad, Android, and Web.",
   ],
   "1.67.0": [
     "<strong>Scan bills on recurring splits</strong> — for shared bills that change each month (like TNB, water, or internet), tap <strong>Scan bill</strong> right on the Home card to read the total automatically before sending requests.",
