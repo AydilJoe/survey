@@ -15196,53 +15196,90 @@ check('the brand catalogue makes no network calls at all',
     dlgInfo.days === 7 && dlgInfo.count === '4 days' && dlgInfo.best === '4 days' && dlgInfo.freezes === '1 of 2 left' && !dlgInfo.overflow,
     JSON.stringify(dlgInfo));
 
-  // 5. Pure engine freeze boundaries, CSV round-trip, evening reminder, and Settings hide toggle.
+  // 5. Pure engine freeze boundaries, CSV round-trip, 10 rotating evening reminders (on by default),
+  //    Reports → Milestones integration, and Settings hide toggle.
   const coreChecks = await stp.evaluate(() => {
     const t = '2026-11-25';
     const gap2 = computeStreak({ dailyExpenses: [{ date: '2026-11-22' }, { date: '2026-11-21' }], streak: emptyStreak() }, t);
     const gap3 = computeStreak({ dailyExpenses: [{ date: '2026-11-21' }], streak: emptyStreak() }, t);
 
-    // Evening reminder off by default, opt-in skips today when already checked in and contains no amounts.
-    const remOff = buildReminders(state).filter((n) => n.title === 'Quick check-in');
-    setStreakReminder(true);
+    // Evening reminder is ON by default, rotates 10 calm lines with zero digits/wallets,
+    // skips tonight when checked in, and stops when toggled off.
+    const defaultReminderOn = coerceStreak(state.streak).reminder === true;
+    const allTen = Array.from({ length: 10 }, (_, i) => streakReminderForDate(new Date(2026, 10, 1 + i)));
+    const uniqueTitles = new Set(allTen.map((m) => m.title)).size;
+    const uniqueBodies = new Set(allTen.map((m) => m.body)).size;
+    const allClean = allTen.every((m) => !/\d/.test(m.title) && !/\d/.test(m.body) && !/wallet/i.test(m.title + ' ' + m.body));
     const remOnChecked = streakNativeReminders(state, new Date(2026, 10, 25, 14, 0, 0));
     const remOnUnchecked = streakNativeReminders(
-      { dailyExpenses: [], streak: { ...emptyStreak(), reminder: true } },
+      { dailyExpenses: [], streak: emptyStreak() },
       new Date(2026, 10, 25, 14, 0, 0)
     );
-    const remInBuild = buildReminders(state).some((n) => n.title === 'Quick check-in');
-    const remNoDigits = remOnUnchecked.every((n) => !/\d/.test(n.title) && !/\d/.test(n.body));
+    const distinctConsecutive = remOnUnchecked.length === 2 && remOnUnchecked[0].title !== remOnUnchecked[1].title;
+    const validTitles = new Set(STREAK_REMINDER_COPY.map((m) => m.title));
+    const remInBuildOn = buildReminders(state).some((n) => validTitles.has(n.title));
+    setStreakReminder(false);
+    const remInBuildOff = buildReminders(state).some((n) => validTitles.has(n.title));
 
-    // CSV round-trip preserves streak preferences & noSpendDates.
+    // CSV round-trip preserves streak preferences (including reminder: false) & noSpendDates.
     const csv = toCSV();
     const parsed = fromCSV(csv);
-    const csvOk = !!(parsed.streak && parsed.streak.reminder === true && parsed.streak.noSpendDates.includes(todayISO()));
+    const csvOk = !!(parsed.streak && parsed.streak.reminder === false && parsed.streak.noSpendDates.includes(todayISO()));
 
-    // Turning streaks off in Settings hides all streak UI.
+    // Reports → Milestones links streak-7..365 and counts No spend days in loggedDays().
+    const noSpendDay = streakShiftDate(todayISO(), -20);
+    state.streak.noSpendDates.push(noSpendDay);
+    const loggedIncludesNoSpend = loggedDays() >= 5;
+    milestonesShowAll = true;
+    renderMilestones();
+    const titlesOn = [...document.querySelectorAll('#milestones-list .milestone strong')].map((el) => el.textContent.trim());
+    const hasStreakTilesOn = titlesOn.includes('7-day streak') && titlesOn.includes('365-day streak');
+
+    // Earning a 7-day streak marks streak-7 earned in state.milestones.
+    for (let i = 1; i <= 7; i++) {
+      state.dailyExpenses.push({ id: `ms-s${i}`, date: streakShiftDate(todayISO(), -i), amount: 5, category: 'Food', note: 'Tea', kind: 'expense', createdAt: Date.now() - i * 86400000 });
+    }
+    renderAll();
+    const earnedStreak7 = typeof state.milestones['streak-7'] === 'string';
+
+    // Turning streaks off in Settings hides all streak UI AND hides streak tiles from Reports → Milestones.
     setStreakEnabled(false);
     const hiddenOff = document.getElementById('streak-pill').hidden
       && document.getElementById('today-nospend-row').hidden
       && document.getElementById('today-nospend-done').hidden;
+    const titlesOff = [...document.querySelectorAll('#milestones-list .milestone strong')].map((el) => el.textContent.trim());
+    const streakTilesHiddenOff = !titlesOff.includes('7-day streak');
 
     return {
       gap2Current: gap2.current,
       gap2Left: gap2.freezesLeftThisMonth,
       gap3Current: gap3.current,
       gap3Freezes: gap3.freezes.length,
-      remOffCount: remOff.length,
+      defaultReminderOn,
+      uniqueTitles,
+      uniqueBodies,
+      allClean,
       remOnCheckedCount: remOnChecked.length,
       remOnUncheckedCount: remOnUnchecked.length,
-      remInBuild,
-      remNoDigits,
+      distinctConsecutive,
+      remInBuildOn,
+      remInBuildOff,
       csvOk,
+      loggedIncludesNoSpend,
+      hasStreakTilesOn,
+      earnedStreak7,
       hiddenOff,
+      streakTilesHiddenOff,
     };
   });
-  check('daily streaks: 2-day freeze cap, CSV round-trip, optional evening reminder (no amounts), and Settings hide toggle all work',
+  check('daily streaks: 2-day freeze cap, 10 rotating on-by-default reminders, Reports Milestones link, CSV round-trip, and Settings hide toggle all work',
     coreChecks.gap2Current === 2 && coreChecks.gap2Left === 0
     && coreChecks.gap3Current === 0 && coreChecks.gap3Freezes === 0
-    && coreChecks.remOffCount === 0 && coreChecks.remOnCheckedCount === 1 && coreChecks.remOnUncheckedCount === 2
-    && coreChecks.remInBuild && coreChecks.remNoDigits && coreChecks.csvOk && coreChecks.hiddenOff && stErr.length === 0,
+    && coreChecks.defaultReminderOn && coreChecks.uniqueTitles === 10 && coreChecks.uniqueBodies === 10 && coreChecks.allClean
+    && coreChecks.remOnCheckedCount === 1 && coreChecks.remOnUncheckedCount === 2 && coreChecks.distinctConsecutive
+    && coreChecks.remInBuildOn && !coreChecks.remInBuildOff
+    && coreChecks.csvOk && coreChecks.loggedIncludesNoSpend && coreChecks.hasStreakTilesOn && coreChecks.earnedStreak7
+    && coreChecks.hiddenOff && coreChecks.streakTilesHiddenOff && stErr.length === 0,
     JSON.stringify({ ...coreChecks, stErr }));
   await stctx.close();
 }

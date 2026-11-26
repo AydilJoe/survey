@@ -12,43 +12,25 @@ const STREAK_FREEZES_PER_MONTH = 2;
 const STREAK_MILESTONES = [7, 14, 30, 60, 100, 365];
 const STREAK_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const STREAK_MILESTONE_META = {
-  7: {
-    title: "7-day streak",
-    sub: "One full week of checking in.",
-    share: ["7 days in a row tracking my money.", "7 hari berturut-turut jejak kewangan."],
-  },
-  14: {
-    title: "14-day streak",
-    sub: "Two weeks steady. Keep the rhythm.",
-    share: ["14 days in a row tracking my money.", "14 hari berturut-turut jejak kewangan."],
-  },
-  30: {
-    title: "30-day streak",
-    sub: "A full month of daily check-ins.",
-    share: ["30-day money check-in streak.", "30 hari berturut-turut jejak kewangan."],
-  },
-  60: {
-    title: "60-day streak",
-    sub: "Two months strong. This is second nature.",
-    share: ["60-day money check-in streak.", "60 hari berturut-turut jejak kewangan."],
-  },
-  100: {
-    title: "100-day streak",
-    sub: "Triple digits. Quiet consistency wins.",
-    share: ["100-day money check-in streak.", "100 hari berturut-turut jejak kewangan."],
-  },
-  365: {
-    title: "365-day streak",
-    sub: "A whole year, one day at a time.",
-    share: ["365-day money check-in streak.", "365 hari berturut-turut jejak kewangan."],
-  },
-};
+/* 10 calm, zero-guilt evening check-in lines rotated by calendar day so
+   reminders stay fresh without nagging. Never mentions amounts or wallets. */
+const STREAK_REMINDER_COPY = [
+  { title: "Quick check-in",         body: "Log a spend or tap No spend today." },
+  { title: "How was today?",         body: "Add anything you spent, or mark a no-spend day." },
+  { title: "Evening money check",    body: "A few seconds to log today and keep your rhythm." },
+  { title: "Before the day wraps up", body: "Anything to jot down? Zero-spend days count too." },
+  { title: "Keep your streak warm",  body: "One quick entry or a No spend tap takes two seconds." },
+  { title: "Quiet daily habit",      body: "Did you spend today, or was it a no-spend day?" },
+  { title: "End-of-day note",        body: "Log today's spending while it's still fresh." },
+  { title: "Small step, big clarity", body: "Check in for today — even a no-spend day counts." },
+  { title: "Your daily check-in",    body: "Tap to log today or celebrate a no-spend day." },
+  { title: "Pause and check in",     body: "Wrap up today with a quick entry or No spend today." },
+];
 
 function emptyStreak() {
   return {
     enabled: true,
-    reminder: false,
+    reminder: true,
     noSpendDates: [],
     activityDates: [],
     freezes: [],
@@ -81,7 +63,7 @@ function coerceStreak(raw) {
     : [];
   return {
     enabled: s.enabled !== false,
-    reminder: !!s.reminder,
+    reminder: s.reminder !== false,
     noSpendDates: coerceStreakDates(s.noSpendDates),
     activityDates: coerceStreakDates(s.activityDates),
     freezes: coerceStreakDates(s.freezes),
@@ -258,40 +240,6 @@ function streakArraysEqual(a, b) {
   return true;
 }
 
-function checkStreakMilestones(info) {
-  if (typeof aesKey === "undefined" || !aesKey || !state) return;
-  if (!info.enabled || info.current <= 0) return;
-  const st = coerceStreak(state.streak);
-  const reached = STREAK_MILESTONES.filter((n) => info.current >= n && !st.celebrated.includes(n));
-  if (!reached.length) return;
-
-  const hydrated = typeof _isHydrated !== "undefined" && _isHydrated;
-  // On initial unlock before any active check-in this session, record already-
-  // earned streak milestones quietly so updating never pops an old sheet.
-  if (!hydrated || !info.checkedInToday) {
-    st.celebrated = Array.from(new Set([...st.celebrated, ...reached])).sort((a, b) => a - b);
-    state.streak = st;
-    if (typeof save === "function") save();
-    return;
-  }
-
-  st.celebrated = Array.from(new Set([...st.celebrated, ...reached])).sort((a, b) => a - b);
-  state.streak = st;
-  if (typeof save === "function") save();
-
-  if (window.DUITFUL_MILESTONE_SHEETS === false) return;
-  const biggest = reached[reached.length - 1];
-  const meta = STREAK_MILESTONE_META[biggest];
-  if (!meta || typeof queueCustomMilestone !== "function") return;
-  queueCustomMilestone({
-    id: `streak-${biggest}`,
-    icon: "flame",
-    title: meta.title,
-    sub: meta.sub,
-    share: meta.share,
-  });
-}
-
 function renderStreakPrefs(info) {
   const prefEnabled = document.getElementById("pref-streak-enabled");
   if (prefEnabled) prefEnabled.checked = info.enabled;
@@ -423,7 +371,6 @@ function renderStreak() {
   if (todayEmpty && showNoSpendDone) todayEmpty.hidden = true;
 
   renderStreakDialog(info);
-  checkStreakMilestones(info);
 }
 
 function openStreakDialog() {
@@ -434,8 +381,19 @@ function openStreakDialog() {
   if (dlg && typeof dlg.showModal === "function" && !dlg.open) dlg.showModal();
 }
 
-/* Optional gentle evening check-in reminder (8:30pm). Off by default, never
-   shows amounts, skips today if today is already checked in. */
+function streakReminderForDate(dt) {
+  const dayNum = Math.floor(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()) / 86400000);
+  const idx = ((dayNum % STREAK_REMINDER_COPY.length) + STREAK_REMINDER_COPY.length) % STREAK_REMINDER_COPY.length;
+  const msg = STREAK_REMINDER_COPY[idx];
+  return {
+    title: typeof tr === "function" ? tr(msg.title) : msg.title,
+    body: typeof tr === "function" ? tr(msg.body) : msg.body,
+  };
+}
+
+/* Gentle evening check-in reminder (8:30pm). On by default (toggleable off
+   in Settings or the streak sheet), rotates through 10 calm lines by day,
+   never shows amounts, and skips today if today is already checked in. */
 function streakNativeReminders(src, nowOverride) {
   const s = src || (typeof state !== "undefined" ? state : null);
   if (!s) return [];
@@ -444,22 +402,18 @@ function streakNativeReminders(src, nowOverride) {
 
   const now = nowOverride instanceof Date ? nowOverride : new Date();
   const out = [];
-  const makeEvening = (dayOffset) => {
-    const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, 20, 30, 0, 0);
-    return dt;
-  };
-  const title = typeof tr === "function" ? tr("Quick check-in") : "Quick check-in";
-  const body = typeof tr === "function"
-    ? tr("Log a spend or tap No spend today.")
-    : "Log a spend or tap No spend today.";
+  const makeEvening = (dayOffset) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, 20, 30, 0, 0);
 
   if (!info.checkedInToday) {
     const tonight = makeEvening(0);
     if (tonight.getTime() > now.getTime() + 60_000) {
-      out.push({ title, body, at: tonight });
+      const msg = streakReminderForDate(tonight);
+      out.push({ title: msg.title, body: msg.body, at: tonight });
     }
   }
-  out.push({ title, body, at: makeEvening(1) });
+  const tomorrow = makeEvening(1);
+  const nextMsg = streakReminderForDate(tomorrow);
+  out.push({ title: nextMsg.title, body: nextMsg.body, at: tomorrow });
   return out;
 }
 
