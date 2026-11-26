@@ -378,7 +378,9 @@ function renderAiCloudSettings() {
       meter.textContent = `${scansUsed} of ${scansLimit} scans · ${textUsed} of ${textLimit} smart actions · ${devs} of ${maxDevs} devices`;
       meter.hidden = false;
     } else {
-      meter.textContent = `Duitful AI+ (${aiPriceLabel("monthly")} or ${aiPriceLabel("yearly")}) — pair a device with a 6-digit code.`;
+      meter.textContent = typeof tr === "function"
+        ? tr("Optional cloud AI subscription — tap Manage Duitful AI+ or pair with a 6-digit code.")
+        : "Optional cloud AI subscription — tap Manage Duitful AI+ or pair with a 6-digit code.";
       meter.hidden = false;
     }
   }

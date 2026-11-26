@@ -631,6 +631,7 @@
   "Off by default. Only runs when you subscribe and turn it on in Settings.": "默认关闭，仅在您订阅并在设置中开启后运行。",
   "Reads receipts, statements, Borang EA, loan letters, voice entries, split matches, and raw payees (tagged AI+).": "可读取收据、银行账单、Borang EA、贷款信、语音记账、分账匹配与原始商户名（标注 AI+）。",
   "Redacted on your device first; never sends your vault; zero server storage; Google Paid Tier (no training).": "先在设备端脱敏；绝不发送加密库；服务器零存储；Google 付费层（不用于训练）。",
+  "Optional cloud AI subscription — tap Manage Duitful AI+ or pair with a 6-digit code.": "可选云端 AI 订阅——点击管理 Duitful AI+ 或输入 6 位配对码。",
   "YA": "课税年",
   "EPF": "公积金",
   "rebate": "回扣",
