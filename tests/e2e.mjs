@@ -15462,6 +15462,37 @@ check('the brand catalogue makes no network calls at all',
   await t4ctx.close();
 }
 
+// ── Track 3a (v1.68.0): Google Drive backup & sync enabled on Apple (iOS) ─
+{
+  const iosDriveCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  await iosDriveCtx.addInitScript(() => {
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'ios',
+      Plugins: {
+        SocialLogin: { initialize: async () => ({}), login: async () => ({}), logout: async () => ({}) },
+      },
+    };
+  });
+  const idp = await iosDriveCtx.newPage();
+  const idErr = [];
+  idp.on('pageerror', (e) => idErr.push(e.message));
+  await idp.goto(`${BASE}/app/index.html`);
+  await idp.waitForTimeout(400);
+  const iosDrive = await idp.evaluate(() => ({
+    iosEnabled: window.DRIVE_CONFIG && window.DRIVE_CONFIG.iosEnabled === true,
+    iosClientId: !!(window.DRIVE_CONFIG && window.DRIVE_CONFIG.iosClientId),
+    configured: !!(window.DriveSync && window.DriveSync.isConfigured()),
+    hidden: !!(window.DriveSync && window.DriveSync.isHidden && window.DriveSync.isHidden()),
+    choices: typeof lockCloudChoices === 'function' ? lockCloudChoices() : [],
+  }));
+  check('v1.68.0: Google Drive backup & sync is enabled and configured on iOS alongside iCloud',
+    iosDrive.iosEnabled && iosDrive.iosClientId && iosDrive.configured && !iosDrive.hidden
+    && iosDrive.choices.includes('drive') && idErr.length === 0,
+    JSON.stringify({ ...iosDrive, idErr }));
+  await iosDriveCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

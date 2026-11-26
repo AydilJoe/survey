@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.67.0";
+const APP_VERSION = "1.68.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7546,6 +7546,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.68.0": [
+    "<strong>Google Drive backup &amp; sync on iPhone &amp; iPad</strong> — Google Drive encrypted backup and restore are now available alongside iCloud in Settings and on the restore screen, making it easy to sync across iPhone, iPad, Android, and Web.",
+  ],
   "1.67.0": [
     "<strong>Scan bills on recurring splits</strong> — for shared bills that change each month (like TNB, water, or internet), tap <strong>Scan bill</strong> right on the Home card to read the total automatically before sending requests.",
     "<strong>Streak count on home-screen widgets</strong> — your iPhone and Android home-screen widgets now show your active daily check-in streak beside the month (count only, never amounts, and cleared whenever locked or hidden in Settings).",

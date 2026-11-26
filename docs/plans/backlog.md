@@ -65,11 +65,10 @@ Full plan: [`assistant-update.md`](assistant-update.md).
 
 ## 3. Native Platform Wins (3 Items)
 
-1. **Google Drive backup & sync on Apple (iPhone / iPad):** flip
-   `DRIVE_CONFIG.iosEnabled: true` in `app/drive-config.js` (wiring already in
-   `app/drive-sync.js` & `scripts/patch-ios.mjs`), verify Google OAuth & App
-   Review sign-in on iPhone/iPad, and offer Google Drive alongside iCloud for
-   cross-platform sync.
+1. ~~**Google Drive backup & sync on Apple (iPhone / iPad):**~~ **Shipped in
+   `1.68.0`** (`DRIVE_CONFIG.iosEnabled: true` in `app/drive-config.js`,
+   offering Google Drive alongside iCloud for cross-platform sync; verify on
+   TestFlight / App Review).
 2. **iOS Share Extension:** share PDF statements, Borang EA, or receipt images
    straight from WhatsApp, Files, or banking apps into Duitful (matching
    Android).
