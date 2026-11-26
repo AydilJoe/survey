@@ -15226,7 +15226,7 @@ check('the brand catalogue makes no network calls at all',
       new Date(2026, 10, 25, 14, 0, 0)
     );
     const distinctConsecutive = remOnUnchecked.length === 2 && remOnUnchecked[0].title !== remOnUnchecked[1].title;
-    const validTitles = new Set(STREAK_REMINDER_COPY.map((m) => m.title));
+    const validTitles = new Set(STREAK_REMINDER_COPY.map((m) => (m.emoji ? `${m.emoji} ${m.title}` : m.title)));
     const remInBuildOn = buildReminders(state).some((n) => validTitles.has(n.title));
     setStreakReminder(false);
     const remInBuildOff = buildReminders(state).some((n) => validTitles.has(n.title));
