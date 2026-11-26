@@ -35,13 +35,17 @@ const MANIFEST = resolve(ANDROID, "app/src/main/AndroidManifest.xml");
 const APP_GRADLE = resolve(ANDROID, "app/build.gradle");
 
 export const SOURCES = [
-  "DuitfulKitPlugin.java", "DuitfulKitEntities.java", "DuitfulKitAi.java",
+  "DuitfulKitPlugin.java", "DuitfulKitTextReader.java", "DuitfulKitEntities.java", "DuitfulKitAi.java",
   "DuitfulRelayCrypto.java", "DuitfulRelayWatch.java", "DuitfulRelayWorker.java",
 ];
 
 // Pinned, and checked by the e2e suite against this list.
 export const DEPENDENCIES = [
   "com.google.android.gms:play-services-mlkit-document-scanner:16.0.0",
+  // Unbundled Play Services ML Kit Text Recognition v2 (Latin + Chinese):
+  // models live in Play Services instead of bundling ~20 MB into the APK.
+  "com.google.android.gms:play-services-mlkit-text-recognition:19.0.1",
+  "com.google.android.gms:play-services-mlkit-text-recognition-chinese:16.0.1",
   "com.google.mlkit:entity-extraction:16.0.0-beta6",
   "com.google.mlkit:genai-prompt:1.0.0-beta5",
   // Play's in-app review sheet, asked once at the debt-free moment.
@@ -205,6 +209,22 @@ function install() {
       m = m.slice(0, activity.index) + patched + m.slice(activity.index + activity[0].length);
       writeFileSync(MANIFEST, m);
       console.log("✓ MainActivity accepts shared PDFs and photos (Share / Open with)");
+    }
+  }
+
+  // 6. Ask Play Store to pre-download unbundled ML Kit OCR models (Latin + Chinese)
+  //    at install time so receipts scan offline immediately on first launch.
+  {
+    let m = readFileSync(MANIFEST, "utf8");
+    if (m.includes("com.google.mlkit.vision.DEPENDENCIES")) {
+      console.log("• AndroidManifest.xml already requests ML Kit OCR Play Services models");
+    } else if (/<\/application>/.test(m)) {
+      m = m.replace(
+        /(\s*)<\/application>/,
+        `\n        <!-- ${MARK}: pre-download Play Services OCR models (Latin + Chinese) -->\n        <meta-data android:name="com.google.mlkit.vision.DEPENDENCIES" android:value="ocr,ocr_chinese" />$1</application>`,
+      );
+      writeFileSync(MANIFEST, m);
+      console.log("✓ added ML Kit OCR Play Services pre-download meta-data to AndroidManifest.xml");
     }
   }
 }
