@@ -265,7 +265,7 @@ function stmtPayee(desc) {
 }
 function stmtFindStatementDate(lines) {
   const text = lines.map((l) => l.text).join("\n");
-  let m = /(?:statement\s+date|tarikh\s+penyata)[^\n]*?(\d{1,2})[\s/-]([A-Z]{3}|\d{1,2})[\s/-](\d{2,4})/i.exec(text);
+  let m = /(?:statement\s+date|tarikh\s+penyata)[\s\S]{0,80}?(\d{1,2})[\s/-]([A-Z]{3}|\d{1,2})[\s/-](\d{2,4})/i.exec(text);
   if (!m) m = /\b(\d{1,2}) (JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC) (\d{2,4})\b/.exec(text);
   if (!m) return null;
   const mon = /^\d+$/.test(m[2]) ? Number(m[2]) : STMT_MONTHS[m[2].toUpperCase()];
@@ -478,6 +478,103 @@ const STATEMENT_LAYOUTS = [
       return { stmt: null, rows, sections: [] };
     },
   },
+  // Maybank & Maybank Islamic Current / Savings / Mudharabah account statements
+  // (e.g. M2U CA / Premier Mudharabah / Savings-i): DD/MM entry date (year from
+  // TARIKH PENYATA / STATEMENT DATE), trailing +/- amounts including ".01+",
+  // overdrawn balances marked "DR", and indented multi-line payee descriptions.
+  {
+    id: "maybank-account", bank: "Maybank", kind: "account",
+    detect: (t) => /(?:URUSNIAGA\s+AKAUN|ACCOUNT\s+TRANSACTIONS)/i.test(t)
+      && /Maybank|MUDHARABAH|M2U|Malayan\s+Banking/i.test(t)
+      && !/STATEMENT OF CREDIT CARD ACCOUNT/i.test(t),
+    parse(lines) {
+      const stmt = stmtFindStatementDate(lines);
+      const rows = [];
+      let opening = null, closing = null, totalDebit = null, totalCredit = null;
+      const AMT = "((?:[\\d,]+)?\\.\\d{2})\\s?(CR|DR|-|\\+)?";
+      const rowRe = new RegExp(`^\\s*(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?(?:\\s+\\d{1,2}/\\d{1,2}(?:/\\d{2,4})?)?\\s+(.+?)\\s+${AMT}\\s+${AMT}\\s*$`, "i");
+      const balRe = new RegExp(`${AMT}\\s*$`, "i");
+      const stopRe = /^(?:BAKI\s+LEGAR|LEDGER\s+BALANCE|ENDING\s+BALANCE|TOTAL\s+DEBIT|TOTAL\s+CREDIT|PROFIT\s+OUTSTANDING|PERHATIAN|MUKA|PAGE|TARIKH\s+PENYATA|STATEMENT\s+DATE|NOMBOR\s+AKAUN|NOT\s+PROTECTED|URUSNIAGA\s+AKAUN|TARIKH\s+MASUK|ENTRY\s+DATE|FCN\b|EXCHANGE\s+YOUR|PLEASE\s+BE\s+REMINDED|CREDIT\s+TO\s+MULTIPLE|NOT\s+A\s+M2U|KINI,\s+ANDA|WANG\s+YANG\s+KELUAR|OVERDRAWN\s+BALANCES|Maybank\s+Islamic)/i;
+      const signedBal = (numStr, mk) => {
+        const v = stmtMoney(numStr);
+        if (!Number.isFinite(v)) return null;
+        return /^(?:DR|-)$/i.test(mk || "") ? -Math.abs(v) : v;
+      };
+      const GENERIC_HEAD = /^(?:TRANSFER\s+(?:FR|TO)\s+A\/C|PAYMENT\s+FR\s+A\/C|DUITNOW\s+PAYMENT|DEBIT\s+ACCOUNT(?:\s*-\s*SI)?|ESI\s+PAYMENT\s+DEBIT|AUTODEBIT|PAYMENT\s+CREDIT\s*-?\s*APS\/OTHERS|CMS\s*-\s*CR\s+PYMT\s+MARS)$/i;
+      let cur = null;
+      for (const l of lines) {
+        const txt = String(l.text || "").trim();
+        if (!txt) continue;
+        if (/^BEGINNING\s+BALANCE\b/i.test(txt)) {
+          const a = balRe.exec(txt);
+          if (a && opening == null) opening = signedBal(a[1], a[2]);
+          cur = null;
+          continue;
+        }
+        if (/^ENDING\s+BALANCE\b/i.test(txt)) {
+          const a = balRe.exec(txt);
+          if (a) closing = signedBal(a[1], a[2]);
+          cur = null;
+          continue;
+        }
+        if (/^TOTAL\s+DEBIT\b/i.test(txt)) {
+          const a = balRe.exec(txt);
+          if (a) totalDebit = Math.abs(stmtMoney(a[1]));
+          cur = null;
+          continue;
+        }
+        if (/^TOTAL\s+CREDIT\b/i.test(txt)) {
+          const a = balRe.exec(txt);
+          if (a) totalCredit = Math.abs(stmtMoney(a[1]));
+          cur = null;
+          continue;
+        }
+        const m = rowRe.exec(txt);
+        if (m) {
+          const d = Number(m[1]), mo = Number(m[2]);
+          const y = m[3] ? stmtYear2(m[3]) : stmtYearFor(mo, stmt);
+          const date = stmtIso(y, mo, d);
+          if (!date) continue;
+          const head = stmtClean(m[4]);
+          const amt = Math.abs(stmtMoney(m[5]));
+          const mk1 = (m[6] || "").toUpperCase();
+          const bal = signedBal(m[7], m[8]);
+          const dir = mk1 === "+" || mk1 === "CR" ? "credit" : mk1 === "-" || mk1 === "DR" ? "debit" : "";
+          cur = { date, desc: head, payee: stmtPayee(head), amount: amt, dir, balance: bal, page: l.page, _head: head, _sub: [] };
+          rows.push(cur);
+          continue;
+        }
+        if (stopRe.test(txt)) { cur = null; continue; }
+        // Continuation lines right under a Maybank row (e.g. merchant/person name).
+        if (cur && cur.page === l.page && cur._sub.length < 3 && !balRe.test(txt)) {
+          const cleaned = txt.replace(/\*+$/, "").trim();
+          if (cleaned && !/^\d{2}$/.test(cleaned)) cur._sub.push(cleaned);
+        }
+      }
+      // Build cleaner payee & description from continuation lines, and infer any missing dir.
+      let prev = opening;
+      for (const r of rows) {
+        if (r._sub.length) {
+          r.desc = stmtClean([r._head, ...r._sub].join(" · "));
+          if (GENERIC_HEAD.test(r._head)) {
+            const nice = r._sub.find((s) => /[A-Za-z]{3,}/.test(s) && !/^(?:XXXX|MBBQR|QR\d|DUITNOW|QR PAY|\d{6,})/i.test(s)) || r._sub[0];
+            if (nice) r.payee = stmtClean(nice).slice(0, 60);
+          }
+        }
+        delete r._head;
+        delete r._sub;
+        if (!r.dir && r.balance != null && prev != null) r.dir = r.balance >= prev ? "credit" : "debit";
+        if (!r.dir) r.dir = "debit";
+        if (r.balance != null) prev = r.balance;
+      }
+      const sec = opening != null ? [{
+        opening, closing, rows, page: rows[0] ? rows[0].page : 1,
+        ...(totalDebit != null ? { totalDebit } : {}),
+        ...(totalCredit != null ? { totalCredit } : {}),
+      }] : [];
+      return { stmt, rows, sections: sec };
+    },
+  },
 ];
 
 /* Any other statement: dated rows ending in one or two amounts (amount and
@@ -487,31 +584,36 @@ function parseGenericStatement(lines) {
   const stmt = stmtFindStatementDate(lines);
   const rows = [];
   let opening = null, closing = null;
-  const DATE = "(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})|(\\d{1,2}) ([A-Za-z]{3})(?: (\\d{2,4}))?";
-  const AMT = "(-?[\\d,]+\\.\\d{2})\\s?(CR|DR|-|\\+)?";
+  const DATE = "(\\d{1,2})[/-](\\d{1,2})(?:[/-](\\d{2,4}))?|(\\d{1,2}) ([A-Za-z]{3})(?: (\\d{2,4}))?";
+  const AMT = "(-?(?:[\\d,]+)?\\.\\d{2})\\s?(CR|DR|-|\\+)?";
   const rowRe = new RegExp(`^\\s*(?:${DATE})\\s+(.+?)\\s+${AMT}(?:\\s+${AMT})?\\s*$`, "i");
+  const signedBal = (numStr, mk) => {
+    const v = stmtMoney(numStr);
+    if (!Number.isFinite(v)) return null;
+    return /^(?:DR|-)$/i.test(mk || "") ? -Math.abs(v) : v;
+  };
   for (const l of lines) {
     let m;
     if ((m = new RegExp(`(?:opening|beginning|previous)\\s+balance|balance\\s+b/?f|baki\\s+(?:awal|dibawa|legar)`, "i").exec(l.text))) {
       const a = new RegExp(`${AMT}\\s*$`, "i").exec(l.text);
-      if (a && opening == null) opening = stmtMoney(a[1]);
+      if (a && opening == null) opening = signedBal(a[1], a[2]);
       continue;
     }
     if ((m = /(?:closing|ending)\s+balance|balance\s+c\/?f|baki\s+akhir/i.exec(l.text))) {
       const a = new RegExp(`${AMT}\\s*$`, "i").exec(l.text);
-      if (a) closing = stmtMoney(a[1]);
+      if (a) closing = signedBal(a[1], a[2]);
       continue;
     }
     m = rowRe.exec(l.text);
     if (!m) continue;
     let y, mo, d;
-    if (m[1]) { d = Number(m[1]); mo = Number(m[2]); y = stmtYear2(m[3]); }
+    if (m[1]) { d = Number(m[1]); mo = Number(m[2]); y = m[3] ? stmtYear2(m[3]) : stmtYearFor(mo, stmt); }
     else { d = Number(m[4]); mo = STMT_MONTHS[String(m[5]).toUpperCase()]; y = m[6] ? stmtYear2(m[6]) : stmtYearFor(mo, stmt); }
     if (!mo) continue;
     const desc = m[7];
     const a1 = stmtMoney(m[8]), mk1 = (m[9] || "").toUpperCase();
     const hasBal = m[10] != null;
-    const bal = hasBal ? stmtMoney(m[10]) : null;
+    const bal = hasBal ? signedBal(m[10], m[11]) : null;
     let dir = mk1 === "CR" || mk1 === "+" ? "credit" : mk1 === "DR" || mk1 === "-" || a1 < 0 ? "debit" : "";
     rows.push({ date: stmtIso(y, mo, d), desc: stmtClean(desc), payee: stmtPayee(desc), amount: Math.abs(a1), dir, balance: bal, page: l.page });
   }
