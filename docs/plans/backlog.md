@@ -262,6 +262,33 @@ hideable habit tool alongside milestones.)
 - **Open design questions:** default on vs opt-in in Settings, and where the
   one-tap "No spend today" chip lives (Home's Today card vs streak sheet).
 
+## Cloud AI subscription — "Duitful AI+" via Gemini API (planned 25 Nov 2026)
+
+Full design in [`docs/plans/cloud-ai-subscription.md`](cloud-ai-subscription.md).
+Brings smarter Gemini-powered AI to **iPhone/iPad, Android, and Web** (including
+devices without on-device AI) while automatically unlocking **Duitful Pro**:
+
+- **Pricing & Pro bundle:** **RM 4.90/month** or **RM 45/year** (includes all Pro
+  features while subscribed). One-time **Lifetime Pro (RM 19.90)** stays
+  available for offline-only users, and existing Lifetime Pro owners get a
+  discounted AI add-on rate (**RM 3.90/month** or **RM 35/year**) while keeping
+  their Lifetime Pro forever if they ever cancel AI+.
+- **Monthly quota & unit economics:** **100 document/receipt Vision scans**
+  (`gemini-2.5-flash`) + **1,000 smart text/voice actions**
+  (`gemini-2.5-flash-lite`) per month — worst-case API cost capped at
+  **~RM 1.44/mo** (typical user **~RM 0.22/mo**, >90% margin), with automatic
+  graceful fallback to offline OCR/rules once reached.
+- **Mobile-first purchase + 3-device pair code:** subscribe via App Store
+  (StoreKit 2) or Google Play Billing on mobile, and unlock **Web** or a 2nd/3rd
+  device (up to **3 active devices**, zero accounts) via a 1-tap 6-digit / QR
+  pair code + Cloud Backup sync.
+- **Privacy & v1 scope:** client-side redaction of IC, card, bank account, email,
+  and phone numbers before leaving the device + stateless `/api/ai` Vercel proxy
+  on Paid Gemini API (zero prompt logging, zero model training). Launches with
+  (1) Receipt, PDF statement & EA/loan Vision scanner, (2) Voice & natural
+  language entry (*"dua belas ringgit nasi lemak"*), and (3) Smart split-payer
+  matching, Split-by-item line grouping & cleaner bank payee names.
+
 ## Native Apple & Google frameworks (requested 25 Nov 2026)
 
 Platform kits worth adding next (all privacy-first, on-device, zero cloud
