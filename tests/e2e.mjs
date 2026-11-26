@@ -16278,6 +16278,113 @@ check('the brand catalogue makes no network calls at all',
   delete global.__DUITFUL_AI_GEMINI_STUB__;
   await aiCtx.close();
 }
+// ── Duitful AI+ on the EA scanner and the Add Debt letter reader ────────────
+// The cloud answer is stubbed at /api/ai (never a real model). AI+ may only
+// fill what the document prints; typed boxes and printed totals are never changed.
+{
+  const lp = await b.newPage({ viewport: { width: 360, height: 800 } });
+  const lerr = [];
+  lp.on('pageerror', (e) => lerr.push(e.message));
+  const aiCalls = [];
+  const aiAnswer = {};
+  await lp.route('**/api/ai**', async (route) => {
+    const body = route.request().method() === 'POST' ? (route.request().postDataJSON() || {}) : {};
+    aiCalls.push(body.task);
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, result: aiAnswer[body.task] || { none: 1 } }) });
+  });
+  await lp.goto(`${BASE}/app/index.html`);
+  await lp.waitForTimeout(500);
+  await lp.click('#btn-start-open');
+  await lp.waitForTimeout(1200);
+  await lp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const LE = (fn, arg) => lp.evaluate(fn, arg);
+  const resetDebtForm = () => LE(async () => {
+    document.getElementById('form-debt').reset();
+    await new Promise((r) => setTimeout(r, 60));
+    openAddForm('form-debt');
+  });
+  const loanPdf = () => buildPdf([[
+    [40, 800, 'PERSONAL FINANCING OFFER LETTER'],
+    [40, 786, 'Lender: CONTOH BANK BERHAD'],
+    [40, 772, 'Outstanding balance'], [470, 772, '12,500.00'],
+    [40, 758, 'Profit rate 6.80 % p.a.'],
+    [40, 744, 'Monthly instalment'], [470, 744, '450.00'],
+  ]]);
+
+  // AI+ off: no button, no call, and the EA scanner is unchanged (PCB stays empty).
+  await LE(() => { openAddForm('form-debt'); renderAll(); });
+  const offState = await LE(() => ({ hidden: document.getElementById('debt-letter').hidden }));
+  await LE(() => { taxOpenEa(); });
+  await lp.setInputFiles('#ea-file', { name: 'ea-en.pdf', mimeType: 'application/pdf', buffer: buildPdf(EA_FIXTURES.english()) });
+  await lp.waitForFunction(() => !document.getElementById('ea-review').hidden, null, { timeout: 15000 });
+  const offEa = await LE(() => ({ d1: document.getElementById('ea-in-d1').value, badges: document.querySelectorAll('#ea-dialog .ai-plus-badge').length }));
+  check('AI+ tax/loan: with AI+ off the loan-letter button is hidden, nothing is sent, and the EA scanner is unchanged',
+    offState.hidden && offEa.d1 === '' && offEa.badges === 0 && aiCalls.length === 0, JSON.stringify([offState, offEa, aiCalls]));
+  await LE(() => document.getElementById('ea-dialog').close());
+
+  // AI+ on.
+  await LE(() => {
+    state.aiPlusDisclosureSeen = true; state.aiPlusEnabled = true;
+    state.aiPlusPreviewedKinds = { document: true };
+    state.aiSub = { active: true, expiresAt: Date.now() + 86400000, subToken: 'test-token' };
+    renderAll();
+  });
+  // EA: a printed figure fills the empty PCB box (tagged AI+); an unprinted one is dropped;
+  // the form's own mismatching total stays as printed and tagged Check.
+  aiAnswer['ea-read'] = { d1: 3000, d5: 777.77, b1a: 1, sectionB: 99999 };
+  await LE(() => { taxOpenEa(); });
+  await lp.setInputFiles('#ea-file', { name: 'ea-en.pdf', mimeType: 'application/pdf', buffer: buildPdf(EA_FIXTURES.english()) });
+  await lp.waitForFunction(() => document.querySelector('#ea-tags-d1 .ai-plus-badge'), null, { timeout: 15000 });
+  const ea = await LE(() => ({
+    d1: document.getElementById('ea-in-d1').value, b1a: document.getElementById('ea-in-b1a').value,
+    total: document.getElementById('ea-in-bTotal') ? document.getElementById('ea-in-bTotal').value : '',
+    totalTag: document.getElementById('ea-tags-bTotal').textContent.replace(/ /g, ' '),
+    d5: !!document.querySelector('#ea-unused .ai-plus-badge'),
+    over: document.getElementById('ea-dialog').scrollWidth > document.getElementById('ea-dialog').clientWidth,
+  }));
+  check('AI+ EA: only a figure the form prints fills an empty box (tagged AI+); printed values and the mismatching total stay as read, and nothing unprinted is added',
+    ea.d1 === '3000' && ea.b1a === '45000' && /^Check/.test(ea.totalTag) && ea.total === '48500' && !ea.d5 && !ea.over && aiCalls.includes('ea-read'), JSON.stringify(ea));
+  await LE(() => document.getElementById('ea-dialog').close());
+
+  // Loan letter.
+  aiAnswer['loan-read'] = { lender: 'CONTOH BANK BERHAD', kind: 'standard', balance: 12500, rate: 6.8, monthly: 777 };
+  await LE(() => { openAddForm('form-debt'); renderAll(); });
+  const onState = await LE(() => ({ hidden: document.getElementById('debt-letter').hidden }));
+  await lp.setInputFiles('#debt-letter-file', { name: 'letter.pdf', mimeType: 'application/pdf', buffer: loanPdf() });
+  await lp.waitForFunction(() => document.querySelector('#form-debt [data-ai-fill]'), null, { timeout: 15000 });
+  const ln = await LE(() => {
+    const f = document.getElementById('form-debt');
+    const q = (n) => f.querySelector(`[name="${n}"]`).value;
+    return { name: q('name'), balance: q('balance'), apr: q('apr'), min: q('minPayment'), tags: f.querySelectorAll('[data-ai-fill]').length,
+      debts: state.debts.length, over: f.scrollWidth > f.clientWidth };
+  });
+  check('AI+ loan letter: the button shows only with AI+; printed name, balance and rate pre-fill with AI+ tags, an unprinted monthly figure is left empty, nothing is added until Add debt',
+    !onState.hidden && ln.name === 'CONTOH BANK BERHAD' && ln.balance === '12500' && ln.apr === '6.8' && ln.min === '' && ln.tags === 3 && !ln.over && aiCalls.includes('loan-read'), JSON.stringify([onState, ln]));
+  const debtsBefore = ln.debts;
+
+  // Typed boxes are never overwritten, and editing a filled box drops its tag.
+  await resetDebtForm();
+  await LE(() => { document.querySelector('#form-debt [name="name"]').value = 'My loan'; });
+  await lp.setInputFiles('#debt-letter-file', { name: 'letter.pdf', mimeType: 'application/pdf', buffer: loanPdf() });
+  await lp.waitForFunction(() => /Filled in/.test(document.getElementById('debt-letter-status').textContent), null, { timeout: 15000 });
+  const ln2 = await LE(() => {
+    const f = document.getElementById('form-debt');
+    const bal = f.querySelector('[name="balance"]');
+    bal.value = '1'; bal.dispatchEvent(new Event('input', { bubbles: true }));
+    return { name: f.querySelector('[name="name"]').value, apr: f.querySelector('[name="apr"]').value, tags: f.querySelectorAll('[data-ai-fill]').length, debts: state.debts.length };
+  });
+  check('AI+ loan letter: a name the person typed is kept, editing a filled box removes its AI+ tag, and no debt is saved by reading',
+    ln2.name === 'My loan' && ln2.apr === '6.8' && ln2.tags === 1 && ln2.debts === debtsBefore, JSON.stringify(ln2));
+
+  // An empty or invalid cloud answer leaves the form as it was.
+  aiAnswer['loan-read'] = null;
+  await resetDebtForm();
+  await lp.setInputFiles('#debt-letter-file', { name: 'letter.pdf', mimeType: 'application/pdf', buffer: loanPdf() });
+  await lp.waitForFunction(() => /Nothing to fill/.test(document.getElementById('debt-letter-status').textContent), null, { timeout: 15000 });
+  const ln3 = await LE(() => document.querySelectorAll('#form-debt [data-ai-fill]').length + document.querySelector('#form-debt [name="balance"]').value.length);
+  check('AI+ loan letter: an empty or invalid answer falls back silently, the form untouched', ln3 === 0 && lerr.length === 0, JSON.stringify([ln3, lerr]));
+  await lp.close();
+}
 // ── Kira phase 2 (v1.75.0): eyes, taps, celebrations, kind notes, hops,
 // first run, the tour and the widgets ─────────────────────────────────────
 {

@@ -3503,6 +3503,7 @@ function bindShariahControls() {
 bindShariahControls();
 
 function renderAll() {
+  renderDebtLetter();
   resetEndingBalanceCache();
   resetEffectiveLimitCache();
   const recurResult = autoRecurFromLastMonth();
@@ -6656,6 +6657,126 @@ document.getElementById("debt-apr-preset")?.addEventListener("change", (e) => {
   // real edit, because it is one.
   apr.dispatchEvent(new Event("input", { bubbles: true }));
   apr.focus();
+});
+
+/* ---------- Read a loan letter (Duitful AI+) ----------
+   Only when aiCloudAllowed(). The letter / statement is read on the phone with
+   statement.js's readers (PDF text layer, else the same OCR); the redacted text
+   goes to aiCloudReadLoan, and what comes back fills EMPTY boxes of the Add Debt
+   form for the person to check. Every figure must be printed in the text, boxes
+   the person typed are never overwritten, nothing is added until they press
+   "Add debt", and any failure leaves the form exactly as it was. */
+const LOAN_KINDS = ["standard", "installment", "islamic"];
+function debtLetterSay(msg) {
+  const el = document.getElementById("debt-letter-status");
+  if (el) { el.textContent = msg || ""; el.hidden = !msg; }
+}
+function renderDebtLetter() {
+  const box = document.getElementById("debt-letter");
+  if (!box) return;
+  box.hidden = !(typeof aiCloudAllowed === "function" && aiCloudAllowed() && typeof aiCloudReadLoan === "function");
+  if (box.hidden) debtLetterSay("");
+}
+function debtLetterTag(input) {
+  const label = input && input.closest("label.field");
+  const head = label && label.querySelector(":scope > span");
+  if (!head || head.querySelector("[data-ai-fill]")) return;
+  head.insertAdjacentHTML("beforeend", ' <span class="ai-plus-badge" data-ai-fill translate="no">AI+</span>');
+  input.addEventListener("input", () => head.querySelector("[data-ai-fill]")?.remove(), { once: true });
+}
+// Whole months from today to a printed end date (1 to 120), else 0.
+function debtLetterMonthsTo(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return 0;
+  const now = new Date();
+  const n = (Number(m[1]) - now.getFullYear()) * 12 + (Number(m[2]) - 1 - now.getMonth()) + (Number(m[3]) >= now.getDate() ? 1 : 0);
+  return n >= 1 && n <= 120 ? n : 0;
+}
+// Fills only empty boxes of the form's current type; returns how many it set.
+function debtLetterApply(ai, text) {
+  const form = document.getElementById("form-debt");
+  if (!form || !ai || typeof ai !== "object") return 0;
+  const printed = (n) => Number.isFinite(Number(n)) && Number(n) > 0 && aiAmountInText(Number(n), text);
+  const typed = [...form.querySelectorAll("input[name], select[name]")]
+    .some((el) => el.type !== "hidden" && el.name !== "contract" && String(el.value || "").trim() !== "");
+  // The type changes only on an untouched form, and never into a gated one.
+  let kind = document.getElementById("debt-kind").value;
+  if (!typed) {
+    const want = ai.islamic === true || ai.kind === "islamic" ? "islamic" : LOAN_KINDS.includes(ai.kind) ? ai.kind : "";
+    const blocked = want === "installment" && installmentCount() >= FREE_INSTALLMENT_LIMIT && !isPro();
+    if (want && !blocked && want !== kind) { setDebtKind(want); kind = want; }
+  }
+  let n = 0;
+  const put = (name, value) => {
+    const input = name === "name"
+      ? form.querySelector('input[name="name"]')
+      : form.querySelector(`#debt-fields-${kind} [name="${name}"]`);
+    if (!input || String(input.value || "").trim() !== "") return;
+    input.value = String(value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    debtLetterTag(input);
+    n++;
+  };
+  if (typeof ai.lender === "string" && ai.lender.trim() && aiWordsInText(ai.lender, text)) put("name", ai.lender.trim().slice(0, 80));
+  if (kind === "standard") {
+    if (printed(ai.balance)) put("balance", ai.balance);
+    if (printed(ai.rate) && Number(ai.rate) <= 100) put("apr", ai.rate);
+    if (printed(ai.monthly)) put("minPayment", ai.monthly);
+  } else if (kind === "installment") {
+    if (printed(ai.monthly)) put("installment", ai.monthly);
+    const left = debtLetterMonthsTo(ai.endDate);
+    if (left && text.includes(String(ai.endDate).slice(0, 4))) put("monthsLeft", left);
+  } else if (kind === "islamic") {
+    const c = typeof ai.contract === "string" ? ISLAMIC_CONTRACTS.find((x) => x.id === ai.contract) : null;
+    const sel = document.getElementById("debt-contract");
+    if (c && sel && !typed && sel.value !== c.id) { sel.value = c.id; renderDebtContractNote(); debtLetterTag(sel); n++; }
+    if (printed(ai.balance)) put("principal", ai.balance);
+  }
+  if (n) renderIslamicPreview();
+  return n;
+}
+async function debtLetterRead(files) {
+  if (!(typeof aiCloudAllowed === "function" && aiCloudAllowed() && typeof aiCloudReadLoan === "function")) return;
+  const photos = files.filter((f) => /^image\//.test(f.type || ""));
+  const pdf = files.find((f) => !/^image\//.test(f.type || ""));
+  const pageSay = (a, b) => debtLetterSay(tr("Reading page {n} of {m} on your phone…", { n: a, m: b }));
+  debtLetterSay(tr("Reading on your phone…"));
+  let read;
+  try {
+    if (pdf) {
+      const data = await pdf.arrayBuffer();
+      try { read = await readStatementPdf(data); }
+      catch (e) {
+        if (!(e && e.code === "scanned")) throw e;
+        read = await readStatementScanPdf(data, undefined, pageSay);
+      }
+    } else if (photos.length) {
+      read = await readStatementPhotos(photos, pageSay);
+    } else return;
+  } catch (e) {
+    const pw = e && (e.code === "password" || e.code === "wrong-password");
+    debtLetterSay(pw ? tr("This PDF has a password. Open it first, or use a photo.") : tr("Couldn't read any text on this. Try a sharper photo."));
+    return;
+  }
+  const text = (read.lines || []).map((l) => (typeof l === "string" ? l : String((l && l.text) || ""))).join("\n").slice(0, 16000);
+  if (!text.trim()) { debtLetterSay(tr("Couldn't read any text on this. Try a sharper photo.")); return; }
+  debtLetterSay(tr("Double-checking with Duitful AI+ (cloud)…"));
+  let ai = null;
+  try { ai = await aiCloudReadLoan({ text, kinds: LOAN_KINDS, contracts: ISLAMIC_CONTRACTS.map((c) => c.id) }); } catch { ai = null; }
+  const form = document.getElementById("form-debt");
+  if (!form || form.hidden) { debtLetterSay(""); return; }
+  const n = ai ? debtLetterApply(ai, text) : 0;
+  debtLetterSay(n ? tr("Filled in from your letter. Check each figure before you add it.") : tr("Nothing to fill in from this letter."));
+}
+document.getElementById("debt-letter-btn")?.addEventListener("click", () => document.getElementById("debt-letter-file")?.click());
+document.getElementById("debt-letter-file")?.addEventListener("change", (e) => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = "";
+  if (files.length) debtLetterRead(files).catch(() => debtLetterSay(""));
+});
+document.getElementById("form-debt")?.addEventListener("reset", () => {
+  document.querySelectorAll("#form-debt [data-ai-fill]").forEach((el) => el.remove());
+  debtLetterSay("");
 });
 
 // ── Brand picker ────────────────────────────────────────────────────────────

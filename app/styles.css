@@ -10409,3 +10409,9 @@ svg.kira .kira-body { pointer-events: visiblePainted; }
 .guide-tooltip.kira-peek-inside.kira-peek-left .guide-tooltip-kira { right: 12px; left: auto; }
 .guide-tooltip.kira-peek-inside .guide-tooltip-kira .kira { width: 22px; height: 31px; }
 .guide-tooltip.kira-peek-inside .guide-tooltip-title { padding-right: 28px; }
+
+/* Add Debt: "Read a loan letter" (Duitful AI+). */
+.debt-letter { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem; }
+.debt-letter[hidden] { display: none; }
+.debt-letter .hint { margin: 0; overflow-wrap: anywhere; }
+.debt-form .field > span > .ai-plus-badge { margin-left: 0.4rem; vertical-align: middle; }
