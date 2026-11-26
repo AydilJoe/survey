@@ -60,6 +60,15 @@ const WIDGET_PLIST = resolve(WIDGET_DIR, "Info.plist");
 // require a newer iOS than its host app — iOS simply doesn't offer the widget
 // on older devices, which is the correct behaviour here.
 const WIDGET_DEPLOYMENT_TARGET = "16.0";
+// Shared App Group used by the main app and the DuitfulShare Share Extension
+// so shared PDFs and receipt photos can pass safely between them.
+const APP_GROUP = "group.com.aydiljoe.duitful";
+const SHARE_NAME = "DuitfulShare";
+const SHARE_DIR = resolve(IOS_APP, SHARE_NAME);
+const SHARE_SWIFT = resolve(SHARE_DIR, `${SHARE_NAME}.swift`);
+const SHARE_PLIST = resolve(SHARE_DIR, "Info.plist");
+const SHARE_ENTITLEMENTS = resolve(SHARE_DIR, `${SHARE_NAME}.entitlements`);
+const SHARE_DEPLOYMENT_TARGET = "15.5";
 
 const HOSTS = ["duitful.app", "www.duitful.app"];
 // Quick-action types are namespaced with the real bundle id, read from the
@@ -1534,7 +1543,378 @@ if (widgetFilesWritten) {
   }
 }
 
-/* ---------- 5. Entitlements: Associated Domains + iCloud ---------- */
+/* ---------- 4c. Share Extension (PDFs & photos from WhatsApp / Files / banks) ---------- */
+// Lets iOS users tap Share → Duitful from WhatsApp, Files, Mail, or banking apps.
+// Copies up to 12 PDF/image files (<= 25 MB each) into the shared App Group inbox
+// (group.com.aydiljoe.duitful/SharedInbox), then opens duitful://share so the
+// main app drains them once unlocked (DuitfulKitPlugin.takeSharedFiles).
+const SHARE_SWIFT_BODY = `import UIKit
+import UniformTypeIdentifiers
+
+@objc(DuitfulShareViewController)
+final class DuitfulShareViewController: UIViewController {
+    private static let appGroup = "${APP_GROUP}"
+    private static let maxFiles = 12
+    private static let maxBytes = 25 * 1024 * 1024
+    private static let allowedExts: Set<String> = ["pdf", "jpg", "jpeg", "png", "heic", "heif", "webp"]
+    private var started = false
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !started else { return }
+        started = true
+        stageSharedItems()
+    }
+
+    private func stageSharedItems() {
+        guard let base = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroup) else {
+            finish(openApp: false)
+            return
+        }
+        let inbox = base.appendingPathComponent("SharedInbox", isDirectory: true)
+        try? FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
+
+        let items = (extensionContext?.inputItems as? [NSExtensionItem]) ?? []
+        let providers = items.flatMap { $0.attachments ?? [] }
+        let wanted = providers.filter {
+            $0.hasItemConformingToTypeIdentifier(UTType.pdf.identifier)
+            || $0.hasItemConformingToTypeIdentifier(UTType.image.identifier)
+            || $0.hasItemConformingToTypeIdentifier(UTType.fileURL.identifier)
+        }
+        if wanted.isEmpty {
+            finish(openApp: false)
+            return
+        }
+
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var saved = 0
+        let stamp = Int(Date().timeIntervalSince1970 * 1000)
+
+        for (idx, provider) in wanted.prefix(Self.maxFiles).enumerated() {
+            let typeId: String
+            if provider.hasItemConformingToTypeIdentifier(UTType.pdf.identifier) {
+                typeId = UTType.pdf.identifier
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
+                typeId = UTType.image.identifier
+            } else {
+                typeId = UTType.fileURL.identifier
+            }
+            group.enter()
+            provider.loadItem(forTypeIdentifier: typeId, options: nil) { item, _ in
+                defer { group.leave() }
+                if let url = item as? URL {
+                    let ext = url.pathExtension.lowercased()
+                    guard Self.allowedExts.contains(ext) else { return }
+                    let access = url.startAccessingSecurityScopedResource()
+                    defer { if access { url.stopAccessingSecurityScopedResource() } }
+                    guard let data = try? Data(contentsOf: url), !data.isEmpty, data.count <= Self.maxBytes else { return }
+                    let clean = url.lastPathComponent.replacingOccurrences(of: "/", with: "_")
+                    let dest = inbox.appendingPathComponent(String(format: "%lld_%02d_%@", stamp, idx, clean))
+                    if (try? data.write(to: dest, options: .atomic)) != nil {
+                        lock.lock(); saved += 1; lock.unlock()
+                    }
+                } else if let img = item as? UIImage, let data = img.jpegData(compressionQuality: 0.9), data.count <= Self.maxBytes {
+                    let dest = inbox.appendingPathComponent(String(format: "%lld_%02d_shared.jpg", stamp, idx))
+                    if (try? data.write(to: dest, options: .atomic)) != nil {
+                        lock.lock(); saved += 1; lock.unlock()
+                    }
+                } else if let data = item as? Data, !data.isEmpty, data.count <= Self.maxBytes {
+                    let ext = typeId == UTType.pdf.identifier ? "pdf" : "jpg"
+                    let dest = inbox.appendingPathComponent(String(format: "%lld_%02d_shared.%@", stamp, idx, ext))
+                    if (try? data.write(to: dest, options: .atomic)) != nil {
+                        lock.lock(); saved += 1; lock.unlock()
+                    }
+                }
+            }
+        }
+
+        group.notify(queue: .main) {
+            self.finish(openApp: saved > 0)
+        }
+    }
+
+    private func finish(openApp: Bool) {
+        if openApp, let url = URL(string: "${APP_SCHEME}://share") {
+            var responder: UIResponder? = self
+            let selector = NSSelectorFromString("openURL:")
+            while let cur = responder {
+                if cur.responds(to: selector) {
+                    _ = cur.perform(selector, with: url)
+                    break
+                }
+                responder = cur.next
+            }
+        }
+        extensionContext?.completeRequest(returningItems: nil, completionHandler: nil)
+    }
+}
+`;
+
+const SHARE_PLIST_BODY = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+\t<key>CFBundleDevelopmentRegion</key>
+\t<string>$(DEVELOPMENT_LANGUAGE)</string>
+\t<key>CFBundleDisplayName</key>
+\t<string>Duitful</string>
+\t<key>CFBundleExecutable</key>
+\t<string>$(EXECUTABLE_NAME)</string>
+\t<key>CFBundleIdentifier</key>
+\t<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+\t<key>CFBundleInfoDictionaryVersion</key>
+\t<string>6.0</string>
+\t<key>CFBundleName</key>
+\t<string>$(PRODUCT_NAME)</string>
+\t<key>CFBundlePackageType</key>
+\t<string>XPC!</string>
+\t<key>CFBundleShortVersionString</key>
+\t<string>$(MARKETING_VERSION)</string>
+\t<key>CFBundleVersion</key>
+\t<string>$(CURRENT_PROJECT_VERSION)</string>
+\t<key>NSExtension</key>
+\t<dict>
+\t\t<key>NSExtensionAttributes</key>
+\t\t<dict>
+\t\t\t<key>NSExtensionActivationRule</key>
+\t\t\t<dict>
+\t\t\t\t<key>NSExtensionActivationSupportsFileWithMaxCount</key>
+\t\t\t\t<integer>12</integer>
+\t\t\t\t<key>NSExtensionActivationSupportsImageWithMaxCount</key>
+\t\t\t\t<integer>12</integer>
+\t\t\t</dict>
+\t\t</dict>
+\t\t<key>NSExtensionPointIdentifier</key>
+\t\t<string>com.apple.share-services</string>
+\t\t<key>NSExtensionPrincipalClass</key>
+\t\t<string>$(PRODUCT_MODULE_NAME).DuitfulShareViewController</string>
+\t</dict>
+</dict>
+</plist>
+`;
+
+const SHARE_ENTITLEMENTS_BODY = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+\t<key>com.apple.security.application-groups</key>
+\t<array>
+\t\t<string>${APP_GROUP}</string>
+\t</array>
+</dict>
+</plist>
+`;
+
+mkdirSync(SHARE_DIR, { recursive: true });
+let shareFilesWritten = 0;
+for (const [p, body] of [
+  [SHARE_SWIFT, SHARE_SWIFT_BODY],
+  [SHARE_PLIST, SHARE_PLIST_BODY],
+  [SHARE_ENTITLEMENTS, SHARE_ENTITLEMENTS_BODY],
+]) {
+  if (existsSync(p) && readFileSync(p, "utf8") === body) continue;
+  writeFileSync(p, body);
+  shareFilesWritten++;
+}
+if (shareFilesWritten) {
+  console.log(`patch-ios: wrote ${shareFilesWritten} ${SHARE_NAME} source file(s).`);
+} else {
+  console.log(`patch-ios: ${SHARE_NAME} sources already up to date, skipping.`);
+}
+
+{
+  let proj = readFileSync(PBXPROJ, "utf8");
+  if (proj.includes(`${SHARE_NAME}.appex`)) {
+    console.log(`patch-ios: ${SHARE_NAME} target already in project.pbxproj, skipping.`);
+  } else if (!APP_ID) {
+    console.error("patch-ios: no appId in", CAP_CONFIG, "— cannot name the share extension bundle.");
+    process.exit(1);
+  } else {
+    const SEEDS = [
+      "productRef", "sourceRef", "plistRef", "entitlementsRef", "group",
+      "sourceBuildFile", "embedBuildFile",
+      "sourcesPhase", "frameworksPhase",
+      "target", "configList", "debugConfig", "releaseConfig",
+      "dependency", "containerProxy",
+    ];
+    const ID = {};
+    for (const seed of SEEDS) {
+      const uuid = pbxUuid(`share-${seed}`);
+      if (Object.values(ID).includes(uuid) || proj.includes(uuid)) {
+        console.error(`patch-ios: generated pbxproj UUID ${uuid} (share-${seed}) collides with an existing object.`);
+        process.exit(1);
+      }
+      ID[seed] = uuid;
+    }
+
+    const projectObject = pbxMatch(proj, /rootObject = ([0-9A-F]{24}) \/\* Project object \*\//, "rootObject");
+    const mainGroup = pbxMatch(proj, /mainGroup = ([0-9A-F]{24});/, "mainGroup");
+    const productsGroup = pbxMatch(proj, /productRefGroup = ([0-9A-F]{24})/, "productRefGroup");
+    const appTarget = pbxObjects(proj, "PBXNativeTarget")
+      .find((o) => o.body.includes('productType = "com.apple.product-type.application";'));
+    const embedPhase = pbxObjects(proj, "PBXCopyFilesBuildPhase")
+      .find((o) => o.body.includes("dstSubfolderSpec = 13;"));
+    if (!appTarget || !embedPhase) {
+      console.error("patch-ios: missing App target or Embed App Extensions phase in", PBXPROJ);
+      process.exit(1);
+    }
+
+    const settings = (config) => [
+      "\t\t\t\tCLANG_ENABLE_MODULES = YES;",
+      `\t\t\t\tCODE_SIGN_ENTITLEMENTS = ${SHARE_NAME}/${SHARE_NAME}.entitlements;`,
+      "\t\t\t\tCODE_SIGN_STYLE = Automatic;",
+      "\t\t\t\tCURRENT_PROJECT_VERSION = 1;",
+      `\t\t\t\tINFOPLIST_FILE = ${SHARE_NAME}/Info.plist;`,
+      `\t\t\t\tIPHONEOS_DEPLOYMENT_TARGET = ${SHARE_DEPLOYMENT_TARGET};`,
+      '\t\t\t\tLD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";',
+      "\t\t\t\tMARKETING_VERSION = 1.0;",
+      `\t\t\t\tPRODUCT_BUNDLE_IDENTIFIER = ${APP_ID}.${SHARE_NAME};`,
+      '\t\t\t\tPRODUCT_NAME = "$(TARGET_NAME)";',
+      "\t\t\t\tSKIP_INSTALL = YES;",
+      config === "Debug"
+        ? "\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;"
+        : '\t\t\t\tSWIFT_ACTIVE_COMPILATION_CONDITIONS = "";',
+      "\t\t\t\tSWIFT_VERSION = 5.0;",
+      '\t\t\t\tTARGETED_DEVICE_FAMILY = "1,2";',
+    ].join("\n");
+
+    proj = pbxAppend(proj, "PBXBuildFile", [
+      `\t\t${ID.sourceBuildFile} /* ${SHARE_NAME}.swift in Sources */ = {isa = PBXBuildFile; fileRef = ${ID.sourceRef} /* ${SHARE_NAME}.swift */; };`,
+      `\t\t${ID.embedBuildFile} /* ${SHARE_NAME}.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = ${ID.productRef} /* ${SHARE_NAME}.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };`,
+      "",
+    ].join("\n"));
+
+    proj = pbxAppend(proj, "PBXContainerItemProxy", [
+      `\t\t${ID.containerProxy} /* PBXContainerItemProxy */ = {`,
+      "\t\t\tisa = PBXContainerItemProxy;",
+      `\t\t\tcontainerPortal = ${projectObject} /* Project object */;`,
+      "\t\t\tproxyType = 1;",
+      `\t\t\tremoteGlobalIDString = ${ID.target};`,
+      `\t\t\tremoteInfo = ${SHARE_NAME};`,
+      "\t\t};",
+      "",
+    ].join("\n"));
+
+    proj = pbxAppend(proj, "PBXFileReference", [
+      `\t\t${ID.productRef} /* ${SHARE_NAME}.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ${SHARE_NAME}.appex; sourceTree = BUILT_PRODUCTS_DIR; };`,
+      `\t\t${ID.sourceRef} /* ${SHARE_NAME}.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ${SHARE_NAME}.swift; sourceTree = "<group>"; };`,
+      `\t\t${ID.plistRef} /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };`,
+      `\t\t${ID.entitlementsRef} /* ${SHARE_NAME}.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ${SHARE_NAME}.entitlements; sourceTree = "<group>"; };`,
+      "",
+    ].join("\n"));
+
+    proj = pbxAppend(proj, "PBXFrameworksBuildPhase", [
+      `\t\t${ID.frameworksPhase} /* Frameworks */ = {`,
+      "\t\t\tisa = PBXFrameworksBuildPhase;",
+      "\t\t\tbuildActionMask = 2147483647;",
+      "\t\t\tfiles = (",
+      "\t\t\t);",
+      "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
+      "\t\t};",
+      "",
+    ].join("\n"));
+
+    proj = pbxAppend(proj, "PBXGroup", [
+      `\t\t${ID.group} /* ${SHARE_NAME} */ = {`,
+      "\t\t\tisa = PBXGroup;",
+      "\t\t\tchildren = (",
+      `\t\t\t\t${ID.sourceRef} /* ${SHARE_NAME}.swift */,`,
+      `\t\t\t\t${ID.plistRef} /* Info.plist */,`,
+      `\t\t\t\t${ID.entitlementsRef} /* ${SHARE_NAME}.entitlements */,`,
+      "\t\t\t);",
+      `\t\t\tpath = ${SHARE_NAME};`,
+      '\t\t\tsourceTree = "<group>";',
+      "\t\t};",
+      "",
+    ].join("\n"));
+    proj = pbxAddToList(proj, mainGroup, "children", `${ID.group} /* ${SHARE_NAME} */,`);
+    proj = pbxAddToList(proj, productsGroup, "children", `${ID.productRef} /* ${SHARE_NAME}.appex */,`);
+
+    proj = pbxAppend(proj, "PBXNativeTarget", [
+      `\t\t${ID.target} /* ${SHARE_NAME} */ = {`,
+      "\t\t\tisa = PBXNativeTarget;",
+      `\t\t\tbuildConfigurationList = ${ID.configList} /* Build configuration list for PBXNativeTarget "${SHARE_NAME}" */;`,
+      "\t\t\tbuildPhases = (",
+      `\t\t\t\t${ID.sourcesPhase} /* Sources */,`,
+      `\t\t\t\t${ID.frameworksPhase} /* Frameworks */,`,
+      "\t\t\t);",
+      "\t\t\tbuildRules = (",
+      "\t\t\t);",
+      "\t\t\tdependencies = (",
+      "\t\t\t);",
+      `\t\t\tname = ${SHARE_NAME};`,
+      `\t\t\tproductName = ${SHARE_NAME};`,
+      `\t\t\tproductReference = ${ID.productRef} /* ${SHARE_NAME}.appex */;`,
+      '\t\t\tproductType = "com.apple.product-type.app-extension";',
+      "\t\t};",
+      "",
+    ].join("\n"));
+
+    proj = pbxAddToList(proj, projectObject, "targets", `${ID.target} /* ${SHARE_NAME} */,`);
+    proj = pbxAddTargetAttributes(proj, projectObject, ID.target);
+
+    proj = pbxAppend(proj, "PBXSourcesBuildPhase", [
+      `\t\t${ID.sourcesPhase} /* Sources */ = {`,
+      "\t\t\tisa = PBXSourcesBuildPhase;",
+      "\t\t\tbuildActionMask = 2147483647;",
+      "\t\t\tfiles = (",
+      `\t\t\t\t${ID.sourceBuildFile} /* ${SHARE_NAME}.swift in Sources */,`,
+      "\t\t\t);",
+      "\t\t\trunOnlyForDeploymentPostprocessing = 0;",
+      "\t\t};",
+      "",
+    ].join("\n"));
+
+    proj = pbxAppend(proj, "PBXTargetDependency", [
+      `\t\t${ID.dependency} /* PBXTargetDependency */ = {`,
+      "\t\t\tisa = PBXTargetDependency;",
+      `\t\t\ttarget = ${ID.target} /* ${SHARE_NAME} */;`,
+      `\t\t\ttargetProxy = ${ID.containerProxy} /* PBXContainerItemProxy */;`,
+      "\t\t};",
+      "",
+    ].join("\n"));
+
+    proj = pbxAppend(proj, "XCBuildConfiguration", [
+      `\t\t${ID.debugConfig} /* Debug */ = {`,
+      "\t\t\tisa = XCBuildConfiguration;",
+      "\t\t\tbuildSettings = {",
+      settings("Debug"),
+      "\t\t\t};",
+      "\t\t\tname = Debug;",
+      "\t\t};",
+      `\t\t${ID.releaseConfig} /* Release */ = {`,
+      "\t\t\tisa = XCBuildConfiguration;",
+      "\t\t\tbuildSettings = {",
+      settings("Release"),
+      "\t\t\t};",
+      "\t\t\tname = Release;",
+      "\t\t};",
+      "",
+    ].join("\n"));
+
+    proj = pbxAppend(proj, "XCConfigurationList", [
+      `\t\t${ID.configList} /* Build configuration list for PBXNativeTarget "${SHARE_NAME}" */ = {`,
+      "\t\t\tisa = XCConfigurationList;",
+      "\t\t\tbuildConfigurations = (",
+      `\t\t\t\t${ID.debugConfig} /* Debug */,`,
+      `\t\t\t\t${ID.releaseConfig} /* Release */,`,
+      "\t\t\t);",
+      "\t\t\tdefaultConfigurationIsVisible = 0;",
+      "\t\t\tdefaultConfigurationName = Release;",
+      "\t\t};",
+      "",
+    ].join("\n"));
+
+    proj = pbxAddToList(proj, embedPhase.uuid, "files", `${ID.embedBuildFile} /* ${SHARE_NAME}.appex in Embed App Extensions */,`);
+    proj = pbxAddToList(proj, appTarget.uuid, "dependencies", `${ID.dependency} /* PBXTargetDependency */,`);
+
+    writeFileSync(PBXPROJ, proj);
+    console.log(`patch-ios: added the ${SHARE_NAME} share-extension target (${APP_ID}.${SHARE_NAME}) to project.pbxproj.`);
+  }
+}
+
+/* ---------- 5. Entitlements: Associated Domains + iCloud + App Group ---------- */
 // A labelled block, not process.exit(): the sections after this one (iOS
 // deployment target, device family) must run on every pass — including the
 // skip-both first build and any re-run where this is already applied.
@@ -1563,6 +1943,7 @@ entitlements: {
       `\t<key>com.apple.developer.icloud-services</key>\n\t<array>\n\t\t<string>CloudKit</string>\n\t</array>`,
     );
   }
+  parts.push(`\t<key>com.apple.security.application-groups</key>\n\t<array>\n\t\t<string>${APP_GROUP}</string>\n\t</array>`);
   if (parts.length === 0) {
     console.log("patch-ios: no entitlements requested, leaving App.entitlements alone.");
     break entitlements;
@@ -1583,6 +1964,7 @@ ${parts.join("\n")}
     console.log(`patch-ios: wrote App.entitlements (${[
       !SKIP_DOMAINS && HOSTS.map((h) => `applinks:${h}`).join(", "),
       !SKIP_ICLOUD && `iCloud ${ICLOUD_CONTAINER}`,
+      `App Group ${APP_GROUP}`,
     ].filter(Boolean).join("; ")}).`);
   } else {
     console.log("patch-ios: App.entitlements already up to date, skipping.");

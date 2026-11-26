@@ -15538,6 +15538,70 @@ check('the brand catalogue makes no network calls at all',
   await andOcrCtx.close();
 }
 
+// ── Track 3b (v1.68.2): iOS Share Extension (DuitfulShare + App Group + duitful://share) ─
+{
+  const patchIos = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-ios.mjs'), 'utf8');
+  const swiftPlug = readFileSync(path.join(REPO_ROOT, 'native', 'duitful-kit', 'ios', 'Sources', 'DuitfulKitPlugin', 'DuitfulKitPlugin.swift'), 'utf8');
+  const fastfile = readFileSync(path.join(REPO_ROOT, 'fastlane', 'Fastfile'), 'utf8');
+  const iosYml = readFileSync(path.join(REPO_ROOT, '.github', 'workflows', 'ios.yml'), 'utf8');
+  check('v1.68.2: iOS Share Extension target, App Group, takeSharedFiles, Fastfile signing and IPA check are all wired',
+    patchIos.includes('const SHARE_NAME = "DuitfulShare"')
+    && patchIos.includes('group.com.aydiljoe.duitful')
+    && patchIos.includes('com.apple.share-services')
+    && swiftPlug.includes('func takeSharedFiles(')
+    && swiftPlug.includes('group.com.aydiljoe.duitful')
+    && fastfile.includes('com.aydiljoe.duitful.DuitfulShare')
+    && iosYml.includes('DuitfulShare.appex'));
+
+  const iosShareCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  await iosShareCtx.addInitScript(() => {
+    window.__urlListeners = [];
+    window.__takeCalls = 0;
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'ios',
+      Plugins: {
+        App: {
+          addListener: (ev, fn) => { if (ev === 'appUrlOpen') window.__urlListeners.push(fn); return { remove: () => {} }; },
+          getLaunchUrl: async () => ({ url: '' }),
+        },
+        DuitfulKit: {
+          takeSharedFiles: async () => {
+            window.__takeCalls++;
+            if (window.__takeCalls === 1) {
+              return { files: [{ name: 'receipt.jpg', mime: 'image/jpeg', base64: 'aGVsbG8=' }] };
+            }
+            return { files: [] };
+          },
+        },
+      },
+    };
+  });
+  const isp = await iosShareCtx.newPage();
+  const isErr = [];
+  isp.on('pageerror', (e) => isErr.push(e.message));
+  await isp.goto(`${BASE}/app/index.html`);
+  await isp.waitForTimeout(400);
+  await isp.click('#btn-start-open');
+  await isp.waitForTimeout(500);
+  const shRes = await isp.evaluate(async () => {
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
+    window.__takeCalls = 0;
+    for (const fn of window.__urlListeners) fn({ url: 'duitful://share' });
+    await new Promise((r) => setTimeout(r, 150));
+    const dlg = document.getElementById('shared-in-dialog');
+    return {
+      takeCalls: window.__takeCalls,
+      dlgOpen: !!(dlg && dlg.open),
+      what: document.getElementById('shared-in-what')?.textContent || '',
+    };
+  });
+  check('v1.68.2: duitful://share deep link drains DuitfulKit.takeSharedFiles and opens the shared-in sheet',
+    shRes.takeCalls >= 1 && shRes.dlgOpen && /1 photo shared to Duitful/.test(shRes.what) && isErr.length === 0,
+    JSON.stringify({ ...shRes, isErr }));
+  await iosShareCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();

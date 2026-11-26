@@ -2160,8 +2160,13 @@ function initSharedFiles() {
   const App = window.Capacitor?.Plugins?.App;
   if (!App || typeof App.addListener !== "function") return;
   const keep = (url) => {
-    if (!sharedUrlIsFile(url) || sharedIn.urls.includes(url)) return;
-    sharedIn.urls.push(url);
+    const raw = String(url || "");
+    if (/^duitful:\/\/share\b/i.test(raw)) {
+      drainSharedFiles().catch(() => {});
+      return;
+    }
+    if (!sharedUrlIsFile(raw) || sharedIn.urls.includes(raw)) return;
+    sharedIn.urls.push(raw);
     drainSharedFiles().catch(() => {});
   };
   App.addListener("appUrlOpen", (event) => keep(event && event.url));
