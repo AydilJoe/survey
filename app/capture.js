@@ -1238,24 +1238,33 @@ function quickAddPlugin() {
 function quickAddToPending(entry) {
   const amount = Number(entry && entry.a);
   if (!Number.isFinite(amount) || amount <= 0) return null;
-  const category = typeof entry.c === "string" && entry.c.trim() ? entry.c.trim() : "";
+  const merchant = typeof entry.c === "string" && entry.c.trim() ? entry.c.trim() : "";
+  const cat = typeof entry.cat === "string" && entry.cat.trim() ? entry.cat.trim() : "";
+  const walletHint = typeof entry.w === "string" && entry.w.trim() ? entry.w.trim() : "";
+  const matchedWallet = walletHint && typeof state === "object" && state && Array.isArray(state.wallets)
+    ? state.wallets.find((w) => w && typeof w.name === "string" && w.name.trim().toLowerCase() === walletHint.toLowerCase())
+    : null;
   const ts = Number(entry && entry.t);
-  return {
+  const metaParts = [merchant || cat, walletHint].filter(Boolean);
+  const out = {
     id: uid(),
     createdAt: Number.isFinite(ts) && ts > 0 ? ts : Date.now(),
     raw: "",
     pkg: "",
     amount: Math.round(amount * 100) / 100,
-    merchant: category,
+    merchant: merchant || cat,
     providerId: "quick-add",
     // "s": "shortcut" comes from the iOS Siri & Shortcuts intent, where "c"
     // is the merchant (a Wallet automation passes the shop's name).
     providerName: entry.s === "shortcut"
-      ? (category ? `${tr("Shortcut")} · ${category}` : "Siri & Shortcuts")
-      : (category ? `${tr("Quick add")} · ${category}` : tr("Quick add")),
+      ? (metaParts.length ? `${tr("Shortcut")} · ${metaParts.join(" · ")}` : "Siri & Shortcuts")
+      : (merchant ? `${tr("Quick add")} · ${merchant}` : tr("Quick add")),
     country: "MY",
     currency: typeof currentCurrency === "function" ? currentCurrency() : "MYR",
   };
+  if (cat) out.category = cat;
+  if (matchedWallet) out.walletId = matchedWallet.id;
+  return out;
 }
 
 async function drainQuickAdd() {

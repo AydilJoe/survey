@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.68.2";
+const APP_VERSION = "1.69.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4522,6 +4522,7 @@ function buildWidgetSummary(opts) {
       dueSub: "",
       streakDays: 0,
       streakLabel: "",
+      walletNames: [],
     };
   }
   const thisMonth = currentMonthISO();
@@ -4575,6 +4576,11 @@ function buildWidgetSummary(opts) {
   const streakDays = streakInfo && streakInfo.enabled && streakInfo.current > 0 ? streakInfo.current : 0;
   const streakLabel = streakDays > 0 ? `🔥 ${tr("{n}d", { n: streakDays })}` : "";
 
+  // Wallet names only (never balances); cleared to [] when locked.
+  const walletNames = Array.isArray(state.wallets)
+    ? state.wallets.map((w) => String((w && w.name) || "").trim()).filter(Boolean).slice(0, 12)
+    : [];
+
   return {
     ...base,
     status,
@@ -4586,6 +4592,7 @@ function buildWidgetSummary(opts) {
     dueSub,
     streakDays,
     streakLabel,
+    walletNames,
   };
 }
 function syncWidgetSummary(force) {
@@ -5487,7 +5494,7 @@ function storedPromoCode() {
    Nothing here is a Pro gate and nothing writes outside the vault: a quick
    action is a launch intent, not data. */
 
-const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving", "review"]);
+const QUICK_ACTIONS = new Set(["spend", "scan", "split", "debt", "saving", "review", "no-spend"]);
 // Held until the app is genuinely usable. Survives the whole unlock flow.
 let pendingQuickAction = null;
 
@@ -5548,6 +5555,10 @@ function runQuickAction(name) {
       // the button keeps the quick action on exactly the production path
       // (including the prefill from anything already typed).
       document.getElementById("btn-split-quick")?.click();
+      break;
+    case "no-spend":
+      document.getElementById("tabbtn-dashboard")?.click();
+      if (typeof checkInNoSpendToday === "function") checkInNoSpendToday();
       break;
     default:
       break;
@@ -7546,6 +7557,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.69.0": [
+    "<strong>Assistant Update Phase 1 (Siri, Google Assistant, and Quick Controls)</strong> — Siri now supports Category, Wallet name, and <strong>No spend today</strong> check-ins (in English, Malay, and Chinese), iOS 18+ gets Control Center buttons, and Android gets Google Assistant App Actions plus a 1-tap <strong>Log spend</strong> Quick Settings tile. Zero balances are ever exposed to the OS.",
+  ],
   "1.68.2": [
     "<strong>Share straight into Duitful on iPhone and iPad</strong> — share PDF bank statements, Borang EA, or receipt photos directly from WhatsApp, Files, Mail, or banking apps via the iOS Share sheet.",
   ],

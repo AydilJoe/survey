@@ -420,16 +420,73 @@ enum DuitfulQuickAddQueue {
         return (value * 100).rounded() / 100
     }
 
-    static func append(amount: Double, merchant: String?) {
+    static func append(amount: Double, merchant: String?, category: String? = nil, wallet: String? = nil) {
         let defaults = UserDefaults.standard
         var items = defaults.array(forKey: key) as? [[String: Any]] ?? []
         var entry: [String: Any] = ["a": amount, "t": Date().timeIntervalSince1970 * 1000, "s": "shortcut"]
         if let name = merchant?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
             entry["c"] = String(name.prefix(60))
         }
+        if let cat = category?.trimmingCharacters(in: .whitespacesAndNewlines), !cat.isEmpty {
+            entry["cat"] = String(cat.prefix(32))
+        }
+        if let w = wallet?.trimmingCharacters(in: .whitespacesAndNewlines), !w.isEmpty {
+            entry["w"] = String(w.prefix(40))
+        }
         items.append(entry)
         if items.count > cap { items.removeFirst(items.count - cap) }
         defaults.set(items, forKey: key)
+    }
+}
+
+@available(iOS 16.0, *)
+enum DuitfulCategoryEnum: String, AppEnum {
+    case food = "Food"
+    case groceries = "Groceries"
+    case transport = "Transport"
+    case bills = "Bills"
+    case health = "Health"
+    case shopping = "Shopping"
+    case others = "Others"
+
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Category"
+    static var caseDisplayRepresentations: [DuitfulCategoryEnum: DisplayRepresentation] = [
+        .food: "Food",
+        .groceries: "Groceries",
+        .transport: "Transport",
+        .bills: "Bills",
+        .health: "Health",
+        .shopping: "Shopping",
+        .others: "Others",
+    ]
+}
+
+@available(iOS 16.0, *)
+struct DuitfulWalletEntity: AppEntity {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Wallet"
+    static var defaultQuery = DuitfulWalletQuery()
+
+    var id: String
+    var name: String
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(title: "\\(name)")
+    }
+}
+
+@available(iOS 16.0, *)
+struct DuitfulWalletQuery: EntityQuery {
+    private static func savedNames() -> [String] {
+        UserDefaults.standard.stringArray(forKey: "duitful.assistant.wallets") ?? []
+    }
+
+    func entities(for identifiers: [String]) async throws -> [DuitfulWalletEntity] {
+        let known = Set(Self.savedNames())
+        return identifiers.filter { known.contains($0) }.map { DuitfulWalletEntity(id: $0, name: $0) }
+    }
+
+    func suggestedEntities() async throws -> [DuitfulWalletEntity] {
+        Self.savedNames().map { DuitfulWalletEntity(id: $0, name: $0) }
     }
 }
 
@@ -446,15 +503,24 @@ struct ${INTENTS_MARK}: AppIntent {
     @Parameter(title: "Merchant")
     var merchant: String?
 
+    @Parameter(title: "Category")
+    var category: DuitfulCategoryEnum?
+
+    @Parameter(title: "Wallet")
+    var wallet: DuitfulWalletEntity?
+
     static var parameterSummary: some ParameterSummary {
-        Summary("Log \\(\\.$amount) at \\(\\.$merchant) in Duitful")
+        Summary("Log \\(\\.$amount) at \\(\\.$merchant) in Duitful") {
+            \\.$category
+            \\.$wallet
+        }
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let value = DuitfulQuickAddQueue.parseAmount(amount) else {
             throw $amount.needsValueError("What was the amount? For example 12.50")
         }
-        DuitfulQuickAddQueue.append(amount: value, merchant: merchant)
+        DuitfulQuickAddQueue.append(amount: value, merchant: merchant, category: category?.rawValue, wallet: wallet?.name)
         return .result(dialog: "Added to Duitful. Open it to confirm.")
     }
 }
@@ -475,11 +541,26 @@ struct DuitfulScanReceiptIntent: AppIntent {
     }
 }
 
+@available(iOS 16.0, *)
+struct DuitfulNoSpendTodayIntent: AppIntent {
+    static var title: LocalizedStringResource = "No spend today"
+    static var description = IntentDescription("Checks in today as a no-spend day to keep your Duitful streak alive.")
+    static var openAppWhenRun: Bool = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        if let url = URL(string: "${APP_SCHEME}://action/no-spend") {
+            _ = ApplicationDelegateProxy.shared.application(UIApplication.shared, open: url, options: [:])
+        }
+        return .result()
+    }
+}
+
 // Siri only runs an App Shortcut when what you say is close to one of these
 // phrases; anything else goes to Siri's own answer ("I can't add your
 // spending directly to Duitful"). A phrase can't carry the amount (only an
 // AppEntity or AppEnum can be spoken inline), so each one starts the intent
-// and Siri asks "How much did you spend?". Cover the ways people say it.
+// and Siri asks "How much did you spend?". Cover EN, BM and ZH phrasings.
 @available(iOS 17.0, *)
 struct DuitfulAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
@@ -498,10 +579,21 @@ struct DuitfulAppShortcuts: AppShortcutsProvider {
             "New spend in \\(.applicationName)",
             "\\(.applicationName) spend",
             "\\(.applicationName) log a spend",
+            "Rekod belanja dalam \\(.applicationName)",
+            "Tambah belanja dalam \\(.applicationName)",
+            "记一笔消费在 \\(.applicationName)",
         ], shortTitle: "Log a spend", systemImageName: "plus.circle")
         AppShortcut(intent: DuitfulScanReceiptIntent(), phrases: [
             "Scan a receipt in \\(.applicationName)",
+            "Imbas resit dalam \\(.applicationName)",
+            "扫描收据在 \\(.applicationName)",
         ], shortTitle: "Scan a receipt", systemImageName: "doc.viewfinder")
+        AppShortcut(intent: DuitfulNoSpendTodayIntent(), phrases: [
+            "No spend today in \\(.applicationName)",
+            "Mark no spend today in \\(.applicationName)",
+            "Tiada belanja hari ini dalam \\(.applicationName)",
+            "今日无消费在 \\(.applicationName)",
+        ], shortTitle: "No spend today", systemImageName: "flame")
     }
 }
 `;
@@ -650,6 +742,7 @@ const WIDGET_SWIFT_BODY = String.raw`//  ${WIDGET_NAME}.swift
 //  sage/peach/butter tiles, and quick-action pills, following the user's
 //  Light / Dark / Pastel palette. Never shows a balance or amount.
 
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -1253,10 +1346,44 @@ struct DuitfulActionsWidget: Widget {
     }
 }
 
+@available(iOS 18.0, *)
+struct DuitfulLogSpendControl: ControlWidget {
+    let kind = "DuitfulLogSpendControl"
+
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: kind) {
+            ControlWidgetButton(action: OpenURLIntent(DuitfulAction.spend.url)) {
+                Label("Log a spend", systemImage: "plus.circle")
+            }
+        }
+        .displayName("Log a spend")
+        .description("Open Duitful straight to add a spend.")
+    }
+}
+
+@available(iOS 18.0, *)
+struct DuitfulScanReceiptControl: ControlWidget {
+    let kind = "DuitfulScanReceiptControl"
+
+    var body: some ControlWidgetConfiguration {
+        StaticControlConfiguration(kind: kind) {
+            ControlWidgetButton(action: OpenURLIntent(DuitfulAction.scan.url)) {
+                Label("Scan a receipt", systemImage: "doc.viewfinder")
+            }
+        }
+        .displayName("Scan a receipt")
+        .description("Open Duitful's receipt scanner.")
+    }
+}
+
 @main
 struct DuitfulWidgetBundle: WidgetBundle {
     var body: some Widget {
         DuitfulActionsWidget()
+        if #available(iOS 18.0, *) {
+            DuitfulLogSpendControl()
+            DuitfulScanReceiptControl()
+        }
     }
 }
 `;

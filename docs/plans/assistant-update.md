@@ -14,7 +14,7 @@ Brings hands-free voice and system-shortcut control to **both iPhone/iPad (Apple
 
 ---
 
-## Phase 1 — Core Voice Actions & Quick Controls (iOS + Android, Offline)
+## Phase 1 — Core Voice Actions & Quick Controls (iOS + Android, Offline) — **Shipped in `1.69.0`**
 
 **Goal:** Parity across iPhone and Android for the three everyday single-step actions — zero Cloud AI required.
 
