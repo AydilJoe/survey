@@ -1,387 +1,107 @@
-# Backlog: agreed or discussed, not started (20 Nov 2026)
+# Duitful Roadmap & Backlog
 
-Bigger plans have their own file in this folder. Completed items are in
-`done/backlog-done.md`.
+Updated 25 Nov 2026. Streamlined into 4 active tracks + a short Someday bucket.
+Completed items live in [`done/backlog-done.md`](done/backlog-done.md) (plus
+recently shipped: home-screen widgets `1.62.2`, iPhone Vision size cut `1.64.0`,
+horizon welcome `1.64.3`, "New" feature spotlight `1.65.0`, daily check-in
+streaks `1.66.0`–`1.66.3`, and modularity Phases 0–2).
 
-## Follow-ups on shipped work
+---
 
-- Keyboard: confirm the 1.57.14 / 1.58.4 fix on the Android 16 Samsung
-  (details in `done/backlog-done.md`).
-- Scanned statements: check real OCR quality on a phone, and skew on
-  crooked photos (`done/statement-scans.md`).
-- Recurring splits version 2 (`recurring-splits.md`) and wallets version 2
-  (`wallets.md`).
+## 1. Duitful AI+ — Unified AI & Gemini Subscription
 
-## Redesign home-screen widgets (done in 1.62.2)
+Full plan: [`cloud-ai-subscription.md`](cloud-ai-subscription.md).
 
-Option D (`docs/plans/widget-options.html`): month countdown ring (`12d`),
-sage / peach / butter inner tiles, budget status as a word (`On track`,
-`Careful`, `Over`), review count (`3 to review`), upcoming bills by name and
-relative day (`Rent · in 3 days`), plus sticky category pills and one-tap
-`+5 / +10 / +20 / +50` quick-log chips on Android `4×4` and Lock Screen
-circular/rectangular widgets on iPhone. Follows the user's in-app theme choice
-(`System`, `Light`, `Dark` or `Pastel`) and clears status + upcoming names
-when the vault locks. Never shows balances or amounts.
+One smart AI path for **iPhone/iPad, Android, and Web**: uses **Paid Gemini API**
+when subscribed to AI+, and falls back automatically to on-device AI (Apple
+Intelligence / Gemini Nano) or offline rules when off, offline, or at cap.
+Same privacy rules everywhere: client-side redaction (IC, card/account numbers,
+email, phone), zero server prompt logging, zero Google model training, and
+nothing saved without the user's tap.
 
-## "New" feature spotlight with motion (done in 1.65.0)
+- **Pricing & Pro bundle:** **RM 4.90/mo** or **RM 45/yr** (includes all Pro
+  features while active). One-time **Lifetime Pro (RM 19.90)** stays available;
+  existing Lifetime Pro owners get a loyalty rate (**RM 3.90/mo** or
+  **RM 35/yr**) and keep Lifetime Pro forever if they ever cancel AI+.
+- **Monthly quota:** **100** document/receipt Vision scans (`gemini-2.5-flash`)
+  + **1,000** smart text/voice actions (`gemini-2.5-flash-lite`) per month
+  (worst-case API cost ~RM 1.44/mo; typical ~RM 0.22/mo).
+- **3-device pairing (no accounts):** subscribe via App Store / Google Play on
+  mobile, unlock Web + up to 3 devices via a 1-tap 6-digit / QR pair code.
+- **Launch AI features (v1):**
+  1. **Universal Vision scanner** (receipts, PDF/scanned & unknown-layout bank
+     statements, Borang EA, loan / PTPTN letters)
+  2. **Voice & sentence entry** (*"dua belas ringgit nasi lemak"*,
+     *"Ali dinner split RM45"*)
+  3. **Smart split & cleanup** (match bank-alert sender names like
+     *"MUHAMMAD ALI BIN ABU"* → *"Ali"*, tidy messy split-by-item receipt lines
+     like *"2X TEH O AIS"*, and clean bank payee names like `PYMT*GRAB 8812 KL`
+     → `Grab`)
 
-When a release adds a feature (e.g. wallets, recurring splits, statement import, Pastel), show a small "New" button or chip (Home, or the relevant tab) that, when tapped, animates the user to the feature: smooth-scroll and/or tab switch, then a gentle pulse/highlight ring on the target card or button.
-- One spotlight per feature, dismissed once seen or tapped (state outside the vault or in it; never nags).
-- A list in code, e.g. `NEW_FEATURES = [{id, version, target selector, tab, label}]`, so each release adds a row; it shows only to users who updated past that version, not to brand-new installs (who get the tour).
-- Respect reduced motion (jump plus a static highlight, no animation) and the hide-amounts eye. All three languages. Never covers content or blocks taps; it doesn't show while a dialog is open.
-- Could reuse or extend the existing tour/milestones code if suitable.
+---
 
-## iPhone size cut (built in 1.64.0 — pending iPhone device test)
+## 2. Assistant Update — Siri, Google Assistant & Gemini (4 Phases)
 
-The iOS app was 86 MB because it bundled Google ML Kit text recognition, ML Kit
-entity extraction and Tesseract, none of which an iPhone needs: Apple **Vision**
-(`VNRecognizeTextRequest`, built into iOS 13+, works on every supported
-iPhone, no AI needed) reads text with word boxes; entity extraction mostly
-served bank alerts, which iPhones can't read; Tesseract is the web's reader.
-Built on `slim-1640` for 1.64.0: DuitfulKit `recognizeText` (`DuitfulTextReader.swift`)
-and `NSDataDetector` dates (`DuitfulDateReader`) on iOS; ML Kit plugins and
-Tesseract (`scripts/trim-native-web.mjs`) dropped from the iOS build only
-(Android keeps ML Kit + trimmed Tesseract fallback, web keeps trimmed Tesseract).
-Test receipts, statement scans and the EA form on a real iPhone via
-TestFlight before releasing. Rules (`receipt-extract.js`) are unchanged; the
-AI stays a second opinion.
-
-## Split bills: on-device AI help (requested 21 Nov 2026)
-
-Same AI rules as everywhere: behind `aiAllowed()`, runs on the phone, never
-sets or changes an amount, never decides who owes what, nothing marked paid
-without the user's OK.
-
-1. **Match who paid (Android).** When a money-in alert's sender name doesn't
-   match a split person by the rules (e.g. "MUHAMMAD ALI BIN ABU" vs "Ali"),
-   ask AI (`aiReadAlert`, same call as bank alerts) which open split / person it
-   belongs to, from the open `state.split.out` names only. The amount must
-   equal what that person owes exactly (or the oldest month for recurring
-   splits). Show it as a suggestion on the money-in card ("Looks like Ali's
-   share of Dinner — Yes / No"); Yes settles via the existing
-   `splitRecordRepayment`, No keeps it as income. Optionally remember the
-   alias (sender name → person) so the rules catch it next time.
-2. **Read messy receipt lines (Android + iPhone).** In split-by-item, when the
-   receipt rules can't group lines (add-ons like "+ telur", combo lines, qty on
-   its own line, prices on the next row), ask the receipt AI to group them into
-   items with clean names ("2X TEH O AIS" → "Teh O Ais ×2"). Every price must be
-   printed on the receipt; items must still add up to the printed subtotal
-   (else fall back to the rules' list and say "Check"). Split "×2" into two
-   tickable units so two friends can each tick one.
-
-Later: split by sentence ("Ali nasi lemak + teh, rest shared" → pre-ticks for
-review) and the TNB / water bill scan (already in `recurring-splits.md` v2).
-
-## More on-device AI ideas (20 Nov 2026)
-
-Same rules as every AI path: runs on the phone behind `aiAllowed()`, never sets
-or guesses an amount (every figure must be printed or typed), no chat, no
-advice, nothing saved without the user's yes. Order is the suggested priority.
-
-1. **Cleaner payee names**: "PYMT*GRAB 8812 KL" → "Grab". Helps Reports,
-   tax matching and duplicate checks. Keep the original text.
-2. **Voice entry**: "dua belas ringgit nasi lemak" → RM12, Food, "Nasi lemak".
-   Amount only from the user's own words; mixed Malay/English.
-3. **Subscription spotting**: repeating charges (Netflix, Spotify, Astro) offered
-   as Monthly bills.
-4. **Loan / PTPTN letter scan**: fills Add debt (balance, rate, instalment, due
-   day) only from printed figures.
-5. **Category for quick entries**: "grab ali" → Transport.
-6. **Search by sentence**: "food in Penang last month" → filters; the app finds
-   and sums, the AI only writes the filter.
-7. **Split by item tidy-up**: "2X TEH O AIS" → "Teh O Ais ×2"; prices as printed.
-8. **Wallet and budget pool guess** for new entries (from the user's own habits).
-9. **Unknown statement layouts**: help read banks without a layout; import still
-   needs `reconcileStatement` "ok".
-10. **iPhone catch-up**: statement suggestions (and alerts if ever possible) on
-    Apple's on-device model; today iPhone does receipts and the recap only.
-11. **Sharper redaction** for "Share the wording" samples (names the rules miss).
-12. **TNB / water bill scan** for recurring splits — already in
-    `recurring-splits.md` version 2.
-
-Not doing: spending tips or "you should save" (advice), a chat assistant,
-predicted bill amounts (guessing).
-
-## Modularity: scalable i18n, splitting `app/script.js`, and a single asset manifest (proposed 25 Nov 2026 — pending review)
-
-Goal: keep Duitful's zero-bundler vanilla-JS + Capacitor PWA setup (no Webpack/Vite rewrite), while removing the three bottlenecks that now hurt startup weight, language expansion, and maintainability.
-
-### 1. Modular i18n (scales from 3 → 10+ UI languages at 0 KB extra boot cost)
-
-**Current bottlenecks:**
-- `app/i18n-ms.js` (192 KB) and `app/i18n-zh.js` (181 KB) load synchronously on every boot in `app/index.html` — **373 KB** even for English users. Adding 5+ languages (e.g. `ta`, `id`, `th`, `vi`, `fil`, `zh-Hant`) would push >1 MB synchronously onto initial page load.
-- Supported languages are hardcoded across 6 places: `app/i18n.js` (`LANGS`, `LOCALES`, `HTML_LANG`, `fromPhone()`, `saved()`, `set()`), `app/index.html`, `app/sw.js`, `scripts/build-i18n.mjs`, `scripts/build-web.mjs`, and `tests/e2e.mjs`.
-- `scripts/i18n/*.mjs` stores multi-column `[en, ms, zh]` tuples. Past 3 columns, rows become hard to read/review and create merge conflicts whenever multiple languages are edited.
-- In `app/i18n.js`, `collect(document.body)` currently filters nodes via `known(en)` against preloaded `I18N_TABLES` — which forces at least one translation table to load before `i18n.js` runs.
-
-**Proposed architecture:**
-1. **Single language registry (`scripts/i18n/langs.mjs` → generated `app/i18n-langs.js`):**
-   One source of truth per language: `{ code, nativeName, htmlLang, locale, dir, phonePrefixes, file, version }`. Consumed by `app/i18n.js`, the Settings language picker, `scripts/build-i18n.mjs`, `scripts/build-web.mjs`, and `tests/e2e.mjs`.
-2. **Per-language source folders (`scripts/i18n/locales/<code>/<screen>.json` or `.mjs`):**
-   - Keep English strings canonical (enforced by `build-i18n.mjs --missing` and `--lint`).
-   - Store each language in its own directory (`locales/ms/split.json`, `locales/zh/split.json`, `locales/id/split.json`, …) mapping English key → translation.
-   - Adding a new language becomes: add one folder + one entry in `langs.mjs`, run `npm run build:i18n`. Add `build-i18n.mjs --status` to print per-language coverage and missing keys.
-   - Migration can be scripted cleanly from the existing 14 `scripts/i18n/*.mjs` tuple files with byte-for-byte output verification on `app/i18n-ms.js` and `app/i18n-zh.js`.
-3. **On-demand language loading in `app/i18n.js`:**
-   - Decouple `collect(document.body)` from `known(en)`: walk static HTML once before `script.js` renders (skipping `SKIP` tags and `translate="no"`) and record every static text node / translatable attribute. Because this still runs once before `script.js` inserts user data, user-typed strings remain untouched.
-   - Resolve `lang` from `localStorage["duitful.lang"]` / `fromPhone()` before loading packs:
-     - If `lang === "en"`, load **0 KB** of translation files.
-     - If `lang !== "en"`, load only `i18n-<code>.js` (or `i18n/<code>.json`) for the active language before first paint (small boot loader or `document.write`/pre-script tag, or `await I18N.ready` before `boot()` in `script.js` — **review point:** verify zero English flash on first paint and Capacitor `file://` / `capacitor://` compatibility).
-     - When switching languages via `I18N.set(next)`, dynamically load the requested pack (if not yet in `I18N_TABLES`), cache it in the Service Worker on first use, paint, and dispatch `duitful:lang`.
-   - Service worker (`app/sw.js`): stop precaching every unused language in `SHELL`; cache language packs on first fetch (plus precache the currently selected pack if offline-first guarantees need it — **review point:** offline switching to a never-used language vs keeping SW install payload tiny; Capacitor native builds still bundle all `i18n-*.js` in `www/`).
-4. **Pluralization & RTL readiness:**
-   - Support `Intl.PluralRules(locale)` in `trn()` for languages with non-English plural categories while staying backward-compatible with existing `(n, one, many, vars)` calls.
-   - Set `document.documentElement.dir = meta.dir` from the registry (defaults to `"ltr"`).
-
-### 2. Splitting `app/script.js` along existing module boundaries
-
-`app/script.js` has grown to **19,119 lines (~909 KB)** — nearly half the entire JS codebase. Meanwhile, `wallets.js`, `statement.js`, `tax.js`, `split.js`, `investments.js`, and `recap.js` already establish a clean zero-bundler pattern (plain `<script>` modules sharing `state`, `save()`, `renderAll()`, `tr()`, `escapeHtml()`, `fmtMoney()`).
-
-**Candidate extractions (small, independent PRs — roughly halves `script.js`):**
-- `app/ocr.js` (~2,700 L): canvas receipt preprocessing, ML Kit / Vision / Tesseract pipeline, FX rate lookup for scans, confirm sheet (`receipt-extract.js` stays pure parsing).
-- `app/pro.js` (~1,900 L): Pro gating, promos, paywall dialog, celebration block, native IAP (`CdvPurchase`), Billplz FPX web checkout, license activation.
-- `app/csv.js` (~1,350 L): `toCSV`, `fromCSV`, bulk income import.
-- `app/capture.js` (~1,200 L): Android notification parser (`parseBankNotification`, layered EN/MS/ZH/ID/TH/FIL/VI rules), transfer/move/income/split-match logic, capture cards, and "Check auto-capture" / "Not picked up?" diagnostics.
-- `app/onboarding.js` (~1,000 L): first-run 3-question setup, guided welcome tour, spotlight overlay, PWA install guide (`installInstructionsBody`).
-- `app/reports.js` (~760 L): Reports tab filters, trend bars, and charts.
-- `app/cloud.js` (~500 L): Drive/iCloud orchestration (`checkDriveOnBoot`, `restoreFromDrive`, backup UI card) — sitting cleanly above `drive-sync.js` and `icloud-sync.js`.
-- `app/search.js` (~450 L): universal search dialog and indexing.
-
-**Review points for `script.js` split:**
-- Load order & hoisting: functions moved to separate `<script>` files must be loaded before callers or invoked only after `boot()`. Keep globals clean and avoid circular init-time references (`var` traps like `lockIcloudSignInPending`).
-- Lazy-loading opportunity: heavy non-boot modules (`ocr.js`, `csv.js`) could optionally use the same on-demand injection + SW precache pattern already used for `jsQR.js` and `pdf.js`.
-- Update `scripts/build-i18n.mjs` (`JS_FILES` / `LINT_JS_FILES`) automatically or from the manifest below so `--missing` and `--lint` always cover newly extracted files.
-
-### 3. Single asset manifest (`scripts/app-manifest.mjs`)
-
-**Current bottleneck:** adding or bumping any JS module or language pack requires editing 3–4 places by hand: `app/index.html`, `app/sw.js` (`SHELL`), `scripts/build-web.mjs` (`APP_FILES`), and `scripts/build-i18n.mjs` (`JS_FILES`). Drift silently breaks offline PWA caching or Capacitor `www/` builds.
-
-**Proposed design:**
-- Define one manifest (`scripts/app-manifest.mjs`) listing app shell scripts (with `?v=` or content-hash), lazy-loaded scripts/vendor assets, and language packs (read from `scripts/i18n/langs.mjs`).
-- Either:
-  - **Option A (validator first — lowest churn):** a fast check script (`npm run check:manifest`, run in CI & `tests/e2e.mjs`) asserting `app/index.html`, `app/sw.js`, `scripts/build-web.mjs`, and `scripts/build-i18n.mjs` all match the manifest and have identical `?v=` query strings; or
-  - **Option B (generator):** `scripts/build-web.mjs` imports the manifest directly, and a small sync script updates the `SHELL` block in `app/sw.js` and `<script>` block in `app/index.html` between marker comments.
-- **Review point for Claude Code:** prefer Option A or B, and confirm whether modular i18n (Phase 1) should land before adding the next UI language (e.g. Indonesian / Tamil / Traditional Chinese) and before splitting `script.js` (Phase 2).
-
-### Review (Claude Code, 25 Nov 2026) — decisions for whoever builds this
-
-Verdict: **yes, in this order: 3 → 1 → 2**, each as small PRs. Figures checked
-on main: `i18n-ms.js` 196 KB, `i18n-zh.js` 185 KB (2,558 lines each),
-`script.js` 19,118 lines / 931 KB.
-
-**Order and why**
-1. **Phase 0 — asset manifest, Option A (validator) first (DONE).** Shipped in
-   `scripts/app-manifest.mjs` (`npm run check:manifest`, `npm run stamp:assets`,
-   wired into CI and `tests/e2e.mjs`) with deterministic 8-char SHA-256 `?v=`
-   content hashes and a derived `sw.js` `VERSION = "h-<hash>"` replacing
-   hand-bumped `?v=N` numbers. Option B (generator between marker comments) can
-   follow later.
-2. **Phase 1 — i18n registry + per-language loading (DONE).** Shipped
-   `scripts/i18n/langs.mjs` → generated `app/i18n-langs.js`, per-language
-   `scripts/i18n/locales/<code>/<screen>.json` (preserving full cross-language
-   parity + `--status`), CSP-safe external parser-blocking `app/i18n-boot.js`
-   (0 KB for English, single active pack for non-English, zero flash), on-demand
-   async switching in `app/i18n.js` (with all packs still precached in `sw.js`
-   for offline switching), `Intl.PluralRules` + `dir`, and manifest integration.
-   Adding a 4th language (e.g. Indonesian — remembering to remove `"id"` from
-   Malay's `phonePrefixes` — or Tamil) is now one folder + one registry entry.
-3. **Phase 2 — split `script.js` (DONE).** Extracted 8 cohesive modules in
-   separate PRs (`search.js`, `csv.js`, `reports.js`, `onboarding.js`,
-   `cloud.js`, `capture.js`, `pro.js`, `ocr.js`), cutting `app/script.js` from
-   19,131 → ~9,790 lines (49% smaller), each verified with `check:manifest`,
-   `build-i18n`, full `e2e`, and Android emulator cold boot. Verify on iOS
-   TestFlight alongside the 1.64.0 Apple Vision OCR test.
-
-**Corrections / risks the proposal misses**
-- **First-paint language flash:** `i18n.js` walks the static HTML once,
-  synchronously, at the end of `<body>` (`index.html` ~line 3340). An async
-  `fetch` of the pack would paint English first and could break the
-  "first walk only" rule. Keep it blocking: a tiny inline loader that picks
-  the language (`duitful.lang` / `fromPhone()`) and writes one parser-blocking
-  `<script src="i18n-<code>.js?v=…">` before `i18n.js`. Language *switching*
-  can load the next pack async, then re-render.
-- **Offline switching:** if the SW stops precaching unused packs, switching
-  language offline breaks. Precache all packs (they're small); just don't
-  *parse* them at boot. Native (Capacitor) loads files locally anyway.
-- **`fromPhone()` maps `id` (Indonesian) to Malay today.** Adding Indonesian
-  must change this, or Indonesian phones keep getting Malay.
-- **Keep the tuple guarantee:** today a row can't exist without all three
-  languages. With per-language folders, `build-i18n.mjs --missing` must fail
-  per language (and e2e must still run the 360px overflow check per language).
-- **Plurals:** `trn()` with `Intl.PluralRules` is fine (iOS 13+/Chrome 63+),
-  keep the `(n, one, other)` signature working.
-- **Splitting `script.js` — hidden dependents:** `scripts/release-notes.mjs`,
-  `scripts/play-release-notes.mjs`, `scripts/verify-providers.mjs`,
-  `scripts/patch-ios.mjs`, `scripts/patch-android-shortcuts.mjs`,
-  `scripts/build-i18n.mjs` (`JS_FILES`/`LINT_JS_FILES`), `tests/e2e.mjs` and
-  CLAUDE.md read `app/script.js` by name (e.g. `RELEASE_NOTES` must stay where
-  the release-notes scripts find it, or move to its own file first).
-- **Load order / TDZ:** classic `<script>`s share one global scope, but a
-  top-level `const`/`let` used before its file runs throws — the 1.62.2
-  cold-boot crash (`applyTheme → syncWidgetSummary`) was exactly this. Each
-  extraction PR must pass e2e **and** a native cold boot (Android + iOS
-  TestFlight) before the next one.
-- **Lazy loading `ocr.js` / `csv.js`:** only with SW precache (offline) and
-  without breaking App Review's "downloads and runs no code" (local files are
-  fine; never fetch code from a server).
-
-**Acceptance per phase:** e2e green (the known local-only Malay 360px
-check aside), boot time measured before/after with `performance.mark` on a
-mid Android phone, no user-visible change, CLAUDE.md updated.
-
-## Daily check-in streaks — Duolingo style *(done in 1.66.0)*
-
-A calm, Duitful-friendly take on Duolingo-style daily habit streaks to keep
-people logging consistently — free for everyone, never Pro-gated, and no
-guilt-tripping dark patterns. (Note: `app/script.js` `MILESTONES` currently says
-"no streaks, points or levels" — this deliberately adds streaks as a quiet,
-hideable habit tool alongside milestones.)
-
-- **What counts as a day:** any logged entry (daily spend, income, debt payment,
-  saving deposit, confirmed bank-alert capture) **or** a one-tap **"No spend
-  today"** check-in so frugal zero-spend days keep the streak alive instead of
-  encouraging spending just to log something.
-- **UI & motion:** compact flame/spark pill on Home (e.g. `12d`) plus a 7-day
-  Mon–Sun check-in strip inside the streak sheet/card — outline/muted before
-  today's check-in, warm filled state once today is logged, with a subtle spark
-  animation on first check-in of the day (respects `prefers-reduced-motion`).
-  Milestone celebrations at 7, 14, 30, 60, 100, 365 days reusing the existing
-  milestone sheet pattern.
-- **Streak freeze / forgiveness:** 1–2 free automatic grace days ("streak
-  freeze") per month (never sold, never Pro) so missing a day while sick or
-  travelling doesn't wipe a long streak.
-- **Reminders & widgets:** optional, off-by-default gentle evening check-in
-  reminder via `buildReminders` (only fires if today isn't logged yet; plain
-  copy, never guilt-tripping, never shows amounts). Optional streak count tile
-  on the home-screen widget (count only, no balances).
-- **State, privacy & i18n:** stored inside the encrypted vault (`state.streak`:
-  check-in dates, freezes used, longest streak, `enabled` toggle so users who
-  dislike gamification can hide it completely) and round-tripped in CSV
-  (`setting,streak,...`). All UI languages, fits 360px, unaffected by hide-amounts
-  eye.
-- **Open design questions:** default on vs opt-in in Settings, and where the
-  one-tap "No spend today" chip lives (Home's Today card vs streak sheet).
-
-## Cloud AI subscription — "Duitful AI+" via Gemini API (planned 25 Nov 2026)
-
-Full design in [`docs/plans/cloud-ai-subscription.md`](cloud-ai-subscription.md).
-Brings smarter Gemini-powered AI to **iPhone/iPad, Android, and Web** (including
-devices without on-device AI) while automatically unlocking **Duitful Pro**:
-
-- **Pricing & Pro bundle:** **RM 4.90/month** or **RM 45/year** (includes all Pro
-  features while subscribed). One-time **Lifetime Pro (RM 19.90)** stays
-  available for offline-only users, and existing Lifetime Pro owners get a
-  discounted AI add-on rate (**RM 3.90/month** or **RM 35/year**) while keeping
-  their Lifetime Pro forever if they ever cancel AI+.
-- **Monthly quota & unit economics:** **100 document/receipt Vision scans**
-  (`gemini-2.5-flash`) + **1,000 smart text/voice actions**
-  (`gemini-2.5-flash-lite`) per month — worst-case API cost capped at
-  **~RM 1.44/mo** (typical user **~RM 0.22/mo**, >90% margin), with automatic
-  graceful fallback to offline OCR/rules once reached.
-- **Mobile-first purchase + 3-device pair code:** subscribe via App Store
-  (StoreKit 2) or Google Play Billing on mobile, and unlock **Web** or a 2nd/3rd
-  device (up to **3 active devices**, zero accounts) via a 1-tap 6-digit / QR
-  pair code + Cloud Backup sync.
-- **Privacy & v1 scope:** client-side redaction of IC, card, bank account, email,
-  and phone numbers before leaving the device + stateless `/api/ai` Vercel proxy
-  on Paid Gemini API (zero prompt logging, zero model training). Launches with
-  (1) Receipt, PDF statement & EA/loan Vision scanner, (2) Voice & natural
-  language entry (*"dua belas ringgit nasi lemak"*), and (3) Smart split-payer
-  matching, Split-by-item line grouping & cleaner bank payee names.
-
-## Assistant Update — Siri, Google Assistant & Gemini (planned 25 Nov 2026)
-
-Full 4-phase plan in [`docs/plans/assistant-update.md`](assistant-update.md)
-(shipped in phases like modularity, covering both Apple App Intents and Android
-App Actions / Gemini App Functions):
+Full plan: [`assistant-update.md`](assistant-update.md).
 
 - **Phase 1 — Core Voice Actions & Quick Controls (iOS + Android, Offline):**
-  upgrade iOS `AppIntents` (`Category` `AppEnum`, `Wallet` `AppEntity` names
-  only, `NoSpendTodayIntent`, iOS 18+ Control Center `ControlWidget`, EN/BM/ZH
-  Siri phrases) + Android `shortcuts.xml` App Actions, dynamic shortcuts, and
+  iOS `AppIntents` (`Category` `AppEnum`, `Wallet` `AppEntity` names only,
+  `NoSpendTodayIntent`, iOS 18+ Control Center `ControlWidget`, EN/BM/ZH Siri
+  phrases) + Android `shortcuts.xml` App Actions, dynamic search shortcuts, and
   Quick Settings `TileService`.
 - **Phase 2 — Natural Voice & Sentence Entry (On-Device + Cloud AI+):**
-  shared `duitful://action/voice?text=...` contract + Home mic button so Siri,
-  Google Assistant/Gemini, and Web all parse natural Malay/English/Chinese
-  sentences (*"dua belas ringgit nasi lemak pakai MAE"*) for 1-tap confirmation.
-- **Phase 3 — Multi-Step Assistant Flows: "Log & Split with Ali" (Cloud AI+):**
-  compound voice commands (*"log my RM 40 food spending and request half from
-  Ali"*) parsed via Gemini 2.5 Flash-Lite with local math verification, creating
-  a linked spend + split request in 1 tap and opening WhatsApp / Share pre-filled
-  to send (plus returning the formatted request from iOS Shortcuts for power-user
-  chaining — respecting iOS/Android's rule against silent background messaging).
-- **Phase 4 — Deep OS Integration:** Apple Assistant Schemas (once finance
-  domain ships), Android Jetpack `@AppFunction` for Gemini, and interactive
-  home-screen widget *"No spend today"* streak check-in.
+  shared `duitful://action/voice?text=...` contract + Home mic button for EN /
+  BM / Manglish / 中文.
+- **Phase 3 — Multi-Step "Log & Split with Ali" (Cloud AI+):**
+  one sentence logs the spend, computes & creates the linked split locally, and
+  opens WhatsApp / Share pre-filled to send (plus iOS Shortcuts output chaining;
+  respects OS rule against silent background messaging).
+- **Phase 4 — Deep OS Integration:**
+  Apple Assistant Schemas (once finance domain ships), Android Jetpack
+  `@AppFunction` for Gemini, and interactive home-screen widget *"No spend
+  today"* check-in.
 
-## Native Apple & Google frameworks (requested 25 Nov 2026)
+---
 
-Platform kits worth adding next (all privacy-first, on-device, zero cloud
-lock-in). For reference, Duitful already ships Apple Vision, VisionKit,
-FoundationModels, WidgetKit, CloudKit, StoreKit, CryptoKit, and basic Siri &
-Shortcuts App Intents (`Log a spend` / `Scan a receipt` in `scripts/patch-ios.mjs`),
-plus Android ML Kit Document Scanner, bundled ML Kit Text Recognition, ML Kit
-GenAI (Gemini Nano in `DuitfulKitAi.java`), Play In-App Review, Play In-App
-Updates, WorkManager, Notification Listener, and Home Screen widgets.
+## 3. Native Platform Wins (3 Items)
 
-### Apple (iOS / iPadOS)
-1. **Control Center & Lock Screen Controls (`WidgetKit` `ControlWidget`, iOS 18+):**
-   one-tap **Log a spend** and **Scan a receipt** controls right in Control Center
-   and on the Lock Screen (reusing the existing `AppIntents` and
-   `duitful://action/scan` deep link).
-2. **App Intents expansion (Siri, Shortcuts, Spotlight & Interactive Widgets):**
-   - **Actions (`AppIntent`):** extend the existing `Log a spend` intent with
-     optional **Category** and **Card / Wallet** parameters (so Apple Pay Wallet
-     transaction automations carry which card was tapped), plus a one-tap
-     `No spend today` / quick-log intent usable from interactive widgets without
-     opening the app.
-   - **Entities (`AppEnum` / `AppEntity`):** expose Duitful's spending
-     categories (Food, Groceries, Transport, Bills, etc.) as an `AppEnum` and
-     wallet names (names only, never balances, cleared when locked) as an
-     `AppEntity` so Siri understands inline category phrases (*"Log a Food spend
-     in Duitful"*) and Shortcuts/Spotlight can pick them natively.
-   - **Assistant Schemas & localization:** adopt Apple's predefined Assistant
-     Schema for personal finance once Apple publishes a finance domain (so Siri
-     handles free-form phrasing without fixed trigger phrases), and add
-     localized Bahasa Melayu and Chinese Siri phrases (`AppShortcuts.strings`).
-3. **iOS Share Extension:** share a PDF bank statement, Borang EA, or receipt
-   image straight from WhatsApp, Files, or banking apps into Duitful without
-   saving to Photos first (matching Android's share-intent receiver).
-4. **Google Drive backup & sync on Apple (iPhone / iPad):** enable full Google
-   Drive encrypted backup & sync alongside iCloud in the iOS/iPadOS app so
-   people who use both Apple and Android/Windows/web devices can keep one
-   cross-platform cloud backup. (`@capgo/capacitor-social-login`, `iosClientId`,
-   and the reversed-client-ID URL scheme in `scripts/patch-ios.mjs` are already
-   wired in `app/drive-sync.js`; currently gated behind `DRIVE_CONFIG.iosEnabled:
-   false` in `app/drive-config.js` — flip `iosEnabled: true`, verify Google
-   OAuth consent screen / App Review sign-in flow on iPhone & iPad, and ensure
-   Settings → Cloud backup offers both iCloud and Google Drive cleanly.)
-5. *(Not doing for now)* **FinanceKit:** US/UK-only and does not cover Malaysian
-   banks.
+1. **Google Drive backup & sync on Apple (iPhone / iPad):** flip
+   `DRIVE_CONFIG.iosEnabled: true` in `app/drive-config.js` (wiring already in
+   `app/drive-sync.js` & `scripts/patch-ios.mjs`), verify Google OAuth & App
+   Review sign-in on iPhone/iPad, and offer Google Drive alongside iCloud for
+   cross-platform sync.
+2. **iOS Share Extension:** share PDF statements, Borang EA, or receipt images
+   straight from WhatsApp, Files, or banking apps into Duitful (matching
+   Android).
+3. **Android unbundled ML Kit Text Recognition v2 (Play Services):** move
+   Android text reading off the bundled plugin to Play Services (Latin +
+   Chinese, smaller APK).
 
-### Google (Android)
-1. **Unbundled ML Kit Text Recognition v2 (Play Services, inside `DuitfulKit`):**
-   move Android text reading off the bundled `@pantrist/capacitor-plugin-ml-kit-text-recognition`
-   plugin + Tesseract fallback onto Play Services' unbundled ML Kit Text
-   Recognition v2 (Latin + Chinese script support), matching iOS Vision's
-   accuracy/speed while shrinking the Android APK/AAB further.
-2. **Quick Settings Tile (`TileService`) & App Actions (`shortcuts.xml`):**
-   swipe-down 1-tap **Scan receipt** / **Log spend** tile in the Android Quick
-   Settings shade, plus Google Assistant / Gemini voice actions matching iOS
-   Siri Shortcuts.
-3. **Jetpack Glance widgets (optional):** modernize Android's `RemoteViews`
-   home-screen widget if richer interactive layouts are added later.
+---
 
-## Open decisions
+## 4. Small Polish, v2 Follow-Ups & Owner Checklist
 
-- **Bank alerts by SMS**: many MY banks send card alerts by SMS, which
-  auto-capture doesn't read. Reading them needs a strict sender-name filter
-  (MAYBANK, CIMB…) so personal messages are never touched. A privacy
-  decision for the owner.
+- **v2 feature follow-ups:** TNB / water bill scan for recurring splits
+  ([`recurring-splits.md`](recurring-splits.md)), wallets v2 ideas
+  ([`wallets.md`](wallets.md)), and an optional streak count tile (count only,
+  no balances) on the home-screen widget.
+- **Real-device checks:** test iPhone `1.64.0` Apple Vision scanning (receipts,
+  statements, EA) on TestFlight; confirm keyboard fix on Android 16 Samsung;
+  check crooked-photo OCR on scanned statements.
+- **Manual store steps (owner):**
+  - Paste updated Play description from `PLAY_LISTING.md` into Play Console.
+  - Paste updated App Store description from `APP_STORE_LISTING.md` on the next
+    App Store submission.
 
-## Manual steps for the owner
+---
 
-- Paste the new Play description from `PLAY_LISTING.md` into Play Console
-  (1.56.1 AI text, 1.57.0 statement import).
-- App Store description from `APP_STORE_LISTING.md` goes with the next App
-  Store submission.
+## Someday / Parked
+
+- **Natural-language search & auto-subscription spotting** (nice-to-have AI
+  additions after AI+ v1 ships).
+- **Self-improving community rules server** ([`self-improving-rules.md`](self-improving-rules.md))
+  — deferred since Cloud AI+ (Gemini) already handles unknown layouts cleanly.
+- **Bank alerts by SMS** — parked due to strict Google Play SMS permission
+  review risk; Android notification capture + PDF import cover most users.
+- **Jetpack Glance widgets** (Android) & **FinanceKit** (iOS, US/UK-only) — not
+  needed right now.
