@@ -295,7 +295,16 @@ Updates, WorkManager, Notification Listener, and Home Screen widgets.
 3. **iOS Share Extension:** share a PDF bank statement, Borang EA, or receipt
    image straight from WhatsApp, Files, or banking apps into Duitful without
    saving to Photos first (matching Android's share-intent receiver).
-4. *(Not doing for now)* **FinanceKit:** US/UK-only and does not cover Malaysian
+4. **Google Drive backup & sync on Apple (iPhone / iPad):** enable full Google
+   Drive encrypted backup & sync alongside iCloud in the iOS/iPadOS app so
+   people who use both Apple and Android/Windows/web devices can keep one
+   cross-platform cloud backup. (`@capgo/capacitor-social-login`, `iosClientId`,
+   and the reversed-client-ID URL scheme in `scripts/patch-ios.mjs` are already
+   wired in `app/drive-sync.js`; currently gated behind `DRIVE_CONFIG.iosEnabled:
+   false` in `app/drive-config.js` — flip `iosEnabled: true`, verify Google
+   OAuth consent screen / App Review sign-in flow on iPhone & iPad, and ensure
+   Settings → Cloud backup offers both iCloud and Google Drive cleanly.)
+5. *(Not doing for now)* **FinanceKit:** US/UK-only and does not cover Malaysian
    banks.
 
 ### Google (Android)

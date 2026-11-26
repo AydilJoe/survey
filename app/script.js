@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.66.2";
+const APP_VERSION = "1.66.3";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4980,7 +4980,11 @@ async function fireDueNotifications() {
       // back in the middle as the keyboard went down moved the Save / Next
       // button out from under the finger that was tapping it, and the tap
       // was lost (it took several taps to get through a form).
-      if (open) document.querySelectorAll("dialog[open]").forEach((d) => d.setAttribute("data-kb-pinned", ""));
+      if (open) {
+        document.querySelectorAll("dialog[open]").forEach((d) => d.setAttribute("data-kb-pinned", ""));
+        const lockEl = document.getElementById("lock");
+        if (lockEl && !lockEl.hidden) lockEl.setAttribute("data-kb-pinned", "");
+      }
     }
     clearTimeout(settle);
     if (open) settle = setTimeout(reveal, 120);
@@ -7533,6 +7537,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.66.3": [
+    "<strong>Fix: passcode form stays above the keyboard</strong> — tapping <strong>Set a passcode</strong> or unlocking on the welcome screen now lifts the passcode fields and button into the upper half of the screen so the phone's keyboard never covers them.",
+  ],
   "1.66.2": [
     "<strong>Escalating Malaysian-style streak reminders</strong> — evening check-in reminders now match your streak: 10 calm lines for days 0–6, 10 playful Malaysian nudges for days 7–29 (<em>\"Takkan nak hilang streak?\"</em>), and 10 full-drama reminders for 30+ days across English, Bahasa Melayu, and 中文 — still with zero amounts ever shown.",
   ],
@@ -8451,6 +8458,7 @@ let setupWantsPasscode = false;
 let lockRestoreSource = "drive";
 function setLockMode(mode) {
   lockMode = mode;
+  const lock = document.getElementById("lock");
   const sub = document.getElementById("lock-sub");
   const submit = document.getElementById("lock-submit");
   const confirmEl = document.getElementById("lock-confirm");
@@ -8462,8 +8470,15 @@ function setLockMode(mode) {
   if (err) { err.hidden = true; err.textContent = ""; }
   if (input) { input.placeholder = tr("Passcode"); input.value = ""; }
   if (confirmEl) confirmEl.value = "";
-  if (welcome) welcome.hidden = !(mode === "setup" || mode === "migrate");
   const choosing = mode === "setup" && !setupWantsPasscode;
+  // Once passcode fields are shown, step the welcome blurb + chips aside and
+  // lift the form into the upper half of #lock so the keyboard never hides it.
+  if (welcome) welcome.hidden = !choosing;
+  if (lock) {
+    lock.classList.toggle("is-passcode", !choosing);
+    lock.removeAttribute("data-kb-pinned");
+    lock.scrollTop = 0;
+  }
   const start = document.getElementById("lock-start");
   const form = document.getElementById("lock-form");
   const startOpen = document.getElementById("btn-start-open");
@@ -8523,6 +8538,7 @@ function hideLock() {
   if (!lock) return;
   lock.hidden = true;
   lock.setAttribute("aria-hidden", "true");
+  lock.removeAttribute("data-kb-pinned");
   const input = document.getElementById("lock-input");
   const confirmEl = document.getElementById("lock-confirm");
   if (input) input.value = "";

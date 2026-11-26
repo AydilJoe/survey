@@ -9446,6 +9446,50 @@ html[data-theme="pastel"] #lock .lock-google:hover {
 }
 
 #lock.is-opening .lock-legal { visibility: hidden; }
+#lock {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+/* Passcode entry (Set a passcode / Unlock / Restore / Migrate): lift the brand
+   and passcode form into the upper half of the screen so the phone's keyboard
+   never covers the fields or submit button, while keeping the legal footer at
+   the bottom when the keyboard is down. */
+#lock.is-passcode > .splash-inner {
+  padding-top: calc(env(safe-area-inset-top, 0px) + clamp(2.25rem, 9vh, 5rem));
+}
+#lock.is-passcode .lock-actions {
+  margin-top: 1.1rem;
+  padding-top: 0;
+}
+#lock.is-passcode .lock-legal {
+  margin-top: auto;
+  padding-top: 1.5rem;
+}
+/* On-screen keyboard open: fit #lock to the visible viewport above the keyboard
+   (same --kb-top / --kb-vh contract as dialog:modal) and keep the lifted top
+   position pinned when the keyboard closes so tapping Create passcode / Unlock
+   never misses. */
+html.kb-open #lock {
+  top: var(--kb-top, 0px);
+  bottom: auto;
+  height: var(--kb-vh, 100dvh);
+}
+html.kb-open #lock > .splash-inner,
+html:not(.kb-open) #lock[data-kb-pinned] > .splash-inner {
+  min-height: 100%;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.85rem);
+  padding-bottom: 0.85rem;
+}
+html.kb-open #lock .lock-actions,
+html:not(.kb-open) #lock[data-kb-pinned] .lock-actions {
+  margin-top: 0.75rem;
+  padding-top: 0;
+}
+html.kb-open #lock .lock-restore,
+html.kb-open #lock .lock-legal {
+  display: none;
+}
 #lock .lock-start[hidden],
 #lock .lock-form[hidden],
 #lock .lock-restore[hidden],
