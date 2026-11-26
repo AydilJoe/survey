@@ -916,7 +916,7 @@ async function recordNativeAttribution(receipt) {
       promo: activePromo && activePromo.code ? activePromo.code : "",
       appVersion: APP_VERSION,
     };
-    await fetch("https://duitful.app/api/native/record-purchase", {
+    await fetch("https://duitful.app/api/native/record-purchase/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -1705,7 +1705,7 @@ document.getElementById("fpx-continue")?.addEventListener("click", async () => {
   if (btn) { btn.disabled = true; btn.textContent = tr("Redirecting…"); }
   try {
     const referrerCode = storedReferralCode();
-    const r = await fetch("/api/billplz/create-bill", {
+    const r = await fetch("/api/billplz/create-bill/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

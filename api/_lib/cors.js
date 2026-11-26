@@ -19,7 +19,7 @@ function cors(req, res, methods) {
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin(origin, process.env.APP_BASE_URL));
   res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", methods);
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") { res.status(204).end(); return true; }
   return false;
 }
