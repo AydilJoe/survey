@@ -644,5 +644,13 @@
   "A bit over this month. It happens.": "Terlebih sikit bulan ni. Biasalah tu.",
   "A pool is a bit over. It happens.": "Satu bajet terlebih sikit. Biasalah tu.",
   "{name} reached. Well done.": "{name} dah tercapai. Syabas!",
-  "Your goal": "Matlamat anda"
+  "Your goal": "Matlamat anda",
+  "Read with Duitful AI+ (cloud)": "Baca dengan Duitful AI+ (awan)",
+  "Sends this statement's text to Duitful AI+, with account numbers, phone numbers and emails removed first. The figures must still add up before anything imports.": "Teks penyata ini dihantar ke Duitful AI+ selepas nombor akaun, nombor telefon dan e-mel dibuang dahulu. Angkanya masih mesti tepat sebelum apa-apa diimport.",
+  "Suggested by Duitful AI+ (cloud)": "Dicadangkan oleh Duitful AI+ (awan)",
+  "Reading with Duitful AI+ (cloud)…": "Membaca dengan Duitful AI+ (awan)…",
+  "Duitful AI+ couldn't read this one. Your review is unchanged.": "Duitful AI+ tidak dapat membaca yang ini. Semakan anda tidak berubah.",
+  "Read by Duitful AI+ (cloud)": "Dibaca oleh Duitful AI+ (awan)",
+  "Tidying payee names": "Mengemas nama penerima",
+  "AI+ is tidying payee names": "AI+ sedang mengemas nama penerima"
 }

@@ -16228,6 +16228,91 @@ check('the brand catalogue makes no network calls at all',
   check('ai+ quota fallback: reaching 1,000 text cap returns null cleanly without blocking',
     quotaFallback === null, JSON.stringify(quotaFallback));
 
+  // Statement import with AI+ (statement-read + payee-clean), fetch to /api/ai/ mocked.
+  const stmtPlus = await aip.evaluate(async () => {
+    const out = {};
+    const realFetch = window.fetch;
+    const calls = [];
+    let mode = 'good';
+    const canned = (task, input) => {
+      if (task === 'statement-read') {
+        const rows = [
+          { date: '2026-11-01', desc: 'PYMT*GRAB 8812 KL', amount: 20, dir: 'out', balance: 80 },
+          { date: '2026-11-02', desc: 'SALARY CONTOH SDN BHD', amount: 500, dir: 'in', balance: mode === 'bad' ? 500 : 580 },
+          { date: '2026-11-03', desc: 'INVENTED SHOP', amount: 999, dir: 'out' }];   // 999 is not printed: dropped
+        return { opening: 100, closing: 580, rows };
+      }
+      if (task === 'payee-clean') return { payee: /GRAB/.test(input.raw) ? 'GRAB' : 'Zzz Invented' };   // invented words: refused
+      return null;
+    };
+    window.fetch = async (url, init) => {
+      if (String(url).includes('/api/ai')) {
+        const bd = JSON.parse(init.body); calls.push(bd.task);
+        return new Response(JSON.stringify({ ok: true, result: canned(bd.task, bd.input) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return realFetch(url, init);
+    };
+    const lines = ['Opening 100.00', 'Nov 1 PYMT*GRAB 8812 KL out 20.00 bal 80.00', 'Nov 2 SALARY CONTOH SDN BHD in 500.00 bal 580.00', 'Closing 580.00']
+      .map((t, i) => ({ text: t, page: 1, y: 800 - i * 20 }));
+    const settle = () => new Promise((r) => setTimeout(r, 1200));
+    try {
+      state.aiPlusEnabled = true; state.aiPlusDisclosureSeen = true;
+      state.aiPlusPreviewedKinds = { statement: true, payee: true };
+      // Off: no offer, no call.
+      state.aiSub = null;
+      openStatementImport();
+      await showStatementReview({ lines });
+      await settle();
+      out.off = { offer: !document.getElementById('stmt-cloud').hidden, calls: calls.length };
+      document.getElementById('stmt-dialog').close();
+      // On: offered because the phone's read finds no rows; the read checks out.
+      state.aiSub = { active: true, expiresAt: Date.now() + 86400000, subToken: 'tok' };
+      openStatementImport();
+      await showStatementReview({ lines });
+      out.offer = !document.getElementById('stmt-cloud').hidden;
+      const beforeCalls = calls.length;
+      document.getElementById('stmt-cloud-read').click();
+      await settle();
+      out.on = {
+        rows: stmtUi.items.map((i) => [i.payee, i.amount, i.kind]),
+        status: stmtUi.recon.status, scanned: stmtUi.parsed.scanned,
+        tags: document.querySelectorAll('#stmt-list .ai-plus-badge.stmt-ai').length,
+        offerAfter: !document.getElementById('stmt-cloud').hidden,
+        importOff: document.getElementById('stmt-import').disabled,
+        used: calls.slice(beforeCalls),
+        fit: document.getElementById('stmt-dialog').scrollWidth <= document.getElementById('stmt-dialog').clientWidth + 1,
+      };
+      // A payee the person typed is never asked or overwritten.
+      const mk = (desc, extra) => ({ kind: 'spend', row: { desc }, payee: desc, ...extra });
+      const probe = [mk('PYMT*GRAB 1', { payee: 'My own name', userPayee: true }), mk('PYMT*GRAB 2', { userCat: true }), mk('PYMT*GRAB 3')];
+      const c0 = calls.length;
+      await statementCloudPayees(probe, {});
+      out.mine = { names: probe.map((i) => i.payee), asked: calls.length - c0 };
+      // A read that does not add up still can't import (scan rule).
+      document.getElementById('stmt-dialog').close();
+      mode = 'bad';
+      openStatementImport();
+      await showStatementReview({ lines });
+      document.getElementById('stmt-cloud-read').click();
+      await settle();
+      out.bad = { status: stmtUi.recon.status, blocked: stmtScanBlocked(), refused: statementImportNow() };
+    } finally {
+      window.fetch = realFetch;
+      try { document.getElementById('stmt-dialog').close(); } catch {}
+      state.aiSub = null;
+    }
+    return out;
+  });
+  check('ai+ statement: off = no offer and no call; on, the read is offered when the phone finds nothing that checks out, keeps only printed amounts, tags rows AI+ and still has to reconcile',
+    stmtPlus.off.offer === false && stmtPlus.off.calls === 0 && stmtPlus.offer === true
+    && JSON.stringify(stmtPlus.on.rows) === JSON.stringify([['GRAB', 20, 'spend'], ['SALARY CONTOH SDN BHD', 500, 'income']])
+    && stmtPlus.on.status === 'ok' && stmtPlus.on.scanned === true && stmtPlus.on.tags === 2 && stmtPlus.on.offerAfter === false && stmtPlus.on.importOff === false
+    && stmtPlus.on.used[0] === 'statement-read' && stmtPlus.on.fit,
+    JSON.stringify(stmtPlus));
+  check('ai+ statement: payee names you typed are never overwritten, and a read that does not add up cannot be imported',
+    stmtPlus.mine.names[0] === 'My own name' && stmtPlus.mine.names[1] === 'PYMT*GRAB 2' && stmtPlus.mine.names[2] === 'GRAB' && stmtPlus.mine.asked === 1 && stmtPlus.bad.status === 'mismatch' && stmtPlus.bad.blocked === true && stmtPlus.bad.refused === false,
+    JSON.stringify({ mine: stmtPlus.mine, bad: stmtPlus.bad }));
+
   // Phase 2: StoreKit 2 / Play Billing subscription receipt keeps state.pro separate,
   // encrypted backup reconnect syncs status, Web paywall is pair-only, and no LAUNCH100 on iOS.
   const subChecks = await aip.evaluate(async () => {

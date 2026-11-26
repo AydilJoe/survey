@@ -8439,6 +8439,11 @@ button:disabled, button[aria-disabled="true"] { transition-property: background-
 .stmt-dialog { max-width: 520px; }
 .stmt-privacy { margin: -0.1rem 0 0.3rem; }
 .stmt-summary { margin: 0; font-size: 0.9rem; color: var(--ink2); }
+.stmt-cloud { display: grid; gap: 0.35rem; justify-items: start; min-width: 0; }
+.stmt-cloud .hint { margin: 0; }
+.stmt-cloud button { max-width: 100%; white-space: normal; }
+.stmt-ai.ai-plus-badge { flex: none; padding: 0 0.3rem; }
+.stmt-summary .ai-plus-badge { vertical-align: 0.05em; }
 .stmt-summary[data-status="ok"] { color: var(--gain); }
 .stmt-summary[data-status="mismatch"] { color: var(--warn); }
 .stmt-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.2rem 0; }
