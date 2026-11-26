@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.71.0";
+const APP_VERSION = "1.72.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -86,6 +86,8 @@ const emptyState = () => ({
   captureDiag: { lastDrainAt: 0, items: [] },
   aiIntroSeen: false,
   aiIntroShownOn: "",
+  aiPlusEnabled: false,
+  aiSub: null,
   guideSeen: false,
   deviceId: "",
   lastEditedAt: "",
@@ -361,6 +363,8 @@ function coerceState(parsed) {
       captureDiag: coerceCaptureDiag(parsed.captureDiag),
       aiIntroSeen: !!parsed.aiIntroSeen,
       aiIntroShownOn: typeof parsed.aiIntroShownOn === "string" ? parsed.aiIntroShownOn : "",
+      aiPlusEnabled: !!parsed.aiPlusEnabled,
+      aiSub: parsed.aiSub && typeof parsed.aiSub === "object" && !Array.isArray(parsed.aiSub) ? parsed.aiSub : null,
       guideSeen: !!parsed.guideSeen,
       deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : "",
       lastEditedAt: typeof parsed.lastEditedAt === "string" ? parsed.lastEditedAt : "",
@@ -7590,6 +7594,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.72.0": [
+    "<strong>Duitful AI+ foundation and leaner backend</strong> — behind-the-scenes server cleanup and early foundation for Duitful AI+ (still hidden until launch). Nothing changes in your daily flow yet.",
+  ],
   "1.71.0": [
     "<strong>Meet Kira</strong> — a small receipt friend now waves hello when you start, keeps empty lists company, hops when you log a spend and naps on a no-spend day. When Kira holds the sempoa, your phone's own AI is working. Kira never sits on your numbers.",
   ],

@@ -383,7 +383,7 @@ async function verifyBillById(id, sourceBtn) {
   target.textContent = "Looking up…";
 
   try {
-    const url = `/api/admin/billplz-bill?id=${encodeURIComponent(id)}`;
+    const url = `/api/admin/ops?op=billplz-bill&id=${encodeURIComponent(id)}`;
     const { r, parsed } = await debugFetch(`single-bill ${id}`, url, {
       headers: { "x-admin-key": key },
     });

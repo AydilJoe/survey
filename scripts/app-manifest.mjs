@@ -69,6 +69,8 @@ export const APP_MANIFEST = {
     "voice.js",
     "cloud.js",
     "capture.js",
+    "ai-redact.js",
+    "ai-cloud.js",
     "pro.js",
     "ocr.js",
     "script.js",

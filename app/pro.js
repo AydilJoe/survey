@@ -241,9 +241,9 @@ function trialExpired() {
 }
 
 function isPro() {
-  // Real Pro (paid) OR within the trial window. Both surfaces share
-  // this gate. state.pro = true means user has actually paid via IAP / license.
-  return !!(state && (state.pro || isTrialActive()));
+  // Real Pro (paid), active trial, OR active Duitful AI+ subscription.
+  // state.pro and state.aiSub stay separate so cancelling AI+ never removes Lifetime Pro.
+  return !!(state && (state.pro || isTrialActive() || (typeof aiSubIsActive === "function" && aiSubIsActive(state.aiSub))));
 }
 function canOcr() {
   if (isPro()) return true;
