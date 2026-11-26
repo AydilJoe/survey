@@ -11,7 +11,7 @@
    - Keeps state.pro (Lifetime Pro) and state.aiSub (AI+ subscription) separate. */
 
 const AI_CLOUD_ENDPOINT = "/api/ai";
-const AI_PLUS_DEFAULT_FLAG = false;
+const AI_PLUS_DEFAULT_FLAG = true;
 
 const AI_PLUS_PRICES = Object.freeze({
   monthly: "RM 4.90",
@@ -32,7 +32,7 @@ function aiPriceLabel(plan, opts) {
 function aiPlusFlagOn() {
   if (typeof window !== "undefined" && window.__AI_PLUS_FLAG__ === true) return true;
   if (typeof window !== "undefined" && window.__AI_PLUS_FLAG__ === false) return false;
-  if (typeof state !== "undefined" && state && state.flags && state.flags.aiPlus === true) return true;
+  if (typeof state !== "undefined" && state && state.flags && state.flags.aiPlus === false) return false;
   return AI_PLUS_DEFAULT_FLAG;
 }
 
@@ -168,13 +168,71 @@ function aiMergeStatusSnapshot(status) {
   renderAiCloudSettings();
 }
 
+/* ---------- First-send-per-kind redacted preview ---------- */
+function aiTaskKind(task) {
+  if (task === "receipt-read") return "receipt";
+  if (task === "statement-read") return "statement";
+  if (task === "ea-read" || task === "loan-read") return "document";
+  if (task === "voice-entry") return "voice";
+  if (task === "split-match" || task === "split-items") return "split";
+  return "payee";
+}
+
+function aiBuildRedactedPreview(task, redacted) {
+  if (!redacted || typeof redacted !== "object") return "";
+  const snippet = redacted.ocrText || redacted.text || redacted.sentence || redacted.lines || redacted.raw || redacted.sender || "";
+  const imgNote = redacted.image ? "[downscaled image <=1280px]\n" : "";
+  return (imgNote + String(snippet).slice(0, 400)).trim() || task;
+}
+
+function aiConfirmFirstSend(task, redacted) {
+  if (typeof state === "undefined" || !state) return Promise.resolve(true);
+  const kind = aiTaskKind(task);
+  if (state.aiPlusPreviewedKinds && state.aiPlusPreviewedKinds[kind]) return Promise.resolve(true);
+  if (typeof document === "undefined") return Promise.resolve(true);
+  const dlg = document.getElementById("ai-preview-dialog");
+  if (!dlg) {
+    state.aiPlusPreviewedKinds = { ...(state.aiPlusPreviewedKinds || {}), [kind]: true };
+    if (typeof save === "function") save();
+    return Promise.resolve(true);
+  }
+  const pre = document.getElementById("ai-preview-body");
+  if (pre) pre.textContent = aiBuildRedactedPreview(task, redacted);
+  return new Promise((resolve) => {
+    const okBtn = document.getElementById("ai-preview-send");
+    const cancelBtn = document.getElementById("ai-preview-cancel");
+    const finish = (accepted) => {
+      if (okBtn) okBtn.onclick = null;
+      if (cancelBtn) cancelBtn.onclick = null;
+      if (dlg.open && typeof dlg.close === "function") dlg.close();
+      if (accepted) {
+        state.aiPlusPreviewedKinds = { ...(state.aiPlusPreviewedKinds || {}), [kind]: true };
+        if (typeof save === "function") save();
+      }
+      resolve(accepted);
+    };
+    if (okBtn) okBtn.onclick = () => finish(true);
+    if (cancelBtn) cancelBtn.onclick = () => finish(false);
+    if (typeof dlg.showModal === "function") {
+      if (!dlg.open) dlg.showModal();
+    } else {
+      dlg.setAttribute("open", "");
+    }
+  });
+}
+
 /* ---------- Core task runner ---------- */
-async function aiCloudRun(task, input) {
+async function aiCloudRun(task, input, opts) {
   if (!aiCloudAllowed()) return null;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
 
   const redacted = typeof redactForCloudAi === "function" ? redactForCloudAi(input, task) : input;
-  try {
+  if (!(opts && opts.skipPreview)) {
+    const approved = await aiConfirmFirstSend(task, redacted);
+    if (!approved) return null;
+  }
+
+  const doFetch = async () => {
     const r = await fetch(`${aiCloudApiBase()}?op=run`, {
       method: "POST",
       headers: {
@@ -195,10 +253,30 @@ async function aiCloudRun(task, input) {
     }
     if (!r.ok || !data || !data.ok || !data.result) return null;
     return aiCloudCheck(task, redacted, data.result);
+  };
+
+  try {
+    if (typeof withAiThinking === "function") {
+      return await withAiThinking(doFetch, {
+        overlay: !!(opts && opts.overlay),
+        label: typeof tr === "function" ? tr("Duitful AI+ (cloud)") : "Duitful AI+ (cloud)",
+        timeoutMs: 36000,
+      });
+    }
+    return await doFetch();
   } catch (_) {
     return null;
   }
 }
+
+/* ---------- v1 Task Helpers (all fall back cleanly to null) ---------- */
+const aiCloudReadReceipt = (input, opts) => aiCloudRun("receipt-read", input, { overlay: true, ...(opts || {}) });
+const aiCloudReadStatement = (input, opts) => aiCloudRun("statement-read", input, { overlay: true, ...(opts || {}) });
+const aiCloudReadEa = (input, opts) => aiCloudRun("ea-read", input, { overlay: true, ...(opts || {}) });
+const aiCloudReadLoan = (input, opts) => aiCloudRun("loan-read", input, { overlay: true, ...(opts || {}) });
+const aiCloudMatchSplit = (input, opts) => aiCloudRun("split-match", input, opts);
+const aiCloudTidySplitItems = (input, opts) => aiCloudRun("split-items", input, opts);
+const aiCloudCleanPayee = (raw, opts) => aiCloudRun("payee-clean", { raw: String(raw || "").slice(0, 120) }, opts);
 
 /* ---------- Pairing & status ---------- */
 async function aiPairStart() {
@@ -300,7 +378,9 @@ function renderAiCloudSettings() {
       meter.textContent = `${scansUsed} of ${scansLimit} scans · ${textUsed} of ${textLimit} smart actions · ${devs} of ${maxDevs} devices`;
       meter.hidden = false;
     } else {
-      meter.textContent = `Duitful AI+ (${aiPriceLabel("monthly")} or ${aiPriceLabel("yearly")}) — pair a device with a 6-digit code.`;
+      meter.textContent = typeof tr === "function"
+        ? tr("Optional cloud AI subscription — tap Manage Duitful AI+ or pair with a 6-digit code.")
+        : "Optional cloud AI subscription — tap Manage Duitful AI+ or pair with a 6-digit code.";
       meter.hidden = false;
     }
   }
@@ -316,6 +396,29 @@ function wireAiCloudSettings() {
     toggle.dataset.wired = "1";
     toggle.addEventListener("change", () => {
       if (typeof state === "undefined" || !state) return;
+      if (toggle.checked && !state.aiPlusDisclosureSeen) {
+        const dlg = document.getElementById("ai-disclosure-dialog");
+        if (dlg) {
+          toggle.checked = false;
+          const okBtn = document.getElementById("ai-disclosure-accept");
+          const cancelBtn = document.getElementById("ai-disclosure-cancel");
+          const done = (accepted) => {
+            if (okBtn) okBtn.onclick = null;
+            if (cancelBtn) cancelBtn.onclick = null;
+            if (dlg.open && typeof dlg.close === "function") dlg.close();
+            if (accepted) {
+              state.aiPlusDisclosureSeen = true;
+              state.aiPlusEnabled = true;
+              if (typeof save === "function") save();
+              renderAiCloudSettings();
+            }
+          };
+          if (okBtn) okBtn.onclick = () => done(true);
+          if (cancelBtn) cancelBtn.onclick = () => done(false);
+          if (typeof dlg.showModal === "function") { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute("open", "");
+          return;
+        }
+      }
       state.aiPlusEnabled = !!toggle.checked;
       if (typeof save === "function") save();
       renderAiCloudSettings();
@@ -639,5 +742,12 @@ if (typeof window !== "undefined") {
   window.aiReconnectAfterBackupRestore = aiReconnectAfterBackupRestore;
   window.openAiPaywall = openAiPaywall;
   window.closeAiPaywall = closeAiPaywall;
+  window.aiCloudReadReceipt = aiCloudReadReceipt;
+  window.aiCloudReadStatement = aiCloudReadStatement;
+  window.aiCloudReadEa = aiCloudReadEa;
+  window.aiCloudReadLoan = aiCloudReadLoan;
+  window.aiCloudMatchSplit = aiCloudMatchSplit;
+  window.aiCloudTidySplitItems = aiCloudTidySplitItems;
+  window.aiCloudCleanPayee = aiCloudCleanPayee;
 }
 

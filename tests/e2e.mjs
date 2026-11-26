@@ -16133,7 +16133,8 @@ check('the brand catalogue makes no network calls at all',
   await aip.waitForTimeout(1500);
 
   const clientChecks = await aip.evaluate(async () => {
-    const cardHiddenByDefault = document.getElementById('ai-cloud-card').hidden === true;
+    const cardShownByDefault = document.getElementById('ai-cloud-card').hidden === false;
+    const toggleOffByDefault = document.getElementById('ai-cloud-toggle').checked === false && state.aiPlusEnabled === false;
     const offRes = await aiCloudRun('payee-clean', { raw: 'PYMT*GRAB 8812 KL' });
 
     // On-device redaction check
@@ -16158,11 +16159,11 @@ check('the brand catalogue makes no network calls at all',
       proYr: aiPriceLabel('yearly', { proOwner: true }),
     };
 
-    return { cardHiddenByDefault, offRes, redactionOk, red, proViaSub, proKeptAfterCancel, prices };
+    return { cardShownByDefault, toggleOffByDefault, offRes, redactionOk, red, proViaSub, proKeptAfterCancel, prices };
   });
 
-  check('ai+ client: hidden by default, zero network calls when off, redacts PII while keeping amounts/dates',
-    clientChecks.cardHiddenByDefault && clientChecks.offRes === null && aiHits === 0 && clientChecks.redactionOk,
+  check('ai+ client: off by default, zero network calls when off, redacts PII while keeping amounts/dates',
+    clientChecks.cardShownByDefault && clientChecks.toggleOffByDefault && clientChecks.offRes === null && aiHits === 0 && clientChecks.redactionOk,
     JSON.stringify({ ...clientChecks, aiHits }));
 
   check('ai+ entitlement: state.pro || aiSubIsActive(), cancelling AI+ keeps Lifetime Pro, single price source',
@@ -16170,20 +16171,42 @@ check('the brand catalogue makes no network calls at all',
     && clientChecks.prices.stdMo === 'RM 4.90/month' && clientChecks.prices.proYr === 'RM 35/year',
     JSON.stringify(clientChecks));
 
-  // Turn flag + opt-in on in browser, pair via real api/ai.js, run payee-clean, then hit quota cap
+  // First-send redacted preview + live browser aiCloudRun via real api/ai.js
   stubResult = { payee: 'Grab' };
   const liveRun = await aip.evaluate(async (token) => {
-    window.__AI_PLUS_FLAG__ = true;
+    state.aiPlusDisclosureSeen = true;
     state.aiPlusEnabled = true;
+    state.aiPlusPreviewedKinds = {};
     state.aiSub = { active: true, expiresAt: Date.now() + 86400000, subToken: token };
     renderAiCloudSettings();
     const cardShown = document.getElementById('ai-cloud-card').hidden === false;
-    const res = await aiCloudRun('payee-clean', { raw: 'PYMT*GRAB 8812 KL' });
-    return { cardShown, res };
+    // Start run; first send of "payee" opens #ai-preview-dialog with redacted text
+    const p = aiCloudRun('payee-clean', { raw: 'PYMT*GRAB ali@example.my 8812 KL' });
+    await new Promise((r) => setTimeout(r, 50));
+    const previewOpen = document.getElementById('ai-preview-dialog').open === true;
+    const previewBody = document.getElementById('ai-preview-body').textContent || '';
+    const previewRedacted = !previewBody.includes('ali@example.my') && previewBody.includes('[email]');
+    document.getElementById('ai-preview-send').click();
+    const res = await p;
+    return { cardShown, previewOpen, previewRedacted, res };
   }, tok2);
-  check('ai+ browser E2E: flagged Settings card shows and aiCloudRun() succeeds via /api/ai?op=run',
-    liveRun.cardShown && liveRun.res?.payee === 'Grab' && aiHits >= 1,
+  check('ai+ browser E2E: shows redacted preview before first send of each kind and succeeds via /api/ai?op=run',
+    liveRun.cardShown && liveRun.previewOpen && liveRun.previewRedacted && liveRun.res?.payee === 'Grab' && aiHits >= 1,
     JSON.stringify({ liveRun, aiHits }));
+
+  // Privacy & store-label surfaces updated in the same release
+  const privFiles = [
+    'privacy/index.html',
+    'APP_STORE_LISTING.md',
+    'PLAY_LISTING.md',
+    'index.html',
+    'ms/index.html',
+    'llms.txt',
+    'VERIFYING-PRIVACY.md',
+  ];
+  const privMissing = privFiles.filter((f) => !/Duitful AI\+/i.test(readFileSync(path.join(REPO_ROOT, f), 'utf8')));
+  check('ai+ privacy surfaces: every policy, store listing, landing page, llms.txt, and VERIFYING-PRIVACY.md updated in same release',
+    privMissing.length === 0, `missing: ${privMissing.join(', ') || 'none'}`);
 
   // Simulate quota exhausted (1000/1000 text calls) -> 429 -> aiCloudRun returns null cleanly
   const kvStore = aiKv.store();

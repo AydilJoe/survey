@@ -609,8 +609,8 @@ function proCelebrationConfetti(host, count = 26) {
 // asserting RM 19.90 at someone who paid a promo price.
 function ensureProCelebrateBlock(dlg, paidLabel) {
   const receipt = paidLabel
-    ? tr("PAID ONCE · <strong>{price}</strong> · NO SUBSCRIPTION, EVER", { price: escapeHtml(paidLabel) })
-    : tr("PAID ONCE · <strong>NO SUBSCRIPTION, EVER</strong>");
+    ? tr("PAID ONCE · <strong>{price}</strong> · Pro is paid once — only Cloud AI is an optional subscription.", { price: escapeHtml(paidLabel) })
+    : tr("PAID ONCE · <strong>Pro is paid once — only Cloud AI is an optional subscription.</strong>");
   const existing = dlg.querySelector(".pro-celebrate");
   if (existing) {
     // Built on an earlier open without a known price; fill it in if we have

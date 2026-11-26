@@ -183,6 +183,15 @@ Apa baru dalam 1.46
 
 ---
 
+## Play Data safety (update when Duitful AI+ launches)
+
+- **Default (Free & Lifetime Pro):** No financial vault data is collected or shared. On-device OCR, statement parsing, and Gemini Nano run locally on the phone.
+- **Optional Duitful AI+ (`duitful_ai` subscription, off by default):** Only when the user subscribes and explicitly enables Duitful AI+ in Settings, Duitful sends a single redacted receipt/document image or short text snippet over HTTPS to `/api/ai?op=run` (Google Paid Gemini API, no model training).
+  - **Processed ephemerally:** Yes (Duitful stores zero request bodies, images, or outputs; only numeric monthly quota counters and 10-minute single-use pair codes).
+  - **Encrypted in transit:** Yes (TLS / HTTPS).
+  - **Shared with third parties for ads/tracking:** No.
+  - **Optional / user-controlled:** Yes — off by default, previewed before first send of each kind, and can be switched off anytime in Settings.
+
 ## What this does NOT fix
 
 The look. A person who reads the words will trust it more; a person who only

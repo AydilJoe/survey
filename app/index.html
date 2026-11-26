@@ -3224,6 +3224,37 @@
       </form>
     </dialog>
 
+    <!-- One-screen disclosure shown before enabling Duitful AI+ (cloud). -->
+    <dialog id="ai-disclosure-dialog" class="edit-dialog" aria-labelledby="ai-disclosure-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="ai-disclosure-title">Before you turn on Duitful AI+ (cloud)</h2>
+        <p class="hint">Duitful AI+ sends only the single receipt, statement chunk, document, or short phrase you ask it to read — never your vault, balances, debts, or history.</p>
+        <ul class="ai-cloud-list">
+          <li>NRIC, account and card numbers, emails, phone numbers, and street addresses are stripped on your device first.</li>
+          <li>Duitful stores zero request bodies, images, or AI outputs.</li>
+          <li>Uses Google's Paid Gemini API, where Google does not use your data to train models.</li>
+          <li>You can turn Duitful AI+ off anytime in Settings.</li>
+        </ul>
+        <div class="button-row">
+          <button type="button" class="primary" id="ai-disclosure-accept">Turn on Duitful AI+ (cloud)</button>
+          <button type="button" class="ghost" id="ai-disclosure-cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Redacted preview shown before the first cloud send of each data kind. -->
+    <dialog id="ai-preview-dialog" class="edit-dialog" aria-labelledby="ai-preview-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="ai-preview-title">Preview what leaves your device</h2>
+        <p class="hint">This redacted snippet will be sent to Duitful AI+ (cloud) for this task. Your vault is never sent.</p>
+        <pre id="ai-preview-body" style="white-space:pre-wrap;max-height:180px;overflow:auto;font-size:12px;"></pre>
+        <div class="button-row">
+          <button type="button" class="primary" id="ai-preview-send">Send to Duitful AI+ (cloud)</button>
+          <button type="button" class="ghost" id="ai-preview-cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- On-device AI, item by item: what it does on this platform (rows carry
          data-ai-on) and what it never does. Phone apps only; the header badge
          and Settings → On-device AI open it (openAiInfo in script.js). -->
@@ -3262,6 +3293,12 @@
           <li>It never makes up an amount.</li>
           <li>No chat, no advice.</li>
           <li>Nothing is saved until you OK it.</li>
+        </ul>
+        <h3 class="ai-info-group">Duitful AI+ (cloud, optional)</h3>
+        <ul class="ai-cloud-list">
+          <li>Off by default. Only runs when you subscribe and turn it on in Settings.</li>
+          <li>Reads receipts, statements, Borang EA, loan letters, voice entries, split matches, and raw payees (tagged AI+).</li>
+          <li>Redacted on your device first; never sends your vault; zero server storage; Google Paid Tier (no training).</li>
         </ul>
         <div class="ai-info-foot">
           <p class="ai-info-model" id="ai-info-model">Model: Gemini Nano</p>
@@ -3501,7 +3538,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=555a048d"></script>
+    <script src="i18n-langs.js?v=09a26ab0"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3531,13 +3568,13 @@
     <script src="onboarding.js?v=04f0a510"></script>
     <script src="kira.js?v=6e62f956"></script>
     <script src="streak.js?v=ce95b7ab"></script>
-    <script src="voice.js?v=b2dd786f"></script>
+    <script src="voice.js?v=c48f8fe9"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=4be2c804"></script>
     <script src="ai-redact.js?v=e6257012"></script>
-    <script src="ai-cloud.js?v=45cade86"></script>
-    <script src="pro.js?v=9b7cc3e0"></script>
-    <script src="ocr.js?v=a1c4264c"></script>
-    <script src="script.js?v=9e010262"></script>
+    <script src="ai-cloud.js?v=ed5a97ba"></script>
+    <script src="pro.js?v=e947fe52"></script>
+    <script src="ocr.js?v=86f7bd7b"></script>
+    <script src="script.js?v=799777df"></script>
   </body>
 </html>

@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.73.0";
+const APP_VERSION = "1.74.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -87,6 +87,8 @@ const emptyState = () => ({
   aiIntroSeen: false,
   aiIntroShownOn: "",
   aiPlusEnabled: false,
+  aiPlusDisclosureSeen: false,
+  aiPlusPreviewedKinds: {},
   aiSub: null,
   guideSeen: false,
   deviceId: "",
@@ -364,6 +366,10 @@ function coerceState(parsed) {
       aiIntroSeen: !!parsed.aiIntroSeen,
       aiIntroShownOn: typeof parsed.aiIntroShownOn === "string" ? parsed.aiIntroShownOn : "",
       aiPlusEnabled: !!parsed.aiPlusEnabled,
+      aiPlusDisclosureSeen: !!parsed.aiPlusDisclosureSeen,
+      aiPlusPreviewedKinds: parsed.aiPlusPreviewedKinds && typeof parsed.aiPlusPreviewedKinds === "object" && !Array.isArray(parsed.aiPlusPreviewedKinds)
+        ? parsed.aiPlusPreviewedKinds
+        : {},
       aiSub: parsed.aiSub && typeof parsed.aiSub === "object" && !Array.isArray(parsed.aiSub) ? parsed.aiSub : null,
       guideSeen: !!parsed.guideSeen,
       deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : "",
@@ -7594,6 +7600,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.74.0": [
+    "<strong>Introducing Duitful AI+ (optional cloud subscription)</strong> — smarter reading for receipts, bank statements, Borang EA, loan letters, voice entry, and splits across up to 3 paired devices, with Duitful Pro included. Off by default, redacted on your device first, and your vault is never sent.",
+  ],
   "1.73.0": [
     "<strong>Duitful AI+ subscription plumbing (behind flag)</strong> — wired store subscriptions, Restore Purchases, encrypted-backup reconnect, and the web pair-only sheet ahead of launch. Still hidden until launch.",
   ],

@@ -360,20 +360,24 @@
     if (!rawText || typeof window.aiCloudRun !== "function") return local;
     try {
       const wallets = (state && Array.isArray(state.wallets) ? state.wallets : []).map((w) => w.name).filter(Boolean);
-      const res = await window.aiCloudRun("voice-compound", {
-        text: String(rawText).slice(0, 300),
-        wallets,
-        contacts: voiceKnownContacts().slice(0, 30),
+      const categories = typeof scanAllCategories === "function" ? scanAllCategories() : [];
+      const res = await window.aiCloudRun("voice-entry", {
+        sentence: String(rawText).slice(0, 200),
+        categories: categories.slice(0, 60),
+        wallets: wallets.slice(0, 40),
+        people: voiceKnownContacts().slice(0, 30),
       });
       if (!res || typeof res !== "object") return local;
       const amt = Number(res.amount) > 0 ? voiceRound2(res.amount) : local.amount;
       if (!(amt > 0)) return local;
       const cat = typeof res.category === "string" && res.category.trim() ? res.category.trim() : local.category;
       const note = typeof res.note === "string" && res.note.trim() ? res.note.trim().slice(0, 80) : local.note;
-      const wHit = res.walletHint ? voiceMatchWallet("using " + res.walletHint, state && state.wallets) : null;
+      const wName = res.wallet || res.walletHint || "";
+      const wHit = wName ? voiceMatchWallet("using " + wName, state && state.wallets) : null;
       let split = local.split;
       if (res.split && Array.isArray(res.split.people) && res.split.people.length) {
-        const people = voiceMatchContacts(res.split.people, voiceKnownContacts());
+        const rawPeople = res.split.people.map((p) => (typeof p === "string" ? p : (p && p.name) || "")).filter(Boolean);
+        const people = voiceMatchContacts(rawPeople, voiceKnownContacts());
         if (people.length) {
           // Local math verification: NEVER trust AI arithmetic.
           let share = 0;
