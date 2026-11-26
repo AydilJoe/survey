@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=0f84610b" />
+    <link rel="stylesheet" href="styles.css?v=7476f1eb" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -416,6 +416,7 @@
           <p class="hero-target" id="hero-target" hidden>
             <span id="hero-target-text"></span>
           </p>
+          <p class="kira-note" id="hero-kira-note" hidden><span class="kira-note-mark" aria-hidden="true"></span><span>A bit over this month. It happens.</span></p>
           <button type="button" class="hero-breakdown-toggle" id="hero-breakdown-toggle" aria-expanded="false" aria-controls="hero-grid">
             <span class="chev" aria-hidden="true">▾</span>
             <span id="hero-breakdown-toggle-label">Show breakdown</span>
@@ -681,6 +682,7 @@
           <p class="hint">Monthly limits for things like Shopping. Tag spending to a pool.</p>
           <p class="hint pool-month-note" id="pool-month-note" hidden></p>
           <div id="budget-pool-list"></div>
+          <p class="kira-note" id="pool-kira-note" hidden><span class="kira-note-mark" aria-hidden="true"></span><span>A pool is a bit over. It happens.</span></p>
           <div id="pool-templates" class="pool-templates" hidden>
             <p class="hint">Start with:</p>
             <div class="pool-template-row">
@@ -2040,8 +2042,11 @@
     <dialog id="debt-paid-dialog" class="edit-dialog restore-dialog" aria-labelledby="debt-paid-title">
       <form method="dialog">
         <div class="pro-celebrate" id="debt-paid-celebrate">
-          <div class="pro-seal" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          <div class="celebrate-marks">
+            <span class="celebrate-kira" id="debt-paid-kira" aria-hidden="true"></span>
+            <div class="pro-seal" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
           </div>
           <h2 id="debt-paid-title">Paid off.</h2>
           <p class="pro-celebrate-sub" id="debt-paid-sub"></p>
@@ -2057,8 +2062,11 @@
     <dialog id="milestone-dialog" class="edit-dialog restore-dialog" aria-labelledby="milestone-title">
       <form method="dialog">
         <div class="pro-celebrate" id="milestone-celebrate">
-          <div class="pro-seal" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="milestone-icon"></svg>
+          <div class="celebrate-marks">
+            <span class="celebrate-kira" id="milestone-kira" aria-hidden="true"></span>
+            <div class="pro-seal" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" id="milestone-icon"></svg>
+            </div>
           </div>
           <p class="milestone-eyebrow">Milestone</p>
           <h2 id="milestone-title"></h2>
@@ -2685,7 +2693,7 @@
         </div>
 
         <section class="onboard-step" data-onboard-step="1">
-          <h2 id="onboard-title" class="onboard-h">What comes in each month?</h2>
+          <div class="onboard-head"><span class="onboard-kira" aria-hidden="true"></span><h2 id="onboard-title" class="onboard-h">What comes in each month?</h2></div>
           <p class="onboard-sub">Your salary. A rough figure is fine.</p>
           <label class="onboard-field">
             <span class="onboard-cur">RM</span>
@@ -2698,7 +2706,7 @@
         </section>
 
         <section class="onboard-step" data-onboard-step="2" hidden>
-          <h2 class="onboard-h">What's already spoken for?</h2>
+          <div class="onboard-head"><span class="onboard-kira" aria-hidden="true"></span><h2 class="onboard-h">What's already spoken for?</h2></div>
           <p class="onboard-sub">Rent, phone, Astro: bills that go first.</p>
           <div class="onboard-rows" id="onboard-bill-rows"></div>
           <button type="button" class="ghost onboard-add" data-onboard="add-bill">+ Add another</button>
@@ -2713,7 +2721,7 @@
              using the same typical figures the Debts form offers, and is said
              out loud so nobody mistakes it for their statement. -->
         <section class="onboard-step" data-onboard-step="3" hidden>
-          <h2 class="onboard-h">What do you owe?</h2>
+          <div class="onboard-head"><span class="onboard-kira" aria-hidden="true"></span><h2 class="onboard-h">What do you owe?</h2></div>
           <p class="onboard-sub">Add the big ones to see your debt-free month.</p>
           <div class="onboard-chips" role="group" aria-label="Add a debt">
             <button type="button" class="onboard-chip" data-onboard-debt="card"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Credit card</button>
@@ -2731,6 +2739,7 @@
         </section>
 
         <section class="onboard-step onboard-result" data-onboard-step="4" hidden>
+          <div class="onboard-head onboard-head--result"><span class="onboard-kira" aria-hidden="true"></span></div>
           <div id="onboard-free" hidden>
             <p class="onboard-lead">You'll be debt-free by</p>
             <p class="onboard-big onboard-date" id="onboard-free-date"></p>
@@ -2766,6 +2775,7 @@
       <div class="guide-spot-ring" id="guide-spot-ring" aria-hidden="true"></div>
       <div class="guide-tooltip" id="guide-tooltip" role="dialog" aria-live="polite">
         <div class="guide-tooltip-arrow" id="guide-tooltip-arrow" aria-hidden="true"></div>
+        <span class="guide-tooltip-kira" id="guide-tooltip-kira" aria-hidden="true"></span>
         <h3 class="guide-tooltip-title" id="guide-tooltip-title"></h3>
         <div class="guide-tooltip-body" id="guide-tooltip-body"></div>
         <div class="guide-dots" id="guide-spot-dots" role="tablist" aria-label="Tour progress"></div>
@@ -3570,7 +3580,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=12af7c81"></script>
+    <script src="i18n-langs.js?v=f1ab937e"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3597,16 +3607,16 @@
     <script src="search.js?v=f1248d18"></script>
     <script src="csv.js?v=82d51210"></script>
     <script src="reports.js?v=6b3b772b"></script>
-    <script src="onboarding.js?v=04f0a510"></script>
-    <script src="kira.js?v=6e62f956"></script>
+    <script src="onboarding.js?v=15cab168"></script>
+    <script src="kira.js?v=5723febf"></script>
     <script src="streak.js?v=ce95b7ab"></script>
-    <script src="voice.js?v=c48f8fe9"></script>
+    <script src="voice.js?v=7b834a3c"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
-    <script src="capture.js?v=4be2c804"></script>
+    <script src="capture.js?v=dad0b98c"></script>
     <script src="ai-redact.js?v=e6257012"></script>
     <script src="ai-cloud.js?v=012a9c56"></script>
     <script src="pro.js?v=e947fe52"></script>
-    <script src="ocr.js?v=86f7bd7b"></script>
-    <script src="script.js?v=b76ac7db"></script>
+    <script src="ocr.js?v=0fe4028c"></script>
+    <script src="script.js?v=ffaa185c"></script>
   </body>
 </html>
