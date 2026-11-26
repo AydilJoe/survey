@@ -112,9 +112,15 @@ function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// Text is hashed with LF line endings, so a Windows checkout (core.autocrlf)
+// stamps the same hashes as CI and the LF files Vercel serves.
+const TEXT_EXT = /\.(?:js|mjs|css|html|json|svg|txt|webmanifest)$/i;
+
 export function hashFile(relPath) {
   const full = join(APP_DIR, relPath);
-  return createHash("sha256").update(readFileSync(full)).digest("hex").slice(0, 8);
+  let buf = readFileSync(full);
+  if (TEXT_EXT.test(relPath)) buf = Buffer.from(buf.toString("utf8").replace(/\r\n/g, "\n"), "utf8");
+  return createHash("sha256").update(buf).digest("hex").slice(0, 8);
 }
 
 function brandLogoPaths() {

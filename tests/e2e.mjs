@@ -12994,6 +12994,14 @@ check('the brand catalogue makes no network calls at all',
       && allowedOrigin('https://evil.example', undefined) === '*');
     const usesCors = ['fx.js', 'native/record-purchase.js'].every((f) => /require\("\.\.?\/_lib\/cors"\)/.test(readFileSync(path.join(REPO_ROOT, 'api', f), 'utf8')));
     check('both endpoints the phone apps call send those CORS headers', usesCors);
+    // vercel.json's trailingSlash answers /api/x with a 308 that has no CORS
+    // headers; the phone WebViews refuse it, so native calls must use /api/x/.
+    const appJs = readdirSync(path.join(REPO_ROOT, 'app')).filter((f) => f.endsWith('.js'))
+      .map((f) => readFileSync(path.join(REPO_ROOT, 'app', f), 'utf8')).join('\n');
+    const unslashed = appJs.match(/["'`](?:https:\/\/duitful\.app)?\/api\/[a-z0-9/_-]*[a-z0-9_-](?=["'`?])/gi) || [];
+    check('the app calls /api/ endpoints with their trailing slash (no CORS-less 308 on the phone)', unslashed.length === 0, unslashed.join(', '));
+    check('the API lets the phone apps send Authorization (AI+ calls)',
+      /Access-Control-Allow-Headers", "[^"]*Authorization/.test(readFileSync(path.join(REPO_ROOT, 'api', '_lib', 'cors.js'), 'utf8')));
   }
   // Native wiring: every name that must agree, agrees.
   // Universal Links: Apple matches appIDs against TeamID.bundleId of the
