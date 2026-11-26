@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.76.0";
+const APP_VERSION = "1.77.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4769,7 +4769,12 @@ function pendingSplitMatchHtml(p) {
   const m = matches[0];
   const gap = Math.round((Number(m.remaining) - Number(p.amount)) * 100) / 100;
 
-  const sub = ambiguous
+  // An AI+ suggestion (aiPick) only orders the choices: its person comes first
+  // as the main button, everyone else stays one tap away.
+  const pick = ambiguous && p.aiPick != null ? matches.find((x) => String(x.personId) === String(p.aiPick)) : null;
+  const sub = pick
+    ? tr("Duitful AI+ thinks {name} paid. Tap who paid.", { name: escapeHtml(pick.name) })
+    : ambiguous
     ? tr("Matches {n} open requests — who paid?", { n: matches.length })
     : tr("Settle {name}'s share of {title}?", { name: escapeHtml(m.name), title: escapeHtml(m.title) })
       + (Math.abs(gap) > 0.005
@@ -4779,7 +4784,7 @@ function pendingSplitMatchHtml(p) {
         : "");
 
   const buttons = ambiguous
-    ? matches.map((x) => `<button class="ghost" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(x.personId)}">${escapeHtml(x.name)}</button>`).join("")
+    ? matches.map((x) => `<button class="${pick && x === pick ? "primary" : "ghost"}" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(x.personId)}">${escapeHtml(x.name)}</button>`).join("")
     : `<button class="primary" data-action="pending-split-settle" data-id="${p.id}" data-person="${escapeHtml(m.personId)}">${tr("Settle {name}", { name: escapeHtml(m.name) })}</button>`;
 
   return `
@@ -6692,6 +6697,21 @@ function debtLetterMonthsTo(iso) {
   const n = (Number(m[1]) - now.getFullYear()) * 12 + (Number(m[2]) - 1 - now.getMonth()) + (Number(m[3]) >= now.getDate() ? 1 : 0);
   return n >= 1 && n <= 120 ? n : 0;
 }
+// Is this ISO date printed in the text as a whole date (15/03/2027, 15-03-2027,
+// 15.3.2027, 2027-03-15, 15 Mar 2027, 15 Mac 2027, 15 March 2027)?
+const LOAN_MONTHS = [["jan"], ["feb"], ["mar", "mac"], ["apr"], ["may", "mei"], ["jun"], ["jul", "julai"], ["aug", "ogo", "ogos"], ["sep", "sept"], ["oct", "okt"], ["nov"], ["dec", "dis"]];
+function debtLetterDatePrinted(iso, text) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return false;
+  const y = m[1], mo = Number(m[2]), d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31) return false;
+  const t = String(text || "");
+  const dd = `0?${d}`, mm = `0?${mo}`;
+  const numeric = new RegExp(String.raw`(?<!\d)(?:${dd}[/.\-]${mm}[/.\-]${y}|${y}[/.\-]${mm}[/.\-]${dd})(?!\d)`);
+  if (numeric.test(t)) return true;
+  const names = LOAN_MONTHS[mo - 1].join("|");
+  return new RegExp(String.raw`(?<!\d)${dd}(?:st|nd|rd|th)?\s+(?:${names})[a-z]*\.?,?\s+${y}(?!\d)`, "i").test(t);
+}
 // Fills only empty boxes of the form's current type; returns how many it set.
 function debtLetterApply(ai, text) {
   const form = document.getElementById("form-debt");
@@ -6724,8 +6744,10 @@ function debtLetterApply(ai, text) {
     if (printed(ai.monthly)) put("minPayment", ai.monthly);
   } else if (kind === "installment") {
     if (printed(ai.monthly)) put("installment", ai.monthly);
+    // Months left only from an end date the letter prints in full (day, month
+    // and year), never from a year that merely appears somewhere on it.
     const left = debtLetterMonthsTo(ai.endDate);
-    if (left && text.includes(String(ai.endDate).slice(0, 4))) put("monthsLeft", left);
+    if (left && debtLetterDatePrinted(ai.endDate, text)) put("monthsLeft", left);
   } else if (kind === "islamic") {
     const c = typeof ai.contract === "string" ? ISLAMIC_CONTRACTS.find((x) => x.id === ai.contract) : null;
     const sel = document.getElementById("debt-contract");
@@ -7765,7 +7787,7 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
-  "1.76.0": [
+  "1.77.0": [
     "<strong>Duitful AI+ helps in more places</strong> — with AI+ on, it can read a bank statement your phone couldn't balance, tidy payee names, fill empty boxes from a Borang EA or a loan letter, work out who paid when a split credit matches several people, and tidy messy items on a by-item split. It only uses figures printed on the page, and you check everything before it's saved.",
   ],
   "1.75.0": [

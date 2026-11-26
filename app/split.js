@@ -2732,9 +2732,14 @@ function splitTidyRows(read, res, raw) {
   return rows;
 }
 
+// Unchanged = the scan's own rows, and every item still shared by everyone.
+// Who had what is the person's choice: a tidy would reset it, so any item with
+// people unticked counts as changed and the rows are left alone.
 function splitItemsUnchanged(c, read) {
+  const keys = splitComposeKeys();
+  const everyone = (who) => Array.isArray(who) && who.length === keys.length && keys.every((k) => who.includes(k));
   return c.items.length === read.items.length
-    && read.items.every((it, i) => c.items[i].name === it.name && Math.abs(Number(c.items[i].price) - it.price) < 0.005);
+    && read.items.every((it, i) => c.items[i].name === it.name && Math.abs(Number(c.items[i].price) - it.price) < 0.005 && everyone(c.items[i].who));
 }
 
 async function splitTidyItems() {

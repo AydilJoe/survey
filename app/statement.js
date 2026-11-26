@@ -574,6 +574,12 @@ function reconcileStatement(parsed) {
   }
   if (!parsed.rows.length) return { status: "mismatch", problems: [{ what: "no rows" }], badRows };
   if (!checked) return { status: "none", problems, badRows };
+  // A Duitful AI+ read checks out only against a printed opening and closing
+  // balance: without the opening, the first balance row (its amount and
+  // direction) is never checked, so it could be a figure that isn't a row.
+  if (parsed.aiPlus && !problems.length && !(parsed.sections || []).some((s) => s.opening != null && s.closing != null && s.rows.length)) {
+    return { status: "none", problems, badRows };
+  }
   return { status: problems.length ? "mismatch" : "ok", problems, badRows };
 }
 
@@ -785,15 +791,36 @@ async function statementCloudRead() {
     stmtSay(tr("Duitful AI+ couldn't read this one. Your review is unchanged."));
     return false;
   }
+  const before = stmtUi.items;
   stmtUi.parsed = parsed; stmtUi.recon = recon;
   stmtUi.items = statementItems(parsed, recon);
   for (const it of stmtUi.items) it.aiPlus = true;
+  stmtCarryEdits(before, stmtUi.items);
   stmtSay("");
   stmtEl("stmt-review").hidden = false;
   stmtEl("stmt-import").hidden = false;
   renderStatementReview();
   stmtRunAi(stmtUi.items);
   return true;
+}
+
+/* What the person already changed on the phone's rows survives an AI+ re-read:
+   each edited row is matched to a new row with the same date, direction and
+   amount (their corrected amount, if they fixed one), and its payee, category,
+   type and tick come along. Rows with no match keep the new read's defaults. */
+function stmtCarryEdits(prev, next) {
+  const used = new Set();
+  for (const old of prev || []) {
+    if (!(old.userPayee || old.userCat || old.userOn || old.userKind)) continue;
+    const dir = old.row && old.row.dir;
+    const hit = next.find((n) => !used.has(n) && n.date === old.date && n.row.dir === dir && Math.abs(n.amount - Number(old.amount)) < 0.005);
+    if (!hit) continue;
+    used.add(hit);
+    if (old.userPayee) { hit.payee = old.payee; hit.userPayee = true; hit.aiPlus = false; }
+    if (old.userCat) { hit.category = old.category; hit.userCat = true; }
+    if (old.userKind) { hit.kind = old.kind; hit.userKind = true; if (hit.kind === "move") hit.on = false; }
+    if (old.userOn) { hit.on = hit.kind === "move" ? false : old.on; hit.userOn = true; }
+  }
 }
 
 // Tidies payees one call at a time. Same promises as statementAiSuggest: rows
@@ -950,7 +977,9 @@ function stmtSay(msg) { const el = stmtEl("stmt-status"); if (el) { el.textConte
 function openStatementImport(opts) {
   const dlg = stmtEl("stmt-dialog");
   if (!dlg) return;
-  stmtUi.items = []; stmtUi.parsed = null; stmtUi.recon = null; stmtUi.file = null; stmtUi.read = null;
+  stmtUi.items = []; stmtUi.parsed = null; stmtUi.recon = null; stmtUi.file = null; stmtUi.read = null; stmtUi.cloudBusy = false;
+  const cloudBtn = stmtEl("stmt-cloud-read");
+  if (cloudBtn) cloudBtn.disabled = false;
   stmtCloudRefresh();
   // A click handler passes its event; only { walletId } means "from a wallet".
   const wid = opts && typeof opts.walletId === "string" ? opts.walletId : "";
@@ -1185,7 +1214,7 @@ stmtEl("stmt-import")?.addEventListener("click", statementImportNow);
 stmtEl("stmt-wallet")?.addEventListener("change", (e) => { stmtUi.wallet = e.target.value; });
 stmtEl("stmt-all")?.addEventListener("click", () => {
   const all = stmtUi.items.every((x) => x.on || x.kind === "move");
-  for (const it of stmtUi.items) if (it.kind !== "move" && it.date) it.on = !all;
+  for (const it of stmtUi.items) if (it.kind !== "move" && it.date) { it.on = !all; it.userOn = true; }
   renderStatementReview();
 });
 stmtEl("stmt-list")?.addEventListener("change", (e) => {
@@ -1194,8 +1223,8 @@ stmtEl("stmt-list")?.addEventListener("change", (e) => {
   const i = Number(t.dataset.stmtOn ?? t.dataset.stmtKind ?? t.dataset.stmtCat ?? t.dataset.stmtPayee ?? t.dataset.stmtAmt ?? t.dataset.stmtBal);
   const it = stmtUi.items[i];
   if (!it) return;
-  if (t.dataset.stmtOn != null) it.on = t.checked;
-  else if (t.dataset.stmtKind != null) { it.kind = t.value; if (it.kind === "move") it.on = false; else if (!it.dup) it.on = true; }
+  if (t.dataset.stmtOn != null) { it.on = t.checked; it.userOn = true; }
+  else if (t.dataset.stmtKind != null) { it.kind = t.value; it.userKind = true; if (it.kind === "move") it.on = false; else if (!it.dup) it.on = true; }
   else if (t.dataset.stmtCat != null) { it.category = t.value; it.userCat = true; }
   else if (t.dataset.stmtPayee != null) { it.payee = t.value.trim().slice(0, 60); it.userPayee = true; }
   else if (t.dataset.stmtAmt != null || t.dataset.stmtBal != null) {

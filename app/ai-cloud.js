@@ -201,9 +201,13 @@ function aiConfirmFirstSend(task, redacted) {
   return new Promise((resolve) => {
     const okBtn = document.getElementById("ai-preview-send");
     const cancelBtn = document.getElementById("ai-preview-cancel");
+    let settled = false;
     const finish = (accepted) => {
+      if (settled) return;
+      settled = true;
       if (okBtn) okBtn.onclick = null;
       if (cancelBtn) cancelBtn.onclick = null;
+      dlg.removeEventListener("close", onClose);
       if (dlg.open && typeof dlg.close === "function") dlg.close();
       if (accepted) {
         state.aiPlusPreviewedKinds = { ...(state.aiPlusPreviewedKinds || {}), [kind]: true };
@@ -211,6 +215,10 @@ function aiConfirmFirstSend(task, redacted) {
       }
       resolve(accepted);
     };
+    // Escape, Back or anything else that closes the sheet counts as "don't send",
+    // so a caller waiting on this never hangs.
+    const onClose = () => finish(false);
+    dlg.addEventListener("close", onClose);
     if (okBtn) okBtn.onclick = () => finish(true);
     if (cancelBtn) cancelBtn.onclick = () => finish(false);
     if (typeof dlg.showModal === "function") {
@@ -222,6 +230,7 @@ function aiConfirmFirstSend(task, redacted) {
 }
 
 /* ---------- Core task runner ---------- */
+const AI_CLOUD_TIMEOUT_MS = 36000;
 async function aiCloudRun(task, input, opts) {
   if (!aiCloudAllowed()) return null;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
@@ -233,15 +242,25 @@ async function aiCloudRun(task, input, opts) {
   }
 
   const doFetch = async () => {
-    const r = await fetch(`${aiCloudApiBase()}?op=run`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${state.aiSub.subToken}`,
-      },
-      body: JSON.stringify({ task, input: redacted }),
-    });
-    const data = await r.json().catch(() => null);
+    // A stalled network gives up with the badge (36 s), so callers always get
+    // an answer or null and never wait for ever.
+    const ctl = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = ctl ? setTimeout(() => ctl.abort(), AI_CLOUD_TIMEOUT_MS) : 0;
+    let r, data;
+    try {
+      r = await fetch(`${aiCloudApiBase()}?op=run`, {
+        signal: ctl ? ctl.signal : undefined,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${state.aiSub.subToken}`,
+        },
+        body: JSON.stringify({ task, input: redacted }),
+      });
+      data = await r.json().catch(() => null);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     if (data && data.status) aiMergeStatusSnapshot(data.status);
     if (r.status === 429 && data && data.error === "quota") {
       if (typeof showToast === "function") {
@@ -260,7 +279,7 @@ async function aiCloudRun(task, input, opts) {
       return await withAiThinking(doFetch, {
         overlay: !!(opts && opts.overlay),
         label: typeof tr === "function" ? tr("Duitful AI+ (cloud)") : "Duitful AI+ (cloud)",
-        timeoutMs: 36000,
+        timeoutMs: AI_CLOUD_TIMEOUT_MS,
       });
     }
     return await doFetch();

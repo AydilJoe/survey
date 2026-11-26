@@ -2408,7 +2408,7 @@ function taxOpenNumbers(focusId) {
    scan quota. The file and pictures are dropped after reading. */
 const EA_TO_FIGURE = { bTotal: "income", d1: "pcb", e1: "epf" };
 const EA_UNUSED = ["d2", "d3", "d4", "d5"];
-const eaUi = { file: null, res: null, values: {}, printedYear: 0, ai: new Set() };
+const eaUi = { file: null, res: null, values: {}, printedYear: 0, ai: new Set(), seq: 0 };
 const eaEl = (id) => document.getElementById(id);
 function eaSay(msg) { const el = eaEl("ea-status"); if (el) { el.textContent = msg || ""; el.hidden = !msg; } }
 const eaField = (id) => (typeof EA_FIELDS !== "undefined" ? EA_FIELDS : []).find((f) => f.id === id);
@@ -2430,7 +2430,7 @@ function taxEaYears() {
 function taxOpenEa() {
   const dlg = eaEl("ea-dialog");
   if (!dlg) return;
-  eaUi.file = null; eaUi.res = null; eaUi.values = {}; eaUi.printedYear = 0; eaUi.ai = new Set();
+  eaUi.file = null; eaUi.res = null; eaUi.values = {}; eaUi.printedYear = 0; eaUi.ai = new Set(); eaUi.seq++;
   eaEl("ea-pick").hidden = false;
   eaEl("ea-scan").hidden = !(typeof duitfulKit === "function" && duitfulKit("scanDocument"));
   eaEl("ea-password").hidden = true;
@@ -2476,8 +2476,11 @@ async function eaFromPhotos(sources) {
 
 function eaShow(read) {
   const res = eaExtract(read.lines);
+  // Each read gets its own number, so a late AI+ answer for an earlier file
+  // can never land on the one now on screen.
+  const seq = ++eaUi.seq;
   const shown = eaShowRes(res);
-  eaCloudAssist(read, res).catch(() => {});
+  eaCloudAssist(read, res, seq).catch(() => {});
   return shown;
 }
 
@@ -2515,14 +2518,15 @@ function eaFillYears(res) {
    answer the form doesn't print leaves everything as it was. It fills EMPTY
    boxes only (never one the labelling found or the user typed in), every
    figure must appear in the text, the Section B total is never adjusted (a
-   total that doesn't equal its lines stays tagged Check), and Save still goes
-   through taxSetFigure. */
-const EA_AI_MAP = { b1a: "b1a", b1b: "b1b", b1c: "b1c", b1d: "b1d", b1e: "b1e", b2: "b2", b3: "b3", b4: "b4", b5: "b5", sectionB: "bTotal", d1: "d1", d2: "d2", d3: "d3", d4: "d4", d5: "d5", e1: "e1", e2: "e2" };
+   total that doesn't equal its lines stays tagged Check) and never filled by
+   AI+ either (a total the form doesn't print stays "Not printed", offered as
+   "Use the items"), and Save still goes through taxSetFigure. */
+const EA_AI_MAP = { b1a: "b1a", b1b: "b1b", b1c: "b1c", b1d: "b1d", b1e: "b1e", b2: "b2", b3: "b3", b4: "b4", b5: "b5", d1: "d1", d2: "d2", d3: "d3", d4: "d4", d5: "d5", e1: "e1", e2: "e2" };
 function eaWantsCloud(res) {
   const f = res.fields;
   return !res.year || !Object.keys(f).length || !f.bTotal || !f.d1 || !f.e1 || !f.e2 || !EA_INCOME_PARTS.some((id) => f[id]);
 }
-async function eaCloudAssist(read, res) {
+async function eaCloudAssist(read, res, seq) {
   if (!(typeof aiCloudAllowed === "function" && aiCloudAllowed() && typeof aiCloudReadEa === "function")) return;
   if (!eaWantsCloud(res)) return;
   const text = (read.lines || []).map((l) => (typeof l === "string" ? l : String((l && l.text) || ""))).join("\n").slice(0, 16000);
@@ -2532,7 +2536,7 @@ async function eaCloudAssist(read, res) {
   eaSay(tr("Double-checking with Duitful AI+ (cloud)…"));
   let ai = null;
   try { ai = await aiCloudReadEa({ text }); } catch { ai = null; }
-  const stale = !dlg || !dlg.open || (!wasEmpty && eaUi.res !== res);
+  const stale = !dlg || !dlg.open || (seq != null && eaUi.seq !== seq) || (!wasEmpty && eaUi.res !== res);
   if (stale) return;
   const nothing = () => eaSay(wasEmpty ? tr("No EA figures found. Is this a Borang EA?") : "");
   if (!ai || typeof ai !== "object") { nothing(); return; }
@@ -2567,7 +2571,21 @@ async function eaCloudAssist(read, res) {
     eaSay("");
   }
   added.forEach((id) => eaUi.ai.add(id));
+  eaRenderKeepFocus();
+}
+
+// The answer can land while someone types in a box: re-render, then put the
+// box they were in back with exactly what they had typed.
+function eaRenderKeepFocus() {
+  const a = document.activeElement;
+  const id = a && a.dataset && a.dataset.eaIn ? a.id : "";
+  const raw = id ? a.value : "";
   eaRender();
+  if (!id) return;
+  const el = eaEl(id);
+  if (!el) return;
+  el.value = raw;
+  el.focus();
 }
 
 const eaYear = () => Number(eaEl("ea-year").value) || 0;

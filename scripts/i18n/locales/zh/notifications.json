@@ -41,6 +41,7 @@
   "It was income": "这是一笔收入",
   "Moved": "已转出",
   "Matches {n} open requests — who paid?": "匹配到 {n} 条未结收款——是谁付的？",
+  "Duitful AI+ thinks {name} paid. Tap who paid.": "Duitful AI+ 认为是 {name} 付的。请点选付款人。",
   "Settle {name}'s share of {title}?": "结清 {name} 在 {title} 中的份额？",
   "{a} owed — {b} short": "应付 {a}——少 {b}",
   "{a} owed — {b} over": "应付 {a}——多 {b}",

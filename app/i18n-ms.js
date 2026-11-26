@@ -2578,6 +2578,7 @@
   "It was income": "Ini pendapatan",
   "Moved": "Dipindahkan",
   "Matches {n} open requests — who paid?": "Sepadan dengan {n} permintaan terbuka — siapa yang bayar?",
+  "Duitful AI+ thinks {name} paid. Tap who paid.": "Duitful AI+ menjangka {name} yang bayar. Ketik siapa yang bayar.",
   "Settle {name}'s share of {title}?": "Selesaikan bahagian {name} untuk {title}?",
   "{a} owed — {b} short": "Berhutang {a} — kurang {b}",
   "{a} owed — {b} over": "Berhutang {a} — lebih {b}",
