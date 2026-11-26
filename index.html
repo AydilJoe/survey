@@ -77,7 +77,7 @@
       "End-to-end on-device encryption",
       "LHDN tax relief finder and refund estimate from your spending, with receipts kept for e-Filing",
       "Encrypted backup to your own iCloud or Google Drive (Pro)",
-      "On-device AI (Gemini Nano on supported Android phones; Apple’s on-device model on iOS 26, for receipts and the English monthly recap) — reads tricky receipts and, on Android, bank alerts; never invents amounts, nothing uploaded"
+      "On-device AI (Gemini Nano on supported Android phones; Apple’s on-device model on iOS 26, for receipts and the English monthly recap) — reads tricky receipts and, on Android, bank alerts; never invents amounts, nothing uploaded. Optional Duitful AI+ (cloud, off by default) adds redacted Gemini document, voice and split reading with zero server storage and Google Paid Tier no-training terms"
     ],
     "offers": [
       {
@@ -220,7 +220,7 @@
       {
         "@type": "Question",
         "name": "Does Duitful use AI?",
-        "acceptedAnswer": { "@type": "Answer", "text": "Only on your phone, and only to help. On supported Android phones, Google’s on-device AI reads tricky receipts and bank alerts, and suggests statement categories and tax relief; on iPhone with iOS 26, Apple’s on-device model helps with receipts. Both can reword the English monthly recap. It never invents amounts: totals must be printed on the receipt or alert. Nothing is uploaded, and you can switch it off in Settings. Without it, Duitful uses its own rules." }
+        "acceptedAnswer": { "@type": "Answer", "text": "By default, only on your phone — nothing is uploaded. On supported Android phones, Google’s on-device AI reads tricky receipts and bank alerts, and suggests statement categories and tax relief; on iPhone with iOS 26, Apple’s on-device model helps with receipts. Both can reword the English monthly recap. If you subscribe to optional Duitful AI+ (cloud, off by default) and turn it on in Settings, Duitful can also send a single redacted receipt, document, or short phrase to Google’s Paid Gemini API (zero vault upload, zero server storage, no model training). Neither AI ever invents amounts." }
       },
       {
         "@type": "Question",
@@ -2040,7 +2040,7 @@
           <p>Runs on your phone. Nothing is uploaded. Switch it off in Settings.</p>
         </div>
       </div>
-      <p class="ai-note reveal">Android: <a href="https://developers.google.com/ml-kit/genai" target="_blank" rel="noopener">supported phones</a>. iPhone (iOS&nbsp;26): Apple&rsquo;s on-device model, for receipts and the English recap. Bank alerts, statements and tax relief: Android only. Without it, everything still works.</p>
+      <p class="ai-note reveal">Android: <a href="https://developers.google.com/ml-kit/genai" target="_blank" rel="noopener">supported phones</a>. iPhone (iOS&nbsp;26): Apple&rsquo;s on-device model, for receipts and the English recap. Bank alerts, statements and tax relief: Android only. Without it, everything still works. Optional <strong>Duitful AI+ (cloud)</strong> is off by default: redacted on your device first, never sends your vault, zero server storage, and uses Google&rsquo;s Paid Gemini API (no model training).</p>
     </div>
   </section>
 
@@ -2186,7 +2186,7 @@
             Does Duitful use AI?
             <span class="plus" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>
           </summary>
-          <p class="answer">Only on your phone, and only to help. On supported Android phones, Google&rsquo;s on-device AI reads tricky receipts and bank alerts, and suggests statement categories and tax relief; on iPhone with iOS 26, Apple&rsquo;s on-device model helps with receipts. Both can reword the English monthly recap. It never invents amounts: totals must be printed on the receipt or alert. Nothing is uploaded, and you can switch it off in Settings. Without it, Duitful uses its own rules.</p>
+          <p class="answer">By default, only on your phone &mdash; nothing is uploaded. On supported Android phones, Google&rsquo;s on-device AI reads tricky receipts and bank alerts, and suggests statement categories and tax relief; on iPhone with iOS 26, Apple&rsquo;s on-device model helps with receipts. Both can reword the English monthly recap. If you subscribe to optional <strong>Duitful AI+ (cloud)</strong> (off by default) and turn it on in Settings, Duitful can also send a single redacted receipt, document, or short phrase to Google&rsquo;s Paid Gemini API (never your vault, zero server storage, no model training). Neither AI ever invents amounts.</p>
         </details>
         <details class="faq-item reveal">
           <summary>

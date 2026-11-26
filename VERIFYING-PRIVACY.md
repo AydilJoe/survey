@@ -179,3 +179,27 @@ reporting route, what is in scope, and what is deliberately not defended.
 
 And if a claim on the site cannot be traced to a file here, treat that as the
 bug — tell us, and either the code or the claim will change.
+
+---
+
+## 5. "Optional Duitful AI+ (cloud) redacts PII on-device and stores nothing on the server"
+
+Duitful AI+ is **off by default** and only runs if you subscribe and explicitly
+turn it on in Settings. When enabled, two files enforce the privacy boundary:
+
+**Where:** `app/ai-redact.js` (client redaction before send) and `api/_lib/ai/run.js` (stateless server proxy).
+
+```sh
+grep -n "AI_NRIC_RE\|AI_PAN_RE\|AI_EMAIL_RE\|AI_PHONE_MY_RE\|AI_ADDRESS_RE" app/ai-redact.js
+grep -n "console\.\|kv\.set" api/_lib/ai/run.js
+```
+
+What you should see:
+- `app/ai-redact.js` reuses `redactAlertSample()` and strips Malaysian NRICs,
+  10–19 digit account/card numbers, emails, phone numbers, and street addresses
+  on the device before `aiCloudRun()` sends `{ task, input }` to `/api/ai?op=run`.
+- `api/_lib/ai/run.js` accepts only fixed named tasks from `api/_lib/ai/tasks/index.js`,
+  contains **zero** `console.log` calls on request bodies, images, or outputs,
+  and writes only the numeric `scansUsed` / `textUsed` counter to `ai_sub:<subId>`
+  after a valid checked result. Your encrypted vault (`ENC_KEY`) is never read
+  or transmitted.

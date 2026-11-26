@@ -301,17 +301,21 @@ requests for ten minutes for rate limiting, then expires). If Apple ever asks, t
 answer is in the privacy policy, section 4.7. Revisit this if the relay ever
 stores anything readable, for example plaintext names for search.
 
-## In-app purchases (attach both to the version you submit)
+**Optional Duitful AI+ (cloud, off by default):** If a user subscribes to Duitful AI+ and explicitly turns it on in Settings, Duitful sends only the single redacted receipt, statement chunk, document, or short phrase to `/api/ai?op=run` (stateless proxy to Google's Paid Gemini API, no training, zero server storage). Declare **User Content → Other User Content** (and **Photos** for optional receipt/document scans) as **Data Not Linked to You**, used solely for **App Functionality**, **not used for tracking**, and processed ephemerally only when the user opts in.
+
+## In-app purchases (attach to the version you submit)
 
 | Product ID | Type | Price (Malaysia) | Display name |
 |---|---|---|---|
 | `duitful_pro` | Non-Consumable | tier at RM 19.90 | Duitful Pro |
 | `duitful_pro_launch` | Non-Consumable | tier at RM 14.90 | Duitful Pro |
+| `duitful_ai_monthly` | Auto-Renewable Subscription | tier at RM 4.90/mo (RM 3.90/mo loyalty for Pro owners) | Duitful AI+ (Monthly) |
+| `duitful_ai_yearly` | Auto-Renewable Subscription | tier at RM 45/yr (RM 35/yr loyalty for Pro owners) | Duitful AI+ (Annual) |
 
-Both use the display name `Duitful Pro`; `duitful_pro_launch` is only ever
-reached by typing the promo code, so the buyer never sees two products.
+Both Pro SKUs use the display name `Duitful Pro`; `duitful_pro_launch` is only ever
+reached by typing the promo code, so the buyer never sees two products. On iOS, never show `LAUNCH100` or link to external purchase flows.
 
-Description for both (Apple allows 55 characters):
+Description for Pro (Apple allows 55 characters):
 `Auto backup, unlimited scans, budget pools. Pay once.` (53)
 
 Each also needs a **review screenshot of the paywall** and a review note

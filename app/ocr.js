@@ -719,8 +719,24 @@ async function receiptSecondOpinion(parsed, text) {
   const wantAi = parsed.amount == null || parsed.amountConfidence !== "high" || !parsed.vendor || !parsed.date;
   const wantDate = !parsed.date;
   if (!wantAi && !wantDate) return { parsed, used: [] };
-  let ai = null, entities = null;
-  const aiKit = wantAi && aiAllowed() ? duitfulKit("aiReadReceipt") : null;
+  let ai = null, entities = null, usedCloud = false;
+  if (wantAi && typeof aiCloudAllowed === "function" && aiCloudAllowed() && typeof aiCloudReadReceipt === "function") {
+    try {
+      setScanStep(tr("Double-checking with Duitful AI+ (cloud)…"), null);
+      const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
+      const cloudRes = await aiCloudReadReceipt({ ocrText: String(text || "").slice(0, 12000), categories: cats.slice(0, 60) });
+      if (cloudRes) {
+        ai = {
+          total: cloudRes.total,
+          merchant: cloudRes.vendor || "",
+          date: cloudRes.date || "",
+          currency: "",
+        };
+        usedCloud = true;
+      }
+    } catch { ai = null; }
+  }
+  const aiKit = !ai && wantAi && aiAllowed() ? duitfulKit("aiReadReceipt") : null;
   if (aiKit) {
     try {
       const st = await withTimeout(aiKit.aiStatus(), 2000);
@@ -734,7 +750,9 @@ async function receiptSecondOpinion(parsed, text) {
   if (entKit && !(ai && ai.date)) {
     try { entities = await withTimeout(entKit.extractEntities({ text }), 8000); } catch { entities = null; }
   }
-  return mergeReceiptOpinion(parsed, ai, entities, text);
+  const merged = mergeReceiptOpinion(parsed, ai, entities, text);
+  if (usedCloud && merged && Array.isArray(merged.used)) merged.used.push("ai+");
+  return merged;
 }
 
 /* Whatever the scan pipeline is holding — the preprocessed canvas, a native
