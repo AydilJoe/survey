@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.71.0";
+const APP_VERSION = "1.74.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -86,6 +86,10 @@ const emptyState = () => ({
   captureDiag: { lastDrainAt: 0, items: [] },
   aiIntroSeen: false,
   aiIntroShownOn: "",
+  aiPlusEnabled: false,
+  aiPlusDisclosureSeen: false,
+  aiPlusPreviewedKinds: {},
+  aiSub: null,
   guideSeen: false,
   deviceId: "",
   lastEditedAt: "",
@@ -361,6 +365,12 @@ function coerceState(parsed) {
       captureDiag: coerceCaptureDiag(parsed.captureDiag),
       aiIntroSeen: !!parsed.aiIntroSeen,
       aiIntroShownOn: typeof parsed.aiIntroShownOn === "string" ? parsed.aiIntroShownOn : "",
+      aiPlusEnabled: !!parsed.aiPlusEnabled,
+      aiPlusDisclosureSeen: !!parsed.aiPlusDisclosureSeen,
+      aiPlusPreviewedKinds: parsed.aiPlusPreviewedKinds && typeof parsed.aiPlusPreviewedKinds === "object" && !Array.isArray(parsed.aiPlusPreviewedKinds)
+        ? parsed.aiPlusPreviewedKinds
+        : {},
+      aiSub: parsed.aiSub && typeof parsed.aiSub === "object" && !Array.isArray(parsed.aiSub) ? parsed.aiSub : null,
       guideSeen: !!parsed.guideSeen,
       deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : "",
       lastEditedAt: typeof parsed.lastEditedAt === "string" ? parsed.lastEditedAt : "",
@@ -7590,6 +7600,18 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.74.1": [
+    "<strong>Polished Duitful AI+ sheet with Kira</strong> — redesigned the Duitful AI+ subscription sheet and Settings card with Kira, a clearer feature checklist, and side-by-side Annual and Monthly plan cards.",
+  ],
+  "1.74.0": [
+    "<strong>Introducing Duitful AI+ (optional cloud subscription)</strong> — smarter reading for receipts, bank statements, Borang EA, loan letters, voice entry, and splits across up to 3 paired devices, with Duitful Pro included. Off by default, redacted on your device first, and your vault is never sent.",
+  ],
+  "1.73.0": [
+    "<strong>Duitful AI+ subscription plumbing (behind flag)</strong> — wired store subscriptions, Restore Purchases, encrypted-backup reconnect, and the web pair-only sheet ahead of launch. Still hidden until launch.",
+  ],
+  "1.72.0": [
+    "<strong>Duitful AI+ foundation and leaner backend</strong> — behind-the-scenes server cleanup and early foundation for Duitful AI+ (still hidden until launch). Nothing changes in your daily flow yet.",
+  ],
   "1.71.0": [
     "<strong>Meet Kira</strong> — a small receipt friend now waves hello when you start, keeps empty lists company, hops when you log a spend and naps on a no-spend day. When Kira holds the sempoa, your phone's own AI is working. Kira never sits on your numbers.",
   ],

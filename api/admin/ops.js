@@ -1,4 +1,4 @@
-// Seven admin endpoints behind one Vercel Function, addressed as
+// Twelve admin endpoints behind one Vercel Function, addressed as
 // /api/admin/ops?op=<name>.
 //
 // Two constraints meet here. Vercel's Hobby plan builds at most 12 functions
@@ -10,18 +10,22 @@
 // so the whole admin surface returned Vercel's own NOT_FOUND.
 //
 // A plain filename plus a query parameter is the shape that demonstrably
-// routes here - api/admin/billplz-bill.js has been reading req.query.id in
-// production all along. The five endpoints that predate the budget keep their
-// own files and their own URLs; these seven share this one.
+// routes here. All admin ops share this single function so user-facing
+// endpoints (including api/ai.js) stay comfortably inside the 12-function cap.
 
 const ROUTES = {
+  "billplz-bill": require("../_lib/admin/billplz-bill.js"),
+  bills: require("../_lib/admin/bills.js"),
   "config-check": require("../_lib/admin/config-check.js"),
+  coupons: require("../_lib/admin/coupons.js"),
   "duplicate-payments": require("../_lib/admin/duplicate-payments.js"),
+  "issue-license": require("../_lib/admin/issue-license.js"),
   "mark-refunded": require("../_lib/admin/mark-refunded.js"),
   "native-attributions": require("../_lib/admin/native-attributions.js"),
   "payout-collection": require("../_lib/admin/payout-collection.js"),
   refund: require("../_lib/admin/refund.js"),
   "test-redirect": require("../_lib/admin/test-redirect.js"),
+  verify: require("../_lib/admin/verify.js"),
 };
 
 module.exports = async function handler(req, res) {

@@ -108,9 +108,19 @@
   is discarded for the plain template. Rules run first and win;
   the AI never sets an amount — totals and amounts must be printed on the
   receipt or alert. It runs entirely on the phone: no text or image is
-  uploaded, and there is no cloud AI, chat or financial advice. Phones
+  uploaded, and there is no chat or financial advice. Phones
   without it work the same with Duitful's rules and on-device OCR (Apple
   Vision on iOS, ML Kit on Android).
+- **Duitful AI+ (cloud, optional subscription)**: off by default. Paid
+  subscription (RM 4.90/mo or RM 45/yr; RM 3.90/mo or RM 35/yr for Lifetime
+  Pro owners; includes Pro while active and pairs up to 3 devices with a
+  10-minute 6-digit code). Pro itself remains a RM 19.90 one-time purchase —
+  only Cloud AI is an optional subscription. Every call is a fixed named JSON
+  task redacted on-device (`app/ai-redact.js` strips NRIC, account/card
+  numbers, emails, phone numbers, addresses), previewed before the first send
+  of each kind, never sends the vault, stores nothing on Duitful's server
+  (`api/_lib/ai/run.js`), and uses Google's Paid Tier Gemini API (no model
+  training).
 - **Multi-currency**: MYR, SGD, USD, EUR, GBP, JPY, THB, IDR with daily
   FX from the open-source @fawazahmed0/exchange-api.
 - **CSV import / export**: Monarch, YNAB, Money Lover, generic Malaysian

@@ -15,20 +15,20 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-3a8ffdad";
+const VERSION = "h-0476c5c6";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=87d7b682",
-  "/app/script.js?v=84761522",
+  "/app/styles.css?v=0f84610b",
+  "/app/script.js?v=b76ac7db",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
-  "/app/i18n-langs.js?v=d2f4b4b3",
+  "/app/i18n-langs.js?v=12af7c81",
   "/app/i18n-boot.js?v=e8f35f1d",
-  "/app/i18n-ms.js?v=ebe9d94d",
-  "/app/i18n-zh.js?v=1f2a1c37",
+  "/app/i18n-ms.js?v=cde464d4",
+  "/app/i18n-zh.js?v=baee5646",
   "/app/i18n.js?v=e94f1821",
   "/app/drive-config.js?v=9aaf242d",
   "/app/drive-sync.js?v=08041907",
@@ -55,11 +55,13 @@ const SHELL = [
   "/app/onboarding.js?v=04f0a510",
   "/app/kira.js?v=6e62f956",
   "/app/streak.js?v=ce95b7ab",
-  "/app/voice.js?v=b2dd786f",
+  "/app/voice.js?v=c48f8fe9",
   "/app/cloud.js?v=fcd02ad8",
   "/app/capture.js?v=4be2c804",
-  "/app/pro.js?v=a354d151",
-  "/app/ocr.js?v=a1c4264c",
+  "/app/ai-redact.js?v=e6257012",
+  "/app/ai-cloud.js?v=012a9c56",
+  "/app/pro.js?v=e947fe52",
+  "/app/ocr.js?v=86f7bd7b",
   "/app/analytics.js?v=01a6bc4a",
   "/app/theme-boot.js?v=68fa9ffd",
   // Brand marks: tiny (0.3–3 KB each) and drawn on the Debts tab, so they are

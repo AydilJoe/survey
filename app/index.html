@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=87d7b682" />
+    <link rel="stylesheet" href="styles.css?v=0f84610b" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1888,6 +1888,31 @@
           </div>
         </div>
 
+        <!-- Duitful AI+ (cloud Gemini): off by default until user opts in. -->
+        <div class="card ai-cloud-card" id="ai-cloud-card" hidden>
+          <div class="ai-cloud-head">
+            <span class="ai-cloud-kira" id="ai-cloud-kira" aria-hidden="true"></span>
+            <div>
+              <h2>Duitful AI+ (cloud)</h2>
+              <p class="hint" id="ai-cloud-meters"></p>
+            </div>
+          </div>
+          <label class="toggle-row">
+            <input type="checkbox" id="ai-cloud-toggle" disabled />
+            <span>Enable Duitful AI+ (cloud)</span>
+          </label>
+          <div class="button-row">
+            <button type="button" class="primary" id="ai-plus-open-btn">Manage Duitful AI+</button>
+            <button type="button" class="ghost" id="ai-pair-start-btn" hidden>Pair another device</button>
+          </div>
+          <p class="hint" id="ai-pair-code-out" hidden></p>
+          <div class="ai-pair-row">
+            <input type="text" id="ai-pair-code-input" inputmode="numeric" maxlength="6" placeholder="6-digit pair code" aria-label="6-digit pair code" />
+            <button type="button" class="ghost" id="ai-pair-claim-btn">Pair with code</button>
+          </div>
+          <p class="hint" id="ai-pair-claim-status" hidden></p>
+        </div>
+
         <div class="card own-accounts-card" id="own-accounts-card" hidden>
           <h2>Your own accounts</h2>
           <p class="hint">Transfers to these names count as moves, not spending.</p>
@@ -3177,6 +3202,91 @@
       </div>
     </dialog>
 
+    <!-- Duitful AI+ subscription sheet (native) / pair-only sheet (web).
+         Features proud Kira; zero promo codes or external purchase links on iOS. -->
+    <dialog id="ai-plus-dialog" class="edit-dialog paywall-dialog ai-plus-dialog" aria-labelledby="ai-plus-title">
+      <form method="dialog" onsubmit="return false">
+        <div class="ai-plus-hero">
+          <span class="ai-plus-kira" id="ai-plus-kira" aria-hidden="true"></span>
+          <div class="ai-plus-hero-copy">
+            <span class="ai-plus-badge">AI+</span>
+            <h2 id="ai-plus-title">Duitful AI+ (cloud)</h2>
+            <p class="paywall-sub">Smarter cloud reading + Duitful Pro included</p>
+          </div>
+        </div>
+
+        <ul class="paywall-features">
+          <li>100 receipt, statement, Borang EA &amp; loan scans / month</li>
+          <li>1,000 voice, split &amp; cleaner payee actions / month</li>
+          <li>All Duitful Pro features included while active</li>
+          <li>Pair up to 3 devices (iPhone, Android &amp; Web)</li>
+          <li>Redacted on-device · never sends your vault · no training</li>
+        </ul>
+
+        <p class="ai-loyalty-pill" id="ai-plus-loyalty-note" hidden>Lifetime Pro loyalty rate applied. Cancelling AI+ never removes your Lifetime Pro.</p>
+
+        <div id="ai-plus-native-plans" hidden>
+          <div class="ai-plan-grid">
+            <button type="button" class="ai-plan-card ai-plan-card--best" id="ai-plus-buy-yearly">
+              <span class="ai-plan-pill">Save 2 months</span>
+              <span class="ai-plan-name">Annual</span>
+              <strong class="ai-plan-price" id="ai-plus-yearly-price">RM 45/year</strong>
+              <span class="ai-plan-sub" id="ai-plus-yearly-sub">Best value</span>
+            </button>
+            <button type="button" class="ai-plan-card" id="ai-plus-buy-monthly">
+              <span class="ai-plan-name">Monthly</span>
+              <strong class="ai-plan-price" id="ai-plus-monthly-price">RM 4.90/month</strong>
+              <span class="ai-plan-sub">Cancel anytime</span>
+            </button>
+          </div>
+          <div class="paywall-links">
+            <button type="button" class="paywall-link" id="ai-plus-restore">Restore purchases</button>
+          </div>
+        </div>
+
+        <div class="ai-web-pair-box" id="ai-plus-web-pair" hidden>
+          <p class="ai-web-pair-title">Pair from your phone</p>
+          <p class="hint">Subscribe in the Duitful iPhone or Android app, then tap Pair with code in Settings.</p>
+        </div>
+
+        <p class="hint paywall-hint" id="ai-plus-err" hidden></p>
+        <div class="paywall-actions">
+          <button type="button" class="ghost" id="ai-plus-close">Maybe later</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- One-screen disclosure shown before enabling Duitful AI+ (cloud). -->
+    <dialog id="ai-disclosure-dialog" class="edit-dialog paywall-dialog" aria-labelledby="ai-disclosure-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="ai-disclosure-title">Before you turn on Duitful AI+ (cloud)</h2>
+        <p class="hint">Duitful AI+ sends only the single receipt, statement chunk, document, or short phrase you ask it to read — never your vault, balances, debts, or history.</p>
+        <ul class="ai-cloud-list">
+          <li>NRIC, account and card numbers, emails, phone numbers, and street addresses are stripped on your device first.</li>
+          <li>Duitful stores zero request bodies, images, or AI outputs.</li>
+          <li>Uses Google's Paid Gemini API, where Google does not use your data to train models.</li>
+          <li>You can turn Duitful AI+ off anytime in Settings.</li>
+        </ul>
+        <div class="paywall-actions">
+          <button type="button" class="primary" id="ai-disclosure-accept">Turn on Duitful AI+ (cloud)</button>
+          <button type="button" class="ghost" id="ai-disclosure-cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Redacted preview shown before the first cloud send of each data kind. -->
+    <dialog id="ai-preview-dialog" class="edit-dialog paywall-dialog" aria-labelledby="ai-preview-title">
+      <form method="dialog" onsubmit="return false">
+        <h2 id="ai-preview-title">Preview what leaves your device</h2>
+        <p class="hint">This redacted snippet will be sent to Duitful AI+ (cloud) for this task. Your vault is never sent.</p>
+        <pre id="ai-preview-body" class="ai-preview-body"></pre>
+        <div class="paywall-actions">
+          <button type="button" class="primary" id="ai-preview-send">Send to Duitful AI+ (cloud)</button>
+          <button type="button" class="ghost" id="ai-preview-cancel">Cancel</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- On-device AI, item by item: what it does on this platform (rows carry
          data-ai-on) and what it never does. Phone apps only; the header badge
          and Settings → On-device AI open it (openAiInfo in script.js). -->
@@ -3215,6 +3325,12 @@
           <li>It never makes up an amount.</li>
           <li>No chat, no advice.</li>
           <li>Nothing is saved until you OK it.</li>
+        </ul>
+        <h3 class="ai-info-group">Duitful AI+ (cloud, optional)</h3>
+        <ul class="ai-cloud-list">
+          <li>Off by default. Only runs when you subscribe and turn it on in Settings.</li>
+          <li>Reads receipts, statements, Borang EA, loan letters, voice entries, split matches, and raw payees (tagged AI+).</li>
+          <li>Redacted on your device first; never sends your vault; zero server storage; Google Paid Tier (no training).</li>
         </ul>
         <div class="ai-info-foot">
           <p class="ai-info-model" id="ai-info-model">Model: Gemini Nano</p>
@@ -3454,7 +3570,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=d2f4b4b3"></script>
+    <script src="i18n-langs.js?v=12af7c81"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3484,11 +3600,13 @@
     <script src="onboarding.js?v=04f0a510"></script>
     <script src="kira.js?v=6e62f956"></script>
     <script src="streak.js?v=ce95b7ab"></script>
-    <script src="voice.js?v=b2dd786f"></script>
+    <script src="voice.js?v=c48f8fe9"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=4be2c804"></script>
-    <script src="pro.js?v=a354d151"></script>
-    <script src="ocr.js?v=a1c4264c"></script>
-    <script src="script.js?v=84761522"></script>
+    <script src="ai-redact.js?v=e6257012"></script>
+    <script src="ai-cloud.js?v=012a9c56"></script>
+    <script src="pro.js?v=e947fe52"></script>
+    <script src="ocr.js?v=86f7bd7b"></script>
+    <script src="script.js?v=b76ac7db"></script>
   </body>
 </html>

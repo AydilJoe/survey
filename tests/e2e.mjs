@@ -10412,8 +10412,8 @@ check('the brand catalogue makes no network calls at all',
 // looking like the bill id was wrong.
 {
   const store = readFileSync(path.join(REPO_ROOT, 'api/_lib/bills-store.js'), 'utf8');
-  const lookup = readFileSync(path.join(REPO_ROOT, 'api/admin/billplz-bill.js'), 'utf8');
-  const issue = readFileSync(path.join(REPO_ROOT, 'api/admin/issue-license.js'), 'utf8');
+  const lookup = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/billplz-bill.js'), 'utf8');
+  const issue = readFileSync(path.join(REPO_ROOT, 'api/_lib/admin/issue-license.js'), 'utf8');
   const tool = readFileSync(path.join(REPO_ROOT, 'tools/issue/index.html'), 'utf8');
 
   // Without this stamp a 404 is indistinguishable from a mistyped id.
@@ -15920,6 +15920,341 @@ check('the brand catalogue makes no network calls at all',
   check('Kira (1.71.0): at 360px the Today row and the streak hero fit in English, Malay and Chinese',
     Object.values(fit).every((v) => v.length === 0), JSON.stringify(fit));
   await lCtx.close();
+}
+
+// =========================================================================
+// Duitful AI+ Phase 1: full admin trim, api/ai.js in-memory
+// handler with stubbed Gemini, 8 v1 task checks, 3-device pairing +
+// 4th-device replace, quota fallback, on-device redaction, dual entitlement,
+// and "nothing sent when AI+ is off".
+// =========================================================================
+{
+  const { createRequire } = await import('node:module');
+  const reqCjs = createRequire(import.meta.url);
+  process.env.AI_MEMORY = '1';
+  const aiHandler = reqCjs(path.join(REPO_ROOT, 'api/ai.js'));
+  const aiKv = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/kv.js'));
+  const aiModels = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/models.js'));
+  aiKv.resetMemory();
+
+  const callAiApi = async ({ method = 'POST', op = '', body = null, token = '', ip = '10.0.0.1' }) => {
+    const req = {
+      method,
+      query: op ? { op } : {},
+      headers: {
+        'content-type': 'application/json',
+        'x-forwarded-for': ip,
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      body: body || {},
+    };
+    let statusCode = 200;
+    let payload = null;
+    const res = {
+      headers: {},
+      setHeader(k, v) { this.headers[k.toLowerCase()] = v; },
+      status(code) { statusCode = code; return this; },
+      json(obj) { payload = obj; return this; },
+      end() { return this; },
+    };
+    await aiHandler(req, res);
+    return { status: statusCode, data: payload };
+  };
+
+  // 1) Unknown op -> 404
+  const badOp = await callAiApi({ method: 'GET', op: 'nope' });
+  check('ai+ backend: unknown ?op= returns 404 with known list',
+    badOp.status === 404 && Array.isArray(badOp.data?.known) && badOp.data.known.includes('run'),
+    JSON.stringify(badOp));
+
+  // 2) verify-sub creates Device #1 + signed token + status
+  const v1 = await callAiApi({
+    op: 'verify-sub',
+    body: { platform: 'ios', plan: 'duitful_ai_monthly', transactionId: 'tx-ai-001', deviceLabel: 'iPhone 15' },
+  });
+  check('ai+ backend: verify-sub issues signed device token and registers Device 1 of 3',
+    v1.status === 200 && v1.data?.ok && typeof v1.data.subToken === 'string'
+    && v1.data.status?.active && v1.data.status.devicesCount === 1 && v1.data.status.scansLimit === 100 && v1.data.status.textLimit === 1000,
+    JSON.stringify(v1));
+  const tok1 = v1.data.subToken;
+
+  // 3) status returns active meters
+  const st1 = await callAiApi({ method: 'GET', op: 'status', token: tok1 });
+  check('ai+ backend: GET ?op=status returns active meters and device count',
+    st1.status === 200 && st1.data?.status?.active && st1.data.status.devicesCount === 1,
+    JSON.stringify(st1));
+
+  // 4) 3-device pairing (single-use 6-digit code) + 4th-device 409 & replaceOldest
+  const ps1 = await callAiApi({ op: 'pair-start', token: tok1 });
+  check('ai+ backend: pair-start generates a 6-digit code with 10-min TTL',
+    ps1.status === 200 && /^\d{6}$/.test(ps1.data?.code || '') && ps1.data.expiresIn === 600,
+    JSON.stringify(ps1));
+
+  const pc2 = await callAiApi({ op: 'pair-claim', body: { code: ps1.data.code, deviceLabel: 'Web Chrome' } });
+  const pc2Replay = await callAiApi({ op: 'pair-claim', body: { code: ps1.data.code, deviceLabel: 'Replay' } });
+  check('ai+ backend: pair-claim binds Device #2 and burns code immediately (single-use)',
+    pc2.status === 200 && pc2.data?.status?.devicesCount === 2 && pc2Replay.status === 404,
+    JSON.stringify({ pc2: pc2.status, replay: pc2Replay.status }));
+  const tok2 = pc2.data.subToken;
+
+  const ps2 = await callAiApi({ op: 'pair-start', token: tok1 });
+  const pc3 = await callAiApi({ op: 'pair-claim', body: { code: ps2.data.code, deviceLabel: 'iPad' } });
+  check('ai+ backend: pair-claim binds Device #3 (3 of 3)',
+    pc3.status === 200 && pc3.data?.status?.devicesCount === 3,
+    JSON.stringify(pc3));
+
+  const ps3 = await callAiApi({ op: 'pair-start', token: tok2 });
+  const pc4Blocked = await callAiApi({ op: 'pair-claim', body: { code: ps3.data.code, deviceLabel: 'Android' } });
+  const pc4Replace = await callAiApi({ op: 'pair-claim', body: { code: ps3.data.code, deviceLabel: 'Android', replaceOldest: true } });
+  const tok1AfterEvict = await callAiApi({ method: 'GET', op: 'status', token: tok1 });
+  check('ai+ backend: 4th device returns 409 device-limit, then replaceOldest evicts oldest slot',
+    pc4Blocked.status === 409 && pc4Blocked.data?.error === 'device-limit'
+    && pc4Replace.status === 200 && pc4Replace.data?.status?.devicesCount === 3 && !!pc4Replace.data?.replaced
+    && tok1AfterEvict.status === 401,
+    JSON.stringify({ blocked: pc4Blocked.status, replaced: pc4Replace.status, evicted: tok1AfterEvict.status }));
+
+  // 5) Task contract through real handler with stubbed Gemini
+  let stubResult = null;
+  let stubThrows = false;
+  global.__DUITFUL_AI_GEMINI_STUB__ = async () => {
+    if (stubThrows) throw new Error('timeout');
+    return stubResult;
+  };
+
+  // Unknown task -> 400, no quota
+  const unkTask = await callAiApi({ op: 'run', token: tok2, body: { task: 'free-chat', input: { prompt: 'hi' } } });
+  // Oversize / unknown field -> 400, no quota
+  const badField = await callAiApi({ op: 'run', token: tok2, body: { task: 'payee-clean', input: { raw: 'GRAB', extra: 1 } } });
+  const oversize = await callAiApi({ op: 'run', token: tok2, body: { task: 'payee-clean', input: { raw: 'A'.repeat(200) } } });
+  check('ai+ tasks: unknown task, unknown field, and oversize input return 400 and use no quota',
+    unkTask.status === 400 && badField.status === 400 && oversize.status === 400,
+    JSON.stringify({ unk: unkTask.status, field: badField.status, over: oversize.status }));
+
+  // Valid payee-clean -> increments textUsed to 1
+  stubResult = { payee: 'Grab' };
+  const pcOk = await callAiApi({ op: 'run', token: tok2, body: { task: 'payee-clean', input: { raw: 'PYMT*GRAB 8812 KL' } } });
+  // Hallucinated payee-clean -> dropped (result: null), textUsed stays 1
+  stubResult = { payee: 'Starbucks' };
+  const pcBad = await callAiApi({ op: 'run', token: tok2, body: { task: 'payee-clean', input: { raw: 'PYMT*GRAB 8812 KL' } } });
+  check('ai+ tasks (payee-clean): accepts words in input, drops hallucinated names without using quota',
+    pcOk.status === 200 && pcOk.data?.ok && pcOk.data.result?.payee === 'Grab' && pcOk.data.status.textUsed === 1
+    && pcBad.status === 200 && !pcBad.data?.ok && pcBad.data.result === null && pcBad.data.status.textUsed === 1,
+    JSON.stringify({ ok: pcOk.data, bad: pcBad.data }));
+
+  // Valid receipt-read vs hallucinated total/category
+  stubResult = { total: 12.5, vendor: 'Kedai Kopi', category: 'Food', items: [{ name: 'Nasi Lemak', amount: 12.5 }] };
+  const rcOk = await callAiApi({
+    op: 'run', token: tok2,
+    body: { task: 'receipt-read', input: { ocrText: 'KEDAI KOPI\nNasi Lemak 12.50\nTOTAL RM 12.50', categories: ['Food', 'Transport'] } },
+  });
+  stubResult = { total: 99.99, vendor: 'Fake Shop', category: 'Crypto' };
+  const rcBad = await callAiApi({
+    op: 'run', token: tok2,
+    body: { task: 'receipt-read', input: { ocrText: 'KEDAI KOPI\nTOTAL RM 12.50', categories: ['Food', 'Transport'] } },
+  });
+  check('ai+ tasks (receipt-read): keeps printed amounts/allowed category, drops hallucinated values without using scan quota',
+    rcOk.status === 200 && rcOk.data?.ok && rcOk.data.result?.total === 12.5 && rcOk.data.status.scansUsed === 1
+    && rcBad.status === 200 && !rcBad.data?.ok && rcBad.data.result === null && rcBad.data.status.scansUsed === 1,
+    JSON.stringify({ ok: rcOk.data, bad: rcBad.data }));
+
+  // Timeout uses no quota
+  stubThrows = true;
+  const rcTimeout = await callAiApi({ op: 'run', token: tok2, body: { task: 'payee-clean', input: { raw: 'GRAB KL' } } });
+  stubThrows = false;
+  check('ai+ tasks: upstream timeout returns null and consumes no quota',
+    rcTimeout.status === 200 && !rcTimeout.data?.ok && rcTimeout.data.result === null && rcTimeout.data.status.textUsed === 1,
+    JSON.stringify(rcTimeout.data));
+
+  // split-match exact amount guard
+  stubResult = { splitId: 's1' };
+  const smOk = await callAiApi({
+    op: 'run', token: tok2,
+    body: { task: 'split-match', input: { sender: 'MUHAMMAD ALI BIN ABU', amount: 22.5, openSplits: [{ id: 's1', name: 'Ali', amount: 22.5 }] } },
+  });
+  const smMismatch = await callAiApi({
+    op: 'run', token: tok2,
+    body: { task: 'split-match', input: { sender: 'MUHAMMAD ALI BIN ABU', amount: 99, openSplits: [{ id: 's1', name: 'Ali', amount: 22.5 }] } },
+  });
+  check('ai+ tasks (split-match): enforces exact amount match',
+    smOk.data?.result?.splitId === 's1' && smMismatch.data?.result?.splitId === null,
+    JSON.stringify({ ok: smOk.data?.result, mis: smMismatch.data?.result }));
+
+  // voice-entry, split-items, ea-read, loan-read, statement-read smoke checks
+  stubResult = { amount: 12.5, category: 'Food', wallet: 'MAE', note: 'nasi lemak' };
+  const veOk = await callAiApi({
+    op: 'run', token: tok2,
+    body: { task: 'voice-entry', input: { sentence: 'RM 12.50 nasi lemak pakai MAE', categories: ['Food'], wallets: ['MAE'] } },
+  });
+  stubResult = { items: [{ name: 'Teh O Ais', qty: 2, amount: 6 }] };
+  const siOk = await callAiApi({
+    op: 'run', token: tok2,
+    body: { task: 'split-items', input: { lines: '2X TEH O AIS 6.00', subtotal: 6 } },
+  });
+  stubResult = { year: 2025, b1a: 54000, sectionB: 54000 };
+  const eaOk = await callAiApi({
+    op: 'run', token: tok2,
+    body: { task: 'ea-read', input: { text: 'BORANG EA 2025 B1(a) 54,000.00 TOTAL 54,000.00' } },
+  });
+  stubResult = { lender: 'PTPTN', kind: 'loan', balance: 15000, monthly: 150, rate: 1 };
+  const lnOk = await callAiApi({
+    op: 'run', token: tok2,
+    body: { task: 'loan-read', input: { text: 'PTPTN Balance 15,000.00 Monthly 150.00 Rate 1%', kinds: ['loan', 'standard'] } },
+  });
+  stubResult = { opening: 100, closing: 80, rows: [{ date: '2026-11-01', desc: 'GRAB', amount: 20, dir: 'out' }] };
+  const stOk = await callAiApi({
+    op: 'run', token: tok2,
+    body: { task: 'statement-read', input: { text: 'Opening 100.00 2026-11-01 GRAB 20.00 Closing 80.00' } },
+  });
+  check('ai+ tasks: all 8 v1 tasks pass schema & guard checks through api/ai.js',
+    veOk.data?.result?.amount === 12.5 && siOk.data?.result?.items?.length === 1
+    && eaOk.data?.result?.b1a === 54000 && lnOk.data?.result?.balance === 15000
+    && stOk.data?.result?.rows?.length === 1 && aiModels.MODELS.lite === 'gemini-2.5-flash-lite' && aiModels.MODELS.vision === 'gemini-2.5-flash',
+    JSON.stringify({ ve: veOk.data?.ok, si: siOk.data?.ok, ea: eaOk.data?.ok, ln: lnOk.data?.ok, st: stOk.data?.ok }));
+
+  // 6) Client-side Playwright checks: hidden by default, nothing sent when off,
+  //    redaction, dual entitlement, live browser aiCloudRun & quota fallback.
+  const aiCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  const aip = await aiCtx.newPage();
+  let aiHits = 0;
+  await aip.route('**/api/ai**', async (route) => {
+    aiHits += 1;
+    const u = new URL(route.request().url());
+    const op = u.searchParams.get('op') || '';
+    const hdrs = route.request().headers();
+    const token = (hdrs.authorization || '').replace(/^Bearer\s+/i, '');
+    const body = route.request().method() === 'POST' ? (route.request().postDataJSON() || {}) : {};
+    const r = await callAiApi({ method: route.request().method(), op, body, token, ip: '10.0.0.9' });
+    await route.fulfill({ status: r.status, contentType: 'application/json', body: JSON.stringify(r.data) });
+  });
+
+  await aip.goto(`${BASE}/app/index.html`);
+  await aip.waitForTimeout(500);
+  await aip.click('#btn-start-open');
+  await aip.waitForTimeout(1500);
+
+  const clientChecks = await aip.evaluate(async () => {
+    const cardShownByDefault = document.getElementById('ai-cloud-card').hidden === false;
+    const toggleOffByDefault = document.getElementById('ai-cloud-toggle').checked === false && state.aiPlusEnabled === false;
+    const offRes = await aiCloudRun('payee-clean', { raw: 'PYMT*GRAB 8812 KL' });
+
+    // On-device redaction check
+    const rawSample = 'NRIC 920102-14-5678 card 4532 1234 5678 9012 email ali@example.my tel +6012-345 6789 No. 12, Jalan Bukit Bintang, 55100 Kuala Lumpur paid RM 45.90 on 2026-11-26';
+    const red = redactForCloudAi({ raw: rawSample }, 'payee-clean').raw;
+    const redactionOk = !red.includes('920102-14-5678') && !red.includes('4532 1234 5678 9012')
+      && !red.includes('ali@example.my') && !red.includes('6012-345 6789') && !red.includes('Jalan Bukit Bintang')
+      && red.includes('RM 45.90') && red.includes('2026-11-26');
+
+    // Dual entitlement check (state.pro separate from state.aiSub)
+    state.pro = false;
+    state.proTrialStartedAt = 0;
+    state.aiSub = { active: true, expiresAt: Date.now() + 86400000, subToken: '' };
+    const proViaSub = isPro();
+    state.pro = true;
+    state.aiSub = { active: false, expiresAt: Date.now() - 1000, subToken: '' };
+    const proKeptAfterCancel = isPro() && state.pro === true;
+    const prices = {
+      stdMo: aiPriceLabel('monthly', { proOwner: false }),
+      stdYr: aiPriceLabel('yearly', { proOwner: false }),
+      proMo: aiPriceLabel('monthly', { proOwner: true }),
+      proYr: aiPriceLabel('yearly', { proOwner: true }),
+    };
+
+    return { cardShownByDefault, toggleOffByDefault, offRes, redactionOk, red, proViaSub, proKeptAfterCancel, prices };
+  });
+
+  check('ai+ client: off by default, zero network calls when off, redacts PII while keeping amounts/dates',
+    clientChecks.cardShownByDefault && clientChecks.toggleOffByDefault && clientChecks.offRes === null && aiHits === 0 && clientChecks.redactionOk,
+    JSON.stringify({ ...clientChecks, aiHits }));
+
+  check('ai+ entitlement: state.pro || aiSubIsActive(), cancelling AI+ keeps Lifetime Pro, single price source',
+    clientChecks.proViaSub && clientChecks.proKeptAfterCancel
+    && clientChecks.prices.stdMo === 'RM 4.90/month' && clientChecks.prices.proYr === 'RM 35/year',
+    JSON.stringify(clientChecks));
+
+  // First-send redacted preview + live browser aiCloudRun via real api/ai.js
+  stubResult = { payee: 'Grab' };
+  const liveRun = await aip.evaluate(async (token) => {
+    state.aiPlusDisclosureSeen = true;
+    state.aiPlusEnabled = true;
+    state.aiPlusPreviewedKinds = {};
+    state.aiSub = { active: true, expiresAt: Date.now() + 86400000, subToken: token };
+    renderAiCloudSettings();
+    const cardShown = document.getElementById('ai-cloud-card').hidden === false;
+    // Start run; first send of "payee" opens #ai-preview-dialog with redacted text
+    const p = aiCloudRun('payee-clean', { raw: 'PYMT*GRAB ali@example.my 8812 KL' });
+    await new Promise((r) => setTimeout(r, 50));
+    const previewOpen = document.getElementById('ai-preview-dialog').open === true;
+    const previewBody = document.getElementById('ai-preview-body').textContent || '';
+    const previewRedacted = !previewBody.includes('ali@example.my') && previewBody.includes('[email]');
+    document.getElementById('ai-preview-send').click();
+    const res = await p;
+    return { cardShown, previewOpen, previewRedacted, res };
+  }, tok2);
+  check('ai+ browser E2E: shows redacted preview before first send of each kind and succeeds via /api/ai?op=run',
+    liveRun.cardShown && liveRun.previewOpen && liveRun.previewRedacted && liveRun.res?.payee === 'Grab' && aiHits >= 1,
+    JSON.stringify({ liveRun, aiHits }));
+
+  // Privacy & store-label surfaces updated in the same release
+  const privFiles = [
+    'privacy/index.html',
+    'APP_STORE_LISTING.md',
+    'PLAY_LISTING.md',
+    'index.html',
+    'ms/index.html',
+    'llms.txt',
+    'VERIFYING-PRIVACY.md',
+  ];
+  const privMissing = privFiles.filter((f) => !/Duitful AI\+/i.test(readFileSync(path.join(REPO_ROOT, f), 'utf8')));
+  check('ai+ privacy surfaces: every policy, store listing, landing page, llms.txt, and VERIFYING-PRIVACY.md updated in same release',
+    privMissing.length === 0, `missing: ${privMissing.join(', ') || 'none'}`);
+
+  // Simulate quota exhausted (1000/1000 text calls) -> 429 -> aiCloudRun returns null cleanly
+  const kvStore = aiKv.store();
+  const subKey = aiKv.keys.sub(v1.data.status ? (await (async () => {
+    const { verifyDeviceToken } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/auth.js'));
+    return verifyDeviceToken(tok2).subId;
+  })()) : '');
+  const curSub = await kvStore.get(subKey);
+  await kvStore.set(subKey, { ...curSub, textUsed: 1000 });
+  const quotaFallback = await aip.evaluate(async () => await aiCloudRun('payee-clean', { raw: 'PYMT*GRAB 8812 KL' }));
+  check('ai+ quota fallback: reaching 1,000 text cap returns null cleanly without blocking',
+    quotaFallback === null, JSON.stringify(quotaFallback));
+
+  // Phase 2: StoreKit 2 / Play Billing subscription receipt keeps state.pro separate,
+  // encrypted backup reconnect syncs status, Web paywall is pair-only, and no LAUNCH100 on iOS.
+  const subChecks = await aip.evaluate(async () => {
+    state.pro = false;
+    state.proTrialStartedAt = 0;
+    state.aiSub = null;
+    const isAi = isAiSubscriptionReceipt({ products: [{ id: 'duitful_ai_monthly' }] });
+    const isNotAi = isAiSubscriptionReceipt({ products: [{ id: 'duitful_pro' }] });
+    let finished = false;
+    const res = await handleAiSubscriptionReceipt({
+      products: [{ id: 'duitful_ai_monthly' }],
+      transactionId: 'tx-phase2-ios-001',
+      finish() { finished = true; },
+    });
+    const proUntouched = state.pro === false && isPro() === true && aiSubIsActive(state.aiSub);
+    const reconnected = await aiReconnectAfterBackupRestore();
+
+    // Web paywall: pair-only (native plans hidden, web pair shown, no LAUNCH100)
+    openAiPaywall();
+    const dlg = document.getElementById('ai-plus-dialog');
+    const webPairOnly = dlg.open
+      && document.getElementById('ai-plus-native-plans').hidden === true
+      && document.getElementById('ai-plus-web-pair').hidden === false
+      && !/LAUNCH100/i.test(dlg.textContent || '');
+    closeAiPaywall();
+
+    return { isAi, isNotAi, finished, ok: !!(res && res.ok), proUntouched, reconnected: !!(reconnected && reconnected.active), webPairOnly };
+  });
+  check('ai+ Phase 2: store subscription verifies via api/ai.js, keeps state.pro separate, reconnects after backup restore, and Web paywall is pair-only',
+    subChecks.isAi && !subChecks.isNotAi && subChecks.finished && subChecks.ok
+    && subChecks.proUntouched && subChecks.reconnected && subChecks.webPairOnly,
+    JSON.stringify(subChecks));
+
+  delete global.__DUITFUL_AI_GEMINI_STUB__;
+  await aiCtx.close();
 }
 
 await b.close();

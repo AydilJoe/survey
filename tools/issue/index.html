@@ -155,7 +155,7 @@ document.getElementById("issue").addEventListener("click", async () => {
   btn.disabled = true;
   btn.textContent = "Issuing…";
   try {
-    const r = await fetch("/api/admin/issue-license", {
+    const r = await fetch("/api/admin/ops?op=issue-license", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
       body: JSON.stringify({ bill_id: billId || undefined, email: email || undefined, sub: sub || undefined, note: note || undefined }),
