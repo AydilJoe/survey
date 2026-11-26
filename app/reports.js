@@ -586,7 +586,7 @@ function renderReports() {
     const top = entries.slice().sort((a, b) => (Number(b.amount) || 0) - (Number(a.amount) || 0)).slice(0, 5);
     if (!top.length) {
       topEl.innerHTML = emptyBlock({
-        glyph: "entry",
+        glyph: "entry", kira: false,
         title: tr("No entries in this period"),
         body: tr("Widen the range above, or clear the category filter."),
       });

@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.70.0";
+const APP_VERSION = "1.71.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -1406,7 +1406,9 @@ const EMPTY_GLYPHS = {
   saving: `<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/>`,
   chart: `<path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/>`,
 };
-function emptyBlock({ glyph = "entry", title, body = "", action = null, host = "div" }) {
+// `kira: false` keeps the plain glyph tile: one Kira per screen (Reports has
+// two empty panels), and never in a form or payment sheet.
+function emptyBlock({ glyph = "entry", title, body = "", action = null, host = "div", kira = true }) {
   const hook = !action ? ""
     : action.open ? `data-add-open="${escapeHtml(action.open)}"`
     : action.tab ? `data-go-tab="${escapeHtml(action.tab)}"`
@@ -1416,7 +1418,9 @@ function emptyBlock({ glyph = "entry", title, body = "", action = null, host = "
     : "";
   const inner = `
     <div class="empty-block">
-      <span class="empty-block-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${EMPTY_GLYPHS[glyph] || EMPTY_GLYPHS.entry}</svg></span>
+      ${kira && typeof kiraSvg === "function"
+        ? `<span class="empty-block-kira" aria-hidden="true">${kiraSvg("happy", { idle: true })}</span>`
+        : `<span class="empty-block-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${EMPTY_GLYPHS[glyph] || EMPTY_GLYPHS.entry}</svg></span>`}
       <span class="empty-block-title">${escapeHtml(title)}</span>
       ${body ? `<p class="empty-block-body">${escapeHtml(body)}</p>` : ""}
       ${btn}
@@ -2476,6 +2480,7 @@ function renderTodayCard() {
     .filter((e) => e.date === today)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   empty.hidden = entries.length > 0;
+  if (typeof kiraSyncToday === "function") kiraSyncToday();
   // Through amt() like every other figure, so privacy mode masks it.
   if (totalEl) totalEl.innerHTML = entries.length ? amt(fmtMoney(dailySpendSum(entries))) : "";
   const shown = entries.slice(0, TODAY_CARD_MAX);
@@ -4252,6 +4257,15 @@ function aiThinkHide() {
   if (aiThinkUi.closeTimer) { clearTimeout(aiThinkUi.closeTimer); aiThinkUi.closeTimer = null; }
   aiThinkOverlayClose();
 }
+// In the sheet, counting Kira holds the badge's sempoa (kira.js): the same
+// beads, counting on the same 2.2s loop. This sheet is the one place the
+// counting mood is drawn — the sempoa only ever means on-device AI at work.
+(function aiThinkKira() {
+  const mark = document.querySelector("#ai-think .ai-think-mark");
+  if (!mark || typeof kiraSvg !== "function") return;
+  mark.querySelector("svg.sempoa")?.remove();
+  mark.insertAdjacentHTML("beforeend", kiraSvg("counting", { ai: true }));
+})();
 document.getElementById("ai-think")?.addEventListener("cancel", (e) => { e.preventDefault(); aiThinkHide(); });
 document.getElementById("ai-think-hide")?.addEventListener("click", aiThinkHide);
 // A tap outside the card (on the backdrop) puts it away too: the page needs the screen.
@@ -6304,6 +6318,8 @@ $("#form-daily").addEventListener("submit", (e) => {
     const loggedId = id;
     toast(`${tr("Spending added")} · ${amountLabel}`, { action: { label: tr("Split"), run: () => splitFromExpense("daily", loggedId) } });
   } else toast(`${tr("Spending added")} · ${amountLabel}`);
+  // Kira hops on the toast with a coin: once, motion-safe (kira.js).
+  if (typeof kiraHop === "function") kiraHop();
 });
 
 /* pill buttons + quick amount chips */
@@ -7574,6 +7590,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.71.0": [
+    "<strong>Meet Kira</strong> — a small receipt friend now waves hello when you start, keeps empty lists company, hops when you log a spend and naps on a no-spend day. When Kira holds the sempoa, your phone's own AI is working. Kira never sits on your numbers.",
+  ],
   "1.70.1": [
     "<strong>Siri works on iPhone again</strong> — \"Log a spend in Duitful\", \"Scan a receipt in Duitful\", \"No spend today in Duitful\" and \"Tell Duitful\" now register with Siri and Spotlight when you open the app. Say \"Tell Duitful\" or \"Log it in Duitful\", then say what you spent."
   ],
@@ -8533,6 +8552,12 @@ function setLockMode(mode) {
   // Once passcode fields are shown, step the welcome blurb + chips aside and
   // lift the form into the upper half of #lock so the keyboard never hides it.
   if (welcome) welcome.hidden = !choosing;
+  // First run: Kira waves hello above the lead line (hidden with the welcome
+  // once the passcode fields show, so the form never moves).
+  const lockKira = document.getElementById("lock-kira");
+  if (lockKira && choosing && !lockKira.firstChild && typeof kiraSvg === "function") {
+    lockKira.innerHTML = kiraSvg("happy", { idle: true, wave: true });
+  }
   if (lock) {
     lock.classList.toggle("is-passcode", !choosing);
     lock.removeAttribute("data-kb-pinned");
@@ -9578,7 +9603,7 @@ function openBulkDebtPayDialog() {
   dateEl.value = todayISO();
   if (state.debts.length === 0) {
     rowsEl.innerHTML = emptyBlock({
-      glyph: "debt",
+      glyph: "debt", kira: false,
       title: tr("Nothing to pay"),
       body: tr("This is where your debts' monthly minimums get paid in one go, once you've added some."),
     });

@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kira moods</title>
+<style>
+  :root {
+    --bg: #f5f1ea; --card: #fffaf2; --card-soft: #f0e8d8; --ink: #2a2420; --ink2: #5c524a;
+    --primary: #c8704b; --btn-bg: #a45434; --paid: #4a7c59; --gold: #e8b84a; --gold-edge: #c99a2e;
+    --border: rgba(42,36,32,0.14);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #171411; --card: #221e1a; --card-soft: #2c2722; --ink: #f1eae0; --ink2: #bfb4a7; --primary: #d98a66; --paid: #8fbf8f; --border: rgba(241,234,224,0.14); }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 28px 16px 60px; }
+  h1 { font: 600 28px Georgia, serif; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h2 { font: 600 19px Georgia, serif; margin: 40px 0 12px; }
+  .lede { color: var(--ink2); margin: 0 0 20px; max-width: 640px; }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+  .moods { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .mood { background: var(--card); border: 0.5px solid var(--border); border-radius: 20px; padding: 16px 10px 12px; text-align: center; }
+  .mood svg { width: 96px; height: 112px; overflow: visible; }
+  .mood b { display: block; font-size: 14px; margin-top: 6px; }
+  .mood small { color: var(--ink2); font-size: 12.5px; }
+  .ai .tag { display: inline-block; margin-top: 4px; font: 700 10px system-ui; letter-spacing: .08em; color: var(--btn-bg); background: color-mix(in srgb, var(--primary) 14%, transparent); padding: 2px 8px; border-radius: 99px; }
+
+  /* Kira parts */
+  .k-body { fill: var(--card-soft); stroke: var(--primary); stroke-width: 2.2; stroke-linejoin: round; }
+  .k-line { stroke: var(--primary); stroke-width: 2.2; stroke-linecap: round; opacity: .45; fill: none; }
+  .k-ink { fill: var(--ink); }
+  .k-stroke { stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+  .k-cheek { fill: var(--primary); opacity: .28; }
+  .k-arm { stroke: var(--primary); stroke-width: 2.4; stroke-linecap: round; fill: none; }
+  .sp-frame { fill: var(--card); stroke: var(--btn-bg); stroke-width: 1.6; }
+  .sp-rod { stroke: var(--btn-bg); stroke-width: 1; opacity: .5; }
+  .sp-beam { stroke: var(--btn-bg); stroke-width: 1.8; }
+  .sp-bead { fill: var(--btn-bg); }
+  .coin { fill: var(--gold); stroke: var(--gold-edge); stroke-width: 1.4; }
+  .coin-t { font: 700 5.4px system-ui; fill: #6b4a12; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .float { animation: float 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+    .blink { animation: blink 4.2s infinite; transform-box: fill-box; transform-origin: center; }
+    .zz { animation: zz 2.6s ease-in-out infinite; }
+    .zz2 { animation: zz 2.6s ease-in-out .9s infinite; }
+    .dance { animation: dance .9s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+    .shake { animation: shake 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+    .twinkle { animation: twinkle 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    .drop { animation: drop 2.4s ease-in infinite; }
+    .confetti rect, .confetti circle { animation: conf 1.8s ease-in infinite; }
+    .confetti :nth-child(2n) { animation-delay: .4s; } .confetti :nth-child(3n) { animation-delay: .8s; }
+    /* the sempoa beads count like the header badge: four snap-flicks, then reset */
+    .b1 { animation: flick 2.2s infinite; } .b2 { animation: flick 2.2s .25s infinite; }
+    .b3 { animation: flickUp 2.2s .5s infinite; } .b4 { animation: flickUp 2.2s .75s infinite; }
+    .nod { animation: nod 2.2s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+  }
+  @keyframes float { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
+  @keyframes blink { 0%,92%,100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+  @keyframes zz { 0% { opacity: 0; transform: translate(0,0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px,-12px); } }
+  @keyframes dance { 0%,100% { transform: rotate(-6deg) translateY(0); } 50% { transform: rotate(6deg) translateY(-6px); } }
+  @keyframes shake { 0%,70%,100% { transform: rotate(0); } 75% { transform: rotate(-3deg); } 80% { transform: rotate(3deg); } 85% { transform: rotate(-2deg); } }
+  @keyframes twinkle { 0%,100% { transform: scale(1) rotate(0); opacity: 1; } 50% { transform: scale(.6) rotate(30deg); opacity: .6; } }
+  @keyframes drop { 0% { transform: translateY(-4px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(10px); opacity: 0; } }
+  @keyframes conf { 0% { transform: translateY(-6px); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(26px) rotate(160deg); opacity: 0; } }
+  @keyframes flick { 0%,8% { transform: translateY(0); } 12%,80% { transform: translateY(-4.6px); } 90%,100% { transform: translateY(0); } }
+  @keyframes flickUp { 0%,8% { transform: translateY(0); } 12%,80% { transform: translateY(3px); } 90%,100% { transform: translateY(0); } }
+  @keyframes nod { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-2deg); } 75% { transform: rotate(2deg); } }
+
+  /* screens */
+  .screens { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
+  .phone { background: var(--card); border: 0.5px solid var(--border); border-radius: 28px; padding: 18px 16px; min-height: 420px; display: flex; flex-direction: column; box-shadow: 0 20px 50px rgba(42,36,32,.08); }
+  .phone .cap { font: 700 10.5px system-ui; letter-spacing: .12em; text-transform: uppercase; color: var(--btn-bg); margin: 0 0 10px; }
+  .phone .mid { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 6px; }
+  .phone .mid svg { width: 104px; height: 120px; overflow: visible; }
+  .phone h3 { font: 600 18px Georgia, serif; margin: 6px 0 0; }
+  .phone p { margin: 0; color: var(--ink2); font-size: 13.5px; }
+  .btn { display: block; width: 100%; border: 0; border-radius: 999px; padding: 13px; font: 600 15px system-ui; color: #fffaf2; background: var(--btn-bg); margin-top: 12px; }
+  .row { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: .5px solid var(--border); font-size: 14px; }
+  .row span:last-child { font-family: ui-monospace, Menlo, monospace; }
+  .flame { color: #e07a3a; font-weight: 700; }
+  .sheet { margin-top: auto; background: var(--card-soft); border-radius: 18px; padding: 14px; text-align: center; }
+  .bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin: 10px 0 4px; }
+  .bar span { display: block; width: 45%; height: 100%; background: var(--btn-bg); border-radius: 3px; }
+  .note { margin-top: 28px; padding: 14px 16px; border-radius: 16px; background: var(--card); border: .5px solid var(--border); color: var(--ink2); font-size: 14px; max-width: 760px; }
+  .note b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Meet Kira</h1>
+  <p class="lede">Duitful's receipt friend. Kira shows up at small moments, never on top of numbers. When Kira holds the sempoa, your phone's AI is working.</p>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <g id="k-base">
+        <path class="k-body" d="M12 5h40a5 5 0 0 1 5 5v55l-5.6-3.6-5.6 3.6-5.6-3.6-5.6 3.6-5.6-3.6-5.6 3.6-5.6-3.6L7 65V10a5 5 0 0 1 5-5z"/>
+        <path class="k-line" d="M17 16h22M17 23h14"/>
+        <circle class="k-cheek" cx="19" cy="45" r="3"/><circle class="k-cheek" cx="45" cy="45" r="3"/>
+      </g>
+      <g id="k-eyes"><circle class="k-ink" cx="24" cy="38" r="2.8"/><circle class="k-ink" cx="40" cy="38" r="2.8"/></g>
+      <g id="sempoa">
+        <rect class="sp-frame" x="0" y="0" width="30" height="22" rx="4"/>
+        <path class="sp-rod" d="M8 1.5v19M15 1.5v19M22 1.5v19"/>
+        <path class="sp-beam" d="M1 8h28"/>
+      </g>
+    </defs>
+  </svg>
+
+  <div class="moods">
+    <div class="mood"><svg viewBox="0 -8 64 90"><g class="float"><use href="#k-base"/><g class="blink"><use href="#k-eyes"/></g><path class="k-stroke" d="M27 45q5 5 10 0"/></g></svg><b>Happy</b><small>default · empty states</small></div>
+
+    <div class="mood"><svg viewBox="0 -8 64 90"><g class="float"><use href="#k-base"/><path class="k-stroke" d="M20.5 39q3.5-4 7 0M36.5 39q3.5-4 7 0"/><path class="k-stroke" d="M26 44q6 7 12 0z" style="fill:var(--ink)"/><path class="k-arm" d="M57 30l6-8"/></g><path class="twinkle" d="M58 6l2 5 5 1-5 2-2 5-2-5-5-2 5-1z" fill="var(--gold)"/></svg><b>Proud</b><small>logged · goal step</small></div>
+
+    <div class="mood"><svg viewBox="0 -8 64 90"><g><use href="#k-base"/><path class="k-stroke" d="M20.5 38h7M36.5 38h7"/><path class="k-stroke" d="M29 46h6"/></g><text class="zz" x="52" y="10" style="font:700 9px system-ui;fill:var(--ink2)">z</text><text class="zz2" x="58" y="2" style="font:700 7px system-ui;fill:var(--ink2)">z</text></svg><b>Sleepy</b><small>no-spend day</small></div>
+
+    <div class="mood"><svg viewBox="0 -8 64 90"><g class="shake"><use href="#k-base"/><path class="k-stroke" d="M20 33.5l7-3M44 33.5l-7-3"/><use href="#k-eyes"/><path class="k-stroke" d="M26 47q3-3 6 0t6 0"/></g><path class="drop" d="M50 22q3 4 0 6q-3-2 0-6z" fill="#7fb0d8"/></svg><b>Worried</b><small>over budget · kind words</small></div>
+
+    <div class="mood"><svg viewBox="0 -14 64 96"><g class="dance"><use href="#k-base"/><path d="M24 6l8-18 8 18z" fill="var(--primary)" opacity=".9"/><circle cx="32" cy="-12" r="2.6" fill="var(--gold)"/><path class="k-stroke" d="M20.5 39q3.5-4 7 0M36.5 39q3.5-4 7 0"/><path d="M26 44q6 9 12 0z" fill="var(--ink)"/><path class="k-arm" d="M7 32l-6-9M57 32l6-9"/></g><g class="confetti"><rect x="2" y="0" width="4" height="6" fill="var(--primary)"/><circle cx="60" cy="4" r="2.4" fill="var(--paid)"/><rect x="54" y="-6" width="4" height="6" fill="var(--gold)"/><circle cx="8" cy="-8" r="2.4" fill="var(--gold)"/></g></svg><b>Party</b><small>debt paid · milestone</small></div>
+
+    <div class="mood ai"><svg viewBox="0 -8 64 90"><g class="nod"><use href="#k-base"/><path class="k-stroke" d="M21 37.5a3 3 0 0 1 6 0M37 37.5a3 3 0 0 1 6 0"/><path class="k-stroke" d="M29 44.5h6"/></g>
+      <g transform="translate(13.5 47) scale(1.25)"><use href="#sempoa"/>
+        <rect class="sp-bead b1" x="5.6" y="2.4" width="4.8" height="3" rx="1.5"/><rect class="sp-bead" x="12.6" y="2.4" width="4.8" height="3" rx="1.5"/><rect class="sp-bead b2" x="19.6" y="2.4" width="4.8" height="3" rx="1.5"/>
+        <rect class="sp-bead b3" x="5.6" y="12" width="4.8" height="3" rx="1.5"/><rect class="sp-bead b4" x="12.6" y="12" width="4.8" height="3" rx="1.5"/><rect class="sp-bead" x="19.6" y="16" width="4.8" height="3" rx="1.5"/>
+      </g>
+      <path class="k-arm" d="M7 40q4 10 11 13M57 40q-4 10-11 13"/></svg><b>Counting</b><small>Kira is counting…</small><br><span class="tag">AI ONLY</span></div>
+  </div>
+
+  <h2>Where Kira shows up</h2>
+  <div class="screens">
+    <div class="phone"><p class="cap">Home · first day</p>
+      <div class="mid"><svg viewBox="0 -8 64 90"><g class="float"><use href="#k-base"/><g class="blink"><use href="#k-eyes"/></g><path class="k-stroke" d="M27 45q5 5 10 0"/><path class="k-arm" d="M57 30q6-6 4-12"/></g></svg>
+        <h3>Nothing logged yet</h3><p>Log your first teh tarik?</p></div>
+      <button class="btn">+ Add a spend</button></div>
+
+    <div class="phone"><p class="cap">No-spend day</p>
+      <div class="mid"><svg viewBox="0 -8 64 90"><use href="#k-base"/><path class="k-stroke" d="M20.5 38h7M36.5 38h7"/><path class="k-stroke" d="M29 46h6"/><text class="zz" x="52" y="10" style="font:700 9px system-ui;fill:var(--ink2)">z</text><text class="zz2" x="58" y="2" style="font:700 7px system-ui;fill:var(--ink2)">z</text></svg>
+        <h3>Wallet's resting today</h3><p><span class="flame">🔥 6</span> day streak</p></div>
+      <button class="btn">Keep the streak</button></div>
+
+    <div class="phone"><p class="cap">Debts · paid off</p>
+      <div class="mid"><svg viewBox="0 -14 64 96"><g class="dance"><use href="#k-base"/><path d="M24 6l8-18 8 18z" fill="var(--primary)" opacity=".9"/><circle cx="32" cy="-12" r="2.6" fill="var(--gold)"/><path class="k-stroke" d="M20.5 39q3.5-4 7 0M36.5 39q3.5-4 7 0"/><path d="M26 44q6 9 12 0z" fill="var(--ink)"/><path class="k-arm" d="M7 32l-6-9M57 32l6-9"/></g><g class="confetti"><rect x="2" y="0" width="4" height="6" fill="var(--primary)"/><circle cx="60" cy="4" r="2.4" fill="var(--paid)"/><rect x="54" y="-6" width="4" height="6" fill="var(--gold)"/><circle cx="8" cy="-8" r="2.4" fill="var(--gold)"/></g></svg>
+        <h3>Atome plan done!</h3><p>One down. Next up: Shopee PayLater.</p></div>
+      <div class="row"><span>Debt-free date</span><span>Mar 2028</span></div></div>
+
+    <div class="phone"><p class="cap">Statement import · AI</p>
+      <div class="row"><span>GRAB*A-8KX2</span><span>RM 14.20</span></div>
+      <div class="row"><span>MYDIN SDN BHD</span><span>RM 63.90</span></div>
+      <div class="row"><span>TNB ONLINE</span><span>RM 98.10</span></div>
+      <div class="sheet"><svg viewBox="0 -8 64 90" style="width:76px;height:88px;overflow:visible"><g class="nod"><use href="#k-base"/><path class="k-stroke" d="M21 37.5a3 3 0 0 1 6 0M37 37.5a3 3 0 0 1 6 0"/><path class="k-stroke" d="M29 44.5h6"/></g><g transform="translate(13.5 47) scale(1.25)"><use href="#sempoa"/><rect class="sp-bead b1" x="5.6" y="2.4" width="4.8" height="3" rx="1.5"/><rect class="sp-bead" x="12.6" y="2.4" width="4.8" height="3" rx="1.5"/><rect class="sp-bead b2" x="19.6" y="2.4" width="4.8" height="3" rx="1.5"/><rect class="sp-bead b3" x="5.6" y="12" width="4.8" height="3" rx="1.5"/><rect class="sp-bead b4" x="12.6" y="12" width="4.8" height="3" rx="1.5"/><rect class="sp-bead" x="19.6" y="16" width="4.8" height="3" rx="1.5"/></g><path class="k-arm" d="M7 40q4 10 11 13M57 40q-4 10-11 13"/></svg>
+        <p><b style="color:var(--ink)">Kira is sorting your statement</b></p><div class="bar"><span></span></div><p>9 of 20</p></div></div>
+  </div>
+
+  <div class="note"><b>Rules.</b> Kira never sits on top of balances, debts, tax or forms. One short line of words. Animations play at the moment, then rest, and stop for anyone who turns on reduce motion. The sempoa only ever means on-device AI.</div>
+</div>
+</body>
+</html>

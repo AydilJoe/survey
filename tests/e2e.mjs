@@ -15771,6 +15771,157 @@ check('the brand catalogue makes no network calls at all',
   await vCtx.close();
 }
 
+// ── Kira, the receipt mascot (v1.71.0) ────────────────────────────────────
+{
+  // The sempoa (counting) mood means on-device AI and nothing else: the only
+  // caller that may ask for it is the AI thinking sheet in script.js.
+  const appDir = path.join(REPO_ROOT, 'app');
+  const countingCalls = [];
+  for (const f of readdirSync(appDir).filter((n) => n.endsWith('.js') && !n.startsWith('i18n-'))) {
+    const src = readFileSync(path.join(appDir, f), 'utf8');
+    for (const m of src.matchAll(/kiraSvg\(\s*["'`]counting["'`]([^)]*)\)/g)) {
+      const before = src.slice(Math.max(0, m.index - 600), m.index);
+      countingCalls.push({ f, ai: /ai:\s*true/.test(m[1]), inAiSheet: /aiThinkKira|ai-think/.test(before) });
+    }
+  }
+  check('Kira (1.71.0): the counting (sempoa) mood is drawn only by the AI thinking sheet, with { ai: true }',
+    countingCalls.length === 1 && countingCalls.every((c) => c.f === 'script.js' && c.ai && c.inAiSheet),
+    JSON.stringify(countingCalls));
+
+  for (const reduced of [false, true]) {
+    const kCtx = await b.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: reduced ? 'reduce' : 'no-preference' });
+    const kp = await kCtx.newPage();
+    const kErr = [];
+    kp.on('pageerror', (e) => kErr.push(e.message));
+    await kp.goto(`${BASE}/app/index.html`);
+    await kp.waitForTimeout(600);
+    const welcome = await kp.evaluate(() => {
+      const k = document.querySelector('#lock-welcome:not([hidden]) #lock-kira svg.kira');
+      return { kira: !!k, waving: !!k && k.classList.contains('is-waving') };
+    });
+    await kp.click('#btn-start-open');
+    await kp.waitForTimeout(1500);
+    await kp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+    await kp.waitForTimeout(200);
+    const r = await kp.evaluate(async () => {
+      const wait = (ms) => new Promise((res) => setTimeout(res, ms));
+      const out = { loaded: typeof kiraSvg === 'function' && typeof kiraHop === 'function' };
+      // Every mood renders an aria-hidden SVG; counting needs { ai: true }.
+      out.moods = KIRA_MOODS.map((m) => {
+        const host = document.createElement('div');
+        host.innerHTML = kiraSvg(m, { ai: true });
+        const svg = host.querySelector('svg');
+        return { m, ok: !!svg && svg.classList.contains('kira--' + m) && svg.getAttribute('aria-hidden') === 'true' && !!svg.querySelector('.kira-body') };
+      });
+      const plain = document.createElement('div');
+      plain.innerHTML = kiraSvg('counting');
+      out.countingWithoutAi = plain.querySelector('svg').classList.contains('kira--happy') && !plain.querySelector('.sempoa');
+      // Empty Home: happy Kira beside "Nothing logged today."
+      const tk = document.querySelector('#today-kira-row:not([hidden]) #today-kira svg.kira--happy');
+      out.homeKira = !!tk && !document.getElementById('today-empty').hidden;
+      // Empty lists: Kira in the shared empty state.
+      out.debtsKira = !!document.querySelector('#list-debt .empty-block-kira svg.kira--happy');
+      out.savingsKira = !!document.querySelector('#savings-list .empty-block-kira svg.kira--happy');
+      // No Kira on a page outside the AI sheet holds a sempoa.
+      out.sempoaOutsideAi = [...document.querySelectorAll('svg.kira .sempoa')].filter((g) => !g.closest('#ai-think')).length;
+      // AI sheet: counting Kira, only there, beads on the badge's loop while open.
+      const dlg = document.getElementById('ai-think');
+      out.sheetKira = !!dlg.querySelector('.ai-think-mark svg.kira--counting .sempoa .sp-el1');
+      aiThinkStart(3000, { overlay: true, label: 'Reading your receipt' });
+      await wait(700);
+      out.sheetOpen = dlg.open;
+      out.bead = getComputedStyle(dlg.querySelector('.kira--counting .sp-el1')).animationName;
+      out.nod = getComputedStyle(dlg.querySelector('.kira--counting .kira-nod')).animationName;
+      out.title = document.getElementById('ai-think-title').textContent;
+      aiThinkHide();
+      for (let i = 0; i < 60 && dlg.open; i++) await wait(50);
+      out.sheetClosed = !dlg.open;
+      // Kira idle loop on an empty state; stops under reduced motion.
+      out.idle = getComputedStyle(document.querySelector('#list-debt .kira .kira-float')).animationName;
+      out.blink = getComputedStyle(document.querySelector('#list-debt .kira .kira-blink')).animationName;
+      // No-spend check-in: sleepy Kira on Today and in the streak sheet.
+      checkInNoSpendToday();
+      await wait(100);
+      out.todaySleepy = !!document.querySelector('#today-kira svg.kira--sleepy');
+      openStreakDialog();
+      await wait(100);
+      out.streakSleepy = !!document.querySelector('#streak-kira svg.kira--sleepy');
+      out.zz = getComputedStyle(document.querySelector('#streak-kira .kira-zz')).animationName;
+      document.getElementById('streak-dialog').close();
+      // Logging hop: a spend from Home → proud Kira + coin on the toast, then gone.
+      const form = document.getElementById('form-daily');
+      form.querySelector('input[name="amount"]').value = '7';
+      form.requestSubmit();
+      await wait(120);
+      const hop = document.querySelector('.kira-hop');
+      out.hop = !!hop && !!hop.querySelector('svg.kira--proud') && !!hop.querySelector('.kira-coin');
+      await wait(1000);
+      out.hopGone = !document.querySelector('.kira-hop');
+      out.todayGone = document.getElementById('today-kira-row').hidden;
+      // Streak with an entry today: proud.
+      openStreakDialog();
+      await wait(100);
+      out.streakProud = !!document.querySelector('#streak-kira svg.kira--proud');
+      document.getElementById('streak-dialog').close();
+      return out;
+    });
+    const tag = reduced ? 'reduced motion' : 'motion';
+    if (!reduced) {
+      check('Kira (1.71.0): kira.js loads; all six moods render a decorative SVG; counting without { ai: true } is plain happy Kira',
+        r.loaded && r.moods.every((m) => m.ok) && r.countingWithoutAi, JSON.stringify(r.moods));
+      check('Kira (1.71.0): welcome waves; empty Home, Debts and Savings show happy Kira; no sempoa outside the AI sheet',
+        welcome.kira && welcome.waving && r.homeKira && r.debtsKira && r.savingsKira && r.sempoaOutsideAi === 0,
+        JSON.stringify({ welcome, homeKira: r.homeKira, debtsKira: r.debtsKira, savingsKira: r.savingsKira, sempoaOutsideAi: r.sempoaOutsideAi }));
+      check('Kira (1.71.0): the AI thinking sheet holds counting Kira, beads on the badge\'s 2.2s loop, nodding while open, "AI is reading" text kept',
+        r.sheetKira && r.sheetOpen && r.bead === 'ai-sp-el1' && r.nod === 'kira-nod' && /AI is reading/.test(r.title) && r.sheetClosed,
+        JSON.stringify(r));
+      check('Kira (1.71.0): a logged spend hops proud Kira with a coin on the toast once; no-spend check-in is sleepy (Today + streak sheet), a streak with a spend is proud',
+        r.hop && r.hopGone && r.todayGone && r.todaySleepy && r.streakSleepy && r.streakProud
+        && r.idle === 'kira-float' && r.blink === 'kira-blink' && r.zz === 'kira-zz' && kErr.length === 0,
+        JSON.stringify({ ...r, kErr }));
+    } else {
+      check('Kira (1.71.0): reduce motion stops every Kira animation (idle, z\'s, nod, beads) and the logging hop',
+        r.idle === 'none' && r.blink === 'none' && r.zz === 'none' && r.nod === 'none' && r.bead === 'none'
+        && !r.hop && r.homeKira && r.sheetKira && kErr.length === 0,
+        JSON.stringify({ ...r, kErr }));
+    }
+    await kCtx.close();
+  }
+
+  // 360px in every language: the Today row, the empty states and the streak
+  // hero with Kira stay inside their cards.
+  const lCtx = await b.newContext({ viewport: { width: 360, height: 780 } });
+  const lp = await lCtx.newPage();
+  await lp.goto(`${BASE}/app/index.html`);
+  await lp.waitForTimeout(500);
+  await lp.click('#btn-start-open');
+  await lp.waitForTimeout(1500);
+  await lp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const fit = {};
+  for (const lang of ['en', 'ms', 'zh']) {
+    await lp.evaluate((l) => { localStorage.setItem('duitful.lang', l); }, lang);
+    await lp.reload();
+    await lp.waitForTimeout(1500);
+    fit[lang] = await lp.evaluate(() => {
+      const out = [];
+      if (!(document.getElementById('today-kira-row').getBoundingClientRect().width > 0)) out.push('today row not on screen');
+      const inside = (el, box) => {
+        const r = el.getBoundingClientRect(), c = box.getBoundingClientRect();
+        return r.width === 0 || (r.left >= c.left - 1 && r.right <= c.right + 1);
+      };
+      for (const el of document.querySelectorAll('#today-kira-row, #today-kira-row > *')) if (!inside(el, el.closest('.card'))) out.push(el.id || el.className);
+      openStreakDialog();
+      const dlg = document.getElementById('streak-dialog');
+      for (const el of dlg.querySelectorAll('.streak-hero-marks, .streak-hero-marks > *')) if (!inside(el, dlg)) out.push(el.className);
+      dlg.close();
+      return out;
+    });
+  }
+  check('Kira (1.71.0): at 360px the Today row and the streak hero fit in English, Malay and Chinese',
+    Object.values(fit).every((v) => v.length === 0), JSON.stringify(fit));
+  await lCtx.close();
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();
