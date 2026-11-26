@@ -285,6 +285,17 @@ function renderStreakDialog(info) {
   const hero = document.getElementById("streak-hero");
   if (hero) hero.classList.toggle("is-lit", info.checkedInToday);
 
+  // Kira: sleepy on a no-spend check-in, proud while a streak runs, else
+  // happy. Redrawn only when the mood changes, so each moment plays once.
+  const kiraSlot = document.getElementById("streak-kira");
+  if (kiraSlot && typeof kiraSvg === "function") {
+    const mood = info.todayKind === "no-spend" ? "sleepy" : info.current > 0 ? "proud" : "happy";
+    if (kiraSlot.dataset.mood !== mood) {
+      kiraSlot.dataset.mood = mood;
+      kiraSlot.innerHTML = kiraSvg(mood, { moment: true });
+    }
+  }
+
   const countEl = document.getElementById("streak-dialog-count");
   if (countEl) {
     countEl.textContent = trn(info.current, "{n} day", "{n} days");
@@ -398,6 +409,7 @@ function renderStreak() {
     noSpendDone.textContent = showNoSpendDone ? tr("No spend day logged.") : "";
   }
   if (todayEmpty && showNoSpendDone) todayEmpty.hidden = true;
+  if (typeof kiraSyncToday === "function") kiraSyncToday();
 
   renderStreakDialog(info);
 }
@@ -405,6 +417,9 @@ function renderStreak() {
 function openStreakDialog() {
   if (typeof state === "undefined" || !state) return;
   const info = computeStreak(state);
+  // Draw Kira afresh so the moment plays as the sheet opens.
+  const kiraSlot = document.getElementById("streak-kira");
+  if (kiraSlot) delete kiraSlot.dataset.mood;
   renderStreakDialog(info);
   const dlg = document.getElementById("streak-dialog");
   if (dlg && typeof dlg.showModal === "function" && !dlg.open) dlg.showModal();

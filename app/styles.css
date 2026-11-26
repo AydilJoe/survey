@@ -9996,3 +9996,129 @@ html[data-theme="dark"] .streak-day.is-done .streak-day-dot { color: var(--stage
 
 
 
+
+/* ---------- Kira (mascot, kira.js) ----------
+   The receipt friend from docs/plans/kira-moods.html (and split/index.html).
+   Decorative inline SVG, tokens only: the paper is --card-soft, the outline,
+   lines, arms and cheeks are --brand (identity, never a status or an amount),
+   the face is --text, the sempoa --brand-ink like the header badge, sparkle
+   and coin --accent-3. Moments only — never on a balance, a debt, a tax
+   figure or a form; one short line of words. Motion: idle float/blink loops
+   only on empty states and the welcome (.is-idle); everything else plays
+   once and rests (.is-moment); the counting beads run while the phone's AI
+   does. All of it sits behind prefers-reduced-motion: no-preference. */
+.kira { display: block; overflow: visible; flex: none; }
+.kira-body {
+  fill: var(--card-soft);
+  stroke: var(--brand);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+.kira-line { stroke: var(--brand); stroke-width: 2.2; stroke-linecap: round; opacity: 0.45; fill: none; }
+.kira-eyes circle { fill: var(--text); }
+.kira-stroke { stroke: var(--text); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.kira-mouth { fill: var(--text); }
+.kira-cheek { fill: var(--brand); opacity: 0.28; }
+.kira-arm { stroke: var(--brand); stroke-width: 2.4; stroke-linecap: round; fill: none; }
+.kira-spark { fill: var(--accent-3); }
+.kira-z { font: 700 9px var(--font-sans); fill: var(--muted); }
+.kira-z2 { font-size: 7px; }
+.kira-drop { fill: color-mix(in srgb, var(--accent-4) 70%, var(--card)); }
+.kira-hat { fill: var(--brand); opacity: 0.9; }
+.kira-pom, .kira-confetti .kc-c { fill: var(--accent-3); }
+.kira-confetti .kc-a { fill: var(--brand); }
+.kira-confetti .kc-b { fill: var(--accent); }
+.kira-sempoa { color: var(--brand-ink); }
+.kira-sp-back { fill: var(--card); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .kira-float, .kira-dance, .kira-shake, .kira-nod { transform-box: fill-box; transform-origin: 50% 100%; }
+  .kira-blink, .kira-twinkle { transform-box: fill-box; transform-origin: center; }
+  .kira-wave { transform-box: fill-box; transform-origin: 0% 100%; }
+  /* Empty states and the welcome: a slow idle loop. */
+  .kira.is-idle .kira-float { animation: kira-float 3.2s ease-in-out infinite; }
+  .kira.is-idle .kira-blink { animation: kira-blink 4.2s infinite; }
+  .kira.is-waving .kira-wave { animation: kira-wave 0.7s ease-in-out 0.3s 3; }
+  /* A moment: play once, then rest. */
+  .kira.is-moment .kira-float { animation: kira-float 1.6s ease-in-out 1; }
+  .kira.is-moment .kira-twinkle { animation: kira-twinkle 1.6s ease-in-out 2; }
+  .kira.is-moment .kira-zz { animation: kira-zz 2.6s ease-in-out 2; }
+  .kira.is-moment .kira-zz2 { animation: kira-zz 2.6s ease-in-out 0.9s 2; }
+  .kira.is-moment .kira-shake { animation: kira-shake 2.4s ease-in-out 1; }
+  .kira.is-moment .kira-drop { animation: kira-drop 2.4s ease-in 1; }
+  .kira.is-moment .kira-dance { animation: kira-dance 0.9s ease-in-out 3; }
+  .kira.is-moment .kira-confetti > * { animation: kira-conf 1.8s ease-in 2; }
+  .kira.is-moment .kira-confetti > :nth-child(2n) { animation-delay: 0.4s; }
+  .kira.is-moment .kira-confetti > :nth-child(3n) { animation-delay: 0.8s; }
+  /* Counting nods along while the phone's AI works (the beads are the
+     badge's own ai-sp-* loop, run by .ai-think[open]). */
+  .ai-think[open] .kira-nod { animation: kira-nod 2.2s ease-in-out infinite; }
+}
+@keyframes kira-float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-5px) rotate(2deg); } }
+@keyframes kira-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes kira-wave { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-18deg); } }
+@keyframes kira-zz { 0% { opacity: 0; transform: translate(0, 0); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -12px); } }
+@keyframes kira-dance { 0%, 100% { transform: rotate(-6deg) translateY(0); } 50% { transform: rotate(6deg) translateY(-6px); } }
+@keyframes kira-shake { 0%, 70%, 100% { transform: rotate(0); } 75% { transform: rotate(-3deg); } 80% { transform: rotate(3deg); } 85% { transform: rotate(-2deg); } }
+@keyframes kira-twinkle { 0%, 100% { transform: scale(1) rotate(0); opacity: 1; } 50% { transform: scale(0.6) rotate(30deg); opacity: 0.6; } }
+@keyframes kira-drop { 0% { transform: translateY(-4px); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(10px); opacity: 0; } }
+@keyframes kira-conf { 0% { transform: translateY(-6px); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(26px) rotate(160deg); opacity: 0; } }
+@keyframes kira-nod { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-2deg); } 75% { transform: rotate(2deg); } }
+
+/* Empty states (emptyBlock): Kira stands in for the glyph tile. */
+.empty-block-kira { display: block; margin-bottom: 0.1rem; }
+.empty-block-kira .kira { width: 46px; height: 64px; }
+
+/* Home → Today, nothing logged yet / a no-spend check-in: Kira beside the line. */
+.today-kira-row { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.25rem; }
+.today-kira-row[hidden] { display: none; }
+.today-kira-row .kira { width: 28px; height: 39px; }
+.today-kira-row > p { margin: 0; }
+
+/* Welcome (first run): Kira waves above the lead line. */
+.lock-kira { display: flex; justify-content: center; margin: 0 0 0.35rem; }
+.lock-kira .kira { width: 50px; height: 70px; }
+@media (max-height: 640px) { .lock-kira { display: none; } }
+
+/* Streak sheet: Kira beside the flame seal. */
+.streak-hero-marks { display: flex; align-items: flex-end; justify-content: center; gap: 0.5rem; margin: 0 auto 0.65rem; }
+.streak-hero-marks .streak-hero-seal { margin: 0; }
+.streak-kira .kira { width: 40px; height: 56px; }
+.streak-kira:empty { display: none; }
+
+/* AI thinking sheet: counting Kira holds the badge's sempoa. */
+.ai-think-mark .kira { width: 74px; height: 104px; }
+
+/* The logging hop: on top of the toast, once. */
+.kira-hop {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none;
+}
+.kira-hop .kira { width: 26px; height: 36px; }
+.kira-coin { width: 13px; height: 13px; overflow: visible; }
+.kira-coin circle { fill: var(--accent-3); stroke: color-mix(in srgb, var(--accent-3) 62%, var(--text)); stroke-width: 1.4; }
+.kira-coin .kira-coin-ring { fill: none; stroke-width: 1; opacity: 0.6; }
+@media (prefers-reduced-motion: no-preference) {
+  .kira-hop .kira { transform-origin: 50% 100%; animation: kira-hop 0.65s cubic-bezier(0.3, 0.7, 0.4, 1) both; }
+  .kira-hop .kira-coin { animation: kira-coin-drop 0.65s cubic-bezier(0.5, 0, 0.7, 0.4) both; }
+}
+@media (prefers-reduced-motion: reduce) { .kira-hop { display: none; } }
+@keyframes kira-hop {
+  0% { transform: translateY(10px) scale(0.6); opacity: 0; }
+  30% { transform: translateY(-8px) scale(1.04); opacity: 1; }
+  55% { transform: translateY(0) scale(1, 0.94); }
+  75% { transform: translateY(-2px) scale(1); opacity: 1; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+@keyframes kira-coin-drop {
+  0% { transform: translateY(-26px); opacity: 0; }
+  20% { opacity: 1; }
+  60% { transform: translateY(0); }
+  72% { transform: translateY(-4px); }
+  85% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(0); opacity: 0; }
+}
