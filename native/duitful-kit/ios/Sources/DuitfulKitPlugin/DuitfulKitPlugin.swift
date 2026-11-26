@@ -365,13 +365,14 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
             "theme", "status", "tone", "month", "daysLeftShort", "daysLeftLines",
             "daysLeftLong", "reviewWord", "reviewLine", "comingUp", "noUpcoming",
             "lockedTitle", "lockedHint", "logSpendLabel", "scanLabel", "splitLabel",
-            "due1Name", "due1When", "due2Name", "due2When", "dueSub"
+            "due1Name", "due1When", "due2Name", "due2When", "dueSub", "streakLabel"
         ]
         var dict: [String: Any] = [
             "locked": call.getBool("locked") ?? false,
             "daysLeft": call.getInt("daysLeft") ?? 0,
             "dayPct": call.getInt("dayPct") ?? 0,
             "reviewCount": call.getInt("reviewCount") ?? 0,
+            "streakDays": call.getInt("streakDays") ?? 0,
         ]
         for k in keys {
             if let v = call.getString(k) { dict[k] = v }

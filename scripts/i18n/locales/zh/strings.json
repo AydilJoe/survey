@@ -580,5 +580,9 @@
   "Save it before midnight. Spend or No spend, both jalan!": "午夜前救救它，记消费或无消费都行！",
   "Tap No spend today or log a spend. Cepat!": "快点「今日无消费」或记一笔，快！",
   "Before midnight turns it into history, tap in now.": "趁午夜前还没变成历史，快打卡。",
-  "Two seconds to check in. Don't ghost your streak lah!": "两秒钟打卡，别放鸽子啦！"
+  "Two seconds to check in. Don't ghost your streak lah!": "两秒钟打卡，别放鸽子啦！",
+  "Use {amount}": "使用 {amount}",
+  "Use amount": "使用金额",
+  "Scan bill": "扫描账单",
+  "Filled {name}: {a}": "已填入 {name}：{a}"
 }

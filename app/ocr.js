@@ -1302,13 +1302,23 @@ function setScanStep(text, pct) {
   pb.setAttribute("aria-valuenow", String(pct));
 }
 
+function isScanCustomTarget() {
+  return window.scanApplyTarget === "split"
+    || !!(window.scanApplyTarget && typeof window.scanApplyTarget === "object" && window.scanApplyTarget.type === "recurring-split");
+}
+
 // The primary button says what it will do: "Add RM 23.40", "Pay RM 120.00".
 function updateScanApplyLabel() {
   if (!scanApply) return;
   if (window.scanApplyTarget === "split") { scanApply.textContent = tr("Use in split"); return; }
   const amt = Number(scanAmount && scanAmount.value);
-  const type = document.querySelector(".scan-type-pills .pill.active")?.dataset.scanType || "expense";
   const money = Number.isFinite(amt) && amt > 0 ? fmtMoney(amt) : "";
+  if (window.scanApplyTarget && typeof window.scanApplyTarget === "object" && window.scanApplyTarget.type === "recurring-split") {
+    scanApply.textContent = money ? tr("Use {amount}", { amount: money }) : tr("Use amount");
+    scanApply.disabled = !money;
+    return;
+  }
+  const type = document.querySelector(".scan-type-pills .pill.active")?.dataset.scanType || "expense";
   scanApply.textContent = type === "debt" ? (money ? tr("Pay {amount}", { amount: money }) : tr("Pay debt")) : (money ? tr("Add {amount}", { amount: money }) : tr("Add expense"));
   scanApply.disabled = !money;
 }
@@ -1318,7 +1328,7 @@ function setScanFailed(failed) {
   const retake = document.getElementById("scan-retake");
   const edit = document.getElementById("scan-edit");
   if (retake) retake.hidden = !failed;
-  if (edit) edit.hidden = failed || window.scanApplyTarget === "split";
+  if (edit) edit.hidden = failed || isScanCustomTarget();
   if (scanCancel) scanCancel.textContent = failed ? tr("Type it in") : tr("Close");
   if (scanCancel) scanCancel.dataset.typeIn = failed ? "1" : "";
   if (scanCancel) scanCancel.hidden = !failed;
@@ -1929,10 +1939,10 @@ async function runReceiptOcr(recognizeInput, previewSrc, revokeUrl) {
     scanResult.hidden = false;
     scanApply.hidden = false;
     const editShow = document.getElementById("scan-edit");
-    if (editShow) editShow.hidden = window.scanApplyTarget === "split";
+    if (editShow) editShow.hidden = isScanCustomTarget();
     // Paid for the table? Split it from here, with the bill already logged.
     const splitShow = document.getElementById("scan-split");
-    if (splitShow) splitShow.hidden = window.scanApplyTarget === "split" || typeof splitApplyScan !== "function";
+    if (splitShow) splitShow.hidden = isScanCustomTarget() || typeof splitApplyScan !== "function";
     const retakeShow = document.getElementById("scan-retake");
     if (retakeShow) retakeShow.hidden = false;
     await applyScanConversion();
@@ -2189,6 +2199,13 @@ function applyScanResult({ direct }) {
     window.scanApplyTarget = null;
     closeScanDialog();
     splitApplyScan({ amount: amt, vendor, raw: scanRaw ? scanRaw.textContent : "", photo: window.scanLastSource || null, date: scanDate ? scanDate.value : "", category: scanCategory ? (scanCategory.value || "").trim() : "" });
+    return;
+  }
+  if (window.scanApplyTarget && typeof window.scanApplyTarget === "object" && window.scanApplyTarget.type === "recurring-split" && typeof rsApplyScan === "function") {
+    const targetId = window.scanApplyTarget.id;
+    window.scanApplyTarget = null;
+    closeScanDialog();
+    rsApplyScan(targetId, amt);
     return;
   }
   // Hand the photo to the tax module for the one expense this scan creates.

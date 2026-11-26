@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.66.3";
+const APP_VERSION = "1.67.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -4520,6 +4520,8 @@ function buildWidgetSummary(opts) {
       due2Name: "",
       due2When: "",
       dueSub: "",
+      streakDays: 0,
+      streakLabel: "",
     };
   }
   const thisMonth = currentMonthISO();
@@ -4568,6 +4570,11 @@ function buildWidgetSummary(opts) {
     ? (d2 ? `${due1When} · ${due2Name} ${due2When}` : due1When)
     : tr("Nothing due soon");
 
+  // Streak count only (never amounts/balances); cleared when locked or disabled.
+  const streakInfo = typeof computeStreak === "function" ? computeStreak(state) : null;
+  const streakDays = streakInfo && streakInfo.enabled && streakInfo.current > 0 ? streakInfo.current : 0;
+  const streakLabel = streakDays > 0 ? `🔥 ${tr("{n}d", { n: streakDays })}` : "";
+
   return {
     ...base,
     status,
@@ -4577,6 +4584,8 @@ function buildWidgetSummary(opts) {
     due2Name,
     due2When,
     dueSub,
+    streakDays,
+    streakLabel,
   };
 }
 function syncWidgetSummary(force) {
@@ -7537,6 +7546,10 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.67.0": [
+    "<strong>Scan bills on recurring splits</strong> — for shared bills that change each month (like TNB, water, or internet), tap <strong>Scan bill</strong> right on the Home card to read the total automatically before sending requests.",
+    "<strong>Streak count on home-screen widgets</strong> — your iPhone and Android home-screen widgets now show your active daily check-in streak beside the month (count only, never amounts, and cleared whenever locked or hidden in Settings).",
+  ],
   "1.66.3": [
     "<strong>Fix: passcode form stays above the keyboard</strong> — tapping <strong>Set a passcode</strong> or unlocking on the welcome screen now lifts the passcode fields and button into the upper half of the screen so the phone's keyboard never covers them.",
   ],

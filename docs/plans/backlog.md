@@ -81,10 +81,9 @@ Full plan: [`assistant-update.md`](assistant-update.md).
 
 ## 4. Small Polish, v2 Follow-Ups & Owner Checklist
 
-- **v2 feature follow-ups:** TNB / water bill scan for recurring splits
-  ([`recurring-splits.md`](recurring-splits.md)), wallets v2 ideas
-  ([`wallets.md`](wallets.md)), and an optional streak count tile (count only,
-  no balances) on the home-screen widget.
+- **v2 feature follow-ups:** wallets v2 ideas ([`wallets.md`](wallets.md)).
+  *(Shipped in `1.67.0`: TNB / water bill scan for recurring splits and
+  home-screen widget streak count.)*
 - **Real-device checks:** test iPhone `1.64.0` Apple Vision scanning (receipts,
   statements, EA) on TestFlight; confirm keyboard fix on Android 16 Samsung;
   check crooked-photo OCR on scanned statements.

@@ -459,10 +459,16 @@ function rsHomeItemHtml({ rs, m }) {
   const last = Object.entries(rs.months).filter(([k, v]) => k < m && v.s === "sent").sort((a, b) => (a[0] < b[0] ? 1 : -1))[0];
   const prefill = last ? last[1].total : (plan.total || "");
   const amount = rs.variable
-    ? `<label class="field rs-amount">
-         <span>${tr("This month's amount ({c})", { c: typeof currentCurrency === "function" ? currentCurrency() : "MYR" })}</span>
-         <input type="number" step="0.01" min="0" inputmode="decimal" data-rs-amount="${rs.id}" value="${prefill ? Number(prefill).toFixed(2) : ""}" placeholder="0.00" />
-       </label>`
+    ? `<div class="rs-amount-row">
+         <label class="field rs-amount">
+           <span>${tr("This month's amount ({c})", { c: typeof currentCurrency === "function" ? currentCurrency() : "MYR" })}</span>
+           <input type="number" step="0.01" min="0" inputmode="decimal" data-rs-amount="${rs.id}" value="${prefill ? Number(prefill).toFixed(2) : ""}" placeholder="0.00" />
+         </label>
+         <button type="button" class="ghost rs-scan-btn" data-action="rs-scan" data-id="${rs.id}" title="${tr("Scan bill")}">
+           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V5a2 2 0 0 1 2-2h2M16 3h2a2 2 0 0 1 2 2v2M20 17v2a2 2 0 0 1-2 2h-2M8 21H6a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+           <span>${tr("Scan bill")}</span>
+         </button>
+       </div>`
     : "";
   return `
     <div class="rs-due" data-rs-due="${rs.id}" data-month="${m}">
@@ -729,6 +735,34 @@ async function rsSendFromCard(id, m) {
   else toast(tr("Your share is in this month's bills"));
 }
 
+/* Version 2: scan a TNB / water / internet bill using the existing receipt OCR
+   pipeline to prefill this month's changing amount on Home. */
+function rsStartBillScan(id) {
+  const rs = rsFind(id);
+  if (!rs || !rs.variable) return;
+  if (typeof startReceiptScan !== "function") return;
+  window.scanApplyTarget = { type: "recurring-split", id };
+  startReceiptScan();
+}
+
+function rsApplyScan(id, amount) {
+  const rs = rsFind(id);
+  const val = splitRound2(splitNum(amount));
+  if (!rs || !(val > 0)) return false;
+  if (typeof switchTab === "function") switchTab("dashboard");
+  const input = document.querySelector(`[data-rs-amount="${id}"]`);
+  if (input) {
+    input.value = val.toFixed(2);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    try { input.scrollIntoView({ block: "center", behavior: "smooth" }); } catch {}
+    input.focus();
+  }
+  if (typeof toast === "function") {
+    toast(tr("Filled {name}: {a}", { name: rs.name, a: fmtMoney(val) }));
+  }
+  return true;
+}
+
 /* ---------- wiring ---------- */
 
 document.addEventListener("click", (e) => {
@@ -760,6 +794,8 @@ document.addEventListener("click", (e) => {
     rsForm.people.splice(Number(btn.dataset.index), 1);
     if (!rsForm.people.length) rsForm.people.push({ pid: "", name: "", w: 1, a: 0 });
     rsRenderForm();
+  } else if (action === "rs-scan") {
+    rsStartBillScan(id);
   } else if (action === "rs-send") {
     rsSendFromCard(id, btn.dataset.month || "");
   } else if (action === "rs-skip") {

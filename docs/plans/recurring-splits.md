@@ -40,7 +40,9 @@ Version 2 below is still planned.
 - One standing link per friend showing what they owe this month (changes how
   the relay stores mailboxes — riskier; the relay is the last Vercel function
   slot, so new ops go on `api/relay.js?op=`).
-- Scan the TNB / water bill to fill the changing amount (reuse receipt OCR).
+- ~~Scan the TNB / water bill to fill the changing amount (reuse receipt OCR).~~
+  **Shipped in 1.67.0** (`rsStartBillScan` / `rsApplyScan` in `app/split-recurring.js`
+  + custom scan target in `app/ocr.js`).
 - "I owe" mode: reminds you to pay, ticks itself when capture sees the
   transfer.
 - Part-month splits for mid-month joiners.
