@@ -616,10 +616,15 @@ struct DuitfulCreateSplitRequestIntent: AppIntent {
 }
 
 // Siri only runs an App Shortcut when what you say is close to one of these
-// phrases; anything else goes to Siri's own answer ("I can't add your
-// spending directly to Duitful"). A phrase can't carry the amount (only an
-// AppEntity or AppEnum can be spoken inline), so each one starts the intent
-// and Siri asks "How much did you spend?". Cover EN, BM and ZH phrasings.
+// phrases; anything else goes to Siri's own answer ("Duitful does not
+// support Siri"). A phrase can't carry the amount (only an AppEntity or
+// AppEnum can be spoken inline), so each one starts the intent and Siri asks
+// "How much did you spend?".
+// Keep 3 to 5 plain English phrases per shortcut, in the base language only.
+// 1.69.0 to 1.70.0 mixed Malay and Chinese lines into this English list, and
+// Siri on a real iPhone never picked the shortcuts up. Other languages belong
+// in an AppShortcuts.strings per .lproj, keyed by these English phrases (Siri
+// has no Malay, so a Malay list would never be heard). tests/e2e.mjs checks it.
 @available(iOS 17.0, *)
 struct DuitfulAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
@@ -627,37 +632,23 @@ struct DuitfulAppShortcuts: AppShortcutsProvider {
             "Log a spend in \\(.applicationName)",
             "Add a spend to \\(.applicationName)",
             "Add spending to \\(.applicationName)",
-            "Add my spending to \\(.applicationName)",
             "Log spending in \\(.applicationName)",
-            "Log my spending in \\(.applicationName)",
             "Add an expense to \\(.applicationName)",
-            "Log an expense in \\(.applicationName)",
-            "Record a spend in \\(.applicationName)",
-            "Track a spend in \\(.applicationName)",
-            "I spent money in \\(.applicationName)",
-            "New spend in \\(.applicationName)",
-            "\\(.applicationName) spend",
-            "\\(.applicationName) log a spend",
-            "Rekod belanja dalam \\(.applicationName)",
-            "Tambah belanja dalam \\(.applicationName)",
-            "记一笔消费在 \\(.applicationName)",
         ], shortTitle: "Log a spend", systemImageName: "plus.circle")
         AppShortcut(intent: DuitfulScanReceiptIntent(), phrases: [
             "Scan a receipt in \\(.applicationName)",
-            "Imbas resit dalam \\(.applicationName)",
-            "扫描收据在 \\(.applicationName)",
+            "Scan a receipt with \\(.applicationName)",
+            "Scan receipt in \\(.applicationName)",
         ], shortTitle: "Scan a receipt", systemImageName: "doc.viewfinder")
         AppShortcut(intent: DuitfulNoSpendTodayIntent(), phrases: [
             "No spend today in \\(.applicationName)",
             "Mark no spend today in \\(.applicationName)",
-            "Tiada belanja hari ini dalam \\(.applicationName)",
-            "今日无消费在 \\(.applicationName)",
+            "Log a no spend day in \\(.applicationName)",
         ], shortTitle: "No spend today", systemImageName: "flame")
         AppShortcut(intent: DuitfulLogBySentenceIntent(), phrases: [
             "Tell \\(.applicationName)",
-            "Voice log in \\(.applicationName)",
-            "Beritahu \\(.applicationName)",
-            "告诉 \\(.applicationName)",
+            "Tell \\(.applicationName) what I spent",
+            "Log by voice in \\(.applicationName)",
         ], shortTitle: "Tell Duitful", systemImageName: "mic")
     }
 }
@@ -676,6 +667,26 @@ struct DuitfulAppShortcuts: AppShortcutsProvider {
     swift = swift.replace(/\s*$/, "\n") + INTENTS_SWIFT;
     writeFileSync(APP_DELEGATE, swift);
     console.log("patch-ios: added the Siri & Shortcuts App Intents to AppDelegate.swift.");
+  }
+}
+
+// iOS only refreshes the App Shortcuts it shows Siri and Spotlight when the
+// app tells it to; call it once per launch, from the template's own
+// didFinishLaunching (the one line we add inside a Capacitor method).
+const SHORTCUTS_REFRESH = "DuitfulAppShortcuts.updateAppShortcutParameters()";
+{
+  let swift = readFileSync(APP_DELEGATE, "utf8");
+  if (swift.includes(SHORTCUTS_REFRESH)) {
+    console.log("patch-ios: AppDelegate already refreshes the App Shortcuts, skipping.");
+  } else {
+    const re = /(func application\(_ application: UIApplication, didFinishLaunchingWithOptions [^{]*\{\n)/;
+    if (!re.test(swift)) {
+      console.error("patch-ios: no didFinishLaunchingWithOptions in AppDelegate.swift, cannot register App Shortcuts:", APP_DELEGATE);
+      process.exit(1);
+    }
+    swift = swift.replace(re, `$1        if #available(iOS 17.0, *) { ${SHORTCUTS_REFRESH} }\n`);
+    writeFileSync(APP_DELEGATE, swift);
+    console.log("patch-ios: AppDelegate refreshes the App Shortcuts at launch.");
   }
 }
 

@@ -335,6 +335,16 @@ jobs:
             grep -q "icloud-container-environment" "$work/ent.plist" \
               || echo "::warning::The signed app has no com.apple.developer.icloud-container-environment entitlement."
           fi
+          # Siri only knows the App Shortcuts that Xcode extracted into
+          # Metadata.appintents. 1.70.0 shipped with Siri saying the app has
+          # no shortcuts; fail here if the phrases are not in the bundle.
+          meta="$app/Metadata.appintents"
+          [ -d "$meta" ] || { echo "::error::No Metadata.appintents in App.app: Siri and Shortcuts will not see any intent."; exit 1; }
+          echo "::group::Metadata.appintents"; ls -la "$meta"; echo "::endgroup::"
+          for want in DuitfulLogSpendIntent DuitfulAppShortcuts "Log a spend in"; do
+            grep -rqa "$want" "$meta" || { echo "::error::Metadata.appintents has no '$want': the App Shortcuts were dropped."; exit 1; }
+          done
+          echo "App Shortcuts present in Metadata.appintents."
           ls -la "$ipa"
           rm -rf "$work"
 

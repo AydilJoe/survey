@@ -13094,6 +13094,13 @@ check('the brand catalogue makes no network calls at all',
       phrases.length >= 12 && phrases.length === phraseLines.length
         && ['Add spending to', 'Log spending in', 'Add an expense to'].every((p) => phrases.some((x) => x.startsWith(p))),
       JSON.stringify({ phrases: phrases.length, lines: phraseLines.length }));
+    // 1.70.0: Siri on a real iPhone never saw the shortcuts while the English
+    // list carried 17 phrases mixed with Malay and Chinese. 3 to 5 English
+    // phrases per shortcut; other languages go in AppShortcuts.strings.
+    const perShortcut = [...block.matchAll(/phrases: \[([\s\S]*?)\]/g)].map((m) => m[1].split('\n').filter((l) => l.trim()).length);
+    check('Siri phrases: 3 to 5 per shortcut, plain English only',
+      perShortcut.length >= 4 && perShortcut.every((n) => n >= 3 && n <= 5) && phrases.every((x) => /^[\x20-\x7e]+$/.test(x)),
+      JSON.stringify(perShortcut));
   }
 
   // Vercel runs npm install on what .vercelignore leaves, so a file:
@@ -15613,12 +15620,11 @@ check('the brand catalogue makes no network calls at all',
   const patchIos = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-ios.mjs'), 'utf8');
   const patchAnd = readFileSync(path.join(REPO_ROOT, 'scripts', 'patch-android-shortcuts.mjs'), 'utf8');
   const swiftPlug = readFileSync(path.join(REPO_ROOT, 'native', 'duitful-kit', 'ios', 'Sources', 'DuitfulKitPlugin', 'DuitfulKitPlugin.swift'), 'utf8');
-  check('v1.69.0: iOS App Intents (Category enum, Wallet entity, NoSpendToday, EN/BM/ZH phrases, iOS 18 ControlWidget) and Android Assistant Actions + Quick Settings Tile are wired',
+  check('v1.69.0: iOS App Intents (Category enum, Wallet entity, NoSpendToday, shortcuts refreshed at launch, iOS 18 ControlWidget) and Android Assistant Actions + Quick Settings Tile are wired',
     patchIos.includes('enum DuitfulCategoryEnum')
     && patchIos.includes('struct DuitfulWalletEntity')
     && patchIos.includes('struct DuitfulNoSpendTodayIntent')
-    && patchIos.includes('Rekod belanja dalam')
-    && patchIos.includes('今日无消费在')
+    && patchIos.includes('if #available(iOS 17.0, *) { ${SHORTCUTS_REFRESH} }')
     && patchIos.includes('struct DuitfulLogSpendControl: ControlWidget')
     && patchIos.includes('struct DuitfulScanReceiptControl: ControlWidget')
     && swiftPlug.includes('duitful.assistant.wallets')
