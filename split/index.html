@@ -161,6 +161,8 @@
   .btn-ink { background: var(--ink); color: var(--card); }
   .btn-ghost { background: transparent; color: var(--ink); border: 0.5px solid var(--border); }
   .btn-ghost:hover { background: var(--card); }
+  /* .btn sets display, which beats the hidden attribute on its own. */
+  .btn[hidden] { display: none; }
   .privacy {
     margin: 18px 0 0; font-size: 12.5px; color: var(--ink2); line-height: 1.55;
     text-align: center;
@@ -248,7 +250,13 @@
   .receipt-photo { display: block; width: 100%; margin: 12px 0 0; border-radius: 10px; border: 0.5px solid var(--border); }
   .paid-done { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: rgba(74,124,89,0.10); border: 0.5px solid rgba(74,124,89,0.35); }
   .paid-done p { margin: 0 0 6px; font-size: 14.5px; color: var(--ink); }
-  @media (prefers-reduced-motion: reduce) { .group-bar span { transition: none; } }
+  .paid-next { margin: 14px 0 0; padding: 14px; border-radius: 12px; background: var(--card-soft); border: 0.5px solid var(--border); }
+  .paid-next-h { margin: 0 0 4px; font-weight: 600; font-size: 15px; color: var(--ink); }
+  .paid-next-b { margin: 0 0 12px; font-size: 13.5px; line-height: 1.5; color: var(--ink2); }
+  /* Arrives just after the green "sent" note: a short rise, then still. */
+  .paid-next:not([hidden]) { animation: paid-next-in 320ms cubic-bezier(0.32,0.72,0,1) 180ms both; }
+  @keyframes paid-next-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .group-bar span { transition: none; } .paid-next:not([hidden]) { animation: none; } }
 </style>
 </head>
 <body>
@@ -307,11 +315,18 @@
         <p id="paid-done-text"></p>
         <button type="button" class="linkish" id="btn-paid-chat" data-t="alsoChat">Also tell them in WhatsApp</button>
       </div>
+      <!-- Right after paying is when a friend is most likely to want this
+           for their own bills: one plain line on what it does, one button. -->
+      <div class="paid-next" id="paid-next" hidden>
+        <p class="paid-next-h" data-t="nextH">Your turn to pay next time?</p>
+        <p class="paid-next-b" data-t="nextB">Duitful splits the bill, sends everyone their share and shows who has paid. Free, no sign-up, and your data stays on your phone.</p>
+        <a class="btn btn-primary" id="btn-get-app-paid" data-get-app="paid" href="/go/app/?utm_source=split&amp;utm_medium=en&amp;utm_content=paid" data-t="nextBtn">Get Duitful free</a>
+      </div>
     </div>
 
     <div class="actions">
       <button type="button" class="btn btn-ghost" id="btn-have-app" data-t="haveApp">I have Duitful — add this request</button>
-      <a class="btn btn-ghost" id="btn-get-app" href="/go/app/?utm_source=split&amp;utm_medium=en&amp;utm_content=friend" data-t="getApp">Get Duitful — free, private, no sign-up</a>
+      <a class="btn btn-ghost" id="btn-get-app" data-get-app="friend" href="/go/app/?utm_source=split&amp;utm_medium=en&amp;utm_content=friend" data-t="getApp">Get Duitful — free, private, no sign-up</a>
     </div>
 
     <details>
@@ -381,6 +396,7 @@
       pickAlso: "also", pickPayer: "payer", pickNone: "Tick at least one item", pickClosed: "This bill is closed", pickClosedB: "{name} has already sent everyone's share. Ask them if yours is missing.",
       pickNeedsBox: "This bill couldn't be loaded", pickNeedsBoxB: "Ticking needs the bill's mailbox, and it couldn't be reached. Check your connection and open the link again.",
       eyebrow: "Payment request", isRequesting: "is requesting", gotRequest: "You've got a payment request",
+      nextH: "Your turn to pay next time?", nextB: "Duitful splits the bill, sends everyone their share and shows who has paid. Free, no sign-up, and your data stays on your phone.", nextBtn: "Get Duitful free",
       transferTo: "Transfer to", haveApp: "I have Duitful — add this request", getApp: "Get Duitful — free, private, no sign-up",
       alreadyPaid: "I\u2019ve paid", yourName: "Your name", namePh: "So they know who paid",
       sendPaid: "Send “I’ve paid”", sendHint: "Sends a link back through WhatsApp or any app. It says you paid — it doesn't move money.",
@@ -411,6 +427,7 @@
       pickAlso: "juga", pickPayer: "pembayar", pickNone: "Tanda sekurang-kurangnya satu item", pickClosed: "Bil ini dah ditutup", pickClosedB: "{name} dah hantar bahagian semua orang. Tanya mereka jika bahagian anda tiada.",
       pickNeedsBox: "Bil ini tidak dapat dimuatkan", pickNeedsBoxB: "Menanda perlukan peti mel bil ini, dan ia tidak dapat dicapai. Semak sambungan anda dan buka pautan semula.",
       eyebrow: "Permintaan bayaran", isRequesting: "minta bayaran", gotRequest: "Ada permintaan bayaran untuk anda",
+      nextH: "Giliran anda bayar lain kali?", nextB: "Duitful bahagikan bil, hantar bahagian setiap orang dan tunjuk siapa yang dah bayar. Percuma, tanpa daftar, dan data anda kekal dalam telefon anda.", nextBtn: "Dapatkan Duitful percuma",
       transferTo: "Pindahkan ke", haveApp: "Saya ada Duitful — tambah permintaan ini", getApp: "Dapatkan Duitful — percuma, peribadi, tanpa daftar",
       alreadyPaid: "Saya dah bayar", yourName: "Nama anda", namePh: "Supaya mereka tahu siapa yang bayar",
       sendPaid: "Hantar “Saya dah bayar”", sendHint: "Hantar pautan balik melalui WhatsApp atau mana-mana aplikasi. Ia cuma memberitahu anda dah bayar — ia tidak memindahkan wang.",
@@ -438,12 +455,16 @@
   function T(k) { return (STR[LANG] && STR[LANG][k]) || STR.en[k] || ""; }
   document.documentElement.lang = LANG;
   // Counted like every other CTA (/go/ records one view, then forwards):
-  // Android goes to Play, everything else to the web app.
+  // Android goes to Play, iPhone and iPad to the App Store, everything else
+  // to the web app. utm_content says which button: "friend" (under the
+  // request) or "paid" (after "I've paid").
   (function () {
-    var ga = document.getElementById("btn-get-app");
-    if (!ga) return;
-    var android = /Android/i.test(navigator.userAgent || "");
-    ga.href = (android ? "/go/play/" : "/go/app/") + "?utm_source=split&utm_medium=" + LANG + "&utm_content=friend";
+    var ua = navigator.userAgent || "";
+    var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    var dest = /Android/i.test(ua) ? "/go/play/" : ios ? "/go/appstore/" : "/go/app/";
+    [].forEach.call(document.querySelectorAll("[data-get-app]"), function (ga) {
+      ga.href = dest + "?utm_source=split&utm_medium=" + LANG + "&utm_content=" + ga.dataset.getApp;
+    });
   })();
   document.title = T("title");
   [].forEach.call(document.querySelectorAll("[data-t]"), function (el) { el.textContent = T(el.dataset.t); });
@@ -891,6 +912,9 @@
     document.getElementById("paid-done").hidden = false;
     document.getElementById("paid-form").hidden = true;
     document.getElementById("btn-paid-open").hidden = true;
+    document.getElementById("paid-next").hidden = false;
+    // The card above says it better; one "Get Duitful" on screen is enough.
+    document.getElementById("btn-get-app").hidden = true;
   }
 
   // Same-origin hand-off: stage the payload for the app to ingest on next

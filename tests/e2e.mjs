@@ -1390,17 +1390,27 @@ check('"Next person" walks the rest of the bill',
     paidPrimary: document.getElementById('btn-paid-open').classList.contains('btn-primary'),
     paidFirst: !!(document.getElementById('btn-paid-open').compareDocumentPosition(document.getElementById('btn-have-app')) & Node.DOCUMENT_POSITION_FOLLOWING),
     getApp: document.getElementById('btn-get-app').getAttribute('href'),
+    nextHidden: document.getElementById('paid-next').hidden,
   }));
   await fp.click('#btn-paid-open');
   await fp.fill('#paid-name', 'Ali');
   await fp.click('#btn-paid-send');
   await fp.waitForTimeout(400);
   const shared = await fp.evaluate(() => window.__shared || null);
+  const after = await fp.evaluate(() => ({
+    nextShown: !document.getElementById('paid-next').hidden,
+    nextHref: document.getElementById('btn-get-app-paid').getAttribute('href'),
+    oneGetApp: getComputedStyle(document.getElementById('btn-get-app')).display === 'none'
+      && getComputedStyle(document.getElementById('btn-paid-open')).display === 'none',
+  }));
   await fctxPaid.close();
+  check('after "I\'ve paid" the friend page offers Duitful for their own bills, counted as utm_content=paid',
+    before.nextHidden && after.nextShown && after.oneGetApp
+      && /^\/go\/(app|play|appstore)\/\?utm_source=split&utm_medium=(en|ms)&utm_content=paid$/.test(after.nextHref), JSON.stringify({ before, after }));
   check('the friend page leads with a big "I\'ve paid", the app buttons after it',
     before.formHidden && before.paidPrimary && before.paidFirst, JSON.stringify(before));
   check('"Get Duitful" on the friend page is a counted /go/ link tagged as coming from a split',
-    /^\/go\/(app|play)\/\?utm_source=split&utm_medium=(en|ms)&utm_content=friend$/.test(before.getApp), before.getApp);
+    /^\/go\/(app|play|appstore)\/\?utm_source=split&utm_medium=(en|ms)&utm_content=friend$/.test(before.getApp), before.getApp);
   const code = shared && (/#(DFS\du?\.[A-Za-z0-9_-]+)/.exec(shared.text) || [])[1];
   check('"I\'ve paid" from the friend page shares a receipt link with their name and the amount',
     !!code && /^Ali paid RM 23\.50 for /.test(shared.text), JSON.stringify(shared));
