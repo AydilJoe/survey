@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.76.0";
+const APP_VERSION = "1.78.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7645,6 +7645,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.78.0": [
+    "<strong>Safer Duitful AI+ subscription checks</strong> — every subscription is now checked against the store's own signature before AI+ switches on, and renewals, refunds and cancellations from the store keep it up to date. If AI+ shows as off after updating, tap Restore purchase once.",
+  ],
   "1.76.0": [
     "<strong>Festive Kira</strong> — Kira dresses up for Malaysian holidays: a songkok and ketupat for Raya, an ang pao for Chinese New Year, a diya for Deepavali, the Jalur Gemilang for Merdeka, a Santa hat for Christmas and more, with one greeting on Home each season. Calm for Ramadan. Turn it off in Settings → Appearance.",
   ],

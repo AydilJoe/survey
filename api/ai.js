@@ -6,7 +6,8 @@
 //   POST /api/ai?op=pair-start   create 10-min single-use 6-digit pair code
 //   POST /api/ai?op=pair-claim   claim pair code (max 3 devices; 409 or replaceOldest)
 //   POST /api/ai?op=run          run a registered JSON-only task against Gemini
-//   POST /api/ai?op=webhook      StoreKit v2 / Play RTDN renewal & refund updates
+//   POST /api/ai?op=webhook      App Store Server Notifications v2 (signed JWS) /
+//                                Play RTDN via Pub/Sub (OIDC; state re-fetched from Google)
 //   GET  /api/ai?op=status       current plan, expiry, meters, and paired device count
 //
 // One function on purpose (Vercel Hobby 12-function cap; no dynamic [param].js

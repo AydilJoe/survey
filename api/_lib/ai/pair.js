@@ -1,12 +1,16 @@
 // 1-Tap 3-device pairing:
 //   POST /api/ai?op=pair-start  -> creates a single-use 6-digit code (10-min TTL, rate-limited)
 //   POST /api/ai?op=pair-claim  -> binds a device slot (max 3; 409 unless replaceOldest: true)
+//
+// Device slots live in ai_dev:<subId>; neither handler ever writes ai_sub or
+// ai_evt (see api/_lib/ai/entitlement.js).
 
 const crypto = require("crypto");
 const { MAX_DEVICES, PAIR_TTL_S } = require("./models");
-const { store, keys, normalizeSubPeriod, SUB_TTL_S } = require("./kv");
+const { store, keys, SUB_TTL_S } = require("./kv");
 const { extractToken, verifyDeviceToken, signDeviceToken, clientIpHash, rateLimit, send, readBody } = require("./auth");
-const { formatStatus } = require("./status");
+const { formatStatus, reverifyBody } = require("./status");
+const { loadEntitlement, isActive } = require("./entitlement");
 
 const CODE_RE = /^\d{6}$/;
 
@@ -28,11 +32,12 @@ async function handlePairStart(req, res) {
   }
 
   const now = Date.now();
-  const sub = normalizeSubPeriod(await kv.get(keys.sub(claims.subId)), now);
-  if (!sub || !sub.active || Number(sub.expiresAt) <= now) {
+  const ent = await loadEntitlement(kv, claims.subId, now);
+  if (ent.legacy) return send(res, 403, reverifyBody(ent, now));
+  if (!isActive(ent.sub, now)) {
     return send(res, 403, { error: "inactive-subscription" });
   }
-  if (!Array.isArray(sub.devices) || !sub.devices.some((d) => d.slotId === claims.slotId)) {
+  if (!ent.devices.some((d) => d.slotId === claims.slotId)) {
     return send(res, 401, { error: "device-unlinked" });
   }
 
@@ -52,7 +57,7 @@ async function handlePairStart(req, res) {
     ok: true,
     code,
     expiresIn: PAIR_TTL_S,
-    devicesCount: sub.devices.length,
+    devicesCount: ent.devices.length,
     maxDevices: MAX_DEVICES,
   });
 }
@@ -76,13 +81,17 @@ async function handlePairClaim(req, res) {
   if (!entry || !entry.subId) return send(res, 404, { error: "code-expired" });
 
   const now = Date.now();
-  const sub = normalizeSubPeriod(await kv.get(keys.sub(entry.subId)), now);
-  if (!sub || !sub.active || Number(sub.expiresAt) <= now) {
+  const ent = await loadEntitlement(kv, entry.subId, now);
+  if (ent.legacy) {
+    await kv.del(keys.pair(code));
+    return send(res, 403, reverifyBody(ent, now));
+  }
+  if (!isActive(ent.sub, now)) {
     await kv.del(keys.pair(code));
     return send(res, 403, { error: "inactive-subscription" });
   }
 
-  const devices = Array.isArray(sub.devices) ? sub.devices.slice() : [];
+  const devices = ent.devices.slice();
   if (devices.length >= MAX_DEVICES && !body.replaceOldest) {
     // Keep the code valid briefly so the user can confirm "Replace oldest device?"
     return send(res, 409, {
@@ -105,8 +114,7 @@ async function handlePairClaim(req, res) {
   const slot = { slotId: crypto.randomBytes(9).toString("base64url"), label, addedAt: now };
   devices.push(slot);
 
-  const updated = { ...sub, devices, updatedAt: now };
-  await kv.set(keys.sub(entry.subId), updated, { ex: SUB_TTL_S });
+  await kv.set(keys.dev(entry.subId), devices, { ex: SUB_TTL_S });
 
   const subToken = signDeviceToken({ subId: entry.subId, slotId: slot.slotId });
   return send(res, 200, {
@@ -114,7 +122,7 @@ async function handlePairClaim(req, res) {
     subToken,
     slotId: slot.slotId,
     replaced: replaced ? { slotId: replaced.slotId, label: replaced.label } : null,
-    status: formatStatus(updated, now),
+    status: formatStatus({ ...ent, devices }, now),
   });
 }
 
