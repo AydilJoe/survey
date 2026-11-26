@@ -314,6 +314,117 @@
     100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); }
   }
   @media (prefers-reduced-motion: reduce) { .group-bar span { transition: none; } }
+
+  /* Festive props reach past the receipt's box (hats above, things beside the feet). */
+  .hero:has(svg.is-festive) { margin-top: 4px; margin-bottom: 22px; }
+  .duo:has(svg.is-festive) { margin-bottom: 16px; }
+  /* ---- Festive Kira (app/kira-seasons.js; the app's "Kira festive" block, mapped to this page's tokens) ---- */
+:root {
+  --kf-red: #c8322b;
+  --kf-gold: #d9a43a;
+  --kf-gold-deep: #a17722;
+  --kf-orange: #ef8a22;
+  --kf-orange-hi: #f8c27c;
+  --kf-green: #2f7d4f;
+  --kf-leaf: #4e8a3c;
+  --kf-songkok: #23201d;
+  --kf-songkok-hi: #5d564e;
+  --kf-songkok-edge: #23201d;
+  --kf-fur: #fbf8f2;
+  --kf-fur-edge: #d8d0c3;
+  --kf-hardhat: #f0be2c;
+  --kf-hardhat-ridge: #b88912;
+  --kf-flame: #f4a42b;
+  --kf-pelita: #b98c47;
+  --kf-diya: #c0703a;
+  --kf-diya-hi: #e8a874;
+  --kf-lotus: #e2859f;
+  --kf-lotus-2: #f2b6c6;
+  --kf-ketupat: #d9c37c;
+  --kf-ketupat-line: #8e7830;
+  --kf-saffron: #ee8c1a;
+  --kf-marigold: #f2c03a;
+  --kf-teal: #1f7a8c;
+  --kf-magenta: #b8336a;
+  --kf-bead-r: #b8322b;
+  --kf-bead-y: #e7b630;
+  --kf-bead-k: #2a2622;
+  --kf-bead-w: #f6f1e7;
+  /* The Jalur Gemilang: never tinted. */
+  --kf-flag-red: #cc0001;
+  --kf-flag-white: #ffffff;
+  --kf-flag-blue: #010066;
+  --kf-flag-yellow: #ffcc00;
+  --kf-flag-edge: color-mix(in srgb, var(--ink) 18%, transparent);
+}
+@media (prefers-color-scheme: dark) {
+:root {
+  --kf-red: #d8483f;
+  --kf-songkok: #2a2622;
+  --kf-songkok-hi: #8b8279;
+  --kf-songkok-edge: #776e64;
+  --kf-fur: #ece6dc;
+  --kf-fur-edge: #b9b0a3;
+  --kf-bead-k: #4a443e;
+  --kf-flag-edge: color-mix(in srgb, var(--ink) 45%, transparent);
+}
+}
+.mascot .kf-red, .mascot .kf-santa { fill: var(--kf-red); }
+.mascot .kf-red-line { stroke: var(--kf-red); stroke-width: 1.4; stroke-linecap: round; fill: none; }
+.mascot .kf-gold { fill: var(--kf-gold); }
+.mascot .kf-gold-line { stroke: var(--kf-gold); stroke-width: 0.9; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.mascot .kf-hat .kf-gold { stroke: var(--kf-gold-deep); stroke-width: 0.7; stroke-linejoin: round; }
+.mascot .kf-white { fill: #fff; }
+.mascot .kf-jewel { fill: var(--kf-red); }
+.mascot .kf-green { fill: var(--kf-green); }
+.mascot .kf-leaf { fill: var(--kf-leaf); }
+.mascot .kf-leaf-line { stroke: var(--kf-leaf); stroke-width: 1.3; stroke-linecap: round; fill: none; }
+.mascot .kf-orange { fill: var(--kf-orange); }
+.mascot .kf-orange-hi { fill: var(--kf-orange-hi); opacity: 0.8; }
+.mascot .kf-songkok { fill: var(--kf-songkok); stroke: var(--kf-songkok-edge); stroke-width: 0.8; stroke-linejoin: round; }
+.mascot .kf-songkok-hi { stroke: var(--kf-songkok-hi); stroke-width: 0.9; stroke-linecap: round; fill: none; }
+.mascot .kf-fur { fill: var(--kf-fur); stroke: var(--kf-fur-edge); stroke-width: 0.7; }
+.mascot .kf-hardhat { fill: var(--kf-hardhat); stroke: var(--kf-hardhat-ridge); stroke-width: 0.7; stroke-linejoin: round; }
+.mascot .kf-hardhat-ridge { stroke: var(--kf-hardhat-ridge); stroke-width: 1; stroke-linecap: round; fill: none; }
+.mascot .kf-flame { fill: var(--kf-flame); }
+.mascot .kf-wick { stroke: var(--ink); stroke-width: 0.9; stroke-linecap: round; }
+.mascot .kf-pelita { fill: var(--kf-pelita); }
+.mascot .kf-pelita-ring { stroke: color-mix(in srgb, var(--kf-pelita) 60%, var(--ink)); stroke-width: 0.9; fill: none; }
+.mascot .kf-diya { fill: var(--kf-diya); }
+.mascot .kf-diya-hi { stroke: var(--kf-diya-hi); stroke-width: 0.9; stroke-linecap: round; fill: none; }
+.mascot .kf-lotus { fill: var(--kf-lotus); }
+.mascot .kf-lotus-2 { fill: var(--kf-lotus-2); }
+.mascot .kf-ketupat { fill: var(--kf-ketupat); stroke: var(--kf-ketupat-line); stroke-width: 0.7; stroke-linejoin: round; }
+.mascot .kf-ketupat-line { stroke: var(--kf-ketupat-line); stroke-width: 0.7; fill: none; }
+.mascot .kf-string { stroke: var(--ink2); stroke-width: 0.6; fill: none; }
+.mascot .kf-tassel { stroke: var(--kf-red); stroke-width: 1.2; stroke-linecap: round; }
+.mascot .kf-saffron { fill: var(--kf-saffron); }
+.mascot .kf-marigold { fill: var(--kf-marigold); }
+.mascot .kf-teal { fill: var(--kf-teal); }
+.mascot .kf-magenta { fill: var(--kf-magenta); }
+.mascot .kf-bead-r { fill: var(--kf-bead-r); }
+.mascot .kf-bead-y { fill: var(--kf-bead-y); }
+.mascot .kf-bead-k { fill: var(--kf-bead-k); }
+.mascot .kf-bead-w { fill: var(--kf-bead-w); stroke: color-mix(in srgb, var(--ink) 30%, transparent); stroke-width: 0.4; }
+.mascot .kf-b1 { fill: var(--primary); }
+.mascot .kf-b2 { fill: #c99a68; }
+.mascot .kf-b3 { fill: var(--paid); }
+.mascot .kf-b4 { fill: #5b7f9e; }
+.mascot .kf-kolam { fill: var(--kf-gold); }
+.mascot .kf-kolam-2 { fill: var(--kf-lotus); }
+.mascot .kf-kolam-line { stroke: color-mix(in srgb, var(--primary) 45%, transparent); stroke-width: 0.7; stroke-linecap: round; fill: none; }
+.mascot .kf-flag-red { fill: var(--kf-flag-red); stroke: var(--kf-flag-edge); stroke-width: 0.4; }
+.mascot .kf-flag-white { fill: var(--kf-flag-white); }
+.mascot .kf-flag-blue { fill: var(--kf-flag-blue); }
+.mascot .kf-flag-yellow { fill: var(--kf-flag-yellow); }
+.mascot .kf-pole { stroke: color-mix(in srgb, var(--ink) 55%, transparent); stroke-width: 1; stroke-linecap: round; }
+@media (prefers-reduced-motion: no-preference) {
+  .mascot .kf-flicker { transform-box: fill-box; transform-origin: 50% 100%; animation: kf-flicker 1.6s ease-in-out infinite; }
+    .mascot .kf-twinkle { transform-box: fill-box; transform-origin: center; animation: kf-twinkle 2.4s ease-in-out 2; }
+}
+@keyframes kf-flicker { 0%, 100% { transform: scale(1, 1); } 40% { transform: scale(0.92, 1.08); } 70% { transform: scale(1.05, 0.95); } }
+
+@keyframes kf-twinkle { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.6); opacity: 0.6; } }
 </style>
 </head>
 <body>
@@ -1134,6 +1245,30 @@
     await shareReceipt(name);
   });
 })();
+</script>
+<!-- Festive Kira: the receipt friends wear the season's outfit (same rules
+     and drawings as the app, app/kira-seasons.js). The app's "Festive Kira"
+     switch is on this origin too, so off there means plain here. -->
+<script src="/app/kira-seasons.js" defer></script>
+<script>
+window.addEventListener("DOMContentLoaded", function () {
+  try {
+    if (!window.KiraSeasons || localStorage.getItem("duitful.festiveKira") === "off") return;
+  } catch (e) { if (!window.KiraSeasons) return; }
+  var pinned = window.DUITFUL_KIRA_DATE;
+  var s = KiraSeasons.seasonFor(/^\d{4}-\d{2}-\d{2}$/.test(pinned || "") ? pinned : new Date());
+  if (!s) return;
+  var p = KiraSeasons.props(s);
+  document.querySelectorAll("svg.mascot").forEach(function (svg) {
+    var body = svg.querySelector(".m-body");
+    if (!body) return;
+    if (p.under) svg.insertAdjacentHTML("afterbegin", p.under);
+    if (p.inner) body.insertAdjacentHTML("afterend", p.inner);
+    if (p.front) svg.insertAdjacentHTML("beforeend", p.front);
+    svg.classList.add("is-festive");
+    svg.setAttribute("data-season", s.key);
+  });
+});
 </script>
 </body>
 </html>

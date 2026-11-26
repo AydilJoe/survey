@@ -73,9 +73,10 @@ const KIRA_DRAW = {
     body: `<g class="kira-shake">${KIRA_BODY}<path class="kira-stroke" d="M20 33.5l7-3M44 33.5l-7-3"/><g class="kira-blink">${KIRA_EYES}</g><path class="kira-stroke" d="M26 47q3-3 6 0t6 0"/></g>` +
       '<path class="kira-drop" d="M50 22q3 4 0 6q-3-2 0-6z"/>',
   }),
-  party: () => ({
+  party: (o) => ({
     vb: "0 -14 64 96",
-    body: `<g class="kira-dance">${KIRA_BODY}<path class="kira-hat" d="M24 6l8-18 8 18z"/><circle class="kira-pom" cx="32" cy="-12" r="2.6"/>` +
+    // A festive hat (kira-seasons.js) takes the party hat's place.
+    body: `<g class="kira-dance">${KIRA_BODY}` + (o.noHat ? "" : '<path class="kira-hat" d="M24 6l8-18 8 18z"/><circle class="kira-pom" cx="32" cy="-12" r="2.6"/>') +
       `${KIRA_HAPPY_EYES}<path class="kira-mouth" d="M26 44q6 9 12 0z"/><path class="kira-arm" d="M7 32l-6-9M57 32l6-9"/></g>` +
       '<g class="kira-confetti"><rect class="kc-a" x="2" y="0" width="4" height="6"/><circle class="kc-b" cx="60" cy="4" r="2.4"/>' +
       '<rect class="kc-c" x="54" y="-6" width="4" height="6"/><circle class="kc-c" cx="8" cy="-8" r="2.4"/></g>',
@@ -92,14 +93,191 @@ function kiraSvg(mood, opts) {
   let m = KIRA_DRAW[mood] ? mood : "happy";
   // The sempoa is the on-device AI's sign. Anywhere else, Kira just smiles.
   if (m === "counting" && o.ai !== true) m = "happy";
-  const d = KIRA_DRAW[m](o);
+  // Festive Kira (1.76.0): the season's outfit, unless the caller says
+  // { season: false } (or passes a season of its own). Ramadan and the quiet
+  // Islamic days are calm: no party mood, so no confetti.
+  const season = o.season === undefined ? kiraSeasonNow() : (o.season || null);
+  if (season && season.calm && m === "party") m = "proud";
+  let fest = null;
+  if (season && typeof KiraSeasons !== "undefined") {
+    // Counting Kira keeps the sempoa: a hat at most, nothing in the hands.
+    fest = m === "counting" ? { under: "", inner: KiraSeasons.headOnly(season), front: "", head: true }
+      : KiraSeasons.props(season);
+  }
+  const d = KIRA_DRAW[m]({ ...o, noHat: !!(fest && fest.head && fest.inner) });
+  let body = d.body;
+  if (fest && (fest.inner || fest.under || fest.front)) {
+    body = (fest.under || "") + body.replace(KIRA_BODY, KIRA_BODY + (fest.inner || "")) + (fest.front || "");
+  }
   const cls = ["kira", `kira--${m}`];
   if (o.idle) cls.push("is-idle");
   if (o.moment) cls.push("is-moment");
   if (o.wave && m === "happy") cls.push("is-waving");
+  if (fest && (fest.inner || fest.under || fest.front)) cls.push("kira--festive", `kira-look-${season.look}`);
   if (o.cls) cls.push(o.cls);
-  return `<svg class="${cls.join(" ")}" viewBox="${d.vb}" aria-hidden="true" focusable="false">${d.body}</svg>`;
+  // What it was asked for, so kiraRefreshAll can redraw it in place.
+  const asked = [o.idle && "i", o.moment && "m", o.wave && "w", o.ai === true && "a"].filter(Boolean).join("");
+  const seasonAttr = fest ? ` data-season="${season.key}"` : "";
+  const keep = o.season === false ? ' data-kira-plain="1"' : "";
+  return `<svg class="${cls.join(" ")}" viewBox="${d.vb}" aria-hidden="true" focusable="false" data-kira="${mood}" data-kira-o="${asked}"${seasonAttr}${keep}>${body}</svg>`;
 }
+
+/* ---------- Festive Kira (1.76.0) ----------
+   kira-seasons.js says which season today is (docs/plans/kira-festive.md);
+   every Kira drawn through kiraSvg wears its outfit. "Festive Kira" in
+   Settings → Appearance turns it off on this device (localStorage, like the
+   theme; default on): off means plain Kira and no greetings. */
+const KIRA_FESTIVE_KEY = "duitful.festiveKira";
+const KIRA_GREET_KEY = "duitful.kiraGreet";
+function kiraFestiveOn() {
+  try { return localStorage.getItem(KIRA_FESTIVE_KEY) !== "off"; } catch (_) { return true; }
+}
+// The e2e suite pins the date with window.DUITFUL_KIRA_DATE ("YYYY-MM-DD").
+function kiraTodayIso() {
+  const pinned = typeof window !== "undefined" ? window.DUITFUL_KIRA_DATE : "";
+  if (typeof pinned === "string" && /^\d{4}-\d{2}-\d{2}$/.test(pinned)) return pinned;
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+let kiraSeasonMemo = null;
+function kiraSeasonNow() {
+  if (typeof KiraSeasons === "undefined" || !kiraFestiveOn()) return null;
+  const iso = kiraTodayIso();
+  if (!kiraSeasonMemo || kiraSeasonMemo.iso !== iso) {
+    let s = null;
+    try { s = KiraSeasons.seasonFor(iso); } catch (_) { s = null; }
+    kiraSeasonMemo = { iso, s };
+  }
+  return kiraSeasonMemo.s;
+}
+// Redraw every Kira on the page (the switch changed, or the day did).
+function kiraRefreshAll() {
+  kiraSeasonMemo = null;
+  for (const svg of document.querySelectorAll("svg.kira[data-kira]")) {
+    if (svg.dataset.kiraPlain) continue;
+    const f = svg.dataset.kiraO || "";
+    const html = kiraSvg(svg.dataset.kira, { idle: f.includes("i"), moment: f.includes("m"), wave: f.includes("w"), ai: f.includes("a") });
+    svg.insertAdjacentHTML("afterend", html);
+    svg.remove();
+  }
+  renderKiraGreet();
+}
+
+// The greeting rows (scripts/i18n/locales/*/kira.json). Some stay the same in
+// every language because that is how Malaysians say them.
+const KIRA_GREETINGS = {
+  newyear: () => tr("Happy New Year"),
+  thaipusam: () => tr("Happy Thaipusam"),
+  cny: () => tr("Happy Chinese New Year"),
+  ramadan: () => tr("Salam Ramadan"),
+  raya: () => tr("Selamat Hari Raya Aidilfitri, Maaf Zahir Batin"),
+  labour: () => tr("Happy Labour Day"),
+  wesak: () => tr("Happy Wesak Day"),
+  kaamatan: () => tr("Kotobian Tadau Tagazo do Kaamatan"),
+  gawai: () => tr("Selamat Hari Gawai, Gayu Guru Gerai Nyamai"),
+  agong: () => tr("Daulat Tuanku"),
+  haji: () => tr("Selamat Hari Raya Aidiladha"),
+  muharram: () => tr("Salam Maal Hijrah"),
+  merdeka: () => tr("Happy Merdeka"),
+  malaysia_day: () => tr("Happy Malaysia Day"),
+  maulid: () => tr("Salam Maulidur Rasul"),
+  deepavali: () => tr("Happy Deepavali"),
+  christmas: () => tr("Merry Christmas"),
+};
+// Names for the "Happy holidays" line on a shared national + state day.
+const KIRA_HOLIDAY_NAMES = {
+  newyear: () => tr("New Year's Day"),
+  thaipusam: () => tr("Thaipusam"),
+  cny: () => tr("Chinese New Year"),
+  nuzul: () => tr("Nuzul Al-Quran"),
+  raya: () => tr("Hari Raya Aidilfitri"),
+  labour: () => tr("Labour Day"),
+  wesak: () => tr("Wesak Day"),
+  kaamatan: () => tr("Kaamatan"),
+  gawai: () => tr("Gawai"),
+  agong: () => tr("Agong's Birthday"),
+  haji: () => tr("Hari Raya Aidiladha"),
+  muharram: () => tr("Awal Muharram"),
+  merdeka: () => tr("Merdeka Day"),
+  malaysia_day: () => tr("Malaysia Day"),
+  maulid: () => tr("Maulidur Rasul"),
+  deepavali: () => tr("Deepavali"),
+  christmas: () => tr("Christmas"),
+};
+function kiraGreetText(season) {
+  if (!season) return "";
+  if (season.id === "shared") {
+    const names = season.names.map((n) => (KIRA_HOLIDAY_NAMES[n] ? KIRA_HOLIDAY_NAMES[n]() : "")).filter(Boolean);
+    return tr("Happy holidays: {names}", { names: names.join(" · ") });
+  }
+  return season.names.map((n) => (KIRA_GREETINGS[n] ? KIRA_GREETINGS[n]() : "")).filter(Boolean).join(" · ");
+}
+
+/* One greeting line on Home, once per season per device: shown the first
+   day it comes up (and kept that day until dismissed), then never again for
+   that season. Its own card above the others, never on the figures. */
+function kiraGreetStore() {
+  try { const v = JSON.parse(localStorage.getItem(KIRA_GREET_KEY) || "{}"); return v && typeof v === "object" ? v : {}; } catch (_) { return {}; }
+}
+function kiraGreetSave(v) {
+  // Keep the last few seasons only.
+  const keys = Object.keys(v);
+  if (keys.length > 12) for (const k of keys.slice(0, keys.length - 12)) delete v[k];
+  try { localStorage.setItem(KIRA_GREET_KEY, JSON.stringify(v)); } catch (_) { /* private mode: shown again next time */ }
+}
+function renderKiraGreet() {
+  const card = document.getElementById("kira-greet");
+  if (!card) return;
+  const unlocked = typeof state !== "undefined" && !!state;
+  const season = unlocked ? kiraSeasonNow() : null;
+  const today = kiraTodayIso();
+  let show = false;
+  if (season) {
+    const store = kiraGreetStore();
+    const seen = store[season.key];
+    show = !seen || seen === today;
+    if (show && !seen) { store[season.key] = today; kiraGreetSave(store); }
+  }
+  card.hidden = !show;
+  card.dataset.season = show ? season.key : "";
+  if (!show) return;
+  const text = document.getElementById("kira-greet-text");
+  if (text) text.textContent = kiraGreetText(season);
+  const slot = document.getElementById("kira-greet-kira");
+  if (slot) {
+    // One Kira on Home: beside the hero's kind note, the greeting keeps its words only.
+    const heroNote = document.getElementById("hero-kira-note");
+    const quiet = !!heroNote && !heroNote.hidden;
+    const want = quiet ? "" : season.key;
+    if (slot.dataset.season !== want) {
+      slot.dataset.season = want;
+      slot.innerHTML = want ? kiraSvg("happy", { moment: true, season }) : "";
+    }
+  }
+}
+function kiraGreetDismiss() {
+  const card = document.getElementById("kira-greet");
+  const key = card && card.dataset.season;
+  if (key) { const store = kiraGreetStore(); store[key] = "x"; kiraGreetSave(store); }
+  if (card) card.hidden = true;
+  kiraSyncToday();
+}
+document.addEventListener("click", (e) => {
+  const t = e.target instanceof Element ? e.target.closest("#kira-greet-close") : null;
+  if (t) kiraGreetDismiss();
+});
+
+// Settings → Appearance → Festive Kira.
+function renderFestiveSetting() {
+  const box = document.getElementById("pref-festive-kira");
+  if (box) box.checked = kiraFestiveOn();
+}
+document.addEventListener("change", (e) => {
+  if (!(e.target instanceof Element) || e.target.id !== "pref-festive-kira") return;
+  try { localStorage.setItem(KIRA_FESTIVE_KEY, e.target.checked ? "on" : "off"); } catch (_) { /* stays as it was */ }
+  kiraRefreshAll();
+  kiraSyncToday();
+});
 
 const kiraReducedMotion = () => {
   try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (_) { return false; }
@@ -149,6 +327,9 @@ function kiraBurstColours() {
 }
 function kiraBurst(host, count) {
   if (!host || kiraReducedMotion()) return;
+  // No confetti in Ramadan or on a quiet Islamic day (Festive Kira).
+  const season = kiraSeasonNow();
+  if (season && season.calm) return;
   host.querySelectorAll(":scope > .kira-burst").forEach((n) => n.remove());
   const colours = kiraBurstColours();
   if (!colours.length) return;
@@ -301,7 +482,8 @@ function kiraSyncToday() {
   // One Kira on Home: while the hero's "a bit over" note has worried Kira,
   // the Today line keeps its words and leaves Kira out.
   const heroNote = document.getElementById("hero-kira-note");
-  const quiet = !!heroNote && !heroNote.hidden;
+  const greet = document.getElementById("kira-greet");
+  const quiet = (!!heroNote && !heroNote.hidden) || (!!greet && !greet.hidden);
   const mood = !show || quiet ? "" : sleepy ? "sleepy" : "happy";
   if (slot.dataset.mood === mood) return;
   slot.dataset.mood = mood;

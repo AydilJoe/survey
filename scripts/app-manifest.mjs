@@ -64,6 +64,7 @@ export const APP_MANIFEST = {
     "csv.js",
     "reports.js",
     "onboarding.js",
+    "kira-seasons.js",
     "kira.js",
     "streak.js",
     "voice.js",
