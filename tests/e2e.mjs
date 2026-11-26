@@ -16598,6 +16598,9 @@ check('the brand catalogue makes no network calls at all',
       await tick(200);
       out.d1 = document.getElementById('ea-in-d1') && document.getElementById('ea-in-d1').value;
       document.getElementById('ea-dialog').close();
+      // The dialog's close event (which clears the review) fires in a later
+      // task; let it run before reopening, or it wipes the next read.
+      await tick(50);
       out.noTotal = !Object.prototype.hasOwnProperty.call(EA_AI_MAP, 'sectionB') && !Object.values(EA_AI_MAP).includes('bTotal');
       // Typing in PCB while AI+ works on E1.
       waiting.length = 0;
