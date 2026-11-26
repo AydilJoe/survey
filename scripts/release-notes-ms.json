@@ -1,4 +1,7 @@
 {
+  "1.68.1": [
+    "<strong>Pengimbas teks Android lebih ringan (Latin + Cina)</strong> — Android kini menggunakan pengimbas teks ML Kit v2 melalui Google Play Services, menyokong resit Bahasa Inggeris, Melayu dan Cina sambil mengecilkan saiz muat turun aplikasi."
+  ],
   "1.68.0": [
     "<strong>Sandaran &amp; penyegerakan Google Drive di iPhone dan iPad</strong> — Google Drive kini tersedia di samping iCloud dalam Tetapan dan skrin pulih, memudahkan anda menyegerakkan data terenkripsi merentas iPhone, iPad, Android dan web."
   ],

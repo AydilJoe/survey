@@ -72,9 +72,10 @@ Full plan: [`assistant-update.md`](assistant-update.md).
 2. **iOS Share Extension:** share PDF statements, Borang EA, or receipt images
    straight from WhatsApp, Files, or banking apps into Duitful (matching
    Android).
-3. **Android unbundled ML Kit Text Recognition v2 (Play Services):** move
-   Android text reading off the bundled plugin to Play Services (Latin +
-   Chinese, smaller APK).
+3. ~~**Android unbundled ML Kit Text Recognition v2 (Play Services):**~~
+   **Shipped in `1.68.1`** (`DuitfulKitTextReader.java` via Play Services Latin
+   + Chinese models; removed `@pantrist/capacitor-plugin-ml-kit-text-recognition`
+   for a smaller APK).
 
 ---
 

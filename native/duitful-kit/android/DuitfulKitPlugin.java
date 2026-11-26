@@ -170,6 +170,17 @@ public class DuitfulKitPlugin extends Plugin {
         });
     }
 
+    /* ---------- Text recognition (Play Services ML Kit v2) ---------- */
+
+    /**
+     * Unbundled ML Kit Text Recognition v2 (Chinese + Latin via Play Services).
+     * Mirrors iOS DuitfulKit.recognizeText({ base64Image, rotation }).
+     */
+    @PluginMethod
+    public void recognizeText(PluginCall call) {
+        DuitfulKitTextReader.recognize(call, io);
+    }
+
     /* ---------- Document scanner ---------- */
 
     @PluginMethod

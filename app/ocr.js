@@ -460,24 +460,24 @@ function mlkitTextPlugin() {
 }
 
 /* The native reader this shell carries, as { engine, detectText(opts) } with
-   ML Kit's call and result shape, or null. iOS: Vision through DuitfulKit
-   (a missing method means "carry on as before": ML Kit if an older shell
-   still has it, else nothing). Android: the ML Kit plugin. Never throws. */
+   ML Kit's call and result shape, or null. iOS: Vision through DuitfulKit.
+   Android: unbundled Play Services ML Kit v2 (Latin + Chinese) through
+   DuitfulKit.recognizeText, with fallback to the legacy ML Kit plugin on
+   older Android shells. Never throws. */
 const VISION_TIMEOUT_MS = 45000;
 function nativeTextReader() {
   try {
     if (!isNative()) return null;
-    if (nativePlatform() === "ios") {
-      const kit = duitfulKit("recognizeText");
-      if (kit) {
-        return {
-          engine: "vision",
-          detectText: (opts) => withTimeout(kit.recognizeText({
-            base64Image: (opts && opts.base64Image) || "",
-            rotation: (opts && opts.rotation) || 0,
-          }), VISION_TIMEOUT_MS),
-        };
-      }
+    const plat = nativePlatform();
+    const kit = duitfulKit("recognizeText");
+    if (kit && (plat === "ios" || plat === "android")) {
+      return {
+        engine: plat === "ios" ? "vision" : "mlkit",
+        detectText: (opts) => withTimeout(kit.recognizeText({
+          base64Image: (opts && opts.base64Image) || "",
+          rotation: (opts && opts.rotation) || 0,
+        }), VISION_TIMEOUT_MS),
+      };
     }
     const p = mlkitTextPlugin();
     return p ? { engine: "mlkit", detectText: (opts) => p.detectText(opts) } : null;

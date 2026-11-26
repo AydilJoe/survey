@@ -1,6 +1,6 @@
 {
   "name": "duitful",
-  "version": "1.68.0",
+  "version": "1.68.1",
   "license": "GPL-3.0-only",
   "private": true,
   "description": "Duitful — Capacitor shell for the PWA.",
@@ -52,7 +52,6 @@
     "@capgo/capacitor-native-biometric": "^8.9.1",
     "@capgo/capacitor-social-login": "^8.7.5",
     "@codetrix-studio/capacitor-google-auth": "^3.4.0-rc.4",
-    "@pantrist/capacitor-plugin-ml-kit-text-recognition": "^8.1.1",
     "@vercel/analytics": "^2.0.1",
     "@vercel/kv": "^3.0.0",
     "cordova-plugin-purchase": "^13.19.1",

@@ -9671,10 +9671,15 @@ check('the vault is open before the quick-add checks',
   check('the Android auth plugin is excluded from iOS',
     android.includes('@codetrix-studio/capacitor-google-auth')
     && !ios.includes('@codetrix-studio/capacitor-google-auth'));
-  check('ML Kit text recognition is Android-only (iOS uses Apple Vision via DuitfulKit)',
-    android.includes('@pantrist/capacitor-plugin-ml-kit-text-recognition')
+  const { SOURCES: ocrKitSources, DEPENDENCIES: ocrKitDeps } = await import(pathToFileURL(path.join(REPO_ROOT, 'scripts/install-duitful-kit.mjs')).href);
+  check('no bundled ML Kit plugin on either platform; Android uses Play Services ML Kit v2 (Latin + Chinese) and iOS uses Apple Vision via DuitfulKit',
+    !android.includes('@pantrist/capacitor-plugin-ml-kit-text-recognition')
     && !ios.includes('@pantrist/capacitor-plugin-ml-kit-text-recognition')
-    && ios.includes('duitful-capacitor-kit'));
+    && !pluginDeps.includes('@pantrist/capacitor-plugin-ml-kit-text-recognition')
+    && ios.includes('duitful-capacitor-kit')
+    && ocrKitSources.includes('DuitfulKitTextReader.java')
+    && ocrKitDeps.some((d) => d.startsWith('com.google.android.gms:play-services-mlkit-text-recognition:'))
+    && ocrKitDeps.some((d) => d.startsWith('com.google.android.gms:play-services-mlkit-text-recognition-chinese:')));
   check('both platforms still get camera, biometrics and purchases',
     ['@capacitor/camera', '@capgo/capacitor-native-biometric', 'cordova-plugin-purchase']
       .every(p => ios.includes(p) && android.includes(p)));
@@ -15491,6 +15496,46 @@ check('the brand catalogue makes no network calls at all',
     && iosDrive.choices.includes('drive') && idErr.length === 0,
     JSON.stringify({ ...iosDrive, idErr }));
   await iosDriveCtx.close();
+}
+
+// ── Track 3c (v1.68.1): Android DuitfulKit.recognizeText (Play Services ML Kit v2) ─
+{
+  const andOcrCtx = await b.newContext({ viewport: { width: 390, height: 844 } });
+  await andOcrCtx.addInitScript(() => {
+    window.__andOcrCalls = [];
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      getPlatform: () => 'android',
+      Plugins: {
+        DuitfulKit: {
+          recognizeText: async (opts) => {
+            window.__andOcrCalls.push(opts);
+            return { text: '茶室 RM 12.50', blocks: [] };
+          },
+        },
+      },
+    };
+  });
+  const aop = await andOcrCtx.newPage();
+  const aoErr = [];
+  aop.on('pageerror', (e) => aoErr.push(e.message));
+  await aop.goto(`${BASE}/app/index.html`);
+  await aop.waitForTimeout(400);
+  const aoRes = await aop.evaluate(async () => {
+    const reader = nativeTextReader();
+    const out = reader ? await reader.detectText({ base64Image: 'AAAA', rotation: 90 }) : null;
+    return {
+      engine: reader && reader.engine,
+      text: out && out.text,
+      calls: window.__andOcrCalls,
+    };
+  });
+  check('v1.68.1: Android nativeTextReader routes through DuitfulKit.recognizeText with engine "mlkit"',
+    aoRes.engine === 'mlkit' && aoRes.text === '茶室 RM 12.50'
+    && aoRes.calls.length === 1 && aoRes.calls[0].base64Image === 'AAAA' && aoRes.calls[0].rotation === 90
+    && aoErr.length === 0,
+    JSON.stringify({ ...aoRes, aoErr }));
+  await andOcrCtx.close();
 }
 
 await b.close();
