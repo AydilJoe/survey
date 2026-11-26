@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.66.0";
+const APP_VERSION = "1.66.1";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -3643,6 +3643,18 @@ const MILESTONES = [
     share: ["Reached my first savings goal.", "Capai matlamat simpanan pertama."] },
   { id: "logged-30", icon: "pen", title: "30 days logged", sub: "That's a habit now.",
     share: ["30 days of tracking every ringgit.", "30 hari jejak setiap ringgit."] },
+  { id: "streak-7", icon: "flame", streak: 7, title: "7-day streak", sub: "One full week of checking in.",
+    share: ["7 days in a row tracking my money.", "7 hari berturut-turut jejak kewangan."] },
+  { id: "streak-14", icon: "flame", streak: 14, title: "14-day streak", sub: "Two weeks steady. Keep the rhythm.",
+    share: ["14 days in a row tracking my money.", "14 hari berturut-turut jejak kewangan."] },
+  { id: "streak-30", icon: "flame", streak: 30, title: "30-day streak", sub: "A full month of daily check-ins.",
+    share: ["30-day money check-in streak.", "30 hari berturut-turut jejak kewangan."] },
+  { id: "streak-60", icon: "flame", streak: 60, title: "60-day streak", sub: "Two months strong. This is second nature.",
+    share: ["60-day money check-in streak.", "60 hari berturut-turut jejak kewangan."] },
+  { id: "streak-100", icon: "flame", streak: 100, title: "100-day streak", sub: "Triple digits. Quiet consistency wins.",
+    share: ["100-day money check-in streak.", "100 hari berturut-turut jejak kewangan."] },
+  { id: "streak-365", icon: "flame", streak: 365, title: "365-day streak", sub: "A whole year, one day at a time.",
+    share: ["365-day money check-in streak.", "365 hari berturut-turut jejak kewangan."] },
 ];
 const MILESTONE_ICONS = {
   check: '<path d="M20 6L9 17l-5-5"/>',
@@ -3675,11 +3687,28 @@ function monthWithinBudget(monthISO) {
   return pools.every((pl) => poolUsageInMonth(pl.id, monthISO) <= effectiveLimit(pl, monthISO));
 }
 function loggedDays() {
-  return new Set((state.dailyExpenses || []).map((e) => e.date).filter(Boolean)).size;
+  const dates = new Set((state.dailyExpenses || []).map((e) => e.date).filter(Boolean));
+  const st = state.streak;
+  if (st && typeof st === "object") {
+    for (const d of st.noSpendDates || []) if (d) dates.add(d);
+    for (const d of st.activityDates || []) if (d) dates.add(d);
+  }
+  return dates.size;
+}
+function activeMilestones() {
+  return state && state.streak && state.streak.enabled === false
+    ? MILESTONES.filter((m) => !m.streak)
+    : MILESTONES;
 }
 // Where each milestone stands now: { done, have, need } (have/need for the
 // ones with a count, shown as progress on the faint tiles).
 function milestoneProgress(m) {
+  if (m.streak) {
+    if (state && state.streak && state.streak.enabled === false) return { done: false, have: 0, need: m.streak };
+    const info = typeof computeStreak === "function" ? computeStreak(state) : null;
+    const best = info ? Math.max(info.current, info.best) : 0;
+    return { done: best >= m.streak, have: Math.min(best, m.streak), need: m.streak };
+  }
   const debts = state.debts || [];
   switch (m.id) {
     case "first-payoff": return { done: debts.some((d) => (Number(d.balance) || 0) <= 0) };
@@ -3704,14 +3733,25 @@ function checkMilestones() {
   if (typeof aesKey === "undefined" || !aesKey || !state) return;
   const first = !state.milestones || typeof state.milestones !== "object";
   if (first) state.milestones = {};
+  let migrated = false;
+  // Carry over any 1.66.0 streak celebrations quietly into state.milestones.
+  if (state.streak && Array.isArray(state.streak.celebrated)) {
+    for (const n of state.streak.celebrated) {
+      const id = `streak-${n}`;
+      if (state.milestones[id] === undefined) {
+        state.milestones[id] = "";
+        migrated = true;
+      }
+    }
+  }
   const fresh = [];
-  for (const m of MILESTONES) {
+  for (const m of activeMilestones()) {
     if (state.milestones[m.id] !== undefined) continue;
     if (!milestoneProgress(m).done) continue;
     state.milestones[m.id] = first ? "" : todayISO();
     if (!first && !m.quiet) fresh.push(m.id);
   }
-  if (first || fresh.length) save();
+  if (first || migrated || fresh.length) save();
   if (fresh.length) {
     milestonePending.push(...fresh);
     setTimeout(flushMilestones, 1200);
@@ -3785,23 +3825,24 @@ function renderMilestones() {
   const card = document.getElementById("milestones-card");
   const list = document.getElementById("milestones-list");
   if (!card || !list || !state) return;
+  const items = activeMilestones();
   const got = state.milestones || {};
-  const earned = MILESTONES.filter((m) => got[m.id] !== undefined).length;
+  const earned = items.filter((m) => got[m.id] !== undefined).length;
   const count = document.getElementById("milestones-count");
-  if (count) count.textContent = tr("{a} of {b}", { a: earned, b: MILESTONES.length });
+  if (count) count.textContent = tr("{a} of {b}", { a: earned, b: items.length });
   let upcoming = 0;
   const hiddenIds = new Set();
-  MILESTONES.forEach((m) => {
+  items.forEach((m) => {
     if (got[m.id] !== undefined) return;
     if (++upcoming > MILESTONES_NEXT && !milestonesShowAll) hiddenIds.add(m.id);
   });
   const more = document.getElementById("milestones-more");
   if (more) {
     more.hidden = upcoming <= MILESTONES_NEXT;
-    more.textContent = milestonesShowAll ? tr("Show fewer") : tr("Show all {n}", { n: MILESTONES.length });
+    more.textContent = milestonesShowAll ? tr("Show fewer") : tr("Show all {n}", { n: items.length });
     more.setAttribute("aria-expanded", milestonesShowAll ? "true" : "false");
   }
-  list.innerHTML = MILESTONES.filter((m) => !hiddenIds.has(m.id)).map((m) => {
+  list.innerHTML = items.filter((m) => !hiddenIds.has(m.id)).map((m) => {
     const on = got[m.id] !== undefined;
     let note = "";
     if (on) note = got[m.id] ? tr("Earned {date}", { date: escapeHtml(fmtDateShort(got[m.id])) }) : tr("Earned");
@@ -7492,6 +7533,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.66.1": [
+    "<strong>Streaks linked to Milestones &amp; rotating check-in reminders</strong> — 7 to 365-day streak milestones now show right inside <strong>Reports → Milestones</strong> with progress and sharing, <strong>No spend today</strong> counts toward <em>30 days logged</em>, and the gentle 8:30pm reminder is now on by default with 10 calm rotating messages.",
+  ],
   "1.66.0": [
     "<strong>Daily check-in streaks</strong> — keep a gentle daily money habit with a compact flame pill on Home, a Monday–Sunday check-in strip, one-tap <strong>No spend today</strong> check-in, 2 free automatic streak freezes a month, and an optional 8:30pm evening reminder. Hideable anytime in Settings.",
   ],
