@@ -439,6 +439,83 @@ for (const [mode, p] of Object.entries(PALETTES)) {
   );
 }
 
+// --- Kira, the receipt friend (1.75.0) --------------------------------------
+// A small static face on the status tile: proud (^^ eyes, open smile) while
+// a check-in streak runs, happy otherwise. The same drawing as app/kira.js,
+// cropped to the receipt (viewport 64x72). One VectorDrawable per mood and
+// palette, colours from PALETTES (paper = card, outline = icon, face = text),
+// so the forced Light / Dark / Pastel choice matches like the tiles do.
+const KIRA_BODY_D =
+  "M12,5 h40 a5,5 0 0 1 5,5 v55 l-5.6,-3.6 -5.6,3.6 -5.6,-3.6 -5.6,3.6 -5.6,-3.6 -5.6,3.6 -5.6,-3.6 -5.6,3.6 L7,65 V10 a5,5 0 0 1 5,-5 z";
+const KIRA_FACES = {
+  happy: [
+    { fill: "text", d: "M21.2,38 a2.8,2.8 0 1 0 5.6,0 a2.8,2.8 0 1 0 -5.6,0 z M37.2,38 a2.8,2.8 0 1 0 5.6,0 a2.8,2.8 0 1 0 -5.6,0 z" },
+    { stroke: "text", d: "M27,45 q5,5 10,0" },
+  ],
+  proud: [
+    { stroke: "text", d: "M20.5,39 q3.5,-4 7,0 M36.5,39 q3.5,-4 7,0" },
+    { fill: "text", d: "M26,44 q6,7 12,0 z" },
+  ],
+};
+const kiraVector = (p, mood) => {
+  const col = (k) => (k === "text" ? p.text : p.icon);
+  const part = (x) => x.fill
+    ? `    <path
+        android:fillColor="${col(x.fill)}"
+        android:pathData="${x.d}" />`
+    : `    <path
+        android:strokeColor="${col(x.stroke)}"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="${x.d}" />`;
+  return `<?xml version="1.0" encoding="utf-8"?>
+${NOTE}
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="36dp"
+    android:viewportWidth="64"
+    android:viewportHeight="72">
+    <path
+        android:fillColor="${p.card}"
+        android:strokeColor="${p.icon}"
+        android:strokeWidth="2.2"
+        android:strokeLineJoin="round"
+        android:pathData="${KIRA_BODY_D}" />
+    <path
+        android:strokeColor="${p.icon}"
+        android:strokeAlpha="0.45"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M17,16 H39 M17,23 H31" />
+    <path
+        android:fillColor="${p.icon}"
+        android:fillAlpha="0.28"
+        android:pathData="M16,45 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0 z M42,45 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0 z" />
+${KIRA_FACES[mood].map(part).join("\n")}
+</vector>
+`;
+};
+for (const [mode, p] of Object.entries(PALETTES)) {
+  for (const mood of Object.keys(KIRA_FACES)) {
+    files.set(resolve(ANDROID_MAIN, `res/drawable/duitful_widget_kira_${mood}_${mode}.xml`), kiraVector(p, mood));
+  }
+}
+
+const kiraImage = (indent, wDp, hDp, startDp) => {
+  const p = " ".repeat(indent);
+  return `${p}<ImageView
+${p}    android:id="@+id/duitful_widget_kira"
+${p}    android:layout_width="${wDp}dp"
+${p}    android:layout_height="${hDp}dp"
+${p}    android:layout_marginStart="${startDp}dp"
+${p}    android:scaleType="fitCenter"
+${p}    android:importantForAccessibility="no"
+${p}    android:src="@drawable/duitful_widget_kira_happy_light" />`;
+};
+
 files.set(
   resolve(ANDROID_MAIN, "res/drawable/duitful_widget_preview.xml"),
   `<?xml version="1.0" encoding="utf-8"?>
@@ -554,13 +631,15 @@ files.set(
 ${ringBlock(8, 48, 12)}
         <TextView
             android:id="@+id/duitful_widget_days_caption"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:layout_marginStart="8dp"
             android:text="@string/duitful_widget_days_left"
             android:textColor="@color/duitful_widget_text_muted"
             android:textSize="11sp"
             android:maxLines="2" />
+${kiraImage(8, 28, 32, 4)}
     </LinearLayout>
     <LinearLayout
         android:id="@+id/duitful_widget_tile_status"
@@ -758,6 +837,7 @@ ${ringBlock(12, 46, 11)}
                     android:maxLines="1"
                     android:ellipsize="end" />
             </LinearLayout>
+${kiraImage(12, 26, 30, 6)}
         </LinearLayout>
         <LinearLayout
             android:id="@+id/duitful_widget_tile_review"
@@ -1181,6 +1261,14 @@ ${CATEGORIES.map((c) => `            R.id.${categoryViewId(c.key)},`).join("\n")
         return R.drawable.duitful_widget_button_primary_light;
     }
 
+    // Kira on the status tile: proud while a streak runs, happy otherwise.
+    private static int kiraRes(String mode) {
+        boolean proud = !sLocked && sStreakDays > 0;
+        if ("pastel".equals(mode)) return proud ? R.drawable.duitful_widget_kira_proud_pastel : R.drawable.duitful_widget_kira_happy_pastel;
+        if ("dark".equals(mode)) return proud ? R.drawable.duitful_widget_kira_proud_dark : R.drawable.duitful_widget_kira_happy_dark;
+        return proud ? R.drawable.duitful_widget_kira_proud_light : R.drawable.duitful_widget_kira_happy_light;
+    }
+
     private static int textColor(String mode) {
         if ("pastel".equals(mode)) return 0xFF3D2B1F;
         if ("dark".equals(mode)) return 0xFFF3EDE1;
@@ -1319,6 +1407,7 @@ ${CATEGORIES.map((c) => `            R.id.${categoryViewId(c.key)},`).join("\n")
         views.setTextColor(R.id.duitful_widget_ring_text, textColor(mode));
         views.setTextViewText(R.id.duitful_widget_days_caption, !sDaysLeftLines.isEmpty() ? sDaysLeftLines : "days\\nleft");
         views.setTextColor(R.id.duitful_widget_days_caption, mutedColor(mode));
+        views.setImageViewResource(R.id.duitful_widget_kira, kiraRes(mode));
 
         if (sLocked) {
             views.setInt(R.id.duitful_widget_tile_status, "setBackgroundResource", butterRes(mode));
@@ -1409,6 +1498,7 @@ ${CATEGORIES.map((c) => `            R.id.${categoryViewId(c.key)},`).join("\n")
         views.setImageViewBitmap(R.id.duitful_widget_ring_img, renderRingBitmap(mode, pct));
         views.setTextViewText(R.id.duitful_widget_ring_text, !sDaysLeftShort.isEmpty() ? sDaysLeftShort : (days + "d"));
         views.setTextColor(R.id.duitful_widget_ring_text, textColor(mode));
+        views.setImageViewResource(R.id.duitful_widget_kira, kiraRes(mode));
 
         String word = sLocked
                 ? (!sLockedTitle.isEmpty() ? sLockedTitle : "Duitful · locked")

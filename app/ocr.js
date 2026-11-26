@@ -2295,6 +2295,8 @@ function applyScanResult({ direct }) {
       const prev = shown && shown.classList.contains("show") && shown._toast;
       if (prev && prev.actions && prev.actions.length) toast(prev.message, { actions: [undo, ...prev.actions] });
       else toast(what, { action: undo });
+      // The form's submit hopped on the toast it showed; hop on this one.
+      if (typeof kiraHop === "function") kiraHop();
       return;
     }
     // The form refused it (no debt chosen, a currency it can't convert):

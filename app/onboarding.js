@@ -241,7 +241,13 @@ function renderGuideStep() {
     const prev = document.getElementById("guide-prev");
     const next = document.getElementById("guide-next");
     const skip = document.getElementById("guide-skip");
-    if (mark) mark.innerHTML = step.icon;
+    const lastStep = guideStep === GUIDE_STEPS.length - 1;
+    // Kira in the mark (kira.js): happy, and party with a burst on the last step.
+    if (mark && typeof kiraSvg === "function") {
+      mark.classList.add("has-kira");
+      if (lastStep && typeof kiraCelebrate === "function") kiraCelebrate(mark);
+      else { mark.dataset.mood = "happy"; mark.innerHTML = kiraSvg("happy", { moment: true }); }
+    } else if (mark) mark.innerHTML = step.icon;
     if (title) title.innerHTML = guideTr(step.title);
     if (sub) sub.textContent = guideTr(step.sub || "");
     if (body) body.innerHTML = step.install ? installInstructionsBody() : guideTr(typeof step.body === "function" ? step.body() : step.body);
@@ -277,6 +283,16 @@ function showGuideSpotlight(targetEl, step) {
   if (body) body.innerHTML = guideTr((typeof step.body === "function" ? step.body() : step.body) || "");
   if (dots) {
     dots.innerHTML = GUIDE_STEPS.map((_, i) => `<span class="${i === guideStep ? "active" : ""}"></span>`).join("");
+  }
+  // A tiny Kira peeks over the tooltip's edge (positionGuideSpotlight points
+  // her eyes at the highlighted element): happy, and party with a burst on
+  // the tour's last step.
+  const peek = document.getElementById("guide-tooltip-kira");
+  const peekMood = guideStep === GUIDE_STEPS.length - 1 ? "party" : "happy";
+  if (peek && peek.dataset.mood !== peekMood && typeof kiraSvg === "function") {
+    peek.dataset.mood = peekMood;
+    peek.innerHTML = kiraSvg(peekMood, { moment: peekMood === "party" });
+    if (peekMood === "party" && typeof kiraBurst === "function") kiraBurst(document.getElementById("guide-tooltip"));
   }
   // Skip/Back/Next labels mirror the dialog logic.
   const isLast = guideStep === GUIDE_STEPS.length - 1;
@@ -375,7 +391,27 @@ function positionGuideSpotlight() {
   if (arrow) {
     const arrowX = Math.max(14, Math.min(ttW - 14, r.left + r.width / 2 - placeX));
     arrow.style.left = `${arrowX - 6}px`;
+    // Kira peeks from the corner away from the arrow and looks at the ring.
+    tooltip.classList.toggle("kira-peek-left", arrowX > ttW / 2);
   }
+  // Kira peeks over the top edge only when that edge faces away from the
+  // highlighted element (the tooltip sits above it) and there is room on
+  // screen; otherwise she sits inside the tooltip's top corner, never over
+  // the element being explained.
+  tooltip.classList.toggle("kira-peek-inside", below || placeY < 32);
+  guideKiraLook(r.left + r.width / 2, r.top + r.height / 2);
+}
+
+// The tooltip glides to its new place (0.32s), so look again once it lands.
+let _guideKiraLookTimer = null;
+function guideKiraLook(x, y) {
+  const svg = document.querySelector("#guide-tooltip-kira svg.kira");
+  if (!svg || typeof kiraLookAt !== "function") return;
+  kiraLookAt(svg, x, y, true);
+  clearTimeout(_guideKiraLookTimer);
+  _guideKiraLookTimer = setTimeout(() => {
+    if (_spotlightTargetEl && svg.isConnected) kiraLookAt(svg, x, y, true);
+  }, 380);
 }
 
 function openGuide(opts) {
@@ -625,6 +661,28 @@ function onboardShowStep(n) {
   });
   if (n === 1) setTimeout(() => document.getElementById("onboard-income")?.focus(), 60);
   if (n === 3) onboardSyncDebtStep();
+  onboardKira(n);
+}
+
+/* Kira beside each question (kira.js): waving hello on what comes in, proud
+   on the bills, happy on what's owed — owing money is never a worried face.
+   The answer gets party Kira and a burst when there's a debt-free month,
+   proud otherwise. Drawn as each step shows, so each moment plays once. */
+function onboardKira(n) {
+  if (typeof kiraSvg !== "function") return;
+  const slot = document.querySelector(`#onboard-dialog [data-onboard-step="${n}"] .onboard-kira`);
+  if (!slot) return;
+  if (n === 4) {
+    const free = document.getElementById("onboard-free");
+    const party = !!free && !free.hidden && !free.classList.contains("is-stuck");
+    if (party && typeof kiraCelebrate === "function") { kiraCelebrate(slot); return; }
+    slot.dataset.mood = "proud";
+    slot.innerHTML = kiraSvg("proud", { moment: true });
+    return;
+  }
+  const mood = n === 2 ? "proud" : "happy";
+  slot.dataset.mood = mood;
+  slot.innerHTML = kiraSvg(mood, { moment: true, wave: n === 1 });
 }
 
 function onboardAddBillRow(focus) {

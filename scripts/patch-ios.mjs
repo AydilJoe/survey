@@ -1095,6 +1095,94 @@ private struct DuitfulMonthRing: View {
     }
 }
 
+// MARK: - Kira, the receipt friend (1.75.0)
+//
+// A small static face on the status tile, drawn with SwiftUI Shapes from
+// the same 64x72 drawing as app/kira.js: proud (^^ eyes, open smile) while
+// a check-in streak runs, happy otherwise. Paper = canvas, outline = the
+// month ring's arc colour, face = ink, from the user's Light / Dark /
+// Pastel palette. Decorative: hidden from VoiceOver. No animation.
+
+private struct DuitfulKiraBody: Shape {
+    func path(in rect: CGRect) -> Path {
+        let sx = rect.width / 64
+        let sy = rect.height / 72
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * sx, y: rect.minY + y * sy)
+        }
+        var p = Path()
+        p.move(to: pt(12, 5))
+        p.addLine(to: pt(52, 5))
+        p.addQuadCurve(to: pt(57, 10), control: pt(57, 5))
+        p.addLine(to: pt(57, 65))
+        var x: CGFloat = 57
+        var down = false
+        while x > 13 {
+            x -= 5.6
+            p.addLine(to: pt(x, down ? 65 : 61.4))
+            down.toggle()
+        }
+        p.addLine(to: pt(7, 65))
+        p.addLine(to: pt(7, 10))
+        p.addQuadCurve(to: pt(12, 5), control: pt(7, 5))
+        p.closeSubpath()
+        return p
+    }
+}
+
+private struct DuitfulKiraFace: Shape {
+    let proud: Bool
+    let strokes: Bool
+
+    func path(in rect: CGRect) -> Path {
+        let sx = rect.width / 64
+        let sy = rect.height / 72
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * sx, y: rect.minY + y * sy)
+        }
+        var p = Path()
+        if strokes {
+            if proud {
+                p.move(to: pt(20.5, 39))
+                p.addQuadCurve(to: pt(27.5, 39), control: pt(24, 35))
+                p.move(to: pt(36.5, 39))
+                p.addQuadCurve(to: pt(43.5, 39), control: pt(40, 35))
+            } else {
+                p.move(to: pt(27, 45))
+                p.addQuadCurve(to: pt(37, 45), control: pt(32, 50))
+            }
+        } else if proud {
+            p.move(to: pt(26, 44))
+            p.addQuadCurve(to: pt(38, 44), control: pt(32, 51))
+            p.closeSubpath()
+        } else {
+            p.addEllipse(in: CGRect(x: rect.minX + 21.2 * sx, y: rect.minY + 35.2 * sy, width: 5.6 * sx, height: 5.6 * sy))
+            p.addEllipse(in: CGRect(x: rect.minX + 37.2 * sx, y: rect.minY + 35.2 * sy, width: 5.6 * sx, height: 5.6 * sy))
+        }
+        return p
+    }
+}
+
+private struct DuitfulKiraView: View {
+    let mode: DuitfulThemeMode
+    let proud: Bool
+
+    var body: some View {
+        ZStack {
+            DuitfulKiraBody()
+                .fill(DuitfulPalette.canvas(mode))
+            DuitfulKiraBody()
+                .stroke(DuitfulPalette.ringArc(mode, tone: ""), style: StrokeStyle(lineWidth: 1.4, lineJoin: .round))
+            DuitfulKiraFace(proud: proud, strokes: false)
+                .fill(DuitfulPalette.ink(mode))
+            DuitfulKiraFace(proud: proud, strokes: true)
+                .stroke(DuitfulPalette.ink(mode), style: StrokeStyle(lineWidth: 1.4, lineCap: .round, lineJoin: .round))
+        }
+        .frame(width: 24, height: 27)
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - Families (Option D)
 
 private struct DuitfulSmallView: View {
@@ -1159,6 +1247,8 @@ private struct DuitfulMediumView: View {
                             .foregroundColor(DuitfulPalette.ink2(mode))
                             .lineLimit(1)
                     }
+                    Spacer(minLength: 0)
+                    DuitfulKiraView(mode: mode, proud: entry.streakDays > 0)
                 }
                 .padding(12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -1225,6 +1315,8 @@ private struct DuitfulLargeView: View {
                                 .foregroundColor(DuitfulPalette.ink2(mode))
                                 .lineLimit(1)
                         }
+                        Spacer(minLength: 0)
+                        DuitfulKiraView(mode: mode, proud: entry.streakDays > 0)
                     }
                     .padding(12)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
