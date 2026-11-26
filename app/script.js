@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.66.1";
+const APP_VERSION = "1.66.2";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7533,6 +7533,9 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.66.2": [
+    "<strong>Escalating Malaysian-style streak reminders</strong> — evening check-in reminders now match your streak: 10 calm lines for days 0–6, 10 playful Malaysian nudges for days 7–29 (<em>\"Takkan nak hilang streak?\"</em>), and 10 full-drama reminders for 30+ days across English, Bahasa Melayu, and 中文 — still with zero amounts ever shown.",
+  ],
   "1.66.1": [
     "<strong>Streaks linked to Milestones &amp; rotating check-in reminders</strong> — 7 to 365-day streak milestones now show right inside <strong>Reports → Milestones</strong> with progress and sharing, <strong>No spend today</strong> counts toward <em>30 days logged</em>, and the gentle 8:30pm reminder is now on by default with 10 calm rotating messages.",
   ],

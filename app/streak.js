@@ -12,20 +12,49 @@ const STREAK_FREEZES_PER_MONTH = 2;
 const STREAK_MILESTONES = [7, 14, 30, 60, 100, 365];
 const STREAK_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/* 10 calm, zero-guilt evening check-in lines rotated by calendar day so
-   reminders stay fresh without nagging. Never mentions amounts or wallets. */
-const STREAK_REMINDER_COPY = [
-  { title: "Quick check-in",         body: "Log a spend or tap No spend today." },
-  { title: "How was today?",         body: "Add anything you spent, or mark a no-spend day." },
-  { title: "Evening money check",    body: "A few seconds to log today and keep your rhythm." },
-  { title: "Before the day wraps up", body: "Anything to jot down? Zero-spend days count too." },
-  { title: "Keep your streak warm",  body: "One quick entry or a No spend tap takes two seconds." },
-  { title: "Quiet daily habit",      body: "Did you spend today, or was it a no-spend day?" },
-  { title: "End-of-day note",        body: "Log today's spending while it's still fresh." },
-  { title: "Small step, big clarity", body: "Check in for today — even a no-spend day counts." },
-  { title: "Your daily check-in",    body: "Tap to log today or celebrate a no-spend day." },
-  { title: "Pause and check in",     body: "Wrap up today with a quick entry or No spend today." },
-];
+/* Escalating evening check-in copy — 10 rotating lines per tier, rotated by
+   calendar day. Calm for new streaks (0–6d), playful Malaysian nudges for
+   established streaks (7–29d), and full Malaysian drama for long streaks (30+d).
+   Never mentions money amounts or wallets. */
+const STREAK_REMINDER_TIERS = {
+  calm: [
+    { title: "Quick check-in",          body: "Log a spend or tap No spend today." },
+    { title: "How was today?",          body: "Add anything you spent, or mark a no-spend day." },
+    { title: "Evening money check",     body: "A few seconds to log today and keep your rhythm." },
+    { title: "Before the day wraps up", body: "Anything to jot down? Zero-spend days count too." },
+    { title: "Keep your streak warm",   body: "One quick entry or a No spend tap takes two seconds." },
+    { title: "Quiet daily habit",       body: "Did you spend today, or was it a no-spend day?" },
+    { title: "End-of-day note",         body: "Log today's spending while it's still fresh." },
+    { title: "Small step, big clarity", body: "Check in for today — even a no-spend day counts." },
+    { title: "Your daily check-in",     body: "Tap to log today or celebrate a no-spend day." },
+    { title: "Pause and check in",      body: "Wrap up today with a quick entry or No spend today." },
+  ],
+  warm: [
+    { title: "{n}-day streak on the line lah",              body: "Log a quick spend or tap No spend today before midnight." },
+    { title: "Eh, {n} days already — don't waste it",       body: "Two seconds to check in. No spend today counts too lah." },
+    { title: "Your {n}-day streak is calling you",          body: "Before you scroll TikTok, log today or tap No spend." },
+    { title: "Sayang lah {n} days...",                      body: "Quick check-in before the clock hits twelve." },
+    { title: "Oi, {n}-day streak still waiting",            body: "Spent anything today? If not, tap No spend and done." },
+    { title: "{n} days strong — keep it going lah",         body: "Don't let tonight break the momentum." },
+    { title: "Almost forgot your {n}-day streak?",          body: "Quick tap now, thank yourself tomorrow morning." },
+    { title: "Your {n} days nak hilang lah",                body: "Save it now — log a spend or tap No spend today." },
+    { title: "Wah {n} days — confirm don't want to lose this", body: "Takes two seconds to lock in today." },
+    { title: "Steady lah {n} days — one more tap",          body: "Log today's spend or hit No spend today." },
+  ],
+  urgent: [
+    { title: "ALAMAK! {n}-day streak about to vanish!",     body: "Don't play-play lah — log today or tap No spend right now!" },
+    { title: "Woi! {n} days?! Seriously want to lose it?",  body: "One quick tap saves your {n}-day legend status." },
+    { title: "EMERGENCY: {n}-day streak on life support!",  body: "Quick check-in before midnight — no spend counts too!" },
+    { title: "Aiyo! {n} days down the drain if you sleep now!", body: "Open Duitful two seconds lah, then go sleep." },
+    { title: "Your {n}-day streak is literally sweating right now", body: "Save it before midnight — spend or No spend, both jalan!" },
+    { title: "DON'T LET {n} DAYS DIE TONIGHT!",             body: "Tap No spend today or log a spend — cepat!" },
+    { title: "Bro/Sis, {n} days is not easy to build lah!", body: "Check in now before you regret tomorrow morning." },
+    { title: "{n} days?! Takkan nak hilang streak now!",    body: "Quick tap and your {n}-day run lives another day." },
+    { title: "Last call for your {n}-day streak!",          body: "Before midnight turns it into history — tap in now." },
+    { title: "Hello?! {n}-day legend, where are you?!",     body: "Two seconds to check in — don't ghost your streak lah!" },
+  ],
+};
+const STREAK_REMINDER_COPY = STREAK_REMINDER_TIERS.calm;
 
 function emptyStreak() {
   return {
@@ -381,19 +410,32 @@ function openStreakDialog() {
   if (dlg && typeof dlg.showModal === "function" && !dlg.open) dlg.showModal();
 }
 
-function streakReminderForDate(dt) {
+function streakReminderTier(streakCount) {
+  const n = Math.max(0, Math.floor(Number(streakCount) || 0));
+  if (n >= 30) return "urgent";
+  if (n >= 7) return "warm";
+  return "calm";
+}
+
+function streakReminderForDate(dt, streakCount = 0) {
+  const n = Math.max(0, Math.floor(Number(streakCount) || 0));
+  const tier = streakReminderTier(n);
+  const list = STREAK_REMINDER_TIERS[tier];
   const dayNum = Math.floor(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()) / 86400000);
-  const idx = ((dayNum % STREAK_REMINDER_COPY.length) + STREAK_REMINDER_COPY.length) % STREAK_REMINDER_COPY.length;
-  const msg = STREAK_REMINDER_COPY[idx];
+  const idx = ((dayNum % list.length) + list.length) % list.length;
+  const msg = list[idx];
+  const fmt = (s) => (typeof tr === "function" ? tr(s, { n }) : s.replace(/\{n\}/g, String(n)));
   return {
-    title: typeof tr === "function" ? tr(msg.title) : msg.title,
-    body: typeof tr === "function" ? tr(msg.body) : msg.body,
+    tier,
+    title: fmt(msg.title),
+    body: fmt(msg.body),
   };
 }
 
-/* Gentle evening check-in reminder (8:30pm). On by default (toggleable off
-   in Settings or the streak sheet), rotates through 10 calm lines by day,
-   never shows amounts, and skips today if today is already checked in. */
+/* Evening check-in reminder (8:30pm). On by default (toggleable off in
+   Settings or the streak sheet), escalates in Malaysian style as your streak
+   grows (0–6d calm, 7–29d playful, 30+d urgent), never shows money amounts,
+   and skips today if today is already checked in. */
 function streakNativeReminders(src, nowOverride) {
   const s = src || (typeof state !== "undefined" ? state : null);
   if (!s) return [];
@@ -407,12 +449,12 @@ function streakNativeReminders(src, nowOverride) {
   if (!info.checkedInToday) {
     const tonight = makeEvening(0);
     if (tonight.getTime() > now.getTime() + 60_000) {
-      const msg = streakReminderForDate(tonight);
+      const msg = streakReminderForDate(tonight, info.current);
       out.push({ title: msg.title, body: msg.body, at: tonight });
     }
   }
   const tomorrow = makeEvening(1);
-  const nextMsg = streakReminderForDate(tomorrow);
+  const nextMsg = streakReminderForDate(tomorrow, info.current);
   out.push({ title: nextMsg.title, body: nextMsg.body, at: tomorrow });
   return out;
 }

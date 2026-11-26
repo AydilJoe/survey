@@ -15203,13 +15203,23 @@ check('the brand catalogue makes no network calls at all',
     const gap2 = computeStreak({ dailyExpenses: [{ date: '2026-11-22' }, { date: '2026-11-21' }], streak: emptyStreak() }, t);
     const gap3 = computeStreak({ dailyExpenses: [{ date: '2026-11-21' }], streak: emptyStreak() }, t);
 
-    // Evening reminder is ON by default, rotates 10 calm lines with zero digits/wallets,
-    // skips tonight when checked in, and stops when toggled off.
+    // Evening reminder is ON by default, escalates across 3 tiers (0-6 calm, 7-29 warm Malaysian, 30+ urgent Malaysian),
+    // rotates 10 distinct lines per tier with zero money/wallets, skips tonight when checked in, and stops when toggled off.
     const defaultReminderOn = coerceStreak(state.streak).reminder === true;
-    const allTen = Array.from({ length: 10 }, (_, i) => streakReminderForDate(new Date(2026, 10, 1 + i)));
-    const uniqueTitles = new Set(allTen.map((m) => m.title)).size;
-    const uniqueBodies = new Set(allTen.map((m) => m.body)).size;
-    const allClean = allTen.every((m) => !/\d/.test(m.title) && !/\d/.test(m.body) && !/wallet/i.test(m.title + ' ' + m.body));
+    const calmTen = Array.from({ length: 10 }, (_, i) => streakReminderForDate(new Date(2026, 10, 1 + i), 3));
+    const warmTen = Array.from({ length: 10 }, (_, i) => streakReminderForDate(new Date(2026, 10, 1 + i), 12));
+    const urgentTen = Array.from({ length: 10 }, (_, i) => streakReminderForDate(new Date(2026, 10, 1 + i), 45));
+    const uniqueTitles = new Set(calmTen.map((m) => m.title)).size === 10
+      && new Set(warmTen.map((m) => m.title)).size === 10
+      && new Set(urgentTen.map((m) => m.title)).size === 10;
+    const uniqueBodies = new Set(calmTen.map((m) => m.body)).size === 10
+      && new Set(warmTen.map((m) => m.body)).size === 10
+      && new Set(urgentTen.map((m) => m.body)).size === 10;
+    const tiersOk = calmTen.every((m) => m.tier === 'calm')
+      && warmTen.every((m) => m.tier === 'warm' && m.title.includes('12'))
+      && urgentTen.every((m) => m.tier === 'urgent' && m.title.includes('45'));
+    const allThirty = [...calmTen, ...warmTen, ...urgentTen];
+    const allClean = allThirty.every((m) => !/RM\s?\d|\$\d|\.\d\d|wallet/i.test(m.title + ' ' + m.body));
     const remOnChecked = streakNativeReminders(state, new Date(2026, 10, 25, 14, 0, 0));
     const remOnUnchecked = streakNativeReminders(
       { dailyExpenses: [], streak: emptyStreak() },
@@ -15258,6 +15268,7 @@ check('the brand catalogue makes no network calls at all',
       defaultReminderOn,
       uniqueTitles,
       uniqueBodies,
+      tiersOk,
       allClean,
       remOnCheckedCount: remOnChecked.length,
       remOnUncheckedCount: remOnUnchecked.length,
@@ -15272,10 +15283,10 @@ check('the brand catalogue makes no network calls at all',
       streakTilesHiddenOff,
     };
   });
-  check('daily streaks: 2-day freeze cap, 10 rotating on-by-default reminders, Reports Milestones link, CSV round-trip, and Settings hide toggle all work',
+  check('daily streaks: 2-day freeze cap, escalating 3-tier Malaysian reminders, Reports Milestones link, CSV round-trip, and Settings hide toggle all work',
     coreChecks.gap2Current === 2 && coreChecks.gap2Left === 0
     && coreChecks.gap3Current === 0 && coreChecks.gap3Freezes === 0
-    && coreChecks.defaultReminderOn && coreChecks.uniqueTitles === 10 && coreChecks.uniqueBodies === 10 && coreChecks.allClean
+    && coreChecks.defaultReminderOn && coreChecks.uniqueTitles && coreChecks.uniqueBodies && coreChecks.tiersOk && coreChecks.allClean
     && coreChecks.remOnCheckedCount === 1 && coreChecks.remOnUncheckedCount === 2 && coreChecks.distinctConsecutive
     && coreChecks.remInBuildOn && !coreChecks.remInBuildOff
     && coreChecks.csvOk && coreChecks.loggedIncludesNoSpend && coreChecks.hasStreakTilesOn && coreChecks.earnedStreak7
