@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.77.0";
+const APP_VERSION = "1.79.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -7788,8 +7788,11 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
-  "1.77.0": [
+  "1.79.0": [
     "<strong>Duitful AI+ helps in more places</strong> — with AI+ on, it can read a bank statement your phone couldn't balance, tidy payee names, fill empty boxes from a Borang EA or a loan letter, work out who paid when a split credit matches several people, and tidy messy items on a by-item split. It only uses figures printed on the page, and you check everything before it's saved.",
+  ],
+  "1.78.0": [
+    "<strong>Safer Duitful AI+ subscription checks</strong> — every subscription is now checked against the store's own signature before AI+ switches on, and renewals, refunds and cancellations from the store keep it up to date. If AI+ shows as off after updating, tap Restore purchase once.",
   ],
   "1.76.1": [
     "<strong>Maybank and Maybank Islamic account statement import</strong> — now reads Current and Savings account PDFs (including Premier Mudharabah) with DD/MM dates, leading-dot cents (.01+), overdrawn DR balances, and multi-line payee names.",

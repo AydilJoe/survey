@@ -362,6 +362,10 @@ async function aiFetchStatus() {
       aiMergeStatusSnapshot(data.status);
       return data.status;
     }
+    // A subscription saved before the server checked receipts with the store
+    // answers "reverify-required" (inactive) until the app sends its receipt
+    // again (Restore purchases, or the next store update); show that.
+    if (data && data.error === "reverify-required" && data.status) aiMergeStatusSnapshot(data.status);
     return null;
   } catch (_) {
     return null;
