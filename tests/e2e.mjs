@@ -19286,6 +19286,35 @@ check('the brand catalogue makes no network calls at all',
     JSON.stringify(stratRes));
 }
 
+// ---------- v1.86.0: Native DuitfulKit haptics bridge ----------
+{
+  const hapRes = await S(() => {
+    const calls = [];
+    const prevCap = window.Capacitor;
+    const prevOff = localStorage.getItem('duitful.hapticsOff');
+    localStorage.removeItem('duitful.hapticsOff');
+    window.Capacitor = {
+      isNativePlatform: () => true,
+      Plugins: { DuitfulKit: { haptic: (opts) => { calls.push(opts); return Promise.resolve({ ok: true }); } } },
+    };
+    kiraHaptic(12, 'LIGHT', 0.55);
+    kiraHaptic(38, 'HEAVY', 1.0);
+    kiraPlaySaveFeedback();
+    setKiraHapticsEnabled(false);
+    kiraHaptic(38, 'HEAVY', 1.0);
+    setKiraHapticsEnabled(true);
+    if (prevCap === undefined) delete window.Capacitor; else window.Capacitor = prevCap;
+    if (prevOff == null) localStorage.removeItem('duitful.hapticsOff'); else localStorage.setItem('duitful.hapticsOff', prevOff);
+    return calls;
+  });
+  check('v1.86.0: kiraHaptic routes through DuitfulKit.haptic with style & intensity and respects Haptics toggle',
+    hapRes.length === 3
+    && hapRes[0].style === 'LIGHT' && hapRes[0].intensity === 0.55
+    && hapRes[1].style === 'HEAVY' && hapRes[1].intensity === 1.0
+    && hapRes[2].style === 'SUCCESS',
+    JSON.stringify(hapRes));
+}
+
 await b.close();
 if (server) server.kill();
 dropVendorLink();
