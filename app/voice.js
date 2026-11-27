@@ -1426,6 +1426,7 @@
 
     const dlg = document.getElementById("voice-dialog");
     voiceStopListening({ cancel: true });
+    clearVoiceThread();
     if (dlg && dlg.open) dlg.close();
 
     if (typeof kiraPlaySaveFeedback === "function") kiraPlaySaveFeedback();
@@ -1566,6 +1567,7 @@
 
     const closeVoice = () => {
       voiceStopListening({ cancel: true });
+      clearVoiceThread();
       if (dlg && dlg.open) dlg.close();
     };
 
@@ -1574,6 +1576,9 @@
     if (closeX) closeX.addEventListener("click", closeVoice);
     if (dlg) {
       dlg.addEventListener("close", () => {
+        // The close event arrives asynchronously a task after close(); ignore
+        // a stale close if #voice-dialog has already been reopened.
+        if (dlg.open) return;
         voiceStopListening({ cancel: true });
         voiceStatus("");
         clearVoiceThread();
