@@ -87,8 +87,27 @@ final class DuitfulSpeech {
         }
     }
 
+    /// The hints JS sends (`speechStart({ lang, hints })`): strings only,
+    /// trimmed, 1–40 characters, no duplicates, at most `maxHints`.
+    static let maxHints = 100
+    static func cleanHints(_ raw: [String]) -> [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        for s in raw {
+            let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty, t.count <= 40 else { continue }
+            let key = t.lowercased()
+            if seen.contains(key) { continue }
+            seen.insert(key)
+            out.append(t)
+            if out.count >= maxHints { break }
+        }
+        return out
+    }
+
     /// Main queue only.
     func start(lang: String,
+               hints: [String] = [],
                partial: @escaping (String) -> Void,
                finish: @escaping (Result<String, Failure>) -> Void) {
         guard onFinish == nil else {
@@ -119,6 +138,9 @@ final class DuitfulSpeech {
         // Never Apple's servers: the words are heard on this iPhone or not at all.
         req.requiresOnDeviceRecognition = true
         req.taskHint = .dictation
+        // "nasi" is heard as "Nazi" without these: words the person is
+        // likely to say (contextualStrings bias the on-device recogniser too).
+        if !hints.isEmpty { req.contextualStrings = hints }
         request = req
 
         let input = engine.inputNode
