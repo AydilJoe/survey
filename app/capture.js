@@ -925,10 +925,13 @@ function queueIncomingTransfer(data) {
   const now = captureTime(data);
   state.pendingTxns = state.pendingTxns || [];
   // Same amount, same first candidate, inside two minutes: the bank fired
-  // twice (lock screen + drawer), not two people paying the same sum.
+  // twice (lock screen + drawer), not two people paying the same sum. The
+  // matcher's own first candidate is kept on the card (candidates), because
+  // an AI+ suggestion reorders matches.
+  const firstOf = (p) => (Array.isArray(p.candidates) && p.candidates.length ? p.candidates[0] : p.matches && p.matches[0] && p.matches[0].personId);
   const dupe = state.pendingTxns.find((p) => p.kind === "split-match"
     && Math.abs(Number(p.amount) - parsed.amount) < 0.005
-    && p.matches && p.matches[0] && res.matches[0] && p.matches[0].personId === res.matches[0].personId
+    && res.matches[0] && firstOf(p) != null && String(firstOf(p)) === String(res.matches[0].personId)
     && Math.abs(now - p.createdAt) < 120000);
   if (dupe) return false;
 
@@ -948,7 +951,46 @@ function queueIncomingTransfer(data) {
     matches: res.matches.map((m) => ({
       personId: m.personId, name: m.name, title: m.title, remaining: m.remaining,
     })),
+    candidates: res.matches.map((m) => m.personId),
   });
+  save();
+  if (typeof renderAll === "function") renderAll();
+  // Several people owe exactly this much and the text doesn't settle who:
+  // Duitful AI+ may narrow it to one, the card still waits for the tap.
+  if (res.status === "ambiguous") captureSplitAiPlus(state.pendingTxns[state.pendingTxns.length - 1].id, parsed, res).catch(() => {});
+  return true;
+}
+
+/* Duitful AI+ (cloud) task split-match, only when aiCloudAllowed(). The
+   choices are the open splits whose balance is exactly the credit (the check
+   in ai-cloud.js and on the server drops any other answer), the sender is
+   redacted before it leaves, and the answer only reorders the card: the AI's
+   pick moves to the front as the suggested button (aiPick), every other
+   person stays on the card, and nothing is settled until a tap. A failure
+   leaves the "who paid?" card as it was. */
+async function captureSplitAiPlus(pendingId, parsed, res) {
+  if (typeof aiCloudAllowed !== "function" || !aiCloudAllowed() || typeof aiCloudMatchSplit !== "function") return false;
+  const sender = String((parsed && parsed.sender) || "").trim();
+  if (!sender) return false;
+  const exact = (res.matches || []).filter((m) => Math.abs(Number(m.remaining) - parsed.amount) < 0.005);
+  if (exact.length < 2) return false;
+  const ans = await aiCloudMatchSplit({
+    sender: sender.slice(0, 120),
+    amount: parsed.amount,
+    openSplits: exact.slice(0, 30).map((m) => ({
+      id: String(m.personId),
+      name: String(m.name || "").trim().split(/\s+/)[0].slice(0, 40),
+      amount: Math.round(Number(m.remaining) * 100) / 100,
+    })),
+  });
+  if (!ans || ans.splitId == null) return false;
+  const cur = (state.pendingTxns || []).find((x) => x.id === pendingId);
+  if (!cur || cur.kind !== "split-match" || cur.match !== "ambiguous") return false;
+  const hit = (cur.matches || []).find((m) => String(m.personId) === String(ans.splitId));
+  if (!hit) return false;
+  cur.matches = [hit].concat(cur.matches.filter((m) => m !== hit));
+  cur.aiPick = hit.personId;
+  cur.aiPlus = true;
   save();
   if (typeof renderAll === "function") renderAll();
   return true;

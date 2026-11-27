@@ -124,5 +124,9 @@
   "Split or request money": "分账或收款",
   "Add a request I received": "添加我收到的收款请求",
   "Set total months to show progress — how many payments you've already made can't be worked out from the balance alone.": "填上总月数就能显示进度——光看余额算不出你已经还了几期。",
-  "✓ already paid this month": "✓ 本月已还"
+  "✓ already paid this month": "✓ 本月已还",
+  "Read a loan letter": "读取贷款信函",
+  "This PDF has a password. Open it first, or use a photo.": "这个 PDF 有密码。请先打开，或改用照片。",
+  "Filled in from your letter. Check each figure before you add it.": "已根据你的信函填写。添加前请核对每个数字。",
+  "Nothing to fill in from this letter.": "这封信里没有可填的内容。"
 }

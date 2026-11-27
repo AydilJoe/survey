@@ -1,25 +1,39 @@
 // Status snapshot formatter and GET /api/ai?op=status handler.
+// Read-only: nothing here writes a key (see api/_lib/ai/entitlement.js).
 
-const { QUOTA_LIMITS, MAX_DEVICES } = require("./models");
-const { store, keys, normalizeSubPeriod, SUB_TTL_S } = require("./kv");
+const { MAX_DEVICES } = require("./models");
+const { store } = require("./kv");
 const { extractToken, verifyDeviceToken, send } = require("./auth");
+const { loadEntitlement, isActive, quotaFor } = require("./entitlement");
 
-function formatStatus(sub, nowMs = Date.now()) {
-  const s = normalizeSubPeriod(sub, nowMs);
-  const active = !!(s && s.active && Number(s.expiresAt) > nowMs);
-  const devices = Array.isArray(s && s.devices) ? s.devices : [];
+// `ent` is what loadEntitlement returns (sub may be null).
+function formatStatus(ent, nowMs = Date.now()) {
+  const s = ent && ent.sub;
+  const limits = quotaFor(s);
+  const devices = Array.isArray(ent && ent.devices) ? ent.devices : [];
+  const usage = (ent && ent.usage) || { scansUsed: 0, textUsed: 0 };
   return {
-    active,
+    active: isActive(s, nowMs),
     plan: (s && s.plan) || "",
-    expiresAt: (s && s.expiresAt) || 0,
-    periodKey: (s && s.periodKey) || "",
-    scansUsed: (s && s.scansUsed) || 0,
-    scansLimit: QUOTA_LIMITS.scan,
-    textUsed: (s && s.textUsed) || 0,
-    textLimit: QUOTA_LIMITS.text,
+    expiresAt: (s && Number(s.expiresAt)) || 0,
+    sandbox: !!(s && s.sandbox),
+    periodKey: (ent && ent.periodKey) || "",
+    scansUsed: usage.scansUsed || 0,
+    scansLimit: limits.scan,
+    textUsed: usage.textUsed || 0,
+    textLimit: limits.text,
     devicesCount: devices.length,
     maxDevices: MAX_DEVICES,
     devices: devices.map((d) => ({ slotId: d.slotId, label: d.label || "Device", addedAt: d.addedAt })),
+  };
+}
+
+// The answer for a record written before store verification: inactive until
+// the app re-sends its receipt to verify-sub.
+function reverifyBody(ent, nowMs = Date.now()) {
+  return {
+    error: "reverify-required",
+    status: formatStatus({ ...ent, sub: null, usage: null }, nowMs),
   };
 }
 
@@ -31,17 +45,15 @@ async function handleStatus(req, res) {
   const claims = verifyDeviceToken(extractToken(req));
   if (!claims) return send(res, 401, { error: "unauthorized" });
 
-  const raw = await kv.get(keys.sub(claims.subId));
-  if (!raw) return send(res, 404, { error: "not-found" });
+  const now = Date.now();
+  const ent = await loadEntitlement(kv, claims.subId, now);
+  if (ent.legacy) return send(res, 403, reverifyBody(ent, now));
+  if (!ent.sub) return send(res, 404, { error: "not-found" });
 
-  const sub = normalizeSubPeriod(raw);
-  const bound = Array.isArray(sub.devices) && sub.devices.some((d) => d.slotId === claims.slotId);
+  const bound = ent.devices.some((d) => d.slotId === claims.slotId);
   if (!bound) return send(res, 401, { error: "device-unlinked" });
 
-  if (sub.periodKey !== raw.periodKey) {
-    await kv.set(keys.sub(claims.subId), sub, { ex: SUB_TTL_S });
-  }
-  return send(res, 200, { ok: true, status: formatStatus(sub) });
+  return send(res, 200, { ok: true, status: formatStatus(ent, now) });
 }
 
-module.exports = { formatStatus, handleStatus };
+module.exports = { formatStatus, reverifyBody, handleStatus };

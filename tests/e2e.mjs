@@ -14,6 +14,7 @@ import path from 'node:path';
 import { readIosClientId, reversedClientId } from '../scripts/google-ios-client.mjs';
 import { buildPdf, STATEMENT_FIXTURES } from './fixtures/statement-pdfs.mjs';
 import { EA_FIXTURES, eaOcrWords } from './fixtures/ea-forms.mjs';
+import { makeAppleLikeChain, signAppleJws, tamperJwsPayload, makeGoogleOidc, makePlayServiceAccount } from './fixtures/store-jws.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.TEST_PORT || 8899);
@@ -1960,6 +1961,96 @@ check('two people owing RM 41 produce a choice, not a guess',
   && ambiguousQueue.buttons === 2 && /who paid\?/i.test(ambiguousQueue.text),
   ambiguousQueue.text.replace(/\n/g, ' | ').slice(0, 160));
 await S(() => { state.pendingTxns = []; save(); renderAll(); });
+
+// --- AI+ (cloud) wiring: split-match and split-items. Off = today's behaviour;
+//     on = a suggestion the person still confirms, and bad answers are dropped.
+const aiSplit = await S(async () => {
+  const out = {};
+  const saved = { sub: state.aiSub, en: state.aiPlusEnabled, prev: state.aiPlusPreviewedKinds, split: state.split, fetch: window.fetch };
+  const raw = 'NASI LEMAK AYAM 12.00\nTEH TARIK 3.50\nSUBTOTAL 15.50';
+  const read = splitParseReceiptItems(raw);
+  out.rowsOk = splitTidyRows(read, { items: [{ name: 'Nasi lemak ayam', qty: 1, amount: 12 }, { name: 'Teh tarik', qty: 1, amount: 3.5 }] }, raw);
+  out.rowsBadPrice = splitTidyRows(read, { items: [{ name: 'Nasi lemak ayam', qty: 1, amount: 12 }, { name: 'Teh tarik', qty: 1, amount: 4 }] }, raw);
+  out.rowsBadSum = splitTidyRows(read, { items: [{ name: 'Nasi lemak ayam', qty: 1, amount: 12 }] }, raw);
+  out.rowsCheck = splitTidyRows(read, { status: 'Check', items: [{ name: 'x', qty: 1, amount: 12 }] }, raw);
+  out.messy = splitItemsLookMessy({ items: [{ name: 'AB#1', price: 5 }], itemSum: 5, dropped: [], statedTotal: 0, charges: 0 });
+  out.clean = splitItemsLookMessy({ items: [{ name: 'Teh tarik', price: 5 }], itemSum: 5, dropped: [], statedTotal: 0, charges: 0 });
+  // Off: no offer, no call.
+  state.aiPlusEnabled = false;
+  out.offOffer = splitTidyOfferHtml({ method: 'item', scanRaw: 'AB#1 5.00', items: [{ name: 'AB#1', price: 5 }] });
+  let calls = 0;
+  window.fetch = async (u, o) => { if (String(u).includes('/api/ai')) calls += 1; return saved.fetch(u, o); };
+  state.pendingTxns = []; state.split = emptySplit();
+  state.split.out.push(coerceSplitOut({ id: 'aip-rec', kind: 'split', title: 'Rent', date: todayISO(), total: 100, people: [
+    { id: 'aip-a', name: 'Abang Long', amount: 50, status: 'open', repayments: [] },
+    { id: 'aip-b', name: 'Kak Ros', amount: 50, status: 'open', repayments: [] } ] }));
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 200));
+  const p0 = state.pendingTxns[0];
+  out.offPending = p0 && { match: p0.match, n: p0.matches.length, ai: !!p0.aiPlus };
+  out.offCalls = calls;
+  // On: AI+ narrows the ambiguous card to one person, still unsettled.
+  state.aiPlusEnabled = true;
+  state.aiSub = { active: true, expiresAt: Date.now() + 864e5, subToken: 'tok' };
+  state.aiPlusPreviewedKinds = { split: true };
+  const sent = [];
+  window.fetch = async (u, o) => {
+    if (!String(u).includes('/api/ai')) return saved.fetch(u, o);
+    sent.push(JSON.parse(o.body));
+    return new Response(JSON.stringify({ ok: true, result: { splitId: 'aip-b' } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  state.pendingTxns = [];
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 600));
+  const p = state.pendingTxns[0];
+  out.onPending = p && { match: p.match, ids: p.matches.map((m) => m.personId), ai: !!p.aiPlus, pick: p.aiPick };
+  out.sentIds = sent[0] ? sent[0].input.openSplits.map((s) => s.id) : [];
+  out.settled = state.split.out[0].people.every((x) => x.status === 'open' && !x.repayments.length);
+  renderAll();
+  out.tag = /AI\+/.test(document.getElementById('pending-list').innerText);
+  // Both people stay on the card; the AI's pick is the main button.
+  const btns = [...document.querySelectorAll('#pending-list [data-action="pending-split-settle"]')];
+  out.buttons = btns.map((b) => [b.dataset.person, b.classList.contains('primary')]);
+  // The bank fires the same credit again seconds later: still one card,
+  // even though the AI's pick now heads the list.
+  const sentBefore = sent.length;
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 300));
+  out.afterDupe = { cards: state.pendingTxns.length, calls: sent.length - sentBefore };
+  // An answer naming someone who is not a candidate is ignored.
+  window.fetch = async (u, o) => String(u).includes('/api/ai')
+    ? new Response(JSON.stringify({ ok: true, result: { splitId: 'nobody' } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    : saved.fetch(u, o);
+  state.pendingTxns = [];
+  window.duitfulIncoming({ package: 'com.maybank2u.life', text: 'You have received RM50.00 from MUHAMMAD HAFIZ' });
+  await new Promise((r) => setTimeout(r, 600));
+  out.badAnswer = state.pendingTxns[0] && state.pendingTxns[0].match;
+  out.badPick = state.pendingTxns[0] && state.pendingTxns[0].aiPick;
+  // Tidy leaves the rows alone once anyone was unticked from an item.
+  out.unchangedAll = splitItemsUnchanged({ items: [{ name: 'Teh', price: 5, who: splitComposeKeys() }] }, { items: [{ name: 'Teh', price: 5 }] });
+  out.unchangedWho = splitItemsUnchanged({ items: [{ name: 'Teh', price: 5, who: [] }] }, { items: [{ name: 'Teh', price: 5 }] });
+  Object.assign(state, { aiSub: saved.sub, aiPlusEnabled: saved.en, aiPlusPreviewedKinds: saved.prev, pendingTxns: [], split: saved.split });
+  window.fetch = saved.fetch;
+  save(); renderAll();
+  return out;
+});
+check('AI+ off: no offer to tidy items, no AI call, the credit stays a "who paid?" card',
+  aiSplit.offOffer === '' && aiSplit.offCalls === 0 && aiSplit.offPending && aiSplit.offPending.match === 'ambiguous'
+  && aiSplit.offPending.n === 2 && !aiSplit.offPending.ai, JSON.stringify([aiSplit.offOffer, aiSplit.offCalls, aiSplit.offPending]));
+check('AI+ split-match: only splits equal to the credit are offered, the AI pick goes first, everyone stays on the card and nothing is settled',
+  aiSplit.onPending && aiSplit.onPending.match === 'ambiguous' && aiSplit.onPending.ids.join() === 'aip-b,aip-a' && aiSplit.onPending.pick === 'aip-b' && aiSplit.onPending.ai
+  && JSON.stringify(aiSplit.buttons) === JSON.stringify([['aip-b', true], ['aip-a', false]])
+  && aiSplit.sentIds.join() === 'aip-a,aip-b' && aiSplit.settled && aiSplit.tag,
+  JSON.stringify(aiSplit));
+check('AI+ split-match: the same credit fired twice after the AI reordered the card is still one card (no second AI call)',
+  aiSplit.afterDupe && aiSplit.afterDupe.cards === 1 && aiSplit.afterDupe.calls === 0, JSON.stringify(aiSplit.afterDupe));
+check('AI+ split-match: an answer outside the choices is ignored',
+  aiSplit.badAnswer === 'ambiguous' && aiSplit.badPick === undefined, String([aiSplit.badAnswer, aiSplit.badPick]));
+check('AI+ split-items: Tidy leaves the rows alone once someone was unticked from an item',
+  aiSplit.unchangedAll === true && aiSplit.unchangedWho === false, JSON.stringify([aiSplit.unchangedAll, aiSplit.unchangedWho]));
+check('AI+ split-items: tidy rows are used only when prices are printed and the total still matches',
+  aiSplit.rowsOk && aiSplit.rowsOk.length === 2 && aiSplit.rowsBadPrice === null && aiSplit.rowsBadSum === null && aiSplit.rowsCheck === null
+  && aiSplit.messy === true && aiSplit.clean === false, JSON.stringify([aiSplit.rowsOk, aiSplit.rowsBadPrice, aiSplit.rowsBadSum, aiSplit.rowsCheck]));
 
 /* ── Touch 'n Go / MAE alerts from a Vivo beta tester (1.55.14) ───────────
    Real wording, names replaced. A DuitNow transfer out must queue a spend;
@@ -15949,14 +16040,15 @@ check('the brand catalogue makes no network calls at all',
   const aiModels = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/models.js'));
   aiKv.resetMemory();
 
-  const callAiApi = async ({ method = 'POST', op = '', body = null, token = '', ip = '10.0.0.1' }) => {
+  const callAiApi = async ({ method = 'POST', op = '', body = null, token = '', ip = '10.0.0.1', headers = {}, query = {} }) => {
     const req = {
       method,
-      query: op ? { op } : {},
+      query: op ? { op, ...query } : { ...query },
       headers: {
         'content-type': 'application/json',
         'x-forwarded-for': ip,
         ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...headers,
       },
       body: body || {},
     };
@@ -16206,6 +16298,27 @@ check('the brand catalogue makes no network calls at all',
     liveRun.cardShown && liveRun.previewOpen && liveRun.previewRedacted && liveRun.res?.payee === 'Grab' && aiHits >= 1,
     JSON.stringify({ liveRun, aiHits }));
 
+  // Closing the preview another way (Escape / Back) counts as Cancel: the
+  // caller gets null at once instead of waiting for ever, and nothing is sent.
+  const previewEsc = await aip.evaluate(async () => {
+    const hitsBefore = performance.getEntriesByType('resource').filter((e) => e.name.includes('/api/ai')).length;
+    state.aiPlusPreviewedKinds = { payee: true };
+    const p = aiCloudRun('split-items', { lines: 'TEH TARIK 3.50', subtotal: 3.5 });
+    await new Promise((r) => setTimeout(r, 50));
+    const opened = document.getElementById('ai-preview-dialog').open === true;
+    // The previous preview's close event can arrive after this one opened
+    // (close events fire a task later); it must not cancel this one.
+    document.getElementById('ai-preview-dialog').dispatchEvent(new Event('close'));
+    await new Promise((r) => setTimeout(r, 30));
+    const staleIgnored = document.getElementById('ai-preview-dialog').open === true;
+    document.getElementById('ai-preview-dialog').close();
+    const res = await Promise.race([p, new Promise((r) => setTimeout(() => r('hung'), 1500))]);
+    const hitsAfter = performance.getEntriesByType('resource').filter((e) => e.name.includes('/api/ai')).length;
+    return { opened, res, kept: !!(state.aiPlusPreviewedKinds && state.aiPlusPreviewedKinds.split), sent: hitsAfter - hitsBefore, staleIgnored };
+  });
+  check('ai+ preview: a late close event from the previous preview does not cancel this one; closing it with Escape or Back resolves as Cancel (null), sends nothing and asks again next time',
+    previewEsc.opened && previewEsc.staleIgnored && previewEsc.res === null && !previewEsc.kept && previewEsc.sent === 0, JSON.stringify(previewEsc));
+
   // Privacy & store-label surfaces updated in the same release
   const privFiles = [
     'privacy/index.html',
@@ -16221,16 +16334,138 @@ check('the brand catalogue makes no network calls at all',
     privMissing.length === 0, `missing: ${privMissing.join(', ') || 'none'}`);
 
   // Simulate quota exhausted (1000/1000 text calls) -> 429 -> aiCloudRun returns null cleanly
+  // The meters are their own keys (ai_use:<subId>:<YYYY-MM>:<bucket>), never
+  // fields on ai_sub (security review, 1.78.0).
   const kvStore = aiKv.store();
-  const subKey = aiKv.keys.sub(v1.data.status ? (await (async () => {
-    const { verifyDeviceToken } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/auth.js'));
-    return verifyDeviceToken(tok2).subId;
-  })()) : '');
-  const curSub = await kvStore.get(subKey);
-  await kvStore.set(subKey, { ...curSub, textUsed: 1000 });
+  const { verifyDeviceToken: verifyTok } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/auth.js'));
+  const quotaSubId = verifyTok(tok2).subId;
+  const textUseKey = aiKv.keys.use(quotaSubId, aiKv.currentPeriodKey(), 'text');
+  const subBeforeQuota = JSON.stringify(await kvStore.get(aiKv.keys.sub(quotaSubId)));
+  await kvStore.set(textUseKey, 1000);
   const quotaFallback = await aip.evaluate(async () => await aiCloudRun('payee-clean', { raw: 'PYMT*GRAB 8812 KL' }));
-  check('ai+ quota fallback: reaching 1,000 text cap returns null cleanly without blocking',
-    quotaFallback === null, JSON.stringify(quotaFallback));
+  const quotaAfter = await kvStore.get(textUseKey);
+  check('ai+ quota fallback: reaching 1,000 text cap returns null cleanly without blocking, and the refused call neither counts nor touches ai_sub',
+    quotaFallback === null && Number(quotaAfter) === 1000
+    && JSON.stringify(await kvStore.get(aiKv.keys.sub(quotaSubId))) === subBeforeQuota,
+    JSON.stringify({ quotaFallback, quotaAfter }));
+
+  // Statement import with AI+ (statement-read + payee-clean), fetch to /api/ai/ mocked.
+  const stmtPlus = await aip.evaluate(async () => {
+    const out = {};
+    const realFetch = window.fetch;
+    const calls = [];
+    let mode = 'good';
+    const canned = (task, input) => {
+      if (task === 'statement-read') {
+        const rows = [
+          { date: '2026-11-01', desc: 'PYMT*GRAB 8812 KL', amount: 20, dir: 'out', balance: 80 },
+          { date: '2026-11-02', desc: 'SALARY CONTOH SDN BHD', amount: 500, dir: 'in', balance: mode === 'bad' ? 500 : 580 },
+          { date: '2026-11-03', desc: 'INVENTED SHOP', amount: 999, dir: 'out' }];   // 999 is not printed: dropped
+        if (mode === 'noopen') {
+          // No opening / closing: the first balance row can't be checked, so a
+          // made-up first row (999, a printed reference) must not let it import.
+          return { opening: null, closing: null, rows: [
+            { date: '2026-11-01', desc: 'REF 999', amount: 999, dir: 'out', balance: 80 },
+            { date: '2026-11-02', desc: 'SALARY CONTOH SDN BHD', amount: 500, dir: 'in', balance: 580 }] };
+        }
+        return { opening: 100, closing: 580, rows };
+      }
+      if (task === 'payee-clean') return { payee: /GRAB/.test(input.raw) ? 'GRAB' : 'Zzz Invented' };   // invented words: refused
+      return null;
+    };
+    window.fetch = async (url, init) => {
+      if (String(url).includes('/api/ai')) {
+        const bd = JSON.parse(init.body); calls.push(bd.task);
+        return new Response(JSON.stringify({ ok: true, result: canned(bd.task, bd.input) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      return realFetch(url, init);
+    };
+    const lines = ['Opening 100.00', 'Nov 1 PYMT*GRAB 8812 KL out 20.00 bal 80.00', 'Nov 2 SALARY CONTOH SDN BHD in 500.00 bal 580.00', 'Closing 580.00']
+      .map((t, i) => ({ text: t, page: 1, y: 800 - i * 20 }));
+    const settle = () => new Promise((r) => setTimeout(r, 1200));
+    try {
+      state.aiPlusEnabled = true; state.aiPlusDisclosureSeen = true;
+      state.aiPlusPreviewedKinds = { statement: true, payee: true };
+      // Off: no offer, no call.
+      state.aiSub = null;
+      openStatementImport();
+      await showStatementReview({ lines });
+      await settle();
+      out.off = { offer: !document.getElementById('stmt-cloud').hidden, calls: calls.length };
+      document.getElementById('stmt-dialog').close();
+      // On: offered because the phone's read finds no rows; the read checks out.
+      state.aiSub = { active: true, expiresAt: Date.now() + 86400000, subToken: 'tok' };
+      openStatementImport();
+      await showStatementReview({ lines });
+      out.offer = !document.getElementById('stmt-cloud').hidden;
+      const beforeCalls = calls.length;
+      document.getElementById('stmt-cloud-read').click();
+      await settle();
+      out.on = {
+        rows: stmtUi.items.map((i) => [i.payee, i.amount, i.kind]),
+        status: stmtUi.recon.status, scanned: stmtUi.parsed.scanned,
+        tags: document.querySelectorAll('#stmt-list .ai-plus-badge.stmt-ai').length,
+        offerAfter: !document.getElementById('stmt-cloud').hidden,
+        importOff: document.getElementById('stmt-import').disabled,
+        used: calls.slice(beforeCalls),
+        fit: document.getElementById('stmt-dialog').scrollWidth <= document.getElementById('stmt-dialog').clientWidth + 1,
+      };
+      // A payee the person typed is never asked or overwritten.
+      const mk = (desc, extra) => ({ kind: 'spend', row: { desc }, payee: desc, ...extra });
+      const probe = [mk('PYMT*GRAB 1', { payee: 'My own name', userPayee: true }), mk('PYMT*GRAB 2', { userCat: true }), mk('PYMT*GRAB 3')];
+      const c0 = calls.length;
+      await statementCloudPayees(probe, {});
+      out.mine = { names: probe.map((i) => i.payee), asked: calls.length - c0 };
+      // A read that does not add up still can't import (scan rule).
+      document.getElementById('stmt-dialog').close();
+      mode = 'bad';
+      openStatementImport();
+      await showStatementReview({ lines });
+      document.getElementById('stmt-cloud-read').click();
+      await settle();
+      out.bad = { status: stmtUi.recon.status, blocked: stmtScanBlocked(), refused: statementImportNow() };
+      document.getElementById('stmt-dialog').close();
+      mode = 'noopen';
+      openStatementImport();
+      await showStatementReview({ lines: lines.concat([{ text: 'Ref 999', page: 1, y: 700 }]) });
+      document.getElementById('stmt-cloud-read').click();
+      await settle();
+      out.noOpen = { status: stmtUi.recon.status, blocked: stmtScanBlocked(), refused: statementImportNow() };
+      // A read left busy (a preview closed, a dropped network) never blocks the next open.
+      document.getElementById('stmt-dialog').close();
+      stmtUi.cloudBusy = true;
+      openStatementImport();
+      out.busyReset = stmtUi.cloudBusy === false;
+      // Edits made on the phone's rows come along to the AI+ rows.
+      const prevItems = [
+        { date: '2026-11-01', row: { dir: 'debit' }, amount: 20, payee: 'My Grab', userPayee: true, category: 'Transport', userCat: true, on: false, userOn: true, kind: 'spend' },
+        { date: '2026-11-05', row: { dir: 'debit' }, amount: 7, payee: 'Not in new read', userPayee: true, kind: 'spend' }];
+      const nextItems = [
+        { date: '2026-11-01', row: { dir: 'debit' }, amount: 20, payee: 'GRAB', category: '', on: true, kind: 'spend', aiPlus: true },
+        { date: '2026-11-02', row: { dir: 'credit' }, amount: 500, payee: 'SALARY', category: '', on: true, kind: 'income', aiPlus: true }];
+      stmtCarryEdits(prevItems, nextItems);
+      out.carry = nextItems.map((i) => [i.payee, i.category, i.on, !!i.userPayee]);
+    } finally {
+      window.fetch = realFetch;
+      try { document.getElementById('stmt-dialog').close(); } catch {}
+      state.aiSub = null;
+    }
+    return out;
+  });
+  check('ai+ statement: off = no offer and no call; on, the read is offered when the phone finds nothing that checks out, keeps only printed amounts, tags rows AI+ and still has to reconcile',
+    stmtPlus.off.offer === false && stmtPlus.off.calls === 0 && stmtPlus.offer === true
+    && JSON.stringify(stmtPlus.on.rows) === JSON.stringify([['GRAB', 20, 'spend'], ['SALARY CONTOH SDN BHD', 500, 'income']])
+    && stmtPlus.on.status === 'ok' && stmtPlus.on.scanned === true && stmtPlus.on.tags === 2 && stmtPlus.on.offerAfter === false && stmtPlus.on.importOff === false
+    && stmtPlus.on.used[0] === 'statement-read' && stmtPlus.on.fit,
+    JSON.stringify(stmtPlus));
+  check('ai+ statement: payee names you typed are never overwritten, and a read that does not add up cannot be imported',
+    stmtPlus.mine.names[0] === 'My own name' && stmtPlus.mine.names[1] === 'PYMT*GRAB 2' && stmtPlus.mine.names[2] === 'GRAB' && stmtPlus.mine.asked === 1 && stmtPlus.bad.status === 'mismatch' && stmtPlus.bad.blocked === true && stmtPlus.bad.refused === false,
+    JSON.stringify({ mine: stmtPlus.mine, bad: stmtPlus.bad }));
+  check('ai+ statement: an AI+ read with no printed opening and closing balance never counts as checked, so it cannot import',
+    stmtPlus.noOpen && stmtPlus.noOpen.status === 'none' && stmtPlus.noOpen.blocked === true && stmtPlus.noOpen.refused === false, JSON.stringify(stmtPlus.noOpen));
+  check('ai+ statement: reopening the import clears a stuck AI+ read, and your edits to the phone\'s rows survive an AI+ re-read',
+    stmtPlus.busyReset === true && JSON.stringify(stmtPlus.carry) === JSON.stringify([['My Grab', 'Transport', false, true], ['SALARY', '', true, false]]),
+    JSON.stringify({ busy: stmtPlus.busyReset, carry: stmtPlus.carry }));
 
   // Phase 2: StoreKit 2 / Play Billing subscription receipt keeps state.pro separate,
   // encrypted backup reconnect syncs status, Web paywall is pair-only, and no LAUNCH100 on iOS.
@@ -16281,6 +16516,547 @@ check('the brand catalogue makes no network calls at all',
 
   delete global.__DUITFUL_AI_GEMINI_STUB__;
   await aiCtx.close();
+
+  // ── AI+ store verification (1.78.0): Apple JWS chain + ES256, App Store
+  // Server Notifications v2, Play RTDN re-fetch. A throwaway CA chain stands
+  // in for Apple's; its root pin is honoured only in this in-memory mode.
+  {
+    const { iosSubId, androidSubId } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/verify-sub.js'));
+    const { resetJwksCache } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/google-oidc.js'));
+    const appleJwsSrc = readFileSync(path.join(REPO_ROOT, 'api/_lib/ai/apple-jws.js'), 'utf8');
+    const webhookSrc = readFileSync(path.join(REPO_ROOT, 'api/_lib/ai/webhook.js'), 'utf8');
+    const kvS = aiKv.store();
+    let ipN = 0;
+    const nextIp = () => `10.9.${Math.floor(ipN / 200)}.${(ipN++ % 200) + 1}`;
+    const chain = makeAppleLikeChain();
+    const t0 = Date.now();
+    const txFor = (otid, extra = {}) => ({
+      originalTransactionId: otid,
+      transactionId: `${otid}-1`,
+      bundleId: 'com.aydiljoe.duitful',
+      productId: 'duitful_ai_monthly',
+      type: 'Auto-Renewable Subscription',
+      environment: 'Production',
+      purchaseDate: t0 - 1000,
+      expiresDate: t0 + 30 * 86400000,
+      signedDate: t0,
+      ...extra,
+    });
+    const verifyIos = (jws) => callAiApi({ op: 'verify-sub', ip: nextIp(), body: { platform: 'ios', plan: 'duitful_ai_monthly', signedTransactionInfo: jws } });
+    // The entitlement is ai_sub (verify-sub) and ai_evt (webhook), newest store time wins.
+    const { effectiveSub, VERIFIED } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/entitlement.js'));
+    const entOf = async (subId) => effectiveSub(await kvS.get(aiKv.keys.sub(subId)), await kvS.get(aiKv.keys.evt(subId)));
+    const subOf = async (otid) => entOf(iosSubId(otid));
+
+    // Before the test pin is set, the real Apple Root CA - G3 pin rejects the throwaway chain.
+    delete process.env.AI_TEST_APPLE_ROOT_SHA256;
+    const unpinned = await verifyIos(signAppleJws(txFor('otid-unpinned'), chain));
+    process.env.AI_TEST_APPLE_ROOT_SHA256 = chain.rootSha256;
+
+    const okJws = signAppleJws(txFor('otid-ok'), chain);
+    const ok = await verifyIos(okJws);
+    const okSub = await subOf('otid-ok');
+    check('ai+ store verify (iOS): a JWS signed by the pinned chain is accepted, the plan comes from the signed productId, and the real Apple pin rejects any other root',
+      unpinned.status === 400 && unpinned.data?.error === 'jws-untrusted-root' && !(await subOf('otid-unpinned'))
+      && ok.status === 200 && ok.data?.ok && typeof ok.data.subToken === 'string' && ok.data.status?.active
+      && okSub?.plan === 'duitful_ai_monthly' && okSub.expiresAt === t0 + 30 * 86400000
+      && /63343abfb89a6a03ebb57e9b3f5fa7be7c4f5c756f3017b3a8c488c3653e9179/.test(appleJwsSrc)
+      && /dsaEncoding: "ieee-p1363"/.test(appleJwsSrc),
+      JSON.stringify({ unpinned: unpinned.data, ok: ok.data?.status }));
+
+    const expiredLeaf = makeAppleLikeChain({ leafNotBefore: t0 - 10 * 86400000, leafNotAfter: t0 - 86400000 });
+    const noMarkers = makeAppleLikeChain({ markers: false });
+    const otherRoot = makeAppleLikeChain();
+    const rejectCases = [
+      ['tampered payload', tamperJwsPayload(signAppleJws(txFor('otid-tamper'), chain), { expiresDate: t0 + 900 * 86400000 }), 'jws-bad-signature', 'otid-tamper'],
+      ['wrong alg', signAppleJws(txFor('otid-alg'), chain, { alg: 'ES384' }), 'jws-bad-alg', 'otid-alg'],
+      ['alg none', `${Buffer.from(JSON.stringify({ alg: 'none', x5c: chain.x5c })).toString('base64url')}.${Buffer.from(JSON.stringify(txFor('otid-none'))).toString('base64url')}.`, 'jws-malformed', 'otid-none'],
+      ['wrong root', signAppleJws(txFor('otid-root'), otherRoot), 'jws-untrusted-root', 'otid-root'],
+      ['leaf signed by a stranger', signAppleJws(txFor('otid-leaf'), chain, { key: otherRoot.leafKey }), 'jws-bad-signature', 'otid-leaf'],
+      ['wrong bundleId', signAppleJws(txFor('otid-bundle', { bundleId: 'com.example.other' }), chain), 'bundle-mismatch', 'otid-bundle'],
+      ['wrong product', signAppleJws(txFor('otid-product', { productId: 'duitful_pro' }), chain), 'product-mismatch', 'otid-product'],
+      ['expired subscription', signAppleJws(txFor('otid-exp', { expiresDate: t0 - 1000 }), chain), 'sub-expired', 'otid-exp'],
+      ['revoked', signAppleJws(txFor('otid-rev', { revocationDate: t0 - 1000 }), chain), 'sub-revoked', 'otid-rev'],
+      ['Sandbox without AI_IOS_ALLOW_SANDBOX', signAppleJws(txFor('otid-sbx', { environment: 'Sandbox' }), chain), 'sandbox-not-allowed', 'otid-sbx'],
+    ];
+    const rejected = [];
+    for (const [label, jws, code, otid] of rejectCases) {
+      const r = await verifyIos(jws);
+      rejected.push({ label, status: r.status, error: r.data?.error, want: code, written: !!(await subOf(otid)), token: !!r.data?.subToken });
+    }
+    // Expired certificate and missing Apple marker OIDs need their own pins.
+    process.env.AI_TEST_APPLE_ROOT_SHA256 = expiredLeaf.rootSha256;
+    const rExpCert = await verifyIos(signAppleJws(txFor('otid-cert'), expiredLeaf));
+    process.env.AI_TEST_APPLE_ROOT_SHA256 = noMarkers.rootSha256;
+    const rNoMarker = await verifyIos(signAppleJws(txFor('otid-marker'), noMarkers));
+    process.env.AI_TEST_APPLE_ROOT_SHA256 = chain.rootSha256;
+    rejected.push({ label: 'expired certificate', status: rExpCert.status, error: rExpCert.data?.error, want: 'jws-cert-expired', written: !!(await subOf('otid-cert')), token: !!rExpCert.data?.subToken });
+    rejected.push({ label: 'no Apple marker OIDs', status: rNoMarker.status, error: rNoMarker.data?.error, want: 'jws-not-apple', written: !!(await subOf('otid-marker')), token: !!rNoMarker.data?.subToken });
+    const badRejects = rejected.filter((x) => x.status !== 400 || x.error !== x.want || x.written || x.token);
+    check('ai+ store verify (iOS): tampered payload, wrong alg, alg none, wrong root, foreign leaf key, expired cert, no Apple markers, wrong bundleId, wrong product, expired, revoked and Sandbox are all refused with a code and nothing written',
+      badRejects.length === 0, JSON.stringify(badRejects.length ? badRejects : rejected.map((x) => x.error)));
+
+    // App Store Server Notifications v2
+    const note = (type, otid, txExtra, { subtype, signedDate, renewal, env = 'Production' } = {}) => signAppleJws({
+      notificationType: type,
+      ...(subtype ? { subtype } : {}),
+      notificationUUID: `uuid-${type}-${otid}-${signedDate}`,
+      version: '2.0',
+      signedDate,
+      data: {
+        bundleId: 'com.aydiljoe.duitful',
+        environment: env,
+        signedTransactionInfo: signAppleJws(txFor(otid, { signedDate, ...txExtra }), chain),
+        ...(renewal ? { signedRenewalInfo: signAppleJws({ originalTransactionId: otid, signedDate, environment: env, ...renewal }, chain) } : {}),
+      },
+    }, chain);
+    const hook = (signedPayload) => callAiApi({ op: 'webhook', ip: nextIp(), body: { signedPayload } });
+
+    const renewTo = t0 + 60 * 86400000;
+    const wRenew = await hook(note('DID_RENEW', 'otid-ok', { expiresDate: renewTo, transactionId: 'otid-ok-2' }, { signedDate: t0 + 1000 }));
+    const afterRenew = await subOf('otid-ok');
+    const wTamper = await callAiApi({ op: 'webhook', ip: nextIp(), body: { signedPayload: tamperJwsPayload(note('REFUND', 'otid-ok', { revocationDate: t0 }, { signedDate: t0 + 1500 }), { signedDate: t0 + 1600 }) } });
+    const afterTamper = await subOf('otid-ok');
+    const wRefund = await hook(note('REFUND', 'otid-ok', { expiresDate: renewTo, revocationDate: t0 + 2000 }, { signedDate: t0 + 2000 }));
+    const afterRefund = await subOf('otid-ok');
+    const stRefund = await callAiApi({ method: 'GET', op: 'status', token: ok.data.subToken });
+    const wStale = await hook(note('DID_RENEW', 'otid-ok', { expiresDate: renewTo }, { signedDate: t0 + 1200 }));
+    const afterStale = await subOf('otid-ok');
+    const replay = await verifyIos(okJws);
+    const afterReplay = await subOf('otid-ok');
+    const legacy = await callAiApi({ op: 'webhook', ip: nextIp(), body: { subId: iosSubId('otid-ok'), active: true, expiresAt: t0 + 999 * 86400000 } });
+    const afterLegacy = await subOf('otid-ok');
+    check('ai+ store webhook (ASSN v2): DID_RENEW extends, REFUND switches off, a tampered payload, a stale renewal, a replayed pre-refund JWS and the old trust-the-body shape change nothing',
+      wRenew.status === 200 && afterRenew?.active === true && afterRenew.expiresAt === renewTo
+      && wTamper.status === 401 && wTamper.data?.error === 'jws-bad-signature' && afterTamper?.active === true
+      && wRefund.status === 200 && afterRefund?.active === false && stRefund.data?.status?.active === false
+      && wStale.status === 200 && wStale.data?.ignored === 'stale' && afterStale?.active === false
+      && replay.status === 400 && replay.data?.error === 'sub-inactive' && afterReplay?.active === false
+      && legacy.status === 400 && legacy.data?.error === 'unknown-webhook' && afterLegacy?.active === false
+      && !/body\.subId/.test(webhookSrc),
+      JSON.stringify({ renew: wRenew.data, tamper: wTamper.data, refund: wRefund.data, stale: wStale.data, replay: replay.data, legacy: legacy.data }));
+
+    const vB = await verifyIos(signAppleJws(txFor('otid-b'), chain));
+    const wExpired = await hook(note('EXPIRED', 'otid-b', { expiresDate: t0 - 1 }, { subtype: 'VOLUNTARY', signedDate: t0 + 3000 }));
+    const afterExpired = await subOf('otid-b');
+    const graceTo = t0 + 16 * 86400000;
+    const wGrace = await hook(note('DID_FAIL_TO_RENEW', 'otid-b', { expiresDate: t0 - 1 }, { subtype: 'GRACE_PERIOD', signedDate: t0 + 4000, renewal: { gracePeriodExpiresDate: graceTo } }));
+    const afterGrace = await subOf('otid-b');
+    const wTest = await hook(signAppleJws({ notificationType: 'TEST', version: '2.0', signedDate: t0, data: { bundleId: 'com.aydiljoe.duitful', environment: 'Production' } }, chain));
+    const wPro = await hook(note('REFUND', 'otid-b', { productId: 'duitful_pro', type: 'Non-Consumable', revocationDate: t0 }, { signedDate: t0 + 5000 }));
+    const afterPro = await subOf('otid-b');
+    check('ai+ store webhook (ASSN v2): EXPIRED switches off, DID_FAIL_TO_RENEW / GRACE_PERIOD keeps AI+ until the grace date, TEST is acknowledged, and a Lifetime Pro refund never touches AI+',
+      vB.status === 200 && wExpired.status === 200 && afterExpired?.active === false
+      && wGrace.status === 200 && afterGrace?.active === true && afterGrace.expiresAt === graceTo
+      && wTest.status === 200 && wTest.data?.test === true
+      && wPro.status === 200 && wPro.data?.ignored === 'not-ai-plus' && afterPro?.active === true,
+      JSON.stringify({ expired: wExpired.data, grace: wGrace.data, test: wTest.data, pro: wPro.data }));
+
+    // ── Security review fixes (1.78.0) ──────────────────────────────────────
+    const { signDeviceToken } = reqCjs(path.join(REPO_ROOT, 'api/_lib/ai/auth.js'));
+    const aiSrc = (f) => readFileSync(path.join(REPO_ROOT, 'api/_lib/ai', f), 'utf8');
+
+    // (1) A refund that lands while a run is waiting on Gemini stays: run
+    // never writes ai_sub / ai_evt, the meter is an INCR on its own key.
+    {
+      const tR = Date.now();
+      const vR = await verifyIos(signAppleJws(txFor('otid-race', { signedDate: tR, purchaseDate: tR - 1000 }), chain));
+      let release;
+      let entered;
+      const enteredP = new Promise((r) => { entered = r; });
+      global.__DUITFUL_AI_GEMINI_STUB__ = async () => { entered(); await new Promise((r) => { release = r; }); return { payee: 'Grab' }; };
+      const inFlight = callAiApi({ op: 'run', token: vR.data?.subToken, ip: nextIp(), body: { task: 'payee-clean', input: { raw: 'PYMT*GRAB 8812 KL' } } });
+      await enteredP;
+      const tRefund = Date.now();
+      const wR = await hook(note('REFUND', 'otid-race', { expiresDate: tR + 30 * 86400000, revocationDate: tRefund }, { signedDate: tRefund }));
+      release();
+      const runR = await inFlight;
+      const afterRun = await subOf('otid-race');
+      const stR = await callAiApi({ method: 'GET', op: 'status', token: vR.data?.subToken });
+      const runAgain = await callAiApi({ op: 'run', token: vR.data?.subToken, ip: nextIp(), body: { task: 'payee-clean', input: { raw: 'PYMT*GRAB 8812 KL' } } });
+      const meter = await kvS.get(aiKv.keys.use(iosSubId('otid-race'), aiKv.currentPeriodKey(), 'text'));
+      delete global.__DUITFUL_AI_GEMINI_STUB__;
+      const writesSub = (src) => /kv\.set\(\s*keys\.(sub|evt)\(/.test(src);
+      check('ai+ security (race): a REFUND that lands while a run waits on Gemini is not undone; run, status and pair never write ai_sub / ai_evt, the webhook never writes ai_sub and verify-sub never writes ai_evt',
+        vR.status === 200 && wR.status === 200 && runR.status === 200 && runR.data?.ok
+        && afterRun?.active === false && stR.data?.status?.active === false
+        && runAgain.status === 403 && runAgain.data?.error === 'inactive-subscription' && Number(meter) === 1
+        && !writesSub(aiSrc('run.js')) && !writesSub(aiSrc('pair.js')) && !writesSub(aiSrc('status.js'))
+        && !/kv\.set\(\s*keys\.sub\(/.test(aiSrc('webhook.js')) && !/kv\.set\(\s*keys\.evt\(/.test(aiSrc('verify-sub.js'))
+        && /kv\.incr\(/.test(aiSrc('entitlement.js')),
+        JSON.stringify({ vR: vR.status, wR: wR.data, runR: runR.data?.ok, afterRun, st: stR.data?.status?.active, again: runAgain.data, meter }));
+    }
+
+    // (2) A REFUND for a subscription verify-sub never saw leaves a tombstone:
+    // the saved, pre-refund JWS is refused later; a newer purchase is not.
+    {
+      const tBuy = Date.now() - 10000;
+      const tRefund = Date.now() - 5000;
+      const savedJws = signAppleJws(txFor('otid-tomb', { signedDate: tBuy, purchaseDate: tBuy - 1000 }), chain);
+      const wT = await hook(note('REFUND', 'otid-tomb', { expiresDate: tBuy + 365 * 86400000, revocationDate: tRefund, productId: 'duitful_ai_yearly' }, { signedDate: tRefund }));
+      const tomb = await kvS.get(aiKv.keys.evt(iosSubId('otid-tomb')));
+      const replayT = await verifyIos(savedJws);
+      const devAfterReplay = await kvS.get(aiKv.keys.dev(iosSubId('otid-tomb')));
+      const wE = await hook(note('EXPIRED', 'otid-tomb2', { expiresDate: tBuy + 1000 }, { subtype: 'VOLUNTARY', signedDate: tRefund }));
+      const tomb2 = await kvS.get(aiKv.keys.evt(iosSubId('otid-tomb2')));
+      const tNew = Date.now();
+      const rebuy = await verifyIos(signAppleJws(txFor('otid-tomb', { signedDate: tNew, purchaseDate: tNew - 500, transactionId: 'otid-tomb-2', expiresDate: tNew + 30 * 86400000 }), chain));
+      check('ai+ security (tombstone): REFUND / EXPIRED for an unknown sub is stored inactive, so a replayed pre-refund JWS gets no token, while a purchase signed after it still works',
+        wT.status === 200 && wT.data?.tombstone === true && tomb?.active === false && tomb.verified === VERIFIED && tomb.storeEventAt === tRefund
+        && replayT.status === 400 && replayT.data?.error === 'sub-inactive' && !replayT.data?.subToken && !devAfterReplay
+        && wE.status === 200 && tomb2?.active === false
+        && rebuy.status === 200 && rebuy.data?.status?.active === true,
+        JSON.stringify({ wT: wT.data, tomb, replay: replayT.data, wE: wE.data, rebuy: rebuy.data?.error || rebuy.status }));
+    }
+
+    // (3) Records written before store verification (no `verified` marker,
+    // expiry possibly the client's own) count for nothing until re-verified.
+    {
+      const legacyId = iosSubId('otid-legacy');
+      const period = aiKv.currentPeriodKey();
+      await kvS.set(aiKv.keys.sub(legacyId), {
+        subId: legacyId, platform: 'ios', plan: 'duitful_ai_yearly', active: true, expiresAt: 4102444800000,
+        periodKey: period, scansUsed: 3, textUsed: 7, devices: [{ slotId: 'legacySlot0001', label: 'x', addedAt: 1 }],
+      });
+      const legacyTok = signDeviceToken({ subId: legacyId, slotId: 'legacySlot0001' });
+      const lRun = await callAiApi({ op: 'run', token: legacyTok, ip: nextIp(), body: { task: 'payee-clean', input: { raw: 'GRAB KL' } } });
+      const lStatus = await callAiApi({ method: 'GET', op: 'status', token: legacyTok });
+      const lPair = await callAiApi({ op: 'pair-start', token: legacyTok, ip: nextIp() });
+      const tL = Date.now();
+      const lVerify = await verifyIos(signAppleJws(txFor('otid-legacy', { signedDate: tL, purchaseDate: tL - 1000 }), chain));
+      const lRaw = await kvS.get(aiKv.keys.sub(legacyId));
+      const lOldTok = await callAiApi({ method: 'GET', op: 'status', token: legacyTok });
+      const lNewTok = await callAiApi({ method: 'GET', op: 'status', token: lVerify.data?.subToken });
+      check('ai+ security (legacy records): run / status / pair-start refuse an unverified record with reverify-required; re-verifying replaces it with the store\'s expiry, drops its devices and keeps this month\'s meters',
+        lRun.status === 403 && lRun.data?.error === 'reverify-required' && lRun.data?.status?.active === false
+        && lStatus.status === 403 && lStatus.data?.error === 'reverify-required'
+        && lPair.status === 403 && lPair.data?.error === 'reverify-required'
+        && lVerify.status === 200 && lRaw?.verified === VERIFIED && lRaw.expiresAt === t0 + 30 * 86400000 && !('devices' in lRaw)
+        && lOldTok.status === 401 && lNewTok.status === 200 && lNewTok.data?.status?.active === true
+        && lNewTok.data.status.devicesCount === 1 && lNewTok.data.status.textUsed === 7 && lNewTok.data.status.scansUsed === 3,
+        JSON.stringify({ run: lRun.data, status: lStatus.data?.error, pair: lPair.data, verify: lVerify.data?.error || lVerify.status, lRaw, old: lOldTok.status, fresh: lNewTok.data?.status }));
+    }
+
+    // (4) Sandbox (App Review / TestFlight) is its own class: own subId, a
+    // 24 h hard cap, a small quota.
+    {
+      process.env.AI_IOS_ALLOW_SANDBOX = '1';
+      const tS = Date.now();
+      const sbx = await verifyIos(signAppleJws(txFor('otid-sbx2', { environment: 'Sandbox', signedDate: tS, purchaseDate: tS - 1000, expiresDate: tS + 30 * 86400000 }), chain));
+      const sbxRaw = await kvS.get(aiKv.keys.sub(iosSubId('otid-sbx2', true)));
+      const prodSlot = await kvS.get(aiKv.keys.sub(iosSubId('otid-sbx2')));
+      await kvS.set(aiKv.keys.use(iosSubId('otid-sbx2', true), aiKv.currentPeriodKey(), 'text'), aiModels.SANDBOX_QUOTA_LIMITS.text);
+      const sbxRun = await callAiApi({ op: 'run', token: sbx.data?.subToken, ip: nextIp(), body: { task: 'payee-clean', input: { raw: 'GRAB KL' } } });
+      delete process.env.AI_IOS_ALLOW_SANDBOX;
+      const sbxOff = await callAiApi({ method: 'GET', op: 'status', token: sbx.data?.subToken });
+      check('ai+ security (Sandbox): with AI_IOS_ALLOW_SANDBOX a Sandbox JWS gets an ios_sbx_ record capped at 24 h with the Sandbox quota (10 scans / 50 text), never the production record, and switching the variable off cuts it at once',
+        sbx.status === 200 && sbx.data?.status?.sandbox === true
+        && sbx.data.status.expiresAt <= Date.now() + aiModels.SANDBOX_MAX_MS && sbx.data.status.expiresAt > Date.now()
+        && sbx.data.status.scansLimit === 10 && sbx.data.status.textLimit === 50
+        && sbxRaw?.sandbox === true && !prodSlot && iosSubId('otid-sbx2', true).startsWith('ios_sbx_')
+        && sbxRun.status === 429 && sbxRun.data?.error === 'quota'
+        && sbxOff.status === 200 && sbxOff.data?.status?.active === false,
+        JSON.stringify({ sbx: sbx.data?.status || sbx.data, run: sbxRun.data?.error }));
+    }
+
+    // (5) A refund of an earlier period (the sub has renewed since) leaves the
+    // running period on; a refund of the running one switches it off.
+    {
+      const tP = Date.now();
+      const vP = await verifyIos(signAppleJws(txFor('otid-past', { signedDate: tP - 2000, purchaseDate: tP - 40 * 86400000, transactionId: 'otid-past-1', expiresDate: tP + 5 * 86400000 }), chain));
+      const wRen = await hook(note('DID_RENEW', 'otid-past', { transactionId: 'otid-past-2', purchaseDate: tP - 1500, expiresDate: tP + 35 * 86400000 }, { signedDate: tP - 1500 }));
+      const wOld = await hook(note('REFUND', 'otid-past', { transactionId: 'otid-past-0', purchaseDate: tP - 70 * 86400000, expiresDate: tP - 40 * 86400000, revocationDate: tP - 1000 }, { signedDate: tP - 1000 }));
+      const afterOld = await subOf('otid-past');
+      const reverify = await verifyIos(signAppleJws(txFor('otid-past', { signedDate: tP - 1500, purchaseDate: tP - 1500, transactionId: 'otid-past-2', expiresDate: tP + 35 * 86400000 }), chain));
+      const wCur = await hook(note('REFUND', 'otid-past', { transactionId: 'otid-past-2', purchaseDate: tP - 1500, expiresDate: tP + 35 * 86400000, revocationDate: tP - 500 }, { signedDate: tP - 500 }));
+      const afterCur = await subOf('otid-past');
+      check('ai+ security (refund scope): a REFUND of a past period is ignored and the current JWS still verifies; a REFUND of the running period switches AI+ off',
+        vP.status === 200 && wRen.status === 200
+        && wOld.status === 200 && wOld.data?.ignored === 'past-period' && afterOld?.active === true && afterOld.expiresAt === tP + 35 * 86400000
+        && reverify.status === 200 && reverify.data?.status?.active === true
+        && wCur.status === 200 && afterCur?.active === false,
+        JSON.stringify({ old: wOld.data, afterOld, reverify: reverify.data?.error || reverify.status, cur: wCur.data, afterCur }));
+    }
+
+    // Google Play: verify-sub and RTDN both ask subscriptionsv2.get; the RTDN
+    // message's own content is never trusted. Pub/Sub's OIDC token is checked.
+    const savedFetch = globalThis.fetch;
+    const savedEnv = {
+      sa: process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
+      aud: process.env.AI_RTDN_AUDIENCE,
+      email: process.env.AI_RTDN_SERVICE_ACCOUNT,
+    };
+    const oidc = makeGoogleOidc();
+    const rtdnAud = 'https://duitful.app/api/ai/?op=webhook';
+    const rtdnEmail = 'rtdn-push@duitful-test.iam.gserviceaccount.com';
+    process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON = makePlayServiceAccount();
+    process.env.AI_RTDN_AUDIENCE = rtdnAud;
+    process.env.AI_RTDN_SERVICE_ACCOUNT = rtdnEmail;
+    resetJwksCache();
+    const playToken = 'play-token-ai-0001-abcdefghijklmnop';
+    let playTruth = null;
+    let playCalls = 0;
+    let ackCalls = 0;
+    let playGate = null; // { entered, wait }: holds the next subscriptionsv2 answer
+    globalThis.fetch = async (url, init = {}) => {
+      const u = String(url);
+      const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=3600' } });
+      if (u === 'https://oauth2.googleapis.com/token') return json({ access_token: 'test-access-token' });
+      if (u === 'https://www.googleapis.com/oauth2/v3/certs') return json(oidc.jwks);
+      if (u.startsWith('https://androidpublisher.googleapis.com/') && u.endsWith(`/purchases/subscriptions/duitful_ai/tokens/${encodeURIComponent(playToken)}:acknowledge`) && init.method === 'POST') {
+        ackCalls += 1;
+        return json({});
+      }
+      if (u.startsWith('https://androidpublisher.googleapis.com/') && u.endsWith(`/tokens/${encodeURIComponent(playToken)}`)) {
+        playCalls += 1;
+        const answer = playTruth;
+        if (playGate) { const g = playGate; playGate = null; g.entered(); await g.wait; }
+        return json(answer);
+      }
+      return json({ error: 'unexpected' }, 404);
+    };
+    const truth = (state, expiry) => ({ subscriptionState: state, lineItems: [{ productId: 'duitful_ai', expiryTime: new Date(expiry).toISOString() }] });
+    const pubsub = (msg) => ({ message: { data: Buffer.from(JSON.stringify(msg)).toString('base64'), messageId: '1' }, subscription: 'projects/x/subscriptions/y' });
+    const rtdnMsg = (type) => pubsub({ version: '1.0', packageName: 'com.aydiljoe.duitful', eventTimeMillis: String(Date.now()), subscriptionNotification: { version: '1.0', notificationType: type, purchaseToken: playToken, subscriptionId: 'duitful_ai' } });
+    const bearer = (claims) => ({ authorization: `Bearer ${oidc.sign({ iss: 'https://accounts.google.com', aud: rtdnAud, email: rtdnEmail, email_verified: true, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 3600, ...claims })}` });
+    const andSub = async () => entOf(androidSubId(playToken));
+    try {
+      playTruth = truth('SUBSCRIPTION_STATE_ACTIVE', Date.now() + 30 * 86400000);
+      const vA = await callAiApi({ op: 'verify-sub', ip: nextIp(), body: { platform: 'android', plan: 'duitful_ai', purchaseToken: playToken } });
+      const callsAfterVerify = playCalls;
+
+      // The message says "renewed" (type 2); Google says expired. Google wins.
+      playTruth = truth('SUBSCRIPTION_STATE_EXPIRED', Date.now() - 1000);
+      const noAuth = await callAiApi({ op: 'webhook', ip: nextIp(), body: rtdnMsg(2) });
+      const badAud = await callAiApi({ op: 'webhook', ip: nextIp(), body: rtdnMsg(2), headers: bearer({ aud: 'https://evil.example/' }) });
+      const badEmail = await callAiApi({ op: 'webhook', ip: nextIp(), body: rtdnMsg(2), headers: bearer({ email: 'someone@evil.example' }) });
+      const afterBadAuth = await andSub();
+      const callsAfterBadAuth = playCalls;
+      const rExpire = await callAiApi({ op: 'webhook', ip: nextIp(), body: rtdnMsg(2), headers: bearer({}) });
+      const afterExpire = await andSub();
+      const callsAfterExpire = playCalls;
+
+      const renewedTo = Date.now() + 40 * 86400000;
+      playTruth = truth('SUBSCRIPTION_STATE_CANCELED', renewedTo);
+      const rBack = await callAiApi({ op: 'webhook', ip: nextIp(), body: rtdnMsg(3), headers: bearer({}) });
+      const afterBack = await andSub();
+      const wrongPkg = await callAiApi({ op: 'webhook', ip: nextIp(), body: pubsub({ packageName: 'com.example.other', subscriptionNotification: { notificationType: 2, purchaseToken: playToken, subscriptionId: 'duitful_ai' } }), headers: bearer({}) });
+
+      check('ai+ store verify (Android): verify-sub and RTDN re-fetch subscriptionsv2 instead of trusting the message; Pub/Sub OIDC (audience, service account) is required; a cancelled sub keeps AI+ until expiry',
+        vA.status === 200 && vA.data?.status?.active && callsAfterVerify === 1
+        && noAuth.status === 401 && badAud.status === 401 && badAud.data?.error === 'oidc-bad-audience'
+        && badEmail.status === 401 && badEmail.data?.error === 'oidc-bad-email'
+        && afterBadAuth?.active === true && callsAfterBadAuth === 1
+        && rExpire.status === 200 && afterExpire?.active === false && callsAfterExpire === 2 && playCalls === 3
+        && rBack.status === 200 && afterBack?.active === true && afterBack.expiresAt === Date.parse(new Date(renewedTo).toISOString())
+        && wrongPkg.status === 400 && wrongPkg.data?.error === 'bundle-mismatch',
+        JSON.stringify({ vA: vA.data?.error || vA.status, noAuth: noAuth.data, badAud: badAud.data, badEmail: badEmail.data, rExpire: rExpire.data, rBack: rBack.data, playCalls }));
+
+      // Security review (1.78.0): a verify-sub that asked Google before an
+      // RTDN did can't switch the sub back on after the RTDN stored "expired".
+      playTruth = truth('SUBSCRIPTION_STATE_ACTIVE', Date.now() + 30 * 86400000);
+      let gateEntered;
+      let gateRelease;
+      const gateEnteredP = new Promise((r) => { gateEntered = r; });
+      playGate = { entered: gateEntered, wait: new Promise((r) => { gateRelease = r; }) };
+      const slowVerify = callAiApi({ op: 'verify-sub', ip: nextIp(), body: { platform: 'android', plan: 'duitful_ai', purchaseToken: playToken } });
+      await gateEnteredP;
+      await new Promise((r) => setTimeout(r, 5));
+      playTruth = truth('SUBSCRIPTION_STATE_EXPIRED', Date.now() - 1000);
+      const rLate = await callAiApi({ op: 'webhook', ip: nextIp(), body: rtdnMsg(13), headers: bearer({}) });
+      gateRelease();
+      const slow = await slowVerify;
+      const afterRace = await andSub();
+
+      // A purchase Google still lists as unacknowledged is acknowledged by the server.
+      playTruth = { ...truth('SUBSCRIPTION_STATE_ACTIVE', Date.now() + 30 * 86400000), acknowledgementState: 'ACKNOWLEDGEMENT_STATE_PENDING' };
+      const vAck = await callAiApi({ op: 'verify-sub', ip: nextIp(), body: { platform: 'android', plan: 'duitful_ai', purchaseToken: playToken } });
+      const acksAfterPending = ackCalls;
+      playTruth = { ...truth('SUBSCRIPTION_STATE_ACTIVE', Date.now() + 30 * 86400000), acknowledgementState: 'ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED' };
+      const vAcked = await callAiApi({ op: 'verify-sub', ip: nextIp(), body: { platform: 'android', plan: 'duitful_ai', purchaseToken: playToken } });
+
+      // With OIDC configured, the log-visible ?key= secret is no longer accepted.
+      process.env.AI_WEBHOOK_SECRET = 'rtdn-shared-secret-for-tests';
+      const keyOnly = await callAiApi({ op: 'webhook', ip: nextIp(), body: rtdnMsg(2), query: { key: 'rtdn-shared-secret-for-tests' } });
+      delete process.env.AI_WEBHOOK_SECRET;
+
+      check('ai+ security (Android): a verify-sub that asked Google before an RTDN can\'t undo the RTDN\'s "expired"; a pending purchase is acknowledged on the server (once); with OIDC set, ?key= is refused',
+        rLate.status === 200 && slow.status === 400 && slow.data?.error === 'sub-inactive' && afterRace?.active === false
+        && vAck.status === 200 && acksAfterPending === 1 && vAcked.status === 200 && ackCalls === 1
+        && keyOnly.status === 401 && keyOnly.data?.error === 'oidc-missing',
+        JSON.stringify({ rLate: rLate.data, slow: slow.data, afterRace, vAck: vAck.data?.error || vAck.status, ackCalls, keyOnly: keyOnly.data }));
+    } finally {
+      globalThis.fetch = savedFetch;
+      for (const [k, v] of [['GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', savedEnv.sa], ['AI_RTDN_AUDIENCE', savedEnv.aud], ['AI_RTDN_SERVICE_ACCOUNT', savedEnv.email]]) {
+        if (v === undefined) delete process.env[k]; else process.env[k] = v;
+      }
+      delete process.env.AI_TEST_APPLE_ROOT_SHA256;
+      resetJwksCache();
+    }
+  }
+}
+// ── Duitful AI+ on the EA scanner and the Add Debt letter reader ────────────
+// The cloud answer is stubbed at /api/ai (never a real model). AI+ may only
+// fill what the document prints; typed boxes and printed totals are never changed.
+{
+  const lp = await b.newPage({ viewport: { width: 360, height: 800 } });
+  const lerr = [];
+  lp.on('pageerror', (e) => lerr.push(e.message));
+  const aiCalls = [];
+  const aiAnswer = {};
+  await lp.route('**/api/ai**', async (route) => {
+    const body = route.request().method() === 'POST' ? (route.request().postDataJSON() || {}) : {};
+    aiCalls.push(body.task);
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, result: aiAnswer[body.task] || { none: 1 } }) });
+  });
+  await lp.goto(`${BASE}/app/index.html`);
+  await lp.waitForTimeout(500);
+  await lp.click('#btn-start-open');
+  await lp.waitForTimeout(1200);
+  await lp.evaluate(() => document.querySelectorAll('dialog[open]').forEach((d) => d.close()));
+  const LE = (fn, arg) => lp.evaluate(fn, arg);
+  const resetDebtForm = () => LE(async () => {
+    document.getElementById('form-debt').reset();
+    await new Promise((r) => setTimeout(r, 60));
+    openAddForm('form-debt');
+  });
+  const loanPdf = () => buildPdf([[
+    [40, 800, 'PERSONAL FINANCING OFFER LETTER'],
+    [40, 786, 'Lender: CONTOH BANK BERHAD'],
+    [40, 772, 'Outstanding balance'], [470, 772, '12,500.00'],
+    [40, 758, 'Profit rate 6.80 % p.a.'],
+    [40, 744, 'Monthly instalment'], [470, 744, '450.00'],
+  ]]);
+
+  // AI+ off: no button, no call, and the EA scanner is unchanged (PCB stays empty).
+  await LE(() => { openAddForm('form-debt'); renderAll(); });
+  const offState = await LE(() => ({ hidden: document.getElementById('debt-letter').hidden }));
+  await LE(() => { taxOpenEa(); });
+  await lp.setInputFiles('#ea-file', { name: 'ea-en.pdf', mimeType: 'application/pdf', buffer: buildPdf(EA_FIXTURES.english()) });
+  await lp.waitForFunction(() => !document.getElementById('ea-review').hidden, null, { timeout: 15000 });
+  const offEa = await LE(() => ({ d1: document.getElementById('ea-in-d1').value, badges: document.querySelectorAll('#ea-dialog .ai-plus-badge').length }));
+  check('AI+ tax/loan: with AI+ off the loan-letter button is hidden, nothing is sent, and the EA scanner is unchanged',
+    offState.hidden && offEa.d1 === '' && offEa.badges === 0 && aiCalls.length === 0, JSON.stringify([offState, offEa, aiCalls]));
+  await LE(() => document.getElementById('ea-dialog').close());
+
+  // AI+ on.
+  await LE(() => {
+    state.aiPlusDisclosureSeen = true; state.aiPlusEnabled = true;
+    state.aiPlusPreviewedKinds = { document: true };
+    state.aiSub = { active: true, expiresAt: Date.now() + 86400000, subToken: 'test-token' };
+    renderAll();
+  });
+  // EA: a printed figure fills the empty PCB box (tagged AI+); an unprinted one is dropped;
+  // the form's own mismatching total stays as printed and tagged Check.
+  aiAnswer['ea-read'] = { d1: 3000, d5: 777.77, b1a: 1, sectionB: 99999 };
+  await LE(() => { taxOpenEa(); });
+  await lp.setInputFiles('#ea-file', { name: 'ea-en.pdf', mimeType: 'application/pdf', buffer: buildPdf(EA_FIXTURES.english()) });
+  await lp.waitForFunction(() => document.querySelector('#ea-tags-d1 .ai-plus-badge'), null, { timeout: 15000 });
+  const ea = await LE(() => ({
+    d1: document.getElementById('ea-in-d1').value, b1a: document.getElementById('ea-in-b1a').value,
+    total: document.getElementById('ea-in-bTotal') ? document.getElementById('ea-in-bTotal').value : '',
+    totalTag: document.getElementById('ea-tags-bTotal').textContent.replace(/ /g, ' '),
+    d5: !!document.querySelector('#ea-unused .ai-plus-badge'),
+    over: document.getElementById('ea-dialog').scrollWidth > document.getElementById('ea-dialog').clientWidth,
+  }));
+  check('AI+ EA: only a figure the form prints fills an empty box (tagged AI+); printed values and the mismatching total stay as read, and nothing unprinted is added',
+    ea.d1 === '3000' && ea.b1a === '45000' && /^Check/.test(ea.totalTag) && ea.total === '48500' && !ea.d5 && !ea.over && aiCalls.includes('ea-read'), JSON.stringify(ea));
+  await LE(() => document.getElementById('ea-dialog').close());
+
+  // A late AI+ answer for an earlier file never lands on the next one, AI+
+  // never fills the Section B total, and an answer that lands while you type
+  // keeps your box and what you typed.
+  const eaLate = await LE(async () => {
+    const out = {};
+    const realFetch = window.fetch;
+    const waiting = [];
+    window.fetch = (u, o) => {
+      if (!String(u).includes('/api/ai')) return realFetch(u, o);
+      return new Promise((resolve) => waiting.push((result) => resolve(new Response(JSON.stringify({ ok: true, result }), { status: 200, headers: { 'Content-Type': 'application/json' } }))));
+    };
+    const tick = (ms) => new Promise((r) => setTimeout(r, ms));
+    try {
+      taxOpenEa();
+      eaShow({ lines: [{ text: 'Nota 1,234.00', page: 1, y: 800, x: 40 }] });   // file A: nothing labelled, AI+ asked
+      await tick(80);
+      eaShow({ lines: [{ text: 'PCB 500.00', page: 1, y: 800, x: 40 }] });      // file B: on screen now
+      await tick(80);
+      out.calls = waiting.length;
+      waiting[1] && waiting[1]({ none: 1 });
+      waiting[0] && waiting[0]({ d1: 1234 });                                    // A's answer arrives last
+      await tick(200);
+      out.d1 = document.getElementById('ea-in-d1') && document.getElementById('ea-in-d1').value;
+      document.getElementById('ea-dialog').close();
+      // The dialog's close event (which clears the review) fires in a later
+      // task; let it run before reopening, or it wipes the next read.
+      await tick(50);
+      out.noTotal = !Object.prototype.hasOwnProperty.call(EA_AI_MAP, 'sectionB') && !Object.values(EA_AI_MAP).includes('bTotal');
+      // Typing in PCB while AI+ works on E1.
+      waiting.length = 0;
+      taxOpenEa();
+      eaShow({ lines: [{ text: 'PCB 500.00', page: 1, y: 800, x: 40 }, { text: 'Nota 600.00', page: 1, y: 780, x: 40 }] });
+      await tick(80);
+      const d1 = document.getElementById('ea-in-d1');
+      d1.focus(); d1.value = '55';
+      waiting[0] && waiting[0]({ e1: 600 });
+      await tick(200);
+      out.typing = { focus: document.activeElement && document.activeElement.id, d1: document.getElementById('ea-in-d1').value, e1: document.getElementById('ea-in-e1').value };
+      document.getElementById('ea-dialog').close();
+    } finally {
+      window.fetch = realFetch;
+    }
+    return out;
+  });
+  check('AI+ EA: a late answer for an earlier file is dropped, AI+ never fills the Section B total, and an answer landing while you type keeps your box and your digits',
+    eaLate.calls === 2 && eaLate.d1 === '500' && eaLate.noTotal
+    && eaLate.typing.focus === 'ea-in-d1' && eaLate.typing.d1 === '55' && eaLate.typing.e1 === '600', JSON.stringify(eaLate));
+
+  // Loan letter.
+  aiAnswer['loan-read'] = { lender: 'CONTOH BANK BERHAD', kind: 'standard', balance: 12500, rate: 6.8, monthly: 777 };
+  await LE(() => { openAddForm('form-debt'); renderAll(); });
+  const onState = await LE(() => ({ hidden: document.getElementById('debt-letter').hidden }));
+  await lp.setInputFiles('#debt-letter-file', { name: 'letter.pdf', mimeType: 'application/pdf', buffer: loanPdf() });
+  await lp.waitForFunction(() => document.querySelector('#form-debt [data-ai-fill]'), null, { timeout: 15000 });
+  const ln = await LE(() => {
+    const f = document.getElementById('form-debt');
+    const q = (n) => f.querySelector(`[name="${n}"]`).value;
+    return { name: q('name'), balance: q('balance'), apr: q('apr'), min: q('minPayment'), tags: f.querySelectorAll('[data-ai-fill]').length,
+      debts: state.debts.length, over: f.scrollWidth > f.clientWidth };
+  });
+  check('AI+ loan letter: the button shows only with AI+; printed name, balance and rate pre-fill with AI+ tags, an unprinted monthly figure is left empty, nothing is added until Add debt',
+    !onState.hidden && ln.name === 'CONTOH BANK BERHAD' && ln.balance === '12500' && ln.apr === '6.8' && ln.min === '' && ln.tags === 3 && !ln.over && aiCalls.includes('loan-read'), JSON.stringify([onState, ln]));
+  const debtsBefore = ln.debts;
+
+  // Typed boxes are never overwritten, and editing a filled box drops its tag.
+  await resetDebtForm();
+  await LE(() => { document.querySelector('#form-debt [name="name"]').value = 'My loan'; });
+  await lp.setInputFiles('#debt-letter-file', { name: 'letter.pdf', mimeType: 'application/pdf', buffer: loanPdf() });
+  await lp.waitForFunction(() => /Filled in/.test(document.getElementById('debt-letter-status').textContent), null, { timeout: 15000 });
+  const ln2 = await LE(() => {
+    const f = document.getElementById('form-debt');
+    const bal = f.querySelector('[name="balance"]');
+    bal.value = '1'; bal.dispatchEvent(new Event('input', { bubbles: true }));
+    return { name: f.querySelector('[name="name"]').value, apr: f.querySelector('[name="apr"]').value, tags: f.querySelectorAll('[data-ai-fill]').length, debts: state.debts.length };
+  });
+  check('AI+ loan letter: a name the person typed is kept, editing a filled box removes its AI+ tag, and no debt is saved by reading',
+    ln2.name === 'My loan' && ln2.apr === '6.8' && ln2.tags === 1 && ln2.debts === debtsBefore, JSON.stringify(ln2));
+
+  // An empty or invalid cloud answer leaves the form as it was.
+  aiAnswer['loan-read'] = null;
+  await resetDebtForm();
+  await lp.setInputFiles('#debt-letter-file', { name: 'letter.pdf', mimeType: 'application/pdf', buffer: loanPdf() });
+  await lp.waitForFunction(() => /Nothing to fill/.test(document.getElementById('debt-letter-status').textContent), null, { timeout: 15000 });
+  const ln3 = await LE(() => document.querySelectorAll('#form-debt [data-ai-fill]').length + document.querySelector('#form-debt [name="balance"]').value.length);
+  check('AI+ loan letter: an empty or invalid answer falls back silently, the form untouched', ln3 === 0 && lerr.length === 0, JSON.stringify([ln3, lerr]));
+  const ldates = await LE(() => [
+    debtLetterDatePrinted('2027-12-31', 'Tarikh: 15/03/2027 Tempoh 60 bulan'),
+    debtLetterDatePrinted('2027-03-15', 'Tarikh tamat: 15/03/2027'),
+    debtLetterDatePrinted('2027-03-05', 'Matures 5 Mac 2027'),
+    debtLetterDatePrinted('2027-03-05', 'Matures 15 Mac 2027'),
+  ]);
+  check('AI+ loan letter: months left is filled only from an end date the letter prints in full, never from a year alone',
+    JSON.stringify(ldates) === JSON.stringify([false, true, true, false]), JSON.stringify(ldates));
+  await lp.close();
 }
 // ── Kira phase 2 (v1.75.0): eyes, taps, celebrations, kind notes, hops,
 // first run, the tour and the widgets ─────────────────────────────────────
@@ -16798,6 +17574,43 @@ check('the brand catalogue makes no network calls at all',
   check('Festive Kira (1.76.0): the landing hero has a small decorative Kira (aria-hidden, absolutely placed) in the season\'s outfit',
     landing.aria === 'true' && landing.key === 'raya-2027-03-10' && landing.songkok && landing.pos === 'absolute', JSON.stringify(landing));
   await sctx.close();
+}
+
+// Maybank / Maybank Islamic Current & Savings account statements (DD/MM dates,
+// trailing +/-, leading-dot ".01+", overdrawn "DR" balances, multi-line payees).
+{
+  const vm = await import('node:vm');
+  const ctx = { window: {}, document: { getElementById: () => null }, console };
+  vm.runInNewContext(readFileSync(path.join(REPO_ROOT, 'app/statement.js'), 'utf8'), ctx);
+  const lines = [
+    'Maybank Islamic',
+    'TARIKH PENYATA',
+    'STATEMENT DATE : 31/10/26',
+    'PREMIER MUDHARABAH ACCOUNT',
+    'URUSNIAGA AKAUN / ACCOUNT TRANSACTIONS',
+    'BEGINNING BALANCE 50.00',
+    '07/10 TRANSFER TO A/C 400.00+ 450.00',
+    'SAMPLE SENDER*',
+    '10/10 DUITNOW PAYMENT 10.50- 439.50',
+    'Kedai Air Contoh*',
+    '22/10 TRANSFER FR A/C 1,000.00- 560.50DR',
+    'SAMPLE RECIPIENT*',
+    '22/10 PAYMENT CREDIT - APS/OTHERS 2,000.00+ 1,439.50',
+    'SAMPLE EMPLOYER*',
+    '24/10 PAYMENT FR A/C 25.00- 1,414.50',
+    'Kedai Makan Contoh*',
+    '31/10 DIVIDEND PAID .01+ 1,414.51',
+    'ENDING BALANCE : 1,414.51',
+    'TOTAL DEBIT : 1,035.50',
+    'TOTAL CREDIT : 2,400.01',
+  ].map((text, i) => ({ page: 1, y: 100 + i * 10, text, items: [] }));
+  const parsed = ctx.parseStatement({ lines, scanned: false });
+  const rec = ctx.reconcileStatement(parsed);
+  check('statement (maybank-account): parses DD/MM dates, .01+ cents, overdrawn DR balances, multi-line payees, and reconciles ok',
+    parsed.layout === 'maybank-account' && parsed.bank === 'Maybank' && parsed.rows.length === 6
+    && parsed.rows[2].balance === -560.5 && parsed.rows[5].amount === 0.01 && parsed.rows[4].payee === 'Kedai Makan Contoh'
+    && rec.status === 'ok',
+    JSON.stringify({ layout: parsed.layout, count: parsed.rows.length, rec }));
 }
 
 await b.close();

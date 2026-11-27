@@ -74,3 +74,13 @@ https://datasets-server.huggingface.co/rows?dataset=jsdnrs%2FICDAR2019-SROIE&con
 
 There is no reason to refresh it. A fixed corpus is the point: the number only
 means something if the receipts stay the same.
+
+# `store-jws.mjs` — throwaway store-signing keys
+
+Builds a local EC P-256 root → intermediate → leaf chain shaped like Apple's
+(CA flags and Apple's marker OIDs), signs ES256 JWS with it, and makes
+Google-style RS256 OIDC tokens and a Play service account. Generated fresh on
+every run with `node:crypto`; nothing is a real Apple or Google key. The
+Duitful AI+ checks in `tests/e2e.mjs` inject the root's SHA-256 through
+`AI_TEST_APPLE_ROOT_SHA256`, which `api/_lib/ai/apple-jws.js` honours only in
+the in-memory test mode (`AI_MEMORY=1` with no real KV).

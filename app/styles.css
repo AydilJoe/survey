@@ -8439,6 +8439,11 @@ button:disabled, button[aria-disabled="true"] { transition-property: background-
 .stmt-dialog { max-width: 520px; }
 .stmt-privacy { margin: -0.1rem 0 0.3rem; }
 .stmt-summary { margin: 0; font-size: 0.9rem; color: var(--ink2); }
+.stmt-cloud { display: grid; gap: 0.35rem; justify-items: start; min-width: 0; }
+.stmt-cloud .hint { margin: 0; }
+.stmt-cloud button { max-width: 100%; white-space: normal; }
+.stmt-ai.ai-plus-badge { flex: none; padding: 0 0.3rem; }
+.stmt-summary .ai-plus-badge { vertical-align: 0.05em; }
 .stmt-summary[data-status="ok"] { color: var(--gain); }
 .stmt-summary[data-status="mismatch"] { color: var(--warn); }
 .stmt-bar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin: 0.2rem 0; }
@@ -10409,6 +10414,12 @@ svg.kira .kira-body { pointer-events: visiblePainted; }
 .guide-tooltip.kira-peek-inside.kira-peek-left .guide-tooltip-kira { right: 12px; left: auto; }
 .guide-tooltip.kira-peek-inside .guide-tooltip-kira .kira { width: 22px; height: 31px; }
 .guide-tooltip.kira-peek-inside .guide-tooltip-title { padding-right: 28px; }
+
+/* Add Debt: "Read a loan letter" (Duitful AI+). */
+.debt-letter { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.75rem; }
+.debt-letter[hidden] { display: none; }
+.debt-letter .hint { margin: 0; overflow-wrap: anywhere; }
+.debt-form .field > span > .ai-plus-badge { margin-left: 0.4rem; vertical-align: middle; }
 
 /* ---------- Kira festive (kira-seasons.js, 1.76.0) ----------
    Kira's outfits for Malaysian holidays (docs/plans/kira-festive.md). The

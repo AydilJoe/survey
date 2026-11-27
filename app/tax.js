@@ -2408,7 +2408,7 @@ function taxOpenNumbers(focusId) {
    scan quota. The file and pictures are dropped after reading. */
 const EA_TO_FIGURE = { bTotal: "income", d1: "pcb", e1: "epf" };
 const EA_UNUSED = ["d2", "d3", "d4", "d5"];
-const eaUi = { file: null, res: null, values: {}, printedYear: 0 };
+const eaUi = { file: null, res: null, values: {}, printedYear: 0, ai: new Set(), seq: 0 };
 const eaEl = (id) => document.getElementById(id);
 function eaSay(msg) { const el = eaEl("ea-status"); if (el) { el.textContent = msg || ""; el.hidden = !msg; } }
 const eaField = (id) => (typeof EA_FIELDS !== "undefined" ? EA_FIELDS : []).find((f) => f.id === id);
@@ -2430,7 +2430,7 @@ function taxEaYears() {
 function taxOpenEa() {
   const dlg = eaEl("ea-dialog");
   if (!dlg) return;
-  eaUi.file = null; eaUi.res = null; eaUi.values = {}; eaUi.printedYear = 0;
+  eaUi.file = null; eaUi.res = null; eaUi.values = {}; eaUi.printedYear = 0; eaUi.ai = new Set(); eaUi.seq++;
   eaEl("ea-pick").hidden = false;
   eaEl("ea-scan").hidden = !(typeof duitfulKit === "function" && duitfulKit("scanDocument"));
   eaEl("ea-password").hidden = true;
@@ -2476,7 +2476,17 @@ async function eaFromPhotos(sources) {
 
 function eaShow(read) {
   const res = eaExtract(read.lines);
+  // Each read gets its own number, so a late AI+ answer for an earlier file
+  // can never land on the one now on screen.
+  const seq = ++eaUi.seq;
+  const shown = eaShowRes(res);
+  eaCloudAssist(read, res, seq).catch(() => {});
+  return shown;
+}
+
+function eaShowRes(res) {
   eaEl("ea-password").hidden = true;
+  eaUi.ai = new Set();
   if (!Object.keys(res.fields).length) {
     eaEl("ea-pick").hidden = false;
     eaSay(tr("No EA figures found. Is this a Borang EA?"));
@@ -2487,16 +2497,95 @@ function eaShow(read) {
   eaUi.values = Object.fromEntries(Object.entries(res.fields).map(([id, f]) => [id, f.value]));
   eaEl("ea-pick").hidden = true;
   eaSay("");
+  eaFillYears(res);
+  eaEl("ea-review").hidden = false;
+  eaEl("ea-save").hidden = false;
+  eaRender();
+  return res;
+}
+
+function eaFillYears(res) {
   const years = taxEaYears();
   const sel = eaEl("ea-year");
   const has = years.includes(res.year);
   sel.innerHTML = (has ? "" : `<option value="">${escapeHtml(tr("Pick a year"))}</option>`)
     + years.map((y) => `<option value="${y}">${escapeHtml(taxYearLabel(y))}</option>`).join("");
   sel.value = has ? String(res.year) : "";
-  eaEl("ea-review").hidden = false;
-  eaEl("ea-save").hidden = false;
+}
+
+/* Duitful AI+ (optional cloud subscription): a second reader for what the
+   on-device labelling left empty. Only when aiCloudAllowed(); a failure or an
+   answer the form doesn't print leaves everything as it was. It fills EMPTY
+   boxes only (never one the labelling found or the user typed in), every
+   figure must appear in the text, the Section B total is never adjusted (a
+   total that doesn't equal its lines stays tagged Check) and never filled by
+   AI+ either (a total the form doesn't print stays "Not printed", offered as
+   "Use the items"), and Save still goes through taxSetFigure. */
+const EA_AI_MAP = { b1a: "b1a", b1b: "b1b", b1c: "b1c", b1d: "b1d", b1e: "b1e", b2: "b2", b3: "b3", b4: "b4", b5: "b5", d1: "d1", d2: "d2", d3: "d3", d4: "d4", d5: "d5", e1: "e1", e2: "e2" };
+function eaWantsCloud(res) {
+  const f = res.fields;
+  return !res.year || !Object.keys(f).length || !f.bTotal || !f.d1 || !f.e1 || !f.e2 || !EA_INCOME_PARTS.some((id) => f[id]);
+}
+async function eaCloudAssist(read, res, seq) {
+  if (!(typeof aiCloudAllowed === "function" && aiCloudAllowed() && typeof aiCloudReadEa === "function")) return;
+  if (!eaWantsCloud(res)) return;
+  const text = (read.lines || []).map((l) => (typeof l === "string" ? l : String((l && l.text) || ""))).join("\n").slice(0, 16000);
+  if (!text.trim()) return;
+  const dlg = eaEl("ea-dialog");
+  const wasEmpty = !Object.keys(res.fields).length;
+  eaSay(tr("Double-checking with Duitful AI+ (cloud)…"));
+  let ai = null;
+  try { ai = await aiCloudReadEa({ text }); } catch { ai = null; }
+  const stale = !dlg || !dlg.open || (seq != null && eaUi.seq !== seq) || (!wasEmpty && eaUi.res !== res);
+  if (stale) return;
+  const nothing = () => eaSay(wasEmpty ? tr("No EA figures found. Is this a Borang EA?") : "");
+  if (!ai || typeof ai !== "object") { nothing(); return; }
+  const added = new Set();
+  for (const [k, id] of Object.entries(EA_AI_MAP)) {
+    const n = Number(ai[k]);
+    if (ai[k] == null || !Number.isFinite(n) || n < 0 || res.fields[id]) continue;
+    if (!aiAmountInText(n, text)) continue;                          // printed on the form, or not at all
+    if (eaUi.res === res && eaUi.values[id] != null) continue;      // the user typed there
+    res.fields[id] = { value: Math.round(n * 100) / 100, line: "", ai: true };
+    added.add(id);
+  }
+  // Pension total (C) only when the form's own C lines weren't found.
+  const c = Number(ai.c);
+  if (ai.c != null && Number.isFinite(c) && c > 0 && !res.fields.c1 && !res.fields.c2 && aiAmountInText(c, text)) {
+    res.fields.c1 = { value: Math.round(c * 100) / 100, line: "", ai: true };
+    added.add("c1");
+  }
+  let year = 0;
+  if (!res.year && Number.isInteger(ai.year) && ai.year >= 2015 && ai.year <= 2035 && text.includes(String(ai.year))) { year = ai.year; res.year = year; }
+  if (!added.size && !year) { nothing(); return; }
+  // The check is recomputed from what is there; a printed total is never changed.
+  const parts = EA_INCOME_PARTS.filter((id) => res.fields[id]);
+  res.parts = parts;
+  res.sumB = Math.round(parts.reduce((s, id) => s + res.fields[id].value * 100, 0)) / 100;
+  res.totalCheck = !res.fields.bTotal || !parts.length ? "none" : Math.abs(res.fields.bTotal.value - res.sumB) < 0.005 ? "ok" : "mismatch";
+  if (wasEmpty) {
+    eaShowRes(res);
+  } else {
+    for (const id of added) eaUi.values[id] = res.fields[id].value;
+    if (year) { eaUi.printedYear = year; eaFillYears(res); }
+    eaSay("");
+  }
+  added.forEach((id) => eaUi.ai.add(id));
+  eaRenderKeepFocus();
+}
+
+// The answer can land while someone types in a box: re-render, then put the
+// box they were in back with exactly what they had typed.
+function eaRenderKeepFocus() {
+  const a = document.activeElement;
+  const id = a && a.dataset && a.dataset.eaIn ? a.id : "";
+  const raw = id ? a.value : "";
   eaRender();
-  return res;
+  if (!id) return;
+  const el = eaEl(id);
+  if (!el) return;
+  el.value = raw;
+  el.focus();
 }
 
 const eaYear = () => Number(eaEl("ea-year").value) || 0;
@@ -2521,9 +2610,17 @@ function eaRender() {
   const unused = EA_UNUSED.filter((id) => res.fields[id] && res.fields[id].value > 0);
   eaEl("ea-unused-wrap").hidden = !unused.length;
   eaEl("ea-unused").innerHTML = unused.map((id) => `<li class="ea-row">
-      <span class="ea-label">${escapeHtml(eaLabel(id))}</span><span class="ea-fixed">${amt(res.fields[id].value)}</span>
+      <span class="ea-label">${escapeHtml(eaLabel(id))}${eaUi.ai.has(id) ? ' <span class="ai-plus-badge" translate="no">AI+</span>' : ""}</span><span class="ea-fixed">${amt(res.fields[id].value)}</span>
     </li>`).join("");
   eaPaint();
+}
+
+// Small "AI+" tag on every figure Duitful AI+ supplied (after eaPaint's tags).
+function eaAiTags() {
+  for (const id of eaUi.ai) {
+    const el = eaEl(`ea-tags-${id}`);
+    if (el && !el.querySelector(".ai-plus-badge")) el.insertAdjacentHTML("beforeend", `<span class="ai-plus-badge" translate="no">AI+</span>`);
+  }
 }
 
 // Tags and the year note, from what is in the boxes now.
@@ -2569,6 +2666,7 @@ function eaPaint() {
   note.textContent = msg;
   note.hidden = !msg;
   eaEl("ea-save").disabled = !y;
+  eaAiTags();
 }
 
 // The SOCSO / EIS claim an earlier EA made for that year.

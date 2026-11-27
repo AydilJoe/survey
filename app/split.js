@@ -2299,6 +2299,7 @@ function splitComposeItemBodyHtml(cur, listAttr) {
       <div class="split-items">${itemRows}</div>
       ${c.items.length ? "" : `<p class="hint">Scan the receipt above, or add the items by hand. Everything stays editable — the scan only fills the rows in.</p>`}
       ${splitScanReportHtml(c.scanReport)}
+      ${splitTidyOfferHtml(c)}
       <div class="button-row split-people-actions">
         <button type="button" class="ghost" data-action="split-item-add">+ Add item</button>
       </div>
@@ -2667,6 +2668,109 @@ function splitApplyScan(parsed) {
   }
   splitRenderCompose();
   splitShowDialog(splitComposeDialogEl());
+}
+
+/* ---------- AI+ tidy for scanned items (task split-items) ----------
+   The receipt's lines are read by splitParseReceiptItems exactly as before.
+   When they look messy and the person has Duitful AI+, a quiet button offers
+   to tidy names and quantities. The answer is only used when every price is
+   one the receipt prints and the rows still add up to the items total the
+   scan found; otherwise it is thrown away and the rows stay as they were. */
+function splitItemsLookMessy(read) {
+  if (!read || !Array.isArray(read.items) || !read.items.length || !(read.itemSum > 0)) return false;
+  if (read.dropped && read.dropped.length) return true;
+  if (read.statedTotal > 0 && Math.abs(splitRound2(read.itemSum + read.charges) - read.statedTotal) > 0.05) return true;
+  return read.items.some((it) => {
+    const n = String(it.name || "");
+    return n.length < 3 || /\d{4,}|[*#]/.test(n) || (/[A-Z]/.test(n) && n === n.toUpperCase());
+  });
+}
+
+function splitTidyAvailable() {
+  return typeof aiCloudAllowed === "function" && aiCloudAllowed() && typeof aiCloudTidySplitItems === "function";
+}
+
+function splitTidyOfferHtml(c) {
+  if (!c || c.method !== "item" || !c.scanRaw || !c.items.length || !splitTidyAvailable()) return "";
+  if (c.aiTidy) return `<p class="hint split-tidy-note"><span class="ai-plus-badge">AI+</span> ${escapeHtml(tr("Item names tidied. Check the rows before you split."))}</p>`;
+  let read = null;
+  try { read = splitParseReceiptItems(c.scanRaw); } catch { read = null; }
+  if (!splitItemsLookMessy(read)) return "";
+  return `<div class="button-row split-people-actions"><button type="button" class="ghost" data-action="split-items-tidy"${c.aiTidyBusy ? " disabled" : ""}><span class="ai-plus-badge">AI+</span> ${escapeHtml(tr("Tidy items"))}</button></div>`;
+}
+
+// Is this amount printed on the receipt as a standalone figure?
+function splitAmountPrinted(amount, raw) {
+  const a = Number(amount);
+  if (!Number.isFinite(a) || a <= 0) return false;
+  const text = String(raw || "").replace(/(\d),(\d{3})(?!\d)/g, "$1$2");
+  return new RegExp("(?<![\\d.])" + a.toFixed(2).replace(".", "\\.") + "(?!\\d)").test(text);
+}
+
+/* Pure: the AI+ answer -> [{name, price}] rows, or null when anything is off.
+   `read` is today's splitParseReceiptItems result for the same text. */
+function splitTidyRows(read, res, raw) {
+  if (!read || !res || !Array.isArray(res.items) || res.status === "Check") return null;
+  const rows = [];
+  let cents = 0;
+  for (const it of res.items) {
+    const name = splitText(it && it.name, SPLIT_ITEM_NAME_MAX);
+    const qty = Math.max(1, Math.min(SPLIT_QTY_EXPAND_MAX, Math.round(Number(it && it.qty) || 1)));
+    const amt = Number(it && it.amount);
+    if (!name || !(amt > 0)) return null;
+    let line = 0;
+    if (splitAmountPrinted(amt, raw)) line = amt;
+    else if (qty > 1 && splitAmountPrinted(splitRound2(amt * qty), raw)) line = splitRound2(amt * qty);
+    else return null;
+    const lineCents = Math.round(line * 100);
+    cents += lineCents;
+    const each = qty > 1 ? splitApportion(lineCents, new Array(qty).fill(1)) : [lineCents];
+    for (const c of each) rows.push({ name, price: splitRound2(c / 100) });
+    if (rows.length > SPLIT_ITEMS_MAX) return null;
+  }
+  if (!rows.length || cents !== Math.round(read.itemSum * 100)) return null;
+  return rows;
+}
+
+// Unchanged = the scan's own rows, and every item still shared by everyone.
+// Who had what is the person's choice: a tidy would reset it, so any item with
+// people unticked counts as changed and the rows are left alone.
+function splitItemsUnchanged(c, read) {
+  const keys = splitComposeKeys();
+  const everyone = (who) => Array.isArray(who) && who.length === keys.length && keys.every((k) => who.includes(k));
+  return c.items.length === read.items.length
+    && read.items.every((it, i) => c.items[i].name === it.name && Math.abs(Number(c.items[i].price) - it.price) < 0.005 && everyone(c.items[i].who));
+}
+
+async function splitTidyItems() {
+  const c = splitCompose;
+  if (!c || c.aiTidyBusy || !c.scanRaw || !splitTidyAvailable()) return;
+  splitComposeSync();
+  let read = null;
+  try { read = splitParseReceiptItems(c.scanRaw); } catch { read = null; }
+  if (!read || !read.items.length) return;
+  // Rows the person changed are theirs: leave them alone.
+  if (!splitItemsUnchanged(c, read)) { toast(tr("You've changed these rows, so AI+ left them alone.")); return; }
+  c.aiTidyBusy = true;
+  splitRenderCompose();
+  let rows = null;
+  try {
+    const res = await aiCloudTidySplitItems({ lines: String(c.scanRaw).slice(0, 6000), subtotal: read.itemSum });
+    rows = splitTidyRows(read, res, c.scanRaw);
+  } catch { rows = null; }
+  c.aiTidyBusy = false;
+  // The draft may have been closed or edited while the answer was on its way.
+  if (splitCompose !== c) return;
+  splitComposeSync();
+  if (rows && splitItemsUnchanged(c, read)) {
+    const keys = splitComposeKeys();
+    c.items = rows.map((r) => ({ key: splitNewKey("i"), name: r.name, price: r.price, who: keys.slice() }));
+    c.aiTidy = true;
+    toast(tr("Items tidied by AI+. Check them before you split."));
+  } else if (!rows) {
+    toast(tr("AI+ couldn't tidy these, so your items are unchanged."));
+  }
+  splitRenderCompose();
 }
 
 /* ---------- share dialog ---------- */
@@ -3553,9 +3657,12 @@ document.addEventListener("click", (e) => {
       }
       splitRenderCompose();
     }
+  } else if (action === "split-items-tidy") {
+    splitTidyItems();
   } else if (action === "split-item-add") {
     splitComposeSync();
     if (splitCompose) {
+      splitCompose.aiTidy = false;
       splitCompose.items.push({ key: splitNewKey("i"), name: "", price: 0, who: splitComposeKeys() });
     }
     splitRenderCompose();
@@ -3563,7 +3670,7 @@ document.addEventListener("click", (e) => {
     if (rows.length) rows[rows.length - 1].focus();
   } else if (action === "split-item-remove") {
     splitComposeSync();
-    if (splitCompose) splitCompose.items = splitCompose.items.filter((it) => it.key !== btn.dataset.key);
+    if (splitCompose) { splitCompose.items = splitCompose.items.filter((it) => it.key !== btn.dataset.key); splitCompose.aiTidy = false; }
     splitRenderCompose();
   } else if (action === "split-item-who") {
     splitComposeSync();

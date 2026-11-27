@@ -134,6 +134,7 @@ The pattern that keeps privacy intact: **the cloud turns a picture or words into
 
 **v1 (the spec's launch scope):**
 1. **Scanner on every device.** Receipts, scanned statements, unknown bank layouts, Borang EA and PTPTN or loan letters, on the web and on phones without Gemini Nano or Apple's on-device model. This cuts the bank-layout maintenance in `STATEMENT_LAYOUTS`.
+   **Done (1.79.0).** Statements: "Read with Duitful AI+ (cloud)" in the statement dialog when the on-device read isn't "ok" (`stmtParsedFromCloud`: printed amounts only, treated as a scan, imports only when `reconcileStatement` is "ok"), plus payee cleaning (`statementCloudPayees`, up to 20 rows, never a row the user changed). Borang EA: `eaCloudAssist` in `tax.js` fills only empty, printed boxes, tagged AI+, never a total. Loan letters: "Read a loan letter" in Add debt (`#debt-letter`, `debtLetterApply`) fills empty boxes of the current type; nothing is saved until Add debt. Splits (item 3): `captureSplitAiPlus` puts its pick first on an ambiguous "who paid?" card, every other person still one tap away (Settle still needed) and "Tidy items" on a by-item bill keeps every printed price and the items total. All behind `aiCloudAllowed()`. Not yet: Islamic tenure from a letter (only months left from a printed end date).
 2. **Voice and sentence entry.** It understands Manglish and Chinese far better than the offline parser in `app/voice.js`. It plugs into the `window.aiCloudRun("voice-compound", …)` hook that is already there.
 3. **Splits:**
    - Match a bank-alert sender ("MUHAMMAD ALI BIN ABU") to an open split person ("Ali").
@@ -155,3 +156,7 @@ The pattern that keeps privacy intact: **the cloud turns a picture or words into
 3. Store subscriptions: StoreKit and Play Billing, paywall, restore.
 4. Privacy text plus the v1 features (scanner, voice, splits) in one minor release.
 5. Post-v1 tasks one release each: `ask-filter`, `bills-spot`, `relief-match` (iPhone + web), `alert-read`, `group-bill`.
+
+## 9. Hardening after launch
+
+- [x] **Store subscription verification** (1.78.0). The iPhone JWS was only base64-decoded, so a forged `signedTransactionInfo` could unlock AI+ (and Pro); the webhook trusted a `{ subId, active, expiresAt }` body behind a shared secret. Now `verify-sub` checks the x5c chain to the pinned Apple Root CA - G3 and the ES256 signature, then bundle, product, environment and expiry; the webhook verifies App Store Server Notifications v2 and re-fetches Google Play RTDN from `subscriptionsv2.get` behind Pub/Sub OIDC. A security review of that change then split the store's truth (`ai_sub` from `verify-sub`, `ai_evt` from the webhook, newest store time wins), the devices (`ai_dev`) and the meters (`ai_use`, INCR) into keys with one writer each, so a run in flight can't undo a refund; added tombstones for refunds of never-verified subs, the `reverify-required` answer for records written before verification, a capped Sandbox class, refund-of-a-past-period handling and server-side Play acknowledgement. Details and the new env vars: *Store verification* in `docs/plans/cloud-ai-subscription.md`.

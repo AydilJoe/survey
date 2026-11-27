@@ -15,33 +15,33 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-6327e1b4";
+const VERSION = "h-dc50a880";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=5f0e0d80",
-  "/app/script.js?v=1915ab0f",
+  "/app/styles.css?v=727cad4c",
+  "/app/script.js?v=e95333b6",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
-  "/app/i18n-langs.js?v=214d935f",
+  "/app/i18n-langs.js?v=1a9aa0b0",
   "/app/i18n-boot.js?v=e8f35f1d",
-  "/app/i18n-ms.js?v=59516593",
-  "/app/i18n-zh.js?v=e7715a3e",
+  "/app/i18n-ms.js?v=c18482f3",
+  "/app/i18n-zh.js?v=2fa3160e",
   "/app/i18n.js?v=e94f1821",
   "/app/drive-config.js?v=9aaf242d",
   "/app/drive-sync.js?v=08041907",
   "/app/icloud-sync.js?v=90136797",
   "/app/investments.js?v=39cf34a0",
-  "/app/split.js?v=556eb5d9",
+  "/app/split.js?v=91715414",
   "/app/split-recurring.js?v=05bbaca7",
   "/app/receipt-extract.js?v=20e13371",
   "/app/region.js?v=a54b250e",
   "/app/ea-extract.js?v=0036c413",
   "/app/tax-data.js?v=a4c433a4",
-  "/app/tax.js?v=160e7c7a",
-  "/app/statement.js?v=746ab802",
+  "/app/tax.js?v=01b9d531",
+  "/app/statement.js?v=16d6bff6",
   "/app/wallets.js?v=39628be9",
   "/app/recap.js?v=e4c2c931",
   // pdf.js (Apache-2.0) for statement import: injected only when a PDF is
@@ -58,9 +58,9 @@ const SHELL = [
   "/app/streak.js?v=ce95b7ab",
   "/app/voice.js?v=7b834a3c",
   "/app/cloud.js?v=fcd02ad8",
-  "/app/capture.js?v=dad0b98c",
+  "/app/capture.js?v=3af549e5",
   "/app/ai-redact.js?v=e6257012",
-  "/app/ai-cloud.js?v=92dd79d1",
+  "/app/ai-cloud.js?v=8c608d1f",
   "/app/pro.js?v=834eaf24",
   "/app/ocr.js?v=0fe4028c",
   "/app/analytics.js?v=01a6bc4a",

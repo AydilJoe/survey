@@ -265,7 +265,7 @@ function stmtPayee(desc) {
 }
 function stmtFindStatementDate(lines) {
   const text = lines.map((l) => l.text).join("\n");
-  let m = /(?:statement\s+date|tarikh\s+penyata)[^\n]*?(\d{1,2})[\s/-]([A-Z]{3}|\d{1,2})[\s/-](\d{2,4})/i.exec(text);
+  let m = /(?:statement\s+date|tarikh\s+penyata)[\s\S]{0,80}?(\d{1,2})[\s/-]([A-Z]{3}|\d{1,2})[\s/-](\d{2,4})/i.exec(text);
   if (!m) m = /\b(\d{1,2}) (JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC) (\d{2,4})\b/.exec(text);
   if (!m) return null;
   const mon = /^\d+$/.test(m[2]) ? Number(m[2]) : STMT_MONTHS[m[2].toUpperCase()];
@@ -478,6 +478,103 @@ const STATEMENT_LAYOUTS = [
       return { stmt: null, rows, sections: [] };
     },
   },
+  // Maybank & Maybank Islamic Current / Savings / Mudharabah account statements
+  // (e.g. M2U CA / Premier Mudharabah / Savings-i): DD/MM entry date (year from
+  // TARIKH PENYATA / STATEMENT DATE), trailing +/- amounts including ".01+",
+  // overdrawn balances marked "DR", and indented multi-line payee descriptions.
+  {
+    id: "maybank-account", bank: "Maybank", kind: "account",
+    detect: (t) => /(?:URUSNIAGA\s+AKAUN|ACCOUNT\s+TRANSACTIONS)/i.test(t)
+      && /Maybank|MUDHARABAH|M2U|Malayan\s+Banking/i.test(t)
+      && !/STATEMENT OF CREDIT CARD ACCOUNT/i.test(t),
+    parse(lines) {
+      const stmt = stmtFindStatementDate(lines);
+      const rows = [];
+      let opening = null, closing = null, totalDebit = null, totalCredit = null;
+      const AMT = "((?:[\\d,]+)?\\.\\d{2})\\s?(CR|DR|-|\\+)?";
+      const rowRe = new RegExp(`^\\s*(\\d{1,2})/(\\d{1,2})(?:/(\\d{2,4}))?(?:\\s+\\d{1,2}/\\d{1,2}(?:/\\d{2,4})?)?\\s+(.+?)\\s+${AMT}\\s+${AMT}\\s*$`, "i");
+      const balRe = new RegExp(`${AMT}\\s*$`, "i");
+      const stopRe = /^(?:BAKI\s+LEGAR|LEDGER\s+BALANCE|ENDING\s+BALANCE|TOTAL\s+DEBIT|TOTAL\s+CREDIT|PROFIT\s+OUTSTANDING|PERHATIAN|MUKA|PAGE|TARIKH\s+PENYATA|STATEMENT\s+DATE|NOMBOR\s+AKAUN|NOT\s+PROTECTED|URUSNIAGA\s+AKAUN|TARIKH\s+MASUK|ENTRY\s+DATE|FCN\b|EXCHANGE\s+YOUR|PLEASE\s+BE\s+REMINDED|CREDIT\s+TO\s+MULTIPLE|NOT\s+A\s+M2U|KINI,\s+ANDA|WANG\s+YANG\s+KELUAR|OVERDRAWN\s+BALANCES|Maybank\s+Islamic)/i;
+      const signedBal = (numStr, mk) => {
+        const v = stmtMoney(numStr);
+        if (!Number.isFinite(v)) return null;
+        return /^(?:DR|-)$/i.test(mk || "") ? -Math.abs(v) : v;
+      };
+      const GENERIC_HEAD = /^(?:TRANSFER\s+(?:FR|TO)\s+A\/C|PAYMENT\s+FR\s+A\/C|DUITNOW\s+PAYMENT|DEBIT\s+ACCOUNT(?:\s*-\s*SI)?|ESI\s+PAYMENT\s+DEBIT|AUTODEBIT|PAYMENT\s+CREDIT\s*-?\s*APS\/OTHERS|CMS\s*-\s*CR\s+PYMT\s+MARS)$/i;
+      let cur = null;
+      for (const l of lines) {
+        const txt = String(l.text || "").trim();
+        if (!txt) continue;
+        if (/^BEGINNING\s+BALANCE\b/i.test(txt)) {
+          const a = balRe.exec(txt);
+          if (a && opening == null) opening = signedBal(a[1], a[2]);
+          cur = null;
+          continue;
+        }
+        if (/^ENDING\s+BALANCE\b/i.test(txt)) {
+          const a = balRe.exec(txt);
+          if (a) closing = signedBal(a[1], a[2]);
+          cur = null;
+          continue;
+        }
+        if (/^TOTAL\s+DEBIT\b/i.test(txt)) {
+          const a = balRe.exec(txt);
+          if (a) totalDebit = Math.abs(stmtMoney(a[1]));
+          cur = null;
+          continue;
+        }
+        if (/^TOTAL\s+CREDIT\b/i.test(txt)) {
+          const a = balRe.exec(txt);
+          if (a) totalCredit = Math.abs(stmtMoney(a[1]));
+          cur = null;
+          continue;
+        }
+        const m = rowRe.exec(txt);
+        if (m) {
+          const d = Number(m[1]), mo = Number(m[2]);
+          const y = m[3] ? stmtYear2(m[3]) : stmtYearFor(mo, stmt);
+          const date = stmtIso(y, mo, d);
+          if (!date) continue;
+          const head = stmtClean(m[4]);
+          const amt = Math.abs(stmtMoney(m[5]));
+          const mk1 = (m[6] || "").toUpperCase();
+          const bal = signedBal(m[7], m[8]);
+          const dir = mk1 === "+" || mk1 === "CR" ? "credit" : mk1 === "-" || mk1 === "DR" ? "debit" : "";
+          cur = { date, desc: head, payee: stmtPayee(head), amount: amt, dir, balance: bal, page: l.page, _head: head, _sub: [] };
+          rows.push(cur);
+          continue;
+        }
+        if (stopRe.test(txt)) { cur = null; continue; }
+        // Continuation lines right under a Maybank row (e.g. merchant/person name).
+        if (cur && cur.page === l.page && cur._sub.length < 3 && !balRe.test(txt)) {
+          const cleaned = txt.replace(/\*+$/, "").trim();
+          if (cleaned && !/^\d{2}$/.test(cleaned)) cur._sub.push(cleaned);
+        }
+      }
+      // Build cleaner payee & description from continuation lines, and infer any missing dir.
+      let prev = opening;
+      for (const r of rows) {
+        if (r._sub.length) {
+          r.desc = stmtClean([r._head, ...r._sub].join(" · "));
+          if (GENERIC_HEAD.test(r._head)) {
+            const nice = r._sub.find((s) => /[A-Za-z]{3,}/.test(s) && !/^(?:XXXX|MBBQR|QR\d|DUITNOW|QR PAY|\d{6,})/i.test(s)) || r._sub[0];
+            if (nice) r.payee = stmtClean(nice).slice(0, 60);
+          }
+        }
+        delete r._head;
+        delete r._sub;
+        if (!r.dir && r.balance != null && prev != null) r.dir = r.balance >= prev ? "credit" : "debit";
+        if (!r.dir) r.dir = "debit";
+        if (r.balance != null) prev = r.balance;
+      }
+      const sec = opening != null ? [{
+        opening, closing, rows, page: rows[0] ? rows[0].page : 1,
+        ...(totalDebit != null ? { totalDebit } : {}),
+        ...(totalCredit != null ? { totalCredit } : {}),
+      }] : [];
+      return { stmt, rows, sections: sec };
+    },
+  },
 ];
 
 /* Any other statement: dated rows ending in one or two amounts (amount and
@@ -487,31 +584,36 @@ function parseGenericStatement(lines) {
   const stmt = stmtFindStatementDate(lines);
   const rows = [];
   let opening = null, closing = null;
-  const DATE = "(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})|(\\d{1,2}) ([A-Za-z]{3})(?: (\\d{2,4}))?";
-  const AMT = "(-?[\\d,]+\\.\\d{2})\\s?(CR|DR|-|\\+)?";
+  const DATE = "(\\d{1,2})[/-](\\d{1,2})(?:[/-](\\d{2,4}))?|(\\d{1,2}) ([A-Za-z]{3})(?: (\\d{2,4}))?";
+  const AMT = "(-?(?:[\\d,]+)?\\.\\d{2})\\s?(CR|DR|-|\\+)?";
   const rowRe = new RegExp(`^\\s*(?:${DATE})\\s+(.+?)\\s+${AMT}(?:\\s+${AMT})?\\s*$`, "i");
+  const signedBal = (numStr, mk) => {
+    const v = stmtMoney(numStr);
+    if (!Number.isFinite(v)) return null;
+    return /^(?:DR|-)$/i.test(mk || "") ? -Math.abs(v) : v;
+  };
   for (const l of lines) {
     let m;
     if ((m = new RegExp(`(?:opening|beginning|previous)\\s+balance|balance\\s+b/?f|baki\\s+(?:awal|dibawa|legar)`, "i").exec(l.text))) {
       const a = new RegExp(`${AMT}\\s*$`, "i").exec(l.text);
-      if (a && opening == null) opening = stmtMoney(a[1]);
+      if (a && opening == null) opening = signedBal(a[1], a[2]);
       continue;
     }
     if ((m = /(?:closing|ending)\s+balance|balance\s+c\/?f|baki\s+akhir/i.exec(l.text))) {
       const a = new RegExp(`${AMT}\\s*$`, "i").exec(l.text);
-      if (a) closing = stmtMoney(a[1]);
+      if (a) closing = signedBal(a[1], a[2]);
       continue;
     }
     m = rowRe.exec(l.text);
     if (!m) continue;
     let y, mo, d;
-    if (m[1]) { d = Number(m[1]); mo = Number(m[2]); y = stmtYear2(m[3]); }
+    if (m[1]) { d = Number(m[1]); mo = Number(m[2]); y = m[3] ? stmtYear2(m[3]) : stmtYearFor(mo, stmt); }
     else { d = Number(m[4]); mo = STMT_MONTHS[String(m[5]).toUpperCase()]; y = m[6] ? stmtYear2(m[6]) : stmtYearFor(mo, stmt); }
     if (!mo) continue;
     const desc = m[7];
     const a1 = stmtMoney(m[8]), mk1 = (m[9] || "").toUpperCase();
     const hasBal = m[10] != null;
-    const bal = hasBal ? stmtMoney(m[10]) : null;
+    const bal = hasBal ? signedBal(m[10], m[11]) : null;
     let dir = mk1 === "CR" || mk1 === "+" ? "credit" : mk1 === "DR" || mk1 === "-" || a1 < 0 ? "debit" : "";
     rows.push({ date: stmtIso(y, mo, d), desc: stmtClean(desc), payee: stmtPayee(desc), amount: Math.abs(a1), dir, balance: bal, page: l.page });
   }
@@ -574,6 +676,12 @@ function reconcileStatement(parsed) {
   }
   if (!parsed.rows.length) return { status: "mismatch", problems: [{ what: "no rows" }], badRows };
   if (!checked) return { status: "none", problems, badRows };
+  // A Duitful AI+ read checks out only against a printed opening and closing
+  // balance: without the opening, the first balance row (its amount and
+  // direction) is never checked, so it could be a figure that isn't a row.
+  if (parsed.aiPlus && !problems.length && !(parsed.sections || []).some((s) => s.opening != null && s.closing != null && s.rows.length)) {
+    return { status: "none", problems, badRows };
+  }
   return { status: problems.length ? "mismatch" : "ok", problems, badRows };
 }
 
@@ -674,7 +782,7 @@ async function statementAiSuggest(items, opts) {
           const who = typeof aiNameInText === "function" ? aiNameInText(reply.counterparty, it.row.desc) : "";
           let changed = false;
           if (cat && !it.category && !it.userCat) { it.category = cat; it.ai = true; changed = true; }
-          if (who && !it.userPayee) { it.payee = who; it.ai = true; changed = true; }
+          if (who && !it.userPayee && !it.aiPlus) { it.payee = who; it.ai = true; changed = true; }
           if (changed && opts && typeof opts.onAnswer === "function") opts.onAnswer(it);
         }
       }
@@ -696,15 +804,169 @@ function stmtShowAiRow(it) {
   if (sel && document.activeElement !== sel) sel.value = it.category || "";
   const pay = li.querySelector("[data-stmt-payee]");
   if (pay && document.activeElement !== pay) pay.value = it.payee;
-  // Beside the payee, so nothing below moves when it lands.
-  if (!li.querySelector(".stmt-ai")) pay?.insertAdjacentHTML("afterend", stmtAiTag());
+  // Beside the payee, so nothing below moves when it lands. A name from AI+
+  // (cloud) swaps the phone-AI tag for the "AI+" one.
+  const tag = li.querySelector(".stmt-ai");
+  if (tag && it.aiPlus && !tag.classList.contains("ai-plus-badge")) tag.remove();
+  if (!li.querySelector(".stmt-ai")) pay?.insertAdjacentHTML("afterend", stmtAiTag(it));
   li.classList.remove("is-ai-new");
   void li.offsetWidth;
   li.classList.add("is-ai-new");
 }
-function stmtAiTag() {
+function stmtAiTag(it) {
+  if (it && it.aiPlus) {
+    const t = escapeHtml(tr("Suggested by Duitful AI+ (cloud)"));
+    return `<span class="ai-plus-badge stmt-ai" title="${t}" aria-label="${t}" translate="no">AI+</span>`;
+  }
   const t = escapeHtml(tr("Suggested by your phone's AI"));
   return `<span class="stmt-tag stmt-ai" title="${t}" aria-label="${t}" translate="no">AI</span>`;
+}
+
+/* ---------- Duitful AI+ (cloud), only when aiCloudAllowed() ----------
+   Two tasks, both optional: "statement-read" offers to read the rows when the
+   on-device read doesn't add up, "payee-clean" tidies payee names. Each runs
+   after the redacted-text preview (first send), and any failure leaves the
+   review exactly as the phone read it. Amounts always come from the statement:
+   rows are re-checked against its text here, then through reconcileStatement
+   and the same scan rule (a read imports only when it checks out). */
+function stmtCloudOn() {
+  return typeof aiCloudAllowed === "function" && aiCloudAllowed();
+}
+function stmtReadText(read) {
+  return ((read && read.lines) || []).map((l) => l.text).join("\n").slice(0, 20000);
+}
+// AI+ answer -> a parsed statement, keeping only what the text itself prints.
+function stmtParsedFromCloud(res, text, prev) {
+  if (!res || !Array.isArray(res.rows)) return null;
+  const inText = (n) => typeof aiAmountInText === "function" ? aiAmountInText(n, text) : false;
+  const rows = [];
+  for (const r of res.rows.slice(0, 200)) {
+    if (!r || typeof r !== "object") continue;
+    const amount = stmtRound(Number(r.amount));
+    const desc = stmtClean(r.desc).slice(0, 140);
+    const date = String(r.date || "");
+    const dir = r.dir === "in" ? "credit" : r.dir === "out" ? "debit" : "";
+    if (!(amount > 0) || !desc || !dir || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || !inText(amount)) continue;
+    const row = { date, desc, payee: desc.slice(0, 60), amount, dir, page: 1 };
+    const bal = Number(r.balance);
+    if (r.balance != null && Number.isFinite(bal) && (bal === 0 || inText(Math.abs(bal)))) row.balance = stmtRound(bal);
+    rows.push(row);
+  }
+  if (!rows.length) return null;
+  const fig = (v) => { const n = Number(v); return v != null && Number.isFinite(n) && (n === 0 || inText(Math.abs(n))) ? stmtRound(n) : null; };
+  const opening = fig(res.opening), closing = fig(res.closing);
+  const kind = prev && prev.rows && prev.rows.length && prev.kind ? prev.kind : rows.some((r) => r.balance != null) ? "account" : "card";
+  const sections = opening != null && closing != null ? [{ opening, closing, rows, page: 1 }] : [];
+  return { layout: "generic", bank: (prev && prev.bank) || "", kind, stmt: (prev && prev.stmt) || null, rows, sections, scanned: true, aiPlus: true };
+}
+
+// The offer: shown while the phone's read doesn't check out.
+function stmtCloudRefresh() {
+  const box = stmtEl("stmt-cloud");
+  if (!box) return;
+  const p = stmtUi.parsed, r = stmtUi.recon;
+  box.hidden = !(stmtUi.read && p && !p.aiPlus && r && r.status !== "ok" && stmtCloudOn() && typeof aiCloudReadStatement === "function" && stmtReadText(stmtUi.read));
+}
+
+async function statementCloudRead() {
+  if (!stmtUi.read || !stmtUi.parsed || stmtUi.cloudBusy || !stmtCloudOn() || typeof aiCloudReadStatement !== "function") return false;
+  const read = stmtUi.read, prev = stmtUi.parsed;
+  const text = stmtReadText(read);
+  if (!text) return false;
+  const btn = stmtEl("stmt-cloud-read");
+  stmtUi.cloudBusy = true;
+  if (btn) btn.disabled = true;
+  stmtSay(tr("Reading with Duitful AI+ (cloud)…"));
+  let parsed = null, recon = null;
+  try {
+    const res = await aiCloudReadStatement({ text, bankName: prev.bank || "" });
+    parsed = stmtParsedFromCloud(res, text, prev);
+    recon = parsed ? reconcileStatement(parsed) : null;
+  } catch { parsed = null; }
+  stmtUi.cloudBusy = false;
+  if (btn) btn.disabled = false;
+  if (stmtUi.read !== read || !stmtEl("stmt-dialog")?.open) return false;
+  // Never worse than today: a read that doesn't check out replaces nothing
+  // that had rows (and shows, but can't import, when the phone found none).
+  const usable = parsed && (recon.status === "ok" || !prev.rows.length);
+  if (!usable) {
+    stmtSay(tr("Duitful AI+ couldn't read this one. Your review is unchanged."));
+    return false;
+  }
+  const before = stmtUi.items;
+  stmtUi.parsed = parsed; stmtUi.recon = recon;
+  stmtUi.items = statementItems(parsed, recon);
+  for (const it of stmtUi.items) it.aiPlus = true;
+  stmtCarryEdits(before, stmtUi.items);
+  stmtSay("");
+  stmtEl("stmt-review").hidden = false;
+  stmtEl("stmt-import").hidden = false;
+  renderStatementReview();
+  stmtRunAi(stmtUi.items);
+  return true;
+}
+
+/* What the person already changed on the phone's rows survives an AI+ re-read:
+   each edited row is matched to a new row with the same date, direction and
+   amount (their corrected amount, if they fixed one), and its payee, category,
+   type and tick come along. Rows with no match keep the new read's defaults. */
+function stmtCarryEdits(prev, next) {
+  const used = new Set();
+  for (const old of prev || []) {
+    if (!(old.userPayee || old.userCat || old.userOn || old.userKind)) continue;
+    const dir = old.row && old.row.dir;
+    const hit = next.find((n) => !used.has(n) && n.date === old.date && n.row.dir === dir && Math.abs(n.amount - Number(old.amount)) < 0.005);
+    if (!hit) continue;
+    used.add(hit);
+    if (old.userPayee) { hit.payee = old.payee; hit.userPayee = true; hit.aiPlus = false; }
+    if (old.userCat) { hit.category = old.category; hit.userCat = true; }
+    if (old.userKind) { hit.kind = old.kind; hit.userKind = true; if (hit.kind === "move") hit.on = false; }
+    if (old.userOn) { hit.on = hit.kind === "move" ? false : old.on; hit.userOn = true; }
+  }
+}
+
+// Tidies payees one call at a time. Same promises as statementAiSuggest: rows
+// fill in place, rows you changed (userPayee / userCat) are never asked or
+// overwritten, Import never waits.
+async function statementCloudPayees(items, opts) {
+  if (!stmtCloudOn() || typeof aiCloudCleanPayee !== "function") return 0;
+  const alive = (opts && opts.alive) || (() => true);
+  const todo = items.filter((it) => it.kind !== "move" && !it.userPayee && !it.userCat && !it.cloudAsked && it.row && it.row.desc).slice(0, (opts && opts.max) || 20);
+  if (!todo.length) return 0;
+  const batch = typeof aiBatchStart === "function"
+    ? aiBatchStart({ label: "Tidying payee names", say: "AI+ is tidying payee names", total: todo.length, overlay: false }) : null;
+  let n = 0, misses = 0;
+  try {
+    for (let k = 0; k < todo.length; k++) {
+      if (typeof aiUntilForeground === "function") await aiUntilForeground();
+      if (!alive() || !stmtCloudOn()) break;
+      const it = todo[k];
+      it.cloudAsked = true;
+      let res = null;
+      try { res = await aiCloudCleanPayee(it.row.desc); } catch { res = null; }
+      n++;
+      if (res && typeof res.payee === "string") {
+        misses = 0;
+        const who = stmtClean(res.payee).slice(0, 60);
+        if (who && alive() && !it.userPayee && !it.userCat && who !== it.payee) {
+          it.payee = who; it.ai = true; it.aiPlus = true;
+          if (opts && typeof opts.onAnswer === "function") opts.onAnswer(it);
+        }
+      } else if (++misses >= 3 || !(state.aiPlusPreviewedKinds && state.aiPlusPreviewedKinds.payee)) break;   // declined, offline or at the cap
+      if (typeof aiBatchStep === "function") aiBatchStep(batch, k + 1);
+    }
+  } finally {
+    if (typeof aiBatchEnd === "function") aiBatchEnd(batch);
+  }
+  return n;
+}
+
+// Both helpers for the open review: AI+ names first (when on), then the
+// phone's own suggestions, which never overwrite an AI+ name.
+async function stmtRunAi(items) {
+  const opts = { alive: () => stmtUi.items === items && !!stmtEl("stmt-dialog")?.open, onAnswer: stmtShowAiRow };
+  try { await statementCloudPayees(items, opts); } catch { /* the review stays as it is */ }
+  try { await statementAiSuggest(items, opts); } catch { /* ditto */ }
 }
 
 /* Books the ticked items. Spends go where daily spending goes; income goes to
@@ -805,7 +1067,7 @@ function statementNativeReminders() {
 
 // wallet: the wallet the rows go into; fixed: chosen by opening the import
 // from that wallet, so the question isn't asked.
-const stmtUi = { items: [], parsed: null, recon: null, file: null, wallet: "", fixed: false };
+const stmtUi = { items: [], parsed: null, recon: null, file: null, wallet: "", fixed: false, read: null, cloudBusy: false };
 const stmtEl = (id) => document.getElementById(id);
 
 function stmtFmtDate(iso) {
@@ -817,7 +1079,10 @@ function stmtSay(msg) { const el = stmtEl("stmt-status"); if (el) { el.textConte
 function openStatementImport(opts) {
   const dlg = stmtEl("stmt-dialog");
   if (!dlg) return;
-  stmtUi.items = []; stmtUi.parsed = null; stmtUi.recon = null; stmtUi.file = null;
+  stmtUi.items = []; stmtUi.parsed = null; stmtUi.recon = null; stmtUi.file = null; stmtUi.read = null; stmtUi.cloudBusy = false;
+  const cloudBtn = stmtEl("stmt-cloud-read");
+  if (cloudBtn) cloudBtn.disabled = false;
+  stmtCloudRefresh();
   // A click handler passes its event; only { walletId } means "from a wallet".
   const wid = opts && typeof opts.walletId === "string" ? opts.walletId : "";
   stmtUi.fixed = !!(wid && typeof walletById === "function" && walletById(wid));
@@ -881,7 +1146,7 @@ async function statementFromPhotos(sources) {
 function showStatementReview(read) {
   const parsed = parseStatement(read);
   const recon = reconcileStatement(parsed);
-  stmtUi.parsed = parsed; stmtUi.recon = recon;
+  stmtUi.parsed = parsed; stmtUi.recon = recon; stmtUi.read = read;
   stmtUi.items = statementItems(parsed, recon);
   // Not opened from a wallet: the one this bank layout went into last time.
   if (!stmtUi.fixed) {
@@ -891,16 +1156,12 @@ function showStatementReview(read) {
   }
   stmtEl("stmt-pick").hidden = true;
   stmtEl("stmt-password").hidden = true;
-  if (!parsed.rows.length) { stmtSay(tr("No transactions found in this statement.")); return parsed; }
+  if (!parsed.rows.length) { stmtSay(tr("No transactions found in this statement.")); stmtCloudRefresh(); return parsed; }
   stmtSay("");
   stmtEl("stmt-review").hidden = false;
   stmtEl("stmt-import").hidden = false;
   renderStatementReview();
-  const items = stmtUi.items;
-  statementAiSuggest(items, {
-    alive: () => stmtUi.items === items && !!stmtEl("stmt-dialog")?.open,
-    onAnswer: stmtShowAiRow,
-  }).catch(() => {});
+  stmtRunAi(stmtUi.items);
   return parsed;
 }
 
@@ -912,7 +1173,7 @@ function stmtSummaryText(parsed, recon) {
   const check = recon.status === "ok" ? tr("Checks out ✓")
     : recon.status === "none" ? tr(parsed.scanned ? "No balances printed to check, so a scan can't be imported" : "No balances printed to check")
     : page ? tr("Doesn't add up on page {n} — check the rows", { n: page }) : tr("Doesn't add up — check the rows");
-  return [what, span, parsed.scanned ? tr("Read from a scan") : "", check].filter(Boolean).join(" · ");
+  return [what, span, parsed.aiPlus ? tr("Read by Duitful AI+ (cloud)") : parsed.scanned ? tr("Read from a scan") : "", check].filter(Boolean).join(" · ");
 }
 
 function renderStatementReview() {
@@ -921,6 +1182,8 @@ function renderStatementReview() {
   const sum = stmtEl("stmt-summary");
   sum.textContent = stmtSummaryText(stmtUi.parsed, stmtUi.recon);
   sum.dataset.status = stmtUi.recon.status;
+  if (stmtUi.parsed.aiPlus) sum.insertAdjacentHTML("beforeend", ` <span class="ai-plus-badge" translate="no">AI+</span>`);
+  stmtCloudRefresh();
   stmtRenderWallet();
   const cats = typeof scanAllCategories === "function" ? scanAllCategories() : [];
   list.innerHTML = stmtUi.items.map((it, i) => {
@@ -932,7 +1195,7 @@ function renderStatementReview() {
       <input type="checkbox" data-stmt-on="${i}" aria-label="${tr("Import {name}", { name: escapeHtml(it.payee) })}"${it.on ? " checked" : ""}${it.kind === "move" ? " disabled" : ""} />
       <div class="stmt-main">
         <div class="stmt-top">
-          <input class="stmt-payee" data-stmt-payee="${i}" value="${escapeHtml(it.payee)}" aria-label="${tr("Payee")}" />${it.ai ? stmtAiTag() : ""}
+          <input class="stmt-payee" data-stmt-payee="${i}" value="${escapeHtml(it.payee)}" aria-label="${tr("Payee")}" />${it.ai || it.aiPlus ? stmtAiTag(it) : ""}
           ${stmtUi.parsed.scanned
             ? `<input class="stmt-amt-in ${it.kind}" data-stmt-amt="${i}" inputmode="decimal" value="${it.amount.toFixed(2)}" aria-label="${tr("Amount")}" />`
             : `<span class="stmt-amt ${it.kind}">${sign}${escapeHtml(fmtMoney(it.amount))}</span>`}
@@ -1048,11 +1311,12 @@ stmtEl("stmt-pw-open")?.addEventListener("click", () => {
 });
 stmtEl("stmt-pw")?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); stmtEl("stmt-pw-open")?.click(); } });
 stmtEl("stmt-cancel")?.addEventListener("click", () => { stmtUi.file = null; stmtEl("stmt-dialog")?.close(); });
+stmtEl("stmt-cloud-read")?.addEventListener("click", () => { statementCloudRead(); });
 stmtEl("stmt-import")?.addEventListener("click", statementImportNow);
 stmtEl("stmt-wallet")?.addEventListener("change", (e) => { stmtUi.wallet = e.target.value; });
 stmtEl("stmt-all")?.addEventListener("click", () => {
   const all = stmtUi.items.every((x) => x.on || x.kind === "move");
-  for (const it of stmtUi.items) if (it.kind !== "move" && it.date) it.on = !all;
+  for (const it of stmtUi.items) if (it.kind !== "move" && it.date) { it.on = !all; it.userOn = true; }
   renderStatementReview();
 });
 stmtEl("stmt-list")?.addEventListener("change", (e) => {
@@ -1061,8 +1325,8 @@ stmtEl("stmt-list")?.addEventListener("change", (e) => {
   const i = Number(t.dataset.stmtOn ?? t.dataset.stmtKind ?? t.dataset.stmtCat ?? t.dataset.stmtPayee ?? t.dataset.stmtAmt ?? t.dataset.stmtBal);
   const it = stmtUi.items[i];
   if (!it) return;
-  if (t.dataset.stmtOn != null) it.on = t.checked;
-  else if (t.dataset.stmtKind != null) { it.kind = t.value; if (it.kind === "move") it.on = false; else if (!it.dup) it.on = true; }
+  if (t.dataset.stmtOn != null) { it.on = t.checked; it.userOn = true; }
+  else if (t.dataset.stmtKind != null) { it.kind = t.value; it.userKind = true; if (it.kind === "move") it.on = false; else if (!it.dup) it.on = true; }
   else if (t.dataset.stmtCat != null) { it.category = t.value; it.userCat = true; }
   else if (t.dataset.stmtPayee != null) { it.payee = t.value.trim().slice(0, 60); it.userPayee = true; }
   else if (t.dataset.stmtAmt != null || t.dataset.stmtBal != null) {
