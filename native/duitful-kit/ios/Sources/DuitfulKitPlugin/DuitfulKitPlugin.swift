@@ -512,6 +512,8 @@ public class DuitfulKitPlugin: CAPPlugin, CAPBridgedPlugin,
             }
             DuitfulSpeech.shared.start(lang: lang, hints: hints, partial: { [weak self] text in
                 self?.notifyListeners("speechPartial", data: ["text": text])
+            }, level: { [weak self] level in
+                self?.notifyListeners("speechLevel", data: ["level": level])
             }, finish: { result in
                 switch result {
                 case .success(let text): call.resolve(["text": text])

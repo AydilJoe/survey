@@ -384,6 +384,7 @@ Every text pair is AA on the card, the cream well and the page, and the e2e suit
 - **Don't** add a radius outside the four, or a drop shadow to anything that scrolls with the page.
 - **Don't** set words in monospace, or a second heading in Fraunces.
 - **Don't** hard-code a hex or `rgba()` in a component rule, or reference a token that `:root` does not define.
-- **Don't** add blur or glass to cards; only the bottom bar, `#ai-think` backdrop, and 2.0 Jelly Bubble capsules / radial scrim use blur.
+- **Don't** add blur or glass to cards; only the bottom bar, `#ai-think` backdrop, 2.0 Jelly Bubble capsules / radial scrim, and the full-screen `#voice-dialog` stage (`backdrop-filter: blur(22px)` with solid dim fallback and `--sat`/`--sab` safe-area padding) use blur.
+- **Voice stage waves (2.0 Stage B):** Three SVG stroke layers using tokens only (`--primary`, `--accent-3`, `--paid`/`--brand` with `color-mix()` tints) driven by native `speechLevel` (`0..1` float), falling back to a calm idle wave when no level is available; under `prefers-reduced-motion: reduce`, moving waves are hidden and replaced by a single level-scaled ring (`.voice-rm-ring`).
 - **Don't** put a card inside a card.
 - **Don't** add a looping animation, a delay before a tap registers, or an exit animation on a dialog.

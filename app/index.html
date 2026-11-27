@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=aede070b" />
+    <link rel="stylesheet" href="styles.css?v=e91951ca" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -244,6 +244,15 @@
       <button class="tab tab-wide-only" data-tab="data" role="tab" id="tabbtn-data" aria-selected="false" aria-controls="tab-data" tabindex="-1"><span class="tab-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span><span>Settings</span></button>
     </nav>
 
+    <!-- 2.0 Stage B: first-time hold-to-talk hint, one-time post-save nudge,
+         and 1-tap landing jump chip. -->
+    <button type="button" class="bubble-hold-hint" id="bubble-hold-hint" hidden>Hold to talk to Kira</button>
+    <div class="voice-nudge-chip" id="voice-nudge-chip" role="status" hidden>
+      <span id="voice-nudge-text">Faster next time — hold Kira and say it.</span>
+      <button type="button" class="ghost icon-btn voice-nudge-close" id="voice-nudge-close" aria-label="Dismiss">✕</button>
+    </div>
+    <button type="button" class="save-jump-chip" id="save-jump-chip" hidden></button>
+
     <main>
       <!-- DASHBOARD -->
       <section id="tab-dashboard" class="tab-panel active" role="tabpanel" aria-labelledby="tabbtn-dashboard">
@@ -268,6 +277,20 @@
           <div class="trial-banner-actions">
             <button type="button" class="ghost" id="trial-banner-later" hidden>Not now</button>
             <button type="button" class="primary" id="trial-banner-cta">Unlock forever</button>
+          </div>
+        </div>
+        <div id="kira-recap-card" class="kira-recap-card" hidden role="region" aria-labelledby="kira-recap-title">
+          <div class="kira-recap-head">
+            <span class="kira-recap-mark" id="kira-recap-kira" aria-hidden="true"></span>
+            <div class="kira-recap-copy">
+              <strong id="kira-recap-title">Kira's recap</strong>
+              <p class="kira-recap-stats" id="kira-recap-stats"></p>
+              <p class="kira-recap-changes" id="kira-recap-changes"></p>
+            </div>
+            <button type="button" class="ghost icon-btn" id="kira-recap-close" aria-label="Dismiss">✕</button>
+          </div>
+          <div class="kira-recap-actions">
+            <button type="button" class="primary" id="kira-recap-keep">Keep Kira</button>
           </div>
         </div>
         <!-- Native only: shown when the store has had a newer build for a week (see checkForAppUpdate). -->
@@ -2268,6 +2291,9 @@
 
         <div class="kira-hub-card" id="kira-hub-meter" hidden>
           <p class="kira-hub-meter-text" id="kira-hub-meter-text"></p>
+          <div class="kira-hub-meter-track" aria-hidden="true">
+            <span class="kira-hub-meter-bar" id="kira-hub-meter-bar"></span>
+          </div>
           <p class="kira-hub-meter-sub" id="kira-hub-meter-sub" hidden></p>
         </div>
 
@@ -2279,6 +2305,11 @@
             </div>
             <button type="button" class="primary" id="kira-hub-get-ai">Explore AI+</button>
           </div>
+        </div>
+
+        <div class="kira-hub-about" id="kira-hub-about">
+          <p class="kira-hub-about-copy">Kira reads receipts, statements and voice on your tap. Nothing is saved until you confirm, and no audio is stored.</p>
+          <button type="button" class="ghost kira-hub-about-link" id="kira-hub-info-btn">How Kira works</button>
         </div>
 
         <button type="button" class="ghost kira-hub-voice" id="btn-voice">
@@ -2358,32 +2389,62 @@
       </form>
     </dialog>
 
-    <!-- Voice & natural sentence entry sheet (voice.js — Assistant Update Phases 2 & 3). -->
-    <dialog id="voice-dialog" class="edit-dialog voice-dialog" aria-labelledby="voice-dialog-title">
-      <form method="dialog">
+    <!-- Voice & Kira assistant stage (2.0 Stage B, voice.js).
+         Full-screen blurred overlay with reactive 3-layer SVG waves around Kira
+         (or a clean mic orb on Free), top-fading live chat bubble, session-only
+         multi-turn thread (cleared on close), and 1-tap Confirm card for writes. -->
+    <dialog id="voice-dialog" class="voice-dialog voice-stage" aria-labelledby="voice-dialog-title">
+      <form method="dialog" class="voice-stage-inner">
         <div class="voice-head">
-          <span class="voice-kira" id="voice-kira" aria-hidden="true"></span>
-          <h2 id="voice-dialog-title">Voice or quick sentence</h2>
+          <h2 id="voice-dialog-title">Ask or log by voice</h2>
+          <button type="button" class="ghost icon-btn voice-close-btn" id="voice-close-x" aria-label="Close">✕</button>
         </div>
-        <p class="hint">Say or type a spend — even a split. Example: "RM 40 nasi lemak, split half with Ali".</p>
-        <label class="field" for="voice-input">
-          <span>Sentence</span>
-          <div class="voice-input-row">
-            <input type="text" id="voice-input" placeholder="e.g. dua belas ringgit nasi lemak pakai MAE" autocomplete="off" />
-            <button type="button" id="voice-mic-btn" class="ghost voice-mic-btn" aria-label="Start voice input" aria-pressed="false" hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>
-            </button>
+
+        <div class="voice-chat-area" id="voice-chat-area">
+          <div class="voice-thread" id="voice-thread" aria-live="polite" hidden></div>
+          <div class="voice-transcript-wrap" id="voice-transcript-wrap" hidden>
+            <div class="voice-transcript" id="voice-transcript" role="region" aria-label="What you said" tabindex="0"></div>
+            <button type="button" class="ghost voice-edit-btn" id="voice-edit-btn">Edit</button>
           </div>
-        </label>
-        <p class="voice-status" id="voice-status" role="status" aria-live="polite" hidden></p>
-        <p class="hint" id="voice-hint">Include an amount to preview. Nothing is saved until you tap Save.</p>
-        <div class="voice-preview" id="voice-preview" hidden>
-          <p class="voice-preview-spend" id="voice-preview-spend"></p>
-          <p class="voice-preview-split" id="voice-preview-split" hidden></p>
         </div>
-        <div class="form-actions">
-          <button type="button" class="ghost" id="voice-cancel">Cancel</button>
-          <button type="button" class="primary" id="voice-save" disabled>Save spend</button>
+
+        <div class="voice-stage-center" id="voice-stage-center" data-wave-mode="idle">
+          <svg class="voice-waves" id="voice-waves" viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <path class="voice-wave voice-wave-3" id="voice-wave-3" d="M0 60 Q 80 60 160 60 T 320 60" />
+            <path class="voice-wave voice-wave-2" id="voice-wave-2" d="M0 60 Q 80 60 160 60 T 320 60" />
+            <path class="voice-wave voice-wave-1" id="voice-wave-1" d="M0 60 Q 80 60 160 60 T 320 60" />
+          </svg>
+          <span class="voice-rm-ring" id="voice-rm-ring" aria-hidden="true"></span>
+          <span class="voice-kira" id="voice-kira" aria-hidden="true"></span>
+          <span class="voice-orb" id="voice-orb" aria-hidden="true" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>
+          </span>
+        </div>
+
+        <p class="voice-status" id="voice-status" role="status" aria-live="polite" hidden></p>
+
+        <div class="voice-bottom">
+          <p class="hint voice-hint" id="voice-hint">Say or type a spend, split, income, or question. Nothing is saved until you tap Save.</p>
+          <div class="voice-preview" id="voice-preview" hidden>
+            <p class="voice-preview-spend" id="voice-preview-spend"></p>
+            <p class="voice-preview-split" id="voice-preview-split" hidden></p>
+          </div>
+          <label class="field voice-input-field" for="voice-input">
+            <span class="sr-only">Sentence</span>
+            <div class="voice-input-row">
+              <input type="text" id="voice-input" placeholder="e.g. RM 12 nasi lemak, or ask about spending" autocomplete="off" />
+              <button type="button" id="voice-ask-btn" class="ghost voice-ask-btn" aria-label="Send" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+              </button>
+              <button type="button" id="voice-mic-btn" class="ghost voice-mic-btn" aria-label="Start voice input" aria-pressed="false" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>
+              </button>
+            </div>
+          </label>
+          <div class="form-actions voice-actions">
+            <button type="button" class="ghost" id="voice-cancel">Cancel</button>
+            <button type="button" class="primary" id="voice-save" disabled>Save spend</button>
+          </div>
         </div>
       </form>
     </dialog>
@@ -3587,7 +3648,8 @@
         <h3 class="ai-info-group">Duitful AI+ (cloud, optional)</h3>
         <ul class="ai-cloud-list">
           <li>Off by default. Only runs when you subscribe and turn it on in Settings.</li>
-          <li>Reads receipts, statements, Borang EA, loan letters, voice entries, split matches, and raw payees (tagged AI+).</li>
+          <li>Reads receipts, statements, Borang EA, loan letters, voice entries, split matches, and Kira questions (tagged AI+).</li>
+          <li>The microphone level is read as a number only to draw the voice waves; no audio is recorded or sent.</li>
           <li>Redacted on your device first; never sends your vault; zero server storage; Google Paid Tier (no training).</li>
         </ul>
         <div class="ai-info-foot">
@@ -3828,7 +3890,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=345a911b"></script>
+    <script src="i18n-langs.js?v=7417f5e3"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3841,7 +3903,7 @@
          demand (see splitEnsureJsQR) — the service worker precaches it, so
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=79ec86f8"></script>
-    <script src="split.js?v=f0f98a5d"></script>
+    <script src="split.js?v=ccd0cddb"></script>
     <script src="split-recurring.js?v=05bbaca7"></script>
     <script src="receipt-extract.js?v=20e13371"></script>
     <script src="region.js?v=a54b250e"></script>
@@ -3853,20 +3915,20 @@
     <script src="recap.js?v=e4c2c931"></script>
     <script src="brands.js?v=73d9f7dc"></script>
     <script src="search.js?v=1723d81e"></script>
-    <script src="csv.js?v=05b56e90"></script>
+    <script src="csv.js?v=f030fead"></script>
     <script src="reports.js?v=6b3b772b"></script>
     <script src="onboarding.js?v=dd4ac4be"></script>
     <script src="kira-seasons.js?v=84d7b80b"></script>
     <script src="kira.js?v=0a738a14"></script>
     <script src="streak.js?v=ce95b7ab"></script>
-    <script src="voice.js?v=60dae41a"></script>
+    <script src="voice.js?v=bdb321e0"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=3af549e5"></script>
     <script src="ai-redact.js?v=e6257012"></script>
-    <script src="ai-cloud.js?v=cb3a5ae0"></script>
-    <script src="pro.js?v=6810a131"></script>
+    <script src="ai-cloud.js?v=790422fa"></script>
+    <script src="pro.js?v=c4ca182d"></script>
     <script src="ocr.js?v=d135377e"></script>
-    <script src="kira-bubble.js?v=6a0696fd"></script>
-    <script src="script.js?v=aba6e09f"></script>
+    <script src="kira-bubble.js?v=f59e7083"></script>
+    <script src="script.js?v=6b8844cc"></script>
   </body>
 </html>

@@ -11628,3 +11628,487 @@ html[data-theme="pastel"] {
 .ai-pair-body #ai-pair-claim-btn {
   flex: none;
 }
+
+/* ---------- Duitful 2.0 (stage B): Siri-style voice, waves, hub meter,
+   discoverability cues, tactile save highlights & Day-12 Kira recap ---------- */
+
+/* Hub meter thin calm bar & transparency summary */
+.kira-hub-meter-track {
+  margin-top: 0.45rem;
+  height: 5px;
+  border-radius: var(--r-pill, 999px);
+  background: var(--line);
+  overflow: hidden;
+}
+.kira-hub-meter-bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--primary);
+}
+.kira-hub-about {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.7rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--r-md);
+  background: var(--card-soft);
+  border: 0.5px solid var(--line);
+}
+.kira-hub-about-copy {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--ink2);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.kira-hub-about-link {
+  flex: none;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.6rem;
+  white-space: nowrap;
+}
+
+/* Full-screen blurred Siri-style voice stage (#voice-dialog).
+   The blurred dim backdrop covers the entire screen edge-to-edge while the
+   stage container itself respects --sat / --sab and html.kb-open rules. */
+dialog.voice-stage {
+  position: fixed;
+  top: calc(var(--sat, 0px) + 8px);
+  right: 0;
+  bottom: calc(var(--sab, 0px) + 8px);
+  left: 0;
+  width: 100%;
+  max-width: none;
+  height: calc(100dvh - var(--sat, 0px) - var(--sab, 0px) - 16px);
+  max-height: calc(100dvh - var(--sat, 0px) - var(--sab, 0px) - 16px);
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0.45rem 1rem 0.75rem;
+  background: transparent;
+  color: var(--text);
+  overflow: hidden;
+}
+dialog.voice-stage::backdrop {
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  backdrop-filter: blur(22px) saturate(1.15);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  dialog.voice-stage::backdrop {
+    background: color-mix(in srgb, var(--bg) 96%, var(--text) 4%);
+  }
+}
+dialog.voice-stage[open] {
+  display: flex;
+  flex-direction: column;
+}
+html.kb-open dialog.voice-stage:modal {
+  top: calc(var(--kb-top, 0px) + var(--sat, 0px) + 8px);
+  bottom: auto;
+  margin-top: 0;
+  height: calc(var(--kb-vh, 100dvh) - var(--sat, 0px) - 16px);
+  max-height: calc(var(--kb-vh, 100dvh) - var(--sat, 0px) - 16px);
+  overflow-y: auto;
+}
+.voice-stage-inner {
+  width: 100%;
+  max-width: 440px;
+  height: 100%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.55rem;
+  min-height: 0;
+}
+.voice-stage .voice-head {
+  flex: none;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.voice-stage .voice-head h2 {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.voice-close-btn {
+  flex: none;
+}
+
+/* Live chat bubble & session multi-turn thread */
+.voice-chat-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+.voice-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  overflow-y: auto;
+  max-height: 32vh;
+  padding-right: 0.15rem;
+}
+.voice-thread[hidden] { display: none; }
+.voice-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 90%;
+}
+.voice-turn--user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.voice-turn--kira {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+.voice-turn-text {
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: var(--r-md);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+}
+.voice-turn--user .voice-turn-text {
+  background: var(--primary);
+  color: var(--card);
+}
+.voice-turn--kira .voice-turn-text {
+  background: var(--card);
+  color: var(--text);
+  border: 0.5px solid var(--border);
+}
+.voice-turn-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.voice-action-chip {
+  font-size: 0.82rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: var(--r-pill, 999px);
+  border: 0.5px solid var(--border);
+  background: var(--card);
+  color: var(--primary);
+}
+.voice-transcript-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.45rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 0.5px solid var(--border);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--text) 8%, transparent);
+}
+.voice-transcript-wrap[hidden] { display: none; }
+.voice-transcript {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 6.1em;
+  line-height: 1.5;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text);
+  overflow-y: auto;
+  word-break: break-word;
+  -webkit-user-select: text;
+  user-select: text;
+  cursor: pointer;
+}
+.voice-transcript.is-overflow {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 1.65em, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 1.65em, #000 100%);
+}
+.voice-edit-btn {
+  flex: none;
+  font-size: 0.78rem;
+  padding: 0.28rem 0.55rem;
+}
+
+/* Centerpiece stage: 3-layer SVG waves + Kira (Paid/Pro/Trial) or Mic Orb (Free) */
+.voice-stage-center {
+  position: relative;
+  flex: 0 0 auto;
+  height: 138px;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.voice-waves {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.3;
+  transition: opacity 220ms ease;
+}
+dialog.voice-stage.is-listening .voice-waves {
+  opacity: 0.92;
+}
+.voice-wave {
+  fill: none;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.voice-wave-1 {
+  stroke: var(--primary);
+  stroke-width: 2.6;
+}
+.voice-wave-2 {
+  stroke: color-mix(in srgb, var(--accent-3) 85%, transparent);
+  stroke-width: 2.1;
+}
+.voice-wave-3 {
+  stroke: color-mix(in srgb, var(--paid, var(--brand)) 72%, transparent);
+  stroke-width: 1.8;
+}
+.voice-rm-ring {
+  display: none;
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  border-radius: 999px;
+  border: 2.5px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  transform: scale(var(--voice-level, 1));
+  pointer-events: none;
+}
+.voice-stage .voice-kira {
+  position: relative;
+  z-index: 2;
+  width: 82px;
+  height: 98px;
+}
+.voice-stage .voice-kira[hidden] { display: none; }
+.voice-orb {
+  position: relative;
+  z-index: 2;
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  color: var(--primary);
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--text) 10%, transparent);
+}
+.voice-orb[hidden] { display: none; }
+.voice-orb svg {
+  width: 28px;
+  height: 28px;
+}
+dialog.voice-stage.is-listening .voice-orb {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--card));
+}
+
+.voice-stage .voice-status {
+  text-align: center;
+  margin: 0;
+  min-height: 1.2em;
+}
+.voice-bottom {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+}
+.voice-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.84rem;
+}
+.voice-input-field {
+  margin: 0;
+}
+.voice-stage .voice-input-row {
+  margin: 0;
+}
+.voice-stage .voice-preview {
+  margin: 0;
+  background: var(--card);
+  border-color: var(--border);
+}
+.voice-ask-btn {
+  flex: 0 0 auto;
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.voice-ask-btn[hidden] { display: none; }
+.voice-ask-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.voice-actions {
+  margin-top: 0.15rem;
+}
+
+@keyframes voice-pop-in {
+  0% { transform: translateY(34vh) scale(0.55); opacity: 0.2; }
+  70% { transform: translateY(-6px) scale(1.04); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes voice-orb-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 26%, transparent); }
+  50% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--primary) 0%, transparent); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .voice-stage-center.is-pop-in {
+    animation: voice-pop-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  dialog.voice-stage.is-listening .voice-orb {
+    animation: voice-orb-pulse 1.5s ease-in-out infinite;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .voice-waves { display: none; }
+  .voice-rm-ring { display: block; }
+}
+
+/* Hold-to-talk first-time pill, one-time post-save nudge & landing jump chip */
+.bubble-hold-hint {
+  position: fixed;
+  z-index: 45;
+  transform: translate(-50%, -100%);
+  padding: 0.35rem 0.72rem;
+  border-radius: var(--r-pill, 999px);
+  border: 0;
+  background: var(--primary);
+  color: var(--card);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--text) 18%, transparent);
+  cursor: pointer;
+}
+.bubble-hold-hint[data-pos="side"] {
+  transform: translate(0, -50%);
+}
+.bubble-hold-hint[hidden] { display: none; }
+
+.voice-nudge-chip,
+.save-jump-chip {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--sab, 0px) + 5.6rem);
+  transform: translateX(-50%);
+  z-index: 48;
+  max-width: calc(100vw - 2rem);
+  border-radius: var(--r-pill, 999px);
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--text) 14%, transparent);
+  font-size: 0.84rem;
+  font-weight: 500;
+}
+.voice-nudge-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.42rem 0.55rem 0.42rem 0.85rem;
+}
+.voice-nudge-chip[hidden] { display: none; }
+.voice-nudge-close {
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  flex: none;
+}
+.save-jump-chip {
+  padding: 0.48rem 0.95rem;
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.save-jump-chip[hidden] { display: none; }
+
+/* Tactile save landing animations */
+@keyframes row-just-saved {
+  0% { transform: translateY(-6px); background-color: color-mix(in srgb, var(--brand) 22%, var(--card)); }
+  100% { transform: translateY(0); background-color: transparent; }
+}
+@keyframes value-tick {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.06); color: var(--brand-ink); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .is-just-saved {
+    animation: row-just-saved 1.1s ease-out both;
+    border-radius: var(--r-sm);
+  }
+  .is-value-tick {
+    display: inline-block;
+    animation: value-tick 700ms ease-out both;
+  }
+}
+
+/* Day-12 Kira Trial Recap Card (Home) */
+.kira-recap-card {
+  margin-bottom: 0.85rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: var(--r-md);
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.kira-recap-card[hidden] { display: none; }
+.kira-recap-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+.kira-recap-mark {
+  flex: none;
+  width: 38px;
+  height: 46px;
+}
+.kira-recap-mark:empty { display: none; }
+.kira-recap-mark svg.kira { width: 100%; height: 100%; }
+.kira-recap-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.kira-recap-copy strong {
+  display: block;
+  font-size: 0.96rem;
+  color: var(--text);
+}
+.kira-recap-stats,
+.kira-recap-changes {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--ink2);
+}
+.kira-recap-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+

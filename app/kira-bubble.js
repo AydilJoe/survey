@@ -29,6 +29,8 @@
 const BUBBLE_HOLD_MS = 480;
 const BUBBLE_HOLD_SLOP = 12;
 const MENU_HINT_KEY = "duitful.menuHint";
+const HOLD_TALK_DONE_KEY = "duitful.holdTalkDone";
+const VOICE_NUDGE_KEY = "duitful.voiceNudgeShown";
 const SOUND_OFF_KEY = "duitful.soundOff";
 const HAPTICS_OFF_KEY = "duitful.hapticsOff";
 const BUBBLE_PLUS = '<svg class="bubble-plus" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>';
@@ -273,17 +275,25 @@ function kiraTier() {
 }
 
 /* What's left this month, only when the vault holds a real figure from the
-   server (AI+ status). Unknown means no meter at all, never a guess. */
+   server (op=status / AI+ status). Unknown or stale means no meter at all,
+   never a guess. Supports both the current state.aiSub fields and the
+   kira-tiers.md { tier, text: { used, limit }, scan: { used, limit }, resetsAt } shape. */
 function kiraQuota() {
-  if (kiraTier() !== "aiplus") return null;
-  const s = state.aiSub || {};
-  const limit = Number(s.textLimit) || 0;
+  const tier = kiraTier();
+  if (tier === "free") return null;
+  const s = state.aiSub;
+  if (!s || typeof s !== "object") return null;
+  // For pro_taste / trial, accept server quota only if the server explicitly tagged this tier.
+  if (tier !== "aiplus" && s.tier !== tier) return null;
+  const limit = Number(s.text && typeof s.text.limit === "number" ? s.text.limit : s.textLimit) || 0;
+  if (!limit) return null;
   const now = new Date();
   const curPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-  if (!s.periodKey || s.periodKey !== curPeriod || !limit) return null;
-  const used = Math.max(0, Number(s.textUsed) || 0);
-  const scansLimit = Number(s.scansLimit) || 0;
-  const scansUsed = Math.max(0, Number(s.scansUsed) || 0);
+  if (s.periodKey && s.periodKey !== curPeriod) return null;
+  if (!s.periodKey && !s.resetsAt) return null;
+  const used = Math.max(0, Number(s.text && typeof s.text.used === "number" ? s.text.used : s.textUsed) || 0);
+  const scansLimit = Number(s.scan && typeof s.scan.limit === "number" ? s.scan.limit : s.scansLimit) || 0;
+  const scansUsed = Math.max(0, Number(s.scan && typeof s.scan.used === "number" ? s.scan.used : s.scansUsed) || 0);
   const out = { left: Math.max(0, limit - used), limit };
   if (scansLimit > 0) {
     out.scansLeft = Math.max(0, scansLimit - scansUsed);
@@ -296,10 +306,11 @@ function kiraQuota() {
 function bubbleEl(id) { return document.getElementById(id); }
 
 function aiThinkingNow() {
-  // aiThinkTokens / aiBatch live in script.js (withAiThinking).
+  // On-device AI only: cloud AI+ tokens carry cloud:true and never show the sempoa.
   try {
-    return (typeof aiThinkTokens !== "undefined" && aiThinkTokens.size > 0)
-      || (typeof aiBatch !== "undefined" && !!aiBatch);
+    const localToken = typeof aiThinkTokens !== "undefined"
+      && [...aiThinkTokens.values()].some((t) => !t || !t.cloud);
+    return localToken || (typeof aiBatch !== "undefined" && !!aiBatch);
   } catch { return false; }
 }
 
@@ -467,6 +478,7 @@ function syncKiraHub() {
 
   const meter = bubbleEl("kira-hub-meter");
   const meterText = bubbleEl("kira-hub-meter-text");
+  const meterBar = bubbleEl("kira-hub-meter-bar");
   const meterSub = bubbleEl("kira-hub-meter-sub");
   const q = isPaid ? kiraQuota() : null;
   if (meter) {
@@ -474,11 +486,22 @@ function syncKiraHub() {
     if (q && meterText) {
       meterText.textContent = tr("Kira this month: {n} of {m} left", { n: q.left, m: q.limit });
     }
+    if (q && meterBar) {
+      const pct = Math.max(0, Math.min(100, Math.round((q.left / Math.max(1, q.limit)) * 100)));
+      meterBar.style.width = `${pct}%`;
+    }
     if (meterSub) {
+      const parts = [];
+      if (q && q.scansLimit > 0) {
+        parts.push(tr("{n} of {m} scans left", { n: q.scansLeft, m: q.scansLimit }));
+      }
       if (q && q.resetsAt) {
         const dt = new Date(q.resetsAt);
         const dateStr = Number.isNaN(dt.getTime()) ? String(q.resetsAt) : dt.toLocaleDateString(typeof dateLocale === "function" ? dateLocale() : undefined, { day: "numeric", month: "short" });
-        meterSub.textContent = tr("Resets {date}", { date: dateStr });
+        parts.push(tr("Resets {date}", { date: dateStr }));
+      }
+      if (parts.length) {
+        meterSub.textContent = parts.join(" · ");
         meterSub.hidden = false;
       } else {
         meterSub.hidden = true;
@@ -491,8 +514,13 @@ function syncKiraHub() {
   if (upsell) {
     upsell.hidden = isPaid;
     if (!isPaid && priceEl) {
-      const price = typeof aiPriceLabel === "function" ? aiPriceLabel("monthly") : "";
-      priceEl.textContent = price ? tr("From {price}", { price }) : "";
+      const aiPrice = typeof aiPriceLabel === "function" ? aiPriceLabel("monthly") : "";
+      const proPrice = typeof proPriceLabel === "function" ? proPriceLabel() : "";
+      if (proPrice && aiPrice) {
+        priceEl.textContent = tr("Pro {pro} (monthly taste) · AI+ from {ai}", { pro: proPrice, ai: aiPrice });
+      } else {
+        priceEl.textContent = aiPrice ? tr("From {price}", { price: aiPrice }) : "";
+      }
     }
   }
 
@@ -530,6 +558,11 @@ function initKiraHub() {
     const voiceBtn = e.target instanceof Element ? e.target.closest("#btn-voice") : null;
     if (voiceBtn) closeKiraHub();
   }, { capture: true });
+
+  bubbleEl("kira-hub-info-btn")?.addEventListener("click", () => {
+    closeKiraHub();
+    if (typeof openAiInfo === "function") openAiInfo("card");
+  });
 
   bubbleEl("kira-hub-get-ai")?.addEventListener("click", () => {
     closeKiraHub();
@@ -754,8 +787,9 @@ function initBubble() {
       spawnPopDroplets(btn);
       playPop();
       kiraHaptic(38, "HEAVY", 1.0);
+      markHoldTalkDone();
       radialClose();
-      if (typeof openVoiceEntry === "function") openVoiceEntry("", { listen: true });
+      if (typeof openVoiceEntry === "function") openVoiceEntry("", { listen: true, fromBubble: true });
       setTimeout(() => btn.classList.remove("is-popped"), 340);
     }, BUBBLE_HOLD_MS);
     bubbleHold = h;
@@ -823,6 +857,7 @@ function initBubble() {
   dlg.addEventListener("close", () => {
     dlg.classList.remove("is-in");
     btn.setAttribute("aria-expanded", "false");
+    syncBubbleHoldHint();
   });
 
   dlg.addEventListener("keydown", (e) => {
@@ -834,7 +869,10 @@ function initBubble() {
     else if (e.key === "Home") { e.preventDefault(); radialFocus(0); }
     else if (e.key === "End") { e.preventDefault(); radialFocus(items.length - 1); }
   });
-  window.addEventListener("resize", () => { if (dlg.open) radialLayout(); });
+  window.addEventListener("resize", () => {
+    if (dlg.open) radialLayout();
+    syncBubbleHoldHint();
+  });
 
   const add = bubbleEl("add-dialog");
   bubbleEl("add-dialog-close")?.addEventListener("click", closeAddEntry);
@@ -844,6 +882,141 @@ function initBubble() {
   add?.querySelector('[data-outflow-tab="split"]')?.addEventListener("click", openSplitFromOutflow);
 
   kiraBubbleSync();
+}
+
+/* ---------- 2.0 Stage B: Hold-to-talk discoverability & tactile save landing ---------- */
+
+let voiceNudgeTimer = 0;
+let saveJumpTimer = 0;
+
+function isHoldTalkDone() {
+  try { return localStorage.getItem(HOLD_TALK_DONE_KEY) === "1"; } catch { return true; }
+}
+
+function markHoldTalkDone() {
+  try { localStorage.setItem(HOLD_TALK_DONE_KEY, "1"); } catch {}
+  const pill = bubbleEl("bubble-hold-hint");
+  if (pill) pill.hidden = true;
+  const nudge = bubbleEl("voice-nudge-chip");
+  if (nudge) nudge.hidden = true;
+}
+
+function syncBubbleHoldHint() {
+  const pill = bubbleEl("bubble-hold-hint");
+  const btn = bubbleEl("kira-bubble");
+  if (!pill || !btn) return;
+  const lock = bubbleEl("lock");
+  const blocked = isHoldTalkDone()
+    || typeof state === "undefined" || !state
+    || (lock && !lock.hidden)
+    || !!document.querySelector("dialog[open]")
+    || !btn.getClientRects().length;
+  if (blocked) {
+    pill.hidden = true;
+    return;
+  }
+  const kira = kiraTier() !== "free";
+  pill.textContent = kira ? tr("Hold to talk to Kira") : tr("Hold to talk");
+  const r = btn.getBoundingClientRect();
+  const side = radialSide();
+  if (side) {
+    pill.style.left = `${Math.round(r.right + 10)}px`;
+    pill.style.top = `${Math.round(r.top + r.height / 2)}px`;
+    pill.dataset.pos = "side";
+  } else {
+    pill.style.left = `${Math.round(r.left + r.width / 2)}px`;
+    pill.style.top = `${Math.round(r.top - 10)}px`;
+    pill.dataset.pos = "above";
+  }
+  pill.hidden = false;
+}
+
+function maybeShowVoiceNudge() {
+  if (isHoldTalkDone()) return;
+  try {
+    if (localStorage.getItem(VOICE_NUDGE_KEY) === "1") return;
+    localStorage.setItem(VOICE_NUDGE_KEY, "1");
+  } catch { return; }
+  const chip = bubbleEl("voice-nudge-chip");
+  const textEl = bubbleEl("voice-nudge-text");
+  if (!chip || !textEl) return;
+  const kira = kiraTier() !== "free";
+  textEl.textContent = kira
+    ? tr("Faster next time — hold Kira and say it.")
+    : tr("Faster next time — hold + and say it.");
+  chip.hidden = false;
+  clearTimeout(voiceNudgeTimer);
+  voiceNudgeTimer = setTimeout(() => { chip.hidden = true; }, 6500);
+}
+
+function pulseSaveElement(el, cls, ms) {
+  if (!el || bubbleReducedMotion()) return;
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), ms);
+}
+
+// Highlight where a saved entry landed (row pulse + balance/total tick when on
+// the destination tab, or a 1-tap jump chip when saved from another tab).
+function kiraHighlightLanding(opts) {
+  const o = opts || {};
+  const destTab = o.tab || "dashboard";
+  const activePanel = document.querySelector(".tab-panel.active");
+  const activeTab = activePanel ? activePanel.id.replace(/^tab-/, "") : "dashboard";
+
+  const pulseOnActive = (tab) => {
+    if (tab === "dashboard") {
+      const firstRow = document.querySelector("#today-list .today-row");
+      pulseSaveElement(firstRow, "is-just-saved", 1200);
+      pulseSaveElement(bubbleEl("today-total"), "is-value-tick", 900);
+      pulseSaveElement(bubbleEl("dash-balance"), "is-value-tick", 900);
+    } else if (tab === "flow") {
+      const listId = o.kind === "income" ? "#list-income li" : "#list-expense li";
+      const rows = document.querySelectorAll(listId);
+      pulseSaveElement(rows[rows.length - 1], "is-just-saved", 1200);
+    } else if (tab === "debts") {
+      pulseSaveElement(bubbleEl("debt-total"), "is-value-tick", 900);
+      pulseSaveElement(document.querySelector("#list-debts .debt-card, #list-debts li"), "is-just-saved", 1200);
+    } else if (tab === "savings") {
+      pulseSaveElement(document.querySelector("#list-savings li, #list-savings .saving-card"), "is-just-saved", 1200);
+    }
+  };
+
+  if (activeTab === destTab) {
+    pulseOnActive(destTab);
+    return;
+  }
+
+  const chip = bubbleEl("save-jump-chip");
+  if (!chip || !o.label) return;
+  chip.textContent = o.label;
+  chip.dataset.jumpTab = destTab;
+  chip.hidden = false;
+  clearTimeout(saveJumpTimer);
+  saveJumpTimer = setTimeout(() => { chip.hidden = true; }, 4800);
+}
+
+function initStageBCues() {
+  bubbleEl("bubble-hold-hint")?.addEventListener("click", () => {
+    markHoldTalkDone();
+    if (typeof openVoiceEntry === "function") openVoiceEntry("", { listen: true, fromBubble: true });
+  });
+  bubbleEl("voice-nudge-close")?.addEventListener("click", () => {
+    const chip = bubbleEl("voice-nudge-chip");
+    if (chip) chip.hidden = true;
+    clearTimeout(voiceNudgeTimer);
+  });
+  bubbleEl("save-jump-chip")?.addEventListener("click", () => {
+    const chip = bubbleEl("save-jump-chip");
+    const tab = chip && chip.dataset.jumpTab;
+    if (chip) chip.hidden = true;
+    clearTimeout(saveJumpTimer);
+    if (tab && typeof switchTab === "function") {
+      switchTab(tab);
+      setTimeout(() => kiraHighlightLanding({ tab }), 120);
+    }
+  });
 }
 
 /* ---------- ☰ menu ---------- */
@@ -917,6 +1090,7 @@ function initMenuHint() {
 
 initBubblePrefs();
 initBubble();
+initStageBCues();
 initIncomeModal();
 initKiraHub();
 initMenu();
@@ -930,6 +1104,10 @@ window.kiraHapticsEnabled = kiraHapticsEnabled;
 window.kiraPlaySaveFeedback = kiraPlaySaveFeedback;
 window.kiraHaptic = kiraHaptic;
 window.kiraPlayBloop = playBloop;
+window.syncBubbleHoldHint = syncBubbleHoldHint;
+window.markHoldTalkDone = markHoldTalkDone;
+window.maybeShowVoiceNudge = maybeShowVoiceNudge;
+window.kiraHighlightLanding = kiraHighlightLanding;
 window.openAddEntry = openAddEntry;
 window.closeAddEntry = closeAddEntry;
 window.openIncomeModal = openIncomeModal;

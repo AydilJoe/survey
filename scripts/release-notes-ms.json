@@ -1,4 +1,8 @@
 {
+  "1.88.0": [
+    "<strong>Pentas suara gaya Siri dengan gelombang langsung</strong> — Tahan gelembung tengah untuk skrin mendengar kabur dengan gelombang yang bertindak balas pada suara anda, gelembung sembang yang pudar di bahagian atas untuk ayat panjang, dan Kira di tengah (atau orb mikrofon bersih pada versi Percuma). Hanya tahap bunyi dibaca pada peranti; tiada audio dirakam atau dihantar.",
+    "<strong>Pembantu Kira, sorotan simpanan dan ringkasan hari ke-12</strong> — Tanya Kira tentang belanja bulan ini, strategi hutang atau pelepasan cukai dengan cip tindakan 1 ketikan, lihat di mana catatan baru mendarat dengan sorotan dan cip lompat, serta semak ringkasan percubaan hari ke-12 anda."
+  ],
   "1.87.0": [
     "<strong>Penyelarasan penyata bank pintar</strong> — Penyata bank yang diimport kini memadankan bayaran hutang (mengurangkan baki hutang tanpa kira dua kali) dan bil berulang (menandakan Dibayar serta mengemas kini jumlah sebenar bulan ini sambil mengekalkan templat bulan depan), dengan pilihan 1 ketikan untuk catat sebagai belanja biasa."
   ],

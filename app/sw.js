@@ -15,26 +15,26 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-9f847019";
+const VERSION = "h-ecb529e3";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=aede070b",
-  "/app/script.js?v=aba6e09f",
+  "/app/styles.css?v=e91951ca",
+  "/app/script.js?v=6b8844cc",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
-  "/app/i18n-langs.js?v=345a911b",
+  "/app/i18n-langs.js?v=7417f5e3",
   "/app/i18n-boot.js?v=e8f35f1d",
-  "/app/i18n-ms.js?v=cd523dbe",
-  "/app/i18n-zh.js?v=a375d1fb",
+  "/app/i18n-ms.js?v=c32a0e2d",
+  "/app/i18n-zh.js?v=2a50594d",
   "/app/i18n.js?v=e94f1821",
   "/app/drive-config.js?v=9aaf242d",
   "/app/drive-sync.js?v=08041907",
   "/app/icloud-sync.js?v=90136797",
   "/app/investments.js?v=39cf34a0",
-  "/app/split.js?v=f0f98a5d",
+  "/app/split.js?v=ccd0cddb",
   "/app/split-recurring.js?v=05bbaca7",
   "/app/receipt-extract.js?v=20e13371",
   "/app/region.js?v=a54b250e",
@@ -50,20 +50,20 @@ const SHELL = [
   "/app/vendor/pdfjs/pdf.worker.min.js?v=38cde531",
   "/app/brands.js?v=73d9f7dc",
   "/app/search.js?v=1723d81e",
-  "/app/csv.js?v=05b56e90",
+  "/app/csv.js?v=f030fead",
   "/app/reports.js?v=6b3b772b",
   "/app/onboarding.js?v=dd4ac4be",
   "/app/kira-seasons.js?v=84d7b80b",
   "/app/kira.js?v=0a738a14",
   "/app/streak.js?v=ce95b7ab",
-  "/app/voice.js?v=60dae41a",
+  "/app/voice.js?v=bdb321e0",
   "/app/cloud.js?v=fcd02ad8",
   "/app/capture.js?v=3af549e5",
   "/app/ai-redact.js?v=e6257012",
-  "/app/ai-cloud.js?v=cb3a5ae0",
-  "/app/pro.js?v=6810a131",
+  "/app/ai-cloud.js?v=790422fa",
+  "/app/pro.js?v=c4ca182d",
   "/app/ocr.js?v=d135377e",
-  "/app/kira-bubble.js?v=6a0696fd",
+  "/app/kira-bubble.js?v=f59e7083",
   "/app/analytics.js?v=01a6bc4a",
   "/app/theme-boot.js?v=68fa9ffd",
   // Brand marks: tiny (0.3–3 KB each) and drawn on the Debts tab, so they are

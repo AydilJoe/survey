@@ -1002,6 +1002,7 @@ function splitRecordRepayment(personId, amount, dateISO) {
     person.status = "settled";
     person.settledDate = date;
   }
+  if (typeof kiraBumpStat === "function") kiraBumpStat("splitsMatched");
   save();
   return { record: rec, person, amount: paid, income: entry, recurring: !!recurring, settled: person.status === "settled" };
 }

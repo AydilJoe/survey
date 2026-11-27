@@ -303,10 +303,11 @@ Everything else is "No": there is no account, no analytics SDK in the native
 app, and iCloud / Drive backups go to the user's own account already
 encrypted, which Apple does not count as collection by the developer.
 
-**Talk to Kira (1.80.0) adds nothing to the label.** The mic uses Apple's
+**Talk to Kira (1.80.0 / 1.88.0) adds nothing to the label.** The mic uses Apple's
 Speech framework with `requiresOnDeviceRecognition = true` (a language that
-can't run on the iPhone reports unavailable and has no mic), so audio never
-leaves the phone and is never stored; only text reaches the Voice box.
+can't run on the iPhone reports unavailable and has no mic), and computes only a
+numeric RMS volume level (`0..1`) on the device to animate the voice waves.
+Audio never leaves the phone and is never stored; only text reaches the Voice stage.
 `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription` are
 added by `scripts/patch-ios.mjs`.
 

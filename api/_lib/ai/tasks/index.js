@@ -10,6 +10,7 @@ const TASKS = Object.freeze({
   "split-match": require("./split-match"),
   "split-items": require("./split-items"),
   "payee-clean": require("./payee-clean"),
+  "kira-ask": require("./kira-ask"),
 });
 
 function getTask(name) {
