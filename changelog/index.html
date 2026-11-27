@@ -153,6 +153,16 @@
   <h1>What's new in <em>Duitful</em></h1>
   <p class="lede">Duitful ships as often as it needs to. Every change listed below lands via Vercel on <code>duitful.app</code> — installed PWAs auto-reload on the next open.</p>
 
+  <article class="release" id="v1-78-0">
+    <span class="release-date">November 2026 &middot; v1.78.0</span>
+    <h2 class="release-title">Safer Duitful AI+ subscription checks</h2>
+    <ul>
+      <li><span class="tag fix">fix</span><strong>Store-signed proof only:</strong> an App Store subscription now turns AI+ on only after Apple&rsquo;s signature checks out, back to Apple&rsquo;s own root certificate; a Google Play subscription is confirmed with Google every time.</li>
+      <li><span class="tag fix">fix</span><strong>Renewals, refunds and cancellations stay in step:</strong> Duitful now reads the stores&rsquo; own signed notices, so a renewal extends AI+, a refund ends it, and a cancelled plan keeps working until the end of the period you paid for.</li>
+      <li><span class="tag fix">fix</span><strong>One check after updating:</strong> subscriptions saved before this release are checked with the store again. If AI+ shows as off, tap Restore purchase once; devices you paired on the web pair again.</li>
+    </ul>
+  </article>
+
   <article class="release" id="v1-76-1">
     <span class="release-date">November 2026 &middot; v1.76.1</span>
     <h2 class="release-title">Maybank &amp; Maybank Islamic account statement import</h2>

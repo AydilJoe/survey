@@ -12,12 +12,23 @@ const QUOTA_LIMITS = Object.freeze({
   text: 1000,
 });
 
+// App Store Sandbox (App Review, TestFlight) is a separate, smaller class: a
+// TestFlight "purchase" is free and can be bought again whenever it lapses,
+// so it gets a short hard expiry and a small quota (real Gemini cost).
+const SANDBOX_QUOTA_LIMITS = Object.freeze({
+  scan: 10,
+  text: 50,
+});
+const SANDBOX_MAX_MS = 24 * 60 * 60 * 1000;
+
 const MAX_DEVICES = 3;
 const PAIR_TTL_S = 600; // 10 minutes, single-use
 
 module.exports = {
   MODELS,
   QUOTA_LIMITS,
+  SANDBOX_QUOTA_LIMITS,
+  SANDBOX_MAX_MS,
   MAX_DEVICES,
   PAIR_TTL_S,
 };

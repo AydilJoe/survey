@@ -4,17 +4,21 @@
 // - Validates input schema and size limits (400 without consuming quota).
 // - Enforces monthly scan / text quota buckets.
 // - Calls Paid-Tier Gemini in JSON-only structured-output mode.
-// - Validates output with task.check(input, output); increments counter ONLY on
-//   a valid non-null result.
+// - Validates output with task.check(input, output); a unit of quota is kept
+//   ONLY for a valid non-null result.
 // - Logs ZERO request bodies, images, or AI outputs.
+// - Never writes ai_sub / ai_evt (the store's truth belongs to verify-sub and
+//   the webhook): the meters are their own keys, taken with INCR before the
+//   Gemini call and given back with DECR when it fails. A refund that lands
+//   while a call is in flight therefore can't be undone by this handler.
 
-const { QUOTA_LIMITS } = require("./models");
-const { store, keys, normalizeSubPeriod, SUB_TTL_S } = require("./kv");
+const { store } = require("./kv");
 const { extractToken, verifyDeviceToken, clientIpHash, rateLimit, send, readBody } = require("./auth");
 const { callGemini } = require("./gemini");
 const { getTask } = require("./tasks");
 const { validateInput } = require("./tasks/helpers");
-const { formatStatus } = require("./status");
+const { formatStatus, reverifyBody } = require("./status");
+const { loadEntitlement, isActive, quotaFor, reserveUse, releaseUse } = require("./entitlement");
 
 async function handleRun(req, res) {
   if (req.method !== "POST") return send(res, 405, { error: "method" });
@@ -38,22 +42,24 @@ async function handleRun(req, res) {
   if (inputErr) return send(res, 400, { error: inputErr });
 
   const now = Date.now();
-  const rawSub = await kv.get(keys.sub(claims.subId));
-  if (!rawSub) return send(res, 401, { error: "unauthorized" });
+  const ent = await loadEntitlement(kv, claims.subId, now);
+  if (ent.legacy) return send(res, 403, reverifyBody(ent, now));
+  if (!ent.sub) return send(res, 401, { error: "unauthorized" });
 
-  const sub = normalizeSubPeriod(rawSub, now);
-  if (!sub.active || Number(sub.expiresAt) <= now) {
-    return send(res, 403, { error: "inactive-subscription", status: formatStatus(sub, now) });
+  if (!isActive(ent.sub, now)) {
+    return send(res, 403, { error: "inactive-subscription", status: formatStatus(ent, now) });
   }
-  if (!Array.isArray(sub.devices) || !sub.devices.some((d) => d.slotId === claims.slotId)) {
+  if (!ent.devices.some((d) => d.slotId === claims.slotId)) {
     return send(res, 401, { error: "device-unlinked" });
   }
 
   const bucket = task.bucket === "scan" ? "scan" : "text";
-  const used = bucket === "scan" ? (sub.scansUsed || 0) : (sub.textUsed || 0);
-  const limit = QUOTA_LIMITS[bucket];
-  if (used >= limit) {
-    return send(res, 429, { error: "quota", bucket, status: formatStatus(sub, now) });
+  const usedKey = bucket === "scan" ? "scansUsed" : "textUsed";
+  const withUsed = (n) => ({ ...ent, usage: { ...ent.usage, [usedKey]: Math.max(0, n) } });
+  const limit = quotaFor(ent.sub)[bucket];
+  const taken = await reserveUse(kv, claims.subId, ent.periodKey, bucket, limit);
+  if (!taken.ok) {
+    return send(res, 429, { error: "quota", bucket, status: formatStatus(withUsed(taken.used), now) });
   }
 
   let rawOut = null;
@@ -68,28 +74,23 @@ async function handleRun(req, res) {
     });
   } catch (_) {
     // Timeout or upstream failure: return null result and consume NO quota.
-    return send(res, 200, { ok: false, result: null, reason: "upstream", status: formatStatus(sub, now) });
+    await releaseUse(kv, claims.subId, ent.periodKey, bucket);
+    return send(res, 200, { ok: false, result: null, reason: "upstream", status: formatStatus(withUsed(taken.used - 1), now) });
   }
 
-  const checked = task.check(body.input, rawOut);
+  let checked = null;
+  try { checked = task.check(body.input, rawOut); } catch (_) { checked = null; }
   if (!checked) {
     // Failed schema/guard check: consume NO quota.
-    return send(res, 200, { ok: false, result: null, reason: "check", status: formatStatus(sub, now) });
+    await releaseUse(kv, claims.subId, ent.periodKey, bucket);
+    return send(res, 200, { ok: false, result: null, reason: "check", status: formatStatus(withUsed(taken.used - 1), now) });
   }
-
-  const updated = {
-    ...sub,
-    scansUsed: bucket === "scan" ? (sub.scansUsed || 0) + 1 : (sub.scansUsed || 0),
-    textUsed: bucket === "text" ? (sub.textUsed || 0) + 1 : (sub.textUsed || 0),
-    updatedAt: now,
-  };
-  await kv.set(keys.sub(claims.subId), updated, { ex: SUB_TTL_S });
 
   return send(res, 200, {
     ok: true,
     task: task.name,
     result: checked,
-    status: formatStatus(updated, now),
+    status: formatStatus(withUsed(taken.used), now),
   });
 }
 
