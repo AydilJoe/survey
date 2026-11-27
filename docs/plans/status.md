@@ -39,11 +39,13 @@ Shared files (`app/script.js`, `app/styles.css`, `app/index.html`, `scripts/i18n
 | PR #478 — v1.82.0: sheets clear the clock, voice hears Malaysian words, lighter split request | Claude | CI running, beta only |
 | 2.0 stage A | Claude | being built and tested |
 | Pro taste (20 actions + 3 scans a month) and attested trial quota on the AI+ server | Antigravity | spec in `kira-tiers.md` |
+| Statement ↔ Recurring & Debt reconciliation (`app/statement.js`) — **in 2.0** | Antigravity | auto-links matched rows to `state.debts` (records payment) and `state.expenses` (marks bill paid; variable bills update this month's actual only, template untouched) with 1-tap override to New Spend or Skip; building now in parallel with Stage A |
+| Kira real-assistant tools (`kira-ask`: tax relief advisor, debt strategist, spending Q&A + full app actions) — **in 2.0 (Stage B)** | Antigravity | local redacted summaries + structured intent router on `/api/ai`; no raw PII leaves phone |
 | Boost Bank alert wording (user email, 26 Nov) | Claude | asked the user for a screenshot; add the pattern when it arrives |
 | Real-device test of "Talk to Kira" and the StoreKit 2 sandbox | Owner | |
 
 ## Calendar (target)
 
-- Now – ~5 Dec: stage A and 1.82.0 to beta; AI+ tier server work in parallel.
-- ~5 – 12 Dec: stage B.
+- Now – ~5 Dec: stage A and beta fixes; AI+ tier server & statement reconciliation in parallel.
+- ~5 – 12 Dec: stage B (Siri-style voice, Kira meter, Kira assistant tools).
 - ~12 – 25 Dec: beta testing and fixes only. No new features.

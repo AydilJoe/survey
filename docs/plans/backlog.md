@@ -37,7 +37,18 @@ nothing saved without the user's tap.
      *"MUHAMMAD ALI BIN ABU"* → *"Ali"*, tidy messy split-by-item receipt lines
      like *"2X TEH O AIS"*, and clean bank payee names like `PYMT*GRAB 8812 KL`
      → `Grab`)
-- **AI+ v2 improvements (backlog — all reuse `/api/ai`, same redaction & confirm-before-save rules):**
+- **Duitful 2.0 in-scope (building now / Stage B):**
+  1. **Statement ↔ Recurring & Debt reconciliation:** match bank statement rows
+     to `state.debts` (records real debt payment & lowers balance) and
+     `state.expenses` (marks recurring bill paid & updates variable amounts)
+     instead of double-counting as daily spend, with optional AI+ matching for
+     cryptic bank references.
+  2. **Kira real-assistant tools (`kira-ask`):** client-side redacted summaries
+     + structured intent router on `/api/ai` so Kira can answer real personal
+     questions (LHDN tax relief gaps & how to maximize claims, debt payoff
+     strategy, spending Q&A) and run any app action (log spend/income/split/pay
+     debt, open scanner or docs) without raw PII leaving the phone.
+- **AI+ post-2.0 improvements (backlog — all reuse `/api/ai`, same redaction & confirm-before-save rules):**
   1. **Bank & e-wallet screenshot reader:** paste or share a MAE, DuitNow,
      TnG eWallet, GrabPay, or SPayLater transfer screenshot to extract amount,
      payee, date, and wallet.
