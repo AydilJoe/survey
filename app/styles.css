@@ -7845,6 +7845,14 @@ html::before {
 .split-share-more { margin: 0.75rem 0 0.25rem; border-top: 1px solid var(--line); padding-top: 0.5rem; }
 .split-share-more > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; font-size: 0.92rem; }
 .split-share-more[open] > summary { margin-bottom: 0.4rem; }
+/* 1.82.0 — "Show QR" / "Copy link" under the send button, the QR only once
+   asked for, and the saved name as one quiet line. */
+.split-dialog .split-share-quick { justify-content: center; gap: 0.5rem; margin-top: 0.4rem; }
+.split-share-quick .ghost { min-height: 40px; padding-inline: 0.9rem; font-size: 0.88rem; }
+.split-share-qr[hidden] { display: none; }
+.split-share-as { margin: 0 0 0.35rem; }
+.split-share-as .hint-link { display: inline; padding: 0; margin: 0; min-height: 0; }
+.split-share-more .split-preview { margin: 0.5rem 0; }
 .split-me-once { margin: 0 0 0.75rem; padding: 0.6rem 0.75rem 0.2rem; border-radius: var(--r-md); background: var(--glass-bg-soft); }
 .split-me-once .hint { margin: 0 0 0.4rem; }
 .scan-cat-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.6rem 0 0.2rem; }
@@ -8509,6 +8517,25 @@ button:disabled, button[aria-disabled="true"] { transition-property: background-
 body.private #ea-dialog .ea-in:not(:focus),
 body.private #ea-dialog .ea-fixed { filter: blur(7px); user-select: none; transition: filter 0.2s ease; }
 
+/* ---------- Safe area for every sheet (1.82.0) ----------
+   With viewport-fit=cover the WebView runs under the iPhone's status bar, and
+   a tall sheet (Voice, a split request) was centred into it: title and Kira
+   under the clock. --sat / --sab are the insets (e2e overrides them to
+   emulate a notch); every modal sheet keeps 8px clear of both and scrolls
+   inside when it is taller. The receipt scan sheet (full screen on a phone)
+   and search pad their own insets. */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+}
+:where(dialog.edit-dialog:modal:not(.scan-dialog)) {
+  top: calc(var(--sat) + 8px);
+  bottom: calc(var(--sab) + 8px);
+  max-height: calc(100dvh - var(--sat) - var(--sab) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* ---------- On-screen keyboard ----------
    While a field has the keyboard up (html.kb-open, set by trackKeyboard in
    script.js from visualViewport), an open dialog sits at the top of what is
@@ -8517,31 +8544,34 @@ body.private #ea-dialog .ea-fixed { filter: blur(7px); user-select: none; transi
    Works whether or not the WebView itself shrinks (Android edge-to-edge
    shrinks it by a margin; iOS and browsers only shrink the visual viewport). */
 html.kb-open dialog:modal {
-  top: var(--kb-top, 0px);
+  top: calc(var(--kb-top, 0px) + var(--sat));
   bottom: auto;
   margin-top: 0.5rem;
   margin-bottom: 0;
-  max-height: calc(var(--kb-vh, 100dvh) - 1rem);
+  max-height: calc(var(--kb-vh, 100dvh) - var(--sat) - 1rem);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-html.kb-open .search-dialog:modal { margin-top: 0; height: var(--kb-vh, 100%); max-height: var(--kb-vh, 100%); }
+html.kb-open .search-dialog:modal { top: var(--kb-top, 0px); margin-top: 0; height: var(--kb-vh, 100%); max-height: var(--kb-vh, 100%); }
+/* The scan sheet and search pad the status bar themselves. */
+html.kb-open .scan-dialog:modal { top: var(--kb-top, 0px); max-height: calc(var(--kb-vh, 100dvh) - 1rem); }
 /* A step padded to a steady height while browsing doesn't need it while typing. */
 html.kb-open .tax-wiz-step { min-height: 0; }
 html.kb-open dialog:modal[open] { animation: none; }
 /* Once the keyboard has lifted a dialog, it stays at the top until it closes,
    so the buttons don't move while a tap on them is landing. */
 html:not(.kb-open) dialog:modal[data-kb-pinned] {
-  top: 0;
+  top: var(--sat);
   bottom: auto;
   margin-top: 0.5rem;
   margin-bottom: 0;
-  max-height: calc(100dvh - 1rem);
+  max-height: calc(100dvh - var(--sat) - var(--sab) - 1rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   animation: none;
 }
-html:not(.kb-open) .search-dialog:modal[data-kb-pinned] { margin-top: 0; max-height: 100dvh; }
+html:not(.kb-open) .search-dialog:modal[data-kb-pinned] { top: 0; margin-top: 0; max-height: 100dvh; }
+html:not(.kb-open) .scan-dialog:modal[data-kb-pinned] { top: 0; max-height: calc(100dvh - 1rem); }
 /* The bottom bar would ride up on the keyboard and cover the field's neighbours. */
 @media (max-width: 439px) {
   html.kb-open .tabs { display: none; }

@@ -21,7 +21,7 @@ window.I18N_LANGS = [
       "ms",
       "id"
     ],
-    "pack": "i18n-ms.js?v=4d72cbc9"
+    "pack": "i18n-ms.js?v=15cb24d2"
   },
   {
     "code": "zh",
@@ -32,6 +32,6 @@ window.I18N_LANGS = [
     "phonePrefixes": [
       "zh"
     ],
-    "pack": "i18n-zh.js?v=790f3ee9"
+    "pack": "i18n-zh.js?v=ffe4ec5c"
   }
 ];

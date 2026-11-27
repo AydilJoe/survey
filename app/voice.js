@@ -253,6 +253,67 @@
     return null;
   }
 
+  /* ---------- What the recogniser mishears (1.82.0) ----------
+     Speech engines trained on English hear Malaysian spend words as English
+     ones ("nasi" → "Nazi"). VOICE_CORRECTIONS fixes the few we have seen,
+     whole words only, case-insensitive, and only on recognised speech
+     (voiceFill), never on typed text. Keep it small: each row is a sound-alike
+     that is never what someone logging a spend means. Risky ones ("my" →
+     "MAE") are left out on purpose. */
+  const VOICE_CORRECTIONS = [
+    [/\bnasty\s+lemak\b/gi, "nasi lemak"],
+    [/\bnasi\s+lemma\b/gi, "nasi lemak"],
+    [/\bnazi\b/gi, "nasi"],
+    [/\broti\s+(?:channel|chennai)\b/gi, "roti canai"],
+    [/\bteh\s+tarek\b/gi, "teh tarik"],
+    [/\bgrab\s+car\b/gi, "Grab"],
+    [/\btouch\s+(?:and|n|'n)\s+go\b/gi, "Touch 'n Go"],
+    [/\bduit\s+now\b/gi, "DuitNow"],
+    [/\bmay\s+bank\b/gi, "Maybank"],
+  ];
+
+  function voiceCorrectHeard(text) {
+    let out = String(text || "");
+    for (const [re, to] of VOICE_CORRECTIONS) out = out.replace(re, to);
+    return out;
+  }
+
+  // Words the phone's recogniser should expect (speechStart's hints): the
+  // usual Malaysian spend words, plus the person's own categories, wallets
+  // and the first names on open split requests (first names only).
+  const VOICE_HINT_WORDS = [
+    "nasi lemak", "nasi", "roti canai", "teh tarik", "kopi", "mamak", "makan",
+    "Grab", "Touch 'n Go", "TNG", "MAE", "DuitNow", "Shopee", "Lazada", "Mydin",
+    "Petronas", "Shell", "Tealive", "Zus", "KFC", "McD", "ringgit", "sen",
+    "split", "bahagi", "minyak", "parking", "tol",
+  ];
+
+  function voiceSpeechHints() {
+    const out = [];
+    const seen = new Set();
+    const add = (w) => {
+      const t = String(w || "").trim();
+      if (!t || t.length > 40 || seen.has(t.toLowerCase())) return;
+      seen.add(t.toLowerCase());
+      out.push(t);
+    };
+    VOICE_HINT_WORDS.forEach(add);
+    try { if (typeof scanAllCategories === "function") scanAllCategories().forEach(add); } catch {}
+    try {
+      if (typeof state === "object" && state) {
+        for (const w of (state.wallets || [])) if (w && !w.archived) add(w.name);
+        const recs = state.split && Array.isArray(state.split.out) ? state.split.out : [];
+        for (const r of recs) {
+          for (const p of (r && r.people || [])) {
+            if (!p || !p.name || p.status === "paid") continue;
+            add(String(p.name).trim().split(/\s+/)[0]);
+          }
+        }
+      }
+    } catch {}
+    return out.slice(0, 100);
+  }
+
   function voiceInferCategory(text) {
     const s = String(text || "");
     for (const [cat, re] of VOICE_CAT_KEYWORDS) {
@@ -320,6 +381,8 @@
       .replace(/^\s*(?:please\s+)?(?:log|add|record|track|spent|spend|paid|pay|beli|belanja|rekod|tambah|记一笔|花了|买了)\b\s*/i, "")
       .replace(/^\s*(?:my|for|on|at|untuk|di|saya)\b\s*/i, "")
       .replace(/\b(?:spending|expense|expenses|in\s+duitful|dalam\s+duitful|and|dan)\s*$/i, "")
+      // Currency words are never the note ("RM 40 ringgit nasi" → "Nasi").
+      .replace(/(?:^|\s)(?:ringgit|rm|myr|sen)(?=\s|[,.]|$)/gi, " ")
       .replace(/\s{2,}/g, " ")
       .replace(/^[\s,.:;-]+|[\s,.:;-]+$/g, "")
       .trim();
@@ -561,10 +624,11 @@
     voiceSetListening(false);
   }
 
+  // Recognised speech only (typing never goes through here).
   function voiceFill(text) {
     const input = document.getElementById("voice-input");
     if (!input) return;
-    input.value = text;
+    input.value = voiceCorrectHeard(text);
     renderVoicePreview(parseVoiceSentence(text));
   }
 
@@ -596,7 +660,7 @@
     let text = "";
     let denied = false;
     try {
-      const res = await kit.speechStart({ lang: voiceLangTag() });
+      const res = await kit.speechStart({ lang: voiceLangTag(), hints: voiceSpeechHints() });
       text = String((res && res.text) || "").trim();
     } catch (e) {
       denied = /DENIED|PERMISSION|NOT[-_ ]?ALLOWED/i.test(String((e && (e.code || e.message)) || ""));
@@ -910,6 +974,8 @@
   }
 
   window.parseVoiceSentence = parseVoiceSentence;
+  window.voiceCorrectHeard = voiceCorrectHeard;
+  window.voiceSpeechHints = voiceSpeechHints;
   window.parseVoiceSmart = parseVoiceSmart;
   window.openVoiceEntry = openVoiceEntry;
   window.voiceSaveConfirmed = voiceSaveConfirmed;

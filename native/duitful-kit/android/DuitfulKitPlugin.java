@@ -502,7 +502,7 @@ public class DuitfulKitPlugin extends Plugin {
             return;
         }
         if (speech == null) speech = new DuitfulKitSpeech(getContext());
-        speech.start(call.getString("lang", "en-MY"), new DuitfulKitSpeech.Callback() {
+        speech.start(call.getString("lang", "en-MY"), speechHints(call), new DuitfulKitSpeech.Callback() {
             @Override
             public void partial(String text) {
                 notifyListeners("speechPartial", new JSObject().put("text", text));
@@ -518,6 +518,22 @@ public class DuitfulKitPlugin extends Plugin {
                 call.reject(message, code);
             }
         });
+    }
+
+    /** speechStart's optional hints: strings of 1-40 characters, no duplicates, at most 100. */
+    private static ArrayList<String> speechHints(PluginCall call) {
+        ArrayList<String> out = new ArrayList<>();
+        JSArray arr = call.getArray("hints");
+        if (arr == null) return out;
+        java.util.HashSet<String> seen = new java.util.HashSet<>();
+        for (int i = 0; i < arr.length() && out.size() < 100; i++) {
+            Object o = arr.opt(i);
+            if (!(o instanceof String)) continue;
+            String t = ((String) o).trim();
+            if (t.isEmpty() || t.length() > 40 || !seen.add(t.toLowerCase(java.util.Locale.ROOT))) continue;
+            out.add(t);
+        }
+        return out;
     }
 
     /** Let go of Kira / tap the mic: the pending speechStart resolves with what was heard. */

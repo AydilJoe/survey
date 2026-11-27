@@ -15,26 +15,26 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-3c940f7f";
+const VERSION = "h-e9d63104";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=df31c0cc",
-  "/app/script.js?v=ad399bd1",
+  "/app/styles.css?v=fdaf49d8",
+  "/app/script.js?v=ce661970",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
-  "/app/i18n-langs.js?v=60aa97d4",
+  "/app/i18n-langs.js?v=1dc4e608",
   "/app/i18n-boot.js?v=e8f35f1d",
-  "/app/i18n-ms.js?v=4d72cbc9",
-  "/app/i18n-zh.js?v=790f3ee9",
+  "/app/i18n-ms.js?v=15cb24d2",
+  "/app/i18n-zh.js?v=ffe4ec5c",
   "/app/i18n.js?v=e94f1821",
   "/app/drive-config.js?v=9aaf242d",
   "/app/drive-sync.js?v=08041907",
   "/app/icloud-sync.js?v=90136797",
   "/app/investments.js?v=39cf34a0",
-  "/app/split.js?v=91715414",
+  "/app/split.js?v=79e98d09",
   "/app/split-recurring.js?v=05bbaca7",
   "/app/receipt-extract.js?v=20e13371",
   "/app/region.js?v=a54b250e",
@@ -56,7 +56,7 @@ const SHELL = [
   "/app/kira-seasons.js?v=84d7b80b",
   "/app/kira.js?v=326b16a1",
   "/app/streak.js?v=ce95b7ab",
-  "/app/voice.js?v=276f5906",
+  "/app/voice.js?v=60dae41a",
   "/app/cloud.js?v=fcd02ad8",
   "/app/capture.js?v=3af549e5",
   "/app/ai-redact.js?v=e6257012",
