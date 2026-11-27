@@ -27,7 +27,7 @@
       "@capawesome/capacitor-app-update",
       "@capgo/capacitor-native-biometric",
       "@codetrix-studio/capacitor-google-auth",
-      "cordova-plugin-purchase"
+      "capacitor-plugin-cdv-purchase"
     ]
   },
   "ios": {
@@ -39,7 +39,7 @@
       "@capawesome/capacitor-app-update",
       "@capgo/capacitor-native-biometric",
       "@capgo/capacitor-social-login",
-      "cordova-plugin-purchase",
+      "capacitor-plugin-cdv-purchase",
       "duitful-capacitor-icloud",
       "duitful-capacitor-kit"
     ]

@@ -192,6 +192,7 @@ Apa baru dalam 1.46
   - **Encrypted in transit:** Yes (TLS / HTTPS).
   - **Shared with third parties for ads/tracking:** No.
   - **Optional / user-controlled:** Yes — off by default, previewed before first send of each kind, and can be switched off anytime in Settings.
+- **Purchase verification and the anonymous purchase id (1.80.0):** every Play purchase carries an `obfuscatedAccountId`, the UUID form of a random id the app makes and keeps in the encrypted vault (`state.purchaseId`; never derived from a name, email, device id or anything personal). For a Duitful AI+ subscription the app sends the Play purchase token and that id to `/api/ai?op=verify-sub`, which checks the token with Google and stores the plan, expiry, the id and up to three device slots. Declare **Financial info → Purchase history** and **Personal info → User IDs** as *collected*, *not shared*, purpose **App functionality**, *processed ephemerally: No* (kept with the subscription record), *required for AI+ only*, *encrypted in transit*.
 
 ## What this does NOT fix
 

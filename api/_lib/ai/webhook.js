@@ -14,7 +14,9 @@
 //     A refund of an earlier period (the subscription has renewed since)
 //     leaves the running period alone.
 //     No shared secret: Apple cannot send custom headers, and the signature
-//     is the proof.
+//     is the proof. REFUND / REVOKE / EXPIRED / GRACE_PERIOD_EXPIRED are
+//     checked against Apple's live state (App Store Server API, when
+//     configured) before they switch AI+ off.
 //
 // (b) Google Play RTDN via Pub/Sub push: { message: { data: base64 } }.
 //     The message's own state is never trusted: it only names a purchase
@@ -38,6 +40,7 @@ const { send, readBody } = require("./auth");
 const { verifyAppleJws, JwsError } = require("./apple-jws");
 const { verifyGoogleOidc, OidcError } = require("./google-oidc");
 const { VERIFIED, effectiveSub, isVerified, capSandboxExpiry } = require("./entitlement");
+const { liveSubscription } = require("./apple-api");
 const {
   verifyIosTransaction,
   verifyAndroidPlaySubscription,
@@ -59,6 +62,10 @@ const APPLE_TX_TRUTH = new Set([
   "REFUND_REVERSED",
   "PRICE_INCREASE",
 ]);
+
+// Notifications that switch AI+ off, re-checked with the App Store Server
+// API (apple-api.js) when it is configured.
+const LIVE_CHECK_TYPES = new Set(["REFUND", "REVOKE", "EXPIRED", "GRACE_PERIOD_EXPIRED"]);
 
 function safeEqual(a, b) {
   const x = Buffer.from(String(a), "utf8");
@@ -141,7 +148,7 @@ async function handleAppleNotification(kv, body, res) {
   const prevEvt = isVerified(rawEvt) ? rawEvt : null;
   const current = effectiveSub(isVerified(rawSub) ? rawSub : null, prevEvt);
 
-  const outcome = appleOutcome(type, subtype, v.tx, renewal, now, current);
+  let outcome = appleOutcome(type, subtype, v.tx, renewal, now, current);
   if (!outcome) return send(res, 200, { ok: true, ignored: "type" });
   if (outcome.skip) return send(res, 200, { ok: true, ignored: outcome.skip });
 
@@ -150,14 +157,35 @@ async function handleAppleNotification(kv, body, res) {
     return send(res, 200, { ok: true, ignored: "stale" });
   }
 
+  // A notification that switches AI+ off is checked against Apple's live
+  // state when the App Store Server API is configured: the person may have
+  // subscribed again since (a new transaction in the same subscription).
+  // Apple saying expired / revoked / refunded keeps it off; a refund or
+  // revoke of the very transaction Apple still calls current stays off too.
+  // Not configured, unreachable or a config error: the notification decides,
+  // as before.
+  let plan = v.plan;
+  let txId = v.txId;
+  if (!outcome.active && LIVE_CHECK_TYPES.has(type)) {
+    const live = await liveSubscription(v.tx.originalTransactionId, { sandbox: v.sandbox, now });
+    if (live.state === "ok" && live.active) {
+      const sameTx = !!(live.txId && live.txId === v.txId);
+      if (!(sameTx && (type === "REFUND" || type === "REVOKE"))) {
+        outcome = { active: true, expiresAt: live.expiresAt };
+        plan = live.plan || plan;
+        txId = live.txId || txId;
+      }
+    }
+  }
+
   const evt = capSandboxExpiry({
     subId: v.subId,
     platform: "ios",
-    plan: v.plan,
+    plan,
     active: !!outcome.active,
     expiresAt: Number(outcome.expiresAt) || 0,
     storeEventAt: signedDate || now,
-    txId: v.txId,
+    txId,
     sandbox: v.sandbox,
     type,
     verified: VERIFIED,

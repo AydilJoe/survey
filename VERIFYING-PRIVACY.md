@@ -203,3 +203,27 @@ What you should see:
   and writes only the numeric `scansUsed` / `textUsed` counter to `ai_sub:<subId>`
   after a valid checked result. Your encrypted vault (`ENC_KEY`) is never read
   or transmitted.
+
+## 6. "The purchase id is random and says nothing about you"
+
+Since 1.80.0 each store purchase carries an anonymous id, so the AI+ server can
+tell the vault that bought a subscription from another copy of the app.
+
+**Where:** `app/pro.js` (`newPurchaseId`, `purchaseIdEnsure`, `purchaseAccountToken`)
+and `api/_lib/ai/verify-sub.js` ("Purchase binding").
+
+```sh
+grep -n "function newPurchaseId\|function purchaseIdEnsure\|obfuscator\|applicationUsername" app/pro.js
+grep -n "normalizeAccountToken\|evictIndex\|bound" api/_lib/ai/verify-sub.js
+```
+
+What you should see:
+- the id is `crypto.randomUUID()` (or 16 random bytes), made only the first
+  time a store needs it, and stored as `state.purchaseId` inside the
+  encrypted vault; nothing about you goes into it.
+- the store gets its UUIDv3 form (`store.obfuscator = "uuid"`): Apple's
+  `appAccountToken`, Google's `obfuscatedAccountId`. The AI+ check sends the
+  same form as `accountToken`, beside the store's signed proof.
+- the server only ever compares it: a different id is never refused. It
+  decides which device slot makes room when all three are taken, nothing
+  else.

@@ -1730,6 +1730,7 @@
   "Pro restored. Welcome back!": "Pro dipulihkan. Selamat kembali!",
   "Already unlocked — nothing to restore.": "Sudah dibuka — tiada apa untuk dipulihkan.",
   "No previous purchase found for this account. If you bought Pro on a different Google account, sign that account into the Play Store first.": "Tiada pembelian terdahulu untuk akaun ini. Jika anda beli Pro dengan akaun Google lain, log masuk akaun itu di Play Store dahulu.",
+  "No previous purchase found for this Apple ID. If you bought Pro with a different Apple ID, sign in with it in Settings → your name → Media & Purchases, then try again.": "Tiada pembelian terdahulu untuk Apple ID ini. Jika anda beli Pro dengan Apple ID lain, log masuk dengannya di Settings → nama anda → Media & Purchases, kemudian cuba lagi.",
   "Restore failed:": "Pemulihan gagal:",
   "Welcome back.": "Selamat kembali.",
   "Your data is back.": "Data anda sudah kembali.",
@@ -1897,6 +1898,7 @@
   "Verification timed out. Tap Restore if you completed the payment.": "Pengesahan tamat masa. Ketik Pulihkan jika anda sudah selesai membayar.",
   "Could not start checkout": "Tidak dapat mulakan pembayaran",
   "Automatic backup to iCloud is a Pro feature. Back up now and Export CSV in Settings stay free.": "Sandaran automatik ke iCloud ialah ciri Pro. Sandarkan sekarang dan Eksport CSV dalam Tetapan kekal percuma.",
+  "Duitful AI+ is active.": "Duitful AI+ aktif.",
   "Welcome": "Selamat datang",
   "What comes in each month?": "Berapa yang masuk setiap bulan?",
   "Your salary. A rough figure is fine.": "Gaji anda. Anggaran kasar pun boleh.",
@@ -2777,4 +2779,6 @@
   "Greeting": "Ucapan",
   "Festive Kira": "Kira Perayaan",
   "Kira dresses up for Malaysian holidays.": "Kira berpakaian sempena perayaan di Malaysia.",
+  "Thank you! Terima kasih!": "Terima kasih banyak!",
+  "Duitful AI+ is ready to help.": "Duitful AI+ sedia membantu.",
 };

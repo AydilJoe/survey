@@ -2911,7 +2911,9 @@ button.ghost.icon-btn {
   box-shadow: 0 -10px 40px rgba(42, 36, 32, 0.12), 0 1px 3px rgba(42, 36, 32, 0.05);
 }
 .edit-dialog::backdrop {
-  background: rgba(42, 36, 32, 0.35);
+  background: rgba(24, 20, 17, 0.42);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  backdrop-filter: blur(8px) saturate(1.1);
 }
 .edit-dialog form {
   padding: 1rem;
@@ -6720,7 +6722,11 @@ body.private .pending-match-sub {
   flex-direction: column;
 }
 .search-dialog:not([open]) { display: none; }
-.search-dialog::backdrop { background: rgba(10, 8, 6, 0.45); }
+.search-dialog::backdrop {
+  background: rgba(10, 8, 6, 0.45);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  backdrop-filter: blur(8px) saturate(1.1);
+}
 @media (min-width: 720px) {
   .search-dialog {
     height: auto;
@@ -8539,6 +8545,42 @@ html:not(.kb-open) .search-dialog:modal[data-kb-pinned] { margin-top: 0; max-hei
 /* The bottom bar would ride up on the keyboard and cover the field's neighbours. */
 @media (max-width: 439px) {
   html.kb-open .tabs { display: none; }
+}
+
+/* ---------- Form focus mode (blur + dim behind active inline form) ----------
+   While filling an inline form card (html.form-focus, set by trackFormFocus in
+   script.js), everything behind the card softly dims and blurs so the user's
+   eyes stay on the form. pointer-events: none ensures tapping outside blurs
+   naturally and never eats a first tap on a tab or button. */
+#form-focus-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(20, 16, 13, 0.34);
+  -webkit-backdrop-filter: blur(6px) saturate(1.06);
+  backdrop-filter: blur(6px) saturate(1.06);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+html[data-theme="pastel"] #form-focus-scrim {
+  background: color-mix(in srgb, var(--text) 24%, transparent);
+}
+html[data-theme="dark"] #form-focus-scrim {
+  background: rgba(6, 5, 4, 0.52);
+}
+html.form-focus #form-focus-scrim {
+  opacity: 1;
+}
+html.form-focus .card.is-form-focused {
+  position: relative;
+  z-index: 100;
+  box-shadow: 0 18px 48px rgba(20, 16, 13, 0.22), 0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent);
+  transition: box-shadow 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  #form-focus-scrim,
+  html.form-focus .card.is-form-focused { transition: none; }
 }
 
 /* Scanned statements: figures read by OCR can be corrected in place. */
@@ -10596,3 +10638,95 @@ html[data-theme="pastel"] {
 .kira-greet-text { margin: 0; flex: 1; min-width: 0; font-weight: 600; font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
 .kira-greet-close { flex: none; align-self: flex-start; }
 .festive-field { margin-top: 0.75rem; }
+
+/* ---------- Kira purchase thank-you celebration ---------- */
+.kira-thanks-dialog {
+  max-width: 340px;
+  text-align: center;
+  overflow: visible;
+}
+.kira-thanks-body {
+  padding: 1.5rem 1.35rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+}
+.kira-thanks-bubble {
+  display: inline-block;
+  position: relative;
+  padding: 0.42rem 0.9rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--brand) 14%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--brand) 32%, transparent);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.kira-thanks-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%) rotate(45deg);
+  background: color-mix(in srgb, var(--brand) 14%, var(--card));
+  border-right: 1px solid color-mix(in srgb, var(--brand) 32%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--brand) 32%, transparent);
+}
+.kira-thanks-stage,
+.pro-kira-thanks {
+  position: relative;
+  width: 120px;
+  height: 112px;
+  margin: 0.25rem auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+.kira-thanks-stage svg.kira,
+.pro-kira-thanks svg.kira {
+  width: 84px;
+  height: auto;
+  overflow: visible;
+  transform-origin: 50% 82%;
+}
+.kira-thanks-title {
+  margin: 0.1rem 0 0;
+  font-size: 1.2rem;
+  line-height: 1.25;
+}
+.kira-thanks-sub {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.kira-thanks-btn {
+  width: 100%;
+  margin-top: 0.15rem;
+}
+
+@keyframes kira-dance-bow {
+  0%   { transform: translate(0, 0) rotate(0deg) scale(1); }
+  10%  { transform: translate(-18px, -10px) rotate(-11deg) scale(1.03, 0.98); }
+  20%  { transform: translate(0, -15px) rotate(4deg) scale(0.97, 1.05); }
+  30%  { transform: translate(18px, -10px) rotate(11deg) scale(1.03, 0.98); }
+  40%  { transform: translate(0, -12px) rotate(-5deg) scale(1.02); }
+  50%  { transform: translate(0, 0) rotate(0deg) scale(1); }
+  /* Grateful thank-you bow */
+  60%  { transform: translate(0, 9px) rotate(-15deg) scale(1.06, 0.85); }
+  74%  { transform: translate(0, 9px) rotate(-15deg) scale(1.06, 0.85); }
+  /* Happy pop back up */
+  86%  { transform: translate(0, -8px) rotate(4deg) scale(0.98, 1.05); }
+  94%  { transform: translate(0, 1px) rotate(-2deg) scale(1.02, 0.98); }
+  100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  svg.kira.kira-dance-bow {
+    animation: kira-dance-bow 3.1s cubic-bezier(0.34, 1.3, 0.64, 1) infinite;
+  }
+}

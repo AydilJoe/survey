@@ -1159,6 +1159,10 @@ async function importCsvFile(file, { ask = true, statusEl = null, onError = null
     // re-importing.
     next.pro = state.pro;
     next.license = state.license;
+    // The AI+ link and the anonymous purchase id belong to this device's
+    // store purchases, not to the file.
+    next.aiSub = state.aiSub;
+    next.purchaseId = state.purchaseId;
     next.deviceId = state.deviceId;
     next.ocrUsage = state.ocrUsage;
     next.statementUsage = state.statementUsage;

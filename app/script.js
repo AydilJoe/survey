@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.80.0";
+const APP_VERSION = "1.81.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -90,6 +90,12 @@ const emptyState = () => ({
   aiPlusDisclosureSeen: false,
   aiPlusPreviewedKinds: {},
   aiSub: null,
+  // Anonymous purchase id: a random UUID, never derived from personal data.
+  // The stores get its UUID form (Apple's appAccountToken, Play's
+  // obfuscatedAccountId) so the server can tell this vault's purchase from a
+  // claim by another vault. Made on first store use (pro.js); carried by
+  // cloud backup; kept by the importing device on CSV import.
+  purchaseId: "",
   guideSeen: false,
   deviceId: "",
   lastEditedAt: "",
@@ -371,6 +377,7 @@ function coerceState(parsed) {
         ? parsed.aiPlusPreviewedKinds
         : {},
       aiSub: parsed.aiSub && typeof parsed.aiSub === "object" && !Array.isArray(parsed.aiSub) ? parsed.aiSub : null,
+      purchaseId: typeof parsed.purchaseId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parsed.purchaseId) ? parsed.purchaseId.toLowerCase() : "",
       guideSeen: !!parsed.guideSeen,
       deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : "",
       lastEditedAt: typeof parsed.lastEditedAt === "string" ? parsed.lastEditedAt : "",
@@ -5091,6 +5098,87 @@ async function fireDueNotifications() {
   update();
 })();
 
+/* Form focus mode: while filling an inline form card (Add transaction, Goals,
+   Debts, Income, Budget Pools, etc.), elevate that card above a soft dimmed
+   and blurred backdrop so surrounding cards step back. Dialogs already have
+   their own blurred ::backdrop, and #lock is full-screen, so both are skipped. */
+(function trackFormFocus() {
+  const root = document.documentElement;
+  let activeCard = null;
+  let blurTimer = 0;
+
+  const isField = (el) => {
+    if (!el || el.disabled || el.readOnly) return false;
+    if (el.tagName === "TEXTAREA" || el.tagName === "SELECT") return true;
+    if (el.tagName !== "INPUT") return false;
+    return !/^(hidden|checkbox|radio|button|submit|reset|file|range|color)$/i.test(el.type || "text");
+  };
+
+  const ensureScrim = () => {
+    let scrim = document.getElementById("form-focus-scrim");
+    if (!scrim) {
+      scrim = document.createElement("div");
+      scrim.id = "form-focus-scrim";
+      scrim.setAttribute("aria-hidden", "true");
+      scrim.addEventListener("pointerdown", () => {
+        const ae = document.activeElement;
+        if (ae && typeof ae.blur === "function") ae.blur();
+        clear();
+      });
+      document.body.appendChild(scrim);
+    }
+    return scrim;
+  };
+
+  const clear = () => {
+    clearTimeout(blurTimer);
+    if (activeCard) {
+      activeCard.classList.remove("is-form-focused");
+      activeCard = null;
+    }
+    root.classList.remove("form-focus");
+  };
+
+  const focusCard = (card) => {
+    clearTimeout(blurTimer);
+    if (activeCard && activeCard !== card) activeCard.classList.remove("is-form-focused");
+    ensureScrim();
+    activeCard = card;
+    activeCard.classList.add("is-form-focused");
+    root.classList.add("form-focus");
+  };
+
+  document.addEventListener("focusin", (e) => {
+    const el = e.target;
+    if (!isField(el)) return;
+    if (el.closest("dialog, #lock, .search-dialog")) { clear(); return; }
+    const card = el.closest(".card");
+    if (!card || !card.closest("main")) { clear(); return; }
+    focusCard(card);
+  });
+
+  document.addEventListener("focusout", () => {
+    clearTimeout(blurTimer);
+    blurTimer = setTimeout(() => {
+      const ae = document.activeElement;
+      if (activeCard && ae && activeCard.contains(ae) && !ae.closest("dialog")) return;
+      clear();
+    }, 120);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && activeCard) {
+      const ae = document.activeElement;
+      if (ae && typeof ae.blur === "function") ae.blur();
+      clear();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (activeCard && e.target && e.target.closest(".tabs button, .nav-rail button")) clear();
+  }, true);
+})();
+
 function isNative() {
   return !!(window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform());
 }
@@ -7788,6 +7876,10 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.81.0": [
+    "<strong>Duitful AI+ on iPhone</strong> — AI+ can now be bought and restored in the iPhone app, and every iPhone purchase uses Apple's newer StoreKit.",
+    "<strong>Steadier purchases</strong> — opening the app or tapping Restore no longer shows the Pro welcome again. Each purchase now carries a random id kept in your encrypted data (never your name or email), so restoring on a new phone simply adds it to your devices.",
+  ],
   "1.80.0": [
     "<strong>Talk to Kira</strong> — hold Kira on Home, or tap the mic in Voice, and say a spend like \"twelve ringgit nasi lemak\". Kira listens while you hold, fills in the words as you speak and shows what will be saved; nothing is saved until you tap Save. On supported phones your speech is turned into text on the phone itself, and nothing is recorded.",
   ],
