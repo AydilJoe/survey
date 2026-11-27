@@ -2,7 +2,7 @@
    State is AES-GCM encrypted with a PBKDF2 key derived from the user's
    passcode. CSV import/export supported. */
 
-const APP_VERSION = "1.88.0";
+const APP_VERSION = "1.89.0";
 const STORAGE_KEY = "duit-tracker.v1";   // legacy plain store (for one-time migration)
 const ENC_KEY = "duit-tracker.enc";      // encrypted record {v, salt, iv, cipher}
 const MAX_MONTHS = 600;                  // 50 years cap for simulation
@@ -8388,6 +8388,10 @@ $("#btn-clear").addEventListener("click", async () => {
 // One bullet list per shipped version. Keep entries short and
 // user-visible — behind-the-scenes work doesn't belong here.
 const RELEASE_NOTES = {
+  "1.89.0": [
+    "<strong>Country-aware tax relief packs</strong> — Built-in packs now cover Malaysia (LHDN), Singapore (IRAS, S$80,000 relief cap with 250% IPC donations outside it), and Hong Kong (IRD, 2025/26 and 2026/27 split years, two-tier 15%/16% standard rate, and HK$3,000 reduction).",
+    "<strong>Global Tax Receipt Vault and country-aware Kira</strong> — Users elsewhere get a clean Tax Receipt Vault to encrypt, tag, and export deductible receipts as CSV, and Kira tailors tax guidance to your active pack.",
+  ],
   "1.88.0": [
     "<strong>Siri-style voice stage with live waves</strong> — Hold the centre bubble for a blurred full-screen listening stage with waves that respond to your voice, a top-fading chat bubble for longer phrases, and Kira in the middle (or a clean mic orb on Free). Only the volume level is read on device; no audio is recorded or sent.",
     "<strong>Kira assistant, tactile save highlights and Day-12 recap</strong> — Ask Kira about monthly spending, debt strategies or tax relief caps with 1-tap action chips, see where new entries land with subtle pulses and jump chips, and review your Day-12 trial recap.",

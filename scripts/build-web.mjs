@@ -39,6 +39,7 @@ const APP_FILES = [
   "region.js",
   "ea-extract.js",
   "tax-data.js",
+  "tax-packs.js",
   "tax.js",
   "statement.js",
   "wallets.js",

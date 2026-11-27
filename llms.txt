@@ -236,8 +236,18 @@
   volume level (no audio recorded or uploaded). Local navigation runs
   immediately for zero cloud quota; money writes (spend, split, income,
   debt payment) always require a 1-tap Confirm card. Session-only Kira
-  Q&A answers spending, debt strategy, and LHDN tax relief questions
-  from live local numbers and clears when closed.
+  Q&A answers spending, debt strategy, and country-aware tax relief
+  questions from live local numbers and clears when closed.
+- **Country-aware Tax Relief Packs & Global Tax Receipt Vault** (since
+  v1.89.0): built-in on-device packs for Malaysia (LHDN, MYR), Singapore
+  (IRAS Resident, SGD — preceding-year basis, S$80,000 overall personal
+  relief cap with 250% IPC donations outside the cap), and Hong Kong
+  (IRD Salaries Tax, HKD — split Apr–Mar fiscal years 2025/26 & 2026/27,
+  enacted 2026/27 Budget allowances, two-tier standard rate 15%/16%,
+  35% charity cap, and 2025/26 HK$3,000 one-off tax reduction). Users in
+  other countries get a clean Global Tax Receipt Vault to encrypt, tag,
+  and export deductible receipts as CSV without country bands, or can
+  paste custom country JSON rules.
 
 ## Key URLs
 

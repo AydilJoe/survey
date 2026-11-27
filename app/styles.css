@@ -7528,6 +7528,37 @@ body.private #tax-entry-figure { filter: blur(7px); user-select: none; }
 .tax-year-btn svg, .tax-pager svg, .tax-head-actions .icon-btn svg { width: 1rem; height: 1rem; display: block; }
 .tax-year-btn:disabled, .tax-pager button:disabled { opacity: 0.35; cursor: default; }
 
+/* Country tax pack selector + Global Tax Receipt Vault */
+.tax-pack-bar {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  margin-bottom: 0.85rem;
+}
+.tax-pack-label { font-size: 0.8rem; color: var(--muted); white-space: nowrap; }
+.tax-pack-select {
+  flex: 1 1 11rem; min-width: 0; max-width: 100%;
+  min-height: 2.35rem; padding: 0.35rem 0.65rem;
+  border-radius: var(--r-sm); border: 0.5px solid var(--border);
+  background: var(--card); color: var(--text); font-size: 0.86rem;
+}
+.tax-pack-badge {
+  display: inline-flex; align-items: center; padding: 0.2rem 0.55rem;
+  border-radius: var(--r-pill); background: var(--card-soft);
+  border: 0.5px solid var(--line); font-size: 0.72rem;
+  font-family: var(--font-mono); color: var(--ink2); white-space: nowrap;
+}
+.tax-vault-card { display: flex; flex-direction: column; gap: 0.35rem; }
+.tax-vault-card .tax-hero-figure { margin-bottom: 0.15rem; }
+.tax-vault-count { margin: 0; font-weight: 500; color: var(--text); }
+.tax-vault-card .button-row { margin-top: 0.35rem; }
+.tax-cap-banner {
+  margin: 0 0 0.7rem; padding: 0.5rem 0.7rem; border-radius: var(--r-sm);
+  background: var(--card-soft); border: 0.5px solid var(--line);
+  font-size: 0.82rem; line-height: 1.45; color: var(--ink2);
+}
+.tax-cap-banner.is-hit {
+  background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn);
+}
+
 /* 1. Refund */
 .tax-hero-card { display: flex; flex-direction: column; gap: 0.15rem; }
 .tax-hero-card > .label { font-size: 0.85rem; color: var(--ink2); }
@@ -7540,7 +7571,7 @@ body.private #tax-entry-figure { filter: blur(7px); user-select: none; }
 body.private .tax-hero-figure { filter: blur(7px); user-select: none; pointer-events: none; }
 
 .tax-split { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.1rem 0 0.7rem; }
-.tax-split-row { display: grid; grid-template-columns: 4.6rem 1fr auto; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: var(--ink2); }
+.tax-split-row { display: grid; grid-template-columns: minmax(4.6rem, 6.2rem) 1fr auto; align-items: center; gap: 0.6rem; font-size: 0.82rem; color: var(--ink2); }
 .tax-split-track { height: 10px; border-radius: var(--r-pill); background: var(--card-soft); border: 0.5px solid var(--line); overflow: hidden; }
 .tax-split-fill { display: block; height: 100%; border-radius: var(--r-pill); transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
 .tax-split-fill.is-due { background: color-mix(in srgb, var(--loss) 70%, var(--card-soft)); }

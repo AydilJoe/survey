@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=e91951ca" />
+    <link rel="stylesheet" href="styles.css?v=9bc48e8f" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1479,6 +1479,33 @@
           </div>
         </div>
 
+        <div class="tax-pack-bar" id="tax-pack-bar">
+          <label class="tax-pack-label" for="tax-pack-select">Tax pack</label>
+          <select id="tax-pack-select" class="tax-pack-select" aria-label="Tax pack">
+            <option value="">Auto (by region)</option>
+            <option value="MYS">Malaysia (LHDN · MYR)</option>
+            <option value="SGP">Singapore (IRAS · SGD)</option>
+            <option value="HKG">Hong Kong (IRD · HKD)</option>
+            <option value="GLOBAL">Global Receipt Vault</option>
+          </select>
+          <span class="tax-pack-badge" id="tax-pack-badge" hidden></span>
+        </div>
+
+        <!-- Global Tax Receipt Vault mode (vault_only): no country tax bands or fake caps -->
+        <section class="card tax-vault-card" id="tax-vault-card" hidden aria-labelledby="tax-vault-title">
+          <div class="card-head">
+            <h2 id="tax-vault-title">Tax Receipt Vault</h2>
+            <span class="tax-pack-badge">Vault only</span>
+          </div>
+          <strong class="tax-hero-figure" id="tax-vault-total">0.00</strong>
+          <p class="hint tax-vault-count" id="tax-vault-count"></p>
+          <p class="hint">Keep tax-deductible receipts organized by year on this device. No country tax bands are applied — export anytime for filing.</p>
+          <div class="button-row">
+            <button type="button" class="primary" id="btn-tax-vault-add">Add receipt</button>
+            <button type="button" class="ghost" id="btn-tax-vault-export">Export CSV</button>
+          </div>
+        </section>
+
         <!-- Not tracking yet: what it does, and what it has already found. -->
         <section class="card tax-welcome" id="tax-page-optin" hidden aria-labelledby="tax-welcome-title">
           <span class="tax-welcome-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg></span>
@@ -1510,7 +1537,7 @@
           <strong class="tax-hero-figure" id="tax-hero">RM 0.00</strong>
           <div class="tax-split" id="tax-split" aria-hidden="true">
             <div class="tax-split-row"><span>Tax due</span><span class="tax-split-track"><span class="tax-split-fill is-due" id="tax-split-due"></span></span><span class="tax-split-val" id="tax-split-due-val"></span></div>
-            <div class="tax-split-row"><span>PCB paid</span><span class="tax-split-track"><span class="tax-split-fill is-paid" id="tax-split-paid"></span></span><span class="tax-split-val" id="tax-split-paid-val"></span></div>
+            <div class="tax-split-row"><span id="tax-split-paid-label">PCB paid</span><span class="tax-split-track"><span class="tax-split-fill is-paid" id="tax-split-paid"></span></span><span class="tax-split-val" id="tax-split-paid-val"></span></div>
           </div>
           <p class="hint tax-hero-note" id="tax-hero-note"></p>
           <details class="tax-how" id="tax-how">
@@ -1543,6 +1570,7 @@
             <h2 id="tax-reliefs-title">Reliefs</h2>
             <button type="button" class="ghost tax-toggle" id="tax-reliefs-toggle" aria-expanded="false">Show all</button>
           </div>
+          <p class="hint tax-cap-banner" id="tax-cap-banner" hidden></p>
           <ul class="tax-tiles" id="tax-reliefs"></ul>
           <div class="tax-relief-detail" id="tax-relief-detail" hidden></div>
         </section>
@@ -3890,7 +3918,7 @@
 
     <!-- Languages first: i18n-boot.js loads only the active pack (0 KB for English)
          synchronously before i18n.js walks the static markup. -->
-    <script src="i18n-langs.js?v=7417f5e3"></script>
+    <script src="i18n-langs.js?v=1e8c6cdb"></script>
     <script src="i18n-boot.js?v=e8f35f1d"></script>
     <script src="i18n.js?v=e94f1821"></script>
     <script src="drive-config.js?v=9aaf242d"></script>
@@ -3909,19 +3937,20 @@
     <script src="region.js?v=a54b250e"></script>
     <script src="ea-extract.js?v=0036c413"></script>
     <script src="tax-data.js?v=a4c433a4"></script>
-    <script src="tax.js?v=01b9d531"></script>
+    <script src="tax-packs.js?v=75dd39d3"></script>
+    <script src="tax.js?v=af09230a"></script>
     <script src="statement.js?v=be8b5c83"></script>
     <script src="wallets.js?v=39628be9"></script>
     <script src="recap.js?v=e4c2c931"></script>
     <script src="brands.js?v=73d9f7dc"></script>
     <script src="search.js?v=1723d81e"></script>
-    <script src="csv.js?v=f030fead"></script>
+    <script src="csv.js?v=3bd1c9f3"></script>
     <script src="reports.js?v=6b3b772b"></script>
     <script src="onboarding.js?v=dd4ac4be"></script>
     <script src="kira-seasons.js?v=84d7b80b"></script>
     <script src="kira.js?v=0a738a14"></script>
     <script src="streak.js?v=ce95b7ab"></script>
-    <script src="voice.js?v=b2afab9d"></script>
+    <script src="voice.js?v=6cb59e8f"></script>
     <script src="cloud.js?v=fcd02ad8"></script>
     <script src="capture.js?v=3af549e5"></script>
     <script src="ai-redact.js?v=e6257012"></script>
@@ -3929,6 +3958,6 @@
     <script src="pro.js?v=c4ca182d"></script>
     <script src="ocr.js?v=d135377e"></script>
     <script src="kira-bubble.js?v=f59e7083"></script>
-    <script src="script.js?v=80d4914a"></script>
+    <script src="script.js?v=aae306ee"></script>
   </body>
 </html>
