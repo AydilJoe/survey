@@ -15,14 +15,14 @@
  *     the browser's HTTP cache.
  */
 
-const VERSION = "h-7ed23554";
+const VERSION = "h-99d3d987";
 const CACHE = `duitful-${VERSION}`;
 
 const SHELL = [
   "/app/",
   "/app/index.html",
-  "/app/styles.css?v=0c42b0a4",
-  "/app/script.js?v=fee41f43",
+  "/app/styles.css?v=d97de80f",
+  "/app/script.js?v=07eb6371",
   // Languages: registry + boot loader run at startup; packs are precached so
   // switching languages still works offline, without parsing unused packs at boot.
   "/app/i18n-langs.js?v=08b9fd37",
@@ -34,7 +34,7 @@ const SHELL = [
   "/app/drive-sync.js?v=08041907",
   "/app/icloud-sync.js?v=90136797",
   "/app/investments.js?v=39cf34a0",
-  "/app/split.js?v=79e98d09",
+  "/app/split.js?v=f0f98a5d",
   "/app/split-recurring.js?v=05bbaca7",
   "/app/receipt-extract.js?v=20e13371",
   "/app/region.js?v=a54b250e",
@@ -63,7 +63,7 @@ const SHELL = [
   "/app/ai-cloud.js?v=cb3a5ae0",
   "/app/pro.js?v=6810a131",
   "/app/ocr.js?v=d135377e",
-  "/app/kira-bubble.js?v=50f90bb5",
+  "/app/kira-bubble.js?v=ef842958",
   "/app/analytics.js?v=01a6bc4a",
   "/app/theme-boot.js?v=68fa9ffd",
   // Brand marks: tiny (0.3–3 KB each) and drawn on the Debts tab, so they are

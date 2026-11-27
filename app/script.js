@@ -2321,6 +2321,14 @@ function setDailyType(type) {
     const hasChips = !!(row && row.children.length);
     recentWrap.hidden = type !== "expense" || !hasChips;
   }
+  const submitBtn = document.getElementById("daily-submit-btn");
+  if (submitBtn) {
+    submitBtn.textContent = type === "debt"
+      ? tr("Record payment")
+      : type === "saving"
+        ? tr("Save deposit")
+        : tr("Save spend");
+  }
 }
 
 function updateDailyTargetSelect() {
@@ -6288,7 +6296,7 @@ function syncFlowSubmitLabels() {
   document.querySelector(`#${id} input[name='month']`)?.addEventListener("change", syncFlowSubmitLabels);
 });
 
-$("#form-income").addEventListener("submit", (e) => {
+function handleIncomeSubmit(e, opts) {
   e.preventDefault();
   const f = new FormData(e.target);
   const name = (f.get("name") || "").toString().trim();
@@ -6327,7 +6335,18 @@ $("#form-income").addEventListener("submit", (e) => {
   save();
   e.target.reset();
   renderAll();
+  if (opts && typeof opts.onSaved === "function") opts.onSaved(entry);
   toast(tr("Income added: {name}", { name }));
+}
+
+$("#form-income").addEventListener("submit", (e) => handleIncomeSubmit(e));
+document.getElementById("form-income-quick")?.addEventListener("submit", (e) => {
+  handleIncomeSubmit(e, {
+    onSaved: () => {
+      if (typeof closeIncomeModal === "function") closeIncomeModal();
+      if (typeof kiraPlaySaveFeedback === "function") kiraPlaySaveFeedback();
+    },
+  });
 });
 
 $("#form-expense").addEventListener("submit", (e) => {
@@ -6514,6 +6533,7 @@ $("#form-daily").addEventListener("submit", (e) => {
   if (movesBalance) flyAmountToBalance(flightFrom, amountLabel, netBefore, lastHeroNet);
   // Added: the sheet goes, so the toast and the balance it moved are in view.
   if (typeof closeAddEntry === "function") closeAddEntry();
+  if (typeof kiraPlaySaveFeedback === "function") kiraPlaySaveFeedback();
   // A scanned photo is held for exactly one submit; whatever type this was,
   // it is spent now so it can't attach to a later, unrelated expense.
   const scanReceipt = typeof taxTakeScanReceipt === "function" ? taxTakeScanReceipt() : null;
@@ -9791,7 +9811,7 @@ if (window.ICloudSync) ICloudSync.subscribe(() => { renderDriveCard(); renderLoc
 
 {
   populateCurrencyPickers();
-  ["form-income", "form-expense", "form-daily"].forEach((id) => {
+  ["form-income", "form-income-quick", "form-expense", "form-daily"].forEach((id) => {
     const f = document.getElementById(id);
     if (f) attachFxPreviewToForm(f);
   });

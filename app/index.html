@@ -87,7 +87,7 @@
          gave up. font-display:swap in the URL covers the swap-in. -->
     <link rel="stylesheet" media="print" onload="this.media='all';this.onload=null" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" /></noscript>
-    <link rel="stylesheet" href="styles.css?v=0c42b0a4" />
+    <link rel="stylesheet" href="styles.css?v=d97de80f" />
     <!-- Counts installed-app launches only, one hit per launch. External file
          because the CSP above has no 'unsafe-inline' — the inline block this
          replaced was refused by the browser every time it ever loaded.
@@ -1816,6 +1816,14 @@
             <input type="checkbox" id="pref-streak-enabled" checked />
             <span>Show daily check-in streak</span>
           </label>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-bubble-sound" checked />
+            <span>Bubble &amp; save sounds</span>
+          </label>
+          <label class="field toggle-field">
+            <input type="checkbox" id="pref-haptics" checked />
+            <span>Haptics</span>
+          </label>
         </div>
 
         <div class="card">
@@ -2026,20 +2034,16 @@
     </dialog>
 
     <!-- Daily check-in streak sheet (streak.js). -->
-    <!-- The bubble's radial actions (2.0, kira-bubble.js): a fan of round
-         buttons over the bubble. Escape, Back or a tap outside closes it; the
-         arrow keys move round the fan. Scan receipt and Talk keep the ids the
-         scan (ocr.js) and voice (voice.js) flows bind to. -->
+    <!-- The bubble's 4-bubble Jelly radial (2.0, kira-bubble.js): Scan,
+         Money out, Income, Kira / Docs. Escape, Back or a tap outside closes
+         it; the arrow keys move round the arc. Scan keeps #btn-scan (ocr.js). -->
     <dialog id="radial-dialog" class="radial-dialog" aria-labelledby="radial-title">
       <h2 id="radial-title" class="sr-only">Add or ask</h2>
       <div class="radial" id="radial" role="menu" aria-labelledby="radial-title">
-        <button type="button" role="menuitem" class="radial-item" id="btn-scan" data-radial="scan" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V5a1 1 0 011-1h3l1.5-2h5L16 4h3a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7z"/><circle cx="12" cy="13" r="4"/></svg></span><span class="radial-label">Scan receipt</span></button>
-        <button type="button" role="menuitem" class="radial-item" data-radial="debt" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span><span class="radial-label">Pay debt</span></button>
-        <button type="button" role="menuitem" class="radial-item" data-radial="saving" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 4C12 4 4 10 4 20c6-2 10-6 12-10"/><path d="M4 20c6 0 12-4 16-12"/></svg></span><span class="radial-label" data-i18n="Save (money)">Save</span></button>
-        <button type="button" role="menuitem" class="radial-item" data-radial="spend" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="8" cy="8" r="1.5"/></svg></span><span class="radial-label">Spend</span></button>
-        <button type="button" role="menuitem" class="radial-item" data-radial="split" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></span><span class="radial-label">Split a bill</span></button>
-        <button type="button" role="menuitem" class="radial-item" data-radial="nospend" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg></span><span class="radial-label">No spend today</span></button>
-        <button type="button" role="menuitem" class="radial-item" id="btn-voice" data-radial="talk" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg></span><span class="radial-label">Talk</span></button>
+        <button type="button" role="menuitem" class="radial-item" id="btn-scan" data-radial="scan" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V5a1 1 0 011-1h3l1.5-2h5L16 4h3a1 1 0 011 1v13a1 1 0 01-1 1H5a1 1 0 01-1-1V7z"/><circle cx="12" cy="13" r="4"/></svg></span><span class="radial-label">Scan</span></button>
+        <button type="button" role="menuitem" class="radial-item" data-radial="outflow" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg></span><span class="radial-label">Money out</span></button>
+        <button type="button" role="menuitem" class="radial-item" data-radial="income" tabindex="-1"><span class="radial-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 7L7 17M15 17H7V9"/></svg></span><span class="radial-label">Income</span></button>
+        <button type="button" role="menuitem" class="radial-item" id="btn-kira-hub" data-radial="kira" tabindex="-1"><span class="radial-dot"><svg id="radial-kira-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" hidden><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M18.5 16l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z"/></svg><svg id="radial-docs-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></span><span class="radial-label" id="radial-kira-label">Docs</span></button>
       </div>
       <p class="radial-meter" id="radial-meter" hidden></p>
       <button type="button" class="radial-close" id="radial-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
@@ -2055,6 +2059,7 @@
         </div>
         <ul class="menu-list" role="list">
           <li><button type="button" class="menu-item" id="btn-search" aria-haspopup="dialog" aria-keyshortcuts="/ Control+K Meta+K"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg><span>Search</span><kbd class="menu-kbd" aria-hidden="true">/</kbd></button></li>
+          <li><button type="button" class="menu-item" id="menu-kira-hub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/></svg><span>Kira &amp; Docs</span></button></li>
           <li><button type="button" class="menu-item" data-go-tab="data" id="menu-settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Settings</span></button></li>
           <li><button type="button" class="menu-item" data-go-tab="daily"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg><span>All entries</span></button></li>
           <li><button type="button" class="menu-item" data-go-tab="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-5"/></svg><span>Reports</span></button></li>
@@ -2074,19 +2079,19 @@
       <button type="button" class="ghost menu-hint-ok" id="menu-hint-ok">OK</button>
     </div>
 
-    <!-- Add entry (2.0): the Spend / Pay debt / Save form as a sheet, opened by
-         the bubble's radial actions, quick actions and links (openAddEntry). -->
+    <!-- Money out 3-tab modal (2.0): Spend / Split / Pay debt, reusing
+         #form-daily and preserving every id (openAddEntry). -->
     <dialog id="add-dialog" class="edit-dialog add-dialog" aria-labelledby="add-dialog-title">
           <div class="quick-add add-sheet">
             <div class="card-head">
-              <h2 id="add-dialog-title">Add entry</h2>
+              <h2 id="add-dialog-title">Money out</h2>
               <button type="button" class="ghost icon-btn add-dialog-close" id="add-dialog-close" aria-label="Close">✕</button>
               <span class="mini-stats" hidden><span id="stat-daily-today">RM 0.00</span> today · <span id="stat-daily-week">RM 0.00</span> past 7d</span>
             </div>
-            <div class="type-pills" role="radiogroup" aria-label="Spend type">
-              <button type="button" class="pill active" data-type="expense" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="8" cy="8" r="1.5"/></svg></span>Spend</button>
-              <button type="button" class="pill" data-type="debt" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Pay debt</button>
-              <button type="button" class="pill" data-type="saving" role="radio" aria-checked="false" data-i18n="Save (money)"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 4C12 4 4 10 4 20c6-2 10-6 12-10"/><path d="M4 20c6 0 12-4 16-12"/></svg></span>Save</button>
+            <div class="type-pills" role="radiogroup" aria-label="Money out type">
+              <button type="button" class="pill active" data-type="expense" data-outflow-tab="expense" role="radio" aria-checked="true"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z"/><circle cx="8" cy="8" r="1.5"/></svg></span>Spend</button>
+              <button type="button" class="pill" data-outflow-tab="split" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></span>Split</button>
+              <button type="button" class="pill" data-type="debt" data-outflow-tab="debt" role="radio" aria-checked="false"><span class="pill-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>Pay debt</button>
             </div>
 
             <form id="form-daily" class="daily-form">
@@ -2155,17 +2160,133 @@
                 <span>Note (optional)</span>
                 <input type="text" name="note" placeholder="Lunch at mamak" />
               </label>
-              <!-- Splitting lives here now: on the card's face it out-ranked
-                   "Add entry". Search ("split") and the Debts tab reach it too,
-                   and it still carries whatever is already typed above. -->
+              <!-- Splitting lives here too so search ("split") and deep links
+                   keep a direct prefill button. -->
               <div class="button-row split-entry-row">
                 <button type="button" class="ghost" id="btn-split-quick" data-action="split-compose" data-split-prefill="daily-form"><span aria-hidden="true">⇆</span> Split / Request money</button>
                 <button type="button" class="ghost" data-action="split-ingest">Add a request</button>
               </div>
               </div>
-              <button type="submit" class="primary big">Add entry</button>
+              <button type="submit" class="primary big" id="daily-submit-btn">Save spend</button>
             </form>
           </div>
+    </dialog>
+
+    <!-- Income modal (2.0): direct income entry from the radial bubble,
+         sharing the state.income save path with #form-income. -->
+    <dialog id="income-dialog" class="edit-dialog income-dialog" aria-labelledby="income-dialog-title">
+      <div class="add-sheet">
+        <div class="card-head">
+          <h2 id="income-dialog-title" class="income-title">Add income</h2>
+          <button type="button" class="ghost icon-btn add-dialog-close" id="income-dialog-close" aria-label="Close">✕</button>
+        </div>
+        <form id="form-income-quick" class="daily-form">
+          <label class="field big">
+            <span>Amount (<span class="cur-code">MYR</span>)</span>
+            <div class="fx-row">
+              <input type="number" name="amount" step="0.01" min="0" max="100000000" inputmode="decimal" placeholder="0.00" required />
+              <select class="currency-picker" name="currency" data-currency-picker></select>
+            </div>
+            <span class="fx-preview" data-fx-preview hidden></span>
+            <span class="fx-upsell" data-fx-upsell hidden>
+              Multi-currency entry is a Pro feature.
+              <a data-action="open-paywall">Unlock for <span data-pro-price>RM 19.90</span> →</a>
+            </span>
+          </label>
+          <label class="field">
+            <span>Source</span>
+            <input type="text" name="name" placeholder="e.g. Salary" required />
+          </label>
+          <button type="button" class="hero-breakdown-toggle daily-more-toggle" id="income-more-toggle" aria-expanded="false" aria-controls="income-more">
+            <span class="chev" aria-hidden="true">▾</span>
+            <span>More details</span>
+          </button>
+          <div id="income-more" hidden>
+            <div class="grid-2">
+              <label class="field">
+                <span>Month</span>
+                <input type="month" name="month" />
+              </label>
+              <label class="field">
+                <span>Pay day</span>
+                <input type="number" name="day" min="1" max="31" step="1" inputmode="numeric" placeholder="e.g. 25" />
+              </label>
+            </div>
+            <label class="field" data-wallet-field hidden>
+              <span>Wallet</span>
+              <select name="wallet" data-wallet-picker id="income-quick-wallet"></select>
+            </label>
+            <label class="field toggle-field">
+              <input type="checkbox" name="repeatNext" />
+              <span>Repeat next month</span>
+            </label>
+          </div>
+          <button type="submit" class="primary big income-submit">Save income</button>
+        </form>
+      </div>
+    </dialog>
+
+    <!-- Unified Kira / Docs hub sheet (2.0): 4th radial bubble + ☰ menu. -->
+    <dialog id="kira-hub-dialog" class="edit-dialog kira-hub-dialog" aria-labelledby="kira-hub-title">
+      <div class="kira-hub-sheet">
+        <div class="kira-hub-head">
+          <h2 id="kira-hub-title">Import Docs</h2>
+          <span class="kira-hub-badge is-local" id="kira-hub-badge">On-device</span>
+          <button type="button" class="ghost icon-btn add-dialog-close" id="kira-hub-close" aria-label="Close">✕</button>
+        </div>
+
+        <div class="kira-hub-card" id="kira-hub-meter" hidden>
+          <p class="kira-hub-meter-text" id="kira-hub-meter-text"></p>
+          <p class="kira-hub-meter-sub" id="kira-hub-meter-sub" hidden></p>
+        </div>
+
+        <div class="kira-hub-card" id="kira-hub-upsell" hidden>
+          <div class="kira-hub-upsell-row">
+            <div class="kira-hub-upsell-copy">
+              <p class="kira-hub-upsell-title">Get Kira</p>
+              <p class="kira-hub-upsell-price" id="kira-hub-price"></p>
+            </div>
+            <button type="button" class="primary" id="kira-hub-get-ai">Explore AI+</button>
+          </div>
+        </div>
+
+        <button type="button" class="ghost kira-hub-voice" id="btn-voice">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>
+          <span>Ask or log by voice</span>
+        </button>
+
+        <p class="kira-hub-section-label">Documents</p>
+        <ul class="kira-hub-docs" role="list">
+          <li>
+            <button type="button" class="kira-hub-doc" id="hub-doc-statement">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+              <span class="kira-hub-doc-label">Import bank statement</span>
+              <span class="kira-hub-pill is-local" data-hub-pill="statement">Local</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="kira-hub-doc" id="hub-doc-ea">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9 8.5h6M9 12h6M9 15.5h3"/></svg>
+              <span class="kira-hub-doc-label">Import Borang EA (tax)</span>
+              <span class="kira-hub-pill is-local" data-hub-pill="ea">Local</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="kira-hub-doc" id="hub-doc-loan">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg>
+              <span class="kira-hub-doc-label">Read loan / financing letter</span>
+              <span class="kira-hub-pill" data-hub-pill="loan">AI+</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="kira-hub-doc" id="hub-doc-split">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg>
+              <span class="kira-hub-doc-label">Split bill by receipt items</span>
+              <span class="kira-hub-pill is-local" data-hub-pill="split">Local</span>
+            </button>
+          </li>
+        </ul>
+      </div>
     </dialog>
 
     <dialog id="streak-dialog" class="edit-dialog streak-dialog" aria-labelledby="streak-dialog-title">
@@ -3689,7 +3810,7 @@
          demand (see splitEnsureJsQR) — the service worker precaches it, so
          scanning still works offline. -->
     <script src="vendor/qr/qrcode.js?v=79ec86f8"></script>
-    <script src="split.js?v=79e98d09"></script>
+    <script src="split.js?v=f0f98a5d"></script>
     <script src="split-recurring.js?v=05bbaca7"></script>
     <script src="receipt-extract.js?v=20e13371"></script>
     <script src="region.js?v=a54b250e"></script>
@@ -3714,7 +3835,7 @@
     <script src="ai-cloud.js?v=cb3a5ae0"></script>
     <script src="pro.js?v=6810a131"></script>
     <script src="ocr.js?v=d135377e"></script>
-    <script src="kira-bubble.js?v=50f90bb5"></script>
-    <script src="script.js?v=fee41f43"></script>
+    <script src="kira-bubble.js?v=ef842958"></script>
+    <script src="script.js?v=07eb6371"></script>
   </body>
 </html>
