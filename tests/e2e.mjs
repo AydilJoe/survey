@@ -16991,12 +16991,12 @@ check('the brand catalogue makes no network calls at all',
       // 8d. Existing Pro owner hitting a Restore error sees "Restore failed:", not "Already unlocked".
       state.pro = true;
       state.aiSub = null;
-      notes.length = 0;
+      calls.notes.length = 0;
       const origRestore = window.CdvPurchase.store.restorePurchases;
       window.CdvPurchase.store.restorePurchases = async () => ({ isError: true, code: 1, message: 'store offline' });
       window.CdvPurchase.store.localTransactions = [];
       await restorePurchases();
-      out.restoreErrWithPro = notes[notes.length - 1] || '';
+      out.restoreErrWithPro = calls.notes[calls.notes.length - 1] || '';
       window.CdvPurchase.store.restorePurchases = origRestore;
     } finally {
       closeWelcome();
